@@ -112,7 +112,15 @@ export { SearchActionState, connectSearchAction } from './state/SearchActionStat
 export { SearchPageParams } from './state/SearchPageParams'
 export { SearchFilterState, connectSearchFilter } from './state/SearchFilterState'
 export { AuthState, connectAuth } from './state/AuthState'
-export { HomeSourceState, connectHomeSource, SELECTOR_BAR_HEIGHT } from './state/HomeSourceState'
+export {
+  HomeSourceState,
+  connectHomeSource,
+  SELECTOR_BAR_HEIGHT,
+  TabVisualIndexState,
+  connectHomeSourceVisualIndex,
+  connectToplistVisualIndex,
+} from './state/HomeSourceState'
+export { SubTabBar, SubTabItem } from './components/SubTabBar'
 export {
   FavSelectionState,
   connectFavSelection,

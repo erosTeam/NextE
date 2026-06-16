@@ -3,6 +3,9 @@ import {
   AuthState,
   connectHomeSource,
   HomeSourceState,
+  connectHomeSourceVisualIndex,
+  TabVisualIndexState,
+  ThemeConstants,
 } from 'shared'
 import { GallerySourcePage } from '../components/GallerySourcePage'
 
@@ -24,6 +27,10 @@ export struct HomePage {
   private swiperController: SwiperController = new SwiperController();
   // One stable scroller per source key (created lazily). Stable identity = retained scroll per source.
   private sourceScrollers: Map<string, Scroller> = new Map<string, Scroller>();
+  // Per-frame interpolated index the source bar's sliding indicator reads (V2Next FeedVisualIndexState).
+  private visual: TabVisualIndexState = connectHomeSourceVisualIndex();
+  // Measured Swiper width, for interpolating the visual index from the mid-swipe offset.
+  private swiperWidth: number = 0;
   // Index consumes the ACTIVE source's scroller for the title-bar bindToScrollable (auto-hide).
   @Event onScrollerReady?: (scroller: Scroller) => void;
 
@@ -55,7 +62,16 @@ export struct HomePage {
     }
   }
 
+  // Interpolate the bar's visual index from the mid-swipe offset so the indicator tracks the finger.
+  private visualFromOffset(index: number, extraInfo: SwiperAnimationEvent): number {
+    if (this.swiperWidth <= 0) {
+      return index
+    }
+    return index + -extraInfo.currentOffset / this.swiperWidth
+  }
+
   aboutToAppear(): void {
+    this.visual.value = this.activeIndex()
     this.notifyActiveScroller()
   }
 
@@ -97,16 +113,33 @@ export struct HomePage {
     .nestedScroll(SwiperNestedScrollMode.SELF_ONLY)
     .indicator(false)
     .loop(false)
+    // Publish the interpolated visual index so the source bar's indicator tracks the swipe (V2Next).
+    .onGestureSwipe((index: number, extraInfo: SwiperAnimationEvent) => {
+      this.visual.value = this.visualFromOffset(index, extraInfo)
+    })
+    .onAnimationStart((index: number, targetIndex: number, extraInfo: SwiperAnimationEvent) => {
+      this.visual.value = this.visualFromOffset(index, extraInfo)
+      this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+        this.visual.value = targetIndex
+      })
+    })
+    .onAnimationEnd((index: number, _extraInfo: SwiperAnimationEvent) => {
+      this.visual.value = index
+    })
     .onChange((i: number) => {
       const sources: string[] = this.visibleSources()
       if (i < 0 || i >= sources.length) {
         return
       }
+      this.visual.value = i
       const key: string = sources[i]
       if (key !== this.homeSource.source) {
         this.homeSource.source = key
       }
       this.notifyActiveScroller()
+    })
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      this.swiperWidth = newValue.width as number
     })
     .width('100%')
     .height('100%')

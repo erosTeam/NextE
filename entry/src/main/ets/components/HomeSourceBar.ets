@@ -1,69 +1,51 @@
 import {
-  ThemeConstants,
   HomeSourceState,
   connectHomeSource,
   AuthState,
   connectAuth,
-  SELECTOR_BAR_HEIGHT,
+  connectHomeSourceVisualIndex,
+  TabVisualIndexState,
+  SubTabBar,
+  SubTabItem,
 } from 'shared'
 
 /**
  * Gallery-tab source switcher, PINNED in the HDS title bar via a `bottomBuilder` (V2Next FeedPills
- * pattern) — never a scrolling list item. eros_fe pins this selector in a persistent header
- * (custom_tabbar_page.dart:63-77). 默认 (front page) + 热门 (popular) always show; 订阅 (watched)
- * only when logged in. Toplist is its OWN bottom tab now (排行 left this bar), so this is a single
- * substantial row — no period sub-row, no wrap.
+ * pattern) — never a scrolling list item. 默认 (front page) + 热门 (popular) always show; 订阅 (watched)
+ * only when logged in (its tab list must match HomePage.visibleSources()).
+ *
+ * The indicator is the shared SubTabBar's sliding underline, driven by the per-frame visual index that
+ * HomePage's retained Swiper publishes — so the bar tracks the finger/page swipe instead of jumping on
+ * settle. A tap publishes the source key (the bus); HomePage swipes the Swiper, which drives the indicator.
  */
 @ComponentV2
 export struct HomeSourceBar {
   @Local home: HomeSourceState = connectHomeSource();
   @Local auth: AuthState = connectAuth();
+  @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
 
-  build() {
-    Row({ space: ThemeConstants.SPACE_XS }) {
-      this.Tab('', $r('app.string.home_source_default'))
-      this.Tab('popular', $r('app.string.home_source_popular'))
-      if (this.auth.isLogin) {
-        this.Tab('watched', $r('app.string.home_source_watched'))
-      }
+  // Must mirror HomePage.visibleSources() order so the visual index lines up with the right tab.
+  private tabs(): SubTabItem[] {
+    const items: SubTabItem[] = [
+      new SubTabItem('', $r('app.string.home_source_default')),
+      new SubTabItem('popular', $r('app.string.home_source_popular')),
+    ]
+    if (this.auth.isLogin) {
+      items.push(new SubTabItem('watched', $r('app.string.home_source_watched')))
     }
-    .width('100%')
-    .height(SELECTOR_BAR_HEIGHT)
-    .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM })
-    .alignItems(VerticalAlign.Center)
+    return items
   }
 
-  // V2Next FeedPills approach (IndexTitleBarComponents.ets:118-164): a text tab — brand color +
-  // Medium weight when selected, secondary + Regular when not — over a short brand underline. No
-  // capsule background (a pill with a translucent fill read as low-contrast; this is readable).
-  @Builder
-  Tab(value: string, label: ResourceStr) {
-    Column({ space: 1 }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(
-          this.home.source === value
-            ? ThemeConstants.BRAND_PRIMARY
-            : $r('sys.color.font_secondary'),
-        )
-        .fontWeight(this.home.source === value ? FontWeight.Medium : FontWeight.Regular)
-        .padding({
-          left: ThemeConstants.SPACE_MD,
-          right: ThemeConstants.SPACE_MD,
-          top: ThemeConstants.SPACE_XS,
-        })
-        .maxLines(1)
-      Row()
-        .height(3)
-        .width(18)
-        .borderRadius(1.5)
-        .backgroundColor(
-          this.home.source === value ? ThemeConstants.BRAND_PRIMARY : Color.Transparent,
-        )
-    }
-    .alignItems(HorizontalAlign.Center)
-    .onClick(() => {
-      this.home.source = value
+  build() {
+    SubTabBar({
+      tabs: this.tabs(),
+      visualIndex: this.visual.value,
+      onSelect: (index: number) => {
+        const items: SubTabItem[] = this.tabs()
+        if (index >= 0 && index < items.length) {
+          this.home.source = items[index].key
+        }
+      },
     })
   }
 }

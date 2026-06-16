@@ -1,58 +1,44 @@
-import { ThemeConstants, HomeSourceState, connectHomeSource, SELECTOR_BAR_HEIGHT } from 'shared'
+import {
+  HomeSourceState,
+  connectHomeSource,
+  connectToplistVisualIndex,
+  TabVisualIndexState,
+  SubTabBar,
+  SubTabItem,
+} from 'shared'
+
+// Periods in the same order as ToplistPage's Swiper (TOPLIST_PERIODS): 全部(11) · 年榜(12) · 月榜(13) · 昨日(15).
+const PERIOD_TLS: number[] = [11, 12, 13, 15]
 
 /**
- * Toplist-tab period switcher, PINNED in the HDS title bar via a `bottomBuilder`. eros_fe's toplist
- * is its own page with a period selector (ToplistType all/year/month/yesterday = tl 11/12/13/15,
- * toplist_controller.dart:8-20) presented as a nav-bar action; NextE pins it as a substantial
- * single-row segmented control. Reads/writes the shared HomeSourceState.toplistTl that ToplistPage's
- * ViewModel reacts to.
+ * Toplist-tab period switcher, PINNED in the HDS title bar via a `bottomBuilder`. The period (全部/年榜/
+ * 月榜/昨日 = tl 11/12/13/15) is presented as a subtab, so the indicator is the shared SubTabBar's sliding
+ * underline driven by the per-frame visual index that ToplistPage's retained Swiper publishes — the bar
+ * tracks the finger/page swipe. A tap publishes the period (the bus); ToplistPage swipes to that page.
  */
 @ComponentV2
 export struct ToplistPeriodBar {
   @Local home: HomeSourceState = connectHomeSource();
+  @Local visual: TabVisualIndexState = connectToplistVisualIndex();
 
-  build() {
-    Row({ space: ThemeConstants.SPACE_XS }) {
-      this.Tab(11, $r('app.string.toplist_all'))
-      this.Tab(12, $r('app.string.toplist_year'))
-      this.Tab(13, $r('app.string.toplist_month'))
-      this.Tab(15, $r('app.string.toplist_yesterday'))
-    }
-    .width('100%')
-    .height(SELECTOR_BAR_HEIGHT)
-    .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM })
-    .alignItems(VerticalAlign.Center)
+  private tabs(): SubTabItem[] {
+    return [
+      new SubTabItem('11', $r('app.string.toplist_all')),
+      new SubTabItem('12', $r('app.string.toplist_year')),
+      new SubTabItem('13', $r('app.string.toplist_month')),
+      new SubTabItem('15', $r('app.string.toplist_yesterday')),
+    ]
   }
 
-  // V2Next FeedPills text-tab + underline (mirrors HomeSourceBar). No capsule background.
-  @Builder
-  Tab(tl: number, label: ResourceStr) {
-    Column({ space: 1 }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(
-          this.home.toplistTl === tl
-            ? ThemeConstants.BRAND_PRIMARY
-            : $r('sys.color.font_secondary'),
-        )
-        .fontWeight(this.home.toplistTl === tl ? FontWeight.Medium : FontWeight.Regular)
-        .padding({
-          left: ThemeConstants.SPACE_MD,
-          right: ThemeConstants.SPACE_MD,
-          top: ThemeConstants.SPACE_XS,
-        })
-        .maxLines(1)
-      Row()
-        .height(3)
-        .width(18)
-        .borderRadius(1.5)
-        .backgroundColor(
-          this.home.toplistTl === tl ? ThemeConstants.BRAND_PRIMARY : Color.Transparent,
-        )
-    }
-    .alignItems(HorizontalAlign.Center)
-    .onClick(() => {
-      this.home.toplistTl = tl
+  build() {
+    SubTabBar({
+      tabs: this.tabs(),
+      visualIndex: this.visual.value,
+      onSelect: (index: number) => {
+        if (index >= 0 && index < PERIOD_TLS.length) {
+          this.home.toplistTl = PERIOD_TLS[index]
+        }
+      },
     })
   }
 }

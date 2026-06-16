@@ -311,7 +311,13 @@ struct Index {
           FavoritesPage({ scroller: this.homeTabScrollers[1] })
         }.tabBar(this.tabIcon($r('app.string.tab_favorites'), 1))
         TabContent() {
-          ToplistPage({ scroller: this.homeTabScrollers[2] })
+          // Retained per-period sub-tabs own their own scrollers; ToplistPage reports the ACTIVE period's
+          // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
+          ToplistPage({
+            onScrollerReady: (scroller: Scroller) => {
+              this.setHomeActiveScroller(2, scroller)
+            },
+          })
         }.tabBar(this.tabIcon($r('app.string.tab_toplist'), 2))
         TabContent() {
           DownloadQueuePage({ scroller: this.homeTabScrollers[3] })

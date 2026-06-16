@@ -28,6 +28,27 @@ export function connectHomeSource(): HomeSourceState {
 }
 
 /**
+ * Per-frame interpolated tab index for a retained-tab selector bar's SLIDING indicator (V2Next
+ * FeedVisualIndexState). Kept SEPARATE from the semantic selection key (HomeSourceState.source /
+ * .toplistTl): the retained Swiper publishes this float continuously during a swipe (onGestureSwipe /
+ * onAnimationStart / onAnimationEnd) so the bar indicator tracks the finger/page animation, while the
+ * key only flips when the page settles. High-frequency, so it lives in its own holder to avoid churning
+ * the selection observers. One instance per selector surface (different AppStorageV2 keys).
+ */
+@ObservedV2
+export class TabVisualIndexState {
+  @Trace value: number = 0
+}
+
+export function connectHomeSourceVisualIndex(): TabVisualIndexState {
+  return AppStorageV2.connect(TabVisualIndexState, 'v2:homeSourceVisualIndex', () => new TabVisualIndexState())!
+}
+
+export function connectToplistVisualIndex(): TabVisualIndexState {
+  return AppStorageV2.connect(TabVisualIndexState, 'v2:toplistVisualIndex', () => new TabVisualIndexState())!
+}
+
+/**
  * Height (vp) of a pinned selector bar (the Gallery source bar and the Toplist period bar). Both the
  * HDS `bottomBuilder` height (Index) and the page's scaffold top inset read this, so it is the single
  * source of truth. Substantial single-row height — eros_fe's pinned bars are not petty.
