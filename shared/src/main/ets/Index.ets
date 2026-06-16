@@ -122,7 +122,7 @@ export {
 } from './state/HomeSourceState'
 export { SubTabBar } from './components/SubTabBar'
 export { TabItem } from './model/TabItem'
-export { RetainedSubtabHost } from './components/RetainedSubtabHost'
+export { RetainedSubtabHost, ActiveKeyState } from './components/RetainedSubtabHost'
 export {
   FavSelectionState,
   connectFavSelection,

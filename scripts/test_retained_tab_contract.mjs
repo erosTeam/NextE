@@ -65,6 +65,14 @@ ok(/onVisualIndex\(/.test(host), 'host publishes the interpolated visual index (
 ok(/onSelectKey\(/.test(host), 'host publishes the selected key back to the surface bus on change')
 ok(/onScrollerReady/.test(host), 'host hands the active key scroller up (title-scroller handoff)')
 ok(!/@Local\s+vm:/.test(host) && !/loadData|setData|\.reload\(/.test(host), 'host owns NO content VM and never loads/replaces data')
+// EXPLICIT FIRST-ACTIVATION SIGNAL: the host shares an ActiveKeyState (an @ObservedV2 whose @Trace reaches
+// cached pages) and updates active.activeKey on aboutToAppear + selectedKey change + onChange. A per-render
+// isActive @Param does NOT update cached pages (ForEach stable keys + cachedCount), so the old isActive
+// signal missed an unvisited subtab's first load — this is the durable fix.
+ok(/@ObservedV2[\s\S]*?class ActiveKeyState[\s\S]*?@Trace\s+activeKey/.test(host), 'host defines a shared ActiveKeyState (@ObservedV2 @Trace activeKey)')
+ok(/@BuilderParam\s+pageBuilder:\s*\(key:\s*string,\s*active:\s*ActiveKeyState/.test(host), 'host passes the SHARED ActiveKeyState to pages (not a per-render isActive boolean)')
+ok(/this\.pageBuilder\(key,\s*this\.active,/.test(host) && !/key === this\.selectedKey/.test(host), 'host hands pages this.active (the old per-render `key === selectedKey` isActive is gone)')
+ok((host.match(/this\.active\.activeKey\s*=/g) || []).length >= 3, 'host updates active.activeKey on aboutToAppear + selectedKey change + onChange (every activation path)')
 
 // ── 2. Generic TabItem/key model ─────────────────────────────────────────────────────────────────────
 ok(/export class TabItem/.test(tabItem), 'a generic TabItem model exists (key + label + count)')
@@ -94,7 +102,12 @@ for (const [name, src, vm] of [
 ]) {
   ok(new RegExp(`@Local\\s+vm:\\s*${vm}\\s*=\\s*new ${vm}\\(\\)`).test(src), `${name} owns its OWN @Local ${vm}`)
   ok(/@Param\s+scroller:\s*Scroller/.test(src), `${name} takes its own scroller`)
-  ok(/loadedOnce/.test(src) && /@Monitor\('isActive'\)/.test(src), `${name} lazy-loads once on first activation`)
+  // EXPLICIT first-activation trigger via the shared signal — NOT a per-render isActive @Param (which a
+  // cached page never receives, so an unvisited subtab never loaded). The page watches active.activeKey.
+  ok(/@Param\s+active:\s*ActiveKeyState/.test(src), `${name} receives the shared ActiveKeyState (not a per-render isActive)`)
+  ok(/loadedOnce/.test(src) && /@Monitor\('active\.activeKey'\)/.test(src), `${name} lazy-loads once on first activation, triggered by active.activeKey`)
+  ok(/this\.active\.activeKey\s*===/.test(src), `${name} is active when active.activeKey === its own key`)
+  ok(!/@Param\s+isActive/.test(src), `${name} no longer uses the fragile @Param isActive`)
   ok(!/VisualIndex|visual\.value/.test(src), `${name} does NOT consume the visual index (bar-only)`)
 }
 

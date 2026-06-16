@@ -9,14 +9,16 @@ import {
   TabVisualIndexState,
   Favcat,
   RetainedSubtabHost,
+  ActiveKeyState,
 } from 'shared'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { FavcatPage } from '../components/FavcatPage'
 
-// Global @Builder (no `this`) for RetainedSubtabHost's @BuilderParam. Renders one retained favcat page.
+// Global @Builder (no `this`) for RetainedSubtabHost's @BuilderParam. Renders one retained favcat page,
+// handed the shared active-key signal.
 @Builder
-function favcatPageBuilder(key: string, isActive: boolean, scroller: Scroller) {
-  FavcatPage({ favcatKey: key, isActive: isActive, scroller: scroller })
+function favcatPageBuilder(key: string, active: ActiveKeyState, scroller: Scroller) {
+  FavcatPage({ favcatKey: key, active: active, scroller: scroller })
 }
 
 /**

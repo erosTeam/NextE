@@ -1,6 +1,19 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 
 /**
+ * The active-key signal the host shares with EVERY retained page. Passed by reference (once) to each
+ * page's @Param, so its @Trace propagates to ALL pages — including cached/off-screen ones — when the host
+ * updates it. This is why first activation is reliable: a per-render `isActive` @Param does NOT update on
+ * cached pages (ForEach with stable keys + Swiper cachedCount does not re-run the item builder for them),
+ * so @Monitor('isActive') never fired and an unvisited subtab never auto-loaded. A page instead watches
+ * `active.activeKey === itsKey` and loads exactly once on its first activation.
+ */
+@ObservedV2
+export class ActiveKeyState {
+  @Trace activeKey: string = ''
+}
+
+/**
  * Shared RETAINED-SUBTAB HOST (retained-subtab-framework-contract.md). The one place the retained-subtab
  * mechanics live, so Home source / Toplist period / Favorites favcat / future custom subtabs all share it
  * instead of re-implementing a Swiper per surface. It owns:
@@ -21,8 +34,9 @@ export struct RetainedSubtabHost {
   @Param keys: string[] = [];
   // Currently selected key (from the surface's selection bus). Drives the active page + the swipe target.
   @Param selectedKey: string = '';
-  // Renders the retained page for one key. GLOBAL @Builder (params only, no `this`).
-  @BuilderParam pageBuilder: (key: string, isActive: boolean, scroller: Scroller) => void;
+  // Renders the retained page for one key. GLOBAL @Builder (params only, no `this`). It receives the
+  // SHARED ActiveKeyState (not a per-render isActive) so every page — cached too — sees activation.
+  @BuilderParam pageBuilder: (key: string, active: ActiveKeyState, scroller: Scroller) => void;
   // Publish the new selected key back to the surface bus (onChange / settle).
   @Event onSelectKey: (key: string) => void = (_k: string) => {};
   // Publish the per-frame interpolated visual index to the surface's visual-index bus (bar indicator).
@@ -32,6 +46,9 @@ export struct RetainedSubtabHost {
   private swiperController: SwiperController = new SwiperController();
   private scrollers: Map<string, Scroller> = new Map<string, Scroller>();
   private swiperWidth: number = 0;
+  // Shared active-key signal handed to every page; updated whenever the active key changes (bar tap or
+  // swipe settle). Its @Trace reaches cached pages, so each key's first activation triggers exactly one load.
+  private active: ActiveKeyState = new ActiveKeyState();
 
   private scrollerForKey(key: string): Scroller {
     const existing: Scroller | undefined = this.scrollers.get(key)
@@ -63,13 +80,18 @@ export struct RetainedSubtabHost {
   }
 
   aboutToAppear(): void {
+    // Seed the active-key signal BEFORE the pages build, so the initially-active page's aboutToAppear sees
+    // active.activeKey === itsKey and loads.
+    this.active.activeKey = this.selectedKey
     this.onVisualIndex(this.activeIndex())
     this.notifyActiveScroller()
   }
 
-  // Selection bus changed (a bar tap, a login-gated key removal, etc.) → swipe to that retained page.
+  // Selection bus changed (a bar tap, a login-gated key removal, etc.) → swipe to that retained page AND
+  // publish the active key so that page (cached or not) loads on its first activation.
   @Monitor('selectedKey')
   onSelectedKeyChange(): void {
+    this.active.activeKey = this.selectedKey
     this.swiperController.changeIndex(this.activeIndex(), true)
     this.notifyActiveScroller()
   }
@@ -79,7 +101,7 @@ export struct RetainedSubtabHost {
       ForEach(
         this.keys,
         (key: string) => {
-          this.pageBuilder(key, key === this.selectedKey, this.scrollerForKey(key))
+          this.pageBuilder(key, this.active, this.scrollerForKey(key))
         },
         (key: string) => key,
       )
@@ -108,6 +130,9 @@ export struct RetainedSubtabHost {
       }
       this.onVisualIndex(i)
       const key: string = this.keys[i]
+      // Publish the settled key immediately (a swipe lands here) so the page loads on first activation even
+      // before the selection-bus round-trip; then mirror it to the surface bus.
+      this.active.activeKey = key
       if (key !== this.selectedKey) {
         this.onSelectKey(key)
       }

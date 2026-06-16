@@ -4,6 +4,7 @@ import {
   connectToplistVisualIndex,
   TabVisualIndexState,
   RetainedSubtabHost,
+  ActiveKeyState,
 } from 'shared'
 import { ToplistPeriodPage } from '../components/ToplistPeriodPage'
 
@@ -11,10 +12,11 @@ import { ToplistPeriodPage } from '../components/ToplistPeriodPage'
 // The host works on string keys; this surface maps key <-> the numeric tl on the selection bus.
 const TOPLIST_KEYS: string[] = ['11', '12', '13', '15']
 
-// Global @Builder (no `this`) for RetainedSubtabHost's @BuilderParam. Renders one retained period page.
+// Global @Builder (no `this`) for RetainedSubtabHost's @BuilderParam. Renders one retained period page,
+// handed the shared active-key signal.
 @Builder
-function toplistPeriodPageBuilder(key: string, isActive: boolean, scroller: Scroller) {
-  ToplistPeriodPage({ periodTl: Number(key), isActive: isActive, scroller: scroller })
+function toplistPeriodPageBuilder(key: string, active: ActiveKeyState, scroller: Scroller) {
+  ToplistPeriodPage({ periodTl: Number(key), active: active, scroller: scroller })
 }
 
 /**

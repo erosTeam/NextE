@@ -22,6 +22,7 @@ import {
   connectFavSelection,
   Favcat,
   SELECTOR_BAR_HEIGHT,
+  ActiveKeyState,
 } from 'shared'
 import { FavoritesViewModel } from '../viewmodel/FavoritesViewModel'
 
@@ -39,7 +40,8 @@ import { FavoritesViewModel } from '../viewmodel/FavoritesViewModel'
 export struct FavcatPage {
   // 'a' = all, '0'..'9' = slots. Stable for this page's lifetime (the Swiper key).
   @Param favcatKey: string = 'a';
-  @Param isActive: boolean = false;
+  // Shared active-key signal from the host; active when active.activeKey === favcatKey.
+  @Param active: ActiveKeyState = new ActiveKeyState();
   @Param scroller: Scroller = new Scroller();
   @Local vm: FavoritesViewModel = new FavoritesViewModel();
   @Local siteMode: SiteModeState = connectSiteMode();
@@ -49,17 +51,22 @@ export struct FavcatPage {
   private refreshController: PullRefreshController = new PullRefreshController();
   private loadedOnce: boolean = false;
 
+  private isActive(): boolean {
+    return this.active.activeKey === this.favcatKey
+  }
+
   aboutToAppear(): void {
     // Fix this page to its favcat + the current global order before any load.
     this.vm.configure(this.favcatKey, this.favSel.orderByPosted)
-    if (this.isActive) {
+    if (this.isActive()) {
       this.loadOnce()
     }
   }
 
-  @Monitor('isActive')
+  // Host's @Trace activeKey reaches cached pages, so first activation (tap or swipe) fires reliably.
+  @Monitor('active.activeKey')
   onActiveChange(): void {
-    if (this.isActive) {
+    if (this.isActive()) {
       this.loadOnce()
     }
   }

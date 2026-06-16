@@ -1,4 +1,4 @@
-import { SELECTOR_BAR_HEIGHT } from 'shared'
+import { SELECTOR_BAR_HEIGHT, ActiveKeyState } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
 
@@ -16,23 +16,28 @@ import { GalleryListBody } from './GalleryListBody'
 export struct ToplistPeriodPage {
   // Toplist period: tl 11 all-time / 12 year / 13 month / 15 yesterday. Stable (the Swiper key).
   @Param periodTl: number = 15;
-  // True while this period is the selected one. Drives the lazy first-load.
-  @Param isActive: boolean = false;
+  // Shared active-key signal from the host; active when active.activeKey === this period's key (`${tl}`).
+  @Param active: ActiveKeyState = new ActiveKeyState();
   // Index-bound scroller for this period (title auto-hide follows the active period's list).
   @Param scroller: Scroller = new Scroller();
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
   private loadedOnce: boolean = false;
 
+  private isActive(): boolean {
+    return this.active.activeKey === `${this.periodTl}`
+  }
+
   aboutToAppear(): void {
     this.vm.syncSource('toplist', this.periodTl)
-    if (this.isActive) {
+    if (this.isActive()) {
       this.loadOnce()
     }
   }
 
-  @Monitor('isActive')
+  // Host's @Trace activeKey reaches cached pages, so first activation (tap or swipe) fires reliably.
+  @Monitor('active.activeKey')
   onActiveChange(): void {
-    if (this.isActive) {
+    if (this.isActive()) {
       this.loadOnce()
     }
   }

@@ -6,14 +6,16 @@ import {
   connectHomeSourceVisualIndex,
   TabVisualIndexState,
   RetainedSubtabHost,
+  ActiveKeyState,
 } from 'shared'
 import { GallerySourcePage } from '../components/GallerySourcePage'
 
 // Global @Builder (no `this`) so passing it to RetainedSubtabHost's @BuilderParam under @ComponentV2
-// can't hit the instance-@Builder `this`-loss crash. Renders one retained gallery-source page per key.
+// can't hit the instance-@Builder `this`-loss crash. Renders one retained gallery-source page per key,
+// handed the SHARED active-key signal (so cached pages still get their first-activation load).
 @Builder
-function gallerySourcePageBuilder(key: string, isActive: boolean, scroller: Scroller) {
-  GallerySourcePage({ sourceKey: key, isActive: isActive, scroller: scroller })
+function gallerySourcePageBuilder(key: string, active: ActiveKeyState, scroller: Scroller) {
+  GallerySourcePage({ sourceKey: key, active: active, scroller: scroller })
 }
 
 /**
