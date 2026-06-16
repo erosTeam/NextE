@@ -72,6 +72,8 @@ export {
   GalleryDetailResult,
 } from './network/EhApiService'
 export { EhApiPhpService } from './network/EhApiPhpService'
+export { EhError, EhErrorKind } from './network/EhError'
+export { EhErrorClassifier } from './network/EhErrorClassifier'
 
 // i18n
 export { AppStrings } from './i18n/AppStrings'

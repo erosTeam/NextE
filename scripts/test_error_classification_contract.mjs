@@ -1,0 +1,189 @@
+#!/usr/bin/env node
+/**
+ * Contract for the EH failure taxonomy in
+ *   shared/src/main/ets/network/EhErrorClassifier.ets (classifyResponse) + EhError.ets (EhErrorKind)
+ *
+ * The classify() below is copy-equal to EhErrorClassifier.classifyResponse (status-first, then
+ * marker-first body inspection). Synthetic bodies are the HARD gate (deterministic everywhere);
+ * the gitignored real fixtures (scripts/fixtures/*) add a smoke check when present. It locks the
+ * P0 #2 invariants:
+ *   • ONLY a captured HTTP 404 may map to NotFound (the 404/not-found UI text);
+ *   • a non-200 splits into RateLimited(429/509) / ServerError(5xx) / Cloudflare / LoginRequired /
+ *     HttpError — never NotFound;
+ *   • a 200 is NOT trusted: empty→SadPanda(ex)/EmptyBody, marker present→OK, else
+ *     Cloudflare / LoginRequired / RateLimited(banned) / SadPanda(ex)/ParseFailure;
+ *   • a real (marker-bearing) logged-out page is NEVER misread as LoginRequired by the top-bar
+ *     "act=Login" link (marker-first).
+ * If the .ets logic changes, mirror it here.
+ *
+ * Run: node scripts/test_error_classification_contract.mjs   (exit 1 on any failure)
+ */
+import assert from 'node:assert'
+import { readFileSync, existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const src = (rel) => readFileSync(join(ROOT, rel), 'utf8')
+
+const KIND = {
+  NotFound: 'notFound',
+  SadPanda: 'sadPanda',
+  LoginRequired: 'loginRequired',
+  Cloudflare: 'cloudflare',
+  RateLimited: 'rateLimited',
+  ServerError: 'serverError',
+  ParseFailure: 'parseFailure',
+  EmptyBody: 'emptyBody',
+  HttpError: 'httpError',
+  Network: 'network',
+}
+
+const looksCloudflare = (body) => {
+  const b = body.toLowerCase()
+  return (
+    b.includes('just a moment') ||
+    b.includes('attention required') ||
+    b.includes('cf-browser-verification') ||
+    b.includes('__cf_chl') ||
+    b.includes('cf_chl_opt')
+  )
+}
+const looksLogin = (body) => {
+  const b = body.toLowerCase()
+  return (
+    b.includes('bounce_login.php') ||
+    b.includes('act=login') ||
+    (b.includes('name="username"') && b.includes('name="password"')) ||
+    b.includes('you are currently not logged in')
+  )
+}
+const looksBanned = (body) => {
+  const b = body.toLowerCase()
+  return (
+    b.includes('your ip address has been temporarily banned') ||
+    b.includes('you have exceeded your image viewing limits') ||
+    (b.length < 512 && b.includes('banned'))
+  )
+}
+const hasMarker = (body, page) => {
+  if (page === 'generic') return true
+  if (page === 'list') return body.includes('class="itg')
+  return body.includes('<h1 id="gn"') || body.includes('<h1 id="gj"') || body.includes('id="gdt"')
+}
+
+// Mirror of EhErrorClassifier.classifyResponse — returns a kind string, or null when usable.
+function classify(reqUrl, isEx, resp, page) {
+  const status = resp.statusCode
+  const body = resp.body
+  if (status === 404) return KIND.NotFound
+  if (status === 429 || status === 509) return KIND.RateLimited
+  if (status >= 500) return KIND.ServerError
+  if (status !== 200) {
+    if (looksCloudflare(body)) return KIND.Cloudflare
+    if (looksLogin(body)) return KIND.LoginRequired
+    return KIND.HttpError
+  }
+  const trimmed = body.trim()
+  if (trimmed.length === 0) return isEx ? KIND.SadPanda : KIND.EmptyBody
+  if (hasMarker(body, page)) return null
+  if (looksCloudflare(body)) return KIND.Cloudflare
+  if (looksLogin(body)) return KIND.LoginRequired
+  if (looksBanned(body)) return KIND.RateLimited
+  return isEx ? KIND.SadPanda : KIND.ParseFailure
+}
+
+const resp = (statusCode, body) => ({ statusCode, body })
+let passed = 0
+const ok = (name, cond) => {
+  assert.ok(cond, name)
+  passed++
+}
+const eq = (name, got, want) => {
+  assert.strictEqual(got, want, `${name}: got ${got} want ${want}`)
+  passed++
+}
+
+// --- Synthetic bodies (HARD gate; representative of each EH failure mode) ---
+const SYN = {
+  validDetail: '<html><h1 id="gn">A Title</h1><div id="gdt">...</div></html>',
+  validList: '<html><table class="itg gltc"><tr></tr></table>'
+    + '<a href="https://forums.e-hentai.org/index.php?act=Login">Login</a></html>', // top-bar login link MUST NOT trip LoginRequired
+  notFound: '<html><div class="d"><p>This gallery has been removed or is unavailable.</p></div></html>',
+  empty: '',
+  login: '<html><form><input name="UserName"><input name="PassWord"></form>'
+    + '<a href="https://e-hentai.org/bounce_login.php">x</a></html>',
+  cloudflare: '<html><head><title>Just a moment...</title></head><body class="cf-browser-verification"></body></html>',
+  banned: '<html><p>Your IP address has been temporarily banned for excessive pageloads.</p></html>',
+  parsefail: '<html><div class="unexpected">markup changed, no gallery container</div></html>',
+}
+
+// 1. Valid pages → usable (null); logged-out list with a top-bar act=Login link is NOT LoginRequired.
+eq('valid detail 200 → usable', classify('https://e-hentai.org/g/1/a/', false, resp(200, SYN.validDetail), 'detail'), null)
+eq('valid ex detail 200 → usable', classify('https://exhentai.org/g/1/a/', true, resp(200, SYN.validDetail), 'detail'), null)
+eq('valid list 200 (with top-bar login link) → usable, NOT LoginRequired', classify('https://e-hentai.org/', false, resp(200, SYN.validList), 'list'), null)
+
+// 2. Core invariant: ONLY a captured HTTP 404 is NotFound.
+eq('HTTP 404 → NotFound', classify('https://e-hentai.org/g/1/a/', false, resp(404, SYN.notFound), 'detail'), KIND.NotFound)
+ok(
+  'NotFound is produced for NO non-404 status',
+  [200, 403, 429, 500, 502, 503, 509, 0].every(
+    (s) => classify('https://e-hentai.org/g/1/a/', false, resp(s, SYN.notFound), 'detail') !== KIND.NotFound,
+  ),
+)
+eq(
+  '200 with removed-notice body → ParseFailure (NOT NotFound)',
+  classify('https://e-hentai.org/g/1/a/', false, resp(200, SYN.notFound), 'detail'),
+  KIND.ParseFailure,
+)
+
+// 3. Status taxonomy.
+eq('429 → RateLimited', classify('u', false, resp(429, ''), 'detail'), KIND.RateLimited)
+eq('509 → RateLimited', classify('u', false, resp(509, ''), 'detail'), KIND.RateLimited)
+eq('503 → ServerError', classify('u', false, resp(503, SYN.banned), 'detail'), KIND.ServerError)
+eq('500 → ServerError', classify('u', false, resp(500, ''), 'detail'), KIND.ServerError)
+eq('403 plain → HttpError', classify('u', false, resp(403, '<html>forbidden</html>'), 'detail'), KIND.HttpError)
+eq('403 + cloudflare body → Cloudflare', classify('u', false, resp(403, SYN.cloudflare), 'detail'), KIND.Cloudflare)
+
+// 4. 200 body sentinels (reached only when the positive marker is absent).
+eq('empty 200 on ex → SadPanda', classify('https://exhentai.org/g/1/a/', true, resp(200, SYN.empty), 'detail'), KIND.SadPanda)
+eq('empty 200 on table → EmptyBody', classify('https://e-hentai.org/g/1/a/', false, resp(200, SYN.empty), 'detail'), KIND.EmptyBody)
+eq('200 login page → LoginRequired', classify('https://e-hentai.org/favorites.php', false, resp(200, SYN.login), 'list'), KIND.LoginRequired)
+eq('200 cloudflare → Cloudflare', classify('u', false, resp(200, SYN.cloudflare), 'detail'), KIND.Cloudflare)
+eq('200 banned page → RateLimited', classify('u', false, resp(200, SYN.banned), 'detail'), KIND.RateLimited)
+eq('200 no-marker on table → ParseFailure', classify('https://e-hentai.org/g/1/a/', false, resp(200, SYN.parsefail), 'detail'), KIND.ParseFailure)
+eq('200 no-marker on ex → SadPanda', classify('https://exhentai.org/g/1/a/', true, resp(200, SYN.parsefail), 'detail'), KIND.SadPanda)
+
+// 5. 'generic' page (image /s/ pages, api.php callers) skips the marker requirement.
+eq('generic 200 arbitrary body → usable', classify('u', false, resp(200, SYN.parsefail), 'generic'), null)
+eq('generic 404 → NotFound', classify('u', false, resp(404, ''), 'generic'), KIND.NotFound)
+
+// 6. Real fixtures (gitignored) — smoke check when present.
+for (const [name, isEx, page] of [
+  ['gdetail_real.html', false, 'detail'],
+  ['gdetail_ex_real.html', true, 'detail'],
+  ['gallery_list.html', false, 'list'],
+]) {
+  const p = join(ROOT, 'scripts/fixtures', name)
+  if (existsSync(p)) {
+    eq(`real fixture ${name} (200) → usable`, classify('https://e-hentai.org/', isEx, resp(200, readFileSync(p, 'utf8')), page), null)
+  }
+}
+
+// 7. Structural: the .ets taxonomy + classifier carry the required kinds and decision tokens.
+{
+  const errSrc = src('shared/src/main/ets/network/EhError.ets')
+  for (const k of ['NotFound', 'SadPanda', 'LoginRequired', 'Cloudflare', 'RateLimited', 'ServerError', 'ParseFailure', 'EmptyBody', 'HttpError', 'Network']) {
+    ok(`EhError declares kind ${k}`, new RegExp(`${k}\\s*=`).test(errSrc))
+  }
+  ok('EhError extends Error', /class EhError extends Error/.test(errSrc))
+  ok('EhError.kindOf helper present', /static kindOf\(/.test(errSrc))
+
+  const clsSrc = src('shared/src/main/ets/network/EhErrorClassifier.ets')
+  ok('classifier: only 404 → NotFound', /status === 404[\s\S]*?EhErrorKind\.NotFound/.test(clsSrc))
+  ok('classifier: marker-first on 200', /hasMarker\(body, page\)\s*\)\s*\{\s*return null/.test(clsSrc))
+  ok('classifier: 429/509 → RateLimited', /status === 429 \|\| status === 509/.test(clsSrc))
+  ok('classifier: transport wrapper', /static network\(/.test(clsSrc))
+}
+
+console.log(`✓ error classification contract: ${passed} assertions passed`)
