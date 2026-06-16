@@ -100,6 +100,7 @@ node scripts/test_responsive_grid_contract.mjs          # 预览网格:列数按
 node scripts/test_detail_header_visual_contract.mjs     # 详情页 header/InfoBar 硬视觉语义门禁
 node scripts/test_tag_chip_contract.mjs                 # 详情标签 chip 圆角/高度/语义(namespace/usertag/vote 色保留)
 node scripts/test_cover_presentation_contract.mjs       # 封面呈现:独立灰底占位 + 按上下文 fit(列表/详情 Contain,网格 Cover),禁止一刀切裁切
+node scripts/test_retained_tab_contract.mjs             # 保留态子 tab:首页源=按 key 保留页(各自 VM/scroller),选中态为总线;排行周期保持单列表筛选
 hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon   # BUILD SUCCESSFUL
 ```
 新增子系统要补对应的 `scripts/test_*_contract.mjs`(带真实 EH HTML fixture)。

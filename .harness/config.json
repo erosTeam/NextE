@@ -66,6 +66,11 @@
       "blocking": true
     },
     {
+      "name": "retained-tab",
+      "command": "node scripts/test_retained_tab_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "i18n-duplicates",
       "command": "python3 scripts/check_i18n_duplicates.py",
       "blocking": true

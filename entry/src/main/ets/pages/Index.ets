@@ -285,11 +285,27 @@ struct Index {
     }
   }
 
+  // A retained sub-tab page (e.g. HomePage's active source) reports its scroller; store it as that main
+  // tab's scroller and, if that main tab is active, repoint the title binding so auto-hide follows the
+  // active sub-tab's list (V2Next setHomeTabScroller). Other main tabs still pass homeTabScrollers down.
+  private setHomeActiveScroller(index: number, scroller: Scroller): void {
+    this.homeTabScrollers[index] = scroller
+    if (this.currentTab === index) {
+      this.titleScroller = scroller
+    }
+  }
+
   build() {
     HdsNavigation(this.stack) {
       HdsTabs({ controller: this.tabsController }) {
         TabContent() {
-          HomePage({ scroller: this.homeTabScrollers[0] })
+          // Retained per-source sub-tabs own their own scrollers; HomePage reports the ACTIVE source's
+          // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
+          HomePage({
+            onScrollerReady: (scroller: Scroller) => {
+              this.setHomeActiveScroller(0, scroller)
+            },
+          })
         }.tabBar(this.tabIcon($r('app.string.tab_gallery'), 0))
         TabContent() {
           FavoritesPage({ scroller: this.homeTabScrollers[1] })
