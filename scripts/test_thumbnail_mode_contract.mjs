@@ -85,7 +85,18 @@ ok(/entry/.test(header) && /this\.onMore\(\)/.test(header), 'horizontal-mode sec
 // hidden branch and grid branch both render moreButton; horizontal branch renders sectionHeader(true).
 ok(/this\.hidden\)[\s\S]*?this\.moreButton\(\)/.test(buildBody), 'hidden mode offers the more-previews entry')
 ok(/this\.horizontal\)[\s\S]*?this\.sectionHeader\(true\)/.test(buildBody), 'horizontal mode offers the tappable header entry')
-ok(/else \{[\s\S]*?this\.moreButton\(\)/.test(buildBody), 'grid mode offers the more-previews entry')
+ok(/else \{[\s\S]*?this\.moreButton\(\)/.test(buildBody), 'grid mode offers the more-previews entry (button below)')
+
+// 4b. The preview card HEADER is a valid, AFFORDANCED all-thumbnails entry in EVERY mode (not just
+// horizontal): a user can tap the header to open all-thumbnails without scrolling to the bottom button.
+// (User: "为什么不能点击缩略图卡片头部进入缩略图页？" — GRID/HIDDEN used to pass sectionHeader(false).)
+ok(!/this\.sectionHeader\(false\)/.test(buildBody), 'no mode leaves the header a non-entry (sectionHeader(false))')
+ok((buildBody.match(/this\.sectionHeader\(true\)/g) || []).length >= 3, 'all three modes pass sectionHeader(true) — header is a tappable entry everywhere')
+ok(/this\.hidden\)[\s\S]*?this\.sectionHeader\(true\)/.test(buildBody), 'hidden mode header is a tappable all-thumbnails entry')
+ok(/else \{[\s\S]*?this\.sectionHeader\(true\)/.test(buildBody), 'grid mode header is a tappable all-thumbnails entry')
+// The entry header must show a VISIBLE 查看全部 affordance (no invisible/hidden tap target) and navigate.
+ok(/if \(entry\)[\s\S]*?detail_view_all/.test(header), 'entry header shows the visible 查看全部 affordance (no invisible tap target)')
+ok(/if \(entry\)[\s\S]*?this\.onMore\(\)/.test(header), 'tapping the entry header navigates to all-thumbnails (onMore)')
 
 // 5. Detail page passes both toggles into the preview component.
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')

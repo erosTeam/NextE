@@ -14,13 +14,14 @@ const PREVIEW_H: number = 150
 /**
  * Detail-page preview section — eros_fe ThumbTile + GalleryBody dispatch, restored to its three modes
  * driven by the two thumbnail settings the parent passes in (both default false → GRID):
- *   - hidden=true     → NO inline previews; a single centered "more previews" entry into all-thumbnails
- *                       (eros_fe hidden-inline MorePreviewButton).
- *   - horizontal=true → a tappable "缩略图 (n) 查看全部 >" header that ALWAYS opens all-thumbnails, over a
- *                       horizontal scrolling row of fixed-height thumbs (eros_fe ThumbHorizontalList).
- *   - else (GRID)     → plain title header + an inline wrap-grid peek of the first preview page + a
- *                       centered "更多预览/没有更多预览" entry below (eros_fe ThumbSliverGrid + MorePreviewButton).
- * The separate all-thumbnails page is reachable via onMore in EVERY mode; onOpen(page0) opens the reader.
+ *   - hidden=true     → NO inline previews; the tappable "查看全部 >" header AND a centered "more previews"
+ *                       button both open all-thumbnails (eros_fe hidden-inline MorePreviewButton).
+ *   - horizontal=true → a tappable "预览 (n) 查看全部 >" header that opens all-thumbnails, over a horizontal
+ *                       scrolling row of fixed-height thumbs (eros_fe ThumbHorizontalList).
+ *   - else (GRID)     → the SAME tappable "查看全部 >" header + an inline wrap-grid peek of the first preview
+ *                       page + a centered "更多预览/没有更多预览" button below (eros_fe ThumbSliverGrid + MorePreviewButton).
+ * The all-thumbnails page is reachable via the header in EVERY mode (and the button in grid/hidden);
+ * onOpen(page0) opens the reader.
  */
 @ComponentV2
 export struct GalleryPreviewGrid {
@@ -77,9 +78,9 @@ export struct GalleryPreviewGrid {
     })
   }
 
-  // Section header. `entry` = this header IS the all-thumbnails entry (horizontal mode): show the
-  // "查看全部 >" affordance and make the whole row tappable. Grid mode passes entry=false (the entry is
-  // the button below), so it stays a plain title.
+  // Section header. `entry` = this header IS an all-thumbnails entry: show the visible "查看全部 >"
+  // affordance and make the whole row tappable (→ onMore). All three modes pass entry=true so the header
+  // is always a real, affordanced entry (no invisible tap target); GRID/HIDDEN also keep the button below.
   @Builder
   sectionHeader(entry: boolean) {
     Row({ space: ThemeConstants.SPACE_XS }) {
@@ -177,14 +178,16 @@ export struct GalleryPreviewGrid {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
       Column({ space: ThemeConstants.SPACE_SM }) {
         if (this.hidden) {
-          // Hidden-inline: only the entry button, no previews (eros_fe hideGalleryThumbnails).
-          this.sectionHeader(false)
+          // Hidden-inline: no previews — the tappable header AND the button below both open all-thumbnails
+          // (eros_fe hideGalleryThumbnails still offers a MorePreviewButton).
+          this.sectionHeader(true)
           this.moreButton()
         } else if (this.horizontal) {
           this.sectionHeader(true)
           this.horizontalRow()
         } else {
-          this.sectionHeader(false)
+          // Default GRID: tappable header entry + inline first-page peek + the button below.
+          this.sectionHeader(true)
           this.gridPeek()
           this.moreButton()
         }
