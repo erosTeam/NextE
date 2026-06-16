@@ -129,6 +129,58 @@ const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
 ok(/ACTION_HEIGHT:\s*number\s*=/.test(theme), 'ThemeConstants defines ACTION_HEIGHT')
 ok(/ACTION_FAV_ICON:\s*number\s*=/.test(theme), 'ThemeConstants defines ACTION_FAV_ICON')
 
+// 8) Long-title stress structure: the title/metadata block is a FLEXIBLE, CLIPPED group so a long title
+// can never push the action row out; the action row is a RESERVED sibling (no Blank spacer that can
+// collapse); the title line count is a budgeted METHOD, not a raw maxLines literal. JP + uploader stay
+// bounded so they truncate too. This is what catches "maxLines exists but the action row is still pushed".
+ok(
+  /\.layoutWeight\(1\)[\s\S]{0,120}?\.clip\(true\)/.test(header),
+  'title/metadata group is layoutWeight(1) + clip(true) — cannot push the action row out',
+  'The flexible text group must clip, reserving the action row at the bottom of the fixed card.'
+)
+ok(/\.maxLines\(this\.titleMaxLines\(\)\)/.test(header), 'title uses budgeted titleMaxLines(), not a raw maxLines literal')
+ok(/private titleMaxLines\(\): number/.test(header), 'titleMaxLines() budget method exists')
+ok(
+  !/Blank\(\)\s*\n\s*\/\/ Bottom action row/.test(header),
+  'no Blank() spacer between the text group and the action row',
+  'Action-row reservation must be structural (layoutWeight+clip), not a collapsible Blank spacer.'
+)
+ok(/japaneseTitle[\s\S]*?\.maxLines\(2\)/.test(header), 'JP title stays bounded to maxLines(2)')
+ok(/this\.gallery\.uploader[\s\S]*?\.maxLines\(1\)/.test(header), 'uploader stays bounded to maxLines(1)')
+
+// 9) Synthetic long-title budget: mirror titleMaxLines() + the real line-height tokens and assert that
+// the WORST case (a very long title at its budgeted lines + JP(2 lines) + uploader(1 line) + the action
+// row + gaps) still fits the FIXED card height — nothing overflows / clips / overlaps. Deterministic
+// stand-in for a "very long EN + JP + uploader + favourited" stress gallery.
+const COVER_H = Number((/const COVER_H:\s*number\s*=\s*(\d+)/.exec(header) || [])[1])
+const tnum = (re) => Number((re.exec(theme) || [])[1])
+const ACTION_H = tnum(/ACTION_HEIGHT:\s*number\s*=\s*(\d+)/)
+const XS = tnum(/SPACE_XS:\s*number\s*=\s*(\d+)/)
+const LH_TITLE = tnum(/LINE_HEIGHT_TITLE:\s*number\s*=\s*(\d+)/)
+const LH_BODY = tnum(/LINE_HEIGHT_BODY:\s*number\s*=\s*(\d+)/)
+ok([COVER_H, ACTION_H, XS, LH_TITLE, LH_BODY].every((n) => Number.isFinite(n) && n > 0), 'parsed COVER_H + action/line-height tokens')
+const titleMaxLines = (hasJp, hasUp) => {
+  const textArea = COVER_H - ACTION_H - XS
+  const jpR = hasJp ? 2 * LH_BODY + XS : 0
+  const upR = hasUp ? LH_BODY + XS : 0
+  const lines = Math.floor((textArea - jpR - upR) / LH_TITLE)
+  return Math.min(Math.max(lines, 1), 6)
+}
+const stackHeight = (hasJp, hasUp) => {
+  let h = titleMaxLines(hasJp, hasUp) * LH_TITLE
+  if (hasJp) h += XS + 2 * LH_BODY
+  if (hasUp) h += XS + LH_BODY
+  return h + XS + ACTION_H // + outer gap + the reserved action row
+}
+for (const [hasJp, hasUp] of [[true, true], [true, false], [false, true], [false, false]]) {
+  ok(titleMaxLines(hasJp, hasUp) >= 1, `titleMaxLines >= 1 (jp=${hasJp}, uploader=${hasUp})`)
+  ok(
+    stackHeight(hasJp, hasUp) <= COVER_H,
+    `worst-case header stack fits COVER_H=${COVER_H} (jp=${hasJp}, uploader=${hasUp}) → ${stackHeight(hasJp, hasUp)}`,
+    'A long title + JP + uploader + action row must fit the card; budget the title lines down.'
+  )
+}
+
 if (failures > 0) {
   console.error(`\n✗ detail-header visual contract: ${failures} failure(s)`)
   console.error(`  files: ${relative(ROOT, join(ROOT, FILES.header))}, ${relative(ROOT, join(ROOT, FILES.info))}`)

@@ -26,6 +26,29 @@ export struct GalleryHeaderCard {
     return $r('app.string.detail_read')
   }
 
+  // Title line budget against the FIXED card height (COVER_H) so the JP title, uploader, favourite
+  // state, and the Read/resume action row always stay inside the card — the title truncates first.
+  // The layoutWeight+clip text group in build() is the structural backstop if real font metrics differ.
+  private titleMaxLines(): number {
+    const hasJp: boolean =
+      this.gallery.japaneseTitle.length > 0 && this.gallery.japaneseTitle !== this.gallery.title()
+    const hasUploader: boolean = this.gallery.uploader.length > 0
+    // Space above the reserved action row (minus the outer gap), then minus the JP (2 lines) +
+    // uploader (1 line) reserves; the remainder is title lines at LINE_HEIGHT_TITLE.
+    const textArea: number = COVER_H - ThemeConstants.ACTION_HEIGHT - ThemeConstants.SPACE_XS
+    const jpReserve: number = hasJp
+      ? 2 * ThemeConstants.LINE_HEIGHT_BODY + ThemeConstants.SPACE_XS
+      : 0
+    const uploaderReserve: number = hasUploader
+      ? ThemeConstants.LINE_HEIGHT_BODY + ThemeConstants.SPACE_XS
+      : 0
+    const lines: number = Math.floor(
+      (textArea - jpReserve - uploaderReserve) / ThemeConstants.LINE_HEIGHT_TITLE,
+    )
+    // At least 1 line; cap at eros_fe's 6-line maximum.
+    return Math.min(Math.max(lines, 1), 6)
+  }
+
   build() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
       Row({ space: ThemeConstants.SPACE_MD }) {
@@ -36,48 +59,58 @@ export struct GalleryHeaderCard {
           radius: ThemeConstants.RADIUS_SM,
         })
         Column({ space: ThemeConstants.SPACE_XS }) {
-          // English (primary) title.
-          Text(this.gallery.title())
-            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
-            // eros_fe GalleryTitle allows up to 6 lines (no ellipsis); the cover-height-bound column
-            // can't take 6, but 3 over-truncated long titles — 4 is the practical fit before the action row.
-            .maxLines(4)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
-          // Japanese title, shown separately when present and distinct from the primary.
-          if (
-            this.gallery.japaneseTitle.length > 0 &&
-            this.gallery.japaneseTitle !== this.gallery.title()
-          ) {
-            Text(this.gallery.japaneseTitle)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor($r('sys.color.font_secondary'))
-              .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .width('100%')
-          }
-          if (this.gallery.uploader.length > 0) {
-            // Tappable → search this uploader's galleries (eros_fe GalleryUploader). eros_fe styles the
-            // uploader as muted secondaryLabel GREY (w500), NOT a colored link — it's metadata that
-            // happens to be tappable, distinct from the blue Similar/Parent action links.
-            Text(this.gallery.uploader)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          // Flexible text group: takes all space ABOVE the reserved action row and CLIPS, so a long
+          // title can never push the Read/favourite action row out of (or overlapping) the card. The
+          // title line count is budgeted by titleMaxLines() so the JP title + uploader stay visible.
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            // English (primary) title.
+            Text(this.gallery.title())
+              .fontSize(ThemeConstants.FONT_SIZE_TITLE)
               .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_secondary'))
-              .maxLines(1)
+              .fontColor($r('sys.color.font_primary'))
+              .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
+              // Budgeted line count (titleMaxLines): fills the space when alone, fewer when the JP title
+              // / uploader are also shown — the title truncates, the metadata + action row never overflow.
+              .maxLines(this.titleMaxLines())
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .width('100%')
-              .onClick(() => {
-                this.onUploader(this.gallery.uploader)
-              })
+            // Japanese title, shown separately when present and distinct from the primary.
+            if (
+              this.gallery.japaneseTitle.length > 0 &&
+              this.gallery.japaneseTitle !== this.gallery.title()
+            ) {
+              Text(this.gallery.japaneseTitle)
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_secondary'))
+                .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+                .maxLines(2)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width('100%')
+            }
+            if (this.gallery.uploader.length > 0) {
+              // Tappable → search this uploader's galleries (eros_fe GalleryUploader). eros_fe styles the
+              // uploader as muted secondaryLabel GREY (w500), NOT a colored link — it's metadata that
+              // happens to be tappable, distinct from the blue Similar/Parent action links.
+              Text(this.gallery.uploader)
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_secondary'))
+                .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width('100%')
+                .onClick(() => {
+                  this.onUploader(this.gallery.uploader)
+                })
+            }
           }
-          // Spacer pushes the action row to the bottom edge, aligned with the cover (eros_fe layout).
-          Blank()
-          // Bottom action row — eros_fe header_sliver clusters BOTH to the right: [Spacer][Fav][Read],
+          .layoutWeight(1)
+          .width('100%')
+          .clip(true)
+          .alignItems(HorizontalAlign.Start)
+
+          // Bottom action row — a RESERVED fixed-height sibling (no Blank spacer), so a long title can
+          // never push it out. eros_fe header_sliver clusters BOTH to the right: [Spacer][Fav][Read],
           // with READ the rightmost element and the favourite to its left, center-aligned. The favourite
           // and read read as a coordinated family: a vertically-centred favcat heart (16) + label (12,
           // same as the read text) sits left of the read capsule — not a tiny tail, and not stealing the
