@@ -136,7 +136,12 @@ export struct SubTabBar {
             this.setTabWidth(index, newValue.width as number)
           })
         },
-        (tab: TabItem) => tab.key,
+        // Key MUST include the label + count, not just the stable key: dynamic tabs (favcat) reuse a key
+        // (favId 0-9) across a seed→real update, so keying on the key alone makes ForEach reuse the frozen
+        // seed chips (label/count are @Builder params, captured at create) — the bar stays "Favorites N / 0"
+        // after the parse lands. A string label (favcat name) joins the key so a name/count change rebuilds
+        // the chip; Resource labels (Home/Toplist, static) contribute '' and stay stable.
+        (tab: TabItem) => `${tab.key}:${typeof tab.label === 'string' ? tab.label : ''}:${tab.count}`,
       )
     }
     .padding({ left: BAR_PAD, right: BAR_PAD })

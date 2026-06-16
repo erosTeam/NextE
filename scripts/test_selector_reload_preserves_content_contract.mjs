@@ -81,7 +81,10 @@ forbidClearBeforeFetch(
 // first-load affordance while preventing selector reloads with existing rows from unmounting content.
 for (const [rel, component] of [
   ['feature/home/src/main/ets/components/GalleryListBody.ets', 'GalleryListBody'],
-  ['feature/user/src/main/ets/pages/FavoritesPage.ets', 'FavoritesPage'],
+  // The favorites list body (loading branch) now lives in the retained per-favcat FavcatPage; switching
+  // favcat swipes to a retained page (no reload at all), and within a favcat the loading affordance still
+  // scopes to itemCount === 0 initial load.
+  ['feature/user/src/main/ets/components/FavcatPage.ets', 'FavcatPage'],
   ['feature/search/src/main/ets/pages/GallerySearchPage.ets', 'GallerySearchPage'],
 ]) {
   const src = text(rel)

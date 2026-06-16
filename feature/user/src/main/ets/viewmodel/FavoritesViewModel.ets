@@ -47,6 +47,24 @@ export class FavoritesViewModel {
     }
   }
 
+  /** Fix this VM to one favcat + order WITHOUT loading (retained per-favcat page; loadData runs on
+   * first activation). The favcat is stable for the page's lifetime, so selectFavcat is not used. */
+  configure(favcat: string, orderByPosted: boolean): void {
+    this.favcat = favcat
+    this.favOrder = orderByPosted ? EhConstants.FAV_ORDER_POSTED : EhConstants.FAV_ORDER_FAV
+  }
+
+  /** Apply a new GLOBAL order (favorited-time ↔ posted-time) and reload from page 1; no-op if unchanged.
+   * Used by each retained favcat page when the shared order bus toggles. */
+  async applyOrder(orderByPosted: boolean): Promise<void> {
+    const next: string = orderByPosted ? EhConstants.FAV_ORDER_POSTED : EhConstants.FAV_ORDER_FAV
+    if (this.favOrder === next) {
+      return
+    }
+    this.favOrder = next
+    await this.load()
+  }
+
   /** Toggle favorited-time ↔ posted-time order and reload from page 1. */
   async toggleOrder(): Promise<void> {
     if (this.isLoading) {

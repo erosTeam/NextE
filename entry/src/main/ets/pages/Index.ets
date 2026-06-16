@@ -308,7 +308,13 @@ struct Index {
           })
         }.tabBar(this.tabIcon($r('app.string.tab_gallery'), 0))
         TabContent() {
-          FavoritesPage({ scroller: this.homeTabScrollers[1] })
+          // Retained per-favcat sub-tabs own their own scrollers; FavoritesPage reports the ACTIVE favcat's
+          // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
+          FavoritesPage({
+            onScrollerReady: (scroller: Scroller) => {
+              this.setHomeActiveScroller(1, scroller)
+            },
+          })
         }.tabBar(this.tabIcon($r('app.string.tab_favorites'), 1))
         TabContent() {
           // Retained per-period sub-tabs own their own scrollers; ToplistPage reports the ACTIVE period's

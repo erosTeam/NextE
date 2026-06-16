@@ -46,9 +46,10 @@ const galleryListBody = read('feature/home/src/main/ets/components/GalleryListBo
 const sourceBar = read('entry/src/main/ets/components/HomeSourceBar.ets')
 const periodBar = read('entry/src/main/ets/components/ToplistPeriodBar.ets')
 const indexShell = read('entry/src/main/ets/pages/Index.ets')
-// NOTE: the Favorites surface (FavcatPage/FavoritesPage/FavcatBar) migrates onto this framework in
-// SPLIT B; its assertions live in split B's contract extension. Split A asserts only the shared
-// framework primitives + the Home/Toplist migration that proves them.
+// Favorites surface — migrated onto the framework in SPLIT B.
+const favPage = read('feature/user/src/main/ets/pages/FavoritesPage.ets')
+const favcatPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
+const favcatBar = read('entry/src/main/ets/components/FavcatBar.ets')
 
 // ── 1. Shared host: ALL retained-subtab mechanics live here, ONCE ───────────────────────────────────
 ok(/@ComponentV2/.test(host), 'RetainedSubtabHost is @ComponentV2')
@@ -89,6 +90,7 @@ ok(/setHomeActiveScroller\(0,/.test(indexShell) && /setHomeActiveScroller\(2,/.t
 for (const [name, src, vm] of [
   ['GallerySourcePage', sourcePage, 'GalleryListViewModel'],
   ['ToplistPeriodPage', periodPage, 'GalleryListViewModel'],
+  ['FavcatPage', favcatPage, 'FavoritesViewModel'],
 ]) {
   ok(new RegExp(`@Local\\s+vm:\\s*${vm}\\s*=\\s*new ${vm}\\(\\)`).test(src), `${name} owns its OWN @Local ${vm}`)
   ok(/@Param\s+scroller:\s*Scroller/.test(src), `${name} takes its own scroller`)
@@ -108,6 +110,7 @@ ok(/connectHomeSourceVisualIndex/.test(homeState) && /connectToplistVisualIndex/
 for (const [name, src, conn] of [
   ['HomeSourceBar', sourceBar, 'connectHomeSourceVisualIndex'],
   ['ToplistPeriodBar', periodBar, 'connectToplistVisualIndex'],
+  ['FavcatBar', favcatBar, 'connectFavcatVisualIndex'],
 ]) {
   ok(/SubTabBar\(/.test(src), `${name} uses the shared SubTabBar`)
   ok(new RegExp(conn).test(src), `${name} drives the indicator from its visual-index bus`)
@@ -119,24 +122,43 @@ for (const [name, src, conn] of [
 ok(/@Param\s+scrollable:\s*boolean/.test(subTabBar), 'SubTabBar supports a scrollable mode (favcat overflow)')
 ok(/\.position\(/.test(subTabBar), 'SubTabBar positions ONE sliding indicator (interpolated), not per-tab underlines')
 ok(/@Param\s+visualIndex:\s*number/.test(subTabBar), 'SubTabBar takes the interpolated visualIndex')
+// The tab ForEach key MUST include the label + count (not just the stable key): dynamic tabs (favcat reuse
+// favId 0-9 across a seed→real update) would otherwise reuse frozen seed chips, leaving the bar on
+// placeholder "Favorites N / 0" after the parsed favList lands.
+ok(/tab\.label[\s\S]{0,40}?tab\.count/.test(subTabBar), 'SubTabBar ForEach key includes tab.label + tab.count so dynamic favcat tabs rebuild on seed→real (no frozen placeholders)')
 const barH = Number((/SELECTOR_BAR_HEIGHT:\s*number\s*=\s*(\d+)/.exec(homeState) || [])[1])
 ok(Number.isFinite(barH) && barH <= 40, `SELECTOR_BAR_HEIGHT is not inflated (<=40, matches V2Next TAB_BAR_HEIGHT 38); got ${barH}`)
 ok(/'height':\s*SELECTOR_BAR_HEIGHT/.test(indexShell), 'Index bottomBuilder height = SELECTOR_BAR_HEIGHT (single source of truth)')
 ok(
-  /topPadding:\s*SELECTOR_BAR_HEIGHT/.test(sourcePage) && /topPadding:\s*SELECTOR_BAR_HEIGHT/.test(periodPage),
+  /topPadding:\s*SELECTOR_BAR_HEIGHT/.test(sourcePage) && /topPadding:\s*SELECTOR_BAR_HEIGHT/.test(periodPage) && /topPadding:\s*SELECTOR_BAR_HEIGHT/.test(favcatPage),
   'retained pages pass list topPadding = SELECTOR_BAR_HEIGHT (matches the bottomBuilder, no double/hardcoded padding)',
 )
 ok(/SELECTOR_BAR_HEIGHT\s*-\s*\d+/.test(subTabBar), 'SubTabBar indicator baseline derives from SELECTOR_BAR_HEIGHT (V2Next h-14)')
 
-// ── 8. Loading policy (framework primitive): first-load = content-area only; no top+center duplicate.
-// (FavcatPage's loading is asserted by split B; here the framework body GalleryListBody locks the policy.)
-ok(/isLoading\s*&&\s*this\.vm\.itemCount\s*===\s*0/.test(galleryListBody), 'GalleryListBody: first-load loading is content-area, gated on isLoading && itemCount===0')
-ok(!/LoadingProgress\(\)[\s\S]*?PageLoadingState\(\)|PageLoadingState\(\)[\s\S]*?LoadingProgress\(\)/.test(galleryListBody), 'GalleryListBody: no top + center duplicate loading for one first-load')
+// ── 8. Loading policy (framework): first-load = content-area only; no top+center duplicate ───────────
+for (const [name, src] of [['GalleryListBody', galleryListBody], ['FavcatPage', favcatPage]]) {
+  ok(/isLoading\s*&&\s*this\.vm\.itemCount\s*===\s*0/.test(src), `${name}: first-load loading is content-area, gated on isLoading && itemCount===0`)
+  ok(!/LoadingProgress\(\)[\s\S]*?PageLoadingState\(\)|PageLoadingState\(\)[\s\S]*?LoadingProgress\(\)/.test(src), `${name}: no top + center duplicate loading for one first-load`)
+}
 
-// Favorites favcat migration onto this framework (host + bar + loading) is asserted in SPLIT B.
+// ── 9. Favorites favcat MIGRATED onto the shared framework (split B) ─────────────────────────────────
+ok(/RetainedSubtabHost\(\{/.test(favPage), 'FavoritesPage renders the shared RetainedSubtabHost (no inline Favorites Swiper)')
+ok(!/Swiper\(/.test(favPage), 'FavoritesPage has NO inline Swiper (host mechanics are shared)')
+ok(/pageBuilder:\s*favcatPageBuilder/.test(favPage), 'FavoritesPage passes a GLOBAL @Builder favcatPageBuilder')
+ok(/@Builder\s+function\s+favcatPageBuilder[\s\S]*?FavcatPage\(/.test(favPage), 'favcatPageBuilder is a global @Builder rendering FavcatPage (no this)')
+ok(/keys:\s*this\.favcatKeys\(\)/.test(favPage) && /selectedKey:\s*this\.favSel\.selectedFavcat/.test(favPage), 'FavoritesPage feeds the host the favcat keys + selected favcat (selection bus)')
+ok(/onSelectKey:/.test(favPage) && /onVisualIndex:/.test(favPage) && /onScrollerReady:/.test(favPage), 'FavoritesPage wires onSelectKey + onVisualIndex + onScrollerReady to the host')
+ok(!/@Local\s+vm:\s*FavoritesViewModel/.test(favPage), 'FavoritesPage owns NO shared FavoritesViewModel (data lives in FavcatPage)')
+ok(/!this\.auth\.isLogin/.test(favPage), 'FavoritesPage preserves the login gate (host only mounts when logged in)')
+ok(/orderByPosted/.test(favPage) && /OrderMenu/.test(favPage), 'FavoritesPage preserves the global order toggle (writes the orderByPosted bus)')
+// FavcatBar specifics: scrollable + counts (many favcats overflow), built from TabItem with totals.
+ok(/scrollable:\s*true/.test(favcatBar), 'FavcatBar uses the SubTabBar scrollable mode (favcat overflow)')
+ok(/totNum/.test(favcatBar), 'FavcatBar shows per-favcat counts (totNum) via TabItem')
+// Index hands the active favcat scroller up too (title-scroller handoff for Favorites).
+ok(/setHomeActiveScroller\(1,/.test(indexShell), 'Index wires FavoritesPage.onScrollerReady → setHomeActiveScroller(1, …)')
 
 if (failures === 0) {
-  console.log('✓ retained-subtab framework (split A): shared RetainedSubtabHost + TabItem; Home + Toplist migrated onto it; per-key page/VM/scroller, selection + visual-index buses, shared SubTabBar, compact metrics, content-area loading policy (Favorites migration → split B)')
+  console.log('✓ retained-subtab framework (A+B): shared RetainedSubtabHost + TabItem; Home + Toplist + Favorites all migrated onto it; per-key page/VM/scroller, selection + visual-index buses, shared SubTabBar, compact metrics, content-area loading policy')
   process.exit(0)
 }
 console.error(`✗ retained-subtab framework contract: ${failures} failure(s)`)
