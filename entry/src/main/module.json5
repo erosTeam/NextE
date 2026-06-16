@@ -1,0 +1,43 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "mainElement": "EntryAbility",
+    "requestPermissions": [
+      { "name": "ohos.permission.INTERNET" },
+      { "name": "ohos.permission.GET_NETWORK_INFO" },
+      { "name": "ohos.permission.VIBRATE" }
+    ],
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:app_icon_layered",
+        "label": "$string:EntryAbility_label",
+        "launchType": "singleton",
+        "exported": true,
+        "startWindowIcon": "$media:startup_foreground",
+        "startWindowBackground": "$color:start_window_background",
+        "skills": [
+          {
+            "entities": ["entity.system.home"],
+            "actions": ["ohos.want.action.home"]
+          },
+          {
+            "actions": ["ohos.want.action.viewData"],
+            "uris": [
+              { "scheme": "https", "host": "e-hentai.org",   "pathStartWith": "/g/" },
+              { "scheme": "https", "host": "e-hentai.org",   "pathStartWith": "/s/" },
+              { "scheme": "https", "host": "exhentai.org",   "pathStartWith": "/g/" },
+              { "scheme": "https", "host": "exhentai.org",   "pathStartWith": "/s/" }
+            ]
+          }
+        ]
+      }
+    ],
+    "deviceTypes": ["phone", "tablet"],
+    "deliveryWithInstall": true,
+    "pages": "$profile:main_pages"
+  }
+}

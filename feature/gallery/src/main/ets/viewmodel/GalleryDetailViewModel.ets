@@ -1,0 +1,91 @@
+import {
+  EhApiService,
+  EhApiPhpService,
+  EhConstants,
+  EhGallery,
+  EhGalleryImage,
+  EhGalleryComment,
+  GalleryDetailResult,
+  connectSiteMode,
+  DiagnosticLogger,
+} from 'shared'
+
+/**
+ * Drives the gallery detail page. Seeded with the list-row gallery (cover + title) so the
+ * header paints instantly, then fetches the detail page and merges the richer header +
+ * tags + first preview page over it. `images` holds the page-1.. preview entries the
+ * reader resolves into full images.
+ */
+@ObservedV2
+export class GalleryDetailViewModel {
+  @Trace gallery: EhGallery = new EhGallery()
+  @Trace images: EhGalleryImage[] = []
+  @Trace comments: EhGalleryComment[] = []
+  @Trace loading: boolean = false
+  @Trace loaded: boolean = false
+  @Trace error: string = ''
+  // The detail shows ONLY the first preview page (a peek); previewPageCount drives the "view all"
+  // entry → the separate all-thumbnails page owns the rest of the paging (eros_fe firstPageImage).
+  @Trace previewPageCount: number = 1
+  private gid: string = ''
+  private token: string = ''
+
+  /** Seed the header from the list row for instant paint. */
+  seed(gallery: EhGallery): void {
+    this.gallery = gallery
+  }
+
+  async load(gid: string, token: string): Promise<void> {
+    if (this.loading || this.loaded) {
+      return
+    }
+    this.loading = true
+    this.error = ''
+    this.gid = gid
+    this.token = token
+    try {
+      // eros_fe enrich-then-detail order: a sparse seed (URL paste / deep link) carries only gid+token,
+      // no fileCount, so fetch the lighter /api.php gdata metadata first to paint a real header (title,
+      // cover, fileCount, rating, tags) before the heavier detail page parse lands. A list-row open
+      // already seeded fileCount, so this is skipped there — exactly eros_fe's filecount-absent gate.
+      if (this.gallery.fileCount.length === 0) {
+        await this.enrichFromApi(gid, token)
+      }
+      const res: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(
+        gid,
+        token,
+        connectSiteMode().isEx,
+      )
+      this.gallery = this.gallery.merge(res.gallery)
+      this.images = res.images
+      this.comments = res.comments
+      this.previewPageCount = res.previewPageCount
+      this.loaded = true
+    } catch (err) {
+      const e = err as Error
+      this.error = e.message
+      DiagnosticLogger.warn('gallery', 'detail_load_failed', e.message)
+    }
+    this.loading = false
+  }
+
+  /** Best-effort gdata metadata enrich for a sparse seed (eros_fe getMoreGalleryInfoOne). Non-fatal:
+   * the detail fetch below provides canonical data, so a gdata failure must not block the page. */
+  private async enrichFromApi(gid: string, token: string): Promise<void> {
+    try {
+      const base: string = EhConstants.baseUrl(connectSiteMode().isEx)
+      const seed: EhGallery = new EhGallery(gid, token)
+      const list: EhGallery[] = await EhApiPhpService.galleryData(base, [seed])
+      if (list.length > 0) {
+        this.gallery = this.gallery.merge(list[0])
+      }
+    } catch (err) {
+      DiagnosticLogger.warn('gallery', 'gdata_enrich_failed', (err as Error).message)
+    }
+  }
+
+  /** Whether more preview pages exist beyond the first (drives the "view all" entry). */
+  hasMorePreviews(): boolean {
+    return this.previewPageCount > 1
+  }
+}

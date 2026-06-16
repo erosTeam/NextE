@@ -1,0 +1,9 @@
+{
+  "name": "reader",
+  "version": "1.0.0",
+  "description": "NextE reader module - image viewer",
+  "main": "src/main/ets/Index.ets",
+  "dependencies": {
+    "shared": "file:../../shared"
+  }
+}

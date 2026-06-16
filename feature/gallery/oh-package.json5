@@ -1,0 +1,9 @@
+{
+  "name": "gallery",
+  "version": "1.0.0",
+  "description": "NextE gallery module - gallery detail",
+  "main": "src/main/ets/Index.ets",
+  "dependencies": {
+    "shared": "file:../../shared"
+  }
+}

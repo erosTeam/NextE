@@ -1,0 +1,7 @@
+{
+  "module": {
+    "name": "gallery",
+    "type": "har",
+    "deviceTypes": ["phone", "tablet"]
+  }
+}

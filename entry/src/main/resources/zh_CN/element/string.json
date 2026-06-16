@@ -1,0 +1,412 @@
+{
+  "string": [
+    {
+      "name": "EntryAbility_desc",
+      "value": "NextE 主入口"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "NextE"
+    },
+    {
+      "name": "entry_desc",
+      "value": "NextE 入口模块"
+    },
+    {
+      "name": "module_desc",
+      "value": "NextE 入口模块"
+    },
+    {
+      "name": "tab_home",
+      "value": "首页"
+    },
+    {
+      "name": "tab_search",
+      "value": "搜索"
+    },
+    {
+      "name": "tab_favorites",
+      "value": "收藏"
+    },
+    {
+      "name": "tab_gallery",
+      "value": "画廊"
+    },
+    {
+      "name": "tab_toplist",
+      "value": "排行"
+    },
+    {
+      "name": "tab_download",
+      "value": "下载"
+    },
+    {
+      "name": "tab_settings",
+      "value": "设置"
+    },
+    {
+      "name": "tab_me",
+      "value": "我的"
+    },
+    {
+      "name": "home_source_default",
+      "value": "默认"
+    },
+    {
+      "name": "home_source_popular",
+      "value": "热门"
+    },
+    {
+      "name": "home_source_watched",
+      "value": "订阅"
+    },
+    {
+      "name": "home_source_toplist",
+      "value": "排行"
+    },
+    {
+      "name": "toplist_all",
+      "value": "全部"
+    },
+    {
+      "name": "toplist_year",
+      "value": "年榜"
+    },
+    {
+      "name": "toplist_month",
+      "value": "月榜"
+    },
+    {
+      "name": "toplist_yesterday",
+      "value": "昨日"
+    },
+    {
+      "name": "search_placeholder",
+      "value": "搜索画廊…"
+    },
+    {
+      "name": "search_hint",
+      "value": "输入关键词搜索表站画廊"
+    },
+    {
+      "name": "favorites_login_hint",
+      "value": "登录后查看收藏"
+    },
+    {
+      "name": "common_loading",
+      "value": "加载中…"
+    },
+    {
+      "name": "common_retry",
+      "value": "重试"
+    },
+    {
+      "name": "common_load_failed",
+      "value": "加载失败"
+    },
+    {
+      "name": "common_no_more",
+      "value": "没有更多了"
+    },
+    {
+      "name": "common_load_failed_tap_retry",
+      "value": "加载失败，点击重试"
+    },
+    {
+      "name": "common_refresh_failed",
+      "value": "刷新失败"
+    },
+    {
+      "name": "common_no_content",
+      "value": "暂无内容"
+    },
+    {
+      "name": "nav_gallery",
+      "value": "画廊"
+    },
+    {
+      "name": "gallery_preview",
+      "value": "预览"
+    },
+    {
+      "name": "preview_load_more",
+      "value": "加载更多"
+    },
+    {
+      "name": "detail_read",
+      "value": "阅读"
+    },
+    {
+      "name": "detail_torrents",
+      "value": "种子: %s"
+    },
+    {
+      "name": "detail_parent",
+      "value": "父版本"
+    },
+    {
+      "name": "detail_share",
+      "value": "分享"
+    },
+    {
+      "name": "detail_similar",
+      "value": "相似"
+    },
+    {
+      "name": "detail_read_with_count",
+      "value": "阅读 (%sP)"
+    },
+    {
+      "name": "detail_read_resume",
+      "value": "继续 P%s"
+    },
+    {
+      "name": "image_load_failed",
+      "value": "图片加载失败"
+    },
+    {
+      "name": "settings_site",
+      "value": "站点"
+    },
+    {
+      "name": "settings_about",
+      "value": "关于"
+    },
+    {
+      "name": "gallery_meta",
+      "value": "%s页 · %s · 收藏 %s"
+    },
+    {
+      "name": "nav_login",
+      "value": "登录"
+    },
+    {
+      "name": "settings_login",
+      "value": "登录账号"
+    },
+    {
+      "name": "settings_account",
+      "value": "账号"
+    },
+    {
+      "name": "settings_logout",
+      "value": "退出登录"
+    },
+    {
+      "name": "login_success",
+      "value": "登录成功"
+    },
+    {
+      "name": "logout_confirm",
+      "value": "确定退出登录?"
+    },
+    {
+      "name": "common_cancel",
+      "value": "取消"
+    },
+    {
+      "name": "favorites_coming",
+      "value": "收藏功能即将上线"
+    },
+    {
+      "name": "favorites_all",
+      "value": "全部"
+    },
+    {
+      "name": "site_ex_locked",
+      "value": "里站需要登录且拥有 ExHentai 权限"
+    },
+    {
+      "name": "settings_mytags",
+      "value": "我的标签"
+    },
+    {
+      "name": "gallery_comments",
+      "value": "评论"
+    },
+    {
+      "name": "detail_view_all",
+      "value": "查看全部"
+    },
+    {
+      "name": "comment_uploader",
+      "value": "楼主"
+    },
+    {
+      "name": "filter",
+      "value": "筛选"
+    },
+    {
+      "name": "filter_category",
+      "value": "分类"
+    },
+    {
+      "name": "filter_rating",
+      "value": "最低评分"
+    },
+    {
+      "name": "filter_pages",
+      "value": "页数"
+    },
+    {
+      "name": "filter_any",
+      "value": "不限"
+    },
+    {
+      "name": "filter_reset",
+      "value": "重置"
+    },
+    {
+      "name": "filter_apply",
+      "value": "应用"
+    },
+    {
+      "name": "settings_view",
+      "value": "列表视图"
+    },
+    {
+      "name": "settings_reader",
+      "value": "阅读"
+    },
+    {
+      "name": "settings_reader_direction",
+      "value": "翻页方向"
+    },
+    {
+      "name": "view_list",
+      "value": "列表"
+    },
+    {
+      "name": "view_simple",
+      "value": "简洁"
+    },
+    {
+      "name": "view_grid",
+      "value": "网格"
+    },
+    {
+      "name": "read_mode_ltr",
+      "value": "左→右"
+    },
+    {
+      "name": "read_mode_rtl",
+      "value": "右→左"
+    },
+    {
+      "name": "read_mode_vertical",
+      "value": "竖向"
+    },
+    {
+      "name": "search_history",
+      "value": "搜索历史"
+    },
+    {
+      "name": "search_history_clear",
+      "value": "清除"
+    },
+    {
+      "name": "filter_options",
+      "value": "选项"
+    },
+    {
+      "name": "filter_require_torrent",
+      "value": "仅含种子"
+    },
+    {
+      "name": "filter_show_expunged",
+      "value": "显示已删除"
+    },
+    {
+      "name": "filter_disable_default",
+      "value": "禁用默认过滤"
+    },
+    {
+      "name": "filter_disable_lang",
+      "value": "禁用语言过滤"
+    },
+    {
+      "name": "filter_disable_uploader",
+      "value": "禁用上传者过滤"
+    },
+    {
+      "name": "filter_disable_tag",
+      "value": "禁用标签过滤"
+    },
+    {
+      "name": "fav_order_fav",
+      "value": "收藏时间"
+    },
+    {
+      "name": "fav_order_posted",
+      "value": "发布时间"
+    },
+    {
+      "name": "fav_order_title",
+      "value": "排序"
+    },
+    {
+      "name": "gallery_fav_note",
+      "value": "备注:%s"
+    },
+    {
+      "name": "tag_ns_artist",
+      "value": "作者"
+    },
+    {
+      "name": "tag_ns_female",
+      "value": "女性"
+    },
+    {
+      "name": "tag_ns_male",
+      "value": "男性"
+    },
+    {
+      "name": "tag_ns_parody",
+      "value": "原作"
+    },
+    {
+      "name": "tag_ns_character",
+      "value": "角色"
+    },
+    {
+      "name": "tag_ns_group",
+      "value": "团队"
+    },
+    {
+      "name": "tag_ns_language",
+      "value": "语言"
+    },
+    {
+      "name": "tag_ns_reclass",
+      "value": "归类"
+    },
+    {
+      "name": "tag_ns_cosplayer",
+      "value": "扮演者"
+    },
+    {
+      "name": "tag_ns_misc",
+      "value": "杂项"
+    },
+    {
+      "name": "tag_ns_other",
+      "value": "其他"
+    },
+    {
+      "name": "tag_ns_mixed",
+      "value": "混合"
+    },
+    {
+      "name": "tag_ns_uploader",
+      "value": "上传者"
+    },
+    {
+      "name": "tag_ns_temp",
+      "value": "临时"
+    },
+    {
+      "name": "gallery_tags",
+      "value": "标签"
+    }
+  ]
+}

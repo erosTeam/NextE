@@ -1,0 +1,28 @@
+{
+  "app": {
+    "products": [
+      {
+        "name": "default",
+        "targetSdkVersion": "26.0.0",
+        "compatibleSdkVersion": "6.1.0(23)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ]
+  },
+  "modules": [
+    { "name": "entry",    "srcPath": "./entry" },
+    { "name": "shared",   "srcPath": "./shared" },
+    { "name": "home",     "srcPath": "./feature/home" },
+    { "name": "gallery",  "srcPath": "./feature/gallery" },
+    { "name": "search",   "srcPath": "./feature/search" },
+    { "name": "reader",   "srcPath": "./feature/reader" },
+    { "name": "download", "srcPath": "./feature/download" },
+    { "name": "user",     "srcPath": "./feature/user" },
+    { "name": "settings", "srcPath": "./feature/settings" }
+  ]
+}

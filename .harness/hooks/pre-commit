@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# harness-kit VCS gate — runs the same verify orchestrator before each commit.
+# Tries PATH first (works inside Claude Code), falls back to the plugin path baked
+# at init time. If the plugin moved/updated, re-run: /harness-kit:init --force
+if command -v harness-verify >/dev/null 2>&1; then exec harness-verify; fi
+exec "/home/gamer/.claude/plugins/cache/harness-kit/harness-kit/0.1.3/bin/harness-verify"

@@ -1,0 +1,15 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "NextE entry module - navigation shell & cross-feature pages",
+  "dependencies": {
+    "shared":   "file:../shared",
+    "home":     "file:../feature/home",
+    "gallery":  "file:../feature/gallery",
+    "search":   "file:../feature/search",
+    "reader":   "file:../feature/reader",
+    "download": "file:../feature/download",
+    "user":     "file:../feature/user",
+    "settings": "file:../feature/settings"
+  }
+}

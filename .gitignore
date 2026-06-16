@@ -1,0 +1,23 @@
+.hvigor/
+entry/build/
+**/build/
+**/BuildProfile.ets
+oh_modules/
+node_modules/
+__pycache__/
+*.pyc
+*.hap
+*.signed.hap
+.env.local
+.claude/
+.cursor/skills/
+.opencode/
+.idea/
+.appanalyzer/
+oh-package-lock.json5
+local.properties
+# Signing config is injected by dev.sh/sign.py at build time, never committed
+scripts/dev.env
+# Captured EH page fixtures for local parser smoke-checks (site content, not committed).
+# The committed contract tests carry an inline synthetic fixture as the hard gate.
+scripts/fixtures/

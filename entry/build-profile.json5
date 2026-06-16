@@ -1,0 +1,24 @@
+{
+  "apiType": "stageMode",
+  "buildOptionSet": [
+    {
+      "name": "debug",
+      "debuggable": true
+    },
+    {
+      "name": "release",
+      "debuggable": false,
+      "nativeLib": {
+        "filter": {
+          "excludes": ["**/x86_64/**"]
+        }
+      }
+    }
+  ],
+  "targets": [
+    {
+      "name": "default",
+      "runtimeOS": "HarmonyOS"
+    }
+  ]
+}

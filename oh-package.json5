@@ -1,0 +1,10 @@
+{
+  "modelVersion": "6.1.1",
+  "name": "nexte",
+  "version": "1.0.0",
+  "description": "NextE - HarmonyOS NEXT native E-Hentai client",
+  "main": "",
+  "author": "erosTeam",
+  "license": "MIT",
+  "dependencies": {}
+}

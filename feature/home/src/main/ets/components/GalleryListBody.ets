@@ -1,0 +1,143 @@
+import {
+  ThemeConstants,
+  EhGallery,
+  GalleryCard,
+  GalleryGridCard,
+  GallerySimpleCard,
+  GalleryDetailParams,
+  LoadingFooter,
+  PullRefreshListScaffold,
+  PullRefreshGridScaffold,
+  PullRefreshController,
+  PageLoadingState,
+  PageErrorState,
+  CardEmptyState,
+  connectNavStack,
+  connectListMode,
+  ListModeState,
+  ListMode,
+} from 'shared'
+import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
+
+/**
+ * The shared gallery-list body (loading / error / empty / grid / list / simple branches + paging),
+ * used by both HomePage (Gallery tab) and ToplistPage (Toplist tab) so they can't drift. The page
+ * owns the ViewModel + its source/period monitors + the pinned title-bar selector bar; this renders
+ * the list and insets the first row below that pinned bar via `topPadding`.
+ */
+@ComponentV2
+export struct GalleryListBody {
+  @Require @Param vm: GalleryListViewModel;
+  // Height of the page's pinned selector bar (source bar / period bar) so the first row clears it.
+  @Param topPadding: number = 0;
+  // Index owns one Scroller per tab and passes it down so the HdsNavigation title can bindToScrollable
+  // the ACTIVE tab's list (scroll-up title auto-hide). Default for standalone use.
+  @Param scroller: Scroller = new Scroller();
+  @Local listMode: ListModeState = connectListMode();
+  private stack: NavPathStack = connectNavStack().stack;
+  private refreshController: PullRefreshController = new PullRefreshController();
+
+  private openDetail(g: EhGallery): void {
+    this.stack.pushPathByName(
+      'GalleryDetail',
+      new GalleryDetailParams(g.gid, g.token, g.thumbUrl, g.title(), g.fileCount),
+    )
+  }
+
+  build() {
+    Column() {
+      if (this.vm.isLoading && this.vm.itemCount === 0) {
+        PageLoadingState()
+      } else if (this.vm.itemCount === 0 && this.vm.errorMessage.length > 0) {
+        PageErrorState({
+          message: this.vm.errorMessage,
+          retryAction: () => {
+            this.vm.loadData()
+          },
+        })
+      } else if (this.vm.itemCount === 0 && this.vm.source === '') {
+        // Only the front page takes over the screen when empty; other sources fall through to the
+        // scaffold so the pinned bar stays the only chrome (an empty list isn't a dead-end).
+        CardEmptyState({ message: $r('app.string.common_no_content') })
+      } else if (this.listMode.mode === ListMode.GRID) {
+        PullRefreshGridScaffold({
+          scroller: this.scroller,
+          topPadding: this.topPadding,
+          bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+          controller: this.refreshController,
+          onRefresh: async () => {
+            await this.vm.refresh()
+          },
+          onBottomRefresh: async () => {
+            await this.vm.loadMore()
+          },
+          canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onReachEnd: () => {
+            this.vm.loadMore()
+          },
+        }) {
+          LazyForEach(
+            this.vm.dataSource,
+            (g: EhGallery) => {
+              GridItem() {
+                GalleryGridCard({ gallery: g })
+              }
+              .onClick(() => {
+                this.openDetail(g)
+              })
+            },
+            (g: EhGallery) => g.gid,
+          )
+        }
+      } else {
+        PullRefreshListScaffold({
+          scroller: this.scroller,
+          topPadding: this.topPadding,
+          listSpace: this.listMode.mode === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
+          bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+          controller: this.refreshController,
+          onRefresh: async () => {
+            await this.vm.refresh()
+          },
+          onBottomRefresh: async () => {
+            await this.vm.loadMore()
+          },
+          canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onReachEnd: () => {
+            this.vm.loadMore()
+          },
+        }) {
+          LazyForEach(
+            this.vm.dataSource,
+            (g: EhGallery) => {
+              ListItem() {
+                if (this.listMode.mode === ListMode.SIMPLE_LIST) {
+                  GallerySimpleCard({ gallery: g })
+                } else {
+                  GalleryCard({ gallery: g })
+                }
+              }
+              .onClick(() => {
+                this.openDetail(g)
+              })
+            },
+            (g: EhGallery) => g.gid,
+          )
+          ListItem() {
+            LoadingFooter({
+              isLoading: this.vm.isLoadingMore,
+              hasMore: this.vm.hasMore,
+              isError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
+              onRetry: () => {
+                this.vm.loadMore()
+              },
+            })
+          }
+        }
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+  }
+}

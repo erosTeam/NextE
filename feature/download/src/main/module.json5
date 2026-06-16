@@ -1,0 +1,7 @@
+{
+  "module": {
+    "name": "download",
+    "type": "har",
+    "deviceTypes": ["phone", "tablet"]
+  }
+}

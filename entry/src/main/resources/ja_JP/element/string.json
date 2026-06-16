@@ -1,0 +1,412 @@
+{
+  "string": [
+    {
+      "name": "EntryAbility_desc",
+      "value": "NextE メインアビリティ"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "NextE"
+    },
+    {
+      "name": "entry_desc",
+      "value": "NextE エントリモジュール"
+    },
+    {
+      "name": "module_desc",
+      "value": "NextE エントリモジュール"
+    },
+    {
+      "name": "tab_home",
+      "value": "ホーム"
+    },
+    {
+      "name": "tab_search",
+      "value": "検索"
+    },
+    {
+      "name": "tab_favorites",
+      "value": "お気に入り"
+    },
+    {
+      "name": "tab_gallery",
+      "value": "ギャラリー"
+    },
+    {
+      "name": "tab_toplist",
+      "value": "ランキング"
+    },
+    {
+      "name": "tab_download",
+      "value": "ダウンロード"
+    },
+    {
+      "name": "tab_settings",
+      "value": "設定"
+    },
+    {
+      "name": "tab_me",
+      "value": "マイ"
+    },
+    {
+      "name": "home_source_default",
+      "value": "デフォルト"
+    },
+    {
+      "name": "home_source_popular",
+      "value": "人気"
+    },
+    {
+      "name": "home_source_watched",
+      "value": "購読"
+    },
+    {
+      "name": "home_source_toplist",
+      "value": "ランキング"
+    },
+    {
+      "name": "toplist_all",
+      "value": "全期間"
+    },
+    {
+      "name": "toplist_year",
+      "value": "年間"
+    },
+    {
+      "name": "toplist_month",
+      "value": "月間"
+    },
+    {
+      "name": "toplist_yesterday",
+      "value": "昨日"
+    },
+    {
+      "name": "search_placeholder",
+      "value": "ギャラリーを検索…"
+    },
+    {
+      "name": "search_hint",
+      "value": "キーワードを入力して検索"
+    },
+    {
+      "name": "favorites_login_hint",
+      "value": "ログインしてお気に入りを表示"
+    },
+    {
+      "name": "common_loading",
+      "value": "読み込み中…"
+    },
+    {
+      "name": "common_retry",
+      "value": "再試行"
+    },
+    {
+      "name": "common_load_failed",
+      "value": "読み込み失敗"
+    },
+    {
+      "name": "common_no_more",
+      "value": "これ以上ありません"
+    },
+    {
+      "name": "common_load_failed_tap_retry",
+      "value": "読み込み失敗、タップして再試行"
+    },
+    {
+      "name": "common_refresh_failed",
+      "value": "更新に失敗しました"
+    },
+    {
+      "name": "common_no_content",
+      "value": "コンテンツなし"
+    },
+    {
+      "name": "nav_gallery",
+      "value": "ギャラリー"
+    },
+    {
+      "name": "gallery_preview",
+      "value": "プレビュー"
+    },
+    {
+      "name": "preview_load_more",
+      "value": "もっと読み込む"
+    },
+    {
+      "name": "detail_read",
+      "value": "読む"
+    },
+    {
+      "name": "detail_torrents",
+      "value": "トレント: %s"
+    },
+    {
+      "name": "detail_parent",
+      "value": "親バージョン"
+    },
+    {
+      "name": "detail_share",
+      "value": "共有"
+    },
+    {
+      "name": "detail_similar",
+      "value": "類似"
+    },
+    {
+      "name": "detail_read_with_count",
+      "value": "読む (%sP)"
+    },
+    {
+      "name": "detail_read_resume",
+      "value": "再開 P%s"
+    },
+    {
+      "name": "image_load_failed",
+      "value": "画像の読み込みに失敗しました"
+    },
+    {
+      "name": "settings_site",
+      "value": "サイト"
+    },
+    {
+      "name": "settings_about",
+      "value": "バージョン情報"
+    },
+    {
+      "name": "gallery_meta",
+      "value": "%sページ · %s · お気に入り %s"
+    },
+    {
+      "name": "nav_login",
+      "value": "ログイン"
+    },
+    {
+      "name": "settings_login",
+      "value": "ログイン"
+    },
+    {
+      "name": "settings_account",
+      "value": "アカウント"
+    },
+    {
+      "name": "settings_logout",
+      "value": "ログアウト"
+    },
+    {
+      "name": "login_success",
+      "value": "ログインしました"
+    },
+    {
+      "name": "logout_confirm",
+      "value": "ログアウトしますか?"
+    },
+    {
+      "name": "common_cancel",
+      "value": "キャンセル"
+    },
+    {
+      "name": "favorites_coming",
+      "value": "お気に入りは近日公開"
+    },
+    {
+      "name": "favorites_all",
+      "value": "すべて"
+    },
+    {
+      "name": "site_ex_locked",
+      "value": "ExHentai はログインとアクセス権が必要"
+    },
+    {
+      "name": "settings_mytags",
+      "value": "マイタグ"
+    },
+    {
+      "name": "gallery_comments",
+      "value": "コメント"
+    },
+    {
+      "name": "detail_view_all",
+      "value": "すべて表示"
+    },
+    {
+      "name": "comment_uploader",
+      "value": "投稿者"
+    },
+    {
+      "name": "filter",
+      "value": "絞り込み"
+    },
+    {
+      "name": "filter_category",
+      "value": "カテゴリ"
+    },
+    {
+      "name": "filter_rating",
+      "value": "最低評価"
+    },
+    {
+      "name": "filter_pages",
+      "value": "ページ数"
+    },
+    {
+      "name": "filter_any",
+      "value": "指定なし"
+    },
+    {
+      "name": "filter_reset",
+      "value": "リセット"
+    },
+    {
+      "name": "filter_apply",
+      "value": "適用"
+    },
+    {
+      "name": "settings_view",
+      "value": "表示形式"
+    },
+    {
+      "name": "settings_reader",
+      "value": "閲覧"
+    },
+    {
+      "name": "settings_reader_direction",
+      "value": "ページめくり方向"
+    },
+    {
+      "name": "view_list",
+      "value": "リスト"
+    },
+    {
+      "name": "view_simple",
+      "value": "コンパクト"
+    },
+    {
+      "name": "view_grid",
+      "value": "グリッド"
+    },
+    {
+      "name": "read_mode_ltr",
+      "value": "左→右"
+    },
+    {
+      "name": "read_mode_rtl",
+      "value": "右→左"
+    },
+    {
+      "name": "read_mode_vertical",
+      "value": "縦"
+    },
+    {
+      "name": "search_history",
+      "value": "検索履歴"
+    },
+    {
+      "name": "search_history_clear",
+      "value": "クリア"
+    },
+    {
+      "name": "filter_options",
+      "value": "オプション"
+    },
+    {
+      "name": "filter_require_torrent",
+      "value": "トレントのみ"
+    },
+    {
+      "name": "filter_show_expunged",
+      "value": "削除済みを表示"
+    },
+    {
+      "name": "filter_disable_default",
+      "value": "デフォルトフィルタ無効"
+    },
+    {
+      "name": "filter_disable_lang",
+      "value": "言語フィルタ無効"
+    },
+    {
+      "name": "filter_disable_uploader",
+      "value": "アップローダーフィルタ無効"
+    },
+    {
+      "name": "filter_disable_tag",
+      "value": "タグフィルタ無効"
+    },
+    {
+      "name": "fav_order_fav",
+      "value": "お気に入り順"
+    },
+    {
+      "name": "fav_order_posted",
+      "value": "投稿順"
+    },
+    {
+      "name": "fav_order_title",
+      "value": "並び替え"
+    },
+    {
+      "name": "gallery_fav_note",
+      "value": "メモ:%s"
+    },
+    {
+      "name": "tag_ns_artist",
+      "value": "作者"
+    },
+    {
+      "name": "tag_ns_female",
+      "value": "女性"
+    },
+    {
+      "name": "tag_ns_male",
+      "value": "男性"
+    },
+    {
+      "name": "tag_ns_parody",
+      "value": "パロディ"
+    },
+    {
+      "name": "tag_ns_character",
+      "value": "キャラクター"
+    },
+    {
+      "name": "tag_ns_group",
+      "value": "グループ"
+    },
+    {
+      "name": "tag_ns_language",
+      "value": "言語"
+    },
+    {
+      "name": "tag_ns_reclass",
+      "value": "再分類"
+    },
+    {
+      "name": "tag_ns_cosplayer",
+      "value": "コスプレイヤー"
+    },
+    {
+      "name": "tag_ns_misc",
+      "value": "その他"
+    },
+    {
+      "name": "tag_ns_other",
+      "value": "その他"
+    },
+    {
+      "name": "tag_ns_mixed",
+      "value": "混合"
+    },
+    {
+      "name": "tag_ns_uploader",
+      "value": "投稿者"
+    },
+    {
+      "name": "tag_ns_temp",
+      "value": "一時"
+    },
+    {
+      "name": "gallery_tags",
+      "value": "タグ"
+    }
+  ]
+}

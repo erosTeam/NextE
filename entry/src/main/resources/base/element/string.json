@@ -1,0 +1,412 @@
+{
+  "string": [
+    {
+      "name": "EntryAbility_desc",
+      "value": "NextE main ability"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "NextE"
+    },
+    {
+      "name": "entry_desc",
+      "value": "NextE entry module"
+    },
+    {
+      "name": "module_desc",
+      "value": "NextE entry module"
+    },
+    {
+      "name": "tab_home",
+      "value": "Home"
+    },
+    {
+      "name": "tab_search",
+      "value": "Search"
+    },
+    {
+      "name": "tab_favorites",
+      "value": "Favorites"
+    },
+    {
+      "name": "tab_gallery",
+      "value": "Gallery"
+    },
+    {
+      "name": "tab_toplist",
+      "value": "Toplist"
+    },
+    {
+      "name": "tab_download",
+      "value": "Downloads"
+    },
+    {
+      "name": "tab_settings",
+      "value": "Settings"
+    },
+    {
+      "name": "tab_me",
+      "value": "Me"
+    },
+    {
+      "name": "home_source_default",
+      "value": "Default"
+    },
+    {
+      "name": "home_source_popular",
+      "value": "Popular"
+    },
+    {
+      "name": "home_source_watched",
+      "value": "Watched"
+    },
+    {
+      "name": "home_source_toplist",
+      "value": "Toplist"
+    },
+    {
+      "name": "toplist_all",
+      "value": "All-Time"
+    },
+    {
+      "name": "toplist_year",
+      "value": "Year"
+    },
+    {
+      "name": "toplist_month",
+      "value": "Month"
+    },
+    {
+      "name": "toplist_yesterday",
+      "value": "Yesterday"
+    },
+    {
+      "name": "search_placeholder",
+      "value": "Search galleries…"
+    },
+    {
+      "name": "search_hint",
+      "value": "Type a keyword to search the table site"
+    },
+    {
+      "name": "favorites_login_hint",
+      "value": "Log in to view favorites"
+    },
+    {
+      "name": "common_loading",
+      "value": "Loading…"
+    },
+    {
+      "name": "common_retry",
+      "value": "Retry"
+    },
+    {
+      "name": "common_load_failed",
+      "value": "Load failed"
+    },
+    {
+      "name": "common_no_more",
+      "value": "No more"
+    },
+    {
+      "name": "common_load_failed_tap_retry",
+      "value": "Load failed, tap to retry"
+    },
+    {
+      "name": "common_refresh_failed",
+      "value": "Refresh failed"
+    },
+    {
+      "name": "common_no_content",
+      "value": "No content"
+    },
+    {
+      "name": "nav_gallery",
+      "value": "Gallery"
+    },
+    {
+      "name": "gallery_preview",
+      "value": "Preview"
+    },
+    {
+      "name": "preview_load_more",
+      "value": "Load more"
+    },
+    {
+      "name": "detail_read",
+      "value": "Read"
+    },
+    {
+      "name": "detail_torrents",
+      "value": "Torrents: %s"
+    },
+    {
+      "name": "detail_parent",
+      "value": "Parent"
+    },
+    {
+      "name": "detail_share",
+      "value": "Share"
+    },
+    {
+      "name": "detail_similar",
+      "value": "Similar"
+    },
+    {
+      "name": "detail_read_with_count",
+      "value": "Read (%sP)"
+    },
+    {
+      "name": "detail_read_resume",
+      "value": "Resume P%s"
+    },
+    {
+      "name": "image_load_failed",
+      "value": "Failed to load image"
+    },
+    {
+      "name": "settings_site",
+      "value": "Site"
+    },
+    {
+      "name": "settings_about",
+      "value": "About"
+    },
+    {
+      "name": "gallery_meta",
+      "value": "%sP · %s · Favorited %s"
+    },
+    {
+      "name": "nav_login",
+      "value": "Login"
+    },
+    {
+      "name": "settings_login",
+      "value": "Log in"
+    },
+    {
+      "name": "settings_account",
+      "value": "Account"
+    },
+    {
+      "name": "settings_logout",
+      "value": "Log out"
+    },
+    {
+      "name": "login_success",
+      "value": "Logged in"
+    },
+    {
+      "name": "logout_confirm",
+      "value": "Log out of your account?"
+    },
+    {
+      "name": "common_cancel",
+      "value": "Cancel"
+    },
+    {
+      "name": "favorites_coming",
+      "value": "Favorites are coming soon"
+    },
+    {
+      "name": "favorites_all",
+      "value": "All"
+    },
+    {
+      "name": "site_ex_locked",
+      "value": "ExHentai needs login + ExHentai access"
+    },
+    {
+      "name": "settings_mytags",
+      "value": "My Tags"
+    },
+    {
+      "name": "gallery_comments",
+      "value": "Comments"
+    },
+    {
+      "name": "detail_view_all",
+      "value": "View all"
+    },
+    {
+      "name": "comment_uploader",
+      "value": "Uploader"
+    },
+    {
+      "name": "filter",
+      "value": "Filter"
+    },
+    {
+      "name": "filter_category",
+      "value": "Categories"
+    },
+    {
+      "name": "filter_rating",
+      "value": "Min rating"
+    },
+    {
+      "name": "filter_pages",
+      "value": "Pages"
+    },
+    {
+      "name": "filter_any",
+      "value": "Any"
+    },
+    {
+      "name": "filter_reset",
+      "value": "Reset"
+    },
+    {
+      "name": "filter_apply",
+      "value": "Apply"
+    },
+    {
+      "name": "settings_view",
+      "value": "List view"
+    },
+    {
+      "name": "settings_reader",
+      "value": "Reading"
+    },
+    {
+      "name": "settings_reader_direction",
+      "value": "Page direction"
+    },
+    {
+      "name": "view_list",
+      "value": "List"
+    },
+    {
+      "name": "view_simple",
+      "value": "Compact"
+    },
+    {
+      "name": "view_grid",
+      "value": "Grid"
+    },
+    {
+      "name": "read_mode_ltr",
+      "value": "L → R"
+    },
+    {
+      "name": "read_mode_rtl",
+      "value": "R → L"
+    },
+    {
+      "name": "read_mode_vertical",
+      "value": "Vertical"
+    },
+    {
+      "name": "search_history",
+      "value": "Recent"
+    },
+    {
+      "name": "search_history_clear",
+      "value": "Clear"
+    },
+    {
+      "name": "filter_options",
+      "value": "Options"
+    },
+    {
+      "name": "filter_require_torrent",
+      "value": "With torrent only"
+    },
+    {
+      "name": "filter_show_expunged",
+      "value": "Show expunged"
+    },
+    {
+      "name": "filter_disable_default",
+      "value": "Disable default filters"
+    },
+    {
+      "name": "filter_disable_lang",
+      "value": "Disable language filter"
+    },
+    {
+      "name": "filter_disable_uploader",
+      "value": "Disable uploader filter"
+    },
+    {
+      "name": "filter_disable_tag",
+      "value": "Disable tag filter"
+    },
+    {
+      "name": "fav_order_fav",
+      "value": "By favorited"
+    },
+    {
+      "name": "fav_order_posted",
+      "value": "By posted"
+    },
+    {
+      "name": "fav_order_title",
+      "value": "Sort order"
+    },
+    {
+      "name": "gallery_fav_note",
+      "value": "Note: %s"
+    },
+    {
+      "name": "tag_ns_artist",
+      "value": "Artist"
+    },
+    {
+      "name": "tag_ns_female",
+      "value": "Female"
+    },
+    {
+      "name": "tag_ns_male",
+      "value": "Male"
+    },
+    {
+      "name": "tag_ns_parody",
+      "value": "Parody"
+    },
+    {
+      "name": "tag_ns_character",
+      "value": "Character"
+    },
+    {
+      "name": "tag_ns_group",
+      "value": "Group"
+    },
+    {
+      "name": "tag_ns_language",
+      "value": "Language"
+    },
+    {
+      "name": "tag_ns_reclass",
+      "value": "Reclass"
+    },
+    {
+      "name": "tag_ns_cosplayer",
+      "value": "Cosplayer"
+    },
+    {
+      "name": "tag_ns_misc",
+      "value": "Misc"
+    },
+    {
+      "name": "tag_ns_other",
+      "value": "Other"
+    },
+    {
+      "name": "tag_ns_mixed",
+      "value": "Mixed"
+    },
+    {
+      "name": "tag_ns_uploader",
+      "value": "Uploader"
+    },
+    {
+      "name": "tag_ns_temp",
+      "value": "Temp"
+    },
+    {
+      "name": "gallery_tags",
+      "value": "Tags"
+    }
+  ]
+}

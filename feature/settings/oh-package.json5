@@ -1,0 +1,9 @@
+{
+  "name": "settings",
+  "version": "1.0.0",
+  "description": "NextE settings module - settings hub",
+  "main": "src/main/ets/Index.ets",
+  "dependencies": {
+    "shared": "file:../../shared"
+  }
+}

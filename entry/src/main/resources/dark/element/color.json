@@ -1,0 +1,152 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#121212"
+    },
+    {
+      "name": "card_background",
+      "value": "#191919"
+    },
+    {
+      "name": "color_bg",
+      "value": "#121212"
+    },
+    {
+      "name": "color_text_primary",
+      "value": "#EDEDED"
+    },
+    {
+      "name": "color_text_secondary",
+      "value": "#999999"
+    },
+    {
+      "name": "color_divider",
+      "value": "#2C2C2C"
+    },
+    {
+      "name": "score_positive",
+      "value": "#4FB36A"
+    },
+    {
+      "name": "score_negative",
+      "value": "#E5675F"
+    },
+    {
+      "name": "text_on_brand",
+      "value": "#FFFFFF"
+    },
+    {
+      "name": "fav_heart_default",
+      "value": "#FF5A5A"
+    },
+    {
+      "name": "cat_doujinshi",
+      "value": "#913127"
+    },
+    {
+      "name": "cat_manga",
+      "value": "#CE7138"
+    },
+    {
+      "name": "cat_artistcg",
+      "value": "#CA913A"
+    },
+    {
+      "name": "cat_gamecg",
+      "value": "#739170"
+    },
+    {
+      "name": "cat_western",
+      "value": "#A99E68"
+    },
+    {
+      "name": "cat_nonh",
+      "value": "#70A8CB"
+    },
+    {
+      "name": "cat_imageset",
+      "value": "#3B5D9D"
+    },
+    {
+      "name": "cat_cosplay",
+      "value": "#62399C"
+    },
+    {
+      "name": "cat_asianporn",
+      "value": "#963C7F"
+    },
+    {
+      "name": "cat_misc",
+      "value": "#BC5B7B"
+    },
+    {
+      "name": "cat_private",
+      "value": "#464649"
+    },
+    {
+      "name": "tagns_artist",
+      "value": "#5E544E"
+    },
+    {
+      "name": "tagns_female",
+      "value": "#906F44"
+    },
+    {
+      "name": "tagns_male",
+      "value": "#968A4A"
+    },
+    {
+      "name": "tagns_parody",
+      "value": "#487068"
+    },
+    {
+      "name": "tagns_character",
+      "value": "#49677F"
+    },
+    {
+      "name": "tagns_group",
+      "value": "#615284"
+    },
+    {
+      "name": "tagns_language",
+      "value": "#7F4A6B"
+    },
+    {
+      "name": "tagns_reclass",
+      "value": "#925554"
+    },
+    {
+      "name": "tagns_cosplayer",
+      "value": "#7F4A6B"
+    },
+    {
+      "name": "tagns_misc",
+      "value": "#63666A"
+    },
+    {
+      "name": "tag_vote_up",
+      "value": "#6ED26E"
+    },
+    {
+      "name": "tag_vote_down",
+      "value": "#FA6B7D"
+    },
+    {
+      "name": "rating_star_orange",
+      "value": "#FF962E"
+    },
+    {
+      "name": "rating_star_red",
+      "value": "#FF6478"
+    },
+    {
+      "name": "rating_star_green",
+      "value": "#32C832"
+    },
+    {
+      "name": "rating_star_blue",
+      "value": "#7E78FF"
+    }
+  ]
+}

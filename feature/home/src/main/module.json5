@@ -1,0 +1,7 @@
+{
+  "module": {
+    "name": "home",
+    "type": "har",
+    "deviceTypes": ["phone", "tablet"]
+  }
+}

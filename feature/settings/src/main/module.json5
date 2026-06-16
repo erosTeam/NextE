@@ -1,0 +1,7 @@
+{
+  "module": {
+    "name": "settings",
+    "type": "har",
+    "deviceTypes": ["phone", "tablet"]
+  }
+}
