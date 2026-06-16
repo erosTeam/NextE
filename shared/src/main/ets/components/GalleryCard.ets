@@ -85,6 +85,9 @@ export struct GalleryCard {
         thumbWidth: cardCoverWidth(),
         stretchHeight: true,
         radius: 0,
+        // The list row grows taller than a cover's aspect when the text column is tall (2-line title +
+        // wrapped tags), so Cover would crop the cover's sides; Contain shows the whole cover over the grey.
+        containFit: true,
       })
       Column({ space: ThemeConstants.SPACE_XS }) {
         Text(this.gallery.title())

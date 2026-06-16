@@ -24,6 +24,12 @@ export struct EhThumbnail {
   // grid thumbnail gets the same grey backing + load spinner as the list cover instead of a bare Image.
   // (Named coverRatio, not aspectRatio — the latter collides with the built-in component attribute.)
   @Param coverRatio: number = 0;
+  // Fit the WHOLE cover inside its frame (letterbox over the grey backdrop) instead of center-cropping.
+  // The list/detail covers grow taller than a cover's aspect (a tag-rich list row, the fixed detail box),
+  // and Cover then crops the cover's sides; Contain shows the full art over the distinct grey, matching
+  // eros_fe (which fits the cover to its longest side over systemGrey). The grid keeps Cover — its cell IS
+  // the cover aspect, so there is nothing to crop. Default Cover so other callers are unaffected.
+  @Param containFit: boolean = false;
   // Cover painted yet? Drives the placeholder spinner. Resets when the row is recycled to a new url.
   @Local loaded: boolean = false;
 
@@ -48,8 +54,8 @@ export struct EhThumbnail {
       Image(EhConstants.cdnThumb(this.url))
         .width('100%')
         .aspectRatio(this.coverRatio)
-        .objectFit(ImageFit.Cover)
-        .backgroundColor(ThemeConstants.BG_SUB)
+        .objectFit(this.containFit ? ImageFit.Contain : ImageFit.Cover)
+        .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
         .borderRadius(this.radius)
         .draggable(false)
         .onComplete(() => {
@@ -62,8 +68,8 @@ export struct EhThumbnail {
     } else if (this.stretchHeight) {
       Image(EhConstants.cdnThumb(this.url))
         .width(this.thumbWidth)
-        .objectFit(ImageFit.Cover)
-        .backgroundColor(ThemeConstants.BG_SUB)
+        .objectFit(this.containFit ? ImageFit.Contain : ImageFit.Cover)
+        .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
         .borderRadius(this.radius)
         .draggable(false)
         .onComplete(() => {
@@ -77,8 +83,8 @@ export struct EhThumbnail {
       Image(EhConstants.cdnThumb(this.url))
         .width(this.thumbWidth)
         .height(this.fillHeight ? '100%' : this.thumbHeight)
-        .objectFit(ImageFit.Cover)
-        .backgroundColor(ThemeConstants.BG_SUB)
+        .objectFit(this.containFit ? ImageFit.Contain : ImageFit.Cover)
+        .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
         .borderRadius(this.radius)
         .draggable(false)
         .onComplete(() => {

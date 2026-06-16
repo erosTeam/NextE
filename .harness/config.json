@@ -61,6 +61,11 @@
       "blocking": true
     },
     {
+      "name": "cover-presentation",
+      "command": "node scripts/test_cover_presentation_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "i18n-duplicates",
       "command": "python3 scripts/check_i18n_duplicates.py",
       "blocking": true

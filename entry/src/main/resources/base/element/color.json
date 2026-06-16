@@ -9,6 +9,10 @@
       "value": "#FFFFFF"
     },
     {
+      "name": "cover_placeholder",
+      "value": "#E6E8EB"
+    },
+    {
       "name": "color_bg",
       "value": "#F5F5F5"
     },

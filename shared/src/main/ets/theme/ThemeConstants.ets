@@ -22,6 +22,11 @@ export class ThemeConstants {
   static readonly TEXT_LINK: ResourceColor = $r('sys.color.font_emphasize')
   static readonly BG_PRIMARY: ResourceColor = $r('sys.color.background_primary')
   static readonly BG_SUB: ResourceColor = $r('sys.color.ohos_id_color_sub_background')
+  // Cover backdrop: the grey surface BEHIND a gallery cover (the loading placeholder and the letterbox
+  // bars under a Contain-fitted off-aspect cover). Deliberately DISTINCT from card_background — the system
+  // sub-background ≈ card_background in both themes, so an unloaded/short cover blended into the card and
+  // read as "the card is cut in half". eros_fe CoverImg uses systemGrey5/6 here, never the card surface.
+  static readonly COVER_PLACEHOLDER: ResourceColor = $r('app.color.cover_placeholder')
   static readonly DIVIDER: ResourceColor = $r('sys.color.ohos_id_color_list_separator')
   // Translucent black scrim for chrome drawn OVER full-bleed images (reader page counter,
   // future over-image controls). No system token fits an over-image scrim — V2Next hardcodes

@@ -57,6 +57,9 @@ export struct GalleryHeaderCard {
           thumbWidth: COVER_W,
           thumbHeight: COVER_H,
           radius: ThemeConstants.RADIUS_SM,
+          // The detail cover box is a FIXED COVER_W×COVER_H; a cover whose aspect differs would be
+          // side/top cropped by Cover, so Contain fits the whole cover over the grey backdrop (eros_fe).
+          containFit: true,
         })
         Column({ space: ThemeConstants.SPACE_XS }) {
           // Flexible text group: takes all space ABOVE the reserved action row and CLIPS, so a long
