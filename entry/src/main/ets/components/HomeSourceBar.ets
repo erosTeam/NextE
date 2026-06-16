@@ -6,7 +6,7 @@ import {
   connectHomeSourceVisualIndex,
   TabVisualIndexState,
   SubTabBar,
-  SubTabItem,
+  TabItem,
 } from 'shared'
 
 /**
@@ -25,13 +25,13 @@ export struct HomeSourceBar {
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
 
   // Must mirror HomePage.visibleSources() order so the visual index lines up with the right tab.
-  private tabs(): SubTabItem[] {
-    const items: SubTabItem[] = [
-      new SubTabItem('', $r('app.string.home_source_default')),
-      new SubTabItem('popular', $r('app.string.home_source_popular')),
+  private tabs(): TabItem[] {
+    const items: TabItem[] = [
+      new TabItem('', $r('app.string.home_source_default')),
+      new TabItem('popular', $r('app.string.home_source_popular')),
     ]
     if (this.auth.isLogin) {
-      items.push(new SubTabItem('watched', $r('app.string.home_source_watched')))
+      items.push(new TabItem('watched', $r('app.string.home_source_watched')))
     }
     return items
   }
@@ -41,7 +41,7 @@ export struct HomeSourceBar {
       tabs: this.tabs(),
       visualIndex: this.visual.value,
       onSelect: (index: number) => {
-        const items: SubTabItem[] = this.tabs()
+        const items: TabItem[] = this.tabs()
         if (index >= 0 && index < items.length) {
           this.home.source = items[index].key
         }

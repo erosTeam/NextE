@@ -4,7 +4,7 @@ import {
   connectToplistVisualIndex,
   TabVisualIndexState,
   SubTabBar,
-  SubTabItem,
+  TabItem,
 } from 'shared'
 
 // Periods in the same order as ToplistPage's Swiper (TOPLIST_PERIODS): 全部(11) · 年榜(12) · 月榜(13) · 昨日(15).
@@ -21,12 +21,12 @@ export struct ToplistPeriodBar {
   @Local home: HomeSourceState = connectHomeSource();
   @Local visual: TabVisualIndexState = connectToplistVisualIndex();
 
-  private tabs(): SubTabItem[] {
+  private tabs(): TabItem[] {
     return [
-      new SubTabItem('11', $r('app.string.toplist_all')),
-      new SubTabItem('12', $r('app.string.toplist_year')),
-      new SubTabItem('13', $r('app.string.toplist_month')),
-      new SubTabItem('15', $r('app.string.toplist_yesterday')),
+      new TabItem('11', $r('app.string.toplist_all')),
+      new TabItem('12', $r('app.string.toplist_year')),
+      new TabItem('13', $r('app.string.toplist_month')),
+      new TabItem('15', $r('app.string.toplist_yesterday')),
     ]
   }
 

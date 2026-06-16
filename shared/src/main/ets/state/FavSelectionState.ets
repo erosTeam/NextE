@@ -1,5 +1,6 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 import { Favcat } from '../model/Favcat'
+import { TabVisualIndexState } from './HomeSourceState'
 
 /**
  * Favorites favcat-selector state. The favcat strip is a PINNED title-bar `bottomBuilder` (FavcatBar)
@@ -35,6 +36,13 @@ export class FavSelectionState {
   @Trace cmdArg: string = ''
   // Monotonic sequence so a repeated identical command still fires the page's @Monitor.
   @Trace cmdSeq: number = 0
+}
+
+/** Per-frame interpolated favcat index for the FavcatBar's sliding indicator (V2Next FeedVisualIndexState;
+ * mirrors connectHomeSourceVisualIndex / connectToplistVisualIndex). The retained Favorites Swiper
+ * publishes it continuously during a swipe so the bar indicator tracks the finger/page animation. */
+export function connectFavcatVisualIndex(): TabVisualIndexState {
+  return AppStorageV2.connect(TabVisualIndexState, 'v2:favcatVisualIndex', () => new TabVisualIndexState())!
 }
 
 const FAV_SELECTION_V2_KEY: string = 'v2:favSelection'

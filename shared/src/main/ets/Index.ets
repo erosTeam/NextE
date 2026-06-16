@@ -120,11 +120,14 @@ export {
   connectHomeSourceVisualIndex,
   connectToplistVisualIndex,
 } from './state/HomeSourceState'
-export { SubTabBar, SubTabItem } from './components/SubTabBar'
+export { SubTabBar } from './components/SubTabBar'
+export { TabItem } from './model/TabItem'
+export { RetainedSubtabHost } from './components/RetainedSubtabHost'
 export {
   FavSelectionState,
   connectFavSelection,
   FavSelectionBridge,
+  connectFavcatVisualIndex,
 } from './state/FavSelectionState'
 
 // settings

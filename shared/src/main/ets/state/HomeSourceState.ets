@@ -49,8 +49,9 @@ export function connectToplistVisualIndex(): TabVisualIndexState {
 }
 
 /**
- * Height (vp) of a pinned selector bar (the Gallery source bar and the Toplist period bar). Both the
- * HDS `bottomBuilder` height (Index) and the page's scaffold top inset read this, so it is the single
- * source of truth. Substantial single-row height — eros_fe's pinned bars are not petty.
+ * Height (vp) of a pinned selector bar (Gallery source / Toplist period / Favorites favcat). The single
+ * source of truth: the HDS `bottomBuilder` height (Index), the page scaffold's top inset (topPadding),
+ * AND the SubTabBar both read it, so the reserved space exactly matches the rendered bar — no canyon.
+ * 38 matches V2Next's TAB_BAR_HEIGHT/FeedPills (a 44 bar over-reserved ~6vp above the actual pill row).
  */
-export const SELECTOR_BAR_HEIGHT: number = 44
+export const SELECTOR_BAR_HEIGHT: number = 38
