@@ -69,15 +69,15 @@ export struct GalleryTagsCard {
               // not the raw English word; a fixed-width pill keeps rows aligned like a color legend.
               Text(EhConstants.tagNamespaceLabel(tg.namespace))
                 .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
                 .fontColor($r('sys.color.font_primary'))
                 .backgroundColor(EhConstants.tagNamespaceColor(tg.namespace))
-                .borderRadius(ThemeConstants.RADIUS_SM)
+                .borderRadius(ThemeConstants.CHIP_RADIUS)
                 .textAlign(TextAlign.Center)
-                .padding({ left: 6, right: 6, top: 3, bottom: 3 })
+                .padding({ left: 6, right: 6, top: 5, bottom: 5 })
                 .constraintSize({ minWidth: 44 })
                 .flexShrink(0)
                 .maxLines(1)
-                .margin({ top: 1 })
               Flex({ wrap: FlexWrap.Wrap }) {
                 ForEach(
                   tg.tags,
@@ -85,10 +85,11 @@ export struct GalleryTagsCard {
                     // Neutral grey unless the USER colored this exact tag (eros_fe getColorCode).
                     Text(t.display())
                       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                      .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
                       .fontColor(this.chipText(t, tg.namespace))
                       .backgroundColor(this.chipBg(t, tg.namespace))
-                      .borderRadius(ThemeConstants.RADIUS_SM)
-                      .padding({ left: 8, right: 8, top: 3, bottom: 3 })
+                      .borderRadius(ThemeConstants.CHIP_RADIUS)
+                      .padding({ left: 8, right: 8, top: 5, bottom: 5 })
                       .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
                   },
                   // version in the key subscribes the card + re-colors chips on a late My Tags load.

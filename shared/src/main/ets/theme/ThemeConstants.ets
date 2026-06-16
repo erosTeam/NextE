@@ -53,6 +53,11 @@ export class ThemeConstants {
   static readonly RADIUS_MD: number = 12
   static readonly RADIUS_CARD: number = 16
   static readonly RADIUS_ROUND: number = 999
+  // Detail tag chip (namespace label + member tags, eros_fe TagButton borderRadius 8): a comfortably
+  // rounded chip — RADIUS_SM(4) read as a flat box on the ~18px chip. CHIP_LINE_HEIGHT (eros_fe height
+  // 1.3 over a 12px caption) + the chip's 5px vertical padding give it a comfortable, even-rounded height.
+  static readonly CHIP_RADIUS: number = 10
+  static readonly CHIP_LINE_HEIGHT: number = 16
 
   // Grouped list (SecondaryListScaffold / GroupedListSection / ConciseListRow — V2Next pattern)
   static readonly LIST_SECTION_INSET: number = 4

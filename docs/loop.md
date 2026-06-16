@@ -98,6 +98,7 @@ node scripts/test_devsh_keepawake_contract.mjs          # 设备 QA 工具:dev.s
 node scripts/test_thumbnail_mode_contract.mjs           # 详情预览:默认网格 + 可选横排/隐藏,全模式 all-thumbnails 入口可达
 node scripts/test_responsive_grid_contract.mjs          # 预览网格:列数按宽度自适应(不硬编码)+ 固定瓦片框/页码位置稳定
 node scripts/test_detail_header_visual_contract.mjs     # 详情页 header/InfoBar 硬视觉语义门禁
+node scripts/test_tag_chip_contract.mjs                 # 详情标签 chip 圆角/高度/语义(namespace/usertag/vote 色保留)
 hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon   # BUILD SUCCESSFUL
 ```
 新增子系统要补对应的 `scripts/test_*_contract.mjs`(带真实 EH HTML fixture)。
