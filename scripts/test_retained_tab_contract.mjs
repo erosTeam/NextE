@@ -164,9 +164,16 @@ ok(/onSelectKey:/.test(favPage) && /onVisualIndex:/.test(favPage) && /onScroller
 ok(!/@Local\s+vm:\s*FavoritesViewModel/.test(favPage), 'FavoritesPage owns NO shared FavoritesViewModel (data lives in FavcatPage)')
 ok(/!this\.auth\.isLogin/.test(favPage), 'FavoritesPage preserves the login gate (host only mounts when logged in)')
 ok(/orderByPosted/.test(favPage) && /OrderMenu/.test(favPage), 'FavoritesPage preserves the global order toggle (writes the orderByPosted bus)')
-// FavcatBar specifics: scrollable + counts (many favcats overflow), built from TabItem with totals.
+// FavcatBar specifics: scrollable (many favcats overflow); NAMES ONLY (product decision) — it must show
+// the real custom favcat names (fc.favTitle) and pass NO count to TabItem (the parsed counts stay in
+// favList state for other uses; SubTabBar keeps generic optional-count support for future surfaces).
 ok(/scrollable:\s*true/.test(favcatBar), 'FavcatBar uses the SubTabBar scrollable mode (favcat overflow)')
-ok(/totNum/.test(favcatBar), 'FavcatBar shows per-favcat counts (totNum) via TabItem')
+ok(/new TabItem\(fc\.favId,\s*fc\.favTitle\)/.test(favcatBar), 'FavcatBar builds tabs from the REAL favcat names (fc.favTitle)')
+ok(!/new TabItem\([^)]*,[^)]*,[^)]*\)/.test(favcatBar), 'FavcatBar passes NO count (3rd arg) to TabItem — names only (counts stay in favList state, hidden in the bar)')
+// The parsed counts are still kept in state (not dropped) — FavSelectionState carries the favList with totals.
+ok(/@Trace\s+favList:\s*Favcat\[\]/.test(favState), 'parsed favList counts are retained in FavSelectionState (data kept; only the bar presentation hides them)')
+// SubTabBar keeps the GENERIC optional count for future surfaces (favcat just doesn't use it).
+ok(/if \(tab\.count >= 0\)/.test(subTabBar), 'SubTabBar still supports an optional per-tab count (generic; future surfaces may use it)')
 // Index hands the active favcat scroller up too (title-scroller handoff for Favorites).
 ok(/setHomeActiveScroller\(1,/.test(indexShell), 'Index wires FavoritesPage.onScrollerReady → setHomeActiveScroller(1, …)')
 

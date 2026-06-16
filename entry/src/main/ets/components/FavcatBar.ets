@@ -21,10 +21,13 @@ export struct FavcatBar {
   @Local fav: FavSelectionState = connectFavSelection();
   @Local visual: TabVisualIndexState = connectFavcatVisualIndex();
 
-  // Must mirror FavoritesPage.favcatKeys() order: synthetic 'a' (all, no count) + the favcat slots.
+  // Must mirror FavoritesPage.favcatKeys() order: synthetic 'a' (all) + the favcat slots. NAMES ONLY —
+  // no count suffix in this bar (product decision). The parsed counts stay in favList state (fc.totNum)
+  // for other uses; they are simply not passed to TabItem here, so SubTabBar (count defaults -1) hides
+  // them. The favTitle still joins the SubTabBar key, so the bar still rebuilds on the seed→real rename.
   private tabs(): TabItem[] {
     const items: TabItem[] = [new TabItem('a', $r('app.string.favorites_all'))]
-    this.fav.favList.forEach((fc: Favcat) => items.push(new TabItem(fc.favId, fc.favTitle, fc.totNum)))
+    this.fav.favList.forEach((fc: Favcat) => items.push(new TabItem(fc.favId, fc.favTitle)))
     return items
   }
 
