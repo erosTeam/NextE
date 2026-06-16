@@ -110,9 +110,18 @@ ok(/Stack\(\)[\s\S]*?\.alignContent\(Alignment\.Center\)[\s\S]*?Text\(`\$\{this\
 ok(/fitByHeight\(/.test(tile), 'tile contains the thumb (height-fit vs width-fit), preserving aspect')
 ok(!/ImageFit\.Cover/.test(tile), 'tile does NOT crop with a cover hack')
 
-// 5. First-page preview retained.
+// 5. First-page preview retained — the inline GRID is seeded from the parsed FIRST detail preview
+// page, and the SAME first page seeds the all-thumbnails route, so both start at page 1 (the device
+// screenshot showing the inline grid at 31-40 was a scrolled-to-bottom view of that same 40-thumb
+// first page, not a different source).
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 ok(/this\.vm\.images\.length > 0/.test(detail) && /GalleryPreviewGrid\(/.test(detail), 'detail retains the first-page preview peek')
 ok(/this\.images/.test(previewGrid), 'preview component renders the passed first-page images')
+const detailVm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets')
+ok(/this\.images = res\.images/.test(detailVm), 'detail VM seeds images from the parsed first preview page (res.images)')
+ok(/images:\s*this\.vm\.images/.test(detail), 'inline grid is fed vm.images (the first preview page)')
+ok(/new AllThumbnailsParams\([\s\S]*?this\.vm\.images/.test(detail), 'all-thumbnails firstPage is the SAME vm.images — same source, both start at page 1')
+const allThumbsVm = read('feature/gallery/src/main/ets/viewmodel/AllThumbnailsViewModel.ets')
+ok(/setData\(p\.firstPage\)/.test(allThumbsVm), 'all-thumbnails grid is seeded from firstPage (the detail first page)')
 
 console.log(`✓ responsive grid + stable tile contract: ${passed} assertions passed`)
