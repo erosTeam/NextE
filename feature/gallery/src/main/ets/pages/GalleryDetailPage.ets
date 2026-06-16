@@ -13,6 +13,8 @@ import {
   connectSiteMode,
   connectGalleryReadProgress,
   GalleryReadProgressState,
+  connectThumbnailMode,
+  ThumbnailModeState,
   ViewedGallery,
   ViewedHistorySettings,
   SecondaryListScaffold,
@@ -45,6 +47,9 @@ export struct GalleryDetailPage {
   // Per-gallery reading progress: the READ button resumes at + labels itself with the saved page.
   // Reactive (revision-backed) so returning from the reader refreshes the button live.
   @Local readProgress: GalleryReadProgressState = connectGalleryReadProgress();
+  // Detail-preview display mode (eros_fe hideGalleryThumbnails / horizontalThumbnails). Reactive so a
+  // settings toggle re-renders this page's preview section live (grid ↔ horizontal ↔ hidden-inline).
+  @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   // Pending 5s viewed-history timer (eros_fe delays addHistory 5s after open so a quick bounce isn't
@@ -225,13 +230,16 @@ export struct GalleryDetailPage {
           }
         }
 
-        // Previews PEEK (first page only) — last; "view all" links to the separate thumbnails page.
+        // Previews PEEK (first page only) — last; eros_fe ThumbTile modes (grid default / horizontal /
+        // hidden-inline) per the thumbnail settings. The all-thumbnails entry is reachable in every mode.
         if (this.vm.images.length > 0) {
           ListItem() {
             GalleryPreviewGrid({
               images: this.vm.images,
               total: this.fileCountNum(),
               hasMore: this.vm.hasMorePreviews(),
+              horizontal: this.thumbMode.horizontalThumbnails,
+              hidden: this.thumbMode.hideGalleryThumbnails,
               onOpen: (page0: number) => {
                 this.openReader(page0)
               },

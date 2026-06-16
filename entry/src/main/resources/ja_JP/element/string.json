@@ -161,6 +161,22 @@
       "value": "ネットワークエラーです。接続を確認してください。"
     },
     {
+      "name": "settings_hide_gallery_thumbnails",
+      "value": "ギャラリーのサムネイルを隠す"
+    },
+    {
+      "name": "settings_horizontal_thumbnails",
+      "value": "横向きサムネイル"
+    },
+    {
+      "name": "detail_more_previews",
+      "value": "他のプレビュー"
+    },
+    {
+      "name": "detail_no_more_previews",
+      "value": "これ以上のプレビューはありません"
+    },
+    {
       "name": "nav_gallery",
       "value": "ギャラリー"
     },

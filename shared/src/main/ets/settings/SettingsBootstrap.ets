@@ -4,6 +4,7 @@ import { CookieJarSettings } from './CookieJarSettings'
 import { SiteModeSettings } from './SiteModeSettings'
 import { ListModeSettings } from './ListModeSettings'
 import { ReadModeSettings } from './ReadModeSettings'
+import { ThumbnailModeSettings } from './ThumbnailModeSettings'
 import { SearchHistorySettings } from './SearchHistorySettings'
 import { SearchFilterSettings } from './SearchFilterSettings'
 import { ViewedHistorySettings } from './ViewedHistorySettings'
@@ -28,6 +29,7 @@ export class SettingsBootstrap {
       await SiteModeSettings.restore(context)
       await ListModeSettings.restore(context)
       await ReadModeSettings.restore(context)
+      await ThumbnailModeSettings.restore(context)
       await SearchHistorySettings.restore(context)
       await SearchFilterSettings.restore(context)
       await ViewedHistorySettings.restore(context)

@@ -12,6 +12,9 @@ import {
   ListModeState,
   ListMode,
   ListModeSettings,
+  connectThumbnailMode,
+  ThumbnailModeState,
+  ThumbnailModeSettings,
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
@@ -28,6 +31,8 @@ export struct SettingsPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local auth: AuthState = connectAuth();
   @Local listMode: ListModeState = connectListMode();
+  // Detail-preview display mode (eros_fe hideGalleryThumbnails / horizontalThumbnails); both default off.
+  @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
   private stack: NavPathStack = connectNavStack().stack;
   // Index-owned scroller for this tab (title-bar scroll-up auto-hide via bindToScrollable).
   @Param scroller: Scroller = new Scroller();
@@ -109,6 +114,30 @@ export struct SettingsPage {
         trailingText: this.viewModeLabel(),
         action: () => {
           this.toggleView()
+        },
+      })
+      this.rowDivider()
+      ConciseListRow({
+        title: $r('app.string.settings_hide_gallery_thumbnails'),
+        leadingIcon: $r('sys.symbol.picture'),
+        hasSwitch: true,
+        checked: this.thumbMode.hideGalleryThumbnails,
+        switchAction: (value: boolean) => {
+          const ctx: common.UIAbilityContext =
+            this.getUIContext().getHostContext() as common.UIAbilityContext
+          ThumbnailModeSettings.setHideGalleryThumbnails(ctx, value)
+        },
+      })
+      this.rowDivider()
+      ConciseListRow({
+        title: $r('app.string.settings_horizontal_thumbnails'),
+        leadingIcon: $r('sys.symbol.square_fill_grid_2x2'),
+        hasSwitch: true,
+        checked: this.thumbMode.horizontalThumbnails,
+        switchAction: (value: boolean) => {
+          const ctx: common.UIAbilityContext =
+            this.getUIContext().getHostContext() as common.UIAbilityContext
+          ThumbnailModeSettings.setHorizontalThumbnails(ctx, value)
         },
       })
       this.rowDivider()

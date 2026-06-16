@@ -161,6 +161,22 @@
       "value": "Network error. Check your connection."
     },
     {
+      "name": "settings_hide_gallery_thumbnails",
+      "value": "Hide gallery thumbnails"
+    },
+    {
+      "name": "settings_horizontal_thumbnails",
+      "value": "Horizontal thumbnails"
+    },
+    {
+      "name": "detail_more_previews",
+      "value": "More previews"
+    },
+    {
+      "name": "detail_no_more_previews",
+      "value": "No more previews"
+    },
+    {
       "name": "nav_gallery",
       "value": "Gallery"
     },

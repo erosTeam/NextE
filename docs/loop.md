@@ -95,6 +95,7 @@ node scripts/test_secret_safety_contract.mjs            # 禁止打包凭据资�
 node scripts/test_selector_reload_preserves_content_contract.mjs  # selector 切换不得白屏清空旧内容
 node scripts/test_error_classification_contract.mjs     # 失败分类:仅真 404 → notFound,绝不把非 404 报成 404
 node scripts/test_devsh_keepawake_contract.mjs          # 设备 QA 工具:dev.sh --launch/--log/装机 + sign.py 必须 keep-awake
+node scripts/test_thumbnail_mode_contract.mjs           # 详情预览:默认网格 + 可选横排/隐藏,全模式 all-thumbnails 入口可达
 node scripts/test_detail_header_visual_contract.mjs     # 详情页 header/InfoBar 硬视觉语义门禁
 hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon   # BUILD SUCCESSFUL
 ```

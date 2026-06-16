@@ -161,6 +161,22 @@
       "value": "网络错误,请检查网络连接。"
     },
     {
+      "name": "settings_hide_gallery_thumbnails",
+      "value": "隐藏画廊缩略图"
+    },
+    {
+      "name": "settings_horizontal_thumbnails",
+      "value": "横向缩略图"
+    },
+    {
+      "name": "detail_more_previews",
+      "value": "更多预览"
+    },
+    {
+      "name": "detail_no_more_previews",
+      "value": "没有更多预览"
+    },
+    {
       "name": "nav_gallery",
       "value": "画廊"
     },
