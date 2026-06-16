@@ -29,6 +29,19 @@ ABILITY="EntryAbility"
 
 MODULES=("." "shared" "feature/home" "feature/gallery" "feature/search" "feature/reader" "feature/download" "feature/user" "feature/settings" "entry")
 
+# Keep the target device awake during interactions (parity with V2Next dev.sh + sign.py install
+# hooks): wake the screen and extend the screen-off timeout via scripts/keep_awake.sh before
+# launch / log so a dimmed or sleeping screen can't break aa start / hilog / screenshot capture.
+# Honors HDC_TARGET when set; the default/--no-build/--refresh install paths already keep-awake
+# via scripts/sign.py (before + after install), so they need no extra call here.
+keep_awake() {
+  if [ -n "${HDC_TARGET:-}" ]; then
+    "$PROJ/scripts/keep_awake.sh" -t "$HDC_TARGET" >/dev/null 2>&1 || true
+  else
+    "$PROJ/scripts/keep_awake.sh" >/dev/null 2>&1 || true
+  fi
+}
+
 ensure_ohpm() {
   command -v ohpm >/dev/null 2>&1 || { echo "错误: 未找到 ohpm，请把 command-line-tools/bin 加入 PATH" >&2; exit 1; }
   echo "==> 检查/恢复 ohpm 依赖..."
@@ -47,9 +60,11 @@ case "${1:-}" in
     sed -n '2,21p' "$0"
     ;;
   --log)
+    keep_awake
     "$HDC" shell "hilog | grep -i NextE"
     ;;
   --launch)
+    keep_awake
     "$HDC" shell "aa start -a $ABILITY -b $BUNDLE"
     ;;
   --build-only)

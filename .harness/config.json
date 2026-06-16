@@ -36,6 +36,11 @@
       "blocking": true
     },
     {
+      "name": "devsh-keepawake",
+      "command": "node scripts/test_devsh_keepawake_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "i18n-duplicates",
       "command": "python3 scripts/check_i18n_duplicates.py",
       "blocking": true
