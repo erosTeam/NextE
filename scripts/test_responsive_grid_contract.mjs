@@ -109,6 +109,14 @@ ok(/Stack\(\)[\s\S]*?\.alignContent\(Alignment\.Center\)[\s\S]*?Text\(`\$\{this\
 // contain, not crop: the tile chooses height-fit vs width-fit (no objectFit Cover crop hack).
 ok(/fitByHeight\(/.test(tile), 'tile contains the thumb (height-fit vs width-fit), preserving aspect')
 ok(!/ImageFit\.Cover/.test(tile), 'tile does NOT crop with a cover hack')
+// 4b. Rounded corners must live on the SPRITE/IMAGE itself (EhSpriteThumbnail radius), in BOTH the
+// height-fit and width-fit branches — NOT a square sprite (radius:0) hidden behind a decorative rounded
+// frame. The stable-tile fix had passed radius:0, so a frame-filling thumb read as square.
+ok(!/radius:\s*0\b/.test(tile), 'tile never passes radius:0 to the sprite (that made the visible thumb square)')
+ok(
+  (tile.match(/radius:\s*ThemeConstants\.[A-Z_]+/g) || []).length >= 2,
+  'tile passes a real theme radius token into EhSpriteThumbnail in BOTH fit branches (rounded sprite)'
+)
 
 // 5. First-page preview retained — the inline GRID is seeded from the parsed FIRST detail preview
 // page, and the SAME first page seeds the all-thumbnails route, so both start at page 1 (the device
