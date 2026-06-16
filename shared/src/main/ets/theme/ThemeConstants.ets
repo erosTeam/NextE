@@ -63,6 +63,10 @@ export class ThemeConstants {
   // 1.3 over a 12px caption) + the chip's 5px vertical padding give it a comfortable, even-rounded height.
   static readonly CHIP_RADIUS: number = 10
   static readonly CHIP_LINE_HEIGHT: number = 16
+  // Comfortable detail-chip vertical padding — the single source for the detail tag chips AND the detail
+  // category/type badge, so the badge reads as a peer of the chip family instead of a thinner box. (The
+  // dense LIST-card chips deliberately stay snugger at 3px; this token is the comfortable detail scale.)
+  static readonly CHIP_PADDING_V: number = 5
 
   // Grouped list (SecondaryListScaffold / GroupedListSection / ConciseListRow — V2Next pattern)
   static readonly LIST_SECTION_INSET: number = 4

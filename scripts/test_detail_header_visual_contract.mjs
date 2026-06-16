@@ -88,6 +88,27 @@ ok(
   'category badge must not use 1px vertical padding',
   'Use a real chip/badge scale; 1px vertical padding is too small on device.'
 )
+// 3b) Category badge geometry must match the comfortable detail-chip family — it was left on the thin
+// RADIUS_SM(4) + SPACE_XS(4) box while the tag chips were upgraded, so it read as the "old" square badge.
+// Tie it to the shared chip tokens (CHIP_RADIUS + CHIP_LINE_HEIGHT + CHIP_PADDING_V), no flat leftovers.
+ok(
+  /\.borderRadius\(ThemeConstants\.CHIP_RADIUS\)/.test(categoryBlock),
+  'category badge uses the comfortable CHIP_RADIUS (peer of the tag chips)',
+  'The detail category/type badge must not stay on the flat RADIUS_SM while the chips are rounded.'
+)
+ok(
+  !/\.borderRadius\(ThemeConstants\.RADIUS_SM\)/.test(categoryBlock),
+  'category badge is not left on the flat RADIUS_SM'
+)
+ok(
+  /\.lineHeight\(ThemeConstants\.CHIP_LINE_HEIGHT\)/.test(categoryBlock),
+  'category badge sets CHIP_LINE_HEIGHT for a comfortable, even height'
+)
+ok(
+  /top:\s*ThemeConstants\.CHIP_PADDING_V[\s\S]*?bottom:\s*ThemeConstants\.CHIP_PADDING_V/.test(categoryBlock),
+  'category badge uses the shared CHIP_PADDING_V vertical padding (no thin SPACE_XS box)',
+  'Vertical padding must be the shared comfortable chip token, not the thin SPACE_XS(4).'
+)
 
 // 4) InfoBar grouping: NextE card is already bounded, so no copied sliver accent bar.
 // Explanatory comments such as "No left accent bar" are allowed; executable constants/layout are not.
@@ -128,6 +149,8 @@ ok(
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
 ok(/ACTION_HEIGHT:\s*number\s*=/.test(theme), 'ThemeConstants defines ACTION_HEIGHT')
 ok(/ACTION_FAV_ICON:\s*number\s*=/.test(theme), 'ThemeConstants defines ACTION_FAV_ICON')
+const chipPadV = Number((/CHIP_PADDING_V:\s*number\s*=\s*(\d+)/.exec(theme) || [])[1])
+ok(Number.isFinite(chipPadV) && chipPadV >= 5, `ThemeConstants defines a comfortable CHIP_PADDING_V (>=5); got ${chipPadV}`)
 
 // 8) Long-title stress structure: the title/metadata block is a FLEXIBLE, CLIPPED group so a long title
 // can never push the action row out; the action row is a RESERVED sibling (no Blank spacer that can

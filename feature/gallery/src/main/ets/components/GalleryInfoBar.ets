@@ -66,16 +66,20 @@ export struct GalleryInfoBar {
           })
           Blank()
           if (this.gallery.category.length > 0) {
+            // Category/type badge — a peer of the detail tag chips: same CHIP_RADIUS + CHIP_LINE_HEIGHT +
+            // CHIP_PADDING_V as GalleryTagsCard so it reads as the comfortable chip family, not a thinner,
+            // flatter box. Its category colour, white text, and right-pinned position are unchanged.
             Text(this.gallery.category)
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
               .fontColor(ThemeConstants.TEXT_ON_BRAND)
               .backgroundColor(EhConstants.categoryColor(this.gallery.category))
-              .borderRadius(ThemeConstants.RADIUS_SM)
+              .borderRadius(ThemeConstants.CHIP_RADIUS)
               .padding({
                 left: ThemeConstants.SPACE_SM,
                 right: ThemeConstants.SPACE_SM,
-                top: ThemeConstants.SPACE_XS,
-                bottom: ThemeConstants.SPACE_XS,
+                top: ThemeConstants.CHIP_PADDING_V,
+                bottom: ThemeConstants.CHIP_PADDING_V,
               })
           }
         }

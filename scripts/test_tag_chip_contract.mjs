@@ -42,8 +42,10 @@ ok(Number.isFinite(chipLine) && chipLine >= 14, `CHIP_LINE_HEIGHT defined (>=14)
 ok((card.match(/\.borderRadius\(ThemeConstants\.CHIP_RADIUS\)/g) || []).length >= 2, 'both namespace label + member chips use CHIP_RADIUS')
 ok(!/\.borderRadius\(ThemeConstants\.RADIUS_SM\)/.test(card), 'no chip is left at the flat RADIUS_SM')
 ok((card.match(/\.lineHeight\(ThemeConstants\.CHIP_LINE_HEIGHT\)/g) || []).length >= 2, 'both chips set CHIP_LINE_HEIGHT for an even, comfortable height')
-ok((card.match(/top:\s*5,\s*bottom:\s*5/g) || []).length >= 2, 'both chips use >=5px vertical padding (comfortable height)')
+ok((card.match(/top:\s*ThemeConstants\.CHIP_PADDING_V,\s*bottom:\s*ThemeConstants\.CHIP_PADDING_V/g) || []).length >= 2, 'both chips use the shared CHIP_PADDING_V vertical padding (comfortable height, single source)')
 ok(!/top:\s*3,\s*bottom:\s*3/.test(card), 'no chip is left at the thin 3px vertical padding')
+const chipPadV = Number((/CHIP_PADDING_V:\s*number\s*=\s*(\d+)/.exec(theme) || [])[1])
+ok(Number.isFinite(chipPadV) && chipPadV >= 5, `CHIP_PADDING_V defined and comfortable (>=5); got ${chipPadV}`)
 
 // 3) Semantics preserved — namespace colour ONLY on the namespace label.
 ok(/\.backgroundColor\(EhConstants\.tagNamespaceColor\(tg\.namespace\)\)/.test(card), 'namespace label keeps its namespace-tint background')

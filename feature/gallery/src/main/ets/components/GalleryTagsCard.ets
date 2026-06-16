@@ -74,7 +74,7 @@ export struct GalleryTagsCard {
                 .backgroundColor(EhConstants.tagNamespaceColor(tg.namespace))
                 .borderRadius(ThemeConstants.CHIP_RADIUS)
                 .textAlign(TextAlign.Center)
-                .padding({ left: 6, right: 6, top: 5, bottom: 5 })
+                .padding({ left: 6, right: 6, top: ThemeConstants.CHIP_PADDING_V, bottom: ThemeConstants.CHIP_PADDING_V })
                 .constraintSize({ minWidth: 44 })
                 .flexShrink(0)
                 .maxLines(1)
@@ -89,7 +89,7 @@ export struct GalleryTagsCard {
                       .fontColor(this.chipText(t, tg.namespace))
                       .backgroundColor(this.chipBg(t, tg.namespace))
                       .borderRadius(ThemeConstants.CHIP_RADIUS)
-                      .padding({ left: 8, right: 8, top: 5, bottom: 5 })
+                      .padding({ left: 8, right: 8, top: ThemeConstants.CHIP_PADDING_V, bottom: ThemeConstants.CHIP_PADDING_V })
                       .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
                   },
                   // version in the key subscribes the card + re-colors chips on a late My Tags load.
