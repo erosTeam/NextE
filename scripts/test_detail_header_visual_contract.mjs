@@ -98,6 +98,37 @@ ok(!/sys\.symbol\.heart_fill/.test(info), 'InfoBar metadata must not use heart_f
 ok(!/sys\.symbol\.star_fill/.test(info), 'InfoBar metadata must not use star_fill')
 ok(/sys\.color\.font_tertiary/.test(info), 'InfoBar metadata icons use tertiary/quiet colour')
 
+// 6) Action-row sizing coordination: the Read pill + the favourite block share ONE tokenized action
+// height (no raw height literal), the favourite heart uses a token, and the Read label uses a font token
+// — so the two actions read as one coordinated family instead of a 36px capsule next to a floating glyph.
+const actionRow = section(header, '// Bottom action row', '        .layoutWeight(1)')
+ok(actionRow.length > 0, 'action row block exists', FILES.header)
+ok(
+  (actionRow.match(/ThemeConstants\.ACTION_HEIGHT/g) || []).length >= 2,
+  'Read pill AND favourite block both use the shared ACTION_HEIGHT token',
+  'Both detail-header actions must sit at the same tokenized height for a coordinated baseline.'
+)
+ok(
+  !/\.height\(\s*\d/.test(actionRow),
+  'no raw numeric height literal in the action row',
+  'Action heights must be the ACTION_HEIGHT token, not a hardcoded pixel value (was a raw 36).'
+)
+ok(
+  /heart_fill[\s\S]*?ThemeConstants\.ACTION_FAV_ICON/.test(actionRow),
+  'favourite heart uses the ACTION_FAV_ICON token',
+  'The favourite heart must be a coordinated token-sized peer to the Read pill.'
+)
+ok(
+  /Button\(this\.readLabel\(\)\)[\s\S]*?\.fontSize\(ThemeConstants\.FONT_SIZE_BODY\)/.test(actionRow),
+  'Read label uses the FONT_SIZE_BODY token (CTA weight, not a tiny caption)',
+  'A pill at ACTION_HEIGHT needs a real label weight.'
+)
+
+// 7) The shared action tokens exist in ThemeConstants.
+const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
+ok(/ACTION_HEIGHT:\s*number\s*=/.test(theme), 'ThemeConstants defines ACTION_HEIGHT')
+ok(/ACTION_FAV_ICON:\s*number\s*=/.test(theme), 'ThemeConstants defines ACTION_FAV_ICON')
+
 if (failures > 0) {
   console.error(`\n✗ detail-header visual contract: ${failures} failure(s)`)
   console.error(`  files: ${relative(ROOT, join(ROOT, FILES.header))}, ${relative(ROOT, join(ROOT, FILES.info))}`)

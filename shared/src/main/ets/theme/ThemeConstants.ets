@@ -64,6 +64,11 @@ export class ThemeConstants {
   static readonly FLOAT_BAR_HEIGHT: number = 56
   static readonly FOOTER_HEIGHT: number = 48
   static readonly BUTTON_HEIGHT: number = 46 // primary action buttons (reader/detail Read, etc.)
+  // Detail-header action row: the Read pill and the favourite block share this height + vertical center
+  // so they read as one coordinated family (eros_fe: Read filled pill is primary, favourite heart is the
+  // secondary bare-icon to its left). ACTION_FAV_ICON is the favourite heart glyph, a peer to the pill.
+  static readonly ACTION_HEIGHT: number = 36
+  static readonly ACTION_FAV_ICON: number = 18
   static readonly LOADING_SIZE: number = 32
   static readonly LOADING_SIZE_SMALL: number = 24
   static readonly LOADING_SIZE_LARGE: number = 40

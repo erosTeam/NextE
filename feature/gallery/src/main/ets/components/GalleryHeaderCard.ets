@@ -89,6 +89,9 @@ export struct GalleryHeaderCard {
             // the colour), so the heart colour is ALWAYS a real EH favcat-slot colour — never a brand /
             // accent token, and nothing is shown when not favourited. Add/move toggle is deferred.
             if (this.gallery.favcat.length > 0) {
+              // Favourite block: the SAME ACTION_HEIGHT + vertical center as the Read pill so the two
+              // share a height baseline and read as one coordinated row — eros_fe's bare-heart secondary
+              // sitting beside the filled-pill primary, not a tiny floating tail.
               Row({ space: ThemeConstants.SPACE_XS }) {
                 if (this.gallery.favTitle.length > 0) {
                   Text(this.gallery.favTitle)
@@ -98,18 +101,21 @@ export struct GalleryHeaderCard {
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                 }
                 SymbolGlyph($r('sys.symbol.heart_fill'))
-                  .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+                  .fontSize(ThemeConstants.ACTION_FAV_ICON)
                   .fontColor([EhConstants.favCatColor(this.gallery.favcat)])
               }
+              .height(ThemeConstants.ACTION_HEIGHT)
+              .alignItems(VerticalAlign.Center)
               .flexShrink(1)
               .constraintSize({ maxWidth: '55%' })
             }
             // Content-width capsule, RIGHTMOST (eros_fe compact 阅读 capsule, read as the last element).
+            // Shares ACTION_HEIGHT with the favourite block; BODY label gives the filled pill a CTA weight.
             Button(this.readLabel())
               .type(ButtonType.Capsule)
-              .height(36)
+              .height(ThemeConstants.ACTION_HEIGHT)
               .padding({ left: ThemeConstants.SPACE_XL, right: ThemeConstants.SPACE_XL })
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
               .flexShrink(0)
               .onClick(() => {
                 this.onRead()

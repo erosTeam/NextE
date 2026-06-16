@@ -51,6 +51,11 @@
       "blocking": true
     },
     {
+      "name": "detail-header-visual",
+      "command": "node scripts/test_detail_header_visual_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "i18n-duplicates",
       "command": "python3 scripts/check_i18n_duplicates.py",
       "blocking": true
