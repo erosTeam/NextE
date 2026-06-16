@@ -109,8 +109,11 @@ export class SearchViewModel {
     this.isLoading = true
     this.errorMessage = ''
     this.epoch = this.epoch + 1
-    this.dataSource.setData([])
-    this.itemCount = 0
+    // Preserve current results while the new query/filter request is in flight. The search field or
+    // filter sheet may change immediately, but the body must not flash to an empty loading page.
+    // Disable old paging until the replacement page succeeds.
+    this.nextGid = ''
+    this.hasMore = false
     try {
       const list: GalleryList = await this.fetchPage('')
       this.dataSource.setData(list.gallerys)

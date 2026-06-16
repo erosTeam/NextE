@@ -55,10 +55,6 @@ export class FavoritesViewModel {
       this.favOrder === EhConstants.FAV_ORDER_FAV
         ? EhConstants.FAV_ORDER_POSTED
         : EhConstants.FAV_ORDER_FAV
-    this.dataSource.setData([])
-    this.itemCount = 0
-    this.nextGid = ''
-    this.hasMore = true
     await this.load()
   }
 
@@ -110,9 +106,14 @@ export class FavoritesViewModel {
       return
     }
     // All page-1 reset paths funnel through load() — bump here so any in-flight loadMore is voided.
+    // Keep current rows visible until the replacement page succeeds; selector switches must not
+    // blank the whole Favorites body. Drop the old cursor immediately so a failed reload cannot
+    // continue paging stale favcat/order data afterwards.
     this.epoch = this.epoch + 1
     this.isLoading = true
     this.errorMessage = ''
+    this.nextGid = ''
+    this.hasMore = false
     try {
       let list: GalleryList = await EhApiService.getInstance().getFavoritesList(this.buildQuery(''))
       // EH's inline_set sort order is sticky-by-one-load: the first request after a toggle only
@@ -141,10 +142,6 @@ export class FavoritesViewModel {
       return
     }
     this.favcat = favcat
-    this.dataSource.setData([])
-    this.itemCount = 0
-    this.nextGid = ''
-    this.hasMore = true
     await this.load()
   }
 

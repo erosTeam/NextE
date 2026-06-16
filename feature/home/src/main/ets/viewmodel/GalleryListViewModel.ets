@@ -146,23 +146,40 @@ export class GalleryListViewModel {
     return !this.isPopular() && list.nextGid.length > 0
   }
 
-  /** Hard reload from scratch (e.g. after a 表站/里站 site switch — the data is from another host). */
+  /**
+   * Reload the first page for a selector/site/period change without blanking the current body first.
+   * The pinned selector may update immediately, but the old rows stay visible until the new page lands;
+   * this avoids the white-screen remount regression while still invalidating stale loadMore results.
+   */
   async reload(): Promise<void> {
     if (this.isLoading) {
       return
     }
     // Invalidate any in-flight loadMore (it runs without the isLoading flag, so it can overlap a
-    // site/source switch) before wiping the list for the new host.
+    // site/source switch) and drop the old cursor immediately, but keep old rows rendered until the
+    // replacement page succeeds. On failure, loadMore remains disabled instead of mixing sources.
     this.epoch = this.epoch + 1
-    this.dataSource.setData([])
-    this.itemCount = 0
+    this.isLoading = true
+    this.errorMessage = ''
     this.nextGid = ''
     this.lastNext = ''
     this.toplistPage = 0
     this.maxPage = 0
-    this.hasMore = true
-    this.errorMessage = ''
-    await this.loadData()
+    this.hasMore = false
+    try {
+      const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
+      this.dataSource.setData(list.gallerys)
+      this.itemCount = this.dataSource.totalCount()
+      this.nextGid = list.nextGid
+      this.maxPage = list.maxPage
+      this.toplistPage = 0
+      this.hasMore = this.firstPageHasMore(list)
+    } catch (err) {
+      const e = err as Error
+      this.errorMessage = e.message
+      DiagnosticLogger.warn('home', 'list_reload_failed', e.message)
+    }
+    this.isLoading = false
   }
 
   /** Pull-to-refresh: replace from the first page. Guarded + flagged isLoading so a concurrent
