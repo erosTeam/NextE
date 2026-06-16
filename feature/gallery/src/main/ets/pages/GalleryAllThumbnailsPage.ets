@@ -2,7 +2,7 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   ThemeConstants,
   EhGalleryImage,
-  EhSpriteThumbnail,
+  PreviewThumbTile,
   ReaderParams,
   AllThumbnailsParams,
   connectNavStack,
@@ -23,6 +23,8 @@ import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
 export struct GalleryAllThumbnailsPage {
   @Local vm: AllThumbnailsViewModel = new AllThumbnailsViewModel();
   @Local params: AllThumbnailsParams = new AllThumbnailsParams();
+  // Responsive cell width (vp) emitted by the scaffold; drives the sprite thumb so it fills its column.
+  @Local thumbW: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -44,7 +46,12 @@ export struct GalleryAllThumbnailsPage {
     HdsNavDestination() {
       PullRefreshGridScaffold({
         scroller: this.scroller,
-        columns: 4,
+        // Responsive: column count derived from the pane width + a min comfortable thumb width (a phone
+        // lands ~3, wider screens scale up), not a hardcoded count. The cell width feeds the thumbs.
+        minColumnWidth: ThemeConstants.PREVIEW_THUMB_MIN_W,
+        onCellSize: (_cols: number, cellWidth: number) => {
+          this.thumbW = cellWidth
+        },
         bottomPadding: ThemeConstants.SPACE_XL,
         controller: this.refreshController,
         onBottomRefresh: async () => {
@@ -59,24 +66,12 @@ export struct GalleryAllThumbnailsPage {
           this.vm.dataSource,
           (img: EhGalleryImage) => {
             GridItem() {
-              Column({ space: 2 }) {
-                EhSpriteThumbnail({
-                  url: img.thumbUrl,
-                  thumbWidth: img.thumbWidth,
-                  thumbHeight: img.thumbHeight,
-                  offsetX: img.thumbOffsetX,
-                  spriteWidth: img.spriteWidth,
-                  spriteHeight: img.spriteHeight,
-                  displayWidth: 82,
-                })
-                Text(`${img.page}`)
-                  .fontSize(ThemeConstants.FONT_SIZE_TINY)
-                  .fontColor($r('sys.color.font_tertiary'))
-              }
-              .width('100%')
-              .justifyContent(FlexAlign.Center)
-              .onClick(() => {
-                this.openReader(img.page - 1)
+              PreviewThumbTile({
+                image: img,
+                tileWidth: this.thumbW > 0 ? this.thumbW : ThemeConstants.PREVIEW_THUMB_MIN_W,
+                onTap: () => {
+                  this.openReader(img.page - 1)
+                },
               })
             }
           },

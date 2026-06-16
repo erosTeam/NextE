@@ -69,6 +69,10 @@ export class ThemeConstants {
   static readonly LOADING_SIZE_LARGE: number = 40
   static readonly INDICATOR_SIZE: number = 28
   static readonly THUMB_ASPECT: number = 1.414 // EH cover/thumbnail default H:W ≈ √2 (A-series)
+  // Min comfortable preview-thumbnail column width (vp). The detail inline grid + the all-thumbnails
+  // page derive their column count from the pane width and this min (eros_fe max-cross-axis-extent),
+  // so a phone lands ~3 columns and wider screens scale up — never a hardcoded column count.
+  static readonly PREVIEW_THUMB_MIN_W: number = 105
 
   // Line heights
   static readonly LINE_HEIGHT_TITLE: number = 22

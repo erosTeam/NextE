@@ -46,6 +46,11 @@
       "blocking": true
     },
     {
+      "name": "responsive-grid",
+      "command": "node scripts/test_responsive_grid_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "i18n-duplicates",
       "command": "python3 scripts/check_i18n_duplicates.py",
       "blocking": true

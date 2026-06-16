@@ -28,6 +28,7 @@ export {
 // components
 export { EhThumbnail } from './components/EhThumbnail'
 export { EhSpriteThumbnail } from './components/EhSpriteThumbnail'
+export { PreviewThumbTile } from './components/PreviewThumbTile'
 export { RatingStars } from './components/RatingStars'
 export {
   immersiveTitleBarOpts,
@@ -134,3 +135,4 @@ export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'
 export { BasicDataSource } from './utils/BasicDataSource'
 export { ShareUtil } from './utils/ShareUtil'
+export { ResponsiveGrid } from './utils/ResponsiveGrid'
