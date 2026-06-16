@@ -8,6 +8,7 @@ import {
   GalleryDetailResult,
   connectSiteMode,
   DiagnosticLogger,
+  EhErrorText,
 } from 'shared'
 
 /**
@@ -62,9 +63,8 @@ export class GalleryDetailViewModel {
       this.previewPageCount = res.previewPageCount
       this.loaded = true
     } catch (err) {
-      const e = err as Error
-      this.error = e.message
-      DiagnosticLogger.warn('gallery', 'detail_load_failed', e.message)
+      this.error = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('gallery', 'detail_load_failed', (err as Error).message)
     }
     this.loading = false
   }

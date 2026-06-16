@@ -8,6 +8,7 @@ import {
   EhConstants,
   connectSiteMode,
   DiagnosticLogger,
+  EhErrorText,
 } from 'shared'
 
 /**
@@ -148,7 +149,7 @@ export class FavoritesViewModel {
       this.hasMore = list.nextGid.length > 0
     } catch (err) {
       const e = err as Error
-      this.errorMessage = e.message
+      this.errorMessage = EhErrorText.forUser(err)
       DiagnosticLogger.warn('favorites', 'load_failed', e.message)
     }
     this.isLoading = false
@@ -198,7 +199,7 @@ export class FavoritesViewModel {
     } catch (err) {
       const e = err as Error
       if (this.epoch === myEpoch) {
-        this.errorMessage = e.message
+        this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('favorites', 'loadmore_failed', e.message)
     }

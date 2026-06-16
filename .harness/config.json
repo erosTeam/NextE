@@ -31,6 +31,11 @@
       "blocking": true
     },
     {
+      "name": "error-classification",
+      "command": "node scripts/test_error_classification_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "i18n-duplicates",
       "command": "python3 scripts/check_i18n_duplicates.py",
       "blocking": true

@@ -186,4 +186,31 @@ for (const [name, isEx, page] of [
   ok('classifier: transport wrapper', /static network\(/.test(clsSrc))
 }
 
+// 8. Wiring: the gallery web-page service routes every failure through the classifier (no raw
+//    `... HTTP <code>` string can reach the UI), and each surfacing ViewModel maps the kind to a
+//    localized EhErrorText message instead of storing the raw Error.message.
+{
+  const api = src('shared/src/main/ets/network/EhApiService.ets')
+  ok('EhApiService routes through classifyResponse', /EhErrorClassifier\.classifyResponse\(/.test(api))
+  ok('EhApiService wraps transport throws as network', /EhErrorClassifier\.network\(/.test(api))
+  ok('EhApiService throws NO raw `... HTTP ${...}`', !/throw new Error\(`[^`]*HTTP \$\{/.test(api))
+
+  for (const vm of [
+    'feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets',
+    'feature/search/src/main/ets/viewmodel/SearchViewModel.ets',
+    'feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets',
+    'feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets',
+    'feature/gallery/src/main/ets/viewmodel/AllThumbnailsViewModel.ets',
+    'feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets',
+  ]) {
+    const s = src(vm)
+    const name = vm.split('/').pop()
+    ok(`${name}: surfaces localized EhErrorText.forUser`, /EhErrorText\.forUser\(err\)/.test(s))
+    ok(
+      `${name}: never assigns raw Error.message to the user-facing field`,
+      !/this\.(error|errorMessage)\s*=\s*\(?(?:e|err)\b[^\n]*\.message/.test(s),
+    )
+  }
+}
+
 console.log(`✓ error classification contract: ${passed} assertions passed`)

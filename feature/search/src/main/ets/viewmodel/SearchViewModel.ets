@@ -10,6 +10,7 @@ import {
   connectSearchFilter,
   SearchFilterState,
   DiagnosticLogger,
+  EhErrorText,
 } from 'shared'
 
 /**
@@ -122,7 +123,7 @@ export class SearchViewModel {
       this.hasMore = list.nextGid.length > 0
     } catch (err) {
       const e = err as Error
-      this.errorMessage = e.message
+      this.errorMessage = EhErrorText.forUser(err)
       DiagnosticLogger.warn('search', 'search_failed', e.message)
     }
     this.isLoading = false
@@ -151,7 +152,7 @@ export class SearchViewModel {
       this.hasMore = list.nextGid.length > 0
     } catch (err) {
       const e = err as Error
-      this.errorMessage = e.message
+      this.errorMessage = EhErrorText.forUser(err)
       DiagnosticLogger.warn('search', 'search_refresh_failed', e.message)
     }
     this.isLoading = false
@@ -199,7 +200,7 @@ export class SearchViewModel {
     } catch (err) {
       const e = err as Error
       if (this.epoch === myEpoch) {
-        this.errorMessage = e.message
+        this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('search', 'search_loadmore_failed', e.message)
     }

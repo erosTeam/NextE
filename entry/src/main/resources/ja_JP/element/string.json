@@ -121,6 +121,46 @@
       "value": "コンテンツなし"
     },
     {
+      "name": "error_gallery_unavailable",
+      "value": "このギャラリーは利用できません(削除された可能性があります)。"
+    },
+    {
+      "name": "error_sad_panda",
+      "value": "ExHentai へのアクセスが拒否されました。ログインして igneous を取得してください。"
+    },
+    {
+      "name": "error_login_required",
+      "value": "ログインが必要です。再度サインインしてください。"
+    },
+    {
+      "name": "error_cloudflare",
+      "value": "Cloudflare の確認でブロックされました。ブラウザで開くか再試行してください。"
+    },
+    {
+      "name": "error_rate_limited",
+      "value": "サーバーにより制限されています。しばらくしてから再試行してください。"
+    },
+    {
+      "name": "error_server",
+      "value": "サーバーエラーです。再試行してください。"
+    },
+    {
+      "name": "error_parse",
+      "value": "このページを読み取れませんでした。アプリの更新が必要かもしれません。"
+    },
+    {
+      "name": "error_empty",
+      "value": "サーバーの応答が空でした。"
+    },
+    {
+      "name": "error_http",
+      "value": "リクエストに失敗しました。再試行してください。"
+    },
+    {
+      "name": "error_network",
+      "value": "ネットワークエラーです。接続を確認してください。"
+    },
+    {
       "name": "nav_gallery",
       "value": "ギャラリー"
     },

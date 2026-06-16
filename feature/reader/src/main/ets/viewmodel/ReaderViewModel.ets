@@ -4,6 +4,7 @@ import {
   ImageResolveService,
   connectSiteMode,
   DiagnosticLogger,
+  EhErrorText,
 } from 'shared'
 
 // How many pages ahead to pre-resolve (eros_fe forward preload): warm the next images' URLs so a
@@ -77,13 +78,20 @@ export class ReaderViewModel {
       const from: number = this.previewPage + 1
       // Cap the target preview page by the gallery length so we don't fetch empty tail pages.
       const lastPage: number =
-        this.fileCount > 0 ? Math.ceil(this.fileCount / this.perPage) - 1 : Math.floor(index / this.perPage)
+        this.fileCount > 0
+          ? Math.ceil(this.fileCount / this.perPage) - 1
+          : Math.floor(index / this.perPage)
       const to: number = Math.min(Math.floor(index / this.perPage), lastPage)
       if (to >= from) {
         const reqs: Promise<EhGalleryImage[]>[] = []
         for (let p: number = from; p <= to; p++) {
           reqs.push(
-            EhApiService.getInstance().getPreviewImages(this.gid, this.token, connectSiteMode().isEx, p),
+            EhApiService.getInstance().getPreviewImages(
+              this.gid,
+              this.token,
+              connectSiteMode().isEx,
+              p,
+            ),
           )
         }
         const results: EhGalleryImage[][] = await Promise.all(reqs)
@@ -109,8 +117,8 @@ export class ReaderViewModel {
         }
       }
     } catch (err) {
-      this.error = (err as Error).message
-      DiagnosticLogger.warn('reader', 'jump_load_failed', this.error)
+      this.error = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('reader', 'jump_load_failed', (err as Error).message)
     }
     this.loadingMore = false
   }
@@ -155,8 +163,8 @@ export class ReaderViewModel {
         }
       }
     } catch (err) {
-      this.error = (err as Error).message
-      DiagnosticLogger.warn('reader', 'loadmore_failed', this.error)
+      this.error = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('reader', 'loadmore_failed', (err as Error).message)
     }
     this.loadingMore = false
   }
@@ -191,7 +199,10 @@ export class ReaderViewModel {
       if (img.imageUrl.length === 0 && img.sUrl.length > 0) {
         ImageResolveService.getInstance()
           .resolve(img)
-          .then((): void => {}, (): void => {})
+          .then(
+            (): void => {},
+            (): void => {},
+          )
       }
     }
   }

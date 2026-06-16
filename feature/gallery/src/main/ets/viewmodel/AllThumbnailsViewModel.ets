@@ -4,6 +4,7 @@ import {
   AllThumbnailsParams,
   BasicDataSource,
   DiagnosticLogger,
+  EhErrorText,
 } from 'shared'
 
 /**
@@ -62,9 +63,8 @@ export class AllThumbnailsViewModel {
       this.itemCount = this.dataSource.totalCount()
       this.loadedPages = this.loadedPages + 1
     } catch (err) {
-      const e = err as Error
-      this.error = e.message
-      DiagnosticLogger.warn('gallery', 'thumbs_loadnext_failed', e.message)
+      this.error = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('gallery', 'thumbs_loadnext_failed', (err as Error).message)
     }
     this.loading = false
   }

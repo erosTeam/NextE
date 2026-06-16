@@ -121,6 +121,46 @@
       "value": "No content"
     },
     {
+      "name": "error_gallery_unavailable",
+      "value": "This gallery is not available (it may have been removed)."
+    },
+    {
+      "name": "error_sad_panda",
+      "value": "ExHentai access denied. Log in and make sure igneous is set."
+    },
+    {
+      "name": "error_login_required",
+      "value": "Login required. Please sign in again."
+    },
+    {
+      "name": "error_cloudflare",
+      "value": "Blocked by a Cloudflare check. Open in a browser or try again."
+    },
+    {
+      "name": "error_rate_limited",
+      "value": "Rate limited by the server. Please try again later."
+    },
+    {
+      "name": "error_server",
+      "value": "Server error. Please try again."
+    },
+    {
+      "name": "error_parse",
+      "value": "Couldn't read this page. The app may need an update."
+    },
+    {
+      "name": "error_empty",
+      "value": "The server returned an empty response."
+    },
+    {
+      "name": "error_http",
+      "value": "Request failed. Please try again."
+    },
+    {
+      "name": "error_network",
+      "value": "Network error. Check your connection."
+    },
+    {
       "name": "nav_gallery",
       "value": "Gallery"
     },

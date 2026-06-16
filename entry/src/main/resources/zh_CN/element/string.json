@@ -121,6 +121,46 @@
       "value": "暂无内容"
     },
     {
+      "name": "error_gallery_unavailable",
+      "value": "该画廊不可用(可能已被删除)。"
+    },
+    {
+      "name": "error_sad_panda",
+      "value": "里站访问被拒绝,请登录并确认已获取 igneous。"
+    },
+    {
+      "name": "error_login_required",
+      "value": "需要登录,请重新登录。"
+    },
+    {
+      "name": "error_cloudflare",
+      "value": "被 Cloudflare 拦截,请在浏览器中打开或稍后重试。"
+    },
+    {
+      "name": "error_rate_limited",
+      "value": "已被服务器限流,请稍后再试。"
+    },
+    {
+      "name": "error_server",
+      "value": "服务器错误,请重试。"
+    },
+    {
+      "name": "error_parse",
+      "value": "无法解析此页面,应用可能需要更新。"
+    },
+    {
+      "name": "error_empty",
+      "value": "服务器返回为空。"
+    },
+    {
+      "name": "error_http",
+      "value": "请求失败,请重试。"
+    },
+    {
+      "name": "error_network",
+      "value": "网络错误,请检查网络连接。"
+    },
+    {
       "name": "nav_gallery",
       "value": "画廊"
     },

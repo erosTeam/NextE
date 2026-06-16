@@ -77,6 +77,7 @@ export { EhErrorClassifier } from './network/EhErrorClassifier'
 
 // i18n
 export { AppStrings } from './i18n/AppStrings'
+export { EhErrorText } from './i18n/EhErrorText'
 
 // diagnostics
 export { DiagnosticLogger } from './diagnostics/DiagnosticLogger'

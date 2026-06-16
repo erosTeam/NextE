@@ -6,6 +6,7 @@ import {
   BasicDataSource,
   connectSiteMode,
   DiagnosticLogger,
+  EhErrorText,
 } from 'shared'
 
 /**
@@ -131,7 +132,7 @@ export class GalleryListViewModel {
       this.hasMore = this.firstPageHasMore(list)
     } catch (err) {
       const e = err as Error
-      this.errorMessage = e.message
+      this.errorMessage = EhErrorText.forUser(err)
       DiagnosticLogger.warn('home', 'list_load_failed', e.message)
     }
     this.isLoading = false
@@ -176,7 +177,7 @@ export class GalleryListViewModel {
       this.hasMore = this.firstPageHasMore(list)
     } catch (err) {
       const e = err as Error
-      this.errorMessage = e.message
+      this.errorMessage = EhErrorText.forUser(err)
       DiagnosticLogger.warn('home', 'list_reload_failed', e.message)
     }
     this.isLoading = false
@@ -203,7 +204,7 @@ export class GalleryListViewModel {
       this.hasMore = this.firstPageHasMore(list)
     } catch (err) {
       const e = err as Error
-      this.errorMessage = e.message
+      this.errorMessage = EhErrorText.forUser(err)
       DiagnosticLogger.warn('home', 'list_refresh_failed', e.message)
     }
     this.isLoading = false
@@ -248,7 +249,7 @@ export class GalleryListViewModel {
     } catch (err) {
       const e = err as Error
       if (this.epoch === myEpoch) {
-        this.errorMessage = e.message
+        this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('home', 'list_loadmore_failed', e.message)
     }
@@ -280,7 +281,7 @@ export class GalleryListViewModel {
     } catch (err) {
       const e = err as Error
       if (this.epoch === myEpoch) {
-        this.errorMessage = e.message
+        this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('home', 'toplist_loadmore_failed', e.message)
     }

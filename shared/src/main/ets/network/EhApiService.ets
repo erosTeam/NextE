@@ -1,4 +1,6 @@
-import { EhHttpClient } from './EhHttpClient'
+import { EhHttpClient, EhTextResponse } from './EhHttpClient'
+import { EhError } from './EhError'
+import { EhErrorClassifier } from './EhErrorClassifier'
 import { EhConstants } from '../constants/EhConstants'
 import { EhGalleryListParser } from '../parser/EhGalleryListParser'
 import { EhFavcatListParser } from '../parser/EhFavcatListParser'
@@ -78,6 +80,27 @@ export class EhApiService {
   }
 
   /**
+   * GET + truthful failure classification. A transport throw (no HTTP response) becomes a Network
+   * EhError; a response that is not a usable page for `page` ('list' / 'detail' / 'generic') becomes
+   * the classified EhError (NotFound only for a captured 404, SadPanda/Login/Cloudflare/RateLimited/
+   * ServerError/EmptyBody/ParseFailure otherwise). Replaces the old `throw new Error('... HTTP <n>')`
+   * so a non-404 failure can never surface to the UI as a 404.
+   */
+  private async fetch(url: string, isEx: boolean, page: string): Promise<EhTextResponse> {
+    let resp: EhTextResponse
+    try {
+      resp = await EhHttpClient.getInstance().getText(url)
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, url)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, page)
+    if (failure !== null) {
+      throw failure
+    }
+    return resp
+  }
+
+  /**
    * Fetch and parse one gallery-list page. `query.source` routes the path (eros_fe request.dart):
    * '' → front page `/`, 'watched' → `/watched` (login-only; same gltc layout + next cursor),
    * 'popular' → `/popular` (a fixed snapshot — no paging, no filters, so all params are skipped).
@@ -106,20 +129,15 @@ export class EhApiService {
     if (isPopular) {
       // /popular ignores filters and the next cursor — request the bare snapshot.
       const url: string = `${base}${path}`
-      const resp = await EhHttpClient.getInstance().getText(url)
-      if (resp.statusCode !== 200) {
-        throw new Error(`gallery list HTTP ${resp.statusCode}`)
-      }
+      const resp = await this.fetch(url, query.isEx, 'list')
       return this.filterHidden(EhGalleryListParser.parse(resp.body))
     }
     if (query.source === 'toplist') {
       // toplist.php is E-Hentai-ONLY (exhentai.org has no toplist → 404), so always use the e-hentai
       // host even in 里站 mode. Page-number paging (table.ptt), no cursor/filters (eros_fe toplist tab).
       const url: string = `${EhConstants.baseUrl(false)}/toplist.php?tl=${query.tl}&p=${query.page}`
-      const resp = await EhHttpClient.getInstance().getText(url)
-      if (resp.statusCode !== 200) {
-        throw new Error(`gallery list HTTP ${resp.statusCode}`)
-      }
+      // toplist.php is hard-pinned to the e-hentai host, so classify it as the table site (isEx=false).
+      const resp = await this.fetch(url, false, 'list')
       return EhGalleryListParser.parse(resp.body)
     }
     if (query.fCats > 0) {
@@ -172,10 +190,7 @@ export class EhApiService {
     }
     const queryStr: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}${path}${queryStr}`
-    const resp = await EhHttpClient.getInstance().getText(url)
-    if (resp.statusCode !== 200) {
-      throw new Error(`gallery list HTTP ${resp.statusCode}`)
-    }
+    const resp = await this.fetch(url, query.isEx, 'list')
     // TODO(perf): move heavy parse to a TaskPool worker (pass HTML in, GalleryList out).
     const list: GalleryList = EhGalleryListParser.parse(resp.body)
     // Hide-filter the front page + search results (eros_fe gates on the tag filter), but NOT /watched —
@@ -229,10 +244,7 @@ export class EhApiService {
     }
     const queryStr: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}/favorites.php${queryStr}`
-    const resp = await EhHttpClient.getInstance().getText(url)
-    if (resp.statusCode !== 200) {
-      throw new Error(`favorites HTTP ${resp.statusCode}`)
-    }
+    const resp = await this.fetch(url, query.isEx, 'list')
     return resp.body
   }
 
@@ -241,20 +253,14 @@ export class EhApiService {
   async getMyTags(isEx: boolean, tagset: string = ''): Promise<EhMytags> {
     const suffix: string = tagset.length > 0 ? `?tagset=${tagset}` : ''
     const url: string = `${EhConstants.baseUrl(isEx)}/mytags${suffix}`
-    const resp = await EhHttpClient.getInstance().getText(url)
-    if (resp.statusCode !== 200) {
-      throw new Error(`mytags HTTP ${resp.statusCode}`)
-    }
+    const resp = await this.fetch(url, isEx, 'generic')
     return EhMytagsParser.parse(resp.body)
   }
 
   /** Fetch a gallery detail page; returns header (incl. tags/apikey) + first preview page. */
   async getGalleryDetail(gid: string, token: string, isEx: boolean): Promise<GalleryDetailResult> {
     const url: string = `${EhConstants.baseUrl(isEx)}/g/${gid}/${token}/`
-    const resp = await EhHttpClient.getInstance().getText(url)
-    if (resp.statusCode !== 200) {
-      throw new Error(`gallery detail HTTP ${resp.statusCode}`)
-    }
+    const resp = await this.fetch(url, isEx, 'detail')
     const gallery: EhGallery = EhGalleryDetailParser.parse(resp.body, gid, token)
     const images: EhGalleryImage[] = EhGalleryImageParser.parse(resp.body)
     const comments: EhGalleryComment[] = EhCommentParser.parse(resp.body)
@@ -270,10 +276,7 @@ export class EhApiService {
     p: number,
   ): Promise<EhGalleryImage[]> {
     const url: string = `${EhConstants.baseUrl(isEx)}/g/${gid}/${token}/?p=${p}`
-    const resp = await EhHttpClient.getInstance().getText(url)
-    if (resp.statusCode !== 200) {
-      throw new Error(`gallery preview HTTP ${resp.statusCode}`)
-    }
+    const resp = await this.fetch(url, isEx, 'detail')
     return EhGalleryImageParser.parse(resp.body)
   }
 }
