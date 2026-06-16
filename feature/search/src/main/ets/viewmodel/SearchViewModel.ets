@@ -157,6 +157,24 @@ export class SearchViewModel {
     this.isLoading = false
   }
 
+  /**
+   * Drop rows already in the list (and intra-page dupes / empty gids) before append. EH repeats the
+   * boundary gallery across cursor page boundaries and the LazyForEach key is gid, so a duplicate gid
+   * would churn/throw. Mirrors GalleryListViewModel.dedupeNew (the home VM's gid-keyed list guard).
+   */
+  private dedupeNew(rows: EhGallery[]): EhGallery[] {
+    const seen: Set<string> = new Set<string>()
+    this.dataSource.getAll().forEach((g: EhGallery) => seen.add(g.gid))
+    const out: EhGallery[] = []
+    rows.forEach((g: EhGallery) => {
+      if (g.gid.length > 0 && !seen.has(g.gid)) {
+        seen.add(g.gid)
+        out.push(g)
+      }
+    })
+    return out
+  }
+
   async loadMore(): Promise<void> {
     if (this.isLoading || this.isLoadingMore || !this.hasMore || !this.hasSearched) {
       return
@@ -168,10 +186,15 @@ export class SearchViewModel {
       // A new search / filter re-apply / refresh landed while this fetch was in flight → these rows
       // are for the OLD query. Drop them rather than mixing them into the new results.
       if (this.epoch === myEpoch) {
-        this.dataSource.appendData(list.gallerys)
-        this.itemCount = this.dataSource.totalCount()
+        const fresh: EhGallery[] = this.dedupeNew(list.gallerys)
+        if (fresh.length > 0) {
+          this.dataSource.appendData(fresh)
+          this.itemCount = this.dataSource.totalCount()
+        }
         this.nextGid = list.nextGid
-        this.hasMore = list.nextGid.length > 0 && list.gallerys.length > 0
+        // Exhausted when the cursor is empty OR the page brought no genuinely-new rows (repeated
+        // boundary page) — without this an all-duplicate page keeps hasMore true and loops loadMore.
+        this.hasMore = list.nextGid.length > 0 && fresh.length > 0
       }
     } catch (err) {
       const e = err as Error

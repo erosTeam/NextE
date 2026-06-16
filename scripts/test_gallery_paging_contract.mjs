@@ -189,9 +189,13 @@ const ok = (name, cond) => {
   ok('reload bumps epoch', /this\.epoch = this\.epoch \+ 1/.test(src))
 }
 
-// 9. cross-cutting: EVERY paged ViewModel carries the same epoch (loadMore-vs-reset) guard.
-// The race (a reset path that runs without the isLoadingMore guard) is identical in all three;
-// fixing only Home would leave Favorites/Search corrupting their lists on favcat/query switch.
+// 9. cross-cutting: EVERY paged ViewModel carries the SAME two loadMore guards as Home.
+// (a) epoch (loadMore-vs-reset) guard — a reset path runs without the isLoadingMore guard, so an
+//     in-flight loadMore could contaminate the new list on favcat/query/source switch.
+// (b) gid-dedup guard — EH repeats the boundary gallery across cursor pages and the LazyForEach key
+//     is gid, so an undeduped append injects a duplicate key (churn/throw) and hasMore based on the
+//     raw page length loops forever on an all-duplicate page.
+// Both races are identical in all three VMs; fixing only Home would leave Favorites/Search broken.
 {
   const pagedVms = [
     'feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets',
@@ -205,6 +209,9 @@ const ok = (name, cond) => {
     ok(`${name}: captures myEpoch in loadMore`, /const myEpoch: number = this\.epoch/.test(src))
     ok(`${name}: discards stale page on epoch mismatch`, /if \(this\.epoch === myEpoch\)/.test(src))
     ok(`${name}: bumps epoch on reset`, /this\.epoch = this\.epoch \+ 1/.test(src))
+    ok(`${name}: declares dedupeNew helper`, /private dedupeNew\(rows: EhGallery\[\]\): EhGallery\[\]/.test(src))
+    ok(`${name}: dedupes new rows by gid before append`, /this\.dedupeNew\(list\.gallerys\)/.test(src))
+    ok(`${name}: exhausted on no-fresh rows`, /list\.nextGid\.length > 0 && fresh\.length > 0/.test(src))
   }
 }
 
