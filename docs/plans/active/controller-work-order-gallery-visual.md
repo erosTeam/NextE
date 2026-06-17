@@ -2,7 +2,7 @@
 
 Status: ACTIVE
 Owner: controller
-Scope: gallery visual/navigation regressions only
+Scope: gallery detail page visual regressions only
 Created: 2026-06-17
 
 ## Why this exists
@@ -82,23 +82,80 @@ Surfaces to verify before accepting:
 - detail preview grid
 - horizontal preview row
 - all-thumbnails page
-- list/card/grid/simple card cover paths if they share the same thumbnail primitives
+```
+
+Out of scope for this gate:
+
+```text
+- gallery list page cards / GalleryCard / list-card covers
+- home/favorites/toplist list cards
+- any list-page thumbnail/card rewrite
+```
+
+Implementation mode (changed after repeated patch-loop failures):
+
+```text
+Rewrite the shared thumbnail/cover presentation primitive instead of continuing per-surface patches.
+Do not build on top of the rejected patch-loop WIP; it is preserved in stash:
+  stash@{0}: paused rejected thumbnail/list-cover patch-loop before presentation primitive rewrite
+
+The new primitive must separate:
+- layout slot: reserves alignment/row/card space and is transparent in loaded state
+- visible image/sprite: owns its own computed size, real ratio, radius, and clip
+- loading/error placeholder: may have placeholder surface only before image loads or on error
+```
+
+Known compression/flattening root causes to eliminate:
+
+```text
+- Setting both width and height from the target frame on Image content when those dimensions do not match the actual image/sprite ratio.
+- Using ImageFit.Fill/Cover/Contain as a substitute for computing the visible image box.
+- Sprite rendering that scales the whole sprite sheet to frame dimensions instead of to the sprite sheet's real pixel dimensions and then clips the requested source rect.
+- A layout slot/frame such as PreviewThumbTile FRAME_ASPECT=1.4 may remain for alignment; the slot itself must be transparent/card-surface in loaded state and must not appear as a grey thumbnail body.
+```
+
+Clarification from user (2026-06-17):
+
+```text
+FRAME_ASPECT=1.4 is the container/layout slot; do not remove it just to make the slot follow content.
+Figure 3's shape/proportion is acceptable; the defect is the grey background/placeholder showing around loaded image.
+Therefore: keep layout slot semantics, keep real image ratio, remove visible grey loaded container, and ensure the image content itself is rounded.
 ```
 
 Acceptance evidence required:
 
 ```text
 - before/after device screenshots for at least one failing wide-ratio example if reproducible
+- proof screenshots sent into the chat, not only local paths
 - device screenshots for each affected surface above
 - source diff showing loaded image and wrapper/background layers are separated correctly
 - gates for parser/dimensions and thumbnail presentation contracts
 - build/install proof
 ```
 
+Current controller evidence status (2026-06-17):
+
+```text
+Verified candidate evidence sent to chat:
+- /tmp/nexte_v1/header.jpeg: header cover appears fixed enough to continue monitoring, but still requires final controller/user acceptance.
+
+Still failing / not accepted:
+- /tmp/nexte_v1/tile_zoom.png: user says this is a different class of failure: the visible detail-preview sprite image itself is wrong/distorted/compressed, not merely a grey-slot problem. Diagnose sprite/source-rect/display-size math.
+
+Out-of-scope / frozen for this gate:
+- /tmp/nexte_v1/list_cover_zoom.png: this is a gallery list-card surface, not the detail page. Do not work on it in this gate; prior list-card WIP was reverted.
+
+Implication:
+- Gate V1 remains OPEN.
+- Gate V1 is detail-page only: header cover + preview grid + horizontal preview row + all-thumbnails.
+- Do not touch GalleryCard/list-page cover code for this gate.
+```
+
 Completion rule:
 
 ```text
 Do not mark accepted until the controller can point to the screenshots and say the visible image itself is rounded and ratio-correct, with no fake grey loaded container.
+User-visible screenshot feedback overrides prior worker self-PASS and contract-only PASS.
 ```
 
 ### Gate V2 — Subtab never-loaded empty-state flash

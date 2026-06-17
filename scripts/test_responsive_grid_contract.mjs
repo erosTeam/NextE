@@ -145,6 +145,33 @@ ok(
   'horizontal preview row uses the same EhSpriteThumbnail (inherits the rounded sprite path)'
 )
 
+// 4d. NO axis distortion (device-flagged): the sheet is scaled UNIFORMLY by `factor` from its REAL decoded
+// pixel size (Image.onComplete width/height), NOT Fill-fitted to the parsed max-extent — otherwise a canvas
+// with padding beyond the last cell compresses one axis of the cropped thumb. Render size derives from the
+// real decoded pixels (captured via onComplete, reset per url); the parsed extent is only a pre-load fallback.
+ok(
+  /@Local\s+sheetRealW:\s*number\s*=\s*0/.test(sprite) && /@Local\s+sheetRealH:\s*number\s*=\s*0/.test(sprite),
+  'sprite tracks the real decoded sheet pixels (sheetRealW/sheetRealH)'
+)
+ok(/@Monitor\('url'\)/.test(sprite), 'sprite resets the decoded size when the url recycles (@Monitor url)')
+ok(
+  /onComplete\([\s\S]*?this\.sheetRealW = event\.width[\s\S]*?this\.sheetRealH = event\.height/.test(sprite),
+  'sprite captures the REAL decoded pixel size from Image.onComplete'
+)
+ok(
+  /this\.sheetRealW > 0 \? this\.sheetRealW : this\.spriteWidth/.test(sprite) &&
+    /this\.sheetRealH > 0 \? this\.sheetRealH : this\.spriteHeight/.test(sprite),
+  'sprite render size prefers the real decoded pixels (parsed extent is only the pre-load fallback)'
+)
+ok(
+  /\.width\(this\.sheetRenderWidth\(\)\)[\s\S]*?\.height\(this\.sheetRenderHeight\(\)\)/.test(sprite),
+  'sprite Image is sized by the real-pixel uniform-scale helpers (one factor on both axes)'
+)
+ok(
+  !/\.width\(this\.spriteWidth \* this\.factor\(\)\)/.test(sprite),
+  'sprite Image no longer Fill-fits the bare parsed extent (the axis-distortion path is removed)'
+)
+
 // 5. First-page preview retained — the inline GRID is seeded from the parsed FIRST detail preview
 // page, and the SAME first page seeds the all-thumbnails route, so both start at page 1 (the device
 // screenshot showing the inline grid at 31-40 was a scrolled-to-bottom view of that same 40-thumb

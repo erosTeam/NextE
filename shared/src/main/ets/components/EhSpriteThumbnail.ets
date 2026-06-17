@@ -13,6 +13,13 @@ import { EhConstants } from '../constants/EhConstants'
  * eros_fe's ThumbHorizontalList uses the fitHeight model (a fixed row height, width follows each thumb's
  * aspect) so portrait/landscape previews sit side by side with no white border.
  */
+// Subset of ArkUI's Image onComplete event we read: the DECODED source pixel size of the sprite sheet.
+// Optional because the callback can fire with no payload (first pass / error).
+interface SpriteLoadEvent {
+  loadingStatus: number
+  width?: number
+  height?: number
+}
 @ComponentV2
 export struct EhSpriteThumbnail {
   @Param url: string = '';
@@ -28,6 +35,18 @@ export struct EhSpriteThumbnail {
   // box matches the thumb exactly — no fixed-height overhang that would show a blank strip.
   @Param fitHeight: boolean = false;
   @Param radius: number = ThemeConstants.RADIUS_SM;
+  // The sprite sheet's REAL decoded pixel size (from Image.onComplete); 0 until the sheet loads. The sheet
+  // is scaled UNIFORMLY by `factor` relative to THESE real pixels — never Fill-stretched to the parsed
+  // max-extent — so the cropped thumb is never axis-distorted when the sheet canvas has padding beyond the
+  // last cell (the parsed spriteWidth/spriteHeight can under-measure the true canvas).
+  @Local sheetRealW: number = 0;
+  @Local sheetRealH: number = 0;
+
+  @Monitor('url')
+  onUrlChange() {
+    this.sheetRealW = 0
+    this.sheetRealH = 0
+  }
 
   // Sprite scale factor: thumb's source dimension → its display dimension.
   private factor(): number {
@@ -45,20 +64,46 @@ export struct EhSpriteThumbnail {
     return this.fitHeight ? this.displayHeight : this.thumbHeight * this.factor()
   }
 
+  // The whole sheet rendered at a UNIFORM scale = (real decoded pixels) × factor. Same `factor` on BOTH
+  // axes ⇒ the cropped source rect keeps its true proportion (no axis distortion). Before the sheet loads,
+  // fall back to the parsed extent (spriteWidth/spriteHeight) — identical when the canvas is tightly packed,
+  // and corrected to the true uniform scale the instant onComplete reports the real pixel size.
+  private sheetRenderWidth(): number {
+    return (this.sheetRealW > 0 ? this.sheetRealW : this.spriteWidth) * this.factor()
+  }
+
+  private sheetRenderHeight(): number {
+    return (this.sheetRealH > 0 ? this.sheetRealH : this.spriteHeight) * this.factor()
+  }
+
   build() {
     if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
       // Crop ONE thumb out of EH's sprite sheet. The sheet is an Image CHILD (not a backgroundImage)
       // inside a fixed box that clips to `radius`. This is deliberate: on HarmonyOS a backgroundImage is
       // NOT clipped by borderRadius + clip(true) (device-verified — the thumb rendered square), but Image
-      // CONTENT is. The Image is the whole sheet scaled by `factor` and shifted left to this thumb's
-      // column; the box is exactly the scaled thumb, so only this thumb shows — with real rounded corners.
+      // CONTENT is. The sheet is scaled UNIFORMLY by `factor` from its REAL decoded pixels (not Fill-fitted
+      // to the parsed max-extent, which would compress an axis when the canvas has padding) and shifted left
+      // to this thumb's column; the box is exactly the scaled thumb, so only this thumb shows — undistorted,
+      // rounded.
       Stack({ alignContent: Alignment.TopStart }) {
         Image(EhConstants.cdnThumb(this.url))
-          .width(this.spriteWidth * this.factor())
-          .height(this.spriteHeight * this.factor())
+          .width(this.sheetRenderWidth())
+          .height(this.sheetRenderHeight())
           .objectFit(ImageFit.Fill)
           .offset({ x: -(this.offsetX * this.factor()), y: 0 })
           .draggable(false)
+          .onComplete((event?: SpriteLoadEvent) => {
+            if (
+              event !== undefined &&
+              event.width !== undefined &&
+              event.height !== undefined &&
+              event.width > 0 &&
+              event.height > 0
+            ) {
+              this.sheetRealW = event.width
+              this.sheetRealH = event.height
+            }
+          })
       }
       .width(this.boxWidth())
       .height(this.boxHeight())
