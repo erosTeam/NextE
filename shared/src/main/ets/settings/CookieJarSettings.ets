@@ -15,15 +15,6 @@ import { connectAuth, AuthState } from '../state/AuthState'
  * map. Serialized as a cookie-header string ("name=value; …"); only logs counts, never values.
  */
 export class CookieJarSettings {
-  // The cookies that constitute the persisted auth bundle (everything else is request-scoped).
-  private static readonly AUTH_NAMES: string[] = [
-    EhConstants.COOKIE_MEMBER_ID,
-    EhConstants.COOKIE_PASS_HASH,
-    EhConstants.COOKIE_IGNEOUS,
-    EhConstants.COOKIE_SK,
-    EhConstants.COOKIE_STAR,
-  ]
-
   /** Pull a single cookie value out of a "name=value; name2=value2" header. '' if absent. */
   static parseCookieValue(header: string, name: string): string {
     if (header.length === 0) {
@@ -43,40 +34,58 @@ export class CookieJarSettings {
     return ''
   }
 
-  /** Apply the recognized auth cookies from a captured WebView cookie header into the jar.
-   * Returns true iff both identity cookies (member id + pass hash) are now present. */
+  /**
+   * Apply a captured WebView cookie header (login) OR a persisted cookie string (restore) into the jar —
+   * preserving the COMPLETE cookie set, not just a known auth bundle. EH gates some galleries
+   * (ExHentai-only content shown as "removed or unavailable" on the e-hentai.org URL) on donor/permission
+   * cookies whose names we do not enumerate; keeping only the 5 known cookies dropped them, making a
+   * logged-in donor look unauthenticated and the gallery look hard-deleted. `nw` is re-forced per request,
+   * and EH's `mystery` placeholder (e.g. igneous=mystery for non-donor) carries no value, so both are
+   * skipped. Returns true iff both identity cookies (member id + pass hash) are present.
+   */
   static applyFromHeader(header: string): boolean {
     const store: EhCookieStore = EhCookieStore.getInstance()
-    for (const name of CookieJarSettings.AUTH_NAMES) {
-      const value: string = CookieJarSettings.parseCookieValue(header, name)
-      if (value.length > 0 && value !== 'mystery') {
+    const pairs: string[] = header.split(';')
+    for (const pair of pairs) {
+      const trimmed: string = pair.trim()
+      const eq: number = trimmed.indexOf('=')
+      if (eq <= 0) {
+        continue
+      }
+      const name: string = trimmed.substring(0, eq).trim()
+      const value: string = trimmed.substring(eq + 1).trim()
+      if (
+        name.length > 0 &&
+        name !== EhConstants.COOKIE_NW &&
+        value.length > 0 &&
+        value !== 'mystery'
+      ) {
         store.set(name, value)
       }
     }
     return store.isLogin()
   }
 
-  /** Serialize the jar's auth bundle to a cookie-header string for storage. */
+  /** Serialize the COMPLETE jar (every captured cookie, not just the known bundle) for storage. */
   private static serialize(): string {
-    const store: EhCookieStore = EhCookieStore.getInstance()
-    const parts: string[] = []
-    for (const name of CookieJarSettings.AUTH_NAMES) {
-      const value: string = store.get(name)
-      if (value.length > 0) {
-        parts.push(`${name}=${value}`)
-      }
-    }
-    return parts.join('; ')
+    return EhCookieStore.getInstance().serializeForPersist()
   }
 
   /** Persist the current jar bundle to Preferences + refresh the AuthState mirror. */
   static async save(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
       store.putSync(StorageKeys.COOKIE_JAR, CookieJarSettings.serialize())
       store.flushSync()
       CookieJarSettings.syncAuthState()
-      DiagnosticLogger.info('auth', 'cookie_jar_saved', `login=${EhCookieStore.getInstance().isLogin()}`)
+      DiagnosticLogger.info(
+        'auth',
+        'cookie_jar_saved',
+        `login=${EhCookieStore.getInstance().isLogin()}`,
+      )
     } catch (error) {
       DiagnosticLogger.warn('auth', 'cookie_jar_save_failed', (error as Error).message)
     }
@@ -85,13 +94,20 @@ export class CookieJarSettings {
   /** Restore the persisted bundle into the jar + AuthState at startup (best-effort). */
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
       const serialized: string = store.getSync(StorageKeys.COOKIE_JAR, '') as string
       if (serialized.length > 0) {
         CookieJarSettings.applyFromHeader(serialized)
       }
       CookieJarSettings.syncAuthState()
-      DiagnosticLogger.info('auth', 'cookie_jar_restored', `login=${EhCookieStore.getInstance().isLogin()}`)
+      DiagnosticLogger.info(
+        'auth',
+        'cookie_jar_restored',
+        `login=${EhCookieStore.getInstance().isLogin()}`,
+      )
     } catch (error) {
       DiagnosticLogger.warn('auth', 'cookie_jar_restore_failed', (error as Error).message)
     }
@@ -101,7 +117,10 @@ export class CookieJarSettings {
   static async clear(context: common.UIAbilityContext): Promise<void> {
     EhCookieStore.getInstance().clear()
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
       store.deleteSync(StorageKeys.COOKIE_JAR)
       store.flushSync()
     } catch (error) {

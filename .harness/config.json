@@ -36,6 +36,11 @@
       "blocking": true
     },
     {
+      "name": "cookie-roundtrip",
+      "command": "node scripts/test_cookie_roundtrip_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "devsh-keepawake",
       "command": "node scripts/test_devsh_keepawake_contract.mjs",
       "blocking": true

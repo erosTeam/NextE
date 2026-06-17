@@ -32,13 +32,32 @@ export class EhCookieStore {
 
   /** Logged in once both identity cookies are present. */
   isLogin(): boolean {
-    return this.get(EhConstants.COOKIE_MEMBER_ID).length > 0 &&
+    return (
+      this.get(EhConstants.COOKIE_MEMBER_ID).length > 0 &&
       this.get(EhConstants.COOKIE_PASS_HASH).length > 0
+    )
   }
 
   /** Cookie header for a request; always forces nw=1. */
   header(): string {
     const parts: string[] = ['nw=1']
+    this.cookies.forEach((value: string, name: string) => {
+      if (name !== EhConstants.COOKIE_NW && value.length > 0) {
+        parts.push(`${name}=${value}`)
+      }
+    })
+    return parts.join('; ')
+  }
+
+  /**
+   * Every stored cookie as a "name=value; …" string for PERSISTENCE — the COMPLETE jar, not just the
+   * known auth bundle. EH gates some galleries (ExHentai-only content shown as "removed or unavailable"
+   * on the e-hentai.org URL) on donor/permission cookies whose NAMES we don't enumerate; dropping the
+   * unknown cookies made a logged-in donor look unauthenticated and the gallery look hard-deleted. `nw`
+   * is excluded (re-forced per request). Values are sensitive — this is fed to Preferences, never logged.
+   */
+  serializeForPersist(): string {
+    const parts: string[] = []
     this.cookies.forEach((value: string, name: string) => {
       if (name !== EhConstants.COOKIE_NW && value.length > 0) {
         parts.push(`${name}=${value}`)
