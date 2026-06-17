@@ -220,7 +220,7 @@ Each subitem must be either ACCEPTED with evidence, OPEN with next action, or ex
 ```text
 2026-06-17 19:15 +0800
 Base commit: 751d396
-F1 Claude lane: logic-subtab-loading — functional loading/state semantics; do not touch detail preview UI primitives.
+Claude lane: auth-cookie-login — safe manual Cookie login/import; logic-subtab-loading worktree exists but is paused unused.
 U1 Codex lane: ui-detail-preview-audit — current screenshot/UI audit for detail preview/header/all-thumbnails/horizontal; do not touch GalleryListViewModel or retained-state logic.
 Device rule: agent-controlled .197 operations must use docs/device-lease.md.
 Interrupt rule: new user bug/UI feedback is classified by controller as regression/acceptance miss/new scope before any worker changes scope.

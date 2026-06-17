@@ -182,7 +182,7 @@ Required behavior gate:
 
 ```text
 2026-06-17 19:15 +0800, base 751d396
-Claude F1: functional subtab/loading/state logic audit and fixes.
+Claude: auth-cookie-login first; functional subtab/loading lane paused unused until cookie login gate lands.
 Codex U1: detail preview/header/all-thumbnails/horizontal UI re-audit and small visual fixes if scoped.
 Workers must not edit the same files or broaden scope without controller interrupt classification.
 Agent device QA must use scripts/device-lease.
