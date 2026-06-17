@@ -1,11 +1,10 @@
 # Gallery visual + navigation regression contract
 
-- **status**: completed
+- **status**: ACTIVE — REOPENED; completed archive was invalid because several acceptance gates remain partial/unsolved.
 - **created**: 2026-06-16 13:11:31 +0800
 - **source**: user feedback in controller chat after #37/#38; persisted because chat-only notes are lost after context compaction
 - **scope owner**: controller, not Claude self-report
-- **completed**: 2026-06-17
-- **completion head**: `26e2dfc` (`feat(gallery-card): list-row fixed/adaptive height modes`)
+- **reopened**: 2026-06-17 — controller audit after user correction. Previous archive claim is invalid; use the item-by-item audit below before any next work.
 
 ## Control-plane state
 
@@ -229,7 +228,25 @@ Minimum validation bundle for any acceptance:
 - 2026-06-17 09:16 +0800 — **D (P1 list-card fixed/adaptive row height) implemented (commit `26e2dfc`, pushed to `main`).** eros_fe grounding (Explore sweep): `fixedHeightOfListItems` (ehsetting_service.dart:179, **DEFAULT TRUE**; layout_setting_page.dart:251 user toggle, only enabled in list mode; gallery_item.dart `kFixedHeight=204` + fixed-height `TagWaterfallFlowViewBox` vs adaptive `TagBox` wrap; setting is orthogonal to list/simple/grid). NextE was adaptive-only (`GalleryCard` `constraintSize({minHeight: cardMinHeight()})`). **Resumed the paused D stash** (`stash@{0}`: state/settings plumbing only — reviewed, 100% valid, applied as-is and now superseded by this commit; safe to drop): `ListModeState.@Trace fixedHeight=true` (default = eros_fe parity), `StorageKeys.LIST_ITEM_FIXED_HEIGHT='layout.fixedHeightOfListItems'`, `ListModeSettings.restore` (default true) + `setFixedHeight` single-writer → Preferences. New rendering in `GalleryCard`: reads `connectListMode()` reactively (@Trace → live re-lay on toggle); **FIXED** → `constraintSize` min==max `cardMinHeight()` (uniform cover-height rows) + tag block in a `layoutWeight(1).clip(true)` middle so overflow tags clip and the meta row stays foot-anchored; **ADAPTIVE** → prior minHeight-only grow layout with two `Blank()` springs. One shared `tagChips()` @Builder feeds both; **`containFit:true` preserved in BOTH modes** → cover is Contain-over-grey, no stretch / no side-crop (cover-presentation fix intact). `SettingsPage` adds an optional toggle `settings_list_fixed_height` (4 locales; `sys.symbol.rectangle_grid_1x2` two-rows icon) wired to `setFixedHeight`; simple + grid layouts untouched. New blocking gate `scripts/test_list_height_mode_contract.mjs` (22 assertions: default-true, single-writer persistence, FIXED pin+clip vs ADAPTIVE grow, the containFit no-crop invariant, settings wiring, 4-locale label). Gates: list-height-mode, **harness-verify 19/19**, V1 0, i18n 4-locale parity, `dev.sh --build-only` BUILD SUCCESSFUL, pre-commit 19/19. **Device QA on `192.168.50.197:12345`** (same default 表站 list, account ID 2007706): FIXED (default ON — `/tmp/nexte_qa/d_fixed.jpeg`) — three cards at one uniform row height; the 8-tag *Frieren Girls* card clips its tag overflow with rating/Misc/94P/date foot-anchored; covers Contain (full figures, no stretch/crop). Settings (`/tmp/nexte_qa/d_settings.jpeg`) — new 固定列表行高 switch defaults ON, two-rows icon renders correctly. Toggle OFF → ADAPTIVE (`/tmp/nexte_qa/d_adaptive.jpeg`) — the same Frieren card grows to show all 8 tags; covers still contained. Live toggle + persistence verified; toggle restored to default ON after QA. **P1 list-card height DONE.** This was suggested-order item #7 (last); no list-card items remain open in this contract — awaiting controller acceptance.
 
 
-## Final completion summary
+## Reopened acceptance audit
+
+The previous archive/completed claim is invalid. This file is active again until every documented acceptance gate is either verified solved or explicitly moved to a separate active gate with owner/evidence. Current known status:
+
+| Original active item | Current status | Reason |
+|---|---|---|
+| P0 sub-tab switching white-screens / reloads | PARTIAL | Home/Toplist/Favorites favcat retention have evidence, but the original gate also named Favorites order, site 表/里 and search filters; older log marked some of these BLOCKED. |
+| P0 false 404 on some galleries | PARTIAL | Cookie completeness + MaybeHidden shipped for the provided example, but the original true-404 / ExHentai Sad Panda / full auth matrix was not fully device-verified. |
+| P0 detail preview semantics collapsed | PARTIAL | Modes and route entries shipped, but later thumbnail visual acceptance failed per user report; page polish also had prior screenshot caveats. |
+| P0 detail header action sizing | PARTIAL | Main read/favorite states have evidence; full read/unread/resume/favorited/unfavorited matrix was not independently re-shot as one acceptance bundle. |
+| P0 detail title long-text stress | PARTIAL | Long title case has evidence; extreme long-uploader/state matrix is structurally covered but not fully device-verified. |
+| P1 detail tag chips shape | PARTIAL | Shape improved; usertag/vote-colored visual states remained blocked by unavailable data. |
+| P1 gallery cover presentation | PARTIAL | Loaded presentation improved; full loaded/loading/error × light/dark matrix was not fully accepted. |
+| P1 list card height modes | PARTIAL | Fixed/adaptive shipped, but stash still exists and must be reconciled; this does not close the whole visual contract. |
+| Preview thumbnail rounded corners / thumbnail visual correctness | UNSOLVED | User explicitly reports it is not fixed. This overrides the previous doc claim; must be re-investigated with current screenshot/device evidence. |
+
+Do not re-archive this file until the reopened audit is resolved item by item.
+
+## Final completion summary (INVALIDATED; retained as historical record only)
 
 Completed on 2026-06-17 after the final D/P1 list-card fixed/adaptive row-height pass. Final pushed head: `26e2dfc`.
 
