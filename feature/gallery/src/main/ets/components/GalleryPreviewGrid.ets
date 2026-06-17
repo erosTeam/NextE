@@ -148,26 +148,39 @@ export struct GalleryPreviewGrid {
     .scrollBar(BarState.Off)
   }
 
-  // Inline wrap-grid peek of the first preview page. Responsive column count (gridColumns) + a shared
-  // PreviewThumbTile per item: each tile is a FIXED-size frame with the thumb contained+centered and the
-  // page number at a constant position, so a flat/wide or misdetected thumb never drags the baseline.
+  // Inline grid peek of the first preview page. Responsive column count via columnsTemplate (a true Grid,
+  // not a wrapping Flex) so tiles align in columns with uniform gap and the last row left-aligns naturally.
+  private columnsTemplate(): string {
+    const cols: number = this.gridColumns()
+    const parts: string[] = []
+    for (let i: number = 0; i < cols; i++) {
+      parts.push('1fr')
+    }
+    return parts.join(' ')
+  }
+
   @Builder
   gridPeek() {
-    Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
+    Grid() {
       ForEach(
         this.images,
         (img: EhGalleryImage) => {
-          PreviewThumbTile({
-            image: img,
-            tileWidth: this.gridTileWidth(),
-            onTap: () => {
-              this.onOpen(img.page - 1)
-            },
-          }).margin({ bottom: ThemeConstants.SPACE_SM })
+          GridItem() {
+            PreviewThumbTile({
+              image: img,
+              tileWidth: this.gridTileWidth(),
+              onTap: () => {
+                this.onOpen(img.page - 1)
+              },
+            })
+          }
         },
         (img: EhGalleryImage) => `${img.page}`,
       )
     }
+    .columnsTemplate(this.columnsTemplate())
+    .columnsGap(ThemeConstants.SPACE_SM)
+    .rowsGap(ThemeConstants.SPACE_SM)
     .width('100%')
     .onAreaChange((_oldValue: Area, newValue: Area) => {
       this.gridWidth = newValue.width as number
