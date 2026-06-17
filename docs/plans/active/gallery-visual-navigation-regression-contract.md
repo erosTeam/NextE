@@ -178,6 +178,16 @@ Required behavior gate:
 - Determine whether NextE must expose a setting or map existing list/simple/grid modes to Fe’s fixed/adaptive behavior.
 - PASS only if long title/tag density does not cause uncontrolled list rhythm, cover stretching, or excessive crop.
 
+## Current multi-lane dispatch
+
+```text
+2026-06-17 19:15 +0800, base 751d396
+Claude F1: functional subtab/loading/state logic audit and fixes.
+Codex U1: detail preview/header/all-thumbnails/horizontal UI re-audit and small visual fixes if scoped.
+Workers must not edit the same files or broaden scope without controller interrupt classification.
+Agent device QA must use scripts/device-lease.
+```
+
 ## Execution rules for the next worker/controller
 
 Before any code change:
@@ -251,7 +261,7 @@ The previous archive/completed claim is invalid. This file is active again until
 | P1 detail tag chips shape | NEEDS_CONTROLLER_REQA | Geometry improved, but usertag/vote-colored visual states lack device evidence and must not be inferred. |
 | P1 gallery cover presentation | NEEDS_CONTROLLER_REQA | Loaded presentation improved; loading/error × light/dark matrix needs current screenshots. |
 | P1 list card height modes | NEEDS_CONTROLLER_REQA | Fixed/adaptive shipped; stash and current visual rhythm still need controller reconciliation. |
-| Preview thumbnail rounded corners / thumbnail visual correctness | UNSOLVED | User explicitly reports it is not fixed. This overrides the previous doc claim; must be re-investigated with current screenshot/device evidence before any other visual acceptance claim. |
+| Preview thumbnail rounded corners / thumbnail visual correctness | PUSHED_CANDIDATE_REVIEW | Fixed candidate pushed in `587d8b2`; user said to submit because it is at least better. Codex U1 must re-audit current screenshots and mark exact remaining issues instead of relying on historical PASS. |
 
 Default rule after reopening: every item in this audit is NOT accepted until controller supplies current source evidence plus current device/visual evidence. The user is not responsible for re-QAing unmentioned items; silence is not acceptance.
 

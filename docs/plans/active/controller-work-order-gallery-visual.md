@@ -48,7 +48,7 @@ Reference sources:
 
 ### Gate V1 — Real thumbnail / cover presentation
 
-Status: OPEN
+Status: PUSHED_CANDIDATE_REVIEW
 Priority: P0
 
 User-observed failures:
@@ -160,7 +160,7 @@ User-visible screenshot feedback overrides prior worker self-PASS and contract-o
 
 ### Gate V2 — Subtab never-loaded empty-state flash
 
-Status: OPEN
+Status: ASSIGNED_CLAUDE_F1
 Priority: P0
 
 User-observed failure:
@@ -193,7 +193,7 @@ Acceptance evidence required:
 
 ### Gate V3 — Existing active visual/navigation items re-audit
 
-Status: OPEN
+Status: ASSIGNED_CODEX_U1_FOR_DETAIL_PREVIEW_AUDIT
 Priority: P1
 
 This is the original gallery visual/navigation active plan. Every prior PASS is invalid unless re-backed by current controller evidence under this work order.
@@ -213,6 +213,17 @@ Completion rule:
 
 ```text
 Each subitem must be either ACCEPTED with evidence, OPEN with next action, or explicitly OUT_OF_SCOPE with reason. Do not archive the active plan while any subitem is OPEN.
+```
+
+## Current dispatch lanes
+
+```text
+2026-06-17 19:15 +0800
+Base commit: 751d396
+F1 Claude lane: logic-subtab-loading — functional loading/state semantics; do not touch detail preview UI primitives.
+U1 Codex lane: ui-detail-preview-audit — current screenshot/UI audit for detail preview/header/all-thumbnails/horizontal; do not touch GalleryListViewModel or retained-state logic.
+Device rule: agent-controlled .197 operations must use docs/device-lease.md.
+Interrupt rule: new user bug/UI feedback is classified by controller as regression/acceptance miss/new scope before any worker changes scope.
 ```
 
 ## Execution protocol
