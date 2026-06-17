@@ -30,11 +30,21 @@ export class EhErrorClassifier {
 
     // --- Status-driven (non-200) ---
     if (status === 404) {
-      // ONLY a captured 404 is allowed to read as not-found. Carry EH's own sentence if present.
+      const notice: string = EhErrorClassifier.scrapeNotice(body)
+      // EH's "removed or is unavailable" wording is ambiguous (ExHentai-only-via-e-hentai / donor-gated /
+      // incomplete-cookie / expunged) — surface it as auth/visibility-sensitive, NOT verified hard-deleted.
+      // Only a true "Gallery not found." (or any other 404 body) is the hard not-found (invalid gid/token).
+      if (EhErrorClassifier.looksRemovedOrUnavailable(body)) {
+        return new EhError(
+          EhErrorKind.MaybeHidden,
+          EhErrorClassifier.dev('maybe-hidden', page, status, host),
+          notice,
+        )
+      }
       return new EhError(
         EhErrorKind.NotFound,
         EhErrorClassifier.dev('not-found', page, status, host),
-        EhErrorClassifier.scrapeNotice(body),
+        notice,
       )
     }
     if (status === 429 || status === 509) {
@@ -102,6 +112,15 @@ export class EhErrorClassifier {
         EhErrorClassifier.dev('banned-200', page, status, host),
       )
     }
+    // Some EH variants serve the "removed or is unavailable" notice with HTTP 200 (no /g/ marker). Same
+    // auth/visibility ambiguity as the 404 form — surface MaybeHidden, never a hard not-found/deleted.
+    if (EhErrorClassifier.looksRemovedOrUnavailable(body)) {
+      return new EhError(
+        EhErrorKind.MaybeHidden,
+        EhErrorClassifier.dev('maybe-hidden-200', page, status, host),
+        EhErrorClassifier.scrapeNotice(body),
+      )
+    }
     // A 200 with no gallery/list markup and no known interstitial: on ex this is the blank Sad Panda
     // gate; on the table site it is an unparseable page (markup changed / unexpected variant).
     return new EhError(
@@ -155,6 +174,12 @@ export class EhErrorClassifier {
       (b.indexOf('name="username"') >= 0 && b.indexOf('name="password"') >= 0) ||
       b.indexOf('you are currently not logged in') >= 0
     )
+  }
+
+  // EH's ambiguous "This gallery has been removed or is unavailable." page (expunged/private OR
+  // ExHentai-only-via-e-hentai OR donor-gated/incomplete-cookie) — NOT a verified hard not-found.
+  private static looksRemovedOrUnavailable(body: string): boolean {
+    return body.toLowerCase().indexOf('removed or is unavailable') >= 0
   }
 
   private static looksBanned(body: string): boolean {

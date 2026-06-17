@@ -28,6 +28,7 @@ const src = (rel) => readFileSync(join(ROOT, rel), 'utf8')
 
 const KIND = {
   NotFound: 'notFound',
+  MaybeHidden: 'maybeHidden',
   SadPanda: 'sadPanda',
   LoginRequired: 'loginRequired',
   Cloudflare: 'cloudflare',
@@ -71,12 +72,20 @@ const hasMarker = (body, page) => {
   if (page === 'list') return body.includes('class="itg')
   return body.includes('<h1 id="gn"') || body.includes('<h1 id="gj"') || body.includes('id="gdt"')
 }
+// EH's ambiguous "removed or is unavailable" page (ExHentai-only-via-e-hentai / donor-gated /
+// incomplete-cookie / expunged) — auth/visibility-sensitive, NOT a verified hard not-found.
+const looksRemovedOrUnavailable = (body) => body.toLowerCase().includes('removed or is unavailable')
 
 // Mirror of EhErrorClassifier.classifyResponse — returns a kind string, or null when usable.
 function classify(reqUrl, isEx, resp, page) {
   const status = resp.statusCode
   const body = resp.body
-  if (status === 404) return KIND.NotFound
+  if (status === 404) {
+    // "removed or is unavailable" is auth/visibility-sensitive → MaybeHidden; a true "Gallery not found."
+    // (or any other 404 body) is the hard NotFound.
+    if (looksRemovedOrUnavailable(body)) return KIND.MaybeHidden
+    return KIND.NotFound
+  }
   if (status === 429 || status === 509) return KIND.RateLimited
   if (status >= 500) return KIND.ServerError
   if (status !== 200) {
@@ -90,6 +99,7 @@ function classify(reqUrl, isEx, resp, page) {
   if (looksCloudflare(body)) return KIND.Cloudflare
   if (looksLogin(body)) return KIND.LoginRequired
   if (looksBanned(body)) return KIND.RateLimited
+  if (looksRemovedOrUnavailable(body)) return KIND.MaybeHidden
   return isEx ? KIND.SadPanda : KIND.ParseFailure
 }
 
@@ -109,7 +119,11 @@ const SYN = {
   validDetail: '<html><h1 id="gn">A Title</h1><div id="gdt">...</div></html>',
   validList: '<html><table class="itg gltc"><tr></tr></table>'
     + '<a href="https://forums.e-hentai.org/index.php?act=Login">Login</a></html>', // top-bar login link MUST NOT trip LoginRequired
-  notFound: '<html><div class="d"><p>This gallery has been removed or is unavailable.</p></div></html>',
+  // EH's AMBIGUOUS wording (expunged/private OR ExHentai-only-via-e-hentai OR donor-gated/
+  // incomplete-cookie) — auth/visibility-sensitive, classifies as MaybeHidden, never hard NotFound.
+  removedOrUnavailable: '<html><div class="d"><p>This gallery has been removed or is unavailable.</p></div></html>',
+  // EH's UNAMBIGUOUS hard not-found (invalid gid/token) — the only 404 body that is true NotFound.
+  hardNotFound: '<html><div class="d"><p>Gallery not found.</p></div></html>',
   empty: '',
   login: '<html><form><input name="UserName"><input name="PassWord"></form>'
     + '<a href="https://e-hentai.org/bounce_login.php">x</a></html>',
@@ -123,18 +137,27 @@ eq('valid detail 200 → usable', classify('https://e-hentai.org/g/1/a/', false,
 eq('valid ex detail 200 → usable', classify('https://exhentai.org/g/1/a/', true, resp(200, SYN.validDetail), 'detail'), null)
 eq('valid list 200 (with top-bar login link) → usable, NOT LoginRequired', classify('https://e-hentai.org/', false, resp(200, SYN.validList), 'list'), null)
 
-// 2. Core invariant: ONLY a captured HTTP 404 is NotFound.
-eq('HTTP 404 → NotFound', classify('https://e-hentai.org/g/1/a/', false, resp(404, SYN.notFound), 'detail'), KIND.NotFound)
+// 2. Core invariant: ONLY a captured HTTP 404 with the HARD "Gallery not found." body is NotFound.
+// EH's ambiguous "removed or is unavailable" — even on a 404 — is auth/visibility-sensitive MaybeHidden
+// (donor/ExHentai-only/incomplete-cookie may be the real cause), so it must NEVER read as hard-deleted.
+eq('HTTP 404 hard "Gallery not found." → NotFound', classify('https://e-hentai.org/g/1/a/', false, resp(404, SYN.hardNotFound), 'detail'), KIND.NotFound)
+eq('HTTP 404 "removed or is unavailable" → MaybeHidden (NOT NotFound)', classify('https://e-hentai.org/g/1/a/', false, resp(404, SYN.removedOrUnavailable), 'detail'), KIND.MaybeHidden)
 ok(
   'NotFound is produced for NO non-404 status',
   [200, 403, 429, 500, 502, 503, 509, 0].every(
-    (s) => classify('https://e-hentai.org/g/1/a/', false, resp(s, SYN.notFound), 'detail') !== KIND.NotFound,
+    (s) => classify('https://e-hentai.org/g/1/a/', false, resp(s, SYN.hardNotFound), 'detail') !== KIND.NotFound,
+  ),
+)
+ok(
+  'MaybeHidden is produced for NO status other than the removed-or-unavailable 404/200 bodies',
+  [403, 429, 500, 502, 503, 509, 0].every(
+    (s) => classify('https://e-hentai.org/g/1/a/', false, resp(s, SYN.removedOrUnavailable), 'detail') !== KIND.MaybeHidden,
   ),
 )
 eq(
-  '200 with removed-notice body → ParseFailure (NOT NotFound)',
-  classify('https://e-hentai.org/g/1/a/', false, resp(200, SYN.notFound), 'detail'),
-  KIND.ParseFailure,
+  '200 with removed-notice body → MaybeHidden (NOT NotFound, NOT ParseFailure)',
+  classify('https://e-hentai.org/g/1/a/', false, resp(200, SYN.removedOrUnavailable), 'detail'),
+  KIND.MaybeHidden,
 )
 
 // 3. Status taxonomy.
@@ -173,7 +196,7 @@ for (const [name, isEx, page] of [
 // 7. Structural: the .ets taxonomy + classifier carry the required kinds and decision tokens.
 {
   const errSrc = src('shared/src/main/ets/network/EhError.ets')
-  for (const k of ['NotFound', 'SadPanda', 'LoginRequired', 'Cloudflare', 'RateLimited', 'ServerError', 'ParseFailure', 'EmptyBody', 'HttpError', 'Network']) {
+  for (const k of ['NotFound', 'MaybeHidden', 'SadPanda', 'LoginRequired', 'Cloudflare', 'RateLimited', 'ServerError', 'ParseFailure', 'EmptyBody', 'HttpError', 'Network']) {
     ok(`EhError declares kind ${k}`, new RegExp(`${k}\\s*=`).test(errSrc))
   }
   ok('EhError extends Error', /class EhError extends Error/.test(errSrc))
@@ -181,6 +204,9 @@ for (const [name, isEx, page] of [
 
   const clsSrc = src('shared/src/main/ets/network/EhErrorClassifier.ets')
   ok('classifier: only 404 → NotFound', /status === 404[\s\S]*?EhErrorKind\.NotFound/.test(clsSrc))
+  // The ambiguous "removed or is unavailable" body (404 or 200) must route to MaybeHidden, never a hard
+  // NotFound — this is the auth/visibility-completeness gate (donor / ExHentai-only / incomplete-cookie).
+  ok('classifier: removed-or-unavailable → MaybeHidden', /looksRemovedOrUnavailable\(body\)[\s\S]*?EhErrorKind\.MaybeHidden/.test(clsSrc))
   ok('classifier: marker-first on 200', /hasMarker\(body, page\)\s*\)\s*\{\s*return null/.test(clsSrc))
   ok('classifier: 429/509 → RateLimited', /status === 429 \|\| status === 509/.test(clsSrc))
   ok('classifier: transport wrapper', /static network\(/.test(clsSrc))
@@ -210,6 +236,30 @@ for (const [name, isEx, page] of [
       `${name}: never assigns raw Error.message to the user-facing field`,
       !/this\.(error|errorMessage)\s*=\s*\(?(?:e|err)\b[^\n]*\.message/.test(s),
     )
+  }
+}
+
+// 9. User-facing copy is OFFICIAL-TONE: MaybeHidden maps to error_gallery_maybe_hidden, and that visible
+//    string (every locale) must NOT leak the internal classification guess — no ExHentai / 里站 / donor /
+//    permission / cookie / login wording. The internal kind stays MaybeHidden; only the copy is neutral.
+{
+  const etx = src('shared/src/main/ets/i18n/EhErrorText.ets')
+  ok(
+    'EhErrorText maps MaybeHidden → error_gallery_maybe_hidden',
+    /MaybeHidden:\s*\n?\s*return 'error_gallery_maybe_hidden'/.test(etx),
+  )
+  ok('EhErrorText maps NotFound → error_gallery_unavailable', /NotFound:\s*\n?\s*return 'error_gallery_unavailable'/.test(etx))
+
+  // Implementation-leak tokens forbidden in the PRIMARY visible error copy (case-insensitive for ASCII).
+  const FORBIDDEN = ['exhentai', 'e-hentai', '里站', '表站', 'donor', '捐赠', 'cookie', 'login', '登录', 'permission', '权限', 'igneous']
+  for (const loc of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
+    const json = JSON.parse(src(`entry/src/main/resources/${loc}/element/string.json`))
+    const entry = json.string.find((e) => e.name === 'error_gallery_maybe_hidden')
+    ok(`${loc}: error_gallery_maybe_hidden present and non-empty`, entry && entry.value.trim().length > 0)
+    const low = (entry ? entry.value : '').toLowerCase()
+    for (const tok of FORBIDDEN) {
+      ok(`${loc}: MaybeHidden copy omits implementation hint "${tok}"`, !low.includes(tok.toLowerCase()))
+    }
   }
 }
 

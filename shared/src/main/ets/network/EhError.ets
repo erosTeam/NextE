@@ -10,7 +10,12 @@
  * scraped from a 404 body (e.g. "This gallery has been removed or is unavailable.").
  */
 export enum EhErrorKind {
-  NotFound = 'notFound', // captured HTTP 404 ONLY
+  NotFound = 'notFound', // captured HTTP 404 with EH's hard "Gallery not found." — invalid gid/token
+  // EH's "This gallery has been removed or is unavailable." is AMBIGUOUS by design: expunged/private,
+  // OR ExHentai-only content fetched via the e-hentai.org URL (visible only on 里站 unless a donor/
+  // permission cookie is present), OR an incomplete-cookie/unauthenticated request. It must NOT be
+  // asserted as verified hard-deleted — it is auth/visibility-sensitive.
+  MaybeHidden = 'maybeHidden',
   SadPanda = 'sadPanda', // ExHentai auth gate: missing/invalid igneous → empty/blank 200 on ex
   LoginRequired = 'loginRequired', // redirected to / served the EH login page
   Cloudflare = 'cloudflare', // Cloudflare challenge / interstitial

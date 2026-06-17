@@ -125,6 +125,10 @@
       "value": "This gallery is not available (it may have been removed)."
     },
     {
+      "name": "error_gallery_maybe_hidden",
+      "value": "This gallery has been removed or is unavailable. Please try again later."
+    },
+    {
       "name": "error_sad_panda",
       "value": "ExHentai access denied. Log in and make sure igneous is set."
     },

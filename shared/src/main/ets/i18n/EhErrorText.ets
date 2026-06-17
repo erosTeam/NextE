@@ -15,6 +15,8 @@ export class EhErrorText {
     switch (kind) {
       case EhErrorKind.NotFound:
         return 'error_gallery_unavailable'
+      case EhErrorKind.MaybeHidden:
+        return 'error_gallery_maybe_hidden'
       case EhErrorKind.SadPanda:
         return 'error_sad_panda'
       case EhErrorKind.LoginRequired:

@@ -125,6 +125,10 @@
       "value": "このギャラリーは利用できません(削除された可能性があります)。"
     },
     {
+      "name": "error_gallery_maybe_hidden",
+      "value": "このギャラリーは削除されたか利用できません。しばらくしてから再度お試しください。"
+    },
+    {
       "name": "error_sad_panda",
       "value": "ExHentai へのアクセスが拒否されました。ログインして igneous を取得してください。"
     },

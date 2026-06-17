@@ -125,6 +125,10 @@
       "value": "该画廊不可用(可能已被删除)。"
     },
     {
+      "name": "error_gallery_maybe_hidden",
+      "value": "该画廊已被删除或不可用。请稍后重试或检查访问环境。"
+    },
+    {
       "name": "error_sad_panda",
       "value": "里站访问被拒绝,请登录并确认已获取 igneous。"
     },
