@@ -249,6 +249,30 @@
       "value": "ログイン"
     },
     {
+      "name": "settings_login_cookie",
+      "value": "Cookie でログイン"
+    },
+    {
+      "name": "cookie_import_title",
+      "value": "Cookie ログイン"
+    },
+    {
+      "name": "cookie_import_hint",
+      "value": "ipb_member_id と ipb_pass_hash を含む Cookie 文字列を貼り付けてください。端末内にのみ保存され、E-Hentai にのみ送信されます。"
+    },
+    {
+      "name": "cookie_import_placeholder",
+      "value": "ipb_member_id=…; ipb_pass_hash=…"
+    },
+    {
+      "name": "cookie_import_submit",
+      "value": "インポート"
+    },
+    {
+      "name": "cookie_import_invalid",
+      "value": "Cookie には ipb_member_id と ipb_pass_hash が必要です。"
+    },
+    {
       "name": "settings_account",
       "value": "アカウント"
     },

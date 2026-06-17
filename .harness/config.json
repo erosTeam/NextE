@@ -46,6 +46,11 @@
       "blocking": true
     },
     {
+      "name": "cookie-import",
+      "command": "node scripts/test_cookie_import_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "devsh-keepawake",
       "command": "node scripts/test_devsh_keepawake_contract.mjs",
       "blocking": true

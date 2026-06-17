@@ -249,6 +249,30 @@
       "value": "Log in"
     },
     {
+      "name": "settings_login_cookie",
+      "value": "Log in with cookie"
+    },
+    {
+      "name": "cookie_import_title",
+      "value": "Cookie login"
+    },
+    {
+      "name": "cookie_import_hint",
+      "value": "Paste a Cookie string that includes ipb_member_id and ipb_pass_hash. It stays on this device and is only sent to E-Hentai."
+    },
+    {
+      "name": "cookie_import_placeholder",
+      "value": "ipb_member_id=…; ipb_pass_hash=…"
+    },
+    {
+      "name": "cookie_import_submit",
+      "value": "Import"
+    },
+    {
+      "name": "cookie_import_invalid",
+      "value": "The cookie must include ipb_member_id and ipb_pass_hash."
+    },
+    {
       "name": "settings_account",
       "value": "Account"
     },
