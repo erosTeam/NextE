@@ -30,9 +30,10 @@ NextE/
 │   ├── test_v1_decorator_inventory_contract.mjs
 │   ├── test_version_consistency_contract.mjs
 │   ├── check_i18n_duplicates.py
+│   ├── build_hvigor_signed.sh
 │   ├── sign.py  +  dev.env.sample
 ├── docs/                     架构 / EH 集成契约 / 路线图 / agent 指南
-├── dev.sh                    一键构建 + 签名 + 安装
+├── dev.sh                    Linux legacy helper; macOS 不使用
 ├── CLAUDE.md  AGENTS.md       开发规范与约束
 └── build-profile.json5  oh-package.json5  ...
 ```
@@ -44,14 +45,26 @@ NextE/
 ```bash
 ohpm install                                                          # 解析依赖
 hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon   # 构建 unsigned HAP
+```
 
-# 或用一键脚本(签名需先准备物料,见下)
+当前 macOS 工作流使用官方 DevEco/Hvigor build-profile 签名路径:
+
+```bash
+bash scripts/setup-local-build-profile.sh   # 安装 ignored 的本地签名 build-profile.local.json5
+bash scripts/build_hvigor_signed.sh         # 官方 Hvigor 签名构建,产出 entry-default-signed.hap
+```
+
+`dev.sh` 是 Linux legacy helper,不要在 macOS 上使用。
+
+Linux legacy helper(签名需先准备物料,见下):
+
+```bash
 bash dev.sh --build-only     # 仅构建
 bash dev.sh                  # 构建 + 签名 + 安装
 bash dev.sh --help           # 帮助
 ```
 
-签名:复制 `scripts/dev.env.sample` 为 `scripts/dev.env`(gitignored)填入签名物料路径/口令。复用账号级调试证书,需单独为 `com.erosteam.nexte` 签发一个调试 Provisioning Profile(`.p7b`)。
+签名:macOS 使用 ignored 的 `build-profile.local.json5` 和 `scripts/setup-local-build-profile.sh`。Linux legacy helper 使用 `scripts/dev.env`(从 `scripts/dev.env.sample` 复制,gitignored)填入签名物料路径/口令。复用账号级调试证书,需单独为 `com.erosteam.nexte` 签发一个调试 Provisioning Profile(`.p7b`)。
 
 ## 门禁
 

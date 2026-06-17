@@ -13,7 +13,16 @@ NextE (bundle `com.erosteam.nexte`) is a native **HarmonyOS NEXT** third-party *
 
 ## Build / Sign / Install
 
-One-stop script is `dev.sh` (Chinese help: `bash dev.sh --help`). Signing material paths/passwords come from `scripts/dev.env` (copy from `scripts/dev.env.sample`, gitignored).
+Current macOS workflow uses the official DevEco/Hvigor build-profile signing path. Do **not** use `dev.sh` on macOS.
+
+```bash
+bash scripts/setup-local-build-profile.sh
+bash scripts/build_hvigor_signed.sh
+```
+
+This installs the ignored local `build-profile.local.json5` into `build-profile.json5` with skip-worktree protection, then runs `hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon` and signs through the build profile.
+
+`dev.sh` is a Linux legacy helper (Chinese help: `bash dev.sh --help`). Its signing material paths/passwords come from `scripts/dev.env` (copy from `scripts/dev.env.sample`, gitignored).
 
 ```bash
 bash dev.sh                # debug: build + sign + install
@@ -29,7 +38,7 @@ Raw HAP build (what CI runs, no signing — the M0 acceptance gate):
 hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon
 ```
 
-- **Single bundle ID `com.erosteam.nexte`.** Signing reuses V2Next's account-level debug cert (`~/.config/harmony/debug-signing`: `debug.p12`, `ohos-D.cer`); a NextE-specific Provisioning Profile `profiles/com.erosteam.nexte.p7b` must be minted once (debug, account-level cert). Set `NEXTE_SIGN_NONINTERACTIVE=1` for headless signing. Signing files are never committed; `build-profile.json5` signing config and `oh-package-lock.json5` are gitignored.
+- **Single bundle ID `com.erosteam.nexte`.** Signing reuses V2Next's account-level debug cert (`~/.config/harmony/debug-signing`: `debug.p12`, `ohos-D.cer`); a NextE-specific Provisioning Profile `profiles/com.erosteam.nexte.p7b` must be minted once (debug, account-level cert). Signing files are never committed; on macOS, local signing lives in ignored `build-profile.local.json5` and is installed via `scripts/setup-local-build-profile.sh`; Linux legacy `dev.sh` uses `scripts/dev.env`.
 
 ## Tests / Gates
 

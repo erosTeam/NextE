@@ -2,7 +2,7 @@
   "projectType": "custom",
   "language": "zh",
   "verificationMode": "strict",
-  "buildCmd": "bash dev.sh --build-only",
+  "buildCmd": "bash scripts/build_hvigor_signed.sh",
   "testCmd": "node scripts/test_v1_decorator_inventory_contract.mjs",
   "gates": [
     {
@@ -13,6 +13,11 @@
     {
       "name": "v1-decorator-inventory",
       "command": "node scripts/test_v1_decorator_inventory_contract.mjs",
+      "blocking": true
+    },
+    {
+      "name": "mac-harness-signing",
+      "command": "node scripts/test_mac_harness_signing_contract.mjs",
       "blocking": true
     },
     {
