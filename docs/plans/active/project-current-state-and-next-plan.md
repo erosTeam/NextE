@@ -2,7 +2,7 @@
 
 - **status**: ACTIVE
 - **owner**: controller / project lead
-- **updated**: 2026-06-18 07:39:00 +0800
+- **updated**: 2026-06-18 07:45:52 +0800
 - **purpose**: single scheduling snapshot after the Mac migration and the latest list responsive-cover gate.
 
 This document is a planning control surface, not an acceptance archive. Existing active plans remain queues. Historical PASS logs, worker summaries, and old screenshots are useful evidence, but they do not equal current controller acceptance.
@@ -53,20 +53,17 @@ Controller checkout:
 ```text
 repo:   /Users/honjow/git/NextE
 branch: main
-head:   58e48ba fix(auth): sync logout state before persistence cleanup
+head:   38a04b4 docs(project): record auth cookie lane merge status
 ```
 
 Current controller checkout status:
 
 ```text
- M AGENTS.md
- M docs/plans/active/controller-work-order-gallery-visual.md
-?? docs/agent-guides/current-mac-codex-handoff.md
-?? docs/plans/active/project-current-state-and-next-plan.md
-?? docs/plans/completed/security-hardcoded-login-incident.md
+Clean and in sync with origin/main at this snapshot.
 ```
 
-These are control-plane/project assets until proven otherwise. Do not clean or discard them.
+Control-plane/project assets, screenshots, harness state, worktrees, local profiles, and old WIP remain
+protected. Do not clean or discard them.
 
 Known worktrees:
 
@@ -403,6 +400,32 @@ Boundary:
 - Auth completion unlocks follow-up ExHentai/Sad Panda/donor/permission matrix, but controller must not receive cookie values.
 ```
 
+### 6a. False-404 / auth matrix follow-up
+
+Status: **PARTIAL logged-out smoke complete; full matrix still active**
+
+Current Mac smoke evidence:
+
+```text
+Target: 127.0.0.1:5555 Mate X7 emulator, hdc run outside the Codex sandbox.
+Deep link: https://e-hentai.org/g/1/0000000000/
+Displayed result: "无法解析此页面,应用可能需要更新。" + retry.
+Important negative result: no user-facing "404" was shown for this logged-out invalid public-gallery case.
+
+Evidence:
+/private/tmp/nexte_lane_f_false_404_evidence/nexte_lane_f_false_404.png
+/private/tmp/nexte_lane_f_false_404_evidence/nexte_lane_f_false_404_layout.json
+```
+
+Limitations:
+
+```text
+- This proves only the displayed text for one logged-out non-auth case.
+- Bounded hilog tail did not capture a useful NextE classifier line, so do not over-claim log coverage.
+- True HTTP 404, ExHentai/Sad Panda, donor/permission, MaybeHidden, and logged-in auth matrix cases remain active.
+- Full matrix depends on a safe user-driven login state. Codex must not request, receive, type, log, or screenshot raw cookie values.
+```
+
 ### 7. Older clean worktrees
 
 Status: **not active by default**
@@ -588,6 +611,14 @@ Dependency:
 
 ```text
 Requires auth lane or user-driven login state. Do not ask for cookies in chat.
+```
+
+First action:
+
+```text
+If the controller supplies a safe already-logged-in app state, run the full ExHentai/Sad Panda/donor/permission
+matrix with screenshot/layout/log evidence. Without that state, continue the non-auth visual/navigation re-QA
+queues instead of blocking the whole project.
 ```
 
 ## Post-stabilization eros_fe feature lanes

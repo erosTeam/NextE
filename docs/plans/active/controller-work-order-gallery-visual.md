@@ -244,13 +244,15 @@ For each gate:
 
 ```text
 2026-06-18 07:22 +0800
-origin/main: 0652a05 fix(gallery): restore comfortable preview grid width
+origin/main: 38a04b4 docs(project): record auth cookie lane merge status
 
 Merged/pushed since the Mac handoff:
 - 11069a5 fix(list): make gallery card covers pane-responsive
 - 4ab2367 chore(mac): use official hvigor signing in harness
 - b3d9e5d fix(search): keep reload footer in loading state
 - 0652a05 fix(gallery): restore comfortable preview grid width
+- 58e48ba fix(auth): sync logout state before persistence cleanup
+- 38a04b4 docs(project): record auth cookie lane merge status
 
 These merges do not close the active visual/navigation plans by themselves. Controller re-QA and
 item-by-item acceptance are still required.

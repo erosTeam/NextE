@@ -1,6 +1,6 @@
 # Current Mac/Codex handoff
 
-Last updated: 2026-06-18 07:39:00 +0800.
+Last updated: 2026-06-18 07:45:52 +0800.
 
 This file is the current-site handoff for Codex/Claude/local agents after the Hermes migration from the old desktop to the Mac. It summarizes durable context that is otherwise split across memory, active plans, and controller chat. It is **not** a completion claim and does not override active plan gates.
 
@@ -134,8 +134,8 @@ Controller checkout at this handoff:
 ```text
 repo:   /Users/honjow/git/NextE
 branch: main
-head:   58e48ba fix(auth): sync logout state before persistence cleanup
-status: clean business tree after auth-cookie-login-rebase merge/push
+head:   38a04b4 docs(project): record auth cookie lane merge status
+status: clean tree, in sync with origin/main after auth-cookie-login-rebase and control-plane doc pushes
 ```
 
 Control-plane documents, harness state, screenshots, fixtures, and worktrees are project assets. Do not delete, move, or call them disposable without explicit path-level user authorization.
@@ -181,6 +181,7 @@ recently merged/pushed lanes:
   - b3d9e5d Search reload footer loading state
   - 0652a05 detail preview grid comfort width
   - 58e48ba manual Cookie login/import path and logout-state sync
+  - 38a04b4 auth-cookie merge-status control-plane docs
 ```
 
 At this handoff there are no live tmux worker sessions and no Hermes background processes.
@@ -210,6 +211,21 @@ gallery-visual-navigation-regression-contract.md:
 cookie-login-function-gate.md:
   Manual Cookie login/import candidate is merged at 58e48ba.
   User/manual real-cookie success verification remains open; do not ask for cookie values.
+```
+
+Latest false-404 smoke:
+
+```text
+2026-06-18, after auth-cookie-login-rebase merge:
+  Target: 127.0.0.1:5555 Mate X7 emulator, hdc run outside the Codex sandbox.
+  Deep link: https://e-hentai.org/g/1/0000000000/
+  Result: UI displayed "无法解析此页面,应用可能需要更新。" + retry, not a 404 message.
+  Evidence:
+    /private/tmp/nexte_lane_f_false_404_evidence/nexte_lane_f_false_404.png
+    /private/tmp/nexte_lane_f_false_404_evidence/nexte_lane_f_false_404_layout.json
+  Limitation: bounded hilog tail did not capture a useful NextE classifier line. This is one logged-out
+  non-auth smoke only; ExHentai/Sad Panda/donor/permission/auth matrix still requires a safe user-driven
+  login state and must not involve Codex receiving or typing raw cookies.
 ```
 
 Do not archive active plans or convert plan items into a new batch. Existing headings are queued gates until current controller evidence proves them solved/blocked/out of scope.
