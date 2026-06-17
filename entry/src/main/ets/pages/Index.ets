@@ -40,6 +40,7 @@ import { GalleryDetailPage, GalleryAllThumbnailsPage, GalleryCommentsPage } from
 import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
 import { EhLoginWebPage } from './EhLoginWebPage'
+import { EhCookieImportPage } from './EhCookieImportPage'
 
 /**
  * NextE navigation shell — native HDS (`HdsNavigation` + `HdsTabs` from `@kit.UIDesignKit`,
@@ -274,6 +275,8 @@ struct Index {
       ReaderPage()
     } else if (name === 'EhLogin') {
       EhLoginWebPage()
+    } else if (name === 'EhCookieImport') {
+      EhCookieImportPage()
     } else if (name === 'MyTags') {
       MyTagsPage()
     } else if (name === 'AllThumbnails') {

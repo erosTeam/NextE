@@ -249,6 +249,30 @@
       "value": "登录账号"
     },
     {
+      "name": "settings_login_cookie",
+      "value": "使用 Cookie 登录"
+    },
+    {
+      "name": "cookie_import_title",
+      "value": "Cookie 登录"
+    },
+    {
+      "name": "cookie_import_hint",
+      "value": "粘贴包含 ipb_member_id 与 ipb_pass_hash 的 Cookie 字符串。它仅保存在本机,且只发送给 E-Hentai。"
+    },
+    {
+      "name": "cookie_import_placeholder",
+      "value": "ipb_member_id=…; ipb_pass_hash=…"
+    },
+    {
+      "name": "cookie_import_submit",
+      "value": "导入"
+    },
+    {
+      "name": "cookie_import_invalid",
+      "value": "Cookie 需包含 ipb_member_id 与 ipb_pass_hash。"
+    },
+    {
       "name": "settings_account",
       "value": "账号"
     },

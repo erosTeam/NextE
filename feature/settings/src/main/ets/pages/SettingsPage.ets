@@ -92,6 +92,15 @@ export struct SettingsPage {
             this.stack.pushPathByName('EhLogin', null)
           },
         })
+        this.rowDivider()
+        // Safe fallback to the WebView login: paste an existing EH cookie header (donor/other device).
+        ConciseListRow({
+          title: $r('app.string.settings_login_cookie'),
+          leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
+          action: () => {
+            this.stack.pushPathByName('EhCookieImport', null)
+          },
+        })
       }
     }
   }
