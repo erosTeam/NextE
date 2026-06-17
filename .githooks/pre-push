@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo="$(git rev-parse --show-toplevel)"
+cd "$repo"
+
+if git ls-files --error-unmatch build-profile.local.json5 >/dev/null 2>&1; then
+  echo 'BLOCKED: build-profile.local.json5 is tracked.' >&2
+  exit 1
+fi
+if git ls-files --error-unmatch build-profile.json5.github >/dev/null 2>&1; then
+  echo 'BLOCKED: build-profile.json5.github is tracked; public file must be build-profile.json5.' >&2
+  exit 1
+fi
+
+scripts/check-public-build-profile.sh --head

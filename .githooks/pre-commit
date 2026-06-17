@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo="$(git rev-parse --show-toplevel)"
+cd "$repo"
+
+if git diff --cached --name-only --diff-filter=ACMR | grep -Exq 'build-profile\.local\.json5|build-profile\.json5\.github'; then
+  echo 'BLOCKED: local/legacy build profile file is staged.' >&2
+  echo 'Use build-profile.json5 as the public file; keep build-profile.local.json5 local.' >&2
+  exit 1
+fi
+
+if git diff --cached --name-only --diff-filter=ACMR | grep -qx 'build-profile.json5'; then
+  scripts/check-public-build-profile.sh --staged
+fi

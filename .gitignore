@@ -21,3 +21,7 @@ scripts/dev.env
 # Captured EH page fixtures for local parser smoke-checks (site content, not committed).
 # The committed contract tests carry an inline synthetic fixture as the hard gate.
 scripts/fixtures/
+# Local DevEco/Harmony build profile; may contain signing paths/passwords.
+build-profile.local.json5
+# Legacy migration backup; public config is build-profile.json5.
+build-profile.json5.github
