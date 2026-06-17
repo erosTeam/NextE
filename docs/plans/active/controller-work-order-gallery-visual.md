@@ -31,24 +31,23 @@ This document is the executable control plane for the next work. It is not a pos
 
 ## Device and reference
 
-Primary device:
+Current Mac migration note:
 
 ```text
-192.168.50.197:12345
+Primary repo:      /Users/honjow/git/NextE
+Reference sources: /Users/honjow/git/eros_fe   # product/UX semantics
+                   /Users/honjow/git/V2Next    # HarmonyOS/HDS/state/navigation architecture
 ```
 
-Reference sources:
+Do not use historical `/home/gamer/...` paths as local paths on this Mac. They refer to the old desktop (`gamer@itx.local`) unless explicitly accessed over SSH/rsync.
 
-```text
-/home/gamer/git/eros_fe   # product/UX semantics
-/home/gamer/git/V2Next    # retained/navigation architecture where relevant
-```
+Current local emulator/hdc state is summarized in `docs/agent-guides/current-mac-codex-handoff.md`. For ordinary responsive-layout QA, prefer the local Mate X7 foldable emulator matrix before falling back to a physical device. For real-device-only QA, still follow `docs/device-lease.md` and verify the target is currently connected before install/screenshot work.
 
 ## Current gate queue
 
 ### Gate V1 — Real thumbnail / cover presentation
 
-Status: PUSHED_CANDIDATE_REVIEW
+Status: MERGED_CANDIDATE_REVIEW
 Priority: P0
 
 User-observed failures:
@@ -160,7 +159,7 @@ User-visible screenshot feedback overrides prior worker self-PASS and contract-o
 
 ### Gate V2 — Subtab never-loaded empty-state flash
 
-Status: ASSIGNED_CLAUDE_F1
+Status: MERGED_CANDIDATE_REVIEW
 Priority: P0
 
 User-observed failure:
@@ -193,7 +192,7 @@ Acceptance evidence required:
 
 ### Gate V3 — Existing active visual/navigation items re-audit
 
-Status: ASSIGNED_CODEX_U1_FOR_DETAIL_PREVIEW_AUDIT
+Status: ACTIVE_REQA_AFTER_MERGED_CANDIDATES
 Priority: P1
 
 This is the original gallery visual/navigation active plan. Every prior PASS is invalid unless re-backed by current controller evidence under this work order.
@@ -240,6 +239,22 @@ For each gate:
 8. Commit and push only if accepted.
 9. Update this document’s gate status.
 10. Continue to the next OPEN gate automatically.
+
+## Current merge checkpoint
+
+```text
+2026-06-18 07:22 +0800
+origin/main: 0652a05 fix(gallery): restore comfortable preview grid width
+
+Merged/pushed since the Mac handoff:
+- 11069a5 fix(list): make gallery card covers pane-responsive
+- 4ab2367 chore(mac): use official hvigor signing in harness
+- b3d9e5d fix(search): keep reload footer in loading state
+- 0652a05 fix(gallery): restore comfortable preview grid width
+
+These merges do not close the active visual/navigation plans by themselves. Controller re-QA and
+item-by-item acceptance are still required.
+```
 
 ## Prohibited shortcuts
 

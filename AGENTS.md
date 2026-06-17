@@ -16,13 +16,14 @@ For any ArkTS/UI/state change, `node scripts/test_v1_decorator_inventory_contrac
 
 - [Always-loaded rules](docs/agent-guides/always-loaded-rules.md) — data-flow boundary, gates, UI/product preservation, EH destructive writes, login/cookie security, commits.
 - [HarmonyOS default constraints](docs/agent-guides/harmonyos-default.md) — ArkTS/ETS syntax hard stops, official API/resource/i18n/theme requirements, ArkUI animation constraints, EH-porting specifics.
+- [Current Mac/Codex handoff](docs/agent-guides/current-mac-codex-handoff.md) — migrated-machine paths, current worktrees, emulator QA targets, active plan state, and the current list-responsive hard gate.
 
 ## Project Docs
 
 - [Architecture](docs/architecture.md) — module map, shared subsystems, data flow, state/navigation patterns.
 - [EH integration contract](docs/eh-integration-contract.md) — domains, endpoints, cookie/auth model, parser→model list, image dispatch, exhentai gating, deep links.
 - [Roadmap](docs/roadmap.md) — M0..M6 milestones, risks, open decisions.
-- [Device lease](docs/device-lease.md) — advisory lease for agent-controlled NextE real-device QA on `192.168.50.197:12345`.
+- [Device lease](docs/device-lease.md) — advisory lease for agent-controlled real-device QA; check the current handoff before assuming a target because the migrated Mac now has local emulators.
 
 ## Reference Projects
 
