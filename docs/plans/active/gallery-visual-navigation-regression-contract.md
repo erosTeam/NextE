@@ -14,6 +14,7 @@ Current blocking conclusions:
 
 - `b5791a9` (`fix(gallery): detail preview row to eros_fe ThumbHorizontalList`) is **not fully accepted**. It fixed part of the thumbnail rendering defect (larger/no-white-border path), but it collapsed eros_fe product semantics: horizontal thumbnails are optional, default grid must remain, hide-gallery-thumbnails exists, and the all-thumbnails page entry must still be reachable in horizontal mode.
 - `da493c1` (`feat(cards): tint list/grid/simple card rating stars...`) is **not controller-accepted in this contract** yet. It may be technically correct, but no further gallery work should proceed until this contract is addressed.
+- 2026-06-17 user follow-up: sub-tab switching still briefly flashes an empty/no-data state before entering loading. This is NOT accepted as retained-tab behavior. It belongs to P0 sub-tab switching/reload and must be reproduced/gated; a never-loaded key may show content-area loading, but must not flash `没有数据/没有更多了` or equivalent empty terminal copy before loading.
 - Do not continue feature work or cosmetic spot-fixes before the P0 items below are audited and gated.
 
 Non-negotiable project safety:
