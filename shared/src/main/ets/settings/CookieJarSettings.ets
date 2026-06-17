@@ -116,6 +116,8 @@ export class CookieJarSettings {
   /** Log out: clear the jar, the persisted bundle, and the AuthState mirror. */
   static async clear(context: common.UIAbilityContext): Promise<void> {
     EhCookieStore.getInstance().clear()
+    // Refresh visible account UI immediately; persistence deletion may await Preferences I/O.
+    CookieJarSettings.syncAuthState()
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
@@ -127,6 +129,7 @@ export class CookieJarSettings {
       DiagnosticLogger.warn('auth', 'cookie_jar_clear_failed', (error as Error).message)
     }
     CookieJarSettings.syncAuthState()
+    DiagnosticLogger.info('auth', 'cookie_jar_cleared', 'login=false')
   }
 
   /** Push the jar's login facts into the reactive AuthState (non-sensitive fields only). */

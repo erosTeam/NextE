@@ -31,6 +31,7 @@ const src = (rel) => readFileSync(join(ROOT, rel), 'utf8')
 const PAGE = 'entry/src/main/ets/pages/EhCookieImportPage.ets'
 const INDEX = 'entry/src/main/ets/pages/Index.ets'
 const SETTINGS = 'feature/settings/src/main/ets/pages/SettingsPage.ets'
+const COOKIE_SETTINGS = 'shared/src/main/ets/settings/CookieJarSettings.ets'
 
 let passed = 0
 const ok = (name, cond) => {
@@ -57,6 +58,8 @@ const eq = (name, got, want) => {
   ok('Settings pushes the EhCookieImport route', /pushPathByName\('EhCookieImport'/.test(settings))
   ok('Settings keeps the WebView login route intact', /pushPathByName\('EhLogin'/.test(settings))
   ok('cookie import row is in the logged-out branch', /settings_login_cookie/.test(settings))
+  ok('logout confirmation keeps cancel as primary button', /primaryButton:\s*\{[\s\S]*?common_cancel[\s\S]*?\}[\s\S]*?secondaryButton:/.test(settings))
+  ok('logout confirmation puts destructive clear on secondary button', /secondaryButton:\s*\{[\s\S]*?settings_logout[\s\S]*?fontColor:\s*Color\.Red[\s\S]*?logout\(\)/.test(settings))
 }
 
 // --- 2. Reuse: the page delegates to CookieJarSettings, does not hand-roll a second parser ---
@@ -144,7 +147,15 @@ const eq = (name, got, want) => {
   eq('nw is never stored', jarC.has(NW), false)
 }
 
-// --- 5. i18n: the import strings exist in all four locales ---
+// --- 5. Logout safety: clear jar first, refresh UI immediately, then delete persisted bundle. ---
+{
+  const cookieSettings = src(COOKIE_SETTINGS)
+  ok('CookieJarSettings.clear clears the in-memory jar before persistence I/O', /static\s+async\s+clear[\s\S]*?EhCookieStore\.getInstance\(\)\.clear\(\)/.test(cookieSettings))
+  ok('CookieJarSettings.clear syncs AuthState immediately after clearing jar', /EhCookieStore\.getInstance\(\)\.clear\(\)\s*\n\s*\/\/[^\n]*\n\s*CookieJarSettings\.syncAuthState\(\)/.test(cookieSettings))
+  ok('CookieJarSettings.clear deletes persisted cookie jar', /deleteSync\(StorageKeys\.COOKIE_JAR\)/.test(cookieSettings))
+}
+
+// --- 6. i18n: the import strings exist in all four locales ---
 {
   const KEYS = [
     'settings_login_cookie',
