@@ -46,6 +46,11 @@
       "blocking": true
     },
     {
+      "name": "device-lease",
+      "command": "node scripts/test_device_lease_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "thumbnail-mode",
       "command": "node scripts/test_thumbnail_mode_contract.mjs",
       "blocking": true

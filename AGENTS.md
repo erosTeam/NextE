@@ -22,6 +22,7 @@ For any ArkTS/UI/state change, `node scripts/test_v1_decorator_inventory_contrac
 - [Architecture](docs/architecture.md) — module map, shared subsystems, data flow, state/navigation patterns.
 - [EH integration contract](docs/eh-integration-contract.md) — domains, endpoints, cookie/auth model, parser→model list, image dispatch, exhentai gating, deep links.
 - [Roadmap](docs/roadmap.md) — M0..M6 milestones, risks, open decisions.
+- [Device lease](docs/device-lease.md) — advisory lease for agent-controlled NextE real-device QA on `192.168.50.197:12345`.
 
 ## Reference Projects
 
