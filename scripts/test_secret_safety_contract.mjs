@@ -62,11 +62,21 @@ const forbiddenSourcePatterns = [
   { name: 'bundled credential rawfile read', re: /getRawFileContentSync\s*\(\s*['"]dev_session\.txt['"]\s*\)/ },
   { name: 'legacy injection diagnostic', re: /dev_session_injected/ },
 ]
+const concreteCookiePatterns = [
+  { name: 'ipb_pass_hash value', re: /ipb_pass_hash\s*=\s*[A-Za-z0-9_-]{12,}/ },
+  { name: 'ipb_member_id value', re: /ipb_member_id\s*=\s*\d{2,}/ },
+  { name: 'igneous value', re: /igneous\s*=\s*[A-Za-z0-9_-]{8,}/ },
+  { name: 'Cookie header with EH credential value', re: /Cookie\s*:\s*[^\n]*(ipb_member_id\s*=\s*\d{2,}|ipb_pass_hash\s*=\s*[A-Za-z0-9_-]{12,}|igneous\s*=\s*[A-Za-z0-9_-]{8,})/i },
+]
 for (const f of appFiles) {
   if (!/\.(ets|ts|js|mjs|json5?|xml)$/.test(f)) continue
   const text = readFileSync(f, 'utf8')
   for (const p of forbiddenSourcePatterns) {
     if (p.re.test(text)) errors.push(`${rel(f)} contains forbidden app-source token: ${p.name}`)
+  }
+  // Cookie names and empty placeholders are allowed for UI guidance; concrete-looking values are not.
+  for (const p of concreteCookiePatterns) {
+    if (p.re.test(text)) errors.push(`${rel(f)} contains concrete EH cookie-looking material: ${p.name}`)
   }
 }
 
@@ -91,6 +101,11 @@ for (const f of packageFiles) {
   if (!/\.(hap|app|apk|aab|zip)$/i.test(f)) continue
   const listing = command(['unzip', '-l', f])
   if (/resources\/rawfile\/dev_session\.txt/.test(listing)) errors.push(`${rel(f)} packages resources/rawfile/dev_session.txt`)
+  const bytes = command(['unzip', '-p', f], { encoding: 'buffer' })
+  const text = bytes.toString('latin1')
+  for (const p of concreteCookiePatterns) {
+    if (p.re.test(text)) errors.push(`${rel(f)} contains packaged concrete EH cookie-looking material: ${p.name}`)
+  }
 }
 
 const tracked = command(['git', 'ls-files', '-z']).split('\0').filter(Boolean)
