@@ -91,7 +91,7 @@ export class ThemeConstants {
   // Min comfortable preview-thumbnail column width (vp). The detail inline grid + the all-thumbnails
   // page derive their column count from the pane width and this min (eros_fe max-cross-axis-extent),
   // so a phone lands ~3 columns and wider screens scale up — never a hardcoded column count.
-  static readonly PREVIEW_THUMB_MIN_W: number = 105
+  static readonly PREVIEW_THUMB_MIN_W: number = 90
 
   // Line heights
   static readonly LINE_HEIGHT_TITLE: number = 22
