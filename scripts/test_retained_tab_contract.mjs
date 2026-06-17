@@ -150,7 +150,12 @@ ok(/SELECTOR_BAR_HEIGHT\s*-\s*\d+/.test(subTabBar), 'SubTabBar indicator baselin
 
 // ── 8. Loading policy (framework): first-load = content-area only; no top+center duplicate ───────────
 for (const [name, src] of [['GalleryListBody', galleryListBody], ['FavcatPage', favcatPage]]) {
-  ok(/isLoading\s*&&\s*this\.vm\.itemCount\s*===\s*0/.test(src), `${name}: first-load loading is content-area, gated on isLoading && itemCount===0`)
+  // Content-area first-load, scoped to an empty body (itemCount===0) and shown while loading OR not-yet-
+  // loaded — the never-loaded gate prevents a terminal empty/no-more flash before the first load lands.
+  ok(
+    /PageLoadingState\(\)/.test(src) && /this\.vm\.itemCount\s*===\s*0/.test(src) && /this\.vm\.isLoading/.test(src),
+    `${name}: first-load loading is content-area, scoped to itemCount===0`,
+  )
   ok(!/LoadingProgress\(\)[\s\S]*?PageLoadingState\(\)|PageLoadingState\(\)[\s\S]*?LoadingProgress\(\)/.test(src), `${name}: no top + center duplicate loading for one first-load`)
 }
 

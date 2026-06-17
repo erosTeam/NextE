@@ -77,22 +77,44 @@ forbidClearBeforeFetch(
   'fetchPage',
 )
 
-// UI branches may show a loading page only for true initial load (itemCount === 0). This keeps the
-// first-load affordance while preventing selector reloads with existing rows from unmounting content.
+// UI loading branch shows only for an empty body (itemCount === 0) so selector reloads with existing
+// rows don't unmount content — the first-load affordance without the white-screen remount.
 for (const [rel, component] of [
   ['feature/home/src/main/ets/components/GalleryListBody.ets', 'GalleryListBody'],
-  // The favorites list body (loading branch) now lives in the retained per-favcat FavcatPage; switching
-  // favcat swipes to a retained page (no reload at all), and within a favcat the loading affordance still
-  // scopes to itemCount === 0 initial load.
   ['feature/user/src/main/ets/components/FavcatPage.ets', 'FavcatPage'],
   ['feature/search/src/main/ets/pages/GallerySearchPage.ets', 'GallerySearchPage'],
 ]) {
   const src = text(rel)
   check(
-    /isLoading\s*&&\s*this\.vm\.itemCount\s*===\s*0/.test(src) ||
-      /this\.vm\.isLoading\s*&&\s*this\.vm\.itemCount\s*===\s*0/.test(src),
-    `${component} must scope PageLoadingState to itemCount === 0 initial-load only`,
+    /PageLoadingState\(\)/.test(src) && /itemCount\s*===\s*0/.test(src),
+    `${component} must scope PageLoadingState to an empty body (itemCount === 0)`,
   )
+}
+
+// A sub-tab SWITCH must not flash terminal empty/no-more copy before its first load. The loading branch
+// is gated on "never loaded yet" (not just the transient isLoading, which leaves a mounted-but-not-yet-
+// loading frame that used to render CardEmptyState / an empty scaffold), and the paging footer counts a
+// page-level load too so a reload that forces hasMore=false up front can't strand a "没有更多了" footer.
+for (const [rel, component, neverLoadedToken] of [
+  ['feature/home/src/main/ets/components/GalleryListBody.ets', 'GalleryListBody', '!this.vm.loaded'],
+  ['feature/user/src/main/ets/components/FavcatPage.ets', 'FavcatPage', '!this.loadedOnce'],
+]) {
+  const src = text(rel)
+  check(
+    src.includes(neverLoadedToken),
+    `${component} loading branch must render for a never-loaded key (gate on \`${neverLoadedToken}\`, not just isLoading)`,
+  )
+  check(
+    /isLoading:\s*this\.vm\.isLoadingMore\s*\|\|\s*this\.vm\.isLoading/.test(src),
+    `${component} paging footer must count the page-level isLoading (no stranded "no more" during a reload)`,
+  )
+}
+
+// The home/toplist ViewModel carries the loaded flag and flips it once the first load AND a reload finish.
+{
+  const vm = text('feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets')
+  check(/@Trace\s+loaded:\s*boolean\s*=\s*false/.test(vm), 'GalleryListViewModel declares @Trace loaded (default false)')
+  check((vm.match(/this\.loaded\s*=\s*true/g) || []).length >= 2, 'GalleryListViewModel sets loaded=true after both loadData and reload')
 }
 
 if (failures === 0) {

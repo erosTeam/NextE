@@ -123,7 +123,14 @@ export struct FavcatPage {
 
   build() {
     Column() {
-      if (this.vm.isLoading && this.vm.itemCount === 0) {
+      if (
+        this.vm.itemCount === 0 &&
+        this.vm.errorMessage.length === 0 &&
+        (this.vm.isLoading || !this.loadedOnce)
+      ) {
+        // Never-loaded OR loading (nothing yet) → content-area loading. Gating on `!loadedOnce` (not just
+        // the transient isLoading) closes the frame where a freshly-switched favcat is mounted but its load
+        // hasn't flipped isLoading true yet — which otherwise flashes an empty body before the spinner.
         PageLoadingState()
       } else if (this.vm.itemCount === 0 && this.vm.errorMessage.length > 0) {
         PageErrorState({
@@ -200,7 +207,8 @@ export struct FavcatPage {
           )
           ListItem() {
             LoadingFooter({
-              isLoading: this.vm.isLoadingMore,
+              // Page-level isLoading too, so a favcat reload never strands a "没有更多了" terminal flash.
+              isLoading: this.vm.isLoadingMore || this.vm.isLoading,
               hasMore: this.vm.hasMore,
               isError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
               onRetry: () => {

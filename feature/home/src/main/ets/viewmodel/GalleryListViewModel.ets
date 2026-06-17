@@ -23,6 +23,10 @@ export class GalleryListViewModel {
   @Trace isLoadingMore: boolean = false
   @Trace hasMore: boolean = true
   @Trace errorMessage: string = ''
+  // True once this source/key has COMPLETED its first load (success or error). A never-loaded key must
+  // render the content-area loading state, never a terminal empty/no-more flash, before that first load —
+  // `isLoading` alone leaves a frame where the key is mounted but the load hasn't flipped it true yet.
+  @Trace loaded: boolean = false
   // Home source: '' front page / 'popular' / 'watched' (login-only). @Trace so the switcher row re-renders.
   @Trace source: string = ''
   private nextGid: string = ''
@@ -136,6 +140,7 @@ export class GalleryListViewModel {
       DiagnosticLogger.warn('home', 'list_load_failed', e.message)
     }
     this.isLoading = false
+    this.loaded = true
   }
 
   // Whether a fresh first-page load has more: toplist pages while page 0 < maxPage; cursor sources
@@ -181,6 +186,7 @@ export class GalleryListViewModel {
       DiagnosticLogger.warn('home', 'list_reload_failed', e.message)
     }
     this.isLoading = false
+    this.loaded = true
   }
 
   /** Pull-to-refresh: replace from the first page. Guarded + flagged isLoading so a concurrent

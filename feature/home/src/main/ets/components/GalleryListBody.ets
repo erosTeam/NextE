@@ -46,7 +46,14 @@ export struct GalleryListBody {
 
   build() {
     Column() {
-      if (this.vm.isLoading && this.vm.itemCount === 0) {
+      if (
+        this.vm.itemCount === 0 &&
+        this.vm.errorMessage.length === 0 &&
+        (this.vm.isLoading || !this.vm.loaded)
+      ) {
+        // Never-loaded OR loading (with nothing yet) → content-area loading. Gating on `!loaded` (not just
+        // the transient isLoading) closes the frame where a freshly-switched sub-tab key is mounted but its
+        // load hasn't flipped isLoading true yet — which used to flash CardEmptyState/no-more terminal copy.
         PageLoadingState()
       } else if (this.vm.itemCount === 0 && this.vm.errorMessage.length > 0) {
         PageErrorState({
@@ -125,7 +132,9 @@ export struct GalleryListBody {
           )
           ListItem() {
             LoadingFooter({
-              isLoading: this.vm.isLoadingMore,
+              // Include the page-level isLoading so a reload (source/period switch that keeps old rows and
+              // forces hasMore=false up front) shows "加载中", not a stranded "没有更多了" terminal flash.
+              isLoading: this.vm.isLoadingMore || this.vm.isLoading,
               hasMore: this.vm.hasMore,
               isError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
               onRetry: () => {
