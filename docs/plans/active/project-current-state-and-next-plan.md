@@ -2,7 +2,7 @@
 
 - **status**: ACTIVE
 - **owner**: controller / project lead
-- **updated**: 2026-06-18 07:22:44 +0800
+- **updated**: 2026-06-18 07:39:00 +0800
 - **purpose**: single scheduling snapshot after the Mac migration and the latest list responsive-cover gate.
 
 This document is a planning control surface, not an acceptance archive. Existing active plans remain queues. Historical PASS logs, worker summaries, and old screenshots are useful evidence, but they do not equal current controller acceptance.
@@ -53,7 +53,7 @@ Controller checkout:
 ```text
 repo:   /Users/honjow/git/NextE
 branch: main
-head:   0652a05 fix(gallery): restore comfortable preview grid width
+head:   58e48ba fix(auth): sync logout state before persistence cleanup
 ```
 
 Current controller checkout status:
@@ -71,7 +71,8 @@ These are control-plane/project assets until proven otherwise. Do not clean or d
 Known worktrees:
 
 ```text
-/Users/honjow/git/NextE-wt/auth-cookie-login        agent/claude/auth-cookie-login      ahead 2, behind 3, has WIP
+/Users/honjow/git/NextE-wt/auth-cookie-login        agent/claude/auth-cookie-login      ahead 2, behind 12, preserved historical WIP
+/Users/honjow/git/NextE-wt/auth-cookie-login-rebase agent/codex/auth-cookie-login-rebase 58e48ba, merged to origin/main
 /Users/honjow/git/NextE-wt/device-lease             agent/codex/device-lease            behind main, clean
 /Users/honjow/git/NextE-wt/detail-visual-reqa       agent/codex/detail-visual-reqa      0652a05, merged to origin/main
 /Users/honjow/git/NextE-wt/list-responsive-cover    agent/codex/list-responsive-cover   11069a5, merged to origin/main
@@ -373,16 +374,18 @@ Do not fold list-responsive-cover into Gate V1. Gate V1 is detail-page thumbnail
 
 ### 6. Cookie login function gate
 
-Status: **ACTIVE auth lane, separate from visual/layout**
+Status: **merged and pushed to origin/main; real-cookie success verification remains user/manual**
 
 Source:
 
 ```text
 docs/plans/active/cookie-login-function-gate.md
-worktree: /Users/honjow/git/NextE-wt/auth-cookie-login
+original worktree: /Users/honjow/git/NextE-wt/auth-cookie-login
+merged worktree:   /Users/honjow/git/NextE-wt/auth-cookie-login-rebase
+merged commit:     58e48ba fix(auth): sync logout state before persistence cleanup
 ```
 
-Current WIP files in that worktree:
+Old preserved WIP files in the original worktree:
 
 ```text
 feature/settings/src/main/ets/pages/SettingsPage.ets
@@ -393,10 +396,11 @@ shared/src/main/ets/settings/CookieJarSettings.ets
 Boundary:
 
 ```text
-- Do not touch this WIP from visual/layout lanes.
+- Do not touch or clean the old WIP from visual/layout lanes.
 - Do not request or print cookies.
 - Do not reintroduce bundled/session auto-login.
-- Auth completion is needed before full ExHentai/Sad Panda/donor/permission matrix can be accepted.
+- Route/UI/empty-input behavior was emulator-verified. Real successful import remains USER_MANUAL_REQUIRED.
+- Auth completion unlocks follow-up ExHentai/Sad Panda/donor/permission matrix, but controller must not receive cookie values.
 ```
 
 ### 7. Older clean worktrees
@@ -765,41 +769,41 @@ Defer until the core authenticated browse/search/favorites/mytags/download lanes
 
 ## First-stage dispatch recommendation
 
-Start with **Lane E: auth-cookie-login audit/rebase**, unless controller wants another visual re-QA pass first.
+Start with **Lane F: false-404/auth matrix follow-up**, unless controller wants another visual re-QA pass first.
 
 Rationale:
 
 ```text
 - Lanes A-D have already been merged and pushed to origin/main with contracts, official signed builds, and device evidence where reachable.
-- Remaining P0 false-404/auth matrix and Favorites/MyTags/ExHentai evidence depend on a safe login path.
-- The existing auth-cookie-login worktree has WIP and is behind current main, so it must be audited/rebased carefully rather than blindly merged.
-- Do not request or print cookies; device QA may only cover route/UI/invalid-input behavior unless the user tests real import manually.
+- Lanes A-E have already been merged and pushed to origin/main with contracts, official signed builds, and device evidence where reachable.
+- A safe manual Cookie import path now exists, but Codex cannot verify real successful import without a user-owned cookie.
+- The next useful product proof is truthful error/auth matrix re-QA after the user manually establishes login state, or non-auth visual re-QA if controller prefers.
+- Do not request or print cookies; controller only needs screenshots/status from manual login import, never cookie values.
 ```
 
 Concrete first-stage checklist:
 
 ```text
-1. Inspect /Users/honjow/git/NextE-wt/auth-cookie-login without overwriting its uncommitted WIP.
-2. Record the current WIP diff and compare it against origin/main at 0652a05.
-3. Decide whether to continue in-place, create a fresh auth rebase worktree, or ask the original lane owner to hand off.
-4. Required gates before any auth merge:
-   - cookie import contract
-   - cookiejar/roundtrip contracts
-   - secret-safety contract
+1. If user manually imports real cookies, collect only redacted app status/screenshots.
+2. Re-run false-404/auth cases:
+   - true HTTP 404
+   - parse failure with HTTP 200
+   - ExHentai/Sad Panda
+   - donor/permission/member-only cases if reachable
+3. Keep destructive EH writes out of scope.
+4. Required gates before any follow-up merge:
+   - error-classification contract
+   - cookie import/roundtrip/secret-safety contracts
    - V1 decorator inventory
-   - i18n parity if strings change
    - official DevEco/Hvigor signed build
-5. Device QA:
-   - install/launch signed HAP on an explicitly selected connected target
-   - verify Settings route/UI and invalid-input behavior only
-   - mark real successful import as BLOCKED_BY_USER_COOKIE unless the user performs it manually without exposing values
+   - device screenshots/log summaries with raw cookies redacted
 ```
 
 ## Authorization needed from user/controller
 
 ```text
 - Whether controller wants the dirty control-plane docs committed now as a scheduling snapshot.
-- Whether to let Codex take over the existing auth-cookie-login WIP in-place or preserve it and start a fresh auth worktree.
 - Whether any real cookie import success will be manually tested by the user; Codex will not request or print cookie values.
+- Whether to run Lane F false-404/auth matrix next, or return to visual re-QA first.
 - Whether additional Mate Pad Mini/tablet re-QA is required for the already-merged responsive/list/detail lanes.
 ```

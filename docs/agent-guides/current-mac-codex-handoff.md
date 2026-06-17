@@ -1,6 +1,6 @@
 # Current Mac/Codex handoff
 
-Last updated: 2026-06-18 07:22:44 +0800.
+Last updated: 2026-06-18 07:39:00 +0800.
 
 This file is the current-site handoff for Codex/Claude/local agents after the Hermes migration from the old desktop to the Mac. It summarizes durable context that is otherwise split across memory, active plans, and controller chat. It is **not** a completion claim and does not override active plan gates.
 
@@ -134,21 +134,17 @@ Controller checkout at this handoff:
 ```text
 repo:   /Users/honjow/git/NextE
 branch: main
-head:   0652a05 fix(gallery): restore comfortable preview grid width
-status: business tree has merged/pushed product lanes; control-plane docs still dirty:
-        M AGENTS.md
-        M docs/plans/active/controller-work-order-gallery-visual.md
-        ?? docs/agent-guides/current-mac-codex-handoff.md
-        ?? docs/plans/active/project-current-state-and-next-plan.md
-        ?? docs/plans/completed/security-hardcoded-login-incident.md
+head:   58e48ba fix(auth): sync logout state before persistence cleanup
+status: clean business tree after auth-cookie-login-rebase merge/push
 ```
 
-The untracked/modified control-plane documents are project assets. Do not delete, move, or call them disposable without explicit path-level user authorization.
+Control-plane documents, harness state, screenshots, fixtures, and worktrees are project assets. Do not delete, move, or call them disposable without explicit path-level user authorization.
 
 Known worktrees:
 
 ```text
 /Users/honjow/git/NextE-wt/auth-cookie-login        agent/claude/auth-cookie-login
+/Users/honjow/git/NextE-wt/auth-cookie-login-rebase agent/codex/auth-cookie-login-rebase merged at 58e48ba
 /Users/honjow/git/NextE-wt/device-lease             agent/codex/device-lease
 /Users/honjow/git/NextE-wt/detail-visual-reqa       agent/codex/detail-visual-reqa      merged at 0652a05
 /Users/honjow/git/NextE-wt/list-responsive-cover    agent/codex/list-responsive-cover   merged at 11069a5
@@ -161,14 +157,19 @@ Known worktrees:
 Current lane warnings:
 
 ```text
-auth-cookie-login:
+auth-cookie-login (old Claude worktree):
   - ahead of origin/main by 2 commits
-  - behind origin/main by 7 commits
+  - behind origin/main by 12 commits
   - has uncommitted WIP in:
     feature/settings/src/main/ets/pages/SettingsPage.ets
     scripts/test_cookie_import_contract.mjs
     shared/src/main/ets/settings/CookieJarSettings.ets
-  - do not reuse this lane for layout work; rebase/review separately.
+  - preserved as historical WIP; do not reuse for new work or clean it.
+
+auth-cookie-login-rebase:
+  - created from current origin/main to avoid mutating the old WIP worktree.
+  - merged/pushed to main at 58e48ba after contracts, official signed build, and emulator route/UI QA.
+  - real successful cookie import remains USER_MANUAL_REQUIRED because Codex must not request or enter real cookie values.
 
 other old lanes:
   - behind current main
@@ -179,6 +180,7 @@ recently merged/pushed lanes:
   - 4ab2367 macOS official Hvigor signing/harness
   - b3d9e5d Search reload footer loading state
   - 0652a05 detail preview grid comfort width
+  - 58e48ba manual Cookie login/import path and logout-state sync
 ```
 
 At this handoff there are no live tmux worker sessions and no Hermes background processes.
@@ -206,8 +208,8 @@ gallery-visual-navigation-regression-contract.md:
   Many items are NEEDS_CONTROLLER_REQA.
 
 cookie-login-function-gate.md:
-  Manual Cookie login/import is active but belongs to the auth-cookie-login lane.
-  Do not mix with visual/layout work.
+  Manual Cookie login/import candidate is merged at 58e48ba.
+  User/manual real-cookie success verification remains open; do not ask for cookie values.
 ```
 
 Do not archive active plans or convert plan items into a new batch. Existing headings are queued gates until current controller evidence proves them solved/blocked/out of scope.
