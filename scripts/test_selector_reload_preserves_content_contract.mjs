@@ -110,6 +110,14 @@ for (const [rel, component, neverLoadedToken] of [
   )
 }
 
+{
+  const src = text('feature/search/src/main/ets/pages/GallerySearchPage.ets')
+  check(
+    /isLoading:\s*this\.vm\.isLoadingMore\s*\|\|\s*this\.vm\.isLoading/.test(src),
+    'GallerySearchPage paging footer must count page-level search/filter loading (no stranded "no more" during a reload)',
+  )
+}
+
 // The home/toplist ViewModel carries the loaded flag and flips it once the first load AND a reload finish.
 {
   const vm = text('feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets')

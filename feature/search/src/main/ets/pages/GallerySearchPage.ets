@@ -405,7 +405,9 @@ export struct GallerySearchPage {
             )
             ListItem() {
               LoadingFooter({
-                isLoading: this.vm.isLoadingMore,
+                // Include page-level search/filter reloads so preserved old results never show a
+                // terminal "no more" footer while their replacement request is in flight.
+                isLoading: this.vm.isLoadingMore || this.vm.isLoading,
                 hasMore: this.vm.hasMore,
                 isError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
                 onRetry: () => {
