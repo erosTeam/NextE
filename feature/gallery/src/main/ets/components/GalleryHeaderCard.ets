@@ -57,8 +57,10 @@ export struct GalleryHeaderCard {
           thumbWidth: COVER_W,
           thumbHeight: COVER_H,
           radius: ThemeConstants.RADIUS_SM,
-          // The detail cover box is a FIXED COVER_W×COVER_H; a cover whose aspect differs would be
-          // side/top cropped by Cover, so Contain fits the whole cover over the grey backdrop (eros_fe).
+          sourceWidth: this.gallery.imgWidth,
+          sourceHeight: this.gallery.imgHeight,
+          // Detail cover slot is fixed for the header layout, but the visible image itself keeps the real
+          // EH cover proportion and owns the rounded clip. The slot must not become a grey letterbox box.
           containFit: true,
         })
         Column({ space: ThemeConstants.SPACE_XS }) {

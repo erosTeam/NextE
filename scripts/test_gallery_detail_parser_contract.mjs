@@ -34,6 +34,9 @@ const RE = {
   cat: /<div id="gdc"><div class="cs ct\w+"[^>]*>([^<]+)<\/div>/,
   uploader: /<div id="gdn"[^>]*><a href="[^"]*\/uploader\/([^"]+)"/,
   cover: /<div id="gd1">[\s\S]*?url\((https:\/\/[^)]+)\)/,
+  coverStyle: /<div id="gd1">[\s\S]*?<div[^>]*style="([^"]*url\((https:\/\/[^)]+)\)[^"]*)"/,
+  styleW: /width:\s*(\d+)px/,
+  styleH: /height:\s*(\d+)px/,
   length: /Length:<\/td><td class="gdt2">(\d+)/,
   favcount: /id="favcount">([^<]+)</,
   lang: /Language:<\/td><td class="gdt2">([^<&]+)/,
@@ -106,7 +109,7 @@ const ok = (c, label) => { if (!c) { console.error(`  ✗ ${label}`); failures++
 const SYN = `<h1 id="gn">Placeholder &amp; Title &#39;v2&#39;</h1><h1 id="gj">プレースホルダ</h1>
 <div id="gdc"><div class="cs ct3" onclick="x">Artist CG</div></div>
 <div id="gdn"><a href="https://e-hentai.org/uploader/alice">alice</a></div>
-<div id="gd1"><div style="background:transparent url(https://ehgt.org/w/aa/bb.webp) 0 0 no-repeat"></div></div>
+<div id="gd1"><div style="width:320px;height:180px;background:transparent url(https://ehgt.org/w/aa/bb.webp) 0 0 no-repeat"></div></div>
 <div id="gdd"><table><tr><td class="gdt1">Posted:</td><td class="gdt2">2026-06-13 15:31</td></tr><tr><td class="gdt1">Language:</td><td class="gdt2">Japanese &nbsp;</td></tr><tr><td class="gdt1">File Size:</td><td class="gdt2">123.4 MiB</td></tr><tr><td class="gdt1">Length:</td><td class="gdt2">42 pages</td></tr><tr><td class="gdt1">Favorited:</td><td class="gdt2" id="favcount">7 times</td></tr></table></div>
 <div id="gdr"><td id="rating_count">128</td></div>
 <p class="g2"><a onclick="return popUp('...')">Torrent Download (5)</a></p>
@@ -122,6 +125,10 @@ eq(htmlUnescape(g1(SYN, RE.jp).trim()), 'プレースホルダ', 'jpTitle')
 eq(g1(SYN, RE.cat).trim(), 'Artist CG', 'category')
 eq(g1(SYN, RE.uploader), 'alice', 'uploader')
 eq(g1(SYN, RE.cover), 'https://ehgt.org/w/aa/bb.webp', 'cover')
+const coverStyle = SYN.match(RE.coverStyle)
+eq(coverStyle && coverStyle[2], 'https://ehgt.org/w/aa/bb.webp', 'cover style URL')
+eq(coverStyle && coverStyle[1].match(RE.styleW)?.[1], '320', 'cover style width')
+eq(coverStyle && coverStyle[1].match(RE.styleH)?.[1], '180', 'cover style height')
 eq(g1(SYN, RE.length), '42', 'length')
 eq(g1(SYN, RE.favcount).trim(), '7 times', 'favcount')
 eq(g1(SYN, RE.lang).trim(), 'Japanese', 'language')

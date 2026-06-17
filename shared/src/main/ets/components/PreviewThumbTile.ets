@@ -42,7 +42,9 @@ export struct PreviewThumbTile {
 
   build() {
     Column({ space: ThemeConstants.SPACE_XS }) {
-      // Fixed image frame: constant width × height, content centered + clipped so nothing escapes it.
+      // Transparent layout slot: constant width × height only reserves alignment for the page number.
+      // The visible sprite/image keeps its real aspect and owns the rounded clip; the slot must not render
+      // as a grey letterbox container after the real thumbnail is loaded.
       Stack() {
         if (this.fitByHeight()) {
           EhSpriteThumbnail({
@@ -74,8 +76,6 @@ export struct PreviewThumbTile {
       }
       .width(this.tileWidth)
       .height(this.frameHeight())
-      .backgroundColor(ThemeConstants.BG_SUB)
-      .borderRadius(ThemeConstants.RADIUS_SM)
       .clip(true)
       .alignContent(Alignment.Center)
 

@@ -99,13 +99,15 @@ for (const [rel, src] of [
   ok(!/'1fr 1fr 1fr'/.test(src), `${rel}: no hardcoded 3-column template literal`)
 }
 
-// 4. PreviewThumbTile: fixed-height frame, clipped + centered, page number a sibling BELOW the frame.
+// 4. PreviewThumbTile: fixed-height transparent layout slot, centered real thumb, page number sibling BELOW.
 const tile = read('shared/src/main/ets/components/PreviewThumbTile.ets')
-ok(/\.height\(this\.frameHeight\(\)\)/.test(tile), 'tile frame has a FIXED height')
-ok(/frameHeight\(\)[\s\S]*?this\.tileWidth \* FRAME_ASPECT/.test(tile), 'frame height = tileWidth * fixed FRAME_ASPECT')
-ok(/\.clip\(true\)/.test(tile) && /\.alignContent\(Alignment\.Center\)/.test(tile), 'frame clips + centers its content (flat/wide contained, centered)')
+ok(/\.height\(this\.frameHeight\(\)\)/.test(tile), 'tile slot has a FIXED height for aligned page numbers')
+ok(/frameHeight\(\)[\s\S]*?this\.tileWidth \* FRAME_ASPECT/.test(tile), 'slot height = tileWidth * fixed FRAME_ASPECT')
+ok(/\.clip\(true\)/.test(tile) && /\.alignContent\(Alignment\.Center\)/.test(tile), 'transparent slot clips + centers its visible thumbnail')
+ok(!/\.backgroundColor\(ThemeConstants\.BG_SUB\)/.test(tile), 'tile slot does NOT paint a permanent grey letterbox container')
+ok(!/\.borderRadius\(ThemeConstants\.RADIUS_SM\)/.test(tile), 'tile slot does NOT own the rounded silhouette; the visible thumbnail does')
 // the page number Text must come AFTER the Stack frame's close → it sits below, at a constant position.
-ok(/Stack\(\)[\s\S]*?\.alignContent\(Alignment\.Center\)[\s\S]*?Text\(`\$\{this\.image\.page\}`\)/.test(tile), 'page number renders BELOW the frame (fixed position)')
+ok(/Stack\(\)[\s\S]*?\.alignContent\(Alignment\.Center\)[\s\S]*?Text\(`\$\{this\.image\.page\}`\)/.test(tile), 'page number renders BELOW the slot (fixed position)')
 // contain, not crop: the tile chooses height-fit vs width-fit (no objectFit Cover crop hack).
 ok(/fitByHeight\(/.test(tile), 'tile contains the thumb (height-fit vs width-fit), preserving aspect')
 ok(!/ImageFit\.Cover/.test(tile), 'tile does NOT crop with a cover hack')
@@ -132,6 +134,7 @@ ok(
 )
 const spriteClipN = (sprite.match(/\.clip\(true\)/g) || []).length
 const spriteRadiusN = (sprite.match(/\.borderRadius\(this\.radius\)/g) || []).length
+ok(!/\.backgroundColor\(ThemeConstants\.BG_SUB\)/.test(sprite), 'sprite/thumb renderer does NOT paint a permanent grey backdrop behind loaded real images')
 ok(spriteClipN >= 3, 'every render branch clips to its radius (sprite + both image fallbacks)')
 ok(
   spriteRadiusN >= 3 && spriteClipN >= spriteRadiusN,

@@ -62,7 +62,6 @@ export struct EhSpriteThumbnail {
       }
       .width(this.boxWidth())
       .height(this.boxHeight())
-      .backgroundColor(ThemeConstants.BG_SUB)
       .borderRadius(this.radius)
       .clip(true)
     } else if (this.fitHeight) {
@@ -74,7 +73,6 @@ export struct EhSpriteThumbnail {
         .objectFit(ImageFit.Cover)
         .borderRadius(this.radius)
         .clip(true)
-        .backgroundColor(ThemeConstants.BG_SUB)
         .draggable(false)
     } else {
       // No sprite metadata: whole image, width-driven (same clip(true) so the radius actually rounds).
@@ -84,7 +82,6 @@ export struct EhSpriteThumbnail {
         .objectFit(ImageFit.Cover)
         .borderRadius(this.radius)
         .clip(true)
-        .backgroundColor(ThemeConstants.BG_SUB)
         .draggable(false)
     }
   }

@@ -24,12 +24,13 @@ export struct EhThumbnail {
   // grid thumbnail gets the same grey backing + load spinner as the list cover instead of a bare Image.
   // (Named coverRatio, not aspectRatio — the latter collides with the built-in component attribute.)
   @Param coverRatio: number = 0;
-  // Fit the WHOLE cover inside its frame (letterbox over the grey backdrop) instead of center-cropping.
-  // The list/detail covers grow taller than a cover's aspect (a tag-rich list row, the fixed detail box),
-  // and Cover then crops the cover's sides; Contain shows the full art over the distinct grey, matching
-  // eros_fe (which fits the cover to its longest side over systemGrey). The grid keeps Cover — its cell IS
-  // the cover aspect, so there is nothing to crop. Default Cover so other callers are unaffected.
+  // Fit the WHOLE cover inside its frame instead of center-cropping. When source dimensions are known,
+  // the frame is only a transparent layout slot; the visible image is sized to the real cover aspect and
+  // clipped to its own rounded boundary. This avoids a permanent grey letterbox container around a loaded
+  // cover while preserving the real image/proportion.
   @Param containFit: boolean = false;
+  @Param sourceWidth: number = 0;
+  @Param sourceHeight: number = 0;
   // Cover painted yet? Drives the placeholder spinner. Resets when the row is recycled to a new url.
   @Local loaded: boolean = false;
 
@@ -49,6 +50,37 @@ export struct EhThumbnail {
     }
   }
 
+  private hasSourceSize(): boolean {
+    return this.sourceWidth > 0 && this.sourceHeight > 0
+  }
+
+  private fittedByHeight(): boolean {
+    if (!this.hasSourceSize()) {
+      return false
+    }
+    return this.sourceHeight / this.sourceWidth > this.thumbHeight / this.thumbWidth
+  }
+
+  private fittedWidth(): number {
+    if (!this.hasSourceSize()) {
+      return this.thumbWidth
+    }
+    if (this.fittedByHeight()) {
+      return this.thumbHeight * this.sourceWidth / this.sourceHeight
+    }
+    return this.thumbWidth
+  }
+
+  private fittedHeight(): number {
+    if (!this.hasSourceSize()) {
+      return this.thumbHeight
+    }
+    if (this.fittedByHeight()) {
+      return this.thumbHeight
+    }
+    return this.thumbWidth * this.sourceHeight / this.sourceWidth
+  }
+
   build() {
     if (this.coverRatio > 0) {
       Image(EhConstants.cdnThumb(this.url))
@@ -65,6 +97,27 @@ export struct EhThumbnail {
           this.loaded = true
         })
         .overlay(this.loaderOverlay(), { align: Alignment.Center })
+    } else if (this.containFit && this.hasSourceSize() && !this.fillHeight && !this.stretchHeight) {
+      // Transparent layout slot. Only the REAL image surface is visible; its size follows the EH cover
+      // dimensions, and the radius clips that visible image instead of a permanent grey frame.
+      Stack({ alignContent: Alignment.Center }) {
+        Image(EhConstants.cdnThumb(this.url))
+          .width(this.fittedWidth())
+          .height(this.fittedHeight())
+          .objectFit(ImageFit.Fill)
+          .borderRadius(this.radius)
+          .clip(true)
+          .draggable(false)
+          .onComplete(() => {
+            this.loaded = true
+          })
+          .onError(() => {
+            this.loaded = true
+          })
+      }
+      .width(this.thumbWidth)
+      .height(this.thumbHeight)
+      .overlay(this.loaderOverlay(), { align: Alignment.Center })
     } else if (this.stretchHeight) {
       Image(EhConstants.cdnThumb(this.url))
         .width(this.thumbWidth)

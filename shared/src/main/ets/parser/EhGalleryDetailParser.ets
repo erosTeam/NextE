@@ -19,6 +19,9 @@ export class EhGalleryDetailParser {
   private static readonly RE_UPLOADER: RegExp =
     /<div id="gdn"[^>]*><a href="[^"]*\/uploader\/([^"]+)"/
   private static readonly RE_COVER: RegExp = /<div id="gd1">[\s\S]*?url\((https:\/\/[^)]+)\)/
+  private static readonly RE_COVER_STYLE: RegExp = /<div id="gd1">[\s\S]*?<div[^>]*style="([^"]*url\((https:\/\/[^)]+)\)[^"]*)"/
+  private static readonly RE_STYLE_W: RegExp = /width:\s*(\d+)px/
+  private static readonly RE_STYLE_H: RegExp = /height:\s*(\d+)px/
   private static readonly RE_POSTED: RegExp = /Posted:<\/td><td class="gdt2">([^<]+)</
   private static readonly RE_LANG: RegExp = /Language:<\/td><td class="gdt2">([^<&]+)/
   private static readonly RE_FILESIZE: RegExp = /File Size:<\/td><td class="gdt2">([^<]+)</
@@ -56,7 +59,21 @@ export class EhGalleryDetailParser {
     g.uploader = HtmlSelectorUtils.urlDecode(
       HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_UPLOADER),
     )
-    g.thumbUrl = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_COVER)
+    const coverM: RegExpMatchArray | null = html.match(EhGalleryDetailParser.RE_COVER_STYLE)
+    if (coverM !== null && coverM[1] !== undefined && coverM[2] !== undefined) {
+      const style: string = coverM[1]
+      g.thumbUrl = coverM[2]
+      const wM: RegExpMatchArray | null = style.match(EhGalleryDetailParser.RE_STYLE_W)
+      const hM: RegExpMatchArray | null = style.match(EhGalleryDetailParser.RE_STYLE_H)
+      if (wM !== null && wM[1] !== undefined) {
+        g.imgWidth = Number.parseInt(wM[1], 10)
+      }
+      if (hM !== null && hM[1] !== undefined) {
+        g.imgHeight = Number.parseInt(hM[1], 10)
+      }
+    } else {
+      g.thumbUrl = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_COVER)
+    }
     g.postTime = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_POSTED).trim()
     g.language = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_LANG).trim()
     g.fileSizeText = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_FILESIZE).trim()

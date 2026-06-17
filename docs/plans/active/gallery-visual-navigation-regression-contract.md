@@ -15,6 +15,8 @@ Current blocking conclusions:
 - `b5791a9` (`fix(gallery): detail preview row to eros_fe ThumbHorizontalList`) is **not fully accepted**. It fixed part of the thumbnail rendering defect (larger/no-white-border path), but it collapsed eros_fe product semantics: horizontal thumbnails are optional, default grid must remain, hide-gallery-thumbnails exists, and the all-thumbnails page entry must still be reachable in horizontal mode.
 - `da493c1` (`feat(cards): tint list/grid/simple card rating stars...`) is **not controller-accepted in this contract** yet. It may be technically correct, but no further gallery work should proceed until this contract is addressed.
 - 2026-06-17 user follow-up: sub-tab switching still briefly flashes an empty/no-data state before entering loading. This is NOT accepted as retained-tab behavior. It belongs to P0 sub-tab switching/reload and must be reproduced/gated; a never-loaded key may show content-area loading, but must not flash `没有数据/没有更多了` or equivalent empty terminal copy before loading.
+- 2026-06-17 screenshot follow-up (`/home/gamer/.hermes/image_cache/img_ce52e06cb803.jpg`): the middle preview thumbnail is still unacceptable after `6deaa8e`; it appears as a thin horizontal strip centered in a tall grey tile. Rounded container corners alone do **not** satisfy preview-thumbnail acceptance. The thumbnail must use the real thumbnail image/proportion with rounded corners, without forcing a new fill/crop policy.
+- 2026-06-17 screenshot follow-up (`/home/gamer/.hermes/image_cache/img_a786e7aab70e.jpg`): the gallery header cover has the same class of defect — the cover image is rendered as the real image strip inside a much taller unrelated grey container. This is not accepted as a correct gallery cover presentation. It must use the real thumbnail/cover proportion with rounded corners; do not solve by inventing blanket fill/crop semantics.
 - Do not continue feature work or cosmetic spot-fixes before the P0 items below are audited and gated.
 
 Non-negotiable project safety:
@@ -102,6 +104,12 @@ Required behavior gate:
 - Horizontal layout must still provide a clear all-thumbnails page entry.
 - Hidden-inline mode must still offer a full preview entry equivalent to eros_fe `MorePreviewButton` behavior.
 - `AllThumbnails` route must remain functional.
+- Preview thumbnails and header cover must satisfy both shape and content semantics on grid, horizontal row, all-thumbnails, and gallery header surfaces:
+  - rounded clipping is required, but not sufficient;
+  - do not impose a blanket "fill every tile" rule; source aspect ratio and EH sprite semantics may legitimately produce non-square content;
+  - FAIL condition is the visible artifact reported by the user: a thumbnail/cover rendered as a thin strip or tiny image inside an unrelated grey container because the component frame/cropping/background logic is wrong;
+  - acceptance must compare against eros_fe/EH thumbnail/cover semantics and current screenshot evidence, not a made-up fill/crop rule;
+  - controller/user screenshot evidence overrides source-level radius/clip assertions.
 
 ### P0 — Detail header action sizing still wrong
 
