@@ -47,36 +47,43 @@ export struct EhSpriteThumbnail {
 
   build() {
     if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
-      // Scale the whole sheet by `factor`, then shift to this thumb's column. The box is exactly the
-      // scaled thumb, so the only time BG_SUB shows is the brief load before the sheet paints.
-      Column()
-        .width(this.boxWidth())
-        .height(this.boxHeight())
-        .backgroundColor(ThemeConstants.BG_SUB)
-        .backgroundImage(EhConstants.cdnThumb(this.url))
-        .backgroundImageSize({
-          width: this.spriteWidth * this.factor(),
-          height: this.spriteHeight * this.factor(),
-        })
-        .backgroundImagePosition({ x: -(this.offsetX * this.factor()), y: 0 })
-        .borderRadius(this.radius)
-        .clip(true)
+      // Crop ONE thumb out of EH's sprite sheet. The sheet is an Image CHILD (not a backgroundImage)
+      // inside a fixed box that clips to `radius`. This is deliberate: on HarmonyOS a backgroundImage is
+      // NOT clipped by borderRadius + clip(true) (device-verified — the thumb rendered square), but Image
+      // CONTENT is. The Image is the whole sheet scaled by `factor` and shifted left to this thumb's
+      // column; the box is exactly the scaled thumb, so only this thumb shows — with real rounded corners.
+      Stack({ alignContent: Alignment.TopStart }) {
+        Image(EhConstants.cdnThumb(this.url))
+          .width(this.spriteWidth * this.factor())
+          .height(this.spriteHeight * this.factor())
+          .objectFit(ImageFit.Fill)
+          .offset({ x: -(this.offsetX * this.factor()), y: 0 })
+          .draggable(false)
+      }
+      .width(this.boxWidth())
+      .height(this.boxHeight())
+      .backgroundColor(ThemeConstants.BG_SUB)
+      .borderRadius(this.radius)
+      .clip(true)
     } else if (this.fitHeight) {
-      // No sprite metadata (legacy/large-thumb layout): whole image, height-driven.
+      // No sprite metadata (legacy/large-thumb layout): whole image, height-driven. clip(true) so the
+      // Cover-fit image is actually rounded to `radius` — borderRadius alone does not clip an Image.
       Image(EhConstants.cdnThumb(this.url))
         .height(this.displayHeight)
         .aspectRatio(0.7)
         .objectFit(ImageFit.Cover)
         .borderRadius(this.radius)
+        .clip(true)
         .backgroundColor(ThemeConstants.BG_SUB)
         .draggable(false)
     } else {
-      // No sprite metadata: whole image, width-driven.
+      // No sprite metadata: whole image, width-driven (same clip(true) so the radius actually rounds).
       Image(EhConstants.cdnThumb(this.url))
         .width(this.displayWidth)
         .aspectRatio(0.7)
         .objectFit(ImageFit.Cover)
         .borderRadius(this.radius)
+        .clip(true)
         .backgroundColor(ThemeConstants.BG_SUB)
         .draggable(false)
     }

@@ -118,6 +118,30 @@ ok(
   'tile passes a real theme radius token into EhSpriteThumbnail in BOTH fit branches (rounded sprite)'
 )
 
+// 4c. EFFECTIVE rounded corners (device-verified). The real regression: the sprite thumb was painted as
+// a backgroundImage, which HarmonyOS does NOT clip to borderRadius even with clip(true) — so the param
+// from 4b was necessary but NOT sufficient and the thumb still rendered square. The sprite MUST be an
+// Image CHILD (clippable content) inside a clipped box; every branch (sprite + both image fallbacks) must
+// clip(true), not merely set borderRadius (a Cover image without clip stays square); and the horizontal
+// row uses the SAME EhSpriteThumbnail so it inherits the rounded path (no separate square thumb).
+const sprite = read('shared/src/main/ets/components/EhSpriteThumbnail.ets')
+ok(!/\.backgroundImage\s*\(/.test(sprite), 'sprite thumb is NOT painted via backgroundImage (HarmonyOS will not round a backgroundImage)')
+ok(
+  /Stack\([\s\S]*?Image\(EhConstants\.cdnThumb[\s\S]*?\.offset\(/.test(sprite),
+  'sprite is cropped via an offset Image CHILD inside the clipped box (clippable content, not a background)'
+)
+const spriteClipN = (sprite.match(/\.clip\(true\)/g) || []).length
+const spriteRadiusN = (sprite.match(/\.borderRadius\(this\.radius\)/g) || []).length
+ok(spriteClipN >= 3, 'every render branch clips to its radius (sprite + both image fallbacks)')
+ok(
+  spriteRadiusN >= 3 && spriteClipN >= spriteRadiusN,
+  'no borderRadius(this.radius) is left without a paired clip(true) (an un-clipped Cover image stays square)'
+)
+ok(
+  /horizontalRow\(\)[\s\S]*?EhSpriteThumbnail\(/.test(previewGrid),
+  'horizontal preview row uses the same EhSpriteThumbnail (inherits the rounded sprite path)'
+)
+
 // 5. First-page preview retained — the inline GRID is seeded from the parsed FIRST detail preview
 // page, and the SAME first page seeds the all-thumbnails route, so both start at page 1 (the device
 // screenshot showing the inline grid at 31-40 was a scrolled-to-bottom view of that same 40-thumb
