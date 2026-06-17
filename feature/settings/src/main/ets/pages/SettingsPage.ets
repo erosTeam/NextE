@@ -117,6 +117,20 @@ export struct SettingsPage {
         },
       })
       this.rowDivider()
+      // eros_fe fixedHeightOfListItems (default true): uniform cover-height list rows vs adaptive rows that
+      // grow with content. Applies to the list-row card (List / WaterFlow); simple + grid keep their layouts.
+      ConciseListRow({
+        title: $r('app.string.settings_list_fixed_height'),
+        leadingIcon: $r('sys.symbol.rectangle_grid_1x2'),
+        hasSwitch: true,
+        checked: this.listMode.fixedHeight,
+        switchAction: (value: boolean) => {
+          const ctx: common.UIAbilityContext =
+            this.getUIContext().getHostContext() as common.UIAbilityContext
+          ListModeSettings.setFixedHeight(ctx, value)
+        },
+      })
+      this.rowDivider()
       ConciseListRow({
         title: $r('app.string.settings_hide_gallery_thumbnails'),
         leadingIcon: $r('sys.symbol.picture'),

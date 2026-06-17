@@ -173,6 +173,10 @@
       "value": "横向きサムネイル"
     },
     {
+      "name": "settings_list_fixed_height",
+      "value": "リスト行の高さを固定"
+    },
+    {
       "name": "detail_more_previews",
       "value": "他のプレビュー"
     },

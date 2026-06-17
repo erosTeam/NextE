@@ -173,6 +173,10 @@
       "value": "Horizontal thumbnails"
     },
     {
+      "name": "settings_list_fixed_height",
+      "value": "Fixed list row height"
+    },
+    {
       "name": "detail_more_previews",
       "value": "More previews"
     },

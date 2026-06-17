@@ -12,6 +12,7 @@ export class StorageKeys {
   // settings keys
   static readonly SITE_MODE_EX: string = 'site.modeEx' // boolean: 表站(false)/里站(true)
   static readonly LIST_MODE: string = 'layout.listMode' // list/simpleList/grid/waterfall
+  static readonly LIST_ITEM_FIXED_HEIGHT: string = 'layout.fixedHeightOfListItems' // boolean: fixed(true)/adaptive list rows
   static readonly ITEM_WIDTH: string = 'layout.itemWidth'
   static readonly HIDE_GALLERY_THUMBNAILS: string = 'layout.hideGalleryThumbnails' // boolean: hide detail inline previews
   static readonly HORIZONTAL_THUMBNAILS: string = 'layout.horizontalThumbnails' // boolean: horizontal vs grid preview

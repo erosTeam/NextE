@@ -71,6 +71,11 @@
       "blocking": true
     },
     {
+      "name": "list-height-mode",
+      "command": "node scripts/test_list_height_mode_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "retained-tab",
       "command": "node scripts/test_retained_tab_contract.mjs",
       "blocking": true

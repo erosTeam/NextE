@@ -8,6 +8,7 @@ import { EhThumbnail } from './EhThumbnail'
 import { RatingStars } from './RatingStars'
 import { UserTagStore } from '../state/UserTagStore'
 import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
+import { connectListMode, ListModeState } from '../state/ListModeState'
 
 // eros_fe sizes the list cover to 1/3 of the screen's shortest side (gallery_item.dart _CoverImage) —
 // a deliberate proportion, not a magic width. Cached once (phone width is stable within a session).
@@ -47,6 +48,10 @@ export struct GalleryCard {
   @Require @Param gallery: EhGallery;
   // Reactive bump from the usertag loader; read in the chip key so cards re-color on a late My Tags load.
   private tagSig: UserTagSignal = connectUserTagSignal();
+  // eros_fe `fixedHeightOfListItems` (default true). FIXED → every row is one portrait-cover height with
+  // title/tags clipped and the meta foot-anchored (uniform list rhythm); ADAPTIVE → the row grows with its
+  // content. Read reactively (@Trace) so flipping the setting re-lays the visible cards live.
+  private listMode: ListModeState = connectListMode();
 
   // Chip background: the user's own fill color for this tag, else the inline-style color (future), else
   // neutral grey. Never namespace-derived.
@@ -71,6 +76,37 @@ export struct GalleryCard {
       return t.color
     }
     return $r('sys.color.font_secondary')
+  }
+
+  // Neutral tag chips (flat light-grey fill, no stroke) wrapping up to CARD_TAG_LIMIT. A chip only colors
+  // when the tag carries the user's own per-tag color value — never by namespace. Shared by both height
+  // modes; the FIXED-mode wrapper clips overflow, the ADAPTIVE-mode card grows to show every row.
+  @Builder
+  tagChips() {
+    if (this.gallery.simpleTags.length > 0) {
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(
+          this.gallery.simpleTags.slice(0, CARD_TAG_LIMIT),
+          (t: SimpleTag) => {
+            Text(t.display())
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor(this.chipText(t))
+              .backgroundColor(this.chipBg(t))
+              .borderRadius(ThemeConstants.RADIUS_SM)
+              // Snug padding so short tags hug their text (eros_fe TagItem is 4/2; 6/3 is the
+              // native-snug equivalent — 8/4 ballooned short chips into wide pills with grey flanks).
+              .padding({ left: 6, right: 6, top: 3, bottom: 3 })
+              .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .constraintSize({ maxWidth: 160 })
+          },
+          // Key carries tagSig.version: the keyGen runs during build, so reading it subscribes the
+          // card; when My Tags load and bump it, the keys change → chips rebuild → re-color.
+          (t: SimpleTag) => `${this.tagSig.version}:${t.namespace}:${t.text}`,
+        )
+      }.width('100%')
+    }
   }
 
   build() {
@@ -117,38 +153,23 @@ export struct GalleryCard {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
 
-        // Two spacers (this one + the one below the tags) distribute the slack like eros_fe's two Spacers:
-        // on a sparse-tag card the tag block floats centered while the meta stays foot-anchored.
-        Blank()
-        // Neutral tag chips (flat light-grey fill, no stroke) wrapping up to CARD_TAG_LIMIT. A chip only
-        // colors when the tag carries the user's own per-tag color value — never by namespace.
-        if (this.gallery.simpleTags.length > 0) {
-          Flex({ wrap: FlexWrap.Wrap }) {
-            ForEach(
-              this.gallery.simpleTags.slice(0, CARD_TAG_LIMIT),
-              (t: SimpleTag) => {
-                Text(t.display())
-                  .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                  .fontColor(this.chipText(t))
-                  .backgroundColor(this.chipBg(t))
-                  .borderRadius(ThemeConstants.RADIUS_SM)
-                  // Snug padding so short tags hug their text (eros_fe TagItem is 4/2; 6/3 is the
-                  // native-snug equivalent — 8/4 ballooned short chips into wide pills with grey flanks).
-                  .padding({ left: 6, right: 6, top: 3, bottom: 3 })
-                  .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .constraintSize({ maxWidth: 160 })
-              },
-              // Key carries tagSig.version: the keyGen runs during build, so reading it subscribes the
-              // card; when My Tags load and bump it, the keys change → chips rebuild → re-color.
-              (t: SimpleTag) => `${this.tagSig.version}:${t.namespace}:${t.text}`,
-            )
-          }.width('100%')
+        // Middle (tags). FIXED: the tag block fills the uniform row's slack and CLIPS overflow so the row
+        // stays one cover height with the meta foot-anchored (eros_fe's fixed-height tag waterfall truncates
+        // the same way). ADAPTIVE: the tags float centered between two springs (eros_fe's two Spacers) and
+        // the card grows to fit every wrapped row.
+        if (this.listMode.fixedHeight) {
+          Column() {
+            this.tagChips()
+          }
+          .width('100%')
+          .layoutWeight(1)
+          .clip(true)
+          .alignItems(HorizontalAlign.Start)
+        } else {
+          Blank()
+          this.tagChips()
+          Blank()
         }
-        // Spacer pins the meta block to the bottom so the card reads as cover-height (eros_fe meta sits
-        // at the card foot); for tag-rich cards the tags fill the space and the gap collapses.
-        Blank()
         // Meta row 1 — rating stars (left, fills) · favcat heart · translated-language + page count.
         // eros_fe puts the favcat heart here (between rating and filecount), shows stars only (no number).
         Row({ space: ThemeConstants.SPACE_XS }) {
@@ -190,7 +211,12 @@ export struct GalleryCard {
               .fontColor(ThemeConstants.TEXT_ON_BRAND)
               .backgroundColor(EhConstants.categoryColor(this.gallery.category))
               .borderRadius(ThemeConstants.RADIUS_SM)
-              .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM, top: 3, bottom: 3 })
+              .padding({
+                left: ThemeConstants.SPACE_SM,
+                right: ThemeConstants.SPACE_SM,
+                top: 3,
+                bottom: 3,
+              })
           }
           Blank()
           Text(this.gallery.postTime)
@@ -214,9 +240,14 @@ export struct GalleryCard {
         top: ThemeConstants.SPACE_SM,
         bottom: ThemeConstants.SPACE_SM,
       })
-      // Anchor the card (and thus the full-height cover) to at least a portrait cover's height so sparse
-      // cards don't collapse; grows past it when 2-line title + wrapped tags need more room.
-      .constraintSize({ minHeight: cardMinHeight() })
+      // FIXED → pin every row to exactly one portrait-cover height for a uniform list rhythm (min=max);
+      // ADAPTIVE → floor at a cover height so sparse cards don't collapse, but grow past it for a 2-line
+      // title + wrapped tags. The cover (stretchHeight) follows the resolved height in both modes.
+      .constraintSize(
+        this.listMode.fixedHeight
+          ? { minHeight: cardMinHeight(), maxHeight: cardMinHeight() }
+          : { minHeight: cardMinHeight() },
+      )
     }
     .width('100%')
     .borderRadius(ThemeConstants.RADIUS_MD)

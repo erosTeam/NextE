@@ -173,6 +173,10 @@
       "value": "横向缩略图"
     },
     {
+      "name": "settings_list_fixed_height",
+      "value": "固定列表行高"
+    },
+    {
       "name": "detail_more_previews",
       "value": "更多预览"
     },
