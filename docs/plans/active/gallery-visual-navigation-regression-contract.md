@@ -234,17 +234,19 @@ The previous archive/completed claim is invalid. This file is active again until
 
 | Original active item | Current status | Reason |
 |---|---|---|
-| P0 sub-tab switching white-screens / reloads | PARTIAL | Home/Toplist/Favorites favcat retention have evidence, but the original gate also named Favorites order, site 表/里 and search filters; older log marked some of these BLOCKED. |
-| P0 false 404 on some galleries | PARTIAL | Cookie completeness + MaybeHidden shipped for the provided example, but the original true-404 / ExHentai Sad Panda / full auth matrix was not fully device-verified. |
-| P0 detail preview semantics collapsed | PARTIAL | Modes and route entries shipped, but later thumbnail visual acceptance failed per user report; page polish also had prior screenshot caveats. |
-| P0 detail header action sizing | PARTIAL | Main read/favorite states have evidence; full read/unread/resume/favorited/unfavorited matrix was not independently re-shot as one acceptance bundle. |
-| P0 detail title long-text stress | PARTIAL | Long title case has evidence; extreme long-uploader/state matrix is structurally covered but not fully device-verified. |
-| P1 detail tag chips shape | PARTIAL | Shape improved; usertag/vote-colored visual states remained blocked by unavailable data. |
-| P1 gallery cover presentation | PARTIAL | Loaded presentation improved; full loaded/loading/error × light/dark matrix was not fully accepted. |
-| P1 list card height modes | PARTIAL | Fixed/adaptive shipped, but stash still exists and must be reconciled; this does not close the whole visual contract. |
-| Preview thumbnail rounded corners / thumbnail visual correctness | UNSOLVED | User explicitly reports it is not fixed. This overrides the previous doc claim; must be re-investigated with current screenshot/device evidence. |
+| P0 sub-tab switching white-screens / reloads | NEEDS_CONTROLLER_REQA | Previous PASS relied on partial surface evidence. Controller must re-test Home, Toplist, Favorites favcat/order, site switch and search/filter cases; untested cases remain not accepted. |
+| P0 false 404 on some galleries | NEEDS_CONTROLLER_REQA | Cookie completeness + MaybeHidden shipped for one example, but true-404, ExHentai/Sad Panda, donor/permission and auth matrix still need controller-owned evidence. |
+| P0 detail preview semantics collapsed | NEEDS_CONTROLLER_REQA | Mode/entry commits exist, but current thumbnail visual acceptance is disputed; entire preview section must be re-shot and re-accepted. |
+| P0 detail header action sizing | NEEDS_CONTROLLER_REQA | Prior evidence did not cover the full read/unread/resume/favorited/unfavorited matrix in one current acceptance bundle. |
+| P0 detail title long-text stress | NEEDS_CONTROLLER_REQA | Long-title evidence exists, but uploader/state matrix needs current device proof. |
+| P1 detail tag chips shape | NEEDS_CONTROLLER_REQA | Geometry improved, but usertag/vote-colored visual states lack device evidence and must not be inferred. |
+| P1 gallery cover presentation | NEEDS_CONTROLLER_REQA | Loaded presentation improved; loading/error × light/dark matrix needs current screenshots. |
+| P1 list card height modes | NEEDS_CONTROLLER_REQA | Fixed/adaptive shipped; stash and current visual rhythm still need controller reconciliation. |
+| Preview thumbnail rounded corners / thumbnail visual correctness | UNSOLVED | User explicitly reports it is not fixed. This overrides the previous doc claim; must be re-investigated with current screenshot/device evidence before any other visual acceptance claim. |
 
-Do not re-archive this file until the reopened audit is resolved item by item.
+Default rule after reopening: every item in this audit is NOT accepted until controller supplies current source evidence plus current device/visual evidence. The user is not responsible for re-QAing unmentioned items; silence is not acceptance.
+
+Do not re-archive this file until this audit is resolved item by item with current evidence, not historical PASS summaries.
 
 ## Final completion summary (INVALIDATED; retained as historical record only)
 
