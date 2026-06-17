@@ -18,6 +18,7 @@ export struct PullRefreshListScaffold {
   @Param indicatorTop: number = -1
   @Param scrollEnabled: boolean = true
   @Param controller: PullRefreshController = new PullRefreshController()
+  @Local measuredWidth: number = 0
   @Event onRefresh?: () => Promise<void>
   @Event onBottomRefresh?: () => Promise<void>
   @Event canStartBottomRefresh?: () => boolean
@@ -25,6 +26,7 @@ export struct PullRefreshListScaffold {
   @Event onScrollIndex?: (start: number, end: number, center: number) => void
   @Event onDidScroll?: (offset: number, state: ScrollState) => void
   @Event onScrollEnableChange?: (enabled: boolean) => void
+  @Event onContentWidth?: (contentWidth: number) => void
 
   build() {
     PullRefresh({
@@ -97,6 +99,13 @@ export struct PullRefreshListScaffold {
       .padding({ left: this.horizontalPadding, right: this.horizontalPadding })
       .clip(false)
       .edgeEffect(EdgeEffect.None)
+      .onAreaChange((_oldValue: Area, newValue: Area) => {
+        this.measuredWidth = newValue.width as number
+        if (this.onContentWidth) {
+          const contentWidth: number = this.measuredWidth - 2 * this.horizontalPadding
+          this.onContentWidth(contentWidth > 0 ? contentWidth : 0)
+        }
+      })
     }
   }
 

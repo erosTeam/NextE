@@ -47,6 +47,7 @@ export struct FavcatPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local listMode: ListModeState = connectListMode();
   @Local favSel: FavSelectionState = connectFavSelection();
+  @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
   private loadedOnce: boolean = false;
@@ -188,6 +189,9 @@ export struct FavcatPage {
           onReachEnd: () => {
             this.vm.loadMore()
           },
+          onContentWidth: (contentWidth: number) => {
+            this.listContentWidth = contentWidth
+          },
         }) {
           LazyForEach(
             this.vm.dataSource,
@@ -196,7 +200,7 @@ export struct FavcatPage {
                 if (this.listMode.mode === ListMode.SIMPLE_LIST) {
                   GallerySimpleCard({ gallery: g })
                 } else {
-                  GalleryCard({ gallery: g })
+                  GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })
                 }
               }
               .onClick(() => {

@@ -78,6 +78,11 @@ export class ThemeConstants {
   static readonly FLOAT_BAR_HEIGHT: number = 56
   static readonly FOOTER_HEIGHT: number = 48
   static readonly BUTTON_HEIGHT: number = 46 // primary action buttons (reader/detail Read, etc.)
+  // Gallery list card rhythm. eros_fe uses kFixedHeight=204 and, on non-phone layouts, cover width =
+  // 0.7 * kFixedHeight = 142.8; narrow phone-like panes still derive cover width from contentWidth / 3.
+  static readonly LIST_CARD_FIXED_HEIGHT: number = 204
+  static readonly LIST_CARD_WIDE_COVER_WIDTH: number = 142.8
+  static readonly LIST_CARD_COVER_ASPECT: number = 0.71
   // Detail-header action row: the Read pill and the favourite block share this height + vertical center
   // so they read as one coordinated family (eros_fe: Read filled pill is primary, favourite heart is the
   // secondary bare-icon to its left). ACTION_FAV_ICON is the favourite heart glyph, a peer to the pill.

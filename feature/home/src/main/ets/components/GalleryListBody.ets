@@ -34,6 +34,7 @@ export struct GalleryListBody {
   // the ACTIVE tab's list (scroll-up title auto-hide). Default for standalone use.
   @Param scroller: Scroller = new Scroller();
   @Local listMode: ListModeState = connectListMode();
+  @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
 
@@ -113,6 +114,9 @@ export struct GalleryListBody {
           onReachEnd: () => {
             this.vm.loadMore()
           },
+          onContentWidth: (contentWidth: number) => {
+            this.listContentWidth = contentWidth
+          },
         }) {
           LazyForEach(
             this.vm.dataSource,
@@ -121,7 +125,7 @@ export struct GalleryListBody {
                 if (this.listMode.mode === ListMode.SIMPLE_LIST) {
                   GallerySimpleCard({ gallery: g })
                 } else {
-                  GalleryCard({ gallery: g })
+                  GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })
                 }
               }
               .onClick(() => {

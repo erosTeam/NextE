@@ -55,6 +55,7 @@ export struct GallerySearchPage {
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local showFilter: boolean = false;
+  @Local listContentWidth: number = 0;
   // Favorite scope (eros_fe SearchType.favorite): set from the route param when the favorites title-bar
   // magnifier pushes here. Hides the gallery advanced-filter trigger (eros_fe hides cats/advanced for
   // favorite, gallery_filter_view.dart:74-82) and makes the page browse favorites.php f_search.
@@ -369,6 +370,9 @@ export struct GallerySearchPage {
             onReachEnd: () => {
               this.vm.loadMore()
             },
+            onContentWidth: (contentWidth: number) => {
+              this.listContentWidth = contentWidth
+            },
           }) {
             if (!this.isFavoriteScope) {
               ListItem() {
@@ -387,7 +391,7 @@ export struct GallerySearchPage {
                   if (this.listMode.mode === ListMode.SIMPLE_LIST) {
                     GallerySimpleCard({ gallery: g })
                   } else {
-                    GalleryCard({ gallery: g })
+                    GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })
                   }
                 }
                 .onClick(() => {

@@ -76,6 +76,11 @@
       "blocking": true
     },
     {
+      "name": "list-responsive-cover",
+      "command": "node scripts/test_list_responsive_cover_contract.mjs",
+      "blocking": true
+    },
+    {
       "name": "list-height-mode",
       "command": "node scripts/test_list_height_mode_contract.mjs",
       "blocking": true

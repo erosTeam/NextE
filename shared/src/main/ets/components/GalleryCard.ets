@@ -1,4 +1,3 @@
-import { display } from '@kit.ArkUI'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhGallery } from '../model/EhGallery'
 import { SimpleTag } from '../model/SimpleTag'
@@ -9,25 +8,6 @@ import { RatingStars } from './RatingStars'
 import { UserTagStore } from '../state/UserTagStore'
 import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
 import { connectListMode, ListModeState } from '../state/ListModeState'
-
-// eros_fe sizes the list cover to 1/3 of the screen's shortest side (gallery_item.dart _CoverImage) —
-// a deliberate proportion, not a magic width. Cached once (phone width is stable within a session).
-let _coverW: number = 0
-function cardCoverWidth(): number {
-  if (_coverW <= 0) {
-    const info: display.Display = display.getDefaultDisplaySync()
-    const shortSide: number = info.width < info.height ? info.width : info.height
-    _coverW = px2vp(shortSide) / 3
-  }
-  return _coverW
-}
-
-// EH thumbnail w/h ratio; anchors a sparse-tag card to a portrait cover height so it never collapses
-// shorter than a cover. Tag-rich cards grow past it and the cover stretches to follow.
-const COVER_ASPECT: number = 0.71
-function cardMinHeight(): number {
-  return cardCoverWidth() / COVER_ASPECT
-}
 
 // Cap list-card tags so the wrapped chips fill ~3 rows (eros_fe's listViewTagLimit keeps cards balanced).
 const CARD_TAG_LIMIT: number = 8
@@ -46,12 +26,30 @@ const CARD_TAG_LIMIT: number = 8
 @ComponentV2
 export struct GalleryCard {
   @Require @Param gallery: EhGallery;
+  // Current list content width (vp), measured by PullRefreshListScaffold after horizontal padding. This is
+  // pane-local so fold/unfold and split-pane changes recompute in the same app process.
+  @Param listContentWidth: number = 0;
   // Reactive bump from the usertag loader; read in the chip key so cards re-color on a late My Tags load.
   private tagSig: UserTagSignal = connectUserTagSignal();
   // eros_fe `fixedHeightOfListItems` (default true). FIXED → every row is one portrait-cover height with
   // title/tags clipped and the meta foot-anchored (uniform list rhythm); ADAPTIVE → the row grows with its
   // content. Read reactively (@Trace) so flipping the setting re-lays the visible cards live.
   private listMode: ListModeState = connectListMode();
+
+  private coverWidth(): number {
+    const contentWidth: number =
+      this.listContentWidth > 0
+        ? this.listContentWidth
+        : ThemeConstants.LIST_CARD_WIDE_COVER_WIDTH * 3
+    const narrowWidth: number = contentWidth / 3
+    return narrowWidth < ThemeConstants.LIST_CARD_WIDE_COVER_WIDTH
+      ? narrowWidth
+      : ThemeConstants.LIST_CARD_WIDE_COVER_WIDTH
+  }
+
+  private adaptiveMinHeight(): number {
+    return this.coverWidth() / ThemeConstants.LIST_CARD_COVER_ASPECT
+  }
 
   // Chip background: the user's own fill color for this tag, else the inline-style color (future), else
   // neutral grey. Never namespace-derived.
@@ -110,7 +108,7 @@ export struct GalleryCard {
   }
 
   build() {
-    // Flex with ItemAlign.Stretch: the text column defines the card height (its content, min cardMinHeight);
+    // Flex with ItemAlign.Stretch: the text column defines the card height (its content, responsive min);
     // the cover is stretched to that height instead of using height('100%'), which would resolve against
     // the list viewport and blow the card up to full-screen.
     Flex({ direction: FlexDirection.Row, alignItems: ItemAlign.Stretch }) {
@@ -118,7 +116,7 @@ export struct GalleryCard {
       // the card edge while leaving the inner (right) edge square against the text column.
       EhThumbnail({
         url: this.gallery.thumbUrl,
-        thumbWidth: cardCoverWidth(),
+        thumbWidth: this.coverWidth(),
         stretchHeight: true,
         radius: 0,
         // The list row grows taller than a cover's aspect when the text column is tall (2-line title +
@@ -240,13 +238,16 @@ export struct GalleryCard {
         top: ThemeConstants.SPACE_SM,
         bottom: ThemeConstants.SPACE_SM,
       })
-      // FIXED → pin every row to exactly one portrait-cover height for a uniform list rhythm (min=max);
-      // ADAPTIVE → floor at a cover height so sparse cards don't collapse, but grow past it for a 2-line
+      // FIXED → pin every row to eros_fe's kFixedHeight rhythm (min=max);
+      // ADAPTIVE → floor at a responsive cover height so sparse cards don't collapse, but grow past it for a 2-line
       // title + wrapped tags. The cover (stretchHeight) follows the resolved height in both modes.
       .constraintSize(
         this.listMode.fixedHeight
-          ? { minHeight: cardMinHeight(), maxHeight: cardMinHeight() }
-          : { minHeight: cardMinHeight() },
+          ? {
+            minHeight: ThemeConstants.LIST_CARD_FIXED_HEIGHT,
+            maxHeight: ThemeConstants.LIST_CARD_FIXED_HEIGHT,
+          }
+          : { minHeight: this.adaptiveMinHeight() },
       )
     }
     .width('100%')
