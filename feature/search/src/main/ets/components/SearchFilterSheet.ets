@@ -1,4 +1,5 @@
 import {
+  AppStrings,
   ThemeConstants,
   SearchFilterState,
   connectSearchFilter,
@@ -6,6 +7,7 @@ import {
   SEARCH_SCOPE_GALLERY,
   SEARCH_SCOPE_WATCHED,
 } from 'shared'
+import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
 
 interface CatItem {
   name: string
@@ -35,6 +37,7 @@ const RATINGS: number[] = [0, 2, 3, 4, 5]
 export struct SearchFilterSheet {
   @Local filter: SearchFilterState = connectSearchFilter();
   @Param openSeq: number = 0;
+  @Local private scopeItems: SegmentButtonV2Items = new SegmentButtonV2Items([{ text: '' }, { text: '' }, { text: '' }]);
   @Local draftSearchScope: string = SEARCH_SCOPE_GALLERY;
   @Local draftSelectedCats: number = 0;
   @Local draftMinRating: number = 0;
@@ -48,7 +51,14 @@ export struct SearchFilterSheet {
   @Event onApply: () => void = () => {};
 
   aboutToAppear(): void {
+    this.syncScopeLabels()
     this.syncDraftFromFilter()
+  }
+
+  private syncScopeLabels(): void {
+    this.scopeItems[0].text = AppStrings.get('search_scope_gallery')
+    this.scopeItems[1].text = AppStrings.get('search_scope_watched')
+    this.scopeItems[2].text = AppStrings.get('search_scope_favorite')
   }
 
   @Monitor('openSeq')
@@ -105,16 +115,28 @@ export struct SearchFilterSheet {
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
-          Row({ space: ThemeConstants.SPACE_XS }) {
-            this.ScopeSegment($r('app.string.search_scope_gallery'), SEARCH_SCOPE_GALLERY)
-            this.ScopeSegment($r('app.string.search_scope_watched'), SEARCH_SCOPE_WATCHED)
-            this.ScopeSegment($r('app.string.search_scope_favorite'), SEARCH_SCOPE_FAVORITE)
-          }
+          TabSegmentButtonV2({
+            items: this.scopeItems,
+            selectedIndex: this.scopeIndex(),
+            enableStateAnimation: true,
+            onItemClicked: (index: number) => {
+              this.draftSearchScope = this.scopeForIndex(index)
+            },
+            itemPadding: {
+              top: LengthMetrics.vp(7),
+              bottom: LengthMetrics.vp(7),
+              start: LengthMetrics.vp(8),
+              end: LengthMetrics.vp(8),
+            },
+          })
           .width('100%')
-          .height(40)
-          .padding(ThemeConstants.SPACE_XS)
-          .backgroundColor($r('app.color.card_background'))
-          .borderRadius(ThemeConstants.RADIUS_MD)
+          .constraintSize({ minHeight: 40 })
+          if (this.draftSearchScope === SEARCH_SCOPE_FAVORITE) {
+            Text($r('app.string.filter_favorite_scope_hint'))
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_secondary'))
+              .lineHeight(18)
+          }
           if (this.draftSearchScope !== SEARCH_SCOPE_FAVORITE) {
             Text($r('app.string.filter_category'))
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -124,8 +146,12 @@ export struct SearchFilterSheet {
               ForEach(
                 CATS,
                 (c: CatItem) => {
-                  this.Chip(c.name, (this.draftSelectedCats & c.bit) !== 0, () => {
-                    this.draftSelectedCats = this.draftSelectedCats ^ c.bit
+                  SearchFilterChipButton({
+                    label: c.name,
+                    selected: (this.draftSelectedCats & c.bit) !== 0,
+                    onTap: () => {
+                      this.draftSelectedCats = this.draftSelectedCats ^ c.bit
+                    },
                   })
                 },
                 (c: CatItem) => c.name,
@@ -139,14 +165,13 @@ export struct SearchFilterSheet {
               ForEach(
                 RATINGS,
                 (r: number) => {
-                  this.Chip(
-                    r === 0 ? '' : `${r}★`,
-                    this.draftMinRating === r,
-                    () => {
+                  SearchFilterChipButton({
+                    label: this.ratingLabel(r),
+                    selected: this.draftMinRating === r,
+                    onTap: () => {
                       this.draftMinRating = r
                     },
-                    r === 0,
-                  )
+                  })
                 },
                 (r: number) => `${r}`,
               )
@@ -254,42 +279,31 @@ export struct SearchFilterSheet {
     .backgroundColor($r('sys.color.ohos_id_color_dialog_bg'))
   }
 
-  @Builder
-  ScopeSegment(label: ResourceStr, scope: string) {
-    Text(label)
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .fontWeight(this.draftSearchScope === scope ? FontWeight.Medium : FontWeight.Regular)
-      .fontColor(
-        this.draftSearchScope === scope ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_primary'),
-      )
-      .textAlign(TextAlign.Center)
-      .maxLines(1)
-      .textOverflow({ overflow: TextOverflow.Ellipsis })
-      .height('100%')
-      .layoutWeight(1)
-      .backgroundColor(this.draftSearchScope === scope ? ThemeConstants.BRAND_PRIMARY : Color.Transparent)
-      .borderRadius(ThemeConstants.RADIUS_SM)
-      .padding({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_XS })
-      .onClick(() => {
-        this.draftSearchScope = scope
-      })
+  private scopeIndex(): number {
+    if (this.draftSearchScope === SEARCH_SCOPE_WATCHED) {
+      return 1
+    }
+    if (this.draftSearchScope === SEARCH_SCOPE_FAVORITE) {
+      return 2
+    }
+    return 0
   }
 
-  @Builder
-  Chip(label: string, selected: boolean, onTap: () => void, isAny: boolean = false) {
-    Text(isAny ? $r('app.string.filter_any') : label)
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .fontColor(selected ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_primary'))
-      .backgroundColor(selected ? ThemeConstants.BRAND_PRIMARY : $r('app.color.card_background'))
-      .borderRadius(ThemeConstants.RADIUS_ROUND)
-      .padding({
-        left: ThemeConstants.SPACE_MD,
-        right: ThemeConstants.SPACE_MD,
-        top: ThemeConstants.SPACE_XS,
-        bottom: ThemeConstants.SPACE_XS,
-      })
-      .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-      .onClick(onTap)
+  private scopeForIndex(index: number): string {
+    if (index === 1) {
+      return SEARCH_SCOPE_WATCHED
+    }
+    if (index === 2) {
+      return SEARCH_SCOPE_FAVORITE
+    }
+    return SEARCH_SCOPE_GALLERY
+  }
+
+  private ratingLabel(rating: number): ResourceStr {
+    if (rating === 0) {
+      return $r('app.string.filter_any')
+    }
+    return `${rating}★`
   }
 
   @Builder
@@ -319,6 +333,32 @@ export struct SearchFilterSheet {
       .onChange((v: string) => {
         const n: number = Number.parseInt(v, 10)
         onChange(Number.isNaN(n) ? 0 : n)
+      })
+  }
+}
+
+@ComponentV2
+struct SearchFilterChipButton {
+  @Param label: ResourceStr = '';
+  @Param selected: boolean = false;
+  @Event onTap: () => void = () => {};
+
+  build() {
+    Text(this.label)
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontWeight(this.selected ? FontWeight.Medium : FontWeight.Regular)
+      .fontColor(this.selected ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_primary'))
+      .backgroundColor(this.selected ? ThemeConstants.BRAND_PRIMARY : $r('app.color.card_background'))
+      .borderRadius(ThemeConstants.RADIUS_ROUND)
+      .padding({
+        left: ThemeConstants.SPACE_MD,
+        right: ThemeConstants.SPACE_MD,
+        top: ThemeConstants.SPACE_XS,
+        bottom: ThemeConstants.SPACE_XS,
+      })
+      .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
+      .onClick(() => {
+        this.onTap()
       })
   }
 }

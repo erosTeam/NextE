@@ -64,8 +64,8 @@ export struct GallerySearchPage {
   @Local imagePageErrorUrl: string = '';
   @Local imagePageResolving: boolean = false;
   // Favorite scope (eros_fe SearchType.favorite): set from the route param when the favorites title-bar
-  // magnifier pushes here. Hides the gallery advanced-filter trigger (eros_fe hides cats/advanced for
-  // favorite, gallery_filter_view.dart:74-82) and makes the page browse favorites.php f_search.
+  // magnifier pushes here. The filter entry stays visible; favorite-specific limitations belong inside
+  // the sheet, not in a hidden page action.
   @Local isFavoriteScope: boolean = false;
   private actionState: SearchActionState = connectSearchAction();
   private stack: NavPathStack = connectNavStack().stack;
@@ -227,15 +227,6 @@ export struct GallerySearchPage {
   @Builder
   SearchHistoryView() {
     Column() {
-      if (!this.isFavoriteScope) {
-        Row() {
-          Blank()
-          this.FilterTrigger()
-        }
-        .width('100%')
-        .padding({ bottom: ThemeConstants.SPACE_MD })
-      }
-
       if (this.history.items.length > 0) {
         Row() {
           Text($r('app.string.search_history'))
@@ -324,138 +315,141 @@ export struct GallerySearchPage {
       })
   }
 
+  @Builder
+  FilterTriggerOverlay() {
+    Row() {
+      Blank()
+      this.FilterTrigger()
+    }
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_LG,
+      right: ThemeConstants.SPACE_LG,
+    })
+    .position({
+      x: 0,
+      y: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + ThemeConstants.SPACE_SM,
+    })
+    .hitTestBehavior(HitTestMode.Transparent)
+  }
+
   build() {
     HdsNavDestination() {
-      Column() {
-        if (this.imagePageResolving) {
-          PageLoadingState()
-        } else if (this.imagePageErrorUrl.length > 0) {
-          PageErrorState({
-            message: $r('app.string.image_page_open_failed'),
-            retryAction: () => {
-              this.openImagePageUrl(this.imagePageErrorUrl)
-            },
-          })
-        } else if (this.vm.isLoading && this.vm.itemCount === 0) {
-          PageLoadingState()
-        } else if (!this.vm.hasSearched) {
-          this.SearchHistoryView()
-        } else if (this.vm.itemCount === 0 && this.vm.errorMessage.length > 0) {
-          PageErrorState({
-            message: this.vm.errorMessage,
-            retryAction: () => {
-              this.vm.refresh()
-            },
-          })
-        } else if (this.vm.itemCount === 0) {
-          CardEmptyState({ message: $r('app.string.common_no_content') })
-        } else if (this.listMode.mode === ListMode.GRID) {
-          PullRefreshGridScaffold({
-            scroller: this.scroller,
-            bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
-            controller: this.refreshController,
-            onRefresh: async () => {
-              await this.vm.refresh()
-            },
-            onBottomRefresh: async () => {
-              await this.vm.loadMore()
-            },
-            canStartBottomRefresh: () => this.vm.canLoadMore(),
-            onReachEnd: () => {
-              this.vm.loadMore()
-            },
-          }) {
-            if (!this.isFavoriteScope) {
-              GridItem() {
-                Row() {
-                  this.FilterTrigger()
-                }
-                .width('100%')
-                .justifyContent(FlexAlign.End)
-              }
-              .columnStart(0)
-              .columnEnd(1)
-            }
-            LazyForEach(
-              this.vm.dataSource,
-              (g: EhGallery) => {
-                GridItem() {
-                  GalleryGridCard({ gallery: g })
-                }
-                .onClick(() => {
-                  this.stack.pushPathByName(
-                    'GalleryDetail',
-                    new GalleryDetailParams(g.gid, g.token, g.thumbUrl, g.title(), g.fileCount),
-                  )
-                })
+      Stack() {
+        Column() {
+          if (this.imagePageResolving) {
+            PageLoadingState()
+          } else if (this.imagePageErrorUrl.length > 0) {
+            PageErrorState({
+              message: $r('app.string.image_page_open_failed'),
+              retryAction: () => {
+                this.openImagePageUrl(this.imagePageErrorUrl)
               },
-              (g: EhGallery) => g.gid,
-            )
-          }
-        } else {
-          // LIST (cards) and SIMPLE_LIST (compact divider rows) share one scaffold.
-          PullRefreshListScaffold({
-            scroller: this.scroller,
-            listSpace: this.listMode.mode === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
-            bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
-            controller: this.refreshController,
-            onRefresh: async () => {
-              await this.vm.refresh()
-            },
-            onBottomRefresh: async () => {
-              await this.vm.loadMore()
-            },
-            canStartBottomRefresh: () => this.vm.canLoadMore(),
-            onReachEnd: () => {
-              this.vm.loadMore()
-            },
-            onContentWidth: (contentWidth: number) => {
-              this.listContentWidth = contentWidth
-            },
-          }) {
-            if (!this.isFavoriteScope) {
-              ListItem() {
-                Row() {
-                  this.FilterTrigger()
-                }
-                .width('100%')
-                .justifyContent(FlexAlign.End)
-                .padding({ bottom: ThemeConstants.SPACE_XS })
-              }
-            }
-            LazyForEach(
-              this.vm.dataSource,
-              (g: EhGallery) => {
-                ListItem() {
-                  if (this.listMode.mode === ListMode.SIMPLE_LIST) {
-                    GallerySimpleCard({ gallery: g })
-                  } else {
-                    GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })
+            })
+          } else if (this.vm.isLoading && this.vm.itemCount === 0) {
+            PageLoadingState()
+          } else if (!this.vm.hasSearched) {
+            this.SearchHistoryView()
+          } else if (this.vm.itemCount === 0 && this.vm.errorMessage.length > 0) {
+            PageErrorState({
+              message: this.vm.errorMessage,
+              retryAction: () => {
+                this.vm.refresh()
+              },
+            })
+          } else if (this.vm.itemCount === 0) {
+            CardEmptyState({ message: $r('app.string.common_no_content') })
+          } else if (this.listMode.mode === ListMode.GRID) {
+            PullRefreshGridScaffold({
+              scroller: this.scroller,
+              bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+              controller: this.refreshController,
+              onRefresh: async () => {
+                await this.vm.refresh()
+              },
+              onBottomRefresh: async () => {
+                await this.vm.loadMore()
+              },
+              canStartBottomRefresh: () => this.vm.canLoadMore(),
+              onReachEnd: () => {
+                this.vm.loadMore()
+              },
+            }) {
+              LazyForEach(
+                this.vm.dataSource,
+                (g: EhGallery) => {
+                  GridItem() {
+                    GalleryGridCard({ gallery: g })
                   }
-                }
-                .onClick(() => {
-                  this.stack.pushPathByName(
-                    'GalleryDetail',
-                    new GalleryDetailParams(g.gid, g.token, g.thumbUrl, g.title(), g.fileCount),
-                  )
-                })
-              },
-              (g: EhGallery) => g.gid,
-            )
-            ListItem() {
-              LoadingFooter({
-                // Include page-level search/filter reloads so preserved old results never show a
-                // terminal "no more" footer while their replacement request is in flight.
-                isLoading: this.vm.isLoadingMore || this.vm.isLoading,
-                hasMore: this.vm.hasMore,
-                isError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
-                onRetry: () => {
-                  this.vm.loadMore()
+                  .onClick(() => {
+                    this.stack.pushPathByName(
+                      'GalleryDetail',
+                      new GalleryDetailParams(g.gid, g.token, g.thumbUrl, g.title(), g.fileCount),
+                    )
+                  })
                 },
-              })
+                (g: EhGallery) => g.gid,
+              )
+            }
+          } else {
+            // LIST (cards) and SIMPLE_LIST (compact divider rows) share one scaffold.
+            PullRefreshListScaffold({
+              scroller: this.scroller,
+              listSpace: this.listMode.mode === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
+              bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+              controller: this.refreshController,
+              onRefresh: async () => {
+                await this.vm.refresh()
+              },
+              onBottomRefresh: async () => {
+                await this.vm.loadMore()
+              },
+              canStartBottomRefresh: () => this.vm.canLoadMore(),
+              onReachEnd: () => {
+                this.vm.loadMore()
+              },
+              onContentWidth: (contentWidth: number) => {
+                this.listContentWidth = contentWidth
+              },
+            }) {
+              LazyForEach(
+                this.vm.dataSource,
+                (g: EhGallery) => {
+                  ListItem() {
+                    if (this.listMode.mode === ListMode.SIMPLE_LIST) {
+                      GallerySimpleCard({ gallery: g })
+                    } else {
+                      GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })
+                    }
+                  }
+                  .onClick(() => {
+                    this.stack.pushPathByName(
+                      'GalleryDetail',
+                      new GalleryDetailParams(g.gid, g.token, g.thumbUrl, g.title(), g.fileCount),
+                    )
+                  })
+                },
+                (g: EhGallery) => g.gid,
+              )
+              ListItem() {
+                LoadingFooter({
+                  // Include page-level search/filter reloads so preserved old results never show a
+                  // terminal "no more" footer while their replacement request is in flight.
+                  isLoading: this.vm.isLoadingMore || this.vm.isLoading,
+                  hasMore: this.vm.hasMore,
+                  isError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
+                  onRetry: () => {
+                    this.vm.loadMore()
+                  },
+                })
+              }
             }
           }
         }
+        .width('100%')
+        .height('100%')
+
+        this.FilterTriggerOverlay()
       }
       .width('100%')
       .height('100%')

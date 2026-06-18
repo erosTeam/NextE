@@ -27,8 +27,14 @@ ok('scope participates in active filter state', /searchScope !== SEARCH_SCOPE_GA
 const sheet = read('feature/search/src/main/ets/components/SearchFilterSheet.ets')
 ok('sheet imports scope constants', /SEARCH_SCOPE_GALLERY[\s\S]*SEARCH_SCOPE_WATCHED[\s\S]*SEARCH_SCOPE_FAVORITE/.test(sheet))
 ok('sheet renders all three search scope choices', /search_scope_gallery/.test(sheet) && /search_scope_watched/.test(sheet) && /search_scope_favorite/.test(sheet))
-ok('sheet hides gallery-only filters in favorite scope', /if \(this\.filter\.searchScope !== SEARCH_SCOPE_FAVORITE\)[\s\S]*filter_category[\s\S]*filter_options/.test(sheet))
-ok('sheet reset returns to gallery scope', /this\.filter\.searchScope = SEARCH_SCOPE_GALLERY[\s\S]*this\.filter\.applySeq = this\.filter\.applySeq \+ 1/.test(sheet))
+ok('sheet uses the native segmented button for scope selection',
+  /TabSegmentButtonV2\(\{[\s\S]*selectedIndex: this\.scopeIndex\(\)[\s\S]*this\.draftSearchScope = this\.scopeForIndex\(index\)/.test(sheet))
+ok('sheet explains favorite scope while hiding gallery-only filters from the draft scope',
+  /if \(this\.draftSearchScope === SEARCH_SCOPE_FAVORITE\)[\s\S]*filter_favorite_scope_hint/.test(sheet) &&
+  /if \(this\.draftSearchScope !== SEARCH_SCOPE_FAVORITE\)[\s\S]*filter_category[\s\S]*filter_options/.test(sheet))
+ok('sheet reset returns draft to gallery before committing scope',
+  /private resetDraft\(\): void \{[\s\S]*this\.draftSearchScope = SEARCH_SCOPE_GALLERY/.test(sheet) &&
+  /private commitDraft\(\): void \{[\s\S]*this\.filter\.searchScope = this\.draftSearchScope[\s\S]*this\.filter\.applySeq = this\.filter\.applySeq \+ 1/.test(sheet))
 
 const settings = read('shared/src/main/ets/settings/SearchFilterSettings.ets')
 ok('settings snapshot persists scope', /class SearchFilterSnapshot[\s\S]*scope:\s*string\s*=\s*SEARCH_SCOPE_GALLERY/.test(settings))
@@ -45,5 +51,9 @@ ok('filter favorite searches all favorite slots', /favcat:\s*this\.isFavoriteSco
 const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 ok('empty query can browse when filter scope is active', /trimmed\.length === 0 && !this\.filter\.isActive\(\)/.test(page))
 ok('route favorite scope remains a hard page mode', /this\.isFavoriteScope = true[\s\S]*this\.vm\.seedFavoriteScope\(p\.favcat\)/.test(page))
+ok('search page keeps filter entry visible in favorite/loading/error/result states',
+  /@Builder\s+FilterTriggerOverlay\(\)[\s\S]*this\.FilterTrigger\(\)/.test(page) &&
+  /Stack\(\)\s*\{[\s\S]*Column\(\)\s*\{[\s\S]*PageLoadingState\(\)[\s\S]*PageErrorState\(\{[\s\S]*CardEmptyState\(\{[\s\S]*PullRefreshGridScaffold\(\{[\s\S]*PullRefreshListScaffold\(\{[\s\S]*this\.FilterTriggerOverlay\(\)/.test(page) &&
+  !/if \(!this\.isFavoriteScope\)[\s\S]*this\.FilterTrigger\(\)/.test(page))
 
 console.log(`✓ search scope contract: ${passed} assertions passed`)

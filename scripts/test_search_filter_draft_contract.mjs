@@ -59,15 +59,15 @@ ok('reset button clears and commits draft',
   /Button\(\$r\('app\.string\.filter_reset'\)\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.resetDraft\(\)[\s\S]*this\.commitDraft\(\)/.test(src))
 
 ok('category chips edit draft selectedCats',
-  /this\.Chip\(c\.name, \(this\.draftSelectedCats & c\.bit\) !== 0[\s\S]*this\.draftSelectedCats = this\.draftSelectedCats \^ c\.bit/.test(src))
+  /SearchFilterChipButton\(\{[\s\S]*label: c\.name[\s\S]*selected: \(this\.draftSelectedCats & c\.bit\) !== 0[\s\S]*this\.draftSelectedCats = this\.draftSelectedCats \^ c\.bit/.test(src))
 ok('rating chips edit draft minRating',
-  /this\.draftMinRating === r[\s\S]*this\.draftMinRating = r/.test(src))
+  /SearchFilterChipButton\(\{[\s\S]*label: this\.ratingLabel\(r\)[\s\S]*selected: this\.draftMinRating === r[\s\S]*this\.draftMinRating = r/.test(src))
 ok('page inputs edit draft page range',
   /this\.PageInput\(this\.draftPagesFrom[\s\S]*this\.draftPagesFrom = v[\s\S]*this\.PageInput\(this\.draftPagesTo[\s\S]*this\.draftPagesTo = v/.test(src))
 ok('advanced toggles edit draft flags',
   /this\.draftRequireTorrent = on[\s\S]*this\.draftShowExpunged = on[\s\S]*this\.draftDisableLanguageFilter = on[\s\S]*this\.draftDisableUploaderFilter = on[\s\S]*this\.draftDisableTagFilter = on/.test(src))
 ok('scope segmented control reads and writes draft scope',
-  /this\.draftSearchScope === scope[\s\S]*this\.draftSearchScope = scope/.test(src))
+  /TabSegmentButtonV2\(\{[\s\S]*selectedIndex: this\.scopeIndex\(\)[\s\S]*onItemClicked: \(index: number\) => \{[\s\S]*this\.draftSearchScope = this\.scopeForIndex\(index\)/.test(src))
 ok('favorite scope hides category block based on draft scope',
   /if \(this\.draftSearchScope !== SEARCH_SCOPE_FAVORITE\)/.test(src))
 
@@ -99,5 +99,8 @@ ok('search page sends a new open signal each time the filter sheet opens',
   /@Local filterOpenSeq: number = 0/.test(page) &&
   /SearchFilterSheet\(\{[\s\S]*openSeq: this\.filterOpenSeq/.test(page) &&
   /this\.filterOpenSeq = this\.filterOpenSeq \+ 1[\s\S]*this\.showFilter = true/.test(page))
+ok('search page exposes one fixed filter overlay rather than branch-local triggers',
+  /@Builder\s+FilterTriggerOverlay\(\)[\s\S]*this\.FilterTrigger\(\)/.test(page) &&
+  !/if \(!this\.isFavoriteScope\)[\s\S]*this\.FilterTrigger\(\)/.test(page))
 
 console.log(`✓ search filter draft contract: ${passed} assertions passed`)
