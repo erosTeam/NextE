@@ -999,7 +999,7 @@ Type: search reliability bug
 
 Priority suggestion: P1
 
-Status: implemented / pending controller acceptance
+Status: accepted
 
 Source:
 
@@ -1046,11 +1046,22 @@ Evidence:
   submitted `test`, and verified the results page loaded normally with the query still visible.
   Evidence directory: `/private/tmp/nexte_search_pending_submit_evidence/`, especially
   `search_result.png` and `search_result.json`.
+- Current-main acceptance, 2026-06-19: contracts still pass on main, and HarmonyOS Mate X7 emulator
+  target `127.0.0.1:5555` accepted a new `gundam` search submission from the current Search page. The
+  final layout shows `gundam` in `appSearchField-2` and gundam-related results, replacing the prior
+  `other:artbook` results. Evidence directory:
+  `/private/tmp/nexte_search_pending_submit_current_acceptance`, especially `before.png`,
+  `before.json`, `after.png`, and `after.json`.
+- Android FE reference, 2026-06-19: ADB target `fa967a75` was brought to foreground with
+  `adb shell su -c 'am start -n com.honjow.fehviewer/.MainActivity'`; foreground confirmed as
+  `com.honjow.fehviewer/.MainActivity`. Current FE screenshot:
+  `/private/tmp/nexte_search_pending_submit_fe_reference/fe_foreground.png`.
 
-Remaining acceptance:
+Closure:
 
-- Needs controller/user acceptance. The exact in-flight race is locked by deterministic contract; the
-  device pass covers the changed search submission path in a running signed build.
+- Accepted for the search submission reliability bug. The exact in-flight race is locked by
+  `scripts/test_search_input_contract.mjs`; the device pass covers the running signed app's search
+  submission path. No product code changed in this acceptance update.
 
 ### Reader Layout, Gesture, And Loading Stack Is Broken
 
