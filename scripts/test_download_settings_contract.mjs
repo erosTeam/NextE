@@ -50,6 +50,35 @@ const barrel = read('shared/src/main/ets/Index.ets')
 ok(/DownloadSettingsState/.test(barrel) && /connectDownloadSettings/.test(barrel) &&
   /DownloadSettings/.test(barrel), 'shared barrel exports download settings API')
 
+const settingsRoot = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
+ok(/settings_download/.test(settingsRoot) && /pushPathByName\('DownloadSettings'/.test(settingsRoot),
+  'settings root exposes a Download settings entry')
+
+const settingsIndex = read('feature/settings/src/main/ets/Index.ets')
+ok(/DownloadSettingsPage/.test(settingsIndex), 'settings barrel exports DownloadSettingsPage')
+
+const entryIndex = read('entry/src/main/ets/pages/Index.ets')
+ok(/DownloadSettingsPage/.test(entryIndex) && /name === 'DownloadSettings'/.test(entryIndex),
+  'entry router registers the DownloadSettings route')
+
+const downloadPage = read('feature/settings/src/main/ets/pages/DownloadSettingsPage.ets')
+ok(/eros_fe DownloadSettingPage/.test(downloadPage), 'download settings page records eros_fe grounding')
+ok(/@ComponentV2\s+export struct DownloadSettingsPage/.test(downloadPage),
+  'download settings page is V2-only')
+ok(/@Local downloadSettings: DownloadSettingsState = connectDownloadSettings\(\)/.test(downloadPage),
+  'download settings page reads the persisted download settings holder')
+ok(/download_concurrency/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
+  /DownloadSettings\.setConcurrency/.test(downloadPage),
+  'download settings page exposes persisted image concurrency as a counter')
+ok(/download_original_images/.test(downloadPage) && /trailingDropdown: true/.test(downloadPage) &&
+  /DownloadSettings\.setOriginalMode/.test(downloadPage),
+  'download settings page exposes original-image policy as a native dropdown')
+ok(/DownloadOriginalMode\.OFF/.test(downloadPage) && /DownloadOriginalMode\.ASK/.test(downloadPage) &&
+  /DownloadOriginalMode\.ALWAYS/.test(downloadPage),
+  'download original-image menu covers off, ask, and always')
+ok(!/restore_tasks_data|rebuild_tasks_data|download_location|allow_media_scan/.test(downloadPage),
+  'this lane does not add unimplemented download path/task-maintenance placeholders')
+
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
 ok(!/connectDownloadSettings|DownloadSettingsState|DownloadSettings\.setConcurrency|DownloadSettings\.setOriginalMode/.test(page),
   'download queue page does not own persisted settings controls')
@@ -58,6 +87,9 @@ ok(!/hasCounter: true|cycleOriginalMode|download_concurrency|download_original_i
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
+  ok(strings.includes('"name": "settings_download"'), `${locale}: settings_download exists`)
+  ok(strings.includes('"name": "download_concurrency_hint"'), `${locale}: download_concurrency_hint exists`)
+  ok(strings.includes('"name": "download_original_hint"'), `${locale}: download_original_hint exists`)
   ok(strings.includes('"name": "download_original_ask"'), `${locale}: download_original_ask exists`)
   ok(strings.includes('"name": "download_original_always"'), `${locale}: download_original_always exists`)
 }

@@ -97,6 +97,14 @@
       "value": "总是"
     },
     {
+      "name": "download_concurrency_hint",
+      "value": "同时下载图片数。"
+    },
+    {
+      "name": "download_original_hint",
+      "value": "压缩图或原始文件。"
+    },
+    {
       "name": "download_not_configured",
       "value": "未配置"
     },
@@ -503,6 +511,10 @@
     {
       "name": "settings_view",
       "value": "列表视图"
+    },
+    {
+      "name": "settings_download",
+      "value": "下载"
     },
     {
       "name": "settings_reader",

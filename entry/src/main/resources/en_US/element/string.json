@@ -97,6 +97,14 @@
       "value": "Always"
     },
     {
+      "name": "download_concurrency_hint",
+      "value": "Images downloading at once."
+    },
+    {
+      "name": "download_original_hint",
+      "value": "Resized images or original files."
+    },
+    {
       "name": "download_not_configured",
       "value": "Not configured"
     },
@@ -503,6 +511,10 @@
     {
       "name": "settings_view",
       "value": "List view"
+    },
+    {
+      "name": "settings_download",
+      "value": "Downloads"
     },
     {
       "name": "settings_reader",

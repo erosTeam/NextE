@@ -126,6 +126,14 @@ export struct SettingsPage {
         },
       })
       this.rowDivider()
+      ConciseListRow({
+        title: $r('app.string.settings_download'),
+        leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
+        action: () => {
+          this.stack.pushPathByName('DownloadSettings', null)
+        },
+      })
+      this.rowDivider()
       // eros_fe fixedHeightOfListItems (default true): uniform cover-height list rows vs adaptive rows that
       // grow with content. Applies to the list-row card (List / WaterFlow); simple + grid keep their layouts.
       ConciseListRow({
