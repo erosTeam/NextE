@@ -42,7 +42,7 @@ forbiddenDraftNames.forEach((name) => {
   ok(`${name} draft state is gone`, !new RegExp(`\\b${name}\\b`).test(src))
 })
 
-ok('sheet no longer has openSeq, onApply, or commitDraft',
+ok('sheet no longer has openSeq, apply event, or commitDraft',
   !/@Param openSeq: number = 0/.test(src) &&
   !/@Monitor\('openSeq'\)/.test(src) &&
   !/@Event onApply/.test(src) &&
@@ -70,7 +70,7 @@ ok('no Apply button remains in the sheet',
 ok('reset button is wired to resetFilter',
   /Button\(\$r\('app\.string\.filter_reset'\)\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.resetFilter\(\)/.test(src))
 ok('page embeds the sheet without openSeq or close-on-apply callback',
-  /@Builder\s+FilterSheet\(\)\s*\{[\s\S]*SearchFilterSheet\(\)[\s\S]*\}/.test(page) &&
+  /@Builder\s+FilterSheet\(\)\s*\{[\s\S]*SearchFilterSheet\(\{[\s\S]*onClose: \(\) => \{[\s\S]*this\.showFilter = false[\s\S]*\}/.test(page) &&
   !/filterOpenSeq/.test(page) &&
   !/openSeq: this\.filterOpenSeq/.test(page) &&
   !/onApply:/.test(page))

@@ -131,6 +131,10 @@ const ok = (name, cond) => {
     join(ROOT, 'feature/search/src/main/ets/pages/GallerySearchPage.ets'),
     'utf8',
   )
+  const fieldSrc = readFileSync(
+    join(ROOT, 'feature/search/src/main/ets/components/SearchPageField.ets'),
+    'utf8',
+  )
   ok('page routes via runQuery', /private runQuery\(query: string\)/.test(pageSrc))
   ok('page gates URL-jump on a bare URL', /private looksLikeBareUrl\(s: string\)/.test(pageSrc))
   ok('page jump guarded by looksLikeBareUrl', /if \(this\.looksLikeBareUrl\(trimmed\)\)/.test(pageSrc))
@@ -144,7 +148,25 @@ const ok = (name, cond) => {
   ok('image-page failure retry reuses the original URL', /retryAction:[\s\S]*this\.openImagePageUrl\(this\.imagePageErrorUrl\)/.test(pageSrc))
   ok('page gates empty on active filter', /trimmed\.length === 0 && !this\.filter\.isActive\(\)/.test(pageSrc))
   ok('submit funnels through runQuery', /onSubmit\(\): void \{\s*this\.runQuery\(/.test(pageSrc))
+  ok('page monitors the shared search action state as V2 local state',
+    /@Local actionState: SearchActionState = connectSearchAction\(\)/.test(pageSrc) &&
+    /@Monitor\('actionState\.submitSeq'\)[\s\S]*onSubmit\(\): void \{[\s\S]*this\.runQuery\(this\.actionState\.keyword\)/.test(pageSrc))
   ok('pending query seeds the field', /this\.actionState\.keyword = query\s*\n\s*this\.actionState\.seedSeq/.test(pageSrc))
+  ok('clearing the search field resets the page to history instead of keeping old results',
+    /@Monitor\('actionState\.keyword'\)[\s\S]*onKeywordChange\(\): void \{[\s\S]*keyword\.trim\(\)\.length === 0[\s\S]*this\.clearQueryToHistory\(\)/.test(pageSrc) &&
+    /private clearQueryToHistory\(\): void \{[\s\S]*this\.imagePageErrorUrl = ''[\s\S]*this\.imagePageResolving = false[\s\S]*this\.vm\.clearSearchState\(\)/.test(pageSrc) &&
+    /trimmed\.length === 0 && !this\.filter\.isActive\(\)[\s\S]*this\.clearQueryToHistory\(\)/.test(pageSrc))
+  ok('search field is hosted in title-bar bottomBuilder, not the title stackBuilder',
+    /'bottomBuilder': this\.searchBottomBuilder\(this\.ensureFieldContent\(\)\)/.test(pageSrc) &&
+    !/'stackBuilderComponent': this\.ensureFieldContent\(\)/.test(pageSrc))
+  ok('bottomBuilder search field uses full content width without fake back-button reserve',
+    /HDS title-bar bottomBuilder/.test(fieldSrc) &&
+    /@Local actionState: SearchActionState = connectSearchAction\(\)/.test(fieldSrc) &&
+    /onSubmit: \(_value: string\) => \{[\s\S]*this\.actionState\.submitSeq = this\.actionState\.submitSeq \+ 1/.test(fieldSrc) &&
+    !/BACK_BUTTON_SLOT_WIDTH/.test(fieldSrc) &&
+    !/leadingReserve/.test(fieldSrc) &&
+    /left: ThemeConstants\.SPACE_LG/.test(fieldSrc) &&
+    /right: ThemeConstants\.SPACE_LG/.test(fieldSrc))
   const vmSrc = readFileSync(
     join(ROOT, 'feature/search/src/main/ets/viewmodel/SearchViewModel.ets'),
     'utf8',
@@ -159,6 +181,12 @@ const ok = (name, cond) => {
     /if \(this\.pendingFilterReapply\) \{[\s\S]*this\.pendingFilterReapply = false[\s\S]*await this\.reapplyFilters\(\)/.test(vmSrc))
   ok('reapplyFilters clears stale filter-only results after reset',
     /if \(!canSearch\) \{[\s\S]*this\.dataSource\.clear\(\)[\s\S]*this\.hasSearched = false/.test(vmSrc))
+  ok('vm clearSearchState clears rows, errors, paging, and searched state',
+    /clearSearchState\(\): void \{[\s\S]*this\.epoch = this\.epoch \+ 1[\s\S]*this\.query = ''[\s\S]*this\.dataSource\.clear\(\)[\s\S]*this\.hasSearched = false[\s\S]*this\.errorMessage = ''/.test(vmSrc))
+  ok('vm search result writes are guarded by epoch so clear cannot be overwritten by stale requests',
+    /const myEpoch: number = this\.epoch/.test(vmSrc) &&
+    /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.dataSource\.setData\(list\.gallerys\)/.test(vmSrc) &&
+    /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.isLoading = false/.test(vmSrc))
   ok(
     'refresh allows filter-only or favorite-scope browse',
     /this\.query\.length === 0 && !this\.isFavoriteScope && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc),

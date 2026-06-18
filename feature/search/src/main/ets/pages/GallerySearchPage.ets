@@ -23,6 +23,8 @@ import {
   connectNavStack,
   SearchFilterState,
   connectSearchFilter,
+  SEARCH_SCOPE_FAVORITE,
+  SEARCH_SCOPE_WATCHED,
   connectListMode,
   ListModeState,
   ListMode,
@@ -36,17 +38,19 @@ import {
   SearchPageParams,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
-import { HdsNavDestination } from '@kit.UIDesignKit'
+import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
 import { ComponentContent } from '@kit.ArkUI'
 import { SearchViewModel } from '../viewmodel/SearchViewModel'
 import { SearchFilterSheet } from '../components/SearchFilterSheet'
 import { SearchPageFieldCCBuilder } from '../components/SearchPageField'
 
+const SEARCH_FIELD_BOTTOM_HEIGHT: number = ThemeConstants.TITLE_BAR_HEIGHT + ThemeConstants.SPACE_SM
+
 /**
  * Table-site search — a PUSHED page (eros_fe pushes a dedicated search page from the gallery
- * appbar's search icon, custom_tabbar_page.dart:219-229; NOT a bottom tab). The search INPUT is
- * hosted in THIS page's HDS title bar (HdsNavDestination titleBar `stackBuilderComponent` =
- * SearchPageField) — the body has no search row. It reacts to the field's submit via the shared
+ * appbar's search icon, custom_tabbar_page.dart:219-229; NOT a bottom tab). The title area keeps
+ * the native back button, current search scope title, and filter action; the search INPUT is pinned
+ * in the HDS title bar bottomBuilder. It reacts to the field's submit via the shared
  * SearchActionState bus (`submitSeq` on Enter; `keyword` holds the text), consumes a cross-page
  * `pendingQuery` (Similar/uploader search) on appear, and renders results through the shared
  * PullRefreshListScaffold, same as the gallery list.
@@ -66,13 +70,13 @@ export struct GallerySearchPage {
   // magnifier pushes here. The filter entry stays visible; favorite-specific limitations belong inside
   // the sheet, not in a hidden page action.
   @Local isFavoriteScope: boolean = false;
-  private actionState: SearchActionState = connectSearchAction();
+  @Local actionState: SearchActionState = connectSearchAction();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
   private lastHandledQuery: string = '';
-  // Search field hosted in this pushed page's HDS title bar — cached ONCE (re-issuing the titleBar
-  // opts must reuse the same field instance, not remount it and flap the IME).
+  // Search field hosted in this pushed page's HDS title-bar bottomBuilder — cached ONCE (re-issuing
+  // the titleBar opts must reuse the same field instance, not remount it and flap the IME).
   private fieldContent: ComponentContent<Object> | null = null;
 
   private ensureFieldContent(): ComponentContent<Object> {
@@ -86,13 +90,45 @@ export struct GallerySearchPage {
     return this.fieldContent
   }
 
-  // No title text (the field IS the title area); shares the app's immersive title-bar style so the
-  // status bar / title bar gets the same GRADIENT_BLUR backdrop as the tab pages.
+  private searchBottomBuilder(content: ComponentContent<Object>): Record<string, Object> {
+    return {
+      'builderComponent': content,
+      'height': SEARCH_FIELD_BOTTOM_HEIGHT,
+      'showType': BottomBuilderShowType.DIRECTLY_SHOW,
+    }
+  }
+
+  private scopeTitle(): ResourceStr {
+    if (this.isFavoriteScope || this.vm.isFavoriteScope || this.filter.searchScope === SEARCH_SCOPE_FAVORITE) {
+      return $r('app.string.search_scope_favorite')
+    }
+    if (this.filter.searchScope === SEARCH_SCOPE_WATCHED) {
+      return $r('app.string.search_scope_watched')
+    }
+    return $r('app.string.search_scope_gallery')
+  }
+
+  private filterMenu(): Record<string, Object> {
+    const inner: Record<string, Object> = {
+      'label': $r('app.string.filter'),
+      'icon': $r('sys.symbol.funnel'),
+      'isEnabled': true,
+      'action': () => {
+        this.showFilter = true
+      },
+    }
+    const item: Record<string, Object> = { 'content': inner }
+    return { 'value': [item], 'maxCount': 1 }
+  }
+
+  // Title text carries the active scope while the field lives in bottomBuilder; shares the app's
+  // immersive title-bar style so the status/title/search bar gets the same GRADIENT_BLUR backdrop.
   private searchTitleBar(): Record<string, Object> {
-    const title: Record<string, Object> = { 'mainTitle': ' ' }
+    const title: Record<string, Object> = { 'mainTitle': this.scopeTitle() }
     const content: Record<string, Object> = {
       'title': title,
-      'stackBuilderComponent': this.ensureFieldContent(),
+      'bottomBuilder': this.searchBottomBuilder(this.ensureFieldContent()),
+      'menu': this.filterMenu(),
     }
     return immersiveTitleBarOpts(content)
   }
@@ -135,6 +171,13 @@ export struct GallerySearchPage {
     this.runQuery(this.actionState.keyword)
   }
 
+  @Monitor('actionState.keyword')
+  onKeywordChange(): void {
+    if (this.actionState.keyword.trim().length === 0) {
+      this.clearQueryToHistory()
+    }
+  }
+
   // A whole-string EH URL (no embedded substring) — eros_fe gates its URL-jump on searchText.isURL,
   // so a query that merely CONTAINS a gallery link still searches.
   private looksLikeBareUrl(s: string): boolean {
@@ -162,6 +205,7 @@ export struct GallerySearchPage {
       }
     }
     if (trimmed.length === 0 && !this.filter.isActive()) {
+      this.clearQueryToHistory()
       return
     }
     if (trimmed.length > 0) {
@@ -196,6 +240,12 @@ export struct GallerySearchPage {
     SearchHistorySettings.add(this.ctx(), query)
   }
 
+  private clearQueryToHistory(): void {
+    this.imagePageErrorUrl = ''
+    this.imagePageResolving = false
+    this.vm.clearSearchState()
+  }
+
   // Tap a recent-search chip: fill the title-bar field (seedSeq) and run it.
   private searchFromHistory(query: string): void {
     this.actionState.keyword = query
@@ -212,7 +262,11 @@ export struct GallerySearchPage {
 
   @Builder
   FilterSheet() {
-    SearchFilterSheet()
+    SearchFilterSheet({
+      onClose: () => {
+        this.showFilter = false
+      },
+    })
   }
 
   // Search landing: a filter trigger is available UP FRONT (eros_fe exposes category/advanced filters
@@ -280,50 +334,11 @@ export struct GallerySearchPage {
     .padding({
       left: ThemeConstants.SPACE_LG,
       right: ThemeConstants.SPACE_LG,
-      top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + ThemeConstants.SPACE_MD,
+      top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + SEARCH_FIELD_BOTTOM_HEIGHT +
+      ThemeConstants.SPACE_MD,
       bottom: ThemeConstants.SPACE_LG,
     })
     .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  FilterTrigger() {
-    Text($r('app.string.filter'))
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .fontColor(
-        this.filter.isActive() ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_primary'),
-      )
-      .backgroundColor(
-        this.filter.isActive() ? ThemeConstants.BRAND_PRIMARY : $r('app.color.card_background'),
-      )
-      .borderRadius(ThemeConstants.RADIUS_ROUND)
-      .padding({
-        left: ThemeConstants.SPACE_MD,
-        right: ThemeConstants.SPACE_MD,
-        top: ThemeConstants.SPACE_XS,
-        bottom: ThemeConstants.SPACE_XS,
-      })
-      .onClick(() => {
-        this.showFilter = true
-      })
-  }
-
-  @Builder
-  FilterTriggerOverlay() {
-    Row() {
-      Blank()
-      this.FilterTrigger()
-    }
-    .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_LG,
-      right: ThemeConstants.SPACE_LG,
-    })
-    .position({
-      x: 0,
-      y: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + ThemeConstants.SPACE_SM,
-    })
-    .hitTestBehavior(HitTestMode.Transparent)
   }
 
   build() {
@@ -355,6 +370,7 @@ export struct GallerySearchPage {
           } else if (this.listMode.mode === ListMode.GRID) {
             PullRefreshGridScaffold({
               scroller: this.scroller,
+              topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,
               bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
               controller: this.refreshController,
               onRefresh: async () => {
@@ -388,6 +404,7 @@ export struct GallerySearchPage {
             // LIST (cards) and SIMPLE_LIST (compact divider rows) share one scaffold.
             PullRefreshListScaffold({
               scroller: this.scroller,
+              topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,
               listSpace: this.listMode.mode === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
               bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
               controller: this.refreshController,
@@ -441,19 +458,23 @@ export struct GallerySearchPage {
         }
         .width('100%')
         .height('100%')
-
-        this.FilterTriggerOverlay()
       }
       .width('100%')
       .height('100%')
       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
       .bindSheet($$this.showFilter, this.FilterSheet(), {
         detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-        title: { title: $r('app.string.filter') },
-        showClose: true,
+        showClose: false,
       })
     }
     .titleBar(this.searchTitleBar())
+    .dynamicHideTitleBar({
+      hideTitleArea: true,
+      hideBottomBuilder: true,
+      hideStatusBar: false,
+      mode: HideMode.SCROLL_UP,
+    })
+    .bindToScrollable([this.scroller])
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .onReady((context: NavDestinationContext) => {
       // The favorites title-bar magnifier pushed us with a favorite scope param (eros_fe

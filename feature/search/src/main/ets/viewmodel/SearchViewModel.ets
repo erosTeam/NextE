@@ -129,6 +129,7 @@ export class SearchViewModel {
     this.isLoading = true
     this.errorMessage = ''
     this.epoch = this.epoch + 1
+    const myEpoch: number = this.epoch
     // Preserve current results while the new query/filter request is in flight. The search field or
     // filter sheet may change immediately, but the body must not flash to an empty loading page.
     // Disable old paging until the replacement page succeeds.
@@ -136,20 +137,40 @@ export class SearchViewModel {
     this.hasMore = false
     try {
       const list: GalleryList = await this.fetchPage('')
-      this.dataSource.setData(list.gallerys)
-      this.itemCount = this.dataSource.totalCount()
-      this.nextGid = list.nextGid
-      this.hasMore = list.nextGid.length > 0
+      if (this.epoch === myEpoch) {
+        this.dataSource.setData(list.gallerys)
+        this.itemCount = this.dataSource.totalCount()
+        this.nextGid = list.nextGid
+        this.hasMore = list.nextGid.length > 0
+      }
     } catch (err) {
       const e = err as Error
-      this.errorMessage = EhErrorText.forUser(err)
+      if (this.epoch === myEpoch) {
+        this.errorMessage = EhErrorText.forUser(err)
+      }
       DiagnosticLogger.warn('search', 'search_failed', e.message)
     }
-    this.isLoading = false
-    if (this.pendingFilterReapply) {
-      this.pendingFilterReapply = false
-      await this.reapplyFilters()
+    if (this.epoch === myEpoch) {
+      this.isLoading = false
+      if (this.pendingFilterReapply) {
+        this.pendingFilterReapply = false
+        await this.reapplyFilters()
+      }
     }
+  }
+
+  clearSearchState(): void {
+    this.epoch = this.epoch + 1
+    this.query = ''
+    this.nextGid = ''
+    this.dataSource.clear()
+    this.itemCount = 0
+    this.isLoading = false
+    this.isLoadingMore = false
+    this.hasMore = true
+    this.hasSearched = false
+    this.errorMessage = ''
+    this.pendingFilterReapply = false
   }
 
   /** Re-run the current query from page 1 (pull-to-refresh). Guarded + flagged isLoading so a

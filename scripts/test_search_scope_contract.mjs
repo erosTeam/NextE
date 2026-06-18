@@ -51,9 +51,14 @@ ok('filter favorite searches all favorite slots', /favcat:\s*this\.isFavoriteSco
 const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 ok('empty query can browse when filter scope is active', /trimmed\.length === 0 && !this\.filter\.isActive\(\)/.test(page))
 ok('route favorite scope remains a hard page mode', /this\.isFavoriteScope = true[\s\S]*this\.vm\.seedFavoriteScope\(p\.favcat\)/.test(page))
-ok('search page keeps filter entry visible in favorite/loading/error/result states',
-  /@Builder\s+FilterTriggerOverlay\(\)[\s\S]*this\.FilterTrigger\(\)/.test(page) &&
-  /Stack\(\)\s*\{[\s\S]*Column\(\)\s*\{[\s\S]*PageLoadingState\(\)[\s\S]*PageErrorState\(\{[\s\S]*CardEmptyState\(\{[\s\S]*PullRefreshGridScaffold\(\{[\s\S]*PullRefreshListScaffold\(\{[\s\S]*this\.FilterTriggerOverlay\(\)/.test(page) &&
+ok('search page keeps filter entry in the title menu for every body state',
+  /private filterMenu\(\): Record<string, Object> \{[\s\S]*'label': \$r\('app\.string\.filter'\)[\s\S]*'action': \(\) => \{[\s\S]*this\.showFilter = true/.test(page) &&
+  /private searchTitleBar\(\): Record<string, Object> \{[\s\S]*'menu': this\.filterMenu\(\)/.test(page) &&
+  !/@Builder\s+FilterTrigger/.test(page) &&
+  !/FilterTriggerOverlay/.test(page) &&
   !/if \(!this\.isFavoriteScope\)[\s\S]*this\.FilterTrigger\(\)/.test(page))
+ok('search title reflects the active scope',
+  /private scopeTitle\(\): ResourceStr \{[\s\S]*search_scope_favorite[\s\S]*search_scope_watched[\s\S]*search_scope_gallery/.test(page) &&
+  /'mainTitle': this\.scopeTitle\(\)/.test(page))
 
 console.log(`✓ search scope contract: ${passed} assertions passed`)
