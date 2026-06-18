@@ -921,7 +921,7 @@ Type: routing / state ownership bug
 
 Priority suggestion: P0
 
-Status: implemented / pending device acceptance
+Status: accepted
 
 Source:
 
@@ -973,20 +973,25 @@ Evidence:
   page with `language:chinese` visible in the pinned search field and showed matching results; no crash
   or empty second Search query occurred. Key artifacts: `search_detail_a.png`,
   `search_tag_b.png`, and `search_tag_b.json`.
+- Current-main acceptance, 2026-06-19, HarmonyOS Mate X7 emulator target `127.0.0.1:5555`, hdc outside
+  the sandbox: `Search(character:roll)` -> result detail -> tag `artbook` opened a second Search page
+  with `other:artbook` visible in `appSearchField-2` and matching `artbook` results. It did not show an
+  empty query, reuse `character:roll`, or crash. Evidence directory:
+  `/private/tmp/nexte_search_route_stack_acceptance`; key artifacts: `search_a.png`,
+  `search_a.json`, `detail_from_search.png`, `detail_from_search.json`, `search_b.png`,
+  `search_b.json`.
+- Android FE reference, 2026-06-19: ADB target `fa967a75` opened eros_fe detail with `su`; screenshots
+  captured under `/private/tmp/nexte_search_route_stack_fe`. The tap automation did not complete FE
+  navigation, so product semantics were cross-checked from
+  `/Users/honjow/git/eros_fe/lib/pages/gallery/view/gallery_widget.dart`, where detail tag tap routes to
+  search via `NavigatorUtil.goSearchPageWithParam(simpleSearch: '${tag.type}:${tag.title.trim()}')`.
 
-Remaining acceptance:
+Closure:
 
-- Needs controller/user review before marking accepted.
+- Accepted for the route-stack bug. No product code changed in this acceptance update.
 - Implementation commit: `30ae664 fix(search): isolate action route state`.
-- Required NextE acceptance after implementation resumes: category colors are semantically distinct,
-  normal tap gives immediate feedback and live requery, long press performs the FE-equivalent quick
-  solo/invert behavior with immediate feedback, rating is a formal segmented/radio-like control and
-  applies immediately, Apply is absent, Reset remains available, and scope/rating are not naked
-  `Row/Text` faux controls.
-- Required deterministic contracts after implementation resumes: no primary Apply submit path; category,
-  rating, scope, and toggle changes bump the filter reapply path; long-press handler exists for
-  categories; category colors come from a semantic mapping; scope and rating use native/HDS segmented
-  controls rather than hand-rolled `Row/Text`.
+- SearchFilter visual/control acceptance belongs to the separate Search Filter UX lane and must not keep
+  this route-stack bug active.
 
 ### Search Submit During In-Flight Request Can Drop The Latest Query
 
