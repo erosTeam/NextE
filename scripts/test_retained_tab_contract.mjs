@@ -141,7 +141,15 @@ ok(/@Param\s+visualIndex:\s*number/.test(subTabBar), 'SubTabBar takes the interp
 ok(/tab\.label[\s\S]{0,40}?tab\.count/.test(subTabBar), 'SubTabBar ForEach key includes tab.label + tab.count so dynamic favcat tabs rebuild on seed→real (no frozen placeholders)')
 const barH = Number((/SELECTOR_BAR_HEIGHT:\s*number\s*=\s*(\d+)/.exec(homeState) || [])[1])
 ok(Number.isFinite(barH) && barH <= 40, `SELECTOR_BAR_HEIGHT is not inflated (<=40, matches V2Next TAB_BAR_HEIGHT 38); got ${barH}`)
-ok(/'height':\s*SELECTOR_BAR_HEIGHT/.test(indexShell), 'Index bottomBuilder height = SELECTOR_BAR_HEIGHT (single source of truth)')
+ok(
+  /private bottomBuilder\(content:\s*ComponentContent<Object>,\s*height:\s*number\s*=\s*SELECTOR_BAR_HEIGHT\)/.test(indexShell) &&
+    /'height':\s*height/.test(indexShell) &&
+    /this\.bottomBuilder\(this\.sourceBarContent\)/.test(indexShell) &&
+    /this\.bottomBuilder\(this\.favcatBarContent\)/.test(indexShell) &&
+    /this\.bottomBuilder\(this\.periodBarContent\)/.test(indexShell) &&
+    /this\.bottomBuilder\(this\.downloadTypeBarContent,\s*DOWNLOAD_SELECTOR_BAR_HEIGHT\)/.test(indexShell),
+  'Index retained-tab bottomBuilders default to SELECTOR_BAR_HEIGHT; download selector is the explicit non-retained exception',
+)
 ok(
   /topPadding:\s*SELECTOR_BAR_HEIGHT/.test(sourcePage) && /topPadding:\s*SELECTOR_BAR_HEIGHT/.test(periodPage) && /topPadding:\s*SELECTOR_BAR_HEIGHT/.test(favcatPage),
   'retained pages pass list topPadding = SELECTOR_BAR_HEIGHT (matches the bottomBuilder, no double/hardcoded padding)',

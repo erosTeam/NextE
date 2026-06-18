@@ -262,6 +262,50 @@ Still open / blocked:
 - Site 表/里 switch: still needs safe auth/ExHentai state.
 ```
 
+Current-main refresh checkpoint (2026-06-19 06:59 +0800):
+
+```text
+Target: 127.0.0.1:5555 Mate X7 emulator.
+Build: current origin/main plus the contract-only fix in this lane, installed from
+  entry/build/default/outputs/default/entry-default-signed.hap after official signed Hvigor build.
+Device command boundary: hdc commands ran through the approved DevEco hdc path, outside the Codex
+  sandbox policy boundary.
+
+Contracts:
+- node scripts/test_selector_reload_preserves_content_contract.mjs: PASS
+- node scripts/test_retained_tab_contract.mjs: PASS
+- node scripts/test_gallery_paging_contract.mjs: PASS, 47 assertions
+- node scripts/test_v1_decorator_inventory_contract.mjs: PASS, 0 file(s)
+- bash scripts/build_hvigor_signed.sh: PackageHap + SignHap + BUILD SUCCESSFUL
+
+Home default -> popular:
+- baseline, immediate, and settled screenshots/layouts captured.
+- immediate and settled layouts contain real gallery rows and no terminal
+  "没有数据/没有更多了" copy.
+
+Toplist all -> year:
+- baseline, immediate, and settled screenshots/layouts captured.
+- immediate and settled layouts contain real gallery rows and no terminal
+  "没有数据/没有更多了" copy.
+
+Evidence directory:
+  /private/tmp/nexte_gate_v2_current_main_evidence/
+
+Relevant files:
+- home.png / home.json
+- home_hot_immediate.png / home_hot_immediate.json
+- home_hot_settled.png / home_hot_settled.json
+- toplist_all.png / toplist_all.json
+- toplist_year_immediate.png / toplist_year_immediate.json
+- toplist_year_settled.png / toplist_year_settled.json
+
+Still open / blocked:
+- Favorites favcat/order still needs a safe logged-in app state.
+- Site 表/里 switch still needs safe auth/ExHentai state.
+- Search/filter visual re-QA is not re-claimed here; SearchFilter/Search chrome are current baseline
+  and should not be reopened unless a new active issue is filed.
+```
+
 ### Gate V3 — Existing active visual/navigation items re-audit
 
 Status: ACTIVE_REQA_AFTER_MERGED_CANDIDATES
