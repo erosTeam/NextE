@@ -363,6 +363,10 @@ Implementation:
 - `7a88588 fix(reader): clarify failed image retry` replaces the post-auto-retry failed state with
   a shared centered Reader failure overlay in horizontal and vertical modes, keeping the primary
   action as manual re-source retry for the current image.
+- `4ac023c fix(reader): center loading overlay` fixes the remaining layout risk from the Reader root
+  `Stack({ alignContent: Alignment.Bottom })`: the Reader canvas now defaults to center alignment so
+  first-paint loading overlays are centered, while the bottom chrome is explicitly anchored with
+  `.align(Alignment.Bottom)`.
 - Scope: Reader first-entry / jump resolving uses `reader_loading_resolving`; horizontal and vertical
   image pages show `reader_loading_image` after a real image URL is known and keep it visible until
   `Image.onComplete`.
@@ -400,6 +404,12 @@ Evidence:
   Evidence directory: `/private/tmp/nexte_reader_retry_ui_evidence/`, especially
   `initial.png`, `detail.png`, `reader.png`, `reader_chrome.png`,
   `reader_layout.json`, `reader_chrome_layout.json`.
+- Follow-up center-alignment pass on `127.0.0.1:5555`, hdc outside sandbox, official signed HAP:
+  installed `4ac023c`, opened a public 216P gallery from Home -> Detail -> Reader, and verified the
+  Reader main path still renders the first image with chrome/page count `1 / 216`; the centered first
+  paint behavior is locked by `scripts/test_reader_loading_progress_contract.mjs`.
+  Evidence directory: `/private/tmp/nexte_reader_loading_progress_2_evidence/`, especially
+  `home.png`, `detail_layout.json`, `reader.png`, `reader_layout.json`.
 
 Remaining acceptance:
 
