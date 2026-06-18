@@ -41,6 +41,58 @@
       "value": "Downloads"
     },
     {
+      "name": "download_archiver",
+      "value": "Archiver"
+    },
+    {
+      "name": "download_gallery_queue",
+      "value": "Gallery queue"
+    },
+    {
+      "name": "download_archiver_queue",
+      "value": "Archiver queue"
+    },
+    {
+      "name": "download_active_tasks",
+      "value": "Active tasks"
+    },
+    {
+      "name": "download_finished_tasks",
+      "value": "Finished tasks"
+    },
+    {
+      "name": "download_status_empty",
+      "value": "Empty"
+    },
+    {
+      "name": "download_gallery_empty",
+      "value": "No gallery downloads yet"
+    },
+    {
+      "name": "download_archiver_empty",
+      "value": "No archive downloads yet"
+    },
+    {
+      "name": "download_gallery_next_step",
+      "value": "Reader image downloads and gallery queues will appear here."
+    },
+    {
+      "name": "download_archiver_next_step",
+      "value": "Archive downloads requested from gallery details will appear here."
+    },
+    {
+      "name": "download_concurrency",
+      "value": "Download concurrency"
+    },
+    {
+      "name": "download_original_images",
+      "value": "Original images"
+    },
+    {
+      "name": "download_not_configured",
+      "value": "Not configured"
+    },
+    {
       "name": "tab_settings",
       "value": "Settings"
     },

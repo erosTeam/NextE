@@ -41,6 +41,58 @@
       "value": "ダウンロード"
     },
     {
+      "name": "download_archiver",
+      "value": "アーカイブ"
+    },
+    {
+      "name": "download_gallery_queue",
+      "value": "ギャラリーキュー"
+    },
+    {
+      "name": "download_archiver_queue",
+      "value": "アーカイブキュー"
+    },
+    {
+      "name": "download_active_tasks",
+      "value": "実行中のタスク"
+    },
+    {
+      "name": "download_finished_tasks",
+      "value": "完了したタスク"
+    },
+    {
+      "name": "download_status_empty",
+      "value": "空"
+    },
+    {
+      "name": "download_gallery_empty",
+      "value": "ギャラリーダウンロードはありません"
+    },
+    {
+      "name": "download_archiver_empty",
+      "value": "アーカイブダウンロードはありません"
+    },
+    {
+      "name": "download_gallery_next_step",
+      "value": "リーダー画像のダウンロードとギャラリーキューがここに表示されます。"
+    },
+    {
+      "name": "download_archiver_next_step",
+      "value": "詳細ページから要求したアーカイブダウンロードがここに表示されます。"
+    },
+    {
+      "name": "download_concurrency",
+      "value": "ダウンロード同時数"
+    },
+    {
+      "name": "download_original_images",
+      "value": "元画像"
+    },
+    {
+      "name": "download_not_configured",
+      "value": "未設定"
+    },
+    {
       "name": "tab_settings",
       "value": "設定"
     },

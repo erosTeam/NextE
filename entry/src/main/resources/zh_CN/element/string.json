@@ -41,6 +41,58 @@
       "value": "下载"
     },
     {
+      "name": "download_archiver",
+      "value": "归档"
+    },
+    {
+      "name": "download_gallery_queue",
+      "value": "画廊队列"
+    },
+    {
+      "name": "download_archiver_queue",
+      "value": "归档队列"
+    },
+    {
+      "name": "download_active_tasks",
+      "value": "进行中任务"
+    },
+    {
+      "name": "download_finished_tasks",
+      "value": "已完成任务"
+    },
+    {
+      "name": "download_status_empty",
+      "value": "空"
+    },
+    {
+      "name": "download_gallery_empty",
+      "value": "暂无画廊下载"
+    },
+    {
+      "name": "download_archiver_empty",
+      "value": "暂无归档下载"
+    },
+    {
+      "name": "download_gallery_next_step",
+      "value": "阅读器图片下载和画廊队列会显示在这里。"
+    },
+    {
+      "name": "download_archiver_next_step",
+      "value": "从详情页请求的归档下载会显示在这里。"
+    },
+    {
+      "name": "download_concurrency",
+      "value": "下载并发"
+    },
+    {
+      "name": "download_original_images",
+      "value": "原图"
+    },
+    {
+      "name": "download_not_configured",
+      "value": "未配置"
+    },
+    {
       "name": "tab_settings",
       "value": "设置"
     },
