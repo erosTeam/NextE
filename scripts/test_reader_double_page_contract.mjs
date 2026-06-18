@@ -49,6 +49,10 @@ const starts = (mode, total) => {
   for (let i = 0; i < spreadCount(mode, total); i++) out.push(spreadStartIndex(mode, i))
   return out
 }
+const secondIndex = (mode, start) => {
+  if (mode === 'evenLeft' && start <= 0) return -1
+  return start + 1
+}
 
 eq('oddLeft groups pages 1/2, 3/4, 5', starts('oddLeft', 5), [0, 2, 4])
 eq('evenLeft groups page 1, then 2/3, 4/5', starts('evenLeft', 5), [0, 1, 3])
@@ -56,6 +60,8 @@ eq('evenLeft four pages => page 1, 2/3, 4', starts('evenLeft', 4), [0, 1, 3])
 eq('single groups every page separately', starts('single', 4), [0, 1, 2, 3])
 eq('oddLeft spread index mirrors eros_fe currentItemIndex ~/ 2', [0, 0, 1, 1, 2].map((_, i) => spreadIndexForImage('oddLeft', i)), [0, 0, 1, 1, 2])
 eq('evenLeft spread index mirrors eros_fe (currentItemIndex + 1) ~/ 2', [0, 1, 1, 2, 2].map((_, i) => spreadIndexForImage('evenLeft', i)), [0, 1, 1, 2, 2])
+eq('evenLeft cover spread renders page 1 alone', secondIndex('evenLeft', 0), -1)
+eq('evenLeft next spread renders pages 2/3', secondIndex('evenLeft', 1), 2)
 
 {
   const state = read('shared/src/main/ets/state/ReadModeState.ets')
@@ -93,7 +99,8 @@ eq('evenLeft spread index mirrors eros_fe (currentItemIndex + 1) ~/ 2', [0, 1, 1
   ok('spreadIndexForImage implements evenLeft math', /Math\.floor\(\(index \+ 1\) \/ 2\)/.test(reader))
   ok('spreadStartIndex implements evenLeft first-single math', /spreadIndex <= 0 \? 0 : spreadIndex \* 2 - 1/.test(reader))
   ok('spreadCount implements evenLeft page count math', /Math\.round\(total \/ 2\) \+ \(\(total \+ 1\) % 2\)/.test(reader))
-  ok('DoublePageReader renders two ReaderImagePage slots through SpreadImage', /@Builder\s+DoublePageReader\(\)[\s\S]*this\.SpreadImage\(start\)[\s\S]*this\.SpreadImage\(start \+ 1\)/.test(reader))
+  ok('DoublePageReader suppresses evenLeft cover spread second slot', /private spreadSecondIndex\(start: number\): number[\s\S]*ReadColumnMode\.EVEN_LEFT && start <= 0[\s\S]*return -1/.test(reader))
+  ok('DoublePageReader renders second slot through spreadSecondIndex', /@Builder\s+DoublePageReader\(\)[\s\S]*this\.SpreadImage\(start\)[\s\S]*this\.SpreadImage\(this\.spreadSecondIndex\(start\)\)/.test(reader))
   ok('bottom bar cycles column mode', /cycleColumnMode\(\)/.test(reader) && /ReadModeSettings\.setColumnMode/.test(reader))
 }
 

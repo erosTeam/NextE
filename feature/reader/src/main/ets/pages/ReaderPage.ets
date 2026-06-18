@@ -374,6 +374,31 @@ export struct ReaderPage {
     return spreadIndex * 2
   }
 
+  private spreadIndexForMode(columnMode: string, index: number): number {
+    if (columnMode === ReadColumnMode.SINGLE || index <= 0) {
+      return index
+    }
+    if (columnMode === ReadColumnMode.EVEN_LEFT) {
+      return Math.floor((index + 1) / 2)
+    }
+    return Math.floor(index / 2)
+  }
+
+  private spreadStartForMode(columnMode: string, spreadIndex: number): number {
+    if (columnMode === ReadColumnMode.SINGLE) {
+      return spreadIndex
+    }
+    if (columnMode === ReadColumnMode.EVEN_LEFT) {
+      return spreadIndex <= 0 ? 0 : spreadIndex * 2 - 1
+    }
+    return spreadIndex * 2
+  }
+
+  private normalizedIndexForColumnMode(columnMode: string): number {
+    const spreadIndex: number = this.spreadIndexForMode(columnMode, this.vm.currentIndex)
+    return this.spreadStartForMode(columnMode, spreadIndex)
+  }
+
   private spreadCount(): number {
     const total: number = this.vm.totalPages()
     if (!this.doublePageEnabled() || total <= 1) {
@@ -396,6 +421,13 @@ export struct ReaderPage {
 
   private hasSpreadImage(index: number): boolean {
     return index >= 0 && index < this.vm.images.length && this.vm.hasPreviewAt(index)
+  }
+
+  private spreadSecondIndex(start: number): number {
+    if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT && start <= 0) {
+      return -1
+    }
+    return start + 1
   }
 
   @Builder
@@ -422,8 +454,8 @@ export struct ReaderPage {
         (start: number) => {
           Row({ space: ThemeConstants.SPACE_XS }) {
             this.SpreadImage(start)
-            if (start + 1 < this.vm.totalPages()) {
-              this.SpreadImage(start + 1)
+            if (this.spreadSecondIndex(start) >= 0 && this.spreadSecondIndex(start) < this.vm.totalPages()) {
+              this.SpreadImage(this.spreadSecondIndex(start))
             } else {
               Blank()
                 .layoutWeight(1)
@@ -523,9 +555,13 @@ export struct ReaderPage {
     } else if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
       next = ReadColumnMode.SINGLE
     }
+    const targetIndex: number = this.normalizedIndexForColumnMode(next)
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setColumnMode(ctx, next)
+    if (targetIndex !== this.vm.currentIndex) {
+      this.turnTo(targetIndex)
+    }
   }
 
   // Page counter '5 / 120'; while dragging the slider it previews the target page (sliderPreview),
