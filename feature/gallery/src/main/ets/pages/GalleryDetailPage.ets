@@ -17,7 +17,8 @@ import {
   ThumbnailModeState,
   ViewedGallery,
   ViewedHistorySettings,
-  SecondaryListScaffold,
+  PullRefreshListScaffold,
+  PullRefreshController,
   GroupedListSection,
   PageErrorState,
   AppStrings,
@@ -52,6 +53,7 @@ export struct GalleryDetailPage {
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+  private refreshController: PullRefreshController = new PullRefreshController();
   // Pending 5s viewed-history timer (eros_fe delays addHistory 5s after open so a quick bounce isn't
   // recorded). Cancelled if the user leaves before it fires. -1 = none.
   private historyTimer: number = -1;
@@ -178,10 +180,14 @@ export struct GalleryDetailPage {
 
   build() {
     HdsNavDestination() {
-      SecondaryListScaffold({
+      PullRefreshListScaffold({
         scroller: this.scroller,
         listSpace: ThemeConstants.SPACE_MD,
         bottomPadding: ThemeConstants.SPACE_XL,
+        controller: this.refreshController,
+        onRefresh: async () => {
+          await this.vm.refresh()
+        },
         onDidScroll: (offset: number) => {
           const past: boolean = offset > 160
           if (past !== this.showNavTitle) {

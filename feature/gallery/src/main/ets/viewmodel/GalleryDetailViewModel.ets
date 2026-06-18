@@ -45,28 +45,59 @@ export class GalleryDetailViewModel {
     this.gid = gid
     this.token = token
     try {
-      // eros_fe enrich-then-detail order: a sparse seed (URL paste / deep link) carries only gid+token,
-      // no fileCount, so fetch the lighter /api.php gdata metadata first to paint a real header (title,
-      // cover, fileCount, rating, tags) before the heavier detail page parse lands. A list-row open
-      // already seeded fileCount, so this is skipped there — exactly eros_fe's filecount-absent gate.
-      if (this.gallery.fileCount.length === 0) {
-        await this.enrichFromApi(gid, token)
-      }
-      const res: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(
-        gid,
-        token,
-        connectSiteMode().isEx,
-      )
-      this.gallery = this.gallery.merge(res.gallery)
-      this.images = res.images
-      this.comments = res.comments
-      this.previewPageCount = res.previewPageCount
+      await this.fetchAndApply(gid, token)
       this.loaded = true
     } catch (err) {
       this.error = EhErrorText.forUser(err)
       DiagnosticLogger.warn('gallery', 'detail_load_failed', (err as Error).message)
     }
     this.loading = false
+  }
+
+  /**
+   * Pull-to-refresh for detail: keep the current header/tags/comments/previews rendered while the
+   * replacement detail request is in flight, then merge fresh data over the existing gallery.
+   */
+  async refresh(): Promise<void> {
+    if (this.loading || this.gid.length === 0) {
+      return
+    }
+    this.loading = true
+    this.error = ''
+    try {
+      await this.fetchAndApply(this.gid, this.token)
+      this.loaded = true
+      DiagnosticLogger.info(
+        'gallery',
+        'detail_refresh_ok',
+        `gid=${this.gid} images=${this.images.length} comments=${this.comments.length}`,
+      )
+    } catch (err) {
+      this.error = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('gallery', 'detail_refresh_failed', (err as Error).message)
+      throw new Error(this.error)
+    } finally {
+      this.loading = false
+    }
+  }
+
+  private async fetchAndApply(gid: string, token: string): Promise<void> {
+    // eros_fe enrich-then-detail order: a sparse seed (URL paste / deep link) carries only gid+token,
+    // no fileCount, so fetch the lighter /api.php gdata metadata first to paint a real header (title,
+    // cover, fileCount, rating, tags) before the heavier detail page parse lands. A list-row open
+    // already seeded fileCount, so this is skipped there — exactly eros_fe's filecount-absent gate.
+    if (this.gallery.fileCount.length === 0) {
+      await this.enrichFromApi(gid, token)
+    }
+    const res: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(
+      gid,
+      token,
+      connectSiteMode().isEx,
+    )
+    this.gallery = this.gallery.merge(res.gallery)
+    this.images = res.images
+    this.comments = res.comments
+    this.previewPageCount = res.previewPageCount
   }
 
   /** Best-effort gdata metadata enrich for a sparse seed (eros_fe getMoreGalleryInfoOne). Non-fatal:
