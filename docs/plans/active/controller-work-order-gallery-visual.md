@@ -157,6 +157,35 @@ Do not mark accepted until the controller can point to the screenshots and say t
 User-visible screenshot feedback overrides prior worker self-PASS and contract-only PASS.
 ```
 
+Current Mac re-QA evidence checkpoint (2026-06-18):
+
+```text
+Target: 127.0.0.1:5555 Mate X7 emulator.
+Build: a253aff, installed signed HAP from the official DevEco/Hvigor signing flow.
+Device command boundary: every hdc command ran outside the Codex sandbox.
+
+Default grid / 90vp token:
+- /private/tmp/nexte_preview_min90_evidence/nexte_preview_min90_detail.png
+- /private/tmp/nexte_preview_min90_evidence/nexte_preview_min90_detail_layout.json
+- /private/tmp/nexte_preview_min90_evidence/nexte_preview_min90_grid.png
+- /private/tmp/nexte_preview_min90_evidence/nexte_preview_min90_grid_layout.json
+
+Horizontal mode:
+- /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_preview_row.png
+- /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_preview_row_layout.json
+- /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_all_thumbnails.png
+- /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_all_thumbnails_layout.json
+- /private/tmp/nexte_preview_min90_horizontal_evidence/settings_layout_after_toggle.json
+- /private/tmp/nexte_preview_min90_horizontal_evidence/settings_layout_restored.json
+
+Observed:
+- `横向缩略图` was temporarily enabled for QA (`checked=true`) and restored to off (`checked=false`).
+- Horizontal preview row retained the visible `查看全部` entry.
+- Tapping `查看全部` opened the AllThumbnails route and rendered the 3-column grid.
+
+This is PARTIAL_REQA only. It does not cover hidden-inline mode, loading/error/light/dark matrices, or final controller visual acceptance.
+```
+
 ### Gate V2 — Subtab never-loaded empty-state flash
 
 Status: PARTIAL_REQA

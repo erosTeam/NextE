@@ -373,6 +373,28 @@ Evidence:
   - /private/tmp/nexte_preview_min90_evidence/nexte_preview_min90_grid_layout.json
 ```
 
+Additional horizontal-mode re-QA from 2026-06-18:
+
+```text
+- Target/build: same Mate X7 emulator target 127.0.0.1:5555, same installed a253aff signed HAP.
+- `横向缩略图` was toggled on through Settings and verified checked=true.
+- Public detail deep link opened: https://e-hentai.org/g/3989982/16600a66e8/
+- Horizontal preview row rendered with `预览 (138)`, `查看全部`, and page labels 1/2/3.
+- Tapping `查看全部` opened the AllThumbnails route with title `预览` and the 3-column 1-12 grid.
+- The QA setting was restored afterwards; final Settings layout shows `横向缩略图` checked=false.
+- Every hdc command ran outside the Codex sandbox.
+
+Evidence:
+  - /private/tmp/nexte_preview_min90_horizontal_evidence/settings_layout_after_toggle.json
+  - /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_detail_top.png
+  - /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_detail_top_layout.json
+  - /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_preview_row.png
+  - /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_preview_row_layout.json
+  - /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_all_thumbnails.png
+  - /private/tmp/nexte_preview_min90_horizontal_evidence/horizontal_all_thumbnails_layout.json
+  - /private/tmp/nexte_preview_min90_horizontal_evidence/settings_layout_restored.json
+```
+
 Validation already run:
 
 ```text
@@ -433,6 +455,7 @@ Current active meaning:
 - Gate V2 subtab never-loaded empty/no-more flash remains a P0 behavior queue.
 - Gate V3 re-audits prior visual/navigation claims.
 - gallery-visual-navigation-regression-contract.md explicitly says prior PASS/archive claims are invalid unless re-backed by current controller evidence.
+- Current Gate V1 re-QA is partial: default grid and horizontal preview/AllThumbnails route have current Mate X7 evidence; hidden-inline mode and final controller visual acceptance are still open.
 ```
 
 Important boundary:
