@@ -54,7 +54,7 @@ export class ThemeConstants {
   static readonly FONT_SIZE_H1: number = 24
 
   // Border radius
-  static readonly RADIUS_SM: number = 4
+  static readonly RADIUS_SM: number = 8
   static readonly RADIUS_MD: number = 12
   static readonly RADIUS_CARD: number = 16
   static readonly RADIUS_ROUND: number = 999

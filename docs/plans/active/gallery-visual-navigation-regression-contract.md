@@ -298,6 +298,21 @@ The previous archive/completed claim is invalid. This file is active again until
 | P1 list card height modes | PARTIAL_REQA | Current Mate X7 evidence covers Home default fixed vs adaptive mode and setting restoration. Favorites/Toplist retained pages and controller visual acceptance remain open. |
 | Preview thumbnail rounded corners / thumbnail visual correctness | PUSHED_CANDIDATE_REVIEW | Fixed candidate pushed in `587d8b2`; user said to submit because it is at least better. Codex U1 must re-audit current screenshots and mark exact remaining issues instead of relying on historical PASS. |
 
+2026-06-18 23:10 +0800 radius token hardening:
+
+- `ThemeConstants.RADIUS_SM` is raised from 4 to 8 so shared small image/content corners no longer read
+  as square on detail preview tiles, all-thumbnails tiles, header cover, and compact cover surfaces.
+- This is a token-only visual hardening pass. It does not change preview column count, sprite crop math,
+  `PREVIEW_THUMB_MIN_W=90`, list responsive cover sizing, Reader, auth, or download behavior.
+- Deterministic gate: `scripts/test_responsive_grid_contract.mjs` now locks both
+  `PREVIEW_THUMB_MIN_W=90` and `RADIUS_SM=8`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  Home list, detail header, and detail preview screenshots show rounded visible image content while the
+  preview grid remains 3 columns with aligned labels.
+  Evidence directory: `/private/tmp/nexte_radius_sm8_evidence/`, especially `home.png`,
+  `home_layout.json`, `detail_initial.png`, `detail_initial_layout.json`, `detail_preview.png`,
+  `detail_preview_layout.json`.
+
 Default rule after reopening: every item in this audit is NOT accepted until controller supplies current source evidence plus current device/visual evidence. The user is not responsible for re-QAing unmentioned items; silence is not acceptance.
 
 Do not re-archive this file until this audit is resolved item by item with current evidence, not historical PASS summaries.

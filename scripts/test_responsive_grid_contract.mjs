@@ -9,6 +9,8 @@
  *   • the product token is ThemeConstants.PREVIEW_THUMB_MIN_W=90; column count is derived from the
  *     real pane width, so the Mate X7 / Mate 60 Pro class preview panes stay at 3 columns while
  *     wider panes can still scale up without a hardcoded count;
+ *   • the shared small image radius is ThemeConstants.RADIUS_SM=8 so visible thumbnail/cover content
+ *     does not regress to square-looking 4vp corners;
  *   • NO hardcoded column count (`columns: 3|4`, `columns = 3`, `'1fr 1fr 1fr'`) in the grid surfaces;
  *   • PreviewThumbTile = a fixed-height frame (clip + center) with the page number a sibling BELOW it;
  *   • first-page preview is retained (the detail still renders the preview peek).
@@ -42,7 +44,9 @@ const num = (re) => {
 }
 const MIN = num(/PREVIEW_THUMB_MIN_W:\s*number\s*=\s*(\d+)/)
 const GAP = num(/SPACE_SM:\s*number\s*=\s*(\d+)/)
+const RADIUS_SM = num(/RADIUS_SM:\s*number\s*=\s*(\d+)/)
 eq(MIN, 90, 'preview thumbnail min width respects the current product token')
+eq(RADIUS_SM, 8, 'small image radius respects the current product token')
 
 // Mirror of ResponsiveGrid.columns / columnWidth.
 const columns = (w, minW, gap) => {
