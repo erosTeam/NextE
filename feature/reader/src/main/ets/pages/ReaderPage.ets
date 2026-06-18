@@ -39,6 +39,9 @@ export struct ReaderPage {
   // flat-scrim bars, not the old hand-rolled floating glass card.
   @Local showChrome: boolean = false;
   @Local imageZoomed: boolean = false;
+  @Local doubleTapSeq: number = 0;
+  @Local doubleTapX: number = 0;
+  @Local doubleTapY: number = 0;
   // While the user drags the page slider, show the target page (1-based) instead of the live one.
   @Local sliderPreview: number = -1;
   // 1-based slider position; follows the live page on swipe and drives jump-to-page on drag.
@@ -261,6 +264,12 @@ export struct ReaderPage {
     }
   }
 
+  private onReaderDoubleTap(x: number, y: number): void {
+    this.doubleTapX = x
+    this.doubleTapY = y
+    this.doubleTapSeq = this.doubleTapSeq + 1
+  }
+
   private doublePageEnabled(): boolean {
     return false
   }
@@ -353,6 +362,10 @@ export struct ReaderPage {
         (img: EhGalleryImage) => {
           ReaderImagePage({
             image: img,
+            activeIndex: this.vm.currentIndex,
+            doubleTapSeq: this.doubleTapSeq,
+            doubleTapX: this.doubleTapX,
+            doubleTapY: this.doubleTapY,
             onZoomChange: (zoomed: boolean) => {
               this.imageZoomed = zoomed
             },
@@ -375,6 +388,14 @@ export struct ReaderPage {
     .onClick((e: ClickEvent) => {
       this.onReaderTap(e.x, e.y)
     })
+    .parallelGesture(
+      TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
+        const loc = e ? e.tapLocation : undefined
+        const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
+        const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
+        this.onReaderDoubleTap(tapX, tapY)
+      }),
+    )
   }
 
   private spreadIndexForImage(index: number): number {
@@ -479,6 +500,10 @@ export struct ReaderPage {
     if (this.hasSpreadImage(index)) {
       ReaderImagePage({
         image: this.vm.images[index],
+        activeIndex: this.vm.currentIndex,
+        doubleTapSeq: this.doubleTapSeq,
+        doubleTapX: this.doubleTapX,
+        doubleTapY: this.doubleTapY,
         onZoomChange: (zoomed: boolean) => {
           this.imageZoomed = zoomed
         },
@@ -535,6 +560,14 @@ export struct ReaderPage {
     .onClick((e: ClickEvent) => {
       this.onReaderTap(e.x, e.y)
     })
+    .parallelGesture(
+      TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
+        const loc = e ? e.tapLocation : undefined
+        const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
+        const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
+        this.onReaderDoubleTap(tapX, tapY)
+      }),
+    )
   }
 
   @Builder
@@ -780,6 +813,10 @@ interface ReaderImageLoadEvent {
 @ComponentV2
 struct ReaderImagePage {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param activeIndex: number = 0;
+  @Param doubleTapSeq: number = 0;
+  @Param doubleTapX: number = 0;
+  @Param doubleTapY: number = 0;
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
 
   @Local imageUrl: string = '';
@@ -809,6 +846,14 @@ struct ReaderImagePage {
 
   aboutToAppear(): void {
     this.resolve()
+  }
+
+  @Monitor('doubleTapSeq')
+  onDoubleTapCommand(): void {
+    if (this.image.page !== this.activeIndex + 1) {
+      return
+    }
+    this.onDoubleTap(this.doubleTapX, this.doubleTapY)
   }
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) — re-resolves via /s/?nl= for a
@@ -914,6 +959,14 @@ struct ReaderImagePage {
     return value
   }
 
+  private panDistance(): number {
+    if (this.zoomScale > 1.01) {
+      return 1
+    }
+    const longSide: number = Math.max(this.compW, this.compH)
+    return longSide > 0 ? longSide * 2 : 10000
+  }
+
   private clampOffset(): void {
     this.offsetX = this.clampOffsetX(this.offsetX, this.zoomScale)
     this.offsetY = this.clampOffsetY(this.offsetY, this.zoomScale)
@@ -1006,7 +1059,9 @@ struct ReaderImagePage {
       this.compH = n.height as number
       this.clampOffset()
     })
-    // Pinch + double-tap zoom. Pan is bound as a parallel gesture below so normal page
+    // Pinch zoom. Parent Reader captures double-tap on the Swiper and commands the active
+    // image page, because child double-tap recognizers are unreliable inside Swiper.
+    // Pan is bound as a parallel gesture below so normal page
     // swipes can still reach the Swiper at fit scale.
     .gesture(
       GestureGroup(
@@ -1055,16 +1110,10 @@ struct ReaderImagePage {
             this.baseZoom = this.zoomScale
             this.clampOffset()
           }),
-        TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
-          const loc = e ? e.tapLocation : undefined
-          const tapX: number = loc ? (loc.x as number) : this.compW / 2
-          const tapY: number = loc ? (loc.y as number) : this.compH / 2
-          this.onDoubleTap(tapX, tapY)
-        }),
       ),
     )
     .parallelGesture(
-      PanGesture({ fingers: 1, direction: PanDirection.All })
+      PanGesture({ fingers: 1, direction: PanDirection.All, distance: this.panDistance() })
         .onActionStart(() => {
           this.panStartOffX = this.offsetX
           this.panStartOffY = this.offsetY

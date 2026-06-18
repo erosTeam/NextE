@@ -41,11 +41,17 @@ ok('pinch zoom uses two fingers and pinch center correction',
   /this\.pinchCenterStartX = e\.pinchCenterX as number/.test(reader) &&
   /\(this\.pinchCenterStartX - this\.compW \/ 2\) \* \(1 - k\) \+ k \* this\.pinchStartOffX \+ dx/.test(reader) &&
   /this\.offsetX = this\.clampOffsetX\(nextX, nextScale\)/.test(reader))
-ok('double tap uses tapLocation and zooms toward that point',
-  /TapGesture\(\{\s*count:\s*2\s*\}\)\.onAction\(\(e\?: GestureEvent\) => \{[\s\S]*const loc = e \? e\.tapLocation : undefined[\s\S]*this\.onDoubleTap\(tapX, tapY\)/.test(reader) &&
-  /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*\(1 - target\) \* \(tapX - this\.compW \/ 2\)/.test(reader))
+ok('parent Swiper captures double tap and commands the active image page',
+  /@Local doubleTapSeq: number = 0/.test(reader) &&
+  /private onReaderDoubleTap\(x: number, y: number\): void[\s\S]*this\.doubleTapSeq = this\.doubleTapSeq \+ 1/.test(reader) &&
+  /\.parallelGesture\([\s\S]*TapGesture\(\{\s*count:\s*2\s*\}\)\.onAction\(\(e\?: GestureEvent\) => \{[\s\S]*const loc = e \? e\.tapLocation : undefined[\s\S]*this\.onReaderDoubleTap\(tapX, tapY\)/.test(reader) &&
+  /@Monitor\('doubleTapSeq'\)[\s\S]*onDoubleTapCommand\(\): void[\s\S]*this\.image\.page !== this\.activeIndex \+ 1[\s\S]*this\.onDoubleTap\(this\.doubleTapX, this\.doubleTapY\)/.test(reader))
+ok('double tap zooms toward the commanded tap point',
+  /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*\(1 - target\) \* \(tapX - this\.compW \/ 2\)/.test(reader) &&
+  /ReaderImagePage\(\{[\s\S]*doubleTapSeq: this\.doubleTapSeq,[\s\S]*doubleTapX: this\.doubleTapX,[\s\S]*doubleTapY: this\.doubleTapY/.test(reader))
 ok('zoomed pan is two-axis and parallel so fit-state page turns can reach Swiper',
-  /\.parallelGesture\([\s\S]*PanGesture\(\{\s*fingers:\s*1,\s*direction:\s*PanDirection\.All\s*\}\)/.test(reader) &&
+  /private panDistance\(\): number[\s\S]*this\.zoomScale > 1\.01[\s\S]*return 1[\s\S]*longSide \* 2/.test(reader) &&
+  /\.parallelGesture\([\s\S]*PanGesture\(\{\s*fingers:\s*1,\s*direction:\s*PanDirection\.All,\s*distance:\s*this\.panDistance\(\)\s*\}\)/.test(reader) &&
   /this\.offsetX = this\.clampOffsetX\(this\.panStartOffX \+ \(e\.offsetX as number\), this\.zoomScale\)/.test(reader) &&
   /this\.offsetY = this\.clampOffsetY\(this\.panStartOffY \+ \(e\.offsetY as number\), this\.zoomScale\)/.test(reader) &&
   !/PanGesture\(\{ direction: PanDirection\.Vertical \}\)/.test(reader))

@@ -901,45 +901,54 @@ Type: bug / reading UX gap
 
 Priority suggestion: P1
 
-Status: parked by P0 recovery / do not extend before core Reader acceptance
+Status: implemented / pending user acceptance
 
 Implementation:
 
-- Superseding note: `28db792 fix(reader): restore core interaction baseline` removes the complex
-  `ReaderImageTransformCoordinator` path from the online Reader hot path. The accepted recovery baseline
-  is reliable pinch, double tap, zoomed vertical pan, and horizontal page swipe; focal-point/pan-all
-  improvements must come later behind stronger gesture contracts and device evidence.
-- `e30a4ec fix(reader): improve image zoom gestures` adds `ReaderImageTransformCoordinator` and
-  updates `ReaderImagePage` to zoom toward the actual tap point, apply pinch focal correction, clamp
-  offsets against the fitted `ImageFit.Contain` display size, and allow zoomed panning on both axes.
-- Scope is limited to online Reader per-image transform behavior. It does not change Reader resolver,
-  loading/progress, retry/re-source, navigation, auto-page-turn, orientation, save-original, offline
-  reading, or download executor behavior.
+- Current implementation commit pending. This lane reopens the parked zoom-surface gap after the core
+  Reader baseline was accepted enough to modify again.
+- `ReaderImagePage` now records intrinsic image size from `Image.onComplete`, derives the
+  `ImageFit.Contain` display size, and clamps offsets against the actual fitted image bounds rather
+  than raw viewport size.
+- Pinch uses two-finger `pinchCenterX/Y` and focal-point correction so the pinch center remains stable.
+- Double tap is captured on the parent Reader/Swiper as a parallel gesture, then sent to the active
+  `ReaderImagePage` through page-local V2 params. This avoids the unreliable child double-tap path
+  inside `Swiper`.
+- Zoomed pan uses two-axis `PanDirection.All`, but the recognizer distance is raised above the
+  viewport while fit-scale so normal horizontal Swiper page turns still win. Once zoomed, the pan
+  threshold drops and parent `.disableSwipe(this.imageZoomed)` lets image pan own the drag.
+- Scope remains limited to online horizontal Reader per-image transform behavior. It does not change
+  Reader resolver, loading/progress, retry/re-source, double-page, vertical-mode, offline reading, or
+  download executor behavior.
 
 Evidence:
 
-- Deterministic contract: `scripts/test_reader_zoom_quality_contract.mjs`.
+- Deterministic contract updated: `scripts/test_reader_zoom_quality_contract.mjs` now locks contain
+  display-size clamp, pinch-center correction, parent double-tap command routing, two-axis zoomed pan,
+  and fit-state pan-threshold arbitration.
 - Regression contracts run in the fixing lane: `scripts/test_reader_tapzone_contract.mjs`,
+  `scripts/test_reader_double_page_contract.mjs`, `scripts/test_reader_column_mode_switch_contract.mjs`,
   `scripts/test_reader_loading_progress_contract.mjs`,
   `scripts/test_reader_byte_progress_contract.mjs`,
   `scripts/test_reader_failure_retry_ui_contract.mjs`,
-  `scripts/test_v1_decorator_inventory_contract.mjs`, plus `git diff --check`.
-- Official signed Hvigor build passed after `ohpm install` and
-  `scripts/setup-local-build-profile.sh`.
-- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
-  opened Home -> Gallery detail -> Reader, verified image rendering with page counter `1 / 38`, then
-  executed image-area double-click/drag smoke and verified Reader still rendered image content with
-  page counter `30 / 38` after an earlier bottom-slider misclick was excluded from the acceptance
-  claim.
-  Evidence directory: `/private/tmp/nexte_reader_zoom_quality_evidence/`, especially
-  `reader_initial.png`, `reader_initial_layout.json`, `reader_after_image_gesture.png`,
-  `reader_after_image_gesture_layout.json`.
+  `scripts/test_reader_seeded_thumbnail_start_contract.mjs`,
+  `scripts/test_image_page_reader_seed_contract.mjs`,
+  `scripts/test_reader_target_preview_page_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`, and
+  `git diff --check`.
+- Official signed build passed with `scripts/build_hvigor_signed.sh`; no `dev.sh` was used.
+- HarmonyOS Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP
+  installed. Evidence directory: `/private/tmp/nexte_reader_zoom_surface_evidence`.
+- Final device route: list -> gallery detail -> Reader. Evidence shows fit-state horizontal swipe
+  advanced from `1 / 164` to `2 / 164`, double tap zoomed the image, two-axis drag moved the zoomed
+  viewport, and `uinput -T -m` pinch further zoomed. Key artifacts:
+  `reader_final_initial.png/json`, `reader_final_fit_swipe.png/json`,
+  `reader_final_doubleclick.png/json`, `reader_final_drag.png`, and `reader_final_pinch.png`.
 
 Remaining acceptance:
 
-- Needs controller/user acceptance of the gesture feel on device. The device smoke verifies the
-  Reader path remains stable after interaction; exact focal-point transform math is protected by the
-  deterministic contract because `uitest` screenshots cannot directly prove the tap coordinate math.
+- Needs controller/user acceptance of the gesture feel on device before marking accepted.
+- Commit hash pending; update this entry after the implementation commit is created.
 
 Source:
 
