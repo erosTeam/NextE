@@ -384,10 +384,22 @@ Evidence:
   Evidence directory: `/private/tmp/nexte_reader_core_recovery_evidence/`, especially
   `step4_single_ready.png`, `step4_single_ready_layout.json`, `step5_chrome.png`,
   `step6_swipe.png`, `step7_doubletap.png`, `step8_pan.png`, `step9_pinch.png`.
+- Current rerun on `origin/main@b93608f`, worktree `codex/reader-core-acceptance`, official signed
+  HAP installed on Mate X7 emulator target `127.0.0.1:5555` with hdc outside the sandbox:
+  one deliberate left swipe changed `1 / 216` to `2 / 216`, one deliberate right swipe returned to
+  `1 / 216`, two-finger `uinput -T -m` pinch zoomed the image, zoomed vertical pan moved the image
+  without changing page (`1 / 210`), double tap reset zoom, center tap showed top chrome at the top and
+  bottom chrome anchored above the bottom safe area, and ready-image layouts contained no
+  loading/progress text. Evidence directory:
+  `/private/tmp/nexte_reader_core_acceptance_evidence/`, especially `reader_initial.png`,
+  `reader_after_swipe_left_layout.json`, `reader_after_swipe_right_layout.json`,
+  `reader_after_pinch.png`, `reader_after_zoom_pan.png`, `reader_after_center_tap.png`, and
+  `reader_after_double_tap_reset.png`.
 
 Remaining acceptance:
 
-- Needs controller/user acceptance of the recovery screenshots and gesture feel.
+- Device acceptance is current for the core single-page Reader baseline. Needs controller/user visual
+  acceptance of the attached evidence before changing the status to `accepted`.
 - Runtime double-page/spread slider refinements and determinate byte progress are intentionally parked.
   Re-enable them only in separate lanes after preserving the core Reader interaction contract above.
 
