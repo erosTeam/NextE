@@ -193,6 +193,22 @@
       "value": "预览"
     },
     {
+      "name": "gallery_preview_jump",
+      "value": "跳转"
+    },
+    {
+      "name": "gallery_preview_jump_help",
+      "value": "输入图片页码。"
+    },
+    {
+      "name": "gallery_preview_jump_placeholder",
+      "value": "页码"
+    },
+    {
+      "name": "gallery_preview_jump_invalid",
+      "value": "请输入有效页码"
+    },
+    {
       "name": "preview_load_more",
       "value": "加载更多"
     },

@@ -193,6 +193,22 @@
       "value": "プレビュー"
     },
     {
+      "name": "gallery_preview_jump",
+      "value": "移動"
+    },
+    {
+      "name": "gallery_preview_jump_help",
+      "value": "画像ページ番号を入力してください。"
+    },
+    {
+      "name": "gallery_preview_jump_placeholder",
+      "value": "ページ番号"
+    },
+    {
+      "name": "gallery_preview_jump_invalid",
+      "value": "有効なページ番号を入力してください"
+    },
+    {
       "name": "preview_load_more",
       "value": "もっと読み込む"
     },

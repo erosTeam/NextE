@@ -193,6 +193,22 @@
       "value": "Preview"
     },
     {
+      "name": "gallery_preview_jump",
+      "value": "Jump"
+    },
+    {
+      "name": "gallery_preview_jump_help",
+      "value": "Enter an image page number."
+    },
+    {
+      "name": "gallery_preview_jump_placeholder",
+      "value": "Page number"
+    },
+    {
+      "name": "gallery_preview_jump_invalid",
+      "value": "Enter a valid page number"
+    },
+    {
       "name": "preview_load_more",
       "value": "Load more"
     },

@@ -87,4 +87,19 @@ export class AllThumbnailsViewModel {
   seedPerPage(): number {
     return this.firstPageCount
   }
+
+  async loadThroughImagePage(pageOneBased: number): Promise<boolean> {
+    if (pageOneBased <= 0 || this.firstPageCount <= 0) {
+      return false
+    }
+    const targetPreviewPage: number = Math.floor((pageOneBased - 1) / this.firstPageCount)
+    while (this.loadedPages <= targetPreviewPage && this.hasMore()) {
+      const before: number = this.loadedPages
+      await this.loadNext()
+      if (this.loadedPages === before) {
+        return false
+      }
+    }
+    return this.dataSource.totalCount() >= pageOneBased
+  }
 }
