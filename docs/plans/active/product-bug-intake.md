@@ -295,7 +295,36 @@ Type: bug / UX regression
 
 Priority suggestion: P1
 
-Status: active / needs reproduction
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- `34b08d1 fix(gallery): seed detail cover dimensions` carries parsed list/search/favorites cover
+  dimensions through `GalleryDetailParams`, seeds `GalleryDetailPage` with `imgWidth/imgHeight`, and
+  keeps the detail header cover on the real-ratio path from the first frame instead of waiting for
+  detail HTML enrichment.
+- Scope: list/search/favorites gallery-result opens into detail. Sparse URL/deep-link opens still
+  start without dimensions and use the existing gdata/detail enrichment path.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_gallery_detail_seed_cover_contract.mjs`,
+  `scripts/test_gallery_data_parser_contract.mjs`, `scripts/test_cover_presentation_contract.mjs`,
+  and `scripts/test_v1_decorator_inventory_contract.mjs`.
+- Official macOS DevEco/Hvigor signed build: `scripts/build_hvigor_signed.sh`, installed
+  `entry/build/default/outputs/default/entry-default-signed.hap` on Mate X7 target
+  `127.0.0.1:5555`.
+- Device evidence from Home list row → detail: `/private/tmp/nexte_detail_cover_flicker_nexte_evidence/`,
+  especially `after_install_start.png`, `verified_early.png`, `verified_early.json`,
+  `verified_settled.png`, and `verified_settled.json`.
+- Android FE comparison evidence for the detail-page product semantics:
+  `/private/tmp/nexte_detail_cover_flicker_fe_comparison/fe_detail.png`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the current device screenshots. No repeat fold/unfold matrix is
+  required unless later changes touch list sizing, detail header cover presentation, or thumbnail
+  routing again.
 
 Source:
 
