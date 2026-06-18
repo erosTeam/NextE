@@ -395,6 +395,27 @@ Evidence:
   - /private/tmp/nexte_preview_min90_horizontal_evidence/settings_layout_restored.json
 ```
 
+Additional hidden-inline re-QA from 2026-06-18:
+
+```text
+- Target/build: same Mate X7 emulator target 127.0.0.1:5555, same installed a253aff signed HAP.
+- `隐藏画廊缩略图` was toggled on through Settings and verified checked=true.
+- `横向缩略图` stayed checked=false during hidden-inline QA.
+- Public detail deep link opened: https://e-hentai.org/g/3989982/16600a66e8/
+- Preview card rendered without inline thumbnails and kept both visible entries: `查看全部` and `更多预览`.
+- Tapping `更多预览` opened the AllThumbnails route with title `预览` and the 3-column 1-12 grid.
+- The QA setting was restored afterwards; final Settings layout shows both thumbnail-mode toggles checked=false.
+- Every hdc command ran outside the Codex sandbox.
+
+Evidence:
+  - /private/tmp/nexte_preview_min90_hidden_evidence/settings_after_toggle.json
+  - /private/tmp/nexte_preview_min90_hidden_evidence/hidden_preview_entry.png
+  - /private/tmp/nexte_preview_min90_hidden_evidence/hidden_preview_entry_layout.json
+  - /private/tmp/nexte_preview_min90_hidden_evidence/hidden_all_thumbnails.png
+  - /private/tmp/nexte_preview_min90_hidden_evidence/hidden_all_thumbnails_layout.json
+  - /private/tmp/nexte_preview_min90_hidden_evidence/settings_restored.json
+```
+
 Validation already run:
 
 ```text
@@ -455,7 +476,7 @@ Current active meaning:
 - Gate V2 subtab never-loaded empty/no-more flash remains a P0 behavior queue.
 - Gate V3 re-audits prior visual/navigation claims.
 - gallery-visual-navigation-regression-contract.md explicitly says prior PASS/archive claims are invalid unless re-backed by current controller evidence.
-- Current Gate V1 re-QA is partial: default grid and horizontal preview/AllThumbnails route have current Mate X7 evidence; hidden-inline mode and final controller visual acceptance are still open.
+- Current Gate V1 re-QA is partial: default grid, horizontal preview/AllThumbnails route, and hidden-inline/AllThumbnails route have current Mate X7 evidence; final controller visual acceptance is still open.
 ```
 
 Important boundary:

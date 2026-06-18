@@ -178,12 +178,23 @@ Horizontal mode:
 - /private/tmp/nexte_preview_min90_horizontal_evidence/settings_layout_after_toggle.json
 - /private/tmp/nexte_preview_min90_horizontal_evidence/settings_layout_restored.json
 
+Hidden-inline mode:
+- /private/tmp/nexte_preview_min90_hidden_evidence/settings_after_toggle.json
+- /private/tmp/nexte_preview_min90_hidden_evidence/hidden_preview_entry.png
+- /private/tmp/nexte_preview_min90_hidden_evidence/hidden_preview_entry_layout.json
+- /private/tmp/nexte_preview_min90_hidden_evidence/hidden_all_thumbnails.png
+- /private/tmp/nexte_preview_min90_hidden_evidence/hidden_all_thumbnails_layout.json
+- /private/tmp/nexte_preview_min90_hidden_evidence/settings_restored.json
+
 Observed:
 - `横向缩略图` was temporarily enabled for QA (`checked=true`) and restored to off (`checked=false`).
 - Horizontal preview row retained the visible `查看全部` entry.
 - Tapping `查看全部` opened the AllThumbnails route and rendered the 3-column grid.
+- `隐藏画廊缩略图` was temporarily enabled for QA (`checked=true`) while `横向缩略图` remained off.
+- Hidden-inline preview hid inline thumbnails, retained `查看全部`, retained `更多预览`, and `更多预览` opened the AllThumbnails route.
+- Both thumbnail-mode toggles were restored to off after QA.
 
-This is PARTIAL_REQA only. It does not cover hidden-inline mode, loading/error/light/dark matrices, or final controller visual acceptance.
+This is PARTIAL_REQA only. It does not cover loading/error/light/dark matrices or final controller visual acceptance.
 ```
 
 ### Gate V2 — Subtab never-loaded empty-state flash
