@@ -52,6 +52,13 @@ ok('Index still routes /g/ detail links', /EhUrlRouter\.parseGallery\(uri\)[\s\S
 ok('Index routes /s/ through ImagePageRouteService', /EhUrlRouter\.parseImagePage\(uri\)[\s\S]*openImagePageUrl\(uri\)/.test(indexSrc))
 ok('Index opens Reader for resolved /s/', /ImagePageRouteService\.resolve\(uri\)[\s\S]*pushPathByName\(\s*'Reader'/.test(indexSrc))
 ok('Index passes exact image seed and parsed fileCount without marking preview pages loaded', /new ReaderParams\(target\.gid, target\.token, target\.index, target\.fileCount, '', \[target\.seedImage\], 0, 0\)/.test(indexSrc))
+ok('Index shows a visible route-failure page for failed /s/ deep links', /image_page_deep_link_failed[\s\S]*pushPathByName\(\s*'ImagePageRouteError'/.test(indexSrc))
+ok('Index registers the image-page route-failure destination', /name === 'ImagePageRouteError'[\s\S]*ImagePageRouteErrorPage\(\)/.test(indexSrc))
+
+const routeErrorSrc = read('entry/src/main/ets/pages/ImagePageRouteErrorPage.ets')
+ok('image-page route-failure page retries the original /s/ URL', /ImagePageRouteService\.resolve\(this\.params\.url\)/.test(routeErrorSrc))
+ok('image-page route-failure page can still open Reader after retry', /pushPathByName\(\s*'Reader'[\s\S]*new ReaderParams\(target\.gid, target\.token, target\.index, target\.fileCount/.test(routeErrorSrc))
+ok('image-page route-failure page uses localized failure copy', /image_page_open_failed/.test(routeErrorSrc))
 
 const searchSrc = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 ok('Search bare /s/ branches before ordinary search', /EhUrlRouter\.parseImagePage\(trimmed\)[\s\S]*openImagePageUrl\(trimmed\)[\s\S]*return/.test(searchSrc))

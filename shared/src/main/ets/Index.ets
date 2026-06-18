@@ -22,6 +22,7 @@ export { GalleryList } from './model/GalleryList'
 export {
   GalleryDetailParams,
   ReaderParams,
+  ImagePageRouteErrorParams,
   GalleryCommentsParams,
   AllThumbnailsParams,
 } from './model/RouteParams'

@@ -64,6 +64,15 @@ export class ReaderParams {
   }
 }
 
+/** Params for the image-page deep-link failure destination. */
+export class ImagePageRouteErrorParams {
+  url: string = ''
+
+  constructor(url: string = '') {
+    this.url = url
+  }
+}
+
 /** Params for the 'GalleryComments' destination (full comment list — a peek lives on the detail). */
 export class GalleryCommentsParams {
   comments: EhGalleryComment[] = []

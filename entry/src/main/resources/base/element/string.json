@@ -511,6 +511,14 @@
     {
       "name": "gallery_tags",
       "value": "Tags"
+    },
+    {
+      "name": "image_page_open_failed_title",
+      "value": "Image page"
+    },
+    {
+      "name": "image_page_open_failed",
+      "value": "Unable to open this image page. The link may be expired or unavailable."
     }
   ]
 }

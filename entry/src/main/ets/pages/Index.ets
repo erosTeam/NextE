@@ -17,6 +17,7 @@ import {
   EhUrlRouter,
   GalleryRef,
   GalleryDetailParams,
+  ImagePageRouteErrorParams,
   ImagePageRouteService,
   ImagePageRouteTarget,
   ReaderParams,
@@ -46,6 +47,7 @@ import { DownloadQueuePage } from 'download'
 import { EhLoginWebPage } from './EhLoginWebPage'
 import { EhCookieImportPage } from './EhCookieImportPage'
 import { CoverFallbackProbePage } from './CoverFallbackProbePage'
+import { ImagePageRouteErrorPage } from './ImagePageRouteErrorPage'
 
 /**
  * NextE navigation shell — native HDS (`HdsNavigation` + `HdsTabs` from `@kit.UIDesignKit`,
@@ -162,6 +164,7 @@ struct Index {
       })
       .catch((err: Error) => {
         DiagnosticLogger.warn('nav', 'image_page_deep_link_failed', err.message)
+        this.stack.pushPathByName('ImagePageRouteError', new ImagePageRouteErrorParams(uri))
       })
   }
 
@@ -313,6 +316,8 @@ struct Index {
       GalleryCommentsPage()
     } else if (name === 'ReaderSettings') {
       ReaderSettingsPage()
+    } else if (name === 'ImagePageRouteError') {
+      ImagePageRouteErrorPage()
     } else if (name === 'CoverFallbackProbe') {
       CoverFallbackProbePage()
     }

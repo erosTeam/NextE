@@ -511,6 +511,14 @@
     {
       "name": "gallery_tags",
       "value": "标签"
+    },
+    {
+      "name": "image_page_open_failed_title",
+      "value": "图片页"
+    },
+    {
+      "name": "image_page_open_failed",
+      "value": "无法打开此图片页。链接可能已过期或不可用。"
     }
   ]
 }

@@ -511,6 +511,14 @@
     {
       "name": "gallery_tags",
       "value": "タグ"
+    },
+    {
+      "name": "image_page_open_failed_title",
+      "value": "画像ページ"
+    },
+    {
+      "name": "image_page_open_failed",
+      "value": "この画像ページを開けません。リンクの期限切れ、または利用できない可能性があります。"
     }
   ]
 }
