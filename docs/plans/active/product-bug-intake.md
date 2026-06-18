@@ -623,6 +623,62 @@ Remaining acceptance:
 - Needs controller/user screenshot acceptance of the RTL double-page tap flow. No further device
   validation is required unless Reader double-page navigation changes again.
 
+### Reader Slider Jumps Could Land Inside A Double-Page Spread
+
+Type: bug / reading UX gap
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- Implementation review after fixing double-page tap navigation.
+
+Observed behavior:
+
+- Reader slider commits jumped directly to the raw 1-based slider page minus one.
+- In double-page modes, dragging to an image inside a spread could set `currentIndex` to the second
+  image of that spread instead of the spread start.
+- Double-page B is the clearest case: page 3 belongs to the 2/3 spread, so the visible spread and
+  page counter should settle at page 2, not page 3.
+
+Expected behavior:
+
+- Slider drag preview may show the absolute page being targeted.
+- On commit, single-page and vertical modes keep the absolute page target.
+- On commit in double-page modes, the target is normalized to the target spread's first visible page.
+- Double-page B examples: page 1 -> cover, pages 2/3 -> page 2 spread start, pages 4/5 -> page 4
+  spread start.
+
+Implementation:
+
+- `c463098 fix(reader): align slider jumps to spreads` adds `ReaderPage.sliderTargetIndex(page)` and
+  routes slider commit jumps through the same spread math used by double-page rendering.
+- Scope is limited to Reader bottom slider commit target normalization. It does not change slider
+  visual styling, tap-zone navigation, swipe direction, image resolving, vertical mode, offline
+  reading, or download flow.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_reader_slider_spread_contract.mjs`,
+  `scripts/test_reader_tapzone_contract.mjs`, `scripts/test_reader_double_page_contract.mjs`,
+  `scripts/test_reader_column_mode_switch_contract.mjs`.
+- Gate: `scripts/test_v1_decorator_inventory_contract.mjs` reported `0 file(s)`; `git diff --check`
+  passed.
+- New worktree dependency/build path: `ohpm install`, local signing profile installer, official signed
+  Hvigor build.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  Reader opened from a 13P gallery in `右→左` + `双页 B`; initial state was `1 / 13`; dragging the
+  slider from page 1 to the page-3 position settled at `2 / 13` with two image slots visible.
+  Evidence directory: `/private/tmp/nexte_reader_slider_spread_evidence/`, especially
+  `reader_initial_layout.json`, `after_drag_layout.json`, `reader_initial.png`, `after_drag.png`.
+
+Remaining acceptance:
+
+- Needs controller/user screenshot acceptance of the double-page slider flow. No further device
+  validation is required unless Reader slider or double-page target math changes again.
+
 ### Download Gallery Task Rows Are Hard To Read
 
 Type: UX / information architecture cleanup
