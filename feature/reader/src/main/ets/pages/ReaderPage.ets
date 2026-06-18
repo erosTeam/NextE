@@ -242,13 +242,13 @@ export struct ReaderPage {
   }
 
   // Go to a (page-index) target. Vertical scrolls the list by one image; horizontal moves the Swiper.
-  // An in-range step reuses the swipe path (no jump spinner); a forward step past the loaded range
-  // loads up to it via jumpToPage (which clamps + handles both modes). Before page 0 is a no-op.
+  // A loaded in-range step reuses the swipe path (no jump spinner); a missing preview slot, even when
+  // padded into images[], loads via jumpToPage so placeholders are not rendered as image pages.
   private turnTo(target: number): void {
     if (target < 0) {
       return
     }
-    if (target >= this.vm.images.length) {
+    if (target >= this.vm.images.length || !this.vm.hasPreviewAt(target)) {
       this.jumpToPage(target)
       return
     }

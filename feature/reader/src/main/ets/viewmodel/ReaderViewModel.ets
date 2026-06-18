@@ -258,7 +258,7 @@ export class ReaderViewModel {
     this.loadingMore = false
   }
 
-  private hasPreviewAt(index: number): boolean {
+  hasPreviewAt(index: number): boolean {
     if (index < 0 || index >= this.images.length) {
       return false
     }
