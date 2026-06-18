@@ -437,6 +437,14 @@
       "value": "画像の読み込みに失敗しました"
     },
     {
+      "name": "reader_retry_source",
+      "value": "ソースを再試行"
+    },
+    {
+      "name": "reader_retry_source_hint",
+      "value": "別ソースでも失敗しました。この画像を再試行できます。"
+    },
+    {
       "name": "reader_loading_resolving",
       "value": "画像を解析中"
     },

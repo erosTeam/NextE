@@ -437,6 +437,14 @@
       "value": "Failed to load image"
     },
     {
+      "name": "reader_retry_source",
+      "value": "Retry source"
+    },
+    {
+      "name": "reader_retry_source_hint",
+      "value": "Alternate sources failed. Retry this image."
+    },
+    {
       "name": "reader_loading_resolving",
       "value": "Resolving image"
     },

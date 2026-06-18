@@ -848,15 +848,12 @@ struct ReaderImagePage {
       // `failed` first: a resolve error OR an Image fetch error (dead one-shot token / 509) shows the
       // re-source retry even if a (broken) URL is set.
       if (this.failed) {
-        Column({ space: ThemeConstants.SPACE_MD }) {
-          Text($r('app.string.image_load_failed'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor(Color.White)
-          Button($r('app.string.common_retry'))
-            .onClick(() => {
-              this.retrySource()
-            })
-        }
+        ReaderFailureOverlay({
+          page: this.image.page,
+          onRetry: () => {
+            this.retrySource()
+          },
+        })
       } else if (this.imageUrl.length > 0) {
         Image(this.imageUrl)
           .objectFit(ImageFit.Contain)
@@ -1030,8 +1027,12 @@ struct ReaderVerticalImage {
     Stack() {
       // `failed` first so an Image fetch error (dead token / 509) shows the re-source retry.
       if (this.failed) {
-        Button($r('app.string.common_retry')).onClick(() => {
-          this.retrySource()
+        ReaderFailureOverlay({
+          page: this.image.page,
+          compact: true,
+          onRetry: () => {
+            this.retrySource()
+          },
         })
       } else if (this.imageUrl.length > 0) {
         Image(this.imageUrl)
@@ -1060,6 +1061,60 @@ struct ReaderVerticalImage {
     }
     .width('100%')
     .constraintSize({ minHeight: 220 })
+  }
+}
+
+@ComponentV2
+struct ReaderFailureOverlay {
+  @Param page: number = 0;
+  @Param compact: boolean = false;
+  @Param onRetry: () => void = () => {};
+
+  private iconSize(): number {
+    return this.compact ? 28 : 36
+  }
+
+  private contentWidth(): number {
+    return this.compact ? 196 : 280
+  }
+
+  build() {
+    Column({ space: ThemeConstants.SPACE_MD }) {
+      SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+        .fontSize(this.iconSize())
+        .fontColor([Color.White])
+      Text($r('app.string.image_load_failed'))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor(Color.White)
+        .fontWeight(FontWeight.Medium)
+        .textAlign(TextAlign.Center)
+        .maxLines(2)
+      Text($r('app.string.reader_retry_source_hint'))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor('#AAFFFFFF')
+        .textAlign(TextAlign.Center)
+        .maxLines(2)
+      if (this.page > 0) {
+        Text(`P${this.page}`)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor('#88FFFFFF')
+          .textAlign(TextAlign.Center)
+          .maxLines(1)
+      }
+      Button($r('app.string.reader_retry_source'))
+        .type(ButtonType.Capsule)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor(Color.White)
+        .backgroundColor('#26FFFFFF')
+        .onClick(() => {
+          this.onRetry()
+        })
+    }
+    .width(this.contentWidth())
+    .padding(ThemeConstants.SPACE_LG)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .hitTestBehavior(HitTestMode.Default)
   }
 }
 

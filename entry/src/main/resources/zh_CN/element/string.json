@@ -437,6 +437,14 @@
       "value": "图片加载失败"
     },
     {
+      "name": "reader_retry_source",
+      "value": "换源重试"
+    },
+    {
+      "name": "reader_retry_source_hint",
+      "value": "已尝试备用源，可重试当前图片。"
+    },
+    {
       "name": "reader_loading_resolving",
       "value": "正在解析图片"
     },
