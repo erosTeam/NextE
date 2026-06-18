@@ -344,3 +344,94 @@ Acceptance shape:
 - Search page opens with the correct query visible in the title-bar field.
 - Results load for that tag query.
 - Returning to the detail page should keep normal navigation behavior.
+
+### Reader Loading State Is Unstable And Lacks Image Download Progress
+
+Type: bug / reading UX gap
+
+Priority suggestion: P0/P1
+
+Status: implemented / needs controller acceptance
+
+Implementation:
+
+- `0bf9744 fix(reader): center staged loading` replaces loose Reader loading spinners with a
+  dedicated centered line-loading overlay.
+- Scope: Reader first-entry / jump resolving uses `reader_loading_resolving`; horizontal and vertical
+  image pages show `reader_loading_image` after a real image URL is known and keep it visible until
+  `Image.onComplete`.
+- The implementation preserves the existing resolver, navigation, zoom, retry, and re-source paths.
+- It does not fake byte percentages because the current ArkUI `Image` path in NextE does not expose a
+  reliable byte-progress signal in this lane.
+
+Evidence:
+
+- Deterministic contract: `scripts/test_reader_loading_progress_contract.mjs`.
+- Regression contracts run in the fixing lane: `scripts/test_reader_auto_source_retry_contract.mjs`,
+  `scripts/test_reader_seeded_thumbnail_start_contract.mjs`,
+  `scripts/test_reader_placeholder_gap_turn_contract.mjs`,
+  `scripts/test_reader_precache_contract.mjs`, `scripts/test_reader_double_page_contract.mjs`,
+  `scripts/test_reader_current_image_share_contract.mjs`, `scripts/test_reader_jump_contract.mjs`.
+- Gates: i18n duplicate check, V1 decorator inventory, `git diff --check`, official signed Hvigor
+  build.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  opened Reader from a public 26P gallery and jumped to page 25; Reader rendered normally with no
+  black-screen/dead-loading failure.
+  Evidence directory: `/private/tmp/nexte_reader_loading_progress_evidence/`, especially
+  `reader_initial.png`, `reader_initial_layout.json`, `reader_jump_loading.png`,
+  `reader_jump_loading_layout.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the loading-stage screenshot behavior. The emulator network was
+  fast enough that the captured screenshots landed after images had loaded, so transient loading UI is
+  primarily protected by contract/build evidence until a slow-network/manual capture is available.
+- True determinate byte percentage remains future work unless Reader image loading moves to a path that
+  exposes supported byte progress.
+
+Source:
+
+- User-reported current behavior.
+
+Observed behavior:
+
+- On first entering Reader, the loading indicator can appear at the bottom first, then jump to the center.
+- Reader loading is not visually split into the two real stages:
+  1. HTML / image-page URL resolution, including possible target thumbnail-page parsing after a jump.
+  2. Full image network loading after the actual image URL is known.
+- During the second stage, NextE can show a plain black screen or only an undifferentiated spinner,
+  with no visible image download progress.
+
+Expected behavior:
+
+- Initial Reader loading indicator should be stably centered from first paint.
+- Stage 1 should communicate that the app is resolving/parsing the target image page, not downloading
+  the full image yet.
+- Stage 2 should display image download progress once the full image URL is available.
+- The image loading phase should not look like a dead black screen.
+
+eros_fe behavior:
+
+- `ImageExt` uses `ExtendedImage.network(... handleLoadingProgress: true ...)`.
+- In `LoadState.loading`, `eros_fe` reads `ImageChunkEvent` and computes progress as
+  `cumulativeBytesLoaded / expectedTotalBytes`.
+- `_ViewLoading` delegates to `_ViewLoadingLine`, a centered horizontal progress bar with optional
+  percentage text.
+- This is simple and direct: once the real image URL is being loaded, users can see progress.
+
+Likely NextE gap:
+
+- `ReaderViewModel` and `ReaderImagePage` already separate URL resolving (`ImageResolveService.resolve`)
+  from image rendering, but the UI only exposed a generic `LoadingProgress`.
+- ArkUI `Image` completion/error callbacks are used, but no image load-progress UI was surfaced in
+  `ReaderImagePage` before `0bf9744`.
+- The root `Stack({ alignContent: Alignment.Bottom })` contributed to loose loading indicators appearing
+  at the bottom before centered content appeared.
+
+Acceptance shape:
+
+- First Reader entry shows a stable centered loading state; no bottom-to-center jump.
+- A deep jump that requires thumbnail-page/image-page parsing clearly shows a resolving stage.
+- Once image URL loading begins, loading progress is visible when supported; until then, a centered
+  image-loading line is visible instead of a dead black screen.
+- Existing Reader navigation, zoom, retry, and re-source behavior remain intact.
