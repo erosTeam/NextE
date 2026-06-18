@@ -94,6 +94,11 @@ export class EhErrorClassifier {
     if (EhErrorClassifier.hasMarker(body, page)) {
       return null
     }
+    // A valid EH search with zero matches may render no `class="itg"` result table at all. Treat that
+    // as a usable empty list before the logged-out top-bar `act=Login` link can be misread as auth failure.
+    if (page === 'list' && EhErrorClassifier.looksListNoResults(body)) {
+      return null
+    }
     if (EhErrorClassifier.looksCloudflare(body)) {
       return new EhError(
         EhErrorKind.Cloudflare,
@@ -173,6 +178,16 @@ export class EhErrorClassifier {
       b.indexOf('act=login') >= 0 ||
       (b.indexOf('name="username"') >= 0 && b.indexOf('name="password"') >= 0) ||
       b.indexOf('you are currently not logged in') >= 0
+    )
+  }
+
+  private static looksListNoResults(body: string): boolean {
+    const b: string = body.toLowerCase()
+    return (
+      b.indexOf('no hits found') >= 0 ||
+      b.indexOf('no matching galleries') >= 0 ||
+      b.indexOf('no results found') >= 0 ||
+      b.indexOf('did not match any') >= 0
     )
   }
 

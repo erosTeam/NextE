@@ -233,6 +233,10 @@
       "value": "暂无内容"
     },
     {
+      "name": "search_no_results",
+      "value": "没有搜索结果"
+    },
+    {
       "name": "error_gallery_unavailable",
       "value": "该画廊不可用(可能已被删除)。"
     },

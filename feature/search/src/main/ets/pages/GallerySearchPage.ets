@@ -331,7 +331,7 @@ export struct GallerySearchPage {
               },
             })
           } else if (this.vm.itemCount === 0) {
-            CardEmptyState({ message: $r('app.string.common_no_content') })
+            CardEmptyState({ message: $r('app.string.search_no_results') })
           } else if (this.listMode.mode === ListMode.GRID) {
             PullRefreshGridScaffold({
               scroller: this.scroller,

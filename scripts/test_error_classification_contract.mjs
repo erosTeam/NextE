@@ -72,6 +72,15 @@ const hasMarker = (body, page) => {
   if (page === 'list') return body.includes('class="itg')
   return body.includes('<h1 id="gn"') || body.includes('<h1 id="gj"') || body.includes('id="gdt"')
 }
+const looksListNoResults = (body) => {
+  const b = body.toLowerCase()
+  return (
+    b.includes('no hits found') ||
+    b.includes('no matching galleries') ||
+    b.includes('no results found') ||
+    b.includes('did not match any')
+  )
+}
 // EH's ambiguous "removed or is unavailable" page (ExHentai-only-via-e-hentai / donor-gated /
 // incomplete-cookie / expunged) — auth/visibility-sensitive, NOT a verified hard not-found.
 const looksRemovedOrUnavailable = (body) => body.toLowerCase().includes('removed or is unavailable')
@@ -96,6 +105,7 @@ function classify(reqUrl, isEx, resp, page) {
   const trimmed = body.trim()
   if (trimmed.length === 0) return isEx ? KIND.SadPanda : KIND.EmptyBody
   if (hasMarker(body, page)) return null
+  if (page === 'list' && looksListNoResults(body)) return null
   if (looksCloudflare(body)) return KIND.Cloudflare
   if (looksLogin(body)) return KIND.LoginRequired
   if (looksBanned(body)) return KIND.RateLimited
@@ -119,6 +129,8 @@ const SYN = {
   validDetail: '<html><h1 id="gn">A Title</h1><div id="gdt">...</div></html>',
   validList: '<html><table class="itg gltc"><tr></tr></table>'
     + '<a href="https://forums.e-hentai.org/index.php?act=Login">Login</a></html>', // top-bar login link MUST NOT trip LoginRequired
+  zeroResultList: '<html><body><div class="ido"><p>No hits found</p></div>'
+    + '<a href="https://forums.e-hentai.org/index.php?act=Login">Login</a></body></html>',
   // EH's AMBIGUOUS wording (expunged/private OR ExHentai-only-via-e-hentai OR donor-gated/
   // incomplete-cookie) — auth/visibility-sensitive, classifies as MaybeHidden, never hard NotFound.
   removedOrUnavailable: '<html><div class="d"><p>This gallery has been removed or is unavailable.</p></div></html>',
@@ -136,6 +148,7 @@ const SYN = {
 eq('valid detail 200 → usable', classify('https://e-hentai.org/g/1/a/', false, resp(200, SYN.validDetail), 'detail'), null)
 eq('valid ex detail 200 → usable', classify('https://exhentai.org/g/1/a/', true, resp(200, SYN.validDetail), 'detail'), null)
 eq('valid list 200 (with top-bar login link) → usable, NOT LoginRequired', classify('https://e-hentai.org/', false, resp(200, SYN.validList), 'list'), null)
+eq('zero-result list 200 → usable empty list, NOT ParseFailure/LoginRequired', classify('https://e-hentai.org/?f_search=zzzz', false, resp(200, SYN.zeroResultList), 'list'), null)
 
 // 2. Core invariant: ONLY a captured HTTP 404 with the HARD "Gallery not found." body is NotFound.
 // EH's ambiguous "removed or is unavailable" — even on a 404 — is auth/visibility-sensitive MaybeHidden

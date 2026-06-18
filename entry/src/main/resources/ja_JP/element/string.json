@@ -233,6 +233,10 @@
       "value": "コンテンツなし"
     },
     {
+      "name": "search_no_results",
+      "value": "検索結果がありません"
+    },
+    {
       "name": "error_gallery_unavailable",
       "value": "このギャラリーは利用できません(削除された可能性があります)。"
     },
