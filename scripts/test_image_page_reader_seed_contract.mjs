@@ -80,6 +80,7 @@ ok('VM exact seed does not mutate previewPage/perPage/exhausted', !/this\.previe
 ok('VM merges exact seed into a copy of the loaded target image', /const merged: EhGalleryImage = this\.images\[index\]\.copy\(\)/.test(vmSrc))
 
 const readerImagePageSrc = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
-ok('Reader image page keeps fast path for pre-resolved imageUrl', /this\.image\.imageUrl\.length > 0[\s\S]*\? this\.image\.imageUrl[\s\S]*await this\.downloadImage\(remoteUrl, serial\)/.test(readerImagePageSrc))
+ok('Reader image page keeps fast path for pre-resolved imageUrl',
+  /if \(!changeSource && this\.image\.imageUrl\.length > 0\) \{[\s\S]*this\.imageUrl = this\.image\.imageUrl[\s\S]*return[\s\S]*\}/.test(readerImagePageSrc))
 
 console.log(`✓ image-page reader seed contract: ${passed} assertions passed`)

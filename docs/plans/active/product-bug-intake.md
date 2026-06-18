@@ -905,7 +905,7 @@ Status: implemented / pending user acceptance
 
 Implementation:
 
-- Current implementation commit pending. This lane reopens the parked zoom-surface gap after the core
+- `8b12dc3 fix(reader): restore zoom surface gestures` reopens the parked zoom-surface gap after the core
   Reader baseline was accepted enough to modify again.
 - `ReaderImagePage` now records intrinsic image size from `Image.onComplete`, derives the
   `ImageFit.Contain` display size, and clamps offsets against the actual fitted image bounds rather
@@ -948,7 +948,7 @@ Evidence:
 Remaining acceptance:
 
 - Needs controller/user acceptance of the gesture feel on device before marking accepted.
-- Commit hash pending; update this entry after the implementation commit is created.
+- Implementation commit: `8b12dc3 fix(reader): restore zoom surface gestures`.
 
 Source:
 
