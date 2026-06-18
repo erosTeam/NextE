@@ -573,7 +573,7 @@ Implementation:
 - Current uncommitted follow-up in `codex/search-filter-ux-repair` supersedes the earlier candidate for
   this item by adding category color semantics, long-press solo/invert, rating segmented control, and
   live filter application with no Apply button.
-- `fcd96db fix(search): live-apply filter controls` implements the live-apply follow-up described
+- `cd798eb fix(search): live-apply filter controls` implements the live-apply follow-up described
   above.
 
 Evidence:
