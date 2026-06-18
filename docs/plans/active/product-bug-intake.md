@@ -357,6 +357,62 @@ Acceptance shape:
 - Results load for that tag query.
 - Returning to the detail page should keep normal navigation behavior.
 
+### Search Filter Sheet Edits Commit Before Apply
+
+Type: bug / search workflow
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- Implementation review while validating tag-to-search and Search filter behavior.
+
+Observed behavior:
+
+- Opening the Search filter sheet and tapping filter controls could write directly into the shared
+  `SearchFilterState` before the user pressed Apply.
+- Closing the sheet without applying could leave active filters changed silently, so a later search or
+  apply action could use filter state the user never committed.
+
+Expected behavior:
+
+- Filter sheet edits are draft-only until Apply.
+- Closing/backing out of the sheet discards uncommitted changes.
+- Reset is an explicit commit of the empty filter: it closes the sheet and reapplies the current
+  query with defaults.
+
+Implementation:
+
+- `e704771 fix(search): draft filter changes before apply` adds local draft fields to
+  `SearchFilterSheet`, syncs them from the active filter on each sheet open, and confines active
+  `SearchFilterState` writes to `commitDraft()`.
+- `GallerySearchPage` now passes an `openSeq` signal so each new sheet open re-syncs the draft from
+  the current committed filter.
+
+Evidence:
+
+- Deterministic contracts/gates: `scripts/test_search_filter_draft_contract.mjs`,
+  `scripts/test_search_input_contract.mjs`, `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, and `git diff --check`.
+- Official signed build: `bash scripts/setup-local-build-profile.sh` and
+  `bash scripts/build_hvigor_signed.sh`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  opened Search via detail tag query `other:"rough translation"`, selected `Manga` in the filter
+  sheet, closed with Back, reopened and confirmed the list remained unfiltered; selected `Manga` again
+  and tapped Apply, sheet closed and visible results became Manga; reopened and tapped Reset, sheet
+  closed and visible results returned to unfiltered/Doujinshi. Evidence directory:
+  `/private/tmp/nexte_search_filter_draft_evidence/`, especially
+  `search_filter_draft_selected.png`, `search_filter_reopen_after_cancel.png`,
+  `search_filter_after_apply.png`, `search_filter_before_reset.png`, and
+  `search_filter_after_reset.png`.
+
+Remaining acceptance:
+
+- Needs controller/user review of the current evidence. No further device validation is required
+  unless Search filter sheet state ownership, apply sequencing, or Search filter persistence changes.
+
 ### Reader Layout, Gesture, And Loading Stack Is Broken
 
 Type: P0 incident / reading core usability
