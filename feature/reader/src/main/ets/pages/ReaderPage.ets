@@ -296,7 +296,7 @@ export struct ReaderPage {
 
   @Builder
   VerticalReader() {
-    List({ scroller: this.listScroller }) {
+    List({ initialIndex: this.vm.currentIndex, scroller: this.listScroller }) {
       ForEach(
         this.vm.images,
         (img: EhGalleryImage) => {
