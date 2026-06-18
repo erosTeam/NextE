@@ -241,9 +241,9 @@
 - [ ] **P2** [dev] _missed-logic_ · /s/ image-page URL paste → jump-to-gallery-at-page (NEW, from 搜索簇评审)
     - 修:In runQuery also try `EhUrlRouter.parseImagePage`; resolve gid+token via an image-page API (the /s/ link carries no token), then push GalleryDetail with a jump-to-page. Needs network to build+verify.
     - 验:真机 + 网络(EH 超时时挂队)
-- [ ] **P1** [now] _missed-logic_ · Search-type segmented control (Gallery / Watched / Favorite) not implemented
-    - 修:Add a SearchType (NORMAL/WATCHED/FAVORITE) to SearchFilterState (or a dedicated holder) surfaced as an HDS segmented control at the top of the filter sheet (or as title-bar tabs). Thread it into buildQuery (source:'watched' for watched; route favorite searches
-    - 验:契约测试 + 构建
+- [x] **P1** [now] _missed-logic_ · Search-type segmented control (Gallery / Watched / Favorite) — DONE 2026-06-18, `b3b74df feat(search): add scoped search filter`
+    - 修:按 eros_fe `SearchType normal/watched/favorite` 补 NextE 搜索范围: `SearchFilterState.searchScope` 持久化,筛选 sheet 顶部三段 Gallery/Watched/Favorite; Watched 走 `GalleryListQuery.source='watched'`; Favorite 走 `getFavoritesList(favcat:'a')`;收藏页 route-param favorite scope 仍保留具体 favcat 优先级;Favorite scope 隐藏分类/评分/页数/高级选项。
+    - 验:`test_search_scope_contract.mjs` + `test_search_filter_settings_contract.mjs` + `test_search_input_contract.mjs` + i18n parity + V1 0 + official signed Hvigor build + Mate X7 emulator UI evidence `/private/tmp/nexte_search_scope_filter_evidence/`(Gallery scope 三段+高级筛选可见;Favorite scope 只保留 scope/Reset/Apply,高级筛选隐藏)。
 - [ ] **P1** [dev] _shallow_ · Category-filter chip default-state vs eros_fe (UX 模型,非逻辑bug)  <!-- 校正 2026-06-15: fCats() 逻辑已正确且与 eros_fe 结果等价(selectedCats=显示集, fCats=排除掩码)。差异纯 UX(默认亮/点击排除 vs 点击显示)→ [dev],需截图定夺,不可网络断时擅自翻转 -->
     - 修:Pick eros_fe's model to match user mental model: default all categories selected/lit, treat selectedCats as the SHOW set, keep fCats()=ALL-selected. Add a long-press 'solo this category' action. Render category chips with the per-category brand colors (port Th
     - 验:截图比对(NextE vs eros_fe 同页)
