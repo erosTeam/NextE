@@ -457,6 +457,64 @@ Acceptance shape:
   image-loading line is visible instead of a dead black screen.
 - Existing Reader navigation, zoom, retry, and re-source behavior remain intact.
 
+### Reader Double-Page Mode Switch Can Desync Visible Spread And Page Counter
+
+Type: bug / reading UX gap
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- Implementation review while grounding Reader navigation against eros_fe.
+
+Observed behavior:
+
+- Switching between single page, double-page A, and double-page B could keep the old absolute image
+  index without normalizing it to the target double-page spread start.
+- In double-page B, the first spread could render pages 1/2, even though eros_fe treats the first
+  even-left spread as the cover page alone, then pages 2/3, 4/5, and so on.
+- This could make the visible spread and chrome page number feel out of sync during online reading.
+
+Expected behavior:
+
+- Column-mode switches should normalize the current Reader index using the target mode's spread math,
+  then jump the Reader to the matching spread start.
+- Double-page B should render page 1 alone on the first spread, then pair pages 2/3, 4/5, etc.
+- The top/bottom page counter should continue to describe the first visible page in the current
+  spread.
+
+Implementation:
+
+- `a9a0003 fix(reader): align double-page mode switches` adds mode-specific spread-index and
+  spread-start helpers to `ReaderPage`, normalizes `currentIndex` before persisting a new column mode,
+  and suppresses the second slot on the double-page B cover spread.
+- Scope is limited to online Reader single/double A/double B mode-switch alignment. It does not add a
+  thumbnail strip, auto-read controls, offline reader behavior, or download pipeline changes.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_reader_column_mode_switch_contract.mjs`,
+  `scripts/test_reader_double_page_contract.mjs`.
+- Regression contracts run in the fixing lane: `scripts/test_reader_tapzone_contract.mjs`,
+  `scripts/test_reader_vertical_initial_index_contract.mjs`,
+  `scripts/test_reader_seeded_thumbnail_start_contract.mjs`,
+  `scripts/test_reader_placeholder_gap_turn_contract.mjs`.
+- Gates: `scripts/test_v1_decorator_inventory_contract.mjs`, `git diff --check`, `ohpm install`,
+  official signed Hvigor build.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  before the final fix, double-page B showed pages 1/2; after the fix, double-page B first spread
+  showed page 1 alone with chrome text `1 / 16`, `左→右`, and `双页 B`.
+  Evidence directory: `/private/tmp/nexte_reader_nav_quality_evidence/`, especially
+  `chrome_after_b.png` for the observed pre-fix issue and `final_reader_b.png`,
+  `final_reader_b_chrome.png`, `final_reader_b_chrome_layout.json` for the fixed behavior.
+
+Remaining acceptance:
+
+- Needs controller/user screenshot acceptance. No further device validation is required unless Reader
+  double-page layout or mode-switch behavior changes again.
+
 ### Download Gallery Task Rows Are Hard To Read
 
 Type: UX / information architecture cleanup
