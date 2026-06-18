@@ -165,20 +165,43 @@ export class EhGalleryListParser {
       g.favTitle = favTitle
     }
 
-    // Inline tags shown on the list row: <div class="gt" title="namespace:tag">label</div>
-    const tagTitles: string[] = HtmlSelectorUtils.groupAll(
-      row,
-      '<div class="gt[lc]?"[^>]*title="([^"]+)"',
-    )
+    // Inline tags shown on the list row: <div class="gt" title="namespace:tag" style="...">label</div>.
+    // eros_fe reads EH's inline tag colors from the style attr: first #rrggbb = text, fourth = bg.
+    const tagTitles: string[] = []
     const tags: SimpleTag[] = []
-    tagTitles.forEach((nsTag: string) => {
+    const tagOpenRe: RegExp = /<div class="gt[lc]?"([^>]*)>/g
+    let tagM: RegExpExecArray | null = tagOpenRe.exec(row)
+    while (tagM !== null) {
+      const attrs: string = tagM[1] !== undefined ? tagM[1] : ''
+      const nsTag: string = HtmlSelectorUtils.group1(attrs, /title="([^"]+)"/)
+      if (nsTag.length === 0) {
+        tagM = tagOpenRe.exec(row)
+        continue
+      }
+      tagTitles.push(nsTag)
       const idx: number = nsTag.indexOf(':')
       const text: string = idx >= 0 ? nsTag.substring(idx + 1) : nsTag
-      // Keep the namespace (female/parody/…) so the card can tint each chip by namespace color
-      // (eros_fe colors list-card tag chips by namespace), expanding any short prefix (a→artist).
+      // Keep the namespace (female/parody/…) for usertag lookup and language detection, expanding
+      // any short prefix (a→artist).
       const ns: string = idx >= 0 ? EhConstants.expandNamespace(nsTag.substring(0, idx)) : ''
-      tags.push(new SimpleTag(text, '', ns))
-    })
+      const tag: SimpleTag = new SimpleTag(text, '', ns)
+      const style: string = HtmlSelectorUtils.group1(attrs, /style="([^"]+)"/)
+      const colors: string[] = []
+      const colorRe: RegExp = /#[0-9a-fA-F]{6}/g
+      let colorM: RegExpExecArray | null = colorRe.exec(style)
+      while (colorM !== null) {
+        colors.push(colorM[0])
+        colorM = colorRe.exec(style)
+      }
+      if (colors.length > 0) {
+        tag.color = colors[0]
+      }
+      if (colors.length > 3) {
+        tag.backgroundColor = colors[3]
+      }
+      tags.push(tag)
+      tagM = tagOpenRe.exec(row)
+    }
     g.simpleTags = tags
 
     // Language indicator (eros_fe `translated`): the `language:<name>` tag resolves to a 2-letter

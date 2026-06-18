@@ -144,7 +144,7 @@ ok('AllThumbnails passes tapped /s/ image-page URL as Reader seed', /this\.vm\.l
 const readerPageSrc = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
 ok('ReaderPage forwards seed params into VM init', /this\.vm\.init\([\s\S]*p\.seedImages,[\s\S]*p\.seedLoadedPages,[\s\S]*p\.seedPerPage,[\s\S]*p\.seedPreviewPages,[\s\S]*p\.seedImagePageUrl/.test(readerPageSrc))
 ok('ReaderPage preserves requested route index across early vertical onScrollIndex callbacks', /const requestedIndex: number = p\.index/.test(readerPageSrc))
-ok('ReaderPage re-syncs current index and slider from requested index after async VM init', /const targetIndex: number =[\s\S]*Math\.min\(requestedIndex, this\.vm\.images\.length - 1\)[\s\S]*this\.vm\.currentIndex = targetIndex[\s\S]*this\.sliderValue = targetIndex \+ 1/.test(readerPageSrc))
+ok('ReaderPage re-syncs current index and slider from requested index after async VM init', /const loadedTarget: number =[\s\S]*Math\.min\(requestedIndex, this\.vm\.images\.length - 1\)[\s\S]*const targetIndex: number = this\.normalizedReaderIndex\(loadedTarget\)[\s\S]*this\.vm\.currentIndex = targetIndex[\s\S]*this\.sliderValue = targetIndex \+ 1/.test(readerPageSrc))
 ok('ReaderPage scrolls vertical mode to the requested target after async VM init', /this\.readMode\.mode === ReadMode\.VERTICAL[\s\S]*this\.listScroller\.scrollToIndex\(targetIndex\)/.test(readerPageSrc))
 
 const readerVmSrc = read('feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets')

@@ -34,7 +34,7 @@ const RE = {
   favNote: /<div class="glfnote"[^>]*>Note:\s*([^<]+)<\/div>/,
   favTitle: /id="posted_\d+"[^>]*title="([^"]+)"/,
   posted: /id="posted_\d+"[^>]*>([\s\S]*?)<\/div>/,
-  tag: /<div class="gt[lc]?"[^>]*title="([^"]+)"/g,
+  tagOpen: /<div class="gt[lc]?"([^>]*)>/g,
   pages: /(\d+) pages/,
   uploader: /\/uploader\/([^"/]+)"/,
   next: /[?&]next=(\d+)/,
@@ -65,6 +65,30 @@ const htmlUnescape = (s) => {
     }
     return NAMED.get(ent) ?? match
   })
+}
+
+const parseTagAttrs = (row) => {
+  const tags = []
+  const titles = []
+  for (const m of row.matchAll(RE.tagOpen)) {
+    const attrs = m[1] ?? ''
+    const nsTag = g1(attrs, /title="([^"]+)"/)
+    if (!nsTag) continue
+    titles.push(nsTag)
+    const idx = nsTag.indexOf(':')
+    const tag = {
+      text: idx >= 0 ? nsTag.slice(idx + 1) : nsTag,
+      namespace: idx >= 0 ? nsTag.slice(0, idx) : '',
+      color: '',
+      backgroundColor: '',
+    }
+    const style = g1(attrs, /style="([^"]+)"/)
+    const colors = [...style.matchAll(/#[0-9a-fA-F]{6}/g)].map((x) => x[0])
+    if (colors.length > 0) tag.color = colors[0]
+    if (colors.length > 3) tag.backgroundColor = colors[3]
+    tags.push(tag)
+  }
+  return { titles, tags }
 }
 
 function parse(html) {
@@ -110,8 +134,9 @@ function parse(html) {
     const rawPosted = g1(row, RE.posted)
     g.expunged = rawPosted.indexOf('<') >= 0
     g.postTime = rawPosted.replace(/<[^>]*>/g, '').trim()
-    const tagTitles = [...row.matchAll(RE.tag)].map((m) => m[1])
-    g.simpleTags = tagTitles.map((t) => { const i = t.indexOf(':'); return i >= 0 ? t.slice(i + 1) : t })
+    const parsedTags = parseTagAttrs(row)
+    const tagTitles = parsedTags.titles
+    g.simpleTags = parsedTags.tags
     const langTitle = tagTitles.find((t) => t.startsWith('language:') && languageAbbr(t.slice(LANG_PREFIX_LEN)))
     g.language = langTitle ? langTitle.slice(LANG_PREFIX_LEN) : ''
     g.translated = langTitle ? languageAbbr(g.language) : ''
@@ -145,7 +170,7 @@ const SYN = `<table class="itg gltc">
 <div><div><div class="cn cta">Western</div><div id="postedpop_111">2026-06-13 10:00</div></div>
 <div><div class="ir" style="background-position:0px -21px;opacity:1"></div><div>84 pages</div></div></div></div>
 <div><div id="posted_111" style="border-color:#fa0">2026-06-13 10:00</div><div class="ir" style="background-position:0px -21px"></div></div></td>
-<td class="gl3c glname" onmouseover="x"><a href="https://e-hentai.org/g/111/abcd/"><div class="glink">Koumi-jima 2&amp;3 &lt;rev&gt; &#39;final&#39;</div><div><div class="gt" title="language:chinese">chinese</div><div class="gtl" title="language:translated">translated</div></div></a><div class="glfnote">Note: keep for later</div></td>
+<td class="gl3c glname" onmouseover="x"><a href="https://e-hentai.org/g/111/abcd/"><div class="glink">Koumi-jima 2&amp;3 &lt;rev&gt; &#39;final&#39;</div><div><div class="gt" title="language:chinese" style="color:#112233; border-color:#223344; border-left-color:#334455; background-color:#445566;">chinese</div><div class="gtl" title="language:translated">translated</div></div></a><div class="glfnote">Note: keep for later</div></td>
 <td class="gl4c glhide"><div><a href="https://e-hentai.org/uploader/marki%C3%B1o">marki&ntilde;o</a></div><div>84 pages</div></td>
 </tr>
 <tr>
@@ -192,6 +217,12 @@ eq(a.title, "Koumi-jima 2&3 <rev> 'final'", 'A.title (HTML entities &amp;/&lt;/&
 // language:chinese → ZH; the language:translated marker is not a language so it's skipped.
 eq(a.language, 'chinese', 'A.language (from language: tag)')
 eq(a.translated, 'ZH', 'A.translated (chinese → ZH code)')
+eq(a.simpleTags[0].text, 'chinese', 'A.tag text')
+eq(a.simpleTags[0].color, '#112233', 'A.tag text color (first style hex, eros_fe parity)')
+eq(a.simpleTags[0].backgroundColor, '#445566', 'A.tag background color (fourth style hex, eros_fe parity)')
+eq(a.simpleTags[1].text, 'translated', 'A.gtl tag still parsed')
+eq(a.simpleTags[1].color, '', 'A.gtl tag without style stays neutral text')
+eq(a.simpleTags[1].backgroundColor, '', 'A.gtl tag without style stays neutral bg')
 eq(a.favNote, 'keep for later', 'A.favNote (glfnote)')
 eq(a.postTime, '2026-06-13 10:00', 'A.postTime (plain text node)')
 eq(a.expunged, false, 'A.expunged (no child tag)')
