@@ -56,7 +56,7 @@ ok('search page keeps filter entry in the title menu/action area',
   /private searchMenu\(\): Record<string, Object> \{[\s\S]*sys\.symbol\.funnel[\s\S]*this\.showFilter = true/.test(page) &&
   /SearchPageFieldState/.test(page) &&
   !/@Monitor\('fieldState\.filterSeq'\)/.test(page) &&
-  !/dynamicHideTitleBar\(/.test(page) &&
+  /dynamicHideTitleBar\(\{[\s\S]*hideTitleArea: true[\s\S]*hideBottomBuilder: false/.test(page) &&
   !/@Builder\s+FilterTrigger/.test(page) &&
   !/FilterTriggerOverlay/.test(page) &&
   !/if \(!this\.isFavoriteScope\)[\s\S]*this\.FilterTrigger\(\)/.test(page))

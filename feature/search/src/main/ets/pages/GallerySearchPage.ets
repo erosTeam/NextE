@@ -36,7 +36,7 @@ import {
   SearchPageParams,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
-import { BottomBuilderShowType, HdsNavDestination } from '@kit.UIDesignKit'
+import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
 import { ComponentContent } from '@kit.ArkUI'
 import { SearchViewModel } from '../viewmodel/SearchViewModel'
 import { SearchFilterSheet } from '../components/SearchFilterSheet'
@@ -433,6 +433,12 @@ export struct GallerySearchPage {
       })
     }
     .titleBar(this.searchTitleBar())
+    .dynamicHideTitleBar({
+      hideTitleArea: true,
+      hideBottomBuilder: false,
+      hideStatusBar: false,
+      mode: HideMode.SCROLL_UP,
+    })
     .bindToScrollable([this.scroller])
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .onReady((context: NavDestinationContext) => {

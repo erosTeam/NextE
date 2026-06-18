@@ -160,10 +160,10 @@ const ok = (name, cond) => {
   ok('search field is hosted in title-bar bottomBuilder, not the title stackBuilder',
     /'bottomBuilder': this\.searchBottomBuilder\(this\.ensureFieldContent\(\)\)/.test(pageSrc) &&
     !/'stackBuilderComponent': this\.ensureFieldContent\(\)/.test(pageSrc))
-  ok('search page keeps title actions visible while the search field stays in bottomBuilder',
+  ok('search page hides the title area on scroll while keeping the search field bottomBuilder visible',
     /'bottomBuilder': this\.searchBottomBuilder\(this\.ensureFieldContent\(\)\)/.test(pageSrc) &&
     /'menu': this\.searchMenu\(\)/.test(pageSrc) &&
-    !/dynamicHideTitleBar\(/.test(pageSrc))
+    /dynamicHideTitleBar\(\{[\s\S]*hideTitleArea: true[\s\S]*hideBottomBuilder: false[\s\S]*mode: HideMode\.SCROLL_UP/.test(pageSrc))
   ok('bottomBuilder search field uses full content width and does not host page-level filters',
     /HDS title-bar bottomBuilder/.test(fieldSrc) &&
     /@ObservedV2[\s\S]*export class SearchPageFieldState/.test(fieldSrc) &&

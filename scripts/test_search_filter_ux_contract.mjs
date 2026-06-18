@@ -88,9 +88,10 @@ ok('page exposes filter as a title/menu action, not inside the search input row'
   /'menu': this\.searchMenu\(\)/.test(page) &&
   /private searchMenu\(\): Record<string, Object> \{[\s\S]*'icon': \$r\('sys\.symbol\.funnel'\)[\s\S]*'action': \(\) => \{[\s\S]*this\.showFilter = true/.test(page) &&
   !/@Monitor\('fieldState\.filterSeq'\)/.test(page) &&
-  !/dynamicHideTitleBar\(/.test(page) &&
   !/@Builder\s+FilterTrigger/.test(page) &&
   !/FilterTriggerOverlay/.test(page))
+ok('search title hides on scroll while the bottomBuilder search field stays visible',
+  /dynamicHideTitleBar\(\{[\s\S]*hideTitleArea: true[\s\S]*hideBottomBuilder: false[\s\S]*mode: HideMode\.SCROLL_UP/.test(page))
 ok('search filter sheet opens at the highest sheet height without medium detents',
   /bindSheet\(\$\$this\.showFilter, this\.FilterSheet\(\), \{[\s\S]*detents: \[SheetSize\.LARGE\][\s\S]*showClose: false/.test(page) &&
   !/detents: \[SheetSize\.MEDIUM, SheetSize\.LARGE\]/.test(page))
