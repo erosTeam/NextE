@@ -98,137 +98,160 @@ export struct SearchFilterSheet {
   }
 
   build() {
-    Scroll() {
-      Column({ space: ThemeConstants.SPACE_LG }) {
-        Text($r('app.string.filter_scope'))
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Row({ space: ThemeConstants.SPACE_XS }) {
-          this.ScopeSegment($r('app.string.search_scope_gallery'), SEARCH_SCOPE_GALLERY)
-          this.ScopeSegment($r('app.string.search_scope_watched'), SEARCH_SCOPE_WATCHED)
-          this.ScopeSegment($r('app.string.search_scope_favorite'), SEARCH_SCOPE_FAVORITE)
-        }
-        .width('100%')
-        .height(40)
-        .padding(ThemeConstants.SPACE_XS)
-        .backgroundColor($r('app.color.card_background'))
-        .borderRadius(ThemeConstants.RADIUS_MD)
-        if (this.draftSearchScope !== SEARCH_SCOPE_FAVORITE) {
-          Text($r('app.string.filter_category'))
+    Column() {
+      Scroll() {
+        Column({ space: ThemeConstants.SPACE_LG }) {
+          Text($r('app.string.filter_scope'))
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
-          Flex({ wrap: FlexWrap.Wrap }) {
-            ForEach(
-              CATS,
-              (c: CatItem) => {
-                this.Chip(c.name, (this.draftSelectedCats & c.bit) !== 0, () => {
-                  this.draftSelectedCats = this.draftSelectedCats ^ c.bit
-                })
+          Row({ space: ThemeConstants.SPACE_XS }) {
+            this.ScopeSegment($r('app.string.search_scope_gallery'), SEARCH_SCOPE_GALLERY)
+            this.ScopeSegment($r('app.string.search_scope_watched'), SEARCH_SCOPE_WATCHED)
+            this.ScopeSegment($r('app.string.search_scope_favorite'), SEARCH_SCOPE_FAVORITE)
+          }
+          .width('100%')
+          .height(40)
+          .padding(ThemeConstants.SPACE_XS)
+          .backgroundColor($r('app.color.card_background'))
+          .borderRadius(ThemeConstants.RADIUS_MD)
+          if (this.draftSearchScope !== SEARCH_SCOPE_FAVORITE) {
+            Text($r('app.string.filter_category'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+            Flex({ wrap: FlexWrap.Wrap }) {
+              ForEach(
+                CATS,
+                (c: CatItem) => {
+                  this.Chip(c.name, (this.draftSelectedCats & c.bit) !== 0, () => {
+                    this.draftSelectedCats = this.draftSelectedCats ^ c.bit
+                  })
+                },
+                (c: CatItem) => c.name,
+              )
+            }.width('100%')
+            Text($r('app.string.filter_rating'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+            Row({ space: ThemeConstants.SPACE_SM }) {
+              ForEach(
+                RATINGS,
+                (r: number) => {
+                  this.Chip(
+                    r === 0 ? '' : `${r}★`,
+                    this.draftMinRating === r,
+                    () => {
+                      this.draftMinRating = r
+                    },
+                    r === 0,
+                  )
+                },
+                (r: number) => `${r}`,
+              )
+            }
+            Text($r('app.string.filter_pages'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+            Row({ space: ThemeConstants.SPACE_SM }) {
+              this.PageInput(this.draftPagesFrom, (v: number) => {
+                this.draftPagesFrom = v
+              })
+              Text('-').fontColor($r('sys.color.font_secondary'))
+              this.PageInput(this.draftPagesTo, (v: number) => {
+                this.draftPagesTo = v
+              })
+            }.alignItems(VerticalAlign.Center)
+            Text($r('app.string.filter_options'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+            this.ToggleRow(
+              $r('app.string.filter_require_torrent'),
+              this.draftRequireTorrent,
+              (on: boolean) => {
+                this.draftRequireTorrent = on
               },
-              (c: CatItem) => c.name,
             )
-          }.width('100%')
-          Text($r('app.string.filter_rating'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Row({ space: ThemeConstants.SPACE_SM }) {
-            ForEach(
-              RATINGS,
-              (r: number) => {
-                this.Chip(
-                  r === 0 ? '' : `${r}★`,
-                  this.draftMinRating === r,
-                  () => {
-                    this.draftMinRating = r
-                  },
-                  r === 0,
-                )
+            this.ToggleRow(
+              $r('app.string.filter_show_expunged'),
+              this.draftShowExpunged,
+              (on: boolean) => {
+                this.draftShowExpunged = on
               },
-              (r: number) => `${r}`,
+            )
+            // eros_fe's three independent "ignore my default <X> filter" toggles (f_sfl/f_sfu/f_sft).
+            this.ToggleRow(
+              $r('app.string.filter_disable_lang'),
+              this.draftDisableLanguageFilter,
+              (on: boolean) => {
+                this.draftDisableLanguageFilter = on
+              },
+            )
+            this.ToggleRow(
+              $r('app.string.filter_disable_uploader'),
+              this.draftDisableUploaderFilter,
+              (on: boolean) => {
+                this.draftDisableUploaderFilter = on
+              },
+            )
+            this.ToggleRow(
+              $r('app.string.filter_disable_tag'),
+              this.draftDisableTagFilter,
+              (on: boolean) => {
+                this.draftDisableTagFilter = on
+              },
             )
           }
-          Text($r('app.string.filter_pages'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Row({ space: ThemeConstants.SPACE_SM }) {
-            this.PageInput(this.draftPagesFrom, (v: number) => {
-              this.draftPagesFrom = v
-            })
-            Text('-').fontColor($r('sys.color.font_secondary'))
-            this.PageInput(this.draftPagesTo, (v: number) => {
-              this.draftPagesTo = v
-            })
-          }.alignItems(VerticalAlign.Center)
-          Text($r('app.string.filter_options'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          this.ToggleRow(
-            $r('app.string.filter_require_torrent'),
-            this.draftRequireTorrent,
-            (on: boolean) => {
-              this.draftRequireTorrent = on
-            },
-          )
-          this.ToggleRow(
-            $r('app.string.filter_show_expunged'),
-            this.draftShowExpunged,
-            (on: boolean) => {
-              this.draftShowExpunged = on
-            },
-          )
-          // eros_fe's three independent "ignore my default <X> filter" toggles (f_sfl/f_sfu/f_sft).
-          this.ToggleRow(
-            $r('app.string.filter_disable_lang'),
-            this.draftDisableLanguageFilter,
-            (on: boolean) => {
-              this.draftDisableLanguageFilter = on
-            },
-          )
-          this.ToggleRow(
-            $r('app.string.filter_disable_uploader'),
-            this.draftDisableUploaderFilter,
-            (on: boolean) => {
-              this.draftDisableUploaderFilter = on
-            },
-          )
-          this.ToggleRow(
-            $r('app.string.filter_disable_tag'),
-            this.draftDisableTagFilter,
-            (on: boolean) => {
-              this.draftDisableTagFilter = on
-            },
-          )
-        }
-        Row({ space: ThemeConstants.SPACE_MD }) {
-          Button($r('app.string.filter_reset'))
-            .type(ButtonType.Capsule)
-            .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-            .fontColor($r('sys.color.font_primary'))
-            .layoutWeight(1)
-            .onClick(() => {
-              // Reset is a commit of the empty filter, so it closes the sheet and re-runs like Apply.
-              this.resetDraft()
-              this.commitDraft()
-            })
-          Button($r('app.string.filter_apply'))
-            .type(ButtonType.Capsule)
-            .layoutWeight(1)
-            .onClick(() => {
-              this.commitDraft()
-            })
         }
         .width('100%')
-        .margin({ top: ThemeConstants.SPACE_SM })
+        .alignItems(HorizontalAlign.Start)
+        .padding({
+          left: ThemeConstants.SPACE_LG,
+          right: ThemeConstants.SPACE_LG,
+          top: ThemeConstants.SPACE_LG,
+          bottom: ThemeConstants.SPACE_SM,
+        })
       }
-      .width('100%')
-      .alignItems(HorizontalAlign.Start)
-      .padding(ThemeConstants.SPACE_LG)
-    }.scrollBar(BarState.Off)
+      .scrollBar(BarState.Off)
+      .layoutWeight(1)
+
+      this.ActionBar()
+    }
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  ActionBar() {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      Button($r('app.string.filter_reset'))
+        .type(ButtonType.Capsule)
+        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+        .onClick(() => {
+          // Reset is a commit of the empty filter, so it closes the sheet and re-runs like Apply.
+          this.resetDraft()
+          this.commitDraft()
+        })
+      Button($r('app.string.filter_apply'))
+        .type(ButtonType.Capsule)
+        .layoutWeight(1)
+        .onClick(() => {
+          this.commitDraft()
+        })
+    }
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_LG,
+      right: ThemeConstants.SPACE_LG,
+      top: ThemeConstants.SPACE_SM,
+      bottom: ThemeConstants.SPACE_LG,
+    })
+    .backgroundColor($r('sys.color.ohos_id_color_dialog_bg'))
   }
 
   @Builder
