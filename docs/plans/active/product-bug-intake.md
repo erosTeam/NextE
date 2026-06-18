@@ -515,6 +515,59 @@ Remaining acceptance:
 - Needs controller/user screenshot acceptance. No further device validation is required unless Reader
   double-page layout or mode-switch behavior changes again.
 
+### Reader Right-To-Left Double-Page Spreads Kept LTR Slot Order
+
+Type: bug / reading UX gap
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- Implementation review while grounding Reader double-page behavior against eros_fe.
+
+Observed behavior:
+
+- NextE set the horizontal `Swiper` direction to RTL, but the two images inside each double-page row
+  were still rendered in LTR slot order.
+- This meant manga/right-to-left double-page spreads did not match eros_fe's visual ordering, where
+  the paired page list is reversed when `ViewMode.rightToLeft` is active.
+
+Expected behavior:
+
+- In LTR, paired spreads render lower page index on the left and higher page index on the right.
+- In RTL, paired spreads reverse the visual row order so the higher page index appears on the left and
+  the lower page index appears on the right.
+- Double-page B cover spread keeps page 1 in the right slot under RTL.
+
+Implementation:
+
+- `96860ec fix(reader): reverse rtl double-page spreads` adds Reader spread-slot helpers and reverses
+  the `DoublePageReader` row slot order when `ReadMode.RTL` is active.
+- Scope is limited to online Reader horizontal double-page visual slot ordering. It does not change
+  page resolving, image caching, tap-zone step math, vertical mode, offline reading, or download flow.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_reader_double_page_contract.mjs`,
+  `scripts/test_reader_column_mode_switch_contract.mjs`, `scripts/test_reader_tapzone_contract.mjs`.
+- Gate: `scripts/test_v1_decorator_inventory_contract.mjs` reported `0 file(s)`; `git diff --check`
+  passed.
+- New worktree dependency/build path: `ohpm install`, local signing profile installer, official signed
+  Hvigor build.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  Reader opened from an 18P gallery; `右→左` + `双页 B` cover spread showed a left `Blank` and right
+  `Image` with chrome `1 / 18`; after advancing, paired spread showed two `Image` slots with chrome
+  `2 / 18`, `右→左`, `双页 B`.
+  Evidence directory: `/private/tmp/nexte_reader_rtl_spread_order_evidence/`, especially
+  `rtl_b_cover.png`, `rtl_b_cover_layout.json`, `rtl_b_pair.png`, `rtl_b_pair_layout.json`.
+
+Remaining acceptance:
+
+- Needs controller/user screenshot acceptance of the RTL double-page visual order. No further device
+  validation is required unless Reader double-page ordering changes again.
+
 ### Download Gallery Task Rows Are Hard To Read
 
 Type: UX / information architecture cleanup
