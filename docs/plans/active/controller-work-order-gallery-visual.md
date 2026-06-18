@@ -324,6 +324,23 @@ Detail tag chips:
   `roll`, `artbook` render as rounded, comfortable chips with visible namespace/member distinction.
 - Still open: usertag-fill chips, vote-coloured member chips, dense multi-namespace/current controller
   visual acceptance.
+
+Gallery cover presentation:
+- Target: 127.0.0.1:5555 Mate X7 emulator.
+- Build: a253aff signed HAP already installed.
+- Detail: https://e-hentai.org/g/3989982/16600a66e8/
+- Surfaces covered: loaded/light detail header cover and Home default list covers only.
+- Evidence:
+  - /private/tmp/nexte_cover_presentation_evidence/cover_detail_header.png
+  - /private/tmp/nexte_cover_presentation_evidence/cover_detail_header_layout.json
+  - /private/tmp/nexte_cover_presentation_evidence/cover_home_list.png
+  - /private/tmp/nexte_cover_presentation_evidence/cover_home_list_layout.json
+  - /private/tmp/nexte_cover_presentation_evidence/nav_probe_layout.json
+- Observed: detail header cover fits the real cover over a distinct grey backdrop with header content
+  intact; Home list covers fit over the same distinct light grey backdrop. Layout confirms Home
+  `E-Hentai` default list and cover Image backgrounds at `#FFE6E8EB`.
+- Still open: loading placeholder screenshots, error fallback screenshots, dark-mode evidence,
+  grid-card intentional-cover behavior, and controller visual acceptance.
 ```
 
 Completion rule:

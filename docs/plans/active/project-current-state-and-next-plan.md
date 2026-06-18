@@ -549,7 +549,7 @@ Current active meaning:
 - Gate V2 subtab never-loaded empty/no-more flash remains a P0 behavior queue.
 - Gate V3 re-audits prior visual/navigation claims.
 - gallery-visual-navigation-regression-contract.md explicitly says prior PASS/archive claims are invalid unless re-backed by current controller evidence.
-- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, not-favorited first-read header/action, normal detail tag chips, and Home default fixed/adaptive list height have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
+- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, not-favorited first-read header/action, normal detail tag chips, loaded/light gallery cover presentation, and Home default fixed/adaptive list height have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
 ```
 
 Important boundary:
