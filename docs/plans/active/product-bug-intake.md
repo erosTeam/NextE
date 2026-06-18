@@ -825,7 +825,7 @@ Type: bug / UX correctness
 
 Priority suggestion: P1
 
-Status: implemented / pending controller acceptance
+Status: accepted
 
 Implementation:
 
@@ -852,12 +852,18 @@ Evidence:
 - Device evidence: `/private/tmp/nexte_search_no_results_evidence/result.png` and `result.json` show
   query `nexte_no_results_probe_zzzzzzzzzzzzzzzzzzzz` rendering `没有搜索结果`, with no
   `无法解析此页面,应用可能需要更新。` parse-error copy.
+- Current-main acceptance, 2026-06-19: contracts still pass on main, and HarmonyOS Mate X7 emulator
+  target `127.0.0.1:5555` submitted `nexte_no_results_probe_zzzzzzzzzzzzzzzzzzzz`. The final layout
+  shows that query in `appSearchField-2` and the empty-state copy `没有搜索结果`; it does not show
+  `无法解析此页面` or `应用可能需要更新`. Evidence directory:
+  `/private/tmp/nexte_search_no_results_current_acceptance`, especially `result.png` and `result.json`.
 
-Remaining acceptance:
+Closure:
 
-- Needs controller/user acceptance of the current NextE device evidence. A successful Android FE
-  no-results screenshot is still useful if the FE app can be manually navigated there, but this lane is
-  no longer blocked on it because the eros_fe source behavior and NextE runtime behavior are aligned.
+- Accepted for the zero-result search empty-state bug. A successful Android FE no-results screenshot
+  remains optional reference material, but this lane is closed because the eros_fe source behavior,
+  deterministic classifier contracts, and current NextE runtime behavior are aligned. No product code
+  changed in this acceptance update.
 
 Source:
 
