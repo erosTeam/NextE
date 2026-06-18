@@ -360,6 +360,9 @@ Implementation:
 - `eaa8408 fix(reader): show streamed image progress` moves the post-resolve image-loading stage
   onto NetworkKit `requestInStream`, writes chunks into a transient Reader cache file, and binds
   `dataReceiveProgress` into the centered loading line percentage.
+- `7a88588 fix(reader): clarify failed image retry` replaces the post-auto-retry failed state with
+  a shared centered Reader failure overlay in horizontal and vertical modes, keeping the primary
+  action as manual re-source retry for the current image.
 - Scope: Reader first-entry / jump resolving uses `reader_loading_resolving`; horizontal and vertical
   image pages show `reader_loading_image` after a real image URL is known and keep it visible until
   `Image.onComplete`.
@@ -370,7 +373,8 @@ Implementation:
 Evidence:
 
 - Deterministic contracts: `scripts/test_reader_loading_progress_contract.mjs`,
-  `scripts/test_reader_byte_progress_contract.mjs`.
+  `scripts/test_reader_byte_progress_contract.mjs`,
+  `scripts/test_reader_failure_retry_ui_contract.mjs`.
 - Regression contracts run in the fixing lane: `scripts/test_reader_auto_source_retry_contract.mjs`,
   `scripts/test_reader_seeded_thumbnail_start_contract.mjs`,
   `scripts/test_reader_placeholder_gap_turn_contract.mjs`,
@@ -390,12 +394,21 @@ Evidence:
   Evidence directory: `/private/tmp/nexte_reader_byte_progress_evidence/`, especially
   `reader_early.png`, `reader_early_layout.json`, `reader_after_swipe.png`,
   `reader_after_swipe_layout.json`.
+- Follow-up retry UI emulator smoke on `127.0.0.1:5555`, hdc outside sandbox, official signed HAP:
+  opened a public gallery detail, tapped `阅读`, Reader rendered the first page normally, and a center
+  tap showed chrome with `1 / 12`.
+  Evidence directory: `/private/tmp/nexte_reader_retry_ui_evidence/`, especially
+  `initial.png`, `detail.png`, `reader.png`, `reader_chrome.png`,
+  `reader_layout.json`, `reader_chrome_layout.json`.
 
 Remaining acceptance:
 
 - Needs controller/user acceptance of the loading-stage screenshot behavior. The emulator network was
   fast enough that captured screenshots landed after images had loaded, so transient percentage UI is
   protected by contract/build evidence until a slow-network/manual capture is available.
+- The failed-image overlay is protected by deterministic contract and official signed build; this
+  lane did not force a live EH image failure on device because mutating network/source state would
+  exceed the narrow non-destructive smoke scope.
 
 Source:
 
