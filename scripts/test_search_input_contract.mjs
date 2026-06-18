@@ -160,15 +160,16 @@ const ok = (name, cond) => {
   ok('search field is hosted in title-bar bottomBuilder, not the title stackBuilder',
     /'bottomBuilder': this\.searchBottomBuilder\(this\.ensureFieldContent\(\)\)/.test(pageSrc) &&
     !/'stackBuilderComponent': this\.ensureFieldContent\(\)/.test(pageSrc))
-  ok('scroll hide keeps bottomBuilder search field visible',
-    /hideTitleArea: true/.test(pageSrc) &&
-    /hideBottomBuilder: false/.test(pageSrc))
-  ok('bottomBuilder search field uses full content width without fake back-button reserve',
+  ok('search page keeps title actions visible while the search field stays in bottomBuilder',
+    /'bottomBuilder': this\.searchBottomBuilder\(this\.ensureFieldContent\(\)\)/.test(pageSrc) &&
+    /'menu': this\.searchMenu\(\)/.test(pageSrc) &&
+    !/dynamicHideTitleBar\(/.test(pageSrc))
+  ok('bottomBuilder search field uses full content width and does not host page-level filters',
     /HDS title-bar bottomBuilder/.test(fieldSrc) &&
     /@ObservedV2[\s\S]*export class SearchPageFieldState/.test(fieldSrc) &&
     /onSubmit: \(_value: string\) => \{[\s\S]*this\.fieldState\.submitSeq = this\.fieldState\.submitSeq \+ 1/.test(fieldSrc) &&
-    /sys\.symbol\.funnel/.test(fieldSrc) &&
-    /this\.fieldState\.filterSeq = this\.fieldState\.filterSeq \+ 1/.test(fieldSrc) &&
+    !/sys\.symbol\.funnel/.test(fieldSrc) &&
+    !/filterSeq/.test(fieldSrc) &&
     !/BACK_BUTTON_SLOT_WIDTH/.test(fieldSrc) &&
     !/leadingReserve/.test(fieldSrc) &&
     /left: ThemeConstants\.SPACE_LG/.test(fieldSrc) &&

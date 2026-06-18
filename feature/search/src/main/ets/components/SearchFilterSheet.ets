@@ -36,6 +36,16 @@ const CAT_ROWS: CatItem[][] = [
   [CATS[8], CATS[9]],
 ]
 const RATINGS: number[] = [0, 2, 3, 4, 5]
+const FILTER_SEGMENT_HEIGHT: number = 44
+const FILTER_SEGMENT_PADDING_V: number = 8
+const FILTER_TOGGLE_MIN_HEIGHT: number = 44
+const FILTER_TOGGLE_MAX_WIDTH: number = 520
+const FILTER_PAGE_INPUT_WIDTH: number = 92
+const FILTER_PAGE_INPUT_HEIGHT: number = 40
+const FILTER_PAGE_RANGE_GROUP_WIDTH: number = 220
+const FILTER_FORM_ROW_MAX_WIDTH: number = 640
+const FILTER_FORM_LABEL_WIDTH: number = 80
+const FILTER_FORM_FONT_SIZE: number = ThemeConstants.FONT_SIZE_TITLE
 
 /**
  * Advanced-search filter sheet content (hosted via the search page's bindSheet). Mirrors eros_fe's
@@ -194,27 +204,27 @@ export struct SearchFilterSheet {
     Column() {
       this.Header()
       Scroll() {
-        Column({ space: ThemeConstants.SPACE_LG }) {
-          Text($r('app.string.filter_scope'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
+        Column({ space: ThemeConstants.SPACE_MD }) {
           TabSegmentButtonV2({
             items: this.scopeItems,
             selectedIndex: this.scopeIndex(),
             enableStateAnimation: true,
+            itemFontSize: LengthMetrics.vp(FILTER_FORM_FONT_SIZE),
+            itemSelectedFontSize: LengthMetrics.vp(FILTER_FORM_FONT_SIZE),
+            itemFontWeight: FontWeight.Medium,
+            itemSelectedFontWeight: FontWeight.Bold,
             onItemClicked: (index: number) => {
               this.setScope(this.scopeForIndex(index))
             },
             itemPadding: {
-              top: LengthMetrics.vp(7),
-              bottom: LengthMetrics.vp(7),
+              top: LengthMetrics.vp(FILTER_SEGMENT_PADDING_V),
+              bottom: LengthMetrics.vp(FILTER_SEGMENT_PADDING_V),
               start: LengthMetrics.vp(8),
               end: LengthMetrics.vp(8),
             },
           })
           .width('100%')
-          .constraintSize({ minHeight: 40 })
+          .constraintSize({ minHeight: FILTER_SEGMENT_HEIGHT })
           if (this.filter.searchScope === SEARCH_SCOPE_FAVORITE) {
             Text($r('app.string.filter_favorite_scope_hint'))
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
@@ -222,10 +232,6 @@ export struct SearchFilterSheet {
               .lineHeight(18)
           }
           if (this.filter.searchScope !== SEARCH_SCOPE_FAVORITE) {
-            Text($r('app.string.filter_category'))
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
             Column({ space: ThemeConstants.SPACE_XS }) {
               ForEach(
                 CAT_ROWS,
@@ -263,43 +269,8 @@ export struct SearchFilterSheet {
               },
             )
             if (this.filter.advancedEnabled) {
-              Text($r('app.string.filter_rating'))
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-              TabSegmentButtonV2({
-                items: this.ratingItems,
-                selectedIndex: this.ratingIndex(),
-                enableStateAnimation: true,
-                onItemClicked: (index: number) => {
-                  this.setRating(this.ratingForIndex(index))
-                },
-                itemPadding: {
-                  top: LengthMetrics.vp(7),
-                  bottom: LengthMetrics.vp(7),
-                  start: LengthMetrics.vp(8),
-                  end: LengthMetrics.vp(8),
-                },
-              })
-              .width('100%')
-              .constraintSize({ minHeight: 40 })
-              Text($r('app.string.filter_pages'))
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-              Row({ space: ThemeConstants.SPACE_SM }) {
-                this.PageInput(this.filter.pagesFrom, (v: number) => {
-                  this.setPagesFrom(v)
-                })
-                Text('-').fontColor($r('sys.color.font_secondary'))
-                this.PageInput(this.filter.pagesTo, (v: number) => {
-                  this.setPagesTo(v)
-                })
-              }.alignItems(VerticalAlign.Center)
-              Text($r('app.string.filter_options'))
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
+              this.RatingRow()
+              this.PageRangeRow()
               this.ToggleRow(
                 $r('app.string.filter_require_torrent'),
                 this.filter.requireTorrent,
@@ -437,8 +408,10 @@ export struct SearchFilterSheet {
   ToggleRow(label: ResourceStr, value: boolean, onChange: (on: boolean) => void) {
     Row() {
       Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontSize(FILTER_FORM_FONT_SIZE)
+        .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
+        .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
         .layoutWeight(1)
       Toggle({ type: ToggleType.Switch, isOn: value })
         .selectedColor(ThemeConstants.BRAND_PRIMARY)
@@ -447,16 +420,87 @@ export struct SearchFilterSheet {
         })
     }
     .width('100%')
+    .constraintSize({ minHeight: FILTER_TOGGLE_MIN_HEIGHT, maxWidth: FILTER_TOGGLE_MAX_WIDTH })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  RatingRow() {
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      Text($r('app.string.filter_rating'))
+        .fontSize(FILTER_FORM_FONT_SIZE)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
+      TabSegmentButtonV2({
+        items: this.ratingItems,
+        selectedIndex: this.ratingIndex(),
+        enableStateAnimation: true,
+        itemFontSize: LengthMetrics.vp(FILTER_FORM_FONT_SIZE),
+        itemSelectedFontSize: LengthMetrics.vp(FILTER_FORM_FONT_SIZE),
+        itemFontWeight: FontWeight.Medium,
+        itemSelectedFontWeight: FontWeight.Bold,
+        onItemClicked: (index: number) => {
+          this.setRating(this.ratingForIndex(index))
+        },
+        itemPadding: {
+          top: LengthMetrics.vp(FILTER_SEGMENT_PADDING_V),
+          bottom: LengthMetrics.vp(FILTER_SEGMENT_PADDING_V),
+          start: LengthMetrics.vp(8),
+          end: LengthMetrics.vp(8),
+        },
+      })
+      .width('100%')
+      .constraintSize({ minHeight: FILTER_SEGMENT_HEIGHT })
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: FILTER_FORM_ROW_MAX_WIDTH })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  PageRangeRow() {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      Text($r('app.string.filter_pages'))
+        .fontSize(FILTER_FORM_FONT_SIZE)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
+        .width(FILTER_FORM_LABEL_WIDTH)
+      Blank().layoutWeight(1)
+      Row({ space: ThemeConstants.SPACE_SM }) {
+        this.PageInput(this.filter.pagesFrom, (v: number) => {
+          this.setPagesFrom(v)
+        })
+        Text('-')
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_secondary'))
+        this.PageInput(this.filter.pagesTo, (v: number) => {
+          this.setPagesTo(v)
+        })
+      }
+      .width(FILTER_PAGE_RANGE_GROUP_WIDTH)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Center)
+      Blank().layoutWeight(1)
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: FILTER_FORM_ROW_MAX_WIDTH })
     .alignItems(VerticalAlign.Center)
   }
 
   @Builder
   PageInput(value: number, onChange: (v: number) => void) {
-    TextInput({ text: value > 0 ? `${value}` : '' })
+    TextInput({ text: value > 0 ? `${value}` : '', placeholder: $r('app.string.filter_any') })
       .type(InputType.Number)
-      .width(90)
-      .height(36)
+      .width(FILTER_PAGE_INPUT_WIDTH)
+      .height(FILTER_PAGE_INPUT_HEIGHT)
       .backgroundColor($r('app.color.card_background'))
+      .fontSize(FILTER_FORM_FONT_SIZE)
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('sys.color.font_primary'))
+      .placeholderColor($r('sys.color.font_tertiary'))
+      .borderRadius(ThemeConstants.RADIUS_ROUND)
       .onChange((v: string) => {
         const n: number = Number.parseInt(v, 10)
         onChange(Number.isNaN(n) ? 0 : n)

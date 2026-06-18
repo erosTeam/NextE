@@ -21,7 +21,7 @@ export class SearchFilterState {
   @Trace minRating: number = 0
   @Trace pagesFrom: number = 0
   @Trace pagesTo: number = 0
-  // EH advanced toggles: f_sto (only galleries with torrents), f_sh (show expunged), and eros_fe's
+  // EH advanced toggles: f_sto (only galleries with torrents), f_sh (only expunged galleries), and eros_fe's
   // three INDEPENDENT "ignore my default <X> filter" toggles (f_sfl language / f_sfu uploader / f_sft tag).
   @Trace requireTorrent: boolean = false
   @Trace showExpunged: boolean = false

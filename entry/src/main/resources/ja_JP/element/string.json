@@ -682,7 +682,7 @@
     },
     {
       "name": "filter_show_expunged",
-      "value": "削除済みを表示"
+      "value": "削除済みのみ検索"
     },
     {
       "name": "filter_disable_default",

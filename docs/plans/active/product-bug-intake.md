@@ -482,10 +482,11 @@ Android FE comparison evidence:
   authorization, navigation used `adb -s fa967a75 shell su -c ...`.
 - Evidence directory: `/private/tmp/nexte_search_filter_fe_comparison`.
 - Key screenshots/layout dumps:
-  `fe_start_pull.png` / `.xml`, `fe_filter_open.png` / `.xml`,
-  `fe_filter_after_manga_tap.png` / `.xml`, `fe_filter_after_doujinshi_long.png` / `.xml`,
-  `fe_filter_rating_segment.png` / `.xml`, `fe_filter_rating_4_selected.png` / `.xml`,
-  `fe_filter_favorite_scope.png` / `.xml`, `fe_filter_restored.png` / `.xml`.
+  `fe_home.png` / `.xml`, `fe_search.png` / `.xml`, `fe_filter_initial.png` / `.xml`,
+  `fe_filter_open.png` / `.xml`, `fe_filter_after_manga_tap.png` / `.xml`,
+  `fe_filter_after_doujinshi_long.png` / `.xml`, `fe_filter_rating_segment.png` / `.xml`,
+  `fe_filter_rating_4_selected.png` / `.xml`, `fe_filter_favorite_scope.png` / `.xml`, and
+  `fe_filter_restored.png` / `.xml`.
 - Observed FE scope: a formal three-way segmented control (`Gallery`, `Watched`, `Favorite`).
 - Observed FE categories: two-column, strong semantic-colored category buttons; all categories start
   selected/colored. Tapping `Manga` immediately turns it grey/off without changing scope.
@@ -511,13 +512,15 @@ Current NextE repair scope:
 - Queue a pending filter reapply when the user changes live filters during an in-flight search, and
   clear stale filter-only results when Reset leaves no query and no active filter.
 
-Historical FE/ADB preflight before the Android device was connected:
+Superseded FE/ADB preflight before the Android device was connected:
 
 - Installed Android platform-tools through Homebrew on macOS; `adb` is available at
   `/opt/homebrew/bin/adb`.
 - `adb version` reports Android Debug Bridge `1.0.41`, version `37.0.0-14910828`.
 - `adb devices -l` started the ADB daemon but returned no connected Android devices:
   `List of devices attached` with no targets.
+- This preflight blocker is now superseded for the Search filter lane by the connected-device evidence
+  above. Keep it only as environment history, not as an active blocker for this item.
 - Because no Android device is visible, NextE cannot yet run:
   `adb shell pm list packages | grep -i -E "eros|eh|hentai"`, launch `eros_fe`, capture screenshots,
   or verify FE category colors, long-press behavior, rating control shape, live-apply behavior, Reset
@@ -581,6 +584,18 @@ Implementation:
   trigger with title action + bottomBuilder search chrome, moves Reset beside Close in a low-weight
   sheet header, top-aligns the sheet content, fixes the SearchActionState monitor wiring for IME /
   search-button submit, and clears stale results/errors when the user clears the search field.
+- Current correction branch: removes the mistakenly added funnel/filter action from
+  `SearchPageField.ets`, keeps the bottomBuilder search row input-only, restores the filter entry to
+  `GallerySearchPage`'s title/menu action, and disables Search title auto-hide for now so the menu
+  action is not made unreachable by the previous layout workaround.
+- Current correction branch also improves filter-sheet readability without shrinking text: scope/rating
+  segmented controls now use explicit body-size text and bold selected state; category chips keep their
+  current two-column semantic-color shape because that region was not the main visual problem; the
+  sheet is now a flatter continuous filter form instead of a stack of section headers; `高级选项` is a
+  normal switch row that reveals advanced fields; page range inputs are no-border pill fields with
+  placeholder and bounded dimensions; advanced option rows use larger readable labels, unified row
+  height, and a bounded form width so switches stay visually attached to their labels. The filter sheet
+  now opens directly at the large detent instead of offering medium/large sheet stops.
 
 Evidence:
 
@@ -602,6 +617,9 @@ Evidence:
   the bottomBuilder, the right action renders as a funnel and opens the filter sheet, sheet content is
   top-aligned below the header, keyboard Search submits into the search/error/results state, and
   tapping the Search clear button returns to the search-history state.
+- Current correction acceptance: the filter action must stay in the title/menu/action area and must not
+  be placed inside the search input row. SearchFilterSheet typography acceptance is readable 16-level
+  form text and balanced control proportions, not tiny labels or mechanical section headings.
 - Key NextE screenshots/layout dumps:
   `nexte_filter_sheet_open.png` / `.json` shows scope as a formal segmented control, two-column
   semantic-colored categories, fixed low-weight Reset, and no Apply button.
@@ -620,24 +638,21 @@ Evidence:
 
 Remaining acceptance:
 
-- Needs controller/user review. Do not mark `accepted` until that review happens.
-- Mate X7 HarmonyOS emulator target `127.0.0.1:5555`, hdc outside the sandbox, official signed HAP
-  installed: the search landing filter entry stayed fixed near the top-right; the sheet rendered a
-  native segmented scope control; tapping `Manga` immediately selected the category; tapping `4★`
-  immediately moved rating selection; tapping `收藏` selected favorite scope and showed the explicit
-  limitation hint while keeping Apply/Reset reachable. Evidence directory:
-  `/private/tmp/nexte_search_filter_ux_repair_evidence/`, especially
-  `search_filter_ux_search_landing.png`, `search_filter_ux_sheet_initial.png`,
-  `search_filter_ux_after_manga.png`, `search_filter_ux_after_rating.png`, and
-  `search_filter_ux_after_favorite_scope.png`.
-
-Remaining acceptance:
-
-- Requires a connected Android device visible to `adb devices -l`, then Android `eros_fe` advanced
-  filter screenshots and observations before further NextE product-code work.
-- Required FE observations: category colors, category normal tap behavior, category long-press
-  inverse/solo behavior, rating control shape, live-vs-Apply model, Reset placement/weight, and
-  search-scope expression.
+- Needs controller/user review of the current correction evidence. FE ADB comparison for this filter
+  lane is present; further Search UI/interaction work still needs a fresh FE comparison scoped to the
+  changed surface.
+- Required NextE correction evidence: filter icon is in title/menu/action, not in the search field row;
+  category chips and rating segmented shape are preserved; page range inputs read as no-border pill
+  range fields rather than blank blocks; SearchFilterSheet no longer adds section headers for every
+  control type; advanced options appear as a continuous settings/form list under the ordinary
+  `高级选项` switch; option rows read as compact settings rows with switch/label relationship intact;
+  `f_sh` copy says `仅搜索已删除` / `Only expunged`, not "show expunged"; Reset remains low-weight next
+  to Close.
+- Historical NextE evidence before the current correction remains in
+  `/private/tmp/nexte_search_filter_ux_repair_evidence/` and
+  `/private/tmp/nexte_search_title_bottom_builder_evidence`. Current correction evidence is in
+  `/private/tmp/nexte_search_filter_correction_evidence/`, especially
+  `nexte_filter_sheet_final.png` and `nexte_filter_final_radius.png`.
 
 ### Search Action Routes Can Lose The Second Tag Query
 
@@ -671,8 +686,9 @@ Implementation:
   and focus state. It no longer imports or monitors `SearchActionState.pendingQuery`.
 - Action-seeded route params seed the page-local search field and immediately run the query on the new
   Search page, so older Search instances cannot consume tag B.
-- The Search filter entry moved into the pinned search field row so tag search, normal search,
-  favorite search, loading, error, and results states all keep a stable filter entry.
+- The Search filter entry belongs in the title/menu/action area so tag search, normal search, favorite
+  search, loading, error, and results states keep a stable page-level filter entry without polluting the
+  search input row.
 - Empty ordinary search no longer implicitly re-runs a network request when filters change; live filter
   reapply requires a non-empty query or explicit favorite scope.
 - Advanced options now have a master switch; disabled advanced filters do not emit `advsearch=1` or

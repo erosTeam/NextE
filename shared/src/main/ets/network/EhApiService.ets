@@ -51,7 +51,7 @@ export interface GalleryListQuery {
   pagesFrom: number // f_spf page lower bound; 0 = off
   pagesTo: number // f_spt page upper bound; 0 = off
   requireTorrent: boolean // f_sto: only galleries with torrents
-  showExpunged: boolean // f_sh: include expunged/removed galleries
+  showExpunged: boolean // f_sh: only expunged/removed galleries
   // eros_fe's three independent "ignore my default <X> filter" toggles (each its own EH param).
   disableLanguageFilter: boolean // f_sfl: ignore the account's default language filter
   disableUploaderFilter: boolean // f_sfu: ignore the account's default uploader filter

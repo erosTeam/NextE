@@ -31,7 +31,7 @@ ok('sheet uses the native segmented button for scope selection',
   /TabSegmentButtonV2\(\{[\s\S]*selectedIndex: this\.scopeIndex\(\)[\s\S]*this\.setScope\(this\.scopeForIndex\(index\)\)/.test(sheet))
 ok('sheet explains favorite scope while hiding gallery-only filters from the active scope',
   /if \(this\.filter\.searchScope === SEARCH_SCOPE_FAVORITE\)[\s\S]*filter_favorite_scope_hint/.test(sheet) &&
-  /if \(this\.filter\.searchScope !== SEARCH_SCOPE_FAVORITE\)[\s\S]*filter_category[\s\S]*filter_options/.test(sheet))
+  /if \(this\.filter\.searchScope !== SEARCH_SCOPE_FAVORITE\)[\s\S]*SearchFilterCategoryButton[\s\S]*filter_advanced[\s\S]*this\.RatingRow\(\)[\s\S]*filter_disable_tag/.test(sheet))
 ok('sheet reset returns active scope to gallery and bumps live-apply sequence',
   /private resetFilter\(\): void \{[\s\S]*this\.filter\.searchScope = SEARCH_SCOPE_GALLERY[\s\S]*this\.bumpApplySeq\(\)/.test(sheet) &&
   /private setScope\(scope: string\): void \{[\s\S]*this\.filter\.searchScope = scope[\s\S]*this\.bumpApplySeq\(\)/.test(sheet))
@@ -51,10 +51,12 @@ ok('filter favorite searches all favorite slots', /favcat:\s*this\.isFavoriteSco
 const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 ok('empty ordinary query does not browse by filter scope', /if \(trimmed\.length === 0\) \{[\s\S]*this\.clearQueryToHistory\(\)/.test(page))
 ok('route favorite scope remains a hard page mode', /this\.isFavoriteScope = true[\s\S]*this\.vm\.seedFavoriteScope\(p\.favcat\)/.test(page))
-ok('search page keeps filter entry in the pinned bottomBuilder field so title hiding cannot lose it',
-  /@Monitor\('fieldState\.filterSeq'\)[\s\S]*this\.showFilter = true/.test(page) &&
+ok('search page keeps filter entry in the title menu/action area',
+  /'menu': this\.searchMenu\(\)/.test(page) &&
+  /private searchMenu\(\): Record<string, Object> \{[\s\S]*sys\.symbol\.funnel[\s\S]*this\.showFilter = true/.test(page) &&
   /SearchPageFieldState/.test(page) &&
-  /hideBottomBuilder: false/.test(page) &&
+  !/@Monitor\('fieldState\.filterSeq'\)/.test(page) &&
+  !/dynamicHideTitleBar\(/.test(page) &&
   !/@Builder\s+FilterTrigger/.test(page) &&
   !/FilterTriggerOverlay/.test(page) &&
   !/if \(!this\.isFavoriteScope\)[\s\S]*this\.FilterTrigger\(\)/.test(page))

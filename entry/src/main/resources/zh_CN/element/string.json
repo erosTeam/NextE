@@ -682,7 +682,7 @@
     },
     {
       "name": "filter_show_expunged",
-      "value": "显示已删除"
+      "value": "仅搜索已删除"
     },
     {
       "name": "filter_disable_default",

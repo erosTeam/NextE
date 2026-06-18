@@ -682,7 +682,7 @@
     },
     {
       "name": "filter_show_expunged",
-      "value": "Show expunged"
+      "value": "Only expunged"
     },
     {
       "name": "filter_disable_default",

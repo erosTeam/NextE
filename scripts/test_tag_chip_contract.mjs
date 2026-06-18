@@ -32,8 +32,10 @@ const ok = (cond, msg) => {
 const card = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
 const searchState = read('shared/src/main/ets/state/SearchActionState.ets')
+const searchParams = read('shared/src/main/ets/state/SearchPageParams.ets')
 const indexPage = read('entry/src/main/ets/pages/Index.ets')
 const searchField = read('feature/search/src/main/ets/components/SearchPageField.ets')
+const searchPage = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 
 // 1) Tokens exist with comfortable values.
 const chipRadius = Number((/CHIP_RADIUS:\s*number\s*=\s*(\d+)/.exec(theme) || [])[1])
@@ -91,16 +93,20 @@ ok(!/publishQuery\(`\$\{namespace\}:\$\{t\.display\(\)\}`\)/.test(card), 'tag se
 ok(!/publishQuery\(`\$\{namespace\}:\$\{tag\}`\)/.test(card), 'tag search no longer publishes unquoted raw multi-word values')
 
 // 7) Action-seeded search should be results-first, not IME-first.
-ok(/@Trace focusOnAppear: boolean = true/.test(searchState), 'SearchActionState tracks next Search autofocus policy')
-ok(/publishQuery\(query: string\): void \{[\s\S]*this\.focusOnAppear = false[\s\S]*this\.pendingQuery = `\$\{Date\.now\(\)\}:\$\{query\}`/.test(searchState),
-  'cross-page publishQuery disables autofocus before opening Search')
-ok(/prepareManualOpen\(\): void \{[\s\S]*this\.focusOnAppear = true/.test(searchState), 'manual Search opens can restore autofocus')
-ok(/onPendingQuery\(\): void \{[\s\S]*this\.openSearch\(false\)/.test(indexPage), 'pending search opens the Search page without autofocus')
-ok(/private openSearch\(focusOnAppear: boolean = true\): void \{[\s\S]*this\.searchAction\.focusOnAppear = focusOnAppear/.test(indexPage),
-  'manual gallery Search still defaults to autofocus')
-ok(/openFavoriteSearch\(\): void \{[\s\S]*this\.searchAction\.prepareManualOpen\(\)/.test(indexPage),
-  'favorite title-bar Search explicitly restores manual autofocus')
-ok(/autoFocus:\s*this\.actionState\.focusOnAppear/.test(searchField), 'SearchPageField forwards the shared autofocus policy')
+ok(!/@Trace focusOnAppear/.test(searchState), 'SearchActionState no longer owns per-page autofocus state')
+ok(/publishQuery\(query: string\): void \{[\s\S]*this\.pendingQuery = `\$\{Date\.now\(\)\}:\$\{query\}`/.test(searchState),
+  'cross-page publishQuery only publishes a pending route request')
+ok(/focusOnAppear: boolean = true/.test(searchParams), 'SearchPageParams carries the target Search autofocus policy')
+ok(/onPendingQuery\(\): void \{[\s\S]*new SearchPageParams\('', 'a', query, false, token\)[\s\S]*this\.searchAction\.clearPending\(\)/.test(indexPage),
+  'pending tag search pushes a concrete Search route without autofocus')
+ok(/private openSearch\(focusOnAppear: boolean = true\): void \{[\s\S]*new SearchPageParams\('', 'a', '', focusOnAppear\)/.test(indexPage),
+  'manual gallery Search still defaults to autofocus through route params')
+ok(/openFavoriteSearch\(\): void \{[\s\S]*new SearchPageParams\('favorite', favcat\)/.test(indexPage),
+  'favorite title-bar Search opens through route params instead of shared field state')
+ok(/@Trace focusOnAppear: boolean = true/.test(searchField) &&
+  /autoFocus:\s*this\.fieldState\.focusOnAppear/.test(searchField) &&
+  /this\.fieldState\.focusOnAppear = p\.focusOnAppear/.test(searchPage),
+  'SearchPageField consumes page-local autofocus seeded from route params')
 
 if (failures === 0) {
   console.log('✓ tag chip contract: comfortable chips, colour semantics, formatted tag search, and action autofocus policy preserved')

@@ -36,7 +36,7 @@ import {
   SearchPageParams,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
-import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
+import { BottomBuilderShowType, HdsNavDestination } from '@kit.UIDesignKit'
 import { ComponentContent } from '@kit.ArkUI'
 import { SearchViewModel } from '../viewmodel/SearchViewModel'
 import { SearchFilterSheet } from '../components/SearchFilterSheet'
@@ -47,8 +47,8 @@ const SEARCH_FIELD_BOTTOM_HEIGHT: number = ThemeConstants.TITLE_BAR_HEIGHT + The
 /**
  * Table-site search — a PUSHED page (eros_fe pushes a dedicated search page from the gallery
  * appbar's search icon, custom_tabbar_page.dart:219-229; NOT a bottom tab). The title area keeps
- * the native back button, current search scope title, and filter action; the search INPUT is pinned
- * in the HDS title bar bottomBuilder. It reacts to a page-owned field state (not the app-wide
+ * the native back button, current search scope title, and page-level actions; the search INPUT is
+ * pinned in the HDS title bar bottomBuilder. It reacts to a page-owned field state (not the app-wide
  * search bus) so stacked Search(A) -> Detail -> Search(B) sessions do not steal each other's query.
  * Action-seeded tag/uploader searches arrive as SearchPageParams.initialQuery route params.
  */
@@ -111,8 +111,22 @@ export struct GallerySearchPage {
     const content: Record<string, Object> = {
       'title': title,
       'bottomBuilder': this.searchBottomBuilder(this.ensureFieldContent()),
+      'menu': this.searchMenu(),
     }
     return immersiveTitleBarOpts(content)
+  }
+
+  private searchMenu(): Record<string, Object> {
+    const filterInner: Record<string, Object> = {
+      'label': $r('app.string.filter'),
+      'icon': $r('sys.symbol.funnel'),
+      'isEnabled': true,
+      'action': () => {
+        this.showFilter = true
+      },
+    }
+    const items: Record<string, Object>[] = [{ 'content': filterInner }]
+    return { 'value': items, 'maxCount': 1 }
   }
 
   @Monitor('fieldState.submitSeq')
@@ -125,11 +139,6 @@ export struct GallerySearchPage {
     if (this.fieldState.keyword.trim().length === 0) {
       this.clearQueryToHistory()
     }
-  }
-
-  @Monitor('fieldState.filterSeq')
-  onOpenFilter(): void {
-    this.showFilter = true
   }
 
   // A whole-string EH URL (no embedded substring) — eros_fe gates its URL-jump on searchText.isURL,
@@ -419,17 +428,11 @@ export struct GallerySearchPage {
       .height('100%')
       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
       .bindSheet($$this.showFilter, this.FilterSheet(), {
-        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+        detents: [SheetSize.LARGE],
         showClose: false,
       })
     }
     .titleBar(this.searchTitleBar())
-    .dynamicHideTitleBar({
-      hideTitleArea: true,
-      hideBottomBuilder: false,
-      hideStatusBar: false,
-      mode: HideMode.SCROLL_UP,
-    })
     .bindToScrollable([this.scroller])
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .onReady((context: NavDestinationContext) => {
