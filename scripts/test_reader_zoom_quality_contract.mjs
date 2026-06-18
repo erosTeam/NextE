@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
- * Contract: Reader image zoom preserves the user's focal point and allows panning in both axes
- * after zoom. This protects the high-frequency online reading surface from regressing to a
- * center-only double-tap or vertical-only pan.
+ * Contract: Reader zoom is restored to the simpler baseline during P0 core recovery.
+ *
+ * The focal-point transform enhancement is parked because its PanDirection.All child
+ * gesture competed with page turning on device. Baseline still requires pinch, double-tap
+ * toggle, and vertical pan while zoomed.
  *
  * Run: node scripts/test_reader_zoom_quality_contract.mjs
  */
@@ -18,54 +20,24 @@ const ok = (name, cond) => {
   passed++
 }
 
-const grounding = [
-  'eros_fe: lib/pages/image_view/view/view_image.dart _onDoubleTap() reads pointerDownPosition and passes it to handleDoubleTap(); image_page_view*.dart delegates zoom/pan to PhotoView/ExtendedImage',
-  'primary information: the Reader remains an immersive image canvas; the tapped detail should stay stable when zooming',
-  'primary actions: read, double-tap/pinch zoom, and pan zoomed content; secondary chrome/retry/share/settings keep current weight',
-  'scope: improve ReaderImagePage transform math and pan direction only; no auto-page-turn, save-original, orientation, download executor, or thumbnail strip',
-  'Harmony expression: V2 local state with a small ReaderImageTransformCoordinator mirroring V2Next ImagePreviewCoordinator fit/clamp/focal transform patterns',
-]
-
-ok('grounding has exactly five lines', grounding.length === 5)
-ok('grounding names concrete eros_fe double-tap implementation', grounding[0].includes('view_image.dart') &&
-  grounding[0].includes('_onDoubleTap') &&
-  grounding[0].includes('pointerDownPosition'))
-ok('scope excludes unrelated reader/download lanes', grounding[3].includes('no auto-page-turn') &&
-  grounding[3].includes('download executor'))
-
 const reader = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
-const coordinator = read('shared/src/main/ets/utils/ReaderImageTransformCoordinator.ets')
-const barrel = read('shared/src/main/ets/Index.ets')
 
-ok('shared barrel exports ReaderImageTransformCoordinator',
-  /export \{ ReaderImageTransformCoordinator \} from '\.\/utils\/ReaderImageTransformCoordinator'/.test(barrel))
-ok('Reader imports ReaderImageTransformCoordinator from shared',
-  /ReaderImageTransformCoordinator,\s*\} from 'shared'/.test(reader))
-ok('Reader records intrinsic image size from Image.onComplete',
-  /\.onComplete\(\(e\) => \{[\s\S]*this\.intrinsicW = this\.getUIContext\(\)\.px2vp\(e\.width\)[\s\S]*this\.intrinsicH = this\.getUIContext\(\)\.px2vp\(e\.height\)/.test(reader))
-ok('display size uses contain fit, not raw component dimensions',
-  /private displayWidth\(\): number \{[\s\S]*ReaderImageTransformCoordinator\.displaySize\(/.test(reader) &&
-  /static fitScale\(viewportW: number, viewportH: number, intrinsicW: number, intrinsicH: number\)/.test(coordinator) &&
-  /Math\.min\(viewportW \/ intrinsicW, viewportH \/ intrinsicH\)/.test(coordinator))
-ok('offset clamps use fitted display dimensions',
-  /private clampOffsetX\(value: number, scale: number\): number \{[\s\S]*this\.displayWidth\(\)/.test(reader) &&
-  /private clampOffsetY\(value: number, scale: number\): number \{[\s\S]*this\.displayHeight\(\)/.test(reader))
-ok('double-tap receives tap location and zooms toward that point',
-  /TapGesture\(\{ count: 2 \}\)\.onAction\(\(e\?: GestureEvent\) => \{[\s\S]*e\.tapLocation[\s\S]*this\.onDoubleTap\(tapX, tapY\)/.test(reader) &&
-  /private onDoubleTap\(tapX: number, tapY: number\)/.test(reader) &&
-  /ReaderImageTransformCoordinator\.doubleTapOffset\(tapX, this\.compW, target\)/.test(reader) &&
-  /static doubleTapOffset\(tap: number, viewport: number, targetScale: number\): number \{[\s\S]*\(1 - targetScale\) \* \(tap - viewport \/ 2\)/.test(coordinator))
-ok('pinch records and applies focal center correction',
-  /PinchGesture\(\{ fingers: 2 \}\)[\s\S]*this\.pinchStartCenterX = e\.pinchCenterX as number[\s\S]*ReaderImageTransformCoordinator\.pinchOffset\(/.test(reader) &&
-  /static pinchOffset\([\s\S]*startCenter: number[\s\S]*currentCenter: number[\s\S]*scaleRatio: number/.test(coordinator))
-ok('zoomed pan supports both axes',
-  /PanGesture\(\{ fingers: 1, direction: PanDirection\.All \}\)/.test(reader) &&
-  /this\.offsetX = this\.clampOffsetX\(this\.baseOffsetX \+ \(e\.offsetX as number\), this\.zoomScale\)/.test(reader) &&
-  /this\.offsetY = this\.clampOffsetY\([\s\S]*this\.baseOffsetY \+ \(e\.offsetY as number\)/.test(reader))
-ok('ReaderImagePage no longer uses center-only double-tap constants',
-  !/const DOUBLE_TAP_SCALE: number/.test(reader) &&
-  !/private onDoubleTap\(\): void/.test(reader))
-ok('ReaderImagePage no longer restricts zoomed pan to vertical only',
-  !/PanGesture\(\{ direction: PanDirection\.Vertical \}\)/.test(reader))
+ok('ReaderPage does not import ReaderImageTransformCoordinator',
+  !/ReaderImageTransformCoordinator/.test(reader))
+ok('baseline zoom constants are local to ReaderPage',
+  /const MAX_SCALE: number = 4/.test(reader) &&
+  /const DOUBLE_TAP_SCALE: number = 2\.5/.test(reader))
+ok('pinch zoom remains present',
+  /PinchGesture\(\)[\s\S]*this\.zoomScale = Math\.min\(MAX_SCALE, Math\.max\(1, this\.baseZoom \* e\.scale\)\)/.test(reader))
+ok('double tap still toggles zoom',
+  /TapGesture\(\{ count: 2 \}\)\.onAction\(\(\) => \{[\s\S]*this\.onDoubleTap\(\)/.test(reader) &&
+  /private onDoubleTap\(\): void[\s\S]*this\.zoomScale = DOUBLE_TAP_SCALE/.test(reader))
+ok('zoomed pan is vertical-only baseline and does not steal horizontal page turns',
+  /PanGesture\(\{ direction: PanDirection\.Vertical \}\)/.test(reader) &&
+  !/PanDirection\.All/.test(reader))
+ok('parent Swiper owns horizontal page turn unless image is zoomed',
+  /\.disableSwipe\(this\.imageZoomed\)/.test(reader))
+ok('zoom state is still reported to parent',
+  /this\.onZoomChange\(zoomed\)/.test(reader))
 
-console.log(`✓ reader zoom quality contract: ${passed} assertions passed`)
+console.log(`✓ reader zoom baseline contract: ${passed} assertions passed`)
