@@ -153,6 +153,48 @@ Inner -> outer same-process pid stayed 9633.
 Outer -> inner same-process pid stayed 9874.
 ```
 
+Current-main revalidation from 2026-06-18:
+
+```text
+Head under test: 2d08810 docs(project): record cover presentation reqa
+Build/install: official scripts/build_hvigor_signed.sh PASS (PackageHap + SignHap + BUILD SUCCESSFUL);
+installed entry/build/default/outputs/default/entry-default-signed.hap on Mate X7 target 127.0.0.1:5555.
+All hdc commands ran outside the Codex sandbox.
+
+Deterministic gates:
+- node scripts/test_list_responsive_cover_contract.mjs PASS, 46 assertions
+- node scripts/test_list_height_mode_contract.mjs PASS, 22 assertions
+- node scripts/test_cover_presentation_contract.mjs PASS
+- node scripts/test_v1_decorator_inventory_contract.mjs PASS, 0 file(s)
+- git diff --check PASS
+
+Evidence directory:
+- /private/tmp/nexte_list_responsive_cover_current_evidence/outer_cold.png
+- /private/tmp/nexte_list_responsive_cover_current_evidence/outer_cold_layout.json
+- /private/tmp/nexte_list_responsive_cover_current_evidence/outer_cold_fold_state.txt
+- /private/tmp/nexte_list_responsive_cover_current_evidence/inner_cold.png
+- /private/tmp/nexte_list_responsive_cover_current_evidence/inner_cold_layout.json
+- /private/tmp/nexte_list_responsive_cover_current_evidence/inner_cold_fold_state.txt
+- /private/tmp/nexte_list_responsive_cover_current_evidence/inner_to_outer.png
+- /private/tmp/nexte_list_responsive_cover_current_evidence/inner_to_outer_layout.json
+- /private/tmp/nexte_list_responsive_cover_current_evidence/inner_to_outer_fold_state.txt
+- /private/tmp/nexte_list_responsive_cover_current_evidence/inner_to_outer_pid.txt
+- /private/tmp/nexte_list_responsive_cover_current_evidence/outer_to_inner.png
+- /private/tmp/nexte_list_responsive_cover_current_evidence/outer_to_inner_layout.json
+- /private/tmp/nexte_list_responsive_cover_current_evidence/outer_to_inner_fold_state.txt
+- /private/tmp/nexte_list_responsive_cover_current_evidence/outer_to_inner_pid.txt
+
+Observed current-head behavior:
+- Outer/folded cold start: screen 1080 x 2444, first Home list cover bounds [37,440][372,1078], cover width 335px.
+- Inner/expanded cold start: screen 2210 x 2416, first Home list cover bounds [37,440][483,1078], cover width 446px.
+- Inner -> outer same-process switch: pid stayed 29878; screen returned to 1080 x 2444 and cover width 335px.
+- Outer -> inner same-process switch: pid stayed 29878; screen returned to 2210 x 2416 and cover width 446px.
+
+Interpretation:
+- Current main still proves the intended fix: GalleryCard cover width is recomputed from the current
+  pane/container width after fold/unfold, not from startup display dimensions.
+```
+
 Current merge status:
 
 ```text
