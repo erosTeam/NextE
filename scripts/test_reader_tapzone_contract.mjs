@@ -23,24 +23,46 @@ import { dirname, join } from 'node:path'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 // Mirror of ReaderPage.onReaderTap + tapLeft/tapRight + toPrev/toNext + turnTo.
-function turn(dir, currentIndex) {
+function spreadIndexForImage(columnMode, index) {
+  if (columnMode === 'single' || index <= 0) return 0
+  if (columnMode === 'evenLeft') return Math.floor((index + 1) / 2)
+  return Math.floor(index / 2)
+}
+function spreadStartIndex(columnMode, spreadIndex) {
+  if (columnMode === 'single') return spreadIndex
+  if (columnMode === 'evenLeft') return spreadIndex <= 0 ? 0 : spreadIndex * 2 - 1
+  return spreadIndex * 2
+}
+function spreadCount(columnMode, total) {
+  if (columnMode === 'single' || total <= 1) return total
+  if (columnMode === 'evenLeft') return Math.round(total / 2) + ((total + 1) % 2)
+  return Math.round(total / 2)
+}
+function turnSpread(dir, currentIndex, columnMode, total) {
+  const currentSpread = spreadIndexForImage(columnMode, currentIndex)
+  const targetSpread = currentSpread + (dir === 'next' ? 1 : -1)
+  if (targetSpread < 0 || targetSpread >= spreadCount(columnMode, total)) return { action: 'noop' }
+  return { action: 'turn', target: spreadStartIndex(columnMode, targetSpread) }
+}
+function turn(dir, currentIndex, columnMode, total) {
+  if (columnMode !== 'single') return turnSpread(dir, currentIndex, columnMode, total)
   const target = currentIndex + (dir === 'next' ? 1 : -1)
   if (target < 0) return { action: 'noop' }
   return { action: 'turn', target }
 }
-function tapAction(x, y, width, height, mode, currentIndex, zoomed) {
+function tapAction(x, y, width, height, mode, currentIndex, zoomed, columnMode = 'single', total = 20) {
   if (zoomed || width <= 0) return { action: 'chrome' }
   const lr = width / 3
   if (x < lr) {
     // tapLeft: RTL → next, else (LTR / vertical) → prev
-    return turn(mode === 'rtl' ? 'next' : 'prev', currentIndex)
+    return turn(mode === 'rtl' ? 'next' : 'prev', currentIndex, columnMode, total)
   }
   if (x > width - lr) {
     // tapRight: RTL → prev, else → next
-    return turn(mode === 'rtl' ? 'prev' : 'next', currentIndex)
+    return turn(mode === 'rtl' ? 'prev' : 'next', currentIndex, columnMode, total)
   }
-  if (height > 0 && y < height / 5) return turn('prev', currentIndex) // center-top (not RTL-inverted)
-  if (height > 0 && y > (height * 4) / 5) return turn('next', currentIndex) // center-bottom
+  if (height > 0 && y < height / 5) return turn('prev', currentIndex, columnMode, total) // center-top (not RTL-inverted)
+  if (height > 0 && y > (height * 4) / 5) return turn('next', currentIndex, columnMode, total) // center-bottom
   return { action: 'chrome' } // center-middle
 }
 
@@ -102,6 +124,16 @@ const MID_Y = 250 // center-middle band
 
 // 7. structural: the wiring exists in the .ets
 {
+  ok('oddLeft next moves to the next spread start', eq(tapAction(290, MID_Y, W, H, 'ltr', 0, false, 'oddLeft', 5), { action: 'turn', target: 2 }))
+  ok('oddLeft prev moves to the previous spread start', eq(tapAction(10, MID_Y, W, H, 'ltr', 2, false, 'oddLeft', 5), { action: 'turn', target: 0 }))
+  ok('evenLeft cover next moves to pages 2/3 start', eq(tapAction(290, MID_Y, W, H, 'ltr', 0, false, 'evenLeft', 5), { action: 'turn', target: 1 }))
+  ok('evenLeft pages 2/3 prev returns to cover', eq(tapAction(10, MID_Y, W, H, 'ltr', 1, false, 'evenLeft', 5), { action: 'turn', target: 0 }))
+  ok('rtl evenLeft left tap moves cover to pages 2/3 start', eq(tapAction(10, MID_Y, W, H, 'rtl', 0, false, 'evenLeft', 5), { action: 'turn', target: 1 }))
+  ok('rtl evenLeft right tap returns pages 2/3 to cover', eq(tapAction(290, MID_Y, W, H, 'rtl', 1, false, 'evenLeft', 5), { action: 'turn', target: 0 }))
+}
+
+// 8. structural: the wiring exists in the .ets
+{
   const src = readFileSync(join(ROOT, 'feature/reader/src/main/ets/pages/ReaderPage.ets'), 'utf8')
   ok('has onReaderTap(x, y)', /private onReaderTap\(x: number, y: number\)/.test(src))
   ok('zoom gate first', /if \(this\.imageZoomed \|\| this\.viewWidth <= 0\)/.test(src))
@@ -110,6 +142,9 @@ const MID_Y = 250 // center-middle band
   ok('center-bottom fifth → next', /y > \(this\.viewHeight \* 4\) \/ 5[\s\S]*this\.toNext\(\)/.test(src))
   ok('tapLeft RTL-inverts', /tapLeft[\s\S]*ReadMode\.RTL[\s\S]*this\.toNext\(\)[\s\S]*this\.toPrev\(\)/.test(src))
   ok('vertical turn scrolls the list', /VERTICAL[\s\S]*this\.listScroller\.scrollToIndex\(target\)/.test(src))
+  ok('double-page turns by spread index, not fixed +/-2', /private turnSpread\(delta: number\): void[\s\S]*this\.spreadIndexForImage\(this\.vm\.currentIndex\)[\s\S]*this\.spreadStartIndex\(targetSpread\)/.test(src))
+  ok('toPrev delegates double-page movement to turnSpread', /private toPrev\(\): void \{[\s\S]*if \(this\.doublePageEnabled\(\)\) \{[\s\S]*this\.turnSpread\(-1\)/.test(src))
+  ok('toNext delegates double-page movement to turnSpread', /private toNext\(\): void \{[\s\S]*if \(this\.doublePageEnabled\(\)\) \{[\s\S]*this\.turnSpread\(1\)/.test(src))
   ok('captures viewport height', /this\.viewHeight = n\.height as number/.test(src))
   ok('onClick passes x and y', /this\.onReaderTap\(e\.x, e\.y\)/.test(src))
 }

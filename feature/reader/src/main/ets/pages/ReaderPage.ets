@@ -284,11 +284,28 @@ export struct ReaderPage {
     }
   }
 
+  private turnSpread(delta: number): void {
+    const currentSpread: number = this.spreadIndexForImage(this.vm.currentIndex)
+    const targetSpread: number = currentSpread + delta
+    if (targetSpread < 0 || targetSpread >= this.spreadCount()) {
+      return
+    }
+    this.turnTo(this.spreadStartIndex(targetSpread))
+  }
+
   private toPrev(): void {
+    if (this.doublePageEnabled()) {
+      this.turnSpread(-1)
+      return
+    }
     this.turnTo(this.vm.currentIndex - this.pageStep())
   }
 
   private toNext(): void {
+    if (this.doublePageEnabled()) {
+      this.turnSpread(1)
+      return
+    }
     this.turnTo(this.vm.currentIndex + this.pageStep())
   }
 
