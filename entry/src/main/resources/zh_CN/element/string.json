@@ -553,6 +553,22 @@
       "value": "筛选"
     },
     {
+      "name": "filter_scope",
+      "value": "搜索范围"
+    },
+    {
+      "name": "search_scope_gallery",
+      "value": "画廊"
+    },
+    {
+      "name": "search_scope_watched",
+      "value": "订阅"
+    },
+    {
+      "name": "search_scope_favorite",
+      "value": "收藏"
+    },
+    {
       "name": "filter_category",
       "value": "分类"
     },

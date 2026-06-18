@@ -1,4 +1,11 @@
-import { ThemeConstants, SearchFilterState, connectSearchFilter } from 'shared'
+import {
+  ThemeConstants,
+  SearchFilterState,
+  connectSearchFilter,
+  SEARCH_SCOPE_FAVORITE,
+  SEARCH_SCOPE_GALLERY,
+  SEARCH_SCOPE_WATCHED,
+} from 'shared'
 
 interface CatItem {
   name: string
@@ -32,94 +39,110 @@ export struct SearchFilterSheet {
   build() {
     Scroll() {
       Column({ space: ThemeConstants.SPACE_LG }) {
-        Text($r('app.string.filter_category'))
+        Text($r('app.string.filter_scope'))
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_primary'))
-        Flex({ wrap: FlexWrap.Wrap }) {
-          ForEach(
-            CATS,
-            (c: CatItem) => {
-              this.Chip(c.name, (this.filter.selectedCats & c.bit) !== 0, () => {
-                this.filter.selectedCats = this.filter.selectedCats ^ c.bit
-              })
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          this.ScopeSegment($r('app.string.search_scope_gallery'), SEARCH_SCOPE_GALLERY)
+          this.ScopeSegment($r('app.string.search_scope_watched'), SEARCH_SCOPE_WATCHED)
+          this.ScopeSegment($r('app.string.search_scope_favorite'), SEARCH_SCOPE_FAVORITE)
+        }
+        .width('100%')
+        .height(40)
+        .padding(ThemeConstants.SPACE_XS)
+        .backgroundColor($r('app.color.card_background'))
+        .borderRadius(ThemeConstants.RADIUS_MD)
+        if (this.filter.searchScope !== SEARCH_SCOPE_FAVORITE) {
+          Text($r('app.string.filter_category'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Flex({ wrap: FlexWrap.Wrap }) {
+            ForEach(
+              CATS,
+              (c: CatItem) => {
+                this.Chip(c.name, (this.filter.selectedCats & c.bit) !== 0, () => {
+                  this.filter.selectedCats = this.filter.selectedCats ^ c.bit
+                })
+              },
+              (c: CatItem) => c.name,
+            )
+          }.width('100%')
+          Text($r('app.string.filter_rating'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Row({ space: ThemeConstants.SPACE_SM }) {
+            ForEach(
+              RATINGS,
+              (r: number) => {
+                this.Chip(
+                  r === 0 ? '' : `${r}★`,
+                  this.filter.minRating === r,
+                  () => {
+                    this.filter.minRating = r
+                  },
+                  r === 0,
+                )
+              },
+              (r: number) => `${r}`,
+            )
+          }
+          Text($r('app.string.filter_pages'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          Row({ space: ThemeConstants.SPACE_SM }) {
+            this.PageInput(this.filter.pagesFrom, (v: number) => {
+              this.filter.pagesFrom = v
+            })
+            Text('-').fontColor($r('sys.color.font_secondary'))
+            this.PageInput(this.filter.pagesTo, (v: number) => {
+              this.filter.pagesTo = v
+            })
+          }.alignItems(VerticalAlign.Center)
+          Text($r('app.string.filter_options'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          this.ToggleRow(
+            $r('app.string.filter_require_torrent'),
+            this.filter.requireTorrent,
+            (on: boolean) => {
+              this.filter.requireTorrent = on
             },
-            (c: CatItem) => c.name,
           )
-        }.width('100%')
-        Text($r('app.string.filter_rating'))
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Row({ space: ThemeConstants.SPACE_SM }) {
-          ForEach(
-            RATINGS,
-            (r: number) => {
-              this.Chip(
-                r === 0 ? '' : `${r}★`,
-                this.filter.minRating === r,
-                () => {
-                  this.filter.minRating = r
-                },
-                r === 0,
-              )
+          this.ToggleRow(
+            $r('app.string.filter_show_expunged'),
+            this.filter.showExpunged,
+            (on: boolean) => {
+              this.filter.showExpunged = on
             },
-            (r: number) => `${r}`,
+          )
+          // eros_fe's three independent "ignore my default <X> filter" toggles (f_sfl/f_sfu/f_sft).
+          this.ToggleRow(
+            $r('app.string.filter_disable_lang'),
+            this.filter.disableLanguageFilter,
+            (on: boolean) => {
+              this.filter.disableLanguageFilter = on
+            },
+          )
+          this.ToggleRow(
+            $r('app.string.filter_disable_uploader'),
+            this.filter.disableUploaderFilter,
+            (on: boolean) => {
+              this.filter.disableUploaderFilter = on
+            },
+          )
+          this.ToggleRow(
+            $r('app.string.filter_disable_tag'),
+            this.filter.disableTagFilter,
+            (on: boolean) => {
+              this.filter.disableTagFilter = on
+            },
           )
         }
-        Text($r('app.string.filter_pages'))
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Row({ space: ThemeConstants.SPACE_SM }) {
-          this.PageInput(this.filter.pagesFrom, (v: number) => {
-            this.filter.pagesFrom = v
-          })
-          Text('-').fontColor($r('sys.color.font_secondary'))
-          this.PageInput(this.filter.pagesTo, (v: number) => {
-            this.filter.pagesTo = v
-          })
-        }.alignItems(VerticalAlign.Center)
-        Text($r('app.string.filter_options'))
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        this.ToggleRow(
-          $r('app.string.filter_require_torrent'),
-          this.filter.requireTorrent,
-          (on: boolean) => {
-            this.filter.requireTorrent = on
-          },
-        )
-        this.ToggleRow(
-          $r('app.string.filter_show_expunged'),
-          this.filter.showExpunged,
-          (on: boolean) => {
-            this.filter.showExpunged = on
-          },
-        )
-        // eros_fe's three independent "ignore my default <X> filter" toggles (f_sfl/f_sfu/f_sft).
-        this.ToggleRow(
-          $r('app.string.filter_disable_lang'),
-          this.filter.disableLanguageFilter,
-          (on: boolean) => {
-            this.filter.disableLanguageFilter = on
-          },
-        )
-        this.ToggleRow(
-          $r('app.string.filter_disable_uploader'),
-          this.filter.disableUploaderFilter,
-          (on: boolean) => {
-            this.filter.disableUploaderFilter = on
-          },
-        )
-        this.ToggleRow(
-          $r('app.string.filter_disable_tag'),
-          this.filter.disableTagFilter,
-          (on: boolean) => {
-            this.filter.disableTagFilter = on
-          },
-        )
         Row({ space: ThemeConstants.SPACE_MD }) {
           Button($r('app.string.filter_reset'))
             .type(ButtonType.Capsule)
@@ -127,6 +150,7 @@ export struct SearchFilterSheet {
             .fontColor($r('sys.color.font_primary'))
             .layoutWeight(1)
             .onClick(() => {
+              this.filter.searchScope = SEARCH_SCOPE_GALLERY
               this.filter.selectedCats = 0
               this.filter.minRating = 0
               this.filter.pagesFrom = 0
@@ -155,6 +179,27 @@ export struct SearchFilterSheet {
       .alignItems(HorizontalAlign.Start)
       .padding(ThemeConstants.SPACE_LG)
     }.scrollBar(BarState.Off)
+  }
+
+  @Builder
+  ScopeSegment(label: ResourceStr, scope: string) {
+    Text(label)
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontWeight(this.filter.searchScope === scope ? FontWeight.Medium : FontWeight.Regular)
+      .fontColor(
+        this.filter.searchScope === scope ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_primary'),
+      )
+      .textAlign(TextAlign.Center)
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .height('100%')
+      .layoutWeight(1)
+      .backgroundColor(this.filter.searchScope === scope ? ThemeConstants.BRAND_PRIMARY : Color.Transparent)
+      .borderRadius(ThemeConstants.RADIUS_SM)
+      .padding({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_XS })
+      .onClick(() => {
+        this.filter.searchScope = scope
+      })
   }
 
   @Builder

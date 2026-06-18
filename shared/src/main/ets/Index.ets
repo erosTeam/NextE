@@ -139,7 +139,13 @@ export {
 } from './state/LayoutSafeAreaState'
 export { SearchActionState, connectSearchAction } from './state/SearchActionState'
 export { SearchPageParams } from './state/SearchPageParams'
-export { SearchFilterState, connectSearchFilter } from './state/SearchFilterState'
+export {
+  SearchFilterState,
+  connectSearchFilter,
+  SEARCH_SCOPE_GALLERY,
+  SEARCH_SCOPE_WATCHED,
+  SEARCH_SCOPE_FAVORITE,
+} from './state/SearchFilterState'
 export { AuthState, connectAuth } from './state/AuthState'
 export {
   HomeSourceState,

@@ -553,6 +553,22 @@
       "value": "Filter"
     },
     {
+      "name": "filter_scope",
+      "value": "Search scope"
+    },
+    {
+      "name": "search_scope_gallery",
+      "value": "Gallery"
+    },
+    {
+      "name": "search_scope_watched",
+      "value": "Watched"
+    },
+    {
+      "name": "search_scope_favorite",
+      "value": "Favorite"
+    },
+    {
       "name": "filter_category",
       "value": "Categories"
     },

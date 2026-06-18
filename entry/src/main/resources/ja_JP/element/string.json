@@ -553,6 +553,22 @@
       "value": "絞り込み"
     },
     {
+      "name": "filter_scope",
+      "value": "検索範囲"
+    },
+    {
+      "name": "search_scope_gallery",
+      "value": "ギャラリー"
+    },
+    {
+      "name": "search_scope_watched",
+      "value": "ウォッチ"
+    },
+    {
+      "name": "search_scope_favorite",
+      "value": "お気に入り"
+    },
+    {
       "name": "filter_category",
       "value": "カテゴリ"
     },

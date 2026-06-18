@@ -1,11 +1,17 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
-import { connectSearchFilter } from '../state/SearchFilterState'
+import {
+  connectSearchFilter,
+  SEARCH_SCOPE_FAVORITE,
+  SEARCH_SCOPE_GALLERY,
+  SEARCH_SCOPE_WATCHED,
+} from '../state/SearchFilterState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 /** Serialized advanced-search filter (the persistable subset of SearchFilterState; not applySeq). */
 export class SearchFilterSnapshot {
+  scope: string = SEARCH_SCOPE_GALLERY // gallery / watched / favorite search target
   cats: number = 0 // selectedCats (SHOW bitmask)
   rating: number = 0 // minRating
   pf: number = 0 // pagesFrom
@@ -54,6 +60,7 @@ export class SearchFilterSettings {
         return
       }
       const f = connectSearchFilter()
+      f.searchScope = snap.scope
       f.selectedCats = snap.cats
       f.minRating = snap.rating
       f.pagesFrom = snap.pf
@@ -74,6 +81,7 @@ export class SearchFilterSettings {
     try {
       const f = connectSearchFilter()
       const snap: SearchFilterSnapshot = new SearchFilterSnapshot()
+      snap.scope = SearchFilterSettings.sanitizeScope(f.searchScope)
       snap.cats = f.selectedCats
       snap.rating = f.minRating
       snap.pf = f.pagesFrom
@@ -105,6 +113,7 @@ export class SearchFilterSettings {
       }
       const o = parsed as SearchFilterSnapshot
       const s: SearchFilterSnapshot = new SearchFilterSnapshot()
+      s.scope = SearchFilterSettings.sanitizeScope(o.scope)
       s.cats = typeof o.cats === 'number' && o.cats >= 0 ? o.cats : 0
       s.rating = typeof o.rating === 'number' && o.rating >= 0 ? o.rating : 0
       s.pf = typeof o.pf === 'number' && o.pf >= 0 ? o.pf : 0
@@ -120,5 +129,12 @@ export class SearchFilterSettings {
       DiagnosticLogger.warn('settings', 'searchfilter_parse_failed', (error as Error).message)
       return null
     }
+  }
+
+  private static sanitizeScope(scope: string): string {
+    if (scope === SEARCH_SCOPE_WATCHED || scope === SEARCH_SCOPE_FAVORITE) {
+      return scope
+    }
+    return SEARCH_SCOPE_GALLERY
   }
 }

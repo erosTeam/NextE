@@ -2,15 +2,19 @@ import { AppStorageV2 } from '@kit.ArkUI'
 
 /** All 10 EH category bits OR'd together (Misc..Western = 1+2+…+512). */
 const ALL_CATS: number = 1023
+export const SEARCH_SCOPE_GALLERY: string = 'gallery'
+export const SEARCH_SCOPE_WATCHED: string = 'watched'
+export const SEARCH_SCOPE_FAVORITE: string = 'favorite'
 
 /**
- * Advanced search filters (category bitmask + min rating + page range), shared between the
- * filter sheet (writer) and SearchViewModel (reader). `selectedCats` is the bitmask of
- * categories to SHOW (0 or all = no category filter); EH's `f_cats` is the EXCLUDE mask, so
- * fCats() inverts. `applySeq` bumps when the user applies filters, so the search page re-runs.
+ * Search scope + advanced filters, shared between the filter sheet (writer) and SearchViewModel
+ * (reader). `selectedCats` is the bitmask of categories to SHOW (0 or all = no category filter);
+ * EH's `f_cats` is the EXCLUDE mask, so fCats() inverts. `applySeq` bumps when the user applies
+ * filters, so the search page re-runs.
  */
 @ObservedV2
 export class SearchFilterState {
+  @Trace searchScope: string = SEARCH_SCOPE_GALLERY
   @Trace selectedCats: number = 0
   @Trace minRating: number = 0
   @Trace pagesFrom: number = 0
@@ -42,7 +46,8 @@ export class SearchFilterState {
       this.showExpunged ||
       this.disableLanguageFilter ||
       this.disableUploaderFilter ||
-      this.disableTagFilter
+      this.disableTagFilter ||
+      this.searchScope !== SEARCH_SCOPE_GALLERY
     )
   }
 }

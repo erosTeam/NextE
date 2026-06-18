@@ -5,7 +5,7 @@
  *
  * The functions below are copy-equal to that ArkTS logic (no preferences runtime — pure data). They
  * lock the eros_fe parity (advanced-search profile survives restart):
- *   • the 7 filter fields (cats/rating/pf/pt/torrent/expunged/nodefault) round-trip through JSON.
+ *   • the scope + filter fields round-trip through JSON.
  *   • parse is defensive: bad JSON / shape → null; bad/negative/missing fields → safe defaults.
  *   • applySeq (a transient signal) is NOT persisted.
  * If the .ets logic changes, mirror it here.
@@ -18,9 +18,15 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const SEARCH_SCOPE_GALLERY = 'gallery'
+const SEARCH_SCOPE_WATCHED = 'watched'
+const SEARCH_SCOPE_FAVORITE = 'favorite'
+const sanitizeScope = (scope) =>
+  scope === SEARCH_SCOPE_WATCHED || scope === SEARCH_SCOPE_FAVORITE ? scope : SEARCH_SCOPE_GALLERY
 
 // Mirror of SearchFilterSettings: snapshot fields = the persistable subset of SearchFilterState.
 const snapshotOf = (f) => ({
+  scope: sanitizeScope(f.searchScope),
   cats: f.selectedCats,
   rating: f.minRating,
   pf: f.pagesFrom,
@@ -42,6 +48,7 @@ function parse(raw) {
   }
   if (o === null || typeof o !== 'object' || Array.isArray(o)) return null
   return {
+    scope: sanitizeScope(o.scope),
     cats: typeof o.cats === 'number' && o.cats >= 0 ? o.cats : 0,
     rating: typeof o.rating === 'number' && o.rating >= 0 ? o.rating : 0,
     pf: typeof o.pf === 'number' && o.pf >= 0 ? o.pf : 0,
@@ -58,6 +65,7 @@ function parse(raw) {
 // `nodefault` migrates onto all three when no per-filter key is set.
 function restore(snap) {
   return {
+    searchScope: snap.scope,
     selectedCats: snap.cats,
     minRating: snap.rating,
     pagesFrom: snap.pf,
@@ -75,7 +83,13 @@ const ok = (name, cond) => {
   assert.ok(cond, name)
   passed++
 }
-const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+const eq = (a, b) => {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
+  for (const key of keys) {
+    if (a[key] !== b[key]) return false
+  }
+  return true
+}
 
 // 1. full round-trip: a populated filter state survives serialize → parse → restore
 {
@@ -89,9 +103,11 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
     disableLanguageFilter: true,
     disableUploaderFilter: false,
     disableTagFilter: true,
+    searchScope: SEARCH_SCOPE_WATCHED,
     applySeq: 99, // transient — must NOT travel
   }
   const restored = restore(parse(serialize(snapshotOf(f))))
+  ok('scope round-trip', restored.searchScope === SEARCH_SCOPE_WATCHED)
   ok('cats round-trip', restored.selectedCats === 1021)
   ok('rating round-trip', restored.minRating === 4)
   ok('pagesFrom round-trip', restored.pagesFrom === 10)
@@ -116,8 +132,17 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
     disableLanguageFilter: false,
     disableUploaderFilter: false,
     disableTagFilter: false,
+    searchScope: SEARCH_SCOPE_GALLERY,
   }
   ok('empty filter round-trips', eq(restore(parse(serialize(snapshotOf(f)))), f))
+}
+
+// 2c. favorite scope persists, while unknown scopes fall back to gallery.
+{
+  const fav = restore(parse(JSON.stringify({ scope: SEARCH_SCOPE_FAVORITE })))
+  ok('favorite scope restores', fav.searchScope === SEARCH_SCOPE_FAVORITE)
+  const bad = restore(parse(JSON.stringify({ scope: 'archive' })))
+  ok('invalid scope → gallery', bad.searchScope === SEARCH_SCOPE_GALLERY)
 }
 
 // 2b. legacy migration: an old snapshot with only `nodefault:true` restores all three toggles on.
@@ -162,12 +187,15 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
   ok('storage key registered', /SEARCH_FILTER: string = 'search\.filter'/.test(keys))
   const settings = read('shared/src/main/ets/settings/SearchFilterSettings.ets')
   ok('snapshot never carries applySeq', !/snap\.applySeq/.test(settings) && !/applySeq:/.test(settings))
-  ok('persist serializes through the three split fields', /snap\.cats[\s\S]*snap\.sfl[\s\S]*snap\.sfu[\s\S]*snap\.sft/.test(settings))
+  ok('persist serializes scope + three split fields', /snap\.scope[\s\S]*snap\.cats[\s\S]*snap\.sfl[\s\S]*snap\.sfu[\s\S]*snap\.sft/.test(settings))
   ok('restore migrates legacy nodefault onto the three', /disableLanguageFilter = snap\.sfl \|\| snap\.nodefault/.test(settings))
+  ok('restore writes scope before filters', /f\.searchScope = snap\.scope[\s\S]*f\.selectedCats = snap\.cats/.test(settings))
+  ok('parse sanitizes scope', /s\.scope = SearchFilterSettings\.sanitizeScope\(o\.scope\)/.test(settings))
   ok('parse rejects non-object blobs', /typeof parsed !== 'object' \|\| Array\.isArray\(parsed\)/.test(settings))
   // the Reset hole fix: Reset must also commit (bump applySeq) so disk doesn't keep a stale filter.
   const sheet = read('feature/search/src/main/ets/components/SearchFilterSheet.ets')
   ok('reset commits (bumps applySeq)', /selectedCats = 0[\s\S]*?applySeq = this\.filter\.applySeq \+ 1/.test(sheet))
+  ok('reset returns search scope to gallery', /searchScope = SEARCH_SCOPE_GALLERY[\s\S]*selectedCats = 0/.test(sheet))
 }
 
 console.log(`✓ search filter settings contract: ${passed} assertions passed`)

@@ -9,6 +9,8 @@ import {
   connectSiteMode,
   connectSearchFilter,
   SearchFilterState,
+  SEARCH_SCOPE_FAVORITE,
+  SEARCH_SCOPE_WATCHED,
   DiagnosticLogger,
   EhErrorText,
 } from 'shared'
@@ -50,17 +52,21 @@ export class SearchViewModel {
   private buildFavQuery(next: string): FavoritesQuery {
     return {
       isEx: connectSiteMode().isEx,
-      favcat: this.favcat,
+      favcat: this.isFavoriteScope ? this.favcat : 'a',
       next: next,
       search: this.query,
       order: this.favOrder,
     }
   }
 
+  private effectiveFavoriteScope(): boolean {
+    return this.isFavoriteScope || connectSearchFilter().searchScope === SEARCH_SCOPE_FAVORITE
+  }
+
   // Fetch one page in the active scope: favorites.php (favorite scope) or the gallery list (normal).
   // Both return GalleryList (.gallerys + .nextGid), so all the dataSource/paging plumbing is shared.
   private fetchPage(next: string): Promise<GalleryList> {
-    return this.isFavoriteScope
+    return this.effectiveFavoriteScope()
       ? EhApiService.getInstance().getFavoritesList(this.buildFavQuery(next))
       : EhApiService.getInstance().getGalleryList(this.buildQuery(next))
   }
@@ -69,7 +75,7 @@ export class SearchViewModel {
     const f: SearchFilterState = connectSearchFilter()
     return {
       isEx: connectSiteMode().isEx,
-      source: '', // search always queries the front-page index
+      source: f.searchScope === SEARCH_SCOPE_WATCHED ? 'watched' : '',
       next: next,
       tl: 0,
       page: 0,
