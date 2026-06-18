@@ -59,6 +59,7 @@ export struct GallerySearchPage {
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local showFilter: boolean = false;
+  @Local filterOpenSeq: number = 0;
   @Local listContentWidth: number = 0;
   @Local imagePageErrorUrl: string = '';
   @Local imagePageResolving: boolean = false;
@@ -213,6 +214,7 @@ export struct GallerySearchPage {
   @Builder
   FilterSheet() {
     SearchFilterSheet({
+      openSeq: this.filterOpenSeq,
       onApply: () => {
         this.showFilter = false
       },
@@ -317,6 +319,7 @@ export struct GallerySearchPage {
         bottom: ThemeConstants.SPACE_XS,
       })
       .onClick(() => {
+        this.filterOpenSeq = this.filterOpenSeq + 1
         this.showFilter = true
       })
   }

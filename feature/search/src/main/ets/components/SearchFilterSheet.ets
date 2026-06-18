@@ -34,7 +34,68 @@ const RATINGS: number[] = [0, 2, 3, 4, 5]
 @ComponentV2
 export struct SearchFilterSheet {
   @Local filter: SearchFilterState = connectSearchFilter();
+  @Param openSeq: number = 0;
+  @Local draftSearchScope: string = SEARCH_SCOPE_GALLERY;
+  @Local draftSelectedCats: number = 0;
+  @Local draftMinRating: number = 0;
+  @Local draftPagesFrom: number = 0;
+  @Local draftPagesTo: number = 0;
+  @Local draftRequireTorrent: boolean = false;
+  @Local draftShowExpunged: boolean = false;
+  @Local draftDisableLanguageFilter: boolean = false;
+  @Local draftDisableUploaderFilter: boolean = false;
+  @Local draftDisableTagFilter: boolean = false;
   @Event onApply: () => void = () => {};
+
+  aboutToAppear(): void {
+    this.syncDraftFromFilter()
+  }
+
+  @Monitor('openSeq')
+  onOpenSeqChanged(): void {
+    this.syncDraftFromFilter()
+  }
+
+  private syncDraftFromFilter(): void {
+    this.draftSearchScope = this.filter.searchScope
+    this.draftSelectedCats = this.filter.selectedCats
+    this.draftMinRating = this.filter.minRating
+    this.draftPagesFrom = this.filter.pagesFrom
+    this.draftPagesTo = this.filter.pagesTo
+    this.draftRequireTorrent = this.filter.requireTorrent
+    this.draftShowExpunged = this.filter.showExpunged
+    this.draftDisableLanguageFilter = this.filter.disableLanguageFilter
+    this.draftDisableUploaderFilter = this.filter.disableUploaderFilter
+    this.draftDisableTagFilter = this.filter.disableTagFilter
+  }
+
+  private resetDraft(): void {
+    this.draftSearchScope = SEARCH_SCOPE_GALLERY
+    this.draftSelectedCats = 0
+    this.draftMinRating = 0
+    this.draftPagesFrom = 0
+    this.draftPagesTo = 0
+    this.draftRequireTorrent = false
+    this.draftShowExpunged = false
+    this.draftDisableLanguageFilter = false
+    this.draftDisableUploaderFilter = false
+    this.draftDisableTagFilter = false
+  }
+
+  private commitDraft(): void {
+    this.filter.searchScope = this.draftSearchScope
+    this.filter.selectedCats = this.draftSelectedCats
+    this.filter.minRating = this.draftMinRating
+    this.filter.pagesFrom = this.draftPagesFrom
+    this.filter.pagesTo = this.draftPagesTo
+    this.filter.requireTorrent = this.draftRequireTorrent
+    this.filter.showExpunged = this.draftShowExpunged
+    this.filter.disableLanguageFilter = this.draftDisableLanguageFilter
+    this.filter.disableUploaderFilter = this.draftDisableUploaderFilter
+    this.filter.disableTagFilter = this.draftDisableTagFilter
+    this.filter.applySeq = this.filter.applySeq + 1
+    this.onApply()
+  }
 
   build() {
     Scroll() {
@@ -53,7 +114,7 @@ export struct SearchFilterSheet {
         .padding(ThemeConstants.SPACE_XS)
         .backgroundColor($r('app.color.card_background'))
         .borderRadius(ThemeConstants.RADIUS_MD)
-        if (this.filter.searchScope !== SEARCH_SCOPE_FAVORITE) {
+        if (this.draftSearchScope !== SEARCH_SCOPE_FAVORITE) {
           Text($r('app.string.filter_category'))
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontWeight(FontWeight.Medium)
@@ -62,8 +123,8 @@ export struct SearchFilterSheet {
             ForEach(
               CATS,
               (c: CatItem) => {
-                this.Chip(c.name, (this.filter.selectedCats & c.bit) !== 0, () => {
-                  this.filter.selectedCats = this.filter.selectedCats ^ c.bit
+                this.Chip(c.name, (this.draftSelectedCats & c.bit) !== 0, () => {
+                  this.draftSelectedCats = this.draftSelectedCats ^ c.bit
                 })
               },
               (c: CatItem) => c.name,
@@ -79,9 +140,9 @@ export struct SearchFilterSheet {
               (r: number) => {
                 this.Chip(
                   r === 0 ? '' : `${r}★`,
-                  this.filter.minRating === r,
+                  this.draftMinRating === r,
                   () => {
-                    this.filter.minRating = r
+                    this.draftMinRating = r
                   },
                   r === 0,
                 )
@@ -94,12 +155,12 @@ export struct SearchFilterSheet {
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
           Row({ space: ThemeConstants.SPACE_SM }) {
-            this.PageInput(this.filter.pagesFrom, (v: number) => {
-              this.filter.pagesFrom = v
+            this.PageInput(this.draftPagesFrom, (v: number) => {
+              this.draftPagesFrom = v
             })
             Text('-').fontColor($r('sys.color.font_secondary'))
-            this.PageInput(this.filter.pagesTo, (v: number) => {
-              this.filter.pagesTo = v
+            this.PageInput(this.draftPagesTo, (v: number) => {
+              this.draftPagesTo = v
             })
           }.alignItems(VerticalAlign.Center)
           Text($r('app.string.filter_options'))
@@ -108,38 +169,38 @@ export struct SearchFilterSheet {
             .fontColor($r('sys.color.font_primary'))
           this.ToggleRow(
             $r('app.string.filter_require_torrent'),
-            this.filter.requireTorrent,
+            this.draftRequireTorrent,
             (on: boolean) => {
-              this.filter.requireTorrent = on
+              this.draftRequireTorrent = on
             },
           )
           this.ToggleRow(
             $r('app.string.filter_show_expunged'),
-            this.filter.showExpunged,
+            this.draftShowExpunged,
             (on: boolean) => {
-              this.filter.showExpunged = on
+              this.draftShowExpunged = on
             },
           )
           // eros_fe's three independent "ignore my default <X> filter" toggles (f_sfl/f_sfu/f_sft).
           this.ToggleRow(
             $r('app.string.filter_disable_lang'),
-            this.filter.disableLanguageFilter,
+            this.draftDisableLanguageFilter,
             (on: boolean) => {
-              this.filter.disableLanguageFilter = on
+              this.draftDisableLanguageFilter = on
             },
           )
           this.ToggleRow(
             $r('app.string.filter_disable_uploader'),
-            this.filter.disableUploaderFilter,
+            this.draftDisableUploaderFilter,
             (on: boolean) => {
-              this.filter.disableUploaderFilter = on
+              this.draftDisableUploaderFilter = on
             },
           )
           this.ToggleRow(
             $r('app.string.filter_disable_tag'),
-            this.filter.disableTagFilter,
+            this.draftDisableTagFilter,
             (on: boolean) => {
-              this.filter.disableTagFilter = on
+              this.draftDisableTagFilter = on
             },
           )
         }
@@ -150,26 +211,15 @@ export struct SearchFilterSheet {
             .fontColor($r('sys.color.font_primary'))
             .layoutWeight(1)
             .onClick(() => {
-              this.filter.searchScope = SEARCH_SCOPE_GALLERY
-              this.filter.selectedCats = 0
-              this.filter.minRating = 0
-              this.filter.pagesFrom = 0
-              this.filter.pagesTo = 0
-              this.filter.requireTorrent = false
-              this.filter.showExpunged = false
-              this.filter.disableLanguageFilter = false
-              this.filter.disableUploaderFilter = false
-              this.filter.disableTagFilter = false
-              // Reset is itself a commit of the empty filter: bump applySeq so the page persists the
-              // cleared state (else disk keeps the old filter and it resurrects on restart) + reapplies.
-              this.filter.applySeq = this.filter.applySeq + 1
+              // Reset is a commit of the empty filter, so it closes the sheet and re-runs like Apply.
+              this.resetDraft()
+              this.commitDraft()
             })
           Button($r('app.string.filter_apply'))
             .type(ButtonType.Capsule)
             .layoutWeight(1)
             .onClick(() => {
-              this.filter.applySeq = this.filter.applySeq + 1
-              this.onApply()
+              this.commitDraft()
             })
         }
         .width('100%')
@@ -185,20 +235,20 @@ export struct SearchFilterSheet {
   ScopeSegment(label: ResourceStr, scope: string) {
     Text(label)
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .fontWeight(this.filter.searchScope === scope ? FontWeight.Medium : FontWeight.Regular)
+      .fontWeight(this.draftSearchScope === scope ? FontWeight.Medium : FontWeight.Regular)
       .fontColor(
-        this.filter.searchScope === scope ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_primary'),
+        this.draftSearchScope === scope ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_primary'),
       )
       .textAlign(TextAlign.Center)
       .maxLines(1)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
       .height('100%')
       .layoutWeight(1)
-      .backgroundColor(this.filter.searchScope === scope ? ThemeConstants.BRAND_PRIMARY : Color.Transparent)
+      .backgroundColor(this.draftSearchScope === scope ? ThemeConstants.BRAND_PRIMARY : Color.Transparent)
       .borderRadius(ThemeConstants.RADIUS_SM)
       .padding({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_XS })
       .onClick(() => {
-        this.filter.searchScope = scope
+        this.draftSearchScope = scope
       })
   }
 
