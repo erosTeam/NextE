@@ -638,6 +638,69 @@ Remaining acceptance:
 - Required FE observations: category colors, category normal tap behavior, category long-press
   inverse/solo behavior, rating control shape, live-vs-Apply model, Reset placement/weight, and
   search-scope expression.
+
+### Search Action Routes Can Lose The Second Tag Query
+
+Type: routing / state ownership bug
+
+Priority suggestion: P0
+
+Status: implemented / pending device acceptance
+
+Source:
+
+- User-reported route-stack scenario: open Search from detail tag A, enter another gallery detail from
+  the results, then tap tag B. One run crashed; later repeats opened the second Search page without a
+  query.
+- Root risk: `SearchActionState` was an AppStorageV2 singleton that held live keyword, submit, seed,
+  focus, and pending-query state. Multiple Search page instances could coexist, and old/non-top Search
+  pages could monitor and clear `pendingQuery` before the newly pushed Search page consumed tag B.
+
+Expected behavior:
+
+- Action-seeded searches from tags/uploader/similar should target a concrete Search session.
+- If the current stack top is not Search, push a new Search route with route/session params instead of
+  relying on a shared pending keyword bus as the page source of truth.
+- Multiple Search pages may coexist; Search(A) must not overwrite, consume, or clear Search(B).
+
+Implementation:
+
+- Pending action state is now a narrow app-wide open/search signal only. `Index.onPendingQuery()`
+  consumes it, pushes `SearchPageParams(initialQuery, focusOnAppear=false, sessionId)`, then clears it.
+- `GallerySearchPage` owns page-local `SearchPageFieldState` for keyword, submit, seed, filter-open,
+  and focus state. It no longer imports or monitors `SearchActionState.pendingQuery`.
+- Action-seeded route params seed the page-local search field and immediately run the query on the new
+  Search page, so older Search instances cannot consume tag B.
+- The Search filter entry moved into the pinned search field row so tag search, normal search,
+  favorite search, loading, error, and results states all keep a stable filter entry.
+- Empty ordinary search no longer implicitly re-runs a network request when filters change; live filter
+  reapply requires a non-empty query or explicit favorite scope.
+- Advanced options now have a master switch; disabled advanced filters do not emit `advsearch=1` or
+  advanced URL params.
+
+Evidence:
+
+- Deterministic contract added: `scripts/test_search_route_session_contract.mjs` covers stacked
+  Search(A) -> Detail -> tag B session seeding and asserts `GallerySearchPage` no longer consumes the
+  global pending query.
+- Related contracts updated: `scripts/test_search_input_contract.mjs`,
+  `scripts/test_search_scope_contract.mjs`, `scripts/test_search_filter_draft_contract.mjs`,
+  `scripts/test_search_filter_settings_contract.mjs`, `scripts/test_search_filter_ux_contract.mjs`,
+  and `scripts/test_home_source_routing_contract.mjs`.
+- Gates passed: all above contracts, `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, and `git diff --check`.
+- Official signed build passed with `scripts/build_hvigor_signed.sh`; no `dev.sh` was used.
+- HarmonyOS Mate X7 emulator target `127.0.0.1:5555`, hdc outside the sandbox, official signed HAP
+  installed. Evidence directory: `/private/tmp/nexte_search_behavior_model_evidence`.
+- Device route-stack check: from Search result detail, tapping the `chinese` tag opened a new Search
+  page with `language:chinese` visible in the pinned search field and showed matching results; no crash
+  or empty second Search query occurred. Key artifacts: `search_detail_a.png`,
+  `search_tag_b.png`, and `search_tag_b.json`.
+
+Remaining acceptance:
+
+- Needs controller/user review before marking accepted.
+- Commit hash pending; update this entry after the implementation commit is created.
 - Required NextE acceptance after implementation resumes: category colors are semantically distinct,
   normal tap gives immediate feedback and live requery, long press performs the FE-equivalent quick
   solo/invert behavior with immediate feedback, rating is a formal segmented/radio-like control and

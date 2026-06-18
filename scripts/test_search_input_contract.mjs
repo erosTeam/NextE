@@ -2,14 +2,14 @@
 /**
  * Contract test for search input handling (eros_fe _delayedSearch parity):
  *   feature/search/src/main/ets/pages/GallerySearchPage.ets  (runQuery: URL-jump vs search vs noop)
- *   feature/search/src/main/ets/viewmodel/SearchViewModel.ets (empty-query-allowed-when-filter guard)
+ *   feature/search/src/main/ets/viewmodel/SearchViewModel.ets (empty ordinary query guard)
  *
  * The functions below are copy-equal to that logic (no nav/network — pure routing decisions):
  *   • a pasted BARE gallery URL (/g/{gid}/{token}, e-/ex-hentai) jumps to the detail (no search).
  *   • a pasted BARE image-page URL (/s/{imgkey}/{gid}-{page}) resolves and jumps to Reader.
  *     Gated on a whole-string URL (eros_fe searchText.isURL) so a query that merely EMBEDS a URL
  *     still searches.
- *   • an empty query runs ONLY to browse by active filters (NextE enhancement, not eros_fe); else noop.
+ *   • an empty ordinary query returns to history/blank; filter-only browse must be an explicit mode.
  *   • a non-empty, non-URL query records history + searches.
  * The gallery regex is the EhUrlRouter.GALLERY_RE verbatim. If the .ets logic changes, mirror here.
  *
@@ -39,7 +39,7 @@ const looksLikeBareUrl = (s) =>
   s.length > 0 && !s.includes(' ') && (s.startsWith('http://') || s.startsWith('https://'))
 
 // Mirror of GallerySearchPage.runQuery routing decision.
-function route(query, filterActive) {
+function route(query, _filterActive) {
   const trimmed = query.trim()
   if (looksLikeBareUrl(trimmed)) {
     const ref = parseGallery(trimmed)
@@ -47,14 +47,14 @@ function route(query, filterActive) {
     const image = parseImagePage(trimmed)
     if (image !== null) return { kind: 'imagePage', ref: image }
   }
-  if (trimmed.length === 0 && !filterActive) return { kind: 'noop' }
+  if (trimmed.length === 0) return { kind: 'noop' }
   return { kind: 'search', query: trimmed, recordsHistory: trimmed.length > 0 }
 }
 
 // Mirror of SearchViewModel.search() entry guard and reapplyFilters() guard.
-const shouldSearch = (query, isLoading, filterActive) =>
-  !isLoading && !(query.trim().length === 0 && !filterActive)
-const shouldReapply = (queryLen, filterActive) => queryLen > 0 || filterActive
+const shouldSearch = (query, isLoading, isFavoriteScope) =>
+  !isLoading && !(query.trim().length === 0 && !isFavoriteScope)
+const shouldReapply = (queryLen, isFavoriteScope) => queryLen > 0 || isFavoriteScope
 
 let passed = 0
 const ok = (name, cond) => {
@@ -82,13 +82,11 @@ const ok = (name, cond) => {
   ok('term query trimmed', route('  comic  ', false).query === 'comic')
 }
 
-// 3. empty query browses ONLY when filters are active
+// 3. empty ordinary query never auto-browses, even when filters are active
 {
   ok('empty + no filter → noop', route('', false).kind === 'noop')
   ok('whitespace + no filter → noop', route('   ', false).kind === 'noop')
-  const r = route('', true)
-  ok('empty + filter → search (browse)', r.kind === 'search')
-  ok('empty browse records no history', r.recordsHistory === false)
+  ok('empty + filter → noop', route('', true).kind === 'noop')
 }
 
 // 4. a non-EH URL is treated as a normal search term; a bare /s/ image-page URL jumps
@@ -110,18 +108,18 @@ const ok = (name, cond) => {
   ok('bare /g/ URL still jumps', route('https://e-hentai.org/g/1/abc', false).kind === 'gallery')
 }
 
-// 5. VM search guard: empty allowed only with active filter; loading always blocks
+// 5. VM search guard: empty allowed only for explicit favorite-scope browse; loading always blocks
 {
   ok('vm: term searches', shouldSearch('x', false, false) === true)
-  ok('vm: empty+nofilter blocked', shouldSearch('', false, false) === false)
-  ok('vm: empty+filter allowed', shouldSearch('', false, true) === true)
-  ok('vm: loading blocks even with filter', shouldSearch('', true, true) === false)
+  ok('vm: empty ordinary blocked', shouldSearch('', false, false) === false)
+  ok('vm: empty favorite browse allowed', shouldSearch('', false, true) === true)
+  ok('vm: loading blocks even with favorite browse', shouldSearch('', true, true) === false)
 }
 
-// 6. reapplyFilters: re-runs on query OR filter-only browse
+// 6. reapplyFilters: re-runs on query OR explicit favorite browse, not ordinary filter-only
 {
   ok('reapply with query', shouldReapply(5, false) === true)
-  ok('reapply filter-only', shouldReapply(0, true) === true)
+  ok('reapply favorite browse', shouldReapply(0, true) === true)
   ok('reapply noop when neither', shouldReapply(0, false) === false)
 }
 
@@ -146,23 +144,31 @@ const ok = (name, cond) => {
   ok('page shows visible image-page failure instead of searching the URL', /image_page_jump_failed[\s\S]*this\.imagePageErrorUrl = url/.test(pageSrc))
   ok('image-page failure renders localized error copy', /imagePageErrorUrl\.length > 0[\s\S]*image_page_open_failed/.test(pageSrc))
   ok('image-page failure retry reuses the original URL', /retryAction:[\s\S]*this\.openImagePageUrl\(this\.imagePageErrorUrl\)/.test(pageSrc))
-  ok('page gates empty on active filter', /trimmed\.length === 0 && !this\.filter\.isActive\(\)/.test(pageSrc))
+  ok('page clears empty query regardless of active filters', /if \(trimmed\.length === 0\) \{[\s\S]*this\.clearQueryToHistory\(\)/.test(pageSrc))
   ok('submit funnels through runQuery', /onSubmit\(\): void \{\s*this\.runQuery\(/.test(pageSrc))
-  ok('page monitors the shared search action state as V2 local state',
-    /@Local actionState: SearchActionState = connectSearchAction\(\)/.test(pageSrc) &&
-    /@Monitor\('actionState\.submitSeq'\)[\s\S]*onSubmit\(\): void \{[\s\S]*this\.runQuery\(this\.actionState\.keyword\)/.test(pageSrc))
-  ok('pending query seeds the field', /this\.actionState\.keyword = query\s*\n\s*this\.actionState\.seedSeq/.test(pageSrc))
+  ok('page uses page-owned field state instead of shared keyword state',
+    /@Local fieldState: SearchPageFieldState = new SearchPageFieldState\(\)/.test(pageSrc) &&
+    /@Monitor\('fieldState\.submitSeq'\)[\s\S]*this\.runQuery\(this\.fieldState\.keyword\)/.test(pageSrc) &&
+    !/@Monitor\('actionState\.submitSeq'\)/.test(pageSrc) &&
+    !/connectSearchAction\(\)/.test(pageSrc))
+  ok('route initial query seeds the field and runs search',
+    /p\.initialQuery\.length > 0[\s\S]*this\.fieldState\.keyword = p\.initialQuery[\s\S]*this\.fieldState\.seedSeq[\s\S]*this\.runQuery\(p\.initialQuery\)/.test(pageSrc))
   ok('clearing the search field resets the page to history instead of keeping old results',
-    /@Monitor\('actionState\.keyword'\)[\s\S]*onKeywordChange\(\): void \{[\s\S]*keyword\.trim\(\)\.length === 0[\s\S]*this\.clearQueryToHistory\(\)/.test(pageSrc) &&
+    /@Monitor\('fieldState\.keyword'\)[\s\S]*onKeywordChange\(\): void \{[\s\S]*keyword\.trim\(\)\.length === 0[\s\S]*this\.clearQueryToHistory\(\)/.test(pageSrc) &&
     /private clearQueryToHistory\(\): void \{[\s\S]*this\.imagePageErrorUrl = ''[\s\S]*this\.imagePageResolving = false[\s\S]*this\.vm\.clearSearchState\(\)/.test(pageSrc) &&
-    /trimmed\.length === 0 && !this\.filter\.isActive\(\)[\s\S]*this\.clearQueryToHistory\(\)/.test(pageSrc))
+    /if \(trimmed\.length === 0\) \{[\s\S]*this\.clearQueryToHistory\(\)/.test(pageSrc))
   ok('search field is hosted in title-bar bottomBuilder, not the title stackBuilder',
     /'bottomBuilder': this\.searchBottomBuilder\(this\.ensureFieldContent\(\)\)/.test(pageSrc) &&
     !/'stackBuilderComponent': this\.ensureFieldContent\(\)/.test(pageSrc))
+  ok('scroll hide keeps bottomBuilder search field visible',
+    /hideTitleArea: true/.test(pageSrc) &&
+    /hideBottomBuilder: false/.test(pageSrc))
   ok('bottomBuilder search field uses full content width without fake back-button reserve',
     /HDS title-bar bottomBuilder/.test(fieldSrc) &&
-    /@Local actionState: SearchActionState = connectSearchAction\(\)/.test(fieldSrc) &&
-    /onSubmit: \(_value: string\) => \{[\s\S]*this\.actionState\.submitSeq = this\.actionState\.submitSeq \+ 1/.test(fieldSrc) &&
+    /@ObservedV2[\s\S]*export class SearchPageFieldState/.test(fieldSrc) &&
+    /onSubmit: \(_value: string\) => \{[\s\S]*this\.fieldState\.submitSeq = this\.fieldState\.submitSeq \+ 1/.test(fieldSrc) &&
+    /sys\.symbol\.funnel/.test(fieldSrc) &&
+    /this\.fieldState\.filterSeq = this\.fieldState\.filterSeq \+ 1/.test(fieldSrc) &&
     !/BACK_BUTTON_SLOT_WIDTH/.test(fieldSrc) &&
     !/leadingReserve/.test(fieldSrc) &&
     /left: ThemeConstants\.SPACE_LG/.test(fieldSrc) &&
@@ -172,10 +178,10 @@ const ok = (name, cond) => {
     'utf8',
   )
   ok(
-    'vm allows empty with active filter or favorite scope',
-    /trimmed\.length === 0 && !this\.isFavoriteScope && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc),
+    'vm blocks empty ordinary query even when filters are active',
+    /trimmed\.length === 0 && !this\.isFavoriteScope\)/.test(vmSrc),
   )
-  ok('reapplyFilters honors filter-only', /const canSearch: boolean = this\.query\.length > 0 \|\| connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
+  ok('reapplyFilters does not honor ordinary filter-only browse', /const canSearch: boolean = this\.query\.length > 0 \|\| this\.isFavoriteScope/.test(vmSrc))
   ok('reapplyFilters queues live changes during loading',
     /if \(this\.isLoading\) \{[\s\S]*this\.pendingFilterReapply = true[\s\S]*return[\s\S]*\}/.test(vmSrc) &&
     /if \(this\.pendingFilterReapply\) \{[\s\S]*this\.pendingFilterReapply = false[\s\S]*await this\.reapplyFilters\(\)/.test(vmSrc))
@@ -188,8 +194,8 @@ const ok = (name, cond) => {
     /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.dataSource\.setData\(list\.gallerys\)/.test(vmSrc) &&
     /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.isLoading = false/.test(vmSrc))
   ok(
-    'refresh allows filter-only or favorite-scope browse',
-    /this\.query\.length === 0 && !this\.isFavoriteScope && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc),
+    'refresh blocks empty ordinary query',
+    /this\.query\.length === 0 && !this\.isFavoriteScope\)/.test(vmSrc),
   )
 }
 

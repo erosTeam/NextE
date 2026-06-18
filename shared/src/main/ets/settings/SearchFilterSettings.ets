@@ -13,6 +13,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 export class SearchFilterSnapshot {
   scope: string = SEARCH_SCOPE_GALLERY // gallery / watched / favorite search target
   cats: number = 0 // selectedCats (SHOW bitmask)
+  adv: boolean = false // advancedEnabled; gates advsearch=1 and f_sr/f_sp/f_sto/f_sh/f_sf*
   rating: number = 0 // minRating
   pf: number = 0 // pagesFrom
   pt: number = 0 // pagesTo
@@ -36,12 +37,9 @@ export class SearchFilterSnapshot {
  * Reset clears them (both bump applySeq → GallerySearchPage.onFilterApply). Stored as one JSON object
  * under the shared settings store.
  *
- * Two DELIBERATE divergences from eros_fe (not field parity — recorded honestly):
- *  • No persisted `enableAdvanceSearch` master toggle. eros_fe restores a "configured but dormant"
- *    profile that the user arms; NextE treats "any non-default value" as active (SearchFilterState
- *    .isActive()). A restored NextE filter is live, not dormant — but it still only drives a search on
- *    an explicit submit/live edit, never auto-runs at launch (restore writes no applySeq).
- *  • The f_sr / f_sp ON gates are DERIVED from the value (minRating>=2, pages>0) rather than stored as
+ * NextE now mirrors eros_fe's important user-facing distinction: advanced values can be configured
+ * but dormant until `advancedEnabled` is on. The f_sr / f_sp ON gates are DERIVED from the value
+ * (minRating>=2, pages>0) rather than stored as
  *    separate booleans like eros_fe. The value IS the gate, so persisting the value persists intent.
  */
 export class SearchFilterSettings {
@@ -62,6 +60,7 @@ export class SearchFilterSettings {
       const f = connectSearchFilter()
       f.searchScope = snap.scope
       f.selectedCats = snap.cats
+      f.advancedEnabled = snap.adv
       f.minRating = snap.rating
       f.pagesFrom = snap.pf
       f.pagesTo = snap.pt
@@ -83,6 +82,7 @@ export class SearchFilterSettings {
       const snap: SearchFilterSnapshot = new SearchFilterSnapshot()
       snap.scope = SearchFilterSettings.sanitizeScope(f.searchScope)
       snap.cats = f.selectedCats
+      snap.adv = f.advancedEnabled
       snap.rating = f.minRating
       snap.pf = f.pagesFrom
       snap.pt = f.pagesTo
@@ -115,6 +115,7 @@ export class SearchFilterSettings {
       const s: SearchFilterSnapshot = new SearchFilterSnapshot()
       s.scope = SearchFilterSettings.sanitizeScope(o.scope)
       s.cats = typeof o.cats === 'number' && o.cats >= 0 ? o.cats : 0
+      s.adv = o.adv === true
       s.rating = typeof o.rating === 'number' && o.rating >= 0 ? o.rating : 0
       s.pf = typeof o.pf === 'number' && o.pf >= 0 ? o.pf : 0
       s.pt = typeof o.pt === 'number' && o.pt >= 0 ? o.pt : 0

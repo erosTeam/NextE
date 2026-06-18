@@ -111,6 +111,14 @@ export struct SearchFilterSheet {
     this.bumpApplySeq()
   }
 
+  private setAdvancedEnabled(on: boolean): void {
+    if (this.filter.advancedEnabled === on) {
+      return
+    }
+    this.filter.advancedEnabled = on
+    this.bumpApplySeq()
+  }
+
   private setPagesFrom(value: number): void {
     if (this.filter.pagesFrom === value) {
       return
@@ -170,6 +178,7 @@ export struct SearchFilterSheet {
   private resetFilter(): void {
     this.filter.searchScope = SEARCH_SCOPE_GALLERY
     this.filter.selectedCats = 0
+    this.filter.advancedEnabled = false
     this.filter.minRating = 0
     this.filter.pagesFrom = 0
     this.filter.pagesTo = 0
@@ -246,79 +255,88 @@ export struct SearchFilterSheet {
                 (row: CatItem[]) => row[0].name,
               )
             }.width('100%')
-            Text($r('app.string.filter_rating'))
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-            TabSegmentButtonV2({
-              items: this.ratingItems,
-              selectedIndex: this.ratingIndex(),
-              enableStateAnimation: true,
-              onItemClicked: (index: number) => {
-                this.setRating(this.ratingForIndex(index))
+            this.ToggleRow(
+              $r('app.string.filter_advanced'),
+              this.filter.advancedEnabled,
+              (on: boolean) => {
+                this.setAdvancedEnabled(on)
               },
-              itemPadding: {
-                top: LengthMetrics.vp(7),
-                bottom: LengthMetrics.vp(7),
-                start: LengthMetrics.vp(8),
-                end: LengthMetrics.vp(8),
-              },
-            })
-            .width('100%')
-            .constraintSize({ minHeight: 40 })
-            Text($r('app.string.filter_pages'))
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-            Row({ space: ThemeConstants.SPACE_SM }) {
-              this.PageInput(this.filter.pagesFrom, (v: number) => {
-                this.setPagesFrom(v)
+            )
+            if (this.filter.advancedEnabled) {
+              Text($r('app.string.filter_rating'))
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+              TabSegmentButtonV2({
+                items: this.ratingItems,
+                selectedIndex: this.ratingIndex(),
+                enableStateAnimation: true,
+                onItemClicked: (index: number) => {
+                  this.setRating(this.ratingForIndex(index))
+                },
+                itemPadding: {
+                  top: LengthMetrics.vp(7),
+                  bottom: LengthMetrics.vp(7),
+                  start: LengthMetrics.vp(8),
+                  end: LengthMetrics.vp(8),
+                },
               })
-              Text('-').fontColor($r('sys.color.font_secondary'))
-              this.PageInput(this.filter.pagesTo, (v: number) => {
-                this.setPagesTo(v)
-              })
-            }.alignItems(VerticalAlign.Center)
-            Text($r('app.string.filter_options'))
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-            this.ToggleRow(
-              $r('app.string.filter_require_torrent'),
-              this.filter.requireTorrent,
-              (on: boolean) => {
-                this.setRequireTorrent(on)
-              },
-            )
-            this.ToggleRow(
-              $r('app.string.filter_show_expunged'),
-              this.filter.showExpunged,
-              (on: boolean) => {
-                this.setShowExpunged(on)
-              },
-            )
-            // eros_fe's three independent "ignore my default <X> filter" toggles (f_sfl/f_sfu/f_sft).
-            this.ToggleRow(
-              $r('app.string.filter_disable_lang'),
-              this.filter.disableLanguageFilter,
-              (on: boolean) => {
-                this.setDisableLanguageFilter(on)
-              },
-            )
-            this.ToggleRow(
-              $r('app.string.filter_disable_uploader'),
-              this.filter.disableUploaderFilter,
-              (on: boolean) => {
-                this.setDisableUploaderFilter(on)
-              },
-            )
-            this.ToggleRow(
-              $r('app.string.filter_disable_tag'),
-              this.filter.disableTagFilter,
-              (on: boolean) => {
-                this.setDisableTagFilter(on)
-              },
-            )
+              .width('100%')
+              .constraintSize({ minHeight: 40 })
+              Text($r('app.string.filter_pages'))
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+              Row({ space: ThemeConstants.SPACE_SM }) {
+                this.PageInput(this.filter.pagesFrom, (v: number) => {
+                  this.setPagesFrom(v)
+                })
+                Text('-').fontColor($r('sys.color.font_secondary'))
+                this.PageInput(this.filter.pagesTo, (v: number) => {
+                  this.setPagesTo(v)
+                })
+              }.alignItems(VerticalAlign.Center)
+              Text($r('app.string.filter_options'))
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+              this.ToggleRow(
+                $r('app.string.filter_require_torrent'),
+                this.filter.requireTorrent,
+                (on: boolean) => {
+                  this.setRequireTorrent(on)
+                },
+              )
+              this.ToggleRow(
+                $r('app.string.filter_show_expunged'),
+                this.filter.showExpunged,
+                (on: boolean) => {
+                  this.setShowExpunged(on)
+                },
+              )
+              // eros_fe's three independent "ignore my default <X> filter" toggles (f_sfl/f_sfu/f_sft).
+              this.ToggleRow(
+                $r('app.string.filter_disable_lang'),
+                this.filter.disableLanguageFilter,
+                (on: boolean) => {
+                  this.setDisableLanguageFilter(on)
+                },
+              )
+              this.ToggleRow(
+                $r('app.string.filter_disable_uploader'),
+                this.filter.disableUploaderFilter,
+                (on: boolean) => {
+                  this.setDisableUploaderFilter(on)
+                },
+              )
+              this.ToggleRow(
+                $r('app.string.filter_disable_tag'),
+                this.filter.disableTagFilter,
+                (on: boolean) => {
+                  this.setDisableTagFilter(on)
+                },
+              )
+            }
           }
         }
         .width('100%')

@@ -6,29 +6,14 @@ import { AppStorageV2 } from '@kit.ArkUI'
  * `@ComponentV2` GallerySearchPage both connect to this one singleton, which is how they stay in
  * sync across the two trees.
  *
- * - `keyword`: the live query text. The title-bar field is the primary writer (one write per
- *   keystroke); the page reads it on submit. `@Trace` so both trees react.
- * - `submitSeq`: a monotonically increasing submit signal. The field bumps it on Enter / search
- *   button; the page reacts via `@Monitor('actionState.submitSeq')` to run the remote search. The
- *   value is meaningless — it only guarantees a change so the bus refires for a repeated submit
- *   (replaces the old `Date.now()`-prefixed string hack).
- * - `seedSeq`: one-shot "pull keyword into the displayed field" signal. The field must NOT read
- *   `keyword` in build() (typing writes keyword every keystroke, which would rebuild the title-bar
- *   ComponentContent subtree and re-mount the Search, flapping the IME). Instead, when the page
- *   seeds a query (future: history chip / pending request / reset) it bumps seedSeq and the field
- *   reacts via `@Monitor` to pull the new keyword once.
  * - `pendingQuery`: a cross-page "search for X" request (e.g. tapping a tag on the detail page);
- *   reserved for when that wiring lands. `<token>:<query>` form so a repeated request still fires.
- * - `focusOnAppear`: whether the next Search destination should request input focus. Manual title-bar
- *   search opens should focus; action-seeded searches should render results first without opening IME.
+ *   `<token>:<query>` form so a repeated request still fires. Index is the only consumer; it converts
+ *   this into SearchPageParams.initialQuery. Per-page keyword/submit/filter state lives in
+ *   SearchPageFieldState, not this singleton, so stacked Search pages cannot steal each other's query.
  */
 @ObservedV2
 export class SearchActionState {
-  @Trace keyword: string = ''
-  @Trace submitSeq: number = 0
-  @Trace seedSeq: number = 0
   @Trace pendingQuery: string = ''
-  @Trace focusOnAppear: boolean = true
 
   /**
    * Publish a cross-page "search for X" request (Similar title, uploader, a tag). A unique numeric
@@ -37,13 +22,7 @@ export class SearchActionState {
    * `title:"a:b"` — survive intact). Single writer of pendingQuery.
    */
   publishQuery(query: string): void {
-    this.focusOnAppear = false
     this.pendingQuery = `${Date.now()}:${query}`
-  }
-
-  /** Manual title-bar search opens are input-first and should request focus. */
-  prepareManualOpen(): void {
-    this.focusOnAppear = true
   }
 
   /**

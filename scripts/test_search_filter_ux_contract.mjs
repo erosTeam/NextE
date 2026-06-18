@@ -51,16 +51,21 @@ ok('old builder chips and stale draft selected parameters are gone',
 ok('favorite scope is visible and explained instead of hiding the page-level filter entry',
   /filter_favorite_scope_hint/.test(sheet) &&
   !/if \(!this\.isFavoriteScope\)[\s\S]*this\.FilterTrigger\(\)/.test(page))
-ok('page exposes filter as a native title-bar action, not a scrolling or overlay chip',
-  /private filterMenu\(\): Record<string, Object> \{[\s\S]*'label': \$r\('app\.string\.filter'\)[\s\S]*'action': \(\) => \{[\s\S]*this\.showFilter = true/.test(page) &&
-  /'icon': \$r\('sys\.symbol\.funnel'\)/.test(page) &&
-  !/'icon': \$r\('sys\.symbol\.sort'\)/.test(page) &&
-  /'menu': this\.filterMenu\(\)/.test(page) &&
+ok('page exposes filter beside the pinned search field so title auto-hide cannot remove access',
+  /@Monitor\('fieldState\.filterSeq'\)[\s\S]*this\.showFilter = true/.test(page) &&
+  /hideBottomBuilder: false/.test(page) &&
   !/@Builder\s+FilterTrigger/.test(page) &&
   !/FilterTriggerOverlay/.test(page))
 ok('search field is pinned in title-bar bottomBuilder below the scope title',
-  /private searchBottomBuilder\(content: ComponentContent<Object>\): Record<string, Object> \{[\s\S]*'builderComponent': content[\s\S]*'height': SEARCH_FIELD_BOTTOM_HEIGHT[\s\S]*BottomBuilderShowType\.DIRECTLY_SHOW/.test(page) &&
+  /private searchBottomBuilder\(content: ComponentContent<SearchPageFieldState>\): Record<string, Object> \{[\s\S]*'builderComponent': content[\s\S]*'height': SEARCH_FIELD_BOTTOM_HEIGHT[\s\S]*BottomBuilderShowType\.DIRECTLY_SHOW/.test(page) &&
   /'bottomBuilder': this\.searchBottomBuilder\(this\.ensureFieldContent\(\)\)/.test(page) &&
   !/'stackBuilderComponent': this\.ensureFieldContent\(\)/.test(page))
+
+const field = read('feature/search/src/main/ets/components/SearchPageField.ets')
+ok('pinned search field contains the funnel filter button with page-owned command state',
+  /sys\.symbol\.funnel/.test(field) &&
+  !/sys\.symbol\.sort/.test(field) &&
+  /this\.fieldState\.filterSeq = this\.fieldState\.filterSeq \+ 1/.test(field) &&
+  /@ObservedV2[\s\S]*export class SearchPageFieldState/.test(field))
 
 console.log(`✓ search filter UX contract: ${passed} assertions passed`)

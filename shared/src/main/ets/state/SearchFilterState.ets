@@ -9,13 +9,15 @@ export const SEARCH_SCOPE_FAVORITE: string = 'favorite'
 /**
  * Search scope + advanced filters, shared between the filter sheet (writer) and SearchViewModel
  * (reader). `selectedCats` is the bitmask of categories to SHOW (0 or all = no category filter);
- * EH's `f_cats` is the EXCLUDE mask, so fCats() inverts. `applySeq` bumps on live filter changes
- * and Reset, so the search page persists and re-runs.
+ * EH's `f_cats` is the EXCLUDE mask, so fCats() inverts. `advancedEnabled` is the explicit master
+ * switch for EH's advsearch block; when false, advanced fields are remembered but not sent. `applySeq`
+ * bumps on live filter changes and Reset, so the search page persists and re-runs when appropriate.
  */
 @ObservedV2
 export class SearchFilterState {
   @Trace searchScope: string = SEARCH_SCOPE_GALLERY
   @Trace selectedCats: number = 0
+  @Trace advancedEnabled: boolean = false
   @Trace minRating: number = 0
   @Trace pagesFrom: number = 0
   @Trace pagesTo: number = 0
@@ -39,6 +41,13 @@ export class SearchFilterState {
   isActive(): boolean {
     return (
       this.fCats() > 0 ||
+      (this.advancedEnabled && this.advancedFieldsActive()) ||
+      this.searchScope !== SEARCH_SCOPE_GALLERY
+    )
+  }
+
+  advancedFieldsActive(): boolean {
+    return (
       this.minRating >= 2 ||
       this.pagesFrom > 0 ||
       this.pagesTo > 0 ||
@@ -46,8 +55,7 @@ export class SearchFilterState {
       this.showExpunged ||
       this.disableLanguageFilter ||
       this.disableUploaderFilter ||
-      this.disableTagFilter ||
-      this.searchScope !== SEARCH_SCOPE_GALLERY
+      this.disableTagFilter
     )
   }
 }

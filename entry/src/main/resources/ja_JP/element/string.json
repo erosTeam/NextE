@@ -589,6 +589,10 @@
       "value": "指定なし"
     },
     {
+      "name": "filter_advanced",
+      "value": "詳細オプション"
+    },
+    {
       "name": "filter_reset",
       "value": "リセット"
     },

@@ -38,29 +38,30 @@ function buildUrl(query) {
   if (query.search.length > 0) params.push(`f_search=${encodeURIComponent(query.search)}`)
   // advsearch=1 must precede the advanced block or EH ignores it (mirror of EhApiService).
   const hasAdvanced =
-    query.minRating >= 2 ||
-    query.pagesFrom > 0 ||
-    query.pagesTo > 0 ||
-    query.requireTorrent ||
-    query.showExpunged ||
-    query.disableLanguageFilter ||
-    query.disableUploaderFilter ||
-    query.disableTagFilter
+    query.advancedEnabled &&
+    (query.minRating >= 2 ||
+      query.pagesFrom > 0 ||
+      query.pagesTo > 0 ||
+      query.requireTorrent ||
+      query.showExpunged ||
+      query.disableLanguageFilter ||
+      query.disableUploaderFilter ||
+      query.disableTagFilter)
   if (hasAdvanced) params.push('advsearch=1')
-  if (query.minRating >= 2) {
+  if (query.advancedEnabled && query.minRating >= 2) {
     params.push('f_sr=on')
     params.push(`f_srdd=${query.minRating}`)
   }
-  if (query.pagesFrom > 0 || query.pagesTo > 0) {
+  if (query.advancedEnabled && (query.pagesFrom > 0 || query.pagesTo > 0)) {
     params.push('f_sp=on')
     params.push(`f_spf=${query.pagesFrom > 0 ? query.pagesFrom : ''}`)
     params.push(`f_spt=${query.pagesTo > 0 ? query.pagesTo : ''}`)
   }
-  if (query.requireTorrent) params.push('f_sto=on')
-  if (query.showExpunged) params.push('f_sh=on')
-  if (query.disableLanguageFilter) params.push('f_sfl=on')
-  if (query.disableUploaderFilter) params.push('f_sfu=on')
-  if (query.disableTagFilter) params.push('f_sft=on')
+  if (query.advancedEnabled && query.requireTorrent) params.push('f_sto=on')
+  if (query.advancedEnabled && query.showExpunged) params.push('f_sh=on')
+  if (query.advancedEnabled && query.disableLanguageFilter) params.push('f_sfl=on')
+  if (query.advancedEnabled && query.disableUploaderFilter) params.push('f_sfu=on')
+  if (query.advancedEnabled && query.disableTagFilter) params.push('f_sft=on')
   if (query.next.length > 0) params.push(`next=${query.next}`)
   const queryStr = params.length > 0 ? `?${params.join('&')}` : ''
   return `${base}${path}${queryStr}`
@@ -74,6 +75,7 @@ const q = (over) => ({
   page: 0,
   fCats: 0,
   search: '',
+  advancedEnabled: true,
   minRating: 0,
   pagesFrom: 0,
   pagesTo: 0,
@@ -133,6 +135,11 @@ eq(
   'https://e-hentai.org/?advsearch=1&f_sr=on&f_srdd=4',
 )
 eq(
+  'advanced disabled keeps URL clean even with configured advanced values',
+  buildUrl(q({ advancedEnabled: false, minRating: 4, requireTorrent: true, disableTagFilter: true })),
+  'https://e-hentai.org/',
+)
+eq(
   'page-range adds advsearch=1',
   buildUrl(q({ pagesFrom: 10, pagesTo: 100 })),
   'https://e-hentai.org/?advsearch=1&f_sp=on&f_spf=10&f_spt=100',
@@ -162,8 +169,8 @@ eq(
 )
 eq('popular ex host', buildUrl(q({ source: 'popular', isEx: true })), 'https://exhentai.org/popular')
 
-// Structural: the toplist period selector must be wired end-to-end (VM setter + @Trace period +
-// HomePage period chips for all four tl values), else the URLs above are unreachable from the UI.
+// Structural: the toplist period selector must be wired end-to-end in the retained subtab model
+// (ToplistPeriodBar -> HomeSourceState.toplistTl -> ToplistPeriodPage.syncSource -> VM URL).
 import { readFileSync as _read } from 'node:fs'
 import { join as _join, dirname as _dir } from 'node:path'
 import { fileURLToPath as _f } from 'node:url'
@@ -176,14 +183,13 @@ const has = (file, needle, label) => {
   }
 }
 const VM = 'feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets'
-const PAGE = 'feature/home/src/main/ets/pages/HomePage.ets'
+const PERIOD_BAR = 'entry/src/main/ets/components/ToplistPeriodBar.ets'
+const PERIOD_PAGE = 'feature/home/src/main/ets/components/ToplistPeriodPage.ets'
 has(VM, '@Trace toplistTl', 'VM: toplistTl is @Trace (period chips reflect selection)')
-has(VM, 'async setToplistPeriod(tl: number)', 'VM: setToplistPeriod(tl) setter exists')
-has(PAGE, 'PeriodChip(11,', 'HomePage: period chip tl=11 (all-time)')
-has(PAGE, 'PeriodChip(12,', 'HomePage: period chip tl=12 (year)')
-has(PAGE, 'PeriodChip(13,', 'HomePage: period chip tl=13 (month)')
-has(PAGE, 'PeriodChip(15,', 'HomePage: period chip tl=15 (yesterday)')
-has(PAGE, 'this.vm.setToplistPeriod(tl)', 'HomePage: period chip drives setToplistPeriod')
+has(PERIOD_BAR, 'const PERIOD_TLS: number[] = [11, 12, 13, 15]', 'ToplistPeriodBar: all period tl values')
+has(PERIOD_BAR, 'this.home.toplistTl = PERIOD_TLS[index]', 'ToplistPeriodBar: tap publishes toplistTl')
+has(PERIOD_PAGE, "this.vm.syncSource('toplist', this.periodTl)", 'ToplistPeriodPage: period tl seeds VM')
+has(VM, 'this.toplistTl = tl', 'VM: syncSource writes toplistTl')
 
 if (failures > 0) {
   console.error(`\n✗ home source routing: ${failures} assertion(s) failed`)

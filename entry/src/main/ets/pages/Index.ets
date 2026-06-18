@@ -99,9 +99,10 @@ struct Index {
   }
 
   /**
-   * Cross-page "search for X" (e.g. the detail page's Similar / uploader action). Open the pushed
-   * search page (unless it is already on top); it consumes `pendingQuery` on appear — seeding the
-   * field + running the search. `pendingQuery` is `<token>:<query>` so a repeat still fires.
+   * Cross-page "search for X" (e.g. detail tag / Similar / uploader). Index is the only consumer of
+   * the global pending signal; it pushes a new Search route with the query as a route/session param.
+   * Old Search pages may remain alive underneath detail pages, but they never consume or clear this
+   * global signal, so a later tag cannot be stolen by an older Search instance.
    */
   @Monitor('searchAction.pendingQuery')
   onPendingQuery(): void {
@@ -110,15 +111,18 @@ struct Index {
       return
     }
     this.lastHandledQuery = pq
-    this.openSearch(false)
+    const sep: number = pq.indexOf(':')
+    const token: string = sep >= 0 ? pq.substring(0, sep) : `${Date.now()}`
+    const query: string = sep >= 0 ? pq.substring(sep + 1) : pq
+    this.stack.pushPathByName('Search', new SearchPageParams('', 'a', query, false, token))
+    this.searchAction.clearPending()
   }
 
   // Push the search page, unless a search page is already on top (then its own @Monitor re-searches).
   private openSearch(focusOnAppear: boolean = true): void {
-    this.searchAction.focusOnAppear = focusOnAppear
     const names: string[] = this.stack.getAllPathName()
     if (names.length === 0 || names[names.length - 1] !== 'Search') {
-      this.stack.pushPathByName('Search', null)
+      this.stack.pushPathByName('Search', new SearchPageParams('', 'a', '', focusOnAppear))
     }
   }
 
@@ -126,7 +130,6 @@ struct Index {
   // navigator_util.dart:76-106). The scope + current favcat ride a route param; the search inherits the
   // last-shown favcat ('a' = all favorites → favorites.php omits favcat → searches all).
   private openFavoriteSearch(): void {
-    this.searchAction.prepareManualOpen()
     const favcat: string = connectFavSelection().selectedFavcat
     const names: string[] = this.stack.getAllPathName()
     if (names.length === 0 || names[names.length - 1] !== 'Search') {

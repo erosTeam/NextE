@@ -46,6 +46,7 @@ export interface GalleryListQuery {
   page: number // 0-based page number for page-paged sources (toplist); ignored by cursor sources
   fCats: number // f_cats bitmask (categories to exclude); 0 = all
   search: string
+  advancedEnabled: boolean // gates advsearch=1 and all advanced params; f_cats/f_search are basic
   minRating: number // f_srdd minimum stars (2-5); 0 = off
   pagesFrom: number // f_spf page lower bound; 0 = off
   pagesTo: number // f_spt page upper bound; 0 = off
@@ -152,39 +153,40 @@ export class EhApiService {
     // without it the server silently drops every advanced filter (eros_fe request.dart gates it the
     // same way). f_cats/f_search are basic params and work without it.
     const hasAdvanced: boolean =
-      query.minRating >= 2 ||
-      query.pagesFrom > 0 ||
-      query.pagesTo > 0 ||
-      query.requireTorrent ||
-      query.showExpunged ||
-      query.disableLanguageFilter ||
-      query.disableUploaderFilter ||
-      query.disableTagFilter
+      query.advancedEnabled &&
+      (query.minRating >= 2 ||
+        query.pagesFrom > 0 ||
+        query.pagesTo > 0 ||
+        query.requireTorrent ||
+        query.showExpunged ||
+        query.disableLanguageFilter ||
+        query.disableUploaderFilter ||
+        query.disableTagFilter)
     if (hasAdvanced) {
       params.push('advsearch=1')
     }
-    if (query.minRating >= 2) {
+    if (query.advancedEnabled && query.minRating >= 2) {
       params.push('f_sr=on')
       params.push(`f_srdd=${query.minRating}`)
     }
-    if (query.pagesFrom > 0 || query.pagesTo > 0) {
+    if (query.advancedEnabled && (query.pagesFrom > 0 || query.pagesTo > 0)) {
       params.push('f_sp=on')
       params.push(`f_spf=${query.pagesFrom > 0 ? query.pagesFrom : ''}`)
       params.push(`f_spt=${query.pagesTo > 0 ? query.pagesTo : ''}`)
     }
-    if (query.requireTorrent) {
+    if (query.advancedEnabled && query.requireTorrent) {
       params.push('f_sto=on')
     }
-    if (query.showExpunged) {
+    if (query.advancedEnabled && query.showExpunged) {
       params.push('f_sh=on')
     }
-    if (query.disableLanguageFilter) {
+    if (query.advancedEnabled && query.disableLanguageFilter) {
       params.push('f_sfl=on')
     }
-    if (query.disableUploaderFilter) {
+    if (query.advancedEnabled && query.disableUploaderFilter) {
       params.push('f_sfu=on')
     }
-    if (query.disableTagFilter) {
+    if (query.advancedEnabled && query.disableTagFilter) {
       params.push('f_sft=on')
     }
     if (query.next.length > 0) {

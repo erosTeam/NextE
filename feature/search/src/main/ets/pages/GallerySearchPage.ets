@@ -18,8 +18,6 @@ import {
   PullRefreshListScaffold,
   PullRefreshGridScaffold,
   PullRefreshController,
-  SearchActionState,
-  connectSearchAction,
   connectNavStack,
   SearchFilterState,
   connectSearchFilter,
@@ -42,7 +40,7 @@ import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesig
 import { ComponentContent } from '@kit.ArkUI'
 import { SearchViewModel } from '../viewmodel/SearchViewModel'
 import { SearchFilterSheet } from '../components/SearchFilterSheet'
-import { SearchPageFieldCCBuilder } from '../components/SearchPageField'
+import { SearchPageFieldCCBuilder, SearchPageFieldState } from '../components/SearchPageField'
 
 const SEARCH_FIELD_BOTTOM_HEIGHT: number = ThemeConstants.TITLE_BAR_HEIGHT + ThemeConstants.SPACE_SM
 
@@ -50,10 +48,9 @@ const SEARCH_FIELD_BOTTOM_HEIGHT: number = ThemeConstants.TITLE_BAR_HEIGHT + The
  * Table-site search — a PUSHED page (eros_fe pushes a dedicated search page from the gallery
  * appbar's search icon, custom_tabbar_page.dart:219-229; NOT a bottom tab). The title area keeps
  * the native back button, current search scope title, and filter action; the search INPUT is pinned
- * in the HDS title bar bottomBuilder. It reacts to the field's submit via the shared
- * SearchActionState bus (`submitSeq` on Enter; `keyword` holds the text), consumes a cross-page
- * `pendingQuery` (Similar/uploader search) on appear, and renders results through the shared
- * PullRefreshListScaffold, same as the gallery list.
+ * in the HDS title bar bottomBuilder. It reacts to a page-owned field state (not the app-wide
+ * search bus) so stacked Search(A) -> Detail -> Search(B) sessions do not steal each other's query.
+ * Action-seeded tag/uploader searches arrive as SearchPageParams.initialQuery route params.
  */
 @ComponentV2
 export struct GallerySearchPage {
@@ -70,27 +67,26 @@ export struct GallerySearchPage {
   // magnifier pushes here. The filter entry stays visible; favorite-specific limitations belong inside
   // the sheet, not in a hidden page action.
   @Local isFavoriteScope: boolean = false;
-  @Local actionState: SearchActionState = connectSearchAction();
+  @Local fieldState: SearchPageFieldState = new SearchPageFieldState();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
-  private lastHandledQuery: string = '';
   // Search field hosted in this pushed page's HDS title-bar bottomBuilder — cached ONCE (re-issuing
   // the titleBar opts must reuse the same field instance, not remount it and flap the IME).
-  private fieldContent: ComponentContent<Object> | null = null;
+  private fieldContent: ComponentContent<SearchPageFieldState> | null = null;
 
-  private ensureFieldContent(): ComponentContent<Object> {
+  private ensureFieldContent(): ComponentContent<SearchPageFieldState> {
     if (this.fieldContent === null) {
-      this.fieldContent = new ComponentContent<Object>(
+      this.fieldContent = new ComponentContent<SearchPageFieldState>(
         this.getUIContext(),
-        wrapBuilder<[Object]>(SearchPageFieldCCBuilder),
-        new Object(),
+        wrapBuilder<[SearchPageFieldState]>(SearchPageFieldCCBuilder),
+        this.fieldState,
       )
     }
     return this.fieldContent
   }
 
-  private searchBottomBuilder(content: ComponentContent<Object>): Record<string, Object> {
+  private searchBottomBuilder(content: ComponentContent<SearchPageFieldState>): Record<string, Object> {
     return {
       'builderComponent': content,
       'height': SEARCH_FIELD_BOTTOM_HEIGHT,
@@ -108,19 +104,6 @@ export struct GallerySearchPage {
     return $r('app.string.search_scope_gallery')
   }
 
-  private filterMenu(): Record<string, Object> {
-    const inner: Record<string, Object> = {
-      'label': $r('app.string.filter'),
-      'icon': $r('sys.symbol.funnel'),
-      'isEnabled': true,
-      'action': () => {
-        this.showFilter = true
-      },
-    }
-    const item: Record<string, Object> = { 'content': inner }
-    return { 'value': [item], 'maxCount': 1 }
-  }
-
   // Title text carries the active scope while the field lives in bottomBuilder; shares the app's
   // immersive title-bar style so the status/title/search bar gets the same GRADIENT_BLUR backdrop.
   private searchTitleBar(): Record<string, Object> {
@@ -128,54 +111,25 @@ export struct GallerySearchPage {
     const content: Record<string, Object> = {
       'title': title,
       'bottomBuilder': this.searchBottomBuilder(this.ensureFieldContent()),
-      'menu': this.filterMenu(),
     }
     return immersiveTitleBarOpts(content)
   }
 
-  // A freshly pushed search page starts empty (mirror V2Next SearchPage.aboutToAppear): reset the
-  // shared field so the title-bar input doesn't show the previous session's query and the page doesn't
-  // auto-run it. A pending cross-page query (consumed next) re-seeds the field, so it still wins.
-  aboutToAppear(): void {
-    this.actionState.keyword = ''
-    this.actionState.seedSeq = this.actionState.seedSeq + 1
-    this.consumePendingQuery()
-  }
-
-  @Monitor('actionState.pendingQuery')
-  onPendingQuery(): void {
-    this.consumePendingQuery()
-  }
-
-  private consumePendingQuery(): void {
-    const pq: string = this.actionState.pendingQuery
-    if (pq.length === 0 || pq === this.lastHandledQuery) {
-      return
-    }
-    this.lastHandledQuery = pq
-    const sep: number = pq.indexOf(':')
-    const query: string = sep >= 0 ? pq.substring(sep + 1) : pq
-    // Seed the title-bar field so it reflects the active cross-page query (e.g. the detail page's
-    // Similar/uploader search), matching eros_fe seeding searchTextController — the user can see/edit it.
-    if (query.length > 0) {
-      this.actionState.keyword = query
-      this.actionState.seedSeq = this.actionState.seedSeq + 1
-    }
-    this.runQuery(query)
-    // Clear the consumed request so a later plain open (title-bar icon) doesn't resurrect it.
-    this.actionState.clearPending()
-  }
-
-  @Monitor('actionState.submitSeq')
+  @Monitor('fieldState.submitSeq')
   onSubmit(): void {
-    this.runQuery(this.actionState.keyword)
+    this.runQuery(this.fieldState.keyword)
   }
 
-  @Monitor('actionState.keyword')
+  @Monitor('fieldState.keyword')
   onKeywordChange(): void {
-    if (this.actionState.keyword.trim().length === 0) {
+    if (this.fieldState.keyword.trim().length === 0) {
       this.clearQueryToHistory()
     }
+  }
+
+  @Monitor('fieldState.filterSeq')
+  onOpenFilter(): void {
+    this.showFilter = true
   }
 
   // A whole-string EH URL (no embedded substring) — eros_fe gates its URL-jump on searchText.isURL,
@@ -186,9 +140,9 @@ export struct GallerySearchPage {
 
   /**
    * Single entry point for a submitted query. A pasted BARE gallery/image-page URL jumps straight to
-   * the gallery/reader (eros_fe regGalleryUrl/regGalleryPageUrl → _jumpToUrl); otherwise record history and search. Note: empty-query
-   * browse-by-filter below is a NextE enhancement (EH supports /?f_cats=…) — eros_fe instead clears
-   * on empty text and applies category filters on the home list, not via an empty search.
+   * the gallery/reader (eros_fe regGalleryUrl/regGalleryPageUrl → _jumpToUrl); otherwise record
+   * history and search. Empty ordinary search never implicitly browses by filter; it returns to
+   * history/blank so filter edits do not surprise-trigger network requests.
    */
   private runQuery(query: string): void {
     const trimmed: string = query.trim()
@@ -204,7 +158,7 @@ export struct GallerySearchPage {
         return
       }
     }
-    if (trimmed.length === 0 && !this.filter.isActive()) {
+    if (trimmed.length === 0) {
       this.clearQueryToHistory()
       return
     }
@@ -248,8 +202,8 @@ export struct GallerySearchPage {
 
   // Tap a recent-search chip: fill the title-bar field (seedSeq) and run it.
   private searchFromHistory(query: string): void {
-    this.actionState.keyword = query
-    this.actionState.seedSeq = this.actionState.seedSeq + 1
+    this.fieldState.keyword = query
+    this.fieldState.seedSeq = this.fieldState.seedSeq + 1
     this.runQuery(query)
   }
 
@@ -257,7 +211,9 @@ export struct GallerySearchPage {
   onFilterApply(): void {
     // Persist live filter edits so they survive a restart (eros_fe keeps the advanced-search profile).
     SearchFilterSettings.persist(this.ctx())
-    this.vm.reapplyFilters()
+    if (this.fieldState.keyword.trim().length > 0 || this.vm.isFavoriteScope) {
+      this.vm.reapplyFilters()
+    }
   }
 
   @Builder
@@ -470,7 +426,7 @@ export struct GallerySearchPage {
     .titleBar(this.searchTitleBar())
     .dynamicHideTitleBar({
       hideTitleArea: true,
-      hideBottomBuilder: true,
+      hideBottomBuilder: false,
       hideStatusBar: false,
       mode: HideMode.SCROLL_UP,
     })
@@ -483,10 +439,16 @@ export struct GallerySearchPage {
       // vm.search path. There is no bespoke favorites search box — this is the ONE adaptive page.
       if (context.pathInfo.param instanceof SearchPageParams) {
         const p: SearchPageParams = context.pathInfo.param as SearchPageParams
+        this.fieldState.focusOnAppear = p.focusOnAppear
         if (p.searchType === 'favorite') {
           this.isFavoriteScope = true
           this.vm.seedFavoriteScope(p.favcat)
           this.vm.search('')
+        }
+        if (p.initialQuery.length > 0) {
+          this.fieldState.keyword = p.initialQuery
+          this.fieldState.seedSeq = this.fieldState.seedSeq + 1
+          this.runQuery(p.initialQuery)
         }
       }
     })

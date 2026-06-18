@@ -36,6 +36,7 @@ const forbiddenDraftNames = [
   'draftDisableLanguageFilter',
   'draftDisableUploaderFilter',
   'draftDisableTagFilter',
+  'draftAdvancedEnabled',
 ]
 
 forbiddenDraftNames.forEach((name) => {
@@ -53,6 +54,10 @@ ok('applySeq has one helper and every live setter uses it',
   /private setRating\(rating: number\): void \{[\s\S]*this\.filter\.minRating = rating[\s\S]*this\.bumpApplySeq\(\)/.test(src) &&
   /private setPagesFrom\(value: number\): void \{[\s\S]*this\.filter\.pagesFrom = value[\s\S]*this\.bumpApplySeq\(\)/.test(src) &&
   /private setPagesTo\(value: number\): void \{[\s\S]*this\.filter\.pagesTo = value[\s\S]*this\.bumpApplySeq\(\)/.test(src))
+ok('advanced master switch is explicit and live-applied',
+  /@Trace\s+advancedEnabled: boolean = false/.test(state) &&
+  /private setAdvancedEnabled\(on: boolean\): void \{[\s\S]*this\.filter\.advancedEnabled = on[\s\S]*this\.bumpApplySeq\(\)/.test(src) &&
+  /filter_advanced/.test(src))
 ok('category tap and long press write active selectedCats and bump applySeq',
   /private toggleCategory\(c: CatItem\): void \{[\s\S]*this\.filter\.selectedCats = this\.normalizeCats\(next\)[\s\S]*this\.bumpApplySeq\(\)/.test(src) &&
   /private soloOrInvertCategory\(c: CatItem\): void \{[\s\S]*this\.filter\.selectedCats = selected \? c\.bit : this\.normalizeCats\(ALL_CATS \^ c\.bit\)[\s\S]*this\.bumpApplySeq\(\)/.test(src))
@@ -63,7 +68,7 @@ ok('advanced toggles have typed direct setters that bump applySeq',
   /private setDisableUploaderFilter\(on: boolean\): void \{[\s\S]*this\.filter\.disableUploaderFilter = on[\s\S]*this\.bumpApplySeq\(\)/.test(src) &&
   /private setDisableTagFilter\(on: boolean\): void \{[\s\S]*this\.filter\.disableTagFilter = on[\s\S]*this\.bumpApplySeq\(\)/.test(src))
 ok('reset directly clears active filter and bumps applySeq',
-  /private resetFilter\(\): void \{[\s\S]*this\.filter\.searchScope = SEARCH_SCOPE_GALLERY[\s\S]*this\.filter\.disableTagFilter = false[\s\S]*this\.bumpApplySeq\(\)/.test(src))
+  /private resetFilter\(\): void \{[\s\S]*this\.filter\.searchScope = SEARCH_SCOPE_GALLERY[\s\S]*this\.filter\.advancedEnabled = false[\s\S]*this\.filter\.disableTagFilter = false[\s\S]*this\.bumpApplySeq\(\)/.test(src))
 ok('no Apply button remains in the sheet',
   !/Button\(\$r\('app\.string\.filter_apply'\)\)/.test(src) &&
   !/filter_apply/.test(src))
@@ -76,7 +81,7 @@ ok('page embeds the sheet without openSeq or close-on-apply callback',
   !/onApply:/.test(page))
 ok('SearchFilterState remains the active shared state',
   /@ObservedV2[\s\S]*export class SearchFilterState/.test(state) && /@Trace applySeq: number = 0/.test(state))
-ok('search page persists and reapplies on applySeq',
-  /@Monitor\('filter\.applySeq'\)[\s\S]*SearchFilterSettings\.persist\(this\.ctx\(\)\)[\s\S]*this\.vm\.reapplyFilters\(\)/.test(page))
+ok('search page persists on applySeq and reapplies only when a query or explicit favorite browse exists',
+  /@Monitor\('filter\.applySeq'\)[\s\S]*SearchFilterSettings\.persist\(this\.ctx\(\)\)[\s\S]*this\.fieldState\.keyword\.trim\(\)\.length > 0 \|\| this\.vm\.isFavoriteScope[\s\S]*this\.vm\.reapplyFilters\(\)/.test(page))
 
 console.log(`✓ search filter live-edit contract: ${passed} assertions passed`)

@@ -589,6 +589,10 @@
       "value": "Any"
     },
     {
+      "name": "filter_advanced",
+      "value": "Advanced options"
+    },
+    {
       "name": "filter_reset",
       "value": "Reset"
     },

@@ -9,9 +9,21 @@
 export class SearchPageParams {
   searchType: string = ''
   favcat: string = 'a'
+  initialQuery: string = ''
+  focusOnAppear: boolean = true
+  sessionId: string = ''
 
-  constructor(searchType: string = '', favcat: string = 'a') {
+  constructor(
+    searchType: string = '',
+    favcat: string = 'a',
+    initialQuery: string = '',
+    focusOnAppear: boolean = true,
+    sessionId: string = '',
+  ) {
     this.searchType = searchType
     this.favcat = favcat
+    this.initialQuery = initialQuery
+    this.focusOnAppear = focusOnAppear
+    this.sessionId = sessionId
   }
 }

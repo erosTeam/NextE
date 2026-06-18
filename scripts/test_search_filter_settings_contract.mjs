@@ -28,6 +28,7 @@ const sanitizeScope = (scope) =>
 const snapshotOf = (f) => ({
   scope: sanitizeScope(f.searchScope),
   cats: f.selectedCats,
+  adv: f.advancedEnabled,
   rating: f.minRating,
   pf: f.pagesFrom,
   pt: f.pagesTo,
@@ -50,6 +51,7 @@ function parse(raw) {
   return {
     scope: sanitizeScope(o.scope),
     cats: typeof o.cats === 'number' && o.cats >= 0 ? o.cats : 0,
+    adv: o.adv === true,
     rating: typeof o.rating === 'number' && o.rating >= 0 ? o.rating : 0,
     pf: typeof o.pf === 'number' && o.pf >= 0 ? o.pf : 0,
     pt: typeof o.pt === 'number' && o.pt >= 0 ? o.pt : 0,
@@ -67,6 +69,7 @@ function restore(snap) {
   return {
     searchScope: snap.scope,
     selectedCats: snap.cats,
+    advancedEnabled: snap.adv,
     minRating: snap.rating,
     pagesFrom: snap.pf,
     pagesTo: snap.pt,
@@ -95,6 +98,7 @@ const eq = (a, b) => {
 {
   const f = {
     selectedCats: 1021, // some categories excluded
+    advancedEnabled: true,
     minRating: 4,
     pagesFrom: 10,
     pagesTo: 200,
@@ -109,6 +113,7 @@ const eq = (a, b) => {
   const restored = restore(parse(serialize(snapshotOf(f))))
   ok('scope round-trip', restored.searchScope === SEARCH_SCOPE_WATCHED)
   ok('cats round-trip', restored.selectedCats === 1021)
+  ok('advancedEnabled round-trip', restored.advancedEnabled === true)
   ok('rating round-trip', restored.minRating === 4)
   ok('pagesFrom round-trip', restored.pagesFrom === 10)
   ok('pagesTo round-trip', restored.pagesTo === 200)
@@ -124,6 +129,7 @@ const eq = (a, b) => {
 {
   const f = {
     selectedCats: 0,
+    advancedEnabled: false,
     minRating: 0,
     pagesFrom: 0,
     pagesTo: 0,
@@ -187,15 +193,15 @@ const eq = (a, b) => {
   ok('storage key registered', /SEARCH_FILTER: string = 'search\.filter'/.test(keys))
   const settings = read('shared/src/main/ets/settings/SearchFilterSettings.ets')
   ok('snapshot never carries applySeq', !/snap\.applySeq/.test(settings) && !/applySeq:/.test(settings))
-  ok('persist serializes scope + three split fields', /snap\.scope[\s\S]*snap\.cats[\s\S]*snap\.sfl[\s\S]*snap\.sfu[\s\S]*snap\.sft/.test(settings))
+  ok('persist serializes scope + advanced switch + three split fields', /snap\.scope[\s\S]*snap\.cats[\s\S]*snap\.adv[\s\S]*snap\.sfl[\s\S]*snap\.sfu[\s\S]*snap\.sft/.test(settings))
   ok('restore migrates legacy nodefault onto the three', /disableLanguageFilter = snap\.sfl \|\| snap\.nodefault/.test(settings))
-  ok('restore writes scope before filters', /f\.searchScope = snap\.scope[\s\S]*f\.selectedCats = snap\.cats/.test(settings))
+  ok('restore writes scope and advanced switch before filters', /f\.searchScope = snap\.scope[\s\S]*f\.selectedCats = snap\.cats[\s\S]*f\.advancedEnabled = snap\.adv/.test(settings))
   ok('parse sanitizes scope', /s\.scope = SearchFilterSettings\.sanitizeScope\(o\.scope\)/.test(settings))
   ok('parse rejects non-object blobs', /typeof parsed !== 'object' \|\| Array\.isArray\(parsed\)/.test(settings))
   // Reset must bump applySeq so disk doesn't keep a stale filter.
   const sheet = read('feature/search/src/main/ets/components/SearchFilterSheet.ets')
   ok('reset live-applies (bumps applySeq)', /private resetFilter\(\): void \{[\s\S]*selectedCats = 0[\s\S]*this\.bumpApplySeq\(\)/.test(sheet))
-  ok('reset returns search scope to gallery', /private resetFilter\(\): void \{[\s\S]*searchScope = SEARCH_SCOPE_GALLERY[\s\S]*selectedCats = 0/.test(sheet))
+  ok('reset returns search scope to gallery and disables advanced options', /private resetFilter\(\): void \{[\s\S]*searchScope = SEARCH_SCOPE_GALLERY[\s\S]*selectedCats = 0[\s\S]*advancedEnabled = false/.test(sheet))
 }
 
 console.log(`✓ search filter settings contract: ${passed} assertions passed`)

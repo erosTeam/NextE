@@ -82,6 +82,7 @@ export class SearchViewModel {
       page: 0,
       fCats: f.fCats(),
       search: this.query,
+      advancedEnabled: f.advancedEnabled,
       minRating: f.minRating,
       pagesFrom: f.pagesFrom,
       pagesTo: f.pagesTo,
@@ -95,8 +96,9 @@ export class SearchViewModel {
 
   /** Re-run the current query with the latest filters (called when the filter sheet live-edits). */
   async reapplyFilters(): Promise<void> {
-    // Re-run when there's a query OR the filters alone can drive a browse (category-only search).
-    const canSearch: boolean = this.query.length > 0 || connectSearchFilter().isActive()
+    // Ordinary search does not implicitly browse with an empty query. Favorite scope is the explicit
+    // empty-query browse entry (favorites title-bar search), so it remains allowed.
+    const canSearch: boolean = this.query.length > 0 || this.isFavoriteScope
     if (!canSearch) {
       this.dataSource.clear()
       this.itemCount = 0
@@ -115,12 +117,10 @@ export class SearchViewModel {
 
   async search(query: string): Promise<void> {
     const trimmed: string = query.trim()
-    // An empty query is allowed to browse by active advanced filters (category-only browse, a NextE
-    // enhancement — EH supports /?f_cats=… without a keyword) OR in favorite scope (favorites.php with
-    // no f_search browses the whole favcat, eros_fe parity).
+    // Empty ordinary search returns to history; only explicit favorite scope browses without f_search.
     if (
       this.isLoading ||
-      (trimmed.length === 0 && !this.isFavoriteScope && !connectSearchFilter().isActive())
+      (trimmed.length === 0 && !this.isFavoriteScope)
     ) {
       return
     }
@@ -176,10 +176,9 @@ export class SearchViewModel {
   /** Re-run the current query from page 1 (pull-to-refresh). Guarded + flagged isLoading so a
    * concurrent loadMore (which checks isLoading) can't interleave its appendData with this setData. */
   async refresh(): Promise<void> {
-    // Allow refresh for a filter-only browse too (empty query but active filters), so pull-to-refresh
-    // and the error-retry button work there — mirrors the search()/reapplyFilters() guards.
+    // Empty ordinary search has no network state to refresh; favorite scope is an explicit browse.
     if (
-      (this.query.length === 0 && !this.isFavoriteScope && !connectSearchFilter().isActive()) ||
+      (this.query.length === 0 && !this.isFavoriteScope) ||
       this.isLoading ||
       this.isLoadingMore
     ) {

@@ -49,11 +49,12 @@ ok('favorite scope uses favorites endpoint', /effectiveFavoriteScope\(\)[\s\S]*s
 ok('filter favorite searches all favorite slots', /favcat:\s*this\.isFavoriteScope \? this\.favcat : 'a'/.test(vm))
 
 const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
-ok('empty query can browse when filter scope is active', /trimmed\.length === 0 && !this\.filter\.isActive\(\)/.test(page))
+ok('empty ordinary query does not browse by filter scope', /if \(trimmed\.length === 0\) \{[\s\S]*this\.clearQueryToHistory\(\)/.test(page))
 ok('route favorite scope remains a hard page mode', /this\.isFavoriteScope = true[\s\S]*this\.vm\.seedFavoriteScope\(p\.favcat\)/.test(page))
-ok('search page keeps filter entry in the title menu for every body state',
-  /private filterMenu\(\): Record<string, Object> \{[\s\S]*'label': \$r\('app\.string\.filter'\)[\s\S]*'action': \(\) => \{[\s\S]*this\.showFilter = true/.test(page) &&
-  /private searchTitleBar\(\): Record<string, Object> \{[\s\S]*'menu': this\.filterMenu\(\)/.test(page) &&
+ok('search page keeps filter entry in the pinned bottomBuilder field so title hiding cannot lose it',
+  /@Monitor\('fieldState\.filterSeq'\)[\s\S]*this\.showFilter = true/.test(page) &&
+  /SearchPageFieldState/.test(page) &&
+  /hideBottomBuilder: false/.test(page) &&
   !/@Builder\s+FilterTrigger/.test(page) &&
   !/FilterTriggerOverlay/.test(page) &&
   !/if \(!this\.isFavoriteScope\)[\s\S]*this\.FilterTrigger\(\)/.test(page))

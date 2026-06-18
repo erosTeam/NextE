@@ -79,6 +79,7 @@ export class GalleryListViewModel {
       page: page,
       fCats: 0,
       search: '',
+      advancedEnabled: true,
       minRating: 0,
       pagesFrom: 0,
       pagesTo: 0,

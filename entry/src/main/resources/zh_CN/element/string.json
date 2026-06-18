@@ -589,6 +589,10 @@
       "value": "不限"
     },
     {
+      "name": "filter_advanced",
+      "value": "高级选项"
+    },
+    {
       "name": "filter_reset",
       "value": "重置"
     },
