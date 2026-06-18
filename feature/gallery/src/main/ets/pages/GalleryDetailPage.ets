@@ -5,6 +5,7 @@ import {
   EhGallery,
   ShareUtil,
   GalleryDetailParams,
+  GalleryInfoParams,
   ReaderParams,
   GalleryCommentsParams,
   AllThumbnailsParams,
@@ -128,6 +129,13 @@ export struct GalleryDetailPage {
     )
   }
 
+  private openGalleryInfo(): void {
+    this.stack.pushPathByName(
+      'GalleryInfo',
+      new GalleryInfoParams(this.vm.gallery.copy(), connectSiteMode().isEx, this.navTitle()),
+    )
+  }
+
   private openThumbnails(): void {
     this.stack.pushPathByName(
       'AllThumbnails',
@@ -208,7 +216,12 @@ export struct GalleryDetailPage {
           })
         }
         ListItem() {
-          GalleryInfoBar({ gallery: this.vm.gallery })
+          GalleryInfoBar({
+            gallery: this.vm.gallery,
+            onOpenInfo: () => {
+              this.openGalleryInfo()
+            },
+          })
         }
         ListItem() {
           this.relationsRow()

@@ -289,6 +289,82 @@
       "value": "分享"
     },
     {
+      "name": "detail_info",
+      "value": "画廊信息"
+    },
+    {
+      "name": "detail_info_gid",
+      "value": "Gid"
+    },
+    {
+      "name": "detail_info_token",
+      "value": "Token"
+    },
+    {
+      "name": "detail_info_url",
+      "value": "链接"
+    },
+    {
+      "name": "detail_info_title",
+      "value": "标题"
+    },
+    {
+      "name": "detail_info_jpn_title",
+      "value": "日文标题"
+    },
+    {
+      "name": "detail_info_thumb",
+      "value": "封面"
+    },
+    {
+      "name": "detail_info_category",
+      "value": "分类"
+    },
+    {
+      "name": "detail_info_uploader",
+      "value": "上传者"
+    },
+    {
+      "name": "detail_info_posted",
+      "value": "发布时间"
+    },
+    {
+      "name": "detail_info_language",
+      "value": "语言"
+    },
+    {
+      "name": "detail_info_pages",
+      "value": "页数"
+    },
+    {
+      "name": "detail_info_size",
+      "value": "大小"
+    },
+    {
+      "name": "detail_info_favorite_count",
+      "value": "收藏数"
+    },
+    {
+      "name": "detail_info_favorited",
+      "value": "已收藏"
+    },
+    {
+      "name": "detail_info_favorite",
+      "value": "收藏夹"
+    },
+    {
+      "name": "detail_info_rating_count",
+      "value": "评分数"
+    },
+    {
+      "name": "detail_info_rating",
+      "value": "评分"
+    },
+    {
+      "name": "detail_info_torrents",
+      "value": "种子"
+    },
+    {
       "name": "detail_similar",
       "value": "相似"
     },
@@ -443,6 +519,14 @@
     {
       "name": "common_off",
       "value": "关闭"
+    },
+    {
+      "name": "common_yes",
+      "value": "是"
+    },
+    {
+      "name": "common_no",
+      "value": "否"
     },
     {
       "name": "view_list",

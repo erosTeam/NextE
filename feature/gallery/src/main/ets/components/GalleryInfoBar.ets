@@ -16,6 +16,7 @@ import { ThemeConstants, EhGallery, EhConstants, GroupedListSection, RatingStars
 @ComponentV2
 export struct GalleryInfoBar {
   @Require @Param gallery: EhGallery;
+  @Event onOpenInfo?: () => void;
 
   // One grid cell: a quiet tertiary outline glyph + the primary value, taking half the grid width.
   @Builder
@@ -47,8 +48,9 @@ export struct GalleryInfoBar {
   }
 
   build() {
-    GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
-      Column({ space: ThemeConstants.SPACE_SM }) {
+    Column() {
+      GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
+        Column({ space: ThemeConstants.SPACE_SM }) {
         // Row 1 — rating number + stars (left), category badge pinned right.
         Row({ space: ThemeConstants.SPACE_XS }) {
           Text(this.gallery.rating.toFixed(2))
@@ -82,6 +84,12 @@ export struct GalleryInfoBar {
                 bottom: ThemeConstants.CHIP_PADDING_V,
               })
           }
+          if (this.onOpenInfo) {
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor([$r('sys.color.font_tertiary')])
+              .padding({ left: ThemeConstants.SPACE_XS })
+          }
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
@@ -110,7 +118,14 @@ export struct GalleryInfoBar {
           }
           .width('100%')
         }
-      }.width('100%')
+        }.width('100%')
+      }
     }
+    .width('100%')
+    .onClick(() => {
+      if (this.onOpenInfo) {
+        this.onOpenInfo()
+      }
+    })
   }
 }

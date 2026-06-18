@@ -289,6 +289,82 @@
       "value": "Share"
     },
     {
+      "name": "detail_info",
+      "value": "Gallery info"
+    },
+    {
+      "name": "detail_info_gid",
+      "value": "Gid"
+    },
+    {
+      "name": "detail_info_token",
+      "value": "Token"
+    },
+    {
+      "name": "detail_info_url",
+      "value": "Url"
+    },
+    {
+      "name": "detail_info_title",
+      "value": "Title"
+    },
+    {
+      "name": "detail_info_jpn_title",
+      "value": "Jpn Title"
+    },
+    {
+      "name": "detail_info_thumb",
+      "value": "Thumb"
+    },
+    {
+      "name": "detail_info_category",
+      "value": "Category"
+    },
+    {
+      "name": "detail_info_uploader",
+      "value": "Uploader"
+    },
+    {
+      "name": "detail_info_posted",
+      "value": "Posted"
+    },
+    {
+      "name": "detail_info_language",
+      "value": "Language"
+    },
+    {
+      "name": "detail_info_pages",
+      "value": "Pages"
+    },
+    {
+      "name": "detail_info_size",
+      "value": "Size"
+    },
+    {
+      "name": "detail_info_favorite_count",
+      "value": "Favorite count"
+    },
+    {
+      "name": "detail_info_favorited",
+      "value": "Favorited"
+    },
+    {
+      "name": "detail_info_favorite",
+      "value": "Favorite"
+    },
+    {
+      "name": "detail_info_rating_count",
+      "value": "Rating count"
+    },
+    {
+      "name": "detail_info_rating",
+      "value": "Rating"
+    },
+    {
+      "name": "detail_info_torrents",
+      "value": "Torrents"
+    },
+    {
       "name": "detail_similar",
       "value": "Similar"
     },
@@ -443,6 +519,14 @@
     {
       "name": "common_off",
       "value": "Off"
+    },
+    {
+      "name": "common_yes",
+      "value": "Yes"
+    },
+    {
+      "name": "common_no",
+      "value": "No"
     },
     {
       "name": "view_list",

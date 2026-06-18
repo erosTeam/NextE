@@ -1,5 +1,6 @@
 import { EhGalleryComment } from './EhGalleryComment'
 import { EhGalleryImage } from './EhGalleryImage'
+import { EhGallery } from './EhGallery'
 
 /**
  * Typed params pushed onto the NavPathStack by name. Hand-written classes (ArkTS route
@@ -29,6 +30,19 @@ export class GalleryDetailParams {
     this.thumbUrl = thumbUrl
     this.title = title
     this.fileCount = fileCount
+  }
+}
+
+/** Params for the 'GalleryInfo' destination (full read-only metadata sheet). */
+export class GalleryInfoParams {
+  gallery: EhGallery = new EhGallery()
+  isEx: boolean = false
+  title: string = ''
+
+  constructor(gallery: EhGallery = new EhGallery(), isEx: boolean = false, title: string = '') {
+    this.gallery = gallery
+    this.isEx = isEx
+    this.title = title
   }
 }
 

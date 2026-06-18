@@ -289,6 +289,82 @@
       "value": "共有"
     },
     {
+      "name": "detail_info",
+      "value": "ギャラリー情報"
+    },
+    {
+      "name": "detail_info_gid",
+      "value": "Gid"
+    },
+    {
+      "name": "detail_info_token",
+      "value": "Token"
+    },
+    {
+      "name": "detail_info_url",
+      "value": "URL"
+    },
+    {
+      "name": "detail_info_title",
+      "value": "タイトル"
+    },
+    {
+      "name": "detail_info_jpn_title",
+      "value": "日本語タイトル"
+    },
+    {
+      "name": "detail_info_thumb",
+      "value": "サムネイル"
+    },
+    {
+      "name": "detail_info_category",
+      "value": "カテゴリ"
+    },
+    {
+      "name": "detail_info_uploader",
+      "value": "投稿者"
+    },
+    {
+      "name": "detail_info_posted",
+      "value": "投稿日"
+    },
+    {
+      "name": "detail_info_language",
+      "value": "言語"
+    },
+    {
+      "name": "detail_info_pages",
+      "value": "ページ数"
+    },
+    {
+      "name": "detail_info_size",
+      "value": "サイズ"
+    },
+    {
+      "name": "detail_info_favorite_count",
+      "value": "お気に入り数"
+    },
+    {
+      "name": "detail_info_favorited",
+      "value": "お気に入り済み"
+    },
+    {
+      "name": "detail_info_favorite",
+      "value": "お気に入り"
+    },
+    {
+      "name": "detail_info_rating_count",
+      "value": "評価数"
+    },
+    {
+      "name": "detail_info_rating",
+      "value": "評価"
+    },
+    {
+      "name": "detail_info_torrents",
+      "value": "トレント"
+    },
+    {
       "name": "detail_similar",
       "value": "類似"
     },
@@ -443,6 +519,14 @@
     {
       "name": "common_off",
       "value": "オフ"
+    },
+    {
+      "name": "common_yes",
+      "value": "はい"
+    },
+    {
+      "name": "common_no",
+      "value": "いいえ"
     },
     {
       "name": "view_list",

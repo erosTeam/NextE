@@ -21,6 +21,7 @@ export { EhGalleryImage } from './model/EhGalleryImage'
 export { GalleryList } from './model/GalleryList'
 export {
   GalleryDetailParams,
+  GalleryInfoParams,
   ReaderParams,
   ImagePageRouteErrorParams,
   GalleryCommentsParams,
