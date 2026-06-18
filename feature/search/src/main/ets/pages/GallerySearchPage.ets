@@ -59,7 +59,6 @@ export struct GallerySearchPage {
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local showFilter: boolean = false;
-  @Local filterOpenSeq: number = 0;
   @Local listContentWidth: number = 0;
   @Local imagePageErrorUrl: string = '';
   @Local imagePageResolving: boolean = false;
@@ -206,19 +205,14 @@ export struct GallerySearchPage {
 
   @Monitor('filter.applySeq')
   onFilterApply(): void {
-    // Persist the applied filters so they survive a restart (eros_fe keeps the advanced-search profile).
+    // Persist live filter edits so they survive a restart (eros_fe keeps the advanced-search profile).
     SearchFilterSettings.persist(this.ctx())
     this.vm.reapplyFilters()
   }
 
   @Builder
   FilterSheet() {
-    SearchFilterSheet({
-      openSeq: this.filterOpenSeq,
-      onApply: () => {
-        this.showFilter = false
-      },
-    })
+    SearchFilterSheet()
   }
 
   // Search landing: a filter trigger is available UP FRONT (eros_fe exposes category/advanced filters
@@ -310,7 +304,6 @@ export struct GallerySearchPage {
         bottom: ThemeConstants.SPACE_XS,
       })
       .onClick(() => {
-        this.filterOpenSeq = this.filterOpenSeq + 1
         this.showFilter = true
       })
   }

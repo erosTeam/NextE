@@ -32,15 +32,15 @@ export class SearchFilterSnapshot {
  *
  * eros_fe keeps the advanced-search profile in its persistent store; NextE's SearchFilterState was
  * in-memory only, so category / rating / page-range / toggle choices were lost on every restart. This
- * restores them at startup (SettingsBootstrap) and persists them on commit — the sheet's Apply OR Reset
- * (both bump applySeq → GallerySearchPage.onFilterApply). Stored as one JSON object under the shared
- * settings store.
+ * restores them at startup (SettingsBootstrap) and persists them when the sheet live-edits filters or
+ * Reset clears them (both bump applySeq → GallerySearchPage.onFilterApply). Stored as one JSON object
+ * under the shared settings store.
  *
  * Two DELIBERATE divergences from eros_fe (not field parity — recorded honestly):
  *  • No persisted `enableAdvanceSearch` master toggle. eros_fe restores a "configured but dormant"
  *    profile that the user arms; NextE treats "any non-default value" as active (SearchFilterState
  *    .isActive()). A restored NextE filter is live, not dormant — but it still only drives a search on
- *    an explicit submit/apply, never auto-runs at launch (restore writes no applySeq).
+ *    an explicit submit/live edit, never auto-runs at launch (restore writes no applySeq).
  *  • The f_sr / f_sp ON gates are DERIVED from the value (minRating>=2, pages>0) rather than stored as
  *    separate booleans like eros_fe. The value IS the gate, so persisting the value persists intent.
  */
@@ -76,7 +76,7 @@ export class SearchFilterSettings {
     }
   }
 
-  /** Persist the current filter state (called when the user applies the sheet). */
+  /** Persist the current filter state (called when the sheet live-edits or resets filters). */
   static async persist(context: common.UIAbilityContext): Promise<void> {
     try {
       const f = connectSearchFilter()

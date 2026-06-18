@@ -28,13 +28,13 @@ const sheet = read('feature/search/src/main/ets/components/SearchFilterSheet.ets
 ok('sheet imports scope constants', /SEARCH_SCOPE_GALLERY[\s\S]*SEARCH_SCOPE_WATCHED[\s\S]*SEARCH_SCOPE_FAVORITE/.test(sheet))
 ok('sheet renders all three search scope choices', /search_scope_gallery/.test(sheet) && /search_scope_watched/.test(sheet) && /search_scope_favorite/.test(sheet))
 ok('sheet uses the native segmented button for scope selection',
-  /TabSegmentButtonV2\(\{[\s\S]*selectedIndex: this\.scopeIndex\(\)[\s\S]*this\.draftSearchScope = this\.scopeForIndex\(index\)/.test(sheet))
-ok('sheet explains favorite scope while hiding gallery-only filters from the draft scope',
-  /if \(this\.draftSearchScope === SEARCH_SCOPE_FAVORITE\)[\s\S]*filter_favorite_scope_hint/.test(sheet) &&
-  /if \(this\.draftSearchScope !== SEARCH_SCOPE_FAVORITE\)[\s\S]*filter_category[\s\S]*filter_options/.test(sheet))
-ok('sheet reset returns draft to gallery before committing scope',
-  /private resetDraft\(\): void \{[\s\S]*this\.draftSearchScope = SEARCH_SCOPE_GALLERY/.test(sheet) &&
-  /private commitDraft\(\): void \{[\s\S]*this\.filter\.searchScope = this\.draftSearchScope[\s\S]*this\.filter\.applySeq = this\.filter\.applySeq \+ 1/.test(sheet))
+  /TabSegmentButtonV2\(\{[\s\S]*selectedIndex: this\.scopeIndex\(\)[\s\S]*this\.setScope\(this\.scopeForIndex\(index\)\)/.test(sheet))
+ok('sheet explains favorite scope while hiding gallery-only filters from the active scope',
+  /if \(this\.filter\.searchScope === SEARCH_SCOPE_FAVORITE\)[\s\S]*filter_favorite_scope_hint/.test(sheet) &&
+  /if \(this\.filter\.searchScope !== SEARCH_SCOPE_FAVORITE\)[\s\S]*filter_category[\s\S]*filter_options/.test(sheet))
+ok('sheet reset returns active scope to gallery and bumps live-apply sequence',
+  /private resetFilter\(\): void \{[\s\S]*this\.filter\.searchScope = SEARCH_SCOPE_GALLERY[\s\S]*this\.bumpApplySeq\(\)/.test(sheet) &&
+  /private setScope\(scope: string\): void \{[\s\S]*this\.filter\.searchScope = scope[\s\S]*this\.bumpApplySeq\(\)/.test(sheet))
 
 const settings = read('shared/src/main/ets/settings/SearchFilterSettings.ets')
 ok('settings snapshot persists scope', /class SearchFilterSnapshot[\s\S]*scope:\s*string\s*=\s*SEARCH_SCOPE_GALLERY/.test(settings))

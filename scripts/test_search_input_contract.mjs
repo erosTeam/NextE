@@ -153,7 +153,12 @@ const ok = (name, cond) => {
     'vm allows empty with active filter or favorite scope',
     /trimmed\.length === 0 && !this\.isFavoriteScope && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc),
   )
-  ok('reapplyFilters honors filter-only', /this\.query\.length > 0 \|\| connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
+  ok('reapplyFilters honors filter-only', /const canSearch: boolean = this\.query\.length > 0 \|\| connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
+  ok('reapplyFilters queues live changes during loading',
+    /if \(this\.isLoading\) \{[\s\S]*this\.pendingFilterReapply = true[\s\S]*return[\s\S]*\}/.test(vmSrc) &&
+    /if \(this\.pendingFilterReapply\) \{[\s\S]*this\.pendingFilterReapply = false[\s\S]*await this\.reapplyFilters\(\)/.test(vmSrc))
+  ok('reapplyFilters clears stale filter-only results after reset',
+    /if \(!canSearch\) \{[\s\S]*this\.dataSource\.clear\(\)[\s\S]*this\.hasSearched = false/.test(vmSrc))
   ok(
     'refresh allows filter-only or favorite-scope browse',
     /this\.query\.length === 0 && !this\.isFavoriteScope && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc),

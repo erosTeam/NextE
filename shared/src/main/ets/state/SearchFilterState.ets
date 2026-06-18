@@ -9,8 +9,8 @@ export const SEARCH_SCOPE_FAVORITE: string = 'favorite'
 /**
  * Search scope + advanced filters, shared between the filter sheet (writer) and SearchViewModel
  * (reader). `selectedCats` is the bitmask of categories to SHOW (0 or all = no category filter);
- * EH's `f_cats` is the EXCLUDE mask, so fCats() inverts. `applySeq` bumps when the user applies
- * filters, so the search page re-runs.
+ * EH's `f_cats` is the EXCLUDE mask, so fCats() inverts. `applySeq` bumps on live filter changes
+ * and Reset, so the search page persists and re-runs.
  */
 @ObservedV2
 export class SearchFilterState {

@@ -176,13 +176,13 @@ const eq = (a, b) => {
   ok('missing sfu → false', s.sfu === false)
 }
 
-// 5. structural: the .ets wiring exists (restore at bootstrap, persist on apply, key registered)
+// 5. structural: the .ets wiring exists (restore at bootstrap, persist on live edit/reset, key registered)
 {
   const read = (p) => readFileSync(join(ROOT, p), 'utf8')
   const boot = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
   ok('bootstrap restores filters', /SearchFilterSettings\.restore\(/.test(boot))
   const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
-  ok('apply persists filters', /SearchFilterSettings\.persist\(this\.ctx\(\)\)/.test(page))
+  ok('live apply persists filters', /@Monitor\('filter\.applySeq'\)[\s\S]*SearchFilterSettings\.persist\(this\.ctx\(\)\)/.test(page))
   const keys = read('shared/src/main/ets/constants/StorageKeys.ets')
   ok('storage key registered', /SEARCH_FILTER: string = 'search\.filter'/.test(keys))
   const settings = read('shared/src/main/ets/settings/SearchFilterSettings.ets')
@@ -192,10 +192,10 @@ const eq = (a, b) => {
   ok('restore writes scope before filters', /f\.searchScope = snap\.scope[\s\S]*f\.selectedCats = snap\.cats/.test(settings))
   ok('parse sanitizes scope', /s\.scope = SearchFilterSettings\.sanitizeScope\(o\.scope\)/.test(settings))
   ok('parse rejects non-object blobs', /typeof parsed !== 'object' \|\| Array\.isArray\(parsed\)/.test(settings))
-  // the Reset hole fix: Reset must also commit (bump applySeq) so disk doesn't keep a stale filter.
+  // Reset must bump applySeq so disk doesn't keep a stale filter.
   const sheet = read('feature/search/src/main/ets/components/SearchFilterSheet.ets')
-  ok('reset commits (bumps applySeq)', /selectedCats = 0[\s\S]*?applySeq = this\.filter\.applySeq \+ 1/.test(sheet))
-  ok('reset returns search scope to gallery', /searchScope = SEARCH_SCOPE_GALLERY[\s\S]*selectedCats = 0/.test(sheet))
+  ok('reset live-applies (bumps applySeq)', /private resetFilter\(\): void \{[\s\S]*selectedCats = 0[\s\S]*this\.bumpApplySeq\(\)/.test(sheet))
+  ok('reset returns search scope to gallery', /private resetFilter\(\): void \{[\s\S]*searchScope = SEARCH_SCOPE_GALLERY[\s\S]*selectedCats = 0/.test(sheet))
 }
 
 console.log(`✓ search filter settings contract: ${passed} assertions passed`)

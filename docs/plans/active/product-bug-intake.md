@@ -48,7 +48,7 @@ Type: bug
 
 Priority suggestion: P0/P1
 
-Status: implemented / needs controller acceptance
+Status: parked / superseded by live-apply UX repair
 
 Implementation:
 
@@ -144,7 +144,7 @@ Type: bug / UX gap
 
 Priority suggestion: P1
 
-Status: implemented / pending device acceptance
+Status: implemented / needs controller acceptance
 
 Implementation:
 
@@ -381,12 +381,19 @@ Observed behavior:
 - Closing the sheet without applying could leave active filters changed silently, so a later search or
   apply action could use filter state the user never committed.
 
-Expected behavior:
+Original expected behavior:
 
 - Filter sheet edits are draft-only until Apply.
 - Closing/backing out of the sheet discards uncommitted changes.
 - Reset is an explicit commit of the empty filter: it closes the sheet and reapplies the current
   query with defaults.
+
+Superseded behavior:
+
+- Later user feedback and Android FE comparison changed the product requirement: Search filters should
+  live-apply with immediate visual feedback, no primary Apply button, and Reset as the only explicit
+  action. Keep the old evidence as history only; do not restore this Apply/draft model unless a new
+  product decision reverses the live-apply lane.
 
 Implementation:
 
@@ -436,7 +443,7 @@ Type: UX / interaction bug
 
 Priority suggestion: P0
 
-Status: BLOCKED: missing FE ADB comparison evidence
+Status: implemented / pending device acceptance
 
 Source:
 
@@ -462,11 +469,49 @@ Grounding:
   see immediate visual feedback and live reapplication, long-press a category for quick solo/invert,
   then Reset if needed. This lane does not change query parser correctness or favorite backend
   semantics unless FE comparison proves a search-scope behavior gap.
-- HarmonyOS expression to evaluate after FE evidence: native segmented controls for scope and rating,
-  category-colored V2 chips/buttons with long-press affordance, reset as the only explicit action, and
-  stable title/page-level filter entry.
+- HarmonyOS expression: native segmented controls for scope and rating, category-colored V2 buttons
+  with long-press affordance, reset as the only explicit action, and stable title/page-level filter
+  entry.
 
-Blocked FE/ADB preflight:
+Android FE comparison evidence:
+
+- Device: `fa967a75` (`model:22061218C`, `device:zizhan`) over ADB.
+- Package: `com.honjow.fehviewer` (`eros_fe`), version `1.9.2`, foreground activity
+  `com.honjow.fehviewer/.MainActivity`.
+- Input method: ordinary `adb shell input` was rejected by Android `INJECT_EVENTS`; after user
+  authorization, navigation used `adb -s fa967a75 shell su -c ...`.
+- Evidence directory: `/private/tmp/nexte_search_filter_fe_comparison`.
+- Key screenshots/layout dumps:
+  `fe_start_pull.png` / `.xml`, `fe_filter_open.png` / `.xml`,
+  `fe_filter_after_manga_tap.png` / `.xml`, `fe_filter_after_doujinshi_long.png` / `.xml`,
+  `fe_filter_rating_segment.png` / `.xml`, `fe_filter_rating_4_selected.png` / `.xml`,
+  `fe_filter_favorite_scope.png` / `.xml`, `fe_filter_restored.png` / `.xml`.
+- Observed FE scope: a formal three-way segmented control (`Gallery`, `Watched`, `Favorite`).
+- Observed FE categories: two-column, strong semantic-colored category buttons; all categories start
+  selected/colored. Tapping `Manga` immediately turns it grey/off without changing scope.
+- Observed FE long press: long-pressing `Doujinshi` while it is selected leaves `Doujinshi` selected
+  and turns the other categories grey/off, matching the quick solo/invert mental model.
+- Observed FE rating: an advanced minimum-rating switch reveals a segmented `2/3/4/5` star control;
+  tapping `4` immediately selects that segment.
+- Observed FE model: no primary Apply button in the filter view; state changes are immediate. Reset is
+  a secondary icon action near the advanced-options switch. Favorite scope hides gallery category and
+  advanced options.
+
+Current NextE repair scope:
+
+- Replace the old draft/Apply model with live filter edits: scope, category, rating, page range, and
+  toggles update `SearchFilterState` immediately and bump `applySeq` for persist/requery.
+- Use HarmonyOS `TabSegmentButtonV2` for scope and rating instead of fake Row/Text segmented controls
+  or chip text blocks.
+- Use a V2 category button component with `EhConstants.categoryColor(...)` semantic category colors,
+  immediate selected/off state, and long-press solo/invert behavior.
+- Keep the filter trigger as a page-level overlay across normal, tag/action-seeded, loading, error,
+  result, and favorite search states.
+- Remove the primary Apply button; keep Reset as the only explicit low-weight action.
+- Queue a pending filter reapply when the user changes live filters during an in-flight search, and
+  clear stale filter-only results when Reset leaves no query and no active filter.
+
+Historical FE/ADB preflight before the Android device was connected:
 
 - Installed Android platform-tools through Homebrew on macOS; `adb` is available at
   `/opt/homebrew/bin/adb`.
@@ -525,9 +570,11 @@ Implementation:
   states instead of hiding it when favorite scope is active.
 - Favorite scope now keeps the sheet reachable and shows an explicit scope limitation hint for
   gallery-only filters.
-- This commit is now only an implementation candidate for part of the issue. It is not accepted and
-  does not satisfy the updated product requirements for color semantics, long-press category behavior,
-  rating segmented control, or live filter application with no Apply button.
+- Current uncommitted follow-up in `codex/search-filter-ux-repair` supersedes the earlier candidate for
+  this item by adding category color semantics, long-press solo/invert, rating segmented control, and
+  live filter application with no Apply button.
+- `fcd96db fix(search): live-apply filter controls` implements the live-apply follow-up described
+  above.
 
 Evidence:
 
@@ -538,6 +585,28 @@ Evidence:
   `git diff --check`.
 - Official signed build passed with `scripts/setup-local-build-profile.sh` and
   `scripts/build_hvigor_signed.sh` on macOS; no `dev.sh` was used.
+- HarmonyOS Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP
+  installed from `entry/build/default/outputs/default/entry-default-signed.hap`.
+- NextE evidence directory: `/private/tmp/nexte_search_filter_live_apply_evidence`.
+- Key NextE screenshots/layout dumps:
+  `nexte_filter_sheet_open.png` / `.json` shows scope as a formal segmented control, two-column
+  semantic-colored categories, fixed low-weight Reset, and no Apply button.
+- `nexte_filter_manga_off.png` / `.json`: tapping `Manga` immediately changes its background to
+  off/grey (`#0C000000` in layout) and the result list behind the sheet refreshes under the live
+  filter.
+- `nexte_filter_doujinshi_solo.png` / `.json`: long-pressing `Doujinshi` keeps only `Doujinshi`
+  colored and turns other categories grey/off; the list behind refreshes to Doujinshi results.
+- `nexte_filter_rating_visible.png` / `.json` and `nexte_filter_rating_4.png` / `.json`: rating is a
+  segmented control, and tapping `4★` moves selected state immediately.
+- `nexte_filter_after_reset.png` / `.json` and `nexte_filter_top_after_reset.png` / `.json`: Reset
+  returns rating to `不限` and restores all categories colored/selected without an Apply button.
+- `nexte_filter_favorite_scope.png` / `.json`: switching scope to `收藏` selects that segment and hides
+  gallery-only category/rating controls behind an explicit limitation hint while the page-level filter
+  entry remains visible.
+
+Remaining acceptance:
+
+- Needs controller/user review. Do not mark `accepted` until that review happens.
 - Mate X7 HarmonyOS emulator target `127.0.0.1:5555`, hdc outside the sandbox, official signed HAP
   installed: the search landing filter entry stayed fixed near the top-right; the sheet rendered a
   native segmented scope control; tapping `Manga` immediately selected the category; tapping `4★`

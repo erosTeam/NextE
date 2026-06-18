@@ -1,5 +1,6 @@
 import {
   AppStrings,
+  EhConstants,
   ThemeConstants,
   SearchFilterState,
   connectSearchFilter,
@@ -14,7 +15,9 @@ interface CatItem {
   bit: number
 }
 
+const ALL_CATS: number = 1023
 const CATS: CatItem[] = [
+  { name: 'Misc', bit: 1 },
   { name: 'Doujinshi', bit: 2 },
   { name: 'Manga', bit: 4 },
   { name: 'Artist CG', bit: 8 },
@@ -24,87 +27,157 @@ const CATS: CatItem[] = [
   { name: 'Image Set', bit: 32 },
   { name: 'Cosplay', bit: 64 },
   { name: 'Asian Porn', bit: 128 },
-  { name: 'Misc', bit: 1 },
+]
+const CAT_ROWS: CatItem[][] = [
+  [CATS[0], CATS[1]],
+  [CATS[2], CATS[3]],
+  [CATS[4], CATS[5]],
+  [CATS[6], CATS[7]],
+  [CATS[8], CATS[9]],
 ]
 const RATINGS: number[] = [0, 2, 3, 4, 5]
 
 /**
- * Advanced-search filter sheet content (hosted via the search page's bindSheet). Edits the shared
- * SearchFilterState directly (category SHOW bitmask, min rating, page range); Apply bumps applySeq
- * so the search page re-runs the current query with the new filters, Reset clears them.
+ * Advanced-search filter sheet content (hosted via the search page's bindSheet). Mirrors eros_fe's
+ * direct-editing model: category/rating/scope/toggle changes update SearchFilterState immediately and
+ * bump applySeq so the search page re-runs the current query. Reset is the only explicit action.
  */
 @ComponentV2
 export struct SearchFilterSheet {
   @Local filter: SearchFilterState = connectSearchFilter();
-  @Param openSeq: number = 0;
   @Local private scopeItems: SegmentButtonV2Items = new SegmentButtonV2Items([{ text: '' }, { text: '' }, { text: '' }]);
-  @Local draftSearchScope: string = SEARCH_SCOPE_GALLERY;
-  @Local draftSelectedCats: number = 0;
-  @Local draftMinRating: number = 0;
-  @Local draftPagesFrom: number = 0;
-  @Local draftPagesTo: number = 0;
-  @Local draftRequireTorrent: boolean = false;
-  @Local draftShowExpunged: boolean = false;
-  @Local draftDisableLanguageFilter: boolean = false;
-  @Local draftDisableUploaderFilter: boolean = false;
-  @Local draftDisableTagFilter: boolean = false;
-  @Event onApply: () => void = () => {};
+  @Local private ratingItems: SegmentButtonV2Items = new SegmentButtonV2Items([
+    { text: '' },
+    { text: '2★' },
+    { text: '3★' },
+    { text: '4★' },
+    { text: '5★' },
+  ]);
 
   aboutToAppear(): void {
-    this.syncScopeLabels()
-    this.syncDraftFromFilter()
+    this.syncSegmentLabels()
   }
 
-  private syncScopeLabels(): void {
+  private syncSegmentLabels(): void {
     this.scopeItems[0].text = AppStrings.get('search_scope_gallery')
     this.scopeItems[1].text = AppStrings.get('search_scope_watched')
     this.scopeItems[2].text = AppStrings.get('search_scope_favorite')
+    this.ratingItems[0].text = AppStrings.get('filter_any')
   }
 
-  @Monitor('openSeq')
-  onOpenSeqChanged(): void {
-    this.syncDraftFromFilter()
-  }
-
-  private syncDraftFromFilter(): void {
-    this.draftSearchScope = this.filter.searchScope
-    this.draftSelectedCats = this.filter.selectedCats
-    this.draftMinRating = this.filter.minRating
-    this.draftPagesFrom = this.filter.pagesFrom
-    this.draftPagesTo = this.filter.pagesTo
-    this.draftRequireTorrent = this.filter.requireTorrent
-    this.draftShowExpunged = this.filter.showExpunged
-    this.draftDisableLanguageFilter = this.filter.disableLanguageFilter
-    this.draftDisableUploaderFilter = this.filter.disableUploaderFilter
-    this.draftDisableTagFilter = this.filter.disableTagFilter
-  }
-
-  private resetDraft(): void {
-    this.draftSearchScope = SEARCH_SCOPE_GALLERY
-    this.draftSelectedCats = 0
-    this.draftMinRating = 0
-    this.draftPagesFrom = 0
-    this.draftPagesTo = 0
-    this.draftRequireTorrent = false
-    this.draftShowExpunged = false
-    this.draftDisableLanguageFilter = false
-    this.draftDisableUploaderFilter = false
-    this.draftDisableTagFilter = false
-  }
-
-  private commitDraft(): void {
-    this.filter.searchScope = this.draftSearchScope
-    this.filter.selectedCats = this.draftSelectedCats
-    this.filter.minRating = this.draftMinRating
-    this.filter.pagesFrom = this.draftPagesFrom
-    this.filter.pagesTo = this.draftPagesTo
-    this.filter.requireTorrent = this.draftRequireTorrent
-    this.filter.showExpunged = this.draftShowExpunged
-    this.filter.disableLanguageFilter = this.draftDisableLanguageFilter
-    this.filter.disableUploaderFilter = this.draftDisableUploaderFilter
-    this.filter.disableTagFilter = this.draftDisableTagFilter
+  private bumpApplySeq(): void {
     this.filter.applySeq = this.filter.applySeq + 1
-    this.onApply()
+  }
+
+  private normalizeCats(cats: number): number {
+    return cats === ALL_CATS ? 0 : cats
+  }
+
+  private visibleCatMask(): number {
+    return this.filter.selectedCats === 0 ? ALL_CATS : this.filter.selectedCats
+  }
+
+  private isCatSelected(c: CatItem): boolean {
+    return (this.visibleCatMask() & c.bit) !== 0
+  }
+
+  private toggleCategory(c: CatItem): void {
+    const next: number = this.visibleCatMask() ^ c.bit
+    this.filter.selectedCats = this.normalizeCats(next)
+    this.bumpApplySeq()
+  }
+
+  private soloOrInvertCategory(c: CatItem): void {
+    const current: number = this.visibleCatMask()
+    const selected: boolean = (current & c.bit) !== 0
+    this.filter.selectedCats = selected ? c.bit : this.normalizeCats(ALL_CATS ^ c.bit)
+    this.bumpApplySeq()
+  }
+
+  private setScope(scope: string): void {
+    if (this.filter.searchScope === scope) {
+      return
+    }
+    this.filter.searchScope = scope
+    this.bumpApplySeq()
+  }
+
+  private setRating(rating: number): void {
+    if (this.filter.minRating === rating) {
+      return
+    }
+    this.filter.minRating = rating
+    this.bumpApplySeq()
+  }
+
+  private setPagesFrom(value: number): void {
+    if (this.filter.pagesFrom === value) {
+      return
+    }
+    this.filter.pagesFrom = value
+    this.bumpApplySeq()
+  }
+
+  private setPagesTo(value: number): void {
+    if (this.filter.pagesTo === value) {
+      return
+    }
+    this.filter.pagesTo = value
+    this.bumpApplySeq()
+  }
+
+  private setRequireTorrent(on: boolean): void {
+    if (this.filter.requireTorrent === on) {
+      return
+    }
+    this.filter.requireTorrent = on
+    this.bumpApplySeq()
+  }
+
+  private setShowExpunged(on: boolean): void {
+    if (this.filter.showExpunged === on) {
+      return
+    }
+    this.filter.showExpunged = on
+    this.bumpApplySeq()
+  }
+
+  private setDisableLanguageFilter(on: boolean): void {
+    if (this.filter.disableLanguageFilter === on) {
+      return
+    }
+    this.filter.disableLanguageFilter = on
+    this.bumpApplySeq()
+  }
+
+  private setDisableUploaderFilter(on: boolean): void {
+    if (this.filter.disableUploaderFilter === on) {
+      return
+    }
+    this.filter.disableUploaderFilter = on
+    this.bumpApplySeq()
+  }
+
+  private setDisableTagFilter(on: boolean): void {
+    if (this.filter.disableTagFilter === on) {
+      return
+    }
+    this.filter.disableTagFilter = on
+    this.bumpApplySeq()
+  }
+
+  private resetFilter(): void {
+    this.filter.searchScope = SEARCH_SCOPE_GALLERY
+    this.filter.selectedCats = 0
+    this.filter.minRating = 0
+    this.filter.pagesFrom = 0
+    this.filter.pagesTo = 0
+    this.filter.requireTorrent = false
+    this.filter.showExpunged = false
+    this.filter.disableLanguageFilter = false
+    this.filter.disableUploaderFilter = false
+    this.filter.disableTagFilter = false
+    this.bumpApplySeq()
   }
 
   build() {
@@ -120,7 +193,7 @@ export struct SearchFilterSheet {
             selectedIndex: this.scopeIndex(),
             enableStateAnimation: true,
             onItemClicked: (index: number) => {
-              this.draftSearchScope = this.scopeForIndex(index)
+              this.setScope(this.scopeForIndex(index))
             },
             itemPadding: {
               top: LengthMetrics.vp(7),
@@ -131,62 +204,77 @@ export struct SearchFilterSheet {
           })
           .width('100%')
           .constraintSize({ minHeight: 40 })
-          if (this.draftSearchScope === SEARCH_SCOPE_FAVORITE) {
+          if (this.filter.searchScope === SEARCH_SCOPE_FAVORITE) {
             Text($r('app.string.filter_favorite_scope_hint'))
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
               .fontColor($r('sys.color.font_secondary'))
               .lineHeight(18)
           }
-          if (this.draftSearchScope !== SEARCH_SCOPE_FAVORITE) {
+          if (this.filter.searchScope !== SEARCH_SCOPE_FAVORITE) {
             Text($r('app.string.filter_category'))
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
-            Flex({ wrap: FlexWrap.Wrap }) {
+            Column({ space: ThemeConstants.SPACE_XS }) {
               ForEach(
-                CATS,
-                (c: CatItem) => {
-                  SearchFilterChipButton({
-                    label: c.name,
-                    selected: (this.draftSelectedCats & c.bit) !== 0,
-                    onTap: () => {
-                      this.draftSelectedCats = this.draftSelectedCats ^ c.bit
-                    },
-                  })
+                CAT_ROWS,
+                (row: CatItem[]) => {
+                  Row({ space: ThemeConstants.SPACE_XS }) {
+                    ForEach(
+                      row,
+                      (c: CatItem) => {
+                        SearchFilterCategoryButton({
+                          label: c.name,
+                          selected: this.isCatSelected(c),
+                          color: EhConstants.categoryColor(c.name),
+                          onTap: () => {
+                            this.toggleCategory(c)
+                          },
+                          onLongPress: () => {
+                            this.soloOrInvertCategory(c)
+                          },
+                        })
+                        .layoutWeight(1)
+                      },
+                      (c: CatItem) => c.name,
+                    )
+                  }
+                  .width('100%')
                 },
-                (c: CatItem) => c.name,
+                (row: CatItem[]) => row[0].name,
               )
             }.width('100%')
             Text($r('app.string.filter_rating'))
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
-            Row({ space: ThemeConstants.SPACE_SM }) {
-              ForEach(
-                RATINGS,
-                (r: number) => {
-                  SearchFilterChipButton({
-                    label: this.ratingLabel(r),
-                    selected: this.draftMinRating === r,
-                    onTap: () => {
-                      this.draftMinRating = r
-                    },
-                  })
-                },
-                (r: number) => `${r}`,
-              )
-            }
+            TabSegmentButtonV2({
+              items: this.ratingItems,
+              selectedIndex: this.ratingIndex(),
+              enableStateAnimation: true,
+              onItemClicked: (index: number) => {
+                this.setRating(this.ratingForIndex(index))
+              },
+              itemPadding: {
+                top: LengthMetrics.vp(7),
+                bottom: LengthMetrics.vp(7),
+                start: LengthMetrics.vp(8),
+                end: LengthMetrics.vp(8),
+              },
+            })
+            .width('100%')
+            .constraintSize({ minHeight: 40 })
             Text($r('app.string.filter_pages'))
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
             Row({ space: ThemeConstants.SPACE_SM }) {
-              this.PageInput(this.draftPagesFrom, (v: number) => {
-                this.draftPagesFrom = v
+              this.PageInput(this.filter.pagesFrom, (v: number) => {
+                this.setPagesFrom(v)
               })
               Text('-').fontColor($r('sys.color.font_secondary'))
-              this.PageInput(this.draftPagesTo, (v: number) => {
-                this.draftPagesTo = v
+              this.PageInput(this.filter.pagesTo, (v: number) => {
+                this.setPagesTo(v)
               })
             }.alignItems(VerticalAlign.Center)
             Text($r('app.string.filter_options'))
@@ -195,38 +283,38 @@ export struct SearchFilterSheet {
               .fontColor($r('sys.color.font_primary'))
             this.ToggleRow(
               $r('app.string.filter_require_torrent'),
-              this.draftRequireTorrent,
+              this.filter.requireTorrent,
               (on: boolean) => {
-                this.draftRequireTorrent = on
+                this.setRequireTorrent(on)
               },
             )
             this.ToggleRow(
               $r('app.string.filter_show_expunged'),
-              this.draftShowExpunged,
+              this.filter.showExpunged,
               (on: boolean) => {
-                this.draftShowExpunged = on
+                this.setShowExpunged(on)
               },
             )
             // eros_fe's three independent "ignore my default <X> filter" toggles (f_sfl/f_sfu/f_sft).
             this.ToggleRow(
               $r('app.string.filter_disable_lang'),
-              this.draftDisableLanguageFilter,
+              this.filter.disableLanguageFilter,
               (on: boolean) => {
-                this.draftDisableLanguageFilter = on
+                this.setDisableLanguageFilter(on)
               },
             )
             this.ToggleRow(
               $r('app.string.filter_disable_uploader'),
-              this.draftDisableUploaderFilter,
+              this.filter.disableUploaderFilter,
               (on: boolean) => {
-                this.draftDisableUploaderFilter = on
+                this.setDisableUploaderFilter(on)
               },
             )
             this.ToggleRow(
               $r('app.string.filter_disable_tag'),
-              this.draftDisableTagFilter,
+              this.filter.disableTagFilter,
               (on: boolean) => {
-                this.draftDisableTagFilter = on
+                this.setDisableTagFilter(on)
               },
             )
           }
@@ -251,22 +339,15 @@ export struct SearchFilterSheet {
 
   @Builder
   ActionBar() {
-    Row({ space: ThemeConstants.SPACE_MD }) {
+    Row() {
+      Blank()
       Button($r('app.string.filter_reset'))
         .type(ButtonType.Capsule)
         .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
         .fontColor($r('sys.color.font_primary'))
-        .layoutWeight(1)
+        .constraintSize({ minWidth: 112 })
         .onClick(() => {
-          // Reset is a commit of the empty filter, so it closes the sheet and re-runs like Apply.
-          this.resetDraft()
-          this.commitDraft()
-        })
-      Button($r('app.string.filter_apply'))
-        .type(ButtonType.Capsule)
-        .layoutWeight(1)
-        .onClick(() => {
-          this.commitDraft()
+          this.resetFilter()
         })
     }
     .width('100%')
@@ -280,10 +361,10 @@ export struct SearchFilterSheet {
   }
 
   private scopeIndex(): number {
-    if (this.draftSearchScope === SEARCH_SCOPE_WATCHED) {
+    if (this.filter.searchScope === SEARCH_SCOPE_WATCHED) {
       return 1
     }
-    if (this.draftSearchScope === SEARCH_SCOPE_FAVORITE) {
+    if (this.filter.searchScope === SEARCH_SCOPE_FAVORITE) {
       return 2
     }
     return 0
@@ -299,11 +380,16 @@ export struct SearchFilterSheet {
     return SEARCH_SCOPE_GALLERY
   }
 
-  private ratingLabel(rating: number): ResourceStr {
-    if (rating === 0) {
-      return $r('app.string.filter_any')
+  private ratingIndex(): number {
+    const index: number = RATINGS.indexOf(this.filter.minRating)
+    return index >= 0 ? index : 0
+  }
+
+  private ratingForIndex(index: number): number {
+    if (index >= 0 && index < RATINGS.length) {
+      return RATINGS[index]
     }
-    return `${rating}★`
+    return 0
   }
 
   @Builder
@@ -338,27 +424,37 @@ export struct SearchFilterSheet {
 }
 
 @ComponentV2
-struct SearchFilterChipButton {
-  @Param label: ResourceStr = '';
+struct SearchFilterCategoryButton {
+  @Param label: string = '';
   @Param selected: boolean = false;
+  @Param color: ResourceColor = ThemeConstants.BRAND_PRIMARY;
   @Event onTap: () => void = () => {};
+  @Event onLongPress: () => void = () => {};
 
   build() {
     Text(this.label)
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
       .fontWeight(this.selected ? FontWeight.Medium : FontWeight.Regular)
       .fontColor(this.selected ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_primary'))
-      .backgroundColor(this.selected ? ThemeConstants.BRAND_PRIMARY : $r('app.color.card_background'))
-      .borderRadius(ThemeConstants.RADIUS_ROUND)
+      .textAlign(TextAlign.Center)
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .height(42)
+      .width('100%')
+      .backgroundColor(this.selected ? this.color : $r('sys.color.ohos_id_color_button_normal'))
+      .borderRadius(ThemeConstants.RADIUS_MD)
       .padding({
-        left: ThemeConstants.SPACE_MD,
-        right: ThemeConstants.SPACE_MD,
-        top: ThemeConstants.SPACE_XS,
-        bottom: ThemeConstants.SPACE_XS,
+        left: ThemeConstants.SPACE_SM,
+        right: ThemeConstants.SPACE_SM,
       })
-      .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
       .onClick(() => {
         this.onTap()
       })
+      .gesture(
+        LongPressGesture({ repeat: false, duration: 500 })
+          .onAction(() => {
+            this.onLongPress()
+          }),
+      )
   }
 }
