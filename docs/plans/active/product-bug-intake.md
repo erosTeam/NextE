@@ -284,7 +284,7 @@ Type: feature gap / UX gap
 
 Priority suggestion: P1
 
-Status: implemented / pending device acceptance
+Status: accepted
 
 Implementation:
 
@@ -292,17 +292,29 @@ Implementation:
   route/action path.
 - Scope: `GalleryTagsCard` tag taps dispatch through the existing shared search/navigation path
   rather than adding a separate detail-only search implementation.
+- `f01e71a fix(gallery): format detail tag searches` closes the follow-up query-format/action-focus
+  gap: multi-word detail tags now publish quoted EH field queries, and action-seeded Search opens
+  results-first without requesting IME focus.
 
 Evidence:
 
 - Deterministic contract: `scripts/test_tag_chip_contract.mjs`.
-- Implementation commit exists on repository history. Treat historical device evidence as supporting
-  context only until current acceptance is recorded.
+- Current contracts/gates: `scripts/test_tag_chip_contract.mjs`,
+  `scripts/test_detail_people_search_contract.mjs`, `scripts/test_search_input_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`,
+  and `git diff --check`.
+- Official signed build: `bash scripts/build_hvigor_signed.sh`.
+- Current Mate X7 emulator pass on `127.0.0.1:5555` with hdc outside the sandbox: opened a gallery
+  detail page, tapped the female `big breasts` tag, verified Search opened with
+  `female:"big breasts"`, result list loaded, no IME/keyboard bundle took focus, and Back returned to
+  the same detail page. Evidence directory: `/private/tmp/nexte_detail_tag_query_evidence/`,
+  especially `detail_tag_detail.json`, `detail_tag_search.json`, `detail_tag_search.png`,
+  and `detail_tag_back_detail.json`.
 
 Remaining acceptance:
 
-- Current simulator/device pass: tap a namespaced detail tag, verify Search opens with the correct
-  query and results load, then return to detail normally.
+- None for the current tag-query/action-focus scope unless this detail tag, Search action bus, or
+  Search title field path changes again.
 
 Source:
 
