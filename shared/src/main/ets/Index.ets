@@ -112,6 +112,12 @@ export {
   DownloadSettingsState,
   connectDownloadSettings,
 } from './state/DownloadSettingsState'
+export {
+  DownloadViewType,
+  DownloadViewState,
+  connectDownloadView,
+  DOWNLOAD_SELECTOR_BAR_HEIGHT,
+} from './state/DownloadViewState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
 export {

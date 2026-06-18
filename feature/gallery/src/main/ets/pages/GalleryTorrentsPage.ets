@@ -8,7 +8,6 @@ import {
   EhGalleryTorrentList,
   GalleryTorrentsParams,
   SecondaryListScaffold,
-  GroupedListSection,
   PageErrorState,
   CardEmptyState,
   ShareUtil,
@@ -97,62 +96,84 @@ export struct GalleryTorrentsPage {
   }
 
   @Builder
-  private TorrentCard(torrent: EhGalleryTorrent) {
-    GroupedListSection() {
-      Column({ space: ThemeConstants.SPACE_SM }) {
-        Flex({ wrap: FlexWrap.Wrap }) {
-          this.metric($r('sys.symbol.arrow_up'), torrent.seeds)
-          this.metric($r('sys.symbol.arrow_down'), torrent.peers)
-          this.metric($r('sys.symbol.checkmark_circle'), torrent.downloads)
-          this.metric($r('sys.symbol.doc_plaintext'), torrent.sizeText)
-        }
-        .width('100%')
+  private MagnetAction(torrent: EhGalleryTorrent) {
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph($r('sys.symbol.share'))
+        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+        .fontColor([$r('sys.color.font_secondary')])
+    }
+    .width(ThemeConstants.BUTTON_HEIGHT)
+    .height(ThemeConstants.BUTTON_HEIGHT)
+    .backgroundColor(Color.Transparent)
+    .enabled(this.magnetUrl(torrent).length > 0)
+    .onClick(() => {
+      this.shareMagnet(torrent)
+    })
+  }
 
-        Text(torrent.name)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(3)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+  @Builder
+  private TorrentItem(torrent: EhGalleryTorrent) {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Flex({ wrap: FlexWrap.Wrap }) {
+        this.metric($r('sys.symbol.arrow_up'), torrent.seeds)
+        this.metric($r('sys.symbol.arrow_down'), torrent.peers)
+        this.metric($r('sys.symbol.checkmark_circle'), torrent.downloads)
+        this.metric($r('sys.symbol.doc_plaintext'), torrent.sizeText)
+      }
+      .width('100%')
+
+      Row({ space: ThemeConstants.SPACE_SM }) {
+        Column({ space: ThemeConstants.SPACE_XS }) {
+          Text(torrent.name)
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor(
+              this.torrentUrl(torrent).length > 0
+                ? ThemeConstants.TEXT_LINK
+                : $r('sys.color.font_primary'),
+            )
+            .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+            .maxLines(3)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
+            .onClick(() => {
+              if (this.torrentUrl(torrent).length > 0) {
+                this.shareTorrent(torrent)
+              }
+            })
+
+          Row({ space: ThemeConstants.SPACE_SM }) {
+            if (torrent.posted.length > 0) {
+              Text(torrent.posted)
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_tertiary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+            if (torrent.uploader.length > 0) {
+              Text(torrent.uploader)
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_tertiary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+          }
           .width('100%')
-
-        Row({ space: ThemeConstants.SPACE_SM }) {
-          if (torrent.posted.length > 0) {
-            Text(torrent.posted)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor($r('sys.color.font_tertiary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          if (torrent.uploader.length > 0) {
-            Text(torrent.uploader)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor($r('sys.color.font_tertiary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
         }
-        .width('100%')
+        .layoutWeight(1)
 
-        Row({ space: ThemeConstants.SPACE_SM }) {
-          Button($r('app.string.gallery_torrent_share_file'))
-            .height(ThemeConstants.ACTION_HEIGHT)
-            .layoutWeight(1)
-            .enabled(this.torrentUrl(torrent).length > 0)
-            .onClick(() => {
-              this.shareTorrent(torrent)
-            })
-          Button($r('app.string.gallery_torrent_share_magnet'))
-            .height(ThemeConstants.ACTION_HEIGHT)
-            .layoutWeight(1)
-            .enabled(this.magnetUrl(torrent).length > 0)
-            .onClick(() => {
-              this.shareMagnet(torrent)
-            })
-        }
-        .width('100%')
+        this.MagnetAction(torrent)
       }
       .width('100%')
     }
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_LG,
+      right: ThemeConstants.SPACE_MD,
+      top: ThemeConstants.SPACE_MD,
+      bottom: ThemeConstants.SPACE_MD,
+    })
+    .borderRadius(ThemeConstants.RADIUS_MD)
+    .backgroundColor($r('app.color.card_background'))
   }
 
   build() {
@@ -190,7 +211,7 @@ export struct GalleryTorrentsPage {
         } else {
           ForEach(this.torrents, (torrent: EhGalleryTorrent) => {
             ListItem() {
-              this.TorrentCard(torrent)
+              this.TorrentItem(torrent)
             }
           }, (torrent: EhGalleryTorrent) => torrent.hash)
         }

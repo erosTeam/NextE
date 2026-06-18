@@ -23,6 +23,17 @@ Operating rule:
   reads as an unhandled queue item.
   Historical PASS logs do not imply current acceptance; use `implemented / pending device acceptance`
   until a current simulator/device/controller acceptance pass exists.
+- Any new UI or feature lane must provide five-line grounding before product-code changes:
+  1. Concrete eros_fe page/component/method path.
+  2. Primary information and first-screen hierarchy.
+  3. Primary and secondary actions with intended visual weight.
+  4. This lane's usable loop and explicit non-scope.
+  5. HarmonyOS / Next2V / HDS expression, such as segmented control, title-bar bottomBuilder,
+     toolbar/menu, FAB, settings row, or list row pattern.
+- If those five lines cannot be answered, do not write UI. Contracts, builds, and screenshots verify
+  implementation risk; they do not replace source grounding.
+- UI screenshot acceptance must inspect hierarchy, spacing, and action weight, not just that controls
+  exist.
 
 ## Intake Items
 

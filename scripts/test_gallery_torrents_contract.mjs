@@ -79,6 +79,17 @@ ok(/torrentBaseUrl\(this\.params\.isEx\).*\.torrent/.test(pageSrc), 'torrent pag
 ok(/magnet:\?xt=urn:btih/.test(pageSrc), 'torrent page builds magnet link')
 ok(/ShareUtil\.shareUrl\(this\.ctx\(\), this\.torrentUrl/.test(pageSrc), 'torrent page shares torrent URL')
 ok(/ShareUtil\.shareUrl\(this\.ctx\(\), this\.magnetUrl/.test(pageSrc), 'torrent page shares magnet URL')
+ok(/private\s+TorrentItem\(torrent: EhGalleryTorrent\)/.test(pageSrc), 'torrent page renders each torrent as a content-first item')
+ok(/Text\(torrent\.name\)[\s\S]*ThemeConstants\.TEXT_LINK[\s\S]*this\.shareTorrent\(torrent\)/.test(pageSrc),
+  'torrent name is the primary .torrent action')
+ok(/private\s+MagnetAction\(torrent: EhGalleryTorrent\)[\s\S]*Button\(\{ type: ButtonType\.Circle \}\)[\s\S]*this\.shareMagnet\(torrent\)/.test(pageSrc),
+  'magnet action is a compact secondary icon button')
+ok(/torrent\.seeds/.test(pageSrc) && /torrent\.peers/.test(pageSrc) &&
+  /torrent\.downloads/.test(pageSrc) && /torrent\.sizeText/.test(pageSrc),
+  'torrent item surfaces eros_fe metrics row')
+ok(!/GroupedListSection/.test(pageSrc), 'torrent page does not wrap torrent rows in a heavy grouped settings section')
+ok(!/gallery_torrent_share_file[\s\S]*gallery_torrent_share_magnet/.test(pageSrc),
+  'torrent page does not render two large action buttons')
 
 const expectedKeys = [
   'gallery_torrents',

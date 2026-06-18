@@ -3,8 +3,8 @@
  * Contract: the Downloads tab is a real queue workbench surface, not the old two-line placeholder.
  *
  * eros_fe's first-level Downloads tab is split into Gallery and Archiver queues. NextE's first
- * download lane should expose that structure without pretending the later background download service
- * or destructive archive submit flow already exists.
+ * download lane should expose that structure through a title-bar segmented control without mixing
+ * queue settings into the scrolling queue body.
  *
  * Run: node scripts/test_download_workbench_contract.mjs
  */
@@ -22,23 +22,37 @@ const ok = (cond, msg) => {
 }
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
+const bar = read('entry/src/main/ets/components/DownloadTypeBar.ets')
+const index = read('entry/src/main/ets/pages/Index.ets')
+const state = read('shared/src/main/ets/state/DownloadViewState.ets')
+const shared = read('shared/src/main/ets/Index.ets')
 
-ok(/DOWNLOAD_VIEW_GALLERY/.test(page) && /DOWNLOAD_VIEW_ARCHIVER/.test(page),
-  'download page defines Gallery and Archiver queue views')
-ok(/@Local viewType: string = DOWNLOAD_VIEW_GALLERY/.test(page),
-  'download page owns a reactive selected queue view')
-ok(/private QueueSwitcher\(\)/.test(page) && /SwitchButton\(\$r\('app\.string\.tab_gallery'\), DOWNLOAD_VIEW_GALLERY\)/.test(page),
-  'download page renders a Gallery switcher item')
-ok(/SwitchButton\(\$r\('app\.string\.download_archiver'\), DOWNLOAD_VIEW_ARCHIVER\)/.test(page),
-  'download page renders an Archiver switcher item')
+ok(/export enum DownloadViewType/.test(state) && /GALLERY = 'gallery'/.test(state) &&
+  /ARCHIVER = 'archiver'/.test(state), 'download shared state defines Gallery and Archiver queue views')
+ok(/@ObservedV2\s+export class DownloadViewState/.test(state) && /@Trace viewType/.test(state) &&
+  /AppStorageV2\.connect\(\s*DownloadViewState/.test(state), 'download view selection is shared V2 state')
+ok(/connectDownloadView/.test(shared) && /DOWNLOAD_SELECTOR_BAR_HEIGHT/.test(shared),
+  'shared barrel exports download view state and title-bar height')
+ok(/TabSegmentButtonV2/.test(bar) && /SegmentButtonV2Items/.test(bar),
+  'download type control uses a V2-native segmented button')
+ok(/AppStrings\.get\('tab_gallery'\)/.test(bar) && /AppStrings\.get\('download_archiver'\)/.test(bar),
+  'download segmented control labels Gallery and Archiver')
+ok(/this\.downloadView\.viewType\s*=[\s\S]*DownloadViewType\.ARCHIVER/.test(bar),
+  'download segmented control writes the selected queue view')
+ok(/DownloadTypeBarCCBuilder/.test(index) && /this\.currentTab === 3[\s\S]*bottomBuilder/.test(index) &&
+  /DOWNLOAD_SELECTOR_BAR_HEIGHT/.test(index), 'Index pins the download segmented control in title-bar bottomBuilder')
+ok(/@Local downloadView: DownloadViewState = connectDownloadView\(\)/.test(page),
+  'download page reads the shared selected queue view')
+ok(!/private QueueSwitcher\(\)|SwitchButton|DOWNLOAD_VIEW_GALLERY|DOWNLOAD_VIEW_ARCHIVER/.test(page),
+  'download page does not own a scrolling queue switcher')
 ok(/SecondaryListScaffold/.test(page) && /GroupedListSection/.test(page),
-  'download page uses the existing grouped-list scaffold, not a centered placeholder')
+  'download page uses the existing grouped-list scaffold for queue content, not a centered placeholder')
 ok(/SummarySection/.test(page) && /download_active_tasks/.test(page) && /download_finished_tasks/.test(page),
   'download page shows queue summary rows')
 ok(/EmptyQueueSection/.test(page) && /selectedEmptyText/.test(page) && /selectedNextStep/.test(page),
   'download page shows per-queue empty-state guidance')
-ok(/SettingsPreviewSection/.test(page) && /download_concurrency/.test(page) && /download_original_images/.test(page),
-  'download page reserves visible settings summary rows')
+ok(!/SettingsPreviewSection|download_concurrency|download_original_images|connectDownloadSettings/.test(page),
+  'download page does not mix download settings into queue content')
 ok(!/queue · resume · archiver · offline read \(M4\)/.test(page) && !/Text\('Downloads'\)/.test(page),
   'old literal placeholder copy is gone')
 ok(!/postArchiver|downloadRemote|downloadLoacal|downloadLocal|DownloadAgentService/.test(page),

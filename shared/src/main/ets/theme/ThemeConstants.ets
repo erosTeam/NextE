@@ -78,6 +78,8 @@ export class ThemeConstants {
   static readonly FLOAT_BAR_HEIGHT: number = 56
   static readonly FOOTER_HEIGHT: number = 48
   static readonly BUTTON_HEIGHT: number = 46 // primary action buttons (reader/detail Read, etc.)
+  // Compact width for two-item segmented controls hosted in title bars, matching the V2Next HDS pattern.
+  static readonly COMPACT_SEGMENT_BUTTON_WIDTH: number = 216
   // Gallery list card rhythm. eros_fe uses kFixedHeight=204 and, on non-phone layouts, cover width =
   // 0.7 * kFixedHeight = 142.8; narrow phone-like panes still derive cover width from contentWidth / 3.
   static readonly LIST_CARD_FIXED_HEIGHT: number = 204

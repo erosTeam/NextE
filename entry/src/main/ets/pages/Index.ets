@@ -29,6 +29,7 @@ import {
   FavSelectionBridge,
   SearchPageParams,
   SELECTOR_BAR_HEIGHT,
+  DOWNLOAD_SELECTOR_BAR_HEIGHT,
   immersiveTitleBarOpts,
   immersiveMaterialType,
   InternalQaRoutes,
@@ -37,6 +38,7 @@ import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
 import { ToplistPeriodBarCCBuilder } from '../components/ToplistPeriodBar'
 import { FavcatBarCCBuilder } from '../components/FavcatBar'
+import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
 import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoritesPage, MyTagsPage } from 'user'
@@ -77,6 +79,7 @@ struct Index {
   private sourceBarContent: ComponentContent<Object> | null = null;
   private periodBarContent: ComponentContent<Object> | null = null;
   private favcatBarContent: ComponentContent<Object> | null = null;
+  private downloadTypeBarContent: ComponentContent<Object> | null = null;
   @Local pendingEhUrl: PendingEhUrlState = connectPendingEhUrl();
   @Local searchAction: SearchActionState = connectSearchAction();
   // Read so the 收藏 favcat bottomBuilder gates on login (logged out → login prompt, no bar) and the
@@ -234,17 +237,17 @@ struct Index {
     return { 'value': items, 'maxCount': 2 }
   }
 
-  private bottomBuilder(content: ComponentContent<Object>): Record<string, Object> {
+  private bottomBuilder(content: ComponentContent<Object>, height: number = SELECTOR_BAR_HEIGHT): Record<string, Object> {
     return {
       'builderComponent': content,
-      'height': SELECTOR_BAR_HEIGHT,
+      'height': height,
       'showType': BottomBuilderShowType.DIRECTLY_SHOW,
     }
   }
 
   /**
    * HDS title-bar options per tab. 画廊 pins the source switcher (bottomBuilder) + a search icon;
-   * 排行 pins the period switcher; other tabs are plain titles. Record<string,Object> (not a typed
+   * 排行 pins the period switcher; 下载 pins the gallery/archive segmented switcher. Record<string,Object> (not a typed
    * literal) because bottomBuilder/menu aren't in the strict options interface.
    */
   private titleBarOpts(): Record<string, Object> {
@@ -288,6 +291,16 @@ struct Index {
           )
         }
         content['bottomBuilder'] = this.bottomBuilder(this.periodBarContent)
+      }
+      if (this.currentTab === 3) {
+        if (this.downloadTypeBarContent === null) {
+          this.downloadTypeBarContent = new ComponentContent<Object>(
+            this.getUIContext(),
+            wrapBuilder<[Object]>(DownloadTypeBarCCBuilder),
+            new Object(),
+          )
+        }
+        content['bottomBuilder'] = this.bottomBuilder(this.downloadTypeBarContent, DOWNLOAD_SELECTOR_BAR_HEIGHT)
       }
       content['menu'] = this.emptyMenu()
     }

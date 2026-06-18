@@ -1,18 +1,14 @@
-import { common } from '@kit.AbilityKit'
 import {
   ThemeConstants,
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
   CardEmptyState,
-  DownloadSettings,
-  DownloadOriginalMode,
-  DownloadSettingsState,
-  connectDownloadSettings,
+  DownloadViewType,
+  DownloadViewState,
+  DOWNLOAD_SELECTOR_BAR_HEIGHT,
+  connectDownloadView,
 } from 'shared'
-
-const DOWNLOAD_VIEW_GALLERY: string = 'gallery'
-const DOWNLOAD_VIEW_ARCHIVER: string = 'archiver'
 
 /**
  * Downloads (下载) bottom tab — plain tab content hosted under Index's shared HDS title bar (no
@@ -25,92 +21,24 @@ const DOWNLOAD_VIEW_ARCHIVER: string = 'archiver'
 export struct DownloadQueuePage {
   // Accepted for the Index tab-scroller handoff (this placeholder doesn't scroll, so it's unused).
   @Param scroller: Scroller = new Scroller();
-  @Local viewType: string = DOWNLOAD_VIEW_GALLERY;
-  @Local downloadSettings: DownloadSettingsState = connectDownloadSettings();
-
-  private ctx(): common.UIAbilityContext {
-    return this.getUIContext().getHostContext() as common.UIAbilityContext
-  }
+  @Local downloadView: DownloadViewState = connectDownloadView();
 
   private selectedTitle(): Resource {
-    return this.viewType === DOWNLOAD_VIEW_ARCHIVER
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
       ? $r('app.string.download_archiver_queue')
       : $r('app.string.download_gallery_queue')
   }
 
   private selectedEmptyText(): Resource {
-    return this.viewType === DOWNLOAD_VIEW_ARCHIVER
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
       ? $r('app.string.download_archiver_empty')
       : $r('app.string.download_gallery_empty')
   }
 
   private selectedNextStep(): Resource {
-    return this.viewType === DOWNLOAD_VIEW_ARCHIVER
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
       ? $r('app.string.download_archiver_next_step')
       : $r('app.string.download_gallery_next_step')
-  }
-
-  private tabTextColor(viewType: string): ResourceColor {
-    return this.viewType === viewType ? Color.White : $r('sys.color.font_primary')
-  }
-
-  private tabBackground(viewType: string): ResourceColor {
-    return this.viewType === viewType ? ThemeConstants.BRAND_PRIMARY : Color.Transparent
-  }
-
-  private originalModeLabel(): Resource {
-    if (this.downloadSettings.originalMode === DownloadOriginalMode.OFF) {
-      return $r('app.string.common_off')
-    }
-    if (this.downloadSettings.originalMode === DownloadOriginalMode.ALWAYS) {
-      return $r('app.string.download_original_always')
-    }
-    return $r('app.string.download_original_ask')
-  }
-
-  private cycleOriginalMode(): void {
-    let next: string = DownloadOriginalMode.ASK
-    if (this.downloadSettings.originalMode === DownloadOriginalMode.ASK) {
-      next = DownloadOriginalMode.ALWAYS
-    } else if (this.downloadSettings.originalMode === DownloadOriginalMode.ALWAYS) {
-      next = DownloadOriginalMode.OFF
-    }
-    DownloadSettings.setOriginalMode(this.ctx(), next)
-  }
-
-  private adjustConcurrency(delta: number): void {
-    DownloadSettings.setConcurrency(this.ctx(), this.downloadSettings.concurrency + delta)
-  }
-
-  @Builder
-  private QueueSwitcher() {
-    Row({ space: ThemeConstants.SPACE_XS }) {
-      this.SwitchButton($r('app.string.tab_gallery'), DOWNLOAD_VIEW_GALLERY)
-      this.SwitchButton($r('app.string.download_archiver'), DOWNLOAD_VIEW_ARCHIVER)
-    }
-    .width('100%')
-    .padding(ThemeConstants.SPACE_XS)
-    .borderRadius(ThemeConstants.RADIUS_MD)
-    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-  }
-
-  @Builder
-  private SwitchButton(label: ResourceStr, viewType: string) {
-    Button() {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(this.tabTextColor(viewType))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .textAlign(TextAlign.Center)
-    }
-    .layoutWeight(1)
-    .height(40)
-    .borderRadius(ThemeConstants.RADIUS_SM)
-    .backgroundColor(this.tabBackground(viewType))
-    .onClick(() => {
-      this.viewType = viewType
-    })
   }
 
   @Builder
@@ -118,7 +46,7 @@ export struct DownloadQueuePage {
     GroupedListSection() {
       ConciseListRow({
         title: this.selectedTitle(),
-        leadingIcon: this.viewType === DOWNLOAD_VIEW_ARCHIVER
+        leadingIcon: this.downloadView.viewType === DownloadViewType.ARCHIVER
           ? $r('sys.symbol.square_grid_2x2')
           : $r('sys.symbol.picture'),
         trailingText: $r('app.string.download_status_empty'),
@@ -159,37 +87,6 @@ export struct DownloadQueuePage {
   }
 
   @Builder
-  private SettingsPreviewSection() {
-    GroupedListSection() {
-      ConciseListRow({
-        title: $r('app.string.download_concurrency'),
-        leadingIcon: $r('sys.symbol.sort'),
-        hasCounter: true,
-        counterValue: `${this.downloadSettings.concurrency}`,
-        counterDecreaseEnabled: this.downloadSettings.concurrency > DownloadSettings.minConcurrency(),
-        counterIncreaseEnabled: this.downloadSettings.concurrency < DownloadSettings.maxConcurrency(),
-        showChevron: false,
-        counterDecreaseAction: () => {
-          this.adjustConcurrency(-1)
-        },
-        counterIncreaseAction: () => {
-          this.adjustConcurrency(1)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
-        title: $r('app.string.download_original_images'),
-        leadingIcon: $r('sys.symbol.picture'),
-        trailingText: this.originalModeLabel(),
-        showChevron: true,
-        action: () => {
-          this.cycleOriginalMode()
-        },
-      })
-    }
-  }
-
-  @Builder
   private rowDivider() {
     Divider()
       .strokeWidth(0.5)
@@ -204,16 +101,16 @@ export struct DownloadQueuePage {
         bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
       }) {
         ListItem() {
-          this.QueueSwitcher()
+          Column() {
+            Blank()
+          }
+          .height(DOWNLOAD_SELECTOR_BAR_HEIGHT)
         }
         ListItem() {
           this.SummarySection()
         }
         ListItem() {
           this.EmptyQueueSection()
-        }
-        ListItem() {
-          this.SettingsPreviewSection()
         }
       }
     }

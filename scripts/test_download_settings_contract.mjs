@@ -2,6 +2,9 @@
 /**
  * Contract: download preferences are real persisted V2 state, not static copy in the Download tab.
  *
+ * The Downloads tab is a queue workbench. This contract keeps the preferences implementation alive
+ * for the later settings lane, but prevents those controls from drifting back into queue content.
+ *
  * Run: node scripts/test_download_settings_contract.mjs
  */
 import { readFileSync } from 'node:fs'
@@ -48,15 +51,10 @@ ok(/DownloadSettingsState/.test(barrel) && /connectDownloadSettings/.test(barrel
   /DownloadSettings/.test(barrel), 'shared barrel exports download settings API')
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
-ok(/@Local downloadSettings: DownloadSettingsState = connectDownloadSettings\(\)/.test(page),
-  'download page reads the reactive download settings holder')
-ok(/hasCounter: true/.test(page) && /counterValue: `\$\{this\.downloadSettings\.concurrency\}`/.test(page),
-  'download page exposes concurrency as a counter')
-ok(/DownloadSettings\.setConcurrency\(this\.ctx\(\), this\.downloadSettings\.concurrency \+ delta\)/.test(page),
-  'download page counter writes through DownloadSettings')
-ok(/private cycleOriginalMode\(\): void/.test(page) && /DownloadSettings\.setOriginalMode\(this\.ctx\(\), next\)/.test(page),
-  'download page cycles original image policy through DownloadSettings')
-ok(!/download_not_configured/.test(page), 'download page no longer renders Not configured for real settings')
+ok(!/connectDownloadSettings|DownloadSettingsState|DownloadSettings\.setConcurrency|DownloadSettings\.setOriginalMode/.test(page),
+  'download queue page does not own persisted settings controls')
+ok(!/hasCounter: true|cycleOriginalMode|download_concurrency|download_original_images|download_not_configured/.test(page),
+  'download queue page does not mix settings rows into queue content')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
