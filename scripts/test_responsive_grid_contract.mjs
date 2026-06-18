@@ -6,8 +6,9 @@
  *
  * Locks:
  *   • ResponsiveGrid.columns is a floor((w+gap)/(minW+gap)) derivation, >= 1, monotonic in width;
- *   • with the real ThemeConstants min/gap, a ~1400px-class phone content width resolves to 3 columns,
- *     a wider pane to more, a narrower pane to fewer;
+ *   • the product token is ThemeConstants.PREVIEW_THUMB_MIN_W=90; column count is derived from the
+ *     real pane width, so the Mate X7 / Mate 60 Pro class preview panes stay at 3 columns while
+ *     wider panes can still scale up without a hardcoded count;
  *   • NO hardcoded column count (`columns: 3|4`, `columns = 3`, `'1fr 1fr 1fr'`) in the grid surfaces;
  *   • PreviewThumbTile = a fixed-height frame (clip + center) with the page number a sibling BELOW it;
  *   • first-page preview is retained (the detail still renders the preview peek).
@@ -41,6 +42,7 @@ const num = (re) => {
 }
 const MIN = num(/PREVIEW_THUMB_MIN_W:\s*number\s*=\s*(\d+)/)
 const GAP = num(/SPACE_SM:\s*number\s*=\s*(\d+)/)
+eq(MIN, 90, 'preview thumbnail min width respects the current product token')
 
 // Mirror of ResponsiveGrid.columns / columnWidth.
 const columns = (w, minW, gap) => {
@@ -53,10 +55,15 @@ const columnWidth = (w, cols, gap) => (cols <= 0 ? w : (w - (cols - 1) * gap) / 
 // 1. Derivation guards + adaptation.
 eq(columns(0, MIN, GAP), 1, 'zero width → at least 1 column')
 eq(columns(-10, MIN, GAP), 1, 'negative width → at least 1 column')
-// 1400px-class phone: the detail card content width lands ~360-420 vp → exactly 3 columns.
-eq(columns(360, MIN, GAP), 3, '~1400px-class device width (360vp) → 3 columns')
-eq(columns(420, MIN, GAP), 3, '~1400px-class device width (420vp) → 3 columns')
-ok(columns(600, MIN, GAP) > 3, 'wider pane (600vp) adapts UP past 3 columns')
+// Device-breakpoint intent: 90 keeps the Mate X7 preview pane at 3 columns; increasing it to 105 would
+// collapse that pane to 2. It also keeps Mate 60 Pro-class phone panes from jumping to 4 columns. Wider
+// non-phone panes may still scale up by derivation.
+eq(columns(300, MIN, GAP), 3, 'Mate X7-class preview pane (300vp) → 3 columns')
+eq(columns(330, MIN, GAP), 3, 'Mate X7-class preview pane (330vp) → 3 columns')
+eq(columns(360, MIN, GAP), 3, 'Mate 60 Pro-class preview pane (360vp) → 3 columns')
+eq(columns(380, MIN, GAP), 3, 'upper phone preview pane (380vp) still → 3 columns')
+eq(columns(420, MIN, GAP), 4, 'wider pane (420vp) can adapt to 4 columns with the 90vp product token')
+ok(columns(600, MIN, GAP) > columns(420, MIN, GAP), 'wide pane (600vp) adapts UP past 420vp')
 ok(columns(240, MIN, GAP) < 3, 'narrower pane (240vp) adapts DOWN below 3 columns')
 ok(
   columns(240, MIN, GAP) <= columns(360, MIN, GAP) && columns(360, MIN, GAP) <= columns(600, MIN, GAP),

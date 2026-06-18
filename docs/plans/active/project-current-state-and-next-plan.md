@@ -318,24 +318,59 @@ Location:
 worktree: /Users/honjow/git/NextE-wt/detail-visual-reqa
 branch:   agent/codex/detail-visual-reqa
 commit:   0652a05 fix(gallery): restore comfortable preview grid width
+correction: current product token is restored to 90 in the follow-up correction lane.
 ```
 
 Why it matters:
 
 ```text
-- Current source failed the existing responsive-grid contract before any code change.
-- The failure reproduced the reopened visual concern: a 420vp-class detail preview pane resolved to 4
-  too-narrow columns instead of the expected comfortable 3 columns.
-- Root cause was token drift: ThemeConstants.PREVIEW_THUMB_MIN_W had fallen to 90vp while the contract
-  and historical correction require 105vp.
+- The previous Codex lane treated `PREVIEW_THUMB_MIN_W=90` as token drift and restored 105vp.
+- Controller/user clarified that 90vp was an intentional product change.
+- Design rationale: 90vp keeps the Mate X7 preview pane at 3 thumbnails per row and avoids Mate 60 Pro
+  jumping to 4 thumbnails; 105vp makes Mate X7 fall to 2 thumbnails, which is not the desired design.
+- The responsive-grid contract must protect responsive derivation and stable tile framing, not force
+  105vp or force every 420vp-class pane to remain 3 columns.
 ```
 
 Candidate state:
 
 ```text
-- ThemeConstants.PREVIEW_THUMB_MIN_W is restored from 90vp to 105vp.
+- ThemeConstants.PREVIEW_THUMB_MIN_W is restored back to 90vp in the current correction.
 - No hardcoded column count was introduced; ResponsiveGrid still derives columns from pane width.
 - No list-card, auth-cookie-login, Search footer, or harness changes are mixed into this lane.
+```
+
+Current correction evidence from 2026-06-18:
+
+```text
+Source/contracts:
+  - shared/src/main/ets/theme/ThemeConstants.ets has PREVIEW_THUMB_MIN_W = 90.
+  - scripts/test_responsive_grid_contract.mjs now locks the 90vp product token and the device-breakpoint
+    intent: Mate X7/Mate 60 Pro-class preview panes stay at 3 columns; wider panes can scale by derivation.
+
+Validation:
+  - node scripts/test_responsive_grid_contract.mjs PASS, 55 assertions
+  - node scripts/test_thumbnail_mode_contract.mjs PASS
+  - node scripts/test_cover_presentation_contract.mjs PASS
+  - node scripts/test_detail_header_visual_contract.mjs PASS
+  - node scripts/test_v1_decorator_inventory_contract.mjs PASS, 0 file(s)
+  - python3 scripts/check_i18n_duplicates.py PASS
+  - node scripts/test_secret_safety_contract.mjs PASS
+  - git diff --check PASS
+  - bash scripts/build_hvigor_signed.sh PASS, PackageHap + SignHap + BUILD SUCCESSFUL
+
+Device:
+  - Target: 127.0.0.1:5555 Mate X7 emulator, hdc run outside the Codex sandbox.
+  - Installed: entry/build/default/outputs/default/entry-default-signed.hap
+  - Opened public detail deep link: https://e-hentai.org/g/3989982/16600a66e8/
+  - Detail page loaded with no error and preview entry visible.
+  - Preview grid screenshot shows page labels 1-6 in the viewport after scrolling.
+
+Evidence:
+  - /private/tmp/nexte_preview_min90_evidence/nexte_preview_min90_detail.png
+  - /private/tmp/nexte_preview_min90_evidence/nexte_preview_min90_detail_layout.json
+  - /private/tmp/nexte_preview_min90_evidence/nexte_preview_min90_grid.png
+  - /private/tmp/nexte_preview_min90_evidence/nexte_preview_min90_grid_layout.json
 ```
 
 Validation already run:
