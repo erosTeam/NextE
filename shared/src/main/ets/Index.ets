@@ -13,7 +13,11 @@ export { InternalQaRoutes } from './constants/InternalQaRoutes'
 export { SimpleTag } from './model/SimpleTag'
 export { TagGroup } from './model/TagGroup'
 export { EhGallery } from './model/EhGallery'
-export { DownloadGalleryTask, DownloadGalleryTaskStatus } from './model/DownloadGalleryTask'
+export {
+  DownloadGalleryTask,
+  DownloadGalleryTaskStatus,
+  DownloadImageSeed,
+} from './model/DownloadGalleryTask'
 export { ViewedGallery } from './model/ViewedGallery'
 export { Favcat } from './model/Favcat'
 export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'

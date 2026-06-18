@@ -4,7 +4,9 @@ import {
   GroupedListSection,
   ConciseListRow,
   CardEmptyState,
+  AppStrings,
   DownloadGalleryTask,
+  DownloadGalleryTaskStatus,
   DownloadQueueSettings,
   DownloadQueueState,
   DownloadViewType,
@@ -59,14 +61,38 @@ export struct DownloadQueuePage {
 
   private selectedStatus(): Resource {
     return this.selectedActiveCount() > 0
-      ? $r('app.string.download_status_queued')
+      ? $r('app.string.download_status_active')
       : $r('app.string.download_status_empty')
+  }
+
+  private taskStatusText(task: DownloadGalleryTask): string {
+    if (task.status === DownloadGalleryTaskStatus.PREPARING) {
+      return AppStrings.get('download_status_preparing')
+    }
+    if (task.status === DownloadGalleryTaskStatus.READY) {
+      return AppStrings.get('download_status_ready')
+    }
+    if (task.status === DownloadGalleryTaskStatus.ERROR) {
+      return AppStrings.get('download_status_error')
+    }
+    return AppStrings.get('download_status_queued')
   }
 
   private taskSubtitle(task: DownloadGalleryTask): string {
     const parts: string[] = []
     if (task.pageCountText().length > 0) {
       parts.push(task.pageCountText())
+    }
+    if (task.status === DownloadGalleryTaskStatus.ERROR) {
+      parts.push(this.taskStatusText(task))
+    }
+    if (task.seedProgressText().length > 0) {
+      parts.push(AppStrings.get('download_seed_progress').replace('%s', task.seedProgressText()))
+      return parts.join(' · ')
+    }
+    if (task.status === DownloadGalleryTaskStatus.PREPARING) {
+      parts.push(this.taskStatusText(task))
+      return parts.join(' · ')
     }
     if (task.category.length > 0) {
       parts.push(task.category)
@@ -136,7 +162,6 @@ export struct DownloadQueuePage {
             title: task.displayTitle(),
             subtitle: this.taskSubtitle(task),
             leadingImageUrl: task.thumbUrl,
-            trailingText: $r('app.string.download_status_queued'),
             showChevron: false,
             suffixBuilderParam: () => {
               this.RemoveTaskButton(task)

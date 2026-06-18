@@ -65,8 +65,28 @@
       "value": "Empty"
     },
     {
+      "name": "download_status_active",
+      "value": "Active"
+    },
+    {
       "name": "download_status_queued",
       "value": "Queued"
+    },
+    {
+      "name": "download_status_preparing",
+      "value": "Preparing"
+    },
+    {
+      "name": "download_status_ready",
+      "value": "Ready"
+    },
+    {
+      "name": "download_status_error",
+      "value": "Error"
+    },
+    {
+      "name": "download_seed_progress",
+      "value": "Seeded %s"
     },
     {
       "name": "download_gallery_empty",

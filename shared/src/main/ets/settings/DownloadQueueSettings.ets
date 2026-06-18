@@ -1,9 +1,15 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
-import { DownloadGalleryTask, DownloadGalleryTaskStatus } from '../model/DownloadGalleryTask'
+import {
+  DownloadGalleryTask,
+  DownloadGalleryTaskStatus,
+  DownloadImageSeed,
+} from '../model/DownloadGalleryTask'
+import { EhGalleryImage } from '../model/EhGalleryImage'
 import { connectDownloadQueue } from '../state/DownloadQueueState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { EhApiService } from '../network/EhApiService'
 
 const MAX_GALLERY_TASKS: number = 200
 
@@ -38,10 +44,17 @@ export class DownloadQueueSettings {
     let existed: boolean = false
     task.queuedAt = Date.now()
     task.status = DownloadGalleryTaskStatus.QUEUED
-    next.push(task.copy())
+    const refreshed: DownloadGalleryTask = task.copy()
+    next.push(refreshed)
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       if (it.gid === task.gid && it.token === task.token) {
         existed = true
+        refreshed.imageSeeds = it.imageSeeds.map((seed: DownloadImageSeed) => seed.copy())
+        refreshed.firstPageCount = it.firstPageCount
+        refreshed.previewPageCount = it.previewPageCount
+        refreshed.preparedAt = it.preparedAt
+        refreshed.prepareError = it.prepareError
+        refreshed.status = it.status
         return
       }
       if (next.length < MAX_GALLERY_TASKS) {
@@ -62,6 +75,96 @@ export class DownloadQueueSettings {
     const next: DownloadGalleryTask[] = state.galleryTasks
       .filter((it: DownloadGalleryTask) => it.gid !== gid || it.token !== token)
       .map((it: DownloadGalleryTask) => it.copy())
+    state.galleryTasks = next
+    await DownloadQueueSettings.persist(context, next)
+  }
+
+  /**
+   * Prepare the EH-correct image-page seed list for a gallery task: preview pages yield `/s/`
+   * imagePageUrl entries; a later downloader resolves each image page to the real one-shot image URL.
+   */
+  static async prepareGallerySeeds(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    isEx: boolean,
+    firstPageImages: EhGalleryImage[],
+    previewPageCount: number,
+  ): Promise<void> {
+    const initialSeeds: DownloadImageSeed[] = DownloadQueueSettings.imagesToSeeds(firstPageImages)
+    await DownloadQueueSettings.updatePreparedTask(
+      context,
+      gid,
+      token,
+      DownloadGalleryTaskStatus.PREPARING,
+      initialSeeds,
+      firstPageImages.length,
+      previewPageCount,
+      '',
+    )
+
+    try {
+      const allImages: EhGalleryImage[] = firstPageImages.map((image: EhGalleryImage) => image.copy())
+      const totalPreviewPages: number = Math.max(previewPageCount, 1)
+      for (let p = 1; p < totalPreviewPages; p++) {
+        const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
+          gid,
+          token,
+          isEx,
+          p,
+        )
+        more.forEach((image: EhGalleryImage) => {
+          allImages.push(image.copy())
+        })
+      }
+      await DownloadQueueSettings.updatePreparedTask(
+        context,
+        gid,
+        token,
+        DownloadGalleryTaskStatus.READY,
+        DownloadQueueSettings.imagesToSeeds(allImages),
+        firstPageImages.length,
+        totalPreviewPages,
+        '',
+      )
+    } catch (error) {
+      await DownloadQueueSettings.updatePreparedTask(
+        context,
+        gid,
+        token,
+        DownloadGalleryTaskStatus.ERROR,
+        initialSeeds,
+        firstPageImages.length,
+        Math.max(previewPageCount, 1),
+        (error as Error).message,
+      )
+    }
+  }
+
+  private static async updatePreparedTask(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    status: string,
+    seeds: DownloadImageSeed[],
+    firstPageCount: number,
+    previewPageCount: number,
+    prepareError: string,
+  ): Promise<void> {
+    const state = connectDownloadQueue()
+    const next: DownloadGalleryTask[] = []
+    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
+      const task: DownloadGalleryTask = it.copy()
+      if (task.gid === gid && task.token === token) {
+        task.status = status
+        task.imageSeeds = DownloadQueueSettings.mergeSeeds(seeds)
+        task.firstPageCount = firstPageCount
+        task.previewPageCount = previewPageCount
+        task.prepareError = prepareError
+        task.preparedAt = status === DownloadGalleryTaskStatus.READY ? Date.now() : task.preparedAt
+      }
+      next.push(task)
+    })
     state.galleryTasks = next
     await DownloadQueueSettings.persist(context, next)
   }
@@ -100,7 +203,12 @@ export class DownloadQueueSettings {
             task.category = typeof rec.category === 'string' ? rec.category : ''
             task.uploader = typeof rec.uploader === 'string' ? rec.uploader : ''
             task.queuedAt = typeof rec.queuedAt === 'number' ? rec.queuedAt : 0
-            task.status = DownloadGalleryTaskStatus.QUEUED
+            task.preparedAt = typeof rec.preparedAt === 'number' ? rec.preparedAt : 0
+            task.firstPageCount = typeof rec.firstPageCount === 'number' ? rec.firstPageCount : 0
+            task.previewPageCount = typeof rec.previewPageCount === 'number' ? rec.previewPageCount : 0
+            task.imageSeeds = DownloadQueueSettings.parseSeeds(rec)
+            task.prepareError = typeof rec.prepareError === 'string' ? rec.prepareError : ''
+            task.status = DownloadQueueSettings.normalizeStatus(rec.status)
             if (out.length < MAX_GALLERY_TASKS) {
               out.push(task)
             }
@@ -111,5 +219,60 @@ export class DownloadQueueSettings {
       DiagnosticLogger.warn('settings', 'download_queue_parse_failed', (error as Error).message)
     }
     return out
+  }
+
+  private static imagesToSeeds(images: EhGalleryImage[]): DownloadImageSeed[] {
+    const seeds: DownloadImageSeed[] = []
+    images.forEach((image: EhGalleryImage) => {
+      if (image.sUrl.length > 0) {
+        seeds.push(DownloadImageSeed.fromGalleryImage(image))
+      }
+    })
+    return DownloadQueueSettings.mergeSeeds(seeds)
+  }
+
+  private static mergeSeeds(seeds: DownloadImageSeed[]): DownloadImageSeed[] {
+    const out: DownloadImageSeed[] = []
+    seeds.forEach((seed: DownloadImageSeed) => {
+      if (seed.imagePageUrl.length === 0) {
+        return
+      }
+      const exists: boolean = out.some((it: DownloadImageSeed) => {
+        return it.page === seed.page || it.imagePageUrl === seed.imagePageUrl
+      })
+      if (!exists) {
+        out.push(seed.copy())
+      }
+    })
+    out.sort((a: DownloadImageSeed, b: DownloadImageSeed) => a.page - b.page)
+    return out
+  }
+
+  private static parseSeeds(rec: DownloadGalleryTask): DownloadImageSeed[] {
+    const out: DownloadImageSeed[] = []
+    if (Array.isArray(rec.imageSeeds)) {
+      rec.imageSeeds.forEach((raw: DownloadImageSeed) => {
+        if (raw !== null && typeof raw.imagePageUrl === 'string' && raw.imagePageUrl.length > 0) {
+          const seed: DownloadImageSeed = new DownloadImageSeed()
+          seed.page = typeof raw.page === 'number' ? raw.page : 0
+          seed.imgkey = typeof raw.imgkey === 'string' ? raw.imgkey : ''
+          seed.imagePageUrl = raw.imagePageUrl
+          seed.thumbUrl = typeof raw.thumbUrl === 'string' ? raw.thumbUrl : ''
+          out.push(seed)
+        }
+      })
+    }
+    return DownloadQueueSettings.mergeSeeds(out)
+  }
+
+  private static normalizeStatus(status: string): string {
+    if (
+      status === DownloadGalleryTaskStatus.PREPARING ||
+      status === DownloadGalleryTaskStatus.READY ||
+      status === DownloadGalleryTaskStatus.ERROR
+    ) {
+      return status
+    }
+    return DownloadGalleryTaskStatus.QUEUED
   }
 }

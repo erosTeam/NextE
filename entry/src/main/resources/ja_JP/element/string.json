@@ -65,8 +65,28 @@
       "value": "空"
     },
     {
+      "name": "download_status_active",
+      "value": "進行中"
+    },
+    {
       "name": "download_status_queued",
       "value": "キュー済み"
+    },
+    {
+      "name": "download_status_preparing",
+      "value": "準備中"
+    },
+    {
+      "name": "download_status_ready",
+      "value": "準備済み"
+    },
+    {
+      "name": "download_status_error",
+      "value": "準備失敗"
+    },
+    {
+      "name": "download_seed_progress",
+      "value": "準備済み %s"
     },
     {
       "name": "download_gallery_empty",

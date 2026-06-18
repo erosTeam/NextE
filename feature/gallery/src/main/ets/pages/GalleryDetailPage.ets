@@ -180,6 +180,14 @@ export struct GalleryDetailPage {
       this.params.token,
     )
     const inserted: boolean = await DownloadQueueSettings.enqueueGallery(this.ctx(), task)
+    DownloadQueueSettings.prepareGallerySeeds(
+      this.ctx(),
+      task.gid,
+      task.token,
+      connectSiteMode().isEx,
+      this.vm.images,
+      this.vm.previewPageCount,
+    )
     this.getUIContext().getPromptAction().openToast({
       message: inserted
         ? $r('app.string.download_gallery_added')
