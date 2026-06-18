@@ -102,7 +102,7 @@ export { SiteModeState, connectSiteMode } from './state/SiteModeState'
 export { UserTagStore } from './state/UserTagStore'
 export { UserTagSignal, connectUserTagSignal } from './state/UserTagSignal'
 export { ListMode, ListModeState, connectListMode } from './state/ListModeState'
-export { ReadMode, ReadModeState, connectReadMode } from './state/ReadModeState'
+export { ReadMode, ReadColumnMode, ReadModeState, connectReadMode } from './state/ReadModeState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
 export {

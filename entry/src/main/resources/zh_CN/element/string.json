@@ -377,6 +377,14 @@
       "value": "翻页方向"
     },
     {
+      "name": "settings_reader_double_page",
+      "value": "双页模式"
+    },
+    {
+      "name": "common_off",
+      "value": "关闭"
+    },
+    {
       "name": "view_list",
       "value": "列表"
     },
@@ -399,6 +407,14 @@
     {
       "name": "read_mode_vertical",
       "value": "竖向"
+    },
+    {
+      "name": "read_double_page_a",
+      "value": "双页 A"
+    },
+    {
+      "name": "read_double_page_b",
+      "value": "双页 B"
     },
     {
       "name": "search_history",

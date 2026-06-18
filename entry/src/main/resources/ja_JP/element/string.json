@@ -377,6 +377,14 @@
       "value": "ページめくり方向"
     },
     {
+      "name": "settings_reader_double_page",
+      "value": "両ページモード"
+    },
+    {
+      "name": "common_off",
+      "value": "オフ"
+    },
+    {
       "name": "view_list",
       "value": "リスト"
     },
@@ -399,6 +407,14 @@
     {
       "name": "read_mode_vertical",
       "value": "縦"
+    },
+    {
+      "name": "read_double_page_a",
+      "value": "両ページ A"
+    },
+    {
+      "name": "read_double_page_b",
+      "value": "両ページ B"
     },
     {
       "name": "search_history",

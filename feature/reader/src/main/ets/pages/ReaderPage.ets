@@ -12,6 +12,7 @@ import {
   connectReadMode,
   ReadModeState,
   ReadMode,
+  ReadColumnMode,
   ReadModeSettings,
   GalleryReadProgressSettings,
   connectNavStack,
@@ -58,6 +59,8 @@ export struct ReaderPage {
         if (this.vm.images.length > 0) {
           if (this.readMode.mode === ReadMode.VERTICAL) {
             this.VerticalReader()
+          } else if (this.doublePageEnabled()) {
+            this.DoublePageReader()
           } else {
             this.HorizontalReader()
           }
@@ -224,6 +227,14 @@ export struct ReaderPage {
     }
   }
 
+  private doublePageEnabled(): boolean {
+    return this.readMode.mode !== ReadMode.VERTICAL && this.readMode.columnMode !== ReadColumnMode.SINGLE
+  }
+
+  private pageStep(): number {
+    return this.doublePageEnabled() ? 2 : 1
+  }
+
   // Left-third tap: LTR / vertical → previous page; RTL (manga) → next (eros_fe tapLeft inverts on RTL).
   private tapLeft(): void {
     if (this.readMode.mode === ReadMode.RTL) {
@@ -243,11 +254,11 @@ export struct ReaderPage {
   }
 
   private toPrev(): void {
-    this.turnTo(this.vm.currentIndex - 1)
+    this.turnTo(this.vm.currentIndex - this.pageStep())
   }
 
   private toNext(): void {
-    this.turnTo(this.vm.currentIndex + 1)
+    this.turnTo(this.vm.currentIndex + this.pageStep())
   }
 
   // Go to a (page-index) target. Vertical scrolls the list by one image; horizontal moves the Swiper.
@@ -315,6 +326,100 @@ export struct ReaderPage {
     })
   }
 
+  private spreadIndexForImage(index: number): number {
+    if (!this.doublePageEnabled() || index <= 0) {
+      return 0
+    }
+    if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
+      return Math.floor((index + 1) / 2)
+    }
+    return Math.floor(index / 2)
+  }
+
+  private spreadStartIndex(spreadIndex: number): number {
+    if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
+      return spreadIndex <= 0 ? 0 : spreadIndex * 2 - 1
+    }
+    return spreadIndex * 2
+  }
+
+  private spreadCount(): number {
+    const total: number = this.vm.totalPages()
+    if (!this.doublePageEnabled() || total <= 1) {
+      return total
+    }
+    if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
+      return Math.round(total / 2) + ((total + 1) % 2)
+    }
+    return Math.round(total / 2)
+  }
+
+  private spreadStarts(): number[] {
+    const out: number[] = []
+    const count: number = this.spreadCount()
+    for (let i: number = 0; i < count; i++) {
+      out.push(this.spreadStartIndex(i))
+    }
+    return out
+  }
+
+  private hasSpreadImage(index: number): boolean {
+    return index >= 0 && index < this.vm.images.length && this.vm.hasPreviewAt(index)
+  }
+
+  @Builder
+  SpreadImage(index: number) {
+    if (this.hasSpreadImage(index)) {
+      ReaderImagePage({
+        image: this.vm.images[index],
+        onZoomChange: (zoomed: boolean) => {
+          this.imageZoomed = zoomed
+        },
+      })
+        .layoutWeight(1)
+    } else {
+      Blank()
+        .layoutWeight(1)
+    }
+  }
+
+  @Builder
+  DoublePageReader() {
+    Swiper() {
+      ForEach(
+        this.spreadStarts(),
+        (start: number) => {
+          Row({ space: ThemeConstants.SPACE_XS }) {
+            this.SpreadImage(start)
+            if (start + 1 < this.vm.totalPages()) {
+              this.SpreadImage(start + 1)
+            } else {
+              Blank()
+                .layoutWeight(1)
+            }
+          }
+          .width('100%')
+          .height('100%')
+        },
+        (start: number) => `${start}`,
+      )
+    }
+    .index(this.spreadIndexForImage(this.vm.currentIndex))
+    .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
+    .loop(false)
+    .cachedCount(2)
+    .indicator(false)
+    .disableSwipe(this.imageZoomed)
+    .width('100%')
+    .height('100%')
+    .onChange((i: number) => {
+      this.vm.onPageChange(this.spreadStartIndex(i))
+    })
+    .onClick((e: ClickEvent) => {
+      this.onReaderTap(e.x, e.y)
+    })
+  }
+
   @Builder
   VerticalReader() {
     List({ initialIndex: this.vm.currentIndex, scroller: this.listScroller }) {
@@ -362,6 +467,34 @@ export struct ReaderPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setMode(ctx, next)
+  }
+
+  private columnModeLabel(): Resource {
+    if (this.readMode.mode === ReadMode.VERTICAL) {
+      return $r('app.string.common_off')
+    }
+    if (this.readMode.columnMode === ReadColumnMode.ODD_LEFT) {
+      return $r('app.string.read_double_page_a')
+    }
+    if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
+      return $r('app.string.read_double_page_b')
+    }
+    return $r('app.string.common_off')
+  }
+
+  private cycleColumnMode(): void {
+    if (this.readMode.mode === ReadMode.VERTICAL) {
+      return
+    }
+    let next: string = ReadColumnMode.ODD_LEFT
+    if (this.readMode.columnMode === ReadColumnMode.ODD_LEFT) {
+      next = ReadColumnMode.EVEN_LEFT
+    } else if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
+      next = ReadColumnMode.SINGLE
+    }
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setColumnMode(ctx, next)
   }
 
   // Page counter '5 / 120'; while dragging the slider it previews the target page (sliderPreview),
@@ -471,6 +604,23 @@ export struct ReaderPage {
           })
           .onClick(() => {
             this.cycleMode()
+          })
+        Text(this.columnModeLabel())
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(this.readMode.mode === ReadMode.VERTICAL ? $r('sys.color.font_tertiary') : Color.White)
+          .borderRadius(ThemeConstants.RADIUS_ROUND)
+          .border({
+            width: 1,
+            color: this.readMode.mode === ReadMode.VERTICAL ? $r('sys.color.font_tertiary') : Color.White,
+          })
+          .padding({
+            left: ThemeConstants.SPACE_MD,
+            right: ThemeConstants.SPACE_MD,
+            top: 2,
+            bottom: 2,
+          })
+          .onClick(() => {
+            this.cycleColumnMode()
           })
       }
       .width('100%')

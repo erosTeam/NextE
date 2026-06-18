@@ -7,13 +7,21 @@ export enum ReadMode {
   VERTICAL = 'vertical', // top-to-bottom continuous scroll (webtoon)
 }
 
+export enum ReadColumnMode {
+  SINGLE = 'single',
+  ODD_LEFT = 'oddLeft',
+  EVEN_LEFT = 'evenLeft',
+}
+
 /**
- * Reactive reader direction. Restored from preferences (ReadModeSettings) at startup; the
- * ReaderPage reads it to switch between the horizontal Swiper (LTR/RTL) and the vertical List.
+ * Reactive reader direction + horizontal double-page mode. Restored from preferences at startup; the
+ * ReaderPage reads it to switch between the horizontal Swiper (LTR/RTL), vertical List, and horizontal
+ * single/double-page spread.
  */
 @ObservedV2
 export class ReadModeState {
   @Trace mode: string = ReadMode.LTR
+  @Trace columnMode: string = ReadColumnMode.SINGLE
 }
 
 const READ_MODE_KEY: string = 'v2:readMode'

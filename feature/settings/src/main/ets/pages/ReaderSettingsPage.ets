@@ -6,6 +6,7 @@ import {
   connectReadMode,
   ReadModeState,
   ReadMode,
+  ReadColumnMode,
   ReadModeSettings,
   SecondaryListScaffold,
   GroupedListSection,
@@ -25,12 +26,19 @@ import {
 export struct ReaderSettingsPage {
   @Local readMode: ReadModeState = connectReadMode();
   @Local dirMenuShown: boolean = false;
+  @Local columnMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
 
   private setMode(mode: string): void {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setMode(ctx, mode)
+  }
+
+  private setColumnMode(mode: string): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setColumnMode(ctx, mode)
   }
 
   private modeLabel(): Resource {
@@ -41,6 +49,16 @@ export struct ReaderSettingsPage {
       return $r('app.string.read_mode_vertical')
     }
     return $r('app.string.read_mode_ltr')
+  }
+
+  private columnModeLabel(): Resource {
+    if (this.readMode.columnMode === ReadColumnMode.ODD_LEFT) {
+      return $r('app.string.read_double_page_a')
+    }
+    if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
+      return $r('app.string.read_double_page_b')
+    }
+    return $r('app.string.common_off')
   }
 
   // Native direction picker: a framework Menu/MenuItem with a checkmark symbolEndIcon on the active
@@ -81,6 +99,42 @@ export struct ReaderSettingsPage {
     }
   }
 
+  @Builder
+  ColumnMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.common_off'),
+        symbolEndIcon:
+          this.readMode.columnMode === ReadColumnMode.SINGLE
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setColumnMode(ReadColumnMode.SINGLE)
+        this.columnMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.read_double_page_a'),
+        symbolEndIcon:
+          this.readMode.columnMode === ReadColumnMode.ODD_LEFT
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setColumnMode(ReadColumnMode.ODD_LEFT)
+        this.columnMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.read_double_page_b'),
+        symbolEndIcon:
+          this.readMode.columnMode === ReadColumnMode.EVEN_LEFT
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setColumnMode(ReadColumnMode.EVEN_LEFT)
+        this.columnMenuShown = false
+      })
+    }
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -98,12 +152,26 @@ export struct ReaderSettingsPage {
                   this.dirMenuShown = true
                 },
               })
+              ConciseListRow({
+                title: $r('app.string.settings_reader_double_page'),
+                trailingText: this.columnModeLabel(),
+                trailingDropdown: true,
+                action: () => {
+                  this.columnMenuShown = true
+                },
+              })
             }
           }
           .bindMenu(this.dirMenuShown, this.DirMenu, {
             placement: Placement.Bottom,
             onDisappear: () => {
               this.dirMenuShown = false
+            },
+          })
+          .bindMenu(this.columnMenuShown, this.ColumnMenu, {
+            placement: Placement.Bottom,
+            onDisappear: () => {
+              this.columnMenuShown = false
             },
           })
         }
