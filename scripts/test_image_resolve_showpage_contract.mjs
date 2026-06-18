@@ -128,7 +128,19 @@ const ok = (name, cond) => {
   ok('changeSource but no reloadKey → plain', sourceUrl('https://x/s/a/1-2', '', true) === 'https://x/s/a/1-2')
 }
 
-// 8. structural: the .ets wiring (cache, fast path, fallback, POST body, 509 guard, 换源, onError)
+// 8. A 200 OK /s/ page can still be unusable (e.g. "Invalid page." or a login/interstitial page).
+// Slow-path resolve must fail closed instead of returning an empty URL and leaving Reader loading forever.
+{
+  const parseImagePage = (html) => {
+    const match = html.match(/<img id="img" src="([^"]+)"/)
+    return match ? match[1] : ''
+  }
+  const img = parseImagePage('Invalid page.')
+  ok('invalid /s/ page has no imageUrl', img.length === 0)
+  ok('empty imageUrl is treated as resolve failure', img.length === 0)
+}
+
+// 9. structural: the .ets wiring (cache, fast path, fallback, POST body, 509 guard, 换源, onError)
 {
   const php = readFileSync(join(ROOT, 'shared/src/main/ets/network/EhApiPhpService.ets'), 'utf8')
   ok('showPage POSTs /api.php', /postJson\(\s*`\$\{base\}\/api\.php`/.test(php))
@@ -139,6 +151,7 @@ const ok = (name, cond) => {
   ok('learns showKey from /s/ resolve', /this\.showKeys\.set\(ref\.gid, r\.showKey\)/.test(svc))
   ok('stores reloadKey', /image\.reloadKey = r\.reloadKey/.test(svc))
   ok('has 509 guard', /RE_509: RegExp = \/\\\.org/.test(svc) && /throw new Error\('image509'\)/.test(svc))
+  ok('slow /s/ path throws on empty parsed image URL', /if \(r\.imageUrl\.length === 0\) \{[\s\S]*throw new Error\('image page has no full image url'\)/.test(svc))
   ok('resolve takes changeSource', /async resolve\(image: EhGalleryImage, changeSource: boolean = false\)/.test(svc))
   ok('re-source appends nl', /\$\{image\.sUrl\}\?nl=\$\{image\.reloadKey\}/.test(svc))
   const reader = readFileSync(join(ROOT, 'feature/reader/src/main/ets/pages/ReaderPage.ets'), 'utf8')

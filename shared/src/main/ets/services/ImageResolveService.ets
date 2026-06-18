@@ -123,6 +123,9 @@ export class ImageResolveService {
       throw new Error(`image page HTTP ${resp.statusCode}`)
     }
     const r: ImagePageResult = EhImagePageParser.parse(resp.body)
+    if (r.imageUrl.length === 0) {
+      throw new Error('image page has no full image url')
+    }
     if (ImageResolveService.is509(r.imageUrl)) {
       throw new Error('image509')
     }
