@@ -439,6 +439,34 @@ Still open:
   - controller visual acceptance
 ```
 
+Additional list-card fixed/adaptive partial re-QA from 2026-06-18:
+
+```text
+- Target/build: Mate X7 emulator target 127.0.0.1:5555, same installed a253aff signed HAP.
+- Settings initially showed `固定列表行高` checked=true.
+- Home default list fixed-mode screenshot shows fixed row rhythm, overflow chips clipped, and
+  category/date foot-anchored.
+- `固定列表行高` was toggled off and verified checked=false.
+- Home default list adaptive screenshot shows the same rows growing to reveal more tag chips.
+- The setting was restored afterwards; final Settings layout shows checked=true.
+- Every hdc command ran outside the Codex sandbox.
+
+Evidence:
+  - /private/tmp/nexte_list_height_mode_evidence/settings_fixed_on.json
+  - /private/tmp/nexte_list_height_mode_evidence/list_fixed_default.png
+  - /private/tmp/nexte_list_height_mode_evidence/list_fixed_default_layout.json
+  - /private/tmp/nexte_list_height_mode_evidence/settings_fixed_off.json
+  - /private/tmp/nexte_list_height_mode_evidence/list_adaptive.png
+  - /private/tmp/nexte_list_height_mode_evidence/list_adaptive_layout.json
+  - /private/tmp/nexte_list_height_mode_evidence/settings_fixed_restored.json
+
+Still open:
+  - Favorites retained pages
+  - Toplist retained pages
+  - logged-in favorites variants
+  - controller visual acceptance
+```
+
 Validation already run:
 
 ```text
@@ -499,7 +527,7 @@ Current active meaning:
 - Gate V2 subtab never-loaded empty/no-more flash remains a P0 behavior queue.
 - Gate V3 re-audits prior visual/navigation claims.
 - gallery-visual-navigation-regression-contract.md explicitly says prior PASS/archive claims are invalid unless re-backed by current controller evidence.
-- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, and not-favorited first-read header/action have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
+- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, not-favorited first-read header/action, and Home default fixed/adaptive list height have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
 ```
 
 Important boundary:

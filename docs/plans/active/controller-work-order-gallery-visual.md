@@ -294,6 +294,22 @@ Detail header/action sizing:
 - Observed: cover/title/JP title/uploader stay inside the header card; `阅读` is a compact
   right-bottom capsule; page count stays in InfoBar; no fake favcat heart/title block is shown.
 - Still open: favorited header, resume label, read/unread/resume matrix, and controller visual acceptance.
+
+List-card fixed/adaptive height modes:
+- Target: 127.0.0.1:5555 Mate X7 emulator.
+- Build: a253aff signed HAP already installed.
+- Surface covered: Home default list only.
+- Evidence:
+  - /private/tmp/nexte_list_height_mode_evidence/settings_fixed_on.json
+  - /private/tmp/nexte_list_height_mode_evidence/list_fixed_default.png
+  - /private/tmp/nexte_list_height_mode_evidence/list_fixed_default_layout.json
+  - /private/tmp/nexte_list_height_mode_evidence/settings_fixed_off.json
+  - /private/tmp/nexte_list_height_mode_evidence/list_adaptive.png
+  - /private/tmp/nexte_list_height_mode_evidence/list_adaptive_layout.json
+  - /private/tmp/nexte_list_height_mode_evidence/settings_fixed_restored.json
+- Observed: default fixed=true keeps a regular row rhythm and clips overflow chips; adaptive=false grows
+  the same rows to show more chips; setting was restored to fixed=true.
+- Still open: Favorites/Toplist retained pages, logged-in favorites variants, and controller visual acceptance.
 ```
 
 Completion rule:
