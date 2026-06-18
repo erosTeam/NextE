@@ -52,8 +52,14 @@ function route(query, _filterActive) {
 }
 
 // Mirror of SearchViewModel.search() entry guard and reapplyFilters() guard.
-const shouldSearch = (query, isLoading, isFavoriteScope) =>
-  !isLoading && !(query.trim().length === 0 && !isFavoriteScope)
+const shouldSearch = (query, isFavoriteScope) =>
+  !(query.trim().length === 0 && !isFavoriteScope)
+const searchAction = (query, isLoading, isFavoriteScope) => {
+  const trimmed = query.trim()
+  if (!shouldSearch(trimmed, isFavoriteScope)) return { kind: 'noop' }
+  if (isLoading) return { kind: 'queue', query: trimmed }
+  return { kind: 'search', query: trimmed }
+}
 const shouldReapply = (queryLen, isFavoriteScope) => queryLen > 0 || isFavoriteScope
 
 let passed = 0
@@ -108,12 +114,13 @@ const ok = (name, cond) => {
   ok('bare /g/ URL still jumps', route('https://e-hentai.org/g/1/abc', false).kind === 'gallery')
 }
 
-// 5. VM search guard: empty allowed only for explicit favorite-scope browse; loading always blocks
+// 5. VM search guard: empty allowed only for explicit favorite-scope browse; in-flight submits queue
 {
-  ok('vm: term searches', shouldSearch('x', false, false) === true)
-  ok('vm: empty ordinary blocked', shouldSearch('', false, false) === false)
-  ok('vm: empty favorite browse allowed', shouldSearch('', false, true) === true)
-  ok('vm: loading blocks even with favorite browse', shouldSearch('', true, true) === false)
+  ok('vm: term searches', searchAction('x', false, false).kind === 'search')
+  ok('vm: empty ordinary blocked', searchAction('', false, false).kind === 'noop')
+  ok('vm: empty favorite browse allowed', searchAction('', false, true).kind === 'search')
+  ok('vm: loading term queues latest submitted query', searchAction('second', true, false).kind === 'queue')
+  ok('vm: loading queued query is trimmed', searchAction(' second ', true, false).query === 'second')
 }
 
 // 6. reapplyFilters: re-runs on query OR explicit favorite browse, not ordinary filter-only
@@ -186,10 +193,14 @@ const ok = (name, cond) => {
   ok('reapplyFilters queues live changes during loading',
     /if \(this\.isLoading\) \{[\s\S]*this\.pendingFilterReapply = true[\s\S]*return[\s\S]*\}/.test(vmSrc) &&
     /if \(this\.pendingFilterReapply\) \{[\s\S]*this\.pendingFilterReapply = false[\s\S]*await this\.reapplyFilters\(\)/.test(vmSrc))
+  ok('vm queues the latest submitted search while an earlier search is loading',
+    /private pendingSearchQuery: string = ''/.test(vmSrc) &&
+    /if \(this\.isLoading\) \{[\s\S]*this\.pendingSearchQuery = trimmed[\s\S]*return[\s\S]*\}/.test(vmSrc) &&
+    /if \(this\.pendingSearchQuery\.length > 0 && this\.pendingSearchQuery !== this\.query\) \{[\s\S]*const nextQuery: string = this\.pendingSearchQuery[\s\S]*this\.pendingSearchQuery = ''[\s\S]*this\.pendingFilterReapply = false[\s\S]*await this\.search\(nextQuery\)[\s\S]*return/.test(vmSrc))
   ok('reapplyFilters clears stale filter-only results after reset',
     /if \(!canSearch\) \{[\s\S]*this\.dataSource\.clear\(\)[\s\S]*this\.hasSearched = false/.test(vmSrc))
   ok('vm clearSearchState clears rows, errors, paging, and searched state',
-    /clearSearchState\(\): void \{[\s\S]*this\.epoch = this\.epoch \+ 1[\s\S]*this\.query = ''[\s\S]*this\.dataSource\.clear\(\)[\s\S]*this\.hasSearched = false[\s\S]*this\.errorMessage = ''/.test(vmSrc))
+    /clearSearchState\(\): void \{[\s\S]*this\.epoch = this\.epoch \+ 1[\s\S]*this\.query = ''[\s\S]*this\.dataSource\.clear\(\)[\s\S]*this\.hasSearched = false[\s\S]*this\.errorMessage = ''[\s\S]*this\.pendingSearchQuery = ''/.test(vmSrc))
   ok('vm search result writes are guarded by epoch so clear cannot be overwritten by stale requests',
     /const myEpoch: number = this\.epoch/.test(vmSrc) &&
     /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.dataSource\.setData\(list\.gallerys\)/.test(vmSrc) &&

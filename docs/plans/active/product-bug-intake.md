@@ -727,6 +727,65 @@ Remaining acceptance:
   categories; category colors come from a semantic mapping; scope and rating use native/HDS segmented
   controls rather than hand-rolled `Row/Text`.
 
+### Search Submit During In-Flight Request Can Drop The Latest Query
+
+Type: search reliability bug
+
+Priority suggestion: P1
+
+Status: implemented / pending controller acceptance
+
+Source:
+
+- Implementation review of the current search input path after the SearchFilter lane was closed.
+
+Current baseline:
+
+- SearchFilter visual shape, filter action placement, and Search title/header auto-hide behavior are not
+  part of this item and must remain unchanged.
+
+Observed behavior:
+
+- `GallerySearchPage.onSubmit()` sends the current field text to `SearchViewModel.search()`.
+- Before this fix, `SearchViewModel.search()` returned immediately whenever `isLoading` was true.
+- If a user submitted one search, quickly changed the keyword, then submitted again before the first
+  request completed, the latest query could be silently dropped.
+
+Expected behavior:
+
+- Empty ordinary searches still return to history/blank.
+- Favorite-scope empty browse still works.
+- While a search is in flight, the latest non-empty submitted query should be queued and run after the
+  current request completes, so the UI eventually reflects the user's final submitted keyword.
+
+Implementation:
+
+- `SearchViewModel` now stores a `pendingSearchQuery` while `isLoading` is true.
+- When the current request completes, the VM runs the latest queued query if it differs from the
+  completed query.
+- Clearing the search state also clears any pending submitted query.
+- If both a filter reapply and a new submitted query are pending, the new query wins because it will
+  fetch with the latest filter state.
+
+Evidence:
+
+- Deterministic contract: `scripts/test_search_input_contract.mjs` now covers in-flight submit queuing.
+- Regression contracts: `scripts/test_search_route_session_contract.mjs`,
+  `scripts/test_search_scope_contract.mjs`, `scripts/test_search_filter_ux_contract.mjs`.
+- Gates: `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`,
+  `git diff --check`.
+- Official signed build passed with `scripts/build_hvigor_signed.sh`; no `dev.sh` was used.
+- HarmonyOS Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP
+  installed from `entry/build/default/outputs/default/entry-default-signed.hap`: opened Search,
+  submitted `test`, and verified the results page loaded normally with the query still visible.
+  Evidence directory: `/private/tmp/nexte_search_pending_submit_evidence/`, especially
+  `search_result.png` and `search_result.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance. The exact in-flight race is locked by deterministic contract; the
+  device pass covers the changed search submission path in a running signed build.
+
 ### Reader Layout, Gesture, And Loading Stack Is Broken
 
 Type: P0 incident / reading core usability

@@ -36,6 +36,7 @@ export class SearchViewModel {
   // search() runs without the isLoadingMore guard, so it can overlap a loadMore.
   private epoch: number = 0
   private pendingFilterReapply: boolean = false
+  private pendingSearchQuery: string = ''
   // Favorite scope (eros_fe SearchType.favorite, search_page_controller.dart:240): when set, the page
   // searches favorites.php f_search instead of the gallery list. Seeded from the route param when the
   // favorites title-bar magnifier pushes here; an empty query browses the favcat (favorites.php allows
@@ -118,10 +119,11 @@ export class SearchViewModel {
   async search(query: string): Promise<void> {
     const trimmed: string = query.trim()
     // Empty ordinary search returns to history; only explicit favorite scope browses without f_search.
-    if (
-      this.isLoading ||
-      (trimmed.length === 0 && !this.isFavoriteScope)
-    ) {
+    if (trimmed.length === 0 && !this.isFavoriteScope) {
+      return
+    }
+    if (this.isLoading) {
+      this.pendingSearchQuery = trimmed
       return
     }
     this.query = trimmed
@@ -152,6 +154,14 @@ export class SearchViewModel {
     }
     if (this.epoch === myEpoch) {
       this.isLoading = false
+      if (this.pendingSearchQuery.length > 0 && this.pendingSearchQuery !== this.query) {
+        const nextQuery: string = this.pendingSearchQuery
+        this.pendingSearchQuery = ''
+        this.pendingFilterReapply = false
+        await this.search(nextQuery)
+        return
+      }
+      this.pendingSearchQuery = ''
       if (this.pendingFilterReapply) {
         this.pendingFilterReapply = false
         await this.reapplyFilters()
@@ -171,6 +181,7 @@ export class SearchViewModel {
     this.hasSearched = false
     this.errorMessage = ''
     this.pendingFilterReapply = false
+    this.pendingSearchQuery = ''
   }
 
   /** Re-run the current query from page 1 (pull-to-refresh). Guarded + flagged isLoading so a
