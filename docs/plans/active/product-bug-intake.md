@@ -295,7 +295,7 @@ Type: bug / UX regression
 
 Priority suggestion: P1
 
-Status: implemented / pending controller acceptance
+Status: accepted
 
 Implementation:
 
@@ -319,12 +319,16 @@ Evidence:
   `verified_settled.png`, and `verified_settled.json`.
 - Android FE comparison evidence for the detail-page product semantics:
   `/private/tmp/nexte_detail_cover_flicker_fe_comparison/fe_detail.png`.
+- Current-main contract recheck, 2026-06-19: `scripts/test_gallery_detail_seed_cover_contract.mjs`,
+  `scripts/test_gallery_data_parser_contract.mjs`, `scripts/test_cover_presentation_contract.mjs`, and
+  `scripts/test_v1_decorator_inventory_contract.mjs` all passed. No product code changed after the
+  existing Mate X7 device evidence in this acceptance update.
 
-Remaining acceptance:
+Closure:
 
-- Needs controller/user acceptance of the current device screenshots. No repeat fold/unfold matrix is
+- Accepted for the list-to-detail header cover seed/flicker bug. No repeat fold/unfold matrix is
   required unless later changes touch list sizing, detail header cover presentation, or thumbnail
-  routing again.
+  routing again. No product code changed in this acceptance update.
 
 Source:
 
