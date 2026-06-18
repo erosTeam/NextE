@@ -700,7 +700,7 @@ Evidence:
 Remaining acceptance:
 
 - Needs controller/user review before marking accepted.
-- Commit hash pending; update this entry after the implementation commit is created.
+- Implementation commit: `30ae664 fix(search): isolate action route state`.
 - Required NextE acceptance after implementation resumes: category colors are semantically distinct,
   normal tap gives immediate feedback and live requery, long press performs the FE-equivalent quick
   solo/invert behavior with immediate feedback, rating is a formal segmented/radio-like control and
