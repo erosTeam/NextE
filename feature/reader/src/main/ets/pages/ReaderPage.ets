@@ -416,6 +416,14 @@ export struct ReaderPage {
     return this.spreadStartForMode(columnMode, spreadIndex)
   }
 
+  private sliderTargetIndex(page: number): number {
+    const index: number = page - 1
+    if (!this.doublePageEnabled()) {
+      return index
+    }
+    return this.spreadStartIndex(this.spreadIndexForImage(index))
+  }
+
   private spreadCount(): number {
     const total: number = this.vm.totalPages()
     if (!this.doublePageEnabled() || total <= 1) {
@@ -746,7 +754,7 @@ export struct ReaderPage {
           } else {
             this.sliderPreview = -1
             this.sliderValue = page
-            this.jumpToPage(page - 1)
+            this.jumpToPage(this.sliderTargetIndex(page))
           }
         })
     }
