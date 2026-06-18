@@ -505,8 +505,8 @@ Current NextE repair scope:
   or chip text blocks.
 - Use a V2 category button component with `EhConstants.categoryColor(...)` semantic category colors,
   immediate selected/off state, and long-press solo/invert behavior.
-- Keep the filter trigger as a page-level overlay across normal, tag/action-seeded, loading, error,
-  result, and favorite search states.
+- Keep the filter trigger as a native title-bar action across normal, tag/action-seeded, loading,
+  error, result, and favorite search states.
 - Remove the primary Apply button; keep Reset as the only explicit low-weight action.
 - Queue a pending filter reapply when the user changes live filters during an in-flight search, and
   clear stale filter-only results when Reset leaves no query and no active filter.
@@ -565,16 +565,22 @@ Implementation:
   with `TabSegmentButtonV2`, backed by localized `SegmentButtonV2Items`.
 - The category/rating chips are now independent `@ComponentV2` controls with `@Param selected`, so
   tapping a chip updates its visual state immediately instead of relying on a sheet rebuild.
-- `GallerySearchPage` now keeps the filter trigger as a fixed page-level overlay across history,
-  loading, error, empty, grid, list, simple-list, normal search, tag/action search, and favorite search
-  states instead of hiding it when favorite scope is active.
+- `GallerySearchPage` now keeps the filter trigger as a native title-bar action with the correct
+  `sys.symbol.funnel` icon across history, loading, error, empty, grid, list, simple-list, normal
+  search, tag/action search, and favorite search states instead of hiding it when favorite scope is
+  active.
+- `GallerySearchPage` now uses the title bar for the current scope title and pins the search field in
+  the HDS `bottomBuilder`, leaving the title action area available for filter and future actions.
 - Favorite scope now keeps the sheet reachable and shows an explicit scope limitation hint for
   gallery-only filters.
-- Current uncommitted follow-up in `codex/search-filter-ux-repair` supersedes the earlier candidate for
-  this item by adding category color semantics, long-press solo/invert, rating segmented control, and
-  live filter application with no Apply button.
+- `cd798eb` superseded the earlier candidate for this item by adding category color semantics,
+  long-press solo/invert, rating segmented control, and live filter application with no Apply button.
 - `cd798eb fix(search): live-apply filter controls` implements the live-apply follow-up described
   above.
+- `d0d09f6 fix(search): repair search chrome and clear flow` supersedes the temporary page-overlay
+  trigger with title action + bottomBuilder search chrome, moves Reset beside Close in a low-weight
+  sheet header, top-aligns the sheet content, fixes the SearchActionState monitor wiring for IME /
+  search-button submit, and clears stale results/errors when the user clears the search field.
 
 Evidence:
 
@@ -588,6 +594,14 @@ Evidence:
 - HarmonyOS Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP
   installed from `entry/build/default/outputs/default/entry-default-signed.hap`.
 - NextE evidence directory: `/private/tmp/nexte_search_filter_live_apply_evidence`.
+- Follow-up NextE evidence directory for `d0d09f6`:
+  `/private/tmp/nexte_search_title_bottom_builder_evidence` (`search_funnel_title.png`,
+  `search_funnel_sheet.png`, `search_keyboard_submit.png`, `search_clear_history.png`,
+  `search_filter_sheet_topaligned.png`).
+- Device observations for `d0d09f6`: title shows the active scope, search input is below the title in
+  the bottomBuilder, the right action renders as a funnel and opens the filter sheet, sheet content is
+  top-aligned below the header, keyboard Search submits into the search/error/results state, and
+  tapping the Search clear button returns to the search-history state.
 - Key NextE screenshots/layout dumps:
   `nexte_filter_sheet_open.png` / `.json` shows scope as a formal segmented control, two-column
   semantic-colored categories, fixed low-weight Reset, and no Apply button.
