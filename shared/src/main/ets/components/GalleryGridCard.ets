@@ -20,7 +20,7 @@ export struct GalleryGridCard {
         EhThumbnail({
           url: this.gallery.thumbUrl,
           coverRatio: 0.7,
-          radius: ThemeConstants.RADIUS_SM,
+          radius: ThemeConstants.THUMB_RADIUS,
         })
         // Language code corner badge (eros_fe flow/grid corner). Category-colored styling is a
         // follow-up once the shared category-color map lands; a legible dark pill for now.

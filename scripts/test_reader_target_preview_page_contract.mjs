@@ -77,7 +77,7 @@ function mergePreviewPage(images, previewPage, pageImages, perPage, loadedPages,
   eq('contiguous pointer advances only through continuous loaded preview pages', state.contiguousPreviewPage, 1)
 }
 
-const erosController = read('../../eros_fe/lib/pages/gallery/controller/gallery_page_controller.dart')
+const erosController = read('../eros_fe/lib/pages/gallery/controller/gallery_page_controller.dart')
 ok('eros_fe has direct target-ser preview-page loader', /Future<void> loadImagesForSer\(int ser/.test(erosController))
 ok('eros_fe computes target preview page from ser and first page length', /final int page = \(ser - 1\) ~\/ flen/.test(erosController))
 ok('eros_fe requests exactly that preview page', /getGalleryImageList\([\s\S]*page: page/.test(erosController))

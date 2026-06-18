@@ -34,7 +34,7 @@ export struct EhSpriteThumbnail {
   // aspect; otherwise it is sized by displayWidth and its height follows the true aspect. Either way the
   // box matches the thumb exactly — no fixed-height overhang that would show a blank strip.
   @Param fitHeight: boolean = false;
-  @Param radius: number = ThemeConstants.RADIUS_SM;
+  @Param radius: number = ThemeConstants.THUMB_RADIUS;
   // The sprite sheet's REAL decoded pixel size (from Image.onComplete); 0 until the sheet loads. The sheet
   // is scaled UNIFORMLY by `factor` relative to THESE real pixels — never Fill-stretched to the parsed
   // max-extent — so the cropped thumb is never axis-distorted when the sheet canvas has padding beyond the

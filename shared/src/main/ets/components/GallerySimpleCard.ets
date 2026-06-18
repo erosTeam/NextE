@@ -23,7 +23,7 @@ export struct GallerySimpleCard {
         url: this.gallery.thumbUrl,
         thumbWidth: SIMPLE_THUMB_W,
         thumbHeight: SIMPLE_THUMB_H,
-        radius: ThemeConstants.RADIUS_SM,
+        radius: ThemeConstants.THUMB_RADIUS,
       })
       Column({ space: ThemeConstants.SPACE_XS }) {
         Text(this.gallery.title())

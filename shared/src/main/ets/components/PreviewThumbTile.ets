@@ -58,8 +58,8 @@ export struct PreviewThumbTile {
             displayHeight: this.frameHeight(),
             // Radius lives on the SPRITE/IMAGE itself (EhSpriteThumbnail clips its sprite to this radius),
             // not on a decorative outer layer — so the visible thumb has real rounded corners even when it
-            // fills the frame. Matches the frame's RADIUS_SM so the silhouette is one consistent rounded rect.
-            radius: ThemeConstants.RADIUS_SM,
+            // fills the frame. Matches the frame's THUMB_RADIUS so the silhouette is one consistent rounded rect.
+            radius: ThemeConstants.THUMB_RADIUS,
           })
         } else {
           EhSpriteThumbnail({
@@ -70,7 +70,7 @@ export struct PreviewThumbTile {
             spriteWidth: this.image.spriteWidth,
             spriteHeight: this.image.spriteHeight,
             displayWidth: this.tileWidth,
-            radius: ThemeConstants.RADIUS_SM,
+            radius: ThemeConstants.THUMB_RADIUS,
           })
         }
       }
