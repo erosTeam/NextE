@@ -430,6 +430,15 @@ export struct ReaderPage {
     return start + 1
   }
 
+  private spreadSecondVisible(start: number): boolean {
+    const second: number = this.spreadSecondIndex(start)
+    return second >= 0 && second < this.vm.totalPages()
+  }
+
+  private spreadRowReversed(): boolean {
+    return this.readMode.mode === ReadMode.RTL
+  }
+
   @Builder
   SpreadImage(index: number) {
     if (this.hasSpreadImage(index)) {
@@ -447,18 +456,28 @@ export struct ReaderPage {
   }
 
   @Builder
+  SpreadSecondSlot(start: number) {
+    if (this.spreadSecondVisible(start)) {
+      this.SpreadImage(this.spreadSecondIndex(start))
+    } else {
+      Blank()
+        .layoutWeight(1)
+    }
+  }
+
+  @Builder
   DoublePageReader() {
     Swiper() {
       ForEach(
         this.spreadStarts(),
         (start: number) => {
           Row({ space: ThemeConstants.SPACE_XS }) {
-            this.SpreadImage(start)
-            if (this.spreadSecondIndex(start) >= 0 && this.spreadSecondIndex(start) < this.vm.totalPages()) {
-              this.SpreadImage(this.spreadSecondIndex(start))
+            if (this.spreadRowReversed()) {
+              this.SpreadSecondSlot(start)
+              this.SpreadImage(start)
             } else {
-              Blank()
-                .layoutWeight(1)
+              this.SpreadImage(start)
+              this.SpreadSecondSlot(start)
             }
           }
           .width('100%')

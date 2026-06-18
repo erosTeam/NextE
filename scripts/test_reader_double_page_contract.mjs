@@ -53,6 +53,13 @@ const secondIndex = (mode, start) => {
   if (mode === 'evenLeft' && start <= 0) return -1
   return start + 1
 }
+const spreadSlots = (readMode, columnMode, start, total) => {
+  const first = start
+  const second = secondIndex(columnMode, start)
+  const secondSlot = second >= 0 && second < total ? second : null
+  const slots = [first, secondSlot]
+  return readMode === 'rtl' ? slots.reverse() : slots
+}
 
 eq('oddLeft groups pages 1/2, 3/4, 5', starts('oddLeft', 5), [0, 2, 4])
 eq('evenLeft groups page 1, then 2/3, 4/5', starts('evenLeft', 5), [0, 1, 3])
@@ -62,6 +69,11 @@ eq('oddLeft spread index mirrors eros_fe currentItemIndex ~/ 2', [0, 0, 1, 1, 2]
 eq('evenLeft spread index mirrors eros_fe (currentItemIndex + 1) ~/ 2', [0, 1, 1, 2, 2].map((_, i) => spreadIndexForImage('evenLeft', i)), [0, 1, 1, 2, 2])
 eq('evenLeft cover spread renders page 1 alone', secondIndex('evenLeft', 0), -1)
 eq('evenLeft next spread renders pages 2/3', secondIndex('evenLeft', 1), 2)
+eq('ltr oddLeft spread keeps first page visually left', spreadSlots('ltr', 'oddLeft', 0, 5), [0, 1])
+eq('rtl oddLeft spread reverses visual order like eros_fe pageList.reversed', spreadSlots('rtl', 'oddLeft', 0, 5), [1, 0])
+eq('ltr evenLeft paired spread keeps lower page visually left', spreadSlots('ltr', 'evenLeft', 1, 5), [1, 2])
+eq('rtl evenLeft paired spread reverses visual order', spreadSlots('rtl', 'evenLeft', 1, 5), [2, 1])
+eq('rtl evenLeft cover spread keeps page 1 in the right slot', spreadSlots('rtl', 'evenLeft', 0, 5), [null, 0])
 
 {
   const state = read('shared/src/main/ets/state/ReadModeState.ets')
@@ -100,7 +112,9 @@ eq('evenLeft next spread renders pages 2/3', secondIndex('evenLeft', 1), 2)
   ok('spreadStartIndex implements evenLeft first-single math', /spreadIndex <= 0 \? 0 : spreadIndex \* 2 - 1/.test(reader))
   ok('spreadCount implements evenLeft page count math', /Math\.round\(total \/ 2\) \+ \(\(total \+ 1\) % 2\)/.test(reader))
   ok('DoublePageReader suppresses evenLeft cover spread second slot', /private spreadSecondIndex\(start: number\): number[\s\S]*ReadColumnMode\.EVEN_LEFT && start <= 0[\s\S]*return -1/.test(reader))
-  ok('DoublePageReader renders second slot through spreadSecondIndex', /@Builder\s+DoublePageReader\(\)[\s\S]*this\.SpreadImage\(start\)[\s\S]*this\.SpreadImage\(this\.spreadSecondIndex\(start\)\)/.test(reader))
+  ok('DoublePageReader has a second-slot builder', /@Builder\s+SpreadSecondSlot\(start: number\)[\s\S]*this\.SpreadImage\(this\.spreadSecondIndex\(start\)\)/.test(reader))
+  ok('DoublePageReader detects RTL spread row ordering', /private spreadRowReversed\(\): boolean[\s\S]*this\.readMode\.mode === ReadMode\.RTL/.test(reader))
+  ok('DoublePageReader reverses row slot order for RTL', /if \(this\.spreadRowReversed\(\)\) \{[\s\S]*this\.SpreadSecondSlot\(start\)[\s\S]*this\.SpreadImage\(start\)[\s\S]*\} else \{[\s\S]*this\.SpreadImage\(start\)[\s\S]*this\.SpreadSecondSlot\(start\)/.test(reader))
   ok('bottom bar cycles column mode', /cycleColumnMode\(\)/.test(reader) && /ReadModeSettings\.setColumnMode/.test(reader))
 }
 
