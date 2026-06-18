@@ -57,7 +57,14 @@ export struct GalleryTagsCard {
     if (namespace.length === 0 || tag.length === 0) {
       return
     }
-    connectSearchAction().publishQuery(`${namespace}:${tag}`)
+    connectSearchAction().publishQuery(`${namespace}:${this.queryTagValue(tag)}`)
+  }
+
+  private queryTagValue(tag: string): string {
+    if (tag.indexOf(' ') >= 0) {
+      return `"${tag}"`
+    }
+    return tag
   }
 
   build() {

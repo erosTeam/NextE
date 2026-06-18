@@ -10,7 +10,7 @@
  * Semantics (must be preserved): namespace colour only on the namespace label; member chip background is
  * the usertag fill or neutral grey (NEVER namespace); member text is vote-coloured → usertag → neutral;
  * the ForEach key carries the usertag signal version (late My-Tags recolour); chips wrap; tapping a
- * member chip publishes an eros_fe-style `namespace:rawTag` search query through the shared search bus.
+ * member chip publishes an EH fielded-tag search query through the shared search bus.
  *
  * Run: node scripts/test_tag_chip_contract.mjs   (exit 1 on any failure)
  */
@@ -31,6 +31,9 @@ const ok = (cond, msg) => {
 
 const card = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
+const searchState = read('shared/src/main/ets/state/SearchActionState.ets')
+const indexPage = read('entry/src/main/ets/pages/Index.ets')
+const searchField = read('feature/search/src/main/ets/components/SearchPageField.ets')
 
 // 1) Tokens exist with comfortable values.
 const chipRadius = Number((/CHIP_RADIUS:\s*number\s*=\s*(\d+)/.exec(theme) || [])[1])
@@ -74,17 +77,33 @@ ok(/font_secondary/.test(chipText), 'chipText keeps the neutral default')
 ok(/this\.tagSig\.version[\s\S]*?:\$\{tg\.namespace\}:\$\{t\.text\}/.test(card) || /\$\{this\.tagSig\.version\}/.test(card), 'ForEach key carries the usertag-signal version (late My-Tags recolour)')
 ok(/Flex\(\{\s*wrap:\s*FlexWrap\.Wrap\s*\}\)/.test(card), 'member chips still wrap (FlexWrap.Wrap)')
 
-// 6) Detail tag tap-to-search: eros_fe TagButton.onPressed opens Search with `${tag.type}:${tag.title.trim()}`.
+// 6) Detail tag tap-to-search: eros_fe TagButton.onPressed opens Search with `${tag.type}:${tag.title.trim()}`;
+// tag suggestions quote multi-word values, which detail tag taps also need for valid EH field queries.
 ok(/connectSearchAction/.test(card), 'GalleryTagsCard imports/connects to the shared search action bus')
 ok(/private\s+searchTag\(ns:\s*string,\s*t:\s*SimpleTag\):\s*void/.test(card), 'GalleryTagsCard has a scoped tag-search helper')
 ok(/const\s+namespace:\s*string\s*=\s*ns\.trim\(\)/.test(card), 'tag search trims the namespace')
 ok(/const\s+tag:\s*string\s*=\s*t\.text\.trim\(\)/.test(card), 'tag search uses the raw EH tag text, not translated display text')
-ok(/publishQuery\(`\$\{namespace\}:\$\{tag\}`\)/.test(card), 'tag search publishes namespace:rawTag query')
+ok(/private\s+queryTagValue\(tag:\s*string\):\s*string/.test(card), 'tag search has a fielded tag value formatter')
+ok(/tag\.indexOf\(' '\) >= 0[\s\S]*return `"\$\{tag\}"`/.test(card), 'multi-word tags are quoted for EH field query syntax')
+ok(/publishQuery\(`\$\{namespace\}:\$\{this\.queryTagValue\(tag\)\}`\)/.test(card), 'tag search publishes namespace:formattedTag query')
 ok(/\.onClick\(\(\)\s*=>\s*\{[\s\S]*?this\.searchTag\(tg\.namespace,\s*t\)[\s\S]*?\}\)/.test(card), 'member chip onClick triggers tag search')
 ok(!/publishQuery\(`\$\{namespace\}:\$\{t\.display\(\)\}`\)/.test(card), 'tag search does not use translated display text in the query')
+ok(!/publishQuery\(`\$\{namespace\}:\$\{tag\}`\)/.test(card), 'tag search no longer publishes unquoted raw multi-word values')
+
+// 7) Action-seeded search should be results-first, not IME-first.
+ok(/@Trace focusOnAppear: boolean = true/.test(searchState), 'SearchActionState tracks next Search autofocus policy')
+ok(/publishQuery\(query: string\): void \{[\s\S]*this\.focusOnAppear = false[\s\S]*this\.pendingQuery = `\$\{Date\.now\(\)\}:\$\{query\}`/.test(searchState),
+  'cross-page publishQuery disables autofocus before opening Search')
+ok(/prepareManualOpen\(\): void \{[\s\S]*this\.focusOnAppear = true/.test(searchState), 'manual Search opens can restore autofocus')
+ok(/onPendingQuery\(\): void \{[\s\S]*this\.openSearch\(false\)/.test(indexPage), 'pending search opens the Search page without autofocus')
+ok(/private openSearch\(focusOnAppear: boolean = true\): void \{[\s\S]*this\.searchAction\.focusOnAppear = focusOnAppear/.test(indexPage),
+  'manual gallery Search still defaults to autofocus')
+ok(/openFavoriteSearch\(\): void \{[\s\S]*this\.searchAction\.prepareManualOpen\(\)/.test(indexPage),
+  'favorite title-bar Search explicitly restores manual autofocus')
+ok(/autoFocus:\s*this\.actionState\.focusOnAppear/.test(searchField), 'SearchPageField forwards the shared autofocus policy')
 
 if (failures === 0) {
-  console.log('✓ tag chip contract: comfortable chips, namespace/usertag/vote colour, wrap semantics, and tag tap-to-search preserved')
+  console.log('✓ tag chip contract: comfortable chips, colour semantics, formatted tag search, and action autofocus policy preserved')
   process.exit(0)
 }
 console.error(`✗ tag chip contract: ${failures} failure(s)`)

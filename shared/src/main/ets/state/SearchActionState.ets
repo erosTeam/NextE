@@ -19,6 +19,8 @@ import { AppStorageV2 } from '@kit.ArkUI'
  *   reacts via `@Monitor` to pull the new keyword once.
  * - `pendingQuery`: a cross-page "search for X" request (e.g. tapping a tag on the detail page);
  *   reserved for when that wiring lands. `<token>:<query>` form so a repeated request still fires.
+ * - `focusOnAppear`: whether the next Search destination should request input focus. Manual title-bar
+ *   search opens should focus; action-seeded searches should render results first without opening IME.
  */
 @ObservedV2
 export class SearchActionState {
@@ -26,6 +28,7 @@ export class SearchActionState {
   @Trace submitSeq: number = 0
   @Trace seedSeq: number = 0
   @Trace pendingQuery: string = ''
+  @Trace focusOnAppear: boolean = true
 
   /**
    * Publish a cross-page "search for X" request (Similar title, uploader, a tag). A unique numeric
@@ -34,7 +37,13 @@ export class SearchActionState {
    * `title:"a:b"` — survive intact). Single writer of pendingQuery.
    */
   publishQuery(query: string): void {
+    this.focusOnAppear = false
     this.pendingQuery = `${Date.now()}:${query}`
+  }
+
+  /** Manual title-bar search opens are input-first and should request focus. */
+  prepareManualOpen(): void {
+    this.focusOnAppear = true
   }
 
   /**

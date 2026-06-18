@@ -73,8 +73,8 @@ export struct SearchPageField {
       AppSearchField({
         text: this.fieldText,
         placeholder: $r('app.string.search_placeholder'),
-        // A pushed search page focuses the field + opens the keyboard (eros_fe / V2Next SearchTitleField).
-        autoFocus: true,
+        // Manual Search opens focus the field; action-seeded searches render results first without IME.
+        autoFocus: this.actionState.focusOnAppear,
         searchButtonText: AppStrings.get('tab_search'),
         useSystemMaterial: true,
         onTextChange: (value: string) => {

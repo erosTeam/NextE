@@ -110,11 +110,12 @@ struct Index {
       return
     }
     this.lastHandledQuery = pq
-    this.openSearch()
+    this.openSearch(false)
   }
 
   // Push the search page, unless a search page is already on top (then its own @Monitor re-searches).
-  private openSearch(): void {
+  private openSearch(focusOnAppear: boolean = true): void {
+    this.searchAction.focusOnAppear = focusOnAppear
     const names: string[] = this.stack.getAllPathName()
     if (names.length === 0 || names[names.length - 1] !== 'Search') {
       this.stack.pushPathByName('Search', null)
@@ -125,6 +126,7 @@ struct Index {
   // navigator_util.dart:76-106). The scope + current favcat ride a route param; the search inherits the
   // last-shown favcat ('a' = all favorites → favorites.php omits favcat → searches all).
   private openFavoriteSearch(): void {
+    this.searchAction.prepareManualOpen()
     const favcat: string = connectFavSelection().selectedFavcat
     const names: string[] = this.stack.getAllPathName()
     if (names.length === 0 || names[names.length - 1] !== 'Search') {
