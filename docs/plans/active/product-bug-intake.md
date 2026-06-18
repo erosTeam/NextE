@@ -938,12 +938,13 @@ Evidence:
   `git diff --check`.
 - Official signed build passed with `scripts/build_hvigor_signed.sh`; no `dev.sh` was used.
 - HarmonyOS Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP
-  installed. Evidence directory: `/private/tmp/nexte_reader_zoom_surface_evidence`.
+  installed. Clean-branch evidence directory:
+  `/private/tmp/nexte_reader_zoom_surface_clean_evidence`.
 - Final device route: list -> gallery detail -> Reader. Evidence shows fit-state horizontal swipe
-  advanced from `1 / 164` to `2 / 164`, double tap zoomed the image, two-axis drag moved the zoomed
-  viewport, and `uinput -T -m` pinch further zoomed. Key artifacts:
-  `reader_final_initial.png/json`, `reader_final_fit_swipe.png/json`,
-  `reader_final_doubleclick.png/json`, `reader_final_drag.png`, and `reader_final_pinch.png`.
+  advanced from `1 / 9` to `2 / 9`, double tap zoomed the image, two-axis drag moved the zoomed
+  viewport, and `uinput -T -m` pinch changed the zoomed viewport again. Key artifacts:
+  `reader_clean_initial.png/json`, `reader_clean_fit_swipe.png/json`,
+  `reader_clean_doubletap.png/json`, `reader_clean_drag.png`, and `reader_clean_pinch.png/json`.
 
 Remaining acceptance:
 
