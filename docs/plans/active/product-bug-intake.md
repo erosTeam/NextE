@@ -443,3 +443,45 @@ Acceptance shape:
 - Once image URL loading begins, loading progress is visible when supported; until then, a centered
   image-loading line is visible instead of a dead black screen.
 - Existing Reader navigation, zoom, retry, and re-source behavior remain intact.
+
+### Download Gallery Task Rows Are Hard To Read
+
+Type: UX / information architecture cleanup
+
+Priority suggestion: P2 / small cleanup behind online reading work
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- User feedback that the Downloads tab and task rows felt like a settings shell, and that the download
+  item hierarchy was too shallow: cover, title, page count, progress/status, and remove action were
+  compressed into one row while the remove button consumed too much visual weight.
+
+Implementation:
+
+- `0e0f6ac fix(ui): ground torrent and download surfaces` moved the Gallery / Archiver selector into
+  the HDS title-bar `bottomBuilder` and removed settings controls from the scrolling queue body.
+- `4e1c314 fix(download): clarify gallery task cards` replaces gallery task `ConciseListRow`s with
+  dedicated task cards: cover slot, two-line title, metadata row, progress bar, prominent status text,
+  and a low-weight trash icon action.
+- Scope stays UI/IA-only. This does not implement a deeper download executor, archive submission,
+  retry/backoff, resumability, or offline reader integration.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_download_workbench_contract.mjs`,
+  `scripts/test_download_settings_contract.mjs`, `scripts/test_ui_quality_grounding_contract.mjs`.
+- Gates: `scripts/check_i18n_duplicates.py`, `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `git diff --check`, official signed Hvigor build.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  Gallery download tab showed two real gallery tasks with cover/title/meta/progress/status rows, and
+  Archiver tab showed the pinned segmented control plus empty queue state without settings rows.
+  Evidence directory: `/private/tmp/nexte_download_workbench_ia_evidence/`, especially
+  `download_initial.png`, `download_initial_layout.json`, `download_archiver.png`,
+  `download_archiver_layout.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the task-card visual hierarchy and action weight on screenshots.
+  Deeper executor/offline/archive behavior remains explicitly out of scope.
