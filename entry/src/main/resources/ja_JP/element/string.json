@@ -81,12 +81,24 @@
       "value": "準備済み"
     },
     {
+      "name": "download_status_downloading",
+      "value": "ダウンロード中"
+    },
+    {
+      "name": "download_status_partial",
+      "value": "一部完了"
+    },
+    {
       "name": "download_status_error",
       "value": "準備失敗"
     },
     {
       "name": "download_seed_progress",
       "value": "準備済み %s"
+    },
+    {
+      "name": "download_file_progress",
+      "value": "ダウンロード済み %s"
     },
     {
       "name": "download_gallery_empty",

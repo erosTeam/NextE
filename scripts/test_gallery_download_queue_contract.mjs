@@ -22,7 +22,7 @@ const grounding = [
   'eros_fe: lib/pages/gallery/view/sliver/slivers.dart GalleryActions / DownloadGalleryButton; lib/pages/gallery/controller/gallery_page_controller.dart downloadGallery() / _downloadGallery()',
   'primary information: detail keeps cover/title/uploader/read first; Downloads shows selected queue status and task rows',
   'primary action: Read stays primary on detail; gallery download is secondary but high-frequency; Downloads manages queue visibility',
-  'scope: detail tap enqueues one local Gallery task and Downloads renders/dedups it; no background image downloader, archive remote submit, or pause/resume engine',
+  'scope: detail tap enqueues one local Gallery task and Downloads renders/dedups it; later lanes may advance image handling, but this contract still excludes archive remote submit, full background agents, and pause/resume engine',
   'Harmony expression: low-weight detail action row plus HDS grouped list queue rows; segmented Gallery/Archiver stays in title-bar bottomBuilder',
 ]
 
@@ -30,7 +30,7 @@ ok(grounding.length === 5, 'gallery download queue lane has five-line grounding'
 ok(grounding[0].includes('slivers.dart') && grounding[0].includes('DownloadGalleryButton') &&
   grounding[0].includes('gallery_page_controller.dart') && grounding[0].includes('downloadGallery'),
   'grounding names concrete eros_fe files/components/methods')
-ok(grounding[3].includes('no background image downloader') && grounding[4].includes('bottomBuilder'),
+ok(grounding[3].includes('full background agents') && grounding[4].includes('bottomBuilder'),
   'grounding states scope boundary and Harmony expression')
 
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
@@ -81,9 +81,9 @@ ok(/GalleryTaskSection/.test(queuePage) && /ForEach\(\s*this\.downloadQueue\.gal
   /task\.displayTitle\(\)/.test(queuePage), 'downloads page renders real task rows')
 ok(/RemoveTaskButton/.test(queuePage) && /DownloadQueueSettings\.removeGallery/.test(queuePage),
   'downloads page can remove local queued tasks')
-ok(!/postArchiver|downloadRemote|downloadLoacal|downloadLocal|DownloadAgentService|ImageResolveService/.test(
+ok(!/postArchiver|downloadRemote|downloadLoacal|downloadLocal|DownloadAgentService|PauseTask|ResumeTask/.test(
   `${detail}\n${queuePage}\n${settings}`,
-), 'this lane does not submit archives or start background image downloads')
+), 'queue surface does not submit archives or introduce a full background/pause-resume engine')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

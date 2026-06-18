@@ -6,6 +6,14 @@ export class DownloadImageSeed {
   imgkey: string = ''
   imagePageUrl: string = ''
   thumbUrl: string = ''
+  imageUrl: string = ''
+  originImageUrl: string = ''
+  showKey: string = ''
+  reloadKey: string = ''
+  filePath: string = ''
+  bytesWritten: number = 0
+  downloadedAt: number = 0
+  downloadError: string = ''
 
   static fromGalleryImage(image: EhGalleryImage): DownloadImageSeed {
     const seed: DownloadImageSeed = new DownloadImageSeed()
@@ -13,6 +21,10 @@ export class DownloadImageSeed {
     seed.imgkey = image.imgkey
     seed.imagePageUrl = image.sUrl
     seed.thumbUrl = image.thumbUrl
+    seed.imageUrl = image.imageUrl
+    seed.originImageUrl = image.originImageUrl
+    seed.showKey = image.showKey
+    seed.reloadKey = image.reloadKey
     return seed
   }
 
@@ -22,6 +34,14 @@ export class DownloadImageSeed {
     seed.imgkey = this.imgkey
     seed.imagePageUrl = this.imagePageUrl
     seed.thumbUrl = this.thumbUrl
+    seed.imageUrl = this.imageUrl
+    seed.originImageUrl = this.originImageUrl
+    seed.showKey = this.showKey
+    seed.reloadKey = this.reloadKey
+    seed.filePath = this.filePath
+    seed.bytesWritten = this.bytesWritten
+    seed.downloadedAt = this.downloadedAt
+    seed.downloadError = this.downloadError
     return seed
   }
 }
@@ -112,6 +132,22 @@ export class DownloadGalleryTask {
     return `${this.seededCount()}`
   }
 
+  downloadedCount(): number {
+    return this.imageSeeds.filter((seed: DownloadImageSeed) => {
+      return seed.filePath.length > 0 && seed.bytesWritten > 0
+    }).length
+  }
+
+  downloadProgressText(): string {
+    if (this.downloadedCount() === 0) {
+      return ''
+    }
+    if (this.pageCount > 0) {
+      return `${this.downloadedCount()}/${this.pageCount}`
+    }
+    return `${this.downloadedCount()}`
+  }
+
   private static toSeeds(images: EhGalleryImage[]): DownloadImageSeed[] {
     const seeds: DownloadImageSeed[] = []
     images.forEach((image: EhGalleryImage) => {
@@ -127,5 +163,7 @@ export class DownloadGalleryTaskStatus {
   static readonly QUEUED: string = 'queued'
   static readonly PREPARING: string = 'preparing'
   static readonly READY: string = 'ready'
+  static readonly DOWNLOADING: string = 'downloading'
+  static readonly PARTIAL: string = 'partial'
   static readonly ERROR: string = 'error'
 }

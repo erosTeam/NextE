@@ -81,12 +81,24 @@
       "value": "已准备"
     },
     {
+      "name": "download_status_downloading",
+      "value": "下载中"
+    },
+    {
+      "name": "download_status_partial",
+      "value": "部分完成"
+    },
+    {
       "name": "download_status_error",
       "value": "准备失败"
     },
     {
       "name": "download_seed_progress",
       "value": "已准备 %s"
+    },
+    {
+      "name": "download_file_progress",
+      "value": "已下载 %s"
     },
     {
       "name": "download_gallery_empty",

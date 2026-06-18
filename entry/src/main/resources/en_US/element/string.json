@@ -81,12 +81,24 @@
       "value": "Ready"
     },
     {
+      "name": "download_status_downloading",
+      "value": "Downloading"
+    },
+    {
+      "name": "download_status_partial",
+      "value": "Partial"
+    },
+    {
       "name": "download_status_error",
       "value": "Error"
     },
     {
       "name": "download_seed_progress",
       "value": "Seeded %s"
+    },
+    {
+      "name": "download_file_progress",
+      "value": "Downloaded %s"
     },
     {
       "name": "download_gallery_empty",

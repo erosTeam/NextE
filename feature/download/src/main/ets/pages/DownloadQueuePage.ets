@@ -72,6 +72,12 @@ export struct DownloadQueuePage {
     if (task.status === DownloadGalleryTaskStatus.READY) {
       return AppStrings.get('download_status_ready')
     }
+    if (task.status === DownloadGalleryTaskStatus.DOWNLOADING) {
+      return AppStrings.get('download_status_downloading')
+    }
+    if (task.status === DownloadGalleryTaskStatus.PARTIAL) {
+      return AppStrings.get('download_status_partial')
+    }
     if (task.status === DownloadGalleryTaskStatus.ERROR) {
       return AppStrings.get('download_status_error')
     }
@@ -86,8 +92,16 @@ export struct DownloadQueuePage {
     if (task.status === DownloadGalleryTaskStatus.ERROR) {
       parts.push(this.taskStatusText(task))
     }
+    if (task.downloadProgressText().length > 0) {
+      parts.push(AppStrings.get('download_file_progress').replace('%s', task.downloadProgressText()))
+      return parts.join(' · ')
+    }
     if (task.seedProgressText().length > 0) {
       parts.push(AppStrings.get('download_seed_progress').replace('%s', task.seedProgressText()))
+      return parts.join(' · ')
+    }
+    if (task.status === DownloadGalleryTaskStatus.DOWNLOADING) {
+      parts.push(this.taskStatusText(task))
       return parts.join(' · ')
     }
     if (task.status === DownloadGalleryTaskStatus.PREPARING) {

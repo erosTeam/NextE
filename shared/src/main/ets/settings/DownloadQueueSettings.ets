@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
+import { fileIo as fs } from '@kit.CoreFileKit'
 import {
   DownloadGalleryTask,
   DownloadGalleryTaskStatus,
@@ -9,7 +10,9 @@ import { EhGalleryImage } from '../model/EhGalleryImage'
 import { connectDownloadQueue } from '../state/DownloadQueueState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { EhHttpClient } from '../network/EhHttpClient'
 import { EhApiService } from '../network/EhApiService'
+import { ImageResolveService } from '../services/ImageResolveService'
 
 const MAX_GALLERY_TASKS: number = 200
 
@@ -127,6 +130,7 @@ export class DownloadQueueSettings {
         totalPreviewPages,
         '',
       )
+      await DownloadQueueSettings.downloadFirstGalleryImage(context, gid, token)
     } catch (error) {
       await DownloadQueueSettings.updatePreparedTask(
         context,
@@ -136,6 +140,52 @@ export class DownloadQueueSettings {
         initialSeeds,
         firstPageImages.length,
         Math.max(previewPageCount, 1),
+        (error as Error).message,
+      )
+    }
+  }
+
+  static async downloadFirstGalleryImage(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+  ): Promise<void> {
+    const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+    if (task === null) {
+      return
+    }
+    const seed: DownloadImageSeed | null = DownloadQueueSettings.firstPendingSeed(task)
+    if (seed === null) {
+      return
+    }
+    await DownloadQueueSettings.updateDownloadTaskStatus(
+      context,
+      gid,
+      token,
+      DownloadGalleryTaskStatus.DOWNLOADING,
+      '',
+    )
+    try {
+      const image: EhGalleryImage = DownloadQueueSettings.seedToImage(seed)
+      const imageUrl: string = await ImageResolveService.getInstance().resolve(image)
+      const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)
+      const filePath: string = `${dir}/${DownloadQueueSettings.fileNameForSeed(seed, imageUrl)}`
+      const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFile(imageUrl, filePath)
+      await DownloadQueueSettings.updateDownloadedSeed(
+        context,
+        gid,
+        token,
+        seed,
+        image,
+        filePath,
+        bytes,
+      )
+    } catch (error) {
+      await DownloadQueueSettings.updateFirstDownloadError(
+        context,
+        gid,
+        token,
+        seed,
         (error as Error).message,
       )
     }
@@ -183,6 +233,171 @@ export class DownloadQueueSettings {
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_save_failed', (error as Error).message)
     }
+  }
+
+  private static findTask(gid: string, token: string): DownloadGalleryTask | null {
+    const state = connectDownloadQueue()
+    const hit: DownloadGalleryTask | undefined = state.galleryTasks.find((task: DownloadGalleryTask) => {
+      return task.gid === gid && task.token === token
+    })
+    return hit !== undefined ? hit.copy() : null
+  }
+
+  private static firstPendingSeed(task: DownloadGalleryTask): DownloadImageSeed | null {
+    for (let i = 0; i < task.imageSeeds.length; i++) {
+      const seed: DownloadImageSeed = task.imageSeeds[i]
+      if (seed.filePath.length === 0 && seed.imagePageUrl.length > 0) {
+        return seed.copy()
+      }
+    }
+    return null
+  }
+
+  private static seedToImage(seed: DownloadImageSeed): EhGalleryImage {
+    const image: EhGalleryImage = new EhGalleryImage()
+    image.page = seed.page
+    image.imgkey = seed.imgkey
+    image.sUrl = seed.imagePageUrl
+    image.thumbUrl = seed.thumbUrl
+    image.imageUrl = seed.imageUrl
+    image.originImageUrl = seed.originImageUrl
+    image.showKey = seed.showKey
+    image.reloadKey = seed.reloadKey
+    return image
+  }
+
+  private static ensureGalleryDownloadDir(context: common.UIAbilityContext, gid: string): string {
+    const root: string = `${context.filesDir}/download-gallery`
+    const dir: string = `${root}/${DownloadQueueSettings.safePathPart(gid)}`
+    try {
+      fs.mkdirSync(dir, true)
+    } catch (error) {
+      if (!fs.accessSync(dir)) {
+        throw error as Error
+      }
+    }
+    return dir
+  }
+
+  private static safePathPart(value: string): string {
+    return value.replace(/[/:*"<>|,?\\]/g, '_')
+  }
+
+  private static fileNameForSeed(seed: DownloadImageSeed, imageUrl: string): string {
+    return `${DownloadQueueSettings.pageFilePrefix(seed.page)}${DownloadQueueSettings.fileExtFromUrl(imageUrl)}`
+  }
+
+  private static pageFilePrefix(page: number): string {
+    let text: string = `${page > 0 ? page : 1}`
+    while (text.length < 4) {
+      text = `0${text}`
+    }
+    return text
+  }
+
+  private static fileExtFromUrl(url: string): string {
+    const q: number = url.indexOf('?')
+    const clean: string = q >= 0 ? url.substring(0, q) : url
+    const slash: number = clean.lastIndexOf('/')
+    const name: string = slash >= 0 ? clean.substring(slash + 1) : clean
+    const dot: number = name.lastIndexOf('.')
+    if (dot >= 0 && dot < name.length - 1 && name.length - dot <= 6) {
+      return name.substring(dot)
+    }
+    return '.jpg'
+  }
+
+  private static async updateDownloadTaskStatus(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    status: string,
+    error: string,
+  ): Promise<void> {
+    const state = connectDownloadQueue()
+    const next: DownloadGalleryTask[] = []
+    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
+      const task: DownloadGalleryTask = it.copy()
+      if (task.gid === gid && task.token === token) {
+        task.status = status
+        task.prepareError = error
+      }
+      next.push(task)
+    })
+    state.galleryTasks = next
+    await DownloadQueueSettings.persist(context, next)
+  }
+
+  private static async updateDownloadedSeed(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    originalSeed: DownloadImageSeed,
+    image: EhGalleryImage,
+    filePath: string,
+    bytes: number,
+  ): Promise<void> {
+    const state = connectDownloadQueue()
+    const next: DownloadGalleryTask[] = []
+    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
+      const task: DownloadGalleryTask = it.copy()
+      if (task.gid === gid && task.token === token) {
+        task.imageSeeds = task.imageSeeds.map((seed: DownloadImageSeed) => {
+          const out: DownloadImageSeed = seed.copy()
+          if (DownloadQueueSettings.sameSeed(out, originalSeed)) {
+            out.imageUrl = image.imageUrl
+            out.originImageUrl = image.originImageUrl
+            out.showKey = image.showKey
+            out.reloadKey = image.reloadKey
+            out.filePath = filePath
+            out.bytesWritten = bytes
+            out.downloadedAt = Date.now()
+            out.downloadError = ''
+          }
+          return out
+        })
+        task.status = DownloadGalleryTaskStatus.PARTIAL
+        task.prepareError = ''
+      }
+      next.push(task)
+    })
+    state.galleryTasks = next
+    await DownloadQueueSettings.persist(context, next)
+  }
+
+  private static async updateFirstDownloadError(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    originalSeed: DownloadImageSeed,
+    message: string,
+  ): Promise<void> {
+    const state = connectDownloadQueue()
+    const next: DownloadGalleryTask[] = []
+    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
+      const task: DownloadGalleryTask = it.copy()
+      if (task.gid === gid && task.token === token) {
+        task.imageSeeds = task.imageSeeds.map((seed: DownloadImageSeed) => {
+          const out: DownloadImageSeed = seed.copy()
+          if (DownloadQueueSettings.sameSeed(out, originalSeed)) {
+            out.downloadError = message
+          }
+          return out
+        })
+        task.status = DownloadGalleryTaskStatus.ERROR
+        task.prepareError = message
+      }
+      next.push(task)
+    })
+    state.galleryTasks = next
+    await DownloadQueueSettings.persist(context, next)
+  }
+
+  private static sameSeed(a: DownloadImageSeed, b: DownloadImageSeed): boolean {
+    if (a.imagePageUrl.length > 0 && b.imagePageUrl.length > 0) {
+      return a.imagePageUrl === b.imagePageUrl
+    }
+    return a.page === b.page
   }
 
   private static parse(raw: string): DownloadGalleryTask[] {
@@ -258,6 +473,14 @@ export class DownloadQueueSettings {
           seed.imgkey = typeof raw.imgkey === 'string' ? raw.imgkey : ''
           seed.imagePageUrl = raw.imagePageUrl
           seed.thumbUrl = typeof raw.thumbUrl === 'string' ? raw.thumbUrl : ''
+          seed.imageUrl = typeof raw.imageUrl === 'string' ? raw.imageUrl : ''
+          seed.originImageUrl = typeof raw.originImageUrl === 'string' ? raw.originImageUrl : ''
+          seed.showKey = typeof raw.showKey === 'string' ? raw.showKey : ''
+          seed.reloadKey = typeof raw.reloadKey === 'string' ? raw.reloadKey : ''
+          seed.filePath = typeof raw.filePath === 'string' ? raw.filePath : ''
+          seed.bytesWritten = typeof raw.bytesWritten === 'number' ? raw.bytesWritten : 0
+          seed.downloadedAt = typeof raw.downloadedAt === 'number' ? raw.downloadedAt : 0
+          seed.downloadError = typeof raw.downloadError === 'string' ? raw.downloadError : ''
           out.push(seed)
         }
       })
@@ -269,6 +492,8 @@ export class DownloadQueueSettings {
     if (
       status === DownloadGalleryTaskStatus.PREPARING ||
       status === DownloadGalleryTaskStatus.READY ||
+      status === DownloadGalleryTaskStatus.DOWNLOADING ||
+      status === DownloadGalleryTaskStatus.PARTIAL ||
       status === DownloadGalleryTaskStatus.ERROR
     ) {
       return status

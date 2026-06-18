@@ -77,9 +77,9 @@ ok(!/Text\(this\.taskStatus\(task\)\)/.test(queue),
   'downloads page does not duplicate row status in the suffix and squeeze the progress subtitle')
 ok(!/trailingText:\s*this\.taskStatus/.test(queue),
   'downloads page does not pass hidden task status through a suffix-overridden trailingText')
-ok(!/ImageResolveService|imageUrl|originImageUrl|fullimg|DownloadAgentService|downloadToPath|fileio|fs\./.test(
+ok(!/fullimg|DownloadAgentService|downloadToPath/.test(
   `${settings}\n${detail}\n${queue}`,
-), 'this lane does not resolve full image URLs, write files, or start a downloader')
+), 'seed preparation still avoids original-image expansion and the full background downloader')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
