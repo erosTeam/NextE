@@ -1,6 +1,14 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit'
 import { window } from '@kit.ArkUI'
-import { AppStrings, DiagnosticLogger, SettingsBootstrap, publishPendingEhUrl, EhUrlRouter, LayoutSafeAreaBridge } from 'shared'
+import {
+  AppStrings,
+  DiagnosticLogger,
+  SettingsBootstrap,
+  publishPendingEhUrl,
+  EhUrlRouter,
+  LayoutSafeAreaBridge,
+  InternalQaRoutes,
+} from 'shared'
 
 const TRANSPARENT_COLOR: string = '#00FFFFFF'
 const ENTRY_PAGE: string = 'pages/Index'
@@ -147,6 +155,10 @@ export default class EntryAbility extends UIAbility {
 
   private captureIncomingUrl(want: Want): void {
     const uri: string = (want?.uri ?? '').trim()
+    if (uri === InternalQaRoutes.COVER_FALLBACK_PROBE_URI) {
+      publishPendingEhUrl(`${Date.now()}:${uri}`)
+      return
+    }
     if (uri.length === 0 || !EhUrlRouter.canHandle(uri)) {
       return
     }

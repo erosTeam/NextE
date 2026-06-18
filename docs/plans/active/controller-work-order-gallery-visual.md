@@ -373,6 +373,15 @@ Gallery cover presentation:
   - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_post_reinstall_layout.json
   - Layout confirms foreground `com.erosteam.nexte` / `EntryAbility` / `pages/Index`, Home `E-Hentai` default
     list, and real gallery rows after launch.
+- Loading/error visual probe evidence:
+  - Current signed build adds an internal-only QA URI `nexte://qa/cover-fallback`. It is not declared in
+    `module.json5` skills and is only launched explicitly by `aa start` for device evidence.
+  - The probe page renders the real `EhThumbnail` component in forced loading and forced error states.
+  - /private/tmp/nexte_cover_fallback_probe_evidence/nexte_cover_fallback_probe.png
+  - /private/tmp/nexte_cover_fallback_probe_evidence/nexte_cover_fallback_probe_layout.json
+  - Layout confirms foreground `com.erosteam.nexte` / `EntryAbility` / `pages/Index`, `Cover fallback probe`,
+    `Loading`, `Error`, one `LoadingProgress`, and one error-side `SymbolGlyph`.
+  - Both forced-state cover slots use `#FFE6E8EB` in light mode, matching the distinct cover placeholder.
 - Observed: detail header cover fits the real cover over a distinct grey backdrop with header content
   intact; Home list covers fit over the same distinct light grey backdrop. Layout confirms Home
   `E-Hentai` default list and cover Image backgrounds at `#FFE6E8EB`. Home grid mode was temporarily
@@ -383,10 +392,11 @@ Gallery cover presentation:
   `#FF2E2E30`, and the detail header cover renders as a complete cover inside the dark card, not as a
   thin strip inside a grey block. Home grid mode was also temporarily enabled under dark mode and restored
   to `列表`; the dark grid evidence shows two visible grid-card cover Image nodes filling their grid cells
-  over `#FF2E2E30`, matching the intentional grid-card behavior in dark theme. The fallback hardening is
-  implementation/contract/device-smoke evidence only; it is not a visual PASS for real network loading/error
-  frames.
-- Still open: real loading placeholder screenshots, real error fallback screenshots, and controller visual acceptance.
+  over `#FF2E2E30`, matching the intentional grid-card behavior in dark theme. The fallback probe supplies
+  deterministic device screenshots for the component's loading/error visual states; it is not a claim that a
+  live network timeout/error path was naturally reproduced in a gallery list/detail surface.
+- Still open: controller visual acceptance; live network-triggered loading/error screenshots only if controller
+  requires natural network reproduction instead of the deterministic component probe.
 ```
 
 Completion rule:

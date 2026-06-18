@@ -27,6 +27,7 @@ import {
   SELECTOR_BAR_HEIGHT,
   immersiveTitleBarOpts,
   immersiveMaterialType,
+  InternalQaRoutes,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -41,6 +42,7 @@ import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
 import { EhLoginWebPage } from './EhLoginWebPage'
 import { EhCookieImportPage } from './EhCookieImportPage'
+import { CoverFallbackProbePage } from './CoverFallbackProbePage'
 
 /**
  * NextE navigation shell — native HDS (`HdsNavigation` + `HdsTabs` from `@kit.UIDesignKit`,
@@ -130,6 +132,11 @@ struct Index {
     this.lastHandledSignal = signal
     const sep: number = signal.indexOf(':')
     const uri: string = sep >= 0 ? signal.substring(sep + 1) : signal
+    if (uri === InternalQaRoutes.COVER_FALLBACK_PROBE_URI) {
+      DiagnosticLogger.info('nav', 'internal_qa_open', 'cover-fallback')
+      this.stack.pushPathByName('CoverFallbackProbe', null)
+      return
+    }
     const ref: GalleryRef | null = EhUrlRouter.parseGallery(uri)
     if (ref !== null) {
       DiagnosticLogger.info('nav', 'deep_link_open', `/g/${ref.gid}/${ref.token}`)
@@ -285,6 +292,8 @@ struct Index {
       GalleryCommentsPage()
     } else if (name === 'ReaderSettings') {
       ReaderSettingsPage()
+    } else if (name === 'CoverFallbackProbe') {
+      CoverFallbackProbePage()
     }
   }
 

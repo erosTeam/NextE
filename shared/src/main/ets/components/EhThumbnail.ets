@@ -1,6 +1,10 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 
+export const THUMBNAIL_VISUAL_AUTO: number = 0
+export const THUMBNAIL_VISUAL_LOADING: number = 1
+export const THUMBNAIL_VISUAL_ERROR: number = 2
+
 const COVER_LOADER_SIZE: number = 22
 const COVER_ERROR_ICON_SIZE: number = 24
 
@@ -32,14 +36,39 @@ export struct EhThumbnail {
   @Param containFit: boolean = false;
   @Param sourceWidth: number = 0;
   @Param sourceHeight: number = 0;
+  // Internal QA probe only. Default AUTO preserves production network/image behavior.
+  @Param visualState: number = THUMBNAIL_VISUAL_AUTO;
   // Cover painted yet? Drives the placeholder spinner. Resets when the row is recycled to a new url.
   @Local loaded: boolean = false;
   @Local failed: boolean = false;
 
+  aboutToAppear(): void {
+    this.applyVisualState()
+  }
+
   @Monitor('url')
   onUrlChange() {
+    if (this.visualState !== THUMBNAIL_VISUAL_AUTO) {
+      this.applyVisualState()
+      return
+    }
     this.loaded = false
     this.failed = false
+  }
+
+  @Monitor('visualState')
+  onVisualStateChange() {
+    this.applyVisualState()
+  }
+
+  private applyVisualState(): void {
+    if (this.visualState === THUMBNAIL_VISUAL_LOADING) {
+      this.loaded = false
+      this.failed = false
+    } else if (this.visualState === THUMBNAIL_VISUAL_ERROR) {
+      this.loaded = true
+      this.failed = true
+    }
   }
 
   // Centered spinner, only while the cover is loading; collapses to nothing once it paints.
@@ -104,7 +133,15 @@ export struct EhThumbnail {
   }
 
   build() {
-    if (this.coverRatio > 0) {
+    if (this.visualState !== THUMBNAIL_VISUAL_AUTO) {
+      Stack({ alignContent: Alignment.Center }) {}
+        .width(this.thumbWidth)
+        .height(this.thumbHeight)
+        .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
+        .borderRadius(this.radius)
+        .clip(true)
+        .overlay(this.coverOverlay(), { align: Alignment.Center })
+    } else if (this.coverRatio > 0) {
       Image(EhConstants.cdnThumb(this.url))
         .width('100%')
         .aspectRatio(this.coverRatio)

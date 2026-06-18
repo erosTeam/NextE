@@ -610,17 +610,24 @@ Additional gallery cover fallback structural hardening from 2026-06-18:
   - Smoke layout confirms foreground `com.erosteam.nexte` / `EntryAbility` / `pages/Index`, Home `E-Hentai`
     default list, and real gallery rows.
   - Every hdc command ran outside the Codex sandbox.
+- Loading/error visual probe:
+  - Current signed build has an internal-only QA URI `nexte://qa/cover-fallback`.
+  - The URI is not declared as a public module skill; it is launched explicitly by `aa start` for device evidence.
+  - The probe renders the real `EhThumbnail` component in forced loading and forced error visual states.
+  - Layout confirms visible `Cover fallback probe`, `Loading`, `Error`, one `LoadingProgress`, one error-side
+    `SymbolGlyph`, and the light cover placeholder `#FFE6E8EB` on both forced-state slots.
 
 Evidence:
   - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_loaded_smoke.png
   - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_loaded_smoke_layout.json
   - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_post_reinstall.png
   - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_post_reinstall_layout.json
+  - /private/tmp/nexte_cover_fallback_probe_evidence/nexte_cover_fallback_probe.png
+  - /private/tmp/nexte_cover_fallback_probe_evidence/nexte_cover_fallback_probe_layout.json
 
 Still open:
-  - real loading placeholder screenshots
-  - real error fallback screenshots
   - controller visual acceptance
+  - naturally network-triggered loading/error screenshots only if controller rejects deterministic probe evidence
 ```
 
 Validation already run:
