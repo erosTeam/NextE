@@ -370,6 +370,8 @@ Why it matters:
 - Controller/user clarified that 90vp was an intentional product change.
 - Design rationale: 90vp keeps the Mate X7 preview pane at 3 thumbnails per row and avoids Mate 60 Pro
   jumping to 4 thumbnails; 105vp makes Mate X7 fall to 2 thumbnails, which is not the desired design.
+- Treat 90vp as the product breakpoint, not a negotiable "comfort" default. Future agents must not
+  restore 105vp unless the controller explicitly changes the X7/Mate60Pro acceptance target.
 - The responsive-grid contract must protect responsive derivation and stable tile framing, not force
   105vp or force every 420vp-class pane to remain 3 columns.
 ```
@@ -531,6 +533,35 @@ Still open:
   - dense multi-namespace/current controller visual acceptance
 ```
 
+Additional gallery cover presentation dark-mode partial re-QA from 2026-06-18:
+
+```text
+- Target/build: Mate X7 emulator target 127.0.0.1:5555, same installed a253aff signed HAP.
+- System Settings was used through visible UI to switch `浅色` -> `深色`.
+- Home default list in dark mode shows loaded covers as complete images over the dark distinct
+  placeholder/backdrop; layout Image backgrounds are `#FF2E2E30`.
+- Public detail deep link opened in dark mode: https://e-hentai.org/g/3989982/16600a66e8/
+- Detail header shows `Rockman: 10 Years History Book` with the real cover rendered as a complete rounded
+  cover inside the dark card, not as a thin strip inside a grey block.
+- System Settings was restored to `浅色` afterwards; final layout confirms the light radio checked=true,
+  dark radio checked=false, and `深色模式=已关闭`.
+- Every hdc command ran outside the Codex sandbox.
+
+Evidence:
+  - /private/tmp/nexte_cover_darkmode_evidence/system_restore_probe.json
+  - /private/tmp/nexte_cover_darkmode_evidence/dark_home_list.png
+  - /private/tmp/nexte_cover_darkmode_evidence/dark_home_list_layout.json
+  - /private/tmp/nexte_cover_darkmode_evidence/dark_detail_header.png
+  - /private/tmp/nexte_cover_darkmode_evidence/dark_detail_header_layout.json
+  - /private/tmp/nexte_cover_darkmode_evidence/system_display_light_restored.json
+
+Still open:
+  - loading placeholder screenshots
+  - error fallback screenshots
+  - dark grid-card evidence
+  - controller visual acceptance
+```
+
 Validation already run:
 
 ```text
@@ -591,7 +622,11 @@ Current active meaning:
 - Gate V2 subtab never-loaded empty/no-more flash remains a P0 behavior queue.
 - Gate V3 re-audits prior visual/navigation claims.
 - gallery-visual-navigation-regression-contract.md explicitly says prior PASS/archive claims are invalid unless re-backed by current controller evidence.
-- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, not-favorited first-read header/action, normal detail tag chips, loaded/light gallery cover presentation including Home grid-card behavior, and Home default fixed/adaptive list height have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
+- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route,
+  hidden-inline/AllThumbnails route, not-favorited first-read header/action, normal detail tag chips,
+  loaded/light gallery cover presentation including Home grid-card behavior, loaded/dark detail+Home-list
+  cover presentation, and Home default fixed/adaptive list height have current Mate X7 evidence; final
+  controller visual acceptance and remaining state matrices are still open.
 ```
 
 Important boundary:

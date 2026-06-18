@@ -329,7 +329,9 @@ Gallery cover presentation:
 - Target: 127.0.0.1:5555 Mate X7 emulator.
 - Build: a253aff signed HAP already installed.
 - Detail: https://e-hentai.org/g/3989982/16600a66e8/
-- Surfaces covered: loaded/light detail header cover, Home default list covers, and Home default grid-card covers only.
+- Surfaces covered: loaded/light detail header cover, loaded/light Home default list covers,
+  loaded/light Home default grid-card covers, loaded/dark detail header cover, and loaded/dark Home
+  default list covers only.
 - Evidence:
   - /private/tmp/nexte_cover_presentation_evidence/cover_detail_header.png
   - /private/tmp/nexte_cover_presentation_evidence/cover_detail_header_layout.json
@@ -341,13 +343,22 @@ Gallery cover presentation:
   - /private/tmp/nexte_cover_gridcard_evidence/grid_home.png
   - /private/tmp/nexte_cover_gridcard_evidence/grid_home_layout.json
   - /private/tmp/nexte_cover_gridcard_evidence/settings_restored.json
+  - /private/tmp/nexte_cover_darkmode_evidence/system_restore_probe.json
+  - /private/tmp/nexte_cover_darkmode_evidence/dark_home_list.png
+  - /private/tmp/nexte_cover_darkmode_evidence/dark_home_list_layout.json
+  - /private/tmp/nexte_cover_darkmode_evidence/dark_detail_header.png
+  - /private/tmp/nexte_cover_darkmode_evidence/dark_detail_header_layout.json
+  - /private/tmp/nexte_cover_darkmode_evidence/system_display_light_restored.json
 - Observed: detail header cover fits the real cover over a distinct grey backdrop with header content
   intact; Home list covers fit over the same distinct light grey backdrop. Layout confirms Home
   `E-Hentai` default list and cover Image backgrounds at `#FFE6E8EB`. Home grid mode was temporarily
   enabled and restored; the grid evidence shows two visible grid-card cover Image nodes filling their
   grid cells over `#FFE6E8EB`, which is the intentional grid-card behavior and is distinct from the
-  list/detail containFit treatment.
-- Still open: loading placeholder screenshots, error fallback screenshots, dark-mode evidence, and
+  list/detail containFit treatment. Dark-mode evidence was captured by switching system Settings
+  `浅色` -> `深色` through visible UI, then restoring `浅色`; Home list cover Image backgrounds are
+  `#FF2E2E30`, and the detail header cover renders as a complete cover inside the dark card, not as a
+  thin strip inside a grey block.
+- Still open: loading placeholder screenshots, error fallback screenshots, dark grid-card evidence, and
   controller visual acceptance.
 ```
 
