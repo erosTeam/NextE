@@ -35,11 +35,20 @@ export class ReaderViewModel {
   // instead of one-by-one round-trips (eros_fe far-seek). 0 until the first page lands.
   private perPage: number = 0
 
-  async init(gid: string, token: string, fileCount: number, startIndex: number): Promise<void> {
+  async init(
+    gid: string,
+    token: string,
+    fileCount: number,
+    startIndex: number,
+    seedImages: EhGalleryImage[] = [],
+    seedLoadedPages: number = 0,
+    seedPerPage: number = 0,
+  ): Promise<void> {
     this.gid = gid
     this.token = token
     this.fileCount = fileCount
     this.currentIndex = startIndex
+    this.applySeed(seedImages, seedLoadedPages, seedPerPage)
     // A resumed far start page (e.g. lastIndex 500) must not crawl preview pages one-by-one — fetch
     // the gap concurrently. ensureLoaded picks the parallel path past the first page.
     await this.ensureLoaded(startIndex + 2)
@@ -48,6 +57,22 @@ export class ReaderViewModel {
     // so the Swiper .index() and the progress write-back never go out of range.
     this.currentIndex = this.images.length > 0 ? Math.min(startIndex, this.images.length - 1) : 0
     this.precacheAhead()
+  }
+
+  private applySeed(seedImages: EhGalleryImage[], seedLoadedPages: number, seedPerPage: number): void {
+    if (seedImages.length === 0 || seedLoadedPages <= 0) {
+      return
+    }
+    const seeded: EhGalleryImage[] = []
+    seedImages.forEach((img: EhGalleryImage) => {
+      seeded.push(img.copy())
+    })
+    this.images = seeded
+    this.previewPage = Math.max(0, seedLoadedPages - 1)
+    this.perPage = seedPerPage > 0 ? seedPerPage : seedImages.length
+    if (this.fileCount > 0 && this.images.length >= this.fileCount) {
+      this.exhausted = true
+    }
   }
 
   /**

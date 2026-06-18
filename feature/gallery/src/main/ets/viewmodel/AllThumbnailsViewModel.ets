@@ -26,6 +26,7 @@ export class AllThumbnailsViewModel {
   private token: string = ''
   private isEx: boolean = false
   private seeded: boolean = false
+  private firstPageCount: number = 0
 
   seed(p: AllThumbnailsParams): void {
     if (this.seeded) {
@@ -39,6 +40,7 @@ export class AllThumbnailsViewModel {
     this.dataSource.setData(p.firstPage)
     this.itemCount = this.dataSource.totalCount()
     this.loadedPages = p.firstPage.length > 0 ? 1 : 0
+    this.firstPageCount = p.firstPage.length
   }
 
   hasMore(): boolean {
@@ -67,5 +69,22 @@ export class AllThumbnailsViewModel {
       DiagnosticLogger.warn('gallery', 'thumbs_loadnext_failed', (err as Error).message)
     }
     this.loading = false
+  }
+
+  loadedImages(): EhGalleryImage[] {
+    const src: EhGalleryImage[] = this.dataSource.getAll()
+    const out: EhGalleryImage[] = []
+    src.forEach((img: EhGalleryImage) => {
+      out.push(img.copy())
+    })
+    return out
+  }
+
+  loadedPreviewPages(): number {
+    return this.loadedPages
+  }
+
+  seedPerPage(): number {
+    return this.firstPageCount
   }
 }

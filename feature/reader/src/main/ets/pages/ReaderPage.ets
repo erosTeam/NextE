@@ -117,7 +117,7 @@ export struct ReaderPage {
       if (p !== undefined && p.gid.length > 0) {
         this.params = p
         this.sliderValue = p.index + 1
-        this.vm.init(p.gid, p.token, p.fileCount, p.index)
+        this.vm.init(p.gid, p.token, p.fileCount, p.index, p.seedImages, p.seedLoadedPages, p.seedPerPage)
       }
       // Keep the screen awake while reading (eros_fe couples fullscreen + wakelock); window-scoped,
       // restored on aboutToDisappear. The app is already edge-to-edge fullscreen (EntryAbility), so the

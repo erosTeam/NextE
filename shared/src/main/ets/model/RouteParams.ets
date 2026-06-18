@@ -39,6 +39,9 @@ export class ReaderParams {
   index: number = 0 // initial page index
   fileCount: number = 0
   title: string = '' // shown in the reader's top bar (exit affordance + context)
+  seedImages: EhGalleryImage[] = [] // already-loaded preview entries, preserving absolute page + /s/ URL
+  seedLoadedPages: number = 0
+  seedPerPage: number = 0
 
   constructor(
     gid: string = '',
@@ -46,12 +49,18 @@ export class ReaderParams {
     index: number = 0,
     fileCount: number = 0,
     title: string = '',
+    seedImages: EhGalleryImage[] = [],
+    seedLoadedPages: number = 0,
+    seedPerPage: number = 0,
   ) {
     this.gid = gid
     this.token = token
     this.index = index
     this.fileCount = fileCount
     this.title = title
+    this.seedImages = seedImages
+    this.seedLoadedPages = seedLoadedPages
+    this.seedPerPage = seedPerPage
   }
 }
 

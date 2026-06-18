@@ -38,6 +38,9 @@ export struct GalleryAllThumbnailsPage {
         pageZeroBased,
         this.params.fileCount,
         this.params.title,
+        this.vm.loadedImages(),
+        this.vm.loadedPreviewPages(),
+        this.vm.seedPerPage(),
       ),
     )
   }
