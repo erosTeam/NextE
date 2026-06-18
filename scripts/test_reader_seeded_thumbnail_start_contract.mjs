@@ -5,7 +5,7 @@
  * The bug class: tapping a thumbnail from page 2/3 of the preview grid must not boot the Reader with
  * only page-1 previews and then visually snap to the first pages. The Reader route params carry the
  * already-loaded preview entries (absolute page + /s/ image-page URL), and ReaderViewModel seeds its
- * image list before calling ensureLoaded.
+ * image list before loading the requested target first. Neighbor pages are warm-up only.
  *
  * Run: node scripts/test_reader_seeded_thumbnail_start_contract.mjs
  */
@@ -85,7 +85,9 @@ ok('ReaderPage scrolls vertical mode to the requested target after async VM init
 
 const readerVmSrc = read('feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets')
 ok('ReaderViewModel accepts seed args', /seedImages:\s*EhGalleryImage\[\]\s*=\s*\[\][\s\S]*seedLoadedPages:\s*number\s*=\s*0[\s\S]*seedPerPage:\s*number\s*=\s*0/.test(readerVmSrc))
-ok('ReaderViewModel applies seed before ensureLoaded', /this\.applySeed\(seedImages, seedLoadedPages, seedPerPage\)[\s\S]*await this\.ensureLoaded\(startIndex \+ 2\)/.test(readerVmSrc))
+ok('ReaderViewModel applies seed before target-first ensureLoaded', /this\.applySeed\(seedImages, seedLoadedPages, seedPerPage\)[\s\S]*await this\.ensureLoaded\(startIndex\)/.test(readerVmSrc))
+ok('ReaderViewModel does not block initial reader start on neighbor preload', !/await this\.ensureLoaded\(startIndex \+ 2\)/.test(readerVmSrc))
+ok('ReaderViewModel warms neighbor previews only after currentIndex is settled', /this\.currentIndex = this\.images\.length > 0 \? Math\.min\(startIndex, this\.images\.length - 1\) : 0[\s\S]*this\.precacheAhead\(\)[\s\S]*this\.warmPreviewAhead\(this\.currentIndex\)/.test(readerVmSrc))
 ok('ReaderViewModel copies seed images', /private applySeed[\s\S]*seeded\.push\(img\.copy\(\)\)/.test(readerVmSrc))
 ok('ReaderViewModel sets previewPage from seedLoadedPages', /this\.previewPage = Math\.max\(0, seedLoadedPages - 1\)/.test(readerVmSrc))
 ok('ReaderViewModel sets perPage from seedPerPage', /this\.perPage = seedPerPage > 0 \? seedPerPage : seedImages\.length/.test(readerVmSrc))

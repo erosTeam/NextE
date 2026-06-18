@@ -3,8 +3,8 @@
  * Contract for reusing a parsed /s/ image page when opening the Reader.
  *
  * The /s/ route resolver has already fetched the target image page and parsed the one-shot full-image
- * URL. Reader should reuse that exact target image after it has loaded the contiguous preview list,
- * but must not treat the single image as a loaded preview page set.
+ * URL. Reader should reuse that exact target image after it has loaded the target preview slot,
+ * but must not treat the single image as a loaded preview page set or block first paint on neighbors.
  *
  * Run: node scripts/test_image_page_reader_seed_contract.mjs
  */
@@ -71,7 +71,9 @@ ok('single /s/ seed without parsed imageUrl is rejected', exactSeedImage([{ page
 const vmSrc = read('feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets')
 const applyExactBody = vmSrc.match(/private applyExactSeed[\s\S]*?\n  }\n\n  \/\*\*/)?.[0] ?? ''
 ok('VM derives exact seed before contiguous seed handling', /const exactSeed: EhGalleryImage \| null = this\.exactSeedImage\(seedImages, seedLoadedPages, startIndex\)[\s\S]*this\.applySeed/.test(vmSrc))
-ok('VM applies exact seed only after ensureLoaded has loaded the target slot', /await this\.ensureLoaded\(startIndex \+ 2\)[\s\S]*this\.applyExactSeed\(startIndex, exactSeed\)/.test(vmSrc))
+ok('VM applies exact seed after target-first ensureLoaded has loaded the target slot', /await this\.ensureLoaded\(startIndex\)[\s\S]*this\.applyExactSeed\(startIndex, exactSeed\)/.test(vmSrc))
+ok('VM does not wait for target+2 before overlaying exact /s/ seed', !/await this\.ensureLoaded\(startIndex \+ 2\)[\s\S]*this\.applyExactSeed\(startIndex, exactSeed\)/.test(vmSrc))
+ok('VM warms neighbor preview pages after the live index is settled', /private warmPreviewAhead\(index: number\): void[\s\S]*const target: number = index \+ PRECACHE_AHEAD[\s\S]*this\.ensureLoaded\(target\)/.test(vmSrc))
 ok('VM rejects exact seed when seedLoadedPages indicates contiguous preview seed', /seedLoadedPages > 0/.test(vmSrc))
 ok('VM exact seed function body was found', applyExactBody.length > 0)
 ok('VM exact seed does not mutate previewPage/perPage/exhausted', !/this\.previewPage/.test(applyExactBody) && !/this\.perPage/.test(applyExactBody) && !/this\.exhausted/.test(applyExactBody))

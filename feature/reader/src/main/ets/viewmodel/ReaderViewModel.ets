@@ -56,9 +56,9 @@ export class ReaderViewModel {
     this.perPage = 0
     const exactSeed: EhGalleryImage | null = this.exactSeedImage(seedImages, seedLoadedPages, startIndex)
     this.applySeed(seedImages, seedLoadedPages, seedPerPage)
-    // A resumed far start page (e.g. lastIndex 500) must not crawl preview pages one-by-one — fetch
-    // the gap concurrently. ensureLoaded picks the parallel path past the first page.
-    await this.ensureLoaded(startIndex + 2)
+    // Load the requested page first. The neighbor pages are warmed after the first paint path is ready,
+    // so a later thumbnail or /s/ deep-link start cannot be delayed by preloading pages after it.
+    await this.ensureLoaded(startIndex)
     if (exactSeed !== null) {
       this.applyExactSeed(startIndex, exactSeed)
     }
@@ -67,6 +67,7 @@ export class ReaderViewModel {
     // so the Swiper .index() and the progress write-back never go out of range.
     this.currentIndex = this.images.length > 0 ? Math.min(startIndex, this.images.length - 1) : 0
     this.precacheAhead()
+    this.warmPreviewAhead(this.currentIndex)
   }
 
   private exactSeedImage(
@@ -385,6 +386,17 @@ export class ReaderViewModel {
           )
       }
     }
+  }
+
+  private warmPreviewAhead(index: number): void {
+    const target: number = index + PRECACHE_AHEAD
+    this.ensureLoaded(target)
+      .then(
+        (): void => {
+          this.precacheAhead()
+        },
+        (): void => {},
+      )
   }
 
   /** Total pages for the slider: the known file count, else however many are loaded so far. */
