@@ -32,7 +32,8 @@ export struct GalleryAllThumbnailsPage {
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
 
-  private openReader(pageZeroBased: number): void {
+  private openReader(img: EhGalleryImage): void {
+    const pageZeroBased: number = img.page > 0 ? img.page - 1 : 0
     this.stack.pushPathByName(
       'Reader',
       new ReaderParams(
@@ -45,6 +46,7 @@ export struct GalleryAllThumbnailsPage {
         this.vm.loadedPreviewPages(),
         this.vm.seedPerPage(),
         this.vm.loadedPreviewPageNumbers(),
+        img.sUrl,
       ),
     )
   }
@@ -172,7 +174,7 @@ export struct GalleryAllThumbnailsPage {
                   image: img,
                   tileWidth: this.thumbW > 0 ? this.thumbW : ThemeConstants.PREVIEW_THUMB_MIN_W,
                   onTap: () => {
-                    this.openReader(img.page - 1)
+                    this.openReader(img)
                   },
                 })
               }

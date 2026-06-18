@@ -37,7 +37,14 @@ function applySeed(seedImages, seedLoadedPages, seedPerPage, fileCount, seedPrev
   if (seedImages.length === 0 || seedLoadedPages <= 0) {
     return { images: [], previewPage: -1, perPage: 0, loadedPreviewPages: [], exhausted: false }
   }
-  const images = seedImages.map((img) => ({ ...img }))
+  const images = []
+  for (const img of seedImages) {
+    const targetIndex = img.page > 0 ? img.page - 1 : images.length
+    for (let i = images.length; i <= targetIndex; i++) {
+      images.push({ page: i + 1, sUrl: '' })
+    }
+    images[targetIndex] = { ...img }
+  }
   const loadedPreviewPages = seedPreviewPages.length > 0
     ? seedPreviewPages.slice()
     : Array.from({ length: seedLoadedPages }, (_v, i) => i)
@@ -48,7 +55,8 @@ function applySeed(seedImages, seedLoadedPages, seedPerPage, fileCount, seedPrev
     previewPage,
     perPage: seedPerPage > 0 ? seedPerPage : seedImages.length,
     loadedPreviewPages,
-    exhausted: fileCount > 0 && images.length >= fileCount,
+    exhausted: fileCount > 0 && images.length >= fileCount &&
+      images.slice(0, fileCount).every((img) => img.sUrl.length > 0),
   }
 }
 
@@ -68,10 +76,33 @@ function applySeed(seedImages, seedLoadedPages, seedPerPage, fileCount, seedPrev
     sUrl: `https://e-hentai.org/s/key${img.page + 80}/3989982-${img.page + 80}`,
   })))
   const state = applySeed(seed, 2, 20, 138, [0, 4])
-  eq('sparse seed keeps target absolute page from later preview page', state.images[25].page, 86)
-  ok('sparse seed target page has its /s/ URL immediately', state.images[25].sUrl.endsWith('/3989982-86'))
+  eq('sparse seed pads gaps so later previews stay at absolute reader indices', state.images[85].page, 86)
+  ok('sparse seed target page has its /s/ URL at its absolute index immediately',
+    state.images[85].sUrl.endsWith('/3989982-86'))
+  eq('sparse seed keeps an unloaded placeholder for a missing gap page', state.images[30], { page: 31, sUrl: '' })
   eq('sparse seed marks loaded preview pages exactly', state.loadedPreviewPages, [0, 4])
   eq('sparse seed contiguous pointer stops before unloaded gaps', state.previewPage, 0)
+}
+
+function applySeedImagePageUrl(images, index, seedImagePageUrl) {
+  if (index < 0 || seedImagePageUrl.length === 0 || !/\/s\/[0-9a-f]+\//.test(seedImagePageUrl)) {
+    return images
+  }
+  const next = images.map((img) => ({ ...img }))
+  for (let i = next.length; i <= index; i++) {
+    next.push({ page: i + 1, sUrl: '' })
+  }
+  next[index] = { ...next[index], page: index + 1, sUrl: seedImagePageUrl }
+  return next
+}
+
+{
+  const images = applySeedImagePageUrl([], 86, 'https://e-hentai.org/s/abc123/3989982-87')
+  eq('seed image page URL creates the tapped absolute slot', images[86], {
+    page: 87,
+    sUrl: 'https://e-hentai.org/s/abc123/3989982-87',
+  })
+  eq('seed image page URL pads earlier unloaded slots as placeholders', images[0], { page: 1, sUrl: '' })
 }
 
 {
@@ -79,11 +110,21 @@ function applySeed(seedImages, seedLoadedPages, seedPerPage, fileCount, seedPrev
   eq('exact full-gallery seed marks exhausted', state.exhausted, true)
 }
 
+{
+  const seed = [makeImages(1)[0], {
+    page: 100,
+    sUrl: 'https://e-hentai.org/s/key100/3989982-100',
+  }]
+  const state = applySeed(seed, 2, 20, 100, [0, 4])
+  eq('sparse seed reaching fileCount does not mark gaps exhausted', state.exhausted, false)
+}
+
 const paramsSrc = read('shared/src/main/ets/model/RouteParams.ets')
 ok('ReaderParams carries seedImages', /seedImages:\s*EhGalleryImage\[\]\s*=\s*\[\]/.test(paramsSrc))
 ok('ReaderParams carries seedLoadedPages', /seedLoadedPages:\s*number\s*=\s*0/.test(paramsSrc))
 ok('ReaderParams carries seedPerPage', /seedPerPage:\s*number\s*=\s*0/.test(paramsSrc))
 ok('ReaderParams carries exact seed preview page markers', /seedPreviewPages:\s*number\[\]\s*=\s*\[\]/.test(paramsSrc))
+ok('ReaderParams carries exact tapped image-page URL', /seedImagePageUrl:\s*string\s*=\s*''/.test(paramsSrc))
 
 const allVmSrc = read('feature/gallery/src/main/ets/viewmodel/AllThumbnailsViewModel.ets')
 ok('AllThumbnails VM exposes copied loaded images', /loadedImages\(\):\s*EhGalleryImage\[\][\s\S]*img\.copy\(\)/.test(allVmSrc))
@@ -92,26 +133,33 @@ ok('AllThumbnails VM exposes exact loaded preview page numbers', /loadedPreviewP
 ok('AllThumbnails VM preserves first page count', /firstPageCount/.test(allVmSrc) && /this\.firstPageCount = p\.firstPage\.length/.test(allVmSrc))
 
 const allPageSrc = read('feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets')
-ok('AllThumbnails passes absolute clicked index', /this\.openReader\(img\.page - 1\)/.test(allPageSrc))
+ok('AllThumbnails opens Reader from the tapped image object', /this\.openReader\(img\)/.test(allPageSrc))
+ok('AllThumbnails derives Reader index from absolute image page', /const pageZeroBased: number = img\.page > 0 \? img\.page - 1 : 0/.test(allPageSrc))
 ok('AllThumbnails passes loaded image seed to ReaderParams', /new ReaderParams\([\s\S]*this\.vm\.loadedImages\(\)/.test(allPageSrc))
 ok('AllThumbnails passes seed loaded page count', /this\.vm\.loadedPreviewPages\(\)/.test(allPageSrc))
 ok('AllThumbnails passes seed per-page count', /this\.vm\.seedPerPage\(\)/.test(allPageSrc))
 ok('AllThumbnails passes exact loaded preview page markers', /this\.vm\.loadedPreviewPageNumbers\(\)/.test(allPageSrc))
+ok('AllThumbnails passes tapped /s/ image-page URL as Reader seed', /this\.vm\.loadedPreviewPageNumbers\(\),[\s\S]*img\.sUrl/.test(allPageSrc))
 
 const readerPageSrc = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
-ok('ReaderPage forwards seed params into VM init', /this\.vm\.init\([\s\S]*p\.seedImages,[\s\S]*p\.seedLoadedPages,[\s\S]*p\.seedPerPage,[\s\S]*p\.seedPreviewPages/.test(readerPageSrc))
+ok('ReaderPage forwards seed params into VM init', /this\.vm\.init\([\s\S]*p\.seedImages,[\s\S]*p\.seedLoadedPages,[\s\S]*p\.seedPerPage,[\s\S]*p\.seedPreviewPages,[\s\S]*p\.seedImagePageUrl/.test(readerPageSrc))
 ok('ReaderPage preserves requested route index across early vertical onScrollIndex callbacks', /const requestedIndex: number = p\.index/.test(readerPageSrc))
 ok('ReaderPage re-syncs current index and slider from requested index after async VM init', /const targetIndex: number =[\s\S]*Math\.min\(requestedIndex, this\.vm\.images\.length - 1\)[\s\S]*this\.vm\.currentIndex = targetIndex[\s\S]*this\.sliderValue = targetIndex \+ 1/.test(readerPageSrc))
 ok('ReaderPage scrolls vertical mode to the requested target after async VM init', /this\.readMode\.mode === ReadMode\.VERTICAL[\s\S]*this\.listScroller\.scrollToIndex\(targetIndex\)/.test(readerPageSrc))
 
 const readerVmSrc = read('feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets')
-ok('ReaderViewModel accepts seed args', /seedImages:\s*EhGalleryImage\[\]\s*=\s*\[\][\s\S]*seedLoadedPages:\s*number\s*=\s*0[\s\S]*seedPerPage:\s*number\s*=\s*0[\s\S]*seedPreviewPages:\s*number\[\]\s*=\s*\[\]/.test(readerVmSrc))
-ok('ReaderViewModel applies seed before target-first ensureLoaded', /this\.applySeed\(seedImages, seedLoadedPages, seedPerPage, seedPreviewPages\)[\s\S]*await this\.ensureLoaded\(startIndex\)/.test(readerVmSrc))
+ok('ReaderViewModel accepts seed args', /seedImages:\s*EhGalleryImage\[\]\s*=\s*\[\][\s\S]*seedLoadedPages:\s*number\s*=\s*0[\s\S]*seedPerPage:\s*number\s*=\s*0[\s\S]*seedPreviewPages:\s*number\[\]\s*=\s*\[\][\s\S]*seedImagePageUrl:\s*string\s*=\s*''/.test(readerVmSrc))
+ok('ReaderViewModel applies seed before target-first ensureLoaded', /this\.applySeed\(seedImages, seedLoadedPages, seedPerPage, seedPreviewPages\)[\s\S]*this\.applySeedImagePageUrl\(startIndex, seedImagePageUrl\)[\s\S]*await this\.ensureLoaded\(startIndex\)/.test(readerVmSrc))
 ok('ReaderViewModel does not block initial reader start on neighbor preload', !/await this\.ensureLoaded\(startIndex \+ 2\)/.test(readerVmSrc))
 ok('ReaderViewModel warms neighbor previews only after currentIndex is settled', /this\.currentIndex = this\.images\.length > 0 \? Math\.min\(startIndex, this\.images\.length - 1\) : 0[\s\S]*this\.precacheAhead\(\)[\s\S]*this\.warmPreviewAhead\(this\.currentIndex\)/.test(readerVmSrc))
-ok('ReaderViewModel copies seed images', /private applySeed[\s\S]*seeded\.push\(img\.copy\(\)\)/.test(readerVmSrc))
+ok('ReaderViewModel places seed images by absolute page index', /const targetIndex: number = img\.page > 0 \? img\.page - 1 : seeded\.length[\s\S]*seeded\[targetIndex\] = img\.copy\(\)/.test(readerVmSrc))
 ok('ReaderViewModel marks explicit sparse seed preview pages', /seedPreviewPages\.length > 0[\s\S]*this\.markPreviewPageLoaded\(p\)/.test(readerVmSrc))
 ok('ReaderViewModel advances contiguous pointer from loaded seed markers', /this\.advanceContiguousPreviewPage\(\)/.test(readerVmSrc))
 ok('ReaderViewModel sets perPage from seedPerPage', /this\.perPage = seedPerPage > 0 \? seedPerPage : seedImages\.length/.test(readerVmSrc))
+ok('ReaderViewModel only marks seed exhausted when every gallery slot has a /s/ URL',
+  /private seedCoversWholeGallery\(\): boolean[\s\S]*this\.images\.length < this\.fileCount[\s\S]*this\.images\[i\]\.sUrl\.length === 0[\s\S]*return true/.test(readerVmSrc))
+ok('ReaderViewModel creates a target slot from seedImagePageUrl', /private applySeedImagePageUrl[\s\S]*EhUrlRouter\.parseImagePage\(seedImagePageUrl\)[\s\S]*seeded\[index\] = img/.test(readerVmSrc))
+ok('ReaderViewModel resolves the seed image page URL before normal target loading', /await this\.resolveSeedImage\(startIndex, imagePageSeed\)[\s\S]*await this\.ensureLoaded\(startIndex\)/.test(readerVmSrc))
+ok('ReaderViewModel caches resolved seed image back into the target slot', /private async resolveSeedImage[\s\S]*ImageResolveService\.getInstance\(\)\.resolve\(image\)[\s\S]*this\.applyExactSeed\(index, image\)/.test(readerVmSrc))
 
 console.log(`✓ reader seeded thumbnail start contract: ${passed} assertions passed`)

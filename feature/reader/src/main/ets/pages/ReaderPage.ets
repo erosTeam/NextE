@@ -130,6 +130,7 @@ export struct ReaderPage {
           p.seedLoadedPages,
           p.seedPerPage,
           p.seedPreviewPages,
+          p.seedImagePageUrl,
         )
           .then(() => {
             const targetIndex: number =

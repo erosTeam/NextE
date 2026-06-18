@@ -5,6 +5,8 @@ import {
   connectSiteMode,
   DiagnosticLogger,
   EhErrorText,
+  EhUrlRouter,
+  ImagePageRef,
 } from 'shared'
 
 // How many pages ahead to pre-resolve (eros_fe forward preload): warm the next images' URLs so a
@@ -45,6 +47,7 @@ export class ReaderViewModel {
     seedLoadedPages: number = 0,
     seedPerPage: number = 0,
     seedPreviewPages: number[] = [],
+    seedImagePageUrl: string = '',
   ): Promise<void> {
     this.gid = gid
     this.token = token
@@ -57,6 +60,10 @@ export class ReaderViewModel {
     this.perPage = 0
     const exactSeed: EhGalleryImage | null = this.exactSeedImage(seedImages, seedLoadedPages, startIndex)
     this.applySeed(seedImages, seedLoadedPages, seedPerPage, seedPreviewPages)
+    const imagePageSeed: EhGalleryImage | null = this.applySeedImagePageUrl(startIndex, seedImagePageUrl)
+    if (imagePageSeed !== null) {
+      await this.resolveSeedImage(startIndex, imagePageSeed)
+    }
     // Load the requested page first. The neighbor pages are warmed after the first paint path is ready,
     // so a later thumbnail or /s/ deep-link start cannot be delayed by preloading pages after it.
     await this.ensureLoaded(startIndex)
@@ -95,9 +102,13 @@ export class ReaderViewModel {
     if (seedImages.length === 0 || seedLoadedPages <= 0) {
       return
     }
-    const seeded: EhGalleryImage[] = []
+    let seeded: EhGalleryImage[] = []
     seedImages.forEach((img: EhGalleryImage) => {
-      seeded.push(img.copy())
+      const targetIndex: number = img.page > 0 ? img.page - 1 : seeded.length
+      for (let i: number = seeded.length; i <= targetIndex; i++) {
+        seeded.push(new EhGalleryImage(i + 1))
+      }
+      seeded[targetIndex] = img.copy()
     })
     this.images = seeded
     this.perPage = seedPerPage > 0 ? seedPerPage : seedImages.length
@@ -112,8 +123,53 @@ export class ReaderViewModel {
       }
     }
     this.advanceContiguousPreviewPage()
-    if (this.fileCount > 0 && this.images.length >= this.fileCount) {
+    if (this.seedCoversWholeGallery()) {
       this.exhausted = true
+    }
+  }
+
+  private seedCoversWholeGallery(): boolean {
+    if (this.fileCount <= 0 || this.images.length < this.fileCount) {
+      return false
+    }
+    for (let i: number = 0; i < this.fileCount; i++) {
+      if (this.images[i].sUrl.length === 0) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private applySeedImagePageUrl(index: number, seedImagePageUrl: string): EhGalleryImage | null {
+    if (index < 0 || seedImagePageUrl.length === 0) {
+      return null
+    }
+    const ref: ImagePageRef | null = EhUrlRouter.parseImagePage(seedImagePageUrl)
+    if (ref === null) {
+      return null
+    }
+    const seeded: EhGalleryImage[] = []
+    for (let i: number = 0; i < this.images.length; i++) {
+      seeded.push(this.images[i].copy())
+    }
+    for (let i: number = seeded.length; i <= index; i++) {
+      seeded.push(new EhGalleryImage(i + 1))
+    }
+    const img: EhGalleryImage = seeded[index].copy()
+    img.page = index + 1
+    img.sUrl = seedImagePageUrl
+    img.imgkey = ref.imgkey
+    seeded[index] = img
+    this.images = seeded
+    return img
+  }
+
+  private async resolveSeedImage(index: number, image: EhGalleryImage): Promise<void> {
+    try {
+      await ImageResolveService.getInstance().resolve(image)
+      this.applyExactSeed(index, image)
+    } catch (err) {
+      DiagnosticLogger.warn('reader', 'seed_image_page_resolve_failed', (err as Error).message)
     }
   }
 

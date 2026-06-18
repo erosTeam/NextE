@@ -43,6 +43,7 @@ export class ReaderParams {
   seedLoadedPages: number = 0
   seedPerPage: number = 0
   seedPreviewPages: number[] = [] // exact loaded preview-page numbers when the seed is sparse
+  seedImagePageUrl: string = '' // exact tapped /s/ image-page URL; resolved first for the initial page
 
   constructor(
     gid: string = '',
@@ -54,6 +55,7 @@ export class ReaderParams {
     seedLoadedPages: number = 0,
     seedPerPage: number = 0,
     seedPreviewPages: number[] = [],
+    seedImagePageUrl: string = '',
   ) {
     this.gid = gid
     this.token = token
@@ -64,6 +66,7 @@ export class ReaderParams {
     this.seedLoadedPages = seedLoadedPages
     this.seedPerPage = seedPerPage
     this.seedPreviewPages = seedPreviewPages
+    this.seedImagePageUrl = seedImagePageUrl
   }
 }
 
