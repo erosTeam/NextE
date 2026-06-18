@@ -20,6 +20,7 @@ import {
   connectNavStack,
   connectSiteMode,
   ShareUtil,
+  ReaderImageTransformCoordinator,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 
@@ -780,8 +781,6 @@ export struct ReaderPage {
   }
 }
 
-const MAX_SCALE: number = 4
-const DOUBLE_TAP_SCALE: number = 2.5
 const IMAGE_AUTO_RETRY_LIMIT: number = 3
 const READER_IMAGE_CACHE_DIR: string = 'reader-images'
 
@@ -809,6 +808,14 @@ struct ReaderImagePage {
   private baseOffsetY: number = 0;
   private compW: number = 0;
   private compH: number = 0;
+  private intrinsicW: number = 0;
+  private intrinsicH: number = 0;
+  private pinchStartScale: number = 1;
+  private pinchStartOffsetX: number = 0;
+  private pinchStartOffsetY: number = 0;
+  private pinchStartCenterX: number = 0;
+  private pinchStartCenterY: number = 0;
+  private isPinching: boolean = false;
   private lastZoomed: boolean = false;
   private autoRetryCount: number = 0;
   private loadSerial: number = 0;
@@ -896,11 +903,35 @@ struct ReaderImagePage {
     this.imageUrl = `file://${filePath}`
   }
 
+  private displayWidth(): number {
+    return ReaderImageTransformCoordinator.displaySize(
+      this.compW,
+      this.compH,
+      this.intrinsicW,
+      this.intrinsicH,
+    )
+  }
+
+  private displayHeight(): number {
+    return ReaderImageTransformCoordinator.displaySize(
+      this.compH,
+      this.compW,
+      this.intrinsicH,
+      this.intrinsicW,
+    )
+  }
+
+  private clampOffsetX(value: number, scale: number): number {
+    return ReaderImageTransformCoordinator.clampOffset(value, this.compW, this.displayWidth(), scale)
+  }
+
+  private clampOffsetY(value: number, scale: number): number {
+    return ReaderImageTransformCoordinator.clampOffset(value, this.compH, this.displayHeight(), scale)
+  }
+
   private clampOffset(): void {
-    const maxX: number = Math.max(0, (this.compW * (this.zoomScale - 1)) / 2)
-    const maxY: number = Math.max(0, (this.compH * (this.zoomScale - 1)) / 2)
-    this.offsetX = Math.min(maxX, Math.max(-maxX, this.offsetX))
-    this.offsetY = Math.min(maxY, Math.max(-maxY, this.offsetY))
+    this.offsetX = this.clampOffsetX(this.offsetX, this.zoomScale)
+    this.offsetY = this.clampOffsetY(this.offsetY, this.zoomScale)
     this.baseOffsetX = this.offsetX
     this.baseOffsetY = this.offsetY
   }
@@ -922,12 +953,23 @@ struct ReaderImagePage {
     }
   }
 
-  private onDoubleTap(): void {
+  private onDoubleTap(tapX: number, tapY: number): void {
     if (this.zoomScale > 1.01) {
       this.resetZoom()
     } else {
-      this.zoomScale = DOUBLE_TAP_SCALE
-      this.baseZoom = DOUBLE_TAP_SCALE
+      const target: number = ReaderImageTransformCoordinator.DOUBLE_TAP_SCALE
+      this.zoomScale = target
+      this.baseZoom = target
+      this.offsetX = this.clampOffsetX(
+        ReaderImageTransformCoordinator.doubleTapOffset(tapX, this.compW, target),
+        target,
+      )
+      this.offsetY = this.clampOffsetY(
+        ReaderImageTransformCoordinator.doubleTapOffset(tapY, this.compH, target),
+        target,
+      )
+      this.baseOffsetX = this.offsetX
+      this.baseOffsetY = this.offsetY
     }
     this.notifyZoom()
   }
@@ -951,7 +993,12 @@ struct ReaderImagePage {
           .draggable(false)
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
-          .onComplete((_e) => {
+          .onComplete((e) => {
+            if (e && e.width && e.height) {
+              this.intrinsicW = this.getUIContext().px2vp(e.width)
+              this.intrinsicH = this.getUIContext().px2vp(e.height)
+              this.clampOffset()
+            }
             this.autoRetryCount = 0
             this.imageLoaded = true
           })
@@ -973,20 +1020,52 @@ struct ReaderImagePage {
       this.compW = n.width as number
       this.compH = n.height as number
     })
-    // Pinch + double-tap zoom + VERTICAL-only pan. The pan is direction-restricted so it
-    // never captures horizontal drags — those pass through to the ancestor Swiper for the
-    // page turn. When zoomed, vertical drag pans the (tall) image top-to-bottom, which is
-    // the common reading need; double-tap resets. (A conditional `.gesture(cond ? a : b)`
-    // is silently dropped by ArkUI — the gesture set must be unconditional.)
+    // Gestures stay unconditional: ArkUI can drop conditional `.gesture()` trees. At fit,
+    // parent Swiper handles page turns; once zoomed, this page reports up and owns pan.
     .gesture(
       GestureGroup(
         GestureMode.Parallel,
-        PinchGesture()
-          .onActionUpdate((e: GestureEvent) => {
-            this.zoomScale = Math.min(MAX_SCALE, Math.max(1, this.baseZoom * e.scale))
+        PinchGesture({ fingers: 2 })
+          .onActionStart((e?: GestureEvent) => {
+            if (!e) {
+              return
+            }
+            this.isPinching = true
+            this.pinchStartScale = this.zoomScale
+            this.pinchStartOffsetX = this.offsetX
+            this.pinchStartOffsetY = this.offsetY
+            this.pinchStartCenterX = e.pinchCenterX as number
+            this.pinchStartCenterY = e.pinchCenterY as number
+          })
+          .onActionUpdate((e?: GestureEvent) => {
+            if (!e) {
+              return
+            }
+            const scale: number = ReaderImageTransformCoordinator.clampScale(
+              this.pinchStartScale * (e.scale as number),
+            )
+            const scaleRatio: number = scale / this.pinchStartScale
+            const offsetX: number = ReaderImageTransformCoordinator.pinchOffset(
+              this.pinchStartCenterX,
+              e.pinchCenterX as number,
+              this.compW,
+              this.pinchStartOffsetX,
+              scaleRatio,
+            )
+            const offsetY: number = ReaderImageTransformCoordinator.pinchOffset(
+              this.pinchStartCenterY,
+              e.pinchCenterY as number,
+              this.compH,
+              this.pinchStartOffsetY,
+              scaleRatio,
+            )
+            this.zoomScale = scale
+            this.offsetX = this.clampOffsetX(offsetX, scale)
+            this.offsetY = this.clampOffsetY(offsetY, scale)
             this.notifyZoom()
           })
           .onActionEnd(() => {
+            this.isPinching = false
             this.baseZoom = this.zoomScale
             if (this.zoomScale <= 1.01) {
               this.resetZoom()
@@ -994,18 +1073,34 @@ struct ReaderImagePage {
               this.clampOffset()
             }
             this.notifyZoom()
+          })
+          .onActionCancel(() => {
+            this.isPinching = false
+            this.baseZoom = this.zoomScale
+            this.clampOffset()
           }),
-        TapGesture({ count: 2 }).onAction(() => {
-          this.onDoubleTap()
+        TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
+          const loc = e ? e.tapLocation : undefined
+          const tapX: number = loc ? (loc.x as number) : this.compW / 2
+          const tapY: number = loc ? (loc.y as number) : this.compH / 2
+          this.onDoubleTap(tapX, tapY)
         }),
-        PanGesture({ direction: PanDirection.Vertical })
-          .onActionUpdate((e: GestureEvent) => {
-            if (this.zoomScale > 1.01) {
-              this.offsetY = this.baseOffsetY + e.offsetY
-              this.clampOffset()
+        PanGesture({ fingers: 1, direction: PanDirection.All })
+          .onActionStart(() => {
+            this.baseOffsetX = this.offsetX
+            this.baseOffsetY = this.offsetY
+          })
+          .onActionUpdate((e?: GestureEvent) => {
+            if (e && !this.isPinching && this.zoomScale > 1.01) {
+              this.offsetX = this.clampOffsetX(this.baseOffsetX + (e.offsetX as number), this.zoomScale)
+              this.offsetY = this.clampOffsetY(
+                this.baseOffsetY + (e.offsetY as number),
+                this.zoomScale,
+              )
             }
           })
           .onActionEnd(() => {
+            this.baseOffsetX = this.offsetX
             this.baseOffsetY = this.offsetY
           }),
       ),

@@ -100,6 +100,9 @@ export { EhErrorText } from './i18n/EhErrorText'
 // diagnostics
 export { DiagnosticLogger } from './diagnostics/DiagnosticLogger'
 
+// utils
+export { ReaderImageTransformCoordinator } from './utils/ReaderImageTransformCoordinator'
+
 // state holders (AppStorageV2)
 export { NavStackHolder, connectNavStack } from './state/NavStackHolder'
 export {
