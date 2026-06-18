@@ -11,8 +11,9 @@
  *   • FIXED → every list row is pinned to eros_fe kFixedHeight=204 (min==max) with the tag block CLIPPED
  *     (layoutWeight + clip) so the meta stays foot-anchored — uniform rhythm, no runaway height;
  *   • ADAPTIVE → the row only floors at a responsive cover height (minHeight, no maxHeight) and grows with content;
- *   • NO cover stretch/crop regression: the list card keeps containFit:true (Contain over grey) in BOTH
- *     modes (preserves the cover-presentation fix — never ImageFit.Cover side-crop or a stretched cover);
+ *   • NO cover stretch/crop regression: the list card keeps containFit:true with parsed source dimensions
+ *     in BOTH modes (preserves the cover-presentation fix — never ImageFit.Cover side-crop or intrinsic
+ *     image height driving row height);
  *   • the setting is wired into the Settings page (toggle → setFixedHeight) and i18n'd in all 4 locales.
  * Mirror any change here.
  *
@@ -79,9 +80,17 @@ const ok = (name, cond) => {
   )
   // The single tag renderer is shared by both modes (no duplicated/diverging chip logic).
   ok('one shared tagChips() builder feeds both modes', /@Builder\s+tagChips\(\)/.test(c))
-  // NO cover stretch/crop regression: list card stays Contain-over-grey (cover-presentation fix preserved).
+  // NO cover stretch/crop regression: list card stays Contain-over-grey in an explicit slot.
   ok('list cover keeps containFit:true (no Cover side-crop / stretch) in both modes', /containFit:\s*true/.test(c))
-  ok('list cover is height-stretched to the resolved row height', /stretchHeight:\s*true/.test(c))
+  ok('GalleryCard computes an explicit coverHeight()', /private\s+coverHeight\(\):\s*number/.test(c))
+  ok(
+    'FIXED cover slot height is exactly LIST_CARD_FIXED_HEIGHT',
+    /coverHeight\(\):\s*number\s*\{[\s\S]*?this\.listMode\.fixedHeight[\s\S]*?\?\s*ThemeConstants\.LIST_CARD_FIXED_HEIGHT/.test(c),
+  )
+  ok('list cover uses explicit thumbHeight from coverHeight()', /thumbHeight:\s*this\.coverHeight\(\)/.test(c))
+  ok('list cover passes parsed source width into EhThumbnail', /sourceWidth:\s*this\.gallery\.imgWidth/.test(c))
+  ok('list cover passes parsed source height into EhThumbnail', /sourceHeight:\s*this\.gallery\.imgHeight/.test(c))
+  ok('list cover no longer uses stretchHeight, so image intrinsic height cannot drive row height', !/stretchHeight:\s*true/.test(c))
 }
 
 // 4. Settings page exposes the toggle, wired to the single writer (an OPTIONAL setting, not forced).

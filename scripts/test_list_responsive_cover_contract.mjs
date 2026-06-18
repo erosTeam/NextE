@@ -12,6 +12,8 @@
  *   - every list-card caller passes the measured pane width to GalleryCard;
  *   - GalleryCard mirrors eros_fe sizing: narrow pane = contentWidth / 3, wide pane =
  *     0.7 * kFixedHeight = 142.8vp, with fixed row rhythm at kFixedHeight = 204vp.
+ *   - GalleryCard uses an explicit contain-fit cover slot with parsed source dimensions, so high/narrow
+ *     source covers cannot force row height during fixed-list rendering.
  *
  * Run: node scripts/test_list_responsive_cover_contract.mjs
  */
@@ -74,6 +76,11 @@ const coverWidth = (contentWidth) => {
   ok(/const\s+narrowWidth:\s*number\s*=\s*contentWidth\s*\/\s*3/.test(c), 'narrow pane width is contentWidth / 3')
   ok(/ThemeConstants\.LIST_CARD_WIDE_COVER_WIDTH/.test(c), 'wide pane width is bounded by the eros_fe wide width token')
   ok(/thumbWidth:\s*this\.coverWidth\(\)/.test(c), 'EhThumbnail width comes from current coverWidth()')
+  ok(/private\s+coverHeight\(\):\s*number/.test(c), 'GalleryCard computes cover height locally')
+  ok(/thumbHeight:\s*this\.coverHeight\(\)/.test(c), 'EhThumbnail height comes from current coverHeight()')
+  ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(c), 'list cover passes parsed sourceWidth into EhThumbnail')
+  ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(c), 'list cover passes parsed sourceHeight into EhThumbnail')
+  ok(!/stretchHeight:\s*true/.test(c), 'list cover does not use intrinsic stretchHeight')
   ok(/minHeight:\s*ThemeConstants\.LIST_CARD_FIXED_HEIGHT/.test(c), 'fixed mode pins minHeight to kFixedHeight token')
   ok(/maxHeight:\s*ThemeConstants\.LIST_CARD_FIXED_HEIGHT/.test(c), 'fixed mode pins maxHeight to kFixedHeight token')
   ok(/minHeight:\s*this\.adaptiveMinHeight\(\)/.test(c), 'adaptive mode floors from responsive cover height')

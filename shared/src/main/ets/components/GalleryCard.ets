@@ -14,8 +14,9 @@ const CARD_TAG_LIMIT: number = 8
 
 /**
  * Gallery list-row card (eros_fe list card on V2Next TopicCard structure): a rounded `card_background`
- * card on the page sub-background. The cover is flush to the card's left/top/bottom edges and fills its
- * height; the right column flows title → uploader → tags → (spacer) → rating/meta → category/date.
+ * card on the page sub-background. The cover is an explicit row-height slot, so a very tall source cover
+ * cannot contribute intrinsic height and blow up the list rhythm. The right column flows title → uploader
+ * → tags → (spacer) → rating/meta → category/date.
  *
  * Tag chips are NEUTRAL by default (a flat light-grey fill, no stroke — verified against eros_fe source:
  * TagItem has no border). A chip only takes color when the USER colored that exact tag in "My Tags"
@@ -49,6 +50,12 @@ export struct GalleryCard {
 
   private adaptiveMinHeight(): number {
     return this.coverWidth() / ThemeConstants.LIST_CARD_COVER_ASPECT
+  }
+
+  private coverHeight(): number {
+    return this.listMode.fixedHeight
+      ? ThemeConstants.LIST_CARD_FIXED_HEIGHT
+      : this.adaptiveMinHeight()
   }
 
   // Chip background: the user's own fill color for this tag, else the inline-style color (future), else
@@ -108,17 +115,19 @@ export struct GalleryCard {
   }
 
   build() {
-    // Flex with ItemAlign.Stretch: the text column defines the card height (its content, responsive min);
-    // the cover is stretched to that height instead of using height('100%'), which would resolve against
-    // the list viewport and blow the card up to full-screen.
+    // Flex with ItemAlign.Stretch: the text column defines the card height (its content, responsive min).
+    // The cover itself is an explicit slot; otherwise a very tall EH cover can feed intrinsic height back
+    // into the row before the right column's fixed-height constraint settles.
     Flex({ direction: FlexDirection.Row, alignItems: ItemAlign.Stretch }) {
       // Cover: radius 0 here — the card's rounded `.clip(true)` mask rounds its left corners flush to
       // the card edge while leaving the inner (right) edge square against the text column.
       EhThumbnail({
         url: this.gallery.thumbUrl,
         thumbWidth: this.coverWidth(),
-        stretchHeight: true,
+        thumbHeight: this.coverHeight(),
         radius: 0,
+        sourceWidth: this.gallery.imgWidth,
+        sourceHeight: this.gallery.imgHeight,
         // The list row grows taller than a cover's aspect when the text column is tall (2-line title +
         // wrapped tags), so Cover would crop the cover's sides; Contain shows the whole cover over the grey.
         containFit: true,
@@ -239,8 +248,8 @@ export struct GalleryCard {
         bottom: ThemeConstants.SPACE_SM,
       })
       // FIXED → pin every row to eros_fe's kFixedHeight rhythm (min=max);
-      // ADAPTIVE → floor at a responsive cover height so sparse cards don't collapse, but grow past it for a 2-line
-      // title + wrapped tags. The cover (stretchHeight) follows the resolved height in both modes.
+      // ADAPTIVE → floor at a responsive cover slot height so sparse cards don't collapse, but grow past it
+      // for a 2-line title + wrapped tags. The cover stays in its slot instead of driving row height.
       .constraintSize(
         this.listMode.fixedHeight
           ? {

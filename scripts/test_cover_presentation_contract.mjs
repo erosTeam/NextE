@@ -35,6 +35,7 @@ const probePage = read('entry/src/main/ets/pages/CoverFallbackProbePage.ets')
 const parser = read('shared/src/main/ets/parser/EhGalleryDetailParser.ets')
 const headerCard = read('feature/gallery/src/main/ets/components/GalleryHeaderCard.ets')
 const gridCard = read('shared/src/main/ets/components/GalleryGridCard.ets')
+const listCard = read('shared/src/main/ets/components/GalleryCard.ets')
 
 // 1) The detail parser must preserve EH cover dimensions from #gd1 style. Without them the header can
 // only contain an unknown-aspect image inside a fixed box, which was the source of the grey slab.
@@ -71,6 +72,10 @@ ok(/visualState\s*!==\s*THUMBNAIL_VISUAL_AUTO[\s\S]*?ThemeConstants\.COVER_PLACE
 ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(headerCard), 'GalleryHeaderCard passes gallery.imgWidth into EhThumbnail')
 ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(headerCard), 'GalleryHeaderCard passes gallery.imgHeight into EhThumbnail')
 ok(/containFit:\s*true/.test(headerCard), 'GalleryHeaderCard still fits the whole cover, no crop/fill policy')
+ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(listCard), 'GalleryCard passes gallery.imgWidth into EhThumbnail')
+ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(listCard), 'GalleryCard passes gallery.imgHeight into EhThumbnail')
+ok(/thumbHeight:\s*this\.coverHeight\(\)/.test(listCard), 'GalleryCard uses an explicit cover slot height')
+ok(!/stretchHeight:\s*true/.test(listCard), 'GalleryCard does not use stretchHeight intrinsic image sizing')
 
 // 5) This fix must not invent a blanket fill/crop policy for grid cards. Existing grid cover remains its
 // own context; the header fix is about real-aspect fitting inside a transparent slot.
