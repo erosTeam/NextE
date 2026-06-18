@@ -357,16 +357,20 @@ Implementation:
 
 - `0bf9744 fix(reader): center staged loading` replaces loose Reader loading spinners with a
   dedicated centered line-loading overlay.
+- `eaa8408 fix(reader): show streamed image progress` moves the post-resolve image-loading stage
+  onto NetworkKit `requestInStream`, writes chunks into a transient Reader cache file, and binds
+  `dataReceiveProgress` into the centered loading line percentage.
 - Scope: Reader first-entry / jump resolving uses `reader_loading_resolving`; horizontal and vertical
   image pages show `reader_loading_image` after a real image URL is known and keep it visible until
   `Image.onComplete`.
 - The implementation preserves the existing resolver, navigation, zoom, retry, and re-source paths.
-- It does not fake byte percentages because the current ArkUI `Image` path in NextE does not expose a
-  reliable byte-progress signal in this lane.
+- It does not couple online Reader loading to the download queue/offline library; the streamed files
+  are transient Reader cache files used for local Image rendering.
 
 Evidence:
 
-- Deterministic contract: `scripts/test_reader_loading_progress_contract.mjs`.
+- Deterministic contracts: `scripts/test_reader_loading_progress_contract.mjs`,
+  `scripts/test_reader_byte_progress_contract.mjs`.
 - Regression contracts run in the fixing lane: `scripts/test_reader_auto_source_retry_contract.mjs`,
   `scripts/test_reader_seeded_thumbnail_start_contract.mjs`,
   `scripts/test_reader_placeholder_gap_turn_contract.mjs`,
@@ -380,14 +384,18 @@ Evidence:
   Evidence directory: `/private/tmp/nexte_reader_loading_progress_evidence/`, especially
   `reader_initial.png`, `reader_initial_layout.json`, `reader_jump_loading.png`,
   `reader_jump_loading_layout.json`.
+- Follow-up byte-progress emulator pass on `127.0.0.1:5555`, hdc outside sandbox, official signed HAP:
+  opened a public 27P gallery, Reader first screen rendered normally, then a swipe advanced from
+  `1 / 27` to `3 / 27`.
+  Evidence directory: `/private/tmp/nexte_reader_byte_progress_evidence/`, especially
+  `reader_early.png`, `reader_early_layout.json`, `reader_after_swipe.png`,
+  `reader_after_swipe_layout.json`.
 
 Remaining acceptance:
 
 - Needs controller/user acceptance of the loading-stage screenshot behavior. The emulator network was
-  fast enough that the captured screenshots landed after images had loaded, so transient loading UI is
-  primarily protected by contract/build evidence until a slow-network/manual capture is available.
-- True determinate byte percentage remains future work unless Reader image loading moves to a path that
-  exposes supported byte progress.
+  fast enough that captured screenshots landed after images had loaded, so transient percentage UI is
+  protected by contract/build evidence until a slow-network/manual capture is available.
 
 Source:
 
