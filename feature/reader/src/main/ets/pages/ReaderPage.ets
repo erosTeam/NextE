@@ -491,6 +491,7 @@ export struct ReaderPage {
 
 const MAX_SCALE: number = 4
 const DOUBLE_TAP_SCALE: number = 2.5
+const IMAGE_AUTO_RETRY_LIMIT: number = 3
 
 /**
  * One reader page. Resolves its full image on appear, then renders it with pinch /
@@ -515,6 +516,7 @@ struct ReaderImagePage {
   private compW: number = 0;
   private compH: number = 0;
   private lastZoomed: boolean = false;
+  private autoRetryCount: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -531,16 +533,28 @@ struct ReaderImagePage {
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       this.failed = false
     } catch (err) {
-      this.failed = true
       DiagnosticLogger.warn('reader', 'resolve_failed', (err as Error).message)
+      this.retrySourceAutomatically()
     }
   }
 
   // Retry on failure: re-source (换源) — clear the dead URL and re-resolve from a different host.
   private retrySource(): void {
+    this.autoRetryCount = 0
     this.imageUrl = ''
     this.failed = false
     this.resolve(true)
+  }
+
+  private retrySourceAutomatically(): void {
+    if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
+      this.autoRetryCount++
+      this.imageUrl = ''
+      this.failed = false
+      this.resolve(true)
+      return
+    }
+    this.failed = true
   }
 
   private clampOffset(): void {
@@ -601,8 +615,12 @@ struct ReaderImagePage {
           .draggable(false)
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
+          .onComplete((_e) => {
+            this.autoRetryCount = 0
+          })
           .onError(() => {
-            this.failed = true
+            DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
+            this.retrySourceAutomatically()
           })
       } else {
         LoadingProgress()
@@ -670,6 +688,7 @@ struct ReaderVerticalImage {
   @Local imageUrl: string = '';
   @Local failed: boolean = false;
   @Local ratio: number = DEFAULT_VERTICAL_RATIO;
+  private autoRetryCount: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -685,15 +704,27 @@ struct ReaderVerticalImage {
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       this.failed = false
     } catch (err) {
-      this.failed = true
       DiagnosticLogger.warn('reader', 'resolve_failed', (err as Error).message)
+      this.retrySourceAutomatically()
     }
   }
 
   private retrySource(): void {
+    this.autoRetryCount = 0
     this.imageUrl = ''
     this.failed = false
     this.resolve(true)
+  }
+
+  private retrySourceAutomatically(): void {
+    if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
+      this.autoRetryCount++
+      this.imageUrl = ''
+      this.failed = false
+      this.resolve(true)
+      return
+    }
+    this.failed = true
   }
 
   build() {
@@ -710,12 +741,14 @@ struct ReaderVerticalImage {
           .objectFit(ImageFit.Contain)
           .draggable(false)
           .onComplete((e) => {
+            this.autoRetryCount = 0
             if (e !== undefined && e.width > 0 && e.height > 0) {
               this.ratio = e.width / e.height
             }
           })
           .onError(() => {
-            this.failed = true
+            DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
+            this.retrySourceAutomatically()
           })
       } else {
         LoadingProgress()
