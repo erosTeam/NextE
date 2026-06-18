@@ -345,16 +345,66 @@ Acceptance shape:
 - Results load for that tag query.
 - Returning to the detail page should keep normal navigation behavior.
 
+### Reader Layout, Gesture, And Loading Stack Is Broken
+
+Type: P0 incident / reading core usability
+
+Priority suggestion: P0
+
+Status: implemented / needs controller acceptance
+
+Implementation:
+
+- `28db792 fix(reader): restore core interaction baseline` stops the unstable Reader enhancement stack
+  from sitting on the hot path: streamed byte progress/cache files are parked, complex transform
+  coordinator/pan-all gestures are removed from `ReaderPage`, and runtime double-page rendering is
+  disabled even when a saved double-page setting exists.
+- Reader first load and jump resolving now use a plain centered `LoadingProgress`; once an image URL is
+  resolved, the `Image` renders the remote URL directly and clears the loading state through
+  `Image.onComplete`.
+- Bottom chrome returns to root-bottom anchoring, while horizontal Reader returns to a single full-width
+  `Swiper` page. The quick column-mode pill reports off and no longer switches runtime double-page mode.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_reader_loading_progress_contract.mjs`,
+  `scripts/test_reader_byte_progress_contract.mjs`, `scripts/test_reader_zoom_quality_contract.mjs`,
+  `scripts/test_reader_double_page_contract.mjs`, `scripts/test_reader_column_mode_switch_contract.mjs`.
+- Regression contracts run in the recovery lane: `scripts/test_reader_tapzone_contract.mjs`,
+  `scripts/test_reader_seeded_thumbnail_start_contract.mjs`,
+  `scripts/test_reader_slider_spread_contract.mjs`,
+  `scripts/test_reader_initial_spread_start_contract.mjs`,
+  `scripts/test_reader_failure_retry_ui_contract.mjs`.
+- Gates: `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`,
+  `git diff --check`, official signed Hvigor build through `scripts/build_hvigor_signed.sh`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  final evidence shows single full-width image layout, no loading/progress residue after ready, bottom
+  chrome anchored at the bottom, one clear horizontal swipe advances the page, double tap zooms, zoomed
+  vertical pan moves the image without turning pages, and two-finger `uinput` pinch changes scale.
+  Evidence directory: `/private/tmp/nexte_reader_core_recovery_evidence/`, especially
+  `step4_single_ready.png`, `step4_single_ready_layout.json`, `step5_chrome.png`,
+  `step6_swipe.png`, `step7_doubletap.png`, `step8_pan.png`, `step9_pinch.png`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the recovery screenshots and gesture feel.
+- Runtime double-page/spread slider refinements and determinate byte progress are intentionally parked.
+  Re-enable them only in separate lanes after preserving the core Reader interaction contract above.
+
 ### Reader Loading State Is Unstable And Lacks Image Download Progress
 
 Type: bug / reading UX gap
 
 Priority suggestion: P0/P1
 
-Status: implemented / needs controller acceptance
+Status: parked by P0 recovery / do not extend before core Reader acceptance
 
 Implementation:
 
+- Superseding note: `28db792 fix(reader): restore core interaction baseline` parks the streamed
+  byte-progress/cache-file path because device evidence showed the combined loading/progress/overlay
+  stack could leave the Reader visually broken or non-interactive. The image download progress UX remains
+  a future lane after core Reader acceptance, not active work.
 - `0bf9744 fix(reader): center staged loading` replaces loose Reader loading spinners with a
   dedicated centered line-loading overlay.
 - `eaa8408 fix(reader): show streamed image progress` moves the post-resolve image-loading stage
@@ -473,10 +523,14 @@ Type: bug / reading UX gap
 
 Priority suggestion: P1
 
-Status: implemented / needs controller acceptance
+Status: parked by P0 recovery / do not extend before core Reader acceptance
 
 Implementation:
 
+- Superseding note: `28db792 fix(reader): restore core interaction baseline` removes the complex
+  `ReaderImageTransformCoordinator` path from the online Reader hot path. The accepted recovery baseline
+  is reliable pinch, double tap, zoomed vertical pan, and horizontal page swipe; focal-point/pan-all
+  improvements must come later behind stronger gesture contracts and device evidence.
 - `e30a4ec fix(reader): improve image zoom gestures` adds `ReaderImageTransformCoordinator` and
   updates `ReaderImagePage` to zoom toward the actual tap point, apply pinch focal correction, clamp
   offsets against the fitted `ImageFit.Contain` display size, and allow zoomed panning on both axes.
@@ -547,7 +601,7 @@ Type: bug / reading UX gap
 
 Priority suggestion: P1
 
-Status: implemented / needs controller acceptance
+Status: parked by P0 recovery / do not extend before core Reader acceptance
 
 Source:
 
@@ -571,6 +625,10 @@ Expected behavior:
 
 Implementation:
 
+- Superseding note: `28db792 fix(reader): restore core interaction baseline` disables runtime
+  double-page rendering in `ReaderPage` because a persisted double-page setting reproduced the
+  user-visible failure where the main image was squeezed into the left half of the reading canvas.
+  The settings model remains for a later, separately accepted double-page lane.
 - `a9a0003 fix(reader): align double-page mode switches` adds mode-specific spread-index and
   spread-start helpers to `ReaderPage`, normalizes `currentIndex` before persisting a new column mode,
   and suppresses the second slot on the double-page B cover spread.
