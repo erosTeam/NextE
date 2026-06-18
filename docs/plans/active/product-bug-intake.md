@@ -679,6 +679,69 @@ Remaining acceptance:
 - Needs controller/user screenshot acceptance of the double-page slider flow. No further device
   validation is required unless Reader slider or double-page target math changes again.
 
+### Reader Double-Page Starts Could Land Inside A Spread
+
+Type: bug / reading UX gap
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- Implementation review after fixing Reader double-page slider commits.
+
+Observed behavior:
+
+- Reader route starts, thumbnail starts, image-page URL starts, and direct non-vertical jumps could
+  preserve the absolute target image index even when that image was the second page of a double-page
+  spread.
+- The `DoublePageReader` Swiper still rendered the containing spread, but chrome text, slider value,
+  share target, and saved reading progress could describe the second image instead of the first
+  visible image.
+- Double-page B made the mismatch visible: opening page 3 should show the 2/3 spread with page
+  counter `2 / N`, not `3 / N`.
+
+Expected behavior:
+
+- Single-page and vertical starts keep the exact absolute image target.
+- Double-page starts and direct jumps normalize the committed `currentIndex` to the target spread's
+  first visible image while still allowing the tapped/seed image to be resolved and visible.
+- Existing slider, tap-zone, row order, URL/image resolving, and loading-progress behavior remain
+  unchanged.
+
+Implementation:
+
+- `1844de0 fix(reader): normalize initial double-page targets` adds
+  `ReaderPage.normalizedReaderIndex(index)` and applies it after initial `ReaderViewModel.init()`
+  and after non-vertical `jumpToPage()` completion.
+- Scope is limited to the committed Reader index for route starts and direct non-vertical jumps.
+  It does not change double-page layout, reader settings UI, thumbnail parsing, image resolving,
+  or download/offline reading.
+
+Evidence:
+
+- Deterministic contract: `scripts/test_reader_initial_spread_start_contract.mjs`.
+- Regression contracts run in the fixing lane: `scripts/test_reader_slider_spread_contract.mjs`,
+  `scripts/test_reader_column_mode_switch_contract.mjs`.
+- Gate: `scripts/test_v1_decorator_inventory_contract.mjs` reported `0 file(s)`;
+  `git diff --check` passed.
+- Build/install: `ohpm install`, `scripts/setup-local-build-profile.sh`, and official signed
+  `scripts/build_hvigor_signed.sh` passed; signed HAP installed on Mate X7 emulator target
+  `127.0.0.1:5555` with hdc outside the sandbox.
+- Device validation: public gallery `https://e-hentai.org/g/3989982/16600a66e8/`, detail preview
+  first row, tapped the third preview image while Reader was in `右→左 + 双页 B`; Reader opened with
+  two image slots and chrome/slider at `2 / 138`, proving the page-3 start normalized to the 2/3
+  spread start.
+  Evidence directory: `/private/tmp/nexte_reader_initial_spread_evidence/`, especially
+  `reader_initial_detail.png`, `reader_initial_detail.json`, `reader_after_thumb3_hidden.json`,
+  and `reader_after_thumb3_chrome.png`.
+
+Remaining acceptance:
+
+- Needs controller/user screenshot acceptance. No further device validation is required unless
+  Reader startup, direct jump, or double-page target math changes again.
+
 ### Download Gallery Task Rows Are Hard To Read
 
 Type: UX / information architecture cleanup
