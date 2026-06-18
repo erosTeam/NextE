@@ -390,10 +390,14 @@ Implementation:
   `SearchFilterState` writes to `commitDraft()`.
 - `GallerySearchPage` now passes an `openSeq` signal so each new sheet open re-syncs the draft from
   the current committed filter.
+- `05a9fe8 fix(search): keep filter actions reachable` moves Apply/Reset out of the scroll content
+  into a fixed sheet action bar, so the default medium detent exposes commit actions without requiring
+  users to expand the sheet.
 
 Evidence:
 
 - Deterministic contracts/gates: `scripts/test_search_filter_draft_contract.mjs`,
+  `scripts/test_search_filter_action_bar_contract.mjs`,
   `scripts/test_search_input_contract.mjs`, `scripts/test_v1_decorator_inventory_contract.mjs`,
   `scripts/check_i18n_duplicates.py`, and `git diff --check`.
 - Official signed build: `bash scripts/setup-local-build-profile.sh` and
@@ -407,6 +411,14 @@ Evidence:
   `search_filter_draft_selected.png`, `search_filter_reopen_after_cancel.png`,
   `search_filter_after_apply.png`, `search_filter_before_reset.png`, and
   `search_filter_after_reset.png`.
+- Follow-up Mate X7 emulator pass for the fixed action bar: default medium sheet detent shows
+  `重置` and `应用` at bounds `[50,2268][1030,2393]`, no sheet expansion required; tapping `Manga`
+  and then Apply from the medium detent closes the sheet and applies Manga results; reopening and
+  tapping Reset from the same detent closes the sheet. Evidence directory:
+  `/private/tmp/nexte_search_filter_action_bar_evidence/`, especially
+  `search_action_bar_sheet_initial.png`, `search_action_bar_sheet_initial.json`,
+  `search_action_bar_after_apply.png`, `search_action_bar_after_apply.json`,
+  `search_action_bar_before_reset.json`, and `search_action_bar_after_reset.png`.
 
 Remaining acceptance:
 
