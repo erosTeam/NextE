@@ -83,18 +83,12 @@ export struct ReaderPage {
           .justifyContent(FlexAlign.Center)
           .padding(ThemeConstants.SPACE_XL)
         } else {
-          LoadingProgress()
-            .width(ThemeConstants.LOADING_SIZE_LARGE)
-            .height(ThemeConstants.LOADING_SIZE_LARGE)
-            .color(Color.White)
+          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving') })
         }
 
         // Jump-to-page spinner while a far slider jump loads the intermediate preview pages.
         if (this.vm.jumping) {
-          LoadingProgress()
-            .width(ThemeConstants.LOADING_SIZE_LARGE)
-            .height(ThemeConstants.LOADING_SIZE_LARGE)
-            .color(Color.White)
+          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving') })
         }
 
         // Chrome bars are always mounted (when there's content) and faded via opacity so they animate;
@@ -711,6 +705,7 @@ struct ReaderImagePage {
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
 
   @Local imageUrl: string = '';
+  @Local imageLoaded: boolean = false;
   @Local failed: boolean = false;
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
@@ -732,10 +727,12 @@ struct ReaderImagePage {
   // different host, bypassing the cached URL.
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
+      this.imageLoaded = false
       this.imageUrl = this.image.imageUrl
       return
     }
     try {
+      this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       this.failed = false
     } catch (err) {
@@ -748,6 +745,7 @@ struct ReaderImagePage {
   private retrySource(): void {
     this.autoRetryCount = 0
     this.imageUrl = ''
+    this.imageLoaded = false
     this.failed = false
     this.resolve(true)
   }
@@ -756,6 +754,7 @@ struct ReaderImagePage {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       this.autoRetryCount++
       this.imageUrl = ''
+      this.imageLoaded = false
       this.failed = false
       this.resolve(true)
       return
@@ -823,16 +822,18 @@ struct ReaderImagePage {
           .translate({ x: this.offsetX, y: this.offsetY })
           .onComplete((_e) => {
             this.autoRetryCount = 0
+            this.imageLoaded = true
           })
           .onError(() => {
             DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
+            this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+        if (!this.imageLoaded) {
+          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image') })
+        }
       } else {
-        LoadingProgress()
-          .width(ThemeConstants.LOADING_SIZE_LARGE)
-          .height(ThemeConstants.LOADING_SIZE_LARGE)
-          .color(Color.White)
+        ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving') })
       }
     }
     .width('100%')
@@ -892,6 +893,7 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Local imageUrl: string = '';
+  @Local imageLoaded: boolean = false;
   @Local failed: boolean = false;
   @Local ratio: number = DEFAULT_VERTICAL_RATIO;
   private autoRetryCount: number = 0;
@@ -903,10 +905,12 @@ struct ReaderVerticalImage {
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
+      this.imageLoaded = false
       this.imageUrl = this.image.imageUrl
       return
     }
     try {
+      this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       this.failed = false
     } catch (err) {
@@ -918,6 +922,7 @@ struct ReaderVerticalImage {
   private retrySource(): void {
     this.autoRetryCount = 0
     this.imageUrl = ''
+    this.imageLoaded = false
     this.failed = false
     this.resolve(true)
   }
@@ -926,6 +931,7 @@ struct ReaderVerticalImage {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       this.autoRetryCount++
       this.imageUrl = ''
+      this.imageLoaded = false
       this.failed = false
       this.resolve(true)
       return
@@ -948,22 +954,79 @@ struct ReaderVerticalImage {
           .draggable(false)
           .onComplete((e) => {
             this.autoRetryCount = 0
+            this.imageLoaded = true
             if (e !== undefined && e.width > 0 && e.height > 0) {
               this.ratio = e.width / e.height
             }
           })
           .onError(() => {
             DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
+            this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+        if (!this.imageLoaded) {
+          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image') })
+        }
       } else {
-        LoadingProgress()
-          .width(ThemeConstants.LOADING_SIZE)
-          .height(ThemeConstants.LOADING_SIZE)
-          .color(Color.White)
+        ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving'), compact: true })
       }
     }
     .width('100%')
     .constraintSize({ minHeight: 220 })
+  }
+}
+
+@ComponentV2
+struct ReaderLoadingOverlay {
+  @Param label: Resource = $r('app.string.reader_loading_resolving');
+  @Param compact: boolean = false;
+
+  build() {
+    Column() {
+      ReaderLoadingLine({ label: this.label, compact: this.compact })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .hitTestBehavior(HitTestMode.None)
+  }
+}
+
+@ComponentV2
+struct ReaderLoadingLine {
+  @Param label: Resource = $r('app.string.reader_loading_resolving');
+  @Param compact: boolean = false;
+
+  private lineWidth(): number {
+    return this.compact ? 148 : 220
+  }
+
+  private activeWidth(): number {
+    return this.compact ? 72 : 108
+  }
+
+  build() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Row() {
+        Blank()
+          .width(this.activeWidth())
+          .height(4)
+          .borderRadius(2)
+          .backgroundColor(Color.White)
+      }
+      .width(this.lineWidth())
+      .height(4)
+      .borderRadius(2)
+      .backgroundColor('#55FFFFFF')
+      .clip(true)
+      Text(this.label)
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor(Color.White)
+        .textAlign(TextAlign.Center)
+        .maxLines(1)
+    }
+    .alignItems(HorizontalAlign.Center)
+    .padding(ThemeConstants.SPACE_MD)
   }
 }

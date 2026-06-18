@@ -437,6 +437,14 @@
       "value": "Failed to load image"
     },
     {
+      "name": "reader_loading_resolving",
+      "value": "Resolving image"
+    },
+    {
+      "name": "reader_loading_image",
+      "value": "Loading image"
+    },
+    {
       "name": "settings_site",
       "value": "Site"
     },

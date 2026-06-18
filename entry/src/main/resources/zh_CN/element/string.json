@@ -437,6 +437,14 @@
       "value": "图片加载失败"
     },
     {
+      "name": "reader_loading_resolving",
+      "value": "正在解析图片"
+    },
+    {
+      "name": "reader_loading_image",
+      "value": "正在加载图片"
+    },
+    {
       "name": "settings_site",
       "value": "站点"
     },
