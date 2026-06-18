@@ -60,6 +60,8 @@ export struct GallerySearchPage {
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local showFilter: boolean = false;
   @Local listContentWidth: number = 0;
+  @Local imagePageErrorUrl: string = '';
+  @Local imagePageResolving: boolean = false;
   // Favorite scope (eros_fe SearchType.favorite): set from the route param when the favorites title-bar
   // magnifier pushes here. Hides the gallery advanced-filter trigger (eros_fe hides cats/advanced for
   // favorite, gallery_filter_view.dart:74-82) and makes the page browse favorites.php f_search.
@@ -147,6 +149,7 @@ export struct GallerySearchPage {
    */
   private runQuery(query: string): void {
     const trimmed: string = query.trim()
+    this.imagePageErrorUrl = ''
     if (this.looksLikeBareUrl(trimmed)) {
       const ref: GalleryRef | null = EhUrlRouter.parseGallery(trimmed)
       if (ref !== null) {
@@ -168,17 +171,20 @@ export struct GallerySearchPage {
   }
 
   private openImagePageUrl(url: string): void {
+    this.imagePageErrorUrl = ''
+    this.imagePageResolving = true
     ImagePageRouteService.resolve(url)
       .then((target: ImagePageRouteTarget) => {
+        this.imagePageResolving = false
         this.stack.pushPathByName(
           'Reader',
           new ReaderParams(target.gid, target.token, target.index, target.fileCount, '', [target.seedImage], 0, 0),
         )
       })
       .catch((err: Error) => {
+        this.imagePageResolving = false
         DiagnosticLogger.warn('search', 'image_page_jump_failed', err.message)
-        this.recordHistory(url)
-        this.vm.search(url)
+        this.imagePageErrorUrl = url
       })
   }
 
@@ -318,7 +324,16 @@ export struct GallerySearchPage {
   build() {
     HdsNavDestination() {
       Column() {
-        if (this.vm.isLoading && this.vm.itemCount === 0) {
+        if (this.imagePageResolving) {
+          PageLoadingState()
+        } else if (this.imagePageErrorUrl.length > 0) {
+          PageErrorState({
+            message: $r('app.string.image_page_open_failed'),
+            retryAction: () => {
+              this.openImagePageUrl(this.imagePageErrorUrl)
+            },
+          })
+        } else if (this.vm.isLoading && this.vm.itemCount === 0) {
           PageLoadingState()
         } else if (!this.vm.hasSearched) {
           this.SearchHistoryView()

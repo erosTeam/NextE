@@ -64,6 +64,7 @@ const searchSrc = read('feature/search/src/main/ets/pages/GallerySearchPage.ets'
 ok('Search bare /s/ branches before ordinary search', /EhUrlRouter\.parseImagePage\(trimmed\)[\s\S]*openImagePageUrl\(trimmed\)[\s\S]*return/.test(searchSrc))
 ok('Search image-page branch pushes Reader', /ImagePageRouteService\.resolve\(url\)[\s\S]*pushPathByName\(\s*'Reader'/.test(searchSrc))
 ok('Search passes exact image seed and parsed fileCount without marking preview pages loaded', /new ReaderParams\(target\.gid, target\.token, target\.index, target\.fileCount, '', \[target\.seedImage\], 0, 0\)/.test(searchSrc))
-ok('Search image-page failure falls back to ordinary search', /image_page_jump_failed[\s\S]*this\.vm\.search\(url\)/.test(searchSrc))
+ok('Search image-page failure shows a visible retry state', /image_page_jump_failed[\s\S]*this\.imagePageErrorUrl = url/.test(searchSrc))
+ok('Search image-page retry reuses the original /s/ URL', /retryAction:[\s\S]*this\.openImagePageUrl\(this\.imagePageErrorUrl\)/.test(searchSrc))
 
 console.log(`✓ image-page URL routing contract: ${passed} assertions passed`)
