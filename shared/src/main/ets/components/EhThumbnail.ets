@@ -22,7 +22,7 @@ export struct EhThumbnail {
   @Param url: string = '';
   @Param thumbWidth: number = 90;
   @Param thumbHeight: number = 127;
-  @Param radius: number = ThemeConstants.RADIUS_SM;
+  @Param radius: number = ThemeConstants.THUMB_RADIUS;
   @Param fillHeight: boolean = false;
   @Param stretchHeight: boolean = false;
   // When > 0 the cover is full-width with this w/h ratio (the grid card's cell-filling cover), so a

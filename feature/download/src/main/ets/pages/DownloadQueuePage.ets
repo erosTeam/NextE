@@ -195,7 +195,7 @@ export struct DownloadQueuePage {
         url: task.thumbUrl,
         thumbWidth: ThemeConstants.DOWNLOAD_TASK_COVER_WIDTH,
         thumbHeight: ThemeConstants.DOWNLOAD_TASK_CARD_HEIGHT - ThemeConstants.SPACE_LG,
-        radius: ThemeConstants.RADIUS_SM,
+         radius: ThemeConstants.THUMB_RADIUS,
       })
       Column({ space: ThemeConstants.SPACE_XS }) {
         Text(task.displayTitle())
