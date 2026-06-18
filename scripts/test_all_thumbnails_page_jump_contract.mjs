@@ -2,9 +2,10 @@
 /**
  * Contract for AllThumbnails page-number jump.
  *
- * Bug class: users need to reach later thumbnail pages without manually scrolling/loading one preview
- * page at a time. Jump input is the global image page number (the same labels shown on thumbnails);
- * the VM must load through the containing preview page before the Grid scroller moves to that image.
+ * Bug class: users need to reach later thumbnail pages without manually scrolling/loading every earlier
+ * preview page. Jump input is the global image page number (the same labels shown on thumbnails);
+ * the VM must directly load the containing preview page, keep absolute page numbers, and scroll to the
+ * target's visible data-source index.
  *
  * Run: node scripts/test_all_thumbnails_page_jump_contract.mjs
  */
@@ -37,11 +38,16 @@ eq('page 37 jumps to preview page 1', targetPreviewPage(37, 20), 1)
 eq('page 138 jumps to preview page 6', targetPreviewPage(138, 20), 6)
 
 const vmSrc = read('feature/gallery/src/main/ets/viewmodel/AllThumbnailsViewModel.ets')
-ok('VM exposes loadThroughImagePage', /async loadThroughImagePage\(pageOneBased: number\): Promise<boolean>/.test(vmSrc))
+ok('VM exposes direct image-page loader', /async loadImagePage\(pageOneBased: number\): Promise<boolean>/.test(vmSrc))
 ok('VM maps image page to containing preview page', /Math\.floor\(\(pageOneBased - 1\) \/ this\.firstPageCount\)/.test(vmSrc))
-ok('VM loads pages until target preview page is included', /while \(this\.loadedPages <= targetPreviewPage && this\.hasMore\(\)\)/.test(vmSrc))
-ok('VM detects no-progress load failure to avoid spinning', /const before: number = this\.loadedPages[\s\S]*this\.loadedPages === before/.test(vmSrc))
-ok('VM succeeds only when target image exists in data source', /return this\.dataSource\.totalCount\(\) >= pageOneBased/.test(vmSrc))
+ok('VM requests exactly the target preview page', /getPreviewImages\([\s\S]*targetPreviewPage/.test(vmSrc))
+ok('VM does not serialize jump through all earlier preview pages', !/while \(this\.loadedPages <= targetPreviewPage && this\.hasMore\(\)\)/.test(vmSrc))
+ok('VM merges preview page entries by absolute page', /private mergePreviewPage\(previewPage: number, pageImages: EhGalleryImage\[\]\): void[\s\S]*img\.page/.test(vmSrc))
+ok('VM sorts sparse visible thumbnails by absolute page', /merged\.sort\(\(a: EhGalleryImage, b: EhGalleryImage\): number => a\.page - b\.page\)/.test(vmSrc))
+ok('VM exposes visible index lookup for sparse jump targets', /visibleIndexForImagePage\(pageOneBased: number\): number[\s\S]*items\[i\]\.page === pageOneBased/.test(vmSrc))
+ok('VM succeeds only when target image exists in data source', /return this\.visibleIndexForImagePage\(pageOneBased\) >= 0/.test(vmSrc))
+ok('VM tracks exact loaded preview page numbers', /loadedPreviewPageMarkers: number\[\]/.test(vmSrc) && /loadedPreviewPageNumbers\(\): number\[\]/.test(vmSrc))
+ok('VM advances contiguous next-page pointer only through loaded markers', /advanceContiguousLoadedPages\(\): void[\s\S]*while \(this\.isPreviewPageLoaded\(next\)\)/.test(vmSrc))
 
 const pageSrc = read('feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets')
 ok('AllThumbnails title bar includes a jump menu', /'menu': this\.jumpMenu\(\)/.test(pageSrc))
@@ -50,9 +56,9 @@ ok('Jump sheet opens with the next unloaded image page prefilled', /this\.jumpPa
 ok('Default jump page advances past the loaded thumbnail count', /return Math\.min\(maxPage, this\.vm\.itemCount \+ 1\)/.test(pageSrc))
 ok('Jump sheet uses numeric TextInput', /TextInput\(\{ text: this\.jumpPageText[\s\S]*\.type\(InputType\.Number\)/.test(pageSrc))
 ok('Jump validates against fileCount when known', /const maxPage: number = this\.maxImagePage\(\)[\s\S]*page > maxPage/.test(pageSrc))
-ok('Jump asks VM to load through the image page', /await this\.vm\.loadThroughImagePage\(page\)/.test(pageSrc))
-ok('Jump scrolls the Grid to the target global index', /const targetIndex: number = page - 1[\s\S]*this\.scroller\.scrollToIndex\(targetIndex\)/.test(pageSrc))
-ok('AllThumbnails keeps Reader seed params intact', /this\.vm\.loadedImages\(\)[\s\S]*this\.vm\.loadedPreviewPages\(\)[\s\S]*this\.vm\.seedPerPage\(\)/.test(pageSrc))
+ok('Jump asks VM to load the containing preview page directly', /await this\.vm\.loadImagePage\(page\)/.test(pageSrc))
+ok('Jump scrolls the Grid to the target visible index', /const targetIndex: number = this\.vm\.visibleIndexForImagePage\(page\)[\s\S]*this\.scroller\.scrollToIndex\(targetIndex\)/.test(pageSrc))
+ok('AllThumbnails keeps Reader seed params intact', /this\.vm\.loadedImages\(\)[\s\S]*this\.vm\.loadedPreviewPages\(\)[\s\S]*this\.vm\.seedPerPage\(\)[\s\S]*this\.vm\.loadedPreviewPageNumbers\(\)/.test(pageSrc))
 ok('AllThumbnails uses immersive title bar options for menu support', /immersiveTitleBarOpts/.test(pageSrc))
 
 for (const loc of ['base', 'zh_CN', 'en_US', 'ja_JP']) {

@@ -44,6 +44,7 @@ export struct GalleryAllThumbnailsPage {
         this.vm.loadedImages(),
         this.vm.loadedPreviewPages(),
         this.vm.seedPerPage(),
+        this.vm.loadedPreviewPageNumbers(),
       ),
     )
   }
@@ -88,15 +89,17 @@ export struct GalleryAllThumbnailsPage {
       this.jumpError = AppStrings.get('gallery_preview_jump_invalid')
       return
     }
-    const loaded: boolean = await this.vm.loadThroughImagePage(page)
+    const loaded: boolean = await this.vm.loadImagePage(page)
     if (!loaded) {
       this.jumpError = AppStrings.get('common_load_failed')
       return
     }
     this.jumpSheetShown = false
-    const targetIndex: number = page - 1
+    const targetIndex: number = this.vm.visibleIndexForImagePage(page)
     setTimeout(() => {
-      this.scroller.scrollToIndex(targetIndex)
+      if (targetIndex >= 0) {
+        this.scroller.scrollToIndex(targetIndex)
+      }
     }, 50)
   }
 

@@ -44,6 +44,7 @@ export class ReaderViewModel {
     seedImages: EhGalleryImage[] = [],
     seedLoadedPages: number = 0,
     seedPerPage: number = 0,
+    seedPreviewPages: number[] = [],
   ): Promise<void> {
     this.gid = gid
     this.token = token
@@ -55,7 +56,7 @@ export class ReaderViewModel {
     this.loadedPreviewPages = []
     this.perPage = 0
     const exactSeed: EhGalleryImage | null = this.exactSeedImage(seedImages, seedLoadedPages, startIndex)
-    this.applySeed(seedImages, seedLoadedPages, seedPerPage)
+    this.applySeed(seedImages, seedLoadedPages, seedPerPage, seedPreviewPages)
     // Load the requested page first. The neighbor pages are warmed after the first paint path is ready,
     // so a later thumbnail or /s/ deep-link start cannot be delayed by preloading pages after it.
     await this.ensureLoaded(startIndex)
@@ -85,7 +86,12 @@ export class ReaderViewModel {
     return seed.copy()
   }
 
-  private applySeed(seedImages: EhGalleryImage[], seedLoadedPages: number, seedPerPage: number): void {
+  private applySeed(
+    seedImages: EhGalleryImage[],
+    seedLoadedPages: number,
+    seedPerPage: number,
+    seedPreviewPages: number[] = [],
+  ): void {
     if (seedImages.length === 0 || seedLoadedPages <= 0) {
       return
     }
@@ -94,12 +100,18 @@ export class ReaderViewModel {
       seeded.push(img.copy())
     })
     this.images = seeded
-    this.previewPage = Math.max(0, seedLoadedPages - 1)
     this.perPage = seedPerPage > 0 ? seedPerPage : seedImages.length
     this.loadedPreviewPages = []
-    for (let p: number = 0; p < seedLoadedPages; p++) {
-      this.loadedPreviewPages.push(p)
+    if (seedPreviewPages.length > 0) {
+      seedPreviewPages.forEach((p: number) => {
+        this.markPreviewPageLoaded(p)
+      })
+    } else {
+      for (let p: number = 0; p < seedLoadedPages; p++) {
+        this.markPreviewPageLoaded(p)
+      }
     }
+    this.advanceContiguousPreviewPage()
     if (this.fileCount > 0 && this.images.length >= this.fileCount) {
       this.exhausted = true
     }

@@ -42,6 +42,7 @@ export class ReaderParams {
   seedImages: EhGalleryImage[] = [] // already-loaded preview entries, preserving absolute page + /s/ URL
   seedLoadedPages: number = 0
   seedPerPage: number = 0
+  seedPreviewPages: number[] = [] // exact loaded preview-page numbers when the seed is sparse
 
   constructor(
     gid: string = '',
@@ -52,6 +53,7 @@ export class ReaderParams {
     seedImages: EhGalleryImage[] = [],
     seedLoadedPages: number = 0,
     seedPerPage: number = 0,
+    seedPreviewPages: number[] = [],
   ) {
     this.gid = gid
     this.token = token
@@ -61,6 +63,7 @@ export class ReaderParams {
     this.seedImages = seedImages
     this.seedLoadedPages = seedLoadedPages
     this.seedPerPage = seedPerPage
+    this.seedPreviewPages = seedPreviewPages
   }
 }
 

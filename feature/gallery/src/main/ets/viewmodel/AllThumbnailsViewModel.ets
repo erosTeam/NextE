@@ -21,6 +21,7 @@ export class AllThumbnailsViewModel {
   @Trace error: string = ''
   // loadedPages is 0-based count of fetched preview pages; the seed (page index 0) counts as 1.
   private loadedPages: number = 0
+  private loadedPreviewPageMarkers: number[] = []
   private totalPages: number = 1
   private gid: string = ''
   private token: string = ''
@@ -40,6 +41,10 @@ export class AllThumbnailsViewModel {
     this.dataSource.setData(p.firstPage)
     this.itemCount = this.dataSource.totalCount()
     this.loadedPages = p.firstPage.length > 0 ? 1 : 0
+    this.loadedPreviewPageMarkers = []
+    if (p.firstPage.length > 0) {
+      this.markPreviewPageLoaded(0)
+    }
     this.firstPageCount = p.firstPage.length
   }
 
@@ -55,15 +60,16 @@ export class AllThumbnailsViewModel {
     this.loading = true
     this.error = ''
     try {
+      const nextPage: number = this.loadedPages
       const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
         this.gid,
         this.token,
         this.isEx,
-        this.loadedPages,
+        nextPage,
       )
-      this.dataSource.appendData(more)
+      this.mergePreviewPage(nextPage, more)
       this.itemCount = this.dataSource.totalCount()
-      this.loadedPages = this.loadedPages + 1
+      this.advanceContiguousLoadedPages()
     } catch (err) {
       this.error = EhErrorText.forUser(err)
       DiagnosticLogger.warn('gallery', 'thumbs_loadnext_failed', (err as Error).message)
@@ -84,22 +90,103 @@ export class AllThumbnailsViewModel {
     return this.loadedPages
   }
 
+  loadedPreviewPageNumbers(): number[] {
+    const out: number[] = []
+    this.loadedPreviewPageMarkers.forEach((p: number) => {
+      out.push(p)
+    })
+    return out
+  }
+
   seedPerPage(): number {
     return this.firstPageCount
   }
 
-  async loadThroughImagePage(pageOneBased: number): Promise<boolean> {
+  visibleIndexForImagePage(pageOneBased: number): number {
+    const items: EhGalleryImage[] = this.dataSource.getAll()
+    for (let i: number = 0; i < items.length; i++) {
+      if (items[i].page === pageOneBased) {
+        return i
+      }
+    }
+    return -1
+  }
+
+  async loadImagePage(pageOneBased: number): Promise<boolean> {
     if (pageOneBased <= 0 || this.firstPageCount <= 0) {
       return false
     }
     const targetPreviewPage: number = Math.floor((pageOneBased - 1) / this.firstPageCount)
-    while (this.loadedPages <= targetPreviewPage && this.hasMore()) {
-      const before: number = this.loadedPages
-      await this.loadNext()
-      if (this.loadedPages === before) {
-        return false
+    if (this.isPreviewPageLoaded(targetPreviewPage)) {
+      return this.visibleIndexForImagePage(pageOneBased) >= 0
+    }
+    this.loading = true
+    this.error = ''
+    try {
+      const pageImages: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
+        this.gid,
+        this.token,
+        this.isEx,
+        targetPreviewPage,
+      )
+      this.mergePreviewPage(targetPreviewPage, pageImages)
+      this.itemCount = this.dataSource.totalCount()
+      this.advanceContiguousLoadedPages()
+    } catch (err) {
+      this.error = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('gallery', 'thumbs_loadpage_failed', (err as Error).message)
+    }
+    this.loading = false
+    return this.visibleIndexForImagePage(pageOneBased) >= 0
+  }
+
+  private mergePreviewPage(previewPage: number, pageImages: EhGalleryImage[]): void {
+    if (pageImages.length === 0) {
+      return
+    }
+    const merged: EhGalleryImage[] = []
+    this.dataSource.getAll().forEach((img: EhGalleryImage) => {
+      merged.push(img.copy())
+    })
+    pageImages.forEach((img: EhGalleryImage) => {
+      let replaced: boolean = false
+      for (let i: number = 0; i < merged.length; i++) {
+        if (merged[i].page === img.page) {
+          merged[i] = img.copy()
+          replaced = true
+          break
+        }
+      }
+      if (!replaced) {
+        merged.push(img.copy())
+      }
+    })
+    merged.sort((a: EhGalleryImage, b: EhGalleryImage): number => a.page - b.page)
+    this.dataSource.setData(merged)
+    this.markPreviewPageLoaded(previewPage)
+  }
+
+  private markPreviewPageLoaded(previewPage: number): void {
+    if (this.isPreviewPageLoaded(previewPage)) {
+      return
+    }
+    this.loadedPreviewPageMarkers.push(previewPage)
+  }
+
+  private isPreviewPageLoaded(previewPage: number): boolean {
+    for (let i: number = 0; i < this.loadedPreviewPageMarkers.length; i++) {
+      if (this.loadedPreviewPageMarkers[i] === previewPage) {
+        return true
       }
     }
-    return this.dataSource.totalCount() >= pageOneBased
+    return false
+  }
+
+  private advanceContiguousLoadedPages(): void {
+    let next: number = this.loadedPages
+    while (this.isPreviewPageLoaded(next)) {
+      next++
+    }
+    this.loadedPages = next
   }
 }

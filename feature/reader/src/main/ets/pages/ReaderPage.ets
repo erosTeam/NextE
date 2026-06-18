@@ -118,7 +118,16 @@ export struct ReaderPage {
         this.params = p
         this.sliderValue = p.index + 1
         const requestedIndex: number = p.index
-        this.vm.init(p.gid, p.token, p.fileCount, p.index, p.seedImages, p.seedLoadedPages, p.seedPerPage)
+        this.vm.init(
+          p.gid,
+          p.token,
+          p.fileCount,
+          p.index,
+          p.seedImages,
+          p.seedLoadedPages,
+          p.seedPerPage,
+          p.seedPreviewPages,
+        )
           .then(() => {
             const targetIndex: number =
               this.vm.images.length > 0 ? Math.min(requestedIndex, this.vm.images.length - 1) : 0
