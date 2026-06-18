@@ -360,6 +360,8 @@ export struct GalleryDetailPage {
         this.params = p
         const seed: EhGallery = new EhGallery(p.gid, p.token)
         seed.thumbUrl = p.thumbUrl
+        seed.imgWidth = p.imgWidth
+        seed.imgHeight = p.imgHeight
         seed.englishTitle = p.title
         // Carry fileCount into the seed so the VM's gdata enrich is skipped for list-row opens (which
         // pass it) and fires only for sparse opens (deep link / URL paste, where it's '').

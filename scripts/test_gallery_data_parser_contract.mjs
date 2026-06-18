@@ -197,9 +197,9 @@ ok(VM.includes('await this.enrichFromApi('), 'VM enrich-then-detail call')
 ok(VM.includes('EhApiPhpService.galleryData('), 'VM uses galleryData')
 ok(PARAMS.includes('fileCount: string'), 'GalleryDetailParams carries fileCount')
 ok(DETAIL.includes('seed.fileCount = p.fileCount'), 'detail seed carries fileCount')
-// the 6 list-row opens must pass g.fileCount; the 3 sparse opens must NOT
-const listRowOpens = (read('feature/home/src/main/ets/pages/HomePage.ets').match(/new GalleryDetailParams\(g\.gid, g\.token, g\.thumbUrl, g\.title\(\), g\.fileCount\)/g) || []).length
-ok(listRowOpens === 2, 'HomePage 2 list-row opens pass g.fileCount')
+// Gallery rows must pass g.fileCount; sparse URL/deep-link opens must NOT.
+const listRowOpens = (read('feature/home/src/main/ets/components/GalleryListBody.ets').match(/new GalleryDetailParams\(\s*g\.gid,\s*g\.token,\s*g\.thumbUrl,\s*g\.title\(\),\s*g\.fileCount/g) || []).length
+ok(listRowOpens === 1, 'GalleryListBody list-row open passes g.fileCount')
 
 if (failures > 0) { console.error(`\n✗ gdata parser contract: ${failures} failure(s)`); process.exit(1) }
 console.log('\n✓ gdata parser contract passed')

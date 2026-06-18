@@ -17,6 +17,11 @@ export class GalleryDetailParams {
   // List-row opens carry fileCount so the detail VM can SKIP the gdata enrich (eros_fe's filecount-absent
   // gate); sparse opens (deep link / URL paste) leave it '' → the VM enriches via /api.php gdata first.
   fileCount: string = ''
+  // Parsed cover dimensions from the source list/search/favorites row. Carrying these into the seed lets
+  // the detail header paint the same real-ratio cover immediately instead of changing fit mode after the
+  // detail HTML fetch returns.
+  imgWidth: number = 0
+  imgHeight: number = 0
 
   constructor(
     gid: string = '',
@@ -24,12 +29,16 @@ export class GalleryDetailParams {
     thumbUrl: string = '',
     title: string = '',
     fileCount: string = '',
+    imgWidth: number = 0,
+    imgHeight: number = 0,
   ) {
     this.gid = gid
     this.token = token
     this.thumbUrl = thumbUrl
     this.title = title
     this.fileCount = fileCount
+    this.imgWidth = imgWidth
+    this.imgHeight = imgHeight
   }
 }
 

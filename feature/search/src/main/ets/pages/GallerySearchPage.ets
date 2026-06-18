@@ -358,7 +358,15 @@ export struct GallerySearchPage {
                   .onClick(() => {
                     this.stack.pushPathByName(
                       'GalleryDetail',
-                      new GalleryDetailParams(g.gid, g.token, g.thumbUrl, g.title(), g.fileCount),
+                      new GalleryDetailParams(
+                        g.gid,
+                        g.token,
+                        g.thumbUrl,
+                        g.title(),
+                        g.fileCount,
+                        g.imgWidth,
+                        g.imgHeight,
+                      ),
                     )
                   })
                 },
@@ -400,7 +408,15 @@ export struct GallerySearchPage {
                   .onClick(() => {
                     this.stack.pushPathByName(
                       'GalleryDetail',
-                      new GalleryDetailParams(g.gid, g.token, g.thumbUrl, g.title(), g.fileCount),
+                      new GalleryDetailParams(
+                        g.gid,
+                        g.token,
+                        g.thumbUrl,
+                        g.title(),
+                        g.fileCount,
+                        g.imgWidth,
+                        g.imgHeight,
+                      ),
                     )
                   })
                 },
