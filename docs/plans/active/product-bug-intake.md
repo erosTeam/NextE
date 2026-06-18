@@ -16,6 +16,11 @@ Operating rule:
 - Before implementation, verify the relevant eros_fe source behavior and current NextE code path.
 - When an intake item is implemented/fixed and committed, update that item with `Status`,
   commit hash, implemented scope, contracts/device evidence, and remaining acceptance gaps.
+- Valid status values for handled entries: `implemented`, `implemented / pending device acceptance`,
+  `implemented / needs controller acceptance`, `accepted`, or `parked`.
+- A small implementation commit does not need to update this file immediately, but once an intake item
+  has a clear fixing commit on main, the next control-plane update must mark the item so it no longer
+  reads as an unhandled queue item.
   Historical PASS logs do not imply current acceptance; use `implemented / pending device acceptance`
   until a current simulator/device/controller acceptance pass exists.
 
@@ -44,6 +49,9 @@ Evidence:
   `scripts/test_reader_target_preview_page_contract.mjs`,
   `scripts/test_reader_placeholder_gap_turn_contract.mjs`,
   `scripts/test_image_page_reader_seed_contract.mjs`.
+- Follow-up reader contracts that protect the same startup/jump surface:
+  `scripts/test_all_thumbnails_page_jump_contract.mjs`, `scripts/test_reader_jump_contract.mjs`,
+  `scripts/test_reader_vertical_initial_index_contract.mjs`.
 - Final Mate X7 emulator pass on `127.0.0.1:5555` with hdc outside the sandbox and official signed HAP:
   public gallery `https://e-hentai.org/g/3989982/16600a66e8/`, AllThumbnails visible `40..45`,
   tapped page `41`, Reader first screen `41 / 138`, right tap stayed in the correct later range
@@ -125,9 +133,13 @@ Status: implemented / pending device acceptance
 Implementation:
 
 - `7bc3bde feat(gallery): refresh detail page` added detail-page refresh behavior.
+- Scope: `GalleryDetailPage` now exposes the project refresh gesture/path, and
+  `GalleryDetailViewModel` owns the reload path so refresh preserves the current gallery identity
+  instead of navigating away or creating a second fetch mechanism.
 
 Evidence:
 
+- Deterministic contract: `scripts/test_gallery_detail_refresh_contract.mjs`.
 - Implementation commit exists on repository history. Treat any historical smoke as supporting
   evidence only; this intake item still needs current device/controller acceptance before marking
   `accepted`.
@@ -188,10 +200,13 @@ Implementation:
 
 - `14d471c fix(gallery): bound list cover row height` clamps list cover row height behavior for
   extreme tall/narrow covers.
+- Scope: `GalleryCard` applies explicit list-cover sizing constraints so extreme cover ratios cannot
+  force fixed-height list rows to become unboundedly tall.
 
 Evidence:
 
-- Supporting deterministic contracts include list height/responsive cover coverage in `scripts/`.
+- Deterministic contracts: `scripts/test_cover_presentation_contract.mjs`,
+  `scripts/test_list_height_mode_contract.mjs`, `scripts/test_list_responsive_cover_contract.mjs`.
 - Historical Mate X7 evidence exists for Home fixed/adaptive list modes, but active visual acceptance
   is not automatically closed by history.
 
@@ -264,9 +279,12 @@ Implementation:
 
 - `45bc895 feat(gallery): search from detail tags` wires gallery detail tags into the shared Search
   route/action path.
+- Scope: `GalleryTagsCard` tag taps dispatch through the existing shared search/navigation path
+  rather than adding a separate detail-only search implementation.
 
 Evidence:
 
+- Deterministic contract: `scripts/test_tag_chip_contract.mjs`.
 - Implementation commit exists on repository history. Treat historical device evidence as supporting
   context only until current acceptance is recorded.
 

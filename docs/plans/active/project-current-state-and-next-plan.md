@@ -2,7 +2,7 @@
 
 - **status**: ACTIVE
 - **owner**: controller / project lead
-- **updated**: 2026-06-18 08:03:05 +0800
+- **updated**: 2026-06-18 16:33:37 +0800
 - **purpose**: single scheduling snapshot after the Mac migration and the latest list responsive-cover gate.
 
 This document is a planning control surface, not an acceptance archive. Existing active plans remain queues. Historical PASS logs, worker summaries, and old screenshots are useful evidence, but they do not equal current controller acceptance.
@@ -53,13 +53,13 @@ Controller checkout at the start of this snapshot update:
 ```text
 repo:   /Users/honjow/git/NextE
 branch: main
-base:   7b99bf5 docs(project): record false 404 smoke status
+base:   587a7cb feat(gallery): add torrent list page
 ```
 
 Current controller checkout status:
 
 ```text
-Clean and in sync with origin/main at this snapshot.
+Clean and in sync with origin/main at this snapshot before this document-only intake update.
 ```
 
 Control-plane/project assets, screenshots, harness state, worktrees, local profiles, and old WIP remain
@@ -82,6 +82,41 @@ Known worktrees:
 Do not reuse old worktrees for new product lanes. Rebase/review old lanes only when that lane is explicitly resumed.
 
 ## Active queues
+
+### 0. Product bug / feature intake maintenance
+
+Status: **active control-plane rule**
+
+Location:
+
+```text
+docs/plans/active/product-bug-intake.md
+```
+
+Scheduling rule:
+
+```text
+- Treat the intake as a live queue, not as acceptance evidence.
+- When a listed item is fixed/implemented and the handling commit is on main, update that item with:
+  Status, commit hash, implemented scope, deterministic contracts/device evidence, and remaining gaps.
+- Do not require every small code commit to edit intake immediately, but do not leave implemented items
+  looking like unhandled backlog after a control-plane update.
+- Use implemented / pending device acceptance until current simulator/device/controller acceptance exists.
+- Use accepted only after current evidence has been reviewed for the active queue.
+```
+
+Current backfill state:
+
+```text
+- Reader later thumbnail start bug:
+  implemented / needs controller acceptance; main fixes include 91f1eb4 and 48f08d0.
+- Gallery detail pull-to-refresh:
+  implemented / pending device acceptance; main fix 7bc3bde.
+- Very tall gallery covers row height:
+  implemented / pending device acceptance; main fix 14d471c.
+- Detail tag tap-to-search:
+  implemented / pending device acceptance; main fix 45bc895.
+```
 
 ### 1. List responsive cover hard gate
 
