@@ -568,6 +568,61 @@ Remaining acceptance:
 - Needs controller/user screenshot acceptance of the RTL double-page visual order. No further device
   validation is required unless Reader double-page ordering changes again.
 
+### Reader Double-Page Taps Used Fixed Page Step Instead Of Spread Step
+
+Type: bug / reading UX gap
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- Implementation review after fixing RTL double-page row order.
+
+Observed behavior:
+
+- Reader double-page tap navigation used a fixed `currentIndex +/- 2` page step.
+- That works for ordinary two-page spreads, but double-page B has a single cover spread first.
+- From the cover, the next spread should start at page 2; from pages 2/3, previous should return to
+  the cover. A fixed `-2` from the pages 2/3 spread can become `-1` and no-op.
+
+Expected behavior:
+
+- Double-page navigation should move by spread index, then map the target spread back to its first
+  visible page index.
+- Odd-left spreads continue to move 1/2 -> 3/4 -> 5/6.
+- Even-left spreads move cover -> 2/3 -> 4/5, and can return from 2/3 to the cover.
+- RTL tap inversion still applies: left tap advances, right tap returns.
+
+Implementation:
+
+- `678194b fix(reader): turn double pages by spread` adds spread-aware Reader movement for
+  `toPrev()` / `toNext()` when double-page mode is active.
+- Scope is limited to tap/center-zone double-page navigation target calculation. It does not change
+  Reader resolving, image caching, row visual order, slider UI, vertical mode, offline reading, or
+  download flow.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_reader_tapzone_contract.mjs`,
+  `scripts/test_reader_double_page_contract.mjs`, `scripts/test_reader_column_mode_switch_contract.mjs`.
+- Gate: `scripts/test_v1_decorator_inventory_contract.mjs` reported `0 file(s)`; `git diff --check`
+  passed.
+- New worktree dependency/build path: `ohpm install`, local signing profile installer, official signed
+  Hvigor build.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  Reader opened from a 24P gallery in `右→左` + `双页 B`; left tap moved from cover `1 / 24` to
+  paired spread `2 / 24`; right tap returned from `2 / 24` to cover `1 / 24`.
+  Evidence directory: `/private/tmp/nexte_reader_rtl_interaction_evidence/`, especially
+  `reader_initial_layout.json`, `after_left_layout.json`, `after_right_layout.json`,
+  `reader_initial.png`, `after_left.png`, `after_right.png`.
+
+Remaining acceptance:
+
+- Needs controller/user screenshot acceptance of the RTL double-page tap flow. No further device
+  validation is required unless Reader double-page navigation changes again.
+
 ### Download Gallery Task Rows Are Hard To Read
 
 Type: UX / information architecture cleanup
