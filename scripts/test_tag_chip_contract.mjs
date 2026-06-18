@@ -9,7 +9,8 @@
  * RADIUS_SM or 3px vertical padding.
  * Semantics (must be preserved): namespace colour only on the namespace label; member chip background is
  * the usertag fill or neutral grey (NEVER namespace); member text is vote-coloured → usertag → neutral;
- * the ForEach key carries the usertag signal version (late My-Tags recolour); chips wrap.
+ * the ForEach key carries the usertag signal version (late My-Tags recolour); chips wrap; tapping a
+ * member chip publishes an eros_fe-style `namespace:rawTag` search query through the shared search bus.
  *
  * Run: node scripts/test_tag_chip_contract.mjs   (exit 1 on any failure)
  */
@@ -73,8 +74,17 @@ ok(/font_secondary/.test(chipText), 'chipText keeps the neutral default')
 ok(/this\.tagSig\.version[\s\S]*?:\$\{tg\.namespace\}:\$\{t\.text\}/.test(card) || /\$\{this\.tagSig\.version\}/.test(card), 'ForEach key carries the usertag-signal version (late My-Tags recolour)')
 ok(/Flex\(\{\s*wrap:\s*FlexWrap\.Wrap\s*\}\)/.test(card), 'member chips still wrap (FlexWrap.Wrap)')
 
+// 6) Detail tag tap-to-search: eros_fe TagButton.onPressed opens Search with `${tag.type}:${tag.title.trim()}`.
+ok(/connectSearchAction/.test(card), 'GalleryTagsCard imports/connects to the shared search action bus')
+ok(/private\s+searchTag\(ns:\s*string,\s*t:\s*SimpleTag\):\s*void/.test(card), 'GalleryTagsCard has a scoped tag-search helper')
+ok(/const\s+namespace:\s*string\s*=\s*ns\.trim\(\)/.test(card), 'tag search trims the namespace')
+ok(/const\s+tag:\s*string\s*=\s*t\.text\.trim\(\)/.test(card), 'tag search uses the raw EH tag text, not translated display text')
+ok(/publishQuery\(`\$\{namespace\}:\$\{tag\}`\)/.test(card), 'tag search publishes namespace:rawTag query')
+ok(/\.onClick\(\(\)\s*=>\s*\{[\s\S]*?this\.searchTag\(tg\.namespace,\s*t\)[\s\S]*?\}\)/.test(card), 'member chip onClick triggers tag search')
+ok(!/publishQuery\(`\$\{namespace\}:\$\{t\.display\(\)\}`\)/.test(card), 'tag search does not use translated display text in the query')
+
 if (failures === 0) {
-  console.log('✓ tag chip contract: comfortably rounded/thicker chips, namespace/usertag/vote colour + wrap semantics preserved')
+  console.log('✓ tag chip contract: comfortable chips, namespace/usertag/vote colour, wrap semantics, and tag tap-to-search preserved')
   process.exit(0)
 }
 console.error(`✗ tag chip contract: ${failures} failure(s)`)

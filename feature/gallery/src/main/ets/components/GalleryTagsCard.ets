@@ -9,6 +9,7 @@ import {
   UserTagStore,
   UserTagSignal,
   connectUserTagSignal,
+  connectSearchAction,
 } from 'shared'
 
 /**
@@ -48,6 +49,15 @@ export struct GalleryTagsCard {
       return u.textColor
     }
     return $r('sys.color.font_secondary')
+  }
+
+  private searchTag(ns: string, t: SimpleTag): void {
+    const namespace: string = ns.trim()
+    const tag: string = t.text.trim()
+    if (namespace.length === 0 || tag.length === 0) {
+      return
+    }
+    connectSearchAction().publishQuery(`${namespace}:${tag}`)
   }
 
   build() {
@@ -91,6 +101,9 @@ export struct GalleryTagsCard {
                       .borderRadius(ThemeConstants.CHIP_RADIUS)
                       .padding({ left: 8, right: 8, top: ThemeConstants.CHIP_PADDING_V, bottom: ThemeConstants.CHIP_PADDING_V })
                       .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
+                      .onClick(() => {
+                        this.searchTag(tg.namespace, t)
+                      })
                   },
                   // version in the key subscribes the card + re-colors chips on a late My Tags load.
                   (t: SimpleTag) => `${this.tagSig.version}:${tg.namespace}:${t.text}`,
