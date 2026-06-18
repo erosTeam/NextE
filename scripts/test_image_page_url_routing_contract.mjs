@@ -40,15 +40,22 @@ const serviceSrc = read('shared/src/main/ets/services/ImagePageRouteService.ets'
 ok('route service fetches image page HTML', /EhHttpClient\.getInstance\(\)\.getText\(url\)/.test(serviceSrc))
 ok('route service requires parent token', /galleryToken\.length === 0/.test(serviceSrc))
 ok('route service converts serial to zero-based index', /Math\.max\(0, ser - 1\)/.test(serviceSrc))
+ok('route service returns an exact Reader seed image', /seedImage:\s*EhGalleryImage\s*=\s*new EhGalleryImage\(\)/.test(serviceSrc))
+ok('route service preserves original /s/ URL in seed', /seed\.sUrl = url/.test(serviceSrc))
+ok('route service preserves parsed full image URL in seed', /seed\.imageUrl = parsed\.imageUrl/.test(serviceSrc))
+ok('route service preserves parsed origin image URL in seed', /seed\.originImageUrl = parsed\.originImageUrl/.test(serviceSrc))
+ok('route service preserves showKey and reloadKey in seed', /seed\.showKey = parsed\.showKey[\s\S]*seed\.reloadKey = parsed\.reloadKey/.test(serviceSrc))
 
 const indexSrc = read('entry/src/main/ets/pages/Index.ets')
 ok('Index still routes /g/ detail links', /EhUrlRouter\.parseGallery\(uri\)[\s\S]*GalleryDetail/.test(indexSrc))
 ok('Index routes /s/ through ImagePageRouteService', /EhUrlRouter\.parseImagePage\(uri\)[\s\S]*openImagePageUrl\(uri\)/.test(indexSrc))
 ok('Index opens Reader for resolved /s/', /ImagePageRouteService\.resolve\(uri\)[\s\S]*pushPathByName\(\s*'Reader'/.test(indexSrc))
+ok('Index passes exact image seed without marking preview pages loaded', /new ReaderParams\(target\.gid, target\.token, target\.index, 0, '', \[target\.seedImage\], 0, 0\)/.test(indexSrc))
 
 const searchSrc = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 ok('Search bare /s/ branches before ordinary search', /EhUrlRouter\.parseImagePage\(trimmed\)[\s\S]*openImagePageUrl\(trimmed\)[\s\S]*return/.test(searchSrc))
 ok('Search image-page branch pushes Reader', /ImagePageRouteService\.resolve\(url\)[\s\S]*pushPathByName\(\s*'Reader'/.test(searchSrc))
+ok('Search passes exact image seed without marking preview pages loaded', /new ReaderParams\(target\.gid, target\.token, target\.index, 0, '', \[target\.seedImage\], 0, 0\)/.test(searchSrc))
 ok('Search image-page failure falls back to ordinary search', /image_page_jump_failed[\s\S]*this\.vm\.search\(url\)/.test(searchSrc))
 
 console.log(`✓ image-page URL routing contract: ${passed} assertions passed`)

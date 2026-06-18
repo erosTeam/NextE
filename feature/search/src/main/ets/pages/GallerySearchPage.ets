@@ -172,7 +172,7 @@ export struct GallerySearchPage {
       .then((target: ImagePageRouteTarget) => {
         this.stack.pushPathByName(
           'Reader',
-          new ReaderParams(target.gid, target.token, target.index, 0, ''),
+          new ReaderParams(target.gid, target.token, target.index, 0, '', [target.seedImage], 0, 0),
         )
       })
       .catch((err: Error) => {

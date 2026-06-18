@@ -48,15 +48,34 @@ export class ReaderViewModel {
     this.token = token
     this.fileCount = fileCount
     this.currentIndex = startIndex
+    const exactSeed: EhGalleryImage | null = this.exactSeedImage(seedImages, seedLoadedPages, startIndex)
     this.applySeed(seedImages, seedLoadedPages, seedPerPage)
     // A resumed far start page (e.g. lastIndex 500) must not crawl preview pages one-by-one — fetch
     // the gap concurrently. ensureLoaded picks the parallel path past the first page.
     await this.ensureLoaded(startIndex + 2)
+    if (exactSeed !== null) {
+      this.applyExactSeed(startIndex, exactSeed)
+    }
     // Clamp a resumed/restored start page that overshoots the gallery's actual length (e.g. the
     // saved lastIndex predates an expunge/shrink, or fewer pages parsed) — mirrors jumpTo's clamp
     // so the Swiper .index() and the progress write-back never go out of range.
     this.currentIndex = this.images.length > 0 ? Math.min(startIndex, this.images.length - 1) : 0
     this.precacheAhead()
+  }
+
+  private exactSeedImage(
+    seedImages: EhGalleryImage[],
+    seedLoadedPages: number,
+    startIndex: number,
+  ): EhGalleryImage | null {
+    if (seedImages.length === 0 || seedLoadedPages > 0 || startIndex < 0) {
+      return null
+    }
+    const seed: EhGalleryImage = seedImages[0]
+    if (seed.page !== startIndex + 1 || seed.imageUrl.length === 0) {
+      return null
+    }
+    return seed.copy()
   }
 
   private applySeed(seedImages: EhGalleryImage[], seedLoadedPages: number, seedPerPage: number): void {
@@ -73,6 +92,36 @@ export class ReaderViewModel {
     if (this.fileCount > 0 && this.images.length >= this.fileCount) {
       this.exhausted = true
     }
+  }
+
+  private applyExactSeed(index: number, seed: EhGalleryImage): void {
+    if (index < 0 || index >= this.images.length) {
+      return
+    }
+    const merged: EhGalleryImage = this.images[index].copy()
+    if (seed.imgkey.length > 0) {
+      merged.imgkey = seed.imgkey
+    }
+    if (seed.sUrl.length > 0) {
+      merged.sUrl = seed.sUrl
+    }
+    if (seed.imageUrl.length > 0) {
+      merged.imageUrl = seed.imageUrl
+    }
+    if (seed.originImageUrl.length > 0) {
+      merged.originImageUrl = seed.originImageUrl
+    }
+    if (seed.showKey.length > 0) {
+      merged.showKey = seed.showKey
+    }
+    if (seed.reloadKey.length > 0) {
+      merged.reloadKey = seed.reloadKey
+    }
+    const next: EhGalleryImage[] = []
+    for (let i: number = 0; i < this.images.length; i++) {
+      next.push(i === index ? merged : this.images[i])
+    }
+    this.images = next
   }
 
   /**

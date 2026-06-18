@@ -1,4 +1,5 @@
 import { EhHttpClient, EhTextResponse } from '../network/EhHttpClient'
+import { EhGalleryImage } from '../model/EhGalleryImage'
 import { EhImagePageParser, ImagePageResult } from '../parser/EhImagePageParser'
 import { EhUrlRouter, ImagePageRef } from '../utils/EhUrlRouter'
 
@@ -7,6 +8,7 @@ export class ImagePageRouteTarget {
   gid: string = ''
   token: string = ''
   index: number = 0
+  seedImage: EhGalleryImage = new EhGalleryImage()
 }
 
 /**
@@ -33,6 +35,14 @@ export class ImagePageRouteService {
     target.token = parsed.galleryToken
     const ser: number = parsed.ser > 0 ? parsed.ser : ref.page
     target.index = Math.max(0, ser - 1)
+    const seed: EhGalleryImage = new EhGalleryImage(target.index + 1)
+    seed.imgkey = ref.imgkey
+    seed.sUrl = url
+    seed.imageUrl = parsed.imageUrl
+    seed.originImageUrl = parsed.originImageUrl
+    seed.showKey = parsed.showKey
+    seed.reloadKey = parsed.reloadKey
+    target.seedImage = seed
     return target
   }
 }
