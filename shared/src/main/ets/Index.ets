@@ -13,6 +13,7 @@ export { InternalQaRoutes } from './constants/InternalQaRoutes'
 export { SimpleTag } from './model/SimpleTag'
 export { TagGroup } from './model/TagGroup'
 export { EhGallery } from './model/EhGallery'
+export { DownloadGalleryTask, DownloadGalleryTaskStatus } from './model/DownloadGalleryTask'
 export { ViewedGallery } from './model/ViewedGallery'
 export { Favcat } from './model/Favcat'
 export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
@@ -118,6 +119,7 @@ export {
   connectDownloadView,
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
 } from './state/DownloadViewState'
+export { DownloadQueueState, connectDownloadQueue } from './state/DownloadQueueState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
 export {
@@ -165,6 +167,7 @@ export { SearchFilterSettings, SearchFilterSnapshot } from './settings/SearchFil
 export { GalleryReadProgressSettings } from './settings/GalleryReadProgressSettings'
 export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
 export { DownloadSettings } from './settings/DownloadSettings'
+export { DownloadQueueSettings } from './settings/DownloadQueueSettings'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'

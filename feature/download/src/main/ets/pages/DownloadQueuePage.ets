@@ -4,11 +4,16 @@ import {
   GroupedListSection,
   ConciseListRow,
   CardEmptyState,
+  DownloadGalleryTask,
+  DownloadQueueSettings,
+  DownloadQueueState,
   DownloadViewType,
   DownloadViewState,
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
+  connectDownloadQueue,
   connectDownloadView,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 /**
  * Downloads (下载) bottom tab — plain tab content hosted under Index's shared HDS title bar (no
@@ -22,6 +27,11 @@ export struct DownloadQueuePage {
   // Accepted for the Index tab-scroller handoff (this placeholder doesn't scroll, so it's unused).
   @Param scroller: Scroller = new Scroller();
   @Local downloadView: DownloadViewState = connectDownloadView();
+  @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   private selectedTitle(): Resource {
     return this.downloadView.viewType === DownloadViewType.ARCHIVER
@@ -41,6 +51,36 @@ export struct DownloadQueuePage {
       : $r('app.string.download_gallery_next_step')
   }
 
+  private selectedActiveCount(): number {
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+      ? 0
+      : this.downloadQueue.galleryTasks.length
+  }
+
+  private selectedStatus(): Resource {
+    return this.selectedActiveCount() > 0
+      ? $r('app.string.download_status_queued')
+      : $r('app.string.download_status_empty')
+  }
+
+  private taskSubtitle(task: DownloadGalleryTask): string {
+    const parts: string[] = []
+    if (task.pageCountText().length > 0) {
+      parts.push(task.pageCountText())
+    }
+    if (task.category.length > 0) {
+      parts.push(task.category)
+    }
+    if (task.uploader.length > 0) {
+      parts.push(task.uploader)
+    }
+    return parts.join(' · ')
+  }
+
+  private async removeTask(task: DownloadGalleryTask): Promise<void> {
+    await DownloadQueueSettings.removeGallery(this.ctx(), task.gid, task.token)
+  }
+
   @Builder
   private SummarySection() {
     GroupedListSection() {
@@ -49,14 +89,14 @@ export struct DownloadQueuePage {
         leadingIcon: this.downloadView.viewType === DownloadViewType.ARCHIVER
           ? $r('sys.symbol.square_grid_2x2')
           : $r('sys.symbol.picture'),
-        trailingText: $r('app.string.download_status_empty'),
+        trailingText: this.selectedStatus(),
         showChevron: false,
       })
       this.rowDivider()
       ConciseListRow({
         title: $r('app.string.download_active_tasks'),
         leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
-        trailingText: '0',
+        trailingText: `${this.selectedActiveCount()}`,
         showChevron: false,
       })
       this.rowDivider()
@@ -87,6 +127,43 @@ export struct DownloadQueuePage {
   }
 
   @Builder
+  private GalleryTaskSection() {
+    GroupedListSection() {
+      ForEach(
+        this.downloadQueue.galleryTasks,
+        (task: DownloadGalleryTask) => {
+          ConciseListRow({
+            title: task.displayTitle(),
+            subtitle: this.taskSubtitle(task),
+            leadingImageUrl: task.thumbUrl,
+            trailingText: $r('app.string.download_status_queued'),
+            showChevron: false,
+            suffixBuilderParam: () => {
+              this.RemoveTaskButton(task)
+            },
+          })
+          this.rowDivider()
+        },
+        (task: DownloadGalleryTask) => `${task.gid}:${task.token}`,
+      )
+    }
+  }
+
+  @Builder
+  private RemoveTaskButton(task: DownloadGalleryTask) {
+    Button($r('app.string.common_remove'))
+      .type(ButtonType.Capsule)
+      .height(30)
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontColor($r('sys.color.font_secondary'))
+      .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+      .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
+      .onClick(() => {
+        this.removeTask(task)
+      })
+  }
+
+  @Builder
   private rowDivider() {
     Divider()
       .strokeWidth(0.5)
@@ -109,8 +186,14 @@ export struct DownloadQueuePage {
         ListItem() {
           this.SummarySection()
         }
-        ListItem() {
-          this.EmptyQueueSection()
+        if (this.downloadView.viewType === DownloadViewType.GALLERY && this.downloadQueue.galleryTasks.length > 0) {
+          ListItem() {
+            this.GalleryTaskSection()
+          }
+        } else {
+          ListItem() {
+            this.EmptyQueueSection()
+          }
         }
       }
     }

@@ -29,6 +29,7 @@ export class StorageKeys {
   static readonly DOWNLOAD_DIR: string = 'download.dir'
   static readonly DOWNLOAD_CONCURRENCY: string = 'download.concurrency'
   static readonly DOWNLOAD_ORIGINAL: string = 'download.original'
+  static readonly DOWNLOAD_GALLERY_QUEUE: string = 'download.galleryQueue'
 
   // sensitive auth bundle (redacted in logs, never committed)
   static readonly COOKIE_JAR: string = 'auth.cookieJar'

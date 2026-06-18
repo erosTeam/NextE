@@ -65,6 +65,10 @@
       "value": "空"
     },
     {
+      "name": "download_status_queued",
+      "value": "已排队"
+    },
+    {
       "name": "download_gallery_empty",
       "value": "暂无画廊下载"
     },
@@ -107,6 +111,14 @@
     {
       "name": "download_not_configured",
       "value": "未配置"
+    },
+    {
+      "name": "download_gallery_added",
+      "value": "已加入画廊队列"
+    },
+    {
+      "name": "download_gallery_already_queued",
+      "value": "已在画廊队列中"
     },
     {
       "name": "tab_settings",
@@ -285,6 +297,10 @@
       "value": "阅读"
     },
     {
+      "name": "detail_download",
+      "value": "下载"
+    },
+    {
       "name": "detail_torrents",
       "value": "种子: %s"
     },
@@ -451,6 +467,10 @@
     {
       "name": "common_cancel",
       "value": "取消"
+    },
+    {
+      "name": "common_remove",
+      "value": "移除"
     },
     {
       "name": "favorites_coming",

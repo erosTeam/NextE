@@ -65,6 +65,10 @@
       "value": "空"
     },
     {
+      "name": "download_status_queued",
+      "value": "キュー済み"
+    },
+    {
       "name": "download_gallery_empty",
       "value": "ギャラリーダウンロードはありません"
     },
@@ -107,6 +111,14 @@
     {
       "name": "download_not_configured",
       "value": "未設定"
+    },
+    {
+      "name": "download_gallery_added",
+      "value": "ギャラリーキューに追加しました"
+    },
+    {
+      "name": "download_gallery_already_queued",
+      "value": "既にギャラリーキューにあります"
     },
     {
       "name": "tab_settings",
@@ -285,6 +297,10 @@
       "value": "読む"
     },
     {
+      "name": "detail_download",
+      "value": "ダウンロード"
+    },
+    {
       "name": "detail_torrents",
       "value": "トレント: %s"
     },
@@ -451,6 +467,10 @@
     {
       "name": "common_cancel",
       "value": "キャンセル"
+    },
+    {
+      "name": "common_remove",
+      "value": "削除"
     },
     {
       "name": "favorites_coming",

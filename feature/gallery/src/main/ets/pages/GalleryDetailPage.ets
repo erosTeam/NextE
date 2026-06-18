@@ -17,6 +17,10 @@ import {
   GalleryReadProgressState,
   connectThumbnailMode,
   ThumbnailModeState,
+  DownloadGalleryTask,
+  DownloadQueueSettings,
+  DownloadQueueState,
+  connectDownloadQueue,
   ViewedGallery,
   ViewedHistorySettings,
   PullRefreshListScaffold,
@@ -53,6 +57,9 @@ export struct GalleryDetailPage {
   // Detail-preview display mode (eros_fe hideGalleryThumbnails / horizontalThumbnails). Reactive so a
   // settings toggle re-renders this page's preview section live (grid ↔ horizontal ↔ hidden-inline).
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
+  // Local gallery download queue state: mirrors eros_fe GalleryTask uniqueness, but this lane only
+  // enqueues/records a task. It does not start the background image downloader.
+  @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -152,6 +159,34 @@ export struct GalleryDetailPage {
 
   private torrentTitle(count: string): string {
     return AppStrings.get('detail_torrents').replace('%s', count)
+  }
+
+  private isGalleryQueued(): boolean {
+    const gid: string = this.vm.gallery.gid.length > 0 ? this.vm.gallery.gid : this.params.gid
+    const token: string = this.vm.gallery.token.length > 0 ? this.vm.gallery.token : this.params.token
+    return this.downloadQueue.galleryTasks.some((task: DownloadGalleryTask) => {
+      return task.gid === gid && task.token === token
+    })
+  }
+
+  private downloadTitle(): Resource {
+    return this.isGalleryQueued() ? $r('app.string.download_status_queued') : $r('app.string.detail_download')
+  }
+
+  private async enqueueGalleryDownload(): Promise<void> {
+    const task: DownloadGalleryTask = DownloadGalleryTask.fromGallery(
+      this.vm.gallery,
+      this.params.gid,
+      this.params.token,
+    )
+    const inserted: boolean = await DownloadQueueSettings.enqueueGallery(this.ctx(), task)
+    this.getUIContext().getPromptAction().openToast({
+      message: inserted
+        ? $r('app.string.download_gallery_added')
+        : $r('app.string.download_gallery_already_queued'),
+    }).catch((_error: Error) => {
+      // The queue state has already been written; toast failure should not undo the user action.
+    })
   }
 
   private openThumbnails(): void {
@@ -383,6 +418,12 @@ export struct GalleryDetailPage {
               this.openTorrents()
             })
         }
+        Text(this.downloadTitle())
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(this.isGalleryQueued() ? $r('sys.color.font_secondary') : $r('sys.color.font_emphasize'))
+          .onClick(() => {
+            this.enqueueGalleryDownload()
+          })
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

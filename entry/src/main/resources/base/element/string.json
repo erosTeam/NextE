@@ -65,6 +65,10 @@
       "value": "Empty"
     },
     {
+      "name": "download_status_queued",
+      "value": "Queued"
+    },
+    {
       "name": "download_gallery_empty",
       "value": "No gallery downloads yet"
     },
@@ -107,6 +111,14 @@
     {
       "name": "download_not_configured",
       "value": "Not configured"
+    },
+    {
+      "name": "download_gallery_added",
+      "value": "Added to gallery queue"
+    },
+    {
+      "name": "download_gallery_already_queued",
+      "value": "Already in gallery queue"
     },
     {
       "name": "tab_settings",
@@ -285,6 +297,10 @@
       "value": "Read"
     },
     {
+      "name": "detail_download",
+      "value": "Download"
+    },
+    {
       "name": "detail_torrents",
       "value": "Torrents: %s"
     },
@@ -451,6 +467,10 @@
     {
       "name": "common_cancel",
       "value": "Cancel"
+    },
+    {
+      "name": "common_remove",
+      "value": "Remove"
     },
     {
       "name": "favorites_coming",
