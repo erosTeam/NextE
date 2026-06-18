@@ -165,8 +165,42 @@ export struct ReaderPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
-  // Share the gallery's public URL from the reader top bar (eros_fe ViewTopBar share), same payload
-  // as the detail page's share via the shared ShareUtil.
+  private currentImage(): EhGalleryImage | null {
+    if (this.vm.currentIndex < 0 || this.vm.currentIndex >= this.vm.images.length) {
+      return null
+    }
+    return this.vm.images[this.vm.currentIndex]
+  }
+
+  // Share the current reader image URL from the reader top bar (eros_fe ViewTopBar share). Prefer the
+  // original/fullimg URL when the image page has exposed it; otherwise share the resolved full image.
+  // If the current page is not resolved yet, resolve it through the same /s/ pipeline the reader uses.
+  private shareCurrentImage(): void {
+    const image: EhGalleryImage | null = this.currentImage()
+    if (image === null) {
+      this.shareGallery()
+      return
+    }
+    const title: string = `${this.params.title} ${this.vm.currentIndex + 1}`.trim()
+    const alreadyResolvedUrl: string =
+      image.originImageUrl.length > 0 ? image.originImageUrl : image.imageUrl
+    if (alreadyResolvedUrl.length > 0) {
+      ShareUtil.shareUrl(this.hostContext(), alreadyResolvedUrl, title)
+      return
+    }
+    ImageResolveService.getInstance()
+      .resolve(image)
+      .then((imageUrl: string) => {
+        const url: string = image.originImageUrl.length > 0 ? image.originImageUrl : imageUrl
+        ShareUtil.shareUrl(this.hostContext(), url, title)
+      })
+      .catch((err: Error) => {
+        DiagnosticLogger.warn('reader', 'share_image_resolve_failed', err.message)
+        this.shareGallery()
+      })
+  }
+
+  // Share the gallery's public URL as a fallback when the current image cannot be resolved.
   private shareGallery(): void {
     ShareUtil.shareGallery(
       this.hostContext(),
@@ -550,7 +584,7 @@ export struct ReaderPage {
       .height(40)
       .backgroundColor(Color.Transparent)
       .onClick(() => {
-        this.shareGallery()
+        this.shareCurrentImage()
       })
       Button({ type: ButtonType.Circle }) {
         SymbolGlyph($r('sys.symbol.gearshape'))

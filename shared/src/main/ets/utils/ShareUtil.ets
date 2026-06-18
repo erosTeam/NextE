@@ -8,18 +8,15 @@ import { EhConstants } from '../constants/EhConstants'
  * payload (a gallery's public /g/<gid>/<token>/ URL as a HYPERLINK + its title) is built one way.
  */
 export class ShareUtil {
-  /** Open the system share sheet for a gallery's public URL. No-op when gid/token are missing. */
-  static shareGallery(
+  /** Open the system share sheet for an arbitrary URL. */
+  static shareUrl(
     context: common.UIAbilityContext,
-    gid: string,
-    token: string,
-    isEx: boolean,
+    url: string,
     title: string,
   ): void {
-    if (gid.length === 0 || token.length === 0) {
+    if (url.length === 0) {
       return
     }
-    const url: string = `${EhConstants.baseUrl(isEx)}/g/${gid}/${token}/`
     const record: systemShare.SharedRecord = {
       utd: utd.UniformDataType.HYPERLINK,
       content: url,
@@ -33,5 +30,20 @@ export class ShareUtil {
         previewMode: systemShare.SharePreviewMode.DETAIL,
       })
       .catch(() => {})
+  }
+
+  /** Open the system share sheet for a gallery's public URL. No-op when gid/token are missing. */
+  static shareGallery(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    isEx: boolean,
+    title: string,
+  ): void {
+    if (gid.length === 0 || token.length === 0) {
+      return
+    }
+    const url: string = `${EhConstants.baseUrl(isEx)}/g/${gid}/${token}/`
+    ShareUtil.shareUrl(context, url, title)
   }
 }
