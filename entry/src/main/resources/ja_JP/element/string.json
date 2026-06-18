@@ -89,6 +89,14 @@
       "value": "元画像"
     },
     {
+      "name": "download_original_ask",
+      "value": "確認"
+    },
+    {
+      "name": "download_original_always",
+      "value": "常に"
+    },
+    {
       "name": "download_not_configured",
       "value": "未設定"
     },

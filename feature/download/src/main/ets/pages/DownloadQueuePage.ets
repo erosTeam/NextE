@@ -1,9 +1,14 @@
+import { common } from '@kit.AbilityKit'
 import {
   ThemeConstants,
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
   CardEmptyState,
+  DownloadSettings,
+  DownloadOriginalMode,
+  DownloadSettingsState,
+  connectDownloadSettings,
 } from 'shared'
 
 const DOWNLOAD_VIEW_GALLERY: string = 'gallery'
@@ -21,6 +26,11 @@ export struct DownloadQueuePage {
   // Accepted for the Index tab-scroller handoff (this placeholder doesn't scroll, so it's unused).
   @Param scroller: Scroller = new Scroller();
   @Local viewType: string = DOWNLOAD_VIEW_GALLERY;
+  @Local downloadSettings: DownloadSettingsState = connectDownloadSettings();
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   private selectedTitle(): Resource {
     return this.viewType === DOWNLOAD_VIEW_ARCHIVER
@@ -46,6 +56,30 @@ export struct DownloadQueuePage {
 
   private tabBackground(viewType: string): ResourceColor {
     return this.viewType === viewType ? ThemeConstants.BRAND_PRIMARY : Color.Transparent
+  }
+
+  private originalModeLabel(): Resource {
+    if (this.downloadSettings.originalMode === DownloadOriginalMode.OFF) {
+      return $r('app.string.common_off')
+    }
+    if (this.downloadSettings.originalMode === DownloadOriginalMode.ALWAYS) {
+      return $r('app.string.download_original_always')
+    }
+    return $r('app.string.download_original_ask')
+  }
+
+  private cycleOriginalMode(): void {
+    let next: string = DownloadOriginalMode.ASK
+    if (this.downloadSettings.originalMode === DownloadOriginalMode.ASK) {
+      next = DownloadOriginalMode.ALWAYS
+    } else if (this.downloadSettings.originalMode === DownloadOriginalMode.ALWAYS) {
+      next = DownloadOriginalMode.OFF
+    }
+    DownloadSettings.setOriginalMode(this.ctx(), next)
+  }
+
+  private adjustConcurrency(delta: number): void {
+    DownloadSettings.setConcurrency(this.ctx(), this.downloadSettings.concurrency + delta)
   }
 
   @Builder
@@ -130,15 +164,27 @@ export struct DownloadQueuePage {
       ConciseListRow({
         title: $r('app.string.download_concurrency'),
         leadingIcon: $r('sys.symbol.sort'),
-        trailingText: $r('app.string.download_not_configured'),
+        hasCounter: true,
+        counterValue: `${this.downloadSettings.concurrency}`,
+        counterDecreaseEnabled: this.downloadSettings.concurrency > DownloadSettings.minConcurrency(),
+        counterIncreaseEnabled: this.downloadSettings.concurrency < DownloadSettings.maxConcurrency(),
         showChevron: false,
+        counterDecreaseAction: () => {
+          this.adjustConcurrency(-1)
+        },
+        counterIncreaseAction: () => {
+          this.adjustConcurrency(1)
+        },
       })
       this.rowDivider()
       ConciseListRow({
         title: $r('app.string.download_original_images'),
         leadingIcon: $r('sys.symbol.picture'),
-        trailingText: $r('app.string.download_not_configured'),
-        showChevron: false,
+        trailingText: this.originalModeLabel(),
+        showChevron: true,
+        action: () => {
+          this.cycleOriginalMode()
+        },
       })
     }
   }

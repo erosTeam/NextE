@@ -103,6 +103,11 @@ export { UserTagStore } from './state/UserTagStore'
 export { UserTagSignal, connectUserTagSignal } from './state/UserTagSignal'
 export { ListMode, ListModeState, connectListMode } from './state/ListModeState'
 export { ReadMode, ReadColumnMode, ReadModeState, connectReadMode } from './state/ReadModeState'
+export {
+  DownloadOriginalMode,
+  DownloadSettingsState,
+  connectDownloadSettings,
+} from './state/DownloadSettingsState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
 export {
@@ -149,6 +154,7 @@ export { SearchHistorySettings } from './settings/SearchHistorySettings'
 export { SearchFilterSettings, SearchFilterSnapshot } from './settings/SearchFilterSettings'
 export { GalleryReadProgressSettings } from './settings/GalleryReadProgressSettings'
 export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
+export { DownloadSettings } from './settings/DownloadSettings'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'

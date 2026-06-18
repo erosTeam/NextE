@@ -89,6 +89,14 @@
       "value": "原图"
     },
     {
+      "name": "download_original_ask",
+      "value": "询问"
+    },
+    {
+      "name": "download_original_always",
+      "value": "总是"
+    },
+    {
       "name": "download_not_configured",
       "value": "未配置"
     },

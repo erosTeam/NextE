@@ -89,6 +89,14 @@
       "value": "Original images"
     },
     {
+      "name": "download_original_ask",
+      "value": "Ask"
+    },
+    {
+      "name": "download_original_always",
+      "value": "Always"
+    },
+    {
       "name": "download_not_configured",
       "value": "Not configured"
     },
