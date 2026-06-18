@@ -2,7 +2,7 @@
 
 - **status**: ACTIVE
 - **owner**: controller / project lead
-- **updated**: 2026-06-18 07:45:52 +0800
+- **updated**: 2026-06-18 08:03:05 +0800
 - **purpose**: single scheduling snapshot after the Mac migration and the latest list responsive-cover gate.
 
 This document is a planning control surface, not an acceptance archive. Existing active plans remain queues. Historical PASS logs, worker summaries, and old screenshots are useful evidence, but they do not equal current controller acceptance.
@@ -48,12 +48,12 @@ Migration consequences:
 
 ## Repository snapshot
 
-Controller checkout:
+Controller checkout at the start of this snapshot update:
 
 ```text
 repo:   /Users/honjow/git/NextE
 branch: main
-head:   38a04b4 docs(project): record auth cookie lane merge status
+base:   7b99bf5 docs(project): record false 404 smoke status
 ```
 
 Current controller checkout status:
@@ -266,9 +266,46 @@ No dev.sh command was used.
 Required next acceptance action:
 
 ```text
-Controller reviews the narrow Search footer diff and contract.
-Device install/launch evidence exists, but Search-page visual capture was blocked by the system IME first-run
-privacy dialog. Do not mark the full V2 queue accepted until controller re-QA covers the reachable visual cases.
+Controller reviews the narrow Search footer diff, contracts, and the current reachable device re-QA evidence.
+Do not mark the full V2 queue accepted until Search/filter and Favorites logged-in cases are reachable.
+```
+
+Current reachable device re-QA from 2026-06-18:
+
+```text
+Target: 127.0.0.1:5555 Mate X7 emulator; every hdc command ran outside the Codex sandbox.
+
+Home:
+  - default list loaded with real rows, no terminal empty/no-more copy.
+  - default -> popular subtab switch captured immediately and after settle.
+  - settled popular layout has rows and no "没有数据/没有更多了".
+
+Toplist:
+  - all period loaded with real rows, no terminal empty/no-more copy.
+  - all -> year period switch captured immediately and after settle.
+  - settled year layout has rows and no "没有数据/没有更多了".
+
+Contracts:
+  - node scripts/test_selector_reload_preserves_content_contract.mjs PASS
+  - node scripts/test_retained_tab_contract.mjs PASS
+  - node scripts/test_v1_decorator_inventory_contract.mjs PASS, 0 file(s)
+
+Evidence:
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_home.png
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_home_layout.json
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_home_hot_immediate.png
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_home_hot_after.png
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_home_hot_layout.json
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_toplist.png
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_toplist_layout.json
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_toplist_year_immediate.png
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_toplist_year_after.png
+  - /private/tmp/nexte_lane_continuation_probe/nexte_req_toplist_year_layout.json
+
+Still open:
+  - Search/filter visual re-QA remains blocked by the system Xiaoyi IME first-run privacy page.
+  - Favorites favcat/order re-QA still needs a safe logged-in app state; the current run could not
+    prove one, and Codex did not request or type cookies.
 ```
 
 ### 4. Detail visual re-QA preview-grid comfort gate
@@ -800,7 +837,8 @@ Defer until the core authenticated browse/search/favorites/mytags/download lanes
 
 ## First-stage dispatch recommendation
 
-Start with **Lane F: false-404/auth matrix follow-up**, unless controller wants another visual re-QA pass first.
+Start with **non-auth visual/navigation re-QA** until a safe user-driven login state exists, then resume
+**Lane F: false-404/auth matrix follow-up**.
 
 Rationale:
 
@@ -808,21 +846,24 @@ Rationale:
 - Lanes A-D have already been merged and pushed to origin/main with contracts, official signed builds, and device evidence where reachable.
 - Lanes A-E have already been merged and pushed to origin/main with contracts, official signed builds, and device evidence where reachable.
 - A safe manual Cookie import path now exists, but Codex cannot verify real successful import without a user-owned cookie.
-- The next useful product proof is truthful error/auth matrix re-QA after the user manually establishes login state, or non-auth visual re-QA if controller prefers.
+- The latest run confirmed no safe logged-in state and the system IME privacy page blocks Search text entry.
+- The next useful automatic proof is therefore more non-auth visual/navigation re-QA.
+- Truthful error/auth matrix re-QA resumes after the user manually establishes login state.
 - Do not request or print cookies; controller only needs screenshots/status from manual login import, never cookie values.
 ```
 
 Concrete first-stage checklist:
 
 ```text
-1. If user manually imports real cookies, collect only redacted app status/screenshots.
-2. Re-run false-404/auth cases:
+1. Continue non-auth visual/navigation re-QA that does not require text entry or login.
+2. If user manually imports real cookies, collect only redacted app status/screenshots.
+3. Re-run false-404/auth cases:
    - true HTTP 404
    - parse failure with HTTP 200
    - ExHentai/Sad Panda
    - donor/permission/member-only cases if reachable
-3. Keep destructive EH writes out of scope.
-4. Required gates before any follow-up merge:
+4. Keep destructive EH writes out of scope.
+5. Required gates before any follow-up merge:
    - error-classification contract
    - cookie import/roundtrip/secret-safety contracts
    - V1 decorator inventory
@@ -833,8 +874,10 @@ Concrete first-stage checklist:
 ## Authorization needed from user/controller
 
 ```text
-- Whether controller wants the dirty control-plane docs committed now as a scheduling snapshot.
-- Whether any real cookie import success will be manually tested by the user; Codex will not request or print cookie values.
-- Whether to run Lane F false-404/auth matrix next, or return to visual re-QA first.
-- Whether additional Mate Pad Mini/tablet re-QA is required for the already-merged responsive/list/detail lanes.
+- No authorization is needed for Codex to continue non-auth re-QA and commit/push control-plane docs under
+  the current "完全授权" / continuous-progress instruction.
+- User/controller action is still needed only to create a safe logged-in app state for full auth/ExHentai/Favorites
+  matrix re-QA. Codex will not request, receive, type, log, or screenshot raw cookie values.
+- If controller wants tablet-specific acceptance, specify whether Mate Pad Mini/tablet re-QA should preempt
+  the remaining detail visual queue.
 ```

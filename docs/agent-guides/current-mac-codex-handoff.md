@@ -1,6 +1,6 @@
 # Current Mac/Codex handoff
 
-Last updated: 2026-06-18 07:45:52 +0800.
+Last updated: 2026-06-18 08:03:05 +0800.
 
 This file is the current-site handoff for Codex/Claude/local agents after the Hermes migration from the old desktop to the Mac. It summarizes durable context that is otherwise split across memory, active plans, and controller chat. It is **not** a completion claim and does not override active plan gates.
 
@@ -129,13 +129,13 @@ Do not commit signing secrets or local profile contents. Do not treat `.gitignor
 
 ## Current repository state snapshot
 
-Controller checkout at this handoff:
+Controller checkout at the start of this handoff update:
 
 ```text
 repo:   /Users/honjow/git/NextE
 branch: main
-head:   38a04b4 docs(project): record auth cookie lane merge status
-status: clean tree, in sync with origin/main after auth-cookie-login-rebase and control-plane doc pushes
+base:   7b99bf5 docs(project): record false 404 smoke status
+status: clean tree, in sync with origin/main before this Gate V2 re-QA documentation update
 ```
 
 Control-plane documents, harness state, screenshots, fixtures, and worktrees are project assets. Do not delete, move, or call them disposable without explicit path-level user authorization.
@@ -182,6 +182,7 @@ recently merged/pushed lanes:
   - 0652a05 detail preview grid comfort width
   - 58e48ba manual Cookie login/import path and logout-state sync
   - 38a04b4 auth-cookie merge-status control-plane docs
+  - 7b99bf5 false-404 logged-out smoke control-plane docs
 ```
 
 At this handoff there are no live tmux worker sessions and no Hermes background processes.
@@ -226,6 +227,35 @@ Latest false-404 smoke:
   Limitation: bounded hilog tail did not capture a useful NextE classifier line. This is one logged-out
   non-auth smoke only; ExHentai/Sad Panda/donor/permission/auth matrix still requires a safe user-driven
   login state and must not involve Codex receiving or typing raw cookies.
+```
+
+Latest Gate V2 reachable subtab re-QA smoke:
+
+```text
+2026-06-18, Mate X7 emulator target 127.0.0.1:5555, hdc run outside the Codex sandbox.
+  Home default list loaded with content, no terminal empty/no-more copy.
+  Home default -> popular subtab switch: immediate and settled screenshots captured; settled layout has
+  gallery rows and no "没有数据/没有更多了" text.
+  Toplist all -> year period switch: immediate and settled screenshots captured; settled layout has
+  gallery rows and no "没有数据/没有更多了" text.
+  Search landing and Favorites follow-up are still blocked by the system Xiaoyi IME first-run privacy
+  page staying in the foreground. Codex clicked no "同意" button and typed no text.
+
+Evidence directory:
+  /private/tmp/nexte_lane_continuation_probe/
+Important files:
+  nexte_req_home.png
+  nexte_req_home_layout.json
+  nexte_req_home_hot_immediate.png
+  nexte_req_home_hot_after.png
+  nexte_req_home_hot_layout.json
+  nexte_req_toplist.png
+  nexte_req_toplist_layout.json
+  nexte_req_toplist_year_immediate.png
+  nexte_req_toplist_year_after.png
+  nexte_req_toplist_year_layout.json
+  nexte_req_search_landing.png
+  nexte_req_search_landing_layout.json
 ```
 
 Do not archive active plans or convert plan items into a new batch. Existing headings are queued gates until current controller evidence proves them solved/blocked/out of scope.

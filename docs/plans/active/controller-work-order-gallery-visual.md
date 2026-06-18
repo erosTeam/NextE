@@ -159,7 +159,7 @@ User-visible screenshot feedback overrides prior worker self-PASS and contract-o
 
 ### Gate V2 — Subtab never-loaded empty-state flash
 
-Status: MERGED_CANDIDATE_REVIEW
+Status: PARTIAL_REQA
 Priority: P0
 
 User-observed failure:
@@ -188,6 +188,38 @@ Acceptance evidence required:
 - deterministic contract proving never-loaded key dispatches to loading, not empty/footer
 - device rapid-capture or video evidence on Home/Toplist/Favorites if affected
 - build/install proof
+```
+
+Current evidence checkpoint:
+
+```text
+2026-06-18 08:03 +0800, Mate X7 emulator 127.0.0.1:5555.
+Every hdc command was run outside the Codex sandbox.
+
+PASS-like reachable evidence, still pending controller visual acceptance:
+- Home default -> popular subtab: immediate and settled screenshots captured; settled layout has rows and
+  no "没有数据/没有更多了".
+- Toplist all -> year period: immediate and settled screenshots captured; settled layout has rows and
+  no "没有数据/没有更多了".
+
+Evidence directory:
+/private/tmp/nexte_lane_continuation_probe/
+
+Relevant files:
+- nexte_req_home.png
+- nexte_req_home_hot_immediate.png
+- nexte_req_home_hot_after.png
+- nexte_req_home_hot_layout.json
+- nexte_req_toplist.png
+- nexte_req_toplist_year_immediate.png
+- nexte_req_toplist_year_after.png
+- nexte_req_toplist_year_layout.json
+
+Still open / blocked:
+- Search/filter visual re-QA: blocked by the system Xiaoyi IME first-run privacy page; Codex did not
+  click "同意" or type text.
+- Favorites favcat/order: still needs a safe logged-in app state.
+- Site 表/里 switch: still needs safe auth/ExHentai state.
 ```
 
 ### Gate V3 — Existing active visual/navigation items re-audit
@@ -244,7 +276,8 @@ For each gate:
 
 ```text
 2026-06-18 07:22 +0800
-origin/main: 38a04b4 docs(project): record auth cookie lane merge status
+origin/main before this Gate V2 re-QA docs update:
+7b99bf5 docs(project): record false 404 smoke status
 
 Merged/pushed since the Mac handoff:
 - 11069a5 fix(list): make gallery card covers pane-responsive
@@ -253,6 +286,7 @@ Merged/pushed since the Mac handoff:
 - 0652a05 fix(gallery): restore comfortable preview grid width
 - 58e48ba fix(auth): sync logout state before persistence cleanup
 - 38a04b4 docs(project): record auth cookie lane merge status
+- 7b99bf5 docs(project): record false 404 smoke status
 
 These merges do not close the active visual/navigation plans by themselves. Controller re-QA and
 item-by-item acceptance are still required.
