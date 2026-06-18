@@ -280,6 +280,22 @@ Items to audit from `gallery-visual-navigation-regression-contract.md`:
 - list-card fixed/adaptive height modes across retained pages
 ```
 
+Current Mac partial evidence checkpoint (2026-06-18):
+
+```text
+Detail header/action sizing:
+- Target: 127.0.0.1:5555 Mate X7 emulator.
+- Build: a253aff signed HAP already installed.
+- Detail: https://e-hentai.org/g/3989982/16600a66e8/
+- State covered: not favorited, first-read only.
+- Evidence:
+  - /private/tmp/nexte_detail_header_action_evidence/detail_header_action.png
+  - /private/tmp/nexte_detail_header_action_evidence/detail_header_action_layout.json
+- Observed: cover/title/JP title/uploader stay inside the header card; `阅读` is a compact
+  right-bottom capsule; page count stays in InfoBar; no fake favcat heart/title block is shown.
+- Still open: favorited header, resume label, read/unread/resume matrix, and controller visual acceptance.
+```
+
 Completion rule:
 
 ```text

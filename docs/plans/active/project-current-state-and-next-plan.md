@@ -416,6 +416,29 @@ Evidence:
   - /private/tmp/nexte_preview_min90_hidden_evidence/settings_restored.json
 ```
 
+Additional detail header/action partial re-QA from 2026-06-18:
+
+```text
+- Target/build: same Mate X7 emulator target 127.0.0.1:5555, same installed a253aff signed HAP.
+- Public detail deep link opened: https://e-hentai.org/g/3989982/16600a66e8/
+- State covered: not favorited and first-read only.
+- Screenshot shows cover + title + JP title + uploader inside the header card.
+- The read action is a compact right-bottom `阅读` capsule; layout bounds `[768,805][1006,918]`.
+- Page count and favorite-count metadata remain in InfoBar, not in the read CTA.
+- No favcat heart/title block is shown in this not-favorited state.
+- Every hdc command ran outside the Codex sandbox.
+
+Evidence:
+  - /private/tmp/nexte_detail_header_action_evidence/detail_header_action.png
+  - /private/tmp/nexte_detail_header_action_evidence/detail_header_action_layout.json
+
+Still open:
+  - favorited header/action state
+  - resume label/action state
+  - full read/unread/resume matrix
+  - controller visual acceptance
+```
+
 Validation already run:
 
 ```text
@@ -476,7 +499,7 @@ Current active meaning:
 - Gate V2 subtab never-loaded empty/no-more flash remains a P0 behavior queue.
 - Gate V3 re-audits prior visual/navigation claims.
 - gallery-visual-navigation-regression-contract.md explicitly says prior PASS/archive claims are invalid unless re-backed by current controller evidence.
-- Current Gate V1 re-QA is partial: default grid, horizontal preview/AllThumbnails route, and hidden-inline/AllThumbnails route have current Mate X7 evidence; final controller visual acceptance is still open.
+- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, and not-favorited first-read header/action have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
 ```
 
 Important boundary:
