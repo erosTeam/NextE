@@ -329,24 +329,87 @@ Gallery cover presentation:
 - Target: 127.0.0.1:5555 Mate X7 emulator.
 - Build: a253aff signed HAP already installed.
 - Detail: https://e-hentai.org/g/3989982/16600a66e8/
-- Surfaces covered: loaded/light detail header cover and Home default list covers only.
+- Surfaces covered: loaded/light detail header cover, Home default list covers, and Home default grid-card covers only.
 - Evidence:
   - /private/tmp/nexte_cover_presentation_evidence/cover_detail_header.png
   - /private/tmp/nexte_cover_presentation_evidence/cover_detail_header_layout.json
   - /private/tmp/nexte_cover_presentation_evidence/cover_home_list.png
   - /private/tmp/nexte_cover_presentation_evidence/cover_home_list_layout.json
   - /private/tmp/nexte_cover_presentation_evidence/nav_probe_layout.json
+  - /private/tmp/nexte_cover_gridcard_evidence/settings_initial.json
+  - /private/tmp/nexte_cover_gridcard_evidence/settings_grid.json
+  - /private/tmp/nexte_cover_gridcard_evidence/grid_home.png
+  - /private/tmp/nexte_cover_gridcard_evidence/grid_home_layout.json
+  - /private/tmp/nexte_cover_gridcard_evidence/settings_restored.json
 - Observed: detail header cover fits the real cover over a distinct grey backdrop with header content
   intact; Home list covers fit over the same distinct light grey backdrop. Layout confirms Home
-  `E-Hentai` default list and cover Image backgrounds at `#FFE6E8EB`.
-- Still open: loading placeholder screenshots, error fallback screenshots, dark-mode evidence,
-  grid-card intentional-cover behavior, and controller visual acceptance.
+  `E-Hentai` default list and cover Image backgrounds at `#FFE6E8EB`. Home grid mode was temporarily
+  enabled and restored; the grid evidence shows two visible grid-card cover Image nodes filling their
+  grid cells over `#FFE6E8EB`, which is the intentional grid-card behavior and is distinct from the
+  list/detail containFit treatment.
+- Still open: loading placeholder screenshots, error fallback screenshots, dark-mode evidence, and
+  controller visual acceptance.
 ```
 
 Completion rule:
 
 ```text
 Each subitem must be either ACCEPTED with evidence, OPEN with next action, or explicitly OUT_OF_SCOPE with reason. Do not archive the active plan while any subitem is OPEN.
+```
+
+### Gate V4 — Detail primary actions redesign
+
+Status: DESIGN_PENDING_LOGIN_REQA
+Priority: P0/P1 boundary, depends on controller product decision after login-state evidence
+
+Problem:
+
+```text
+The current detail header action area still has a product mismatch:
+- the `阅读` action is too visually dominant/wide for some states and may need to shrink if it stays inline;
+- the favorite action needs logged-in evidence and may need a larger, clearer affordance;
+- fixing only button dimensions risks preserving a cramped header-card action model.
+```
+
+Current design direction:
+
+```text
+Do not treat this as a simple eros_fe copy task.
+Use eros_fe as behavior/source grounding, but evaluate a NextE-native design:
+- move favorite/favcat action into the title-bar menu or another title-area affordance;
+- make read/resume the primary action as a floating action button;
+- use V2Next / Next2V reply-FAB patterns as the closest HarmonyOS-native reference;
+- consider smart grip / 智感握姿 as an enhancement after ordinary FAB behavior works.
+```
+
+Required first stage before implementation:
+
+```text
+- Capture current logged-in favorite states: not-favorited, favorited, favcat title, favorite move/remove path.
+- Capture read states: first-read, resume-read, after-read if reachable.
+- Inspect current NextE `GalleryHeaderCard` and navigation/title menu primitives.
+- Inspect V2Next / Next2V reply FAB and title/menu interaction patterns.
+- Check HarmonyOS smart grip / 智感握姿 capability through the harmony-next skill or official docs before using any API.
+```
+
+Acceptance shape:
+
+```text
+- The read/resume primary action remains obvious and reachable without covering content or the bottom gesture area.
+- Favorite state and favorite actions remain discoverable after leaving the header card.
+- Logged-out state gives a clear non-secret prompt instead of a dead action.
+- Mate X7 outer/inner layouts are both verified.
+- If smart grip support is unavailable or disabled, the ordinary FAB layout still works.
+- No State Management V1 decorators or key-churn workaround.
+```
+
+Out of scope:
+
+```text
+- Gate V1 thumbnail/cover presentation.
+- auth-cookie-login implementation.
+- false-404/auth matrix diagnostics.
+- one-off padding/height tweaks that pre-empt the redesign decision.
 ```
 
 ## Current dispatch lanes

@@ -591,7 +591,7 @@ Current active meaning:
 - Gate V2 subtab never-loaded empty/no-more flash remains a P0 behavior queue.
 - Gate V3 re-audits prior visual/navigation claims.
 - gallery-visual-navigation-regression-contract.md explicitly says prior PASS/archive claims are invalid unless re-backed by current controller evidence.
-- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, not-favorited first-read header/action, normal detail tag chips, loaded/light gallery cover presentation, and Home default fixed/adaptive list height have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
+- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, not-favorited first-read header/action, normal detail tag chips, loaded/light gallery cover presentation including Home grid-card behavior, and Home default fixed/adaptive list height have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
 ```
 
 Important boundary:
@@ -850,6 +850,56 @@ First action:
 If the controller supplies a safe already-logged-in app state, run the full ExHentai/Sad Panda/donor/permission
 matrix with screenshot/layout/log evidence. Without that state, continue the non-auth visual/navigation re-QA
 queues instead of blocking the whole project.
+```
+
+### Lane G — detail-primary-actions-redesign
+
+Goal:
+
+```text
+Replace the cramped detail header action model with a NextE-native primary action layout after logged-in
+favorite evidence is available.
+```
+
+Product direction:
+
+```text
+- Do not solve the current mismatch as a narrow button-size patch unless controller explicitly rejects
+  the redesign.
+- Keep eros_fe behavior as grounding, but do not blindly copy its inline read/favorite layout.
+- Evaluate moving favorite/favcat actions into the title/menu area.
+- Evaluate making read/resume a floating primary action button, using V2Next / Next2V reply-FAB behavior
+  as the HarmonyOS-native reference.
+- Treat smart grip / 智感握姿 as an optional enhancement with an ordinary FAB fallback.
+```
+
+Dependency:
+
+```text
+Requires a safe logged-in app state before implementation because favorite status, favcat title, move/remove,
+and login prompts cannot be accepted from a logged-out public-detail screenshot.
+```
+
+First action:
+
+```text
+Run a design audit only:
+1. Capture logged-in detail header states without exposing cookies.
+2. Inspect current NextE `GalleryHeaderCard` / title menu / navigation primitives.
+3. Inspect V2Next / Next2V reply FAB and title/menu patterns.
+4. Verify HarmonyOS smart grip / 智感握姿 APIs through harmony-next or official docs before proposing code.
+5. Write a small implementation contract covering Mate X7 outer/inner, logged-out fallback, favorite state
+   discoverability, and ordinary-FAB fallback when smart grip is unavailable.
+```
+
+Out of scope:
+
+```text
+- Gate V1 preview/cover visual acceptance.
+- auth-cookie-login work.
+- false-404/auth matrix work.
+- destructive EH writes.
+- one-off maxWidth/raw-padding patches to the current inline row.
 ```
 
 ## Post-stabilization eros_fe feature lanes

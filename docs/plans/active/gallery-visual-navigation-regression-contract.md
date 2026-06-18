@@ -117,12 +117,32 @@ User report:
 
 - Read button and favorite button sizes are not coordinated.
 - User explicitly raised this earlier; it was not actually improved.
+- 2026-06-18 follow-up: the current reachable public-detail state still shows the read action as a compact
+  `阅读` capsule; the logged-in favorite action state is required before this can be accepted.
+- Product direction has changed from pure eros_fe parity to a NextE-native action redesign candidate:
+  do not assume this should be solved by only shrinking/expanding the two inline buttons.
 
 Required behavior gate:
 
 - Inspect eros_fe `ReadButton` / `GalleryFavButton` and current `GalleryHeaderCard.ets` source.
+- Inspect V2Next / Next2V action patterns, especially reply-style floating action buttons and title/menu
+  affordances, before designing the new NextE interaction.
 - Test read/unread/resume and favorited/unfavorited states.
 - PASS only if action heights, corner radii, icon/text baselines, padding, and visual weight are coordinated in the same row/block.
+- Alternative PASS path, if accepted by controller after login-state evidence: move favorite actions out of
+  the header card action row into the title/menu area, turn read/resume into a primary floating action
+  button, and preserve discoverability/state feedback for favorite status.
+- Any smart grip / 智感握姿 support is an enhancement under the redesign lane, not a prerequisite for
+  fixing the current mismatch. It must have a capability check and ordinary FAB fallback.
+
+Design lane boundary:
+
+- New lane name: `detail-primary-actions-redesign`.
+- Status until login evidence exists: `DESIGN_PENDING_LOGIN_REQA`.
+- Do not patch this as a one-off `maxWidth`, raw height, or padding-only adjustment while the redesign lane
+  is pending.
+- Do not mix this lane into Gate V1 thumbnail/cover work, auth-cookie-login, false-404 diagnostics, or list
+  responsive cover sizing.
 
 ### P0 — Detail title long-text stress breaks layout
 
@@ -255,6 +275,7 @@ Minimum validation bundle for any acceptance:
 - 2026-06-18 09:03 +0800 — List-card fixed/adaptive height mode Mac partial re-QA added on Mate X7 emulator `127.0.0.1:5555`, same installed `a253aff` build. Settings initially showed `固定列表行高 checked=true`; Home default list fixed-mode screenshot shows fixed row rhythm with overflow chips clipped and category/date foot-anchored. Then `固定列表行高` was toggled off and verified `checked=false`; Home default list adaptive screenshot shows the same rows grow to reveal more tag chips. The setting was restored to `checked=true` after QA. All hdc commands ran outside the Codex sandbox. Evidence: `/private/tmp/nexte_list_height_mode_evidence/settings_fixed_on.json`, `list_fixed_default.png`, `list_fixed_default_layout.json`, `settings_fixed_off.json`, `list_adaptive.png`, `list_adaptive_layout.json`, `settings_fixed_restored.json`. This covers Home default list only, not Favorites/Toplist retained-page matrix acceptance.
 - 2026-06-18 09:10 +0800 — Detail tag-chip Mac partial re-QA added on Mate X7 emulator `127.0.0.1:5555`, same installed `a253aff` build. Opened public detail `https://e-hentai.org/g/3989982/16600a66e8/`; screenshot shows the normal non-usertag/non-vote tag group with namespace chips `原作` / `角色` / `其他` and member chips `megaman | rockman`, `roll`, `artbook`. The chips are visibly rounded and taller than the old flat style, and the namespace/member color distinction remains visible. All hdc commands ran outside the Codex sandbox. Evidence: `/private/tmp/nexte_detail_tag_chip_evidence/detail_tag_chips.png`, `detail_tag_chips_layout.json`, plus `tag_top_probe_layout.json`. This does not cover usertag fill or vote-coloured member-chip states.
 - 2026-06-18 09:18 +0800 — Gallery cover presentation Mac partial re-QA added on Mate X7 emulator `127.0.0.1:5555`, same installed `a253aff` build. Opened public detail `https://e-hentai.org/g/3989982/16600a66e8/`; detail header loaded/light screenshot shows the real cover fitted inside the header card on a distinct grey backdrop, with no crude side-crop and the `阅读` capsule/header content intact. Home default list loaded/light screenshot shows multiple list covers fitted over the distinct `#E6E8EB` placeholder/backdrop; layout evidence confirms Home `E-Hentai` default list and Image nodes with `backgroundColor="#FFE6E8EB"`. All hdc commands ran outside the Codex sandbox. Evidence: `/private/tmp/nexte_cover_presentation_evidence/cover_detail_header.png`, `cover_detail_header_layout.json`, `cover_home_list.png`, `cover_home_list_layout.json`; `nav_probe_layout.json` documents the intermediate Settings page used only for navigation and is not cover evidence. This covers loaded/light detail + Home list only; loading, error, dark mode, grid-card intentional-cover behavior, and controller visual acceptance remain open.
+- 2026-06-18 09:40 +0800 — Grid-card intentional-cover behavior Mac partial re-QA added on Mate X7 emulator `127.0.0.1:5555`, same installed signed HAP. Settings `列表视图` was switched from `列表` to `网格`, Home default grid was captured, then the setting was restored to `列表`; all hdc commands ran outside the Codex sandbox. Evidence: `/private/tmp/nexte_cover_gridcard_evidence/settings_initial.json`, `settings_grid.json`, `grid_home.png`, `grid_home_layout.json`, `settings_restored.json`. Layout confirms Home `E-Hentai` default `Grid` with two visible `GalleryGridCard` cover Image nodes (`[62,439][1068,1875]` and `[1143,439][2149,1875]`) over `#FFE6E8EB`; screenshot confirms grid-card covers intentionally fill their grid cells rather than using the list/detail containFit behavior. This covers loaded/light Home grid-card behavior only; loading, error, dark mode, and controller visual acceptance remain open.
 
 
 ## Reopened acceptance audit
@@ -269,7 +290,7 @@ The previous archive/completed claim is invalid. This file is active again until
 | P0 detail header action sizing | PARTIAL_REQA | Current Mac evidence covers the reachable not-favorited first-read header/action state only. Favorited header, resume label, and full read/unread/resume matrix still need current controller evidence. |
 | P0 detail title long-text stress | NEEDS_CONTROLLER_REQA | Long-title evidence exists, but uploader/state matrix needs current device proof. |
 | P1 detail tag chips shape | PARTIAL_REQA | Current Mate X7 evidence covers normal namespace/member chips on one public detail. Usertag fill and vote-coloured member-chip states still lack device evidence and must not be inferred. |
-| P1 gallery cover presentation | PARTIAL_REQA | Current Mate X7 evidence covers loaded/light detail header and Home default list covers with distinct grey backdrop/no crude crop. Loading, error, dark mode, grid-card intentional-cover behavior, and controller visual acceptance remain open. |
+| P1 gallery cover presentation | PARTIAL_REQA | Current Mate X7 evidence covers loaded/light detail header, Home default list covers with distinct grey backdrop/no crude crop, and Home default grid-card intentional-cover behavior. Loading, error, dark mode, and controller visual acceptance remain open. |
 | P1 list card height modes | PARTIAL_REQA | Current Mate X7 evidence covers Home default fixed vs adaptive mode and setting restoration. Favorites/Toplist retained pages and controller visual acceptance remain open. |
 | Preview thumbnail rounded corners / thumbnail visual correctness | PUSHED_CANDIDATE_REVIEW | Fixed candidate pushed in `587d8b2`; user said to submit because it is at least better. Codex U1 must re-audit current screenshots and mark exact remaining issues instead of relying on historical PASS. |
 
