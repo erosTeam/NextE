@@ -144,7 +144,7 @@ Type: bug / UX gap
 
 Priority suggestion: P1
 
-Status: implemented / needs controller acceptance
+Status: accepted
 
 Implementation:
 
@@ -156,14 +156,20 @@ Implementation:
 Evidence:
 
 - Deterministic contract: `scripts/test_gallery_detail_refresh_contract.mjs`.
-- Implementation commit exists on repository history. Treat any historical smoke as supporting
-  evidence only; this intake item still needs current device/controller acceptance before marking
-  `accepted`.
+- Implementation commit exists on repository history.
+- Current Mate X7 emulator acceptance on `127.0.0.1:5555`, with hdc through the approved DevEco hdc
+  path and the current official signed HAP installed: opened public detail
+  `https://e-hentai.org/g/3989982/16600a66e8/`, performed a pull-to-refresh gesture, and observed
+  `detail_refresh_ok | gid=3989982 images=20 comments=0` in hilog. Before/after layouts stayed on the
+  same detail page with header/title/tags/preview intact and no error/empty terminal copy.
+- Evidence directory: `/private/tmp/nexte_detail_refresh_acceptance_evidence/`, especially
+  `before.png`, `before.json`, `after_logged_pull.png`, and `after_logged_pull.json`.
 
 Remaining acceptance:
 
-- Current simulator/device detail-page pull-to-refresh pass, including successful refresh and
-  recoverable failed-refresh behavior where possible.
+- None for the successful refresh path. A live failed-refresh path was not forced on device because it
+  would require mutating network/source state; failure feedback remains protected by
+  `scripts/test_gallery_detail_refresh_contract.mjs`.
 
 Source:
 
@@ -282,6 +288,136 @@ Acceptance shape:
 - In fixed-height mode, the row remains fixed height and the cover is handled within the allowed slot.
 - In adaptive mode, the row may adapt for content but does not stretch indefinitely because of the cover ratio alone.
 - Ordinary cover ratios still render as before.
+
+### Detail Header Cover Flickers After Opening From List
+
+Type: bug / UX regression
+
+Priority suggestion: P1
+
+Status: active / needs reproduction
+
+Source:
+
+- User-reported current behavior.
+
+Observed behavior:
+
+- After opening a gallery detail page from a list row, the detail header cover flashes briefly.
+
+Expected behavior:
+
+- The detail header should paint from the list-row seed and transition into the loaded detail state without a visible cover flash.
+- If the fetched detail data updates the same cover URL or only enriches metadata, the cover surface should remain visually stable.
+- If the fetched detail data truly changes the cover URL or image dimensions, the transition should still avoid a blank/placeholder flash unless the old cover is invalid.
+
+Why this matters:
+
+- The list-to-detail path is a high-frequency navigation flow.
+- A flashing header cover makes the detail page feel unstable even when the gallery data loads correctly.
+
+Likely failure mode:
+
+- `GalleryDetailPage` seeds the ViewModel from the list-row `GalleryDetailParams`, then
+  `GalleryDetailViewModel.fetchAndApply()` merges gdata/detail results into `gallery`.
+- If the merge changes `thumbUrl`, source dimensions, or the `EhThumbnail` input identity, the thumbnail
+  component may reset its loading/error state and briefly show the loading/placeholder layer.
+- This is distinct from the older cover-presentation shape bug and from the sub-tab empty-state flash gate.
+
+Likely modules to inspect:
+
+- `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets`
+- `feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets`
+- `feature/gallery/src/main/ets/components/GalleryHeaderCard.ets`
+- `shared/src/main/ets/components/EhThumbnail.ets`
+- `shared/src/main/ets/model/EhGallery.ets`
+
+Implementation direction to evaluate:
+
+- Reproduce on device/simulator first with a list-row open, capturing the initial header paint and the post-detail-merge state.
+- Compare seed gallery fields and loaded detail fields for `thumbUrl`, `thumbUrlL`, `imgWidth`, and `imgHeight`.
+- Preserve the already-painted seed cover while richer detail metadata loads when the actual cover URL is equivalent.
+- If thumbnail state reset is necessary for a real URL change, keep the previous rendered image until the new one is ready where ArkUI supports that behavior.
+- Add a deterministic contract that treats list-to-detail header-cover stability as separate from cover shape/presentation acceptance.
+
+Acceptance shape:
+
+- Open a gallery detail page from a visible list row.
+- The header cover appears immediately from the row seed.
+- During detail/gdata enrichment, the header cover does not flash blank, placeholder, or loading overlay over the already-painted image.
+- The final loaded detail header still uses the correct cover presentation, rounded visible image content, and current cover fallback behavior.
+
+### Gallery Detail Primary Read Action Should Move To FAB / Smart Grip Lane
+
+Type: UX redesign / feature enhancement
+
+Priority suggestion: P1
+
+Status: active / design pending
+
+Source:
+
+- User-requested gallery detail adjustment: reference Next2V / V2Next, make the read/resume action a FAB,
+  and evaluate HarmonyOS smart grip / 智感握姿.
+- Already tracked in:
+  - `docs/plans/active/controller-work-order-gallery-visual.md` Gate V4 `Detail primary actions redesign`.
+  - `docs/plans/active/gallery-visual-navigation-regression-contract.md` lane `detail-primary-actions-redesign`.
+  - `docs/plans/active/project-current-state-and-next-plan.md` Lane G `detail-primary-actions-redesign`.
+
+Observed behavior:
+
+- The current detail header still keeps `阅读` / resume as an inline compact capsule inside the header card.
+- Header action sizing has partial evidence, but the broader product direction is to move the primary reading
+  action out of the cramped header-card action model.
+
+Expected behavior:
+
+- Read/resume becomes the detail page's primary floating action, using a NextE-native FAB pattern.
+- Favorite state/actions move to a title/menu/action location or another discoverable secondary-action surface
+  instead of competing with the primary read action inside the cover/header card.
+- Smart grip / 智感握姿 is evaluated as an enhancement, but the ordinary FAB path must work when the capability
+  is unavailable or disabled.
+
+Why this matters:
+
+- Detail -> Reader is one of the main product flows.
+- Keeping the primary action inside the header card competes with title, uploader, cover, favorite state, and
+  long-title stress handling.
+- A FAB/action redesign can make the read/resume path more discoverable and reduce repeated header-card sizing churn.
+
+Grounding required before implementation:
+
+- Read eros_fe detail action semantics: `ReadButton`, favorite button/state, and how read/resume is weighted.
+- Read V2Next / Next2V reply-FAB and title/menu action patterns as the HarmonyOS architecture reference.
+- Verify HarmonyOS smart grip / 智感握姿 APIs through `harmony-next` or official docs before proposing code.
+- Decide the ordinary FAB fallback first; do not make smart grip a prerequisite for the usable path.
+- Preserve existing Reader launch, resume index, favorite-state visibility, and non-destructive favorite handling rules.
+
+Likely modules to inspect:
+
+- `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets`
+- `feature/gallery/src/main/ets/components/GalleryHeaderCard.ets`
+- `feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets`
+- `shared/src/main/ets/model/RouteParams.ets`
+- `entry/src/main/ets/pages/Index.ets`
+- V2Next / Next2V detail or reply FAB components and title/menu action primitives.
+
+Implementation direction to evaluate:
+
+- Remove read/resume from the detail header card only after the replacement FAB path is ready.
+- Add a primary FAB that launches Reader with the same current start/resume behavior.
+- Move favorite affordances to title/menu/action semantics with clear current-state feedback.
+- Add capability-checked smart grip support as an enhancement, with ordinary FAB fallback.
+- Keep this separate from cover presentation, list responsive cover sizing, SearchFilter, Reader gesture, and auth-cookie-login lanes.
+
+Acceptance shape:
+
+- Detail first-read state: FAB launches Reader from page 1, without covering critical content or bottom gesture areas.
+- Detail resume state: FAB clearly shows resume intent and opens the saved page.
+- Favorited/unfavorited states remain discoverable after favorite controls leave the header card.
+- Ordinary FAB layout works on devices without smart grip support.
+- If smart grip is implemented, it has a capability check and does not break the ordinary FAB path.
+- Device/simulator evidence covers at least first-read and resume states, plus available favorite-state evidence.
 
 ### Gallery Detail Tags Do Not Jump To Search
 
