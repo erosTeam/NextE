@@ -57,7 +57,7 @@ export struct ReaderPage {
 
   build() {
     HdsNavDestination() {
-      Stack({ alignContent: Alignment.Bottom }) {
+      Stack({ alignContent: Alignment.Center }) {
         if (this.vm.images.length > 0) {
           if (this.readMode.mode === ReadMode.VERTICAL) {
             this.VerticalReader()
@@ -776,6 +776,7 @@ export struct ReaderPage {
     .backgroundColor('#CC000000')
     .opacity(this.showChrome ? 1 : 0)
     .hitTestBehavior(this.showChrome ? HitTestMode.Default : HitTestMode.None)
+    .align(Alignment.Bottom)
   }
 }
 

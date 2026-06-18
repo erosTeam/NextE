@@ -39,6 +39,10 @@ const reader = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
 
 ok(/struct ReaderLoadingOverlay/.test(reader) &&
   /struct ReaderLoadingLine/.test(reader), 'Reader has dedicated centered loading components')
+ok(/build\(\) \{[\s\S]*HdsNavDestination\(\) \{[\s\S]*Stack\(\{ alignContent: Alignment\.Center \}\)/.test(reader),
+  'Reader root stack centers loading by default instead of bottom-aligning first paint')
+ok(/ReaderBottomBar\(\)[\s\S]*\.align\(Alignment\.Bottom\)/.test(reader),
+  'Reader bottom chrome explicitly stays bottom-aligned after the root stack is centered')
 ok(/ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_resolving'\) \}\)/.test(reader),
   'empty reader and jump states use the resolving loading stage')
 ok(/ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\), progress: this\.imageProgress \}\)/.test(reader),
