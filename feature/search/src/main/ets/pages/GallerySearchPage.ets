@@ -5,8 +5,12 @@ import {
   GalleryGridCard,
   GallerySimpleCard,
   GalleryDetailParams,
+  ReaderParams,
   EhUrlRouter,
   GalleryRef,
+  ImagePageRouteService,
+  ImagePageRouteTarget,
+  DiagnosticLogger,
   PageLoadingState,
   PageErrorState,
   CardEmptyState,
@@ -136,8 +140,8 @@ export struct GallerySearchPage {
   }
 
   /**
-   * Single entry point for a submitted query. A pasted BARE gallery URL jumps straight to the detail
-   * (eros_fe regGalleryUrl → _jumpToUrl); otherwise record history and search. Note: empty-query
+   * Single entry point for a submitted query. A pasted BARE gallery/image-page URL jumps straight to
+   * the gallery/reader (eros_fe regGalleryUrl/regGalleryPageUrl → _jumpToUrl); otherwise record history and search. Note: empty-query
    * browse-by-filter below is a NextE enhancement (EH supports /?f_cats=…) — eros_fe instead clears
    * on empty text and applies category filters on the home list, not via an empty search.
    */
@@ -149,8 +153,10 @@ export struct GallerySearchPage {
         this.stack.pushPathByName('GalleryDetail', new GalleryDetailParams(ref.gid, ref.token))
         return
       }
-      // /s/ image-page URLs also jump in eros_fe (to the gallery AT that page) but need a network
-      // resolve of gid+token (an /s/ link carries no token) — deferred; falls through to search.
+      if (EhUrlRouter.parseImagePage(trimmed) !== null) {
+        this.openImagePageUrl(trimmed)
+        return
+      }
     }
     if (trimmed.length === 0 && !this.filter.isActive()) {
       return
@@ -159,6 +165,21 @@ export struct GallerySearchPage {
       this.recordHistory(trimmed)
     }
     this.vm.search(trimmed)
+  }
+
+  private openImagePageUrl(url: string): void {
+    ImagePageRouteService.resolve(url)
+      .then((target: ImagePageRouteTarget) => {
+        this.stack.pushPathByName(
+          'Reader',
+          new ReaderParams(target.gid, target.token, target.index, 0, ''),
+        )
+      })
+      .catch((err: Error) => {
+        DiagnosticLogger.warn('search', 'image_page_jump_failed', err.message)
+        this.recordHistory(url)
+        this.vm.search(url)
+      })
   }
 
   private ctx(): common.UIAbilityContext {

@@ -6,8 +6,9 @@
  *
  * The functions below are copy-equal to that logic (no nav/network — pure routing decisions):
  *   • a pasted BARE gallery URL (/g/{gid}/{token}, e-/ex-hentai) jumps to the detail (no search).
+ *   • a pasted BARE image-page URL (/s/{imgkey}/{gid}-{page}) resolves and jumps to Reader.
  *     Gated on a whole-string URL (eros_fe searchText.isURL) so a query that merely EMBEDS a URL
- *     still searches; /s/ image-page URLs fall through to search (deferred — need a token resolve).
+ *     still searches.
  *   • an empty query runs ONLY to browse by active filters (NextE enhancement, not eros_fe); else noop.
  *   • a non-empty, non-URL query records history + searches.
  * The gallery regex is the EhUrlRouter.GALLERY_RE verbatim. If the .ets logic changes, mirror here.
@@ -21,11 +22,16 @@ import { dirname, join } from 'node:path'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-// Mirror of EhUrlRouter.GALLERY_RE.
-const GALLERY_RE = /https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)/
+// Mirror of EhUrlRouter route regexes.
+const GALLERY_RE = /https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-z]+)/
+const IMAGE_RE = /https?:\/\/(?:e-|ex)hentai\.org\/s\/([0-9a-z]+)\/(\d+)-(\d+)/
 const parseGallery = (url) => {
   const m = url.match(GALLERY_RE)
   return m ? { gid: m[1], token: m[2] } : null
+}
+const parseImagePage = (url) => {
+  const m = url.match(IMAGE_RE)
+  return m ? { imgkey: m[1], gid: m[2], page: Number.parseInt(m[3], 10) } : null
 }
 
 // Mirror of GallerySearchPage.looksLikeBareUrl: whole-string URL gate (eros_fe searchText.isURL).
@@ -38,7 +44,8 @@ function route(query, filterActive) {
   if (looksLikeBareUrl(trimmed)) {
     const ref = parseGallery(trimmed)
     if (ref !== null) return { kind: 'gallery', ref }
-    // bare /s/ or other non-/g/ EH URL → deferred, falls through to search
+    const image = parseImagePage(trimmed)
+    if (image !== null) return { kind: 'imagePage', ref: image }
   }
   if (trimmed.length === 0 && !filterActive) return { kind: 'noop' }
   return { kind: 'search', query: trimmed, recordsHistory: trimmed.length > 0 }
@@ -62,6 +69,7 @@ const ok = (name, cond) => {
   ok('parses gid', r.ref.gid === '1234567')
   ok('parses token', r.ref.token === 'abcdef0123')
   ok('exhentai URL → gallery', route('https://exhentai.org/g/42/deadbeef', false).kind === 'gallery')
+  ok('gallery token allows a-z', route('https://e-hentai.org/g/42/z9token', false).kind === 'gallery')
   // trailing path/query after the token still routes (regex is unanchored, as in EhUrlRouter)
   ok('URL with trailing junk', route('https://e-hentai.org/g/9/a0b1?p=2#x', false).kind === 'gallery')
 }
@@ -83,10 +91,13 @@ const ok = (name, cond) => {
   ok('empty browse records no history', r.recordsHistory === false)
 }
 
-// 4. a non-EH URL is treated as a normal search term (not a jump)
+// 4. a non-EH URL is treated as a normal search term; a bare /s/ image-page URL jumps
 {
   ok('non-EH URL → search', route('https://example.com/g/1/abc', false).kind === 'search')
-  ok('e-hentai /s/ image-page URL → search (deferred)', route('https://e-hentai.org/s/abc/1-2', false).kind === 'search')
+  const r = route('https://e-hentai.org/s/zkey/123-37', false)
+  ok('e-hentai /s/ image-page URL → imagePage', r.kind === 'imagePage')
+  ok('image-page imgkey allows a-z', r.ref.imgkey === 'zkey')
+  ok('image-page page parsed', r.ref.page === 37)
 }
 
 // 4b. a query that merely EMBEDS a gallery URL still searches (whole-string gate, eros_fe isURL)
@@ -124,7 +135,11 @@ const ok = (name, cond) => {
   ok('page gates URL-jump on a bare URL', /private looksLikeBareUrl\(s: string\)/.test(pageSrc))
   ok('page jump guarded by looksLikeBareUrl', /if \(this\.looksLikeBareUrl\(trimmed\)\)/.test(pageSrc))
   ok('page detects gallery URL', /EhUrlRouter\.parseGallery\(trimmed\)/.test(pageSrc))
+  ok('page detects image-page URL', /EhUrlRouter\.parseImagePage\(trimmed\)/.test(pageSrc))
   ok('page jumps to detail on URL', /pushPathByName\(\s*'GalleryDetail'/.test(pageSrc))
+  ok('page resolves image-page URL', /ImagePageRouteService\.resolve\(url\)/.test(pageSrc))
+  ok('page jumps image-page URL to reader', /pushPathByName\(\s*'Reader'/.test(pageSrc))
+  ok('page falls back to search if image-page resolve fails', /image_page_jump_failed[\s\S]*this\.vm\.search\(url\)/.test(pageSrc))
   ok('page gates empty on active filter', /trimmed\.length === 0 && !this\.filter\.isActive\(\)/.test(pageSrc))
   ok('submit funnels through runQuery', /onSubmit\(\): void \{\s*this\.runQuery\(/.test(pageSrc))
   ok('pending query seeds the field', /this\.actionState\.keyword = query\s*\n\s*this\.actionState\.seedSeq/.test(pageSrc))
@@ -132,9 +147,15 @@ const ok = (name, cond) => {
     join(ROOT, 'feature/search/src/main/ets/viewmodel/SearchViewModel.ets'),
     'utf8',
   )
-  ok('vm allows empty with active filter', /trimmed\.length === 0 && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
+  ok(
+    'vm allows empty with active filter or favorite scope',
+    /trimmed\.length === 0 && !this\.isFavoriteScope && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc),
+  )
   ok('reapplyFilters honors filter-only', /this\.query\.length > 0 \|\| connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
-  ok('refresh allows filter-only browse', /this\.query\.length === 0 && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc))
+  ok(
+    'refresh allows filter-only or favorite-scope browse',
+    /this\.query\.length === 0 && !this\.isFavoriteScope && !connectSearchFilter\(\)\.isActive\(\)/.test(vmSrc),
+  )
 }
 
 console.log(`✓ search input contract: ${passed} assertions passed`)

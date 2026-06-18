@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+/**
+ * Contract test for EH /s/ image-page URL routing:
+ *   - EhUrlRouter accepts eros_fe-compatible a-z imgkeys/tokens.
+ *   - Index deep links do not stop at canHandle(); they resolve /s/ to Reader.
+ *   - Search bare /s/ URLs resolve to Reader instead of becoming ordinary searches.
+ *
+ * Run: node scripts/test_image_page_url_routing_contract.mjs
+ */
+import assert from 'node:assert'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const read = (p) => readFileSync(join(ROOT, p), 'utf8')
+let passed = 0
+const ok = (name, cond) => {
+  assert.ok(cond, name)
+  passed++
+}
+
+const GALLERY_RE = /https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-z]+)/
+const IMAGE_RE = /https?:\/\/(?:e-|ex)hentai\.org\/s\/([0-9a-z]+)\/(\d+)-(\d+)/
+const canHandle = (url) => GALLERY_RE.test(url) || IMAGE_RE.test(url)
+
+ok('router accepts /g/ token with z', canHandle('https://e-hentai.org/g/3987108/z9altc/'))
+ok('router accepts /s/ imgkey with z', canHandle('https://e-hentai.org/s/z9imgkey/3987108-37'))
+{
+  const m = 'https://exhentai.org/s/z9imgkey/3987108-37'.match(IMAGE_RE)
+  ok('image-page gid parsed', m?.[2] === '3987108')
+  ok('image-page page parsed', m?.[3] === '37')
+}
+
+const parserSrc = read('shared/src/main/ets/parser/EhImagePageParser.ets')
+ok('parser extracts parent gallery link', /RE_GALLERY[\s\S]*\/g\\\/\(\\d\+\)\\\/\(\[0-9a-z\]\+\)/.test(parserSrc))
+ok('parser extracts image serial', /RE_SER/.test(parserSrc) && /r\.ser = Number\.parseInt/.test(parserSrc))
+
+const serviceSrc = read('shared/src/main/ets/services/ImagePageRouteService.ets')
+ok('route service fetches image page HTML', /EhHttpClient\.getInstance\(\)\.getText\(url\)/.test(serviceSrc))
+ok('route service requires parent token', /galleryToken\.length === 0/.test(serviceSrc))
+ok('route service converts serial to zero-based index', /Math\.max\(0, ser - 1\)/.test(serviceSrc))
+
+const indexSrc = read('entry/src/main/ets/pages/Index.ets')
+ok('Index still routes /g/ detail links', /EhUrlRouter\.parseGallery\(uri\)[\s\S]*GalleryDetail/.test(indexSrc))
+ok('Index routes /s/ through ImagePageRouteService', /EhUrlRouter\.parseImagePage\(uri\)[\s\S]*openImagePageUrl\(uri\)/.test(indexSrc))
+ok('Index opens Reader for resolved /s/', /ImagePageRouteService\.resolve\(uri\)[\s\S]*pushPathByName\(\s*'Reader'/.test(indexSrc))
+
+const searchSrc = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
+ok('Search bare /s/ branches before ordinary search', /EhUrlRouter\.parseImagePage\(trimmed\)[\s\S]*openImagePageUrl\(trimmed\)[\s\S]*return/.test(searchSrc))
+ok('Search image-page branch pushes Reader', /ImagePageRouteService\.resolve\(url\)[\s\S]*pushPathByName\(\s*'Reader'/.test(searchSrc))
+ok('Search image-page failure falls back to ordinary search', /image_page_jump_failed[\s\S]*this\.vm\.search\(url\)/.test(searchSrc))
+
+console.log(`✓ image-page URL routing contract: ${passed} assertions passed`)

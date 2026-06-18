@@ -68,6 +68,7 @@ export { EhImagePageParser, ImagePageResult } from './parser/EhImagePageParser'
 
 // services
 export { ImageResolveService } from './services/ImageResolveService'
+export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 
 // network
 export { EhCookieStore } from './network/EhCookieStore'

@@ -17,6 +17,9 @@ import {
   EhUrlRouter,
   GalleryRef,
   GalleryDetailParams,
+  ImagePageRouteService,
+  ImagePageRouteTarget,
+  ReaderParams,
   connectSearchAction,
   SearchActionState,
   connectAuth,
@@ -141,7 +144,25 @@ struct Index {
     if (ref !== null) {
       DiagnosticLogger.info('nav', 'deep_link_open', `/g/${ref.gid}/${ref.token}`)
       this.stack.pushPathByName('GalleryDetail', new GalleryDetailParams(ref.gid, ref.token))
+      return
     }
+    if (EhUrlRouter.parseImagePage(uri) !== null) {
+      DiagnosticLogger.info('nav', 'deep_link_open', '/s/')
+      this.openImagePageUrl(uri)
+    }
+  }
+
+  private openImagePageUrl(uri: string): void {
+    ImagePageRouteService.resolve(uri)
+      .then((target: ImagePageRouteTarget) => {
+        this.stack.pushPathByName(
+          'Reader',
+          new ReaderParams(target.gid, target.token, target.index, 0, ''),
+        )
+      })
+      .catch((err: Error) => {
+        DiagnosticLogger.warn('nav', 'image_page_deep_link_failed', err.message)
+      })
   }
 
   private tabTitle(): ResourceStr {

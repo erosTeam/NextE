@@ -18,8 +18,8 @@ export interface ImagePageRef {
  * lifted verbatim from eros_fe and are host-agnostic (e-hentai.org OR exhentai.org).
  */
 export class EhUrlRouter {
-  private static readonly GALLERY_RE: RegExp = new RegExp('https?://(?:e-|ex)hentai\\.org/g/(\\d+)/([0-9a-f]+)')
-  private static readonly IMAGE_RE: RegExp = new RegExp('https?://(?:e-|ex)hentai\\.org/s/([0-9a-f]+)/(\\d+)-(\\d+)')
+  private static readonly GALLERY_RE: RegExp = new RegExp('https?://(?:e-|ex)hentai\\.org/g/(\\d+)/([0-9a-z]+)')
+  private static readonly IMAGE_RE: RegExp = new RegExp('https?://(?:e-|ex)hentai\\.org/s/([0-9a-z]+)/(\\d+)-(\\d+)')
 
   /** True if the URL is an EH gallery or image-page link this router can route. */
   static canHandle(url: string): boolean {

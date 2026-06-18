@@ -4,6 +4,9 @@ export class ImagePageResult {
   showKey: string = ''        // enables the fast /api.php method=showpage path for the rest
   originImageUrl: string = '' // "download original" /fullimg URL when available
   reloadKey: string = ''      // nl('xxxx') param → append ?nl=xxxx to re-source on 509/broken
+  galleryGid: string = ''     // parent /g/{gid}/{token} parsed from the image page
+  galleryToken: string = ''
+  ser: number = 0             // 1-based image serial shown in the EH image-page chrome
 }
 
 /** Shape of the /api.php method=showpage JSON response (only the fields NextE needs). */
@@ -24,6 +27,8 @@ export class EhImagePageParser {
   private static readonly RE_SHOWKEY: RegExp = /showkey="([^"]+)"/
   private static readonly RE_ORIGIN: RegExp = /<a href="(https:\/\/[^"]*\/fullimg[^"]*)"/
   private static readonly RE_NL: RegExp = /onclick="return nl\('([^']+)'\)/
+  private static readonly RE_GALLERY: RegExp = /https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-z]+)\/?/
+  private static readonly RE_SER: RegExp = /<div[^>]*class="sn"[^>]*>[\s\S]*?<span>(\d+)<\/span>/
 
   static parse(html: string): ImagePageResult {
     const r: ImagePageResult = new ImagePageResult()
@@ -42,6 +47,15 @@ export class EhImagePageParser {
     const nl: RegExpMatchArray | null = html.match(EhImagePageParser.RE_NL)
     if (nl !== null && nl[1] !== undefined) {
       r.reloadKey = nl[1]
+    }
+    const gallery: RegExpMatchArray | null = html.match(EhImagePageParser.RE_GALLERY)
+    if (gallery !== null && gallery[1] !== undefined && gallery[2] !== undefined) {
+      r.galleryGid = gallery[1]
+      r.galleryToken = gallery[2]
+    }
+    const ser: RegExpMatchArray | null = html.match(EhImagePageParser.RE_SER)
+    if (ser !== null && ser[1] !== undefined) {
+      r.ser = Number.parseInt(ser[1], 10)
     }
     return r
   }
