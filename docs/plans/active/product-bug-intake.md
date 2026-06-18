@@ -477,6 +477,32 @@ Blocked FE/ADB preflight:
   `adb shell pm list packages | grep -i -E "eros|eh|hentai"`, launch `eros_fe`, capture screenshots,
   or verify FE category colors, long-press behavior, rating control shape, live-apply behavior, Reset
   weight, or search-scope expression.
+- Follow-up preflight after pushing the branch briefly reported `emulator-5554 offline`; `adb reconnect
+  offline` returned to no targets, so the Android target is still unavailable.
+- Local Android SDK/emulator setup is also absent: no `emulator`, no `sdkmanager`, no
+  `~/Library/Android`, and no existing `~/.android/avd`.
+
+Source-only FE grounding already collected:
+
+- `eros_fe/lib/pages/filter/gallery_filter_view.dart` uses `CupertinoSlidingSegmentedControl<SearchType>`
+  for search scope (`normal`, `watched`, `favorite`).
+- The same FE view hides gallery category and advanced options while `SearchType.favorite` is selected.
+- `eros_fe/lib/pages/filter/filter.dart` implements `GalleryCatFilter` as a grid of
+  `GalleryCatButton`s. Each button receives `ThemeColors.catColor[catName]` as the enabled category
+  color, grey off state, and separate text colors.
+- `GalleryCatButton` wraps the button in `GestureDetector(onLongPress: ...)`; normal press toggles the
+  category and calls `onChanged`, while long press vibrates and runs the supplied `onLongPress`.
+- FE long-press behavior in `GalleryCatFilter` keeps the pressed category unchanged and flips every
+  other category to the inverse of the pressed category's current selected state. This provides the
+  quick solo/invert mental model the NextE repair must preserve in a HarmonyOS-native way.
+- FE minimum rating is not a chip row: `gallery_filter_view.dart` shows an advanced-option switch for
+  minimum rating, then a `CupertinoSlidingSegmentedControl<int>` for `2`, `3`, `4`, and `5` stars.
+- FE advanced options are persisted through `AdvanceSearchController.advanceSearch` and category state
+  through `EhSettingService.catFilter`; `showFilterSetting()` has no dialog actions, so the filter view
+  itself is not built around an Apply button. A separate clear/reset control appears only when advanced
+  search is enabled.
+- This source grounding does not satisfy the mandatory Android/ADB screenshot gate. It only narrows the
+  FE observation checklist once a connected Android device is available.
 
 Implementation:
 
