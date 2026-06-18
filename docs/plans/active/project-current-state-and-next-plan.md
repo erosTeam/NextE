@@ -558,7 +558,35 @@ Evidence:
 Still open:
   - loading placeholder screenshots
   - error fallback screenshots
-  - dark grid-card evidence
+  - controller visual acceptance
+```
+
+Additional dark grid-card cover partial re-QA from 2026-06-18:
+
+```text
+- Target/build: Mate X7 emulator target 127.0.0.1:5555, same installed signed HAP.
+- System Settings was switched to `深色` through visible UI.
+- NextE Settings `列表视图` was switched from `列表` -> `简洁` -> `网格`.
+- Home default grid in dark mode shows two visible grid-card covers filling their grid cells over the
+  dark distinct placeholder/backdrop; layout Image backgrounds are `#FF2E2E30`.
+- NextE Settings was restored to `列表` afterwards.
+- System Settings was restored to `浅色` afterwards; final layout confirms the light radio checked=true,
+  dark radio checked=false, and `深色模式=已关闭`.
+- Every hdc command ran outside the Codex sandbox.
+
+Evidence:
+  - /private/tmp/nexte_cover_dark_grid_evidence/system_dark.json
+  - /private/tmp/nexte_cover_dark_grid_evidence/settings_initial.json
+  - /private/tmp/nexte_cover_dark_grid_evidence/settings_after_click1.json
+  - /private/tmp/nexte_cover_dark_grid_evidence/settings_grid.json
+  - /private/tmp/nexte_cover_dark_grid_evidence/dark_grid_home.png
+  - /private/tmp/nexte_cover_dark_grid_evidence/dark_grid_home_layout.json
+  - /private/tmp/nexte_cover_dark_grid_evidence/settings_restored.json
+  - /private/tmp/nexte_cover_dark_grid_evidence/system_light_restored.json
+
+Still open:
+  - loading placeholder screenshots
+  - error fallback screenshots
   - controller visual acceptance
 ```
 
@@ -625,8 +653,8 @@ Current active meaning:
 - Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route,
   hidden-inline/AllThumbnails route, not-favorited first-read header/action, normal detail tag chips,
   loaded/light gallery cover presentation including Home grid-card behavior, loaded/dark detail+Home-list
-  cover presentation, and Home default fixed/adaptive list height have current Mate X7 evidence; final
-  controller visual acceptance and remaining state matrices are still open.
+  cover presentation, loaded/dark Home grid-card behavior, and Home default fixed/adaptive list height
+  have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
 ```
 
 Important boundary:
