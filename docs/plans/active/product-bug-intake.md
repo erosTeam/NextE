@@ -467,6 +467,80 @@ Acceptance shape:
   image-loading line is visible instead of a dead black screen.
 - Existing Reader navigation, zoom, retry, and re-source behavior remain intact.
 
+### Reader Image Zoom Uses Center-Only Double Tap And Vertical-Only Pan
+
+Type: bug / reading UX gap
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Implementation:
+
+- `e30a4ec fix(reader): improve image zoom gestures` adds `ReaderImageTransformCoordinator` and
+  updates `ReaderImagePage` to zoom toward the actual tap point, apply pinch focal correction, clamp
+  offsets against the fitted `ImageFit.Contain` display size, and allow zoomed panning on both axes.
+- Scope is limited to online Reader per-image transform behavior. It does not change Reader resolver,
+  loading/progress, retry/re-source, navigation, auto-page-turn, orientation, save-original, offline
+  reading, or download executor behavior.
+
+Evidence:
+
+- Deterministic contract: `scripts/test_reader_zoom_quality_contract.mjs`.
+- Regression contracts run in the fixing lane: `scripts/test_reader_tapzone_contract.mjs`,
+  `scripts/test_reader_loading_progress_contract.mjs`,
+  `scripts/test_reader_byte_progress_contract.mjs`,
+  `scripts/test_reader_failure_retry_ui_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, plus `git diff --check`.
+- Official signed Hvigor build passed after `ohpm install` and
+  `scripts/setup-local-build-profile.sh`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  opened Home -> Gallery detail -> Reader, verified image rendering with page counter `1 / 38`, then
+  executed image-area double-click/drag smoke and verified Reader still rendered image content with
+  page counter `30 / 38` after an earlier bottom-slider misclick was excluded from the acceptance
+  claim.
+  Evidence directory: `/private/tmp/nexte_reader_zoom_quality_evidence/`, especially
+  `reader_initial.png`, `reader_initial_layout.json`, `reader_after_image_gesture.png`,
+  `reader_after_image_gesture_layout.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the gesture feel on device. The device smoke verifies the
+  Reader path remains stable after interaction; exact focal-point transform math is protected by the
+  deterministic contract because `uitest` screenshots cannot directly prove the tap coordinate math.
+
+Source:
+
+- Implementation review while grounding Reader online-reading behavior against `eros_fe` product
+  semantics and V2Next ArkUI image-preview transform patterns.
+
+Observed behavior:
+
+- Reader double-tap zoom toggled from the center of the image instead of the tapped detail.
+- Zoomed pan was vertical-only, which made wide or zoomed-in details hard to inspect.
+- Offset bounds were based on the whole component size, not the actual fitted `ImageFit.Contain`
+  display size, so letterboxed images could clamp incorrectly.
+
+Expected behavior:
+
+- Double-tap should zoom toward the tapped point, matching the user's focus.
+- Pinch should keep the pinch center stable while zooming.
+- Once zoomed, the image should pan in both axes while still clamping so black gaps do not appear.
+
+Reference behavior:
+
+- `eros_fe/lib/pages/image_view/view/view_image.dart` uses `pointerDownPosition` in `_onDoubleTap`
+  and passes it to `handleDoubleTap`.
+- NextE should treat that as product semantics, not target architecture: the implementation follows
+  HarmonyOS/ArkUI state and transform patterns from V2Next's `ImagePreviewCoordinator`.
+
+Acceptance shape:
+
+- Open Reader from a real gallery image.
+- Double-tap a non-center detail; the image zooms toward that region rather than blindly centering.
+- Drag the zoomed image horizontally and vertically; the page remains readable and does not expose
+  black gaps or accidentally page-turn while zoomed.
+
 ### Reader Double-Page Mode Switch Can Desync Visible Spread And Page Counter
 
 Type: bug / reading UX gap
