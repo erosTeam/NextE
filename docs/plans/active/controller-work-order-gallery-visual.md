@@ -356,6 +356,23 @@ Gallery cover presentation:
   - /private/tmp/nexte_cover_dark_grid_evidence/dark_grid_home_layout.json
   - /private/tmp/nexte_cover_dark_grid_evidence/settings_restored.json
   - /private/tmp/nexte_cover_dark_grid_evidence/system_light_restored.json
+- Current candidate structural fallback hardening:
+  - `EhThumbnail` now separates `loaded` and `failed` state.
+  - URL reuse resets both states.
+  - Loading shows the existing distinct cover placeholder plus centered `LoadingProgress`.
+  - Error shows the same distinct cover placeholder plus a tertiary `sys.symbol.picture` marker, so a failed
+    remote cover no longer looks like an intentionally blank loaded card.
+  - All thumbnail branches use the combined loading/error overlay.
+- Structural/device smoke evidence:
+  - `scripts/test_cover_presentation_contract.mjs` now gates explicit loading/error fallback behavior.
+  - Official signed HAP was installed on Mate X7 emulator `127.0.0.1:5555`; all `hdc` commands ran outside
+    the Codex sandbox.
+  - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_loaded_smoke.png
+  - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_loaded_smoke_layout.json
+  - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_post_reinstall.png
+  - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_post_reinstall_layout.json
+  - Layout confirms foreground `com.erosteam.nexte` / `EntryAbility` / `pages/Index`, Home `E-Hentai` default
+    list, and real gallery rows after launch.
 - Observed: detail header cover fits the real cover over a distinct grey backdrop with header content
   intact; Home list covers fit over the same distinct light grey backdrop. Layout confirms Home
   `E-Hentai` default list and cover Image backgrounds at `#FFE6E8EB`. Home grid mode was temporarily
@@ -366,8 +383,10 @@ Gallery cover presentation:
   `#FF2E2E30`, and the detail header cover renders as a complete cover inside the dark card, not as a
   thin strip inside a grey block. Home grid mode was also temporarily enabled under dark mode and restored
   to `列表`; the dark grid evidence shows two visible grid-card cover Image nodes filling their grid cells
-  over `#FF2E2E30`, matching the intentional grid-card behavior in dark theme.
-- Still open: loading placeholder screenshots, error fallback screenshots, and controller visual acceptance.
+  over `#FF2E2E30`, matching the intentional grid-card behavior in dark theme. The fallback hardening is
+  implementation/contract/device-smoke evidence only; it is not a visual PASS for real network loading/error
+  frames.
+- Still open: real loading placeholder screenshots, real error fallback screenshots, and controller visual acceptance.
 ```
 
 Completion rule:

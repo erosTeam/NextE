@@ -2,6 +2,7 @@ import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 
 const COVER_LOADER_SIZE: number = 22
+const COVER_ERROR_ICON_SIZE: number = 24
 
 /**
  * Gallery thumbnail. M1 loads the ehgt.org/s.exhentai.org thumb URL directly (public CDN, no auth).
@@ -33,20 +34,41 @@ export struct EhThumbnail {
   @Param sourceHeight: number = 0;
   // Cover painted yet? Drives the placeholder spinner. Resets when the row is recycled to a new url.
   @Local loaded: boolean = false;
+  @Local failed: boolean = false;
 
   @Monitor('url')
   onUrlChange() {
     this.loaded = false
+    this.failed = false
   }
 
   // Centered spinner, only while the cover is loading; collapses to nothing once it paints.
   @Builder
   loaderOverlay() {
-    if (!this.loaded) {
+    if (!this.loaded && !this.failed) {
       LoadingProgress()
         .width(COVER_LOADER_SIZE)
         .height(COVER_LOADER_SIZE)
         .color($r('sys.color.font_tertiary'))
+    }
+  }
+
+  // Error fallback: keep the distinct cover placeholder visible, but show an explicit image marker so a
+  // failed remote cover does not look like an intentionally blank loaded card.
+  @Builder
+  errorOverlay() {
+    if (this.failed) {
+      SymbolGlyph($r('sys.symbol.picture'))
+        .fontSize(COVER_ERROR_ICON_SIZE)
+        .fontColor([ThemeConstants.TEXT_TERTIARY])
+    }
+  }
+
+  @Builder
+  coverOverlay() {
+    Stack({ alignContent: Alignment.Center }) {
+      this.loaderOverlay()
+      this.errorOverlay()
     }
   }
 
@@ -92,11 +114,13 @@ export struct EhThumbnail {
         .draggable(false)
         .onComplete(() => {
           this.loaded = true
+          this.failed = false
         })
         .onError(() => {
           this.loaded = true
+          this.failed = true
         })
-        .overlay(this.loaderOverlay(), { align: Alignment.Center })
+        .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else if (this.containFit && this.hasSourceSize() && !this.fillHeight && !this.stretchHeight) {
       // Transparent layout slot. Only the REAL image surface is visible; its size follows the EH cover
       // dimensions, and the radius clips that visible image instead of a permanent grey frame.
@@ -110,14 +134,16 @@ export struct EhThumbnail {
           .draggable(false)
           .onComplete(() => {
             this.loaded = true
+            this.failed = false
           })
           .onError(() => {
             this.loaded = true
+            this.failed = true
           })
       }
       .width(this.thumbWidth)
       .height(this.thumbHeight)
-      .overlay(this.loaderOverlay(), { align: Alignment.Center })
+      .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else if (this.stretchHeight) {
       Image(EhConstants.cdnThumb(this.url))
         .width(this.thumbWidth)
@@ -127,11 +153,13 @@ export struct EhThumbnail {
         .draggable(false)
         .onComplete(() => {
           this.loaded = true
+          this.failed = false
         })
         .onError(() => {
           this.loaded = true
+          this.failed = true
         })
-        .overlay(this.loaderOverlay(), { align: Alignment.Center })
+        .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else {
       Image(EhConstants.cdnThumb(this.url))
         .width(this.thumbWidth)
@@ -142,11 +170,13 @@ export struct EhThumbnail {
         .draggable(false)
         .onComplete(() => {
           this.loaded = true
+          this.failed = false
         })
         .onError(() => {
           this.loaded = true
+          this.failed = true
         })
-        .overlay(this.loaderOverlay(), { align: Alignment.Center })
+        .overlay(this.coverOverlay(), { align: Alignment.Center })
     }
   }
 }

@@ -590,6 +590,39 @@ Still open:
   - controller visual acceptance
 ```
 
+Additional gallery cover fallback structural hardening from 2026-06-18:
+
+```text
+- Scope: shared `EhThumbnail` loading/error fallback only; no list-responsive-cover sizing, auth-cookie-login,
+  or preview thumbnail token changes.
+- Implementation state:
+  - `loaded` and `failed` are tracked separately.
+  - URL reuse resets both states.
+  - Loading keeps the existing distinct `COVER_PLACEHOLDER` plus centered `LoadingProgress`.
+  - Error keeps the same distinct placeholder and adds a tertiary `sys.symbol.picture` marker.
+  - Every thumbnail branch uses the combined loading/error overlay.
+- Contract state:
+  - `scripts/test_cover_presentation_contract.mjs` now rejects branches that bypass the combined overlay and
+    gates loading/error reset and marker behavior.
+- Device smoke:
+  - Official signed HAP installed on Mate X7 emulator target `127.0.0.1:5555`.
+  - App launched successfully.
+  - Smoke layout confirms foreground `com.erosteam.nexte` / `EntryAbility` / `pages/Index`, Home `E-Hentai`
+    default list, and real gallery rows.
+  - Every hdc command ran outside the Codex sandbox.
+
+Evidence:
+  - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_loaded_smoke.png
+  - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_loaded_smoke_layout.json
+  - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_post_reinstall.png
+  - /private/tmp/nexte_cover_fallback_evidence/nexte_cover_fallback_post_reinstall_layout.json
+
+Still open:
+  - real loading placeholder screenshots
+  - real error fallback screenshots
+  - controller visual acceptance
+```
+
 Validation already run:
 
 ```text
@@ -653,8 +686,9 @@ Current active meaning:
 - Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route,
   hidden-inline/AllThumbnails route, not-favorited first-read header/action, normal detail tag chips,
   loaded/light gallery cover presentation including Home grid-card behavior, loaded/dark detail+Home-list
-  cover presentation, loaded/dark Home grid-card behavior, and Home default fixed/adaptive list height
-  have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
+  cover presentation, loaded/dark Home grid-card behavior, Home default fixed/adaptive list height, and
+  gallery cover fallback structural/device-smoke hardening have current Mate X7 evidence; final controller
+  visual acceptance and remaining state matrices are still open.
 ```
 
 Important boundary:

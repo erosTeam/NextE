@@ -45,20 +45,31 @@ ok(/hasSourceSize\(\)/.test(thumb), 'EhThumbnail gates real-aspect sizing on kno
 ok(/fittedWidth\(\)/.test(thumb) && /fittedHeight\(\)/.test(thumb), 'EhThumbnail computes visible image size from source aspect')
 ok(/this\.containFit\s*&&\s*this\.hasSourceSize\(\)/.test(thumb), 'containFit + known source dimensions uses the transparent-slot real-image branch')
 ok(/Image\(EhConstants\.cdnThumb\(this\.url\)\)[\s\S]*?\.width\(this\.fittedWidth\(\)\)[\s\S]*?\.height\(this\.fittedHeight\(\)\)[\s\S]*?\.objectFit\(ImageFit\.Fill\)[\s\S]*?\.borderRadius\(this\.radius\)[\s\S]*?\.clip\(true\)/.test(thumb), 'visible loaded image is sized to real aspect and clipped to its own radius')
-ok(/Stack\(\{ alignContent: Alignment\.Center \}\)[\s\S]*?\.width\(this\.thumbWidth\)[\s\S]*?\.height\(this\.thumbHeight\)[\s\S]*?\.overlay\(this\.loaderOverlay\(\)/.test(thumb), 'fixed header slot is a transparent alignment slot with loader overlay')
+ok(/Stack\(\{ alignContent: Alignment\.Center \}\)[\s\S]*?\.width\(this\.thumbWidth\)[\s\S]*?\.height\(this\.thumbHeight\)[\s\S]*?\.overlay\(this\.coverOverlay\(\)/.test(thumb), 'fixed header slot is a transparent alignment slot with loading/error overlay')
 
-// 3) Header cover must pass the parsed dimensions so a wide/flat cover does not become a grey tall box.
+// 3) Loading and error fallbacks must be explicit placeholder states, not an accidental empty loaded slot.
+ok(/@Local\s+loaded:\s*boolean\s*=\s*false/.test(thumb), 'EhThumbnail tracks the loading/loaded state')
+ok(/@Local\s+failed:\s*boolean\s*=\s*false/.test(thumb), 'EhThumbnail tracks the image error state separately')
+ok(/onUrlChange\(\)[\s\S]*?this\.loaded\s*=\s*false[\s\S]*?this\.failed\s*=\s*false/.test(thumb), 'recycled rows reset both loaded and failed state when URL changes')
+ok(/if\s*\(!this\.loaded\s*&&\s*!this\.failed\)/.test(thumb), 'spinner is shown only while loading, not after an error')
+ok(/errorOverlay\(\)[\s\S]*?if\s*\(this\.failed\)[\s\S]*?SymbolGlyph\(\$r\('sys\.symbol\.picture'\)\)[\s\S]*?ThemeConstants\.TEXT_TERTIARY/.test(thumb), 'error fallback shows an explicit tertiary image marker')
+ok((thumb.match(/this\.failed\s*=\s*true/g) || []).length >= 4, 'every Image onError path marks the thumbnail failed')
+ok((thumb.match(/this\.failed\s*=\s*false/g) || []).length >= 5, 'onUrlChange and every onComplete path clears failed state')
+ok((thumb.match(/\.overlay\(this\.coverOverlay\(\),\s*\{ align:\s*Alignment\.Center \}\)/g) || []).length >= 4, 'every thumbnail branch uses the combined loading/error overlay')
+ok(!/\.overlay\(this\.loaderOverlay\(\)/.test(thumb), 'no branch bypasses the error marker by using the loader overlay directly')
+
+// 4) Header cover must pass the parsed dimensions so a wide/flat cover does not become a grey tall box.
 ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(headerCard), 'GalleryHeaderCard passes gallery.imgWidth into EhThumbnail')
 ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(headerCard), 'GalleryHeaderCard passes gallery.imgHeight into EhThumbnail')
 ok(/containFit:\s*true/.test(headerCard), 'GalleryHeaderCard still fits the whole cover, no crop/fill policy')
 
-// 4) This fix must not invent a blanket fill/crop policy for grid cards. Existing grid cover remains its
+// 5) This fix must not invent a blanket fill/crop policy for grid cards. Existing grid cover remains its
 // own context; the header fix is about real-aspect fitting inside a transparent slot.
 ok(!/sourceWidth/.test(gridCard) && !/sourceHeight/.test(gridCard), 'GalleryGridCard is not forced into the detail-header source-slot path')
 ok(!/ImageFit\.Cover[\s\S]*header/i.test(headerCard), 'GalleryHeaderCard does not introduce a header Cover/crop policy')
 
 if (failures === 0) {
-  console.log('✓ cover presentation contract: loaded header cover uses real-aspect visible image, transparent slot, rounded image boundary')
+  console.log('✓ cover presentation contract: loaded header cover uses real-aspect visible image; loading/error fallbacks use the distinct cover placeholder')
   process.exit(0)
 }
 console.error(`✗ cover presentation contract: ${failures} failure(s)`)
