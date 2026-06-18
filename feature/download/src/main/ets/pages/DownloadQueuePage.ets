@@ -7,6 +7,7 @@ import {
   AppStrings,
   DownloadGalleryTask,
   DownloadGalleryTaskStatus,
+  EhThumbnail,
   DownloadQueueSettings,
   DownloadQueueState,
   DownloadViewType,
@@ -84,29 +85,10 @@ export struct DownloadQueuePage {
     return AppStrings.get('download_status_queued')
   }
 
-  private taskSubtitle(task: DownloadGalleryTask): string {
+  private taskMetaText(task: DownloadGalleryTask): string {
     const parts: string[] = []
     if (task.pageCountText().length > 0) {
       parts.push(task.pageCountText())
-    }
-    if (task.status === DownloadGalleryTaskStatus.ERROR) {
-      parts.push(this.taskStatusText(task))
-    }
-    if (task.downloadProgressText().length > 0) {
-      parts.push(AppStrings.get('download_file_progress').replace('%s', task.downloadProgressText()))
-      return parts.join(' · ')
-    }
-    if (task.seedProgressText().length > 0) {
-      parts.push(AppStrings.get('download_seed_progress').replace('%s', task.seedProgressText()))
-      return parts.join(' · ')
-    }
-    if (task.status === DownloadGalleryTaskStatus.DOWNLOADING) {
-      parts.push(this.taskStatusText(task))
-      return parts.join(' · ')
-    }
-    if (task.status === DownloadGalleryTaskStatus.PREPARING) {
-      parts.push(this.taskStatusText(task))
-      return parts.join(' · ')
     }
     if (task.category.length > 0) {
       parts.push(task.category)
@@ -115,6 +97,32 @@ export struct DownloadQueuePage {
       parts.push(task.uploader)
     }
     return parts.join(' · ')
+  }
+
+  private taskProgressLabel(task: DownloadGalleryTask): string {
+    if (task.status === DownloadGalleryTaskStatus.ERROR) {
+      return this.taskStatusText(task)
+    }
+    if (task.downloadProgressText().length > 0) {
+      return AppStrings.get('download_file_progress').replace('%s', task.downloadProgressText())
+    }
+    if (task.seedProgressText().length > 0) {
+      return AppStrings.get('download_seed_progress').replace('%s', task.seedProgressText())
+    }
+    return this.taskStatusText(task)
+  }
+
+  private taskProgressRatio(task: DownloadGalleryTask): number {
+    if (task.pageCount <= 0) {
+      return 0
+    }
+    if (task.downloadedCount() > 0) {
+      return Math.max(0, Math.min(1, task.downloadedCount() / task.pageCount))
+    }
+    if (task.seededCount() > 0) {
+      return Math.max(0, Math.min(1, task.seededCount() / task.pageCount))
+    }
+    return 0
   }
 
   private async removeTask(task: DownloadGalleryTask): Promise<void> {
@@ -168,38 +176,98 @@ export struct DownloadQueuePage {
 
   @Builder
   private GalleryTaskSection() {
-    GroupedListSection() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
       ForEach(
         this.downloadQueue.galleryTasks,
         (task: DownloadGalleryTask) => {
-          ConciseListRow({
-            title: task.displayTitle(),
-            subtitle: this.taskSubtitle(task),
-            leadingImageUrl: task.thumbUrl,
-            showChevron: false,
-            suffixBuilderParam: () => {
-              this.RemoveTaskButton(task)
-            },
-          })
-          this.rowDivider()
+          this.DownloadGalleryTaskCard(task)
         },
         (task: DownloadGalleryTask) => `${task.gid}:${task.token}`,
       )
     }
+    .width('100%')
+  }
+
+  @Builder
+  private DownloadGalleryTaskCard(task: DownloadGalleryTask) {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      EhThumbnail({
+        url: task.thumbUrl,
+        thumbWidth: ThemeConstants.DOWNLOAD_TASK_COVER_WIDTH,
+        thumbHeight: ThemeConstants.DOWNLOAD_TASK_CARD_HEIGHT - ThemeConstants.SPACE_LG,
+        radius: ThemeConstants.RADIUS_SM,
+      })
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        Text(task.displayTitle())
+          .fontSize(ThemeConstants.FONT_SIZE_META)
+          .fontColor($r('sys.color.font_primary'))
+          .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+        Text(this.taskMetaText(task))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+        Blank()
+        this.TaskProgressBar(task)
+        Text(this.taskProgressLabel(task))
+          .fontSize(ThemeConstants.FONT_SIZE_META)
+          .fontColor(task.status === DownloadGalleryTaskStatus.ERROR
+            ? Color.Red
+            : $r('sys.color.font_primary'))
+          .fontWeight(FontWeight.Medium)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+      }
+      .layoutWeight(1)
+      .height('100%')
+      .justifyContent(FlexAlign.Start)
+      this.RemoveTaskButton(task)
+    }
+    .width('100%')
+    .height(ThemeConstants.DOWNLOAD_TASK_CARD_HEIGHT)
+    .padding(ThemeConstants.SPACE_SM)
+    .alignItems(VerticalAlign.Center)
+    .borderRadius(ThemeConstants.RADIUS_CARD)
+    .backgroundColor($r('app.color.card_background'))
+  }
+
+  @Builder
+  private TaskProgressBar(task: DownloadGalleryTask) {
+    Row() {
+      Blank()
+        .width(`${Math.max(4, Math.round(this.taskProgressRatio(task) * 100))}%`)
+        .height(ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT)
+        .borderRadius(ThemeConstants.RADIUS_SM)
+        .backgroundColor(task.status === DownloadGalleryTaskStatus.ERROR
+          ? Color.Red
+          : ThemeConstants.BRAND_PRIMARY)
+    }
+    .width('100%')
+    .height(ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT)
+    .borderRadius(ThemeConstants.RADIUS_SM)
+    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+    .clip(true)
   }
 
   @Builder
   private RemoveTaskButton(task: DownloadGalleryTask) {
-    Button($r('app.string.common_remove'))
-      .type(ButtonType.Capsule)
-      .height(30)
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .fontColor($r('sys.color.font_secondary'))
-      .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-      .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
-      .onClick(() => {
-        this.removeTask(task)
-      })
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph($r('sys.symbol.trash'))
+        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+        .fontColor([$r('sys.color.font_secondary')])
+    }
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+    .accessibilityText($r('app.string.common_remove'))
+    .onClick(() => {
+      this.removeTask(task)
+    })
   }
 
   @Builder

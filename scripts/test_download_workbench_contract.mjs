@@ -53,6 +53,20 @@ ok(/EmptyQueueSection/.test(page) && /selectedEmptyText/.test(page) && /selected
   'download page shows per-queue empty-state guidance')
 ok(!/SettingsPreviewSection|download_concurrency|download_original_images|connectDownloadSettings/.test(page),
   'download page does not mix download settings into queue content')
+ok(/private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)/.test(page) &&
+  /EhThumbnail\(\{[\s\S]*thumbWidth: ThemeConstants\.DOWNLOAD_TASK_COVER_WIDTH/.test(page) &&
+  /Text\(task\.displayTitle\(\)\)[\s\S]*maxLines\(2\)/.test(page),
+  'gallery tasks render as readable task cards with cover and two-line title')
+ok(/private TaskProgressBar\(task: DownloadGalleryTask\)/.test(page) &&
+  /taskProgressRatio\(task\)/.test(page) &&
+  /download_file_progress/.test(page) &&
+  /download_seed_progress/.test(page),
+  'gallery task card promotes seed/download progress as task state')
+ok(/Button\(\{ type: ButtonType\.Circle \}\)[\s\S]*sys\.symbol\.trash[\s\S]*common_remove/.test(page),
+  'remove action is a low-weight icon action rather than a wide text button')
+ok(!/ConciseListRow\(\{[\s\S]*title: task\.displayTitle\(\)/.test(page) &&
+  !/Button\(\$r\('app\.string\.common_remove'\)\)/.test(page),
+  'gallery task rows do not regress to shallow ConciseListRow plus large remove button')
 ok(!/queue · resume · archiver · offline read \(M4\)/.test(page) && !/Text\('Downloads'\)/.test(page),
   'old literal placeholder copy is gone')
 ok(!/postArchiver|downloadRemote|downloadLoacal|downloadLocal|DownloadAgentService/.test(page),
