@@ -481,6 +481,16 @@ Blocked FE/ADB preflight:
   offline` returned to no targets, so the Android target is still unavailable.
 - Local Android SDK/emulator setup is also absent: no `emulator`, no `sdkmanager`, no
   `~/Library/Android`, and no existing `~/.android/avd`.
+- The `emulator-5554 offline` target is not a usable Android target. Process/port inspection shows it
+  comes from the running DevEco HarmonyOS Mate X7 emulator process
+  `/Applications/DevEco-Studio.app/Contents/tools/emulator/Emulator ... -hvd Mate X7`, listening on
+  `127.0.0.1:5555`; ADB sees that port as an offline Android emulator, while HDC is the correct tool
+  for that HarmonyOS target.
+- Local build/run prerequisites for installing `eros_fe` onto an Android emulator are also absent:
+  `flutter` is not on `PATH`, no Java Runtime is installed, and no Android Studio app is present in
+  `/Applications`. Installing the full Android/Flutter/JDK/emulator stack is a separate environment
+  provisioning task and still would not replace the required connected Android FE screenshot evidence
+  until an Android target and `eros_fe` install are available.
 
 Source-only FE grounding already collected:
 
