@@ -216,7 +216,7 @@ Type: bug
 
 Priority suggestion: P0/P1
 
-Status: implemented / pending device acceptance
+Status: accepted
 
 Implementation:
 
@@ -231,11 +231,28 @@ Evidence:
   `scripts/test_list_height_mode_contract.mjs`, `scripts/test_list_responsive_cover_contract.mjs`.
 - Historical Mate X7 evidence exists for Home fixed/adaptive list modes, but active visual acceptance
   is not automatically closed by history.
+- Current-main acceptance, 2026-06-19:
+  `scripts/test_cover_presentation_contract.mjs`, `scripts/test_list_height_mode_contract.mjs`,
+  `scripts/test_list_responsive_cover_contract.mjs`, and
+  `scripts/test_v1_decorator_inventory_contract.mjs` all passed.
+- Android FE reference, 2026-06-19: ADB target `fa967a75` was brought to foreground with
+  `adb shell su -c 'am start -n com.honjow.fehviewer/.MainActivity'`, foreground confirmed as
+  `com.honjow.fehviewer/.MainActivity`, and the current FE screen was captured at
+  `/private/tmp/nexte_tall_cover_row_height_fe_reference/fe_foreground.png`.
+- HarmonyOS Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox: fixed-height list mode was
+  checked via the real Settings switch, a `webtoon` search result list was captured, and visible
+  `ListItem` rows stayed bounded (first webtoon result row height 638px; no multi-screen row stretch).
+  Adaptive mode was toggled through Settings, the Gallery default list was captured, and visible rows
+  remained bounded while allowing content growth (first adaptive content row height 720px). The setting
+  was restored to fixed-height checked=true after capture. Evidence directory:
+  `/private/tmp/nexte_tall_cover_row_height_acceptance`, especially `fixed.png`, `fixed.json`,
+  `adaptive.png`, `adaptive.json`, `settings_fixed_toggle.json`, and `settings_fixed_restored.json`.
 
-Remaining acceptance:
+Closure:
 
-- Current targeted device/controller acceptance with an extreme tall/narrow cover fixture or real
-  gallery in fixed and adaptive modes.
+- Accepted for fixed and adaptive list row-height behavior. The real-device evidence covers running
+  list surfaces and the deterministic contracts lock the explicit cover-slot policy for extreme
+  tall/narrow source ratios. No product code changed in this acceptance update.
 
 Source:
 
