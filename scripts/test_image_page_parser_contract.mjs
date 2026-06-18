@@ -19,14 +19,14 @@ const RE = {
   origin: /<a href="(https:\/\/[^"]*\/fullimg[^"]*)"/,
   nl: /onclick="return nl\('([^']+)'\)/,
   gallery: /https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-z]+)\/?/,
-  ser: /<div[^>]*class="sn"[^>]*>[\s\S]*?<span>(\d+)<\/span>/,
+  serTotal: /<div[^>]*class="sn"[^>]*>[\s\S]*?<span>(\d+)<\/span>\s*\/\s*<span>(\d+)<\/span>/,
 }
 
 let failures = 0
 const eq = (a, e, label) => { if (a !== e) { console.error(`  ✗ ${label}: expected ${JSON.stringify(e)}, got ${JSON.stringify(a)}`); failures++ } }
 const ok = (c, label) => { if (!c) { console.error(`  ✗ ${label}`); failures++ } }
 
-const SYN = `<div id="i2"><div>file.jpg :: 900 x 1280</div><div class="sn"><div><span>37</span></div></div></div>
+const SYN = `<div id="i2"><div>file.jpg :: 900 x 1280</div><div class="sn"><div><span>37</span> / <span>138</span></div></div></div>
 <div id="i5"><div><a href="https://e-hentai.org/g/3987108/z9altc/">Back to Gallery</a></div></div>
 <div id="i3"><a id="loadfail" onclick="return nl('12500-494832')"><img id="img" src="https://x.hath.network/h/abcdef123/keystamp/0.jpg" style="" /></a></div>
 <a href="https://e-hentai.org/fullimg/3987108/1/rp9fzq9altc/0.jpg">Download original</a>
@@ -42,7 +42,11 @@ eq(g1(SYN, RE.nl), '12500-494832', 'reloadKey')
   eq(g?.[1] ?? '', '3987108', 'parent gallery gid')
   eq(g?.[2] ?? '', 'z9altc', 'parent gallery token allows a-z')
 }
-eq(Number.parseInt(g1(SYN, RE.ser), 10), 37, 'image-page serial')
+{
+  const st = SYN.match(RE.serTotal)
+  eq(Number.parseInt(st?.[1] ?? '', 10), 37, 'image-page serial')
+  eq(Number.parseInt(st?.[2] ?? '', 10), 138, 'image-page total fileCount')
+}
 
 const fx = join(ROOT, 'scripts/fixtures/image_page.html')
 if (existsSync(fx)) {
@@ -51,7 +55,9 @@ if (existsSync(fx)) {
   ok(g1(h, RE.img).startsWith('https://'), 'real imageUrl is https')
   ok(g1(h, RE.showkey).length > 0, 'real showKey present')
   ok(g1(h, RE.nl).length > 0, 'real nl reload present')
-  ok(g1(h, RE.ser).length > 0, 'real serial present')
+  const st = h.match(RE.serTotal)
+  ok(st !== null && st[1].length > 0, 'real serial present')
+  ok(st !== null && st[2].length > 0, 'real total fileCount present')
   if (!failures) console.log(`  ✓ imageUrl=${g1(h, RE.img).slice(0, 42)}… showKey=${g1(h, RE.showkey)}`)
 } else {
   console.log('— real fixture absent; synthetic-only —')

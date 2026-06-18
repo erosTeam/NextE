@@ -7,6 +7,7 @@ export class ImagePageResult {
   galleryGid: string = ''     // parent /g/{gid}/{token} parsed from the image page
   galleryToken: string = ''
   ser: number = 0             // 1-based image serial shown in the EH image-page chrome
+  fileCount: number = 0       // total image count shown beside the serial
 }
 
 /** Shape of the /api.php method=showpage JSON response (only the fields NextE needs). */
@@ -28,7 +29,8 @@ export class EhImagePageParser {
   private static readonly RE_ORIGIN: RegExp = /<a href="(https:\/\/[^"]*\/fullimg[^"]*)"/
   private static readonly RE_NL: RegExp = /onclick="return nl\('([^']+)'\)/
   private static readonly RE_GALLERY: RegExp = /https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-z]+)\/?/
-  private static readonly RE_SER: RegExp = /<div[^>]*class="sn"[^>]*>[\s\S]*?<span>(\d+)<\/span>/
+  private static readonly RE_SER_TOTAL: RegExp =
+    /<div[^>]*class="sn"[^>]*>[\s\S]*?<span>(\d+)<\/span>\s*\/\s*<span>(\d+)<\/span>/
 
   static parse(html: string): ImagePageResult {
     const r: ImagePageResult = new ImagePageResult()
@@ -53,9 +55,10 @@ export class EhImagePageParser {
       r.galleryGid = gallery[1]
       r.galleryToken = gallery[2]
     }
-    const ser: RegExpMatchArray | null = html.match(EhImagePageParser.RE_SER)
-    if (ser !== null && ser[1] !== undefined) {
+    const ser: RegExpMatchArray | null = html.match(EhImagePageParser.RE_SER_TOTAL)
+    if (ser !== null && ser[1] !== undefined && ser[2] !== undefined) {
       r.ser = Number.parseInt(ser[1], 10)
+      r.fileCount = Number.parseInt(ser[2], 10)
     }
     return r
   }

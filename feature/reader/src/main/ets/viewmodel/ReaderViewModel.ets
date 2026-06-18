@@ -30,6 +30,7 @@ export class ReaderViewModel {
   private token: string = ''
   private previewPage: number = -1
   private exhausted: boolean = false
+  private loadedPreviewPages: number[] = []
   // Image-page links per preview page (~20/40, gallery-fixed), measured from the first loaded page.
   // Enables a far jump/resume to fetch the missing preview pages CONCURRENTLY (the slider drop case)
   // instead of one-by-one round-trips (eros_fe far-seek). 0 until the first page lands.
@@ -48,6 +49,11 @@ export class ReaderViewModel {
     this.token = token
     this.fileCount = fileCount
     this.currentIndex = startIndex
+    this.images = []
+    this.previewPage = -1
+    this.exhausted = false
+    this.loadedPreviewPages = []
+    this.perPage = 0
     const exactSeed: EhGalleryImage | null = this.exactSeedImage(seedImages, seedLoadedPages, startIndex)
     this.applySeed(seedImages, seedLoadedPages, seedPerPage)
     // A resumed far start page (e.g. lastIndex 500) must not crawl preview pages one-by-one — fetch
@@ -89,6 +95,10 @@ export class ReaderViewModel {
     this.images = seeded
     this.previewPage = Math.max(0, seedLoadedPages - 1)
     this.perPage = seedPerPage > 0 ? seedPerPage : seedImages.length
+    this.loadedPreviewPages = []
+    for (let p: number = 0; p < seedLoadedPages; p++) {
+      this.loadedPreviewPages.push(p)
+    }
     if (this.fileCount > 0 && this.images.length >= this.fileCount) {
       this.exhausted = true
     }
@@ -135,7 +145,14 @@ export class ReaderViewModel {
     if (this.previewPage < 0) {
       await this.loadMore()
     }
-    if (this.exhausted || this.images.length > index) {
+    if (this.exhausted || this.hasPreviewAt(index)) {
+      return
+    }
+    // eros_fe first asks the target `ser`'s preview page directly. Do the same before filling gaps, so
+    // a later thumbnail/deep image-page start can paint the target immediately instead of waiting for
+    // page-1..target preview pages to serialize or visually snapping back to early pages.
+    const loadedTarget: boolean = await this.loadPreviewPageForIndex(index)
+    if (loadedTarget || this.exhausted) {
       return
     }
     // perPage unknown (single-page gallery or a parse miss) → fall back to the sequential extend.
@@ -176,8 +193,7 @@ export class ReaderViewModel {
             this.exhausted = true
             break
           }
-          this.images = this.images.concat(r)
-          this.previewPage = from + i
+          this.mergePreviewPage(from + i, r)
           if (this.fileCount > 0 && this.images.length >= this.fileCount) {
             this.exhausted = true
             break
@@ -225,8 +241,7 @@ export class ReaderViewModel {
       if (more.length === 0) {
         this.exhausted = true
       } else {
-        this.images = this.images.concat(more)
-        this.previewPage = next
+        this.mergePreviewPage(next, more)
         // Record the per-preview-page count from the first full page — it's gallery-fixed, so it lets
         // a later far jump compute exactly which preview pages to fetch.
         if (this.perPage === 0) {
@@ -243,9 +258,98 @@ export class ReaderViewModel {
     this.loadingMore = false
   }
 
+  private hasPreviewAt(index: number): boolean {
+    if (index < 0 || index >= this.images.length) {
+      return false
+    }
+    return this.images[index].sUrl.length > 0
+  }
+
+  private async loadPreviewPageForIndex(index: number): Promise<boolean> {
+    if (this.perPage <= 0 || index < 0 || this.hasPreviewAt(index) || this.loadingMore) {
+      return false
+    }
+    const targetPreviewPage: number = Math.floor(index / this.perPage)
+    if (this.isPreviewPageLoaded(targetPreviewPage)) {
+      return this.hasPreviewAt(index)
+    }
+    this.loadingMore = true
+    this.error = ''
+    try {
+      const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
+        this.gid,
+        this.token,
+        connectSiteMode().isEx,
+        targetPreviewPage,
+      )
+      if (more.length === 0) {
+        this.exhausted = true
+      } else {
+        this.mergePreviewPage(targetPreviewPage, more)
+      }
+    } catch (err) {
+      this.error = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('reader', 'target_preview_load_failed', (err as Error).message)
+    }
+    this.loadingMore = false
+    return this.hasPreviewAt(index)
+  }
+
+  private mergePreviewPage(previewPage: number, pageImages: EhGalleryImage[]): void {
+    if (pageImages.length === 0) {
+      return
+    }
+    const next: EhGalleryImage[] = []
+    for (let i: number = 0; i < this.images.length; i++) {
+      next.push(this.images[i].copy())
+    }
+    const startIndex: number = previewPage * (this.perPage > 0 ? this.perPage : pageImages.length)
+    const minLength: number = startIndex + pageImages.length
+    for (let i: number = next.length; i < minLength; i++) {
+      next.push(new EhGalleryImage(i + 1))
+    }
+    for (let i: number = 0; i < pageImages.length; i++) {
+      const img: EhGalleryImage = pageImages[i]
+      const targetIndex: number = img.page > 0 ? img.page - 1 : startIndex + i
+      for (let j: number = next.length; j <= targetIndex; j++) {
+        next.push(new EhGalleryImage(j + 1))
+      }
+      next[targetIndex] = img.copy()
+    }
+    this.images = next
+    this.markPreviewPageLoaded(previewPage)
+    this.advanceContiguousPreviewPage()
+  }
+
+  private markPreviewPageLoaded(previewPage: number): void {
+    if (this.isPreviewPageLoaded(previewPage)) {
+      return
+    }
+    this.loadedPreviewPages.push(previewPage)
+  }
+
+  private isPreviewPageLoaded(previewPage: number): boolean {
+    for (let i: number = 0; i < this.loadedPreviewPages.length; i++) {
+      if (this.loadedPreviewPages[i] === previewPage) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private advanceContiguousPreviewPage(): void {
+    let next: number = this.previewPage + 1
+    while (this.isPreviewPageLoaded(next)) {
+      this.previewPage = next
+      next++
+    }
+  }
+
   onPageChange(index: number): void {
     this.currentIndex = index
-    if (!this.exhausted && index >= this.images.length - 3) {
+    if (!this.exhausted && !this.hasPreviewAt(index)) {
+      this.ensureLoaded(index)
+    } else if (!this.exhausted && index >= this.images.length - 3) {
       this.loadMore()
     }
     this.precacheAhead()
@@ -254,7 +358,9 @@ export class ReaderViewModel {
   /** Vertical (continuous) mode: top item drives the counter; load more as the bottom nears the end. */
   onVerticalScroll(start: number, end: number): void {
     this.currentIndex = start
-    if (!this.exhausted && end >= this.images.length - 3) {
+    if (!this.exhausted && !this.hasPreviewAt(start)) {
+      this.ensureLoaded(start)
+    } else if (!this.exhausted && end >= this.images.length - 3) {
       this.loadMore()
     }
     this.precacheAhead()

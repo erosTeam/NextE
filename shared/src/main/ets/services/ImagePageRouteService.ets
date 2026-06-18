@@ -8,6 +8,7 @@ export class ImagePageRouteTarget {
   gid: string = ''
   token: string = ''
   index: number = 0
+  fileCount: number = 0
   seedImage: EhGalleryImage = new EhGalleryImage()
 }
 
@@ -33,6 +34,7 @@ export class ImagePageRouteService {
     const target: ImagePageRouteTarget = new ImagePageRouteTarget()
     target.gid = parsed.galleryGid.length > 0 ? parsed.galleryGid : ref.gid
     target.token = parsed.galleryToken
+    target.fileCount = parsed.fileCount
     const ser: number = parsed.ser > 0 ? parsed.ser : ref.page
     target.index = Math.max(0, ser - 1)
     const seed: EhGalleryImage = new EhGalleryImage(target.index + 1)

@@ -79,6 +79,9 @@ ok('AllThumbnails passes seed per-page count', /this\.vm\.seedPerPage\(\)/.test(
 
 const readerPageSrc = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
 ok('ReaderPage forwards seed params into VM init', /this\.vm\.init\(p\.gid, p\.token, p\.fileCount, p\.index, p\.seedImages, p\.seedLoadedPages, p\.seedPerPage\)/.test(readerPageSrc))
+ok('ReaderPage preserves requested route index across early vertical onScrollIndex callbacks', /const requestedIndex: number = p\.index/.test(readerPageSrc))
+ok('ReaderPage re-syncs current index and slider from requested index after async VM init', /const targetIndex: number =[\s\S]*Math\.min\(requestedIndex, this\.vm\.images\.length - 1\)[\s\S]*this\.vm\.currentIndex = targetIndex[\s\S]*this\.sliderValue = targetIndex \+ 1/.test(readerPageSrc))
+ok('ReaderPage scrolls vertical mode to the requested target after async VM init', /this\.readMode\.mode === ReadMode\.VERTICAL[\s\S]*this\.listScroller\.scrollToIndex\(targetIndex\)/.test(readerPageSrc))
 
 const readerVmSrc = read('feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets')
 ok('ReaderViewModel accepts seed args', /seedImages:\s*EhGalleryImage\[\]\s*=\s*\[\][\s\S]*seedLoadedPages:\s*number\s*=\s*0[\s\S]*seedPerPage:\s*number\s*=\s*0/.test(readerVmSrc))

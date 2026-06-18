@@ -117,7 +117,19 @@ export struct ReaderPage {
       if (p !== undefined && p.gid.length > 0) {
         this.params = p
         this.sliderValue = p.index + 1
+        const requestedIndex: number = p.index
         this.vm.init(p.gid, p.token, p.fileCount, p.index, p.seedImages, p.seedLoadedPages, p.seedPerPage)
+          .then(() => {
+            const targetIndex: number =
+              this.vm.images.length > 0 ? Math.min(requestedIndex, this.vm.images.length - 1) : 0
+            this.vm.currentIndex = targetIndex
+            this.sliderValue = targetIndex + 1
+            if (this.readMode.mode === ReadMode.VERTICAL) {
+              setTimeout(() => {
+                this.listScroller.scrollToIndex(targetIndex)
+              }, 50)
+            }
+          })
       }
       // Keep the screen awake while reading (eros_fe couples fullscreen + wakelock); window-scoped,
       // restored on aboutToDisappear. The app is already edge-to-edge fullscreen (EntryAbility), so the
