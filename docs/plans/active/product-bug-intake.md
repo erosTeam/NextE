@@ -819,6 +819,102 @@ Remaining acceptance:
   `/private/tmp/nexte_search_filter_correction_evidence/`, especially
   `nexte_filter_sheet_final.png` and `nexte_filter_final_radius.png`.
 
+### Search No Results Should Render Empty State, Not Parse Error
+
+Type: bug / UX correctness
+
+Priority suggestion: P1
+
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- `a7e7478 fix(search): render no-result searches as empty` treats EH list no-hit pages as valid
+  empty list responses instead of `ParseFailure`, and changes Search empty results to the
+  search-specific `没有搜索结果` / `No search results` copy.
+- Scope: normal gallery search zero-result handling. Login, Cloudflare, rate-limit, removed/unavailable,
+  empty body, and malformed pages still route through the existing typed error classifier.
+
+Evidence:
+
+- eros_fe source comparison: `lib/pages/tab/controller/search_page_controller.dart` initializes search
+  with `RxStatus.empty()`, and `lib/pages/tab/view/search_page.dart` renders a non-error empty sliver
+  when status is neither loading/error/success.
+- Android FE ADB attempt: device `fa967a75`, package `com.honjow.fehviewer`; evidence in
+  `/private/tmp/nexte_search_no_results_fe_evidence/`. The app stayed on the gallery list during the
+  automated URL/search attempt, so this is recorded as a FE operation attempt, not acceptance proof.
+- Deterministic contracts: `scripts/test_search_no_results_contract.mjs`,
+  `scripts/test_error_classification_contract.mjs`, `scripts/test_search_input_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, and `scripts/test_v1_decorator_inventory_contract.mjs`.
+- Official macOS DevEco/Hvigor signed build: `scripts/build_hvigor_signed.sh`, installed
+  `entry/build/default/outputs/default/entry-default-signed.hap` on Mate X7 target
+  `127.0.0.1:5555`.
+- Device evidence: `/private/tmp/nexte_search_no_results_evidence/result.png` and `result.json` show
+  query `nexte_no_results_probe_zzzzzzzzzzzzzzzzzzzz` rendering `没有搜索结果`, with no
+  `无法解析此页面,应用可能需要更新。` parse-error copy.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the current NextE device evidence. A successful Android FE
+  no-results screenshot is still useful if the FE app can be manually navigated there, but this lane is
+  no longer blocked on it because the eros_fe source behavior and NextE runtime behavior are aligned.
+
+Source:
+
+- User-reported current behavior.
+
+Observed behavior:
+
+- When a search has no results, the page can show a parse/update-style error instead of a normal
+  no-results state.
+
+Expected behavior:
+
+- A normal zero-result search should leave the result area empty or show a centered no-results icon/message.
+- It should not show copy like "unable to parse this page" / "app may need an update" unless the fetched page
+  is actually an unexpected or unsupported page structure.
+- The empty state should be search-specific, for example "没有搜索结果", rather than a generic fatal error.
+
+Why this matters:
+
+- No-result searches are normal user behavior, especially with exact tag queries or restrictive filters.
+- Showing a parser/update error makes users think the app or EH integration is broken when the query simply
+  matched nothing.
+
+Likely failure mode:
+
+- `GallerySearchPage` currently renders `PageErrorState` when `vm.itemCount === 0 && vm.errorMessage.length > 0`,
+  and only falls through to `CardEmptyState` when there is no error.
+- If the search request/classifier turns EH's zero-result HTML into `ParseFailure`, the UI shows the parser
+  error instead of a no-results empty state.
+- `EhGalleryListParser.parse()` can represent an empty list, but the network/classifier path may reject some
+  zero-result pages before the parser result reaches `SearchViewModel`.
+
+Likely modules to inspect:
+
+- `feature/search/src/main/ets/pages/GallerySearchPage.ets`
+- `feature/search/src/main/ets/viewmodel/SearchViewModel.ets`
+- `shared/src/main/ets/network/EhApiService.ets`
+- `shared/src/main/ets/network/EhErrorClassifier.ets`
+- `shared/src/main/ets/parser/EhGalleryListParser.ets`
+- `scripts/test_search_input_contract.mjs`
+- `scripts/test_error_classification_contract.mjs`
+
+Implementation direction to evaluate:
+
+- Capture or fixture a real EH search response for a valid zero-result query.
+- Teach the list/search fetch path to classify that response as a valid empty `GalleryList`, not a parse failure.
+- Keep real malformed pages, login/auth gates, Cloudflare/rate-limit pages, and unsupported layout variants classified as errors.
+- Add a search-specific empty state copy/icon for `hasSearched && itemCount === 0 && no fatal error`.
+- Add deterministic coverage that zero-result search HTML produces an empty list and Search UI uses empty state, while true parse failures still show error.
+
+Acceptance shape:
+
+- Search a query that validly returns zero results.
+- The page shows blank/history-free empty result area or a centered no-results icon/message.
+- No parser/update error copy is shown for the zero-result case.
+- A true malformed/error page still renders a recoverable error state.
+
 ### Search Action Routes Can Lose The Second Tag Query
 
 Type: routing / state ownership bug
