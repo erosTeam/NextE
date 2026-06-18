@@ -310,6 +310,20 @@ List-card fixed/adaptive height modes:
 - Observed: default fixed=true keeps a regular row rhythm and clips overflow chips; adaptive=false grows
   the same rows to show more chips; setting was restored to fixed=true.
 - Still open: Favorites/Toplist retained pages, logged-in favorites variants, and controller visual acceptance.
+
+Detail tag chips:
+- Target: 127.0.0.1:5555 Mate X7 emulator.
+- Build: a253aff signed HAP already installed.
+- Detail: https://e-hentai.org/g/3989982/16600a66e8/
+- State covered: normal non-usertag/non-vote tag chips only.
+- Evidence:
+  - /private/tmp/nexte_detail_tag_chip_evidence/detail_tag_chips.png
+  - /private/tmp/nexte_detail_tag_chip_evidence/detail_tag_chips_layout.json
+  - /private/tmp/nexte_detail_tag_chip_evidence/tag_top_probe_layout.json
+- Observed: namespace chips `原作` / `角色` / `其他` and member chips `megaman | rockman`,
+  `roll`, `artbook` render as rounded, comfortable chips with visible namespace/member distinction.
+- Still open: usertag-fill chips, vote-coloured member chips, dense multi-namespace/current controller
+  visual acceptance.
 ```
 
 Completion rule:

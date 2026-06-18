@@ -467,6 +467,28 @@ Still open:
   - controller visual acceptance
 ```
 
+Additional detail tag-chip partial re-QA from 2026-06-18:
+
+```text
+- Target/build: Mate X7 emulator target 127.0.0.1:5555, same installed a253aff signed HAP.
+- Public detail deep link opened: https://e-hentai.org/g/3989982/16600a66e8/
+- State covered: normal non-usertag/non-vote tag chips only.
+- Screenshot shows namespace chips `原作`, `角色`, `其他` and member chips `megaman | rockman`,
+  `roll`, `artbook`.
+- Chips render as rounded, comfortable pills with visible namespace/member color distinction.
+- Every hdc command ran outside the Codex sandbox.
+
+Evidence:
+  - /private/tmp/nexte_detail_tag_chip_evidence/tag_top_probe_layout.json
+  - /private/tmp/nexte_detail_tag_chip_evidence/detail_tag_chips.png
+  - /private/tmp/nexte_detail_tag_chip_evidence/detail_tag_chips_layout.json
+
+Still open:
+  - usertag-fill chips
+  - vote-coloured member chips
+  - dense multi-namespace/current controller visual acceptance
+```
+
 Validation already run:
 
 ```text
@@ -527,7 +549,7 @@ Current active meaning:
 - Gate V2 subtab never-loaded empty/no-more flash remains a P0 behavior queue.
 - Gate V3 re-audits prior visual/navigation claims.
 - gallery-visual-navigation-regression-contract.md explicitly says prior PASS/archive claims are invalid unless re-backed by current controller evidence.
-- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, not-favorited first-read header/action, and Home default fixed/adaptive list height have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
+- Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route, hidden-inline/AllThumbnails route, not-favorited first-read header/action, normal detail tag chips, and Home default fixed/adaptive list height have current Mate X7 evidence; final controller visual acceptance and remaining state matrices are still open.
 ```
 
 Important boundary:
