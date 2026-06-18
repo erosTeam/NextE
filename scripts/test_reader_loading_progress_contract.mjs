@@ -24,7 +24,7 @@ const grounding = [
   'primary information: Reader shows a stable centered loading stage instead of a bottom spinner or black image canvas',
   'primary action: reading/tap navigation remains primary; retry/re-source remains the recovery action on failure',
   'scope: split loading UI into resolving/parsing and image-loading stages; show a centered line during image loading; do not rewrite resolver, navigation, zoom, retry, or offline/download pipeline',
-  'Harmony expression: a small ReaderLoadingOverlay/ReaderLoadingLine component inside ReaderPage, backed by Image.onComplete/onError and existing V2 local state',
+  'Harmony expression: a small ReaderLoadingOverlay/ReaderLoadingLine component inside ReaderPage, backed by Image.onComplete/onError, stream progress, and existing V2 local state',
 ]
 
 ok(grounding.length === 5, 'reader loading lane has five-line grounding')
@@ -41,22 +41,27 @@ ok(/struct ReaderLoadingOverlay/.test(reader) &&
   /struct ReaderLoadingLine/.test(reader), 'Reader has dedicated centered loading components')
 ok(/ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_resolving'\) \}\)/.test(reader),
   'empty reader and jump states use the resolving loading stage')
-ok(/ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\) \}\)/.test(reader),
+ok(/ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\), progress: this\.imageProgress \}\)/.test(reader),
   'image pages use the image-loading stage after a real URL is known')
 ok(/\.width\('100%'\)[\s\S]*?\.height\('100%'\)[\s\S]*?\.justifyContent\(FlexAlign\.Center\)[\s\S]*?\.alignItems\(HorizontalAlign\.Center\)/.test(reader),
   'loading overlay fills the page and centers its content')
 ok(/@Local imageLoaded: boolean = false/.test(reader) &&
-  /this\.imageLoaded = false[\s\S]*this\.imageUrl = await ImageResolveService/.test(reader) &&
+  /this\.imageLoaded = false[\s\S]*await ImageResolveService/.test(reader) &&
   /\.onComplete\(\([\s\S]*?\) => \{[\s\S]*this\.imageLoaded = true/.test(reader),
   'ReaderImagePage tracks Image loading separately from URL resolving')
-ok(/if \(!this\.imageLoaded\) \{[\s\S]*ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\) \}\)/.test(reader),
+ok(/if \(!this\.imageLoaded\) \{[\s\S]*ReaderLoadingOverlay\(\{ label: \$r\('app\.string\.reader_loading_image'\), progress: this\.imageProgress \}\)/.test(reader),
   'horizontal image page overlays image-loading line until Image completes')
 ok(/struct ReaderVerticalImage[\s\S]*@Local imageLoaded: boolean = false[\s\S]*if \(!this\.imageLoaded\) \{[\s\S]*reader_loading_image/.test(reader),
   'vertical image page overlays image-loading line until Image completes')
 ok(!/else \{\s*LoadingProgress\(\)[\s\S]*?\.color\(Color\.White\)\s*\}/.test(reader),
   'Reader no longer falls back to loose white LoadingProgress spinners for loading states')
-ok(!/cumulativeBytesLoaded|expectedTotalBytes|percentText|progressPercent/.test(reader),
-  'Reader does not fake byte percentage without a supported progress signal')
+const client = read('shared/src/main/ets/network/EhHttpClient.ets')
+ok(/downloadBinaryToFileInStream/.test(client) &&
+  /dataReceiveProgress/.test(client) &&
+  /info\.receiveSize/.test(client) &&
+  /info\.totalSize/.test(client) &&
+  /@Local imageProgress: number = -1/.test(reader),
+  'Reader byte percentage is backed by supported NetworkKit stream progress')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

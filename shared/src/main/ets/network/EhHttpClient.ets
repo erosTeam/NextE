@@ -168,6 +168,70 @@ export class EhHttpClient {
     throw (lastError !== null ? lastError : new Error('binary request failed'))
   }
 
+  async downloadBinaryToFileInStream(
+    url: string,
+    filePath: string,
+    progress: (loaded: number, total: number) => void,
+  ): Promise<number> {
+    let attempt: number = 0
+    let lastError: Error | null = null
+    while (attempt < MAX_RETRIES) {
+      const req: http.HttpRequest = http.createHttp()
+      let file: fs.File | null = null
+      try {
+        const header: Record<string, string> = {
+          'User-Agent': EhConstants.USER_AGENT,
+          'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+          'Cookie': EhCookieStore.getInstance().header(),
+        }
+        file = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC)
+        let written: number = 0
+        let progressTotal: number = 0
+        req.on('dataReceiveProgress', (info: http.DataReceiveProgressInfo) => {
+          progressTotal = info.totalSize
+          progress(info.receiveSize, progressTotal)
+        })
+        req.on('dataReceive', (data: ArrayBuffer) => {
+          const offset: number = written
+          const len: number = fs.writeSync((file as fs.File).fd, data, { offset: offset })
+          written += len
+          progress(written, progressTotal)
+        })
+        const code: number = await req.requestInStream(url, {
+          method: http.RequestMethod.GET,
+          header: header,
+          connectTimeout: CONNECT_TIMEOUT_MS,
+          readTimeout: READ_TIMEOUT_MS,
+          usingCache: false,
+        })
+        req.destroy()
+        fs.closeSync(file)
+        file = null
+        if (code >= 500 && attempt < MAX_RETRIES - 1) {
+          lastError = new Error(`HTTP ${code}`)
+        } else if (code !== 200) {
+          throw new Error(`image HTTP ${code}`)
+        } else {
+          progress(written, progressTotal > 0 ? progressTotal : written)
+          return written
+        }
+      } catch (error) {
+        const e = error as Error
+        lastError = e
+        DiagnosticLogger.warn('network', 'http_binary_stream_retry', `attempt ${attempt}: ${e.message}`)
+        req.destroy()
+      } finally {
+        if (file !== null) {
+          fs.closeSync(file)
+        }
+      }
+      attempt++
+      await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
+    }
+    throw (lastError !== null ? lastError : new Error('binary stream request failed'))
+  }
+
   private static async writeArrayBuffer(filePath: string, bytes: ArrayBuffer): Promise<number> {
     let file: fs.File | null = null
     try {

@@ -1,11 +1,13 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { window } from '@kit.ArkUI'
+import { fileIo as fs } from '@kit.CoreFileKit'
 import {
   ThemeConstants,
   EhGalleryImage,
   ReaderParams,
   ImageResolveService,
+  EhHttpClient,
   DiagnosticLogger,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
@@ -692,6 +694,7 @@ export struct ReaderPage {
 const MAX_SCALE: number = 4
 const DOUBLE_TAP_SCALE: number = 2.5
 const IMAGE_AUTO_RETRY_LIMIT: number = 3
+const READER_IMAGE_CACHE_DIR: string = 'reader-images'
 
 /**
  * One reader page. Resolves its full image on appear, then renders it with pinch /
@@ -706,6 +709,7 @@ struct ReaderImagePage {
 
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
+  @Local imageProgress: number = -1;
   @Local failed: boolean = false;
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
@@ -718,6 +722,7 @@ struct ReaderImagePage {
   private compH: number = 0;
   private lastZoomed: boolean = false;
   private autoRetryCount: number = 0;
+  private loadSerial: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -726,14 +731,15 @@ struct ReaderImagePage {
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) — re-resolves via /s/?nl= for a
   // different host, bypassing the cached URL.
   private async resolve(changeSource: boolean = false): Promise<void> {
-    if (!changeSource && this.image.imageUrl.length > 0) {
-      this.imageLoaded = false
-      this.imageUrl = this.image.imageUrl
-      return
-    }
+    const serial: number = this.nextLoadSerial()
     try {
-      this.imageLoaded = false
-      this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      const remoteUrl: string = !changeSource && this.image.imageUrl.length > 0
+        ? this.image.imageUrl
+        : await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      if (serial !== this.loadSerial) {
+        return
+      }
+      await this.downloadImage(remoteUrl, serial)
       this.failed = false
     } catch (err) {
       DiagnosticLogger.warn('reader', 'resolve_failed', (err as Error).message)
@@ -746,6 +752,7 @@ struct ReaderImagePage {
     this.autoRetryCount = 0
     this.imageUrl = ''
     this.imageLoaded = false
+    this.imageProgress = -1
     this.failed = false
     this.resolve(true)
   }
@@ -755,11 +762,49 @@ struct ReaderImagePage {
       this.autoRetryCount++
       this.imageUrl = ''
       this.imageLoaded = false
+      this.imageProgress = -1
       this.failed = false
       this.resolve(true)
       return
     }
     this.failed = true
+  }
+
+  private nextLoadSerial(): number {
+    this.loadSerial++
+    this.imageUrl = ''
+    this.imageLoaded = false
+    this.imageProgress = -1
+    this.failed = false
+    return this.loadSerial
+  }
+
+  private async downloadImage(remoteUrl: string, serial: number): Promise<void> {
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    const dir: string = `${context.cacheDir}/${READER_IMAGE_CACHE_DIR}`
+    ReaderImageCache.ensureDir(dir)
+    const filePath: string = `${dir}/${ReaderImageCache.fileName(this.image, remoteUrl)}`
+    this.imageProgress = 0
+    await EhHttpClient.getInstance().downloadBinaryToFileInStream(
+      remoteUrl,
+      filePath,
+      (loaded: number, total: number) => {
+        if (serial !== this.loadSerial) {
+          return
+        }
+        if (total > 0) {
+          this.imageProgress = Math.max(0, Math.min(1, loaded / total))
+        } else if (loaded > 0) {
+          this.imageProgress = 0.08
+        }
+      },
+    )
+    if (serial !== this.loadSerial) {
+      return
+    }
+    this.imageProgress = 1
+    this.imageLoaded = false
+    this.imageUrl = `file://${filePath}`
   }
 
   private clampOffset(): void {
@@ -830,7 +875,7 @@ struct ReaderImagePage {
             this.retrySourceAutomatically()
           })
         if (!this.imageLoaded) {
-          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image') })
+          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image'), progress: this.imageProgress })
         }
       } else {
         ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving') })
@@ -894,9 +939,11 @@ struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
+  @Local imageProgress: number = -1;
   @Local failed: boolean = false;
   @Local ratio: number = DEFAULT_VERTICAL_RATIO;
   private autoRetryCount: number = 0;
+  private loadSerial: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -904,14 +951,15 @@ struct ReaderVerticalImage {
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
   private async resolve(changeSource: boolean = false): Promise<void> {
-    if (!changeSource && this.image.imageUrl.length > 0) {
-      this.imageLoaded = false
-      this.imageUrl = this.image.imageUrl
-      return
-    }
+    const serial: number = this.nextLoadSerial()
     try {
-      this.imageLoaded = false
-      this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      const remoteUrl: string = !changeSource && this.image.imageUrl.length > 0
+        ? this.image.imageUrl
+        : await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      if (serial !== this.loadSerial) {
+        return
+      }
+      await this.downloadImage(remoteUrl, serial)
       this.failed = false
     } catch (err) {
       DiagnosticLogger.warn('reader', 'resolve_failed', (err as Error).message)
@@ -923,6 +971,7 @@ struct ReaderVerticalImage {
     this.autoRetryCount = 0
     this.imageUrl = ''
     this.imageLoaded = false
+    this.imageProgress = -1
     this.failed = false
     this.resolve(true)
   }
@@ -932,11 +981,49 @@ struct ReaderVerticalImage {
       this.autoRetryCount++
       this.imageUrl = ''
       this.imageLoaded = false
+      this.imageProgress = -1
       this.failed = false
       this.resolve(true)
       return
     }
     this.failed = true
+  }
+
+  private nextLoadSerial(): number {
+    this.loadSerial++
+    this.imageUrl = ''
+    this.imageLoaded = false
+    this.imageProgress = -1
+    this.failed = false
+    return this.loadSerial
+  }
+
+  private async downloadImage(remoteUrl: string, serial: number): Promise<void> {
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    const dir: string = `${context.cacheDir}/${READER_IMAGE_CACHE_DIR}`
+    ReaderImageCache.ensureDir(dir)
+    const filePath: string = `${dir}/${ReaderImageCache.fileName(this.image, remoteUrl)}`
+    this.imageProgress = 0
+    await EhHttpClient.getInstance().downloadBinaryToFileInStream(
+      remoteUrl,
+      filePath,
+      (loaded: number, total: number) => {
+        if (serial !== this.loadSerial) {
+          return
+        }
+        if (total > 0) {
+          this.imageProgress = Math.max(0, Math.min(1, loaded / total))
+        } else if (loaded > 0) {
+          this.imageProgress = 0.08
+        }
+      },
+    )
+    if (serial !== this.loadSerial) {
+      return
+    }
+    this.imageProgress = 1
+    this.imageLoaded = false
+    this.imageUrl = `file://${filePath}`
   }
 
   build() {
@@ -965,7 +1052,7 @@ struct ReaderVerticalImage {
             this.retrySourceAutomatically()
           })
         if (!this.imageLoaded) {
-          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image') })
+          ReaderLoadingOverlay({ label: $r('app.string.reader_loading_image'), progress: this.imageProgress })
         }
       } else {
         ReaderLoadingOverlay({ label: $r('app.string.reader_loading_resolving'), compact: true })
@@ -980,10 +1067,11 @@ struct ReaderVerticalImage {
 struct ReaderLoadingOverlay {
   @Param label: Resource = $r('app.string.reader_loading_resolving');
   @Param compact: boolean = false;
+  @Param progress: number = -1;
 
   build() {
     Column() {
-      ReaderLoadingLine({ label: this.label, compact: this.compact })
+      ReaderLoadingLine({ label: this.label, compact: this.compact, progress: this.progress })
     }
     .width('100%')
     .height('100%')
@@ -997,12 +1085,17 @@ struct ReaderLoadingOverlay {
 struct ReaderLoadingLine {
   @Param label: Resource = $r('app.string.reader_loading_resolving');
   @Param compact: boolean = false;
+  @Param progress: number = -1;
 
   private lineWidth(): number {
     return this.compact ? 148 : 220
   }
 
   private activeWidth(): number {
+    if (this.progress >= 0) {
+      const width: number = this.lineWidth() * Math.max(0.04, Math.min(1, this.progress))
+      return Math.max(8, width)
+    }
     return this.compact ? 72 : 108
   }
 
@@ -1025,8 +1118,51 @@ struct ReaderLoadingLine {
         .fontColor(Color.White)
         .textAlign(TextAlign.Center)
         .maxLines(1)
+      if (this.progress >= 0) {
+        Text(`${Math.round(Math.max(0, Math.min(1, this.progress)) * 100)}%`)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(Color.White)
+          .textAlign(TextAlign.Center)
+          .maxLines(1)
+      }
     }
     .alignItems(HorizontalAlign.Center)
     .padding(ThemeConstants.SPACE_MD)
+  }
+}
+
+class ReaderImageCache {
+  static ensureDir(dir: string): void {
+    try {
+      fs.mkdirSync(dir, true)
+    } catch (err) {
+      DiagnosticLogger.warn('reader', 'cache_mkdir_failed', (err as Error).message)
+    }
+  }
+
+  static fileName(image: EhGalleryImage, url: string): string {
+    const ext: string = ReaderImageCache.extension(url)
+    const seed: string = `${image.page}_${image.imgkey}_${image.reloadKey}`
+    return `${ReaderImageCache.safePart(seed)}${ext}`
+  }
+
+  private static extension(url: string): string {
+    const lower: string = url.toLowerCase()
+    const q: number = lower.indexOf('?')
+    const clean: string = q >= 0 ? lower.substring(0, q) : lower
+    if (clean.endsWith('.png')) {
+      return '.png'
+    }
+    if (clean.endsWith('.webp')) {
+      return '.webp'
+    }
+    if (clean.endsWith('.gif')) {
+      return '.gif'
+    }
+    return '.jpg'
+  }
+
+  private static safePart(value: string): string {
+    return value.replace(/[^a-zA-Z0-9._-]/g, '_')
   }
 }
