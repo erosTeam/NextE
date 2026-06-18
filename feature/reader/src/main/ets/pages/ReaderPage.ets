@@ -129,8 +129,9 @@ export struct ReaderPage {
           p.seedImagePageUrl,
         )
           .then(() => {
-            const targetIndex: number =
+            const loadedTarget: number =
               this.vm.images.length > 0 ? Math.min(requestedIndex, this.vm.images.length - 1) : 0
+            const targetIndex: number = this.normalizedReaderIndex(loadedTarget)
             this.vm.currentIndex = targetIndex
             this.sliderValue = targetIndex + 1
             if (this.readMode.mode === ReadMode.VERTICAL) {
@@ -337,7 +338,7 @@ export struct ReaderPage {
         this.vm.currentIndex = target
         this.listScroller.scrollToIndex(target)
       } else {
-        this.vm.currentIndex = target
+        this.vm.currentIndex = this.normalizedReaderIndex(target)
       }
     })
   }
@@ -414,6 +415,13 @@ export struct ReaderPage {
   private normalizedIndexForColumnMode(columnMode: string): number {
     const spreadIndex: number = this.spreadIndexForMode(columnMode, this.vm.currentIndex)
     return this.spreadStartForMode(columnMode, spreadIndex)
+  }
+
+  private normalizedReaderIndex(index: number): number {
+    if (!this.doublePageEnabled()) {
+      return index
+    }
+    return this.spreadStartIndex(this.spreadIndexForImage(index))
   }
 
   private sliderTargetIndex(page: number): number {
