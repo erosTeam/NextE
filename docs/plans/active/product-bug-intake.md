@@ -17,7 +17,8 @@ Operating rule:
 - When an intake item is implemented/fixed and committed, update that item with `Status`,
   commit hash, implemented scope, contracts/device evidence, and remaining acceptance gaps.
 - Valid status values for handled entries: `implemented`, `implemented / pending device acceptance`,
-  `implemented / needs controller acceptance`, `accepted`, or `parked`.
+  `implemented / needs FE comparison`, `implemented / needs controller acceptance`, `accepted`,
+  `blocked`, or `parked`.
 - A small implementation commit does not need to update this file immediately, but once an intake item
   has a clear fixing commit on main, the next control-plane update must mark the item so it no longer
   reads as an unhandled queue item.
@@ -34,6 +35,10 @@ Operating rule:
   implementation risk; they do not replace source grounding.
 - UI screenshot acceptance must inspect hierarchy, spacing, and action weight, not just that controls
   exist.
+- User-visible UI/interaction repair lanes must capture an Android `eros_fe` comparison before
+  acceptance: device/page path, screenshot or observation notes, main information, primary/secondary
+  action weight, control type, and immediate state feedback. If Android/ADB/FE evidence is unavailable,
+  mark the item `implemented / needs FE comparison` or blocked instead of accepted.
 
 ## Intake Items
 
@@ -424,6 +429,105 @@ Remaining acceptance:
 
 - Needs controller/user review of the current evidence. No further device validation is required
   unless Search filter sheet state ownership, apply sequencing, or Search filter persistence changes.
+
+### Search Filter Sheet UX Quality And Interaction Model Are Not Acceptable
+
+Type: UX / interaction bug
+
+Priority suggestion: P0
+
+Status: BLOCKED: missing FE ADB comparison evidence
+
+Source:
+
+- User-reported current device behavior: search scope, category, and rating controls looked clickable
+  but did not visibly update until another scope change forced the sheet to rebuild; the search filter
+  entry was also hidden from favorite search and some action-seeded search states.
+- Follow-up user feedback: the sheet is still visually low quality; category chips lack color
+  semantics; FE likely supports long-press category inverse/solo behavior; rating should be a formal
+  segmented/radio-like control; and the interaction model should apply filters live instead of using
+  same-weight Apply and Reset actions.
+
+Grounding:
+
+- Required FE comparison target before more NextE product code: Android `eros_fe` search / gallery
+  advanced filter surface, especially category color semantics, long-press category behavior, rating
+  control shape, live-vs-Apply model, Reset placement/weight, and search-scope expression. FE is the
+  product-semantics reference only; NextE should use HarmonyOS/HDS-native controls and not copy pixels.
+- Primary information: selected search scope, selected category mask, selected minimum rating, and
+  major active toggles should be visually scannable at first glance.
+- Primary action: changing scope/category/rating/toggles should immediately update both visual state and
+  the active search filter/requery. Secondary action: Reset clears filters explicitly.
+- Usable loop: open Search from normal/tag/favorite paths, open filters, tap category/rating/scope,
+  see immediate visual feedback and live reapplication, long-press a category for quick solo/invert,
+  then Reset if needed. This lane does not change query parser correctness or favorite backend
+  semantics unless FE comparison proves a search-scope behavior gap.
+- HarmonyOS expression to evaluate after FE evidence: native segmented controls for scope and rating,
+  category-colored V2 chips/buttons with long-press affordance, reset as the only explicit action, and
+  stable title/page-level filter entry.
+
+Blocked FE/ADB preflight:
+
+- Installed Android platform-tools through Homebrew on macOS; `adb` is available at
+  `/opt/homebrew/bin/adb`.
+- `adb version` reports Android Debug Bridge `1.0.41`, version `37.0.0-14910828`.
+- `adb devices -l` started the ADB daemon but returned no connected Android devices:
+  `List of devices attached` with no targets.
+- Because no Android device is visible, NextE cannot yet run:
+  `adb shell pm list packages | grep -i -E "eros|eh|hentai"`, launch `eros_fe`, capture screenshots,
+  or verify FE category colors, long-press behavior, rating control shape, live-apply behavior, Reset
+  weight, or search-scope expression.
+
+Implementation:
+
+- `886a38f fix(search): repair filter controls` replaces the hand-rolled scope `Row + Text` control
+  with `TabSegmentButtonV2`, backed by localized `SegmentButtonV2Items`.
+- The category/rating chips are now independent `@ComponentV2` controls with `@Param selected`, so
+  tapping a chip updates its visual state immediately instead of relying on a sheet rebuild.
+- `GallerySearchPage` now keeps the filter trigger as a fixed page-level overlay across history,
+  loading, error, empty, grid, list, simple-list, normal search, tag/action search, and favorite search
+  states instead of hiding it when favorite scope is active.
+- Favorite scope now keeps the sheet reachable and shows an explicit scope limitation hint for
+  gallery-only filters.
+- This commit is now only an implementation candidate for part of the issue. It is not accepted and
+  does not satisfy the updated product requirements for color semantics, long-press category behavior,
+  rating segmented control, or live filter application with no Apply button.
+
+Evidence:
+
+- Deterministic contracts/gates: `scripts/test_search_filter_ux_contract.mjs`,
+  `scripts/test_search_filter_draft_contract.mjs`, `scripts/test_search_filter_action_bar_contract.mjs`,
+  `scripts/test_search_scope_contract.mjs`, `scripts/test_search_input_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`, and
+  `git diff --check`.
+- Official signed build passed with `scripts/setup-local-build-profile.sh` and
+  `scripts/build_hvigor_signed.sh` on macOS; no `dev.sh` was used.
+- Mate X7 HarmonyOS emulator target `127.0.0.1:5555`, hdc outside the sandbox, official signed HAP
+  installed: the search landing filter entry stayed fixed near the top-right; the sheet rendered a
+  native segmented scope control; tapping `Manga` immediately selected the category; tapping `4★`
+  immediately moved rating selection; tapping `收藏` selected favorite scope and showed the explicit
+  limitation hint while keeping Apply/Reset reachable. Evidence directory:
+  `/private/tmp/nexte_search_filter_ux_repair_evidence/`, especially
+  `search_filter_ux_search_landing.png`, `search_filter_ux_sheet_initial.png`,
+  `search_filter_ux_after_manga.png`, `search_filter_ux_after_rating.png`, and
+  `search_filter_ux_after_favorite_scope.png`.
+
+Remaining acceptance:
+
+- Requires a connected Android device visible to `adb devices -l`, then Android `eros_fe` advanced
+  filter screenshots and observations before further NextE product-code work.
+- Required FE observations: category colors, category normal tap behavior, category long-press
+  inverse/solo behavior, rating control shape, live-vs-Apply model, Reset placement/weight, and
+  search-scope expression.
+- Required NextE acceptance after implementation resumes: category colors are semantically distinct,
+  normal tap gives immediate feedback and live requery, long press performs the FE-equivalent quick
+  solo/invert behavior with immediate feedback, rating is a formal segmented/radio-like control and
+  applies immediately, Apply is absent, Reset remains available, and scope/rating are not naked
+  `Row/Text` faux controls.
+- Required deterministic contracts after implementation resumes: no primary Apply submit path; category,
+  rating, scope, and toggle changes bump the filter reapply path; long-press handler exists for
+  categories; category colors come from a semantic mapping; scope and rating use native/HDS segmented
+  controls rather than hand-rolled `Row/Text`.
 
 ### Reader Layout, Gesture, And Loading Stack Is Broken
 
