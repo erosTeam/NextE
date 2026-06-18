@@ -18,10 +18,12 @@ export { Favcat } from './model/Favcat'
 export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
 export { EhGalleryComment } from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'
+export { EhGalleryTorrent, EhGalleryTorrentList } from './model/EhGalleryTorrent'
 export { GalleryList } from './model/GalleryList'
 export {
   GalleryDetailParams,
   GalleryInfoParams,
+  GalleryTorrentsParams,
   ReaderParams,
   ImagePageRouteErrorParams,
   GalleryCommentsParams,
@@ -66,6 +68,7 @@ export { EhMytagsParser } from './parser/EhMytagsParser'
 export { EhCommentParser } from './parser/EhCommentParser'
 export { EhGalleryDetailParser } from './parser/EhGalleryDetailParser'
 export { EhGalleryImageParser } from './parser/EhGalleryImageParser'
+export { EhGalleryTorrentParser } from './parser/EhGalleryTorrentParser'
 export { EhImagePageParser, ImagePageResult } from './parser/EhImagePageParser'
 
 // services

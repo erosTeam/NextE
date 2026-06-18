@@ -673,6 +673,22 @@
       "value": "标签"
     },
     {
+      "name": "gallery_torrents",
+      "value": "种子"
+    },
+    {
+      "name": "gallery_torrents_empty",
+      "value": "暂无种子"
+    },
+    {
+      "name": "gallery_torrent_share_file",
+      "value": "分享种子"
+    },
+    {
+      "name": "gallery_torrent_share_magnet",
+      "value": "分享磁链"
+    },
+    {
       "name": "image_page_open_failed_title",
       "value": "图片页"
     },

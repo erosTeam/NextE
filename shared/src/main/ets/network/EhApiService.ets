@@ -8,12 +8,14 @@ import { EhMytagsParser } from '../parser/EhMytagsParser'
 import { EhCommentParser } from '../parser/EhCommentParser'
 import { EhGalleryDetailParser } from '../parser/EhGalleryDetailParser'
 import { EhGalleryImageParser } from '../parser/EhGalleryImageParser'
+import { EhGalleryTorrentParser } from '../parser/EhGalleryTorrentParser'
 import { UserTagStore } from '../state/UserTagStore'
 import { GalleryList } from '../model/GalleryList'
 import { EhGallery } from '../model/EhGallery'
 import { EhGalleryImage } from '../model/EhGalleryImage'
 import { EhMytags } from '../model/EhMytags'
 import { EhGalleryComment } from '../model/EhGalleryComment'
+import { EhGalleryTorrentList } from '../model/EhGalleryTorrent'
 
 /** Header + first preview page + comments parsed from a gallery detail fetch. */
 export class GalleryDetailResult {
@@ -255,6 +257,13 @@ export class EhApiService {
     const url: string = `${EhConstants.baseUrl(isEx)}/mytags${suffix}`
     const resp = await this.fetch(url, isEx, 'generic')
     return EhMytagsParser.parse(resp.body)
+  }
+
+  /** Fetch the torrent list for a gallery (eros_fe getTorrent / gallerytorrents.php). */
+  async getGalleryTorrents(gid: string, token: string, isEx: boolean): Promise<EhGalleryTorrentList> {
+    const url: string = `${EhConstants.baseUrl(isEx)}/gallerytorrents.php?gid=${gid}&t=${token}`
+    const resp = await this.fetch(url, isEx, 'generic')
+    return EhGalleryTorrentParser.parse(resp.body)
   }
 
   /** Fetch a gallery detail page; returns header (incl. tags/apikey) + first preview page. */

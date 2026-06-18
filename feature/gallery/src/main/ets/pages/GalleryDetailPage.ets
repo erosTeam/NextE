@@ -6,6 +6,7 @@ import {
   ShareUtil,
   GalleryDetailParams,
   GalleryInfoParams,
+  GalleryTorrentsParams,
   ReaderParams,
   GalleryCommentsParams,
   AllThumbnailsParams,
@@ -134,6 +135,23 @@ export struct GalleryDetailPage {
       'GalleryInfo',
       new GalleryInfoParams(this.vm.gallery.copy(), connectSiteMode().isEx, this.navTitle()),
     )
+  }
+
+  private openTorrents(): void {
+    this.stack.pushPathByName(
+      'GalleryTorrents',
+      new GalleryTorrentsParams(
+        this.params.gid,
+        this.params.token,
+        connectSiteMode().isEx,
+        this.navTitle(),
+        this.vm.gallery.torrentCount,
+      ),
+    )
+  }
+
+  private torrentTitle(count: string): string {
+    return AppStrings.get('detail_torrents').replace('%s', count)
   }
 
   private openThumbnails(): void {
@@ -357,8 +375,14 @@ export struct GalleryDetailPage {
               )
             })
         }
-        // 种子 (torrent count) dropped for now: it was a dead grey label among tappable links because
-        // the torrent-dialog subsystem is deferred. Restore it (tappable, font_emphasize) with that dialog.
+        if (Number.parseInt(this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0', 10) > 0) {
+          Text(this.torrentTitle(this.vm.gallery.torrentCount))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_emphasize'))
+            .onClick(() => {
+              this.openTorrents()
+            })
+        }
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

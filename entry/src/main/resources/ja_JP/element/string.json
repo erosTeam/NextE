@@ -673,6 +673,22 @@
       "value": "タグ"
     },
     {
+      "name": "gallery_torrents",
+      "value": "トレント"
+    },
+    {
+      "name": "gallery_torrents_empty",
+      "value": "トレントはありません"
+    },
+    {
+      "name": "gallery_torrent_share_file",
+      "value": "トレントを共有"
+    },
+    {
+      "name": "gallery_torrent_share_magnet",
+      "value": "マグネットを共有"
+    },
+    {
       "name": "image_page_open_failed_title",
       "value": "画像ページ"
     },

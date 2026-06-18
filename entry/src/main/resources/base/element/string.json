@@ -673,6 +673,22 @@
       "value": "Tags"
     },
     {
+      "name": "gallery_torrents",
+      "value": "Torrents"
+    },
+    {
+      "name": "gallery_torrents_empty",
+      "value": "No torrents"
+    },
+    {
+      "name": "gallery_torrent_share_file",
+      "value": "Share torrent"
+    },
+    {
+      "name": "gallery_torrent_share_magnet",
+      "value": "Share magnet"
+    },
+    {
       "name": "image_page_open_failed_title",
       "value": "Image page"
     },

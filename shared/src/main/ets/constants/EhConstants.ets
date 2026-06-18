@@ -14,6 +14,8 @@ export class EhConstants {
   static readonly EX_BASE_URL: string = 'https://exhentai.org'
   static readonly EH_BASE_HOST: string = 'e-hentai.org'
   static readonly EX_BASE_HOST: string = 'exhentai.org'
+  static readonly EH_TORRENT_URL: string = 'https://ehtracker.org/get'
+  static readonly EX_TORRENT_URL: string = 'https://exhentai.org/torrent'
   static readonly API_PATH: string = '/api.php'
   static readonly FORUMS_LOGIN_URL: string =
     'https://forums.e-hentai.org/index.php?act=Login&CODE=01'
@@ -318,6 +320,10 @@ export class EhConstants {
   /** Resolve the request origin for the current site mode. */
   static baseUrl(isEx: boolean): string {
     return isEx ? EhConstants.EX_BASE_URL : EhConstants.EH_BASE_URL
+  }
+
+  static torrentBaseUrl(isEx: boolean): string {
+    return isEx ? EhConstants.EX_TORRENT_URL : EhConstants.EH_TORRENT_URL
   }
 
   /** Resolve the request host for the current site mode. */

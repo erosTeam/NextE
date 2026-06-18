@@ -46,6 +46,29 @@ export class GalleryInfoParams {
   }
 }
 
+/** Params for the 'GalleryTorrents' destination. */
+export class GalleryTorrentsParams {
+  gid: string = ''
+  token: string = ''
+  isEx: boolean = false
+  title: string = ''
+  torrentCount: string = ''
+
+  constructor(
+    gid: string = '',
+    token: string = '',
+    isEx: boolean = false,
+    title: string = '',
+    torrentCount: string = '',
+  ) {
+    this.gid = gid
+    this.token = token
+    this.isEx = isEx
+    this.title = title
+    this.torrentCount = torrentCount
+  }
+}
+
 /** Params for the 'Reader' destination. */
 export class ReaderParams {
   gid: string = ''
