@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Contract for AllThumbnails page-number jump + first-page return.
+ * Contract for AllThumbnails page-number jump + first-page return + previous preview pull.
  *
  * Bug class: users need to reach later thumbnail pages without manually scrolling/loading every earlier
  * preview page. Jump input is the global image page number (the same labels shown on thumbnails);
@@ -41,6 +41,20 @@ const vmSrc = read('feature/gallery/src/main/ets/viewmodel/AllThumbnailsViewMode
 ok('VM exposes direct image-page loader', /async loadImagePage\(pageOneBased: number\): Promise<boolean>/.test(vmSrc))
 ok('VM maps image page to containing preview page', /Math\.floor\(\(pageOneBased - 1\) \/ this\.firstPageCount\)/.test(vmSrc))
 ok('VM requests exactly the target preview page', /getPreviewImages\([\s\S]*targetPreviewPage/.test(vmSrc))
+ok('VM tracks the current sparse preview page for previous-page pulls',
+  /private currentPreviewPage: number = 0/.test(vmSrc) &&
+  /this\.currentPreviewPage = targetPreviewPage/.test(vmSrc))
+ok('VM exposes direct previous-preview loader',
+  /async loadPreviousPreviewPage\(\): Promise<number>/.test(vmSrc))
+ok('VM previous loader targets currentPreviewPage - 1',
+  /const targetPreviewPage: number = this\.currentPreviewPage - 1/.test(vmSrc))
+ok('VM previous loader requests exactly that previous preview page',
+  /loadPreviousPreviewPage\(\): Promise<number>[\s\S]*getPreviewImages\([\s\S]*targetPreviewPage/.test(vmSrc))
+ok('VM previous loader returns the first absolute image page of the loaded preview page',
+  /return targetPreviewPage \* this\.firstPageCount \+ 1/.test(vmSrc))
+ok('VM previous loader does not crawl through all earlier preview pages',
+  !/while \(this\.currentPreviewPage > 0\)/.test(vmSrc) &&
+  !/for \(let .*targetPreviewPage/.test(vmSrc))
 ok('VM does not serialize jump through all earlier preview pages', !/while \(this\.loadedPages <= targetPreviewPage && this\.hasMore\(\)\)/.test(vmSrc))
 ok('VM merges preview page entries by absolute page', /private mergePreviewPage\(previewPage: number, pageImages: EhGalleryImage\[\]\): void[\s\S]*img\.page/.test(vmSrc))
 ok('VM sorts sparse visible thumbnails by absolute page', /merged\.sort\(\(a: EhGalleryImage, b: EhGalleryImage\): number => a\.page - b\.page\)/.test(vmSrc))
@@ -57,6 +71,10 @@ ok('First-page action uses a title-bar symbol and calls the helper',
   /'label': \$r\('app\.string\.gallery_preview_first_page'\)[\s\S]*'icon': \$r\('sys\.symbol\.arrow_up_circle'\)[\s\S]*this\.backToFirstPage\(\)/.test(pageSrc))
 ok('First-page helper directly loads image page 1 and scrolls to its visible index',
   /private async backToFirstPage\(\): Promise<void> \{[\s\S]*await this\.vm\.loadImagePage\(1\)[\s\S]*const targetIndex: number = this\.vm\.visibleIndexForImagePage\(1\)[\s\S]*this\.scroller\.scrollToIndex\(targetIndex\)/.test(pageSrc))
+ok('AllThumbnails top pull-refresh loads the previous preview page',
+  /onRefresh: async \(\) => \{[\s\S]*await this\.loadPreviousPreviewPage\(\)/.test(pageSrc))
+ok('Page helper scrolls to the first image in the previous preview page',
+  /private async loadPreviousPreviewPage\(\): Promise<void> \{[\s\S]*const firstImagePage: number = await this\.vm\.loadPreviousPreviewPage\(\)[\s\S]*const targetIndex: number = this\.vm\.visibleIndexForImagePage\(firstImagePage\)[\s\S]*this\.scroller\.scrollToIndex\(targetIndex\)/.test(pageSrc))
 ok('Jump menu uses a symbol icon and opens the jump sheet', /'icon': \$r\('sys\.symbol\.arrow_right'\)[\s\S]*this\.jumpSheetShown = true/.test(pageSrc))
 ok('Jump sheet opens with the next unloaded image page prefilled', /this\.jumpPageText = `\$\{this\.defaultJumpPage\(\)\}`/.test(pageSrc))
 ok('Default jump page advances past the loaded thumbnail count', /return Math\.min\(maxPage, this\.vm\.itemCount \+ 1\)/.test(pageSrc))

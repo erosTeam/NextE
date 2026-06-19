@@ -95,6 +95,20 @@ export struct GalleryAllThumbnailsPage {
     }, 50)
   }
 
+  private async loadPreviousPreviewPage(): Promise<void> {
+    const firstImagePage: number = await this.vm.loadPreviousPreviewPage()
+    if (firstImagePage <= 0) {
+      return
+    }
+    const targetIndex: number = this.vm.visibleIndexForImagePage(firstImagePage)
+    if (targetIndex < 0) {
+      return
+    }
+    setTimeout(() => {
+      this.scroller.scrollToIndex(targetIndex)
+    }, 50)
+  }
+
   private maxImagePage(): number {
     return this.params.fileCount > 0 ? this.params.fileCount : this.vm.itemCount
   }
@@ -181,6 +195,9 @@ export struct GalleryAllThumbnailsPage {
           },
           bottomPadding: ThemeConstants.SPACE_XL,
           controller: this.refreshController,
+          onRefresh: async () => {
+            await this.loadPreviousPreviewPage()
+          },
           onBottomRefresh: async () => {
             await this.vm.loadNext()
           },

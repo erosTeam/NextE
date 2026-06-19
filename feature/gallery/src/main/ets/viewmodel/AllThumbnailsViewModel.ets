@@ -28,6 +28,7 @@ export class AllThumbnailsViewModel {
   private isEx: boolean = false
   private seeded: boolean = false
   private firstPageCount: number = 0
+  private currentPreviewPage: number = 0
 
   seed(p: AllThumbnailsParams): void {
     if (this.seeded) {
@@ -46,6 +47,7 @@ export class AllThumbnailsViewModel {
       this.markPreviewPageLoaded(0)
     }
     this.firstPageCount = p.firstPage.length
+    this.currentPreviewPage = 0
   }
 
   hasMore(): boolean {
@@ -118,6 +120,7 @@ export class AllThumbnailsViewModel {
     }
     const targetPreviewPage: number = Math.floor((pageOneBased - 1) / this.firstPageCount)
     if (this.isPreviewPageLoaded(targetPreviewPage)) {
+      this.currentPreviewPage = targetPreviewPage
       return this.visibleIndexForImagePage(pageOneBased) >= 0
     }
     this.loading = true
@@ -132,12 +135,43 @@ export class AllThumbnailsViewModel {
       this.mergePreviewPage(targetPreviewPage, pageImages)
       this.itemCount = this.dataSource.totalCount()
       this.advanceContiguousLoadedPages()
+      this.currentPreviewPage = targetPreviewPage
     } catch (err) {
       this.error = EhErrorText.forUser(err)
       DiagnosticLogger.warn('gallery', 'thumbs_loadpage_failed', (err as Error).message)
     }
     this.loading = false
     return this.visibleIndexForImagePage(pageOneBased) >= 0
+  }
+
+  async loadPreviousPreviewPage(): Promise<number> {
+    if (this.loading || this.currentPreviewPage <= 0 || this.firstPageCount <= 0 || this.gid.length === 0) {
+      return -1
+    }
+    const targetPreviewPage: number = this.currentPreviewPage - 1
+    if (!this.isPreviewPageLoaded(targetPreviewPage)) {
+      this.loading = true
+      this.error = ''
+      try {
+        const pageImages: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
+          this.gid,
+          this.token,
+          this.isEx,
+          targetPreviewPage,
+        )
+        this.mergePreviewPage(targetPreviewPage, pageImages)
+        this.itemCount = this.dataSource.totalCount()
+        this.advanceContiguousLoadedPages()
+      } catch (err) {
+        this.error = EhErrorText.forUser(err)
+        DiagnosticLogger.warn('gallery', 'thumbs_loadprevious_failed', (err as Error).message)
+        this.loading = false
+        return -1
+      }
+      this.loading = false
+    }
+    this.currentPreviewPage = targetPreviewPage
+    return targetPreviewPage * this.firstPageCount + 1
   }
 
   private mergePreviewPage(previewPage: number, pageImages: EhGalleryImage[]): void {
