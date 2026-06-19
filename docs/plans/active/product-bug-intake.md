@@ -191,7 +191,46 @@ Type: P0/P1 bug / browsing preview pagination
 
 Priority suggestion: P0/P1
 
-Status: active / ready for investigation
+Status: implemented / pending large-gallery device acceptance
+
+Implementation:
+
+- `38137e1 fix(gallery): anchor thumbnail jump paging` changes
+  `AllThumbnailsViewModel.loadNext()` from the contiguous first-page cursor (`loadedPages`) to a sparse
+  forward neighbor cursor based on `currentPreviewPage + 1`.
+- A direct jump via `loadImagePage(page)` still loads the target thumbnail page, but subsequent bottom
+  pagination now requests the target neighborhood (`targetPreviewPage + 1`, skipping already loaded
+  pages) instead of returning to early preview pages.
+- `loadPreviousPreviewPage()` remains centered on the current sparse page and continues to request the
+  immediate previous thumbnail page.
+- Reader seed state remains separate: `loadedPages` is still exposed as the contiguous first-page seed
+  count for Reader startup, but it is no longer used as the AllThumbnails bottom request source.
+
+Verification:
+
+- FE grounding:
+  `/Users/honjow/git/eros_fe/lib/pages/gallery/controller/all_thumbnails_controller.dart` uses
+  `fetchThumbnailsFromPage(fromPage)` to request `page: fromPage - 1` and reset
+  `_pageState.currentImagePage = fromPage - 1`; subsequent next/previous preview loads use
+  `currentImagePage + 1` / `currentImagePage - 1`.
+- Android FE ADB evidence:
+  `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump/eros_fe_reference.png`.
+- Deterministic contract:
+  `node scripts/test_all_thumbnails_page_jump_contract.mjs` now simulates a 1000-page gallery with an
+  early loaded range, a jump to page 600, and forward/backward neighbor loading from the target preview
+  page rather than preview page 1.
+- Full deterministic contracts passed via `for f in scripts/test_*contract.mjs; do node "$f" || exit 1; done`.
+- V2-only gate passed: `node scripts/test_v1_decorator_inventory_contract.mjs` reports `0 file(s)`.
+- Signed macOS build passed: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS install/start smoke passed on `127.0.0.1:5555`; evidence:
+  `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump/nexte_start.png` and
+  `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump/nexte_gallery_detail.png`.
+
+Remaining acceptance:
+
+- Still needs a live approximately 1000-page gallery device run: open AllThumbnails with only early
+  preview pages loaded, jump to page 500/600+, then scroll up/down and confirm adjacent thumbnail pages
+  load from the target neighborhood without jumping back to early pages.
 
 Source:
 
