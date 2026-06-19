@@ -27,7 +27,6 @@ import {
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 
 const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
-
 class ReaderSpreadResolver {
   static isDoublePage(mode: string, columnMode: string): boolean {
     return mode !== ReadMode.VERTICAL && columnMode !== ReadColumnMode.SINGLE
@@ -117,14 +116,12 @@ class ReaderSpreadResolver {
 }
 
 /**
- * Image reader (basic-complete): horizontal paged Swiper of full images, each a
- * self-resolving ReaderImagePage that supports pinch / double-tap zoom + pan. Chrome
- * (page counter) toggles via the Swiper's own tap gesture — gestures on a Swiper child don't
- * reliably receive plain taps, so single-tap is handled at the Swiper level. Single and double
- * taps are bound in one exclusive gesture group with double-tap first so the first tap of a
- * double-tap cannot also toggle chrome. While zoomed, the image reports up so the Swiper disables
- * swipe (pan moves the image instead of turning the page). The VM loads further preview pages as
- * you approach the end, so the whole gallery is readable.
+ * Image reader (basic-complete): pager owns page turns, image/spread surfaces own zoom gestures,
+ * and a transparent tap overlay owns chrome/tap-zone routing. Keeping tap/chrome arbitration out
+ * of Swiper prevents the pager from becoming a mixed single-tap/double-tap/zoom surface.
+ * While zoomed, the image reports up so the Swiper disables swipe (pan moves the image instead of
+ * turning the page). The VM loads further preview pages as you approach the end, so the whole
+ * gallery is readable.
  */
 @ComponentV2
 export struct ReaderPage {
@@ -196,6 +193,10 @@ export struct ReaderPage {
         // Jump-to-page spinner while a far slider jump loads the intermediate preview pages.
         if (this.vm.jumping) {
           ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
+        }
+
+        if (this.vm.images.length > 0) {
+          this.ReaderTapOverlay()
         }
 
         // Chrome bars are always mounted (when there's content) and faded via opacity so they animate;
@@ -627,6 +628,10 @@ export struct ReaderPage {
     }
   }
 
+  private clearZoomGate(): void {
+    this.imageZoomed = false
+  }
+
   private doubleTapTargetForPoint(x: number): number {
     if (!this.doublePageEnabled()) {
       return this.vm.currentIndex + 1
@@ -648,10 +653,6 @@ export struct ReaderPage {
     this.doubleTapY = y
     this.doubleTapTargetPage = this.doubleTapTargetForPoint(x)
     this.doubleTapSeq = this.doubleTapSeq + 1
-  }
-
-  private clearZoomGate(): void {
-    this.imageZoomed = false
   }
 
   private doublePageEnabled(): boolean {
@@ -776,23 +777,6 @@ export struct ReaderPage {
       this.clearZoomGate()
       this.vm.onPageChange(i)
     })
-    .gesture(
-      GestureGroup(
-        GestureMode.Exclusive,
-        TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
-          const loc = e ? e.tapLocation : undefined
-          const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
-          const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
-          this.onReaderDoubleTap(tapX, tapY)
-        }),
-        TapGesture({ count: 1 }).onAction((e?: GestureEvent) => {
-          const loc = e ? e.tapLocation : undefined
-          const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
-          const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
-          this.onReaderTap(tapX, tapY)
-        }),
-      ),
-    )
   }
 
   private spreadIndexForImage(index: number): number {
@@ -899,23 +883,31 @@ export struct ReaderPage {
       this.clearZoomGate()
       this.vm.onPageChange(this.spreadStartIndex(i))
     })
-    .gesture(
-      GestureGroup(
-        GestureMode.Exclusive,
-        TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
-          const loc = e ? e.tapLocation : undefined
-          const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
-          const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
-          this.onReaderDoubleTap(tapX, tapY)
-        }),
-        TapGesture({ count: 1 }).onAction((e?: GestureEvent) => {
-          const loc = e ? e.tapLocation : undefined
-          const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
-          const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
-          this.onReaderTap(tapX, tapY)
-        }),
-      ),
-    )
+  }
+
+  @Builder
+  ReaderTapOverlay() {
+    Blank()
+      .width('100%')
+      .height('100%')
+      .hitTestBehavior(HitTestMode.Transparent)
+      .gesture(
+        GestureGroup(
+          GestureMode.Exclusive,
+          TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
+            const loc = e ? e.tapLocation : undefined
+            const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
+            const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
+            this.onReaderDoubleTap(tapX, tapY)
+          }),
+          TapGesture({ count: 1 }).onAction((e?: GestureEvent) => {
+            const loc = e ? e.tapLocation : undefined
+            const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
+            const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
+            this.onReaderTap(tapX, tapY)
+          }),
+        ),
+      )
   }
 
   @Builder
@@ -942,9 +934,6 @@ export struct ReaderPage {
     .scrollBar(BarState.Off)
     .onScrollIndex((start: number, end: number) => {
       this.vm.onVerticalScroll(start, end)
-    })
-    .onClick((e: ClickEvent) => {
-      this.onReaderTap(e.x, e.y)
     })
   }
 
@@ -2017,10 +2006,8 @@ struct ReaderImagePage {
       this.compH = n.height as number
       this.clampOffset()
     })
-    // Pinch zoom. Parent Reader captures double-tap on the Swiper and commands the active
-    // image page, because child double-tap recognizers are unreliable inside Swiper.
-    // Pan is bound as a parallel gesture below so normal page
-    // swipes can still reach the Swiper at fit scale.
+    // The image surface owns pinch and double-tap zoom. Zoomed pan is a parallel one-finger
+    // gesture so fit-state horizontal drags can still reach the ancestor Swiper.
     .gesture(
       GestureGroup(
         GestureMode.Parallel,

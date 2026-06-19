@@ -2206,24 +2206,54 @@ Source:
   `.hvigor/outputs/reader-spread-surface/left_zoom.png`,
   `.hvigor/outputs/reader-spread-surface/left_pan.png`, and
   `.hvigor/outputs/reader-spread-surface/after_swipe.png`.
+- Current follow-up (commit pending): tap recognition has been moved off the pager `Swiper` into a
+  transparent `ReaderTapOverlay`. The overlay uses an exclusive double-tap-before-single-tap gesture
+  group, routes double tap to the active image/spread surface through the existing command bridge, and
+  routes single tap to tap-zone/chrome behavior. Horizontal and double-page `Swiper` branches no longer
+  bind tap recognizers. This is a first-stage gesture-arena repair; it does not claim the larger
+  `ReaderPager` rewrite or boundary handoff from zoomed pan to page turn.
+- Validation for the tap-overlay follow-up: `scripts/test_reader_zoom_quality_contract.mjs`,
+  `scripts/test_reader_tapzone_contract.mjs`, `scripts/test_reader_double_page_contract.mjs`, full
+  `scripts/test_*contract.mjs`, V1 inventory, and `scripts/build_hvigor_signed.sh` passed. Mate X7
+  simulator `127.0.0.1:5555` installed the signed HAP with hdc outside sandbox, opened the public
+  Rockman gallery Reader, then verified: center tap toggles chrome, left-page double tap zooms without
+  showing chrome, zoomed pan moves the image instead of turning the page, reset returns to fit scale, and
+  fit-state horizontal swipe turns to the next spread. Evidence:
+  `.hvigor/outputs/reader-tap-overlay/ready3.png`,
+  `.hvigor/outputs/reader-tap-overlay/center3.png`,
+  `.hvigor/outputs/reader-tap-overlay/left_zoom3.png`,
+  `.hvigor/outputs/reader-tap-overlay/zoom_pan3.png`, and
+  `.hvigor/outputs/reader-tap-overlay/after_swipe3.png`. Earlier failed evidence
+  `.hvigor/outputs/reader-tap-overlay/left_doubletap.png` and
+  `.hvigor/outputs/reader-tap-overlay/left_doubletap2.png` records why a pure pass-through/no-op overlay
+  and delayed-single-tap-only overlay were insufficient on device.
+- Android `eros_fe` comparison for this follow-up is incomplete: ADB target `fa967a75` launched
+  `com.honjow.fehviewer/.MainActivity` through `su`, and detail-page product context was captured at
+  `.hvigor/outputs/reader-tap-overlay/fe_reference.png`; attempts to enter FE Reader through `su input
+  tap` did not navigate on that Android target, so this follow-up should remain pending controller/device
+  acceptance rather than accepted.
 - User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
   enough to affect normal reading.
-- Read-only code inspection of `feature/reader/src/main/ets/pages/ReaderPage.ets` shows double-tap is
-  still captured on the parent Reader/Swiper via `TapGesture({ count: 2 })` and forwarded through
-  `doubleTapSeq`; single tap/chrome and Swiper page-turn gestures still share the same outer surface.
+- Previous read-only code inspection found double-tap captured on the parent Reader/Swiper via
+  `TapGesture({ count: 2 })` and forwarded through `doubleTapSeq`; the tap-overlay follow-up above
+  removes tap recognizers from the `Swiper` branches, but still uses the command bridge because device
+  testing showed that a transparent overlay alone did not allow reliable child-surface double tap inside
+  the pager.
 - Local HarmonyOS technical reference: `../V2Next/entry/src/main/ets/pages/ImagePreviewPage.ets` and
   `../V2Next/entry/src/main/ets/model/ImagePreviewCoordinator.ets`.
 - Product behavior reference: `eros_fe` Reader uses mature PhotoView-style behavior (`photo_view` /
   `PhotoViewGallery` / `ExtendedImage` patterns). Treat it as user-behavior and EH-mechanism reference,
   not as target architecture.
 
-Observed behavior:
+Observed / acceptance risk:
 
-- Double-tap zoom in/out can also summon the top/bottom Reader chrome.
-- Fast horizontal page swipes can be misclassified as double-tap zoom.
-- Gesture ownership feels unstable across page swipe, double tap, pinch, pan, and center tap.
-- Double-tap zoom in/out changes scale abruptly; no animated zoom transition.
-- Zoomed-image interaction still feels hand-rolled instead of a reliable image viewer gesture model.
+- The tap-overlay follow-up has current device evidence that double-tap zoom no longer summons top/bottom
+  chrome and fit-state horizontal swipe still turns pages, but this is pending controller acceptance and
+  broader ReaderPager architecture review.
+- Gesture ownership can still be fragile across page swipe, double tap, pinch, pan, and center tap until
+  accepted on more Reader scenarios.
+- Zoomed-image interaction still needs broader PhotoView-like acceptance, especially pinch feel and any
+  future boundary handoff from zoomed pan to page turn.
 - Reader bottom chrome/action styling also feels unfinished: the download action's blue filled button
   is visually out of line with neighboring controls. This is a secondary chrome IA/style cleanup, not
   the P0 blocker.

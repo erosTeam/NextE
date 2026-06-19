@@ -143,7 +143,8 @@ const MID_Y = 250 // center-middle band
   }
   const horizontalReader = section('HorizontalReader()')
   const doublePageReader = section('DoublePageReader()')
-  const exclusiveDoubleBeforeSingle = (source) => {
+  const tapOverlay = section('ReaderTapOverlay()')
+  const overlayExclusiveDoubleBeforeSingle = (source) => {
     const exclusive = source.indexOf('GestureMode.Exclusive')
     const doubleTap = source.indexOf('TapGesture({ count: 2 })')
     const doubleAction = source.indexOf('this.onReaderDoubleTap(tapX, tapY)')
@@ -156,9 +157,11 @@ const MID_Y = 250 // center-middle band
       singleAction > singleTap
   }
   ok('has onReaderTap(x, y)', /private onReaderTap\(x: number, y: number\)/.test(src))
-  ok('horizontal and double-page taps use exclusive double-first gesture groups',
-    exclusiveDoubleBeforeSingle(horizontalReader) &&
-      exclusiveDoubleBeforeSingle(doublePageReader) &&
+  ok('transparent overlay owns single/double tap while pager Swipers have no tap recognizers',
+    overlayExclusiveDoubleBeforeSingle(tapOverlay) &&
+      /hitTestBehavior\(HitTestMode\.Transparent\)/.test(tapOverlay) &&
+      !/TapGesture\(\{ count: [12] \}\)/.test(horizontalReader) &&
+      !/TapGesture\(\{ count: [12] \}\)/.test(doublePageReader) &&
       !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(horizontalReader) &&
       !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(doublePageReader))
   ok('tap-zone logic keeps zoom gate first', /private onReaderTap\(x: number, y: number\): void \{[\s\S]*if \(this\.imageZoomed \|\| this\.viewWidth <= 0\)/.test(src))
@@ -171,7 +174,7 @@ const MID_Y = 250 // center-middle band
   ok('toPrev delegates double-page movement to turnSpread', /private toPrev\(\): void \{[\s\S]*if \(this\.doublePageEnabled\(\)\) \{[\s\S]*this\.turnSpread\(-1\)/.test(src))
   ok('toNext delegates double-page movement to turnSpread', /private toNext\(\): void \{[\s\S]*if \(this\.doublePageEnabled\(\)\) \{[\s\S]*this\.turnSpread\(1\)/.test(src))
   ok('captures viewport height', /this\.viewHeight = n\.height as number/.test(src))
-  ok('onClick passes x and y', /this\.onReaderTap\(e\.x, e\.y\)/.test(src))
+  ok('tap overlay passes x and y', /ReaderTapOverlay\(\)[\s\S]*const tapX: number[\s\S]*const tapY: number[\s\S]*this\.onReaderTap\(tapX, tapY\)/.test(src))
 }
 
 console.log(`✓ reader tap-zone contract: ${passed} assertions passed`)

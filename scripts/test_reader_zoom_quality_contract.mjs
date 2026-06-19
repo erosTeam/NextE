@@ -31,6 +31,7 @@ function section(name) {
 
 const horizontalReader = section('HorizontalReader()')
 const doublePageReader = section('DoublePageReader()')
+const tapOverlay = section('ReaderTapOverlay()')
 function component(name) {
   const start = reader.indexOf(`struct ${name}`)
   assert.ok(start >= 0, `missing component ${name}`)
@@ -79,15 +80,22 @@ ok('pinch zoom uses two fingers and pinch center correction',
   /this\.pinchCenterStartX = e\.pinchCenterX as number/.test(reader) &&
   /ReaderZoomCoordinator\.pinchOffset\([\s\S]*this\.pinchCenterStartX,[\s\S]*this\.compW,[\s\S]*k,[\s\S]*this\.pinchStartOffX,[\s\S]*dx/.test(reader) &&
   /this\.offsetX = this\.clampOffsetX\(nextX, nextScale\)/.test(reader))
-ok('parent Swiper captures double tap and routes it to the tapped image page',
+ok('transparent tap overlay captures double tap and routes it to the tapped image page',
   /@Local doubleTapSeq: number = 0/.test(reader) &&
   /@Local doubleTapTargetPage: number = 0/.test(reader) &&
   /private doubleTapTargetForPoint\(x: number\): number[\s\S]*this\.doublePageEnabled\(\)[\s\S]*this\.spreadRowReversed\(\)[\s\S]*tapLeftSide[\s\S]*return target \+ 1/.test(reader) &&
   /private onReaderDoubleTap\(x: number, y: number\): void[\s\S]*this\.doubleTapSeq = this\.doubleTapSeq \+ 1/.test(reader) &&
   /private onReaderDoubleTap\(x: number, y: number\): void[\s\S]*this\.doubleTapTargetPage = this\.doubleTapTargetForPoint\(x\)/.test(reader) &&
-  exclusiveDoubleBeforeSingle(horizontalReader) &&
-  exclusiveDoubleBeforeSingle(doublePageReader) &&
+  !/TapGesture\(\{ count: 2 \}\)/.test(horizontalReader) &&
+  !/TapGesture\(\{ count: 2 \}\)/.test(doublePageReader) &&
+  exclusiveDoubleBeforeSingle(tapOverlay) &&
   /@Monitor\('doubleTapSeq'\)[\s\S]*onDoubleTapCommand\(\): void[\s\S]*const targetPage: number = this\.doubleTapTargetPage > 0 \? this\.doubleTapTargetPage : this\.activeIndex \+ 1[\s\S]*this\.image\.page !== targetPage[\s\S]*this\.onDoubleTap\(this\.doubleTapX, this\.doubleTapY\)/.test(reader))
+ok('transparent tap overlay owns chrome tap without binding tap gestures to the pager',
+  /ReaderTapOverlay\(\)/.test(reader) &&
+  /hitTestBehavior\(HitTestMode\.Transparent\)/.test(tapOverlay) &&
+  /TapGesture\(\{ count: 1 \}\)[\s\S]*this\.onReaderTap\(tapX, tapY\)/.test(tapOverlay) &&
+  !/TapGesture\(\{ count: [12] \}\)/.test(horizontalReader) &&
+  !/TapGesture\(\{ count: [12] \}\)/.test(doublePageReader))
 ok('single and double tap are not mixed through onClick plus parallelGesture',
   !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(horizontalReader) &&
     !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(doublePageReader) &&
