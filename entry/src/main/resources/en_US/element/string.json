@@ -413,6 +413,10 @@
       "value": "Remove local favorite"
     },
     {
+      "name": "detail_remove_local_favorite_confirm",
+      "value": "Remove this gallery from local favorites?"
+    },
+    {
       "name": "detail_local_favorite_added",
       "value": "Added to local favorites"
     },

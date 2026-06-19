@@ -258,6 +258,31 @@ export struct GalleryDetailPage {
     })
   }
 
+  private confirmRemoveLocalFavorite(): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.detail_remove_local_favorite_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.detail_remove_local_favorite'),
+        fontColor: Color.Red,
+        action: () => {
+          this.toggleLocalFavorite()
+        },
+      },
+    })
+  }
+
+  private toggleLocalFavoriteWithSafety(): void {
+    if (this.isLocalFavorite()) {
+      this.confirmRemoveLocalFavorite()
+      return
+    }
+    this.toggleLocalFavorite()
+  }
+
   private async enqueueGalleryDownload(): Promise<void> {
     const task: DownloadGalleryTask = DownloadGalleryTask.fromGallery(
       this.vm.gallery,
@@ -316,7 +341,7 @@ export struct GalleryDetailPage {
       'icon': this.isLocalFavorite() ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'),
       'isEnabled': true,
       'action': () => {
-        this.toggleLocalFavorite()
+        this.toggleLocalFavoriteWithSafety()
       },
     }
     const shareInner: Record<string, Object> = {

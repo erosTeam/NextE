@@ -413,6 +413,10 @@
       "value": "ローカルから削除"
     },
     {
+      "name": "detail_remove_local_favorite_confirm",
+      "value": "このギャラリーをローカルお気に入りから削除しますか？"
+    },
+    {
       "name": "detail_local_favorite_added",
       "value": "ローカルに追加しました"
     },

@@ -45,6 +45,10 @@ Historical feedback in this section must not trigger new implementation.
   compact post-time/rating metadata, and a one-line tag sample without the previous large empty tag area.
 - Gallery comment peek full-comments entry is implemented and pending controller acceptance: one/two-comment
   detail peeks expose `查看全部`, and tapping the peek header opens the full comments page.
+- Search route/session state is implemented and pending controller acceptance: action-seeded tag/uploader
+  searches are converted by `Index` into route/session params so old Search pages do not consume them.
+- Gallery local favorite removal safety is implemented and pending controller acceptance: the existing local
+  remove action now requires a native destructive confirmation before changing local state.
 
 ## Parked / Guidance Only
 
@@ -66,19 +70,17 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Write-operation entry and safety confirmation: favorite/rating/comment/tag/archive actions should
-   be discoverable, gated, and non-destructive in tests.
+1. Write-operation entry and safety confirmation: remaining remote favorite/rating/comment/tag/archive
+   actions should be discoverable, gated, and non-destructive in tests.
 2. AllThumbnails large-gallery jump and preview-page scrolling: verify and fix high-page-count preview
    navigation around 500+ pages if current behavior fails.
-3. Search route/session state: `Search(A) -> GalleryDetail -> tag B` must seed and run search B without
-   old Search instances consuming global pending state.
-4. Search submit/clear behavior: IME search must submit; clearing the query must return to history/blank
+3. Search submit/clear behavior: IME search must submit; clearing the query must return to history/blank
    state rather than stale results.
-5. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
+4. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
    repaired; do not make Grid behave like Waterfall.
-6. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-7. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule
