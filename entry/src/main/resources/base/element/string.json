@@ -733,6 +733,14 @@
       "value": "Auto page interval"
     },
     {
+      "name": "settings_reader_volume_key",
+      "value": "Volume key page turn"
+    },
+    {
+      "name": "settings_reader_volume_key_hint",
+      "value": "Use volume down/up for next/previous page"
+    },
+    {
       "name": "common_off",
       "value": "Off"
     },

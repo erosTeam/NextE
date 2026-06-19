@@ -48,6 +48,12 @@ export struct ReaderSettingsPage {
     ReadModeSettings.setAutoPageSeconds(ctx, seconds)
   }
 
+  private setVolumeKeyTurn(enabled: boolean): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setVolumeKeyTurn(ctx, enabled)
+  }
+
   private modeLabel(): Resource {
     if (this.readMode.mode === ReadMode.RTL) {
       return $r('app.string.read_mode_rtl')
@@ -233,6 +239,19 @@ export struct ReaderSettingsPage {
                 trailingDropdown: true,
                 action: () => {
                   this.autoPageMenuShown = true
+                },
+              })
+              ConciseListRow({
+                title: $r('app.string.settings_reader_volume_key'),
+                subtitle: $r('app.string.settings_reader_volume_key_hint'),
+                hasSwitch: true,
+                checked: this.readMode.volumeKeyTurn,
+                showChevron: false,
+                action: () => {
+                  this.setVolumeKeyTurn(!this.readMode.volumeKeyTurn)
+                },
+                switchAction: (value: boolean) => {
+                  this.setVolumeKeyTurn(value)
                 },
               })
             }

@@ -1,6 +1,9 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
 import { promptAction, window } from '@kit.ArkUI'
+import { KeyCode } from '@kit.InputKit'
+import inputConsumer from '@ohos.multimodalInput.inputConsumer'
+import { Action, KeyEvent as InputConsumerKeyEvent } from '@ohos.multimodalInput.keyEvent'
 import {
   ThemeConstants,
   EhGalleryImage,
@@ -21,6 +24,8 @@ import {
   ImageSaveUtil,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
+
+const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
 
 /**
  * Image reader (basic-complete): horizontal paged Swiper of full images, each a
@@ -60,6 +65,8 @@ export struct ReaderPage {
   private autoReadTimer: number = -1;
   private autoReadWaitingIndex: number = -1;
   private loadedPages: number[] = [];
+  private volumeDownConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
+  private volumeUpConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
 
   build() {
     HdsNavDestination() {
@@ -107,10 +114,16 @@ export struct ReaderPage {
       }
       .width('100%')
       .height('100%')
+      .id(READER_KEY_SURFACE_ID)
+      .focusable(true)
+      .defaultFocus(true)
       .backgroundColor(Color.Black)
       .onAreaChange((_o: Area, n: Area) => {
         this.viewWidth = n.width as number
         this.viewHeight = n.height as number
+      })
+      .onKeyEvent((event: KeyEvent): boolean => {
+        return this.handleKeyEvent(event)
       })
     }
     .hideTitleBar(true)
@@ -149,7 +162,113 @@ export struct ReaderPage {
       // restored on aboutToDisappear. The app is already edge-to-edge fullscreen (EntryAbility), so the
       // reader doesn't re-enter fullscreen — the black canvas + faded chrome is the immersive surface.
       this.setReaderKeepScreenOn(true)
+      this.requestReaderKeyFocus()
+      this.registerVolumeKeyConsumer()
     })
+  }
+
+  private requestReaderKeyFocus(): void {
+    this.requestReaderKeyFocusAfter(0)
+    this.requestReaderKeyFocusAfter(120)
+    this.requestReaderKeyFocusAfter(360)
+  }
+
+  private requestReaderKeyFocusAfter(delayMs: number): void {
+    setTimeout(() => {
+      try {
+        this.getUIContext().getFocusController().requestFocus(READER_KEY_SURFACE_ID)
+      } catch (err) {
+        const message: string = err instanceof Error ? err.message : `${err}`
+        DiagnosticLogger.warn('reader', 'key_focus_request_failed', message)
+      }
+    }, delayMs)
+  }
+
+  private handleKeyEvent(event: KeyEvent): boolean {
+    if (!this.readMode.volumeKeyTurn) {
+      return false
+    }
+    if (
+      event.keyCode !== KeyCode.KEYCODE_VOLUME_UP &&
+      event.keyCode !== KeyCode.KEYCODE_VOLUME_DOWN
+    ) {
+      return false
+    }
+    if (event.type !== KeyType.Down) {
+      return true
+    }
+    return this.turnByVolumeKeyCode(event.keyCode)
+  }
+
+  private turnByVolumeKeyCode(keyCode: number): boolean {
+    if (!this.readMode.volumeKeyTurn) {
+      return false
+    }
+    if (
+      keyCode !== KeyCode.KEYCODE_VOLUME_UP &&
+      keyCode !== KeyCode.KEYCODE_VOLUME_DOWN
+    ) {
+      return false
+    }
+    if (this.imageZoomed || this.vm.jumping || this.vm.images.length === 0) {
+      return true
+    }
+    if (keyCode === KeyCode.KEYCODE_VOLUME_DOWN) {
+      this.toNext()
+    } else {
+      this.toPrev()
+    }
+    return true
+  }
+
+  private registerVolumeKeyConsumer(): void {
+    if (!this.readMode.volumeKeyTurn || this.volumeDownConsumer !== null || this.volumeUpConsumer !== null) {
+      return
+    }
+    const downCallback: (event: InputConsumerKeyEvent) => void = (event: InputConsumerKeyEvent): void => {
+      if (event.action === Action.DOWN) {
+        this.turnByVolumeKeyCode(KeyCode.KEYCODE_VOLUME_DOWN)
+      }
+    }
+    const upCallback: (event: InputConsumerKeyEvent) => void = (event: InputConsumerKeyEvent): void => {
+      if (event.action === Action.DOWN) {
+        this.turnByVolumeKeyCode(KeyCode.KEYCODE_VOLUME_UP)
+      }
+    }
+    this.volumeDownConsumer = downCallback
+    this.volumeUpConsumer = upCallback
+    try {
+      inputConsumer.on('keyPressed', {
+        key: KeyCode.KEYCODE_VOLUME_DOWN,
+        action: Action.DOWN,
+        isRepeat: false,
+      }, downCallback)
+      inputConsumer.on('keyPressed', {
+        key: KeyCode.KEYCODE_VOLUME_UP,
+        action: Action.DOWN,
+        isRepeat: false,
+      }, upCallback)
+    } catch (err) {
+      const message: string = err instanceof Error ? err.message : `${err}`
+      DiagnosticLogger.warn('reader', 'volume_key_consumer_register_failed', message)
+      this.unregisterVolumeKeyConsumer()
+    }
+  }
+
+  private unregisterVolumeKeyConsumer(): void {
+    try {
+      if (this.volumeDownConsumer !== null) {
+        inputConsumer.off('keyPressed', this.volumeDownConsumer)
+      }
+      if (this.volumeUpConsumer !== null) {
+        inputConsumer.off('keyPressed', this.volumeUpConsumer)
+      }
+    } catch (err) {
+      const message: string = err instanceof Error ? err.message : `${err}`
+      DiagnosticLogger.warn('reader', 'volume_key_consumer_unregister_failed', message)
+    }
+    this.volumeDownConsumer = null
+    this.volumeUpConsumer = null
   }
 
   // Window keep-screen-on toggle (no global system-bar churn — status bar auto-contrasts white over the
@@ -271,6 +390,7 @@ export struct ReaderPage {
       GalleryReadProgressSettings.flush(this.hostContext())
     }
     this.stopAutoRead()
+    this.unregisterVolumeKeyConsumer()
     // Always restore (fires on NavDestination pop, incl. swipe-back) so the wakelock never leaks.
     this.setReaderKeepScreenOn(false)
   }

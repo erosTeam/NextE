@@ -733,6 +733,14 @@
       "value": "自动翻页间隔"
     },
     {
+      "name": "settings_reader_volume_key",
+      "value": "音量键翻页"
+    },
+    {
+      "name": "settings_reader_volume_key_hint",
+      "value": "音量减/加对应下一页/上一页"
+    },
+    {
       "name": "common_off",
       "value": "关闭"
     },

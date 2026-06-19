@@ -34,9 +34,14 @@ export class ReadModeSettings {
         StorageKeys.READING_AUTO_PAGE_SEC,
         3,
       ) as number
+      const volumeKeyTurn: boolean = store.getSync(
+        StorageKeys.READING_VOLUME_KEY,
+        false,
+      ) as boolean
       connectReadMode().mode = mode
       connectReadMode().columnMode = columnMode
       connectReadMode().autoPageSeconds = ReadModeSettings.normalizeAutoPageSeconds(autoPageSeconds)
+      connectReadMode().volumeKeyTurn = volumeKeyTurn
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readmode_restore_failed', (error as Error).message)
     }
@@ -82,6 +87,20 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_auto_page_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setVolumeKeyTurn(context: common.UIAbilityContext, enabled: boolean): Promise<void> {
+    connectReadMode().volumeKeyTurn = enabled
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_VOLUME_KEY, enabled)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_volume_key_save_failed', (error as Error).message)
     }
   }
 }

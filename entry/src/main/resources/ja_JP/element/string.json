@@ -733,6 +733,14 @@
       "value": "自動ページ間隔"
     },
     {
+      "name": "settings_reader_volume_key",
+      "value": "音量キーでページ送り"
+    },
+    {
+      "name": "settings_reader_volume_key_hint",
+      "value": "音量ダウン/アップで次/前のページへ移動"
+    },
+    {
       "name": "common_off",
       "value": "オフ"
     },
