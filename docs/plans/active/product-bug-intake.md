@@ -2161,6 +2161,77 @@ Remaining acceptance:
   scope. No further FE/device validation is required unless Settings root or Search settings routing
   changes again.
 
+### Settings Root Missing Layout Settings Page
+
+Type: feature gap / settings reachability
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- System comparison against `eros_fe` settings showed Layout as a first-level Settings child page, while
+  NextE kept existing list/view and thumbnail-display controls scattered in Settings root.
+
+Grounding:
+
+- `eros_fe` settings root exposes `Layout` in
+  `/Users/honjow/git/eros_fe/lib/pages/tab/controller/setting_controller.dart`, routing to
+  `EHRoutes.layoutSetting`.
+- The FE child page lives at `/Users/honjow/git/eros_fe/lib/pages/setting/layout_setting_page.dart`
+  and contains theme/layout/display controls including thumbnail, list-style, and fixed-height related
+  rows.
+- NextE intentionally did not expand theme, locale, tag translation, tabbar customization, or blur-cover
+  controls in this lane; the user-visible loop is Settings root -> Layout settings -> manage existing
+  persisted NextE layout/display state.
+
+Implementation:
+
+- `4b942d6 feat(settings): add layout settings page` adds `LayoutSettingsPage`, exports/registers the
+  `LayoutSettings` route, and replaces the root `列表视图` cycler plus scattered layout switches with a
+  single Settings root `布局` row.
+- `LayoutSettingsPage` exposes the existing persisted list view mode, fixed list row height, hide
+  gallery thumbnails, and horizontal thumbnails controls through the existing HDS Settings child-page
+  pattern.
+- Existing list-height and thumbnail contracts now target `LayoutSettingsPage`, preserving the same
+  single-writer settings paths while reflecting the new information architecture.
+- Scope is limited to Settings reachability and IA cleanup. It does not change SearchFilter,
+  auth-cookie-login, Reader behavior, thumbnail rendering, list sizing, theme, locale, tag translation,
+  or tabbar customization.
+
+Evidence:
+
+- Android FE comparison, 2026-06-19: ADB target `fa967a75`, launched
+  `com.honjow.fehviewer/.MainActivity` with `su`; FE Layout page title `样式` showed layout/display
+  settings including `隐藏画廊缩略图`, `水平缩略图`, `列表样式`, and `固定列表项高度`.
+  Evidence directory: `.hvigor/outputs/layout-settings-fe-comparison/`, especially
+  `fe_layout_settings.png` and `fe_layout_settings_window.xml`.
+- Deterministic contracts/gates:
+  `scripts/test_settings_layout_entry_contract.mjs`,
+  `scripts/test_list_height_mode_contract.mjs`,
+  `scripts/test_thumbnail_mode_contract.mjs`,
+  `scripts/test_settings_reader_entry_contract.mjs`,
+  `scripts/test_settings_search_entry_contract.mjs`,
+  `scripts/test_settings_about_entry_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, and `git diff --check`.
+- Official signed build: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS emulator evidence, 2026-06-19: target `127.0.0.1:5555`, hdc outside sandbox, official
+  signed HAP installed. Settings root showed `布局`; tapping it opened Layout settings with `列表视图`,
+  `固定列表行高`, `隐藏画廊缩略图`, and `横向缩略图`; tapping `列表视图` opened a menu with `列表`,
+  `简洁`, and `网格`.
+  Evidence directory: `.hvigor/outputs/layout-settings-nexte-evidence/`, especially
+  `nexte_settings_root.png`, `nexte_settings_root_layout.json`,
+  `nexte_layout_settings_page.png`, `nexte_layout_settings_page_layout.json`,
+  `nexte_layout_settings_menu.png`, and `nexte_layout_settings_menu_layout.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the Settings root placement and Layout settings page structure.
+  No further FE/device validation is required unless Settings root or Layout settings routing changes
+  again.
+
 ### Settings Root Missing Reader Settings Entry
 
 Type: feature gap / settings reachability
