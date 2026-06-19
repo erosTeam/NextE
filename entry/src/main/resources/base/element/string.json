@@ -301,6 +301,14 @@
       "value": "Fixed list row height"
     },
     {
+      "name": "settings_japanese_title_in_gallery",
+      "value": "Japanese title in gallery"
+    },
+    {
+      "name": "settings_japanese_title_in_gallery_hint",
+      "value": "Use the Japanese title as the primary title on gallery detail pages when available."
+    },
+    {
       "name": "detail_more_previews",
       "value": "More previews"
     },

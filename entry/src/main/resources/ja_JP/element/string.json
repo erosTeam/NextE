@@ -301,6 +301,14 @@
       "value": "リスト行の高さを固定"
     },
     {
+      "name": "settings_japanese_title_in_gallery",
+      "value": "詳細で日本語タイトルを優先"
+    },
+    {
+      "name": "settings_japanese_title_in_gallery_hint",
+      "value": "日本語タイトルがある場合、ギャラリー詳細で主タイトルとして表示します。"
+    },
+    {
       "name": "detail_more_previews",
       "value": "他のプレビュー"
     },

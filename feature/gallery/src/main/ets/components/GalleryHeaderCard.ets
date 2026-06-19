@@ -1,4 +1,11 @@
-import { ThemeConstants, EhGallery, EhThumbnail, GroupedListSection } from 'shared'
+import {
+  ThemeConstants,
+  EhGallery,
+  EhThumbnail,
+  GroupedListSection,
+  GalleryTitleState,
+  connectGalleryTitle,
+} from 'shared'
 
 const COVER_W: number = 124
 const COVER_H: number = 175
@@ -12,25 +19,33 @@ const COVER_H: number = 175
 export struct GalleryHeaderCard {
   @Require @Param gallery: EhGallery;
   @Event onUploader: (name: string) => void = (_name: string) => {};
+  @Local titlePref: GalleryTitleState = connectGalleryTitle();
+
+  private primaryTitle(): string {
+    return this.gallery.displayTitle(this.titlePref.japaneseTitleInGalleryPage)
+  }
+
+  private secondaryTitle(): string {
+    return this.gallery.secondaryTitle(this.titlePref.japaneseTitleInGalleryPage)
+  }
 
   // Title line budget against the FIXED card height (COVER_H) so the JP title and uploader stay
   // inside the card — the title truncates first.
   // The layoutWeight+clip text group in build() is the structural backstop if real font metrics differ.
   private titleMaxLines(): number {
-    const hasJp: boolean =
-      this.gallery.japaneseTitle.length > 0 && this.gallery.japaneseTitle !== this.gallery.title()
+    const hasSecondary: boolean = this.secondaryTitle().length > 0
     const hasUploader: boolean = this.gallery.uploader.length > 0
     // Fixed cover height minus the JP (2 lines) + uploader (1 line) reserves; the remainder is title
     // lines at LINE_HEIGHT_TITLE.
     const textArea: number = COVER_H
-    const jpReserve: number = hasJp
+    const secondaryReserve: number = hasSecondary
       ? 2 * ThemeConstants.LINE_HEIGHT_BODY + ThemeConstants.SPACE_XS
       : 0
     const uploaderReserve: number = hasUploader
       ? ThemeConstants.LINE_HEIGHT_BODY + ThemeConstants.SPACE_XS
       : 0
     const lines: number = Math.floor(
-      (textArea - jpReserve - uploaderReserve) / ThemeConstants.LINE_HEIGHT_TITLE,
+      (textArea - secondaryReserve - uploaderReserve) / ThemeConstants.LINE_HEIGHT_TITLE,
     )
     // At least 1 line; cap at eros_fe's 6-line maximum.
     return Math.min(Math.max(lines, 1), 6)
@@ -55,8 +70,7 @@ export struct GalleryHeaderCard {
           // overflow the card. The title line count is budgeted by titleMaxLines() so the JP title +
           // uploader stay visible.
           Column({ space: ThemeConstants.SPACE_XS }) {
-            // English (primary) title.
-            Text(this.gallery.title())
+            Text(this.primaryTitle())
               .fontSize(ThemeConstants.FONT_SIZE_TITLE)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_primary'))
@@ -66,12 +80,8 @@ export struct GalleryHeaderCard {
               .maxLines(this.titleMaxLines())
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .width('100%')
-            // Japanese title, shown separately when present and distinct from the primary.
-            if (
-              this.gallery.japaneseTitle.length > 0 &&
-              this.gallery.japaneseTitle !== this.gallery.title()
-            ) {
-              Text(this.gallery.japaneseTitle)
+            if (this.secondaryTitle().length > 0) {
+              Text(this.secondaryTitle())
                 .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
                 .fontColor($r('sys.color.font_secondary'))
                 .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)

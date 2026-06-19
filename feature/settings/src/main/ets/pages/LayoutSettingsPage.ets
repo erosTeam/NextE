@@ -10,6 +10,9 @@ import {
   ListModeState,
   SecondaryListScaffold,
   ThemeConstants,
+  GalleryTitleSettings,
+  GalleryTitleState,
+  connectGalleryTitle,
   ThumbnailModeSettings,
   ThumbnailModeState,
   connectListMode,
@@ -25,6 +28,7 @@ import {
 @ComponentV2
 export struct LayoutSettingsPage {
   @Local listMode: ListModeState = connectListMode();
+  @Local galleryTitle: GalleryTitleState = connectGalleryTitle();
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
   @Local viewMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
@@ -49,6 +53,10 @@ export struct LayoutSettingsPage {
 
   private setFixedHeight(value: boolean): void {
     ListModeSettings.setFixedHeight(this.ctx(), value)
+  }
+
+  private setJapaneseTitleInGalleryPage(value: boolean): void {
+    GalleryTitleSettings.setJapaneseTitleInGalleryPage(this.ctx(), value)
   }
 
   private setHideGalleryThumbnails(value: boolean): void {
@@ -126,6 +134,17 @@ export struct LayoutSettingsPage {
                 checked: this.listMode.fixedHeight,
                 switchAction: (value: boolean) => {
                   this.setFixedHeight(value)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.settings_japanese_title_in_gallery'),
+                subtitle: $r('app.string.settings_japanese_title_in_gallery_hint'),
+                leadingIcon: $r('sys.symbol.textformat'),
+                hasSwitch: true,
+                checked: this.galleryTitle.japaneseTitleInGalleryPage,
+                switchAction: (value: boolean) => {
+                  this.setJapaneseTitleInGalleryPage(value)
                 },
               })
             }

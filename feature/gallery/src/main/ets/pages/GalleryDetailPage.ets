@@ -16,6 +16,8 @@ import {
   connectSiteMode,
   connectGalleryReadProgress,
   GalleryReadProgressState,
+  GalleryTitleState,
+  connectGalleryTitle,
   connectThumbnailMode,
   ThumbnailModeState,
   DownloadGalleryTask,
@@ -58,6 +60,7 @@ export struct GalleryDetailPage {
   // The nav-bar title appears only after the header card scrolls away (eros_fe scroll-driven title).
   @Local showNavTitle: boolean = false;
   @Local detailRefreshInFlight: boolean = false;
+  @Local titlePref: GalleryTitleState = connectGalleryTitle();
   // Per-gallery reading progress: the READ button resumes at + labels itself with the saved page.
   // Reactive (revision-backed) so returning from the reader refreshes the button live.
   @Local readProgress: GalleryReadProgressState = connectGalleryReadProgress();
@@ -112,8 +115,9 @@ export struct GalleryDetailPage {
   }
 
   private navTitle(): string {
-    if (this.vm.gallery.title().length > 0) {
-      return this.vm.gallery.title()
+    const title: string = this.vm.gallery.displayTitle(this.titlePref.japaneseTitleInGalleryPage)
+    if (title.length > 0) {
+      return title
     }
     return this.params.title.length > 0 ? this.params.title : AppStrings.get('nav_gallery')
   }

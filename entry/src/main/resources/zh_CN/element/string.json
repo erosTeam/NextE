@@ -301,6 +301,14 @@
       "value": "固定列表行高"
     },
     {
+      "name": "settings_japanese_title_in_gallery",
+      "value": "详情页优先显示日文标题"
+    },
+    {
+      "name": "settings_japanese_title_in_gallery_hint",
+      "value": "画廊详情存在日文标题时，将日文标题作为主标题显示。"
+    },
+    {
       "name": "detail_more_previews",
       "value": "更多预览"
     },

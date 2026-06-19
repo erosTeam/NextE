@@ -3,6 +3,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { CookieJarSettings } from './CookieJarSettings'
 import { SiteModeSettings } from './SiteModeSettings'
 import { ListModeSettings } from './ListModeSettings'
+import { GalleryTitleSettings } from './GalleryTitleSettings'
 import { ReadModeSettings } from './ReadModeSettings'
 import { ThumbnailModeSettings } from './ThumbnailModeSettings'
 import { SearchHistorySettings } from './SearchHistorySettings'
@@ -33,6 +34,7 @@ export class SettingsBootstrap {
       await CookieJarSettings.restore(context)
       await SiteModeSettings.restore(context)
       await ListModeSettings.restore(context)
+      await GalleryTitleSettings.restore(context)
       await ReadModeSettings.restore(context)
       await ThumbnailModeSettings.restore(context)
       await SearchHistorySettings.restore(context)

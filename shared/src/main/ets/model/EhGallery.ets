@@ -86,6 +86,24 @@ export class EhGallery {
     return this.englishTitle.length > 0 ? this.englishTitle : this.japaneseTitle
   }
 
+  displayTitle(japanesePrimary: boolean): string {
+    if (japanesePrimary && this.japaneseTitle.length > 0) {
+      return this.japaneseTitle
+    }
+    return this.title()
+  }
+
+  secondaryTitle(japanesePrimary: boolean): string {
+    if (japanesePrimary) {
+      return this.englishTitle.length > 0 && this.englishTitle !== this.displayTitle(true)
+        ? this.englishTitle
+        : ''
+    }
+    return this.japaneseTitle.length > 0 && this.japaneseTitle !== this.title()
+      ? this.japaneseTitle
+      : ''
+  }
+
   /**
    * Cleaned title for a "similar" search (eros_fe `shortTitle`): strip [..]/(..)/{..} groups,
    * trim, and keep only the part before the first `|`. Used as `title:"<shortTitle>"`.
