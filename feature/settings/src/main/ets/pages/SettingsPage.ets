@@ -143,6 +143,14 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
+        title: $r('app.string.settings_search'),
+        leadingIcon: $r('sys.symbol.magnifyingglass'),
+        action: () => {
+          this.stack.pushPathByName('SearchSettings', null)
+        },
+      })
+      this.rowDivider()
+      ConciseListRow({
         title: $r('app.string.tab_history'),
         leadingIcon: $r('sys.symbol.clock'),
         action: () => {

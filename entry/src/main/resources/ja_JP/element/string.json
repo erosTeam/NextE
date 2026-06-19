@@ -733,6 +733,10 @@
       "value": "ダウンロード"
     },
     {
+      "name": "settings_search",
+      "value": "検索"
+    },
+    {
       "name": "settings_reader",
       "value": "閲覧"
     },
@@ -819,6 +823,34 @@
     {
       "name": "search_history_deleted",
       "value": "履歴から削除しました"
+    },
+    {
+      "name": "search_settings_history_count",
+      "value": "検索履歴"
+    },
+    {
+      "name": "search_settings_history_hint",
+      "value": "保存された最近の検索"
+    },
+    {
+      "name": "search_settings_filter_profile",
+      "value": "フィルタ設定"
+    },
+    {
+      "name": "search_settings_filter_hint",
+      "value": "保存された範囲、カテゴリ、評価、ページ数、詳細オプション"
+    },
+    {
+      "name": "search_settings_filter_active",
+      "value": "有効"
+    },
+    {
+      "name": "search_settings_filter_clean",
+      "value": "未設定"
+    },
+    {
+      "name": "search_settings_filter_reset",
+      "value": "フィルタをリセット"
     },
     {
       "name": "filter_options",

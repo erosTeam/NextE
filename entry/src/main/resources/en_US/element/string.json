@@ -733,6 +733,10 @@
       "value": "Downloads"
     },
     {
+      "name": "settings_search",
+      "value": "Search"
+    },
+    {
       "name": "settings_reader",
       "value": "Reading"
     },
@@ -819,6 +823,34 @@
     {
       "name": "search_history_deleted",
       "value": "Removed from history"
+    },
+    {
+      "name": "search_settings_history_count",
+      "value": "Search history"
+    },
+    {
+      "name": "search_settings_history_hint",
+      "value": "Saved recent searches"
+    },
+    {
+      "name": "search_settings_filter_profile",
+      "value": "Filter profile"
+    },
+    {
+      "name": "search_settings_filter_hint",
+      "value": "Saved scope, categories, rating, pages, and advanced options"
+    },
+    {
+      "name": "search_settings_filter_active",
+      "value": "Active"
+    },
+    {
+      "name": "search_settings_filter_clean",
+      "value": "Clean"
+    },
+    {
+      "name": "search_settings_filter_reset",
+      "value": "Reset filters"
     },
     {
       "name": "filter_options",

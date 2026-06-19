@@ -102,6 +102,24 @@ export class SearchFilterSettings {
     }
   }
 
+  /** Reset persisted search filters to the clean default profile and notify any open Search page. */
+  static async reset(context: common.UIAbilityContext): Promise<void> {
+    const f = connectSearchFilter()
+    f.searchScope = SEARCH_SCOPE_GALLERY
+    f.selectedCats = 0
+    f.advancedEnabled = false
+    f.minRating = 0
+    f.pagesFrom = 0
+    f.pagesTo = 0
+    f.requireTorrent = false
+    f.showExpunged = false
+    f.disableLanguageFilter = false
+    f.disableUploaderFilter = false
+    f.disableTagFilter = false
+    f.applySeq = f.applySeq + 1
+    await SearchFilterSettings.persist(context)
+  }
+
   /** Defensive parse: bad JSON / shape → null; bad fields → safe defaults (0 / false). */
   private static parse(raw: string): SearchFilterSnapshot | null {
     try {

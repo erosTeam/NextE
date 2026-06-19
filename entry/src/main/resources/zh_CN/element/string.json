@@ -733,6 +733,10 @@
       "value": "下载"
     },
     {
+      "name": "settings_search",
+      "value": "搜索"
+    },
+    {
       "name": "settings_reader",
       "value": "阅读"
     },
@@ -819,6 +823,34 @@
     {
       "name": "search_history_deleted",
       "value": "已从历史记录移除"
+    },
+    {
+      "name": "search_settings_history_count",
+      "value": "搜索历史"
+    },
+    {
+      "name": "search_settings_history_hint",
+      "value": "已保存的最近搜索"
+    },
+    {
+      "name": "search_settings_filter_profile",
+      "value": "筛选配置"
+    },
+    {
+      "name": "search_settings_filter_hint",
+      "value": "已保存的范围、分类、评分、页数和高级选项"
+    },
+    {
+      "name": "search_settings_filter_active",
+      "value": "已启用"
+    },
+    {
+      "name": "search_settings_filter_clean",
+      "value": "未启用"
+    },
+    {
+      "name": "search_settings_filter_reset",
+      "value": "重置筛选"
     },
     {
       "name": "filter_options",

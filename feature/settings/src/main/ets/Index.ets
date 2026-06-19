@@ -1,4 +1,5 @@
 export { SettingsPage } from './pages/SettingsPage'
 export { ReaderSettingsPage } from './pages/ReaderSettingsPage'
 export { DownloadSettingsPage } from './pages/DownloadSettingsPage'
+export { SearchSettingsPage } from './pages/SearchSettingsPage'
 export { AboutPage } from './pages/AboutPage'
