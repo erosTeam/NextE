@@ -320,8 +320,8 @@
     - 验:截图比对(NextE vs eros_fe 同页)
 - [x] **P0** [dev] _missed-logic_ · Detail favorite-state(favcat sprite + favTitle)— DONE 2026-06-15(device-verified)。`EhGalleryDetailParser` 解析用户自己的收藏态:`#fav` 内层 sprite div(仅收藏时存在 → 即收藏信号,绕开本地化「Add to Favorites」文案)的 `background-position` Y → favcat 槽 `(Y-2)/19`(对标 eros_fe),title → favTitle。`GalleryInfoBar` Row3 加 favcat 彩色心 + favTitle(仅收藏时显示,与社区收藏数的红心区分)。**评审加固**:Y 与 title 从 div 属性 blob 独立读取(不依赖属性顺序,防 EH 重排静默漏判)。验:`test_gallery_detail_parser_contract.mjs`(合成 favorited Y=116→槽6 + 槽0/9 边界 + 属性乱序 + 未收藏空 #fav→空 + 真实 authed fixture `gdetail_real.html`→favcat=6/favTitle=普通)+ assembleHap + V1 0 + **真机**(打开「高分」收藏画廊 → 详情显示绿心 高分 + 红心 1473 times)。对抗评审 2 维全 clean。**视觉新增已截图发用户定夺。**
 - [x] **P1** [now] _architecture_ · ~~Two-level page structure collapsed~~ — **已具备(已核实)** 2026-06-15:MyTagsPage 同时渲染 tagset chip bar(多 set 时)+ namespace 分组,等价 eros_fe 两级,无需独立 UserTagsPage 路由
-- [ ] **P1** [now] _shallow_ · EhUsertag model missing translate / weight-as-string / tagWeight semantics
-    - 修:Add translate:string; keep weight as the raw string for round-trip (parse to number only when sorting). Populate translate via TagTranslationService and show it as the row subtitle (ConciseListRow subtitle) when the zh translate setting is on, matching eros_fe
+- [ ] **P1** [now] _shallow_ · EhUsertag model missing translate
+    - 修:Add translate:string. Populate translate via TagTranslationService and show it as the row subtitle (ConciseListRow subtitle) when the zh translate setting is on, matching eros_fe. `tagWeight` raw string round-trip support is already implemented; keep `weight:number` only as compatibility parse/fallback.
     - 验:契约测试 + 构建
 - [ ] **P1** ⏸ _missed-logic_ · Comment parser drops vote state, canEdit/canVote, memberId, scoreDetails, UTC→local time
     - 修:Extend EhGalleryComment with memberId, vote (+1/0/-1), canEdit, canVote, scoreDetails:string[]; convert postedTime UTC→device local in the parser; keep a lightweight span/segment list (text/link) so links are tappable. This unblocks comment voting (a planned w
@@ -336,7 +336,7 @@
     - 修:Render usertags as ConciseListRow rows inside GroupedListSection: leading icon for watched(green check)/hidden(red x)/neither (matching eros_fe's _buildHideIcon), a trailing color box with the weight, subtitle = translate, row tap → edit sheet, swipe → delete.
     - 验:截图比对(NextE vs eros_fe 同页)
 - [x] **P2** [now] _shallow_ · tagset numeric-id ascending sort (NaN-safe, eros_fe parity; 无 default 特判可丢) — done 2026-06-15
-- [x] **P2** [now] _missed-logic_ · Namespace short-prefix expansion (a→artist…) via canonical `EhConstants.expandNamespace`, reused by namespace() + tagNamespaceColor — done 2026-06-15 (weight 默认已正确;见 进度日志)
+- [x] **P2** [now] _missed-logic_ · Namespace short-prefix expansion (a→artist…) + raw `tagWeight` preservation — namespace done 2026-06-15; raw `tagWeight` added after confirming eros_fe keeps it as `String` for setusertag round-trip. `weight:number` remains compatibility fallback only.
 - [ ] **P2** [dev] _ui-native_ · tagNsColorMap 缺 `other`/`temp` 配色(eros_fe 有)— NEW 2026-06-15 评审
     - 修:新增 `app.color.tagns_other` / `tagns_temp`(dark+light),`m.set('other'/'temp', …)`;`mixed` 保持 misc 兜底(对标 eros_fe 无 mixed 色)。
     - 验:截图比对(NextE vs eros_fe 同页)

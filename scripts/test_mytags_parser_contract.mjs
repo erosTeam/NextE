@@ -14,7 +14,9 @@ function parse(html) {
     const col = m[2].match(/border-color:\s*(#[0-9a-fA-F]+)/)
     const txt = m[2].match(/(?:^|;)\s*color:\s*(#[0-9a-fA-F]+)/)
     const fill = m[2].match(/background[^:]*:[^;]*?(#[0-9a-fA-F]+)/)
-    const w = html.match(new RegExp(`id="tagweight_${m[1]}"[^>]*value="(\\d+)"`))
+    const w = html.match(new RegExp(`id="tagweight_${m[1]}"[^>]*value="([^"]*)"`))
+    const tagWeight = w ? w[1] : ''
+    const parsedWeight = Number.parseInt(tagWeight, 10)
     const custom = html.match(new RegExp(`id="tagcolor_${m[1]}"[^>]*value="([^"]*)"`))
     out.tags.push({
       tagId: m[1], tag: m[3], display: m[4],
@@ -22,7 +24,8 @@ function parse(html) {
       textColor: txt ? txt[1] : '',
       fillColor: fill ? fill[1] : (col ? col[1] : ''),
       defaultColor: !custom || custom[1].replace('#', '').trim().length === 0,
-      weight: w ? +w[1] : 10,
+      tagWeight,
+      weight: Number.isNaN(parsedWeight) ? 10 : parsedWeight,
       watched: new RegExp(`id="tagwatch_${m[1]}"[^>]*\\schecked`).test(html),
       hidden: new RegExp(`id="taghide_${m[1]}"[^>]*\\schecked`).test(html),
     })
@@ -55,10 +58,14 @@ const synthetic = `
 <div><input type="checkbox" id="tagwatch_441609"></div><div><input type="checkbox" id="taghide_441609" checked></div><div><input type="text" id="tagcolor_441609" value="#df4646"></div><div><input type="number" id="tagweight_441609" value="25"></div></div>
 <div id="usertag_777"><div><a href="/tag/a:short"><div id="tagpreview_777" class="gt" style="border-color:#df4646" title="a:short">short</div></a></div>
 <div><input type="checkbox" id="tagwatch_777"></div><div><input type="checkbox" id="taghide_777"></div><div><input type="number" id="tagweight_777" value="10"></div></div>
+<div id="usertag_888"><div><a href="/tag/misc:raw"><div id="tagpreview_888" class="gt" style="border-color:#999999" title="misc:raw">raw</div></a></div>
+<div><input type="checkbox" id="tagwatch_888"></div><div><input type="checkbox" id="taghide_888"></div><div><input type="number" id="tagweight_888" value=""></div></div>
+<div id="usertag_889"><div><a href="/tag/misc:textual"><div id="tagpreview_889" class="gt" style="border-color:#999999" title="misc:textual">textual</div></a></div>
+<div><input type="checkbox" id="tagwatch_889"></div><div><input type="checkbox" id="taghide_889"></div><div><input type="number" id="tagweight_889" value="custom"></div></div>
 <button onclick="do_tagset_delete()">delete</button>
 <select onchange="change_tagset(this.value)"><option value="2">Artist (82)</option><option value="1" selected="selected">TAG (38)</option></select>`
 const syn = parse(synthetic)
-if (syn.tags.length !== 3) fail(`synthetic: expected 3 tags, got ${syn.tags.length}`)
+if (syn.tags.length !== 5) fail(`synthetic: expected 5 tags, got ${syn.tags.length}`)
 if (syn.tags[0] && (syn.tags[0].tag !== 'language:chinese' || syn.tags[0].color !== '#1357df')) fail(`syn tag0 wrong: ${JSON.stringify(syn.tags[0])}`)
 // 3-color parse: text color (#f1f1f1), border (#1357df), fill = gradient start (#1357df) — not white-on-anything.
 if (syn.tags[0] && (syn.tags[0].textColor !== '#f1f1f1' || syn.tags[0].fillColor !== '#1357df')) fail(`syn tag0 colors wrong: ${JSON.stringify(syn.tags[0])}`)
@@ -69,6 +76,9 @@ if (syn.tags[1] && syn.tags[1].defaultColor !== false) fail(`syn tag1 defaultCol
 if (syn.tags[1] && (syn.tags[1].tag !== 'artist:dittaya' || syn.tags[1].hidden !== true)) fail(`syn tag1 hidden not detected: ${JSON.stringify(syn.tags[1])}`)
 if (syn.tags[0] && syn.tags[0].weight !== 10) fail(`syn tag0 weight: ${syn.tags[0].weight}`)
 if (syn.tags[1] && syn.tags[1].weight !== 25) fail(`syn tag1 weight: ${syn.tags[1].weight}`)
+if (syn.tags[1] && syn.tags[1].tagWeight !== '25') fail(`syn tag1 tagWeight raw: ${JSON.stringify(syn.tags[1])}`)
+if (syn.tags[3] && (syn.tags[3].tagWeight !== '' || syn.tags[3].weight !== 10)) fail(`syn blank tagWeight not preserved/fallback: ${JSON.stringify(syn.tags[3])}`)
+if (syn.tags[4] && (syn.tags[4].tagWeight !== 'custom' || syn.tags[4].weight !== 10)) fail(`syn nonnumeric tagWeight not preserved/fallback: ${JSON.stringify(syn.tags[4])}`)
 if (syn.tagSets.length !== 2) fail(`syn tagSets: ${JSON.stringify(syn.tagSets)}`)
 // DOM order is [2 Artist, 1 TAG]; after the numeric-id sort it must become [1 TAG, 2 Artist].
 if (syn.tagSets[0] && (syn.tagSets[0].tagsetId !== '1' || syn.tagSets[0].name !== 'TAG')) fail(`syn tagset0 (sorted): ${JSON.stringify(syn.tagSets[0])}`)
@@ -115,10 +125,13 @@ if (!/tagNsColorMap\.get\(EhConstants\.expandNamespace\(ns\)\)/.test(consts)) fa
 const model = read('../shared/src/main/ets/model/EhMytags.ets')
 if (!/EhConstants\.expandNamespace\(raw\)/.test(model)) fail('EhUsertag.namespace does not expand prefix')
 if (!/defaultColor:\s*boolean/.test(model)) fail('EhUsertag.defaultColor missing')
+if (!/tagWeight:\s*string/.test(model)) fail('EhUsertag.tagWeight raw string missing')
 if (!/canDelete:\s*boolean/.test(model)) fail('EhMytags.canDelete missing')
 const parser = read('../shared/src/main/ets/parser/EhMytagsParser.ets')
 if (!/sets\.sort\(/.test(parser)) fail('EhMytagsParser does not sort tagsets by id')
 if (!/tagcolor_\$\{m\[1\]\}/.test(parser)) fail('EhMytagsParser does not parse per-tag custom color input')
+if (!parser.includes('id="tagweight_${m[1]}"[^>]*value="([^"]*)"')) fail('EhMytagsParser does not preserve raw tagweight input')
+if (!/Number\.parseInt\(t\.tagWeight, 10\)/.test(parser)) fail('EhMytagsParser does not derive numeric weight from raw tagWeight')
 if (!/do_tagset_delete\(\)/.test(parser)) fail('EhMytagsParser does not parse tagset delete capability')
 
 if (failures === 0) { console.log('✓ mytags parser contract: all cases pass'); process.exit(0) }

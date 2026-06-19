@@ -38,9 +38,11 @@ export class EhMytagsParser {
         const fill: RegExpMatchArray | null = m[2].match(/background[^:]*:[^;]*?(#[0-9a-fA-F]+)/)
         t.fillColor = fill !== null && fill[1] !== undefined ? fill[1] : t.color
         const wM: RegExpMatchArray | null = html.match(
-          new RegExp(`id="tagweight_${m[1]}"[^>]*value="(\\d+)"`),
+          new RegExp(`id="tagweight_${m[1]}"[^>]*value="([^"]*)"`),
         )
-        t.weight = wM !== null && wM[1] !== undefined ? Number.parseInt(wM[1], 10) : 10
+        t.tagWeight = wM !== null && wM[1] !== undefined ? wM[1] : ''
+        const parsedWeight: number = Number.parseInt(t.tagWeight, 10)
+        t.weight = Number.isNaN(parsedWeight) ? 10 : parsedWeight
         const colorM: RegExpMatchArray | null = html.match(
           new RegExp(`id="tagcolor_${m[1]}"[^>]*value="([^"]*)"`),
         )

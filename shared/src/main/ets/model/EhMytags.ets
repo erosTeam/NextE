@@ -17,7 +17,10 @@ export class EhUsertag {
   fillColor: string = '' // background fill (first gradient stop)
   textColor: string = '' // EH-chosen readable text color
   defaultColor: boolean = true // true when EH's custom-color input is empty
-  weight: number = 10 // EH default tag weight; orders flagged tags + soft-filter contribution
+  // Raw EH tag weight value. Kept as a string so future setusertag writes can round-trip the
+  // server form value exactly like eros_fe's tagWeight field.
+  tagWeight: string = ''
+  weight: number = 10 // numeric compatibility value for current read-only display/sort paths
   watched: boolean = false
   hidden: boolean = false
 
