@@ -666,7 +666,7 @@ Type: UX / interaction bug
 
 Priority suggestion: P0
 
-Status: implemented / pending device acceptance
+Status: implemented / needs controller acceptance
 
 Source:
 
@@ -1755,3 +1755,55 @@ Remaining acceptance:
 
 - Needs controller/user acceptance of the task-card visual hierarchy and action weight on screenshots.
   Deeper executor/offline/archive behavior remains explicitly out of scope.
+
+### Settings Root Missing Reader Settings Entry
+
+Type: feature gap / settings reachability
+
+Priority suggestion: P1
+
+Status: implemented / pending device acceptance
+
+Source:
+
+- `docs/ui-architecture-audit.md` H5/F6: `ReaderSettingsPage` was built and route-registered, but
+  the settings tree still lacked the top-level Read/Reader settings entry from `eros_fe`.
+
+Grounding:
+
+- `eros_fe` settings root exposes `Read` as a first-level settings row in
+  `/Users/honjow/git/eros_fe/lib/pages/tab/controller/setting_controller.dart`, routing to
+  `EHRoutes.readSetting`; the reader top menu opens the same route in
+  `/Users/honjow/git/eros_fe/lib/pages/image_view/view/view_widget.dart`.
+- NextE already has `ReaderSettingsPage` and the `ReaderSettings` route; the missing user-visible
+  loop was Settings root -> Reader settings.
+
+Implementation:
+
+- Added a `settings_reader` `ConciseListRow` to `SettingsPage.MainSection` before Download settings.
+- The row uses the existing HDS grouped-list pattern and pushes `ReaderSettings`.
+- Scope is limited to Settings root reachability. It does not change Reader gestures, Reader loading,
+  SearchFilter, title/menu/search-field layout, or the ReaderSettings page contents.
+
+Evidence:
+
+- Android FE comparison: ADB target `fa967a75`, launched with
+  `/opt/homebrew/bin/adb shell su -c 'am start -n com.honjow.fehviewer/.MainActivity'`; foreground
+  confirmed by `dumpsys window`; screenshot captured at
+  `/private/tmp/nexte_settings_reader_entry_fe_reference/fe_settings_foreground.png`.
+- Deterministic contract: `scripts/test_settings_reader_entry_contract.mjs`.
+- Gates: `scripts/test_settings_reader_entry_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`,
+  `git diff --check`, and official signed Hvigor build through `scripts/build_hvigor_signed.sh`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  Settings root showed the new `阅读` row above `下载`; clicking it opened ReaderSettingsPage with
+  `翻页方向` and `双页模式`.
+  Evidence directory: `/private/tmp/nexte_settings_reader_entry_acceptance/`, especially
+  `settings_root.png`, `settings_root.json`, `reader_settings_page.png`, and
+  `reader_settings_page.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the Settings root screenshot and ReaderSettings navigation
+  evidence. No further device validation is required unless Settings root or ReaderSettings routing
+  changes again.

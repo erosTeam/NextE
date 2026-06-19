@@ -127,6 +127,14 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
+        title: $r('app.string.settings_reader'),
+        leadingIcon: $r('sys.symbol.doc_plaintext'),
+        action: () => {
+          this.stack.pushPathByName('ReaderSettings', null)
+        },
+      })
+      this.rowDivider()
+      ConciseListRow({
         title: $r('app.string.settings_download'),
         leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
         action: () => {
