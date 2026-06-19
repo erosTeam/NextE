@@ -42,7 +42,7 @@ import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
 import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
-import { SettingsPage, ReaderSettingsPage, DownloadSettingsPage } from 'settings'
+import { SettingsPage, ReaderSettingsPage, DownloadSettingsPage, AboutPage } from 'settings'
 import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryAllThumbnailsPage, GalleryCommentsPage } from 'gallery'
 import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
@@ -342,6 +342,8 @@ struct Index {
       ReaderSettingsPage()
     } else if (name === 'DownloadSettings') {
       DownloadSettingsPage()
+    } else if (name === 'About') {
+      AboutPage()
     } else if (name === 'ImagePageRouteError') {
       ImagePageRouteErrorPage()
     } else if (name === 'CoverFallbackProbe') {

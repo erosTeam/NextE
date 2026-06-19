@@ -191,8 +191,9 @@ export struct SettingsPage {
       ConciseListRow({
         title: $r('app.string.settings_about'),
         leadingIcon: $r('sys.symbol.info_circle'),
-        trailingText: 'NextE v1.0.0',
-        showChevron: false,
+        action: () => {
+          this.stack.pushPathByName('About', null)
+        },
       })
     }
   }

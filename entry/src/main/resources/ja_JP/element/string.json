@@ -469,6 +469,42 @@
       "value": "バージョン情報"
     },
     {
+      "name": "about_tagline",
+      "value": "HarmonyOS 向けの非公式 E-Hentai クライアント"
+    },
+    {
+      "name": "about_app_info",
+      "value": "アプリ"
+    },
+    {
+      "name": "about_app_name",
+      "value": "名前"
+    },
+    {
+      "name": "about_version",
+      "value": "バージョン"
+    },
+    {
+      "name": "about_platform",
+      "value": "プラットフォーム"
+    },
+    {
+      "name": "about_license",
+      "value": "ライセンス"
+    },
+    {
+      "name": "about_source_license",
+      "value": "ソースライセンス"
+    },
+    {
+      "name": "about_unofficial_notice",
+      "value": "NextE は非公式クライアントであり、E-Hentai とは提携していません。"
+    },
+    {
+      "name": "about_eh_notice",
+      "value": "E-Hentai サービスの利用には、引き続き元サイトの規則が適用されます。"
+    },
+    {
       "name": "gallery_meta",
       "value": "%sページ · %s · お気に入り %s"
     },

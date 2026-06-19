@@ -1866,3 +1866,56 @@ Remaining acceptance:
 - Needs controller/user acceptance of the Settings entry, History list, and history-row-to-detail
   screenshots. No further device validation is required unless History route, Settings entry, or
   viewed-history persistence changes again.
+
+### Settings Root About Row Is Not Routable
+
+Type: feature gap / settings reachability
+
+Priority suggestion: P2
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- Settings root already had an `关于` row, but it was a static `NextE v1.0.0` row with no route,
+  while `eros_fe` exposes About as a settings child page.
+
+Grounding:
+
+- `eros_fe` reference: `/Users/honjow/git/eros_fe/lib/pages/setting/about_page.dart` renders a normal
+  About page with app name, unofficial E-Hentai client subtitle, version, update check, and license.
+- `eros_fe` settings root exposes `关于` as a tappable row in
+  `/Users/honjow/git/eros_fe/lib/pages/tab/controller/setting_controller.dart`.
+- HarmonyOS reference: `/Users/honjow/git/V2Next/entry/src/main/ets/pages/AboutPage.ets` uses a native
+  settings-style About page with grouped rows and bundle version lookup.
+
+Implementation:
+
+- Added `feature/settings/src/main/ets/pages/AboutPage.ets` using the existing HDS
+  `HdsNavDestination` + `SecondaryListScaffold` + `GroupedListSection` + `ConciseListRow` pattern.
+- The Settings root `关于` row now pushes the `About` route instead of showing only a static trailing
+  version string.
+- Entry route map imports/registers `About`; settings module exports `AboutPage`.
+- Scope is limited to About reachability and app/version/license information. This does not implement
+  online update checks, external project links, or a full third-party license browser.
+
+Evidence:
+
+- Android FE comparison: ADB target `fa967a75`, `su` launched `com.honjow.fehviewer/.MainActivity`;
+  Settings and About screenshots captured at
+  `/private/tmp/nexte_settings_about_fe_reference/fe_settings.png` and
+  `/private/tmp/nexte_settings_about_fe_reference/fe_about.png`.
+- Deterministic contract: `scripts/test_settings_about_entry_contract.mjs`.
+- Gates: `scripts/test_settings_about_entry_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`, and official
+  signed Hvigor build through `scripts/build_hvigor_signed.sh`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  Settings root showed `关于`; clicking it opened About with `NextE`, subtitle, version, platform,
+  source license, and unofficial-client notice. Evidence directory:
+  `/private/tmp/nexte_settings_about_acceptance/`, especially `settings.jpeg`, `settings_layout.json`,
+  `about.jpeg`, and `about_layout.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the Settings row and About page screenshots. No further device
+  validation is required unless Settings root or About route changes again.

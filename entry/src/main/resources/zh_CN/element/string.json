@@ -469,6 +469,42 @@
       "value": "关于"
     },
     {
+      "name": "about_tagline",
+      "value": "HarmonyOS 上的非官方 E-Hentai 客户端"
+    },
+    {
+      "name": "about_app_info",
+      "value": "应用"
+    },
+    {
+      "name": "about_app_name",
+      "value": "名称"
+    },
+    {
+      "name": "about_version",
+      "value": "版本"
+    },
+    {
+      "name": "about_platform",
+      "value": "平台"
+    },
+    {
+      "name": "about_license",
+      "value": "许可"
+    },
+    {
+      "name": "about_source_license",
+      "value": "源码许可"
+    },
+    {
+      "name": "about_unofficial_notice",
+      "value": "NextE 是非官方客户端,与 E-Hentai 无隶属关系。"
+    },
+    {
+      "name": "about_eh_notice",
+      "value": "使用 E-Hentai 服务仍需遵守源站规则。"
+    },
+    {
       "name": "gallery_meta",
       "value": "%s页 · %s · 收藏 %s"
     },
