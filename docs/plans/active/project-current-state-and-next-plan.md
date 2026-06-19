@@ -1000,6 +1000,32 @@ Replace the cramped detail header action model with a NextE-native primary actio
 favorite evidence is available.
 ```
 
+Current status, 2026-06-19:
+
+```text
+IMPLEMENTED_STAGE1_NEEDS_CONTROLLER_ACCEPTANCE.
+
+The ordinary read/resume FAB fallback is implemented and device-verified:
+- `GalleryHeaderCard` no longer renders the read/resume capsule.
+- `GalleryDetailPage` renders a bottom-right capsule FAB using the existing Reader resume route.
+- Mate X7 evidence shows readable on-brand `继续 P2` and tapping it opens Reader at `2 / 138`.
+
+Evidence:
+- `/private/tmp/nexte_detail_primary_fab_fe_reference/fe_detail.png`
+- `/private/tmp/nexte_detail_primary_fab_acceptance/` (`detail_fab_color.png`,
+  `reader_after_color_fab.png`)
+- contracts: `test_gallery_detail_primary_fab_contract`, `test_gallery_detail_refresh_contract`,
+  `test_gallery_detail_seed_cover_contract`, V1 inventory
+- official signed Hvigor build passed
+
+Still pending:
+- controller visual acceptance of FAB placement;
+- first-read screenshot;
+- logged-in favorite action migration/title-menu behavior;
+- smart grip / 智感握姿 remains optional and unimplemented because local harmony-next refs did not expose
+  a concrete API hit.
+```
+
 Product direction:
 
 ```text

@@ -39,11 +39,13 @@ import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
 
 /**
  * Gallery detail (eros_fe page structure, native HDS rendering). Section order mirrors eros_fe:
- * header(cover+title+uploader+READ) → info bar → relations → tags → COMMENTS peek (max 2) → PREVIEWS
+ * header(cover+title+uploader) → info bar → relations → tags → COMMENTS peek (max 2) → PREVIEWS
  * peek (first page only). Comments sit BEFORE previews so they are reachable without scrolling past
  * thousands of thumbnails; "view all" / "more" link out to the separate Comments / AllThumbnails pages
- * instead of inflating this page. The nav-bar title is revealed only on scroll (no duplicate with the
- * header card title). Each block is a shared GroupedListSection card on the SecondaryListScaffold.
+ * instead of inflating this page. Read/resume is a page-level FAB, not a header-card capsule, so the
+ * detail -> Reader primary flow stays reachable while scrolling. The nav-bar title is revealed only on
+ * scroll (no duplicate with the header card title). Each block is a shared GroupedListSection card on
+ * the SecondaryListScaffold.
  */
 @ComponentV2
 export struct GalleryDetailPage {
@@ -128,6 +130,14 @@ export struct GalleryDetailPage {
         this.navTitle(),
       ),
     )
+  }
+
+  private readFabLabel(): ResourceStr {
+    const index: number = this.resumeIndex()
+    if (index > 0) {
+      return $r('app.string.detail_read_resume', (index + 1).toString())
+    }
+    return $r('app.string.detail_read')
   }
 
   private openComments(): void {
@@ -249,107 +259,126 @@ export struct GalleryDetailPage {
 
   build() {
     HdsNavDestination() {
-      PullRefreshListScaffold({
-        scroller: this.scroller,
-        listSpace: ThemeConstants.SPACE_MD,
-        bottomPadding: ThemeConstants.SPACE_XL,
-        controller: this.refreshController,
-        onRefresh: async () => {
-          await this.vm.refresh()
-        },
-        onDidScroll: (offset: number) => {
-          const past: boolean = offset > 160
-          if (past !== this.showNavTitle) {
-            this.showNavTitle = past
-          }
-        },
-      }) {
-        ListItem() {
-          GalleryHeaderCard({
-            gallery: this.vm.gallery,
-            resumeIndex: this.resumeIndex(),
-            onRead: () => {
-              this.openReader(this.resumeIndex())
-            },
-            onUploader: (name: string) => {
-              this.searchUploader(name)
-            },
-          })
-        }
-        ListItem() {
-          GalleryInfoBar({
-            gallery: this.vm.gallery,
-            onOpenInfo: () => {
-              this.openGalleryInfo()
-            },
-          })
-        }
-        ListItem() {
-          this.relationsRow()
-        }
-
-        if (this.vm.gallery.tagGroups.length > 0) {
+      Stack() {
+        PullRefreshListScaffold({
+          scroller: this.scroller,
+          listSpace: ThemeConstants.SPACE_MD,
+          bottomPadding: ThemeConstants.SPACE_XXL + ThemeConstants.BUTTON_HEIGHT,
+          controller: this.refreshController,
+          onRefresh: async () => {
+            await this.vm.refresh()
+          },
+          onDidScroll: (offset: number) => {
+            const past: boolean = offset > 160
+            if (past !== this.showNavTitle) {
+              this.showNavTitle = past
+            }
+          },
+        }) {
           ListItem() {
-            GalleryTagsCard({ gallery: this.vm.gallery })
-          }
-        }
-
-        // Comments PEEK — before previews so it is reachable without scrolling the thumbnails.
-        if (this.vm.comments.length > 0) {
-          ListItem() {
-            GalleryCommentsCard({
-              comments: this.vm.comments,
-              max: 2,
-              onMore: () => {
-                this.openComments()
-              },
-              onAuthor: (name: string) => {
+            GalleryHeaderCard({
+              gallery: this.vm.gallery,
+              onUploader: (name: string) => {
                 this.searchUploader(name)
               },
             })
           }
+          ListItem() {
+            GalleryInfoBar({
+              gallery: this.vm.gallery,
+              onOpenInfo: () => {
+                this.openGalleryInfo()
+              },
+            })
+          }
+          ListItem() {
+            this.relationsRow()
+          }
+
+          if (this.vm.gallery.tagGroups.length > 0) {
+            ListItem() {
+              GalleryTagsCard({ gallery: this.vm.gallery })
+            }
+          }
+
+          // Comments PEEK — before previews so it is reachable without scrolling the thumbnails.
+          if (this.vm.comments.length > 0) {
+            ListItem() {
+              GalleryCommentsCard({
+                comments: this.vm.comments,
+                max: 2,
+                onMore: () => {
+                  this.openComments()
+                },
+                onAuthor: (name: string) => {
+                  this.searchUploader(name)
+                },
+              })
+            }
+          }
+
+          // Previews PEEK (first page only) — last; eros_fe ThumbTile modes (grid default / horizontal /
+          // hidden-inline) per the thumbnail settings. The all-thumbnails entry is reachable in every mode.
+          if (this.vm.images.length > 0) {
+            ListItem() {
+              GalleryPreviewGrid({
+                images: this.vm.images,
+                total: this.fileCountNum(),
+                hasMore: this.vm.hasMorePreviews(),
+                horizontal: this.thumbMode.horizontalThumbnails,
+                hidden: this.thumbMode.hideGalleryThumbnails,
+                onOpen: (page0: number) => {
+                  this.openReader(page0)
+                },
+                onMore: () => {
+                  this.openThumbnails()
+                },
+              })
+            }
+          } else if (this.vm.loading) {
+            ListItem() {
+              Row() {
+                LoadingProgress()
+                  .width(ThemeConstants.LOADING_SIZE)
+                  .height(ThemeConstants.LOADING_SIZE)
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+              .padding(ThemeConstants.SPACE_MD)
+            }
+          } else if (this.vm.error.length > 0) {
+            ListItem() {
+              PageErrorState({
+                message: this.vm.error,
+                expand: false,
+                retryAction: () => {
+                  this.vm.load(this.params.gid, this.params.token)
+                },
+              })
+            }
+          }
         }
 
-        // Previews PEEK (first page only) — last; eros_fe ThumbTile modes (grid default / horizontal /
-        // hidden-inline) per the thumbnail settings. The all-thumbnails entry is reachable in every mode.
-        if (this.vm.images.length > 0) {
-          ListItem() {
-            GalleryPreviewGrid({
-              images: this.vm.images,
-              total: this.fileCountNum(),
-              hasMore: this.vm.hasMorePreviews(),
-              horizontal: this.thumbMode.horizontalThumbnails,
-              hidden: this.thumbMode.hideGalleryThumbnails,
-              onOpen: (page0: number) => {
-                this.openReader(page0)
-              },
-              onMore: () => {
-                this.openThumbnails()
-              },
-            })
+        Button({ type: ButtonType.Capsule }) {
+          Row({ space: ThemeConstants.SPACE_SM }) {
+            SymbolGlyph($r('sys.symbol.doc_plaintext'))
+              .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+              .fontColor([ThemeConstants.TEXT_ON_BRAND])
+            Text(this.readFabLabel())
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(ThemeConstants.TEXT_ON_BRAND)
           }
-        } else if (this.vm.loading) {
-          ListItem() {
-            Row() {
-              LoadingProgress()
-                .width(ThemeConstants.LOADING_SIZE)
-                .height(ThemeConstants.LOADING_SIZE)
-            }
-            .width('100%')
-            .justifyContent(FlexAlign.Center)
-            .padding(ThemeConstants.SPACE_MD)
-          }
-        } else if (this.vm.error.length > 0) {
-          ListItem() {
-            PageErrorState({
-              message: this.vm.error,
-              expand: false,
-              retryAction: () => {
-                this.vm.load(this.params.gid, this.params.token)
-              },
-            })
-          }
+          .padding({ left: ThemeConstants.SPACE_LG, right: ThemeConstants.SPACE_LG })
+          .height(ThemeConstants.BUTTON_HEIGHT)
+          .alignItems(VerticalAlign.Center)
         }
+        .height(ThemeConstants.BUTTON_HEIGHT)
+        .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+        .position({ right: ThemeConstants.SPACE_LG, bottom: ThemeConstants.SPACE_LG })
+        .onClick(() => {
+          this.openReader(this.resumeIndex())
+        })
       }
     }
     .titleBar(this.detailTitleBar())

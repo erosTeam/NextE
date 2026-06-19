@@ -403,7 +403,7 @@ Type: UX redesign / feature enhancement
 
 Priority suggestion: P1
 
-Status: active / design pending
+Status: implemented / needs controller acceptance
 
 Source:
 
@@ -460,6 +460,17 @@ Implementation direction to evaluate:
 - Add capability-checked smart grip support as an enhancement, with ordinary FAB fallback.
 - Keep this separate from cover presentation, list responsive cover sizing, SearchFilter, Reader gesture, and auth-cookie-login lanes.
 
+Implementation:
+
+- `feature/gallery/src/main/ets/components/GalleryHeaderCard.ets` no longer owns read/resume state,
+  exposes no `onRead`, and renders no inline read capsule inside the dense cover/title header.
+- `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` now owns a bottom-right capsule FAB that
+  reuses the existing `openReader(this.resumeIndex())` path and the existing read/resume strings. The
+  detail list reserves `SPACE_XXL + BUTTON_HEIGHT` bottom padding so the final content can scroll clear
+  of the floating action.
+- Ordinary FAB fallback is the only implemented path in this stage. Local `harmony-next` offline refs did
+  not expose a `智感握姿` / smart-grip API hit, so no smart-grip code was introduced.
+
 Acceptance shape:
 
 - Detail first-read state: FAB launches Reader from page 1, without covering critical content or bottom gesture areas.
@@ -468,6 +479,32 @@ Acceptance shape:
 - Ordinary FAB layout works on devices without smart grip support.
 - If smart grip is implemented, it has a capability check and does not break the ordinary FAB path.
 - Device/simulator evidence covers at least first-read and resume states, plus available favorite-state evidence.
+
+Evidence:
+
+- FE grounding: eros_fe `ReadButton` at `lib/pages/gallery/view/gallery_widget.dart`, header placement at
+  `lib/pages/gallery/view/header.dart` and `lib/pages/gallery/view/sliver/header_sliver.dart`, plus the
+  sliver trailing read action at `lib/pages/gallery/view/sliver/gallery_page.dart`.
+- Android FE reference: ADB target `fa967a75`, `su` launched `com.honjow.fehviewer/.MainActivity`, and
+  a same-gallery detail screenshot was captured at
+  `/private/tmp/nexte_detail_primary_fab_fe_reference/fe_detail.png`.
+- Deterministic contracts: `scripts/test_gallery_detail_primary_fab_contract.mjs`,
+  `scripts/test_gallery_detail_refresh_contract.mjs`, `scripts/test_gallery_detail_seed_cover_contract.mjs`,
+  and `scripts/test_v1_decorator_inventory_contract.mjs`.
+- Build: official signed Hvigor build through `scripts/build_hvigor_signed.sh` passed; no `dev.sh`.
+- Device: Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, signed HAP installed. Deep link
+  opened `https://e-hentai.org/g/3989982/16600a66e8/`; layout showed bottom-right FAB `继续 P2` at
+  `[828,2296][980,2347]`, and clicking it opened Reader at `2 / 138`. Evidence directory:
+  `/private/tmp/nexte_detail_primary_fab_acceptance/` (`detail_fab.png`,
+  `detail_fab_layout.json`, `detail_fab_color.png`, `detail_fab_color_layout.json`,
+  `reader_after_color_fab.png`, `reader_after_color_fab_layout.json`).
+
+Remaining acceptance:
+
+- Needs controller visual acceptance of the FAB placement and overlay behavior.
+- First-read state and logged-in favorite action migration remain follow-up evidence/work. This stage keeps
+  favorite state discoverability through existing detail info surfaces and does not perform destructive
+  favorite writes.
 
 ### Gallery Detail Tags Do Not Jump To Search
 

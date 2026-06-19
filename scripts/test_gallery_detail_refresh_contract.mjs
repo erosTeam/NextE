@@ -30,7 +30,7 @@ ok(
   /PullRefreshListScaffold\(\{/.test(page) && !/^\s*SecondaryListScaffold,/m.test(page),
 )
 ok('detail refresh uses existing scroller', /PullRefreshListScaffold\(\{[\s\S]*scroller:\s*this\.scroller/.test(page))
-ok('detail refresh preserves list spacing and bottom padding', /listSpace:\s*ThemeConstants\.SPACE_MD/.test(page) && /bottomPadding:\s*ThemeConstants\.SPACE_XL/.test(page))
+ok('detail refresh preserves list spacing and FAB-aware bottom padding', /listSpace:\s*ThemeConstants\.SPACE_MD/.test(page) && /bottomPadding:\s*ThemeConstants\.SPACE_XXL\s*\+\s*ThemeConstants\.BUTTON_HEIGHT/.test(page))
 ok('detail page wires onRefresh to GalleryDetailViewModel.refresh', /onRefresh:\s*async \(\) => \{[\s\S]*await this\.vm\.refresh\(\)/.test(page))
 ok('detail title reveal still uses onDidScroll', /onDidScroll:\s*\(offset: number\)/.test(page) && /this\.showNavTitle = past/.test(page))
 

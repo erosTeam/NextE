@@ -138,11 +138,28 @@ Required behavior gate:
 Design lane boundary:
 
 - New lane name: `detail-primary-actions-redesign`.
-- Status until login evidence exists: `DESIGN_PENDING_LOGIN_REQA`.
+- Status: `IMPLEMENTED_STAGE1_NEEDS_CONTROLLER_ACCEPTANCE` for the ordinary read/resume FAB fallback.
+  Logged-in favorite action migration remains pending login-state evidence.
 - Do not patch this as a one-off `maxWidth`, raw height, or padding-only adjustment while the redesign lane
   is pending.
 - Do not mix this lane into Gate V1 thumbnail/cover work, auth-cookie-login, false-404 diagnostics, or list
   responsive cover sizing.
+
+2026-06-19 stage-1 evidence:
+
+- `GalleryHeaderCard` no longer owns the read/resume capsule; `GalleryDetailPage` owns a bottom-right
+  capsule FAB that opens Reader through the existing resume path.
+- Contracts/build: `scripts/test_gallery_detail_primary_fab_contract.mjs`,
+  `scripts/test_gallery_detail_refresh_contract.mjs`, `scripts/test_gallery_detail_seed_cover_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, and official signed
+  `scripts/build_hvigor_signed.sh`.
+- FE reference: Android target `fa967a75`, `su`-started eros_fe screenshot at
+  `/private/tmp/nexte_detail_primary_fab_fe_reference/fe_detail.png`.
+- Device evidence: Mate X7 target `127.0.0.1:5555`, hdc outside sandbox, signed HAP installed. Detail
+  layout showed `继续 P2` FAB at `[828,2296][980,2347]`; tapping it opened Reader at `2 / 138`.
+  Final visual evidence uses the readable on-brand text/icon screenshot
+  `detail_fab_color.png`; Reader launch evidence is `reader_after_color_fab.png`. Evidence directory:
+  `/private/tmp/nexte_detail_primary_fab_acceptance/`.
 
 ### P0 — Detail title long-text stress breaks layout
 

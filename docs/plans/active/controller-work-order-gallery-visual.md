@@ -451,7 +451,7 @@ Each subitem must be either ACCEPTED with evidence, OPEN with next action, or ex
 
 ### Gate V4 — Detail primary actions redesign
 
-Status: DESIGN_PENDING_LOGIN_REQA
+Status: IMPLEMENTED_STAGE1_NEEDS_CONTROLLER_ACCEPTANCE
 Priority: P0/P1 boundary, depends on controller product decision after login-state evidence
 
 Problem:
@@ -482,6 +482,39 @@ Required first stage before implementation:
 - Inspect current NextE `GalleryHeaderCard` and navigation/title menu primitives.
 - Inspect V2Next / Next2V reply FAB and title/menu interaction patterns.
 - Check HarmonyOS smart grip / 智感握姿 capability through the harmony-next skill or official docs before using any API.
+```
+
+Stage 1 implementation update, 2026-06-19:
+
+```text
+Implemented the ordinary-FAB fallback path without smart-grip code and without destructive favorite writes.
+- `GalleryHeaderCard` no longer renders the read/resume capsule inside the header.
+- `GalleryDetailPage` owns a bottom-right capsule FAB using the existing read/resume labels and
+  `openReader(this.resumeIndex())` route.
+- The list bottom padding now reserves FAB clearance.
+
+Grounding:
+- eros_fe `ReadButton` / header placement checked in `gallery_widget.dart`, `header.dart`,
+  `sliver/header_sliver.dart`, and `sliver/gallery_page.dart`.
+- V2Next overlay/FAB-style reference checked in `ImagePreviewPage.ets`.
+- Local harmony-next offline refs had no `智感握姿` / smart-grip API hit, so this stage keeps smart grip
+  out of code and relies on the ordinary FAB fallback.
+
+Validation:
+- `scripts/test_gallery_detail_primary_fab_contract.mjs`
+- `scripts/test_gallery_detail_refresh_contract.mjs`
+- `scripts/test_gallery_detail_seed_cover_contract.mjs`
+- `scripts/test_v1_decorator_inventory_contract.mjs`
+- official signed Hvigor build through `scripts/build_hvigor_signed.sh`
+- Android FE reference: `/private/tmp/nexte_detail_primary_fab_fe_reference/fe_detail.png`
+- Mate X7 `127.0.0.1:5555` device evidence: `/private/tmp/nexte_detail_primary_fab_acceptance/`
+  (`detail_fab_color.png/json`, `reader_after_color_fab.png/json`). Resume FAB `继续 P2` was visible,
+  used readable on-brand text/icon color, and opened Reader at `2 / 138`.
+
+Remaining:
+- controller visual acceptance of FAB placement/overlay behavior;
+- first-read screenshot;
+- logged-in favorite action migration/title-menu behavior.
 ```
 
 Acceptance shape:
