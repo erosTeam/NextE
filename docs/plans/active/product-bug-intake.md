@@ -42,6 +42,138 @@ Operating rule:
 
 ## Intake Items
 
+### Feature Completion Gap: EH Write Operations Are Still Mostly Missing
+
+Type: feature gap / core product completeness
+
+Priority suggestion: P0/P1
+
+Status: active intake
+
+Source:
+
+- User feedback, 2026-06-20: project effort has been over-spent on repeated Reader/Grid/Search
+  rework while practical feature completeness, especially write operations, still lags behind the
+  full `eros_fe` client.
+- User-named examples: remote site favorites, comment reply, comment voting, gallery rating, and other
+  frequently used EH actions.
+- Read-only NextE inspection:
+  - NextE has strong browsing surfaces: Home/Search/Favorites/Detail/Reader/Settings/Download shells,
+    local favorite state, remote favorite browsing, read-only comments, torrent/archiver read surfaces,
+    and some non-destructive write-entry affordances.
+  - `GalleryCommentsPage` explicitly documents composer / vote / reply actions as deferred write-ops.
+  - `GalleryArchiverPage` and download queue flows expose read/queue surfaces but do not complete the
+    destructive archive/download submit pipeline.
+  - Gallery rating currently has a safety entry only: it opens a non-destructive dialog and in-app web
+    path, but does not yet submit `rategallery`.
+  - Local favorites are implemented separately from remote EH favorite mutation.
+- Read-only `eros_fe` comparison:
+  - `GalleryFavController` handles add/remove/move favorites with favcat/favnote.
+  - Gallery rating is exposed through rating dialog/controller code and updates detail state.
+  - `CommentController` covers comment translate, vote up/down, post/edit/reply style actions.
+  - Archiver and download controllers cover quote/submit/download flows more deeply than NextE.
+
+Scheduling judgment:
+
+- The next major progress should be user-visible feature completion, not another long cycle of Reader
+  double-page architecture or repeated visual QA, unless a current P0 defect blocks basic use.
+- Prefer bounded write lanes that can reuse the project destructive-write policy:
+  1. Remote EH favorite write loop: add/update/remove/move favorite, favcat selection, favnote, and
+     clear logged-out / ExHentai gating.
+  2. Gallery rating real write loop: protected `rategallery` submit using already parsed API metadata,
+     then refresh visible rating state.
+  3. Comment actions: comment vote first if bounded, then reply/new comment, then own-comment edit.
+  4. Tag/MyTags write actions: tag vote/suggest/set-user-tag after the write safety pattern is proven.
+  5. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
+     smaller write operations unless the user explicitly prioritizes downloads.
+
+Implementation constraints:
+
+- EH writes are non-idempotent. Tests should open dialogs, validate params, and cancel by default.
+- Any real submit requires explicit user authorization and should prefer the user's own test gallery or
+  a low-risk account-owned surface.
+- Do not hide missing write operations behind disabled rows without honest copy. If a row is visible,
+  its scope and unavailable behavior must be clear.
+- Do not conflate local-only features with EH remote writes. Local favorite removal safety is not a
+  substitute for remote favorite add/move/remove.
+
+Acceptance shape:
+
+- For each write lane, FE source grounding identifies the endpoint/action, user-facing control,
+  current-value state, and failure handling.
+- NextE exposes a discoverable entry, shows current state, confirms destructive action, submits only
+  when authorized, refreshes visible state, and reports errors clearly.
+- Deterministic contracts cover route/entry visibility, request parameter assembly, auth gating, and
+  "no accidental submit during tests."
+- Device evidence covers the non-destructive dialog/preview path; real-submit evidence is required only
+  when the user explicitly authorizes it.
+
+### Settings Shell Audit: Visible Rows Must Be Real Or Honest
+
+Type: feature gap / settings trustworthiness
+
+Priority suggestion: P1
+
+Status: active intake
+
+Source:
+
+- User feedback, 2026-06-20: some Settings options, including Reader settings, feel hard to open or
+  unreliable, and several Settings rows look like feature shells without real behavior.
+- User expectation: Settings should not imply completed functionality when the underlying feature is
+  absent or not wired.
+- Read-only NextE inspection:
+  - Settings root now exposes EH, Layout, Reader, Download, Search, History, Advanced, Security, and
+    About routes.
+  - `ReaderSettingsPage` has direction, double-page, auto-page interval, and volume-key rows. The route
+    exists, but runtime menu opening / behavior linkage needs current device verification.
+  - `EhSettingsPage` contains disabled `网站设置` and `图片限制` rows; comments say website settings,
+    cloud sync, link handlers, and favorite write behavior remain separate lanes.
+  - `AdvancedSettingsPage` currently provides only HiLog diagnostics and marker write, while FE Advanced
+    contains cache/proxy/import/export/log-related maintenance rows.
+  - `DownloadSettingsPage` is explicitly scoped to persisted policy controls, while the broader download
+    executor remains incomplete.
+  - `SecuritySettingsPage` intentionally exposes recent-task blur as disabled and auto-lock preference
+    foundation without full biometric/lifecycle enforcement.
+
+Observed risk:
+
+- A route existing in Settings can make the app feel more complete than it is.
+- Disabled placeholders and rows with partial behavior should be reviewed as product debt, not treated
+  as finished parity.
+- If a settings row opens a menu or page unreliably, the issue is a concrete usability bug even if the
+  route/contract exists.
+
+Expected behavior:
+
+- Every visible Settings row falls into one of three honest states:
+  1. Real and wired: changing it affects the app immediately or after a clear documented restart/scope.
+  2. Not yet implemented: disabled or parked with concise copy that does not imply protection/action.
+  3. Entry-only by design: opens a non-destructive preview/safety surface and clearly states the missing
+     submit/executor path.
+- High-frequency settings, especially Reader settings and EH account/site settings, should be verified
+  before lower-value Settings parity rows are expanded.
+- If a setting affects Reader, Search, Download, Security, or EH writes, acceptance must prove both the
+  Settings UI and the downstream behavior.
+
+Implementation direction:
+
+- First audit Settings rows/pages and classify them as `real`, `partial`, `disabled honest`, or `shell`.
+- Fix broken reachability or menu-open behavior before adding more settings rows.
+- For partial rows, either finish the smallest useful loop or change copy/disabled state so users do not
+  mistake the row for a completed feature.
+- Keep this lane separate from broad UI redesign. The core deliverable is trustworthiness and behavior,
+  not visual polish.
+
+Acceptance shape:
+
+- Settings root and child pages have an inventory table listing row, status, linked state/action, and
+  missing downstream behavior.
+- Reader Settings row opens reliably; each visible reader setting either affects Reader or is marked as
+  partial with a follow-up lane.
+- Disabled EH/Security/Advanced rows use honest text and do not masquerade as active actions.
+- Contracts verify key rows are routable and partial/disabled rows cannot trigger accidental writes.
+
 ### Favorites Favcat Selector Page
 
 Type: parity / UX gap
@@ -599,6 +731,129 @@ Acceptance shape:
 - Switching list/simple/grid does not leave stale layout artifacts or reuse WaterFlow for grid.
 - If waterfall is exposed later, it appears as a distinct choice and is verified separately.
 
+### Gallery Grid Card Information Density Is Wrong
+
+Type: bug / browsing core UX
+
+Priority suggestion: P1
+
+Status: active intake
+
+Source:
+
+- User screenshot, 2026-06-20: Home grid cards show large empty white areas below the title/tag area and
+  appear to omit important browsing information. User asked why this was accepted and noted Waterfall has
+  still not been scheduled.
+- Read-only NextE inspection:
+  - `shared/src/main/ets/components/GalleryGridCard.ets` currently renders cover, translated-language
+    badge, page/favorite overlay, two title lines, and at most two tag chips.
+  - It does not render post time, rating, uploader, category text, or richer metadata.
+  - `ThemeConstants.GALLERY_GRID_INFO_HEIGHT = 126`, `GALLERY_GRID_TITLE_HEIGHT = 44`,
+    `GALLERY_GRID_TAG_AREA_HEIGHT = 58`, and `GALLERY_GRID_TAG_LIMIT = 2`, which can create a large
+    fixed empty area when only one or two chips are present.
+  - `scripts/test_gallery_grid_card_visual_contract.mjs` currently protects a cover-first card with a
+    bounded tag-chip sample and explicitly rejects the old rating/category metadata row. That contract
+    verifies fixed rhythm but does not verify that the grid card has enough useful browsing information.
+- Read-only `eros_fe` inspection:
+  - `eros_fe/lib/pages/item/gallery_item_grid.dart` small grid card shows cover, translated/category
+    corner, page count/favorite overlay, title, and post time. It does not show tag chips.
+  - `eros_fe/lib/pages/item/gallery_item_flow.dart` is the smaller Waterfall item and is mostly cover-only.
+  - `eros_fe/lib/pages/item/gallery_item_flow_large.dart` is the richer waterfall card with cover,
+    rating/favorite, title, and tags.
+  - `eros_fe/lib/pages/setting/layout_setting_page.dart` exposes separate list modes: list, simple list,
+    waterfall, waterfall large, and grid.
+
+Observed behavior:
+
+- NextE's current Grid is structurally a real Grid, but the card content is semantically muddled:
+  it borrows tag chips from richer waterfall-style cards, drops FE grid's post-time cue, and still lacks
+  enough metadata to justify the fixed info block height.
+- The result is neither a compact cover/title/time grid nor a richer waterfall-large card; it looks
+  sparse and unfinished despite passing the earlier "no WaterFlow / fixed height" contracts.
+- Earlier acceptance only covered scaffold separation, no overlap, uniform row height, and responsive
+  columns. It did not validate information density or whether the visible fields are the right fields
+  for browsing.
+
+Expected behavior:
+
+- Grid remains a true responsive `Grid` with uniform cells, not WaterFlow.
+- `GalleryGridCard` should present enough high-frequency browsing information for quick scanning while
+  keeping fixed row rhythm. At minimum, re-evaluate title, post time, rating/favorite, language/category,
+  page count, and whether tag chips belong in Grid at all.
+- Fixed info-area height should be justified by visible content. If only title + a small metadata row are
+  shown, the card should not reserve a large empty block.
+- Tags, if retained, must not consume fixed space at the expense of more useful metadata; if tags are the
+  product choice, the card needs a deliberate density/layout plan rather than a two-chip leftover.
+
+Likely root cause:
+
+- The previous Grid repair over-corrected for masonry risk by locking a large info block and clipping
+  content, then used a tag sample as the secondary content. That solved row alignment but did not define
+  a complete Grid information hierarchy.
+- The visual contract encoded the incomplete hierarchy, so it allowed the screenshot failure to pass.
+
+Implementation direction:
+
+- First repair Grid card information hierarchy only. Do not mix in Waterfall launch work.
+- Re-ground against `eros_fe` grid and waterfall variants: FE grid's post time and compact metadata,
+  FE waterfall-large's rating/tags, and NextE/HarmonyOS scanning needs.
+- Update `GalleryGridCard` to a deliberate fixed-height information layout, likely cover + title +
+  compact metadata row(s), with no large unused region.
+- Update `scripts/test_gallery_grid_card_visual_contract.mjs` so it no longer locks the current
+  incomplete "title + two tags + empty fixed area" design as acceptable.
+
+Acceptance shape:
+
+- Home, Search, and Favorites Grid screenshots show cards with stable equal heights and visibly useful
+  metadata; no large empty white region under normal data.
+- Grid cards remain readable on outer-screen phone width and expanded foldable/tablet width.
+- Long title/tag data is bounded without making the item masonry-like.
+- Contract proves Grid info density fields are deliberate and that card rhythm is still fixed.
+
+### Waterfall Mode Is Defined But Not Exposed
+
+Type: feature gap / browsing mode
+
+Priority suggestion: P1/P2
+
+Status: active intake / schedule after Grid card information repair
+
+Source:
+
+- User feedback: Waterfall has not been arranged despite repeated discussion of Grid vs Waterfall
+  separation.
+- Read-only NextE inspection:
+  - `shared/src/main/ets/state/ListModeState.ets` defines `ListMode.WATERFALL`.
+  - `shared/src/main/ets/components/PullRefreshWaterFlowScaffold.ets` exists and is exported.
+  - `feature/settings/src/main/ets/pages/LayoutSettingsPage.ets` only exposes list, simple, and grid.
+- Read-only `eros_fe` inspection:
+  - `layout_setting_page.dart` exposes both `waterfall` and `waterfallLarge` separately from `grid`.
+  - `waterfall_flow.dart` routes small waterfall to `GalleryItemFlow` and large waterfall to
+    `GalleryItemFlowLarge`.
+
+Expected behavior:
+
+- Waterfall should be a distinct user-visible mode, not hidden behind Grid and not treated as already
+  implemented because scaffolding exists.
+- It needs its own card semantics and acceptance:
+  - small Waterfall can be cover-first / cover-only masonry;
+  - large Waterfall can be rich cover + rating/title/tags masonry;
+  - settings entry must make the mode explicit.
+
+Implementation direction:
+
+- Do not launch Waterfall in the same lane as Grid card information repair.
+- Decide whether NextE first exposes one Waterfall mode or separate Waterfall / Large Waterfall options.
+- Add settings/i18n, route Home/Search/Favorites through the existing WaterFlow scaffold, and add
+  contracts that `ListMode.GRID` and `ListMode.WATERFALL` stay separate.
+
+Acceptance shape:
+
+- Settings exposes Waterfall as a distinct mode.
+- Home, Search, and Favorites render Waterfall with masonry semantics and no Grid row-alignment contract.
+- Switching list/simple/grid/waterfall does not leave stale layout state.
+- Device screenshots show clear visual distinction between Grid and Waterfall.
+
 ### Detail Header Cover Flickers After Opening From List
 
 Type: bug / UX regression
@@ -1007,6 +1262,81 @@ Acceptance shape:
 - Positive and negative scores no longer use saturated green/red backgrounds.
 - Full comments page score badge still opens score details when details exist.
 - Detail-page comment peek still suppresses numeric score badges and only shows the uploader `UP` badge when relevant.
+
+### Gallery Comment Peek Cannot Open Full Comments When Only One Or Two Comments Exist
+
+Type: bug / detail-page navigation / reading comments
+
+Priority suggestion: P1
+
+Status: active intake
+
+Source:
+
+- User report, 2026-06-20: when a gallery has only one or two comments, the detail-page comment peek
+  cannot navigate to the full comments page. This is unreasonable because the exposed peek rows clamp
+  comment body text and there is no expand/collapse affordance; the full comments page is the only way
+  to read long comments completely.
+- User also expects tapping a broad area of the exposed comment preview to open the full comments page.
+  The current header-only target is too thin, especially if there are only a couple of comments.
+- Link handling caveat: comments may contain URLs. If native link taps need to remain accessible, use a
+  deliberate event/area split, but do not leave the full-page entry as a tiny header-only target.
+- Read-only NextE inspection:
+  - `GalleryDetailPage.openComments()` already routes to `GalleryComments`.
+  - Detail page passes `GalleryCommentsCard({ comments, max: 2, onMore })`.
+  - `GalleryCommentsCard.hasMore()` returns `this.max > 0 && this.comments.length > this.max`.
+  - Header `onClick` only calls `onMore()` when `hasMore()` is true.
+  - `shown()` returns all comments when `comments.length <= max`, so one/two-comment peeks render on the
+    detail page but have no full-comments navigation.
+  - `CommentRow` currently has no row/card-level click to open full comments.
+
+Observed behavior:
+
+- With three or more comments, the header shows `查看全部` and can open full comments.
+- With one or two comments, the detail page still shows truncated/comment-clamped preview rows, but no
+  obvious full-page navigation is available.
+- Long one/two-comment galleries become hard to read because the peek has `maxLines(4)` and no expand or
+  full-page affordance.
+
+Expected behavior:
+
+- Any gallery with at least one parsed comment should have a reliable path from the detail comment peek
+  to the full comments page.
+- The full comments entry should be broad enough to be comfortable: header row plus comment preview area,
+  or at least a clear, visible row/card affordance.
+- If URLs inside comment text are tappable through `enableDataDetector`, preserve link activation where
+  feasible. A good fallback is making the comment card/background or non-text region open full comments
+  while link text keeps URL behavior.
+- Full comments page remains the place for complete text, score details, uploader-only filter, refresh,
+  and future write actions.
+
+Likely root cause:
+
+- `hasMore()` conflates "there are more than two comments" with "there should be a full comments page
+  entry." The latter should be true whenever `max > 0` and `comments.length > 0`, because peek mode clamps
+  comment body text even if there are only one or two comments.
+
+Implementation direction:
+
+- Split the concepts:
+  - `hasMoreThanPeek()` for `查看全部` / count wording when `comments.length > max`.
+  - `canOpenFullComments()` for navigation when `max > 0 && comments.length > 0`.
+- Keep or adjust header wording so one/two-comment peeks still communicate full-page availability.
+- Add a broad tap target for the comment peek card or each preview row to call `onMore()`.
+- Preserve author tap-to-search and URL link behavior as much as ArkUI allows; do not make author/link
+  taps accidentally navigate away if the user intended those actions.
+
+Acceptance shape:
+
+- Gallery with one comment: tapping the comment peek opens `GalleryComments`, and the full page shows the
+  complete comment text.
+- Gallery with two comments: tapping either exposed comment or the comments area opens `GalleryComments`.
+- Gallery with three or more comments: existing `查看全部` affordance still works, and the broader peek
+  target also works.
+- Author tap still searches uploader. URL text inside a comment remains usable or the limitation is
+  explicitly documented with a safer tap-area compromise.
+- Deterministic contract covers `canOpenFullComments()` independent of `comments.length > max`, and
+  protects a broad row/card tap target in peek mode.
 
 ### Gallery Detail Tags Do Not Jump To Search
 
@@ -2427,6 +2757,13 @@ Source:
     `ReaderImagePage` surfaces, but still not the final ideal architecture because the two pages remain
     separate image layers inside a row instead of being composed into a single visual spread render
     object with unified draw/composite/clamp/hit-test semantics.
+- User-reported double-page visual issue to preserve for the future redesign: current double-page layout
+  appears to insert a visible center gap between the two pages. That is not the expected default for a
+  manga/spread use case, where double-page mode often exists to restore art that was originally one
+  continuous spread split into two image files. Future Reader redesign should treat the seam/gutter as a
+  spread-layout policy, and the default paired-page mode should not insert decorative spacing between the
+  two images. Do not reopen Reader immediately for this alone; keep it as parked architecture guidance
+  unless the user explicitly starts a Reader redesign lane or current reading becomes P0 unusable.
 - Mature reader references to investigate before a larger rewrite:
   - Mihon / Tachiyomi pager architecture: pager holder owns page navigation and load states, while the
     image view owns zoom/pan capabilities such as pan-left / pan-right boundary checks.
@@ -2447,6 +2784,8 @@ Guidance:
   - The final spread surface should resolve one or two image sources into a single spread visual object
     with source rects/layout, unified draw/composite, zoom, pan, clamp, clipping, and hit testing. A
     transformed `Row` of two image layers is only an interim mitigation, not the final target.
+  - Double-page spread layout should support a zero-gutter/default-contiguous pairing policy; any center
+    gap should be an explicit display option, not an accidental default caused by row spacing.
   - Per-image resolving/loading/error states may stay per source, but user interaction should be
     coordinated at the spread level.
 
