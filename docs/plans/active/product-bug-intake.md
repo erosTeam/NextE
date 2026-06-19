@@ -2305,6 +2305,22 @@ Source:
   `.hvigor/outputs/reader-short-swipe-current/zoom_touch.png`, and
   `.hvigor/outputs/reader-short-swipe-current/zoom_pan_touch.png`. Status remains implemented /
   pending controller acceptance, not accepted.
+- Current-main behavior matrix rerun on Mate X7 simulator `127.0.0.1:5555` after the Reader standard
+  was tightened: `eros_fe` screenshots were kept only as feature/EH-context artifacts and are not used
+  as Reader UI or architecture proof. NextE opened the public Rockman gallery from the real detail
+  route, entered Reader in `双页 B`, and captured ready state with no loading text or middle chrome
+  residue. Center tap showed top/bottom chrome anchored at the screen edges. A fit-scale left swipe
+  advanced from `16 / 138` to `18 / 138`. Double tap zoomed the spread without page turn. Zoomed pan
+  moved the viewport and stayed on `18 / 138`. A two-finger `uinput -T -m` pinch from fit scale visibly
+  zoomed the spread and still stayed on `18 / 138`. Evidence:
+  `.hvigor/outputs/reader-matrix-current/nexte_reader_ready.png`,
+  `.hvigor/outputs/reader-matrix-current/nexte_reader_chrome.png`,
+  `.hvigor/outputs/reader-matrix-current/nexte_after_swipe.png`,
+  `.hvigor/outputs/reader-matrix-current/nexte_zoom.png`,
+  `.hvigor/outputs/reader-matrix-current/nexte_zoom_pan.png`, and
+  `.hvigor/outputs/reader-matrix-current/nexte_fit_after_pinch2.png`. This is current-main behavior
+  evidence for the interim grouped-row mitigation only; it does not mark the final Reader double-page
+  architecture accepted.
 - Previous read-only code inspection found double-tap captured on the parent Reader/Swiper via
   `TapGesture({ count: 2 })` and forwarded through `doubleTapSeq`; the tap-overlay follow-up above
   removes tap recognizers from the `Swiper` branches, but still uses the command bridge because device
@@ -2388,7 +2404,11 @@ Status: active guidance / apply before new Reader gesture or double-page impleme
 Source:
 
 - User clarification: `eros_fe` Reader contains substantial historical compromises and immature design
-  decisions. It should not be treated as the target Reader architecture for NextE.
+  decisions. It should not be treated as the target Reader architecture or UI design for NextE.
+  From 2026-06-20 onward, `eros_fe` is downgraded in Reader lanes to a source for user-visible feature
+  coverage and EH mechanism pitfalls only: reading entry, page/jump semantics, single/double page,
+  direction, zoom, pan, preload, and error recovery. `eros_fe` screenshots or interaction similarity
+  are not acceptance proof for NextE Reader architecture or UI quality.
 - Read-only `eros_fe` inspection:
   - `eros_fe/lib/pages/image_view/view/image_page_view.dart` wraps double-page mode in
     `PhotoViewGalleryPageOptions.customChild`, but the custom child is still a `DoublePageView`.
@@ -2416,7 +2436,7 @@ Source:
 Guidance:
 
 - Use `eros_fe` for EH mechanisms, product semantics, and historical pitfalls only. Do not copy its
-  Reader structure as target architecture.
+  Reader structure, visual design, or interaction surface as target architecture.
 - Do not keep adding recognizer-level patches on top of a split surface if the feature needs a broader
   Reader repair.
 - Prefer a mature separation:
@@ -2493,8 +2513,9 @@ Acceptance shape:
   the visible spread is one reading surface.
 - Single-page mode remains stable: fast page swipe, double tap, pinch, zoomed pan, and center tap chrome
   must still pass device validation.
-- Any Reader acceptance must include Android `eros_fe` comparison as product/historical context and
-  HarmonyOS simulator/device evidence for the changed interaction risk.
+- Reader acceptance should be grounded in NextE/HarmonyOS behavior and the mature manga reader model.
+  Android `eros_fe` may be recorded as feature/EH-context only, not as architecture/UI proof.
+  HarmonyOS simulator/device evidence must cover the changed interaction risk directly.
 
 ### Reader Double-Page Mode Switch Can Desync Visible Spread And Page Counter
 
