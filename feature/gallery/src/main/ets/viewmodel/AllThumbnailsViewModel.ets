@@ -9,9 +9,10 @@ import {
 
 /**
  * Drives the separate all-thumbnails page (eros_fe AllThumbnailsPageController). The detail page only
- * shows the first preview page (a peek); this page is seeded with that first page and pages the rest
- * forward on demand via getPreviewImages (?p=loadedPages). Rows live in a stable LazyForEach data
- * source (out of @Trace); itemCount mirrors its count as @Trace so the grid re-evaluates.
+ * shows the first preview page (a peek); this page is seeded with that first page and can load sparse
+ * preview pages directly for page-number jumps. Forward/backward paging follows the current preview
+ * page, not just the contiguous first-page range. Rows live in a stable LazyForEach data source (out of
+ * @Trace); itemCount mirrors its count as @Trace so the grid re-evaluates.
  */
 @ObservedV2
 export class AllThumbnailsViewModel {
@@ -51,10 +52,10 @@ export class AllThumbnailsViewModel {
   }
 
   hasMore(): boolean {
-    return this.loadedPages < this.totalPages
+    return this.nextForwardPreviewPage() >= 0
   }
 
-  /** Append the next preview page (?p = loadedPages, since the seed page = ?p=0). */
+  /** Load the next preview page next to the current sparse anchor. */
   async loadNext(): Promise<void> {
     if (this.loading || !this.hasMore() || this.gid.length === 0) {
       return
@@ -62,7 +63,11 @@ export class AllThumbnailsViewModel {
     this.loading = true
     this.error = ''
     try {
-      const nextPage: number = this.loadedPages
+      const nextPage: number = this.nextForwardPreviewPage()
+      if (nextPage < 0) {
+        this.loading = false
+        return
+      }
       const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
         this.gid,
         this.token,
@@ -72,6 +77,7 @@ export class AllThumbnailsViewModel {
       this.mergePreviewPage(nextPage, more)
       this.itemCount = this.dataSource.totalCount()
       this.advanceContiguousLoadedPages()
+      this.currentPreviewPage = nextPage
     } catch (err) {
       this.error = EhErrorText.forUser(err)
       DiagnosticLogger.warn('gallery', 'thumbs_loadnext_failed', (err as Error).message)
@@ -214,6 +220,14 @@ export class AllThumbnailsViewModel {
       }
     }
     return false
+  }
+
+  private nextForwardPreviewPage(): number {
+    let next: number = this.currentPreviewPage + 1
+    while (next < this.totalPages && this.isPreviewPageLoaded(next)) {
+      next++
+    }
+    return next < this.totalPages ? next : -1
   }
 
   private advanceContiguousLoadedPages(): void {

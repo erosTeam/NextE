@@ -31,19 +31,43 @@ function targetPreviewPage(pageOneBased, perPreviewPage) {
   return Math.floor((pageOneBased - 1) / perPreviewPage)
 }
 
+function nextForwardPreviewPage(currentPreviewPage, loadedMarkers, totalPreviewPages) {
+  let next = currentPreviewPage + 1
+  while (next < totalPreviewPages && loadedMarkers.includes(next)) {
+    next++
+  }
+  return next < totalPreviewPages ? next : -1
+}
+
 eq('page 1 stays on preview page 0', targetPreviewPage(1, 20), 0)
 eq('page 20 stays on preview page 0', targetPreviewPage(20, 20), 0)
 eq('page 21 jumps to preview page 1', targetPreviewPage(21, 20), 1)
 eq('page 37 jumps to preview page 1', targetPreviewPage(37, 20), 1)
 eq('page 138 jumps to preview page 6', targetPreviewPage(138, 20), 6)
+eq('1000-page gallery jump to page 600 anchors preview page 29', targetPreviewPage(600, 20), 29)
+eq('after far jump, next load starts at target neighbor, not early page 1',
+  nextForwardPreviewPage(29, [0, 29], 50), 30)
+eq('after loading previous target neighbor, forward load skips already loaded target page',
+  nextForwardPreviewPage(28, [0, 28, 29], 50), 30)
+eq('last loaded preview page has no bottom next even when early gaps remain',
+  nextForwardPreviewPage(49, [0, 49], 50), -1)
 
 const vmSrc = read('feature/gallery/src/main/ets/viewmodel/AllThumbnailsViewModel.ets')
+const loadNextSrc = vmSrc.match(/async loadNext\(\): Promise<void> \{[\s\S]*?\n  \}/)?.[0] ?? ''
 ok('VM exposes direct image-page loader', /async loadImagePage\(pageOneBased: number\): Promise<boolean>/.test(vmSrc))
 ok('VM maps image page to containing preview page', /Math\.floor\(\(pageOneBased - 1\) \/ this\.firstPageCount\)/.test(vmSrc))
 ok('VM requests exactly the target preview page', /getPreviewImages\([\s\S]*targetPreviewPage/.test(vmSrc))
 ok('VM tracks the current sparse preview page for previous-page pulls',
   /private currentPreviewPage: number = 0/.test(vmSrc) &&
   /this\.currentPreviewPage = targetPreviewPage/.test(vmSrc))
+ok('VM bottom pagination follows current sparse anchor instead of contiguous first-page cursor',
+  /private nextForwardPreviewPage\(\): number \{[\s\S]*let next: number = this\.currentPreviewPage \+ 1[\s\S]*this\.isPreviewPageLoaded\(next\)[\s\S]*return next < this\.totalPages \? next : -1/.test(vmSrc) &&
+  /const nextPage: number = this\.nextForwardPreviewPage\(\)/.test(vmSrc) &&
+  !/const nextPage: number = this\.loadedPages/.test(vmSrc))
+ok('VM bottom hasMore is based on sparse forward neighbor availability',
+  /hasMore\(\): boolean \{\s*return this\.nextForwardPreviewPage\(\) >= 0\s*\}/.test(vmSrc))
+ok('VM loadNext moves current sparse anchor after a successful forward page load',
+  /async loadNext\(\): Promise<void> \{[\s\S]*this\.mergePreviewPage\(nextPage, more\)[\s\S]*this\.advanceContiguousLoadedPages\(\)[\s\S]*this\.currentPreviewPage = nextPage/.test(vmSrc))
 ok('VM exposes direct previous-preview loader',
   /async loadPreviousPreviewPage\(\): Promise<number>/.test(vmSrc))
 ok('VM previous loader targets currentPreviewPage - 1',
@@ -62,6 +86,9 @@ ok('VM exposes visible index lookup for sparse jump targets', /visibleIndexForIm
 ok('VM succeeds only when target image exists in data source', /return this\.visibleIndexForImagePage\(pageOneBased\) >= 0/.test(vmSrc))
 ok('VM tracks exact loaded preview page numbers', /loadedPreviewPageMarkers: number\[\]/.test(vmSrc) && /loadedPreviewPageNumbers\(\): number\[\]/.test(vmSrc))
 ok('VM advances contiguous next-page pointer only through loaded markers', /advanceContiguousLoadedPages\(\): void[\s\S]*while \(this\.isPreviewPageLoaded\(next\)\)/.test(vmSrc))
+ok('VM keeps contiguous loadedPages only as first-page/reader seed count, not as bottom request source',
+  /loadedPreviewPages\(\): number \{\s*return this\.loadedPages\s*\}/.test(vmSrc) &&
+  !/this\.loadedPages/.test(loadNextSrc))
 
 const pageSrc = read('feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets')
 ok('AllThumbnails title bar includes a jump menu', /'menu': this\.jumpMenu\(\)/.test(pageSrc))
