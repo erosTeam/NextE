@@ -6,9 +6,13 @@ import {
   FavSelectionState,
   Favcat,
   GroupedListSection,
+  AuthState,
+  LocalFavState,
   SecondaryListScaffold,
   ThemeConstants,
+  connectAuth,
   connectFavSelection,
+  connectLocalFav,
   connectNavStack,
   immersiveTitleBar,
 } from 'shared'
@@ -22,12 +26,19 @@ import {
 @ComponentV2
 export struct FavoriteSelectorPage {
   @Local fav: FavSelectionState = connectFavSelection();
+  @Local auth: AuthState = connectAuth();
+  @Local localFav: LocalFavState = connectLocalFav();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
   private rows(): Favcat[] {
+    const local: Favcat = new Favcat('l', AppStrings.get('favorites_local'), this.localFav.count())
+    if (!this.auth.isLogin) {
+      return [local]
+    }
     const items: Favcat[] = [new Favcat('a', AppStrings.get('favorites_all'), this.fav.remoteTotalCount())]
     this.fav.favList.forEach((fc: Favcat) => items.push(fc))
+    items.push(local)
     return items
   }
 
@@ -40,6 +51,9 @@ export struct FavoriteSelectorPage {
   }
 
   private isSelected(fc: Favcat): boolean {
+    if (!this.auth.isLogin) {
+      return fc.favId === 'l'
+    }
     return this.fav.selectedFavcat === fc.favId
   }
 

@@ -272,6 +272,19 @@ struct Index {
     return { 'value': items, 'maxCount': 3 }
   }
 
+  private localFavoritesMenu(): Record<string, Object> {
+    const selectorInner: Record<string, Object> = {
+      'label': $r('app.string.favorites_selector_title'),
+      'icon': $r('sys.symbol.list_bullet_square_fill'),
+      'isEnabled': true,
+      'action': () => {
+        this.openFavoriteSelector()
+      },
+    }
+    const items: Record<string, Object>[] = [{ 'content': selectorInner }]
+    return { 'value': items, 'maxCount': 1 }
+  }
+
   private bottomBuilder(content: ComponentContent<Object>, height: number = SELECTOR_BAR_HEIGHT): Record<string, Object> {
     return {
       'builderComponent': content,
@@ -312,7 +325,7 @@ struct Index {
       if (this.auth.isLogin) {
         content['menu'] = this.favoritesMenu()
       } else {
-        content['menu'] = this.emptyMenu()
+        content['menu'] = this.localFavoritesMenu()
       }
     } else {
       if (this.currentTab === 2) {

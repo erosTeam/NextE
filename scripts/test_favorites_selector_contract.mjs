@@ -52,6 +52,9 @@ ok('Favorites title menu includes selector title action',
   /private favoritesMenu\(\): Record<string, Object> \{[\s\S]*favorites_selector_title[\s\S]*this\.openFavoriteSelector\(\)/.test(index))
 ok('Favorites title menu exposes search order and selector actions',
   /const items: Record<string, Object>\[\] = \[[\s\S]*searchInner[\s\S]*orderInner[\s\S]*selectorInner[\s\S]*maxCount': 3/.test(index))
+ok('Logged-out Favorites title menu exposes only the local selector action',
+  /private localFavoritesMenu\(\): Record<string, Object> \{[\s\S]*favorites_selector_title[\s\S]*this\.openFavoriteSelector\(\)[\s\S]*maxCount': 1/.test(index) &&
+  /if \(this\.auth\.isLogin\) \{[\s\S]*content\['menu'\] = this\.favoritesMenu\(\)[\s\S]*\} else \{[\s\S]*content\['menu'\] = this\.localFavoritesMenu\(\)/.test(index))
 ok('Index registers FavoriteSelector route',
   /name === 'FavoriteSelector'[\s\S]*FavoriteSelectorPage\(\)/.test(index))
 
@@ -59,14 +62,16 @@ ok('FavSelectionState still seeds the 10 network slots',
   /for \(let i = 0; i < 10; i\+\+\) \{[\s\S]*new Favcat\(`\$\{i\}`, `Favorites \$\{i\}`, 0\)/.test(favState))
 ok('Selector page uses HDS destination and secondary list scaffold',
   /HdsNavDestination\(\)[\s\S]*SecondaryListScaffold/.test(page))
-ok('Selector page renders synthetic All plus favList rows',
-  /const items: Favcat\[\] = \[new Favcat\('a', AppStrings\.get\('favorites_all'\), this\.fav\.remoteTotalCount\(\)\)\][\s\S]*this\.fav\.favList\.forEach/.test(page))
+ok('Selector page renders logged-out local-only rows and logged-in All plus remote plus local rows',
+  /const local: Favcat = new Favcat\('l', AppStrings\.get\('favorites_local'\), this\.localFav\.count\(\)\)/.test(page) &&
+  /if \(!this\.auth\.isLogin\) \{[\s\S]*return \[local\]/.test(page) &&
+  /const items: Favcat\[\] = \[new Favcat\('a', AppStrings\.get\('favorites_all'\), this\.fav\.remoteTotalCount\(\)\)\][\s\S]*this\.fav\.favList\.forEach[\s\S]*items\.push\(local\)/.test(page))
 ok('Selector rows use grouped native list rows',
   /GroupedListSection\(\)[\s\S]*ConciseListRow/.test(page))
 ok('Selector row uses semantic favcat heart color through native row parameters',
   /EhConstants\.favCatColor\(favId\)[\s\S]*leadingIcon: \$r\('sys\.symbol\.heart_fill'\)[\s\S]*secondaryColor: this\.colorFor\(fc\.favId\)/.test(page))
 ok('Current favcat is visibly marked without custom suffix builders',
-  /private isSelected\(fc: Favcat\): boolean \{[\s\S]*this\.fav\.selectedFavcat === fc\.favId[\s\S]*primaryColor: this\.isSelected\(fc\) \? ThemeConstants\.BRAND_PRIMARY : undefined/.test(page))
+  /private isSelected\(fc: Favcat\): boolean \{[\s\S]*if \(!this\.auth\.isLogin\) \{[\s\S]*return fc\.favId === 'l'[\s\S]*this\.fav\.selectedFavcat === fc\.favId[\s\S]*primaryColor: this\.isSelected\(fc\) \? ThemeConstants\.BRAND_PRIMARY : undefined/.test(page))
 ok('Selector page avoids custom row builder closures for runtime stability',
   !/prefixBuilderParam|suffixBuilderParam/.test(page))
 ok('Selecting a favcat writes the shared V2 state and pops the route',
