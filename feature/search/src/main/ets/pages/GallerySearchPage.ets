@@ -19,7 +19,7 @@ import {
   AppStrings,
   LoadingFooter,
   PullRefreshListScaffold,
-  PullRefreshGridScaffold,
+  PullRefreshWaterFlowScaffold,
   PullRefreshController,
   connectNavStack,
   SearchFilterState,
@@ -430,7 +430,7 @@ export struct GallerySearchPage {
           } else if (this.vm.itemCount === 0) {
             CardEmptyState({ message: $r('app.string.search_no_results') })
           } else if (this.listMode.mode === ListMode.GRID) {
-            PullRefreshGridScaffold({
+            PullRefreshWaterFlowScaffold({
               scroller: this.scroller,
               topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,
               bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
@@ -449,7 +449,7 @@ export struct GallerySearchPage {
               LazyForEach(
                 this.vm.dataSource,
                 (g: EhGallery) => {
-                  GridItem() {
+                  FlowItem() {
                     GalleryGridCard({ gallery: g })
                   }
                   .onClick(() => {
