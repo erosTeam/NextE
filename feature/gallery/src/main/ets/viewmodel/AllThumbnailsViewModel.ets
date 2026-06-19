@@ -125,20 +125,23 @@ export class AllThumbnailsViewModel {
       return false
     }
     const targetPreviewPage: number = Math.floor((pageOneBased - 1) / this.firstPageCount)
-    if (this.isPreviewPageLoaded(targetPreviewPage)) {
-      this.currentPreviewPage = targetPreviewPage
-      return this.visibleIndexForImagePage(pageOneBased) >= 0
-    }
+    const pages: number[] = this.previewNeighborhood(targetPreviewPage)
     this.loading = true
     this.error = ''
     try {
-      const pageImages: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
-        this.gid,
-        this.token,
-        this.isEx,
-        targetPreviewPage,
-      )
-      this.mergePreviewPage(targetPreviewPage, pageImages)
+      for (let i: number = 0; i < pages.length; i++) {
+        const previewPage: number = pages[i]
+        if (this.isPreviewPageLoaded(previewPage)) {
+          continue
+        }
+        const pageImages: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
+          this.gid,
+          this.token,
+          this.isEx,
+          previewPage,
+        )
+        this.mergePreviewPage(previewPage, pageImages)
+      }
       this.itemCount = this.dataSource.totalCount()
       this.advanceContiguousLoadedPages()
       this.currentPreviewPage = targetPreviewPage
@@ -148,6 +151,16 @@ export class AllThumbnailsViewModel {
     }
     this.loading = false
     return this.visibleIndexForImagePage(pageOneBased) >= 0
+  }
+
+  private previewNeighborhood(targetPreviewPage: number): number[] {
+    const pages: number[] = []
+    const start: number = Math.max(0, targetPreviewPage - 1)
+    const end: number = Math.min(this.totalPages - 1, targetPreviewPage + 1)
+    for (let page: number = start; page <= end; page++) {
+      pages.push(page)
+    }
+    return pages
   }
 
   async loadPreviousPreviewPage(): Promise<number> {

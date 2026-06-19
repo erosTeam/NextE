@@ -47,6 +47,8 @@ eq('page 138 jumps to preview page 6', targetPreviewPage(138, 20), 6)
 eq('1000-page gallery jump to page 600 anchors preview page 29', targetPreviewPage(600, 20), 29)
 eq('after far jump, next load starts at target neighbor, not early page 1',
   nextForwardPreviewPage(29, [0, 29], 50), 30)
+eq('after far jump preloads target neighborhood, next load starts after the neighborhood',
+  nextForwardPreviewPage(29, [0, 28, 29, 30], 50), 31)
 eq('after loading previous target neighbor, forward load skips already loaded target page',
   nextForwardPreviewPage(28, [0, 28, 29], 50), 30)
 eq('last loaded preview page has no bottom next even when early gaps remain',
@@ -56,7 +58,11 @@ const vmSrc = read('feature/gallery/src/main/ets/viewmodel/AllThumbnailsViewMode
 const loadNextSrc = vmSrc.match(/async loadNext\(\): Promise<void> \{[\s\S]*?\n  \}/)?.[0] ?? ''
 ok('VM exposes direct image-page loader', /async loadImagePage\(pageOneBased: number\): Promise<boolean>/.test(vmSrc))
 ok('VM maps image page to containing preview page', /Math\.floor\(\(pageOneBased - 1\) \/ this\.firstPageCount\)/.test(vmSrc))
-ok('VM requests exactly the target preview page', /getPreviewImages\([\s\S]*targetPreviewPage/.test(vmSrc))
+ok('VM preloads the target preview-page neighborhood for far jumps',
+  /private previewNeighborhood\(targetPreviewPage: number\): number\[\][\s\S]*targetPreviewPage - 1[\s\S]*targetPreviewPage \+ 1/.test(vmSrc) &&
+    /const pages: number\[\] = this\.previewNeighborhood\(targetPreviewPage\)/.test(vmSrc))
+ok('VM requests preview pages from the target neighborhood and skips already loaded pages',
+  /for \(let i: number = 0; i < pages\.length; i\+\+\)[\s\S]*const previewPage: number = pages\[i\][\s\S]*this\.isPreviewPageLoaded\(previewPage\)[\s\S]*getPreviewImages\([\s\S]*previewPage/.test(vmSrc))
 ok('VM tracks the current sparse preview page for previous-page pulls',
   /private currentPreviewPage: number = 0/.test(vmSrc) &&
   /this\.currentPreviewPage = targetPreviewPage/.test(vmSrc))

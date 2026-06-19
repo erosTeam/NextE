@@ -205,6 +205,13 @@ Implementation:
   immediate previous thumbnail page.
 - Reader seed state remains separate: `loadedPages` is still exposed as the contiguous first-page seed
   count for Reader startup, but it is no longer used as the AllThumbnails bottom request source.
+- Follow-up implementation in progress after device validation exposed a remaining discontinuity:
+  jumping from the early preview range to page 120 in a 138-page gallery showed the target page, but the
+  same viewport still mixed early pages 8-20 with target pages 101-122. `loadImagePage(page)` now loads
+  a small target preview-page neighborhood (`target - 1`, `target`, `target + 1`, clamped to real
+  preview pages) and skips pages already loaded. This keeps the first post-jump viewport and the next
+  up/down scrolls centered on the target neighborhood instead of stitching the early range directly to
+  the target page.
 
 Verification:
 
@@ -217,14 +224,25 @@ Verification:
   `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump/eros_fe_reference.png`.
 - Deterministic contract:
   `node scripts/test_all_thumbnails_page_jump_contract.mjs` now simulates a 1000-page gallery with an
-  early loaded range, a jump to page 600, and forward/backward neighbor loading from the target preview
-  page rather than preview page 1.
+  early loaded range, a jump to page 600, target-neighborhood preloading, and forward/backward neighbor
+  loading from the target preview page rather than preview page 1.
 - Full deterministic contracts passed via `for f in scripts/test_*contract.mjs; do node "$f" || exit 1; done`.
 - V2-only gate passed: `node scripts/test_v1_decorator_inventory_contract.mjs` reports `0 file(s)`.
 - Signed macOS build passed: `scripts/build_hvigor_signed.sh`.
 - HarmonyOS install/start smoke passed on `127.0.0.1:5555`; evidence:
   `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump/nexte_start.png` and
   `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump/nexte_gallery_detail.png`.
+- Follow-up device validation on Mate X7 simulator `127.0.0.1:5555`, signed HAP installed with hdc
+  outside sandbox:
+  - Before the neighborhood fix, `jump to 120` produced a mixed viewport with early pages 8-20 directly
+    followed by target pages 101-122:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/after_jump.png`.
+  - After the neighborhood fix, `jump to 120` showed a continuous target-neighborhood viewport
+    `89..123`, then down-scroll showed `124..138`, and up-scroll returned to `89..123` without jumping
+    back to the early range. Evidence:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/fix_after_jump.png`,
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/fix_scroll_down.png`,
+    and `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/fix_scroll_up.png`.
 
 Remaining acceptance:
 
