@@ -741,6 +741,10 @@
       "value": "検索"
     },
     {
+      "name": "settings_advanced",
+      "value": "詳細"
+    },
+    {
       "name": "settings_reader",
       "value": "閲覧"
     },
@@ -855,6 +859,22 @@
     {
       "name": "search_settings_filter_reset",
       "value": "フィルタをリセット"
+    },
+    {
+      "name": "advanced_diagnostics",
+      "value": "診断"
+    },
+    {
+      "name": "advanced_diagnostics_hint",
+      "value": "NextE のネイティブログは端末デバッグ用にシステム HiLog へ出力されます"
+    },
+    {
+      "name": "advanced_write_marker",
+      "value": "テストマーカーを書き込む"
+    },
+    {
+      "name": "advanced_marker_written",
+      "value": "診断マーカーを書き込みました"
     },
     {
       "name": "filter_options",

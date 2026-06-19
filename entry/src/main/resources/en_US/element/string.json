@@ -741,6 +741,10 @@
       "value": "Search"
     },
     {
+      "name": "settings_advanced",
+      "value": "Advanced"
+    },
+    {
       "name": "settings_reader",
       "value": "Reading"
     },
@@ -855,6 +859,22 @@
     {
       "name": "search_settings_filter_reset",
       "value": "Reset filters"
+    },
+    {
+      "name": "advanced_diagnostics",
+      "value": "Diagnostics"
+    },
+    {
+      "name": "advanced_diagnostics_hint",
+      "value": "Native NextE events are written to system HiLog for device debugging"
+    },
+    {
+      "name": "advanced_write_marker",
+      "value": "Write test marker"
+    },
+    {
+      "name": "advanced_marker_written",
+      "value": "Diagnostic marker written"
     },
     {
       "name": "filter_options",

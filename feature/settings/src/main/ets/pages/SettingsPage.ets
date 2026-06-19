@@ -148,6 +148,14 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
+        title: $r('app.string.settings_advanced'),
+        leadingIcon: $r('sys.symbol.gearshape'),
+        action: () => {
+          this.stack.pushPathByName('AdvancedSettings', null)
+        },
+      })
+      this.rowDivider()
+      ConciseListRow({
         title: $r('app.string.settings_about'),
         leadingIcon: $r('sys.symbol.info_circle'),
         action: () => {

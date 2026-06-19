@@ -741,6 +741,10 @@
       "value": "搜索"
     },
     {
+      "name": "settings_advanced",
+      "value": "高级"
+    },
+    {
       "name": "settings_reader",
       "value": "阅读"
     },
@@ -855,6 +859,22 @@
     {
       "name": "search_settings_filter_reset",
       "value": "重置筛选"
+    },
+    {
+      "name": "advanced_diagnostics",
+      "value": "诊断"
+    },
+    {
+      "name": "advanced_diagnostics_hint",
+      "value": "NextE 原生日志写入系统 HiLog,用于设备调试"
+    },
+    {
+      "name": "advanced_write_marker",
+      "value": "写入测试标记"
+    },
+    {
+      "name": "advanced_marker_written",
+      "value": "已写入诊断标记"
     },
     {
       "name": "filter_options",
