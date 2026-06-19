@@ -41,15 +41,15 @@ ok(/@Local history: ViewedHistoryState = connectViewedHistory\(\)/.test(historyP
 ok(/CardEmptyState\(\{ message: \$r\('app\.string\.history_empty'\) \}\)/.test(historyPage),
   'History page renders an explicit empty state')
 ok(/ForEach\(\s*this\.history\.items/.test(historyPage), 'History page renders stored history items')
-ok(/new GalleryDetailParams\(item\.gid,\s*item\.token,\s*this\.titleFor\(item\),\s*item\.thumbUrl\)/.test(historyPage),
-  'History item click routes back to GalleryDetail with title/thumb seed')
+ok(/new GalleryDetailParams\(item\.gid,\s*item\.token,\s*item\.thumbUrl,\s*this\.titleFor\(item\)\)/.test(historyPage),
+  'History item click routes back to GalleryDetail with thumb/title seed in constructor order')
 ok(/ViewedHistorySettings\.clear\(this\.ctx\(\)\)/.test(historyPage),
   'History page exposes a clear-history action')
 ok(/history_clear/.test(historyPage) && /sys\.symbol\.trash/.test(historyPage),
   'Clear action is in the HDS title-bar menu')
 
 ok(/export \{ ViewedHistoryPage \}/.test(userIndex), 'user module exports ViewedHistoryPage')
-ok(/import \{ FavoritesPage, MyTagsPage, ViewedHistoryPage \} from 'user'/.test(index),
+ok(/import \{[^}]*ViewedHistoryPage[^}]*\} from 'user'/.test(index),
   'Index imports ViewedHistoryPage')
 ok(/name === 'History'[\s\S]*ViewedHistoryPage\(\)/.test(index), 'Index registers the History route')
 ok(/title:\s*\$r\('app\.string\.tab_history'\)[\s\S]*pushPathByName\('History',\s*null\)/.test(settings),

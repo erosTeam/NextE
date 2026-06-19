@@ -73,7 +73,7 @@ export struct ViewedHistoryPage {
     }
     this.stack.pushPathByName(
       'GalleryDetail',
-      new GalleryDetailParams(item.gid, item.token, this.titleFor(item), item.thumbUrl),
+      new GalleryDetailParams(item.gid, item.token, item.thumbUrl, this.titleFor(item)),
     )
   }
 
