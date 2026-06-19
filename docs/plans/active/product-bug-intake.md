@@ -2168,6 +2168,26 @@ Source:
   `.hvigor/outputs/reader-gesture-next/fe_reader_ready_su.png`,
   `.hvigor/outputs/reader-doubletap-target/reader_ready.png`, and
   `.hvigor/outputs/reader-doubletap-target/right_zoom.png`.
+- `fix(reader): use one surface for double-page spreads` starts the required architecture correction:
+  double-page mode now renders each visible spread through one `ReaderSpreadSurface`; the surface
+  internally composes one or two `ReaderSpreadImageLayer` children, while zoom, pan, double tap, clip,
+  and parent zoom reporting happen at the spread level. The image layers only resolve/load/render
+  images and no longer own double-page transforms. This specifically addresses the user-reported
+  left-page zoom overlap where two independent page surfaces could fight in z-order/clipping. The
+  broader Reader lane remains active until single-page and double-page gesture acceptance is complete.
+- Validation for the spread-surface follow-up: Android `eros_fe` was launched with `adb su` and
+  captured for Reader product-behavior context; V2Next image preview was used as the HarmonyOS transform
+  reference. Full deterministic contracts passed, including double-page and zoom contracts that now
+  require `ReaderSpreadSurface` and forbid split `SpreadImage` double-page rendering. V1 inventory
+  stayed at `0 file(s)`, i18n/diff gates passed, and `scripts/build_hvigor_signed.sh` passed. Mate X7
+  simulator `127.0.0.1:5555` installed the signed HAP with hdc outside sandbox, opened the public
+  Rockman gallery in `双页 B`, double-tapped the left visible page, panned the zoomed spread, then
+  double-tapped to reset and swiped from `6 / 138` to `8 / 138`. Evidence:
+  `.hvigor/outputs/reader-spread-surface/fe_reference.png`,
+  `.hvigor/outputs/reader-spread-surface/ready.png`,
+  `.hvigor/outputs/reader-spread-surface/left_zoom.png`,
+  `.hvigor/outputs/reader-spread-surface/left_pan.png`, and
+  `.hvigor/outputs/reader-spread-surface/after_swipe.png`.
 - User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
   enough to affect normal reading.
 - Read-only code inspection of `feature/reader/src/main/ets/pages/ReaderPage.ets` shows double-tap is

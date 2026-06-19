@@ -31,6 +31,15 @@ function section(name) {
 
 const horizontalReader = section('HorizontalReader()')
 const doublePageReader = section('DoublePageReader()')
+function component(name) {
+  const start = reader.indexOf(`struct ${name}`)
+  assert.ok(start >= 0, `missing component ${name}`)
+  const next = reader.indexOf('\n@ComponentV2', start + name.length)
+  return reader.slice(start, next >= 0 ? next : reader.length)
+}
+
+const spreadSurface = component('ReaderSpreadSurface')
+const spreadLayer = component('ReaderSpreadImageLayer')
 function exclusiveDoubleBeforeSingle(src) {
   const exclusive = src.indexOf('GestureMode.Exclusive')
   const doubleTap = src.indexOf('TapGesture({ count: 2 })')
@@ -78,6 +87,12 @@ ok('single and double tap are not mixed through onClick plus parallelGesture',
 ok('double tap zooms toward the commanded tap point',
   /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*\(1 - target\) \* \(tapX - this\.compW \/ 2\)/.test(reader) &&
   /ReaderImagePage\(\{[\s\S]*doubleTapSeq: this\.doubleTapSeq,[\s\S]*doubleTapX: this\.doubleTapX,[\s\S]*doubleTapY: this\.doubleTapY,[\s\S]*doubleTapTargetPage: this\.doubleTapTargetPage/.test(reader))
+ok('double-page uses one spread surface for zoom, pan, and double-tap',
+  /ReaderSpreadSurface\(\{[\s\S]*doubleTapSeq: this\.doubleTapSeq,[\s\S]*doubleTapX: this\.doubleTapX,[\s\S]*doubleTapY: this\.doubleTapY,[\s\S]*doubleTapTargetPage: this\.doubleTapTargetPage/.test(reader) &&
+  /@Monitor\('doubleTapSeq'\)[\s\S]*onDoubleTapCommand\(\): void[\s\S]*this\.includesPage\(targetPage\)[\s\S]*this\.onDoubleTap\(this\.doubleTapX, this\.doubleTapY\)/.test(spreadSurface) &&
+  /GestureGroup\(\s*GestureMode\.Parallel,[\s\S]*PinchGesture\(\{\s*fingers:\s*2\s*\}\)[\s\S]*PanGesture\(\{\s*fingers:\s*1,\s*direction:\s*PanDirection\.All/.test(spreadSurface) &&
+  /Image\(this\.imageUrl\)[\s\S]*\.objectFit\(ImageFit\.Contain\)[\s\S]*\.draggable\(false\)/.test(spreadLayer) &&
+  !/TapGesture|PinchGesture|PanGesture/.test(spreadLayer))
 ok('double tap zoom transition is animated instead of an abrupt state jump',
   /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*animateTo\(\{ duration: 180, curve: Curve\.FastOutSlowIn \}/.test(reader) &&
   /this\.resetZoom\(\)[\s\S]*this\.notifyZoom\(\)/.test(reader))

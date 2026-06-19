@@ -23,6 +23,15 @@ const state = read('shared/src/main/ets/state/ReadModeState.ets')
 const settings = read('shared/src/main/ets/settings/ReadModeSettings.ets')
 const settingsPage = read('feature/settings/src/main/ets/pages/ReaderSettingsPage.ets')
 const reader = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
+function component(name) {
+  const start = reader.indexOf(`struct ${name}`)
+  assert.ok(start >= 0, `missing component ${name}`)
+  const next = reader.indexOf('\n@ComponentV2', start + name.length)
+  return reader.slice(start, next >= 0 ? next : reader.length)
+}
+
+const spreadSurface = component('ReaderSpreadSurface')
+const spreadLayer = component('ReaderSpreadImageLayer')
 
 ok('ReadColumnMode model remains available for a later double-page lane',
   /export enum ReadColumnMode/.test(state) &&
@@ -43,9 +52,16 @@ ok('Reader bottom chrome labels off, double-page A, and double-page B',
   /private columnModeLabel\(\): Resource \{[\s\S]*ReadColumnMode\.ODD_LEFT[\s\S]*read_double_page_a[\s\S]*ReadColumnMode\.EVEN_LEFT[\s\S]*read_double_page_b[\s\S]*common_off/.test(reader))
 ok('Reader bottom chrome cycles single -> A -> B -> single and persists through ReadModeSettings',
   /private cycleColumnMode\(\): void \{[\s\S]*ReadColumnMode\.ODD_LEFT[\s\S]*ReadColumnMode\.EVEN_LEFT[\s\S]*ReadColumnMode\.SINGLE[\s\S]*ReadModeSettings\.setColumnMode\(ctx, next\)/.test(reader))
-ok('DoublePageReader preserves spread rendering, RTL row reversal, and parent double-tap routing',
-  /@Builder\s+DoublePageReader\(\)[\s\S]*this\.spreadStarts\(\)[\s\S]*this\.spreadRowReversed\(\)[\s\S]*this\.SpreadSecondSlot\(start\)[\s\S]*this\.SpreadImage\(start\)[\s\S]*TapGesture\(\{ count: 2 \}\)/.test(reader))
-ok('Double-page spread image pages still report zoom and image-loaded state',
-  /@Builder\s+SpreadImage\(index: number\)[\s\S]*ReaderImagePage\(\{[\s\S]*onZoomChange[\s\S]*onImageLoaded: \(page: number\) => \{[\s\S]*this\.markPageImageLoaded\(page\)/.test(reader))
+ok('DoublePageReader renders each spread through one ReaderSpreadSurface, not split image surfaces',
+  /@Builder\s+DoublePageReader\(\)[\s\S]*this\.spreadStarts\(\)[\s\S]*ReaderSpreadSurface\(\{[\s\S]*first: this\.hasSpreadImage\(start\) \? this\.vm\.images\[start\]/.test(reader) &&
+  /ReaderSpreadSurface\(\{[\s\S]*second: this\.hasSpreadImage\(this\.spreadSecondIndex\(start\)\) \? this\.vm\.images\[this\.spreadSecondIndex\(start\)\]/.test(reader) &&
+  /ReaderSpreadSurface\(\{[\s\S]*rowReversed: this\.spreadRowReversed\(\)[\s\S]*onZoomChange[\s\S]*this\.markPageImageLoaded\(page\)/.test(reader) &&
+  !/@Builder\s+SpreadImage\(index: number\)/.test(reader) &&
+  !/this\.SpreadSecondSlot\(start\)|this\.SpreadImage\(start\)/.test(reader))
+ok('ReaderSpreadSurface owns double-page zoom/pan as one transformed spread surface',
+  /Row\(\{ space: ThemeConstants\.SPACE_XS \}\)[\s\S]*\.scale\(\{ x: this\.zoomScale, y: this\.zoomScale \}\)[\s\S]*\.translate\(\{ x: this\.offsetX, y: this\.offsetY \}\)[\s\S]*\.clip\(true\)/.test(spreadSurface) &&
+  /GestureGroup\(\s*GestureMode\.Parallel,[\s\S]*PinchGesture\(\{\s*fingers:\s*2\s*\}\)[\s\S]*PanGesture\(\{\s*fingers:\s*1,\s*direction:\s*PanDirection\.All/.test(spreadSurface) &&
+  /Image\(this\.imageUrl\)[\s\S]*\.objectFit\(ImageFit\.Contain\)/.test(spreadLayer) &&
+  !/\.scale\(\{ x: this\.zoomScale|TapGesture|PinchGesture|PanGesture/.test(spreadLayer))
 
 console.log(`✓ reader double-page runtime contract: ${passed} assertions passed`)

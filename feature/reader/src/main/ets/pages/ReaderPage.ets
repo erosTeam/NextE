@@ -805,56 +805,29 @@ export struct ReaderPage {
   }
 
   @Builder
-  SpreadImage(index: number) {
-    if (this.hasSpreadImage(index)) {
-      ReaderImagePage({
-        image: this.vm.images[index],
-        activeIndex: this.vm.currentIndex,
-        doubleTapSeq: this.doubleTapSeq,
-        doubleTapX: this.doubleTapX,
-        doubleTapY: this.doubleTapY,
-        doubleTapTargetPage: this.doubleTapTargetPage,
-        onZoomChange: (zoomed: boolean) => {
-          this.imageZoomed = zoomed
-        },
-        onImageLoaded: (page: number) => {
-          this.markPageImageLoaded(page)
-        },
-      })
-        .layoutWeight(1)
-    } else {
-      Blank()
-        .layoutWeight(1)
-    }
-  }
-
-  @Builder
-  SpreadSecondSlot(start: number) {
-    if (this.spreadSecondVisible(start)) {
-      this.SpreadImage(this.spreadSecondIndex(start))
-    } else {
-      Blank()
-        .layoutWeight(1)
-    }
-  }
-
-  @Builder
   DoublePageReader() {
     Swiper() {
       ForEach(
         this.spreadStarts(),
         (start: number) => {
-          Row({ space: ThemeConstants.SPACE_XS }) {
-            if (this.spreadRowReversed()) {
-              this.SpreadSecondSlot(start)
-              this.SpreadImage(start)
-            } else {
-              this.SpreadImage(start)
-              this.SpreadSecondSlot(start)
-            }
-          }
-          .width('100%')
-          .height('100%')
+          ReaderSpreadSurface({
+            first: this.hasSpreadImage(start) ? this.vm.images[start] : new EhGalleryImage(),
+            second: this.hasSpreadImage(this.spreadSecondIndex(start)) ? this.vm.images[this.spreadSecondIndex(start)] : new EhGalleryImage(),
+            hasFirst: this.hasSpreadImage(start),
+            hasSecond: this.spreadSecondVisible(start) && this.hasSpreadImage(this.spreadSecondIndex(start)),
+            rowReversed: this.spreadRowReversed(),
+            activeIndex: this.vm.currentIndex,
+            doubleTapSeq: this.doubleTapSeq,
+            doubleTapX: this.doubleTapX,
+            doubleTapY: this.doubleTapY,
+            doubleTapTargetPage: this.doubleTapTargetPage,
+            onZoomChange: (zoomed: boolean) => {
+              this.imageZoomed = zoomed
+            },
+            onImageLoaded: (page: number) => {
+              this.markPageImageLoaded(page)
+            },
+          })
         },
         (start: number) => `${start}`,
       )
@@ -1284,6 +1257,344 @@ interface ReaderImageLoadEvent {
   height?: number
   componentWidth?: number
   componentHeight?: number
+}
+
+@ComponentV2
+struct ReaderSpreadSurface {
+  @Param first: EhGalleryImage = new EhGalleryImage();
+  @Param second: EhGalleryImage = new EhGalleryImage();
+  @Param hasFirst: boolean = false;
+  @Param hasSecond: boolean = false;
+  @Param rowReversed: boolean = false;
+  @Param activeIndex: number = 0;
+  @Param doubleTapSeq: number = 0;
+  @Param doubleTapX: number = 0;
+  @Param doubleTapY: number = 0;
+  @Param doubleTapTargetPage: number = 0;
+  @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
+  @Param onImageLoaded: (page: number) => void = (_page: number) => {};
+
+  @Local zoomScale: number = 1;
+  @Local offsetX: number = 0;
+  @Local offsetY: number = 0;
+
+  private pinchStartScale: number = 1;
+  private pinchStartOffX: number = 0;
+  private pinchStartOffY: number = 0;
+  private pinchCenterStartX: number = 0;
+  private pinchCenterStartY: number = 0;
+  private panStartOffX: number = 0;
+  private panStartOffY: number = 0;
+  private isPinching: boolean = false;
+  private compW: number = 0;
+  private compH: number = 0;
+  private lastZoomed: boolean = false;
+
+  private includesPage(page: number): boolean {
+    if (this.hasFirst && this.first.page === page) {
+      return true
+    }
+    return this.hasSecond && this.second.page === page
+  }
+
+  @Monitor('doubleTapSeq')
+  onDoubleTapCommand(): void {
+    const targetPage: number = this.doubleTapTargetPage > 0 ? this.doubleTapTargetPage : this.activeIndex + 1
+    if (!this.includesPage(targetPage)) {
+      return
+    }
+    this.onDoubleTap(this.doubleTapX, this.doubleTapY)
+  }
+
+  @Monitor('activeIndex')
+  onActiveIndexChanged(): void {
+    if (!this.includesPage(this.activeIndex + 1)) {
+      this.resetZoom()
+      this.notifyZoom()
+    }
+  }
+
+  private clampScale(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 1
+    }
+    if (value < 1) {
+      return 1
+    }
+    if (value > MAX_SCALE) {
+      return MAX_SCALE
+    }
+    return value
+  }
+
+  private maxOffset(viewport: number, displaySize: number, scale: number): number {
+    const overflow: number = displaySize * scale - viewport
+    return overflow > 0 ? overflow / 2 : 0
+  }
+
+  private clampOffsetX(value: number, scale: number): number {
+    const maxX: number = this.maxOffset(this.compW, this.compW, scale)
+    if (value > maxX) {
+      return maxX
+    }
+    if (value < -maxX) {
+      return -maxX
+    }
+    return value
+  }
+
+  private clampOffsetY(value: number, scale: number): number {
+    const maxY: number = this.maxOffset(this.compH, this.compH, scale)
+    if (value > maxY) {
+      return maxY
+    }
+    if (value < -maxY) {
+      return -maxY
+    }
+    return value
+  }
+
+  private panDistance(): number {
+    if (this.zoomScale > 1.01) {
+      return 1
+    }
+    const longSide: number = Math.max(this.compW, this.compH)
+    return longSide > 0 ? longSide * 2 : 10000
+  }
+
+  private clampOffset(): void {
+    this.offsetX = this.clampOffsetX(this.offsetX, this.zoomScale)
+    this.offsetY = this.clampOffsetY(this.offsetY, this.zoomScale)
+  }
+
+  private resetZoom(): void {
+    this.zoomScale = 1
+    this.offsetX = 0
+    this.offsetY = 0
+  }
+
+  private notifyZoom(): void {
+    const zoomed: boolean = this.zoomScale > 1.01
+    if (zoomed !== this.lastZoomed) {
+      this.lastZoomed = zoomed
+      this.onZoomChange(zoomed)
+    }
+  }
+
+  private onDoubleTap(tapX: number, tapY: number): void {
+    if (this.zoomScale > 1.01) {
+      this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
+        this.resetZoom()
+        this.notifyZoom()
+      })
+      return
+    }
+    const target: number = DOUBLE_TAP_SCALE
+    const nextX: number = (1 - target) * (tapX - this.compW / 2)
+    const nextY: number = (1 - target) * (tapY - this.compH / 2)
+    this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
+      this.zoomScale = target
+      this.offsetX = this.clampOffsetX(nextX, target)
+      this.offsetY = this.clampOffsetY(nextY, target)
+      this.notifyZoom()
+    })
+  }
+
+  @Builder
+  SpreadImageLayer(image: EhGalleryImage, hasImage: boolean) {
+    if (hasImage) {
+      ReaderSpreadImageLayer({
+        image: image,
+        onImageLoaded: (page: number) => {
+          this.onImageLoaded(page)
+        },
+      })
+        .layoutWeight(1)
+    } else {
+      Blank()
+        .layoutWeight(1)
+    }
+  }
+
+  build() {
+    Stack() {
+      Row({ space: ThemeConstants.SPACE_XS }) {
+        if (this.rowReversed) {
+          this.SpreadImageLayer(this.second, this.hasSecond)
+          this.SpreadImageLayer(this.first, this.hasFirst)
+        } else {
+          this.SpreadImageLayer(this.first, this.hasFirst)
+          this.SpreadImageLayer(this.second, this.hasSecond)
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .scale({ x: this.zoomScale, y: this.zoomScale })
+      .translate({ x: this.offsetX, y: this.offsetY })
+      .renderGroup(true)
+    }
+    .width('100%')
+    .height('100%')
+    .clip(true)
+    .onAreaChange((_o: Area, n: Area) => {
+      this.compW = n.width as number
+      this.compH = n.height as number
+      this.clampOffset()
+    })
+    .gesture(
+      GestureGroup(
+        GestureMode.Parallel,
+        PinchGesture({ fingers: 2 })
+          .onActionStart((e?: GestureEvent) => {
+            if (!e) {
+              return
+            }
+            this.isPinching = true
+            this.pinchStartScale = this.zoomScale
+            this.pinchStartOffX = this.offsetX
+            this.pinchStartOffY = this.offsetY
+            this.pinchCenterStartX = e.pinchCenterX as number
+            this.pinchCenterStartY = e.pinchCenterY as number
+          })
+          .onActionUpdate((e?: GestureEvent) => {
+            if (!e) {
+              return
+            }
+            const nextScale: number = this.clampScale(this.pinchStartScale * (e.scale as number))
+            const k: number = nextScale / this.pinchStartScale
+            const dx: number = (e.pinchCenterX as number) - this.pinchCenterStartX
+            const dy: number = (e.pinchCenterY as number) - this.pinchCenterStartY
+            const nextX: number =
+              (this.pinchCenterStartX - this.compW / 2) * (1 - k) + k * this.pinchStartOffX + dx
+            const nextY: number =
+              (this.pinchCenterStartY - this.compH / 2) * (1 - k) + k * this.pinchStartOffY + dy
+            this.zoomScale = nextScale
+            this.offsetX = this.clampOffsetX(nextX, nextScale)
+            this.offsetY = this.clampOffsetY(nextY, nextScale)
+            this.notifyZoom()
+          })
+          .onActionEnd(() => {
+            this.isPinching = false
+            if (this.zoomScale <= 1.01) {
+              this.resetZoom()
+            } else {
+              this.clampOffset()
+            }
+            this.notifyZoom()
+          })
+          .onActionCancel(() => {
+            this.isPinching = false
+            this.clampOffset()
+          }),
+        PanGesture({ fingers: 1, direction: PanDirection.All, distance: this.panDistance() })
+          .onActionStart(() => {
+            this.panStartOffX = this.offsetX
+            this.panStartOffY = this.offsetY
+          })
+          .onActionUpdate((e?: GestureEvent) => {
+            if (!e || this.isPinching || this.zoomScale <= 1.01) {
+              return
+            }
+            this.offsetX = this.clampOffsetX(this.panStartOffX + (e.offsetX as number), this.zoomScale)
+            this.offsetY = this.clampOffsetY(this.panStartOffY + (e.offsetY as number), this.zoomScale)
+          }),
+      ),
+    )
+  }
+}
+
+@ComponentV2
+struct ReaderSpreadImageLayer {
+  @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param onImageLoaded: (page: number) => void = (_page: number) => {};
+
+  @Local imageUrl: string = '';
+  @Local imageLoaded: boolean = false;
+  @Local failed: boolean = false;
+  @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
+  private autoRetryCount: number = 0;
+
+  aboutToAppear(): void {
+    this.resolve()
+  }
+
+  private async resolve(changeSource: boolean = false): Promise<void> {
+    if (!changeSource && this.image.imageUrl.length > 0) {
+      this.imageLoaded = false
+      this.imageUrl = this.image.imageUrl
+      return
+    }
+    try {
+      this.imageLoaded = false
+      this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
+    } catch (err) {
+      const e: Error = err as Error
+      this.failureKind = readerFailureKindFromError(e)
+      DiagnosticLogger.warn('reader', 'spread_resolve_failed', e.message)
+      this.retrySourceAutomatically()
+    }
+  }
+
+  private retrySource(): void {
+    this.autoRetryCount = 0
+    this.imageUrl = ''
+    this.imageLoaded = false
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
+    this.resolve(true)
+  }
+
+  private retrySourceAutomatically(): void {
+    if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
+      this.autoRetryCount++
+      this.imageUrl = ''
+      this.imageLoaded = false
+      this.failed = false
+      this.resolve(true)
+      return
+    }
+    this.failed = true
+  }
+
+  build() {
+    Stack() {
+      if (this.failed) {
+        ReaderFailureOverlay({
+          page: this.image.page,
+          kind: this.failureKind,
+          onRetry: () => {
+            this.retrySource()
+          },
+        })
+      } else if (this.imageUrl.length > 0) {
+        Image(this.imageUrl)
+          .objectFit(ImageFit.Contain)
+          .width('100%')
+          .height('100%')
+          .draggable(false)
+          .onComplete((_event?: ReaderImageLoadEvent) => {
+            this.autoRetryCount = 0
+            this.imageLoaded = true
+            this.onImageLoaded(this.image.page)
+          })
+          .onError(() => {
+            DiagnosticLogger.warn('reader', 'spread_image_load_failed', `page ${this.image.page}`)
+            this.imageLoaded = false
+            this.retrySourceAutomatically()
+          })
+        if (!this.imageLoaded) {
+          ReaderLoadingStage({ label: $r('app.string.reader_loading_image') })
+            .hitTestBehavior(HitTestMode.None)
+        }
+      } else {
+        ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
+      }
+    }
+    .width('100%')
+    .height('100%')
+  }
 }
 
 /**
