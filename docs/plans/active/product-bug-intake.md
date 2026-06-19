@@ -185,6 +185,77 @@ Notes:
 - This is a higher-priority user-visible bug than QuickSearch-style parity enhancements.
 - Do not implement from memory alone; re-check eros_fe's actual request/index/cache flow before changing NextE.
 
+### AllThumbnails Far Jump Conflicts With Thumbnail Page Loading
+
+Type: P0/P1 bug / browsing preview pagination
+
+Priority suggestion: P0/P1
+
+Status: active / ready for investigation
+
+Source:
+
+- User-reported current behavior on very large galleries, around 1000 pages: the AllThumbnails /
+  preview page may have only the first few thumbnail pages loaded, then the user jumps directly to page
+  500/600+.
+- The UI can appear to jump, but subsequent preview scrolling / thumbnail-page loading conflicts with
+  the original loaded range. This makes the preview page hard to use.
+- This is not the Reader later-thumbnail start bug above. It concerns the AllThumbnails / preview page's
+  own far-jump and subsequent thumbnail pagination state, not opening Reader from a clicked thumbnail.
+
+Observed behavior:
+
+- A far jump in AllThumbnails can look successful initially.
+- After the jump, scrolling up/down or letting preview pagination load more thumbnails may use stale
+  loaded-page/cursor state from the initial range.
+- The preview can jump back toward early pages, request the wrong neighboring thumbnail page, duplicate
+  items, leave holes, or otherwise desynchronize visible absolute indices from loaded thumbnail pages.
+
+Expected behavior:
+
+- Jumping to a far preview page should first locate and load the thumbnail page/range containing the
+  target absolute index.
+- The page should establish a correct sparse loaded range around the target.
+- Subsequent up/down scrolling should request adjacent thumbnail pages based on the target neighborhood,
+  not based on the initial first-page cursor.
+- Reader startIndex / seed image-page logic must remain separate and must not be used as proof that the
+  AllThumbnails preview pagination is correct.
+
+Likely modules to inspect:
+
+- `feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets`
+- `feature/gallery/src/main/ets/viewmodel/*` if AllThumbnails state has moved out of the page.
+- `feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets` only to confirm Reader-specific sparse
+  start logic is not accidentally coupled to preview pagination.
+- `shared/src/main/ets/parser/EhGalleryImageParser.ets`
+- EH gallery thumbnail-page service methods and `ReaderParams` / image seed models only for boundary
+  checks.
+- eros_fe thumbnail / preview page jump behavior for product and EH mechanism grounding.
+
+Implementation direction to evaluate:
+
+- Treat far jump as a preview-page pagination operation: compute the target thumbnail page / page group
+  from absolute image index, load that group first, then scroll to the matching absolute index.
+- Keep each thumbnail seed's `absoluteIndex`, `/s/...` image-page URL, and source preview-page marker.
+- Maintain loaded ranges as sparse intervals around the target, not as a single append-only cursor from
+  page 1.
+- `onReachEnd` and any upward/backward load should use the nearest loaded interval around the current
+  viewport.
+- Do not conflate this with Reader startIndex. Reader may consume the clicked seed later, but preview
+  pagination correctness must stand on its own.
+
+Acceptance shape:
+
+- Use a very large gallery, approximately 1000 pages.
+- Open AllThumbnails / preview page with only the first few thumbnail pages loaded.
+- Jump directly to page 500/600+.
+- The visible thumbnail sequence and labels correspond to the target absolute page range.
+- Scrolling upward/downward continues loading adjacent thumbnail pages from the target neighborhood.
+- The page does not jump back to early pages, duplicate ranges, show holes, or desynchronize preview
+  page loading state.
+- Deterministic contract should simulate a 1000-page gallery, early loaded range, far jump to 500+, and
+  subsequent forward/backward pagination requests based on the target range rather than the initial range.
+
 ### Gallery Detail Page Lacks Pull-To-Refresh
 
 Type: bug / UX gap
@@ -361,6 +432,29 @@ Priority suggestion: P0/P1
 
 Status: implemented / pending user acceptance
 
+Implementation:
+
+- `3913012 fix(gallery): render grid mode with grid scaffold` separated user-visible Grid from
+  WaterFlow by moving Home, Search, and Favorites `ListMode.GRID` branches to
+  `PullRefreshGridScaffold` + `GridItem`.
+- `f46f109 fix(gallery): bound grid card height` completes the grid semantics correction by bounding
+  `GalleryGridCard` itself: fixed cover ratio, fixed title/info/tag area, and a small bounded tag sample
+  so content cannot create masonry-like unequal card heights.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_gallery_grid_mode_contract.mjs`,
+  `scripts/test_gallery_grid_card_visual_contract.mjs`, and `scripts/test_gallery_waterflow_contract.mjs`.
+- Full contract suite, i18n parity, `git diff --check`, and V1 decorator inventory passed in the fixing
+  lane.
+- Official signed build passed via `scripts/build_hvigor_signed.sh`.
+- HarmonyOS Mate X7 simulator, hdc outside sandbox, signed HAP installed:
+  - Outer/phone-like width Home grid: `.hvigor/outputs/reader-gesture-rework/nexte_grid_fixed_home_2tags.png`
+  - Outer/phone-like Search results grid: `.hvigor/outputs/reader-gesture-rework/nexte_grid_fixed_search_results.png`
+  - Expanded inner-screen Search results grid: `.hvigor/outputs/reader-gesture-rework/nexte_grid_fixed_search_expand.png`
+  - Favorites surface opened but local Favorites count was 0, so device evidence only proves the surface
+    remained usable/empty; the Favcat grid branch is covered by deterministic contract and shared code.
+
 Source:
 
 - User-reported current behavior: the gallery "grid" layout is visibly unusable. Covers are not
@@ -380,9 +474,11 @@ Source:
 Observed behavior:
 
 - Selecting "网格" can produce overlapping or visually broken cover cards.
+- After the first scaffold fix, "网格" still looked like a Waterfall pre-stage because `GalleryGridCard`
+  allowed title/tags/content to auto-expand each item, producing unequal card heights.
 - Grid card cover size is not clearly derived from the current pane/container width.
-- The UI is not a responsive grid: phone/foldable/tablet widths are not handled by one clear column
-  policy.
+- The UI is not a complete responsive grid unless both the scaffold and the card have a stable sizing
+  contract: fixed cell width, fixed cover ratio, fixed title/info area, and bounded metadata/tags.
 - The waterfall concept is mixed into grid mode, while a separate user-visible waterfall mode is not
   implemented.
 
@@ -390,6 +486,9 @@ Expected behavior:
 
 - "网格" should be a true responsive grid: stable columns, stable cell width, no overlap, and cover/card
   dimensions derived from current container width.
+- Every grid card should have the same height within the same responsive grid: cover uses a fixed-ratio
+  slot, title is fixed line-count/height, and tags/metadata are bounded or clipped instead of expanding
+  the item.
 - "瀑布流" should be a separate mode if exposed: it should use `WaterFlow` deliberately, with variable
   item heights and its own acceptance evidence.
 - Grid and waterfall must not be conflated. If waterfall is not ready, do not use WaterFlow as the
@@ -401,23 +500,24 @@ Likely root cause:
   WaterFlow behavior even though the user selected a grid.
 - Current callers do not pass `minColumnWidth` / `onCellSize`, so responsive column sizing is not wired
   into the gallery browsing surfaces.
-- `GalleryGridCard` renders its cover as `EhThumbnail({ coverRatio: 0.7 })` without a clear cell-size
-  contract from the scaffold.
+- `GalleryGridCard` originally limited only the cover ratio. Its title/tags remained natural-flow content,
+  so long tag lists could still create masonry-like unequal item heights.
 
 Implementation direction:
 
 - Rewire `ListMode.GRID` on Home, Search, and Favorites to `PullRefreshGridScaffold` + `GridItem`.
 - Pass a real `minColumnWidth` and derive columns/cell width from the measured pane/container, using the
   existing `ResponsiveGrid` policy.
-- Give `GalleryGridCard` a stable cell-size/card-size contract so cover height and metadata layout cannot
-  overlap.
+- Give `GalleryGridCard` a stable card-size contract: fixed cover ratio, fixed title height, fixed tag/info
+  area, bounded tag count, and clipping so content cannot stretch grid rows.
 - Add a separate `ListMode.WATERFALL` branch only when the waterfall mode has its own settings entry,
   layout contract, and device evidence. Until then, keep waterfall out of the "网格" path.
 
 Acceptance shape:
 
-- In Home, Search results, and Favorites, selecting "网格" shows a stable responsive grid with no
-  overlapping cards.
+- In Home, Search results, and Favorites, selecting "网格" shows a stable responsive grid with uniform
+  card heights and aligned rows, not merely a non-overlapping WaterFlow.
+- Long titles and many tags are truncated/bounded; they never make one grid item taller than neighbors.
 - Foldable outer/inner widths and ordinary phone width produce sensible column counts and readable cover
   sizes.
 - Switching list/simple/grid does not leave stale layout artifacts or reuse WaterFlow for grid.
