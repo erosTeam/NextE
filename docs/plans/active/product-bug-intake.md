@@ -48,7 +48,7 @@ Type: feature gap / core product completeness
 
 Priority suggestion: P0/P1
 
-Status: active intake
+Status: active intake / partial safety entry implemented
 
 Source:
 
@@ -66,6 +66,9 @@ Source:
     destructive archive/download submit pipeline.
   - Gallery rating currently has a safety entry only: it opens a non-destructive dialog and in-app web
     path, but does not yet submit `rategallery`.
+  - Remote EH favorite now has the same safety-entry pattern: detail exposes `EH 收藏`, shows current
+    remote favorite state and favcat slots, and blocks slot/remove attempts behind a non-destructive
+    cancel / in-app web dialog. It does not yet submit the protected favorite write.
   - Local favorites are implemented separately from remote EH favorite mutation.
 - Read-only `eros_fe` comparison:
   - `GalleryFavController` handles add/remove/move favorites with favcat/favnote.
@@ -78,8 +81,8 @@ Scheduling judgment:
 - The next major progress should be user-visible feature completion, not another long cycle of Reader
   double-page architecture or repeated visual QA, unless a current P0 defect blocks basic use.
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
-  1. Remote EH favorite write loop: add/update/remove/move favorite, favcat selection, favnote, and
-     clear logged-out / ExHentai gating.
+  1. Remote EH favorite real write loop: extend the safety entry into add/update/remove/move favorite,
+     favcat selection, favnote, and clear logged-out / ExHentai gating.
   2. Gallery rating real write loop: protected `rategallery` submit using already parsed API metadata,
      then refresh visible rating state.
   3. Comment actions: comment vote first if bounded, then reply/new comment, then own-comment edit.

@@ -13,6 +13,7 @@ import {
   GalleryArchiverParams,
   GalleryWebParams,
   GalleryEditTagsParams,
+  GalleryRemoteFavoriteParams,
   ReaderParams,
   GalleryCommentsParams,
   AllThumbnailsParams,
@@ -384,6 +385,14 @@ export struct GalleryDetailPage {
         this.openEditTags()
       },
     }
+    const remoteFavoriteInner: Record<string, Object> = {
+      'label': $r('app.string.detail_remote_favorite'),
+      'icon': this.vm.gallery.favcat.length > 0 ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'),
+      'isEnabled': true,
+      'action': () => {
+        this.openRemoteFavorite()
+      },
+    }
     const copyLinkInner: Record<string, Object> = {
       'label': $r('app.string.detail_copy_link'),
       'icon': $r('sys.symbol.link'),
@@ -421,6 +430,7 @@ export struct GalleryDetailPage {
       { 'content': shareInner },
       { 'content': refreshInner },
       { 'content': editTagsInner },
+      { 'content': remoteFavoriteInner },
       { 'content': copyLinkInner },
       { 'content': copyTitleInner },
       { 'content': openBrowserInner },
@@ -508,6 +518,21 @@ export struct GalleryDetailPage {
     this.stack.pushPathByName(
       'GalleryEditTags',
       new GalleryEditTagsParams(this.params.gid, this.params.token, connectSiteMode().isEx, this.navTitle()),
+    )
+  }
+
+  private openRemoteFavorite(): void {
+    this.stack.pushPathByName(
+      'GalleryRemoteFavorite',
+      new GalleryRemoteFavoriteParams(
+        this.params.gid,
+        this.params.token,
+        connectSiteMode().isEx,
+        this.navTitle(),
+        this.vm.gallery.favcat,
+        this.vm.gallery.favTitle,
+        this.vm.gallery.favNote,
+      ),
     )
   }
 

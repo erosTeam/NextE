@@ -52,6 +52,10 @@ Historical feedback in this section must not trigger new implementation.
 - Gallery rating safety entry is implemented and pending controller acceptance: detail exposes a rating
   entry, but it opens a native non-destructive dialog and only offers cancel / in-app web until the
   protected EH rating write flow is designed.
+- Remote EH favorite safety entry is implemented and pending controller acceptance: detail exposes an
+  `EH 收藏` menu entry that shows current remote favorite state and favcat slots, but slot/remove attempts
+  are blocked by a native non-destructive dialog and only offer cancel / in-app web until the protected
+  favorite write flow is designed.
 
 ## Parked / Guidance Only
 
@@ -76,8 +80,9 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Remote EH favorite write loop: add/update/remove/move favorite with favcat/favnote, using explicit
-   destructive-write confirmation and non-destructive tests before any real submit.
+1. Remote EH favorite real write loop: extend the current non-destructive `EH 收藏` safety entry into
+   add/update/remove/move favorite with favcat/favnote, explicit destructive-write confirmation, refresh,
+   and non-destructive tests before any real submit.
 2. Gallery rating real write loop: extend the current non-destructive rating entry into a protected
    `rategallery` flow with submit gating, refresh, and clear failure feedback.
 3. Comment write actions: after the full-comments entry repair, add bounded comment actions such as

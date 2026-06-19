@@ -373,6 +373,34 @@
       "value": "编辑标签"
     },
     {
+      "name": "detail_remote_favorite",
+      "value": "EH 收藏"
+    },
+    {
+      "name": "detail_remote_favorite_current",
+      "value": "当前远端收藏"
+    },
+    {
+      "name": "detail_remote_favorite_none",
+      "value": "未加入 EH 收藏"
+    },
+    {
+      "name": "detail_remote_favorite_readonly_desc",
+      "value": "远端收藏修改属于受保护写操作。这里显示当前状态和收藏夹，不会在 NextE 内提交修改。"
+    },
+    {
+      "name": "detail_remote_favorite_protected_desc",
+      "value": "远端收藏修改属于受保护写操作，NextE 暂不提交。要打开应用内网页在 EH 页面修改吗？"
+    },
+    {
+      "name": "detail_remote_favorite_remove",
+      "value": "从 EH 收藏移除"
+    },
+    {
+      "name": "detail_remote_favorite_slot",
+      "value": "收藏夹 %s"
+    },
+    {
       "name": "detail_rate",
       "value": "评分"
     },

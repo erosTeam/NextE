@@ -34,6 +34,7 @@ export {
   GalleryArchiverParams,
   GalleryWebParams,
   GalleryEditTagsParams,
+  GalleryRemoteFavoriteParams,
   ReaderParams,
   ImagePageRouteErrorParams,
   GalleryCommentsParams,

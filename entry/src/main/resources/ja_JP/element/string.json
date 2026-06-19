@@ -373,6 +373,34 @@
       "value": "タグを編集"
     },
     {
+      "name": "detail_remote_favorite",
+      "value": "EH お気に入り"
+    },
+    {
+      "name": "detail_remote_favorite_current",
+      "value": "現在のリモートお気に入り"
+    },
+    {
+      "name": "detail_remote_favorite_none",
+      "value": "EH お気に入り未登録"
+    },
+    {
+      "name": "detail_remote_favorite_readonly_desc",
+      "value": "リモートお気に入りの変更は保護された書き込み操作です。このページでは現在の状態とスロットを表示し、NextE からはまだ送信しません。"
+    },
+    {
+      "name": "detail_remote_favorite_protected_desc",
+      "value": "リモートお気に入りの変更は保護された書き込み操作で、NextE ではまだ送信しません。EH のページをアプリ内Webで開いて変更しますか？"
+    },
+    {
+      "name": "detail_remote_favorite_remove",
+      "value": "EH お気に入りから削除"
+    },
+    {
+      "name": "detail_remote_favorite_slot",
+      "value": "スロット %s"
+    },
+    {
       "name": "detail_rate",
       "value": "評価"
     },
