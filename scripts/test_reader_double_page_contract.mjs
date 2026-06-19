@@ -46,8 +46,18 @@ ok('settings surface is not cleaned up in this recovery lane',
   /ReadModeSettings\.setColumnMode/.test(settingsPage))
 ok('ReaderPage routes vertical to vertical, double-page to DoublePageReader, and single horizontal to HorizontalReader',
   /if \(this\.readMode\.mode === ReadMode\.VERTICAL\) \{[\s\S]*this\.VerticalReader\(\)[\s\S]*\} else if \(this\.doublePageEnabled\(\)\) \{[\s\S]*this\.DoublePageReader\(\)[\s\S]*\} else \{[\s\S]*this\.HorizontalReader\(\)/.test(reader))
-ok('ReaderPage enables double-page only for horizontal non-single column modes',
-  /private doublePageEnabled\(\): boolean \{[\s\S]*return this\.readMode\.mode !== ReadMode\.VERTICAL && this\.readMode\.columnMode !== ReadColumnMode\.SINGLE[\s\S]*\}/.test(reader))
+ok('ReaderSpreadResolver owns double-page eligibility and spread math',
+  /class ReaderSpreadResolver \{[\s\S]*static isDoublePage\(mode: string, columnMode: string\): boolean \{[\s\S]*mode !== ReadMode\.VERTICAL && columnMode !== ReadColumnMode\.SINGLE/.test(reader) &&
+  /static spreadIndexForImage\(columnMode: string, index: number\): number \{[\s\S]*ReadColumnMode\.EVEN_LEFT[\s\S]*Math\.floor\(\(index \+ 1\) \/ 2\)[\s\S]*Math\.floor\(index \/ 2\)/.test(reader) &&
+  /static spreadStartIndex\(columnMode: string, spreadIndex: number\): number \{[\s\S]*ReadColumnMode\.EVEN_LEFT[\s\S]*spreadIndex \* 2 - 1[\s\S]*spreadIndex \* 2/.test(reader) &&
+  /static spreadCount\(enabled: boolean, columnMode: string, total: number\): number \{[\s\S]*ReadColumnMode\.EVEN_LEFT[\s\S]*Math\.round\(total \/ 2\) \+ \(\(total \+ 1\) % 2\)[\s\S]*Math\.round\(total \/ 2\)/.test(reader) &&
+  /static spreadSecondVisible\(columnMode: string, start: number, total: number\): boolean \{[\s\S]*ReaderSpreadResolver\.spreadSecondIndex/.test(reader))
+ok('ReaderPage delegates double-page eligibility and spread math to ReaderSpreadResolver',
+  /private doublePageEnabled\(\): boolean \{[\s\S]*return ReaderSpreadResolver\.isDoublePage\(this\.readMode\.mode, this\.readMode\.columnMode\)/.test(reader) &&
+  /private spreadIndexForImage\(index: number\): number \{[\s\S]*return ReaderSpreadResolver\.spreadIndexForImage\(this\.readMode\.columnMode, index\)/.test(reader) &&
+  /private spreadStartIndex\(spreadIndex: number\): number \{[\s\S]*return ReaderSpreadResolver\.spreadStartIndex\(this\.readMode\.columnMode, spreadIndex\)/.test(reader) &&
+  /private spreadCount\(\): number \{[\s\S]*return ReaderSpreadResolver\.spreadCount\(/.test(reader) &&
+  /private spreadSecondVisible\(start: number\): boolean \{[\s\S]*return ReaderSpreadResolver\.spreadSecondVisible\(this\.readMode\.columnMode, start, this\.vm\.totalPages\(\)\)/.test(reader))
 ok('Reader bottom chrome labels off, double-page A, and double-page B',
   /private columnModeLabel\(\): Resource \{[\s\S]*ReadColumnMode\.ODD_LEFT[\s\S]*read_double_page_a[\s\S]*ReadColumnMode\.EVEN_LEFT[\s\S]*read_double_page_b[\s\S]*common_off/.test(reader))
 ok('Reader bottom chrome cycles single -> A -> B -> single and persists through ReadModeSettings',

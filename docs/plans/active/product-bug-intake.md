@@ -2312,6 +2312,23 @@ Implementation direction:
 - Before any new Reader double-page or gesture lane, perform a short architecture grounding pass:
   `eros_fe` pitfalls, V2Next HarmonyOS implementation pattern, and at least one mature open-source reader
   reference such as Mihon/Tachiyomi.
+- Follow-up implementation in progress: `ReaderSpreadResolver` now centralizes the existing
+  single/double spread calculations inside `ReaderPage.ets`: double-page eligibility, odd/even pairing,
+  cover-page start index, slider target normalization, spread count, spread starts, and second-page
+  visibility. `ReaderPage` delegates these calculations instead of scattering formula copies across
+  chrome, slider, mode-switch, and `DoublePageReader` paths. This is an architecture containment step,
+  not final Reader acceptance.
+- Validation for the spread-resolver follow-up: full deterministic contract sweep passed, including
+  Reader double-page, initial/jump spread start, slider spread, column-mode switch, zoom quality, and V1
+  inventory `0 file(s)`. `scripts/build_hvigor_signed.sh` passed on macOS. Android `eros_fe` was launched
+  with ADB `su` and captured as product-context evidence. Mate X7 simulator `127.0.0.1:5555` installed
+  the signed HAP with hdc outside sandbox, opened the public Rockman gallery, entered Reader from
+  `继续 P8`, confirmed ready state `8 / 138 / 双页 B`, swiped horizontally to `10 / 138 / 双页 B`, then
+  cycled column mode to `10 / 138 / 关闭`. Evidence:
+  `.hvigor/outputs/reader-spread-resolver/fe_reference.png`,
+  `.hvigor/outputs/reader-spread-resolver/ready.png`,
+  `.hvigor/outputs/reader-spread-resolver/after_swipe.png`, and
+  `.hvigor/outputs/reader-spread-resolver/mode_cycle.png`.
 - If double-page is repaired, do not implement it as two sibling independent `ReaderImagePage` surfaces
   that each own zoom/pan/loading. Introduce `ReaderSpreadSurface` or an equivalent single-surface model.
 - Keep first implementation narrow: online horizontal Reader, single spread surface, current `ReaderParams`
@@ -2324,6 +2341,9 @@ Acceptance shape:
 - A future Reader lane must explicitly state whether it touches pager, spread resolver, spread surface,
   image resolving, or chrome; do not hide architecture changes inside visual tweaks.
 - Double-page mode is not marked accepted if it is only two independent image containers side by side.
+- Spread math is not considered contained unless deterministic contracts require `ReaderSpreadResolver`
+  ownership and `ReaderPage` delegation for double-page eligibility, route/jump normalization, slider
+  commits, spread counts, and second-page visibility.
 - In double-page mode, pinch, double tap, pan, loading overlay, and chrome tap arbitration behave as if
   the visible spread is one reading surface.
 - Single-page mode remains stable: fast page swipe, double tap, pinch, zoomed pan, and center tap chrome

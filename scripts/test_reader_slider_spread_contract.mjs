@@ -54,9 +54,14 @@ eq('evenLeft slider page 3 normalizes back to spread 2/3 start', sliderTargetInd
 eq('evenLeft slider page 4 targets spread 4/5 start', sliderTargetIndex('evenLeft', 4), 3)
 
 ok('ReaderPage exposes sliderTargetIndex helper', /private sliderTargetIndex\(page: number\): number/.test(src))
-ok('sliderTargetIndex converts 1-based slider page to 0-based image index', /const index: number = page - 1/.test(src))
-ok('sliderTargetIndex leaves single page and vertical slider commits absolute', /if \(!this\.doublePageEnabled\(\)\) \{[\s\S]*return index/.test(src))
-ok('sliderTargetIndex normalizes double-page commits through spread helpers', /return this\.spreadStartIndex\(this\.spreadIndexForImage\(index\)\)/.test(src))
+ok('ReaderSpreadResolver converts 1-based slider page to 0-based image index',
+  /static sliderTargetIndex\(enabled: boolean, columnMode: string, page: number\): number \{[\s\S]*const index: number = page - 1/.test(src))
+ok('ReaderSpreadResolver leaves single page and vertical slider commits absolute',
+  /static normalizedReaderIndex\(enabled: boolean, columnMode: string, index: number\): number \{[\s\S]*if \(!enabled\) \{[\s\S]*return index/.test(src))
+ok('ReaderSpreadResolver normalizes double-page slider commits through spread math',
+  /static sliderTargetIndex\(enabled: boolean, columnMode: string, page: number\): number \{[\s\S]*return ReaderSpreadResolver\.normalizedReaderIndex\(enabled, columnMode, index\)/.test(src))
+ok('ReaderPage sliderTargetIndex delegates to ReaderSpreadResolver',
+  /private sliderTargetIndex\(page: number\): number \{[\s\S]*return ReaderSpreadResolver\.sliderTargetIndex\(this\.doublePageEnabled\(\), this\.readMode\.columnMode, page\)/.test(src))
 ok('Slider commit jumps to sliderTargetIndex instead of raw page minus one', /this\.jumpToPage\(this\.sliderTargetIndex\(page\)\)/.test(src))
 ok('Slider commit no longer jumps directly to raw slider page', !/this\.jumpToPage\(page - 1\)/.test(src))
 

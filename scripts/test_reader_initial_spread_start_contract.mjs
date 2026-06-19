@@ -57,8 +57,12 @@ eq('evenLeft route start at page 5 normalizes to spread 4/5 start', normalizedRe
 
 ok('contract documents eros_fe currentItemIndex to pageIndex grounding', /view_state\.dart::pageIndex/.test(thisSrc))
 ok('ReaderPage exposes a route and jump normalization helper', /private normalizedReaderIndex\(index: number\): number/.test(src))
-ok('normalizedReaderIndex preserves single-page and vertical absolute index', /private normalizedReaderIndex\(index: number\): number[\s\S]*if \(!this\.doublePageEnabled\(\)\) \{[\s\S]*return index/.test(src))
-ok('normalizedReaderIndex maps double-page targets through spread helpers', /return this\.spreadStartIndex\(this\.spreadIndexForImage\(index\)\)/.test(src))
+ok('ReaderSpreadResolver preserves single-page and vertical absolute index',
+  /static normalizedReaderIndex\(enabled: boolean, columnMode: string, index: number\): number \{[\s\S]*if \(!enabled\) \{[\s\S]*return index/.test(src))
+ok('ReaderSpreadResolver maps double-page targets through spread helpers',
+  /static normalizedReaderIndex\(enabled: boolean, columnMode: string, index: number\): number \{[\s\S]*ReaderSpreadResolver\.spreadStartIndex\([\s\S]*ReaderSpreadResolver\.spreadIndexForImage\(columnMode, index\)/.test(src))
+ok('ReaderPage normalizedReaderIndex delegates to ReaderSpreadResolver',
+  /private normalizedReaderIndex\(index: number\): number \{[\s\S]*return ReaderSpreadResolver\.normalizedReaderIndex\([\s\S]*this\.doublePageEnabled\(\),[\s\S]*this\.readMode\.columnMode,[\s\S]*index/.test(src))
 ok('Reader init clamps requested index before normalization', /const loadedTarget: number =[\s\S]*Math\.min\(requestedIndex, this\.vm\.images\.length - 1\)[\s\S]*const targetIndex: number = this\.normalizedReaderIndex\(loadedTarget\)/.test(src))
 ok('Reader init writes the normalized target to currentIndex', /this\.vm\.currentIndex = targetIndex[\s\S]*this\.sliderValue = targetIndex \+ 1/.test(src))
 ok('non-vertical jump writes normalized target after vm.jumpTo resolves', /this\.vm\.jumpTo\(index\)\.then\(\(target: number\) => \{[\s\S]*else \{[\s\S]*this\.vm\.currentIndex = this\.normalizedReaderIndex\(target\)/.test(src))

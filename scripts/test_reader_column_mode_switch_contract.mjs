@@ -26,8 +26,10 @@ ok('settings page still exposes the saved column-mode preference for a later lan
   /ReadColumnMode\.SINGLE/.test(settingsPage) &&
   /ReadColumnMode\.ODD_LEFT/.test(settingsPage) &&
   /ReadColumnMode\.EVEN_LEFT/.test(settingsPage))
-ok('ReaderPage runtime gates double-page to horizontal non-single column modes',
-  /private doublePageEnabled\(\): boolean \{[\s\S]*this\.readMode\.mode !== ReadMode\.VERTICAL[\s\S]*this\.readMode\.columnMode !== ReadColumnMode\.SINGLE/.test(reader))
+ok('ReaderSpreadResolver gates double-page to horizontal non-single column modes',
+  /static isDoublePage\(mode: string, columnMode: string\): boolean \{[\s\S]*mode !== ReadMode\.VERTICAL[\s\S]*columnMode !== ReadColumnMode\.SINGLE/.test(reader))
+ok('ReaderPage runtime delegates double-page gating to ReaderSpreadResolver',
+  /private doublePageEnabled\(\): boolean \{[\s\S]*return ReaderSpreadResolver\.isDoublePage\(this\.readMode\.mode, this\.readMode\.columnMode\)/.test(reader))
 ok('cycleColumnMode is disabled in vertical mode but persists horizontal changes',
   /private cycleColumnMode\(\): void \{[\s\S]*if \(this\.readMode\.mode === ReadMode\.VERTICAL\) \{[\s\S]*return[\s\S]*ReadModeSettings\.setColumnMode\(ctx, next\)/.test(reader))
 ok('cycleColumnMode normalizes current index and slider value for the target mode',
