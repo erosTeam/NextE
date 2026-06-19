@@ -613,6 +613,10 @@
       "value": "削除"
     },
     {
+      "name": "common_back_to_top",
+      "value": "先頭へ戻る"
+    },
+    {
       "name": "favorites_coming",
       "value": "お気に入りは近日公開"
     },

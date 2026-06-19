@@ -196,12 +196,15 @@ struct Index {
     return 'E-Hentai'
   }
 
-  // Single search-icon menu item for the 画廊 title bar (HDS menu shape: value[]+maxCount; each item
-  // is { content: { label, icon, isEnabled, action } }). The icon is a bare Resource — V2Next's
-  // mainTitleMenuIcon returns a plain $r symbol (SymbolGlyphModifier is reserved for special icons
-  // like the submit button); passing a Modifier here makes HDS render the icon differently.
+  private scrollActiveTabToTop(): void {
+    this.titleScroller.scrollToIndex(0)
+  }
+
+  // 画廊 title-bar utility actions (HDS menu shape: value[]+maxCount). eros_fe exposes search plus
+  // list navigation helpers in the trailing cluster; NextE keeps the same title-action semantics while
+  // limiting this slice to the reliable active-scroller "back to top" action.
   private searchMenu(): Record<string, Object> {
-    const inner: Record<string, Object> = {
+    const searchInner: Record<string, Object> = {
       'label': $r('app.string.tab_search'),
       'icon': $r('sys.symbol.magnifyingglass'),
       'isEnabled': true,
@@ -209,8 +212,19 @@ struct Index {
         this.openSearch()
       },
     }
-    const item: Record<string, Object> = { 'content': inner }
-    return { 'value': [item], 'maxCount': 1 }
+    const topInner: Record<string, Object> = {
+      'label': $r('app.string.common_back_to_top'),
+      'icon': $r('sys.symbol.arrow_up'),
+      'isEnabled': true,
+      'action': () => {
+        this.scrollActiveTabToTop()
+      },
+    }
+    const items: Record<string, Object>[] = [
+      { 'content': searchInner },
+      { 'content': topInner },
+    ]
+    return { 'value': items, 'maxCount': 2 }
   }
 
   // Empty menu — HDS keeps the last-set title-bar menu across tab switches, so non-gallery tabs must

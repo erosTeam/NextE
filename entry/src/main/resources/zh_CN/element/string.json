@@ -613,6 +613,10 @@
       "value": "移除"
     },
     {
+      "name": "common_back_to_top",
+      "value": "回到顶部"
+    },
+    {
       "name": "favorites_coming",
       "value": "收藏功能即将上线"
     },

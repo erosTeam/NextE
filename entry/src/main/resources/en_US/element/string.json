@@ -613,6 +613,10 @@
       "value": "Remove"
     },
     {
+      "name": "common_back_to_top",
+      "value": "Back to top"
+    },
+    {
       "name": "favorites_coming",
       "value": "Favorites are coming soon"
     },
