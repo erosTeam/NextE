@@ -233,6 +233,10 @@
       "value": "刷新失败"
     },
     {
+      "name": "common_refresh",
+      "value": "刷新"
+    },
+    {
       "name": "common_no_content",
       "value": "暂无内容"
     },

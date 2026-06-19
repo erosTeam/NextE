@@ -233,6 +233,10 @@
       "value": "更新に失敗しました"
     },
     {
+      "name": "common_refresh",
+      "value": "更新"
+    },
+    {
       "name": "common_no_content",
       "value": "コンテンツなし"
     },

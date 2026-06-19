@@ -233,6 +233,10 @@
       "value": "Refresh failed"
     },
     {
+      "name": "common_refresh",
+      "value": "Refresh"
+    },
+    {
       "name": "common_no_content",
       "value": "No content"
     },

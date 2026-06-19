@@ -32,6 +32,17 @@ ok(
 ok('detail refresh uses existing scroller', /PullRefreshListScaffold\(\{[\s\S]*scroller:\s*this\.scroller/.test(page))
 ok('detail refresh preserves list spacing and FAB-aware bottom padding', /listSpace:\s*ThemeConstants\.SPACE_MD/.test(page) && /bottomPadding:\s*ThemeConstants\.SPACE_XXL\s*\+\s*ThemeConstants\.BUTTON_HEIGHT/.test(page))
 ok('detail page wires onRefresh to GalleryDetailViewModel.refresh', /onRefresh:\s*async \(\) => \{[\s\S]*await this\.vm\.refresh\(\)/.test(page))
+ok('detail title menu includes a non-destructive refresh action',
+  /const refreshInner: Record<string, Object> = \{[\s\S]*'label': \$r\('app\.string\.common_refresh'\)[\s\S]*'icon': \$r\('sys\.symbol\.arrow_clockwise'\)[\s\S]*this\.refreshFromTitle\(\)/.test(page))
+ok('detail title refresh reuses the same ViewModel refresh path and guards double taps',
+  /@Local detailRefreshInFlight: boolean = false/.test(page) &&
+  /private async refreshFromTitle\(\): Promise<void> \{[\s\S]*if \(this\.detailRefreshInFlight\)[\s\S]*await this\.vm\.refresh\(\)[\s\S]*this\.detailRefreshInFlight = false/.test(page))
+ok('detail title refresh reports failure without clearing current content',
+  /refreshFromTitle[\s\S]*openToast\(\{[\s\S]*message: \$r\('app\.string\.common_refresh_failed'\)/.test(page) &&
+  !/refreshFromTitle[\s\S]*this\.vm\.images\s*=\s*\[\]/.test(page))
+ok('detail title menu keeps favorite/share and adds refresh without add-tag write action',
+  /const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},\s*\{ 'content': refreshInner \},\s*\][\s\S]*return \{ 'value': items, 'maxCount': 3 \}/.test(page) &&
+  !/tagGallery|addTag\(/.test(page))
 ok('detail title reveal still uses onDidScroll', /onDidScroll:\s*\(offset: number\)/.test(page) && /this\.showNavTitle = past/.test(page))
 
 const vm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets')
@@ -46,5 +57,14 @@ ok('fetch-and-apply replaces images/comments/preview count from fresh result', /
 ok('refresh success emits a bounded diagnostic for device evidence', /detail_refresh_ok[\s\S]*images=\$\{this\.images\.length\}/.test(vm))
 ok('refresh failure records a refresh-specific diagnostic', /detail_refresh_failed/.test(vm))
 ok('refresh rethrows an Error so PullRefresh can show failed-refresh feedback', /catch \(err\)[\s\S]*throw new Error\(this\.error\)/.test(vm))
+
+for (const locale of [
+  'entry/src/main/resources/base/element/string.json',
+  'entry/src/main/resources/en_US/element/string.json',
+  'entry/src/main/resources/zh_CN/element/string.json',
+  'entry/src/main/resources/ja_JP/element/string.json',
+]) {
+  ok(`${locale} defines common_refresh`, /"name": "common_refresh"/.test(read(locale)))
+}
 
 console.log(`✓ gallery detail refresh contract: ${passed} assertions passed`)

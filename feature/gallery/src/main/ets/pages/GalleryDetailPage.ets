@@ -57,6 +57,7 @@ export struct GalleryDetailPage {
   @Local params: GalleryDetailParams = new GalleryDetailParams();
   // The nav-bar title appears only after the header card scrolls away (eros_fe scroll-driven title).
   @Local showNavTitle: boolean = false;
+  @Local detailRefreshInFlight: boolean = false;
   // Per-gallery reading progress: the READ button resumes at + labels itself with the saved page.
   // Reactive (revision-backed) so returning from the reader refreshes the button live.
   @Local readProgress: GalleryReadProgressState = connectGalleryReadProgress();
@@ -297,8 +298,8 @@ export struct GalleryDetailPage {
     return immersiveTitleBarOpts(content)
   }
 
-  // Native HDS title-bar actions. Read remains the primary FAB; local favorite and share are secondary
-  // top actions matching eros_fe's heart/share detail affordances.
+  // Native HDS title-bar actions. Read remains the primary FAB; local favorite, share, and refresh are
+  // secondary top actions matching eros_fe's heart/share/refresh detail affordances.
   private detailMenu(): Record<string, Object> {
     const favoriteInner: Record<string, Object> = {
       'label': this.localFavoriteLabel(),
@@ -316,8 +317,37 @@ export struct GalleryDetailPage {
         this.shareGallery()
       },
     }
-    const items: Record<string, Object>[] = [{ 'content': favoriteInner }, { 'content': shareInner }]
-    return { 'value': items, 'maxCount': 2 }
+    const refreshInner: Record<string, Object> = {
+      'label': $r('app.string.common_refresh'),
+      'icon': $r('sys.symbol.arrow_clockwise'),
+      'isEnabled': !this.detailRefreshInFlight,
+      'action': () => {
+        this.refreshFromTitle()
+      },
+    }
+    const items: Record<string, Object>[] = [
+      { 'content': favoriteInner },
+      { 'content': shareInner },
+      { 'content': refreshInner },
+    ]
+    return { 'value': items, 'maxCount': 3 }
+  }
+
+  private async refreshFromTitle(): Promise<void> {
+    if (this.detailRefreshInFlight) {
+      return
+    }
+    this.detailRefreshInFlight = true
+    try {
+      await this.vm.refresh()
+    } catch (_error) {
+      this.getUIContext().getPromptAction().openToast({
+        message: $r('app.string.common_refresh_failed'),
+      }).catch((_toastError: Error) => {
+      })
+    } finally {
+      this.detailRefreshInFlight = false
+    }
   }
 
   // Share the gallery's public /g/<gid>/<token>/ URL via the system share sheet (eros_fe shareText).
