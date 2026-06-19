@@ -2247,6 +2247,23 @@ Source:
   the same directory covers ready state, center tap, left-page double tap, zoomed pan, fit-state page
   swipe, and `uinput -T -m` pinch. This supports moving the item to implemented / pending controller
   acceptance, not accepted.
+- Current-main spread-surface rerun after user-reported left-page overlap: ADB target `fa967a75` launched
+  `com.honjow.fehviewer/.MainActivity` through `su` and captured FE reference at
+  `.hvigor/outputs/reader-spread-surface-current/fe_reference.png`. NextE was installed from the
+  official signed HAP on Mate X7 simulator `127.0.0.1:5555` with hdc outside sandbox, opened the public
+  Rockman gallery, entered Reader in double-page mode, then verified left-page double tap, zoomed pan,
+  double-tap reset, long-distance fit-state swipe to the next spread, and right-page double tap. Evidence:
+  `.hvigor/outputs/reader-spread-surface-current/reader_ready.png`,
+  `.hvigor/outputs/reader-spread-surface-current/left_zoom.png`,
+  `.hvigor/outputs/reader-spread-surface-current/left_pan.png`,
+  `.hvigor/outputs/reader-spread-surface-current/reset.png`,
+  `.hvigor/outputs/reader-spread-surface-current/long_swipe1.png`, and
+  `.hvigor/outputs/reader-spread-surface-current/right_zoom.png`. The left-page zoom evidence shows the
+  left spread content enlarged with the right page only as a clipped adjacent strip, not covering the
+  left content. This remains implemented / pending controller acceptance, not accepted.
+- Deterministic contract was tightened so `DoublePageReader` cannot instantiate `ReaderImagePage` and
+  `ReaderSpreadImageLayer` must stay a passive image/loading layer without independent transform or
+  z-order. This prevents the old split-surface double-page model from returning as an apparent fix.
 - User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
   enough to affect normal reading.
 - Previous read-only code inspection found double-tap captured on the parent Reader/Swiper via

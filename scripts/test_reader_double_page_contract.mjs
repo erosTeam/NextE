@@ -32,6 +32,14 @@ function component(name) {
 
 const spreadSurface = component('ReaderSpreadSurface')
 const spreadLayer = component('ReaderSpreadImageLayer')
+function builder(name) {
+  const start = reader.indexOf(`@Builder\n  ${name}`)
+  assert.ok(start >= 0, `missing builder ${name}`)
+  const next = reader.indexOf('\n  @Builder', start + name.length)
+  return reader.slice(start, next >= 0 ? next : reader.length)
+}
+
+const doublePageReader = builder('DoublePageReader()')
 
 ok('ReadColumnMode model remains available for a later double-page lane',
   /export enum ReadColumnMode/.test(state) &&
@@ -67,11 +75,15 @@ ok('DoublePageReader renders each spread through one ReaderSpreadSurface, not sp
   /ReaderSpreadSurface\(\{[\s\S]*second: this\.hasSpreadImage\(this\.spreadSecondIndex\(start\)\) \? this\.vm\.images\[this\.spreadSecondIndex\(start\)\]/.test(reader) &&
   /ReaderSpreadSurface\(\{[\s\S]*rowReversed: this\.spreadRowReversed\(\)[\s\S]*onZoomChange[\s\S]*this\.markPageImageLoaded\(page\)/.test(reader) &&
   !/@Builder\s+SpreadImage\(index: number\)/.test(reader) &&
-  !/this\.SpreadSecondSlot\(start\)|this\.SpreadImage\(start\)/.test(reader))
+  !/this\.SpreadSecondSlot\(start\)|this\.SpreadImage\(start\)/.test(reader) &&
+  !/ReaderImagePage\(\{/.test(doublePageReader))
 ok('ReaderSpreadSurface owns double-page zoom/pan as one transformed spread surface',
   /Row\(\{ space: ThemeConstants\.SPACE_XS \}\)[\s\S]*\.scale\(\{ x: this\.zoomScale, y: this\.zoomScale \}\)[\s\S]*\.translate\(\{ x: this\.offsetX, y: this\.offsetY \}\)[\s\S]*\.clip\(true\)/.test(spreadSurface) &&
   /GestureGroup\(\s*GestureMode\.Parallel,[\s\S]*PinchGesture\(\{\s*fingers:\s*2\s*\}\)[\s\S]*PanGesture\(\{\s*fingers:\s*1,\s*direction:\s*PanDirection\.All/.test(spreadSurface) &&
   /Image\(this\.imageUrl\)[\s\S]*\.objectFit\(ImageFit\.Contain\)/.test(spreadLayer) &&
   !/\.scale\(\{ x: this\.zoomScale|TapGesture|PinchGesture|PanGesture/.test(spreadLayer))
+ok('ReaderSpreadImageLayer remains a passive image/loading layer with no independent z-order or transform',
+  !/zIndex\(|position\(|\.translate\(|\.scale\(|\.renderGroup\(/.test(spreadLayer) &&
+  !/@Local zoomScale|@Local offsetX|@Local offsetY/.test(spreadLayer))
 
 console.log(`✓ reader double-page runtime contract: ${passed} assertions passed`)
