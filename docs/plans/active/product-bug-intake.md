@@ -2099,6 +2099,68 @@ Remaining acceptance:
 - Needs controller/user acceptance of the task-card visual hierarchy and action weight on screenshots.
   Deeper executor/offline/archive behavior remains explicitly out of scope.
 
+### Settings Root Missing Search Settings Entry
+
+Type: feature gap / settings reachability
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- System comparison against `eros_fe` settings showed Search as a first-level Settings child page while
+  NextE only exposed search history/filter management from inside the Search page.
+
+Grounding:
+
+- `eros_fe` settings root exposes `Search` as a first-level row in
+  `/Users/honjow/git/eros_fe/lib/pages/tab/controller/setting_controller.dart`, routing to
+  `EHRoutes.searchSetting`.
+- The FE child page lives at `/Users/honjow/git/eros_fe/lib/pages/setting/search_setting_page.dart`
+  and currently presents a grouped Search settings page with `快速搜索`.
+- NextE intentionally did not expand QuickSearch in this lane; the user-visible loop is Settings root
+  -> Search settings -> manage existing persisted search data/profile.
+
+Implementation:
+
+- `8e897cc feat(settings): add search data settings` adds `SearchSettingsPage`, exports/registers the
+  `SearchSettings` route, and adds a Settings root `搜索` row.
+- The page uses the existing HDS Settings child-page pattern and exposes persisted search history count,
+  clear-history action, saved filter profile state, and reset-filter action.
+- `SearchFilterSettings.reset()` resets the saved filter profile to the clean default, bumps `applySeq`,
+  and persists the profile through the existing single-writer settings path.
+- Scope is limited to Settings reachability and data management. It does not change QuickSearch,
+  SearchFilter visual baseline, search input layout, tag parsing, image search, or search algorithms.
+
+Evidence:
+
+- Android FE comparison, 2026-06-19: ADB target `fa967a75`, launched
+  `com.honjow.fehviewer/.MainActivity` with `su`; Settings root showed `搜索`, tapping it opened FE
+  Search settings with `快速搜索`.
+  Evidence directory: `.hvigor/outputs/search-settings-fe-comparison/`, especially
+  `fe_settings_root.png`, `fe_settings_root_window.xml`, `fe_search_settings.png`, and
+  `fe_search_settings_window.xml`.
+- Deterministic contracts/gates:
+  `scripts/test_settings_search_entry_contract.mjs`,
+  `scripts/test_search_filter_settings_contract.mjs`,
+  `scripts/test_search_history_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, and `git diff --check`.
+- Official signed build: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS emulator evidence, 2026-06-19: target `127.0.0.1:5555`, hdc outside sandbox, official
+  signed HAP installed. Settings root showed the new `搜索` row; tapping it opened Search settings with
+  `搜索历史`, `清除`, `筛选配置`, and `重置筛选`.
+  Evidence directory: `.hvigor/outputs/search-settings-nexte-evidence/`, especially
+  `nexte_settings_root.png`, `nexte_settings_root_layout.json`, `nexte_search_settings_page.png`, and
+  `nexte_search_settings_page_layout.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the Settings root placement and Search settings data-management
+  scope. No further FE/device validation is required unless Settings root or Search settings routing
+  changes again.
+
 ### Settings Root Missing Reader Settings Entry
 
 Type: feature gap / settings reachability
