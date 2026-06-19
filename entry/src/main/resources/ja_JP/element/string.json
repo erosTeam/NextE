@@ -863,6 +863,10 @@
     {
       "name": "image_page_open_failed",
       "value": "この画像ページを開けません。リンクの期限切れ、または利用できない可能性があります。"
+    },
+    {
+      "name": "search_suggestion_namespace",
+      "value": "名前空間: "
     }
   ]
 }

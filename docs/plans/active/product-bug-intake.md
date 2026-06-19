@@ -979,6 +979,63 @@ Acceptance shape:
 - No parser/update error copy is shown for the zero-result case.
 - A true malformed/error page still renders a recoverable error state.
 
+### Search Tag Autocomplete / Tagsuggest Missing
+
+Type: search UX / parity gap
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- eros_fe exposes live tag suggestions while composing a search query. This is a high-frequency search
+  assist path because EH exact tag syntax is easy to mistype and namespace prefixes matter.
+
+Implementation:
+
+- Added `EhApiPhpService.tagSuggest()` for EH `api.php` `method=tagsuggest` responses, with typed
+  `EhTagSuggestion` parsing from `ns` / `tn` entries.
+- Added debounced Search page suggestions for the current last token. Completed exact namespaced tokens
+  such as `f:futanari$` no longer reopen suggestions.
+- Tapping a suggestion inserts exact EH tag query syntax into the page-local search field, for example
+  `f:futanari$` or `p:"futari wa precure$"`, without moving the filter action out of the title/menu area.
+- Scope intentionally excludes local translation DB lookup, FE-style blue substring highlighting, and
+  QuickSearch expansion.
+
+FE comparison evidence:
+
+- Android device `fa967a75`, package `com.honjow.fehviewer`.
+- `/private/tmp/nexte_fe_tagsuggest_search.png` / `.xml`: FE Search page with title actions and separate
+  search field.
+- `/private/tmp/nexte_fe_tagsuggest_fut.png` / `.xml`: typing `fut` shows a vertical suggestions list
+  under the search field with namespaced tag rows.
+
+NextE evidence:
+
+- HarmonyOS Mate X7 emulator target `127.0.0.1:5555`.
+- `/private/tmp/nexte_tagsuggest_accept2_before.jpeg` / `_layout.json`: typing `fut` shows left-aligned
+  live suggestions in the Search page body.
+- `/private/tmp/nexte_tagsuggest_accept2_after.jpeg` / `_layout.json`: tapping the first suggestion fills
+  `f:futanari$`, clears the suggestion list, and returns to Search history/blank composition state.
+
+Contracts / gates:
+
+- `scripts/test_search_tagsuggest_contract.mjs`
+- `scripts/test_search_input_contract.mjs`
+- `scripts/test_search_filter_action_bar_contract.mjs`
+- `scripts/test_search_scope_contract.mjs`
+- `scripts/test_v1_decorator_inventory_contract.mjs`
+- `scripts/check_i18n_duplicates.py`
+- `scripts/build_hvigor_signed.sh`
+
+Acceptance shape:
+
+- Open Search, type a partial tag token such as `fut`, and see suggestions without submitting the query.
+- Tap a suggestion; the input should contain the exact EH namespaced tag query and suggestions should close.
+- Pressing Search still owns actual query submission.
+- The filter entry remains in the title/menu/action area, not beside the search input field.
+
 ### Search Action Routes Can Lose The Second Tag Query
 
 Type: routing / state ownership bug

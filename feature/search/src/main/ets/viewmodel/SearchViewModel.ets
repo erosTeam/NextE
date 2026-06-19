@@ -1,6 +1,8 @@
 import {
+  EhApiPhpService,
   EhApiService,
   EhGallery,
+  EhTagSuggestion,
   GalleryList,
   GalleryListQuery,
   FavoritesQuery,
@@ -14,6 +16,8 @@ import {
   DiagnosticLogger,
   EhErrorText,
 } from 'shared'
+
+const TAG_SUGGEST_DELAY_MS: number = 450
 
 /**
  * Table-site anonymous gallery search (reuses the list endpoint with f_search). Same
@@ -29,6 +33,9 @@ export class SearchViewModel {
   @Trace hasMore: boolean = true
   @Trace hasSearched: boolean = false
   @Trace errorMessage: string = ''
+  @Trace suggestionCount: number = 0
+  @Trace isSuggesting: boolean = false
+  suggestions: EhTagSuggestion[] = []
   private query: string = ''
   private nextGid: string = ''
   // Generation token: a new search / filter re-apply / refresh bumps it so an in-flight loadMore
@@ -37,6 +44,8 @@ export class SearchViewModel {
   private epoch: number = 0
   private pendingFilterReapply: boolean = false
   private pendingSearchQuery: string = ''
+  private suggestTimer: number = -1
+  private suggestEpoch: number = 0
   // Favorite scope (eros_fe SearchType.favorite, search_page_controller.dart:240): when set, the page
   // searches favorites.php f_search instead of the gallery list. Seeded from the route param when the
   // favorites title-bar magnifier pushes here; an empty query browses the favcat (favorites.php allows
@@ -95,6 +104,71 @@ export class SearchViewModel {
     }
   }
 
+  private lastSuggestToken(query: string): string {
+    const trimmed: string = query.trim()
+    if (trimmed.length === 0 || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return ''
+    }
+    const parts: string[] = trimmed.split(/[ ;"]/)
+    const token: string = parts.length > 0 ? parts[parts.length - 1].trim() : ''
+    if (token.indexOf(':') >= 0 || token.endsWith('$')) {
+      return ''
+    }
+    return token
+  }
+
+  scheduleTagSuggest(query: string): void {
+    if (this.suggestTimer >= 0) {
+      clearTimeout(this.suggestTimer)
+      this.suggestTimer = -1
+    }
+    const token: string = this.lastSuggestToken(query)
+    this.suggestEpoch = this.suggestEpoch + 1
+    const myEpoch: number = this.suggestEpoch
+    if (token.length === 0) {
+      this.clearSuggestions()
+      return
+    }
+    this.isSuggesting = true
+    this.suggestTimer = setTimeout(() => {
+      this.fetchSuggestions(token, myEpoch)
+    }, TAG_SUGGEST_DELAY_MS)
+  }
+
+  clearSuggestions(): void {
+    if (this.suggestTimer >= 0) {
+      clearTimeout(this.suggestTimer)
+      this.suggestTimer = -1
+    }
+    this.suggestEpoch = this.suggestEpoch + 1
+    this.suggestions = []
+    this.suggestionCount = 0
+    this.isSuggesting = false
+  }
+
+  private async fetchSuggestions(token: string, epoch: number): Promise<void> {
+    try {
+      const rows: EhTagSuggestion[] = await EhApiPhpService.tagSuggest(
+        EhConstants.baseUrl(connectSiteMode().isEx),
+        token,
+      )
+      if (this.suggestEpoch === epoch) {
+        this.suggestions = rows
+        this.suggestionCount = rows.length
+      }
+    } catch (err) {
+      const e = err as Error
+      if (this.suggestEpoch === epoch) {
+        this.suggestions = []
+        this.suggestionCount = 0
+      }
+      DiagnosticLogger.warn('search', 'tagsuggest_failed', e.message)
+    }
+    if (this.suggestEpoch === epoch) {
+      this.isSuggesting = false
+    }
+  }
+
   /** Re-run the current query with the latest filters (called when the filter sheet live-edits). */
   async reapplyFilters(): Promise<void> {
     // Ordinary search does not implicitly browse with an empty query. Favorite scope is the explicit
@@ -126,6 +200,7 @@ export class SearchViewModel {
       this.pendingSearchQuery = trimmed
       return
     }
+    this.clearSuggestions()
     this.query = trimmed
     this.hasSearched = true
     this.isLoading = true
@@ -182,6 +257,7 @@ export class SearchViewModel {
     this.errorMessage = ''
     this.pendingFilterReapply = false
     this.pendingSearchQuery = ''
+    this.clearSuggestions()
   }
 
   /** Re-run the current query from page 1 (pull-to-refresh). Guarded + flagged isLoading so a

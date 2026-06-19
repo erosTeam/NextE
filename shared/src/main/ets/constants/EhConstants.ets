@@ -146,6 +146,45 @@ export class EhConstants {
     return full !== undefined ? full : key
   }
 
+  /** Full namespace → EH short query prefix (eros_fe `shortName` extension). */
+  static compactNamespace(ns: string): string {
+    const full: string = EhConstants.expandNamespace(ns)
+    if (full === 'artist') {
+      return 'a'
+    }
+    if (full === 'character') {
+      return 'c'
+    }
+    if (full === 'female') {
+      return 'f'
+    }
+    if (full === 'group') {
+      return 'g'
+    }
+    if (full === 'language') {
+      return 'l'
+    }
+    if (full === 'male') {
+      return 'm'
+    }
+    if (full === 'parody') {
+      return 'p'
+    }
+    if (full === 'reclass') {
+      return 'r'
+    }
+    if (full === 'other') {
+      return 'o'
+    }
+    if (full === 'mixed') {
+      return 'x'
+    }
+    if (full === 'cosplayer') {
+      return 'cos'
+    }
+    return full
+  }
+
   /**
    * Tag namespace → chip background color (eros_fe ThemeColors.tagColorTagType, pastel light /
    * muted dark). Unmapped namespaces (e.g. 'mixed', 'other', 'temp') fall back to misc grey.

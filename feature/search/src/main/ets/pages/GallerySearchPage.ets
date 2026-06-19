@@ -7,6 +7,8 @@ import {
   GalleryDetailParams,
   ReaderParams,
   EhUrlRouter,
+  EhConstants,
+  EhTagSuggestion,
   GalleryRef,
   ImagePageRouteService,
   ImagePageRouteTarget,
@@ -14,6 +16,7 @@ import {
   PageLoadingState,
   PageErrorState,
   CardEmptyState,
+  AppStrings,
   LoadingFooter,
   PullRefreshListScaffold,
   PullRefreshGridScaffold,
@@ -132,19 +135,47 @@ export struct GallerySearchPage {
   @Monitor('fieldState.submitSeq')
   onSubmit(): void {
     this.runQuery(this.fieldState.keyword)
+    this.vm.clearSuggestions()
   }
 
   @Monitor('fieldState.keyword')
   onKeywordChange(): void {
     if (this.fieldState.keyword.trim().length === 0) {
       this.clearQueryToHistory()
+      this.vm.clearSuggestions()
+      return
     }
+    this.vm.scheduleTagSuggest(this.fieldState.keyword)
   }
 
   // A whole-string EH URL (no embedded substring) — eros_fe gates its URL-jump on searchText.isURL,
   // so a query that merely CONTAINS a gallery link still searches.
   private looksLikeBareUrl(s: string): boolean {
     return s.length > 0 && !s.includes(' ') && (s.startsWith('http://') || s.startsWith('https://'))
+  }
+
+  private formatSuggestionQuery(s: EhTagSuggestion): string {
+    const tag: string = s.text.trim()
+    const ns: string = EhConstants.compactNamespace(s.namespace)
+    if (tag.length === 0) {
+      return ''
+    }
+    const exact: string = tag.indexOf(' ') >= 0 ? `"${tag}$"` : `${tag}$`
+    return ns.length > 0 ? `${ns}:${exact}` : exact
+  }
+
+  private replaceLastToken(query: string, replacement: string): string {
+    const trimmedRight: string = query.replace(/\s+$/, '')
+    const m: RegExpMatchArray | null = trimmedRight.match(/^(.*[ ;"])?([^ ;"]*)$/)
+    const prefix: string = m !== null && m[1] !== undefined ? m[1] : ''
+    return `${prefix}${replacement} `
+  }
+
+  private acceptSuggestion(s: EhTagSuggestion): void {
+    const next: string = this.replaceLastToken(this.fieldState.keyword, this.formatSuggestionQuery(s))
+    this.fieldState.keyword = next
+    this.fieldState.seedSeq = this.fieldState.seedSeq + 1
+    this.vm.clearSuggestions()
   }
 
   /**
@@ -214,6 +245,59 @@ export struct GallerySearchPage {
     this.fieldState.keyword = query
     this.fieldState.seedSeq = this.fieldState.seedSeq + 1
     this.runQuery(query)
+  }
+
+  @Builder
+  SearchSuggestionView() {
+    List({ space: ThemeConstants.SPACE_XS }) {
+      ForEach(
+        this.vm.suggestions,
+        (s: EhTagSuggestion) => {
+          ListItem() {
+            Row({ space: ThemeConstants.SPACE_MD }) {
+              SymbolGlyph($r('sys.symbol.magnifyingglass'))
+                .fontSize(24)
+                .fontColor([$r('sys.color.font_tertiary')])
+              Column({ space: ThemeConstants.SPACE_XS }) {
+                Text(this.formatSuggestionQuery(s))
+                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor($r('sys.color.font_primary'))
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                if (s.namespace.length > 0) {
+                  Text(`${AppStrings.get('search_suggestion_namespace')}${EhConstants.expandNamespace(s.namespace)}`)
+                    .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                    .fontColor($r('sys.color.font_secondary'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+            .padding({
+              left: ThemeConstants.SPACE_LG,
+              right: ThemeConstants.SPACE_LG,
+              top: ThemeConstants.SPACE_SM,
+              bottom: ThemeConstants.SPACE_SM,
+            })
+            .onClick(() => {
+              this.acceptSuggestion(s)
+            })
+          }
+        },
+        (s: EhTagSuggestion) => `${s.namespace}:${s.text}`,
+      )
+    }
+    .width('100%')
+    .height('100%')
+    .padding({
+      top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + SEARCH_FIELD_BOTTOM_HEIGHT,
+      bottom: ThemeConstants.SPACE_LG,
+    })
   }
 
   @Monitor('filter.applySeq')
@@ -321,6 +405,8 @@ export struct GallerySearchPage {
             })
           } else if (this.vm.isLoading && this.vm.itemCount === 0) {
             PageLoadingState()
+          } else if (this.vm.suggestionCount > 0) {
+            this.SearchSuggestionView()
           } else if (!this.vm.hasSearched) {
             this.SearchHistoryView()
           } else if (this.vm.itemCount === 0 && this.vm.errorMessage.length > 0) {

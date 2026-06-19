@@ -863,6 +863,10 @@
     {
       "name": "image_page_open_failed",
       "value": "无法打开此图片页。链接可能已过期或不可用。"
+    },
+    {
+      "name": "search_suggestion_namespace",
+      "value": "命名空间："
     }
   ]
 }
