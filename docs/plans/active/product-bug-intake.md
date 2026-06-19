@@ -2207,6 +2207,79 @@ Acceptance shape:
 - Android `eros_fe` Reader comparison and HarmonyOS device/emulator video or screenshot evidence must
   be attached before marking accepted.
 
+### Reader Architecture Should Use Mature Pager And Spread Surface References
+
+Type: architecture guidance / future Reader repair
+
+Priority suggestion: P1
+
+Status: active guidance / apply before new Reader gesture or double-page implementation
+
+Source:
+
+- User clarification: `eros_fe` Reader contains substantial historical compromises and immature design
+  decisions. It should not be treated as the target Reader architecture for NextE.
+- Read-only `eros_fe` inspection:
+  - `eros_fe/lib/pages/image_view/view/image_page_view.dart` wraps double-page mode in
+    `PhotoViewGalleryPageOptions.customChild`, but the custom child is still a `DoublePageView`.
+  - `eros_fe/lib/pages/image_view/view/view_page.dart` implements `DoublePageView` by resolving
+    `serFirst` / `serFirst + 1`, building two `ViewImage` children, and composing them in a `Row` with
+    ratio math.
+  - `eros_fe` comments explicitly note gesture problems around `PhotoViewGallery`, child zoom, direct
+    page turns after child double-tap, and `ExtendedImageGesturePageView` double-page mode being hard to
+    make reliable.
+- Read-only NextE inspection:
+  - `feature/reader/src/main/ets/pages/ReaderPage.ets` currently renders double-page mode as
+    `Swiper -> Row -> SpreadImage(start) / SpreadSecondSlot(start)`, where each visible page can become
+    its own `ReaderImagePage` with separate loading and zoom surface state.
+  - This is even more exposed to split-surface gesture and loading-state conflicts than a single spread
+    surface.
+- Mature reader references to investigate before a larger rewrite:
+  - Mihon / Tachiyomi pager architecture: pager holder owns page navigation and load states, while the
+    image view owns zoom/pan capabilities such as pan-left / pan-right boundary checks.
+  - V2Next `ImagePreviewPage.ets` and `ImagePreviewCoordinator.ets`: HarmonyOS-native transform,
+    clamp, double-tap, pinch, and pan implementation patterns.
+
+Guidance:
+
+- Use `eros_fe` for EH mechanisms, product semantics, and historical pitfalls only. Do not copy its
+  Reader structure as target architecture.
+- Do not keep adding recognizer-level patches on top of a split surface if the feature needs a broader
+  Reader repair.
+- Prefer a mature separation:
+  - `ReaderPager` owns page/spread navigation, preload window, and page-turn direction.
+  - `ReaderSpreadResolver` owns single/double spread math, LTR/RTL, cover-page behavior, odd/even
+    pairing, current-index normalization, and mode switching.
+  - `ReaderSpreadSurface` owns one visual reading surface for the current spread.
+  - The spread surface internally composes one or two image sources, but zoom, pan, double tap, loading
+    overlay, and gesture arbitration operate on the spread as one surface.
+  - Per-image resolving/loading/error states may stay per source, but user interaction should be
+    coordinated at the spread level.
+
+Implementation direction:
+
+- Before any new Reader double-page or gesture lane, perform a short architecture grounding pass:
+  `eros_fe` pitfalls, V2Next HarmonyOS implementation pattern, and at least one mature open-source reader
+  reference such as Mihon/Tachiyomi.
+- If double-page is repaired, do not implement it as two sibling independent `ReaderImagePage` surfaces
+  that each own zoom/pan/loading. Introduce `ReaderSpreadSurface` or an equivalent single-surface model.
+- Keep first implementation narrow: online horizontal Reader, single spread surface, current `ReaderParams`
+  and `ReaderViewModel` data flow, no offline executor or download-pipeline changes.
+- Boundary handoff from zoomed pan to page turn can be deferred. It is acceptable to disable pager swipes
+  while zoomed for the first stable implementation.
+
+Acceptance shape:
+
+- A future Reader lane must explicitly state whether it touches pager, spread resolver, spread surface,
+  image resolving, or chrome; do not hide architecture changes inside visual tweaks.
+- Double-page mode is not marked accepted if it is only two independent image containers side by side.
+- In double-page mode, pinch, double tap, pan, loading overlay, and chrome tap arbitration behave as if
+  the visible spread is one reading surface.
+- Single-page mode remains stable: fast page swipe, double tap, pinch, zoomed pan, and center tap chrome
+  must still pass device validation.
+- Any Reader acceptance must include Android `eros_fe` comparison as product/historical context and
+  HarmonyOS simulator/device evidence for the changed interaction risk.
+
 ### Reader Double-Page Mode Switch Can Desync Visible Spread And Page Counter
 
 Type: bug / reading UX gap
