@@ -369,6 +369,42 @@
       "value": "共有"
     },
     {
+      "name": "detail_edit_tags",
+      "value": "タグを編集"
+    },
+    {
+      "name": "detail_copy_link",
+      "value": "リンクをコピー"
+    },
+    {
+      "name": "detail_copy_title",
+      "value": "タイトルをコピー"
+    },
+    {
+      "name": "detail_link_copied",
+      "value": "リンクをコピーしました"
+    },
+    {
+      "name": "detail_title_copied",
+      "value": "タイトルをコピーしました"
+    },
+    {
+      "name": "detail_open_browser",
+      "value": "ブラウザーで開く"
+    },
+    {
+      "name": "detail_open_internal_web",
+      "value": "アプリ内Webで開く"
+    },
+    {
+      "name": "detail_edit_tags_readonly_title",
+      "value": "タグ編集は現在読み取り専用です"
+    },
+    {
+      "name": "detail_edit_tags_readonly_desc",
+      "value": "現在のタグを表示します。ギャラリータグの送信は別の保護された書き込みフローです。"
+    },
+    {
       "name": "detail_add_local_favorite",
       "value": "ローカルに追加"
     },

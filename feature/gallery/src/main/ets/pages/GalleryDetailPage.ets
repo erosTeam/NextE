@@ -1,13 +1,18 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
-import { common } from '@kit.AbilityKit'
+import { common, Want } from '@kit.AbilityKit'
+import { pasteboard } from '@kit.BasicServicesKit'
 import {
   ThemeConstants,
   EhGallery,
+  TagGroup,
+  EhConstants,
   ShareUtil,
   GalleryDetailParams,
   GalleryInfoParams,
   GalleryTorrentsParams,
   GalleryArchiverParams,
+  GalleryWebParams,
+  GalleryEditTagsParams,
   ReaderParams,
   GalleryCommentsParams,
   AllThumbnailsParams,
@@ -302,8 +307,9 @@ export struct GalleryDetailPage {
     return immersiveTitleBarOpts(content)
   }
 
-  // Native HDS title-bar actions. Read remains the primary FAB; local favorite, share, and refresh are
-  // secondary top actions matching eros_fe's heart/share/refresh detail affordances.
+  // Native HDS title-bar actions. Read remains the primary FAB. With >3 items and maxCount=3, HDS keeps
+  // the first two actions inline and turns the third slot into overflow, so refresh and power-user tools
+  // stay discoverable without crowding the title bar.
   private detailMenu(): Record<string, Object> {
     const favoriteInner: Record<string, Object> = {
       'label': this.localFavoriteLabel(),
@@ -329,12 +335,61 @@ export struct GalleryDetailPage {
         this.refreshFromTitle()
       },
     }
+    const editTagsInner: Record<string, Object> = {
+      'label': $r('app.string.detail_edit_tags'),
+      'icon': $r('sys.symbol.bookmark'),
+      'isEnabled': true,
+      'action': () => {
+        this.openEditTags()
+      },
+    }
+    const copyLinkInner: Record<string, Object> = {
+      'label': $r('app.string.detail_copy_link'),
+      'icon': $r('sys.symbol.link'),
+      'isEnabled': true,
+      'action': () => {
+        this.copyGalleryLink()
+      },
+    }
+    const copyTitleInner: Record<string, Object> = {
+      'label': $r('app.string.detail_copy_title'),
+      'icon': $r('sys.symbol.doc_plaintext'),
+      'isEnabled': true,
+      'action': () => {
+        this.copyGalleryTitle()
+      },
+    }
+    const openBrowserInner: Record<string, Object> = {
+      'label': $r('app.string.detail_open_browser'),
+      'icon': $r('sys.symbol.arrow_right'),
+      'isEnabled': true,
+      'action': () => {
+        this.openExternalBrowser()
+      },
+    }
+    const openWebInner: Record<string, Object> = {
+      'label': $r('app.string.detail_open_internal_web'),
+      'icon': $r('sys.symbol.house_fill'),
+      'isEnabled': true,
+      'action': () => {
+        this.openInternalWeb()
+      },
+    }
     const items: Record<string, Object>[] = [
       { 'content': favoriteInner },
       { 'content': shareInner },
       { 'content': refreshInner },
+      { 'content': editTagsInner },
+      { 'content': copyLinkInner },
+      { 'content': copyTitleInner },
+      { 'content': openBrowserInner },
+      { 'content': openWebInner },
     ]
     return { 'value': items, 'maxCount': 3 }
+  }
+
+  private galleryUrl(): string {
+    return `${EhConstants.baseUrl(connectSiteMode().isEx)}/g/${this.params.gid}/${this.params.token}/`
   }
 
   private async refreshFromTitle(): Promise<void> {
@@ -362,6 +417,56 @@ export struct GalleryDetailPage {
       this.params.token,
       connectSiteMode().isEx,
       this.vm.gallery.title(),
+    )
+  }
+
+  private copyText(text: string, message: ResourceStr): void {
+    const content: string = text.trim()
+    if (content.length === 0) {
+      return
+    }
+    try {
+      const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, content)
+      pasteboard.getSystemPasteboard().setDataSync(data)
+      this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {
+      })
+    } catch (_error) {
+      this.getUIContext().getPromptAction().openToast({
+        message: $r('app.string.error_http'),
+      }).catch((_toastError: Error) => {
+      })
+    }
+  }
+
+  private copyGalleryLink(): void {
+    this.copyText(this.galleryUrl(), $r('app.string.detail_link_copied'))
+  }
+
+  private copyGalleryTitle(): void {
+    this.copyText(this.vm.gallery.title(), $r('app.string.detail_title_copied'))
+  }
+
+  private openExternalBrowser(): void {
+    const want: Want = { action: 'ohos.want.action.viewData', uri: this.galleryUrl() }
+    this.ctx().startAbility(want).catch((_error: Error) => {
+      this.getUIContext().getPromptAction().openToast({
+        message: $r('app.string.error_http'),
+      }).catch((_toastError: Error) => {
+      })
+    })
+  }
+
+  private openInternalWeb(): void {
+    this.stack.pushPathByName(
+      'GalleryWeb',
+      new GalleryWebParams(this.galleryUrl(), this.navTitle()),
+    )
+  }
+
+  private openEditTags(): void {
+    this.stack.pushPathByName(
+      'GalleryEditTags',
+      new GalleryEditTagsParams(this.params.gid, this.params.token, connectSiteMode().isEx, this.navTitle()),
     )
   }
 

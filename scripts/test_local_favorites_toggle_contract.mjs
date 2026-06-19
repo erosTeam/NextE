@@ -67,7 +67,8 @@ ok('GalleryDetailPage toggles local favorite without remote favorite writes',
   /private async toggleLocalFavorite\(\): Promise<void> \{[\s\S]*LocalFavSettings\.removeByGid[\s\S]*LocalFavSettings\.add/.test(detail) &&
   !/toggleLocalFavorite[\s\S]*galleryAddFavorite/.test(detail))
 ok('GalleryDetailPage exposes local favorite as a secondary title menu action before share',
-  /private detailMenu\(\): Record<string, Object> \{[\s\S]*favoriteInner[\s\S]*this\.localFavoriteLabel\(\)[\s\S]*sys\.symbol\.heart[\s\S]*shareInner[\s\S]*refreshInner[\s\S]*const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},\s*\{ 'content': refreshInner \},\s*\][\s\S]*'maxCount': 3/.test(detail))
+  /private detailMenu\(\): Record<string, Object> \{[\s\S]*favoriteInner[\s\S]*this\.localFavoriteLabel\(\)[\s\S]*sys\.symbol\.heart[\s\S]*shareInner[\s\S]*refreshInner[\s\S]*const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},\s*\{ 'content': refreshInner \},/.test(detail) &&
+  /return \{ 'value': items, 'maxCount': 3 \}/.test(detail))
 ok('GalleryDetailPage keeps the primary read FAB intact',
   /Button\(\{ type: ButtonType\.Capsule \}\)[\s\S]*this\.openReader\(this\.resumeIndex\(\)\)/.test(detail))
 

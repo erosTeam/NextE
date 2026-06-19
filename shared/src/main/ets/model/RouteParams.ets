@@ -101,6 +101,32 @@ export class GalleryArchiverParams {
   }
 }
 
+/** Params for the generic in-app EH WebView destination. */
+export class GalleryWebParams {
+  url: string = ''
+  title: string = ''
+
+  constructor(url: string = '', title: string = '') {
+    this.url = url
+    this.title = title
+  }
+}
+
+/** Params for the non-destructive gallery tag entry surface. */
+export class GalleryEditTagsParams {
+  gid: string = ''
+  token: string = ''
+  isEx: boolean = false
+  title: string = ''
+
+  constructor(gid: string = '', token: string = '', isEx: boolean = false, title: string = '') {
+    this.gid = gid
+    this.token = token
+    this.isEx = isEx
+    this.title = title
+  }
+}
+
 /** Params for the 'Reader' destination. */
 export class ReaderParams {
   gid: string = ''

@@ -369,6 +369,42 @@
       "value": "分享"
     },
     {
+      "name": "detail_edit_tags",
+      "value": "编辑标签"
+    },
+    {
+      "name": "detail_copy_link",
+      "value": "复制链接"
+    },
+    {
+      "name": "detail_copy_title",
+      "value": "复制标题"
+    },
+    {
+      "name": "detail_link_copied",
+      "value": "链接已复制"
+    },
+    {
+      "name": "detail_title_copied",
+      "value": "标题已复制"
+    },
+    {
+      "name": "detail_open_browser",
+      "value": "浏览器打开"
+    },
+    {
+      "name": "detail_open_internal_web",
+      "value": "应用内网页"
+    },
+    {
+      "name": "detail_edit_tags_readonly_title",
+      "value": "标签编辑暂为只读"
+    },
+    {
+      "name": "detail_edit_tags_readonly_desc",
+      "value": "这里显示当前标签。提交画廊标签修改属于单独的受保护写入流程。"
+    },
+    {
       "name": "detail_add_local_favorite",
       "value": "加入本地收藏"
     },

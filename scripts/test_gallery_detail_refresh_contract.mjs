@@ -40,9 +40,10 @@ ok('detail title refresh reuses the same ViewModel refresh path and guards doubl
 ok('detail title refresh reports failure without clearing current content',
   /refreshFromTitle[\s\S]*openToast\(\{[\s\S]*message: \$r\('app\.string\.common_refresh_failed'\)/.test(page) &&
   !/refreshFromTitle[\s\S]*this\.vm\.images\s*=\s*\[\]/.test(page))
-ok('detail title menu keeps favorite/share and adds refresh without add-tag write action',
-  /const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},\s*\{ 'content': refreshInner \},\s*\][\s\S]*return \{ 'value': items, 'maxCount': 3 \}/.test(page) &&
-  !/tagGallery|addTag\(/.test(page))
+ok('detail title menu keeps favorite/share inline priority and refresh in the HDS overflow set',
+  /const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},\s*\{ 'content': refreshInner \},/.test(page) &&
+  /return \{ 'value': items, 'maxCount': 3 \}/.test(page) &&
+  !/tagGallery|setusertag|addTag\(/.test(page))
 ok('detail title reveal still uses onDidScroll', /onDidScroll:\s*\(offset: number\)/.test(page) && /this\.showNavTitle = past/.test(page))
 
 const vm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets')

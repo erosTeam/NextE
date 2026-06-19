@@ -553,6 +553,184 @@ Remaining acceptance:
   favorite state discoverability through existing detail info surfaces and does not perform destructive
   favorite writes.
 
+### Gallery Detail Title Menu Needs More Actions
+
+Type: UX enhancement / menu IA
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Implementation:
+
+- Changeset: pending commit for `feat(gallery): expand detail title menu`.
+- Expanded `GalleryDetailPage.detailMenu()` so HDS keeps local favorite and share inline while refresh and
+  power-user actions move into the overflow menu with `maxCount: 3`.
+- Added non-destructive overflow actions for refresh, edit tags, copy gallery link, copy gallery title,
+  external browser open, and internal WebView open.
+- Added `GalleryWeb` and `GalleryEditTags` routes. The edit-tags entry refetches and displays current tags
+  as a read-only surface; it does not call `taggallery`, `setusertag`, or any other EH write endpoint.
+- Added deterministic coverage in `scripts/test_gallery_detail_menu_actions_contract.mjs`, and relaxed older
+  refresh/local-favorite menu contracts so they preserve the new overflow behavior instead of requiring the
+  obsolete three-item menu.
+
+Validation:
+
+- FE reference: Android eros_fe detail page captured through ADB/su at
+  `.hvigor/outputs/gallery-detail-menu-actions/fe_current.png`.
+- NextE device evidence: Mate X7 emulator target `127.0.0.1:5555`, official signed HAP install, detail deep
+  link opened, overflow menu captured with `刷新`, `编辑标签`, `复制链接`, `复制标题`, `浏览器打开`, `应用内网页`.
+- Edit-tags device evidence: `.hvigor/outputs/gallery-detail-menu-actions/nexte_edit_tags_onready_final.png`
+  shows the route receives params, refetches detail tags, and displays namespace/tag chips in read-only mode.
+- Gates: gallery detail menu contract, V1 decorator inventory, i18n duplicate check, `git diff --check`, and
+  official signed Hvigor build passed during implementation; full contract sweep is rerun before commit.
+
+Source:
+
+- User feedback on current gallery detail title actions.
+- Current right-side actions are local favorite, share, and refresh. Refresh is somewhat redundant with
+  pull-to-refresh, but still useful when scrolled near the bottom.
+- User clarified HDS menu behavior: with `maxCount: 3`, adding a fourth item makes the third visible slot
+  become the overflow menu button. The menu then contains the third-plus remaining actions.
+- User requested considering Next2V-style actions such as external browser open and internal WebView open,
+  and adding an edit-tags entry even if the write-flow design is not complete yet.
+
+Current behavior:
+
+- `GalleryDetailPage.detailMenu()` returns three title-bar actions with `maxCount: 3`:
+  local favorite, share, and refresh.
+- Because there are exactly three actions, all three render inline today.
+
+Expected behavior:
+
+- Keep the title bar visually compact: when more actions are added, only the highest-priority two actions
+  should remain inline, with the third slot becoming the HDS overflow menu.
+- Local favorite and share are the likely inline actions.
+- Refresh should move into overflow when extra actions exist.
+- Add overflow actions for:
+  - refresh;
+  - edit tags;
+  - copy gallery link;
+  - copy gallery title;
+  - open in external browser;
+  - open in internal WebView.
+
+Why this matters:
+
+- The detail page needs common power-user actions without crowding the title bar.
+- HDS already gives a native overflow model; NextE should use that instead of adding custom buttons or
+  additional visible chrome.
+- External/internal web open gives users an escape hatch for EH pages that native parsing or feature parity
+  has not caught up with yet.
+
+Grounding required before implementation:
+
+- Inspect V2Next / Next2V topic detail menu actions, especially `copyTitle`, `copyLink`, `share`,
+  `openInApp`, and `openBrowser`.
+- Inspect NextE's existing `ShareUtil`, `EhWebView`, login WebView page, route registration, and title-menu
+  helper patterns.
+- Decide menu ordering with the HDS `maxCount: 3` overflow behavior in mind; do not assume three actions
+  stay inline after adding a fourth item.
+- Preserve the existing FAB read/resume behavior and do not move read back into the title menu.
+
+Implementation direction to evaluate:
+
+- Build a stable gallery URL helper for `/g/{gid}/{token}/` using current site mode.
+- Add copy-link and copy-title actions with toast feedback.
+- Add external browser open via a system view-data Want, using the same safe URL.
+- Add a generic internal EH WebView route/page before wiring "open in internal WebView"; reuse `EhWebView`
+  and the proven UA/cookie boundary from the login WebView where appropriate.
+- Add an edit-tags menu entry that opens a native sheet/page skeleton. Do not perform EH tag write operations
+  in this lane unless a separate destructive-write flow is explicitly designed and authorized.
+
+Edit-tags boundary:
+
+- The entry is allowed as a visible menu item.
+- The first implementation may show the current tags and an explanatory disabled submit / follow-up state.
+- It must not silently submit `taggallery`, `setusertag`, or any other non-idempotent EH write.
+- Future real tag editing must follow the project destructive-write boundary: explicit user action,
+  confirmation where appropriate, and test-gallery/device evidence.
+
+Acceptance shape:
+
+- With more than three title actions, the title bar shows only the intended inline actions plus overflow.
+- Refresh remains available from overflow.
+- Copy link and copy title work and give user feedback.
+- External browser open launches the gallery URL through the system.
+- Internal WebView open displays the gallery page in-app, or is clearly marked blocked until the generic WebView
+  route exists.
+- Edit-tags opens a non-destructive entry surface and does not submit any write operation.
+
+### Gallery Comment UP And Score Badges Need Unified Low-Weight Styling
+
+Type: UI quality / readability
+
+Priority suggestion: P1
+
+Status: active / ready for implementation
+
+Source:
+
+- User feedback on gallery detail/full-comments comment badges.
+
+Current behavior:
+
+- Uploader comments show the localized `comment_uploader` badge; Chinese currently reads `楼主`.
+- Non-uploader comments in the full comments page show a numeric score badge such as `+3` or `-1`.
+- The uploader badge and score badge use different text sizes, padding, and visual weight:
+  uploader uses `FONT_SIZE_TINY` with smaller padding; score uses `FONT_SIZE_CAPTION`, Medium weight,
+  and larger padding.
+- Both badges use the small `RADIUS_SM` corner radius.
+- Score badges use saturated semantic colors: positive green and negative red.
+
+Expected behavior:
+
+- Use `UP` for the uploader badge instead of `楼主`.
+- Uploader and score badges should share one visual grammar: same height, typography, padding, and radius.
+- Badge radius should be more chip-like and better coordinated with the comment bubble, not the very small
+  `RADIUS_SM` look.
+- The `UP` badge can keep the theme/brand color.
+- Score badges should be lower-weight neutral badges. Keep the `+` / `-` text, but do not use strong
+  green/red backgrounds because they compete with the comment content.
+- Preserve score-details behavior: tapping a score badge on the full comments page still opens score details.
+
+Why this matters:
+
+- The badge is pinned to the comment header's right side, so inconsistent badge size immediately makes the
+  comment header look uneven.
+- Strong red/green score backgrounds overemphasize community score relative to author/body/time.
+
+Likely modules to inspect:
+
+- `feature/gallery/src/main/ets/components/GalleryCommentsCard.ets`
+- `entry/src/main/resources/base/element/string.json`
+- `entry/src/main/resources/zh_CN/element/string.json`
+- `entry/src/main/resources/en_US/element/string.json`
+- `entry/src/main/resources/ja_JP/element/string.json`
+- `entry/src/main/resources/base/element/color.json`
+- `entry/src/main/resources/dark/element/color.json`
+
+Implementation direction to evaluate:
+
+- Extract or centralize a small comment-badge builder/style inside `GalleryCommentsCard` so uploader and score
+  badges cannot drift in size.
+- Update `comment_uploader` display text to `UP` across locales unless a locale-specific short equivalent is
+  explicitly chosen later.
+- Use a shared rounded chip radius, likely `ThemeConstants.CHIP_RADIUS` or a nearby token already used for
+  detail chips.
+- Keep `UP` on brand background with readable on-brand text.
+- Render score badges with neutral/subtle background and secondary/tertiary foreground, not positive/negative
+  saturated backgrounds.
+- Keep score click affordance and score details dialog on the full comments page.
+
+Acceptance shape:
+
+- Uploader `UP` badge and numeric score badge have matching height, padding, radius, and text weight.
+- `UP` remains theme-colored; numeric score is visually quieter and neutral.
+- Positive and negative scores no longer use saturated green/red backgrounds.
+- Full comments page score badge still opens score details when details exist.
+- Detail-page comment peek still suppresses numeric score badges and only shows the uploader `UP` badge when relevant.
+
 ### Gallery Detail Tags Do Not Jump To Search
 
 Type: feature gap / UX gap

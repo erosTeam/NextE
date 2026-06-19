@@ -369,6 +369,42 @@
       "value": "Share"
     },
     {
+      "name": "detail_edit_tags",
+      "value": "Edit tags"
+    },
+    {
+      "name": "detail_copy_link",
+      "value": "Copy link"
+    },
+    {
+      "name": "detail_copy_title",
+      "value": "Copy title"
+    },
+    {
+      "name": "detail_link_copied",
+      "value": "Link copied"
+    },
+    {
+      "name": "detail_title_copied",
+      "value": "Title copied"
+    },
+    {
+      "name": "detail_open_browser",
+      "value": "Open in browser"
+    },
+    {
+      "name": "detail_open_internal_web",
+      "value": "Open in app web"
+    },
+    {
+      "name": "detail_edit_tags_readonly_title",
+      "value": "Tag editing is read-only for now"
+    },
+    {
+      "name": "detail_edit_tags_readonly_desc",
+      "value": "Current tags are shown here. Submitting gallery tag changes is a separate protected write flow."
+    },
+    {
       "name": "detail_add_local_favorite",
       "value": "Add local favorite"
     },

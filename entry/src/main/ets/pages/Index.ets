@@ -17,6 +17,7 @@ import {
   EhUrlRouter,
   GalleryRef,
   GalleryDetailParams,
+  GalleryWebParams,
   ImagePageRouteErrorParams,
   ImagePageRouteService,
   ImagePageRouteTarget,
@@ -43,13 +44,14 @@ import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
 import { SettingsPage, EhSettingsPage, LayoutSettingsPage, ReaderSettingsPage, DownloadSettingsPage, SearchSettingsPage, AdvancedSettingsPage, SecuritySettingsPage, AboutPage } from 'settings'
-import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryArchiverPage, GalleryAllThumbnailsPage, GalleryCommentsPage } from 'gallery'
+import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryArchiverPage, GalleryAllThumbnailsPage, GalleryCommentsPage, GalleryEditTagsPage } from 'gallery'
 import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
 import { EhLoginWebPage } from './EhLoginWebPage'
 import { EhCookieImportPage } from './EhCookieImportPage'
 import { CoverFallbackProbePage } from './CoverFallbackProbePage'
 import { ImagePageRouteErrorPage } from './ImagePageRouteErrorPage'
+import { GalleryWebPage } from './GalleryWebPage'
 
 /**
  * NextE navigation shell — native HDS (`HdsNavigation` + `HdsTabs` from `@kit.UIDesignKit`,
@@ -382,6 +384,10 @@ struct Index {
       GalleryTorrentsPage()
     } else if (name === 'GalleryArchiver') {
       GalleryArchiverPage()
+    } else if (name === 'GalleryWeb') {
+      GalleryWebPage()
+    } else if (name === 'GalleryEditTags') {
+      GalleryEditTagsPage()
     } else if (name === 'Search') {
       GallerySearchPage()
     } else if (name === 'Reader') {
