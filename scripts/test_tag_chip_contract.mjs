@@ -31,6 +31,9 @@ const ok = (cond, msg) => {
 
 const card = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
+const constants = read('shared/src/main/ets/constants/EhConstants.ets')
+const lightColors = read('entry/src/main/resources/base/element/color.json')
+const darkColors = read('entry/src/main/resources/dark/element/color.json')
 const searchState = read('shared/src/main/ets/state/SearchActionState.ets')
 const searchParams = read('shared/src/main/ets/state/SearchPageParams.ets')
 const indexPage = read('entry/src/main/ets/pages/Index.ets')
@@ -56,6 +59,12 @@ ok(Number.isFinite(chipPadV) && chipPadV >= 5, `CHIP_PADDING_V defined and comfo
 // 3) Semantics preserved — namespace colour ONLY on the namespace label.
 ok(/\.backgroundColor\(EhConstants\.tagNamespaceColor\(tg\.namespace\)\)/.test(card), 'namespace label keeps its namespace-tint background')
 ok(/\.backgroundColor\(this\.chipBg\(t, tg\.namespace\)\)/.test(card), 'member chip background comes from chipBg(), not the namespace tint')
+ok(/m\.set\('other', \$r\('app\.color\.tagns_other'\)\)/.test(constants), 'other namespace maps to its eros_fe colour resource')
+ok(/m\.set\('temp', \$r\('app\.color\.tagns_temp'\)\)/.test(constants), 'temp namespace maps to its eros_fe colour resource')
+ok(/"name": "tagns_other"[\s\S]*"value": "#FBD6D5"/.test(lightColors), 'light other namespace colour mirrors eros_fe')
+ok(/"name": "tagns_temp"[\s\S]*"value": "#D7D7D6"/.test(lightColors), 'light temp namespace colour mirrors eros_fe')
+ok(/"name": "tagns_other"[\s\S]*"value": "#925554"/.test(darkColors), 'dark other namespace colour mirrors eros_fe')
+ok(/"name": "tagns_temp"[\s\S]*"value": "#63666A"/.test(darkColors), 'dark temp namespace colour mirrors eros_fe')
 
 // 4) Member chip colour resolution preserved (chipBg = usertag fill | neutral; chipText = vote | usertag | neutral).
 const chipBg = (() => {

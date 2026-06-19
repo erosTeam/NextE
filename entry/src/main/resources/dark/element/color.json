@@ -125,6 +125,14 @@
       "value": "#7F4A6B"
     },
     {
+      "name": "tagns_other",
+      "value": "#925554"
+    },
+    {
+      "name": "tagns_temp",
+      "value": "#63666A"
+    },
+    {
       "name": "tagns_misc",
       "value": "#63666A"
     },

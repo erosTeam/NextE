@@ -187,7 +187,7 @@ export class EhConstants {
 
   /**
    * Tag namespace → chip background color (eros_fe ThemeColors.tagColorTagType, pastel light /
-   * muted dark). Unmapped namespaces (e.g. 'mixed', 'other', 'temp') fall back to misc grey.
+   * muted dark). Unmapped namespaces (e.g. 'mixed') fall back to misc grey.
    * Short prefixes are expanded first so 'a:'/'artist:' share one color.
    */
   static tagNamespaceColor(ns: string): ResourceColor {
@@ -202,6 +202,8 @@ export class EhConstants {
       m.set('language', $r('app.color.tagns_language'))
       m.set('reclass', $r('app.color.tagns_reclass'))
       m.set('cosplayer', $r('app.color.tagns_cosplayer'))
+      m.set('other', $r('app.color.tagns_other'))
+      m.set('temp', $r('app.color.tagns_temp'))
       m.set('misc', $r('app.color.tagns_misc'))
       EhConstants.tagNsColorMap = m
     }

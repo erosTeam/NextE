@@ -337,6 +337,4 @@
     - 验:截图比对(NextE vs eros_fe 同页)
 - [x] **P2** [now] _shallow_ · tagset numeric-id ascending sort (NaN-safe, eros_fe parity; 无 default 特判可丢) — done 2026-06-15
 - [x] **P2** [now] _missed-logic_ · Namespace short-prefix expansion (a→artist…) + raw `tagWeight` preservation — namespace done 2026-06-15; raw `tagWeight` added after confirming eros_fe keeps it as `String` for setusertag round-trip. `weight:number` remains compatibility fallback only.
-- [ ] **P2** [dev] _ui-native_ · tagNsColorMap 缺 `other`/`temp` 配色(eros_fe 有)— NEW 2026-06-15 评审
-    - 修:新增 `app.color.tagns_other` / `tagns_temp`(dark+light),`m.set('other'/'temp', …)`;`mixed` 保持 misc 兜底(对标 eros_fe 无 mixed 色)。
-    - 验:截图比对(NextE vs eros_fe 同页)
+- [x] **P2** [dev] _ui-native_ · tagNsColorMap 补齐 `other`/`temp` 配色 — DONE. 对标 eros_fe `ThemeColors.tagColorTagType`: `other` 复用 reclass 红系(`#FBD6D5` / `#925554`), `temp` 复用 misc 灰系(`#D7D7D6` / `#63666A`); `mixed` 继续按未映射落 misc。Contract 锁定 resource + `EhConstants.tagNamespaceColor()` mapping;设备 smoke 验 app 可启动。
