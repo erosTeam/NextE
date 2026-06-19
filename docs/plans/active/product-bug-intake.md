@@ -2232,6 +2232,72 @@ Remaining acceptance:
   No further FE/device validation is required unless Settings root or Layout settings routing changes
   again.
 
+### Settings Root Missing Advanced Settings Page
+
+Type: feature gap / settings reachability
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- System comparison against `eros_fe` settings showed Advanced as a first-level Settings child page, while
+  NextE lacked an Advanced maintenance surface despite already using native `DiagnosticLogger` / HiLog.
+
+Grounding:
+
+- `eros_fe` settings root exposes `Advanced` in
+  `/Users/honjow/git/eros_fe/lib/pages/tab/controller/setting_controller.dart`, routing to
+  `EHRoutes.advancedSetting`.
+- The FE child page lives at `/Users/honjow/git/eros_fe/lib/pages/setting/advanced_setting_page.dart`
+  and includes low-frequency maintenance rows such as language, blockers, clear cache, proxy, data
+  import/export, native HTTP client, `Log`, and `Log debugMode`.
+- FE log browsing is implemented by `/Users/honjow/git/eros_fe/lib/pages/setting/log_page.dart`; NextE
+  intentionally starts with native HiLog diagnostics instead of a file-log viewer.
+
+Implementation:
+
+- `8078f1b feat(settings): add advanced diagnostics page` adds `AdvancedSettingsPage`,
+  exports/registers the `AdvancedSettings` route, and adds a Settings root `高级` row.
+- The page exposes a native diagnostics description and a `写入测试标记` action that writes
+  `[diagnostics] manual_marker | ts=...` through the existing `DiagnosticLogger` / system HiLog path.
+- Scope is deliberately limited to the one maintenance loop NextE already owns. It does not implement
+  proxy settings, cache clearing, import/export, language switching, blockers, WebDAV, native HTTP
+  adapter switching, file-log browsing, SearchFilter, Reader, or auth-cookie-login changes.
+
+Evidence:
+
+- Android FE comparison, 2026-06-19: ADB target `fa967a75`, launched
+  `com.honjow.fehviewer/.MainActivity` with `su`; FE Advanced page title `高级` showed maintenance rows
+  including language, blockers, clear cache, proxy, import/export, native HTTP client, `Log`, and
+  `Log debugMode`.
+  Evidence directory: `.hvigor/outputs/advanced-settings-fe-comparison/`, especially
+  `fe_advanced_settings.png` and `fe_advanced_settings_window.xml`.
+- Deterministic contracts/gates:
+  `scripts/test_settings_advanced_entry_contract.mjs`,
+  `scripts/test_settings_layout_entry_contract.mjs`,
+  `scripts/test_settings_search_entry_contract.mjs`,
+  `scripts/test_settings_reader_entry_contract.mjs`,
+  `scripts/test_settings_about_entry_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, and `git diff --check`.
+- Official signed build: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS emulator evidence, 2026-06-19: target `127.0.0.1:5555`, hdc outside sandbox, official
+  signed HAP installed. Settings root showed `高级`; tapping it opened Advanced settings with
+  `诊断`, `HiLog`, and `写入测试标记`. Tapping the marker action emitted
+  `A0e001/NextE: [diagnostics] manual_marker | ts=1781858500437` in native HiLog.
+  Evidence directory: `.hvigor/outputs/advanced-settings-nexte-evidence/`, especially
+  `nexte_settings_root.png`, `nexte_settings_root_layout.json`,
+  `nexte_advanced_settings_page.png`, `nexte_advanced_settings_page_layout.json`,
+  `nexte_advanced_marker_toast.png`, and `nexte_manual_marker_hilog.txt`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the Settings root placement and minimal Advanced diagnostics scope.
+  No further FE/device validation is required unless Settings root or Advanced settings routing changes
+  again.
+
 ### Settings Root Missing Reader Settings Entry
 
 Type: feature gap / settings reachability
