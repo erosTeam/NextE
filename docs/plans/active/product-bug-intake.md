@@ -2899,6 +2899,9 @@ Implementation:
 - `049170c fix(download): focus gallery task progress` keeps seed/download progress focused in the
   task subtitle, so page/category/uploader metadata does not crowd the important preparation or
   downloaded-count state.
+- Pending commit `fix(download): focus queue workbench` removes the settings-like queue summary rows
+  from the Download tab, so the pinned Gallery / Archiver segmented control is followed directly by
+  task cards or the per-queue empty state.
 - Scope stays UI/IA-only. This does not implement a deeper download executor, archive submission,
   retry/backoff, resumability, or offline reader integration.
 
@@ -2920,6 +2923,17 @@ Evidence:
   whose subtitle foregrounds `部分完成 · 已下载 1/51`; metadata remains on the row metadata line.
   Evidence directories: `.hvigor/outputs/download-seed-progress-fe-comparison/` and
   `.hvigor/outputs/download-seed-progress-nexte-evidence/`.
+- Current follow-up evidence, 2026-06-20: Android FE target `fa967a75`, launched with `adb su`, showed
+  the Downloads tab as a task workbench with top `画廊 / 归档` segmented control and task cards directly
+  below it. Evidence: `.hvigor/outputs/download-ia-current-fe/download_tab3.png`.
+- Current NextE evidence, 2026-06-20: Mate X7 emulator target `127.0.0.1:5555`, official signed HAP,
+  shows the Download tab with top `画廊 / 归档` segmented control followed directly by a real gallery task
+  card (`部分完成 · 已下载 1/51`), and the Archiver segment followed directly by `暂无归档下载`. Layout checks
+  confirm no `活跃任务`, `已完成任务`, `画廊下载队列`, `归档下载队列`, or `下载设置` summary rows. Evidence:
+  `.hvigor/outputs/download-ia-current-nexte/download.png`,
+  `.hvigor/outputs/download-ia-current-nexte/download.json`,
+  `.hvigor/outputs/download-ia-current-nexte/archiver.png`,
+  `.hvigor/outputs/download-ia-current-nexte/archiver.json`.
 
 Remaining acceptance:
 

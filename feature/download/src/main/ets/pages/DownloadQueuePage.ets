@@ -1,8 +1,6 @@
 import {
   ThemeConstants,
   SecondaryListScaffold,
-  GroupedListSection,
-  ConciseListRow,
   CardEmptyState,
   AppStrings,
   DownloadGalleryTask,
@@ -36,12 +34,6 @@ export struct DownloadQueuePage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
-  private selectedTitle(): Resource {
-    return this.downloadView.viewType === DownloadViewType.ARCHIVER
-      ? $r('app.string.download_archiver_queue')
-      : $r('app.string.download_gallery_queue')
-  }
-
   private selectedEmptyText(): Resource {
     return this.downloadView.viewType === DownloadViewType.ARCHIVER
       ? $r('app.string.download_archiver_empty')
@@ -52,18 +44,6 @@ export struct DownloadQueuePage {
     return this.downloadView.viewType === DownloadViewType.ARCHIVER
       ? $r('app.string.download_archiver_next_step')
       : $r('app.string.download_gallery_next_step')
-  }
-
-  private selectedActiveCount(): number {
-    return this.downloadView.viewType === DownloadViewType.ARCHIVER
-      ? 0
-      : this.downloadQueue.galleryTasks.length
-  }
-
-  private selectedStatus(): Resource {
-    return this.selectedActiveCount() > 0
-      ? $r('app.string.download_status_active')
-      : $r('app.string.download_status_empty')
   }
 
   private taskStatusText(task: DownloadGalleryTask): string {
@@ -137,36 +117,8 @@ export struct DownloadQueuePage {
   }
 
   @Builder
-  private SummarySection() {
-    GroupedListSection() {
-      ConciseListRow({
-        title: this.selectedTitle(),
-        leadingIcon: this.downloadView.viewType === DownloadViewType.ARCHIVER
-          ? $r('sys.symbol.square_grid_2x2')
-          : $r('sys.symbol.picture'),
-        trailingText: this.selectedStatus(),
-        showChevron: false,
-      })
-      this.rowDivider()
-      ConciseListRow({
-        title: $r('app.string.download_active_tasks'),
-        leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
-        trailingText: `${this.selectedActiveCount()}`,
-        showChevron: false,
-      })
-      this.rowDivider()
-      ConciseListRow({
-        title: $r('app.string.download_finished_tasks'),
-        leadingIcon: $r('sys.symbol.checkmark'),
-        trailingText: '0',
-        showChevron: false,
-      })
-    }
-  }
-
-  @Builder
   private EmptyQueueSection() {
-    GroupedListSection() {
+    Column() {
       CardEmptyState({ message: this.selectedEmptyText(), expand: false })
       Text(this.selectedNextStep())
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
@@ -179,6 +131,9 @@ export struct DownloadQueuePage {
           bottom: ThemeConstants.SPACE_LG,
         })
     }
+    .width('100%')
+    .borderRadius(ThemeConstants.RADIUS_CARD)
+    .backgroundColor($r('app.color.card_background'))
   }
 
   @Builder
@@ -277,14 +232,6 @@ export struct DownloadQueuePage {
     })
   }
 
-  @Builder
-  private rowDivider() {
-    Divider()
-      .strokeWidth(0.5)
-      .color($r('sys.color.ohos_id_color_list_separator'))
-      .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
   build() {
     Column() {
       SecondaryListScaffold({
@@ -296,9 +243,6 @@ export struct DownloadQueuePage {
             Blank()
           }
           .height(DOWNLOAD_SELECTOR_BAR_HEIGHT)
-        }
-        ListItem() {
-          this.SummarySection()
         }
         if (this.downloadView.viewType === DownloadViewType.GALLERY && this.downloadQueue.galleryTasks.length > 0) {
           ListItem() {

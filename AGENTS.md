@@ -17,6 +17,7 @@ For any ArkTS/UI/state change, `node scripts/test_v1_decorator_inventory_contrac
 - [Always-loaded rules](docs/agent-guides/always-loaded-rules.md) — data-flow boundary, gates, UI/product preservation, EH destructive writes, login/cookie security, commits.
 - [HarmonyOS default constraints](docs/agent-guides/harmonyos-default.md) — ArkTS/ETS syntax hard stops, official API/resource/i18n/theme requirements, ArkUI animation constraints, EH-porting specifics.
 - [Current Mac/Codex handoff](docs/agent-guides/current-mac-codex-handoff.md) — migrated-machine paths, current worktrees, emulator QA targets, active plan state, and the current list-responsive hard gate.
+- [Current dispatch state](docs/plans/active/current-dispatch-state.md) — short scheduling source of truth after compaction; read before using long intake/history files to choose the next lane.
 
 ## Project Docs
 

@@ -45,12 +45,14 @@ ok(/@Local downloadView: DownloadViewState = connectDownloadView\(\)/.test(page)
   'download page reads the shared selected queue view')
 ok(!/private QueueSwitcher\(\)|SwitchButton|DOWNLOAD_VIEW_GALLERY|DOWNLOAD_VIEW_ARCHIVER/.test(page),
   'download page does not own a scrolling queue switcher')
-ok(/SecondaryListScaffold/.test(page) && /GroupedListSection/.test(page),
-  'download page uses the existing grouped-list scaffold for queue content, not a centered placeholder')
-ok(/SummarySection/.test(page) && /download_active_tasks/.test(page) && /download_finished_tasks/.test(page),
-  'download page shows queue summary rows')
+ok(/SecondaryListScaffold/.test(page),
+  'download page uses the existing list scaffold for queue content, not a centered placeholder')
+ok(!/SummarySection|download_active_tasks|download_finished_tasks|selectedStatus|selectedActiveCount/.test(page),
+  'download page does not put settings-like summary rows before the queue')
 ok(/EmptyQueueSection/.test(page) && /selectedEmptyText/.test(page) && /selectedNextStep/.test(page),
   'download page shows per-queue empty-state guidance')
+ok(/ListItem\(\)\s*\{[\s\S]*DOWNLOAD_SELECTOR_BAR_HEIGHT[\s\S]*\}\s*if \(this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.downloadQueue\.galleryTasks\.length > 0\)/.test(page),
+  'download task or empty state follows the pinned selector spacer directly')
 ok(!/SettingsPreviewSection|download_concurrency|download_original_images|connectDownloadSettings/.test(page),
   'download page does not mix download settings into queue content')
 ok(/private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)/.test(page) &&
