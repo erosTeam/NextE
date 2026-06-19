@@ -62,19 +62,22 @@ ok('pinch zoom uses two fingers and pinch center correction',
   /this\.pinchCenterStartX = e\.pinchCenterX as number/.test(reader) &&
   /\(this\.pinchCenterStartX - this\.compW \/ 2\) \* \(1 - k\) \+ k \* this\.pinchStartOffX \+ dx/.test(reader) &&
   /this\.offsetX = this\.clampOffsetX\(nextX, nextScale\)/.test(reader))
-ok('parent Swiper captures double tap and commands the active image page',
+ok('parent Swiper captures double tap and routes it to the tapped image page',
   /@Local doubleTapSeq: number = 0/.test(reader) &&
+  /@Local doubleTapTargetPage: number = 0/.test(reader) &&
+  /private doubleTapTargetForPoint\(x: number\): number[\s\S]*this\.doublePageEnabled\(\)[\s\S]*this\.spreadRowReversed\(\)[\s\S]*tapLeftSide[\s\S]*return target \+ 1/.test(reader) &&
   /private onReaderDoubleTap\(x: number, y: number\): void[\s\S]*this\.doubleTapSeq = this\.doubleTapSeq \+ 1/.test(reader) &&
+  /private onReaderDoubleTap\(x: number, y: number\): void[\s\S]*this\.doubleTapTargetPage = this\.doubleTapTargetForPoint\(x\)/.test(reader) &&
   exclusiveDoubleBeforeSingle(horizontalReader) &&
   exclusiveDoubleBeforeSingle(doublePageReader) &&
-  /@Monitor\('doubleTapSeq'\)[\s\S]*onDoubleTapCommand\(\): void[\s\S]*this\.image\.page !== this\.activeIndex \+ 1[\s\S]*this\.onDoubleTap\(this\.doubleTapX, this\.doubleTapY\)/.test(reader))
+  /@Monitor\('doubleTapSeq'\)[\s\S]*onDoubleTapCommand\(\): void[\s\S]*const targetPage: number = this\.doubleTapTargetPage > 0 \? this\.doubleTapTargetPage : this\.activeIndex \+ 1[\s\S]*this\.image\.page !== targetPage[\s\S]*this\.onDoubleTap\(this\.doubleTapX, this\.doubleTapY\)/.test(reader))
 ok('single and double tap are not mixed through onClick plus parallelGesture',
   !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(horizontalReader) &&
     !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(doublePageReader) &&
     !/tapDispatchSeq|consumeNextTapAfterDoubleTap|suppressTapUntilMs|performReaderTap/.test(reader))
 ok('double tap zooms toward the commanded tap point',
   /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*\(1 - target\) \* \(tapX - this\.compW \/ 2\)/.test(reader) &&
-  /ReaderImagePage\(\{[\s\S]*doubleTapSeq: this\.doubleTapSeq,[\s\S]*doubleTapX: this\.doubleTapX,[\s\S]*doubleTapY: this\.doubleTapY/.test(reader))
+  /ReaderImagePage\(\{[\s\S]*doubleTapSeq: this\.doubleTapSeq,[\s\S]*doubleTapX: this\.doubleTapX,[\s\S]*doubleTapY: this\.doubleTapY,[\s\S]*doubleTapTargetPage: this\.doubleTapTargetPage/.test(reader))
 ok('double tap zoom transition is animated instead of an abrupt state jump',
   /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*animateTo\(\{ duration: 180, curve: Curve\.FastOutSlowIn \}/.test(reader) &&
   /this\.resetZoom\(\)[\s\S]*this\.notifyZoom\(\)/.test(reader))

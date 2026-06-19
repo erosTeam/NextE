@@ -2152,6 +2152,22 @@ Source:
   `.hvigor/outputs/reader-zoom-gate/zoomed.png`,
   `.hvigor/outputs/reader-zoom-gate/after_mode.png`, and
   `.hvigor/outputs/reader-zoom-gate/after_swipe.png`.
+- `fix(reader): target double-tap to tapped spread page` closes another narrow double-page gesture
+  subproblem: the parent double-tap bridge now routes by the tapped visual half of the spread instead of
+  always commanding `activeIndex + 1`. This makes double-tap on the right/second visible page zoom that
+  page's image surface rather than the active spread-start page. This still does not close the broader
+  PhotoView-like gesture lane or claim full pinch/pan acceptance.
+- Validation for the double-page double-tap target follow-up: Android `eros_fe` was launched with
+  `adb shell su -c 'am start -n com.honjow.fehviewer/.MainActivity'` and current Reader/all-thumbnails
+  screenshots were captured for product-behavior grounding. V2Next `ImagePreviewPage.ets` /
+  `ImagePreviewCoordinator.ets` were re-read for HarmonyOS transform/clamp gesture reference. NextE
+  deterministic contracts, V1 inventory, i18n duplicate check, `git diff --check`, and signed macOS
+  build passed. Mate X7 simulator `127.0.0.1:5555` installed the signed HAP with hdc outside sandbox,
+  opened the public Rockman gallery Reader in `双页 B`, and double-tapped the right visible page; the
+  right page zoomed into the full reading canvas. Evidence:
+  `.hvigor/outputs/reader-gesture-next/fe_reader_ready_su.png`,
+  `.hvigor/outputs/reader-doubletap-target/reader_ready.png`, and
+  `.hvigor/outputs/reader-doubletap-target/right_zoom.png`.
 - User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
   enough to affect normal reading.
 - Read-only code inspection of `feature/reader/src/main/ets/pages/ReaderPage.ets` shows double-tap is

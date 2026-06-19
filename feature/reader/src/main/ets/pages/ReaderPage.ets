@@ -50,6 +50,7 @@ export struct ReaderPage {
   @Local doubleTapSeq: number = 0;
   @Local doubleTapX: number = 0;
   @Local doubleTapY: number = 0;
+  @Local doubleTapTargetPage: number = 0;
   // While the user drags the page slider, show the target page (1-based) instead of the live one.
   @Local sliderPreview: number = -1;
   // 1-based slider position; follows the live page on swipe and drives jump-to-page on drag.
@@ -538,9 +539,26 @@ export struct ReaderPage {
     }
   }
 
+  private doubleTapTargetForPoint(x: number): number {
+    if (!this.doublePageEnabled()) {
+      return this.vm.currentIndex + 1
+    }
+    const spreadStart: number = this.spreadStartIndex(this.spreadIndexForImage(this.vm.currentIndex))
+    const second: number = this.spreadSecondIndex(spreadStart)
+    const leftVisualTarget: number = this.spreadRowReversed() ? second : spreadStart
+    const rightVisualTarget: number = this.spreadRowReversed() ? spreadStart : second
+    const tapLeftSide: boolean = x < this.viewWidth / 2
+    const target: number = tapLeftSide ? leftVisualTarget : rightVisualTarget
+    if (!this.hasSpreadImage(target)) {
+      return spreadStart + 1
+    }
+    return target + 1
+  }
+
   private onReaderDoubleTap(x: number, y: number): void {
     this.doubleTapX = x
     this.doubleTapY = y
+    this.doubleTapTargetPage = this.doubleTapTargetForPoint(x)
     this.doubleTapSeq = this.doubleTapSeq + 1
   }
 
@@ -646,6 +664,7 @@ export struct ReaderPage {
             doubleTapSeq: this.doubleTapSeq,
             doubleTapX: this.doubleTapX,
             doubleTapY: this.doubleTapY,
+            doubleTapTargetPage: this.doubleTapTargetPage,
             onZoomChange: (zoomed: boolean) => {
               this.imageZoomed = zoomed
             },
@@ -794,6 +813,7 @@ export struct ReaderPage {
         doubleTapSeq: this.doubleTapSeq,
         doubleTapX: this.doubleTapX,
         doubleTapY: this.doubleTapY,
+        doubleTapTargetPage: this.doubleTapTargetPage,
         onZoomChange: (zoomed: boolean) => {
           this.imageZoomed = zoomed
         },
@@ -1279,6 +1299,7 @@ struct ReaderImagePage {
   @Param doubleTapSeq: number = 0;
   @Param doubleTapX: number = 0;
   @Param doubleTapY: number = 0;
+  @Param doubleTapTargetPage: number = 0;
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
 
@@ -1314,7 +1335,8 @@ struct ReaderImagePage {
 
   @Monitor('doubleTapSeq')
   onDoubleTapCommand(): void {
-    if (this.image.page !== this.activeIndex + 1) {
+    const targetPage: number = this.doubleTapTargetPage > 0 ? this.doubleTapTargetPage : this.activeIndex + 1
+    if (this.image.page !== targetPage) {
       return
     }
     this.onDoubleTap(this.doubleTapX, this.doubleTapY)
