@@ -544,6 +544,10 @@ export struct ReaderPage {
     this.doubleTapSeq = this.doubleTapSeq + 1
   }
 
+  private clearZoomGate(): void {
+    this.imageZoomed = false
+  }
+
   private doublePageEnabled(): boolean {
     return this.readMode.mode !== ReadMode.VERTICAL && this.readMode.columnMode !== ReadColumnMode.SINGLE
   }
@@ -602,6 +606,7 @@ export struct ReaderPage {
     if (target < 0) {
       return
     }
+    this.clearZoomGate()
     if (target >= this.vm.images.length || !this.vm.hasPreviewAt(target)) {
       this.jumpToPage(target)
       return
@@ -618,6 +623,7 @@ export struct ReaderPage {
   // reactive `.index()` moves there (a fixed `.index` would reset on rebuild). Vertical: scroll the
   // List to the index (onScrollIndex then updates currentIndex).
   private jumpToPage(index: number): void {
+    this.clearZoomGate()
     this.vm.jumpTo(index).then((target: number) => {
       if (this.readMode.mode === ReadMode.VERTICAL) {
         this.vm.currentIndex = target
@@ -660,6 +666,7 @@ export struct ReaderPage {
     .width('100%')
     .height('100%')
     .onChange((i: number) => {
+      this.clearZoomGate()
       this.vm.onPageChange(i)
     })
     .gesture(
@@ -841,6 +848,7 @@ export struct ReaderPage {
     .width('100%')
     .height('100%')
     .onChange((i: number) => {
+      this.clearZoomGate()
       this.vm.onPageChange(this.spreadStartIndex(i))
     })
     .gesture(
@@ -946,6 +954,7 @@ export struct ReaderPage {
     if (this.readMode.mode === ReadMode.VERTICAL) {
       return
     }
+    this.clearZoomGate()
     this.vm.currentIndex = targetIndex
     this.sliderValue = targetIndex + 1
   }
@@ -1309,6 +1318,14 @@ struct ReaderImagePage {
       return
     }
     this.onDoubleTap(this.doubleTapX, this.doubleTapY)
+  }
+
+  @Monitor('activeIndex')
+  onActiveIndexChanged(): void {
+    if (this.image.page !== this.activeIndex + 1) {
+      this.resetZoom()
+      this.notifyZoom()
+    }
   }
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) — re-resolves via /s/?nl= for a

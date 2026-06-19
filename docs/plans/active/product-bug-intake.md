@@ -2137,6 +2137,21 @@ Source:
   `.hvigor/outputs/reader-gesture-arena/reader_doubletap_current.png` and
   `.hvigor/outputs/reader-gesture-arena/reader_doubletap_consume_tap.png` documents why the previous
   timeout/consume-tap patch was insufficient.
+- `fix(reader): reset zoom state on page changes` closes a narrower state-leak subproblem: parent
+  `imageZoomed` is cleared before programmatic page navigation, Swiper page changes, double-page spread
+  changes, and column-mode changes; cached inactive `ReaderImagePage` instances also reset and notify
+  after leaving the active page. This prevents a zoomed old surface from keeping the next fit-scale
+  page's Swiper disabled. This does not close the full PhotoView-like gesture lane.
+- Validation for the zoom-state reset follow-up: `scripts/test_reader_zoom_quality_contract.mjs` now
+  asserts the page-change zoom gate and cached-page reset guards; full deterministic contracts,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, i18n duplicate check, `git diff --check`, and
+  `scripts/build_hvigor_signed.sh` passed. Mate X7 simulator `127.0.0.1:5555` installed the signed HAP
+  with hdc outside sandbox, opened Reader at `3 / 138`, double-tapped to zoom, switched double-page
+  column mode back to fit state (`2 / 138`), then performed a horizontal page swipe to `4 / 138`.
+  Evidence: `.hvigor/outputs/reader-zoom-gate/reader.png`,
+  `.hvigor/outputs/reader-zoom-gate/zoomed.png`,
+  `.hvigor/outputs/reader-zoom-gate/after_mode.png`, and
+  `.hvigor/outputs/reader-zoom-gate/after_swipe.png`.
 - User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
   enough to affect normal reading.
 - Read-only code inspection of `feature/reader/src/main/ets/pages/ReaderPage.ets` shows double-tap is

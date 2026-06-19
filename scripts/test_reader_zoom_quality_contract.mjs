@@ -88,5 +88,13 @@ ok('parent Swiper owns horizontal page turn unless image is zoomed',
   /\.disableSwipe\(this\.imageZoomed\)/.test(reader))
 ok('zoom state is still reported to parent',
   /this\.onZoomChange\(zoomed\)/.test(reader))
+ok('page navigation clears stale parent zoom gate before changing active image',
+  /private clearZoomGate\(\): void \{[\s\S]*this\.imageZoomed = false[\s\S]*\}/.test(reader) &&
+  /private turnTo\(target: number\): void \{[\s\S]*this\.clearZoomGate\(\)[\s\S]*this\.vm\.onPageChange\(target\)/.test(reader) &&
+  /private jumpToPage\(index: number\): void \{[\s\S]*this\.clearZoomGate\(\)[\s\S]*this\.vm\.jumpTo\(index\)/.test(reader) &&
+  /HorizontalReader\(\)[\s\S]*\.onChange\(\(i: number\) => \{[\s\S]*this\.clearZoomGate\(\)[\s\S]*this\.vm\.onPageChange\(i\)/.test(reader) &&
+  /DoublePageReader\(\)[\s\S]*\.onChange\(\(i: number\) => \{[\s\S]*this\.clearZoomGate\(\)[\s\S]*this\.vm\.onPageChange\(this\.spreadStartIndex\(i\)\)/.test(reader))
+ok('cached image pages reset zoom after leaving the active page',
+  /@Monitor\('activeIndex'\)[\s\S]*onActiveIndexChanged\(\): void \{[\s\S]*this\.image\.page !== this\.activeIndex \+ 1[\s\S]*this\.resetZoom\(\)[\s\S]*this\.notifyZoom\(\)/.test(reader))
 
 console.log(`✓ reader zoom surface contract: ${passed} assertions passed`)
