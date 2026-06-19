@@ -2329,6 +2329,28 @@ Implementation direction:
   `.hvigor/outputs/reader-spread-resolver/ready.png`,
   `.hvigor/outputs/reader-spread-resolver/after_swipe.png`, and
   `.hvigor/outputs/reader-spread-resolver/mode_cycle.png`.
+- Follow-up implementation in progress: `ReaderZoomCoordinator` now owns shared zoom math for
+  single-page and double-page spread surfaces: scale clamping, contain-fit sizing, offset clamping,
+  pan activation distance, double-tap target/offset, and pinch-center offset correction. Double-page
+  `ReaderSpreadSurface` now records child image metrics from `ReaderSpreadImageLayer` and clamps zoomed
+  pan against the contain-fitted spread content instead of the raw viewport. This narrows the remaining
+  PhotoView-like gesture work without changing Reader chrome or download/offline behavior.
+- Validation for the zoom-coordinator follow-up: full deterministic contract sweep passed, including
+  Reader zoom quality requiring `ReaderZoomCoordinator` and double-page child image metrics; V1 inventory
+  stayed at `0 file(s)`, i18n parity and `git diff --check` passed, and `scripts/build_hvigor_signed.sh`
+  passed. Android `eros_fe` was launched with ADB `su` and captured as product-context evidence. Mate X7
+  simulator `127.0.0.1:5555` installed the signed HAP with hdc outside sandbox, opened the public Rockman
+  gallery, entered Reader from `继续 P10`, confirmed single-page ready `10 / 138 / 关闭`, double-tapped to
+  zoom, panned the zoomed single-page image, reset and swiped to `11 / 138 / 关闭`, then switched to
+  `双页 B`, double-tapped and panned the spread, reset and swiped from `10 / 138 / 双页 B` to
+  `12 / 138 / 双页 B`. Evidence:
+  `.hvigor/outputs/reader-zoom-coordinator/fe_reference.png`,
+  `.hvigor/outputs/reader-zoom-coordinator/single_zoom.png`,
+  `.hvigor/outputs/reader-zoom-coordinator/single_pan.png`,
+  `.hvigor/outputs/reader-zoom-coordinator/single_after_swipe.png`,
+  `.hvigor/outputs/reader-zoom-coordinator/double_zoom.png`,
+  `.hvigor/outputs/reader-zoom-coordinator/double_pan.png`, and
+  `.hvigor/outputs/reader-zoom-coordinator/double_after_swipe.png`.
 - If double-page is repaired, do not implement it as two sibling independent `ReaderImagePage` surfaces
   that each own zoom/pan/loading. Introduce `ReaderSpreadSurface` or an equivalent single-surface model.
 - Keep first implementation narrow: online horizontal Reader, single spread surface, current `ReaderParams`

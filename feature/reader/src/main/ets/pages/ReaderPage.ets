@@ -1287,6 +1287,89 @@ const MAX_SCALE: number = 4
 const DOUBLE_TAP_SCALE: number = 2.5
 const IMAGE_AUTO_RETRY_LIMIT: number = 3
 
+class ReaderZoomCoordinator {
+  static isZoomed(scale: number): boolean {
+    return scale > 1.01
+  }
+
+  static clampScale(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 1
+    }
+    if (value < 1) {
+      return 1
+    }
+    if (value > MAX_SCALE) {
+      return MAX_SCALE
+    }
+    return value
+  }
+
+  static fitScale(
+    viewportW: number,
+    viewportH: number,
+    intrinsicW: number,
+    intrinsicH: number
+  ): number {
+    if (viewportW <= 0 || viewportH <= 0 || intrinsicW <= 0 || intrinsicH <= 0) {
+      return 1
+    }
+    const scaleW: number = viewportW / intrinsicW
+    const scaleH: number = viewportH / intrinsicH
+    const fit: number = Math.min(scaleW, scaleH)
+    return fit > 0 ? fit : 1
+  }
+
+  static displaySize(viewport: number, intrinsic: number, fitScale: number): number {
+    if (intrinsic <= 0 || fitScale <= 0) {
+      return viewport
+    }
+    return intrinsic * fitScale
+  }
+
+  static maxOffset(viewport: number, displaySize: number, scale: number): number {
+    const overflow: number = displaySize * scale - viewport
+    return overflow > 0 ? overflow / 2 : 0
+  }
+
+  static clampOffset(value: number, viewport: number, displaySize: number, scale: number): number {
+    const max: number = ReaderZoomCoordinator.maxOffset(viewport, displaySize, scale)
+    if (value > max) {
+      return max
+    }
+    if (value < -max) {
+      return -max
+    }
+    return value
+  }
+
+  static panDistance(scale: number, viewportW: number, viewportH: number): number {
+    if (ReaderZoomCoordinator.isZoomed(scale)) {
+      return 1
+    }
+    const longSide: number = Math.max(viewportW, viewportH)
+    return longSide > 0 ? longSide * 2 : 10000
+  }
+
+  static doubleTapTarget(currentScale: number): number {
+    return ReaderZoomCoordinator.isZoomed(currentScale) ? 1 : DOUBLE_TAP_SCALE
+  }
+
+  static doubleTapOffset(tap: number, viewport: number, targetScale: number): number {
+    return (1 - targetScale) * (tap - viewport / 2)
+  }
+
+  static pinchOffset(
+    pinchCenterStart: number,
+    viewport: number,
+    scaleRatio: number,
+    startOffset: number,
+    centerDrift: number
+  ): number {
+    return (pinchCenterStart - viewport / 2) * (1 - scaleRatio) + scaleRatio * startOffset + centerDrift
+  }
+}
+
 enum ReaderImageFailureKind {
   Generic = 'generic',
   Quota = 'quota',
@@ -1332,6 +1415,10 @@ struct ReaderSpreadSurface {
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
   @Local offsetY: number = 0;
+  @Local firstIntrinsicW: number = 0;
+  @Local firstIntrinsicH: number = 0;
+  @Local secondIntrinsicW: number = 0;
+  @Local secondIntrinsicH: number = 0;
 
   private pinchStartScale: number = 1;
   private pinchStartOffX: number = 0;
@@ -1370,51 +1457,57 @@ struct ReaderSpreadSurface {
   }
 
   private clampScale(value: number): number {
-    if (!Number.isFinite(value)) {
-      return 1
-    }
-    if (value < 1) {
-      return 1
-    }
-    if (value > MAX_SCALE) {
-      return MAX_SCALE
-    }
-    return value
+    return ReaderZoomCoordinator.clampScale(value)
   }
 
-  private maxOffset(viewport: number, displaySize: number, scale: number): number {
-    const overflow: number = displaySize * scale - viewport
-    return overflow > 0 ? overflow / 2 : 0
+  private paneCount(): number {
+    return this.hasSecond ? 2 : 1
+  }
+
+  private paneWidth(): number {
+    const count: number = this.paneCount()
+    if (count <= 1) {
+      return this.compW
+    }
+    const contentWidth: number = this.compW - ThemeConstants.SPACE_XS
+    return contentWidth > 0 ? contentWidth / count : this.compW / count
+  }
+
+  private imageDisplayW(intrinsicW: number, intrinsicH: number): number {
+    const fit: number = ReaderZoomCoordinator.fitScale(this.paneWidth(), this.compH, intrinsicW, intrinsicH)
+    return ReaderZoomCoordinator.displaySize(this.paneWidth(), intrinsicW, fit)
+  }
+
+  private imageDisplayH(intrinsicW: number, intrinsicH: number): number {
+    const fit: number = ReaderZoomCoordinator.fitScale(this.paneWidth(), this.compH, intrinsicW, intrinsicH)
+    return ReaderZoomCoordinator.displaySize(this.compH, intrinsicH, fit)
+  }
+
+  private displayW(): number {
+    const firstW: number = this.hasFirst ? this.imageDisplayW(this.firstIntrinsicW, this.firstIntrinsicH) : 0
+    const secondW: number = this.hasSecond ? this.imageDisplayW(this.secondIntrinsicW, this.secondIntrinsicH) : 0
+    const gap: number = this.hasFirst && this.hasSecond ? ThemeConstants.SPACE_XS : 0
+    const total: number = firstW + secondW + gap
+    return total > 0 ? total : this.compW
+  }
+
+  private displayH(): number {
+    const firstH: number = this.hasFirst ? this.imageDisplayH(this.firstIntrinsicW, this.firstIntrinsicH) : 0
+    const secondH: number = this.hasSecond ? this.imageDisplayH(this.secondIntrinsicW, this.secondIntrinsicH) : 0
+    const total: number = Math.max(firstH, secondH)
+    return total > 0 ? total : this.compH
   }
 
   private clampOffsetX(value: number, scale: number): number {
-    const maxX: number = this.maxOffset(this.compW, this.compW, scale)
-    if (value > maxX) {
-      return maxX
-    }
-    if (value < -maxX) {
-      return -maxX
-    }
-    return value
+    return ReaderZoomCoordinator.clampOffset(value, this.compW, this.displayW(), scale)
   }
 
   private clampOffsetY(value: number, scale: number): number {
-    const maxY: number = this.maxOffset(this.compH, this.compH, scale)
-    if (value > maxY) {
-      return maxY
-    }
-    if (value < -maxY) {
-      return -maxY
-    }
-    return value
+    return ReaderZoomCoordinator.clampOffset(value, this.compH, this.displayH(), scale)
   }
 
   private panDistance(): number {
-    if (this.zoomScale > 1.01) {
-      return 1
-    }
-    const longSide: number = Math.max(this.compW, this.compH)
-    return longSide > 0 ? longSide * 2 : 10000
+    return ReaderZoomCoordinator.panDistance(this.zoomScale, this.compW, this.compH)
   }
 
   private clampOffset(): void {
@@ -1429,7 +1522,7 @@ struct ReaderSpreadSurface {
   }
 
   private notifyZoom(): void {
-    const zoomed: boolean = this.zoomScale > 1.01
+    const zoomed: boolean = ReaderZoomCoordinator.isZoomed(this.zoomScale)
     if (zoomed !== this.lastZoomed) {
       this.lastZoomed = zoomed
       this.onZoomChange(zoomed)
@@ -1437,7 +1530,7 @@ struct ReaderSpreadSurface {
   }
 
   private onDoubleTap(tapX: number, tapY: number): void {
-    if (this.zoomScale > 1.01) {
+    if (ReaderZoomCoordinator.doubleTapTarget(this.zoomScale) === 1) {
       this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
         this.resetZoom()
         this.notifyZoom()
@@ -1445,14 +1538,27 @@ struct ReaderSpreadSurface {
       return
     }
     const target: number = DOUBLE_TAP_SCALE
-    const nextX: number = (1 - target) * (tapX - this.compW / 2)
-    const nextY: number = (1 - target) * (tapY - this.compH / 2)
+    const nextX: number = ReaderZoomCoordinator.doubleTapOffset(tapX, this.compW, target)
+    const nextY: number = ReaderZoomCoordinator.doubleTapOffset(tapY, this.compH, target)
     this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
       this.zoomScale = target
       this.offsetX = this.clampOffsetX(nextX, target)
       this.offsetY = this.clampOffsetY(nextY, target)
       this.notifyZoom()
     })
+  }
+
+  private recordImageMetrics(page: number, width: number, height: number): void {
+    const w: number = this.getUIContext().px2vp(width)
+    const h: number = this.getUIContext().px2vp(height)
+    if (this.hasFirst && this.first.page === page) {
+      this.firstIntrinsicW = w
+      this.firstIntrinsicH = h
+    } else if (this.hasSecond && this.second.page === page) {
+      this.secondIntrinsicW = w
+      this.secondIntrinsicH = h
+    }
+    this.clampOffset()
   }
 
   @Builder
@@ -1462,6 +1568,9 @@ struct ReaderSpreadSurface {
         image: image,
         onImageLoaded: (page: number) => {
           this.onImageLoaded(page)
+        },
+        onImageMetrics: (page: number, width: number, height: number) => {
+          this.recordImageMetrics(page, width, height)
         },
       })
         .layoutWeight(1)
@@ -1519,10 +1628,20 @@ struct ReaderSpreadSurface {
             const k: number = nextScale / this.pinchStartScale
             const dx: number = (e.pinchCenterX as number) - this.pinchCenterStartX
             const dy: number = (e.pinchCenterY as number) - this.pinchCenterStartY
-            const nextX: number =
-              (this.pinchCenterStartX - this.compW / 2) * (1 - k) + k * this.pinchStartOffX + dx
-            const nextY: number =
-              (this.pinchCenterStartY - this.compH / 2) * (1 - k) + k * this.pinchStartOffY + dy
+            const nextX: number = ReaderZoomCoordinator.pinchOffset(
+              this.pinchCenterStartX,
+              this.compW,
+              k,
+              this.pinchStartOffX,
+              dx
+            )
+            const nextY: number = ReaderZoomCoordinator.pinchOffset(
+              this.pinchCenterStartY,
+              this.compH,
+              k,
+              this.pinchStartOffY,
+              dy
+            )
             this.zoomScale = nextScale
             this.offsetX = this.clampOffsetX(nextX, nextScale)
             this.offsetY = this.clampOffsetY(nextY, nextScale)
@@ -1547,7 +1666,7 @@ struct ReaderSpreadSurface {
             this.panStartOffY = this.offsetY
           })
           .onActionUpdate((e?: GestureEvent) => {
-            if (!e || this.isPinching || this.zoomScale <= 1.01) {
+            if (!e || this.isPinching || !ReaderZoomCoordinator.isZoomed(this.zoomScale)) {
               return
             }
             this.offsetX = this.clampOffsetX(this.panStartOffX + (e.offsetX as number), this.zoomScale)
@@ -1562,6 +1681,8 @@ struct ReaderSpreadSurface {
 struct ReaderSpreadImageLayer {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
+  @Param onImageMetrics: (page: number, width: number, height: number) => void =
+    (_page: number, _width: number, _height: number) => {};
 
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
@@ -1633,6 +1754,11 @@ struct ReaderSpreadImageLayer {
             this.autoRetryCount = 0
             this.imageLoaded = true
             this.onImageLoaded(this.image.page)
+            if (_event && _event.width && _event.height) {
+              this.onImageMetrics(this.image.page, _event.width, _event.height)
+            } else if (_event && _event.componentWidth && _event.componentHeight) {
+              this.onImageMetrics(this.image.page, _event.componentWidth, _event.componentHeight)
+            }
           })
           .onError(() => {
             DiagnosticLogger.warn('reader', 'spread_image_load_failed', `page ${this.image.page}`)
@@ -1760,75 +1886,35 @@ struct ReaderImagePage {
   }
 
   private clampScale(value: number): number {
-    if (!Number.isFinite(value)) {
-      return 1
-    }
-    if (value < 1) {
-      return 1
-    }
-    if (value > MAX_SCALE) {
-      return MAX_SCALE
-    }
-    return value
+    return ReaderZoomCoordinator.clampScale(value)
   }
 
   private fitScale(): number {
-    if (this.compW <= 0 || this.compH <= 0 || this.intrinsicW <= 0 || this.intrinsicH <= 0) {
-      return 1
-    }
-    const scaleW: number = this.compW / this.intrinsicW
-    const scaleH: number = this.compH / this.intrinsicH
-    const fit: number = Math.min(scaleW, scaleH)
-    return fit > 0 ? fit : 1
+    return ReaderZoomCoordinator.fitScale(this.compW, this.compH, this.intrinsicW, this.intrinsicH)
   }
 
   private displayW(): number {
-    if (this.intrinsicW <= 0) {
-      return this.compW
-    }
-    return this.intrinsicW * this.fitScale()
+    return ReaderZoomCoordinator.displaySize(this.compW, this.intrinsicW, this.fitScale())
   }
 
   private displayH(): number {
-    if (this.intrinsicH <= 0) {
-      return this.compH
-    }
-    return this.intrinsicH * this.fitScale()
+    return ReaderZoomCoordinator.displaySize(this.compH, this.intrinsicH, this.fitScale())
   }
 
   private maxOffset(viewport: number, displaySize: number, scale: number): number {
-    const overflow: number = displaySize * scale - viewport
-    return overflow > 0 ? overflow / 2 : 0
+    return ReaderZoomCoordinator.maxOffset(viewport, displaySize, scale)
   }
 
   private clampOffsetX(value: number, scale: number): number {
-    const maxX: number = this.maxOffset(this.compW, this.displayW(), scale)
-    if (value > maxX) {
-      return maxX
-    }
-    if (value < -maxX) {
-      return -maxX
-    }
-    return value
+    return ReaderZoomCoordinator.clampOffset(value, this.compW, this.displayW(), scale)
   }
 
   private clampOffsetY(value: number, scale: number): number {
-    const maxY: number = this.maxOffset(this.compH, this.displayH(), scale)
-    if (value > maxY) {
-      return maxY
-    }
-    if (value < -maxY) {
-      return -maxY
-    }
-    return value
+    return ReaderZoomCoordinator.clampOffset(value, this.compH, this.displayH(), scale)
   }
 
   private panDistance(): number {
-    if (this.zoomScale > 1.01) {
-      return 1
-    }
-    const longSide: number = Math.max(this.compW, this.compH)
-    return longSide > 0 ? longSide * 2 : 10000
+    return ReaderZoomCoordinator.panDistance(this.zoomScale, this.compW, this.compH)
   }
 
   private clampOffset(): void {
@@ -1848,7 +1934,7 @@ struct ReaderImagePage {
   }
 
   private notifyZoom(): void {
-    const zoomed: boolean = this.zoomScale > 1.01
+    const zoomed: boolean = ReaderZoomCoordinator.isZoomed(this.zoomScale)
     if (zoomed !== this.lastZoomed) {
       this.lastZoomed = zoomed
       this.onZoomChange(zoomed)
@@ -1856,15 +1942,15 @@ struct ReaderImagePage {
   }
 
   private onDoubleTap(tapX: number, tapY: number): void {
-    if (this.zoomScale > 1.01) {
+    if (ReaderZoomCoordinator.doubleTapTarget(this.zoomScale) === 1) {
       this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
         this.resetZoom()
         this.notifyZoom()
       })
     } else {
       const target: number = DOUBLE_TAP_SCALE
-      const nextX: number = (1 - target) * (tapX - this.compW / 2)
-      const nextY: number = (1 - target) * (tapY - this.compH / 2)
+      const nextX: number = ReaderZoomCoordinator.doubleTapOffset(tapX, this.compW, target)
+      const nextY: number = ReaderZoomCoordinator.doubleTapOffset(tapY, this.compH, target)
       this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
         this.zoomScale = target
         this.baseZoom = target
@@ -1958,10 +2044,20 @@ struct ReaderImagePage {
             const k: number = nextScale / this.pinchStartScale
             const dx: number = (e.pinchCenterX as number) - this.pinchCenterStartX
             const dy: number = (e.pinchCenterY as number) - this.pinchCenterStartY
-            const nextX: number =
-              (this.pinchCenterStartX - this.compW / 2) * (1 - k) + k * this.pinchStartOffX + dx
-            const nextY: number =
-              (this.pinchCenterStartY - this.compH / 2) * (1 - k) + k * this.pinchStartOffY + dy
+            const nextX: number = ReaderZoomCoordinator.pinchOffset(
+              this.pinchCenterStartX,
+              this.compW,
+              k,
+              this.pinchStartOffX,
+              dx
+            )
+            const nextY: number = ReaderZoomCoordinator.pinchOffset(
+              this.pinchCenterStartY,
+              this.compH,
+              k,
+              this.pinchStartOffY,
+              dy
+            )
             this.zoomScale = nextScale
             this.offsetX = this.clampOffsetX(nextX, nextScale)
             this.offsetY = this.clampOffsetY(nextY, nextScale)
@@ -1991,7 +2087,7 @@ struct ReaderImagePage {
           this.panStartOffY = this.offsetY
         })
         .onActionUpdate((e?: GestureEvent) => {
-          if (!e || this.isPinching || this.zoomScale <= 1.01) {
+          if (!e || this.isPinching || !ReaderZoomCoordinator.isZoomed(this.zoomScale)) {
             return
           }
           this.offsetX = this.clampOffsetX(this.panStartOffX + (e.offsetX as number), this.zoomScale)

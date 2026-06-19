@@ -56,20 +56,28 @@ function exclusiveDoubleBeforeSingle(src) {
 ok('zoom constants are local to ReaderPage',
   /const MAX_SCALE: number = 4/.test(reader) &&
   /const DOUBLE_TAP_SCALE: number = 2\.5/.test(reader))
+ok('ReaderZoomCoordinator owns shared zoom math for single-page and spread surfaces',
+  /class ReaderZoomCoordinator \{[\s\S]*static isZoomed\(scale: number\): boolean[\s\S]*scale > 1\.01/.test(reader) &&
+  /static clampScale\(value: number\): number[\s\S]*MAX_SCALE/.test(reader) &&
+  /static fitScale\([\s\S]*viewportW: number,[\s\S]*viewportH: number,[\s\S]*intrinsicW: number,[\s\S]*intrinsicH: number[\s\S]*Math\.min\(scaleW, scaleH\)/.test(reader) &&
+  /static displaySize\(viewport: number, intrinsic: number, fitScale: number\): number[\s\S]*intrinsic \* fitScale/.test(reader) &&
+  /static clampOffset\(value: number, viewport: number, displaySize: number, scale: number\): number[\s\S]*ReaderZoomCoordinator\.maxOffset/.test(reader) &&
+  /static doubleTapOffset\(tap: number, viewport: number, targetScale: number\): number[\s\S]*\(1 - targetScale\) \* \(tap - viewport \/ 2\)/.test(reader) &&
+  /static pinchOffset\([\s\S]*pinchCenterStart: number,[\s\S]*viewport: number,[\s\S]*scaleRatio: number,[\s\S]*startOffset: number,[\s\S]*centerDrift: number[\s\S]*pinchCenterStart - viewport \/ 2/.test(reader))
 ok('reader captures intrinsic image size from Image.onComplete',
   /interface ReaderImageLoadEvent/.test(reader) &&
   /this\.intrinsicW = this\.getUIContext\(\)\.px2vp\(event\.width\)/.test(reader) &&
   /this\.intrinsicH = this\.getUIContext\(\)\.px2vp\(event\.height\)/.test(reader))
 ok('pan bounds use contain-fitted display size instead of raw viewport only',
-  /private fitScale\(\): number[\s\S]*Math\.min\(scaleW, scaleH\)/.test(reader) &&
-  /private displayW\(\): number[\s\S]*this\.intrinsicW \* this\.fitScale\(\)/.test(reader) &&
-  /private displayH\(\): number[\s\S]*this\.intrinsicH \* this\.fitScale\(\)/.test(reader) &&
-  /private clampOffsetX\(value: number, scale: number\): number[\s\S]*this\.maxOffset\(this\.compW, this\.displayW\(\), scale\)/.test(reader) &&
-  /private clampOffsetY\(value: number, scale: number\): number[\s\S]*this\.maxOffset\(this\.compH, this\.displayH\(\), scale\)/.test(reader))
+  /private fitScale\(\): number \{[\s\S]*return ReaderZoomCoordinator\.fitScale\(this\.compW, this\.compH, this\.intrinsicW, this\.intrinsicH\)/.test(reader) &&
+  /private displayW\(\): number \{[\s\S]*return ReaderZoomCoordinator\.displaySize\(this\.compW, this\.intrinsicW, this\.fitScale\(\)\)/.test(reader) &&
+  /private displayH\(\): number \{[\s\S]*return ReaderZoomCoordinator\.displaySize\(this\.compH, this\.intrinsicH, this\.fitScale\(\)\)/.test(reader) &&
+  /private clampOffsetX\(value: number, scale: number\): number \{[\s\S]*return ReaderZoomCoordinator\.clampOffset\(value, this\.compW, this\.displayW\(\), scale\)/.test(reader) &&
+  /private clampOffsetY\(value: number, scale: number\): number \{[\s\S]*return ReaderZoomCoordinator\.clampOffset\(value, this\.compH, this\.displayH\(\), scale\)/.test(reader))
 ok('pinch zoom uses two fingers and pinch center correction',
   /PinchGesture\(\{\s*fingers:\s*2\s*\}\)/.test(reader) &&
   /this\.pinchCenterStartX = e\.pinchCenterX as number/.test(reader) &&
-  /\(this\.pinchCenterStartX - this\.compW \/ 2\) \* \(1 - k\) \+ k \* this\.pinchStartOffX \+ dx/.test(reader) &&
+  /ReaderZoomCoordinator\.pinchOffset\([\s\S]*this\.pinchCenterStartX,[\s\S]*this\.compW,[\s\S]*k,[\s\S]*this\.pinchStartOffX,[\s\S]*dx/.test(reader) &&
   /this\.offsetX = this\.clampOffsetX\(nextX, nextScale\)/.test(reader))
 ok('parent Swiper captures double tap and routes it to the tapped image page',
   /@Local doubleTapSeq: number = 0/.test(reader) &&
@@ -85,7 +93,7 @@ ok('single and double tap are not mixed through onClick plus parallelGesture',
     !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(doublePageReader) &&
     !/tapDispatchSeq|consumeNextTapAfterDoubleTap|suppressTapUntilMs|performReaderTap/.test(reader))
 ok('double tap zooms toward the commanded tap point',
-  /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*\(1 - target\) \* \(tapX - this\.compW \/ 2\)/.test(reader) &&
+  /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*ReaderZoomCoordinator\.doubleTapOffset\(tapX, this\.compW, target\)/.test(reader) &&
   /ReaderImagePage\(\{[\s\S]*doubleTapSeq: this\.doubleTapSeq,[\s\S]*doubleTapX: this\.doubleTapX,[\s\S]*doubleTapY: this\.doubleTapY,[\s\S]*doubleTapTargetPage: this\.doubleTapTargetPage/.test(reader))
 ok('double-page uses one spread surface for zoom, pan, and double-tap',
   /ReaderSpreadSurface\(\{[\s\S]*doubleTapSeq: this\.doubleTapSeq,[\s\S]*doubleTapX: this\.doubleTapX,[\s\S]*doubleTapY: this\.doubleTapY,[\s\S]*doubleTapTargetPage: this\.doubleTapTargetPage/.test(reader) &&
@@ -93,11 +101,19 @@ ok('double-page uses one spread surface for zoom, pan, and double-tap',
   /GestureGroup\(\s*GestureMode\.Parallel,[\s\S]*PinchGesture\(\{\s*fingers:\s*2\s*\}\)[\s\S]*PanGesture\(\{\s*fingers:\s*1,\s*direction:\s*PanDirection\.All/.test(spreadSurface) &&
   /Image\(this\.imageUrl\)[\s\S]*\.objectFit\(ImageFit\.Contain\)[\s\S]*\.draggable\(false\)/.test(spreadLayer) &&
   !/TapGesture|PinchGesture|PanGesture/.test(spreadLayer))
+ok('double-page spread clamp uses image metrics from child layers',
+  /@Local firstIntrinsicW: number = 0/.test(spreadSurface) &&
+  /@Local secondIntrinsicH: number = 0/.test(spreadSurface) &&
+  /private recordImageMetrics\(page: number, width: number, height: number\): void[\s\S]*this\.getUIContext\(\)\.px2vp\(width\)[\s\S]*this\.firstIntrinsicW = w[\s\S]*this\.secondIntrinsicW = w[\s\S]*this\.clampOffset\(\)/.test(spreadSurface) &&
+  /private displayW\(\): number[\s\S]*this\.imageDisplayW\(this\.firstIntrinsicW, this\.firstIntrinsicH\)[\s\S]*this\.imageDisplayW\(this\.secondIntrinsicW, this\.secondIntrinsicH\)/.test(spreadSurface) &&
+  /private clampOffsetX\(value: number, scale: number\): number \{[\s\S]*ReaderZoomCoordinator\.clampOffset\(value, this\.compW, this\.displayW\(\), scale\)/.test(spreadSurface) &&
+  /@Param onImageMetrics: \(page: number, width: number, height: number\) => void/.test(spreadLayer) &&
+  /onImageMetrics: \(page: number, width: number, height: number\) => \{[\s\S]*this\.recordImageMetrics\(page, width, height\)/.test(spreadSurface))
 ok('double tap zoom transition is animated instead of an abrupt state jump',
   /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*animateTo\(\{ duration: 180, curve: Curve\.FastOutSlowIn \}/.test(reader) &&
   /this\.resetZoom\(\)[\s\S]*this\.notifyZoom\(\)/.test(reader))
 ok('zoomed pan is two-axis and parallel so fit-state page turns can reach Swiper',
-  /private panDistance\(\): number[\s\S]*this\.zoomScale > 1\.01[\s\S]*return 1[\s\S]*longSide \* 2/.test(reader) &&
+  /private panDistance\(\): number \{[\s\S]*return ReaderZoomCoordinator\.panDistance\(this\.zoomScale, this\.compW, this\.compH\)/.test(reader) &&
   /\.parallelGesture\([\s\S]*PanGesture\(\{\s*fingers:\s*1,\s*direction:\s*PanDirection\.All,\s*distance:\s*this\.panDistance\(\)\s*\}\)/.test(reader) &&
   /this\.offsetX = this\.clampOffsetX\(this\.panStartOffX \+ \(e\.offsetX as number\), this\.zoomScale\)/.test(reader) &&
   /this\.offsetY = this\.clampOffsetY\(this\.panStartOffY \+ \(e\.offsetY as number\), this\.zoomScale\)/.test(reader) &&
