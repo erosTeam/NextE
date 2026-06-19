@@ -5,7 +5,7 @@ Geometry is unchanged across all variants.
 
 Current default:
 
-- `W02 Porcelain Ink`
+- `W09 Graphite Pearl`
 - `AppScope/resources/base/media/app_icon.png`
 - `AppScope/resources/base/media/app_icon_sunset_solid_background.png`
 - `AppScope/resources/base/media/app_icon_sunset_solid_foreground.png`
