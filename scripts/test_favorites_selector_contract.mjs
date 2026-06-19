@@ -52,8 +52,10 @@ ok('Favorites title menu includes selector title action',
   /private favoritesMenu\(\): Record<string, Object> \{[\s\S]*favorites_selector_title[\s\S]*this\.openFavoriteSelector\(\)/.test(index))
 ok('Favorites title menu exposes search order and selector actions',
   /const items: Record<string, Object>\[\] = \[[\s\S]*searchInner[\s\S]*orderInner[\s\S]*selectorInner[\s\S]*maxCount': 3/.test(index))
-ok('Logged-out Favorites title menu exposes only the local selector action',
-  /private localFavoritesMenu\(\): Record<string, Object> \{[\s\S]*favorites_selector_title[\s\S]*this\.openFavoriteSelector\(\)[\s\S]*maxCount': 1/.test(index) &&
+ok('Logged-out Favorites title menu exposes local selector plus local browsing utility only',
+  /private localFavoritesMenu\(\): Record<string, Object> \{[\s\S]*favorites_selector_title[\s\S]*this\.openFavoriteSelector\(\)[\s\S]*this\.backToTopMenuItem\(\)[\s\S]*maxCount': 2/.test(index) &&
+  !/private localFavoritesMenu\(\): Record<string, Object> \{[\s\S]*this\.openFavoriteSearch\(\)/.test(index) &&
+  !/private localFavoritesMenu\(\): Record<string, Object> \{[\s\S]*FavSelectionBridge\.publishOpenOrderMenu\(\)/.test(index) &&
   /if \(this\.auth\.isLogin\) \{[\s\S]*content\['menu'\] = this\.favoritesMenu\(\)[\s\S]*\} else \{[\s\S]*content\['menu'\] = this\.localFavoritesMenu\(\)/.test(index))
 ok('Index registers FavoriteSelector route',
   /name === 'FavoriteSelector'[\s\S]*FavoriteSelectorPage\(\)/.test(index))

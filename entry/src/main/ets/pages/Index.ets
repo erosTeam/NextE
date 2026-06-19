@@ -200,6 +200,18 @@ struct Index {
     this.titleScroller.scrollToIndex(0)
   }
 
+  private backToTopMenuItem(): Record<string, Object> {
+    const topInner: Record<string, Object> = {
+      'label': $r('app.string.common_back_to_top'),
+      'icon': $r('sys.symbol.arrow_up'),
+      'isEnabled': true,
+      'action': () => {
+        this.scrollActiveTabToTop()
+      },
+    }
+    return { 'content': topInner }
+  }
+
   // 画廊 title-bar utility actions (HDS menu shape: value[]+maxCount). eros_fe exposes search plus
   // list navigation helpers in the trailing cluster; NextE keeps the same title-action semantics while
   // limiting this slice to the reliable active-scroller "back to top" action.
@@ -212,19 +224,16 @@ struct Index {
         this.openSearch()
       },
     }
-    const topInner: Record<string, Object> = {
-      'label': $r('app.string.common_back_to_top'),
-      'icon': $r('sys.symbol.arrow_up'),
-      'isEnabled': true,
-      'action': () => {
-        this.scrollActiveTabToTop()
-      },
-    }
     const items: Record<string, Object>[] = [
       { 'content': searchInner },
-      { 'content': topInner },
+      this.backToTopMenuItem(),
     ]
     return { 'value': items, 'maxCount': 2 }
+  }
+
+  private topOnlyMenu(): Record<string, Object> {
+    const items: Record<string, Object>[] = [this.backToTopMenuItem()]
+    return { 'value': items, 'maxCount': 1 }
   }
 
   // Empty menu — HDS keeps the last-set title-bar menu across tab switches, so non-gallery tabs must
@@ -268,6 +277,7 @@ struct Index {
       { 'content': searchInner },
       { 'content': orderInner },
       { 'content': selectorInner },
+      this.backToTopMenuItem(),
     ]
     return { 'value': items, 'maxCount': 3 }
   }
@@ -281,8 +291,11 @@ struct Index {
         this.openFavoriteSelector()
       },
     }
-    const items: Record<string, Object>[] = [{ 'content': selectorInner }]
-    return { 'value': items, 'maxCount': 1 }
+    const items: Record<string, Object>[] = [
+      { 'content': selectorInner },
+      this.backToTopMenuItem(),
+    ]
+    return { 'value': items, 'maxCount': 2 }
   }
 
   private bottomBuilder(content: ComponentContent<Object>, height: number = SELECTOR_BAR_HEIGHT): Record<string, Object> {
@@ -337,6 +350,7 @@ struct Index {
           )
         }
         content['bottomBuilder'] = this.bottomBuilder(this.periodBarContent)
+        content['menu'] = this.topOnlyMenu()
       }
       if (this.currentTab === 3) {
         if (this.downloadTypeBarContent === null) {
@@ -347,8 +361,11 @@ struct Index {
           )
         }
         content['bottomBuilder'] = this.bottomBuilder(this.downloadTypeBarContent, DOWNLOAD_SELECTOR_BAR_HEIGHT)
+        content['menu'] = this.emptyMenu()
       }
-      content['menu'] = this.emptyMenu()
+      if (this.currentTab !== 2 && this.currentTab !== 3) {
+        content['menu'] = this.emptyMenu()
+      }
     }
     // Wrap with V2Next's immersive title-bar style (GRADIENT_BLUR scroll effect + immersive material)
     // so content scrolling under the status bar / title bar is progressively blurred, not shown sharp.
