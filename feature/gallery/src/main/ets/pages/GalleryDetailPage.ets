@@ -21,6 +21,9 @@ import {
   DownloadQueueSettings,
   DownloadQueueState,
   connectDownloadQueue,
+  LocalFavSettings,
+  LocalFavState,
+  connectLocalFav,
   ViewedGallery,
   ViewedHistorySettings,
   PullRefreshListScaffold,
@@ -62,6 +65,7 @@ export struct GalleryDetailPage {
   // Local gallery download queue state: mirrors eros_fe GalleryTask uniqueness, but this lane only
   // enqueues/records a task. It does not start the background image downloader.
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
+  @Local localFav: LocalFavState = connectLocalFav();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -183,6 +187,50 @@ export struct GalleryDetailPage {
     return this.isGalleryQueued() ? $r('app.string.download_status_queued') : $r('app.string.detail_download')
   }
 
+  private currentGalleryForLocalFav(): EhGallery {
+    const g: EhGallery = this.vm.gallery.gid.length > 0 ? this.vm.gallery.copy() : new EhGallery(this.params.gid, this.params.token)
+    if (g.thumbUrl.length === 0) {
+      g.thumbUrl = this.params.thumbUrl
+    }
+    if (g.imgWidth === 0) {
+      g.imgWidth = this.params.imgWidth
+    }
+    if (g.imgHeight === 0) {
+      g.imgHeight = this.params.imgHeight
+    }
+    if (g.englishTitle.length === 0) {
+      g.englishTitle = this.params.title
+    }
+    if (g.fileCount.length === 0) {
+      g.fileCount = this.params.fileCount
+    }
+    return g
+  }
+
+  private isLocalFavorite(): boolean {
+    const gid: string = this.vm.gallery.gid.length > 0 ? this.vm.gallery.gid : this.params.gid
+    return this.localFav.items.some((item: EhGallery) => item.gid === gid)
+  }
+
+  private localFavoriteLabel(): Resource {
+    return this.isLocalFavorite() ? $r('app.string.detail_remove_local_favorite') : $r('app.string.detail_add_local_favorite')
+  }
+
+  private async toggleLocalFavorite(): Promise<void> {
+    const gid: string = this.vm.gallery.gid.length > 0 ? this.vm.gallery.gid : this.params.gid
+    let message: Resource
+    if (LocalFavSettings.contains(gid)) {
+      await LocalFavSettings.removeByGid(this.ctx(), gid)
+      message = $r('app.string.detail_local_favorite_removed')
+    } else {
+      await LocalFavSettings.add(this.ctx(), this.currentGalleryForLocalFav())
+      message = $r('app.string.detail_local_favorite_added')
+    }
+    this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {
+      // Persistence already completed; toast failure should not roll back local favorite state.
+    })
+  }
+
   private async enqueueGalleryDownload(): Promise<void> {
     const task: DownloadGalleryTask = DownloadGalleryTask.fromGallery(
       this.vm.gallery,
@@ -228,13 +276,22 @@ export struct GalleryDetailPage {
     const title: Record<string, Object> = {
       'mainTitle': this.showNavTitle ? this.navTitle() : '',
     }
-    const content: Record<string, Object> = { 'title': title, 'menu': this.shareMenu() }
+    const content: Record<string, Object> = { 'title': title, 'menu': this.detailMenu() }
     return immersiveTitleBarOpts(content)
   }
 
-  // Native HDS title-bar action: a single share icon (eros_fe detail top bar has share).
-  private shareMenu(): Record<string, Object> {
-    const inner: Record<string, Object> = {
+  // Native HDS title-bar actions. Read remains the primary FAB; local favorite and share are secondary
+  // top actions matching eros_fe's heart/share detail affordances.
+  private detailMenu(): Record<string, Object> {
+    const favoriteInner: Record<string, Object> = {
+      'label': this.localFavoriteLabel(),
+      'icon': this.isLocalFavorite() ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'),
+      'isEnabled': true,
+      'action': () => {
+        this.toggleLocalFavorite()
+      },
+    }
+    const shareInner: Record<string, Object> = {
       'label': $r('app.string.detail_share'),
       'icon': $r('sys.symbol.share'),
       'isEnabled': true,
@@ -242,8 +299,8 @@ export struct GalleryDetailPage {
         this.shareGallery()
       },
     }
-    const items: Record<string, Object>[] = [{ 'content': inner }]
-    return { 'value': items, 'maxCount': 1 }
+    const items: Record<string, Object>[] = [{ 'content': favoriteInner }, { 'content': shareInner }]
+    return { 'value': items, 'maxCount': 2 }
   }
 
   // Share the gallery's public /g/<gid>/<token>/ URL via the system share sheet (eros_fe shareText).

@@ -56,6 +56,60 @@ export class LocalFavSettings {
     }
   }
 
+  static async add(context: common.UIAbilityContext, gallery: EhGallery): Promise<boolean> {
+    if (gallery.gid.length === 0) {
+      return false
+    }
+    const state = connectLocalFav()
+    const next: EhGallery[] = [LocalFavSettings.prepare(gallery)]
+    state.items.forEach((item: EhGallery) => {
+      if (item.gid !== gallery.gid) {
+        next.push(item.copy())
+      }
+    })
+    const inserted: boolean = next.length !== state.items.length || state.items.length === 0 || state.items[0].gid !== gallery.gid
+    state.items = next
+    await LocalFavSettings.persist(context, next)
+    return inserted
+  }
+
+  static async removeByGid(context: common.UIAbilityContext, gid: string): Promise<boolean> {
+    if (gid.length === 0) {
+      return false
+    }
+    const state = connectLocalFav()
+    const next: EhGallery[] = []
+    let removed: boolean = false
+    state.items.forEach((item: EhGallery) => {
+      if (item.gid === gid) {
+        removed = true
+      } else {
+        next.push(item.copy())
+      }
+    })
+    if (!removed) {
+      return false
+    }
+    state.items = next
+    await LocalFavSettings.persist(context, next)
+    return true
+  }
+
+  static contains(gid: string): boolean {
+    if (gid.length === 0) {
+      return false
+    }
+    return connectLocalFav().items.some((item: EhGallery) => item.gid === gid)
+  }
+
+  private static prepare(gallery: EhGallery): EhGallery {
+    const g: EhGallery = gallery.copy()
+    g.favcat = 'l'
+    g.favTitle = 'Local'
+    g.lastViewTime = Date.now()
+    return g
+  }
+
   private static snapshot(items: EhGallery[]): LocalFavGallerySnapshot[] {
     const out: LocalFavGallerySnapshot[] = []
     const seen: Set<string> = new Set<string>()
@@ -82,7 +136,7 @@ export class LocalFavSettings {
       s.ratingFallBack = g.ratingFallBack
       s.colorRating = g.colorRating
       s.favNote = g.favNote
-      s.favTitle = g.favTitle
+      s.favTitle = g.favTitle.length > 0 ? g.favTitle : 'Local'
       s.expunged = g.expunged
       s.lastViewTime = g.lastViewTime
       out.push(s)
@@ -120,7 +174,8 @@ export class LocalFavSettings {
         g.ratingFallBack = typeof s.ratingFallBack === 'number' ? s.ratingFallBack : 0
         g.colorRating = typeof s.colorRating === 'string' ? s.colorRating : ''
         g.favNote = typeof s.favNote === 'string' ? s.favNote : ''
-        g.favTitle = typeof s.favTitle === 'string' ? s.favTitle : ''
+        g.favcat = 'l'
+        g.favTitle = typeof s.favTitle === 'string' && s.favTitle.length > 0 ? s.favTitle : 'Local'
         g.expunged = typeof s.expunged === 'boolean' ? s.expunged : false
         g.lastViewTime = typeof s.lastViewTime === 'number' ? s.lastViewTime : 0
         out.push(g)

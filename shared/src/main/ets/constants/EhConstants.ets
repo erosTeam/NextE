@@ -319,6 +319,9 @@ export class EhConstants {
 
   /** Favcat slot index ('0'..'9') → its display color; '' for an out-of-range/empty slot. */
   static favCatColor(slot: string): string {
+    if (slot === 'l') {
+      return '#23b26d'
+    }
     const i: number = Number.parseInt(slot, 10)
     return i >= 0 && i < EhConstants.FAV_COLORS.length ? EhConstants.FAV_COLORS[i] : ''
   }

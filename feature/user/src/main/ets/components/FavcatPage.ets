@@ -24,6 +24,8 @@ import {
   Favcat,
   SELECTOR_BAR_HEIGHT,
   ActiveKeyState,
+  connectLocalFav,
+  LocalFavState,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { FavoritesViewModel } from '../viewmodel/FavoritesViewModel'
@@ -49,6 +51,7 @@ export struct FavcatPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local listMode: ListModeState = connectListMode();
   @Local favSel: FavSelectionState = connectFavSelection();
+  @Local localFav: LocalFavState = connectLocalFav();
   @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -101,6 +104,13 @@ export struct FavcatPage {
     if (this.loadedOnce) {
       await this.vm.load()
       this.publishFavList()
+    }
+  }
+
+  @Monitor('localFav.items')
+  async onLocalFavChange(): Promise<void> {
+    if (this.loadedOnce && this.favcatKey === 'l') {
+      await this.vm.load()
     }
   }
 

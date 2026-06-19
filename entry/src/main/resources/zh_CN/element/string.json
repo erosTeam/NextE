@@ -357,6 +357,22 @@
       "value": "分享"
     },
     {
+      "name": "detail_add_local_favorite",
+      "value": "加入本地收藏"
+    },
+    {
+      "name": "detail_remove_local_favorite",
+      "value": "移出本地收藏"
+    },
+    {
+      "name": "detail_local_favorite_added",
+      "value": "已加入本地收藏"
+    },
+    {
+      "name": "detail_local_favorite_removed",
+      "value": "已移出本地收藏"
+    },
+    {
       "name": "detail_info",
       "value": "画廊信息"
     },

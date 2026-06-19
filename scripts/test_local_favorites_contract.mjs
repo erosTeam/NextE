@@ -27,6 +27,7 @@ const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const sharedIndex = read('shared/src/main/ets/Index.ets')
 const vm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
 const page = read('feature/user/src/main/ets/pages/FavoritesPage.ets')
+const favcatPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
 const bar = read('entry/src/main/ets/components/FavcatBar.ets')
 const index = read('entry/src/main/ets/pages/Index.ets')
 
@@ -76,6 +77,9 @@ ok('FavoritesPage passes an effective selected key to retained host',
   /selectedKey: this\.effectiveSelectedFavcat\(\)/.test(page))
 ok('FavoritesPage no longer gates the whole tab with login error state',
   !/PageErrorState\(\{[\s\S]*favorites_login_hint/.test(page))
+ok('FavcatPage reloads the retained local page when local favorites change',
+  /@Local localFav: LocalFavState = connectLocalFav\(\)/.test(favcatPage) &&
+  /@Monitor\('localFav\.items'\)[\s\S]*if \(this\.loadedOnce && this\.favcatKey === 'l'\) \{[\s\S]*await this\.vm\.load\(\)/.test(favcatPage))
 
 ok('FavcatBar logged out tab list is local only',
   /if \(!this\.auth\.isLogin\) \{[\s\S]*new TabItem\('l', \$r\('app\.string\.favorites_local'\), this\.localFav\.count\(\)\)/.test(bar))

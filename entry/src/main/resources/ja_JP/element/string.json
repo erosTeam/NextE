@@ -357,6 +357,22 @@
       "value": "共有"
     },
     {
+      "name": "detail_add_local_favorite",
+      "value": "ローカルに追加"
+    },
+    {
+      "name": "detail_remove_local_favorite",
+      "value": "ローカルから削除"
+    },
+    {
+      "name": "detail_local_favorite_added",
+      "value": "ローカルに追加しました"
+    },
+    {
+      "name": "detail_local_favorite_removed",
+      "value": "ローカルから削除しました"
+    },
+    {
       "name": "detail_info",
       "value": "ギャラリー情報"
     },

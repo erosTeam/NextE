@@ -357,6 +357,22 @@
       "value": "Share"
     },
     {
+      "name": "detail_add_local_favorite",
+      "value": "Add local favorite"
+    },
+    {
+      "name": "detail_remove_local_favorite",
+      "value": "Remove local favorite"
+    },
+    {
+      "name": "detail_local_favorite_added",
+      "value": "Added to local favorites"
+    },
+    {
+      "name": "detail_local_favorite_removed",
+      "value": "Removed from local favorites"
+    },
+    {
       "name": "detail_info",
       "value": "Gallery info"
     },
