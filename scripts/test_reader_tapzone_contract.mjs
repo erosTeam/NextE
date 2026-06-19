@@ -65,6 +65,16 @@ function tapAction(x, y, width, height, mode, currentIndex, zoomed, columnMode =
   if (height > 0 && y > (height * 4) / 5) return turn('next', currentIndex, columnMode, total) // center-bottom
   return { action: 'chrome' } // center-middle
 }
+function swipeAction(offsetX, offsetY, width, mode, currentIndex, zoomed, jumping, columnMode = 'single', total = 20) {
+  if (zoomed || jumping || mode === 'vertical' || width <= 0) return { action: 'noop' }
+  const absX = Math.abs(offsetX)
+  const absY = Math.abs(offsetY)
+  const minDistance = Math.max(64, width * 0.08)
+  const maxDistance = width * 0.75
+  if (absX < minDistance || absX > maxDistance || absY > absX * 0.65) return { action: 'noop' }
+  if (offsetX < 0) return turn(mode === 'rtl' ? 'prev' : 'next', currentIndex, columnMode, total)
+  return turn(mode === 'rtl' ? 'next' : 'prev', currentIndex, columnMode, total)
+}
 
 let passed = 0
 const ok = (name, cond) => {
@@ -134,6 +144,19 @@ const MID_Y = 250 // center-middle band
 
 // 8. structural: the wiring exists in the .ets
 {
+  ok('ltr short horizontal swipe left → next', eq(swipeAction(-120, 8, 1000, 'ltr', 5, false, false), { action: 'turn', target: 6 }))
+  ok('ltr short horizontal swipe right → prev', eq(swipeAction(120, 8, 1000, 'ltr', 5, false, false), { action: 'turn', target: 4 }))
+  ok('rtl short horizontal swipe left → prev', eq(swipeAction(-120, 8, 1000, 'rtl', 5, false, false), { action: 'turn', target: 4 }))
+  ok('rtl short horizontal swipe right → next', eq(swipeAction(120, 8, 1000, 'rtl', 5, false, false), { action: 'turn', target: 6 }))
+  ok('zoomed swipe does not page-turn', swipeAction(-120, 8, 1000, 'ltr', 5, true, false).action === 'noop')
+  ok('vertical swipe fallback is disabled', swipeAction(-120, 8, 1000, 'vertical', 5, false, false).action === 'noop')
+  ok('vertical-dominant pan is ignored', swipeAction(-120, 90, 1000, 'ltr', 5, false, false).action === 'noop')
+  ok('very long swipe is left to Swiper', swipeAction(-900, 8, 1000, 'ltr', 5, false, false).action === 'noop')
+  ok('double-page short swipe turns by spread', eq(swipeAction(-120, 8, 1000, 'ltr', 2, false, false, 'oddLeft', 10), { action: 'turn', target: 4 }))
+}
+
+// 9. structural: the wiring exists in the .ets
+{
   const src = readFileSync(join(ROOT, 'feature/reader/src/main/ets/pages/ReaderPage.ets'), 'utf8')
   const section = (name) => {
     const start = src.indexOf(`@Builder\n  ${name}`)
@@ -164,6 +187,18 @@ const MID_Y = 250 // center-middle band
       !/TapGesture\(\{ count: [12] \}\)/.test(doublePageReader) &&
       !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(horizontalReader) &&
       !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(doublePageReader))
+  ok('tap overlay owns a bounded touch-based short-swipe fallback',
+    /private onReaderHorizontalSwipe\(offsetX: number, offsetY: number\): void/.test(src) &&
+      /this\.imageZoomed \|\| this\.vm\.jumping \|\| this\.readMode\.mode === ReadMode\.VERTICAL/.test(src) &&
+      /private onReaderTouch\(event: TouchEvent\): void/.test(src) &&
+      /READER_SWIPE_TURN_MIN_RATIO/.test(src) &&
+      /READER_SWIPE_TURN_MAX_RATIO/.test(src) &&
+      /READER_SWIPE_VERTICAL_REJECT_RATIO/.test(src) &&
+      /event\.type === TouchType\.Down[\s\S]*this\.readerTouchStartX = event\.touches\[0\]\.x/.test(src) &&
+      /event\.type === TouchType\.Move[\s\S]*this\.readerTouchLastX = event\.touches\[0\]\.x/.test(src) &&
+      /event\.type === TouchType\.Up \|\| event\.type === TouchType\.Cancel[\s\S]*this\.onReaderHorizontalSwipe\([\s\S]*this\.readerTouchLastX - this\.readerTouchStartX/.test(src) &&
+      /ReaderTapOverlay\(\)[\s\S]*\.onTouch\(\(event: TouchEvent\) => \{[\s\S]*this\.onReaderTouch\(event\)/.test(src) &&
+      !/PanGesture\(\{ fingers: 1/.test(tapOverlay))
   ok('tap-zone logic keeps zoom gate first', /private onReaderTap\(x: number, y: number\): void \{[\s\S]*if \(this\.imageZoomed \|\| this\.viewWidth <= 0\)/.test(src))
   ok('horizontal thirds', /const lr: number = this\.viewWidth \/ 3/.test(src))
   ok('center-top fifth → prev', /y < this\.viewHeight \/ 5[\s\S]*this\.toPrev\(\)/.test(src))

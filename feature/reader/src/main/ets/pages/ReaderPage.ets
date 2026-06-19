@@ -147,6 +147,11 @@ export struct ReaderPage {
   // (left/right thirds + center-column top/bottom fifths).
   @Local viewWidth: number = 0;
   @Local viewHeight: number = 0;
+  private readerTouchStartX: number = 0;
+  private readerTouchStartY: number = 0;
+  private readerTouchLastX: number = 0;
+  private readerTouchLastY: number = 0;
+  private readerTouchTracking: boolean = false;
   private listScroller: Scroller = new Scroller();
   // Safe-area insets (gesture bar / status bar) published by EntryAbility — the page counter
   // sits above the bottom inset so it never hides behind the home indicator.
@@ -655,6 +660,56 @@ export struct ReaderPage {
     this.doubleTapSeq = this.doubleTapSeq + 1
   }
 
+  private onReaderHorizontalSwipe(offsetX: number, offsetY: number): void {
+    if (this.imageZoomed || this.vm.jumping || this.readMode.mode === ReadMode.VERTICAL || this.viewWidth <= 0) {
+      return
+    }
+    const absX: number = Math.abs(offsetX)
+    const absY: number = Math.abs(offsetY)
+    const minDistance: number = Math.max(64, this.viewWidth * READER_SWIPE_TURN_MIN_RATIO)
+    const maxDistance: number = this.viewWidth * READER_SWIPE_TURN_MAX_RATIO
+    if (absX < minDistance || absX > maxDistance || absY > absX * READER_SWIPE_VERTICAL_REJECT_RATIO) {
+      return
+    }
+    if (offsetX < 0) {
+      if (this.readMode.mode === ReadMode.RTL) {
+        this.toPrev()
+      } else {
+        this.toNext()
+      }
+    } else if (this.readMode.mode === ReadMode.RTL) {
+      this.toNext()
+    } else {
+      this.toPrev()
+    }
+  }
+
+  private onReaderTouch(event: TouchEvent): void {
+    if (event.type === TouchType.Down) {
+      this.readerTouchStartX = event.touches[0].x
+      this.readerTouchStartY = event.touches[0].y
+      this.readerTouchLastX = this.readerTouchStartX
+      this.readerTouchLastY = this.readerTouchStartY
+      this.readerTouchTracking = true
+      return
+    }
+    if (!this.readerTouchTracking) {
+      return
+    }
+    if (event.type === TouchType.Move) {
+      this.readerTouchLastX = event.touches[0].x
+      this.readerTouchLastY = event.touches[0].y
+      return
+    }
+    if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+      this.readerTouchTracking = false
+      this.onReaderHorizontalSwipe(
+        this.readerTouchLastX - this.readerTouchStartX,
+        this.readerTouchLastY - this.readerTouchStartY
+      )
+    }
+  }
+
   private doublePageEnabled(): boolean {
     return ReaderSpreadResolver.isDoublePage(this.readMode.mode, this.readMode.columnMode)
   }
@@ -891,6 +946,9 @@ export struct ReaderPage {
       .width('100%')
       .height('100%')
       .hitTestBehavior(HitTestMode.Transparent)
+      .onTouch((event: TouchEvent) => {
+        this.onReaderTouch(event)
+      })
       .gesture(
         GestureGroup(
           GestureMode.Exclusive,
@@ -1275,6 +1333,10 @@ export struct ReaderPage {
 const MAX_SCALE: number = 4
 const DOUBLE_TAP_SCALE: number = 2.5
 const IMAGE_AUTO_RETRY_LIMIT: number = 3
+const READER_SWIPE_MIN_DISTANCE: number = 24
+const READER_SWIPE_TURN_MIN_RATIO: number = 0.08
+const READER_SWIPE_TURN_MAX_RATIO: number = 0.75
+const READER_SWIPE_VERTICAL_REJECT_RATIO: number = 0.65
 
 class ReaderZoomCoordinator {
   static isZoomed(scale: number): boolean {

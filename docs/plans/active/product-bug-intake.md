@@ -2270,6 +2270,22 @@ Source:
   spread object.
 - User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
   enough to affect normal reading.
+- Current short-swipe follow-up (commit pending): fit-scale page turns now have an overlay `onTouch`
+  fallback that tracks the touch down/move/up delta and routes only bounded horizontal drags through
+  the existing Reader page-turn helpers. This is a user-visible reliability fix for ordinary short/mid
+  swipes; it is not the final ReaderPager / single visual spread architecture.
+- Validation for the short-swipe follow-up: `scripts/test_reader_tapzone_contract.mjs`,
+  `scripts/test_reader_zoom_quality_contract.mjs`, `scripts/test_reader_double_page_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, and official signed Hvigor build through
+  `scripts/build_hvigor_signed.sh` passed. Mate X7 simulator `127.0.0.1:5555` installed the signed HAP
+  with hdc outside sandbox, opened the public Rockman gallery, entered Reader at `15/16`, then a
+  mid-distance left swipe turned to `17/18`. A left-page double tap zoomed the spread, and a zoomed pan
+  moved the image without turning pages. Evidence:
+  `.hvigor/outputs/reader-short-swipe-current/ready_touch.png`,
+  `.hvigor/outputs/reader-short-swipe-current/after_touch.png`,
+  `.hvigor/outputs/reader-short-swipe-current/zoom_touch.png`, and
+  `.hvigor/outputs/reader-short-swipe-current/zoom_pan_touch.png`. Status remains implemented /
+  pending controller acceptance, not accepted.
 - Previous read-only code inspection found double-tap captured on the parent Reader/Swiper via
   `TapGesture({ count: 2 })` and forwarded through `doubleTapSeq`; the tap-overlay follow-up above
   removes tap recognizers from the `Swiper` branches, but still uses the command bridge because device
