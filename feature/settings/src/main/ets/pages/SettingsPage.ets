@@ -1,13 +1,10 @@
 import { common } from '@kit.AbilityKit'
 import {
   ThemeConstants,
-  connectSiteMode,
-  SiteModeState,
   connectAuth,
   AuthState,
   connectNavStack,
   CookieJarSettings,
-  SiteModeSettings,
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
@@ -21,7 +18,6 @@ import {
  */
 @ComponentV2
 export struct SettingsPage {
-  @Local siteMode: SiteModeState = connectSiteMode();
   @Local auth: AuthState = connectAuth();
   private stack: NavPathStack = connectNavStack().stack;
   // Index-owned scroller for this tab (title-bar scroll-up auto-hide via bindToScrollable).
@@ -99,11 +95,10 @@ export struct SettingsPage {
   MainSection() {
     GroupedListSection() {
       ConciseListRow({
-        title: $r('app.string.settings_site'),
+        title: $r('app.string.settings_eh'),
         leadingIcon: $r('sys.symbol.house_fill'),
-        trailingText: this.siteMode.isEx ? '里站 (ExHentai)' : '表站 (E-Hentai)',
         action: () => {
-          this.toggleSite()
+          this.stack.pushPathByName('EhSettings', null)
         },
       })
       this.rowDivider()
@@ -171,21 +166,6 @@ export struct SettingsPage {
       .strokeWidth(0.5)
       .color($r('sys.color.ohos_id_color_list_separator'))
       .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  // 里站 (ExHentai) needs login + igneous; 表站 is always available. Toggle + persist.
-  private toggleSite(): void {
-    const ctx: common.UIAbilityContext =
-      this.getUIContext().getHostContext() as common.UIAbilityContext
-    if (this.siteMode.isEx) {
-      SiteModeSettings.setEx(ctx, false)
-    } else if (this.auth.isLogin && this.auth.hasIgneous) {
-      SiteModeSettings.setEx(ctx, true)
-    } else {
-      this.getUIContext()
-        .getPromptAction()
-        .showToast({ message: $r('app.string.site_ex_locked') })
-    }
   }
 
   private confirmLogout(): void {

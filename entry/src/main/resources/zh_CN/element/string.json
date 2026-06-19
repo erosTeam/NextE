@@ -529,6 +529,42 @@
       "value": "站点"
     },
     {
+      "name": "settings_eh",
+      "value": "EH"
+    },
+    {
+      "name": "eh_settings_site_hint",
+      "value": "按当前账号权限选择表站或里站"
+    },
+    {
+      "name": "eh_settings_login_hint",
+      "value": "打开应用内 E-Hentai 登录页"
+    },
+    {
+      "name": "eh_settings_cookie_hint",
+      "value": "导入已有 EH Cookie,不改登录链路"
+    },
+    {
+      "name": "eh_settings_mytags_hint",
+      "value": "打开 E-Hentai 我的标签"
+    },
+    {
+      "name": "eh_settings_website_settings",
+      "value": "网站设置"
+    },
+    {
+      "name": "eh_settings_website_settings_hint",
+      "value": "暂未实现"
+    },
+    {
+      "name": "eh_settings_image_limits",
+      "value": "图片限制"
+    },
+    {
+      "name": "eh_settings_image_limits_hint",
+      "value": "暂未实现"
+    },
+    {
       "name": "settings_about",
       "value": "关于"
     },

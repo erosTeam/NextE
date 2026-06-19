@@ -529,6 +529,42 @@
       "value": "サイト"
     },
     {
+      "name": "settings_eh",
+      "value": "EH"
+    },
+    {
+      "name": "eh_settings_site_hint",
+      "value": "アカウント権限に応じて E-Hentai または ExHentai を選択"
+    },
+    {
+      "name": "eh_settings_login_hint",
+      "value": "アプリ内の E-Hentai ログインページを開きます"
+    },
+    {
+      "name": "eh_settings_cookie_hint",
+      "value": "ログイン処理を変えずに既存の EH Cookie をインポート"
+    },
+    {
+      "name": "eh_settings_mytags_hint",
+      "value": "E-Hentai のマイタグを開きます"
+    },
+    {
+      "name": "eh_settings_website_settings",
+      "value": "ウェブサイト設定"
+    },
+    {
+      "name": "eh_settings_website_settings_hint",
+      "value": "未実装"
+    },
+    {
+      "name": "eh_settings_image_limits",
+      "value": "画像制限"
+    },
+    {
+      "name": "eh_settings_image_limits_hint",
+      "value": "未実装"
+    },
+    {
       "name": "settings_about",
       "value": "バージョン情報"
     },

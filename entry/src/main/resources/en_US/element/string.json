@@ -529,6 +529,42 @@
       "value": "Site"
     },
     {
+      "name": "settings_eh",
+      "value": "EH"
+    },
+    {
+      "name": "eh_settings_site_hint",
+      "value": "Choose E-Hentai or ExHentai when your account allows it"
+    },
+    {
+      "name": "eh_settings_login_hint",
+      "value": "Open the in-app E-Hentai login page"
+    },
+    {
+      "name": "eh_settings_cookie_hint",
+      "value": "Import an existing EH cookie without changing the login pipeline"
+    },
+    {
+      "name": "eh_settings_mytags_hint",
+      "value": "Open your E-Hentai My Tags page"
+    },
+    {
+      "name": "eh_settings_website_settings",
+      "value": "Website settings"
+    },
+    {
+      "name": "eh_settings_website_settings_hint",
+      "value": "Not implemented yet"
+    },
+    {
+      "name": "eh_settings_image_limits",
+      "value": "Image limits"
+    },
+    {
+      "name": "eh_settings_image_limits_hint",
+      "value": "Not implemented yet"
+    },
+    {
       "name": "settings_about",
       "value": "About"
     },

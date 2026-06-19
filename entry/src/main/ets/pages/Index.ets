@@ -42,7 +42,7 @@ import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
 import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
-import { SettingsPage, LayoutSettingsPage, ReaderSettingsPage, DownloadSettingsPage, SearchSettingsPage, AdvancedSettingsPage, AboutPage } from 'settings'
+import { SettingsPage, EhSettingsPage, LayoutSettingsPage, ReaderSettingsPage, DownloadSettingsPage, SearchSettingsPage, AdvancedSettingsPage, AboutPage } from 'settings'
 import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryArchiverPage, GalleryAllThumbnailsPage, GalleryCommentsPage } from 'gallery'
 import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
@@ -383,6 +383,8 @@ struct Index {
       GalleryAllThumbnailsPage()
     } else if (name === 'GalleryComments') {
       GalleryCommentsPage()
+    } else if (name === 'EhSettings') {
+      EhSettingsPage()
     } else if (name === 'LayoutSettings') {
       LayoutSettingsPage()
     } else if (name === 'ReaderSettings') {
