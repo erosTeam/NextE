@@ -24,6 +24,20 @@ export struct GalleryCommentsCard {
       : this.comments
   }
 
+  private showScoreDetails(c: EhGalleryComment): void {
+    if (this.max > 0 || c.scoreDetails.length === 0) {
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.comment_score_details'),
+      message: c.scoreDetails.join('\n'),
+      primaryButton: {
+        value: $r('app.string.common_ok'),
+        action: () => {},
+      },
+    })
+  }
+
   build() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
       Column({ space: ThemeConstants.SPACE_MD }) {
@@ -100,11 +114,17 @@ export struct GalleryCommentsCard {
           Text(c.score)
             .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
             .fontWeight(FontWeight.Medium)
-            .fontColor(
+            .fontColor(ThemeConstants.TEXT_ON_BRAND)
+            .backgroundColor(
               c.score.startsWith('-')
                 ? $r('app.color.score_negative')
                 : $r('app.color.score_positive'),
             )
+            .borderRadius(ThemeConstants.RADIUS_SM)
+            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            .onClick(() => {
+              this.showScoreDetails(c)
+            })
         }
       }
       .width('100%')

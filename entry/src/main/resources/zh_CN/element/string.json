@@ -605,6 +605,10 @@
       "value": "取消"
     },
     {
+      "name": "common_ok",
+      "value": "确定"
+    },
+    {
       "name": "common_remove",
       "value": "移除"
     },
@@ -639,6 +643,10 @@
     {
       "name": "comment_uploader",
       "value": "楼主"
+    },
+    {
+      "name": "comment_score_details",
+      "value": "评分详情"
     },
     {
       "name": "filter",

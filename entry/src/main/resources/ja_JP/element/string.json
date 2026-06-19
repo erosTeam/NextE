@@ -605,6 +605,10 @@
       "value": "キャンセル"
     },
     {
+      "name": "common_ok",
+      "value": "OK"
+    },
+    {
       "name": "common_remove",
       "value": "削除"
     },
@@ -639,6 +643,10 @@
     {
       "name": "comment_uploader",
       "value": "投稿者"
+    },
+    {
+      "name": "comment_score_details",
+      "value": "スコア詳細"
     },
     {
       "name": "filter",

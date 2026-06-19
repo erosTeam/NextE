@@ -605,6 +605,10 @@
       "value": "Cancel"
     },
     {
+      "name": "common_ok",
+      "value": "OK"
+    },
+    {
       "name": "common_remove",
       "value": "Remove"
     },
@@ -639,6 +643,10 @@
     {
       "name": "comment_uploader",
       "value": "Uploader"
+    },
+    {
+      "name": "comment_score_details",
+      "value": "Score details"
     },
     {
       "name": "filter",
