@@ -353,6 +353,76 @@ Acceptance shape:
 - In adaptive mode, the row may adapt for content but does not stretch indefinitely because of the cover ratio alone.
 - Ordinary cover ratios still render as before.
 
+### Gallery Grid Mode Uses Broken WaterFlow Layout
+
+Type: P0/P1 bug / browsing core layout
+
+Priority suggestion: P0/P1
+
+Status: implemented / pending user acceptance
+
+Source:
+
+- User-reported current behavior: the gallery "grid" layout is visibly unusable. Covers are not
+  controlled, cards can overlap, and the result does not behave like a responsive grid.
+- Read-only inspection:
+  - `feature/home/src/main/ets/components/GalleryListBody.ets`
+  - `feature/search/src/main/ets/pages/GallerySearchPage.ets`
+  - `feature/user/src/main/ets/components/FavcatPage.ets`
+  all render `ListMode.GRID` through `PullRefreshWaterFlowScaffold` + `FlowItem`, not through a
+  normal `Grid` + `GridItem`.
+- `shared/src/main/ets/state/ListModeState.ets` already defines `WATERFALL = 'waterfall'`, but
+  `feature/settings/src/main/ets/pages/LayoutSettingsPage.ets` only exposes list/simple/grid and the
+  main list surfaces do not branch on `ListMode.WATERFALL`.
+- `PullRefreshGridScaffold` and `ResponsiveGrid` exist, but the current list grid branches do not use
+  them.
+
+Observed behavior:
+
+- Selecting "网格" can produce overlapping or visually broken cover cards.
+- Grid card cover size is not clearly derived from the current pane/container width.
+- The UI is not a responsive grid: phone/foldable/tablet widths are not handled by one clear column
+  policy.
+- The waterfall concept is mixed into grid mode, while a separate user-visible waterfall mode is not
+  implemented.
+
+Expected behavior:
+
+- "网格" should be a true responsive grid: stable columns, stable cell width, no overlap, and cover/card
+  dimensions derived from current container width.
+- "瀑布流" should be a separate mode if exposed: it should use `WaterFlow` deliberately, with variable
+  item heights and its own acceptance evidence.
+- Grid and waterfall must not be conflated. If waterfall is not ready, do not use WaterFlow as the
+  implementation behind the "网格" label.
+
+Likely root cause:
+
+- The `GRID` branch renders `PullRefreshWaterFlowScaffold` and `FlowItem`, so item placement depends on
+  WaterFlow behavior even though the user selected a grid.
+- Current callers do not pass `minColumnWidth` / `onCellSize`, so responsive column sizing is not wired
+  into the gallery browsing surfaces.
+- `GalleryGridCard` renders its cover as `EhThumbnail({ coverRatio: 0.7 })` without a clear cell-size
+  contract from the scaffold.
+
+Implementation direction:
+
+- Rewire `ListMode.GRID` on Home, Search, and Favorites to `PullRefreshGridScaffold` + `GridItem`.
+- Pass a real `minColumnWidth` and derive columns/cell width from the measured pane/container, using the
+  existing `ResponsiveGrid` policy.
+- Give `GalleryGridCard` a stable cell-size/card-size contract so cover height and metadata layout cannot
+  overlap.
+- Add a separate `ListMode.WATERFALL` branch only when the waterfall mode has its own settings entry,
+  layout contract, and device evidence. Until then, keep waterfall out of the "网格" path.
+
+Acceptance shape:
+
+- In Home, Search results, and Favorites, selecting "网格" shows a stable responsive grid with no
+  overlapping cards.
+- Foldable outer/inner widths and ordinary phone width produce sensible column counts and readable cover
+  sizes.
+- Switching list/simple/grid does not leave stale layout artifacts or reuse WaterFlow for grid.
+- If waterfall is exposed later, it appears as a distinct choice and is verified separately.
+
 ### Detail Header Cover Flickers After Opening From List
 
 Type: bug / UX regression
@@ -1817,7 +1887,7 @@ Type: bug / reading UX gap
 
 Priority suggestion: P1
 
-Status: implemented / pending user acceptance
+Status: reopened / active - current gesture feel not accepted
 
 Implementation:
 
@@ -1864,7 +1934,9 @@ Evidence:
 
 Remaining acceptance:
 
-- Needs controller/user acceptance of the gesture feel on device before marking accepted.
+- Current user feedback rejects the gesture feel as still unreliable. Do not mark this accepted.
+  Treat the follow-up "Reader Gesture Arena Conflicts Need PhotoView-Like Rework" item as the active
+  lane before further Reader visual/loading enhancements.
 - Implementation commit: `8b12dc3 fix(reader): restore zoom surface gestures`.
 
 Source:
@@ -1898,6 +1970,86 @@ Acceptance shape:
 - Double-tap a non-center detail; the image zooms toward that region rather than blindly centering.
 - Drag the zoomed image horizontally and vertically; the page remains readable and does not expose
   black gaps or accidentally page-turn while zoomed.
+
+### Reader Gesture Arena Conflicts Need PhotoView-Like Rework
+
+Type: P0 bug / reading core usability
+
+Priority suggestion: P0
+
+Status: active / ready for implementation
+
+Source:
+
+- User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
+  enough to affect normal reading.
+- Read-only code inspection of `feature/reader/src/main/ets/pages/ReaderPage.ets` shows double-tap is
+  still captured on the parent Reader/Swiper via `TapGesture({ count: 2 })` and forwarded through
+  `doubleTapSeq`; single tap/chrome and Swiper page-turn gestures still share the same outer surface.
+- Local HarmonyOS technical reference: `../V2Next/entry/src/main/ets/pages/ImagePreviewPage.ets` and
+  `../V2Next/entry/src/main/ets/model/ImagePreviewCoordinator.ets`.
+- Product behavior reference: `eros_fe` Reader uses mature PhotoView-style behavior (`photo_view` /
+  `PhotoViewGallery` / `ExtendedImage` patterns). Treat it as user-behavior and EH-mechanism reference,
+  not as target architecture.
+
+Observed behavior:
+
+- Double-tap zoom in/out can also summon the top/bottom Reader chrome.
+- Fast horizontal page swipes can be misclassified as double-tap zoom.
+- Gesture ownership feels unstable across page swipe, double tap, pinch, pan, and center tap.
+- Double-tap zoom in/out changes scale abruptly; no animated zoom transition.
+- Zoomed-image interaction still feels hand-rolled instead of a reliable image viewer gesture model.
+- Reader bottom chrome/action styling also feels unfinished: the download action's blue filled button
+  is visually out of line with neighboring controls. This is a secondary chrome IA/style cleanup, not
+  the P0 blocker.
+
+Expected behavior:
+
+- The image surface should own double tap, pinch, zoomed pan, offset clamp, and animated zoom.
+- Single tap / center tap chrome toggle must be mutually exclusive with double tap; double tap must not
+  show or hide chrome.
+- Fast horizontal swipes at fit scale should turn pages, not trigger double-tap zoom.
+- Zoomed state should prioritize panning the image. To reduce risk, disable outer Swiper page-turns
+  while zoomed; boundary handoff from zoomed pan to page turn can be a later enhancement.
+- Double-tap should animate between fit and target scale, centered on the tap location.
+- Pinch should keep the pinch center stable and clamp offsets using the actual `ImageFit.Contain`
+  displayed image size.
+- Reader chrome/menu styling can be handled in a separate follow-up after gesture reliability is
+  restored.
+
+Likely root cause:
+
+- Parent-level double-tap capture was introduced to work around child double-tap unreliability inside
+  `Swiper`, but it leaves double tap, single tap/chrome, and page swipe competing in the same gesture
+  arena.
+- `doubleTapSeq` command routing makes the active image react after the parent has already recognized
+  the gesture, so it cannot fully prevent parent tap/chrome behavior or fast-swipe misclassification.
+- The current implementation changes zoom/offset state directly; it does not use a PhotoView-style
+  animated state machine for double-tap zoom.
+
+Implementation direction:
+
+- Do not keep patching one recognizer. Extract or rewrite a `ReaderZoomSurface` based on the V2Next
+  image-preview coordinator model.
+- Move double-tap recognition back into the image-owned zoom surface if possible. If ArkUI/Swiper still
+  blocks child double-tap, isolate the parent bridge so it suppresses chrome toggles and swipe conflicts
+  deterministically.
+- Treat outer `Swiper` as page navigation only when the active surface is at fit scale and the gesture is
+  confidently a horizontal page-turn.
+- Keep the first repair scoped to online horizontal Reader single-page behavior. Do not reintroduce
+  streamed byte-progress, broad double-page refactors, offline download pipeline changes, or Reader chrome
+  menu redesign in the same lane.
+
+Acceptance shape:
+
+- A normal fast left/right swipe at fit scale reliably turns one page and never zooms.
+- Double tap reliably zooms in/out with animation and does not show/hide Reader chrome.
+- Pinch zoom remains usable.
+- While zoomed, one-finger pan moves the image in both axes and does not accidentally turn pages.
+- Center tap at fit scale still toggles chrome.
+- Ready images have no loading/progress overlay residue.
+- Android `eros_fe` Reader comparison and HarmonyOS device/emulator video or screenshot evidence must
+  be attached before marking accepted.
 
 ### Reader Double-Page Mode Switch Can Desync Visible Spread And Page Counter
 
@@ -2440,6 +2592,68 @@ Remaining acceptance:
 - Needs controller/user acceptance of the Settings root placement and Layout settings page structure.
   No further FE/device validation is required unless Settings root or Layout settings routing changes
   again.
+
+### Settings Row Dropdown Menus Use Wrong Anchor
+
+Type: bug / settings interaction UX
+
+Priority suggestion: P1
+
+Status: active / ready for implementation
+
+Source:
+
+- User-reported current behavior: tapping a settings row with a menu opens the options from the bottom
+  or from an unexpected position, as if the popup is not bound to the clicked control.
+- Read-only inspection:
+  - `feature/settings/src/main/ets/pages/LayoutSettingsPage.ets` binds the view-mode menu to a parent
+    `Column()` / section container with `placement: Placement.Bottom`, not to the clicked row or trailing
+    dropdown affordance.
+  - `feature/settings/src/main/ets/pages/ReaderSettingsPage.ets`, `DownloadSettingsPage.ets`, and
+    `SecuritySettingsPage.ets` use similar `bindMenu` patterns and should be checked for the same
+    anchor problem.
+  - `feature/user/src/main/ets/pages/FavoritesPage.ets` already documents a workaround for title-bar
+    menus: the command opens a native menu through an owned invisible anchor because HDS title-bar icons
+    cannot directly anchor a menu.
+
+Observed behavior:
+
+- Menu options may appear from the bottom edge or a broad parent area instead of near the row that the
+  user tapped.
+- This makes settings rows feel like they are opening a sheet or global action, not a contextual menu.
+
+Expected behavior:
+
+- Dropdown menu placement should be visually anchored to the actual settings row or trailing dropdown
+  affordance that was tapped.
+- The menu should feel local to the row, not attached to the whole section/page.
+- If HDS title/action components cannot directly anchor a native `Menu`, use a deliberate small anchor
+  at the intended visual position instead of binding to a large parent container.
+
+Likely root cause:
+
+- `bindMenu` calculates placement from the component it is bound to. Binding it to a container that wraps
+  multiple rows gives the framework the wrong geometry.
+- The current row abstraction (`ConciseListRow`) does not appear to expose a menu anchor slot, so callers
+  bind the menu outside the actual tappable row.
+
+Implementation direction:
+
+- Audit settings rows that use `trailingDropdown` + `bindMenu`.
+- Prefer binding the menu to the actual row/trailing affordance, or extend the row component with a
+  supported menu-anchor pattern.
+- Where direct binding is not possible, place a small owned anchor at the row's trailing edge, similar in
+  spirit to the existing Favorites order-menu workaround, but scoped to each settings row.
+- Keep this separate from changing the layout settings information architecture or adding new layout
+  modes.
+
+Acceptance shape:
+
+- Tapping `设置 -> 布局 -> 列表视图` opens the list/simple/grid menu near that row, not from the bottom of
+  the section/page.
+- Reader direction/column/auto-page menus and download/security setting menus are checked for the same
+  anchoring behavior.
+- The selected row still updates through the existing persisted settings path.
 
 ### Settings Root Missing Advanced Settings Page
 
