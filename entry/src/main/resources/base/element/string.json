@@ -373,6 +373,14 @@
       "value": "Edit tags"
     },
     {
+      "name": "detail_rate",
+      "value": "Rate"
+    },
+    {
+      "name": "detail_rate_readonly_confirm",
+      "value": "Rating submit is not enabled in NextE yet. Open the gallery web page to rate on EH?"
+    },
+    {
       "name": "detail_copy_link",
       "value": "Copy link"
     },

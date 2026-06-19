@@ -373,6 +373,14 @@
       "value": "タグを編集"
     },
     {
+      "name": "detail_rate",
+      "value": "評価"
+    },
+    {
+      "name": "detail_rate_readonly_confirm",
+      "value": "NextE では評価の送信はまだ有効になっていません。EH のページをアプリ内Webで開いて評価しますか？"
+    },
+    {
       "name": "detail_copy_link",
       "value": "リンクをコピー"
     },

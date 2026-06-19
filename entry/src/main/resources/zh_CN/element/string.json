@@ -373,6 +373,14 @@
       "value": "编辑标签"
     },
     {
+      "name": "detail_rate",
+      "value": "评分"
+    },
+    {
+      "name": "detail_rate_readonly_confirm",
+      "value": "评分提交尚未接入 NextE。要打开应用内网页在 EH 页面评分吗？"
+    },
+    {
       "name": "detail_copy_link",
       "value": "复制链接"
     },

@@ -283,6 +283,22 @@ export struct GalleryDetailPage {
     this.toggleLocalFavorite()
   }
 
+  private openRatingSafety(): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.detail_rate_readonly_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.detail_open_internal_web'),
+        action: () => {
+          this.openInternalWeb()
+        },
+      },
+    })
+  }
+
   private async enqueueGalleryDownload(): Promise<void> {
     const task: DownloadGalleryTask = DownloadGalleryTask.fromGallery(
       this.vm.gallery,
@@ -703,6 +719,12 @@ export struct GalleryDetailPage {
               this.openArchiver()
             })
         }
+        Text($r('app.string.detail_rate'))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_emphasize'))
+          .onClick(() => {
+            this.openRatingSafety()
+          })
         Text(this.downloadTitle())
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
           .fontColor(this.isGalleryQueued() ? $r('sys.color.font_secondary') : $r('sys.color.font_emphasize'))
