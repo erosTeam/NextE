@@ -6,6 +6,7 @@ import { EhConstants } from '../constants/EhConstants'
 import { EhThumbnail } from './EhThumbnail'
 import { UserTagStore } from '../state/UserTagStore'
 import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
+import { connectSearchAction } from '../state/SearchActionState'
 
 const GRID_TAG_LIMIT: number = 8
 
@@ -40,6 +41,22 @@ export struct GalleryGridCard {
     return $r('sys.color.font_secondary')
   }
 
+  private searchTag(t: SimpleTag): void {
+    const namespace: string = t.namespace.trim()
+    const tag: string = t.text.trim()
+    if (namespace.length === 0 || tag.length === 0) {
+      return
+    }
+    connectSearchAction().publishQuery(`${namespace}:${this.queryTagValue(tag)}`)
+  }
+
+  private queryTagValue(tag: string): string {
+    if (tag.indexOf(' ') >= 0) {
+      return `"${tag}"`
+    }
+    return tag
+  }
+
   @Builder
   tagChips() {
     if (this.gallery.simpleTags.length > 0) {
@@ -58,6 +75,9 @@ export struct GalleryGridCard {
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .constraintSize({ maxWidth: 148 })
+              .onClick(() => {
+                this.searchTag(t)
+              })
           },
           (t: SimpleTag) => `${this.tagSig.version}:${t.namespace}:${t.text}`,
         )

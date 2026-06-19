@@ -8,6 +8,7 @@ import { RatingStars } from './RatingStars'
 import { UserTagStore } from '../state/UserTagStore'
 import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
 import { connectListMode, ListModeState } from '../state/ListModeState'
+import { connectSearchAction } from '../state/SearchActionState'
 
 // Cap list-card tags so the wrapped chips fill ~3 rows (eros_fe's listViewTagLimit keeps cards balanced).
 const CARD_TAG_LIMIT: number = 8
@@ -83,6 +84,22 @@ export struct GalleryCard {
     return $r('sys.color.font_secondary')
   }
 
+  private searchTag(t: SimpleTag): void {
+    const namespace: string = t.namespace.trim()
+    const tag: string = t.text.trim()
+    if (namespace.length === 0 || tag.length === 0) {
+      return
+    }
+    connectSearchAction().publishQuery(`${namespace}:${this.queryTagValue(tag)}`)
+  }
+
+  private queryTagValue(tag: string): string {
+    if (tag.indexOf(' ') >= 0) {
+      return `"${tag}"`
+    }
+    return tag
+  }
+
   // Neutral tag chips (flat light-grey fill, no stroke) wrapping up to CARD_TAG_LIMIT. A chip only colors
   // when the tag carries the user's own per-tag color value — never by namespace. Shared by both height
   // modes; the FIXED-mode wrapper clips overflow, the ADAPTIVE-mode card grows to show every row.
@@ -105,6 +122,9 @@ export struct GalleryCard {
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .constraintSize({ maxWidth: 160 })
+              .onClick(() => {
+                this.searchTag(t)
+              })
           },
           // Key carries tagSig.version: the keyGen runs during build, so reading it subscribes the
           // card; when My Tags load and bump it, the keys change → chips rebuild → re-color.
