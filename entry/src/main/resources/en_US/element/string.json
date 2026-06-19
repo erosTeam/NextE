@@ -461,6 +461,18 @@
       "value": "Loading image"
     },
     {
+      "name": "reader_save_success",
+      "value": "Saved image"
+    },
+    {
+      "name": "reader_save_failed",
+      "value": "Failed to save image"
+    },
+    {
+      "name": "reader_save_no_image",
+      "value": "No image to save"
+    },
+    {
       "name": "settings_site",
       "value": "Site"
     },

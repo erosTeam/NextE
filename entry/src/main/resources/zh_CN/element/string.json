@@ -461,6 +461,18 @@
       "value": "正在加载图片"
     },
     {
+      "name": "reader_save_success",
+      "value": "图片已保存"
+    },
+    {
+      "name": "reader_save_failed",
+      "value": "保存图片失败"
+    },
+    {
+      "name": "reader_save_no_image",
+      "value": "当前没有可保存的图片"
+    },
+    {
       "name": "settings_site",
       "value": "站点"
     },

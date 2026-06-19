@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { window } from '@kit.ArkUI'
+import { promptAction, window } from '@kit.ArkUI'
 import {
   ThemeConstants,
   EhGalleryImage,
@@ -18,6 +18,7 @@ import {
   connectNavStack,
   connectSiteMode,
   ShareUtil,
+  ImageSaveUtil,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 
@@ -206,6 +207,42 @@ export struct ReaderPage {
       connectSiteMode().isEx,
       this.params.title,
     )
+  }
+
+  private saveCurrentImage(): void {
+    const image: EhGalleryImage | null = this.currentImage()
+    if (image === null) {
+      this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_no_image') })
+      return
+    }
+    const title: string = `${this.params.gid}-${this.vm.currentIndex + 1}`.trim()
+    const alreadyResolvedUrl: string =
+      image.originImageUrl.length > 0 ? image.originImageUrl : image.imageUrl
+    if (alreadyResolvedUrl.length > 0) {
+      this.saveImageUrl(alreadyResolvedUrl, title)
+      return
+    }
+    ImageResolveService.getInstance()
+      .resolve(image)
+      .then((imageUrl: string) => {
+        const url: string = image.originImageUrl.length > 0 ? image.originImageUrl : imageUrl
+        this.saveImageUrl(url, title)
+      })
+      .catch((err: Error) => {
+        DiagnosticLogger.warn('reader', 'save_image_resolve_failed', err.message)
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_failed') })
+      })
+  }
+
+  private saveImageUrl(url: string, title: string): void {
+    ImageSaveUtil.saveNetworkImageToGallery(this.hostContext(), url, title)
+      .then(() => {
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_success') })
+      })
+      .catch((err: Error) => {
+        DiagnosticLogger.warn('reader', 'save_image_failed', err.message)
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_failed') })
+      })
   }
 
   // Keep the slider thumb on the live page when the user swipes (not while they drag the slider),
@@ -710,6 +747,22 @@ export struct ReaderPage {
   ReaderBottomBar() {
     Column({ space: ThemeConstants.SPACE_SM }) {
       Row() {
+        Row() {
+          SaveButton({
+            icon: SaveIconStyle.LINES,
+            buttonType: ButtonType.Circle,
+          })
+            .onClick((_event: ClickEvent, result: SaveButtonOnClickResult) => {
+              if (result === SaveButtonOnClickResult.SUCCESS) {
+                this.saveCurrentImage()
+              } else {
+                promptAction.showToast({ message: $r('app.string.reader_save_failed') })
+              }
+            })
+            .width(40)
+            .height(40)
+        }
+        .margin({ right: ThemeConstants.SPACE_SM })
         Text(this.pageCountText())
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
           .fontColor(Color.White)

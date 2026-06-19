@@ -1919,3 +1919,72 @@ Remaining acceptance:
 
 - Needs controller/user acceptance of the Settings row and About page screenshots. No further device
   validation is required unless Settings root or About route changes again.
+
+### Reader Lacks Current Image Save Action
+
+Type: feature gap / reader utility
+
+Priority suggestion: P1
+
+Status: implemented / needs FE Reader comparison
+
+Source:
+
+- `eros_fe` Reader bottom controls include a Save action; NextE Reader had current-image sharing but no
+  current-image save-to-gallery action.
+
+Grounding:
+
+- `eros_fe` reference: `/Users/honjow/git/eros_fe/lib/pages/image_view/view/view_widget.dart`
+  `ControllerButtonBar` renders Save/Double/Auto/Thumb controls; Save calls
+  `/Users/honjow/git/eros_fe/lib/pages/image_view/controller/view_controller.dart` `tapSave()`.
+- `tapSave()` passes the current `GalleryImage` URLs/file path to
+  `/Users/honjow/git/eros_fe/lib/pages/image_view/view/view_widget.dart` `showSaveActionSheet()`,
+  which calls `/Users/honjow/git/eros_fe/lib/network/api.dart` `saveNetworkImageToPhoto()` /
+  `saveLocalImageToPhoto()`.
+- Product semantics: Reader's primary action remains reading/turning pages; Save is a secondary bottom
+  chrome utility for the current visible image.
+
+Implementation:
+
+- Added `shared/src/main/ets/utils/ImageSaveUtil.ets` to download the current resolved image into the
+  app sandbox, convert it with `fileUri.getUriFromPath()`, and commit it to the media library through
+  `photoAccessHelper.MediaAssetChangeRequest.createImageAssetRequest()` + `applyChanges()`.
+- Reader bottom chrome now exposes a compact HarmonyOS `SaveButton`, so the system grants short-term
+  media-library write access through the platform safety control without turning Save into the primary
+  Reader action.
+- Save prefers `originImageUrl`, falls back to `imageUrl`, and resolves the current `/s/` image page
+  through `ImageResolveService` when the current image is not yet resolved.
+- Added i18n feedback strings for save success, failure, and no-current-image cases.
+- Scope is limited to saving the current visible image. It does not add batch save, download queue
+  execution, auto-read, thumbnail strip controls, or double-page behavior.
+
+Evidence:
+
+- Android FE comparison attempt: ADB target `fa967a75`, launched `com.honjow.fehviewer/.MainActivity`
+  with `su`; screenshots and UI dumps captured at `/private/tmp/nexte_reader_save_fe_reference/`.
+  The app was reachable, but automation remained on FE Settings/About and did not reach the FE Reader
+  page, so this item still needs a FE Reader-page visual comparison before acceptance.
+- Source grounding above confirms FE Reader Save behavior and save-to-album implementation path.
+- Deterministic contract: `scripts/test_reader_save_current_image_contract.mjs`.
+- Gates: `scripts/test_reader_save_current_image_contract.mjs`,
+  `scripts/test_reader_current_image_share_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`,
+  `git diff --check`, and official signed Hvigor build through `scripts/build_hvigor_signed.sh`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  opened public gallery `https://e-hentai.org/g/3989982/16600a66e8/`, entered Reader via the real
+  `继续 P2` action, center-tapped chrome, confirmed a bottom SaveButton, tapped it, and saw the
+  system "安全保存图片和视频" authorization dialog. After allowing, the dialog dismissed and no
+  `save_image_failed` / `save_image_resolve_failed` hilog entries were observed. Evidence directory:
+  `/private/tmp/nexte_reader_save_acceptance/`, especially `detail.jpeg`, `reader_initial.jpeg`,
+  `reader_chrome.jpeg`, `reader_after_save_click.jpeg`, and `reader_after_allow.jpeg`.
+- After reducing the SaveButton to a compact icon control and rebuilding/reinstalling the signed HAP,
+  `reader_compact_chrome.jpeg` confirms the lower-weight bottom action; a follow-up click produced
+  MediaLibrary `CreateImageAssetRequest` / `ApplyChanges` hilog entries with no NextE save-failure log,
+  and `reader_compact_after_click.jpeg` captured the final Reader state.
+
+Remaining acceptance:
+
+- Needs FE Reader-page screenshot/interaction comparison and controller/user acceptance of the NextE
+  Reader save button placement, authorization dialog, and save behavior. No further NextE device
+  validation is required unless Reader chrome or image-save logic changes again.

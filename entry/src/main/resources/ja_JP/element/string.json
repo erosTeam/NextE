@@ -461,6 +461,18 @@
       "value": "画像を読み込み中"
     },
     {
+      "name": "reader_save_success",
+      "value": "画像を保存しました"
+    },
+    {
+      "name": "reader_save_failed",
+      "value": "画像の保存に失敗しました"
+    },
+    {
+      "name": "reader_save_no_image",
+      "value": "保存できる画像がありません"
+    },
+    {
       "name": "settings_site",
       "value": "サイト"
     },
