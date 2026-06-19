@@ -60,6 +60,8 @@ const RE = {
   tagRow: /<tr><td class="tc">([^:]+):<\/td><td>([\s\S]*?)<\/td><\/tr>/g,
   tagA: /<a id="ta_[^"]*"([^>]*)>([^<]+)<\/a>/g,
   preview: /<a href="(https:\/\/e[-x]?hentai\.org\/s\/([0-9a-f]+)\/(\d+)-(\d+))">(?:<div[^>]*>)?<div title="Page \d+[^"]*" style="(?:width:(\d+)px;\s*height:(\d+)px;\s*)?background:[^;]*?url\((https:\/\/[^)]+)\)(?:\s*-?(\d+)px)?/g,
+  smallPreview: /<div class="gdtm"[\s\S]*?<div[^>]*style="(?:width:(\d+)px;\s*height:(\d+)px;\s*)?background:[^;]*?url\((https:\/\/[^)]+)\)(?:\s*-?(\d+)px)?[\s\S]*?<a href="(https:\/\/e[-x]?hentai\.org\/s\/([0-9a-f]+)\/(\d+)-(\d+))"[\s\S]*?<img[^>]*alt="(\d+)"/g,
+  largePreview: /<div class="gdtl"[\s\S]*?<a href="(https:\/\/e[-x]?hentai\.org\/s\/([0-9a-f]+)\/(\d+)-(\d+))"[\s\S]*?<img[^>]*alt="(\d+)"[^>]*src="(https:\/\/[^"]+)"/g,
 }
 
 function parseTags(html) {
@@ -82,13 +84,39 @@ function parseImages(html) {
     thumbWidth: m[5] ? +m[5] : 0, thumbHeight: m[6] ? +m[6] : 0, offsetX: m[8] ? +m[8] : 0,
     spriteWidth: 0, spriteHeight: 0,
   }))
+  for (const m of html.matchAll(RE.smallPreview)) {
+    if (!imgs.some((img) => img.sUrl === m[5])) {
+      imgs.push({
+        page: +m[9] || +m[8], imgkey: m[6], sUrl: m[5], thumb: m[3],
+        thumbWidth: m[1] ? +m[1] : 0, thumbHeight: m[2] ? +m[2] : 0, offsetX: m[4] ? +m[4] : 0,
+        spriteWidth: 0, spriteHeight: 0,
+      })
+    }
+  }
+  for (const m of html.matchAll(RE.largePreview)) {
+    const parts = m[6].split('-')
+    const w = parts.length >= 3 ? Number.parseInt(parts[parts.length - 3], 10) : 0
+    const h = parts.length >= 3 ? Number.parseInt(parts[parts.length - 2], 10) : 0
+    imgs.push({
+      page: +m[5] || +m[4], imgkey: m[2], sUrl: m[1], thumb: m[6],
+      thumbWidth: Number.isNaN(w) ? 0 : w, thumbHeight: Number.isNaN(h) ? 0 : h, offsetX: 0,
+      spriteWidth: 0, spriteHeight: 0,
+    })
+  }
   // Mirror fillSpriteExtents: full sheet extent = max right-edge / height across a sprite URL.
-  const w = new Map(), h = new Map()
+  const w = new Map(), h = new Map(), count = new Map(), hasOffset = new Map()
   for (const i of imgs) {
+    count.set(i.thumb, (count.get(i.thumb) ?? 0) + 1)
+    if (i.offsetX > 0) hasOffset.set(i.thumb, true)
     w.set(i.thumb, Math.max(w.get(i.thumb) ?? 0, i.offsetX + i.thumbWidth))
     h.set(i.thumb, Math.max(h.get(i.thumb) ?? 0, i.thumbHeight))
   }
-  for (const i of imgs) { i.spriteWidth = w.get(i.thumb); i.spriteHeight = h.get(i.thumb) }
+  for (const i of imgs) {
+    if ((count.get(i.thumb) ?? 0) > 1 || hasOffset.get(i.thumb) === true) {
+      i.spriteWidth = w.get(i.thumb)
+      i.spriteHeight = h.get(i.thumb)
+    }
+  }
   return imgs
 }
 // Mirror EhGalleryDetailParser colorRating: #rating_image class "ir" -> '' (community), "ir irX" -> 'irX'.
@@ -207,6 +235,43 @@ eq(sp[2].spriteWidth, 600, 'sprite width assigned to every thumb on the sheet')
 eq(sp[0].spriteHeight, 290, 'sprite height = max thumb height')
 eq(sp[0].thumbHeight, 290, 'sprite page1 thumbHeight (drives true-aspect sizing)')
 
+// Legacy small-thumb layout (`#gdt > div.gdtm`) puts the /s/ link inside a sprite-styled child.
+// The parser must keep the serial from img alt, the image-page URL, and the sprite crop metadata.
+const SMALL = '<div id="gdt">' +
+  '<div class="gdtm"><div style="width:200px;height:290px;background:transparent url(https://ehgt.org/t/sheet.webp) -0px 0 no-repeat"><a href="https://e-hentai.org/s/aaa111/77-1"><img alt="1"/></a></div></div>' +
+  '<div class="gdtm"><div style="width:200px;height:290px;background:transparent url(https://ehgt.org/t/sheet.webp) -200px 0 no-repeat"><a href="https://e-hentai.org/s/bbb222/77-2"><img alt="2"/></a></div></div>' +
+  '</div>'
+const sm = parseImages(SMALL)
+eq(sm.length, 2, 'gdtm small-thumb previews count')
+eq(sm[0].page, 1, 'gdtm page from img alt')
+eq(sm[0].imgkey, 'aaa111', 'gdtm imgkey')
+eq(sm[0].sUrl, 'https://e-hentai.org/s/aaa111/77-1', 'gdtm sUrl')
+eq(sm[0].thumb, 'https://ehgt.org/t/sheet.webp', 'gdtm sprite URL')
+eq(sm[0].thumbWidth, 200, 'gdtm thumb width from style')
+eq(sm[0].thumbHeight, 290, 'gdtm thumb height from style')
+eq(sm[1].offsetX, 200, 'gdtm second thumb offset')
+eq(sm[0].spriteWidth, 400, 'gdtm sprite width from max right edge')
+eq(sm[1].spriteHeight, 290, 'gdtm sprite height shared')
+
+// Legacy large-thumb layout (`#gdt > div.gdtl`) has one whole thumbnail image per page, not a sprite
+// sheet. It must still feed Reader with the /s/ URL + imgkey and feed PreviewThumbTile with dimensions
+// parsed from the thumbnail filename tail.
+const LARGE = '<div id="gdt">' +
+  '<div class="gdtl"><a href="https://e-hentai.org/s/abc123/55-1"><img alt="1" src="https://ehgt.org/t/aa/bb/55-780-1200-0001.jpg"/></a></div>' +
+  '<div class="gdtl"><a href="https://e-hentai.org/s/def456/55-2"><img alt="2" src="https://ehgt.org/t/aa/bb/55-1600-900-0002.jpg"/></a></div>' +
+  '</div>'
+const lg = parseImages(LARGE)
+eq(lg.length, 2, 'gdtl large-thumb previews count')
+eq(lg[0].page, 1, 'gdtl page from img alt')
+eq(lg[0].imgkey, 'abc123', 'gdtl imgkey')
+eq(lg[0].sUrl, 'https://e-hentai.org/s/abc123/55-1', 'gdtl sUrl')
+eq(lg[0].thumb, 'https://ehgt.org/t/aa/bb/55-780-1200-0001.jpg', 'gdtl thumb URL')
+eq(lg[0].thumbWidth, 780, 'gdtl thumb width from URL tail')
+eq(lg[0].thumbHeight, 1200, 'gdtl thumb height from URL tail')
+eq(lg[0].spriteWidth, 0, 'gdtl is whole-image fallback, not sprite')
+eq(lg[1].thumbWidth, 1600, 'gdtl landscape width from URL tail')
+eq(lg[1].thumbHeight, 900, 'gdtl landscape height from URL tail')
+
 // Preview tile sizing (EhSpriteThumbnail fitHeight): a fixed row HEIGHT, the WIDTH follows each thumb's
 // true aspect. This is the no-white-border contract — the box matches the thumb exactly, never a fixed
 // tile that letterboxes short/landscape thumbs. EH preview heights are NOT uniform across a page
@@ -301,6 +366,15 @@ ok(/RE_ARCHIVER_OR/.test(parserSrc) && /&amp;\)or=/.test(parserSrc), 'detail par
 ok(/RE_VISIBLE/.test(parserSrc) && /\.visible\s*=/.test(parserSrc), 'detail parser fills visible')
 ok(/parentTitle/.test(parserSrc), 'detail parser fills parent display text')
 ok(/RE_RATING_POS/.test(parserSrc) && /\.ratingFallBack\s*=/.test(parserSrc), 'detail parser fills ratingFallBack from rating sprite')
+const imageParserSrc = readFileSync(join(ROOT, 'shared/src/main/ets/parser/EhGalleryImageParser.ets'), 'utf8')
+ok(/RE_SMALL_PREVIEW/.test(imageParserSrc), 'image parser has gdtm small-thumb branch')
+ok(/parseSmallThumbs/.test(imageParserSrc), 'image parser parses gdtm sprite thumbnails')
+ok(/hasImage/.test(imageParserSrc), 'image parser dedupes overlapping preview layouts')
+ok(/RE_LARGE_PREVIEW/.test(imageParserSrc), 'image parser has gdtl large-thumb branch')
+ok(/parseLargeThumbDims/.test(imageParserSrc), 'image parser derives gdtl dimensions from thumb URL')
+const spriteSrc = readFileSync(join(ROOT, 'shared/src/main/ets/components/EhSpriteThumbnail.ets'), 'utf8')
+ok(/private wholeImageAspect\(\): number/.test(spriteSrc), 'whole-image fallback computes aspect from parsed thumb dimensions')
+ok(/\.aspectRatio\(this\.wholeImageAspect\(\)\)/.test(spriteSrc), 'whole-image fallback uses parsed aspect, not hardcoded 0.7')
 
 if (failures > 0) { console.error(`\n✗ gallery-detail parser contract: ${failures} failure(s)`); process.exit(1) }
 console.log('\n✓ gallery-detail parser contract passed')

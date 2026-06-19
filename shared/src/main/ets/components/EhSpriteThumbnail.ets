@@ -76,6 +76,10 @@ export struct EhSpriteThumbnail {
     return (this.sheetRealH > 0 ? this.sheetRealH : this.spriteHeight) * this.factor()
   }
 
+  private wholeImageAspect(): number {
+    return this.thumbWidth > 0 && this.thumbHeight > 0 ? this.thumbWidth / this.thumbHeight : 0.7
+  }
+
   build() {
     if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
       // Crop ONE thumb out of EH's sprite sheet. The sheet is an Image CHILD (not a backgroundImage)
@@ -114,7 +118,7 @@ export struct EhSpriteThumbnail {
       // Cover-fit image is actually rounded to `radius` — borderRadius alone does not clip an Image.
       Image(EhConstants.cdnThumb(this.url))
         .height(this.displayHeight)
-        .aspectRatio(0.7)
+        .aspectRatio(this.wholeImageAspect())
         .objectFit(ImageFit.Cover)
         .borderRadius(this.radius)
         .clip(true)
@@ -123,7 +127,7 @@ export struct EhSpriteThumbnail {
       // No sprite metadata: whole image, width-driven (same clip(true) so the radius actually rounds).
       Image(EhConstants.cdnThumb(this.url))
         .width(this.displayWidth)
-        .aspectRatio(0.7)
+        .aspectRatio(this.wholeImageAspect())
         .objectFit(ImageFit.Cover)
         .borderRadius(this.radius)
         .clip(true)
