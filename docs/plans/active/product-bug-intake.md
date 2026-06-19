@@ -2367,6 +2367,81 @@ Remaining acceptance:
 - Needs controller/user acceptance of the Settings root placement and minimal EH settings scope. No
   further device validation is required unless Settings root or EH settings routing changes again.
 
+### Settings Root Missing Security Settings Page
+
+Type: feature gap / settings reachability
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- System comparison against `eros_fe` settings showed `Security` as a first-level Settings child page,
+  while NextE lacked a matching route or page.
+
+Grounding:
+
+- `eros_fe` settings root exposes `Security` in
+  `/Users/honjow/git/eros_fe/lib/pages/tab/controller/setting_controller.dart`, routing to
+  `EHRoutes.securitySetting`.
+- The FE child page lives at `/Users/honjow/git/eros_fe/lib/pages/setting/security_setting_page.dart`
+  and shows `最近任务中模糊处理` plus `自动锁定`.
+- FE auto-lock is backed by `AutoLockController` and local authentication. NextE did not copy that
+  implementation because HarmonyOS lifecycle, biometric, and recent-task privacy behavior need their
+  own platform validation.
+
+Implementation:
+
+- `e32121d feat(settings): add security settings page` adds `SecuritySettingsPage`,
+  exports/registers the `SecuritySettings` route, and adds a Settings root `安全` row between
+  `高级` and `关于`.
+- Added `SecuritySettingsState` / `SecuritySettings` as a V2 holder plus single-writer preferences
+  path for the auto-lock timeout foundation.
+- The recent-task blur row is visible but disabled with explicit copy saying HarmonyOS window privacy
+  support is not implemented yet. This avoids pretending to protect recent tasks without a verified
+  platform API.
+- Scope is limited to Settings reachability and persisted auto-lock preference selection. It does not
+  implement biometric unlock overlay, lifecycle lock enforcement, recent-task privacy/masking, or any
+  auth-cookie-login behavior.
+
+Evidence:
+
+- Android FE comparison, 2026-06-19: ADB target `fa967a75`, launched
+  `com.honjow.fehviewer/.MainActivity` with `su`; Settings root showed `安全`, and Security settings
+  showed `最近任务中模糊处理` and `自动锁定 / 停用`.
+  Evidence directory: `.hvigor/outputs/security-settings-fe-comparison/`, especially
+  `fe_settings_root.png`, `fe_settings_root.xml`, `fe_security_settings.png`, and
+  `fe_security_settings.xml`.
+- Deterministic contracts/gates:
+  `scripts/test_settings_security_entry_contract.mjs`,
+  `scripts/test_settings_eh_entry_contract.mjs`,
+  `scripts/test_download_settings_contract.mjs`,
+  `scripts/test_settings_layout_entry_contract.mjs`,
+  `scripts/test_settings_search_entry_contract.mjs`,
+  `scripts/test_settings_reader_entry_contract.mjs`,
+  `scripts/test_settings_about_entry_contract.mjs`,
+  `scripts/test_settings_advanced_entry_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, and `git diff --check`.
+- Official signed build: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS emulator evidence, 2026-06-19: target `127.0.0.1:5555`, hdc outside sandbox, official
+  signed HAP installed. Settings root showed `安全` between `高级` and `关于`; tapping it opened
+  Security settings with disabled recent-task blur copy, auto-lock `停用`, and a full timeout menu.
+  Selecting `5 分钟` updated the page, then QA restored the value to `停用`.
+  Evidence directory: `.hvigor/outputs/security-settings-nexte-evidence/`, especially
+  `nexte_settings_root.png`, `nexte_settings_root_layout.json`,
+  `nexte_security_settings_page.png`, `nexte_security_settings_page_layout.json`,
+  `nexte_security_auto_lock_menu.png`, `nexte_security_auto_lock_menu_layout.json`,
+  `nexte_security_auto_lock_5m.png`, `nexte_security_auto_lock_5m_layout.json`,
+  `nexte_security_auto_lock_restored.png`, and `nexte_security_auto_lock_restored_layout.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the Settings root placement and honest limited Security scope.
+- Future separate lanes are still needed for real recent-task privacy/masking and biometric
+  auto-lock enforcement.
+
 ### Settings Root Missing Reader Settings Entry
 
 Type: feature gap / settings reachability
