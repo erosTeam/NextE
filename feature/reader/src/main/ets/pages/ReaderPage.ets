@@ -31,11 +31,12 @@ const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
 /**
  * Image reader (basic-complete): horizontal paged Swiper of full images, each a
  * self-resolving ReaderImagePage that supports pinch / double-tap zoom + pan. Chrome
- * (page counter) toggles via the Swiper's own onClick — gestures on a Swiper child don't
- * reliably receive plain taps, so single-tap is handled at the Swiper level and only the
- * multi-finger / double-tap zoom lives on the image. While zoomed, the image reports up so
- * the Swiper disables swipe (pan moves the image instead of turning the page). The VM loads
- * further preview pages as you approach the end, so the whole gallery is readable.
+ * (page counter) toggles via the Swiper's own tap gesture — gestures on a Swiper child don't
+ * reliably receive plain taps, so single-tap is handled at the Swiper level. Single and double
+ * taps are bound in one exclusive gesture group with double-tap first so the first tap of a
+ * double-tap cannot also toggle chrome. While zoomed, the image reports up so the Swiper disables
+ * swipe (pan moves the image instead of turning the page). The VM loads further preview pages as
+ * you approach the end, so the whole gallery is readable.
  */
 @ComponentV2
 export struct ReaderPage {
@@ -661,16 +662,22 @@ export struct ReaderPage {
     .onChange((i: number) => {
       this.vm.onPageChange(i)
     })
-    .onClick((e: ClickEvent) => {
-      this.onReaderTap(e.x, e.y)
-    })
-    .parallelGesture(
-      TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
-        const loc = e ? e.tapLocation : undefined
-        const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
-        const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
-        this.onReaderDoubleTap(tapX, tapY)
-      }),
+    .gesture(
+      GestureGroup(
+        GestureMode.Exclusive,
+        TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
+          const loc = e ? e.tapLocation : undefined
+          const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
+          const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
+          this.onReaderDoubleTap(tapX, tapY)
+        }),
+        TapGesture({ count: 1 }).onAction((e?: GestureEvent) => {
+          const loc = e ? e.tapLocation : undefined
+          const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
+          const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
+          this.onReaderTap(tapX, tapY)
+        }),
+      ),
     )
   }
 
@@ -836,16 +843,22 @@ export struct ReaderPage {
     .onChange((i: number) => {
       this.vm.onPageChange(this.spreadStartIndex(i))
     })
-    .onClick((e: ClickEvent) => {
-      this.onReaderTap(e.x, e.y)
-    })
-    .parallelGesture(
-      TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
-        const loc = e ? e.tapLocation : undefined
-        const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
-        const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
-        this.onReaderDoubleTap(tapX, tapY)
-      }),
+    .gesture(
+      GestureGroup(
+        GestureMode.Exclusive,
+        TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
+          const loc = e ? e.tapLocation : undefined
+          const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
+          const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
+          this.onReaderDoubleTap(tapX, tapY)
+        }),
+        TapGesture({ count: 1 }).onAction((e?: GestureEvent) => {
+          const loc = e ? e.tapLocation : undefined
+          const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
+          const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
+          this.onReaderTap(tapX, tapY)
+        }),
+      ),
     )
   }
 
@@ -1439,19 +1452,24 @@ struct ReaderImagePage {
 
   private onDoubleTap(tapX: number, tapY: number): void {
     if (this.zoomScale > 1.01) {
-      this.resetZoom()
+      this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
+        this.resetZoom()
+        this.notifyZoom()
+      })
     } else {
       const target: number = DOUBLE_TAP_SCALE
       const nextX: number = (1 - target) * (tapX - this.compW / 2)
       const nextY: number = (1 - target) * (tapY - this.compH / 2)
-      this.zoomScale = target
-      this.baseZoom = target
-      this.offsetX = this.clampOffsetX(nextX, target)
-      this.offsetY = this.clampOffsetY(nextY, target)
-      this.baseOffsetX = this.offsetX
-      this.baseOffsetY = this.offsetY
+      this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
+        this.zoomScale = target
+        this.baseZoom = target
+        this.offsetX = this.clampOffsetX(nextX, target)
+        this.offsetY = this.clampOffsetY(nextY, target)
+        this.baseOffsetX = this.offsetX
+        this.baseOffsetY = this.offsetY
+        this.notifyZoom()
+      })
     }
-    this.notifyZoom()
   }
 
   build() {

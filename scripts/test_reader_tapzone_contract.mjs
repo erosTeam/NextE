@@ -135,8 +135,33 @@ const MID_Y = 250 // center-middle band
 // 8. structural: the wiring exists in the .ets
 {
   const src = readFileSync(join(ROOT, 'feature/reader/src/main/ets/pages/ReaderPage.ets'), 'utf8')
+  const section = (name) => {
+    const start = src.indexOf(`@Builder\n  ${name}`)
+    ok(`has ${name}`, start >= 0)
+    const next = src.indexOf('\n  @Builder', start + name.length)
+    return src.slice(start, next >= 0 ? next : src.length)
+  }
+  const horizontalReader = section('HorizontalReader()')
+  const doublePageReader = section('DoublePageReader()')
+  const exclusiveDoubleBeforeSingle = (source) => {
+    const exclusive = source.indexOf('GestureMode.Exclusive')
+    const doubleTap = source.indexOf('TapGesture({ count: 2 })')
+    const doubleAction = source.indexOf('this.onReaderDoubleTap(tapX, tapY)')
+    const singleTap = source.indexOf('TapGesture({ count: 1 })')
+    const singleAction = source.indexOf('this.onReaderTap(tapX, tapY)')
+    return exclusive >= 0 &&
+      doubleTap > exclusive &&
+      doubleAction > doubleTap &&
+      singleTap > doubleAction &&
+      singleAction > singleTap
+  }
   ok('has onReaderTap(x, y)', /private onReaderTap\(x: number, y: number\)/.test(src))
-  ok('zoom gate first', /if \(this\.imageZoomed \|\| this\.viewWidth <= 0\)/.test(src))
+  ok('horizontal and double-page taps use exclusive double-first gesture groups',
+    exclusiveDoubleBeforeSingle(horizontalReader) &&
+      exclusiveDoubleBeforeSingle(doublePageReader) &&
+      !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(horizontalReader) &&
+      !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(doublePageReader))
+  ok('tap-zone logic keeps zoom gate first', /private onReaderTap\(x: number, y: number\): void \{[\s\S]*if \(this\.imageZoomed \|\| this\.viewWidth <= 0\)/.test(src))
   ok('horizontal thirds', /const lr: number = this\.viewWidth \/ 3/.test(src))
   ok('center-top fifth → prev', /y < this\.viewHeight \/ 5[\s\S]*this\.toPrev\(\)/.test(src))
   ok('center-bottom fifth → next', /y > \(this\.viewHeight \* 4\) \/ 5[\s\S]*this\.toNext\(\)/.test(src))

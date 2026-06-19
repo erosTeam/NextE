@@ -22,6 +22,27 @@ const ok = (name, cond) => {
 }
 
 const reader = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
+function section(name) {
+  const start = reader.indexOf(`@Builder\n  ${name}`)
+  assert.ok(start >= 0, `missing section ${name}`)
+  const next = reader.indexOf('\n  @Builder', start + name.length)
+  return reader.slice(start, next >= 0 ? next : reader.length)
+}
+
+const horizontalReader = section('HorizontalReader()')
+const doublePageReader = section('DoublePageReader()')
+function exclusiveDoubleBeforeSingle(src) {
+  const exclusive = src.indexOf('GestureMode.Exclusive')
+  const doubleTap = src.indexOf('TapGesture({ count: 2 })')
+  const doubleAction = src.indexOf('this.onReaderDoubleTap(tapX, tapY)')
+  const singleTap = src.indexOf('TapGesture({ count: 1 })')
+  const singleAction = src.indexOf('this.onReaderTap(tapX, tapY)')
+  return exclusive >= 0 &&
+    doubleTap > exclusive &&
+    doubleAction > doubleTap &&
+    singleTap > doubleAction &&
+    singleAction > singleTap
+}
 
 ok('zoom constants are local to ReaderPage',
   /const MAX_SCALE: number = 4/.test(reader) &&
@@ -44,11 +65,19 @@ ok('pinch zoom uses two fingers and pinch center correction',
 ok('parent Swiper captures double tap and commands the active image page',
   /@Local doubleTapSeq: number = 0/.test(reader) &&
   /private onReaderDoubleTap\(x: number, y: number\): void[\s\S]*this\.doubleTapSeq = this\.doubleTapSeq \+ 1/.test(reader) &&
-  /\.parallelGesture\([\s\S]*TapGesture\(\{\s*count:\s*2\s*\}\)\.onAction\(\(e\?: GestureEvent\) => \{[\s\S]*const loc = e \? e\.tapLocation : undefined[\s\S]*this\.onReaderDoubleTap\(tapX, tapY\)/.test(reader) &&
+  exclusiveDoubleBeforeSingle(horizontalReader) &&
+  exclusiveDoubleBeforeSingle(doublePageReader) &&
   /@Monitor\('doubleTapSeq'\)[\s\S]*onDoubleTapCommand\(\): void[\s\S]*this\.image\.page !== this\.activeIndex \+ 1[\s\S]*this\.onDoubleTap\(this\.doubleTapX, this\.doubleTapY\)/.test(reader))
+ok('single and double tap are not mixed through onClick plus parallelGesture',
+  !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(horizontalReader) &&
+    !/\.onClick\(\(e: ClickEvent\) => \{[\s\S]*this\.onReaderTap\(e\.x, e\.y\)/.test(doublePageReader) &&
+    !/tapDispatchSeq|consumeNextTapAfterDoubleTap|suppressTapUntilMs|performReaderTap/.test(reader))
 ok('double tap zooms toward the commanded tap point',
   /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*\(1 - target\) \* \(tapX - this\.compW \/ 2\)/.test(reader) &&
   /ReaderImagePage\(\{[\s\S]*doubleTapSeq: this\.doubleTapSeq,[\s\S]*doubleTapX: this\.doubleTapX,[\s\S]*doubleTapY: this\.doubleTapY/.test(reader))
+ok('double tap zoom transition is animated instead of an abrupt state jump',
+  /private onDoubleTap\(tapX: number, tapY: number\): void[\s\S]*animateTo\(\{ duration: 180, curve: Curve\.FastOutSlowIn \}/.test(reader) &&
+  /this\.resetZoom\(\)[\s\S]*this\.notifyZoom\(\)/.test(reader))
 ok('zoomed pan is two-axis and parallel so fit-state page turns can reach Swiper',
   /private panDistance\(\): number[\s\S]*this\.zoomScale > 1\.01[\s\S]*return 1[\s\S]*longSide \* 2/.test(reader) &&
   /\.parallelGesture\([\s\S]*PanGesture\(\{\s*fingers:\s*1,\s*direction:\s*PanDirection\.All,\s*distance:\s*this\.panDistance\(\)\s*\}\)/.test(reader) &&
