@@ -217,28 +217,52 @@ export struct ReaderSettingsPage {
         ListItem() {
           Column() {
             GroupedListSection() {
-              ConciseListRow({
-                title: $r('app.string.settings_reader_direction'),
-                trailingText: this.modeLabel(),
-                trailingDropdown: true,
-                action: () => {
-                  this.dirMenuShown = true
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_reader_direction'),
+                  trailingText: this.modeLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.dirMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.dirMenuShown, this.DirMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.dirMenuShown = false
                 },
               })
-              ConciseListRow({
-                title: $r('app.string.settings_reader_double_page'),
-                trailingText: this.columnModeLabel(),
-                trailingDropdown: true,
-                action: () => {
-                  this.columnMenuShown = true
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_reader_double_page'),
+                  trailingText: this.columnModeLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.columnMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.columnMenuShown, this.ColumnMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.columnMenuShown = false
                 },
               })
-              ConciseListRow({
-                title: $r('app.string.settings_reader_auto_page_interval'),
-                trailingText: this.autoPageLabel(),
-                trailingDropdown: true,
-                action: () => {
-                  this.autoPageMenuShown = true
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_reader_auto_page_interval'),
+                  trailingText: this.autoPageLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.autoPageMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.autoPageMenuShown, this.AutoPageMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.autoPageMenuShown = false
                 },
               })
               ConciseListRow({
@@ -256,24 +280,6 @@ export struct ReaderSettingsPage {
               })
             }
           }
-          .bindMenu(this.dirMenuShown, this.DirMenu, {
-            placement: Placement.Bottom,
-            onDisappear: () => {
-              this.dirMenuShown = false
-            },
-          })
-          .bindMenu(this.columnMenuShown, this.ColumnMenu, {
-            placement: Placement.Bottom,
-            onDisappear: () => {
-              this.columnMenuShown = false
-            },
-          })
-          .bindMenu(this.autoPageMenuShown, this.AutoPageMenu, {
-            placement: Placement.Bottom,
-            onDisappear: () => {
-              this.autoPageMenuShown = false
-            },
-          })
         }
       }
     }

@@ -117,13 +117,21 @@ export struct LayoutSettingsPage {
         ListItem() {
           Column() {
             GroupedListSection() {
-              ConciseListRow({
-                title: $r('app.string.settings_view'),
-                leadingIcon: $r('sys.symbol.square_grid_2x2'),
-                trailingText: this.viewModeLabel(),
-                trailingDropdown: true,
-                action: () => {
-                  this.viewMenuShown = true
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_view'),
+                  leadingIcon: $r('sys.symbol.square_grid_2x2'),
+                  trailingText: this.viewModeLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.viewMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.viewMenuShown, this.ViewModeMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.viewMenuShown = false
                 },
               })
               this.rowDivider()
@@ -149,12 +157,6 @@ export struct LayoutSettingsPage {
               })
             }
           }
-          .bindMenu(this.viewMenuShown, this.ViewModeMenu, {
-            placement: Placement.Bottom,
-            onDisappear: () => {
-              this.viewMenuShown = false
-            },
-          })
         }
         ListItem() {
           GroupedListSection() {

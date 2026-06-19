@@ -104,24 +104,26 @@ export struct SecuritySettingsPage {
                 isEnabled: false,
               })
               this.rowDivider()
-              ConciseListRow({
-                title: $r('app.string.security_auto_lock'),
-                subtitle: $r('app.string.security_auto_lock_hint'),
-                leadingIcon: $r('sys.symbol.lock'),
-                trailingText: this.autoLockLabel(this.securitySettings.autoLockSeconds),
-                trailingDropdown: true,
-                action: () => {
-                  this.autoLockMenuShown = true
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.security_auto_lock'),
+                  subtitle: $r('app.string.security_auto_lock_hint'),
+                  leadingIcon: $r('sys.symbol.lock'),
+                  trailingText: this.autoLockLabel(this.securitySettings.autoLockSeconds),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.autoLockMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.autoLockMenuShown, this.AutoLockMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.autoLockMenuShown = false
                 },
               })
             }
           }
-          .bindMenu(this.autoLockMenuShown, this.AutoLockMenu, {
-            placement: Placement.Bottom,
-            onDisappear: () => {
-              this.autoLockMenuShown = false
-            },
-          })
         }
       }
     }

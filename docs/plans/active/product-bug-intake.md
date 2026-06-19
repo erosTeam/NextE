@@ -2828,7 +2828,49 @@ Type: bug / settings interaction UX
 
 Priority suggestion: P1
 
-Status: active / ready for implementation
+Status: implemented / needs controller acceptance
+
+Implementation:
+
+- This lane changes settings dropdown rows to bind the native `Menu` to a
+  one-row `Column` wrapper instead of a broad section/page container.
+- Covered pages: `LayoutSettingsPage`, `ReaderSettingsPage`, `DownloadSettingsPage`, and
+  `SecuritySettingsPage`.
+- Each row-local menu uses `Placement.BottomRight`, so the popup opens near the row's trailing current
+  value / dropdown affordance.
+- `ConciseListRow` remains a stable row primitive; the first attempted shared `BuilderParam` menu
+  extension was rejected during device validation because tapping the menu path returned the app to the
+  desktop.
+
+Verification:
+
+- FE grounding: eros_fe setting selector rows use row taps to open a selection surface, with the row
+  retaining title/current-value semantics. Source files checked:
+  `/Users/honjow/git/eros_fe/lib/pages/setting/setting_items/selector_Item.dart`,
+  `/Users/honjow/git/eros_fe/lib/pages/setting/read_setting_page.dart`,
+  `/Users/honjow/git/eros_fe/lib/pages/setting/download_setting_page.dart`, and
+  `/Users/honjow/git/eros_fe/lib/pages/setting/security_setting_page.dart`.
+- Android FE ADB availability / current foreground evidence:
+  `/Users/honjow/git/NextE/.hvigor/outputs/settings-dropdown-anchor/eros_fe_current_pull.png`.
+- Deterministic contract: `node scripts/test_settings_dropdown_anchor_contract.mjs` locks row-local
+  `Column(){ ConciseListRow(...) }.bindMenu(... Placement.BottomRight ...)` anchors and prevents the
+  outer-container binding from returning.
+- Full deterministic contracts passed via
+  `for f in scripts/test_*contract.mjs; do node "$f" || exit 1; done`.
+- V2-only gate passed: `node scripts/test_v1_decorator_inventory_contract.mjs` reports `0 file(s)`.
+- i18n parity and `git diff --check` passed.
+- Signed macOS build passed: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS Mate X7 simulator, hdc outside sandbox, signed HAP installed on `127.0.0.1:5555`.
+- Device evidence:
+  - Layout settings view-mode menu anchored near the first row trailing value:
+    `/Users/honjow/git/NextE/.hvigor/outputs/settings-dropdown-anchor/new_menu.png`.
+  - Reader settings direction menu anchored near the first row trailing value:
+    `/Users/honjow/git/NextE/.hvigor/outputs/settings-dropdown-anchor/reader_menu.png`.
+
+Remaining acceptance:
+
+- Controller/user should confirm menu placement feel on the relevant settings pages. No further work is
+  planned unless placement still feels off on device.
 
 Source:
 

@@ -116,24 +116,26 @@ export struct DownloadSettingsPage {
                 },
               })
               this.rowDivider()
-              ConciseListRow({
-                title: $r('app.string.download_original_images'),
-                subtitle: $r('app.string.download_original_hint'),
-                leadingIcon: $r('sys.symbol.picture'),
-                trailingText: this.originalModeLabel(),
-                trailingDropdown: true,
-                action: () => {
-                  this.originalMenuShown = true
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.download_original_images'),
+                  subtitle: $r('app.string.download_original_hint'),
+                  leadingIcon: $r('sys.symbol.picture'),
+                  trailingText: this.originalModeLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.originalMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.originalMenuShown, this.OriginalModeMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.originalMenuShown = false
                 },
               })
             }
           }
-          .bindMenu(this.originalMenuShown, this.OriginalModeMenu, {
-            placement: Placement.Bottom,
-            onDisappear: () => {
-              this.originalMenuShown = false
-            },
-          })
         }
       }
     }
