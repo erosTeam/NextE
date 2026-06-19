@@ -284,9 +284,7 @@
 - [ ] **P1** [now] _ui-native_ · No dedicated favcat selector page (full-screen list with counts + colored hearts + chevron)
     - 修:Add a FavoritesSelectorPage route (register in entry/Index.ets nav like GalleryDetail/EhLogin) built from V2Next's GroupedListSection + ConciseListRow: each row = colored heart SymbolGlyph (per favcat color), title, trailing count, chevron. Open it from a 'bar
     - 验:构建 + 截图
-- [ ] **P1** [now] _missed-logic_ · FavOrderException re-load logic reimplemented brittly and diverges from eros_fe's actual detection
-    - 修:Move order-mismatch + list-display-mode detection into the favorites parser/transformer layer (an EhFavoriteListTransformer that returns a typed 're-order needed' / 'need dm_l' signal), and have getFavoritesList perform the single-shot retry with inline_set se
-    - 验:契约测试 + 构建
+- [x] **P1** [now] _missed-logic_ · Favorites order/display retry + deep-page loadMore guard — IMPLEMENTED. `EhApiService.getFavoritesList()` centralizes the `dm_l` list-display retry; `FavoritesViewModel.fetchPageWithOrderSync(next)` is shared by initial load and `loadMore()`, retrying the same cursor when returned `favOrder` lags. `loadMore()` continues from cursor progress (`nextGid` non-empty and changed), not fresh row count after dedupe. Locked by `scripts/test_favorites_loadmore_order_contract.mjs`; broader jump/seek remains separate.
 - [ ] **P1** [dev] _missed-logic_ · Bidirectional paging + jump-to-page / jump-to-date (seek) navigator missing
     - 修:Add a jump entry point in the favorites title bar (HDS menu/button) opening an HDS dialog with (a) page input bounded by maxPage and (b) a date picker for seek (yyyy-MM-dd). Wire FavoritesViewModel to consume prevGid/prevPage and support keepPosition (anchor s
     - 验:截图比对(NextE vs eros_fe 同页)
