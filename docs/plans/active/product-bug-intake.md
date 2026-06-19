@@ -191,7 +191,7 @@ Type: P0/P1 bug / browsing preview pagination
 
 Priority suggestion: P0/P1
 
-Status: implemented / pending large-gallery device acceptance
+Status: implemented / pending controller acceptance
 
 Implementation:
 
@@ -243,12 +243,31 @@ Verification:
     `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/fix_after_jump.png`,
     `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/fix_scroll_down.png`,
     and `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/fix_scroll_up.png`.
+- Large-gallery device validation on 2026-06-20 used public gallery
+  `https://e-hentai.org/g/3998992/f5b5c954d2/` (`1700` pages, `85` preview pages). Android FE ADB
+  reference was captured with `su` on device `fa967a75`, showing the same 1700-page gallery detail:
+  `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/fe_large_detail.png`.
+  NextE was validated on Mate X7 simulator `127.0.0.1:5555` with hdc outside sandbox:
+  - Detail page showed the same gallery and `1700` page count:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_large_detail.png`.
+  - AllThumbnails initially showed the early range `1..20`:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_allthumb_initial.png`.
+  - Jumping directly to page `600` landed in the target neighborhood `569..603`, including `600`, with
+    no early `1..20` range stitched into the viewport:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_after_jump600.png`.
+  - Scrolling down stayed in the adjacent target neighborhood `590..624`:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_after_jump600_scroll_down.png`.
+  - Scrolling back up returned to the target neighborhood `569..596`, not the initial pages:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_after_jump600_scroll_up.png`.
+  - Layout JSON evidence for the same sequence is saved beside the screenshots:
+    `nexte_after_jump600_layout.json`, `nexte_after_jump600_scroll_down_layout.json`, and
+    `nexte_after_jump600_scroll_up_layout.json`.
 
 Remaining acceptance:
 
-- Still needs a live approximately 1000-page gallery device run: open AllThumbnails with only early
-  preview pages loaded, jump to page 500/600+, then scroll up/down and confirm adjacent thumbnail pages
-  load from the target neighborhood without jumping back to early pages.
+- Controller/user can review the large-gallery evidence above. No additional product-code change is
+  planned for this item unless review finds a reproducible mismatch beyond the validated 1700-page
+  jump-to-600 flow.
 
 Source:
 
