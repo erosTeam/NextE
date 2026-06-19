@@ -41,6 +41,10 @@ export class EhMytagsParser {
           new RegExp(`id="tagweight_${m[1]}"[^>]*value="(\\d+)"`),
         )
         t.weight = wM !== null && wM[1] !== undefined ? Number.parseInt(wM[1], 10) : 10
+        const colorM: RegExpMatchArray | null = html.match(
+          new RegExp(`id="tagcolor_${m[1]}"[^>]*value="([^"]*)"`),
+        )
+        t.defaultColor = colorM === null || colorM[1] === undefined || colorM[1].replace('#', '').trim().length === 0
         t.watched = new RegExp(`id="tagwatch_${m[1]}"[^>]*\\schecked`).test(html)
         t.hidden = new RegExp(`id="taghide_${m[1]}"[^>]*\\schecked`).test(html)
         result.tags.push(t)
@@ -49,6 +53,7 @@ export class EhMytagsParser {
     }
     result.tagSets = EhMytagsParser.parseTagSets(html)
     result.currentTagset = EhMytagsParser.selectedTagset(html)
+    result.canDelete = html.indexOf('do_tagset_delete()') >= 0
     result.apiuid = HtmlSelectorUtils.group1(html, /var apiuid\s*=\s*(\d+)/)
     result.apikey = HtmlSelectorUtils.group1(html, /var apikey\s*=\s*"([0-9a-f]+)"/)
     return result

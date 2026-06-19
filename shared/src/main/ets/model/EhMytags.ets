@@ -16,6 +16,7 @@ export class EhUsertag {
   color: string = '' // border color
   fillColor: string = '' // background fill (first gradient stop)
   textColor: string = '' // EH-chosen readable text color
+  defaultColor: boolean = true // true when EH's custom-color input is empty
   weight: number = 10 // EH default tag weight; orders flagged tags + soft-filter contribution
   watched: boolean = false
   hidden: boolean = false
@@ -49,6 +50,7 @@ export class EhMytags {
   tags: EhUsertag[] = []
   tagSets: EhMytagSet[] = []
   currentTagset: string = ''
+  canDelete: boolean = false
   apiuid: string = ''
   apikey: string = ''
 }
