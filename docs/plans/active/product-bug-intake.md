@@ -563,7 +563,7 @@ Status: implemented / needs controller acceptance
 
 Implementation:
 
-- Changeset: pending commit for `feat(gallery): expand detail title menu`.
+- Changeset: `d40ea05 feat(gallery): expand detail title menu`.
 - Expanded `GalleryDetailPage.detailMenu()` so HDS keeps local favorite and share inline while refresh and
   power-user actions move into the overflow menu with `maxCount: 3`.
 - Added non-destructive overflow actions for refresh, edit tags, copy gallery link, copy gallery title,
