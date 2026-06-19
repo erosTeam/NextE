@@ -47,6 +47,17 @@ export class FavoritesViewModel {
     }
   }
 
+  private async fetchPageWithOrderSync(next: string): Promise<GalleryList> {
+    let list: GalleryList = await EhApiService.getInstance().getFavoritesList(this.buildQuery(next))
+    // EH favorites order/display preferences are server-side and can lag by one response after an
+    // inline_set change. Keep this guard on every page fetch, not just page 1, so deep paging stays in
+    // the selected order after an account/display-mode correction.
+    if (list.favOrder.length > 0 && list.favOrder !== this.favOrder) {
+      list = await EhApiService.getInstance().getFavoritesList(this.buildQuery(next))
+    }
+    return list
+  }
+
   /** Fix this VM to one favcat + order WITHOUT loading (retained per-favcat page; loadData runs on
    * first activation). The favcat is stable for the page's lifetime, so selectFavcat is not used. */
   configure(favcat: string, orderByPosted: boolean): void {
@@ -152,13 +163,7 @@ export class FavoritesViewModel {
     this.nextGid = ''
     this.hasMore = false
     try {
-      let list: GalleryList = await EhApiService.getInstance().getFavoritesList(this.buildQuery(''))
-      // EH's inline_set sort order is sticky-by-one-load: the first request after a toggle only
-      // SETS the preference and returns the old order. If the response order lags what we asked
-      // for, re-load once (the preference is now applied) — eros_fe's FavOrderException handling.
-      if (list.favOrder.length > 0 && list.favOrder !== this.favOrder) {
-        list = await EhApiService.getInstance().getFavoritesList(this.buildQuery(''))
-      }
+      const list: GalleryList = await this.fetchPageWithOrderSync('')
       this.mergeFavList(list.favList)
       this.resolveFavcatSlots(list.gallerys)
       this.dataSource.setData(list.gallerys)
@@ -196,10 +201,9 @@ export class FavoritesViewModel {
     }
     this.isLoadingMore = true
     const myEpoch: number = this.epoch
+    const cursor: string = this.nextGid
     try {
-      const list: GalleryList = await EhApiService.getInstance().getFavoritesList(
-        this.buildQuery(this.nextGid),
-      )
+      const list: GalleryList = await this.fetchPageWithOrderSync(cursor)
       // A favcat switch / order toggle / refresh landed while this fetch was in flight → these rows
       // belong to the OLD favcat/order. Drop them rather than mixing them into the new list.
       if (this.epoch === myEpoch) {
@@ -210,9 +214,9 @@ export class FavoritesViewModel {
           this.itemCount = this.dataSource.totalCount()
         }
         this.nextGid = list.nextGid
-        // Exhausted when the cursor is empty OR the page brought no genuinely-new rows (repeated
-        // boundary page) — without this an all-duplicate page keeps hasMore true and loops loadMore.
-        this.hasMore = list.nextGid.length > 0 && fresh.length > 0
+        // Continue based on cursor progress, not row count. Some EH pages can overlap already-seen rows;
+        // stop only when EH gives no next cursor or repeats the same cursor.
+        this.hasMore = list.nextGid.length > 0 && list.nextGid !== cursor
       }
     } catch (err) {
       const e = err as Error
