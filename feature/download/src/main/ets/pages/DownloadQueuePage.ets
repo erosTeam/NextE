@@ -100,14 +100,21 @@ export struct DownloadQueuePage {
   }
 
   private taskProgressLabel(task: DownloadGalleryTask): string {
+    const parts: string[] = []
     if (task.status === DownloadGalleryTaskStatus.ERROR) {
       return this.taskStatusText(task)
     }
     if (task.downloadProgressText().length > 0) {
-      return AppStrings.get('download_file_progress').replace('%s', task.downloadProgressText())
+      parts.push(this.taskStatusText(task))
+      parts.push(AppStrings.get('download_file_progress').replace('%s', task.downloadProgressText()))
+      return parts.join(' · ')
     }
     if (task.seedProgressText().length > 0) {
-      return AppStrings.get('download_seed_progress').replace('%s', task.seedProgressText())
+      if (task.status === DownloadGalleryTaskStatus.PREPARING || task.status === DownloadGalleryTaskStatus.READY) {
+        parts.push(this.taskStatusText(task))
+      }
+      parts.push(AppStrings.get('download_seed_progress').replace('%s', task.seedProgressText()))
+      return parts.join(' · ')
     }
     return this.taskStatusText(task)
   }

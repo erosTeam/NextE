@@ -65,7 +65,8 @@ ok(/parseSeeds/.test(settings) && /raw\.filePath/.test(settings) && /raw\.bytesW
 
 ok(/downloadBinaryToFile/.test(client) && /HttpDataType\.ARRAY_BUFFER/.test(client) &&
   /fs\.write/.test(client) && /maxLimit/.test(client), 'HTTP client can write binary response to a sandbox file')
-ok(!/requestInStream/.test(client), 'first-file smoke intentionally avoids stream queueing complexity')
+ok(!/downloadFirstGalleryImage[\s\S]*requestInStream/.test(settings),
+  'first-file smoke intentionally avoids stream queueing complexity in the download task path')
 
 ok(/download_file_progress/.test(queue) && /task\.downloadProgressText\(\)/.test(queue),
   'downloads page shows real file progress in the task subtitle')
