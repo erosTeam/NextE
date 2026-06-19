@@ -979,6 +979,23 @@ const MAX_SCALE: number = 4
 const DOUBLE_TAP_SCALE: number = 2.5
 const IMAGE_AUTO_RETRY_LIMIT: number = 3
 
+enum ReaderImageFailureKind {
+  Generic = 'generic',
+  Quota = 'quota',
+  RateLimited = 'rateLimited',
+}
+
+function readerFailureKindFromError(err: Error): ReaderImageFailureKind {
+  const message: string = err.message.toLowerCase()
+  if (message.indexOf('image509') >= 0 || message.indexOf('509') >= 0 || message.indexOf('quota') >= 0) {
+    return ReaderImageFailureKind.Quota
+  }
+  if (message.indexOf('429') >= 0 || message.indexOf('rate') >= 0 || message.indexOf('throttle') >= 0) {
+    return ReaderImageFailureKind.RateLimited
+  }
+  return ReaderImageFailureKind.Generic
+}
+
 // Structural subset of Image.onComplete. Intrinsic bitmap size is converted to vp so
 // contain-fit pan bounds stay in the same coordinate space as gestures.
 interface ReaderImageLoadEvent {
@@ -1008,6 +1025,7 @@ struct ReaderImagePage {
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
   @Local failed: boolean = false;
+  @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
   @Local offsetY: number = 0;
@@ -1054,8 +1072,11 @@ struct ReaderImagePage {
       this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
-      DiagnosticLogger.warn('reader', 'resolve_failed', (err as Error).message)
+      const e: Error = err as Error
+      this.failureKind = readerFailureKindFromError(e)
+      DiagnosticLogger.warn('reader', 'resolve_failed', e.message)
       this.retrySourceAutomatically()
     }
   }
@@ -1066,6 +1087,7 @@ struct ReaderImagePage {
     this.imageUrl = ''
     this.imageLoaded = false
     this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
     this.resolve(true)
   }
 
@@ -1201,6 +1223,7 @@ struct ReaderImagePage {
       if (this.failed) {
         ReaderFailureOverlay({
           page: this.image.page,
+          kind: this.failureKind,
           onRetry: () => {
             this.retrySource()
           },
@@ -1335,6 +1358,7 @@ struct ReaderVerticalImage {
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
   @Local failed: boolean = false;
+  @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Local ratio: number = DEFAULT_VERTICAL_RATIO;
   private autoRetryCount: number = 0;
 
@@ -1353,8 +1377,11 @@ struct ReaderVerticalImage {
       this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
-      DiagnosticLogger.warn('reader', 'resolve_failed', (err as Error).message)
+      const e: Error = err as Error
+      this.failureKind = readerFailureKindFromError(e)
+      DiagnosticLogger.warn('reader', 'resolve_failed', e.message)
       this.retrySourceAutomatically()
     }
   }
@@ -1364,6 +1391,7 @@ struct ReaderVerticalImage {
     this.imageUrl = ''
     this.imageLoaded = false
     this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
     this.resolve(true)
   }
 
@@ -1385,6 +1413,7 @@ struct ReaderVerticalImage {
       if (this.failed) {
         ReaderFailureOverlay({
           page: this.image.page,
+          kind: this.failureKind,
           compact: true,
           onRetry: () => {
             this.retrySource()
@@ -1459,6 +1488,7 @@ struct ReaderLoadingStage {
 @ComponentV2
 struct ReaderFailureOverlay {
   @Param page: number = 0;
+  @Param kind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Param compact: boolean = false;
   @Param onRetry: () => void = () => {};
 
@@ -1470,18 +1500,38 @@ struct ReaderFailureOverlay {
     return this.compact ? 196 : 280
   }
 
+  private failureTitle(): ResourceStr {
+    if (this.kind === ReaderImageFailureKind.Quota) {
+      return $r('app.string.reader_error_quota')
+    }
+    if (this.kind === ReaderImageFailureKind.RateLimited) {
+      return $r('app.string.reader_error_rate_limited')
+    }
+    return $r('app.string.image_load_failed')
+  }
+
+  private failureHint(): ResourceStr {
+    if (this.kind === ReaderImageFailureKind.Quota) {
+      return $r('app.string.reader_error_quota_hint')
+    }
+    if (this.kind === ReaderImageFailureKind.RateLimited) {
+      return $r('app.string.reader_error_rate_limited_hint')
+    }
+    return $r('app.string.reader_retry_source_hint')
+  }
+
   build() {
     Column({ space: ThemeConstants.SPACE_MD }) {
       SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
         .fontSize(this.iconSize())
         .fontColor([Color.White])
-      Text($r('app.string.image_load_failed'))
+      Text(this.failureTitle())
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor(Color.White)
         .fontWeight(FontWeight.Medium)
         .textAlign(TextAlign.Center)
         .maxLines(2)
-      Text($r('app.string.reader_retry_source_hint'))
+      Text(this.failureHint())
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor('#AAFFFFFF')
         .textAlign(TextAlign.Center)

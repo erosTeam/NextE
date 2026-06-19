@@ -453,6 +453,22 @@
       "value": "Alternate sources failed. Retry this image."
     },
     {
+      "name": "reader_error_quota",
+      "value": "Image quota exceeded"
+    },
+    {
+      "name": "reader_error_quota_hint",
+      "value": "EH returned a 509 quota image. Try later or retry another source."
+    },
+    {
+      "name": "reader_error_rate_limited",
+      "value": "Rate limited"
+    },
+    {
+      "name": "reader_error_rate_limited_hint",
+      "value": "EH is throttling image requests. Try again later."
+    },
+    {
       "name": "reader_loading_resolving",
       "value": "Resolving image"
     },

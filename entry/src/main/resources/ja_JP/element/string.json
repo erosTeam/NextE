@@ -453,6 +453,22 @@
       "value": "別ソースでも失敗しました。この画像を再試行できます。"
     },
     {
+      "name": "reader_error_quota",
+      "value": "画像の割り当てを超過しました"
+    },
+    {
+      "name": "reader_error_quota_hint",
+      "value": "EH が 509 の割り当て画像を返しました。後で再試行するか、別ソースを試してください。"
+    },
+    {
+      "name": "reader_error_rate_limited",
+      "value": "リクエストが制限されています"
+    },
+    {
+      "name": "reader_error_rate_limited_hint",
+      "value": "EH が画像リクエストを制限しています。後で再試行してください。"
+    },
+    {
       "name": "reader_loading_resolving",
       "value": "画像を解析中"
     },
