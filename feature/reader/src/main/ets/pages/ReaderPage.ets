@@ -84,18 +84,12 @@ export struct ReaderPage {
           .justifyContent(FlexAlign.Center)
           .padding(ThemeConstants.SPACE_XL)
         } else {
-          LoadingProgress()
-            .width(ThemeConstants.LOADING_SIZE_LARGE)
-            .height(ThemeConstants.LOADING_SIZE_LARGE)
-            .color(Color.White)
+          ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
         }
 
         // Jump-to-page spinner while a far slider jump loads the intermediate preview pages.
         if (this.vm.jumping) {
-          LoadingProgress()
-            .width(ThemeConstants.LOADING_SIZE_LARGE)
-            .height(ThemeConstants.LOADING_SIZE_LARGE)
-            .color(Color.White)
+          ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
         }
 
         // Chrome bars are always mounted (when there's content) and faded via opacity so they animate;
@@ -1045,11 +1039,12 @@ struct ReaderImagePage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+        if (!this.imageLoaded) {
+          ReaderLoadingStage({ label: $r('app.string.reader_loading_image') })
+            .hitTestBehavior(HitTestMode.None)
+        }
       } else {
-        LoadingProgress()
-          .width(ThemeConstants.LOADING_SIZE_LARGE)
-          .height(ThemeConstants.LOADING_SIZE_LARGE)
-          .color(Color.White)
+        ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
       }
     }
     .width('100%')
@@ -1219,15 +1214,50 @@ struct ReaderVerticalImage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+        if (!this.imageLoaded) {
+          ReaderLoadingStage({
+            label: $r('app.string.reader_loading_image'),
+            compact: true,
+          })
+            .hitTestBehavior(HitTestMode.None)
+        }
       } else {
-        LoadingProgress()
-          .width(ThemeConstants.LOADING_SIZE)
-          .height(ThemeConstants.LOADING_SIZE)
-          .color(Color.White)
+        ReaderLoadingStage({
+          label: $r('app.string.reader_loading_resolving'),
+          compact: true,
+        })
       }
     }
     .width('100%')
     .constraintSize({ minHeight: 220 })
+  }
+}
+
+@ComponentV2
+struct ReaderLoadingStage {
+  @Param label: ResourceStr = '';
+  @Param compact: boolean = false;
+
+  private spinnerSize(): number {
+    return this.compact ? ThemeConstants.LOADING_SIZE : ThemeConstants.LOADING_SIZE_LARGE
+  }
+
+  build() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      LoadingProgress()
+        .width(this.spinnerSize())
+        .height(this.spinnerSize())
+        .color(Color.White)
+      Text(this.label)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor(Color.White)
+        .textAlign(TextAlign.Center)
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .padding(ThemeConstants.SPACE_XL)
   }
 }
 

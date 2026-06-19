@@ -1203,7 +1203,7 @@ Type: bug / reading UX gap
 
 Priority suggestion: P0/P1
 
-Status: parked by P0 recovery / do not extend before core Reader acceptance
+Status: implemented / needs controller acceptance
 
 Implementation:
 
@@ -1266,15 +1266,29 @@ Evidence:
   paint behavior is locked by `scripts/test_reader_loading_progress_contract.mjs`.
   Evidence directory: `/private/tmp/nexte_reader_loading_progress_2_evidence/`, especially
   `home.png`, `detail_layout.json`, `reader.png`, `reader_layout.json`.
+- After the core Reader baseline was accepted, this lane was safely reopened without changing gesture
+  handling. Current implementation keeps streamed byte-progress/file-cache parked, but restores
+  lightweight two-stage centered loading text: `reader_loading_resolving` while preview/image-page URLs are
+  being resolved, and `reader_loading_image` after the full image URL is mounted but before
+  `Image.onComplete`. The image-loading stage is hit-test disabled and conditionally removed after
+  `imageLoaded = true`, so it does not stay over ready images or compete with Reader gestures.
+- Current-main verification, 2026-06-19: Android FE reference via ADB target `fa967a75`, `su`-started
+  `com.honjow.fehviewer/.MainActivity`, screenshot at
+  `/private/tmp/nexte_reader_loading_stage_fe_reference/fe_detail_or_reader.png`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed: opened
+  `https://e-hentai.org/g/3989982/16600a66e8/`, tapped the detail FAB `继续 P2`, captured an early Reader
+  layout containing centered `正在加载图片` plus page `2 / 138`, and a settled layout with only `2 / 138`
+  and no loading text. Evidence directory: `/private/tmp/nexte_reader_loading_stage_acceptance/`
+  (`detail.png/json`, `reader_early.png/json`, `reader_settled.png/json`).
 
 Remaining acceptance:
 
-- Needs controller/user acceptance of the loading-stage screenshot behavior. The emulator network was
-  fast enough that captured screenshots landed after images had loaded, so transient percentage UI is
-  protected by contract/build evidence until a slow-network/manual capture is available.
-- The failed-image overlay is protected by deterministic contract and official signed build; this
-  lane did not force a live EH image failure on device because mutating network/source state would
-  exceed the narrow non-destructive smoke scope.
+- Needs controller/user acceptance of the lightweight stage behavior on a visibly slow image. True byte
+  percentage remains intentionally parked; do not reintroduce stream-to-file image loading without a
+  separate Reader interaction risk review.
+- The failed-image overlay is protected by deterministic contract and official signed build; this lane did
+  not force a live EH image failure on device because mutating network/source state would exceed the narrow
+  non-destructive smoke scope.
 
 Source:
 
