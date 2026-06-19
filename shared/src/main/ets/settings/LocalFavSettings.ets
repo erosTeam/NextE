@@ -1,0 +1,134 @@
+import { common } from '@kit.AbilityKit'
+import { preferences } from '@kit.ArkData'
+import { StorageKeys } from '../constants/StorageKeys'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { EhGallery } from '../model/EhGallery'
+import { connectLocalFav } from '../state/LocalFavState'
+
+class LocalFavGallerySnapshot {
+  gid: string = ''
+  token: string = ''
+  url: string = ''
+  thumbUrl: string = ''
+  thumbUrlL: string = ''
+  imgWidth: number = 0
+  imgHeight: number = 0
+  englishTitle: string = ''
+  japaneseTitle: string = ''
+  category: string = ''
+  uploader: string = ''
+  postTime: string = ''
+  fileCount: string = ''
+  rating: number = 0
+  ratingFallBack: number = 0
+  colorRating: string = ''
+  favNote: string = ''
+  favTitle: string = ''
+  expunged: boolean = false
+  lastViewTime: number = 0
+}
+
+/** Persists the local-only Favorites slot (`favcat=l`). */
+export class LocalFavSettings {
+  static async restore(context: common.UIAbilityContext): Promise<void> {
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      const raw: string = store.getSync(StorageKeys.LOCAL_FAVORITES, '[]') as string
+      connectLocalFav().items = LocalFavSettings.parse(raw)
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'localfav_restore_failed', (error as Error).message)
+    }
+  }
+
+  static async persist(context: common.UIAbilityContext, items: EhGallery[]): Promise<void> {
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.LOCAL_FAVORITES, JSON.stringify(LocalFavSettings.snapshot(items)))
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'localfav_save_failed', (error as Error).message)
+    }
+  }
+
+  private static snapshot(items: EhGallery[]): LocalFavGallerySnapshot[] {
+    const out: LocalFavGallerySnapshot[] = []
+    const seen: Set<string> = new Set<string>()
+    items.forEach((g: EhGallery) => {
+      if (g.gid.length === 0 || seen.has(g.gid)) {
+        return
+      }
+      seen.add(g.gid)
+      const s: LocalFavGallerySnapshot = new LocalFavGallerySnapshot()
+      s.gid = g.gid
+      s.token = g.token
+      s.url = g.url
+      s.thumbUrl = g.thumbUrl
+      s.thumbUrlL = g.thumbUrlL
+      s.imgWidth = g.imgWidth
+      s.imgHeight = g.imgHeight
+      s.englishTitle = g.englishTitle
+      s.japaneseTitle = g.japaneseTitle
+      s.category = g.category
+      s.uploader = g.uploader
+      s.postTime = g.postTime
+      s.fileCount = g.fileCount
+      s.rating = g.rating
+      s.ratingFallBack = g.ratingFallBack
+      s.colorRating = g.colorRating
+      s.favNote = g.favNote
+      s.favTitle = g.favTitle
+      s.expunged = g.expunged
+      s.lastViewTime = g.lastViewTime
+      out.push(s)
+    })
+    return out
+  }
+
+  private static parse(raw: string): EhGallery[] {
+    try {
+      const parsed: Object = JSON.parse(raw) as Object
+      if (!Array.isArray(parsed)) {
+        return []
+      }
+      const out: EhGallery[] = []
+      const seen: Set<string> = new Set<string>()
+      ;(parsed as LocalFavGallerySnapshot[]).forEach((s: LocalFavGallerySnapshot) => {
+        const gid: string = typeof s.gid === 'string' ? s.gid : ''
+        if (gid.length === 0 || seen.has(gid)) {
+          return
+        }
+        seen.add(gid)
+        const g: EhGallery = new EhGallery(gid, typeof s.token === 'string' ? s.token : '')
+        g.url = typeof s.url === 'string' ? s.url : ''
+        g.thumbUrl = typeof s.thumbUrl === 'string' ? s.thumbUrl : ''
+        g.thumbUrlL = typeof s.thumbUrlL === 'string' ? s.thumbUrlL : ''
+        g.imgWidth = typeof s.imgWidth === 'number' ? s.imgWidth : 0
+        g.imgHeight = typeof s.imgHeight === 'number' ? s.imgHeight : 0
+        g.englishTitle = typeof s.englishTitle === 'string' ? s.englishTitle : ''
+        g.japaneseTitle = typeof s.japaneseTitle === 'string' ? s.japaneseTitle : ''
+        g.category = typeof s.category === 'string' ? s.category : ''
+        g.uploader = typeof s.uploader === 'string' ? s.uploader : ''
+        g.postTime = typeof s.postTime === 'string' ? s.postTime : ''
+        g.fileCount = typeof s.fileCount === 'string' ? s.fileCount : ''
+        g.rating = typeof s.rating === 'number' ? s.rating : 0
+        g.ratingFallBack = typeof s.ratingFallBack === 'number' ? s.ratingFallBack : 0
+        g.colorRating = typeof s.colorRating === 'string' ? s.colorRating : ''
+        g.favNote = typeof s.favNote === 'string' ? s.favNote : ''
+        g.favTitle = typeof s.favTitle === 'string' ? s.favTitle : ''
+        g.expunged = typeof s.expunged === 'boolean' ? s.expunged : false
+        g.lastViewTime = typeof s.lastViewTime === 'number' ? s.lastViewTime : 0
+        out.push(g)
+      })
+      return out
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'localfav_parse_failed', (error as Error).message)
+      return []
+    }
+  }
+}

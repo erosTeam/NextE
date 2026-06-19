@@ -82,8 +82,8 @@ struct Index {
   private downloadTypeBarContent: ComponentContent<Object> | null = null;
   @Local pendingEhUrl: PendingEhUrlState = connectPendingEhUrl();
   @Local searchAction: SearchActionState = connectSearchAction();
-  // Read so the 收藏 favcat bottomBuilder gates on login (logged out → login prompt, no bar) and the
-  // title bar re-emits when login flips. Mirrors HomeSourceBar gating 订阅 on isLogin.
+  // Read so the 收藏 menu gates remote-only actions on login while the local favcat bar stays visible.
+  // Mirrors HomeSourceBar gating 订阅 on isLogin.
   @Local auth: AuthState = connectAuth();
   @Local currentTab: number = 0;
   private lastHandledSignal: string = '';
@@ -299,19 +299,17 @@ struct Index {
       content['bottomBuilder'] = this.bottomBuilder(this.sourceBarContent)
       content['menu'] = this.searchMenu()
     } else if (this.currentTab === 1) {
-      // 收藏: the favcat switcher (chips only) pins under the title, same as 画廊's source bar, and the
-      // title bar carries search + order as native HDS trailing actions (eros_fe favorites nav bar:
-      // search icon + sort_down, favorite_tabbar_page.dart:190-273). Only when logged in (logged out
-      // shows the login prompt; the seeded favcat slots + actions would otherwise be meaningless).
+      // 收藏: the favcat switcher is always pinned so logged-out users can reach the local `l` slot.
+      // Search/order/selector remain remote-account actions and are only shown when logged in.
+      if (this.favcatBarContent === null) {
+        this.favcatBarContent = new ComponentContent<Object>(
+          this.getUIContext(),
+          wrapBuilder<[Object]>(FavcatBarCCBuilder),
+          new Object(),
+        )
+      }
+      content['bottomBuilder'] = this.bottomBuilder(this.favcatBarContent)
       if (this.auth.isLogin) {
-        if (this.favcatBarContent === null) {
-          this.favcatBarContent = new ComponentContent<Object>(
-            this.getUIContext(),
-            wrapBuilder<[Object]>(FavcatBarCCBuilder),
-            new Object(),
-          )
-        }
-        content['bottomBuilder'] = this.bottomBuilder(this.favcatBarContent)
         content['menu'] = this.favoritesMenu()
       } else {
         content['menu'] = this.emptyMenu()

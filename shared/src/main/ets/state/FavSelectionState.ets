@@ -24,7 +24,7 @@ export class FavSelectionState {
   // ---- snapshot: page → bar ----
   // Full favcat set seen across loads (EH omits the active favcat from a filtered page; the VM merges).
   @Trace favList: Favcat[] = []
-  // Selected slot: 'a' = all, '0'..'9' = network slots.
+  // Selected slot: 'a' = all, '0'..'9' = network slots, 'l' = local-only slot.
   @Trace selectedFavcat: string = 'a'
   // Order label state: true = posted-time (fs_p), false = favorited-time (fs_f, EH default).
   @Trace orderByPosted: boolean = false
@@ -71,10 +71,9 @@ export function connectFavSelection(): FavSelectionState {
 /**
  * Seed the 10 network slots (0..9) BEFORE any favorites.php parse so the pinned bar is never empty on
  * first paint (eros_fe seeds EHConst.favList's 10 slots regardless of parse — const.dart:427 /
- * favorite_sel_controller.dart:111). The synthetic 'a' (all) chip is rendered by FavcatBar itself, not
- * a favList entry, so it is not seeded here. Placeholder titles 'Favorites N' are overwritten by the
- * real parse via FavoritesViewModel.mergeFavList. NextE does not model eros_fe's synthetic 'l' (local)
- * slot, so it is omitted.
+ * favorite_sel_controller.dart:111). Synthetic 'a' (all) and 'l' (local) chips are rendered by
+ * FavcatBar itself, not favList entries, so they are not seeded here. Placeholder titles 'Favorites N'
+ * are overwritten by the real parse via FavoritesViewModel.mergeFavList.
  */
 function seedFavSelection(): FavSelectionState {
   const s: FavSelectionState = new FavSelectionState()

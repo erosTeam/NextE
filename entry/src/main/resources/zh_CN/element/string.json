@@ -933,6 +933,10 @@
       "value": "无法打开此图片页。链接可能已过期或不可用。"
     },
     {
+      "name": "favorites_local",
+      "value": "本地收藏"
+    },
+    {
       "name": "search_suggestion_namespace",
       "value": "命名空间："
     }

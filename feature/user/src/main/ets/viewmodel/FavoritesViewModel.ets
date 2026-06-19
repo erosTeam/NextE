@@ -6,6 +6,7 @@ import {
   BasicDataSource,
   Favcat,
   EhConstants,
+  connectLocalFav,
   connectSiteMode,
   DiagnosticLogger,
   EhErrorText,
@@ -14,8 +15,8 @@ import {
 /**
  * Drives the favorites page. Same BasicDataSource + @Trace itemCount pattern as the home/search
  * VMs; additionally holds the favcat selector bar (`favList`) and the selected slot (`favcat`,
- * 'a' = all). Favorites rows reuse EhGalleryListParser (same gltc layout); the favcat bar comes
- * from EhFavcatListParser. Requires login — the page gates calls on AuthState.isLogin.
+ * 'a' = all, 'l' = local). Favorites rows reuse EhGalleryListParser (same gltc layout); the favcat
+ * bar comes from EhFavcatListParser for remote slots, while local reads the persisted local list.
  */
 @ObservedV2
 export class FavoritesViewModel {
@@ -47,6 +48,10 @@ export class FavoritesViewModel {
     }
   }
 
+  private isLocalFavcat(): boolean {
+    return this.favcat === 'l'
+  }
+
   private async fetchPageWithOrderSync(next: string): Promise<GalleryList> {
     let list: GalleryList = await EhApiService.getInstance().getFavoritesList(this.buildQuery(next))
     // EH favorites order/display preferences are server-side and can lag by one response after an
@@ -68,6 +73,9 @@ export class FavoritesViewModel {
   /** Apply a new GLOBAL order (favorited-time ↔ posted-time) and reload from page 1; no-op if unchanged.
    * Used by each retained favcat page when the shared order bus toggles. */
   async applyOrder(orderByPosted: boolean): Promise<void> {
+    if (this.isLocalFavcat()) {
+      return
+    }
     const next: string = orderByPosted ? EhConstants.FAV_ORDER_POSTED : EhConstants.FAV_ORDER_FAV
     if (this.favOrder === next) {
       return
@@ -78,7 +86,7 @@ export class FavoritesViewModel {
 
   /** Toggle favorited-time ↔ posted-time order and reload from page 1. */
   async toggleOrder(): Promise<void> {
-    if (this.isLoading) {
+    if (this.isLoading || this.isLocalFavcat()) {
       return
     }
     this.favOrder =
@@ -169,6 +177,14 @@ export class FavoritesViewModel {
     this.errorMessage = ''
     this.nextGid = ''
     this.hasMore = false
+    if (this.isLocalFavcat()) {
+      const localRows: EhGallery[] = connectLocalFav().items.map((g: EhGallery) => g.copy())
+      this.dataSource.setData(localRows)
+      this.itemCount = this.dataSource.totalCount()
+      this.favList = []
+      this.isLoading = false
+      return
+    }
     try {
       const list: GalleryList = await this.fetchPageWithOrderSync('')
       this.mergeFavList(list.favList)
@@ -203,7 +219,7 @@ export class FavoritesViewModel {
   }
 
   async loadMore(): Promise<void> {
-    if (this.isLoading || this.isLoadingMore || !this.hasMore) {
+    if (this.isLocalFavcat() || this.isLoading || this.isLoadingMore || !this.hasMore) {
       return
     }
     this.isLoadingMore = true

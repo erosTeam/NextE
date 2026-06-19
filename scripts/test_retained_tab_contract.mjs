@@ -172,10 +172,10 @@ ok(/RetainedSubtabHost\(\{/.test(favPage), 'FavoritesPage renders the shared Ret
 ok(!/Swiper\(/.test(favPage), 'FavoritesPage has NO inline Swiper (host mechanics are shared)')
 ok(/pageBuilder:\s*favcatPageBuilder/.test(favPage), 'FavoritesPage passes a GLOBAL @Builder favcatPageBuilder')
 ok(/@Builder\s+function\s+favcatPageBuilder[\s\S]*?FavcatPage\(/.test(favPage), 'favcatPageBuilder is a global @Builder rendering FavcatPage (no this)')
-ok(/keys:\s*this\.favcatKeys\(\)/.test(favPage) && /selectedKey:\s*this\.favSel\.selectedFavcat/.test(favPage), 'FavoritesPage feeds the host the favcat keys + selected favcat (selection bus)')
+ok(/keys:\s*this\.favcatKeys\(\)/.test(favPage) && /selectedKey:\s*this\.effectiveSelectedFavcat\(\)/.test(favPage), 'FavoritesPage feeds the host favcat keys + an effective selected favcat (selection bus, logged-out local safe)')
 ok(/onSelectKey:/.test(favPage) && /onVisualIndex:/.test(favPage) && /onScrollerReady:/.test(favPage), 'FavoritesPage wires onSelectKey + onVisualIndex + onScrollerReady to the host')
 ok(!/@Local\s+vm:\s*FavoritesViewModel/.test(favPage), 'FavoritesPage owns NO shared FavoritesViewModel (data lives in FavcatPage)')
-ok(/!this\.auth\.isLogin/.test(favPage), 'FavoritesPage preserves the login gate (host only mounts when logged in)')
+ok(/if \(!this\.auth\.isLogin\) \{[\s\S]*return \['l'\]/.test(favPage), 'FavoritesPage maps logged-out Favorites to the local slot instead of blocking the whole tab')
 ok(/orderByPosted/.test(favPage) && /OrderMenu/.test(favPage), 'FavoritesPage preserves the global order toggle (writes the orderByPosted bus)')
 // FavcatBar specifics: scrollable (many favcats overflow). It shows the synthetic all-favorites count
 // as the remote 0-9 aggregate, while keeping per-slot counts out of the compact horizontal bar.

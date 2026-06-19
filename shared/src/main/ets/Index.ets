@@ -132,6 +132,7 @@ export {
 export { DownloadQueueState, connectDownloadQueue } from './state/DownloadQueueState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
+export { LocalFavState, connectLocalFav } from './state/LocalFavState'
 export {
   GalleryReadProgressState,
   ReadProgressEntry,
@@ -181,6 +182,7 @@ export { ThumbnailModeSettings } from './settings/ThumbnailModeSettings'
 export { SearchHistorySettings } from './settings/SearchHistorySettings'
 export { SearchFilterSettings, SearchFilterSnapshot } from './settings/SearchFilterSettings'
 export { FavcatListSettings } from './settings/FavcatListSettings'
+export { LocalFavSettings } from './settings/LocalFavSettings'
 export { GalleryReadProgressSettings } from './settings/GalleryReadProgressSettings'
 export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
 export { DownloadSettings } from './settings/DownloadSettings'

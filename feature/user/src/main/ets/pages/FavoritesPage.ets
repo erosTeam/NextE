@@ -1,8 +1,6 @@
 import {
-  PageErrorState,
   connectAuth,
   AuthState,
-  connectNavStack,
   FavSelectionState,
   connectFavSelection,
   connectFavcatVisualIndex,
@@ -39,15 +37,29 @@ export struct FavoritesPage {
   @Local favSel: FavSelectionState = connectFavSelection();
   @Local visual: TabVisualIndexState = connectFavcatVisualIndex();
   @Local orderMenuShown: boolean = false;
-  private stack: NavPathStack = connectNavStack().stack;
   // Index consumes the ACTIVE favcat's scroller for the title-bar bindToScrollable (auto-hide).
   @Event onScrollerReady?: (scroller: Scroller) => void;
 
-  // Host keys: synthetic 'a' (all) + the seeded/parsed favcat slots. Order matches FavcatBar's tabs.
+  // Host keys: logged out sees only synthetic 'l' (local); logged in keeps 'a' + remote slots + 'l'.
+  // Order matches FavcatBar's tabs.
   private favcatKeys(): string[] {
+    if (!this.auth.isLogin) {
+      return ['l']
+    }
     const keys: string[] = ['a']
     this.favSel.favList.forEach((f: Favcat) => keys.push(f.favId))
+    keys.push('l')
     return keys
+  }
+
+  private effectiveSelectedFavcat(): string {
+    if (!this.auth.isLogin) {
+      return 'l'
+    }
+    const selected: string = this.favSel.selectedFavcat.length > 0 ? this.favSel.selectedFavcat : 'a'
+    return selected === 'l' || selected === 'a' || this.favSel.favList.find((f: Favcat) => f.favId === selected) !== undefined
+      ? selected
+      : 'a'
   }
 
   // The title-bar order icon publishes 'openOrderMenu' (it can't anchor a Menu itself).
@@ -60,32 +72,22 @@ export struct FavoritesPage {
 
   build() {
     Stack({ alignContent: Alignment.TopEnd }) {
-      if (!this.auth.isLogin) {
-        PageErrorState({
-          message: $r('app.string.favorites_login_hint'),
-          retryLabel: $r('app.string.settings_login'),
-          retryAction: () => {
-            this.stack.pushPathByName('EhLogin', null)
-          },
-        })
-      } else {
-        RetainedSubtabHost({
-          keys: this.favcatKeys(),
-          selectedKey: this.favSel.selectedFavcat,
-          pageBuilder: favcatPageBuilder,
-          onSelectKey: (key: string) => {
-            this.favSel.selectedFavcat = key
-          },
-          onVisualIndex: (value: number) => {
-            this.visual.value = value
-          },
-          onScrollerReady: (scroller: Scroller) => {
-            if (this.onScrollerReady) {
-              this.onScrollerReady(scroller)
-            }
-          },
-        })
-      }
+      RetainedSubtabHost({
+        keys: this.favcatKeys(),
+        selectedKey: this.effectiveSelectedFavcat(),
+        pageBuilder: favcatPageBuilder,
+        onSelectKey: (key: string) => {
+          this.favSel.selectedFavcat = key
+        },
+        onVisualIndex: (value: number) => {
+          this.visual.value = value
+        },
+        onScrollerReady: (scroller: Scroller) => {
+          if (this.onScrollerReady) {
+            this.onScrollerReady(scroller)
+          }
+        },
+      })
       // Invisible anchor for the native order dropdown at the content's trailing edge (under the favcat
       // bar, near the title-bar order icon). bindMenu can't attach to the HDS title-bar icon, so the order
       // action opens this owned Menu via the command bus.

@@ -6,6 +6,10 @@ import {
   TabVisualIndexState,
   SubTabBar,
   TabItem,
+  connectAuth,
+  AuthState,
+  connectLocalFav,
+  LocalFavState,
 } from 'shared'
 
 /**
@@ -21,13 +25,19 @@ import {
 export struct FavcatBar {
   @Local fav: FavSelectionState = connectFavSelection();
   @Local visual: TabVisualIndexState = connectFavcatVisualIndex();
+  @Local auth: AuthState = connectAuth();
+  @Local localFav: LocalFavState = connectLocalFav();
 
   // Must mirror FavoritesPage.favcatKeys() order: synthetic 'a' (all) + the favcat slots. Only the
   // synthetic all chip shows a count: eros_fe sums the remote 0-9 slots for "all"; per-slot counts stay
   // in the full-screen selector so the horizontal bar remains compact.
   private tabs(): TabItem[] {
+    if (!this.auth.isLogin) {
+      return [new TabItem('l', $r('app.string.favorites_local'), this.localFav.count())]
+    }
     const items: TabItem[] = [new TabItem('a', $r('app.string.favorites_all'), this.fav.remoteTotalCount())]
     this.fav.favList.forEach((fc: Favcat) => items.push(new TabItem(fc.favId, fc.favTitle)))
+    items.push(new TabItem('l', $r('app.string.favorites_local'), this.localFav.count()))
     return items
   }
 
