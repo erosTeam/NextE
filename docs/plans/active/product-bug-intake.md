@@ -2298,6 +2298,75 @@ Remaining acceptance:
   No further FE/device validation is required unless Settings root or Advanced settings routing changes
   again.
 
+### Settings Root Missing EH Settings Page
+
+Type: feature gap / settings reachability
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- System comparison against `eros_fe` settings showed `EH` as the first Settings child page, while
+  NextE still exposed the current site toggle directly in Settings root and kept EH account/site
+  actions scattered across the root account section.
+
+Grounding:
+
+- `eros_fe` settings root exposes `EH` in
+  `/Users/honjow/git/eros_fe/lib/pages/tab/controller/setting_controller.dart`, routing to
+  `EHRoutes.ehSetting`.
+- The FE child page lives at `/Users/honjow/git/eros_fe/lib/pages/setting/eh_setting_page.dart` and
+  contains gallery site, link redirect, Cookie, auto profile, website settings, My Tags, image limits,
+  WebDAV/MySQL sync, supported links, one-step favorite, and clipboard detection rows.
+- NextE intentionally kept this lane to the EH account/site actions it already owns: site mode,
+  login, cookie import, My Tags, and logout. It did not implement website settings, cloud sync,
+  link handlers, image-limit fetching, or favorite write behavior.
+
+Implementation:
+
+- `b6052df feat(settings): add eh settings page` adds `EhSettingsPage`,
+  exports/registers the `EhSettings` route, and replaces the root `站点` toggle row with a first-level
+  `EH` row.
+- `EhSettingsPage` uses the existing HDS settings child-page pattern and reuses the existing
+  `SiteModeSettings`, `EhLogin`, `EhCookieImport`, `MyTags`, and `CookieJarSettings.clear()` flows.
+- Scope is limited to Settings information architecture and existing action reachability. It does not
+  change `CookieJarSettings`, `EhCookieStore`, `AuthState`, WebView login, cookie import parsing, or
+  destructive EH writes.
+
+Evidence:
+
+- Android FE comparison, 2026-06-19: ADB target `fa967a75`, launched
+  `com.honjow.fehviewer/.MainActivity` with `su`; Settings root showed `E·H` above Layout/Read, and
+  EH settings showed `画廊站点`, `E-Hentai` / `ExHentai`, `Cookie`, `我的标签`, `图片限制`, WebDAV/MySQL,
+  and link/favorite/clipboard rows.
+  Evidence directory: `.hvigor/outputs/eh-settings-fe-comparison/`, especially
+  `fe_settings_root_after_back.png`, `fe_settings_root_after_back.xml`, `fe_eh_settings.png`, and
+  `fe_eh_settings.xml`.
+- Deterministic contracts/gates:
+  `scripts/test_settings_eh_entry_contract.mjs`,
+  `scripts/test_settings_layout_entry_contract.mjs`,
+  `scripts/test_settings_search_entry_contract.mjs`,
+  `scripts/test_settings_reader_entry_contract.mjs`,
+  `scripts/test_settings_about_entry_contract.mjs`,
+  `scripts/test_settings_advanced_entry_contract.mjs`,
+  `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, and `git diff --check`.
+- Official signed build: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS emulator evidence, 2026-06-19: target `127.0.0.1:5555`, hdc outside sandbox, official
+  signed HAP installed. Settings root showed `EH` above `布局`; tapping it opened EH settings with
+  `站点`, `表站 (E-Hentai)`, `登录账号`, `使用 Cookie 登录`, and scoped not-yet-implemented
+  `网站设置` / `图片限制` rows.
+  Evidence directory: `.hvigor/outputs/eh-settings-nexte-evidence/`, especially
+  `nexte_settings_root_final.png`, `nexte_settings_root_final_layout.json`,
+  `nexte_eh_settings_page_final.png`, and `nexte_eh_settings_page_final_layout.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the Settings root placement and minimal EH settings scope. No
+  further device validation is required unless Settings root or EH settings routing changes again.
+
 ### Settings Root Missing Reader Settings Entry
 
 Type: feature gap / settings reachability
