@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="80" x2="900" y2="940" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#073B46"/>
+      <stop offset="0.48" stop-color="#075A5E"/>
+      <stop offset="1" stop-color="#062B40"/>
+    </linearGradient>
+    <radialGradient id="bgGlow" cx="46%" cy="28%" r="72%">
+      <stop offset="0" stop-color="#1BB7B2" stop-opacity="0.42"/>
+      <stop offset="0.58" stop-color="#0B6C86" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#031824" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="topPage" x1="252" y1="300" x2="748" y2="218" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#BFEFD1"/>
+      <stop offset="0.45" stop-color="#E9FBCF"/>
+      <stop offset="1" stop-color="#F7FFD9"/>
+    </linearGradient>
+    <linearGradient id="middlePage" x1="250" y1="502" x2="742" y2="414" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#128CE5"/>
+      <stop offset="0.5" stop-color="#24D7C9"/>
+      <stop offset="1" stop-color="#8DF5DE"/>
+    </linearGradient>
+    <linearGradient id="bottomPage" x1="250" y1="690" x2="748" y2="602" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1264D6"/>
+      <stop offset="0.54" stop-color="#1699DF"/>
+      <stop offset="1" stop-color="#74D9F2"/>
+    </linearGradient>
+    <linearGradient id="edgeShade" x1="260" y1="505" x2="738" y2="505" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#001A2C" stop-opacity="0.46"/>
+      <stop offset="0.52" stop-color="#001A2C" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.18"/>
+    </linearGradient>
+    <filter id="pageShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="22" stdDeviation="18" flood-color="#00131D" flood-opacity="0.35"/>
+    </filter>
+    <filter id="softInset" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="-3" stdDeviation="2" flood-color="#FFFFFF" flood-opacity="0.28"/>
+    </filter>
+    <clipPath id="iconClip">
+      <rect x="88" y="88" width="848" height="848" rx="188"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#061722"/>
+  <g clip-path="url(#iconClip)">
+    <rect x="88" y="88" width="848" height="848" rx="188" fill="url(#bg)"/>
+    <rect x="88" y="88" width="848" height="848" rx="188" fill="url(#bgGlow)"/>
+    <path d="M 128 105 L 894 105 Q 919 105 919 130" fill="none" stroke="#92F8E8" stroke-opacity="0.28" stroke-width="3"/>
+    <path d="M 116 910 Q 116 932 138 932 L 900 932" fill="none" stroke="#00131D" stroke-opacity="0.30" stroke-width="8"/>
+
+    <g filter="url(#pageShadow)">
+      <path d="M 262 386
+        C 294 280 363 232 471 231
+        L 749 229
+        C 718 285 676 326 621 352
+        C 576 373 526 380 468 379
+        L 348 379
+        C 311 379 282 387 262 386 Z"
+        fill="url(#topPage)" filter="url(#softInset)"/>
+
+      <path d="M 256 532
+        C 289 428 360 382 468 382
+        L 735 382
+        C 708 439 668 478 615 500
+        C 571 518 525 523 468 521
+        L 344 521
+        C 309 521 278 530 256 532 Z"
+        fill="url(#middlePage)" filter="url(#softInset)"/>
+
+      <path d="M 256 678
+        C 289 574 360 528 468 528
+        L 739 528
+        C 711 586 671 625 617 647
+        C 574 665 526 670 468 668
+        L 344 668
+        C 309 668 278 677 256 678 Z"
+        fill="url(#bottomPage)" filter="url(#softInset)"/>
+    </g>
+
+    <path d="M 256 532 C 289 428 360 382 468 382 L 735 382 C 708 439 668 478 615 500 C 571 518 525 523 468 521 L 344 521 C 309 521 278 530 256 532 Z" fill="url(#edgeShade)" opacity="0.18"/>
+    <path d="M 256 678 C 289 574 360 528 468 528 L 739 528 C 711 586 671 625 617 647 C 574 665 526 670 468 668 L 344 668 C 309 668 278 677 256 678 Z" fill="url(#edgeShade)" opacity="0.20"/>
+
+    <path d="M 306 355 C 345 305 403 283 475 283 L 665 282" fill="none" stroke="#FFFFFF" stroke-opacity="0.42" stroke-width="5" stroke-linecap="round"/>
+    <path d="M 306 501 C 345 451 403 429 475 429 L 650 428" fill="none" stroke="#FFFFFF" stroke-opacity="0.32" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 306 647 C 345 597 403 575 475 575 L 650 574" fill="none" stroke="#FFFFFF" stroke-opacity="0.30" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

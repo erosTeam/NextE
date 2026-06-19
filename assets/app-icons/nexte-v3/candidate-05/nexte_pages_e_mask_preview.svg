@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200">
+  <defs>
+    <style>
+      .page { fill: #f6f7f9; }
+      .panel { fill: #fff; stroke: #d9dde5; stroke-width: 2; }
+      .title { font: 700 32px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #18202f; }
+      .body { font: 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5a6576; }
+      .label { font: 700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #18202f; }
+      .note { font: 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #667085; }
+      .risk { font: 700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #087a7f; }
+      .frame { fill: #eef2f7; stroke: #d9dde5; stroke-width: 1.5; }
+      .safe { fill: none; stroke: #ffffff; stroke-width: 2; stroke-opacity: 0.50; stroke-dasharray: 8 8; }
+      .bbox { fill: none; stroke: #ff5570; stroke-width: 3; stroke-opacity: 0.82; stroke-dasharray: 10 8; }
+      .gridLine { stroke: #d7dde6; stroke-width: 1; }
+      .appText { font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #2f3948; }
+    </style>
+
+    <clipPath id="maskSquare">
+      <rect x="0" y="0" width="1024" height="1024"/>
+    </clipPath>
+    <clipPath id="maskRound220">
+      <rect x="0" y="0" width="1024" height="1024" rx="220" ry="220"/>
+    </clipPath>
+    <clipPath id="maskRound300">
+      <rect x="0" y="0" width="1024" height="1024" rx="300" ry="300"/>
+    </clipPath>
+    <clipPath id="maskCircle">
+      <circle cx="512" cy="512" r="512"/>
+    </clipPath>
+    <clipPath id="maskSuperellipse">
+      <path d="M 512 0
+        C 844 0 1024 180 1024 512
+        C 1024 844 844 1024 512 1024
+        C 180 1024 0 844 0 512
+        C 0 180 180 0 512 0 Z"/>
+    </clipPath>
+
+    <g id="iconBase">
+      <image href="nexte_pages_e_refined.svg" x="0" y="0" width="1024" height="1024" preserveAspectRatio="xMidYMid meet"/>
+    </g>
+    <g id="guides">
+      <rect class="safe" x="128" y="128" width="768" height="768" rx="168"/>
+      <rect class="bbox" x="156" y="231" width="709" height="597" rx="16"/>
+      <line class="safe" x1="0" y1="512" x2="1024" y2="512"/>
+      <line class="safe" x1="512" y1="0" x2="512" y2="1024"/>
+    </g>
+  </defs>
+
+  <rect class="page" width="1800" height="1200"/>
+  <text class="title" x="64" y="72">NextE icon mask and launcher-list preview</text>
+  <text class="body" x="64" y="108">Simulation only: background is full-bleed 1024 square; launcher/system mask clips the final visible shape. Red dashed box is the current foreground bounding box.</text>
+
+  <g transform="translate(64 150)">
+    <rect class="panel" width="1672" height="650" rx="18"/>
+
+    <g transform="translate(42 58)">
+      <rect class="frame" width="220" height="220" rx="12"/>
+      <g transform="translate(10 10) scale(0.1953125)" clip-path="url(#maskSquare)">
+        <use href="#iconBase"/>
+        <use href="#guides"/>
+      </g>
+      <text class="label" x="0" y="298">Full square</text>
+      <text class="note" x="0" y="326">Resource shape before launcher mask.</text>
+    </g>
+
+    <g transform="translate(334 58)">
+      <rect class="frame" width="220" height="220" rx="12"/>
+      <g transform="translate(10 10) scale(0.1953125)" clip-path="url(#maskRound220)">
+        <use href="#iconBase"/>
+        <use href="#guides"/>
+      </g>
+      <text class="label" x="0" y="298">Rounded square</text>
+      <text class="note" x="0" y="326">Common launcher icon shape.</text>
+    </g>
+
+    <g transform="translate(626 58)">
+      <rect class="frame" width="220" height="220" rx="12"/>
+      <g transform="translate(10 10) scale(0.1953125)" clip-path="url(#maskSuperellipse)">
+        <use href="#iconBase"/>
+        <use href="#guides"/>
+      </g>
+      <text class="label" x="0" y="298">Superellipse</text>
+      <text class="note" x="0" y="326">Aggressive rounded system mask.</text>
+    </g>
+
+    <g transform="translate(918 58)">
+      <rect class="frame" width="220" height="220" rx="12"/>
+      <g transform="translate(10 10) scale(0.1953125)" clip-path="url(#maskCircle)">
+        <use href="#iconBase"/>
+        <use href="#guides"/>
+      </g>
+      <text class="label" x="0" y="298">Circle</text>
+      <text class="note" x="0" y="326">Worst-case crop check.</text>
+    </g>
+
+    <g transform="translate(1210 58)">
+      <rect class="frame" width="220" height="220" rx="12"/>
+      <g transform="translate(10 10) scale(0.1953125)" clip-path="url(#maskRound300)">
+        <use href="#iconBase"/>
+        <use href="#guides"/>
+      </g>
+      <text class="label" x="0" y="298">Large radius</text>
+      <text class="note" x="0" y="326">Folder/search style rounded tile.</text>
+    </g>
+
+    <g transform="translate(42 430)">
+      <text class="risk" x="0" y="0">Crop assessment</text>
+      <text class="body" x="0" y="38">Current foreground bounds: x≈156..865, y≈231..828. Wider at 1.20 scale, still clear of launcher mask corners.</text>
+      <text class="body" x="0" y="72">Main risk is not clipping; it is perceived size. At 48px the three pieces remain readable, but the highlight lines become decorative noise.</text>
+    </g>
+  </g>
+
+  <g transform="translate(64 840)">
+    <rect class="panel" width="1672" height="292" rx="18"/>
+    <text class="label" x="42" y="52">Approximate app-list / launcher-grid read</text>
+    <text class="note" x="42" y="82">Same icon at common visual sizes. Labels are simulated only.</text>
+
+    <g transform="translate(54 122)">
+      <rect class="frame" width="160" height="134" rx="16"/>
+      <g transform="translate(32 12) scale(0.09375)" clip-path="url(#maskSuperellipse)"><use href="#iconBase"/></g>
+      <text class="appText" x="40" y="124">96px grid</text>
+    </g>
+
+    <g transform="translate(258 122)">
+      <rect class="frame" width="160" height="134" rx="16"/>
+      <g transform="translate(44 18) scale(0.0703125)" clip-path="url(#maskSuperellipse)"><use href="#iconBase"/></g>
+      <text class="appText" x="40" y="124">72px list</text>
+    </g>
+
+    <g transform="translate(462 122)">
+      <rect class="frame" width="160" height="134" rx="16"/>
+      <g transform="translate(52 26) scale(0.0546875)" clip-path="url(#maskSuperellipse)"><use href="#iconBase"/></g>
+      <text class="appText" x="40" y="124">56px dense</text>
+    </g>
+
+    <g transform="translate(666 122)">
+      <rect class="frame" width="160" height="134" rx="16"/>
+      <g transform="translate(56 30) scale(0.046875)" clip-path="url(#maskSuperellipse)"><use href="#iconBase"/></g>
+      <text class="appText" x="40" y="124">48px small</text>
+    </g>
+
+    <g transform="translate(940 98)">
+      <line class="gridLine" x1="0" y1="0" x2="0" y2="166"/>
+      <text class="risk" x="38" y="28">Preliminary conclusion</text>
+      <text class="body" x="38" y="66">No visible crop risk under these masks.</text>
+      <text class="body" x="38" y="100">The mark can probably be slightly larger later, but not before checking real launcher screenshots.</text>
+      <text class="body" x="38" y="134">For app-list size, consider removing or weakening the thin inner highlight lines in final PNG export.</text>
+    </g>
+  </g>
+</svg>
