@@ -40,7 +40,7 @@ import {
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
-import { ComponentContent } from '@kit.ArkUI'
+import { ComponentContent, promptAction } from '@kit.ArkUI'
 import { SearchViewModel } from '../viewmodel/SearchViewModel'
 import { SearchFilterSheet } from '../components/SearchFilterSheet'
 import { SearchPageFieldCCBuilder, SearchPageFieldState } from '../components/SearchPageField'
@@ -247,6 +247,11 @@ export struct GallerySearchPage {
     this.runQuery(query)
   }
 
+  private deleteSearchHistory(query: string): void {
+    SearchHistorySettings.remove(this.ctx(), query)
+    promptAction.showToast({ message: $r('app.string.search_history_deleted') })
+  }
+
   @Builder
   SearchSuggestionView() {
     List({ space: ThemeConstants.SPACE_XS }) {
@@ -362,6 +367,12 @@ export struct GallerySearchPage {
                 .onClick(() => {
                   this.searchFromHistory(q)
                 })
+                .gesture(
+                  LongPressGesture({ repeat: false, duration: 500 })
+                    .onAction(() => {
+                      this.deleteSearchHistory(q)
+                    }),
+                )
             },
             (q: string) => q,
           )

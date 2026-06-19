@@ -757,6 +757,10 @@
       "value": "クリア"
     },
     {
+      "name": "search_history_deleted",
+      "value": "履歴から削除しました"
+    },
+    {
       "name": "filter_options",
       "value": "オプション"
     },

@@ -4,7 +4,7 @@ import { connectSearchHistory } from '../state/SearchHistoryState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
-const MAX_HISTORY: number = 20
+const MAX_HISTORY: number = 100
 
 /** Persists recent search queries + is the single writer of SearchHistoryState. */
 export class SearchHistorySettings {
@@ -43,6 +43,22 @@ export class SearchHistorySettings {
     await SearchHistorySettings.persist(context, [])
   }
 
+  /** Remove one query from history, preserving the rest in order. */
+  static async remove(context: common.UIAbilityContext, query: string): Promise<void> {
+    const q: string = query.trim()
+    if (q.length === 0) {
+      return
+    }
+    const next: string[] = []
+    connectSearchHistory().items.forEach((item: string) => {
+      if (item !== q && next.length < MAX_HISTORY) {
+        next.push(item)
+      }
+    })
+    connectSearchHistory().items = next
+    await SearchHistorySettings.persist(context, next)
+  }
+
   private static async persist(context: common.UIAbilityContext, items: string[]): Promise<void> {
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
@@ -62,7 +78,7 @@ export class SearchHistorySettings {
       if (Array.isArray(arr)) {
         const out: string[] = []
         ;(arr as Object[]).forEach((v: Object) => {
-          if (typeof v === 'string' && (v as string).length > 0) {
+          if (typeof v === 'string' && (v as string).length > 0 && out.length < MAX_HISTORY) {
             out.push(v as string)
           }
         })

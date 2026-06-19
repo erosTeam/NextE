@@ -5,7 +5,9 @@
  * `buildFavUrl` is copy-equal to EhApiService.getFavoritesList's URL assembly (favcat + f_search +
  * inline_set order + next cursor). It locks that a favorites search reuses favorites.php with
  * f_search alongside the selected favcat — NOT a separate endpoint, and WITHOUT eros_fe's commented-
- * out sn/st/sf scope toggles. Structural greps lock the VM setSearch + page search affordance wiring.
+ * out sn/st/sf scope toggles. Structural greps lock the current architecture: Favorites title action
+ * pushes the one shared Search page in favorite scope; GallerySearchPage seeds SearchViewModel favorite
+ * scope and uses favorites.php f_search.
  *
  * Run: node scripts/test_favorites_search_contract.mjs
  */
@@ -61,17 +63,28 @@ ok(needsDmLRetry('<div class="itg"></div>') === false, 'no thumbnail div → no 
 
 // Structural wiring
 const read = (f) => readFileSync(join(ROOT, f), 'utf8')
-const VM = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
-const PAGE = read('feature/user/src/main/ets/pages/FavoritesPage.ets')
-ok(VM.includes('@Trace search: string'), 'VM: @Trace search field')
-ok(VM.includes('search: this.search'), 'VM: buildQuery sends this.search as f_search')
-ok(VM.includes('async setSearch(query: string)'), 'VM: setSearch(query) exists')
-ok(VM.includes('this.search = q') && VM.includes('await this.load()'), 'VM: setSearch resets + reloads')
-ok(PAGE.includes('AppSearchField'), 'Page: reuses shared AppSearchField')
-ok(PAGE.includes('this.vm.setSearch('), 'Page: search submit calls vm.setSearch')
-ok(PAGE.includes('searchActive'), 'Page: search affordance toggle state')
-ok(PAGE.includes("sys.symbol.magnifyingglass"), 'Page: favcat-bar magnifier toggle')
-ok(PAGE.includes('app.string.fav_search_placeholder'), 'Page: localized placeholder')
+const SEARCH_VM = read('feature/search/src/main/ets/viewmodel/SearchViewModel.ets')
+const SEARCH_PAGE = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
+const PARAMS = read('shared/src/main/ets/state/SearchPageParams.ets')
+const INDEX = read('entry/src/main/ets/pages/Index.ets')
+const FAV_PAGE = read('feature/user/src/main/ets/pages/FavoritesPage.ets')
+ok(PARAMS.includes("searchType: string = ''") && PARAMS.includes("favcat: string = 'a'"), 'SearchPageParams carries favorite scope + favcat')
+ok(/private openFavoriteSearch\(\): void \{[\s\S]*connectFavSelection\(\)\.selectedFavcat[\s\S]*pushPathByName\('Search', new SearchPageParams\('favorite', favcat\)\)/.test(INDEX),
+  'Index favorites search pushes shared Search page in favorite scope')
+ok(/private favoritesMenu\(\): Record<string, Object> \{[\s\S]*sys\.symbol\.magnifyingglass[\s\S]*this\.openFavoriteSearch\(\)/.test(INDEX),
+  'Favorites title-bar has native search action')
+ok(!FAV_PAGE.includes('AppSearchField') && !FAV_PAGE.includes('setSearch('),
+  'FavoritesPage does not embed a bespoke search field')
+ok(/seedFavoriteScope\(favcat: string\): void \{[\s\S]*this\.isFavoriteScope = true[\s\S]*this\.favcat = favcat/.test(SEARCH_VM),
+  'SearchViewModel can be seeded into favorite scope')
+ok(/private buildFavQuery\(next: string\): FavoritesQuery \{[\s\S]*favcat: this\.isFavoriteScope \? this\.favcat : 'a'[\s\S]*search: this\.query/.test(SEARCH_VM),
+  'SearchViewModel favorites query sends current query as f_search')
+ok(/private effectiveFavoriteScope\(\): boolean \{[\s\S]*SEARCH_SCOPE_FAVORITE/.test(SEARCH_VM),
+  'SearchViewModel also honors filter-sheet Favorite scope')
+ok(/context\.pathInfo\.param instanceof SearchPageParams[\s\S]*p\.searchType === 'favorite'[\s\S]*this\.vm\.seedFavoriteScope\(p\.favcat\)[\s\S]*this\.vm\.search\(''\)/.test(SEARCH_PAGE),
+  'GallerySearchPage consumes favorite route params and browses the favcat')
+ok(/private runQuery\(query: string\): void \{[\s\S]*this\.vm\.search\(trimmed\)/.test(SEARCH_PAGE),
+  'GallerySearchPage submit path reuses the same SearchViewModel search')
 // dm_l thumbnail-mode retry wiring in EhApiService.
 const API = read('shared/src/main/ets/network/EhApiService.ets')
 ok(API.includes('private async fetchFavoritesBody('), 'API: fetchFavoritesBody helper')
@@ -81,4 +94,4 @@ const CONST = read('shared/src/main/ets/constants/EhConstants.ets')
 ok(CONST.includes("FAV_DISPLAY_LIST: string = 'dm_l'"), 'EhConstants: FAV_DISPLAY_LIST = dm_l')
 
 if (failures > 0) { console.error(`\n✗ favorites search contract: ${failures} failure(s)`); process.exit(1) }
-console.log('✓ favorites search contract: favcat-scoped f_search URL + dm_l retry + VM setSearch + page affordance locked')
+console.log('✓ favorites search contract: favcat-scoped f_search URL + dm_l retry + shared Search favorite-scope locked')

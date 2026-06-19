@@ -757,6 +757,10 @@
       "value": "清除"
     },
     {
+      "name": "search_history_deleted",
+      "value": "已从历史记录移除"
+    },
+    {
       "name": "filter_options",
       "value": "选项"
     },
