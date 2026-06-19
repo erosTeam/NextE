@@ -601,6 +601,10 @@
       "value": "すべて"
     },
     {
+      "name": "favorites_selector_title",
+      "value": "お気に入り分類"
+    },
+    {
       "name": "site_ex_locked",
       "value": "ExHentai はログインとアクセス権が必要"
     },

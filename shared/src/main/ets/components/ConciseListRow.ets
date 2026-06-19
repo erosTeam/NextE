@@ -37,8 +37,8 @@ export struct ConciseListRow {
   @Param counterIncreaseEnabled: boolean = true;
   @Param checked: boolean = false;
   @Param isEnabled: boolean = true;
-  @Param primaryColor: Color | undefined = undefined;
-  @Param secondaryColor: Color | undefined = undefined;
+  @Param primaryColor: ResourceColor | undefined = undefined;
+  @Param secondaryColor: ResourceColor | undefined = undefined;
   @Event action?: () => void;
   @BuilderParam suffixBuilderParam?: () => void;
   @BuilderParam prefixBuilderParam?: () => void;

@@ -41,7 +41,7 @@ import { FavcatBarCCBuilder } from '../components/FavcatBar'
 import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
 import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
-import { FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
+import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
 import { SettingsPage, ReaderSettingsPage, DownloadSettingsPage, AboutPage } from 'settings'
 import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryAllThumbnailsPage, GalleryCommentsPage } from 'gallery'
 import { ReaderPage } from 'reader'
@@ -135,6 +135,10 @@ struct Index {
     if (names.length === 0 || names[names.length - 1] !== 'Search') {
       this.stack.pushPathByName('Search', new SearchPageParams('favorite', favcat))
     }
+  }
+
+  private openFavoriteSelector(): void {
+    this.stack.pushPathByName('FavoriteSelector', null)
   }
 
   private handlePendingEhUrl(): void {
@@ -238,8 +242,20 @@ struct Index {
         FavSelectionBridge.publishOpenOrderMenu()
       },
     }
-    const items: Record<string, Object>[] = [{ 'content': searchInner }, { 'content': orderInner }]
-    return { 'value': items, 'maxCount': 2 }
+    const selectorInner: Record<string, Object> = {
+      'label': $r('app.string.favorites_selector_title'),
+      'icon': $r('sys.symbol.list_bullet_square_fill'),
+      'isEnabled': true,
+      'action': () => {
+        this.openFavoriteSelector()
+      },
+    }
+    const items: Record<string, Object>[] = [
+      { 'content': searchInner },
+      { 'content': orderInner },
+      { 'content': selectorInner },
+    ]
+    return { 'value': items, 'maxCount': 3 }
   }
 
   private bottomBuilder(content: ComponentContent<Object>, height: number = SELECTOR_BAR_HEIGHT): Record<string, Object> {
@@ -334,6 +350,8 @@ struct Index {
       MyTagsPage()
     } else if (name === 'History') {
       ViewedHistoryPage()
+    } else if (name === 'FavoriteSelector') {
+      FavoriteSelectorPage()
     } else if (name === 'AllThumbnails') {
       GalleryAllThumbnailsPage()
     } else if (name === 'GalleryComments') {

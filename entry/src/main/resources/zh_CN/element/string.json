@@ -601,6 +601,10 @@
       "value": "全部"
     },
     {
+      "name": "favorites_selector_title",
+      "value": "收藏分类"
+    },
+    {
       "name": "site_ex_locked",
       "value": "里站需要登录且拥有 ExHentai 权限"
     },

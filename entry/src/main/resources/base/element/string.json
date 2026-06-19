@@ -601,6 +601,10 @@
       "value": "All"
     },
     {
+      "name": "favorites_selector_title",
+      "value": "Favcat"
+    },
+    {
       "name": "site_ex_locked",
       "value": "ExHentai needs login + ExHentai access"
     },
