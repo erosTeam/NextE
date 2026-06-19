@@ -45,7 +45,7 @@ export class GalleryDetailViewModel {
     this.gid = gid
     this.token = token
     try {
-      await this.fetchAndApply(gid, token)
+      await this.fetchAndApply(gid, token, false)
       this.loaded = true
     } catch (err) {
       this.error = EhErrorText.forUser(err)
@@ -65,7 +65,7 @@ export class GalleryDetailViewModel {
     this.loading = true
     this.error = ''
     try {
-      await this.fetchAndApply(this.gid, this.token)
+      await this.fetchAndApply(this.gid, this.token, true)
       this.loaded = true
       DiagnosticLogger.info(
         'gallery',
@@ -81,7 +81,7 @@ export class GalleryDetailViewModel {
     }
   }
 
-  private async fetchAndApply(gid: string, token: string): Promise<void> {
+  private async fetchAndApply(gid: string, token: string, refresh: boolean): Promise<void> {
     // eros_fe enrich-then-detail order: a sparse seed (URL paste / deep link) carries only gid+token,
     // no fileCount, so fetch the lighter /api.php gdata metadata first to paint a real header (title,
     // cover, fileCount, rating, tags) before the heavier detail page parse lands. A list-row open
@@ -89,15 +89,43 @@ export class GalleryDetailViewModel {
     if (this.gallery.fileCount.length === 0) {
       await this.enrichFromApi(gid, token)
     }
+    const seedRatingFallBack: number = this.gallery.ratingFallBack
+    const seedRatingCount: string = this.gallery.ratingCount
+    const seedColorRating: string = this.gallery.colorRating
     const res: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(
       gid,
       token,
       connectSiteMode().isEx,
     )
     this.gallery = this.gallery.merge(res.gallery)
+    if (!refresh) {
+      this.applyNonRefreshSeedRating(seedRatingFallBack, seedRatingCount, seedColorRating)
+    }
     this.images = res.images
     this.comments = res.comments
     this.previewPageCount = res.previewPageCount
+  }
+
+  /**
+   * eros_fe keeps list/gdata seed rating presentation on first open: detail HTML may have a weaker or
+   * differently-derived rating block, while the list row already carries the user's personal rating
+   * colour. A pull-to-refresh is the explicit "trust fresh detail" path, so this only applies to the
+   * initial non-refresh load.
+   */
+  private applyNonRefreshSeedRating(
+    seedRatingFallBack: number,
+    seedRatingCount: string,
+    seedColorRating: string,
+  ): void {
+    if (seedRatingFallBack > 0 && this.gallery.ratingFallBack <= 0) {
+      this.gallery.ratingFallBack = seedRatingFallBack
+    }
+    if (seedRatingCount.length > 0 && this.gallery.ratingCount.length === 0) {
+      this.gallery.ratingCount = seedRatingCount
+    }
+    if (seedColorRating.length > 0) {
+      this.gallery.colorRating = seedColorRating
+    }
   }
 
   /** Best-effort gdata metadata enrich for a sparse seed (eros_fe getMoreGalleryInfoOne). Non-fatal:

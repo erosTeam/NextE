@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
- * Contract test for EhGallery.merge rating-inheritance (shared/src/main/ets/model/EhGallery.ets).
+ * Contract test for gallery rating inheritance:
+ *   - EhGallery.merge only lets non-empty/non-zero values win.
+ *   - GalleryDetailViewModel preserves list/gdata seed rating presentation on first open, while
+ *     refresh trusts the freshly fetched detail.
  *
  * Locks the SUBTLE-but-correct behavior the re-triage mis-flagged as "list-seed colorRating dropped":
  * the detail parse provides a precise rating/ratingCount and may provide EH's sprite-derived
@@ -70,6 +73,19 @@ const ok = (name, cond) => {
   ok('merge guards colorRating on non-empty', /if \(o\.colorRating\.length > 0\) g\.colorRating = o\.colorRating/.test(model))
   ok('merge guards isRated on true', /if \(o\.isRated\) g\.isRated = o\.isRated/.test(model))
   ok('merge guards ratingFallBack on non-zero', /if \(o\.ratingFallBack > 0\) g\.ratingFallBack = o\.ratingFallBack/.test(model))
+}
+
+// VM-level guard: first open preserves list/gdata seed rating colour; refresh does not.
+{
+  const vm = readFileSync(join(ROOT, 'feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets'), 'utf8')
+  ok('load passes non-refresh fetch flag', /await this\.fetchAndApply\(gid, token, false\)/.test(vm))
+  ok('refresh passes refresh fetch flag', /await this\.fetchAndApply\(this\.gid, this\.token, true\)/.test(vm))
+  ok('fetchAndApply accepts refresh flag', /private async fetchAndApply\(gid: string, token: string, refresh: boolean\)/.test(vm))
+  ok('VM snapshots seed colorRating before detail merge', /const seedColorRating: string = this\.gallery\.colorRating/.test(vm))
+  ok('non-refresh applies seed rating after merge', /this\.gallery = this\.gallery\.merge\(res\.gallery\)[\s\S]*if \(!refresh\) \{[\s\S]*this\.applyNonRefreshSeedRating/.test(vm))
+  ok('seed colorRating wins on first open', /if \(seedColorRating\.length > 0\) \{[\s\S]*this\.gallery\.colorRating = seedColorRating/.test(vm))
+  ok('seed ratingCount only fills a weak detail count', /seedRatingCount\.length > 0 && this\.gallery\.ratingCount\.length === 0/.test(vm))
+  ok('seed ratingFallBack only fills a weak detail display rating', /seedRatingFallBack > 0 && this\.gallery\.ratingFallBack <= 0/.test(vm))
 }
 
 console.log(`✓ gallery merge rating-inheritance contract: ${passed} assertions passed`)
