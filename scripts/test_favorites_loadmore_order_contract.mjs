@@ -6,7 +6,9 @@
  * - eros_fe/lib/network/request.dart applies favorites ListDisplayModeException/FavOrderException
  *   handling inside the shared request path, so first page and later pages get the same guards.
  * - eros_fe/lib/pages/tab/controller/favorite/favorite_sublist_controller.dart continues loading from
- *   the server next cursor; overlapped rows should not by themselves terminate paging.
+ *   the server next cursor because Flutter rows are index-keyed.
+ * - NextE adapts that to gid-keyed LazyForEach: a partially-overlapped page still appends fresh rows,
+ *   but an all-duplicate page is terminal so the list cannot spin on "load more" with no visible rows.
  *
  * Run: node scripts/test_favorites_loadmore_order_contract.mjs
  */
@@ -49,9 +51,11 @@ ok('Initial load uses the same order-sync helper',
   /const list: GalleryList = await this\.fetchPageWithOrderSync\(''\)/.test(vm))
 ok('loadMore captures the current cursor before fetching',
   /const cursor: string = this\.nextGid[\s\S]*const list: GalleryList = await this\.fetchPageWithOrderSync\(cursor\)/.test(vm))
-ok('loadMore continues based on cursor progress instead of fresh row count',
-  /this\.hasMore = list\.nextGid\.length > 0 && list\.nextGid !== cursor/.test(vm))
-ok('loadMore no longer terminates paging solely on fresh.length',
-  !/this\.hasMore = list\.nextGid\.length > 0 && fresh\.length > 0/.test(vm))
+ok('loadMore dedupes before append for gid-keyed LazyForEach',
+  /const fresh: EhGallery\[\] = this\.dedupeNew\(list\.gallerys\)/.test(vm))
+ok('loadMore stops when a page brings no genuinely fresh rows',
+  /this\.hasMore = list\.nextGid\.length > 0 && fresh\.length > 0/.test(vm))
+ok('loadMore no longer keeps paging solely because the cursor changed',
+  !/this\.hasMore = list\.nextGid\.length > 0 && list\.nextGid !== cursor/.test(vm))
 
 console.log(`✓ favorites load-more order contract: ${passed} assertions passed`)

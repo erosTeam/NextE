@@ -237,9 +237,9 @@ export class FavoritesViewModel {
           this.itemCount = this.dataSource.totalCount()
         }
         this.nextGid = list.nextGid
-        // Continue based on cursor progress, not row count. Some EH pages can overlap already-seen rows;
-        // stop only when EH gives no next cursor or repeats the same cursor.
-        this.hasMore = list.nextGid.length > 0 && list.nextGid !== cursor
+        // Exhausted when the cursor is empty OR the page brought no genuinely-new rows (repeated
+        // boundary page / server race). LazyForEach is gid-keyed, so an all-duplicate page is terminal.
+        this.hasMore = list.nextGid.length > 0 && fresh.length > 0
       }
     } catch (err) {
       const e = err as Error

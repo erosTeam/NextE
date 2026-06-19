@@ -67,7 +67,7 @@ forbidAnyClear('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets', 'se
 forbidClearBeforeFetch(
   'feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets',
   'load',
-  'getFavoritesList',
+  'fetchPageWithOrderSync',
 )
 
 // Search submit / filter reapply: keep previous result body until the new query returns.
