@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 /**
- * Contract: Reader column-mode switching is parked during P0 core recovery.
- *
- * The persisted setting and settings-page menu remain for follow-up work, but
- * the Reader runtime must not switch into double-page spread rendering until
- * layout and gesture acceptance is restored.
+ * Contract: Reader column-mode switching is live, but remains gated out of
+ * vertical reading and normalizes the current image to the target spread.
  *
  * Run: node scripts/test_reader_column_mode_switch_contract.mjs
  */
@@ -29,16 +26,18 @@ ok('settings page still exposes the saved column-mode preference for a later lan
   /ReadColumnMode\.SINGLE/.test(settingsPage) &&
   /ReadColumnMode\.ODD_LEFT/.test(settingsPage) &&
   /ReadColumnMode\.EVEN_LEFT/.test(settingsPage))
-ok('ReaderPage runtime ignores the saved double-page preference',
-  /private doublePageEnabled\(\): boolean \{[\s\S]*return false[\s\S]*\}/.test(reader))
-ok('cycleColumnMode is a no-op in ReaderPage during recovery',
-  /private cycleColumnMode\(\): void \{[\s\S]*return[\s\S]*\}/.test(reader) &&
-  !/private cycleColumnMode\(\): void \{[\s\S]*ReadModeSettings\.setColumnMode/.test(reader))
-ok('bottom chrome cannot advertise active double-page A/B in ReaderPage',
-  /private columnModeLabel\(\): Resource \{[\s\S]*return \$r\('app\.string\.common_off'\)[\s\S]*\}/.test(reader) &&
-  !/private columnModeLabel\(\): Resource \{[\s\S]*read_double_page_a/.test(reader) &&
-  !/private columnModeLabel\(\): Resource \{[\s\S]*read_double_page_b/.test(reader))
-ok('horizontal reader path remains single-page Swiper',
+ok('ReaderPage runtime gates double-page to horizontal non-single column modes',
+  /private doublePageEnabled\(\): boolean \{[\s\S]*this\.readMode\.mode !== ReadMode\.VERTICAL[\s\S]*this\.readMode\.columnMode !== ReadColumnMode\.SINGLE/.test(reader))
+ok('cycleColumnMode is disabled in vertical mode but persists horizontal changes',
+  /private cycleColumnMode\(\): void \{[\s\S]*if \(this\.readMode\.mode === ReadMode\.VERTICAL\) \{[\s\S]*return[\s\S]*ReadModeSettings\.setColumnMode\(ctx, next\)/.test(reader))
+ok('cycleColumnMode normalizes current index and slider value for the target mode',
+  /const targetIndex: number = this\.normalizedIndexForColumnMode\(next\)/.test(reader) &&
+  /this\.vm\.currentIndex = targetIndex[\s\S]*this\.sliderValue = targetIndex \+ 1/.test(reader))
+ok('bottom chrome advertises active double-page A/B while keeping vertical as off',
+  /private columnModeLabel\(\): Resource \{[\s\S]*ReadMode\.VERTICAL[\s\S]*common_off[\s\S]*ReadColumnMode\.ODD_LEFT[\s\S]*read_double_page_a[\s\S]*ReadColumnMode\.EVEN_LEFT[\s\S]*read_double_page_b/.test(reader))
+ok('single horizontal reader path remains a full-page Swiper',
   /@Builder\s+HorizontalReader\(\)[\s\S]*Swiper\(\)[\s\S]*ForEach\(\s*this\.vm\.images/.test(reader))
+ok('double-page horizontal reader path uses spread starts instead of raw image pages',
+  /@Builder\s+DoublePageReader\(\)[\s\S]*ForEach\(\s*this\.spreadStarts\(\)/.test(reader))
 
-console.log(`✓ reader column-mode parked contract: ${passed} assertions passed`)
+console.log(`✓ reader column-mode switch contract: ${passed} assertions passed`)

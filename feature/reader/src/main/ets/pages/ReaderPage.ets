@@ -74,6 +74,8 @@ export struct ReaderPage {
         if (this.vm.images.length > 0) {
           if (this.readMode.mode === ReadMode.VERTICAL) {
             this.VerticalReader()
+          } else if (this.doublePageEnabled()) {
+            this.DoublePageReader()
           } else {
             this.HorizontalReader()
           }
@@ -540,7 +542,7 @@ export struct ReaderPage {
   }
 
   private doublePageEnabled(): boolean {
-    return false
+    return this.readMode.mode !== ReadMode.VERTICAL && this.readMode.columnMode !== ReadColumnMode.SINGLE
   }
 
   private pageStep(): number {
@@ -779,6 +781,9 @@ export struct ReaderPage {
         onZoomChange: (zoomed: boolean) => {
           this.imageZoomed = zoomed
         },
+        onImageLoaded: (page: number) => {
+          this.markPageImageLoaded(page)
+        },
       })
         .layoutWeight(1)
     } else {
@@ -897,11 +902,37 @@ export struct ReaderPage {
   }
 
   private columnModeLabel(): Resource {
+    if (this.readMode.mode === ReadMode.VERTICAL) {
+      return $r('app.string.common_off')
+    }
+    if (this.readMode.columnMode === ReadColumnMode.ODD_LEFT) {
+      return $r('app.string.read_double_page_a')
+    }
+    if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
+      return $r('app.string.read_double_page_b')
+    }
     return $r('app.string.common_off')
   }
 
   private cycleColumnMode(): void {
-    return
+    if (this.readMode.mode === ReadMode.VERTICAL) {
+      return
+    }
+    let next: string = ReadColumnMode.ODD_LEFT
+    if (this.readMode.columnMode === ReadColumnMode.ODD_LEFT) {
+      next = ReadColumnMode.EVEN_LEFT
+    } else if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
+      next = ReadColumnMode.SINGLE
+    }
+    const targetIndex: number = this.normalizedIndexForColumnMode(next)
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setColumnMode(ctx, next)
+    if (this.readMode.mode === ReadMode.VERTICAL) {
+      return
+    }
+    this.vm.currentIndex = targetIndex
+    this.sliderValue = targetIndex + 1
   }
 
   // Page counter '5 / 120'; while dragging the slider it previews the target page (sliderPreview),

@@ -1696,7 +1696,7 @@ Type: bug / reading UX gap
 
 Priority suggestion: P1
 
-Status: parked by P0 recovery / do not extend before core Reader acceptance
+Status: implemented / needs controller acceptance
 
 Source:
 
@@ -1723,7 +1723,16 @@ Implementation:
 - Superseding note: `28db792 fix(reader): restore core interaction baseline` disables runtime
   double-page rendering in `ReaderPage` because a persisted double-page setting reproduced the
   user-visible failure where the main image was squeezed into the left half of the reading canvas.
-  The settings model remains for a later, separately accepted double-page lane.
+  The settings model remained for a later, separately accepted double-page lane.
+- This lane restores runtime double-page rendering after the core Reader baseline was accepted:
+  `ReaderPage` routes horizontal non-single column modes to `DoublePageReader`, keeps vertical mode
+  and single-column horizontal mode on their existing renderers, and lets the bottom chrome cycle
+  `关闭 -> 双页 A -> 双页 B -> 关闭`.
+- The runtime switch now normalizes `currentIndex` and `sliderValue` through the existing spread math
+  before persisting the new column mode, so switching to double-page A/B lands on the visible spread
+  start instead of an interior page.
+- `SpreadImage` now reports `onImageLoaded` back to the parent Reader page, preserving loaded-state
+  bookkeeping for double-page slots.
 - `a9a0003 fix(reader): align double-page mode switches` adds mode-specific spread-index and
   spread-start helpers to `ReaderPage`, normalizes `currentIndex` before persisting a new column mode,
   and suppresses the second slot on the double-page B cover spread.
@@ -1735,9 +1744,9 @@ Evidence:
 - Deterministic contracts: `scripts/test_reader_column_mode_switch_contract.mjs`,
   `scripts/test_reader_double_page_contract.mjs`.
 - Regression contracts run in the fixing lane: `scripts/test_reader_tapzone_contract.mjs`,
-  `scripts/test_reader_vertical_initial_index_contract.mjs`,
-  `scripts/test_reader_seeded_thumbnail_start_contract.mjs`,
-  `scripts/test_reader_placeholder_gap_turn_contract.mjs`.
+  `scripts/test_reader_zoom_quality_contract.mjs`, `scripts/test_reader_slider_spread_contract.mjs`,
+  `scripts/test_reader_initial_spread_start_contract.mjs`,
+  `scripts/test_reader_loading_progress_contract.mjs`, `scripts/test_reader_save_current_image_contract.mjs`.
 - Gates: `scripts/test_v1_decorator_inventory_contract.mjs`, `git diff --check`, `ohpm install`,
   official signed Hvigor build.
 - Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
@@ -1746,6 +1755,12 @@ Evidence:
   Evidence directory: `/private/tmp/nexte_reader_nav_quality_evidence/`, especially
   `chrome_after_b.png` for the observed pre-fix issue and `final_reader_b.png`,
   `final_reader_b_chrome.png`, `final_reader_b_chrome_layout.json` for the fixed behavior.
+- Current runtime restoration smoke on Mate X7 emulator target `127.0.0.1:5555`: public gallery
+  `https://e-hentai.org/g/3989982/16600a66e8/` opened in NextE, Reader showed two-page canvas in
+  `双页 B` with chrome `8 / 138`; tapping the bottom column pill changed to `关闭` while keeping
+  `8 / 138`; tapping again changed to `双页 A` and normalized to `7 / 138`; horizontal swipe then
+  advanced to `9 / 138`. Evidence directory:
+  `.hvigor/outputs/reader-double-page-runtime-smoke/`.
 
 Remaining acceptance:
 

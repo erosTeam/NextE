@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 /**
- * Contract: Reader double-page rendering is parked during P0 core recovery.
- *
- * The state/settings model is left intact for a later lane, but ReaderPage must
- * not let a persisted double-page preference squeeze the online reading canvas
- * into a half-width spread while gesture/loading recovery is being accepted.
+ * Contract: Reader double-page rendering is live again without regressing the
+ * accepted single-page gesture baseline.
  *
  * Run: node scripts/test_reader_double_page_contract.mjs
  */
@@ -38,15 +35,17 @@ ok('ReadModeSettings still owns persistence of the parked preference',
 ok('settings surface is not cleaned up in this recovery lane',
   /settings_reader_double_page/.test(settingsPage) &&
   /ReadModeSettings\.setColumnMode/.test(settingsPage))
-ok('ReaderPage routes horizontal reading directly to HorizontalReader',
-  /if \(this\.readMode\.mode === ReadMode\.VERTICAL\) \{[\s\S]*this\.VerticalReader\(\)[\s\S]*\} else \{[\s\S]*this\.HorizontalReader\(\)[\s\S]*\}/.test(reader) &&
-  !/else if \(this\.doublePageEnabled\(\)\)[\s\S]*this\.DoublePageReader\(\)/.test(reader))
-ok('ReaderPage runtime disables double-page rendering',
-  /private doublePageEnabled\(\): boolean \{[\s\S]*return false[\s\S]*\}/.test(reader))
-ok('Reader bottom chrome reports the parked column mode as off',
-  /private columnModeLabel\(\): Resource \{[\s\S]*return \$r\('app\.string\.common_off'\)[\s\S]*\}/.test(reader))
-ok('Reader bottom chrome cannot cycle into double-page during recovery',
-  /private cycleColumnMode\(\): void \{[\s\S]*return[\s\S]*\}/.test(reader) &&
-  !/private cycleColumnMode\(\): void \{[\s\S]*ReadModeSettings\.setColumnMode/.test(reader))
+ok('ReaderPage routes vertical to vertical, double-page to DoublePageReader, and single horizontal to HorizontalReader',
+  /if \(this\.readMode\.mode === ReadMode\.VERTICAL\) \{[\s\S]*this\.VerticalReader\(\)[\s\S]*\} else if \(this\.doublePageEnabled\(\)\) \{[\s\S]*this\.DoublePageReader\(\)[\s\S]*\} else \{[\s\S]*this\.HorizontalReader\(\)/.test(reader))
+ok('ReaderPage enables double-page only for horizontal non-single column modes',
+  /private doublePageEnabled\(\): boolean \{[\s\S]*return this\.readMode\.mode !== ReadMode\.VERTICAL && this\.readMode\.columnMode !== ReadColumnMode\.SINGLE[\s\S]*\}/.test(reader))
+ok('Reader bottom chrome labels off, double-page A, and double-page B',
+  /private columnModeLabel\(\): Resource \{[\s\S]*ReadColumnMode\.ODD_LEFT[\s\S]*read_double_page_a[\s\S]*ReadColumnMode\.EVEN_LEFT[\s\S]*read_double_page_b[\s\S]*common_off/.test(reader))
+ok('Reader bottom chrome cycles single -> A -> B -> single and persists through ReadModeSettings',
+  /private cycleColumnMode\(\): void \{[\s\S]*ReadColumnMode\.ODD_LEFT[\s\S]*ReadColumnMode\.EVEN_LEFT[\s\S]*ReadColumnMode\.SINGLE[\s\S]*ReadModeSettings\.setColumnMode\(ctx, next\)/.test(reader))
+ok('DoublePageReader preserves spread rendering, RTL row reversal, and parent double-tap routing',
+  /@Builder\s+DoublePageReader\(\)[\s\S]*this\.spreadStarts\(\)[\s\S]*this\.spreadRowReversed\(\)[\s\S]*this\.SpreadSecondSlot\(start\)[\s\S]*this\.SpreadImage\(start\)[\s\S]*TapGesture\(\{ count: 2 \}\)/.test(reader))
+ok('Double-page spread image pages still report zoom and image-loaded state',
+  /@Builder\s+SpreadImage\(index: number\)[\s\S]*ReaderImagePage\(\{[\s\S]*onZoomChange[\s\S]*onImageLoaded: \(page: number\) => \{[\s\S]*this\.markPageImageLoaded\(page\)/.test(reader))
 
-console.log(`✓ reader double-page parked contract: ${passed} assertions passed`)
+console.log(`✓ reader double-page runtime contract: ${passed} assertions passed`)
