@@ -29,6 +29,8 @@ const sharedIndex = read('shared/src/main/ets/Index.ets')
 const favState = read('shared/src/main/ets/state/FavSelectionState.ets')
 const favVm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
 const favcatPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
+const favcatBar = read('entry/src/main/ets/components/FavcatBar.ets')
+const favSelector = read('feature/user/src/main/ets/pages/FavoriteSelectorPage.ets')
 const feController = read('../eros_fe/lib/pages/controller/favorite_sel_controller.dart')
 const feConst = read('../eros_fe/lib/const/const.dart')
 
@@ -36,6 +38,10 @@ ok('FE favorite selector loads/persists favcat profile state',
   /_initFavItemBeans/.test(feController) && /Global\.profile[\s\S]*user\.copyWith\(favcat: value\.oN\)/.test(feController))
 ok('FE has the 10 default favorite slots fallback',
   /static const List<Map<String, String>> favList/.test(feConst) && /Favorites 0/.test(feConst) && /Favorites 9/.test(feConst))
+ok('FE computes the all-favorites count from remote slots only',
+  /int get _allNetworkFavcatCount/.test(feController) &&
+    /favcat\.favId != 'a' && favcat\.favId != 'l'/.test(feController) &&
+    /totNum: _allNetworkFavcatCount/.test(feController))
 
 ok('StorageKeys registers favorites.favcats',
   /static readonly FAVORITES_FAVCATS: string = 'favorites\.favcats'/.test(keys))
@@ -47,6 +53,9 @@ ok('SettingsBootstrap restores FavcatListSettings before first page mount',
 
 ok('FavSelectionState still seeds fallback Favorites 0..9',
   /for \(let i = 0; i < 10; i\+\+\) \{[\s\S]*new Favcat\(`\$\{i\}`, `Favorites \$\{i\}`, 0\)/.test(favState))
+ok('FavSelectionState computes all-favorites aggregate from remote 0-9 slots only',
+  /remoteTotalCount\(\): number \{[\s\S]*FavSelectionState\.isRemoteSlot\(f\.favId\)[\s\S]*total \+= f\.totNum/.test(favState) &&
+    /private static isRemoteSlot\(favId: string\): boolean \{[\s\S]*n >= 0 && n <= 9/.test(favState))
 ok('FavcatListSettings writes restored snapshot into FavSelectionState',
   /connectFavSelection\(\)\.favList = restored/.test(settings))
 ok('FavcatListSettings uses the shared preferences store and key',
@@ -70,6 +79,11 @@ ok('FavcatPage persists merged parsed favcats back to preferences',
   /FavcatListSettings\.persist\(this\.ctx\(\), merged\)/.test(favcatPage))
 ok('FavcatPage obtains a UIAbilityContext for persistence',
   /private ctx\(\): common\.UIAbilityContext \{[\s\S]*this\.getUIContext\(\)\.getHostContext\(\) as common\.UIAbilityContext/.test(favcatPage))
+ok('FavcatBar shows the synthetic all-favorites aggregate count',
+  /new TabItem\('a',\s*\$r\('app\.string\.favorites_all'\),\s*this\.fav\.remoteTotalCount\(\)\)/.test(favcatBar) &&
+    /new TabItem\(fc\.favId,\s*fc\.favTitle\)/.test(favcatBar))
+ok('FavoriteSelectorPage shows the same aggregate for 全部',
+  /new Favcat\('a',\s*AppStrings\.get\('favorites_all'\),\s*this\.fav\.remoteTotalCount\(\)\)/.test(favSelector))
 
 // Executable mirror for the shape invariants.
 const isRemoteSlot = (id) => {
@@ -101,6 +115,8 @@ const parse = (raw) => {
   }
   return out.sort((a, b) => Number.parseInt(a.favId, 10) - Number.parseInt(b.favId, 10))
 }
+const remoteTotalCount = (favcats) =>
+  favcats.reduce((total, f) => (isRemoteSlot(f.favId) && f.totNum > 0 ? total + f.totNum : total), 0)
 const snap = snapshot([
   { favId: 'a', favTitle: 'All', totNum: -1 },
   { favId: '2', favTitle: 'Manga', totNum: 609 },
@@ -115,6 +131,12 @@ assert.deepStrictEqual(parse(JSON.stringify(snap)), [
   { favId: '0', favTitle: 'Favorites 0', totNum: 0 },
   { favId: '2', favTitle: 'Manga', totNum: 609 },
 ])
-passed += 2
+assert.strictEqual(remoteTotalCount([
+  { favId: 'a', favTitle: 'All', totNum: 999 },
+  { favId: '2', favTitle: 'Manga', totNum: 609 },
+  { favId: 'l', favTitle: 'Local', totNum: 3 },
+  { favId: '0', favTitle: 'Default', totNum: 4 },
+]), 613)
+passed += 3
 
 console.log(`✓ favcat snapshot contract: ${passed} assertions passed`)

@@ -60,7 +60,7 @@ ok('FavSelectionState still seeds the 10 network slots',
 ok('Selector page uses HDS destination and secondary list scaffold',
   /HdsNavDestination\(\)[\s\S]*SecondaryListScaffold/.test(page))
 ok('Selector page renders synthetic All plus favList rows',
-  /const items: Favcat\[\] = \[new Favcat\('a', AppStrings\.get\('favorites_all'\), -1\)\][\s\S]*this\.fav\.favList\.forEach/.test(page))
+  /const items: Favcat\[\] = \[new Favcat\('a', AppStrings\.get\('favorites_all'\), this\.fav\.remoteTotalCount\(\)\)\][\s\S]*this\.fav\.favList\.forEach/.test(page))
 ok('Selector rows use grouped native list rows',
   /GroupedListSection\(\)[\s\S]*ConciseListRow/.test(page))
 ok('Selector row uses semantic favcat heart color through native row parameters',

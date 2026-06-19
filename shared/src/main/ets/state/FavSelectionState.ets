@@ -36,6 +36,22 @@ export class FavSelectionState {
   @Trace cmdArg: string = ''
   // Monotonic sequence so a repeated identical command still fires the page's @Monitor.
   @Trace cmdSeq: number = 0
+
+  /** Sum remote 0-9 favorite slots for the synthetic "all favorites" chip. */
+  remoteTotalCount(): number {
+    let total: number = 0
+    this.favList.forEach((f: Favcat) => {
+      if (FavSelectionState.isRemoteSlot(f.favId) && f.totNum > 0) {
+        total += f.totNum
+      }
+    })
+    return total
+  }
+
+  private static isRemoteSlot(favId: string): boolean {
+    const n: number = Number.parseInt(favId, 10)
+    return `${n}` === favId && n >= 0 && n <= 9
+  }
 }
 
 /** Per-frame interpolated favcat index for the FavcatBar's sliding indicator (V2Next FeedVisualIndexState;

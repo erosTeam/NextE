@@ -26,7 +26,7 @@ export struct FavoriteSelectorPage {
   private scroller: Scroller = new Scroller();
 
   private rows(): Favcat[] {
-    const items: Favcat[] = [new Favcat('a', AppStrings.get('favorites_all'), -1)]
+    const items: Favcat[] = [new Favcat('a', AppStrings.get('favorites_all'), this.fav.remoteTotalCount())]
     this.fav.favList.forEach((fc: Favcat) => items.push(fc))
     return items
   }

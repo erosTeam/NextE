@@ -177,12 +177,14 @@ ok(/onSelectKey:/.test(favPage) && /onVisualIndex:/.test(favPage) && /onScroller
 ok(!/@Local\s+vm:\s*FavoritesViewModel/.test(favPage), 'FavoritesPage owns NO shared FavoritesViewModel (data lives in FavcatPage)')
 ok(/!this\.auth\.isLogin/.test(favPage), 'FavoritesPage preserves the login gate (host only mounts when logged in)')
 ok(/orderByPosted/.test(favPage) && /OrderMenu/.test(favPage), 'FavoritesPage preserves the global order toggle (writes the orderByPosted bus)')
-// FavcatBar specifics: scrollable (many favcats overflow); NAMES ONLY (product decision) — it must show
-// the real custom favcat names (fc.favTitle) and pass NO count to TabItem (the parsed counts stay in
-// favList state for other uses; SubTabBar keeps generic optional-count support for future surfaces).
+// FavcatBar specifics: scrollable (many favcats overflow). It shows the synthetic all-favorites count
+// as the remote 0-9 aggregate, while keeping per-slot counts out of the compact horizontal bar.
 ok(/scrollable:\s*true/.test(favcatBar), 'FavcatBar uses the SubTabBar scrollable mode (favcat overflow)')
 ok(/new TabItem\(fc\.favId,\s*fc\.favTitle\)/.test(favcatBar), 'FavcatBar builds tabs from the REAL favcat names (fc.favTitle)')
-ok(!/new TabItem\([^)]*,[^)]*,[^)]*\)/.test(favcatBar), 'FavcatBar passes NO count (3rd arg) to TabItem — names only (counts stay in favList state, hidden in the bar)')
+ok(/new TabItem\('a',\s*\$r\('app\.string\.favorites_all'\),\s*this\.fav\.remoteTotalCount\(\)\)/.test(favcatBar),
+  'FavcatBar shows the synthetic all-favorites aggregate count')
+ok(!/new TabItem\(fc\.favId,\s*fc\.favTitle,\s*fc\.totNum\)/.test(favcatBar),
+  'FavcatBar keeps per-slot counts out of the compact horizontal bar')
 // The parsed counts are still kept in state (not dropped) — FavSelectionState carries the favList with totals.
 ok(/@Trace\s+favList:\s*Favcat\[\]/.test(favState), 'parsed favList counts are retained in FavSelectionState (data kept; only the bar presentation hides them)')
 // SubTabBar keeps the GENERIC optional count for future surfaces (favcat just doesn't use it).
