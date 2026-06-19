@@ -42,6 +42,45 @@ Operating rule:
 
 ## Intake Items
 
+### Favorites Favcat Selector Page
+
+Type: parity / UX gap
+
+Priority suggestion: P1/P2
+
+Status: implemented / needs FE comparison
+
+Implementation:
+
+- `7322126 feat(favorites): add favcat selector` adds a Favorites title action that opens a
+  full-screen `FavoriteSelectorPage`.
+- Scope: native HDS list overview of `全部` plus server favcats, colored heart leading icon per
+  favcat, trailing counts, current selection marker, and tap-to-select returning to Favorites.
+- Explicit non-scope: local `l` favorites, favorite write/move/rename/delete, per-favcat keep-alive
+  architecture, and jump/seek navigation.
+
+Evidence:
+
+- FE source grounding: `../eros_fe/lib/pages/tab/view/favorite_sel_page.dart` and
+  `../eros_fe/lib/pages/tab/view/tabbar/favorite_tabbar_page.dart`.
+- Deterministic contract: `scripts/test_favorites_selector_contract.mjs`.
+- Static gates: `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`,
+  `git diff --check`.
+- Official signed build: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS device evidence on `192.168.50.197:12345`: installed signed HAP, opened Favorites,
+  confirmed the third title action, opened `收藏分类`, saw rows for `全部/F0/本子/漫画/3D/高分/...`
+  with counts, selected `本子`, and returned to Favorites with the `本子` list loaded.
+  Evidence directory: `/private/tmp/nexte_favorites_selector_evidence/`, especially
+  `nexte_fav_after_fix.jpeg`, `layout_fav_after_fix.json`, `nexte_selector_after_fix.jpeg`,
+  `layout_selector_after_fix.json`, `nexte_fav_after_select.jpeg`, and
+  `layout_fav_after_select.json`.
+
+Remaining acceptance:
+
+- Android `eros_fe` app was reachable through ADB `su`, but this run did not successfully navigate to
+  the FE selector page screenshot. Keep this as `implemented / needs FE comparison` until FE selector
+  device evidence or controller/user acceptance is captured.
+
 ### Reader Starts From Wrong Image When Opening Later Thumbnail Pages
 
 Type: bug
