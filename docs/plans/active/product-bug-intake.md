@@ -2069,6 +2069,9 @@ Implementation:
 - `4e1c314 fix(download): clarify gallery task cards` replaces gallery task `ConciseListRow`s with
   dedicated task cards: cover slot, two-line title, metadata row, progress bar, prominent status text,
   and a low-weight trash icon action.
+- `049170c fix(download): focus gallery task progress` keeps seed/download progress focused in the
+  task subtitle, so page/category/uploader metadata does not crowd the important preparation or
+  downloaded-count state.
 - Scope stays UI/IA-only. This does not implement a deeper download executor, archive submission,
   retry/backoff, resumability, or offline reader integration.
 
@@ -2084,6 +2087,12 @@ Evidence:
   Evidence directory: `/private/tmp/nexte_download_workbench_ia_evidence/`, especially
   `download_initial.png`, `download_initial_layout.json`, `download_archiver.png`,
   `download_archiver_layout.json`.
+- Current follow-up evidence, 2026-06-19: Android FE target `fa967a75` opened the real Downloads tab
+  with `su` and showed the `画廊 / 归档` split plus gallery task rows. NextE Mate X7 emulator target
+  `127.0.0.1:5555` installed the official signed HAP and showed the Download tab with a real task row
+  whose subtitle foregrounds `部分完成 · 已下载 1/51`; metadata remains on the row metadata line.
+  Evidence directories: `.hvigor/outputs/download-seed-progress-fe-comparison/` and
+  `.hvigor/outputs/download-seed-progress-nexte-evidence/`.
 
 Remaining acceptance:
 
