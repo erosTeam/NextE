@@ -709,6 +709,14 @@
       "value": "评分详情"
     },
     {
+      "name": "comment_filter_uploader_only",
+      "value": "只看楼主"
+    },
+    {
+      "name": "comment_filter_all",
+      "value": "全部评论"
+    },
+    {
       "name": "filter",
       "value": "筛选"
     },

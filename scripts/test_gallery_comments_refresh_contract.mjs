@@ -36,7 +36,7 @@ ok('comments page uses PullRefreshListScaffold, not a static SecondaryListScaffo
 ok('comments page keeps a local comments list refreshed from route params',
   /@Local comments: EhGalleryComment\[\] = \[\]/.test(page) &&
     /this\.comments = p\.comments/.test(page) &&
-    /comments: this\.comments/.test(page))
+    /comments: this\.visibleComments\(\)/.test(page))
 ok('refresh fetches the same gallery detail and replaces comments',
   /private async refreshComments\(\): Promise<void>[\s\S]*getGalleryDetail\([\s\S]*this\.params\.gid[\s\S]*this\.params\.token[\s\S]*connectSiteMode\(\)\.isEx[\s\S]*this\.comments = result\.comments/.test(page))
 ok('refresh has bounded diagnostics and failure feedback',

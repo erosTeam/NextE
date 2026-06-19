@@ -709,6 +709,14 @@
       "value": "Score details"
     },
     {
+      "name": "comment_filter_uploader_only",
+      "value": "Uploader only"
+    },
+    {
+      "name": "comment_filter_all",
+      "value": "All comments"
+    },
+    {
       "name": "filter",
       "value": "Filter"
     },

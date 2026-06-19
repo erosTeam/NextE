@@ -709,6 +709,14 @@
       "value": "スコア詳細"
     },
     {
+      "name": "comment_filter_uploader_only",
+      "value": "投稿者のみ"
+    },
+    {
+      "name": "comment_filter_all",
+      "value": "すべてのコメント"
+    },
+    {
       "name": "filter",
       "value": "絞り込み"
     },
