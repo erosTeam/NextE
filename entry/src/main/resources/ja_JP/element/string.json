@@ -685,6 +685,10 @@
       "value": "両ページモード"
     },
     {
+      "name": "settings_reader_auto_page_interval",
+      "value": "自動ページ間隔"
+    },
+    {
       "name": "common_off",
       "value": "オフ"
     },

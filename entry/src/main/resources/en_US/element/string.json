@@ -685,6 +685,10 @@
       "value": "Double page"
     },
     {
+      "name": "settings_reader_auto_page_interval",
+      "value": "Auto page interval"
+    },
+    {
       "name": "common_off",
       "value": "Off"
     },

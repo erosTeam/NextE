@@ -467,6 +467,20 @@ export class ReaderViewModel {
       )
   }
 
+  /**
+   * Auto-read uses this to prepare the next target without changing the current page. The timer only
+   * turns after the page component reports Image.onComplete, so this is just preview/url warm-up.
+   */
+  warmForAutoRead(index: number): void {
+    this.ensureLoaded(index)
+      .then(
+        (): void => {
+          this.precacheAhead()
+        },
+        (): void => {},
+      )
+  }
+
   /** Total pages for the slider: the known file count, else however many are loaded so far. */
   totalPages(): number {
     return this.fileCount > 0 ? this.fileCount : this.images.length

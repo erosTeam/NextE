@@ -685,6 +685,10 @@
       "value": "双页模式"
     },
     {
+      "name": "settings_reader_auto_page_interval",
+      "value": "自动翻页间隔"
+    },
+    {
       "name": "common_off",
       "value": "关闭"
     },

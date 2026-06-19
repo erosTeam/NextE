@@ -1254,6 +1254,60 @@ Closure:
   and determinate byte progress remain parked in separate lanes. Do not re-enable them until their
   lanes preserve the accepted Reader interaction baseline above.
 
+### Reader Auto-Read Page Turn Is Missing
+
+Type: feature gap / reading UX
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Grounding:
+
+- `eros_fe` reference: `/Users/honjow/git/eros_fe/lib/pages/image_view/view/view_widget.dart`
+  `ControllerButtonBar` renders the Auto button; `/Users/honjow/git/eros_fe/lib/pages/image_view/controller/view_controller.dart`
+  `tapAutoRead()`, `_startAutoRead()`, `onLoadCompleted()`, and `_autoTunToPage()` implement timer
+  advance with `loadCompleMap` gating; `/Users/honjow/git/eros_fe/lib/common/service/ehsetting_service.dart`
+  persists `turnPageInv`.
+- Product semantics: auto-read is a secondary reader utility. The main information remains the current
+  image and page counter; auto-read must not turn into a primary mode switch or separate page.
+
+Implementation:
+
+- Reader bottom chrome now includes a secondary clock control beside Save. Tapping it starts/stops
+  auto-read; active state is shown with the brand color.
+- Auto-read uses a timer based on the persisted Reader Settings interval and advances only when the
+  target page has a preview slot and is real-image ready (`Image.onComplete` or a resolved full
+  `imageUrl`). Missing/unresolved targets pause the timer and warm the target instead of jumping to a
+  blank page.
+- Reader Settings now exposes `自动翻页间隔` / `Auto page interval` with 2s/3s/5s/8s/10s choices,
+  persisted via `ReadModeSettings` and `StorageKeys.READING_AUTO_PAGE_SEC`.
+
+Evidence:
+
+- Android FE source grounding above. ADB target `fa967a75`, `su` launched
+  `com.honjow.fehviewer/.MainActivity`; current FE device screenshot/layout were captured at
+  `/private/tmp/nexte_fe_reader_autoread_current.png` and `.xml`, but automation was still on the FE
+  Search page, not Reader, so FE Reader device evidence is not claimed.
+- Deterministic contract: `scripts/test_reader_auto_read_contract.mjs`.
+- Gates: `scripts/test_reader_auto_read_contract.mjs`, `scripts/test_reader_tapzone_contract.mjs`,
+  `scripts/test_reader_precache_contract.mjs`, `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, and official signed Hvigor build through
+  `scripts/build_hvigor_signed.sh`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  public gallery `https://e-hentai.org/g/3989982/16600a66e8/` opened Reader from `继续 P3`. Evidence
+  directory: `/private/tmp/nexte_reader_auto_read_evidence/`. `chrome_before.png` shows the new clock
+  control at `3 / 138`; the first run `after.png` showed the clock active but still stuck at `3 / 138`,
+  which exposed an offscreen `Image.onComplete` wait bug. After fixing readiness to include resolved
+  `imageUrl`, `after_fixed.png` shows active auto-read advanced to `10 / 138`; `settings.png` shows
+  Reader Settings with `自动翻页间隔 3s`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the Reader bottom chrome control and interval settings row. FE
+  Reader-page device screenshot remains optional reference material; the implementation is grounded in
+  FE source and verified on HarmonyOS runtime.
+
 ### Reader Loading State Is Unstable And Lacks Image Download Progress
 
 Type: bug / reading UX gap

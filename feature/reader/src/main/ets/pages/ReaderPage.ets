@@ -48,6 +48,7 @@ export struct ReaderPage {
   // 1-based slider position; follows the live page on swipe and drives jump-to-page on drag.
   @Local sliderValue: number = 1;
   @Local readMode: ReadModeState = connectReadMode();
+  @Local autoReadActive: boolean = false;
   // Reader viewport size (captured on layout) — divides the canvas into eros_fe's 3×3 tap regions
   // (left/right thirds + center-column top/bottom fifths).
   @Local viewWidth: number = 0;
@@ -56,6 +57,9 @@ export struct ReaderPage {
   // Safe-area insets (gesture bar / status bar) published by EntryAbility — the page counter
   // sits above the bottom inset so it never hides behind the home indicator.
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
+  private autoReadTimer: number = -1;
+  private autoReadWaitingIndex: number = -1;
+  private loadedPages: number[] = [];
 
   build() {
     HdsNavDestination() {
@@ -266,8 +270,122 @@ export struct ReaderPage {
     if (this.params.gid.length > 0) {
       GalleryReadProgressSettings.flush(this.hostContext())
     }
+    this.stopAutoRead()
     // Always restore (fires on NavDestination pop, incl. swipe-back) so the wakelock never leaks.
     this.setReaderKeepScreenOn(false)
+  }
+
+  private autoReadIntervalMs(): number {
+    const seconds: number = this.readMode.autoPageSeconds > 0 ? this.readMode.autoPageSeconds : 3
+    return seconds * 1000
+  }
+
+  private isPageImageLoaded(index: number): boolean {
+    const page: number = index + 1
+    for (let i: number = 0; i < this.loadedPages.length; i++) {
+      if (this.loadedPages[i] === page) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private isPageReadyForAutoRead(index: number): boolean {
+    if (this.isPageImageLoaded(index)) {
+      return true
+    }
+    return index >= 0 && index < this.vm.images.length && this.vm.images[index].imageUrl.length > 0
+  }
+
+  private markPageImageLoaded(page: number): void {
+    if (page <= 0) {
+      return
+    }
+    for (let i: number = 0; i < this.loadedPages.length; i++) {
+      if (this.loadedPages[i] === page) {
+        this.maybeResumeAutoRead(page - 1)
+        return
+      }
+    }
+    this.loadedPages.push(page)
+    this.maybeResumeAutoRead(page - 1)
+  }
+
+  private nextAutoReadIndex(): number {
+    if (this.doublePageEnabled()) {
+      const currentSpread: number = this.spreadIndexForImage(this.vm.currentIndex)
+      const targetSpread: number = currentSpread + 1
+      if (targetSpread >= this.spreadCount()) {
+        return -1
+      }
+      return this.spreadStartIndex(targetSpread)
+    }
+    return this.vm.currentIndex + 1
+  }
+
+  private toggleAutoRead(): void {
+    if (this.autoReadActive) {
+      this.stopAutoRead()
+      return
+    }
+    this.autoReadActive = true
+    this.autoReadWaitingIndex = -1
+    this.startAutoReadTimer()
+  }
+
+  private startAutoReadTimer(): void {
+    if (!this.autoReadActive) {
+      return
+    }
+    this.clearAutoReadTimer()
+    this.autoReadTimer = setInterval(() => {
+      this.advanceAutoRead()
+    }, this.autoReadIntervalMs())
+  }
+
+  private clearAutoReadTimer(): void {
+    if (this.autoReadTimer >= 0) {
+      clearInterval(this.autoReadTimer)
+      this.autoReadTimer = -1
+    }
+  }
+
+  private stopAutoRead(): void {
+    this.clearAutoReadTimer()
+    this.autoReadActive = false
+    this.autoReadWaitingIndex = -1
+  }
+
+  private waitForAutoReadPage(index: number): void {
+    this.autoReadWaitingIndex = index
+    this.clearAutoReadTimer()
+    this.vm.warmForAutoRead(index)
+  }
+
+  private maybeResumeAutoRead(index: number): void {
+    if (!this.autoReadActive || this.autoReadTimer >= 0 || this.autoReadWaitingIndex < 0) {
+      return
+    }
+    if (index === this.autoReadWaitingIndex || this.isPageReadyForAutoRead(this.autoReadWaitingIndex)) {
+      this.autoReadWaitingIndex = -1
+      this.startAutoReadTimer()
+    }
+  }
+
+  private advanceAutoRead(): void {
+    if (!this.autoReadActive || this.vm.jumping || this.imageZoomed) {
+      return
+    }
+    const target: number = this.nextAutoReadIndex()
+    if (target < 0 || target >= this.vm.totalPages()) {
+      this.stopAutoRead()
+      return
+    }
+    if (!this.vm.hasPreviewAt(target) || !this.isPageReadyForAutoRead(target)) {
+      this.waitForAutoReadPage(target)
+      return
+    }
+    this.turnTo(target)
   }
 
   // Tap-zone navigation — eros_fe's 3×3 region grid (lrRatio 1/3, tbRatio 1/5, view_page.dart):
@@ -399,6 +517,9 @@ export struct ReaderPage {
             doubleTapY: this.doubleTapY,
             onZoomChange: (zoomed: boolean) => {
               this.imageZoomed = zoomed
+            },
+            onImageLoaded: (page: number) => {
+              this.markPageImageLoaded(page)
             },
           })
         },
@@ -608,7 +729,12 @@ export struct ReaderPage {
         this.vm.images,
         (img: EhGalleryImage) => {
           ListItem() {
-            ReaderVerticalImage({ image: img })
+            ReaderVerticalImage({
+              image: img,
+              onImageLoaded: (page: number) => {
+                this.markPageImageLoaded(page)
+              },
+            })
           }
         },
         (img: EhGalleryImage) => `${img.page}`,
@@ -763,6 +889,18 @@ export struct ReaderPage {
             .height(40)
         }
         .margin({ right: ThemeConstants.SPACE_SM })
+        Button({ type: ButtonType.Circle }) {
+          SymbolGlyph($r('sys.symbol.clock'))
+            .fontSize(20)
+            .fontColor([this.autoReadActive ? ThemeConstants.BRAND_PRIMARY : Color.White])
+        }
+        .width(40)
+        .height(40)
+        .backgroundColor(Color.Transparent)
+        .onClick(() => {
+          this.toggleAutoRead()
+        })
+        .margin({ right: ThemeConstants.SPACE_SM })
         Text(this.pageCountText())
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
           .fontColor(Color.White)
@@ -865,6 +1003,7 @@ struct ReaderImagePage {
   @Param doubleTapX: number = 0;
   @Param doubleTapY: number = 0;
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
+  @Param onImageLoaded: (page: number) => void = (_page: number) => {};
 
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
@@ -1085,6 +1224,7 @@ struct ReaderImagePage {
             }
             this.autoRetryCount = 0
             this.imageLoaded = true
+            this.onImageLoaded(this.image.page)
             this.clampOffset()
           })
           .onError(() => {
@@ -1191,6 +1331,7 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 @ComponentV2
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
   @Local failed: boolean = false;
@@ -1258,6 +1399,7 @@ struct ReaderVerticalImage {
           .onComplete((e) => {
             this.autoRetryCount = 0
             this.imageLoaded = true
+            this.onImageLoaded(this.image.page)
             if (e !== undefined && e.width > 0 && e.height > 0) {
               this.ratio = e.width / e.height
             }

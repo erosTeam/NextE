@@ -27,6 +27,7 @@ export struct ReaderSettingsPage {
   @Local readMode: ReadModeState = connectReadMode();
   @Local dirMenuShown: boolean = false;
   @Local columnMenuShown: boolean = false;
+  @Local autoPageMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
 
   private setMode(mode: string): void {
@@ -39,6 +40,12 @@ export struct ReaderSettingsPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setColumnMode(ctx, mode)
+  }
+
+  private setAutoPageSeconds(seconds: number): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setAutoPageSeconds(ctx, seconds)
   }
 
   private modeLabel(): Resource {
@@ -59,6 +66,10 @@ export struct ReaderSettingsPage {
       return $r('app.string.read_double_page_b')
     }
     return $r('app.string.common_off')
+  }
+
+  private autoPageLabel(): string {
+    return `${this.readMode.autoPageSeconds}s`
   }
 
   // Native direction picker: a framework Menu/MenuItem with a checkmark symbolEndIcon on the active
@@ -135,6 +146,62 @@ export struct ReaderSettingsPage {
     }
   }
 
+  @Builder
+  AutoPageMenu() {
+    Menu() {
+      MenuItem({
+        content: '2s',
+        symbolEndIcon:
+          this.readMode.autoPageSeconds === 2
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setAutoPageSeconds(2)
+        this.autoPageMenuShown = false
+      })
+      MenuItem({
+        content: '3s',
+        symbolEndIcon:
+          this.readMode.autoPageSeconds === 3
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setAutoPageSeconds(3)
+        this.autoPageMenuShown = false
+      })
+      MenuItem({
+        content: '5s',
+        symbolEndIcon:
+          this.readMode.autoPageSeconds === 5
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setAutoPageSeconds(5)
+        this.autoPageMenuShown = false
+      })
+      MenuItem({
+        content: '8s',
+        symbolEndIcon:
+          this.readMode.autoPageSeconds === 8
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setAutoPageSeconds(8)
+        this.autoPageMenuShown = false
+      })
+      MenuItem({
+        content: '10s',
+        symbolEndIcon:
+          this.readMode.autoPageSeconds === 10
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setAutoPageSeconds(10)
+        this.autoPageMenuShown = false
+      })
+    }
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -160,6 +227,14 @@ export struct ReaderSettingsPage {
                   this.columnMenuShown = true
                 },
               })
+              ConciseListRow({
+                title: $r('app.string.settings_reader_auto_page_interval'),
+                trailingText: this.autoPageLabel(),
+                trailingDropdown: true,
+                action: () => {
+                  this.autoPageMenuShown = true
+                },
+              })
             }
           }
           .bindMenu(this.dirMenuShown, this.DirMenu, {
@@ -172,6 +247,12 @@ export struct ReaderSettingsPage {
             placement: Placement.Bottom,
             onDisappear: () => {
               this.columnMenuShown = false
+            },
+          })
+          .bindMenu(this.autoPageMenuShown, this.AutoPageMenu, {
+            placement: Placement.Bottom,
+            onDisappear: () => {
+              this.autoPageMenuShown = false
             },
           })
         }
