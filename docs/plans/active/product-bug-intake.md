@@ -2183,7 +2183,7 @@ Type: feature gap / reader utility
 
 Priority suggestion: P1
 
-Status: implemented / needs FE Reader comparison
+Status: implemented / needs controller acceptance
 
 Source:
 
@@ -2218,10 +2218,13 @@ Implementation:
 
 Evidence:
 
-- Android FE comparison attempt: ADB target `fa967a75`, launched `com.honjow.fehviewer/.MainActivity`
-  with `su`; screenshots and UI dumps captured at `/private/tmp/nexte_reader_save_fe_reference/`.
-  The app was reachable, but automation remained on FE Settings/About and did not reach the FE Reader
-  page, so this item still needs a FE Reader-page visual comparison before acceptance.
+- Android FE comparison: ADB target `fa967a75`, launched `com.honjow.fehviewer/.MainActivity`
+  with `su`, opened a gallery detail, tapped the real `阅读` button with `su -c input tap`, then
+  center-tapped the Reader to show chrome. FE Reader page showed `2/74`, thumbnail strip, slider,
+  and the bottom controller button row. Source grounding maps the first bottom controller button to
+  `ControllerButtonBar` -> `controller.tapSave(context)`. Evidence directory:
+  `/Users/honjow/git/NextE/.hvigor/outputs/reader-save-fe-comparison/`, especially
+  `fe-current.png/xml`, `fe-after-second-read-tap.png/xml`, and `fe-reader-chrome.png/xml`.
 - Source grounding above confirms FE Reader Save behavior and save-to-album implementation path.
 - Deterministic contract: `scripts/test_reader_save_current_image_contract.mjs`.
 - Gates: `scripts/test_reader_save_current_image_contract.mjs`,
@@ -2242,6 +2245,6 @@ Evidence:
 
 Remaining acceptance:
 
-- Needs FE Reader-page screenshot/interaction comparison and controller/user acceptance of the NextE
-  Reader save button placement, authorization dialog, and save behavior. No further NextE device
-  validation is required unless Reader chrome or image-save logic changes again.
+- Needs controller/user acceptance of the NextE Reader save button placement, authorization dialog,
+  and save behavior. No further NextE device validation is required unless Reader chrome or image-save
+  logic changes again.
