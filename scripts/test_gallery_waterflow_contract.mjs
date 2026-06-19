@@ -34,19 +34,6 @@ assertIncludes(scaffold, 'ResponsiveGrid.columns', 'waterfall scaffold must deri
 assertIncludes(scaffold, '.onReachEnd(() =>', 'waterfall scaffold must preserve load-more reach-end behavior');
 assertIncludes(read('shared/src/main/ets/Index.ets'), "export { PullRefreshWaterFlowScaffold }", 'shared barrel must export the WaterFlow scaffold');
 
-const galleryPages = [
-  'feature/home/src/main/ets/components/GalleryListBody.ets',
-  'feature/search/src/main/ets/pages/GallerySearchPage.ets',
-  'feature/user/src/main/ets/components/FavcatPage.ets',
-];
-
-for (const rel of galleryPages) {
-  const source = read(rel);
-  assertIncludes(source, 'PullRefreshWaterFlowScaffold', `${rel} grid mode must use PullRefreshWaterFlowScaffold`);
-  assertIncludes(source, 'FlowItem() {', `${rel} grid mode must provide FlowItem children for WaterFlow`);
-  assertNotIncludes(source, 'PullRefreshGridScaffold({\n          scroller: this.scroller', `${rel} gallery card grid must not use fixed Grid scaffold`);
-}
-
 const thumbnails = read('feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets');
 assertIncludes(thumbnails, 'PullRefreshGridScaffold', 'all-thumbnails page must remain a fixed grid, not gallery-card WaterFlow');
 assertIncludes(thumbnails, 'GridItem() {', 'all-thumbnails page must keep GridItem thumbnail cells');

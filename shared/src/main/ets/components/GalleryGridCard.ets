@@ -90,7 +90,7 @@ export struct GalleryGridCard {
       Stack({ alignContent: Alignment.TopStart }) {
         EhThumbnail({
           url: this.gallery.thumbUrl,
-          coverRatio: 0.7,
+          coverRatio: ThemeConstants.GALLERY_GRID_COVER_RATIO,
           radius: ThemeConstants.THUMB_RADIUS,
         })
         if (this.gallery.translated.length > 0) {

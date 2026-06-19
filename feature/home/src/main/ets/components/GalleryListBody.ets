@@ -7,7 +7,7 @@ import {
   GalleryDetailParams,
   LoadingFooter,
   PullRefreshListScaffold,
-  PullRefreshWaterFlowScaffold,
+  PullRefreshGridScaffold,
   PullRefreshController,
   PageLoadingState,
   PageErrorState,
@@ -76,8 +76,11 @@ export struct GalleryListBody {
         // scaffold so the pinned bar stays the only chrome (an empty list isn't a dead-end).
         CardEmptyState({ message: $r('app.string.common_no_content') })
       } else if (this.listMode.mode === ListMode.GRID) {
-        PullRefreshWaterFlowScaffold({
+        PullRefreshGridScaffold({
           scroller: this.scroller,
+          minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
+          gap: ThemeConstants.GALLERY_GRID_GAP,
+          horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
           topPadding: this.topPadding,
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
@@ -95,7 +98,7 @@ export struct GalleryListBody {
           LazyForEach(
             this.vm.dataSource,
             (g: EhGallery) => {
-              FlowItem() {
+              GridItem() {
                 GalleryGridCard({ gallery: g })
               }
               .onClick(() => {

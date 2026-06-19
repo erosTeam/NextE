@@ -10,7 +10,7 @@ import {
   CardEmptyState,
   LoadingFooter,
   PullRefreshListScaffold,
-  PullRefreshWaterFlowScaffold,
+  PullRefreshGridScaffold,
   PullRefreshController,
   connectNavStack,
   connectSiteMode,
@@ -169,8 +169,11 @@ export struct FavcatPage {
       } else if (this.vm.itemCount === 0 && this.loadedOnce && !this.vm.isLoading) {
         CardEmptyState({ message: $r('app.string.common_no_content') })
       } else if (this.listMode.mode === ListMode.GRID) {
-        PullRefreshWaterFlowScaffold({
+        PullRefreshGridScaffold({
           scroller: this.scroller,
+          minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
+          gap: ThemeConstants.GALLERY_GRID_GAP,
+          horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
           topPadding: SELECTOR_BAR_HEIGHT,
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
@@ -188,7 +191,7 @@ export struct FavcatPage {
           LazyForEach(
             this.vm.dataSource,
             (g: EhGallery) => {
-              FlowItem() {
+              GridItem() {
                 GalleryGridCard({ gallery: g })
               }
               .onClick(() => {
