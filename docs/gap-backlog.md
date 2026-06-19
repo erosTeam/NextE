@@ -107,9 +107,10 @@ Close block by block, each device-verified on 192.168.50.237. Order = visibility
   `onScrollIndex` drives the counter + lazy-loads more; slider jump does `scrollToIndex`). A chrome toggle
   cycles 左→右 → 右→左 → 竖向 (i18n). Device-verified all three: vertical shows stacked images + counter
   advanced 1→2 on scroll; RTL/LTR restore the Swiper. eros_fe `ViewMode`.
-- [~] **thumbnail strip** panel for quick nav — DEFERRED: preview thumbnails use the ehgt.org CDN which is
-  unreachable on the test device (blank cells, can't verify), and it overlaps the just-built page slider.
-  Revisit if thumbnail loading works in another environment.
+- [x] **thumbnail strip** panel for quick nav — implemented 2026-06-19 as a conservative Reader bottom-chrome
+  toggle. It reuses already-loaded preview thumbnails via `EhSpriteThumbnail`, highlights the current page,
+  and taps through existing `jumpToPage(index)`. It does not prefetch every gallery thumbnail; full sync-scroll
+  polish can stay a later enhancement if needed.
 - [~] **double-page** mode (oddLeft/evenLeft) — DEFERRED: a landscape/tablet feature; on the portrait test
   device side-by-side pages are tiny and not meaningfully verifiable. Lower severity than Block D/E/F gaps.
 - [~] auto-paging, orientation lock, volume-key turn, brightness — settings (medium/low). DEFERRED.

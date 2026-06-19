@@ -7,6 +7,7 @@ import { Action, KeyEvent as InputConsumerKeyEvent } from '@ohos.multimodalInput
 import {
   ThemeConstants,
   EhGalleryImage,
+  EhSpriteThumbnail,
   ReaderParams,
   ImageResolveService,
   DiagnosticLogger,
@@ -54,6 +55,7 @@ export struct ReaderPage {
   @Local sliderValue: number = 1;
   @Local readMode: ReadModeState = connectReadMode();
   @Local autoReadActive: boolean = false;
+  @Local showThumbStrip: boolean = false;
   // Reader viewport size (captured on layout) — divides the canvas into eros_fe's 3×3 tap regions
   // (left/right thirds + center-column top/bottom fifths).
   @Local viewWidth: number = 0;
@@ -955,6 +957,19 @@ export struct ReaderPage {
     connectNavStack().stack.pushPathByName('ReaderSettings', null)
   }
 
+  private hasRenderableThumb(img: EhGalleryImage): boolean {
+    return img.sUrl.length > 0 && img.thumbUrl.length > 0
+  }
+
+  private thumbKey(img: EhGalleryImage): string {
+    return `${img.page}-${img.sUrl}`
+  }
+
+  private jumpToThumb(index: number): void {
+    this.showChrome = false
+    this.jumpToPage(index)
+  }
+
   // Top chrome bar — eros_fe ViewTopBar (view_widget.dart:913-1047): back + center page-counter +
   // settings. Flat dark scrim (V2Next ImagePreviewPage flat-overlay idiom; no API-26 material on the
   // API-23 device). Anchored to the top strip only via .position so the center toggle band + the
@@ -1052,6 +1067,18 @@ export struct ReaderPage {
           this.toggleAutoRead()
         })
         .margin({ right: ThemeConstants.SPACE_SM })
+        Button({ type: ButtonType.Circle }) {
+          SymbolGlyph($r('sys.symbol.square_grid_2x2'))
+            .fontSize(20)
+            .fontColor([this.showThumbStrip ? ThemeConstants.BRAND_PRIMARY : Color.White])
+        }
+        .width(40)
+        .height(40)
+        .backgroundColor(Color.Transparent)
+        .onClick(() => {
+          this.showThumbStrip = !this.showThumbStrip
+        })
+        .margin({ right: ThemeConstants.SPACE_SM })
         Text(this.pageCountText())
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
           .fontColor(Color.White)
@@ -1112,6 +1139,9 @@ export struct ReaderPage {
             this.jumpToPage(this.sliderTargetIndex(page))
           }
         })
+      if (this.showThumbStrip) {
+        this.ReaderThumbStrip()
+      }
     }
     .width('100%')
     .padding({
@@ -1123,6 +1153,63 @@ export struct ReaderPage {
     .backgroundColor('#CC000000')
     .opacity(this.showChrome ? 1 : 0)
     .hitTestBehavior(this.showChrome ? HitTestMode.Default : HitTestMode.None)
+  }
+
+  @Builder
+  ReaderThumbStrip() {
+    List({ space: ThemeConstants.SPACE_SM }) {
+      ForEach(
+        this.vm.images,
+        (img: EhGalleryImage) => {
+          if (this.hasRenderableThumb(img)) {
+            ListItem() {
+              Column({ space: ThemeConstants.SPACE_XS }) {
+                Stack({ alignContent: Alignment.Center }) {
+                  EhSpriteThumbnail({
+                    url: img.thumbUrl,
+                    thumbWidth: img.thumbWidth,
+                    thumbHeight: img.thumbHeight,
+                    offsetX: img.thumbOffsetX,
+                    spriteWidth: img.spriteWidth,
+                    spriteHeight: img.spriteHeight,
+                    displayHeight: 58,
+                    fitHeight: true,
+                    radius: ThemeConstants.RADIUS_SM,
+                  })
+                  if (img.page - 1 === this.vm.currentIndex) {
+                    Row()
+                      .width('100%')
+                      .height('100%')
+                      .border({
+                        width: 2,
+                        color: ThemeConstants.BRAND_PRIMARY,
+                      })
+                      .borderRadius(ThemeConstants.RADIUS_SM)
+                  }
+                }
+                .height(58)
+                .constraintSize({ minWidth: 42, maxWidth: 72 })
+                .clip(true)
+                Text(`${img.page}`)
+                  .fontSize(ThemeConstants.FONT_SIZE_TINY)
+                  .fontColor(img.page - 1 === this.vm.currentIndex ? ThemeConstants.BRAND_PRIMARY : Color.White)
+                  .maxLines(1)
+              }
+              .width(76)
+              .alignItems(HorizontalAlign.Center)
+              .onClick(() => {
+                this.jumpToThumb(img.page - 1)
+              })
+            }
+          }
+        },
+        (img: EhGalleryImage) => this.thumbKey(img),
+      )
+    }
+    .listDirection(Axis.Horizontal)
+    .scrollBar(BarState.Off)
+    .height(82)
+    .width('100%')
   }
 }
 
