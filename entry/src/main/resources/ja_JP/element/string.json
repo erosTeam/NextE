@@ -781,6 +781,10 @@
       "value": "詳細"
     },
     {
+      "name": "settings_security",
+      "value": "セキュリティ"
+    },
+    {
       "name": "settings_reader",
       "value": "閲覧"
     },
@@ -811,6 +815,58 @@
     {
       "name": "settings_reader_volume_key_hint",
       "value": "音量ダウン/アップで次/前のページへ移動"
+    },
+    {
+      "name": "security_recent_tasks_blur",
+      "value": "最近のタスクでぼかす"
+    },
+    {
+      "name": "security_recent_tasks_blur_hint",
+      "value": "HarmonyOS のウィンドウプライバシー対応後に有効化"
+    },
+    {
+      "name": "security_auto_lock",
+      "value": "自動ロック"
+    },
+    {
+      "name": "security_auto_lock_hint",
+      "value": "設定は保存されます。生体認証ロック実行は別 lane です"
+    },
+    {
+      "name": "security_auto_lock_disabled",
+      "value": "無効"
+    },
+    {
+      "name": "security_auto_lock_instant",
+      "value": "すぐに"
+    },
+    {
+      "name": "security_auto_lock_30s",
+      "value": "30 秒"
+    },
+    {
+      "name": "security_auto_lock_1m",
+      "value": "1 分"
+    },
+    {
+      "name": "security_auto_lock_5m",
+      "value": "5 分"
+    },
+    {
+      "name": "security_auto_lock_10m",
+      "value": "10 分"
+    },
+    {
+      "name": "security_auto_lock_30m",
+      "value": "30 分"
+    },
+    {
+      "name": "security_auto_lock_1h",
+      "value": "1 時間"
+    },
+    {
+      "name": "security_auto_lock_5h",
+      "value": "5 時間"
     },
     {
       "name": "common_off",

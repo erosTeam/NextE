@@ -781,6 +781,10 @@
       "value": "高级"
     },
     {
+      "name": "settings_security",
+      "value": "安全"
+    },
+    {
       "name": "settings_reader",
       "value": "阅读"
     },
@@ -811,6 +815,58 @@
     {
       "name": "settings_reader_volume_key_hint",
       "value": "音量减/加对应下一页/上一页"
+    },
+    {
+      "name": "security_recent_tasks_blur",
+      "value": "最近任务中模糊处理"
+    },
+    {
+      "name": "security_recent_tasks_blur_hint",
+      "value": "等待 HarmonyOS 窗口隐私能力接入后启用"
+    },
+    {
+      "name": "security_auto_lock",
+      "value": "自动锁定"
+    },
+    {
+      "name": "security_auto_lock_hint",
+      "value": "偏好会保存; 生物识别锁屏执行是后续独立 lane"
+    },
+    {
+      "name": "security_auto_lock_disabled",
+      "value": "停用"
+    },
+    {
+      "name": "security_auto_lock_instant",
+      "value": "立即"
+    },
+    {
+      "name": "security_auto_lock_30s",
+      "value": "30 秒"
+    },
+    {
+      "name": "security_auto_lock_1m",
+      "value": "1 分钟"
+    },
+    {
+      "name": "security_auto_lock_5m",
+      "value": "5 分钟"
+    },
+    {
+      "name": "security_auto_lock_10m",
+      "value": "10 分钟"
+    },
+    {
+      "name": "security_auto_lock_30m",
+      "value": "30 分钟"
+    },
+    {
+      "name": "security_auto_lock_1h",
+      "value": "1 小时"
+    },
+    {
+      "name": "security_auto_lock_5h",
+      "value": "5 小时"
     },
     {
       "name": "common_off",

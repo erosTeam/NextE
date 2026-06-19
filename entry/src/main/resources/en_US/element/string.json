@@ -781,6 +781,10 @@
       "value": "Advanced"
     },
     {
+      "name": "settings_security",
+      "value": "Security"
+    },
+    {
       "name": "settings_reader",
       "value": "Reading"
     },
@@ -811,6 +815,58 @@
     {
       "name": "settings_reader_volume_key_hint",
       "value": "Use volume down/up for next/previous page"
+    },
+    {
+      "name": "security_recent_tasks_blur",
+      "value": "Blur in recent tasks"
+    },
+    {
+      "name": "security_recent_tasks_blur_hint",
+      "value": "Disabled until HarmonyOS window privacy support is implemented"
+    },
+    {
+      "name": "security_auto_lock",
+      "value": "Auto-lock"
+    },
+    {
+      "name": "security_auto_lock_hint",
+      "value": "Preference is saved; biometric lock enforcement is a separate lane"
+    },
+    {
+      "name": "security_auto_lock_disabled",
+      "value": "Disabled"
+    },
+    {
+      "name": "security_auto_lock_instant",
+      "value": "Immediately"
+    },
+    {
+      "name": "security_auto_lock_30s",
+      "value": "30 sec"
+    },
+    {
+      "name": "security_auto_lock_1m",
+      "value": "1 min"
+    },
+    {
+      "name": "security_auto_lock_5m",
+      "value": "5 min"
+    },
+    {
+      "name": "security_auto_lock_10m",
+      "value": "10 min"
+    },
+    {
+      "name": "security_auto_lock_30m",
+      "value": "30 min"
+    },
+    {
+      "name": "security_auto_lock_1h",
+      "value": "1 hour"
+    },
+    {
+      "name": "security_auto_lock_5h",
+      "value": "5 hours"
     },
     {
       "name": "common_off",

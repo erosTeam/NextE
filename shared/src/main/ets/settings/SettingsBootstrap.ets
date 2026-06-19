@@ -13,6 +13,7 @@ import { ViewedHistorySettings } from './ViewedHistorySettings'
 import { GalleryReadProgressSettings } from './GalleryReadProgressSettings'
 import { DownloadSettings } from './DownloadSettings'
 import { DownloadQueueSettings } from './DownloadQueueSettings'
+import { SecuritySettings } from './SecuritySettings'
 import { UserTagLoader } from '../services/UserTagLoader'
 
 /**
@@ -42,6 +43,7 @@ export class SettingsBootstrap {
       await GalleryReadProgressSettings.restore(context)
       await DownloadSettings.restore(context)
       await DownloadQueueSettings.restore(context)
+      await SecuritySettings.restore(context)
       DiagnosticLogger.info('settings', 'bootstrap_loaded', 'cookie jar restored')
       // Fire-and-forget (NOT awaited): load the user's My Tags for per-tag list colors. It's a network
       // round-trip and login-gated, so it must never block the first paint; logged-out users skip it.

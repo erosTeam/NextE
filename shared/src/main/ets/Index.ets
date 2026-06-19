@@ -127,6 +127,11 @@ export {
   connectDownloadSettings,
 } from './state/DownloadSettingsState'
 export {
+  AutoLockTimeout,
+  SecuritySettingsState,
+  connectSecuritySettings,
+} from './state/SecuritySettingsState'
+export {
   DownloadViewType,
   DownloadViewState,
   connectDownloadView,
@@ -190,6 +195,7 @@ export { GalleryReadProgressSettings } from './settings/GalleryReadProgressSetti
 export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
 export { DownloadSettings } from './settings/DownloadSettings'
 export { DownloadQueueSettings } from './settings/DownloadQueueSettings'
+export { SecuritySettings } from './settings/SecuritySettings'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'
