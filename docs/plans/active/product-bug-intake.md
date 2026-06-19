@@ -667,7 +667,38 @@ Type: UI quality / readability
 
 Priority suggestion: P1
 
-Status: active / ready for implementation
+Status: implemented / needs controller acceptance
+
+Implementation:
+
+- Changeset: pending commit for `style(gallery): unify comment badges`.
+- Added centralized comment badge tokens in `ThemeConstants` and a shared `CommentBadge` builder in
+  `GalleryCommentsCard`.
+- Changed `comment_uploader` to the short `UP` label in all locales.
+- Kept uploader badges branded, changed numeric score badges to neutral/low-weight chips, and preserved
+  score-detail click behavior on the full comments page.
+- Added `scripts/test_gallery_comment_badge_style_contract.mjs` and updated the score-details contract so
+  it no longer expects saturated positive/negative score colors.
+
+Validation:
+
+- FE grounding: Android eros_fe opened through ADB/su. Current public detail did not expose a visible comment
+  badge in the captured viewport, so product semantics were grounded from
+  `/Users/honjow/git/eros_fe/lib/pages/gallery/view/comment_item.dart` (`_CommentHead` uses the same compact
+  pill grammar for `UP` and score) plus screenshots:
+  `.hvigor/outputs/comment-badge-style/fe_current.png` and
+  `.hvigor/outputs/comment-badge-style/fe_comments.png`.
+- NextE device evidence: Mate X7 emulator `127.0.0.1:5555`, official signed HAP installed via hdc outside
+  sandbox. Opened a real Home gallery `[Takeda Hiromitsu] Chadou Yamato Nadeshiko NTR...`; comment peek
+  showed the branded `UP` badge, full comments showed neutral `+715/+155/...` score badges, and tapping
+  `+715` opened the score-details dialog.
+- Evidence files:
+  `.hvigor/outputs/comment-badge-style/nexte_comments.png`,
+  `.hvigor/outputs/comment-badge-style/nexte_full_comments.png`,
+  `.hvigor/outputs/comment-badge-style/nexte_score_badge.png`,
+  `.hvigor/outputs/comment-badge-style/nexte_score_details.png`.
+- Gates: targeted contracts, V1 decorator inventory, i18n parity, `git diff --check`, and official signed
+  Hvigor build passed; full contract sweep is rerun before commit.
 
 Source:
 

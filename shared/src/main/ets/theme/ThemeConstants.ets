@@ -69,6 +69,12 @@ export class ThemeConstants {
   // category/type badge, so the badge reads as a peer of the chip family instead of a thinner box. (The
   // dense LIST-card chips deliberately stay snugger at 3px; this token is the comfortable detail scale.)
   static readonly CHIP_PADDING_V: number = 5
+  // Comment header badges (UP / community score): align with eros_fe's compact 18px pill grammar while
+  // keeping NextE's theme-token styling centralized.
+  static readonly COMMENT_BADGE_HEIGHT: number = 18
+  static readonly COMMENT_BADGE_MIN_WIDTH: number = 18
+  static readonly COMMENT_BADGE_PADDING_H: number = 7
+  static readonly COMMENT_BADGE_RADIUS: number = 9
 
   // Grouped list (SecondaryListScaffold / GroupedListSection / ConciseListRow — V2Next pattern)
   static readonly LIST_SECTION_INSET: number = 4

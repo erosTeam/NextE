@@ -38,6 +38,14 @@ export struct GalleryCommentsCard {
     })
   }
 
+  private displayScore(score: string): string {
+    const value: string = score.trim()
+    if (value.length === 0 || value.startsWith('+') || value.startsWith('-')) {
+      return value
+    }
+    return `+${value}`
+  }
+
   build() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
       Column({ space: ThemeConstants.SPACE_MD }) {
@@ -104,24 +112,11 @@ export struct GalleryCommentsCard {
         // comments page (max === 0): eros_fe's CommentItem(simple) gates the score chip behind `!simple`,
         // so the PEEK deliberately suppresses it (author + body + time only, UP for the uploader).
         if (c.isUploader) {
-          Text($r('app.string.comment_uploader'))
-            .fontSize(ThemeConstants.FONT_SIZE_TINY)
-            .fontColor(ThemeConstants.TEXT_ON_BRAND)
-            .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-            .borderRadius(ThemeConstants.RADIUS_SM)
-            .padding({ left: 5, right: 5, top: 1, bottom: 1 })
+          this.CommentBadge($r('app.string.comment_uploader'), true)
         } else if (c.score.length > 0 && this.max <= 0) {
-          Text(c.score)
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(ThemeConstants.TEXT_ON_BRAND)
-            .backgroundColor(
-              c.score.startsWith('-')
-                ? $r('app.color.score_negative')
-                : $r('app.color.score_positive'),
-            )
-            .borderRadius(ThemeConstants.RADIUS_SM)
-            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+          Row() {
+            this.CommentBadge(this.displayScore(c.score), false)
+          }
             .onClick(() => {
               this.showScoreDetails(c)
             })
@@ -169,5 +164,19 @@ export struct GalleryCommentsCard {
     .padding(ThemeConstants.SPACE_SM)
     .borderRadius(ThemeConstants.RADIUS_MD)
     .backgroundColor(ThemeConstants.BG_SUB)
+  }
+
+  @Builder
+  CommentBadge(label: ResourceStr, primary: boolean) {
+    Text(label)
+      .fontSize(ThemeConstants.FONT_SIZE_TINY)
+      .fontWeight(FontWeight.Medium)
+      .fontColor(primary ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_secondary'))
+      .backgroundColor(primary ? ThemeConstants.BRAND_PRIMARY : ThemeConstants.DIVIDER)
+      .borderRadius(ThemeConstants.COMMENT_BADGE_RADIUS)
+      .constraintSize({ minWidth: ThemeConstants.COMMENT_BADGE_MIN_WIDTH })
+      .height(ThemeConstants.COMMENT_BADGE_HEIGHT)
+      .padding({ left: ThemeConstants.COMMENT_BADGE_PADDING_H, right: ThemeConstants.COMMENT_BADGE_PADDING_H })
+      .textAlign(TextAlign.Center)
   }
 }

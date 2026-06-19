@@ -27,7 +27,7 @@ ok(
 )
 ok(
   'score badge is an explicit tappable affordance',
-  /\.backgroundColor\([\s\S]*score_negative[\s\S]*score_positive[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.showScoreDetails\(c\)/.test(card),
+  /this\.CommentBadge\(this\.displayScore\(c\.score\), false\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.showScoreDetails\(c\)/.test(card),
 )
 ok(
   'comment score-details lane does not add destructive comment write actions',
