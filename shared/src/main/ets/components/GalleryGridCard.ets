@@ -9,9 +9,10 @@ import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
 import { connectSearchAction } from '../state/SearchActionState'
 
 /**
- * Cover-first gallery card for the grid view. eros_fe's grid is a browsing wall: the cover is the
- * primary information, title + bounded tags are secondary, and page/fav/language state is overlaid on
- * the image. The info block is fixed-height so Grid rows stay aligned instead of drifting into masonry.
+ * Cover-first gallery card for the grid view. eros_fe's grid is a browsing wall: the cover is primary,
+ * title + post time are the fast scanning cues, and page/fav/language state stays overlaid on the
+ * image. Tags are a one-line sample only; the info block is fixed-height so Grid rows stay aligned
+ * instead of drifting into masonry.
  */
 @ComponentV2
 export struct GalleryGridCard {
@@ -56,10 +57,30 @@ export struct GalleryGridCard {
     return tag
   }
 
+  private metaText(): string {
+    if (this.gallery.postTime.length > 0) {
+      return this.gallery.postTime
+    }
+    if (this.gallery.uploader.length > 0) {
+      return this.gallery.uploader
+    }
+    return this.gallery.category
+  }
+
+  private ratingText(): string {
+    if (this.gallery.ratingFallBack > 0) {
+      return this.gallery.ratingFallBack.toFixed(2)
+    }
+    if (this.gallery.rating > 0) {
+      return this.gallery.rating.toFixed(2)
+    }
+    return ''
+  }
+
   @Builder
   tagChips() {
     if (this.gallery.simpleTags.length > 0) {
-      Flex({ wrap: FlexWrap.Wrap }) {
+      Row({ space: ThemeConstants.SPACE_XS }) {
         ForEach(
           this.gallery.simpleTags.slice(0, ThemeConstants.GALLERY_GRID_TAG_LIMIT),
           (t: SimpleTag) => {
@@ -70,7 +91,6 @@ export struct GalleryGridCard {
               .backgroundColor(this.chipBg(t))
               .borderRadius(ThemeConstants.RADIUS_SM)
               .padding({ left: 6, right: 6, top: 3, bottom: 3 })
-              .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
               .constraintSize({ maxWidth: 148 })
@@ -131,6 +151,30 @@ export struct GalleryGridCard {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .height(ThemeConstants.GALLERY_GRID_TITLE_HEIGHT)
           .width('100%')
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          Text(this.metaText())
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+          if (this.ratingText().length > 0) {
+            Row({ space: 2 }) {
+              SymbolGlyph($r('sys.symbol.star_fill'))
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor([EhConstants.ratingStarColor(this.gallery.colorRating)])
+              Text(this.ratingText())
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_secondary'))
+                .maxLines(1)
+            }
+            .alignItems(VerticalAlign.Center)
+          }
+        }
+        .height(ThemeConstants.GALLERY_GRID_META_HEIGHT)
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
         Stack({ alignContent: Alignment.TopStart }) {
           this.tagChips()
         }

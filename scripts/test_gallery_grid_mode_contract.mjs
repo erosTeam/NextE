@@ -29,8 +29,9 @@ ok('gallery grid min width and gap are centralized tokens',
     /GALLERY_GRID_COVER_RATIO:\s*number\s*=\s*0\.7/.test(theme) &&
     /GALLERY_GRID_INFO_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
     /GALLERY_GRID_TITLE_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
+    /GALLERY_GRID_META_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
     /GALLERY_GRID_TAG_AREA_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
-    /GALLERY_GRID_TAG_LIMIT:\s*number\s*=\s*2/.test(theme))
+    /GALLERY_GRID_TAG_LIMIT:\s*number\s*=\s*1/.test(theme))
 
 const galleryPages = [
   'feature/home/src/main/ets/components/GalleryListBody.ets',
@@ -60,8 +61,9 @@ ok('GalleryGridCard uses the shared grid cover ratio token',
   /coverRatio:\s*ThemeConstants\.GALLERY_GRID_COVER_RATIO/.test(gridCard) &&
     !/coverRatio:\s*0\.7/.test(gridCard))
 ok('GalleryGridCard has a fixed info-area contract so tags cannot create masonry heights',
-  /this\.gallery\.simpleTags\.slice\(0,\s*ThemeConstants\.GALLERY_GRID_TAG_LIMIT\)/.test(gridCard) &&
+    /this\.gallery\.simpleTags\.slice\(0,\s*ThemeConstants\.GALLERY_GRID_TAG_LIMIT\)/.test(gridCard) &&
     /Text\(this\.gallery\.title\(\)\)[\s\S]*\.height\(ThemeConstants\.GALLERY_GRID_TITLE_HEIGHT\)/.test(gridCard) &&
+    /\.height\(ThemeConstants\.GALLERY_GRID_META_HEIGHT\)/.test(gridCard) &&
     /Stack\(\{ alignContent: Alignment\.TopStart \}\) \{[\s\S]*this\.tagChips\(\)[\s\S]*\.height\(ThemeConstants\.GALLERY_GRID_TAG_AREA_HEIGHT\)[\s\S]*\.clip\(true\)/.test(gridCard) &&
     /\.height\(ThemeConstants\.GALLERY_GRID_INFO_HEIGHT\)/.test(gridCard))
 
