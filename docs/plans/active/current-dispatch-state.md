@@ -67,6 +67,9 @@ Items here are real concerns, but they are not active implementation lanes by de
   should guide future Reader redesign together with HarmonyOS-native V2Next image-preview patterns.
 - Boundary handoff from zoomed pan to page turn is a future enhancement unless current zoomed pan
   blocks normal reading.
+- Gallery detail long-title full-text access is a low-priority optimization. A scrollable or expandable
+  title area may be explored later, but it must not interrupt the current feature-completion/write
+  operation lanes.
 
 ## Active Queue
 

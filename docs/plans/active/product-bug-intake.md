@@ -1162,6 +1162,51 @@ Acceptance shape:
   route exists.
 - Edit-tags opens a non-destructive entry surface and does not submit any write operation.
 
+### Gallery Detail Long Title Needs Full-Text Access
+
+Type: low-priority UX optimization / detail readability
+
+Priority suggestion: P3
+
+Status: active intake / parked behind feature-completion lanes
+
+Source:
+
+- User feedback, 2026-06-20: after moving the favorite and read actions out of the detail header, the
+  header has more room for title information. Some gallery titles are still long and currently truncate
+  with an ellipsis, making the full title hard to inspect from the detail page.
+- User proposal: consider making the title area a scrollable container so the full title can be viewed.
+- User explicitly marked this as a supplemental low-priority optimization that can be scheduled later.
+
+Design judgment:
+
+- Full-title access is useful, but it should not interrupt the current feature-completion queue
+  (remote favorites, rating write, comments, Settings shell audit).
+- A horizontally scrollable title area is technically plausible, especially now that read/favorite are
+  no longer competing inside the header card, but it has interaction risks:
+  - horizontal drag can feel odd inside a vertically scrolling detail page;
+  - scrollable text discoverability is weak if there is no affordance;
+  - title text may be used for copy/search flows, so copy-title and overflow actions should keep working.
+- Alternatives to evaluate before implementation:
+  - allow the header title to expand to more lines because action pressure was reduced;
+  - tap the title or a small affordance to open a full-title sheet/dialog;
+  - keep the compact ellipsis but make `复制标题` / full-title preview easy from the title/menu action;
+  - use a constrained horizontal scroll only inside the title text area if it proves comfortable on
+    device.
+
+Expected behavior:
+
+- The compact detail header remains stable and does not grow unpredictably for very long titles.
+- Users have an obvious way to inspect or copy the full gallery title without leaving the detail page.
+- The solution must not reintroduce read/favorite actions into the header card or crowd title actions.
+
+Acceptance shape:
+
+- Test with at least one very long title on phone-width and foldable/tablet-width layouts.
+- Confirm full title can be inspected without breaking vertical detail-page scrolling.
+- Confirm copy-title action still works and title truncation/expansion does not cause header cover or
+  tag/comment layout shifts.
+
 ### Gallery Comment UP And Score Badges Need Unified Low-Weight Styling
 
 Type: UI quality / readability
