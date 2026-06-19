@@ -1308,6 +1308,57 @@ Remaining acceptance:
   Reader-page device screenshot remains optional reference material; the implementation is grounded in
   FE source and verified on HarmonyOS runtime.
 
+### Reader Image Failure States Are Generic
+
+Type: reading UX / error handling gap
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Implementation:
+
+- `b7ef697 fix(reader): distinguish image failure states` adds a Reader image failure taxonomy for
+  `Generic`, `Quota`, and `RateLimited`.
+- `ImageResolveService` already throws `image509` for EH 509 placeholder GIFs; Reader now preserves
+  that class through bounded re-source retries and shows distinct quota/rate-limit title and hint text
+  in the shared black-canvas failure overlay.
+- Both paged `ReaderImagePage` and vertical `ReaderVerticalImage` pass the classified failure kind to
+  `ReaderFailureOverlay`.
+- Non-scope: eros_fe's pHash/QR `ViewAD` content-hide subsystem remains deferred.
+
+Grounding:
+
+- FE source: `../eros_fe/lib/pages/image_view/view/view_widget.dart` has `ViewErr509`, `ViewErr429`,
+  and `ViewError`; `../eros_fe/lib/pages/image_view/view/view_image.dart` maps
+  `EhErrorType.image509` to `ViewErr509` and HTTP 429 to `ViewErr429`.
+- FE Android device evidence: ADB target `fa967a75`, package `com.honjow.fehviewer`, launched with
+  `su -c am start`; screenshot saved at
+  `/private/tmp/nexte_reader_error_state_evidence/fe_reference.png`. The screenshot only proves FE
+  device/app availability; the 509/429 behavior grounding is source-level because live quota/rate-limit
+  reproduction is not deterministic.
+
+Evidence:
+
+- Contracts: `node scripts/test_reader_error_state_contract.mjs`,
+  `node scripts/test_reader_failure_retry_ui_contract.mjs`,
+  `node scripts/test_image_resolve_showpage_contract.mjs`,
+  `node scripts/test_reader_auto_source_retry_contract.mjs`.
+- Required gates: `node scripts/test_v1_decorator_inventory_contract.mjs` reported 0 V1 decorator
+  files; `python3 scripts/check_i18n_duplicates.py`; `git diff --check`.
+- Build: `scripts/build_hvigor_signed.sh` completed `BUILD SUCCESSFUL` on macOS signed Hvigor path.
+- HarmonyOS smoke: installed `entry/build/default/outputs/default/entry-default-signed.hap` on Mate X7
+  emulator `127.0.0.1:5555` via hdc outside sandbox, opened public gallery
+  `https://e-hentai.org/g/3989982/16600a66e8/`, tapped `继续 P138`, and verified Reader rendered an
+  image with `138 / 138` chrome and no LoadingProgress/error overlay residue.
+  Evidence directory: `/private/tmp/nexte_reader_error_state_evidence/`, especially `detail.png`,
+  `detail_layout.json`, `reader.png`, `reader_layout.json`, and `fe_reference.png`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the distinct wording when a real 509/429 is encountered. Live
+  509/429 was not forced in this lane to avoid manipulating EH rate-limit/quota state.
+
 ### Reader Loading State Is Unstable And Lacks Image Download Progress
 
 Type: bug / reading UX gap
