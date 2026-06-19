@@ -127,10 +127,14 @@ export class ImagePageRouteErrorParams {
 
 /** Params for the 'GalleryComments' destination (full comment list — a peek lives on the detail). */
 export class GalleryCommentsParams {
+  gid: string = ''
+  token: string = ''
   comments: EhGalleryComment[] = []
   title: string = ''
 
-  constructor(comments: EhGalleryComment[] = [], title: string = '') {
+  constructor(gid: string = '', token: string = '', comments: EhGalleryComment[] = [], title: string = '') {
+    this.gid = gid
+    this.token = token
     this.comments = comments
     this.title = title
   }
