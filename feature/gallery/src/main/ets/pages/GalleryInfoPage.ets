@@ -101,6 +101,10 @@ export struct GalleryInfoPage {
       this.divider()
       this.infoRow($r('app.string.detail_info_size'), this.gallery().fileSizeText)
       this.divider()
+      this.infoRow($r('app.string.detail_info_visible'), this.gallery().visible)
+      this.divider()
+      this.infoRow($r('app.string.detail_info_parent'), this.gallery().parentTitle)
+      this.divider()
       this.infoRow($r('app.string.detail_info_favorite_count'), this.gallery().favoritedCount)
       this.divider()
       this.infoRow($r('app.string.detail_info_favorited'), this.favoritedText())
@@ -111,7 +115,11 @@ export struct GalleryInfoPage {
       this.divider()
       this.infoRow($r('app.string.detail_info_rating'), this.ratingText())
       this.divider()
+      this.infoRow($r('app.string.detail_info_rating_fallback'), this.gallery().ratingFallBack.toFixed(2))
+      this.divider()
       this.infoRow($r('app.string.detail_info_torrents'), this.gallery().torrentCount)
+      this.divider()
+      this.infoRow($r('app.string.detail_info_archiver'), this.gallery().archiverLink)
     }
   }
 

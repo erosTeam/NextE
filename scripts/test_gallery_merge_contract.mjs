@@ -3,11 +3,10 @@
  * Contract test for EhGallery.merge rating-inheritance (shared/src/main/ets/model/EhGallery.ets).
  *
  * Locks the SUBTLE-but-correct behavior the re-triage mis-flagged as "list-seed colorRating dropped":
- * the detail parse provides a precise rating/ratingCount but NEVER sets the personal-vote fields
- * (colorRating / isRated / ratingFallBack — EhGalleryDetailParser only sets rating + ratingCount), and
- * merge() only overwrites a field when the detail value is non-empty/non-zero. So the LIST seed's
- * personal-vote fields survive the detail merge, while the precise rating/count win. This is correct
- * inheritance, not a bug — this test guards against a future regression that would clobber the seed.
+ * the detail parse provides a precise rating/ratingCount and may provide EH's sprite-derived
+ * ratingFallBack, but empty personal-vote fields (colorRating / isRated) must not clobber a list seed.
+ * merge() only overwrites a field when the detail value is non-empty/non-zero. So personal colour state
+ * survives when detail has no stronger value, while precise detail values win.
  *
  * The merge mirror below is copy-equal to EhGallery.merge's rating block. Mirror on change.
  *
@@ -37,17 +36,17 @@ const ok = (name, cond) => {
   passed++
 }
 
-// A list seed with a personal vote, merged with a detail parse (which sets rating+ratingCount only,
-// exactly as EhGalleryDetailParser does — colorRating/isRated/ratingFallBack stay at their defaults).
+// A list seed with a personal vote, merged with a detail parse that has rating/ratingCount/ratingFallBack
+// but no personal colour class. Detail display rating wins; empty colour/isRated do not clobber the seed.
 {
   const seed = { rating: 4.0, ratingFallBack: 4.2, ratingCount: '50', colorRating: 'c', isRated: true }
-  const detail = { rating: 4.5, ratingFallBack: 0, ratingCount: '1234', colorRating: '', isRated: false }
+  const detail = { rating: 4.5, ratingFallBack: 3.5, ratingCount: '1234', colorRating: '', isRated: false }
   const m = mergeRating(seed, detail)
   ok('detail precise rating wins', m.rating === 4.5)
   ok('detail ratingCount wins', m.ratingCount === '1234')
   ok('seed colorRating PRESERVED (detail empty)', m.colorRating === 'c')
   ok('seed isRated PRESERVED (detail false)', m.isRated === true)
-  ok('seed ratingFallBack PRESERVED (detail 0)', m.ratingFallBack === 4.2)
+  ok('detail ratingFallBack wins when parsed', m.ratingFallBack === 3.5)
 }
 
 // When the detail DOES carry a stronger value, it wins (the override path still works).
@@ -59,15 +58,18 @@ const ok = (name, cond) => {
   ok('empty seed takes detail count', m.ratingCount === '7')
 }
 
-// Structural guard: the detail parser must NOT set the personal-vote fields (the premise of the above).
+// Structural guard: the detail parser may set display rating, but must not invent personal colour state
+// unless the #rating_image class contains the real EH personal-rating variant.
 {
   const parser = readFileSync(join(ROOT, 'shared/src/main/ets/parser/EhGalleryDetailParser.ets'), 'utf8')
-  ok('detail parser does not set colorRating', !/\.colorRating\s*=/.test(parser))
-  ok('detail parser does not set isRated', !/\.isRated\s*=/.test(parser))
-  ok('detail parser does not set ratingFallBack', !/\.ratingFallBack\s*=/.test(parser))
+  ok('detail parser reads rating image attrs', /RE_RATING_ATTRS/.test(parser))
+  ok('detail parser sets ratingFallBack from EH sprite position', /\.ratingFallBack\s*=/.test(parser) && /80 - x/.test(parser))
+  ok('detail parser colorRating comes from ratingVariant only', /g\.colorRating = ratingVariant/.test(parser))
+  ok('detail parser isRated is gated by ratingVariant length', /g\.isRated = ratingVariant\.length > 0/.test(parser))
   const model = readFileSync(join(ROOT, 'shared/src/main/ets/model/EhGallery.ets'), 'utf8')
   ok('merge guards colorRating on non-empty', /if \(o\.colorRating\.length > 0\) g\.colorRating = o\.colorRating/.test(model))
   ok('merge guards isRated on true', /if \(o\.isRated\) g\.isRated = o\.isRated/.test(model))
+  ok('merge guards ratingFallBack on non-zero', /if \(o\.ratingFallBack > 0\) g\.ratingFallBack = o\.ratingFallBack/.test(model))
 }
 
 console.log(`✓ gallery merge rating-inheritance contract: ${passed} assertions passed`)

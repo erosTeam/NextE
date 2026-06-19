@@ -44,9 +44,13 @@ const RE = {
   ratingCount: /id="rating_count"[^>]*>(\d+)</,
   posted: /Posted:<\/td><td class="gdt2">([^<]+)</,
   torrent: /Torrent Download \((\d+)\)/,
-  parent: /Parent:<\/td><td class="gdt2"><a href="(https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)"/,
+  archiver: /(?:[?&]|&amp;)or=([^'"]+)/,
+  visible: /Visible:<\/td><td class="gdt2">([^<]+)</,
+  parent: /Parent:<\/td><td class="gdt2"><a href="(https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)">([\s\S]*?)<\/a>/,
   rating: /var average_rating\s*=\s*([\d.]+)/,
-  ratingClass: /<div id="rating_image" class="ir( ir[rgb])?"/,
+  ratingAttrs: /<div id="rating_image"([^>]*)>/,
+  ratingClass: /class="ir( ir[rgb])?"/,
+  ratingPos: /background-position:\s*-?(\d+)px\s+-?(\d+)px/,
   apikey: /var apikey\s*=\s*"([0-9a-f]+)"/,
   // The user's own favorite: #fav inner sprite (favorited only). Match the div blob, then read Y +
   // title independently (attribute-order-independent, per the adversarial-review hardening).
@@ -89,8 +93,15 @@ function parseImages(html) {
 }
 // Mirror EhGalleryDetailParser colorRating: #rating_image class "ir" -> '' (community), "ir irX" -> 'irX'.
 function parseRatingColor(html) {
-  const m = html.match(RE.ratingClass)
+  const attrs = html.match(RE.ratingAttrs)?.[1] ?? ''
+  const m = attrs.match(RE.ratingClass)
   return m && m[1] ? m[1].trim() : ''
+}
+function parseRatingFallBack(html) {
+  const attrs = html.match(RE.ratingAttrs)?.[1] ?? ''
+  const m = attrs.match(RE.ratingPos)
+  if (!m) return 0
+  return (80 - Number.parseFloat(m[1])) / 16 - (m[2] === '21' ? 0.5 : 0)
 }
 // Mirror EhGalleryImageParser.parsePageCount: max page LABEL in the `ptt` nav (1 if absent).
 function parsePageCount(html) {
@@ -110,10 +121,11 @@ const SYN = `<h1 id="gn">Placeholder &amp; Title &#39;v2&#39;</h1><h1 id="gj">�
 <div id="gdc"><div class="cs ct3" onclick="x">Artist CG</div></div>
 <div id="gdn"><a href="https://e-hentai.org/uploader/alice">alice</a></div>
 <div id="gd1"><div style="width:320px;height:180px;background:transparent url(https://ehgt.org/w/aa/bb.webp) 0 0 no-repeat"></div></div>
-<div id="gdd"><table><tr><td class="gdt1">Posted:</td><td class="gdt2">2026-06-13 15:31</td></tr><tr><td class="gdt1">Language:</td><td class="gdt2">Japanese &nbsp;</td></tr><tr><td class="gdt1">File Size:</td><td class="gdt2">123.4 MiB</td></tr><tr><td class="gdt1">Length:</td><td class="gdt2">42 pages</td></tr><tr><td class="gdt1">Favorited:</td><td class="gdt2" id="favcount">7 times</td></tr></table></div>
+<div id="gdd"><table><tr><td class="gdt1">Posted:</td><td class="gdt2">2026-06-13 15:31</td></tr><tr><td class="gdt1">Parent:</td><td class="gdt2"><a href="https://e-hentai.org/g/999/abcd1234/">Parent &amp; Gallery</a></td></tr><tr><td class="gdt1">Visible:</td><td class="gdt2">Yes</td></tr><tr><td class="gdt1">Language:</td><td class="gdt2">Japanese &nbsp;</td></tr><tr><td class="gdt1">File Size:</td><td class="gdt2">123.4 MiB</td></tr><tr><td class="gdt1">Length:</td><td class="gdt2">42 pages</td></tr><tr><td class="gdt1">Favorited:</td><td class="gdt2" id="favcount">7 times</td></tr></table></div>
 <div id="gdr"><td id="rating_count">128</td></div>
+<div id="rating_image" class="ir irg" style="background-position:-16px -21px"></div>
+<a onclick="return popUp('archiver.php?gid=12345&amp;token=abcdef&amp;or=abc123or')">Archive Download</a>
 <p class="g2"><a onclick="return popUp('...')">Torrent Download (5)</a></p>
-<table><tr><td class="gdt1">Parent:</td><td class="gdt2"><a href="https://e-hentai.org/g/999/abcd1234/">999</a></td></tr></table>
 <div id="taglist"><table><tr><td class="tc">artist:</td><td><div class="gtl"><a id="ta_artist:x" href="#">someone</a></div></td></tr><tr><td class="tc">female:</td><td><div class="gtl"><a id="ta_female:a" href="#">tag a</a></div><div class="gtw"><a id="ta_female:b" href="#">tag b</a></div></td></tr></table></div>
 <script>var average_rating = 4.33; var apiuid = -1; var apikey = "abcd1234ef";</script>
 <table class="ptt"><tr><td class="ptds"><a href="#">1</a></td><td><a href="#?p=1">2</a></td><td><a href="#?p=2">3</a></td></tr></table>
@@ -136,7 +148,9 @@ eq(g1(SYN, RE.fileSize).trim(), '123.4 MiB', 'fileSize')
 eq(g1(SYN, RE.ratingCount), '128', 'ratingCount')
 eq(g1(SYN, RE.posted).trim(), '2026-06-13 15:31', 'posted')
 eq(g1(SYN, RE.torrent), '5', 'torrentCount')
-const pm = SYN.match(RE.parent); eq(pm && pm[2], '999', 'parentGid'); eq(pm && pm[3], 'abcd1234', 'parentToken')
+eq(g1(SYN, RE.archiver), 'abc123or', 'archiver or token')
+eq(g1(SYN, RE.visible).trim(), 'Yes', 'visible')
+const pm = SYN.match(RE.parent); eq(pm && pm[2], '999', 'parentGid'); eq(pm && pm[3], 'abcd1234', 'parentToken'); eq(pm && htmlUnescape(pm[4].trim()), 'Parent & Gallery', 'parentTitle')
 eq(g1(SYN, RE.rating), '4.33', 'rating (inline avg)')
 eq(g1(SYN, RE.apikey), 'abcd1234ef', 'apikey')
 const st = parseTags(SYN)
@@ -166,6 +180,8 @@ eq(parseRatingColor('<div id="rating_image" class="ir" style="background-positio
 eq(parseRatingColor('<div id="rating_image" class="ir irb" style="background-position:0px -1px">'), 'irb', 'ratingColor: ir irb → irb (personal blue)')
 eq(parseRatingColor('<div id="rating_image" class="ir irg" style="background-position:0px -21px">'), 'irg', 'ratingColor: ir irg → irg (personal green)')
 eq(parseRatingColor('<div id="rating_image" class="ir irr">'), 'irr', 'ratingColor: ir irr → irr (personal red)')
+eq(parseRatingFallBack('<div id="rating_image" class="ir" style="background-position:0px -1px">'), 5, 'ratingFallBack: x=0,y=1 → 5')
+eq(parseRatingFallBack('<div id="rating_image" class="ir" style="background-position:-16px -21px">'), 3.5, 'ratingFallBack: x=16,y=21 → 3.5')
 eq(parsePageCount(SYN), 3, 'preview page count (ptt max label)')
 const si = parseImages(SYN)
 eq(si.length, 2, 'preview count')
@@ -247,6 +263,7 @@ if (existsSync(fx)) {
   ok(+g1(h, RE.length) > 0, 'real length > 0')
   ok(+g1(h, RE.rating) > 0, 'real rating > 0')
   ok(parseRatingColor(h) === '', 'real fixture: not personally rated → colorRating "" (orange)')
+  ok(parseRatingFallBack(h) >= 0 && parseRatingFallBack(h) <= 5, 'real ratingFallBack in 0..5')
   ok(g1(h, RE.lang).trim().length > 0, 'real language present')
   ok(/MiB|KiB|GiB|B/.test(g1(h, RE.fileSize)), 'real fileSize unit')
   ok(+g1(h, RE.ratingCount) > 0, 'real ratingCount > 0')
@@ -273,6 +290,17 @@ if (existsSync(favFx)) {
   ok(fv.favTitle.length > 0, `real favorited → favTitle (got ${JSON.stringify(fv.favTitle)})`)
   if (!failures) console.log(`  ✓ favcat=${fv.favcat} favTitle=${fv.favTitle}`)
 }
+
+// Structural guards for the ArkTS model/parser path.
+const modelSrc = readFileSync(join(ROOT, 'shared/src/main/ets/model/EhGallery.ets'), 'utf8')
+ok(/archiverLink:\s*string/.test(modelSrc), 'EhGallery carries archiverLink')
+ok(/visible:\s*string/.test(modelSrc), 'EhGallery carries visible')
+ok(/parentTitle:\s*string/.test(modelSrc), 'EhGallery carries parentTitle')
+const parserSrc = readFileSync(join(ROOT, 'shared/src/main/ets/parser/EhGalleryDetailParser.ets'), 'utf8')
+ok(/RE_ARCHIVER_OR/.test(parserSrc) && /&amp;\)or=/.test(parserSrc), 'detail parser supports raw/HTML-escaped archiver or token')
+ok(/RE_VISIBLE/.test(parserSrc) && /\.visible\s*=/.test(parserSrc), 'detail parser fills visible')
+ok(/parentTitle/.test(parserSrc), 'detail parser fills parent display text')
+ok(/RE_RATING_POS/.test(parserSrc) && /\.ratingFallBack\s*=/.test(parserSrc), 'detail parser fills ratingFallBack from rating sprite')
 
 if (failures > 0) { console.error(`\n✗ gallery-detail parser contract: ${failures} failure(s)`); process.exit(1) }
 console.log('\n✓ gallery-detail parser contract passed')

@@ -60,6 +60,9 @@ export class EhGallery {
 
   // detail-page extras (read): torrent count + parent/newer-version links
   torrentCount: string = ''
+  archiverLink: string = '' // EH `or` token used by archiver.php; not a download action by itself
+  visible: string = ''
+  parentTitle: string = ''
   parentUrl: string = ''
   parentGid: string = ''
   parentToken: string = ''
@@ -132,6 +135,9 @@ export class EhGallery {
     g.tagGroups = this.tagGroups.map((tg: TagGroup) => tg.copy())
     g.translated = this.translated
     g.torrentCount = this.torrentCount
+    g.archiverLink = this.archiverLink
+    g.visible = this.visible
+    g.parentTitle = this.parentTitle
     g.parentUrl = this.parentUrl
     g.parentGid = this.parentGid
     g.parentToken = this.parentToken
@@ -176,6 +182,9 @@ export class EhGallery {
     if (o.tagGroups.length > 0) g.tagGroups = o.tagGroups.map((tg: TagGroup) => tg.copy())
     if (o.translated.length > 0) g.translated = o.translated
     if (o.torrentCount.length > 0) g.torrentCount = o.torrentCount
+    if (o.archiverLink.length > 0) g.archiverLink = o.archiverLink
+    if (o.visible.length > 0) g.visible = o.visible
+    if (o.parentTitle.length > 0) g.parentTitle = o.parentTitle
     if (o.parentUrl.length > 0) g.parentUrl = o.parentUrl
     if (o.parentGid.length > 0) g.parentGid = o.parentGid
     if (o.parentToken.length > 0) g.parentToken = o.parentToken

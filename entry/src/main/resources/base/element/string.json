@@ -405,6 +405,14 @@
       "value": "Size"
     },
     {
+      "name": "detail_info_visible",
+      "value": "Visible"
+    },
+    {
+      "name": "detail_info_parent",
+      "value": "Parent"
+    },
+    {
       "name": "detail_info_favorite_count",
       "value": "Favorite count"
     },
@@ -425,8 +433,16 @@
       "value": "Rating"
     },
     {
+      "name": "detail_info_rating_fallback",
+      "value": "Display rating"
+    },
+    {
       "name": "detail_info_torrents",
       "value": "Torrents"
+    },
+    {
+      "name": "detail_info_archiver",
+      "value": "Archiver key"
     },
     {
       "name": "detail_similar",

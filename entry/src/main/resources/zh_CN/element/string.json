@@ -405,6 +405,14 @@
       "value": "大小"
     },
     {
+      "name": "detail_info_visible",
+      "value": "可见性"
+    },
+    {
+      "name": "detail_info_parent",
+      "value": "父版本"
+    },
+    {
       "name": "detail_info_favorite_count",
       "value": "收藏数"
     },
@@ -425,8 +433,16 @@
       "value": "评分"
     },
     {
+      "name": "detail_info_rating_fallback",
+      "value": "显示评分"
+    },
+    {
       "name": "detail_info_torrents",
       "value": "种子"
+    },
+    {
+      "name": "detail_info_archiver",
+      "value": "归档参数"
     },
     {
       "name": "detail_similar",

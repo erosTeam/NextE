@@ -29,15 +29,19 @@ export class EhGalleryDetailParser {
   private static readonly RE_FAVCOUNT: RegExp = /id="favcount">([^<]+)</
   private static readonly RE_RATING: RegExp = /var average_rating\s*=\s*([\d.]+)/
   private static readonly RE_RATING_COUNT: RegExp = /id="rating_count"[^>]*>(\d+)</
-  // The #rating_image div carries the personal-rating colour variant: class "ir" (community / not
-  // personally rated) or "ir irr|irg|irb" once the logged-in user has rated it (eros_fe colorRating).
-  private static readonly RE_RATING_CLASS: RegExp = /<div id="rating_image" class="ir( ir[rgb])?"/
+  // The #rating_image div carries both the personal-rating colour variant and EH's rounded sprite
+  // position. eros_fe derives ratingFallBack as `(80 - x) / 16 - (y == 21 ? 0.5 : 0)`.
+  private static readonly RE_RATING_ATTRS: RegExp = /<div id="rating_image"([^>]*)>/
+  private static readonly RE_RATING_CLASS: RegExp = /class="ir( ir[rgb])?"/
+  private static readonly RE_RATING_POS: RegExp = /background-position:\s*-?(\d+)px\s+-?(\d+)px/
   private static readonly RE_APIUID: RegExp = /var apiuid\s*=\s*(-?\d+)/
   private static readonly RE_APIKEY: RegExp = /var apikey\s*=\s*"([0-9a-f]+)"/
   private static readonly RE_TORRENT: RegExp = /Torrent Download \((\d+)\)/
+  private static readonly RE_ARCHIVER_OR: RegExp = /(?:[?&]|&amp;)or=([^'"]+)/
+  private static readonly RE_VISIBLE: RegExp = /Visible:<\/td><td class="gdt2">([^<]+)</
   // Parent: row links to the parent gallery; capture its /g/{gid}/{token}/ URL (absent → "None").
   private static readonly RE_PARENT: RegExp =
-    /Parent:<\/td><td class="gdt2"><a href="(https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)"/
+    /Parent:<\/td><td class="gdt2"><a href="(https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)">([\s\S]*?)<\/a>/
   // The user's OWN favorite state (eros_fe #fav sprite): when favorited, `#fav` holds an inner sprite
   // div whose background-position Y → favcat slot via `(Y-2)/19`, and whose title is the favcat name.
   // When NOT favorited, `#fav` is empty (`<div id="fav"></div>`) — so the inner-div match is the
@@ -103,18 +107,29 @@ export class EhGalleryDetailParser {
     if (ratingStr.length > 0) {
       g.rating = Number.parseFloat(ratingStr)
     }
+    const ratingAttrsM: RegExpMatchArray | null = html.match(EhGalleryDetailParser.RE_RATING_ATTRS)
+    const ratingAttrs: string = ratingAttrsM !== null && ratingAttrsM[1] !== undefined ? ratingAttrsM[1] : ''
     // Personal-rating colour variant (irr/irg/irb) from the #rating_image class; '' = community-only.
-    const rcM: RegExpMatchArray | null = html.match(EhGalleryDetailParser.RE_RATING_CLASS)
+    const rcM: RegExpMatchArray | null = ratingAttrs.match(EhGalleryDetailParser.RE_RATING_CLASS)
     const ratingVariant: string = rcM !== null && rcM[1] !== undefined ? rcM[1].trim() : ''
     g.colorRating = ratingVariant
     g.isRated = ratingVariant.length > 0
+    const rpM: RegExpMatchArray | null = ratingAttrs.match(EhGalleryDetailParser.RE_RATING_POS)
+    if (rpM !== null && rpM[1] !== undefined && rpM[2] !== undefined) {
+      const x: number = Number.parseFloat(rpM[1])
+      const y: string = rpM[2]
+      g.ratingFallBack = (80 - x) / 16 - (y === '21' ? 0.5 : 0)
+    }
 
     g.torrentCount = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_TORRENT)
+    g.archiverLink = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_ARCHIVER_OR)
+    g.visible = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_VISIBLE).trim()
     const parentM: RegExpMatchArray | null = html.match(EhGalleryDetailParser.RE_PARENT)
     if (parentM !== null && parentM[2] !== undefined && parentM[3] !== undefined) {
       g.parentUrl = parentM[1] !== undefined ? parentM[1] : ''
       g.parentGid = parentM[2]
       g.parentToken = parentM[3]
+      g.parentTitle = parentM[4] !== undefined ? HtmlSelectorUtils.htmlUnescape(parentM[4].trim()) : ''
     }
 
     g.tagGroups = EhGalleryDetailParser.parseTags(html)

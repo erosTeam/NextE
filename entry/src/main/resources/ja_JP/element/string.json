@@ -405,6 +405,14 @@
       "value": "サイズ"
     },
     {
+      "name": "detail_info_visible",
+      "value": "公開状態"
+    },
+    {
+      "name": "detail_info_parent",
+      "value": "親バージョン"
+    },
+    {
       "name": "detail_info_favorite_count",
       "value": "お気に入り数"
     },
@@ -425,8 +433,16 @@
       "value": "評価"
     },
     {
+      "name": "detail_info_rating_fallback",
+      "value": "表示評価"
+    },
+    {
       "name": "detail_info_torrents",
       "value": "トレント"
+    },
+    {
+      "name": "detail_info_archiver",
+      "value": "アーカイブキー"
     },
     {
       "name": "detail_similar",

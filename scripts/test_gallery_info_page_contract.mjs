@@ -67,18 +67,26 @@ const expectedFields = [
   'detail_info_language',
   'detail_info_pages',
   'detail_info_size',
+  'detail_info_visible',
+  'detail_info_parent',
   'detail_info_favorite_count',
   'detail_info_favorited',
   'detail_info_favorite',
   'detail_info_rating_count',
   'detail_info_rating',
+  'detail_info_rating_fallback',
   'detail_info_torrents',
+  'detail_info_archiver',
 ]
 for (const key of expectedFields) {
   ok(src.infoPage.includes(`app.string.${key}`), `GalleryInfoPage renders ${key}`)
 }
 ok(/EhConstants\.EX_BASE_URL/.test(src.infoPage) && /EhConstants\.EH_BASE_URL/.test(src.infoPage), 'GalleryInfoPage reconstructs /g/ URL from site mode')
 ok(/common_yes/.test(src.infoPage) && /common_no/.test(src.infoPage), 'GalleryInfoPage localizes boolean favorited value')
+ok(/this\.gallery\(\)\.visible/.test(src.infoPage), 'GalleryInfoPage renders EH visible state')
+ok(/this\.gallery\(\)\.parentTitle/.test(src.infoPage), 'GalleryInfoPage renders parent display text')
+ok(/this\.gallery\(\)\.ratingFallBack\.toFixed\(2\)/.test(src.infoPage), 'GalleryInfoPage renders EH sprite display rating')
+ok(/this\.gallery\(\)\.archiverLink/.test(src.infoPage), 'GalleryInfoPage renders archiver or-token for diagnostics/future archiver flow')
 
 const locales = [
   'entry/src/main/resources/base/element/string.json',
