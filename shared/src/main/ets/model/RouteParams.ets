@@ -78,6 +78,29 @@ export class GalleryTorrentsParams {
   }
 }
 
+/** Params for the 'GalleryArchiver' destination. Read-only archive quote/options page. */
+export class GalleryArchiverParams {
+  gid: string = ''
+  token: string = ''
+  archiverLink: string = ''
+  isEx: boolean = false
+  title: string = ''
+
+  constructor(
+    gid: string = '',
+    token: string = '',
+    archiverLink: string = '',
+    isEx: boolean = false,
+    title: string = '',
+  ) {
+    this.gid = gid
+    this.token = token
+    this.archiverLink = archiverLink
+    this.isEx = isEx
+    this.title = title
+  }
+}
+
 /** Params for the 'Reader' destination. */
 export class ReaderParams {
   gid: string = ''

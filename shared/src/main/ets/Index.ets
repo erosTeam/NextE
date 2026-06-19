@@ -25,11 +25,13 @@ export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
 export { EhGalleryComment } from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'
 export { EhGalleryTorrent, EhGalleryTorrentList } from './model/EhGalleryTorrent'
+export { EhGalleryArchiverItem, EhGalleryArchiverQuote } from './model/EhGalleryArchiver'
 export { GalleryList } from './model/GalleryList'
 export {
   GalleryDetailParams,
   GalleryInfoParams,
   GalleryTorrentsParams,
+  GalleryArchiverParams,
   ReaderParams,
   ImagePageRouteErrorParams,
   GalleryCommentsParams,
@@ -76,6 +78,7 @@ export { EhCommentParser } from './parser/EhCommentParser'
 export { EhGalleryDetailParser } from './parser/EhGalleryDetailParser'
 export { EhGalleryImageParser } from './parser/EhGalleryImageParser'
 export { EhGalleryTorrentParser } from './parser/EhGalleryTorrentParser'
+export { EhGalleryArchiverParser } from './parser/EhGalleryArchiverParser'
 export { EhImagePageParser, ImagePageResult } from './parser/EhImagePageParser'
 
 // services

@@ -43,7 +43,7 @@ import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
 import { SettingsPage, ReaderSettingsPage, DownloadSettingsPage, AboutPage } from 'settings'
-import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryAllThumbnailsPage, GalleryCommentsPage } from 'gallery'
+import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryArchiverPage, GalleryAllThumbnailsPage, GalleryCommentsPage } from 'gallery'
 import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
 import { EhLoginWebPage } from './EhLoginWebPage'
@@ -363,6 +363,8 @@ struct Index {
       GalleryInfoPage()
     } else if (name === 'GalleryTorrents') {
       GalleryTorrentsPage()
+    } else if (name === 'GalleryArchiver') {
+      GalleryArchiverPage()
     } else if (name === 'Search') {
       GallerySearchPage()
     } else if (name === 'Reader') {

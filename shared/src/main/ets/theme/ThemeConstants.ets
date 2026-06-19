@@ -84,6 +84,7 @@ export class ThemeConstants {
   static readonly DOWNLOAD_TASK_COVER_WIDTH: number = 78
   static readonly DOWNLOAD_TASK_ACTION_SIZE: number = 32
   static readonly DOWNLOAD_TASK_PROGRESS_HEIGHT: number = 4
+  static readonly ARCHIVER_BALANCE_BADGE_SIZE: number = 18
   // Compact width for two-item segmented controls hosted in title bars, matching the V2Next HDS pattern.
   static readonly COMPACT_SEGMENT_BUTTON_WIDTH: number = 216
   // Gallery list card rhythm. eros_fe uses kFixedHeight=204 and, on non-phone layouts, cover width =

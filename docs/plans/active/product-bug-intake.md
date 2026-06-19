@@ -1994,6 +1994,60 @@ Remaining acceptance:
 - Needs controller/user screenshot acceptance. No further device validation is required unless
   Reader startup, direct jump, or double-page target math changes again.
 
+### Gallery Archiver Options Are Not Reachable
+
+Type: feature gap / gallery archive parity
+
+Priority suggestion: P1
+
+Status: implemented / pending device acceptance
+
+Source:
+
+- `eros_fe` exposes the gallery detail `归档` action and opens an archiver options dialog, while
+  NextE parsed `archiverLink` but had no route/page/entry for the quote/options page.
+
+Grounding:
+
+- `eros_fe/lib/pages/gallery/view/archiver_dialog.dart` renders `ArchiverView` / `HatHGridView`.
+- `eros_fe/lib/common/parser/archiver_parser.dart` parses G/C balance, Download options, and H@H
+  resolution options from `archiver.php`.
+- FE controller builds `/archiver.php?gid=<gid>&token=<token>&or=<archiverLink>`.
+
+Implementation:
+
+- Added read-only `EhGalleryArchiverQuote` / item model and `EhGalleryArchiverParser`.
+- Added `EhApiService.getGalleryArchiver()` for a read-only GET of the archiver quote page.
+- Added `GalleryArchiverParams`, `GalleryArchiverPage`, route registration, gallery-module export,
+  i18n strings, and a low-weight detail-page `归档` entry when `archiverLink` exists.
+- Scope is intentionally non-destructive: no POST, no archive submit/download, no download-queue write,
+  no offline reader integration, and no local file creation.
+
+Evidence:
+
+- Android FE comparison: ADB target `fa967a75`, `su` launched `com.honjow.fehviewer`, opened
+  `https://e-hentai.org/g/3989982/16600a66e8/`, tapped `归档`, and captured the FE dialog showing
+  `G 17,825,119`, `C 16,323,703`, Download options, and H@H options. Screenshot:
+  `.hvigor/outputs/archiver-readonly-fe-comparison/fe_archiver_dialog.png`.
+- Deterministic contract: `scripts/test_gallery_archiver_readonly_contract.mjs` locks the model,
+  parser, API, route, detail entry, i18n, and read-only boundary.
+- Gates: `scripts/test_gallery_archiver_readonly_contract.mjs`,
+  `scripts/test_gallery_detail_parser_contract.mjs`, `scripts/test_gallery_info_page_contract.mjs`,
+  `scripts/test_gallery_torrents_contract.mjs`, `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, `git diff --check`, and official signed Hvigor build through
+  `scripts/build_hvigor_signed.sh`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  opened the same public gallery and confirmed the detail page still renders, but the logged-out EH
+  response did not expose `archiverLink`, so the `归档` route could not be reached there. Evidence:
+  `.hvigor/outputs/archiver-readonly-nexte-smoke/detail.png` and `detail_layout.json`.
+
+Remaining acceptance:
+
+- Needs a logged-in and unlocked HarmonyOS target where EH exposes `archiverLink` to verify the NextE
+  `归档` entry and read-only quote page on device. Physical target `192.168.50.200:12345` was connected
+  but `aa start` returned `Error Code:10106102 The device screen is locked during the application
+  launch, unlock screen failed.`
+
 ### Download Gallery Task Rows Are Hard To Read
 
 Type: UX / information architecture cleanup

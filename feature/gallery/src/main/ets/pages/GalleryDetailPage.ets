@@ -7,6 +7,7 @@ import {
   GalleryDetailParams,
   GalleryInfoParams,
   GalleryTorrentsParams,
+  GalleryArchiverParams,
   ReaderParams,
   GalleryCommentsParams,
   AllThumbnailsParams,
@@ -167,6 +168,22 @@ export struct GalleryDetailPage {
         connectSiteMode().isEx,
         this.navTitle(),
         this.vm.gallery.torrentCount,
+      ),
+    )
+  }
+
+  private openArchiver(): void {
+    if (this.vm.gallery.archiverLink.length === 0) {
+      return
+    }
+    this.stack.pushPathByName(
+      'GalleryArchiver',
+      new GalleryArchiverParams(
+        this.params.gid,
+        this.params.token,
+        this.vm.gallery.archiverLink,
+        connectSiteMode().isEx,
+        this.navTitle(),
       ),
     )
   }
@@ -512,6 +529,14 @@ export struct GalleryDetailPage {
             .fontColor($r('sys.color.font_emphasize'))
             .onClick(() => {
               this.openTorrents()
+            })
+        }
+        if (this.vm.gallery.archiverLink.length > 0) {
+          Text($r('app.string.download_archiver'))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_emphasize'))
+            .onClick(() => {
+              this.openArchiver()
             })
         }
         Text(this.downloadTitle())

@@ -9,6 +9,7 @@ import { EhCommentParser } from '../parser/EhCommentParser'
 import { EhGalleryDetailParser } from '../parser/EhGalleryDetailParser'
 import { EhGalleryImageParser } from '../parser/EhGalleryImageParser'
 import { EhGalleryTorrentParser } from '../parser/EhGalleryTorrentParser'
+import { EhGalleryArchiverParser } from '../parser/EhGalleryArchiverParser'
 import { UserTagStore } from '../state/UserTagStore'
 import { GalleryList } from '../model/GalleryList'
 import { EhGallery } from '../model/EhGallery'
@@ -16,6 +17,7 @@ import { EhGalleryImage } from '../model/EhGalleryImage'
 import { EhMytags } from '../model/EhMytags'
 import { EhGalleryComment } from '../model/EhGalleryComment'
 import { EhGalleryTorrentList } from '../model/EhGalleryTorrent'
+import { EhGalleryArchiverQuote } from '../model/EhGalleryArchiver'
 
 /** Header + first preview page + comments parsed from a gallery detail fetch. */
 export class GalleryDetailResult {
@@ -266,6 +268,19 @@ export class EhApiService {
     const url: string = `${EhConstants.baseUrl(isEx)}/gallerytorrents.php?gid=${gid}&t=${token}`
     const resp = await this.fetch(url, isEx, 'generic')
     return EhGalleryTorrentParser.parse(resp.body)
+  }
+
+  /** Fetch the gallery archiver quote/options page. Read-only; no archive download submit. */
+  async getGalleryArchiver(
+    gid: string,
+    token: string,
+    archiverLink: string,
+    isEx: boolean,
+  ): Promise<EhGalleryArchiverQuote> {
+    const url: string =
+      `${EhConstants.baseUrl(isEx)}/archiver.php?gid=${gid}&token=${token}&or=${encodeURIComponent(archiverLink)}`
+    const resp = await this.fetch(url, isEx, 'generic')
+    return EhGalleryArchiverParser.parse(resp.body)
   }
 
   /** Fetch a gallery detail page; returns header (incl. tags/apikey) + first preview page. */
