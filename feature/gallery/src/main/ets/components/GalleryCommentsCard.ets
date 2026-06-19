@@ -2,10 +2,10 @@ import { ThemeConstants, EhGalleryComment, GroupedListSection } from 'shared'
 
 /**
  * Comments card, shared by the detail-page PEEK and the full comments page (eros_fe TopCommentEx +
- * galleryComment). `max > 0` is the peek: it shows the first `max` comments, the "评论" header turns
- * into a tappable "查看全部 (N)" entry, and `onMore` opens the full page. `max === 0` shows them all
- * (the page). The peek sits BEFORE the previews on the detail page so comments are reachable without
- * scrolling past every thumbnail. v1 read-only; shares the GroupedListSection chrome.
+ * galleryComment). `max > 0` is the peek: it shows the first `max` comments, clamps long text, and
+ * any non-empty peek can open the full comments page. `max === 0` shows them all (the page). The peek
+ * sits BEFORE the previews on the detail page so comments are reachable without scrolling past every
+ * thumbnail. v1 read-only; shares the GroupedListSection chrome.
  */
 @ComponentV2
 export struct GalleryCommentsCard {
@@ -16,6 +16,10 @@ export struct GalleryCommentsCard {
 
   private hasMore(): boolean {
     return this.max > 0 && this.comments.length > this.max
+  }
+
+  private canOpenFullComments(): boolean {
+    return this.max > 0 && this.comments.length > 0
   }
 
   private shown(): EhGalleryComment[] {
@@ -61,7 +65,7 @@ export struct GalleryCommentsCard {
               .fontColor($r('sys.color.font_tertiary'))
           }
           Blank()
-          if (this.hasMore()) {
+          if (this.canOpenFullComments()) {
             Text($r('app.string.detail_view_all'))
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
               .fontColor($r('sys.color.font_emphasize'))
@@ -73,7 +77,7 @@ export struct GalleryCommentsCard {
         .width('100%')
         .alignItems(VerticalAlign.Center)
         .onClick(() => {
-          if (this.hasMore()) {
+          if (this.canOpenFullComments()) {
             this.onMore()
           }
         })
@@ -164,6 +168,11 @@ export struct GalleryCommentsCard {
     .padding(ThemeConstants.SPACE_SM)
     .borderRadius(ThemeConstants.RADIUS_MD)
     .backgroundColor(ThemeConstants.BG_SUB)
+    .onClick(() => {
+      if (this.canOpenFullComments()) {
+        this.onMore()
+      }
+    })
   }
 
   @Builder
