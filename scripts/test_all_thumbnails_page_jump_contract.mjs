@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Contract for AllThumbnails page-number jump.
+ * Contract for AllThumbnails page-number jump + first-page return.
  *
  * Bug class: users need to reach later thumbnail pages without manually scrolling/loading every earlier
  * preview page. Jump input is the global image page number (the same labels shown on thumbnails);
@@ -51,6 +51,12 @@ ok('VM advances contiguous next-page pointer only through loaded markers', /adva
 
 const pageSrc = read('feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets')
 ok('AllThumbnails title bar includes a jump menu', /'menu': this\.jumpMenu\(\)/.test(pageSrc))
+ok('Jump menu includes first-page and jump title actions',
+  /const items: Record<string, Object>\[\] = \[\s*\{ 'content': firstInner \},\s*\{ 'content': jumpInner \},\s*\][\s\S]*return \{ 'value': items, 'maxCount': 2 \}/.test(pageSrc))
+ok('First-page action uses a title-bar symbol and calls the helper',
+  /'label': \$r\('app\.string\.gallery_preview_first_page'\)[\s\S]*'icon': \$r\('sys\.symbol\.arrow_up_circle'\)[\s\S]*this\.backToFirstPage\(\)/.test(pageSrc))
+ok('First-page helper directly loads image page 1 and scrolls to its visible index',
+  /private async backToFirstPage\(\): Promise<void> \{[\s\S]*await this\.vm\.loadImagePage\(1\)[\s\S]*const targetIndex: number = this\.vm\.visibleIndexForImagePage\(1\)[\s\S]*this\.scroller\.scrollToIndex\(targetIndex\)/.test(pageSrc))
 ok('Jump menu uses a symbol icon and opens the jump sheet', /'icon': \$r\('sys\.symbol\.arrow_right'\)[\s\S]*this\.jumpSheetShown = true/.test(pageSrc))
 ok('Jump sheet opens with the next unloaded image page prefilled', /this\.jumpPageText = `\$\{this\.defaultJumpPage\(\)\}`/.test(pageSrc))
 ok('Default jump page advances past the loaded thumbnail count', /return Math\.min\(maxPage, this\.vm\.itemCount \+ 1\)/.test(pageSrc))
@@ -64,6 +70,7 @@ ok('AllThumbnails uses immersive title bar options for menu support', /immersive
 for (const loc of ['base', 'zh_CN', 'en_US', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${loc}/element/string.json`)
   for (const key of [
+    'gallery_preview_first_page',
     'gallery_preview_jump',
     'gallery_preview_jump_help',
     'gallery_preview_jump_placeholder',

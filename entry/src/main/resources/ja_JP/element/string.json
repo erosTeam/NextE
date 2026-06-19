@@ -313,6 +313,10 @@
       "value": "プレビュー"
     },
     {
+      "name": "gallery_preview_first_page",
+      "value": "最初のページ"
+    },
+    {
       "name": "gallery_preview_jump",
       "value": "移動"
     },

@@ -313,6 +313,10 @@
       "value": "Preview"
     },
     {
+      "name": "gallery_preview_first_page",
+      "value": "First page"
+    },
+    {
       "name": "gallery_preview_jump",
       "value": "Jump"
     },

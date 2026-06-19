@@ -313,6 +313,10 @@
       "value": "预览"
     },
     {
+      "name": "gallery_preview_first_page",
+      "value": "第一页"
+    },
+    {
       "name": "gallery_preview_jump",
       "value": "跳转"
     },

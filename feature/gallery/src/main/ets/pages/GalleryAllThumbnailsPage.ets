@@ -17,7 +17,8 @@ import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
  * The separate all-thumbnails page (eros_fe galleryAllThumbnails). The detail page shows only the
  * first preview page as a peek and links here; this page owns the full paged thumbnail grid so a
  * thousand-page gallery never inflates the detail. Native PullRefreshGridScaffold; tapping a thumb
- * opens the reader at that page. (Forward paging now; bidirectional + jump-dialog are follow-ups.)
+ * opens the reader at that page. Page jump and first-page return live in the title bar; bidirectional
+ * previous-page pull is a follow-up.
  */
 @ComponentV2
 export struct GalleryAllThumbnailsPage {
@@ -58,7 +59,15 @@ export struct GalleryAllThumbnailsPage {
   }
 
   private jumpMenu(): Record<string, Object> {
-    const inner: Record<string, Object> = {
+    const firstInner: Record<string, Object> = {
+      'label': $r('app.string.gallery_preview_first_page'),
+      'icon': $r('sys.symbol.arrow_up_circle'),
+      'isEnabled': true,
+      'action': () => {
+        this.backToFirstPage()
+      },
+    }
+    const jumpInner: Record<string, Object> = {
       'label': $r('app.string.gallery_preview_jump'),
       'icon': $r('sys.symbol.arrow_right'),
       'isEnabled': true,
@@ -68,8 +77,22 @@ export struct GalleryAllThumbnailsPage {
         this.jumpSheetShown = true
       },
     }
-    const items: Record<string, Object>[] = [{ 'content': inner }]
-    return { 'value': items, 'maxCount': 1 }
+    const items: Record<string, Object>[] = [
+      { 'content': firstInner },
+      { 'content': jumpInner },
+    ]
+    return { 'value': items, 'maxCount': 2 }
+  }
+
+  private async backToFirstPage(): Promise<void> {
+    await this.vm.loadImagePage(1)
+    const targetIndex: number = this.vm.visibleIndexForImagePage(1)
+    if (targetIndex < 0) {
+      return
+    }
+    setTimeout(() => {
+      this.scroller.scrollToIndex(targetIndex)
+    }, 50)
   }
 
   private maxImagePage(): number {
