@@ -48,7 +48,7 @@ Type: parity / UX gap
 
 Priority suggestion: P1/P2
 
-Status: implemented / needs FE comparison
+Status: implemented / needs controller acceptance
 
 Implementation:
 
@@ -56,8 +56,11 @@ Implementation:
   full-screen `FavoriteSelectorPage`.
 - Scope: native HDS list overview of `全部` plus server favcats, colored heart leading icon per
   favcat, trailing counts, current selection marker, and tap-to-select returning to Favorites.
-- Explicit non-scope: local `l` favorites, favorite write/move/rename/delete, per-favcat keep-alive
-  architecture, and jump/seek navigation.
+- `ceaa966 feat(favorites): show local slot in selector` closes the local-slot gap: logged-out selector
+  rows are local-only, logged-in selector rows are `全部` plus remote favcats plus local `l`, and the
+  logged-out Favorites title action still opens the selector instead of hiding the entry.
+- Explicit non-scope: favorite write/move/rename/delete, per-favcat keep-alive architecture, and
+  jump/seek navigation.
 
 Evidence:
 
@@ -74,12 +77,17 @@ Evidence:
   `nexte_fav_after_fix.jpeg`, `layout_fav_after_fix.json`, `nexte_selector_after_fix.jpeg`,
   `layout_selector_after_fix.json`, `nexte_fav_after_select.jpeg`, and
   `layout_fav_after_select.json`.
+- Android FE comparison, 2026-06-19: ADB target `fa967a75`, `su` launched
+  `com.honjow.fehviewer/.MainActivity`; from the FE main gallery tab, tapped bottom `收藏`, then tapped
+  the Favorite tab bars selector. FE selector evidence shows title `收藏夹` and rows for `所有收藏`,
+  remote favcats, and final `本地收藏 0`. Evidence directory:
+  `/Users/honjow/git/NextE/.hvigor/outputs/reader-save-fe-comparison/`, especially
+  `fe-favorites-tab.png/xml` and `fe-favorites-selector.png/xml`.
 
 Remaining acceptance:
 
-- Android `eros_fe` app was reachable through ADB `su`, but this run did not successfully navigate to
-  the FE selector page screenshot. Keep this as `implemented / needs FE comparison` until FE selector
-  device evidence or controller/user acceptance is captured.
+- Needs controller/user acceptance of the NextE selector visual placement and local-slot behavior. No
+  further FE comparison is required unless Favorites selector structure changes again.
 
 ### Reader Starts From Wrong Image When Opening Later Thumbnail Pages
 
