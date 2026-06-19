@@ -66,6 +66,18 @@ export struct MyTagsPage {
     return this.mytags.tags.filter((t: EhUsertag) => t.namespace() === ns)
   }
 
+  private tagLabel(t: EhUsertag): string {
+    return t.display.length > 0 ? t.display : t.tag
+  }
+
+  private tagSubtitle(t: EhUsertag): string {
+    const label: string = this.tagLabel(t)
+    if (t.translate.length === 0 || t.translate === label || t.translate === t.tag) {
+      return ''
+    }
+    return t.translate
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({ scroller: this.scroller }) {
@@ -182,22 +194,37 @@ export struct MyTagsPage {
   @Builder
   TagChip(t: EhUsertag) {
     // Grouped by namespace, so the chip shows just the short tag (display), not the full ns:tag.
-    Text(t.display.length > 0 ? t.display : t.tag)
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      // EH-supplied text color (readable on its own fill); only force white when EH gave none.
-      .fontColor(t.textColor.length > 0 ? t.textColor : ThemeConstants.TEXT_ON_BRAND)
-      .backgroundColor(
-        t.fillColor.length > 0
-          ? t.fillColor
-          : t.color.length > 0
-            ? t.color
-            : ThemeConstants.BRAND_PRIMARY,
-      )
-      .borderRadius(ThemeConstants.RADIUS_SM)
-      .borderWidth(t.watched ? 2 : 0)
-      .borderColor(Color.White)
-      .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM, top: 3, bottom: 3 })
-      .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-      .opacity(t.hidden ? 0.45 : 1)
+    Column({ space: 1 }) {
+      Text(this.tagLabel(t))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(t.textColor.length > 0 ? t.textColor : ThemeConstants.TEXT_ON_BRAND)
+        .maxLines(1)
+      if (this.tagSubtitle(t).length > 0) {
+        Text(this.tagSubtitle(t))
+          .fontSize(ThemeConstants.FONT_SIZE_TINY)
+          .fontColor(t.textColor.length > 0 ? t.textColor : ThemeConstants.TEXT_ON_BRAND)
+          .maxLines(1)
+      }
+    }
+    // EH-supplied text color is readable on its own fill; only force white when EH gave none.
+    .backgroundColor(
+      t.fillColor.length > 0
+        ? t.fillColor
+        : t.color.length > 0
+          ? t.color
+          : ThemeConstants.BRAND_PRIMARY,
+    )
+    .borderRadius(ThemeConstants.RADIUS_SM)
+    .borderWidth(t.watched ? 2 : 0)
+    .borderColor(Color.White)
+    .padding({
+      left: ThemeConstants.SPACE_SM,
+      right: ThemeConstants.SPACE_SM,
+      top: ThemeConstants.SPACE_XS,
+      bottom: ThemeConstants.SPACE_XS,
+    })
+    .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
+    .opacity(t.hidden ? 0.45 : 1)
   }
 }

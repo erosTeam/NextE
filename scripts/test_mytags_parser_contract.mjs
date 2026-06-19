@@ -20,6 +20,7 @@ function parse(html) {
     const custom = html.match(new RegExp(`id="tagcolor_${m[1]}"[^>]*value="([^"]*)"`))
     out.tags.push({
       tagId: m[1], tag: m[3], display: m[4],
+      translate: translateFullTag(m[3]),
       color: col ? col[1] : '',
       textColor: txt ? txt[1] : '',
       fillColor: fill ? fill[1] : (col ? col[1] : ''),
@@ -45,6 +46,32 @@ function parse(html) {
   return out
 }
 
+const NS_PREFIX = { a: 'artist', c: 'character', f: 'female', g: 'group', l: 'language', m: 'male', p: 'parody', r: 'reclass', o: 'other', x: 'mixed', cos: 'cosplayer', misc: 'misc' }
+const expandNamespace = (ns) => { const k = ns.toLowerCase().trim(); return NS_PREFIX[k] !== undefined ? NS_PREFIX[k] : k }
+const normalizeFullTag = (fullTag) => {
+  const text = fullTag.trim().toLowerCase()
+  const idx = text.indexOf(':')
+  if (idx <= 0) return `misc:${text}`
+  return `${expandNamespace(text.substring(0, idx))}:${text.substring(idx + 1).trim()}`
+}
+const translateFullTag = (fullTag) => {
+  switch (normalizeFullTag(fullTag)) {
+    case 'language:chinese': return '中文'
+    case 'language:japanese': return '日文'
+    case 'language:english': return '英文'
+    case 'language:translated': return '已翻译'
+    case 'female:big breasts': return '巨乳'
+    case 'female:sole female': return '单女主'
+    case 'female:paizuri': return '乳交'
+    case 'female:group': return '群交'
+    case 'male:sole male': return '单男主'
+    case 'misc:full color': return '全彩'
+    case 'misc:uncensored': return '无码'
+    case 'other:multi-work series': return '多作品系列'
+    default: return ''
+  }
+}
+
 let failures = 0
 const fail = (m) => { console.error('✗ ' + m); failures++ }
 
@@ -67,6 +94,8 @@ const synthetic = `
 const syn = parse(synthetic)
 if (syn.tags.length !== 5) fail(`synthetic: expected 5 tags, got ${syn.tags.length}`)
 if (syn.tags[0] && (syn.tags[0].tag !== 'language:chinese' || syn.tags[0].color !== '#1357df')) fail(`syn tag0 wrong: ${JSON.stringify(syn.tags[0])}`)
+if (syn.tags[0] && syn.tags[0].translate !== '中文') fail(`syn tag0 translate: ${JSON.stringify(syn.tags[0])}`)
+if (syn.tags[1] && syn.tags[1].translate !== '') fail(`unknown tag should not invent translate: ${JSON.stringify(syn.tags[1])}`)
 // 3-color parse: text color (#f1f1f1), border (#1357df), fill = gradient start (#1357df) — not white-on-anything.
 if (syn.tags[0] && (syn.tags[0].textColor !== '#f1f1f1' || syn.tags[0].fillColor !== '#1357df')) fail(`syn tag0 colors wrong: ${JSON.stringify(syn.tags[0])}`)
 // A tag with only border-color (no fill/text) falls back: fillColor = border, textColor empty.
@@ -107,8 +136,6 @@ if (fs.existsSync(realPath)) {
 }
 
 // 3. Namespace prefix expansion (eros_fe prefixToNameSpaceMap) — short prefixes bucket as full names.
-const NS_PREFIX = { a: 'artist', c: 'character', f: 'female', g: 'group', l: 'language', m: 'male', p: 'parody', r: 'reclass', o: 'other', x: 'mixed', cos: 'cosplayer', misc: 'misc' }
-const expandNamespace = (ns) => { const k = ns.toLowerCase().trim(); return NS_PREFIX[k] !== undefined ? NS_PREFIX[k] : k }
 // EhUsertag.namespace(): part before ':' (or 'misc' when absent), expanded.
 const nsOf = (tag) => { const i = tag.indexOf(':'); return expandNamespace(i > 0 ? tag.substring(0, i) : 'misc') }
 const nsCases = [['a:dittaya', 'artist'], ['artist:dittaya', 'artist'], ['f:big', 'female'], ['cos:foo', 'cosplayer'], ['language:chinese', 'language'], ['m:x', 'male'], ['misc:x', 'misc'], ['noNamespace', 'misc'], ['Artist:Caps', 'artist'], ['unknownns:z', 'unknownns']]
@@ -126,13 +153,21 @@ const model = read('../shared/src/main/ets/model/EhMytags.ets')
 if (!/EhConstants\.expandNamespace\(raw\)/.test(model)) fail('EhUsertag.namespace does not expand prefix')
 if (!/defaultColor:\s*boolean/.test(model)) fail('EhUsertag.defaultColor missing')
 if (!/tagWeight:\s*string/.test(model)) fail('EhUsertag.tagWeight raw string missing')
+if (!/translate:\s*string/.test(model)) fail('EhUsertag.translate missing')
 if (!/canDelete:\s*boolean/.test(model)) fail('EhMytags.canDelete missing')
 const parser = read('../shared/src/main/ets/parser/EhMytagsParser.ets')
 if (!/sets\.sort\(/.test(parser)) fail('EhMytagsParser does not sort tagsets by id')
 if (!/tagcolor_\$\{m\[1\]\}/.test(parser)) fail('EhMytagsParser does not parse per-tag custom color input')
 if (!parser.includes('id="tagweight_${m[1]}"[^>]*value="([^"]*)"')) fail('EhMytagsParser does not preserve raw tagweight input')
 if (!/Number\.parseInt\(t\.tagWeight, 10\)/.test(parser)) fail('EhMytagsParser does not derive numeric weight from raw tagWeight')
+if (!/TagTranslationService\.translateFullTag\(t\.tag\)/.test(parser)) fail('EhMytagsParser does not fill EhUsertag.translate')
 if (!/do_tagset_delete\(\)/.test(parser)) fail('EhMytagsParser does not parse tagset delete capability')
+const translationService = read('../shared/src/main/ets/services/TagTranslationService.ets')
+if (!/class TagTranslationService/.test(translationService)) fail('TagTranslationService missing')
+if (!/case 'language:chinese':[\s\S]*return '中文'/.test(translationService)) fail('TagTranslationService lacks language:chinese baseline')
+const page = read('../feature/user/src/main/ets/pages/MyTagsPage.ets')
+if (!/private tagSubtitle\(t: EhUsertag\): string/.test(page)) fail('MyTagsPage does not derive a translate subtitle')
+if (!/Text\(this\.tagSubtitle\(t\)\)/.test(page)) fail('MyTagsPage does not render the translate subtitle')
 
 if (failures === 0) { console.log('✓ mytags parser contract: all cases pass'); process.exit(0) }
 else { console.error(`✗ mytags parser contract: ${failures} failure(s)`); process.exit(1) }

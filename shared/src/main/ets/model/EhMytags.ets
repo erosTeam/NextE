@@ -2,14 +2,16 @@ import { EhConstants } from '../constants/EhConstants'
 
 /**
  * One watched/hidden/flagged tag from the My Tags page (mytags). `tag` is the full
- * namespace:tag (e.g. "artist:dittaya"), `display` the short label, `color` the EH border
- * color hex. `watched`/`hidden` reflect the row's checkboxes (a tag with neither is
+ * namespace:tag (e.g. "artist:dittaya"), `display` the short label, `translate` the optional
+ * localized tag label, `color` the EH border color hex. `watched`/`hidden` reflect the row's
+ * checkboxes (a tag with neither is
  * color-flagged only).
  */
 export class EhUsertag {
   tagId: string = ''
   tag: string = ''
   display: string = ''
+  translate: string = ''
   // EH gives each tag THREE colors via inline style (color:text, border-color, background fill).
   // Rendering the fill with the EH-supplied text color keeps custom light-fill tags readable
   // (forcing white text on a light fill is the bug this replaces). `color` = border (kept for compat).

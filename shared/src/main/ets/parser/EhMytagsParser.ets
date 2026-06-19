@@ -1,4 +1,5 @@
 import { EhMytags, EhUsertag, EhMytagSet } from '../model/EhMytags'
+import { TagTranslationService } from '../services/TagTranslationService'
 import { HtmlSelectorUtils } from './HtmlSelectorUtils'
 
 /**
@@ -28,6 +29,7 @@ export class EhMytagsParser {
         t.tagId = m[1]
         t.tag = m[3]
         t.display = m[4]
+        t.translate = TagTranslationService.translateFullTag(t.tag)
         // EH style e.g. `color:#f1f1f1;border-color:#1357df;background:radial-gradient(#1357df,#3377FF)`.
         const col: RegExpMatchArray | null = m[2].match(/border-color:\s*(#[0-9a-fA-F]+)/)
         t.color = col !== null && col[1] !== undefined ? col[1] : ''

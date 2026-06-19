@@ -80,6 +80,7 @@ export { EhImagePageParser, ImagePageResult } from './parser/EhImagePageParser'
 // services
 export { ImageResolveService } from './services/ImageResolveService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
+export { TagTranslationService } from './services/TagTranslationService'
 
 // network
 export { EhCookieStore } from './network/EhCookieStore'
