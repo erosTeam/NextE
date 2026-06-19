@@ -671,7 +671,7 @@ Status: implemented / needs controller acceptance
 
 Implementation:
 
-- Changeset: pending commit for `style(gallery): unify comment badges`.
+- Changeset: `00b477b style(gallery): unify comment badges`.
 - Added centralized comment badge tokens in `ThemeConstants` and a shared `CommentBadge` builder in
   `GalleryCommentsCard`.
 - Changed `comment_uploader` to the short `UP` label in all locales.
