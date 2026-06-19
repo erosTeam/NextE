@@ -92,6 +92,13 @@ export class FavoritesViewModel {
     return this.favOrder === EhConstants.FAV_ORDER_POSTED
   }
 
+  /** Seed selector metadata from the shared restored snapshot before the first network response. */
+  seedFavList(favcats: Favcat[]): void {
+    if (this.favList.length === 0 && favcats.length > 0) {
+      this.mergeFavList(favcats)
+    }
+  }
+
   /**
    * Accumulate the favcat selector list across loads. EH OMITS the currently-selected favcat
    * from the bar (the active chip isn't a clickable `fp` element), so a filtered page's favList

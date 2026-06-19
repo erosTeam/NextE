@@ -20,10 +20,12 @@ import {
   ListMode,
   FavSelectionState,
   connectFavSelection,
+  FavcatListSettings,
   Favcat,
   SELECTOR_BAR_HEIGHT,
   ActiveKeyState,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 import { FavoritesViewModel } from '../viewmodel/FavoritesViewModel'
 
 /**
@@ -59,6 +61,7 @@ export struct FavcatPage {
   aboutToAppear(): void {
     // Fix this page to its favcat + the current global order before any load.
     this.vm.configure(this.favcatKey, this.favSel.orderByPosted)
+    this.vm.seedFavList(this.favSel.favList)
     if (this.isActive()) {
       this.loadOnce()
     }
@@ -113,6 +116,11 @@ export struct FavcatPage {
     const merged: Favcat[] = []
     byId.forEach((f: Favcat) => merged.push(f))
     this.favSel.favList = merged
+    FavcatListSettings.persist(this.ctx(), merged)
+  }
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
   private openDetail(g: EhGallery): void {

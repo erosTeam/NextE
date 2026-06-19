@@ -20,6 +20,7 @@ export class StorageKeys {
   static readonly LANGUAGE: string = 'app.language' // system/zh-CN/en-US/ja-JP
   static readonly SEARCH_HISTORY: string = 'search.history' // JSON array of recent query strings
   static readonly SEARCH_FILTER: string = 'search.filter' // JSON snapshot of advanced-search filters
+  static readonly FAVORITES_FAVCATS: string = 'favorites.favcats' // JSON [Favcat] selector snapshot
   static readonly VIEWED_HISTORY: string = 'viewed.history' // JSON [ViewedGallery] recently-viewed, newest first
   static readonly READING_DIRECTION: string = 'reading.direction' // ltr/rtl/vertical
   static readonly READING_PROGRESS: string = 'reading.progress' // JSON [{g,i,t}] per-gallery lastIndex

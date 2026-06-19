@@ -7,6 +7,7 @@ import { ReadModeSettings } from './ReadModeSettings'
 import { ThumbnailModeSettings } from './ThumbnailModeSettings'
 import { SearchHistorySettings } from './SearchHistorySettings'
 import { SearchFilterSettings } from './SearchFilterSettings'
+import { FavcatListSettings } from './FavcatListSettings'
 import { ViewedHistorySettings } from './ViewedHistorySettings'
 import { GalleryReadProgressSettings } from './GalleryReadProgressSettings'
 import { DownloadSettings } from './DownloadSettings'
@@ -34,6 +35,7 @@ export class SettingsBootstrap {
       await ThumbnailModeSettings.restore(context)
       await SearchHistorySettings.restore(context)
       await SearchFilterSettings.restore(context)
+      await FavcatListSettings.restore(context)
       await ViewedHistorySettings.restore(context)
       await GalleryReadProgressSettings.restore(context)
       await DownloadSettings.restore(context)

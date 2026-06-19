@@ -290,9 +290,7 @@
 - [ ] **P1** [dev] _missed-logic_ · Bidirectional paging + jump-to-page / jump-to-date (seek) navigator missing
     - 修:Add a jump entry point in the favorites title bar (HDS menu/button) opening an HDS dialog with (a) page input bounded by maxPage and (b) a date picker for seek (yyyy-MM-dd). Wire FavoritesViewModel to consume prevGid/prevPage and support keepPosition (anchor s
     - 验:截图比对(NextE vs eros_fe 同页)
-- [ ] **P1** [now] _missed-logic_ · Favcat bar not seeded with the 10 default slots; depends entirely on a successful parse
-    - 修:Seed favList from a persisted AppStorageV2 favcat snapshot, falling back to the 10 default slots (Favorites 0..9) like EHConst.favList, with a synthetic 'a' (count = sum of slots) and 'l' (local count). Persist the parsed favcat list (names/counts) so it's ava
-    - 验:契约测试 + 构建
+- [x] **P1** [now] _missed-logic_ · Favcat remote-slot seed + persisted snapshot — DONE. `FavSelectionState` already seeds `Favorites 0..9`; added `FavcatListSettings` to restore/persist parsed 0-9 favcat names/counts, bootstrap restore, `FavoritesViewModel.seedFavList()`, and `FavcatPage` persistence after parse. Remaining local `l` and synthetic all-count belong to the local favorites lane.
 - [ ] **P2** [dev] _ui-native_ · Sort-order toggle is reachable only in list/simple-list mode, not in grid mode; hand-rolled inline pill instead of HDS
     - 修:Move the sort control into the favorites title bar (HDS) as a single affordance present in all layouts, opening an HDS action sheet/menu listing 'By favorited time' / 'By posted time' with the current selection checked (mirror showFavOrder), and persist the ch
     - 验:截图比对(NextE vs eros_fe 同页)
