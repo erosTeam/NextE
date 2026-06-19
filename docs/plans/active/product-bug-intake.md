@@ -2044,7 +2044,7 @@ Type: bug / reading UX gap
 
 Priority suggestion: P1
 
-Status: reopened / active - current gesture feel not accepted
+Status: implemented / pending controller acceptance
 
 Implementation:
 
@@ -2088,12 +2088,21 @@ Evidence:
   viewport, and `uinput -T -m` pinch changed the zoomed viewport again. Key artifacts:
   `reader_clean_initial.png/json`, `reader_clean_fit_swipe.png/json`,
   `reader_clean_doubletap.png/json`, `reader_clean_drag.png`, and `reader_clean_pinch.png/json`.
+- Current-main acceptance rerun on Mate X7 simulator `127.0.0.1:5555`, signed HAP installed with hdc
+  outside sandbox: Reader opened from the public Rockman gallery in double-page mode, center tap showed
+  chrome without changing page/zoom, left-page double tap zoomed without chrome, zoomed horizontal pan
+  moved the image instead of turning the page, fit-state swipe turned to the next spread, and two-finger
+  `uinput -T -m` pinch changed the viewport. Android `eros_fe` was launched with ADB `su` on
+  `fa967a75`; the same gallery detail and Reader reference were captured for product-behavior context.
+  Evidence directory: `.hvigor/outputs/reader-current-acceptance/`, especially `ready.png`,
+  `center.png`, `left_zoom.png`, `zoom_pan.png`, `after_swipe.png`, `pinch.png`,
+  `fe_reference.png`, and `fe_reader_try.png`.
 
 Remaining acceptance:
 
-- Current user feedback rejects the gesture feel as still unreliable. Do not mark this accepted.
-  Treat the follow-up "Reader Gesture Arena Conflicts Need PhotoView-Like Rework" item as the active
-  lane before further Reader visual/loading enhancements.
+- Controller/user acceptance is still required before marking this accepted. Do not reopen the old
+  center-only / vertical-only-pan baseline unless new current-main device evidence contradicts the
+  acceptance rerun above.
 - Implementation commit: `8b12dc3 fix(reader): restore zoom surface gestures`.
 
 Source:
@@ -2134,7 +2143,7 @@ Type: P0 bug / reading core usability
 
 Priority suggestion: P0
 
-Status: active / partial implementation pending broader gesture acceptance
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -2232,6 +2241,12 @@ Source:
   `.hvigor/outputs/reader-tap-overlay/fe_reference.png`; attempts to enter FE Reader through `su input
   tap` did not navigate on that Android target, so this follow-up should remain pending controller/device
   acceptance rather than accepted.
+- Current-main acceptance rerun after `fa42941`: Android `eros_fe` did enter Reader after an ADB `su`
+  tap on the same gallery; FE evidence is `.hvigor/outputs/reader-current-acceptance/fe_reference.png`
+  and `.hvigor/outputs/reader-current-acceptance/fe_reader_try.png`. NextE Mate X7 simulator evidence in
+  the same directory covers ready state, center tap, left-page double tap, zoomed pan, fit-state page
+  swipe, and `uinput -T -m` pinch. This supports moving the item to implemented / pending controller
+  acceptance, not accepted.
 - User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
   enough to affect normal reading.
 - Previous read-only code inspection found double-tap captured on the parent Reader/Swiper via
@@ -2248,8 +2263,8 @@ Source:
 Observed / acceptance risk:
 
 - The tap-overlay follow-up has current device evidence that double-tap zoom no longer summons top/bottom
-  chrome and fit-state horizontal swipe still turns pages, but this is pending controller acceptance and
-  broader ReaderPager architecture review.
+  chrome, zoomed pan does not turn pages, pinch changes the viewport, and fit-state horizontal swipe still
+  turns pages, but this is pending controller acceptance and broader ReaderPager architecture review.
 - Gesture ownership can still be fragile across page swipe, double tap, pinch, pan, and center tap until
   accepted on more Reader scenarios.
 - Zoomed-image interaction still needs broader PhotoView-like acceptance, especially pinch feel and any
