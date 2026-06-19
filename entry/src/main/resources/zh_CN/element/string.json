@@ -41,6 +41,10 @@
       "value": "下载"
     },
     {
+      "name": "tab_history",
+      "value": "历史"
+    },
+    {
       "name": "download_archiver",
       "value": "归档"
     },
@@ -615,6 +619,14 @@
     {
       "name": "settings_reader",
       "value": "阅读"
+    },
+    {
+      "name": "history_empty",
+      "value": "还没有浏览历史"
+    },
+    {
+      "name": "history_clear",
+      "value": "清空"
     },
     {
       "name": "settings_reader_direction",

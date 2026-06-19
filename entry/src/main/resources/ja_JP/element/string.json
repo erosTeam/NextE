@@ -41,6 +41,10 @@
       "value": "ダウンロード"
     },
     {
+      "name": "tab_history",
+      "value": "履歴"
+    },
+    {
       "name": "download_archiver",
       "value": "アーカイブ"
     },
@@ -615,6 +619,14 @@
     {
       "name": "settings_reader",
       "value": "閲覧"
+    },
+    {
+      "name": "history_empty",
+      "value": "閲覧履歴はまだありません"
+    },
+    {
+      "name": "history_clear",
+      "value": "クリア"
     },
     {
       "name": "settings_reader_direction",

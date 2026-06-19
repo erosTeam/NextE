@@ -41,6 +41,10 @@
       "value": "Downloads"
     },
     {
+      "name": "tab_history",
+      "value": "History"
+    },
+    {
       "name": "download_archiver",
       "value": "Archiver"
     },
@@ -615,6 +619,14 @@
     {
       "name": "settings_reader",
       "value": "Reading"
+    },
+    {
+      "name": "history_empty",
+      "value": "No viewed galleries yet."
+    },
+    {
+      "name": "history_clear",
+      "value": "Clear"
     },
     {
       "name": "settings_reader_direction",

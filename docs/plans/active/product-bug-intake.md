@@ -1762,7 +1762,7 @@ Type: feature gap / settings reachability
 
 Priority suggestion: P1
 
-Status: implemented / pending device acceptance
+Status: implemented / needs controller acceptance
 
 Source:
 
@@ -1807,3 +1807,62 @@ Remaining acceptance:
 - Needs controller/user acceptance of the Settings root screenshot and ReaderSettings navigation
   evidence. No further device validation is required unless Settings root or ReaderSettings routing
   changes again.
+
+### Viewed History Data Has No User Surface
+
+Type: feature gap / navigation reachability
+
+Priority suggestion: P1
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- `docs/ui-architecture-audit.md` F3/M5: History had a model, persisted state, and detail-page write
+  path, but no user-facing page or entry point.
+
+Grounding:
+
+- `eros_fe` exposes History as an optional tab in
+  `/Users/honjow/git/eros_fe/lib/pages/tab/controller/tabhome_controller.dart`, backed by
+  `/Users/honjow/git/eros_fe/lib/pages/tab/view/history_page.dart`.
+- The FE History page renders recently viewed galleries, supports pull/sync, and has a clear-history
+  title-bar action. NextE already records a lightweight `ViewedGallery` 5 seconds after detail open,
+  matching the FE debounce semantics.
+
+Implementation:
+
+- Added `ViewedHistoryPage` under `feature/user`, reading `connectViewedHistory()` and rendering stored
+  entries in an HDS secondary list.
+- Added a Settings root `历史` row that pushes the new `History` route.
+- History rows show cover/title/category/page-count/uploader/time and click through to `GalleryDetail`
+  with title/thumb seed params.
+- Added a title-bar clear-history action wired to `ViewedHistorySettings.clear()`.
+- Scope is limited to local history reachability. It does not add a configurable History bottom tab,
+  WebDAV/MySQL sync, history deletion confirmation, or per-row delete.
+
+Evidence:
+
+- Android FE comparison: ADB target `fa967a75`, launched with
+  `/opt/homebrew/bin/adb shell su -c 'am start -n com.honjow.fehviewer/.MainActivity'`; foreground
+  confirmed by `dumpsys window`; screenshot captured at
+  `/private/tmp/nexte_viewed_history_fe_reference/fe_foreground.png`. Source grounding confirms FE
+  History as a tab list with a clear action.
+- Deterministic contracts: `scripts/test_viewed_history_contract.mjs`,
+  `scripts/test_viewed_history_surface_contract.mjs`.
+- Gates: `scripts/test_viewed_history_surface_contract.mjs`,
+  `scripts/test_viewed_history_contract.mjs`, `scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/check_i18n_duplicates.py`, `git diff --check`, and official signed Hvigor build through
+  `scripts/build_hvigor_signed.sh`.
+- Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
+  opened a real gallery detail, waited past the 5s viewed-history debounce, entered Settings ->
+  `历史`, saw a real history list with cover/title/meta/time, and clicked the first history row back
+  into the matching GalleryDetail page. Evidence directory:
+  `/private/tmp/nexte_viewed_history_acceptance/`, especially `settings.png`,
+  `history_page.png`, `history_page.json`, `back_detail.png`, and `back_detail.json`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the Settings entry, History list, and history-row-to-detail
+  screenshots. No further device validation is required unless History route, Settings entry, or
+  viewed-history persistence changes again.

@@ -41,7 +41,7 @@ import { FavcatBarCCBuilder } from '../components/FavcatBar'
 import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
 import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
-import { FavoritesPage, MyTagsPage } from 'user'
+import { FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
 import { SettingsPage, ReaderSettingsPage, DownloadSettingsPage } from 'settings'
 import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryAllThumbnailsPage, GalleryCommentsPage } from 'gallery'
 import { ReaderPage } from 'reader'
@@ -332,6 +332,8 @@ struct Index {
       EhCookieImportPage()
     } else if (name === 'MyTags') {
       MyTagsPage()
+    } else if (name === 'History') {
+      ViewedHistoryPage()
     } else if (name === 'AllThumbnails') {
       GalleryAllThumbnailsPage()
     } else if (name === 'GalleryComments') {

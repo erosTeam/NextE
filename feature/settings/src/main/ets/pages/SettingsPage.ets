@@ -142,6 +142,14 @@ export struct SettingsPage {
         },
       })
       this.rowDivider()
+      ConciseListRow({
+        title: $r('app.string.tab_history'),
+        leadingIcon: $r('sys.symbol.clock'),
+        action: () => {
+          this.stack.pushPathByName('History', null)
+        },
+      })
+      this.rowDivider()
       // eros_fe fixedHeightOfListItems (default true): uniform cover-height list rows vs adaptive rows that
       // grow with content. Applies to the list-row card (List / WaterFlow); simple + grid keep their layouts.
       ConciseListRow({
