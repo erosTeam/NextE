@@ -8,11 +8,10 @@ import { UserTagStore } from '../state/UserTagStore'
 import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
 import { connectSearchAction } from '../state/SearchActionState'
 
-const GRID_TAG_LIMIT: number = 8
-
 /**
  * Cover-first gallery card for the grid view. eros_fe's grid is a browsing wall: the cover is the
- * primary information, title + tags are secondary, and page/fav/language state is overlaid on the image.
+ * primary information, title + bounded tags are secondary, and page/fav/language state is overlaid on
+ * the image. The info block is fixed-height so Grid rows stay aligned instead of drifting into masonry.
  */
 @ComponentV2
 export struct GalleryGridCard {
@@ -62,7 +61,7 @@ export struct GalleryGridCard {
     if (this.gallery.simpleTags.length > 0) {
       Flex({ wrap: FlexWrap.Wrap }) {
         ForEach(
-          this.gallery.simpleTags.slice(0, GRID_TAG_LIMIT),
+          this.gallery.simpleTags.slice(0, ThemeConstants.GALLERY_GRID_TAG_LIMIT),
           (t: SimpleTag) => {
             Text(t.display())
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
@@ -81,7 +80,8 @@ export struct GalleryGridCard {
           },
           (t: SimpleTag) => `${this.tagSig.version}:${t.namespace}:${t.text}`,
         )
-      }.width('100%')
+      }
+      .width('100%')
     }
   }
 
@@ -123,13 +123,24 @@ export struct GalleryGridCard {
         .padding({ left: 7, right: 7, top: 3, bottom: 3 })
         .position({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
       }.width('100%')
-      Text(this.gallery.title())
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor($r('sys.color.font_primary'))
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        Text(this.gallery.title())
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .height(ThemeConstants.GALLERY_GRID_TITLE_HEIGHT)
+          .width('100%')
+        Stack({ alignContent: Alignment.TopStart }) {
+          this.tagChips()
+        }
+        .height(ThemeConstants.GALLERY_GRID_TAG_AREA_HEIGHT)
         .width('100%')
-      this.tagChips()
+        .clip(true)
+      }
+      .width('100%')
+      .height(ThemeConstants.GALLERY_GRID_INFO_HEIGHT)
+      .justifyContent(FlexAlign.Start)
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)

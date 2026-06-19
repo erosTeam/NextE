@@ -117,6 +117,10 @@ export class ThemeConstants {
   static readonly GALLERY_GRID_MIN_W: number = 150
   static readonly GALLERY_GRID_GAP: number = 6
   static readonly GALLERY_GRID_COVER_RATIO: number = 0.7
+  static readonly GALLERY_GRID_INFO_HEIGHT: number = 126
+  static readonly GALLERY_GRID_TITLE_HEIGHT: number = 44
+  static readonly GALLERY_GRID_TAG_AREA_HEIGHT: number = 58
+  static readonly GALLERY_GRID_TAG_LIMIT: number = 2
 
   // Line heights
   static readonly LINE_HEIGHT_TITLE: number = 22

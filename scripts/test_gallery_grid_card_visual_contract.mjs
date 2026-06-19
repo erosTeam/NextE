@@ -33,9 +33,9 @@ ok('grounding: eros_fe grid uses a cover-first card',
 ok('grounding: eros_fe overlays translated/category and count/favorite state on cover',
   /RotatedCornerDecoration\.withColor[\s\S]*galleryProvider\.translated/.test(fe) &&
     /Positioned\([\s\S]*bottom: 4[\s\S]*right: 4[\s\S]*_buildFavCatIcon\(\)[\s\S]*_buildCount\(\)/.test(fe))
-ok('NextE grid card reads usertag signal and renders tag chips',
+ok('NextE grid card reads usertag signal and renders a bounded tag-chip sample',
   /private tagSig: UserTagSignal = connectUserTagSignal\(\)/.test(src) &&
-    /@Builder\s+tagChips\(\)[\s\S]*this\.gallery\.simpleTags\.slice\(0, GRID_TAG_LIMIT\)/.test(src))
+    /@Builder\s+tagChips\(\)[\s\S]*this\.gallery\.simpleTags\.slice\(0,\s*ThemeConstants\.GALLERY_GRID_TAG_LIMIT\)/.test(src))
 ok('NextE grid tags reuse the same usertag color semantics as list cards',
   /UserTagStore\.getInstance\(\)\.lookup\(t\.namespace, t\.text\)/.test(src) &&
     /\(t: SimpleTag\) => `\$\{this\.tagSig\.version\}:\$\{t\.namespace\}:\$\{t\.text\}`/.test(src))
@@ -43,6 +43,12 @@ ok('NextE grid card overlays language and page/favorite state on the cover',
   /Stack\(\{ alignContent: Alignment\.TopStart \}\)[\s\S]*EhThumbnail\([\s\S]*if \(this\.gallery\.translated\.length > 0\)[\s\S]*backgroundColor\(EhConstants\.categoryColor\(this\.gallery\.category\)\)[\s\S]*position\(\{ right: ThemeConstants\.SPACE_XS, bottom: ThemeConstants\.SPACE_XS \}\)/.test(src))
 ok('NextE grid title stays below the cover and is readable body text',
   /Text\(this\.gallery\.title\(\)\)[\s\S]*fontSize\(ThemeConstants\.FONT_SIZE_BODY\)[\s\S]*maxLines\(2\)/.test(src))
+ok('NextE grid card keeps fixed card rhythm instead of tag-driven masonry height',
+  /height\(ThemeConstants\.GALLERY_GRID_TITLE_HEIGHT\)/.test(src) &&
+    /height\(ThemeConstants\.GALLERY_GRID_TAG_AREA_HEIGHT\)/.test(src) &&
+    /clip\(true\)/.test(src) &&
+    /height\(ThemeConstants\.GALLERY_GRID_INFO_HEIGHT\)/.test(src) &&
+    !/const GRID_TAG_LIMIT/.test(src))
 ok('NextE grid does not render the old rating row',
   !/RatingStars\(/.test(src) && !/ratingFallBack/.test(src))
 ok('NextE grid does not render the old category/page metadata row below the title',
