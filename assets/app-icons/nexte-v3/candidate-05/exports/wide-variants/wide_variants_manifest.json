@@ -1,0 +1,128 @@
+{
+  "defaultVariant": "W02",
+  "note": "Formal W01-W12 candidate set. Geometry unchanged from candidate-05.",
+  "preview": "AppScope/resources/base/media/app_icon_nexte_pages_wide_variants_preview.png",
+  "sizePreview": "AppScope/resources/base/media/app_icon_nexte_pages_wide_variants_size_preview.png",
+  "variants": [
+    {
+      "id": "W01",
+      "name": "Current Aqua",
+      "note": "current direction",
+      "source": "color-studies/00-aqua-current.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w01.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w01_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w01_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w01_layered.json"
+    },
+    {
+      "id": "W02",
+      "name": "Porcelain Ink",
+      "note": "light neutral",
+      "source": "color-studies-free/F01-porcelain-ink.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w02.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w02_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w02_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w02_layered.json"
+    },
+    {
+      "id": "W03",
+      "name": "Lavender Peach",
+      "note": "purple warm",
+      "source": "color-studies-free/F02-lavender-peach.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w03.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w03_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w03_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w03_layered.json"
+    },
+    {
+      "id": "W04",
+      "name": "Rose Cobalt",
+      "note": "rose contrast",
+      "source": "color-studies-free/F03-rose-cobalt.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w04.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w04_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w04_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w04_layered.json"
+    },
+    {
+      "id": "W05",
+      "name": "Champagne Prism",
+      "note": "warm gold",
+      "source": "color-studies-free/F04-champagne-prism.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w05.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w05_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w05_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w05_layered.json"
+    },
+    {
+      "id": "W06",
+      "name": "Slate Citrus",
+      "note": "graphite lime",
+      "source": "color-studies-free/F05-slate-citrus.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w06.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w06_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w06_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w06_layered.json"
+    },
+    {
+      "id": "W07",
+      "name": "Cloud Berry",
+      "note": "light blue",
+      "source": "color-studies-free/F06-cloud-berry.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w07.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w07_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w07_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w07_layered.json"
+    },
+    {
+      "id": "W08",
+      "name": "Coral Paper",
+      "note": "warm coral",
+      "source": "color-studies-free/F08-coral-paper.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w08.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w08_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w08_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w08_layered.json"
+    },
+    {
+      "id": "W09",
+      "name": "Graphite Pearl",
+      "note": "dark neutral",
+      "source": "color-studies-free/F09-graphite-pearl.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w09.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w09_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w09_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w09_layered.json"
+    },
+    {
+      "id": "W10",
+      "name": "Azure Coral",
+      "note": "blue coral",
+      "source": "color-studies-free/F10-azure-coral.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w10.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w10_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w10_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w10_layered.json"
+    },
+    {
+      "id": "W11",
+      "name": "Ivory Mono",
+      "note": "muted ivory",
+      "source": "color-studies-free/F11-ivory-mono.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w11.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w11_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w11_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w11_layered.json"
+    },
+    {
+      "id": "W12",
+      "name": "Soft Amber",
+      "note": "balanced amber",
+      "source": "color-studies-balanced/C03-soft-amber.png",
+      "flat": "AppScope/resources/base/media/app_icon_nexte_pages_w12.png",
+      "background": "AppScope/resources/base/media/app_icon_nexte_pages_w12_background.png",
+      "foreground": "AppScope/resources/base/media/app_icon_nexte_pages_w12_foreground.png",
+      "layeredJson": "AppScope/resources/base/media/app_icon_nexte_pages_w12_layered.json"
+    }
+  ]
+}
