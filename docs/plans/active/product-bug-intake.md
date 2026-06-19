@@ -1184,6 +1184,62 @@ Closure:
   `scripts/test_search_input_contract.mjs`; the device pass covers the running signed app's search
   submission path. No product code changed in this acceptance update.
 
+### Search History Cannot Delete One Entry
+
+Type: search UX gap
+
+Priority suggestion: P2
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- `eros_fe/lib/pages/tab/view/search_page.dart` wires search-history chips with a long-press delete
+  affordance.
+- `eros_fe/lib/pages/tab/controller/search_page_controller.dart` persists `removeHistory()` and caps
+  search history at 100 entries.
+
+Current baseline:
+
+- SearchFilter visual shape, filter action placement, and Search title/header auto-hide behavior are
+  not part of this item and must remain unchanged.
+
+Observed behavior:
+
+- Before this fix, NextE search history chips could only be searched or cleared as a whole list.
+- History retention was capped below eros_fe's 100-entry behavior.
+
+Expected behavior:
+
+- Tapping a history chip still runs that query.
+- Long-pressing one history chip removes only that entry, persists the remaining list, and gives
+  lightweight feedback.
+- The retained history cap is 100 entries.
+
+Implementation:
+
+- `e35d181 fix(search): delete individual history entries`.
+- `SearchHistorySettings` now caps at 100, exposes `remove(context, query)`, filters only the exact
+  target query, and persists the remaining ordered list.
+- `GallerySearchPage` adds a long-press gesture on each history chip and shows the localized
+  `search_history_deleted` toast after removal.
+- Scope is deliberately limited to retention and single-entry deletion. Translated-history subtitles
+  and eros_fe's append-to-field chip behavior remain parity backlog items.
+
+Evidence:
+
+- FE ADB reference: Android device `fa967a75`, eros_fe package `com.honjow.fehviewer`, screenshot
+  `/private/tmp/nexte_search_history_evidence/fe_search_history.png`.
+- NextE HarmonyOS evidence: target `127.0.0.1:5555`, signed HAP installed, screenshots/layout dumps
+  under `/private/tmp/nexte_search_history_evidence/`; `search_before_layout.json` includes `webtoon`
+  as the first history chip, and `after_delete_layout.json` shows that `webtoon` was removed while
+  following chips remain.
+- Deterministic contract: `scripts/test_search_history_contract.mjs`.
+
+Remaining acceptance:
+
+- Needs controller/user acceptance of the long-press delete behavior and before/after device evidence.
+
 ### Reader Layout, Gesture, And Loading Stack Is Broken
 
 Type: P0 incident / reading core usability
