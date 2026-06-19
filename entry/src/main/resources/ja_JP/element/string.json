@@ -729,6 +729,10 @@
       "value": "表示形式"
     },
     {
+      "name": "settings_layout",
+      "value": "レイアウト"
+    },
+    {
       "name": "settings_download",
       "value": "ダウンロード"
     },

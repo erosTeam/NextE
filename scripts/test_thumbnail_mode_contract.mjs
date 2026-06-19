@@ -11,7 +11,7 @@
  *   • GalleryPreviewGrid dispatches three modes (hidden / horizontal / grid-default) and the
  *     all-thumbnails entry (onMore) is reachable in EVERY mode;
  *   • GalleryDetailPage passes both toggles into the preview component;
- *   • SettingsPage exposes both as switch rows wired to the setters;
+ *   • LayoutSettingsPage exposes both as switch rows wired to the setters;
  *   • the AllThumbnails route stays registered + pushed (functional).
  *
  * Run: node scripts/test_thumbnail_mode_contract.mjs   (exit 1 on any failure)
@@ -104,11 +104,11 @@ ok(/connectThumbnailMode\(\)/.test(detail), 'GalleryDetailPage connects the thum
 ok(/horizontal:\s*this\.thumbMode\.horizontalThumbnails/.test(detail), 'detail passes horizontal toggle')
 ok(/hidden:\s*this\.thumbMode\.hideGalleryThumbnails/.test(detail), 'detail passes hidden toggle')
 
-// 6. Settings page: two switch rows wired to the setters.
-const settingsPage = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
-ok(/settings_hide_gallery_thumbnails/.test(settingsPage) && /setHideGalleryThumbnails\(/.test(settingsPage), 'settings page has the hide-thumbnails switch')
-ok(/settings_horizontal_thumbnails/.test(settingsPage) && /setHorizontalThumbnails\(/.test(settingsPage), 'settings page has the horizontal-thumbnails switch')
-ok((settingsPage.match(/hasSwitch:\s*true/g) || []).length >= 2, 'both thumbnail rows are real switches')
+// 6. Layout settings page: two switch rows wired to the setters.
+const layoutSettingsPage = read('feature/settings/src/main/ets/pages/LayoutSettingsPage.ets')
+ok(/settings_hide_gallery_thumbnails/.test(layoutSettingsPage) && /setHideGalleryThumbnails\(/.test(layoutSettingsPage), 'layout settings page has the hide-thumbnails switch')
+ok(/settings_horizontal_thumbnails/.test(layoutSettingsPage) && /setHorizontalThumbnails\(/.test(layoutSettingsPage), 'layout settings page has the horizontal-thumbnails switch')
+ok((layoutSettingsPage.match(/hasSwitch:\s*true/g) || []).length >= 2, 'both thumbnail rows are real switches')
 
 // 7. AllThumbnails route stays functional.
 const navShell = read('entry/src/main/ets/pages/Index.ets')

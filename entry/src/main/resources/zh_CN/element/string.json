@@ -729,6 +729,10 @@
       "value": "列表视图"
     },
     {
+      "name": "settings_layout",
+      "value": "布局"
+    },
+    {
       "name": "settings_download",
       "value": "下载"
     },

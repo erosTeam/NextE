@@ -729,6 +729,10 @@
       "value": "List view"
     },
     {
+      "name": "settings_layout",
+      "value": "Layout"
+    },
+    {
       "name": "settings_download",
       "value": "Downloads"
     },

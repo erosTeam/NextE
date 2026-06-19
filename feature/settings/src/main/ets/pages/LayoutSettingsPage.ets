@@ -1,0 +1,168 @@
+import { HdsNavDestination } from '@kit.UIDesignKit'
+import { common } from '@kit.AbilityKit'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
+import {
+  AppStrings,
+  ConciseListRow,
+  GroupedListSection,
+  ListMode,
+  ListModeSettings,
+  ListModeState,
+  SecondaryListScaffold,
+  ThemeConstants,
+  ThumbnailModeSettings,
+  ThumbnailModeState,
+  connectListMode,
+  connectThumbnailMode,
+  immersiveTitleBar,
+} from 'shared'
+
+/**
+ * Layout settings page grounded in eros_fe LayoutSettingPage. This lane only moves existing NextE
+ * layout controls into a dedicated settings child page; theme, locale, tag translation, and tabbar
+ * customization remain separate future lanes.
+ */
+@ComponentV2
+export struct LayoutSettingsPage {
+  @Local listMode: ListModeState = connectListMode();
+  @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
+  @Local viewMenuShown: boolean = false;
+  private scroller: Scroller = new Scroller();
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private viewModeLabel(): Resource {
+    if (this.listMode.mode === ListMode.GRID) {
+      return $r('app.string.view_grid')
+    }
+    if (this.listMode.mode === ListMode.SIMPLE_LIST) {
+      return $r('app.string.view_simple')
+    }
+    return $r('app.string.view_list')
+  }
+
+  private setViewMode(mode: string): void {
+    ListModeSettings.setMode(this.ctx(), mode)
+  }
+
+  private setFixedHeight(value: boolean): void {
+    ListModeSettings.setFixedHeight(this.ctx(), value)
+  }
+
+  private setHideGalleryThumbnails(value: boolean): void {
+    ThumbnailModeSettings.setHideGalleryThumbnails(this.ctx(), value)
+  }
+
+  private setHorizontalThumbnails(value: boolean): void {
+    ThumbnailModeSettings.setHorizontalThumbnails(this.ctx(), value)
+  }
+
+  @Builder
+  ViewModeMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.view_list'),
+        symbolEndIcon: this.listMode.mode === ListMode.LIST
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setViewMode(ListMode.LIST)
+        this.viewMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.view_simple'),
+        symbolEndIcon: this.listMode.mode === ListMode.SIMPLE_LIST
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setViewMode(ListMode.SIMPLE_LIST)
+        this.viewMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.view_grid'),
+        symbolEndIcon: this.listMode.mode === ListMode.GRID
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setViewMode(ListMode.GRID)
+        this.viewMenuShown = false
+      })
+    }
+  }
+
+  @Builder
+  private rowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
+  }
+
+  build() {
+    HdsNavDestination() {
+      SecondaryListScaffold({
+        scroller: this.scroller,
+        bottomPadding: ThemeConstants.SPACE_XL,
+      }) {
+        ListItem() {
+          Column() {
+            GroupedListSection() {
+              ConciseListRow({
+                title: $r('app.string.settings_view'),
+                leadingIcon: $r('sys.symbol.square_grid_2x2'),
+                trailingText: this.viewModeLabel(),
+                trailingDropdown: true,
+                action: () => {
+                  this.viewMenuShown = true
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.settings_list_fixed_height'),
+                leadingIcon: $r('sys.symbol.rectangle_grid_1x2'),
+                hasSwitch: true,
+                checked: this.listMode.fixedHeight,
+                switchAction: (value: boolean) => {
+                  this.setFixedHeight(value)
+                },
+              })
+            }
+          }
+          .bindMenu(this.viewMenuShown, this.ViewModeMenu, {
+            placement: Placement.Bottom,
+            onDisappear: () => {
+              this.viewMenuShown = false
+            },
+          })
+        }
+        ListItem() {
+          GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.settings_hide_gallery_thumbnails'),
+              leadingIcon: $r('sys.symbol.picture'),
+              hasSwitch: true,
+              checked: this.thumbMode.hideGalleryThumbnails,
+              switchAction: (value: boolean) => {
+                this.setHideGalleryThumbnails(value)
+              },
+            })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.settings_horizontal_thumbnails'),
+              leadingIcon: $r('sys.symbol.square_fill_grid_2x2'),
+              hasSwitch: true,
+              checked: this.thumbMode.horizontalThumbnails,
+              switchAction: (value: boolean) => {
+                this.setHorizontalThumbnails(value)
+              },
+            })
+          }
+        }
+      }
+    }
+    .titleBar(immersiveTitleBar(AppStrings.get('settings_layout')))
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+  }
+}

@@ -2,7 +2,7 @@
 /**
  * Contract for the gallery LIST-row height mode (eros_fe `fixedHeightOfListItems`) across
  *   shared/state/ListModeState.ets · shared/settings/ListModeSettings.ets · shared/constants/StorageKeys.ets
- *   shared/components/GalleryCard.ets · feature/settings/.../SettingsPage.ets · 4 locale string.json
+ *   shared/components/GalleryCard.ets · feature/settings/.../LayoutSettingsPage.ets · 4 locale string.json
  *
  * Locks the P1 acceptance gate (gallery-visual-navigation-regression-contract.md → "List card height
  * modes"): NextE must expose BOTH eros_fe layouts as an OPTIONAL user setting (not one forced layout):
@@ -14,7 +14,7 @@
  *   • NO cover stretch/crop regression: the list card keeps containFit:true with parsed source dimensions
  *     in BOTH modes (preserves the cover-presentation fix — never ImageFit.Cover side-crop or intrinsic
  *     image height driving row height);
- *   • the setting is wired into the Settings page (toggle → setFixedHeight) and i18n'd in all 4 locales.
+ *   • the setting is wired into the Layout settings page (toggle → setFixedHeight) and i18n'd in all 4 locales.
  * Mirror any change here.
  *
  * Run: node scripts/test_list_height_mode_contract.mjs   (exit 1 on any failure)
@@ -93,12 +93,12 @@ const ok = (name, cond) => {
   ok('list cover no longer uses stretchHeight, so image intrinsic height cannot drive row height', !/stretchHeight:\s*true/.test(c))
 }
 
-// 4. Settings page exposes the toggle, wired to the single writer (an OPTIONAL setting, not forced).
+// 4. Layout settings page exposes the toggle, wired to the single writer (an OPTIONAL setting, not forced).
 {
-  const p = src('feature/settings/src/main/ets/pages/SettingsPage.ets')
-  ok('Settings row uses the settings_list_fixed_height label', /settings_list_fixed_height/.test(p))
-  ok('Settings toggle reflects the current fixedHeight', /checked:\s*this\.listMode\.fixedHeight/.test(p))
-  ok('Settings toggle routes through ListModeSettings.setFixedHeight', /ListModeSettings\.setFixedHeight\(/.test(p))
+  const p = src('feature/settings/src/main/ets/pages/LayoutSettingsPage.ets')
+  ok('Layout settings row uses the settings_list_fixed_height label', /settings_list_fixed_height/.test(p))
+  ok('Layout settings toggle reflects the current fixedHeight', /checked:\s*this\.listMode\.fixedHeight/.test(p))
+  ok('Layout settings toggle routes through ListModeSettings.setFixedHeight', /ListModeSettings\.setFixedHeight\(/.test(p))
 }
 
 // 5. i18n: the toggle label exists and is non-empty in every locale (parity is enforced separately).

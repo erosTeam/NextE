@@ -8,13 +8,6 @@ import {
   connectNavStack,
   CookieJarSettings,
   SiteModeSettings,
-  connectListMode,
-  ListModeState,
-  ListMode,
-  ListModeSettings,
-  connectThumbnailMode,
-  ThumbnailModeState,
-  ThumbnailModeSettings,
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
@@ -30,9 +23,6 @@ import {
 export struct SettingsPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local auth: AuthState = connectAuth();
-  @Local listMode: ListModeState = connectListMode();
-  // Detail-preview display mode (eros_fe hideGalleryThumbnails / horizontalThumbnails); both default off.
-  @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
   private stack: NavPathStack = connectNavStack().stack;
   // Index-owned scroller for this tab (title-bar scroll-up auto-hide via bindToScrollable).
   @Param scroller: Scroller = new Scroller();
@@ -118,11 +108,10 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
-        title: $r('app.string.settings_view'),
+        title: $r('app.string.settings_layout'),
         leadingIcon: $r('sys.symbol.square_grid_2x2'),
-        trailingText: this.viewModeLabel(),
         action: () => {
-          this.toggleView()
+          this.stack.pushPathByName('LayoutSettings', null)
         },
       })
       this.rowDivider()
@@ -158,44 +147,6 @@ export struct SettingsPage {
         },
       })
       this.rowDivider()
-      // eros_fe fixedHeightOfListItems (default true): uniform cover-height list rows vs adaptive rows that
-      // grow with content. Applies to the list-row card (List / WaterFlow); simple + grid keep their layouts.
-      ConciseListRow({
-        title: $r('app.string.settings_list_fixed_height'),
-        leadingIcon: $r('sys.symbol.rectangle_grid_1x2'),
-        hasSwitch: true,
-        checked: this.listMode.fixedHeight,
-        switchAction: (value: boolean) => {
-          const ctx: common.UIAbilityContext =
-            this.getUIContext().getHostContext() as common.UIAbilityContext
-          ListModeSettings.setFixedHeight(ctx, value)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
-        title: $r('app.string.settings_hide_gallery_thumbnails'),
-        leadingIcon: $r('sys.symbol.picture'),
-        hasSwitch: true,
-        checked: this.thumbMode.hideGalleryThumbnails,
-        switchAction: (value: boolean) => {
-          const ctx: common.UIAbilityContext =
-            this.getUIContext().getHostContext() as common.UIAbilityContext
-          ThumbnailModeSettings.setHideGalleryThumbnails(ctx, value)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
-        title: $r('app.string.settings_horizontal_thumbnails'),
-        leadingIcon: $r('sys.symbol.square_fill_grid_2x2'),
-        hasSwitch: true,
-        checked: this.thumbMode.horizontalThumbnails,
-        switchAction: (value: boolean) => {
-          const ctx: common.UIAbilityContext =
-            this.getUIContext().getHostContext() as common.UIAbilityContext
-          ThumbnailModeSettings.setHorizontalThumbnails(ctx, value)
-        },
-      })
-      this.rowDivider()
       ConciseListRow({
         title: $r('app.string.settings_about'),
         leadingIcon: $r('sys.symbol.info_circle'),
@@ -227,31 +178,6 @@ export struct SettingsPage {
         .getPromptAction()
         .showToast({ message: $r('app.string.site_ex_locked') })
     }
-  }
-
-  private viewModeLabel(): Resource {
-    if (this.listMode.mode === ListMode.GRID) {
-      return $r('app.string.view_grid')
-    }
-    if (this.listMode.mode === ListMode.SIMPLE_LIST) {
-      return $r('app.string.view_simple')
-    }
-    return $r('app.string.view_list')
-  }
-
-  // Cycle the gallery view density: List (cards) → Compact (dense rows) → Grid → List.
-  private toggleView(): void {
-    const ctx: common.UIAbilityContext =
-      this.getUIContext().getHostContext() as common.UIAbilityContext
-    let next: string = ListMode.LIST
-    if (this.listMode.mode === ListMode.LIST) {
-      next = ListMode.SIMPLE_LIST
-    } else if (this.listMode.mode === ListMode.SIMPLE_LIST) {
-      next = ListMode.GRID
-    } else {
-      next = ListMode.LIST
-    }
-    ListModeSettings.setMode(ctx, next)
   }
 
   private confirmLogout(): void {
