@@ -2116,10 +2116,27 @@ Type: P0 bug / reading core usability
 
 Priority suggestion: P0
 
-Status: active / ready for implementation
+Status: active / partial implementation pending broader gesture acceptance
 
 Source:
 
+- `a04a88f fix(reader): arbitrate tap gestures` repaired the concrete double-tap/chrome conflict by
+  replacing the horizontal and double-page Reader `Swiper` `onClick` + parallel double-tap mix with
+  `GestureGroup(GestureMode.Exclusive, TapGesture({ count: 2 }), TapGesture({ count: 1 }))`, with
+  double-tap first as required by ArkUI gesture guidance. It also animates double-tap zoom transitions.
+  This does not close the full gesture lane yet: fast swipe feel, pinch feel, zoomed pan feel, and
+  controller acceptance remain active.
+- Validation for `a04a88f`: Android `eros_fe` was launched via `adb su` on `fa967a75` for Reader product
+  reference, deterministic Reader contracts and the full `scripts/test_*contract.mjs` suite passed, V1
+  inventory reported `0 file(s)`, i18n parity and `git diff --check` passed, official signed build
+  passed via `scripts/build_hvigor_signed.sh`, and Mate X7 simulator `127.0.0.1:5555` installed the
+  signed HAP with hdc outside sandbox. Device evidence:
+  `.hvigor/outputs/reader-gesture-arena/reader_ready_exclusive.png` and
+  `.hvigor/outputs/reader-gesture-arena/reader_doubletap_exclusive.png` show Reader ready with chrome
+  hidden, then double-tap zoomed without top/bottom chrome appearing. Earlier failed evidence
+  `.hvigor/outputs/reader-gesture-arena/reader_doubletap_current.png` and
+  `.hvigor/outputs/reader-gesture-arena/reader_doubletap_consume_tap.png` documents why the previous
+  timeout/consume-tap patch was insufficient.
 - User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
   enough to affect normal reading.
 - Read-only code inspection of `feature/reader/src/main/ets/pages/ReaderPage.ets` shows double-tap is
