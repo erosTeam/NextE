@@ -1096,7 +1096,7 @@ Type: P0 incident / reading core usability
 
 Priority suggestion: P0
 
-Status: implemented / needs controller acceptance
+Status: accepted
 
 Implementation:
 
@@ -1140,13 +1140,25 @@ Evidence:
   `reader_after_swipe_left_layout.json`, `reader_after_swipe_right_layout.json`,
   `reader_after_pinch.png`, `reader_after_zoom_pan.png`, `reader_after_center_tap.png`, and
   `reader_after_double_tap_reset.png`.
+- Current-main contract recheck, 2026-06-19: `scripts/test_reader_loading_progress_contract.mjs`,
+  `scripts/test_reader_byte_progress_contract.mjs`, `scripts/test_reader_zoom_quality_contract.mjs`,
+  `scripts/test_reader_double_page_contract.mjs`,
+  `scripts/test_reader_column_mode_switch_contract.mjs`,
+  `scripts/test_reader_tapzone_contract.mjs`,
+  `scripts/test_reader_seeded_thumbnail_start_contract.mjs`,
+  `scripts/test_reader_slider_spread_contract.mjs`,
+  `scripts/test_reader_initial_spread_start_contract.mjs`,
+  `scripts/test_reader_failure_retry_ui_contract.mjs`, and
+  `scripts/test_v1_decorator_inventory_contract.mjs` all passed.
+- Android FE reference for this acceptance update: ADB target `fa967a75`, `su` launched
+  `com.honjow.fehviewer/.MainActivity`, foreground confirmed by `dumpsys window`, screenshot
+  captured at `/private/tmp/nexte_reader_core_acceptance_fe_reference/fe_foreground.png`.
 
-Remaining acceptance:
+Closure:
 
-- Device acceptance is current for the core single-page Reader baseline. Needs controller/user visual
-  acceptance of the attached evidence before changing the status to `accepted`.
-- Runtime double-page/spread slider refinements and determinate byte progress are intentionally parked.
-  Re-enable them only in separate lanes after preserving the core Reader interaction contract above.
+- Accepted for the core single-page Reader baseline. Runtime double-page/spread slider refinements
+  and determinate byte progress remain parked in separate lanes. Do not re-enable them until their
+  lanes preserve the accepted Reader interaction baseline above.
 
 ### Reader Loading State Is Unstable And Lacks Image Download Progress
 
