@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Hard contract for list/grid/simple gallery-card rating stars.
+ * Hard contract for list/simple gallery-card rating stars.
  *
- * eros_fe tints the rating stars in EVERY list renderer by ThemeColors.colorRatingMap[colorRating]
- * (community orange / personal-rating variant) via StaticRatingBar — gallery_item.dart:478-482,
- * gallery_item_grid.dart:205-210, gallery_item_simple.dart:196-201. NextE must do the same with the
- * shared RatingStars component (#36) + EhConstants.ratingStarColor(colorRating), NOT the system-yellow
- * ArkUI Rating component. This gate fails if any list card regresses to `Rating({` or drops the tint.
+ * eros_fe tints the rating stars in the row-style list renderers by ThemeColors.colorRatingMap[colorRating]
+ * (community orange / personal-rating variant) via StaticRatingBar — gallery_item.dart:478-482 and
+ * gallery_item_simple.dart:196-201. The cover-first grid card intentionally does not render a rating
+ * row; it is protected by test_gallery_grid_card_visual_contract.mjs. NextE list/simple cards must keep
+ * using the shared RatingStars component (#36) + EhConstants.ratingStarColor(colorRating), NOT the
+ * system-yellow ArkUI Rating component.
  *
  * Run: node scripts/test_list_card_rating_contract.mjs
  */
@@ -19,7 +20,6 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8')
 
 const FILES = [
   'shared/src/main/ets/components/GalleryCard.ets',
-  'shared/src/main/ets/components/GalleryGridCard.ets',
   'shared/src/main/ets/components/GallerySimpleCard.ets',
 ]
 

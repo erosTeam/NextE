@@ -1,79 +1,115 @@
 import { EhGallery } from '../model/EhGallery'
+import { SimpleTag } from '../model/SimpleTag'
+import { EhUsertag } from '../model/EhMytags'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 import { EhThumbnail } from './EhThumbnail'
-import { RatingStars } from './RatingStars'
+import { UserTagStore } from '../state/UserTagStore'
+import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
+
+const GRID_TAG_LIMIT: number = 8
 
 /**
- * Compact vertical gallery card for the grid view: full-width cover (gallery aspect ~0.7),
- * 2-line title, category + page count. Fills its grid cell; chrome matches GalleryCard.
+ * Cover-first gallery card for the grid view. eros_fe's grid is a browsing wall: the cover is the
+ * primary information, title + tags are secondary, and page/fav/language state is overlaid on the image.
  */
 @ComponentV2
 export struct GalleryGridCard {
   @Require @Param gallery: EhGallery;
+  private tagSig: UserTagSignal = connectUserTagSignal();
+
+  chipBg(t: SimpleTag): ResourceColor {
+    const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    if (u !== undefined && u.fillColor.length > 0) {
+      return u.fillColor
+    }
+    if (t.backgroundColor.length > 0) {
+      return t.backgroundColor
+    }
+    return $r('sys.color.ohos_id_color_button_normal')
+  }
+
+  chipText(t: SimpleTag): ResourceColor {
+    const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    if (u !== undefined && u.textColor.length > 0) {
+      return u.textColor
+    }
+    if (t.color.length > 0) {
+      return t.color
+    }
+    return $r('sys.color.font_secondary')
+  }
+
+  @Builder
+  tagChips() {
+    if (this.gallery.simpleTags.length > 0) {
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(
+          this.gallery.simpleTags.slice(0, GRID_TAG_LIMIT),
+          (t: SimpleTag) => {
+            Text(t.display())
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.chipText(t))
+              .backgroundColor(this.chipBg(t))
+              .borderRadius(ThemeConstants.RADIUS_SM)
+              .padding({ left: 6, right: 6, top: 3, bottom: 3 })
+              .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .constraintSize({ maxWidth: 148 })
+          },
+          (t: SimpleTag) => `${this.tagSig.version}:${t.namespace}:${t.text}`,
+        )
+      }.width('100%')
+    }
+  }
 
   build() {
-    Column({ space: ThemeConstants.SPACE_XS }) {
+    Column({ space: ThemeConstants.SPACE_SM }) {
       Stack({ alignContent: Alignment.TopStart }) {
-        // Shared cover component: full-width with the EH thumb ratio, with the same grey backing +
-        // load spinner as the list cover (was a bare Image with no placeholder spinner).
         EhThumbnail({
           url: this.gallery.thumbUrl,
           coverRatio: 0.7,
           radius: ThemeConstants.THUMB_RADIUS,
         })
-        // Language code corner badge (eros_fe flow/grid corner). Category-colored styling is a
-        // follow-up once the shared category-color map lands; a legible dark pill for now.
         if (this.gallery.translated.length > 0) {
           Text(this.gallery.translated)
             .fontSize(ThemeConstants.FONT_SIZE_TINY)
+            .fontWeight(FontWeight.Bold)
             .fontColor(ThemeConstants.TEXT_ON_BRAND)
-            .backgroundColor('rgba(0, 0, 0, 0.55)')
-            .borderRadius(ThemeConstants.RADIUS_SM)
-            .padding({ left: 5, right: 5, top: 1, bottom: 1 })
-            .margin({ left: 4, top: 4 })
+            .backgroundColor(EhConstants.categoryColor(this.gallery.category))
+            .borderRadius({ topLeft: ThemeConstants.THUMB_RADIUS, bottomRight: ThemeConstants.RADIUS_SM })
+            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
         }
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          if (this.gallery.favcat.length > 0 || this.gallery.favTitle.length > 0) {
+            SymbolGlyph($r('sys.symbol.heart_fill'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor([
+                this.gallery.favcat.length > 0
+                  ? EhConstants.favCatColor(this.gallery.favcat)
+                  : ThemeConstants.FAV_HEART_DEFAULT,
+              ])
+          }
+          Text(`${this.gallery.fileCount}P`)
+            .fontSize(ThemeConstants.FONT_SIZE_TINY)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(ThemeConstants.TEXT_ON_BRAND)
+        }
+        .alignItems(VerticalAlign.Center)
+        .backgroundColor('rgba(0, 0, 0, 0.48)')
+        .borderRadius(ThemeConstants.RADIUS_MD)
+        .padding({ left: 7, right: 7, top: 3, bottom: 3 })
+        .position({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
       }.width('100%')
       Text(this.gallery.title())
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor($r('sys.color.font_primary'))
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
-      Row({ space: ThemeConstants.SPACE_XS }) {
-        RatingStars({
-          rating: this.gallery.ratingFallBack,
-          color: EhConstants.ratingStarColor(this.gallery.colorRating),
-          starSize: 12,
-        })
-        if (this.gallery.favcat.length > 0 || this.gallery.favTitle.length > 0) {
-          SymbolGlyph($r('sys.symbol.heart_fill'))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor([
-              this.gallery.favcat.length > 0
-                ? EhConstants.favCatColor(this.gallery.favcat)
-                : ThemeConstants.FAV_HEART_DEFAULT,
-            ])
-        }
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-      Row() {
-        Text(this.gallery.category)
-          .fontSize(ThemeConstants.FONT_SIZE_TINY)
-          .fontColor(ThemeConstants.TEXT_ON_BRAND)
-          .backgroundColor(EhConstants.categoryColor(this.gallery.category))
-          .borderRadius(ThemeConstants.RADIUS_SM)
-          .padding({ left: 6, right: 6, top: 1, bottom: 1 })
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Blank()
-        Text(`${this.gallery.fileCount}P`)
-          .fontSize(ThemeConstants.FONT_SIZE_TINY)
-          .fontColor($r('sys.color.font_tertiary'))
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
+      this.tagChips()
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
