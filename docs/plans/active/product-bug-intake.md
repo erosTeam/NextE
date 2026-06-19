@@ -2195,13 +2195,14 @@ Source:
   `.hvigor/outputs/reader-gesture-next/fe_reader_ready_su.png`,
   `.hvigor/outputs/reader-doubletap-target/reader_ready.png`, and
   `.hvigor/outputs/reader-doubletap-target/right_zoom.png`.
-- `fix(reader): use one surface for double-page spreads` starts the required architecture correction:
-  double-page mode now renders each visible spread through one `ReaderSpreadSurface`; the surface
-  internally composes one or two `ReaderSpreadImageLayer` children, while zoom, pan, double tap, clip,
-  and parent zoom reporting happen at the spread level. The image layers only resolve/load/render
-  images and no longer own double-page transforms. This specifically addresses the user-reported
-  left-page zoom overlap where two independent page surfaces could fight in z-order/clipping. The
-  broader Reader lane remains active until single-page and double-page gesture acceptance is complete.
+- `fix(reader): use one surface for double-page spreads` is an interim mitigation, not the final ideal
+  double-page architecture: double-page mode now renders each visible spread through one
+  `ReaderSpreadSurface` gesture owner and applies zoom/pan to a grouped `Row` containing one or two
+  `ReaderSpreadImageLayer` children. The image layers only resolve/load/render images and no longer own
+  independent double-page transforms. This lowers the split-surface z-order/clipping risk, but it is not
+  the same as resolving two image sources into a single visual spread render object. The broader Reader
+  lane remains active until single-page and double-page gesture acceptance is complete and the final
+  spread renderer boundary is decided.
 - Validation for the spread-surface follow-up: Android `eros_fe` was launched with `adb su` and
   captured for Reader product-behavior context; V2Next image preview was used as the HarmonyOS transform
   reference. Full deterministic contracts passed, including double-page and zoom contracts that now
@@ -2247,7 +2248,7 @@ Source:
   the same directory covers ready state, center tap, left-page double tap, zoomed pan, fit-state page
   swipe, and `uinput -T -m` pinch. This supports moving the item to implemented / pending controller
   acceptance, not accepted.
-- Current-main spread-surface rerun after user-reported left-page overlap: ADB target `fa967a75` launched
+- Current-main grouped-row spread mitigation rerun after user-reported left-page overlap: ADB target `fa967a75` launched
   `com.honjow.fehviewer/.MainActivity` through `su` and captured FE reference at
   `.hvigor/outputs/reader-spread-surface-current/fe_reference.png`. NextE was installed from the
   official signed HAP on Mate X7 simulator `127.0.0.1:5555` with hdc outside sandbox, opened the public
@@ -2260,10 +2261,13 @@ Source:
   `.hvigor/outputs/reader-spread-surface-current/long_swipe1.png`, and
   `.hvigor/outputs/reader-spread-surface-current/right_zoom.png`. The left-page zoom evidence shows the
   left spread content enlarged with the right page only as a clipped adjacent strip, not covering the
-  left content. This remains implemented / pending controller acceptance, not accepted.
+  left content under the current transformed-row mitigation. This does not prove the final ideal spread
+  render architecture. Status remains implemented / pending controller acceptance, not accepted.
 - Deterministic contract was tightened so `DoublePageReader` cannot instantiate `ReaderImagePage` and
   `ReaderSpreadImageLayer` must stay a passive image/loading layer without independent transform or
-  z-order. This prevents the old split-surface double-page model from returning as an apparent fix.
+  z-order. This prevents the old split-surface double-page model from returning as an apparent fix, but
+  it intentionally does not claim that two source images have been composited into one final visual
+  spread object.
 - User-reported current device behavior after the zoom-surface follow-up: Reader gestures still conflict
   enough to affect normal reading.
 - Previous read-only code inspection found double-tap captured on the parent Reader/Swiper via
@@ -2360,11 +2364,14 @@ Source:
     page turns after child double-tap, and `ExtendedImageGesturePageView` double-page mode being hard to
     make reliable.
 - Read-only NextE inspection:
-  - `feature/reader/src/main/ets/pages/ReaderPage.ets` currently renders double-page mode as
-    `Swiper -> Row -> SpreadImage(start) / SpreadSecondSlot(start)`, where each visible page can become
-    its own `ReaderImagePage` with separate loading and zoom surface state.
-  - This is even more exposed to split-surface gesture and loading-state conflicts than a single spread
-    surface.
+  - Older NextE double-page mode rendered as `Swiper -> Row -> SpreadImage(start) / SpreadSecondSlot(start)`,
+    where each visible page could become its own `ReaderImagePage` with separate loading and zoom surface
+    state.
+  - Current NextE has moved to an interim `ReaderSpreadSurface` that owns gestures and transforms a
+    grouped `Row` of passive `ReaderSpreadImageLayer` children. This is safer than two independent
+    `ReaderImagePage` surfaces, but still not the final ideal architecture because the two pages remain
+    separate image layers inside a row instead of being composed into a single visual spread render
+    object with unified draw/composite/clamp/hit-test semantics.
 - Mature reader references to investigate before a larger rewrite:
   - Mihon / Tachiyomi pager architecture: pager holder owns page navigation and load states, while the
     image view owns zoom/pan capabilities such as pan-left / pan-right boundary checks.
@@ -2382,8 +2389,9 @@ Guidance:
   - `ReaderSpreadResolver` owns single/double spread math, LTR/RTL, cover-page behavior, odd/even
     pairing, current-index normalization, and mode switching.
   - `ReaderSpreadSurface` owns one visual reading surface for the current spread.
-  - The spread surface internally composes one or two image sources, but zoom, pan, double tap, loading
-    overlay, and gesture arbitration operate on the spread as one surface.
+  - The final spread surface should resolve one or two image sources into a single spread visual object
+    with source rects/layout, unified draw/composite, zoom, pan, clamp, clipping, and hit testing. A
+    transformed `Row` of two image layers is only an interim mitigation, not the final target.
   - Per-image resolving/loading/error states may stay per source, but user interaction should be
     coordinated at the spread level.
 

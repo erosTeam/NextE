@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
- * Contract: Reader double-page rendering is live again without regressing the
- * accepted single-page gesture baseline.
+ * Contract: Reader double-page rendering stays in the current interim grouped-row
+ * mitigation without regressing the accepted single-page gesture baseline.
+ *
+ * This does not prove the final ideal single visual spread renderer. It only
+ * prevents a regression to the older split ReaderImagePage double-page path where
+ * two independently transformed image surfaces could overlap each other.
  *
  * Run: node scripts/test_reader_double_page_contract.mjs
  */
@@ -77,7 +81,7 @@ ok('DoublePageReader renders each spread through one ReaderSpreadSurface, not sp
   !/@Builder\s+SpreadImage\(index: number\)/.test(reader) &&
   !/this\.SpreadSecondSlot\(start\)|this\.SpreadImage\(start\)/.test(reader) &&
   !/ReaderImagePage\(\{/.test(doublePageReader))
-ok('ReaderSpreadSurface owns double-page zoom/pan as one transformed spread surface',
+ok('ReaderSpreadSurface owns double-page zoom/pan as one interim transformed row group',
   /Row\(\{ space: ThemeConstants\.SPACE_XS \}\)[\s\S]*\.scale\(\{ x: this\.zoomScale, y: this\.zoomScale \}\)[\s\S]*\.translate\(\{ x: this\.offsetX, y: this\.offsetY \}\)[\s\S]*\.clip\(true\)/.test(spreadSurface) &&
   /GestureGroup\(\s*GestureMode\.Parallel,[\s\S]*PinchGesture\(\{\s*fingers:\s*2\s*\}\)[\s\S]*PanGesture\(\{\s*fingers:\s*1,\s*direction:\s*PanDirection\.All/.test(spreadSurface) &&
   /Image\(this\.imageUrl\)[\s\S]*\.objectFit\(ImageFit\.Contain\)/.test(spreadLayer) &&
