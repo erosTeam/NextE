@@ -206,7 +206,9 @@ a bounded validation path.
    `hand_thumbsdown` / `hand_thumbsdown_fill`, and check whether fixed square action hit areas are making
    comment footers too tall or leaving the three footer icons so far apart that they look like a missing
    fourth action slot. Keep this as a narrow footer action-cluster polish pass, not a full comment
-   redesign.
+   redesign. Fresh regression reported 2026-06-21: after comment upvote/downvote succeeds, the visible
+   comment score and selected vote icon state do not update in place. The next comment acceptance must verify
+   score and icon state refresh on the same row after a real successful vote, not only API success/toast.
 3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,

@@ -536,3 +536,47 @@ Acceptance shape:
 - The footer action row does not add excessive bottom height compared with the comment text/time row.
 - The three visible footer actions are visually grouped; there is not enough empty space between adjacent
   action icons to look like a missing fourth button.
+
+### Gallery Comment Vote Must Refresh Visible Score And Icon State
+
+Type: write-action regression / UI state refresh
+
+Priority suggestion: P1
+
+Status: accepted / needs verification
+
+Source:
+
+- User feedback, 2026-06-21: after voting a comment up or down, the comment score does not update in place,
+  and the vote button icon state does not visually change.
+
+Research:
+
+- `GalleryCommentsPage.applyVoteResult` already intends to replace the matching local comment with the
+  returned `commentVote` and `commentScore`.
+- `scripts/test_gallery_comment_vote_contract.mjs` currently checks that intent at the source level, but it
+  does not prove the visible comment row re-renders the score badge and selected vote icon after a successful
+  vote.
+- This means the next fix should treat the user report as a visible-state regression even if the network
+  request and toast are successful.
+
+Expected behavior:
+
+- After a successful upvote or downvote response, the same visible comment row updates its score immediately
+  from the returned `commentScore`; no manual refresh or leaving/re-entering the page should be required.
+- The voted button immediately switches to the selected visual state, using the filled native thumb symbol
+  once the icon-polish lane is applied; the opposite vote remains neutral.
+- While a vote is pending, only pending/disabled feedback should be shown. After success, do not leave stale
+  icons or stale score text on screen.
+- If the request fails, preserve or restore the previous visible score and vote state, then show the failure
+  feedback.
+
+Acceptance shape:
+
+- Open the full comments page with an authorized account and a votable comment.
+- Upvote the comment and confirm the dialog.
+- When the success path completes, the score badge/text for that comment changes in place and the upvote icon
+  shows selected state without refreshing the page.
+- Repeat with downvote; the downvote selected state and returned score are visible immediately.
+- Add or tighten an automated contract so the comment card renders from the refreshed `comments` array state,
+  not from a stale copied row or a one-time snapshot.
