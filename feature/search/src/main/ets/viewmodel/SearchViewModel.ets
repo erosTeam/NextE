@@ -6,6 +6,9 @@ import {
   GalleryList,
   GalleryListQuery,
   FavoritesQuery,
+  Favcat,
+  FavcatSlotResolver,
+  FavcatSlotResolveResult,
   EhConstants,
   BasicDataSource,
   connectSiteMode,
@@ -79,6 +82,24 @@ export class SearchViewModel {
     return this.effectiveFavoriteScope()
       ? EhApiService.getInstance().getFavoritesList(this.buildFavQuery(next))
       : EhApiService.getInstance().getGalleryList(this.buildQuery(next))
+  }
+
+  private resolveFavoriteSlots(gallerys: EhGallery[], favcats: Favcat[]): void {
+    FavcatSlotResolver.applyInPlace(gallerys, favcats)
+  }
+
+  resolveVisibleFavoriteSlotsFrom(favcats: Favcat[]): boolean {
+    if (this.itemCount === 0 || favcats.length === 0) {
+      return false
+    }
+    const result: FavcatSlotResolveResult =
+      FavcatSlotResolver.resolvedCopies(this.dataSource.getAll(), favcats)
+    if (!result.changed) {
+      return false
+    }
+    this.dataSource.setData(result.rows)
+    this.itemCount = this.dataSource.totalCount()
+    return true
   }
 
   private buildQuery(next: string): GalleryListQuery {
@@ -214,6 +235,7 @@ export class SearchViewModel {
     try {
       const list: GalleryList = await this.fetchPage('')
       if (this.epoch === myEpoch) {
+        this.resolveFavoriteSlots(list.gallerys, list.favList)
         this.dataSource.setData(list.gallerys)
         this.itemCount = this.dataSource.totalCount()
         this.nextGid = list.nextGid
@@ -275,6 +297,7 @@ export class SearchViewModel {
     this.epoch = this.epoch + 1
     try {
       const list: GalleryList = await this.fetchPage('')
+      this.resolveFavoriteSlots(list.gallerys, list.favList)
       this.dataSource.setData(list.gallerys)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
@@ -317,6 +340,7 @@ export class SearchViewModel {
       // are for the OLD query. Drop them rather than mixing them into the new results.
       if (this.epoch === myEpoch) {
         const fresh: EhGallery[] = this.dedupeNew(list.gallerys)
+        this.resolveFavoriteSlots(fresh, list.favList)
         if (fresh.length > 0) {
           this.dataSource.appendData(fresh)
           this.itemCount = this.dataSource.totalCount()

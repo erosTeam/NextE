@@ -37,6 +37,8 @@ import {
   SearchFilterSettings,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
+  FavSelectionState,
+  connectFavSelection,
   immersiveTitleBarOpts,
   SearchPageParams,
   GalleryFavoriteMutationState,
@@ -68,6 +70,7 @@ export struct GallerySearchPage {
   @Local listMode: ListModeState = connectListMode();
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
+  @Local favSel: FavSelectionState = connectFavSelection();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local showFilter: boolean = false;
@@ -147,6 +150,11 @@ export struct GallerySearchPage {
       this.favoriteMutation.favcat,
       this.favoriteMutation.favTitle,
     )
+  }
+
+  @Monitor('favSel.favList')
+  onFavListChange(): void {
+    this.vm.resolveVisibleFavoriteSlotsFrom(this.favSel.favList)
   }
 
   @Monitor('ratingMutation.version')

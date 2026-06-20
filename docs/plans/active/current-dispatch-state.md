@@ -81,6 +81,10 @@ Historical feedback in this section must not trigger new implementation.
 - Remote favorite sheet lifecycle regression is implemented pending controller acceptance: detail page
   modal surfaces now share one `bindSheet` host so rating/full-title false bindings cannot close the
   `EH 收藏` sheet after it opens. Reopen only for a fresh reproduction after this fix.
+- Search/Favorites favTitle-to-favcat color consistency is implemented pending controller acceptance:
+  Search and Favorites now share one non-placeholder favcat slot resolver, and visible Search rows
+  re-resolve when account favcat metadata arrives. Reopen only if a current Search result still shows a
+  stale/default heart color after real favcat metadata has loaded.
 
 ## Parked / Guidance Only
 

@@ -118,6 +118,9 @@ export { EhErrorClassifier } from './network/EhErrorClassifier'
 export { AppStrings } from './i18n/AppStrings'
 export { EhErrorText } from './i18n/EhErrorText'
 
+// utils
+export { FavcatSlotResolver, FavcatSlotResolveResult } from './utils/FavcatSlotResolver'
+
 // diagnostics
 export { DiagnosticLogger } from './diagnostics/DiagnosticLogger'
 

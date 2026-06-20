@@ -240,7 +240,34 @@ Type: favorites metadata / cross-list visual-state consistency bug
 
 Priority suggestion: P1/P2
 
-Status: new
+Status: implemented / pending device acceptance
+
+Implementation:
+
+- Current implementation commit: `FavcatSlotResolver` is now shared by Favorites and Search. It builds
+  a non-placeholder `favTitle -> favId` map and can either mutate fresh fetched rows before render or
+  return copied rows for already-rendered datasources.
+- `SearchViewModel` resolves `list.gallerys` from `list.favList` on initial search, refresh, and
+  loadMore before rendering/appending.
+- `GallerySearchPage` observes account-level `favSel.favList` and re-resolves visible Search rows when
+  real favcat metadata arrives after the current page has already rendered.
+- `FavoritesViewModel` now reuses the same resolver, so Favorites and Search cannot drift into two
+  separate `favTitle -> slot` policies.
+
+Verification:
+
+- Deterministic: `node scripts/test_search_favorite_slot_resolver_contract.mjs`,
+  `node scripts/test_favorites_search_contract.mjs`, `node scripts/test_favcat_color_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`, and `git diff --check`.
+- Build: `scripts/build_hvigor_signed.sh` passed.
+- Simulator smoke: installed the signed HAP on local target `127.0.0.1:5555`, cold-started NextE, and
+  captured evidence at `.hvigor/outputs/search-favorite-slot-resolver/screen.jpeg` and
+  `.hvigor/outputs/search-favorite-slot-resolver/layout.json`.
+
+Still pending:
+
+- Controller/device acceptance should reproduce the original mismatching Search result and confirm the
+  heart color updates to match Favorites after real favcat metadata is available in the same process.
 
 Source:
 
