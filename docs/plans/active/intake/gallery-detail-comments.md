@@ -489,6 +489,9 @@ Source:
 
 - User feedback, 2026-06-21: comment vote controls should not use generic up/down arrows. The desired
   semantics are thumbs up / thumbs down, matching the original comment tail behavior.
+- User feedback, 2026-06-21: full comments page action buttons are visually much too spread out. In the
+  current screenshot, the three footer icons leave enough horizontal room between them to fit another
+  button, while the Next2V reference keeps like/reply/more actions grouped at a compact, readable rhythm.
 
 Research:
 
@@ -509,12 +512,19 @@ Current behavior:
 - The same action row uses fixed `ThemeConstants.BUTTON_HEIGHT` square tap areas, while eros_fe's
   comment tail uses compact button padding. If comment item bottom spacing still looks too tall, inspect
   the action hit-area height before changing comment content spacing.
+- The visible icon is only `ThemeConstants.FONT_SIZE_BODY`, but each action reserves a
+  `ThemeConstants.BUTTON_HEIGHT` square. That can make the footer look like three tiny glyphs with
+  oversized invisible slots, especially when the date consumes the left side and the actions sit at the
+  far right. Treat horizontal action density as part of the polish pass, not just icon replacement.
 
 Expected behavior:
 
 - Upvote neutral state uses `hand_thumbsup`; selected upvote uses `hand_thumbsup_fill`.
 - Downvote neutral state uses `hand_thumbsdown`; selected downvote uses `hand_thumbsdown_fill`.
 - Do not rotate `hand_thumbsup_fill` to fake a downvote.
+- The footer actions should be compactly grouped, closer to the Next2V comment reference: enough hit area
+  to tap, but no large dead-looking gaps between like/dislike-or-reply/edit/reply icons. Prefer a small
+  local action-cluster width/padding adjustment over changing the whole comment-card spacing.
 - Keep this scoped to comment action icons and compact footer sizing; do not redesign the full comment
   composer or avatar system in the same patch unless that lane is explicitly opened.
 
@@ -524,3 +534,5 @@ Acceptance shape:
 - A comment with an upvote shows filled thumbs up and outline thumbs down.
 - A comment with a downvote shows outline thumbs up and filled thumbs down.
 - The footer action row does not add excessive bottom height compared with the comment text/time row.
+- The three visible footer actions are visually grouped; there is not enough empty space between adjacent
+  action icons to look like a missing fourth button.

@@ -191,7 +191,9 @@ a bounded validation path.
    finds a comment write regression. If comment UI polish is reopened during that acceptance, also replace
    the current arrow vote icons with native `hand_thumbsup` / `hand_thumbsup_fill` and
    `hand_thumbsdown` / `hand_thumbsdown_fill`, and check whether fixed square action hit areas are making
-   comment footers too tall.
+   comment footers too tall or leaving the three footer icons so far apart that they look like a missing
+   fourth action slot. Keep this as a narrow footer action-cluster polish pass, not a full comment
+   redesign.
 3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
