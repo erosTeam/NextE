@@ -24,6 +24,7 @@ const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 const params = read('shared/src/main/ets/state/SearchPageParams.ets')
 const action = read('shared/src/main/ets/state/SearchActionState.ets')
 const field = read('feature/search/src/main/ets/components/SearchPageField.ets')
+const appField = read('shared/src/main/ets/components/AppSearchField.ets')
 const tags = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 
@@ -47,6 +48,16 @@ ok('GallerySearchPage does not monitor or clear global pendingQuery',
 
 ok('GallerySearchPage consumes route initialQuery into page-owned field state and runs it',
   /p\.initialQuery\.length > 0[\s\S]*this\.fieldState\.keyword = p\.initialQuery[\s\S]*this\.fieldState\.seedSeq = this\.fieldState\.seedSeq \+ 1[\s\S]*this\.runQuery\(p\.initialQuery\)/.test(page))
+
+ok('action-seeded Search cannot focus before route params arrive',
+  /@Trace focusOnAppear: boolean = false/.test(field) &&
+  /this\.fieldState\.focusOnAppear = p\.focusOnAppear/.test(page) &&
+  /\} else \{[\s\S]*this\.fieldState\.focusOnAppear = true/.test(page))
+
+ok('manual Search can still focus after route params flip autoFocus true',
+  /@Monitor\('autoFocus'\)[\s\S]*onAutoFocusChange\(\): void/.test(appField) &&
+  /if \(this\.autoFocus\) \{[\s\S]*this\.requestSearchFocus\(\)/.test(appField) &&
+  /private requestSearchFocus\(\): void \{[\s\S]*requestFocus\(this\.fieldId\)/.test(appField))
 
 ok('Search input state is page-owned, not AppStorageV2 singleton keyword state',
   /@ObservedV2[\s\S]*export class SearchPageFieldState/.test(field) &&

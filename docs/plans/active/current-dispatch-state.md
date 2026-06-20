@@ -141,6 +141,11 @@ Historical feedback in this section must not trigger new implementation.
   Reader session plus `/s/` resolve caching. Simulator evidence on `127.0.0.1:5555` showed the second
   same-gallery Reader open hit `session_cache_hit` / `resolve_memory_cache` with no repeated
   `resolve_spage` or `merge_preview_page`.
+- Search action-seeded autofocus regression is implemented pending controller acceptance: action-seeded
+  routes now default the page-owned search field to no autofocus until route params explicitly enable it,
+  while manual title-bar Search still flips autofocus on after the field mounts. Simulator evidence on
+  `127.0.0.1:5555` showed manual Search opened the keyboard, and gallery-detail tag seeded Search opened
+  results without an input-method window.
 - AllThumbnails large-gallery jump and preview-page scrolling is implemented pending controller
   acceptance. Existing evidence in `docs/plans/active/intake/gallery-list-grid.md` covers the
   1700-page public gallery `https://e-hentai.org/g/3998992/f5b5c954d2/`, Android FE ADB `su`
@@ -194,13 +199,7 @@ a bounded validation path.
    unmounted or moved out of the interactive reader canvas; `HitTestMode.None` is only a defensive
    backstop during animation, not the definition of hidden. Opacity-only hidden controls are forbidden
    because they allow blind slider/button operation and steal page swipes.
-2. Search action-seeded autofocus regression: tapping a gallery detail tag/uploader/similar action should
-   open Search in results-first mode without focusing the input or showing the keyboard. User validation
-   still shows mandatory keyboard popup, despite `SearchPageParams(..., focusOnAppear=false)` already
-   being passed. Next lane should fix the likely timing/default-true issue narrowly: ordinary title-bar
-   Search opens may still focus, but action-seeded routes must not steal focus. Add/adjust a deterministic
-   contract so this cannot pass merely because the param exists.
-3. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression. If comment UI polish is reopened during that acceptance, also replace
    the current arrow vote icons with native `hand_thumbsup` / `hand_thumbsup_fill` and
@@ -208,7 +207,7 @@ a bounded validation path.
    comment footers too tall or leaving the three footer icons so far apart that they look like a missing
    fourth action slot. Keep this as a narrow footer action-cluster polish pass, not a full comment
    redesign.
-4. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.

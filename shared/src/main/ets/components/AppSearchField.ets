@@ -28,10 +28,14 @@ export struct AppSearchField {
   aboutToAppear(): void {
     this.fieldText = this.text
     if (this.autoFocus) {
-      // Deferred a frame so the Search is mounted before requesting focus.
-      setTimeout(() => {
-        this.getUIContext().getFocusController().requestFocus(this.fieldId)
-      }, 80)
+      this.requestSearchFocus()
+    }
+  }
+
+  @Monitor('autoFocus')
+  onAutoFocusChange(): void {
+    if (this.autoFocus) {
+      this.requestSearchFocus()
     }
   }
 
@@ -90,6 +94,13 @@ export struct AppSearchField {
     if (this.onSubmit) {
       this.onSubmit(value)
     }
+  }
+
+  private requestSearchFocus(): void {
+    // Deferred a frame so the Search is mounted before requesting focus.
+    setTimeout(() => {
+      this.getUIContext().getFocusController().requestFocus(this.fieldId)
+    }, 80)
   }
 
   private searchMaterial(): uiMaterial.Material | undefined {

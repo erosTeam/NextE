@@ -112,10 +112,11 @@ ok(/private openSearch\(focusOnAppear: boolean = true\): void \{[\s\S]*new Searc
   'manual gallery Search still defaults to autofocus through route params')
 ok(/openFavoriteSearch\(\): void \{[\s\S]*new SearchPageParams\('favorite', favcat\)/.test(indexPage),
   'favorite title-bar Search opens through route params instead of shared field state')
-ok(/@Trace focusOnAppear: boolean = true/.test(searchField) &&
+ok(/@Trace focusOnAppear: boolean = false/.test(searchField) &&
   /autoFocus:\s*this\.fieldState\.focusOnAppear/.test(searchField) &&
-  /this\.fieldState\.focusOnAppear = p\.focusOnAppear/.test(searchPage),
-  'SearchPageField consumes page-local autofocus seeded from route params')
+  /this\.fieldState\.focusOnAppear = p\.focusOnAppear/.test(searchPage) &&
+  /\} else \{[\s\S]*this\.fieldState\.focusOnAppear = true/.test(searchPage),
+  'SearchPageField defaults to no autofocus, then consumes route-owned autofocus policy')
 
 if (failures === 0) {
   console.log('✓ tag chip contract: comfortable chips, colour semantics, formatted tag search, and action autofocus policy preserved')

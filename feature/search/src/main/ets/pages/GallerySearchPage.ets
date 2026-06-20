@@ -682,6 +682,8 @@ export struct GallerySearchPage {
           this.fieldState.seedSeq = this.fieldState.seedSeq + 1
           this.runQuery(p.initialQuery)
         }
+      } else {
+        this.fieldState.focusOnAppear = true
       }
     })
   }

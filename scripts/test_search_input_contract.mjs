@@ -139,6 +139,10 @@ const ok = (name, cond) => {
     join(ROOT, 'feature/search/src/main/ets/components/SearchPageField.ets'),
     'utf8',
   )
+  const appSearchFieldSrc = readFileSync(
+    join(ROOT, 'shared/src/main/ets/components/AppSearchField.ets'),
+    'utf8',
+  )
   ok('page routes via runQuery', /private runQuery\(query: string\)/.test(pageSrc))
   ok('page gates URL-jump on a bare URL', /private looksLikeBareUrl\(s: string\)/.test(pageSrc))
   ok('page jump guarded by looksLikeBareUrl', /if \(this\.looksLikeBareUrl\(trimmed\)\)/.test(pageSrc))
@@ -159,6 +163,13 @@ const ok = (name, cond) => {
     !/connectSearchAction\(\)/.test(pageSrc))
   ok('route initial query seeds the field and runs search',
     /p\.initialQuery\.length > 0[\s\S]*this\.fieldState\.keyword = p\.initialQuery[\s\S]*this\.fieldState\.seedSeq[\s\S]*this\.runQuery\(p\.initialQuery\)/.test(pageSrc))
+  ok('action-seeded search defaults to no autofocus until route params explicitly enable it',
+    /@Trace focusOnAppear: boolean = false/.test(fieldSrc) &&
+    /this\.fieldState\.focusOnAppear = p\.focusOnAppear/.test(pageSrc) &&
+    /\} else \{[\s\S]*this\.fieldState\.focusOnAppear = true/.test(pageSrc))
+  ok('manual search focus still works when autoFocus flips after the field is mounted',
+    /@Monitor\('autoFocus'\)[\s\S]*onAutoFocusChange\(\): void/.test(appSearchFieldSrc) &&
+    /private requestSearchFocus\(\): void \{[\s\S]*requestFocus\(this\.fieldId\)/.test(appSearchFieldSrc))
   ok('clearing the search field resets the page to history instead of keeping old results',
     /@Monitor\('fieldState\.keyword'\)[\s\S]*onKeywordChange\(\): void \{[\s\S]*keyword\.trim\(\)\.length === 0[\s\S]*this\.clearQueryToHistory\(\)/.test(pageSrc) &&
     /private clearQueryToHistory\(\): void \{[\s\S]*this\.imagePageErrorUrl = ''[\s\S]*this\.imagePageResolving = false[\s\S]*this\.vm\.clearSearchState\(\)/.test(pageSrc) &&

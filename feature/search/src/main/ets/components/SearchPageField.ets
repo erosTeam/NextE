@@ -24,7 +24,7 @@ export class SearchPageFieldState {
   @Trace keyword: string = ''
   @Trace submitSeq: number = 0
   @Trace seedSeq: number = 0
-  @Trace focusOnAppear: boolean = true
+  @Trace focusOnAppear: boolean = false
 }
 
 @ComponentV2
