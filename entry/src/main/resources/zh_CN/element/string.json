@@ -1077,6 +1077,10 @@
       "value": "清空"
     },
     {
+      "name": "history_clear_confirm",
+      "value": "清空全部浏览历史？"
+    },
+    {
       "name": "settings_reader_direction",
       "value": "翻页方向"
     },

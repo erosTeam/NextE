@@ -81,6 +81,23 @@ export struct ViewedHistoryPage {
     ViewedHistorySettings.clear(this.ctx())
   }
 
+  private confirmClearHistory(): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.history_clear_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.history_clear'),
+        fontColor: Color.Red,
+        action: () => {
+          this.clearHistory()
+        },
+      },
+    })
+  }
+
   private titleBar(): Record<string, Object> {
     const title: Record<string, Object> = { 'mainTitle': AppStrings.get('tab_history') }
     const clearInner: Record<string, Object> = {
@@ -88,7 +105,7 @@ export struct ViewedHistoryPage {
       'icon': $r('sys.symbol.trash'),
       'isEnabled': this.history.items.length > 0,
       'action': () => {
-        this.clearHistory()
+        this.confirmClearHistory()
       },
     }
     const items: Record<string, Object>[] = [{ 'content': clearInner }]

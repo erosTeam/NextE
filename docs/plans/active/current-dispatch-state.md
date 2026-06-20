@@ -104,6 +104,8 @@ Historical feedback in this section must not trigger new implementation.
   history instead of deleting immediately.
 - Search settings filter reset safety is corrected and pending controller acceptance: tapping
   `重置筛选` now opens a native confirmation dialog before clearing the saved filter profile.
+- Viewed history clear safety is corrected and pending controller acceptance: tapping the History page
+  trash action now opens a native destructive confirmation dialog before clearing viewed history.
 - Gallery tag vote write entry is implemented and pending controller acceptance / authorized real-submit
   verification: the detail title menu's `编辑标签` page no longer shows a read-only unsupported notice,
   loads detail-scraped `apikey/apiuid`, opens an HDS modal action sheet from a tag chip, confirms before
@@ -142,8 +144,8 @@ a bounded validation path.
    finds a comment write regression.
 2. Settings shell audit: continue with remaining rows/pages that are only shells, disabled placeholders,
    not wired to real behavior, or unsafe/destructive without confirmation; Security, Download, EH
-   placeholder exposure, Search history clear safety, and Search filter reset safety are already
-   corrected pending acceptance.
+   placeholder exposure, Search history clear safety, Search filter reset safety, and Viewed history
+   clear safety are already corrected pending acceptance.
 3. Tag/MyTags write actions: taggallery vote is implemented pending controller acceptance / authorized
    real-submit verification. Reopen here only for a fresh tag-vote regression or for a separately scoped
    MyTags/setusertag lane; do not treat MyTags editing as completed by the tag vote work.

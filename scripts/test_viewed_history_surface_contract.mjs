@@ -45,8 +45,12 @@ ok(/new GalleryDetailParams\(item\.gid,\s*item\.token,\s*item\.thumbUrl,\s*this\
   'History item click routes back to GalleryDetail with thumb/title seed in constructor order')
 ok(/ViewedHistorySettings\.clear\(this\.ctx\(\)\)/.test(historyPage),
   'History page exposes a clear-history action')
+ok(/confirmClearHistory\(\): void[\s\S]*showAlertDialog[\s\S]*history_clear_confirm[\s\S]*common_cancel[\s\S]*action: \(\) => \{[\s\S]*this\.clearHistory\(\)/.test(historyPage),
+  'History clear action is gated by a native confirmation dialog')
 ok(/history_clear/.test(historyPage) && /sys\.symbol\.trash/.test(historyPage),
   'Clear action is in the HDS title-bar menu')
+ok(/label': \$r\('app\.string\.history_clear'\)[\s\S]*action': \(\) => \{[\s\S]*this\.confirmClearHistory\(\)/.test(historyPage),
+  'Clear menu item opens the confirmation instead of deleting immediately')
 
 ok(/export \{ ViewedHistoryPage \}/.test(userIndex), 'user module exports ViewedHistoryPage')
 ok(/import \{[^}]*ViewedHistoryPage[^}]*\} from 'user'/.test(index),
@@ -59,6 +63,7 @@ for (const text of [stringsBase, stringsZh, stringsEn, stringsJa]) {
   ok(/"name": "tab_history"/.test(text), 'locale includes tab_history')
   ok(/"name": "history_empty"/.test(text), 'locale includes history_empty')
   ok(/"name": "history_clear"/.test(text), 'locale includes history_clear')
+  ok(/"name": "history_clear_confirm"/.test(text), 'locale includes history_clear_confirm')
 }
 
 if (failures > 0) {

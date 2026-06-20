@@ -1077,6 +1077,10 @@
       "value": "クリア"
     },
     {
+      "name": "history_clear_confirm",
+      "value": "閲覧履歴をすべて消去しますか？"
+    },
+    {
       "name": "settings_reader_direction",
       "value": "ページめくり方向"
     },

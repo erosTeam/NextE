@@ -16,7 +16,7 @@ Type: feature gap / settings trustworthiness
 
 Priority suggestion: P1
 
-Status: active intake / Security, Download, EH placeholders, and Search destructive-action safety implemented pending controller acceptance
+Status: active intake / Security, Download, EH placeholders, Search destructive-action safety, and viewed-history destructive-action safety implemented pending controller acceptance
 
 Source:
 
@@ -149,6 +149,21 @@ Handled update, 2026-06-20:
   `.hvigor/outputs/settings-search-reset-confirm/search_reset_dialog.jpeg`,
   `.hvigor/outputs/settings-search-reset-confirm/search_reset_dialog_layout.json`, and
   `.hvigor/outputs/settings-search-reset-confirm/search_after_cancel_layout.json`.
+- Viewed history clear safety: implemented / pending controller acceptance. The History page title-bar
+  trash action now opens a native destructive confirmation dialog; only the red destructive confirmation
+  button calls `ViewedHistoryStore.clear()`, while cancel leaves the viewed-history list untouched.
+  Contract updated: `scripts/test_viewed_history_surface_contract.mjs` now locks that the title action
+  calls `confirmClearHistory()`, the dialog contains cancel plus the destructive clear action, and
+  `clearHistory()` is only reached from the confirmation path. HarmonyOS emulator evidence: target
+  `127.0.0.1:5555`, signed HAP installed. History showed existing gallery rows; tapping the trash
+  button opened `清空全部浏览历史？` with `取消` and red `清空`; tapping `取消` dismissed the dialog and
+  the history list still contained the same rows. Evidence files:
+  `.hvigor/outputs/history-clear-confirm/history_page.png`,
+  `.hvigor/outputs/history-clear-confirm/history_page_layout.json`,
+  `.hvigor/outputs/history-clear-confirm/history_confirm.png`,
+  `.hvigor/outputs/history-clear-confirm/history_confirm_layout.json`,
+  `.hvigor/outputs/history-clear-confirm/history_after_cancel.png`, and
+  `.hvigor/outputs/history-clear-confirm/history_after_cancel_layout.json`.
 
 ### Settings Root Missing Layout Settings Page
 
