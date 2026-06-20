@@ -822,7 +822,7 @@ Type: Reader chrome IA/style bug
 
 Priority suggestion: P1
 
-Status: active queue candidate
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -848,6 +848,22 @@ Implementation boundary:
   download executor, offline library, or image pipeline.
 - Acceptance should be a Reader screenshot showing the bottom toolbar with the download action aligned
   to neighboring controls in size, color, and weight.
+
+Handled:
+
+- Commit: `56747e6 fix(reader): cache session image resolves`.
+- Scope: bottom save action now uses the same neutral toolbar weight as adjacent Reader controls;
+  current-image save uses the HarmonyOS system save flow; Reader thumbnail strip/slider remain linked to
+  the current page; same-process Reader session cache and `/s/` resolve cache prevent repeated preview
+  page and image-page parsing on reopen.
+- Contracts: `scripts/test_reader_save_current_image_contract.mjs`,
+  `scripts/test_reader_tapzone_contract.mjs`, `scripts/test_reader_thumbnail_filmstrip_contract.mjs`,
+  `scripts/test_reader_slider_spread_contract.mjs`, `scripts/test_reader_precache_contract.mjs`,
+  `scripts/test_image_resolve_showpage_contract.mjs`, and V1 inventory `0 file(s)`.
+- Device evidence: signed HAP on local emulator `127.0.0.1:5555`; second same-gallery Reader open logged
+  `session_cache_hit` and `resolve_memory_cache`, with no repeated `resolve_spage` or
+  `merge_preview_page`. Evidence log:
+  `/private/tmp/nexte_reader_cache_second_pass_hilog.txt`.
 
 ### Reader Intermittent Short Swipe Jumps Pages Too Early
 

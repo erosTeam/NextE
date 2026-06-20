@@ -129,6 +129,12 @@ Historical feedback in this section must not trigger new implementation.
   static, and `EhThumbnail` now renders normal loading/error overlays as in-tree `Stack` children.
   Post-fix timed screenshots on `127.0.0.1:5555` show changed pixels in both forced thumbnail loading
   boxes and native/pending-image controls.
+- Reader bottom chrome/save/cache is implemented pending controller acceptance: `56747e6` makes the
+  download/save action match the neutral toolbar weight, wires current-image save through the HarmonyOS
+  system save flow, keeps the thumbnail strip/slider linked to the current page, and adds same-process
+  Reader session plus `/s/` resolve caching. Simulator evidence on `127.0.0.1:5555` showed the second
+  same-gallery Reader open hit `session_cache_hit` / `resolve_memory_cache` with no repeated
+  `resolve_spage` or `merge_preview_page`.
 
 ## Parked / Guidance Only
 
@@ -171,13 +177,6 @@ a bounded validation path.
    MyTags edit/delete/add, or tagset-management regression.
 3. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-4. Reader bottom chrome download action has wrong visual weight: current Reader bottom bar shows download
-   as a large filled blue circular button while neighboring controls are neutral line/outline controls.
-   User screenshot evidence:
-   `/var/folders/d_/2b_g_3tx1y97s_s1lks2_v1c0000gp/T/codex-clipboard-54c5876c-7071-4741-9de0-452fb247b10d.png`.
-   This is a bounded Reader chrome IA/style bug, not a Reader gesture or architecture lane. Fix by
-   making the download control follow the same HDS/Reader toolbar action weight as adjacent controls;
-   do not rework Reader gestures, double-page layout, loading, or pager architecture in this lane.
 
 ## Lane Selection Rule
 
