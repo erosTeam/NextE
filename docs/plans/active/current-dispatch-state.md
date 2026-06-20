@@ -23,9 +23,9 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
 - SearchFilter shape, control proportions, and current rounded treatment are baseline.
 - Search filter entry belongs in the title/menu/action area, not inside the search input row.
 - Search title/header may hide while scrolling, but the bottomBuilder search field remains visible.
-- Gallery Grid is separated from Waterfall: Grid uses grid scaffold semantics and fixed-size cards;
-  Waterfall is a separate mode, not an alias for Grid. This separation is baseline, but the current
-  compact Grid visual target and Waterfall width/viewport behavior are active issues.
+- Gallery Grid is separated from Waterfall: Grid uses grid scaffold semantics and compact fixed-size
+  cards; Waterfall is a separate masonry mode, not an alias for Grid. `8bc9afb` implements the current
+  recovery target and is pending controller acceptance, not a default active lane.
 - Gallery cover fit/backdrop policy is baseline. Use proportional image rendering only: `Cover` means
   equal-scale crop, never non-uniform stretch/fill. Choose fit from source image ratio vs the current
   slot ratio: ratio-close slots may use `Cover` to avoid unnecessary letterbox; large ratio mismatches
@@ -73,9 +73,8 @@ Historical feedback in this section must not trigger new implementation.
   confirmation gates.
 - Settings shell cleanup is closed as a broad audit. Reopen Settings only for a fresh Settings regression
   or a separately scoped Settings feature request such as Reader Settings row readability.
-- Previous Waterfall exposure is not accepted as complete: the mode is scaffolded but broken. Treat
-  Waterfall width/viewport repair as part of the Active Grid/Waterfall layout recovery lane, not as a
-  completed historical PASS.
+- Previous Waterfall exposure being scaffold-only is superseded by `8bc9afb`, which repairs width,
+  viewport spacer handling, and bounded source-ratio cover behavior pending controller acceptance.
 - Gallery Grid immersive chrome disappearance is handled as a baseline rule above. Do not reopen the
   old bug except for a fresh reproduction that cards disappear under translucent chrome despite the
   spacer model.
@@ -108,29 +107,21 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Gallery browsing layout recovery: compact Grid and Waterfall correctness. User-visible benefit is
-   high because Home/Search/Favorites browsing currently has two visible failures:
-   regular-phone Grid should be a compact three-column cover wall with persistent category-colored
-   translation badge and minimal title/date text, not a two-column large-card / tag/rating hybrid;
-   cover images must follow the baseline fit/backdrop policy above, not stretch to hide gray gaps;
-   Waterfall is exposed but current widths are unusable and its viewport model must not repeat the old
-   top/bottom padding/safe-area issue. Next lane should fix `GalleryGridCard`, grid width constants/contracts, and
-   `PullRefreshWaterFlowScaffold` / `GalleryWaterfallCard` width + immersive viewport behavior together.
-2. Remote favorite sheet lifecycle regression: the detail menu `EH 收藏` action can flash the half-modal
+1. Remote favorite sheet lifecycle regression: the detail menu `EH 收藏` action can flash the half-modal
    and close it immediately. This is a high-priority write-entry usability bug and should be the next
-   lane immediately after the current Grid/Waterfall lane is either fixed or explicitly paused.
-3. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+   lane.
+2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-4. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, and MyTags new-user-tag add are implemented pending controller acceptance / authorized
    real-submit verification. Reopen here only for a fresh tag-vote / MyTags edit / MyTags delete /
    MyTags add regression, or for a separately scoped tagset-management lane.
-5. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-6. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-7. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule

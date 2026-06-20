@@ -358,7 +358,38 @@ Type: bug / browsing core UX
 
 Priority suggestion: P1
 
-Status: active / needs rework
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- `8bc9afb fix(gallery): recover grid and waterfall browsing layouts` rewrites Grid as a compact
+  phone-first browsing wall while keeping `ListMode.GRID` on `PullRefreshGridScaffold` / `GridItem`.
+- Grid now uses native ArkUI `repeat(auto-fit, <minWidth>vp)` track sizing instead of hand-counted
+  columns, with `GALLERY_GRID_MIN_W = 106`, fixed card rhythm, fixed cover slot, title + simple meta,
+  and no default tag/rating-heavy block.
+- Grid category signal is a shared right-top corner badge: category color is always present, text is only
+  shown when translated/language text exists, and the badge is sized to keep 2-3 character labels visible.
+- Grid cover rendering remains proportional: normal ratios can crop, large source/slot mismatches use
+  contain with the designed list/grid placeholder backing. It does not use non-uniform stretch/fill.
+
+Verification:
+
+- Deterministic contracts:
+  `node scripts/test_gallery_grid_mode_contract.mjs`,
+  `node scripts/test_gallery_grid_card_visual_contract.mjs`,
+  `node scripts/test_responsive_grid_contract.mjs`, and
+  `node scripts/test_v1_decorator_inventory_contract.mjs`.
+- Signed macOS build passed: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS simulator `127.0.0.1:5555`, official signed HAP installed with hdc outside sandbox:
+  `.hvigor/outputs/gallery-browsing-layout-recovery/current-after-grey-boundary/screen.jpeg` shows Home
+  Grid as three compact columns with the shared corner badge and list/grid placeholder behavior intact.
+  Layout dump confirms first-row `GridItem` count `3` with bounds
+  `[18,415][354,1113]`, `[372,415][708,1113]`, `[727,415][1063,1113]`.
+
+Remaining acceptance:
+
+- Pending controller/user visual acceptance. Do not reopen this item from historical notes unless current
+  screenshots show a fresh Grid regression.
 
 Source:
 
@@ -504,7 +535,46 @@ Type: browsing mode bug / layout correctness
 
 Priority suggestion: P1
 
-Status: active / broken
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- `8bc9afb fix(gallery): recover grid and waterfall browsing layouts` repairs Waterfall as a distinct
+  `ListMode.WATERFALL` branch using `PullRefreshWaterFlowScaffold` / `WaterFlow` / `FlowItem`, not the
+  Grid scaffold.
+- Waterfall now uses native ArkUI `repeat(auto-fit, <minWidth>vp)` track sizing with its own
+  `GALLERY_WATERFALL_MIN_W = 160`; it no longer shares Grid width or hand-calculated `cellWidth`.
+- Waterfall viewport avoidance now uses `contentStartOffset` / `contentEndOffset` rather than
+  top/bottom `WaterFlow.padding`, preserving the floating chrome semantics without padding-region
+  disappearance.
+- `GalleryWaterfallCard` keeps masonry semantics: cover height follows EH source aspect ratio within
+  bounds (`0.5..1.35` width/height) so extreme strip/webtoon covers cannot make a card unboundedly tall,
+  and `forceCoverFit` crops inside the bounded slot instead of showing list/grid grey letterbox.
+- Waterfall uses the same shared category corner badge as Grid while keeping richer title/rating/tags
+  semantics separate from compact Grid.
+
+Verification:
+
+- FE grounding: `eros_fe/lib/pages/item/gallery_item_grid.dart` defines min/max fixed cover-ratio guards;
+  `eros_fe/lib/pages/item/gallery_item_flow_large.dart` uses `max(imgWidth / imgHeight, 1 / 2)` to clamp
+  extreme tall covers. NextE follows this product strategy in HarmonyOS-native form.
+- Deterministic contracts:
+  `node scripts/test_gallery_waterflow_contract.mjs`,
+  `node scripts/test_gallery_grid_mode_contract.mjs`,
+  `node scripts/test_responsive_grid_contract.mjs`, and
+  `node scripts/test_v1_decorator_inventory_contract.mjs`.
+- Signed macOS build passed: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS simulator `127.0.0.1:5555`, official signed HAP installed with hdc outside sandbox:
+  `.hvigor/outputs/gallery-browsing-layout-recovery/waterfall-bounded-cover-final/screen.jpeg` shows
+  Home Waterfall as two columns, bounded variable-height masonry, no fixed-ratio grey letterbox on
+  visible covers, and the shared corner badge.
+  Layout dump confirms first-row `FlowItem` count `2` with bounds
+  `[18,415][531,1529]` and `[549,415][1062,1189]`.
+
+Remaining acceptance:
+
+- Pending controller/user visual acceptance. Search/Favorites use the same branches and contracts, but
+  this device pass directly captured Home; reopen only for a fresh surface-specific regression.
 
 Current feedback:
 
