@@ -78,6 +78,14 @@ export struct ReaderSettingsPage {
     return `${this.readMode.autoPageSeconds}s`
   }
 
+  @Builder
+  private rowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
+  }
+
   // Native direction picker: a framework Menu/MenuItem with a checkmark symbolEndIcon on the active
   // mode (V2Next TopicDetailComponents.ets:192-227). Selecting one persists via ReadModeSettings + closes.
   @Builder
@@ -233,6 +241,7 @@ export struct ReaderSettingsPage {
                   this.dirMenuShown = false
                 },
               })
+              this.rowDivider()
               Column() {
                 ConciseListRow({
                   title: $r('app.string.settings_reader_double_page'),
@@ -249,6 +258,7 @@ export struct ReaderSettingsPage {
                   this.columnMenuShown = false
                 },
               })
+              this.rowDivider()
               Column() {
                 ConciseListRow({
                   title: $r('app.string.settings_reader_auto_page_interval'),
@@ -265,9 +275,11 @@ export struct ReaderSettingsPage {
                   this.autoPageMenuShown = false
                 },
               })
+              this.rowDivider()
               ConciseListRow({
                 title: $r('app.string.settings_reader_volume_key'),
                 subtitle: $r('app.string.settings_reader_volume_key_hint'),
+                subtitleMaxLines: 3,
                 hasSwitch: true,
                 checked: this.readMode.volumeKeyTurn,
                 showChevron: false,

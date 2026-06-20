@@ -22,6 +22,7 @@ import { ThemeConstants } from '../theme/ThemeConstants'
 export struct ConciseListRow {
   @Param title: ResourceStr = '';
   @Param subtitle: ResourceStr = '';
+  @Param subtitleMaxLines: number = 1;
   @Param trailingText: ResourceStr = '';
   @Param leadingImageUrl: string = '';
   // Leading SymbolGlyph icon (e.g. $r('sys.symbol.person')) — eros_fe-style icon-led settings rows.
@@ -66,7 +67,7 @@ export struct ConciseListRow {
       .textIndent(this.hasLeading() ? undefined : ThemeConstants.LIST_ROW_TEXT_INDENT)
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
       .fontColor(this.secondaryColor ?? $r('sys.color.font_secondary'))
-      .maxLines(1)
+      .maxLines(this.subtitleMaxLines)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
   }
 
@@ -79,6 +80,9 @@ export struct ConciseListRow {
   }
 
   private cardHeight(): number {
+    if (this.subtitle && this.subtitleMaxLines > 1) {
+      return 84
+    }
     return this.subtitle ? 60 : 52
   }
 

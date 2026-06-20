@@ -85,6 +85,10 @@ Historical feedback in this section must not trigger new implementation.
   Search and Favorites now share one non-placeholder favcat slot resolver, and visible Search rows
   re-resolve when account favcat metadata arrives. Reopen only if a current Search result still shows a
   stale/default heart color after real favcat metadata has loaded.
+- Reader Settings row separators and subtitle readability are implemented pending controller acceptance:
+  Reader Settings now has visible row dividers, and `ConciseListRow` supports opt-in multiline subtitles
+  for the volume-key hint while keeping the default row behavior stable. Reopen only with a fresh Reader
+  Settings screenshot showing unreadable row grouping or clipped subtitle text.
 
 ## Parked / Guidance Only
 

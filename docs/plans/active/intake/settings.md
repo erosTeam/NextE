@@ -16,7 +16,7 @@ Type: UI readability / settings form quality
 
 Priority suggestion: P2 / medium
 
-Status: new
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -59,6 +59,31 @@ Acceptance shape:
 - Other Settings pages that use `ConciseListRow` remain visually stable.
 - Deterministic contract should lock the subtitle policy to `maxLines(3)` plus overflow handling and
   should cover row separation in Reader Settings or the shared settings-row pattern.
+
+Handled update, 2026-06-20:
+
+- Implemented local Reader Settings row dividers and an opt-in `ConciseListRow.subtitleMaxLines` path.
+  The shared row default remains one line, so other settings/list rows do not grow unless they opt in.
+- FE grounding:
+  - Source: `/Users/honjow/git/eros_fe/lib/pages/item/setting_item.dart` uses explicit dividers between
+    settings rows.
+  - Android ADB evidence: `.hvigor/outputs/reader-settings-row-fe/reader-settings.png` and
+    `.hvigor/outputs/reader-settings-row-fe/reader-settings.xml` show `阅读设置` rows separated by
+    thin dividers.
+- NextE evidence:
+  - HarmonyOS emulator target: `127.0.0.1:5555`.
+  - Screenshot: `.hvigor/outputs/reader-settings-row-nexte/reader-settings-screen.jpeg`.
+  - Layout: `.hvigor/outputs/reader-settings-row-nexte/reader-settings-layout.json`.
+  - Layout verification found 3 Reader Settings `Divider` nodes and the volume-key subtitle
+    `音量减/加对应下一页/上一页` rendered with bounds `[74,956][659,1007]`, not clipped to an invisible
+    one-line trailing state.
+- Validation:
+  - `node scripts/test_reader_settings_readability_contract.mjs`
+  - `node scripts/test_v1_decorator_inventory_contract.mjs`
+  - `git diff --check`
+  - `scripts/build_hvigor_signed.sh`
+- Remaining acceptance: controller visual acceptance only; reopen with a fresh Reader Settings screenshot
+  if row separation or subtitle readability regresses.
 
 ### Home Bottom Navigation Auto-Hide And Smart-Grip Action Alignment
 
