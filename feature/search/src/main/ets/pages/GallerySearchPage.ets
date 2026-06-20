@@ -539,6 +539,7 @@ export struct GallerySearchPage {
             PullRefreshWaterFlowScaffold({
               scroller: this.scroller,
               minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W,
+              itemCount: this.vm.itemCount,
               gap: ThemeConstants.GALLERY_GRID_GAP,
               horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
               topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,

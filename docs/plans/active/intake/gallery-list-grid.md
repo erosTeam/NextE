@@ -10,6 +10,38 @@ Purpose:
 
 ## Items
 
+### Waterfall Top Reserve Was A Normal Masonry Item
+
+Type: browsing mode bug / viewport chrome avoidance
+
+Priority suggestion: P1
+
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- `PullRefreshWaterFlowScaffold` now uses `WaterFlowSections`: a one-item full-width top reserve section,
+  the real gallery content section, and a one-item full-width bottom reserve section.
+- Home, Search, and Favorites Waterfall branches pass `itemCount: this.vm.itemCount` so section counts
+  match the rendered `FlowItem`s.
+- Scope is intentionally narrow: Grid scaffold semantics, cover policy, badge shape, Reader, and
+  SearchFilter are unchanged.
+
+Verification:
+
+- Local HarmonyOS emulator target `127.0.0.1:5555`, hdc outside sandbox.
+- Initial Home Waterfall screenshot:
+  `/Users/honjow/git/NextE-wt/waterfall-top-avoidance/.hvigor/outputs/waterfall-top-avoidance/start.png`.
+- Layout proof: first `FlowItem` is the full-width reserve `[18,122][1062,415]`; the first left/right
+  content cards both begin at `y=415`, not under the title/tab chrome.
+- Scrolled screenshot:
+  `/Users/honjow/git/NextE-wt/waterfall-top-avoidance/.hvigor/outputs/waterfall-top-avoidance/scrolled.png`.
+- Gates: `node scripts/test_gallery_waterflow_contract.mjs`,
+  `node scripts/test_gallery_grid_mode_contract.mjs`,
+  `node scripts/test_grid_immersive_spacer_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`, `git diff --check`, and
+  `scripts/build_hvigor_signed.sh`.
+
 ### AllThumbnails First Real Thumbnail Rendered Full Width
 
 Type: bug / preview grid layout

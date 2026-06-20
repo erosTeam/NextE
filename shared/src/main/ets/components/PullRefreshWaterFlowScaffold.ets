@@ -19,6 +19,7 @@ export struct PullRefreshWaterFlowScaffold {
   @Param horizontalPadding: number = ThemeConstants.SPACE_MD;
   @Param bottomPadding: number = ThemeConstants.SPACE_XL;
   @Param topPadding: number = 0;
+  @Param itemCount: number = 0;
   @Param controller: PullRefreshController = new PullRefreshController();
   @Event onRefresh?: () => Promise<void>;
   @Event onBottomRefresh?: () => Promise<void>;
@@ -49,11 +50,11 @@ export struct PullRefreshWaterFlowScaffold {
         return false
       },
     }) {
-      WaterFlow({ scroller: this.scroller, footer: this.BottomSpacer() }) {
+      WaterFlow({ scroller: this.scroller, sections: this.waterFlowSections() }) {
         this.TopSpacer()
         this.content()
+        this.BottomSpacer()
       }
-      .columnsTemplate(this.columnsTemplate())
       .columnsGap(this.gap)
       .rowsGap(this.gap)
       .scrollBar(BarState.Off)
@@ -76,10 +77,42 @@ export struct PullRefreshWaterFlowScaffold {
     }
   }
 
-  private columnsTemplate(): string {
+  private waterFlowSections(): WaterFlowSections {
+    const sections: WaterFlowSections = new WaterFlowSections()
+    const opts: SectionOptions[] = []
+    opts.push({
+      itemsCount: 1,
+      crossCount: 1,
+      rowsGap: 0,
+      columnsGap: 0,
+    })
+    if (this.itemCount > 0) {
+      opts.push({
+        itemsCount: this.itemCount,
+        crossCount: this.contentColumnCount(),
+        rowsGap: this.gap,
+        columnsGap: this.gap,
+      })
+    }
+    opts.push({
+      itemsCount: 1,
+      crossCount: 1,
+      rowsGap: 0,
+      columnsGap: 0,
+    })
+    sections.splice(0, 0, opts)
+    return sections
+  }
+
+  private contentColumnCount(): number {
     const minWidth: number =
       this.minColumnWidth > 0 ? this.minColumnWidth : ThemeConstants.GALLERY_WATERFALL_MIN_W
-    return `repeat(auto-fit, ${minWidth}vp)`
+    if (this.measuredWidth <= 0) {
+      return 2
+    }
+    const contentWidth: number = Math.max(minWidth, this.measuredWidth - this.horizontalPadding * 2)
+    const count: number = Math.floor((contentWidth + this.gap) / (minWidth + this.gap))
+    return Math.max(1, count)
   }
 
   @Builder
@@ -95,8 +128,11 @@ export struct PullRefreshWaterFlowScaffold {
 
   @Builder
   private BottomSpacer() {
-    Column() {
-      Blank().height(this.bottomSpacerHeight())
+    FlowItem() {
+      Column() {
+        Blank().height(this.bottomSpacerHeight())
+      }
+      .width('100%')
     }
     .width('100%')
   }

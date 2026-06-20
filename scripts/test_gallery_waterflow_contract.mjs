@@ -37,9 +37,12 @@ function branchBetween(source, start, end) {
 const scaffoldRel = 'shared/src/main/ets/components/PullRefreshWaterFlowScaffold.ets';
 const scaffold = read(scaffoldRel);
 
-assertIncludes(scaffold, 'WaterFlow({ scroller: this.scroller, footer: this.BottomSpacer() })', 'waterfall scaffold must bind the shared Scroller to native WaterFlow and use native footer spacing');
-assertIncludes(scaffold, '.columnsTemplate(this.columnsTemplate())', 'waterfall scaffold must keep responsive column templates');
-assertIncludes(scaffold, 'repeat(auto-fit, ${minWidth}vp)', 'waterfall scaffold must use native ArkUI repeat(auto-fit) track sizing');
+assertIncludes(scaffold, 'WaterFlow({ scroller: this.scroller, sections: this.waterFlowSections() })', 'waterfall scaffold must bind the shared Scroller to sectioned native WaterFlow');
+assertIncludes(scaffold, 'private waterFlowSections(): WaterFlowSections', 'waterfall scaffold must use WaterFlowSections for full-width top/bottom reserve');
+assertIncludes(scaffold, 'itemsCount: 1,\n      crossCount: 1', 'waterfall top/bottom reserve sections must span one full-width column');
+assertIncludes(scaffold, 'itemsCount: this.itemCount', 'waterfall content section must be sized from the real rendered item count');
+assertIncludes(scaffold, 'crossCount: this.contentColumnCount()', 'waterfall content section must keep a responsive masonry column count');
+assertIncludes(scaffold, 'private contentColumnCount(): number', 'waterfall scaffold owns the section column fallback required by WaterFlowSections');
 assertIncludes(scaffold, 'ThemeConstants.GALLERY_WATERFALL_MIN_W', 'waterfall scaffold fallback width must be the Waterfall token, not the Grid token');
 assertNotIncludes(scaffold, 'ResponsiveGrid', 'waterfall scaffold must not hand-calculate columns through ResponsiveGrid');
 assertNotIncludes(scaffold, 'onCellSize', 'waterfall scaffold must not leak hand-calculated cell widths to call sites');
@@ -48,6 +51,7 @@ assertIncludes(scaffold, 'FlowItem() {', 'waterfall scaffold top spacer must be 
 assertIncludes(scaffold, 'Blank().height(this.topSpacerHeight())', 'waterfall scaffold top spacer must reserve the title chrome height as scroll content');
 assertIncludes(scaffold, 'private BottomSpacer()', 'waterfall scaffold must expose a bottom footer spacer builder');
 assertIncludes(scaffold, 'Blank().height(this.bottomSpacerHeight())', 'waterfall scaffold bottom footer must reserve bottom chrome height');
+assertNotIncludes(scaffold, 'footer: this.BottomSpacer()', 'waterfall bottom reserve must be a section item when sections are active');
 assertNotIncludes(scaffold, 'contentStartOffset', 'waterfall scaffold must not use contentStartOffset for title chrome reserve');
 assertNotIncludes(scaffold, 'contentEndOffset', 'waterfall scaffold must not use contentEndOffset for bottom chrome reserve');
 if (/padding\(\{[\s\S]*top:\s*this\.layout\.topAvoidHeight/.test(scaffold) ||
@@ -93,6 +97,7 @@ for (const rel of galleryPages) {
   assertIncludes(source, 'GalleryWaterfallCard', `${rel}: Waterfall branch must import the Waterfall card`);
   assertIncludes(source, 'this.listMode.mode === ListMode.WATERFALL', `${rel}: must branch on ListMode.WATERFALL`);
   assertIncludes(waterfallBranch, 'minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W', `${rel}: WATERFALL branch must use a Waterfall-specific width token`);
+  assertIncludes(waterfallBranch, 'itemCount: this.vm.itemCount', `${rel}: WATERFALL branch must pass itemCount so section spacers do not consume gallery items`);
   if (!/FlowItem\(\) \{[\s\S]*GalleryWaterfallCard\(\{ gallery: g \}\)[\s\S]*\.width\('100%'\)/.test(waterfallBranch)) {
     fail(`${rel}: WATERFALL branch must let each FlowItem fill its native WaterFlow cell`);
   }

@@ -120,10 +120,10 @@ Historical feedback in this section must not trigger new implementation.
   system Back returns from detail to the tagset list instead of exiting directly to Settings.
 - Gallery Grid/Waterfall title-bar scroll linkage is implemented pending controller acceptance: Grid no
   longer uses `contentStartOffset` / `contentEndOffset`, uses `GridLayoutOptions.irregularIndexes` for
-  full-row top/bottom spacer content, and Waterfall no longer uses offset reserve, using real top
-  content plus native footer spacing. Simulator evidence on `127.0.0.1:5555` shows a short upward scroll
-  in both Waterfall and Grid immediately hides the HDS title/header while keeping the bottom selector
-  visible.
+  full-row top/bottom spacer content, and Waterfall uses `WaterFlowSections` so top/bottom reserves are
+  full-width section items instead of normal masonry `FlowItem`s. Simulator evidence on `127.0.0.1:5555`
+  shows Waterfall content starts below the tab/header reserve and a short upward scroll lets content pass
+  under the floating chrome as expected.
 - Gallery thumbnail loading motion is implemented pending controller acceptance: timed internal QA probe
   evidence showed native `LoadingProgress` animated while `EhThumbnail`'s old `.overlay(...)` path was
   static, and `EhThumbnail` now renders normal loading/error overlays as in-tree `Stack` children.

@@ -273,6 +273,7 @@ export struct FavcatPage {
         PullRefreshWaterFlowScaffold({
           scroller: this.scroller,
           minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W,
+          itemCount: this.vm.itemCount,
           gap: ThemeConstants.GALLERY_GRID_GAP,
           horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
           topPadding: SELECTOR_BAR_HEIGHT,
