@@ -180,8 +180,8 @@ export struct GalleryCommentsCard {
           this.EditAction(c)
         }
         if (this.max <= 0 && c.canVote) {
-          this.VoteAction(c, 1, $r('sys.symbol.arrow_up'))
-          this.VoteAction(c, -1, $r('sys.symbol.arrow_down'))
+          this.VoteAction(c, 1, c.vote > 0 ? $r('sys.symbol.hand_thumbsup_fill') : $r('sys.symbol.hand_thumbsup'))
+          this.VoteAction(c, -1, c.vote < 0 ? $r('sys.symbol.hand_thumbsdown_fill') : $r('sys.symbol.hand_thumbsdown'))
         }
         if (this.max <= 0 && c.commentId.length > 0 && c.commentId !== '0') {
           this.ReplyAction(c)

@@ -79,7 +79,7 @@ function parse(html) {
       score: g1(m[0], RE_SCORE).trim(), vote: parseVote(c4),
       canEdit: c4.includes('edit_'), canVote: c4.includes('vote_'),
       scoreDetails: parseScoreDetails(m[3] || ''),
-      isUploader: m[0].includes('Uploader Comment'),
+      isUploader: m[0].includes('Uploader Comment') || g1(m[0], RE_SCORE).trim().length === 0,
     })
   }
   return out
@@ -104,6 +104,9 @@ if (syn[1] && JSON.stringify(syn[1].scoreDetails) !== JSON.stringify(['Base +10'
 
 const downVote = parse(`<a name="c3"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=303">c</a></div><div class="c4 nosel"><a onclick="return vote_1()">+</a><a onclick="return vote_2()" style="color:#c00">-</a></div></div><div class="c6" id="comment_9">x</div></div>`)
 if (downVote[0] && downVote[0].vote !== -1) fail(`downvote style should parse as -1: ${JSON.stringify(downVote[0])}`)
+
+const uploaderWithoutMarker = parse(`<a name="c4"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=404">real-uploader</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_0">uploader text</div></div>`)
+if (uploaderWithoutMarker[0] && !uploaderWithoutMarker[0].isUploader) fail(`score-less uploader should parse as uploader: ${JSON.stringify(uploaderWithoutMarker[0])}`)
 
 // 2. Real fixture.
 const realPath = new URL('./fixtures/gdetail_real.html', import.meta.url)
@@ -133,6 +136,9 @@ for (const field of ['memberId', 'vote', 'canEdit', 'canVote', 'scoreDetails']) 
 }
 if (!/RE_MEMBER_ID/.test(parserSrc) || !/parseVote/.test(parserSrc) || !/parseScoreDetails/.test(parserSrc) || !/localPostedTime/.test(parserSrc)) {
   fail('parser missing comment metadata helpers')
+}
+if (!/c\.isUploader = m\[0\]\.includes\('Uploader Comment'\) \|\| c\.score\.length === 0/.test(parserSrc)) {
+  fail('parser must mark score-less comment rows as uploader comments')
 }
 
 if (failures === 0) { console.log('✓ comment parser contract: all cases pass'); process.exit(0) }

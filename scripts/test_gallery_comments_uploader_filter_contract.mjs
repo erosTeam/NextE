@@ -26,9 +26,9 @@ const page = read('feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets')
 ok('comments page owns a page-local uploaderOnly filter state',
   /@Local uploaderOnly: boolean = false/.test(page))
 ok('uploader filter derives the uploader memberId from parsed uploader comment metadata',
-  /private uploaderMemberId\(\): string[\s\S]*this\.comments\.find\(\(c: EhGalleryComment\) => c\.isUploader\)[\s\S]*uploader\.memberId/.test(page))
+  /private uploaderMemberId\(\): string[\s\S]*c\.isUploader \|\| c\.score\.length === 0[\s\S]*uploader\.memberId/.test(page))
 ok('visible comments use uploader memberId first and isUploader fallback',
-  /private visibleComments\(\): EhGalleryComment\[\][\s\S]*!this\.uploaderOnly[\s\S]*return this\.comments[\s\S]*c\.memberId === memberId[\s\S]*c\.isUploader/.test(page))
+  /private visibleComments\(\): EhGalleryComment\[\][\s\S]*!this\.uploaderOnly[\s\S]*return this\.comments[\s\S]*c\.memberId === memberId[\s\S]*c\.isUploader \|\| c\.score\.length === 0/.test(page))
 ok('comments page title menu exposes all/uploader labels',
   /private commentsTitleBar\(\): Record<string, Object>[\s\S]*comment_filter_uploader_only/.test(page) &&
     /private commentsTitleBar\(\): Record<string, Object>[\s\S]*comment_filter_all/.test(page))

@@ -44,8 +44,9 @@ export class EhCommentParser {
         c.canVote = c4.indexOf('vote_') >= 0
         c.vote = EhCommentParser.parseVote(c4)
         c.scoreDetails = EhCommentParser.parseScoreDetails(m[3] !== undefined ? m[3] : '')
-        // The uploader's own comment carries an `Uploader Comment` marker (and no score).
-        c.isUploader = m[0].includes('Uploader Comment')
+        // eros_fe treats the uploader comment as the score-less row; the literal marker is not
+        // guaranteed to be present on every captured page shape.
+        c.isUploader = m[0].includes('Uploader Comment') || c.score.length === 0
         out.push(c)
       }
       m = re.exec(html)

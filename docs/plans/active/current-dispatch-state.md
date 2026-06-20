@@ -151,6 +151,15 @@ Historical feedback in this section must not trigger new implementation.
   while manual title-bar Search still flips autofocus on after the field mounts. Simulator evidence on
   `127.0.0.1:5555` showed manual Search opened the keyboard, and gallery-detail tag seeded Search opened
   results without an input-method window.
+- Comment vote live state and uploader-only parity are implemented pending controller acceptance /
+  authorized real-submit verification: vote controls now use native thumbs symbols, apply an optimistic
+  row-local selected state before `votecomment` returns, roll back on failure, and overwrite score/vote
+  from the EH response on success. Score-less uploader rows are treated as uploader comments like
+  `eros_fe`, so the uploader badge and uploader-only filter work even when the literal `Uploader Comment`
+  marker is absent. Simulator evidence on `127.0.0.1:5555` showed the full comments page with UP badge,
+  thumbs actions, score badges, uploader-only filtering down to one uploader row, and the vote confirm
+  dialog without submitting the destructive write. A real successful vote submit still requires explicit
+  authorization before marking accepted.
 - AllThumbnails large-gallery jump and preview-page scrolling is implemented pending controller
   acceptance. Existing evidence in `docs/plans/active/intake/gallery-list-grid.md` covers the
   1700-page public gallery `https://e-hentai.org/g/3998992/f5b5c954d2/`, Android FE ADB `su`
@@ -186,28 +195,16 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
-   controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
-   finds a comment write regression. If comment UI polish is reopened during that acceptance, also replace
-   the current arrow vote icons with native `hand_thumbsup` / `hand_thumbsup_fill` and
-   `hand_thumbsdown` / `hand_thumbsdown_fill`, and check whether fixed square action hit areas are making
-   comment footers too tall or leaving the three footer icons so far apart that they look like a missing
-   fourth action slot. Keep this as a narrow footer action-cluster polish pass, not a full comment
-   redesign. Fresh regression reported 2026-06-21: after comment upvote/downvote succeeds, the visible
-   comment score and selected vote icon state do not update in place. The next comment acceptance must verify
-   score and icon state refresh on the same row after a real successful vote, not only API success/toast.
-   Fresh regression also reported 2026-06-21: uploader comments no longer show the uploader badge, and the
-   uploader-only filter appears ineffective. Treat badge + filter as P1 comment parity acceptance, with a
-   runnable synthetic-list check plus real-gallery verification.
-2. Search tag query normalization: action-seeded tag searches must split pipe-separated display aliases on
+1. Search tag query normalization: action-seeded tag searches must split pipe-separated display aliases on
    `|`, use the first trimmed segment, and add the EH exact-match `$` suffix for namespaced tag queries.
    Reuse one helper for detail/list/waterfall tag taps and later tagsuggest/translation candidate insertion;
    uploader/title/similar searches must keep their existing non-tag semantics. This is P1 search correctness,
    not broad Search UI redesign.
-3. Reader loading-state overlay regression: loading spinner/text can appear on top of an already visible
+2. Reader loading-state overlay regression: loading spinner/text can appear on top of an already visible
    Reader image (reported 2026-06-21). Treat as P1 reading-core visual correctness. Fix narrowly by making
-   loaded image and loading stage mutually exclusive in the visible page state; do not reopen byte-progress,
-   cache, double-page, or broad gesture redesign for this bug.
+   loaded image and loading stage mutually exclusive in the visible page state; normal loading should not be
+   modeled as `Stack { Image; ReaderLoadingStage }` overlay composition. Do not reopen byte-progress, cache,
+   double-page, or broad gesture redesign for this bug.
 4. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,

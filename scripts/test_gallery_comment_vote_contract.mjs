@@ -54,6 +54,13 @@ ok('full comments card exposes vote event but peek mode stays quiet',
 ok('vote actions use current vote state and avoid double submit',
   /private voteColor\(c: EhGalleryComment, vote: number\)/.test(card) &&
     /private canVote\(c: EhGalleryComment\): boolean \{[\s\S]*this\.votingCommentId\.length === 0/.test(card))
+ok('vote actions use native thumbs icons with filled selected state',
+  /hand_thumbsup_fill/.test(card) &&
+    /hand_thumbsup/.test(card) &&
+    /hand_thumbsdown_fill/.test(card) &&
+    /hand_thumbsdown/.test(card) &&
+    !/VoteAction\(c, 1, \$r\('sys\.symbol\.arrow_up'\)\)/.test(card) &&
+    !/VoteAction\(c, -1, \$r\('sys\.symbol\.arrow_down'\)\)/.test(card))
 
 const page = read('feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets')
 ok('comments page confirms before submitting a vote',
@@ -63,6 +70,10 @@ ok('comments page submits votecomment with route api metadata',
   /EhApiPhpService\.voteComment\([\s\S]*EhConstants\.baseUrl\(connectSiteMode\(\)\.isEx\)[\s\S]*this\.params\.apikey[\s\S]*this\.params\.apiuid[\s\S]*this\.params\.gid[\s\S]*this\.params\.token[\s\S]*commentId[\s\S]*vote/.test(page))
 ok('comments page applies returned vote and score to the matching local comment',
   /private applyVoteResult\(result: CommentVoteResult\): void[\s\S]*next\.vote = result\.commentVote[\s\S]*next\.score = result\.commentScore\.toString\(\)[\s\S]*this\.comments = nextComments/.test(page))
+ok('comments page applies optimistic row vote and rolls back on failure',
+  /private applyLocalVote\(commentId: string, vote: number\): EhGalleryComment \| undefined[\s\S]*previous = this\.cloneComment\(c\)[\s\S]*next\.vote = vote[\s\S]*this\.comments = nextComments/.test(page) &&
+    /private restoreComment\(comment: EhGalleryComment\): void[\s\S]*c\.commentId === comment\.commentId/.test(page) &&
+    /const previous: EhGalleryComment \| undefined = this\.applyLocalVote\(commentId, vote\)[\s\S]*catch \(err\) \{[\s\S]*this\.restoreComment\(previous\)/.test(page))
 ok('comments page wires card onVote and pending state',
   /GalleryCommentsCard\(\{[\s\S]*votingCommentId: this\.votingCommentId[\s\S]*onVote: \(comment: EhGalleryComment, vote: number\) => \{[\s\S]*this\.confirmCommentVote\(comment, vote\)/.test(page))
 

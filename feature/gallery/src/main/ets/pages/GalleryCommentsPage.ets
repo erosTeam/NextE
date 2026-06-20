@@ -46,7 +46,8 @@ export struct GalleryCommentsPage {
   @Local commentError: string = '';
 
   private uploaderMemberId(): string {
-    const uploader: EhGalleryComment | undefined = this.comments.find((c: EhGalleryComment) => c.isUploader)
+    const uploader: EhGalleryComment | undefined =
+      this.comments.find((c: EhGalleryComment) => c.isUploader || c.score.length === 0)
     return uploader !== undefined ? uploader.memberId : ''
   }
 
@@ -58,7 +59,7 @@ export struct GalleryCommentsPage {
     if (memberId.length > 0) {
       return this.comments.filter((c: EhGalleryComment) => c.memberId === memberId)
     }
-    return this.comments.filter((c: EhGalleryComment) => c.isUploader)
+    return this.comments.filter((c: EhGalleryComment) => c.isUploader || c.score.length === 0)
   }
 
   private canOpenCommentSheet(): boolean {
@@ -236,6 +237,31 @@ export struct GalleryCommentsPage {
     this.comments = nextComments
   }
 
+  private applyLocalVote(commentId: string, vote: number): EhGalleryComment | undefined {
+    let previous: EhGalleryComment | undefined = undefined
+    const nextComments: EhGalleryComment[] = []
+    this.comments.forEach((c: EhGalleryComment) => {
+      if (c.commentId === commentId) {
+        previous = this.cloneComment(c)
+        const next: EhGalleryComment = this.cloneComment(c)
+        next.vote = vote
+        nextComments.push(next)
+      } else {
+        nextComments.push(c)
+      }
+    })
+    this.comments = nextComments
+    return previous
+  }
+
+  private restoreComment(comment: EhGalleryComment): void {
+    const nextComments: EhGalleryComment[] = []
+    this.comments.forEach((c: EhGalleryComment) => {
+      nextComments.push(c.commentId === comment.commentId ? comment : c)
+    })
+    this.comments = nextComments
+  }
+
   private showCommentToast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {
       // Toast failures are non-critical; the comment state has already been updated or logged.
@@ -267,6 +293,7 @@ export struct GalleryCommentsPage {
       return
     }
     this.votingCommentId = commentId
+    const previous: EhGalleryComment | undefined = this.applyLocalVote(commentId, vote)
     try {
       const result: CommentVoteResult = await EhApiPhpService.voteComment(
         EhConstants.baseUrl(connectSiteMode().isEx),
@@ -280,6 +307,9 @@ export struct GalleryCommentsPage {
       this.applyVoteResult(result)
       this.showCommentToast(this.voteSuccessText(vote))
     } catch (err) {
+      if (previous !== undefined) {
+        this.restoreComment(previous)
+      }
       this.errorMessage = EhErrorText.forUser(err)
       DiagnosticLogger.warn('gallery', 'comment_vote_failed', (err as Error).message)
       this.showCommentToast($r('app.string.comment_vote_failed'))
