@@ -243,6 +243,14 @@ Validation:
 - Gates: gallery detail menu contract, V1 decorator inventory, i18n duplicate check, `git diff --check`, and
   official signed Hvigor build passed during implementation; full contract sweep is rerun before commit.
 
+Known follow-up:
+
+- User feedback, 2026-06-21: tapping "应用内网页" currently crashes the app. Keep this as a low-priority
+  WebView stability regression, not a next-lane blocker. The route/page already exist, and
+  `scripts/test_gallery_detail_menu_actions_contract.mjs` only checks the static route/WebView shape; the
+  later fix should add the smallest launch/smoke guard that proves opening the internal WebView does not
+  crash. Do not redesign the in-app browser or move this ahead of Reader gesture and comment regressions.
+
 Source:
 
 - User feedback on current gallery detail title actions.

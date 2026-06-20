@@ -216,6 +216,9 @@ a bounded validation path.
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
+4. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
+   (reported 2026-06-21). Record only for a later small launch/smoke fix; do not let it displace Reader
+   gesture/chrome fixes or the P1 comment regressions.
 
 ## Lane Selection Rule
 
