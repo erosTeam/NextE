@@ -74,6 +74,9 @@ Items here are real concerns, but they are not active implementation lanes by de
 - Gallery detail long-title full-text access is a low-priority optimization. A scrollable or expandable
   title area may be explored later, but it must not interrupt the current feature-completion/write
   operation lanes.
+- Persisting last selected sub-tabs is a low-priority UX optimization: Home gallery source, Favorites
+  favcat, and Toplist period currently reset to defaults after app restart. This should be handled later
+  as retained user preference state, not ahead of write-operation and search/favorites correctness bugs.
 
 ## Active Queue
 
