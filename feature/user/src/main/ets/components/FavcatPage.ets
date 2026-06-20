@@ -28,6 +28,8 @@ import {
   LocalFavState,
   GalleryFavoriteMutationState,
   connectGalleryFavoriteMutation,
+  GalleryRatingMutationState,
+  connectGalleryRatingMutation,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { FavoritesViewModel } from '../viewmodel/FavoritesViewModel'
@@ -55,6 +57,7 @@ export struct FavcatPage {
   @Local favSel: FavSelectionState = connectFavSelection();
   @Local localFav: LocalFavState = connectLocalFav();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
+  @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -133,6 +136,17 @@ export struct FavcatPage {
         this.favoriteMutation.favTitle,
       )
     }
+  }
+
+  @Monitor('ratingMutation.version')
+  onRatingMutation(): void {
+    this.vm.applyRatingMutation(
+      this.ratingMutation.gid,
+      this.ratingMutation.userRating,
+      this.ratingMutation.averageRating,
+      this.ratingMutation.ratingCount,
+      this.ratingMutation.colorRating,
+    )
   }
 
   // Publish this favcat's parsed sidebar into the shared favList so the bar shows names + counts. The 'a'

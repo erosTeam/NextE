@@ -18,6 +18,8 @@ import {
   ListMode,
   GalleryFavoriteMutationState,
   connectGalleryFavoriteMutation,
+  GalleryRatingMutationState,
+  connectGalleryRatingMutation,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
@@ -37,6 +39,7 @@ export struct GalleryListBody {
   @Param scroller: Scroller = new Scroller();
   @Local listMode: ListModeState = connectListMode();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
+  @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -47,6 +50,17 @@ export struct GalleryListBody {
       this.favoriteMutation.gid,
       this.favoriteMutation.favcat,
       this.favoriteMutation.favTitle,
+    )
+  }
+
+  @Monitor('ratingMutation.version')
+  onRatingMutation(): void {
+    this.vm.applyRatingMutation(
+      this.ratingMutation.gid,
+      this.ratingMutation.userRating,
+      this.ratingMutation.averageRating,
+      this.ratingMutation.ratingCount,
+      this.ratingMutation.colorRating,
     )
   }
 

@@ -39,6 +39,8 @@ import {
   connectLocalFav,
   GalleryFavoriteMutationState,
   connectGalleryFavoriteMutation,
+  GalleryRatingMutationState,
+  connectGalleryRatingMutation,
   RemoteFavoriteSlotCacheState,
   connectRemoteFavoriteSlotCache,
   ViewedGallery,
@@ -49,6 +51,8 @@ import {
   PageErrorState,
   AppStrings,
   AppModalScaffold,
+  RatingStars,
+  GalleryRatingResult,
   immersiveTitleBarOpts,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
@@ -87,6 +91,7 @@ export struct GalleryDetailPage {
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
   @Local localFav: LocalFavState = connectLocalFav();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
+  @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local favoriteSlotCache: RemoteFavoriteSlotCacheState = connectRemoteFavoriteSlotCache();
   @Local remoteFavoriteSheetShown: boolean = false;
   @Local remoteFavoriteSelectedCat: string = '';
@@ -95,6 +100,11 @@ export struct GalleryDetailPage {
   @Local remoteFavoriteSubmitting: boolean = false;
   @Local remoteFavoriteLoadingFavcats: boolean = false;
   @Local remoteFavoriteError: string = '';
+  @Local ratingSheetShown: boolean = false;
+  @Local ratingSelected: number = 0;
+  @Local ratingSubmitting: boolean = false;
+  @Local ratingError: string = '';
+  private ratingOptions: number[] = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -306,20 +316,73 @@ export struct GalleryDetailPage {
     this.toggleLocalFavorite()
   }
 
-  private openRatingSafety(): void {
-    this.getUIContext().showAlertDialog({
-      message: $r('app.string.detail_rate_readonly_confirm'),
-      primaryButton: {
-        value: $r('app.string.common_cancel'),
-        action: () => {},
-      },
-      secondaryButton: {
-        value: $r('app.string.detail_open_internal_web'),
-        action: () => {
-          this.openInternalWeb()
-        },
-      },
-    })
+  private currentPersonalRating(): number {
+    return this.vm.gallery.isRated && this.vm.gallery.ratingFallBack > 0
+      ? this.vm.gallery.ratingFallBack
+      : 0
+  }
+
+  private openRatingSheet(): void {
+    this.ratingSelected = this.currentPersonalRating()
+    this.ratingError = ''
+    this.ratingSheetShown = true
+  }
+
+  private canSubmitRating(): boolean {
+    return !this.ratingSubmitting &&
+      this.ratingSelected > 0 &&
+      this.vm.gallery.apikey.length > 0 &&
+      this.vm.gallery.apiuid.length > 0
+  }
+
+  private ratingLabel(value: number): string {
+    return `${value.toFixed(1)} / 5`
+  }
+
+  private ratingHint(): string {
+    if (this.vm.gallery.apikey.length === 0 || this.vm.gallery.apiuid.length === 0) {
+      return AppStrings.get('detail_rate_missing_key')
+    }
+    if (this.currentPersonalRating() > 0) {
+      return `${AppStrings.get('detail_rate_current')}${this.ratingLabel(this.currentPersonalRating())}`
+    }
+    return AppStrings.get('detail_rate_write_notice')
+  }
+
+  private ratingOptionBackground(value: number): ResourceColor {
+    return this.ratingSelected === value ? $r('app.color.card_background') : $r('sys.color.ohos_id_color_sub_background')
+  }
+
+  private ratingOptionTextColor(value: number): ResourceColor {
+    return this.ratingSelected === value ? $r('sys.color.font_emphasize') : $r('sys.color.font_primary')
+  }
+
+  private async submitRating(): Promise<void> {
+    if (!this.canSubmitRating()) {
+      this.ratingError = AppStrings.get('detail_rate_missing_key')
+      return
+    }
+    this.ratingSubmitting = true
+    this.ratingError = ''
+    try {
+      const result: GalleryRatingResult = await this.vm.rateGallery(this.ratingSelected)
+      this.ratingMutation.publish(
+        this.vm.gallery.gid,
+        result.userRating,
+        result.averageRating,
+        result.ratingCount,
+        result.colorRating,
+      )
+      this.ratingSheetShown = false
+      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.detail_rate_success') })
+        .catch((_error: Error) => {})
+    } catch (err) {
+      this.ratingError = EhErrorText.forUser(err)
+      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.detail_rate_failed') })
+        .catch((_error: Error) => {})
+    } finally {
+      this.ratingSubmitting = false
+    }
   }
 
   private async enqueueGalleryDownload(): Promise<void> {
@@ -706,6 +769,102 @@ export struct GalleryDetailPage {
   }
 
   @Builder
+  private RatingOption(value: number) {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      RatingStars({
+        rating: value,
+        color: EhConstants.ratingStarColor(''),
+        starSize: ThemeConstants.FONT_SIZE_HEADING,
+      })
+      Text(this.ratingLabel(value))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontWeight(this.ratingSelected === value ? FontWeight.Bold : FontWeight.Regular)
+        .fontColor(this.ratingOptionTextColor(value))
+        .layoutWeight(1)
+      if (this.ratingSelected === value) {
+        SymbolGlyph($r('sys.symbol.checkmark'))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor([$r('sys.color.font_emphasize')])
+      }
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .padding({
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_MD,
+      top: ThemeConstants.SPACE_SM,
+      bottom: ThemeConstants.SPACE_SM,
+    })
+    .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+    .backgroundColor(this.ratingOptionBackground(value))
+    .enabled(!this.ratingSubmitting)
+    .onClick(() => {
+      this.ratingSelected = value
+    })
+  }
+
+  @Builder
+  private RatingSheet() {
+    AppModalScaffold({
+      title: $r('app.string.detail_rate'),
+      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+      confirmText: $r('app.string.detail_rate_submit'),
+      confirmEnabled: this.canSubmitRating(),
+      confirmLoading: this.ratingSubmitting,
+      closeAction: () => {
+        this.ratingSheetShown = false
+      },
+      confirmAction: () => {
+        this.submitRating()
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          Text(this.ratingHint())
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor($r('sys.color.font_secondary'))
+            .width('100%')
+          if (this.ratingSelected > 0) {
+            Row({ space: ThemeConstants.SPACE_MD }) {
+              Text($r('app.string.detail_rate_selected'))
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontColor($r('sys.color.font_secondary'))
+              RatingStars({
+                rating: this.ratingSelected,
+                color: EhConstants.ratingStarColor(''),
+                starSize: ThemeConstants.FONT_SIZE_HEADING,
+              })
+              Text(this.ratingLabel(this.ratingSelected))
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+            }
+            .width('100%')
+            .alignItems(VerticalAlign.Center)
+          }
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            ForEach(
+              this.ratingOptions,
+              (value: number) => {
+                this.RatingOption(value)
+              },
+              (value: number) => value.toString(),
+            )
+          }
+          .width('100%')
+          if (this.ratingError.length > 0) {
+            Text(this.ratingError)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor(Color.Red)
+              .width('100%')
+          }
+        }
+        .width('100%')
+      }
+    }
+  }
+
+  @Builder
   private RemoteFavoriteSlot(fav: Favcat) {
     Row({ space: ThemeConstants.SPACE_MD }) {
       SymbolGlyph($r('sys.symbol.heart_fill'))
@@ -971,6 +1130,10 @@ export struct GalleryDetailPage {
         detents: [SheetSize.LARGE],
         showClose: false,
       })
+      .bindSheet($$this.ratingSheetShown, this.RatingSheet(), {
+        detents: [SheetSize.MEDIUM],
+        showClose: false,
+      })
     }
     .titleBar(this.detailTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
@@ -1060,7 +1223,7 @@ export struct GalleryDetailPage {
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
           .fontColor($r('sys.color.font_emphasize'))
           .onClick(() => {
-            this.openRatingSafety()
+            this.openRatingSheet()
           })
         Text(this.downloadTitle())
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)

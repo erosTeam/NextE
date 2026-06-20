@@ -437,6 +437,34 @@
       "value": "Rate"
     },
     {
+      "name": "detail_rate_current",
+      "value": "Current rating: "
+    },
+    {
+      "name": "detail_rate_selected",
+      "value": "Selected"
+    },
+    {
+      "name": "detail_rate_submit",
+      "value": "Submit rating"
+    },
+    {
+      "name": "detail_rate_success",
+      "value": "Rating submitted"
+    },
+    {
+      "name": "detail_rate_failed",
+      "value": "Rating failed"
+    },
+    {
+      "name": "detail_rate_missing_key",
+      "value": "Open this gallery after the detail data finishes loading, then try rating again."
+    },
+    {
+      "name": "detail_rate_write_notice",
+      "value": "Choose a rating. Submitting writes your rating to EH."
+    },
+    {
       "name": "detail_rate_readonly_confirm",
       "value": "Rating submit is not enabled in NextE yet. Open the gallery web page to rate on EH?"
     },

@@ -48,7 +48,8 @@ Type: feature gap / core product completeness
 
 Priority suggestion: P0/P1
 
-Status: active intake / remote favorite write path implemented pending acceptance
+Status: active intake / remote favorite write path implemented pending acceptance / gallery rating write
+implemented pending authorized real-submit acceptance
 
 Source:
 
@@ -64,8 +65,11 @@ Source:
   - `GalleryCommentsPage` explicitly documents composer / vote / reply actions as deferred write-ops.
   - `GalleryArchiverPage` and download queue flows expose read/queue surfaces but do not complete the
     destructive archive/download submit pipeline.
-  - Gallery rating currently has a safety entry only: it opens a non-destructive dialog and in-app web
-    path, but does not yet submit `rategallery`.
+  - Gallery rating now has a protected `rategallery` path in NextE: it opens an HDS rating sheet,
+    requires a selected half-star value before submit, assembles the EH `api.php` request from parsed
+    API metadata, applies returned rating state, and publishes a V2 mutation to retained lists.
+    Automated QA remains non-destructive and does not click the final submit action without explicit
+    authorization.
   - Remote EH favorite now has an in-detail sheet: `EH 收藏` opens favnote + favcat selection with left
     cancel and right confirm. The confirm path submits the EH favorite form and refreshes detail state;
     automated QA still cancels by default because the operation is non-idempotent.
@@ -81,12 +85,18 @@ Scheduling judgment:
 - The next major progress should be user-visible feature completion, not another long cycle of Reader
   double-page architecture or repeated visual QA, unless a current P0 defect blocks basic use.
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
-  1. Gallery rating real write loop: protected `rategallery` submit using already parsed API metadata,
-     then refresh visible rating state.
-  2. Comment actions: comment vote first if bounded, then reply/new comment, then own-comment edit.
-  3. Tag/MyTags write actions: tag vote/suggest/set-user-tag after the write safety pattern is proven.
-  4. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
+  1. Comment actions: comment vote first if bounded, then reply/new comment, then own-comment edit.
+  2. Tag/MyTags write actions: tag vote/suggest/set-user-tag after the write safety pattern is proven.
+  3. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
      smaller write operations unless the user explicitly prioritizes downloads.
+
+Handled status:
+
+- Gallery rating real write loop: `implemented / pending controller acceptance and authorized real-submit
+  verification`. Scope: protected `rategallery` API submit, HDS modal selection UI, detail-state refresh,
+  retained Home/Search/Favorites rating mutation, non-destructive simulator verification, and Android
+  eros_fe source/device comparison. Remaining gap: final submit was not clicked because EH rating is a
+  real account write and still needs an explicitly authorized test target.
 
 Implementation constraints:
 

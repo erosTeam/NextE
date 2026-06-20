@@ -370,4 +370,37 @@ export class SearchViewModel {
       }
     }
   }
+
+  applyRatingMutation(
+    gid: string,
+    userRating: number,
+    averageRating: number,
+    ratingCount: string,
+    colorRating: string,
+  ): void {
+    if (gid.length === 0 || this.itemCount === 0) {
+      return
+    }
+    const current: EhGallery[] = this.dataSource.getAll()
+    let changed: boolean = false
+    const nextRows: EhGallery[] = []
+    current.forEach((g: EhGallery) => {
+      if (g.gid === gid) {
+        const next: EhGallery = g.copy()
+        next.ratingFallBack = userRating
+        next.rating = averageRating
+        next.ratingCount = ratingCount
+        next.colorRating = colorRating
+        next.isRated = true
+        nextRows.push(next)
+        changed = true
+      } else {
+        nextRows.push(g)
+      }
+    })
+    if (changed) {
+      this.dataSource.setData(nextRows)
+      this.itemCount = this.dataSource.totalCount()
+    }
+  }
 }

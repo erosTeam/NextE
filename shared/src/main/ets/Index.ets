@@ -99,7 +99,7 @@ export {
   FavoritesQuery,
   GalleryDetailResult,
 } from './network/EhApiService'
-export { EhApiPhpService } from './network/EhApiPhpService'
+export { EhApiPhpService, GalleryRatingResult } from './network/EhApiPhpService'
 export { EhError, EhErrorKind } from './network/EhError'
 export { EhErrorClassifier } from './network/EhErrorClassifier'
 
@@ -150,6 +150,10 @@ export {
   GalleryFavoriteMutationState,
   connectGalleryFavoriteMutation,
 } from './state/GalleryFavoriteMutationState'
+export {
+  GalleryRatingMutationState,
+  connectGalleryRatingMutation,
+} from './state/GalleryRatingMutationState'
 export {
   RemoteFavoriteSlotCacheState,
   connectRemoteFavoriteSlotCache,

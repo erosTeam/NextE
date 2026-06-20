@@ -39,6 +39,8 @@ import {
   SearchPageParams,
   GalleryFavoriteMutationState,
   connectGalleryFavoriteMutation,
+  GalleryRatingMutationState,
+  connectGalleryRatingMutation,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
@@ -65,6 +67,7 @@ export struct GallerySearchPage {
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
+  @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local showFilter: boolean = false;
   @Local listContentWidth: number = 0;
   @Local imagePageErrorUrl: string = '';
@@ -141,6 +144,17 @@ export struct GallerySearchPage {
       this.favoriteMutation.gid,
       this.favoriteMutation.favcat,
       this.favoriteMutation.favTitle,
+    )
+  }
+
+  @Monitor('ratingMutation.version')
+  onRatingMutation(): void {
+    this.vm.applyRatingMutation(
+      this.ratingMutation.gid,
+      this.ratingMutation.userRating,
+      this.ratingMutation.averageRating,
+      this.ratingMutation.ratingCount,
+      this.ratingMutation.colorRating,
     )
   }
 

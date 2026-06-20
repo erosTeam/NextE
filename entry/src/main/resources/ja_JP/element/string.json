@@ -437,6 +437,34 @@
       "value": "評価"
     },
     {
+      "name": "detail_rate_current",
+      "value": "現在の評価: "
+    },
+    {
+      "name": "detail_rate_selected",
+      "value": "選択中"
+    },
+    {
+      "name": "detail_rate_submit",
+      "value": "評価を送信"
+    },
+    {
+      "name": "detail_rate_success",
+      "value": "評価を送信しました"
+    },
+    {
+      "name": "detail_rate_failed",
+      "value": "評価に失敗しました"
+    },
+    {
+      "name": "detail_rate_missing_key",
+      "value": "詳細データの読み込みが完了してから、もう一度評価してください。"
+    },
+    {
+      "name": "detail_rate_write_notice",
+      "value": "評価を選択してください。送信すると EH に評価を書き込みます。"
+    },
+    {
       "name": "detail_rate_readonly_confirm",
       "value": "NextE では評価の送信はまだ有効になっていません。EH のページをアプリ内Webで開いて評価しますか？"
     },

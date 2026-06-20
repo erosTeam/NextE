@@ -1,6 +1,7 @@
 import {
   EhApiService,
   EhApiPhpService,
+  GalleryRatingResult,
   EhConstants,
   EhGallery,
   EhGalleryImage,
@@ -156,5 +157,29 @@ export class GalleryDetailViewModel {
     next.favTitle = favTitle
     next.favNote = favNote
     this.gallery = next
+  }
+
+  applyRatingResult(result: GalleryRatingResult): void {
+    const next: EhGallery = this.gallery.copy()
+    next.ratingFallBack = result.userRating
+    next.rating = result.averageRating
+    next.ratingCount = result.ratingCount
+    next.colorRating = result.colorRating
+    next.isRated = true
+    this.gallery = next
+  }
+
+  async rateGallery(stars: number): Promise<GalleryRatingResult> {
+    const ratingValue: number = Math.round(stars * 2)
+    const result: GalleryRatingResult = await EhApiPhpService.rateGallery(
+      EhConstants.baseUrl(connectSiteMode().isEx),
+      this.gallery.apikey,
+      this.gallery.apiuid,
+      this.gallery.gid.length > 0 ? this.gallery.gid : this.gid,
+      this.gallery.token.length > 0 ? this.gallery.token : this.token,
+      ratingValue,
+    )
+    this.applyRatingResult(result)
+    return result
   }
 }

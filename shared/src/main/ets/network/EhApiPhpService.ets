@@ -25,6 +25,31 @@ class TagSuggestRequest {
   text: string = ''
 }
 
+/** POST body for /api.php method=rategallery (eros_fe Api.setRating). */
+class RateGalleryRequest {
+  method: string = 'rategallery'
+  apikey: string = ''
+  apiuid: number = 0
+  gid: number = 0
+  token: string = ''
+  rating: number = 0
+}
+
+class RateGalleryResponse {
+  rating_usr: string | number = ''
+  rating_avg: string | number = ''
+  rating_cnt: string | number = ''
+  rating_cls: string = ''
+  error: string = ''
+}
+
+export class GalleryRatingResult {
+  userRating: number = 0
+  averageRating: number = 0
+  ratingCount: string = ''
+  colorRating: string = ''
+}
+
 class TagSuggestEntry {
   ns: string = ''
   tn: string = ''
@@ -45,6 +70,22 @@ const GDATA_BATCH: number = 25
  * can fall back to the /s/ path.
  */
 export class EhApiPhpService {
+  private static numberFrom(value: string | number): number {
+    if (typeof value === 'number') {
+      return Number.isNaN(value) ? 0 : value
+    }
+    const n: number = Number.parseFloat(value)
+    return Number.isNaN(n) ? 0 : n
+  }
+
+  private static intFrom(value: string | number): number {
+    if (typeof value === 'number') {
+      return Number.isNaN(value) ? 0 : Math.floor(value)
+    }
+    const n: number = Number.parseInt(value, 10)
+    return Number.isNaN(n) ? 0 : n
+  }
+
   static async showPage(
     base: string,
     gid: number,
@@ -65,6 +106,56 @@ export class EhApiPhpService {
       throw new Error(`showpage HTTP ${resp.statusCode}`)
     }
     return EhImagePageParser.parseShowPage(resp.body)
+  }
+
+  static async rateGallery(
+    base: string,
+    apikey: string,
+    apiuid: string,
+    gid: string,
+    token: string,
+    rating: number,
+  ): Promise<GalleryRatingResult> {
+    const apiuidNum: number = Number.parseInt(apiuid, 10)
+    const gidNum: number = Number.parseInt(gid, 10)
+    if (apikey.length === 0 || token.length === 0 || Number.isNaN(apiuidNum) || Number.isNaN(gidNum)) {
+      throw new Error('rateGallery: missing API key')
+    }
+    const req: RateGalleryRequest = new RateGalleryRequest()
+    req.apikey = apikey
+    req.apiuid = apiuidNum
+    req.gid = gidNum
+    req.token = token
+    req.rating = rating
+    const resp: EhTextResponse = await EhHttpClient.getInstance().postJson(
+      `${base}/api.php`,
+      JSON.stringify(req),
+    )
+    if (resp.statusCode !== 200) {
+      throw new Error(`rategallery HTTP ${resp.statusCode}`)
+    }
+    let raw: Object
+    try {
+      raw = JSON.parse(resp.body) as Object
+    } catch (e) {
+      throw new Error('rategallery: invalid JSON')
+    }
+    if (raw === null || typeof raw !== 'object') {
+      throw new Error('rategallery: invalid JSON')
+    }
+    const obj: RateGalleryResponse = raw as RateGalleryResponse
+    if (obj.error !== undefined && obj.error.length > 0) {
+      throw new Error(obj.error)
+    }
+    const result: GalleryRatingResult = new GalleryRatingResult()
+    result.userRating = EhApiPhpService.numberFrom(obj.rating_usr)
+    result.averageRating = EhApiPhpService.numberFrom(obj.rating_avg)
+    result.ratingCount = EhApiPhpService.intFrom(obj.rating_cnt).toString()
+    result.colorRating = typeof obj.rating_cls === 'string' ? obj.rating_cls : ''
+    if (result.userRating <= 0 || result.averageRating <= 0) {
+      throw new Error('rategallery: missing rating result')
+    }
+    return result
   }
 
   /**

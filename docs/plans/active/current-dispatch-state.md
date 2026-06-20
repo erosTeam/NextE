@@ -52,6 +52,11 @@ Historical feedback in this section must not trigger new implementation.
 - Gallery rating safety entry is implemented and pending controller acceptance: detail exposes a rating
   entry, but it opens a native non-destructive dialog and only offers cancel / in-app web until the
   protected EH rating write flow is designed.
+- Gallery rating real write loop is implemented and pending controller acceptance / authorized real-submit
+  verification: detail rating now opens an HDS modal sheet, supports half-star selection, gates submit until
+  a value is selected, posts the protected `rategallery` API path, applies returned rating state, and publishes
+  a V2 rating mutation to retained Home/Search/Favorites lists. Automated validation remains non-destructive
+  and does not click the final submit action.
 - Remote EH favorite sheet/write path is implemented and pending controller acceptance: detail opens an
   in-place `EH 收藏` sheet with left cancel, right confirm, favnote input, favcat slots, and remove state.
   Favcat slots now use an account-level real-name cache, no transient loading row is inserted into the
@@ -90,8 +95,9 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Gallery rating real write loop: extend the current non-destructive rating entry into a protected
-   `rategallery` flow with submit gating, refresh, and clear failure feedback.
+1. docs(dispatch): split active intake by domain. Keep this file short, turn `product-bug-intake.md`
+   into an index/write-rule document, and move long evidence entries into domain files under
+   `docs/plans/active/intake/` without touching product code.
 2. Comment write actions: after the full-comments entry repair, add bounded comment actions such as
    vote up/down, reply/new comment, and own-comment edit with EH write safeguards.
 3. Settings shell audit: identify settings rows/pages that are only shells, disabled placeholders, or
