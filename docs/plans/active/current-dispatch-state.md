@@ -136,18 +136,23 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+1. Settings shared row subtitle readability: `ConciseListRow.subtitleMaxLines` exists but still defaults
+   to `1`, so rows such as Layout Settings `详情页优先显示日文标题` still truncate useful explanatory text.
+   Next bounded lane should update the shared subtitle/default-height policy so ordinary settings rows
+   can show 2 lines by default or otherwise benefit without per-row one-off parameters. Keep this as a
+   shared primitive extension, not page-local row hand-rolling.
+2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-3. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-4. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-5. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule

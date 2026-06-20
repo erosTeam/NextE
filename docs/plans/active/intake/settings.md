@@ -58,6 +58,67 @@ Acceptance:
 - If a page intentionally does not use shared settings primitives, the implementation must explain why
   it is not settings-like and what existing HDS primitive is closer.
 
+### ConciseListRow Subtitle Defaults Still Clip Useful Setting Explanations
+
+Type: shared settings primitive / readability bug
+
+Priority suggestion: P1 / next bounded settings-quality lane
+
+Status: reported / active queue candidate
+
+Source:
+
+- User feedback, 2026-06-20: the previous Reader Settings subtitle work appears to have only added an
+  optional parameter, not changed the default. Rows such as Layout Settings `详情页优先显示日文标题` still
+  have long explanatory subtitles that are clipped to one line, hiding useful behavior details.
+
+Read-only inspection:
+
+- `shared/src/main/ets/components/ConciseListRow.ets` currently declares
+  `@Param subtitleMaxLines: number = 1`.
+- The secondary text modifier uses `.maxLines(this.subtitleMaxLines)`, so the parameter works only for
+  callers that explicitly pass it.
+- `feature/settings/src/main/ets/pages/ReaderSettingsPage.ets` passes `subtitleMaxLines: 3` only for
+  the volume-key row.
+- `feature/settings/src/main/ets/pages/LayoutSettingsPage.ets` uses the Japanese-title preference row
+  with `subtitle: settings_japanese_title_in_gallery_hint`, but does not pass `subtitleMaxLines`, so it
+  remains one-line clipped.
+- Current `ConciseListRow.cardHeight()` returns `84` whenever `subtitleMaxLines > 1`. Therefore simply
+  changing the default to `2` or `3` would make every row with any subtitle jump to the tall-row height,
+  even when the subtitle is naturally one line.
+
+Expected behavior:
+
+- Ordinary settings rows with explanatory subtitles should be readable by default, preferably with a
+  2-line default.
+- Longer explanatory rows can still opt into 3 lines.
+- Rows without subtitles or with short subtitles should not become visually bloated just because the
+  default max-lines increased.
+- Existing settings pages should benefit from the shared primitive without each page adding one-off
+  `subtitleMaxLines` parameters.
+
+Implementation direction:
+
+- Treat this as a shared primitive extension, not a Layout Settings one-off.
+- Revisit `ConciseListRow` subtitle and height policy together. Possible shape:
+  - default subtitle max lines becomes 2;
+  - card height distinguishes no-subtitle, normal subtitle, and long-subtitle rows without forcing all
+    subtitle rows to the current `84`;
+  - explicit `subtitleMaxLines: 3` remains available for rows such as volume-key behavior hints.
+- Update deterministic contracts so they no longer prove only the Reader volume-key row opted in; they
+  should lock that the shared row default or shared policy allows useful two-line subtitles.
+- Verify at least Layout Settings `详情页优先显示日文标题` and Reader Settings volume-key rows on device or
+  simulator screenshots/layout dumps.
+
+Acceptance:
+
+- `ConciseListRow` no longer has a one-line-only subtitle default for ordinary settings rows.
+- Layout Settings Japanese-title row shows its explanatory subtitle readably without a page-local
+  one-off fix.
+- Reader Settings volume-key hint remains readable up to 3 lines.
+- Row heights stay coherent across Settings pages; no broad row bloat or accidental clipped text.
+- No page-local hand-rolled settings row is introduced.
+
 ### Reader Settings Row Separators And Subtitle Readability
 
 Type: UI readability / settings form quality
