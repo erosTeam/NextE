@@ -10,6 +10,56 @@ Purpose:
 
 ## Items
 
+### Reader Settings Row Separators And Subtitle Readability
+
+Type: UI readability / settings form quality
+
+Priority suggestion: P2 / medium
+
+Status: new
+
+Source:
+
+- User feedback, 2026-06-20: Reader Settings menu rows lack visible separators.
+- User feedback, 2026-06-20: when some setting subtitles are long, the trailing content becomes
+  unreadable or disappears; subtitles should be allowed to wrap, with a maximum of 3 lines.
+
+Observed risk:
+
+- Reader settings are already a high-frequency configuration surface. If rows are not separated, the
+  page reads as a loose text stack instead of a settings list.
+- Long explanatory subtitles are part of the setting's meaning. A one-line or clipped subtitle can
+  hide important behavior details, especially for controls such as volume-key navigation or reading
+  interaction settings.
+
+Expected behavior:
+
+- Reader Settings rows should have clear row separation consistent with HDS/settings-list style.
+- Subtitles should be readable and wrap naturally up to 3 lines, then ellipsize cleanly if still too
+  long.
+- Row height should expand for multiline subtitles instead of clipping text or forcing only the first
+  line to be visible.
+
+Implementation direction:
+
+- Inspect `feature/settings/src/main/ets/pages/ReaderSettingsPage.ets` and the shared
+  `ConciseListRow` subtitle path before implementation.
+- Prefer a shared row-level subtitle policy if it improves the broader Settings shell: controlled
+  subtitle `maxLines(3)`, overflow ellipsis, readable line height, and a row `minHeight` that can
+  expand for multiline subtitles.
+- Add separators either through the local Reader Settings row composition or through the shared
+  settings-row/group pattern if that is the project-standard HDS expression.
+- If changing shared `ConciseListRow`, verify EH/Layout/Search/History/About settings pages do not
+  regress through unexpected row bloat or divider duplication.
+
+Acceptance shape:
+
+- Reader Settings screenshot shows clear separation between menu rows.
+- A long Reader Settings subtitle is visible for up to 3 lines and truncates cleanly beyond that.
+- Other Settings pages that use `ConciseListRow` remain visually stable.
+- Deterministic contract should lock the subtitle policy to `maxLines(3)` plus overflow handling and
+  should cover row separation in Reader Settings or the shared settings-row pattern.
+
 ### Home Bottom Navigation Auto-Hide And Smart-Grip Action Alignment
 
 Type: feature enhancement / platform UX
