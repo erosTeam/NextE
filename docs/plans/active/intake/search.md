@@ -560,6 +560,20 @@ Closure:
 - SearchFilter visual/control acceptance belongs to the separate Search Filter UX lane and must not keep
   this route-stack bug active.
 
+Reopened follow-up, 2026-06-21: action-seeded search still steals focus.
+
+- User has repeatedly reported that tapping a gallery detail tag to open Search should be results-first
+  and should not focus the search field or open the keyboard. Current device validation still shows the
+  keyboard every time, so treat this as a live regression even though the route/session query isolation
+  was accepted.
+- Current code already passes `new SearchPageParams('', 'a', query, false, token)` from
+  `Index.onPendingQuery()`, and `GallerySearchPage.onReady()` copies `p.focusOnAppear` into
+  `fieldState.focusOnAppear`. The likely timing bug is that the search-field component may build with
+  the default `focusOnAppear=true` before `onReady` applies the route param.
+- Next fix should keep ordinary title-bar Search opens focused, but action-seeded tag/uploader/similar
+  Search routes must render the query/results without IME popup. Avoid broad Search UI redesign; this is
+  a narrow autofocus/source-routing fix plus a deterministic contract that catches default-true timing.
+
 ### Search Submit During In-Flight Request Can Drop The Latest Query
 
 Type: search reliability bug

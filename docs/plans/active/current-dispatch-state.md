@@ -90,10 +90,11 @@ Historical feedback in this section must not trigger new implementation.
   or override a current baseline by itself.
 - Implemented/pending-acceptance work is not a scheduling item unless fresh regression evidence appears.
   Details live in the domain intake files. This includes the download workbench cleanup, comment peek
-  navigation, search route/session and search entry behavior, local favorite removal safety, gallery
-  rating, comment vote/compose/edit, tag vote, MyTags edit/delete/add, gallery archiver submit plumbing,
-  gallery detail full-title access, settings shell cleanup, and search/history destructive-action
-  confirmation gates.
+  navigation, local favorite removal safety, gallery rating, comment vote/compose/edit, tag vote,
+  MyTags edit/delete/add, gallery archiver submit plumbing, gallery detail full-title access, settings
+  shell cleanup, and search/history destructive-action confirmation gates. Search route/session work is
+  closed for query isolation, but the action-seeded autofocus regression below is reopened by fresh
+  device/user evidence.
 - MyTags tagset management is implemented pending controller acceptance / authorized real-submit
   verification: create, rename, and delete now follow the `eros_fe` tagset action model with separate
   title actions and focused name sheets.
@@ -179,13 +180,19 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+1. Search action-seeded autofocus regression: tapping a gallery detail tag/uploader/similar action should
+   open Search in results-first mode without focusing the input or showing the keyboard. User validation
+   still shows mandatory keyboard popup, despite `SearchPageParams(..., focusOnAppear=false)` already
+   being passed. Next lane should fix the likely timing/default-true issue narrowly: ordinary title-bar
+   Search opens may still focus, but action-seeded routes must not steal focus. Add/adjust a deterministic
+   contract so this cannot pass merely because the param exists.
+2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression. If comment UI polish is reopened during that acceptance, also replace
    the current arrow vote icons with native `hand_thumbsup` / `hand_thumbsup_fill` and
    `hand_thumbsdown` / `hand_thumbsdown_fill`, and check whether fixed square action hit areas are making
    comment footers too tall.
-2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
