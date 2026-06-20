@@ -21,7 +21,7 @@ implemented pending authorized real-submit acceptance / comment vote implemented
 real-submit acceptance / comment compose-reply implemented pending authorized real-submit acceptance /
 own-comment edit implemented pending authorized real-submit acceptance / taggallery vote implemented pending
 authorized real-submit acceptance / MyTags existing usertag edit implemented pending authorized real-submit
-acceptance
+acceptance / MyTags existing usertag delete implemented pending authorized real-submit acceptance
 
 Source:
 
@@ -64,8 +64,9 @@ Scheduling judgment:
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
   1. Comment actions: comment vote, reply/new comment, and own-comment edit are implemented; reopen only
      for acceptance regressions.
-  2. Tag/MyTags write actions: taggallery vote and existing MyTags/setusertag editing are implemented;
-     reopen only for acceptance regressions or separately scoped new-tag/delete/tagset management.
+  2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, and existing MyTags
+     deletion are implemented; reopen only for acceptance regressions or separately scoped new-tag/tagset
+     management.
   3. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
      smaller write operations unless the user explicitly prioritizes downloads.
 
@@ -140,7 +141,22 @@ Handled status:
   toggled draft hide/watch state, opened the save confirmation dialog, and cancelled. Evidence files live
   under `.hvigor/outputs/mytags-setusertag-nexte/`. Remaining gap: final `setusertag` submit was not clicked
   because EH usertag editing is a real account write and still needs an explicitly authorized test target.
-  New tag creation, usertag deletion, and tagset create/rename/delete remain out of scope.
+  New tag creation and tagset create/rename/delete remain out of scope.
+- MyTags existing usertag delete: `implemented / pending controller acceptance and authorized real-submit
+  verification`. Scope: Settings `我的标签` existing-tag edit sheet now has a HDS modal title-bar trash
+  action, native destructive confirmation, and protected `/mytags` form submit using eros_fe's
+  `usertag_action=mass` + repeated `modify_usertags[]` fields. On success it reloads the current tagset,
+  closes the sheet, and republishes `UserTagStore` / `UserTagSignal` for retained tag-color state.
+  FE grounding: `/Users/honjow/git/eros_fe/lib/network/request.dart` (`actionDeleteUserTag`),
+  `/Users/honjow/git/eros_fe/lib/pages/setting/controller/eh_mytags_controller.dart`
+  (`deleteUserTag`), and `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_usertag_page.dart`
+  (`SlidableAction` red trash delete affordance). Android FE evidence was captured under
+  `.hvigor/outputs/mytags-delete-fe-comparison/`, including MyTags tagset rows and a row-swiped trash
+  action. HarmonyOS simulator evidence was captured under `.hvigor/outputs/mytags-delete-nexte/`:
+  opened Settings `我的标签`, opened the existing `language:chinese` edit sheet, clicked the HDS trash
+  action, opened the delete confirmation dialog, and cancelled. Remaining gap: final delete submit was
+  not clicked because EH MyTags deletion is a real account write and still needs an explicitly authorized
+  test target. New tag creation and tagset create/rename/delete remain out of scope.
 
 Implementation constraints:
 

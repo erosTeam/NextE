@@ -25,7 +25,8 @@ import {
  * My Tags (mytags) — the user's watched / hidden / color-flagged tags. Routed page off Settings.
  * Renders each tag as a chip in its own EH color (hidden tags dimmed); a watched tag gets a ring.
  * Loads via EhApiService.getMyTags (requires login). Existing usertag rows can be edited through
- * EH's protected /api.php setusertag method; tagset management and new-tag creation remain separate.
+ * EH's protected /api.php setusertag method, and deleted through the classic /mytags mass action.
+ * Tagset management and new-tag creation remain separate.
  */
 @ComponentV2
 export struct MyTagsPage {
@@ -156,6 +157,25 @@ export struct MyTagsPage {
     })
   }
 
+  private confirmDeleteTag(): void {
+    if (this.editTagId.length === 0 || this.editSubmitting) {
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.mytags_delete_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.mytags_delete'),
+        action: () => {
+          this.deleteTag()
+        },
+      },
+    })
+  }
+
   private async submitEdit(): Promise<void> {
     if (!this.canSubmitEdit()) {
       return
@@ -182,6 +202,31 @@ export struct MyTagsPage {
       const e = err as Error
       this.editError = e.message
       DiagnosticLogger.warn('mytags', 'save_failed', e.message)
+    }
+    this.editSubmitting = false
+  }
+
+  private async deleteTag(): Promise<void> {
+    if (this.editTagId.length === 0 || this.editSubmitting) {
+      return
+    }
+    this.editSubmitting = true
+    this.editError = ''
+    try {
+      await EhApiService.getInstance().deleteUserTags({
+        isEx: connectSiteMode().isEx,
+        tagIds: [this.editTagId],
+        tagset: this.mytags.currentTagset,
+      })
+      await this.reloadCurrentTagset()
+      this.editSheetShown = false
+      this.getUIContext().getPromptAction().showToast({
+        message: $r('app.string.mytags_delete_success'),
+      })
+    } catch (err) {
+      const e = err as Error
+      this.editError = e.message
+      DiagnosticLogger.warn('mytags', 'delete_failed', e.message)
     }
     this.editSubmitting = false
   }
@@ -382,10 +427,17 @@ export struct MyTagsPage {
       includeKeyboardPadding: true,
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
       confirmText: $r('app.string.mytags_save'),
+      secondaryText: $r('app.string.mytags_delete'),
+      secondaryIcon: $r('sys.symbol.trash'),
+      showSecondaryAction: true,
+      secondaryEnabled: this.editTagId.length > 0,
       confirmEnabled: this.canSubmitEdit(),
       confirmLoading: this.editSubmitting,
       closeAction: () => {
         this.editSheetShown = false
+      },
+      secondaryAction: () => {
+        this.confirmDeleteTag()
       },
       confirmAction: () => {
         this.confirmSubmitEdit()

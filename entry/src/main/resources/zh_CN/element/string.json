@@ -921,6 +921,18 @@
       "value": "我的标签已保存"
     },
     {
+      "name": "mytags_delete",
+      "value": "删除"
+    },
+    {
+      "name": "mytags_delete_confirm",
+      "value": "删除这个我的标签？"
+    },
+    {
+      "name": "mytags_delete_success",
+      "value": "我的标签已删除"
+    },
+    {
       "name": "gallery_comments",
       "value": "评论"
     },

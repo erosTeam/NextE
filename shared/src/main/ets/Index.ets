@@ -100,6 +100,7 @@ export {
   FavoritesQuery,
   GalleryDetailResult,
   GalleryCommentWrite,
+  MyTagsDeleteUpdate,
 } from './network/EhApiService'
 export {
   EhApiPhpService,

@@ -89,6 +89,13 @@ export interface GalleryCommentWrite {
   isEdit: boolean
 }
 
+/** POST body semantics for deleting existing My Tags through /mytags. */
+export interface MyTagsDeleteUpdate {
+  isEx: boolean
+  tagIds: string[]
+  tagset: string
+}
+
 /**
  * Web-page API surface: builds EH list/search URLs, fetches via EhHttpClient, hands HTML
  * to the parsers. Mirrors V2Next's ApiService. M1 covers the anonymous table-site gallery
@@ -201,6 +208,43 @@ export class EhApiService {
       throw new Error(`comment HTTP ${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'detail')
+    if (failure !== null) {
+      throw failure
+    }
+  }
+
+  /** Delete one or more existing usertags (eros_fe actionDeleteUserTag: usertag_action=mass). */
+  async deleteUserTags(update: MyTagsDeleteUpdate): Promise<void> {
+    if (update.tagIds.length === 0) {
+      throw new Error('mytags delete: missing tag')
+    }
+    const base: string = EhConstants.baseUrl(update.isEx)
+    const params: string[] = []
+    if (update.tagset.length > 0) {
+      params.push(`tagset=${encodeURIComponent(update.tagset)}`)
+    }
+    const suffix: string = params.length > 0 ? `?${params.join('&')}` : ''
+    const url: string = `${base}/mytags${suffix}`
+    const pairs: string[] = [this.formPair('usertag_action', 'mass')]
+    update.tagIds.forEach((tagId: string) => {
+      if (tagId.length > 0) {
+        pairs.push(this.formPair('modify_usertags[]', tagId))
+      }
+    })
+    let resp: EhTextResponse
+    try {
+      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, pairs.join('&'))
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, url)
+    }
+    if (resp.statusCode >= 400) {
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+      if (failure !== null) {
+        throw failure
+      }
+      throw new Error(`mytags delete HTTP ${resp.statusCode}`)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
     if (failure !== null) {
       throw failure
     }

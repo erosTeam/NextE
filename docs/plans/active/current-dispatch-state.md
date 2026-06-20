@@ -124,6 +124,13 @@ Historical feedback in this section must not trigger new implementation.
   reload the current tagset after success, and publish the shared usertag cache signal. Android eros_fe was
   used for source and UI grounding; simulator validation opened the edit sheet, changed draft state, opened
   the save confirmation dialog, and cancelled. No real EH usertag edit was submitted.
+- MyTags existing tag delete is implemented and pending controller acceptance / authorized real-submit
+  verification: Settings `我的标签` edit sheet now exposes a HDS modal title-bar trash action for the
+  selected existing usertag, opens a native confirmation, posts eros_fe-compatible `/mytags`
+  `usertag_action=mass` + `modify_usertags[]` only after confirmation, reloads the current tagset, and
+  republishes the shared usertag cache. Android eros_fe device comparison confirmed MyTags uses tagset
+  rows and existing-tag rows with a red trash delete affordance; HarmonyOS simulator validation opened
+  the delete confirmation and cancelled. No real EH usertag was deleted.
 - Waterfall mode proper launch is implemented and pending controller acceptance: Layout settings now
   exposes `瀑布流` as a distinct persisted view mode, while Home/Search/Favorites route
   `ListMode.WATERFALL` through `PullRefreshWaterFlowScaffold` + `FlowItem` + `GalleryWaterfallCard`.
@@ -165,9 +172,10 @@ a bounded validation path.
    not wired to real behavior, or unsafe/destructive without confirmation; Security, Download, EH
    placeholder exposure, Search history clear safety, Search filter reset safety, and Viewed history
    clear safety are already corrected pending acceptance.
-3. Tag/MyTags write actions: taggallery vote and existing MyTags/setusertag editing are implemented pending
-   controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote or
-   MyTags edit regression, or for a separately scoped new-tag/delete/tagset-management lane.
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, and existing MyTags
+   deletion are implemented pending controller acceptance / authorized real-submit verification. Reopen
+   here only for a fresh tag-vote / MyTags edit / MyTags delete regression, or for a separately scoped
+   new-tag/tagset-management lane.
 4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
 5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual

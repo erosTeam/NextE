@@ -15,7 +15,12 @@ export struct AppModalScaffold {
   @Param showConfirmAction: boolean = true
   @Param confirmEnabled: boolean = true
   @Param confirmLoading: boolean = false
+  @Param secondaryIcon: Resource = $r('sys.symbol.trash')
+  @Param secondaryText: ResourceStr = ''
+  @Param showSecondaryAction: boolean = false
+  @Param secondaryEnabled: boolean = true
   @Event closeAction?: () => void
+  @Event secondaryAction?: () => void
   @Event confirmAction?: () => void
   layout: LayoutSafeAreaState = connectLayoutSafeArea()
   scroller: Scroller = new Scroller()
@@ -58,7 +63,43 @@ export struct AppModalScaffold {
           },
         },
         menu: {
-          value: this.showConfirmAction ? [{
+          value: this.showSecondaryAction && this.showConfirmAction ? [{
+            content: {
+              label: this.secondaryText,
+              icon: this.secondaryIcon,
+              isEnabled: this.secondaryEnabled && !this.confirmLoading,
+              type: IconStyleMode.SMALL,
+              action: () => {
+                if (this.secondaryAction) {
+                  this.secondaryAction()
+                }
+              },
+            },
+          }, {
+            content: {
+              label: this.confirmText,
+              icon: this.confirmIcon,
+              isEnabled: this.confirmEnabled && !this.confirmLoading,
+              type: IconStyleMode.SMALL,
+              action: () => {
+                if (this.confirmAction) {
+                  this.confirmAction()
+                }
+              },
+            },
+          }] : this.showSecondaryAction ? [{
+            content: {
+              label: this.secondaryText,
+              icon: this.secondaryIcon,
+              isEnabled: this.secondaryEnabled && !this.confirmLoading,
+              type: IconStyleMode.SMALL,
+              action: () => {
+                if (this.secondaryAction) {
+                  this.secondaryAction()
+                }
+              },
+            },
+          }] : this.showConfirmAction ? [{
             content: {
               label: this.confirmText,
               icon: this.confirmIcon,
@@ -71,7 +112,7 @@ export struct AppModalScaffold {
               },
             },
           }] : [],
-          maxCount: this.showConfirmAction ? 1 : 0,
+          maxCount: this.actionCount(),
         },
       },
     })
@@ -87,5 +128,16 @@ export struct AppModalScaffold {
       return 0
     }
     return Math.max(0, this.layout.keyboardHeight)
+  }
+
+  private actionCount(): number {
+    let count: number = 0
+    if (this.showSecondaryAction) {
+      count++
+    }
+    if (this.showConfirmAction) {
+      count++
+    }
+    return count
   }
 }

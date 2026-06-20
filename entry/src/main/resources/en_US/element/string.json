@@ -921,6 +921,18 @@
       "value": "My Tag saved"
     },
     {
+      "name": "mytags_delete",
+      "value": "Delete"
+    },
+    {
+      "name": "mytags_delete_confirm",
+      "value": "Delete this My Tag?"
+    },
+    {
+      "name": "mytags_delete_success",
+      "value": "My Tag deleted"
+    },
+    {
       "name": "gallery_comments",
       "value": "Comments"
     },

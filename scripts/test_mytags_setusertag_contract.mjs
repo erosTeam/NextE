@@ -3,7 +3,7 @@
  * Contract: My Tags existing-row edits are a real, bounded write loop.
  *
  * Scope: edit an existing usertag's watch/hide/weight/color through /api.php `setusertag`.
- * Out of scope: new tag creation, usertag deletion, and tagset create/rename/delete.
+ * Out of scope: new tag creation and tagset create/rename/delete. Usertag deletion is a separate lane.
  *
  * Run: node scripts/test_mytags_setusertag_contract.mjs
  */
@@ -34,7 +34,7 @@ const grounding = [
   'eros_fe: lib/pages/setting/mytags/eh_usertag_page.dart taps an existing row and lib/pages/setting/mytags/eh_usertag_edit_dialog.dart edits watch/hide/weight/color',
   'eros_fe: lib/network/api.dart Api.setUserTag posts /api.php method=setusertag with apiuid/apikey/tagid/tagwatch/taghide/tagcolor/tagweight',
   'primary information: current My Tags grouped chips plus the selected tag identity in the edit sheet',
-  'primary action: save an existing tag edit; secondary actions are cancel and draft toggles; no new/delete/tagset management in this lane',
+  'primary action: save an existing tag edit; secondary actions are cancel and draft toggles; no new/tagset management in this lane',
   'Harmony expression: AppModalScaffold HDS modal with draft rows, switch-like toggles, text inputs, native confirmation, and non-destructive validation by cancelling',
 ]
 
@@ -69,8 +69,8 @@ ok(/await this\.reloadCurrentTagset\(\)/.test(page) &&
   /UserTagStore\.getInstance\(\)\.setTags\(this\.mytags\.tags\)/.test(page) &&
   /this\.tagSig\.version = this\.tagSig\.version \+ 1/.test(page),
   'successful save refreshes MyTags and republishes global tag-color state')
-ok(!/actionNewUserTag|actionDeleteUserTag|actionCreatTagSet|actionRenameTagSet|actionDeleteTagSet/.test(page),
-  'this lane does not mix in new/delete/tagset management')
+ok(!/actionNewUserTag|actionCreatTagSet|actionRenameTagSet|actionDeleteTagSet/.test(page),
+  'this lane does not mix in new/tagset management')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

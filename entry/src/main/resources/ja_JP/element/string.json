@@ -921,6 +921,18 @@
       "value": "マイタグを保存しました"
     },
     {
+      "name": "mytags_delete",
+      "value": "削除"
+    },
+    {
+      "name": "mytags_delete_confirm",
+      "value": "このマイタグを削除しますか？"
+    },
+    {
+      "name": "mytags_delete_success",
+      "value": "マイタグを削除しました"
+    },
+    {
       "name": "gallery_comments",
       "value": "コメント"
     },
