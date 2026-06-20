@@ -16,7 +16,7 @@ Type: feature gap / settings trustworthiness
 
 Priority suggestion: P1
 
-Status: active intake / Security, Download, EH placeholders, and Search clear safety implemented pending controller acceptance
+Status: active intake / Security, Download, EH placeholders, and Search destructive-action safety implemented pending controller acceptance
 
 Source:
 
@@ -35,8 +35,8 @@ Source:
     disabled placeholder rows were later hidden so EH settings only presents the NextE-owned loops.
   - `AdvancedSettingsPage` currently provides only HiLog diagnostics and marker write, while FE Advanced
     contains cache/proxy/import/export/log-related maintenance rows.
-  - `SearchSettingsPage` exposed a destructive `清除` search-history row that called
-    `SearchHistorySettings.clear()` directly without confirmation.
+  - `SearchSettingsPage` exposed destructive `清除` search-history and `重置筛选` rows that called
+    `SearchHistorySettings.clear()` / `SearchFilterSettings.reset()` directly without confirmation.
   - `DownloadSettingsPage` is explicitly scoped to persisted policy controls, while the broader download
     executor remains incomplete; this was later corrected by hiding the Download settings entry from
     Settings root until those policies are consumed by the executor.
@@ -135,6 +135,20 @@ Handled update, 2026-06-20:
   `.hvigor/outputs/settings-search-clear-confirm/search_clear_dialog.jpeg`,
   `.hvigor/outputs/settings-search-clear-confirm/search_clear_dialog_layout.json`, and
   `.hvigor/outputs/settings-search-clear-confirm/search_after_cancel_layout.json`.
+- Search filter reset safety: implemented / pending controller acceptance. The Search settings
+  `重置筛选` row now opens a native confirmation dialog; only the destructive confirmation button calls
+  `SearchFilterSettings.reset()`, while cancel leaves the saved filter profile untouched. Contract
+  updated: `scripts/test_settings_search_entry_contract.mjs` now locks that the row calls
+  `confirmResetFilters()` and that the dialog contains cancel plus the destructive reset action.
+  HarmonyOS emulator evidence: target `127.0.0.1:5555`, signed HAP installed. Search settings showed
+  filter state `未启用`; tapping `重置筛选` opened `重置已保存的筛选设置？` with `取消` and
+  `重置筛选`; tapping `取消` dismissed the dialog and the page still showed filter state `未启用`.
+  Evidence files:
+  `.hvigor/outputs/settings-search-reset-confirm/search_settings.jpeg`,
+  `.hvigor/outputs/settings-search-reset-confirm/search_settings_layout.json`,
+  `.hvigor/outputs/settings-search-reset-confirm/search_reset_dialog.jpeg`,
+  `.hvigor/outputs/settings-search-reset-confirm/search_reset_dialog_layout.json`, and
+  `.hvigor/outputs/settings-search-reset-confirm/search_after_cancel_layout.json`.
 
 ### Settings Root Missing Layout Settings Page
 

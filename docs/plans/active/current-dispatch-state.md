@@ -102,6 +102,8 @@ Historical feedback in this section must not trigger new implementation.
 - Search settings history clear safety is corrected and pending controller acceptance: tapping
   `清除` in Search settings now opens a native confirmation dialog before clearing persisted search
   history instead of deleting immediately.
+- Search settings filter reset safety is corrected and pending controller acceptance: tapping
+  `重置筛选` now opens a native confirmation dialog before clearing the saved filter profile.
 
 ## Parked / Guidance Only
 
@@ -134,7 +136,8 @@ a bounded validation path.
    finds a comment write regression.
 2. Settings shell audit: continue with remaining rows/pages that are only shells, disabled placeholders,
    not wired to real behavior, or unsafe/destructive without confirmation; Security, Download, EH
-   placeholder exposure, and Search history clear safety are already corrected pending acceptance.
+   placeholder exposure, Search history clear safety, and Search filter reset safety are already
+   corrected pending acceptance.
 3. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
    writes establish the protected EH write pattern.
 4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds

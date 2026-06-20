@@ -1193,6 +1193,10 @@
       "value": "重置筛选"
     },
     {
+      "name": "search_settings_filter_reset_confirm",
+      "value": "重置已保存的筛选设置？"
+    },
+    {
       "name": "advanced_diagnostics",
       "value": "诊断"
     },

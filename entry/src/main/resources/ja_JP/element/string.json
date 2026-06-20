@@ -1193,6 +1193,10 @@
       "value": "フィルタをリセット"
     },
     {
+      "name": "search_settings_filter_reset_confirm",
+      "value": "保存済みのフィルタ設定をリセットしますか？"
+    },
+    {
       "name": "advanced_diagnostics",
       "value": "診断"
     },

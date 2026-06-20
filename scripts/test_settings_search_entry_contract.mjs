@@ -58,6 +58,10 @@ ok(/title: \$r\('app\.string\.search_history_clear'\)[\s\S]*action: \(\) => \{[\
   'clear-history row opens the confirmation instead of deleting immediately')
 ok(/SearchFilterSettings\.reset\(this\.ctx\(\)\)/.test(searchPage),
   'page resets filters through SearchFilterSettings')
+ok(/confirmResetFilters\(\): void[\s\S]*showAlertDialog[\s\S]*search_settings_filter_reset_confirm[\s\S]*common_cancel[\s\S]*action: \(\) => \{[\s\S]*this\.resetFilters\(\)/.test(searchPage),
+  'resetting saved filters is gated by a native confirmation dialog')
+ok(/title: \$r\('app\.string\.search_settings_filter_reset'\)[\s\S]*action: \(\) => \{[\s\S]*this\.confirmResetFilters\(\)/.test(searchPage),
+  'filter-reset row opens the confirmation instead of resetting immediately')
 ok(!/QuickSearch|quickSearch|ImageSearch|SearchPageField/.test(searchPage),
   'Search settings page does not expand QuickSearch, image search, or embed a search field')
 
@@ -82,6 +86,7 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'search_settings_filter_active',
     'search_settings_filter_clean',
     'search_settings_filter_reset',
+    'search_settings_filter_reset_confirm',
   ]) {
     ok(strings.includes(`"name": "${key}"`), `${locale}: ${key} string exists`)
   }

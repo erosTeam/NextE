@@ -64,6 +64,23 @@ export struct SearchSettingsPage {
     await SearchFilterSettings.reset(this.ctx())
   }
 
+  private confirmResetFilters(): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.search_settings_filter_reset_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.search_settings_filter_reset'),
+        fontColor: Color.Red,
+        action: () => {
+          this.resetFilters()
+        },
+      },
+    })
+  }
+
   @Builder
   private rowDivider() {
     Divider()
@@ -115,7 +132,7 @@ export struct SearchSettingsPage {
               destructive: true,
               showChevron: false,
               action: () => {
-                this.resetFilters()
+                this.confirmResetFilters()
               },
             })
           }

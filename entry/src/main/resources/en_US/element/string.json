@@ -1193,6 +1193,10 @@
       "value": "Reset filters"
     },
     {
+      "name": "search_settings_filter_reset_confirm",
+      "value": "Reset saved filter settings?"
+    },
+    {
       "name": "advanced_diagnostics",
       "value": "Diagnostics"
     },
