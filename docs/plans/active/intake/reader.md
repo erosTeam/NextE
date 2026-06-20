@@ -814,6 +814,55 @@ Acceptance shape:
 - Android `eros_fe` Reader comparison and HarmonyOS device/emulator video or screenshot evidence must
   be attached before marking accepted.
 
+### Reader Intermittent Short Swipe Jumps Pages Too Early
+
+Type: P0/P1 intermittent Reader gesture bug / page-turn threshold
+
+Priority suggestion: P1
+
+Status: reported / needs instrumented reproduction
+
+Source:
+
+- User-reported current device behavior: while reading at fit scale, a very small left/right drag can
+  intermittently jump directly to the previous or next page. The visible page only moves a short distance,
+  the page-turn animation does not appear to complete normally, and then the page index has already
+  changed. It can happen for several consecutive pages, then disappear, and is difficult to reproduce on
+  demand.
+
+Why this is separate from generic gesture acceptance:
+
+- Prior device evidence proves some deliberate long swipes can turn pages and some zoom/pan paths work.
+  That does not cover this failure class because the bug is about accidental early commit from a short or
+  partial drag.
+- A screenshot after the page changes is not sufficient evidence. The useful evidence is the gesture
+  sequence: touch down, small move distance, page index change timing, and whether Swiper/page-turn state
+  committed before a real swipe threshold.
+
+Likely risk areas to inspect:
+
+- Fit-scale page-turn threshold and any custom `onTouch` / touch-gate logic added to reject short
+  swipes.
+- ArkUI `Swiper` page-change timing versus overlay gesture recognition. The page index may update on
+  an internal threshold that is lower than the app's expected swipe threshold.
+- Interaction between tap overlay, double-tap exclusive gesture, page `Swiper`, and any code that clears
+  zoom state or programmatically normalizes the current index.
+- Double-page spread mode can amplify the symptom because each visual page turn may represent two source
+  indices, but the same issue should be checked in single-page mode as well.
+
+Investigation direction:
+
+- Add or use a QA-only gesture trace around Reader page turns before attempting another visual rewrite:
+  record pointer down/up coordinates, max horizontal delta, duration, active zoom state, current page
+  before/after, and which handler caused the page change.
+- Reproduce by repeatedly doing small left/right drags across several pages at fit scale in both
+  single-page and double-page modes. The test should classify the gesture as "short drag" versus
+  "valid page swipe" based on measured distance/duration, not subjective feel.
+- Acceptance must include video or trace evidence showing short drags below threshold do not change
+  page, while intentional swipes still turn exactly one page.
+- Do not reopen Reader chrome styling, loading progress, or double-page visual seam in this lane unless
+  the trace proves they directly affect the early page commit.
+
 ### Reader Architecture Should Use Mature Pager And Spread Surface References
 
 Type: architecture guidance / future Reader repair

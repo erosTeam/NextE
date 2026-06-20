@@ -155,9 +155,10 @@ a bounded validation path.
 3. Gallery thumbnail loading indicator appears static: gallery list thumbnails use `EhThumbnail`
    `LoadingProgress()` while `loaded=false`, and existing cover contracts/probe screenshots only prove
    that a loading overlay exists. They do not prove visible animation during real list image loading.
-   Next bounded lane should capture a timed device/video reproduction on slow or forced thumbnail loads
-   and replace/wrap the loading affordance if native `LoadingProgress` stays visually frozen in this
-   surface. Do not mark this accepted from a static screenshot or a grep for `LoadingProgress`.
+   Other app surfaces use the same native `LoadingProgress` successfully, so do not assume the global
+   component is broken. Next bounded lane should isolate three cases: independent `LoadingProgress`,
+   `EhThumbnail` forced-loading overlay, and a real `Image` kept pending by a slow test URL. Do not mark
+   this accepted from a static screenshot or a grep for `LoadingProgress`.
 4. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
@@ -171,6 +172,10 @@ a bounded validation path.
    or gesture fix, not more architecture discussion.
 8. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
+   Fresh user evidence includes an intermittent fit-scale short-swipe failure where a very small
+   horizontal drag can instantly jump to the previous/next page before the page-turn animation visibly
+   completes. Treat that as a gesture-arena diagnosis item, not as proof that another visual rewrite is
+   needed.
 
 ## Lane Selection Rule
 

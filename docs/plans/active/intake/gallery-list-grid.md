@@ -275,6 +275,10 @@ Read-only current-state notes:
   loading probe exist, and the historical probe evidence confirms one `LoadingProgress` node is present.
 - Those checks are static. They do not prove the native indicator animates in the real list surface, do
   not compare multiple frames over time, and do not catch a visually frozen spinner.
+- Other app surfaces, such as list footers and page-level loading, use the same native
+  `LoadingProgress()` and have been observed to animate normally. Therefore the first hypothesis should
+  be the thumbnail loading path, overlay composition, `Image` callback timing, or list/grid virtualization
+  behavior, not a global native component failure.
 
 Expected behavior:
 
@@ -288,6 +292,12 @@ Expected behavior:
 Implementation direction:
 
 - First reproduce with a slow/forced thumbnail-loading scenario in Home/Search/Favorites list or grid.
+- Use an explicit QA isolation matrix before replacing the indicator:
+  1. independent `LoadingProgress()` in the same page;
+  2. `EhThumbnail(visualState=THUMBNAIL_VISUAL_LOADING)` with no real image;
+  3. real `Image(slowUrl)` with the same `EhThumbnail` overlay kept pending by a slow test endpoint.
+- Do not block the UI thread with an ArkTS `sleep`; that would freeze the entire render loop and make the
+  result meaningless. Use a delayed/slow URL or controlled network response instead.
 - Capture timed device evidence: short video or at least two/three frames from the same loading state
   showing whether the indicator changes over time.
 - Keep this scoped to thumbnail loading affordance. Do not reopen cover fit, placeholder policy, grid
