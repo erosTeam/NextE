@@ -51,6 +51,10 @@ assert(dispatch.includes('short intake index and writing-rule file'),
 assert(lineCount(dispatch) <= 220, 'current-dispatch-state.md must remain a short dispatch entry file');
 assert(dispatch.includes('docs(dispatch): split active intake by domain') === false,
   'completed docs split lane must not remain active in current-dispatch-state.md');
+assert(!/## Active Queue[\s\S]*Settings shell audit/.test(dispatch),
+  'implemented Settings shell audit must not remain active in current-dispatch-state.md');
+assert(dispatch.includes('Settings shell audit is implemented and pending controller acceptance'),
+  'current-dispatch-state.md must record Settings shell audit as implemented, not active');
 
 let totalItems = 0;
 for (const fileName of expectedFiles) {

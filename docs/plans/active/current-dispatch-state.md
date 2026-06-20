@@ -146,6 +146,13 @@ Historical feedback in this section must not trigger new implementation.
   `GalleryGridCard`. Android eros_fe comparison confirmed `瀑布流` / `瀑布流 - 大` / `网格` are
   separate list-style choices, and HarmonyOS simulator evidence shows the NextE menu entry and Home
   `WaterFlow` rendering.
+- Settings shell audit is implemented and pending controller acceptance: Settings root now exposes only
+  scoped, wired pages (`EH`, `布局`, `阅读`, `搜索`, `历史`, `诊断`, `关于`), hides misleading Security and
+  Download settings entries until their downstream behavior exists, removes EH placeholder rows, gates
+  Search/history destructive actions behind native confirmations, and uses row-local dropdown anchors.
+  A 2026-06-20 code audit found no remaining visible Settings row that is an unowned placeholder or an
+  immediate destructive action without confirmation. Reopen only for a fresh Settings regression or a
+  separately scoped Settings feature request.
 
 ## Parked / Guidance Only
 
@@ -176,19 +183,15 @@ a bounded validation path.
 1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-2. Settings shell audit: continue with remaining rows/pages that are only shells, disabled placeholders,
-   not wired to real behavior, or unsafe/destructive without confirmation; Security, Download, EH
-   placeholder exposure, Search history clear safety, Search filter reset safety, and Viewed history
-   clear safety are already corrected pending acceptance.
-3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, and MyTags new-user-tag add are implemented pending controller acceptance / authorized
    real-submit verification. Reopen here only for a fresh tag-vote / MyTags edit / MyTags delete /
    MyTags add regression, or for a separately scoped tagset-management lane.
-4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+3. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+4. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+5. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule

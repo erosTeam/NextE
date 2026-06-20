@@ -16,7 +16,7 @@ Type: feature gap / settings trustworthiness
 
 Priority suggestion: P1
 
-Status: active intake / Security, Download, EH placeholders, Search destructive-action safety, and viewed-history destructive-action safety implemented pending controller acceptance
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -85,6 +85,13 @@ Acceptance shape:
 
 Handled update, 2026-06-20:
 
+- Settings shell audit scheduling state: implemented / pending controller acceptance. Current visible
+  Settings root scope is `EH`, `布局`, `阅读`, `搜索`, `历史`, `诊断`, and `关于`. Security and Download
+  settings entries are hidden until their downstream enforcement/executor loops exist; EH disabled
+  placeholders are hidden; Search/history destructive clears are confirmation-gated; row dropdowns use
+  row-local anchors. A 2026-06-20 code audit found no remaining visible Settings row that is an unowned
+  placeholder or immediate destructive action without confirmation. This item should not remain in
+  `current-dispatch-state.md` Active Queue unless fresh Settings regression evidence appears.
 - Security root exposure: implemented / pending controller acceptance. Settings root no longer shows
   the `安全` entry because the underlying recent-task privacy and auto-lock enforcement are not wired.
   The parked `SecuritySettingsPage` / V2 preference foundation remains in code for a future
