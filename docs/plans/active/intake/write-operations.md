@@ -304,7 +304,7 @@ Type: bug / detail-page navigation / reading comments
 
 Priority suggestion: P1
 
-Status: active intake
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -372,6 +372,18 @@ Acceptance shape:
   explicitly documented with a safer tap-area compromise.
 - Deterministic contract covers `canOpenFullComments()` independent of `comments.length > max`, and
   protects a broad row/card tap target in peek mode.
+
+Implementation / evidence:
+
+- Commit: `1a2046a fix(gallery): open full comments from peeks`.
+- Scope: detail comment peeks with one or two parsed comments now expose the full-comments entry instead
+  of requiring `comments.length > max`. The detail menu also keeps a full-comments path for zero-comment
+  peeks where the full comments page is still the canonical read/write surface.
+- Deterministic gates: `scripts/test_gallery_comment_full_entry_contract.mjs`,
+  `scripts/test_gallery_comment_badge_style_contract.mjs`, and
+  `scripts/test_v1_decorator_inventory_contract.mjs`.
+- Remaining acceptance: controller/user review on a gallery with one/two comments and one with three or
+  more comments.
 
 ### Gallery Archiver Options Are Not Reachable
 

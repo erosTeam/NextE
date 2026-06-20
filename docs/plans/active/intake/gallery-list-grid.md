@@ -358,7 +358,7 @@ Type: bug / browsing core UX
 
 Priority suggestion: P1
 
-Status: active intake
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -430,6 +430,18 @@ Acceptance shape:
 - Grid cards remain readable on outer-screen phone width and expanded foldable/tablet width.
 - Long title/tag data is bounded without making the item masonry-like.
 - Contract proves Grid info density fields are deliberate and that card rhythm is still fixed.
+
+Implementation / evidence:
+
+- Commit: `b85353d fix(gallery): improve grid card density`.
+- Scope: `GalleryGridCard` keeps true fixed-cell Grid semantics, but the info block now shows title,
+  compact post-time/rating metadata, and a bounded one-line tag sample instead of the previous large
+  sparse tag area. Home, Search, and Favorites continue to route `ListMode.GRID` through
+  `PullRefreshGridScaffold` + `GridItem` + `GalleryGridCard`.
+- Deterministic gates: `scripts/test_gallery_grid_card_visual_contract.mjs`,
+  `scripts/test_gallery_grid_mode_contract.mjs`, `scripts/test_responsive_grid_contract.mjs`, and
+  `scripts/test_v1_decorator_inventory_contract.mjs`.
+- Remaining acceptance: controller/user visual review of current Grid screenshots on target devices.
 
 ### Waterfall Mode Is Defined But Not Exposed
 
