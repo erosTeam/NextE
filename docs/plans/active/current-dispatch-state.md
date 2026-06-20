@@ -37,6 +37,12 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
   explicit placeholders; loaded primary-cover surfaces should move toward a same-cover blurred backdrop
   instead of a harsh gray block. List/header/grid thumbnails may keep stable placeholders where they
   protect loading and scroll rhythm. Gray background is never a reason to stretch covers.
+- Waterfall cover ratio policy is baseline: normal covers follow the parsed EH source ratio for true
+  masonry rhythm, but extreme strip/webtoon ratios must be bounded like the `eros_fe` strategy
+  (`max(imgWidth / imgHeight, 1 / 2)`) so a single Korean/webtoon-style cover cannot create an
+  unboundedly tall card. Inside the bounded slot, render proportionally and crop/clip if needed; never
+  restore non-uniform stretching and never remove list/grid thumbnail placeholders to solve a Waterfall
+  cover problem.
 - Gallery Grid immersive safe-area handling is baseline: top/bottom title or tab-bar avoidance uses
   real full-row spacer content, while `Grid.padding` stays horizontal-only. Do not restore top/bottom
   Grid padding or any padding-region approach that makes cards disappear under translucent chrome.
