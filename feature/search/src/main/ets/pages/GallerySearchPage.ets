@@ -486,6 +486,8 @@ export struct GallerySearchPage {
               horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
               topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,
               bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+              itemCount: this.vm.itemCount,
+              nearEndThreshold: 4,
               controller: this.refreshController,
               onRefresh: async () => {
                 await this.vm.refresh()
@@ -495,6 +497,9 @@ export struct GallerySearchPage {
               },
               canStartBottomRefresh: () => this.vm.canLoadMore(),
               onReachEnd: () => {
+                this.vm.loadMore()
+              },
+              onNearEnd: () => {
                 this.vm.loadMore()
               },
             }) {

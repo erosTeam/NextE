@@ -111,6 +111,8 @@ export struct GalleryListBody {
           horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
           topPadding: this.topPadding,
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+          itemCount: this.vm.itemCount,
+          nearEndThreshold: 4,
           controller: this.refreshController,
           onRefresh: async () => {
             await this.vm.refresh()
@@ -120,6 +122,9 @@ export struct GalleryListBody {
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
           onReachEnd: () => {
+            this.vm.loadMore()
+          },
+          onNearEnd: () => {
             this.vm.loadMore()
           },
         }) {

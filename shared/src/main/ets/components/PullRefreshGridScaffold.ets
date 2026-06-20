@@ -4,9 +4,10 @@ import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeA
 import { ResponsiveGrid } from '../utils/ResponsiveGrid'
 
 /**
- * Grid sibling of PullRefreshListScaffold: a 2-column Grid inside the same generic PullRefresh
- * (pull-to-refresh + pull-up + safe-area insets). The parent supplies GridItems via `content`.
- * Top inset (status bar + title bar) and bottom inset (gesture bar) are owned here, not the page.
+ * Grid sibling of PullRefreshListScaffold: a responsive Grid inside the same generic PullRefresh.
+ * Top/bottom immersive chrome space is modeled as real full-row GridItems instead of Grid padding:
+ * HarmonyOS Grid does not render children that are fully inside the padding region, which makes cards
+ * vanish while they are still visually expected under translucent chrome.
  */
 @ComponentV2
 export struct PullRefreshGridScaffold {
@@ -25,11 +26,15 @@ export struct PullRefreshGridScaffold {
   @Param bottomPadding: number = ThemeConstants.SPACE_XL;
   // Extra top inset above the status-bar + title-bar reserve (e.g. a pinned title-bar bottomBuilder).
   @Param topPadding: number = 0;
+  @Param itemCount: number = 0;
+  @Param nearEndThreshold: number = 0;
   @Param controller: PullRefreshController = new PullRefreshController();
   @Event onRefresh?: () => Promise<void>;
   @Event onBottomRefresh?: () => Promise<void>;
   @Event canStartBottomRefresh?: () => boolean;
   @Event onReachEnd?: () => void;
+  @Event onNearEnd?: () => void;
+  @Event onScrollIndex?: (start: number, end: number) => void;
   // Emits the responsive column count + one cell's width (vp) whenever the grid is (re)measured, so a
   // caller can size sprite thumbnails to fill the derived cell. Only fires when minColumnWidth > 0.
   // (Named onCellSize, not onLayout — onLayout collides with the CustomComponent base member.)
@@ -60,7 +65,29 @@ export struct PullRefreshGridScaffold {
       },
     }) {
       Grid(this.scroller) {
+        GridItem() {
+          Column() {
+            Blank()
+              .height(this.topSpacerHeight())
+          }
+          .width('100%')
+        }
+        .columnStart(0)
+        .columnEnd(this.effectiveColumns() - 1)
+        .selectable(false)
+
         this.content()
+
+        GridItem() {
+          Column() {
+            Blank()
+              .height(this.bottomSpacerHeight())
+          }
+          .width('100%')
+        }
+        .columnStart(0)
+        .columnEnd(this.effectiveColumns() - 1)
+        .selectable(false)
       }
       .columnsTemplate(this.columnsTemplate())
       .columnsGap(this.gap)
@@ -71,8 +98,6 @@ export struct PullRefreshGridScaffold {
       .padding({
         left: this.horizontalPadding,
         right: this.horizontalPadding,
-        top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + this.topPadding,
-        bottom: this.layout.bottomAvoidHeight + this.bottomPadding,
       })
       .edgeEffect(EdgeEffect.None)
       .clip(false)
@@ -88,6 +113,14 @@ export struct PullRefreshGridScaffold {
         if (this.onReachEnd) {
           this.onReachEnd()
         }
+      })
+      .onScrollIndex((start: number, end: number) => {
+        const adjustedStart: number = this.galleryIndex(start)
+        const adjustedEnd: number = this.galleryIndex(end)
+        if (this.onScrollIndex) {
+          this.onScrollIndex(adjustedStart, adjustedEnd)
+        }
+        this.maybeLoadNearEnd(adjustedEnd)
       })
     }
   }
@@ -109,5 +142,43 @@ export struct PullRefreshGridScaffold {
       parts.push('1fr')
     }
     return parts.join(' ')
+  }
+
+  private topSpacerHeight(): number {
+    return this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + this.topPadding
+  }
+
+  private bottomSpacerHeight(): number {
+    return this.layout.bottomAvoidHeight + this.bottomPadding
+  }
+
+  private galleryIndex(rawIndex: number): number {
+    const index: number = rawIndex - 1
+    if (index < 0) {
+      return 0
+    }
+    if (this.itemCount > 0 && index >= this.itemCount) {
+      return this.itemCount - 1
+    }
+    return index
+  }
+
+  private maybeLoadNearEnd(end: number): void {
+    if (this.itemCount <= 0 || this.nearEndThreshold <= 0) {
+      return
+    }
+    if (end < this.itemCount - 1 - this.nearEndThreshold) {
+      return
+    }
+    if (this.canStartBottomRefresh && !this.canStartBottomRefresh()) {
+      return
+    }
+    if (this.onNearEnd) {
+      this.onNearEnd()
+      return
+    }
+    if (this.onReachEnd) {
+      this.onReachEnd()
+    }
   }
 }

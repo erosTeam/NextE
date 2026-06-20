@@ -611,7 +611,7 @@ Type: gallery grid rendering / immersive chrome viewport bug
 
 Priority suggestion: P1
 
-Status: active / queued
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -671,3 +671,30 @@ Acceptance shape:
 - Deterministic contract covers: `PullRefreshGridScaffold` no longer uses top/bottom Grid padding for
   immersive inset, top/bottom spacer content exists, near-end trigger wiring exists for Grid/List, and
   duplicate-load guards remain in the VM path.
+
+Implementation / evidence:
+
+- Commit: `106997b fix(gallery): keep grid cards visible under chrome`.
+- Scope: `PullRefreshGridScaffold` now models top/bottom chrome avoidance as real full-row `GridItem`
+  spacer content and keeps `Grid.padding` horizontal-only. Home, Search, and Favorites Grid branches pass
+  `itemCount`, a near-end threshold, and `onNearEnd -> vm.loadMore()` while retaining the existing
+  `canStartBottomRefresh -> vm.canLoadMore()` guard.
+- Deterministic gates:
+  - `node scripts/test_grid_immersive_spacer_contract.mjs`
+  - `node scripts/test_gallery_grid_mode_contract.mjs`
+  - `node scripts/test_responsive_grid_contract.mjs`
+  - `node scripts/test_gallery_waterflow_contract.mjs`
+  - `node scripts/test_v1_decorator_inventory_contract.mjs`
+  - `git diff --check`
+- Build gate: `scripts/build_hvigor_signed.sh` passed on 2026-06-20.
+- Simulator evidence: installed `entry-default-signed.hap` on local `127.0.0.1:5555`, switched Layout
+  settings from `瀑布流` to `网格` through the real UI, and captured Home Grid before/after scroll:
+  `.hvigor/outputs/grid-immersive-spacer-nexte/home_grid_confirm.png`,
+  `.hvigor/outputs/grid-immersive-spacer-nexte/home_grid_scrolled.png`,
+  `.hvigor/outputs/grid-immersive-spacer-nexte/home_grid_confirm_layout.json`,
+  `.hvigor/outputs/grid-immersive-spacer-nexte/home_grid_scrolled_layout.json`.
+- Runtime layout proof: before scroll `Grid: 1 / GridItem: 5 / WaterFlow: 0 / FlowItem: 0`; after scroll
+  `Grid: 1 / GridItem: 6 / WaterFlow: 0 / FlowItem: 0`. The scrolled screenshot shows grid cards still
+  rendered behind the translucent bottom navigation bar instead of disappearing in the chrome region.
+- Controller still needs to accept the visual behavior on target devices; Waterfall spacer behavior remains
+  a separate future audit and was not changed in this lane.

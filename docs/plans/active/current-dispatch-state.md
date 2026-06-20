@@ -146,6 +146,12 @@ Historical feedback in this section must not trigger new implementation.
   `GalleryGridCard`. Android eros_fe comparison confirmed `瀑布流` / `瀑布流 - 大` / `网格` are
   separate list-style choices, and HarmonyOS simulator evidence shows the NextE menu entry and Home
   `WaterFlow` rendering.
+- Gallery Grid immersive chrome disappearance is implemented and pending controller acceptance:
+  `PullRefreshGridScaffold` now uses full-row top/bottom spacer `GridItem`s instead of `Grid.padding`
+  for title/bottom-bar avoidance, keeps horizontal padding only, and exposes near-end paging inputs for
+  Home/Search/Favorites Grid branches. Simulator evidence on local `127.0.0.1:5555` confirms Home Grid
+  remains a real `Grid/GridItem` surface before and after scroll, with cards still rendering behind the
+  translucent bottom navigation area.
 - Settings shell audit is implemented and pending controller acceptance: Settings root now exposes only
   scoped, wired pages (`EH`, `布局`, `阅读`, `搜索`, `历史`, `诊断`, `关于`), hides misleading Security and
   Download settings entries until their downstream behavior exists, removes EH placeholder rows, gates
