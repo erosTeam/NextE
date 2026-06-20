@@ -99,6 +99,9 @@ Historical feedback in this section must not trigger new implementation.
   `网站设置` / `图片限制` rows are no longer visible in EH settings until the protected website-settings
   profile flow or image-limit refresh surface exists. EH settings remains scoped to real account/site
   loops.
+- Advanced settings root wording is corrected and pending controller acceptance: the root entry and
+  child title now use `诊断` / Diagnostics because the current implemented loop is native HiLog
+  diagnostics, not eros_fe's full Advanced maintenance surface with cache/proxy/import/export rows.
 - Search settings history clear safety is corrected and pending controller acceptance: tapping
   `清除` in Search settings now opens a native confirmation dialog before clearing persisted search
   history instead of deleting immediately.

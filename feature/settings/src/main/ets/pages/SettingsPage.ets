@@ -135,7 +135,7 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
-        title: $r('app.string.settings_advanced'),
+        title: $r('app.string.advanced_diagnostics'),
         leadingIcon: $r('sys.symbol.gearshape'),
         action: () => {
           this.stack.pushPathByName('AdvancedSettings', null)

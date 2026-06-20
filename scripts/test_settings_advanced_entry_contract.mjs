@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Contract: Settings exposes a minimal Advanced maintenance page backed by NextE native hilog
- * diagnostics. This is not a proxy/cache/import/export/blocker expansion lane.
+ * Contract: Settings exposes the current native diagnostics loop honestly, without labeling it as
+ * eros_fe's full Advanced maintenance surface.
  *
  * Run: node scripts/test_settings_advanced_entry_contract.mjs
  */
@@ -19,10 +19,10 @@ const ok = (cond, msg) => {
 }
 
 const grounding = [
-  'eros_fe: lib/pages/tab/controller/setting_controller.dart routes Advanced to EHRoutes.advancedSetting; lib/pages/setting/advanced_setting_page.dart contains Log maintenance rows',
-  'primary information: low-frequency maintenance and diagnostics, not ordinary browsing controls',
+  'eros_fe: lib/pages/tab/controller/setting_controller.dart routes Advanced to EHRoutes.advancedSetting; lib/pages/setting/advanced_setting_page.dart contains language, blockers, cache, proxy, import/export, HTTP, and Log maintenance rows',
+  'primary information: NextE currently exposes only native diagnostics, not the full Advanced maintenance set',
   'primary action: write a native diagnostics marker to HiLog; back is secondary',
-  'scope: Settings entry + HDS child page for native hilog diagnostics; no proxy, cache clearing, import/export, blocker, language, WebDAV, or file-log viewer',
+  'scope: honest Diagnostics entry + HDS child page for native hilog diagnostics; no proxy, cache clearing, import/export, blocker, language, WebDAV, or file-log viewer',
   'Harmony expression: HdsNavDestination + SecondaryListScaffold + GroupedListSection + ConciseListRow, using DiagnosticLogger/native HiLog',
 ]
 
@@ -41,11 +41,15 @@ const advancedPageCode = advancedPage.replace(/\/\*[\s\S]*?\*\//g, '').replace(/
 ok(/export \{ AdvancedSettingsPage \}/.test(settingsIndex), 'settings module exports AdvancedSettingsPage')
 ok(/AdvancedSettingsPage/.test(entry) && /name === 'AdvancedSettings'[\s\S]*AdvancedSettingsPage\(\)/.test(entry),
   'entry registers AdvancedSettings route')
-ok(/settings_advanced/.test(settingsRoot) && /pushPathByName\('AdvancedSettings', null\)/.test(settingsRoot),
-  'Settings root exposes an Advanced row that pushes AdvancedSettings')
+ok(/advanced_diagnostics/.test(settingsRoot) && /pushPathByName\('AdvancedSettings', null\)/.test(settingsRoot),
+  'Settings root exposes a Diagnostics row that pushes the diagnostics route')
+ok(!/title:\s*\$r\('app\.string\.settings_advanced'\)[\s\S]*pushPathByName\('AdvancedSettings', null\)/.test(settingsRoot),
+  'Settings root does not label the diagnostics-only entry as full Advanced')
 
 ok(/export struct AdvancedSettingsPage/.test(advancedPage) && /HdsNavDestination/.test(advancedPage),
   'AdvancedSettingsPage is a native HDS destination')
+ok(/immersiveTitleBar\(AppStrings\.get\('advanced_diagnostics'\)\)/.test(advancedPage),
+  'diagnostics page title matches its implemented scope')
 ok(/advanced_diagnostics/.test(advancedPage) && /trailingText:\s*'HiLog'/.test(advancedPage),
   'page explains native HiLog diagnostics')
 ok(/advanced_write_marker/.test(advancedPage) &&

@@ -406,6 +406,25 @@ Remaining acceptance:
   No further FE/device validation is required unless Settings root or Advanced settings routing changes
   again.
 
+Follow-up correction:
+
+- `fix(settings): label diagnostics scope honestly` keeps the existing native diagnostics route but
+  changes the visible Settings root row and page title from `高级` / Advanced to `诊断` /
+  Diagnostics. The prior label over-promised eros_fe's full Advanced maintenance page, which includes
+  language, blockers, cache, proxy, WebDAV, import/export, native HTTP, and log rows. NextE currently
+  implements only the HiLog diagnostics marker loop, so the visible label now matches the real scope.
+- Contract updated: `scripts/test_settings_advanced_entry_contract.mjs` now locks that the Settings
+  root pushes the diagnostics route through the `advanced_diagnostics` label and must not label that
+  route as full `settings_advanced`.
+- Android FE evidence refreshed on target `fa967a75`, package `com.honjow.fehviewer`, under
+  `.hvigor/outputs/settings-diagnostics-label-fe/`: `fe_settings_root.png/xml` shows FE has a root
+  `高级` entry, and `fe_advanced_page.png/xml` shows the broad maintenance rows that NextE does not
+  yet implement.
+- HarmonyOS emulator evidence refreshed on target `127.0.0.1:5555`, signed HAP installed, under
+  `.hvigor/outputs/settings-diagnostics-label-nexte/`: `settings_root.png/json` shows the root row is
+  `诊断` rather than `高级`, and `diagnostics_page.png/json` shows the child title `诊断` with the
+  existing `HiLog` / `写入测试标记` loop.
+
 ### Settings Root Missing EH Settings Page
 
 Type: feature gap / settings reachability

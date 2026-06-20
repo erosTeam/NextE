@@ -10,8 +10,9 @@ import {
 } from 'shared'
 
 /**
- * Advanced settings starts with the one maintenance capability NextE already owns: native hilog
- * diagnostics. FE has cache/proxy/import/export/log rows here; those remain future lanes.
+ * Diagnostics starts with the one maintenance capability NextE already owns: native HiLog markers.
+ * FE's broader Advanced page has cache/proxy/import/export/log rows; those remain future lanes, so
+ * the visible NextE entry is labeled by the implemented diagnostic scope instead of "Advanced".
  */
 @ComponentV2
 export struct AdvancedSettingsPage {
@@ -60,7 +61,7 @@ export struct AdvancedSettingsPage {
         }
       }
     }
-    .titleBar(immersiveTitleBar(AppStrings.get('settings_advanced')))
+    .titleBar(immersiveTitleBar(AppStrings.get('advanced_diagnostics')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 }
