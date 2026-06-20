@@ -894,6 +894,10 @@ Source:
   not only early page commits from tiny drags; the opposite failure also happens frequently, where the user
   swipes repeatedly or for a long distance and the Reader does not move. This makes normal Reader use
   unreliable enough to reopen the lane at high priority.
+- Fresh user diagnosis, 2026-06-21: one concrete "swipe does not move" cause is hidden Reader chrome that
+  is visually transparent but still interactive. When the bottom control layer is hidden only by opacity,
+  the user can still blindly drag the slider or tap buttons, so page swipes in that region are stolen by
+  invisible controls. Treat this as a deterministic hit-test bug, not a QA flake.
 
 Why this is separate from generic gesture acceptance:
 
@@ -919,6 +923,11 @@ Likely risk areas to inspect:
   call `onReaderHorizontalSwipe(...) -> turnTo(...) -> vm.onPageChange(...)`. The existing contract even
   leaves "very long swipe" to Swiper while shorter bounded swipes are handled by the overlay fallback.
   That split-owner design cannot strictly prove conflict freedom.
+- Current hit-test risk evidence, 2026-06-21: any Reader top/bottom chrome, thumbnail strip, slider, or
+  button layer that uses `opacity(0)` while keeping default hit testing can steal gestures from the reader
+  canvas. Hidden chrome should be removed from the interactive tree or translated out of the reader
+  gesture area; `HitTestMode.None` is only a defensive backstop while an exit animation is mounted. A
+  component sitting in the original place at opacity 0 is not truly hidden.
 
 Investigation direction:
 
@@ -933,6 +942,11 @@ Investigation direction:
 - Deterministic contracts should assert the absence of competing commit paths, not merely that a param or
   threshold exists. For example, fail if both `Swiper.onChange` and `ReaderTapOverlay.onTouch` can commit
   normal horizontal page turns.
+- Deterministic contracts should also assert hidden chrome cannot intercept touches: top bar, bottom bar,
+  thumbnail strip, slider, and toolbar buttons must not remain mounted in-place as interactive controls
+  when `showChrome` is false. Prefer conditional mount/unmount or offscreen translation; if fade-out keeps
+  a layer mounted briefly, it must be non-hit-testable for the hidden/transitioning-out state. A
+  hidden-by-opacity in-place layer is a blocker even if ordinary screenshot QA looks correct.
 - A QA-only gesture trace is still useful after the static design is repaired: record pointer down/up
   coordinates, max horizontal delta, duration, active zoom state, current page before/after, and which
   single handler accepted or rejected the gesture. Treat this as smoke evidence, not the main proof.

@@ -189,6 +189,11 @@ a bounded validation path.
    overlay `onTouch` fallback plus programmatic sync all able to mutate page state. Contracts should fail
    if both Swiper and overlay/custom touch can independently commit a page turn. Device/simulator traces
    are still useful, but only as smoke after the static conflict is removed; they are not sufficient proof.
+   Concrete root cause reported 2026-06-21: hidden Reader chrome can still intercept gestures if it is
+   only faded by opacity. Hidden top/bottom bars, sliders, buttons, and thumbnail strips should be
+   unmounted or moved out of the interactive reader canvas; `HitTestMode.None` is only a defensive
+   backstop during animation, not the definition of hidden. Opacity-only hidden controls are forbidden
+   because they allow blind slider/button operation and steal page swipes.
 2. Search action-seeded autofocus regression: tapping a gallery detail tag/uploader/similar action should
    open Search in results-first mode without focusing the input or showing the keyboard. User validation
    still shows mandatory keyboard popup, despite `SearchPageParams(..., focusOnAppear=false)` already
