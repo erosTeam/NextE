@@ -57,6 +57,9 @@ Historical feedback in this section must not trigger new implementation.
   a value is selected, posts the protected `rategallery` API path, applies returned rating state, and publishes
   a V2 rating mutation to retained Home/Search/Favorites lists. Automated validation remains non-destructive
   and does not click the final submit action.
+- Dispatch intake is split by domain: `product-bug-intake.md` is now a short index/write-rule file,
+  while long evidence lives under `docs/plans/active/intake/`. New intake should go to the matching
+  domain file first, and only near-term scheduling changes should update this dispatch file.
 - Remote EH favorite sheet/write path is implemented and pending controller acceptance: detail opens an
   in-place `EH 收藏` sheet with left cancel, right confirm, favnote input, favcat slots, and remove state.
   Favcat slots now use an account-level real-name cache, no transient loading row is inserted into the
@@ -95,22 +98,19 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. docs(dispatch): split active intake by domain. Keep this file short, turn `product-bug-intake.md`
-   into an index/write-rule document, and move long evidence entries into domain files under
-   `docs/plans/active/intake/` without touching product code.
-2. Comment write actions: after the full-comments entry repair, add bounded comment actions such as
+1. Comment write actions: after the full-comments entry repair, add bounded comment actions such as
    vote up/down, reply/new comment, and own-comment edit with EH write safeguards.
-3. Settings shell audit: identify settings rows/pages that are only shells, disabled placeholders, or
+2. Settings shell audit: identify settings rows/pages that are only shells, disabled placeholders, or
    not wired to real behavior; either finish the high-frequency ones or make their limited scope honest.
-4. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
+3. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
    writes establish the protected EH write pattern.
-5. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-6. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
+5. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
    accepted; do not make Grid behave like Waterfall.
-7. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+6. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-8. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+7. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule

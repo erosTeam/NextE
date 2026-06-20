@@ -1,0 +1,634 @@
+# Gallery List, Grid, And Thumbnails Intake
+
+Status: domain intake ledger.
+
+Purpose:
+
+- Preserve full evidence and handling notes for this domain.
+- Do not use this file directly as the scheduling source of truth; start from `../current-dispatch-state.md`.
+- When an item is implemented, update its Status/commit/evidence here so it does not remain an unhandled queue item.
+
+## Items
+
+### AllThumbnails Far Jump Conflicts With Thumbnail Page Loading
+
+Type: P0/P1 bug / browsing preview pagination
+
+Priority suggestion: P0/P1
+
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- `38137e1 fix(gallery): anchor thumbnail jump paging` changes
+  `AllThumbnailsViewModel.loadNext()` from the contiguous first-page cursor (`loadedPages`) to a sparse
+  forward neighbor cursor based on `currentPreviewPage + 1`.
+- A direct jump via `loadImagePage(page)` still loads the target thumbnail page, but subsequent bottom
+  pagination now requests the target neighborhood (`targetPreviewPage + 1`, skipping already loaded
+  pages) instead of returning to early preview pages.
+- `loadPreviousPreviewPage()` remains centered on the current sparse page and continues to request the
+  immediate previous thumbnail page.
+- Reader seed state remains separate: `loadedPages` is still exposed as the contiguous first-page seed
+  count for Reader startup, but it is no longer used as the AllThumbnails bottom request source.
+- Follow-up implementation in progress after device validation exposed a remaining discontinuity:
+  jumping from the early preview range to page 120 in a 138-page gallery showed the target page, but the
+  same viewport still mixed early pages 8-20 with target pages 101-122. `loadImagePage(page)` now loads
+  a small target preview-page neighborhood (`target - 1`, `target`, `target + 1`, clamped to real
+  preview pages) and skips pages already loaded. This keeps the first post-jump viewport and the next
+  up/down scrolls centered on the target neighborhood instead of stitching the early range directly to
+  the target page.
+
+Verification:
+
+- FE grounding:
+  `/Users/honjow/git/eros_fe/lib/pages/gallery/controller/all_thumbnails_controller.dart` uses
+  `fetchThumbnailsFromPage(fromPage)` to request `page: fromPage - 1` and reset
+  `_pageState.currentImagePage = fromPage - 1`; subsequent next/previous preview loads use
+  `currentImagePage + 1` / `currentImagePage - 1`.
+- Android FE ADB evidence:
+  `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump/eros_fe_reference.png`.
+- Deterministic contract:
+  `node scripts/test_all_thumbnails_page_jump_contract.mjs` now simulates a 1000-page gallery with an
+  early loaded range, a jump to page 600, target-neighborhood preloading, and forward/backward neighbor
+  loading from the target preview page rather than preview page 1.
+- Full deterministic contracts passed via `for f in scripts/test_*contract.mjs; do node "$f" || exit 1; done`.
+- V2-only gate passed: `node scripts/test_v1_decorator_inventory_contract.mjs` reports `0 file(s)`.
+- Signed macOS build passed: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS install/start smoke passed on `127.0.0.1:5555`; evidence:
+  `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump/nexte_start.png` and
+  `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump/nexte_gallery_detail.png`.
+- Follow-up device validation on Mate X7 simulator `127.0.0.1:5555`, signed HAP installed with hdc
+  outside sandbox:
+  - Before the neighborhood fix, `jump to 120` produced a mixed viewport with early pages 8-20 directly
+    followed by target pages 101-122:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/after_jump.png`.
+  - After the neighborhood fix, `jump to 120` showed a continuous target-neighborhood viewport
+    `89..123`, then down-scroll showed `124..138`, and up-scroll returned to `89..123` without jumping
+    back to the early range. Evidence:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/fix_after_jump.png`,
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/fix_scroll_down.png`,
+    and `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-far-jump-acceptance/fix_scroll_up.png`.
+- Large-gallery device validation on 2026-06-20 used public gallery
+  `https://e-hentai.org/g/3998992/f5b5c954d2/` (`1700` pages, `85` preview pages). Android FE ADB
+  reference was captured with `su` on device `fa967a75`, showing the same 1700-page gallery detail:
+  `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/fe_large_detail.png`.
+  NextE was validated on Mate X7 simulator `127.0.0.1:5555` with hdc outside sandbox:
+  - Detail page showed the same gallery and `1700` page count:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_large_detail.png`.
+  - AllThumbnails initially showed the early range `1..20`:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_allthumb_initial.png`.
+  - Jumping directly to page `600` landed in the target neighborhood `569..603`, including `600`, with
+    no early `1..20` range stitched into the viewport:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_after_jump600.png`.
+  - Scrolling down stayed in the adjacent target neighborhood `590..624`:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_after_jump600_scroll_down.png`.
+  - Scrolling back up returned to the target neighborhood `569..596`, not the initial pages:
+    `/Users/honjow/git/NextE/.hvigor/outputs/all-thumbnails-large-acceptance/nexte_after_jump600_scroll_up.png`.
+  - Layout JSON evidence for the same sequence is saved beside the screenshots:
+    `nexte_after_jump600_layout.json`, `nexte_after_jump600_scroll_down_layout.json`, and
+    `nexte_after_jump600_scroll_up_layout.json`.
+
+Remaining acceptance:
+
+- Controller/user can review the large-gallery evidence above. No additional product-code change is
+  planned for this item unless review finds a reproducible mismatch beyond the validated 1700-page
+  jump-to-600 flow.
+
+Source:
+
+- User-reported current behavior on very large galleries, around 1000 pages: the AllThumbnails /
+  preview page may have only the first few thumbnail pages loaded, then the user jumps directly to page
+  500/600+.
+- The UI can appear to jump, but subsequent preview scrolling / thumbnail-page loading conflicts with
+  the original loaded range. This makes the preview page hard to use.
+- This is not the Reader later-thumbnail start bug above. It concerns the AllThumbnails / preview page's
+  own far-jump and subsequent thumbnail pagination state, not opening Reader from a clicked thumbnail.
+
+Observed behavior:
+
+- A far jump in AllThumbnails can look successful initially.
+- After the jump, scrolling up/down or letting preview pagination load more thumbnails may use stale
+  loaded-page/cursor state from the initial range.
+- The preview can jump back toward early pages, request the wrong neighboring thumbnail page, duplicate
+  items, leave holes, or otherwise desynchronize visible absolute indices from loaded thumbnail pages.
+
+Expected behavior:
+
+- Jumping to a far preview page should first locate and load the thumbnail page/range containing the
+  target absolute index.
+- The page should establish a correct sparse loaded range around the target.
+- Subsequent up/down scrolling should request adjacent thumbnail pages based on the target neighborhood,
+  not based on the initial first-page cursor.
+- Reader startIndex / seed image-page logic must remain separate and must not be used as proof that the
+  AllThumbnails preview pagination is correct.
+
+Likely modules to inspect:
+
+- `feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets`
+- `feature/gallery/src/main/ets/viewmodel/*` if AllThumbnails state has moved out of the page.
+- `feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets` only to confirm Reader-specific sparse
+  start logic is not accidentally coupled to preview pagination.
+- `shared/src/main/ets/parser/EhGalleryImageParser.ets`
+- EH gallery thumbnail-page service methods and `ReaderParams` / image seed models only for boundary
+  checks.
+- eros_fe thumbnail / preview page jump behavior for product and EH mechanism grounding.
+
+Implementation direction to evaluate:
+
+- Treat far jump as a preview-page pagination operation: compute the target thumbnail page / page group
+  from absolute image index, load that group first, then scroll to the matching absolute index.
+- Keep each thumbnail seed's `absoluteIndex`, `/s/...` image-page URL, and source preview-page marker.
+- Maintain loaded ranges as sparse intervals around the target, not as a single append-only cursor from
+  page 1.
+- `onReachEnd` and any upward/backward load should use the nearest loaded interval around the current
+  viewport.
+- Do not conflate this with Reader startIndex. Reader may consume the clicked seed later, but preview
+  pagination correctness must stand on its own.
+
+Acceptance shape:
+
+- Use a very large gallery, approximately 1000 pages.
+- Open AllThumbnails / preview page with only the first few thumbnail pages loaded.
+- Jump directly to page 500/600+.
+- The visible thumbnail sequence and labels correspond to the target absolute page range.
+- Scrolling upward/downward continues loading adjacent thumbnail pages from the target neighborhood.
+- The page does not jump back to early pages, duplicate ranges, show holes, or desynchronize preview
+  page loading state.
+- Deterministic contract should simulate a 1000-page gallery, early loaded range, far jump to 500+, and
+  subsequent forward/backward pagination requests based on the target range rather than the initial range.
+
+### Very Tall Gallery Covers Break List Row Height
+
+Type: bug
+
+Priority suggestion: P0/P1
+
+Status: accepted
+
+Implementation:
+
+- `14d471c fix(gallery): bound list cover row height` clamps list cover row height behavior for
+  extreme tall/narrow covers.
+- Scope: `GalleryCard` applies explicit list-cover sizing constraints so extreme cover ratios cannot
+  force fixed-height list rows to become unboundedly tall.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_cover_presentation_contract.mjs`,
+  `scripts/test_list_height_mode_contract.mjs`, `scripts/test_list_responsive_cover_contract.mjs`.
+- Historical Mate X7 evidence exists for Home fixed/adaptive list modes, but active visual acceptance
+  is not automatically closed by history.
+- Current-main acceptance, 2026-06-19:
+  `scripts/test_cover_presentation_contract.mjs`, `scripts/test_list_height_mode_contract.mjs`,
+  `scripts/test_list_responsive_cover_contract.mjs`, and
+  `scripts/test_v1_decorator_inventory_contract.mjs` all passed.
+- Android FE reference, 2026-06-19: ADB target `fa967a75` was brought to foreground with
+  `adb shell su -c 'am start -n com.honjow.fehviewer/.MainActivity'`, foreground confirmed as
+  `com.honjow.fehviewer/.MainActivity`, and the current FE screen was captured at
+  `/private/tmp/nexte_tall_cover_row_height_fe_reference/fe_foreground.png`.
+- HarmonyOS Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox: fixed-height list mode was
+  checked via the real Settings switch, a `webtoon` search result list was captured, and visible
+  `ListItem` rows stayed bounded (first webtoon result row height 638px; no multi-screen row stretch).
+  Adaptive mode was toggled through Settings, the Gallery default list was captured, and visible rows
+  remained bounded while allowing content growth (first adaptive content row height 720px). The setting
+  was restored to fixed-height checked=true after capture. Evidence directory:
+  `/private/tmp/nexte_tall_cover_row_height_acceptance`, especially `fixed.png`, `fixed.json`,
+  `adaptive.png`, `adaptive.json`, `settings_fixed_toggle.json`, and `settings_fixed_restored.json`.
+
+Closure:
+
+- Accepted for fixed and adaptive list row-height behavior. The real-device evidence covers running
+  list surfaces and the deterministic contracts lock the explicit cover-slot policy for extreme
+  tall/narrow source ratios. No product code changed in this acceptance update.
+
+Source:
+
+- User-reported current behavior.
+
+Observed behavior:
+
+- Gallery list rows can still become very tall even when fixed list height is selected.
+- Some Korean webtoon-style galleries have extremely tall/narrow covers.
+- The list cover respects the raw cover ratio too much, so the cover height stretches and pushes the whole row much taller than intended.
+
+Expected behavior:
+
+- Fixed-height list mode must keep rows fixed even for extreme cover ratios.
+- Adaptive/non-fixed list mode may grow for tags/content, but it still needs a maximum supported cover aspect ratio.
+- When a cover is taller than that allowed ratio, NextE should handle it deliberately instead of stretching the row indefinitely.
+
+Why this matters:
+
+- A single extreme cover can destroy scan density and make the list feel broken.
+- The fixed-height setting currently appears unreliable to users if cover ratio can override it.
+- This affects a high-frequency browsing surface, not a low-priority visual edge case.
+
+Likely failure mode:
+
+- `EhThumbnail` / `GalleryCard` may use source cover ratio or `aspectRatio` in a way that can exceed the intended row height.
+- Fixed-height row constraints may not prevent a child image from requesting a taller layout.
+- Adaptive mode may have no maximum cover-ratio clamp.
+
+Likely modules to inspect:
+
+- `shared/src/main/ets/components/GalleryCard.ets`
+- `shared/src/main/ets/components/EhThumbnail.ets`
+- `shared/src/main/ets/state/ListModeState.ets`
+- `scripts/test_list_height_mode_contract.mjs`
+- `scripts/test_list_responsive_cover_contract.mjs`
+- eros_fe list item cover sizing and maximum ratio handling.
+
+Implementation direction to evaluate:
+
+- Define an explicit maximum list-cover height / aspect-ratio policy for both fixed and adaptive modes.
+- Fixed mode should ensure the cover cannot expand the row beyond the fixed row height.
+- Adaptive mode should still clamp extreme cover ratios so very tall/narrow covers do not dominate the list.
+- The fix should not be a one-off `maxWidth` patch; it should be based on row/container sizing and cover-ratio policy.
+- Preserve normal cover containment/cropping behavior for ordinary manga/doujin covers.
+
+Acceptance shape:
+
+- Use or fixture a gallery list item with an extreme tall/narrow cover ratio.
+- In fixed-height mode, the row remains fixed height and the cover is handled within the allowed slot.
+- In adaptive mode, the row may adapt for content but does not stretch indefinitely because of the cover ratio alone.
+- Ordinary cover ratios still render as before.
+
+### Gallery Grid Mode Uses Broken WaterFlow Layout
+
+Type: P0/P1 bug / browsing core layout
+
+Priority suggestion: P0/P1
+
+Status: implemented / pending user acceptance
+
+Implementation:
+
+- `3913012 fix(gallery): render grid mode with grid scaffold` separated user-visible Grid from
+  WaterFlow by moving Home, Search, and Favorites `ListMode.GRID` branches to
+  `PullRefreshGridScaffold` + `GridItem`.
+- `f46f109 fix(gallery): bound grid card height` completes the grid semantics correction by bounding
+  `GalleryGridCard` itself: fixed cover ratio, fixed title/info/tag area, and a small bounded tag sample
+  so content cannot create masonry-like unequal card heights.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_gallery_grid_mode_contract.mjs`,
+  `scripts/test_gallery_grid_card_visual_contract.mjs`, and `scripts/test_gallery_waterflow_contract.mjs`.
+- Full contract suite, i18n parity, `git diff --check`, and V1 decorator inventory passed in the fixing
+  lane.
+- Official signed build passed via `scripts/build_hvigor_signed.sh`.
+- HarmonyOS Mate X7 simulator, hdc outside sandbox, signed HAP installed:
+  - Outer/phone-like width Home grid: `.hvigor/outputs/reader-gesture-rework/nexte_grid_fixed_home_2tags.png`
+  - Outer/phone-like Search results grid: `.hvigor/outputs/reader-gesture-rework/nexte_grid_fixed_search_results.png`
+  - Expanded inner-screen Search results grid: `.hvigor/outputs/reader-gesture-rework/nexte_grid_fixed_search_expand.png`
+  - Favorites surface opened but local Favorites count was 0, so device evidence only proves the surface
+    remained usable/empty; the Favcat grid branch is covered by deterministic contract and shared code.
+
+Source:
+
+- User-reported current behavior: the gallery "grid" layout is visibly unusable. Covers are not
+  controlled, cards can overlap, and the result does not behave like a responsive grid.
+- Read-only inspection:
+  - `feature/home/src/main/ets/components/GalleryListBody.ets`
+  - `feature/search/src/main/ets/pages/GallerySearchPage.ets`
+  - `feature/user/src/main/ets/components/FavcatPage.ets`
+  all render `ListMode.GRID` through `PullRefreshWaterFlowScaffold` + `FlowItem`, not through a
+  normal `Grid` + `GridItem`.
+- `shared/src/main/ets/state/ListModeState.ets` already defines `WATERFALL = 'waterfall'`, but
+  `feature/settings/src/main/ets/pages/LayoutSettingsPage.ets` only exposes list/simple/grid and the
+  main list surfaces do not branch on `ListMode.WATERFALL`.
+- `PullRefreshGridScaffold` and `ResponsiveGrid` exist, but the current list grid branches do not use
+  them.
+
+Observed behavior:
+
+- Selecting "网格" can produce overlapping or visually broken cover cards.
+- After the first scaffold fix, "网格" still looked like a Waterfall pre-stage because `GalleryGridCard`
+  allowed title/tags/content to auto-expand each item, producing unequal card heights.
+- Grid card cover size is not clearly derived from the current pane/container width.
+- The UI is not a complete responsive grid unless both the scaffold and the card have a stable sizing
+  contract: fixed cell width, fixed cover ratio, fixed title/info area, and bounded metadata/tags.
+- The waterfall concept is mixed into grid mode, while a separate user-visible waterfall mode is not
+  implemented.
+
+Expected behavior:
+
+- "网格" should be a true responsive grid: stable columns, stable cell width, no overlap, and cover/card
+  dimensions derived from current container width.
+- Every grid card should have the same height within the same responsive grid: cover uses a fixed-ratio
+  slot, title is fixed line-count/height, and tags/metadata are bounded or clipped instead of expanding
+  the item.
+- "瀑布流" should be a separate mode if exposed: it should use `WaterFlow` deliberately, with variable
+  item heights and its own acceptance evidence.
+- Grid and waterfall must not be conflated. If waterfall is not ready, do not use WaterFlow as the
+  implementation behind the "网格" label.
+
+Likely root cause:
+
+- The `GRID` branch renders `PullRefreshWaterFlowScaffold` and `FlowItem`, so item placement depends on
+  WaterFlow behavior even though the user selected a grid.
+- Current callers do not pass `minColumnWidth` / `onCellSize`, so responsive column sizing is not wired
+  into the gallery browsing surfaces.
+- `GalleryGridCard` originally limited only the cover ratio. Its title/tags remained natural-flow content,
+  so long tag lists could still create masonry-like unequal item heights.
+
+Implementation direction:
+
+- Rewire `ListMode.GRID` on Home, Search, and Favorites to `PullRefreshGridScaffold` + `GridItem`.
+- Pass a real `minColumnWidth` and derive columns/cell width from the measured pane/container, using the
+  existing `ResponsiveGrid` policy.
+- Give `GalleryGridCard` a stable card-size contract: fixed cover ratio, fixed title height, fixed tag/info
+  area, bounded tag count, and clipping so content cannot stretch grid rows.
+- Add a separate `ListMode.WATERFALL` branch only when the waterfall mode has its own settings entry,
+  layout contract, and device evidence. Until then, keep waterfall out of the "网格" path.
+
+Acceptance shape:
+
+- In Home, Search results, and Favorites, selecting "网格" shows a stable responsive grid with uniform
+  card heights and aligned rows, not merely a non-overlapping WaterFlow.
+- Long titles and many tags are truncated/bounded; they never make one grid item taller than neighbors.
+- Foldable outer/inner widths and ordinary phone width produce sensible column counts and readable cover
+  sizes.
+- Switching list/simple/grid does not leave stale layout artifacts or reuse WaterFlow for grid.
+- If waterfall is exposed later, it appears as a distinct choice and is verified separately.
+
+### Gallery Grid Card Information Density Is Wrong
+
+Type: bug / browsing core UX
+
+Priority suggestion: P1
+
+Status: active intake
+
+Source:
+
+- User screenshot, 2026-06-20: Home grid cards show large empty white areas below the title/tag area and
+  appear to omit important browsing information. User asked why this was accepted and noted Waterfall has
+  still not been scheduled.
+- Read-only NextE inspection:
+  - `shared/src/main/ets/components/GalleryGridCard.ets` currently renders cover, translated-language
+    badge, page/favorite overlay, two title lines, and at most two tag chips.
+  - It does not render post time, rating, uploader, category text, or richer metadata.
+  - `ThemeConstants.GALLERY_GRID_INFO_HEIGHT = 126`, `GALLERY_GRID_TITLE_HEIGHT = 44`,
+    `GALLERY_GRID_TAG_AREA_HEIGHT = 58`, and `GALLERY_GRID_TAG_LIMIT = 2`, which can create a large
+    fixed empty area when only one or two chips are present.
+  - `scripts/test_gallery_grid_card_visual_contract.mjs` currently protects a cover-first card with a
+    bounded tag-chip sample and explicitly rejects the old rating/category metadata row. That contract
+    verifies fixed rhythm but does not verify that the grid card has enough useful browsing information.
+- Read-only `eros_fe` inspection:
+  - `eros_fe/lib/pages/item/gallery_item_grid.dart` small grid card shows cover, translated/category
+    corner, page count/favorite overlay, title, and post time. It does not show tag chips.
+  - `eros_fe/lib/pages/item/gallery_item_flow.dart` is the smaller Waterfall item and is mostly cover-only.
+  - `eros_fe/lib/pages/item/gallery_item_flow_large.dart` is the richer waterfall card with cover,
+    rating/favorite, title, and tags.
+  - `eros_fe/lib/pages/setting/layout_setting_page.dart` exposes separate list modes: list, simple list,
+    waterfall, waterfall large, and grid.
+
+Observed behavior:
+
+- NextE's current Grid is structurally a real Grid, but the card content is semantically muddled:
+  it borrows tag chips from richer waterfall-style cards, drops FE grid's post-time cue, and still lacks
+  enough metadata to justify the fixed info block height.
+- The result is neither a compact cover/title/time grid nor a richer waterfall-large card; it looks
+  sparse and unfinished despite passing the earlier "no WaterFlow / fixed height" contracts.
+- Earlier acceptance only covered scaffold separation, no overlap, uniform row height, and responsive
+  columns. It did not validate information density or whether the visible fields are the right fields
+  for browsing.
+
+Expected behavior:
+
+- Grid remains a true responsive `Grid` with uniform cells, not WaterFlow.
+- `GalleryGridCard` should present enough high-frequency browsing information for quick scanning while
+  keeping fixed row rhythm. At minimum, re-evaluate title, post time, rating/favorite, language/category,
+  page count, and whether tag chips belong in Grid at all.
+- Fixed info-area height should be justified by visible content. If only title + a small metadata row are
+  shown, the card should not reserve a large empty block.
+- Tags, if retained, must not consume fixed space at the expense of more useful metadata; if tags are the
+  product choice, the card needs a deliberate density/layout plan rather than a two-chip leftover.
+
+Likely root cause:
+
+- The previous Grid repair over-corrected for masonry risk by locking a large info block and clipping
+  content, then used a tag sample as the secondary content. That solved row alignment but did not define
+  a complete Grid information hierarchy.
+- The visual contract encoded the incomplete hierarchy, so it allowed the screenshot failure to pass.
+
+Implementation direction:
+
+- First repair Grid card information hierarchy only. Do not mix in Waterfall launch work.
+- Re-ground against `eros_fe` grid and waterfall variants: FE grid's post time and compact metadata,
+  FE waterfall-large's rating/tags, and NextE/HarmonyOS scanning needs.
+- Update `GalleryGridCard` to a deliberate fixed-height information layout, likely cover + title +
+  compact metadata row(s), with no large unused region.
+- Update `scripts/test_gallery_grid_card_visual_contract.mjs` so it no longer locks the current
+  incomplete "title + two tags + empty fixed area" design as acceptable.
+
+Acceptance shape:
+
+- Home, Search, and Favorites Grid screenshots show cards with stable equal heights and visibly useful
+  metadata; no large empty white region under normal data.
+- Grid cards remain readable on outer-screen phone width and expanded foldable/tablet width.
+- Long title/tag data is bounded without making the item masonry-like.
+- Contract proves Grid info density fields are deliberate and that card rhythm is still fixed.
+
+### Waterfall Mode Is Defined But Not Exposed
+
+Type: feature gap / browsing mode
+
+Priority suggestion: P1/P2
+
+Status: active intake / schedule after Grid card information repair
+
+Source:
+
+- User feedback: Waterfall has not been arranged despite repeated discussion of Grid vs Waterfall
+  separation.
+- Read-only NextE inspection:
+  - `shared/src/main/ets/state/ListModeState.ets` defines `ListMode.WATERFALL`.
+  - `shared/src/main/ets/components/PullRefreshWaterFlowScaffold.ets` exists and is exported.
+  - `feature/settings/src/main/ets/pages/LayoutSettingsPage.ets` only exposes list, simple, and grid.
+- Read-only `eros_fe` inspection:
+  - `layout_setting_page.dart` exposes both `waterfall` and `waterfallLarge` separately from `grid`.
+  - `waterfall_flow.dart` routes small waterfall to `GalleryItemFlow` and large waterfall to
+    `GalleryItemFlowLarge`.
+
+Expected behavior:
+
+- Waterfall should be a distinct user-visible mode, not hidden behind Grid and not treated as already
+  implemented because scaffolding exists.
+- It needs its own card semantics and acceptance:
+  - small Waterfall can be cover-first / cover-only masonry;
+  - large Waterfall can be rich cover + rating/title/tags masonry;
+  - settings entry must make the mode explicit.
+
+Implementation direction:
+
+- Do not launch Waterfall in the same lane as Grid card information repair.
+- Decide whether NextE first exposes one Waterfall mode or separate Waterfall / Large Waterfall options.
+- Add settings/i18n, route Home/Search/Favorites through the existing WaterFlow scaffold, and add
+  contracts that `ListMode.GRID` and `ListMode.WATERFALL` stay separate.
+
+Acceptance shape:
+
+- Settings exposes Waterfall as a distinct mode.
+- Home, Search, and Favorites render Waterfall with masonry semantics and no Grid row-alignment contract.
+- Switching list/simple/grid/waterfall does not leave stale layout state.
+- Device screenshots show clear visual distinction between Grid and Waterfall.
+
+### Detail Header Cover Flickers After Opening From List
+
+Type: bug / UX regression
+
+Priority suggestion: P1
+
+Status: accepted
+
+Implementation:
+
+- `34b08d1 fix(gallery): seed detail cover dimensions` carries parsed list/search/favorites cover
+  dimensions through `GalleryDetailParams`, seeds `GalleryDetailPage` with `imgWidth/imgHeight`, and
+  keeps the detail header cover on the real-ratio path from the first frame instead of waiting for
+  detail HTML enrichment.
+- Scope: list/search/favorites gallery-result opens into detail. Sparse URL/deep-link opens still
+  start without dimensions and use the existing gdata/detail enrichment path.
+
+Evidence:
+
+- Deterministic contracts: `scripts/test_gallery_detail_seed_cover_contract.mjs`,
+  `scripts/test_gallery_data_parser_contract.mjs`, `scripts/test_cover_presentation_contract.mjs`,
+  and `scripts/test_v1_decorator_inventory_contract.mjs`.
+- Official macOS DevEco/Hvigor signed build: `scripts/build_hvigor_signed.sh`, installed
+  `entry/build/default/outputs/default/entry-default-signed.hap` on Mate X7 target
+  `127.0.0.1:5555`.
+- Device evidence from Home list row → detail: `/private/tmp/nexte_detail_cover_flicker_nexte_evidence/`,
+  especially `after_install_start.png`, `verified_early.png`, `verified_early.json`,
+  `verified_settled.png`, and `verified_settled.json`.
+- Android FE comparison evidence for the detail-page product semantics:
+  `/private/tmp/nexte_detail_cover_flicker_fe_comparison/fe_detail.png`.
+- Current-main contract recheck, 2026-06-19: `scripts/test_gallery_detail_seed_cover_contract.mjs`,
+  `scripts/test_gallery_data_parser_contract.mjs`, `scripts/test_cover_presentation_contract.mjs`, and
+  `scripts/test_v1_decorator_inventory_contract.mjs` all passed. No product code changed after the
+  existing Mate X7 device evidence in this acceptance update.
+
+Closure:
+
+- Accepted for the list-to-detail header cover seed/flicker bug. No repeat fold/unfold matrix is
+  required unless later changes touch list sizing, detail header cover presentation, or thumbnail
+  routing again. No product code changed in this acceptance update.
+
+Source:
+
+- User-reported current behavior.
+
+Observed behavior:
+
+- After opening a gallery detail page from a list row, the detail header cover flashes briefly.
+
+Expected behavior:
+
+- The detail header should paint from the list-row seed and transition into the loaded detail state without a visible cover flash.
+- If the fetched detail data updates the same cover URL or only enriches metadata, the cover surface should remain visually stable.
+- If the fetched detail data truly changes the cover URL or image dimensions, the transition should still avoid a blank/placeholder flash unless the old cover is invalid.
+
+Why this matters:
+
+- The list-to-detail path is a high-frequency navigation flow.
+- A flashing header cover makes the detail page feel unstable even when the gallery data loads correctly.
+
+Likely failure mode:
+
+- `GalleryDetailPage` seeds the ViewModel from the list-row `GalleryDetailParams`, then
+  `GalleryDetailViewModel.fetchAndApply()` merges gdata/detail results into `gallery`.
+- If the merge changes `thumbUrl`, source dimensions, or the `EhThumbnail` input identity, the thumbnail
+  component may reset its loading/error state and briefly show the loading/placeholder layer.
+- This is distinct from the older cover-presentation shape bug and from the sub-tab empty-state flash gate.
+
+Likely modules to inspect:
+
+- `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets`
+- `feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets`
+- `feature/gallery/src/main/ets/components/GalleryHeaderCard.ets`
+- `shared/src/main/ets/components/EhThumbnail.ets`
+- `shared/src/main/ets/model/EhGallery.ets`
+
+Implementation direction to evaluate:
+
+- Reproduce on device/simulator first with a list-row open, capturing the initial header paint and the post-detail-merge state.
+- Compare seed gallery fields and loaded detail fields for `thumbUrl`, `thumbUrlL`, `imgWidth`, and `imgHeight`.
+- Preserve the already-painted seed cover while richer detail metadata loads when the actual cover URL is equivalent.
+- If thumbnail state reset is necessary for a real URL change, keep the previous rendered image until the new one is ready where ArkUI supports that behavior.
+- Add a deterministic contract that treats list-to-detail header-cover stability as separate from cover shape/presentation acceptance.
+
+Acceptance shape:
+
+- Open a gallery detail page from a visible list row.
+- The header cover appears immediately from the row seed.
+- During detail/gdata enrichment, the header cover does not flash blank, placeholder, or loading overlay over the already-painted image.
+- The final loaded detail header still uses the correct cover presentation, rounded visible image content, and current cover fallback behavior.
+
+### Grid Items Disappear In Immersive Chrome Padding Region
+
+Type: gallery grid rendering / immersive chrome viewport bug
+
+Priority suggestion: P1
+
+Status: active / queued
+
+Source:
+
+- User feedback, 2026-06-20: in Grid mode only, gallery cards can disappear abruptly when they enter the
+  top/bottom "pending" / immersive chrome area, even though the card is still visually expected to be
+  visible through the semi-transparent title/bottom bars. List mode does not show the same issue.
+- Related UX note: next-page loading currently appears to trigger only at the physical bottom; a smoother
+  model would also prefetch when the final or near-final rendered item enters the visible range.
+
+Current implementation notes:
+
+- `PullRefreshListScaffold` models top/bottom immersive chrome as real spacer `ListItem`s. Its List only
+  uses horizontal padding, so content can continue rendering underneath the semi-transparent chrome.
+- `PullRefreshGridScaffold` models the same top/bottom avoidance as `Grid.padding.top` and
+  `Grid.padding.bottom`.
+- HarmonyOS Grid documentation says Grid padding has special child display behavior: a `GridItem` partly
+  inside the content area and padding may display, but an item fully inside the padding area may not
+  display. This matches the observed Grid-only disappearance.
+- Home, Search, and Favorites Grid branches all use `PullRefreshGridScaffold`, so the issue is shared.
+- `PullRefreshWaterFlowScaffold` also uses top/bottom padding; future Waterfall may inherit the same bug
+  unless it is designed with real spacer content instead of padding-as-viewport.
+- Home, Search, and Favorites pagination currently wire `onReachEnd -> vm.loadMore()`. The shared scaffolds
+  expose `onScrollIndex` for list mode, but current gallery call sites do not use it for near-end prefetch.
+
+Expected behavior:
+
+- Grid cards should keep rendering while they are visually under / behind the semi-transparent top or
+  bottom chrome. The immersive area is still part of the visible reading/browsing canvas.
+- Top/bottom chrome should behave as overlay, not as a Grid padding region that removes visible content.
+- The last grid row should still be scrollable above the bottom bar when needed; this requires real spacer
+  content at the end, not a `Grid.padding.bottom` avoidance hack.
+- Pagination should start before the user physically hits the bottom, ideally when the visible end index
+  is within a small threshold from `itemCount - 1`.
+
+Implementation direction:
+
+- Stop using `Grid.padding.top` / `Grid.padding.bottom` for immersive title/bottom-bar avoidance in
+  `PullRefreshGridScaffold`.
+- Replace top/bottom Grid padding with real full-row spacer content, matching the List scaffold model.
+  Prefer proper full-row `GridItem` / irregular item support so the spacer scrolls as part of Grid content.
+- Keep only horizontal Grid padding for layout margins.
+- Add / tune explicit `cachedCount` only as a secondary smoothness guard, not as the root fix.
+- Add a shared near-end pagination event to `PullRefreshGridScaffold` and `PullRefreshListScaffold`, based
+  on visible end index and a configurable threshold, guarded by existing `canLoadMore()` / `isLoadingMore`.
+- Audit `PullRefreshWaterFlowScaffold` before launching Waterfall; it must not repeat the same
+  top/bottom-padding-as-immersive-inset bug.
+
+Acceptance shape:
+
+- Home, Search, and Favorites Grid mode: slow-scroll cards under the bottom bar and top chrome; cards do
+  not disappear while still visually expected through semi-transparent chrome.
+- The final grid row can still be scrolled above the bottom bar and is not permanently hidden by overlay.
+- List mode remains unchanged and does not regress.
+- On a long Home/Search/Favorites gallery list, slow-scroll near the bottom and verify next-page loading
+  starts before hitting the terminal footer.
+- While a page load is in flight, continued scrolling does not enqueue duplicate `loadMore()` requests.
+- Deterministic contract covers: `PullRefreshGridScaffold` no longer uses top/bottom Grid padding for
+  immersive inset, top/bottom spacer content exists, near-end trigger wiring exists for Grid/List, and
+  duplicate-load guards remain in the VM path.
