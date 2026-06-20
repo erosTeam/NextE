@@ -24,8 +24,6 @@ import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
 export struct GalleryAllThumbnailsPage {
   @Local vm: AllThumbnailsViewModel = new AllThumbnailsViewModel();
   @Local params: AllThumbnailsParams = new AllThumbnailsParams();
-  // Responsive cell width (vp) emitted by the scaffold; drives the sprite thumb so it fills its column.
-  @Local thumbW: number = 0;
   @Local jumpSheetShown: boolean = false;
   @Local jumpPageText: string = '';
   @Local jumpError: string = '';
@@ -187,12 +185,9 @@ export struct GalleryAllThumbnailsPage {
       Stack() {
         PullRefreshGridScaffold({
           scroller: this.scroller,
-          // Responsive: column count derived from the pane width + a min comfortable thumb width (a phone
-          // lands ~3, wider screens scale up), not a hardcoded count. The cell width feeds the thumbs.
+          // Responsive: ArkUI derives columns from the pane width + min comfortable thumb width. Tiles
+          // consume their actual cell width locally; this page does not hand-calculate columns or cells.
           minColumnWidth: ThemeConstants.PREVIEW_THUMB_MIN_W,
-          onCellSize: (_cols: number, cellWidth: number) => {
-            this.thumbW = cellWidth
-          },
           bottomPadding: ThemeConstants.SPACE_XL,
           controller: this.refreshController,
           onRefresh: async () => {
@@ -212,7 +207,6 @@ export struct GalleryAllThumbnailsPage {
               GridItem() {
                 PreviewThumbTile({
                   image: img,
-                  tileWidth: this.thumbW > 0 ? this.thumbW : ThemeConstants.PREVIEW_THUMB_MIN_W,
                   onTap: () => {
                     this.openReader(img)
                   },

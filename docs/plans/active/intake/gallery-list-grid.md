@@ -391,6 +391,34 @@ Remaining acceptance:
 - Pending controller/user visual acceptance. Do not reopen this item from historical notes unless current
   screenshots show a fresh Grid regression.
 
+Follow-up, 2026-06-20:
+
+- Preview grids no longer retain the old hand-calculated cell-width path. `PullRefreshGridScaffold`
+  removed `onCellSize` / `estimatedColumns` / `estimatedColumnWidth`; `GalleryPreviewGrid` and
+  `GalleryAllThumbnailsPage` now use ArkUI `repeat(auto-fit, PREVIEW_THUMB_MIN_W)` directly; and
+  `PreviewThumbTile` measures its own real Grid cell width before sizing the sprite thumbnail. This keeps
+  the FE strategy of stable preview frames and true-aspect thumbnails without reintroducing caller-side
+  column counting.
+- FE grounding:
+  - `eros_fe/lib/pages/item/gallery_item_grid.dart` keeps a fixed Grid cover slot and switches fit mode
+    by source-vs-slot ratio instead of non-uniform stretch.
+  - `eros_fe/lib/pages/item/gallery_item_flow.dart` sizes waterfall covers from source dimensions.
+  - `eros_fe/lib/pages/item/gallery_item_flow_large.dart` clamps extreme tall covers via
+    `max(imgWidth / imgHeight, 1 / 2)`, matching NextE's bounded Waterfall ratio policy.
+- Additional validation:
+  - `node scripts/test_responsive_grid_contract.mjs`
+  - `node scripts/test_gallery_grid_mode_contract.mjs`
+  - `node scripts/test_gallery_waterflow_contract.mjs`
+  - `node scripts/test_gallery_grid_card_visual_contract.mjs`
+  - `node scripts/test_v1_decorator_inventory_contract.mjs`
+  - `scripts/build_hvigor_signed.sh`
+  - HarmonyOS simulator `127.0.0.1:5555`:
+    `.hvigor/outputs/native-preview-grid-cell/detail-preview.jpeg` shows the detail inline preview grid
+    as three columns with true-aspect thumbnails and stable page labels;
+    `.hvigor/outputs/native-preview-grid-cell/allthumbs.jpeg` shows AllThumbnails as the same three-column
+    stable preview grid. The layout dump shows page labels `1..12` aligned in three columns with x bounds
+    around `187/531/874`.
+
 Source:
 
 - User screenshot, 2026-06-20: Home grid cards show large empty white areas below the title/tag area and

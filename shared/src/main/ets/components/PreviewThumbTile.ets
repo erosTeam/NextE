@@ -19,11 +19,15 @@ const FRAME_ASPECT: number = 1.4
 @ComponentV2
 export struct PreviewThumbTile {
   @Require @Param image: EhGalleryImage;
-  @Param tileWidth: number = ThemeConstants.PREVIEW_THUMB_MIN_W;
   @Event onTap: () => void = () => {};
+  @Local measuredWidth: number = 0;
+
+  private tileWidth(): number {
+    return this.measuredWidth > 0 ? this.measuredWidth : ThemeConstants.PREVIEW_THUMB_MIN_W
+  }
 
   private frameHeight(): number {
-    return this.tileWidth * FRAME_ASPECT
+    return this.tileWidth() * FRAME_ASPECT
   }
 
   // Thumb true aspect (height / width); 0 when sprite dimensions are missing/misdetected.
@@ -69,12 +73,12 @@ export struct PreviewThumbTile {
             offsetX: this.image.thumbOffsetX,
             spriteWidth: this.image.spriteWidth,
             spriteHeight: this.image.spriteHeight,
-            displayWidth: this.tileWidth,
+            displayWidth: this.tileWidth(),
             radius: ThemeConstants.THUMB_RADIUS,
           })
         }
       }
-      .width(this.tileWidth)
+      .width('100%')
       .height(this.frameHeight())
       .clip(true)
       .alignContent(Alignment.Center)
@@ -84,8 +88,14 @@ export struct PreviewThumbTile {
         .fontSize(ThemeConstants.FONT_SIZE_TINY)
         .fontColor($r('sys.color.font_tertiary'))
     }
-    .width(this.tileWidth)
+    .width('100%')
     .alignItems(HorizontalAlign.Center)
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      const parsed: number = Number.parseFloat(`${newValue.width}`)
+      if (parsed > 0) {
+        this.measuredWidth = parsed
+      }
+    })
     .onClick(() => {
       this.onTap()
     })

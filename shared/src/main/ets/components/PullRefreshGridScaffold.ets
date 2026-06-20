@@ -18,8 +18,6 @@ export struct PullRefreshGridScaffold {
   // When > 0, the column count is DERIVED responsively from the measured content width and this
   // minimum comfortable column width (vp) — eros_fe max-cross-axis-extent model — instead of `columns`.
   @Param minColumnWidth: number = 0;
-  // Measured grid width (vp); used only to emit cell sizing for callers that need it.
-  @Local measuredWidth: number = 0;
   @Param gap: number = ThemeConstants.SPACE_SM;
   @Param horizontalPadding: number = ThemeConstants.SPACE_MD;
   @Param bottomPadding: number = ThemeConstants.SPACE_XL;
@@ -34,10 +32,6 @@ export struct PullRefreshGridScaffold {
   @Event onReachEnd?: () => void;
   @Event onNearEnd?: () => void;
   @Event onScrollIndex?: (start: number, end: number) => void;
-  // Emits the responsive column count + one cell's width (vp) whenever the grid is (re)measured, so a
-  // caller can size sprite thumbnails to fill the derived cell. Only fires when minColumnWidth > 0.
-  // (Named onCellSize, not onLayout — onLayout collides with the CustomComponent base member.)
-  @Event onCellSize?: (columns: number, cellWidth: number) => void;
 
   build() {
     PullRefresh({
@@ -80,14 +74,6 @@ export struct PullRefreshGridScaffold {
       .contentEndOffset(this.bottomSpacerHeight())
       .edgeEffect(EdgeEffect.None)
       .clip(false)
-      .onAreaChange((_oldValue: Area, newValue: Area) => {
-        this.measuredWidth = this.parseAreaWidth(newValue)
-        if (this.onCellSize && this.minColumnWidth > 0) {
-          const content: number = this.contentWidth()
-          const cols: number = this.estimatedColumns(content)
-          this.onCellSize(cols, this.estimatedColumnWidth(content, cols))
-        }
-      })
       .onReachEnd(() => {
         if (this.onReachEnd) {
           this.onReachEnd()
@@ -104,16 +90,6 @@ export struct PullRefreshGridScaffold {
     }
   }
 
-  private parseAreaWidth(value: Area): number {
-    const parsed: number = Number.parseFloat(`${value.width}`)
-    return parsed > 0 ? parsed : 0
-  }
-
-  private contentWidth(): number {
-    const content: number = this.measuredWidth - 2 * this.horizontalPadding
-    return content > 0 ? content : 0
-  }
-
   private columnsTemplate(): string {
     if (this.minColumnWidth > 0) {
       return `repeat(auto-fit, ${this.minColumnWidth}vp)`
@@ -124,21 +100,6 @@ export struct PullRefreshGridScaffold {
       parts.push('1fr')
     }
     return parts.join(' ')
-  }
-
-  private estimatedColumns(content: number): number {
-    if (content <= 0 || this.minColumnWidth <= 0) {
-      return this.columns
-    }
-    const n: number = Math.floor((content + this.gap) / (this.minColumnWidth + this.gap))
-    return n > 0 ? n : 1
-  }
-
-  private estimatedColumnWidth(content: number, columns: number): number {
-    if (columns <= 0) {
-      return content
-    }
-    return (content - (columns - 1) * this.gap) / columns
   }
 
   private topSpacerHeight(): number {

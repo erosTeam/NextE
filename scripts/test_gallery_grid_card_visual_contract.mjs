@@ -90,7 +90,9 @@ ok('Detail and preview main visual slots do not get a grey letterbox container',
   /GalleryHeaderCard[\s\S]*EhThumbnail\(\{[\s\S]*containFit:\s*true/.test(detailHeaderSrc) &&
     /Stack\(\{ alignContent: Alignment\.Center \}\)[\s\S]*\.width\(this\.thumbWidth\)[\s\S]*\.height\(this\.thumbHeight\)[\s\S]*\.overlay\(this\.coverOverlay\(\)/.test(containFitBranch) &&
     !/backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(containFitBranch) &&
-    /Stack\(\)[\s\S]*\.width\(this\.tileWidth\)[\s\S]*\.height\(this\.frameHeight\(\)\)[\s\S]*\.alignContent\(Alignment\.Center\)/.test(previewFrameBranch) &&
+    /Stack\(\)[\s\S]*\.width\('100%'\)[\s\S]*\.height\(this\.frameHeight\(\)\)[\s\S]*\.alignContent\(Alignment\.Center\)/.test(previewFrameBranch) &&
+    /@Local\s+measuredWidth:\s*number\s*=\s*0/.test(previewTileSrc) &&
+    /tileWidth\(\)[\s\S]*this\.measuredWidth > 0 \? this\.measuredWidth : ThemeConstants\.PREVIEW_THUMB_MIN_W/.test(previewTileSrc) &&
     !/backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(previewFrameBranch))
 
 if (failures > 0) {

@@ -26,6 +26,10 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
 - Gallery Grid is separated from Waterfall: Grid uses grid scaffold semantics and compact fixed-size
   cards; Waterfall is a separate masonry mode, not an alias for Grid. `8bc9afb` implements the current
   recovery target and is pending controller acceptance, not a default active lane.
+- Gallery preview grids follow the same native responsive rule: detail preview and AllThumbnails use
+  ArkUI `repeat(auto-fit, PREVIEW_THUMB_MIN_W)` and `PreviewThumbTile` measures its own actual Grid cell
+  width. Do not reintroduce scaffold-level `onCellSize` / manual column or cell-width calculation for
+  preview thumbnails.
 - Gallery cover fit/backdrop policy is baseline. Use proportional image rendering only: `Cover` means
   equal-scale crop, never non-uniform stretch/fill. Choose fit from source image ratio vs the current
   slot ratio: ratio-close slots may use `Cover` to avoid unnecessary letterbox; large ratio mismatches

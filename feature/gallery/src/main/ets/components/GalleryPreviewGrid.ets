@@ -4,7 +4,6 @@ import {
   EhSpriteThumbnail,
   PreviewThumbTile,
   GroupedListSection,
-  ResponsiveGrid,
 } from 'shared'
 
 // Horizontal-mode row thumb height (eros_fe ThumbHorizontalList ~200 incl. labels): each thumb keeps
@@ -32,27 +31,6 @@ export struct GalleryPreviewGrid {
   @Param hidden: boolean = false;
   @Event onOpen: (pageZeroBased: number) => void = (_p: number) => {};
   @Event onMore: () => void = () => {};
-  // Measured grid width (vp); the GRID column count + tile width are derived from it (responsive).
-  @Local gridWidth: number = 0;
-
-  // Responsive column count for the inline GRID peek: derived from the measured pane width and a min
-  // comfortable thumb width (a phone lands ~3 columns, wider screens scale up) — never hardcoded.
-  private gridColumns(): number {
-    return ResponsiveGrid.columns(
-      this.gridWidth,
-      ThemeConstants.PREVIEW_THUMB_MIN_W,
-      ThemeConstants.SPACE_SM,
-    )
-  }
-
-  // One tile's width: the column width once gridColumns() share the pane minus gaps. Falls back to the
-  // min width before the first layout pass measures the pane.
-  private gridTileWidth(): number {
-    if (this.gridWidth <= 0) {
-      return ThemeConstants.PREVIEW_THUMB_MIN_W
-    }
-    return ResponsiveGrid.columnWidth(this.gridWidth, this.gridColumns(), ThemeConstants.SPACE_SM)
-  }
 
   // Centered tappable entry into the all-thumbnails page (eros_fe MorePreviewButton). The label reflects
   // whether more pages remain, but the row always navigates.
@@ -151,12 +129,7 @@ export struct GalleryPreviewGrid {
   // Inline grid peek of the first preview page. Responsive column count via columnsTemplate (a true Grid,
   // not a wrapping Flex) so tiles align in columns with uniform gap and the last row left-aligns naturally.
   private columnsTemplate(): string {
-    const cols: number = this.gridColumns()
-    const parts: string[] = []
-    for (let i: number = 0; i < cols; i++) {
-      parts.push('1fr')
-    }
-    return parts.join(' ')
+    return `repeat(auto-fit, ${ThemeConstants.PREVIEW_THUMB_MIN_W}vp)`
   }
 
   @Builder
@@ -168,7 +141,6 @@ export struct GalleryPreviewGrid {
           GridItem() {
             PreviewThumbTile({
               image: img,
-              tileWidth: this.gridTileWidth(),
               onTap: () => {
                 this.onOpen(img.page - 1)
               },
@@ -182,9 +154,6 @@ export struct GalleryPreviewGrid {
     .columnsGap(ThemeConstants.SPACE_SM)
     .rowsGap(ThemeConstants.SPACE_SM)
     .width('100%')
-    .onAreaChange((_oldValue: Area, newValue: Area) => {
-      this.gridWidth = newValue.width as number
-    })
   }
 
   build() {
