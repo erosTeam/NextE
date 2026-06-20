@@ -5,6 +5,7 @@ import {
   EhMytags,
   EhUsertag,
   EhMytagSet,
+  EhTagSuggestion,
   EhConstants,
   EhApiPhpService,
   EhApiService,
@@ -12,21 +13,22 @@ import {
   UserTagStore,
   UserTagSignal,
   connectUserTagSignal,
+  TagTranslationService,
   DiagnosticLogger,
   PageLoadingState,
   PageErrorState,
   CardEmptyState,
   SecondaryListScaffold,
   GroupedListSection,
-  immersiveTitleBar,
+  immersiveTitleBarOpts,
 } from 'shared'
 
 /**
  * My Tags (mytags) — the user's watched / hidden / color-flagged tags. Routed page off Settings.
  * Renders each tag as a chip in its own EH color (hidden tags dimmed); a watched tag gets a ring.
  * Loads via EhApiService.getMyTags (requires login). Existing usertag rows can be edited through
- * EH's protected /api.php setusertag method, and deleted through the classic /mytags mass action.
- * Tagset management and new-tag creation remain separate.
+ * EH's protected /api.php setusertag method, deleted through the classic /mytags mass action, or a
+ * new tag can be added through /mytags usertag_action=add. Tagset management remains separate.
  */
 @ComponentV2
 export struct MyTagsPage {
@@ -45,6 +47,21 @@ export struct MyTagsPage {
   @Local editDefaultColor: boolean = true;
   @Local editColor: string = '';
   @Local editWeight: string = '';
+  @Local addSheetShown: boolean = false;
+  @Local addSubmitting: boolean = false;
+  @Local addSuggesting: boolean = false;
+  @Local addError: string = '';
+  @Local addTagQuery: string = '';
+  @Local addTagName: string = '';
+  @Local addTagTranslate: string = '';
+  @Local addWatched: boolean = false;
+  @Local addHidden: boolean = false;
+  @Local addDefaultColor: boolean = true;
+  @Local addColor: string = '';
+  @Local addWeight: string = '10';
+  @Local addSuggestions: EhTagSuggestion[] = [];
+  @Local addSuggestEpoch: number = 0;
+  @Local addSuppressNextSuggest: boolean = false;
   @Local tagSig: UserTagSignal = connectUserTagSignal();
   private scroller: Scroller = new Scroller();
 
@@ -123,6 +140,24 @@ export struct MyTagsPage {
     this.editSheetShown = true
   }
 
+  private openAddTag(): void {
+    this.addSheetShown = true
+    this.addSubmitting = false
+    this.addSuggesting = false
+    this.addError = ''
+    this.addTagQuery = ''
+    this.addTagName = ''
+    this.addTagTranslate = ''
+    this.addWatched = false
+    this.addHidden = false
+    this.addDefaultColor = true
+    this.addColor = ''
+    this.addWeight = '10'
+    this.addSuggestions = []
+    this.addSuggestEpoch = this.addSuggestEpoch + 1
+    this.addSuppressNextSuggest = false
+  }
+
   private normalizedEditColor(): string {
     if (this.editDefaultColor) {
       return ''
@@ -134,11 +169,40 @@ export struct MyTagsPage {
     return c.startsWith('#') ? c : `#${c}`
   }
 
+  private normalizedAddColor(): string {
+    if (this.addDefaultColor) {
+      return ''
+    }
+    const c: string = this.addColor.trim()
+    if (c.length === 0) {
+      return ''
+    }
+    return c.startsWith('#') ? c : `#${c}`
+  }
+
   private canSubmitEdit(): boolean {
     return this.editTagId.length > 0 &&
       this.mytags.apikey.length > 0 &&
       this.mytags.apiuid.length > 0 &&
       !this.editSubmitting
+  }
+
+  private addTagLabel(): string {
+    const selected: string = this.addTagName.trim()
+    return selected.length > 0 ? selected : this.addTagQuery.trim()
+  }
+
+  private hasExistingTag(label: string): boolean {
+    const normalized: string = label.trim().toLowerCase()
+    if (normalized.length === 0) {
+      return false
+    }
+    return this.mytags.tags.some((t: EhUsertag) => t.tag.toLowerCase() === normalized)
+  }
+
+  private canSubmitAdd(): boolean {
+    const tagName: string = this.addTagLabel()
+    return tagName.length > 0 && !this.hasExistingTag(tagName) && !this.addSubmitting
   }
 
   private confirmSubmitEdit(): void {
@@ -176,6 +240,22 @@ export struct MyTagsPage {
     })
   }
 
+  private confirmSubmitAdd(): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.mytags_add_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.mytags_add'),
+        action: () => {
+          this.submitAdd()
+        },
+      },
+    })
+  }
+
   private async submitEdit(): Promise<void> {
     if (!this.canSubmitEdit()) {
       return
@@ -206,6 +286,35 @@ export struct MyTagsPage {
     this.editSubmitting = false
   }
 
+  private async submitAdd(): Promise<void> {
+    if (!this.canSubmitAdd()) {
+      return
+    }
+    this.addSubmitting = true
+    this.addError = ''
+    try {
+      await EhApiService.getInstance().addUserTag({
+        isEx: connectSiteMode().isEx,
+        tagName: this.addTagLabel(),
+        tagset: this.mytags.currentTagset,
+        color: this.normalizedAddColor(),
+        weight: this.addWeight,
+        watched: this.addWatched,
+        hidden: this.addHidden,
+      })
+      await this.reloadCurrentTagset()
+      this.addSheetShown = false
+      this.getUIContext().getPromptAction().showToast({
+        message: $r('app.string.mytags_add_success'),
+      })
+    } catch (err) {
+      const e = err as Error
+      this.addError = e.message
+      DiagnosticLogger.warn('mytags', 'add_failed', e.message)
+    }
+    this.addSubmitting = false
+  }
+
   private async deleteTag(): Promise<void> {
     if (this.editTagId.length === 0 || this.editSubmitting) {
       return
@@ -229,6 +338,81 @@ export struct MyTagsPage {
       DiagnosticLogger.warn('mytags', 'delete_failed', e.message)
     }
     this.editSubmitting = false
+  }
+
+  private setAddTagQuery(value: string): void {
+    this.addTagQuery = value
+    this.addTagName = value.trim()
+    this.addTagTranslate = TagTranslationService.translateFullTag(this.addTagName)
+    this.addError = ''
+    if (this.addSuppressNextSuggest) {
+      this.addSuppressNextSuggest = false
+      this.addSuggestions = []
+      this.addSuggesting = false
+      this.addSuggestEpoch = this.addSuggestEpoch + 1
+      return
+    }
+    const epoch: number = this.addSuggestEpoch + 1
+    this.addSuggestEpoch = epoch
+    this.loadAddSuggestions(value, epoch)
+  }
+
+  private async loadAddSuggestions(value: string, epoch: number): Promise<void> {
+    const q: string = value.trim()
+    if (q.length < 2) {
+      if (epoch === this.addSuggestEpoch) {
+        this.addSuggestions = []
+        this.addSuggesting = false
+      }
+      return
+    }
+    this.addSuggesting = true
+    try {
+      const suggestions: EhTagSuggestion[] = await EhApiPhpService.tagSuggest(
+        EhConstants.baseUrl(connectSiteMode().isEx),
+        q,
+      )
+      if (epoch === this.addSuggestEpoch) {
+        this.addSuggestions = suggestions.filter((s: EhTagSuggestion) => !this.hasExistingTag(s.label()))
+      }
+    } catch (err) {
+      const e = err as Error
+      if (epoch === this.addSuggestEpoch) {
+        this.addError = e.message
+        this.addSuggestions = []
+      }
+      DiagnosticLogger.warn('mytags', 'suggest_failed', e.message)
+    }
+    if (epoch === this.addSuggestEpoch) {
+      this.addSuggesting = false
+    }
+  }
+
+  private selectAddSuggestion(s: EhTagSuggestion): void {
+    const label: string = s.label()
+    this.addTagQuery = label
+    this.addTagName = label
+    this.addTagTranslate = TagTranslationService.translateFullTag(label)
+    this.addSuggestions = []
+    this.addSuggesting = false
+    this.addSuppressNextSuggest = true
+    this.addSuggestEpoch = this.addSuggestEpoch + 1
+  }
+
+  private myTagsTitleBar(): Record<string, Object> {
+    const title: Record<string, Object> = { 'mainTitle': $r('app.string.settings_mytags') }
+    const addInner: Record<string, Object> = {
+      'label': $r('app.string.mytags_add'),
+      'icon': $r('sys.symbol.plus'),
+      'isEnabled': !this.loading,
+      'action': () => {
+        this.openAddTag()
+      },
+    }
+    const items: Record<string, Object>[] = [{ 'content': addInner }]
+    const menu: Record<string, Object> = { 'value': items, 'maxCount': 1 }
+    const content: Record<string, Object> = { 'title': title, 'menu': menu }
+    return immersiveTitleBarOpts(content)
   }
 
   build() {
@@ -276,9 +460,13 @@ export struct MyTagsPage {
         }
       }
     }
-    .titleBar(immersiveTitleBar($r('app.string.settings_mytags')))
+    .titleBar(this.myTagsTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .bindSheet($$this.editSheetShown, this.EditTagSheet(), {
+      detents: [SheetSize.LARGE],
+      showClose: false,
+    })
+    .bindSheet($$this.addSheetShown, this.AddTagSheet(), {
       detents: [SheetSize.LARGE],
       showClose: false,
     })
@@ -389,7 +577,7 @@ export struct MyTagsPage {
   }
 
   @Builder
-  private DraftSwitchRow(title: ResourceStr, checked: boolean, onToggle: (value: boolean) => void) {
+  private DraftSwitchRow(title: ResourceStr, checked: boolean, disabled: boolean, onToggle: (value: boolean) => void) {
     Row({ space: ThemeConstants.SPACE_MD }) {
       Text(title)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -398,7 +586,7 @@ export struct MyTagsPage {
         .layoutWeight(1)
       Toggle({ type: ToggleType.Switch, isOn: checked })
         .selectedColor(ThemeConstants.BRAND_PRIMARY)
-        .enabled(!this.editSubmitting)
+        .enabled(!disabled)
         .onChange((value: boolean) => {
           onToggle(value)
         })
@@ -414,7 +602,7 @@ export struct MyTagsPage {
     .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
     .backgroundColor($r('app.color.card_background'))
     .onClick(() => {
-      if (!this.editSubmitting) {
+      if (!disabled) {
         onToggle(!checked)
       }
     })
@@ -469,13 +657,13 @@ export struct MyTagsPage {
               .width('100%')
           }
           .width('100%')
-          this.DraftSwitchRow($r('app.string.mytags_watch'), this.editWatched, (value: boolean) => {
+          this.DraftSwitchRow($r('app.string.mytags_watch'), this.editWatched, this.editSubmitting, (value: boolean) => {
             this.editWatched = value
             if (value) {
               this.editHidden = false
             }
           })
-          this.DraftSwitchRow($r('app.string.mytags_hide'), this.editHidden, (value: boolean) => {
+          this.DraftSwitchRow($r('app.string.mytags_hide'), this.editHidden, this.editSubmitting, (value: boolean) => {
             this.editHidden = value
             if (value) {
               this.editWatched = false
@@ -500,7 +688,7 @@ export struct MyTagsPage {
               })
           }
           .width('100%')
-          this.DraftSwitchRow($r('app.string.mytags_default_color'), this.editDefaultColor, (value: boolean) => {
+          this.DraftSwitchRow($r('app.string.mytags_default_color'), this.editDefaultColor, this.editSubmitting, (value: boolean) => {
             this.editDefaultColor = value
           })
           if (!this.editDefaultColor) {
@@ -541,5 +729,181 @@ export struct MyTagsPage {
         .width('100%')
       }
     }
+  }
+
+  @Builder
+  private AddTagSheet() {
+    AppModalScaffold({
+      title: $r('app.string.mytags_add_title'),
+      includeKeyboardPadding: true,
+      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+      confirmText: $r('app.string.mytags_add'),
+      confirmEnabled: this.canSubmitAdd(),
+      confirmLoading: this.addSubmitting,
+      closeAction: () => {
+        this.addSheetShown = false
+      },
+      confirmAction: () => {
+        this.confirmSubmitAdd()
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            Text($r('app.string.mytags_tag_name'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .width('100%')
+            TextInput({ text: this.addTagQuery, placeholder: $r('app.string.mytags_tag_placeholder') })
+              .width('100%')
+              .height(48)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .backgroundColor($r('app.color.card_background'))
+              .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+              .enabled(!this.addSubmitting)
+              .onChange((value: string) => {
+                this.setAddTagQuery(value)
+              })
+            if (this.addTagTranslate.length > 0) {
+              Text(this.addTagTranslate)
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_secondary'))
+                .width('100%')
+            }
+            if (this.hasExistingTag(this.addTagLabel())) {
+              Text($r('app.string.mytags_add_existing'))
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_secondary'))
+                .width('100%')
+            }
+          }
+          .width('100%')
+          if (this.addSuggestions.length > 0 || this.addSuggesting) {
+            Column({ space: ThemeConstants.SPACE_XS }) {
+              Text(this.addSuggesting ? $r('app.string.mytags_suggest_loading') : $r('app.string.mytags_suggestions'))
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_secondary'))
+                .width('100%')
+              ForEach(
+                this.addSuggestions,
+                (s: EhTagSuggestion) => {
+                  this.AddSuggestionRow(s)
+                },
+                (s: EhTagSuggestion) => s.label(),
+              )
+            }
+            .width('100%')
+          }
+          this.DraftSwitchRow($r('app.string.mytags_watch'), this.addWatched, this.addSubmitting, (value: boolean) => {
+            this.addWatched = value
+            if (value) {
+              this.addHidden = false
+            }
+          })
+          this.DraftSwitchRow($r('app.string.mytags_hide'), this.addHidden, this.addSubmitting, (value: boolean) => {
+            this.addHidden = value
+            if (value) {
+              this.addWatched = false
+            }
+          })
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            Text($r('app.string.mytags_weight'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .width('100%')
+            TextInput({ text: this.addWeight, placeholder: '10' })
+              .width('100%')
+              .height(48)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .backgroundColor($r('app.color.card_background'))
+              .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+              .enabled(!this.addSubmitting)
+              .type(InputType.Number)
+              .onChange((value: string) => {
+                this.addWeight = value
+              })
+          }
+          .width('100%')
+          this.DraftSwitchRow($r('app.string.mytags_default_color'), this.addDefaultColor, this.addSubmitting, (value: boolean) => {
+            this.addDefaultColor = value
+          })
+          if (!this.addDefaultColor) {
+            Column({ space: ThemeConstants.SPACE_XS }) {
+              Text($r('app.string.mytags_color'))
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+                .width('100%')
+              Row({ space: ThemeConstants.SPACE_MD }) {
+                TextInput({ text: this.addColor, placeholder: '#3377FF' })
+                  .height(48)
+                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                  .backgroundColor($r('app.color.card_background'))
+                  .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+                  .enabled(!this.addSubmitting)
+                  .layoutWeight(1)
+                  .onChange((value: string) => {
+                    this.addColor = value
+                  })
+                Column()
+                  .width(48)
+                  .height(48)
+                  .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+                  .backgroundColor(this.normalizedAddColor().length > 0 ? this.normalizedAddColor() : ThemeConstants.BRAND_PRIMARY)
+              }
+              .width('100%')
+            }
+            .width('100%')
+          }
+          if (this.addError.length > 0) {
+            Text(this.addError)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor(Color.Red)
+              .width('100%')
+          }
+        }
+        .width('100%')
+      }
+    }
+  }
+
+  @Builder
+  private AddSuggestionRow(s: EhTagSuggestion) {
+    Row({ space: ThemeConstants.SPACE_SM }) {
+      Text(s.namespace.length > 0 ? s.namespace : 'tag')
+        .fontSize(ThemeConstants.FONT_SIZE_TINY)
+        .fontColor(ThemeConstants.TEXT_ON_BRAND)
+        .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+        .borderRadius(ThemeConstants.RADIUS_SM)
+        .padding({
+          left: ThemeConstants.SPACE_XS,
+          right: ThemeConstants.SPACE_XS,
+          top: ThemeConstants.SPACE_XS,
+          bottom: ThemeConstants.SPACE_XS,
+        })
+      Text(s.text)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .padding({
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_MD,
+      top: ThemeConstants.SPACE_SM,
+      bottom: ThemeConstants.SPACE_SM,
+    })
+    .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+    .backgroundColor($r('app.color.card_background'))
+    .onClick(() => {
+      this.selectAddSuggestion(s)
+    })
   }
 }

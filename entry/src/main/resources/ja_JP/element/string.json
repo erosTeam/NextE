@@ -933,6 +933,42 @@
       "value": "マイタグを削除しました"
     },
     {
+      "name": "mytags_add",
+      "value": "追加"
+    },
+    {
+      "name": "mytags_add_title",
+      "value": "マイタグを追加"
+    },
+    {
+      "name": "mytags_tag_name",
+      "value": "タグ"
+    },
+    {
+      "name": "mytags_tag_placeholder",
+      "value": "namespace:tag"
+    },
+    {
+      "name": "mytags_suggestions",
+      "value": "候補タグ"
+    },
+    {
+      "name": "mytags_suggest_loading",
+      "value": "候補タグを検索中..."
+    },
+    {
+      "name": "mytags_add_existing",
+      "value": "このタグは既にマイタグにあります"
+    },
+    {
+      "name": "mytags_add_confirm",
+      "value": "このタグをマイタグに追加しますか？"
+    },
+    {
+      "name": "mytags_add_success",
+      "value": "マイタグを追加しました"
+    },
+    {
       "name": "gallery_comments",
       "value": "コメント"
     },

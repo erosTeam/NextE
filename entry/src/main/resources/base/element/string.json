@@ -933,6 +933,42 @@
       "value": "My Tag deleted"
     },
     {
+      "name": "mytags_add",
+      "value": "Add"
+    },
+    {
+      "name": "mytags_add_title",
+      "value": "Add My Tag"
+    },
+    {
+      "name": "mytags_tag_name",
+      "value": "Tag"
+    },
+    {
+      "name": "mytags_tag_placeholder",
+      "value": "namespace:tag"
+    },
+    {
+      "name": "mytags_suggestions",
+      "value": "Suggestions"
+    },
+    {
+      "name": "mytags_suggest_loading",
+      "value": "Searching suggestions..."
+    },
+    {
+      "name": "mytags_add_existing",
+      "value": "This tag already exists in My Tags."
+    },
+    {
+      "name": "mytags_add_confirm",
+      "value": "Add this tag to My Tags?"
+    },
+    {
+      "name": "mytags_add_success",
+      "value": "My Tag added"
+    },
+    {
       "name": "gallery_comments",
       "value": "Comments"
     },

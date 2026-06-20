@@ -96,6 +96,17 @@ export interface MyTagsDeleteUpdate {
   tagset: string
 }
 
+/** POST body semantics for adding one new My Tag through /mytags. */
+export interface MyTagsAddUpdate {
+  isEx: boolean
+  tagName: string
+  tagset: string
+  color: string
+  weight: string
+  watched: boolean
+  hidden: boolean
+}
+
 /**
  * Web-page API surface: builds EH list/search URLs, fetches via EhHttpClient, hands HTML
  * to the parsers. Mirrors V2Next's ApiService. M1 covers the anonymous table-site gallery
@@ -208,6 +219,47 @@ export class EhApiService {
       throw new Error(`comment HTTP ${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'detail')
+    if (failure !== null) {
+      throw failure
+    }
+  }
+
+  /** Add one new usertag (eros_fe actionNewUserTag: usertag_action=add). */
+  async addUserTag(update: MyTagsAddUpdate): Promise<void> {
+    const tagName: string = update.tagName.trim()
+    if (tagName.length === 0) {
+      throw new Error('mytags add: missing tag')
+    }
+    const base: string = EhConstants.baseUrl(update.isEx)
+    const params: string[] = []
+    if (update.tagset.length > 0) {
+      params.push(`tagset=${encodeURIComponent(update.tagset)}`)
+    }
+    const suffix: string = params.length > 0 ? `?${params.join('&')}` : ''
+    const url: string = `${base}/mytags${suffix}`
+    const pairs: string[] = [
+      this.formPair('usertag_action', 'add'),
+      this.formPair('tagname_new', tagName),
+      this.formPair('tagcolor_new', update.color.trim()),
+      this.formPair('tagweight_new', update.weight.trim().length > 0 ? update.weight.trim() : '10'),
+      this.formPair('tagwatch_new', update.watched ? 'on' : ''),
+      this.formPair('taghide_new', update.hidden ? 'on' : ''),
+      this.formPair('usertag_target', '0'),
+    ]
+    let resp: EhTextResponse
+    try {
+      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, pairs.join('&'))
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, url)
+    }
+    if (resp.statusCode >= 400) {
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+      if (failure !== null) {
+        throw failure
+      }
+      throw new Error(`mytags add HTTP ${resp.statusCode}`)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
     if (failure !== null) {
       throw failure
     }

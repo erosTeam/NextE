@@ -933,6 +933,42 @@
       "value": "我的标签已删除"
     },
     {
+      "name": "mytags_add",
+      "value": "添加"
+    },
+    {
+      "name": "mytags_add_title",
+      "value": "添加我的标签"
+    },
+    {
+      "name": "mytags_tag_name",
+      "value": "标签"
+    },
+    {
+      "name": "mytags_tag_placeholder",
+      "value": "namespace:tag"
+    },
+    {
+      "name": "mytags_suggestions",
+      "value": "候选标签"
+    },
+    {
+      "name": "mytags_suggest_loading",
+      "value": "正在搜索候选标签..."
+    },
+    {
+      "name": "mytags_add_existing",
+      "value": "这个标签已经在我的标签中"
+    },
+    {
+      "name": "mytags_add_confirm",
+      "value": "添加这个我的标签？"
+    },
+    {
+      "name": "mytags_add_success",
+      "value": "我的标签已添加"
+    },
+    {
       "name": "gallery_comments",
       "value": "评论"
     },

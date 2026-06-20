@@ -64,9 +64,9 @@ Scheduling judgment:
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
   1. Comment actions: comment vote, reply/new comment, and own-comment edit are implemented; reopen only
      for acceptance regressions.
-  2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, and existing MyTags
-     deletion are implemented; reopen only for acceptance regressions or separately scoped new-tag/tagset
-     management.
+  2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+     deletion, and MyTags new-user-tag add are implemented; reopen only for acceptance regressions or
+     separately scoped tagset management.
   3. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
      smaller write operations unless the user explicitly prioritizes downloads.
 
@@ -156,7 +156,25 @@ Handled status:
   opened Settings `我的标签`, opened the existing `language:chinese` edit sheet, clicked the HDS trash
   action, opened the delete confirmation dialog, and cancelled. Remaining gap: final delete submit was
   not clicked because EH MyTags deletion is a real account write and still needs an explicitly authorized
-  test target. New tag creation and tagset create/rename/delete remain out of scope.
+  test target. Tagset create/rename/delete remain out of scope.
+- MyTags new usertag add: `implemented / pending controller acceptance and authorized real-submit
+  verification`. Scope: Settings `我的标签` HDS title-bar plus action, HDS `AppModalScaffold` add sheet,
+  `/api.php method=tagsuggest` candidate lookup, existing-user-tag filtering, candidate fill into the
+  `namespace:tag` draft, mutually exclusive watch/hide toggles, weight/color/default-color draft state,
+  native confirmation before submit, and protected `/mytags` form submit using eros_fe's
+  `usertag_action=add`, `tagname_new`, `tagcolor_new`, `tagweight_new`, `tagwatch_new`, `taghide_new`,
+  and `usertag_target=0`. FE grounding:
+  `/Users/honjow/git/eros_fe/lib/network/request.dart` (`actionNewUserTag`),
+  `/Users/honjow/git/eros_fe/lib/pages/setting/controller/eh_mytags_controller.dart`
+  (`reSearch` / `tapAddUserTagItem`), and
+  `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_usertag_page.dart` (search mode with existing
+  rows and new tag candidates). Android FE evidence was captured under
+  `.hvigor/outputs/mytags-add-fe-comparison/`, including search mode with `goat` candidates.
+  HarmonyOS simulator evidence was captured under `.hvigor/outputs/mytags-add-nexte/`: opened Settings
+  `我的标签`, opened the plus add sheet, typed `goat`, selected `male:goat`, verified stale candidates clear
+  after selection, opened the add confirmation dialog, and cancelled. Remaining gap: final add submit was
+  not clicked because EH MyTags creation is a real account write and still needs an explicitly authorized
+  test target. Tagset create/rename/delete remain out of scope.
 
 Implementation constraints:
 
