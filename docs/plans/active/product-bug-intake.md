@@ -1422,6 +1422,17 @@ Remaining acceptance:
 - None for the current tag-query/action-focus scope unless this detail tag, Search action bus, or
   Search title field path changes again.
 
+Regression watch, 2026-06-20:
+
+- User re-raised the UX expectation: tapping a detail tag should mean "show me results for this tag",
+  not "open a focused search composer". The keyboard must not appear for action-seeded tag/uploader/
+  similar searches.
+- This was previously accepted in `f01e71a` and device evidence said no IME focus. If a current build
+  again opens the keyboard from a tag tap, treat it as a regression against the accepted
+  action-seeded-search contract, not as a new feature request.
+- Contract/device acceptance should explicitly cover: detail tag tap -> Search field displays the tag
+  query, results run automatically, `focusOnAppear=false`, and the IME/keyboard stays hidden.
+
 Source:
 
 - User-reported missing behavior.
@@ -1991,6 +2002,58 @@ Closure:
 - Implementation commit: `30ae664 fix(search): isolate action route state`.
 - SearchFilter visual/control acceptance belongs to the separate Search Filter UX lane and must not keep
   this route-stack bug active.
+
+### Favorites Search Entry Auto-Browses Empty Query Instead Of Showing Search History
+
+Type: Search UX / route initialization bug
+
+Priority suggestion: P1
+
+Status: active
+
+Source:
+
+- User feedback, 2026-06-20: tapping the Favorites page search button opens the Search page and
+  immediately performs an empty favorite search, so the search history / blank compose state is hidden.
+  The user has to type anything and clear it before the expected history screen appears.
+
+Observed behavior:
+
+- `Index.openFavoriteSearch()` pushes `SearchPageParams('favorite', favcat)`.
+- `GallerySearchPage.onReady()` treats `searchType === 'favorite'` as an instruction to seed favorite
+  scope and immediately call `vm.search('')`.
+- Prior docs described this as "Favorite-scope empty browse still works", but that conflates a favorite
+  browse mode with the title-bar search entry.
+
+Expected behavior:
+
+- The Favorites title-bar search action should open the shared Search page in favorite scope, but remain
+  in the search compose state when there is no initial query.
+- The pinned search field should be available, and the page should show search history / blank history
+  composition just like ordinary Search.
+- Only an explicit user submit should run `favorites.php` with `f_search`.
+- If NextE still needs an empty favorite browse mode, it must be a separate explicit route flag or entry,
+  not the default behavior of the search button.
+
+Implementation direction:
+
+- Add an explicit route/session semantic such as `autoBrowseOnOpen` / `initialBrowse` to
+  `SearchPageParams`, defaulting to false for search-entry routes.
+- `Index.openFavoriteSearch()` should pass favorite scope and favcat, but should not cause
+  `GallerySearchPage` to call `vm.search('')` when `initialQuery === ''`.
+- Preserve any existing favorite-scope result search after the user enters a keyword and submits.
+- Keep tag/action-seeded searches separate: they still pass `initialQuery` and `focusOnAppear=false`,
+  run immediately, and must not show the keyboard.
+
+Acceptance shape:
+
+- From Favorites, tap Search: Search opens in favorite scope, search field is visible, no network search
+  for an empty query runs, and search history / blank state is visible.
+- Type a keyword and press the IME Search button: favorite search executes against the selected favcat.
+- Clear the keyword: the page returns to history / blank compose state.
+- Tag/uploader action-seeded searches still open results-first without keyboard focus.
+- Deterministic contract covers that favorite-scope route without `initialQuery` does not call
+  `vm.search('')`, while an explicit user submit still does.
 
 ### Search Submit During In-Flight Request Can Drop The Latest Query
 

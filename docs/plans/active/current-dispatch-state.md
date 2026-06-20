@@ -90,8 +90,9 @@ a bounded validation path.
    writes establish the protected EH write pattern.
 5. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-6. Search submit/clear behavior: IME search must submit; clearing the query must return to history/blank
-   state rather than stale results.
+6. Search entry behavior: IME search must submit; clearing the query must return to history/blank state
+   rather than stale results; Favorites title-bar search must open the same history/blank compose state
+   instead of auto-running an empty favorite search.
 7. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
    accepted; do not make Grid behave like Waterfall.
 8. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
