@@ -21,6 +21,8 @@ import {
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
+  MyTagsPageParams,
+  connectNavStack,
   immersiveTitleBarOpts,
 } from 'shared'
 
@@ -34,6 +36,7 @@ import {
  */
 @ComponentV2
 export struct MyTagsPage {
+  @Local params: MyTagsPageParams = new MyTagsPageParams();
   @Local mytags: EhMytags = new EhMytags();
   @Local loading: boolean = true;
   @Local error: string = '';
@@ -71,11 +74,8 @@ export struct MyTagsPage {
   @Local tagsetName: string = '';
   @Local showingTagsetList: boolean = true;
   @Local tagSig: UserTagSignal = connectUserTagSignal();
+  private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
-
-  aboutToAppear(): void {
-    this.load()
-  }
 
   private async load(tagset: string = ''): Promise<void> {
     this.loading = true
@@ -102,9 +102,8 @@ export struct MyTagsPage {
   }
 
   private selectTagset(id: string): void {
-    if (!this.loading) {
-      this.showingTagsetList = false
-      this.load(id)
+    if (!this.loading && id.length > 0) {
+      this.stack.pushPathByName('MyTags', new MyTagsPageParams(id))
     }
   }
 
@@ -677,6 +676,12 @@ export struct MyTagsPage {
     .bindSheet($$this.tagsetSheetShown, this.TagsetSheet(), {
       detents: [SheetSize.MEDIUM],
       showClose: false,
+    })
+    .onReady((context: NavDestinationContext) => {
+      if (context.pathInfo.param instanceof MyTagsPageParams) {
+        this.params = context.pathInfo.param as MyTagsPageParams
+      }
+      this.load(this.params.tagsetId)
     })
   }
 

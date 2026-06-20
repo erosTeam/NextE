@@ -112,6 +112,9 @@ Historical feedback in this section must not trigger new implementation.
   instead of forcing NextE's old fixed `52/60/84` wrapper policy. Layout Settings Japanese-title
   explanatory text benefits without a page-local one-off, and Reader Settings keeps its explicit
   three-line volume-key hint.
+- MyTags tagset route depth is implemented pending controller acceptance: Settings opens the tagset-list
+  landing page, tapping a tagset pushes a routed detail instance with `MyTagsPageParams(tagsetId)`, and
+  system Back returns from detail to the tagset list instead of exiting directly to Settings.
 
 ## Parked / Guidance Only
 
@@ -141,36 +144,31 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. MyTags tagset navigation must use real route depth: current implementation shows a tagset-list
-   landing, then `selectTagset(id)` reloads the same `MyTagsPage` instance with local
-   `showingTagsetList=false`. System back therefore exits to Settings instead of returning to the
-   tagset-list page. Next lane must split tagset list and tagset detail into route states/pages or route
-   params so each tagset entry has a back target. Do not keep patching same-page state switching.
-2. Gallery Grid/Waterfall title-bar scroll linkage: current Grid/Waterfall scaffolds use
+1. Gallery Grid/Waterfall title-bar scroll linkage: current Grid/Waterfall scaffolds use
    `contentStartOffset(topSpacerHeight())` / `contentEndOffset(...)` inside the inner Grid/WaterFlow.
    User evidence says upward scrolling first consumes internal top space and content remains visible
    under the title bar before HDS title auto-hide engages. Next lane must make Grid/Waterfall scroll
    drive the same HDS `bindToScrollable` behavior as list mode, without hiding content under title
    chrome or reintroducing top/bottom padding-region disappearance.
-3. Gallery thumbnail loading indicator appears static: gallery list thumbnails use `EhThumbnail`
+2. Gallery thumbnail loading indicator appears static: gallery list thumbnails use `EhThumbnail`
    `LoadingProgress()` while `loaded=false`, and existing cover contracts/probe screenshots only prove
    that a loading overlay exists. They do not prove visible animation during real list image loading.
    Other app surfaces use the same native `LoadingProgress` successfully, so do not assume the global
    component is broken. Next bounded lane should isolate three cases: independent `LoadingProgress`,
    `EhThumbnail` forced-loading overlay, and a real `Image` kept pending by a slow test URL. Do not mark
    this accepted from a static screenshot or a grep for `LoadingProgress`.
-4. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+3. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-5. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+4. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-6. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+5. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-7. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+6. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-8. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+7. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
    Fresh user evidence includes an intermittent fit-scale short-swipe failure where a very small
    horizontal drag can instantly jump to the previous/next page before the page-turn animation visibly

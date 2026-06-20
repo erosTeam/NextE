@@ -38,6 +38,7 @@ export {
   ImagePageRouteErrorParams,
   GalleryCommentsParams,
   AllThumbnailsParams,
+  MyTagsPageParams,
 } from './model/RouteParams'
 
 // components

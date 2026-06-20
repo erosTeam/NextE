@@ -16,7 +16,7 @@ Type: navigation architecture bug / settings-like management UX
 
 Priority suggestion: P0/P1
 
-Status: reported / active queue candidate
+Status: implemented / pending controller acceptance
 
 User feedback:
 
@@ -63,6 +63,28 @@ Acceptance:
   behavior remains predictable.
 - The tagset list and detail actions are scoped correctly.
 - No real EH write submit is needed for this navigation fix.
+
+Handled update, 2026-06-20:
+
+- Implemented route depth using `MyTagsPageParams(tagsetId)`: Settings opens `MyTags` without params for
+  the tagset-list landing page, while tapping a tagset pushes `MyTags` again with the selected tagset id.
+- `MyTagsPage.onReady` consumes the route param and loads the routed tagset; `selectTagset()` no longer
+  mutates the same page instance with `showingTagsetList=false` + `load(id)`.
+- Existing shared settings primitives, tagset rows, tag rows, and write-operation sheets are preserved.
+  This lane does not submit real EH tag/tagset writes.
+- Validation added:
+  - `node scripts/test_mytags_route_depth_contract.mjs`
+- HarmonyOS emulator validation:
+  - Target: `127.0.0.1:5555`.
+  - Installed signed HAP, cold-started NextE, navigated Settings -> MyTags -> `TAG`.
+  - Screenshots/layouts:
+    `.hvigor/outputs/mytags-route-depth/tagset-list.png`,
+    `.hvigor/outputs/mytags-route-depth/tagset-list-layout.json`,
+    `.hvigor/outputs/mytags-route-depth/tagset-detail.png`,
+    `.hvigor/outputs/mytags-route-depth/tagset-detail-layout.json`,
+    `.hvigor/outputs/mytags-route-depth/after-back.png`.
+  - Result: system Back from `TAG` detail returned to the MyTags tagset list, not Settings.
+- Remaining acceptance: controller acceptance only.
 
 ### Remote Favorite Sheet Flashes And Immediately Dismisses
 
