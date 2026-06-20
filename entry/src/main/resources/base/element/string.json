@@ -393,6 +393,22 @@
       "value": "Currently in %s"
     },
     {
+      "name": "detail_remote_favorite_will_remove",
+      "value": "Will remove from EH favorites"
+    },
+    {
+      "name": "detail_remote_favorite_will_add",
+      "value": "Will add to %s"
+    },
+    {
+      "name": "detail_remote_favorite_will_move",
+      "value": "Will move to %s"
+    },
+    {
+      "name": "detail_remote_favorite_current_badge",
+      "value": "Current"
+    },
+    {
       "name": "detail_remote_favorite_note_placeholder",
       "value": "Favorite note"
     },
@@ -458,7 +474,7 @@
     },
     {
       "name": "detail_add_local_favorite",
-      "value": "Add local favorite"
+      "value": "Add"
     },
     {
       "name": "detail_remove_local_favorite",

@@ -298,4 +298,28 @@ export class GalleryListViewModel {
   canLoadMore(): boolean {
     return this.hasMore && !this.isLoadingMore
   }
+
+  applyFavoriteMutation(gid: string, favcat: string, favTitle: string): void {
+    if (gid.length === 0 || this.itemCount === 0) {
+      return
+    }
+    const current: EhGallery[] = this.dataSource.getAll()
+    let changed: boolean = false
+    const nextRows: EhGallery[] = []
+    current.forEach((g: EhGallery) => {
+      if (g.gid === gid) {
+        const next: EhGallery = g.copy()
+        next.favcat = favcat
+        next.favTitle = favTitle
+        nextRows.push(next)
+        changed = true
+      } else {
+        nextRows.push(g)
+      }
+    })
+    if (changed) {
+      this.dataSource.setData(nextRows)
+      this.itemCount = this.dataSource.totalCount()
+    }
+  }
 }

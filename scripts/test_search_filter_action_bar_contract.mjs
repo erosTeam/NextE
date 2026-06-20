@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Contract: Search filter sheet keeps Reset beside Close in the sheet header.
+ * Contract: Search filter sheet uses the shared HDS modal scaffold.
  *
  * FE comparison shows filter controls apply immediately. Reset is a secondary clear action, so it
- * belongs near the close/dismiss affordance rather than as a bottom primary action.
+ * belongs in the modal title action area rather than as a hand-rolled text button.
  *
  * Run: node scripts/test_search_filter_action_bar_contract.mjs
  */
@@ -28,7 +28,7 @@ const grounding = [
   'primary information: current scope, colored category selection, minimum rating, page range, and EH filter options',
   'primary action: changing a control live-applies; secondary action: Reset clears filters',
   'scope: keep Reset near sheet close; do not change query parser, QuickSearch, tagsuggest, image search, or backend semantics',
-  'Harmony expression: custom sheet Header with title, low-weight Reset, and a system-symbol Close button; fields remain in Scroll.layoutWeight(1)',
+  'Harmony expression: AppModalScaffold with HDS modal title, left xmark close, and right reset icon action',
 ]
 
 ok('grounding has five lines', grounding.length === 5)
@@ -38,28 +38,36 @@ ok('scope excludes unrelated search features', grounding[3].includes('QuickSearc
   grounding[3].includes('tagsuggest') &&
   grounding[3].includes('image search'))
 
-ok('SearchFilterSheet has a header before scroll content',
-  /build\(\)\s*\{[\s\S]*Column\(\)\s*\{[\s\S]*this\.Header\(\)[\s\S]*Scroll\(\)\s*\{/.test(src))
-ok('Header contains title, Reset, and system-symbol close in one row',
-  /@Builder\s+Header\(\)\s*\{[\s\S]*Row\(\{ space: ThemeConstants\.SPACE_SM \}\)[\s\S]*Text\(\$r\('app\.string\.filter'\)\)[\s\S]*Button\(\$r\('app\.string\.filter_reset'\)\)[\s\S]*Button\(\)\s*\{[\s\S]*SymbolGlyph\(\$r\('sys\.symbol\.xmark'\)\)/.test(src))
-ok('Reset stays a low-weight secondary action beside close',
-  /Button\(\$r\('app\.string\.filter_reset'\)\)[\s\S]*\.type\(ButtonType\.Normal\)[\s\S]*\.backgroundColor\(Color\.Transparent\)[\s\S]*\.fontColor\(ThemeConstants\.BRAND_PRIMARY\)[\s\S]*\.height\(48\)[\s\S]*this\.resetFilter\(\)/.test(src))
-ok('close button remains compact enough to sit beside Reset',
-  /SymbolGlyph\(\$r\('sys\.symbol\.xmark'\)\)[\s\S]*\.type\(ButtonType\.Circle\)[\s\S]*\.width\(48\)[\s\S]*\.height\(48\)/.test(src))
-ok('Close calls the sheet close event and uses a real icon, not text glyphs',
+const modal = read('shared/src/main/ets/components/AppModalScaffold.ets')
+
+ok('SearchFilterSheet uses AppModalScaffold for modal chrome',
+  /import \{[\s\S]*AppModalScaffold[\s\S]*\} from 'shared'/.test(src) &&
+  /build\(\)\s*\{[\s\S]*AppModalScaffold\(\{[\s\S]*title:\s*\$r\('app\.string\.filter'\)/.test(src))
+ok('Reset is a right-side scaffold icon action',
+  /confirmIcon:\s*\$r\('sys\.symbol\.arrow_counterclockwise'\)/.test(src) &&
+  /confirmText:\s*\$r\('app\.string\.filter_reset'\)/.test(src) &&
+  /confirmAction:\s*\(\) => \{[\s\S]*this\.resetFilter\(\)/.test(src))
+ok('Close calls the sheet close event via the scaffold',
   /@Event onClose: \(\) => void = \(\) => \{\}/.test(src) &&
-  /SymbolGlyph\(\$r\('sys\.symbol\.xmark'\)\)/.test(src) &&
+  /closeAction:\s*\(\) => \{[\s\S]*this\.onClose\(\)/.test(src) &&
+  /closeIcon:\s*Resource\s*=\s*\$r\('sys\.symbol\.xmark'\)/.test(modal) &&
   /this\.onClose\(\)/.test(src) &&
   !/Text\('×'\)/.test(src) &&
   !/Text\('x'\)/.test(src))
-ok('bottom ActionBar is removed',
+ok('hand-rolled header and bottom ActionBar are removed',
+  !/@Builder\s+Header\(\)/.test(src) &&
+  !/this\.Header\(\)/.test(src) &&
+  !/Button\(\$r\('app\.string\.filter_reset'\)\)/.test(src) &&
+  !/SymbolGlyph\(\$r\('sys\.symbol\.xmark'\)\)/.test(src) &&
   !/@Builder\s+ActionBar\(\)/.test(src) &&
   !/this\.ActionBar\(\)/.test(src))
-ok('scroll content still owns independent padding and layout weight',
-  /\.padding\(\{\s*left: ThemeConstants\.SPACE_LG,[\s\S]*top: ThemeConstants\.SPACE_SM,[\s\S]*bottom: ThemeConstants\.SPACE_SM,[\s\S]*\}\)[\s\S]*\.scrollBar\(BarState\.Off\)[\s\S]*\.layoutWeight\(1\)/.test(src))
-ok('scroll content is top-aligned below the sheet header',
-  /\.scrollBar\(BarState\.Off\)[\s\S]*\.align\(Alignment\.Top\)[\s\S]*\.layoutWeight\(1\)/.test(src))
-ok('page disables system sheet close because header owns close',
+ok('AppModalScaffold owns HDS modal navigation and optional title action',
+  /HdsNavigationTitleMode\.MODAL/.test(modal) &&
+  /HdsNavigation/.test(modal) &&
+  /showConfirmAction: boolean = true/.test(modal) &&
+  /IconStyleMode\.SMALL/.test(modal) &&
+  /maxCount: this\.showConfirmAction \? 1 : 0/.test(modal))
+ok('page disables system sheet close because scaffold owns close',
   /SearchFilterSheet\(\{[\s\S]*onClose: \(\) => \{[\s\S]*this\.showFilter = false[\s\S]*\}/.test(page) &&
   /showClose: false/.test(page) &&
   !/title: \{ title: \$r\('app\.string\.filter'\) \}/.test(page))

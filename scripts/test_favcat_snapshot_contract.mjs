@@ -51,11 +51,12 @@ ok('SettingsBootstrap restores FavcatListSettings before first page mount',
   /import \{ FavcatListSettings \} from '\.\/FavcatListSettings'/.test(bootstrap) &&
     /await FavcatListSettings\.restore\(context\)/.test(bootstrap))
 
-ok('FavSelectionState still seeds fallback Favorites 0..9',
-  /for \(let i = 0; i < 10; i\+\+\) \{[\s\S]*new Favcat\(`\$\{i\}`, `Favorites \$\{i\}`, 0\)/.test(favState))
+ok('FavSelectionState still seeds fallback Favorites 0..9 as non-authoritative placeholders',
+  /for \(let i = 0; i < 10; i\+\+\) \{[\s\S]*new Favcat\(`\$\{i\}`, `Favorites \$\{i\}`, 0, true\)/.test(favState) &&
+    /static isPlaceholderFavcat\(favcat: Favcat\): boolean/.test(favState))
 ok('FavSelectionState computes all-favorites aggregate from remote 0-9 slots only',
   /remoteTotalCount\(\): number \{[\s\S]*FavSelectionState\.isRemoteSlot\(f\.favId\)[\s\S]*total \+= f\.totNum/.test(favState) &&
-    /private static isRemoteSlot\(favId: string\): boolean \{[\s\S]*n >= 0 && n <= 9/.test(favState))
+    /static isRemoteSlot\(favId: string\): boolean \{[\s\S]*n >= 0 && n <= 9/.test(favState))
 ok('FavcatListSettings writes restored snapshot into FavSelectionState',
   /connectFavSelection\(\)\.favList = restored/.test(settings))
 ok('FavcatListSettings uses the shared preferences store and key',
@@ -63,6 +64,9 @@ ok('FavcatListSettings uses the shared preferences store and key',
     /StorageKeys\.FAVORITES_FAVCATS/.test(settings))
 ok('FavcatListSettings persists only remote 0-9 slots',
   /isRemoteSlot\(f\.favId\)/.test(settings) && /n >= 0 && n <= 9/.test(settings))
+ok('FavcatListSettings never persists restored placeholder favcats over real metadata',
+  /!FavSelectionState\.isPlaceholderFavcat\(f\)/.test(settings) &&
+    /if \(!FavSelectionState\.isPlaceholderFavcat\(restored\)\) \{[\s\S]*out\.push\(restored\)/.test(settings))
 ok('FavcatListSettings avoids persisting an empty snapshot over a good one',
   /if \(snap\.length === 0\) \{[\s\S]*return[\s\S]*\}/.test(settings))
 ok('FavcatListSettings parses defensively and sorts by numeric favId',
@@ -73,10 +77,18 @@ ok('FavcatListSettings parses defensively and sorts by numeric favId',
 
 ok('FavoritesViewModel can seed metadata before the network response',
   /seedFavList\(favcats: Favcat\[\]\): void \{[\s\S]*this\.favList\.length === 0[\s\S]*this\.mergeFavList\(favcats\)/.test(favVm))
+ok('FavoritesViewModel merge is real-metadata first; placeholders cannot overwrite real favcat labels/counts',
+  /mergeFavcatMetadata\(current: Favcat \| undefined, incoming: Favcat\): Favcat/.test(favVm) &&
+    /incomingPlaceholder && !currentPlaceholder[\s\S]*return current/.test(favVm) &&
+    /!incomingPlaceholder && currentPlaceholder[\s\S]*return incoming/.test(favVm) &&
+    /incoming\.totNum === 0 && current\.totNum > 0 && incoming\.favTitle === current\.favTitle/.test(favVm))
 ok('FavcatPage seeds each retained VM from the restored shared favList',
   /this\.vm\.seedFavList\(this\.favSel\.favList\)/.test(favcatPage))
 ok('FavcatPage persists merged parsed favcats back to preferences',
   /FavcatListSettings\.persist\(this\.ctx\(\), merged\)/.test(favcatPage))
+ok('FavcatPage publish keeps real shared metadata when filtered pages omit or seed the active slot',
+  /mergeFavcatMetadata\(current: Favcat \| undefined, incoming: Favcat\): Favcat/.test(favcatPage) &&
+    /incomingPlaceholder && !currentPlaceholder[\s\S]*return current/.test(favcatPage))
 ok('FavcatPage obtains a UIAbilityContext for persistence',
   /private ctx\(\): common\.UIAbilityContext \{[\s\S]*this\.getUIContext\(\)\.getHostContext\(\) as common\.UIAbilityContext/.test(favcatPage))
 ok('FavcatBar shows the synthetic all-favorites aggregate count',
@@ -90,12 +102,13 @@ const isRemoteSlot = (id) => {
   const n = Number.parseInt(id, 10)
   return `${n}` === id && n >= 0 && n <= 9
 }
+const isPlaceholder = (f) => f.isPlaceholder || (isRemoteSlot(f.favId) && f.favTitle === `Favorites ${f.favId}` && f.totNum === 0)
 const snapshot = (favcats) =>
   favcats
-    .filter((f) => isRemoteSlot(f.favId))
+    .filter((f) => isRemoteSlot(f.favId) && !isPlaceholder(f))
     .map((f) => ({
       favId: f.favId,
-      favTitle: f.favTitle.length > 0 ? f.favTitle : `Favorites ${f.favId}`,
+      favTitle: f.favTitle,
       totNum: f.totNum >= 0 ? f.totNum : 0,
     }))
 const parse = (raw) => {
@@ -107,13 +120,29 @@ const parse = (raw) => {
     const favId = typeof s.favId === 'string' ? s.favId : ''
     if (!isRemoteSlot(favId) || seen.has(favId)) continue
     seen.add(favId)
-    out.push({
+    const restored = {
       favId,
-      favTitle: typeof s.favTitle === 'string' && s.favTitle.length > 0 ? s.favTitle : `Favorites ${favId}`,
+      favTitle: typeof s.favTitle === 'string' ? s.favTitle : '',
       totNum: typeof s.totNum === 'number' && s.totNum >= 0 ? s.totNum : 0,
-    })
+    }
+    if (!isPlaceholder(restored)) out.push(restored)
   }
   return out.sort((a, b) => Number.parseInt(a.favId, 10) - Number.parseInt(b.favId, 10))
+}
+const mergeFavcatMetadata = (current, incoming) => {
+  if (current === undefined) return incoming
+  const currentPlaceholder = isPlaceholder(current)
+  const incomingPlaceholder = isPlaceholder(incoming)
+  if (incomingPlaceholder && !currentPlaceholder) return current
+  if (!incomingPlaceholder && currentPlaceholder) return incoming
+  if (!incomingPlaceholder) {
+    const next = { favId: incoming.favId, favTitle: incoming.favTitle, totNum: incoming.totNum }
+    if (incoming.totNum === 0 && current.totNum > 0 && incoming.favTitle === current.favTitle) {
+      next.totNum = current.totNum
+    }
+    return next
+  }
+  return current
 }
 const remoteTotalCount = (favcats) =>
   favcats.reduce((total, f) => (isRemoteSlot(f.favId) && f.totNum > 0 ? total + f.totNum : total), 0)
@@ -121,22 +150,34 @@ const snap = snapshot([
   { favId: 'a', favTitle: 'All', totNum: -1 },
   { favId: '2', favTitle: 'Manga', totNum: 609 },
   { favId: 'l', favTitle: 'Local', totNum: 3 },
-  { favId: '0', favTitle: '', totNum: -5 },
+  { favId: '0', favTitle: 'Favorites 0', totNum: 0, isPlaceholder: true },
 ])
 assert.deepStrictEqual(snap, [
   { favId: '2', favTitle: 'Manga', totNum: 609 },
-  { favId: '0', favTitle: 'Favorites 0', totNum: 0 },
 ])
 assert.deepStrictEqual(parse(JSON.stringify(snap)), [
-  { favId: '0', favTitle: 'Favorites 0', totNum: 0 },
   { favId: '2', favTitle: 'Manga', totNum: 609 },
 ])
+assert.deepStrictEqual(
+  mergeFavcatMetadata(
+    { favId: '2', favTitle: 'My Real Slot', totNum: 123 },
+    { favId: '2', favTitle: 'Favorites 2', totNum: 0, isPlaceholder: true },
+  ),
+  { favId: '2', favTitle: 'My Real Slot', totNum: 123 },
+)
+assert.deepStrictEqual(
+  mergeFavcatMetadata(
+    { favId: '2', favTitle: 'My Real Slot', totNum: 123 },
+    { favId: '2', favTitle: 'My Real Slot', totNum: 0 },
+  ),
+  { favId: '2', favTitle: 'My Real Slot', totNum: 123 },
+)
 assert.strictEqual(remoteTotalCount([
   { favId: 'a', favTitle: 'All', totNum: 999 },
   { favId: '2', favTitle: 'Manga', totNum: 609 },
   { favId: 'l', favTitle: 'Local', totNum: 3 },
   { favId: '0', favTitle: 'Default', totNum: 4 },
 ]), 613)
-passed += 3
+passed += 5
 
 console.log(`✓ favcat snapshot contract: ${passed} assertions passed`)

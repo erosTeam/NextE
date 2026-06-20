@@ -303,24 +303,27 @@ export class EhConstants {
     return EhConstants.favCatMap
   }
 
-  // Favcat slot index ('0'..'9') → its heart/border color (the inverse of favCat()).
+  // Favcat slot id → stable identity color, matching eros_fe ThemeColors.favColor.
   private static readonly FAV_COLORS: string[] = [
-    '#000000',
-    '#ee0000',
-    '#ffaa00',
-    '#dddd00',
-    '#008800',
-    '#99ff44',
-    '#4499ff',
-    '#0000ff',
-    '#550088',
-    '#ee88ee',
+    '#5F5F5F',
+    '#DE1C31',
+    '#F97D1C',
+    '#F8B500',
+    '#2BAE85',
+    '#5BAE23',
+    '#22A2C3',
+    '#1661AB',
+    '#9F3EF9',
+    '#EC2D7A',
   ]
 
-  /** Favcat slot index ('0'..'9') → its display color; '' for an out-of-range/empty slot. */
+  /** Favcat slot id ('0'..'9', 'a', 'l') → its display color; '' for an out-of-range/empty slot. */
   static favCatColor(slot: string): string {
+    if (slot === 'a') {
+      return '#B5A4A4'
+    }
     if (slot === 'l') {
-      return '#23b26d'
+      return '#A99E68'
     }
     const i: number = Number.parseInt(slot, 10)
     return i >= 0 && i < EhConstants.FAV_COLORS.length ? EhConstants.FAV_COLORS[i] : ''

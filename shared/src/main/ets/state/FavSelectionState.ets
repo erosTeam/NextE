@@ -48,9 +48,16 @@ export class FavSelectionState {
     return total
   }
 
-  private static isRemoteSlot(favId: string): boolean {
+  static isRemoteSlot(favId: string): boolean {
     const n: number = Number.parseInt(favId, 10)
     return `${n}` === favId && n >= 0 && n <= 9
+  }
+
+  static isPlaceholderFavcat(favcat: Favcat): boolean {
+    return favcat.isPlaceholder ||
+      (FavSelectionState.isRemoteSlot(favcat.favId) &&
+        favcat.favTitle === `Favorites ${favcat.favId}` &&
+        favcat.totNum === 0)
   }
 }
 
@@ -79,7 +86,7 @@ function seedFavSelection(): FavSelectionState {
   const s: FavSelectionState = new FavSelectionState()
   const seed: Favcat[] = []
   for (let i = 0; i < 10; i++) {
-    seed.push(new Favcat(`${i}`, `Favorites ${i}`, 0))
+    seed.push(new Favcat(`${i}`, `Favorites ${i}`, 0, true))
   }
   s.favList = seed
   return s

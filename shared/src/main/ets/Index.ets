@@ -147,6 +147,14 @@ export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeS
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
 export { LocalFavState, connectLocalFav } from './state/LocalFavState'
 export {
+  GalleryFavoriteMutationState,
+  connectGalleryFavoriteMutation,
+} from './state/GalleryFavoriteMutationState'
+export {
+  RemoteFavoriteSlotCacheState,
+  connectRemoteFavoriteSlotCache,
+} from './state/RemoteFavoriteSlotCacheState'
+export {
   GalleryReadProgressState,
   ReadProgressEntry,
   connectGalleryReadProgress,

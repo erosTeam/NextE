@@ -393,6 +393,22 @@
       "value": "当前位于 %s"
     },
     {
+      "name": "detail_remote_favorite_will_remove",
+      "value": "将从 EH 收藏中移除"
+    },
+    {
+      "name": "detail_remote_favorite_will_add",
+      "value": "将收藏到 %s"
+    },
+    {
+      "name": "detail_remote_favorite_will_move",
+      "value": "将移动到 %s"
+    },
+    {
+      "name": "detail_remote_favorite_current_badge",
+      "value": "当前"
+    },
+    {
       "name": "detail_remote_favorite_note_placeholder",
       "value": "收藏备注"
     },
@@ -458,7 +474,7 @@
     },
     {
       "name": "detail_add_local_favorite",
-      "value": "加入本地收藏"
+      "value": "添加"
     },
     {
       "name": "detail_remove_local_favorite",

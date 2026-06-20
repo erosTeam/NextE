@@ -5,6 +5,7 @@ import {
   FavoritesQuery,
   BasicDataSource,
   Favcat,
+  FavSelectionState,
   EhConstants,
   connectLocalFav,
   connectSiteMode,
@@ -120,10 +121,35 @@ export class FavoritesViewModel {
     }
     const byId: Map<string, Favcat> = new Map<string, Favcat>()
     this.favList.forEach((f: Favcat) => byId.set(f.favId, f))
-    incoming.forEach((f: Favcat) => byId.set(f.favId, f))
+    incoming.forEach((f: Favcat) => {
+      const current: Favcat | undefined = byId.get(f.favId)
+      byId.set(f.favId, this.mergeFavcatMetadata(current, f))
+    })
     const merged: Favcat[] = []
     byId.forEach((f: Favcat) => merged.push(f))
     this.favList = merged
+  }
+
+  private mergeFavcatMetadata(current: Favcat | undefined, incoming: Favcat): Favcat {
+    if (current === undefined) {
+      return incoming
+    }
+    const currentPlaceholder: boolean = FavSelectionState.isPlaceholderFavcat(current)
+    const incomingPlaceholder: boolean = FavSelectionState.isPlaceholderFavcat(incoming)
+    if (incomingPlaceholder && !currentPlaceholder) {
+      return current
+    }
+    if (!incomingPlaceholder && currentPlaceholder) {
+      return incoming
+    }
+    if (!incomingPlaceholder) {
+      const next: Favcat = new Favcat(incoming.favId, incoming.favTitle, incoming.totNum)
+      if (incoming.totNum === 0 && current.totNum > 0 && incoming.favTitle === current.favTitle) {
+        next.totNum = current.totNum
+      }
+      return next
+    }
+    return current
   }
 
   /**
@@ -253,5 +279,35 @@ export class FavoritesViewModel {
 
   canLoadMore(): boolean {
     return this.hasMore && !this.isLoadingMore
+  }
+
+  applyFavoriteMutation(gid: string, favcat: string, favTitle: string): void {
+    if (gid.length === 0 || this.itemCount === 0 || this.isLocalFavcat()) {
+      return
+    }
+    const current: EhGallery[] = this.dataSource.getAll()
+    let changed: boolean = false
+    const nextRows: EhGallery[] = []
+    current.forEach((g: EhGallery) => {
+      if (g.gid === gid) {
+        const stillInCurrentFavcat: boolean =
+          favcat.length > 0 && (this.favcat === 'a' || this.favcat === favcat)
+        if (!stillInCurrentFavcat) {
+          changed = true
+          return
+        }
+        const next: EhGallery = g.copy()
+        next.favcat = favcat
+        next.favTitle = favTitle
+        nextRows.push(next)
+        changed = true
+      } else {
+        nextRows.push(g)
+      }
+    })
+    if (changed) {
+      this.dataSource.setData(nextRows)
+      this.itemCount = this.dataSource.totalCount()
+    }
   }
 }

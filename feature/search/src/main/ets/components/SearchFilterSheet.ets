@@ -1,4 +1,5 @@
 import {
+  AppModalScaffold,
   AppStrings,
   EhConstants,
   ThemeConstants,
@@ -201,9 +202,18 @@ export struct SearchFilterSheet {
   }
 
   build() {
-    Column() {
-      this.Header()
-      Scroll() {
+    AppModalScaffold({
+      title: $r('app.string.filter'),
+      confirmIcon: $r('sys.symbol.arrow_counterclockwise'),
+      confirmText: $r('app.string.filter_reset'),
+      closeAction: () => {
+        this.onClose()
+      },
+      confirmAction: () => {
+        this.resetFilter()
+      },
+    }) {
+      ListItem() {
         Column({ space: ThemeConstants.SPACE_MD }) {
           TabSegmentButtonV2({
             items: this.scopeItems,
@@ -313,63 +323,13 @@ export struct SearchFilterSheet {
         .width('100%')
         .alignItems(HorizontalAlign.Start)
         .padding({
-          left: ThemeConstants.SPACE_LG,
-          right: ThemeConstants.SPACE_LG,
+          left: ThemeConstants.SPACE_SM,
+          right: ThemeConstants.SPACE_SM,
           top: ThemeConstants.SPACE_SM,
           bottom: ThemeConstants.SPACE_SM,
         })
       }
-      .scrollBar(BarState.Off)
-      .align(Alignment.Top)
-      .layoutWeight(1)
     }
-    .width('100%')
-    .height('100%')
-  }
-
-  @Builder
-  Header() {
-    Row({ space: ThemeConstants.SPACE_SM }) {
-      Text($r('app.string.filter'))
-        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-        .fontWeight(FontWeight.Bold)
-        .fontColor($r('sys.color.font_primary'))
-        .layoutWeight(1)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Button($r('app.string.filter_reset'))
-        .type(ButtonType.Normal)
-        .backgroundColor(Color.Transparent)
-        .fontColor(ThemeConstants.BRAND_PRIMARY)
-        .height(48)
-        .padding({
-          left: ThemeConstants.SPACE_SM,
-          right: ThemeConstants.SPACE_SM,
-        })
-        .onClick(() => {
-          this.resetFilter()
-        })
-      Button() {
-        SymbolGlyph($r('sys.symbol.xmark'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.font_primary')])
-      }
-      .type(ButtonType.Circle)
-      .width(48)
-      .height(48)
-      .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-      .onClick(() => {
-        this.onClose()
-      })
-    }
-    .width('100%')
-    .alignItems(VerticalAlign.Center)
-    .padding({
-      left: ThemeConstants.SPACE_LG,
-      right: ThemeConstants.SPACE_LG,
-      top: ThemeConstants.SPACE_LG,
-      bottom: ThemeConstants.SPACE_SM,
-    })
   }
 
   private scopeIndex(): number {

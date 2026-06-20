@@ -7,10 +7,12 @@ export class Favcat {
   favId: string = ''
   favTitle: string = ''
   totNum: number = 0
+  isPlaceholder: boolean = false
 
-  constructor(favId: string = '', favTitle: string = '', totNum: number = 0) {
+  constructor(favId: string = '', favTitle: string = '', totNum: number = 0, isPlaceholder: boolean = false) {
     this.favId = favId
     this.favTitle = favTitle
     this.totNum = totNum
+    this.isPlaceholder = isPlaceholder
   }
 }

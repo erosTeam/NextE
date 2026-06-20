@@ -16,6 +16,8 @@ import {
   connectListMode,
   ListModeState,
   ListMode,
+  GalleryFavoriteMutationState,
+  connectGalleryFavoriteMutation,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
@@ -34,9 +36,19 @@ export struct GalleryListBody {
   // the ACTIVE tab's list (scroll-up title auto-hide). Default for standalone use.
   @Param scroller: Scroller = new Scroller();
   @Local listMode: ListModeState = connectListMode();
+  @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
+
+  @Monitor('favoriteMutation.version')
+  onFavoriteMutation(): void {
+    this.vm.applyFavoriteMutation(
+      this.favoriteMutation.gid,
+      this.favoriteMutation.favcat,
+      this.favoriteMutation.favTitle,
+    )
+  }
 
   private openDetail(g: EhGallery): void {
     this.stack.pushPathByName(

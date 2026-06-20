@@ -54,8 +54,9 @@ Historical feedback in this section must not trigger new implementation.
   protected EH rating write flow is designed.
 - Remote EH favorite sheet/write path is implemented and pending controller acceptance: detail opens an
   in-place `EH 收藏` sheet with left cancel, right confirm, favnote input, favcat slots, and remove state.
-  The right confirm is wired to the EH favorite form POST; automated QA still cancels by default because
-  the operation is non-idempotent.
+  Favcat slots now use an account-level real-name cache, no transient loading row is inserted into the
+  sheet content, confirm uses optimistic close/update with failure rollback, and detail/home/search/
+  favorites retained lists consume a V2 favorite mutation after remote writes.
 
 ## Parked / Guidance Only
 

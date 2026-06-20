@@ -37,6 +37,8 @@ import {
   LayoutSafeAreaState,
   immersiveTitleBarOpts,
   SearchPageParams,
+  GalleryFavoriteMutationState,
+  connectGalleryFavoriteMutation,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
@@ -62,6 +64,7 @@ export struct GallerySearchPage {
   @Local listMode: ListModeState = connectListMode();
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
+  @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local showFilter: boolean = false;
   @Local listContentWidth: number = 0;
   @Local imagePageErrorUrl: string = '';
@@ -130,6 +133,15 @@ export struct GallerySearchPage {
     }
     const items: Record<string, Object>[] = [{ 'content': filterInner }]
     return { 'value': items, 'maxCount': 1 }
+  }
+
+  @Monitor('favoriteMutation.version')
+  onFavoriteMutation(): void {
+    this.vm.applyFavoriteMutation(
+      this.favoriteMutation.gid,
+      this.favoriteMutation.favcat,
+      this.favoriteMutation.favTitle,
+    )
   }
 
   @Monitor('fieldState.submitSeq')

@@ -72,8 +72,11 @@ ok('reset directly clears active filter and bumps applySeq',
 ok('no Apply button remains in the sheet',
   !/Button\(\$r\('app\.string\.filter_apply'\)\)/.test(src) &&
   !/filter_apply/.test(src))
-ok('reset button is wired to resetFilter',
-  /Button\(\$r\('app\.string\.filter_reset'\)\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.resetFilter\(\)/.test(src))
+ok('reset title action is wired to resetFilter',
+  /confirmIcon:\s*\$r\('sys\.symbol\.arrow_counterclockwise'\)/.test(src) &&
+  /confirmText:\s*\$r\('app\.string\.filter_reset'\)/.test(src) &&
+  /confirmAction:\s*\(\) => \{[\s\S]*this\.resetFilter\(\)/.test(src) &&
+  !/Button\(\$r\('app\.string\.filter_reset'\)\)/.test(src))
 ok('page embeds the sheet without openSeq or close-on-apply callback',
   /@Builder\s+FilterSheet\(\)\s*\{[\s\S]*SearchFilterSheet\(\{[\s\S]*onClose: \(\) => \{[\s\S]*this\.showFilter = false[\s\S]*\}/.test(page) &&
   !/filterOpenSeq/.test(page) &&

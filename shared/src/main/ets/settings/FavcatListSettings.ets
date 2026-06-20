@@ -3,7 +3,7 @@ import { preferences } from '@kit.ArkData'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { Favcat } from '../model/Favcat'
-import { connectFavSelection } from '../state/FavSelectionState'
+import { connectFavSelection, FavSelectionState } from '../state/FavSelectionState'
 
 /** Persisted snapshot of the remote 0-9 favorite categories. */
 class FavcatSnapshot {
@@ -57,10 +57,10 @@ export class FavcatListSettings {
   private static snapshot(favcats: Favcat[]): FavcatSnapshot[] {
     const out: FavcatSnapshot[] = []
     favcats.forEach((f: Favcat) => {
-      if (FavcatListSettings.isRemoteSlot(f.favId)) {
+      if (FavcatListSettings.isRemoteSlot(f.favId) && !FavSelectionState.isPlaceholderFavcat(f)) {
         const s: FavcatSnapshot = new FavcatSnapshot()
         s.favId = f.favId
-        s.favTitle = f.favTitle.length > 0 ? f.favTitle : `Favorites ${f.favId}`
+        s.favTitle = f.favTitle
         s.totNum = f.totNum >= 0 ? f.totNum : 0
         out.push(s)
       }
@@ -82,12 +82,12 @@ export class FavcatListSettings {
           return
         }
         seen.add(favId)
-        const title: string =
-          typeof s.favTitle === 'string' && s.favTitle.length > 0
-            ? s.favTitle
-            : `Favorites ${favId}`
+        const title: string = typeof s.favTitle === 'string' ? s.favTitle : ''
         const count: number = typeof s.totNum === 'number' && s.totNum >= 0 ? s.totNum : 0
-        out.push(new Favcat(favId, title, count))
+        const restored: Favcat = new Favcat(favId, title, count)
+        if (!FavSelectionState.isPlaceholderFavcat(restored)) {
+          out.push(restored)
+        }
       })
       out.sort((a: Favcat, b: Favcat) => Number.parseInt(a.favId, 10) - Number.parseInt(b.favId, 10))
       return out

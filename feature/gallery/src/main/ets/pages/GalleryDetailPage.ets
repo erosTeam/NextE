@@ -37,6 +37,10 @@ import {
   LocalFavSettings,
   LocalFavState,
   connectLocalFav,
+  GalleryFavoriteMutationState,
+  connectGalleryFavoriteMutation,
+  RemoteFavoriteSlotCacheState,
+  connectRemoteFavoriteSlotCache,
   ViewedGallery,
   ViewedHistorySettings,
   PullRefreshListScaffold,
@@ -82,6 +86,8 @@ export struct GalleryDetailPage {
   // enqueues/records a task. It does not start the background image downloader.
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
   @Local localFav: LocalFavState = connectLocalFav();
+  @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
+  @Local favoriteSlotCache: RemoteFavoriteSlotCacheState = connectRemoteFavoriteSlotCache();
   @Local remoteFavoriteSheetShown: boolean = false;
   @Local remoteFavoriteSelectedCat: string = '';
   @Local remoteFavoriteNote: string = '';
@@ -253,6 +259,10 @@ export struct GalleryDetailPage {
   }
 
   private localFavoriteLabel(): Resource {
+    return $r('app.string.favorites_local')
+  }
+
+  private localFavoriteActionLabel(): Resource {
     return this.isLocalFavorite() ? $r('app.string.detail_remove_local_favorite') : $r('app.string.detail_add_local_favorite')
   }
 
@@ -449,7 +459,7 @@ export struct GalleryDetailPage {
     }
     if (this.isLocalFavorite()) {
       return new SymbolGlyphModifier($r('sys.symbol.heart_fill'))
-        .fontColor([ThemeConstants.BRAND_PRIMARY])
+        .fontColor([EhConstants.favCatColor('l')])
     }
     return $r('sys.symbol.heart')
   }
@@ -539,10 +549,20 @@ export struct GalleryDetailPage {
   private openRemoteFavorite(): void {
     this.remoteFavoriteSelectedCat = this.vm.gallery.favcat.length > 0 ? this.vm.gallery.favcat : ''
     this.remoteFavoriteNote = this.vm.gallery.favNote
-    this.remoteFavoriteSlots = []
     this.remoteFavoriteError = ''
+    if (this.remoteFavoriteSlots.length === 0 && this.favoriteSlotCache.favcats.length > 0) {
+      this.remoteFavoriteSlots = this.copyFavcats(this.favoriteSlotCache.favcats)
+    }
     this.remoteFavoriteSheetShown = true
     this.refreshRemoteFavcats()
+  }
+
+  private copyFavcats(favcats: Favcat[]): Favcat[] {
+    const out: Favcat[] = []
+    favcats.forEach((fav: Favcat) => {
+      out.push(new Favcat(fav.favId, fav.favTitle, fav.totNum))
+    })
+    return out
   }
 
   private async refreshRemoteFavcats(): Promise<void> {
@@ -558,10 +578,20 @@ export struct GalleryDetailPage {
         this.params.token,
       )
       this.remoteFavoriteSlots = info.favcats
-      if (info.selectFavcat.length > 0) {
+      if (info.favcats.length > 0) {
+        this.favoriteSlotCache.update(info.favcats)
+      }
+      const selectedStillExists: boolean =
+        info.favcats.findIndex((fav: Favcat) => fav.favId === this.remoteFavoriteSelectedCat) >= 0
+      const currentStillExists: boolean =
+        this.vm.gallery.favcat.length > 0 &&
+          info.favcats.findIndex((fav: Favcat) => fav.favId === this.vm.gallery.favcat) >= 0
+      if (this.vm.gallery.favcat.length > 0 && info.selectFavcat.length > 0) {
         this.remoteFavoriteSelectedCat = info.selectFavcat
-      } else if (info.favcats.findIndex((fav: Favcat) => fav.favId === this.remoteFavoriteSelectedCat) < 0) {
-        this.remoteFavoriteSelectedCat = info.favcats.length > 0 ? info.favcats[0].favId : ''
+      } else if (currentStillExists) {
+        this.remoteFavoriteSelectedCat = this.vm.gallery.favcat
+      } else if (!selectedStillExists || this.remoteFavoriteSelectedCat === 'favdel') {
+        this.remoteFavoriteSelectedCat = ''
       }
       this.remoteFavoriteNote = info.favNote
       if (info.favcats.length === 0) {
@@ -582,22 +612,42 @@ export struct GalleryDetailPage {
     this.remoteFavoriteError = ''
     const favcat: string =
       this.remoteFavoriteSelectedCat.length > 0 ? this.remoteFavoriteSelectedCat : 'favdel'
+    const nextFavcat: string = favcat === 'favdel' ? '' : favcat
+    const nextFavTitle: string = nextFavcat.length > 0 ? this.remoteFavoriteTitleFor(nextFavcat) : ''
+    const nextFavNote: string = nextFavcat.length > 0 ? this.remoteFavoriteNote.trim() : ''
+    const previousFavcat: string = this.vm.gallery.favcat
+    const previousFavTitle: string = this.vm.gallery.favTitle
+    const previousFavNote: string = this.vm.gallery.favNote
+    this.vm.applyRemoteFavoriteState(nextFavcat, nextFavTitle, nextFavNote)
+    this.favoriteMutation.publish(this.params.gid, nextFavcat, nextFavTitle, nextFavNote)
+    this.remoteFavoriteSelectedCat = nextFavcat
+    this.remoteFavoriteNote = nextFavNote
+    this.remoteFavoriteSheetShown = false
     try {
       await EhApiService.getInstance().updateGalleryFavorite({
         isEx: connectSiteMode().isEx,
         gid: this.params.gid,
         token: this.params.token,
         favcat: favcat,
-        favnote: favcat === 'favdel' ? '' : this.remoteFavoriteNote.trim(),
+        favnote: nextFavNote,
       })
       await this.vm.refresh()
-      this.remoteFavoriteSheetShown = false
+      this.vm.applyRemoteFavoriteState(nextFavcat, nextFavTitle, nextFavNote)
+      this.favoriteMutation.publish(this.params.gid, nextFavcat, nextFavTitle, nextFavNote)
       this.getUIContext().getPromptAction().openToast({
         message: $r('app.string.detail_remote_favorite_saved'),
       }).catch((_toastError: Error) => {
       })
     } catch (e) {
       this.remoteFavoriteError = EhErrorText.forUser(e)
+      this.vm.applyRemoteFavoriteState(previousFavcat, previousFavTitle, previousFavNote)
+      this.favoriteMutation.publish(this.params.gid, previousFavcat, previousFavTitle, previousFavNote)
+      this.remoteFavoriteSelectedCat = previousFavcat
+      this.remoteFavoriteNote = previousFavNote
+      this.getUIContext().getPromptAction().openToast({
+        message: this.remoteFavoriteError,
+      }).catch((_toastError: Error) => {
+      })
     } finally {
       this.remoteFavoriteSubmitting = false
     }
@@ -605,6 +655,54 @@ export struct GalleryDetailPage {
 
   private isRemoteFavoriteSlotSelected(favcat: string): boolean {
     return this.remoteFavoriteSelectedCat === favcat
+  }
+
+  private isCurrentRemoteFavoriteSlot(favcat: string): boolean {
+    return this.vm.gallery.favcat.length > 0 && this.vm.gallery.favcat === favcat
+  }
+
+  private remoteFavoriteSelectedTitle(): string {
+    const index: number = this.remoteFavoriteSlots.findIndex((fav: Favcat) => fav.favId === this.remoteFavoriteSelectedCat)
+    return index >= 0 ? this.remoteFavoriteSlots[index].favTitle : ''
+  }
+
+  private remoteFavoriteTitleFor(favcat: string): string {
+    const index: number = this.remoteFavoriteSlots.findIndex((fav: Favcat) => fav.favId === favcat)
+    return index >= 0 ? this.remoteFavoriteSlots[index].favTitle : ''
+  }
+
+  private remoteFavoriteStatusText(): ResourceStr {
+    if (this.remoteFavoriteSelectedCat === 'favdel') {
+      return $r('app.string.detail_remote_favorite_will_remove')
+    }
+    if (this.remoteFavoriteSelectedCat.length === 0) {
+      return $r('app.string.detail_remote_favorite_none')
+    }
+    if (this.vm.gallery.favcat.length === 0) {
+      return $r('app.string.detail_remote_favorite_will_add', this.remoteFavoriteSelectedTitle())
+    }
+    if (this.remoteFavoriteSelectedCat === this.vm.gallery.favcat) {
+      return $r('app.string.detail_remote_favorite_current_slot', this.vm.gallery.favTitle)
+    }
+    return $r('app.string.detail_remote_favorite_will_move', this.remoteFavoriteSelectedTitle())
+  }
+
+  private remoteFavoriteStatusColor(): ResourceColor {
+    if (this.remoteFavoriteSelectedCat === 'favdel') {
+      return Color.Red
+    }
+    if (this.remoteFavoriteSelectedCat.length > 0 &&
+      (this.vm.gallery.favcat.length === 0 || this.remoteFavoriteSelectedCat !== this.vm.gallery.favcat)) {
+      return $r('sys.color.font_primary')
+    }
+    return $r('sys.color.font_secondary')
+  }
+
+  private canSubmitRemoteFavorite(): boolean {
+    if (this.remoteFavoriteSlots.length === 0) {
+      return false
+    }
+    return this.remoteFavoriteSelectedCat.length > 0 || this.vm.gallery.favcat.length > 0
   }
 
   @Builder
@@ -615,11 +713,17 @@ export struct GalleryDetailPage {
         .fontColor([EhConstants.favCatColor(fav.favId)])
       Text(fav.favTitle)
         .fontSize(ThemeConstants.FONT_SIZE_HEADING)
-        .fontWeight(this.isRemoteFavoriteSlotSelected(fav.favId) ? FontWeight.Medium : FontWeight.Regular)
+        .fontWeight(this.isRemoteFavoriteSlotSelected(fav.favId) || this.isCurrentRemoteFavoriteSlot(fav.favId) ?
+          FontWeight.Medium : FontWeight.Regular)
         .fontColor($r('sys.color.font_primary'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .layoutWeight(1)
+      if (this.isCurrentRemoteFavoriteSlot(fav.favId)) {
+        Text($r('app.string.detail_remote_favorite_current_badge'))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_secondary'))
+      }
       if (fav.totNum > 0) {
         Text(`${fav.totNum}`)
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -642,7 +746,11 @@ export struct GalleryDetailPage {
     .backgroundColor(this.isRemoteFavoriteSlotSelected(fav.favId) ? $r('sys.color.ohos_id_color_click_effect') : Color.Transparent)
     .enabled(!this.remoteFavoriteSubmitting)
     .onClick(() => {
-      this.remoteFavoriteSelectedCat = fav.favId
+      if (this.isRemoteFavoriteSlotSelected(fav.favId) && this.isCurrentRemoteFavoriteSlot(fav.favId)) {
+        this.remoteFavoriteSelectedCat = 'favdel'
+      } else {
+        this.remoteFavoriteSelectedCat = fav.favId
+      }
     })
   }
 
@@ -651,17 +759,18 @@ export struct GalleryDetailPage {
     Row({ space: ThemeConstants.SPACE_MD }) {
       SymbolGlyph(this.isLocalFavorite() ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
         .fontSize(24)
-        .fontColor([this.isLocalFavorite() ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary')])
+        .fontColor([this.isLocalFavorite() ? EhConstants.favCatColor('l') : $r('sys.color.font_secondary')])
       Text(this.localFavoriteLabel())
         .fontSize(ThemeConstants.FONT_SIZE_HEADING)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
         .layoutWeight(1)
-      Toggle({ type: ToggleType.Switch, isOn: this.isLocalFavorite() })
-        .enabled(!this.remoteFavoriteSubmitting)
-        .onChange((_checked: boolean) => {
-          this.toggleLocalFavoriteWithSafety()
-        })
+      Text(this.localFavoriteActionLabel())
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor(this.isLocalFavorite() ? Color.Red : $r('sys.color.font_secondary'))
+      SymbolGlyph($r('sys.symbol.chevron_right'))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor([$r('sys.color.font_secondary')])
     }
     .width('100%')
     .padding({
@@ -672,6 +781,10 @@ export struct GalleryDetailPage {
     })
     .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .enabled(!this.remoteFavoriteSubmitting)
+    .onClick(() => {
+      this.toggleLocalFavoriteWithSafety()
+    })
   }
 
   @Builder
@@ -681,7 +794,7 @@ export struct GalleryDetailPage {
       includeKeyboardPadding: true,
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
       confirmText: $r('app.string.detail_remote_favorite_save'),
-      confirmEnabled: this.remoteFavoriteSlots.length > 0,
+      confirmEnabled: this.canSubmitRemoteFavorite(),
       confirmLoading: this.remoteFavoriteSubmitting,
       closeAction: () => {
         this.remoteFavoriteSheetShown = false
@@ -692,22 +805,9 @@ export struct GalleryDetailPage {
     }) {
       ListItem() {
         Column({ space: ThemeConstants.SPACE_MD }) {
-          if (this.remoteFavoriteLoadingFavcats) {
-            Row({ space: ThemeConstants.SPACE_SM }) {
-              LoadingProgress()
-                .width(ThemeConstants.LOADING_SIZE_SMALL)
-                .height(ThemeConstants.LOADING_SIZE_SMALL)
-              Text($r('app.string.detail_remote_favorite_loading_slots'))
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontColor($r('sys.color.font_secondary'))
-            }
-            .width('100%')
-          }
-          Text(this.vm.gallery.favcat.length > 0 ?
-            $r('app.string.detail_remote_favorite_current_slot', this.vm.gallery.favTitle) :
-            $r('app.string.detail_remote_favorite_none'))
+          Text(this.remoteFavoriteStatusText())
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor($r('sys.color.font_secondary'))
+            .fontColor(this.remoteFavoriteStatusColor())
             .width('100%')
           TextArea({
             text: this.remoteFavoriteNote,
@@ -729,36 +829,6 @@ export struct GalleryDetailPage {
               },
               (fav: Favcat) => fav.favId,
             )
-            if (this.vm.gallery.favcat.length > 0) {
-              Row({ space: ThemeConstants.SPACE_MD }) {
-                SymbolGlyph($r('sys.symbol.heart_slash'))
-                  .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-                  .fontColor([Color.Red])
-                Text($r('app.string.detail_remote_favorite_remove'))
-                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                  .fontColor(Color.Red)
-                  .layoutWeight(1)
-                if (this.remoteFavoriteSelectedCat === 'favdel') {
-                  SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-                    .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-                    .fontColor([Color.Red])
-                }
-              }
-              .width('100%')
-              .padding({
-                left: ThemeConstants.SPACE_MD,
-                right: ThemeConstants.SPACE_MD,
-                top: ThemeConstants.SPACE_SM,
-                bottom: ThemeConstants.SPACE_SM,
-              })
-              .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-              .backgroundColor(this.remoteFavoriteSelectedCat === 'favdel' ?
-                $r('sys.color.ohos_id_color_click_effect') : Color.Transparent)
-              .enabled(!this.remoteFavoriteSubmitting)
-              .onClick(() => {
-                this.remoteFavoriteSelectedCat = 'favdel'
-              })
-            }
           }
           .width('100%')
           this.LocalFavoriteRow()

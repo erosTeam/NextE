@@ -393,6 +393,22 @@
       "value": "現在: %s"
     },
     {
+      "name": "detail_remote_favorite_will_remove",
+      "value": "EH お気に入りから削除予定"
+    },
+    {
+      "name": "detail_remote_favorite_will_add",
+      "value": "%s に追加予定"
+    },
+    {
+      "name": "detail_remote_favorite_will_move",
+      "value": "%s に移動予定"
+    },
+    {
+      "name": "detail_remote_favorite_current_badge",
+      "value": "現在"
+    },
+    {
       "name": "detail_remote_favorite_note_placeholder",
       "value": "お気に入りメモ"
     },
@@ -458,7 +474,7 @@
     },
     {
       "name": "detail_add_local_favorite",
-      "value": "ローカルに追加"
+      "value": "追加"
     },
     {
       "name": "detail_remove_local_favorite",

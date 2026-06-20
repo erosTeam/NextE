@@ -26,6 +26,8 @@ import {
   ActiveKeyState,
   connectLocalFav,
   LocalFavState,
+  GalleryFavoriteMutationState,
+  connectGalleryFavoriteMutation,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { FavoritesViewModel } from '../viewmodel/FavoritesViewModel'
@@ -52,6 +54,7 @@ export struct FavcatPage {
   @Local listMode: ListModeState = connectListMode();
   @Local favSel: FavSelectionState = connectFavSelection();
   @Local localFav: LocalFavState = connectLocalFav();
+  @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -114,6 +117,17 @@ export struct FavcatPage {
     }
   }
 
+  @Monitor('favoriteMutation.version')
+  onFavoriteMutation(): void {
+    if (this.loadedOnce) {
+      this.vm.applyFavoriteMutation(
+        this.favoriteMutation.gid,
+        this.favoriteMutation.favcat,
+        this.favoriteMutation.favTitle,
+      )
+    }
+  }
+
   // Publish this favcat's parsed sidebar into the shared favList so the bar shows names + counts. The 'a'
   // page sees the complete set (EH omits only the active favcat, and 'a' is not a slot). Incoming wins.
   private publishFavList(): void {
@@ -122,11 +136,36 @@ export struct FavcatPage {
     }
     const byId: Map<string, Favcat> = new Map<string, Favcat>()
     this.favSel.favList.forEach((f: Favcat) => byId.set(f.favId, f))
-    this.vm.favList.forEach((f: Favcat) => byId.set(f.favId, f))
+    this.vm.favList.forEach((f: Favcat) => {
+      const current: Favcat | undefined = byId.get(f.favId)
+      byId.set(f.favId, this.mergeFavcatMetadata(current, f))
+    })
     const merged: Favcat[] = []
     byId.forEach((f: Favcat) => merged.push(f))
     this.favSel.favList = merged
     FavcatListSettings.persist(this.ctx(), merged)
+  }
+
+  private mergeFavcatMetadata(current: Favcat | undefined, incoming: Favcat): Favcat {
+    if (current === undefined) {
+      return incoming
+    }
+    const currentPlaceholder: boolean = FavSelectionState.isPlaceholderFavcat(current)
+    const incomingPlaceholder: boolean = FavSelectionState.isPlaceholderFavcat(incoming)
+    if (incomingPlaceholder && !currentPlaceholder) {
+      return current
+    }
+    if (!incomingPlaceholder && currentPlaceholder) {
+      return incoming
+    }
+    if (!incomingPlaceholder) {
+      const next: Favcat = new Favcat(incoming.favId, incoming.favTitle, incoming.totNum)
+      if (incoming.totNum === 0 && current.totNum > 0 && incoming.favTitle === current.favTitle) {
+        next.totNum = current.totNum
+      }
+      return next
+    }
+    return current
   }
 
   private ctx(): common.UIAbilityContext {

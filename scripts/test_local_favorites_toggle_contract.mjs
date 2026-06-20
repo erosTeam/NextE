@@ -20,6 +20,12 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(join(ROOT, p), 'utf8')
 
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
+const favoriteTitleIcon = detail
+  .split('private favoriteTitleBarIcon(): Resource | SymbolGlyphModifier {')[1]
+  .split('private galleryUrl(): string {')[0]
+const localFavoriteRow = detail
+  .split('@Builder\n  private LocalFavoriteRow() {')[1]
+  .split('@Builder\n  private RemoteFavoriteSheet() {')[0]
 const localSettings = read('shared/src/main/ets/settings/LocalFavSettings.ets')
 const ehConstants = read('shared/src/main/ets/constants/EhConstants.ets')
 const feButton = read('../eros_fe/lib/pages/gallery/view/gallery_favcat.dart')
@@ -54,7 +60,8 @@ ok('LocalFavSettings exposes add remove contains helpers',
 ok('LocalFavSettings marks stored galleries as favcat l',
   /g\.favcat = 'l'/.test(localSettings) && /g\.favTitle = 'Local'/.test(localSettings))
 ok('Local favcat has a semantic heart color',
-  /if \(slot === 'l'\) \{[\s\S]*return '#23b26d'/.test(ehConstants))
+  /if \(slot === 'l'\) \{[\s\S]*return '#A99E68'/.test(ehConstants) &&
+  !/#23b26d/i.test(ehConstants))
 
 ok('GalleryDetailPage imports local favorite state and settings',
   /LocalFavSettings/.test(detail) && /LocalFavState/.test(detail) && /connectLocalFav/.test(detail))
@@ -66,9 +73,13 @@ ok('GalleryDetailPage builds a safe local favorite snapshot from detail or route
 ok('GalleryDetailPage toggles local favorite without remote favorite writes',
   /private async toggleLocalFavorite\(\): Promise<void> \{[\s\S]*LocalFavSettings\.removeByGid[\s\S]*LocalFavSettings\.add/.test(detail) &&
   !/toggleLocalFavorite[\s\S]*galleryAddFavorite/.test(detail))
-ok('GalleryDetailPage exposes local favorite as a secondary title menu action before share',
-  /private detailMenu\(\): Record<string, Object> \{[\s\S]*favoriteInner[\s\S]*this\.localFavoriteLabel\(\)[\s\S]*sys\.symbol\.heart[\s\S]*shareInner[\s\S]*refreshInner[\s\S]*const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},\s*\{ 'content': refreshInner \},/.test(detail) &&
+ok('GalleryDetailPage exposes one favorite title action before share',
+  /private detailMenu\(\): Record<string, Object> \{[\s\S]*favoriteInner[\s\S]*detail_favorite[\s\S]*this\.favoriteTitleBarIcon\(\)[\s\S]*shareInner[\s\S]*refreshInner[\s\S]*const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},\s*\{ 'content': refreshInner \},/.test(detail) &&
   /return \{ 'value': items, 'maxCount': 3 \}/.test(detail))
+ok('GalleryDetailPage local favorite fallback uses the favcat l semantic color',
+  /this\.isLocalFavorite\(\)[\s\S]*EhConstants\.favCatColor\('l'\)/.test(favoriteTitleIcon) &&
+  /this\.isLocalFavorite\(\) \? EhConstants\.favCatColor\('l'\)/.test(localFavoriteRow) &&
+  !/ThemeConstants\.BRAND_PRIMARY/.test(favoriteTitleIcon + localFavoriteRow))
 ok('GalleryDetailPage keeps the primary read FAB intact',
   /Button\(\{ type: ButtonType\.Capsule \}\)[\s\S]*this\.openReader\(this\.resumeIndex\(\)\)/.test(detail))
 

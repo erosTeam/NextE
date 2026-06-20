@@ -60,8 +60,8 @@ ok('Logged-out Favorites title menu exposes local selector plus local browsing u
 ok('Index registers FavoriteSelector route',
   /name === 'FavoriteSelector'[\s\S]*FavoriteSelectorPage\(\)/.test(index))
 
-ok('FavSelectionState still seeds the 10 network slots',
-  /for \(let i = 0; i < 10; i\+\+\) \{[\s\S]*new Favcat\(`\$\{i\}`, `Favorites \$\{i\}`, 0\)/.test(favState))
+ok('FavSelectionState still seeds the 10 network slots as placeholders',
+  /for \(let i = 0; i < 10; i\+\+\) \{[\s\S]*new Favcat\(`\$\{i\}`, `Favorites \$\{i\}`, 0, true\)/.test(favState))
 ok('Selector page uses HDS destination and secondary list scaffold',
   /HdsNavDestination\(\)[\s\S]*SecondaryListScaffold/.test(page))
 ok('Selector page renders logged-out local-only rows and logged-in All plus remote plus local rows',
@@ -70,12 +70,19 @@ ok('Selector page renders logged-out local-only rows and logged-in All plus remo
   /const items: Favcat\[\] = \[new Favcat\('a', AppStrings\.get\('favorites_all'\), this\.fav\.remoteTotalCount\(\)\)\][\s\S]*this\.fav\.favList\.forEach[\s\S]*items\.push\(local\)/.test(page))
 ok('Selector rows use grouped native list rows',
   /GroupedListSection\(\)[\s\S]*ConciseListRow/.test(page))
-ok('Selector row uses semantic favcat heart color through native row parameters',
-  /EhConstants\.favCatColor\(favId\)[\s\S]*leadingIcon: \$r\('sys\.symbol\.heart_fill'\)[\s\S]*secondaryColor: this\.colorFor\(fc\.favId\)/.test(page))
-ok('Current favcat is visibly marked without custom suffix builders',
-  /private isSelected\(fc: Favcat\): boolean \{[\s\S]*if \(!this\.auth\.isLogin\) \{[\s\S]*return fc\.favId === 'l'[\s\S]*this\.fav\.selectedFavcat === fc\.favId[\s\S]*primaryColor: this\.isSelected\(fc\) \? ThemeConstants\.BRAND_PRIMARY : undefined/.test(page))
-ok('Selector page avoids custom row builder closures for runtime stability',
-  !/prefixBuilderParam|suffixBuilderParam/.test(page))
+ok('Selector row uses semantic favcat heart color only for the identity icon',
+  /EhConstants\.favCatColor\(favId\)/.test(page) &&
+  /private FavcatPrefix\(favId: string\)[\s\S]*sys\.symbol\.heart_fill[\s\S]*this\.colorFor\(favId\)/.test(page) &&
+  !/secondaryColor: this\.colorFor\(fc\.favId\)/.test(page))
+ok('Current favcat is visibly marked as current, not as a yes boolean',
+  /private isSelected\(fc: Favcat\): boolean \{[\s\S]*if \(!this\.auth\.isLogin\) \{[\s\S]*return fc\.favId === 'l'[\s\S]*this\.fav\.selectedFavcat === fc\.favId/.test(page) &&
+  /this\.isSelected\(fc\)[\s\S]*sys\.symbol\.checkmark/.test(page) &&
+  !/primaryColor: this\.isSelected\(fc\) \? ThemeConstants\.BRAND_PRIMARY : undefined/.test(page))
+ok('Selector current marker and counts are secondary metadata, not favcat-colored text',
+  /AppStrings\.get\('detail_remote_favorite_current_badge'\)/.test(page) &&
+  !/AppStrings\.get\('common_yes'\)/.test(page) &&
+  /private FavcatSuffix\(fc: Favcat\)[\s\S]*fontColor\(\$r\('sys\.color\.font_secondary'\)\)/.test(page) &&
+  /suffixBuilderParam: \(\) =>/.test(page))
 ok('Selecting a favcat writes the shared V2 state and pops the route',
   /private selectFavcat\(favId: string\): void \{[\s\S]*this\.fav\.selectedFavcat = favId\.length > 0 \? favId : 'a'[\s\S]*this\.stack\.pop\(\)/.test(page))
 ok('Selector page does not introduce favorite write calls',

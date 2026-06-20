@@ -12,6 +12,7 @@ export struct AppModalScaffold {
   @Param closeIcon: Resource = $r('sys.symbol.xmark')
   @Param confirmIcon: Resource = $r('sys.symbol.checkmark')
   @Param confirmText: ResourceStr = ''
+  @Param showConfirmAction: boolean = true
   @Param confirmEnabled: boolean = true
   @Param confirmLoading: boolean = false
   @Event closeAction?: () => void
@@ -57,7 +58,7 @@ export struct AppModalScaffold {
           },
         },
         menu: {
-          value: [{
+          value: this.showConfirmAction ? [{
             content: {
               label: this.confirmText,
               icon: this.confirmIcon,
@@ -69,8 +70,8 @@ export struct AppModalScaffold {
                 }
               },
             },
-          }],
-          maxCount: 1,
+          }] : [],
+          maxCount: this.showConfirmAction ? 1 : 0,
         },
       },
     })

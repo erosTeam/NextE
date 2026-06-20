@@ -147,4 +147,14 @@ export class GalleryDetailViewModel {
   hasMorePreviews(): boolean {
     return this.previewPageCount > 1
   }
+
+  /** Apply the known result of an EH favorite write. `merge()` intentionally treats empty fields as
+   * "unknown", so delete/move needs an explicit state replacement to clear stale filled hearts. */
+  applyRemoteFavoriteState(favcat: string, favTitle: string, favNote: string): void {
+    const next: EhGallery = this.gallery.copy()
+    next.favcat = favcat
+    next.favTitle = favTitle
+    next.favNote = favNote
+    this.gallery = next
+  }
 }

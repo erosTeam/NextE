@@ -43,9 +43,6 @@ export struct FavoriteSelectorPage {
   }
 
   private colorFor(favId: string): ResourceColor {
-    if (favId === 'a') {
-      return ThemeConstants.FAV_HEART_DEFAULT
-    }
     const c: string = EhConstants.favCatColor(favId)
     return c.length > 0 ? c : ThemeConstants.FAV_HEART_DEFAULT
   }
@@ -59,9 +56,34 @@ export struct FavoriteSelectorPage {
 
   private trailingFor(fc: Favcat): string {
     if (this.isSelected(fc)) {
-      return AppStrings.get('common_yes')
+      return AppStrings.get('detail_remote_favorite_current_badge')
     }
     return fc.totNum >= 0 ? `${fc.totNum}` : ''
+  }
+
+  @Builder
+  private FavcatPrefix(favId: string) {
+    SymbolGlyph($r('sys.symbol.heart_fill'))
+      .fontSize(24)
+      .fontColor([this.colorFor(favId)])
+      .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM })
+  }
+
+  @Builder
+  private FavcatSuffix(fc: Favcat) {
+    Row({ space: ThemeConstants.SPACE_XS }) {
+      if (this.isSelected(fc)) {
+        SymbolGlyph($r('sys.symbol.checkmark'))
+          .fontSize(18)
+          .fontColor([$r('sys.color.font_secondary')])
+      }
+      Text(this.trailingFor(fc))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .padding({ right: ThemeConstants.SPACE_MD })
   }
 
   private selectFavcat(favId: string): void {
@@ -86,11 +108,14 @@ export struct FavoriteSelectorPage {
           (fc: Favcat, index: number) => {
             ConciseListRow({
               title: fc.favTitle,
-              trailingText: this.trailingFor(fc),
+              trailingText: '',
               showChevron: false,
-              leadingIcon: $r('sys.symbol.heart_fill'),
-              primaryColor: this.isSelected(fc) ? ThemeConstants.BRAND_PRIMARY : undefined,
-              secondaryColor: this.colorFor(fc.favId),
+              prefixBuilderParam: () => {
+                this.FavcatPrefix(fc.favId)
+              },
+              suffixBuilderParam: () => {
+                this.FavcatSuffix(fc)
+              },
               action: () => {
                 this.selectFavcat(fc.favId)
               },
