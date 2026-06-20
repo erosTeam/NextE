@@ -981,6 +981,58 @@
       "value": "マイタグを追加しました"
     },
     {
+      "name": "mytags_tagset_create",
+      "value": "新規タグセット"
+    },
+    {
+      "name": "mytags_tagset_create_title",
+      "value": "新規タグセット"
+    },
+    {
+      "name": "mytags_tagset_rename",
+      "value": "名前を変更"
+    },
+    {
+      "name": "mytags_tagset_rename_title",
+      "value": "タグセット名を変更"
+    },
+    {
+      "name": "mytags_tagset_delete",
+      "value": "削除"
+    },
+    {
+      "name": "mytags_tagset_name",
+      "value": "タグセット名"
+    },
+    {
+      "name": "mytags_tagset_name_placeholder",
+      "value": "名前"
+    },
+    {
+      "name": "mytags_tagset_create_confirm",
+      "value": "このタグセットを作成しますか？"
+    },
+    {
+      "name": "mytags_tagset_rename_confirm",
+      "value": "現在のタグセット名を変更しますか？"
+    },
+    {
+      "name": "mytags_tagset_delete_confirm",
+      "value": "現在のタグセットを削除しますか？"
+    },
+    {
+      "name": "mytags_tagset_create_success",
+      "value": "タグセットを作成しました"
+    },
+    {
+      "name": "mytags_tagset_rename_success",
+      "value": "タグセット名を変更しました"
+    },
+    {
+      "name": "mytags_tagset_delete_success",
+      "value": "タグセットを削除しました"
+    },
+    {
       "name": "gallery_comments",
       "value": "コメント"
     },

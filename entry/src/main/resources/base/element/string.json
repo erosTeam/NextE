@@ -981,6 +981,58 @@
       "value": "My Tag added"
     },
     {
+      "name": "mytags_tagset_create",
+      "value": "New tagset"
+    },
+    {
+      "name": "mytags_tagset_create_title",
+      "value": "New Tagset"
+    },
+    {
+      "name": "mytags_tagset_rename",
+      "value": "Rename"
+    },
+    {
+      "name": "mytags_tagset_rename_title",
+      "value": "Rename Tagset"
+    },
+    {
+      "name": "mytags_tagset_delete",
+      "value": "Delete"
+    },
+    {
+      "name": "mytags_tagset_name",
+      "value": "Tagset name"
+    },
+    {
+      "name": "mytags_tagset_name_placeholder",
+      "value": "Name"
+    },
+    {
+      "name": "mytags_tagset_create_confirm",
+      "value": "Create this tagset?"
+    },
+    {
+      "name": "mytags_tagset_rename_confirm",
+      "value": "Rename the current tagset?"
+    },
+    {
+      "name": "mytags_tagset_delete_confirm",
+      "value": "Delete the current tagset?"
+    },
+    {
+      "name": "mytags_tagset_create_success",
+      "value": "Tagset created"
+    },
+    {
+      "name": "mytags_tagset_rename_success",
+      "value": "Tagset renamed"
+    },
+    {
+      "name": "mytags_tagset_delete_success",
+      "value": "Tagset deleted"
+    },
+    {
       "name": "gallery_comments",
       "value": "Comments"
     },

@@ -103,6 +103,7 @@ export {
   GalleryCommentWrite,
   MyTagsAddUpdate,
   MyTagsDeleteUpdate,
+  MyTagsTagsetUpdate,
 } from './network/EhApiService'
 export {
   EhApiPhpService,

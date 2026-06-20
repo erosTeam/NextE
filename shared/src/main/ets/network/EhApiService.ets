@@ -107,6 +107,14 @@ export interface MyTagsAddUpdate {
   hidden: boolean
 }
 
+/** POST body semantics for creating / renaming / deleting a My Tags tagset through /mytags. */
+export interface MyTagsTagsetUpdate {
+  isEx: boolean
+  action: string // 'create' / 'rename' / 'delete'
+  tagset: string
+  name: string
+}
+
 /**
  * Web-page API surface: builds EH list/search URLs, fetches via EhHttpClient, hands HTML
  * to the parsers. Mirrors V2Next's ApiService. M1 covers the anonymous table-site gallery
@@ -258,6 +266,51 @@ export class EhApiService {
         throw failure
       }
       throw new Error(`mytags add HTTP ${resp.statusCode}`)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+    if (failure !== null) {
+      throw failure
+    }
+  }
+
+  /** Manage My Tags tagsets (eros_fe actionCreatTagSet / actionRenameTagSet / actionDeleteTagSet). */
+  async updateMyTagsTagset(update: MyTagsTagsetUpdate): Promise<void> {
+    const action: string = update.action.trim()
+    if (action !== 'create' && action !== 'rename' && action !== 'delete') {
+      throw new Error('mytags tagset: invalid action')
+    }
+    if ((action === 'rename' || action === 'delete') && update.tagset.length === 0) {
+      throw new Error('mytags tagset: missing tagset')
+    }
+    const name: string = update.name.trim()
+    if ((action === 'create' || action === 'rename') && name.length === 0) {
+      throw new Error('mytags tagset: missing name')
+    }
+    const base: string = EhConstants.baseUrl(update.isEx)
+    const params: string[] = []
+    if ((action === 'rename' || action === 'delete') && update.tagset.length > 0) {
+      params.push(`tagset=${encodeURIComponent(update.tagset)}`)
+    }
+    const suffix: string = params.length > 0 ? `?${params.join('&')}` : ''
+    const url: string = `${base}/mytags${suffix}`
+    const pairs: string[] = [
+      this.formPair('tagset_action', action),
+    ]
+    if (action === 'create' || action === 'rename') {
+      pairs.push(this.formPair('tagset_name', name))
+    }
+    let resp: EhTextResponse
+    try {
+      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, pairs.join('&'))
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, url)
+    }
+    if (resp.statusCode >= 400) {
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+      if (failure !== null) {
+        throw failure
+      }
+      throw new Error(`mytags tagset HTTP ${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
     if (failure !== null) {

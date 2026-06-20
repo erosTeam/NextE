@@ -81,6 +81,9 @@ Historical feedback in this section must not trigger new implementation.
   rating, comment vote/compose/edit, tag vote, MyTags edit/delete/add, gallery archiver submit plumbing,
   gallery detail full-title access, settings shell cleanup, and search/history destructive-action
   confirmation gates.
+- MyTags tagset management is implemented pending controller acceptance / authorized real-submit
+  verification: create, rename, and delete now follow the `eros_fe` tagset action model with separate
+  title actions and focused name sheets.
 - Settings shell cleanup is closed as a broad audit. Reopen Settings only for a fresh Settings regression
   or a separately scoped Settings feature request such as Reader Settings row readability.
 - Previous Waterfall exposure being scaffold-only is superseded by `8bc9afb`, which repairs width,
@@ -132,9 +135,9 @@ a bounded validation path.
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
 2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
-   deletion, and MyTags new-user-tag add are implemented pending controller acceptance / authorized
-   real-submit verification. Reopen here only for a fresh tag-vote / MyTags edit / MyTags delete /
-   MyTags add regression, or for a separately scoped tagset-management lane.
+   deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
+   controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
+   MyTags edit/delete/add, or tagset-management regression.
 3. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
 4. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual

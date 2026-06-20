@@ -62,6 +62,11 @@ export struct MyTagsPage {
   @Local addSuggestions: EhTagSuggestion[] = [];
   @Local addSuggestEpoch: number = 0;
   @Local addSuppressNextSuggest: boolean = false;
+  @Local tagsetSheetShown: boolean = false;
+  @Local tagsetSubmitting: boolean = false;
+  @Local tagsetError: string = '';
+  @Local tagsetAction: string = '';
+  @Local tagsetName: string = '';
   @Local tagSig: UserTagSignal = connectUserTagSignal();
   private scroller: Scroller = new Scroller();
 
@@ -205,6 +210,68 @@ export struct MyTagsPage {
     return tagName.length > 0 && !this.hasExistingTag(tagName) && !this.addSubmitting
   }
 
+  private currentTagset(): EhMytagSet {
+    const found: EhMytagSet | undefined =
+      this.mytags.tagSets.find((s: EhMytagSet) => s.tagsetId === this.mytags.currentTagset)
+    return found === undefined ? new EhMytagSet() : found
+  }
+
+  private currentTagsetName(): string {
+    const current: EhMytagSet = this.currentTagset()
+    return current.name.length > 0 ? current.name : this.mytags.currentTagset
+  }
+
+  private canManageCurrentTagset(): boolean {
+    return this.mytags.currentTagset.length > 0 && !this.loading && !this.tagsetSubmitting
+  }
+
+  private openCreateTagset(): void {
+    this.tagsetAction = 'create'
+    this.tagsetName = ''
+    this.tagsetError = ''
+    this.tagsetSubmitting = false
+    this.tagsetSheetShown = true
+  }
+
+  private openRenameTagset(): void {
+    if (!this.canManageCurrentTagset()) {
+      return
+    }
+    this.tagsetAction = 'rename'
+    this.tagsetName = this.currentTagsetName()
+    this.tagsetError = ''
+    this.tagsetSubmitting = false
+    this.tagsetSheetShown = true
+  }
+
+  private canSubmitTagset(): boolean {
+    if (this.tagsetSubmitting) {
+      return false
+    }
+    const name: string = this.tagsetName.trim()
+    if (this.tagsetAction === 'create') {
+      return name.length > 0
+    }
+    if (this.tagsetAction === 'rename') {
+      return this.canManageCurrentTagset() && name.length > 0 && name !== this.currentTagsetName()
+    }
+    return false
+  }
+
+  private tagsetSheetTitle(): ResourceStr {
+    if (this.tagsetAction === 'rename') {
+      return $r('app.string.mytags_tagset_rename_title')
+    }
+    return $r('app.string.mytags_tagset_create_title')
+  }
+
+  private tagsetConfirmText(): ResourceStr {
+    if (this.tagsetAction === 'rename') {
+      return $r('app.string.mytags_tagset_rename')
+    }
+    return $r('app.string.mytags_tagset_create')
+  }
+
   private confirmSubmitEdit(): void {
     this.getUIContext().showAlertDialog({
       message: $r('app.string.mytags_save_confirm'),
@@ -251,6 +318,45 @@ export struct MyTagsPage {
         value: $r('app.string.mytags_add'),
         action: () => {
           this.submitAdd()
+        },
+      },
+    })
+  }
+
+  private confirmSubmitTagset(): void {
+    const message: ResourceStr =
+      this.tagsetAction === 'rename'
+        ? $r('app.string.mytags_tagset_rename_confirm')
+        : $r('app.string.mytags_tagset_create_confirm')
+    this.getUIContext().showAlertDialog({
+      message,
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: this.tagsetConfirmText(),
+        action: () => {
+          this.submitTagset()
+        },
+      },
+    })
+  }
+
+  private confirmDeleteTagset(): void {
+    if (!this.canManageCurrentTagset() || !this.mytags.canDelete) {
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.mytags_tagset_delete_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.mytags_tagset_delete'),
+        action: () => {
+          this.deleteCurrentTagset()
         },
       },
     })
@@ -340,6 +446,61 @@ export struct MyTagsPage {
     this.editSubmitting = false
   }
 
+  private async submitTagset(): Promise<void> {
+    if (!this.canSubmitTagset()) {
+      return
+    }
+    this.tagsetSubmitting = true
+    this.tagsetError = ''
+    try {
+      await EhApiService.getInstance().updateMyTagsTagset({
+        isEx: connectSiteMode().isEx,
+        action: this.tagsetAction,
+        tagset: this.mytags.currentTagset,
+        name: this.tagsetName,
+      })
+      await this.reloadCurrentTagset()
+      this.tagsetSheetShown = false
+      this.getUIContext().getPromptAction().showToast({
+        message:
+          this.tagsetAction === 'rename'
+            ? $r('app.string.mytags_tagset_rename_success')
+            : $r('app.string.mytags_tagset_create_success'),
+      })
+    } catch (err) {
+      const e = err as Error
+      this.tagsetError = e.message
+      DiagnosticLogger.warn('mytags', 'tagset_save_failed', e.message)
+    }
+    this.tagsetSubmitting = false
+  }
+
+  private async deleteCurrentTagset(): Promise<void> {
+    if (!this.canManageCurrentTagset() || !this.mytags.canDelete) {
+      return
+    }
+    this.tagsetSubmitting = true
+    this.tagsetError = ''
+    try {
+      await EhApiService.getInstance().updateMyTagsTagset({
+        isEx: connectSiteMode().isEx,
+        action: 'delete',
+        tagset: this.mytags.currentTagset,
+        name: '',
+      })
+      await this.load()
+      this.tagsetSheetShown = false
+      this.getUIContext().getPromptAction().showToast({
+        message: $r('app.string.mytags_tagset_delete_success'),
+      })
+    } catch (err) {
+      const e = err as Error
+      this.tagsetError = e.message
+      DiagnosticLogger.warn('mytags', 'tagset_delete_failed', e.message)
+    }
+    this.tagsetSubmitting = false
+  }
+
   private setAddTagQuery(value: string): void {
     this.addTagQuery = value
     this.addTagName = value.trim()
@@ -409,8 +570,39 @@ export struct MyTagsPage {
         this.openAddTag()
       },
     }
-    const items: Record<string, Object>[] = [{ 'content': addInner }]
-    const menu: Record<string, Object> = { 'value': items, 'maxCount': 1 }
+    const createInner: Record<string, Object> = {
+      'label': $r('app.string.mytags_tagset_create'),
+      'icon': $r('sys.symbol.folder_badge_plus'),
+      'isEnabled': !this.loading,
+      'action': () => {
+        this.openCreateTagset()
+      },
+    }
+    const renameInner: Record<string, Object> = {
+      'label': $r('app.string.mytags_tagset_rename'),
+      'icon': $r('sys.symbol.square_and_pencil'),
+      'isEnabled': this.canManageCurrentTagset(),
+      'action': () => {
+        this.openRenameTagset()
+      },
+    }
+    const deleteInner: Record<string, Object> = {
+      'label': $r('app.string.mytags_tagset_delete'),
+      'icon': $r('sys.symbol.trash'),
+      'isEnabled': this.canManageCurrentTagset() && this.mytags.canDelete,
+      'action': () => {
+        this.confirmDeleteTagset()
+      },
+    }
+    const items: Record<string, Object>[] = [
+      { 'content': addInner },
+      { 'content': createInner },
+      { 'content': renameInner },
+    ]
+    if (this.mytags.canDelete) {
+      items.push({ 'content': deleteInner })
+    }
+    const menu: Record<string, Object> = { 'value': items, 'maxCount': items.length }
     const content: Record<string, Object> = { 'title': title, 'menu': menu }
     return immersiveTitleBarOpts(content)
   }
@@ -468,6 +660,10 @@ export struct MyTagsPage {
     })
     .bindSheet($$this.addSheetShown, this.AddTagSheet(), {
       detents: [SheetSize.LARGE],
+      showClose: false,
+    })
+    .bindSheet($$this.tagsetSheetShown, this.TagsetSheet(), {
+      detents: [SheetSize.MEDIUM],
       showClose: false,
     })
   }
@@ -860,6 +1056,55 @@ export struct MyTagsPage {
           }
           if (this.addError.length > 0) {
             Text(this.addError)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor(Color.Red)
+              .width('100%')
+          }
+        }
+        .width('100%')
+      }
+    }
+  }
+
+  @Builder
+  private TagsetSheet() {
+    AppModalScaffold({
+      title: this.tagsetSheetTitle(),
+      includeKeyboardPadding: true,
+      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+      confirmText: this.tagsetConfirmText(),
+      confirmEnabled: this.canSubmitTagset(),
+      confirmLoading: this.tagsetSubmitting,
+      closeAction: () => {
+        this.tagsetSheetShown = false
+      },
+      confirmAction: () => {
+        this.confirmSubmitTagset()
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            Text($r('app.string.mytags_tagset_name'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .width('100%')
+            TextInput({ text: this.tagsetName, placeholder: $r('app.string.mytags_tagset_name_placeholder') })
+              .width('100%')
+              .height(48)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .backgroundColor($r('app.color.card_background'))
+              .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+              .enabled(!this.tagsetSubmitting)
+              .onChange((value: string) => {
+                this.tagsetName = value
+                this.tagsetError = ''
+              })
+          }
+          .width('100%')
+          if (this.tagsetError.length > 0) {
+            Text(this.tagsetError)
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
               .fontColor(Color.Red)
               .width('100%')

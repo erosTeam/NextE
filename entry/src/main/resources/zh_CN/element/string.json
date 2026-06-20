@@ -981,6 +981,58 @@
       "value": "我的标签已添加"
     },
     {
+      "name": "mytags_tagset_create",
+      "value": "新建标签组"
+    },
+    {
+      "name": "mytags_tagset_create_title",
+      "value": "新建标签组"
+    },
+    {
+      "name": "mytags_tagset_rename",
+      "value": "重命名"
+    },
+    {
+      "name": "mytags_tagset_rename_title",
+      "value": "重命名标签组"
+    },
+    {
+      "name": "mytags_tagset_delete",
+      "value": "删除"
+    },
+    {
+      "name": "mytags_tagset_name",
+      "value": "标签组名称"
+    },
+    {
+      "name": "mytags_tagset_name_placeholder",
+      "value": "名称"
+    },
+    {
+      "name": "mytags_tagset_create_confirm",
+      "value": "新建这个标签组？"
+    },
+    {
+      "name": "mytags_tagset_rename_confirm",
+      "value": "重命名当前标签组？"
+    },
+    {
+      "name": "mytags_tagset_delete_confirm",
+      "value": "删除当前标签组？"
+    },
+    {
+      "name": "mytags_tagset_create_success",
+      "value": "标签组已新建"
+    },
+    {
+      "name": "mytags_tagset_rename_success",
+      "value": "标签组已重命名"
+    },
+    {
+      "name": "mytags_tagset_delete_success",
+      "value": "标签组已删除"
+    },
+    {
       "name": "gallery_comments",
       "value": "评论"
     },

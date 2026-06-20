@@ -137,7 +137,8 @@ implemented pending authorized real-submit acceptance / comment vote implemented
 real-submit acceptance / comment compose-reply implemented pending authorized real-submit acceptance /
 own-comment edit implemented pending authorized real-submit acceptance / taggallery vote implemented pending
 authorized real-submit acceptance / MyTags existing usertag edit implemented pending authorized real-submit
-acceptance / MyTags existing usertag delete implemented pending authorized real-submit acceptance
+acceptance / MyTags existing usertag delete implemented pending authorized real-submit acceptance /
+MyTags tagset create-rename-delete implemented pending authorized real-submit acceptance
 
 Source:
 
@@ -182,8 +183,8 @@ Scheduling judgment:
   1. Comment actions: comment vote, reply/new comment, and own-comment edit are implemented; reopen only
      for acceptance regressions.
   2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
-     deletion, and MyTags new-user-tag add are implemented; reopen only for acceptance regressions or
-     separately scoped tagset management.
+     deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented; reopen
+     only for acceptance regressions.
   3. Archiver/download offline executor: archiver protected submit plumbing is implemented; a full
      offline archive/download executor remains larger and should be scheduled separately only when
      the download architecture is deliberately reopened.
@@ -259,7 +260,6 @@ Handled status:
   toggled draft hide/watch state, opened the save confirmation dialog, and cancelled. Evidence files live
   under `.hvigor/outputs/mytags-setusertag-nexte/`. Remaining gap: final `setusertag` submit was not clicked
   because EH usertag editing is a real account write and still needs an explicitly authorized test target.
-  New tag creation and tagset create/rename/delete remain out of scope.
 - MyTags existing usertag delete: `implemented / pending controller acceptance and authorized real-submit
   verification`. Scope: Settings `我的标签` existing-tag edit sheet now has a HDS modal title-bar trash
   action, native destructive confirmation, and protected `/mytags` form submit using eros_fe's
@@ -274,7 +274,7 @@ Handled status:
   opened Settings `我的标签`, opened the existing `language:chinese` edit sheet, clicked the HDS trash
   action, opened the delete confirmation dialog, and cancelled. Remaining gap: final delete submit was
   not clicked because EH MyTags deletion is a real account write and still needs an explicitly authorized
-  test target. Tagset create/rename/delete remain out of scope.
+  test target.
 - MyTags new usertag add: `implemented / pending controller acceptance and authorized real-submit
   verification`. Scope: Settings `我的标签` HDS title-bar plus action, HDS `AppModalScaffold` add sheet,
   `/api.php method=tagsuggest` candidate lookup, existing-user-tag filtering, candidate fill into the
@@ -292,7 +292,25 @@ Handled status:
   `我的标签`, opened the plus add sheet, typed `goat`, selected `male:goat`, verified stale candidates clear
   after selection, opened the add confirmation dialog, and cancelled. Remaining gap: final add submit was
   not clicked because EH MyTags creation is a real account write and still needs an explicitly authorized
-  test target. Tagset create/rename/delete remain out of scope.
+  test target.
+- MyTags tagset create/rename/delete: `implemented / pending controller acceptance and authorized
+  real-submit verification`. Scope: protected `/mytags` form submit using eros_fe's `tagset_action`
+  create/rename/delete, `tagset_name` for create/rename, and `?tagset=<current>` for rename/delete;
+  Settings `我的标签` title actions for new tag, new tagset, rename current tagset, and delete current
+  tagset when EH allows deletion; focused HDS `AppModalScaffold` name sheets for create/rename; native
+  confirmation before any real mutation; current tagset reload after success. FE grounding:
+  `/Users/honjow/git/eros_fe/lib/network/request.dart` (`actionCreatTagSet`,
+  `actionRenameTagSet`, `actionDeleteTagSet`),
+  `/Users/honjow/git/eros_fe/lib/pages/setting/controller/eh_mytags_controller.dart`
+  (`crtNewTagset`, `renameTagSet`, `deleteTagset`),
+  `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_mytags_page.dart`,
+  `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_usertag_page.dart`, and
+  `/Users/honjow/git/eros_fe/lib/pages/setting/webview/eh_tagset_edit_dialog.dart`. HarmonyOS simulator
+  evidence was captured under `.hvigor/outputs/mytags-tagset-management/`: opened Settings `我的标签`,
+  verified real tagsets (`TAG`, `Artist`, `Artist2`), verified separate top actions, opened create and
+  rename name sheets, and cancelled without submitting. Remaining gap: final create/rename/delete submit
+  was not clicked because EH MyTags tagset writes are real account writes and still need an explicitly
+  authorized test target.
 - Gallery archiver protected submit: `implemented / pending controller acceptance and authorized
   real-submit verification`. Scope: `GalleryArchiverPage` keeps the GP/Credits quote surface, renders
   local Download and H@H options as tappable action rows, opens a native confirmation before any account
