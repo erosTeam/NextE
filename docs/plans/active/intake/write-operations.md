@@ -10,6 +10,60 @@ Purpose:
 
 ## Items
 
+### MyTags Tagset Selection Uses Same-Page State Instead Of Route Depth
+
+Type: navigation architecture bug / settings-like management UX
+
+Priority suggestion: P0/P1
+
+Status: reported / active queue candidate
+
+User feedback:
+
+- 2026-06-20: the MyTags page first shows the tagset list. Tapping a tagset does not push a child page;
+  it reloads the same page in place. Pressing back then exits to Settings instead of returning to the
+  tagset-list page.
+- This breaks the user's navigation model: repeated drill-down links should build or replace explicit
+  route states, not destroy the previous visible level with local page state.
+
+Read-only NextE inspection:
+
+- `feature/user/src/main/ets/pages/MyTagsPage.ets` has `@Local showingTagsetList: boolean = true`.
+- `selectTagset(id)` sets `showingTagsetList = false` and calls `this.load(id)`.
+- `load(tagset)` replaces `this.mytags` in the same page instance and sets
+  `showingTagsetList = tagset.length === 0 && this.mytags.tagSets.length > 1`.
+- Route registration currently has a single `MyTags` route in `entry/src/main/ets/pages/Index.ets`;
+  Settings/EH settings open it with `pushPathByName('MyTags', null)`.
+
+Expected behavior:
+
+- Tagset list and tagset detail must have real navigation semantics. Opening a tagset should push or
+  otherwise enter a route state whose back target is the tagset list, not Settings.
+- Direct entry into a tagset can use route params, but it must not erase the parent tagset list from the
+  back stack.
+- The title/actions should follow the current route level: tagset list shows tagset-level creation;
+  tagset detail shows add tag / rename / delete actions for that specific tagset.
+- Repeated openings should not collapse previous route context into a single mutable page instance.
+
+Implementation direction:
+
+- Prefer one of these explicit structures:
+  - split `MyTagsTagsetListPage` and `MyTagsTagsetDetailPage` routes; or
+  - keep one component but route with `MyTagsPageParams(tagsetId)` and push a new named route for detail.
+- Do not continue fixing this as a local `showingTagsetList` boolean or in-place reload.
+- Preserve the existing shared settings primitives rule: use the shared settings/list row primitives for
+  both levels; do not hand-roll rows because the page is being split.
+- Add a deterministic navigation contract: tapping/selecting a tagset must call a route push or create a
+  route param, not just set local state and call `load(id)`.
+
+Acceptance:
+
+- From Settings -> MyTags -> tagset A, system back returns to MyTags tagset list.
+- From tagset A, entering another tagset through the intended UI does not destroy route context; back
+  behavior remains predictable.
+- The tagset list and detail actions are scoped correctly.
+- No real EH write submit is needed for this navigation fix.
+
 ### Remote Favorite Sheet Flashes And Immediately Dismisses
 
 Type: bug / write-entry usability regression

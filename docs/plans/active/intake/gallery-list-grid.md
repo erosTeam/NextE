@@ -919,3 +919,62 @@ Maintenance boundary:
 - When Waterfall width/viewport is repaired, it should use the same overlay-safe principle: real spacer
   content or an equivalent content-space model, not top/bottom padding that creates a non-rendering
   pending region.
+
+### Grid And Waterfall Scroll Do Not Drive Title-Bar Auto-Hide Immediately
+
+Type: gallery browsing / title-bar scroll linkage regression
+
+Priority suggestion: P1
+
+Status: reported / active queue candidate
+
+User feedback:
+
+- 2026-06-20: in Grid/Waterfall modes, scrolling upward does not immediately drive the top title/header
+  auto-hide. The list appears to scroll inside its own reserved top space first; only after reaching that
+  internal boundary does the outer HDS title-bar behavior start responding.
+- During this phase, cards can be visible under the title/header chrome but unreadable because the title
+  has not moved with the scroll.
+
+Read-only NextE inspection:
+
+- `entry/src/main/ets/pages/Index.ets` binds the HDS title auto-hide to the active tab scroller through
+  `.dynamicHideTitleBar(...).bindToScrollable([this.titleScroller])`.
+- Home/Favorites retained sub-tabs correctly pass the active page's `Scroller` upward.
+- Current `PullRefreshGridScaffold` and `PullRefreshWaterFlowScaffold` both render their scrollable
+  content with the same `Scroller`, but they now use
+  `.contentStartOffset(this.topSpacerHeight())` and `.contentEndOffset(this.bottomSpacerHeight())`.
+- Earlier documentation/acceptance described "real full-row spacer content"; the current source is not
+  that exact model. `contentStartOffset` may create an internal leading scroll reserve that does not
+  behave the same as normal content for HDS title-bar auto-hide.
+
+Expected behavior:
+
+- The first upward scroll gesture on Grid/Waterfall should move content and drive HDS title/header
+  hide together, like List mode.
+- There should not be a hidden internal top-reserve phase where content scrolls behind a still-visible
+  title/header before the title auto-hide starts.
+- Top/bottom chrome avoidance must still avoid the older Grid padding disappearance problem; do not
+  restore top/bottom `Grid.padding` / `WaterFlow.padding`.
+
+Implementation direction:
+
+- Audit `contentStartOffset` / `contentEndOffset` behavior with HDS `bindToScrollable`. If they do not
+  participate in title auto-hide like normal content, replace them with real content spacers or another
+  HDS-compatible content-space model.
+- Grid and Waterfall should share the same overlay-safe scroll model. Fix both scaffolds together if
+  they share the same `contentStartOffset` issue.
+- Keep horizontal padding only for layout margins.
+- Do not solve this by disabling title auto-hide, adding page-local top padding, or moving content under
+  the title without scroll linkage.
+
+Acceptance:
+
+- Home Grid: first upward scroll starts hiding the title/header immediately and content remains readable.
+- Home Waterfall: same behavior; no internal top-reserve phase before title movement.
+- Search/Favorites Grid/Waterfall use the same scaffold behavior.
+- Cards still render under translucent chrome without disappearing, and final rows remain reachable above
+  the bottom tab bar.
+- Deterministic contracts must distinguish real content spacer / compatible content-space behavior from
+  `Grid.padding` and should not call a `contentStartOffset` rewrite accepted until device evidence proves
+  title-bar linkage.
