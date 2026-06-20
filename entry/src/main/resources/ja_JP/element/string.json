@@ -501,6 +501,50 @@
       "value": "現在のタグを表示します。ギャラリータグの送信は別の保護された書き込みフローです。"
     },
     {
+      "name": "tag_vote_up",
+      "value": "タグに賛成"
+    },
+    {
+      "name": "tag_vote_down",
+      "value": "タグに反対"
+    },
+    {
+      "name": "tag_vote_withdraw",
+      "value": "投票を取り消す"
+    },
+    {
+      "name": "tag_vote_current_none",
+      "value": "このタグには未投票です"
+    },
+    {
+      "name": "tag_vote_current_up",
+      "value": "現在は賛成済み"
+    },
+    {
+      "name": "tag_vote_current_down",
+      "value": "現在は反対済み"
+    },
+    {
+      "name": "tag_vote_up_success",
+      "value": "タグに賛成しました"
+    },
+    {
+      "name": "tag_vote_down_success",
+      "value": "タグに反対しました"
+    },
+    {
+      "name": "tag_vote_withdraw_success",
+      "value": "タグ投票を取り消しました"
+    },
+    {
+      "name": "tag_vote_failed",
+      "value": "タグ投票に失敗しました"
+    },
+    {
+      "name": "tag_vote_unavailable",
+      "value": "ログインしてギャラリーを再読み込みしてからタグに投票してください。"
+    },
+    {
       "name": "detail_add_local_favorite",
       "value": "追加"
     },

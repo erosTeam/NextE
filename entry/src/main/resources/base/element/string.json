@@ -501,6 +501,50 @@
       "value": "Current tags are shown here. Submitting gallery tag changes is a separate protected write flow."
     },
     {
+      "name": "tag_vote_up",
+      "value": "Vote up"
+    },
+    {
+      "name": "tag_vote_down",
+      "value": "Vote down"
+    },
+    {
+      "name": "tag_vote_withdraw",
+      "value": "Withdraw vote"
+    },
+    {
+      "name": "tag_vote_current_none",
+      "value": "No vote on this tag"
+    },
+    {
+      "name": "tag_vote_current_up",
+      "value": "Currently voted up"
+    },
+    {
+      "name": "tag_vote_current_down",
+      "value": "Currently voted down"
+    },
+    {
+      "name": "tag_vote_up_success",
+      "value": "Tag voted up"
+    },
+    {
+      "name": "tag_vote_down_success",
+      "value": "Tag voted down"
+    },
+    {
+      "name": "tag_vote_withdraw_success",
+      "value": "Tag vote withdrawn"
+    },
+    {
+      "name": "tag_vote_failed",
+      "value": "Tag vote failed"
+    },
+    {
+      "name": "tag_vote_unavailable",
+      "value": "Sign in and reload the gallery before voting on tags."
+    },
+    {
       "name": "detail_add_local_favorite",
       "value": "Add"
     },

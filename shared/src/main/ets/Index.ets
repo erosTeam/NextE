@@ -100,7 +100,7 @@ export {
   GalleryDetailResult,
   GalleryCommentWrite,
 } from './network/EhApiService'
-export { EhApiPhpService, GalleryRatingResult, CommentVoteResult } from './network/EhApiPhpService'
+export { EhApiPhpService, GalleryRatingResult, CommentVoteResult, TagGalleryResult } from './network/EhApiPhpService'
 export { EhError, EhErrorKind } from './network/EhError'
 export { EhErrorClassifier } from './network/EhErrorClassifier'
 

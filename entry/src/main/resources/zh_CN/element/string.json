@@ -501,6 +501,50 @@
       "value": "这里显示当前标签。提交画廊标签修改属于单独的受保护写入流程。"
     },
     {
+      "name": "tag_vote_up",
+      "value": "赞成标签"
+    },
+    {
+      "name": "tag_vote_down",
+      "value": "反对标签"
+    },
+    {
+      "name": "tag_vote_withdraw",
+      "value": "撤回投票"
+    },
+    {
+      "name": "tag_vote_current_none",
+      "value": "当前未投票"
+    },
+    {
+      "name": "tag_vote_current_up",
+      "value": "当前已赞成"
+    },
+    {
+      "name": "tag_vote_current_down",
+      "value": "当前已反对"
+    },
+    {
+      "name": "tag_vote_up_success",
+      "value": "已赞成标签"
+    },
+    {
+      "name": "tag_vote_down_success",
+      "value": "已反对标签"
+    },
+    {
+      "name": "tag_vote_withdraw_success",
+      "value": "已撤回标签投票"
+    },
+    {
+      "name": "tag_vote_failed",
+      "value": "标签投票失败"
+    },
+    {
+      "name": "tag_vote_unavailable",
+      "value": "请登录并重新载入画廊后再为标签投票。"
+    },
+    {
       "name": "detail_add_local_favorite",
       "value": "添加"
     },

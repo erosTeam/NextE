@@ -104,6 +104,12 @@ Historical feedback in this section must not trigger new implementation.
   history instead of deleting immediately.
 - Search settings filter reset safety is corrected and pending controller acceptance: tapping
   `重置筛选` now opens a native confirmation dialog before clearing the saved filter profile.
+- Gallery tag vote write entry is implemented and pending controller acceptance / authorized real-submit
+  verification: the detail title menu's `编辑标签` page no longer shows a read-only unsupported notice,
+  loads detail-scraped `apikey/apiuid`, opens an HDS modal action sheet from a tag chip, confirms before
+  posting protected `/api.php method=taggallery`, and updates local tag vote state after success.
+  Simulator validation opened the action sheet and confirmation dialog, then cancelled; no real EH tag
+  vote was submitted.
 
 ## Parked / Guidance Only
 
@@ -138,8 +144,9 @@ a bounded validation path.
    not wired to real behavior, or unsafe/destructive without confirmation; Security, Download, EH
    placeholder exposure, Search history clear safety, and Search filter reset safety are already
    corrected pending acceptance.
-3. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
-   writes establish the protected EH write pattern.
+3. Tag/MyTags write actions: taggallery vote is implemented pending controller acceptance / authorized
+   real-submit verification. Reopen here only for a fresh tag-vote regression or for a separately scoped
+   MyTags/setusertag lane; do not treat MyTags editing as completed by the tag vote work.
 4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
 5. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is

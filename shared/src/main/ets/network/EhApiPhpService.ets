@@ -74,6 +74,26 @@ export class CommentVoteResult {
   commentVote: number = 0
 }
 
+/** POST body for /api.php method=taggallery (eros_fe Api.tagGallery). */
+class TagGalleryRequest {
+  method: string = 'taggallery'
+  apikey: string = ''
+  apiuid: number = 0
+  gid: number = 0
+  token: string = ''
+  tags: string = ''
+  vote: number = 0
+}
+
+class TagGalleryResponse {
+  error: string = ''
+}
+
+export class TagGalleryResult {
+  tagKey: string = ''
+  vote: number = 0
+}
+
 class TagSuggestEntry {
   ns: string = ''
   tn: string = ''
@@ -241,6 +261,61 @@ export class EhApiPhpService {
     if (result.commentId.length === 0 || (result.commentVote !== 1 && result.commentVote !== -1)) {
       throw new Error('votecomment: missing vote result')
     }
+    return result
+  }
+
+  static async tagGallery(
+    base: string,
+    apikey: string,
+    apiuid: string,
+    gid: string,
+    token: string,
+    tagKey: string,
+    vote: number,
+  ): Promise<TagGalleryResult> {
+    const apiuidNum: number = Number.parseInt(apiuid, 10)
+    const gidNum: number = Number.parseInt(gid, 10)
+    const normalizedTag: string = tagKey.trim()
+    if (
+      apikey.length === 0 ||
+      token.length === 0 ||
+      normalizedTag.length === 0 ||
+      Number.isNaN(apiuidNum) ||
+      Number.isNaN(gidNum) ||
+      (vote !== 1 && vote !== -1)
+    ) {
+      throw new Error('tagGallery: missing API key')
+    }
+    const req: TagGalleryRequest = new TagGalleryRequest()
+    req.apikey = apikey
+    req.apiuid = apiuidNum
+    req.gid = gidNum
+    req.token = token
+    req.tags = normalizedTag
+    req.vote = vote
+    const resp: EhTextResponse = await EhHttpClient.getInstance().postJson(
+      `${base}/api.php`,
+      JSON.stringify(req),
+    )
+    if (resp.statusCode !== 200) {
+      throw new Error(`taggallery HTTP ${resp.statusCode}`)
+    }
+    let raw: Object
+    try {
+      raw = JSON.parse(resp.body) as Object
+    } catch (e) {
+      throw new Error('taggallery: invalid JSON')
+    }
+    if (raw === null || typeof raw !== 'object') {
+      throw new Error('taggallery: invalid JSON')
+    }
+    const obj: TagGalleryResponse = raw as TagGalleryResponse
+    if (obj.error !== undefined && obj.error.length > 0) {
+      throw new Error(obj.error)
+    }
+    const result: TagGalleryResult = new TagGalleryResult()
+    result.tagKey = normalizedTag
+    result.vote = vote
     return result
   }
 
