@@ -75,6 +75,12 @@ Historical feedback in this section must not trigger new implementation.
   verification: full comments now shows bounded up/down actions for voteable comments, opens a native
   confirmation before posting `votecomment`, and applies returned score/vote state locally. Simulator
   validation opened the confirmation dialog and cancelled; no real EH vote was submitted.
+- Gallery comment compose/reply is implemented and pending controller acceptance / authorized real-submit
+  verification: full comments now exposes a new-comment title action, detail menus can open full comments
+  even when the detail peek has no rows, reply actions prefill `@author` plus EH-compatible encoded comment
+  id, and submission posts `commenttext_new` to `/g/{gid}/{token}`. Simulator validation opened the HDS
+  compose/reply sheets, typed draft text, confirmed send-state gating, and cancelled; no real EH comment was
+  submitted.
 
 ## Parked / Guidance Only
 
@@ -102,8 +108,8 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Comment write actions: vote up/down is implemented pending acceptance; continue with reply/new comment
-   or own-comment edit only as the next bounded EH write lane.
+1. Comment write actions: vote up/down and reply/new comment are implemented pending acceptance; continue
+   with own-comment edit only if the next bounded EH write lane should stay on comments.
 2. Settings shell audit: identify settings rows/pages that are only shells, disabled placeholders, or
    not wired to real behavior; either finish the high-frequency ones or make their limited scope honest.
 3. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment

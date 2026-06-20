@@ -18,7 +18,7 @@ Priority suggestion: P0/P1
 
 Status: active intake / remote favorite write path implemented pending acceptance / gallery rating write
 implemented pending authorized real-submit acceptance / comment vote implemented pending authorized
-real-submit acceptance
+real-submit acceptance / comment compose-reply implemented pending authorized real-submit acceptance
 
 Source:
 
@@ -31,8 +31,8 @@ Source:
   - NextE has strong browsing surfaces: Home/Search/Favorites/Detail/Reader/Settings/Download shells,
     local favorite state, remote favorite browsing, read-only comments, torrent/archiver read surfaces,
     and some non-destructive write-entry affordances.
-  - `GalleryCommentsPage` now implements the first bounded comment write action: vote up/down on the
-    full comments page. Composer / reply / edit remain deferred write-ops.
+  - `GalleryCommentsPage` now implements bounded comment write actions: vote up/down and protected
+    new/reply composition on the full comments page. Own-comment edit remains a deferred write-op.
   - `GalleryArchiverPage` and download queue flows expose read/queue surfaces but do not complete the
     destructive archive/download submit pipeline.
   - Gallery rating now has a protected `rategallery` path in NextE: it opens an HDS rating sheet,
@@ -55,7 +55,7 @@ Scheduling judgment:
 - The next major progress should be user-visible feature completion, not another long cycle of Reader
   double-page architecture or repeated visual QA, unless a current P0 defect blocks basic use.
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
-  1. Comment actions: comment vote is implemented; continue with reply/new comment, then own-comment edit.
+  1. Comment actions: comment vote and reply/new comment are implemented; continue with own-comment edit.
   2. Tag/MyTags write actions: tag vote/suggest/set-user-tag after the write safety pattern is proven.
   3. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
      smaller write operations unless the user explicitly prioritizes downloads.
@@ -76,6 +76,17 @@ Handled status:
   `赞成` confirmation dialog, and cancelled. Evidence files live under
   `.hvigor/outputs/comment-vote-write/`. Remaining gap: final vote submit was not clicked because EH
   comment voting is a real account write and still needs an explicitly authorized test target.
+- Comment compose/reply: `implemented / pending controller acceptance and authorized real-submit
+  verification`. Commit: `df673c9 feat(gallery): add comment compose flow`. Scope: protected
+  `/g/{gid}/{token}` form submit with `commenttext_new`, full-comments new-comment title action, detail
+  menu entry so zero-comment peeks can still reach the full comments page, reply footer action with
+  `@author` plus EH-compatible encoded comment id prefill, HDS `AppModalScaffold` compose sheet, login and
+  minimum-length gates, i18n strings, and deterministic contracts. Device evidence: Mate X7 emulator
+  `127.0.0.1:5555`, official signed HAP, entered a real gallery, opened detail menu `评论`, opened full
+  comments, opened new-comment sheet, typed draft text to verify send-state gating, opened reply sheet and
+  verified prefill, then cancelled. Evidence files live under `.hvigor/outputs/comment-compose-write/`.
+  Remaining gap: final comment submit was not clicked because EH comments are real account writes and still
+  need an explicitly authorized test target.
 
 Implementation constraints:
 
