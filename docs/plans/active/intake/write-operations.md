@@ -16,7 +16,39 @@ Type: bug / write-entry usability regression
 
 Priority suggestion: P0/P1
 
-Status: new / reopened regression
+Status: implemented / pending controller acceptance
+
+Fix scope:
+
+- `GalleryDetailPage` now uses a single `detailSheetShown` / `detailSheetKind` sheet host for remote
+  favorite, rating, and full-title modal surfaces.
+- This removes the stacked `bindSheet` pattern where sibling sheet bindings set to false could close
+  the remote favorite sheet immediately after opening.
+- The remote favorite content and protected submit semantics are unchanged: open/cancel validation is
+  non-destructive; confirm still optimistically closes only after the user explicitly submits.
+
+Commit:
+
+- `a85ec91 fix(gallery): stabilize remote favorite sheet`.
+
+Validation:
+
+- Reproduced on local HarmonyOS emulator `127.0.0.1:5555`, folded Mate X7 state. Before fix, tapping the
+  detail title favorite action produced no stable `EH 收藏` / note / slot nodes in immediate or 1s layout
+  captures:
+  `.hvigor/outputs/remote-favorite-sheet-regression/after-open-immediate/`,
+  `.hvigor/outputs/remote-favorite-sheet-regression/after-open-1s/`.
+- After fix, installed signed HAP and repeated the same cold-start path. Immediate and 1s captures both
+  contain `EH 收藏` and `TextArea`; cancel closes the sheet:
+  `.hvigor/outputs/remote-favorite-sheet-regression/fixed-after-open-immediate/`,
+  `.hvigor/outputs/remote-favorite-sheet-regression/fixed-after-open-1s/`,
+  `.hvigor/outputs/remote-favorite-sheet-regression/fixed-after-cancel/`.
+- Contracts/build:
+  `node scripts/test_gallery_remote_favorite_sheet_contract.mjs`,
+  `node scripts/test_gallery_rating_write_contract.mjs`,
+  `node scripts/test_gallery_detail_full_title_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`,
+  `scripts/build_hvigor_signed.sh`.
 
 Source:
 

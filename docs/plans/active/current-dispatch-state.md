@@ -78,6 +78,9 @@ Historical feedback in this section must not trigger new implementation.
 - Gallery Grid immersive chrome disappearance is handled as a baseline rule above. Do not reopen the
   old bug except for a fresh reproduction that cards disappear under translucent chrome despite the
   spacer model.
+- Remote favorite sheet lifecycle regression is implemented pending controller acceptance: detail page
+  modal surfaces now share one `bindSheet` host so rating/full-title false bindings cannot close the
+  `EH 收藏` sheet after it opens. Reopen only for a fresh reproduction after this fix.
 
 ## Parked / Guidance Only
 
@@ -107,21 +110,18 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Remote favorite sheet lifecycle regression: the detail menu `EH 收藏` action can flash the half-modal
-   and close it immediately. This is a high-priority write-entry usability bug and should be the next
-   lane.
-2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, and MyTags new-user-tag add are implemented pending controller acceptance / authorized
    real-submit verification. Reopen here only for a fresh tag-vote / MyTags edit / MyTags delete /
    MyTags add regression, or for a separately scoped tagset-management lane.
-4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+3. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+4. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+5. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule
