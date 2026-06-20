@@ -195,6 +195,9 @@ Research:
   and `ReaderLoadingStage` is also rendered while `imageLoaded` is false.
 - That shape is vulnerable to a visible-image/loading-state mismatch: a bitmap can be painted while the
   component still believes `imageLoaded` is false, leaving the spinner/text over the reading image.
+- User follow-up clarified this is a design error, not just a missing state reset: normal Reader loading
+  should not be modeled as a `Stack` overlay on the image surface. The loading stage should be a mutually
+  exclusive placeholder/replacement before the image branch becomes visible.
 - Existing Reader recovery evidence claimed "no loading/progress residue after ready", but this user repro
   shows the state model still needs a direct no-overlay contract.
 
@@ -202,6 +205,8 @@ Expected behavior:
 
 - Resolving/loading states may occupy the page before the image is visible.
 - Once a page image is visibly painted, the loading indicator for that same page must be gone.
+- Prefer a branch structure where loading/resolving content replaces the image until the page is ready,
+  instead of placing `ReaderLoadingStage` as a sibling overlay above `Image` in a `Stack`.
 - Failure/retry UI may replace the image, but loading must not sit on top of readable content.
 - Keep the fix narrow: do not reintroduce streamed byte progress, cache-file loading, double-page redesign, or
   broad gesture rewrites for this bug.
@@ -212,7 +217,9 @@ Acceptance shape:
 - After the image becomes visible, there is no centered `LoadingProgress` or "loading image" text over it.
 - Repeat for horizontal single-page, vertical mode, and double-page/spread image layer if that mode is active.
 - Add or tighten a runnable contract so the loaded-image branch cannot also render `ReaderLoadingStage` as an
-  overlay on the same visible image. A source grep that only proves `LoadingProgress` exists is insufficient.
+  overlay on the same visible image. Ideally the contract should fail if normal loading is represented as
+  `Stack { Image; ReaderLoadingStage }` rather than an exclusive loading-vs-image branch. A source grep that
+  only proves `LoadingProgress` exists is insufficient.
 
 ### Reader Auto-Read Page Turn Is Missing
 
