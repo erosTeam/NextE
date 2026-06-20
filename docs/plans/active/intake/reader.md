@@ -230,6 +230,63 @@ Remaining acceptance:
   Reader-page device screenshot remains optional reference material; the implementation is grounded in
   FE source and verified on HarmonyOS runtime.
 
+### Reader Volume-Key Page Turn May Only Be Partially Wired
+
+Type: reading UX / settings behavior gap
+
+Priority suggestion: P1
+
+Status: reported / needs device reproduction
+
+User feedback:
+
+- 2026-06-20 side conversation: the Reader Settings "音量键翻页" option appears to exist, but the user
+  suspects the actual volume-key page turn is not implemented or behaves like a placeholder.
+
+Read-only NextE inspection:
+
+- `feature/settings/src/main/ets/pages/ReaderSettingsPage.ets` exposes a switch row bound to
+  `readMode.volumeKeyTurn`.
+- `shared/src/main/ets/settings/ReadModeSettings.ets` restores and persists
+  `StorageKeys.READING_VOLUME_KEY`.
+- `feature/reader/src/main/ets/pages/ReaderPage.ets` contains two volume-key handling paths:
+  focused `.onKeyEvent()` on `READER_KEY_SURFACE_ID`, and `inputConsumer.on('keyPressed')` consumers
+  for `KEYCODE_VOLUME_DOWN` / `KEYCODE_VOLUME_UP`.
+- `volume down` maps to `toNext()`, and `volume up` maps to `toPrev()`.
+- `scripts/test_reader_volume_key_contract.mjs` currently passes, but it is a static source-shape
+  contract. It proves the code path exists; it does not prove hardware keys page on device.
+
+Likely risk:
+
+- `registerVolumeKeyConsumer()` is called during Reader `onReady()` only if `readMode.volumeKeyTurn`
+  is already enabled. If the user enables the setting while Reader is already open or after navigating
+  through Reader Settings, there is no visible `@Monitor('readMode.volumeKeyTurn')` path that registers
+  or unregisters the `inputConsumer` dynamically.
+- If HarmonyOS does not deliver volume keys through the focused `.onKeyEvent()` path, and the
+  `inputConsumer` was never registered because the setting changed later, the UI will look like a real
+  setting while volume buttons still change system volume.
+
+Expected behavior:
+
+- When the setting is enabled before opening Reader, pressing volume down/up on device should reliably
+  page next/previous without showing or changing system volume.
+- Toggling the setting while Reader is open should take effect without leaving and reopening the Reader.
+- Disabling the setting should unregister the key consumer so volume buttons return to system volume.
+- If HarmonyOS cannot intercept volume keys in this app context, the setting must be hidden or marked as
+  unsupported instead of presented as a working feature.
+
+Acceptance:
+
+- Add a runtime contract or code contract that `ReaderPage` monitors `readMode.volumeKeyTurn` and
+  dynamically registers/unregisters the volume-key consumer.
+- Device evidence with the setting enabled before Reader entry: Reader page number changes from
+  volume down/up.
+- Device evidence with the setting toggled while Reader is already open: the new state takes effect
+  immediately.
+- Device evidence with the setting disabled: volume keys no longer trigger reader page turns.
+- Static `scripts/test_reader_volume_key_contract.mjs` remains useful as a floor, but it cannot be used
+  as final acceptance for this feature.
+
 ### Reader Image Failure States Are Generic
 
 Type: reading UX / error handling gap
