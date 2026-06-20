@@ -900,9 +900,9 @@ Why this is separate from generic gesture acceptance:
 - Prior device evidence proves some deliberate long swipes can turn pages and some zoom/pan paths work.
   That does not cover this failure class because the bug is about accidental early commit from a short or
   partial drag, and about rejected/ignored intentional swipes.
-- A screenshot after the page changes is not sufficient evidence. The useful evidence is the gesture
-  sequence: touch down, small move distance, page index change timing, and whether Swiper/page-turn state
-  committed before a real swipe threshold or failed to commit after a valid swipe.
+- A screenshot, video, or automated repeated swipe after the page changes is not sufficient proof. This
+  failure class can pass many happy-path runs and still fail in normal hands. The primary proof must be
+  static: the code architecture must make gesture conflict impossible by construction.
 
 Likely risk areas to inspect:
 
@@ -914,18 +914,28 @@ Likely risk areas to inspect:
   zoom state or programmatically normalizes the current index.
 - Double-page spread mode can amplify the symptom because each visual page turn may represent two source
   indices, but the same issue should be checked in single-page mode as well.
+- Current static conflict evidence, 2026-06-21: horizontal and double-page `Swiper.onChange` handlers can
+  directly mutate page state through `vm.onPageChange(...)`, while `ReaderTapOverlay.onTouch` can also
+  call `onReaderHorizontalSwipe(...) -> turnTo(...) -> vm.onPageChange(...)`. The existing contract even
+  leaves "very long swipe" to Swiper while shorter bounded swipes are handled by the overlay fallback.
+  That split-owner design cannot strictly prove conflict freedom.
 
 Investigation direction:
 
-- Add or use a QA-only gesture trace around Reader page turns before attempting another visual rewrite:
-  record pointer down/up coordinates, max horizontal delta, duration, active zoom state, current page
-  before/after, and which handler caused, rejected, or duplicated the page change.
-- Reproduce by repeatedly doing both small left/right drags and intentional page swipes across several
-  pages at fit scale in both single-page and double-page modes. The test should classify the gesture as
-  "short drag" versus "valid page swipe" based on measured distance/duration, not subjective feel.
-- Acceptance must include video or trace evidence showing short drags below threshold do not change page,
-  while intentional swipes consistently turn exactly one page. One happy-path screenshot or one successful
-  automated long swipe is not enough QA for this lane.
+- First produce a static gesture-ownership proof before attempting another visual rewrite or threshold
+  tweak. The proof should identify exactly one page-turn owner at fit scale and exactly one function that
+  commits page index changes for user swipes.
+- The next design should remove the split between "some swipes handled by overlay onTouch" and "some
+  swipes handled by Swiper onChange". Pick one owner. A custom `ReaderPager` / gesture state machine is
+  acceptable if it is smaller and more provable than mixing native Swiper recognition with a fallback.
+- Page commits must be classified before mutation: below-threshold drag, valid page swipe, zoomed pan,
+  double tap, single tap/chrome, slider jump, and programmatic sync should be mutually exclusive paths.
+- Deterministic contracts should assert the absence of competing commit paths, not merely that a param or
+  threshold exists. For example, fail if both `Swiper.onChange` and `ReaderTapOverlay.onTouch` can commit
+  normal horizontal page turns.
+- A QA-only gesture trace is still useful after the static design is repaired: record pointer down/up
+  coordinates, max horizontal delta, duration, active zoom state, current page before/after, and which
+  single handler accepted or rejected the gesture. Treat this as smoke evidence, not the main proof.
 - Do not reopen Reader chrome styling, loading progress, or double-page visual seam in this lane unless
   the trace proves they directly affect the early page commit.
 

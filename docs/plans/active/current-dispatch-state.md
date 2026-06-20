@@ -167,8 +167,9 @@ Items here are real concerns, but they are not active implementation lanes by de
   blocks normal reading.
 - Reader intermittent gesture failures are no longer merely parked after fresh user evidence on
   2026-06-21: normal reading is still hit by both "drag for a long time and nothing moves" and "tiny
-  drag turns the page" failures. The active lane below must start from gesture trace evidence; do not
-  keep patching Reader recognizers from static reasoning alone.
+  drag turns the page" failures. The active lane below must start from static gesture-ownership proof;
+  trace/device runs are supporting evidence only. Do not keep patching Reader recognizers from static
+  reasoning alone.
 - Home bottom-tab auto-hide and smart-grip-aware floating action alignment are medium-priority UX
   enhancements. They should not interrupt the current Grid/Waterfall recovery lane, but they are good
   candidates for a later bounded platform-UX lane because Next2V already has working patterns:
@@ -183,11 +184,11 @@ a bounded validation path.
 1. Reader page-turn gesture reliability: normal reading still has severe intermittent swipe failures.
    User reports both ends of the same failure class: repeated/long swipes sometimes do not move the page,
    while a tiny drag can unexpectedly commit a page turn. Reopen the Reader gesture lane as P0/P1 before
-   more polish work. The next implementation must first add/use QA gesture trace evidence around touch
-   down/move/up, max delta, duration, zoom state, current index before/after, and the handler that caused
-   or rejected the page turn. Acceptance must include repeated real-device/simulator attempts showing
-   intentional swipes turn exactly one page and below-threshold drags do not turn pages; a single happy-path
-   screenshot is not enough.
+   more polish work. The next implementation must first prove the gesture architecture statically: at fit
+   scale there must be one page-turn owner and one commit path, not a `Swiper.onChange` path plus an
+   overlay `onTouch` fallback plus programmatic sync all able to mutate page state. Contracts should fail
+   if both Swiper and overlay/custom touch can independently commit a page turn. Device/simulator traces
+   are still useful, but only as smoke after the static conflict is removed; they are not sufficient proof.
 2. Search action-seeded autofocus regression: tapping a gallery detail tag/uploader/similar action should
    open Search in results-first mode without focusing the input or showing the keyboard. User validation
    still shows mandatory keyboard popup, despite `SearchPageParams(..., focusOnAppear=false)` already
