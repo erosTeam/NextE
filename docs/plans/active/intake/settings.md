@@ -16,7 +16,7 @@ Type: feature gap / settings trustworthiness
 
 Priority suggestion: P1
 
-Status: active intake / Security root exposure implemented pending controller acceptance
+Status: active intake / Security and Download root exposure implemented pending controller acceptance
 
 Source:
 
@@ -25,8 +25,9 @@ Source:
 - User expectation: Settings should not imply completed functionality when the underlying feature is
   absent or not wired.
 - Read-only NextE inspection:
-  - Settings root now exposes EH, Layout, Reader, Download, Search, History, Advanced, Security, and
-    About routes.
+  - Settings root exposed EH, Layout, Reader, Download, Search, History, Advanced, Security, and
+    About routes; Security and Download settings entries were later hidden until their downstream
+    behavior is real.
   - `ReaderSettingsPage` has direction, double-page, auto-page interval, and volume-key rows. The route
     exists, but runtime menu opening / behavior linkage needs current device verification.
   - `EhSettingsPage` contains disabled `网站设置` and `图片限制` rows; comments say website settings,
@@ -34,7 +35,8 @@ Source:
   - `AdvancedSettingsPage` currently provides only HiLog diagnostics and marker write, while FE Advanced
     contains cache/proxy/import/export/log-related maintenance rows.
   - `DownloadSettingsPage` is explicitly scoped to persisted policy controls, while the broader download
-    executor remains incomplete.
+    executor remains incomplete; this was later corrected by hiding the Download settings entry from
+    Settings root until those policies are consumed by the executor.
   - `SecuritySettingsPage` intentionally exposed recent-task blur as disabled and auto-lock preference
     foundation without full biometric/lifecycle enforcement; this was later corrected by hiding the
     Security entry from Settings root until real lock enforcement exists.
@@ -90,6 +92,17 @@ Handled update, 2026-06-20:
   showed `EH`, `布局`, `阅读`, `下载`, `搜索`, `历史`, `高级`, and `关于`, with `contains 安全: false`.
   Evidence files: `.hvigor/outputs/settings-security-root-hidden/settings_root.png` and
   `.hvigor/outputs/settings-security-root-hidden/settings_root_layout.json`.
+- Download settings root exposure: implemented / pending controller acceptance. Settings root no
+  longer shows the settings-side `下载` row because the current download queue/workbench does not
+  consume the parked concurrency/original-image policy preferences. The bottom-tab Download workbench
+  remains available. Contract updated: `scripts/test_download_settings_contract.mjs` now locks that
+  Settings root must not contain `settings_download` or `pushPathByName('DownloadSettings', null)`
+  until the executor consumes those preferences.
+- HarmonyOS emulator evidence: target `127.0.0.1:5555`, signed HAP installed. Settings root main rows
+  were `账号 / 我的标签 / 退出登录 / EH / 布局 / 阅读 / 搜索 / 历史 / 高级 / 关于`; `main contains 下载:
+  false`, while bottom-tab `下载` remained visible. Evidence files:
+  `.hvigor/outputs/settings-download-root-hidden/settings_root.png` and
+  `.hvigor/outputs/settings-download-root-hidden/settings_root_layout.json`.
 
 ### Settings Root Missing Layout Settings Page
 

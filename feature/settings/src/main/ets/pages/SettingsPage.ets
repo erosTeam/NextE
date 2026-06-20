@@ -119,14 +119,6 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
-        title: $r('app.string.settings_download'),
-        leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
-        action: () => {
-          this.stack.pushPathByName('DownloadSettings', null)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
         title: $r('app.string.settings_search'),
         leadingIcon: $r('sys.symbol.magnifyingglass'),
         action: () => {

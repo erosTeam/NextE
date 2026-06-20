@@ -91,6 +91,10 @@ Historical feedback in this section must not trigger new implementation.
   recent-task privacy / auto-lock page is no longer reachable from Settings root until real
   lifecycle/biometric lock enforcement exists. The parked V2 preference/page code remains for a future
   platform-validated lane, but Settings root no longer implies security protection is already wired.
+- Download settings root exposure is corrected and pending controller acceptance: the unfinished
+  concurrency/original-image policy page is no longer reachable from Settings root because the current
+  download queue/executor does not consume those preferences. The Download tab/workbench remains
+  available; the parked settings page can return when a real executor lane wires the policy.
 
 ## Parked / Guidance Only
 
@@ -122,7 +126,8 @@ a bounded validation path.
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
 2. Settings shell audit: continue with remaining rows/pages that are only shells, disabled placeholders,
-   or not wired to real behavior; Security root exposure is already corrected pending acceptance.
+   or not wired to real behavior; Security and Download root exposure are already corrected pending
+   acceptance.
 3. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
    writes establish the protected EH write pattern.
 4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds

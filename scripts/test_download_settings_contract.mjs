@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Contract: download preferences are real persisted V2 state, not static copy in the Download tab.
+ * Contract: unfinished download policy preferences stay parked until the executor consumes them.
  *
- * The Downloads tab is a queue workbench. This contract keeps the preferences implementation alive
- * for the later settings lane, but prevents those controls from drifting back into queue content.
+ * The Downloads tab is a queue workbench. The parked preferences implementation can stay in code for
+ * the later executor lane, but Settings root must not expose controls that do not affect current tasks.
  *
  * Run: node scripts/test_download_settings_contract.mjs
  */
@@ -51,15 +51,15 @@ ok(/DownloadSettingsState/.test(barrel) && /connectDownloadSettings/.test(barrel
   /DownloadSettings/.test(barrel), 'shared barrel exports download settings API')
 
 const settingsRoot = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
-ok(/settings_download/.test(settingsRoot) && /pushPathByName\('DownloadSettings'/.test(settingsRoot),
-  'settings root exposes a Download settings entry')
+ok(!/settings_download/.test(settingsRoot) && !/pushPathByName\('DownloadSettings'/.test(settingsRoot),
+  'settings root does not expose Download settings until executor consumes the preferences')
 
 const settingsIndex = read('feature/settings/src/main/ets/Index.ets')
-ok(/DownloadSettingsPage/.test(settingsIndex), 'settings barrel exports DownloadSettingsPage')
+ok(/DownloadSettingsPage/.test(settingsIndex), 'parked settings barrel still exports DownloadSettingsPage')
 
 const entryIndex = read('entry/src/main/ets/pages/Index.ets')
 ok(/DownloadSettingsPage/.test(entryIndex) && /name === 'DownloadSettings'/.test(entryIndex),
-  'entry router registers the DownloadSettings route')
+  'parked entry router registers the DownloadSettings route for future executor-lane validation')
 
 const downloadPage = read('feature/settings/src/main/ets/pages/DownloadSettingsPage.ets')
 ok(/eros_fe DownloadSettingPage/.test(downloadPage), 'download settings page records eros_fe grounding')
@@ -99,4 +99,4 @@ if (failures > 0) {
   process.exit(1)
 }
 
-console.log('✓ download settings contract: persisted concurrency + original mode locked')
+console.log('✓ download settings contract: unfinished download policy entry stays hidden')

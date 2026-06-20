@@ -37,8 +37,8 @@ ok(/export struct ReaderSettingsPage/.test(readerSettings), 'ReaderSettingsPage 
 ok(/title:\s*\$r\('app\.string\.settings_reader'\)/.test(settings), 'Settings root renders a Reader settings row')
 ok(/this\.stack\.pushPathByName\('ReaderSettings',\s*null\)/.test(settings),
   'Settings root Reader row pushes the ReaderSettings route')
-ok(/settings_reader[\s\S]*pushPathByName\('DownloadSettings'/.test(settings),
-  'Reader settings row appears before Download settings in the main settings group')
+ok(/settings_reader[\s\S]*pushPathByName\('SearchSettings'/.test(settings),
+  'Reader settings row appears before Search settings in the main settings group')
 ok(/private openReaderSettings\(\): void[\s\S]*pushPathByName\('ReaderSettings',\s*null\)/.test(reader),
   'Reader chrome still opens the same ReaderSettings route')
 
