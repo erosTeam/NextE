@@ -20,6 +20,14 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
 - Gallery Grid is separated from Waterfall: Grid uses grid scaffold semantics and fixed-size cards;
   Waterfall is a separate mode, not an alias for Grid. This separation is baseline, but the current
   compact Grid visual target and Waterfall width/viewport behavior are active issues.
+- Gallery cover/thumbnail background policy is scoped: remove harsh gray placeholder/background only
+  from Gallery preview and Gallery detail primary-cover surfaces; keep placeholders for list/header/grid
+  thumbnails where they stabilize loading and scrolling. Gray background is never a reason to stretch
+  covers or discard the fixed-ratio / contain cover policy.
+- Gallery Grid immersive safe-area handling is baseline: top/bottom title or tab-bar avoidance uses
+  real full-row spacer content, while `Grid.padding` stays horizontal-only. Do not restore top/bottom
+  Grid padding or any padding-region approach that makes cards disappear under translucent chrome.
+  Waterfall must follow the same safe-area principle when its width/viewport lane is fixed.
 - AllThumbnails later-thumbnail Reader start is implemented and should not be reopened without a new
   reproduction.
 - Reader single-page core baseline is accepted. Double-page is not final architecture, but the current
@@ -199,8 +207,11 @@ a bounded validation path.
    high because Home/Search/Favorites browsing currently has two visible failures:
    regular-phone Grid should be a compact three-column cover wall with persistent category-colored
    translation badge and minimal title/date text, not a two-column large-card / tag/rating hybrid;
-   Waterfall is exposed but current widths are unusable and its viewport model may repeat the old
-   top/bottom padding issue. Next lane should fix `GalleryGridCard`, grid width constants/contracts, and
+   cover images must remain proportional, with any preview/detail gray-background problem fixed only
+   at the intended primary-cover surfaces rather than by globally removing thumbnail placeholders or
+   stretching Grid/List covers;
+   Waterfall is exposed but current widths are unusable and its viewport model must not repeat the old
+   top/bottom padding/safe-area issue. Next lane should fix `GalleryGridCard`, grid width constants/contracts, and
    `PullRefreshWaterFlowScaffold` / `GalleryWaterfallCard` width + immersive viewport behavior together.
 2. Remote favorite sheet lifecycle regression: the detail menu `EH 收藏` action can flash the half-modal
    and close it immediately. This is a high-priority write-entry usability bug and should be the next

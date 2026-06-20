@@ -413,11 +413,29 @@ Expected behavior:
   from the same responsive min-width policy, but the phone baseline must not be a two-column large-card
   layout.
 - The cover container should remain fixed-ratio and close to A-series `1 / sqrt(2)` vertical cover shape.
+- Cover imagery must stay proportional. If a fixed-ratio contain slot exposes gray/background area,
+  treat it as a background/placeholder/surface-specific styling issue, not as permission to stretch the
+  image back to fill the slot.
 - Grid information should be deliberately minimal: cover, persistent category-colored translation/language
   badge, page/favorite overlay, short title, and date / simple metadata. Tags and rich rating blocks belong
   to Waterfall / Waterfall Large unless a later product decision explicitly adds them to Grid.
 - The category-colored badge should be always present as a category signal, not conditional on
   `translated.length > 0`. Text can prefer translated/language, but the color/category signal must remain.
+
+Cover / placeholder scope:
+
+- User clarification, 2026-06-20: remove the harsh gray placeholder/background only for Gallery preview
+  and Gallery detail primary-cover surfaces. Those are main visual surfaces where gray blocks read as
+  broken cover presentation.
+- Do not generalize that clarification to list/header/grid/simple/waterfall thumbnails. Those thumbnail
+  surfaces should keep a stable placeholder/loading background so scrolling, empty image loads, and
+  retained list layout remain coherent.
+- If the implementation uses shared `EhThumbnail`, the surface that wants no gray background must opt in
+  at its call site or through a narrowly scoped presentation option. Do not change global thumbnail
+  defaults in a way that removes placeholders from list browsing.
+- This policy is independent from image fit: both preview/detail covers and list/grid thumbnails must
+  avoid image distortion. Placeholder/background fixes must never switch a proportional cover back to
+  stretched/fill rendering.
 
 Likely root cause:
 
@@ -781,3 +799,14 @@ Implementation / evidence:
   rendered behind the translucent bottom navigation bar instead of disappearing in the chrome region.
 - Controller still needs to accept the visual behavior on target devices; Waterfall spacer behavior remains
   a separate future audit and was not changed in this lane.
+
+Maintenance boundary:
+
+- Do not revert `PullRefreshGridScaffold` back to top/bottom `Grid.padding` for title/bottom-bar
+  avoidance. The real full-row spacer model is the current baseline because padding regions can unload
+  cards that are still visible behind translucent chrome.
+- Do not treat safe-area/chrome issues as a reason to merge Grid back into WaterFlow or to remove Grid
+  scaffold semantics. Fix safe-area behavior inside the relevant scaffold.
+- When Waterfall width/viewport is repaired, it should use the same overlay-safe principle: real spacer
+  content or an equivalent content-space model, not top/bottom padding that creates a non-rendering
+  pending region.
