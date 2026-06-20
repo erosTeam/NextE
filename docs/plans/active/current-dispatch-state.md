@@ -135,6 +135,11 @@ Historical feedback in this section must not trigger new implementation.
   Reader session plus `/s/` resolve caching. Simulator evidence on `127.0.0.1:5555` showed the second
   same-gallery Reader open hit `session_cache_hit` / `resolve_memory_cache` with no repeated
   `resolve_spage` or `merge_preview_page`.
+- AllThumbnails large-gallery jump and preview-page scrolling is implemented pending controller
+  acceptance. Existing evidence in `docs/plans/active/intake/gallery-list-grid.md` covers the
+  1700-page public gallery `https://e-hentai.org/g/3998992/f5b5c954d2/`, Android FE ADB `su`
+  grounding, NextE Mate X7 simulator jump-to-600, and adjacent up/down preview scrolling without
+  returning to the initial page range. Reopen only with a fresh mismatch beyond that evidence.
 
 ## Parked / Guidance Only
 
@@ -175,8 +180,6 @@ a bounded validation path.
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-3. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
-   a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
 
 ## Lane Selection Rule
 
