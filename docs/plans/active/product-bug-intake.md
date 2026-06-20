@@ -4206,63 +4206,69 @@ Acceptance shape:
 - Deterministic contract covers late favcat metadata arrival, placeholder exclusion, and datasource
   replacement after slot resolution.
 
-### Gallery Lists Need Earlier Pagination Prefetch And Larger Virtual Cache Range
+### Grid Items Disappear In Immersive Chrome Padding Region
 
-Type: gallery list pagination / lazy rendering UX
+Type: gallery grid rendering / immersive chrome viewport bug
 
-Priority suggestion: P2
+Priority suggestion: P1
 
 Status: active / queued
 
 Source:
 
-- User feedback, 2026-06-20: the current next-page load appears to trigger only when the list reaches
-  the bottom. A smoother model would trigger when the final item, or a near-end item, enters the render
-  range. The user also observed that list/grid items can disappear abruptly when most of the item leaves
-  the visible screen, which is especially noticeable with immersive bottom navigation where part of an
-  item is still visually peeking behind the bottom chrome.
+- User feedback, 2026-06-20: in Grid mode only, gallery cards can disappear abruptly when they enter the
+  top/bottom "pending" / immersive chrome area, even though the card is still visually expected to be
+  visible through the semi-transparent title/bottom bars. List mode does not show the same issue.
+- Related UX note: next-page loading currently appears to trigger only at the physical bottom; a smoother
+  model would also prefetch when the final or near-final rendered item enters the visible range.
 
 Current implementation notes:
 
-- Home, Search, and Favorites gallery lists wire pagination through `PullRefreshListScaffold` /
-  `PullRefreshGridScaffold` `onReachEnd -> vm.loadMore()`.
-- The shared scaffolds expose `onScrollIndex` for list mode but current gallery call sites do not use it
-  to trigger near-end prefetch. Grid and WaterFlow scaffolds currently expose only `onReachEnd`.
-- `List`, `Grid`, and `WaterFlow` with `LazyForEach` support `cachedCount`; HarmonyOS docs describe this
-  as pre-creating / pre-layouting offscreen items. The current shared gallery scaffolds do not set an
-  explicit `cachedCount`.
-- For `Grid`, cached rows are effectively `cachedCount * columns`; this needs conservative tuning because
-  gallery cards include network images and can increase memory pressure.
+- `PullRefreshListScaffold` models top/bottom immersive chrome as real spacer `ListItem`s. Its List only
+  uses horizontal padding, so content can continue rendering underneath the semi-transparent chrome.
+- `PullRefreshGridScaffold` models the same top/bottom avoidance as `Grid.padding.top` and
+  `Grid.padding.bottom`.
+- HarmonyOS Grid documentation says Grid padding has special child display behavior: a `GridItem` partly
+  inside the content area and padding may display, but an item fully inside the padding area may not
+  display. This matches the observed Grid-only disappearance.
+- Home, Search, and Favorites Grid branches all use `PullRefreshGridScaffold`, so the issue is shared.
+- `PullRefreshWaterFlowScaffold` also uses top/bottom padding; future Waterfall may inherit the same bug
+  unless it is designed with real spacer content instead of padding-as-viewport.
+- Home, Search, and Favorites pagination currently wire `onReachEnd -> vm.loadMore()`. The shared scaffolds
+  expose `onScrollIndex` for list mode, but current gallery call sites do not use it for near-end prefetch.
 
 Expected behavior:
 
+- Grid cards should keep rendering while they are visually under / behind the semi-transparent top or
+  bottom chrome. The immersive area is still part of the visible reading/browsing canvas.
+- Top/bottom chrome should behave as overlay, not as a Grid padding region that removes visible content.
+- The last grid row should still be scrollable above the bottom bar when needed; this requires real spacer
+  content at the end, not a `Grid.padding.bottom` avoidance hack.
 - Pagination should start before the user physically hits the bottom, ideally when the visible end index
   is within a small threshold from `itemCount - 1`.
-- The same prefetch policy should apply to Home, Search, Favorites, and later Waterfall, without each
-  page inventing a different trigger.
-- Lazy list/grid items should not visibly disappear at the bottom edge while still partially visible
-  through the immersive navigation/bottom bar area.
-- Increasing cache range must be bounded and measured; it should improve perceived continuity without
-  causing excessive image memory or long-list jank.
 
 Implementation direction:
 
-- Add a shared near-end pagination event to `PullRefreshListScaffold` and `PullRefreshGridScaffold`, based
-  on `onScrollIndex` end/last visible index and a configurable threshold such as rows/items remaining.
-- Debounce/guard this trigger through existing `vm.canLoadMore()` / `isLoadingMore` logic so it cannot
-  fire duplicate network requests while a page is already loading.
-- Add explicit `cachedCount` params to list/grid/waterflow scaffolds, with safe defaults per mode
-  (for example list rows vs grid rows, not raw item count for grid).
-- Treat bottom safe-area / floating-bar height as part of the UX viewport when validating disappearance:
-  if content is visible under translucent chrome, the cache range should keep it mounted long enough not
-  to pop out at the edge.
+- Stop using `Grid.padding.top` / `Grid.padding.bottom` for immersive title/bottom-bar avoidance in
+  `PullRefreshGridScaffold`.
+- Replace top/bottom Grid padding with real full-row spacer content, matching the List scaffold model.
+  Prefer proper full-row `GridItem` / irregular item support so the spacer scrolls as part of Grid content.
+- Keep only horizontal Grid padding for layout margins.
+- Add / tune explicit `cachedCount` only as a secondary smoothness guard, not as the root fix.
+- Add a shared near-end pagination event to `PullRefreshGridScaffold` and `PullRefreshListScaffold`, based
+  on visible end index and a configurable threshold, guarded by existing `canLoadMore()` / `isLoadingMore`.
+- Audit `PullRefreshWaterFlowScaffold` before launching Waterfall; it must not repeat the same
+  top/bottom-padding-as-immersive-inset bug.
 
 Acceptance shape:
 
-- On a long Home/Search/Favorites gallery list, slow-scroll near the bottom and verify the next page starts
-  loading before hitting the terminal footer.
+- Home, Search, and Favorites Grid mode: slow-scroll cards under the bottom bar and top chrome; cards do
+  not disappear while still visually expected through semi-transparent chrome.
+- The final grid row can still be scrolled above the bottom bar and is not permanently hidden by overlay.
+- List mode remains unchanged and does not regress.
+- On a long Home/Search/Favorites gallery list, slow-scroll near the bottom and verify next-page loading
+  starts before hitting the terminal footer.
 - While a page load is in flight, continued scrolling does not enqueue duplicate `loadMore()` requests.
-- In list and grid modes, items near the immersive bottom bar do not abruptly disappear while still visibly
-  peeking through the bottom chrome.
-- Deterministic contract covers near-end trigger wiring for List and Grid, duplicate-load guards, and
-  explicit cachedCount configuration on shared gallery scaffolds.
+- Deterministic contract covers: `PullRefreshGridScaffold` no longer uses top/bottom Grid padding for
+  immersive inset, top/bottom spacer content exists, near-end trigger wiring exists for Grid/List, and
+  duplicate-load guards remain in the VM path.
