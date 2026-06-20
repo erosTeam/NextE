@@ -674,7 +674,7 @@ Acceptance shape:
 
 Implementation / evidence:
 
-- Commit: `106997b fix(gallery): keep grid cards visible under chrome`.
+- Commit: `d2a65d2 fix(gallery): keep grid cards visible under chrome`.
 - Scope: `PullRefreshGridScaffold` now models top/bottom chrome avoidance as real full-row `GridItem`
   spacer content and keeps `Grid.padding` horizontal-only. Home, Search, and Favorites Grid branches pass
   `itemCount`, a near-end threshold, and `onNearEnd -> vm.loadMore()` while retaining the existing
