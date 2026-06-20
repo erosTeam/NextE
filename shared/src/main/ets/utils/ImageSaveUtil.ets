@@ -1,5 +1,5 @@
 import { common } from '@kit.AbilityKit'
-import { fileUri } from '@kit.CoreFileKit'
+import { fileIo } from '@kit.CoreFileKit'
 import { photoAccessHelper } from '@kit.MediaLibraryKit'
 import { EhHttpClient } from '../network/EhHttpClient'
 
@@ -17,12 +17,59 @@ export class ImageSaveUtil {
     const extension: string = ImageSaveUtil.extensionFromUrl(url)
     const title: string = ImageSaveUtil.safeTitle(titleSeed, extension)
     const filePath: string = `${context.cacheDir}/${title}.${extension}`
-    await EhHttpClient.getInstance().downloadBinaryToFile(url, filePath)
-    const uri: string = fileUri.getUriFromPath(filePath)
+    try {
+      await EhHttpClient.getInstance().downloadBinaryToFile(url, filePath)
+      await ImageSaveUtil.copySandboxImageToPhotos(context, filePath, title, extension)
+    } finally {
+      ImageSaveUtil.removeTempFile(filePath)
+    }
+  }
+
+  private static async copySandboxImageToPhotos(
+    context: common.UIAbilityContext,
+    filePath: string,
+    title: string,
+    extension: string,
+  ): Promise<void> {
+    const srcFileUri: string = filePath
     const helper: photoAccessHelper.PhotoAccessHelper = photoAccessHelper.getPhotoAccessHelper(context)
-    const request: photoAccessHelper.MediaAssetChangeRequest =
-      photoAccessHelper.MediaAssetChangeRequest.createImageAssetRequest(context, uri)
-    await helper.applyChanges(request)
+    const config: photoAccessHelper.PhotoCreationConfig = {
+      title,
+      fileNameExtension: extension,
+      photoType: photoAccessHelper.PhotoType.IMAGE,
+      subtype: photoAccessHelper.PhotoSubtype.DEFAULT,
+    }
+    let srcFile: fileIo.File | null = null
+    let destFile: fileIo.File | null = null
+    try {
+      const destUris: string[] = await helper.showAssetsCreationDialog([srcFileUri], [config])
+      if (!destUris || destUris.length === 0) {
+        throw new Error('save cancelled')
+      }
+      srcFile = await fileIo.open(filePath, fileIo.OpenMode.READ_ONLY)
+      destFile = await fileIo.open(destUris[0], fileIo.OpenMode.WRITE_ONLY)
+      await fileIo.copyFile(srcFile.fd, destFile.fd)
+    } finally {
+      ImageSaveUtil.closeFile(srcFile)
+      ImageSaveUtil.closeFile(destFile)
+    }
+  }
+
+  private static closeFile(file: fileIo.File | null): void {
+    if (file === null) {
+      return
+    }
+    try {
+      fileIo.closeSync(file)
+    } catch (_err) {
+    }
+  }
+
+  private static removeTempFile(filePath: string): void {
+    try {
+      fileIo.unlinkSync(filePath)
+    } catch (_err) {
+    }
   }
 
   private static extensionFromUrl(url: string): string {

@@ -62,7 +62,8 @@ ok('ReaderSpreadResolver normalizes double-page slider commits through spread ma
   /static sliderTargetIndex\(enabled: boolean, columnMode: string, page: number\): number \{[\s\S]*return ReaderSpreadResolver\.normalizedReaderIndex\(enabled, columnMode, index\)/.test(src))
 ok('ReaderPage sliderTargetIndex delegates to ReaderSpreadResolver',
   /private sliderTargetIndex\(page: number\): number \{[\s\S]*return ReaderSpreadResolver\.sliderTargetIndex\(this\.doublePageEnabled\(\), this\.readMode\.columnMode, page\)/.test(src))
-ok('Slider commit jumps to sliderTargetIndex instead of raw page minus one', /this\.jumpToPage\(this\.sliderTargetIndex\(page\)\)/.test(src))
+ok('Slider commit jumps to sliderTargetIndex instead of raw page minus one',
+  /const targetIndex: number = this\.sliderTargetIndex\(page\)[\s\S]*this\.jumpToPage\(targetIndex\)/.test(src))
 ok('Slider commit no longer jumps directly to raw slider page', !/this\.jumpToPage\(page - 1\)/.test(src))
 
 console.log(`✓ reader slider spread contract: ${passed} assertions passed`)

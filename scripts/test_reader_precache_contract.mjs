@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Contract test for the reader's N-ahead image precache (eros_fe forward preload) + the resolve
- * service's in-flight dedup.
+ * Contract test for the reader's N-ahead image precache (eros_fe forward preload), per-process reader
+ * session seed cache, and the resolve service's in-flight/result dedup.
  *
  * `precacheIndices` mirrors ReaderViewModel.precacheAhead's range: pre-resolve [currentIndex+1 ..
  * min(currentIndex+PRECACHE_AHEAD, length-1)], skipping pages already resolved / not yet loaded.
@@ -60,10 +60,17 @@ ok(VM.includes('ImageResolveService.getInstance()'), 'VM: precache uses ImageRes
 ok((VM.match(/this\.precacheAhead\(\)/g) || []).length >= 4, 'VM: precache triggered from ≥4 sites (onPageChange/onVerticalScroll/init/jumpTo)')
 ok(VM.includes('img.imageUrl.length === 0 && img.sUrl.length > 0'), 'VM: precache skips resolved / unloaded pages')
 ok(SVC.includes('private inFlight: Map<string, Promise<string>>'), 'SVC: in-flight promise map')
+ok(SVC.includes('private resolved: Map<string, ImagePageResult>'), 'SVC: resolved /s/ result map')
+ok(SVC.includes('this.resolved.get(image.sUrl)'), 'SVC: reuses cached /s/ resolve result')
+ok(SVC.includes('resolve_memory_cache'), 'SVC: logs memory resolve-cache hits')
 ok(SVC.includes('this.inFlight.get(image.sUrl)'), 'SVC: coalesces concurrent resolves by sUrl')
 ok(SVC.includes('this.inFlight.delete(key)'), 'SVC: clears in-flight entry on settle')
 ok(SVC.includes('private async doResolve('), 'SVC: resolve body split into doResolve')
 ok(SVC.includes('if (!changeSource)'), 'SVC: 换源 bypasses the shared-promise cache')
+ok(VM.includes('private static sessionCache: Map<string, ReaderSessionSnapshot>'), 'VM: per-gallery reader session cache')
+ok(VM.includes('this.applySessionCache(fileCount)'), 'VM: init seeds from reader session cache before network load')
+ok(VM.includes('this.publishSessionCache()'), 'VM: writes session cache as reader metadata advances')
+ok(VM.includes('MAX_READER_SESSION_CACHE'), 'VM: cache is bounded')
 
 if (failures > 0) { console.error(`\n✗ reader precache contract: ${failures} failure(s)`); process.exit(1) }
-console.log('✓ reader precache contract: N-ahead range + skip-resolved/unloaded + resolve dedup wiring locked')
+console.log('✓ reader precache contract: N-ahead range + skip-resolved/unloaded + session/resolve cache wiring locked')

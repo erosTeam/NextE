@@ -42,25 +42,30 @@ ok(
 )
 
 ok(
-  'filmstrip renders only loaded previews with real image-page and thumbnail data',
+  'filmstrip renders sprites only when real image-page and thumbnail data exist',
   /private hasRenderableThumb\(img: EhGalleryImage\): boolean \{[\s\S]*img\.sUrl\.length > 0 && img\.thumbUrl\.length > 0/.test(reader) &&
-    /if \(this\.hasRenderableThumb\(img\)\)/.test(reader),
+    /if \(this\.hasRenderableThumb\(image\)\)/.test(reader),
+)
+
+ok(
+  'missing thumbnail metadata stays in-place and warms the target preview page',
+  /LoadingProgress\(\)[\s\S]*thumb_placeholder_appear[\s\S]*this\.vm\.warmPreviewForIndex\(index\)/.test(reader),
 )
 
 ok(
   'filmstrip reuses EhSpriteThumbnail with true sprite dimensions',
-  /ReaderThumbStrip\(\)[\s\S]*EhSpriteThumbnail\(\{[\s\S]*url: img\.thumbUrl[\s\S]*thumbWidth: img\.thumbWidth[\s\S]*thumbHeight: img\.thumbHeight[\s\S]*offsetX: img\.thumbOffsetX[\s\S]*spriteWidth: img\.spriteWidth[\s\S]*spriteHeight: img\.spriteHeight[\s\S]*fitHeight: true/.test(reader),
+  /ReaderThumbImage\(index: number, image: EhGalleryImage\)[\s\S]*EhSpriteThumbnail\(\{[\s\S]*url: image\.thumbUrl[\s\S]*thumbWidth: image\.thumbWidth[\s\S]*thumbHeight: image\.thumbHeight[\s\S]*offsetX: image\.thumbOffsetX[\s\S]*spriteWidth: image\.spriteWidth[\s\S]*spriteHeight: image\.spriteHeight[\s\S]*fitHeight: true/.test(reader),
 )
 
 ok(
   'tap on a thumbnail goes through existing jumpToPage',
   /private jumpToThumb\(index: number\): void \{[\s\S]*this\.jumpToPage\(index\)/.test(reader) &&
-    /\.onClick\(\(\) => \{[\s\S]*this\.jumpToThumb\(img\.page - 1\)/.test(reader),
+    /\.onClick\(\(\) => \{[\s\S]*this\.jumpToThumb\(index\)/.test(reader),
 )
 
 ok(
   'current page is visibly highlighted from vm.currentIndex',
-  /img\.page - 1 === this\.vm\.currentIndex[\s\S]*ThemeConstants\.BRAND_PRIMARY/.test(reader),
+  /index === this\.vm\.currentIndex[\s\S]*ThemeConstants\.BRAND_PRIMARY/.test(reader),
 )
 
 ok(

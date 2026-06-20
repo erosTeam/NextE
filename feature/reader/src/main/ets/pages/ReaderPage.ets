@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { promptAction, window } from '@kit.ArkUI'
+import { window } from '@kit.ArkUI'
 import { KeyCode } from '@kit.InputKit'
 import inputConsumer from '@ohos.multimodalInput.inputConsumer'
 import { Action, KeyEvent as InputConsumerKeyEvent } from '@ohos.multimodalInput.keyEvent'
@@ -27,6 +27,13 @@ import {
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 
 const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
+const READER_CHROME_ACTION_SIZE: number = 44
+const READER_CHROME_ICON_SIZE: number = 22
+const READER_CHROME_TRACK_BG: ResourceColor = '#33FFFFFF'
+const READER_THUMB_STRIP_HEIGHT: number = 84
+const READER_BOTTOM_TOOLBAR_HEIGHT: number = 112
+const READER_PROGRESS_NUMBER_MIN_W: number = 30
+const READER_PROGRESS_SLIDER_GAP: number = 4
 class ReaderSpreadResolver {
   static isDoublePage(mode: string, columnMode: string): boolean {
     return mode !== ReadMode.VERTICAL && columnMode !== ReadColumnMode.SINGLE
@@ -140,6 +147,12 @@ export struct ReaderPage {
   @Local sliderPreview: number = -1;
   // 1-based slider position; follows the live page on swipe and drives jump-to-page on drag.
   @Local sliderValue: number = 1;
+  // Swiper index is a component concern: image index in single-page mode, spread index in double-page.
+  @Local readerPagerIndex: number = 0;
+  // The reader surface must not mount while init is still loading page 0 to discover perPage.
+  // Resume-to-later-page otherwise mounts Swiper at index 0, then chrome moves to the target while
+  // the rendered page can stay on the reused first page surface.
+  @Local readerReady: boolean = false;
   @Local readMode: ReadModeState = connectReadMode();
   @Local autoReadActive: boolean = false;
   @Local showThumbStrip: boolean = false;
@@ -153,6 +166,9 @@ export struct ReaderPage {
   private readerTouchLastY: number = 0;
   private readerTouchTracking: boolean = false;
   private listScroller: Scroller = new Scroller();
+  private thumbScroller: Scroller = new Scroller();
+  private horizontalSwiperController: SwiperController = new SwiperController();
+  private doublePageSwiperController: SwiperController = new SwiperController();
   // Safe-area insets (gesture bar / status bar) published by EntryAbility — the page counter
   // sits above the bottom inset so it never hides behind the home indicator.
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
@@ -165,7 +181,7 @@ export struct ReaderPage {
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
-        if (this.vm.images.length > 0) {
+        if (this.readerContentReady()) {
           if (this.readMode.mode === ReadMode.VERTICAL) {
             this.VerticalReader()
           } else if (this.doublePageEnabled()) {
@@ -200,14 +216,14 @@ export struct ReaderPage {
           ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
         }
 
-        if (this.vm.images.length > 0) {
+        if (this.readerContentReady()) {
           this.ReaderTapOverlay()
         }
 
         // Chrome bars are always mounted (when there's content) and faded via opacity so they animate;
         // an `if` can't fade. They only cover the top/bottom strips, so the center tap-toggle band and
         // the tap-zone thirds stay tap-through (V2Next ImagePreviewPage idiom: overlay only the controls).
-        if (this.vm.images.length > 0) {
+        if (this.readerContentReady()) {
           this.ReaderTopBar()
           this.ReaderBottomBar()
         }
@@ -231,6 +247,7 @@ export struct ReaderPage {
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as ReaderParams
       if (p !== undefined && p.gid.length > 0) {
+        this.readerReady = false
         this.params = p
         this.sliderValue = p.index + 1
         const requestedIndex: number = p.index
@@ -251,10 +268,14 @@ export struct ReaderPage {
             const targetIndex: number = this.normalizedReaderIndex(loadedTarget)
             this.vm.currentIndex = targetIndex
             this.sliderValue = targetIndex + 1
+            this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
+            this.readerReady = true
             if (this.readMode.mode === ReadMode.VERTICAL) {
               setTimeout(() => {
                 this.listScroller.scrollToIndex(targetIndex)
               }, 50)
+            } else {
+              this.syncReaderPagerToIndex(targetIndex, false)
             }
           })
       }
@@ -393,6 +414,10 @@ export struct ReaderPage {
     return this.vm.images[this.vm.currentIndex]
   }
 
+  private readerContentReady(): boolean {
+    return this.readerReady && this.vm.images.length > 0
+  }
+
   // Share the current reader image URL from the reader top bar (eros_fe ViewTopBar share). Prefer the
   // original/fullimg URL when the image page has exposed it; otherwise share the resolved full image.
   // If the current page is not resolved yet, resolve it through the same /s/ pipeline the reader uses.
@@ -475,6 +500,8 @@ export struct ReaderPage {
     if (this.sliderPreview < 0) {
       this.sliderValue = this.vm.currentIndex + 1
     }
+    this.readerPagerIndex = this.readerPagerIndexFor(this.vm.currentIndex)
+    this.scrollThumbStripTo(this.vm.currentIndex, true)
     if (this.params.gid.length > 0) {
       GalleryReadProgressSettings.setIndex(
         this.hostContext(),
@@ -777,7 +804,10 @@ export struct ReaderPage {
       this.vm.currentIndex = target
       this.listScroller.scrollToIndex(target)
     } else {
-      this.vm.onPageChange(target)
+      const targetIndex: number = this.normalizedReaderIndex(target)
+      this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
+      this.vm.onPageChange(targetIndex)
+      this.syncReaderPagerToIndex(targetIndex, false)
     }
   }
 
@@ -791,19 +821,46 @@ export struct ReaderPage {
         this.vm.currentIndex = target
         this.listScroller.scrollToIndex(target)
       } else {
-        this.vm.currentIndex = this.normalizedReaderIndex(target)
+        const targetIndex: number = this.normalizedReaderIndex(target)
+        this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
+        this.vm.currentIndex = targetIndex
+        this.syncReaderPagerToIndex(targetIndex, false)
       }
     })
   }
 
+  private syncReaderPagerToIndex(index: number, animated: boolean): void {
+    if (this.readMode.mode === ReadMode.VERTICAL) {
+      setTimeout(() => {
+        this.listScroller.scrollToIndex(index)
+      }, 0)
+      return
+    }
+    const targetPagerIndex: number = this.readerPagerIndexFor(index)
+    this.readerPagerIndex = targetPagerIndex
+    setTimeout(() => {
+      try {
+        if (this.doublePageEnabled()) {
+          this.doublePageSwiperController.changeIndex(targetPagerIndex, animated)
+        } else {
+          this.horizontalSwiperController.changeIndex(targetPagerIndex, animated)
+        }
+      } catch (err) {
+        const message: string = err instanceof Error ? err.message : `${err}`
+        DiagnosticLogger.warn('reader', 'pager_sync_failed', message)
+      }
+    }, 0)
+  }
+
   @Builder
   HorizontalReader() {
-    Swiper() {
+    Swiper(this.horizontalSwiperController) {
       ForEach(
         this.vm.images,
         (img: EhGalleryImage) => {
           ReaderImagePage({
             image: img,
+            imageKey: this.readerImageKey(img),
             activeIndex: this.vm.currentIndex,
             doubleTapSeq: this.doubleTapSeq,
             doubleTapX: this.doubleTapX,
@@ -817,10 +874,10 @@ export struct ReaderPage {
             },
           })
         },
-        (img: EhGalleryImage) => `${img.page}`,
+        (img: EhGalleryImage) => `${img.page}-${img.sUrl}-${img.imageUrl}`,
       )
     }
-    .index(this.vm.currentIndex)
+    .index(this.readerPagerIndex)
     .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
     .loop(false)
     .cachedCount(2)
@@ -830,6 +887,7 @@ export struct ReaderPage {
     .height('100%')
     .onChange((i: number) => {
       this.clearZoomGate()
+      this.readerPagerIndex = i
       this.vm.onPageChange(i)
     })
   }
@@ -860,6 +918,14 @@ export struct ReaderPage {
       this.readMode.columnMode,
       index
     )
+  }
+
+  private readerPagerIndexFor(index: number): number {
+    return this.doublePageEnabled() ? this.spreadIndexForImage(index) : index
+  }
+
+  private readerImageKey(img: EhGalleryImage): string {
+    return `${img.page}-${img.sUrl}-${img.imageUrl}`
   }
 
   private sliderTargetIndex(page: number): number {
@@ -900,7 +966,7 @@ export struct ReaderPage {
 
   @Builder
   DoublePageReader() {
-    Swiper() {
+    Swiper(this.doublePageSwiperController) {
       ForEach(
         this.spreadStarts(),
         (start: number) => {
@@ -923,10 +989,15 @@ export struct ReaderPage {
             },
           })
         },
-        (start: number) => `${start}`,
+        (start: number) => {
+          const first: string = this.hasSpreadImage(start) ? this.vm.images[start].sUrl : ''
+          const secondIndex: number = this.spreadSecondIndex(start)
+          const second: string = this.hasSpreadImage(secondIndex) ? this.vm.images[secondIndex].sUrl : ''
+          return `${start}-${first}-${second}`
+        },
       )
     }
-    .index(this.spreadIndexForImage(this.vm.currentIndex))
+    .index(this.readerPagerIndex)
     .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
     .loop(false)
     .cachedCount(2)
@@ -936,6 +1007,7 @@ export struct ReaderPage {
     .height('100%')
     .onChange((i: number) => {
       this.clearZoomGate()
+      this.readerPagerIndex = i
       this.vm.onPageChange(this.spreadStartIndex(i))
     })
   }
@@ -977,13 +1049,14 @@ export struct ReaderPage {
           ListItem() {
             ReaderVerticalImage({
               image: img,
+              imageKey: this.readerImageKey(img),
               onImageLoaded: (page: number) => {
                 this.markPageImageLoaded(page)
               },
             })
           }
         },
-        (img: EhGalleryImage) => `${img.page}`,
+        (img: EhGalleryImage) => `${img.page}-${img.sUrl}-${img.imageUrl}`,
       )
     }
     .width('100%')
@@ -1003,6 +1076,16 @@ export struct ReaderPage {
       return $r('app.string.read_mode_vertical')
     }
     return $r('app.string.read_mode_ltr')
+  }
+
+  private modeIcon(): Resource {
+    if (this.readMode.mode === ReadMode.RTL) {
+      return $r('sys.symbol.arrow_left')
+    }
+    if (this.readMode.mode === ReadMode.VERTICAL) {
+      return $r('sys.symbol.arrow_down')
+    }
+    return $r('sys.symbol.arrow_right')
   }
 
   private cycleMode(): void {
@@ -1030,6 +1113,16 @@ export struct ReaderPage {
       return $r('app.string.read_double_page_b')
     }
     return $r('app.string.common_off')
+  }
+
+  private columnModeIconColor(): ResourceColor {
+    if (this.readMode.mode === ReadMode.VERTICAL) {
+      return $r('sys.color.font_tertiary')
+    }
+    if (this.readMode.columnMode === ReadColumnMode.SINGLE) {
+      return Color.White
+    }
+    return ThemeConstants.BRAND_PRIMARY
   }
 
   private cycleColumnMode(): void {
@@ -1079,12 +1172,39 @@ export struct ReaderPage {
   }
 
   private thumbKey(img: EhGalleryImage): string {
-    return `${img.page}-${img.sUrl}`
+    return `${img.page}-${img.sUrl}-${img.thumbUrl}`
   }
 
   private jumpToThumb(index: number): void {
-    this.showChrome = false
     this.jumpToPage(index)
+    this.scrollThumbStripTo(index, true)
+  }
+
+  private toggleThumbStrip(): void {
+    this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
+      this.showThumbStrip = !this.showThumbStrip
+    })
+    if (!this.showThumbStrip) {
+      setTimeout(() => {
+        this.scrollThumbStripTo(this.vm.currentIndex, false)
+      }, 0)
+    }
+  }
+
+  private scrollThumbStripTo(index: number, animated: boolean): void {
+    if (!this.showThumbStrip || index < 0 || index >= this.vm.totalPages()) {
+      return
+    }
+    this.thumbScroller.scrollToIndex(index, animated)
+  }
+
+  private thumbPageIndexes(): number[] {
+    const total: number = this.vm.totalPages()
+    const out: number[] = []
+    for (let i: number = 0; i < total; i++) {
+      out.push(i)
+    }
+    return out
   }
 
   // Top chrome bar — eros_fe ViewTopBar (view_widget.dart:913-1047): back + center page-counter +
@@ -1096,11 +1216,11 @@ export struct ReaderPage {
     Row() {
       Button({ type: ButtonType.Circle }) {
         SymbolGlyph($r('sys.symbol.chevron_left'))
-          .fontSize(22)
+          .fontSize(READER_CHROME_ICON_SIZE)
           .fontColor([Color.White])
       }
-      .width(40)
-      .height(40)
+      .width(READER_CHROME_ACTION_SIZE)
+      .height(READER_CHROME_ACTION_SIZE)
       .backgroundColor(Color.Transparent)
       .onClick(() => {
         connectNavStack().stack.pop()
@@ -1113,22 +1233,22 @@ export struct ReaderPage {
         .maxLines(1)
       Button({ type: ButtonType.Circle }) {
         SymbolGlyph($r('sys.symbol.share'))
-          .fontSize(20)
+          .fontSize(READER_CHROME_ICON_SIZE)
           .fontColor([Color.White])
       }
-      .width(40)
-      .height(40)
+      .width(READER_CHROME_ACTION_SIZE)
+      .height(READER_CHROME_ACTION_SIZE)
       .backgroundColor(Color.Transparent)
       .onClick(() => {
         this.shareCurrentImage()
       })
       Button({ type: ButtonType.Circle }) {
         SymbolGlyph($r('sys.symbol.gearshape'))
-          .fontSize(20)
+          .fontSize(READER_CHROME_ICON_SIZE)
           .fontColor([Color.White])
       }
-      .width(40)
-      .height(40)
+      .width(READER_CHROME_ACTION_SIZE)
+      .height(READER_CHROME_ACTION_SIZE)
       .backgroundColor(Color.Transparent)
       .onClick(() => {
         this.openReaderSettings()
@@ -1148,185 +1268,236 @@ export struct ReaderPage {
     .hitTestBehavior(this.showChrome ? HitTestMode.Default : HitTestMode.None)
   }
 
-  // Bottom chrome bar — eros_fe ViewBottomBar (view_widget.dart:1051-1095): page indicator + page
-  // slider, with the reading-direction pill as the one quick control. Bottom-anchored by the root
-  // Stack (Alignment.Bottom); flat scrim replaces the old floating BACKGROUND_THICK glass card. The
-  // Slider wiring (drag-preview + jumpToPage) is ported verbatim.
+  // Bottom chrome bar: progress first, then one coherent toolbar family. FE keeps save / double /
+  // auto / thumbs as equal-width controller buttons; NextE keeps the same action hierarchy with
+  // neutral toolbar icons instead of a primary action button.
   @Builder
   ReaderBottomBar() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      Row() {
-        Row() {
-          SaveButton({
-            icon: SaveIconStyle.LINES,
-            buttonType: ButtonType.Circle,
+    Stack({ alignContent: Alignment.Bottom }) {
+      Column() {
+        this.ReaderThumbStrip()
+      }
+      .width('100%')
+      .height(READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2)
+      .padding({
+        left: ThemeConstants.SPACE_LG,
+        right: ThemeConstants.SPACE_LG,
+        top: ThemeConstants.SPACE_SM,
+        bottom: ThemeConstants.SPACE_SM,
+      })
+      .margin({
+        bottom: this.layout.bottomAvoidHeight + READER_BOTTOM_TOOLBAR_HEIGHT,
+      })
+      .backgroundColor('#CC000000')
+      .opacity(this.showChrome && this.showThumbStrip ? 1 : 0)
+      .translate({ y: this.showChrome && this.showThumbStrip ? 0 : 16 })
+      .hitTestBehavior(this.showChrome && this.showThumbStrip ? HitTestMode.Default : HitTestMode.None)
+
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        Row({ space: READER_PROGRESS_SLIDER_GAP }) {
+          Text(`${this.sliderPreview >= 0 ? this.sliderPreview : this.sliderValue}`)
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor(Color.White)
+            .constraintSize({ minWidth: READER_PROGRESS_NUMBER_MIN_W })
+            .textAlign(TextAlign.Start)
+            .maxLines(1)
+          Slider({
+            value: this.sliderValue,
+            min: 1,
+            max: this.vm.totalPages() > 1 ? this.vm.totalPages() : 1,
+            step: 1,
+            style: SliderStyle.InSet,
           })
-            .onClick((_event: ClickEvent, result: SaveButtonOnClickResult) => {
-              if (result === SaveButtonOnClickResult.SUCCESS) {
-                this.saveCurrentImage()
+            .layoutWeight(1)
+            .trackColor(READER_CHROME_TRACK_BG)
+            .onChange((value: number, mode: SliderChangeMode) => {
+              const page: number = Math.round(value)
+              if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
+                this.sliderPreview = page
+                this.sliderValue = page
+                this.scrollThumbStripTo(this.sliderTargetIndex(page), true)
               } else {
-                promptAction.showToast({ message: $r('app.string.reader_save_failed') })
+                this.sliderPreview = -1
+                this.sliderValue = page
+                const targetIndex: number = this.sliderTargetIndex(page)
+                this.jumpToPage(targetIndex)
+                this.scrollThumbStripTo(targetIndex, true)
               }
             })
-            .width(40)
-            .height(40)
+          Text(`${this.vm.totalPages()}`)
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor(Color.White)
+            .constraintSize({ minWidth: READER_PROGRESS_NUMBER_MIN_W })
+            .textAlign(TextAlign.End)
+            .maxLines(1)
         }
-        .margin({ right: ThemeConstants.SPACE_SM })
-        Button({ type: ButtonType.Circle }) {
-          SymbolGlyph($r('sys.symbol.clock'))
-            .fontSize(20)
-            .fontColor([this.autoReadActive ? ThemeConstants.BRAND_PRIMARY : Color.White])
-        }
-        .width(40)
-        .height(40)
-        .backgroundColor(Color.Transparent)
-        .onClick(() => {
-          this.toggleAutoRead()
-        })
-        .margin({ right: ThemeConstants.SPACE_SM })
-        Button({ type: ButtonType.Circle }) {
-          SymbolGlyph($r('sys.symbol.square_grid_2x2'))
-            .fontSize(20)
-            .fontColor([this.showThumbStrip ? ThemeConstants.BRAND_PRIMARY : Color.White])
-        }
-        .width(40)
-        .height(40)
-        .backgroundColor(Color.Transparent)
-        .onClick(() => {
-          this.showThumbStrip = !this.showThumbStrip
-        })
-        .margin({ right: ThemeConstants.SPACE_SM })
-        Text(this.pageCountText())
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(Color.White)
-        Blank()
-        // Reading-direction toggle: L→R → R→L → Vertical → L→R (eros_fe ViewMode), persisted.
-        Text(this.modeLabel())
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(Color.White)
-          .borderRadius(ThemeConstants.RADIUS_ROUND)
-          .border({ width: 1, color: Color.White })
-          .padding({
-            left: ThemeConstants.SPACE_MD,
-            right: ThemeConstants.SPACE_MD,
-            top: 2,
-            bottom: 2,
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Row() {
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.arrow_down_to_line'))
+              .fontSize(READER_CHROME_ICON_SIZE)
+              .fontColor([Color.White])
+          }
+          .width(READER_CHROME_ACTION_SIZE)
+          .height(READER_CHROME_ACTION_SIZE)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            this.saveCurrentImage()
           })
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.clock'))
+              .fontSize(READER_CHROME_ICON_SIZE)
+              .fontColor([this.autoReadActive ? ThemeConstants.BRAND_PRIMARY : Color.White])
+          }
+          .width(READER_CHROME_ACTION_SIZE)
+          .height(READER_CHROME_ACTION_SIZE)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            this.toggleAutoRead()
+          })
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.square_grid_2x2'))
+              .fontSize(READER_CHROME_ICON_SIZE)
+              .fontColor([this.showThumbStrip ? ThemeConstants.BRAND_PRIMARY : Color.White])
+          }
+          .width(READER_CHROME_ACTION_SIZE)
+          .height(READER_CHROME_ACTION_SIZE)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            this.toggleThumbStrip()
+          })
+          Blank()
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph(this.modeIcon())
+              .fontSize(READER_CHROME_ICON_SIZE)
+              .fontColor([Color.White])
+          }
+          .width(READER_CHROME_ACTION_SIZE)
+          .height(READER_CHROME_ACTION_SIZE)
+          .backgroundColor(Color.Transparent)
           .onClick(() => {
             this.cycleMode()
           })
-        Text(this.columnModeLabel())
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(this.readMode.mode === ReadMode.VERTICAL ? $r('sys.color.font_tertiary') : Color.White)
-          .borderRadius(ThemeConstants.RADIUS_ROUND)
-          .border({
-            width: 1,
-            color: this.readMode.mode === ReadMode.VERTICAL ? $r('sys.color.font_tertiary') : Color.White,
-          })
-          .padding({
-            left: ThemeConstants.SPACE_MD,
-            right: ThemeConstants.SPACE_MD,
-            top: 2,
-            bottom: 2,
-          })
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.rectangle_grid_1x2'))
+              .fontSize(READER_CHROME_ICON_SIZE)
+              .fontColor([this.columnModeIconColor()])
+          }
+          .width(READER_CHROME_ACTION_SIZE)
+          .height(READER_CHROME_ACTION_SIZE)
+          .backgroundColor(
+            Color.Transparent
+          )
+          .enabled(this.readMode.mode !== ReadMode.VERTICAL)
           .onClick(() => {
             this.cycleColumnMode()
           })
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .alignItems(VerticalAlign.Center)
-      Slider({
-        value: this.sliderValue,
-        min: 1,
-        max: this.vm.totalPages() > 1 ? this.vm.totalPages() : 1,
-        step: 1,
+      .height(this.layout.bottomAvoidHeight + READER_BOTTOM_TOOLBAR_HEIGHT)
+      .padding({
+        left: ThemeConstants.SPACE_LG,
+        right: ThemeConstants.SPACE_LG,
+        top: ThemeConstants.SPACE_SM,
+        bottom: this.layout.bottomAvoidHeight + ThemeConstants.SPACE_SM,
       })
-        .width('100%')
-        .blockColor(Color.White)
-        .selectedColor(ThemeConstants.BRAND_PRIMARY)
-        .trackColor(ThemeConstants.OVERLAY_SCRIM)
-        .onChange((value: number, mode: SliderChangeMode) => {
-          const page: number = Math.round(value)
-          if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
-            this.sliderPreview = page
-            this.sliderValue = page
-          } else {
-            this.sliderPreview = -1
-            this.sliderValue = page
-            this.jumpToPage(this.sliderTargetIndex(page))
-          }
-        })
-      if (this.showThumbStrip) {
-        this.ReaderThumbStrip()
-      }
+      .backgroundColor('#CC000000')
     }
     .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_LG,
-      right: ThemeConstants.SPACE_LG,
-      top: ThemeConstants.SPACE_SM,
-      bottom: this.layout.bottomAvoidHeight + ThemeConstants.SPACE_SM,
-    })
-    .backgroundColor('#CC000000')
+    .height(this.layout.bottomAvoidHeight + READER_BOTTOM_TOOLBAR_HEIGHT +
+      READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2)
     .opacity(this.showChrome ? 1 : 0)
     .hitTestBehavior(this.showChrome ? HitTestMode.Default : HitTestMode.None)
   }
 
   @Builder
   ReaderThumbStrip() {
-    List({ space: ThemeConstants.SPACE_SM }) {
+    List({ initialIndex: this.vm.currentIndex, scroller: this.thumbScroller, space: ThemeConstants.SPACE_SM }) {
       ForEach(
-        this.vm.images,
-        (img: EhGalleryImage) => {
-          if (this.hasRenderableThumb(img)) {
-            ListItem() {
-              Column({ space: ThemeConstants.SPACE_XS }) {
-                Stack({ alignContent: Alignment.Center }) {
-                  EhSpriteThumbnail({
-                    url: img.thumbUrl,
-                    thumbWidth: img.thumbWidth,
-                    thumbHeight: img.thumbHeight,
-                    offsetX: img.thumbOffsetX,
-                    spriteWidth: img.spriteWidth,
-                    spriteHeight: img.spriteHeight,
-                    displayHeight: 58,
-                    fitHeight: true,
-                    radius: ThemeConstants.RADIUS_SM,
-                  })
-                  if (img.page - 1 === this.vm.currentIndex) {
-                    Row()
-                      .width('100%')
-                      .height('100%')
-                      .border({
-                        width: 2,
-                        color: ThemeConstants.BRAND_PRIMARY,
-                      })
-                      .borderRadius(ThemeConstants.RADIUS_SM)
-                  }
-                }
-                .height(58)
-                .constraintSize({ minWidth: 42, maxWidth: 72 })
-                .clip(true)
-                Text(`${img.page}`)
-                  .fontSize(ThemeConstants.FONT_SIZE_TINY)
-                  .fontColor(img.page - 1 === this.vm.currentIndex ? ThemeConstants.BRAND_PRIMARY : Color.White)
-                  .maxLines(1)
-              }
-              .width(76)
-              .alignItems(HorizontalAlign.Center)
-              .onClick(() => {
-                this.jumpToThumb(img.page - 1)
-              })
-            }
+        this.thumbPageIndexes(),
+        (index: number) => {
+          ListItem() {
+            this.ReaderThumbItem(index)
           }
         },
-        (img: EhGalleryImage) => this.thumbKey(img),
+        (index: number) => `${index}-${this.thumbKey(this.vm.imageAt(index))}`,
       )
     }
     .listDirection(Axis.Horizontal)
     .scrollBar(BarState.Off)
-    .height(82)
+    .height(READER_THUMB_STRIP_HEIGHT)
     .width('100%')
+  }
+
+  @Builder
+  ReaderThumbItem(index: number) {
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      this.ReaderThumbImage(index, this.vm.imageAt(index))
+      Text(`${index + 1}`)
+        .fontSize(ThemeConstants.FONT_SIZE_META)
+        .fontColor(index === this.vm.currentIndex ? ThemeConstants.BRAND_PRIMARY : Color.White)
+        .fontWeight(FontWeight.Medium)
+        .maxLines(1)
+        .height(18)
+        .textAlign(TextAlign.Center)
+    }
+    .width(76)
+    .height(READER_THUMB_STRIP_HEIGHT)
+    .alignItems(HorizontalAlign.Center)
+    .onClick(() => {
+      this.jumpToThumb(index)
+    })
+  }
+
+  @Builder
+  ReaderThumbImage(index: number, image: EhGalleryImage) {
+    Stack({ alignContent: Alignment.Center }) {
+      if (this.hasRenderableThumb(image)) {
+        EhSpriteThumbnail({
+          url: image.thumbUrl,
+          thumbWidth: image.thumbWidth,
+          thumbHeight: image.thumbHeight,
+          offsetX: image.thumbOffsetX,
+          spriteWidth: image.spriteWidth,
+          spriteHeight: image.spriteHeight,
+          displayHeight: 58,
+          fitHeight: true,
+          radius: ThemeConstants.RADIUS_SM,
+        })
+      } else {
+        Stack() {
+          LoadingProgress()
+            .width(22)
+            .height(22)
+            .color(Color.White)
+        }
+        .width(44)
+        .height(58)
+        .backgroundColor('#26FFFFFF')
+        .borderRadius(ThemeConstants.RADIUS_SM)
+        .onAppear(() => {
+          DiagnosticLogger.info(
+            'reader',
+            'thumb_placeholder_appear',
+            `index ${index} page ${image.page} sUrl ${image.sUrl.length} thumb ${image.thumbUrl.length}`,
+          )
+          this.vm.warmPreviewForIndex(index)
+        })
+      }
+    }
+    .height(58)
+    .constraintSize({ minWidth: 42, maxWidth: 72 })
+    .border({
+      width: index === this.vm.currentIndex ? 2 : 0,
+      color: index === this.vm.currentIndex ? ThemeConstants.BRAND_PRIMARY : Color.Transparent,
+    })
+    .borderRadius(ThemeConstants.RADIUS_SM)
+    .clip(true)
   }
 }
 
@@ -1617,6 +1788,7 @@ struct ReaderSpreadSurface {
     if (hasImage) {
       ReaderSpreadImageLayer({
         image: image,
+        imageKey: `${image.page}-${image.sUrl}-${image.imageUrl}`,
         onImageLoaded: (page: number) => {
           this.onImageLoaded(page)
         },
@@ -1731,6 +1903,7 @@ struct ReaderSpreadSurface {
 @ComponentV2
 struct ReaderSpreadImageLayer {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param imageKey: string = '';
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageMetrics: (page: number, width: number, height: number) => void =
     (_page: number, _width: number, _height: number) => {};
@@ -1743,6 +1916,20 @@ struct ReaderSpreadImageLayer {
 
   aboutToAppear(): void {
     this.resolve()
+  }
+
+  @Monitor('imageKey')
+  onImageKeyChanged(): void {
+    this.resetImageState()
+    this.resolve()
+  }
+
+  private resetImageState(): void {
+    this.autoRetryCount = 0
+    this.imageUrl = ''
+    this.imageLoaded = false
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
   }
 
   private async resolve(changeSource: boolean = false): Promise<void> {
@@ -1838,6 +2025,7 @@ struct ReaderSpreadImageLayer {
 @ComponentV2
 struct ReaderImagePage {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param imageKey: string = '';
   @Param activeIndex: number = 0;
   @Param doubleTapSeq: number = 0;
   @Param doubleTapX: number = 0;
@@ -1873,6 +2061,14 @@ struct ReaderImagePage {
   private autoRetryCount: number = 0;
 
   aboutToAppear(): void {
+    this.resolve()
+  }
+
+  @Monitor('imageKey')
+  onImageKeyChanged(): void {
+    this.resetSourceState()
+    this.resetZoom()
+    this.notifyZoom()
     this.resolve()
   }
 
@@ -1912,6 +2108,16 @@ struct ReaderImagePage {
       DiagnosticLogger.warn('reader', 'resolve_failed', e.message)
       this.retrySourceAutomatically()
     }
+  }
+
+  private resetSourceState(): void {
+    this.autoRetryCount = 0
+    this.imageUrl = ''
+    this.imageLoaded = false
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
+    this.intrinsicW = 0
+    this.intrinsicH = 0
   }
 
   // Retry on failure: re-source (换源) — clear the dead URL and re-resolve from a different host.
@@ -2160,6 +2366,7 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 @ComponentV2
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
+  @Param imageKey: string = '';
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
@@ -2169,6 +2376,12 @@ struct ReaderVerticalImage {
   private autoRetryCount: number = 0;
 
   aboutToAppear(): void {
+    this.resolve()
+  }
+
+  @Monitor('imageKey')
+  onImageKeyChanged(): void {
+    this.resetSourceState()
     this.resolve()
   }
 
@@ -2190,6 +2403,15 @@ struct ReaderVerticalImage {
       DiagnosticLogger.warn('reader', 'resolve_failed', e.message)
       this.retrySourceAutomatically()
     }
+  }
+
+  private resetSourceState(): void {
+    this.autoRetryCount = 0
+    this.imageUrl = ''
+    this.imageLoaded = false
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
+    this.ratio = DEFAULT_VERTICAL_RATIO
   }
 
   private retrySource(): void {

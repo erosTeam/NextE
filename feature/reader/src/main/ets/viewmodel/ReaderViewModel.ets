@@ -12,6 +12,49 @@ import {
 // How many pages ahead to pre-resolve (eros_fe forward preload): warm the next images' URLs so a
 // swipe lands on an already-resolved page instead of waiting for its /s/→URL round-trip.
 const PRECACHE_AHEAD: number = 2
+const MAX_READER_SESSION_CACHE: number = 8
+
+class ReaderSessionSnapshot {
+  key: string = ''
+  fileCount: number = 0
+  previewPage: number = -1
+  exhausted: boolean = false
+  perPage: number = 0
+  currentIndex: number = 0
+  updatedAt: number = 0
+  images: EhGalleryImage[] = []
+  loadedPreviewPages: number[] = []
+
+  copy(): ReaderSessionSnapshot {
+    const out: ReaderSessionSnapshot = new ReaderSessionSnapshot()
+    out.key = this.key
+    out.fileCount = this.fileCount
+    out.previewPage = this.previewPage
+    out.exhausted = this.exhausted
+    out.perPage = this.perPage
+    out.currentIndex = this.currentIndex
+    out.updatedAt = this.updatedAt
+    out.images = ReaderSessionSnapshot.copyImages(this.images)
+    out.loadedPreviewPages = ReaderSessionSnapshot.copyPages(this.loadedPreviewPages)
+    return out
+  }
+
+  private static copyImages(images: EhGalleryImage[]): EhGalleryImage[] {
+    const out: EhGalleryImage[] = []
+    for (let i: number = 0; i < images.length; i++) {
+      out.push(images[i].copy())
+    }
+    return out
+  }
+
+  private static copyPages(pages: number[]): number[] {
+    const out: number[] = []
+    for (let i: number = 0; i < pages.length; i++) {
+      out.push(pages[i])
+    }
+    return out
+  }
+}
 
 /**
  * Drives the reader. Loads the gallery's image-page links one preview page (~20) at a time
@@ -21,6 +64,7 @@ const PRECACHE_AHEAD: number = 2
  */
 @ObservedV2
 export class ReaderViewModel {
+  private static sessionCache: Map<string, ReaderSessionSnapshot> = new Map()
   @Trace images: EhGalleryImage[] = []
   @Trace currentIndex: number = 0
   @Trace loadingMore: boolean = false
@@ -32,6 +76,7 @@ export class ReaderViewModel {
   private token: string = ''
   private previewPage: number = -1
   private exhausted: boolean = false
+  private cacheKey: string = ''
   private loadedPreviewPages: number[] = []
   // Image-page links per preview page (~20/40, gallery-fixed), measured from the first loaded page.
   // Enables a far jump/resume to fetch the missing preview pages CONCURRENTLY (the slider drop case)
@@ -53,11 +98,13 @@ export class ReaderViewModel {
     this.token = token
     this.fileCount = fileCount
     this.currentIndex = startIndex
+    this.cacheKey = ReaderViewModel.sessionKey(gid, token, connectSiteMode().isEx)
     this.images = []
     this.previewPage = -1
     this.exhausted = false
     this.loadedPreviewPages = []
     this.perPage = 0
+    this.applySessionCache(fileCount)
     const exactSeed: EhGalleryImage | null = this.exactSeedImage(seedImages, seedLoadedPages, startIndex)
     this.applySeed(seedImages, seedLoadedPages, seedPerPage, seedPreviewPages)
     const imagePageSeed: EhGalleryImage | null = this.applySeedImagePageUrl(startIndex, seedImagePageUrl)
@@ -76,6 +123,81 @@ export class ReaderViewModel {
     this.currentIndex = this.images.length > 0 ? Math.min(startIndex, this.images.length - 1) : 0
     this.precacheAhead()
     this.warmPreviewAhead(this.currentIndex)
+    this.publishSessionCache()
+  }
+
+  private static sessionKey(gid: string, token: string, isEx: boolean): string {
+    return `${isEx ? 'ex' : 'eh'}:${gid}:${token}`
+  }
+
+  private applySessionCache(fileCount: number): void {
+    if (this.cacheKey.length === 0) {
+      return
+    }
+    const cached: ReaderSessionSnapshot | undefined = ReaderViewModel.sessionCache.get(this.cacheKey)
+    if (cached === undefined || cached.images.length === 0) {
+      return
+    }
+    this.images = []
+    for (let i: number = 0; i < cached.images.length; i++) {
+      this.images.push(cached.images[i].copy())
+    }
+    this.loadedPreviewPages = []
+    for (let i: number = 0; i < cached.loadedPreviewPages.length; i++) {
+      this.loadedPreviewPages.push(cached.loadedPreviewPages[i])
+    }
+    this.previewPage = cached.previewPage
+    this.exhausted = cached.exhausted
+    this.perPage = cached.perPage
+    if (fileCount <= 0 && cached.fileCount > 0) {
+      this.fileCount = cached.fileCount
+    }
+    DiagnosticLogger.info(
+      'reader',
+      'session_cache_hit',
+      `key ${this.cacheKey} images ${this.images.length} perPage ${this.perPage}`,
+    )
+  }
+
+  private publishSessionCache(): void {
+    if (this.cacheKey.length === 0 || this.images.length === 0) {
+      return
+    }
+    const snapshot: ReaderSessionSnapshot = new ReaderSessionSnapshot()
+    snapshot.key = this.cacheKey
+    snapshot.fileCount = this.fileCount
+    snapshot.previewPage = this.previewPage
+    snapshot.exhausted = this.exhausted
+    snapshot.perPage = this.perPage
+    snapshot.currentIndex = this.currentIndex
+    snapshot.updatedAt = Date.now()
+    snapshot.images = []
+    for (let i: number = 0; i < this.images.length; i++) {
+      snapshot.images.push(this.images[i].copy())
+    }
+    snapshot.loadedPreviewPages = []
+    for (let i: number = 0; i < this.loadedPreviewPages.length; i++) {
+      snapshot.loadedPreviewPages.push(this.loadedPreviewPages[i])
+    }
+    ReaderViewModel.sessionCache.set(this.cacheKey, snapshot)
+    ReaderViewModel.trimSessionCache()
+  }
+
+  private static trimSessionCache(): void {
+    if (ReaderViewModel.sessionCache.size <= MAX_READER_SESSION_CACHE) {
+      return
+    }
+    let oldestKey: string = ''
+    let oldestAt: number = Number.MAX_SAFE_INTEGER
+    ReaderViewModel.sessionCache.forEach((snapshot: ReaderSessionSnapshot, key: string) => {
+      if (snapshot.updatedAt < oldestAt) {
+        oldestAt = snapshot.updatedAt
+        oldestKey = key
+      }
+    })
+    if (oldestKey.length > 0) {
+      ReaderViewModel.sessionCache.delete(oldestKey)
+    }
   }
 
   private exactSeedImage(
@@ -201,6 +323,7 @@ export class ReaderViewModel {
       next.push(i === index ? merged : this.images[i])
     }
     this.images = next
+    this.publishSessionCache()
   }
 
   /**
@@ -293,6 +416,16 @@ export class ReaderViewModel {
     }
   }
 
+  private async waitForLoadingComplete(): Promise<void> {
+    while (this.loadingMore) {
+      await new Promise<void>((resolve: () => void) => {
+        setTimeout(() => {
+          resolve()
+        }, 30)
+      })
+    }
+  }
+
   async loadMore(): Promise<void> {
     if (this.loadingMore || this.exhausted) {
       return
@@ -319,6 +452,7 @@ export class ReaderViewModel {
         if (this.fileCount > 0 && this.images.length >= this.fileCount) {
           this.exhausted = true
         }
+        this.publishSessionCache()
       }
     } catch (err) {
       this.error = EhErrorText.forUser(err)
@@ -334,12 +468,75 @@ export class ReaderViewModel {
     return this.images[index].sUrl.length > 0
   }
 
+  imageAt(index: number): EhGalleryImage {
+    if (index < 0 || index >= this.images.length) {
+      return new EhGalleryImage(index + 1)
+    }
+    return this.images[index]
+  }
+
+  warmPreviewForIndex(index: number): void {
+    if (index < 0 || index >= this.totalPages() || this.hasPreviewThumbAt(index)) {
+      return
+    }
+    DiagnosticLogger.info(
+      'reader',
+      'thumb_warm_request',
+      `index ${index} images ${this.images.length} perPage ${this.perPage} loaded ${this.hasPreviewAt(index)} thumb ${this.hasPreviewThumbAt(index)}`,
+    )
+    this.ensurePreviewMetadata(index)
+      .then(
+        (): void => {},
+        (): void => {},
+      )
+  }
+
+  private async ensurePreviewMetadata(index: number): Promise<void> {
+    if (index < 0 || index >= this.totalPages() || this.hasPreviewThumbAt(index)) {
+      return
+    }
+    DiagnosticLogger.info(
+      'reader',
+      'thumb_metadata_begin',
+      `index ${index} previewPage ${this.previewPage} loadingMore ${this.loadingMore}`,
+    )
+    if (this.previewPage < 0) {
+      await this.loadMore()
+    }
+    if (this.loadingMore) {
+      await this.waitForLoadingComplete()
+    }
+    if (this.perPage <= 0 || this.hasPreviewThumbAt(index)) {
+      DiagnosticLogger.info(
+        'reader',
+        'thumb_metadata_skip',
+        `index ${index} perPage ${this.perPage} thumb ${this.hasPreviewThumbAt(index)}`,
+      )
+      return
+    }
+    await this.loadPreviewPageForIndex(index)
+  }
+
+  private hasPreviewThumbAt(index: number): boolean {
+    if (index < 0 || index >= this.images.length) {
+      return false
+    }
+    return this.images[index].thumbUrl.length > 0
+  }
+
   private async loadPreviewPageForIndex(index: number): Promise<boolean> {
-    if (this.perPage <= 0 || index < 0 || this.hasPreviewAt(index) || this.loadingMore) {
+    if (this.perPage <= 0 || index < 0 || this.loadingMore) {
       return false
     }
     const targetPreviewPage: number = Math.floor(index / this.perPage)
-    if (this.isPreviewPageLoaded(targetPreviewPage)) {
+    const pageLoaded: boolean = this.isPreviewPageLoaded(targetPreviewPage)
+    const targetHasThumb: boolean = this.hasPreviewThumbAt(index)
+    DiagnosticLogger.info(
+      'reader',
+      'target_preview_request',
+      `index ${index} previewPage ${targetPreviewPage} loaded ${pageLoaded} hasThumb ${targetHasThumb} perPage ${this.perPage}`,
+    )
+    if (pageLoaded && targetHasThumb) {
       return this.hasPreviewAt(index)
     }
     this.loadingMore = true
@@ -354,6 +551,11 @@ export class ReaderViewModel {
       if (more.length === 0) {
         this.exhausted = true
       } else {
+        DiagnosticLogger.info(
+          'reader',
+          'target_preview_result',
+          `previewPage ${targetPreviewPage} count ${more.length} first ${more[0].page} firstThumb ${more[0].thumbUrl.length}`,
+        )
         this.mergePreviewPage(targetPreviewPage, more)
       }
     } catch (err) {
@@ -373,6 +575,11 @@ export class ReaderViewModel {
       next.push(this.images[i].copy())
     }
     const startIndex: number = previewPage * (this.perPage > 0 ? this.perPage : pageImages.length)
+    DiagnosticLogger.info(
+      'reader',
+      'merge_preview_page',
+      `previewPage ${previewPage} count ${pageImages.length} start ${startIndex} first ${pageImages[0].page} firstThumb ${pageImages[0].thumbUrl.length}`,
+    )
     const minLength: number = startIndex + pageImages.length
     for (let i: number = next.length; i < minLength; i++) {
       next.push(new EhGalleryImage(i + 1))
@@ -383,11 +590,35 @@ export class ReaderViewModel {
       for (let j: number = next.length; j <= targetIndex; j++) {
         next.push(new EhGalleryImage(j + 1))
       }
-      next[targetIndex] = img.copy()
+      next[targetIndex] = this.mergePreviewImage(next[targetIndex], img)
     }
     this.images = next
     this.markPreviewPageLoaded(previewPage)
     this.advanceContiguousPreviewPage()
+    this.publishSessionCache()
+  }
+
+  private mergePreviewImage(existing: EhGalleryImage, incoming: EhGalleryImage): EhGalleryImage {
+    const merged: EhGalleryImage = incoming.copy()
+    if (merged.sUrl.length === 0 && existing.sUrl.length > 0) {
+      merged.sUrl = existing.sUrl
+    }
+    if (merged.imgkey.length === 0 && existing.imgkey.length > 0) {
+      merged.imgkey = existing.imgkey
+    }
+    if (existing.imageUrl.length > 0) {
+      merged.imageUrl = existing.imageUrl
+    }
+    if (existing.originImageUrl.length > 0) {
+      merged.originImageUrl = existing.originImageUrl
+    }
+    if (existing.showKey.length > 0) {
+      merged.showKey = existing.showKey
+    }
+    if (existing.reloadKey.length > 0) {
+      merged.reloadKey = existing.reloadKey
+    }
+    return merged
   }
 
   private markPreviewPageLoaded(previewPage: number): void {
@@ -422,6 +653,7 @@ export class ReaderViewModel {
       this.loadMore()
     }
     this.precacheAhead()
+    this.publishSessionCache()
   }
 
   /** Vertical (continuous) mode: top item drives the counter; load more as the bottom nears the end. */
@@ -433,6 +665,7 @@ export class ReaderViewModel {
       this.loadMore()
     }
     this.precacheAhead()
+    this.publishSessionCache()
   }
 
   /**
@@ -449,7 +682,9 @@ export class ReaderViewModel {
         ImageResolveService.getInstance()
           .resolve(img)
           .then(
-            (): void => {},
+            (): void => {
+              this.publishSessionCache()
+            },
             (): void => {},
           )
       }
@@ -502,6 +737,7 @@ export class ReaderViewModel {
     const target: number = Math.min(index, this.images.length - 1)
     this.currentIndex = target >= 0 ? target : 0
     this.precacheAhead()
+    this.publishSessionCache()
     return target >= 0 ? target : 0
   }
 }

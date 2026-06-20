@@ -20,6 +20,10 @@ export class ImageResolveService {
   private static instance: ImageResolveService
   // gid → gallery showKey, learned from the first /s/ resolve and reused for the showpage fast path.
   private showKeys: Map<string, string> = new Map()
+  // sUrl → last resolved full-image metadata. Reader pages/components are recreated often; the resolved
+  // URL should not be tied only to one EhGalleryImage instance or every reopen repeats the /s/ HTML
+  // parse before the platform image cache can even see the same URL.
+  private resolved: Map<string, ImagePageResult> = new Map()
   // sUrl → in-flight resolve promise. Dedups concurrent resolves of the SAME page so the reader's
   // N-ahead precache and the on-demand page component don't fire two requests for one image; both
   // share the single request. Cleared when it settles so a later retry / 换源 isn't blocked.
@@ -51,6 +55,14 @@ export class ImageResolveService {
     }
     if (image.sUrl.length === 0) {
       throw new Error('image has no /s/ page url')
+    }
+    if (!changeSource) {
+      const cached: ImagePageResult | undefined = this.resolved.get(image.sUrl)
+      if (cached !== undefined && cached.imageUrl.length > 0) {
+        this.applyResult(image, cached)
+        DiagnosticLogger.info('reader', 'resolve_memory_cache', image.sUrl)
+        return image.imageUrl
+      }
     }
     // Coalesce concurrent resolves of the same page (precache + on-demand). 换源 always forces a fresh
     // fetch (different host), so it skips the shared-promise cache.
@@ -102,6 +114,7 @@ export class ImageResolveService {
             image.imageUrl = sp.imageUrl
             image.originImageUrl = sp.originImageUrl
             image.reloadKey = sp.reloadKey
+            this.cacheResult(image.sUrl, image)
             DiagnosticLogger.info('reader', 'resolve_showpage', `gid ${ref.gid} p ${ref.page}`)
             return sp.imageUrl
           }
@@ -133,10 +146,42 @@ export class ImageResolveService {
     image.showKey = r.showKey
     image.originImageUrl = r.originImageUrl
     image.reloadKey = r.reloadKey
+    this.resolved.set(image.sUrl, ImageResolveService.copyResult(r))
     if (ref !== null && r.showKey.length > 0) {
       this.showKeys.set(ref.gid, r.showKey)
     }
     DiagnosticLogger.info('reader', 'resolve_spage', `gid ${ref !== null ? ref.gid : '?'} p ${ref !== null ? ref.page : 0}`)
     return r.imageUrl
+  }
+
+  private applyResult(image: EhGalleryImage, result: ImagePageResult): void {
+    image.imageUrl = result.imageUrl
+    image.originImageUrl = result.originImageUrl
+    image.reloadKey = result.reloadKey
+    if (result.showKey.length > 0) {
+      image.showKey = result.showKey
+    }
+  }
+
+  private cacheResult(sUrl: string, image: EhGalleryImage): void {
+    const result: ImagePageResult = new ImagePageResult()
+    result.imageUrl = image.imageUrl
+    result.showKey = image.showKey
+    result.originImageUrl = image.originImageUrl
+    result.reloadKey = image.reloadKey
+    this.resolved.set(sUrl, result)
+  }
+
+  private static copyResult(result: ImagePageResult): ImagePageResult {
+    const out: ImagePageResult = new ImagePageResult()
+    out.imageUrl = result.imageUrl
+    out.showKey = result.showKey
+    out.originImageUrl = result.originImageUrl
+    out.reloadKey = result.reloadKey
+    out.galleryGid = result.galleryGid
+    out.galleryToken = result.galleryToken
+    out.ser = result.ser
+    out.fileCount = result.fileCount
+    return out
   }
 }
