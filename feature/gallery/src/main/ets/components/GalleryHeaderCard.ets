@@ -19,6 +19,7 @@ const COVER_H: number = 175
 export struct GalleryHeaderCard {
   @Require @Param gallery: EhGallery;
   @Event onUploader: (name: string) => void = (_name: string) => {};
+  @Event onTitleTap: () => void = () => {};
   @Local titlePref: GalleryTitleState = connectGalleryTitle();
 
   private primaryTitle(): string {
@@ -70,25 +71,32 @@ export struct GalleryHeaderCard {
           // overflow the card. The title line count is budgeted by titleMaxLines() so the JP title +
           // uploader stay visible.
           Column({ space: ThemeConstants.SPACE_XS }) {
-            Text(this.primaryTitle())
-              .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_primary'))
-              .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
-              // Budgeted line count (titleMaxLines): fills the space when alone, fewer when the JP title
-              // / uploader are also shown — the title truncates before metadata overflows.
-              .maxLines(this.titleMaxLines())
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .width('100%')
-            if (this.secondaryTitle().length > 0) {
-              Text(this.secondaryTitle())
-                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                .fontColor($r('sys.color.font_secondary'))
-                .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
-                .maxLines(2)
+            Column({ space: ThemeConstants.SPACE_XS }) {
+              Text(this.primaryTitle())
+                .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+                .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
+                // Budgeted line count (titleMaxLines): fills the space when alone, fewer when the JP title
+                // / uploader are also shown — the title truncates before metadata overflows.
+                .maxLines(this.titleMaxLines())
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .width('100%')
+              if (this.secondaryTitle().length > 0) {
+                Text(this.secondaryTitle())
+                  .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                  .fontColor($r('sys.color.font_secondary'))
+                  .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+                  .maxLines(2)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .width('100%')
+              }
             }
+            .width('100%')
+            .alignItems(HorizontalAlign.Start)
+            .onClick(() => {
+              this.onTitleTap()
+            })
             if (this.gallery.uploader.length > 0) {
               // Tappable → search this uploader's galleries (eros_fe GalleryUploader). eros_fe styles the
               // uploader as muted secondaryLabel GREY (w500), NOT a colored link — it's metadata that

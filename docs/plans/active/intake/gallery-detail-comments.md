@@ -315,7 +315,7 @@ Type: low-priority UX optimization / detail readability
 
 Priority suggestion: P3
 
-Status: active intake / parked behind feature-completion lanes
+Status: implemented / pending device-controller acceptance
 
 Source:
 
@@ -353,6 +353,27 @@ Acceptance shape:
 - Confirm full title can be inspected without breaking vertical detail-page scrolling.
 - Confirm copy-title action still works and title truncation/expansion does not cause header cover or
   tag/comment layout shifts.
+
+Implementation:
+
+- Detail header title text now opens a close-only HDS `AppModalScaffold` sheet with the
+  full display title and optional alternate title.
+- Scope: the compact detail header still truncates long titles inside the fixed cover-height layout;
+  uploader tap/search and existing copy-title menu action remain separate.
+- Explicitly not done: horizontal title scrolling, header expansion, Reader/Favorites/Search changes,
+  or moving read/favorite actions back into the header.
+
+Validation:
+
+- Deterministic contract: `scripts/test_gallery_detail_full_title_contract.mjs`.
+- Current HarmonyOS simulator smoke on local `127.0.0.1:5555`: installed the signed HAP, opened a Home
+  gallery detail page, confirmed the title group is a separate clickable node from uploader, tapped the
+  title, and verified the HDS modal sheet shows `完整标题`, `显示标题`, and the full title text. Evidence:
+  `.hvigor/outputs/detail-full-title-sheet/detail_layout.json`,
+  `.hvigor/outputs/detail-full-title-sheet/detail.png`,
+  `.hvigor/outputs/detail-full-title-sheet/sheet_layout.json`, and
+  `.hvigor/outputs/detail-full-title-sheet/sheet.png`.
+- Controller acceptance still needed on a deliberately long-title gallery sample.
 
 ### Gallery Detail Tags Do Not Jump To Search
 

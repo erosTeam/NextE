@@ -152,6 +152,10 @@ Historical feedback in this section must not trigger new implementation.
   Home/Search/Favorites Grid branches. Simulator evidence on local `127.0.0.1:5555` confirms Home Grid
   remains a real `Grid/GridItem` surface before and after scroll, with cards still rendering behind the
   translucent bottom navigation area.
+- Gallery detail long-title full-text access is implemented and pending device-controller acceptance:
+  tapping the compact title group opens a close-only HDS modal sheet with the full display title and
+  optional alternate title, while the header keeps fixed-height ellipsis behavior and uploader/copy-title
+  actions remain separate.
 - Settings shell audit is implemented and pending controller acceptance: Settings root now exposes only
   scoped, wired pages (`EH`, `布局`, `阅读`, `搜索`, `历史`, `诊断`, `关于`), hides misleading Security and
   Download settings entries until their downstream behavior exists, removes EH placeholder rows, gates
@@ -174,9 +178,6 @@ Items here are real concerns, but they are not active implementation lanes by de
   should guide future Reader redesign together with HarmonyOS-native V2Next image-preview patterns.
 - Boundary handoff from zoomed pan to page turn is a future enhancement unless current zoomed pan
   blocks normal reading.
-- Gallery detail long-title full-text access is a low-priority optimization. A scrollable or expandable
-  title area may be explored later, but it must not interrupt the current feature-completion/write
-  operation lanes.
 - Persisting last selected sub-tabs is a low-priority UX optimization: Home gallery source, Favorites
   favcat, and Toplist period currently reset to defaults after app restart. This should be handled later
   as retained user preference state, not ahead of write-operation and search/favorites correctness bugs.

@@ -477,6 +477,18 @@
       "value": "タイトルをコピー"
     },
     {
+      "name": "detail_full_title",
+      "value": "完全なタイトル"
+    },
+    {
+      "name": "detail_display_title",
+      "value": "表示タイトル"
+    },
+    {
+      "name": "detail_alternate_title",
+      "value": "別タイトル"
+    },
+    {
       "name": "detail_link_copied",
       "value": "リンクをコピーしました"
     },

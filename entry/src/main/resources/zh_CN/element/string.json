@@ -477,6 +477,18 @@
       "value": "复制标题"
     },
     {
+      "name": "detail_full_title",
+      "value": "完整标题"
+    },
+    {
+      "name": "detail_display_title",
+      "value": "显示标题"
+    },
+    {
+      "name": "detail_alternate_title",
+      "value": "备用标题"
+    },
+    {
       "name": "detail_link_copied",
       "value": "链接已复制"
     },

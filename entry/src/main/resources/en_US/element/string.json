@@ -477,6 +477,18 @@
       "value": "Copy title"
     },
     {
+      "name": "detail_full_title",
+      "value": "Full title"
+    },
+    {
+      "name": "detail_display_title",
+      "value": "Display title"
+    },
+    {
+      "name": "detail_alternate_title",
+      "value": "Alternate title"
+    },
+    {
       "name": "detail_link_copied",
       "value": "Link copied"
     },

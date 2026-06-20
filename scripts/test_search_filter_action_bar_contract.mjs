@@ -65,8 +65,10 @@ ok('AppModalScaffold owns HDS modal navigation and optional title action',
   /HdsNavigationTitleMode\.MODAL/.test(modal) &&
   /HdsNavigation/.test(modal) &&
   /showConfirmAction: boolean = true/.test(modal) &&
+  /showSecondaryAction: boolean = false/.test(modal) &&
   /IconStyleMode\.SMALL/.test(modal) &&
-  /maxCount: this\.showConfirmAction \? 1 : 0/.test(modal))
+  /maxCount: this\.actionCount\(\)/.test(modal) &&
+  /private actionCount\(\): number/.test(modal))
 ok('page disables system sheet close because scaffold owns close',
   /SearchFilterSheet\(\{[\s\S]*onClose: \(\) => \{[\s\S]*this\.showFilter = false[\s\S]*\}/.test(page) &&
   /showClose: false/.test(page) &&

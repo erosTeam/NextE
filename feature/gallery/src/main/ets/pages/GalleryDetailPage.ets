@@ -101,6 +101,7 @@ export struct GalleryDetailPage {
   @Local remoteFavoriteLoadingFavcats: boolean = false;
   @Local remoteFavoriteError: string = '';
   @Local ratingSheetShown: boolean = false;
+  @Local fullTitleSheetShown: boolean = false;
   @Local ratingSelected: number = 0;
   @Local ratingSubmitting: boolean = false;
   @Local ratingError: string = '';
@@ -154,6 +155,15 @@ export struct GalleryDetailPage {
       return title
     }
     return this.params.title.length > 0 ? this.params.title : AppStrings.get('nav_gallery')
+  }
+
+  private primaryDetailTitle(): string {
+    const title: string = this.vm.gallery.displayTitle(this.titlePref.japaneseTitleInGalleryPage)
+    return title.length > 0 ? title : this.params.title
+  }
+
+  private secondaryDetailTitle(): string {
+    return this.vm.gallery.secondaryTitle(this.titlePref.japaneseTitleInGalleryPage)
   }
 
   private fileCountNum(): number {
@@ -600,6 +610,13 @@ export struct GalleryDetailPage {
     this.copyText(this.vm.gallery.title(), $r('app.string.detail_title_copied'))
   }
 
+  private openFullTitleSheet(): void {
+    if (this.primaryDetailTitle().length === 0 && this.secondaryDetailTitle().length === 0) {
+      return
+    }
+    this.fullTitleSheetShown = true
+  }
+
   private openExternalBrowser(): void {
     const want: Want = { action: 'ohos.want.action.viewData', uri: this.galleryUrl() }
     this.ctx().startAbility(want).catch((_error: Error) => {
@@ -816,6 +833,48 @@ export struct GalleryDetailPage {
     .onClick(() => {
       this.ratingSelected = value
     })
+  }
+
+  @Builder
+  private FullTitleSheet() {
+    AppModalScaffold({
+      title: $r('app.string.detail_full_title'),
+      showConfirmAction: false,
+      closeAction: () => {
+        this.fullTitleSheetShown = false
+      },
+    }) {
+      ListItem() {
+        GroupedListSection({ inset: 0 }) {
+          Column({ space: ThemeConstants.SPACE_MD }) {
+            this.TitleReadBlock($r('app.string.detail_display_title'), this.primaryDetailTitle())
+            if (this.secondaryDetailTitle().length > 0) {
+              this.TitleReadBlock($r('app.string.detail_alternate_title'), this.secondaryDetailTitle())
+            }
+          }
+          .width('100%')
+          .padding(ThemeConstants.SPACE_MD)
+        }
+      }
+    }
+  }
+
+  @Builder
+  private TitleReadBlock(label: ResourceStr, value: string) {
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      Text(label)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+      Text(value)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor($r('sys.color.font_primary'))
+        .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+        .width('100%')
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -1039,6 +1098,9 @@ export struct GalleryDetailPage {
           ListItem() {
             GalleryHeaderCard({
               gallery: this.vm.gallery,
+              onTitleTap: () => {
+                this.openFullTitleSheet()
+              },
               onUploader: (name: string) => {
                 this.searchUploader(name)
               },
@@ -1147,6 +1209,10 @@ export struct GalleryDetailPage {
       })
       .bindSheet($$this.ratingSheetShown, this.RatingSheet(), {
         detents: [SheetSize.MEDIUM],
+        showClose: false,
+      })
+      .bindSheet($$this.fullTitleSheetShown, this.FullTitleSheet(), {
+        detents: [SheetSize.LARGE],
         showClose: false,
       })
     }
