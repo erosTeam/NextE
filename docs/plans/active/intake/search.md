@@ -461,6 +461,27 @@ Acceptance shape:
 - Pressing Search still owns actual query submission.
 - The filter entry remains in the title/menu/action area, not beside the search input field.
 
+Follow-up direction / research note, 2026-06-21:
+
+- ArkUI `Search` appears to be only the input/control surface and does not provide a built-in
+  autocomplete result container. `Select`, `Menu`, `MenuItem`, and `bindMenu` can cover dropdown or
+  action-menu use cases, but they are a poor default fit for EH-style search candidates because they
+  introduce floating/menu semantics instead of a normal search-results region.
+- The lower search-page content region is the preferred place to present candidate matches. This
+  matches the current NextE `SearchSuggestionView()` shape and eros_fe's body `SliverList` approach,
+  and also stays close to official-app style patterns where suggestions occupy the content below the
+  search field rather than a popover.
+- Treat the interaction split as guidance, not a hard contract: the main row can be evaluated as
+  "search this candidate now", while a trailing diagonal-arrow affordance can mean "put/append this
+  candidate into the search box and keep composing". eros_fe currently fills the query on row tap, so
+  device comparison and user acceptance should decide the final split.
+- If the local tag-translation database is ported later, translated local matches and EH `tagsuggest`
+  network matches can feed the same in-page candidate list. Prefer main/subtitle text treatment over
+  a separate floating component unless a later native-control investigation proves a better fit.
+- Keep this note loose: it is meant to steer the next UX pass away from hand-rolled popovers, not to
+  require a specific visual layout, icon size, row height, or exact submit/fill behavior before the
+  next screenshot/device review.
+
 ### Search Action Routes Can Lose The Second Tag Query
 
 Type: routing / state ownership bug
