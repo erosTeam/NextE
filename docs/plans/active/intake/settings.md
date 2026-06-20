@@ -10,6 +10,81 @@ Purpose:
 
 ## Items
 
+### Home Bottom Navigation Auto-Hide And Smart-Grip Action Alignment
+
+Type: feature enhancement / platform UX
+
+Priority suggestion: P2 / medium
+
+Status: parked
+
+Source:
+
+- User feedback, 2026-06-20: add automatic hiding for the Home bottom navigation bar.
+- User feedback, 2026-06-20: introduce 智感握姿 / smart-grip support and let the gallery detail
+  read/resume floating action follow the configured hand edge.
+- User notes that both behaviors can be copied/adapted from Next2V rather than redesigned from scratch.
+
+Product intent:
+
+- Home browsing should gain vertical space while scrolling: the floating bottom tab bar hides on forward
+  scroll and returns on reverse scroll or near-top interaction.
+- The read/resume floating action should remain reachable for one-handed use. With smart grip enabled,
+  it follows the detected holding hand; with smart grip unsupported/disabled, the ordinary fixed/follow
+  fallback remains usable.
+- This is not a Reader-core or Gallery Grid lane. It should be implemented after higher-priority layout
+  and write-operation gaps unless the current bottom bar or read action becomes a concrete blocker.
+
+Next2V implementation pointers:
+
+- Home bottom-tab auto-hide:
+  - `/Users/honjow/git/V2Next/shared/src/main/ets/state/HomeTabAutoHideState.ets`
+  - `/Users/honjow/git/V2Next/entry/src/main/ets/pages/Index.ets`
+    - `connectHomeTabAutoHide()`
+    - `applyHomeTabAutoHide()`
+    - `onHomeTabDidScroll(...)`
+    - `HdsTabsController.bindScroller(...)`
+    - `applyShowAnimation(HdsAnimationMode.SCROLL_ANIMATION)`
+    - `applyHideAnimation(HdsAnimationMode.SCROLL_ANIMATION)`
+  - `/Users/honjow/git/V2Next/feature/settings/src/main/ets/pages/SettingsPage.ets`
+    - `home_tab_auto_hide` setting row and `updateHomeTabAutoHide(...)`.
+- Smart-grip / action alignment:
+  - `/Users/honjow/git/V2Next/shared/src/main/ets/services/MotionHandStateService.ets`
+    uses `@kit.MultimodalAwarenessKit` `motion.on('holdingHandChanged', ...)` and falls back when
+    subscription fails.
+  - `/Users/honjow/git/V2Next/shared/src/main/ets/state/MotionHandEdgeState.ets`
+  - `/Users/honjow/git/V2Next/shared/src/main/ets/state/MotionReplyAlignmentState.ets`
+  - `/Users/honjow/git/V2Next/shared/src/main/ets/settings/ReplyActionAlignmentSettings.ets`
+    supports `smartGrip`, `followOperation`, `fixedLeft`, and `fixedRight`.
+  - `/Users/honjow/git/V2Next/feature/detail/src/main/ets/pages/TopicDetailPage.ets`
+    computes continuous left/right X positions for floating reply/resume actions and updates them via
+    `@Monitor('motion.edge')` instead of jumping discrete alignment.
+
+Implementation direction:
+
+- Add a NextE V2 state holder for Home bottom-tab auto-hide, persisted through Settings only.
+- Bind the active Home/Favorites/Search/Download/Settings tab scrollers to the HDS tab controller if
+  the local HDS surface supports the same `bindScroller` / show-hide animation API; otherwise verify the
+  equivalent HDS API before writing product code.
+- Add a capability-checked motion-hand service using `@kit.MultimodalAwarenessKit`, with a silent
+  fallback to fixed/follow-operation alignment if smart grip is unsupported.
+- Reuse the existing gallery detail read/resume FAB as the first consumer. It should slide between left
+  and right edge based on the effective alignment setting without changing Reader launch semantics.
+- Keep Settings copy honest: smart grip should only appear as an option if subscription/capability is
+  available, otherwise expose fixed/follow-operation choices.
+
+Acceptance shape:
+
+- Home: scrolling down hides the floating bottom tab bar; scrolling up or returning near the top shows it.
+  Switching tabs must not leave the bar permanently hidden.
+- Settings: Home tab auto-hide has a visible toggle and persists across restart; action alignment offers
+  smart grip only when supported, with fixed-left/fixed-right/follow-operation fallback.
+- Gallery detail: read/resume FAB follows the selected edge; when smart grip reports a left/right hand,
+  the FAB animates to the corresponding side; Reader opening/resume index remains unchanged.
+- Device evidence should include at least one ordinary no-smart-grip/fallback run and one smart-grip-capable
+  run if hardware support is available. If no compatible device is available, mark implementation
+  `implemented / needs device acceptance`, not accepted.
+
 ### Settings Shell Audit: Visible Rows Must Be Real Or Honest
 
 Type: feature gap / settings trustworthiness

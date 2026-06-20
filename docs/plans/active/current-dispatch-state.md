@@ -187,6 +187,11 @@ Items here are real concerns, but they are not active implementation lanes by de
 - Persisting last selected sub-tabs is a low-priority UX optimization: Home gallery source, Favorites
   favcat, and Toplist period currently reset to defaults after app restart. This should be handled later
   as retained user preference state, not ahead of write-operation and search/favorites correctness bugs.
+- Home bottom-tab auto-hide and smart-grip-aware floating action alignment are medium-priority UX
+  enhancements. They should not interrupt the current Grid/Waterfall recovery lane, but they are good
+  candidates for a later bounded platform-UX lane because Next2V already has working patterns:
+  `HomeTabAutoHideState`, `MotionHandStateService`, `MotionHandEdgeState`,
+  `MotionReplyAlignmentState`, and `ReplyActionAlignmentSettings`.
 
 ## Active Queue
 

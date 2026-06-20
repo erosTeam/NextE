@@ -112,6 +112,10 @@ Expected behavior:
   instead of competing with the primary read action inside the cover/header card.
 - Smart grip / 智感握姿 is evaluated as an enhancement, but the ordinary FAB path must work when the capability
   is unavailable or disabled.
+- Follow-up enhancement, 2026-06-20: once the ordinary FAB baseline is accepted, the read/resume FAB
+  should consume the same smart-grip / action-alignment model used by Next2V so it can automatically
+  move to the detected or selected hand edge. In NextE terms this belongs to the gallery detail FAB,
+  not Reader page image/gesture internals.
 
 Why this matters:
 
@@ -136,6 +140,12 @@ Likely modules to inspect:
 - `shared/src/main/ets/model/RouteParams.ets`
 - `entry/src/main/ets/pages/Index.ets`
 - V2Next / Next2V detail or reply FAB components and title/menu action primitives.
+- Next2V smart-grip/action-alignment references:
+  - `/Users/honjow/git/V2Next/shared/src/main/ets/services/MotionHandStateService.ets`
+  - `/Users/honjow/git/V2Next/shared/src/main/ets/state/MotionHandEdgeState.ets`
+  - `/Users/honjow/git/V2Next/shared/src/main/ets/state/MotionReplyAlignmentState.ets`
+  - `/Users/honjow/git/V2Next/shared/src/main/ets/settings/ReplyActionAlignmentSettings.ets`
+  - `/Users/honjow/git/V2Next/feature/detail/src/main/ets/pages/TopicDetailPage.ets`
 
 Implementation direction to evaluate:
 
@@ -163,6 +173,8 @@ Acceptance shape:
 - Favorited/unfavorited states remain discoverable after favorite controls leave the header card.
 - Ordinary FAB layout works on devices without smart grip support.
 - If smart grip is implemented, it has a capability check and does not break the ordinary FAB path.
+- If smart grip/action alignment is implemented, switching fixed-left/fixed-right/follow-operation/smart-grip
+  settings moves the detail read/resume FAB side without changing Reader launch or resume-index behavior.
 - Device/simulator evidence covers at least first-read and resume states, plus available favorite-state evidence.
 
 Evidence:
