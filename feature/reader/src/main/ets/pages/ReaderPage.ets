@@ -160,11 +160,6 @@ export struct ReaderPage {
   // (left/right thirds + center-column top/bottom fifths).
   @Local viewWidth: number = 0;
   @Local viewHeight: number = 0;
-  private readerTouchStartX: number = 0;
-  private readerTouchStartY: number = 0;
-  private readerTouchLastX: number = 0;
-  private readerTouchLastY: number = 0;
-  private readerTouchTracking: boolean = false;
   private listScroller: Scroller = new Scroller();
   private thumbScroller: Scroller = new Scroller();
   private horizontalSwiperController: SwiperController = new SwiperController();
@@ -220,10 +215,9 @@ export struct ReaderPage {
           this.ReaderTapOverlay()
         }
 
-        // Chrome bars are always mounted (when there's content) and faded via opacity so they animate;
-        // an `if` can't fade. They only cover the top/bottom strips, so the center tap-toggle band and
-        // the tap-zone thirds stay tap-through (V2Next ImagePreviewPage idiom: overlay only the controls).
-        if (this.readerContentReady()) {
+        // Hidden chrome must leave the reader canvas entirely; opacity-only controls can still steal
+        // drags from the pager on some devices.
+        if (this.readerContentReady() && this.showChrome) {
           this.ReaderTopBar()
           this.ReaderBottomBar()
         }
@@ -697,56 +691,6 @@ export struct ReaderPage {
     this.doubleTapSeq = this.doubleTapSeq + 1
   }
 
-  private onReaderHorizontalSwipe(offsetX: number, offsetY: number): void {
-    if (this.imageZoomed || this.vm.jumping || this.readMode.mode === ReadMode.VERTICAL || this.viewWidth <= 0) {
-      return
-    }
-    const absX: number = Math.abs(offsetX)
-    const absY: number = Math.abs(offsetY)
-    const minDistance: number = Math.max(64, this.viewWidth * READER_SWIPE_TURN_MIN_RATIO)
-    const maxDistance: number = this.viewWidth * READER_SWIPE_TURN_MAX_RATIO
-    if (absX < minDistance || absX > maxDistance || absY > absX * READER_SWIPE_VERTICAL_REJECT_RATIO) {
-      return
-    }
-    if (offsetX < 0) {
-      if (this.readMode.mode === ReadMode.RTL) {
-        this.toPrev()
-      } else {
-        this.toNext()
-      }
-    } else if (this.readMode.mode === ReadMode.RTL) {
-      this.toNext()
-    } else {
-      this.toPrev()
-    }
-  }
-
-  private onReaderTouch(event: TouchEvent): void {
-    if (event.type === TouchType.Down) {
-      this.readerTouchStartX = event.touches[0].x
-      this.readerTouchStartY = event.touches[0].y
-      this.readerTouchLastX = this.readerTouchStartX
-      this.readerTouchLastY = this.readerTouchStartY
-      this.readerTouchTracking = true
-      return
-    }
-    if (!this.readerTouchTracking) {
-      return
-    }
-    if (event.type === TouchType.Move) {
-      this.readerTouchLastX = event.touches[0].x
-      this.readerTouchLastY = event.touches[0].y
-      return
-    }
-    if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-      this.readerTouchTracking = false
-      this.onReaderHorizontalSwipe(
-        this.readerTouchLastX - this.readerTouchStartX,
-        this.readerTouchLastY - this.readerTouchStartY
-      )
-    }
-  }
-
   private doublePageEnabled(): boolean {
     return ReaderSpreadResolver.isDoublePage(this.readMode.mode, this.readMode.columnMode)
   }
@@ -1028,9 +972,6 @@ export struct ReaderPage {
       .width('100%')
       .height('100%')
       .hitTestBehavior(HitTestMode.Transparent)
-      .onTouch((event: TouchEvent) => {
-        this.onReaderTouch(event)
-      })
       .gesture(
         GestureGroup(
           GestureMode.Exclusive,
@@ -1274,8 +1215,7 @@ export struct ReaderPage {
     .alignItems(VerticalAlign.Center)
     .backgroundColor('#CC000000')
     .position({ x: 0, y: 0 })
-    .opacity(this.showChrome ? 1 : 0)
-    .hitTestBehavior(this.showChrome ? HitTestMode.Default : HitTestMode.None)
+    .hitTestBehavior(HitTestMode.Default)
   }
 
   // Bottom chrome bar: progress first, then one coherent toolbar family. FE keeps save / double /
@@ -1299,9 +1239,8 @@ export struct ReaderPage {
         bottom: this.layout.bottomAvoidHeight + READER_BOTTOM_TOOLBAR_HEIGHT,
       })
       .backgroundColor('#CC000000')
-      .opacity(this.showChrome && this.showThumbStrip ? 1 : 0)
-      .translate({ y: this.showChrome && this.showThumbStrip ? 0 : 16 })
-      .hitTestBehavior(this.showChrome && this.showThumbStrip ? HitTestMode.Default : HitTestMode.None)
+      .visibility(this.showThumbStrip ? Visibility.Visible : Visibility.Hidden)
+      .hitTestBehavior(this.showThumbStrip ? HitTestMode.Default : HitTestMode.None)
 
       Column({ space: ThemeConstants.SPACE_XS }) {
         Row({ space: READER_PROGRESS_SLIDER_GAP }) {
@@ -1421,8 +1360,7 @@ export struct ReaderPage {
     .width('100%')
     .height(this.layout.bottomAvoidHeight + READER_BOTTOM_TOOLBAR_HEIGHT +
       READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2)
-    .opacity(this.showChrome ? 1 : 0)
-    .hitTestBehavior(this.showChrome ? HitTestMode.Default : HitTestMode.None)
+    .hitTestBehavior(HitTestMode.Default)
   }
 
   @Builder
@@ -1514,10 +1452,6 @@ export struct ReaderPage {
 const MAX_SCALE: number = 4
 const DOUBLE_TAP_SCALE: number = 2.5
 const IMAGE_AUTO_RETRY_LIMIT: number = 3
-const READER_SWIPE_MIN_DISTANCE: number = 24
-const READER_SWIPE_TURN_MIN_RATIO: number = 0.08
-const READER_SWIPE_TURN_MAX_RATIO: number = 0.75
-const READER_SWIPE_VERTICAL_REJECT_RATIO: number = 0.65
 
 class ReaderZoomCoordinator {
   static isZoomed(scale: number): boolean {

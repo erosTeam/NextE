@@ -36,7 +36,8 @@ ok(
 )
 ok(
   'horizontal reader remains Swiper-index driven',
-  /HorizontalReader\(\)[\s\S]*Swiper\(\)[\s\S]*\.index\(this\.vm\.currentIndex\)/.test(src),
+  /HorizontalReader\(\)[\s\S]*Swiper\(this\.horizontalSwiperController\)[\s\S]*\.index\(this\.readerPagerIndex\)/.test(src) &&
+    /@Local readerPagerIndex: number = 0/.test(src),
 )
 
 console.log(`✓ reader vertical initial-index contract: ${passed} assertions passed`)

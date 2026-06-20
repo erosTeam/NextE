@@ -65,8 +65,10 @@ ok('ReaderPage normalizedReaderIndex delegates to ReaderSpreadResolver',
   /private normalizedReaderIndex\(index: number\): number \{[\s\S]*return ReaderSpreadResolver\.normalizedReaderIndex\([\s\S]*this\.doublePageEnabled\(\),[\s\S]*this\.readMode\.columnMode,[\s\S]*index/.test(src))
 ok('Reader init clamps requested index before normalization', /const loadedTarget: number =[\s\S]*Math\.min\(requestedIndex, this\.vm\.images\.length - 1\)[\s\S]*const targetIndex: number = this\.normalizedReaderIndex\(loadedTarget\)/.test(src))
 ok('Reader init writes the normalized target to currentIndex', /this\.vm\.currentIndex = targetIndex[\s\S]*this\.sliderValue = targetIndex \+ 1/.test(src))
-ok('non-vertical jump writes normalized target after vm.jumpTo resolves', /this\.vm\.jumpTo\(index\)\.then\(\(target: number\) => \{[\s\S]*else \{[\s\S]*this\.vm\.currentIndex = this\.normalizedReaderIndex\(target\)/.test(src))
+ok('non-vertical jump writes normalized target after vm.jumpTo resolves',
+  /this\.vm\.jumpTo\(index\)\.then\(\(target: number\) => \{[\s\S]*else \{[\s\S]*const targetIndex: number = this\.normalizedReaderIndex\(target\)[\s\S]*this\.vm\.currentIndex = targetIndex/.test(src))
 ok('vertical jump still scrolls to the absolute target image', /if \(this\.readMode\.mode === ReadMode\.VERTICAL\) \{[\s\S]*this\.vm\.currentIndex = target[\s\S]*this\.listScroller\.scrollToIndex\(target\)/.test(src))
-ok('slider commits still use their existing explicit spread target helper', /this\.jumpToPage\(this\.sliderTargetIndex\(page\)\)/.test(src))
+ok('slider commits still use their existing explicit spread target helper',
+  /const targetIndex: number = this\.sliderTargetIndex\(page\)[\s\S]*this\.jumpToPage\(targetIndex\)/.test(src))
 
 console.log(`✓ reader initial spread-start contract: ${passed} assertions passed`)

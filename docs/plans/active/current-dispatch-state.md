@@ -141,6 +141,11 @@ Historical feedback in this section must not trigger new implementation.
   Reader session plus `/s/` resolve caching. Simulator evidence on `127.0.0.1:5555` showed the second
   same-gallery Reader open hit `session_cache_hit` / `resolve_memory_cache` with no repeated
   `resolve_spage` or `merge_preview_page`.
+- Reader page-turn gesture ownership is implemented pending controller acceptance: horizontal swipes are
+  owned by the native Swiper only, the old transparent overlay `onTouch` short-swipe fallback is removed,
+  and hidden chrome is no longer opacity-only mounted over the reader canvas. Simulator evidence on
+  `127.0.0.1:5555` showed initial hidden chrome layout contained only Swiper/Image, a short center drag
+  kept the page at `1 / 522`, and a normal center horizontal swipe advanced to `2 / 522`.
 - Search action-seeded autofocus regression is implemented pending controller acceptance: action-seeded
   routes now default the page-owned search field to no autofocus until route params explicitly enable it,
   while manual title-bar Search still flips autofocus on after the field mounts. Simulator evidence on
@@ -170,11 +175,6 @@ Items here are real concerns, but they are not active implementation lanes by de
   should guide future Reader redesign together with HarmonyOS-native V2Next image-preview patterns.
 - Boundary handoff from zoomed pan to page turn is a future enhancement unless current zoomed pan
   blocks normal reading.
-- Reader intermittent gesture failures are no longer merely parked after fresh user evidence on
-  2026-06-21: normal reading is still hit by both "drag for a long time and nothing moves" and "tiny
-  drag turns the page" failures. The active lane below must start from static gesture-ownership proof;
-  trace/device runs are supporting evidence only. Do not keep patching Reader recognizers from static
-  reasoning alone.
 - Home bottom-tab auto-hide and smart-grip-aware floating action alignment are medium-priority UX
   enhancements. They should not interrupt the current Grid/Waterfall recovery lane, but they are good
   candidates for a later bounded platform-UX lane because Next2V already has working patterns:
@@ -186,20 +186,7 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Reader page-turn gesture reliability: normal reading still has severe intermittent swipe failures.
-   User reports both ends of the same failure class: repeated/long swipes sometimes do not move the page,
-   while a tiny drag can unexpectedly commit a page turn. Reopen the Reader gesture lane as P0/P1 before
-   more polish work. The next implementation must first prove the gesture architecture statically: at fit
-   scale there must be one page-turn owner and one commit path, not a `Swiper.onChange` path plus an
-   overlay `onTouch` fallback plus programmatic sync all able to mutate page state. Contracts should fail
-   if both Swiper and overlay/custom touch can independently commit a page turn. Device/simulator traces
-   are still useful, but only as smoke after the static conflict is removed; they are not sufficient proof.
-   Concrete root cause reported 2026-06-21: hidden Reader chrome can still intercept gestures if it is
-   only faded by opacity. Hidden top/bottom bars, sliders, buttons, and thumbnail strips should be
-   unmounted or moved out of the interactive reader canvas; `HitTestMode.None` is only a defensive
-   backstop during animation, not the definition of hidden. Opacity-only hidden controls are forbidden
-   because they allow blind slider/button operation and steal page swipes.
-2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression. If comment UI polish is reopened during that acceptance, also replace
    the current arrow vote icons with native `hand_thumbsup` / `hand_thumbsup_fill` and
@@ -212,11 +199,11 @@ a bounded validation path.
    Fresh regression also reported 2026-06-21: uploader comments no longer show the uploader badge, and the
    uploader-only filter appears ineffective. Treat badge + filter as P1 comment parity acceptance, with a
    runnable synthetic-list check plus real-gallery verification.
-3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-4. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
+3. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
    (reported 2026-06-21). Record only for a later small launch/smoke fix; do not let it displace Reader
    gesture/chrome fixes or the P1 comment regressions.
 
