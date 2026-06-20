@@ -46,6 +46,9 @@ assert(lineCount(index) <= 180, 'product-bug-intake.md must remain a short index
 assert(headerCount(index) === 0, 'product-bug-intake.md must not contain domain item sections');
 assert(index.includes('## Domain Intake Files'), 'product-bug-intake.md must list domain intake files');
 assert(index.includes('current-dispatch-state.md'), 'product-bug-intake.md must point scheduling to current-dispatch-state.md');
+assert(dispatch.includes('short intake index and writing-rule file'),
+  'current-dispatch-state.md must describe product-bug-intake.md as an index, not an evidence ledger');
+assert(lineCount(dispatch) <= 220, 'current-dispatch-state.md must remain a short dispatch entry file');
 assert(dispatch.includes('docs(dispatch): split active intake by domain') === false,
   'completed docs split lane must not remain active in current-dispatch-state.md');
 

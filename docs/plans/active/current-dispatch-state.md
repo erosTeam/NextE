@@ -6,7 +6,7 @@ Purpose:
 
 - This is the short source of truth for lane selection after context compaction.
 - Read this before using `product-bug-intake.md` or long active plans to choose work.
-- `product-bug-intake.md` is the evidence/intake ledger; it is not the scheduling entry point.
+- `product-bug-intake.md` is the short intake index and writing-rule file; it is not the scheduling entry point.
 - Each turn should select at most one item from Active Queue unless the user explicitly redirects.
 
 ## Current Baseline
