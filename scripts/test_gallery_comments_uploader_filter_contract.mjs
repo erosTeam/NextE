@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Contract: full comments page has a read-only "uploader only" filter.
+ * Contract: full comments page has a local "uploader only" filter.
  *
  * Grounding:
  * - eros_fe CommentPage._filterComments uses showOnlyUploaderComment and narrows comments by
  *   the uploader comment's memberId when available.
- * - NextE keeps this as a page-local read filter in the comments title menu; it must not add
- *   comment write actions.
+ * - NextE keeps this as a page-local read filter in the comments title menu. The page can host other
+ *   bounded comment actions, but toggling the filter itself must not submit or refresh anything.
  *
  * Run: node scripts/test_gallery_comments_uploader_filter_contract.mjs
  */
@@ -39,8 +39,10 @@ ok('comments page title menu uses native menu symbols and checkmark active state
     /immersiveTitleBarOpts/.test(page))
 ok('GalleryCommentsCard receives visibleComments rather than mutating the parsed comments list',
   /GalleryCommentsCard\(\{[\s\S]*comments: this\.visibleComments\(\)/.test(page))
-ok('uploader-only filter remains read-only',
-  !/vote_comment|edit_comment|reply_comment|post_comment|submitComment|rategallery|addfav/.test(page))
+ok('uploader-only filter action only changes local filter state',
+  /'action': \(\) => \{\s*this\.uploaderOnly = false\s*\}/.test(page) &&
+    /'action': \(\) => \{\s*this\.uploaderOnly = true\s*\}/.test(page) &&
+    !/comment_filter_uploader_only[\s\S]{0,500}(submitComment|voteComment|refreshComments|post_comment|reply_comment|edit_comment|rategallery|addfav)/.test(page))
 
 for (const locale of ['base', 'zh_CN', 'en_US', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

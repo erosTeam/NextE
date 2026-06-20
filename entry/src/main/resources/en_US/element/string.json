@@ -865,6 +865,34 @@
       "value": "All comments"
     },
     {
+      "name": "comment_vote_up",
+      "value": "Vote up"
+    },
+    {
+      "name": "comment_vote_down",
+      "value": "Vote down"
+    },
+    {
+      "name": "comment_vote_confirm_up",
+      "value": "Vote this comment up?"
+    },
+    {
+      "name": "comment_vote_confirm_down",
+      "value": "Vote this comment down?"
+    },
+    {
+      "name": "comment_vote_up_success",
+      "value": "Voted up"
+    },
+    {
+      "name": "comment_vote_down_success",
+      "value": "Voted down"
+    },
+    {
+      "name": "comment_vote_failed",
+      "value": "Vote failed"
+    },
+    {
       "name": "filter",
       "value": "Filter"
     },

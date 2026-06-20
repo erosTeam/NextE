@@ -865,6 +865,34 @@
       "value": "すべてのコメント"
     },
     {
+      "name": "comment_vote_up",
+      "value": "賛成"
+    },
+    {
+      "name": "comment_vote_down",
+      "value": "反対"
+    },
+    {
+      "name": "comment_vote_confirm_up",
+      "value": "このコメントに賛成しますか?"
+    },
+    {
+      "name": "comment_vote_confirm_down",
+      "value": "このコメントに反対しますか?"
+    },
+    {
+      "name": "comment_vote_up_success",
+      "value": "賛成しました"
+    },
+    {
+      "name": "comment_vote_down_success",
+      "value": "反対しました"
+    },
+    {
+      "name": "comment_vote_failed",
+      "value": "投票に失敗しました"
+    },
+    {
       "name": "filter",
       "value": "絞り込み"
     },

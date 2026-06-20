@@ -187,7 +187,14 @@ export struct GalleryDetailPage {
   private openComments(): void {
     this.stack.pushPathByName(
       'GalleryComments',
-      new GalleryCommentsParams(this.params.gid, this.params.token, this.vm.comments, this.navTitle()),
+      new GalleryCommentsParams(
+        this.params.gid,
+        this.params.token,
+        this.vm.comments,
+        this.navTitle(),
+        this.vm.gallery.apikey,
+        this.vm.gallery.apiuid,
+      ),
     )
   }
 

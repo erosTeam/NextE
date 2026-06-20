@@ -50,6 +50,30 @@ export class GalleryRatingResult {
   colorRating: string = ''
 }
 
+/** POST body for /api.php method=votecomment (eros_fe Api.commitVote). */
+class VoteCommentRequest {
+  method: string = 'votecomment'
+  apikey: string = ''
+  apiuid: number = 0
+  gid: number = 0
+  token: string = ''
+  comment_id: number = 0
+  comment_vote: number = 0
+}
+
+class VoteCommentResponse {
+  comment_id?: string | number
+  comment_score?: string | number
+  comment_vote?: string | number
+  error: string = ''
+}
+
+export class CommentVoteResult {
+  commentId: string = ''
+  commentScore: number = 0
+  commentVote: number = 0
+}
+
 class TagSuggestEntry {
   ns: string = ''
   tn: string = ''
@@ -154,6 +178,68 @@ export class EhApiPhpService {
     result.colorRating = typeof obj.rating_cls === 'string' ? obj.rating_cls : ''
     if (result.userRating <= 0 || result.averageRating <= 0) {
       throw new Error('rategallery: missing rating result')
+    }
+    return result
+  }
+
+  static async voteComment(
+    base: string,
+    apikey: string,
+    apiuid: string,
+    gid: string,
+    token: string,
+    commentId: string,
+    vote: number,
+  ): Promise<CommentVoteResult> {
+    const apiuidNum: number = Number.parseInt(apiuid, 10)
+    const gidNum: number = Number.parseInt(gid, 10)
+    const commentIdNum: number = Number.parseInt(commentId, 10)
+    if (
+      apikey.length === 0 ||
+      token.length === 0 ||
+      Number.isNaN(apiuidNum) ||
+      Number.isNaN(gidNum) ||
+      Number.isNaN(commentIdNum) ||
+      (vote !== 1 && vote !== -1)
+    ) {
+      throw new Error('voteComment: missing API key')
+    }
+    const req: VoteCommentRequest = new VoteCommentRequest()
+    req.apikey = apikey
+    req.apiuid = apiuidNum
+    req.gid = gidNum
+    req.token = token
+    req.comment_id = commentIdNum
+    req.comment_vote = vote
+    const resp: EhTextResponse = await EhHttpClient.getInstance().postJson(
+      `${base}/api.php`,
+      JSON.stringify(req),
+    )
+    if (resp.statusCode !== 200) {
+      throw new Error(`votecomment HTTP ${resp.statusCode}`)
+    }
+    let raw: Object
+    try {
+      raw = JSON.parse(resp.body) as Object
+    } catch (e) {
+      throw new Error('votecomment: invalid JSON')
+    }
+    if (raw === null || typeof raw !== 'object') {
+      throw new Error('votecomment: invalid JSON')
+    }
+    const obj: VoteCommentResponse = raw as VoteCommentResponse
+    if (obj.error !== undefined && obj.error.length > 0) {
+      throw new Error(obj.error)
+    }
+    if (obj.comment_id === undefined || obj.comment_score === undefined || obj.comment_vote === undefined) {
+      throw new Error('votecomment: missing vote result')
+    }
+    const result: CommentVoteResult = new CommentVoteResult()
+    result.commentId = EhApiPhpService.intFrom(obj.comment_id).toString()
+    result.commentScore = EhApiPhpService.intFrom(obj.comment_score)
+    result.commentVote = EhApiPhpService.intFrom(obj.comment_vote)
+    if (result.commentId.length === 0 || (result.commentVote !== 1 && result.commentVote !== -1)) {
+      throw new Error('votecomment: missing vote result')
     }
     return result
   }

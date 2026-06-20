@@ -178,14 +178,25 @@ export class ImagePageRouteErrorParams {
 export class GalleryCommentsParams {
   gid: string = ''
   token: string = ''
+  apikey: string = ''
+  apiuid: string = ''
   comments: EhGalleryComment[] = []
   title: string = ''
 
-  constructor(gid: string = '', token: string = '', comments: EhGalleryComment[] = [], title: string = '') {
+  constructor(
+    gid: string = '',
+    token: string = '',
+    comments: EhGalleryComment[] = [],
+    title: string = '',
+    apikey: string = '',
+    apiuid: string = '',
+  ) {
     this.gid = gid
     this.token = token
     this.comments = comments
     this.title = title
+    this.apikey = apikey
+    this.apiuid = apiuid
   }
 }
 

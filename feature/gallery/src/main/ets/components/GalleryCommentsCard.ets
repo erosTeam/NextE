@@ -11,8 +11,10 @@ import { ThemeConstants, EhGalleryComment, GroupedListSection } from 'shared'
 export struct GalleryCommentsCard {
   @Require @Param comments: EhGalleryComment[];
   @Param max: number = 0;
+  @Param votingCommentId: string = '';
   @Event onMore: () => void = () => {};
   @Event onAuthor: (name: string) => void = (_name: string) => {};
+  @Event onVote: (comment: EhGalleryComment, vote: number) => void = (_comment: EhGalleryComment, _vote: number) => {};
 
   private hasMore(): boolean {
     return this.max > 0 && this.comments.length > this.max
@@ -48,6 +50,14 @@ export struct GalleryCommentsCard {
       return value
     }
     return `+${value}`
+  }
+
+  private voteColor(c: EhGalleryComment, vote: number): ResourceColor {
+    return c.vote === vote ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary')
+  }
+
+  private canVote(c: EhGalleryComment): boolean {
+    return this.max <= 0 && c.canVote && this.votingCommentId.length === 0
   }
 
   build() {
@@ -155,13 +165,22 @@ export struct GalleryCommentsCard {
             color: $r('sys.color.font_emphasize'),
           })
       }
-      // Time footer (eros_fe _CommentTail): small, muted, below the body.
-      Text(c.postedTime)
-        .fontSize(ThemeConstants.FONT_SIZE_TINY)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_tertiary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      // Time/actions footer (eros_fe _CommentTail): full comments expose bounded vote actions.
+      Row({ space: ThemeConstants.SPACE_XS }) {
+        Text(c.postedTime)
+          .fontSize(ThemeConstants.FONT_SIZE_TINY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+        if (this.max <= 0 && c.canVote) {
+          this.VoteAction(c, 1, $r('sys.symbol.arrow_up'))
+          this.VoteAction(c, -1, $r('sys.symbol.arrow_down'))
+        }
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
@@ -171,6 +190,24 @@ export struct GalleryCommentsCard {
     .onClick(() => {
       if (this.canOpenFullComments()) {
         this.onMore()
+      }
+    })
+  }
+
+  @Builder
+  VoteAction(c: EhGalleryComment, vote: number, icon: Resource) {
+    Row() {
+      SymbolGlyph(icon)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor([this.voteColor(c, vote)])
+    }
+    .width(ThemeConstants.BUTTON_HEIGHT)
+    .height(ThemeConstants.BUTTON_HEIGHT)
+    .justifyContent(FlexAlign.Center)
+    .opacity(this.votingCommentId === c.commentId ? 0.45 : 1)
+    .onClick(() => {
+      if (this.canVote(c)) {
+        this.onVote(c, vote)
       }
     })
   }

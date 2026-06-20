@@ -99,7 +99,7 @@ export {
   FavoritesQuery,
   GalleryDetailResult,
 } from './network/EhApiService'
-export { EhApiPhpService, GalleryRatingResult } from './network/EhApiPhpService'
+export { EhApiPhpService, GalleryRatingResult, CommentVoteResult } from './network/EhApiPhpService'
 export { EhError, EhErrorKind } from './network/EhError'
 export { EhErrorClassifier } from './network/EhErrorClassifier'
 
