@@ -233,3 +233,67 @@ Acceptance shape:
 - Restarting the app is not required for correct favcat colors.
 - Deterministic contract covers late favcat metadata arrival, placeholder exclusion, and datasource
   replacement after slot resolution.
+
+### Search Result Favorite Heart Color Can Disagree With Favorites Page
+
+Type: favorites metadata / cross-list visual-state consistency bug
+
+Priority suggestion: P1/P2
+
+Status: new
+
+Source:
+
+- User feedback, 2026-06-20: in some list results obtained through Search, the favorite heart icon color
+  for already-favorited galleries does not match the gallery's actual favorite category. Opening the same
+  gallery/list through Favorites shows the correct color.
+
+Observed behavior:
+
+- The mismatch is not universal; it appears in certain searched-result lists.
+- Favorites pages can show the same favorite state correctly, so the favcat color table and Favorites
+  list rendering are not globally broken.
+- This suggests a Search/list metadata propagation issue rather than a pure color-token issue.
+
+Likely cause to verify:
+
+- `EhGalleryListParser` can derive `gallery.favcat` from list-row favorite border color when present.
+  On `favorites.php`, it often gets only `favTitle`, and `FavoritesViewModel` resolves `favTitle ->
+  favcat` against parsed favcat metadata before rendering or after late metadata arrival.
+- `SearchViewModel` currently renders both normal search results and favorite-scope search results, but
+  it does not have an equivalent late `favTitle -> favcat` re-resolve path for visible rows.
+- A search result row may therefore carry `favTitle` without the matching numeric slot, or carry a stale
+  / fallback slot, causing `GalleryCard`, `GalleryGridCard`, `GallerySimpleCard`, and Waterfall cards to
+  paint the heart with the wrong or default color.
+
+Expected behavior:
+
+- Any visible gallery card surface that indicates "already favorited" should use the same account-level
+  favcat slot mapping as Favorites.
+- Search results, favorite-scope search, Home/list browsing, Grid, Simple, and Waterfall cards should
+  agree on the heart color for the same gallery once real favcat metadata is available.
+- If the current page only knows `favTitle`, it should resolve that name to the remote slot using the
+  same non-placeholder favcat metadata as Favorites. If it cannot resolve, it should use the neutral
+  fallback intentionally, not a wrong category color.
+
+Implementation direction:
+
+- Extract the Favorites `favTitle -> favcat` resolution into a shared helper or shared account-level
+  favorite metadata service instead of keeping it private to `FavoritesViewModel`.
+- Let `SearchViewModel` re-resolve visible rows when favorite metadata changes, mirroring
+  `FavoritesViewModel.resolveVisibleFavoriteSlotsFrom(...)`.
+- Consider the same helper for Home/Search/Favorites retained-list mutation paths so a remote favorite
+  write or late favcat metadata parse updates all already-rendered lists consistently.
+- Keep placeholder favcats (`Favorites N / 0`) excluded from the mapping, matching the existing
+  Favorites safeguard.
+
+Acceptance shape:
+
+- Reproduce with a favorited gallery visible in Search results whose heart color currently disagrees
+  with the Favorites page.
+- After real favcat metadata is loaded, Search result heart color matches the Favorites page without
+  requiring app restart.
+- Favorite-scope search through `favorites.php f_search` also matches the selected/actual favorite
+  slot.
+- Contracts should cover Search visible-row late resolution, placeholder exclusion, and card surfaces
+  using `gallery.favcat` only after a real slot is resolved.
