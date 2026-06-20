@@ -358,23 +358,32 @@ Type: bug / browsing core UX
 
 Priority suggestion: P1
 
-Status: implemented / pending controller acceptance
+Status: active / needs rework
 
 Source:
 
 - User screenshot, 2026-06-20: Home grid cards show large empty white areas below the title/tag area and
   appear to omit important browsing information. User asked why this was accepted and noted Waterfall has
   still not been scheduled.
+- User clarification, 2026-06-20: the missing signal is more specific than generic density. FE grid keeps
+  a persistent top-right category-colored badge whose color identifies the gallery category and whose
+  text carries translation/language state. NextE currently gates the badge behind `translated.length > 0`,
+  places it at the top-left, and therefore loses the always-on category-color signal.
+- User clarification, 2026-06-20: Grid should be a compact phone-first browsing wall. On a regular phone
+  it should show three columns, use a fixed cover container close to the A-series / `1 / sqrt(2)` ratio,
+  and keep the below-cover text minimal (title + date/simple metadata). It should not carry the richer
+  tag/rating-heavy semantics of Waterfall Large.
 - Read-only NextE inspection:
-  - `shared/src/main/ets/components/GalleryGridCard.ets` currently renders cover, translated-language
-    badge, page/favorite overlay, two title lines, and at most two tag chips.
-  - It does not render post time, rating, uploader, category text, or richer metadata.
-  - `ThemeConstants.GALLERY_GRID_INFO_HEIGHT = 126`, `GALLERY_GRID_TITLE_HEIGHT = 44`,
-    `GALLERY_GRID_TAG_AREA_HEIGHT = 58`, and `GALLERY_GRID_TAG_LIMIT = 2`, which can create a large
-    fixed empty area when only one or two chips are present.
-  - `scripts/test_gallery_grid_card_visual_contract.mjs` currently protects a cover-first card with a
-    bounded tag-chip sample and explicitly rejects the old rating/category metadata row. That contract
-    verifies fixed rhythm but does not verify that the grid card has enough useful browsing information.
+  - `ThemeConstants.GALLERY_GRID_MIN_W = 150`, which produces two columns on ordinary phone widths
+    (`floor((contentWidth + gap) / (150 + gap))`). That is too wide for the intended compact grid.
+  - `ThemeConstants.GALLERY_GRID_COVER_RATIO = 0.7`, which is close to `1 / sqrt(2)` if ArkUI
+    `aspectRatio` is width / height; the ratio direction is acceptable, but the cell width and info block
+    make the result feel like a large card rather than a compact grid tile.
+  - `GalleryGridCard` still contains a tag sample and rating/meta row, and its persistent category signal
+    is not actually persistent because the category-colored badge is rendered only when
+    `gallery.translated.length > 0`.
+  - Existing grid visual contracts encode the current mixed design instead of the intended compact
+    3-column grid contract.
 - Read-only `eros_fe` inspection:
   - `eros_fe/lib/pages/item/gallery_item_grid.dart` small grid card shows cover, translated/category
     corner, page count/favorite overlay, title, and post time. It does not show tag chips.
@@ -386,11 +395,13 @@ Source:
 
 Observed behavior:
 
-- NextE's current Grid is structurally a real Grid, but the card content is semantically muddled:
-  it borrows tag chips from richer waterfall-style cards, drops FE grid's post-time cue, and still lacks
-  enough metadata to justify the fixed info block height.
-- The result is neither a compact cover/title/time grid nor a richer waterfall-large card; it looks
-  sparse and unfinished despite passing the earlier "no WaterFlow / fixed height" contracts.
+- NextE's current Grid is structurally a real Grid, but the product semantics are still muddled:
+  the cell width pushes ordinary phones toward two columns, and the info area borrows tag/rating-heavy
+  ideas from richer Waterfall cards instead of staying compact.
+- The category/translation badge is not an always-on category signal. It is conditional on translation text
+  and positioned differently from the FE grid mental model.
+- The result is neither FE-like compact Grid nor a richer Waterfall Large card; it looks unfinished despite
+  passing the earlier "no WaterFlow / fixed height" contracts.
 - Earlier acceptance only covered scaffold separation, no overlap, uniform row height, and responsive
   columns. It did not validate information density or whether the visible fields are the right fields
   for browsing.
@@ -398,13 +409,15 @@ Observed behavior:
 Expected behavior:
 
 - Grid remains a true responsive `Grid` with uniform cells, not WaterFlow.
-- `GalleryGridCard` should present enough high-frequency browsing information for quick scanning while
-  keeping fixed row rhythm. At minimum, re-evaluate title, post time, rating/favorite, language/category,
-  page count, and whether tag chips belong in Grid at all.
-- Fixed info-area height should be justified by visible content. If only title + a small metadata row are
-  shown, the card should not reserve a large empty block.
-- Tags, if retained, must not consume fixed space at the expense of more useful metadata; if tags are the
-  product choice, the card needs a deliberate density/layout plan rather than a two-chip leftover.
+- Ordinary phone widths should render three grid columns. Foldable/tablet widths can derive more columns
+  from the same responsive min-width policy, but the phone baseline must not be a two-column large-card
+  layout.
+- The cover container should remain fixed-ratio and close to A-series `1 / sqrt(2)` vertical cover shape.
+- Grid information should be deliberately minimal: cover, persistent category-colored translation/language
+  badge, page/favorite overlay, short title, and date / simple metadata. Tags and rich rating blocks belong
+  to Waterfall / Waterfall Large unless a later product decision explicitly adds them to Grid.
+- The category-colored badge should be always present as a category signal, not conditional on
+  `translated.length > 0`. Text can prefer translated/language, but the color/category signal must remain.
 
 Likely root cause:
 
@@ -415,23 +428,30 @@ Likely root cause:
 
 Implementation direction:
 
-- First repair Grid card information hierarchy only. Do not mix in Waterfall launch work.
+- Rework Grid as a compact 3-column browsing wall, not a large-card or waterfall hybrid.
 - Re-ground against `eros_fe` grid and waterfall variants: FE grid's post time and compact metadata,
   FE waterfall-large's rating/tags, and NextE/HarmonyOS scanning needs.
-- Update `GalleryGridCard` to a deliberate fixed-height information layout, likely cover + title +
-  compact metadata row(s), with no large unused region.
+- Update `ThemeConstants.GALLERY_GRID_MIN_W` / responsive contract so ordinary phone width yields three
+  columns while avoiding four columns on common phone widths unless the product deliberately allows it.
+- Update `GalleryGridCard` to a fixed-height compact layout: persistent top-right category-colored badge,
+  fixed cover ratio, title, and date/simple meta. Remove tag chips and rich rating-heavy blocks from the
+  default Grid card unless a later lane explicitly designs a separate rich-grid variant.
 - Update `scripts/test_gallery_grid_card_visual_contract.mjs` so it no longer locks the current
-  incomplete "title + two tags + empty fixed area" design as acceptable.
+  incomplete tag/rating hybrid as acceptable.
 
 Acceptance shape:
 
-- Home, Search, and Favorites Grid screenshots show cards with stable equal heights and visibly useful
-  metadata; no large empty white region under normal data.
+- Home, Search, and Favorites Grid screenshots on regular phone width show three compact columns, stable
+  equal heights, and no large empty white region under normal data.
+- Grid cards show a persistent category-colored top-right badge; the category signal is visible even when
+  translated/language text is missing.
+- Grid card below-cover information is minimal and readable: short title + date/simple metadata.
 - Grid cards remain readable on outer-screen phone width and expanded foldable/tablet width.
 - Long title/tag data is bounded without making the item masonry-like.
-- Contract proves Grid info density fields are deliberate and that card rhythm is still fixed.
+- Contract proves the compact grid width, persistent category badge, no default tag-chip block, and fixed
+  card rhythm.
 
-Implementation / evidence:
+Previous implementation / evidence:
 
 - Commit: `b85353d fix(gallery): improve grid card density`.
 - Scope: `GalleryGridCard` keeps true fixed-cell Grid semantics, but the info block now shows title,
@@ -443,15 +463,61 @@ Implementation / evidence:
   `scripts/test_v1_decorator_inventory_contract.mjs`.
 - Remaining acceptance: controller/user visual review of current Grid screenshots on target devices.
 
-### Waterfall Mode Is Defined But Not Exposed
+Reopen reason:
 
-Type: feature gap / browsing mode
+- Current user feedback rejects the current visual target: phone Grid still does not match the expected
+  compact three-column FE grid mental model, and the category-color signal is not persistent. Treat the
+  previous implementation as partial scaffolding, not accepted UX.
 
-Priority suggestion: P1/P2
+### Waterfall Mode Width And Viewport Are Broken After Launch
 
-Status: implemented / pending controller acceptance
+Type: browsing mode bug / layout correctness
 
-Implementation:
+Priority suggestion: P1
+
+Status: active / broken
+
+Current feedback:
+
+- User feedback, 2026-06-20: the current Waterfall mode is "completely unusable"; widths are wrong.
+- Side inspection confirms a likely root cause: `PullRefreshWaterFlowScaffold` renders `FlowItem() {
+  GalleryWaterfallCard({ gallery: g }) }`, and `GalleryWaterfallCard` / `EhThumbnail` rely on
+  `.width('100%')` without an explicit stable item/cell width. If `FlowItem` does not strongly constrain
+  its child to the resolved WaterFlow column width, the card can resolve an incorrect width.
+- `PullRefreshWaterFlowScaffold` also still uses `WaterFlow.padding.top/bottom` for immersive
+  title/bottom-bar avoidance. This repeats the Grid padding-region bug shape and should be fixed before
+  Waterfall is called complete.
+
+Expected behavior:
+
+- Waterfall should be a distinct user-visible mode with correct column widths, masonry placement, and
+  stable card widths on Home, Search, and Favorites.
+- The card width should be derived from the current WaterFlow column/container width, not from an
+  ambiguous `%` chain inside `FlowItem`.
+- Waterfall should not use top/bottom padding as immersive chrome avoidance; use real spacer content /
+  overlay-safe viewport modeling before acceptance.
+- Grid and Waterfall semantics must remain separate: compact fixed-cell Grid vs variable-height masonry.
+
+Implementation direction:
+
+- Treat current Waterfall launch as scaffold-only and broken until width is corrected.
+- Give `FlowItem` / its child wrapper an explicit width derived from the measured column width, or pass
+  `cellWidth` to `GalleryWaterfallCard` so the card and thumbnail use deterministic width.
+- Remove top/bottom `WaterFlow.padding` for immersive chrome and replace it with real spacer content or a
+  WaterFlow-compatible equivalent.
+- Update contracts so they prove width constraint and no top/bottom padding, not merely that `WaterFlow`,
+  `FlowItem`, and `GalleryWaterfallCard` strings exist.
+
+Acceptance shape:
+
+- Home, Search, and Favorites Waterfall screenshots show correct column widths, no oversized/narrow cards,
+  and real masonry variable-height placement.
+- Slow-scroll under translucent top/bottom chrome does not make Waterfall items disappear in padding
+  regions.
+- Device/simulator evidence should include at least regular phone width and foldable/tablet width.
+- Contract locks: explicit width path, no immersive top/bottom padding, Grid and Waterfall stay separate.
+
+Previous implementation:
 
 - NextE now exposes one `Waterfall` mode as the first waterfall launch, leaving separate
   `Waterfall Large` parity for a future lane.
@@ -484,11 +550,16 @@ Verification:
   `home_waterfall.json` confirm the Home page renders `WaterFlow:1` / `FlowItem:3` after selecting
   Waterfall.
 
-Remaining acceptance:
+Previous remaining acceptance, now superseded:
 
 - Controller/user should review the Home waterfall screenshot and, if needed, repeat on Search and
   Favorites with live data. Source contracts already lock all three surfaces to the distinct
   Waterfall branch.
+
+Superseded by current feedback:
+
+- User reports the current Waterfall width is not usable, so screenshot review is no longer enough.
+  The next lane must fix width/viewport correctness before asking for controller acceptance again.
 
 Source:
 

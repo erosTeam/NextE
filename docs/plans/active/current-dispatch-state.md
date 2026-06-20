@@ -18,7 +18,8 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
 - Search filter entry belongs in the title/menu/action area, not inside the search input row.
 - Search title/header may hide while scrolling, but the bottomBuilder search field remains visible.
 - Gallery Grid is separated from Waterfall: Grid uses grid scaffold semantics and fixed-size cards;
-  Waterfall is a separate future mode, not an alias for Grid.
+  Waterfall is a separate mode, not an alias for Grid. This separation is baseline, but the current
+  compact Grid visual target and Waterfall width/viewport behavior are active issues.
 - AllThumbnails later-thumbnail Reader start is implemented and should not be reopened without a new
   reproduction.
 - Reader single-page core baseline is accepted. Double-page is not final architecture, but the current
@@ -33,16 +34,17 @@ Historical feedback in this section must not trigger new implementation.
   superseded by the current baseline above.
 - Repeated SearchFilter typography/spacing micro-adjustments are closed unless the user provides a new
   current screenshot and asks to reopen that surface.
-- Repeated Gallery Grid vs WaterFlow implementation work is closed. Only user acceptance or a new
-  regression can reopen it.
+- The old "Grid was accidentally implemented with WaterFlow" conflation fix is closed. Do not reuse
+  WaterFlow as Grid. Current Grid compactness/category-badge and Waterfall width/viewport failures are
+  new active issues, not a reopening of the old conflation bug.
 - Repeated Reader double-page wording/contract-only cleanup is closed as a main deliverable. Docs may
   record status, but wording changes are not user-visible progress.
 - Download page task workbench cleanup is implemented and pending controller acceptance: the pinned
   Gallery / Archiver selector is followed directly by task cards or empty state, without queue summary
   rows before the workbench content.
-- Gallery Grid card information density repair is implemented and pending controller acceptance: Grid
-  still uses real Grid scaffold and fixed-height cards, but the card info block now shows title,
-  compact post-time/rating metadata, and a one-line tag sample without the previous large empty tag area.
+- The previous Gallery Grid card information-density repair (`b85353d`) is superseded as a UX target:
+  it added metadata but kept a large-card / tag/rating hybrid instead of the desired compact phone
+  three-column Grid with persistent category-colored translation badge.
 - Gallery comment peek full-comments entry is implemented and pending controller acceptance: one/two-comment
   detail peeks expose `查看全部`, and tapping the peek header opens the full comments page.
 - Search route/session state is implemented and pending controller acceptance: action-seeded tag/uploader
@@ -139,13 +141,9 @@ Historical feedback in this section must not trigger new implementation.
   search mode keeps existing matches above new-tag candidates; HarmonyOS simulator validation opened the
   add sheet, selected `male:goat`, opened the add confirmation dialog, and cancelled. No real EH usertag
   was added.
-- Waterfall mode proper launch is implemented and pending controller acceptance: Layout settings now
-  exposes `瀑布流` as a distinct persisted view mode, while Home/Search/Favorites route
-  `ListMode.WATERFALL` through `PullRefreshWaterFlowScaffold` + `FlowItem` + `GalleryWaterfallCard`.
-  Grid remains a separate fixed-cell branch using `PullRefreshGridScaffold` + `GridItem` +
-  `GalleryGridCard`. Android eros_fe comparison confirmed `瀑布流` / `瀑布流 - 大` / `网格` are
-  separate list-style choices, and HarmonyOS simulator evidence shows the NextE menu entry and Home
-  `WaterFlow` rendering.
+- The previous Waterfall launch is superseded as complete acceptance: the mode is exposed and routes
+  through `WaterFlow`, but current user feedback says Waterfall widths are unusable. Treat it as scaffolded
+  but broken until width constraints and immersive viewport behavior are fixed.
 - Gallery Grid immersive chrome disappearance is implemented and pending controller acceptance:
   `PullRefreshGridScaffold` now uses full-row top/bottom spacer `GridItem`s instead of `Grid.padding`
   for title/bottom-bar avoidance, keeps horizontal padding only, and exposes near-end paging inputs for
@@ -187,18 +185,25 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+1. Gallery browsing layout recovery: compact Grid and Waterfall correctness. User-visible benefit is
+   high because Home/Search/Favorites browsing currently has two visible failures:
+   regular-phone Grid should be a compact three-column cover wall with persistent category-colored
+   translation badge and minimal title/date text, not a two-column large-card / tag/rating hybrid;
+   Waterfall is exposed but current widths are unusable and its viewport model may repeat the old
+   top/bottom padding issue. Next lane should fix `GalleryGridCard`, grid width constants/contracts, and
+   `PullRefreshWaterFlowScaffold` / `GalleryWaterfallCard` width + immersive viewport behavior together.
+2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, and MyTags new-user-tag add are implemented pending controller acceptance / authorized
    real-submit verification. Reopen here only for a fresh tag-vote / MyTags edit / MyTags delete /
    MyTags add regression, or for a separately scoped tagset-management lane.
-3. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-4. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-5. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule
