@@ -23,6 +23,11 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
 - SearchFilter shape, control proportions, and current rounded treatment are baseline.
 - Search filter entry belongs in the title/menu/action area, not inside the search input row.
 - Search title/header may hide while scrolling, but the bottomBuilder search field remains visible.
+- Settings and settings-like management pages must reuse the shared HDS/NextE settings primitives first:
+  `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, `AppModalScaffold`, and their local
+  variants. If the current primitive lacks a needed row height, divider, prefix/suffix, modal title, or
+  subtitle behavior, extend the shared primitive with a narrow opt-in parameter or wrapper. Do not hand-roll
+  page-local settings rows, dividers, or modal chrome because one screen exposes a missing capability.
 - Gallery Grid is separated from Waterfall: Grid uses grid scaffold semantics and compact fixed-size
   cards; Waterfall is a separate masonry mode, not an alias for Grid. `8bc9afb` implements the current
   recovery target and is pending controller acceptance, not a default active lane.

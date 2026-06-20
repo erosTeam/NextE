@@ -10,6 +10,54 @@ Purpose:
 
 ## Items
 
+### Settings UI Must Extend Shared Primitives, Not Hand-Roll Local Rows
+
+Type: implementation quality / settings UI baseline
+
+Priority suggestion: mandatory baseline
+
+Status: active guidance / applies before settings-like UI edits
+
+Source:
+
+- User feedback, 2026-06-20: settings and settings-like management screens keep drifting because
+  pages hand-roll list rows, dividers, buttons, and modal chrome instead of reusing the existing HDS
+  settings primitives. When a local issue is pointed out, agents tend to overreact by replacing the
+  primitive or rewriting the page instead of fixing the shared pattern.
+
+Baseline:
+
+- Settings pages and settings-like management pages should default to the shared NextE/HDS primitives:
+  `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, `SectionHeader`, `AppModalScaffold`,
+  and existing title-bar/menu builders.
+- Product pages that behave like settings or management lists, such as `MyTagsPage`, should follow this
+  baseline even if they live outside the `feature/settings` module.
+- Page-local hand-rolled `Row`/`Column` settings cells, divider magic numbers, fake title bars, and
+  custom button chrome are not acceptable as first-choice implementations.
+
+Implementation rule:
+
+- If a shared primitive almost works but lacks a capability, extend it narrowly instead of replacing it.
+  Examples: opt-in multiline subtitle, controlled row height, divider policy, prefix/suffix alignment,
+  trailing badge slot, menu anchor wrapper, modal title action slot, close/confirm icon actions.
+- New primitive parameters must be opt-in and must preserve existing settings pages by default.
+- If the requested behavior is one-off and not semantically a settings row, create a small wrapper around
+  the shared primitive rather than a page-local visual clone.
+- Before changing a settings-like page after user visual feedback, inspect the shared primitive contract
+  first. A screenshot problem in one page should not trigger a full page rewrite unless the user
+  explicitly says the page direction is wrong.
+
+Acceptance:
+
+- The implementation report names the shared primitive used and, if extended, the exact opt-in parameter
+  or wrapper added.
+- Contracts should prevent reintroducing page-local magic divider indents or fake settings rows when a
+  shared primitive can express the same UI.
+- Screenshot validation should check row height consistency, divider ownership/indent, prefix/title/
+  trailing vertical alignment, and modal chrome consistency with HDS.
+- If a page intentionally does not use shared settings primitives, the implementation must explain why
+  it is not settings-like and what existing HDS primitive is closer.
+
 ### Reader Settings Row Separators And Subtitle Readability
 
 Type: UI readability / settings form quality
