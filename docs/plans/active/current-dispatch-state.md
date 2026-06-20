@@ -138,9 +138,12 @@ a bounded validation path.
 
 1. Settings shared row subtitle readability: `ConciseListRow.subtitleMaxLines` exists but still defaults
    to `1`, so rows such as Layout Settings `详情页优先显示日文标题` still truncate useful explanatory text.
-   Next bounded lane should update the shared subtitle/default-height policy so ordinary settings rows
-   can show 2 lines by default or otherwise benefit without per-row one-off parameters. Keep this as a
-   shared primitive extension, not page-local row hand-rolling.
+   SDK inspection shows `HdsListItemCardOptions.cardHeight` is optional, so NextE's fixed
+   `cardHeight()` is a wrapper choice, not an HDS requirement. Next bounded lane should update the
+   shared subtitle/default-height policy so ordinary settings rows can show 2 lines by default or
+   otherwise benefit without per-row one-off parameters. Prefer natural height / min-height behavior;
+   only use a formula fallback if HDS runtime evidence requires a fixed height. Keep this as a shared
+   primitive extension, not page-local row hand-rolling.
 2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.

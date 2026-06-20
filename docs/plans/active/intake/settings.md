@@ -86,6 +86,13 @@ Read-only inspection:
 - Current `ConciseListRow.cardHeight()` returns `84` whenever `subtitleMaxLines > 1`. Therefore simply
   changing the default to `2` or `3` would make every row with any subtitle jump to the tall-row height,
   even when the subtitle is naturally one line.
+- SDK inspection: `/Applications/DevEco-Studio.app/Contents/sdk/default/hms/ets/api/@hms.hds.hdsBaseComponent.d.ets`
+  declares `HdsListItemCardOptions.cardHeight?: Dimension`. The height is optional in the HDS type
+  contract. NextE currently passes `cardHeight: this.cardHeight()` from its shared wrapper, so the hard
+  52/60/84 row heights are a NextE wrapper policy, not an HDS requirement.
+- V2Next uses the older fixed `subtitle ? 60 : 52` row-height wrapper; NextE inherited that pattern and
+  later added a one-off `84` branch for multiline subtitles. That inheritance explains the current
+  behavior, but it should not be treated as a product requirement.
 
 Expected behavior:
 
@@ -100,10 +107,16 @@ Expected behavior:
 Implementation direction:
 
 - Treat this as a shared primitive extension, not a Layout Settings one-off.
-- Revisit `ConciseListRow` subtitle and height policy together. Possible shape:
+- Revisit `ConciseListRow` subtitle and height policy together. Required order:
+  - first test whether omitting `cardHeight` lets HDS naturally size the row from primary/secondary text,
+    prefix/suffix, and padding;
+  - if natural HDS height works, remove the hard-coded row-height branching and use min-height/padding
+    only where needed for baseline row rhythm;
+  - if HDS runtime evidence shows fixed height is required, replace magic `52/60/84` branching with one
+    shared formula or narrow policy based on text lines and vertical padding.
+- Possible product shape:
   - default subtitle max lines becomes 2;
-  - card height distinguishes no-subtitle, normal subtitle, and long-subtitle rows without forcing all
-    subtitle rows to the current `84`;
+  - row height follows actual rendered content where possible, not merely the maximum allowed lines;
   - explicit `subtitleMaxLines: 3` remains available for rows such as volume-key behavior hints.
 - Update deterministic contracts so they no longer prove only the Reader volume-key row opted in; they
   should lock that the shared row default or shared policy allows useful two-line subtitles.
@@ -117,6 +130,8 @@ Acceptance:
   one-off fix.
 - Reader Settings volume-key hint remains readable up to 3 lines.
 - Row heights stay coherent across Settings pages; no broad row bloat or accidental clipped text.
+- The implementation report cites the HDS `cardHeight?: Dimension` finding and states whether runtime
+  validation used omitted `cardHeight`, min-height, or a formula fallback.
 - No page-local hand-rolled settings row is introduced.
 
 ### Reader Settings Row Separators And Subtitle Readability
