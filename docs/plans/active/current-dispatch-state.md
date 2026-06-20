@@ -56,7 +56,9 @@ Historical feedback in this section must not trigger new implementation.
   in-place `EH 收藏` sheet with left cancel, right confirm, favnote input, favcat slots, and remove state.
   Favcat slots now use an account-level real-name cache, no transient loading row is inserted into the
   sheet content, confirm uses optimistic close/update with failure rollback, and detail/home/search/
-  favorites retained lists consume a V2 favorite mutation after remote writes.
+  favorites retained lists consume a V2 favorite mutation after remote writes. Favorites visible rows also
+  re-resolve missing favcat slots when real favcat metadata arrives late, so favorite heart colors can
+  update in the current process without requiring an app restart.
 
 ## Parked / Guidance Only
 

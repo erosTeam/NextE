@@ -117,6 +117,13 @@ export struct FavcatPage {
     }
   }
 
+  @Monitor('favSel.favList')
+  onFavListChange(): void {
+    if (this.loadedOnce) {
+      this.vm.resolveVisibleFavoriteSlotsFrom(this.favSel.favList)
+    }
+  }
+
   @Monitor('favoriteMutation.version')
   onFavoriteMutation(): void {
     if (this.loadedOnce) {
@@ -144,6 +151,7 @@ export struct FavcatPage {
     byId.forEach((f: Favcat) => merged.push(f))
     this.favSel.favList = merged
     FavcatListSettings.persist(this.ctx(), merged)
+    this.vm.resolveVisibleFavoriteSlotsFrom(merged)
   }
 
   private mergeFavcatMetadata(current: Favcat | undefined, incoming: Favcat): Favcat {

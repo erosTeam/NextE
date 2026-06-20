@@ -158,17 +158,71 @@ export class FavoritesViewModel {
    * color the heart. Mutates in place; no-op when favList is empty or the row already has a slot.
    */
   private resolveFavcatSlots(gallerys: EhGallery[]): void {
-    if (this.favList.length === 0) {
+    this.resolveFavcatSlotsFrom(gallerys, this.favList)
+  }
+
+  private resolveFavcatSlotsFrom(gallerys: EhGallery[], favcats: Favcat[]): void {
+    if (favcats.length === 0) {
+      return
+    }
+    const byTitle: Map<string, string> = this.realFavcatTitleMap(favcats)
+    if (byTitle.size === 0) {
       return
     }
     gallerys.forEach((g: EhGallery) => {
       if (g.favcat.length === 0 && g.favTitle.length > 0) {
-        const hit: Favcat | undefined = this.favList.find((f: Favcat) => f.favTitle === g.favTitle)
+        const hit: string | undefined = byTitle.get(g.favTitle)
         if (hit !== undefined) {
-          g.favcat = hit.favId
+          g.favcat = hit
         }
       }
     })
+  }
+
+  private realFavcatTitleMap(favcats: Favcat[]): Map<string, string> {
+    const byTitle: Map<string, string> = new Map<string, string>()
+    favcats.forEach((f: Favcat) => {
+      if (!FavSelectionState.isPlaceholderFavcat(f) && f.favTitle.length > 0) {
+        byTitle.set(f.favTitle, f.favId)
+      }
+    })
+    return byTitle
+  }
+
+  /**
+   * Favorites rows often carry only favTitle, not the numeric slot. If real favcat metadata arrives
+   * after the rows were first rendered, re-resolve visible rows and replace the datasource so card
+   * heart colors update in the current process instead of requiring an app restart.
+   */
+  resolveVisibleFavoriteSlotsFrom(favcats: Favcat[]): boolean {
+    if (this.isLocalFavcat() || this.itemCount === 0 || favcats.length === 0) {
+      return false
+    }
+    const byTitle: Map<string, string> = this.realFavcatTitleMap(favcats)
+    if (byTitle.size === 0) {
+      return false
+    }
+    const current: EhGallery[] = this.dataSource.getAll()
+    let changed: boolean = false
+    const nextRows: EhGallery[] = []
+    current.forEach((g: EhGallery) => {
+      if (g.favcat.length === 0 && g.favTitle.length > 0) {
+        const hit: string | undefined = byTitle.get(g.favTitle)
+        if (hit !== undefined) {
+          const next: EhGallery = g.copy()
+          next.favcat = hit
+          nextRows.push(next)
+          changed = true
+          return
+        }
+      }
+      nextRows.push(g)
+    })
+    if (changed) {
+      this.dataSource.setData(nextRows)
+      this.itemCount = this.dataSource.totalCount()
+    }
+    return changed
   }
 
   /**

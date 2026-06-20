@@ -82,6 +82,16 @@ ok('FavoritesViewModel merge is real-metadata first; placeholders cannot overwri
     /incomingPlaceholder && !currentPlaceholder[\s\S]*return current/.test(favVm) &&
     /!incomingPlaceholder && currentPlaceholder[\s\S]*return incoming/.test(favVm) &&
     /incoming\.totNum === 0 && current\.totNum > 0 && incoming\.favTitle === current\.favTitle/.test(favVm))
+ok('FavoritesViewModel can re-resolve already rendered favorite rows after real favcat metadata arrives',
+  /resolveVisibleFavoriteSlotsFrom\(favcats: Favcat\[\]\): boolean/.test(favVm) &&
+    /realFavcatTitleMap\(favcats\)/.test(favVm) &&
+    /g\.favcat\.length === 0 && g\.favTitle\.length > 0/.test(favVm) &&
+    /next\.favcat = hit/.test(favVm) &&
+    /this\.dataSource\.setData\(nextRows\)/.test(favVm))
+ok('FavoritesViewModel late resolver ignores placeholder favcats',
+  /private realFavcatTitleMap\(favcats: Favcat\[\]\): Map<string, string>/.test(favVm) &&
+    /!FavSelectionState\.isPlaceholderFavcat\(f\)/.test(favVm) &&
+    /byTitle\.set\(f\.favTitle, f\.favId\)/.test(favVm))
 ok('FavcatPage seeds each retained VM from the restored shared favList',
   /this\.vm\.seedFavList\(this\.favSel\.favList\)/.test(favcatPage))
 ok('FavcatPage persists merged parsed favcats back to preferences',
@@ -89,6 +99,10 @@ ok('FavcatPage persists merged parsed favcats back to preferences',
 ok('FavcatPage publish keeps real shared metadata when filtered pages omit or seed the active slot',
   /mergeFavcatMetadata\(current: Favcat \| undefined, incoming: Favcat\): Favcat/.test(favcatPage) &&
     /incomingPlaceholder && !currentPlaceholder[\s\S]*return current/.test(favcatPage))
+ok('FavcatPage re-resolves visible rows when shared favcat metadata changes or publishes',
+  /@Monitor\('favSel\.favList'\)[\s\S]*onFavListChange\(\): void/.test(favcatPage) &&
+    /this\.vm\.resolveVisibleFavoriteSlotsFrom\(this\.favSel\.favList\)/.test(favcatPage) &&
+    /this\.favSel\.favList = merged[\s\S]*this\.vm\.resolveVisibleFavoriteSlotsFrom\(merged\)/.test(favcatPage))
 ok('FavcatPage obtains a UIAbilityContext for persistence',
   /private ctx\(\): common\.UIAbilityContext \{[\s\S]*this\.getUIContext\(\)\.getHostContext\(\) as common\.UIAbilityContext/.test(favcatPage))
 ok('FavcatBar shows the synthetic all-favorites aggregate count',
@@ -144,6 +158,25 @@ const mergeFavcatMetadata = (current, incoming) => {
   }
   return current
 }
+const realFavcatTitleMap = (favcats) => {
+  const byTitle = new Map()
+  for (const f of favcats) {
+    if (!isPlaceholder(f) && f.favTitle.length > 0) byTitle.set(f.favTitle, f.favId)
+  }
+  return byTitle
+}
+const resolveVisibleFavoriteSlots = (rows, favcats) => {
+  const byTitle = realFavcatTitleMap(favcats)
+  let changed = false
+  const nextRows = rows.map((g) => {
+    if (g.favcat.length === 0 && g.favTitle.length > 0 && byTitle.has(g.favTitle)) {
+      changed = true
+      return { ...g, favcat: byTitle.get(g.favTitle) }
+    }
+    return g
+  })
+  return { changed, rows: nextRows }
+}
 const remoteTotalCount = (favcats) =>
   favcats.reduce((total, f) => (isRemoteSlot(f.favId) && f.totNum > 0 ? total + f.totNum : total), 0)
 const snap = snapshot([
@@ -172,12 +205,26 @@ assert.deepStrictEqual(
   ),
   { favId: '2', favTitle: 'My Real Slot', totNum: 123 },
 )
+assert.deepStrictEqual(
+  resolveVisibleFavoriteSlots(
+    [{ gid: '100', favTitle: 'Real Slot 2', favcat: '' }],
+    [{ favId: '2', favTitle: 'Favorites 2', totNum: 0, isPlaceholder: true }],
+  ),
+  { changed: false, rows: [{ gid: '100', favTitle: 'Real Slot 2', favcat: '' }] },
+)
+assert.deepStrictEqual(
+  resolveVisibleFavoriteSlots(
+    [{ gid: '100', favTitle: 'Real Slot 2', favcat: '' }],
+    [{ favId: '2', favTitle: 'Real Slot 2', totNum: 123 }],
+  ),
+  { changed: true, rows: [{ gid: '100', favTitle: 'Real Slot 2', favcat: '2' }] },
+)
 assert.strictEqual(remoteTotalCount([
   { favId: 'a', favTitle: 'All', totNum: 999 },
   { favId: '2', favTitle: 'Manga', totNum: 609 },
   { favId: 'l', favTitle: 'Local', totNum: 3 },
   { favId: '0', favTitle: 'Default', totNum: 4 },
 ]), 613)
-passed += 5
+passed += 7
 
 console.log(`✓ favcat snapshot contract: ${passed} assertions passed`)

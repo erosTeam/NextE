@@ -4125,9 +4125,38 @@ Acceptance shape:
 
 Type: favorites metadata / visual-state refresh bug
 
-Priority suggestion: P2
+Priority suggestion: P1
 
-Status: active / queued
+Status: implemented / pending device acceptance
+
+Implementation:
+
+- Commit pending in current lane: `FavoritesViewModel.resolveVisibleFavoriteSlotsFrom(favcats)` builds a
+  non-placeholder `favTitle -> favId` map, scans already-rendered datasource rows with `favTitle` and
+  empty `favcat`, replaces changed rows with copied rows carrying the resolved slot, and calls
+  `dataSource.setData(...)` only when changed.
+- `FavcatPage` now calls the resolver when shared `favSel.favList` changes and immediately after
+  publishing merged parsed favcat metadata.
+- Existing explicit remote favorite mutation remains authoritative; the late resolver only fills missing
+  slots for rows that still have `favcat == ''`.
+
+Verification:
+
+- Deterministic: `node scripts/test_favcat_snapshot_contract.mjs` covers late favcat metadata arrival,
+  placeholder exclusion, and datasource replacement after slot resolution.
+- Related contracts also passed in this lane: favorites selector, remote favorite sheet, favcat color,
+  local favorite toggle, retained subtab framework, V1 decorator inventory, i18n parity, and
+  `git diff --check`.
+- Simulator: installed signed HAP on local HarmonyOS target `127.0.0.1:5555`; Favorites page evidence
+  saved at `.hvigor/outputs/favorite-late-resolve/favorites.jpeg` and
+  `.hvigor/outputs/favorite-late-resolve/favorites_layout.json`. The visible Favorites strip retained
+  real names/counts (`全部 4396`, `F0`, `本子`, `漫画`, `3D`, `高分`) and the screenshot shows varied
+  favcat heart colors rather than one fallback color.
+
+Still pending:
+
+- Fresh-login / cleared-favcat-cache acceptance should still be checked by controller or a dedicated
+  device pass because the current simulator already had real account favcat metadata available.
 
 Source:
 
