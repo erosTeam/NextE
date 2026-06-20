@@ -51,9 +51,12 @@ export struct SearchPageField {
         searchButtonText: AppStrings.get('tab_search'),
         useSystemMaterial: true,
         onTextChange: (value: string) => {
+          this.fieldText = value
           this.fieldState.keyword = value
         },
-        onSubmit: (_value: string) => {
+        onSubmit: (value: string) => {
+          this.fieldText = value
+          this.fieldState.keyword = value
           this.fieldState.submitSeq = this.fieldState.submitSeq + 1
         },
       }).layoutWeight(1)

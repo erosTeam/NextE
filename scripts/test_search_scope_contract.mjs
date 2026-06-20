@@ -51,6 +51,8 @@ ok('filter favorite searches all favorite slots', /favcat:\s*this\.isFavoriteSco
 const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 ok('empty ordinary query does not browse by filter scope', /if \(trimmed\.length === 0\) \{[\s\S]*this\.clearQueryToHistory\(\)/.test(page))
 ok('route favorite scope remains a hard page mode', /this\.isFavoriteScope = true[\s\S]*this\.vm\.seedFavoriteScope\(p\.favcat\)/.test(page))
+ok('route favorite scope does not auto-browse empty query',
+  !/p\.searchType === 'favorite'[\s\S]*this\.vm\.search\(''\)/.test(page))
 ok('search page keeps filter entry in the title menu/action area',
   /'menu': this\.searchMenu\(\)/.test(page) &&
   /private searchMenu\(\): Record<string, Object> \{[\s\S]*sys\.symbol\.funnel[\s\S]*this\.showFilter = true/.test(page) &&

@@ -52,15 +52,14 @@ function route(query, _filterActive) {
 }
 
 // Mirror of SearchViewModel.search() entry guard and reapplyFilters() guard.
-const shouldSearch = (query, isFavoriteScope) =>
-  !(query.trim().length === 0 && !isFavoriteScope)
+const shouldSearch = (query, _isFavoriteScope) => query.trim().length > 0
 const searchAction = (query, isLoading, isFavoriteScope) => {
   const trimmed = query.trim()
   if (!shouldSearch(trimmed, isFavoriteScope)) return { kind: 'noop' }
   if (isLoading) return { kind: 'queue', query: trimmed }
   return { kind: 'search', query: trimmed }
 }
-const shouldReapply = (queryLen, isFavoriteScope) => queryLen > 0 || isFavoriteScope
+const shouldReapply = (queryLen, _isFavoriteScope) => queryLen > 0
 
 let passed = 0
 const ok = (name, cond) => {
@@ -114,19 +113,19 @@ const ok = (name, cond) => {
   ok('bare /g/ URL still jumps', route('https://e-hentai.org/g/1/abc', false).kind === 'gallery')
 }
 
-// 5. VM search guard: empty allowed only for explicit favorite-scope browse; in-flight submits queue
+// 5. VM search guard: empty query never auto-browses; in-flight submits queue
 {
   ok('vm: term searches', searchAction('x', false, false).kind === 'search')
   ok('vm: empty ordinary blocked', searchAction('', false, false).kind === 'noop')
-  ok('vm: empty favorite browse allowed', searchAction('', false, true).kind === 'search')
+  ok('vm: empty favorite entry blocked until submit has a query', searchAction('', false, true).kind === 'noop')
   ok('vm: loading term queues latest submitted query', searchAction('second', true, false).kind === 'queue')
   ok('vm: loading queued query is trimmed', searchAction(' second ', true, false).query === 'second')
 }
 
-// 6. reapplyFilters: re-runs on query OR explicit favorite browse, not ordinary filter-only
+// 6. reapplyFilters: re-runs only an existing query, not ordinary/favorite filter-only browse
 {
   ok('reapply with query', shouldReapply(5, false) === true)
-  ok('reapply favorite browse', shouldReapply(0, true) === true)
+  ok('reapply favorite scope without query is noop', shouldReapply(0, true) === false)
   ok('reapply noop when neither', shouldReapply(0, false) === false)
 }
 
@@ -174,7 +173,7 @@ const ok = (name, cond) => {
   ok('bottomBuilder search field uses full content width and does not host page-level filters',
     /HDS title-bar bottomBuilder/.test(fieldSrc) &&
     /@ObservedV2[\s\S]*export class SearchPageFieldState/.test(fieldSrc) &&
-    /onSubmit: \(_value: string\) => \{[\s\S]*this\.fieldState\.submitSeq = this\.fieldState\.submitSeq \+ 1/.test(fieldSrc) &&
+    /onSubmit: \(value: string\) => \{[\s\S]*this\.fieldText = value[\s\S]*this\.fieldState\.keyword = value[\s\S]*this\.fieldState\.submitSeq = this\.fieldState\.submitSeq \+ 1/.test(fieldSrc) &&
     !/sys\.symbol\.funnel/.test(fieldSrc) &&
     !/filterSeq/.test(fieldSrc) &&
     !/BACK_BUTTON_SLOT_WIDTH/.test(fieldSrc) &&
@@ -186,10 +185,10 @@ const ok = (name, cond) => {
     'utf8',
   )
   ok(
-    'vm blocks empty ordinary query even when filters are active',
-    /trimmed\.length === 0 && !this\.isFavoriteScope\)/.test(vmSrc),
+    'vm blocks empty query even in favorite scope',
+    /if \(trimmed\.length === 0\) \{[\s\S]*return[\s\S]*\}/.test(vmSrc),
   )
-  ok('reapplyFilters does not honor ordinary filter-only browse', /const canSearch: boolean = this\.query\.length > 0 \|\| this\.isFavoriteScope/.test(vmSrc))
+  ok('reapplyFilters does not honor filter-only or favorite-only browse', /const canSearch: boolean = this\.query\.length > 0/.test(vmSrc))
   ok('reapplyFilters queues live changes during loading',
     /if \(this\.isLoading\) \{[\s\S]*this\.pendingFilterReapply = true[\s\S]*return[\s\S]*\}/.test(vmSrc) &&
     /if \(this\.pendingFilterReapply\) \{[\s\S]*this\.pendingFilterReapply = false[\s\S]*await this\.reapplyFilters\(\)/.test(vmSrc))
@@ -206,8 +205,8 @@ const ok = (name, cond) => {
     /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.dataSource\.setData\(list\.gallerys\)/.test(vmSrc) &&
     /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.isLoading = false/.test(vmSrc))
   ok(
-    'refresh blocks empty ordinary query',
-    /this\.query\.length === 0 && !this\.isFavoriteScope\)/.test(vmSrc),
+    'refresh blocks empty query in every scope',
+    /this\.query\.length === 0\s*\|\|/.test(vmSrc),
   )
 }
 

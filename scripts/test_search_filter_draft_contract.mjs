@@ -84,7 +84,8 @@ ok('page embeds the sheet without openSeq or close-on-apply callback',
   !/onApply:/.test(page))
 ok('SearchFilterState remains the active shared state',
   /@ObservedV2[\s\S]*export class SearchFilterState/.test(state) && /@Trace applySeq: number = 0/.test(state))
-ok('search page persists on applySeq and reapplies only when a query or explicit favorite browse exists',
-  /@Monitor\('filter\.applySeq'\)[\s\S]*SearchFilterSettings\.persist\(this\.ctx\(\)\)[\s\S]*this\.fieldState\.keyword\.trim\(\)\.length > 0 \|\| this\.vm\.isFavoriteScope[\s\S]*this\.vm\.reapplyFilters\(\)/.test(page))
+ok('search page persists on applySeq and reapplies only when a submitted query exists',
+  /@Monitor\('filter\.applySeq'\)[\s\S]*SearchFilterSettings\.persist\(this\.ctx\(\)\)[\s\S]*if \(this\.fieldState\.keyword\.trim\(\)\.length > 0\) \{[\s\S]*this\.vm\.reapplyFilters\(\)/.test(page) &&
+  !/fieldState\.keyword\.trim\(\)\.length > 0 \|\| this\.vm\.isFavoriteScope/.test(page))
 
 console.log(`✓ search filter live-edit contract: ${passed} assertions passed`)

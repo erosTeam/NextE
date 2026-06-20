@@ -46,10 +46,9 @@ export class SearchViewModel {
   private pendingSearchQuery: string = ''
   private suggestTimer: number = -1
   private suggestEpoch: number = 0
-  // Favorite scope (eros_fe SearchType.favorite, search_page_controller.dart:240): when set, the page
-  // searches favorites.php f_search instead of the gallery list. Seeded from the route param when the
-  // favorites title-bar magnifier pushes here; an empty query browses the favcat (favorites.php allows
-  // no f_search). The normal gallery path is untouched when this is false.
+  // Favorite scope (eros_fe SearchType.favorite, search_page_controller.dart:240): when set, submitted
+  // non-empty queries search favorites.php f_search instead of the gallery list. The title-bar search
+  // entry opens a compose/history state; empty favcat browse needs a separate explicit entry.
   @Trace isFavoriteScope: boolean = false
   private favcat: string = 'a'
   private favOrder: string = EhConstants.FAV_ORDER_FAV
@@ -171,9 +170,9 @@ export class SearchViewModel {
 
   /** Re-run the current query with the latest filters (called when the filter sheet live-edits). */
   async reapplyFilters(): Promise<void> {
-    // Ordinary search does not implicitly browse with an empty query. Favorite scope is the explicit
-    // empty-query browse entry (favorites title-bar search), so it remains allowed.
-    const canSearch: boolean = this.query.length > 0 || this.isFavoriteScope
+    // Search filter live edits only re-run an existing submitted query. Empty favorite scope is still
+    // a compose/search entry, not an implicit favcat browse.
+    const canSearch: boolean = this.query.length > 0
     if (!canSearch) {
       this.dataSource.clear()
       this.itemCount = 0
@@ -192,8 +191,8 @@ export class SearchViewModel {
 
   async search(query: string): Promise<void> {
     const trimmed: string = query.trim()
-    // Empty ordinary search returns to history; only explicit favorite scope browses without f_search.
-    if (trimmed.length === 0 && !this.isFavoriteScope) {
+    // Empty search returns to history/blank. Filter-only or favorite-only browsing must be explicit.
+    if (trimmed.length === 0) {
       return
     }
     if (this.isLoading) {
@@ -263,9 +262,9 @@ export class SearchViewModel {
   /** Re-run the current query from page 1 (pull-to-refresh). Guarded + flagged isLoading so a
    * concurrent loadMore (which checks isLoading) can't interleave its appendData with this setData. */
   async refresh(): Promise<void> {
-    // Empty ordinary search has no network state to refresh; favorite scope is an explicit browse.
+    // Empty search has no network state to refresh.
     if (
-      (this.query.length === 0 && !this.isFavoriteScope) ||
+      this.query.length === 0 ||
       this.isLoading ||
       this.isLoadingMore
     ) {

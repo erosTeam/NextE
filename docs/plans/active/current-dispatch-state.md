@@ -59,6 +59,10 @@ Historical feedback in this section must not trigger new implementation.
   favorites retained lists consume a V2 favorite mutation after remote writes. Favorites visible rows also
   re-resolve missing favcat slots when real favcat metadata arrives late, so favorite heart colors can
   update in the current process without requiring an app restart.
+- Search entry behavior is implemented and pending controller acceptance: the Search title-bar field
+  syncs IME submitted text before bumping the page submit bus, clearing the field returns to history/blank,
+  live filter edits only reapply an existing non-empty query, and the Favorites title-bar search action
+  opens favorite-scope compose/history instead of auto-running an empty favorite search.
 
 ## Parked / Guidance Only
 
@@ -96,14 +100,11 @@ a bounded validation path.
    writes establish the protected EH write pattern.
 5. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-6. Search entry behavior: IME search must submit; clearing the query must return to history/blank state
-   rather than stale results; Favorites title-bar search must open the same history/blank compose state
-   instead of auto-running an empty favorite search.
-7. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
+6. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
    accepted; do not make Grid behave like Waterfall.
-8. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+7. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-9. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+8. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule

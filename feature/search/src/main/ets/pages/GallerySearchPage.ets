@@ -321,7 +321,7 @@ export struct GallerySearchPage {
   onFilterApply(): void {
     // Persist live filter edits so they survive a restart (eros_fe keeps the advanced-search profile).
     SearchFilterSettings.persist(this.ctx())
-    if (this.fieldState.keyword.trim().length > 0 || this.vm.isFavoriteScope) {
+    if (this.fieldState.keyword.trim().length > 0) {
       this.vm.reapplyFilters()
     }
   }
@@ -571,16 +571,15 @@ export struct GallerySearchPage {
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .onReady((context: NavDestinationContext) => {
       // The favorites title-bar magnifier pushed us with a favorite scope param (eros_fe
-      // goSearchPage(searchType: favorite)). Seed the VM scope and browse the favcat immediately;
-      // typing in the title-bar field then runs favorites.php f_search via the same runQuery →
-      // vm.search path. There is no bespoke favorites search box — this is the ONE adaptive page.
+      // goSearchPage(searchType: favorite)). Seed the VM scope, but leave the page in compose/history
+      // state until the user submits a non-empty query; favorite browse without f_search must be a
+      // separate explicit entry, not the title-bar search action.
       if (context.pathInfo.param instanceof SearchPageParams) {
         const p: SearchPageParams = context.pathInfo.param as SearchPageParams
         this.fieldState.focusOnAppear = p.focusOnAppear
         if (p.searchType === 'favorite') {
           this.isFavoriteScope = true
           this.vm.seedFavoriteScope(p.favcat)
-          this.vm.search('')
         }
         if (p.initialQuery.length > 0) {
           this.fieldState.keyword = p.initialQuery

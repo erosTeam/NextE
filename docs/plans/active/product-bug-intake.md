@@ -2009,7 +2009,47 @@ Type: Search UX / route initialization bug
 
 Priority suggestion: P1
 
-Status: active
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- Current working change removes the `GallerySearchPage.onReady()` `vm.search('')` call from the
+  favorite route seed path, syncs `SearchPageField` submitted text into the page-owned field state
+  before bumping `submitSeq`, and makes `SearchViewModel.search()` / `refresh()` block empty queries in
+  every scope.
+- Live filter edits now persist but only reapply when the current page field has a non-empty query; empty
+  favorite scope remains a compose/history state until the user submits.
+- Deterministic contracts updated:
+  `scripts/test_search_input_contract.mjs`, `scripts/test_favorites_search_contract.mjs`,
+  `scripts/test_search_scope_contract.mjs`, and `scripts/test_search_filter_draft_contract.mjs`.
+
+Validation:
+
+- Contracts:
+  `node scripts/test_search_input_contract.mjs`,
+  `node scripts/test_favorites_search_contract.mjs`,
+  `node scripts/test_search_scope_contract.mjs`,
+  `node scripts/test_search_filter_draft_contract.mjs`,
+  `node scripts/test_search_filter_action_bar_contract.mjs`,
+  `node scripts/test_search_filter_ux_contract.mjs`,
+  `node scripts/test_search_history_contract.mjs`,
+  `node scripts/test_search_tagsuggest_contract.mjs`,
+  `node scripts/test_search_route_session_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`,
+  `python3 scripts/check_i18n_duplicates.py`,
+  `git diff --check`.
+- Build: `scripts/build_hvigor_signed.sh` on macOS signing path.
+- Device evidence on local HarmonyOS simulator `127.0.0.1:5555`:
+  `.hvigor/outputs/search-entry-behavior/after_fav_search.jpeg` /
+  `after_fav_search_layout.json` show Favorites title-bar Search opens the favorite-scope Search page
+  with the pinned field and search history, not an empty favorite results page.
+- Device evidence:
+  `.hvigor/outputs/search-entry-behavior/submitted.jpeg` / `submitted_layout.json` show typing
+  `nexteprobe` and pressing the field search button enters the search result state (`没有搜索结果` for
+  this probe query), proving submit no longer only dismisses input.
+- Device evidence:
+  `.hvigor/outputs/search-entry-behavior/cleared.jpeg` / `cleared_layout.json` show clearing the field
+  returns to the search history/blank compose state and removes the old no-results state.
 
 Source:
 

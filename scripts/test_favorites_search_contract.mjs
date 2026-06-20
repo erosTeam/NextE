@@ -81,8 +81,10 @@ ok(/private buildFavQuery\(next: string\): FavoritesQuery \{[\s\S]*favcat: this\
   'SearchViewModel favorites query sends current query as f_search')
 ok(/private effectiveFavoriteScope\(\): boolean \{[\s\S]*SEARCH_SCOPE_FAVORITE/.test(SEARCH_VM),
   'SearchViewModel also honors filter-sheet Favorite scope')
-ok(/context\.pathInfo\.param instanceof SearchPageParams[\s\S]*p\.searchType === 'favorite'[\s\S]*this\.vm\.seedFavoriteScope\(p\.favcat\)[\s\S]*this\.vm\.search\(''\)/.test(SEARCH_PAGE),
-  'GallerySearchPage consumes favorite route params and browses the favcat')
+ok(/context\.pathInfo\.param instanceof SearchPageParams[\s\S]*p\.searchType === 'favorite'[\s\S]*this\.vm\.seedFavoriteScope\(p\.favcat\)/.test(SEARCH_PAGE),
+  'GallerySearchPage consumes favorite route params and seeds favorite scope')
+ok(!/p\.searchType === 'favorite'[\s\S]*this\.vm\.search\(''\)/.test(SEARCH_PAGE),
+  'Favorites title-bar search entry does not auto-run empty favcat browse')
 ok(/private runQuery\(query: string\): void \{[\s\S]*this\.vm\.search\(trimmed\)/.test(SEARCH_PAGE),
   'GallerySearchPage submit path reuses the same SearchViewModel search')
 // dm_l thumbnail-mode retry wiring in EhApiService.
