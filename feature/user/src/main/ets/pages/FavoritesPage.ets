@@ -8,8 +8,10 @@ import {
   Favcat,
   RetainedSubtabHost,
   ActiveKeyState,
+  SubtabSelectionSettings,
 } from 'shared'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { common } from '@kit.AbilityKit'
 import { FavcatPage } from '../components/FavcatPage'
 
 // Global @Builder (no `this`) for RetainedSubtabHost's @BuilderParam. Renders one retained favcat page,
@@ -39,6 +41,10 @@ export struct FavoritesPage {
   @Local orderMenuShown: boolean = false;
   // Index consumes the ACTIVE favcat's scroller for the title-bar bindToScrollable (auto-hide).
   @Event onScrollerReady?: (scroller: Scroller) => void;
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   // Host keys: logged out sees only synthetic 'l' (local); logged in keeps 'a' + remote slots + 'l'.
   // Order matches FavcatBar's tabs.
@@ -77,7 +83,7 @@ export struct FavoritesPage {
         selectedKey: this.effectiveSelectedFavcat(),
         pageBuilder: favcatPageBuilder,
         onSelectKey: (key: string) => {
-          this.favSel.selectedFavcat = key
+          SubtabSelectionSettings.setFavoritesFavcat(this.ctx(), key, this.auth.isLogin)
         },
         onVisualIndex: (value: number) => {
           this.visual.value = value

@@ -10,7 +10,9 @@ import {
   AuthState,
   connectLocalFav,
   LocalFavState,
+  SubtabSelectionSettings,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 /**
  * Favorites favcat switcher, PINNED in the HDS title bar via a `bottomBuilder`. CHIPS-ONLY (search +
@@ -27,6 +29,10 @@ export struct FavcatBar {
   @Local visual: TabVisualIndexState = connectFavcatVisualIndex();
   @Local auth: AuthState = connectAuth();
   @Local localFav: LocalFavState = connectLocalFav();
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   // Must mirror FavoritesPage.favcatKeys() order: synthetic 'a' (all) + the favcat slots. Only the
   // synthetic all chip shows a count: eros_fe sums the remote 0-9 slots for "all"; per-slot counts stay
@@ -49,7 +55,7 @@ export struct FavcatBar {
       onSelect: (index: number) => {
         const items: TabItem[] = this.tabs()
         if (index >= 0 && index < items.length) {
-          this.fav.selectedFavcat = items[index].key
+          SubtabSelectionSettings.setFavoritesFavcat(this.ctx(), items[index].key, this.auth.isLogin)
         }
       },
     })

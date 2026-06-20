@@ -16,7 +16,7 @@ Type: UX optimization / preference persistence
 
 Priority suggestion: P3
 
-Status: parked
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -43,12 +43,13 @@ Expected behavior:
 
 Implementation direction:
 
-- Add small settings holders under `shared/settings` or the existing relevant settings modules.
-- Persist only stable identifiers (`source`, `favcat`, `toplistPeriod`), not full lists or gallery data.
-- Restore after bootstrap/account state is available; for favcat, validate against known slots when the
-  remote list arrives and fall back if invalid.
-- Keep the scope narrow: no tabbar customization, custom profiles, WebDAV sync, or account migration in
-  this lane.
+- Implemented in `codex/retain-subtabs`: `SubtabSelectionSettings` persists only stable identifiers
+  (`source`, `favcat`, `toplistTl`) in the existing preferences store.
+- `SettingsBootstrap` restores the selections after cookie/auth restore. Logged-out restore clamps
+  watched source to default and favcat to local; invalid Toplist periods clamp to yesterday.
+- Home, Favorites, and Toplist retained-tab selections save through this single writer.
+- Scope stays narrow: no tabbar customization, custom profiles, WebDAV sync, list payload persistence,
+  or account migration.
 
 Acceptance shape:
 
@@ -59,3 +60,14 @@ Acceptance shape:
   crashing.
 - Deterministic contract covers persistence keys, restore/fallback behavior, and avoids storing gallery
   list payloads as preference state.
+
+Evidence:
+
+- Deterministic contract: `scripts/test_retained_subtab_preferences_contract.mjs`.
+- Gates: `node scripts/test_retained_subtab_preferences_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`, `git diff --check`, and official signed
+  Hvigor build through `scripts/build_hvigor_signed.sh`.
+- Runtime smoke: local HarmonyOS emulator target `127.0.0.1:5555`, signed HAP installed and app started.
+  Evidence screenshots:
+  `.hvigor/outputs/retain-subtabs/writer-after-click.jpeg` and
+  `.hvigor/outputs/retain-subtabs/writer-after-restart.jpeg`.

@@ -5,7 +5,9 @@ import {
   TabVisualIndexState,
   RetainedSubtabHost,
   ActiveKeyState,
+  SubtabSelectionSettings,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 import { ToplistPeriodPage } from '../components/ToplistPeriodPage'
 
 // Toplist period keys in the bar's order (ToplistPeriodBar): 全部(11) · 年榜(12) · 月榜(13) · 昨日(15).
@@ -32,13 +34,17 @@ export struct ToplistPage {
   @Local visual: TabVisualIndexState = connectToplistVisualIndex();
   @Event onScrollerReady?: (scroller: Scroller) => void;
 
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
   build() {
     RetainedSubtabHost({
       keys: TOPLIST_KEYS,
       selectedKey: `${this.homeSource.toplistTl}`,
       pageBuilder: toplistPeriodPageBuilder,
       onSelectKey: (key: string) => {
-        this.homeSource.toplistTl = Number(key)
+        SubtabSelectionSettings.setToplistTl(this.ctx(), Number(key))
       },
       onVisualIndex: (value: number) => {
         this.visual.value = value

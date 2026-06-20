@@ -34,6 +34,9 @@ export class StorageKeys {
   static readonly DOWNLOAD_ORIGINAL: string = 'download.original'
   static readonly DOWNLOAD_GALLERY_QUEUE: string = 'download.galleryQueue'
   static readonly SECURITY_AUTO_LOCK_SEC: string = 'security.autoLockSeconds'
+  static readonly HOME_SOURCE: string = 'subtab.homeSource'
+  static readonly FAVORITES_FAVCAT: string = 'subtab.favoritesFavcat'
+  static readonly TOPLIST_TL: string = 'subtab.toplistTl'
 
   // sensitive auth bundle (redacted in logs, never committed)
   static readonly COOKIE_JAR: string = 'auth.cookieJar'

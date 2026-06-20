@@ -230,6 +230,7 @@ export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
 export { DownloadSettings } from './settings/DownloadSettings'
 export { DownloadQueueSettings } from './settings/DownloadQueueSettings'
 export { SecuritySettings } from './settings/SecuritySettings'
+export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'

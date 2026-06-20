@@ -7,7 +7,9 @@ import {
   TabVisualIndexState,
   RetainedSubtabHost,
   ActiveKeyState,
+  SubtabSelectionSettings,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 import { GallerySourcePage } from '../components/GallerySourcePage'
 
 // Global @Builder (no `this`) so passing it to RetainedSubtabHost's @BuilderParam under @ComponentV2
@@ -33,6 +35,10 @@ export struct HomePage {
   // Index consumes the ACTIVE source's scroller for the title-bar bindToScrollable (auto-hide).
   @Event onScrollerReady?: (scroller: Scroller) => void;
 
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
   // 订阅 (watched) is login-only (eros_fe). The keyed host retains '' / 'popular' when 'watched' is added/
   // removed on login change. Must mirror HomeSourceBar's tab order so the visual index lines up.
   private visibleSources(): string[] {
@@ -43,7 +49,7 @@ export struct HomePage {
   @Monitor('auth.isLogin')
   onLoginChange(): void {
     if (!this.auth.isLogin && this.homeSource.source === 'watched') {
-      this.homeSource.source = ''
+      SubtabSelectionSettings.setHomeSource(this.ctx(), '', false)
     }
   }
 
@@ -53,7 +59,7 @@ export struct HomePage {
       selectedKey: this.homeSource.source,
       pageBuilder: gallerySourcePageBuilder,
       onSelectKey: (key: string) => {
-        this.homeSource.source = key
+        SubtabSelectionSettings.setHomeSource(this.ctx(), key, this.auth.isLogin)
       },
       onVisualIndex: (value: number) => {
         this.visual.value = value

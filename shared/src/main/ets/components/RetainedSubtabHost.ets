@@ -46,6 +46,7 @@ export struct RetainedSubtabHost {
   private swiperController: SwiperController = new SwiperController();
   private scrollers: Map<string, Scroller> = new Map<string, Scroller>();
   private swiperWidth: number = 0;
+  private ignoreStartupDefaultChange: boolean = false;
   // Shared active-key signal handed to every page; updated whenever the active key changes (bar tap or
   // swipe settle). Its @Trace reaches cached pages, so each key's first activation triggers exactly one load.
   private active: ActiveKeyState = new ActiveKeyState();
@@ -83,7 +84,9 @@ export struct RetainedSubtabHost {
     // Seed the active-key signal BEFORE the pages build, so the initially-active page's aboutToAppear sees
     // active.activeKey === itsKey and loads.
     this.active.activeKey = this.selectedKey
-    this.onVisualIndex(this.activeIndex())
+    const restoredIndex: number = this.activeIndex()
+    this.ignoreStartupDefaultChange = restoredIndex > 0
+    this.onVisualIndex(restoredIndex)
     this.notifyActiveScroller()
   }
 
@@ -125,6 +128,14 @@ export struct RetainedSubtabHost {
       this.onVisualIndex(index)
     })
     .onChange((i: number) => {
+      if (this.ignoreStartupDefaultChange) {
+        this.ignoreStartupDefaultChange = false
+        const expectedIndex: number = this.activeIndex()
+        if (i === 0 && expectedIndex !== 0) {
+          this.onVisualIndex(expectedIndex)
+          return
+        }
+      }
       if (i < 0 || i >= this.keys.length) {
         return
       }

@@ -7,7 +7,9 @@ import {
   TabVisualIndexState,
   SubTabBar,
   TabItem,
+  SubtabSelectionSettings,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 /**
  * Gallery-tab source switcher, PINNED in the HDS title bar via a `bottomBuilder` (V2Next FeedPills
@@ -23,6 +25,10 @@ export struct HomeSourceBar {
   @Local home: HomeSourceState = connectHomeSource();
   @Local auth: AuthState = connectAuth();
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   // Must mirror HomePage.visibleSources() order so the visual index lines up with the right tab.
   private tabs(): TabItem[] {
@@ -43,7 +49,7 @@ export struct HomeSourceBar {
       onSelect: (index: number) => {
         const items: TabItem[] = this.tabs()
         if (index >= 0 && index < items.length) {
-          this.home.source = items[index].key
+          SubtabSelectionSettings.setHomeSource(this.ctx(), items[index].key, this.auth.isLogin)
         }
       },
     })

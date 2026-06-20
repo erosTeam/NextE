@@ -5,7 +5,9 @@ import {
   TabVisualIndexState,
   SubTabBar,
   TabItem,
+  SubtabSelectionSettings,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 // Periods in the same order as ToplistPage's Swiper (TOPLIST_PERIODS): 全部(11) · 年榜(12) · 月榜(13) · 昨日(15).
 const PERIOD_TLS: number[] = [11, 12, 13, 15]
@@ -20,6 +22,10 @@ const PERIOD_TLS: number[] = [11, 12, 13, 15]
 export struct ToplistPeriodBar {
   @Local home: HomeSourceState = connectHomeSource();
   @Local visual: TabVisualIndexState = connectToplistVisualIndex();
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   private tabs(): TabItem[] {
     return [
@@ -36,7 +42,7 @@ export struct ToplistPeriodBar {
       visualIndex: this.visual.value,
       onSelect: (index: number) => {
         if (index >= 0 && index < PERIOD_TLS.length) {
-          this.home.toplistTl = PERIOD_TLS[index]
+          SubtabSelectionSettings.setToplistTl(this.ctx(), PERIOD_TLS[index])
         }
       },
     })

@@ -140,6 +140,10 @@ Historical feedback in this section must not trigger new implementation.
   1700-page public gallery `https://e-hentai.org/g/3998992/f5b5c954d2/`, Android FE ADB `su`
   grounding, NextE Mate X7 simulator jump-to-600, and adjacent up/down preview scrolling without
   returning to the initial page range. Reopen only with a fresh mismatch beyond that evidence.
+- Retained sub-tab preference is implemented pending controller acceptance: Home source, Favorites
+  favcat, and Toplist period selections are restored from Preferences during startup and saved when the
+  user changes retained sub-tabs. Logged-out restore clamps unavailable watched/favcat selections to
+  valid visible tabs. Reopen only with a fresh restart-state mismatch.
 
 ## Parked / Guidance Only
 
@@ -159,9 +163,6 @@ Items here are real concerns, but they are not active implementation lanes by de
   real user feedback, but they must not be used as a default next implementation lane without explicit
   user authorization. If reopened, first add/collect gesture trace evidence; do not keep patching Reader
   gestures from static reasoning alone.
-- Persisting last selected sub-tabs is a low-priority UX optimization: Home gallery source, Favorites
-  favcat, and Toplist period currently reset to defaults after app restart. This should be handled later
-  as retained user preference state, not ahead of write-operation and search/favorites correctness bugs.
 - Home bottom-tab auto-hide and smart-grip-aware floating action alignment are medium-priority UX
   enhancements. They should not interrupt the current Grid/Waterfall recovery lane, but they are good
   candidates for a later bounded platform-UX lane because Next2V already has working patterns:
