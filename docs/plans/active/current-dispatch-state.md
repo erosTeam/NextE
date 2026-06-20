@@ -204,11 +204,15 @@ a bounded validation path.
    Reuse one helper for detail/list/waterfall tag taps and later tagsuggest/translation candidate insertion;
    uploader/title/similar searches must keep their existing non-tag semantics. This is P1 search correctness,
    not broad Search UI redesign.
-3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+3. Reader loading-state overlay regression: loading spinner/text can appear on top of an already visible
+   Reader image (reported 2026-06-21). Treat as P1 reading-core visual correctness. Fix narrowly by making
+   loaded image and loading stage mutually exclusive in the visible page state; do not reopen byte-progress,
+   cache, double-page, or broad gesture redesign for this bug.
+4. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-4. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
+5. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
    (reported 2026-06-21). Record only for a later small launch/smoke fix; do not let it displace Reader
    gesture/chrome fixes or the P1 comment regressions.
 

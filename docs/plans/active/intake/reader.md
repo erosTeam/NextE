@@ -176,6 +176,44 @@ Closure:
   and determinate byte progress remain parked in separate lanes. Do not re-enable them until their
   lanes preserve the accepted Reader interaction baseline above.
 
+### Reader Loading Indicator Must Not Overlay A Visible Image
+
+Type: visual state regression / reading core polish
+
+Priority suggestion: P1
+
+Status: accepted / not implemented
+
+Source:
+
+- User feedback, 2026-06-21: Reader can show a loading indicator stacked on top of an already visible image.
+
+Research:
+
+- Current Reader image surfaces render through `Stack` branches. In `ReaderImagePage`,
+  `ReaderVerticalImage`, and `ReaderSpreadImageLayer`, the `Image` is rendered when `imageUrl.length > 0`,
+  and `ReaderLoadingStage` is also rendered while `imageLoaded` is false.
+- That shape is vulnerable to a visible-image/loading-state mismatch: a bitmap can be painted while the
+  component still believes `imageLoaded` is false, leaving the spinner/text over the reading image.
+- Existing Reader recovery evidence claimed "no loading/progress residue after ready", but this user repro
+  shows the state model still needs a direct no-overlay contract.
+
+Expected behavior:
+
+- Resolving/loading states may occupy the page before the image is visible.
+- Once a page image is visibly painted, the loading indicator for that same page must be gone.
+- Failure/retry UI may replace the image, but loading must not sit on top of readable content.
+- Keep the fix narrow: do not reintroduce streamed byte progress, cache-file loading, double-page redesign, or
+  broad gesture rewrites for this bug.
+
+Acceptance shape:
+
+- Open Reader on a slow or freshly resolved image and observe the transition from loading to visible image.
+- After the image becomes visible, there is no centered `LoadingProgress` or "loading image" text over it.
+- Repeat for horizontal single-page, vertical mode, and double-page/spread image layer if that mode is active.
+- Add or tighten a runnable contract so the loaded-image branch cannot also render `ReaderLoadingStage` as an
+  overlay on the same visible image. A source grep that only proves `LoadingProgress` exists is insufficient.
+
 ### Reader Auto-Read Page Turn Is Missing
 
 Type: feature gap / reading UX
