@@ -2,9 +2,10 @@
 /**
  * Contract: Grid mode must not use Grid top/bottom padding for immersive chrome insets.
  *
- * HarmonyOS Grid hides GridItems that are fully inside the padding area, so top/bottom chrome
- * avoidance must be represented as real full-row GridItems. Near-end paging should use visible
- * Grid indexes instead of waiting for the physical terminal edge.
+ * HarmonyOS Grid hides GridItems that are fully inside the padding area, and HDS title-bar auto-hide
+ * does not see contentStartOffset like normal scroll content. Top/bottom chrome avoidance must be
+ * represented as real full-row GridItems via GridLayoutOptions irregular indexes, while the column
+ * template stays native repeat(auto-fit).
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -45,12 +46,29 @@ function gridBranch(source) {
 const scaffold = read('shared/src/main/ets/components/PullRefreshGridScaffold.ets')
 
 ok(
-  /GridItem\(\) \{[\s\S]*Column\(\) \{[\s\S]*Blank\(\)[\s\S]*\.height\(this\.topSpacerHeight\(\)\)[\s\S]*\}\s*[\s\S]*\.width\('100%'\)[\s\S]*\}\s*[\s\S]*\.columnStart\(0\)[\s\S]*\.columnEnd\(this\.effectiveColumns\(\) - 1\)/.test(scaffold),
-  'Grid scaffold uses a full-row top spacer GridItem',
+  /Grid\(this\.scroller,\s*this\.gridLayoutOptions\(\)\)/.test(scaffold) &&
+    /private gridLayoutOptions\(\): GridLayoutOptions \{[\s\S]*regularSize:\s*\[1,\s*1\][\s\S]*irregularIndexes:\s*\[0,\s*this\.itemCount \+ 1\]/.test(scaffold),
+  'Grid scaffold uses GridLayoutOptions irregular full-row spacer indexes without calculating columns',
 )
 ok(
-  /GridItem\(\) \{[\s\S]*Column\(\) \{[\s\S]*Blank\(\)[\s\S]*\.height\(this\.bottomSpacerHeight\(\)\)[\s\S]*\}\s*[\s\S]*\.width\('100%'\)[\s\S]*\}\s*[\s\S]*\.columnStart\(0\)[\s\S]*\.columnEnd\(this\.effectiveColumns\(\) - 1\)/.test(scaffold),
+  /@Builder\s*private TopSpacer\(\) \{[\s\S]*GridItem\(\) \{[\s\S]*Blank\(\)\.height\(this\.topSpacerHeight\(\)\)/.test(scaffold),
+  'Grid scaffold has a real top spacer GridItem',
+)
+ok(
+  /@Builder\s*private BottomSpacer\(\) \{[\s\S]*GridItem\(\) \{[\s\S]*Blank\(\)\.height\(this\.bottomSpacerHeight\(\)\)/.test(scaffold),
   'Grid scaffold uses a full-row bottom spacer GridItem',
+)
+ok(
+  !/contentStartOffset|contentEndOffset/.test(scaffold),
+  'Grid scaffold does not use contentStartOffset/contentEndOffset for title chrome reserve',
+)
+ok(
+  /repeat\(auto-fit, \$\{this\.minColumnWidth\}vp\)/.test(scaffold),
+  'Grid scaffold keeps native repeat(auto-fit) responsive columns',
+)
+ok(
+  !/ResponsiveGrid|effectiveColumns|Math\.floor|1fr 1fr/.test(scaffold),
+  'Grid scaffold does not restore hand-calculated column counts',
 )
 ok(
   !/\.padding\(\{\s*[\s\S]*top:\s*this\.layout\.topAvoidHeight[\s\S]*bottom:\s*this\.layout\.bottomAvoidHeight/.test(scaffold),
@@ -67,7 +85,8 @@ ok(
   'Grid scaffold exposes itemCount and near-end paging inputs',
 )
 ok(
-  /\.onScrollIndex\(\(start: number, end: number\) => \{[\s\S]*this\.galleryIndex\(start\)[\s\S]*this\.galleryIndex\(end\)[\s\S]*this\.maybeLoadNearEnd\(adjustedEnd\)/.test(scaffold),
+  /const index: number = rawIndex - 1/.test(scaffold) &&
+    /\.onScrollIndex\(\(start: number, end: number\) => \{[\s\S]*this\.galleryIndex\(start\)[\s\S]*this\.galleryIndex\(end\)[\s\S]*this\.maybeLoadNearEnd\(adjustedEnd\)/.test(scaffold),
   'Grid scaffold translates raw spacer-inclusive indexes before near-end paging',
 )
 ok(

@@ -988,7 +988,7 @@ Type: gallery browsing / title-bar scroll linkage regression
 
 Priority suggestion: P1
 
-Status: reported / active queue candidate
+Status: implemented / pending controller acceptance
 
 User feedback:
 
@@ -1040,3 +1040,36 @@ Acceptance:
 - Deterministic contracts must distinguish real content spacer / compatible content-space behavior from
   `Grid.padding` and should not call a `contentStartOffset` rewrite accepted until device evidence proves
   title-bar linkage.
+
+Implementation update:
+
+- Commit: this lane's Grid/Waterfall scroll-linkage fix.
+- Scope:
+  - `PullRefreshGridScaffold` replaced `contentStartOffset` / `contentEndOffset` with real spacer
+    `GridItem`s. Full-row behavior comes from `GridLayoutOptions.irregularIndexes`, so native
+    `repeat(auto-fit, ...)` remains the column model and no hand-calculated column count is restored.
+  - `PullRefreshWaterFlowScaffold` removed `contentStartOffset` / `contentEndOffset`, uses a real top
+    `FlowItem` spacer and native `footer` bottom spacer, while preserving native
+    `repeat(auto-fit, GALLERY_WATERFALL_MIN_W)`.
+  - Contracts updated so Grid/Waterfall cannot regress back to non-content offset reserve or top/bottom
+    padding.
+- Contracts:
+  - `node scripts/test_grid_immersive_spacer_contract.mjs`
+  - `node scripts/test_gallery_waterflow_contract.mjs`
+  - `node scripts/test_responsive_grid_contract.mjs`
+  - `node scripts/test_gallery_grid_mode_contract.mjs`
+  - `node scripts/test_gallery_grid_card_visual_contract.mjs`
+  - `node scripts/test_all_thumbnails_page_jump_contract.mjs`
+  - `node scripts/test_v1_decorator_inventory_contract.mjs`
+  - `git diff --check`
+- Build:
+  - `scripts/build_hvigor_signed.sh` passed with existing warnings only.
+- Device evidence:
+  - Target: local HarmonyOS emulator `127.0.0.1:5555`; no real devices used.
+  - Waterfall before: `.hvigor/outputs/grid-waterfall-scroll/before.jpeg`
+  - Waterfall after short upward scroll: `.hvigor/outputs/grid-waterfall-scroll/waterfall-short-scroll.jpeg`
+  - Grid before: `.hvigor/outputs/grid-waterfall-scroll/grid-before.jpeg`
+  - Grid after short upward scroll: `.hvigor/outputs/grid-waterfall-scroll/grid-short-scroll.jpeg`
+  - Visual result: in both modes, one short upward scroll immediately hides the main HDS title/header
+    while leaving the selector/bottomBuilder visible; no initial internal reserve-only scroll phase was
+    observed.

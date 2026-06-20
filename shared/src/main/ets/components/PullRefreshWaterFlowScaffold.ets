@@ -5,6 +5,8 @@ import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeA
 /**
  * WaterFlow sibling of PullRefreshGridScaffold for gallery cards: same refresh, paging, safe-area,
  * and responsive column model, but native masonry placement for variable-height cover-first cards.
+ * The top reserve is real scroll content so HDS title-bar auto-hide sees the first scroll gesture;
+ * the bottom reserve uses WaterFlow's native footer instead of a non-content end offset.
  */
 @ComponentV2
 export struct PullRefreshWaterFlowScaffold {
@@ -47,7 +49,8 @@ export struct PullRefreshWaterFlowScaffold {
         return false
       },
     }) {
-      WaterFlow({ scroller: this.scroller }) {
+      WaterFlow({ scroller: this.scroller, footer: this.BottomSpacer() }) {
+        this.TopSpacer()
         this.content()
       }
       .columnsTemplate(this.columnsTemplate())
@@ -60,8 +63,6 @@ export struct PullRefreshWaterFlowScaffold {
         left: this.horizontalPadding,
         right: this.horizontalPadding,
       })
-      .contentStartOffset(this.topSpacerHeight())
-      .contentEndOffset(this.bottomSpacerHeight())
       .edgeEffect(EdgeEffect.None)
       .clip(false)
       .onAreaChange((_oldValue: Area, newValue: Area) => {
@@ -79,6 +80,25 @@ export struct PullRefreshWaterFlowScaffold {
     const minWidth: number =
       this.minColumnWidth > 0 ? this.minColumnWidth : ThemeConstants.GALLERY_WATERFALL_MIN_W
     return `repeat(auto-fit, ${minWidth}vp)`
+  }
+
+  @Builder
+  private TopSpacer() {
+    FlowItem() {
+      Column() {
+        Blank().height(this.topSpacerHeight())
+      }
+      .width('100%')
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private BottomSpacer() {
+    Column() {
+      Blank().height(this.bottomSpacerHeight())
+    }
+    .width('100%')
   }
 
   private parseAreaWidth(value: Area): number {

@@ -4,9 +4,9 @@ import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeA
 
 /**
  * Grid sibling of PullRefreshListScaffold: a responsive Grid inside the same generic PullRefresh.
- * Top/bottom immersive chrome space is modeled as real full-row GridItems instead of Grid padding:
- * HarmonyOS Grid does not render children that are fully inside the padding region, which makes cards
- * vanish while they are still visually expected under translucent chrome.
+ * Top/bottom immersive chrome space is modeled as real full-row GridItems instead of Grid padding or
+ * non-content scroll offsets. HDS title-bar auto-hide binds to the same Scroller, so the reserve must
+ * be normal scroll content that contributes to the first scroll gesture.
  */
 @ComponentV2
 export struct PullRefreshGridScaffold {
@@ -57,8 +57,10 @@ export struct PullRefreshGridScaffold {
         return false
       },
     }) {
-      Grid(this.scroller) {
+      Grid(this.scroller, this.gridLayoutOptions()) {
+        this.TopSpacer()
         this.content()
+        this.BottomSpacer()
       }
       .columnsTemplate(this.columnsTemplate())
       .columnsGap(this.gap)
@@ -70,8 +72,6 @@ export struct PullRefreshGridScaffold {
         left: this.horizontalPadding,
         right: this.horizontalPadding,
       })
-      .contentStartOffset(this.topSpacerHeight())
-      .contentEndOffset(this.bottomSpacerHeight())
       .edgeEffect(EdgeEffect.None)
       .clip(false)
       .onReachEnd(() => {
@@ -102,6 +102,38 @@ export struct PullRefreshGridScaffold {
     return parts.join(' ')
   }
 
+  private gridLayoutOptions(): GridLayoutOptions {
+    return {
+      regularSize: [1, 1],
+      // The spacer items live at index 0 and itemCount + 1. Leaving onGetIrregularSizeByIndex unset
+      // makes each irregular item span one full row in a vertical Grid, preserving native auto-fit
+      // column sizing without calculating the current column count.
+      irregularIndexes: [0, this.itemCount + 1],
+    }
+  }
+
+  @Builder
+  private TopSpacer() {
+    GridItem() {
+      Column() {
+        Blank().height(this.topSpacerHeight())
+      }
+      .width('100%')
+    }
+    .clip(false)
+  }
+
+  @Builder
+  private BottomSpacer() {
+    GridItem() {
+      Column() {
+        Blank().height(this.bottomSpacerHeight())
+      }
+      .width('100%')
+    }
+    .clip(false)
+  }
+
   private topSpacerHeight(): number {
     return this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + this.topPadding
   }
@@ -111,7 +143,7 @@ export struct PullRefreshGridScaffold {
   }
 
   private galleryIndex(rawIndex: number): number {
-    const index: number = rawIndex
+    const index: number = rawIndex - 1
     if (index < 0) {
       return 0
     }

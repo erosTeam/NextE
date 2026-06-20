@@ -37,14 +37,19 @@ function branchBetween(source, start, end) {
 const scaffoldRel = 'shared/src/main/ets/components/PullRefreshWaterFlowScaffold.ets';
 const scaffold = read(scaffoldRel);
 
-assertIncludes(scaffold, 'WaterFlow({ scroller: this.scroller })', 'waterfall scaffold must bind the shared Scroller to native WaterFlow');
+assertIncludes(scaffold, 'WaterFlow({ scroller: this.scroller, footer: this.BottomSpacer() })', 'waterfall scaffold must bind the shared Scroller to native WaterFlow and use native footer spacing');
 assertIncludes(scaffold, '.columnsTemplate(this.columnsTemplate())', 'waterfall scaffold must keep responsive column templates');
 assertIncludes(scaffold, 'repeat(auto-fit, ${minWidth}vp)', 'waterfall scaffold must use native ArkUI repeat(auto-fit) track sizing');
 assertIncludes(scaffold, 'ThemeConstants.GALLERY_WATERFALL_MIN_W', 'waterfall scaffold fallback width must be the Waterfall token, not the Grid token');
 assertNotIncludes(scaffold, 'ResponsiveGrid', 'waterfall scaffold must not hand-calculate columns through ResponsiveGrid');
 assertNotIncludes(scaffold, 'onCellSize', 'waterfall scaffold must not leak hand-calculated cell widths to call sites');
-assertIncludes(scaffold, '.contentStartOffset(this.topSpacerHeight())', 'waterfall scaffold must use contentStartOffset for immersive top avoidance');
-assertIncludes(scaffold, '.contentEndOffset(this.bottomSpacerHeight())', 'waterfall scaffold must use contentEndOffset for immersive bottom avoidance');
+assertIncludes(scaffold, 'private TopSpacer()', 'waterfall scaffold must expose a real top spacer builder');
+assertIncludes(scaffold, 'FlowItem() {', 'waterfall scaffold top spacer must be real WaterFlow content');
+assertIncludes(scaffold, 'Blank().height(this.topSpacerHeight())', 'waterfall scaffold top spacer must reserve the title chrome height as scroll content');
+assertIncludes(scaffold, 'private BottomSpacer()', 'waterfall scaffold must expose a bottom footer spacer builder');
+assertIncludes(scaffold, 'Blank().height(this.bottomSpacerHeight())', 'waterfall scaffold bottom footer must reserve bottom chrome height');
+assertNotIncludes(scaffold, 'contentStartOffset', 'waterfall scaffold must not use contentStartOffset for title chrome reserve');
+assertNotIncludes(scaffold, 'contentEndOffset', 'waterfall scaffold must not use contentEndOffset for bottom chrome reserve');
 if (/padding\(\{[\s\S]*top:\s*this\.layout\.topAvoidHeight/.test(scaffold) ||
   /padding\(\{[\s\S]*bottom:\s*this\.layout\.bottomAvoidHeight/.test(scaffold)) {
   fail('waterfall scaffold must not use WaterFlow top/bottom padding as immersive inset');

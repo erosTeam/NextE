@@ -48,10 +48,13 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
   unboundedly tall card. Inside the bounded slot, render proportionally and crop/clip if needed; never
   restore non-uniform stretching and never remove list/grid thumbnail placeholders to solve a Waterfall
   cover problem.
-- Gallery Grid immersive safe-area handling is baseline: top/bottom title or tab-bar avoidance uses
-  real full-row spacer content, while `Grid.padding` stays horizontal-only. Do not restore top/bottom
-  Grid padding or any padding-region approach that makes cards disappear under translucent chrome.
-  Waterfall must follow the same safe-area principle when its width/viewport lane is fixed.
+- Gallery Grid/Waterfall immersive safe-area and title-scroll linkage are baseline: top/bottom title or
+  tab-bar avoidance must be real scroll content or native scroll footer content, not top/bottom
+  `Grid.padding` / `WaterFlow.padding` and not `contentStartOffset` / `contentEndOffset`. Grid uses
+  `GridLayoutOptions.irregularIndexes` for full-row spacer items while keeping native
+  `repeat(auto-fit, ...)`; Waterfall uses real top content plus native footer spacing. Do not restore
+  any padding-region or non-content offset model that makes cards disappear under translucent chrome or
+  delays HDS title auto-hide.
 - AllThumbnails later-thumbnail Reader start is implemented and should not be reopened without a new
   reproduction.
 - Reader single-page core baseline is accepted. Double-page is not final architecture, but the current
@@ -115,6 +118,12 @@ Historical feedback in this section must not trigger new implementation.
 - MyTags tagset route depth is implemented pending controller acceptance: Settings opens the tagset-list
   landing page, tapping a tagset pushes a routed detail instance with `MyTagsPageParams(tagsetId)`, and
   system Back returns from detail to the tagset list instead of exiting directly to Settings.
+- Gallery Grid/Waterfall title-bar scroll linkage is implemented pending controller acceptance: Grid no
+  longer uses `contentStartOffset` / `contentEndOffset`, uses `GridLayoutOptions.irregularIndexes` for
+  full-row top/bottom spacer content, and Waterfall no longer uses offset reserve, using real top
+  content plus native footer spacing. Simulator evidence on `127.0.0.1:5555` shows a short upward scroll
+  in both Waterfall and Grid immediately hides the HDS title/header while keeping the bottom selector
+  visible.
 
 ## Parked / Guidance Only
 
@@ -144,31 +153,25 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Gallery Grid/Waterfall title-bar scroll linkage: current Grid/Waterfall scaffolds use
-   `contentStartOffset(topSpacerHeight())` / `contentEndOffset(...)` inside the inner Grid/WaterFlow.
-   User evidence says upward scrolling first consumes internal top space and content remains visible
-   under the title bar before HDS title auto-hide engages. Next lane must make Grid/Waterfall scroll
-   drive the same HDS `bindToScrollable` behavior as list mode, without hiding content under title
-   chrome or reintroducing top/bottom padding-region disappearance.
-2. Gallery thumbnail loading indicator appears static: gallery list thumbnails use `EhThumbnail`
+1. Gallery thumbnail loading indicator appears static: gallery list thumbnails use `EhThumbnail`
    `LoadingProgress()` while `loaded=false`, and existing cover contracts/probe screenshots only prove
    that a loading overlay exists. They do not prove visible animation during real list image loading.
    Other app surfaces use the same native `LoadingProgress` successfully, so do not assume the global
    component is broken. Next bounded lane should isolate three cases: independent `LoadingProgress`,
    `EhThumbnail` forced-loading overlay, and a real `Image` kept pending by a slow test URL. Do not mark
    this accepted from a static screenshot or a grep for `LoadingProgress`.
-3. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-4. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-5. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-6. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-7. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
    Fresh user evidence includes an intermittent fit-scale short-swipe failure where a very small
    horizontal drag can instantly jump to the previous/next page before the page-turn animation visibly
