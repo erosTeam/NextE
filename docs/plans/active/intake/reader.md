@@ -875,9 +875,9 @@ Handled:
 
 Type: P0/P1 intermittent Reader gesture bug / page-turn threshold
 
-Priority suggestion: P1
+Priority suggestion: P0/P1
 
-Status: parked / needs instrumented reproduction before implementation
+Status: reopened / active scheduling candidate / needs instrumented reproduction before implementation
 
 Source:
 
@@ -890,15 +890,19 @@ Source:
   lane. It is real and should remain recorded, but current scheduling parks it until the user explicitly
   authorizes Reader gesture work or fresh P0 evidence makes normal reading broadly unusable. If reopened,
   it must start from measured gesture trace evidence, not another recognizer patch from static reasoning.
+- Fresh user feedback, 2026-06-21: the problem is still present and severe during normal reading. It is
+  not only early page commits from tiny drags; the opposite failure also happens frequently, where the user
+  swipes repeatedly or for a long distance and the Reader does not move. This makes normal Reader use
+  unreliable enough to reopen the lane at high priority.
 
 Why this is separate from generic gesture acceptance:
 
 - Prior device evidence proves some deliberate long swipes can turn pages and some zoom/pan paths work.
   That does not cover this failure class because the bug is about accidental early commit from a short or
-  partial drag.
+  partial drag, and about rejected/ignored intentional swipes.
 - A screenshot after the page changes is not sufficient evidence. The useful evidence is the gesture
   sequence: touch down, small move distance, page index change timing, and whether Swiper/page-turn state
-  committed before a real swipe threshold.
+  committed before a real swipe threshold or failed to commit after a valid swipe.
 
 Likely risk areas to inspect:
 
@@ -915,12 +919,13 @@ Investigation direction:
 
 - Add or use a QA-only gesture trace around Reader page turns before attempting another visual rewrite:
   record pointer down/up coordinates, max horizontal delta, duration, active zoom state, current page
-  before/after, and which handler caused the page change.
-- Reproduce by repeatedly doing small left/right drags across several pages at fit scale in both
-  single-page and double-page modes. The test should classify the gesture as "short drag" versus
-  "valid page swipe" based on measured distance/duration, not subjective feel.
-- Acceptance must include video or trace evidence showing short drags below threshold do not change
-  page, while intentional swipes still turn exactly one page.
+  before/after, and which handler caused, rejected, or duplicated the page change.
+- Reproduce by repeatedly doing both small left/right drags and intentional page swipes across several
+  pages at fit scale in both single-page and double-page modes. The test should classify the gesture as
+  "short drag" versus "valid page swipe" based on measured distance/duration, not subjective feel.
+- Acceptance must include video or trace evidence showing short drags below threshold do not change page,
+  while intentional swipes consistently turn exactly one page. One happy-path screenshot or one successful
+  automated long swipe is not enough QA for this lane.
 - Do not reopen Reader chrome styling, loading progress, or double-page visual seam in this lane unless
   the trace proves they directly affect the early page commit.
 

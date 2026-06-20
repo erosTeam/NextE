@@ -165,10 +165,10 @@ Items here are real concerns, but they are not active implementation lanes by de
   should guide future Reader redesign together with HarmonyOS-native V2Next image-preview patterns.
 - Boundary handoff from zoomed pan to page turn is a future enhancement unless current zoomed pan
   blocks normal reading.
-- Reader intermittent short-swipe early page jumps are parked as a measured-reproduction item. They are
-  real user feedback, but they must not be used as a default next implementation lane without explicit
-  user authorization. If reopened, first add/collect gesture trace evidence; do not keep patching Reader
-  gestures from static reasoning alone.
+- Reader intermittent gesture failures are no longer merely parked after fresh user evidence on
+  2026-06-21: normal reading is still hit by both "drag for a long time and nothing moves" and "tiny
+  drag turns the page" failures. The active lane below must start from gesture trace evidence; do not
+  keep patching Reader recognizers from static reasoning alone.
 - Home bottom-tab auto-hide and smart-grip-aware floating action alignment are medium-priority UX
   enhancements. They should not interrupt the current Grid/Waterfall recovery lane, but they are good
   candidates for a later bounded platform-UX lane because Next2V already has working patterns:
@@ -180,13 +180,21 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Search action-seeded autofocus regression: tapping a gallery detail tag/uploader/similar action should
+1. Reader page-turn gesture reliability: normal reading still has severe intermittent swipe failures.
+   User reports both ends of the same failure class: repeated/long swipes sometimes do not move the page,
+   while a tiny drag can unexpectedly commit a page turn. Reopen the Reader gesture lane as P0/P1 before
+   more polish work. The next implementation must first add/use QA gesture trace evidence around touch
+   down/move/up, max delta, duration, zoom state, current index before/after, and the handler that caused
+   or rejected the page turn. Acceptance must include repeated real-device/simulator attempts showing
+   intentional swipes turn exactly one page and below-threshold drags do not turn pages; a single happy-path
+   screenshot is not enough.
+2. Search action-seeded autofocus regression: tapping a gallery detail tag/uploader/similar action should
    open Search in results-first mode without focusing the input or showing the keyboard. User validation
    still shows mandatory keyboard popup, despite `SearchPageParams(..., focusOnAppear=false)` already
    being passed. Next lane should fix the likely timing/default-true issue narrowly: ordinary title-bar
    Search opens may still focus, but action-seeded routes must not steal focus. Add/adjust a deterministic
    contract so this cannot pass merely because the param exists.
-2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+3. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression. If comment UI polish is reopened during that acceptance, also replace
    the current arrow vote icons with native `hand_thumbsup` / `hand_thumbsup_fill` and
@@ -194,7 +202,7 @@ a bounded validation path.
    comment footers too tall or leaving the three footer icons so far apart that they look like a missing
    fourth action slot. Keep this as a narrow footer action-cluster polish pass, not a full comment
    redesign.
-3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+4. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
