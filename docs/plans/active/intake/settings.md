@@ -62,9 +62,9 @@ Acceptance:
 
 Type: shared settings primitive / readability bug
 
-Priority suggestion: P1 / next bounded settings-quality lane
+Priority suggestion: P1 / bounded settings-quality lane
 
-Status: reported / active queue candidate
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -133,6 +133,43 @@ Acceptance:
 - The implementation report cites the HDS `cardHeight?: Dimension` finding and states whether runtime
   validation used omitted `cardHeight`, min-height, or a formula fallback.
 - No page-local hand-rolled settings row is introduced.
+
+Handled update, 2026-06-20:
+
+- Implemented as a shared `ConciseListRow` primitive change, not a Layout Settings one-off.
+- `ConciseListRow.subtitleMaxLines` now defaults to `2`, while callers such as Reader Settings can still
+  explicitly request `subtitleMaxLines: 3`.
+- Removed NextE's fixed `cardHeight()` wrapper branch and stopped passing `cardHeight` into
+  `HdsListItemCard`; runtime validation used HDS natural measurement based on the SDK finding that
+  `HdsListItemCardOptions.cardHeight?: Dimension` is optional.
+- FE grounding/evidence:
+  - Android device: `fa967a75`, package `com.honjow.fehviewer`.
+  - Screenshots: `.hvigor/outputs/settings-subtitle-row-fix/fe-settings-ref.png` and
+    `.hvigor/outputs/settings-subtitle-row-fix/fe-mytags-ref.png`.
+- NextE evidence:
+  - HarmonyOS emulator target: `127.0.0.1:5555`.
+  - Layout Settings screenshot/layout:
+    `.hvigor/outputs/settings-subtitle-row-fix/nexte-layout-settings-natural.png`,
+    `.hvigor/outputs/settings-subtitle-row-fix/nexte-layout-settings-natural-layout.json`.
+  - Reader Settings screenshot/layout:
+    `.hvigor/outputs/settings-subtitle-row-fix/nexte-reader-settings-natural.png`,
+    `.hvigor/outputs/settings-subtitle-row-fix/nexte-reader-settings-natural-layout.json`.
+- Validation:
+  - `node scripts/test_settings_layout_entry_contract.mjs`
+  - `node scripts/test_settings_reader_entry_contract.mjs`
+  - `node scripts/test_settings_dropdown_anchor_contract.mjs`
+  - `node scripts/test_reader_settings_readability_contract.mjs`
+  - `node scripts/test_download_settings_contract.mjs`
+  - `node scripts/test_settings_search_entry_contract.mjs`
+  - `node scripts/test_settings_eh_entry_contract.mjs`
+  - `node scripts/test_settings_security_entry_contract.mjs`
+  - `node scripts/test_settings_advanced_entry_contract.mjs`
+  - `node scripts/test_v1_decorator_inventory_contract.mjs`
+  - `python3 scripts/check_i18n_duplicates.py`
+  - `git diff --check`
+  - `scripts/build_hvigor_signed.sh`
+- Remaining acceptance: controller visual acceptance only; reopen with a fresh Settings screenshot if
+  subtitle rows clip useful text or natural HDS height causes row bloat.
 
 ### Reader Settings Row Separators And Subtitle Readability
 

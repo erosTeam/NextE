@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (p) => readFileSync(join(ROOT, p), 'utf8')
+const readAbsolute = (p) => readFileSync(p, 'utf8')
 let passed = 0
 const ok = (name, cond) => {
   assert.ok(cond, name)
@@ -19,6 +20,8 @@ const ok = (name, cond) => {
 
 const row = read('shared/src/main/ets/components/ConciseListRow.ets')
 const page = read('feature/settings/src/main/ets/pages/ReaderSettingsPage.ets')
+const layoutPage = read('feature/settings/src/main/ets/pages/LayoutSettingsPage.ets')
+const hdsApi = readAbsolute('/Applications/DevEco-Studio.app/Contents/sdk/default/hms/ets/api/@hms.hds.hdsBaseComponent.d.ets')
 const feSettingItem = read('../eros_fe/lib/pages/item/setting_item.dart')
 
 ok('FE settings rows use explicit dividers between rows',
@@ -26,12 +29,18 @@ ok('FE settings rows use explicit dividers between rows',
   /if \(widget\.bottomDivider\) _settingItemDivider\(\)/.test(feSettingItem) &&
   /Divider\([\s\S]*indent: 45\.0/.test(feSettingItem))
 
-ok('ConciseListRow exposes an opt-in subtitle max-line policy without changing default one-line rows',
-  /@Param subtitleMaxLines: number = 1/.test(row) &&
+ok('ConciseListRow defaults ordinary setting subtitles to two readable lines',
+  /@Param subtitleMaxLines: number = 2/.test(row) &&
   /\.maxLines\(this\.subtitleMaxLines\)/.test(row))
 
-ok('ConciseListRow expands row height for multiline subtitles',
-  /private cardHeight\(\): number \{[\s\S]*this\.subtitle && this\.subtitleMaxLines > 1[\s\S]*return 84[\s\S]*return this\.subtitle \? 60 : 52/.test(row))
+ok('HDS cardHeight is optional, so ConciseListRow lets HDS measure subtitle rows naturally',
+  /cardHeight\?: Dimension/.test(hdsApi) &&
+  !/private cardHeight\(\): number/.test(row) &&
+  !/cardHeight:/.test(row))
+
+ok('LayoutSettings Japanese-title hint benefits from the shared default without a page-local max-lines patch',
+  /settings_japanese_title_in_gallery[\s\S]*settings_japanese_title_in_gallery_hint/.test(layoutPage) &&
+  !/settings_japanese_title_in_gallery[\s\S]*subtitleMaxLines/.test(layoutPage))
 
 ok('ReaderSettingsPage defines a native separator matching other Settings pages',
   /@Builder[\s\S]*private rowDivider\(\) \{[\s\S]*Divider\(\)[\s\S]*strokeWidth\(0\.5\)[\s\S]*ohos_id_color_list_separator[\s\S]*ThemeConstants\.SPACE_MD/.test(page))

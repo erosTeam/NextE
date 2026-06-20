@@ -22,7 +22,7 @@ import { ThemeConstants } from '../theme/ThemeConstants'
 export struct ConciseListRow {
   @Param title: ResourceStr = '';
   @Param subtitle: ResourceStr = '';
-  @Param subtitleMaxLines: number = 1;
+  @Param subtitleMaxLines: number = 2;
   @Param trailingText: ResourceStr = '';
   @Param leadingImageUrl: string = '';
   // Leading SymbolGlyph icon (e.g. $r('sys.symbol.person')) — eros_fe-style icon-led settings rows.
@@ -77,13 +77,6 @@ export struct ConciseListRow {
       .fontColor(this.secondaryColor ?? $r('sys.color.font_secondary'))
       .maxLines(1)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
-  }
-
-  private cardHeight(): number {
-    if (this.subtitle && this.subtitleMaxLines > 1) {
-      return 84
-    }
-    return this.subtitle ? 60 : 52
   }
 
   // EH images are already absolute https; only normalize protocol-relative ('//') urls.
@@ -290,7 +283,6 @@ export struct ConciseListRow {
       cardSuffixMargin: 0,
       prefixItem: this.prefixItem(),
       suffixItem: this.suffixItem(),
-      cardHeight: this.cardHeight(),
       cardBackgroundColor: Color.Transparent,
       cardBorderRadius: ThemeConstants.LIST_ROW_RADIUS,
       hoverBorderRadius: ThemeConstants.LIST_ROW_RADIUS,
