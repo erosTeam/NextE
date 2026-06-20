@@ -199,11 +199,16 @@ a bounded validation path.
    Fresh regression also reported 2026-06-21: uploader comments no longer show the uploader badge, and the
    uploader-only filter appears ineffective. Treat badge + filter as P1 comment parity acceptance, with a
    runnable synthetic-list check plus real-gallery verification.
-2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+2. Search tag query normalization: action-seeded tag searches must split pipe-separated display aliases on
+   `|`, use the first trimmed segment, and add the EH exact-match `$` suffix for namespaced tag queries.
+   Reuse one helper for detail/list/waterfall tag taps and later tagsuggest/translation candidate insertion;
+   uploader/title/similar searches must keep their existing non-tag semantics. This is P1 search correctness,
+   not broad Search UI redesign.
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-3. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
+4. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
    (reported 2026-06-21). Record only for a later small launch/smoke fix; do not let it displace Reader
    gesture/chrome fixes or the P1 comment regressions.
 

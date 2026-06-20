@@ -482,6 +482,63 @@ Follow-up direction / research note, 2026-06-21:
   require a specific visual layout, icon size, row height, or exact submit/fill behavior before the
   next screenshot/device review.
 
+### Action Tag Search Must Normalize Pipe Aliases And Exact-Match Suffix
+
+Type: search correctness / tag query normalization
+
+Priority suggestion: P1
+
+Status: accepted / not implemented
+
+Source:
+
+- User feedback, 2026-06-21: some EH tags contain a pipe-separated alias/display form. If NextE searches the
+  full displayed text, results can be empty. For pipe-separated tags, split on `|`, take the first segment,
+  trim it, and search that canonical tag text.
+- User feedback, 2026-06-21: tag searches must include the `$` terminator so the query is exact-match rather
+  than a loose prefix/substring match.
+- User feedback, 2026-06-21: eros_fe already has a broader tag-search system covering detail tag tap,
+  translation-backed Chinese search, and search-box candidate insertion. NextE can improve it, but should not
+  drop those core behaviors.
+
+Research:
+
+- Current NextE tag taps build queries independently in at least `GalleryCard`, `GalleryWaterfallCard`, and
+  `GalleryTagsCard` as `${namespace}:${queryTagValue(tag)}`. That trims and quotes spaces, but it does not
+  split pipe aliases and does not add `$`.
+- eros_fe detail tag parsing normalizes pipe aliases in
+  `/Users/honjow/git/eros_fe/lib/common/parser/gallery_detail_parser.dart` by using
+  `title.split('|')[0].trim()`.
+- eros_fe `NavigatorUtil.goSearchPageWithParam()` rewrites namespaced tag searches to exact EH syntax:
+  non-uploader tags become `namespace:"tag$"`, while uploader is not suffixed with `$`.
+- eros_fe's search controller uses the tag translation DB for Chinese/localized candidate lookup before
+  falling back to EH `tagsuggest`; the translation controller also has helpers for parsing/representing
+  namespaced tag query text.
+
+Expected behavior:
+
+- Detail/list/waterfall tag taps should use one shared normalization helper instead of each card hand-rolling
+  tag query strings.
+- For a displayed tag like `foo | bar`, the action-seeded Search query should use `foo`, trimmed.
+- Namespaced EH tag searches should add `$` to the normalized tag value. The suffix belongs to tag semantics;
+  uploader/title/similar searches must not inherit it.
+- Quoting should remain compatible with EH exact tag syntax. A safe canonical output is
+  `namespace:"normalized tag$"`; if the implementation keeps unquoted single-token output, the contract must
+  still prove the `$` suffix is present.
+- Future Chinese/tag-translation search should resolve the selected Chinese/localized candidate to the raw EH
+  namespace + tag, then feed that same exact tag-query helper. The search box should show the actual submitted
+  EH query, not a Chinese display label that EH cannot search.
+
+Acceptance shape:
+
+- Tapping a tag whose display text contains `|` opens Search with only the first trimmed segment.
+- Tapping any ordinary namespaced tag opens Search with an exact-match `$` suffix.
+- Tapping uploader/title/similar still uses their existing query semantics and does not get a tag `$` suffix.
+- Search suggestions and later translation-backed Chinese candidates reuse the same exact tag-query helper
+  when inserting or submitting a tag.
+- Add a small runnable contract for the helper with cases:
+  `female:big breasts` -> exact `$`; `artist:foo | bar` -> `foo$`; `uploader:name` -> no `$`.
+
 ### Search Action Routes Can Lose The Second Tag Query
 
 Type: routing / state ownership bug
