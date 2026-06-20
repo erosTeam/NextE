@@ -107,6 +107,11 @@ Historical feedback in this section must not trigger new implementation.
   Reader Settings now has visible row dividers, and `ConciseListRow` supports opt-in multiline subtitles
   for the volume-key hint while keeping the default row behavior stable. Reopen only with a fresh Reader
   Settings screenshot showing unreadable row grouping or clipped subtitle text.
+- Settings shared row subtitle readability is implemented pending controller acceptance:
+  `ConciseListRow` now defaults ordinary subtitles to two lines and lets HDS measure row height naturally
+  instead of forcing NextE's old fixed `52/60/84` wrapper policy. Layout Settings Japanese-title
+  explanatory text benefits without a page-local one-off, and Reader Settings keeps its explicit
+  three-line volume-key hint.
 
 ## Parked / Guidance Only
 
@@ -147,14 +152,12 @@ a bounded validation path.
    under the title bar before HDS title auto-hide engages. Next lane must make Grid/Waterfall scroll
    drive the same HDS `bindToScrollable` behavior as list mode, without hiding content under title
    chrome or reintroducing top/bottom padding-region disappearance.
-3. Settings shared row subtitle readability: `ConciseListRow.subtitleMaxLines` exists but still defaults
-   to `1`, so rows such as Layout Settings `详情页优先显示日文标题` still truncate useful explanatory text.
-   SDK inspection shows `HdsListItemCardOptions.cardHeight` is optional, so NextE's fixed
-   `cardHeight()` is a wrapper choice, not an HDS requirement. Next bounded lane should update the
-   shared subtitle/default-height policy so ordinary settings rows can show 2 lines by default or
-   otherwise benefit without per-row one-off parameters. Prefer natural height / min-height behavior;
-   only use a formula fallback if HDS runtime evidence requires a fixed height. Keep this as a shared
-   primitive extension, not page-local row hand-rolling.
+3. Gallery thumbnail loading indicator appears static: gallery list thumbnails use `EhThumbnail`
+   `LoadingProgress()` while `loaded=false`, and existing cover contracts/probe screenshots only prove
+   that a loading overlay exists. They do not prove visible animation during real list image loading.
+   Next bounded lane should capture a timed device/video reproduction on slow or forced thumbnail loads
+   and replace/wrap the loading affordance if native `LoadingProgress` stays visually frozen in this
+   surface. Do not mark this accepted from a static screenshot or a grep for `LoadingProgress`.
 4. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.

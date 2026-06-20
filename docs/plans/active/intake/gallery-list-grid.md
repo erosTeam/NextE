@@ -253,6 +253,58 @@ Acceptance shape:
 - In adaptive mode, the row may adapt for content but does not stretch indefinitely because of the cover ratio alone.
 - Ordinary cover ratios still render as before.
 
+### Gallery Thumbnail Loading Indicator Appears Static
+
+Type: visual feedback bug / gallery browsing loading state
+
+Priority suggestion: P1
+
+Status: reported / active queue candidate
+
+Source:
+
+- User-reported repeatedly on real gallery list browsing: while cover thumbnails are loading, the
+  loading indicator appears completely static. Even if the visible loading window is only around
+  300-500ms, the indicator should show some visible motion instead of looking frozen.
+
+Read-only current-state notes:
+
+- `shared/src/main/ets/components/EhThumbnail.ets` renders `LoadingProgress()` in `loaderOverlay()`
+  while `!loaded && !failed`.
+- `scripts/test_cover_presentation_contract.mjs` currently asserts that the loading overlay and forced
+  loading probe exist, and the historical probe evidence confirms one `LoadingProgress` node is present.
+- Those checks are static. They do not prove the native indicator animates in the real list surface, do
+  not compare multiple frames over time, and do not catch a visually frozen spinner.
+
+Expected behavior:
+
+- During real thumbnail loading, the loading affordance must visibly animate or otherwise communicate
+  live progress/activity.
+- A static `LoadingProgress()` node, a single screenshot, or source grep is not sufficient acceptance.
+- If ArkUI native `LoadingProgress` is visually frozen in `EhThumbnail` under current list/grid
+  composition, replace it with a deterministic lightweight animated affordance or a shared wrapper that
+  is proven to animate in this surface.
+
+Implementation direction:
+
+- First reproduce with a slow/forced thumbnail-loading scenario in Home/Search/Favorites list or grid.
+- Capture timed device evidence: short video or at least two/three frames from the same loading state
+  showing whether the indicator changes over time.
+- Keep this scoped to thumbnail loading affordance. Do not reopen cover fit, placeholder policy, grid
+  column count, Reader loading, or error fallback unless the reproduction shows they are directly involved.
+- Update cover/loading contracts so they no longer imply animation from the existence of
+  `LoadingProgress`; add a contract/probe requirement for a timed or explicitly animated state if a custom
+  wrapper is introduced.
+
+Acceptance shape:
+
+- Device evidence on a real list/grid thumbnail loading state shows visible motion while the image is
+  unresolved.
+- Forced internal probe evidence, if used, must be time-based or animated-state based, not only a static
+  screenshot with a `LoadingProgress` node.
+- Loaded and error states remain unchanged: loaded images clear the overlay, and error fallback still
+  shows the explicit image marker on the placeholder.
+
 ### Gallery Grid Mode Uses Broken WaterFlow Layout
 
 Type: P0/P1 bug / browsing core layout
