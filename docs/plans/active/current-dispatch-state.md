@@ -144,6 +144,10 @@ Items here are real concerns, but they are not active implementation lanes by de
   should guide future Reader redesign together with HarmonyOS-native V2Next image-preview patterns.
 - Boundary handoff from zoomed pan to page turn is a future enhancement unless current zoomed pan
   blocks normal reading.
+- Reader intermittent short-swipe early page jumps are parked as a measured-reproduction item. They are
+  real user feedback, but they must not be used as a default next implementation lane without explicit
+  user authorization. If reopened, first add/collect gesture trace evidence; do not keep patching Reader
+  gestures from static reasoning alone.
 - Persisting last selected sub-tabs is a low-priority UX optimization: Home gallery source, Favorites
   favcat, and Toplist period currently reset to defaults after app restart. This should be handled later
   as retained user preference state, not ahead of write-operation and search/favorites correctness bugs.
@@ -167,14 +171,13 @@ a bounded validation path.
    MyTags edit/delete/add, or tagset-management regression.
 3. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-4. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
-   or gesture fix, not more architecture discussion.
-5. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
-   normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
-   Fresh user evidence includes an intermittent fit-scale short-swipe failure where a very small
-   horizontal drag can instantly jump to the previous/next page before the page-turn animation visibly
-   completes. Treat that as a gesture-arena diagnosis item, not as proof that another visual rewrite is
-   needed.
+4. Reader bottom chrome download action has wrong visual weight: current Reader bottom bar shows download
+   as a large filled blue circular button while neighboring controls are neutral line/outline controls.
+   User screenshot evidence:
+   `/var/folders/d_/2b_g_3tx1y97s_s1lks2_v1c0000gp/T/codex-clipboard-54c5876c-7071-4741-9de0-452fb247b10d.png`.
+   This is a bounded Reader chrome IA/style bug, not a Reader gesture or architecture lane. Fix by
+   making the download control follow the same HDS/Reader toolbar action weight as adjacent controls;
+   do not rework Reader gestures, double-page layout, loading, or pager architecture in this lane.
 
 ## Lane Selection Rule
 

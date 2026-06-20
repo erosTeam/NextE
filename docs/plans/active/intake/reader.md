@@ -762,9 +762,11 @@ Observed / acceptance risk:
   accepted on more Reader scenarios.
 - Zoomed-image interaction still needs broader PhotoView-like acceptance, especially pinch feel and any
   future boundary handoff from zoomed pan to page turn.
-- Reader bottom chrome/action styling also feels unfinished: the download action's blue filled button
-  is visually out of line with neighboring controls. This is a secondary chrome IA/style cleanup, not
-  the P0 blocker.
+- Reader bottom chrome/action styling is a separate bounded UI bug: the download action is a large
+  filled blue circular button, while neighboring Reader controls are neutral line/outline controls. This
+  is visually out of line with the rest of the Reader chrome and has been repeatedly reported by the
+  user. It should be handled as a chrome IA/style lane, not folded into gesture, pager, loading, or
+  double-page architecture work.
 
 Expected behavior:
 
@@ -814,13 +816,46 @@ Acceptance shape:
 - Android `eros_fe` Reader comparison and HarmonyOS device/emulator video or screenshot evidence must
   be attached before marking accepted.
 
+### Reader Bottom Chrome Download Button Has Wrong Visual Weight
+
+Type: Reader chrome IA/style bug
+
+Priority suggestion: P1
+
+Status: active queue candidate
+
+Source:
+
+- User-reported repeatedly; latest screenshot evidence:
+  `/var/folders/d_/2b_g_3tx1y97s_s1lks2_v1c0000gp/T/codex-clipboard-54c5876c-7071-4741-9de0-452fb247b10d.png`.
+- In the screenshot, the bottom Reader toolbar uses a prominent filled blue circular download button,
+  while the adjacent history, thumbnail/grid, page count, direction, and double-page mode controls are
+  neutral outline/line controls. The blue button dominates the bottom chrome and reads as a primary FAB,
+  even though download is not the main reading action on this surface.
+
+Expected behavior:
+
+- Reader bottom chrome should use one coherent action-weight system.
+- Download should be available, but its visual weight should match the toolbar action family unless a
+  deliberate primary-action design says otherwise.
+- Use existing HDS/NextE icon/action primitives or a narrow shared Reader toolbar action wrapper; do not
+  hand-roll another large filled button.
+
+Implementation boundary:
+
+- This lane is only about Reader bottom chrome action weight and visual consistency.
+- Do not change Reader gestures, double-page spread architecture, loading/progress, page resolving,
+  download executor, offline library, or image pipeline.
+- Acceptance should be a Reader screenshot showing the bottom toolbar with the download action aligned
+  to neighboring controls in size, color, and weight.
+
 ### Reader Intermittent Short Swipe Jumps Pages Too Early
 
 Type: P0/P1 intermittent Reader gesture bug / page-turn threshold
 
 Priority suggestion: P1
 
-Status: reported / needs instrumented reproduction
+Status: parked / needs instrumented reproduction before implementation
 
 Source:
 
@@ -829,6 +864,10 @@ Source:
   the page-turn animation does not appear to complete normally, and then the page index has already
   changed. It can happen for several consecutive pages, then disappear, and is difficult to reproduce on
   demand.
+- Dispatch correction, 2026-06-20: this feedback should not be used as the default next implementation
+  lane. It is real and should remain recorded, but current scheduling parks it until the user explicitly
+  authorizes Reader gesture work or fresh P0 evidence makes normal reading broadly unusable. If reopened,
+  it must start from measured gesture trace evidence, not another recognizer patch from static reasoning.
 
 Why this is separate from generic gesture acceptance:
 
