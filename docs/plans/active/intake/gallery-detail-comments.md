@@ -208,6 +208,10 @@ Implementation:
   external browser open, and internal WebView open.
 - Added `GalleryWeb` and `GalleryEditTags` routes. The edit-tags entry refetches and displays current tags
   as a read-only surface; it does not call `taggallery`, `setusertag`, or any other EH write endpoint.
+- Follow-up: `eb14d9a feat(gallery): support protected tag voting` upgraded `GalleryEditTags` from the
+  original read-only route into a protected tag vote surface. It opens an HDS action sheet from a tag chip,
+  confirms before posting `/api.php method=taggallery`, and cancels during automated validation. This
+  follow-up still does not implement freeform tag suggestion/add or MyTags/setusertag editing.
 - Added deterministic coverage in `scripts/test_gallery_detail_menu_actions_contract.mjs`, and relaxed older
   refresh/local-favorite menu contracts so they preserve the new overflow behavior instead of requiring the
   obsolete three-item menu.
@@ -220,6 +224,10 @@ Validation:
   link opened, overflow menu captured with `刷新`, `编辑标签`, `复制链接`, `复制标题`, `浏览器打开`, `应用内网页`.
 - Edit-tags device evidence: `.hvigor/outputs/gallery-detail-menu-actions/nexte_edit_tags_onready_final.png`
   shows the route receives params, refetches detail tags, and displays namespace/tag chips in read-only mode.
+- Tag-vote follow-up evidence: `.hvigor/outputs/gallery-tag-vote/tag_page.png`,
+  `.hvigor/outputs/gallery-tag-vote/tag_sheet.png`, and
+  `.hvigor/outputs/gallery-tag-vote/tag_confirm.png` show the current edit-tags route, action sheet, and
+  protected confirmation dialog. No real EH tag vote was submitted.
 - Gates: gallery detail menu contract, V1 decorator inventory, i18n duplicate check, `git diff --check`, and
   official signed Hvigor build passed during implementation; full contract sweep is rerun before commit.
 
@@ -284,8 +292,10 @@ Implementation direction to evaluate:
 Edit-tags boundary:
 
 - The entry is allowed as a visible menu item.
-- The first implementation may show the current tags and an explanatory disabled submit / follow-up state.
-- It must not silently submit `taggallery`, `setusertag`, or any other non-idempotent EH write.
+- The current implementation supports protected tag voting through `taggallery`; it must not silently submit
+  without the explicit confirmation dialog.
+- Freeform tag suggestion/add and `setusertag`/MyTags editing remain out of scope for this detail-menu item
+  unless a separate destructive-write lane is opened.
 - Future real tag editing must follow the project destructive-write boundary: explicit user action,
   confirmation where appropriate, and test-gallery/device evidence.
 

@@ -19,7 +19,8 @@ Priority suggestion: P0/P1
 Status: active intake / remote favorite write path implemented pending acceptance / gallery rating write
 implemented pending authorized real-submit acceptance / comment vote implemented pending authorized
 real-submit acceptance / comment compose-reply implemented pending authorized real-submit acceptance /
-own-comment edit implemented pending authorized real-submit acceptance
+own-comment edit implemented pending authorized real-submit acceptance / taggallery vote implemented pending
+authorized real-submit acceptance
 
 Source:
 
@@ -34,6 +35,8 @@ Source:
     and some non-destructive write-entry affordances.
   - `GalleryCommentsPage` now implements bounded comment write actions: vote up/down, protected
     new/reply composition, and own-comment edit on the full comments page.
+  - `GalleryEditTagsPage` now implements protected tag vote actions from the detail title menu's
+    `编辑标签` entry. It no longer presents tag editing as a read-only unsupported surface.
   - `GalleryArchiverPage` and download queue flows expose read/queue surfaces but do not complete the
     destructive archive/download submit pipeline.
   - Gallery rating now has a protected `rategallery` path in NextE: it opens an HDS rating sheet,
@@ -49,6 +52,8 @@ Source:
   - `GalleryFavController` handles add/remove/move favorites with favcat/favnote.
   - Gallery rating is exposed through rating dialog/controller code and updates detail state.
   - `CommentController` covers comment translate, vote up/down, post/edit/reply style actions.
+  - `TagInfoController` / `Api.tagGallery` submit `method=taggallery` with `apikey`, `apiuid`, `gid`,
+    `token`, `tags`, and `vote`.
   - Archiver and download controllers cover quote/submit/download flows more deeply than NextE.
 
 Scheduling judgment:
@@ -58,7 +63,8 @@ Scheduling judgment:
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
   1. Comment actions: comment vote, reply/new comment, and own-comment edit are implemented; reopen only
      for acceptance regressions.
-  2. Tag/MyTags write actions: tag vote/suggest/set-user-tag after the write safety pattern is proven.
+  2. Tag/MyTags write actions: taggallery vote is implemented; schedule MyTags/setusertag only as a
+     separately grounded lane.
   3. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
      smaller write operations unless the user explicitly prioritizes downloads.
 
@@ -104,6 +110,20 @@ Handled status:
   `.hvigor/outputs/comment-edit-write/`. Remaining gap: final edit submit and edit-sheet screenshot require
   an actual own-comment sample or explicitly authorized test comment creation/editing; no real EH comment was
   edited during automated validation.
+- Gallery tag vote: `implemented / pending controller acceptance and authorized real-submit verification`.
+  Commit: `eb14d9a feat(gallery): support protected tag voting`. Scope: protected `/api.php`
+  `method=taggallery` submit, detail-scraped `apikey/apiuid` retention in `GalleryEditTagsPage`,
+  tag-chip action sheet from the detail title menu's `编辑标签` route, up/down actions for unvoted tags,
+  withdraw via opposite vote for already voted tags, native confirmation before submit, local tag-vote state
+  update after success, i18n strings, and deterministic contract coverage. FE grounding:
+  `/Users/honjow/git/eros_fe/lib/pages/gallery/view/taginfo_dialog.dart`,
+  `/Users/honjow/git/eros_fe/lib/pages/gallery/controller/taginfo_controller.dart`, and
+  `/Users/honjow/git/eros_fe/lib/network/api.dart` (`Api.tagGallery`). Device evidence: Mate X7 emulator
+  `127.0.0.1:5555`, official signed HAP, opened Home gallery detail, used the title menu `编辑标签`,
+  opened the tag action sheet for `language:chinese`, opened the `赞成标签` confirmation dialog, and
+  cancelled. Evidence files live under `.hvigor/outputs/gallery-tag-vote/`. Remaining gap: final tag-vote
+  submit was not clicked because EH tag voting is a real account write and still needs an explicitly
+  authorized test target.
 
 Implementation constraints:
 
