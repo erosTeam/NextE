@@ -124,6 +124,11 @@ Historical feedback in this section must not trigger new implementation.
   content plus native footer spacing. Simulator evidence on `127.0.0.1:5555` shows a short upward scroll
   in both Waterfall and Grid immediately hides the HDS title/header while keeping the bottom selector
   visible.
+- Gallery thumbnail loading motion is implemented pending controller acceptance: timed internal QA probe
+  evidence showed native `LoadingProgress` animated while `EhThumbnail`'s old `.overlay(...)` path was
+  static, and `EhThumbnail` now renders normal loading/error overlays as in-tree `Stack` children.
+  Post-fix timed screenshots on `127.0.0.1:5555` show changed pixels in both forced thumbnail loading
+  boxes and native/pending-image controls.
 
 ## Parked / Guidance Only
 
@@ -153,25 +158,18 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Gallery thumbnail loading indicator appears static: gallery list thumbnails use `EhThumbnail`
-   `LoadingProgress()` while `loaded=false`, and existing cover contracts/probe screenshots only prove
-   that a loading overlay exists. They do not prove visible animation during real list image loading.
-   Other app surfaces use the same native `LoadingProgress` successfully, so do not assume the global
-   component is broken. Next bounded lane should isolate three cases: independent `LoadingProgress`,
-   `EhThumbnail` forced-loading overlay, and a real `Image` kept pending by a slow test URL. Do not mark
-   this accepted from a static screenshot or a grep for `LoadingProgress`.
-2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+3. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+4. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+5. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
    Fresh user evidence includes an intermittent fit-scale short-swipe failure where a very small
    horizontal drag can instantly jump to the previous/next page before the page-turn animation visibly

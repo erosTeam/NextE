@@ -11,6 +11,7 @@ import {
 
 const PROBE_THUMB_W: number = 132
 const PROBE_THUMB_H: number = 190
+const PROBE_PENDING_IMAGE_URL: string = 'http://10.255.255.1/nexte-never-loads.jpg'
 
 @ComponentV2
 export struct CoverFallbackProbePage {
@@ -31,6 +32,20 @@ export struct CoverFallbackProbePage {
           }
           .width('100%')
           .justifyContent(FlexAlign.Center)
+
+          Text('Loading motion probe')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(ThemeConstants.TEXT_PRIMARY)
+            .width('100%')
+
+          Row({ space: ThemeConstants.SPACE_MD }) {
+            this.nativeSpinnerProbe()
+            this.thumbnailSpinnerProbe()
+            this.pendingImageProbe()
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.SpaceBetween)
         }
         .width('100%')
         .padding({
@@ -62,6 +77,83 @@ export struct CoverFallbackProbePage {
       Text(label)
         .fontSize(14)
         .fontColor(ThemeConstants.TEXT_SECONDARY)
+    }
+  }
+
+  @Builder
+  private nativeSpinnerProbe() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Stack({ alignContent: Alignment.Center }) {
+        LoadingProgress()
+          .width(32)
+          .height(32)
+          .color($r('sys.color.font_tertiary'))
+      }
+      .width(96)
+      .height(96)
+      .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
+      .borderRadius(ThemeConstants.RADIUS_MD)
+
+      Text('native')
+        .fontSize(12)
+        .fontColor(ThemeConstants.TEXT_SECONDARY)
+        .maxLines(2)
+        .textAlign(TextAlign.Center)
+        .width(96)
+    }
+  }
+
+  @Builder
+  private thumbnailSpinnerProbe() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Stack({ alignContent: Alignment.Center }) {
+        EhThumbnail({
+          url: '',
+          thumbWidth: 72,
+          thumbHeight: 72,
+          radius: ThemeConstants.RADIUS_MD,
+          visualState: THUMBNAIL_VISUAL_LOADING,
+        })
+      }
+      .width(96)
+      .height(96)
+      .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
+      .borderRadius(ThemeConstants.RADIUS_MD)
+
+      Text('thumbnail')
+        .fontSize(12)
+        .fontColor(ThemeConstants.TEXT_SECONDARY)
+        .maxLines(2)
+        .textAlign(TextAlign.Center)
+        .width(96)
+    }
+  }
+
+  @Builder
+  private pendingImageProbe() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Stack({ alignContent: Alignment.Center }) {
+        Image(PROBE_PENDING_IMAGE_URL)
+          .width(72)
+          .height(72)
+          .objectFit(ImageFit.Cover)
+          .draggable(false)
+        LoadingProgress()
+          .width(32)
+          .height(32)
+          .color($r('sys.color.font_tertiary'))
+      }
+      .width(72)
+      .height(72)
+      .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
+      .borderRadius(ThemeConstants.RADIUS_MD)
+
+      Text('pending image')
+        .fontSize(12)
+        .fontColor(ThemeConstants.TEXT_SECONDARY)
+        .maxLines(2)
+        .textAlign(TextAlign.Center)
+        .width(96)
     }
   }
 }

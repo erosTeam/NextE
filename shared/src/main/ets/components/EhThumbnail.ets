@@ -159,13 +159,14 @@ export struct EhThumbnail {
 
   build() {
     if (this.visualState !== THUMBNAIL_VISUAL_AUTO) {
-      Stack({ alignContent: Alignment.Center }) {}
+      Stack({ alignContent: Alignment.Center }) {
+        this.coverOverlay()
+      }
         .width(this.thumbWidth)
         .height(this.thumbHeight)
         .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
         .borderRadius(this.radius)
         .clip(true)
-        .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else if (this.coverRatio > 0) {
       Stack({ alignContent: Alignment.Center }) {
         Image(EhConstants.cdnThumb(this.url))
@@ -181,13 +182,13 @@ export struct EhThumbnail {
             this.loaded = true
             this.failed = true
           })
+        this.coverOverlay()
       }
         .width('100%')
         .aspectRatio(this.coverRatio)
         .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
         .borderRadius(this.radius)
         .clip(true)
-        .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else if (this.containFit && this.hasSourceSize() && !this.fillHeight && !this.stretchHeight) {
       // Transparent layout slot. Only the REAL image surface is visible; its size follows the EH cover
       // dimensions, and the radius clips that visible image instead of a permanent grey frame.
@@ -207,10 +208,10 @@ export struct EhThumbnail {
             this.loaded = true
             this.failed = true
           })
+        this.coverOverlay()
       }
       .width(this.thumbWidth)
       .height(this.thumbHeight)
-      .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else if (this.stretchHeight) {
       Image(EhConstants.cdnThumb(this.url))
         .width(this.thumbWidth)
@@ -228,22 +229,26 @@ export struct EhThumbnail {
         })
         .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else {
-      Image(EhConstants.cdnThumb(this.url))
+      Stack({ alignContent: Alignment.Center }) {
+        Image(EhConstants.cdnThumb(this.url))
+          .width(this.thumbWidth)
+          .height(this.fillHeight ? '100%' : this.thumbHeight)
+          .objectFit(this.containFit ? ImageFit.Contain : ImageFit.Cover)
+          .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
+          .borderRadius(this.radius)
+          .draggable(false)
+          .onComplete(() => {
+            this.loaded = true
+            this.failed = false
+          })
+          .onError(() => {
+            this.loaded = true
+            this.failed = true
+          })
+        this.coverOverlay()
+      }
         .width(this.thumbWidth)
         .height(this.fillHeight ? '100%' : this.thumbHeight)
-        .objectFit(this.containFit ? ImageFit.Contain : ImageFit.Cover)
-        .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
-        .borderRadius(this.radius)
-        .draggable(false)
-        .onComplete(() => {
-          this.loaded = true
-          this.failed = false
-        })
-        .onError(() => {
-          this.loaded = true
-          this.failed = true
-        })
-        .overlay(this.coverOverlay(), { align: Alignment.Center })
     }
   }
 }

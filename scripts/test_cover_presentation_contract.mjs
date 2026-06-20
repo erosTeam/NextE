@@ -52,7 +52,7 @@ ok(/hasSourceSize\(\)/.test(thumb), 'EhThumbnail gates real-aspect sizing on kno
 ok(/fittedWidth\(\)/.test(thumb) && /fittedHeight\(\)/.test(thumb), 'EhThumbnail computes visible image size from source aspect')
 ok(/this\.containFit\s*&&\s*this\.hasSourceSize\(\)/.test(thumb), 'containFit + known source dimensions uses the transparent-slot real-image branch')
 ok(/Image\(EhConstants\.cdnThumb\(this\.url\)\)[\s\S]*?\.width\(this\.fittedWidth\(\)\)[\s\S]*?\.height\(this\.fittedHeight\(\)\)[\s\S]*?\.objectFit\(ImageFit\.Fill\)[\s\S]*?\.borderRadius\(this\.radius\)[\s\S]*?\.clip\(true\)/.test(thumb), 'visible loaded image is sized to real aspect and clipped to its own radius')
-ok(/Stack\(\{ alignContent: Alignment\.Center \}\)[\s\S]*?\.width\(this\.thumbWidth\)[\s\S]*?\.height\(this\.thumbHeight\)[\s\S]*?\.overlay\(this\.coverOverlay\(\)/.test(thumb), 'fixed header slot is a transparent alignment slot with loading/error overlay')
+ok(/Stack\(\{ alignContent: Alignment\.Center \}\)\s*\{[\s\S]*?Image\(EhConstants\.cdnThumb\(this\.url\)\)[\s\S]*?this\.coverOverlay\(\)[\s\S]*?\}[\s\S]*?\.width\(this\.thumbWidth\)[\s\S]*?\.height\(this\.thumbHeight\)/.test(thumb), 'fixed header slot is a transparent alignment slot with in-tree loading/error overlay')
 
 // 3) Loading and error fallbacks must be explicit placeholder states, not an accidental empty loaded slot.
 ok(/@Local\s+loaded:\s*boolean\s*=\s*false/.test(thumb), 'EhThumbnail tracks the loading/loaded state')
@@ -62,11 +62,12 @@ ok(/if\s*\(!this\.loaded\s*&&\s*!this\.failed\)/.test(thumb), 'spinner is shown 
 ok(/errorOverlay\(\)[\s\S]*?if\s*\(this\.failed\)[\s\S]*?SymbolGlyph\(\$r\('sys\.symbol\.picture'\)\)[\s\S]*?ThemeConstants\.TEXT_TERTIARY/.test(thumb), 'error fallback shows an explicit tertiary image marker')
 ok((thumb.match(/this\.failed\s*=\s*true/g) || []).length >= 4, 'every Image onError path marks the thumbnail failed')
 ok((thumb.match(/this\.failed\s*=\s*false/g) || []).length >= 5, 'onUrlChange and every onComplete path clears failed state')
-ok((thumb.match(/\.overlay\(this\.coverOverlay\(\),\s*\{ align:\s*Alignment\.Center \}\)/g) || []).length >= 4, 'every thumbnail branch uses the combined loading/error overlay')
+ok((thumb.match(/this\.coverOverlay\(\)/g) || []).length >= 5, 'thumbnail branches render the combined loading/error overlay')
+ok((thumb.match(/\.overlay\(this\.coverOverlay\(\),\s*\{ align:\s*Alignment\.Center \}\)/g) || []).length <= 1, 'primary thumbnail loading overlays are in-tree children, not frozen overlay modifiers')
 ok(!/\.overlay\(this\.loaderOverlay\(\)/.test(thumb), 'no branch bypasses the error marker by using the loader overlay directly')
 ok(/THUMBNAIL_VISUAL_LOADING/.test(thumb) && /THUMBNAIL_VISUAL_ERROR/.test(thumb), 'EhThumbnail exposes deterministic visual states for device evidence')
 ok(/@Param\s+visualState:\s*number\s*=\s*THUMBNAIL_VISUAL_AUTO/.test(thumb), 'EhThumbnail visualState defaults to AUTO production behavior')
-ok(/visualState\s*!==\s*THUMBNAIL_VISUAL_AUTO[\s\S]*?ThemeConstants\.COVER_PLACEHOLDER[\s\S]*?\.overlay\(this\.coverOverlay\(\)/.test(thumb), 'forced visual states still use the real cover placeholder and overlay path')
+ok(/visualState\s*!==\s*THUMBNAIL_VISUAL_AUTO[\s\S]*?Stack\(\{ alignContent: Alignment\.Center \}\)\s*\{[\s\S]*?this\.coverOverlay\(\)[\s\S]*?ThemeConstants\.COVER_PLACEHOLDER/.test(thumb), 'forced visual states use the real cover placeholder with an in-tree animated overlay')
 
 // 4) Header cover must pass the parsed dimensions so a wide/flat cover does not become a grey tall box.
 ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(headerCard), 'GalleryHeaderCard passes gallery.imgWidth into EhThumbnail')
@@ -78,8 +79,9 @@ ok(/thumbHeight:\s*this\.coverHeight\(\)/.test(listCard), 'GalleryCard uses an e
 ok(!/stretchHeight:\s*true/.test(listCard), 'GalleryCard does not use stretchHeight intrinsic image sizing')
 
 // 5) This fix must not invent a blanket fill/crop policy for grid cards. Existing grid cover remains its
-// own context; the header fix is about real-aspect fitting inside a transparent slot.
-ok(!/sourceWidth/.test(gridCard) && !/sourceHeight/.test(gridCard), 'GalleryGridCard is not forced into the detail-header source-slot path')
+// own context: it may pass source dimensions to avoid stretching, but still uses its own coverRatio slot.
+ok(/coverRatio:\s*ThemeConstants\.GALLERY_GRID_COVER_RATIO/.test(gridCard), 'GalleryGridCard keeps its grid-specific cover ratio slot')
+ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(gridCard) && /sourceHeight:\s*this\.gallery\.imgHeight/.test(gridCard), 'GalleryGridCard passes source dimensions so grid covers do not stretch')
 ok(!/ImageFit\.Cover[\s\S]*header/i.test(headerCard), 'GalleryHeaderCard does not introduce a header Cover/crop policy')
 
 // 6) Device visual evidence route: hidden QA path renders the real component states without exposing a
@@ -92,6 +94,7 @@ ok(/InternalQaRoutes\.COVER_FALLBACK_PROBE_URI[\s\S]*?pushPathByName\('CoverFall
 ok(/name\s*===\s*'CoverFallbackProbe'[\s\S]*?CoverFallbackProbePage\(\)/.test(entryIndex), 'CoverFallbackProbe is a registered nav destination')
 ok(/EhThumbnail\(\{[\s\S]*?visualState:\s*state/.test(probePage), 'probe page renders the real EhThumbnail visualState path')
 ok(/THUMBNAIL_VISUAL_LOADING/.test(probePage) && /THUMBNAIL_VISUAL_ERROR/.test(probePage), 'probe page renders both loading and error states')
+ok(/nativeSpinnerProbe\(\)/.test(probePage) && /thumbnailSpinnerProbe\(\)/.test(probePage) && /pendingImageProbe\(\)/.test(probePage), 'probe page isolates native, EhThumbnail, and pending-image loading motion')
 ok(/HdsNavDestination\(\)/.test(probePage), 'probe page wraps its content in HdsNavDestination like other pushed pages')
 ok(!/nexte:\/\/qa\/cover-fallback/.test(moduleJson), 'internal QA URI is not exposed as a public module skill')
 

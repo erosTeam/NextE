@@ -259,7 +259,33 @@ Type: visual feedback bug / gallery browsing loading state
 
 Priority suggestion: P1
 
-Status: reported / active queue candidate
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- `EhThumbnail` no longer places the normal fixed-size / cover-ratio / contain-fit thumbnail loading
+  overlay in ArkUI's `.overlay(...)` modifier path. The loading/error overlay is now rendered as an
+  in-tree `Stack` child for those thumbnail paths.
+- `CoverFallbackProbePage` now isolates three loading cases on one internal QA route:
+  independent native `LoadingProgress`, forced `EhThumbnail(THUMBNAIL_VISUAL_LOADING)`, and a pending
+  `Image` with an equivalent native loading overlay.
+- The stretch-height legacy path is intentionally left unchanged because there are no current business
+  call sites, and changing that layout path is outside this lane.
+
+Validation:
+
+- Before fix, timed screenshots on local emulator target `127.0.0.1:5555` showed native and pending
+  image loading regions changing over time, while both forced `EhThumbnail` loading regions were static:
+  `0 / 11025` and `0 / 14400` changed pixels in the measured spinner boxes.
+- After fix, timed screenshots showed motion in all relevant boxes:
+  top forced card `865-937 / 14400` changed pixels, forced thumbnail `527-861 / 11025`, native
+  `902-1579 / 11025`, pending image `695-1093 / 11025`.
+- Evidence artifacts:
+  `.hvigor/outputs/thumbnail-loading-probe/frame-a.jpeg` through `frame-c.jpeg` and
+  `.hvigor/outputs/thumbnail-loading-probe-fixed/frame-a.jpeg` through `frame-c.jpeg`.
+- Gates: `scripts/build_hvigor_signed.sh`,
+  `node scripts/test_cover_presentation_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`, and `git diff --check`.
 
 Source:
 

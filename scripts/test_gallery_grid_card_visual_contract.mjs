@@ -88,7 +88,7 @@ ok('Gallery list/grid cover slots keep the designed grey placeholder backing',
   /else if \(this\.coverRatio > 0\)[\s\S]*backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(thumbSrc))
 ok('Detail and preview main visual slots do not get a grey letterbox container',
   /GalleryHeaderCard[\s\S]*EhThumbnail\(\{[\s\S]*containFit:\s*true/.test(detailHeaderSrc) &&
-    /Stack\(\{ alignContent: Alignment\.Center \}\)[\s\S]*\.width\(this\.thumbWidth\)[\s\S]*\.height\(this\.thumbHeight\)[\s\S]*\.overlay\(this\.coverOverlay\(\)/.test(containFitBranch) &&
+    /Stack\(\{ alignContent: Alignment\.Center \}\)\s*\{[\s\S]*Image\(EhConstants\.cdnThumb\(this\.url\)\)[\s\S]*this\.coverOverlay\(\)[\s\S]*?\}[\s\S]*\.width\(this\.thumbWidth\)[\s\S]*\.height\(this\.thumbHeight\)/.test(containFitBranch) &&
     !/backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(containFitBranch) &&
     /Stack\(\)[\s\S]*\.width\('100%'\)[\s\S]*\.height\(this\.frameHeight\(\)\)[\s\S]*\.alignContent\(Alignment\.Center\)/.test(previewFrameBranch) &&
     /@Local\s+measuredWidth:\s*number\s*=\s*0/.test(previewTileSrc) &&
