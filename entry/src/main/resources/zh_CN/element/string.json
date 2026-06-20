@@ -1157,6 +1157,10 @@
       "value": "清除"
     },
     {
+      "name": "search_history_clear_confirm",
+      "value": "清除全部搜索历史？"
+    },
+    {
       "name": "search_history_deleted",
       "value": "已从历史记录移除"
     },

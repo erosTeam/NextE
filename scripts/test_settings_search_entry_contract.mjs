@@ -52,6 +52,10 @@ ok(/@Local filter: SearchFilterState = connectSearchFilter\(\)/.test(searchPage)
   'page reads V2 search filter state')
 ok(/SearchHistorySettings\.clear\(this\.ctx\(\)\)/.test(searchPage),
   'page clears history through SearchHistorySettings')
+ok(/confirmClearHistory\(\): void[\s\S]*showAlertDialog[\s\S]*search_history_clear_confirm[\s\S]*common_cancel[\s\S]*action: \(\) => \{[\s\S]*this\.clearHistory\(\)/.test(searchPage),
+  'clearing search history is gated by a native confirmation dialog')
+ok(/title: \$r\('app\.string\.search_history_clear'\)[\s\S]*action: \(\) => \{[\s\S]*this\.confirmClearHistory\(\)/.test(searchPage),
+  'clear-history row opens the confirmation instead of deleting immediately')
 ok(/SearchFilterSettings\.reset\(this\.ctx\(\)\)/.test(searchPage),
   'page resets filters through SearchFilterSettings')
 ok(!/QuickSearch|quickSearch|ImageSearch|SearchPageField/.test(searchPage),
@@ -70,6 +74,7 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
   for (const key of [
     'settings_search',
+    'search_history_clear_confirm',
     'search_settings_history_count',
     'search_settings_history_hint',
     'search_settings_filter_profile',

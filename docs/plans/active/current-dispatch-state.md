@@ -99,6 +99,9 @@ Historical feedback in this section must not trigger new implementation.
   `网站设置` / `图片限制` rows are no longer visible in EH settings until the protected website-settings
   profile flow or image-limit refresh surface exists. EH settings remains scoped to real account/site
   loops.
+- Search settings history clear safety is corrected and pending controller acceptance: tapping
+  `清除` in Search settings now opens a native confirmation dialog before clearing persisted search
+  history instead of deleting immediately.
 
 ## Parked / Guidance Only
 
@@ -130,8 +133,8 @@ a bounded validation path.
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
 2. Settings shell audit: continue with remaining rows/pages that are only shells, disabled placeholders,
-   or not wired to real behavior; Security, Download, and EH disabled placeholder exposure are already
-   corrected pending acceptance.
+   not wired to real behavior, or unsafe/destructive without confirmation; Security, Download, EH
+   placeholder exposure, and Search history clear safety are already corrected pending acceptance.
 3. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
    writes establish the protected EH write pattern.
 4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds

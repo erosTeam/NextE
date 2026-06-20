@@ -43,6 +43,23 @@ export struct SearchSettingsPage {
     await SearchHistorySettings.clear(this.ctx())
   }
 
+  private confirmClearHistory(): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.search_history_clear_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.search_history_clear'),
+        fontColor: Color.Red,
+        action: () => {
+          this.clearHistory()
+        },
+      },
+    })
+  }
+
   private async resetFilters(): Promise<void> {
     await SearchFilterSettings.reset(this.ctx())
   }
@@ -77,7 +94,7 @@ export struct SearchSettingsPage {
               destructive: true,
               showChevron: false,
               action: () => {
-                this.clearHistory()
+                this.confirmClearHistory()
               },
             })
           }

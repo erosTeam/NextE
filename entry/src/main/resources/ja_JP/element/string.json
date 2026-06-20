@@ -1157,6 +1157,10 @@
       "value": "クリア"
     },
     {
+      "name": "search_history_clear_confirm",
+      "value": "検索履歴をすべてクリアしますか？"
+    },
+    {
       "name": "search_history_deleted",
       "value": "履歴から削除しました"
     },

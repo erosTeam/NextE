@@ -16,7 +16,7 @@ Type: feature gap / settings trustworthiness
 
 Priority suggestion: P1
 
-Status: active intake / Security, Download, and EH disabled placeholders implemented pending controller acceptance
+Status: active intake / Security, Download, EH placeholders, and Search clear safety implemented pending controller acceptance
 
 Source:
 
@@ -35,6 +35,8 @@ Source:
     disabled placeholder rows were later hidden so EH settings only presents the NextE-owned loops.
   - `AdvancedSettingsPage` currently provides only HiLog diagnostics and marker write, while FE Advanced
     contains cache/proxy/import/export/log-related maintenance rows.
+  - `SearchSettingsPage` exposed a destructive `清除` search-history row that called
+    `SearchHistorySettings.clear()` directly without confirmation.
   - `DownloadSettingsPage` is explicitly scoped to persisted policy controls, while the broader download
     executor remains incomplete; this was later corrected by hiding the Download settings entry from
     Settings root until those policies are consumed by the executor.
@@ -47,6 +49,7 @@ Observed risk:
 - A route existing in Settings can make the app feel more complete than it is.
 - Disabled placeholders and rows with partial behavior should be reviewed as product debt, not treated
   as finished parity.
+- Destructive data-management actions in Settings should not execute on a single accidental tap.
 - If a settings row opens a menu or page unreliably, the issue is a concrete usability bug even if the
   route/contract exists.
 
@@ -119,6 +122,19 @@ Handled update, 2026-06-20:
   `.hvigor/outputs/settings-eh-placeholders-hidden/settings_root_layout.json`,
   `.hvigor/outputs/settings-eh-placeholders-hidden/eh_settings_final.jpeg`, and
   `.hvigor/outputs/settings-eh-placeholders-hidden/eh_settings_final_layout.json`.
+- Search history clear safety: implemented / pending controller acceptance. The Search settings
+  `清除` row now opens a native confirmation dialog; only the destructive confirmation button calls
+  `SearchHistorySettings.clear()`, while cancel leaves history untouched. Contract updated:
+  `scripts/test_settings_search_entry_contract.mjs` now locks that the row calls
+  `confirmClearHistory()` and that the dialog contains cancel plus the destructive clear action.
+  HarmonyOS emulator evidence: target `127.0.0.1:5555`, signed HAP installed. Search settings showed
+  history count `11`; tapping `清除` opened `清除全部搜索历史？` with `取消` and `清除`; tapping `取消`
+  dismissed the dialog and the page still showed history count `11`. Evidence files:
+  `.hvigor/outputs/settings-search-clear-confirm/search_settings.jpeg`,
+  `.hvigor/outputs/settings-search-clear-confirm/search_settings_layout.json`,
+  `.hvigor/outputs/settings-search-clear-confirm/search_clear_dialog.jpeg`,
+  `.hvigor/outputs/settings-search-clear-confirm/search_clear_dialog_layout.json`, and
+  `.hvigor/outputs/settings-search-clear-confirm/search_after_cancel_layout.json`.
 
 ### Settings Root Missing Layout Settings Page
 
