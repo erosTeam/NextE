@@ -4205,3 +4205,64 @@ Acceptance shape:
 - Restarting the app is not required for correct favcat colors.
 - Deterministic contract covers late favcat metadata arrival, placeholder exclusion, and datasource
   replacement after slot resolution.
+
+### Gallery Lists Need Earlier Pagination Prefetch And Larger Virtual Cache Range
+
+Type: gallery list pagination / lazy rendering UX
+
+Priority suggestion: P2
+
+Status: active / queued
+
+Source:
+
+- User feedback, 2026-06-20: the current next-page load appears to trigger only when the list reaches
+  the bottom. A smoother model would trigger when the final item, or a near-end item, enters the render
+  range. The user also observed that list/grid items can disappear abruptly when most of the item leaves
+  the visible screen, which is especially noticeable with immersive bottom navigation where part of an
+  item is still visually peeking behind the bottom chrome.
+
+Current implementation notes:
+
+- Home, Search, and Favorites gallery lists wire pagination through `PullRefreshListScaffold` /
+  `PullRefreshGridScaffold` `onReachEnd -> vm.loadMore()`.
+- The shared scaffolds expose `onScrollIndex` for list mode but current gallery call sites do not use it
+  to trigger near-end prefetch. Grid and WaterFlow scaffolds currently expose only `onReachEnd`.
+- `List`, `Grid`, and `WaterFlow` with `LazyForEach` support `cachedCount`; HarmonyOS docs describe this
+  as pre-creating / pre-layouting offscreen items. The current shared gallery scaffolds do not set an
+  explicit `cachedCount`.
+- For `Grid`, cached rows are effectively `cachedCount * columns`; this needs conservative tuning because
+  gallery cards include network images and can increase memory pressure.
+
+Expected behavior:
+
+- Pagination should start before the user physically hits the bottom, ideally when the visible end index
+  is within a small threshold from `itemCount - 1`.
+- The same prefetch policy should apply to Home, Search, Favorites, and later Waterfall, without each
+  page inventing a different trigger.
+- Lazy list/grid items should not visibly disappear at the bottom edge while still partially visible
+  through the immersive navigation/bottom bar area.
+- Increasing cache range must be bounded and measured; it should improve perceived continuity without
+  causing excessive image memory or long-list jank.
+
+Implementation direction:
+
+- Add a shared near-end pagination event to `PullRefreshListScaffold` and `PullRefreshGridScaffold`, based
+  on `onScrollIndex` end/last visible index and a configurable threshold such as rows/items remaining.
+- Debounce/guard this trigger through existing `vm.canLoadMore()` / `isLoadingMore` logic so it cannot
+  fire duplicate network requests while a page is already loading.
+- Add explicit `cachedCount` params to list/grid/waterflow scaffolds, with safe defaults per mode
+  (for example list rows vs grid rows, not raw item count for grid).
+- Treat bottom safe-area / floating-bar height as part of the UX viewport when validating disappearance:
+  if content is visible under translucent chrome, the cache range should keep it mounted long enough not
+  to pop out at the edge.
+
+Acceptance shape:
+
+- On a long Home/Search/Favorites gallery list, slow-scroll near the bottom and verify the next page starts
+  loading before hitting the terminal footer.
+- While a page load is in flight, continued scrolling does not enqueue duplicate `loadMore()` requests.
+- In list and grid modes, items near the immersive bottom bar do not abruptly disappear while still visibly
+  peeking through the bottom chrome.
+- Deterministic contract covers near-end trigger wiring for List and Grid, duplicate-load guards, and
+  explicit cachedCount configuration on shared gallery scaffolds.
