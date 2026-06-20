@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
- * Contract: full GalleryComments page supports bounded new/reply comment composition.
+ * Contract: full GalleryComments page supports bounded new/reply/edit comment composition.
  *
  * Grounding:
  * - eros_fe request.dart::postComment posts /g/{gid}/{token} with commenttext_new for new/reply and
  *   commenttext_edit + edit_comment for edit.
  * - eros_fe CommentController.reptyComment only pre-fills @user + encoded comment id; it still submits
  *   as a new comment.
+ * - eros_fe CommentController.editComment pre-fills the original text and submits with edit_comment.
  *
- * NextE scope for this lane: new comment + reply prefill. Own-comment edit remains out of scope.
+ * NextE scope for this lane: new comment, reply prefill, and own-comment edit.
  */
 import fs from 'fs'
 import path from 'path'
@@ -48,6 +49,7 @@ ok('comments page owns compose sheet state',
   /@Local commentSheetShown: boolean = false/.test(page) &&
     /@Local commentText: string = ''/.test(page) &&
     /@Local commentReplyToId: string = ''/.test(page) &&
+    /@Local commentEditId: string = ''/.test(page) &&
     /@Local commentSubmitting: boolean = false/.test(page))
 ok('comments page gates comment compose on route identity and login cookies',
   /private canOpenCommentSheet\(\): boolean[\s\S]*this\.params\.gid\.length > 0[\s\S]*this\.params\.token\.length > 0[\s\S]*EhCookieStore\.getInstance\(\)\.isLogin\(\)/.test(page))
@@ -55,7 +57,14 @@ ok('new comment title action opens the compose sheet',
   /const newComment: Record<string, Object> = \{[\s\S]*comment_new_title[\s\S]*sys\.symbol\.doc_plaintext[\s\S]*this\.openNewComment\(\)/.test(page))
 ok('reply action pre-fills @author plus encoded comment id and still submits as new comment',
   /private openReplyComment\(comment: EhGalleryComment\): void[\s\S]*this\.commentReplyToId = comment\.commentId[\s\S]*this\.commentText = `@\$\{comment\.author\}\\n\$\{this\.encodeCommentId\(comment\.commentId\)\}\\n`/.test(page) &&
-    /postGalleryComment\(\{[\s\S]*commentId: ''[\s\S]*isEdit: false/.test(page))
+    /this\.commentEditId = ''/.test(page))
+ok('own-comment edit pre-fills original text and submits commenttext_edit',
+  /private openEditComment\(comment: EhGalleryComment\): void[\s\S]*!comment\.canEdit[\s\S]*this\.commentEditId = comment\.commentId[\s\S]*this\.commentEditOriginal = comment\.contentText[\s\S]*this\.commentText = comment\.contentText/.test(page) &&
+    /postGalleryComment\(\{[\s\S]*commentId: this\.commentEditId[\s\S]*isEdit: this\.commentEditId\.length > 0/.test(page))
+ok('compose sheet changes title and placeholder for edit mode',
+  /private commentSheetTitle\(\): ResourceStr[\s\S]*commentEditId\.length > 0[\s\S]*comment_edit_title/.test(page) &&
+    /private commentPlaceholder\(\): ResourceStr[\s\S]*commentEditId\.length > 0[\s\S]*comment_edit_placeholder/.test(page) &&
+    /comment_edit_original/.test(page))
 ok('comment compose uses AppModalScaffold with title actions, not a bottom primary button',
   /@Builder[\s\S]*CommentComposeSheet\(\)[\s\S]*AppModalScaffold\(\{[\s\S]*confirmText: \$r\('app\.string\.comment_send'\)[\s\S]*confirmEnabled: this\.canSubmitComment\(\)[\s\S]*confirmLoading: this\.commentSubmitting/.test(page) &&
     !/CommentComposeSheet\(\)[\s\S]*Button\(\$r\('app\.string\.comment_send'\)/.test(page))
@@ -74,16 +83,23 @@ ok('full comments card exposes reply event and keeps peek mode quiet',
   /@Event onReply: \(comment: EhGalleryComment\) => void/.test(card) &&
     /if \(this\.max <= 0 && c\.commentId\.length > 0 && c\.commentId !== '0'\) \{[\s\S]*this\.ReplyAction\(c\)/.test(card) &&
     /ReplyAction\(c: EhGalleryComment\)[\s\S]*sys\.symbol\.doc_plaintext/.test(card))
+ok('full comments card exposes edit only for editable own comments',
+  /@Event onEdit: \(comment: EhGalleryComment\) => void/.test(card) &&
+    /if \(this\.max <= 0 && c\.canEdit && c\.commentId\.length > 0 && c\.commentId !== '0'\) \{[\s\S]*this\.EditAction\(c\)/.test(card) &&
+    /EditAction\(c: EhGalleryComment\)[\s\S]*this\.onEdit\(c\)/.test(card))
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
   for (const key of [
     'comment_new_title',
     'comment_reply_title',
+    'comment_edit_title',
     'comment_send',
     'comment_new_placeholder',
     'comment_reply_placeholder',
+    'comment_edit_placeholder',
     'comment_reply_to',
+    'comment_edit_original',
     'comment_min_length_hint',
     'comment_post_success',
     'comment_post_failed',

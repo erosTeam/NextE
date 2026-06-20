@@ -901,6 +901,10 @@
       "value": "返信"
     },
     {
+      "name": "comment_edit_title",
+      "value": "コメントを編集"
+    },
+    {
       "name": "comment_send",
       "value": "送信"
     },
@@ -913,8 +917,16 @@
       "value": "返信を書く"
     },
     {
+      "name": "comment_edit_placeholder",
+      "value": "コメントを編集"
+    },
+    {
       "name": "comment_reply_to",
       "value": "%s に返信"
+    },
+    {
+      "name": "comment_edit_original",
+      "value": "元のコメント"
     },
     {
       "name": "comment_min_length_hint",

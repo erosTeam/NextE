@@ -25,8 +25,7 @@ import { SymbolGlyphModifier } from '@kit.ArkUI'
 /**
  * The separate full comments page (eros_fe galleryComment). The detail page shows a 2-comment peek
  * and links here; this page renders the whole list (already parsed from the detail fetch, passed by
- * reference). Comment voting and bounded new/reply composition are protected EH write lanes; own-comment
- * edit remains a deferred write-operation lane.
+ * reference). Comment voting and bounded new/reply/edit composition are protected EH write lanes.
  */
 @ComponentV2
 export struct GalleryCommentsPage {
@@ -41,6 +40,8 @@ export struct GalleryCommentsPage {
   @Local commentText: string = '';
   @Local commentReplyToId: string = '';
   @Local commentReplyToAuthor: string = '';
+  @Local commentEditId: string = '';
+  @Local commentEditOriginal: string = '';
   @Local commentSubmitting: boolean = false;
   @Local commentError: string = '';
 
@@ -65,19 +66,30 @@ export struct GalleryCommentsPage {
   }
 
   private canSubmitComment(): boolean {
-    return this.commentText.trim().length >= 10 && this.canOpenCommentSheet() && !this.commentSubmitting
+    if (this.commentText.trim().length < 10 || !this.canOpenCommentSheet() || this.commentSubmitting) {
+      return false
+    }
+    return this.commentEditId.length === 0 || this.commentEditId !== '0'
   }
 
   private commentSheetTitle(): ResourceStr {
-    return this.commentReplyToId.length > 0
-      ? $r('app.string.comment_reply_title')
-      : $r('app.string.comment_new_title')
+    if (this.commentEditId.length > 0) {
+      return $r('app.string.comment_edit_title')
+    }
+    if (this.commentReplyToId.length > 0) {
+      return $r('app.string.comment_reply_title')
+    }
+    return $r('app.string.comment_new_title')
   }
 
   private commentPlaceholder(): ResourceStr {
-    return this.commentReplyToId.length > 0
-      ? $r('app.string.comment_reply_placeholder')
-      : $r('app.string.comment_new_placeholder')
+    if (this.commentEditId.length > 0) {
+      return $r('app.string.comment_edit_placeholder')
+    }
+    if (this.commentReplyToId.length > 0) {
+      return $r('app.string.comment_reply_placeholder')
+    }
+    return $r('app.string.comment_new_placeholder')
   }
 
   private encodeCommentId(id: string): string {
@@ -107,6 +119,8 @@ export struct GalleryCommentsPage {
     this.commentText = ''
     this.commentReplyToId = ''
     this.commentReplyToAuthor = ''
+    this.commentEditId = ''
+    this.commentEditOriginal = ''
     this.commentError = ''
     this.commentSheetShown = true
   }
@@ -118,7 +132,26 @@ export struct GalleryCommentsPage {
     }
     this.commentReplyToId = comment.commentId
     this.commentReplyToAuthor = comment.author
+    this.commentEditId = ''
+    this.commentEditOriginal = ''
     this.commentText = `@${comment.author}\n${this.encodeCommentId(comment.commentId)}\n`
+    this.commentError = ''
+    this.commentSheetShown = true
+  }
+
+  private openEditComment(comment: EhGalleryComment): void {
+    if (!this.canOpenCommentSheet()) {
+      this.showCommentToast($r('app.string.comment_login_required'))
+      return
+    }
+    if (!comment.canEdit || comment.commentId.length === 0 || comment.commentId === '0') {
+      return
+    }
+    this.commentEditId = comment.commentId
+    this.commentEditOriginal = comment.contentText
+    this.commentReplyToId = ''
+    this.commentReplyToAuthor = ''
+    this.commentText = comment.contentText
     this.commentError = ''
     this.commentSheetShown = true
   }
@@ -267,13 +300,15 @@ export struct GalleryCommentsPage {
         gid: this.params.gid,
         token: this.params.token,
         comment: this.commentText,
-        commentId: '',
-        isEdit: false,
+        commentId: this.commentEditId,
+        isEdit: this.commentEditId.length > 0,
       })
       this.commentSheetShown = false
       this.commentText = ''
       this.commentReplyToId = ''
       this.commentReplyToAuthor = ''
+      this.commentEditId = ''
+      this.commentEditOriginal = ''
       this.showCommentToast($r('app.string.comment_post_success'))
       await this.refreshComments()
     } catch (err) {
@@ -351,6 +386,9 @@ export struct GalleryCommentsPage {
               onReply: (comment: EhGalleryComment) => {
                 this.openReplyComment(comment)
               },
+              onEdit: (comment: EhGalleryComment) => {
+                this.openEditComment(comment)
+              },
             })
           }
         } else {
@@ -398,6 +436,19 @@ export struct GalleryCommentsPage {
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
               .fontWeight(FontWeight.Medium)
               .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+          }
+          if (this.commentEditId.length > 0 && this.commentEditOriginal.length > 0) {
+            Text($r('app.string.comment_edit_original'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+            Text(this.commentEditOriginal)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(3)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
               .width('100%')
           }
           TextArea({

@@ -901,6 +901,10 @@
       "value": "回复"
     },
     {
+      "name": "comment_edit_title",
+      "value": "编辑评论"
+    },
+    {
       "name": "comment_send",
       "value": "发送"
     },
@@ -913,8 +917,16 @@
       "value": "写一条回复"
     },
     {
+      "name": "comment_edit_placeholder",
+      "value": "编辑你的评论"
+    },
+    {
       "name": "comment_reply_to",
       "value": "回复 %s"
+    },
+    {
+      "name": "comment_edit_original",
+      "value": "原评论"
     },
     {
       "name": "comment_min_length_hint",

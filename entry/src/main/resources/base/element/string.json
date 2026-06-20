@@ -901,6 +901,10 @@
       "value": "Reply"
     },
     {
+      "name": "comment_edit_title",
+      "value": "Edit comment"
+    },
+    {
       "name": "comment_send",
       "value": "Send"
     },
@@ -913,8 +917,16 @@
       "value": "Write a reply"
     },
     {
+      "name": "comment_edit_placeholder",
+      "value": "Edit your comment"
+    },
+    {
       "name": "comment_reply_to",
       "value": "Replying to %s"
+    },
+    {
+      "name": "comment_edit_original",
+      "value": "Original comment"
     },
     {
       "name": "comment_min_length_hint",

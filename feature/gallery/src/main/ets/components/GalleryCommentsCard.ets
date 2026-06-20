@@ -16,6 +16,7 @@ export struct GalleryCommentsCard {
   @Event onAuthor: (name: string) => void = (_name: string) => {};
   @Event onVote: (comment: EhGalleryComment, vote: number) => void = (_comment: EhGalleryComment, _vote: number) => {};
   @Event onReply: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
+  @Event onEdit: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
 
   private hasMore(): boolean {
     return this.max > 0 && this.comments.length > this.max
@@ -175,6 +176,9 @@ export struct GalleryCommentsCard {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1)
+        if (this.max <= 0 && c.canEdit && c.commentId.length > 0 && c.commentId !== '0') {
+          this.EditAction(c)
+        }
         if (this.max <= 0 && c.canVote) {
           this.VoteAction(c, 1, $r('sys.symbol.arrow_up'))
           this.VoteAction(c, -1, $r('sys.symbol.arrow_down'))
@@ -194,6 +198,24 @@ export struct GalleryCommentsCard {
     .onClick(() => {
       if (this.canOpenFullComments()) {
         this.onMore()
+      }
+    })
+  }
+
+  @Builder
+  EditAction(c: EhGalleryComment) {
+    Row() {
+      SymbolGlyph($r('sys.symbol.doc_plaintext'))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor([$r('sys.color.font_tertiary')])
+    }
+    .width(ThemeConstants.BUTTON_HEIGHT)
+    .height(ThemeConstants.BUTTON_HEIGHT)
+    .justifyContent(FlexAlign.Center)
+    .opacity(this.votingCommentId.length > 0 ? 0.45 : 1)
+    .onClick(() => {
+      if (this.votingCommentId.length === 0) {
+        this.onEdit(c)
       }
     })
   }
