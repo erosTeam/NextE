@@ -893,6 +893,46 @@
       "value": "投票失败"
     },
     {
+      "name": "comment_new_title",
+      "value": "新评论"
+    },
+    {
+      "name": "comment_reply_title",
+      "value": "回复"
+    },
+    {
+      "name": "comment_send",
+      "value": "发送"
+    },
+    {
+      "name": "comment_new_placeholder",
+      "value": "写一条评论"
+    },
+    {
+      "name": "comment_reply_placeholder",
+      "value": "写一条回复"
+    },
+    {
+      "name": "comment_reply_to",
+      "value": "回复 %s"
+    },
+    {
+      "name": "comment_min_length_hint",
+      "value": "至少 10 个字符。"
+    },
+    {
+      "name": "comment_post_success",
+      "value": "评论已发送"
+    },
+    {
+      "name": "comment_post_failed",
+      "value": "评论发送失败"
+    },
+    {
+      "name": "comment_login_required",
+      "value": "登录后才能评论"
+    },
+    {
       "name": "filter",
       "value": "筛选"
     },

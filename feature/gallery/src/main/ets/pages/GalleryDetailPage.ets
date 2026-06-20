@@ -441,9 +441,8 @@ export struct GalleryDetailPage {
     return immersiveTitleBarOpts(content)
   }
 
-  // Native HDS title-bar actions. Read remains the primary FAB. With >3 items and maxCount=3, HDS keeps
-  // the first two actions inline and turns the third slot into overflow, so refresh and power-user tools
-  // stay discoverable without crowding the title bar.
+  // Native HDS title-bar actions. Read remains the primary FAB; secondary tools stay in the title-bar
+  // menu so detail content does not gain ad-hoc action rows.
   private detailMenu(): Record<string, Object> {
     const favoriteInner: Record<string, Object> = {
       'label': $r('app.string.detail_favorite'),
@@ -459,6 +458,14 @@ export struct GalleryDetailPage {
       'isEnabled': true,
       'action': () => {
         this.shareGallery()
+      },
+    }
+    const commentsInner: Record<string, Object> = {
+      'label': $r('app.string.gallery_comments'),
+      'icon': $r('sys.symbol.doc_plaintext'),
+      'isEnabled': true,
+      'action': () => {
+        this.openComments()
       },
     }
     const refreshInner: Record<string, Object> = {
@@ -512,6 +519,7 @@ export struct GalleryDetailPage {
     const items: Record<string, Object>[] = [
       { 'content': favoriteInner },
       { 'content': shareInner },
+      { 'content': commentsInner },
       { 'content': refreshInner },
       { 'content': editTagsInner },
       { 'content': copyLinkInner },

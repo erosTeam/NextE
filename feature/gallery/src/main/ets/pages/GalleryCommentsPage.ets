@@ -4,12 +4,14 @@ import {
   EhConstants,
   EhApiService,
   EhApiPhpService,
+  EhCookieStore,
   EhGalleryComment,
   CommentVoteResult,
   GalleryCommentsParams,
   PullRefreshListScaffold,
   PullRefreshController,
   CardEmptyState,
+  AppModalScaffold,
   AppStrings,
   connectSearchAction,
   connectSiteMode,
@@ -23,8 +25,8 @@ import { SymbolGlyphModifier } from '@kit.ArkUI'
 /**
  * The separate full comments page (eros_fe galleryComment). The detail page shows a 2-comment peek
  * and links here; this page renders the whole list (already parsed from the detail fetch, passed by
- * reference). Comment voting is the first bounded write action here; composer / reply / edit remain
- * deferred write-operation lanes.
+ * reference). Comment voting and bounded new/reply composition are protected EH write lanes; own-comment
+ * edit remains a deferred write-operation lane.
  */
 @ComponentV2
 export struct GalleryCommentsPage {
@@ -35,6 +37,12 @@ export struct GalleryCommentsPage {
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
   @Local votingCommentId: string = '';
+  @Local commentSheetShown: boolean = false;
+  @Local commentText: string = '';
+  @Local commentReplyToId: string = '';
+  @Local commentReplyToAuthor: string = '';
+  @Local commentSubmitting: boolean = false;
+  @Local commentError: string = '';
 
   private uploaderMemberId(): string {
     const uploader: EhGalleryComment | undefined = this.comments.find((c: EhGalleryComment) => c.isUploader)
@@ -50,6 +58,69 @@ export struct GalleryCommentsPage {
       return this.comments.filter((c: EhGalleryComment) => c.memberId === memberId)
     }
     return this.comments.filter((c: EhGalleryComment) => c.isUploader)
+  }
+
+  private canOpenCommentSheet(): boolean {
+    return this.params.gid.length > 0 && this.params.token.length > 0 && EhCookieStore.getInstance().isLogin()
+  }
+
+  private canSubmitComment(): boolean {
+    return this.commentText.trim().length >= 10 && this.canOpenCommentSheet() && !this.commentSubmitting
+  }
+
+  private commentSheetTitle(): ResourceStr {
+    return this.commentReplyToId.length > 0
+      ? $r('app.string.comment_reply_title')
+      : $r('app.string.comment_new_title')
+  }
+
+  private commentPlaceholder(): ResourceStr {
+    return this.commentReplyToId.length > 0
+      ? $r('app.string.comment_reply_placeholder')
+      : $r('app.string.comment_new_placeholder')
+  }
+
+  private encodeCommentId(id: string): string {
+    let out: string = ''
+    for (let i = 0; i < id.length; i++) {
+      const ch: string = id.charAt(i)
+      if (ch === '0') out += '····'
+      else if (ch === '1') out += '···-'
+      else if (ch === '2') out += '··-·'
+      else if (ch === '3') out += '··--'
+      else if (ch === '4') out += '·-··'
+      else if (ch === '5') out += '·-·-'
+      else if (ch === '6') out += '·--·'
+      else if (ch === '7') out += '·---'
+      else if (ch === '8') out += '-···'
+      else if (ch === '9') out += '-··-'
+      else out += ch
+    }
+    return out
+  }
+
+  private openNewComment(): void {
+    if (!this.canOpenCommentSheet()) {
+      this.showCommentToast($r('app.string.comment_login_required'))
+      return
+    }
+    this.commentText = ''
+    this.commentReplyToId = ''
+    this.commentReplyToAuthor = ''
+    this.commentError = ''
+    this.commentSheetShown = true
+  }
+
+  private openReplyComment(comment: EhGalleryComment): void {
+    if (!this.canOpenCommentSheet()) {
+      this.showCommentToast($r('app.string.comment_login_required'))
+      return
+    }
+    this.commentReplyToId = comment.commentId
+    this.commentReplyToAuthor = comment.author
+    this.commentText = `@${comment.author}\n${this.encodeCommentId(comment.commentId)}\n`
+    this.commentError = ''
+    this.commentSheetShown = true
   }
 
   // Tap a comment author → search their uploads (same bus + behavior as the detail page). eros_fe
@@ -132,7 +203,7 @@ export struct GalleryCommentsPage {
     this.comments = nextComments
   }
 
-  private showVoteToast(message: ResourceStr): void {
+  private showCommentToast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {
       // Toast failures are non-critical; the comment state has already been updated or logged.
     })
@@ -174,13 +245,43 @@ export struct GalleryCommentsPage {
         vote,
       )
       this.applyVoteResult(result)
-      this.showVoteToast(this.voteSuccessText(vote))
+      this.showCommentToast(this.voteSuccessText(vote))
     } catch (err) {
       this.errorMessage = EhErrorText.forUser(err)
       DiagnosticLogger.warn('gallery', 'comment_vote_failed', (err as Error).message)
-      this.showVoteToast($r('app.string.comment_vote_failed'))
+      this.showCommentToast($r('app.string.comment_vote_failed'))
     } finally {
       this.votingCommentId = ''
+    }
+  }
+
+  private async submitComment(): Promise<void> {
+    if (!this.canSubmitComment()) {
+      return
+    }
+    this.commentSubmitting = true
+    this.commentError = ''
+    try {
+      await EhApiService.getInstance().postGalleryComment({
+        isEx: connectSiteMode().isEx,
+        gid: this.params.gid,
+        token: this.params.token,
+        comment: this.commentText,
+        commentId: '',
+        isEdit: false,
+      })
+      this.commentSheetShown = false
+      this.commentText = ''
+      this.commentReplyToId = ''
+      this.commentReplyToAuthor = ''
+      this.showCommentToast($r('app.string.comment_post_success'))
+      await this.refreshComments()
+    } catch (err) {
+      this.commentError = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('gallery', 'comment_post_failed', (err as Error).message)
+      this.showCommentToast($r('app.string.comment_post_failed'))
+    } finally {
+      this.commentSubmitting = false
     }
   }
 
@@ -207,8 +308,16 @@ export struct GalleryCommentsPage {
         },
       }
     }
-    const items: Record<string, Object>[] = [{ 'content': uploaderOnly }]
-    const menu: Record<string, Object> = { 'value': items, 'maxCount': 1 }
+    const newComment: Record<string, Object> = {
+      'label': $r('app.string.comment_new_title'),
+      'icon': $r('sys.symbol.doc_plaintext'),
+      'isEnabled': this.canOpenCommentSheet() && !this.commentSubmitting,
+      'action': () => {
+        this.openNewComment()
+      },
+    }
+    const items: Record<string, Object>[] = [{ 'content': newComment }, { 'content': uploaderOnly }]
+    const menu: Record<string, Object> = { 'value': items, 'maxCount': 2 }
     const content: Record<string, Object> = {
       'title': title,
       'menu': menu,
@@ -239,6 +348,9 @@ export struct GalleryCommentsPage {
               onVote: (comment: EhGalleryComment, vote: number) => {
                 this.confirmCommentVote(comment, vote)
               },
+              onReply: (comment: EhGalleryComment) => {
+                this.openReplyComment(comment)
+              },
             })
           }
         } else {
@@ -250,6 +362,10 @@ export struct GalleryCommentsPage {
     }
     .titleBar(this.commentsTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .bindSheet($$this.commentSheetShown, this.CommentComposeSheet(), {
+      detents: [SheetSize.LARGE],
+      showClose: false,
+    })
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as GalleryCommentsParams
       if (p !== undefined) {
@@ -257,5 +373,59 @@ export struct GalleryCommentsPage {
         this.comments = p.comments
       }
     })
+  }
+
+  @Builder
+  CommentComposeSheet() {
+    AppModalScaffold({
+      title: this.commentSheetTitle(),
+      includeKeyboardPadding: true,
+      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+      confirmText: $r('app.string.comment_send'),
+      confirmEnabled: this.canSubmitComment(),
+      confirmLoading: this.commentSubmitting,
+      closeAction: () => {
+        this.commentSheetShown = false
+      },
+      confirmAction: () => {
+        this.submitComment()
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          if (this.commentReplyToAuthor.length > 0) {
+            Text($r('app.string.comment_reply_to', this.commentReplyToAuthor))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+          }
+          TextArea({
+            text: this.commentText,
+            placeholder: this.commentPlaceholder(),
+          })
+            .width('100%')
+            .height(220)
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+            .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+            .enabled(!this.commentSubmitting)
+            .onChange((value: string) => {
+              this.commentText = value
+            })
+          Text($r('app.string.comment_min_length_hint'))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_tertiary'))
+            .width('100%')
+          if (this.commentError.length > 0) {
+            Text(this.commentError)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor(Color.Red)
+              .width('100%')
+          }
+        }
+        .width('100%')
+      }
+    }
   }
 }

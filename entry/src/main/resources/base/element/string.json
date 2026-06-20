@@ -893,6 +893,46 @@
       "value": "Vote failed"
     },
     {
+      "name": "comment_new_title",
+      "value": "New comment"
+    },
+    {
+      "name": "comment_reply_title",
+      "value": "Reply"
+    },
+    {
+      "name": "comment_send",
+      "value": "Send"
+    },
+    {
+      "name": "comment_new_placeholder",
+      "value": "Write a comment"
+    },
+    {
+      "name": "comment_reply_placeholder",
+      "value": "Write a reply"
+    },
+    {
+      "name": "comment_reply_to",
+      "value": "Replying to %s"
+    },
+    {
+      "name": "comment_min_length_hint",
+      "value": "At least 10 characters."
+    },
+    {
+      "name": "comment_post_success",
+      "value": "Comment posted"
+    },
+    {
+      "name": "comment_post_failed",
+      "value": "Comment failed"
+    },
+    {
+      "name": "comment_login_required",
+      "value": "Log in to comment"
+    },
+    {
       "name": "filter",
       "value": "Filter"
     },

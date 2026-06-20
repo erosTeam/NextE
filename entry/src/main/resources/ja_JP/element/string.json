@@ -893,6 +893,46 @@
       "value": "投票に失敗しました"
     },
     {
+      "name": "comment_new_title",
+      "value": "新しいコメント"
+    },
+    {
+      "name": "comment_reply_title",
+      "value": "返信"
+    },
+    {
+      "name": "comment_send",
+      "value": "送信"
+    },
+    {
+      "name": "comment_new_placeholder",
+      "value": "コメントを書く"
+    },
+    {
+      "name": "comment_reply_placeholder",
+      "value": "返信を書く"
+    },
+    {
+      "name": "comment_reply_to",
+      "value": "%s に返信"
+    },
+    {
+      "name": "comment_min_length_hint",
+      "value": "10文字以上入力してください。"
+    },
+    {
+      "name": "comment_post_success",
+      "value": "コメントを投稿しました"
+    },
+    {
+      "name": "comment_post_failed",
+      "value": "コメント投稿に失敗しました"
+    },
+    {
+      "name": "comment_login_required",
+      "value": "コメントするにはログインしてください"
+    },
+    {
       "name": "filter",
       "value": "絞り込み"
     },

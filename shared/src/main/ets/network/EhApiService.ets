@@ -79,6 +79,16 @@ export interface GalleryFavoriteUpdate {
   favnote: string
 }
 
+/** POST body semantics for /g/{gid}/{token} comment writes. */
+export interface GalleryCommentWrite {
+  isEx: boolean
+  gid: string
+  token: string
+  comment: string
+  commentId: string
+  isEdit: boolean
+}
+
 /**
  * Web-page API surface: builds EH list/search URLs, fetches via EhHttpClient, hands HTML
  * to the parsers. Mirrors V2Next's ApiService. M1 covers the anonymous table-site gallery
@@ -152,6 +162,45 @@ export class EhApiService {
       throw new Error(`favorite HTTP ${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+    if (failure !== null) {
+      throw failure
+    }
+  }
+
+  async postGalleryComment(update: GalleryCommentWrite): Promise<void> {
+    const comment: string = update.comment.trim()
+    if (comment.length < 10) {
+      throw new Error('comment too short')
+    }
+    if (update.gid.length === 0 || update.token.length === 0) {
+      throw new Error('comment missing gallery')
+    }
+    const base: string = EhConstants.baseUrl(update.isEx)
+    const url: string = `${base}/g/${encodeURIComponent(update.gid)}/${encodeURIComponent(update.token)}`
+    const pairs: string[] = []
+    if (update.isEdit) {
+      if (update.commentId.length === 0) {
+        throw new Error('comment missing edit id')
+      }
+      pairs.push(this.formPair('commenttext_edit', comment))
+      pairs.push(this.formPair('edit_comment', update.commentId))
+    } else {
+      pairs.push(this.formPair('commenttext_new', comment))
+    }
+    let resp: EhTextResponse
+    try {
+      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, pairs.join('&'))
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, url)
+    }
+    if (resp.statusCode >= 400) {
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'detail')
+      if (failure !== null) {
+        throw failure
+      }
+      throw new Error(`comment HTTP ${resp.statusCode}`)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'detail')
     if (failure !== null) {
       throw failure
     }

@@ -98,6 +98,7 @@ export {
   GalleryListQuery,
   FavoritesQuery,
   GalleryDetailResult,
+  GalleryCommentWrite,
 } from './network/EhApiService'
 export { EhApiPhpService, GalleryRatingResult, CommentVoteResult } from './network/EhApiPhpService'
 export { EhError, EhErrorKind } from './network/EhError'
