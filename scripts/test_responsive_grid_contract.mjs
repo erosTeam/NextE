@@ -49,6 +49,8 @@ ok(!/estimatedColumns|estimatedColumnWidth|Math\.floor\(\(content \+ this\.gap\)
 const allThumbs = read('feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets')
 ok(/minColumnWidth:\s*ThemeConstants\.PREVIEW_THUMB_MIN_W/.test(allThumbs),
   'AllThumbnails passes PREVIEW_THUMB_MIN_W to native Grid scaffold')
+ok(/PullRefreshGridScaffold\(\{[\s\S]*itemCount:\s*this\.vm\.itemCount/.test(allThumbs),
+  'AllThumbnails passes the real thumbnail itemCount so spacer indexes cannot capture page 1')
 ok(/PreviewThumbTile\(/.test(allThumbs), 'AllThumbnails uses PreviewThumbTile')
 ok(!/onCellSize|thumbW|tileWidth:|columns:\s*\d/.test(allThumbs),
   'AllThumbnails does not calculate columns or pass tileWidth')

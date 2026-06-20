@@ -188,6 +188,7 @@ export struct GalleryAllThumbnailsPage {
           // Responsive: ArkUI derives columns from the pane width + min comfortable thumb width. Tiles
           // consume their actual cell width locally; this page does not hand-calculate columns or cells.
           minColumnWidth: ThemeConstants.PREVIEW_THUMB_MIN_W,
+          itemCount: this.vm.itemCount,
           bottomPadding: ThemeConstants.SPACE_XL,
           controller: this.refreshController,
           onRefresh: async () => {

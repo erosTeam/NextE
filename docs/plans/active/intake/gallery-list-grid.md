@@ -10,6 +10,37 @@ Purpose:
 
 ## Items
 
+### AllThumbnails First Real Thumbnail Rendered Full Width
+
+Type: bug / preview grid layout
+
+Priority suggestion: P1
+
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- `GalleryAllThumbnailsPage` now passes `itemCount: this.vm.itemCount` into `PullRefreshGridScaffold`.
+- The shared grid scaffold marks full-row spacer indexes as `[0, itemCount + 1]`; without the real item
+  count, the default `0` also marks index `1`, which is the first real thumbnail after the top spacer.
+- Scope is intentionally narrow: no preview aspect/fit change, no page-1 hero, no Reader or large-jump
+  pagination change.
+
+Verification:
+
+- Deterministic contracts:
+  - `node scripts/test_responsive_grid_contract.mjs`
+  - `node scripts/test_grid_immersive_spacer_contract.mjs`
+  - `node scripts/test_all_thumbnails_page_jump_contract.mjs`
+- V2 gate: `node scripts/test_v1_decorator_inventory_contract.mjs` reports `0 file(s)`.
+- Official signed build: `scripts/build_hvigor_signed.sh`.
+- Emulator evidence on local HarmonyOS target `127.0.0.1:5555`, hdc run outside sandbox:
+  - Detail preview before opening all thumbnails:
+    `/Users/honjow/git/NextE-wt/all-thumbnails-first-tile/.hvigor/outputs/all-thumbnails-first-tile/detail.png`.
+  - AllThumbnails top after the fix:
+    `/Users/honjow/git/NextE-wt/all-thumbnails-first-tile/.hvigor/outputs/all-thumbnails-first-tile/allthumb.png`.
+    Pages `1`, `2`, and `3` render as same-row normal grid cells; page `1` is no longer full-width.
+
 ### AllThumbnails Far Jump Conflicts With Thumbnail Page Loading
 
 Type: P0/P1 bug / browsing preview pagination
