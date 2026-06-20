@@ -580,3 +580,45 @@ Acceptance shape:
 - Repeat with downvote; the downvote selected state and returned score are visible immediately.
 - Add or tighten an automated contract so the comment card renders from the refreshed `comments` array state,
   not from a stale copied row or a one-time snapshot.
+
+### Gallery Uploader Badge And Uploader-Only Filter Regression
+
+Type: read/filter regression / parity break
+
+Priority suggestion: P1
+
+Status: accepted / needs verification
+
+Source:
+
+- User feedback, 2026-06-21: comments by the gallery uploader no longer show the uploader marker, and tapping
+  "uploader only" does not filter the comment list.
+
+Research:
+
+- `GalleryCommentsCard` still has a visible `c.isUploader` branch that renders the `comment_uploader` badge.
+- `GalleryCommentsPage.visibleComments()` still intends to filter by the uploader's `memberId`, falling back
+  to `c.isUploader`.
+- Existing contracts are mostly source-shape checks. They can pass while the real refreshed/seeded comment
+  data no longer carries `isUploader`, or while the menu toggles state without changing the visible rows.
+
+Expected behavior:
+
+- The uploader's own comment must show the compact uploader badge in both the detail-page comment peek and
+  the full comments page.
+- The full comments page's "uploader only" menu action must immediately narrow the list to the uploader's
+  comments; switching back must restore all comments.
+- Refreshing comments, posting/editing/replying, or entering the full comments page from detail must preserve
+  `isUploader` and `memberId` enough for the badge and filter to keep working.
+- Do not replace this with a new heuristic if the parser can preserve EH's uploader marker/member id. Keep the
+  data path boring: parse marker -> model field -> card badge/filter.
+
+Acceptance shape:
+
+- Use a gallery with at least one uploader comment and at least one non-uploader comment.
+- Detail peek shows the uploader badge on the uploader comment when that comment is visible.
+- Full comments page shows the same uploader badge before any filter is applied.
+- Tap "uploader only"; only uploader comments remain visible, with no network write or refresh side effect.
+- Tap the all-comments option; the original full list returns.
+- Add or tighten a runnable contract using a synthetic comment list so it fails if `visibleComments()` does
+  not actually reduce visible rows, or if the card no longer renders the uploader badge branch.

@@ -209,6 +209,9 @@ a bounded validation path.
    redesign. Fresh regression reported 2026-06-21: after comment upvote/downvote succeeds, the visible
    comment score and selected vote icon state do not update in place. The next comment acceptance must verify
    score and icon state refresh on the same row after a real successful vote, not only API success/toast.
+   Fresh regression also reported 2026-06-21: uploader comments no longer show the uploader badge, and the
+   uploader-only filter appears ineffective. Treat badge + filter as P1 comment parity acceptance, with a
+   runnable synthetic-list check plus real-gallery verification.
 3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
