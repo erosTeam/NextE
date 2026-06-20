@@ -71,6 +71,10 @@ Historical feedback in this section must not trigger new implementation.
   syncs IME submitted text before bumping the page submit bus, clearing the field returns to history/blank,
   live filter edits only reapply an existing non-empty query, and the Favorites title-bar search action
   opens favorite-scope compose/history instead of auto-running an empty favorite search.
+- Gallery comment vote up/down is implemented and pending controller acceptance / authorized real-submit
+  verification: full comments now shows bounded up/down actions for voteable comments, opens a native
+  confirmation before posting `votecomment`, and applies returned score/vote state locally. Simulator
+  validation opened the confirmation dialog and cancelled; no real EH vote was submitted.
 
 ## Parked / Guidance Only
 
@@ -98,8 +102,8 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Comment write actions: after the full-comments entry repair, add bounded comment actions such as
-   vote up/down, reply/new comment, and own-comment edit with EH write safeguards.
+1. Comment write actions: vote up/down is implemented pending acceptance; continue with reply/new comment
+   or own-comment edit only as the next bounded EH write lane.
 2. Settings shell audit: identify settings rows/pages that are only shells, disabled placeholders, or
    not wired to real behavior; either finish the high-frequency ones or make their limited scope honest.
 3. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment

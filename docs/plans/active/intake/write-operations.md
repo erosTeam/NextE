@@ -17,7 +17,8 @@ Type: feature gap / core product completeness
 Priority suggestion: P0/P1
 
 Status: active intake / remote favorite write path implemented pending acceptance / gallery rating write
-implemented pending authorized real-submit acceptance
+implemented pending authorized real-submit acceptance / comment vote implemented pending authorized
+real-submit acceptance
 
 Source:
 
@@ -30,7 +31,8 @@ Source:
   - NextE has strong browsing surfaces: Home/Search/Favorites/Detail/Reader/Settings/Download shells,
     local favorite state, remote favorite browsing, read-only comments, torrent/archiver read surfaces,
     and some non-destructive write-entry affordances.
-  - `GalleryCommentsPage` explicitly documents composer / vote / reply actions as deferred write-ops.
+  - `GalleryCommentsPage` now implements the first bounded comment write action: vote up/down on the
+    full comments page. Composer / reply / edit remain deferred write-ops.
   - `GalleryArchiverPage` and download queue flows expose read/queue surfaces but do not complete the
     destructive archive/download submit pipeline.
   - Gallery rating now has a protected `rategallery` path in NextE: it opens an HDS rating sheet,
@@ -53,7 +55,7 @@ Scheduling judgment:
 - The next major progress should be user-visible feature completion, not another long cycle of Reader
   double-page architecture or repeated visual QA, unless a current P0 defect blocks basic use.
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
-  1. Comment actions: comment vote first if bounded, then reply/new comment, then own-comment edit.
+  1. Comment actions: comment vote is implemented; continue with reply/new comment, then own-comment edit.
   2. Tag/MyTags write actions: tag vote/suggest/set-user-tag after the write safety pattern is proven.
   3. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
      smaller write operations unless the user explicitly prioritizes downloads.
@@ -65,6 +67,15 @@ Handled status:
   retained Home/Search/Favorites rating mutation, non-destructive simulator verification, and Android
   eros_fe source/device comparison. Remaining gap: final submit was not clicked because EH rating is a
   real account write and still needs an explicitly authorized test target.
+- Comment vote up/down: `implemented / pending controller acceptance and authorized real-submit
+  verification`. Commit: `e68ec9a feat(gallery): add protected comment voting`. Scope: protected
+  `votecomment` API submit, api metadata route plumbing, full-comments up/down footer actions, native
+  confirmation before submit, local score/vote refresh from the API response, i18n strings, and
+  deterministic contracts. Device evidence: Mate X7 emulator `127.0.0.1:5555`, official signed HAP,
+  opened a real gallery with 45 comments, entered full comments, exposed vote buttons, opened the
+  `赞成` confirmation dialog, and cancelled. Evidence files live under
+  `.hvigor/outputs/comment-vote-write/`. Remaining gap: final vote submit was not clicked because EH
+  comment voting is a real account write and still needs an explicitly authorized test target.
 
 Implementation constraints:
 
