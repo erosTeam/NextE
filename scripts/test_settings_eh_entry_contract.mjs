@@ -55,6 +55,8 @@ ok(/SiteModeSettings\.setEx\(ctx, false\)/.test(ehPage) &&
   /SiteModeSettings\.setEx\(ctx, true\)/.test(ehPage) &&
   /site_ex_locked/.test(ehPage),
   'site switching still uses existing SiteModeSettings with ExHentai gate')
+ok(/return this\.siteMode\.isEx \? '里站' : '表站'/.test(ehPage),
+  'site row uses compact trailing labels that fit the settings row')
 ok(/pushPathByName\('EhLogin', null\)/.test(ehPage),
   'page routes normal login through existing EhLogin route')
 ok(/pushPathByName\('EhCookieImport', null\)/.test(ehPage),
@@ -65,6 +67,10 @@ ok(/CookieJarSettings\.clear\(this\.ctx\(\)\)/.test(ehPage),
   'page reuses existing CookieJarSettings logout path')
 ok(!/ipb_pass_hash|igneous=|webdav|mysql|OpenByDefault|Api\.selEhProfile|getEhHome/.test(ehPage),
   'EH settings page does not introduce cookie secrets, cloud sync, link handlers, profile fetch, or image-limit fetch')
+ok(!/eh_settings_website_settings/.test(ehPage) && !/eh_settings_image_limits/.test(ehPage),
+  'EH settings page does not expose disabled website-settings or image-limit placeholder rows')
+ok(!/isEnabled:\s*false[\s\S]{0,240}eh_settings_/.test(ehPage),
+  'EH settings page keeps future EH settings out of the visible settings list')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
@@ -74,10 +80,6 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'eh_settings_login_hint',
     'eh_settings_cookie_hint',
     'eh_settings_mytags_hint',
-    'eh_settings_website_settings',
-    'eh_settings_website_settings_hint',
-    'eh_settings_image_limits',
-    'eh_settings_image_limits_hint',
   ]) {
     ok(strings.includes(`"name": "${key}"`), `${locale}: ${key} string exists`)
   }

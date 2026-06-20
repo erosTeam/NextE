@@ -33,7 +33,7 @@ export struct EhSettingsPage {
   }
 
   private siteLabel(): string {
-    return this.siteMode.isEx ? '里站 (ExHentai)' : '表站 (E-Hentai)'
+    return this.siteMode.isEx ? '里站' : '表站'
   }
 
   private toggleSite(): void {
@@ -99,25 +99,6 @@ export struct EhSettingsPage {
         }
         ListItem() {
           this.AccountRows()
-        }
-        ListItem() {
-          GroupedListSection() {
-            ConciseListRow({
-              title: $r('app.string.eh_settings_website_settings'),
-              subtitle: $r('app.string.eh_settings_website_settings_hint'),
-              leadingIcon: $r('sys.symbol.info_circle'),
-              isEnabled: false,
-              showChevron: false,
-            })
-            this.rowDivider()
-            ConciseListRow({
-              title: $r('app.string.eh_settings_image_limits'),
-              subtitle: $r('app.string.eh_settings_image_limits_hint'),
-              leadingIcon: $r('sys.symbol.picture'),
-              isEnabled: false,
-              showChevron: false,
-            })
-          }
         }
       }
     }

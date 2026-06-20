@@ -16,7 +16,7 @@ Type: feature gap / settings trustworthiness
 
 Priority suggestion: P1
 
-Status: active intake / Security and Download root exposure implemented pending controller acceptance
+Status: active intake / Security, Download, and EH disabled placeholders implemented pending controller acceptance
 
 Source:
 
@@ -30,8 +30,9 @@ Source:
     behavior is real.
   - `ReaderSettingsPage` has direction, double-page, auto-page interval, and volume-key rows. The route
     exists, but runtime menu opening / behavior linkage needs current device verification.
-  - `EhSettingsPage` contains disabled `网站设置` and `图片限制` rows; comments say website settings,
-    cloud sync, link handlers, and favorite write behavior remain separate lanes.
+  - `EhSettingsPage` previously contained disabled `网站设置` and `图片限制` rows; comments say website
+    settings, cloud sync, link handlers, and favorite write behavior remain separate lanes. These
+    disabled placeholder rows were later hidden so EH settings only presents the NextE-owned loops.
   - `AdvancedSettingsPage` currently provides only HiLog diagnostics and marker write, while FE Advanced
     contains cache/proxy/import/export/log-related maintenance rows.
   - `DownloadSettingsPage` is explicitly scoped to persisted policy controls, while the broader download
@@ -103,6 +104,21 @@ Handled update, 2026-06-20:
   false`, while bottom-tab `下载` remained visible. Evidence files:
   `.hvigor/outputs/settings-download-root-hidden/settings_root.png` and
   `.hvigor/outputs/settings-download-root-hidden/settings_root_layout.json`.
+- EH disabled placeholder exposure: implemented / pending controller acceptance. EH settings no
+  longer shows disabled `网站设置` / `图片限制` rows because NextE does not yet implement the protected
+  website-settings profile flow or image-limit refresh surface. The EH settings page remains scoped to
+  real, existing loops: site mode, login, cookie import, My Tags, and logout. The site row trailing
+  value also uses compact `表站` / `里站` labels so the current state remains readable in the settings
+  row. Contract updated: `scripts/test_settings_eh_entry_contract.mjs` now locks that
+  `EhSettingsPage` must not expose those future rows as visible disabled settings, and that the site
+  row uses compact trailing labels.
+- HarmonyOS emulator evidence: target `127.0.0.1:5555`, signed HAP installed. Settings root still
+  showed `EH / 布局 / 阅读 / 搜索 / 历史 / 高级 / 关于`; tapping `EH` opened EH settings with `站点`,
+  account, `我的标签`, and `退出登录`. Layout search found `网站设置: 0` and `图片限制: 0`. Evidence files:
+  `.hvigor/outputs/settings-eh-placeholders-hidden/settings_root.jpeg`,
+  `.hvigor/outputs/settings-eh-placeholders-hidden/settings_root_layout.json`,
+  `.hvigor/outputs/settings-eh-placeholders-hidden/eh_settings_final.jpeg`, and
+  `.hvigor/outputs/settings-eh-placeholders-hidden/eh_settings_final_layout.json`.
 
 ### Settings Root Missing Layout Settings Page
 
@@ -378,6 +394,8 @@ Implementation:
   `EH` row.
 - `EhSettingsPage` uses the existing HDS settings child-page pattern and reuses the existing
   `SiteModeSettings`, `EhLogin`, `EhCookieImport`, `MyTags`, and `CookieJarSettings.clear()` flows.
+- 2026-06-20 correction: disabled `网站设置` / `图片限制` placeholder rows were removed from
+  `EhSettingsPage`. They remain future lanes, not visible settings rows.
 - Scope is limited to Settings information architecture and existing action reachability. It does not
   change `CookieJarSettings`, `EhCookieStore`, `AuthState`, WebView login, cookie import parsing, or
   destructive EH writes.
@@ -408,6 +426,11 @@ Evidence:
   Evidence directory: `.hvigor/outputs/eh-settings-nexte-evidence/`, especially
   `nexte_settings_root_final.png`, `nexte_settings_root_final_layout.json`,
   `nexte_eh_settings_page_final.png`, and `nexte_eh_settings_page_final_layout.json`.
+- HarmonyOS emulator evidence for the 2026-06-20 placeholder correction: target `127.0.0.1:5555`,
+  signed HAP installed. Settings root still exposed `EH`; EH settings layout showed `站点`, account,
+  `我的标签`, and `退出登录`, with `网站设置: 0` and `图片限制: 0`. The site row trailing value rendered
+  as full `表站`, not the previous truncated long label. Evidence directory:
+  `.hvigor/outputs/settings-eh-placeholders-hidden/`.
 
 Remaining acceptance:
 
