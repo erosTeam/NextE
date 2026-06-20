@@ -56,8 +56,8 @@ ok(/SetUserTagResult/.test(barrel), 'shared barrel exports SetUserTagResult')
 
 ok(/AppModalScaffold/.test(page) && /EditTagSheet\(\)[\s\S]*AppModalScaffold\(\{[\s\S]*title: \$r\('app\.string\.mytags_edit_title'\)/.test(page),
   'MyTagsPage uses AppModalScaffold for existing-tag edits')
-ok(/TagChip\(t: EhUsertag\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.openEditTag\(t\)/.test(page),
-  'tapping an existing My Tag chip opens the edit sheet')
+ok(/TagRow\(t: EhUsertag\)[\s\S]*ConciseListRow\(\{[\s\S]*action: \(\) => \{[\s\S]*this\.openEditTag\(t\)/.test(page),
+  'tapping an existing My Tag management row opens the edit sheet')
 ok(/editWatched = value[\s\S]*if \(value\) \{[\s\S]*this\.editHidden = false/.test(page) &&
   /editHidden = value[\s\S]*if \(value\) \{[\s\S]*this\.editWatched = false/.test(page),
   'watch and hide draft switches stay mutually exclusive')

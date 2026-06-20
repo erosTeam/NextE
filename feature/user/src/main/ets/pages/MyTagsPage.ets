@@ -20,12 +20,14 @@ import {
   CardEmptyState,
   SecondaryListScaffold,
   GroupedListSection,
+  ConciseListRow,
   immersiveTitleBarOpts,
 } from 'shared'
 
 /**
  * My Tags (mytags) — the user's watched / hidden / color-flagged tags. Routed page off Settings.
- * Renders each tag as a chip in its own EH color (hidden tags dimmed); a watched tag gets a ring.
+ * Renders each tag as a management row: status icon, full tag name / translation, and EH color /
+ * weight badge. This follows eros_fe's mytags list semantics instead of a gallery tag-chip wall.
  * Loads via EhApiService.getMyTags (requires login). Existing usertag rows can be edited through
  * EH's protected /api.php setusertag method, deleted through the classic /mytags mass action, or a
  * new tag can be added through /mytags usertag_action=add. Tagset management remains separate.
@@ -67,6 +69,7 @@ export struct MyTagsPage {
   @Local tagsetError: string = '';
   @Local tagsetAction: string = '';
   @Local tagsetName: string = '';
+  @Local showingTagsetList: boolean = true;
   @Local tagSig: UserTagSignal = connectUserTagSignal();
   private scroller: Scroller = new Scroller();
 
@@ -79,6 +82,7 @@ export struct MyTagsPage {
     this.error = ''
     try {
       this.mytags = await EhApiService.getInstance().getMyTags(connectSiteMode().isEx, tagset)
+      this.showingTagsetList = tagset.length === 0 && this.mytags.tagSets.length > 1
       this.publishUserTags()
     } catch (err) {
       const e = err as Error
@@ -98,37 +102,56 @@ export struct MyTagsPage {
   }
 
   private selectTagset(id: string): void {
-    if (id !== this.mytags.currentTagset && !this.loading) {
+    if (!this.loading) {
+      this.showingTagsetList = false
       this.load(id)
     }
-  }
-
-  /** Distinct tag namespaces, in first-seen order, for grouped display. */
-  private namespaces(): string[] {
-    const seen: string[] = []
-    this.mytags.tags.forEach((t: EhUsertag) => {
-      const ns: string = t.namespace()
-      if (!seen.includes(ns)) {
-        seen.push(ns)
-      }
-    })
-    return seen
-  }
-
-  private tagsIn(ns: string): EhUsertag[] {
-    return this.mytags.tags.filter((t: EhUsertag) => t.namespace() === ns)
   }
 
   private tagLabel(t: EhUsertag): string {
     return t.display.length > 0 ? t.display : t.tag
   }
 
+  private tagTitle(t: EhUsertag): string {
+    return t.tag.length > 0 ? t.tag : this.tagLabel(t)
+  }
+
   private tagSubtitle(t: EhUsertag): string {
-    const label: string = this.tagLabel(t)
-    if (t.translate.length === 0 || t.translate === label || t.translate === t.tag) {
+    if (t.translate.length === 0 || t.translate === t.tag || t.translate === this.tagLabel(t)) {
       return ''
     }
     return t.translate
+  }
+
+  private tagFillColor(t: EhUsertag): ResourceColor {
+    if (t.fillColor.length > 0) {
+      return t.fillColor
+    }
+    if (t.color.length > 0) {
+      return t.color
+    }
+    return $r('sys.color.ohos_id_color_button_normal')
+  }
+
+  private tagTextColor(t: EhUsertag): ResourceColor {
+    if (t.textColor.length > 0) {
+      return t.textColor
+    }
+    return $r('sys.color.font_primary')
+  }
+
+  private tagBorderColor(t: EhUsertag): ResourceColor {
+    if (t.color.length > 0) {
+      return t.color
+    }
+    return $r('sys.color.ohos_id_color_list_separator')
+  }
+
+  private tagWeightLabel(t: EhUsertag): string {
+    if (t.tagWeight.length > 0) {
+      return t.tagWeight
+    }
+    return `${t.weight}`
   }
 
   private openEditTag(t: EhUsertag): void {
@@ -561,11 +584,13 @@ export struct MyTagsPage {
   }
 
   private myTagsTitleBar(): Record<string, Object> {
-    const title: Record<string, Object> = { 'mainTitle': $r('app.string.settings_mytags') }
+    const title: Record<string, Object> = {
+      'mainTitle': this.showingTagsetList ? $r('app.string.settings_mytags') : this.currentTagsetName(),
+    }
     const addInner: Record<string, Object> = {
       'label': $r('app.string.mytags_add'),
       'icon': $r('sys.symbol.plus'),
-      'isEnabled': !this.loading,
+      'isEnabled': !this.loading && !this.showingTagsetList,
       'action': () => {
         this.openAddTag()
       },
@@ -589,17 +614,20 @@ export struct MyTagsPage {
     const deleteInner: Record<string, Object> = {
       'label': $r('app.string.mytags_tagset_delete'),
       'icon': $r('sys.symbol.trash'),
-      'isEnabled': this.canManageCurrentTagset() && this.mytags.canDelete,
+      'isEnabled': !this.showingTagsetList && this.canManageCurrentTagset() && this.mytags.canDelete,
       'action': () => {
         this.confirmDeleteTagset()
       },
     }
-    const items: Record<string, Object>[] = [
-      { 'content': addInner },
-      { 'content': createInner },
-      { 'content': renameInner },
-    ]
-    if (this.mytags.canDelete) {
+    const items: Record<string, Object>[] = []
+    if (this.showingTagsetList) {
+      items.push({ 'content': createInner })
+    } else {
+      items.push({ 'content': addInner })
+      items.push({ 'content': createInner })
+      items.push({ 'content': renameInner })
+    }
+    if (!this.showingTagsetList && this.mytags.canDelete) {
       items.push({ 'content': deleteInner })
     }
     const menu: Record<string, Object> = { 'value': items, 'maxCount': items.length }
@@ -609,44 +637,28 @@ export struct MyTagsPage {
 
   build() {
     HdsNavDestination() {
-      SecondaryListScaffold({ scroller: this.scroller }) {
-        if (this.loading) {
-          ListItem() {
-            PageLoadingState({ expand: false })
-          }
-        } else if (this.error.length > 0) {
-          ListItem() {
-            PageErrorState({
-              message: this.error,
-              expand: false,
-              retryAction: () => {
-                this.load()
-              },
-            })
-          }
-        } else if (this.mytags.tags.length === 0) {
-          ListItem() {
-            CardEmptyState({ message: $r('app.string.common_no_content'), expand: false })
-          }
-        } else {
-          if (this.mytags.tagSets.length > 1) {
+      if (this.loading) {
+        PageLoadingState()
+      } else if (this.error.length > 0) {
+        PageErrorState({
+          message: this.error,
+          retryAction: () => {
+            this.load()
+          },
+        })
+      } else {
+        SecondaryListScaffold({ scroller: this.scroller }) {
+          if (this.showingTagsetList && this.mytags.tagSets.length > 1) {
+            this.TagsetRows()
+          } else if (this.mytags.tags.length === 0) {
             ListItem() {
-              this.TagsetBar()
+              CardEmptyState({ message: $r('app.string.common_no_content'), expand: false })
             }
-          }
-          ListItem() {
-            GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
-              Column({ space: ThemeConstants.SPACE_MD }) {
-                ForEach(
-                  this.namespaces(),
-                  (ns: string) => {
-                    this.NamespaceGroup(ns)
-                  },
-                  (ns: string) => ns,
-                )
+          } else {
+            ListItem() {
+              GroupedListSection() {
+                this.TagRows()
               }
-              .width('100%')
-              .alignItems(HorizontalAlign.Start)
             }
           }
         }
@@ -668,108 +680,112 @@ export struct MyTagsPage {
     })
   }
 
-  // Two-level My Tags: a chip row to switch between the user's tag sets (mytags ?tagset=N).
   @Builder
-  TagsetBar() {
-    Scroll() {
-      Row({ space: ThemeConstants.SPACE_SM }) {
+  private TagsetRows() {
+    ListItem() {
+      GroupedListSection() {
         ForEach(
           this.mytags.tagSets,
-          (s: EhMytagSet) => {
-            Text(`${s.name} (${s.count})`)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor(
-                this.mytags.currentTagset === s.tagsetId
-                  ? ThemeConstants.TEXT_ON_BRAND
-                  : $r('sys.color.font_primary'),
-              )
-              .backgroundColor(
-                this.mytags.currentTagset === s.tagsetId
-                  ? ThemeConstants.BRAND_PRIMARY
-                  : $r('app.color.card_background'),
-              )
-              .borderRadius(ThemeConstants.RADIUS_ROUND)
-              .padding({
-                left: ThemeConstants.SPACE_MD,
-                right: ThemeConstants.SPACE_MD,
-                top: ThemeConstants.SPACE_XS,
-                bottom: ThemeConstants.SPACE_XS,
-              })
-              .maxLines(1)
-              .onClick(() => {
+          (s: EhMytagSet, index: number) => {
+            ConciseListRow({
+              title: s.name,
+              trailingText: `${s.count}`,
+              trailingDropdown: false,
+              showChevron: true,
+              action: () => {
                 this.selectTagset(s.tagsetId)
-              })
+              },
+            })
+            if (index < this.mytags.tagSets.length - 1) {
+              this.TagRowDivider()
+            }
           },
           (s: EhMytagSet) => s.tagsetId,
         )
       }
-      .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
     }
-    .scrollable(ScrollDirection.Horizontal)
-    .scrollBar(BarState.Off)
-    .width('100%')
-  }
-
-  // One namespace section: a header + that namespace's tag chips.
-  @Builder
-  NamespaceGroup(ns: string) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(ns)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_emphasize'))
-      Flex({ wrap: FlexWrap.Wrap }) {
-        ForEach(
-          this.tagsIn(ns),
-          (t: EhUsertag) => {
-            this.TagChip(t)
-          },
-          (t: EhUsertag) => t.tagId,
-        )
-      }.width('100%')
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
-  TagChip(t: EhUsertag) {
-    // Grouped by namespace, so the chip shows just the short tag (display), not the full ns:tag.
-    Column({ space: 1 }) {
-      Text(this.tagLabel(t))
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(t.textColor.length > 0 ? t.textColor : ThemeConstants.TEXT_ON_BRAND)
-        .maxLines(1)
-      if (this.tagSubtitle(t).length > 0) {
-        Text(this.tagSubtitle(t))
-          .fontSize(ThemeConstants.FONT_SIZE_TINY)
-          .fontColor(t.textColor.length > 0 ? t.textColor : ThemeConstants.TEXT_ON_BRAND)
-          .maxLines(1)
+  private TagRows() {
+    ForEach(
+      this.mytags.tags,
+      (t: EhUsertag, index: number) => {
+        this.TagRow(t)
+        if (index < this.mytags.tags.length - 1) {
+          this.TagRowDivider()
+        }
+      },
+      (t: EhUsertag) => t.tagId.length > 0 ? t.tagId : t.tag,
+    )
+  }
+
+  @Builder
+  private TagRow(t: EhUsertag) {
+    ConciseListRow({
+      title: this.tagTitle(t),
+      subtitle: this.tagSubtitle(t),
+      showChevron: true,
+      isEnabled: !this.loading,
+      prefixBuilderParam: () => {
+        this.TagStatusPrefix(t)
+      },
+      suffixBuilderParam: () => {
+        this.TagWeightBadge(t)
+      },
+      action: () => {
+        this.openEditTag(t)
+      },
+    })
+  }
+
+  @Builder
+  private TagRowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
+  }
+
+  @Builder
+  private TagStatusPrefix(t: EhUsertag) {
+    Row() {
+      if (t.watched) {
+        SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+          .fontSize(24)
+          .fontColor(['#2BAE85'])
+      } else if (t.hidden) {
+        SymbolGlyph($r('sys.symbol.xmark_circle_fill'))
+          .fontSize(24)
+          .fontColor(['#DE1C31'])
+      } else {
+        SymbolGlyph($r('sys.symbol.dot_circle'))
+          .fontSize(24)
+          .fontColor([$r('sys.color.font_tertiary')])
       }
     }
-    // EH-supplied text color is readable on its own fill; only force white when EH gave none.
-    .backgroundColor(
-      t.fillColor.length > 0
-        ? t.fillColor
-        : t.color.length > 0
-          ? t.color
-          : ThemeConstants.BRAND_PRIMARY,
-    )
-    .borderRadius(ThemeConstants.RADIUS_SM)
-    .borderWidth(t.watched ? 2 : 0)
-    .borderColor(Color.White)
-    .padding({
-      left: ThemeConstants.SPACE_SM,
-      right: ThemeConstants.SPACE_SM,
-      top: ThemeConstants.SPACE_XS,
-      bottom: ThemeConstants.SPACE_XS,
-    })
-    .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-    .opacity(t.hidden ? 0.45 : 1)
-    .onClick(() => {
-      this.openEditTag(t)
-    })
+    .width(34)
+    .justifyContent(FlexAlign.Center)
+    .padding({ left: ThemeConstants.SPACE_SM })
+  }
+
+  @Builder
+  private TagWeightBadge(t: EhUsertag) {
+    Text(this.tagWeightLabel(t))
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontWeight(FontWeight.Medium)
+      .fontColor(this.tagTextColor(t))
+      .textAlign(TextAlign.Center)
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .height(30)
+      .width(50)
+      .padding({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_XS })
+      .backgroundColor(this.tagFillColor(t))
+      .borderRadius(ThemeConstants.RADIUS_SM)
+      .borderWidth(0.5)
+      .borderColor(this.tagBorderColor(t))
+      .margin({ right: ThemeConstants.SPACE_MD })
   }
 
   @Builder

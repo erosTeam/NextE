@@ -167,7 +167,9 @@ if (!/class TagTranslationService/.test(translationService)) fail('TagTranslatio
 if (!/case 'language:chinese':[\s\S]*return '中文'/.test(translationService)) fail('TagTranslationService lacks language:chinese baseline')
 const page = read('../feature/user/src/main/ets/pages/MyTagsPage.ets')
 if (!/private tagSubtitle\(t: EhUsertag\): string/.test(page)) fail('MyTagsPage does not derive a translate subtitle')
-if (!/Text\(this\.tagSubtitle\(t\)\)/.test(page)) fail('MyTagsPage does not render the translate subtitle')
+if (!/TagRow\(t: EhUsertag\)[\s\S]*subtitle: this\.tagSubtitle\(t\)/.test(page)) {
+  fail('MyTagsPage does not render the translate subtitle in the management row')
+}
 
 if (failures === 0) { console.log('✓ mytags parser contract: all cases pass'); process.exit(0) }
 else { console.error(`✗ mytags parser contract: ${failures} failure(s)`); process.exit(1) }
