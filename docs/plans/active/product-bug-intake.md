@@ -4120,3 +4120,59 @@ Acceptance shape:
   crashing.
 - Deterministic contract covers persistence keys, restore/fallback behavior, and avoids storing gallery
   list payloads as preference state.
+
+### Favorites List Favcat Colors Require Restart After First Login
+
+Type: favorites metadata / visual-state refresh bug
+
+Priority suggestion: P2
+
+Status: active / queued
+
+Source:
+
+- User feedback, 2026-06-20: in the Favorites gallery list, all favorite heart icons can initially show
+  the same fallback color instead of each gallery's actual favorite category color. After exiting and
+  reopening the app, the colors become correct.
+
+Observed behavior:
+
+- The issue appears most likely after first login or first Favorites load in a fresh process.
+- Restarting the app makes colors correct, which suggests the persisted favcat metadata restores early
+  enough on the second launch, while the first-run in-memory update does not refresh already-rendered
+  gallery rows.
+
+Likely cause:
+
+- Favorites list rows often carry `favTitle` but not the numeric `favcat` slot.
+- `GalleryCard`, `GalleryGridCard`, and `GallerySimpleCard` color hearts from `gallery.favcat`.
+  If `favcat` is empty, even with `favTitle`, they fall back to the generic favorite color.
+- `FavoritesViewModel.resolveFavcatSlots()` can map `favTitle -> favcat`, but if real favcat metadata
+  arrives after rows are already loaded, the visible datasource may not be re-resolved and replaced.
+- Placeholder favcats such as `Favorites N / 0` must not participate in this mapping.
+
+Expected behavior:
+
+- Once real favcat metadata arrives in the current process, already-loaded Favorites rows with
+  `favTitle` and empty `favcat` should be re-resolved and the datasource should update.
+- Users should not need to restart the app for favorite category colors to become correct.
+- Placeholder/default favcat metadata must never overwrite or drive the visible color mapping.
+
+Implementation direction:
+
+- Add a deterministic method on `FavoritesViewModel` to re-resolve visible rows from a real favcat list:
+  scan `dataSource.getAll()`, map non-placeholder `favTitle -> favId`, write missing `favcat`, and
+  replace the datasource only when changed.
+- Trigger that method when shared favcat metadata changes or after a real `favorites.php`/popup favcat
+  parse updates `FavSelectionState.favList`.
+- Keep explicit favorite mutations authoritative; this re-resolve path should only fill missing slots
+  for rows that have `favTitle` but no `favcat`.
+
+Acceptance shape:
+
+- Fresh login/fresh favcat cache: open Favorites, load rows, then load/parse real favcat metadata; visible
+  row heart colors update in the same app process without restart.
+- Placeholder `Favorites N / 0` entries do not map real rows or overwrite real metadata.
+- Restarting the app is not required for correct favcat colors.
+- Deterministic contract covers late favcat metadata arrival, placeholder exclusion, and datasource
+  replacement after slot resolution.
