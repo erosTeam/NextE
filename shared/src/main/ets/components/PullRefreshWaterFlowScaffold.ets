@@ -1,7 +1,6 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { PullRefresh, PullRefreshController } from './PullRefresh'
 import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeAreaState'
-import { ResponsiveGrid } from '../utils/ResponsiveGrid'
 
 /**
  * WaterFlow sibling of PullRefreshGridScaffold for gallery cards: same refresh, paging, safe-area,
@@ -12,7 +11,6 @@ export struct PullRefreshWaterFlowScaffold {
   @BuilderParam content: () => void;
   layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Param scroller: Scroller = new Scroller();
-  @Param columns: number = 2;
   @Param minColumnWidth: number = 0;
   @Local measuredWidth: number = 0;
   @Param gap: number = ThemeConstants.SPACE_SM;
@@ -24,7 +22,6 @@ export struct PullRefreshWaterFlowScaffold {
   @Event onBottomRefresh?: () => Promise<void>;
   @Event canStartBottomRefresh?: () => boolean;
   @Event onReachEnd?: () => void;
-  @Event onCellSize?: (columns: number, cellWidth: number) => void;
 
   build() {
     PullRefresh({
@@ -62,18 +59,13 @@ export struct PullRefreshWaterFlowScaffold {
       .padding({
         left: this.horizontalPadding,
         right: this.horizontalPadding,
-        top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + this.topPadding,
-        bottom: this.layout.bottomAvoidHeight + this.bottomPadding,
       })
+      .contentStartOffset(this.topSpacerHeight())
+      .contentEndOffset(this.bottomSpacerHeight())
       .edgeEffect(EdgeEffect.None)
       .clip(false)
       .onAreaChange((_oldValue: Area, newValue: Area) => {
-        this.measuredWidth = newValue.width as number
-        if (this.onCellSize && this.minColumnWidth > 0) {
-          const content: number = this.measuredWidth - 2 * this.horizontalPadding
-          const cols: number = ResponsiveGrid.columns(content, this.minColumnWidth, this.gap)
-          this.onCellSize(cols, ResponsiveGrid.columnWidth(content, cols, this.gap))
-        }
+        this.measuredWidth = this.parseAreaWidth(newValue)
       })
       .onReachEnd(() => {
         if (this.onReachEnd) {
@@ -83,20 +75,22 @@ export struct PullRefreshWaterFlowScaffold {
     }
   }
 
-  private effectiveColumns(): number {
-    if (this.minColumnWidth > 0 && this.measuredWidth > 0) {
-      const content: number = this.measuredWidth - 2 * this.horizontalPadding
-      return ResponsiveGrid.columns(content, this.minColumnWidth, this.gap)
-    }
-    return this.columns
+  private columnsTemplate(): string {
+    const minWidth: number =
+      this.minColumnWidth > 0 ? this.minColumnWidth : ThemeConstants.GALLERY_WATERFALL_MIN_W
+    return `repeat(auto-fit, ${minWidth}vp)`
   }
 
-  private columnsTemplate(): string {
-    const cols: number = this.effectiveColumns()
-    const parts: string[] = []
-    for (let i = 0; i < cols; i++) {
-      parts.push('1fr')
-    }
-    return parts.join(' ')
+  private parseAreaWidth(value: Area): number {
+    const parsed: number = Number.parseFloat(`${value.width}`)
+    return parsed > 0 ? parsed : 0
+  }
+
+  private topSpacerHeight(): number {
+    return this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + this.topPadding
+  }
+
+  private bottomSpacerHeight(): number {
+    return this.layout.bottomAvoidHeight + this.bottomPadding
   }
 }

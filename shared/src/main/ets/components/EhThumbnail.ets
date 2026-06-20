@@ -7,6 +7,8 @@ export const THUMBNAIL_VISUAL_ERROR: number = 2
 
 const COVER_LOADER_SIZE: number = 22
 const COVER_ERROR_ICON_SIZE: number = 24
+const GRID_COVER_MIN_CONTAIN_SOURCE_RATIO: number = 0.8
+const GRID_COVER_MAX_CONTAIN_SOURCE_RATIO: number = 2.2
 
 /**
  * Gallery thumbnail. M1 loads the ehgt.org/s.exhentai.org thumb URL directly (public CDN, no auth).
@@ -29,6 +31,9 @@ export struct EhThumbnail {
   // grid thumbnail gets the same grey backing + load spinner as the list cover instead of a bare Image.
   // (Named coverRatio, not aspectRatio — the latter collides with the built-in component attribute.)
   @Param coverRatio: number = 0;
+  // Force crop inside a coverRatio slot. Waterfall uses this with a clamped source ratio: the card height
+  // remains bounded for extreme strip covers, but the image itself crops instead of letterboxing grey.
+  @Param forceCoverFit: boolean = false;
   // Fit the WHOLE cover inside its frame instead of center-cropping. When source dimensions are known,
   // the frame is only a transparent layout slot; the visible image is sized to the real cover aspect and
   // clipped to its own rounded boundary. This avoids a permanent grey letterbox container around a loaded
@@ -132,6 +137,26 @@ export struct EhThumbnail {
     return this.thumbWidth * this.sourceHeight / this.sourceWidth
   }
 
+  private coverObjectFit(): ImageFit {
+    if (this.forceCoverFit) {
+      return ImageFit.Cover
+    }
+    if (this.containFit) {
+      return ImageFit.Contain
+    }
+    if (!this.hasSourceSize() || this.coverRatio <= 0) {
+      return ImageFit.Cover
+    }
+    const sourceRatio: number = this.sourceHeight / this.sourceWidth
+    if (sourceRatio <= GRID_COVER_MIN_CONTAIN_SOURCE_RATIO) {
+      return ImageFit.Contain
+    }
+    if (sourceRatio >= GRID_COVER_MAX_CONTAIN_SOURCE_RATIO) {
+      return ImageFit.Contain
+    }
+    return ImageFit.Cover
+  }
+
   build() {
     if (this.visualState !== THUMBNAIL_VISUAL_AUTO) {
       Stack({ alignContent: Alignment.Center }) {}
@@ -142,21 +167,26 @@ export struct EhThumbnail {
         .clip(true)
         .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else if (this.coverRatio > 0) {
-      Image(EhConstants.cdnThumb(this.url))
+      Stack({ alignContent: Alignment.Center }) {
+        Image(EhConstants.cdnThumb(this.url))
+          .width('100%')
+          .height('100%')
+          .objectFit(this.coverObjectFit())
+          .draggable(false)
+          .onComplete(() => {
+            this.loaded = true
+            this.failed = false
+          })
+          .onError(() => {
+            this.loaded = true
+            this.failed = true
+          })
+      }
         .width('100%')
         .aspectRatio(this.coverRatio)
-        .objectFit(this.containFit ? ImageFit.Contain : ImageFit.Cover)
         .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
         .borderRadius(this.radius)
-        .draggable(false)
-        .onComplete(() => {
-          this.loaded = true
-          this.failed = false
-        })
-        .onError(() => {
-          this.loaded = true
-          this.failed = true
-        })
+        .clip(true)
         .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else if (this.containFit && this.hasSourceSize() && !this.fillHeight && !this.stretchHeight) {
       // Transparent layout slot. Only the REAL image surface is visible; its size follows the EH cover

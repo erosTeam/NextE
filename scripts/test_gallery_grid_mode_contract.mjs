@@ -33,14 +33,13 @@ function branchBetween(source, start, end) {
 
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
 ok('gallery grid min width and gap are centralized tokens',
-  /GALLERY_GRID_MIN_W:\s*number\s*=\s*150/.test(theme) &&
+  /GALLERY_GRID_MIN_W:\s*number\s*=\s*106/.test(theme) &&
     /GALLERY_GRID_GAP:\s*number\s*=\s*6/.test(theme) &&
     /GALLERY_GRID_COVER_RATIO:\s*number\s*=\s*0\.7/.test(theme) &&
     /GALLERY_GRID_INFO_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
     /GALLERY_GRID_TITLE_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
     /GALLERY_GRID_META_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
-    /GALLERY_GRID_TAG_AREA_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
-    /GALLERY_GRID_TAG_LIMIT:\s*number\s*=\s*1/.test(theme))
+    /GALLERY_WATERFALL_MIN_W:\s*number\s*=\s*160/.test(theme))
 
 const galleryPages = [
   'feature/home/src/main/ets/components/GalleryListBody.ets',
@@ -74,12 +73,13 @@ const gridCard = read('shared/src/main/ets/components/GalleryGridCard.ets')
 ok('GalleryGridCard uses the shared grid cover ratio token',
   /coverRatio:\s*ThemeConstants\.GALLERY_GRID_COVER_RATIO/.test(gridCard) &&
     !/coverRatio:\s*0\.7/.test(gridCard))
-ok('GalleryGridCard has a fixed info-area contract so tags cannot create masonry heights',
-    /this\.gallery\.simpleTags\.slice\(0,\s*ThemeConstants\.GALLERY_GRID_TAG_LIMIT\)/.test(gridCard) &&
+ok('GalleryGridCard has a compact fixed info-area contract and no tag-driven masonry height',
     /Text\(this\.gallery\.title\(\)\)[\s\S]*\.height\(ThemeConstants\.GALLERY_GRID_TITLE_HEIGHT\)/.test(gridCard) &&
     /\.height\(ThemeConstants\.GALLERY_GRID_META_HEIGHT\)/.test(gridCard) &&
-    /Stack\(\{ alignContent: Alignment\.TopStart \}\) \{[\s\S]*this\.tagChips\(\)[\s\S]*\.height\(ThemeConstants\.GALLERY_GRID_TAG_AREA_HEIGHT\)[\s\S]*\.clip\(true\)/.test(gridCard) &&
-    /\.height\(ThemeConstants\.GALLERY_GRID_INFO_HEIGHT\)/.test(gridCard))
+    /\.height\(ThemeConstants\.GALLERY_GRID_INFO_HEIGHT\)/.test(gridCard) &&
+    /GalleryCategoryCornerBadge/.test(gridCard) &&
+    !/simpleTags/.test(gridCard) &&
+    !/tagChips/.test(gridCard))
 
 const layoutSettings = read('feature/settings/src/main/ets/pages/LayoutSettingsPage.ets')
 ok('Layout settings exposes Waterfall as a separate mode, not as Grid',

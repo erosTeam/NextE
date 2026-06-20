@@ -13,7 +13,24 @@ import { join } from 'node:path'
 
 const ROOT = process.cwd()
 const src = readFileSync(join(ROOT, 'shared/src/main/ets/components/GalleryGridCard.ets'), 'utf8')
+const thumbSrc = readFileSync(join(ROOT, 'shared/src/main/ets/components/EhThumbnail.ets'), 'utf8')
+const detailHeaderSrc = readFileSync(
+  join(ROOT, 'feature/gallery/src/main/ets/components/GalleryHeaderCard.ets'),
+  'utf8',
+)
+const previewTileSrc = readFileSync(
+  join(ROOT, 'shared/src/main/ets/components/PreviewThumbTile.ets'),
+  'utf8',
+)
 const fe = readFileSync(join(ROOT, '../eros_fe/lib/pages/item/gallery_item_grid.dart'), 'utf8')
+const containFitBranch = thumbSrc.slice(
+  thumbSrc.indexOf('} else if (this.containFit && this.hasSourceSize()'),
+  thumbSrc.indexOf('} else if (this.stretchHeight)'),
+)
+const previewFrameBranch = previewTileSrc.slice(
+  previewTileSrc.indexOf('Transparent layout slot'),
+  previewTileSrc.indexOf('// Page number'),
+)
 
 let failures = 0
 let passed = 0
@@ -33,37 +50,48 @@ ok('grounding: eros_fe grid uses a cover-first card',
 ok('grounding: eros_fe overlays translated/category and count/favorite state on cover',
   /RotatedCornerDecoration\.withColor[\s\S]*galleryProvider\.translated/.test(fe) &&
     /Positioned\([\s\S]*bottom: 4[\s\S]*right: 4[\s\S]*_buildFavCatIcon\(\)[\s\S]*_buildCount\(\)/.test(fe))
-ok('NextE grid card reads usertag signal and renders a bounded tag-chip sample',
-  /private tagSig: UserTagSignal = connectUserTagSignal\(\)/.test(src) &&
-    /@Builder\s+tagChips\(\)[\s\S]*this\.gallery\.simpleTags\.slice\(0,\s*ThemeConstants\.GALLERY_GRID_TAG_LIMIT\)/.test(src))
-ok('NextE grid tags reuse the same usertag color semantics as list cards',
-  /UserTagStore\.getInstance\(\)\.lookup\(t\.namespace, t\.text\)/.test(src) &&
-    /\(t: SimpleTag\) => `\$\{this\.tagSig\.version\}:\$\{t\.namespace\}:\$\{t\.text\}`/.test(src))
-ok('NextE grid card overlays language and page/favorite state on the cover',
-  /Stack\(\{ alignContent: Alignment\.TopStart \}\)[\s\S]*EhThumbnail\([\s\S]*if \(this\.gallery\.translated\.length > 0\)[\s\S]*backgroundColor\(EhConstants\.categoryColor\(this\.gallery\.category\)\)[\s\S]*position\(\{ right: ThemeConstants\.SPACE_XS, bottom: ThemeConstants\.SPACE_XS \}\)/.test(src))
+ok('NextE grid card deliberately omits tag chips and rating-heavy affordances',
+  !/simpleTags/.test(src) &&
+    !/tagChips/.test(src) &&
+    !/UserTagStore/.test(src) &&
+    !/ratingText/.test(src))
+ok('NextE grid card uses the shared category corner badge',
+  /GalleryCategoryCornerBadge\(\{[\s\S]*category:\s*this\.gallery\.category[\s\S]*translated:\s*this\.gallery\.translated/.test(src))
+ok('NextE grid card overlays page/favorite state on the cover',
+  /private CoverMeta\(\)[\s\S]*heart_fill[\s\S]*`\$\{this\.gallery\.fileCount\}P`/.test(src) &&
+    /position\(\{ right: ThemeConstants\.SPACE_XS, bottom: ThemeConstants\.SPACE_XS \}\)/.test(src))
+ok('NextE grid thumbnail passes source dimensions so fixed cover slots do not stretch source images',
+  /sourceWidth:\s*this\.gallery\.imgWidth/.test(src) &&
+    /sourceHeight:\s*this\.gallery\.imgHeight/.test(src))
+ok('NextE grid keeps the list/grid grey-placeholder cover behavior, not the Waterfall crop override',
+  !/forceCoverFit:\s*true/.test(src))
 ok('NextE grid title stays below the cover and is readable body text',
   /Text\(this\.gallery\.title\(\)\)[\s\S]*fontSize\(ThemeConstants\.FONT_SIZE_BODY\)[\s\S]*maxLines\(2\)/.test(src))
 ok('NextE grid card includes compact browsing metadata below the title',
-  /private metaText\(\): string[\s\S]*this\.gallery\.postTime[\s\S]*this\.gallery\.uploader[\s\S]*this\.gallery\.category/.test(src) &&
+  /private metaText\(\): string[\s\S]*this\.gallery\.postTime[\s\S]*this\.gallery\.fileCount[\s\S]*this\.gallery\.category/.test(src) &&
     /height\(ThemeConstants\.GALLERY_GRID_META_HEIGHT\)/.test(src) &&
     /Text\(this\.metaText\(\)\)[\s\S]*fontSize\(ThemeConstants\.FONT_SIZE_CAPTION\)[\s\S]*fontColor\(\$r\('sys\.color\.font_secondary'\)\)/.test(src))
-ok('NextE grid rating is a compact meta affordance, not a dominant row',
-  /private ratingText\(\): string[\s\S]*this\.gallery\.ratingFallBack[\s\S]*this\.gallery\.rating/.test(src) &&
-    /SymbolGlyph\(\$r\('sys\.symbol\.star_fill'\)\)[\s\S]*fontSize\(ThemeConstants\.FONT_SIZE_CAPTION\)[\s\S]*fontColor\(\[EhConstants\.ratingStarColor\(this\.gallery\.colorRating\)\]\)/.test(src))
 ok('NextE grid card keeps fixed card rhythm instead of tag-driven masonry height',
   /height\(ThemeConstants\.GALLERY_GRID_TITLE_HEIGHT\)/.test(src) &&
     /height\(ThemeConstants\.GALLERY_GRID_META_HEIGHT\)/.test(src) &&
-    /height\(ThemeConstants\.GALLERY_GRID_TAG_AREA_HEIGHT\)/.test(src) &&
     /clip\(true\)/.test(src) &&
-    /height\(ThemeConstants\.GALLERY_GRID_INFO_HEIGHT\)/.test(src) &&
-    !/const GRID_TAG_LIMIT/.test(src))
-ok('NextE grid tag sample is one line and cannot reserve a large empty block',
-  /static readonly GALLERY_GRID_INFO_HEIGHT: number = 98/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
+    /height\(ThemeConstants\.GALLERY_GRID_INFO_HEIGHT\)/.test(src))
+ok('NextE grid compact info tokens stay small enough for a phone three-column wall',
+  /static readonly GALLERY_GRID_INFO_HEIGHT: number = 66/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
+    /static readonly GALLERY_GRID_TITLE_HEIGHT: number = 40/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
     /static readonly GALLERY_GRID_META_HEIGHT: number = 18/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
-    /static readonly GALLERY_GRID_TAG_AREA_HEIGHT: number = 28/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
-    /static readonly GALLERY_GRID_TAG_LIMIT: number = 1/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')))
+    !/GALLERY_GRID_TAG_AREA_HEIGHT/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
+    !/GALLERY_GRID_TAG_LIMIT/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')))
 ok('NextE grid does not render the old category/page metadata row below the title',
   !/Text\(this\.gallery\.category\)[\s\S]*Text\(`\$\{this\.gallery\.fileCount\}P`\)/.test(src))
+ok('Gallery list/grid cover slots keep the designed grey placeholder backing',
+  /else if \(this\.coverRatio > 0\)[\s\S]*backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(thumbSrc))
+ok('Detail and preview main visual slots do not get a grey letterbox container',
+  /GalleryHeaderCard[\s\S]*EhThumbnail\(\{[\s\S]*containFit:\s*true/.test(detailHeaderSrc) &&
+    /Stack\(\{ alignContent: Alignment\.Center \}\)[\s\S]*\.width\(this\.thumbWidth\)[\s\S]*\.height\(this\.thumbHeight\)[\s\S]*\.overlay\(this\.coverOverlay\(\)/.test(containFitBranch) &&
+    !/backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(containFitBranch) &&
+    /Stack\(\)[\s\S]*\.width\(this\.tileWidth\)[\s\S]*\.height\(this\.frameHeight\(\)\)[\s\S]*\.alignContent\(Alignment\.Center\)/.test(previewFrameBranch) &&
+    !/backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(previewFrameBranch))
 
 if (failures > 0) {
   console.error(`\n✗ gallery grid card visual contract: ${failures} failure(s)`)

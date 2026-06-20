@@ -272,7 +272,7 @@ export struct FavcatPage {
       } else if (this.listMode.mode === ListMode.WATERFALL) {
         PullRefreshWaterFlowScaffold({
           scroller: this.scroller,
-          minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
+          minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W,
           gap: ThemeConstants.GALLERY_GRID_GAP,
           horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
           topPadding: SELECTOR_BAR_HEIGHT,
@@ -295,6 +295,7 @@ export struct FavcatPage {
               FlowItem() {
                 GalleryWaterfallCard({ gallery: g })
               }
+              .width('100%')
               .onClick(() => {
                 this.openDetail(g)
               })

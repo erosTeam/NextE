@@ -1,7 +1,6 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { PullRefresh, PullRefreshController } from './PullRefresh'
 import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeAreaState'
-import { ResponsiveGrid } from '../utils/ResponsiveGrid'
 
 /**
  * Grid sibling of PullRefreshListScaffold: a responsive Grid inside the same generic PullRefresh.
@@ -19,7 +18,7 @@ export struct PullRefreshGridScaffold {
   // When > 0, the column count is DERIVED responsively from the measured content width and this
   // minimum comfortable column width (vp) — eros_fe max-cross-axis-extent model — instead of `columns`.
   @Param minColumnWidth: number = 0;
-  // Measured grid width (vp); drives the responsive column count once laid out.
+  // Measured grid width (vp); used only to emit cell sizing for callers that need it.
   @Local measuredWidth: number = 0;
   @Param gap: number = ThemeConstants.SPACE_SM;
   @Param horizontalPadding: number = ThemeConstants.SPACE_MD;
@@ -65,29 +64,7 @@ export struct PullRefreshGridScaffold {
       },
     }) {
       Grid(this.scroller) {
-        GridItem() {
-          Column() {
-            Blank()
-              .height(this.topSpacerHeight())
-          }
-          .width('100%')
-        }
-        .columnStart(0)
-        .columnEnd(this.effectiveColumns() - 1)
-        .selectable(false)
-
         this.content()
-
-        GridItem() {
-          Column() {
-            Blank()
-              .height(this.bottomSpacerHeight())
-          }
-          .width('100%')
-        }
-        .columnStart(0)
-        .columnEnd(this.effectiveColumns() - 1)
-        .selectable(false)
       }
       .columnsTemplate(this.columnsTemplate())
       .columnsGap(this.gap)
@@ -99,14 +76,16 @@ export struct PullRefreshGridScaffold {
         left: this.horizontalPadding,
         right: this.horizontalPadding,
       })
+      .contentStartOffset(this.topSpacerHeight())
+      .contentEndOffset(this.bottomSpacerHeight())
       .edgeEffect(EdgeEffect.None)
       .clip(false)
       .onAreaChange((_oldValue: Area, newValue: Area) => {
-        this.measuredWidth = newValue.width as number
+        this.measuredWidth = this.parseAreaWidth(newValue)
         if (this.onCellSize && this.minColumnWidth > 0) {
-          const content: number = this.measuredWidth - 2 * this.horizontalPadding
-          const cols: number = ResponsiveGrid.columns(content, this.minColumnWidth, this.gap)
-          this.onCellSize(cols, ResponsiveGrid.columnWidth(content, cols, this.gap))
+          const content: number = this.contentWidth()
+          const cols: number = this.estimatedColumns(content)
+          this.onCellSize(cols, this.estimatedColumnWidth(content, cols))
         }
       })
       .onReachEnd(() => {
@@ -125,23 +104,41 @@ export struct PullRefreshGridScaffold {
     }
   }
 
-  // Responsive column count: derived from the measured content width (minus horizontal padding) and
-  // minColumnWidth when set; otherwise the fixed `columns` fallback. Never a hardcoded literal.
-  private effectiveColumns(): number {
-    if (this.minColumnWidth > 0 && this.measuredWidth > 0) {
-      const content: number = this.measuredWidth - 2 * this.horizontalPadding
-      return ResponsiveGrid.columns(content, this.minColumnWidth, this.gap)
-    }
-    return this.columns
+  private parseAreaWidth(value: Area): number {
+    const parsed: number = Number.parseFloat(`${value.width}`)
+    return parsed > 0 ? parsed : 0
+  }
+
+  private contentWidth(): number {
+    const content: number = this.measuredWidth - 2 * this.horizontalPadding
+    return content > 0 ? content : 0
   }
 
   private columnsTemplate(): string {
-    const cols: number = this.effectiveColumns()
+    if (this.minColumnWidth > 0) {
+      return `repeat(auto-fit, ${this.minColumnWidth}vp)`
+    }
+    const cols: number = this.columns
     const parts: string[] = []
     for (let i = 0; i < cols; i++) {
       parts.push('1fr')
     }
     return parts.join(' ')
+  }
+
+  private estimatedColumns(content: number): number {
+    if (content <= 0 || this.minColumnWidth <= 0) {
+      return this.columns
+    }
+    const n: number = Math.floor((content + this.gap) / (this.minColumnWidth + this.gap))
+    return n > 0 ? n : 1
+  }
+
+  private estimatedColumnWidth(content: number, columns: number): number {
+    if (columns <= 0) {
+      return content
+    }
+    return (content - (columns - 1) * this.gap) / columns
   }
 
   private topSpacerHeight(): number {
@@ -153,7 +150,7 @@ export struct PullRefreshGridScaffold {
   }
 
   private galleryIndex(rawIndex: number): number {
-    const index: number = rawIndex - 1
+    const index: number = rawIndex
     if (index < 0) {
       return 0
     }

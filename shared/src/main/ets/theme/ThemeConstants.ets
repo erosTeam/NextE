@@ -112,16 +112,15 @@ export class ThemeConstants {
   // page derive their column count from the pane width and this min (eros_fe max-cross-axis-extent),
   // so narrow panes stay readable and wider panes scale up — never a hardcoded column count.
   static readonly PREVIEW_THUMB_MIN_W: number = 90
-  // Gallery browsing grid: mirrors eros_fe's separate SliverGrid mode (maxCrossAxisExtent≈150, 6px gaps)
-  // while using NextE's ResponsiveGrid min-width derivation.
-  static readonly GALLERY_GRID_MIN_W: number = 150
+  // Gallery browsing grid: compact phone-first wall. The native repeat template derives columns from
+  // the pane width while keeping ordinary phone panes in the intended compact browsing density.
+  static readonly GALLERY_GRID_MIN_W: number = 106
+  static readonly GALLERY_WATERFALL_MIN_W: number = 160
   static readonly GALLERY_GRID_GAP: number = 6
   static readonly GALLERY_GRID_COVER_RATIO: number = 0.7
-  static readonly GALLERY_GRID_INFO_HEIGHT: number = 98
-  static readonly GALLERY_GRID_TITLE_HEIGHT: number = 44
+  static readonly GALLERY_GRID_INFO_HEIGHT: number = 66
+  static readonly GALLERY_GRID_TITLE_HEIGHT: number = 40
   static readonly GALLERY_GRID_META_HEIGHT: number = 18
-  static readonly GALLERY_GRID_TAG_AREA_HEIGHT: number = 28
-  static readonly GALLERY_GRID_TAG_LIMIT: number = 1
 
   // Line heights
   static readonly LINE_HEIGHT_TITLE: number = 22

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Contract: the detail inline GRID and the all-thumbnails page must size their columns RESPONSIVELY
+ * Contract: grids must size their columns RESPONSIVELY
  * (derived from pane width + a min comfortable thumb width — never a hardcoded count), and each tile
  * must be a STABLE fixed frame so a flat/wide or misdetected thumb cannot drag the page-number baseline.
  *
  * Locks:
- *   • ResponsiveGrid.columns is a floor((w+gap)/(minW+gap)) derivation, >= 1, monotonic in width;
+ *   • preview thumbnail helpers still use ResponsiveGrid.columns as a local tile-width estimator;
+ *   • gallery browsing Grid scaffold uses ArkUI native repeat(auto-fit, minWidth), not manual 1fr columns;
  *   • the product token is ThemeConstants.PREVIEW_THUMB_MIN_W=90; column count is derived from the
  *     real pane width, so the Mate X7 / Mate 60 Pro class preview panes stay at 3 columns while
  *     wider panes can still scale up without a hardcoded count;
@@ -87,10 +88,11 @@ const rg = read('shared/src/main/ets/utils/ResponsiveGrid.ets')
 ok(/static columns\(/.test(rg) && /static columnWidth\(/.test(rg), 'ResponsiveGrid exposes columns + columnWidth')
 ok(/Math\.floor\(\(availableWidth \+ gap\) \/ \(minColumnWidth \+ gap\)\)/.test(rg), 'columns uses the max-extent floor formula')
 
-// 3. NO hardcoded column count in the grid surfaces; they go through ResponsiveGrid.
+// 3. Browsing Grid uses ArkUI native repeat(auto-fit) instead of hand-built 1fr column templates.
 const scaffold = read('shared/src/main/ets/components/PullRefreshGridScaffold.ets')
-ok(/ResponsiveGrid\.columns\(/.test(scaffold), 'scaffold derives columns via ResponsiveGrid')
-ok(/minColumnWidth/.test(scaffold) && /onCellSize/.test(scaffold), 'scaffold supports responsive minColumnWidth + cell-size callback')
+ok(/return `repeat\(auto-fit, \$\{this\.minColumnWidth\}vp\)`/.test(scaffold), 'scaffold uses ArkUI repeat(auto-fit, minWidth) for responsive columns')
+ok(!/ResponsiveGrid/.test(scaffold), 'scaffold does NOT import/use ResponsiveGrid for visible column layout')
+ok(/minColumnWidth/.test(scaffold), 'scaffold accepts a responsive minColumnWidth token')
 
 const allThumbs = read('feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets')
 ok(/minColumnWidth:\s*ThemeConstants\.PREVIEW_THUMB_MIN_W/.test(allThumbs), 'all-thumbnails passes minColumnWidth, not a fixed count')

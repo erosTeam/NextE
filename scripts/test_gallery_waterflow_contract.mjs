@@ -39,7 +39,16 @@ const scaffold = read(scaffoldRel);
 
 assertIncludes(scaffold, 'WaterFlow({ scroller: this.scroller })', 'waterfall scaffold must bind the shared Scroller to native WaterFlow');
 assertIncludes(scaffold, '.columnsTemplate(this.columnsTemplate())', 'waterfall scaffold must keep responsive column templates');
-assertIncludes(scaffold, 'ResponsiveGrid.columns', 'waterfall scaffold must derive columns from measured content width');
+assertIncludes(scaffold, 'repeat(auto-fit, ${minWidth}vp)', 'waterfall scaffold must use native ArkUI repeat(auto-fit) track sizing');
+assertIncludes(scaffold, 'ThemeConstants.GALLERY_WATERFALL_MIN_W', 'waterfall scaffold fallback width must be the Waterfall token, not the Grid token');
+assertNotIncludes(scaffold, 'ResponsiveGrid', 'waterfall scaffold must not hand-calculate columns through ResponsiveGrid');
+assertNotIncludes(scaffold, 'onCellSize', 'waterfall scaffold must not leak hand-calculated cell widths to call sites');
+assertIncludes(scaffold, '.contentStartOffset(this.topSpacerHeight())', 'waterfall scaffold must use contentStartOffset for immersive top avoidance');
+assertIncludes(scaffold, '.contentEndOffset(this.bottomSpacerHeight())', 'waterfall scaffold must use contentEndOffset for immersive bottom avoidance');
+if (/padding\(\{[\s\S]*top:\s*this\.layout\.topAvoidHeight/.test(scaffold) ||
+  /padding\(\{[\s\S]*bottom:\s*this\.layout\.bottomAvoidHeight/.test(scaffold)) {
+  fail('waterfall scaffold must not use WaterFlow top/bottom padding as immersive inset');
+}
 assertIncludes(scaffold, '.onReachEnd(() =>', 'waterfall scaffold must preserve load-more reach-end behavior');
 assertIncludes(read('shared/src/main/ets/Index.ets'), "export { PullRefreshWaterFlowScaffold }", 'shared barrel must export the WaterFlow scaffold');
 assertIncludes(read('shared/src/main/ets/Index.ets'), "export { GalleryWaterfallCard }", 'shared barrel must export the Waterfall card');
@@ -50,10 +59,18 @@ assertIncludes(layoutSettings, "app.string.view_waterfall", 'layout settings mus
 
 const waterfallCard = read('shared/src/main/ets/components/GalleryWaterfallCard.ets');
 assertIncludes(waterfallCard, 'export struct GalleryWaterfallCard', 'Waterfall mode must use its own card component');
-assertIncludes(waterfallCard, 'private coverRatio(): number', 'Waterfall card must compute a source-aspect cover ratio');
+assertIncludes(waterfallCard, 'private coverRatio(): number', 'Waterfall card must compute a source-aspect cover ratio with bounds');
 assertIncludes(waterfallCard, 'this.gallery.imgWidth / this.gallery.imgHeight', 'Waterfall cover ratio must use gallery image dimensions');
+assertIncludes(waterfallCard, 'WATERFALL_MIN_COVER_RATIO', 'Waterfall cover ratio must keep a lower bound for extreme tall covers');
+assertIncludes(waterfallCard, 'WATERFALL_MAX_COVER_RATIO', 'Waterfall cover ratio must keep an upper bound for extreme wide covers');
 assertIncludes(waterfallCard, 'EhThumbnail({', 'Waterfall card must render through the shared thumbnail component');
-assertIncludes(waterfallCard, 'coverRatio: this.coverRatio()', 'Waterfall card must pass the computed cover ratio');
+assertIncludes(waterfallCard, 'coverRatio: this.coverRatio()', 'Waterfall card must pass its bounded source ratio');
+assertIncludes(waterfallCard, 'forceCoverFit: true', 'Waterfall bounded cover slot must crop instead of showing grey letterbox');
+assertIncludes(waterfallCard, 'GalleryCategoryCornerBadge', 'Waterfall card must use the same category corner badge as Grid');
+assertIncludes(waterfallCard, 'sourceWidth: this.gallery.imgWidth', 'Waterfall card must pass source width so cover rendering can avoid distortion');
+assertIncludes(waterfallCard, 'sourceHeight: this.gallery.imgHeight', 'Waterfall card must pass source height so cover rendering can avoid distortion');
+assertNotIncludes(waterfallCard, '@Param cellWidth', 'Waterfall card must fill the native WaterFlow cell instead of receiving a hand-calculated width');
+assertNotIncludes(waterfallCard, 'private cardWidth()', 'Waterfall card must not convert hand-calculated cell widths');
 assertNotIncludes(waterfallCard, 'GALLERY_GRID_INFO_HEIGHT', 'Waterfall card must not reuse fixed Grid card info height');
 assertNotIncludes(waterfallCard, 'GALLERY_GRID_TITLE_HEIGHT', 'Waterfall card must not reuse fixed Grid title height');
 
@@ -70,8 +87,14 @@ for (const rel of galleryPages) {
   assertIncludes(source, 'PullRefreshWaterFlowScaffold', `${rel}: Waterfall branch must import the WaterFlow scaffold`);
   assertIncludes(source, 'GalleryWaterfallCard', `${rel}: Waterfall branch must import the Waterfall card`);
   assertIncludes(source, 'this.listMode.mode === ListMode.WATERFALL', `${rel}: must branch on ListMode.WATERFALL`);
-  if (!/PullRefreshWaterFlowScaffold\(\{[\s\S]*FlowItem\(\) \{[\s\S]*GalleryWaterfallCard/.test(waterfallBranch)) {
-    fail(`${rel}: WATERFALL branch must render FlowItem + GalleryWaterfallCard through PullRefreshWaterFlowScaffold`);
+  assertIncludes(waterfallBranch, 'minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W', `${rel}: WATERFALL branch must use a Waterfall-specific width token`);
+  if (!/FlowItem\(\) \{[\s\S]*GalleryWaterfallCard\(\{ gallery: g \}\)[\s\S]*\.width\('100%'\)/.test(waterfallBranch)) {
+    fail(`${rel}: WATERFALL branch must let each FlowItem fill its native WaterFlow cell`);
+  }
+  if (/GALLERY_GRID_MIN_W/.test(waterfallBranch) ||
+    /cellWidth/.test(waterfallBranch) ||
+    /onCellSize/.test(waterfallBranch)) {
+    fail(`${rel}: WATERFALL branch must not share Grid width or hand-calculated cell width plumbing`);
   }
   if (/PullRefreshWaterFlowScaffold/.test(gridBranch) ||
     /FlowItem\(\)/.test(gridBranch)) {

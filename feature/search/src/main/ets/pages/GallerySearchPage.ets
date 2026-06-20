@@ -530,7 +530,7 @@ export struct GallerySearchPage {
           } else if (this.listMode.mode === ListMode.WATERFALL) {
             PullRefreshWaterFlowScaffold({
               scroller: this.scroller,
-              minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
+              minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W,
               gap: ThemeConstants.GALLERY_GRID_GAP,
               horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
               topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,
@@ -553,6 +553,7 @@ export struct GallerySearchPage {
                   FlowItem() {
                     GalleryWaterfallCard({ gallery: g })
                   }
+                  .width('100%')
                   .onClick(() => {
                     this.stack.pushPathByName(
                       'GalleryDetail',

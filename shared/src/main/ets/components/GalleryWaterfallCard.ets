@@ -4,6 +4,7 @@ import { SimpleTag } from '../model/SimpleTag'
 import { connectSearchAction } from '../state/SearchActionState'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhThumbnail } from './EhThumbnail'
+import { GalleryCategoryCornerBadge } from './GalleryCategoryCornerBadge'
 
 const WATERFALL_MIN_COVER_RATIO: number = 0.5
 const WATERFALL_MAX_COVER_RATIO: number = 1.35
@@ -87,21 +88,19 @@ export struct GalleryWaterfallCard {
 
   build() {
     Column({ space: ThemeConstants.SPACE_SM }) {
-      Stack({ alignContent: Alignment.TopStart }) {
+      Stack({ alignContent: Alignment.TopEnd }) {
         EhThumbnail({
           url: this.gallery.thumbUrl,
           coverRatio: this.coverRatio(),
           radius: ThemeConstants.THUMB_RADIUS,
+          forceCoverFit: true,
+          sourceWidth: this.gallery.imgWidth,
+          sourceHeight: this.gallery.imgHeight,
         })
-        if (this.gallery.translated.length > 0) {
-          Text(this.gallery.translated)
-            .fontSize(ThemeConstants.FONT_SIZE_TINY)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(ThemeConstants.TEXT_ON_BRAND)
-            .backgroundColor(EhConstants.categoryColor(this.gallery.category))
-            .borderRadius({ topLeft: ThemeConstants.THUMB_RADIUS, bottomRight: ThemeConstants.RADIUS_SM })
-            .padding({ left: 7, right: 7, top: 3, bottom: 3 })
-        }
+        GalleryCategoryCornerBadge({
+          category: this.gallery.category,
+          translated: this.gallery.translated,
+        })
         Row({ space: ThemeConstants.SPACE_XS }) {
           if (this.gallery.favcat.length > 0 || this.gallery.favTitle.length > 0) {
             SymbolGlyph($r('sys.symbol.heart_fill'))
