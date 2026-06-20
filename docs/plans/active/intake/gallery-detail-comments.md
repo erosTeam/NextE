@@ -476,3 +476,51 @@ Acceptance shape:
 - Search page opens with the correct query visible in the title-bar field.
 - Results load for that tag query.
 - Returning to the detail page should keep normal navigation behavior.
+
+### Gallery Comment Vote Icons Should Use Native Thumb Symbols
+
+Type: UX polish / parity gap
+
+Priority suggestion: P2
+
+Status: accepted / not implemented
+
+Source:
+
+- User feedback, 2026-06-21: comment vote controls should not use generic up/down arrows. The desired
+  semantics are thumbs up / thumbs down, matching the original comment tail behavior.
+
+Research:
+
+- HarmonyOS system symbols already provide the needed native resources in the installed SDK:
+  - `$r('sys.symbol.hand_thumbsup')`
+  - `$r('sys.symbol.hand_thumbsup_fill')`
+  - `$r('sys.symbol.hand_thumbsdown')`
+  - `$r('sys.symbol.hand_thumbsdown_fill')`
+- `SymbolGlyph` supports common transform attributes such as `.rotate({ angle: 180 })`, but rotation is
+  unnecessary here because a real thumbs-down symbol exists.
+- eros_fe uses outline thumbs for neutral state and solid thumbs for the selected vote state:
+  `FontAwesomeIcons.thumbsUp` / `solidThumbsUp` and `thumbsDown` / `solidThumbsDown`.
+
+Current behavior:
+
+- `GalleryCommentsCard.VoteAction` currently renders `$r('sys.symbol.arrow_up')` and
+  `$r('sys.symbol.arrow_down')`.
+- The same action row uses fixed `ThemeConstants.BUTTON_HEIGHT` square tap areas, while eros_fe's
+  comment tail uses compact button padding. If comment item bottom spacing still looks too tall, inspect
+  the action hit-area height before changing comment content spacing.
+
+Expected behavior:
+
+- Upvote neutral state uses `hand_thumbsup`; selected upvote uses `hand_thumbsup_fill`.
+- Downvote neutral state uses `hand_thumbsdown`; selected downvote uses `hand_thumbsdown_fill`.
+- Do not rotate `hand_thumbsup_fill` to fake a downvote.
+- Keep this scoped to comment action icons and compact footer sizing; do not redesign the full comment
+  composer or avatar system in the same patch unless that lane is explicitly opened.
+
+Acceptance shape:
+
+- A comment with no vote shows outline thumbs up/down.
+- A comment with an upvote shows filled thumbs up and outline thumbs down.
+- A comment with a downvote shows outline thumbs up and filled thumbs down.
+- The footer action row does not add excessive bottom height compared with the comment text/time row.

@@ -79,7 +79,7 @@ Type: P0/P1 bug / browsing preview pagination
 
 Priority suggestion: P0/P1
 
-Status: implemented / pending controller acceptance
+Status: reopened / Waterfall top avoidance failed current screenshot
 
 Implementation:
 
@@ -219,6 +219,68 @@ Acceptance shape:
   page loading state.
 - Deterministic contract should simulate a 1000-page gallery, early loaded range, far jump to 500+, and
   subsequent forward/backward pagination requests based on the target range rather than the initial range.
+
+### AllThumbnails First Real Thumbnail Is Rendered As A Full-Width Hero
+
+Type: P0/P1 bug / preview grid layout correctness
+
+Priority suggestion: P0/P1
+
+Status: active queue candidate
+
+Source:
+
+- User screenshot, 2026-06-21:
+  `/var/folders/d_/2b_g_3tx1y97s_s1lks2_v1c0000gp/T/codex-clipboard-9ac4748f-8cb4-435a-9eab-6d0314a2c989.png`.
+- The AllThumbnails / `预览` page shows page `1` as a huge full-width image at the top, while pages
+  `2`, `3`, `4`, and later thumbnails render as ordinary preview-grid tiles below it.
+- User expectation is correct: AllThumbnails is a paged preview grid. Page 1 must be the same grid-cell
+  thumbnail shape as every other page, not a hero or header preview.
+
+Read-only root-cause inspection:
+
+- `feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets` uses `PullRefreshGridScaffold` and
+  renders every preview image through `GridItem() { PreviewThumbTile(...) }`; it does not intentionally
+  define a first-image hero.
+- `PullRefreshGridScaffold` models immersive top/bottom reserves as full-row `GridItem`s using
+  `GridLayoutOptions.irregularIndexes: [0, this.itemCount + 1]`.
+- `GalleryAllThumbnailsPage` currently does not pass `itemCount` into `PullRefreshGridScaffold`.
+- Because `itemCount` defaults to `0`, the scaffold computes `irregularIndexes: [0, 1]`; index `0` is
+  the top spacer, but index `1` becomes the first real preview thumbnail. ArkUI therefore treats page 1
+  as an irregular full-row item, and `PreviewThumbTile` measures that full row as its cell width.
+- This is not an image asset, parser, sprite, or intended product-layout problem. It is a Grid spacer
+  index contract bug.
+
+Expected behavior:
+
+- AllThumbnails page 1, 2, 3, 4, etc. render as uniform responsive preview-grid cells using
+  `PreviewThumbTile`.
+- Only the explicit scaffold spacer items may be full-row irregular Grid items.
+- The bottom spacer irregular index must be based on the actual item count for the page, or the
+  scaffold must avoid marking index `1` irregular when no item count is provided.
+- Do not solve this by special-casing page 1, changing thumbnail aspect rules, adding a hero, changing
+  `PREVIEW_THUMB_MIN_W`, or reintroducing manual column / cell-width calculation.
+
+Implementation direction for the next main-session lane:
+
+- Keep the fix narrowly scoped to AllThumbnails / `PullRefreshGridScaffold` spacer indexing.
+- The likely minimal fix is to pass `itemCount: this.vm.itemCount` from `GalleryAllThumbnailsPage` to
+  `PullRefreshGridScaffold`, then add/extend a deterministic contract proving AllThumbnails supplies
+  item count when using grid irregular spacer indexes.
+- If the scaffold is hardened generically, preserve current Grid immersive safe-area semantics and do
+  not regress Home/Search/Favorites Grid spacer behavior.
+- Do not mix this with Reader bottom chrome, Reader slider/thumbnail filmstrip, Waterfall top
+  avoidance, or the AllThumbnails far-jump pagination item unless a direct dependency is proven.
+
+Acceptance shape:
+
+- Device/simulator screenshot of AllThumbnails top of page: pages `1`, `2`, `3`, etc. are all normal
+  grid cells; no first-image full-width hero remains.
+- Contract covers the exact failure class: when a `PullRefreshGridScaffold` caller inserts top/bottom
+  spacer items, the first real content item cannot be included in `irregularIndexes` because of a
+  missing or default `itemCount`.
+- `node scripts/test_v1_decorator_inventory_contract.mjs` still reports `0 file(s)` for any ArkTS/UI
+  change.
 
 ### Very Tall Gallery Covers Break List Row Height
 
@@ -714,7 +776,7 @@ Type: browsing mode bug / layout correctness
 
 Priority suggestion: P1
 
-Status: implemented / pending controller acceptance
+Status: reopened / top avoidance failed current screenshot
 
 Implementation:
 
@@ -752,8 +814,9 @@ Verification:
 
 Remaining acceptance:
 
-- Pending controller/user visual acceptance. Search/Favorites use the same branches and contracts, but
-  this device pass directly captured Home; reopen only for a fresh surface-specific regression.
+- Not accepted. Search/Favorites use the same branches and contracts, but the current Home screenshot
+  already proves the Waterfall viewport/top avoidance model is wrong. The previous device pass did not
+  catch that the top spacer was only occupying one masonry column.
 
 Current feedback:
 
@@ -765,6 +828,9 @@ Current feedback:
 - `PullRefreshWaterFlowScaffold` also still uses `WaterFlow.padding.top/bottom` for immersive
   title/bottom-bar avoidance. This repeats the Grid padding-region bug shape and should be fixed before
   Waterfall is called complete.
+- Later source moved away from `WaterFlow.padding` and `contentStartOffset`, but replaced them with a
+  normal `FlowItem` top spacer. Current screenshot proves that replacement is still invalid because
+  ordinary WaterFlow items do not span all columns.
 
 Expected behavior:
 
@@ -781,10 +847,11 @@ Implementation direction:
 - Treat current Waterfall launch as scaffold-only and broken until width is corrected.
 - Give `FlowItem` / its child wrapper an explicit width derived from the measured column width, or pass
   `cellWidth` to `GalleryWaterfallCard` so the card and thumbnail use deterministic width.
-- Remove top/bottom `WaterFlow.padding` for immersive chrome and replace it with real spacer content or a
-  WaterFlow-compatible equivalent.
-- Update contracts so they prove width constraint and no top/bottom padding, not merely that `WaterFlow`,
-  `FlowItem`, and `GalleryWaterfallCard` strings exist.
+- Remove top/bottom `WaterFlow.padding` for immersive chrome and replace it with a WaterFlow-compatible
+  equivalent that reserves space across the entire waterfall, not an ordinary masonry `FlowItem`.
+- Update contracts so they prove width constraint and full-width/section-level top reserve, not merely
+  that `WaterFlow`, `FlowItem`, and `GalleryWaterfallCard` strings exist. In particular, the contract
+  must stop requiring `TopSpacer()` to be a plain `FlowItem`.
 
 Acceptance shape:
 
@@ -1162,3 +1229,40 @@ Implementation update:
   - Visual result: in both modes, one short upward scroll immediately hides the main HDS title/header
     while leaving the selector/bottomBuilder visible; no initial internal reserve-only scroll phase was
     observed.
+
+Reopen evidence:
+
+- User screenshot, 2026-06-20:
+  `/var/folders/d_/2b_g_3tx1y97s_s1lks2_v1c0000gp/T/telegram-cloud-photo-size-1-5024189100495408133-w.jpg`.
+- The screenshot shows Waterfall's left column starting below the title/tabs while the right column
+  begins under the status/title/action chrome. The first right-column cover is visible behind the status
+  bar and search/up actions.
+- This is not just a cosmetic top margin issue. It proves the top reserve is being applied to only one
+  masonry lane/column instead of the whole Waterfall viewport.
+
+Root cause now confirmed from source and API model:
+
+- `shared/src/main/ets/components/PullRefreshWaterFlowScaffold.ets` renders:
+  `WaterFlow { this.TopSpacer(); this.content() }`, where `TopSpacer()` is `FlowItem() { Blank().height(...) }`.
+- HarmonyOS WaterFlow lays out vertical children by placing each `FlowItem` into the currently shortest
+  column. A normal `FlowItem` is not a full-width row spacer.
+- Therefore the current top spacer can occupy one column while the next content item is placed in the
+  other column at the top of the WaterFlow, exactly matching the screenshot.
+- `scripts/test_gallery_waterflow_contract.mjs` currently asserts this wrong implementation:
+  it requires `private TopSpacer()`, `FlowItem() {`, and `Blank().height(this.topSpacerHeight())`.
+  That contract must be inverted; it should fail if top avoidance is implemented as an ordinary
+  masonry `FlowItem` without a documented full-span/section-level mechanism.
+
+Corrected implementation direction:
+
+- Keep Grid's `GridLayoutOptions.irregularIndexes` spacer model; the Grid part of the previous lane is
+  not the failing behavior shown here.
+- For Waterfall, do not use top/bottom `WaterFlow.padding`, `contentStartOffset`, or an ordinary
+  top-spacer `FlowItem`.
+- Use a WaterFlow-compatible full-width or section-level top reserve. Candidate mechanisms to evaluate:
+  `WaterFlowSections` with a first/top section that spans the full width or applies section-level top
+  margin, a supported header-like API if available on the target SDK, or another HDS-compatible scroll
+  model that keeps title auto-hide linkage without letting cards enter the title/status region.
+- Contracts must prove the chosen Waterfall reserve cannot be assigned to a single masonry column.
+- Device acceptance must include a before/after Waterfall screenshot at the top of Home, showing both
+  columns begin below the title/tabs/action chrome and the first scroll still drives HDS title auto-hide.

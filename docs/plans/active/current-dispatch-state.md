@@ -48,13 +48,20 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
   unboundedly tall card. Inside the bounded slot, render proportionally and crop/clip if needed; never
   restore non-uniform stretching and never remove list/grid thumbnail placeholders to solve a Waterfall
   cover problem.
-- Gallery Grid/Waterfall immersive safe-area and title-scroll linkage are baseline: top/bottom title or
+- Gallery Grid immersive safe-area and title-scroll linkage are baseline: top/bottom title or
   tab-bar avoidance must be real scroll content or native scroll footer content, not top/bottom
   `Grid.padding` / `WaterFlow.padding` and not `contentStartOffset` / `contentEndOffset`. Grid uses
   `GridLayoutOptions.irregularIndexes` for full-row spacer items while keeping native
-  `repeat(auto-fit, ...)`; Waterfall uses real top content plus native footer spacing. Do not restore
-  any padding-region or non-content offset model that makes cards disappear under translucent chrome or
-  delays HDS title auto-hide.
+  `repeat(auto-fit, ...)`. Waterfall is not accepted for immersive top avoidance: a top spacer rendered
+  as an ordinary `FlowItem` is assigned to one masonry column, so sibling columns can start under the
+  status/title chrome. Do not claim Waterfall safe-area/title linkage accepted until the top reserve is
+  full-width or section-level, not a normal masonry item. Do not restore any padding-region or
+  non-content offset model that makes cards disappear under translucent chrome or delays HDS title
+  auto-hide.
+- AllThumbnails is a responsive preview grid, not a hero layout. Page 1 must render as the same
+  `PreviewThumbTile` grid cell shape as pages 2/3/4. If a spacer/index bug makes the first real
+  thumbnail full-width, fix the grid spacer item-count contract; do not special-case page 1 or change
+  preview thumbnail aspect/fit semantics.
 - AllThumbnails later-thumbnail Reader start is implemented and should not be reopened without a new
   reproduction.
 - Reader single-page core baseline is accepted. Double-page is not final architecture, but the current
@@ -118,7 +125,7 @@ Historical feedback in this section must not trigger new implementation.
 - MyTags tagset route depth is implemented pending controller acceptance: Settings opens the tagset-list
   landing page, tapping a tagset pushes a routed detail instance with `MyTagsPageParams(tagsetId)`, and
   system Back returns from detail to the tagset list instead of exiting directly to Settings.
-- Gallery Grid/Waterfall title-bar scroll linkage is implemented pending controller acceptance: Grid no
+- Gallery Grid title-bar scroll linkage is implemented pending controller acceptance: Grid no
   longer uses `contentStartOffset` / `contentEndOffset`, uses `GridLayoutOptions.irregularIndexes` for
   full-row top/bottom spacer content, and Waterfall uses `WaterFlowSections` so top/bottom reserves are
   full-width section items instead of normal masonry `FlowItem`s. Simulator evidence on `127.0.0.1:5555`
@@ -176,8 +183,19 @@ a bounded validation path.
 
 1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
-   finds a comment write regression.
-2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+   finds a comment write regression. If comment UI polish is reopened during that acceptance, also replace
+   the current arrow vote icons with native `hand_thumbsup` / `hand_thumbsup_fill` and
+   `hand_thumbsdown` / `hand_thumbsdown_fill`, and check whether fixed square action hit areas are making
+   comment footers too tall.
+2. Waterfall top avoidance is broken: screenshot evidence
+   `/var/folders/d_/2b_g_3tx1y97s_s1lks2_v1c0000gp/T/telegram-cloud-photo-size-1-5024189100495408133-w.jpg`
+   shows the right waterfall column beginning under the status/title/action chrome while the left column
+   starts below the tabs. Current source renders `TopSpacer()` as a normal `FlowItem`, and WaterFlow
+   places normal items into the shortest column rather than spanning all columns. Next lane must replace
+   that with a WaterFlow-compatible full-width or section-level top reserve, and update contracts so a
+   normal top-spacer `FlowItem` is forbidden. Keep this scoped to Waterfall viewport avoidance; do not
+   touch Reader gestures or unrelated Grid semantics.
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
