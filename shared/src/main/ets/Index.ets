@@ -34,7 +34,6 @@ export {
   GalleryArchiverParams,
   GalleryWebParams,
   GalleryEditTagsParams,
-  GalleryRemoteFavoriteParams,
   ReaderParams,
   ImagePageRouteErrorParams,
   GalleryCommentsParams,
@@ -71,6 +70,7 @@ export { GroupedListSection } from './components/GroupedListSection'
 export { ConciseListRow } from './components/ConciseListRow'
 export { SectionHeader } from './components/SectionHeader'
 export { AppSearchField } from './components/AppSearchField'
+export { AppModalScaffold } from './components/AppModalScaffold'
 
 // parser
 export { HtmlSelectorUtils } from './parser/HtmlSelectorUtils'
@@ -83,6 +83,7 @@ export { EhGalleryImageParser } from './parser/EhGalleryImageParser'
 export { EhGalleryTorrentParser } from './parser/EhGalleryTorrentParser'
 export { EhGalleryArchiverParser } from './parser/EhGalleryArchiverParser'
 export { EhImagePageParser, ImagePageResult } from './parser/EhImagePageParser'
+export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGalleryFavoriteParser'
 
 // services
 export { ImageResolveService } from './services/ImageResolveService'

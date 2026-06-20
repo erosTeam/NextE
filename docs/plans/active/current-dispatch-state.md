@@ -52,10 +52,10 @@ Historical feedback in this section must not trigger new implementation.
 - Gallery rating safety entry is implemented and pending controller acceptance: detail exposes a rating
   entry, but it opens a native non-destructive dialog and only offers cancel / in-app web until the
   protected EH rating write flow is designed.
-- Remote EH favorite safety entry is implemented and pending controller acceptance: detail exposes an
-  `EH 收藏` menu entry that shows current remote favorite state and favcat slots, but slot/remove attempts
-  are blocked by a native non-destructive dialog and only offer cancel / in-app web until the protected
-  favorite write flow is designed.
+- Remote EH favorite sheet/write path is implemented and pending controller acceptance: detail opens an
+  in-place `EH 收藏` sheet with left cancel, right confirm, favnote input, favcat slots, and remove state.
+  The right confirm is wired to the EH favorite form POST; automated QA still cancels by default because
+  the operation is non-idempotent.
 
 ## Parked / Guidance Only
 
@@ -80,26 +80,23 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Remote EH favorite real write loop: extend the current non-destructive `EH 收藏` safety entry into
-   add/update/remove/move favorite with favcat/favnote, explicit destructive-write confirmation, refresh,
-   and non-destructive tests before any real submit.
-2. Gallery rating real write loop: extend the current non-destructive rating entry into a protected
+1. Gallery rating real write loop: extend the current non-destructive rating entry into a protected
    `rategallery` flow with submit gating, refresh, and clear failure feedback.
-3. Comment write actions: after the full-comments entry repair, add bounded comment actions such as
+2. Comment write actions: after the full-comments entry repair, add bounded comment actions such as
    vote up/down, reply/new comment, and own-comment edit with EH write safeguards.
-4. Settings shell audit: identify settings rows/pages that are only shells, disabled placeholders, or
+3. Settings shell audit: identify settings rows/pages that are only shells, disabled placeholders, or
    not wired to real behavior; either finish the high-frequency ones or make their limited scope honest.
-5. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
+4. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
    writes establish the protected EH write pattern.
-6. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+5. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-7. Search submit/clear behavior: IME search must submit; clearing the query must return to history/blank
+6. Search submit/clear behavior: IME search must submit; clearing the query must return to history/blank
    state rather than stale results.
-8. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
+7. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
    accepted; do not make Grid behave like Waterfall.
-9. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+8. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-10. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+9. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule

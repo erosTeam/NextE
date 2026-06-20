@@ -10,6 +10,7 @@ import { EhGalleryDetailParser } from '../parser/EhGalleryDetailParser'
 import { EhGalleryImageParser } from '../parser/EhGalleryImageParser'
 import { EhGalleryTorrentParser } from '../parser/EhGalleryTorrentParser'
 import { EhGalleryArchiverParser } from '../parser/EhGalleryArchiverParser'
+import { EhGalleryFavoriteParser, GalleryFavoriteInfo } from '../parser/EhGalleryFavoriteParser'
 import { UserTagStore } from '../state/UserTagStore'
 import { GalleryList } from '../model/GalleryList'
 import { EhGallery } from '../model/EhGallery'
@@ -69,6 +70,15 @@ export interface FavoritesQuery {
   order: string // inline_set order: 'fs_f' (favorited time) / 'fs_p' (posted time); '' = EH default
 }
 
+/** POST body for gallerypopups.php?act=addfav. favcat='favdel' removes the remote favorite. */
+export interface GalleryFavoriteUpdate {
+  isEx: boolean
+  gid: string
+  token: string
+  favcat: string
+  favnote: string
+}
+
 /**
  * Web-page API surface: builds EH list/search URLs, fetches via EhHttpClient, hands HTML
  * to the parsers. Mirrors V2Next's ApiService. M1 covers the anonymous table-site gallery
@@ -103,6 +113,48 @@ export class EhApiService {
       throw failure
     }
     return resp
+  }
+
+  private formPair(name: string, value: string): string {
+    return `${encodeURIComponent(name)}=${encodeURIComponent(value)}`
+  }
+
+  async getGalleryFavoriteInfo(isEx: boolean, gid: string, token: string): Promise<GalleryFavoriteInfo> {
+    const base: string = EhConstants.baseUrl(isEx)
+    const url: string =
+      `${base}/gallerypopups.php?gid=${encodeURIComponent(gid)}` +
+        `&t=${encodeURIComponent(token)}&act=addfav`
+    const resp: EhTextResponse = await this.fetch(url, isEx, 'generic')
+    return EhGalleryFavoriteParser.parse(resp.body)
+  }
+
+  async updateGalleryFavorite(update: GalleryFavoriteUpdate): Promise<void> {
+    const base: string = EhConstants.baseUrl(update.isEx)
+    const url: string =
+      `${base}/gallerypopups.php?gid=${encodeURIComponent(update.gid)}` +
+        `&t=${encodeURIComponent(update.token)}&act=addfav`
+    const body: string = [
+      this.formPair('favcat', update.favcat.length > 0 ? update.favcat : 'favdel'),
+      this.formPair('update', '1'),
+      this.formPair('favnote', update.favnote),
+    ].join('&')
+    let resp: EhTextResponse
+    try {
+      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, body)
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, url)
+    }
+    if (resp.statusCode >= 400) {
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+      if (failure !== null) {
+        throw failure
+      }
+      throw new Error(`favorite HTTP ${resp.statusCode}`)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+    if (failure !== null) {
+      throw failure
+    }
   }
 
   /**

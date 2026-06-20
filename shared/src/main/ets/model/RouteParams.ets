@@ -127,35 +127,6 @@ export class GalleryEditTagsParams {
   }
 }
 
-/** Params for the non-destructive remote EH favorite management entry. */
-export class GalleryRemoteFavoriteParams {
-  gid: string = ''
-  token: string = ''
-  isEx: boolean = false
-  title: string = ''
-  favcat: string = ''
-  favTitle: string = ''
-  favNote: string = ''
-
-  constructor(
-    gid: string = '',
-    token: string = '',
-    isEx: boolean = false,
-    title: string = '',
-    favcat: string = '',
-    favTitle: string = '',
-    favNote: string = '',
-  ) {
-    this.gid = gid
-    this.token = token
-    this.isEx = isEx
-    this.title = title
-    this.favcat = favcat
-    this.favTitle = favTitle
-    this.favNote = favNote
-  }
-}
-
 /** Params for the 'Reader' destination. */
 export class ReaderParams {
   gid: string = ''

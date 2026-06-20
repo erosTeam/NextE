@@ -1,4 +1,5 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { common, Want } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
 import {
@@ -13,10 +14,13 @@ import {
   GalleryArchiverParams,
   GalleryWebParams,
   GalleryEditTagsParams,
-  GalleryRemoteFavoriteParams,
   ReaderParams,
   GalleryCommentsParams,
   AllThumbnailsParams,
+  Favcat,
+  GalleryFavoriteInfo,
+  EhApiService,
+  EhErrorText,
   connectNavStack,
   connectSearchAction,
   connectSiteMode,
@@ -40,6 +44,7 @@ import {
   GroupedListSection,
   PageErrorState,
   AppStrings,
+  AppModalScaffold,
   immersiveTitleBarOpts,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
@@ -77,6 +82,13 @@ export struct GalleryDetailPage {
   // enqueues/records a task. It does not start the background image downloader.
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
   @Local localFav: LocalFavState = connectLocalFav();
+  @Local remoteFavoriteSheetShown: boolean = false;
+  @Local remoteFavoriteSelectedCat: string = '';
+  @Local remoteFavoriteNote: string = '';
+  @Local remoteFavoriteSlots: Favcat[] = [];
+  @Local remoteFavoriteSubmitting: boolean = false;
+  @Local remoteFavoriteLoadingFavcats: boolean = false;
+  @Local remoteFavoriteError: string = '';
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -354,11 +366,11 @@ export struct GalleryDetailPage {
   // stay discoverable without crowding the title bar.
   private detailMenu(): Record<string, Object> {
     const favoriteInner: Record<string, Object> = {
-      'label': this.localFavoriteLabel(),
-      'icon': this.isLocalFavorite() ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'),
+      'label': $r('app.string.detail_favorite'),
+      'icon': this.favoriteTitleBarIcon(),
       'isEnabled': true,
       'action': () => {
-        this.toggleLocalFavoriteWithSafety()
+        this.openRemoteFavorite()
       },
     }
     const shareInner: Record<string, Object> = {
@@ -383,14 +395,6 @@ export struct GalleryDetailPage {
       'isEnabled': true,
       'action': () => {
         this.openEditTags()
-      },
-    }
-    const remoteFavoriteInner: Record<string, Object> = {
-      'label': $r('app.string.detail_remote_favorite'),
-      'icon': this.vm.gallery.favcat.length > 0 ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'),
-      'isEnabled': true,
-      'action': () => {
-        this.openRemoteFavorite()
       },
     }
     const copyLinkInner: Record<string, Object> = {
@@ -430,13 +434,24 @@ export struct GalleryDetailPage {
       { 'content': shareInner },
       { 'content': refreshInner },
       { 'content': editTagsInner },
-      { 'content': remoteFavoriteInner },
       { 'content': copyLinkInner },
       { 'content': copyTitleInner },
       { 'content': openBrowserInner },
       { 'content': openWebInner },
     ]
     return { 'value': items, 'maxCount': 3 }
+  }
+
+  private favoriteTitleBarIcon(): Resource | SymbolGlyphModifier {
+    if (this.vm.gallery.favcat.length > 0) {
+      return new SymbolGlyphModifier($r('sys.symbol.heart_fill'))
+        .fontColor([EhConstants.favCatColor(this.vm.gallery.favcat)])
+    }
+    if (this.isLocalFavorite()) {
+      return new SymbolGlyphModifier($r('sys.symbol.heart_fill'))
+        .fontColor([ThemeConstants.BRAND_PRIMARY])
+    }
+    return $r('sys.symbol.heart')
   }
 
   private galleryUrl(): string {
@@ -522,18 +537,241 @@ export struct GalleryDetailPage {
   }
 
   private openRemoteFavorite(): void {
-    this.stack.pushPathByName(
-      'GalleryRemoteFavorite',
-      new GalleryRemoteFavoriteParams(
+    this.remoteFavoriteSelectedCat = this.vm.gallery.favcat.length > 0 ? this.vm.gallery.favcat : ''
+    this.remoteFavoriteNote = this.vm.gallery.favNote
+    this.remoteFavoriteSlots = []
+    this.remoteFavoriteError = ''
+    this.remoteFavoriteSheetShown = true
+    this.refreshRemoteFavcats()
+  }
+
+  private async refreshRemoteFavcats(): Promise<void> {
+    if (this.remoteFavoriteLoadingFavcats) {
+      return
+    }
+    this.remoteFavoriteLoadingFavcats = true
+    this.remoteFavoriteError = ''
+    try {
+      const info: GalleryFavoriteInfo = await EhApiService.getInstance().getGalleryFavoriteInfo(
+        connectSiteMode().isEx,
         this.params.gid,
         this.params.token,
-        connectSiteMode().isEx,
-        this.navTitle(),
-        this.vm.gallery.favcat,
-        this.vm.gallery.favTitle,
-        this.vm.gallery.favNote,
-      ),
-    )
+      )
+      this.remoteFavoriteSlots = info.favcats
+      if (info.selectFavcat.length > 0) {
+        this.remoteFavoriteSelectedCat = info.selectFavcat
+      } else if (info.favcats.findIndex((fav: Favcat) => fav.favId === this.remoteFavoriteSelectedCat) < 0) {
+        this.remoteFavoriteSelectedCat = info.favcats.length > 0 ? info.favcats[0].favId : ''
+      }
+      this.remoteFavoriteNote = info.favNote
+      if (info.favcats.length === 0) {
+        this.remoteFavoriteError = AppStrings.get('detail_remote_favorite_no_slots')
+      }
+    } catch (e) {
+      this.remoteFavoriteError = EhErrorText.forUser(e)
+    } finally {
+      this.remoteFavoriteLoadingFavcats = false
+    }
+  }
+
+  private async submitRemoteFavorite(): Promise<void> {
+    if (this.remoteFavoriteSubmitting) {
+      return
+    }
+    this.remoteFavoriteSubmitting = true
+    this.remoteFavoriteError = ''
+    const favcat: string =
+      this.remoteFavoriteSelectedCat.length > 0 ? this.remoteFavoriteSelectedCat : 'favdel'
+    try {
+      await EhApiService.getInstance().updateGalleryFavorite({
+        isEx: connectSiteMode().isEx,
+        gid: this.params.gid,
+        token: this.params.token,
+        favcat: favcat,
+        favnote: favcat === 'favdel' ? '' : this.remoteFavoriteNote.trim(),
+      })
+      await this.vm.refresh()
+      this.remoteFavoriteSheetShown = false
+      this.getUIContext().getPromptAction().openToast({
+        message: $r('app.string.detail_remote_favorite_saved'),
+      }).catch((_toastError: Error) => {
+      })
+    } catch (e) {
+      this.remoteFavoriteError = EhErrorText.forUser(e)
+    } finally {
+      this.remoteFavoriteSubmitting = false
+    }
+  }
+
+  private isRemoteFavoriteSlotSelected(favcat: string): boolean {
+    return this.remoteFavoriteSelectedCat === favcat
+  }
+
+  @Builder
+  private RemoteFavoriteSlot(fav: Favcat) {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      SymbolGlyph($r('sys.symbol.heart_fill'))
+        .fontSize(24)
+        .fontColor([EhConstants.favCatColor(fav.favId)])
+      Text(fav.favTitle)
+        .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+        .fontWeight(this.isRemoteFavoriteSlotSelected(fav.favId) ? FontWeight.Medium : FontWeight.Regular)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .layoutWeight(1)
+      if (fav.totNum > 0) {
+        Text(`${fav.totNum}`)
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      if (this.isRemoteFavoriteSlotSelected(fav.favId)) {
+        SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+          .fontColor([ThemeConstants.BRAND_PRIMARY])
+      }
+    }
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_MD,
+      top: ThemeConstants.SPACE_MD,
+      bottom: ThemeConstants.SPACE_MD,
+    })
+    .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+    .backgroundColor(this.isRemoteFavoriteSlotSelected(fav.favId) ? $r('sys.color.ohos_id_color_click_effect') : Color.Transparent)
+    .enabled(!this.remoteFavoriteSubmitting)
+    .onClick(() => {
+      this.remoteFavoriteSelectedCat = fav.favId
+    })
+  }
+
+  @Builder
+  private LocalFavoriteRow() {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      SymbolGlyph(this.isLocalFavorite() ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
+        .fontSize(24)
+        .fontColor([this.isLocalFavorite() ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary')])
+      Text(this.localFavoriteLabel())
+        .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+      Toggle({ type: ToggleType.Switch, isOn: this.isLocalFavorite() })
+        .enabled(!this.remoteFavoriteSubmitting)
+        .onChange((_checked: boolean) => {
+          this.toggleLocalFavoriteWithSafety()
+        })
+    }
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_MD,
+      top: ThemeConstants.SPACE_MD,
+      bottom: ThemeConstants.SPACE_MD,
+    })
+    .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+  }
+
+  @Builder
+  private RemoteFavoriteSheet() {
+    AppModalScaffold({
+      title: $r('app.string.detail_remote_favorite'),
+      includeKeyboardPadding: true,
+      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+      confirmText: $r('app.string.detail_remote_favorite_save'),
+      confirmEnabled: this.remoteFavoriteSlots.length > 0,
+      confirmLoading: this.remoteFavoriteSubmitting,
+      closeAction: () => {
+        this.remoteFavoriteSheetShown = false
+      },
+      confirmAction: () => {
+        this.submitRemoteFavorite()
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          if (this.remoteFavoriteLoadingFavcats) {
+            Row({ space: ThemeConstants.SPACE_SM }) {
+              LoadingProgress()
+                .width(ThemeConstants.LOADING_SIZE_SMALL)
+                .height(ThemeConstants.LOADING_SIZE_SMALL)
+              Text($r('app.string.detail_remote_favorite_loading_slots'))
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontColor($r('sys.color.font_secondary'))
+            }
+            .width('100%')
+          }
+          Text(this.vm.gallery.favcat.length > 0 ?
+            $r('app.string.detail_remote_favorite_current_slot', this.vm.gallery.favTitle) :
+            $r('app.string.detail_remote_favorite_none'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor($r('sys.color.font_secondary'))
+            .width('100%')
+          TextArea({
+            text: this.remoteFavoriteNote,
+            placeholder: $r('app.string.detail_remote_favorite_note_placeholder'),
+          })
+            .height(96)
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .backgroundColor($r('app.color.card_background'))
+            .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+            .enabled(!this.remoteFavoriteSubmitting && this.remoteFavoriteSelectedCat !== 'favdel')
+            .onChange((value: string) => {
+              this.remoteFavoriteNote = value
+            })
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            ForEach(
+              this.remoteFavoriteSlots,
+              (fav: Favcat) => {
+                this.RemoteFavoriteSlot(fav)
+              },
+              (fav: Favcat) => fav.favId,
+            )
+            if (this.vm.gallery.favcat.length > 0) {
+              Row({ space: ThemeConstants.SPACE_MD }) {
+                SymbolGlyph($r('sys.symbol.heart_slash'))
+                  .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+                  .fontColor([Color.Red])
+                Text($r('app.string.detail_remote_favorite_remove'))
+                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                  .fontColor(Color.Red)
+                  .layoutWeight(1)
+                if (this.remoteFavoriteSelectedCat === 'favdel') {
+                  SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+                    .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+                    .fontColor([Color.Red])
+                }
+              }
+              .width('100%')
+              .padding({
+                left: ThemeConstants.SPACE_MD,
+                right: ThemeConstants.SPACE_MD,
+                top: ThemeConstants.SPACE_SM,
+                bottom: ThemeConstants.SPACE_SM,
+              })
+              .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+              .backgroundColor(this.remoteFavoriteSelectedCat === 'favdel' ?
+                $r('sys.color.ohos_id_color_click_effect') : Color.Transparent)
+              .enabled(!this.remoteFavoriteSubmitting)
+              .onClick(() => {
+                this.remoteFavoriteSelectedCat = 'favdel'
+              })
+            }
+          }
+          .width('100%')
+          this.LocalFavoriteRow()
+          if (this.remoteFavoriteError.length > 0) {
+            Text(this.remoteFavoriteError)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor(Color.Red)
+              .width('100%')
+          }
+        }
+        .width('100%')
+      }
+    }
   }
 
   build() {
@@ -659,6 +897,10 @@ export struct GalleryDetailPage {
           this.openReader(this.resumeIndex())
         })
       }
+      .bindSheet($$this.remoteFavoriteSheetShown, this.RemoteFavoriteSheet(), {
+        detents: [SheetSize.LARGE],
+        showClose: false,
+      })
     }
     .titleBar(this.detailTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))

@@ -48,7 +48,7 @@ Type: feature gap / core product completeness
 
 Priority suggestion: P0/P1
 
-Status: active intake / partial safety entry implemented
+Status: active intake / remote favorite write path implemented pending acceptance
 
 Source:
 
@@ -66,9 +66,9 @@ Source:
     destructive archive/download submit pipeline.
   - Gallery rating currently has a safety entry only: it opens a non-destructive dialog and in-app web
     path, but does not yet submit `rategallery`.
-  - Remote EH favorite now has the same safety-entry pattern: detail exposes `EH 收藏`, shows current
-    remote favorite state and favcat slots, and blocks slot/remove attempts behind a non-destructive
-    cancel / in-app web dialog. It does not yet submit the protected favorite write.
+  - Remote EH favorite now has an in-detail sheet: `EH 收藏` opens favnote + favcat selection with left
+    cancel and right confirm. The confirm path submits the EH favorite form and refreshes detail state;
+    automated QA still cancels by default because the operation is non-idempotent.
   - Local favorites are implemented separately from remote EH favorite mutation.
 - Read-only `eros_fe` comparison:
   - `GalleryFavController` handles add/remove/move favorites with favcat/favnote.
@@ -81,13 +81,11 @@ Scheduling judgment:
 - The next major progress should be user-visible feature completion, not another long cycle of Reader
   double-page architecture or repeated visual QA, unless a current P0 defect blocks basic use.
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
-  1. Remote EH favorite real write loop: extend the safety entry into add/update/remove/move favorite,
-     favcat selection, favnote, and clear logged-out / ExHentai gating.
-  2. Gallery rating real write loop: protected `rategallery` submit using already parsed API metadata,
+  1. Gallery rating real write loop: protected `rategallery` submit using already parsed API metadata,
      then refresh visible rating state.
-  3. Comment actions: comment vote first if bounded, then reply/new comment, then own-comment edit.
-  4. Tag/MyTags write actions: tag vote/suggest/set-user-tag after the write safety pattern is proven.
-  5. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
+  2. Comment actions: comment vote first if bounded, then reply/new comment, then own-comment edit.
+  3. Tag/MyTags write actions: tag vote/suggest/set-user-tag after the write safety pattern is proven.
+  4. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
      smaller write operations unless the user explicitly prioritizes downloads.
 
 Implementation constraints:

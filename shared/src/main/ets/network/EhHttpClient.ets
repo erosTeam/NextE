@@ -119,6 +119,50 @@ export class EhHttpClient {
     throw (lastError !== null ? lastError : new Error('request failed'))
   }
 
+  /** POST a classic PHP form body. Used by protected EH write endpoints after explicit user confirmation. */
+  async postFormUrlEncoded(url: string, body: string): Promise<EhTextResponse> {
+    let attempt: number = 0
+    let lastError: Error | null = null
+    while (attempt < MAX_RETRIES) {
+      const req: http.HttpRequest = http.createHttp()
+      try {
+        const header: Record<string, string> = {
+          'User-Agent': EhConstants.USER_AGENT,
+          'Accept': EhConstants.ACCEPT,
+          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+          'Accept-Encoding': 'gzip',
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': EhCookieStore.getInstance().header(),
+        }
+        const resp: http.HttpResponse = await req.request(url, {
+          method: http.RequestMethod.POST,
+          header: header,
+          extraData: body,
+          expectDataType: http.HttpDataType.STRING,
+          connectTimeout: CONNECT_TIMEOUT_MS,
+          readTimeout: READ_TIMEOUT_MS,
+          usingCache: false,
+        })
+        const code: number = resp.responseCode as number
+        const respBody: string = typeof resp.result === 'string' ? (resp.result as string) : ''
+        req.destroy()
+        if (code >= 500 && attempt < MAX_RETRIES - 1) {
+          lastError = new Error(`HTTP ${code}`)
+        } else {
+          return { statusCode: code, body: respBody }
+        }
+      } catch (error) {
+        const e = error as Error
+        lastError = e
+        DiagnosticLogger.warn('network', 'http_form_retry', `attempt ${attempt}: ${e.message}`)
+        req.destroy()
+      }
+      attempt++
+      await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
+    }
+    throw (lastError !== null ? lastError : new Error('request failed'))
+  }
+
   async downloadBinaryToFile(url: string, filePath: string): Promise<number> {
     let attempt: number = 0
     let lastError: Error | null = null

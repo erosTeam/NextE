@@ -373,6 +373,10 @@
       "value": "Edit tags"
     },
     {
+      "name": "detail_favorite",
+      "value": "Favorite"
+    },
+    {
       "name": "detail_remote_favorite",
       "value": "EH favorite"
     },
@@ -385,20 +389,32 @@
       "value": "Not in EH favorites"
     },
     {
-      "name": "detail_remote_favorite_readonly_desc",
-      "value": "Remote favorite changes are protected. This page shows the current state and favorite slots, but NextE will not submit changes yet."
+      "name": "detail_remote_favorite_current_slot",
+      "value": "Currently in %s"
     },
     {
-      "name": "detail_remote_favorite_protected_desc",
-      "value": "Remote favorite changes are protected and are not submitted in NextE yet. Open the gallery web page to change it on EH?"
+      "name": "detail_remote_favorite_note_placeholder",
+      "value": "Favorite note"
+    },
+    {
+      "name": "detail_remote_favorite_loading_slots",
+      "value": "Loading favorite folders"
+    },
+    {
+      "name": "detail_remote_favorite_no_slots",
+      "value": "Unable to load your EH favorite folders"
     },
     {
       "name": "detail_remote_favorite_remove",
       "value": "Remove from EH favorites"
     },
     {
-      "name": "detail_remote_favorite_slot",
-      "value": "Slot %s"
+      "name": "detail_remote_favorite_save",
+      "value": "Save favorite"
+    },
+    {
+      "name": "detail_remote_favorite_saved",
+      "value": "Favorite updated"
     },
     {
       "name": "detail_rate",

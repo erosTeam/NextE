@@ -44,7 +44,7 @@ import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
 import { SettingsPage, EhSettingsPage, LayoutSettingsPage, ReaderSettingsPage, DownloadSettingsPage, SearchSettingsPage, AdvancedSettingsPage, SecuritySettingsPage, AboutPage } from 'settings'
-import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryArchiverPage, GalleryAllThumbnailsPage, GalleryCommentsPage, GalleryEditTagsPage, GalleryRemoteFavoritePage } from 'gallery'
+import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryArchiverPage, GalleryAllThumbnailsPage, GalleryCommentsPage, GalleryEditTagsPage } from 'gallery'
 import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
 import { EhLoginWebPage } from './EhLoginWebPage'
@@ -388,8 +388,6 @@ struct Index {
       GalleryWebPage()
     } else if (name === 'GalleryEditTags') {
       GalleryEditTagsPage()
-    } else if (name === 'GalleryRemoteFavorite') {
-      GalleryRemoteFavoritePage()
     } else if (name === 'Search') {
       GallerySearchPage()
     } else if (name === 'Reader') {
