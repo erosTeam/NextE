@@ -665,6 +665,29 @@ Remaining acceptance:
 
 - Needs controller/user acceptance of the long-press delete behavior and before/after device evidence.
 
+Follow-up implementation:
+
+- `fix(search): confirm clearing search history` extends the same Search history surface so the
+  all-history `清除` action on the Search landing page no longer deletes immediately. It now opens a
+  native confirmation dialog with cancel and destructive clear actions; cancelling keeps the visible
+  history chips intact.
+- This is separate from Search settings history clear safety. The Settings path was already gated,
+  while the main Search page still had a direct `SearchHistorySettings.clear(this.ctx())` click target.
+
+Follow-up evidence:
+
+- FE source grounding: `eros_fe/lib/pages/tab/controller/search_page_controller.dart` still treats
+  `clearHistory()` as a persisted clear-all action; NextE keeps that data semantic but adds a native
+  confirmation gate for accidental-tap safety.
+- Android FE reference: ADB target `fa967a75`, package `com.honjow.fehviewer`, source/UI reference
+  captures under `.hvigor/outputs/search-history-clear-confirm-fe/`.
+- NextE HarmonyOS evidence: target `127.0.0.1:5555`, signed HAP installed, captures under
+  `.hvigor/outputs/search-history-clear-confirm-nexte/`. `search_clear_confirm.png` shows the native
+  confirmation dialog; `search_after_cancel.png` shows history chips still present after cancel.
+- Deterministic contract: `scripts/test_search_history_contract.mjs` now asserts clear-all is gated
+  by `showAlertDialog`, uses localized confirmation text, keeps a separate clear helper, and the
+  Search page clear text no longer directly calls `SearchHistorySettings.clear(...)`.
+
 ### Settings Root Missing Search Settings Entry
 
 Type: feature gap / settings reachability

@@ -102,6 +102,9 @@ Historical feedback in this section must not trigger new implementation.
 - Search settings history clear safety is corrected and pending controller acceptance: tapping
   `清除` in Search settings now opens a native confirmation dialog before clearing persisted search
   history instead of deleting immediately.
+- Search page history clear safety is corrected and pending controller acceptance: tapping `清除`
+  on the Search landing/history page now opens a native confirmation dialog before clearing all
+  persisted search history. Cancel preserves the visible history list.
 - Search settings filter reset safety is corrected and pending controller acceptance: tapping
   `重置筛选` now opens a native confirmation dialog before clearing the saved filter profile.
 - Viewed history clear safety is corrected and pending controller acceptance: tapping the History page

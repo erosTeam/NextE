@@ -278,6 +278,27 @@ export struct GallerySearchPage {
     promptAction.showToast({ message: $r('app.string.search_history_deleted') })
   }
 
+  private clearAllSearchHistory(): void {
+    SearchHistorySettings.clear(this.ctx())
+  }
+
+  private confirmClearAllSearchHistory(): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.search_history_clear_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.search_history_clear'),
+        fontColor: Color.Red,
+        action: () => {
+          this.clearAllSearchHistory()
+        },
+      },
+    })
+  }
+
   @Builder
   SearchSuggestionView() {
     List({ space: ThemeConstants.SPACE_XS }) {
@@ -365,7 +386,7 @@ export struct GallerySearchPage {
             .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
             .fontColor($r('sys.color.font_emphasize'))
             .onClick(() => {
-              SearchHistorySettings.clear(this.ctx())
+              this.confirmClearAllSearchHistory()
             })
         }
         .width('100%')

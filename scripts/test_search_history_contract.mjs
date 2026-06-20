@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
- * Contract for Search history retention and per-entry deletion.
+ * Contract for Search history retention, per-entry deletion, and clear-all safety.
  *
  * Grounding:
  * - eros_fe/lib/pages/tab/view/search_page.dart `_searchHistoryBtn*` appends on tap and opens a
  *   delete affordance on long press.
  * - eros_fe/lib/pages/tab/controller/search_page_controller.dart caps history at 100 and persists
- *   removeHistory/clearHistory.
+ *   removeHistory/clearHistory. NextE keeps the same history semantics, but adds a native
+ *   confirmation gate before clearing all entries so accidental taps do not wipe local history.
  * - Primary information is recent search terms. Primary action is tap-to-search; secondary actions
- *   are long-press single delete and clear-all.
+ *   are long-press single delete and clear-all with confirmation.
  * - Scope is history retention/deletion only; translated history and QuickSearch profiles are deferred.
  * - HarmonyOS expression keeps the existing chip list and adds a LongPressGesture + toast.
  *
@@ -44,6 +45,8 @@ ok('grounding: FE removeHistory persists the remaining list',
   /void removeHistory\(Object\? value\)[\s\S]*searchHistory\.remove\(value\)[\s\S]*hiveHelper\.setSearchHistory/.test(feController))
 ok('grounding: FE caps search history at 100',
   /if \(searchHistory\.length > 100\)[\s\S]*removeRange\(100, searchHistory\.length\)/.test(feController))
+ok('grounding: FE clearHistory clears and persists the whole list',
+  /void clearHistory\(\)[\s\S]*searchHistory\.clear\(\)[\s\S]*hiveHelper\.setSearchHistory/.test(feController))
 
 ok('NextE caps search history at 100', /const MAX_HISTORY: number = 100/.test(settings))
 ok('NextE exposes single-entry history removal',
@@ -63,12 +66,18 @@ ok('History chip tap still searches from history',
   /\.onClick\(\(\) => \{[\s\S]*this\.searchFromHistory\(q\)/.test(page))
 ok('History chip long-press deletes one history item',
   /LongPressGesture\(\{ repeat: false, duration: 500 \}\)[\s\S]*this\.deleteSearchHistory\(q\)/.test(page))
-ok('Clear-all remains available',
-  /SearchHistorySettings\.clear\(this\.ctx\(\)\)/.test(page))
+ok('Search page clear-all helper is separate from the click target',
+  /private clearAllSearchHistory\(\): void \{[\s\S]*SearchHistorySettings\.clear\(this\.ctx\(\)\)/.test(page))
+ok('Search page clear-all is gated by a native confirmation dialog',
+  /private confirmClearAllSearchHistory\(\): void \{[\s\S]*showAlertDialog\(\{[\s\S]*search_history_clear_confirm[\s\S]*common_cancel[\s\S]*fontColor: Color\.Red[\s\S]*this\.clearAllSearchHistory\(\)/.test(page))
+ok('Clear-all text opens confirmation instead of deleting immediately',
+  /Text\(\$r\('app\.string\.search_history_clear'\)\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.confirmClearAllSearchHistory\(\)[\s\S]*\}\)/.test(page) &&
+    !/Text\(\$r\('app\.string\.search_history_clear'\)\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*SearchHistorySettings\.clear\(this\.ctx\(\)\)/.test(page))
 
 for (const file of localeFiles) {
   const content = readFileSync(join(ROOT, file), 'utf8')
   ok(`${file} defines search_history_deleted`, /"name": "search_history_deleted"/.test(content))
+  ok(`${file} defines search_history_clear_confirm`, /"name": "search_history_clear_confirm"/.test(content))
 }
 
 console.log(`✓ search history contract: ${passed} assertions passed`)
