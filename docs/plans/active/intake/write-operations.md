@@ -10,6 +10,90 @@ Purpose:
 
 ## Items
 
+### Remote Favorite Sheet Flashes And Immediately Dismisses
+
+Type: bug / write-entry usability regression
+
+Priority suggestion: P0/P1
+
+Status: new / reopened regression
+
+Source:
+
+- User feedback, 2026-06-20: tapping the gallery detail menu's favorite action no longer opens a stable
+  half-modal. The favorite sheet flashes briefly and then disappears.
+- User correction: this is relatively high priority and should be the next lane after the current
+  Grid/Waterfall work is fixed or paused, not a low-priority backlog item.
+
+User-visible impact:
+
+- The remote EH favorite add/move/remove path becomes unusable even though the implementation is present.
+- Users cannot edit favnote, choose favcat, remove a remote favorite, or verify the protected write
+  preview because the sheet does not stay mounted.
+- This invalidates the previous "remote favorite sheet/write path implemented pending acceptance" status
+  until the sheet lifecycle is re-verified on device.
+
+Current code path to inspect:
+
+- `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets`
+  - title/menu favorite action calls `openRemoteFavorite()`;
+  - `openRemoteFavorite()` seeds `remoteFavoriteSelectedCat`, `remoteFavoriteNote`,
+    `remoteFavoriteError`, `remoteFavoriteSlots`, then sets `remoteFavoriteSheetShown = true` and starts
+    `loadRemoteFavoriteInfo()`;
+  - page root has `.bindSheet($$this.remoteFavoriteSheetShown, this.RemoteFavoriteSheet(), ...)`;
+  - `RemoteFavoriteSheet()` uses `AppModalScaffold` with cancel/confirm controls;
+  - `submitRemoteFavorite()` intentionally closes the sheet after confirm, but normal open/loading should
+    not close it.
+
+Likely causes to verify:
+
+- The title/menu action may be racing with menu dismissal or route/chrome state, toggling the same sheet
+  binding back to false after one frame.
+- `RemoteFavoriteSheet()` may throw or rebuild with invalid state while `loadRemoteFavoriteInfo()` is in
+  flight, causing `bindSheet` to close.
+- `openRemoteFavorite()` may set `remoteFavoriteSheetShown = true` before enough stable sheet state exists;
+  a safer flow may seed state first, mount a loading-safe sheet, then fetch popup info.
+- Multiple `bindSheet` instances on `GalleryDetailPage` (`remoteFavoriteSheetShown`, `ratingSheetShown`,
+  `fullTitleSheetShown`) may conflict if another sheet flag remains true or a menu action opens another
+  transient surface.
+- HDS modal title/cancel/confirm state should be checked: the sheet must only close from cancel, confirm
+  success/optimistic close, or explicit system dismissal, not from background loading/error updates.
+
+Expected behavior:
+
+- From a gallery detail page, open title/menu action `EH 收藏`.
+- The half-modal remains visible, even while favorite popup metadata is loading.
+- The sheet shows a stable loading state, cached slots, or fetched favcat slots; errors are displayed
+  in-sheet and do not close the sheet.
+- Tapping outside/back/cancel may close according to the product decision, but ordinary open must not
+  flash-dismiss.
+- Confirm is the only path that should optimistically close before the protected remote write; failures
+  should roll back visible state and report an error.
+
+Implementation direction:
+
+- Reproduce on HarmonyOS device/simulator before editing: capture a short screen recording or at least
+  before/open/after screenshots plus layout dumps to prove the flash-dismiss.
+- Add deterministic contract around `GalleryDetailPage` sheet lifecycle:
+  - `openRemoteFavorite()` sets only `remoteFavoriteSheetShown = true` for opening and does not toggle it
+    false;
+  - `loadRemoteFavoriteInfo()` never closes `remoteFavoriteSheetShown`;
+  - only cancel/system close/confirm success paths write `remoteFavoriteSheetShown = false`;
+  - `RemoteFavoriteSheet()` has loading/error-safe content and does not depend on slots being non-empty.
+- If title menu dismissal is the trigger, defer the sheet open one UI tick only if ArkUI/HDS evidence
+  requires it; do not add random key-churn or V1 decorators.
+- Keep EH write safety: validation may open the sheet and cancel; no real favorite submit without explicit
+  authorization.
+
+Acceptance shape:
+
+- Device/simulator: tap detail menu favorite action; the `EH 收藏` sheet remains open for at least the
+  loading/fetch interval and shows either cached/fetched favcat slots or an in-sheet error.
+- Reopen after closing works repeatedly; it must not become a one-shot state.
+- Existing current favorite state and remove/add/move affordances still display correctly.
+- Cancel closes the sheet without mutating remote favorite state.
+- Confirmation path remains protected and non-destructive by default during automated validation.
+
 ### Feature Completion Gap: EH Write Operations Are Still Mostly Missing
 
 Type: feature gap / core product completeness

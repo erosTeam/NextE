@@ -62,13 +62,10 @@ Historical feedback in this section must not trigger new implementation.
 - Dispatch intake is split by domain: `product-bug-intake.md` is now a short index/write-rule file,
   while long evidence lives under `docs/plans/active/intake/`. New intake should go to the matching
   domain file first, and only near-term scheduling changes should update this dispatch file.
-- Remote EH favorite sheet/write path is implemented and pending controller acceptance: detail opens an
-  in-place `EH 收藏` sheet with left cancel, right confirm, favnote input, favcat slots, and remove state.
-  Favcat slots now use an account-level real-name cache, no transient loading row is inserted into the
-  sheet content, confirm uses optimistic close/update with failure rollback, and detail/home/search/
-  favorites retained lists consume a V2 favorite mutation after remote writes. Favorites visible rows also
-  re-resolve missing favcat slots when real favcat metadata arrives late, so favorite heart colors can
-  update in the current process without requiring an app restart.
+- Remote EH favorite sheet/write path is implemented but not accepted: fresh 2026-06-20 user evidence says
+  tapping the detail menu favorite action can make the `EH 收藏` sheet flash and immediately disappear.
+  Treat the previous implementation as reopened for sheet-lifecycle regression until a current device run
+  proves the menu action keeps the sheet mounted, loads favcat slots, and only closes from cancel/confirm.
 - Search entry behavior is implemented and pending controller acceptance: the Search title-bar field
   syncs IME submitted text before bumping the page submit bus, clearing the field returns to history/blank,
   live filter edits only reapply an existing non-empty query, and the Favorites title-bar search action
@@ -205,18 +202,21 @@ a bounded validation path.
    Waterfall is exposed but current widths are unusable and its viewport model may repeat the old
    top/bottom padding issue. Next lane should fix `GalleryGridCard`, grid width constants/contracts, and
    `PullRefreshWaterFlowScaffold` / `GalleryWaterfallCard` width + immersive viewport behavior together.
-2. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+2. Remote favorite sheet lifecycle regression: the detail menu `EH 收藏` action can flash the half-modal
+   and close it immediately. This is a high-priority write-entry usability bug and should be the next
+   lane immediately after the current Grid/Waterfall lane is either fixed or explicitly paused.
+3. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+4. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, and MyTags new-user-tag add are implemented pending controller acceptance / authorized
    real-submit verification. Reopen here only for a fresh tag-vote / MyTags edit / MyTags delete /
    MyTags add regression, or for a separately scoped tagset-management lane.
-4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
+5. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+6. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+7. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule
