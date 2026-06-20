@@ -52,18 +52,20 @@ ok('header does not own read or favorite actions',
   !/openReader|detail_read|detail_favorite|remoteFavorite|localFavorite/i.test(header))
 
 ok('detail page owns full title sheet state and open guard',
-  /@Local\s+fullTitleSheetShown:\s*boolean\s*=\s*false/.test(detail) &&
-  /private\s+openFullTitleSheet\(\): void \{[\s\S]*this\.fullTitleSheetShown = true/.test(detail))
+  /@Local\s+detailSheetShown:\s*boolean\s*=\s*false/.test(detail) &&
+  /@Local\s+detailSheetKind:\s*string\s*=\s*''/.test(detail) &&
+  /private\s+openFullTitleSheet\(\): void \{[\s\S]*this\.openDetailSheet\(DETAIL_SHEET_FULL_TITLE\)/.test(detail))
 ok('detail page passes title tap into header',
   /GalleryHeaderCard\(\{[\s\S]*onTitleTap:\s*\(\) => \{[\s\S]*this\.openFullTitleSheet\(\)/.test(detail))
 ok('full title sheet uses AppModalScaffold with close-only modal chrome',
-  /private\s+FullTitleSheet\(\) \{[\s\S]*AppModalScaffold\(\{[\s\S]*title:\s*\$r\('app\.string\.detail_full_title'\)[\s\S]*showConfirmAction:\s*false[\s\S]*closeAction:\s*\(\) => \{[\s\S]*this\.fullTitleSheetShown = false/.test(detail) &&
+  /private\s+FullTitleSheet\(\) \{[\s\S]*AppModalScaffold\(\{[\s\S]*title:\s*\$r\('app\.string\.detail_full_title'\)[\s\S]*showConfirmAction:\s*false[\s\S]*closeAction:\s*\(\) => \{[\s\S]*this\.closeDetailSheet\(\)/.test(detail) &&
   /HdsNavigationTitleMode\.MODAL/.test(modal))
 ok('full title sheet shows display and optional alternate title rows',
   /TitleReadBlock\(\$r\('app\.string\.detail_display_title'\), this\.primaryDetailTitle\(\)\)/.test(detail) &&
   /TitleReadBlock\(\$r\('app\.string\.detail_alternate_title'\), this\.secondaryDetailTitle\(\)\)/.test(detail))
 ok('full title sheet is bound by the detail page sheet host',
-  /\.bindSheet\(\$\$this\.fullTitleSheetShown,\s*this\.FullTitleSheet\(\),\s*\{[\s\S]*detents:\s*\[SheetSize\.LARGE\][\s\S]*showClose:\s*false/.test(detail))
+  /private\s+DetailSheet\(\) \{[\s\S]*DETAIL_SHEET_FULL_TITLE[\s\S]*this\.FullTitleSheet\(\)/.test(detail) &&
+  /\.bindSheet\(\$\$this\.detailSheetShown,\s*this\.DetailSheet\(\),\s*\{[\s\S]*detents:\s*this\.detailSheetDetents\(\)[\s\S]*showClose:\s*false/.test(detail))
 ok('copy-title action remains available in detail menu',
   /detail_copy_title/.test(detail) &&
   /copyTitleInner[\s\S]*this\.copyGalleryTitle\(\)/.test(detail))

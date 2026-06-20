@@ -65,7 +65,7 @@ ok('rating mutation is V2 app-wide signal and exported',
   /GalleryRatingResult/.test(barrel))
 
 ok('detail page opens rating sheet rather than readonly web dialog',
-  /private openRatingSheet\(\): void \{[\s\S]*this\.ratingSheetShown = true/.test(detail) &&
+  /private openRatingSheet\(\): void \{[\s\S]*this\.openDetailSheet\(DETAIL_SHEET_RATING\)/.test(detail) &&
   /Text\(\$r\('app\.string\.detail_rate'\)\)[\s\S]*this\.openRatingSheet\(\)/.test(detail) &&
   !/openRatingSafety/.test(detail))
 ok('rating sheet uses AppModalScaffold and title confirm action',
@@ -79,8 +79,9 @@ ok('rating submit publishes mutation after server success',
 ok('rating submit reports failures without closing sheet first',
   /catch \(err\) \{[\s\S]*this\.ratingError = EhErrorText\.forUser\(err\)[\s\S]*detail_rate_failed/.test(detail))
 ok('detail page hosts rating sheet separately from favorite sheet',
-  /bindSheet\(\$\$this\.remoteFavoriteSheetShown/.test(detail) &&
-  /bindSheet\(\$\$this\.ratingSheetShown, this\.RatingSheet\(\)/.test(detail))
+  /private\s+DetailSheet\(\) \{[\s\S]*DETAIL_SHEET_REMOTE_FAVORITE[\s\S]*this\.RemoteFavoriteSheet\(\)[\s\S]*DETAIL_SHEET_RATING[\s\S]*this\.RatingSheet\(\)/.test(detail) &&
+  /\.bindSheet\(\$\$this\.detailSheetShown,\s*this\.DetailSheet\(\)/.test(detail) &&
+  !/\.bindSheet\(\$\$this\.ratingSheetShown/.test(detail))
 
 for (const [name, src] of [
   ['home', homeVm],

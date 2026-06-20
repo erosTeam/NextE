@@ -62,6 +62,10 @@ import { GalleryTagsCard } from '../components/GalleryTagsCard'
 import { GalleryPreviewGrid } from '../components/GalleryPreviewGrid'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
 
+const DETAIL_SHEET_REMOTE_FAVORITE: string = 'remoteFavorite'
+const DETAIL_SHEET_RATING: string = 'rating'
+const DETAIL_SHEET_FULL_TITLE: string = 'fullTitle'
+
 /**
  * Gallery detail (eros_fe page structure, native HDS rendering). Section order mirrors eros_fe:
  * header(cover+title+uploader) → info bar → relations → tags → COMMENTS peek (max 2) → PREVIEWS
@@ -93,15 +97,14 @@ export struct GalleryDetailPage {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local favoriteSlotCache: RemoteFavoriteSlotCacheState = connectRemoteFavoriteSlotCache();
-  @Local remoteFavoriteSheetShown: boolean = false;
+  @Local detailSheetShown: boolean = false;
+  @Local detailSheetKind: string = '';
   @Local remoteFavoriteSelectedCat: string = '';
   @Local remoteFavoriteNote: string = '';
   @Local remoteFavoriteSlots: Favcat[] = [];
   @Local remoteFavoriteSubmitting: boolean = false;
   @Local remoteFavoriteLoadingFavcats: boolean = false;
   @Local remoteFavoriteError: string = '';
-  @Local ratingSheetShown: boolean = false;
-  @Local fullTitleSheetShown: boolean = false;
   @Local ratingSelected: number = 0;
   @Local ratingSubmitting: boolean = false;
   @Local ratingError: string = '';
@@ -339,10 +342,26 @@ export struct GalleryDetailPage {
       : 0
   }
 
+  private openDetailSheet(kind: string): void {
+    this.detailSheetKind = kind
+    this.detailSheetShown = true
+  }
+
+  private closeDetailSheet(): void {
+    this.detailSheetShown = false
+  }
+
+  private detailSheetDetents(): [string | number | Resource] {
+    if (this.detailSheetKind === DETAIL_SHEET_RATING) {
+      return [SheetSize.MEDIUM]
+    }
+    return [SheetSize.LARGE]
+  }
+
   private openRatingSheet(): void {
     this.ratingSelected = this.currentPersonalRating()
     this.ratingError = ''
-    this.ratingSheetShown = true
+    this.openDetailSheet(DETAIL_SHEET_RATING)
   }
 
   private canSubmitRating(): boolean {
@@ -390,7 +409,7 @@ export struct GalleryDetailPage {
         result.ratingCount,
         result.colorRating,
       )
-      this.ratingSheetShown = false
+      this.closeDetailSheet()
       this.getUIContext().getPromptAction().openToast({ message: $r('app.string.detail_rate_success') })
         .catch((_error: Error) => {})
     } catch (err) {
@@ -614,7 +633,7 @@ export struct GalleryDetailPage {
     if (this.primaryDetailTitle().length === 0 && this.secondaryDetailTitle().length === 0) {
       return
     }
-    this.fullTitleSheetShown = true
+    this.openDetailSheet(DETAIL_SHEET_FULL_TITLE)
   }
 
   private openExternalBrowser(): void {
@@ -648,7 +667,7 @@ export struct GalleryDetailPage {
     if (this.remoteFavoriteSlots.length === 0 && this.favoriteSlotCache.favcats.length > 0) {
       this.remoteFavoriteSlots = this.copyFavcats(this.favoriteSlotCache.favcats)
     }
-    this.remoteFavoriteSheetShown = true
+    this.openDetailSheet(DETAIL_SHEET_REMOTE_FAVORITE)
     this.refreshRemoteFavcats()
   }
 
@@ -717,7 +736,7 @@ export struct GalleryDetailPage {
     this.favoriteMutation.publish(this.params.gid, nextFavcat, nextFavTitle, nextFavNote)
     this.remoteFavoriteSelectedCat = nextFavcat
     this.remoteFavoriteNote = nextFavNote
-    this.remoteFavoriteSheetShown = false
+    this.closeDetailSheet()
     try {
       await EhApiService.getInstance().updateGalleryFavorite({
         isEx: connectSiteMode().isEx,
@@ -841,7 +860,7 @@ export struct GalleryDetailPage {
       title: $r('app.string.detail_full_title'),
       showConfirmAction: false,
       closeAction: () => {
-        this.fullTitleSheetShown = false
+        this.closeDetailSheet()
       },
     }) {
       ListItem() {
@@ -886,7 +905,7 @@ export struct GalleryDetailPage {
       confirmEnabled: this.canSubmitRating(),
       confirmLoading: this.ratingSubmitting,
       closeAction: () => {
-        this.ratingSheetShown = false
+        this.closeDetailSheet()
       },
       confirmAction: () => {
         this.submitRating()
@@ -1030,7 +1049,7 @@ export struct GalleryDetailPage {
       confirmEnabled: this.canSubmitRemoteFavorite(),
       confirmLoading: this.remoteFavoriteSubmitting,
       closeAction: () => {
-        this.remoteFavoriteSheetShown = false
+        this.closeDetailSheet()
       },
       confirmAction: () => {
         this.submitRemoteFavorite()
@@ -1074,6 +1093,17 @@ export struct GalleryDetailPage {
         }
         .width('100%')
       }
+    }
+  }
+
+  @Builder
+  private DetailSheet() {
+    if (this.detailSheetKind === DETAIL_SHEET_REMOTE_FAVORITE) {
+      this.RemoteFavoriteSheet()
+    } else if (this.detailSheetKind === DETAIL_SHEET_RATING) {
+      this.RatingSheet()
+    } else if (this.detailSheetKind === DETAIL_SHEET_FULL_TITLE) {
+      this.FullTitleSheet()
     }
   }
 
@@ -1203,16 +1233,8 @@ export struct GalleryDetailPage {
           this.openReader(this.resumeIndex())
         })
       }
-      .bindSheet($$this.remoteFavoriteSheetShown, this.RemoteFavoriteSheet(), {
-        detents: [SheetSize.LARGE],
-        showClose: false,
-      })
-      .bindSheet($$this.ratingSheetShown, this.RatingSheet(), {
-        detents: [SheetSize.MEDIUM],
-        showClose: false,
-      })
-      .bindSheet($$this.fullTitleSheetShown, this.FullTitleSheet(), {
-        detents: [SheetSize.LARGE],
+      .bindSheet($$this.detailSheetShown, this.DetailSheet(), {
+        detents: this.detailSheetDetents(),
         showClose: false,
       })
     }

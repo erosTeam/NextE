@@ -63,8 +63,18 @@ ok(!existsSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryRemoteFavor
   'remote favorite is not a separate page file')
 ok(!/GalleryRemoteFavoriteParams|GalleryRemoteFavoritePage|name === 'GalleryRemoteFavorite'/.test(route + sharedIndex + galleryIndex + entry),
   'remote favorite no longer registers a separate route')
-ok(/remoteFavoriteSheetShown/.test(detail) && /\.bindSheet\(\$\$this\.remoteFavoriteSheetShown,\s*this\.RemoteFavoriteSheet\(\)/.test(detail),
-  'detail hosts remote favorite in a bindSheet')
+ok(/@Local\s+detailSheetShown:\s*boolean\s*=\s*false/.test(detail) &&
+  /@Local\s+detailSheetKind:\s*string\s*=\s*''/.test(detail) &&
+  /\.bindSheet\(\$\$this\.detailSheetShown,\s*this\.DetailSheet\(\),\s*\{[\s\S]*detents:\s*this\.detailSheetDetents\(\)[\s\S]*showClose:\s*false/.test(detail),
+  'detail hosts all modal sheets through one bindSheet host so false sibling sheets cannot close the favorite sheet')
+ok(!/\.bindSheet\(\$\$this\.remoteFavoriteSheetShown/.test(detail) &&
+  !/\.bindSheet\(\$\$this\.ratingSheetShown/.test(detail) &&
+  !/\.bindSheet\(\$\$this\.fullTitleSheetShown/.test(detail),
+  'detail page does not stack multiple bindSheet modifiers on the same root')
+ok(/const DETAIL_SHEET_REMOTE_FAVORITE:\s*string\s*=\s*'remoteFavorite'/.test(detail) &&
+  /private openDetailSheet\(kind: string\): void \{[\s\S]*this\.detailSheetKind = kind[\s\S]*this\.detailSheetShown = true/.test(detail) &&
+  /private\s+DetailSheet\(\) \{[\s\S]*DETAIL_SHEET_REMOTE_FAVORITE[\s\S]*this\.RemoteFavoriteSheet\(\)/.test(detail),
+  'remote favorite opens by selecting the remote sheet kind in the single detail sheet host')
 ok(/AppModalScaffold\(\{[\s\S]*title:\s*\$r\('app\.string\.detail_remote_favorite'\)[\s\S]*confirmAction/.test(detail),
   'favorite chooser uses the shared HDS modal scaffold for title actions')
 ok(!/RemoteFavoriteSheetTitle|title:\s*this\.RemoteFavoriteSheetTitle/.test(detail),
@@ -95,7 +105,7 @@ ok(/RemoteFavoriteSlotCacheState/.test(detail) &&
   /this\.remoteFavoriteSlots\s*=\s*this\.copyFavcats\(this\.favoriteSlotCache\.favcats\)/.test(detail) &&
   /this\.favoriteSlotCache\.update\(info\.favcats\)/.test(detail),
   'favorite sheet uses an account-level real favcat cache across different galleries')
-ok(/if \(this\.remoteFavoriteSlots\.length === 0 && this\.favoriteSlotCache\.favcats\.length > 0\)[\s\S]*this\.remoteFavoriteSheetShown = true/.test(remoteDetail),
+ok(/if \(this\.remoteFavoriteSlots\.length === 0 && this\.favoriteSlotCache\.favcats\.length > 0\)[\s\S]*this\.openDetailSheet\(DETAIL_SHEET_REMOTE_FAVORITE\)/.test(remoteDetail),
   'cross-gallery sheet opens with cached real favcat slots before the background popup refresh')
 ok(/catch \(e\) \{[\s\S]*this\.remoteFavoriteError = EhErrorText\.forUser\(e\)[\s\S]*\} finally/.test(remoteDetail) &&
   !/catch \(e\) \{[\s\S]*this\.remoteFavoriteSlots\s*=\s*\[\]/.test(remoteDetail),
@@ -174,7 +184,7 @@ ok(/const nextFavcat:\s*string\s*=\s*favcat === 'favdel' \? '' : favcat/.test(de
   /this\.favoriteMutation\.publish\(this\.params\.gid, nextFavcat, nextFavTitle, nextFavNote\)/.test(detail),
   'remote favorite delete publishes an empty favcat mutation instead of leaving stale filled hearts')
 ok(/const previousFavcat:\s*string\s*=\s*this\.vm\.gallery\.favcat/.test(detail) &&
-  /this\.vm\.applyRemoteFavoriteState\(nextFavcat, nextFavTitle, nextFavNote\)[\s\S]*this\.remoteFavoriteSheetShown = false[\s\S]*try \{/.test(detail),
+  /this\.vm\.applyRemoteFavoriteState\(nextFavcat, nextFavTitle, nextFavNote\)[\s\S]*this\.closeDetailSheet\(\)[\s\S]*try \{/.test(detail),
   'remote favorite submit optimistically closes the sheet and updates UI before waiting for the network')
 ok(/catch \(e\) \{[\s\S]*this\.vm\.applyRemoteFavoriteState\(previousFavcat, previousFavTitle, previousFavNote\)[\s\S]*this\.favoriteMutation\.publish\(this\.params\.gid, previousFavcat, previousFavTitle, previousFavNote\)[\s\S]*openToast/.test(detail),
   'remote favorite submit failure rolls detail/list state back and reports the error by toast')
