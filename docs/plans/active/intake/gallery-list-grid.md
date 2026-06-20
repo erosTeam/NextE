@@ -413,29 +413,40 @@ Expected behavior:
   from the same responsive min-width policy, but the phone baseline must not be a two-column large-card
   layout.
 - The cover container should remain fixed-ratio and close to A-series `1 / sqrt(2)` vertical cover shape.
-- Cover imagery must stay proportional. If a fixed-ratio contain slot exposes gray/background area,
-  treat it as a background/placeholder/surface-specific styling issue, not as permission to stretch the
-  image back to fill the slot.
+- Cover imagery must stay proportional. `Cover` is allowed only as equal-scale cover/crop when the source
+  image ratio is close enough to the current slot; it must never become non-uniform stretch/fill. When
+  source ratio and slot ratio differ materially, use `Contain` so the whole cover remains visible.
 - Grid information should be deliberately minimal: cover, persistent category-colored translation/language
   badge, page/favorite overlay, short title, and date / simple metadata. Tags and rich rating blocks belong
   to Waterfall / Waterfall Large unless a later product decision explicitly adds them to Grid.
 - The category-colored badge should be always present as a category signal, not conditional on
   `translated.length > 0`. Text can prefer translated/language, but the color/category signal must remain.
 
-Cover / placeholder scope:
+Cover fit / placeholder / backdrop scope:
 
-- User clarification, 2026-06-20: remove the harsh gray placeholder/background only for Gallery preview
-  and Gallery detail primary-cover surfaces. Those are main visual surfaces where gray blocks read as
-  broken cover presentation.
-- Do not generalize that clarification to list/header/grid/simple/waterfall thumbnails. Those thumbnail
-  surfaces should keep a stable placeholder/loading background so scrolling, empty image loads, and
-  retained list layout remain coherent.
-- If the implementation uses shared `EhThumbnail`, the surface that wants no gray background must opt in
-  at its call site or through a narrowly scoped presentation option. Do not change global thumbnail
-  defaults in a way that removes placeholders from list browsing.
-- This policy is independent from image fit: both preview/detail covers and list/grid thumbnails must
-  avoid image distortion. Placeholder/background fixes must never switch a proportional cover back to
-  stretched/fill rendering.
+- Historical FE grounding exists in `docs/parity-driver.md` and
+  `docs/plans/active/gallery-visual-navigation-regression-contract.md`: `eros_fe`
+  `/Users/honjow/git/eros_fe/lib/pages/item/gallery_item.dart` `_CoverImage` defaults to
+  `BoxFit.cover`, then switches to `BoxFit.contain` only for large aspect-ratio mismatch:
+  adaptive mode uses `imageRatio > 1 || imageRatio < 3 / 5`; fixed-height mode compares
+  `imageRatio = imgWidth / imgHeight` against `containRatio = coverImageWidth / coverImageHeight` and
+  uses contain when `imageRatio - containRatio > 0.28` or `containRatio - imageRatio > 0.2`.
+- FE also has `EhSettingService.blurringOfCoverBackground` / `blurring_cover_background`: when the
+  foreground cover uses `Contain`, the background can be another same-cover `CoverImg(blurHash: true,
+  fit: BoxFit.cover)` instead of a plain gray fill.
+- NextE should preserve that product model in HarmonyOS terms: compute cover fit from current slot ratio
+  and available source dimensions; use proportional `Cover` for close ratios, proportional `Contain` for
+  large mismatches, and never use non-uniform stretch/fill.
+- `Contain` gaps are a backdrop problem, not an image-fit excuse. Current fallback can be the existing
+  theme placeholder, but the stable target for exposed primary-cover surfaces is a same-cover blurred
+  backdrop rather than a harsh gray block.
+- Loading/error states are different from loaded-state letterbox gaps. Loading/error may continue to use
+  explicit placeholders and spinner/error affordances.
+- Do not generalize primary-cover backdrop changes to every thumbnail. List/header/grid/simple/waterfall
+  thumbnails may keep stable placeholders where they protect loading, scroll rhythm, and retained layout.
+- If the implementation uses shared `EhThumbnail`, new no-gray or blurred-backdrop behavior must be
+  opt-in by surface/presentation mode. Do not change global thumbnail defaults in a way that removes
+  placeholders from list browsing or reintroduces cover distortion.
 
 Likely root cause:
 
