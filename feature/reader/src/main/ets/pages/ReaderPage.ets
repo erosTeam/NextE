@@ -511,6 +511,16 @@ export struct ReaderPage {
     }
   }
 
+  @Monitor('readMode.volumeKeyTurn')
+  onVolumeKeyTurnChanged(): void {
+    if (this.readMode.volumeKeyTurn) {
+      this.requestReaderKeyFocus()
+      this.registerVolumeKeyConsumer()
+    } else {
+      this.unregisterVolumeKeyConsumer()
+    }
+  }
+
   // Force-persist on close so the last page survives an unfired debounce (eros_fe saveToStore).
   aboutToDisappear(): void {
     if (this.params.gid.length > 0) {

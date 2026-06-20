@@ -236,7 +236,7 @@ Type: reading UX / settings behavior gap
 
 Priority suggestion: P1
 
-Status: reported / needs device reproduction
+Status: implemented / pending device acceptance
 
 User feedback:
 
@@ -277,12 +277,18 @@ Expected behavior:
 
 Acceptance:
 
-- Add a runtime contract or code contract that `ReaderPage` monitors `readMode.volumeKeyTurn` and
-  dynamically registers/unregisters the volume-key consumer.
-- Device evidence with the setting enabled before Reader entry: Reader page number changes from
-  volume down/up.
-- Device evidence with the setting toggled while Reader is already open: the new state takes effect
-  immediately.
+- Implemented in `codex/reader-volume-key-live`: `ReaderPage` now monitors `readMode.volumeKeyTurn`.
+  Enabling the setting while Reader is already open requests key focus and registers the InputKit
+  volume-key consumers; disabling it unregisters them so volume keys return to the system.
+- Deterministic coverage: `scripts/test_reader_volume_key_contract.mjs` now locks the live
+  `@Monitor('readMode.volumeKeyTurn')` path in addition to the existing startup/on-close registration.
+- Gates run: `node scripts/test_reader_volume_key_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/build_hvigor_signed.sh`.
+- Device smoke: signed HAP installed and app started on local Mate X7 emulator target
+  `127.0.0.1:5555`; smoke screenshot:
+  `.hvigor/outputs/reader-volume-key-live/app-start.jpeg`.
+- Still pending device acceptance: with the setting enabled before Reader entry, volume down/up should
+  change page number; toggling the setting while Reader is already open should take effect immediately.
 - Device evidence with the setting disabled: volume keys no longer trigger reader page turns.
 - Static `scripts/test_reader_volume_key_contract.mjs` remains useful as a floor, but it cannot be used
   as final acceptance for this feature.

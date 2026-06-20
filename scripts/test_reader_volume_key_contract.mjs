@@ -73,6 +73,11 @@ ok(
     /aboutToDisappear\(\): void[\s\S]*this\.unregisterVolumeKeyConsumer\(\)/.test(reader),
 );
 ok(
+  'Reader live-applies volume-key setting changes while already open',
+  /@Monitor\('readMode\.volumeKeyTurn'\)\s+onVolumeKeyTurnChanged\(\): void/.test(reader) &&
+    /onVolumeKeyTurnChanged\(\): void[\s\S]*this\.readMode\.volumeKeyTurn[\s\S]*this\.requestReaderKeyFocus\(\)[\s\S]*this\.registerVolumeKeyConsumer\(\)[\s\S]*else[\s\S]*this\.unregisterVolumeKeyConsumer\(\)/.test(reader),
+);
+ok(
   'i18n base has the new setting labels',
   /"name": "settings_reader_volume_key"/.test(base) &&
     /"name": "settings_reader_volume_key_hint"/.test(base),
