@@ -126,7 +126,7 @@ Handled status:
   submit was not clicked because EH tag voting is a real account write and still needs an explicitly
   authorized test target.
 - MyTags existing usertag edit: `implemented / pending controller acceptance and authorized real-submit
-  verification`. Commit: `897cd37 feat(user): edit existing my tags`. Scope: Settings `我的标签` existing-tag edit sheet, protected
+  verification`. Commit: `de990f9 feat(user): edit existing my tags`. Scope: Settings `我的标签` existing-tag edit sheet, protected
   `/api.php method=setusertag` request assembly with `apiuid`, `apikey`, `tagid`, `tagwatch`, `taghide`,
   `tagcolor`, and `tagweight`, HDS `AppModalScaffold` edit UI, native confirmation before submit, current
   tagset reload after success, shared `UserTagStore` update, and `UserTagSignal` bump for retained state.
