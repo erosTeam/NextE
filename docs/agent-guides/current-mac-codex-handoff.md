@@ -1,6 +1,6 @@
 # Current Mac/Codex handoff
 
-Last updated: 2026-06-18 08:03:05 +0800.
+Last updated: 2026-06-21 after local main sync.
 
 This file is the current-site handoff for Codex/Claude/local agents after the Hermes migration from the old desktop to the Mac. It summarizes durable context that is otherwise split across memory, active plans, and controller chat. It is **not** a completion claim and does not override active plan gates.
 
@@ -129,18 +129,18 @@ Do not commit signing secrets or local profile contents. Do not treat `.gitignor
 
 ## Current repository state snapshot
 
-Controller checkout at the start of this handoff update:
+Controller checkout at the latest local-main hygiene pass:
 
 ```text
 repo:   /Users/honjow/git/NextE
 branch: main
-base:   7b99bf5 docs(project): record false 404 smoke status
-status: clean tree, in sync with origin/main before this Gate V2 re-QA documentation update
+base:   a8af7f1 docs(dispatch): close merged waterfall lane
+status: clean tree, in sync with origin/main
 ```
 
 Control-plane documents, harness state, screenshots, fixtures, and worktrees are project assets. Do not delete, move, or call them disposable without explicit path-level user authorization.
 
-Known worktrees:
+Known high-risk worktrees:
 
 ```text
 /Users/honjow/git/NextE-wt/auth-cookie-login        agent/claude/auth-cookie-login
@@ -154,12 +154,14 @@ Known worktrees:
 /Users/honjow/git/NextE-wt/ui-detail-preview-audit  agent/codex/ui-detail-preview-audit
 ```
 
+Full local inventory is large; use `git worktree list` before reusing any old path.
+
 Current lane warnings:
 
 ```text
 auth-cookie-login (old Claude worktree):
   - ahead of origin/main by 2 commits
-  - behind origin/main by 12 commits
+  - behind origin/main by 303 commits at the 2026-06-21 hygiene pass
   - has uncommitted WIP in:
     feature/settings/src/main/ets/pages/SettingsPage.ets
     scripts/test_cookie_import_contract.mjs
@@ -174,8 +176,23 @@ auth-cookie-login-rebase:
 other old lanes:
   - behind current main
   - do not assume they are active or accepted.
+  - do not clean, delete, or move without explicit path-level authorization.
+
+additional dirty WIP observed during the 2026-06-21 hygiene pass:
+  - download-gallery-runner: download runner/resources/settings WIP plus an untracked runner contract.
+  - reader-auto-page-turn: reader/settings/resources WIP plus an untracked auto-page contract.
+  - reader-baseline-recovery: ReaderPage WIP.
+  - reader-core-incident-recovery: ReaderPage/loading-progress contract WIP.
+  - reader-gesture-recovery: ReaderPage/progress/gesture contracts WIP.
+  - reader-image-cache: untracked ReaderImageCacheService.ets prototype only; not wired or verified.
+  - reader-thumbnail-strip: ReaderPage WIP plus untracked thumbnail-strip contract.
+  - search-quicksearch: quick-search resources/state/page WIP plus untracked contracts/settings.
 
 recently merged/pushed lanes:
+  - a8af7f1 dispatch state cleanup after local main rebase/sync
+  - 8e6e931 retained sub-tab preference
+  - 53740b0 Waterfall full-width reserve / chrome avoidance
+  - f4d2d5b AllThumbnails first real thumbnail stays normal grid cell
   - 11069a5 list-responsive-cover
   - 4ab2367 macOS official Hvigor signing/harness
   - b3d9e5d Search reload footer loading state
