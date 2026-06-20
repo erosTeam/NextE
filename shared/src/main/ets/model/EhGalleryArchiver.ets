@@ -1,4 +1,4 @@
-/** One selectable archive quote from /archiver.php. This is read-only until an explicit download lane. */
+/** One selectable archive quote from /archiver.php. */
 export class EhGalleryArchiverItem {
   dltype: string = ''
   resolution: string = ''
@@ -11,6 +11,19 @@ export class EhGalleryArchiverItem {
     out.resolution = this.resolution
     out.sizeText = this.sizeText
     out.priceText = this.priceText
+    return out
+  }
+}
+
+/** Result of a protected archiver POST. Local archives return a generated download URL; H@H returns text. */
+export class EhGalleryArchiverSubmitResult {
+  message: string = ''
+  localDownloadUrl: string = ''
+
+  copy(): EhGalleryArchiverSubmitResult {
+    const out: EhGalleryArchiverSubmitResult = new EhGalleryArchiverSubmitResult()
+    out.message = this.message
+    out.localDownloadUrl = this.localDownloadUrl
     return out
   }
 }

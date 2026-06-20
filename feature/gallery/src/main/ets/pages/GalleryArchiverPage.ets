@@ -1,9 +1,11 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
+import { common, Want } from '@kit.AbilityKit'
 import {
   ThemeConstants,
   EhApiService,
   EhGalleryArchiverItem,
   EhGalleryArchiverQuote,
+  EhGalleryArchiverSubmitResult,
   GalleryArchiverParams,
   SecondaryListScaffold,
   PageErrorState,
@@ -14,8 +16,10 @@ import {
 } from 'shared'
 
 /**
- * Read-only archive quote/options page. Grounded in eros_fe ArchiverView, but intentionally does not
- * submit local/H@H archive downloads until the download executor lane is designed and accepted.
+ * Archive quote/options page. Grounded in eros_fe ArchiverView: local archive options POST
+ * `dltype/dlcheck` and return a generated download URL; H@H options POST `hathdl_xres` and return an
+ * EH status message. Every submit remains protected behind a native confirmation because it can spend
+ * account GP/Credits.
  */
 @ComponentV2
 export struct GalleryArchiverPage {
@@ -23,7 +27,12 @@ export struct GalleryArchiverPage {
   @Local quote: EhGalleryArchiverQuote = new EhGalleryArchiverQuote();
   @Local loading: boolean = false;
   @Local error: string = '';
+  @Local submittingKey: string = '';
   private scroller: Scroller = new Scroller();
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   private async load(): Promise<void> {
     if (this.params.gid.length === 0 || this.params.token.length === 0 || this.params.archiverLink.length === 0) {
@@ -100,7 +109,7 @@ export struct GalleryArchiverPage {
   }
 
   @Builder
-  private QuoteRow(item: EhGalleryArchiverItem) {
+  private QuoteRow(item: EhGalleryArchiverItem, isHath: boolean) {
     Row({ space: ThemeConstants.SPACE_MD }) {
       Column({ space: ThemeConstants.SPACE_XS }) {
         Text(item.resolution)
@@ -116,6 +125,15 @@ export struct GalleryArchiverPage {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .layoutWeight(1)
+      if (this.isSubmittingItem(item, isHath)) {
+        LoadingProgress()
+          .width(ThemeConstants.LOADING_SIZE_SMALL)
+          .height(ThemeConstants.LOADING_SIZE_SMALL)
+      } else {
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+          .fontColor([$r('sys.color.font_secondary')])
+      }
     }
     .width('100%')
     .padding({
@@ -126,21 +144,119 @@ export struct GalleryArchiverPage {
     })
     .borderRadius(ThemeConstants.RADIUS_MD)
     .backgroundColor($r('app.color.card_background'))
+    .onClick(() => {
+      this.confirmArchiveSubmit(item, isHath)
+    })
   }
 
   @Builder
-  private QuoteList(title: ResourceStr, items: EhGalleryArchiverItem[]) {
+  private QuoteList(title: ResourceStr, items: EhGalleryArchiverItem[], isHath: boolean) {
     if (items.length > 0) {
       ListItem() {
         Column({ space: ThemeConstants.SPACE_SM }) {
           this.SectionTitle(title)
           ForEach(items, (item: EhGalleryArchiverItem) => {
-            this.QuoteRow(item)
+            this.QuoteRow(item, isHath)
           }, (item: EhGalleryArchiverItem) => `${item.dltype}:${item.resolution}`)
         }
         .width('100%')
       }
     }
+  }
+
+  private confirmArchiveSubmit(item: EhGalleryArchiverItem, isHath: boolean): void {
+    if (this.submittingKey.length > 0) {
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: isHath ? $r('app.string.gallery_archiver_hath_confirm') : $r('app.string.gallery_archiver_download_confirm'),
+      message: this.confirmMessage(item),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.common_ok'),
+        action: () => {
+          this.submitArchive(item, isHath)
+        },
+      },
+    })
+  }
+
+  private async submitArchive(item: EhGalleryArchiverItem, isHath: boolean): Promise<void> {
+    const key: string = this.submitKey(item, isHath)
+    if (this.submittingKey.length > 0) {
+      return
+    }
+    this.submittingKey = key
+    try {
+      const result: EhGalleryArchiverSubmitResult = isHath
+        ? await EhApiService.getInstance().submitGalleryArchiverHath(
+          this.params.gid,
+          this.params.token,
+          this.params.archiverLink,
+          item.dltype,
+          this.params.isEx,
+        )
+        : await EhApiService.getInstance().submitGalleryArchiverLocal(
+          this.params.gid,
+          this.params.token,
+          this.params.archiverLink,
+          item.dltype,
+          this.localDlcheck(item),
+          this.params.isEx,
+        )
+      if (!isHath && result.localDownloadUrl.length > 0) {
+        this.openLocalArchiveDownload(result.localDownloadUrl)
+      } else if (result.message.length > 0) {
+        this.showArchiverToast(result.message)
+      } else {
+        this.showArchiverToast($r('app.string.gallery_archiver_submitted'))
+      }
+    } catch (e) {
+      this.showArchiverToast(EhErrorText.forUser(e))
+    }
+    this.submittingKey = ''
+  }
+
+  private openLocalArchiveDownload(url: string): void {
+    const want: Want = { action: 'ohos.want.action.viewData', uri: url }
+    this.ctx().startAbility(want).then(() => {
+      this.showArchiverToast($r('app.string.gallery_archiver_download_started'))
+    }).catch((_error: Error) => {
+      this.showArchiverToast(url)
+    })
+  }
+
+  private showArchiverToast(message: ResourceStr): void {
+    this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {
+      // The submit/open path already completed or failed; toast failure should not change state.
+    })
+  }
+
+  private confirmMessage(item: EhGalleryArchiverItem): string {
+    const parts: string[] = []
+    if (item.resolution.length > 0) {
+      parts.push(item.resolution)
+    }
+    if (item.sizeText.length > 0 || item.priceText.length > 0) {
+      parts.push(`${item.sizeText} · ${item.priceText}`.trim())
+    }
+    parts.push(AppStrings.get('gallery_archiver_submit_notice'))
+    return parts.join('\n')
+  }
+
+  private localDlcheck(item: EhGalleryArchiverItem): string {
+    return item.dltype === 'org' ? 'Original Archive' : 'Resample Archive'
+  }
+
+  private isSubmittingItem(item: EhGalleryArchiverItem, isHath: boolean): boolean {
+    return this.submittingKey === this.submitKey(item, isHath)
+  }
+
+  private submitKey(item: EhGalleryArchiverItem, isHath: boolean): string {
+    return `${isHath ? 'h' : 'l'}:${item.dltype}`
   }
 
   build() {
@@ -177,8 +293,8 @@ export struct GalleryArchiverPage {
           }
         } else {
           this.BalanceRow()
-          this.QuoteList($r('app.string.gallery_archiver_download'), this.quote.downloadItems)
-          this.QuoteList($r('app.string.gallery_archiver_hath'), this.quote.hathItems)
+          this.QuoteList($r('app.string.gallery_archiver_download'), this.quote.downloadItems, false)
+          this.QuoteList($r('app.string.gallery_archiver_hath'), this.quote.hathItems, true)
         }
       }
     }

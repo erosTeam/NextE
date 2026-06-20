@@ -1,4 +1,4 @@
-import { EhGalleryArchiverItem, EhGalleryArchiverQuote } from '../model/EhGalleryArchiver'
+import { EhGalleryArchiverItem, EhGalleryArchiverQuote, EhGalleryArchiverSubmitResult } from '../model/EhGalleryArchiver'
 import { HtmlSelectorUtils } from './HtmlSelectorUtils'
 
 /** Parser for /archiver.php. Grounded in eros_fe common/parser/archiver_parser.dart. */
@@ -7,6 +7,8 @@ export class EhGalleryArchiverParser {
   private static readonly RE_DLTYPES: RegExp = /name=["']dltype["'][^>]*value=["']([^"']+)["']|value=["']([^"']+)["'][^>]*name=["']dltype["']/gi
   private static readonly RE_HATH_ROW: RegExp = /<td\b[^>]*>([\s\S]*?)<\/td>\s*<td\b[^>]*>([\s\S]*?)<\/td>\s*<td\b[^>]*>([\s\S]*?)<\/td>/gi
   private static readonly RE_ARCHIVE_RES: RegExp = /\('([^']+)'\)/
+  private static readonly RE_LOCAL_REDIRECT: RegExp = /document\.location\s*=\s*["']([^"']+)["']/
+  private static readonly RE_DB_P: RegExp = /<div\b[^>]*id=["']db["'][^>]*>[\s\S]*?<p\b[^>]*>([\s\S]*?)<\/p>/i
 
   static parse(html: string): EhGalleryArchiverQuote {
     const quote: EhGalleryArchiverQuote = new EhGalleryArchiverQuote()
@@ -18,6 +20,28 @@ export class EhGalleryArchiverParser {
     quote.downloadItems = EhGalleryArchiverParser.parseDownloadItems(html)
     quote.hathItems = EhGalleryArchiverParser.parseHathItems(html)
     return quote
+  }
+
+  static parseLocalSubmit(html: string): EhGalleryArchiverSubmitResult {
+    const result: EhGalleryArchiverSubmitResult = new EhGalleryArchiverSubmitResult()
+    const match: RegExpMatchArray | null = html.match(EhGalleryArchiverParser.RE_LOCAL_REDIRECT)
+    if (match !== null && match[1] !== undefined) {
+      let url: string = HtmlSelectorUtils.htmlUnescape(match[1]).trim()
+      if (url.length > 0 && url.indexOf('start=1') < 0) {
+        url = url.indexOf('?') >= 0 ? `${url}&start=1` : `${url}?start=1`
+      }
+      result.localDownloadUrl = url
+    }
+    result.message = result.localDownloadUrl.length > 0
+      ? result.localDownloadUrl
+      : EhGalleryArchiverParser.parseSubmitMessage(html)
+    return result
+  }
+
+  static parseHathSubmit(html: string): EhGalleryArchiverSubmitResult {
+    const result: EhGalleryArchiverSubmitResult = new EhGalleryArchiverSubmitResult()
+    result.message = EhGalleryArchiverParser.parseSubmitMessage(html)
+    return result
   }
 
   private static parseDownloadItems(html: string): EhGalleryArchiverItem[] {
@@ -91,5 +115,13 @@ export class EhGalleryArchiverParser {
     let text: string = raw.replace(/<[^>]+>/g, '')
     text = HtmlSelectorUtils.htmlUnescape(text)
     return text.replace(/\s+/g, ' ').trim()
+  }
+
+  private static parseSubmitMessage(html: string): string {
+    const match: RegExpMatchArray | null = html.match(EhGalleryArchiverParser.RE_DB_P)
+    if (match !== null && match[1] !== undefined) {
+      return EhGalleryArchiverParser.cleanText(match[1])
+    }
+    return EhGalleryArchiverParser.cleanText(html)
   }
 }

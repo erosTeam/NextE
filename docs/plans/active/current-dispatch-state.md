@@ -154,6 +154,14 @@ Historical feedback in this section must not trigger new implementation.
   tapping the compact title group opens a close-only HDS modal sheet with the full display title and
   optional alternate title, while the header keeps fixed-height ellipsis behavior and uploader/copy-title
   actions remain separate.
+- Gallery archiver protected submit plumbing is implemented and pending controller acceptance /
+  authorized real-submit verification: the archiver page keeps the parsed GP/Credits quote surface,
+  turns local Download and H@H options into confirmation-gated action rows, posts EH-compatible
+  `dltype` / `dlcheck` or `hathdl_xres` form fields, opens returned local archive URLs through the
+  system, and shows EH status messages for H@H. It deliberately does not fake an unfinished archiver
+  queue/offline executor. Simulator validation covered signed install/start and detail/download smoke;
+  final confirmation-dialog and real-submit evidence still require a logged-in gallery with a visible
+  `archiverLink` and explicit submit authorization.
 - Settings shell audit is implemented and pending controller acceptance: Settings root now exposes only
   scoped, wired pages (`EH`, `布局`, `阅读`, `搜索`, `历史`, `诊断`, `关于`), hides misleading Security and
   Download settings entries until their downstream behavior exists, removes EH placeholder rows, gates

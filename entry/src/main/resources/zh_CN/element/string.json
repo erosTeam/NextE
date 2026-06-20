@@ -1497,6 +1497,26 @@
       "value": "H@H"
     },
     {
+      "name": "gallery_archiver_download_confirm",
+      "value": "请求归档下载"
+    },
+    {
+      "name": "gallery_archiver_hath_confirm",
+      "value": "请求 H@H 下载"
+    },
+    {
+      "name": "gallery_archiver_submit_notice",
+      "value": "这会向 EH 提交请求，并可能消耗 GP 或 Credits。"
+    },
+    {
+      "name": "gallery_archiver_submitted",
+      "value": "归档请求已提交"
+    },
+    {
+      "name": "gallery_archiver_download_started",
+      "value": "已打开归档下载"
+    },
+    {
       "name": "image_page_open_failed_title",
       "value": "图片页"
     },

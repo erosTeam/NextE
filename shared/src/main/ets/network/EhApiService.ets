@@ -18,7 +18,7 @@ import { EhGalleryImage } from '../model/EhGalleryImage'
 import { EhMytags } from '../model/EhMytags'
 import { EhGalleryComment } from '../model/EhGalleryComment'
 import { EhGalleryTorrentList } from '../model/EhGalleryTorrent'
-import { EhGalleryArchiverQuote } from '../model/EhGalleryArchiver'
+import { EhGalleryArchiverQuote, EhGalleryArchiverSubmitResult } from '../model/EhGalleryArchiver'
 
 /** Header + first preview page + comments parsed from a gallery detail fetch. */
 export class GalleryDetailResult {
@@ -466,17 +466,89 @@ export class EhApiService {
     return EhGalleryTorrentParser.parse(resp.body)
   }
 
-  /** Fetch the gallery archiver quote/options page. Read-only; no archive download submit. */
+  /** Fetch the gallery archiver quote/options page. Submit actions use the protected POST methods below. */
   async getGalleryArchiver(
     gid: string,
     token: string,
     archiverLink: string,
     isEx: boolean,
   ): Promise<EhGalleryArchiverQuote> {
-    const url: string =
-      `${EhConstants.baseUrl(isEx)}/archiver.php?gid=${gid}&token=${token}&or=${encodeURIComponent(archiverLink)}`
+    const url: string = this.archiverUrl(gid, token, archiverLink, isEx)
     const resp = await this.fetch(url, isEx, 'generic')
     return EhGalleryArchiverParser.parse(resp.body)
+  }
+
+  /** Submit a protected local archive request. Returns the generated archive URL; caller decides how to open it. */
+  async submitGalleryArchiverLocal(
+    gid: string,
+    token: string,
+    archiverLink: string,
+    dltype: string,
+    dlcheck: string,
+    isEx: boolean,
+  ): Promise<EhGalleryArchiverSubmitResult> {
+    const url: string = this.archiverUrl(gid, token, archiverLink, isEx)
+    const body: string = [
+      this.formPair('dltype', dltype.trim()),
+      this.formPair('dlcheck', dlcheck.trim()),
+    ].join('&')
+    const resp: EhTextResponse = await this.postArchiverForm(url, body, isEx)
+    const result: EhGalleryArchiverSubmitResult = EhGalleryArchiverParser.parseLocalSubmit(resp.body)
+    result.localDownloadUrl = this.absoluteArchiverUrl(result.localDownloadUrl, isEx)
+    if (result.message.length === 0 && result.localDownloadUrl.length > 0) {
+      result.message = result.localDownloadUrl
+    }
+    return result
+  }
+
+  /** Submit a protected H@H archive request. EH returns a status message, not a local download URL. */
+  async submitGalleryArchiverHath(
+    gid: string,
+    token: string,
+    archiverLink: string,
+    resolution: string,
+    isEx: boolean,
+  ): Promise<EhGalleryArchiverSubmitResult> {
+    const url: string = this.archiverUrl(gid, token, archiverLink, isEx)
+    const body: string = this.formPair('hathdl_xres', resolution.trim())
+    const resp: EhTextResponse = await this.postArchiverForm(url, body, isEx)
+    return EhGalleryArchiverParser.parseHathSubmit(resp.body)
+  }
+
+  private archiverUrl(gid: string, token: string, archiverLink: string, isEx: boolean): string {
+    return `${EhConstants.baseUrl(isEx)}/archiver.php?gid=${encodeURIComponent(gid)}` +
+      `&token=${encodeURIComponent(token)}&or=${encodeURIComponent(archiverLink)}`
+  }
+
+  private async postArchiverForm(url: string, body: string, isEx: boolean): Promise<EhTextResponse> {
+    let resp: EhTextResponse
+    try {
+      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, body)
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, url)
+    }
+    if (resp.statusCode >= 400) {
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, 'generic')
+      if (failure !== null) {
+        throw failure
+      }
+      throw new Error(`archiver HTTP ${resp.statusCode}`)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, 'generic')
+    if (failure !== null) {
+      throw failure
+    }
+    return resp
+  }
+
+  private absoluteArchiverUrl(url: string, isEx: boolean): string {
+    if (url.length === 0 || url.startsWith('http://') || url.startsWith('https://')) {
+      return url
+    }
+    if (url.startsWith('/')) {
+      return `${EhConstants.baseUrl(isEx)}${url}`
+    }
+    return `${EhConstants.baseUrl(isEx)}/${url}`
   }
 
   /** Fetch a gallery detail page; returns header (incl. tags/apikey) + first preview page. */

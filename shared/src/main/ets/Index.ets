@@ -25,7 +25,7 @@ export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
 export { EhGalleryComment } from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'
 export { EhGalleryTorrent, EhGalleryTorrentList } from './model/EhGalleryTorrent'
-export { EhGalleryArchiverItem, EhGalleryArchiverQuote } from './model/EhGalleryArchiver'
+export { EhGalleryArchiverItem, EhGalleryArchiverQuote, EhGalleryArchiverSubmitResult } from './model/EhGalleryArchiver'
 export { GalleryList } from './model/GalleryList'
 export {
   GalleryDetailParams,

@@ -1497,6 +1497,26 @@
       "value": "H@H"
     },
     {
+      "name": "gallery_archiver_download_confirm",
+      "value": "アーカイブダウンロードを要求"
+    },
+    {
+      "name": "gallery_archiver_hath_confirm",
+      "value": "H@H ダウンロードを要求"
+    },
+    {
+      "name": "gallery_archiver_submit_notice",
+      "value": "EH にリクエストを送信し、GP または Credits を消費する場合があります。"
+    },
+    {
+      "name": "gallery_archiver_submitted",
+      "value": "アーカイブ要求を送信しました"
+    },
+    {
+      "name": "gallery_archiver_download_started",
+      "value": "アーカイブダウンロードを開きました"
+    },
+    {
       "name": "image_page_open_failed_title",
       "value": "画像ページ"
     },

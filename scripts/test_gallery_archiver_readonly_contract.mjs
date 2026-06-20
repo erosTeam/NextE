@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /**
- * Contract: gallery archiver is a read-only quote/options surface.
+ * Contract: gallery archiver exposes protected submit actions.
  *
- * It may fetch and parse /archiver.php, show GP/Credits plus Download/H@H options,
- * and navigate from gallery detail. It must not submit local/remote archive downloads
- * or enqueue download tasks in this lane.
+ * It fetches/parses /archiver.php, shows GP/Credits plus Download/H@H options,
+ * and every account-spending submit must go through a native confirmation.
+ * Local archive POST returns a generated URL opened by the system; H@H POST returns
+ * the EH status message. This still must not fake-write the unfinished archiver queue.
  *
  * Run: node scripts/test_gallery_archiver_readonly_contract.mjs
  */
@@ -35,27 +36,60 @@ const entry = read('entry/src/main/ets/pages/Index.ets')
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
 
+const grounding = [
+  'eros_fe: lib/pages/gallery/view/archiver_dialog.dart, controller/archiver_controller.dart, common/parser/archiver_parser.dart, network/request.dart',
+  'primary information: GP/Credits balance plus local archive and H@H choices with resolution/type, size, and cost',
+  'primary action: choose an archive option; secondary actions: retry/back and system download opening',
+  'scope: protected submit plumbing and result handling only; no fake archiver queue or offline executor',
+  'Harmony expression: HDS detail page action rows plus native confirmation before POST and toast/system-open result',
+]
+
+ok(grounding.length === 5, 'grounding has five lines')
+ok(grounding[0].includes('archiver_dialog.dart') && grounding[0].includes('request.dart'),
+  'grounding names concrete eros_fe archiver files')
+ok(grounding[3].includes('no fake archiver queue'), 'scope excludes fake queue implementation')
+
 ok(/export class EhGalleryArchiverItem/.test(model), 'archiver item model exists')
 ok(/export class EhGalleryArchiverQuote/.test(model), 'archiver quote model exists')
+ok(/export class EhGalleryArchiverSubmitResult/.test(model), 'archiver submit result model exists')
+ok(/localDownloadUrl: string/.test(model) && /message: string/.test(model),
+  'submit result separates local URL and message')
 ok(/downloadItems: EhGalleryArchiverItem\[\]/.test(model) && /hathItems: EhGalleryArchiverItem\[\]/.test(model),
   'quote separates Download and H@H options')
+
 ok(/export class EhGalleryArchiverParser/.test(parser), 'archiver parser exists')
 ok(/RE_FUNDS[\s\S]*GP[\s\S]*Credits/.test(parser), 'parser extracts GP/Credits balance')
 ok(/parseDownloadItems/.test(parser) && /name=\["'\]dltype/.test(parser), 'parser extracts local download dltype options')
 ok(/parseHathItems/.test(parser) && /RE_HATH_ROW/.test(parser), 'parser extracts H@H table options')
+ok(/parseLocalSubmit/.test(parser) && /RE_LOCAL_REDIRECT/.test(parser) && /start=1/.test(parser),
+  'parser extracts local archive redirect URL and starts download')
+ok(/parseHathSubmit/.test(parser) && /RE_DB_P/.test(parser),
+  'parser extracts H@H submit status message from #db paragraph')
 ok(/HtmlSelectorUtils\.htmlUnescape/.test(parser), 'parser unescapes archiver text')
 
 ok(/export class GalleryArchiverParams/.test(route), 'GalleryArchiverParams exists')
 ok(/archiverLink: string/.test(route), 'GalleryArchiverParams carries EH or-token')
 ok(/GalleryArchiverParams/.test(sharedIndex), 'shared barrel exports GalleryArchiverParams')
-ok(/EhGalleryArchiverItem, EhGalleryArchiverQuote/.test(sharedIndex), 'shared barrel exports archiver models')
+ok(/EhGalleryArchiverItem, EhGalleryArchiverQuote, EhGalleryArchiverSubmitResult/.test(sharedIndex),
+  'shared barrel exports archiver models')
 ok(/EhGalleryArchiverParser/.test(sharedIndex), 'shared barrel exports archiver parser')
 
 ok(/getGalleryArchiver\([\s\S]*archiverLink: string[\s\S]*Promise<EhGalleryArchiverQuote>/.test(api),
-  'EhApiService exposes read-only getGalleryArchiver')
-ok(/\/archiver\.php\?gid=\$\{gid\}&token=\$\{token\}&or=\$\{encodeURIComponent\(archiverLink\)\}/.test(api),
-  'API builds eros_fe archiver.php URL with gid/token/or')
+  'EhApiService exposes getGalleryArchiver')
+ok(/private archiverUrl\([\s\S]*encodeURIComponent\(gid\)[\s\S]*encodeURIComponent\(token\)[\s\S]*encodeURIComponent\(archiverLink\)/.test(api),
+  'API builds eros_fe archiver.php URL with encoded gid/token/or')
 ok(/EhGalleryArchiverParser\.parse\(resp\.body\)/.test(api), 'API parses archiver response')
+ok(/submitGalleryArchiverLocal\([\s\S]*Promise<EhGalleryArchiverSubmitResult>/.test(api) &&
+  /formPair\('dltype', dltype\.trim\(\)\)/.test(api) &&
+  /formPair\('dlcheck', dlcheck\.trim\(\)\)/.test(api) &&
+  /EhGalleryArchiverParser\.parseLocalSubmit\(resp\.body\)/.test(api),
+  'API submits local archive with dltype/dlcheck and parses local URL')
+ok(/submitGalleryArchiverHath\([\s\S]*Promise<EhGalleryArchiverSubmitResult>/.test(api) &&
+  /formPair\('hathdl_xres', resolution\.trim\(\)\)/.test(api) &&
+  /EhGalleryArchiverParser\.parseHathSubmit\(resp\.body\)/.test(api),
+  'API submits H@H archive with hathdl_xres and parses message')
+ok(/postFormUrlEncoded\(url, body\)/.test(api) && /EhErrorClassifier\.classifyResponse\(url, isEx, resp, 'generic'\)/.test(api),
+  'archiver POST uses protected form transport and EH error classification')
 
 ok(/export \{ GalleryArchiverPage \}/.test(galleryIndex), 'gallery barrel exports GalleryArchiverPage')
 ok(/GalleryArchiverPage/.test(entry) && /name === 'GalleryArchiver'[\s\S]*GalleryArchiverPage\(\)/.test(entry),
@@ -68,27 +102,45 @@ ok(/this\.vm\.gallery\.archiverLink\.length > 0[\s\S]*app\.string\.download_arch
 
 ok(/getGalleryArchiver/.test(page), 'archiver page loads through EhApiService')
 ok(/BalanceBadge\('G'/.test(page) && /BalanceBadge\('C'/.test(page), 'page renders GP/Credits balance badges')
-ok(/QuoteList\(\$r\('app\.string\.gallery_archiver_download'\), this\.quote\.downloadItems\)/.test(page),
-  'page renders Download options')
-ok(/QuoteList\(\$r\('app\.string\.gallery_archiver_hath'\), this\.quote\.hathItems\)/.test(page),
-  'page renders H@H options')
+ok(/QuoteList\(\$r\('app\.string\.gallery_archiver_download'\), this\.quote\.downloadItems, false\)/.test(page),
+  'page renders local Download options as local submit rows')
+ok(/QuoteList\(\$r\('app\.string\.gallery_archiver_hath'\), this\.quote\.hathItems, true\)/.test(page),
+  'page renders H@H options as H@H submit rows')
+ok(/QuoteRow\(item: EhGalleryArchiverItem, isHath: boolean\)/.test(page) &&
+  /this\.confirmArchiveSubmit\(item, isHath\)/.test(page),
+  'quote rows are tappable action rows')
+ok(/showAlertDialog\(\{[\s\S]*gallery_archiver_hath_confirm[\s\S]*gallery_archiver_download_confirm[\s\S]*common_cancel[\s\S]*common_ok[\s\S]*this\.submitArchive\(item, isHath\)/.test(page),
+  'submits are gated by native confirmation')
+ok(/submitGalleryArchiverLocal/.test(page) && /submitGalleryArchiverHath/.test(page),
+  'page calls both protected archiver submit methods')
+ok(/localDlcheck\(item\)[\s\S]*Original Archive[\s\S]*Resample Archive/.test(page),
+  'local archive submit preserves eros_fe dlcheck labels')
+ok(/startAbility\(want\)/.test(page) && /localDownloadUrl/.test(page),
+  'local archive result opens the generated download URL')
 ok(/ARCHIVER_BALANCE_BADGE_SIZE/.test(theme) && /ThemeConstants\.ARCHIVER_BALANCE_BADGE_SIZE/.test(page),
   'balance badge size is tokenized')
-
-ok(!/postArchiver|downloadRemote|downloadLoacal|downloadLocal|DownloadQueueSettings|enqueueGalleryDownload/.test(page),
-  'archiver page does not submit archive requests or write queues')
-ok(!/postArchiver/.test(api), 'API lane has no archiver POST method')
-ok(!/Button\([\s\S]*QuoteRow/.test(page), 'quote rows are display rows, not submit buttons')
+ok(!/DownloadQueueSettings|enqueueGalleryDownload|archiverTaskMap|DownloadArchiverTask/.test(page),
+  'archiver page does not fake-write unfinished archiver queue')
 ok(!/ShareUtil|shareUrl/.test(page), 'archiver page does not repurpose share as a fake download action')
 
 const strings = ['base', 'zh_CN', 'en_US', 'ja_JP'].map((locale) =>
   read(`entry/src/main/resources/${locale}/element/string.json`))
-for (const key of ['gallery_archiver', 'gallery_archiver_empty', 'gallery_archiver_download', 'gallery_archiver_hath']) {
+for (const key of [
+  'gallery_archiver',
+  'gallery_archiver_empty',
+  'gallery_archiver_download',
+  'gallery_archiver_hath',
+  'gallery_archiver_download_confirm',
+  'gallery_archiver_hath_confirm',
+  'gallery_archiver_submit_notice',
+  'gallery_archiver_submitted',
+  'gallery_archiver_download_started',
+]) {
   ok(strings.every((s) => s.includes(`"name": "${key}"`)), `i18n key present in all locales: ${key}`)
 }
 
 if (failures > 0) {
-  console.error(`gallery archiver read-only contract failed: ${failures} issue(s)`)
+  console.error(`gallery archiver protected submit contract failed: ${failures} issue(s)`)
   process.exit(1)
 }
-console.log(`✓ gallery archiver read-only contract: ${passed} assertions passed`)
+console.log(`✓ gallery archiver protected submit contract: ${passed} assertions passed`)

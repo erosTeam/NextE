@@ -1497,6 +1497,26 @@
       "value": "H@H"
     },
     {
+      "name": "gallery_archiver_download_confirm",
+      "value": "Request archive download"
+    },
+    {
+      "name": "gallery_archiver_hath_confirm",
+      "value": "Request H@H download"
+    },
+    {
+      "name": "gallery_archiver_submit_notice",
+      "value": "This submits a request to EH and may spend GP or Credits."
+    },
+    {
+      "name": "gallery_archiver_submitted",
+      "value": "Archive request submitted"
+    },
+    {
+      "name": "gallery_archiver_download_started",
+      "value": "Archive download opened"
+    },
+    {
       "name": "image_page_open_failed_title",
       "value": "Image page"
     },

@@ -78,7 +78,7 @@ export class GalleryTorrentsParams {
   }
 }
 
-/** Params for the 'GalleryArchiver' destination. Read-only archive quote/options page. */
+/** Params for the 'GalleryArchiver' destination. Quote page plus protected archive submit actions. */
 export class GalleryArchiverParams {
   gid: string = ''
   token: string = ''

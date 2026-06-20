@@ -55,7 +55,8 @@ Source:
   - `CommentController` covers comment translate, vote up/down, post/edit/reply style actions.
   - `TagInfoController` / `Api.tagGallery` submit `method=taggallery` with `apikey`, `apiuid`, `gid`,
     `token`, `tags`, and `vote`.
-  - Archiver and download controllers cover quote/submit/download flows more deeply than NextE.
+  - Archiver and download controllers cover quote/submit/download flows; NextE now implements the
+    protected archiver submit plumbing but still does not implement a full archiver offline executor.
 
 Scheduling judgment:
 
@@ -67,8 +68,9 @@ Scheduling judgment:
   2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
      deletion, and MyTags new-user-tag add are implemented; reopen only for acceptance regressions or
      separately scoped tagset management.
-  3. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
-     smaller write operations unless the user explicitly prioritizes downloads.
+  3. Archiver/download offline executor: archiver protected submit plumbing is implemented; a full
+     offline archive/download executor remains larger and should be scheduled separately only when
+     the download architecture is deliberately reopened.
 
 Handled status:
 
@@ -175,6 +177,24 @@ Handled status:
   after selection, opened the add confirmation dialog, and cancelled. Remaining gap: final add submit was
   not clicked because EH MyTags creation is a real account write and still needs an explicitly authorized
   test target. Tagset create/rename/delete remain out of scope.
+- Gallery archiver protected submit: `implemented / pending controller acceptance and authorized
+  real-submit verification`. Scope: `GalleryArchiverPage` keeps the GP/Credits quote surface, renders
+  local Download and H@H options as tappable action rows, opens a native confirmation before any account
+  spending POST, submits EH-compatible `dltype` / `dlcheck` for local archives and `hathdl_xres` for H@H,
+  parses the local `document.location` redirect into a generated archive URL, opens that URL through the
+  system, and shows EH status text for H@H. FE grounding:
+  `/Users/honjow/git/eros_fe/lib/pages/gallery/view/archiver_dialog.dart`,
+  `/Users/honjow/git/eros_fe/lib/pages/gallery/controller/archiver_controller.dart`,
+  `/Users/honjow/git/eros_fe/lib/common/parser/archiver_parser.dart`, and
+  `/Users/honjow/git/eros_fe/lib/network/request.dart`. Deterministic coverage:
+  `scripts/test_gallery_archiver_readonly_contract.mjs` now locks protected submit transport,
+  parser/result handling, confirmation gating, and "no fake archiver queue" behavior. Device evidence:
+  Mate X7 emulator `127.0.0.1:5555`, official signed HAP, opened a real Home gallery and verified
+  detail/download smoke under `.hvigor/outputs/archiver-protected-submit-nexte/`; the current public
+  sample routed to `画廊信息` and did not expose an archiver option because no visible `archiverLink`
+  was available in that path. Remaining gap: opening the archiver confirmation dialog and any final
+  submit require a logged-in gallery with a visible `archiverLink` plus explicit real-submit
+  authorization. This lane deliberately does not add a fake archiver queue or offline executor.
 
 Implementation constraints:
 
