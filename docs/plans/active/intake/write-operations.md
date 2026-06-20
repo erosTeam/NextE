@@ -18,7 +18,8 @@ Priority suggestion: P0/P1
 
 Status: active intake / remote favorite write path implemented pending acceptance / gallery rating write
 implemented pending authorized real-submit acceptance / comment vote implemented pending authorized
-real-submit acceptance / comment compose-reply implemented pending authorized real-submit acceptance
+real-submit acceptance / comment compose-reply implemented pending authorized real-submit acceptance /
+own-comment edit implemented pending authorized real-submit acceptance
 
 Source:
 
@@ -31,8 +32,8 @@ Source:
   - NextE has strong browsing surfaces: Home/Search/Favorites/Detail/Reader/Settings/Download shells,
     local favorite state, remote favorite browsing, read-only comments, torrent/archiver read surfaces,
     and some non-destructive write-entry affordances.
-  - `GalleryCommentsPage` now implements bounded comment write actions: vote up/down and protected
-    new/reply composition on the full comments page. Own-comment edit remains a deferred write-op.
+  - `GalleryCommentsPage` now implements bounded comment write actions: vote up/down, protected
+    new/reply composition, and own-comment edit on the full comments page.
   - `GalleryArchiverPage` and download queue flows expose read/queue surfaces but do not complete the
     destructive archive/download submit pipeline.
   - Gallery rating now has a protected `rategallery` path in NextE: it opens an HDS rating sheet,
@@ -55,7 +56,8 @@ Scheduling judgment:
 - The next major progress should be user-visible feature completion, not another long cycle of Reader
   double-page architecture or repeated visual QA, unless a current P0 defect blocks basic use.
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
-  1. Comment actions: comment vote and reply/new comment are implemented; continue with own-comment edit.
+  1. Comment actions: comment vote, reply/new comment, and own-comment edit are implemented; reopen only
+     for acceptance regressions.
   2. Tag/MyTags write actions: tag vote/suggest/set-user-tag after the write safety pattern is proven.
   3. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
      smaller write operations unless the user explicitly prioritizes downloads.
@@ -87,6 +89,21 @@ Handled status:
   verified prefill, then cancelled. Evidence files live under `.hvigor/outputs/comment-compose-write/`.
   Remaining gap: final comment submit was not clicked because EH comments are real account writes and still
   need an explicitly authorized test target.
+- Own-comment edit: `implemented / pending controller acceptance and authorized real-submit verification`.
+  Commit: `974b698 feat(gallery): support editing own comments`. Scope: full-comments edit footer action
+  appears only when `EhCommentParser` sets `canEdit`, edit mode reuses the HDS compose sheet, pre-fills the
+  original plain-text comment, labels the sheet as edit, submits the same protected gallery comment form with
+  `commenttext_edit` and `edit_comment`, refreshes comments after success, and extends deterministic
+  contracts/i18n. FE grounding: Android eros_fe source
+  `/Users/honjow/git/eros_fe/lib/pages/gallery/controller/comment_controller.dart` and
+  `/Users/honjow/git/eros_fe/lib/network/request.dart` show edit prefill plus
+  `commenttext_edit`/`edit_comment`; Android FE was launched via `adb su` and screenshot evidence was
+  captured, but the foreground FE state was a rating dialog rather than an editable own-comment sample.
+  Device evidence: Mate X7 emulator `127.0.0.1:5555`, official signed HAP, opened a gallery comments page
+  and confirmed the current no-comment sample did not expose false edit actions. Evidence files live under
+  `.hvigor/outputs/comment-edit-write/`. Remaining gap: final edit submit and edit-sheet screenshot require
+  an actual own-comment sample or explicitly authorized test comment creation/editing; no real EH comment was
+  edited during automated validation.
 
 Implementation constraints:
 

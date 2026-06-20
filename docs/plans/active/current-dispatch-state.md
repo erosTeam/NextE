@@ -81,6 +81,12 @@ Historical feedback in this section must not trigger new implementation.
   id, and submission posts `commenttext_new` to `/g/{gid}/{token}`. Simulator validation opened the HDS
   compose/reply sheets, typed draft text, confirmed send-state gating, and cancelled; no real EH comment was
   submitted.
+- Gallery own-comment edit is implemented and pending controller acceptance / authorized real-submit
+  verification: full comments now shows edit actions only for parser-confirmed `canEdit` comments, pre-fills
+  the original text in the same HDS compose sheet, and submits `commenttext_edit` plus `edit_comment` through
+  the protected gallery comment form path. Simulator validation confirmed the current sample page opens
+  without false edit actions; no real EH edit was submitted because no editable own-comment sample was
+  available during non-destructive QA.
 
 ## Parked / Guidance Only
 
@@ -108,8 +114,9 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Comment write actions: vote up/down and reply/new comment are implemented pending acceptance; continue
-   with own-comment edit only if the next bounded EH write lane should stay on comments.
+1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
+   controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
+   finds a comment write regression.
 2. Settings shell audit: identify settings rows/pages that are only shells, disabled placeholders, or
    not wired to real behavior; either finish the high-frequency ones or make their limited scope honest.
 3. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
