@@ -39,7 +39,7 @@ ok('api posts taggallery to api.php as JSON and surfaces EH error',
 
 const barrel = read('shared/src/main/ets/Index.ets')
 ok('TagGalleryResult is exported from shared barrel',
-  /EhApiPhpService, GalleryRatingResult, CommentVoteResult, TagGalleryResult/.test(barrel))
+  /EhApiPhpService[\s\S]*GalleryRatingResult[\s\S]*CommentVoteResult[\s\S]*TagGalleryResult/.test(barrel))
 
 const parser = read('shared/src/main/ets/parser/EhGalleryDetailParser.ets')
 ok('detail parser preserves logged-in tag vote classes',

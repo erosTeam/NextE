@@ -37,7 +37,7 @@ ok('api posts to api.php and parses returned comment score and vote',
 
 const barrel = read('shared/src/main/ets/Index.ets')
 ok('CommentVoteResult is exported from shared barrel',
-  /EhApiPhpService, GalleryRatingResult, CommentVoteResult/.test(barrel))
+  /EhApiPhpService[\s\S]*GalleryRatingResult[\s\S]*CommentVoteResult/.test(barrel))
 
 const params = read('shared/src/main/ets/model/RouteParams.ets')
 ok('GalleryCommentsParams carries api metadata for votecomment',
