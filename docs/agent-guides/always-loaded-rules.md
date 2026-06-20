@@ -48,6 +48,19 @@ ohpm install
 
 修 bug 时,未经明确要求**不要**改颜色、字体、间距、布局、文案、导航或交互模型。完成前移除所有临时测试脚手架(假请求、mock、诊断 UI)。新颜色需同时覆盖深色 + 浅色。
 
+### 内容页状态: 禁止 empty-list-first
+
+带网络 / 数据加载的内容页必须以“可展示内容优先”建模,不要在进入、刷新、筛选、切换子 tab 或重新加载时先把列表 / 详情 / 评论 / 种子 / 缩略图数据清空成 `[]` / 空对象,再触发请求。这会造成白屏、空状态闪烁、旧内容丢失,是已多次复发的 UX 事故。
+
+- `items` / `data` 表示最后一次可展示成功内容;`isLoading` / `loadState` / `phase` 表示当前请求状态。不要用“数组为空”替代加载状态。
+- terminal empty state 只能在“请求已完成且结果确认为空”后出现。条件必须等价于 `hasLoaded && !isLoading && items.length === 0`,而不是初始 `items.length === 0`。
+- refresh、filter reapply、favcat/source/subtab 切换、route reseed 时,优先保留 stale content 并显示 in-body loading / skeleton / dimmed stale 状态。除非切到完全不同实体且没有 seed/cache,不得把整个页面打回空白。
+- 首次打开没有任何缓存时可以显示 loading/skeleton;有 seed data 的路由页(例如列表进详情携带 title/thumb/basic meta)必须先渲染 seed,再后台补全。
+- reload / paging 失败时保留旧内容并显示 inline error / toast / retry,不要清空页面后只剩错误或空白。
+- 禁止在 `loadData()` / `reload()` / `select*()` / `applyFilter()` 开头无条件执行 `this.items = []`、`this.gallerys = []`、`this.comments = []`、`this.thumbnails = []`、`this.data = new ...()` 等清空展示面的写法。若确需清空,必须在代码注释和 contract 中说明它不是用户可见内容面,或说明没有 stale/seed 可保留。
+
+涉及列表、搜索、收藏、评论、all-thumbnails、种子 / 磁力链、详情页、Reader 辅助数据、设置子页等内容页改动时,contract 应覆盖“不闪 terminal empty / 不清空 stale content”的关键路径。
+
 ### UI / 功能开工前 grounding
 
 任何新增 UI 或用户可见功能,写产品代码前必须先记录 5 行 grounding:
