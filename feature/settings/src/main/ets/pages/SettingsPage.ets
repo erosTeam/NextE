@@ -151,14 +151,6 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
-        title: $r('app.string.settings_security'),
-        leadingIcon: $r('sys.symbol.lock'),
-        action: () => {
-          this.stack.pushPathByName('SecuritySettings', null)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
         title: $r('app.string.settings_about'),
         leadingIcon: $r('sys.symbol.info_circle'),
         action: () => {

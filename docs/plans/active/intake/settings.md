@@ -16,7 +16,7 @@ Type: feature gap / settings trustworthiness
 
 Priority suggestion: P1
 
-Status: active intake
+Status: active intake / Security root exposure implemented pending controller acceptance
 
 Source:
 
@@ -35,8 +35,9 @@ Source:
     contains cache/proxy/import/export/log-related maintenance rows.
   - `DownloadSettingsPage` is explicitly scoped to persisted policy controls, while the broader download
     executor remains incomplete.
-  - `SecuritySettingsPage` intentionally exposes recent-task blur as disabled and auto-lock preference
-    foundation without full biometric/lifecycle enforcement.
+  - `SecuritySettingsPage` intentionally exposed recent-task blur as disabled and auto-lock preference
+    foundation without full biometric/lifecycle enforcement; this was later corrected by hiding the
+    Security entry from Settings root until real lock enforcement exists.
 
 Observed risk:
 
@@ -75,6 +76,20 @@ Acceptance shape:
   partial with a follow-up lane.
 - Disabled EH/Security/Advanced rows use honest text and do not masquerade as active actions.
 - Contracts verify key rows are routable and partial/disabled rows cannot trigger accidental writes.
+
+Handled update, 2026-06-20:
+
+- Security root exposure: implemented / pending controller acceptance. Settings root no longer shows
+  the `安全` entry because the underlying recent-task privacy and auto-lock enforcement are not wired.
+  The parked `SecuritySettingsPage` / V2 preference foundation remains in code for a future
+  platform-validated lane, but it is no longer presented as a completed user-facing security feature.
+- Contract updated: `scripts/test_settings_security_entry_contract.mjs` now locks that Settings root
+  must not contain `settings_security` or `pushPathByName('SecuritySettings', null)` until the real
+  protection lane exists.
+- HarmonyOS emulator evidence: target `127.0.0.1:5555`, signed HAP installed. Settings root layout
+  showed `EH`, `布局`, `阅读`, `下载`, `搜索`, `历史`, `高级`, and `关于`, with `contains 安全: false`.
+  Evidence files: `.hvigor/outputs/settings-security-root-hidden/settings_root.png` and
+  `.hvigor/outputs/settings-security-root-hidden/settings_root_layout.json`.
 
 ### Settings Root Missing Layout Settings Page
 
@@ -386,18 +401,20 @@ Remaining acceptance:
 - Needs controller/user acceptance of the Settings root placement and minimal EH settings scope. No
   further device validation is required unless Settings root or EH settings routing changes again.
 
-### Settings Root Missing Security Settings Page
+### Security Settings Exposure Without Enforcement
 
-Type: feature gap / settings reachability
+Type: settings trustworthiness / partial feature exposure
 
 Priority suggestion: P1
 
-Status: implemented / needs controller acceptance
+Status: corrected / pending controller acceptance
 
 Source:
 
 - System comparison against `eros_fe` settings showed `Security` as a first-level Settings child page,
   while NextE lacked a matching route or page.
+- Follow-up audit found the first implementation exposed an auto-lock selector even though NextE still
+  had no lifecycle lock enforcement, biometric unlock surface, or recent-task privacy/masking.
 
 Grounding:
 
@@ -423,6 +440,9 @@ Implementation:
 - Scope is limited to Settings reachability and persisted auto-lock preference selection. It does not
   implement biometric unlock overlay, lifecycle lock enforcement, recent-task privacy/masking, or any
   auth-cookie-login behavior.
+- 2026-06-20 correction: Settings root no longer exposes the `安全` entry. The parked route/page/state
+  remain for a future platform-validated security lane, but users are not shown an auto-lock preference
+  that does not actually lock the app.
 
 Evidence:
 
@@ -457,7 +477,8 @@ Evidence:
 
 Remaining acceptance:
 
-- Needs controller/user acceptance of the Settings root placement and honest limited Security scope.
+- Needs controller/user acceptance that Security is no longer visible from Settings root until actual
+  protection is wired.
 - Future separate lanes are still needed for real recent-task privacy/masking and biometric
   auto-lock enforcement.
 

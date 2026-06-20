@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Contract: Settings exposes a Security child page without pretending unsupported privacy/biometric
- * behavior is implemented. Auto-lock is persisted as a preference foundation only.
+ * Contract: Settings does not expose Security as a user-facing entry until lock enforcement is real.
+ * The old preference foundation may stay parked for a future platform-validated lane, but Settings root
+ * must not imply recent-task privacy or auto-lock protection is available.
  *
  * Run: node scripts/test_settings_security_entry_contract.mjs
  */
@@ -20,17 +21,17 @@ const ok = (cond, msg) => {
 
 const grounding = [
   'eros_fe: lib/pages/tab/controller/setting_controller.dart routes Security to EHRoutes.securitySetting; lib/pages/setting/security_setting_page.dart renders recent-task blur and auto-lock rows',
-  'primary information: app privacy and auto-lock settings, not generic diagnostics',
-  'primary action: choose auto-lock timeout; recent-task blur stays disabled until HarmonyOS window privacy support is implemented',
-  'scope: Settings root + HDS child page + persisted auto-lock preference foundation; no biometric unlock overlay, lifecycle lock enforcement, or recent-task privacy API',
-  'Harmony expression: HdsNavDestination + SecondaryListScaffold + GroupedListSection + ConciseListRow, V2 holder plus single-writer settings',
+  'primary information: app privacy and auto-lock settings only when real protection is wired',
+  'primary action: none exposed this lane; do not offer an auto-lock chooser without lifecycle/biometric enforcement',
+  'scope: hide the misleading Settings root entry; keep the parked V2 preference foundation for a future protected implementation',
+  'Harmony expression: Settings root reachability is the contract; no HDS entry until the downstream protection is real',
 ]
 
 ok(grounding.length === 5, 'security settings lane has five-line grounding')
 ok(grounding[0].includes('setting_controller.dart') && grounding[0].includes('security_setting_page.dart'),
   'grounding names concrete eros_fe Security settings files')
-ok(grounding[3].includes('no biometric unlock') && grounding[4].includes('HdsNavDestination'),
-  'grounding limits scope and names Harmony expression')
+ok(grounding[3].includes('hide the misleading Settings root entry') &&
+  grounding[4].includes('no HDS entry'), 'grounding limits scope and names Harmony expression')
 
 const state = read('shared/src/main/ets/state/SecuritySettingsState.ets')
 ok(/@ObservedV2\s+export class SecuritySettingsState/.test(state), 'security settings holder is V2')
@@ -61,15 +62,15 @@ ok(/SecuritySettingsState/.test(barrel) && /connectSecuritySettings/.test(barrel
   /SecuritySettings/.test(barrel), 'shared barrel exports security settings API')
 
 const settingsRoot = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
-ok(/settings_security/.test(settingsRoot) && /pushPathByName\('SecuritySettings', null\)/.test(settingsRoot),
-  'Settings root exposes a Security settings entry')
+ok(!/settings_security/.test(settingsRoot) && !/pushPathByName\('SecuritySettings', null\)/.test(settingsRoot),
+  'Settings root does not expose Security until lock enforcement is implemented')
 
 const settingsIndex = read('feature/settings/src/main/ets/Index.ets')
-ok(/SecuritySettingsPage/.test(settingsIndex), 'settings barrel exports SecuritySettingsPage')
+ok(/SecuritySettingsPage/.test(settingsIndex), 'parked settings barrel still exports SecuritySettingsPage')
 
 const entryIndex = read('entry/src/main/ets/pages/Index.ets')
 ok(/SecuritySettingsPage/.test(entryIndex) && /name === 'SecuritySettings'/.test(entryIndex),
-  'entry router registers the SecuritySettings route')
+  'parked entry router still registers the SecuritySettings route for future direct-lane validation')
 
 const page = read('feature/settings/src/main/ets/pages/SecuritySettingsPage.ets')
 ok(/@ComponentV2\s+export struct SecuritySettingsPage/.test(page),
@@ -112,4 +113,4 @@ if (failures > 0) {
   process.exit(1)
 }
 
-console.log('✓ settings security entry contract: Security route and honest auto-lock preference locked')
+console.log('✓ settings security entry contract: Security root entry stays hidden until lock enforcement exists')

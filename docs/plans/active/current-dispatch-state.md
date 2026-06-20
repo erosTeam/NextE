@@ -87,6 +87,10 @@ Historical feedback in this section must not trigger new implementation.
   the protected gallery comment form path. Simulator validation confirmed the current sample page opens
   without false edit actions; no real EH edit was submitted because no editable own-comment sample was
   available during non-destructive QA.
+- Security settings root exposure is corrected and pending controller acceptance: the unfinished
+  recent-task privacy / auto-lock page is no longer reachable from Settings root until real
+  lifecycle/biometric lock enforcement exists. The parked V2 preference/page code remains for a future
+  platform-validated lane, but Settings root no longer implies security protection is already wired.
 
 ## Parked / Guidance Only
 
@@ -117,8 +121,8 @@ a bounded validation path.
 1. Comment write actions: vote up/down, reply/new comment, and own-comment edit are implemented pending
    controller acceptance / authorized real-submit verification; continue here only if fresh acceptance
    finds a comment write regression.
-2. Settings shell audit: identify settings rows/pages that are only shells, disabled placeholders, or
-   not wired to real behavior; either finish the high-frequency ones or make their limited scope honest.
+2. Settings shell audit: continue with remaining rows/pages that are only shells, disabled placeholders,
+   or not wired to real behavior; Security root exposure is already corrected pending acceptance.
 3. Tag/MyTags write actions: evaluate tag vote/suggest/set-user-tag only after favorite/rating/comment
    writes establish the protected EH write pattern.
 4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
