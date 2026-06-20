@@ -38,6 +38,9 @@ export struct LayoutSettingsPage {
   }
 
   private viewModeLabel(): Resource {
+    if (this.listMode.mode === ListMode.WATERFALL) {
+      return $r('app.string.view_waterfall')
+    }
     if (this.listMode.mode === ListMode.GRID) {
       return $r('app.string.view_grid')
     }
@@ -95,6 +98,15 @@ export struct LayoutSettingsPage {
           : undefined,
       }).onClick(() => {
         this.setViewMode(ListMode.GRID)
+        this.viewMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.view_waterfall'),
+        symbolEndIcon: this.listMode.mode === ListMode.WATERFALL
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setViewMode(ListMode.WATERFALL)
         this.viewMenuShown = false
       })
     }

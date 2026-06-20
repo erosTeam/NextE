@@ -1213,6 +1213,10 @@
       "value": "Grid"
     },
     {
+      "name": "view_waterfall",
+      "value": "Waterfall"
+    },
+    {
       "name": "read_mode_ltr",
       "value": "L → R"
     },

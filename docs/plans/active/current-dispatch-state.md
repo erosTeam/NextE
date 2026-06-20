@@ -124,6 +124,13 @@ Historical feedback in this section must not trigger new implementation.
   reload the current tagset after success, and publish the shared usertag cache signal. Android eros_fe was
   used for source and UI grounding; simulator validation opened the edit sheet, changed draft state, opened
   the save confirmation dialog, and cancelled. No real EH usertag edit was submitted.
+- Waterfall mode proper launch is implemented and pending controller acceptance: Layout settings now
+  exposes `瀑布流` as a distinct persisted view mode, while Home/Search/Favorites route
+  `ListMode.WATERFALL` through `PullRefreshWaterFlowScaffold` + `FlowItem` + `GalleryWaterfallCard`.
+  Grid remains a separate fixed-cell branch using `PullRefreshGridScaffold` + `GridItem` +
+  `GalleryGridCard`. Android eros_fe comparison confirmed `瀑布流` / `瀑布流 - 大` / `网格` are
+  separate list-style choices, and HarmonyOS simulator evidence shows the NextE menu entry and Home
+  `WaterFlow` rendering.
 
 ## Parked / Guidance Only
 
@@ -163,11 +170,9 @@ a bounded validation path.
    MyTags edit regression, or for a separately scoped new-tag/delete/tagset-management lane.
 4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
-5. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is
-   accepted; do not make Grid behave like Waterfall.
-6. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
+5. Reader UI/chrome/loading visible issues: only reopen Reader here if the outcome is a concrete visual
    or gesture fix, not more architecture discussion.
-7. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
+6. Reader gesture matrix: only continue if current device evidence shows a failed basic action such as
    normal fit-scale swipe, pinch, zoomed pan, double tap, center tap, or ready-state overlay cleanup.
 
 ## Lane Selection Rule

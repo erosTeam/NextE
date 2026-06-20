@@ -22,6 +22,15 @@ function ok(name, condition) {
   }
 }
 
+function branchBetween(source, start, end) {
+  const startIndex = source.indexOf(start)
+  if (startIndex < 0) {
+    return ''
+  }
+  const endIndex = source.indexOf(end, startIndex + start.length)
+  return source.slice(startIndex, endIndex < 0 ? source.length : endIndex)
+}
+
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
 ok('gallery grid min width and gap are centralized tokens',
   /GALLERY_GRID_MIN_W:\s*number\s*=\s*150/.test(theme) &&
@@ -41,19 +50,24 @@ const galleryPages = [
 
 for (const rel of galleryPages) {
   const source = read(rel)
+  const gridBranch = branchBetween(
+    source,
+    'this.listMode.mode === ListMode.GRID',
+    'this.listMode.mode === ListMode.WATERFALL',
+  )
   ok(`${rel} imports PullRefreshGridScaffold for GRID mode`,
     /PullRefreshGridScaffold/.test(source))
   ok(`${rel} GRID branch uses PullRefreshGridScaffold`,
-    /this\.listMode\.mode === ListMode\.GRID[\s\S]*PullRefreshGridScaffold\(\{/.test(source))
+    /PullRefreshGridScaffold\(\{/.test(gridBranch))
   ok(`${rel} GRID branch passes responsive min width and gap`,
-    /minColumnWidth:\s*ThemeConstants\.GALLERY_GRID_MIN_W/.test(source) &&
-      /gap:\s*ThemeConstants\.GALLERY_GRID_GAP/.test(source) &&
-      /horizontalPadding:\s*ThemeConstants\.GALLERY_GRID_GAP/.test(source))
+    /minColumnWidth:\s*ThemeConstants\.GALLERY_GRID_MIN_W/.test(gridBranch) &&
+      /gap:\s*ThemeConstants\.GALLERY_GRID_GAP/.test(gridBranch) &&
+      /horizontalPadding:\s*ThemeConstants\.GALLERY_GRID_GAP/.test(gridBranch))
   ok(`${rel} GRID branch provides GridItem children`,
-    /this\.listMode\.mode === ListMode\.GRID[\s\S]*GridItem\(\) \{[\s\S]*GalleryGridCard/.test(source))
+    /GridItem\(\) \{[\s\S]*GalleryGridCard/.test(gridBranch))
   ok(`${rel} GRID branch does not use WaterFlow/FlowItem`,
-    !/this\.listMode\.mode === ListMode\.GRID[\s\S]*PullRefreshWaterFlowScaffold/.test(source) &&
-      !/this\.listMode\.mode === ListMode\.GRID[\s\S]*FlowItem\(\)/.test(source))
+    !/PullRefreshWaterFlowScaffold/.test(gridBranch) &&
+      !/FlowItem\(\)/.test(gridBranch))
 }
 
 const gridCard = read('shared/src/main/ets/components/GalleryGridCard.ets')
@@ -68,8 +82,9 @@ ok('GalleryGridCard has a fixed info-area contract so tags cannot create masonry
     /\.height\(ThemeConstants\.GALLERY_GRID_INFO_HEIGHT\)/.test(gridCard))
 
 const layoutSettings = read('feature/settings/src/main/ets/pages/LayoutSettingsPage.ets')
-ok('WATERFALL is not exposed as implemented by the Layout settings selector in this lane',
-  !/ListMode\.WATERFALL/.test(layoutSettings))
+ok('Layout settings exposes Waterfall as a separate mode, not as Grid',
+  /ListMode\.WATERFALL/.test(layoutSettings) &&
+    /view_waterfall/.test(layoutSettings))
 
 if (failures === 0) {
   console.log('✓ gallery grid mode contract passed')

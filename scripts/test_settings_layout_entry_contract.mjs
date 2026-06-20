@@ -57,6 +57,8 @@ ok(/@Local thumbMode: ThumbnailModeState = connectThumbnailMode\(\)/.test(layout
 ok(/settings_view/.test(layoutPage) && /ViewModeMenu/.test(layoutPage) &&
   /ListModeSettings\.setMode\(this\.ctx\(\), mode\)/.test(layoutPage),
   'page owns list mode menu and persists through ListModeSettings')
+ok(/ListMode\.WATERFALL/.test(layoutPage) && /view_waterfall/.test(layoutPage),
+  'page exposes Waterfall as a distinct persisted list mode')
 ok(/settings_list_fixed_height/.test(layoutPage) &&
   /ListModeSettings\.setFixedHeight\(this\.ctx\(\), value\)/.test(layoutPage),
   'page owns fixed-height switch')

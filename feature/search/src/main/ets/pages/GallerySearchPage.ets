@@ -3,6 +3,7 @@ import {
   EhGallery,
   GalleryCard,
   GalleryGridCard,
+  GalleryWaterfallCard,
   GallerySimpleCard,
   GalleryDetailParams,
   ReaderParams,
@@ -20,6 +21,7 @@ import {
   LoadingFooter,
   PullRefreshListScaffold,
   PullRefreshGridScaffold,
+  PullRefreshWaterFlowScaffold,
   PullRefreshController,
   connectNavStack,
   SearchFilterState,
@@ -501,6 +503,50 @@ export struct GallerySearchPage {
                 (g: EhGallery) => {
                   GridItem() {
                     GalleryGridCard({ gallery: g })
+                  }
+                  .onClick(() => {
+                    this.stack.pushPathByName(
+                      'GalleryDetail',
+                      new GalleryDetailParams(
+                        g.gid,
+                        g.token,
+                        g.thumbUrl,
+                        g.title(),
+                        g.fileCount,
+                        g.imgWidth,
+                        g.imgHeight,
+                      ),
+                    )
+                  })
+                },
+                (g: EhGallery) => g.gid,
+              )
+            }
+          } else if (this.listMode.mode === ListMode.WATERFALL) {
+            PullRefreshWaterFlowScaffold({
+              scroller: this.scroller,
+              minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
+              gap: ThemeConstants.GALLERY_GRID_GAP,
+              horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
+              topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,
+              bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+              controller: this.refreshController,
+              onRefresh: async () => {
+                await this.vm.refresh()
+              },
+              onBottomRefresh: async () => {
+                await this.vm.loadMore()
+              },
+              canStartBottomRefresh: () => this.vm.canLoadMore(),
+              onReachEnd: () => {
+                this.vm.loadMore()
+              },
+            }) {
+              LazyForEach(
+                this.vm.dataSource,
+                (g: EhGallery) => {
+                  FlowItem() {
+                    GalleryWaterfallCard({ gallery: g })
                   }
                   .onClick(() => {
                     this.stack.pushPathByName(

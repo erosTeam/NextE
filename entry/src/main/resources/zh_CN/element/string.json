@@ -1213,6 +1213,10 @@
       "value": "网格"
     },
     {
+      "name": "view_waterfall",
+      "value": "瀑布流"
+    },
+    {
       "name": "read_mode_ltr",
       "value": "左→右"
     },

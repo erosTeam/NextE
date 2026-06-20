@@ -437,7 +437,46 @@ Type: feature gap / browsing mode
 
 Priority suggestion: P1/P2
 
-Status: active intake / schedule after Grid card information repair
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- NextE now exposes one `Waterfall` mode as the first waterfall launch, leaving separate
+  `Waterfall Large` parity for a future lane.
+- `feature/settings/src/main/ets/pages/LayoutSettingsPage.ets` adds `ListMode.WATERFALL` to the
+  persisted view-mode selector with i18n label `view_waterfall`.
+- Home, Search, and Favorites add a separate `ListMode.WATERFALL` branch that renders
+  `PullRefreshWaterFlowScaffold` + `FlowItem` + `GalleryWaterfallCard`.
+- `GalleryWaterfallCard` is a distinct masonry card: cover height follows bounded EH source aspect
+  ratio, and its compact title/meta/tag block is not constrained by Grid's fixed info-area heights.
+- Grid remains unchanged as the fixed-cell branch using `PullRefreshGridScaffold` + `GridItem` +
+  `GalleryGridCard`.
+
+Verification:
+
+- Android eros_fe FE comparison on device `fa967a75`:
+  `.hvigor/outputs/gallery-waterfall-launch-fe/fe_style_page.png` and
+  `.hvigor/outputs/gallery-waterfall-launch-fe/fe_list_style_options.png` show `列表样式` with
+  separate `瀑布流`, `瀑布流 - 大`, and `网格` options.
+- Deterministic contracts:
+  `node scripts/test_gallery_grid_mode_contract.mjs`,
+  `node scripts/test_gallery_waterflow_contract.mjs`,
+  `node scripts/test_settings_layout_entry_contract.mjs`,
+  `python3 scripts/check_i18n_duplicates.py`, and
+  `node scripts/test_v1_decorator_inventory_contract.mjs`.
+- Signed macOS build passed: `scripts/build_hvigor_signed.sh`.
+- HarmonyOS simulator `127.0.0.1:5555` evidence:
+  `.hvigor/outputs/gallery-waterfall-launch-nexte/mode_menu.png` shows the NextE layout menu with
+  `列表 / 简洁 / 网格 / 瀑布流`, and
+  `.hvigor/outputs/gallery-waterfall-launch-nexte/home_waterfall.png` plus
+  `home_waterfall.json` confirm the Home page renders `WaterFlow:1` / `FlowItem:3` after selecting
+  Waterfall.
+
+Remaining acceptance:
+
+- Controller/user should review the Home waterfall screenshot and, if needed, repeat on Search and
+  Favorites with live data. Source contracts already lock all three surfaces to the distinct
+  Waterfall branch.
 
 Source:
 

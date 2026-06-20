@@ -3,11 +3,13 @@ import {
   EhGallery,
   GalleryCard,
   GalleryGridCard,
+  GalleryWaterfallCard,
   GallerySimpleCard,
   GalleryDetailParams,
   LoadingFooter,
   PullRefreshListScaffold,
   PullRefreshGridScaffold,
+  PullRefreshWaterFlowScaffold,
   PullRefreshController,
   PageLoadingState,
   PageErrorState,
@@ -126,6 +128,39 @@ export struct GalleryListBody {
             (g: EhGallery) => {
               GridItem() {
                 GalleryGridCard({ gallery: g })
+              }
+              .onClick(() => {
+                this.openDetail(g)
+              })
+            },
+            (g: EhGallery) => g.gid,
+          )
+        }
+      } else if (this.listMode.mode === ListMode.WATERFALL) {
+        PullRefreshWaterFlowScaffold({
+          scroller: this.scroller,
+          minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
+          gap: ThemeConstants.GALLERY_GRID_GAP,
+          horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
+          topPadding: this.topPadding,
+          bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+          controller: this.refreshController,
+          onRefresh: async () => {
+            await this.vm.refresh()
+          },
+          onBottomRefresh: async () => {
+            await this.vm.loadMore()
+          },
+          canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onReachEnd: () => {
+            this.vm.loadMore()
+          },
+        }) {
+          LazyForEach(
+            this.vm.dataSource,
+            (g: EhGallery) => {
+              FlowItem() {
+                GalleryWaterfallCard({ gallery: g })
               }
               .onClick(() => {
                 this.openDetail(g)

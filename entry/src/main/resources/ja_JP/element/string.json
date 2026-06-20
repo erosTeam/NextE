@@ -1213,6 +1213,10 @@
       "value": "グリッド"
     },
     {
+      "name": "view_waterfall",
+      "value": "ウォーターフォール"
+    },
+    {
       "name": "read_mode_ltr",
       "value": "左→右"
     },
