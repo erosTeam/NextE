@@ -885,6 +885,42 @@
       "value": "我的标签"
     },
     {
+      "name": "mytags_edit_title",
+      "value": "编辑我的标签"
+    },
+    {
+      "name": "mytags_watch",
+      "value": "关注"
+    },
+    {
+      "name": "mytags_hide",
+      "value": "隐藏"
+    },
+    {
+      "name": "mytags_weight",
+      "value": "权重"
+    },
+    {
+      "name": "mytags_default_color",
+      "value": "使用默认颜色"
+    },
+    {
+      "name": "mytags_color",
+      "value": "颜色"
+    },
+    {
+      "name": "mytags_save",
+      "value": "保存"
+    },
+    {
+      "name": "mytags_save_confirm",
+      "value": "保存这个我的标签设置？"
+    },
+    {
+      "name": "mytags_save_success",
+      "value": "我的标签已保存"
+    },
+    {
       "name": "gallery_comments",
       "value": "评论"
     },

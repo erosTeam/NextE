@@ -885,6 +885,42 @@
       "value": "マイタグ"
     },
     {
+      "name": "mytags_edit_title",
+      "value": "マイタグを編集"
+    },
+    {
+      "name": "mytags_watch",
+      "value": "ウォッチ"
+    },
+    {
+      "name": "mytags_hide",
+      "value": "非表示"
+    },
+    {
+      "name": "mytags_weight",
+      "value": "重み"
+    },
+    {
+      "name": "mytags_default_color",
+      "value": "既定の色を使用"
+    },
+    {
+      "name": "mytags_color",
+      "value": "色"
+    },
+    {
+      "name": "mytags_save",
+      "value": "保存"
+    },
+    {
+      "name": "mytags_save_confirm",
+      "value": "このマイタグ設定を保存しますか？"
+    },
+    {
+      "name": "mytags_save_success",
+      "value": "マイタグを保存しました"
+    },
+    {
       "name": "gallery_comments",
       "value": "コメント"
     },

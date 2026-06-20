@@ -112,6 +112,12 @@ Historical feedback in this section must not trigger new implementation.
   posting protected `/api.php method=taggallery`, and updates local tag vote state after success.
   Simulator validation opened the action sheet and confirmation dialog, then cancelled; no real EH tag
   vote was submitted.
+- MyTags existing tag edit is implemented and pending controller acceptance / authorized real-submit
+  verification: Settings `我的标签` can open an existing usertag in an HDS modal sheet, edit watch/hide,
+  weight, and color/default-color draft state, confirm before posting protected `/api.php method=setusertag`,
+  reload the current tagset after success, and publish the shared usertag cache signal. Android eros_fe was
+  used for source and UI grounding; simulator validation opened the edit sheet, changed draft state, opened
+  the save confirmation dialog, and cancelled. No real EH usertag edit was submitted.
 
 ## Parked / Guidance Only
 
@@ -146,9 +152,9 @@ a bounded validation path.
    not wired to real behavior, or unsafe/destructive without confirmation; Security, Download, EH
    placeholder exposure, Search history clear safety, Search filter reset safety, and Viewed history
    clear safety are already corrected pending acceptance.
-3. Tag/MyTags write actions: taggallery vote is implemented pending controller acceptance / authorized
-   real-submit verification. Reopen here only for a fresh tag-vote regression or for a separately scoped
-   MyTags/setusertag lane; do not treat MyTags editing as completed by the tag vote work.
+3. Tag/MyTags write actions: taggallery vote and existing MyTags/setusertag editing are implemented pending
+   controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote or
+   MyTags edit regression, or for a separately scoped new-tag/delete/tagset-management lane.
 4. AllThumbnails large-gallery jump and preview-page scrolling: reopen only if current acceptance finds
    a remaining mismatch beyond the documented 1700-page jump-to-600 evidence.
 5. Waterfall mode proper launch: expose a distinct Waterfall mode after Grid card information density is

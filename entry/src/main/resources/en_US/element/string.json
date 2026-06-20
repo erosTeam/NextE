@@ -885,6 +885,42 @@
       "value": "My Tags"
     },
     {
+      "name": "mytags_edit_title",
+      "value": "Edit My Tag"
+    },
+    {
+      "name": "mytags_watch",
+      "value": "Watch"
+    },
+    {
+      "name": "mytags_hide",
+      "value": "Hide"
+    },
+    {
+      "name": "mytags_weight",
+      "value": "Weight"
+    },
+    {
+      "name": "mytags_default_color",
+      "value": "Default color"
+    },
+    {
+      "name": "mytags_color",
+      "value": "Color"
+    },
+    {
+      "name": "mytags_save",
+      "value": "Save"
+    },
+    {
+      "name": "mytags_save_confirm",
+      "value": "Save changes to this My Tag?"
+    },
+    {
+      "name": "mytags_save_success",
+      "value": "My Tag saved"
+    },
+    {
       "name": "gallery_comments",
       "value": "Comments"
     },

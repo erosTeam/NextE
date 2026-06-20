@@ -94,6 +94,30 @@ export class TagGalleryResult {
   vote: number = 0
 }
 
+/** POST body for /api.php method=setusertag (eros_fe Api.setUserTag). */
+class SetUserTagRequest {
+  method: string = 'setusertag'
+  apikey: string = ''
+  apiuid: number = 0
+  tagid: number = 0
+  tagwatch: number = 0
+  taghide: number = 0
+  tagcolor: string = ''
+  tagweight: string = ''
+}
+
+class SetUserTagResponse {
+  error: string = ''
+}
+
+export class SetUserTagResult {
+  tagId: string = ''
+  watched: boolean = false
+  hidden: boolean = false
+  color: string = ''
+  weight: string = ''
+}
+
 class TagSuggestEntry {
   ns: string = ''
   tn: string = ''
@@ -316,6 +340,60 @@ export class EhApiPhpService {
     const result: TagGalleryResult = new TagGalleryResult()
     result.tagKey = normalizedTag
     result.vote = vote
+    return result
+  }
+
+  static async setUserTag(
+    base: string,
+    apikey: string,
+    apiuid: string,
+    tagId: string,
+    watched: boolean,
+    hidden: boolean,
+    color: string,
+    weight: string,
+  ): Promise<SetUserTagResult> {
+    const apiuidNum: number = Number.parseInt(apiuid, 10)
+    const tagIdNum: number = Number.parseInt(tagId, 10)
+    const normalizedColor: string = color.trim()
+    const normalizedWeight: string = weight.trim()
+    if (apikey.length === 0 || Number.isNaN(apiuidNum) || Number.isNaN(tagIdNum)) {
+      throw new Error('setUserTag: missing API key')
+    }
+    const req: SetUserTagRequest = new SetUserTagRequest()
+    req.apikey = apikey
+    req.apiuid = apiuidNum
+    req.tagid = tagIdNum
+    req.tagwatch = watched ? 1 : 0
+    req.taghide = hidden ? 1 : 0
+    req.tagcolor = normalizedColor
+    req.tagweight = normalizedWeight
+    const resp: EhTextResponse = await EhHttpClient.getInstance().postJson(
+      `${base}/api.php`,
+      JSON.stringify(req),
+    )
+    if (resp.statusCode !== 200) {
+      throw new Error(`setusertag HTTP ${resp.statusCode}`)
+    }
+    let raw: Object
+    try {
+      raw = JSON.parse(resp.body) as Object
+    } catch (e) {
+      throw new Error('setusertag: invalid JSON')
+    }
+    if (raw === null || typeof raw !== 'object') {
+      throw new Error('setusertag: invalid JSON')
+    }
+    const obj: SetUserTagResponse = raw as SetUserTagResponse
+    if (obj.error !== undefined && obj.error.length > 0) {
+      throw new Error(obj.error)
+    }
+    const result: SetUserTagResult = new SetUserTagResult()
+    result.tagId = tagId
+    result.watched = watched
+    result.hidden = hidden
+    result.color = normalizedColor
+    result.weight = normalizedWeight
     return result
   }
 

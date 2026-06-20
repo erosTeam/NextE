@@ -20,7 +20,8 @@ Status: active intake / remote favorite write path implemented pending acceptanc
 implemented pending authorized real-submit acceptance / comment vote implemented pending authorized
 real-submit acceptance / comment compose-reply implemented pending authorized real-submit acceptance /
 own-comment edit implemented pending authorized real-submit acceptance / taggallery vote implemented pending
-authorized real-submit acceptance
+authorized real-submit acceptance / MyTags existing usertag edit implemented pending authorized real-submit
+acceptance
 
 Source:
 
@@ -63,8 +64,8 @@ Scheduling judgment:
 - Prefer bounded write lanes that can reuse the project destructive-write policy:
   1. Comment actions: comment vote, reply/new comment, and own-comment edit are implemented; reopen only
      for acceptance regressions.
-  2. Tag/MyTags write actions: taggallery vote is implemented; schedule MyTags/setusertag only as a
-     separately grounded lane.
+  2. Tag/MyTags write actions: taggallery vote and existing MyTags/setusertag editing are implemented;
+     reopen only for acceptance regressions or separately scoped new-tag/delete/tagset management.
   3. Archiver/download submit and offline executor: high value but larger and riskier; schedule after
      smaller write operations unless the user explicitly prioritizes downloads.
 
@@ -124,6 +125,22 @@ Handled status:
   cancelled. Evidence files live under `.hvigor/outputs/gallery-tag-vote/`. Remaining gap: final tag-vote
   submit was not clicked because EH tag voting is a real account write and still needs an explicitly
   authorized test target.
+- MyTags existing usertag edit: `implemented / pending controller acceptance and authorized real-submit
+  verification`. Commit: `897cd37 feat(user): edit existing my tags`. Scope: Settings `我的标签` existing-tag edit sheet, protected
+  `/api.php method=setusertag` request assembly with `apiuid`, `apikey`, `tagid`, `tagwatch`, `taghide`,
+  `tagcolor`, and `tagweight`, HDS `AppModalScaffold` edit UI, native confirmation before submit, current
+  tagset reload after success, shared `UserTagStore` update, and `UserTagSignal` bump for retained state.
+  FE grounding: `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_mytags_page.dart`,
+  `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_usertag_page.dart`,
+  `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_usertag_edit_dialog.dart`,
+  `/Users/honjow/git/eros_fe/lib/pages/setting/controller/eh_mytags_controller.dart`, and
+  `/Users/honjow/git/eros_fe/lib/network/api.dart` (`setUserTag`). Android FE evidence was captured under
+  `.hvigor/outputs/mytags-setusertag-fe-comparison/`. Device evidence: Mate X7 emulator `127.0.0.1:5555`,
+  official signed HAP, opened Settings `我的标签`, opened an existing `language:chinese` tag edit sheet,
+  toggled draft hide/watch state, opened the save confirmation dialog, and cancelled. Evidence files live
+  under `.hvigor/outputs/mytags-setusertag-nexte/`. Remaining gap: final `setusertag` submit was not clicked
+  because EH usertag editing is a real account write and still needs an explicitly authorized test target.
+  New tag creation, usertag deletion, and tagset create/rename/delete remain out of scope.
 
 Implementation constraints:
 

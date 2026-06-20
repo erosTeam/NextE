@@ -1,11 +1,17 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
+  AppModalScaffold,
   ThemeConstants,
   EhMytags,
   EhUsertag,
   EhMytagSet,
+  EhConstants,
+  EhApiPhpService,
   EhApiService,
   connectSiteMode,
+  UserTagStore,
+  UserTagSignal,
+  connectUserTagSignal,
   DiagnosticLogger,
   PageLoadingState,
   PageErrorState,
@@ -18,13 +24,27 @@ import {
 /**
  * My Tags (mytags) — the user's watched / hidden / color-flagged tags. Routed page off Settings.
  * Renders each tag as a chip in its own EH color (hidden tags dimmed); a watched tag gets a ring.
- * Loads via EhApiService.getMyTags (requires login). v1 is read-only; edits (apiuid/apikey) later.
+ * Loads via EhApiService.getMyTags (requires login). Existing usertag rows can be edited through
+ * EH's protected /api.php setusertag method; tagset management and new-tag creation remain separate.
  */
 @ComponentV2
 export struct MyTagsPage {
   @Local mytags: EhMytags = new EhMytags();
   @Local loading: boolean = true;
   @Local error: string = '';
+  @Local editSheetShown: boolean = false;
+  @Local editSubmitting: boolean = false;
+  @Local editError: string = '';
+  @Local editTagId: string = '';
+  @Local editTagTitle: string = '';
+  @Local editTagDisplay: string = '';
+  @Local editTagTranslate: string = '';
+  @Local editWatched: boolean = false;
+  @Local editHidden: boolean = false;
+  @Local editDefaultColor: boolean = true;
+  @Local editColor: string = '';
+  @Local editWeight: string = '';
+  @Local tagSig: UserTagSignal = connectUserTagSignal();
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -36,12 +56,22 @@ export struct MyTagsPage {
     this.error = ''
     try {
       this.mytags = await EhApiService.getInstance().getMyTags(connectSiteMode().isEx, tagset)
+      this.publishUserTags()
     } catch (err) {
       const e = err as Error
       this.error = e.message
       DiagnosticLogger.warn('mytags', 'load_failed', e.message)
     }
     this.loading = false
+  }
+
+  private async reloadCurrentTagset(): Promise<void> {
+    await this.load(this.mytags.currentTagset)
+  }
+
+  private publishUserTags(): void {
+    UserTagStore.getInstance().setTags(this.mytags.tags)
+    this.tagSig.version = this.tagSig.version + 1
   }
 
   private selectTagset(id: string): void {
@@ -76,6 +106,84 @@ export struct MyTagsPage {
       return ''
     }
     return t.translate
+  }
+
+  private openEditTag(t: EhUsertag): void {
+    this.editTagId = t.tagId
+    this.editTagTitle = t.tag
+    this.editTagDisplay = this.tagLabel(t)
+    this.editTagTranslate = this.tagSubtitle(t)
+    this.editWatched = t.watched
+    this.editHidden = t.hidden
+    this.editDefaultColor = t.defaultColor
+    this.editColor = t.defaultColor ? '' : (t.color.length > 0 ? t.color : t.fillColor)
+    this.editWeight = t.tagWeight.length > 0 ? t.tagWeight : `${t.weight}`
+    this.editError = ''
+    this.editSheetShown = true
+  }
+
+  private normalizedEditColor(): string {
+    if (this.editDefaultColor) {
+      return ''
+    }
+    const c: string = this.editColor.trim()
+    if (c.length === 0) {
+      return ''
+    }
+    return c.startsWith('#') ? c : `#${c}`
+  }
+
+  private canSubmitEdit(): boolean {
+    return this.editTagId.length > 0 &&
+      this.mytags.apikey.length > 0 &&
+      this.mytags.apiuid.length > 0 &&
+      !this.editSubmitting
+  }
+
+  private confirmSubmitEdit(): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.mytags_save_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.mytags_save'),
+        action: () => {
+          this.submitEdit()
+        },
+      },
+    })
+  }
+
+  private async submitEdit(): Promise<void> {
+    if (!this.canSubmitEdit()) {
+      return
+    }
+    this.editSubmitting = true
+    this.editError = ''
+    try {
+      await EhApiPhpService.setUserTag(
+        EhConstants.baseUrl(connectSiteMode().isEx),
+        this.mytags.apikey,
+        this.mytags.apiuid,
+        this.editTagId,
+        this.editWatched,
+        this.editHidden,
+        this.normalizedEditColor(),
+        this.editWeight,
+      )
+      await this.reloadCurrentTagset()
+      this.editSheetShown = false
+      this.getUIContext().getPromptAction().showToast({
+        message: $r('app.string.mytags_save_success'),
+      })
+    } catch (err) {
+      const e = err as Error
+      this.editError = e.message
+      DiagnosticLogger.warn('mytags', 'save_failed', e.message)
+    }
+    this.editSubmitting = false
   }
 
   build() {
@@ -125,6 +233,10 @@ export struct MyTagsPage {
     }
     .titleBar(immersiveTitleBar($r('app.string.settings_mytags')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .bindSheet($$this.editSheetShown, this.EditTagSheet(), {
+      detents: [SheetSize.LARGE],
+      showClose: false,
+    })
   }
 
   // Two-level My Tags: a chip row to switch between the user's tag sets (mytags ?tagset=N).
@@ -226,5 +338,156 @@ export struct MyTagsPage {
     })
     .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
     .opacity(t.hidden ? 0.45 : 1)
+    .onClick(() => {
+      this.openEditTag(t)
+    })
+  }
+
+  @Builder
+  private DraftSwitchRow(title: ResourceStr, checked: boolean, onToggle: (value: boolean) => void) {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      Text(title)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .layoutWeight(1)
+      Toggle({ type: ToggleType.Switch, isOn: checked })
+        .selectedColor(ThemeConstants.BRAND_PRIMARY)
+        .enabled(!this.editSubmitting)
+        .onChange((value: boolean) => {
+          onToggle(value)
+        })
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .padding({
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_MD,
+      top: ThemeConstants.SPACE_SM,
+      bottom: ThemeConstants.SPACE_SM,
+    })
+    .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+    .backgroundColor($r('app.color.card_background'))
+    .onClick(() => {
+      if (!this.editSubmitting) {
+        onToggle(!checked)
+      }
+    })
+  }
+
+  @Builder
+  private EditTagSheet() {
+    AppModalScaffold({
+      title: $r('app.string.mytags_edit_title'),
+      includeKeyboardPadding: true,
+      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+      confirmText: $r('app.string.mytags_save'),
+      confirmEnabled: this.canSubmitEdit(),
+      confirmLoading: this.editSubmitting,
+      closeAction: () => {
+        this.editSheetShown = false
+      },
+      confirmAction: () => {
+        this.confirmSubmitEdit()
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            Text(this.editTagDisplay.length > 0 ? this.editTagDisplay : this.editTagTitle)
+              .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
+            if (this.editTagTranslate.length > 0) {
+              Text(this.editTagTranslate)
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontColor($r('sys.color.font_secondary'))
+                .maxLines(2)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width('100%')
+            }
+            Text(this.editTagTitle)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_tertiary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
+          }
+          .width('100%')
+          this.DraftSwitchRow($r('app.string.mytags_watch'), this.editWatched, (value: boolean) => {
+            this.editWatched = value
+            if (value) {
+              this.editHidden = false
+            }
+          })
+          this.DraftSwitchRow($r('app.string.mytags_hide'), this.editHidden, (value: boolean) => {
+            this.editHidden = value
+            if (value) {
+              this.editWatched = false
+            }
+          })
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            Text($r('app.string.mytags_weight'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .width('100%')
+            TextInput({ text: this.editWeight, placeholder: '10' })
+              .width('100%')
+              .height(48)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .backgroundColor($r('app.color.card_background'))
+              .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+              .enabled(!this.editSubmitting)
+              .type(InputType.Number)
+              .onChange((value: string) => {
+                this.editWeight = value
+              })
+          }
+          .width('100%')
+          this.DraftSwitchRow($r('app.string.mytags_default_color'), this.editDefaultColor, (value: boolean) => {
+            this.editDefaultColor = value
+          })
+          if (!this.editDefaultColor) {
+            Column({ space: ThemeConstants.SPACE_XS }) {
+              Text($r('app.string.mytags_color'))
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+                .width('100%')
+              Row({ space: ThemeConstants.SPACE_MD }) {
+                TextInput({ text: this.editColor, placeholder: '#3377FF' })
+                  .height(48)
+                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                  .backgroundColor($r('app.color.card_background'))
+                  .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+                  .enabled(!this.editSubmitting)
+                  .layoutWeight(1)
+                  .onChange((value: string) => {
+                    this.editColor = value
+                  })
+                Column()
+                  .width(48)
+                  .height(48)
+                  .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+                  .backgroundColor(this.normalizedEditColor().length > 0 ? this.normalizedEditColor() : ThemeConstants.BRAND_PRIMARY)
+              }
+              .width('100%')
+            }
+            .width('100%')
+          }
+          if (this.editError.length > 0) {
+            Text(this.editError)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor(Color.Red)
+              .width('100%')
+          }
+        }
+        .width('100%')
+      }
+    }
   }
 }
