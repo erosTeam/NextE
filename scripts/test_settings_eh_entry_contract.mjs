@@ -55,8 +55,10 @@ ok(/SiteModeSettings\.setEx\(ctx, false\)/.test(ehPage) &&
   /SiteModeSettings\.setEx\(ctx, true\)/.test(ehPage) &&
   /site_ex_locked/.test(ehPage),
   'site switching still uses existing SiteModeSettings with ExHentai gate')
-ok(/return this\.siteMode\.isEx \? '里站' : '表站'/.test(ehPage),
-  'site row uses compact trailing labels that fit the settings row')
+ok(/return this\.siteMode\.isEx \? 'ExHentai' : 'E-Hentai'/.test(ehPage),
+  'site row uses official service names instead of community nicknames')
+ok(!/里站|表站/.test(ehPage),
+  'EH settings page must not show community site nicknames in user-visible code')
 ok(/pushPathByName\('EhLogin', null\)/.test(ehPage),
   'page routes normal login through existing EhLogin route')
 ok(/pushPathByName\('EhCookieImport', null\)/.test(ehPage),
@@ -83,6 +85,7 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   ]) {
     ok(strings.includes(`"name": "${key}"`), `${locale}: ${key} string exists`)
   }
+  ok(!/表站|里站|table site/.test(strings), `${locale}: user-visible strings avoid slang or old table-site wording`)
 }
 
 if (failures > 0) {

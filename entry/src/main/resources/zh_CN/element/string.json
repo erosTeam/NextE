@@ -202,7 +202,7 @@
     },
     {
       "name": "search_hint",
-      "value": "输入关键词搜索表站画廊"
+      "value": "输入关键词搜索 E-Hentai 画廊"
     },
     {
       "name": "favorites_login_hint",
@@ -254,7 +254,7 @@
     },
     {
       "name": "error_sad_panda",
-      "value": "里站访问被拒绝,请登录并确认已获取 igneous。"
+      "value": "ExHentai 访问被拒绝,请登录并确认已获取 igneous。"
     },
     {
       "name": "error_login_required",
@@ -746,7 +746,7 @@
     },
     {
       "name": "eh_settings_site_hint",
-      "value": "按当前账号权限选择表站或里站"
+      "value": "按当前账号权限选择 E-Hentai 或 ExHentai"
     },
     {
       "name": "eh_settings_login_hint",
@@ -898,7 +898,7 @@
     },
     {
       "name": "site_ex_locked",
-      "value": "里站需要登录且拥有 ExHentai 权限"
+      "value": "ExHentai 需要登录且拥有访问权限"
     },
     {
       "name": "settings_mytags",

@@ -873,6 +873,18 @@ Follow-up, 2026-06-22:
   that currently requires compact `表站` / `里站` labels. Historical docs and internal comments can be
   cleaned opportunistically, but the acceptance gate should focus on user-visible strings first.
 
+Status, 2026-06-22: implemented / pending controller acceptance.
+
+- Scope: `EhSettingsPage.siteLabel()` now returns `E-Hentai` / `ExHentai`; zh_CN user-visible strings
+  no longer use `表站` / `里站`; base/en search hint no longer says "table site"; the stale Settings
+  page comment was also updated to official names.
+- Contract update: `scripts/test_settings_eh_entry_contract.mjs` now requires official site labels and
+  rejects `表站` / `里站` / `table site` in user-visible resource strings.
+- Verified: `node scripts/test_settings_eh_entry_contract.mjs`,
+  `python3 scripts/check_i18n_duplicates.py`, `node scripts/test_v1_decorator_inventory_contract.mjs`,
+  `git diff --check`, `scripts/build_hvigor_signed.sh`, and local emulator `127.0.0.1:5555`
+  install/start smoke with screenshot evidence in `.hvigor/outputs/settings-official-site-copy/`.
+
 ### Security Settings Exposure Without Enforcement
 
 Type: settings trustworthiness / partial feature exposure

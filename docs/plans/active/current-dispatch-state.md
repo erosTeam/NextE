@@ -214,6 +214,9 @@ Historical feedback in this section must not trigger new implementation.
   use the same user-tag color lookup and parsed inline EH tag colors as ordinary list cards, and re-color
   when My Tags metadata arrives late. Simulator evidence on `127.0.0.1:5555` shows Waterfall still
   renders as a two-column mode with colored tag chips instead of fixed neutral tags.
+- Settings/user-visible site terminology cleanup is implemented pending controller acceptance: EH
+  settings trailing labels and user-visible resource strings now use official `E-Hentai` / `ExHentai`
+  names instead of community nicknames or the old "table site" wording.
 - Reader cached forward page flash is implemented pending controller acceptance: `precacheAhead()` now
   republishes the traced image list after resolving forward image URLs, Reader mounts off-screen
   viewport-sized warmer `Image` nodes, and the visible reader surfaces now consume a reactive
@@ -256,9 +259,7 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Settings/user-visible terminology cleanup: do not use slang labels such as `表站` / `里站` in Settings
-   or zh_CN UI copy. Use official service names (`E-Hentai`, `ExHentai`) and update contracts that
-   currently require the slang site labels.
+No currently promoted item. Pull the next lane from domain intake only after promoting it here.
 
 ## Pending Explicit Authorization
 

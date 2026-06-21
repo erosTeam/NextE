@@ -33,7 +33,7 @@ export struct EhSettingsPage {
   }
 
   private siteLabel(): string {
-    return this.siteMode.isEx ? '里站' : '表站'
+    return this.siteMode.isEx ? 'ExHentai' : 'E-Hentai'
   }
 
   private toggleSite(): void {

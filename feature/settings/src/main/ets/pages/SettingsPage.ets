@@ -13,7 +13,7 @@ import {
 /**
  * Settings tab on the shared V2Next grouped-list framework. M3 adds the account section:
  * logged out → a "Log in" row that opens the in-app EH web login; logged in → the member id
- * + a "Log out" row (clears the persisted cookie jar). Site (表站/里站) + version follow. The
+ * + a "Log out" row (clears the persisted cookie jar). Site (E-Hentai/ExHentai) + version follow. The
  * full settings tree (reading / layout / download / network) grafts on as more sections later.
  */
 @ComponentV2
