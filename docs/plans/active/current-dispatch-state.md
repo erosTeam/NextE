@@ -157,6 +157,12 @@ a bounded validation path.
    auto-read, vertical mode, double-page mode, far jump, prefetch, cache-hit presentation, and failure/retry
    paths. Do not bundle Reader gesture redesign, double-page architecture, thumbnail strip, auto-read, or
    offline download work into this lane.
+   Compaction anti-loop rule: the Reader model problem has already been sufficiently identified. Do not spend
+   another turn re-researching from scratch. The minimum accepted model is: pager reachability comes from
+   `totalPages/fileCount`; preview metadata may be sparse per index; resolving/full image URL and bitmap-ready
+   presentation are separate states; swipe/tap/slider/thumbnail/auto-read must enter the same target-page
+   loading path; missing/intermediate preview metadata is loading, not failure. The next main-thread turn must
+   either implement this bounded model or report a concrete compile/API blocker.
 2. App storage architecture: cache, durable local data, and settings backup/import. Define the taxonomy and
    implement the first bounded storage slice after the current Reader state-model fix. Cover the boundary
    between disposable cache (image bytes, HTML/resolve metadata, gallery-detail snapshots), durable local data
