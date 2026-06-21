@@ -498,7 +498,7 @@ Type: UX polish / parity gap
 
 Priority suggestion: P1
 
-Status: accepted / partially implemented
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -524,22 +524,24 @@ Research:
 - eros_fe uses outline thumbs for neutral state and solid thumbs for the selected vote state:
   `FontAwesomeIcons.thumbsUp` / `solidThumbsUp` and `thumbsDown` / `solidThumbsDown`.
 
-Current behavior:
+Implemented behavior:
 
-- `GalleryCommentsCard.VoteAction` has been updated to the native thumb symbols.
-- `GalleryCommentsCard.EditAction` and `GalleryCommentsCard.ReplyAction` still both render
-  `$r('sys.symbol.doc_plaintext')`, so the two actions are visually indistinguishable and do not match
-  the requested reply/edit semantics.
-- `scripts/test_gallery_comment_compose_contract.mjs` still asserts `ReplyAction` contains
-  `sys.symbol.doc_plaintext`; the contract must be updated with the UI fix instead of locking the stale
-  icon.
-- The same action row uses fixed `ThemeConstants.BUTTON_HEIGHT` square tap areas, while eros_fe's
-  comment tail uses compact button padding. If comment item bottom spacing still looks too tall, inspect
-  the action hit-area height before changing comment content spacing.
-- The visible icon is only `ThemeConstants.FONT_SIZE_BODY`, but each action reserves a
-  `ThemeConstants.BUTTON_HEIGHT` square. That can make the footer look like three tiny glyphs with
-  oversized invisible slots, especially when the date consumes the left side and the actions sit at the
-  far right. Treat horizontal action density as part of the polish pass, not just icon replacement.
+- `GalleryCommentsCard.VoteAction` keeps the native thumb symbols from the vote lane.
+- `GalleryCommentsCard.EditAction` now uses `$r('sys.symbol.square_and_pencil')`.
+- `GalleryCommentsCard.ReplyAction` now uses `$r('sys.symbol.ellipsis_message')`.
+- `scripts/test_gallery_comment_compose_contract.mjs` no longer locks the stale `doc_plaintext` reply
+  icon and verifies the footer action builders do not use `ThemeConstants.BUTTON_HEIGHT`.
+- Footer actions use compact local hit/visual sizing so the secondary action cluster no longer reserves
+  primary-button-sized boxes.
+
+Verification:
+
+- `node scripts/test_gallery_comment_compose_contract.mjs`
+- `node scripts/test_gallery_comment_vote_contract.mjs`
+- `node scripts/test_v1_decorator_inventory_contract.mjs`
+- `scripts/build_hvigor_signed.sh`
+- Local simulator `127.0.0.1:5555` screenshot:
+  `.hvigor/outputs/comment-footer-actions/full3.png`
 
 Expected behavior:
 

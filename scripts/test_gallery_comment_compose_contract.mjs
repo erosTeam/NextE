@@ -82,11 +82,18 @@ const card = read('feature/gallery/src/main/ets/components/GalleryCommentsCard.e
 ok('full comments card exposes reply event and keeps peek mode quiet',
   /@Event onReply: \(comment: EhGalleryComment\) => void/.test(card) &&
     /if \(this\.max <= 0 && c\.commentId\.length > 0 && c\.commentId !== '0'\) \{[\s\S]*this\.ReplyAction\(c\)/.test(card) &&
-    /ReplyAction\(c: EhGalleryComment\)[\s\S]*sys\.symbol\.doc_plaintext/.test(card))
+    /ReplyAction\(c: EhGalleryComment\)[\s\S]*sys\.symbol\.ellipsis_message/.test(card))
 ok('full comments card exposes edit only for editable own comments',
   /@Event onEdit: \(comment: EhGalleryComment\) => void/.test(card) &&
     /if \(this\.max <= 0 && c\.canEdit && c\.commentId\.length > 0 && c\.commentId !== '0'\) \{[\s\S]*this\.EditAction\(c\)/.test(card) &&
-    /EditAction\(c: EhGalleryComment\)[\s\S]*this\.onEdit\(c\)/.test(card))
+    /EditAction\(c: EhGalleryComment\)[\s\S]*sys\.symbol\.square_and_pencil[\s\S]*this\.onEdit\(c\)/.test(card))
+ok('comment footer actions use compact local hit sizing instead of global primary button height',
+  /const COMMENT_FOOTER_ACTION_SIZE: number = \d+/.test(card) &&
+    /const COMMENT_FOOTER_ICON_SIZE: number = \d+/.test(card) &&
+    /FooterAction\(icon: Resource, color: ResourceColor, disabled: boolean, action: \(\) => void\)/.test(card) &&
+    !/EditAction\(c: EhGalleryComment\)[\s\S]*ThemeConstants\.BUTTON_HEIGHT/.test(card) &&
+    !/ReplyAction\(c: EhGalleryComment\)[\s\S]*ThemeConstants\.BUTTON_HEIGHT/.test(card) &&
+    !/VoteAction\(c: EhGalleryComment[\s\S]*ThemeConstants\.BUTTON_HEIGHT/.test(card))
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

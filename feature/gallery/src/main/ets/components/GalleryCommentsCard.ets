@@ -1,5 +1,8 @@
 import { ThemeConstants, EhGalleryComment, GroupedListSection } from 'shared'
 
+const COMMENT_FOOTER_ACTION_SIZE: number = 28
+const COMMENT_FOOTER_ICON_SIZE: number = 14
+
 /**
  * Comments card, shared by the detail-page PEEK and the full comments page (eros_fe TopCommentEx +
  * galleryComment). `max > 0` is the peek: it shows the first `max` comments, clamps long text, and
@@ -168,7 +171,7 @@ export struct GalleryCommentsCard {
           })
       }
       // Time/actions footer (eros_fe _CommentTail): full comments expose bounded vote actions.
-      Row({ space: ThemeConstants.SPACE_XS }) {
+      Row() {
         Text(c.postedTime)
           .fontSize(ThemeConstants.FONT_SIZE_TINY)
           .fontWeight(FontWeight.Medium)
@@ -204,16 +207,7 @@ export struct GalleryCommentsCard {
 
   @Builder
   EditAction(c: EhGalleryComment) {
-    Row() {
-      SymbolGlyph($r('sys.symbol.doc_plaintext'))
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor([$r('sys.color.font_tertiary')])
-    }
-    .width(ThemeConstants.BUTTON_HEIGHT)
-    .height(ThemeConstants.BUTTON_HEIGHT)
-    .justifyContent(FlexAlign.Center)
-    .opacity(this.votingCommentId.length > 0 ? 0.45 : 1)
-    .onClick(() => {
+    this.FooterAction($r('sys.symbol.square_and_pencil'), $r('sys.color.font_tertiary'), this.votingCommentId.length > 0, () => {
       if (this.votingCommentId.length === 0) {
         this.onEdit(c)
       }
@@ -222,16 +216,7 @@ export struct GalleryCommentsCard {
 
   @Builder
   ReplyAction(c: EhGalleryComment) {
-    Row() {
-      SymbolGlyph($r('sys.symbol.doc_plaintext'))
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor([$r('sys.color.font_tertiary')])
-    }
-    .width(ThemeConstants.BUTTON_HEIGHT)
-    .height(ThemeConstants.BUTTON_HEIGHT)
-    .justifyContent(FlexAlign.Center)
-    .opacity(this.votingCommentId.length > 0 ? 0.45 : 1)
-    .onClick(() => {
+    this.FooterAction($r('sys.symbol.ellipsis_message'), $r('sys.color.font_tertiary'), this.votingCommentId.length > 0, () => {
       if (this.votingCommentId.length === 0) {
         this.onReply(c)
       }
@@ -240,18 +225,27 @@ export struct GalleryCommentsCard {
 
   @Builder
   VoteAction(c: EhGalleryComment, vote: number, icon: Resource) {
-    Row() {
-      SymbolGlyph(icon)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor([this.voteColor(c, vote)])
-    }
-    .width(ThemeConstants.BUTTON_HEIGHT)
-    .height(ThemeConstants.BUTTON_HEIGHT)
-    .justifyContent(FlexAlign.Center)
-    .opacity(this.votingCommentId === c.commentId ? 0.45 : 1)
-    .onClick(() => {
+    this.FooterAction(icon, this.voteColor(c, vote), this.votingCommentId === c.commentId, () => {
       if (this.canVote(c)) {
         this.onVote(c, vote)
+      }
+    })
+  }
+
+  @Builder
+  FooterAction(icon: Resource, color: ResourceColor, disabled: boolean, action: () => void) {
+    Row() {
+      SymbolGlyph(icon)
+        .fontSize(COMMENT_FOOTER_ICON_SIZE)
+        .fontColor([color])
+    }
+    .width(COMMENT_FOOTER_ACTION_SIZE)
+    .height(COMMENT_FOOTER_ACTION_SIZE)
+    .justifyContent(FlexAlign.Center)
+    .opacity(disabled ? 0.45 : 1)
+    .onClick(() => {
+      if (!disabled) {
+        action()
       }
     })
   }

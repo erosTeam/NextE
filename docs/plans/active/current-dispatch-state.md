@@ -163,9 +163,13 @@ Historical feedback in this section must not trigger new implementation.
   `eros_fe`, so the uploader badge and uploader-only filter work even when the literal `Uploader Comment`
   marker is absent. Simulator evidence on `127.0.0.1:5555` showed the full comments page with UP badge,
   thumbs actions, score badges, uploader-only filtering down to one uploader row, and the vote confirm
-  dialog without submitting the destructive write. This does not close the comment footer visual polish:
-  edit/reply icons, action spacing, and footer bottom height remain a separate next-lane issue. A real
-  successful vote submit still requires explicit authorization before marking accepted.
+  dialog without submitting the destructive write. A real successful vote submit still requires explicit
+  authorization before marking accepted.
+- Gallery comment footer visual polish is implemented pending controller acceptance: reply now uses
+  `ellipsis_message`, own-comment edit uses `square_and_pencil`, vote icons remain native thumbs, and
+  footer actions use a compact local hit/visual size instead of the global primary button height. Local
+  simulator evidence on `127.0.0.1:5555` captured the full comments page with compact grouped footer
+  actions; no comment vote/reply/edit destructive action was submitted.
 - AllThumbnails large-gallery jump and preview-page scrolling is implemented pending controller
   acceptance. Existing evidence in `docs/plans/active/intake/gallery-list-grid.md` covers the
   1700-page public gallery `https://e-hentai.org/g/3998992/f5b5c954d2/`, Android FE ADB `su`
@@ -222,17 +226,12 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Comment footer visual polish: next repair lane should keep the existing vote/uploader logic, but fix
-   the action-row presentation only. Reply should use `ellipsis_message`, own-comment edit should use
-   `square_and_pencil`, vote icons should remain native thumbs, the stale compose contract should stop
-   requiring `doc_plaintext` for reply, and the action cluster should use compact local hit sizing so the
-   footer no longer has large horizontal gaps or excessive bottom height.
-2. Waterfall extreme strip cover blur: keep the bounded Waterfall cover slot for very tall/webtoon
+1. Waterfall extreme strip cover blur: keep the bounded Waterfall cover slot for very tall/webtoon
    covers, but do not expand an extreme narrow foreground thumbnail to the full column width after the
    ratio clamp. Source ratios below the Waterfall minimum should fit by bounded slot height / true source
    ratio, with side area handled as placeholder/backdrop, not by restoring unbounded card height and not
    by using `forceCoverFit` full-width cover scaling.
-3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
