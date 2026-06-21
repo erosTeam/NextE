@@ -252,7 +252,7 @@ Type: feature enhancement / platform UX
 
 Priority suggestion: P2 / medium
 
-Status: parked
+Status: partially implemented / Home bottom-tab auto-hide pending controller acceptance; smart-grip parked
 
 Source:
 
@@ -298,10 +298,9 @@ Next2V implementation pointers:
 
 Implementation direction:
 
-- Add a NextE V2 state holder for Home bottom-tab auto-hide, persisted through Settings only.
-- Bind the active Home/Favorites/Search/Download/Settings tab scrollers to the HDS tab controller if
-  the local HDS surface supports the same `bindScroller` / show-hide animation API; otherwise verify the
-  equivalent HDS API before writing product code.
+- Home bottom-tab auto-hide has been implemented. Do not reopen that slice unless fresh evidence shows
+  the floating bottom tab bar no longer hides on a normal forward scroll or no longer returns when
+  expected.
 - Add a capability-checked motion-hand service using `@kit.MultimodalAwarenessKit`, with a silent
   fallback to fixed/follow-operation alignment if smart grip is unsupported.
 - Reuse the existing gallery detail read/resume FAB as the first consumer. It should slide between left
@@ -320,6 +319,31 @@ Acceptance shape:
 - Device evidence should include at least one ordinary no-smart-grip/fallback run and one smart-grip-capable
   run if hardware support is available. If no compatible device is available, mark implementation
   `implemented / needs device acceptance`, not accepted.
+
+Handled update, 2026-06-21:
+
+- Implemented only the Home bottom-tab auto-hide slice. Smart-grip/action alignment remains parked.
+- NextE now has:
+  - `shared/src/main/ets/state/HomeTabAutoHideState.ets` as the V2 state holder.
+  - `shared/src/main/ets/settings/HomeTabSettings.ets` persisted through `StorageKeys.HOME_TAB_AUTO_HIDE`.
+  - `SettingsBootstrap` restore and a Settings root switch row.
+  - `Index.ets` HDS active-scroller binding and Next2V-aligned `HOME_TAB_SCROLL_DELTA_PX = 6` /
+    `HOME_TAB_ANIMATION_GUARD_MS = 180`.
+  - Home/Favorites/Toplist retained sub-tabs and Download/Settings pages forwarding scroll events.
+- Validation:
+  - `scripts/build_hvigor_signed.sh` passed.
+  - Local HarmonyOS emulator target: `127.0.0.1:5555`.
+  - A slow/default `uitest` swipe was not treated as a failure because HDS bottom-bar hiding is
+    gesture-speed sensitive.
+  - Valid high-velocity `uitest uiInput swipe ... 40000` evidence:
+    `.hvigor/outputs/home-tab-auto-hide/home_tab_auto_fast_start.png` shows bottom tabs visible before
+    scroll; `.hvigor/outputs/home-tab-auto-hide/home_tab_auto_velocity_after.png` shows the bottom tabs
+    hidden after scroll.
+  - `node scripts/test_home_tab_auto_hide_contract.mjs`
+- Remaining acceptance:
+  - Controller visual acceptance on normal user scroll behavior.
+  - Optional restart/toggle acceptance for the Settings switch.
+  - Smart-grip-aware read/resume action alignment is not implemented in this update.
 
 ### Settings Shell Audit: Visible Rows Must Be Real Or Honest
 

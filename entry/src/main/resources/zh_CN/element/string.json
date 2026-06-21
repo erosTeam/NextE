@@ -297,6 +297,10 @@
       "value": "横向缩略图"
     },
     {
+      "name": "settings_home_tab_auto_hide",
+      "value": "滚动时隐藏底部栏"
+    },
+    {
       "name": "settings_list_fixed_height",
       "value": "固定列表行高"
     },

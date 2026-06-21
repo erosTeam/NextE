@@ -32,6 +32,7 @@ export struct PullRefreshGridScaffold {
   @Event onReachEnd?: () => void;
   @Event onNearEnd?: () => void;
   @Event onScrollIndex?: (start: number, end: number) => void;
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
   build() {
     PullRefresh({
@@ -79,11 +80,19 @@ export struct PullRefreshGridScaffold {
           this.onReachEnd()
         }
       })
+      .onDidScroll((_scrollOffset: number, scrollState: ScrollState) => {
+        if (this.onDidScroll) {
+          this.onDidScroll(this.scroller.currentOffset().yOffset, scrollState)
+        }
+      })
       .onScrollIndex((start: number, end: number) => {
         const adjustedStart: number = this.galleryIndex(start)
         const adjustedEnd: number = this.galleryIndex(end)
         if (this.onScrollIndex) {
           this.onScrollIndex(adjustedStart, adjustedEnd)
+        }
+        if (this.onDidScroll) {
+          this.onDidScroll(this.scroller.currentOffset().yOffset, ScrollState.Scroll)
         }
         this.maybeLoadNearEnd(adjustedEnd)
       })

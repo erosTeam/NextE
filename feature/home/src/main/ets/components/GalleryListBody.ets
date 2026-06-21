@@ -39,6 +39,7 @@ export struct GalleryListBody {
   // Index owns one Scroller per tab and passes it down so the HdsNavigation title can bindToScrollable
   // the ACTIVE tab's list (scroll-up title auto-hide). Default for standalone use.
   @Param scroller: Scroller = new Scroller();
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local listMode: ListModeState = connectListMode();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
@@ -127,6 +128,11 @@ export struct GalleryListBody {
           onNearEnd: () => {
             this.vm.loadMore()
           },
+          onDidScroll: (offset: number, state: ScrollState) => {
+            if (this.onDidScroll) {
+              this.onDidScroll(offset, state)
+            }
+          },
         }) {
           LazyForEach(
             this.vm.dataSource,
@@ -160,6 +166,11 @@ export struct GalleryListBody {
           canStartBottomRefresh: () => this.vm.canLoadMore(),
           onReachEnd: () => {
             this.vm.loadMore()
+          },
+          onDidScroll: (offset: number, state: ScrollState) => {
+            if (this.onDidScroll) {
+              this.onDidScroll(offset, state)
+            }
           },
         }) {
           LazyForEach(
@@ -195,6 +206,11 @@ export struct GalleryListBody {
           },
           onContentWidth: (contentWidth: number) => {
             this.listContentWidth = contentWidth
+          },
+          onDidScroll: (offset: number, state: ScrollState) => {
+            if (this.onDidScroll) {
+              this.onDidScroll(offset, state)
+            }
           },
         }) {
           LazyForEach(

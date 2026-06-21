@@ -27,6 +27,7 @@ import { common } from '@kit.AbilityKit'
 export struct DownloadQueuePage {
   // Accepted for the Index tab-scroller handoff (this placeholder doesn't scroll, so it's unused).
   @Param scroller: Scroller = new Scroller();
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local downloadView: DownloadViewState = connectDownloadView();
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
 
@@ -237,6 +238,11 @@ export struct DownloadQueuePage {
       SecondaryListScaffold({
         scroller: this.scroller,
         bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+        onDidScroll: (offset: number, state: ScrollState) => {
+          if (this.onDidScroll) {
+            this.onDidScroll(offset, state)
+          }
+        },
       }) {
         ListItem() {
           Column() {

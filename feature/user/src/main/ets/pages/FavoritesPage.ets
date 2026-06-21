@@ -17,8 +17,13 @@ import { FavcatPage } from '../components/FavcatPage'
 // Global @Builder (no `this`) for RetainedSubtabHost's @BuilderParam. Renders one retained favcat page,
 // handed the shared active-key signal.
 @Builder
-function favcatPageBuilder(key: string, active: ActiveKeyState, scroller: Scroller) {
-  FavcatPage({ favcatKey: key, active: active, scroller: scroller })
+function favcatPageBuilder(
+  key: string,
+  active: ActiveKeyState,
+  scroller: Scroller,
+  onDidScroll: (offset: number, state: ScrollState) => void,
+) {
+  FavcatPage({ favcatKey: key, active: active, scroller: scroller, onDidScroll: onDidScroll })
 }
 
 /**
@@ -41,6 +46,7 @@ export struct FavoritesPage {
   @Local orderMenuShown: boolean = false;
   // Index consumes the ACTIVE favcat's scroller for the title-bar bindToScrollable (auto-hide).
   @Event onScrollerReady?: (scroller: Scroller) => void;
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -91,6 +97,11 @@ export struct FavoritesPage {
         onScrollerReady: (scroller: Scroller) => {
           if (this.onScrollerReady) {
             this.onScrollerReady(scroller)
+          }
+        },
+        onDidScroll: (offset: number, state: ScrollState) => {
+          if (this.onDidScroll) {
+            this.onDidScroll(offset, state)
           }
         },
       })

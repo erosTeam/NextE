@@ -27,6 +27,7 @@ export struct GallerySourcePage {
   @Param active: ActiveKeyState = new ActiveKeyState();
   // Index-owned scroller for this source, so the title bar can bindToScrollable the ACTIVE source's list.
   @Param scroller: Scroller = new Scroller();
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
   @Local siteMode: SiteModeState = connectSiteMode();
   // First-load guard: load once on first activation; later activations reuse the retained list.
@@ -72,6 +73,15 @@ export struct GallerySourcePage {
   }
 
   build() {
-    GalleryListBody({ vm: this.vm, topPadding: SELECTOR_BAR_HEIGHT, scroller: this.scroller })
+    GalleryListBody({
+      vm: this.vm,
+      topPadding: SELECTOR_BAR_HEIGHT,
+      scroller: this.scroller,
+      onDidScroll: (offset: number, state: ScrollState) => {
+        if (this.onDidScroll) {
+          this.onDidScroll(offset, state)
+        }
+      },
+    })
   }
 }

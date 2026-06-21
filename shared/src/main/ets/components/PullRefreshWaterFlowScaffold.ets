@@ -25,6 +25,7 @@ export struct PullRefreshWaterFlowScaffold {
   @Event onBottomRefresh?: () => Promise<void>;
   @Event canStartBottomRefresh?: () => boolean;
   @Event onReachEnd?: () => void;
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
   build() {
     PullRefresh({
@@ -72,6 +73,16 @@ export struct PullRefreshWaterFlowScaffold {
       .onReachEnd(() => {
         if (this.onReachEnd) {
           this.onReachEnd()
+        }
+      })
+      .onDidScroll((_scrollOffset: number, scrollState: ScrollState) => {
+        if (this.onDidScroll) {
+          this.onDidScroll(this.scroller.currentOffset().yOffset, scrollState)
+        }
+      })
+      .onScrollIndex((_start: number, _end: number) => {
+        if (this.onDidScroll) {
+          this.onDidScroll(this.scroller.currentOffset().yOffset, ScrollState.Scroll)
         }
       })
     }

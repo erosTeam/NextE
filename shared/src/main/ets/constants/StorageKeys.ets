@@ -38,6 +38,7 @@ export class StorageKeys {
   static readonly FAVORITES_FAVCAT: string = 'subtab.favoritesFavcat'
   static readonly TOPLIST_TL: string = 'subtab.toplistTl'
   static readonly APP_COLOR_FAVORITES: string = 'app.colorFavorites'
+  static readonly HOME_TAB_AUTO_HIDE: string = 'home.tabAutoHide'
 
   // sensitive auth bundle (redacted in logs, never committed)
   static readonly COOKIE_JAR: string = 'auth.cookieJar'

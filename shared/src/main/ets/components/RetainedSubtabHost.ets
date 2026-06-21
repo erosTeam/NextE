@@ -36,13 +36,15 @@ export struct RetainedSubtabHost {
   @Param selectedKey: string = '';
   // Renders the retained page for one key. GLOBAL @Builder (params only, no `this`). It receives the
   // SHARED ActiveKeyState (not a per-render isActive) so every page — cached too — sees activation.
-  @BuilderParam pageBuilder: (key: string, active: ActiveKeyState, scroller: Scroller) => void;
+  @BuilderParam pageBuilder:
+    (key: string, active: ActiveKeyState, scroller: Scroller, onDidScroll: (offset: number, state: ScrollState) => void) => void;
   // Publish the new selected key back to the surface bus (onChange / settle).
   @Event onSelectKey: (key: string) => void = (_k: string) => {};
   // Publish the per-frame interpolated visual index to the surface's visual-index bus (bar indicator).
   @Event onVisualIndex: (value: number) => void = (_v: number) => {};
   // Hand the active key's Scroller up so the HDS title auto-hide binds the right list.
   @Event onScrollerReady?: (scroller: Scroller) => void;
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   private swiperController: SwiperController = new SwiperController();
   private scrollers: Map<string, Scroller> = new Map<string, Scroller>();
   private swiperWidth: number = 0;
@@ -80,6 +82,12 @@ export struct RetainedSubtabHost {
     }
   }
 
+  private notifyDidScroll(offset: number, state: ScrollState): void {
+    if (this.onDidScroll) {
+      this.onDidScroll(offset, state)
+    }
+  }
+
   aboutToAppear(): void {
     // Seed the active-key signal BEFORE the pages build, so the initially-active page's aboutToAppear sees
     // active.activeKey === itsKey and loads.
@@ -104,7 +112,11 @@ export struct RetainedSubtabHost {
       ForEach(
         this.keys,
         (key: string) => {
-          this.pageBuilder(key, this.active, this.scrollerForKey(key))
+          this.pageBuilder(key, this.active, this.scrollerForKey(key), (offset: number, state: ScrollState) => {
+            if (key === this.selectedKey) {
+              this.notifyDidScroll(offset, state)
+            }
+          })
         },
         (key: string) => key,
       )

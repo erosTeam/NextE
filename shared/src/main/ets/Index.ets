@@ -188,6 +188,7 @@ export {
 } from './state/LayoutSafeAreaState'
 export { SearchActionState, connectSearchAction } from './state/SearchActionState'
 export { AppColorFavoritesState, connectAppColorFavorites } from './state/AppColorFavoritesState'
+export { HomeTabAutoHideState, connectHomeTabAutoHide } from './state/HomeTabAutoHideState'
 export { SearchPageParams } from './state/SearchPageParams'
 export {
   SearchFilterState,
@@ -234,6 +235,7 @@ export { DownloadQueueSettings } from './settings/DownloadQueueSettings'
 export { SecuritySettings } from './settings/SecuritySettings'
 export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
 export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'
+export { HomeTabSettings } from './settings/HomeTabSettings'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'

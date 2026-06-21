@@ -16,8 +16,13 @@ import { GallerySourcePage } from '../components/GallerySourcePage'
 // can't hit the instance-@Builder `this`-loss crash. Renders one retained gallery-source page per key,
 // handed the SHARED active-key signal (so cached pages still get their first-activation load).
 @Builder
-function gallerySourcePageBuilder(key: string, active: ActiveKeyState, scroller: Scroller) {
-  GallerySourcePage({ sourceKey: key, active: active, scroller: scroller })
+function gallerySourcePageBuilder(
+  key: string,
+  active: ActiveKeyState,
+  scroller: Scroller,
+  onDidScroll: (offset: number, state: ScrollState) => void,
+) {
+  GallerySourcePage({ sourceKey: key, active: active, scroller: scroller, onDidScroll: onDidScroll })
 }
 
 /**
@@ -34,6 +39,7 @@ export struct HomePage {
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
   // Index consumes the ACTIVE source's scroller for the title-bar bindToScrollable (auto-hide).
   @Event onScrollerReady?: (scroller: Scroller) => void;
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -67,6 +73,11 @@ export struct HomePage {
       onScrollerReady: (scroller: Scroller) => {
         if (this.onScrollerReady) {
           this.onScrollerReady(scroller)
+        }
+      },
+      onDidScroll: (offset: number, state: ScrollState) => {
+        if (this.onDidScroll) {
+          this.onDidScroll(offset, state)
         }
       },
     })

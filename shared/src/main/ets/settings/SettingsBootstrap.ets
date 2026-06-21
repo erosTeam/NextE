@@ -18,6 +18,7 @@ import { SecuritySettings } from './SecuritySettings'
 import { UserTagLoader } from '../services/UserTagLoader'
 import { SubtabSelectionSettings } from './SubtabSelectionSettings'
 import { AppColorFavoritesSettings } from './AppColorFavoritesSettings'
+import { HomeTabSettings } from './HomeTabSettings'
 
 /**
  * Restores every persisted setting from the preferences store into its AppStorageV2
@@ -47,6 +48,7 @@ export class SettingsBootstrap {
       await GalleryReadProgressSettings.restore(context)
       await SubtabSelectionSettings.restore(context)
       await AppColorFavoritesSettings.restore(context)
+      await HomeTabSettings.restore(context)
       await DownloadSettings.restore(context)
       await DownloadQueueSettings.restore(context)
       await SecuritySettings.restore(context)

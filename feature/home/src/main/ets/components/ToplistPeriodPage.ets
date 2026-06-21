@@ -20,6 +20,7 @@ export struct ToplistPeriodPage {
   @Param active: ActiveKeyState = new ActiveKeyState();
   // Index-bound scroller for this period (title auto-hide follows the active period's list).
   @Param scroller: Scroller = new Scroller();
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
   private loadedOnce: boolean = false;
 
@@ -51,6 +52,15 @@ export struct ToplistPeriodPage {
   }
 
   build() {
-    GalleryListBody({ vm: this.vm, topPadding: SELECTOR_BAR_HEIGHT, scroller: this.scroller })
+    GalleryListBody({
+      vm: this.vm,
+      topPadding: SELECTOR_BAR_HEIGHT,
+      scroller: this.scroller,
+      onDidScroll: (offset: number, state: ScrollState) => {
+        if (this.onDidScroll) {
+          this.onDidScroll(offset, state)
+        }
+      },
+    })
   }
 }

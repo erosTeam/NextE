@@ -297,6 +297,10 @@
       "value": "横向きサムネイル"
     },
     {
+      "name": "settings_home_tab_auto_hide",
+      "value": "スクロール時に下部タブを隠す"
+    },
+    {
       "name": "settings_list_fixed_height",
       "value": "リスト行の高さを固定"
     },

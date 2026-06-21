@@ -53,6 +53,7 @@ export struct FavcatPage {
   // Shared active-key signal from the host; active when active.activeKey === favcatKey.
   @Param active: ActiveKeyState = new ActiveKeyState();
   @Param scroller: Scroller = new Scroller();
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local vm: FavoritesViewModel = new FavoritesViewModel();
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local listMode: ListModeState = connectListMode();
@@ -255,6 +256,11 @@ export struct FavcatPage {
           onNearEnd: () => {
             this.vm.loadMore()
           },
+          onDidScroll: (offset: number, state: ScrollState) => {
+            if (this.onDidScroll) {
+              this.onDidScroll(offset, state)
+            }
+          },
         }) {
           LazyForEach(
             this.vm.dataSource,
@@ -288,6 +294,11 @@ export struct FavcatPage {
           canStartBottomRefresh: () => this.vm.canLoadMore(),
           onReachEnd: () => {
             this.vm.loadMore()
+          },
+          onDidScroll: (offset: number, state: ScrollState) => {
+            if (this.onDidScroll) {
+              this.onDidScroll(offset, state)
+            }
           },
         }) {
           LazyForEach(
@@ -323,6 +334,11 @@ export struct FavcatPage {
           },
           onContentWidth: (contentWidth: number) => {
             this.listContentWidth = contentWidth
+          },
+          onDidScroll: (offset: number, state: ScrollState) => {
+            if (this.onDidScroll) {
+              this.onDidScroll(offset, state)
+            }
           },
         }) {
           LazyForEach(

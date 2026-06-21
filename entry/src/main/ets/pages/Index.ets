@@ -3,6 +3,7 @@ import {
   HdsTabs,
   HdsTabsController,
   HdsNavigationTitleMode,
+  HdsAnimationMode,
   hdsMaterial,
   BottomBuilderShowType,
   HideMode,
@@ -28,6 +29,8 @@ import {
   AuthState,
   connectFavSelection,
   FavSelectionBridge,
+  connectHomeTabAutoHide,
+  HomeTabAutoHideState,
   SearchPageParams,
   SELECTOR_BAR_HEIGHT,
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
@@ -66,6 +69,11 @@ import { GalleryWebPage } from './GalleryWebPage'
 struct Index {
   private stack: NavPathStack = connectNavStack().stack;
   private tabsController: HdsTabsController = new HdsTabsController();
+  private readonly HOME_TAB_SCROLL_DELTA_PX: number = 6;
+  private readonly HOME_TAB_ANIMATION_GUARD_MS: number = 180;
+  private homeTabLastScrollOffsets: number[] = [0, 0, 0, 0, 0];
+  private homeTabAnimationGuardTimerId: number = -1;
+  private homeTabVisibleByScroll: boolean = true;
   // One scroller per tab (画廊/收藏/排行/下载/设置); the title bar binds to the ACTIVE tab's scroller
   // for scroll-up auto-hide (V2Next homeTabScrollers/titleScroller). Index OWNS them + passes each down.
   private homeTabScrollers: Scroller[] = [
@@ -87,12 +95,17 @@ struct Index {
   // Read so the 收藏 menu gates remote-only actions on login while the local favcat bar stays visible.
   // Mirrors HomeSourceBar gating 订阅 on isLogin.
   @Local auth: AuthState = connectAuth();
+  @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local currentTab: number = 0;
   private lastHandledSignal: string = '';
   private lastHandledQuery: string = '';
 
   aboutToAppear(): void {
     this.handlePendingEhUrl()
+  }
+
+  aboutToDisappear(): void {
+    this.clearHomeTabAnimationGuardTimer()
   }
 
   @Monitor('pendingEhUrl.signal')
@@ -118,6 +131,11 @@ struct Index {
     const query: string = sep >= 0 ? pq.substring(sep + 1) : pq
     this.stack.pushPathByName('Search', new SearchPageParams('', 'a', query, false, token))
     this.searchAction.clearPending()
+  }
+
+  @Monitor('homeTab.autoHide')
+  onHomeTabAutoHideChanged(): void {
+    this.applyHomeTabAutoHide()
   }
 
   // Push the search page, unless a search page is already on top (then its own @Monitor re-searches).
@@ -200,6 +218,105 @@ struct Index {
 
   private scrollActiveTabToTop(): void {
     this.titleScroller.scrollToIndex(0)
+  }
+
+  private setHomeActiveScroller(index: number, scroller: Scroller): void {
+    const oldScroller: Scroller = this.homeTabScrollers[index]
+    if (oldScroller === scroller) {
+      if (this.homeTab.autoHide) {
+        this.tabsController.bindScroller(index, scroller)
+      }
+      return
+    }
+    this.tabsController.unbindScroller(oldScroller)
+    this.homeTabScrollers[index] = scroller
+    if (this.currentTab === index) {
+      this.titleScroller = scroller
+    }
+    if (this.homeTab.autoHide) {
+      this.tabsController.bindScroller(index, scroller)
+      this.restoreHomeTabIfHidden()
+    }
+  }
+
+  private applyHomeTabAutoHide(): void {
+    if (this.homeTab.autoHide) {
+      for (let index = 0; index < this.homeTabScrollers.length; index++) {
+        this.tabsController.bindScroller(index, this.homeTabScrollers[index])
+      }
+      this.restoreHomeTabIfHidden()
+      return
+    }
+    for (let index = 0; index < this.homeTabScrollers.length; index++) {
+      this.tabsController.unbindScroller(this.homeTabScrollers[index])
+    }
+    this.restoreHomeTabIfHidden()
+  }
+
+  private restoreHomeTabIfHidden(): void {
+    if (this.homeTabVisibleByScroll) {
+      return
+    }
+    this.homeTabVisibleByScroll = true
+    this.tabsController.applyShowAnimation(HdsAnimationMode.SCROLL_ANIMATION)
+  }
+
+  private clearHomeTabAnimationGuardTimer(): void {
+    if (this.homeTabAnimationGuardTimerId === -1) {
+      return
+    }
+    clearTimeout(this.homeTabAnimationGuardTimerId)
+    this.homeTabAnimationGuardTimerId = -1
+  }
+
+  private startHomeTabAnimationGuardTimer(): void {
+    this.clearHomeTabAnimationGuardTimer()
+    this.homeTabAnimationGuardTimerId = setTimeout((): void => {
+      this.homeTabAnimationGuardTimerId = -1
+    }, this.HOME_TAB_ANIMATION_GUARD_MS)
+  }
+
+  private applyHomeTabScrollAnimation(visible: boolean): void {
+    if (
+      !this.homeTab.autoHide ||
+      this.homeTabAnimationGuardTimerId !== -1 ||
+      this.homeTabVisibleByScroll === visible
+    ) {
+      return
+    }
+    this.homeTabVisibleByScroll = visible
+    if (visible) {
+      this.tabsController.applyShowAnimation(HdsAnimationMode.SCROLL_ANIMATION)
+    } else {
+      this.tabsController.applyHideAnimation(HdsAnimationMode.SCROLL_ANIMATION)
+    }
+    this.startHomeTabAnimationGuardTimer()
+  }
+
+  private onHomeTabDidScroll(index: number, offset: number, state: ScrollState): void {
+    if (index !== this.currentTab || !this.homeTab.autoHide) {
+      this.homeTabLastScrollOffsets[index] = offset
+      return
+    }
+    if (offset <= this.HOME_TAB_SCROLL_DELTA_PX) {
+      this.homeTabLastScrollOffsets[index] = offset
+      this.restoreHomeTabIfHidden()
+      return
+    }
+    if (state === ScrollState.Idle) {
+      this.homeTabLastScrollOffsets[index] = offset
+      return
+    }
+    const lastOffset: number = this.homeTabLastScrollOffsets[index]
+    this.homeTabLastScrollOffsets[index] = offset
+    const delta: number = offset - lastOffset
+    if (delta < -this.HOME_TAB_SCROLL_DELTA_PX) {
+      this.applyHomeTabScrollAnimation(true)
+      return
+    }
+    if (delta > this.HOME_TAB_SCROLL_DELTA_PX) {
+      this.applyHomeTabScrollAnimation(false)
+    }
   }
 
   private backToTopMenuItem(): Record<string, Object> {
@@ -429,16 +546,6 @@ struct Index {
     }
   }
 
-  // A retained sub-tab page (e.g. HomePage's active source) reports its scroller; store it as that main
-  // tab's scroller and, if that main tab is active, repoint the title binding so auto-hide follows the
-  // active sub-tab's list (V2Next setHomeTabScroller). Other main tabs still pass homeTabScrollers down.
-  private setHomeActiveScroller(index: number, scroller: Scroller): void {
-    this.homeTabScrollers[index] = scroller
-    if (this.currentTab === index) {
-      this.titleScroller = scroller
-    }
-  }
-
   build() {
     HdsNavigation(this.stack) {
       HdsTabs({ controller: this.tabsController }) {
@@ -449,6 +556,9 @@ struct Index {
             onScrollerReady: (scroller: Scroller) => {
               this.setHomeActiveScroller(0, scroller)
             },
+            onDidScroll: (offset: number, state: ScrollState) => {
+              this.onHomeTabDidScroll(0, offset, state)
+            },
           })
         }.tabBar(this.tabIcon($r('app.string.tab_gallery'), 0))
         TabContent() {
@@ -457,6 +567,9 @@ struct Index {
           FavoritesPage({
             onScrollerReady: (scroller: Scroller) => {
               this.setHomeActiveScroller(1, scroller)
+            },
+            onDidScroll: (offset: number, state: ScrollState) => {
+              this.onHomeTabDidScroll(1, offset, state)
             },
           })
         }.tabBar(this.tabIcon($r('app.string.tab_favorites'), 1))
@@ -467,13 +580,26 @@ struct Index {
             onScrollerReady: (scroller: Scroller) => {
               this.setHomeActiveScroller(2, scroller)
             },
+            onDidScroll: (offset: number, state: ScrollState) => {
+              this.onHomeTabDidScroll(2, offset, state)
+            },
           })
         }.tabBar(this.tabIcon($r('app.string.tab_toplist'), 2))
         TabContent() {
-          DownloadQueuePage({ scroller: this.homeTabScrollers[3] })
+          DownloadQueuePage({
+            scroller: this.homeTabScrollers[3],
+            onDidScroll: (offset: number, state: ScrollState) => {
+              this.onHomeTabDidScroll(3, offset, state)
+            },
+          })
         }.tabBar(this.tabIcon($r('app.string.tab_download'), 3))
         TabContent() {
-          SettingsPage({ scroller: this.homeTabScrollers[4] })
+          SettingsPage({
+            scroller: this.homeTabScrollers[4],
+            onDidScroll: (offset: number, state: ScrollState) => {
+              this.onHomeTabDidScroll(4, offset, state)
+            },
+          })
         }.tabBar(this.tabIcon($r('app.string.tab_settings'), 4))
       }
       .barOverlap(true)
@@ -489,10 +615,16 @@ struct Index {
           materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE,
         },
       })
+      .onAppear(() => {
+        this.applyHomeTabAutoHide()
+      })
       .onChange((index: number) => {
         this.currentTab = index
         // Rebind the title bar to the newly-active tab's scroller so it auto-hides off that list.
         this.titleScroller = this.homeTabScrollers[index]
+        if (this.homeTab.autoHide) {
+          this.restoreHomeTabIfHidden()
+        }
       })
     }
     .navDestination(this.routerMap)

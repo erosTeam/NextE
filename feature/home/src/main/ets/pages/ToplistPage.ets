@@ -17,8 +17,13 @@ const TOPLIST_KEYS: string[] = ['11', '12', '13', '15']
 // Global @Builder (no `this`) for RetainedSubtabHost's @BuilderParam. Renders one retained period page,
 // handed the shared active-key signal.
 @Builder
-function toplistPeriodPageBuilder(key: string, active: ActiveKeyState, scroller: Scroller) {
-  ToplistPeriodPage({ periodTl: Number(key), active: active, scroller: scroller })
+function toplistPeriodPageBuilder(
+  key: string,
+  active: ActiveKeyState,
+  scroller: Scroller,
+  onDidScroll: (offset: number, state: ScrollState) => void,
+) {
+  ToplistPeriodPage({ periodTl: Number(key), active: active, scroller: scroller, onDidScroll: onDidScroll })
 }
 
 /**
@@ -33,6 +38,7 @@ export struct ToplistPage {
   @Local homeSource: HomeSourceState = connectHomeSource();
   @Local visual: TabVisualIndexState = connectToplistVisualIndex();
   @Event onScrollerReady?: (scroller: Scroller) => void;
+  @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -52,6 +58,11 @@ export struct ToplistPage {
       onScrollerReady: (scroller: Scroller) => {
         if (this.onScrollerReady) {
           this.onScrollerReady(scroller)
+        }
+      },
+      onDidScroll: (offset: number, state: ScrollState) => {
+        if (this.onDidScroll) {
+          this.onDidScroll(offset, state)
         }
       },
     })

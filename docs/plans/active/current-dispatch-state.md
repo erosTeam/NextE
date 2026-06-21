@@ -220,11 +220,16 @@ Items here are real concerns, but they are not active implementation lanes by de
   should guide future Reader redesign together with HarmonyOS-native V2Next image-preview patterns.
 - Boundary handoff from zoomed pan to page turn is a future enhancement unless current zoomed pan
   blocks normal reading.
-- Home bottom-tab auto-hide and smart-grip-aware floating action alignment are medium-priority UX
-  enhancements. They should not interrupt the current Grid/Waterfall recovery lane, but they are good
-  candidates for a later bounded platform-UX lane because Next2V already has working patterns:
-  `HomeTabAutoHideState`, `MotionHandStateService`, `MotionHandEdgeState`,
-  `MotionReplyAlignmentState`, and `ReplyActionAlignmentSettings`.
+- Home bottom-tab auto-hide is implemented pending controller acceptance: it follows the Next2V HDS
+  pattern with `HomeTabAutoHideState`, Settings persistence, active tab scroller binding, and
+  `HdsTabsController.applyHideAnimation/applyShowAnimation`. Simulator evidence on
+  `127.0.0.1:5555` captured the bottom tab visible before scroll and hidden after a valid high-velocity
+  upward swipe. Evidence: `.hvigor/outputs/home-tab-auto-hide/home_tab_auto_fast_start.png` and
+  `.hvigor/outputs/home-tab-auto-hide/home_tab_auto_velocity_after.png`.
+- Smart-grip-aware floating action alignment remains parked as a separate medium-priority UX
+  enhancement. Do not mix it into Home bottom-tab auto-hide or other lanes by default. If opened later,
+  use Next2V's `MotionHandStateService`, `MotionHandEdgeState`, `MotionReplyAlignmentState`, and
+  `ReplyActionAlignmentSettings` as HarmonyOS implementation references.
 
 ## Active Queue
 
