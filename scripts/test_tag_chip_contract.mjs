@@ -88,18 +88,14 @@ ok(/font_secondary/.test(chipText), 'chipText keeps the neutral default')
 ok(/this\.tagSig\.version[\s\S]*?:\$\{tg\.namespace\}:\$\{t\.text\}/.test(card) || /\$\{this\.tagSig\.version\}/.test(card), 'ForEach key carries the usertag-signal version (late My-Tags recolour)')
 ok(/Flex\(\{\s*wrap:\s*FlexWrap\.Wrap\s*\}\)/.test(card), 'member chips still wrap (FlexWrap.Wrap)')
 
-// 6) Detail tag tap-to-search: eros_fe TagButton.onPressed opens Search with `${tag.type}:${tag.title.trim()}`;
-// tag suggestions quote multi-word values, which detail tag taps also need for valid EH field queries.
+// 6) Detail tag tap-to-search: normalize display aliases and use the shared exact EH tag query helper.
 ok(/connectSearchAction/.test(card), 'GalleryTagsCard imports/connects to the shared search action bus')
 ok(/private\s+searchTag\(ns:\s*string,\s*t:\s*SimpleTag\):\s*void/.test(card), 'GalleryTagsCard has a scoped tag-search helper')
-ok(/const\s+namespace:\s*string\s*=\s*ns\.trim\(\)/.test(card), 'tag search trims the namespace')
-ok(/const\s+tag:\s*string\s*=\s*t\.text\.trim\(\)/.test(card), 'tag search uses the raw EH tag text, not translated display text')
-ok(/private\s+queryTagValue\(tag:\s*string\):\s*string/.test(card), 'tag search has a fielded tag value formatter')
-ok(/tag\.indexOf\(' '\) >= 0[\s\S]*return `"\$\{tag\}"`/.test(card), 'multi-word tags are quoted for EH field query syntax')
-ok(/publishQuery\(`\$\{namespace\}:\$\{this\.queryTagValue\(tag\)\}`\)/.test(card), 'tag search publishes namespace:formattedTag query')
+ok(/EhConstants\.exactTagSearchQuery\(ns, t\.text\)/.test(card), 'tag search delegates formatting to the shared exact EH helper')
+ok(/publishQuery\(query\)/.test(card), 'tag search publishes the shared helper result')
 ok(/\.onClick\(\(\)\s*=>\s*\{[\s\S]*?this\.searchTag\(tg\.namespace,\s*t\)[\s\S]*?\}\)/.test(card), 'member chip onClick triggers tag search')
 ok(!/publishQuery\(`\$\{namespace\}:\$\{t\.display\(\)\}`\)/.test(card), 'tag search does not use translated display text in the query')
-ok(!/publishQuery\(`\$\{namespace\}:\$\{tag\}`\)/.test(card), 'tag search no longer publishes unquoted raw multi-word values')
+ok(!/queryTagValue/.test(card), 'detail tags no longer carry a local fielded-query formatter')
 
 // 7) Action-seeded search should be results-first, not IME-first.
 ok(!/@Trace focusOnAppear/.test(searchState), 'SearchActionState no longer owns per-page autofocus state')

@@ -191,13 +191,7 @@ export struct GallerySearchPage {
   }
 
   private formatSuggestionQuery(s: EhTagSuggestion): string {
-    const tag: string = s.text.trim()
-    const ns: string = EhConstants.compactNamespace(s.namespace)
-    if (tag.length === 0) {
-      return ''
-    }
-    const exact: string = tag.indexOf(' ') >= 0 ? `"${tag}$"` : `${tag}$`
-    return ns.length > 0 ? `${ns}:${exact}` : exact
+    return EhConstants.exactTagSearchQuery(s.namespace, s.text)
   }
 
   private replaceLastToken(query: string, replacement: string): string {

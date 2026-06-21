@@ -43,8 +43,7 @@ ok('SearchViewModel clears suggestions on submit/clear',
 ok('Search page schedules suggestions from the page-owned field state',
   /@Monitor\('fieldState\.keyword'\)[\s\S]*this\.vm\.scheduleTagSuggest\(this\.fieldState\.keyword\)/.test(page))
 ok('Search page formats clicked suggestions as exact EH tag queries',
-  /private formatSuggestionQuery\(s: EhTagSuggestion\): string[\s\S]*EhConstants\.compactNamespace\(s\.namespace\)[\s\S]*`\$\{tag\}\$`/.test(page) &&
-  /tag\.indexOf\(' '\) >= 0 \? `"\$\{tag\}\$"`/.test(page))
+  /private formatSuggestionQuery\(s: EhTagSuggestion\): string \{[\s\S]*return EhConstants\.exactTagSearchQuery\(s\.namespace, s\.text\)[\s\S]*\}/.test(page))
 ok('Search page replaces only the last token and re-seeds the input field',
   /private replaceLastToken\(query: string, replacement: string\): string/.test(page) &&
   /this\.fieldState\.seedSeq = this\.fieldState\.seedSeq \+ 1/.test(page))

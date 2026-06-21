@@ -43,19 +43,11 @@ export struct GalleryWaterfallCard {
   }
 
   private searchTag(t: SimpleTag): void {
-    const namespace: string = t.namespace.trim()
-    const tag: string = t.text.trim()
-    if (namespace.length === 0 || tag.length === 0) {
+    const query: string = EhConstants.exactTagSearchQuery(t.namespace, t.text)
+    if (query.length === 0) {
       return
     }
-    connectSearchAction().publishQuery(`${namespace}:${this.queryTagValue(tag)}`)
-  }
-
-  private queryTagValue(tag: string): string {
-    if (tag.indexOf(' ') >= 0) {
-      return `"${tag}"`
-    }
-    return tag
+    connectSearchAction().publishQuery(query)
   }
 
   @Builder

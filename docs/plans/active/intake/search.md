@@ -488,7 +488,7 @@ Type: search correctness / tag query normalization
 
 Priority suggestion: P1
 
-Status: accepted / not implemented
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -538,6 +538,19 @@ Acceptance shape:
   when inserting or submitting a tag.
 - Add a small runnable contract for the helper with cases:
   `female:big breasts` -> exact `$`; `artist:foo | bar` -> `foo$`; `uploader:name` -> no `$`.
+
+Implementation:
+
+- `EhConstants.canonicalTagText()` splits display aliases on `|` and returns the first trimmed segment.
+- `EhConstants.exactTagSearchQuery()` compacts the namespace and returns exact EH syntax for non-uploader
+  tag searches, while leaving uploader as a non-tag name search.
+- `GalleryCard`, `GalleryWaterfallCard`, `GalleryTagsCard`, and Search tag suggestions all use that helper.
+- Contracts: `scripts/test_tag_search_query_contract.mjs`, `scripts/test_list_tag_search_contract.mjs`,
+  `scripts/test_tag_chip_contract.mjs`, `scripts/test_search_tagsuggest_contract.mjs`,
+  `scripts/test_search_route_session_contract.mjs`.
+- Build/device evidence: official signed build passed; simulator `127.0.0.1:5555` evidence in
+  `.hvigor/outputs/search-tag-query-normalization/` shows tapping the visible `big breasts` list tag
+  opens Search with `f:"big breasts$"`.
 
 ### Search Action Routes Can Lose The Second Tag Query
 

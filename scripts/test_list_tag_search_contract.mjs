@@ -21,18 +21,19 @@ const ok = (name, pass) => {
 }
 
 const list = read('shared/src/main/ets/components/GalleryCard.ets')
-const grid = read('shared/src/main/ets/components/GalleryGridCard.ets')
+const waterfall = read('shared/src/main/ets/components/GalleryWaterfallCard.ets')
 const body = read('feature/home/src/main/ets/components/GalleryListBody.ets')
 const fav = read('feature/user/src/main/ets/components/FavcatPage.ets')
 const search = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 
-for (const [name, src] of [['GalleryCard', list], ['GalleryGridCard', grid]]) {
+for (const [name, src] of [['GalleryCard', list], ['GalleryWaterfallCard', waterfall]]) {
   ok(`${name} imports search action bus`,
     /import \{ connectSearchAction \} from '\.\.\/state\/SearchActionState'/.test(src))
-  ok(`${name} formats raw tag text, quoting multi-word tags`,
-    /private queryTagValue\(tag: string\): string \{[\s\S]*tag\.indexOf\(' '\) >= 0[\s\S]*return `"\$\{tag\}"`/.test(src))
-  ok(`${name} publishes namespace:formattedTag from raw SimpleTag fields`,
-    /connectSearchAction\(\)\.publishQuery\(`\$\{namespace\}:\$\{this\.queryTagValue\(tag\)\}`\)/.test(src))
+  ok(`${name} delegates tag query formatting to shared exact EH helper`,
+    /EhConstants\.exactTagSearchQuery\(t\.namespace, t\.text\)/.test(src) &&
+    /connectSearchAction\(\)\.publishQuery\(query\)/.test(src))
+  ok(`${name} no longer hand-rolls tag quoting`,
+    !/queryTagValue/.test(src) && !/publishQuery\(`\$\{namespace\}:/.test(src))
   ok(`${name} chip click triggers tag search`,
     /\.onClick\(\(\) => \{[\s\S]*this\.searchTag\(t\)[\s\S]*\}\)/.test(src))
   ok(`${name} does not search translated display text`,

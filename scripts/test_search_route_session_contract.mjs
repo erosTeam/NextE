@@ -68,7 +68,8 @@ ok('Search input state is page-owned, not AppStorageV2 singleton keyword state',
   !/@Trace seedSeq/.test(action))
 
 ok('detail tag/uploader/similar still publish action searches for Index to route',
-  /connectSearchAction\(\)\.publishQuery\(`\$\{namespace\}:\$\{this\.queryTagValue\(tag\)\}`\)/.test(tags) &&
+  /EhConstants\.exactTagSearchQuery\(ns, t\.text\)/.test(tags) &&
+  /connectSearchAction\(\)\.publishQuery\(query\)/.test(tags) &&
   /connectSearchAction\(\)\.publishQuery\(`title:"\$\{short\}"`\)/.test(detail) &&
   /connectSearchAction\(\)\.publishQuery\(`uploader:"\$\{n\}"`\)/.test(detail))
 

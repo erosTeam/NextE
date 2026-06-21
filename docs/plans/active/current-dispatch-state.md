@@ -169,6 +169,14 @@ Historical feedback in this section must not trigger new implementation.
   favcat, and Toplist period selections are restored from Preferences during startup and saved when the
   user changes retained sub-tabs. Logged-out restore clamps unavailable watched/favcat selections to
   valid visible tabs. Reopen only with a fresh restart-state mismatch.
+- Search tag query normalization is implemented pending controller acceptance: detail/list/waterfall tag
+  taps and Search tag suggestions now share `EhConstants.exactTagSearchQuery()`, which splits
+  pipe-separated display aliases on `|`, uses the first trimmed tag segment, compacts namespaces, and adds
+  the EH exact-match `$` suffix for non-uploader namespaced tag searches. `eros_fe` source grounding:
+  `gallery_detail_parser.dart` pipe normalization and `NavigatorUtil.goSearchPageWithParam()` exact tag
+  rewrite. Simulator evidence on `127.0.0.1:5555` showed tapping the visible `big breasts` list tag
+  opened Search with `f:"big breasts$"` in the search field; pipe alias behavior is covered by
+  `scripts/test_tag_search_query_contract.mjs`.
 
 ## Parked / Guidance Only
 
@@ -195,21 +203,16 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Search tag query normalization: action-seeded tag searches must split pipe-separated display aliases on
-   `|`, use the first trimmed segment, and add the EH exact-match `$` suffix for namespaced tag queries.
-   Reuse one helper for detail/list/waterfall tag taps and later tagsuggest/translation candidate insertion;
-   uploader/title/similar searches must keep their existing non-tag semantics. This is P1 search correctness,
-   not broad Search UI redesign.
-2. Reader loading-state overlay regression: loading spinner/text can appear on top of an already visible
+1. Reader loading-state overlay regression: loading spinner/text can appear on top of an already visible
    Reader image (reported 2026-06-21). Treat as P1 reading-core visual correctness. Fix narrowly by making
    loaded image and loading stage mutually exclusive in the visible page state; normal loading should not be
    modeled as `Stack { Image; ReaderLoadingStage }` overlay composition. Do not reopen byte-progress, cache,
    double-page, or broad gesture redesign for this bug.
-4. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-5. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
+3. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
    (reported 2026-06-21). Record only for a later small launch/smoke fix; do not let it displace Reader
    gesture/chrome fixes or the P1 comment regressions.
 

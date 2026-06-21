@@ -185,6 +185,26 @@ export class EhConstants {
     return full
   }
 
+  /** Display aliases can be "raw | translated"; EH search must use the raw first segment. */
+  static canonicalTagText(tag: string): string {
+    const raw: string = tag.trim()
+    const pipe: number = raw.indexOf('|')
+    return pipe >= 0 ? raw.substring(0, pipe).trim() : raw
+  }
+
+  /** Fielded tag query matching eros_fe's exact EH tag semantics; uploader is a name search, not a tag. */
+  static exactTagSearchQuery(namespace: string, tag: string): string {
+    const ns: string = EhConstants.compactNamespace(namespace)
+    const text: string = EhConstants.canonicalTagText(tag)
+    if (ns.length === 0 || text.length === 0) {
+      return ''
+    }
+    if (ns === 'uploader') {
+      return `${ns}:"${text}"`
+    }
+    return `${ns}:"${text}$"`
+  }
+
   /**
    * Tag namespace → chip background color (eros_fe ThemeColors.tagColorTagType, pastel light /
    * muted dark). Unmapped namespaces (e.g. 'mixed') fall back to misc grey.
