@@ -153,8 +153,10 @@ a bounded validation path.
    before painting. The same lane must also fix preview-page boundary swiping: the user must be able to swipe
    past EH preview-page boundaries such as page 40/80 without using tap navigation as a fallback. Pager
    reachability must come from total page count, not only from the currently loaded preview/image array.
-   Do not bundle Reader gesture redesign, double-page architecture, thumbnail strip, auto-read, or offline
-   download work into this lane.
+   Before closing, produce a Reader state-model audit covering swipe, tap-zone, slider, thumbnail strip,
+   auto-read, vertical mode, double-page mode, far jump, prefetch, cache-hit presentation, and failure/retry
+   paths. Do not bundle Reader gesture redesign, double-page architecture, thumbnail strip, auto-read, or
+   offline download work into this lane.
 2. Tag translation database and localized search candidates. User-visible
    benefit: Chinese/localized tag understanding and search candidate quality, instead of the current tiny
    hardcoded `TagTranslationService` stub. Scope this first lane to the smallest real FE-parity slice:

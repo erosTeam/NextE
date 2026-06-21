@@ -306,6 +306,28 @@ Status, 2026-06-22: reopened after failed controller/user runtime acceptance.
   length as the pager's reachability model. That is structurally wrong; the user-visible pager range must be
   driven by total page count, with preview metadata/image URL/bitmap display resolved lazily per page.
 
+Reader state-model audit required before closure:
+
+- Core invariant: total page count, pager reachability, loaded preview metadata, resolved image URL, bitmap
+  presentation readiness, loading UI, and failure UI are separate states. `images.length` must not be used as
+  a proxy for total pages or for "all preview pages are loaded" once placeholders exist.
+- Swipe path: horizontal `Swiper.onChange`, double-page `Swiper.onChange`, and vertical `List` scroll must
+  be able to reach known pages across preview-page boundaries and must load missing preview metadata through
+  the same target-loading path as tap navigation.
+- Tap path: left/right tap zones must not have privileged loading behavior that swipe lacks. If tap can reach
+  page 41/81, swipe must be able to reach the same target without a separate manual fallback.
+- Slider and thumbnail path: slider commits and thumbnail taps must normalize double-page targets, load
+  missing preview metadata, and never make placeholder count look like completed preview data.
+- Auto-read path: auto-read must wait on the same page-readiness definition used by manual navigation; it
+  must not skip, stall, or turn into a black/loading page at preview boundaries.
+- Presentation path: a cached or already painted page must not be hidden behind opacity, black frame, or
+  normal loading overlay while a new component instance waits for `Image.onComplete`.
+- Failure/retry path: failure overlay may replace the failed page, but retry/source resolving must not cover
+  another readable page, and auto re-source must not clear pager reachability.
+- Mode coverage: the proof must cover horizontal single-page, vertical mode, and double-page/spread mode, at
+  least by deterministic contracts plus one installed-device smoke path. If device automation cannot observe
+  a mode, mark that mode as not accepted instead of claiming full closure.
+
 ### Reader Auto-Read Page Turn Is Missing
 
 Type: feature gap / reading UX
