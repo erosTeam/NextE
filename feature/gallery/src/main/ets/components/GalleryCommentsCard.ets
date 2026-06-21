@@ -1,7 +1,7 @@
 import { ThemeConstants, EhGalleryComment, GroupedListSection } from 'shared'
 
-const COMMENT_FOOTER_ACTION_SIZE: number = 22
-const COMMENT_FOOTER_ICON_SIZE: number = 12
+const COMMENT_FOOTER_ACTION_SIZE: number = 30
+const COMMENT_FOOTER_ICON_SIZE: number = 16
 
 /**
  * Comments card, shared by the detail-page PEEK and the full comments page (eros_fe TopCommentEx +

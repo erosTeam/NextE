@@ -90,6 +90,8 @@ ok('full comments card exposes edit only for editable own comments',
 ok('comment footer actions use compact local hit sizing instead of global primary button height',
   /const COMMENT_FOOTER_ACTION_SIZE: number = \d+/.test(card) &&
     /const COMMENT_FOOTER_ICON_SIZE: number = \d+/.test(card) &&
+    /const COMMENT_FOOTER_ACTION_SIZE: number = (2[8-9]|3[0-4])/.test(card) &&
+    /const COMMENT_FOOTER_ICON_SIZE: number = (1[5-8])/.test(card) &&
     /FooterAction\(icon: Resource, color: ResourceColor, disabled: boolean, action: \(\) => void\)/.test(card) &&
     !/EditAction\(c: EhGalleryComment\)[\s\S]*ThemeConstants\.BUTTON_HEIGHT/.test(card) &&
     !/ReplyAction\(c: EhGalleryComment\)[\s\S]*ThemeConstants\.BUTTON_HEIGHT/.test(card) &&

@@ -306,17 +306,17 @@ Handled status:
   `.hvigor/outputs/comment-edit-write/`. Remaining gap: final edit submit and edit-sheet screenshot require
   an actual own-comment sample or explicitly authorized test comment creation/editing; no real EH comment was
   edited during automated validation.
-- Comment footer action visual scale: `needs follow-up / controller-reported regression`.
+- Comment footer action visual scale: `implemented / pending controller acceptance`.
   User feedback, 2026-06-22: after the earlier fix for overly wide footer action spacing, the vote/reply/edit
   controls now look too small and crowded. Current code evidence:
-  `GalleryCommentsCard.ets` uses `COMMENT_FOOTER_ACTION_SIZE = 22` and
-  `COMMENT_FOOTER_ICON_SIZE = 12`; the deterministic contract only checks that the footer no longer uses
-  global `ThemeConstants.BUTTON_HEIGHT`, so it does not prevent over-shrinking. Next repair should choose
-  a middle scale: still compact compared with full-width/primary buttons, but with a comfortable tap target,
-  visible thumb/reply/edit glyphs, and breathing room between actions. Do not solve this by returning to the
-  original overly wide spacing, and do not change the protected write behavior. Contract should lock a
-  reasonable lower bound or explicit token range for local footer action size/icon size, not just "not
-  BUTTON_HEIGHT".
+  `GalleryCommentsCard.ets` used `COMMENT_FOOTER_ACTION_SIZE = 22` and
+  `COMMENT_FOOTER_ICON_SIZE = 12`; the deterministic contract only checked that the footer no longer used
+  global `ThemeConstants.BUTTON_HEIGHT`, so it did not prevent over-shrinking. Follow-up implementation
+  moves the footer to a middle local scale (`30` hit size / `16` icon size), keeps existing native icon
+  semantics, and updates the compose/footer contract to lock a bounded range rather than only checking
+  "not BUTTON_HEIGHT". Device evidence: local HarmonyOS emulator `127.0.0.1:5555`, official signed build,
+  full comments page screenshot at `.hvigor/outputs/comment-footer-scale/comments.png`. No comment
+  vote/reply/edit destructive action was submitted.
 - Gallery tag vote: `implemented / pending controller acceptance and authorized real-submit verification`.
   Commit: `eb14d9a feat(gallery): support protected tag voting`. Scope: protected `/api.php`
   `method=taggallery` submit, detail-scraped `apikey/apiuid` retention in `GalleryEditTagsPage`,

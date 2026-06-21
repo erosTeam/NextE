@@ -175,6 +175,10 @@ Historical feedback in this section must not trigger new implementation.
   footer actions use a compact local hit/visual size instead of the global primary button height. Local
   simulator evidence on `127.0.0.1:5555` captured the full comments page with compact grouped footer
   actions; no comment vote/reply/edit destructive action was submitted.
+- Gallery comment footer action scale regression is implemented pending controller acceptance: footer
+  vote/reply/edit actions now use a middle local scale (`30` hit size / `16` icon size) instead of the
+  over-shrunk `22` / `12` values, while still staying below the global primary button height. Simulator
+  evidence on `127.0.0.1:5555`: `.hvigor/outputs/comment-footer-scale/comments.png`.
 - AllThumbnails large-gallery jump and preview-page scrolling is implemented pending controller
   acceptance. Existing evidence in `docs/plans/active/intake/gallery-list-grid.md` covers the
   1700-page public gallery `https://e-hentai.org/g/3998992/f5b5c954d2/`, Android FE ADB `su`
@@ -269,13 +273,7 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Comment footer action visual scale regression: full-comments vote/reply/edit controls were previously
-   too wide, but the current local sizing (`COMMENT_FOOTER_ACTION_SIZE = 22`,
-   `COMMENT_FOOTER_ICON_SIZE = 12`) now looks too small and crowded per controller feedback. Pick a middle
-   scale with comfortable tap target, readable native thumbs/reply/edit glyphs, and controlled spacing.
-   Do not revert to global primary button height or remove compact grouping; update the existing comment
-   compose/footer contract so it locks a lower bound/explicit token range instead of only checking "not
-   BUTTON_HEIGHT".
+No newly selected lane after comment footer action scale fix.
 
 ## Pending Explicit Authorization
 
