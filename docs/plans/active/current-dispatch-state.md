@@ -123,24 +123,19 @@ Items here are real concerns, but they are not active implementation lanes by de
   screenshot acceptance because it is neither visually floating nor correctly keyboard-avoiding. The white
   composer area expands upward into a large blank panel when the keyboard is open. Code evidence points to
   `GalleryCommentsPage.CommentComposer()` adding `layout.keyboardHeight` to the composer's own bottom
-  padding instead of letting ArkUI keyboard avoidance resize/translate the editing surface.
+  padding instead of letting ArkUI keyboard avoidance resize/translate the editing surface. This was
+  addressed by `64d3ba0 fix(comments): refine floating reply composer` and should not remain the next
+  default lane unless fresh screenshots reopen it.
 
 ## Active Queue
 
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-- Fix Gallery comments bottom floating reply composer keyboard/open layout. Keep the existing protected
-  comment submit/reply plumbing, but repair the presentation model: the composer must be a compact rounded
-  floating control positioned immediately above the soft keyboard/safe area, not a full-height blank panel.
-  Do not solve this by adding more internal bottom padding or manually computing keyboard-height offsets.
-  Follow the Next2V keyboard pattern first: set the appropriate ArkUI keyboard avoid mode for this editing
-  surface (`KeyboardAvoidMode.RESIZE` for page-level editors, or `SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE`
-  if the composer remains a sheet-like surface), and keep only a small normal bottom gap while the keyboard is
-  open. Row reply must also request focus on the composer `TextArea` (stable id +
-  `getUIContext().getFocusController().requestFocus(...)`, following the existing `AppSearchField`
-  pattern) so the keyboard opens without an extra tap. The quoted author/excerpt header must be explicitly
-  left-aligned. Validate with keyboard-open screenshots for plain new-comment mode and row-reply quote mode.
+- Fix Waterfall tag strip alignment and horizontal overflow. Waterfall cards should keep the FE-like
+  fixed two-line tag strip, left aligned, with horizontal overflow/scroll rather than centered wrapping or
+  clipping that removes the point of the two-line strip. Preserve tag color priority and click-to-search.
+  Keep compact Grid unchanged.
 
 ## Pending Explicit Authorization
 

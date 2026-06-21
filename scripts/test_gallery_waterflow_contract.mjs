@@ -87,9 +87,9 @@ assertIncludes(waterfallCard, 't.backgroundColor.length > 0', 'Waterfall tag chi
 assertIncludes(waterfallCard, 't.color.length > 0', 'Waterfall tag chips must fall back to parsed inline EH text color');
 assertIncludes(waterfallCard, 'WATERFALL_TAG_LIMIT', 'Waterfall tag density must use an explicit tag-limit policy, not a four-tag literal');
 assertIncludes(waterfallCard, 'WATERFALL_TAG_STRIP_HEIGHT', 'Waterfall tag area must stay fixed-height instead of growing the masonry card');
-assertIncludes(waterfallCard, 'private tagRow(offset: number): SimpleTag[]', 'Waterfall tag strip must split tags into two bounded rows');
-assertIncludes(waterfallCard, 'this.tagRow(0)', 'Waterfall tag strip must render the first horizontal tag row');
-assertIncludes(waterfallCard, 'this.tagRow(1)', 'Waterfall tag strip must render the second horizontal tag row');
+assertIncludes(waterfallCard, 'private tagColumnIndexes(): number[]', 'Waterfall tag strip must split tags into fixed two-line columns');
+assertIncludes(waterfallCard, 'this.tagColumnIndexes()', 'Waterfall tag strip must render a horizontal sequence of two-line tag columns');
+assertIncludes(waterfallCard, 'index + 1 < this.gallery.simpleTags.length', 'Waterfall tag strip must render the second tag in each column when available');
 assertIncludes(waterfallCard, '.scrollable(ScrollDirection.Horizontal)', 'Waterfall tag strip must overflow horizontally instead of wrapping vertically');
 assertIncludes(waterfallCard, '.fontSize(ThemeConstants.FONT_SIZE_CAPTION)', 'Waterfall tag chips must use readable caption-size text');
 assertNotIncludes(waterfallCard, 'simpleTags.slice(0, 4)', 'Waterfall tag strip must not regress to a Waterfall-only four-tag cap');

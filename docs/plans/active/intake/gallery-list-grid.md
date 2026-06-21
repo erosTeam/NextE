@@ -16,7 +16,7 @@ Type: browsing mode UI parity / card height control
 
 Priority suggestion: P1/P2
 
-Status: implemented / pending controller acceptance
+Status: implemented candidate / needs visual QA
 
 Source:
 
@@ -38,6 +38,9 @@ Implementation:
   existing tag color / click-to-search path.
 - Contract coverage was added to `scripts/test_gallery_waterflow_contract.mjs` after simulator visual
   verification, so the implementation cannot regress to wrapping `Flex`, `slice(0, 4)`, or tiny chips.
+- Follow-up implementation changed the strip from two independent horizontal rows to a horizontal sequence
+  of two-line tag columns. This should preserve the fixed-height FE behavior while giving the Scroll a
+  natural content width for horizontal overflow and left-start alignment.
 
 FE grounding:
 
@@ -93,6 +96,8 @@ Verification:
   `node scripts/test_tag_search_query_contract.mjs`, `node scripts/test_list_tag_search_contract.mjs`,
   `node scripts/test_v1_decorator_inventory_contract.mjs`.
 - Build: `scripts/build_hvigor_signed.sh`.
+- Current follow-up verification: source contracts and signed build pass; device visual QA is still needed
+  to confirm left alignment and horizontal drag behavior in the actual Waterfall surface.
 - Local HarmonyOS emulator `127.0.0.1:5555`: signed HAP installed, Home Waterfall screenshot captured at
   `.hvigor/outputs/waterfall-two-row-tags/before.jpeg`, showing two-column Waterfall cards with bounded
   two-row tags.

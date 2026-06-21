@@ -89,13 +89,13 @@ export struct GalleryWaterfallCard {
     return $r('sys.color.font_secondary')
   }
 
-  private tagRow(offset: number): SimpleTag[] {
-    const tags: SimpleTag[] = this.gallery.simpleTags.slice(0, WATERFALL_TAG_LIMIT)
-    const row: SimpleTag[] = []
-    for (let i = offset; i < tags.length; i += 2) {
-      row.push(tags[i])
+  private tagColumnIndexes(): number[] {
+    const total: number = Math.min(this.gallery.simpleTags.length, WATERFALL_TAG_LIMIT)
+    const indexes: number[] = []
+    for (let i = 0; i < total; i += 2) {
+      indexes.push(i)
     }
-    return row
+    return indexes
   }
 
   @Builder
@@ -118,27 +118,21 @@ export struct GalleryWaterfallCard {
   private Tags() {
     if (this.gallery.simpleTags.length > 0) {
       Scroll() {
-        Column({ space: ThemeConstants.SPACE_XS }) {
-          Row({ space: ThemeConstants.SPACE_XS }) {
-            ForEach(
-              this.tagRow(0),
-              (t: SimpleTag) => {
-                this.TagChip(t)
-              },
-              (t: SimpleTag) => `${this.tagSig.version}:top:${t.namespace}:${t.text}`,
-            )
-          }
-          Row({ space: ThemeConstants.SPACE_XS }) {
-            ForEach(
-              this.tagRow(1),
-              (t: SimpleTag) => {
-                this.TagChip(t)
-              },
-              (t: SimpleTag) => `${this.tagSig.version}:bottom:${t.namespace}:${t.text}`,
-            )
-          }
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          ForEach(
+            this.tagColumnIndexes(),
+            (index: number) => {
+              Column({ space: ThemeConstants.SPACE_XS }) {
+                this.TagChip(this.gallery.simpleTags[index])
+                if (index + 1 < this.gallery.simpleTags.length && index + 1 < WATERFALL_TAG_LIMIT) {
+                  this.TagChip(this.gallery.simpleTags[index + 1])
+                }
+              }
+              .alignItems(HorizontalAlign.Start)
+            },
+            (index: number) => `${this.tagSig.version}:col:${index}`,
+          )
         }
-        .alignItems(HorizontalAlign.Start)
       }
       .scrollable(ScrollDirection.Horizontal)
       .scrollBar(BarState.Off)
