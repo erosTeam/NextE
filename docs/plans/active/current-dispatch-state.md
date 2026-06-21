@@ -90,6 +90,9 @@ Historical feedback in this section must not trigger new implementation.
   or override a current baseline by itself.
 - Implemented/pending-acceptance work is not a scheduling item unless fresh regression evidence appears.
   Details live in the domain intake files. Reopen only from fresh evidence, not from old history.
+- Recently Closed / Pending Acceptance is a record of finished work waiting for user/device evidence; it is
+  not a default QA backlog. Do not spend a turn re-verifying those rows just because Active Queue is empty.
+  If no fresh regression is reported, continue with the first Active Queue feature lane instead.
 - Settings shell audit is implemented and pending controller acceptance. Reopen Settings only for a fresh
   Settings regression or a separately scoped Settings feature request.
 - Recent implemented/pending clusters are tracked in domain intake files: write operations, Favorites
@@ -100,6 +103,16 @@ Historical feedback in this section must not trigger new implementation.
   specifically testing entry navigation. Use `scripts/launch_gallery_deeplink.sh <target> <url>` to
   force-stop and open the same gallery before entering the target surface; do not spend repeated QA cycles
   manually replaying Home -> list -> detail setup when that path is not under test.
+
+## Feature Parity Scheduling Rule
+
+Until the high-visibility eros_fe parity gaps are closed, default scheduling must move product capability
+forward instead of looping on already-implemented polish or pending-acceptance rows. If the user does not
+provide a fresh P0/P1 regression, choose the first item in Active Queue and implement that feature lane.
+
+Do not open a turn whose main output is only "re-read pending acceptance", "run another generic QA pass", or
+"scan old intake for something already implemented". Pending acceptance waits for user/device evidence.
+Engineering turns should advance a bounded FE parity feature or fix a fresh blocking regression.
 
 ## Parked / Guidance Only
 
@@ -115,8 +128,8 @@ Items here are real concerns, but they are not active implementation lanes by de
   should guide future Reader redesign together with HarmonyOS-native V2Next image-preview patterns.
 - Boundary handoff from zoomed pan to page turn is a future enhancement unless current zoomed pan
   blocks normal reading.
-- Smart-grip-aware floating action alignment remains parked as a separate medium-priority UX
-  enhancement. Do not mix it into Home bottom-tab auto-hide or other lanes by default. If opened later,
+- Smart-grip-aware floating action alignment is no longer parked indefinitely; it is queued after the tag
+  translation lane below. Do not mix it into Home bottom-tab auto-hide or other lanes by default. When opened,
   use Next2V's `MotionHandStateService`, `MotionHandEdgeState`, `MotionReplyAlignmentState`, and
   `ReplyActionAlignmentSettings` as HarmonyOS implementation references.
 - Gallery comments bottom floating reply composer is reopened: the current implementation failed controller
@@ -132,8 +145,16 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-- No code lane is selected in this file after the comment vote closure. Before editing product code, promote
-  exactly one currently unclosed item from a domain intake file into this Active Queue.
+1. Tag translation database and localized search candidates. This is the next code lane. User-visible
+   benefit: Chinese/localized tag understanding and search candidate quality, instead of the current tiny
+   hardcoded `TagTranslationService` stub. Scope this first lane to the smallest real FE-parity slice:
+   replace/extend the stub with the real tag-translation data source or import path, support raw tag ->
+   localized display lookup, and feed localized matches into the existing search candidate area with raw
+   exact tag insertion. Do not bundle QuickSearch, image search, saved-query management, MyTags write flows,
+   or a redesigned SearchFilter into this lane.
+2. Smart-grip / action-alignment support for the gallery detail read/resume action. Run this after the tag
+   translation lane unless the user explicitly redirects. Reuse the Next2V motion-hand/alignment model with
+   fixed-left/fixed-right/follow-operation fallback, and do not reopen Home bottom-tab auto-hide.
 
 ## Recently Closed / Pending Acceptance
 
