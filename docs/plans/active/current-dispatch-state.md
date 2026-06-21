@@ -271,20 +271,26 @@ Items here are real concerns, but they are not active implementation lanes by de
   enhancement. Do not mix it into Home bottom-tab auto-hide or other lanes by default. If opened later,
   use Next2V's `MotionHandStateService`, `MotionHandEdgeState`, `MotionReplyAlignmentState`, and
   `ReplyActionAlignmentSettings` as HarmonyOS implementation references.
-- Gallery comments bottom floating reply composer is implemented pending controller acceptance: full
-  comments now use a safe-area-aware bottom composer for plain new comments and row replies; row replies
-  show a compact quoted author/comment preview with cancel. Existing edit remains on the prior sheet path
-  to keep this lane narrow. Evidence: `.hvigor/outputs/comment-floating-composer/comments-final.jpeg` and
-  `.hvigor/outputs/comment-floating-composer/comments-reply.jpeg`.
+- Gallery comments bottom floating reply composer is reopened: the current implementation failed controller
+  screenshot acceptance because it is neither visually floating nor correctly keyboard-avoiding. The white
+  composer area expands upward into a large blank panel when the keyboard is open. Code evidence points to
+  `GalleryCommentsPage.CommentComposer()` adding `layout.keyboardHeight` to the composer's own bottom
+  padding instead of keeping the composer compact and positioning/translating it above the keyboard.
 
 ## Active Queue
 
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-- No promoted implementation lane is currently selected. Before product-code edits, promote exactly one
-  item from the domain intake files into this Active Queue with current evidence and a bounded verification
-  path.
+- Fix Gallery comments bottom floating reply composer keyboard/open layout. Keep the existing protected
+  comment submit/reply plumbing, but repair the presentation model: the composer must be a compact rounded
+  floating control positioned immediately above the soft keyboard/safe area, not a full-height blank panel.
+  Do not solve this by adding more internal bottom padding. Use the existing `LayoutSafeAreaState`
+  `keyboardHeight`/`bottomAvoidHeight` as an overlay offset/translation or an equivalent compact positioning
+  mechanism. Row reply must also request focus on the composer `TextArea` (stable id +
+  `getUIContext().getFocusController().requestFocus(...)`, following the existing `AppSearchField`
+  pattern) so the keyboard opens without an extra tap. The quoted author/excerpt header must be explicitly
+  left-aligned. Validate with keyboard-open screenshots for plain new-comment mode and row-reply quote mode.
 
 ## Pending Explicit Authorization
 

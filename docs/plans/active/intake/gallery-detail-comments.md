@@ -498,7 +498,7 @@ Type: UX polish / parity gap
 
 Priority suggestion: P1
 
-Status: implemented / pending controller acceptance
+Status: reopened / current implementation rejected by device screenshot
 
 Source:
 
@@ -584,6 +584,12 @@ Source:
 - Visual references: Telegram-style rounded floating input/reply preview and eros_fe's existing bottom
   comment text field. Do not copy Telegram chrome wholesale and do not force a flat Eros FE clone; combine
   the rounded floating container with NextE/HDS visual language.
+- User feedback, 2026-06-22 after implementation attempt: the current composer is not visually floating
+  and does not correctly avoid the soft keyboard. The screenshot shows a large blank white area between the
+  input row and keyboard, with the composer behaving like an oversized in-page bottom panel rather than a
+  compact floating bar attached above the keyboard.
+- User feedback, 2026-06-22 follow-up: tapping a row reply action does not automatically focus the input /
+  raise the keyboard, and the two-line quoted reply header is not left-aligned.
 
 Research:
 
@@ -627,6 +633,41 @@ Implementation note:
   `.hvigor/outputs/comment-floating-composer/comments-final.jpeg`; reply mode with quoted preview
   `.hvigor/outputs/comment-floating-composer/comments-reply.jpeg`.
 - No final EH comment submit was executed.
+
+Regression evidence / likely cause:
+
+- Current code evidence in `GalleryCommentsPage.CommentComposer()`: the composer is a child of
+  `Stack({ alignContent: Alignment.Bottom })`, but it is not positioned as a compact overlay above the
+  keyboard. Instead, its bottom padding adds `layout.bottomAvoidHeight + layout.keyboardHeight`, so the
+  keyboard height inflates the composer container itself. That explains the current screenshot: the white
+  card grows upward and leaves a huge empty body instead of moving a compact floating input bar above the
+  input method.
+- `AppModalScaffold` and `SecondaryListScaffold` use keyboard padding as scroll/list reserve content, not
+  as padding inside a floating control. For a floating composer, keyboard metrics should drive bottom
+  offset/position (or an equivalent overlay translation), while the composer keeps its own compact intrinsic
+  height.
+- Focus evidence: ArkUI `TextArea` supports focus control, and the project already has the right pattern in
+  `AppSearchField`: assign a stable `.id(...)`, then defer
+  `getUIContext().getFocusController().requestFocus(id)` until the field is mounted. Reply mode should use
+  the same idea for the composer input instead of expecting the user to tap the field manually.
+- Alignment evidence: ArkUI `align` defaults can center text-related components. The quote/header container
+  and both quote text lines should explicitly use start alignment (`alignItems(VerticalAlign.Start)` /
+  `textAlign(TextAlign.Start)` or equivalent local pattern) so the author line and excerpt line share a
+  clean left edge.
+
+Reopened acceptance:
+
+- The composer must remain a compact rounded floating container; it must not expand to fill the space
+  between the list and keyboard.
+- When the soft keyboard appears, the composer sits immediately above it with only normal spacing/safe-area
+  clearance.
+- The comments list remains visible behind/above the composer where space allows; the page should not turn
+  into a mostly blank white panel.
+- Device evidence must include keyboard-open screenshots for plain new-comment mode and row-reply quote
+  mode. A screenshot without the keyboard is insufficient for acceptance.
+- Tapping a comment's reply action automatically focuses the composer input and opens the soft keyboard.
+- The quoted reply header's author line and excerpt line are left-aligned with each other and with the
+  input content start; they must not appear centered.
 
 ### Gallery Comment Vote Must Refresh Visible Score And Icon State
 
