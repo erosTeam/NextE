@@ -1,7 +1,10 @@
 import { EhConstants } from '../constants/EhConstants'
 import { EhGallery } from '../model/EhGallery'
+import { EhUsertag } from '../model/EhMytags'
 import { SimpleTag } from '../model/SimpleTag'
 import { connectSearchAction } from '../state/SearchActionState'
+import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
+import { UserTagStore } from '../state/UserTagStore'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhThumbnail } from './EhThumbnail'
 import { GalleryCategoryCornerBadge } from './GalleryCategoryCornerBadge'
@@ -17,6 +20,7 @@ const WATERFALL_MAX_COVER_RATIO: number = 1.35
 @ComponentV2
 export struct GalleryWaterfallCard {
   @Require @Param gallery: EhGallery;
+  private tagSig: UserTagSignal = connectUserTagSignal();
 
   private coverRatio(): number {
     if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
@@ -61,6 +65,28 @@ export struct GalleryWaterfallCard {
     connectSearchAction().publishQuery(query)
   }
 
+  private chipBg(t: SimpleTag): ResourceColor {
+    const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    if (u !== undefined && u.fillColor.length > 0) {
+      return u.fillColor
+    }
+    if (t.backgroundColor.length > 0) {
+      return t.backgroundColor
+    }
+    return $r('sys.color.ohos_id_color_button_normal')
+  }
+
+  private chipText(t: SimpleTag): ResourceColor {
+    const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    if (u !== undefined && u.textColor.length > 0) {
+      return u.textColor
+    }
+    if (t.color.length > 0) {
+      return t.color
+    }
+    return $r('sys.color.font_secondary')
+  }
+
   @Builder
   private Tags() {
     if (this.gallery.simpleTags.length > 0) {
@@ -70,8 +96,8 @@ export struct GalleryWaterfallCard {
           (t: SimpleTag) => {
             Text(t.display())
               .fontSize(ThemeConstants.FONT_SIZE_TINY)
-              .fontColor($r('sys.color.font_secondary'))
-              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+              .fontColor(this.chipText(t))
+              .backgroundColor(this.chipBg(t))
               .borderRadius(ThemeConstants.RADIUS_SM)
               .padding({ left: 6, right: 6, top: 2, bottom: 2 })
               .maxLines(1)
@@ -82,7 +108,7 @@ export struct GalleryWaterfallCard {
                 this.searchTag(t)
               })
           },
-          (t: SimpleTag) => `${t.namespace}:${t.text}`,
+          (t: SimpleTag) => `${this.tagSig.version}:${t.namespace}:${t.text}`,
         )
       }
       .width('100%')

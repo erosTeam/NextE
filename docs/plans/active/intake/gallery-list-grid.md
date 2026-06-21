@@ -10,6 +10,42 @@ Purpose:
 
 ## Items
 
+### Waterfall Tag Color Parity
+
+Type: browsing mode UI parity / tag metadata presentation
+
+Priority suggestion: P1
+
+Status: implemented / pending controller acceptance
+
+Implementation:
+
+- `GalleryWaterfallCard` now uses the same tag chip color priority as ordinary list cards:
+  `UserTagStore` user-tag color first, parsed inline EH tag background/text color second, neutral
+  system colors last.
+- The Waterfall tag keys include `UserTagSignal.version`, so already-rendered chips can re-color when
+  My Tags metadata arrives late.
+- Scope stayed Waterfall-only: no Grid redesign, no tag parser rewrite, no MyTags write behavior change.
+
+Grounding:
+
+- `eros_fe/lib/pages/item/item_base.dart` `TagWaterfallFlowViewBox` passes each `SimpleTag.color` and
+  `SimpleTag.backgrondColor` into `TagItem`.
+- NextE already parses list-row inline tag colors in `EhGalleryListParser` and ordinary `GalleryCard`
+  already applies `UserTagStore` / inline fallback. The missing piece was only Waterfall rendering.
+
+Verification:
+
+- `node scripts/test_gallery_waterflow_contract.mjs`
+- `node scripts/test_gallery_list_parser_contract.mjs`
+- `node scripts/test_v1_decorator_inventory_contract.mjs`
+- `git diff --check`
+- `scripts/build_hvigor_signed.sh`
+- Local HarmonyOS emulator `127.0.0.1:5555`, hdc outside sandbox: signed HAP installed, Home Waterfall
+  rendered as a two-column masonry page with colored tag chips. Evidence:
+  `.hvigor/outputs/waterfall-tag-color-parity/screen.png` and
+  `.hvigor/outputs/waterfall-tag-color-parity/layout.json`.
+
 ### Waterfall Top Reserve Was A Normal Masonry Item
 
 Type: browsing mode bug / viewport chrome avoidance

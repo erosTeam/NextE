@@ -210,6 +210,10 @@ Historical feedback in this section must not trigger new implementation.
   scaling; the foreground uses `Contain` so very tall/webtoon thumbnails preserve their true source ratio.
   Simulator evidence on `127.0.0.1:5555` shows Waterfall remains a two-column masonry mode after the
   change, with detailed edge-case behavior covered by `scripts/test_gallery_waterflow_contract.mjs`.
+- Waterfall tag color parity is implemented pending controller acceptance: Waterfall card tag chips now
+  use the same user-tag color lookup and parsed inline EH tag colors as ordinary list cards, and re-color
+  when My Tags metadata arrives late. Simulator evidence on `127.0.0.1:5555` shows Waterfall still
+  renders as a two-column mode with colored tag chips instead of fixed neutral tags.
 - Reader cached forward page flash is implemented pending controller acceptance: `precacheAhead()` now
   republishes the traced image list after resolving forward image URLs, Reader mounts off-screen
   viewport-sized warmer `Image` nodes, and the visible reader surfaces now consume a reactive
@@ -252,10 +256,7 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Waterfall tag color parity: Waterfall cards already show tags, but their chips currently use fixed
-   neutral colors instead of the ordinary list card's user-tag / parsed inline color priority. Reuse the
-   existing tag-color lookup behavior for Waterfall only; do not turn this into a Grid redesign.
-2. Settings/user-visible terminology cleanup: do not use slang labels such as `表站` / `里站` in Settings
+1. Settings/user-visible terminology cleanup: do not use slang labels such as `表站` / `里站` in Settings
    or zh_CN UI copy. Use official service names (`E-Hentai`, `ExHentai`) and update contracts that
    currently require the slang site labels.
 

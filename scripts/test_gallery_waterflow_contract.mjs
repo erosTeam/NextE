@@ -80,6 +80,12 @@ assertIncludes(waterfallCard, 'containFit: this.isExtremeTallCover()', 'Waterfal
 assertIncludes(waterfallCard, 'GalleryCategoryCornerBadge', 'Waterfall card must use the same category corner badge as Grid');
 assertIncludes(waterfallCard, 'sourceWidth: this.gallery.imgWidth', 'Waterfall card must pass source width so cover rendering can avoid distortion');
 assertIncludes(waterfallCard, 'sourceHeight: this.gallery.imgHeight', 'Waterfall card must pass source height so cover rendering can avoid distortion');
+assertIncludes(waterfallCard, 'UserTagStore.getInstance().lookup(t.namespace, t.text)', 'Waterfall tag chips must reuse the same user-tag color lookup as list cards');
+assertIncludes(waterfallCard, 'connectUserTagSignal()', 'Waterfall tag chips must re-color when My Tags arrive late');
+assertIncludes(waterfallCard, 'this.tagSig.version', 'Waterfall tag keys must subscribe to late user-tag color updates');
+assertIncludes(waterfallCard, 't.backgroundColor.length > 0', 'Waterfall tag chips must fall back to parsed inline EH background color');
+assertIncludes(waterfallCard, 't.color.length > 0', 'Waterfall tag chips must fall back to parsed inline EH text color');
+assertNotIncludes(waterfallCard, ".fontColor($r('sys.color.font_secondary'))\n              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))", 'Waterfall tag chips must not be hard-coded neutral when tag color metadata exists');
 assertNotIncludes(waterfallCard, '@Param cellWidth', 'Waterfall card must fill the native WaterFlow cell instead of receiving a hand-calculated width');
 assertNotIncludes(waterfallCard, 'private cardWidth()', 'Waterfall card must not convert hand-calculated cell widths');
 assertNotIncludes(waterfallCard, 'GALLERY_GRID_INFO_HEIGHT', 'Waterfall card must not reuse fixed Grid card info height');
