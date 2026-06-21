@@ -1109,12 +1109,24 @@
       "value": "反对这条评论?"
     },
     {
+      "name": "comment_vote_cancel_up",
+      "value": "取消赞成?"
+    },
+    {
+      "name": "comment_vote_cancel_down",
+      "value": "取消反对?"
+    },
+    {
       "name": "comment_vote_up_success",
       "value": "已赞成"
     },
     {
       "name": "comment_vote_down_success",
       "value": "已反对"
+    },
+    {
+      "name": "comment_vote_cancel_success",
+      "value": "已取消投票"
     },
     {
       "name": "comment_vote_failed",

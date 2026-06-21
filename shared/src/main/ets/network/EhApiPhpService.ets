@@ -244,7 +244,7 @@ export class EhApiPhpService {
       Number.isNaN(apiuidNum) ||
       Number.isNaN(gidNum) ||
       Number.isNaN(commentIdNum) ||
-      (vote !== 1 && vote !== -1)
+      (vote !== 1 && vote !== -1 && vote !== 0)
     ) {
       throw new Error('voteComment: missing API key')
     }
@@ -282,7 +282,7 @@ export class EhApiPhpService {
     result.commentId = EhApiPhpService.intFrom(obj.comment_id).toString()
     result.commentScore = EhApiPhpService.intFrom(obj.comment_score)
     result.commentVote = EhApiPhpService.intFrom(obj.comment_vote)
-    if (result.commentId.length === 0 || (result.commentVote !== 1 && result.commentVote !== -1)) {
+    if (result.commentId.length === 0 || (result.commentVote !== 1 && result.commentVote !== -1 && result.commentVote !== 0)) {
       throw new Error('votecomment: missing vote result')
     }
     return result

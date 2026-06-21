@@ -1109,12 +1109,24 @@
       "value": "Vote this comment down?"
     },
     {
+      "name": "comment_vote_cancel_up",
+      "value": "Cancel your up vote?"
+    },
+    {
+      "name": "comment_vote_cancel_down",
+      "value": "Cancel your down vote?"
+    },
+    {
       "name": "comment_vote_up_success",
       "value": "Voted up"
     },
     {
       "name": "comment_vote_down_success",
       "value": "Voted down"
+    },
+    {
+      "name": "comment_vote_cancel_success",
+      "value": "Vote canceled"
     },
     {
       "name": "comment_vote_failed",

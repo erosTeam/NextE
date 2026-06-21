@@ -257,7 +257,14 @@ export struct GalleryCommentsPage {
     return vote > 0 ? $r('app.string.comment_vote_confirm_up') : $r('app.string.comment_vote_confirm_down')
   }
 
+  private voteCancelConfirmText(vote: number): ResourceStr {
+    return vote > 0 ? $r('app.string.comment_vote_cancel_up') : $r('app.string.comment_vote_cancel_down')
+  }
+
   private voteSuccessText(vote: number): ResourceStr {
+    if (vote === 0) {
+      return $r('app.string.comment_vote_cancel_success')
+    }
     return vote > 0 ? $r('app.string.comment_vote_up_success') : $r('app.string.comment_vote_down_success')
   }
 
@@ -299,6 +306,12 @@ export struct GalleryCommentsPage {
       if (c.commentId === commentId) {
         previous = this.cloneComment(c)
         const next: EhGalleryComment = this.cloneComment(c)
+        if (next.score.length > 0) {
+          const score: number = Number.parseInt(next.score, 10)
+          if (!Number.isNaN(score)) {
+            next.score = (score + vote - c.vote).toString()
+          }
+        }
         next.vote = vote
         nextComments.push(next)
       } else {
@@ -323,13 +336,14 @@ export struct GalleryCommentsPage {
     })
   }
 
-  private confirmCommentVote(comment: EhGalleryComment, vote: number): void {
+  private handleCommentVote(comment: EhGalleryComment, vote: number): void {
     if (!comment.canVote || comment.commentId.length === 0 || this.votingCommentId.length > 0) {
       return
     }
+    const targetVote: number = comment.vote === vote ? 0 : vote
     this.getUIContext().showAlertDialog({
       title: this.voteText(vote),
-      message: this.voteConfirmText(vote),
+      message: targetVote === 0 ? this.voteCancelConfirmText(vote) : this.voteConfirmText(vote),
       primaryButton: {
         value: $r('app.string.common_cancel'),
         action: () => {},
@@ -337,7 +351,7 @@ export struct GalleryCommentsPage {
       secondaryButton: {
         value: $r('app.string.common_ok'),
         action: () => {
-          this.submitCommentVote(comment.commentId, vote)
+          this.submitCommentVote(comment.commentId, targetVote)
         },
       },
     })
@@ -460,7 +474,7 @@ export struct GalleryCommentsPage {
                   this.searchUploader(name)
                 },
                 onVote: (comment: EhGalleryComment, vote: number) => {
-                  this.confirmCommentVote(comment, vote)
+                  this.handleCommentVote(comment, vote)
                 },
                 onReply: (comment: EhGalleryComment) => {
                   this.openReplyComment(comment)
