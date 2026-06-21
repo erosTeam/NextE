@@ -56,6 +56,11 @@ ok(/SetUserTagResult/.test(barrel), 'shared barrel exports SetUserTagResult')
 
 ok(/AppModalScaffold/.test(page) && /EditTagSheet\(\)[\s\S]*AppModalScaffold\(\{[\s\S]*title: \$r\('app\.string\.mytags_edit_title'\)/.test(page),
   'MyTagsPage uses AppModalScaffold for existing-tag edits')
+ok(/@Local myTagsSheetShown: boolean = false/.test(page) &&
+  /@Local myTagsSheetKind: string = ''/.test(page) &&
+  /bindSheet\(\$\$this\.myTagsSheetShown, this\.MyTagsSheet\(\)/.test(page) &&
+  (page.match(/\.bindSheet\(/g) || []).length === 1,
+  'MyTags sheets use one bindSheet host so edit/add/tagset bindings cannot close each other')
 ok(/TagRow\(t: EhUsertag\)[\s\S]*ConciseListRow\(\{[\s\S]*action: \(\) => \{[\s\S]*this\.openEditTag\(t\)/.test(page),
   'tapping an existing My Tag management row opens the edit sheet')
 ok(/editWatched = value[\s\S]*if \(value\) \{[\s\S]*this\.editHidden = false/.test(page) &&

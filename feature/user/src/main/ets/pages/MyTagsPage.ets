@@ -26,6 +26,10 @@ import {
   immersiveTitleBarOpts,
 } from 'shared'
 
+const MYTAGS_SHEET_EDIT: string = 'edit'
+const MYTAGS_SHEET_ADD: string = 'add'
+const MYTAGS_SHEET_TAGSET: string = 'tagset'
+
 /**
  * My Tags (mytags) — the user's watched / hidden / color-flagged tags. Routed page off Settings.
  * Renders each tag as a management row: status icon, full tag name / translation, and EH color /
@@ -40,7 +44,8 @@ export struct MyTagsPage {
   @Local mytags: EhMytags = new EhMytags();
   @Local loading: boolean = true;
   @Local error: string = '';
-  @Local editSheetShown: boolean = false;
+  @Local myTagsSheetShown: boolean = false;
+  @Local myTagsSheetKind: string = '';
   @Local editSubmitting: boolean = false;
   @Local editError: string = '';
   @Local editTagId: string = '';
@@ -52,7 +57,6 @@ export struct MyTagsPage {
   @Local editDefaultColor: boolean = true;
   @Local editColor: string = '';
   @Local editWeight: string = '';
-  @Local addSheetShown: boolean = false;
   @Local addSubmitting: boolean = false;
   @Local addSuggesting: boolean = false;
   @Local addError: string = '';
@@ -67,7 +71,6 @@ export struct MyTagsPage {
   @Local addSuggestions: EhTagSuggestion[] = [];
   @Local addSuggestEpoch: number = 0;
   @Local addSuppressNextSuggest: boolean = false;
-  @Local tagsetSheetShown: boolean = false;
   @Local tagsetSubmitting: boolean = false;
   @Local tagsetError: string = '';
   @Local tagsetAction: string = '';
@@ -76,6 +79,22 @@ export struct MyTagsPage {
   @Local tagSig: UserTagSignal = connectUserTagSignal();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+
+  private openMyTagsSheet(kind: string): void {
+    this.myTagsSheetKind = kind
+    this.myTagsSheetShown = true
+  }
+
+  private closeMyTagsSheet(): void {
+    this.myTagsSheetShown = false
+  }
+
+  private myTagsSheetDetents(): [string | number | Resource] {
+    if (this.myTagsSheetKind === MYTAGS_SHEET_TAGSET) {
+      return [SheetSize.MEDIUM]
+    }
+    return [SheetSize.LARGE]
+  }
 
   private async load(tagset: string = ''): Promise<void> {
     this.loading = true
@@ -164,11 +183,10 @@ export struct MyTagsPage {
     this.editColor = t.defaultColor ? '' : (t.color.length > 0 ? t.color : t.fillColor)
     this.editWeight = t.tagWeight.length > 0 ? t.tagWeight : `${t.weight}`
     this.editError = ''
-    this.editSheetShown = true
+    this.openMyTagsSheet(MYTAGS_SHEET_EDIT)
   }
 
   private openAddTag(): void {
-    this.addSheetShown = true
     this.addSubmitting = false
     this.addSuggesting = false
     this.addError = ''
@@ -183,6 +201,7 @@ export struct MyTagsPage {
     this.addSuggestions = []
     this.addSuggestEpoch = this.addSuggestEpoch + 1
     this.addSuppressNextSuggest = false
+    this.openMyTagsSheet(MYTAGS_SHEET_ADD)
   }
 
   private normalizedEditColor(): string {
@@ -252,7 +271,7 @@ export struct MyTagsPage {
     this.tagsetName = ''
     this.tagsetError = ''
     this.tagsetSubmitting = false
-    this.tagsetSheetShown = true
+    this.openMyTagsSheet(MYTAGS_SHEET_TAGSET)
   }
 
   private openRenameTagset(): void {
@@ -263,7 +282,7 @@ export struct MyTagsPage {
     this.tagsetName = this.currentTagsetName()
     this.tagsetError = ''
     this.tagsetSubmitting = false
-    this.tagsetSheetShown = true
+    this.openMyTagsSheet(MYTAGS_SHEET_TAGSET)
   }
 
   private canSubmitTagset(): boolean {
@@ -402,7 +421,7 @@ export struct MyTagsPage {
         this.editWeight,
       )
       await this.reloadCurrentTagset()
-      this.editSheetShown = false
+      this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message: $r('app.string.mytags_save_success'),
       })
@@ -431,7 +450,7 @@ export struct MyTagsPage {
         hidden: this.addHidden,
       })
       await this.reloadCurrentTagset()
-      this.addSheetShown = false
+      this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message: $r('app.string.mytags_add_success'),
       })
@@ -456,7 +475,7 @@ export struct MyTagsPage {
         tagset: this.mytags.currentTagset,
       })
       await this.reloadCurrentTagset()
-      this.editSheetShown = false
+      this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message: $r('app.string.mytags_delete_success'),
       })
@@ -482,7 +501,7 @@ export struct MyTagsPage {
         name: this.tagsetName,
       })
       await this.reloadCurrentTagset()
-      this.tagsetSheetShown = false
+      this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message:
           this.tagsetAction === 'rename'
@@ -511,7 +530,7 @@ export struct MyTagsPage {
         name: '',
       })
       await this.load()
-      this.tagsetSheetShown = false
+      this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message: $r('app.string.mytags_tagset_delete_success'),
       })
@@ -623,7 +642,6 @@ export struct MyTagsPage {
       items.push({ 'content': createInner })
     } else {
       items.push({ 'content': addInner })
-      items.push({ 'content': createInner })
       items.push({ 'content': renameInner })
     }
     if (!this.showingTagsetList && this.mytags.canDelete) {
@@ -654,27 +672,15 @@ export struct MyTagsPage {
               CardEmptyState({ message: $r('app.string.common_no_content'), expand: false })
             }
           } else {
-            ListItem() {
-              GroupedListSection() {
-                this.TagRows()
-              }
-            }
+            this.TagRowsGroup()
           }
         }
       }
     }
     .titleBar(this.myTagsTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .bindSheet($$this.editSheetShown, this.EditTagSheet(), {
-      detents: [SheetSize.LARGE],
-      showClose: false,
-    })
-    .bindSheet($$this.addSheetShown, this.AddTagSheet(), {
-      detents: [SheetSize.LARGE],
-      showClose: false,
-    })
-    .bindSheet($$this.tagsetSheetShown, this.TagsetSheet(), {
-      detents: [SheetSize.MEDIUM],
+    .bindSheet($$this.myTagsSheetShown, this.MyTagsSheet(), {
+      detents: this.myTagsSheetDetents(),
       showClose: false,
     })
     .onReady((context: NavDestinationContext) => {
@@ -712,13 +718,30 @@ export struct MyTagsPage {
   }
 
   @Builder
+  private TagRowsGroup() {
+    ListItemGroup({ space: 0 }) {
+      this.TagRows()
+    }
+    .width('100%')
+    .borderRadius(ThemeConstants.RADIUS_CARD)
+    .clip(true)
+    .padding(ThemeConstants.LIST_SECTION_INSET)
+    .backgroundColor($r('app.color.card_background'))
+  }
+
+  @Builder
   private TagRows() {
     ForEach(
       this.mytags.tags,
       (t: EhUsertag, index: number) => {
-        this.TagRow(t)
-        if (index < this.mytags.tags.length - 1) {
-          this.TagRowDivider()
+        ListItem() {
+          Column() {
+            this.TagRow(t)
+            if (index < this.mytags.tags.length - 1) {
+              this.TagRowDivider()
+            }
+          }
+          .width('100%')
         }
       },
       (t: EhUsertag) => t.tagId.length > 0 ? t.tagId : t.tag,
@@ -826,6 +849,17 @@ export struct MyTagsPage {
   }
 
   @Builder
+  private MyTagsSheet() {
+    if (this.myTagsSheetKind === MYTAGS_SHEET_EDIT) {
+      this.EditTagSheet()
+    } else if (this.myTagsSheetKind === MYTAGS_SHEET_ADD) {
+      this.AddTagSheet()
+    } else if (this.myTagsSheetKind === MYTAGS_SHEET_TAGSET) {
+      this.TagsetSheet()
+    }
+  }
+
+  @Builder
   private EditTagSheet() {
     AppModalScaffold({
       title: $r('app.string.mytags_edit_title'),
@@ -839,7 +873,7 @@ export struct MyTagsPage {
       confirmEnabled: this.canSubmitEdit(),
       confirmLoading: this.editSubmitting,
       closeAction: () => {
-        this.editSheetShown = false
+        this.closeMyTagsSheet()
       },
       secondaryAction: () => {
         this.confirmDeleteTag()
@@ -958,7 +992,7 @@ export struct MyTagsPage {
       confirmEnabled: this.canSubmitAdd(),
       confirmLoading: this.addSubmitting,
       closeAction: () => {
-        this.addSheetShown = false
+        this.closeMyTagsSheet()
       },
       confirmAction: () => {
         this.confirmSubmitAdd()
@@ -1097,7 +1131,7 @@ export struct MyTagsPage {
       confirmEnabled: this.canSubmitTagset(),
       confirmLoading: this.tagsetSubmitting,
       closeAction: () => {
-        this.tagsetSheetShown = false
+        this.closeMyTagsSheet()
       },
       confirmAction: () => {
         this.confirmSubmitTagset()
