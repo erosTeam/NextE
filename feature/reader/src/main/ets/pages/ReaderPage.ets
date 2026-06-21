@@ -1962,7 +1962,7 @@ struct ReaderSpreadImageLayer {
     try {
       this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      this.imageLoaded = this.initiallyLoaded && this.imageUrl === this.image.imageUrl
+      this.imageLoaded = true
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
@@ -1979,7 +1979,7 @@ struct ReaderSpreadImageLayer {
     }
     this.autoRetryCount = 0
     this.imageUrl = this.image.imageUrl
-    this.imageLoaded = this.initiallyLoaded
+    this.imageLoaded = true
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     return true
@@ -2148,7 +2148,7 @@ struct ReaderImagePage {
     try {
       this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      this.imageLoaded = this.initiallyLoaded && this.imageUrl === this.image.imageUrl
+      this.imageLoaded = true
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
@@ -2165,7 +2165,7 @@ struct ReaderImagePage {
     }
     this.autoRetryCount = 0
     this.imageUrl = this.image.imageUrl
-    this.imageLoaded = this.initiallyLoaded
+    this.imageLoaded = true
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     return true
@@ -2468,7 +2468,7 @@ struct ReaderVerticalImage {
     try {
       this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      this.imageLoaded = this.initiallyLoaded && this.imageUrl === this.image.imageUrl
+      this.imageLoaded = true
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
@@ -2485,7 +2485,7 @@ struct ReaderVerticalImage {
     }
     this.autoRetryCount = 0
     this.imageUrl = this.image.imageUrl
-    this.imageLoaded = this.initiallyLoaded
+    this.imageLoaded = true
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     return true

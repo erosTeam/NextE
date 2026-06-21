@@ -254,6 +254,22 @@ Follow-up, 2026-06-22:
 - Acceptance: forward page turn to a pre-resolved next page has no black flash/loading jump; returning to
   the previous page and going forward again behaves the same as the first forward transition.
 
+Status, 2026-06-22: implemented / pending controller acceptance after follow-up correction.
+
+- Correction: user testing showed the first implementation's static proof was incomplete. It warmed
+  URLs and hidden `Image` nodes, but each visible Reader surface could still adopt a resolved URL and
+  keep `imageLoaded=false` until that specific surface's `Image.onComplete`, causing a visible blank
+  transition.
+- Scope: horizontal `ReaderImagePage`, vertical `ReaderVerticalImage`, and `ReaderSpreadImageLayer`
+  now present any concrete resolved image URL immediately. Resolve-stage loading, `Image.onError`,
+  bounded automatic re-source retry, and manual retry remain unchanged.
+- Verified: `node scripts/test_reader_loading_progress_contract.mjs`,
+  `node scripts/test_reader_precache_contract.mjs`, `node scripts/test_reader_tapzone_contract.mjs`,
+  `node scripts/test_reader_seeded_thumbnail_start_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/build_hvigor_signed.sh`, and local
+  emulator `127.0.0.1:5555` install/open/turn evidence in
+  `.hvigor/outputs/reader-cached-forward-presented-url/`.
+
 ### Reader Auto-Read Page Turn Is Missing
 
 Type: feature gap / reading UX

@@ -3,8 +3,8 @@
  * Contract: Reader loading-stage UI stays lightweight and cannot regress core Reader interaction.
  *
  * The old streamed byte-progress/file-cache path remains parked, but the reader should still show
- * centered resolving/loading stages instead of a dead black canvas. Stage UI must disappear after
- * Image.onComplete and must not intercept gestures while an Image is mounted.
+ * centered resolving/loading stages instead of a dead black canvas. Stage UI must disappear once a
+ * concrete image URL is ready for presentation and must not intercept gestures while an Image is mounted.
  *
  * Run: node scripts/test_reader_loading_progress_contract.mjs
  */
@@ -36,8 +36,11 @@ ok('ReaderLoadingOverlay is not present in ReaderPage',
 ok('image-loading stage is explicitly tied to Image not-yet-complete state',
   /if \(!this\.imageLoaded\) \{[\s\S]*ReaderLoadingStage\(\{ label: \$r\('app\.string\.reader_loading_image'\) \}\)[\s\S]*hitTestBehavior\(HitTestMode\.None\)/.test(reader) &&
   /if \(!this\.imageLoaded\) \{[\s\S]*reader_loading_image[\s\S]*compact: true[\s\S]*hitTestBehavior\(HitTestMode\.None\)/.test(reader))
-ok('image is not visibly painted under the loading stage before Image.onComplete',
+ok('image opacity remains tied to the page presentation state',
   (reader.match(/\.opacity\(this\.imageLoaded \? 1 : 0\)/g) || []).length >= 3)
+ok('resolved image URLs are presented without waiting for the local Image.onComplete of this surface',
+  (reader.match(/this\.imageUrl = await ImageResolveService\.getInstance\(\)\.resolve\(this\.image, changeSource\)\s+this\.imageLoaded = true/g) || []).length >= 3 &&
+  (reader.match(/this\.imageUrl = this\.image\.imageUrl\s+this\.imageLoaded = true/g) || []).length >= 3)
 ok('Image.onComplete clears the loading stage',
   /\.onComplete\(\(event\?: ReaderImageLoadEvent\) => \{[\s\S]*this\.imageLoaded = true/.test(reader) &&
   /\.onComplete\(\(e\) => \{[\s\S]*this\.imageLoaded = true/.test(reader))

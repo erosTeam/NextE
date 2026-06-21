@@ -217,13 +217,15 @@ Historical feedback in this section must not trigger new implementation.
 - Settings/user-visible site terminology cleanup is implemented pending controller acceptance: EH
   settings trailing labels and user-visible resource strings now use official `E-Hentai` / `ExHentai`
   names instead of community nicknames or the old "table site" wording.
-- Reader cached forward page flash is implemented pending controller acceptance: `precacheAhead()` now
-  republishes the traced image list after resolving forward image URLs, Reader mounts off-screen
-  viewport-sized warmer `Image` nodes, and the visible reader surfaces now consume a reactive
-  loaded-page signal instead of treating `imageUrl` alone as proof that the bitmap has painted.
-  Simulator evidence on `127.0.0.1:5555` in `.hvigor/outputs/reader-cached-forward-state-fix/` shows
-  page 2/3 emitted `warm_image_complete` before the turn, and the first turn to page 2 captured a
-  ready image with no loading/resolving text while only page 4 began the next warm.
+- Reader cached forward page flash is implemented pending controller acceptance after a follow-up
+  correction: user testing showed the previous static conclusion was incomplete because visible Reader
+  surfaces could still receive a resolved URL and then hide themselves behind local `imageLoaded=false`
+  until their own `Image.onComplete`. The current fix makes horizontal, vertical, and spread surfaces
+  present concrete resolved URLs immediately while keeping resolve-stage and retry/error paths intact.
+  Local emulator evidence on `127.0.0.1:5555` is in
+  `.hvigor/outputs/reader-cached-forward-presented-url/`: page 3 was reached after a forward swipe,
+  layout after the turn contained no loading/resolving text, and hilog showed page 3/4 were warmed
+  before the turn while page 5 warmed afterward.
 
 ## Parked / Guidance Only
 
