@@ -66,6 +66,6 @@ for (const fileName of expectedFiles) {
   totalItems += headerCount(text);
 }
 
-assert(totalItems === 52, `domain intake split must preserve 52 intake items, found ${totalItems}`);
+assert(totalItems === 75, `domain intake split must preserve 75 intake items, found ${totalItems}`);
 
-console.log('✓ dispatch intake split contract: index short, domain files present, 52 items preserved');
+console.log('✓ dispatch intake split contract: index short, domain files present, 75 items preserved');
