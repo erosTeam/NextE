@@ -74,7 +74,9 @@ assertIncludes(waterfallCard, 'WATERFALL_MIN_COVER_RATIO', 'Waterfall cover rati
 assertIncludes(waterfallCard, 'WATERFALL_MAX_COVER_RATIO', 'Waterfall cover ratio must keep an upper bound for extreme wide covers');
 assertIncludes(waterfallCard, 'EhThumbnail({', 'Waterfall card must render through the shared thumbnail component');
 assertIncludes(waterfallCard, 'coverRatio: this.coverRatio()', 'Waterfall card must pass its bounded source ratio');
-assertIncludes(waterfallCard, 'forceCoverFit: true', 'Waterfall bounded cover slot must crop instead of showing grey letterbox');
+assertIncludes(waterfallCard, 'private isExtremeTallCover(): boolean', 'Waterfall card must detect source ratios below the bounded cover slot');
+assertIncludes(waterfallCard, 'forceCoverFit: !this.isExtremeTallCover()', 'Waterfall normal covers may crop, but extreme strip covers must not be full-width Cover scaled');
+assertIncludes(waterfallCard, 'containFit: this.isExtremeTallCover()', 'Waterfall extreme strip foreground must preserve true source ratio inside the bounded slot');
 assertIncludes(waterfallCard, 'GalleryCategoryCornerBadge', 'Waterfall card must use the same category corner badge as Grid');
 assertIncludes(waterfallCard, 'sourceWidth: this.gallery.imgWidth', 'Waterfall card must pass source width so cover rendering can avoid distortion');
 assertIncludes(waterfallCard, 'sourceHeight: this.gallery.imgHeight', 'Waterfall card must pass source height so cover rendering can avoid distortion');

@@ -200,6 +200,11 @@ Historical feedback in this section must not trigger new implementation.
   WebView route with live EH gallery content (`Front`, `Watched`, gallery titles, tags, pagination, and
   thumbnail links in the layout tree). Evidence is in `.hvigor/outputs/gallery-webview-open/` and
   `.hvigor/outputs/gallery-webview-content/`.
+- Waterfall extreme strip cover blur is implemented pending controller acceptance: source ratios below
+  `WATERFALL_MIN_COVER_RATIO` keep the bounded Waterfall slot but no longer use full-width `Cover`
+  scaling; the foreground uses `Contain` so very tall/webtoon thumbnails preserve their true source ratio.
+  Simulator evidence on `127.0.0.1:5555` shows Waterfall remains a two-column masonry mode after the
+  change, with detailed edge-case behavior covered by `scripts/test_gallery_waterflow_contract.mjs`.
 
 ## Parked / Guidance Only
 
@@ -226,12 +231,7 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Waterfall extreme strip cover blur: keep the bounded Waterfall cover slot for very tall/webtoon
-   covers, but do not expand an extreme narrow foreground thumbnail to the full column width after the
-   ratio clamp. Source ratios below the Waterfall minimum should fit by bounded slot height / true source
-   ratio, with side area handled as placeholder/backdrop, not by restoring unbounded card height and not
-   by using `forceCoverFit` full-width cover scaling.
-2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+1. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.

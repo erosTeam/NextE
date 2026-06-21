@@ -776,7 +776,7 @@ Type: browsing mode bug / layout correctness
 
 Priority suggestion: P1
 
-Status: reopened / top avoidance failed current screenshot
+Status: implemented / pending controller acceptance
 
 Implementation:
 
@@ -789,8 +789,10 @@ Implementation:
   top/bottom `WaterFlow.padding`, preserving the floating chrome semantics without padding-region
   disappearance.
 - `GalleryWaterfallCard` keeps masonry semantics: cover height follows EH source aspect ratio within
-  bounds (`0.5..1.35` width/height) so extreme strip/webtoon covers cannot make a card unboundedly tall,
-  and `forceCoverFit` crops inside the bounded slot instead of showing list/grid grey letterbox.
+  bounds (`0.5..1.35` width/height) so extreme strip/webtoon covers cannot make a card unboundedly tall.
+  For source ratios below the Waterfall minimum, the bounded slot remains but `forceCoverFit` is disabled
+  and the foreground uses `containFit`, so the low-resolution EH thumbnail is not expanded to full column
+  width before cropping.
 - Waterfall uses the same shared category corner badge as Grid while keeping richer title/rating/tags
   semantics separate from compact Grid.
 
@@ -814,6 +816,13 @@ Follow-up, 2026-06-21:
   assert the bounded slot remains, while `forceCoverFit`/full-width cover scaling is not used for that
   extreme foreground.
 
+Implementation follow-up:
+
+- `GalleryWaterfallCard` now detects `isExtremeTallCover()` from the real `imgWidth / imgHeight`.
+- Normal Waterfall covers keep `forceCoverFit`.
+- Extreme tall covers pass `forceCoverFit: false` and `containFit: true` into the shared `EhThumbnail`
+  while retaining the bounded `coverRatio()` slot.
+
 Verification:
 
 - FE grounding: `eros_fe/lib/pages/item/gallery_item_grid.dart` defines min/max fixed cover-ratio guards;
@@ -826,6 +835,9 @@ Verification:
   `node scripts/test_v1_decorator_inventory_contract.mjs`.
 - Signed macOS build passed: `scripts/build_hvigor_signed.sh`.
 - HarmonyOS simulator `127.0.0.1:5555`, official signed HAP installed with hdc outside sandbox:
+  `.hvigor/outputs/waterfall-strip-cover/current.png` shows Home Waterfall remains a two-column masonry
+  mode after the extreme-strip cover scaling change.
+- Earlier HarmonyOS simulator evidence on `127.0.0.1:5555`:
   `.hvigor/outputs/gallery-browsing-layout-recovery/waterfall-bounded-cover-final/screen.jpeg` shows
   Home Waterfall as two columns, bounded variable-height masonry, no fixed-ratio grey letterbox on
   visible covers, and the shared corner badge.
@@ -834,9 +846,9 @@ Verification:
 
 Remaining acceptance:
 
-- Not accepted. Search/Favorites use the same branches and contracts, but the current Home screenshot
-  already proves the Waterfall viewport/top avoidance model is wrong. The previous device pass did not
-  catch that the top spacer was only occupying one masonry column.
+- Controller/user visual review of the current Waterfall evidence and any future extreme-strip screenshot.
+  The code path for extreme source ratios is covered by the deterministic contract; the current public
+  Home viewport did not include an obvious extreme-strip sample.
 
 Current feedback:
 

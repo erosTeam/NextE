@@ -32,6 +32,17 @@ export struct GalleryWaterfallCard {
     return ratio
   }
 
+  private sourceCoverRatio(): number {
+    if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
+      return this.coverRatio()
+    }
+    return this.gallery.imgWidth / this.gallery.imgHeight
+  }
+
+  private isExtremeTallCover(): boolean {
+    return this.sourceCoverRatio() < WATERFALL_MIN_COVER_RATIO
+  }
+
   private ratingText(): string {
     if (this.gallery.ratingFallBack > 0) {
       return this.gallery.ratingFallBack.toFixed(2)
@@ -85,7 +96,8 @@ export struct GalleryWaterfallCard {
           url: this.gallery.thumbUrl,
           coverRatio: this.coverRatio(),
           radius: ThemeConstants.THUMB_RADIUS,
-          forceCoverFit: true,
+          forceCoverFit: !this.isExtremeTallCover(),
+          containFit: this.isExtremeTallCover(),
           sourceWidth: this.gallery.imgWidth,
           sourceHeight: this.gallery.imgHeight,
         })
