@@ -232,6 +232,28 @@ Implementation:
   `.hvigor/outputs/reader-loading-overlay/` shows Reader ready state with one Image and no loading/resolving
   text in the layout.
 
+Follow-up, 2026-06-22:
+
+- User reports a forward page turn can still visibly jump/flash black even when the next page has already
+  been cached/resolved. If the user then goes back to the previous page and forward again, the second
+  forward transition does not show the same loading gap.
+- Source evidence: `ReaderViewModel.precacheAhead()` only pre-resolves the next pages' full image URLs.
+  In `ReaderImagePage.resolve()`, `ReaderSpreadImageLayer.resolve()`, and `ReaderVerticalImage.resolve()`,
+  the fast path for `image.imageUrl.length > 0` still sets `imageLoaded = false` before assigning
+  `imageUrl`. The render branch then sets `Image(...).opacity(this.imageLoaded ? 1 : 0)` and shows
+  `ReaderLoadingStage` until `Image.onComplete` fires for that component instance.
+- This explains the asymmetric behavior: first forward into a pre-resolved page skips network resolve but
+  still hides the image while ArkUI completes the `Image`; going back and forward again reuses the cached
+  Swiper child whose `imageLoaded` has already become true.
+- Expected behavior: a pre-resolved/cached next page should not be forced through a visible black/loading
+  transition solely because the component has not fired `onComplete` yet. Keep failure retry and source
+  changing intact, but separate "URL is resolved" from "new uncached bitmap must hide readable content."
+  Prefer a narrow fix that preserves the previous visible page or treats an already-resolved cached URL as
+  ready enough for page-turn presentation; do not reintroduce streamed byte progress or broad Reader
+  loading-stack redesign.
+- Acceptance: forward page turn to a pre-resolved next page has no black flash/loading jump; returning to
+  the previous page and going forward again behaves the same as the first forward transition.
+
 ### Reader Auto-Read Page Turn Is Missing
 
 Type: feature gap / reading UX

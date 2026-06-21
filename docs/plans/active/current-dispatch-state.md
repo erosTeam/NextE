@@ -236,7 +236,11 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-No non-destructive active implementation lane is currently promoted.
+1. Reader cached forward page flash: forward page turns can still black-flash even when the next page URL
+   has already been pre-resolved/cached. Keep Reader gesture/chrome/cache baselines intact, but fix the
+   page image presentation state so an already-resolved next page is not forced through
+   `imageLoaded = false` / `opacity(0)` until `Image.onComplete` fires. The first forward transition to a
+   cached page should look like the later back-then-forward transition: no visible black/loading jump.
 
 ## Pending Explicit Authorization
 
