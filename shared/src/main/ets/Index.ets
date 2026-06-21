@@ -74,6 +74,7 @@ export { ConciseListRow } from './components/ConciseListRow'
 export { SectionHeader } from './components/SectionHeader'
 export { AppSearchField } from './components/AppSearchField'
 export { AppModalScaffold } from './components/AppModalScaffold'
+export { AppColorPicker } from './components/AppColorPicker'
 
 // parser
 export { HtmlSelectorUtils } from './parser/HtmlSelectorUtils'
@@ -186,6 +187,7 @@ export {
   LayoutSafeAreaBridge,
 } from './state/LayoutSafeAreaState'
 export { SearchActionState, connectSearchAction } from './state/SearchActionState'
+export { AppColorFavoritesState, connectAppColorFavorites } from './state/AppColorFavoritesState'
 export { SearchPageParams } from './state/SearchPageParams'
 export {
   SearchFilterState,
@@ -231,6 +233,7 @@ export { DownloadSettings } from './settings/DownloadSettings'
 export { DownloadQueueSettings } from './settings/DownloadQueueSettings'
 export { SecuritySettings } from './settings/SecuritySettings'
 export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
+export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'

@@ -921,6 +921,34 @@
       "value": "Color"
     },
     {
+      "name": "color_picker_grid",
+      "value": "Grid"
+    },
+    {
+      "name": "color_picker_sliders",
+      "value": "Sliders"
+    },
+    {
+      "name": "color_picker_hue",
+      "value": "Hue"
+    },
+    {
+      "name": "color_picker_saturation",
+      "value": "Saturation"
+    },
+    {
+      "name": "color_picker_brightness",
+      "value": "Brightness"
+    },
+    {
+      "name": "color_picker_hex",
+      "value": "Hex"
+    },
+    {
+      "name": "color_picker_favorites",
+      "value": "Favorites"
+    },
+    {
       "name": "mytags_save",
       "value": "Save"
     },

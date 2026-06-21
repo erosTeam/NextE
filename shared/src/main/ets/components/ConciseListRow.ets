@@ -40,6 +40,7 @@ export struct ConciseListRow {
   @Param isEnabled: boolean = true;
   @Param primaryColor: ResourceColor | undefined = undefined;
   @Param secondaryColor: ResourceColor | undefined = undefined;
+  @Param suffixPaddingRight: Length = ThemeConstants.SPACE_MD;
   @Event action?: () => void;
   @BuilderParam suffixBuilderParam?: () => void;
   @BuilderParam prefixBuilderParam?: () => void;
@@ -97,7 +98,7 @@ export struct ConciseListRow {
         this.suffixBuilderParam()
       }
     }
-    .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_MD })
+    .padding({ left: ThemeConstants.SPACE_SM, right: this.suffixPaddingRight })
   }
 
   @Builder

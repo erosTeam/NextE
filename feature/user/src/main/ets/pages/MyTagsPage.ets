@@ -1,6 +1,7 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppModalScaffold,
+  AppColorPicker,
   ThemeConstants,
   EhMytags,
   EhUsertag,
@@ -761,6 +762,7 @@ export struct MyTagsPage {
       suffixBuilderParam: () => {
         this.TagWeightBadge(t)
       },
+      suffixPaddingRight: ThemeConstants.SPACE_SM,
       action: () => {
         this.openEditTag(t)
       },
@@ -806,14 +808,17 @@ export struct MyTagsPage {
       .textAlign(TextAlign.Center)
       .maxLines(1)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
-      .height(30)
-      .width(50)
-      .padding({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_XS })
+      .constraintSize({ minWidth: 36 })
+      .padding({
+        left: ThemeConstants.SPACE_SM,
+        right: ThemeConstants.SPACE_SM,
+        top: ThemeConstants.SPACE_XS,
+        bottom: ThemeConstants.SPACE_XS,
+      })
       .backgroundColor(this.tagFillColor(t))
-      .borderRadius(ThemeConstants.RADIUS_SM)
+      .borderRadius(ThemeConstants.RADIUS_ROUND)
       .borderWidth(0.5)
       .borderColor(this.tagBorderColor(t))
-      .margin({ right: ThemeConstants.SPACE_MD })
   }
 
   @Builder
@@ -933,7 +938,7 @@ export struct MyTagsPage {
               .backgroundColor($r('app.color.card_background'))
               .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
               .enabled(!this.editSubmitting)
-              .type(InputType.Number)
+              .type(InputType.Normal)
               .onChange((value: string) => {
                 this.editWeight = value
               })
@@ -943,32 +948,14 @@ export struct MyTagsPage {
             this.editDefaultColor = value
           })
           if (!this.editDefaultColor) {
-            Column({ space: ThemeConstants.SPACE_XS }) {
-              Text($r('app.string.mytags_color'))
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-                .width('100%')
-              Row({ space: ThemeConstants.SPACE_MD }) {
-                TextInput({ text: this.editColor, placeholder: '#3377FF' })
-                  .height(48)
-                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                  .backgroundColor($r('app.color.card_background'))
-                  .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-                  .enabled(!this.editSubmitting)
-                  .layoutWeight(1)
-                  .onChange((value: string) => {
-                    this.editColor = value
-                  })
-                Column()
-                  .width(48)
-                  .height(48)
-                  .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-                  .backgroundColor(this.normalizedEditColor().length > 0 ? this.normalizedEditColor() : ThemeConstants.BRAND_PRIMARY)
-              }
-              .width('100%')
-            }
-            .width('100%')
+            AppColorPicker({
+              title: $r('app.string.mytags_color'),
+              color: this.editColor,
+              disabled: this.editSubmitting,
+              colorChange: (value: string) => {
+                this.editColor = value
+              },
+            })
           }
           if (this.editError.length > 0) {
             Text(this.editError)
@@ -1072,7 +1059,7 @@ export struct MyTagsPage {
               .backgroundColor($r('app.color.card_background'))
               .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
               .enabled(!this.addSubmitting)
-              .type(InputType.Number)
+              .type(InputType.Normal)
               .onChange((value: string) => {
                 this.addWeight = value
               })
@@ -1082,32 +1069,14 @@ export struct MyTagsPage {
             this.addDefaultColor = value
           })
           if (!this.addDefaultColor) {
-            Column({ space: ThemeConstants.SPACE_XS }) {
-              Text($r('app.string.mytags_color'))
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-                .width('100%')
-              Row({ space: ThemeConstants.SPACE_MD }) {
-                TextInput({ text: this.addColor, placeholder: '#3377FF' })
-                  .height(48)
-                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                  .backgroundColor($r('app.color.card_background'))
-                  .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-                  .enabled(!this.addSubmitting)
-                  .layoutWeight(1)
-                  .onChange((value: string) => {
-                    this.addColor = value
-                  })
-                Column()
-                  .width(48)
-                  .height(48)
-                  .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-                  .backgroundColor(this.normalizedAddColor().length > 0 ? this.normalizedAddColor() : ThemeConstants.BRAND_PRIMARY)
-              }
-              .width('100%')
-            }
-            .width('100%')
+            AppColorPicker({
+              title: $r('app.string.mytags_color'),
+              color: this.addColor,
+              disabled: this.addSubmitting,
+              colorChange: (value: string) => {
+                this.addColor = value
+              },
+            })
           }
           if (this.addError.length > 0) {
             Text(this.addError)

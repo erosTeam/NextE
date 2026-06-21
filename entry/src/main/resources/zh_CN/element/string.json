@@ -921,6 +921,34 @@
       "value": "颜色"
     },
     {
+      "name": "color_picker_grid",
+      "value": "网格"
+    },
+    {
+      "name": "color_picker_sliders",
+      "value": "滑块"
+    },
+    {
+      "name": "color_picker_hue",
+      "value": "色相"
+    },
+    {
+      "name": "color_picker_saturation",
+      "value": "饱和度"
+    },
+    {
+      "name": "color_picker_brightness",
+      "value": "明度"
+    },
+    {
+      "name": "color_picker_hex",
+      "value": "Hex"
+    },
+    {
+      "name": "color_picker_favorites",
+      "value": "收藏"
+    },
+    {
       "name": "mytags_save",
       "value": "保存"
     },

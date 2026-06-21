@@ -921,6 +921,34 @@
       "value": "色"
     },
     {
+      "name": "color_picker_grid",
+      "value": "グリッド"
+    },
+    {
+      "name": "color_picker_sliders",
+      "value": "スライダー"
+    },
+    {
+      "name": "color_picker_hue",
+      "value": "色相"
+    },
+    {
+      "name": "color_picker_saturation",
+      "value": "彩度"
+    },
+    {
+      "name": "color_picker_brightness",
+      "value": "明度"
+    },
+    {
+      "name": "color_picker_hex",
+      "value": "Hex"
+    },
+    {
+      "name": "color_picker_favorites",
+      "value": "お気に入り"
+    },
+    {
       "name": "mytags_save",
       "value": "保存"
     },
