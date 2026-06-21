@@ -124,6 +124,11 @@ Historical feedback in this section must not trigger new implementation.
 - MyTags tagset route depth is implemented pending controller acceptance: Settings opens the tagset-list
   landing page, tapping a tagset pushes a routed detail instance with `MyTagsPageParams(tagsetId)`, and
   system Back returns from detail to the tagset list instead of exiting directly to Settings.
+- MyTags editable color parsing is implemented pending controller acceptance: `d1b78d3` adds the
+  editable `colorCode` field to parsed user tags, uses the fourth preview style color like `eros_fe`
+  instead of the display border/derived color, and keeps the reusable color picker selection matched
+  when the current hex equals a saved favorite. Contracts, V1 inventory, official signed build, and
+  simulator MyTags edit-sheet smoke evidence passed. No real `setusertag` submit was clicked.
 - Gallery Grid title-bar scroll linkage is implemented pending controller acceptance: Grid no
   longer uses `contentStartOffset` / `contentEndOffset`, uses `GridLayoutOptions.irregularIndexes` for
   full-row top/bottom spacer content, and Waterfall uses `WaterFlowSections` so top/bottom reserves are
@@ -158,8 +163,9 @@ Historical feedback in this section must not trigger new implementation.
   `eros_fe`, so the uploader badge and uploader-only filter work even when the literal `Uploader Comment`
   marker is absent. Simulator evidence on `127.0.0.1:5555` showed the full comments page with UP badge,
   thumbs actions, score badges, uploader-only filtering down to one uploader row, and the vote confirm
-  dialog without submitting the destructive write. A real successful vote submit still requires explicit
-  authorization before marking accepted.
+  dialog without submitting the destructive write. This does not close the comment footer visual polish:
+  edit/reply icons, action spacing, and footer bottom height remain a separate next-lane issue. A real
+  successful vote submit still requires explicit authorization before marking accepted.
 - AllThumbnails large-gallery jump and preview-page scrolling is implemented pending controller
   acceptance. Existing evidence in `docs/plans/active/intake/gallery-list-grid.md` covers the
   1700-page public gallery `https://e-hentai.org/g/3998992/f5b5c954d2/`, Android FE ADB `su`
@@ -216,7 +222,12 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+1. Comment footer visual polish: next repair lane should keep the existing vote/uploader logic, but fix
+   the action-row presentation only. Reply should use `ellipsis_message`, own-comment edit should use
+   `square_and_pencil`, vote icons should remain native thumbs, the stale compose contract should stop
+   requiring `doc_plaintext` for reply, and the action cluster should use compact local hit sizing so the
+   footer no longer has large horizontal gaps or excessive bottom height.
+2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.

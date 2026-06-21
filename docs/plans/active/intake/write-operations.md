@@ -326,6 +326,14 @@ Handled status:
   `/api.php method=setusertag` request assembly with `apiuid`, `apikey`, `tagid`, `tagwatch`, `taghide`,
   `tagcolor`, and `tagweight`, HDS `AppModalScaffold` edit UI, native confirmation before submit, current
   tagset reload after success, shared `UserTagStore` update, and `UserTagSignal` bump for retained state.
+  Follow-up commits: `383aa06 feat(mytags): add reusable color picker` and
+  `d1b78d3 fix(mytags): use editable tag color code`. Scope: the edit/add sheet now uses a reusable
+  color picker with grid/slider/favorite-color affordances, and parsed user tags retain EH's editable
+  `colorCode` separately from the display preview border/default color. `d1b78d3` matches `eros_fe` by
+  taking the fourth preview style hex as the writable color, so a tag such as `irotenya` shows the same
+  `#FF5692` value as EH web / eros_fe instead of the prior derived color. Validation: parser contract,
+  setusertag contract, V1 inventory, official signed build, and simulator MyTags edit-sheet smoke
+  evidence passed. Remaining gap is unchanged: no real `setusertag` submit was clicked.
   FE grounding: `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_mytags_page.dart`,
   `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_usertag_page.dart`,
   `/Users/honjow/git/eros_fe/lib/pages/setting/mytags/eh_usertag_edit_dialog.dart`,
