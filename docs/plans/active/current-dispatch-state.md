@@ -132,16 +132,19 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-- Current active lane: Gallery comment vote state closure. Scope is limited to comment upvote/downvote and
-  withdraw/cancel behavior: selected up/down state must refresh immediately, tapping the already-selected
-  action must use the neutral withdraw path, and the confirmation dialog plus success/failure feedback must
-  describe the actual action. Do not mix this with comment composer layout, Reader, Grid, Waterfall, or
-  broader FE parity work. Evidence and acceptance details live in
-  `docs/plans/active/intake/gallery-detail-comments.md` under
-  "Gallery Comment Vote Must Refresh Visible Score And Icon State".
+- Next candidate lane: common favcat color resolver coverage. Home/Popular and other ordinary
+  gallery-list-producing surfaces should resolve `favTitle -> favcat` through the same shared late metadata
+  path already used by Favorites/Search so favorited gallery hearts do not fall back to the default color on
+  first login/first load. Scope this to shared resolver wiring and list card color refresh; do not mix with
+  favorite write sheets, SearchFilter, Grid/Waterfall layout, or Reader.
 
 ## Recently Closed / Pending Acceptance
 
+- Gallery comment vote state closure is implemented by `f7944f4 fix(comments): support vote cancellation`.
+  It covers upvote, downvote, withdraw upvote, and withdraw downvote: all four actions use action-specific
+  confirmation copy, optimistic row score/icon update, neutral `comment_vote=0` parsing, returned
+  score/vote application, and failure rollback. Contracts, i18n parity, V1 inventory, and official signed
+  Hvigor build passed. Status: pending real EH account acceptance on a votable comment.
 - Gallery comment reply reference display is implemented and pending real-comment acceptance: NextE now
   parses existing `@author + encoded comment id` markers into quoted-floor blocks when the referenced
   comment is present in the loaded list. Contract/build/local emulator smoke passed; final acceptance needs

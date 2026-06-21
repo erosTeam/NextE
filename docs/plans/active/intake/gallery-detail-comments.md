@@ -758,7 +758,7 @@ Type: write-action regression / UI state refresh
 
 Priority suggestion: P1
 
-Status: accepted / needs verification
+Status: implemented / pending real EH account acceptance
 
 Source:
 
@@ -768,6 +768,7 @@ Source:
   The API path may exist, but the confirmation dialog and final success/failure feedback are still wrong.
   Re-tapping the already-selected upvote/downvote should be treated as a vote-cancel/withdraw path with
   matching prompt and toast copy, not as another ordinary up/down vote.
+- Implementation: `f7944f4 fix(comments): support vote cancellation`.
 
 Research:
 
@@ -821,6 +822,19 @@ Acceptance shape:
   not from a stale copied row or a one-time snapshot.
 - Add a small contract for vote-state decision text and neutral `commentVote = 0` handling so the cancel path
   cannot regress into the old two-state prompt model.
+
+Verification:
+
+- `node scripts/test_gallery_comment_vote_contract.mjs`
+- `node scripts/test_gallery_comment_compose_contract.mjs`
+- `python3 scripts/check_i18n_duplicates.py`
+- `node scripts/test_v1_decorator_inventory_contract.mjs` -> `0 file(s)`
+- `scripts/build_hvigor_signed.sh` -> `BUILD SUCCESSFUL`
+
+Remaining acceptance:
+
+- Run one authorized real-account check on a votable comment: upvote, downvote, withdraw upvote, withdraw
+  downvote. Confirm returned score/icon state matches the visible row after each submit.
 
 ### Gallery Uploader Badge And Uploader-Only Filter Regression
 
