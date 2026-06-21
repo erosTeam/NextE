@@ -971,7 +971,7 @@ Type: P0/P1 intermittent Reader gesture bug / page-turn threshold
 
 Priority suggestion: P0/P1
 
-Status: reopened / active scheduling candidate / needs instrumented reproduction before implementation
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -1046,6 +1046,20 @@ Investigation direction:
   single handler accepted or rejected the gesture. Treat this as smoke evidence, not the main proof.
 - Do not reopen Reader chrome styling, loading progress, or double-page visual seam in this lane unless
   the trace proves they directly affect the early page commit.
+
+Handled update, 2026-06-22:
+
+- Current main no longer has the split-owner short-swipe architecture described above. Static inspection
+  and `scripts/test_reader_tapzone_contract.mjs` show horizontal page turns are owned by native
+  `Swiper.onChange`; the old transparent overlay touch fallback, custom swipe thresholds, and
+  `onReaderHorizontalSwipe` / touch-tracking path are absent.
+- Hidden Reader chrome is no longer mounted in-place as opacity-only interactive UI. The chrome is
+  conditionally mounted only when `readerContentReady() && showChrome`, while thumbnail strip hidden
+  state uses `HitTestMode.None`.
+- Zoom/pan gesture ownership remains covered by `scripts/test_reader_zoom_quality_contract.mjs`: parent
+  Swiper owns fit-state page turns and disables swipe only while the image/spread surface reports zoomed.
+- This closes the stale active scheduling candidate. Future Reader work should only reopen this with a
+  fresh reproduction that contradicts the single-owner/static hit-test proof.
 
 ### Reader Architecture Should Use Mature Pager And Spread Surface References
 
