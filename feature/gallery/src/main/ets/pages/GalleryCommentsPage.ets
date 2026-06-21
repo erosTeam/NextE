@@ -22,9 +22,26 @@ import {
   immersiveTitleBarOpts,
 } from 'shared'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 
 const COMMENT_COMPOSER_BOTTOM_RESERVE: number = 136
+const COMMENT_COMPOSER_FIELD_ID: string = 'gallery-comments-composer-field'
+const COMMENT_COMPOSER_OUTER_GAP: number = ThemeConstants.SPACE_SM
+const COMMENT_COMPOSER_INNER_GAP: number = ThemeConstants.SPACE_XS
+const COMMENT_COMPOSER_SEND_SIZE: number = 36
+const COMMENT_COMPOSER_CLOSE_ICON_SIZE: number = COMMENT_COMPOSER_SEND_SIZE - COMMENT_COMPOSER_INNER_GAP * 2
+const COMMENT_COMPOSER_RADIUS: number = COMMENT_COMPOSER_SEND_SIZE / 2 + COMMENT_COMPOSER_INNER_GAP
+const COMMENT_COMPOSER_INPUT_MAX_H: number = 148
+const COMMENT_COMPOSER_QUOTE_LINE_W: number = 4
+const COMMENT_COMPOSER_QUOTE_TEXT_BLOCK_H: number = 22 * 2 + ThemeConstants.SPACE_XS
+const COMMENT_COMPOSER_QUOTE_LINE_H: number = COMMENT_COMPOSER_QUOTE_TEXT_BLOCK_H
+const COMMENT_COMPOSER_QUOTE_TOP_LIFT: number = COMMENT_COMPOSER_INNER_GAP
+const COMMENT_COMPOSER_QUOTE_TOP_GAP: number =
+  COMMENT_COMPOSER_RADIUS - COMMENT_COMPOSER_QUOTE_LINE_W / 2 - COMMENT_COMPOSER_INNER_GAP -
+  COMMENT_COMPOSER_QUOTE_TOP_LIFT
+const COMMENT_COMPOSER_QUOTE_LEFT_GAP: number =
+  COMMENT_COMPOSER_RADIUS - COMMENT_COMPOSER_INNER_GAP - COMMENT_COMPOSER_QUOTE_LINE_W / 2
+const COMMENT_COMPOSER_CLOSE_RIGHT_GAP: number = COMMENT_COMPOSER_INNER_GAP
 
 /**
  * The separate full comments page (eros_fe galleryComment). The detail page shows a 2-comment peek
@@ -51,10 +68,31 @@ export struct GalleryCommentsPage {
   @Local commentError: string = '';
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
 
+  private requestCommentFocus(): void {
+    setTimeout(() => {
+      this.getUIContext().getFocusController().requestFocus(COMMENT_COMPOSER_FIELD_ID)
+    }, 80)
+  }
+
+  private composerBottomPadding(): number {
+    if (this.layout.keyboardHeight > 0) {
+      return COMMENT_COMPOSER_OUTER_GAP
+    }
+    return this.layout.bottomAvoidHeight + COMMENT_COMPOSER_OUTER_GAP
+  }
+
   private uploaderMemberId(): string {
     const uploader: EhGalleryComment | undefined =
       this.comments.find((c: EhGalleryComment) => c.isUploader || c.score.length === 0)
     return uploader !== undefined ? uploader.memberId : ''
+  }
+
+  aboutToAppear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
   private visibleComments(): EhGalleryComment[] {
@@ -130,6 +168,7 @@ export struct GalleryCommentsPage {
     this.commentEditId = ''
     this.commentEditOriginal = ''
     this.commentError = ''
+    this.requestCommentFocus()
   }
 
   private openReplyComment(comment: EhGalleryComment): void {
@@ -144,6 +183,7 @@ export struct GalleryCommentsPage {
     this.commentEditOriginal = ''
     this.commentText = `@${comment.author}\n${this.encodeCommentId(comment.commentId)}\n`
     this.commentError = ''
+    this.requestCommentFocus()
   }
 
   private cancelReply(): void {
@@ -458,77 +498,103 @@ export struct GalleryCommentsPage {
 
   @Builder
   CommentComposer() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      if (this.commentReplyToAuthor.length > 0) {
-        Row({ space: ThemeConstants.SPACE_SM }) {
-          Column({ space: ThemeConstants.SPACE_XS }) {
-            Text($r('app.string.comment_reply_to', this.commentReplyToAuthor))
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_emphasize'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text(this.commentReplyPreview)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor($r('sys.color.font_secondary'))
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          .layoutWeight(1)
-          SymbolGlyph($r('sys.symbol.xmark'))
-            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-            .fontColor([$r('sys.color.font_secondary')])
+    Column() {
+      Column({ space: ThemeConstants.SPACE_SM }) {
+        if (this.commentReplyToAuthor.length > 0) {
+          Row({ space: ThemeConstants.SPACE_SM }) {
+            Blank()
+              .width(COMMENT_COMPOSER_QUOTE_LINE_W)
+              .height(COMMENT_COMPOSER_QUOTE_LINE_H)
+              .backgroundColor($r('sys.color.font_emphasize'))
+              .borderRadius(COMMENT_COMPOSER_QUOTE_LINE_W / 2)
+            Column({ space: ThemeConstants.SPACE_XS }) {
+              Text($r('app.string.comment_reply_to', this.commentReplyToAuthor))
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_emphasize'))
+                .textAlign(TextAlign.Start)
+                .width('100%')
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+              Text(this.commentReplyPreview)
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_secondary'))
+                .textAlign(TextAlign.Start)
+                .width('100%')
+                .maxLines(2)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+            }
+            .alignItems(HorizontalAlign.Start)
+            .layoutWeight(1)
+            Row() {
+              SymbolGlyph($r('sys.symbol.xmark'))
+                .fontSize(COMMENT_COMPOSER_CLOSE_ICON_SIZE)
+                .fontColor([$r('sys.color.font_secondary')])
+            }
+            .width(COMMENT_COMPOSER_SEND_SIZE)
+            .height(COMMENT_COMPOSER_SEND_SIZE)
+            .justifyContent(FlexAlign.Center)
+            .alignItems(VerticalAlign.Center)
             .onClick(() => {
               this.cancelReply()
             })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+          .padding({
+            left: COMMENT_COMPOSER_QUOTE_LEFT_GAP,
+            right: COMMENT_COMPOSER_CLOSE_RIGHT_GAP,
+            top: COMMENT_COMPOSER_QUOTE_TOP_GAP,
+          })
+        }
+        Row({ space: ThemeConstants.SPACE_SM }) {
+          TextArea({
+            text: this.commentText,
+            placeholder: this.commentPlaceholder(),
+          })
+            .id(COMMENT_COMPOSER_FIELD_ID)
+            .constraintSize({ maxHeight: COMMENT_COMPOSER_INPUT_MAX_H })
+            .maxLines(8)
+            .backgroundColor(Color.Transparent)
+            .layoutWeight(1)
+            .enabled(!this.commentSubmitting && this.canOpenCommentSheet())
+            .onChange((value: string) => {
+              this.commentText = value
+            })
+          SymbolGlyph($r('sys.symbol.arrow_up_circle_fill'))
+            .fontSize(COMMENT_COMPOSER_SEND_SIZE)
+            .fontColor([this.canSubmitComment() ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary')])
+            .opacity(this.canSubmitComment() ? 1 : 0.45)
+            .onClick(() => {
+              this.submitComment()
+            })
         }
         .width('100%')
-        .alignItems(VerticalAlign.Center)
-      }
-      Row({ space: ThemeConstants.SPACE_SM }) {
-        TextArea({
-          text: this.commentText,
-          placeholder: this.commentPlaceholder(),
-        })
-          .height(56)
-          .layoutWeight(1)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .enabled(!this.commentSubmitting && this.canOpenCommentSheet())
-          .onChange((value: string) => {
-            this.commentText = value
-          })
-        SymbolGlyph($r('sys.symbol.arrow_up_circle_fill'))
-          .fontSize(34)
-          .fontColor([this.canSubmitComment() ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary')])
-          .opacity(this.canSubmitComment() ? 1 : 0.45)
-          .onClick(() => {
-            this.submitComment()
-          })
+        .alignItems(VerticalAlign.Bottom)
+        if (this.commentError.length > 0) {
+          Text(this.commentError)
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor(Color.Red)
+            .width('100%')
+        }
       }
       .width('100%')
-      .alignItems(VerticalAlign.Center)
-      if (this.commentError.length > 0) {
-        Text(this.commentError)
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(Color.Red)
-          .width('100%')
-      }
+      .padding({
+        left: COMMENT_COMPOSER_INNER_GAP,
+        right: COMMENT_COMPOSER_INNER_GAP,
+        top: COMMENT_COMPOSER_INNER_GAP,
+        bottom: COMMENT_COMPOSER_INNER_GAP,
+      })
+      .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+      .borderRadius(COMMENT_COMPOSER_RADIUS)
+      .shadow(ShadowStyle.OUTER_DEFAULT_MD)
     }
     .width('100%')
     .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: this.layout.bottomAvoidHeight + this.layout.keyboardHeight + ThemeConstants.SPACE_SM,
+      left: COMMENT_COMPOSER_OUTER_GAP,
+      right: COMMENT_COMPOSER_OUTER_GAP,
+      bottom: this.composerBottomPadding(),
     })
-    .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
-    .borderRadius({
-      topLeft: ThemeConstants.RADIUS_CARD,
-      topRight: ThemeConstants.RADIUS_CARD,
-    })
-    .shadow(ShadowStyle.OUTER_DEFAULT_MD)
   }
 
   @Builder

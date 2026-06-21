@@ -107,10 +107,24 @@ ohpm install
 规则:
 
 - 先用系统 / HDS / 已有 shared primitive 表达;不要先手搓。
+- 组件属性采用最小集。先写“能正确工作的最少属性 / 参数”,再按确切问题逐项增加。每新增一个布局、尺寸、padding、height、lineHeight、align、clip、overlay、state workaround 等属性,必须能说明它解决的具体问题;说不清就不加。
+- 不要为了“看起来更稳”预防式堆属性。平台控件、HDS 控件和 shared primitive 的默认测量 / 内边距 / 动画 / 命中区优先保留;只有设备或源码证据证明默认行为不满足需求,才做最小覆盖。
+- 修局部问题时先删掉自作的额外属性,验证平台默认是否已经正确。不要在错误属性之上继续补偿式叠加新属性。
 - `Stack` 只用于明确覆盖层,例如 badge、选中描边、loading overlay。禁止用 `Stack` 猜布局、堆假控件、或把本体 / 状态 / 交互混成一团。
 - 选中态、滑块、色块、列表行等基础控件必须先对照参考图 / 参考实现拆出层级和尺寸,不能边写边猜。
 - 没有经过截图 / 设备 / 用户确认的视觉形态,不要写 deterministic contract。contract 只锁定已经验收正确的结构,不要把猜测制度化。
 - 用户指出局部问题时,只修对应结构层;不要滑坡到整页重写、换组件体系、或撤掉已确认的基线。
+
+### 输入 / Composer 控件纪律
+
+评论框、回复框、搜索框、备注框等输入控件,默认信任平台 / HDS 的自然文本布局。不要为了“看起来居中”先手算输入高度、行高、滚动高度、placeholder 偏移或键盘偏移。
+
+- 先使用 TextInput / TextArea / HDS 输入控件自身能力和现有成熟实现,再考虑外层布局。改动前先查项目内同类可用实现,例如 Next2V / NextE 已验证输入框。
+- 禁止添加不存在或未确认的 ArkUI 属性;不确定先查 SDK / harmony-next skill / 编译,不要猜。
+- 禁止用透明背景、额外 Stack、假轨道、假 padding 遮盖错位。背景只用于设计表达,不能用来隐藏文本布局错误。
+- 单行输入应由控件自然垂直居中;多行输入应自然扩展到约定最大行数后再滚动。不要用手写 `height = lineCount * lineHeight + padding` 作为第一方案。
+- 键盘避让优先使用 ArkUI 原生机制,例如 `KeyboardAvoidMode.RESIZE` 或 sheet 原生 keyboard avoid mode。`keyboardHeight` 只能作为状态信号,不得作为内部大 padding / 大 offset。
+- 如果删掉自作的高度 / 行高 / padding 后问题消失,保持删除结果,不要再补一层“修正”逻辑。
 
 ## 破坏性写操作(EH)
 
