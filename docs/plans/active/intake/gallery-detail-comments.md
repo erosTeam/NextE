@@ -676,6 +676,58 @@ Reopened acceptance:
 - The quoted reply header's author line and excerpt line are left-aligned with each other and with the
   input content start; they must not appear centered.
 
+### Gallery Comment Reply References Need Parsed Floor Quote Display
+
+Type: comment parity gap / read presentation
+
+Priority suggestion: P2
+
+Status: accepted / needs implementation
+
+Source:
+
+- User feedback, 2026-06-22: after the bottom reply composer was repaired, verify whether replies also
+  reference the replied floor like LFE. LFE writes an `@user` prefix plus an encoded comment id so the
+  referenced floor can be located accurately.
+
+Research:
+
+- NextE currently implements the send-side marker only. `GalleryCommentsPage.encodeCommentId()` maps each
+  digit to a 4-bit dot/dash code, and `openReplyComment()` pre-fills the composer with
+  `@author\nencodedCommentId\n`.
+- NextE does not implement the read/display side yet. `GalleryCommentsCard` renders `c.contentText`
+  directly with URL data detection, so submitted comments containing `@author` plus the encoded id are not
+  parsed into a quoted floor block.
+- LFE implements both sides:
+  - `lib/pages/gallery/controller/comment_controller.dart::parserCommentRepty()` parses `@user`, optional
+    `#id#`, and the BCD-style newline code, then resolves the referenced comment by id or by nearest matching
+    author fallback.
+  - `parserAllCommentRepty()` supports multiple references in one comment.
+  - `reptyComment()` writes `@${name}\n${bcdCode.enCode(id)}\n` when composing a reply.
+  - `lib/pages/gallery/view/comment_item.dart::_CommentReply` renders the resolved referenced comments as
+    compact quote cards above the current comment body.
+
+Expected behavior:
+
+- Existing reply compose behavior should continue writing the current `@author + encoded comment id` marker.
+- When rendering full comments, parse the marker back into referenced comment metadata if the target comment
+  is present in the loaded comment list.
+- Render a compact quoted-floor block above the comment body, with referenced author and a short excerpt.
+- Support the LFE-compatible forms first: explicit `#id#` and newline BCD-style code. Author-only fallback
+  can stay conservative and should not guess across unrelated users if the current list cannot identify the
+  target safely.
+- Keep this scoped to read presentation. Do not redesign the already repaired bottom composer and do not
+  add another comment write API path.
+
+Acceptance shape:
+
+- A reply composed through NextE still starts with `@author` and the encoded target `commentId`.
+- After the comment list reloads or receives comments containing that marker, the row shows a quoted
+  reference block instead of only raw `@author` marker text.
+- If the encoded id cannot be resolved from the current comment list, fall back to plain text without
+  breaking URL detection or the rest of the comment body.
+- Add a small runnable contract for encode/decode and render-path detection using synthetic comments.
+
 ### Gallery Comment Vote Must Refresh Visible Score And Icon State
 
 Type: write-action regression / UI state refresh

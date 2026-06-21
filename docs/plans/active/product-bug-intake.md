@@ -53,7 +53,7 @@ Operating rule:
 - [Write Operations Intake](intake/write-operations.md) — 4 item(s).
 - [Favorites Intake](intake/favorites.md) — 4 item(s).
 - [Gallery List, Grid, And Thumbnails Intake](intake/gallery-list-grid.md) — 7 item(s).
-- [Gallery Detail And Comments Intake](intake/gallery-detail-comments.md) — 5 item(s).
+- [Gallery Detail And Comments Intake](intake/gallery-detail-comments.md) — 6 item(s).
 - [Search Intake](intake/search.md) — 8 item(s).
 - [Reader Intake](intake/reader.md) — 15 item(s).
 - [Downloads Intake](intake/downloads.md) — 1 item(s).
