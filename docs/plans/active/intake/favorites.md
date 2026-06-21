@@ -269,6 +269,26 @@ Still pending:
 - Controller/device acceptance should reproduce the original mismatching Search result and confirm the
   heart color updates to match Favorites after real favcat metadata is available in the same process.
 
+Follow-up, 2026-06-22:
+
+- User feedback: entering `热门` / normal Home list directly can still show every favorited gallery with
+  the default red favorite icon instead of the real favorite-folder color. This is a common metadata
+  resolution problem, not a per-page color tweak.
+- Current code inspection shows `shared/src/main/ets/utils/FavcatSlotResolver.ets` is already the shared
+  non-placeholder `favTitle -> favcat` resolver, but it is only wired through Favorites and Search.
+  `feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets` does not currently consume the resolver
+  or re-resolve visible Home/Popular rows when `favSel.favList` metadata arrives.
+- Card components still color from `gallery.favcat`; if a row only has `favTitle`, the heart falls back
+  to the generic favorite color. Fixing only one entry page will leave the same bug on another list
+  surface.
+- Next repair should route all gallery-list-producing surfaces through the same resolver path: Home,
+  Popular, Watched/retained Home sub-tabs, Toplist if it carries favorite state, Search, Favorites, and
+  their List/Simple/Grid/Waterfall card presentations. Prefer wiring the existing shared resolver into
+  fetch/refresh/loadMore and late account-metadata-change paths rather than copying page-local fixes.
+- Acceptance should include a favorited gallery visible from `热门` whose `favTitle` is known but whose
+  `favcat` slot is initially empty; once real favcat metadata exists in-process, the Home/Popular heart
+  color must match Favorites without restart.
+
 Source:
 
 - User feedback, 2026-06-20: in some list results obtained through Search, the favorite heart icon color

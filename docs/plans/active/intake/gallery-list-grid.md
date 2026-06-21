@@ -846,6 +846,20 @@ Remaining acceptance:
   The code path for extreme source ratios is covered by the deterministic contract; the current public
   Home viewport did not include an obvious extreme-strip sample.
 
+Follow-up, 2026-06-22:
+
+- User feedback: Waterfall tag chips do not carry tag colors.
+- Current code evidence: `shared/src/main/ets/components/GalleryCard.ets` uses `UserTagStore`,
+  `connectUserTagSignal`, and parsed tag inline colors to derive chip background/text color, but
+  `shared/src/main/ets/components/GalleryWaterfallCard.ets` renders `Tags()` with fixed
+  `font_secondary` text and `ohos_id_color_button_normal` background.
+- Expected behavior: Waterfall's visible tag chips should follow the same color priority as list chips:
+  user-tag fill/text from `UserTagStore`, then parsed `SimpleTag.backgroundColor` / `color`, then the
+  neutral fallback. The chips should also refresh when user-tag metadata loads, matching the ordinary
+  list card behavior.
+- Keep Grid unchanged unless a separate product decision adds tags to compact Grid; this follow-up is
+  only about Waterfall, which already displays tags.
+
 Current feedback:
 
 - User feedback, 2026-06-20: the current Waterfall mode is "completely unusable"; widths are wrong.

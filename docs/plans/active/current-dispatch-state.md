@@ -241,6 +241,18 @@ a bounded validation path.
    page image presentation state so an already-resolved next page is not forced through
    `imageLoaded = false` / `opacity(0)` until `Image.onComplete` fires. The first forward transition to a
    cached page should look like the later back-then-forward transition: no visible black/loading jump.
+2. Common favcat color resolution across Home/Popular/list surfaces: the shared
+   `FavcatSlotResolver` exists, but Home/Popular gallery rows can still render the default red heart when
+   they carry `favTitle` without a resolved `favcat`. Treat this as one shared account-metadata pipeline
+   problem, not one page at a time; wire all gallery-list-producing surfaces to the resolver and late
+   favcat-metadata updates.
+3. Waterfall tag color parity: Waterfall cards already show tags, but their chips currently use fixed
+   neutral colors instead of the ordinary list card's user-tag / parsed inline color priority. Reuse the
+   existing tag-color lookup behavior for Waterfall only; do not turn this into a Grid redesign.
+4. Settings placement cleanup for Home bottom-tab auto-hide: the setting is currently exposed on the
+   Settings root and the deterministic contract locks that placement. Move the visible switch to the
+   appropriate Layout/display browsing settings surface while preserving `HomeTabSettings` persistence and
+   update the contract so root placement is no longer the target.
 
 ## Pending Explicit Authorization
 

@@ -345,6 +345,22 @@ Handled update, 2026-06-21:
   - Optional restart/toggle acceptance for the Settings switch.
   - Smart-grip-aware read/resume action alignment is not implemented in this update.
 
+Follow-up, 2026-06-22:
+
+- User feedback rejects placing the scroll/home-tab auto-hide switch directly on the Settings root. The
+  behavior can remain, but the setting should live under an appropriate child settings surface such as
+  Layout / browsing display settings, using existing Settings primitives.
+- Current code evidence: `feature/settings/src/main/ets/pages/SettingsPage.ets` renders
+  `settings_home_tab_auto_hide` in `MainSection()` and wires it directly to `HomeTabSettings`.
+  `scripts/test_home_tab_auto_hide_contract.mjs` also currently locks the root-page placement by
+  requiring `SettingsPage` to contain `connectHomeTabAutoHide`, `settings_home_tab_auto_hide`, and
+  `HomeTabSettings.save(ctx, enabled)`.
+- Next repair should move the visible row out of Settings root and update the contract to assert the new
+  placement while keeping the same persisted `HomeTabSettings` behavior. Keep this separate from the
+  parked smart-grip/action-alignment lane.
+- Naming note: the current implementation/string refers to Home bottom-tab auto-hide. If a later lane
+  separately introduces title-bar auto-hide configuration, do not conflate the two settings.
+
 ### Settings Shell Audit: Visible Rows Must Be Real Or Honest
 
 Type: feature gap / settings trustworthiness
