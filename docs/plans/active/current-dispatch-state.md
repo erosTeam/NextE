@@ -156,6 +156,20 @@ a bounded validation path.
    translation lane unless the user explicitly redirects. Reuse the Next2V motion-hand/alignment model with
    fixed-left/fixed-right/follow-operation fallback, and do not reopen Home bottom-tab auto-hide.
 
+When the two items above are implemented or explicitly paused, refill Active Queue from the FE parity pool
+in this order, one bounded slice at a time:
+
+1. QuickSearch saved-query workflow.
+2. Favorites workspace depth: favcat tabs/counts/local slot/search/jump behavior.
+3. Download/archive/offline Reader path.
+4. MyTags/user-tag wiring into list/detail/search behavior.
+5. Auth/WebView/uconfig depth that blocks FE parity.
+6. Comment/rating/favorite/tag write-operation acceptance and missing display details.
+7. Sync/security/blocking/long-tail FE features.
+
+Do not let the queue become empty while these gaps remain. If the current top item looks too large, split its
+first user-visible slice; do not replace it with pending-acceptance rechecks.
+
 ## Recently Closed / Pending Acceptance
 
 - Gallery comment vote state closure is implemented by `f7944f4 fix(comments): support vote cancellation`.
