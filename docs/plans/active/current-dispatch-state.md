@@ -253,6 +253,9 @@ a bounded validation path.
    Settings root and the deterministic contract locks that placement. Move the visible switch to the
    appropriate Layout/display browsing settings surface while preserving `HomeTabSettings` persistence and
    update the contract so root placement is no longer the target.
+5. Settings/user-visible terminology cleanup: do not use slang labels such as `表站` / `里站` in Settings
+   or zh_CN UI copy. Use official service names (`E-Hentai`, `ExHentai`) and update contracts that
+   currently require the slang site labels.
 
 ## Pending Explicit Authorization
 

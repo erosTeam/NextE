@@ -859,6 +859,20 @@ Remaining acceptance:
 - Needs controller/user acceptance of the Settings root placement and minimal EH settings scope. No
   further device validation is required unless Settings root or EH settings routing changes again.
 
+Follow-up, 2026-06-22:
+
+- User feedback: settings and user-visible translation strings should not use slang labels such as
+  `表站` / `里站`. Those are community nicknames, not product terminology.
+- Current code evidence: `feature/settings/src/main/ets/pages/EhSettingsPage.ets` returns those labels
+  in `siteLabel()`, and `entry/src/main/resources/zh_CN/element/string.json` currently uses the same
+  slang in search hint, ExHentai access-denied text, EH settings site hint, and ExHentai lock text.
+- Expected wording: use official names in UI copy, for example `E-Hentai` and `ExHentai`, with concise
+  Chinese descriptions only where needed. Settings rows should show the official service name directly
+  instead of slang plus parenthetical explanation.
+- Next repair should update resource strings and the EH settings site label, and adjust any contract
+  that currently requires compact `表站` / `里站` labels. Historical docs and internal comments can be
+  cleaned opportunistically, but the acceptance gate should focus on user-visible strings first.
+
 ### Security Settings Exposure Without Enforcement
 
 Type: settings trustworthiness / partial feature exposure
