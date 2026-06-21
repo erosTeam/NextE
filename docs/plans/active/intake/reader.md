@@ -190,6 +190,10 @@ Source:
 - User feedback, 2026-06-22: the issue still occurs. The user again observed "正在解析图片" over the current
   displayed image, and cached/pre-resolved forward page turns can still black-flash before the image appears.
   This is not acceptable in any loading scenario.
+- User feedback, 2026-06-22 follow-up: normal swipe navigation can stop at EH preview-page boundaries such
+  as page 40 or 80. The user cannot swipe to the next page, but tapping the right-side page-turn area triggers
+  a resolving/loading state and then enters the next page. This means swipe and tap navigation are using
+  different data-loading paths.
 
 Research:
 
@@ -208,6 +212,11 @@ Research:
   surfaces still use `Stack { Image(...).opacity(this.imageLoaded ? 1 : 0); ReaderLoadingStage(...) }` or a
   resolving branch in the same visual surface. Gating the image with opacity is not the same as separating
   the states; it can hide a valid image and create the black-flash transition.
+- The preview-page boundary report points to the deeper model issue: the pager's reachable item set has been
+  coupled to the currently loaded preview/image array. Swipe navigation can only move across items already
+  present in the `Swiper` data source, while tap navigation can route through `jumpToPage()` and load the
+  next preview page. Total gallery page count, preview metadata availability, resolved image URL, and bitmap
+  presentation state must be separate concepts.
 
 Expected behavior:
 
@@ -219,6 +228,9 @@ Expected behavior:
   instead of placing `ReaderLoadingStage` as a sibling overlay above `Image` in a `Stack`.
 - A cached or pre-resolved next page must not be forced through a black/invisible image phase solely while
   waiting for that component instance's `Image.onComplete`.
+- Swiping forward at preview-page boundaries such as 40 -> 41 or 80 -> 81 must work the same as tap
+  navigation. The pager must have a stable placeholder/reachable item for known total pages even before that
+  page's preview metadata or image URL has been loaded.
 - Failure/retry UI may replace the image, but loading must not sit on top of readable content.
 - Keep the fix narrow: do not reintroduce streamed byte progress, cache-file loading, double-page redesign, or
   broad gesture rewrites for this bug.
@@ -234,6 +246,9 @@ Acceptance shape:
   only proves `LoadingProgress` exists is insufficient.
 - Contract must also fail if a resolved/cached URL path sets the visible image surface back to an invisible
   or black/loading presentation before page turn paint.
+- Add or tighten a contract for preview-page boundaries: known `fileCount`/`perPage` must allow the pager to
+  expose the next page past loaded preview chunks, and loading placeholders must not make `images.length`
+  falsely mean "all previews are loaded".
 
 Implementation:
 
@@ -287,6 +302,9 @@ Status, 2026-06-22: reopened after failed controller/user runtime acceptance.
   reports loader-over-image and cached forward black-flash. Static contracts that accept opacity-hidden
   images or `ReaderLoadingStage` siblings in normal image surfaces are insufficient and must be replaced with
   a state isolation contract.
+- Additional reopen reason: the 40/80 boundary failure shows Reader still treats loaded preview/image array
+  length as the pager's reachability model. That is structurally wrong; the user-visible pager range must be
+  driven by total page count, with preview metadata/image URL/bitmap display resolved lazily per page.
 
 ### Reader Auto-Read Page Turn Is Missing
 

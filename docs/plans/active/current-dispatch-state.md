@@ -150,8 +150,11 @@ a bounded validation path.
    indicator may be stacked over a currently visible image, including HTML/image resolving, jumping, cached
    forward turns, horizontal, vertical, or double-page modes. Fix the state model so loading is mutually
    exclusive with readable image presentation, and so a cached/pre-resolved next page does not flash black
-   before painting. Do not bundle Reader gesture redesign, double-page architecture, thumbnail strip,
-   auto-read, or offline download work into this lane.
+   before painting. The same lane must also fix preview-page boundary swiping: the user must be able to swipe
+   past EH preview-page boundaries such as page 40/80 without using tap navigation as a fallback. Pager
+   reachability must come from total page count, not only from the currently loaded preview/image array.
+   Do not bundle Reader gesture redesign, double-page architecture, thumbnail strip, auto-read, or offline
+   download work into this lane.
 2. Tag translation database and localized search candidates. User-visible
    benefit: Chinese/localized tag understanding and search candidate quality, instead of the current tiny
    hardcoded `TagTranslationService` stub. Scope this first lane to the smallest real FE-parity slice:
