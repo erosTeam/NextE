@@ -140,7 +140,7 @@ a bounded validation path.
 ## eros_fe Feature Parity Gap Pool
 
 The short Active Queue is only the next stabilization lane. It is not the full product backlog. NextE still
-has broad feature-depth gaps against `../eros_fe`; see
+has broad feature-depth gaps against `../eros_fe`; see `docs/plans/active/eros-fe-parity-gap-audit.md` and
 `docs/plans/active/project-current-state-and-next-plan.md` "Post-stabilization eros_fe feature lanes" before
 claiming parity or selecting a new major feature lane.
 
