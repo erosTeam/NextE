@@ -238,6 +238,10 @@ Historical feedback in this section must not trigger new implementation.
   `.hvigor/outputs/reader-cached-forward-presented-url/`: page 3 was reached after a forward swipe,
   layout after the turn contained no loading/resolving text, and hilog showed page 3/4 were warmed
   before the turn while page 5 warmed afterward.
+- Reader/detail/comment verification should start from a fixed gallery deep link unless the lane is
+  specifically testing entry navigation. Use `scripts/launch_gallery_deeplink.sh <target> <url>` to
+  force-stop and open the same gallery before entering the target surface; do not spend repeated QA cycles
+  manually replaying Home -> list -> detail setup when that path is not under test.
 
 ## Parked / Guidance Only
 
@@ -278,10 +282,9 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-- Reader cached forward page flash. A forward page with pre-resolved image URL can still render one black/
-  loading frame because presentation state is reset before the image component completes. Fix only this
-  presentation-state boundary; do not reopen Reader chrome, gestures, spread architecture, or cache-file
-  redesign in the same lane.
+- No promoted implementation lane is currently selected. Before product-code edits, promote exactly one
+  item from the domain intake files into this Active Queue with current evidence and a bounded verification
+  path.
 
 ## Pending Explicit Authorization
 
