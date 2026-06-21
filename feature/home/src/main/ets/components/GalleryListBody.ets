@@ -22,6 +22,8 @@ import {
   connectGalleryFavoriteMutation,
   GalleryRatingMutationState,
   connectGalleryRatingMutation,
+  FavSelectionState,
+  connectFavSelection,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
@@ -43,6 +45,7 @@ export struct GalleryListBody {
   @Local listMode: ListModeState = connectListMode();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
+  @Local favSel: FavSelectionState = connectFavSelection();
   @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -54,6 +57,11 @@ export struct GalleryListBody {
       this.favoriteMutation.favcat,
       this.favoriteMutation.favTitle,
     )
+  }
+
+  @Monitor('favSel.favList')
+  onFavListChange(): void {
+    this.vm.resolveVisibleFavoriteSlotsFrom(this.favSel.favList)
   }
 
   @Monitor('ratingMutation.version')

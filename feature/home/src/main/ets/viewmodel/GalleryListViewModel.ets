@@ -3,7 +3,11 @@ import {
   EhGallery,
   GalleryList,
   GalleryListQuery,
+  Favcat,
+  FavcatSlotResolver,
+  FavcatSlotResolveResult,
   BasicDataSource,
+  connectFavSelection,
   connectSiteMode,
   DiagnosticLogger,
   EhErrorText,
@@ -91,6 +95,24 @@ export class GalleryListViewModel {
     }
   }
 
+  private resolveFavoriteSlots(gallerys: EhGallery[]): void {
+    FavcatSlotResolver.applyInPlace(gallerys, connectFavSelection().favList)
+  }
+
+  resolveVisibleFavoriteSlotsFrom(favcats: Favcat[]): boolean {
+    if (this.itemCount === 0 || favcats.length === 0) {
+      return false
+    }
+    const result: FavcatSlotResolveResult =
+      FavcatSlotResolver.resolvedCopies(this.dataSource.getAll(), favcats)
+    if (!result.changed) {
+      return false
+    }
+    this.dataSource.setData(result.rows)
+    this.itemCount = this.dataSource.totalCount()
+    return true
+  }
+
   /**
    * Seed source/period from the shared HomeSourceState holder on (re)mount, WITHOUT reloading —
    * loadData() runs right after. The pinned source bar is the single source of truth; this keeps a
@@ -129,6 +151,7 @@ export class GalleryListViewModel {
     this.errorMessage = ''
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
+      this.resolveFavoriteSlots(list.gallerys)
       this.dataSource.setData(list.gallerys)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
@@ -175,6 +198,7 @@ export class GalleryListViewModel {
     this.hasMore = false
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
+      this.resolveFavoriteSlots(list.gallerys)
       this.dataSource.setData(list.gallerys)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
@@ -203,6 +227,7 @@ export class GalleryListViewModel {
     this.epoch = this.epoch + 1
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
+      this.resolveFavoriteSlots(list.gallerys)
       this.dataSource.setData(list.gallerys)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
@@ -243,6 +268,7 @@ export class GalleryListViewModel {
       // the OLD source/host. Drop them (the new list already replaced everything); only clear the
       // in-flight flag below.
       if (this.epoch === myEpoch) {
+        this.resolveFavoriteSlots(list.gallerys)
         const fresh: EhGallery[] = this.dedupeNew(list.gallerys)
         if (fresh.length > 0) {
           this.dataSource.appendData(fresh)
@@ -277,6 +303,7 @@ export class GalleryListViewModel {
         this.buildQuery('', nextPage),
       )
       if (this.epoch === myEpoch) {
+        this.resolveFavoriteSlots(list.gallerys)
         const fresh: EhGallery[] = this.dedupeNew(list.gallerys)
         if (fresh.length > 0) {
           this.dataSource.appendData(fresh)

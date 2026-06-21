@@ -27,7 +27,10 @@ const settings = read('shared/src/main/ets/settings/FavcatListSettings.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const sharedIndex = read('shared/src/main/ets/Index.ets')
 const favState = read('shared/src/main/ets/state/FavSelectionState.ets')
+const favResolver = read('shared/src/main/ets/utils/FavcatSlotResolver.ets')
 const favVm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
+const homeVm = read('feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets')
+const homeBody = read('feature/home/src/main/ets/components/GalleryListBody.ets')
 const favcatPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
 const favcatBar = read('entry/src/main/ets/components/FavcatBar.ets')
 const favSelector = read('feature/user/src/main/ets/pages/FavoriteSelectorPage.ets')
@@ -84,14 +87,21 @@ ok('FavoritesViewModel merge is real-metadata first; placeholders cannot overwri
     /incoming\.totNum === 0 && current\.totNum > 0 && incoming\.favTitle === current\.favTitle/.test(favVm))
 ok('FavoritesViewModel can re-resolve already rendered favorite rows after real favcat metadata arrives',
   /resolveVisibleFavoriteSlotsFrom\(favcats: Favcat\[\]\): boolean/.test(favVm) &&
-    /realFavcatTitleMap\(favcats\)/.test(favVm) &&
-    /g\.favcat\.length === 0 && g\.favTitle\.length > 0/.test(favVm) &&
-    /next\.favcat = hit/.test(favVm) &&
-    /this\.dataSource\.setData\(nextRows\)/.test(favVm))
-ok('FavoritesViewModel late resolver ignores placeholder favcats',
-  /private realFavcatTitleMap\(favcats: Favcat\[\]\): Map<string, string>/.test(favVm) &&
-    /!FavSelectionState\.isPlaceholderFavcat\(f\)/.test(favVm) &&
-    /byTitle\.set\(f\.favTitle, f\.favId\)/.test(favVm))
+    /FavcatSlotResolver\.resolvedCopies\(this\.dataSource\.getAll\(\), favcats\)/.test(favVm) &&
+    /this\.dataSource\.setData\(result\.rows\)/.test(favVm))
+ok('shared favcat resolver ignores placeholder favcats',
+  /static realTitleMap\(favcats: Favcat\[\]\): Map<string, string>/.test(favResolver) &&
+    /!FavSelectionState\.isPlaceholderFavcat\(f\)/.test(favResolver) &&
+    /byTitle\.set\(f\.favTitle, f\.favId\)/.test(favResolver))
+ok('Home/gallery list VM resolves favTitle-only rows with the same shared resolver',
+  /FavcatSlotResolver/.test(homeVm) &&
+    /private resolveFavoriteSlots\(gallerys: EhGallery\[\]\): void \{[\s\S]*FavcatSlotResolver\.applyInPlace\(gallerys, connectFavSelection\(\)\.favList\)/.test(homeVm) &&
+    /resolveVisibleFavoriteSlotsFrom\(favcats: Favcat\[\]\): boolean/.test(homeVm) &&
+    /FavcatSlotResolver\.resolvedCopies\(this\.dataSource\.getAll\(\), favcats\)/.test(homeVm))
+ok('Home/gallery list body re-resolves rendered rows when account favcat metadata arrives late',
+  /@Local favSel: FavSelectionState = connectFavSelection\(\)/.test(homeBody) &&
+    /@Monitor\('favSel\.favList'\)[\s\S]*onFavListChange\(\): void/.test(homeBody) &&
+    /this\.vm\.resolveVisibleFavoriteSlotsFrom\(this\.favSel\.favList\)/.test(homeBody))
 ok('FavcatPage seeds each retained VM from the restored shared favList',
   /this\.vm\.seedFavList\(this\.favSel\.favList\)/.test(favcatPage))
 ok('FavcatPage persists merged parsed favcats back to preferences',

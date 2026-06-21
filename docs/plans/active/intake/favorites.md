@@ -289,6 +289,21 @@ Follow-up, 2026-06-22:
   `favcat` slot is initially empty; once real favcat metadata exists in-process, the Home/Popular heart
   color must match Favorites without restart.
 
+Status, 2026-06-22: implemented / pending controller acceptance.
+
+- Scope: `GalleryListViewModel` now applies the shared non-placeholder `FavcatSlotResolver` to Home
+  gallery-list fetch, refresh, load-more, and toplist load-more results, and exposes a late
+  `resolveVisibleFavoriteSlotsFrom(...)` path for already-rendered rows.
+- `GalleryListBody` monitors shared account favcat metadata and asks the VM to re-resolve visible rows
+  when real favcat names/slots arrive after the list has rendered.
+- Verified: `node scripts/test_favcat_snapshot_contract.mjs`,
+  `node scripts/test_gallery_remote_favorite_sheet_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`, `git diff --check`, official signed build,
+  and local emulator Home render smoke at `.hvigor/outputs/common-favcat-color/`.
+- Still pending: controller/device acceptance with a real Home/Popular row that initially has
+  `favTitle` but empty `favcat`, proving the heart color updates in-process after real favcat metadata
+  arrives.
+
 Source:
 
 - User feedback, 2026-06-20: in some list results obtained through Search, the favorite heart icon color

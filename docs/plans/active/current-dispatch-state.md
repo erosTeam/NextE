@@ -112,6 +112,11 @@ Historical feedback in this section must not trigger new implementation.
   Search and Favorites now share one non-placeholder favcat slot resolver, and visible Search rows
   re-resolve when account favcat metadata arrives. Reopen only if a current Search result still shows a
   stale/default heart color after real favcat metadata has loaded.
+- Common Home/Popular favTitle-to-favcat color consistency is implemented pending controller acceptance:
+  ordinary Home gallery-list surfaces now use the same non-placeholder `FavcatSlotResolver` during
+  fetch/refresh/load-more and re-resolve already-rendered rows when account favcat metadata arrives
+  late. Reopen only if a current Home/Popular row with real favcat metadata still keeps the default
+  heart color without restart.
 - Reader Settings row separators and subtitle readability are implemented pending controller acceptance:
   Reader Settings now has visible row dividers, and `ConciseListRow` supports opt-in multiline subtitles
   for the volume-key hint while keeping the default row behavior stable. Reopen only with a fresh Reader
@@ -247,15 +252,10 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Common favcat color resolution across Home/Popular/list surfaces: the shared
-   `FavcatSlotResolver` exists, but Home/Popular gallery rows can still render the default red heart when
-   they carry `favTitle` without a resolved `favcat`. Treat this as one shared account-metadata pipeline
-   problem, not one page at a time; wire all gallery-list-producing surfaces to the resolver and late
-   favcat-metadata updates.
-2. Waterfall tag color parity: Waterfall cards already show tags, but their chips currently use fixed
+1. Waterfall tag color parity: Waterfall cards already show tags, but their chips currently use fixed
    neutral colors instead of the ordinary list card's user-tag / parsed inline color priority. Reuse the
    existing tag-color lookup behavior for Waterfall only; do not turn this into a Grid redesign.
-3. Settings/user-visible terminology cleanup: do not use slang labels such as `表站` / `里站` in Settings
+2. Settings/user-visible terminology cleanup: do not use slang labels such as `表站` / `里站` in Settings
    or zh_CN UI copy. Use official service names (`E-Hentai`, `ExHentai`) and update contracts that
    currently require the slang site labels.
 
