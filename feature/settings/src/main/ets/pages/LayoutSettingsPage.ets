@@ -12,7 +12,10 @@ import {
   ThemeConstants,
   GalleryTitleSettings,
   GalleryTitleState,
+  HomeTabSettings,
+  HomeTabAutoHideState,
   connectGalleryTitle,
+  connectHomeTabAutoHide,
   ThumbnailModeSettings,
   ThumbnailModeState,
   connectListMode,
@@ -30,6 +33,7 @@ export struct LayoutSettingsPage {
   @Local listMode: ListModeState = connectListMode();
   @Local galleryTitle: GalleryTitleState = connectGalleryTitle();
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
+  @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local viewMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
 
@@ -64,6 +68,10 @@ export struct LayoutSettingsPage {
 
   private setHideGalleryThumbnails(value: boolean): void {
     ThumbnailModeSettings.setHideGalleryThumbnails(this.ctx(), value)
+  }
+
+  private setHomeTabAutoHide(value: boolean): void {
+    HomeTabSettings.save(this.ctx(), value)
   }
 
   private setHorizontalThumbnails(value: boolean): void {
@@ -165,6 +173,17 @@ export struct LayoutSettingsPage {
                 checked: this.galleryTitle.japaneseTitleInGalleryPage,
                 switchAction: (value: boolean) => {
                   this.setJapaneseTitleInGalleryPage(value)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.settings_home_tab_auto_hide'),
+                subtitle: $r('app.string.settings_home_tab_auto_hide_hint'),
+                leadingIcon: $r('sys.symbol.rectangle_grid_1x2'),
+                hasSwitch: true,
+                checked: this.homeTab.autoHide,
+                switchAction: (value: boolean) => {
+                  this.setHomeTabAutoHide(value)
                 },
               })
             }

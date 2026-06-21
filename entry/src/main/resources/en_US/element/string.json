@@ -298,7 +298,11 @@
     },
     {
       "name": "settings_home_tab_auto_hide",
-      "value": "Hide bottom tabs on scroll"
+      "value": "Auto-hide bottom tabs"
+    },
+    {
+      "name": "settings_home_tab_auto_hide_hint",
+      "value": "Hide the bottom navigation when scrolling up"
     },
     {
       "name": "settings_list_fixed_height",

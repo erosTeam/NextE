@@ -63,10 +63,17 @@ const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok(/HomeTabSettings\.restore\(context\)/.test(bootstrap), 'SettingsBootstrap restores home tab setting')
 
 const settingsPage = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
-ok(/connectHomeTabAutoHide\(\)/.test(settingsPage) &&
-  /settings_home_tab_auto_hide/.test(settingsPage) &&
-  /HomeTabSettings\.save\(ctx, enabled\)/.test(settingsPage),
-  'SettingsPage exposes a persisted switch for home tab auto-hide')
+ok(!/settings_home_tab_auto_hide/.test(settingsPage) &&
+  /settings_layout/.test(settingsPage) &&
+  /pushPathByName\('LayoutSettings'/.test(settingsPage),
+  'Settings root keeps home tab auto-hide under Layout settings, not as a root switch')
+
+const layoutSettingsPage = read('feature/settings/src/main/ets/pages/LayoutSettingsPage.ets')
+ok(/connectHomeTabAutoHide\(\)/.test(layoutSettingsPage) &&
+  /settings_home_tab_auto_hide/.test(layoutSettingsPage) &&
+  /settings_home_tab_auto_hide_hint/.test(layoutSettingsPage) &&
+  /HomeTabSettings\.save\(this\.ctx\(\), value\)/.test(layoutSettingsPage),
+  'LayoutSettingsPage exposes the persisted switch for home tab auto-hide')
 
 const retained = read('shared/src/main/ets/components/RetainedSubtabHost.ets')
 ok(/@Event onDidScroll/.test(retained) &&

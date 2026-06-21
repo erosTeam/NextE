@@ -298,7 +298,11 @@
     },
     {
       "name": "settings_home_tab_auto_hide",
-      "value": "滚动时隐藏底部栏"
+      "value": "自动隐藏底部栏"
+    },
+    {
+      "name": "settings_home_tab_auto_hide_hint",
+      "value": "向上滚动时收起底部导航"
     },
     {
       "name": "settings_list_fixed_height",

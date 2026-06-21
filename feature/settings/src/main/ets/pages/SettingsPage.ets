@@ -8,9 +8,6 @@ import {
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
-  HomeTabSettings,
-  HomeTabAutoHideState,
-  connectHomeTabAutoHide,
 } from 'shared'
 
 /**
@@ -22,7 +19,6 @@ import {
 @ComponentV2
 export struct SettingsPage {
   @Local auth: AuthState = connectAuth();
-  @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   private stack: NavPathStack = connectNavStack().stack;
   // Index-owned scroller for this tab (title-bar scroll-up auto-hide via bindToScrollable).
   @Param scroller: Scroller = new Scroller();
@@ -121,17 +117,6 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
-        title: $r('app.string.settings_home_tab_auto_hide'),
-        leadingIcon: $r('sys.symbol.rectangle_grid_1x2'),
-        hasSwitch: true,
-        checked: this.homeTab.autoHide,
-        showChevron: false,
-        switchAction: (value: boolean) => {
-          this.updateHomeTabAutoHide(value)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
         title: $r('app.string.settings_reader'),
         leadingIcon: $r('sys.symbol.doc_plaintext'),
         action: () => {
@@ -204,9 +189,4 @@ export struct SettingsPage {
     CookieJarSettings.clear(ctx)
   }
 
-  private updateHomeTabAutoHide(enabled: boolean): void {
-    const ctx: common.UIAbilityContext =
-      this.getUIContext().getHostContext() as common.UIAbilityContext
-    HomeTabSettings.save(ctx, enabled)
-  }
 }
