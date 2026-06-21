@@ -231,10 +231,15 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
-   deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
-   controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
-   MyTags edit/delete/add, or tagset-management regression.
+No non-destructive active implementation lane is currently promoted.
+
+## Pending Explicit Authorization
+
+- Tag/MyTags write actions are implemented pending controller acceptance / authorized real-submit
+  verification. This includes taggallery vote, existing MyTags/setusertag editing, existing MyTags
+  deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete. Because these are real
+  EH account writes, do not execute final submit by default. Reopen implementation only for a fresh
+  tag-vote, MyTags edit/delete/add, or tagset-management regression.
 
 ## Lane Selection Rule
 

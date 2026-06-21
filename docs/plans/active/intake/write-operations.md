@@ -208,13 +208,12 @@ Type: feature gap / core product completeness
 
 Priority suggestion: P0/P1
 
-Status: active intake / remote favorite write path implemented pending acceptance / gallery rating write
-implemented pending authorized real-submit acceptance / comment vote implemented pending authorized
-real-submit acceptance / comment compose-reply implemented pending authorized real-submit acceptance /
-own-comment edit implemented pending authorized real-submit acceptance / taggallery vote implemented pending
-authorized real-submit acceptance / MyTags existing usertag edit implemented pending authorized real-submit
-acceptance / MyTags existing usertag delete implemented pending authorized real-submit acceptance /
-MyTags tagset create-rename-delete implemented pending authorized real-submit acceptance
+Status: implemented / pending controller acceptance and explicit authorized real-submit verification
+
+Handled scope: remote favorite write path, gallery rating write, comment vote, comment compose/reply,
+own-comment edit, taggallery vote, MyTags existing usertag edit/delete, MyTags new-user-tag add, and
+MyTags tagset create/rename/delete are implemented. Remaining acceptance is destructive or account-writing
+final submit only and must not be run without explicit authorization.
 
 Source:
 
