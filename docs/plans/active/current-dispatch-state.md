@@ -145,18 +145,25 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Tag translation database and localized search candidates. This is the next code lane. User-visible
+1. Reader loading-state isolation and cached page-turn presentation. This is a fresh P1 regression from
+   user runtime feedback and temporarily preempts FE parity work. No normal Reader loading/resolving
+   indicator may be stacked over a currently visible image, including HTML/image resolving, jumping, cached
+   forward turns, horizontal, vertical, or double-page modes. Fix the state model so loading is mutually
+   exclusive with readable image presentation, and so a cached/pre-resolved next page does not flash black
+   before painting. Do not bundle Reader gesture redesign, double-page architecture, thumbnail strip,
+   auto-read, or offline download work into this lane.
+2. Tag translation database and localized search candidates. User-visible
    benefit: Chinese/localized tag understanding and search candidate quality, instead of the current tiny
    hardcoded `TagTranslationService` stub. Scope this first lane to the smallest real FE-parity slice:
    replace/extend the stub with the real tag-translation data source or import path, support raw tag ->
    localized display lookup, and feed localized matches into the existing search candidate area with raw
    exact tag insertion. Do not bundle QuickSearch, image search, saved-query management, MyTags write flows,
    or a redesigned SearchFilter into this lane.
-2. Smart-grip / action-alignment support for the gallery detail read/resume action. Run this after the tag
+3. Smart-grip / action-alignment support for the gallery detail read/resume action. Run this after the tag
    translation lane unless the user explicitly redirects. Reuse the Next2V motion-hand/alignment model with
    fixed-left/fixed-right/follow-operation fallback, and do not reopen Home bottom-tab auto-hide.
 
-When the two items above are implemented or explicitly paused, refill Active Queue from the FE parity pool
+When the items above are implemented or explicitly paused, refill Active Queue from the FE parity pool
 in this order, one bounded slice at a time:
 
 1. QuickSearch saved-query workflow.

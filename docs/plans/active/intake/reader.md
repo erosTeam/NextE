@@ -182,11 +182,14 @@ Type: visual state regression / reading core polish
 
 Priority suggestion: P1
 
-Status: implemented / pending controller acceptance
+Status: reopened / needs state-model correction
 
 Source:
 
 - User feedback, 2026-06-21: Reader can show a loading indicator stacked on top of an already visible image.
+- User feedback, 2026-06-22: the issue still occurs. The user again observed "正在解析图片" over the current
+  displayed image, and cached/pre-resolved forward page turns can still black-flash before the image appears.
+  This is not acceptable in any loading scenario.
 
 Research:
 
@@ -200,13 +203,22 @@ Research:
   exclusive placeholder/replacement before the image branch becomes visible.
 - Existing Reader recovery evidence claimed "no loading/progress residue after ready", but this user repro
   shows the state model still needs a direct no-overlay contract.
+- Current source still has the problematic shape. The root `ReaderPage` uses a bottom-aligned `Stack` and
+  can mount `ReaderLoadingStage(reader_loading_resolving)` above ready content for `vm.jumping`; image
+  surfaces still use `Stack { Image(...).opacity(this.imageLoaded ? 1 : 0); ReaderLoadingStage(...) }` or a
+  resolving branch in the same visual surface. Gating the image with opacity is not the same as separating
+  the states; it can hide a valid image and create the black-flash transition.
 
 Expected behavior:
 
 - Resolving/loading states may occupy the page before the image is visible.
-- Once a page image is visibly painted, the loading indicator for that same page must be gone.
+- Once a page image is visibly painted, no normal loading/resolving indicator may appear on top of it.
+  This applies to HTML parsing, image source resolving, image bitmap loading, far jump resolving, cached
+  forward turns, horizontal mode, vertical mode, and double-page/spread mode.
 - Prefer a branch structure where loading/resolving content replaces the image until the page is ready,
   instead of placing `ReaderLoadingStage` as a sibling overlay above `Image` in a `Stack`.
+- A cached or pre-resolved next page must not be forced through a black/invisible image phase solely while
+  waiting for that component instance's `Image.onComplete`.
 - Failure/retry UI may replace the image, but loading must not sit on top of readable content.
 - Keep the fix narrow: do not reintroduce streamed byte progress, cache-file loading, double-page redesign, or
   broad gesture rewrites for this bug.
@@ -220,6 +232,8 @@ Acceptance shape:
   overlay on the same visible image. Ideally the contract should fail if normal loading is represented as
   `Stack { Image; ReaderLoadingStage }` rather than an exclusive loading-vs-image branch. A source grep that
   only proves `LoadingProgress` exists is insufficient.
+- Contract must also fail if a resolved/cached URL path sets the visible image surface back to an invisible
+  or black/loading presentation before page turn paint.
 
 Implementation:
 
@@ -254,7 +268,7 @@ Follow-up, 2026-06-22:
 - Acceptance: forward page turn to a pre-resolved next page has no black flash/loading jump; returning to
   the previous page and going forward again behaves the same as the first forward transition.
 
-Status, 2026-06-22: implemented / pending controller acceptance after follow-up correction.
+Status, 2026-06-22: reopened after failed controller/user runtime acceptance.
 
 - Correction: user testing showed the first implementation's static proof was incomplete. It warmed
   URLs and hidden `Image` nodes, but each visible Reader surface could still adopt a resolved URL and
@@ -269,6 +283,10 @@ Status, 2026-06-22: implemented / pending controller acceptance after follow-up 
   `node scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/build_hvigor_signed.sh`, and local
   emulator `127.0.0.1:5555` install/open/turn evidence in
   `.hvigor/outputs/reader-cached-forward-presented-url/`.
+- Reopen reason: the previous correction did not prove the actual runtime invariant. User feedback still
+  reports loader-over-image and cached forward black-flash. Static contracts that accept opacity-hidden
+  images or `ReaderLoadingStage` siblings in normal image surfaces are insufficient and must be replaced with
+  a state isolation contract.
 
 ### Reader Auto-Read Page Turn Is Missing
 
