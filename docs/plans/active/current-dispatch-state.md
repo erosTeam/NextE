@@ -269,8 +269,13 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. No newly selected lane after the Waterfall tag-flow fix. Re-read this file and the relevant domain
-   intake before choosing the next user-visible bug or feature.
+1. Comment footer action visual scale regression: full-comments vote/reply/edit controls were previously
+   too wide, but the current local sizing (`COMMENT_FOOTER_ACTION_SIZE = 22`,
+   `COMMENT_FOOTER_ICON_SIZE = 12`) now looks too small and crowded per controller feedback. Pick a middle
+   scale with comfortable tap target, readable native thumbs/reply/edit glyphs, and controlled spacing.
+   Do not revert to global primary button height or remove compact grouping; update the existing comment
+   compose/footer contract so it locks a lower bound/explicit token range instead of only checking "not
+   BUTTON_HEIGHT".
 
 ## Pending Explicit Authorization
 
