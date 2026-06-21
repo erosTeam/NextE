@@ -1,7 +1,7 @@
 import { ThemeConstants, EhGalleryComment, GroupedListSection } from 'shared'
 
-const COMMENT_FOOTER_ACTION_SIZE: number = 28
-const COMMENT_FOOTER_ICON_SIZE: number = 14
+const COMMENT_FOOTER_ACTION_SIZE: number = 22
+const COMMENT_FOOTER_ICON_SIZE: number = 12
 
 /**
  * Comments card, shared by the detail-page PEEK and the full comments page (eros_fe TopCommentEx +
@@ -195,7 +195,12 @@ export struct GalleryCommentsCard {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-    .padding(ThemeConstants.SPACE_SM)
+    .padding({
+      left: ThemeConstants.SPACE_SM,
+      right: ThemeConstants.SPACE_SM,
+      top: ThemeConstants.SPACE_SM,
+      bottom: ThemeConstants.SPACE_XS,
+    })
     .borderRadius(ThemeConstants.RADIUS_MD)
     .backgroundColor(ThemeConstants.BG_SUB)
     .onClick(() => {
