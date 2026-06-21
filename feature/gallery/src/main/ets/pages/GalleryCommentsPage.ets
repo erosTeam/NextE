@@ -78,7 +78,7 @@ export struct GalleryCommentsPage {
     if (this.layout.keyboardHeight > 0) {
       return COMMENT_COMPOSER_OUTER_GAP
     }
-    return this.layout.bottomAvoidHeight + COMMENT_COMPOSER_OUTER_GAP
+    return this.layout.bottomAvoidHeight
   }
 
   private uploaderMemberId(): string {
