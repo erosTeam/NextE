@@ -226,7 +226,7 @@ Type: P0/P1 bug / preview grid layout correctness
 
 Priority suggestion: P0/P1
 
-Status: active queue candidate
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -244,10 +244,11 @@ Read-only root-cause inspection:
   define a first-image hero.
 - `PullRefreshGridScaffold` models immersive top/bottom reserves as full-row `GridItem`s using
   `GridLayoutOptions.irregularIndexes: [0, this.itemCount + 1]`.
-- `GalleryAllThumbnailsPage` currently does not pass `itemCount` into `PullRefreshGridScaffold`.
-- Because `itemCount` defaults to `0`, the scaffold computes `irregularIndexes: [0, 1]`; index `0` is
-  the top spacer, but index `1` becomes the first real preview thumbnail. ArkUI therefore treats page 1
-  as an irregular full-row item, and `PreviewThumbTile` measures that full row as its cell width.
+- The original failure was that `GalleryAllThumbnailsPage` did not pass `itemCount` into
+  `PullRefreshGridScaffold`.
+- Because `itemCount` defaulted to `0`, the scaffold computed `irregularIndexes: [0, 1]`; index `0`
+  was the top spacer, but index `1` became the first real preview thumbnail. ArkUI therefore treated
+  page 1 as an irregular full-row item, and `PreviewThumbTile` measured that full row as its cell width.
 - This is not an image asset, parser, sprite, or intended product-layout problem. It is a Grid spacer
   index contract bug.
 
@@ -261,26 +262,21 @@ Expected behavior:
 - Do not solve this by special-casing page 1, changing thumbnail aspect rules, adding a hero, changing
   `PREVIEW_THUMB_MIN_W`, or reintroducing manual column / cell-width calculation.
 
-Implementation direction for the next main-session lane:
+Implementation:
 
-- Keep the fix narrowly scoped to AllThumbnails / `PullRefreshGridScaffold` spacer indexing.
-- The likely minimal fix is to pass `itemCount: this.vm.itemCount` from `GalleryAllThumbnailsPage` to
-  `PullRefreshGridScaffold`, then add/extend a deterministic contract proving AllThumbnails supplies
-  item count when using grid irregular spacer indexes.
-- If the scaffold is hardened generically, preserve current Grid immersive safe-area semantics and do
-  not regress Home/Search/Favorites Grid spacer behavior.
-- Do not mix this with Reader bottom chrome, Reader slider/thumbnail filmstrip, Waterfall top
-  avoidance, or the AllThumbnails far-jump pagination item unless a direct dependency is proven.
+- `GalleryAllThumbnailsPage` now passes `itemCount: this.vm.itemCount` into `PullRefreshGridScaffold`.
+- `scripts/test_responsive_grid_contract.mjs` locks this exact failure class with
+  `AllThumbnails passes the real thumbnail itemCount so spacer indexes cannot capture page 1`.
+- Scope stayed narrow: no preview aspect/fit change, no page-1 hero, no Reader or far-jump pagination
+  change.
 
 Acceptance shape:
 
-- Device/simulator screenshot of AllThumbnails top of page: pages `1`, `2`, `3`, etc. are all normal
-  grid cells; no first-image full-width hero remains.
-- Contract covers the exact failure class: when a `PullRefreshGridScaffold` caller inserts top/bottom
-  spacer items, the first real content item cannot be included in `irregularIndexes` because of a
-  missing or default `itemCount`.
-- `node scripts/test_v1_decorator_inventory_contract.mjs` still reports `0 file(s)` for any ArkTS/UI
-  change.
+- Contract evidence: `node scripts/test_responsive_grid_contract.mjs` and
+  `node scripts/test_grid_immersive_spacer_contract.mjs`.
+- V2 gate: `node scripts/test_v1_decorator_inventory_contract.mjs` reports `0 file(s)`.
+- Device/controller acceptance still needs a current screenshot if this item is reviewed again, but it
+  should not remain an active implementation candidate.
 
 ### Very Tall Gallery Covers Break List Row Height
 
