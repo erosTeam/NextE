@@ -137,6 +137,25 @@ a bounded validation path.
   clipping that removes the point of the two-line strip. Preserve tag color priority and click-to-search.
   Keep compact Grid unchanged.
 
+## Accepted Gap Pool
+
+These are known product gaps or live risks that are already recorded in domain intake files. They are not
+the active lane until promoted, but the main thread must not interpret a short Active Queue as feature
+completion.
+
+- Gallery comments still have accepted follow-ups beyond the repaired composer: parsed reply-floor quote
+  display, visible vote score/icon refresh verification, uploader badge/filter verification, and remaining
+  footer icon/spacing acceptance.
+- Search still has accepted reliability gaps: action-seeded tag search must not autofocus/open the keyboard,
+  route/session edge cases and in-flight submit handling must stay covered, and translation-backed local tag
+  lookup remains a future search enhancement even though network tagsuggest exists.
+- Gallery/detail/list still has accepted visual and data gaps: pull-to-refresh on detail, tag tap/search
+  parity, very tall cover handling, detail-header cover flicker, and current Waterfall tag-strip QA.
+- Reader has several implemented-but-not-accepted risk lanes plus parked architecture work. Do not reopen
+  all Reader work by default, but do not treat the interim single/double-page behavior as final architecture.
+- Settings/history/download/security/smart-grip have partial or parked surfaces. Hidden or pending settings
+  rows are not equivalent to complete downstream features.
+
 ## Pending Explicit Authorization
 
 - Tag/MyTags write actions are implemented pending controller acceptance / authorized real-submit
