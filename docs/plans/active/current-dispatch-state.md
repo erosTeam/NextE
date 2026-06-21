@@ -267,19 +267,21 @@ Items here are real concerns, but they are not active implementation lanes by de
   enhancement. Do not mix it into Home bottom-tab auto-hide or other lanes by default. If opened later,
   use Next2V's `MotionHandStateService`, `MotionHandEdgeState`, `MotionReplyAlignmentState`, and
   `ReplyActionAlignmentSettings` as HarmonyOS implementation references.
+- Gallery comments bottom floating reply composer is implemented pending controller acceptance: full
+  comments now use a safe-area-aware bottom composer for plain new comments and row replies; row replies
+  show a compact quoted author/comment preview with cancel. Existing edit remains on the prior sheet path
+  to keep this lane narrow. Evidence: `.hvigor/outputs/comment-floating-composer/comments-final.jpeg` and
+  `.hvigor/outputs/comment-floating-composer/comments-reply.jpeg`.
 
 ## Active Queue
 
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-- Gallery comments bottom floating reply composer. User feedback, 2026-06-22: the full comments page
-  should not treat the top-right action / half-modal sheet as the primary reply experience. Implement a
-  safe-area-aware bottom floating composer for new comments and row replies, grounded in eros_fe's bottom
-  text-field/reply-state model but styled as a rounded NextE/HDS container. Row reply should show a compact
-  quoted author/comment preview with a cancel action; plain new-comment/reply should share the same input
-  and send gating. Reuse existing protected comment submit/reply plumbing; do not perform final EH submit
-  without explicit authorization, and do not mix in avatar, vote, uploader-filter, or footer-icon changes.
+- Reader cached forward page flash. A forward page with pre-resolved image URL can still render one black/
+  loading frame because presentation state is reset before the image component completes. Fix only this
+  presentation-state boundary; do not reopen Reader chrome, gestures, spread architecture, or cache-file
+  redesign in the same lane.
 
 ## Pending Explicit Authorization
 

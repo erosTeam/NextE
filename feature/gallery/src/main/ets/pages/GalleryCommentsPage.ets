@@ -13,6 +13,8 @@ import {
   CardEmptyState,
   AppModalScaffold,
   AppStrings,
+  LayoutSafeAreaState,
+  connectLayoutSafeArea,
   connectSearchAction,
   connectSiteMode,
   DiagnosticLogger,
@@ -21,6 +23,8 @@ import {
 } from 'shared'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
+
+const COMMENT_COMPOSER_BOTTOM_RESERVE: number = 136
 
 /**
  * The separate full comments page (eros_fe galleryComment). The detail page shows a 2-comment peek
@@ -40,10 +44,12 @@ export struct GalleryCommentsPage {
   @Local commentText: string = '';
   @Local commentReplyToId: string = '';
   @Local commentReplyToAuthor: string = '';
+  @Local commentReplyPreview: string = '';
   @Local commentEditId: string = '';
   @Local commentEditOriginal: string = '';
   @Local commentSubmitting: boolean = false;
   @Local commentError: string = '';
+  private layout: LayoutSafeAreaState = connectLayoutSafeArea();
 
   private uploaderMemberId(): string {
     const uploader: EhGalleryComment | undefined =
@@ -120,10 +126,10 @@ export struct GalleryCommentsPage {
     this.commentText = ''
     this.commentReplyToId = ''
     this.commentReplyToAuthor = ''
+    this.commentReplyPreview = ''
     this.commentEditId = ''
     this.commentEditOriginal = ''
     this.commentError = ''
-    this.commentSheetShown = true
   }
 
   private openReplyComment(comment: EhGalleryComment): void {
@@ -133,11 +139,19 @@ export struct GalleryCommentsPage {
     }
     this.commentReplyToId = comment.commentId
     this.commentReplyToAuthor = comment.author
+    this.commentReplyPreview = comment.contentText
     this.commentEditId = ''
     this.commentEditOriginal = ''
     this.commentText = `@${comment.author}\n${this.encodeCommentId(comment.commentId)}\n`
     this.commentError = ''
-    this.commentSheetShown = true
+  }
+
+  private cancelReply(): void {
+    this.commentReplyToId = ''
+    this.commentReplyToAuthor = ''
+    this.commentReplyPreview = ''
+    this.commentError = ''
+    this.commentText = ''
   }
 
   private openEditComment(comment: EhGalleryComment): void {
@@ -152,6 +166,7 @@ export struct GalleryCommentsPage {
     this.commentEditOriginal = comment.contentText
     this.commentReplyToId = ''
     this.commentReplyToAuthor = ''
+    this.commentReplyPreview = ''
     this.commentText = comment.contentText
     this.commentError = ''
     this.commentSheetShown = true
@@ -337,6 +352,7 @@ export struct GalleryCommentsPage {
       this.commentText = ''
       this.commentReplyToId = ''
       this.commentReplyToAuthor = ''
+      this.commentReplyPreview = ''
       this.commentEditId = ''
       this.commentEditOriginal = ''
       this.showCommentToast($r('app.string.comment_post_success'))
@@ -373,16 +389,8 @@ export struct GalleryCommentsPage {
         },
       }
     }
-    const newComment: Record<string, Object> = {
-      'label': $r('app.string.comment_new_title'),
-      'icon': $r('sys.symbol.doc_plaintext'),
-      'isEnabled': this.canOpenCommentSheet() && !this.commentSubmitting,
-      'action': () => {
-        this.openNewComment()
-      },
-    }
-    const items: Record<string, Object>[] = [{ 'content': newComment }, { 'content': uploaderOnly }]
-    const menu: Record<string, Object> = { 'value': items, 'maxCount': 2 }
+    const items: Record<string, Object>[] = [{ 'content': uploaderOnly }]
+    const menu: Record<string, Object> = { 'value': items, 'maxCount': 1 }
     const content: Record<string, Object> = {
       'title': title,
       'menu': menu,
@@ -392,41 +400,46 @@ export struct GalleryCommentsPage {
 
   build() {
     HdsNavDestination() {
-      PullRefreshListScaffold({
-        scroller: this.scroller,
-        listSpace: ThemeConstants.SPACE_MD,
-        bottomPadding: ThemeConstants.SPACE_XL,
-        controller: this.refreshController,
-        onRefresh: async () => {
-          await this.refreshComments()
-        },
-      }) {
-        if (this.visibleComments().length > 0) {
-          ListItem() {
-            // max = 0 → show every comment (the peek on the detail page uses max = 2).
-            GalleryCommentsCard({
-              comments: this.visibleComments(),
-              votingCommentId: this.votingCommentId,
-              onAuthor: (name: string) => {
-                this.searchUploader(name)
-              },
-              onVote: (comment: EhGalleryComment, vote: number) => {
-                this.confirmCommentVote(comment, vote)
-              },
-              onReply: (comment: EhGalleryComment) => {
-                this.openReplyComment(comment)
-              },
-              onEdit: (comment: EhGalleryComment) => {
-                this.openEditComment(comment)
-              },
-            })
-          }
-        } else {
-          ListItem() {
-            CardEmptyState({ message: $r('app.string.common_no_content') })
+      Stack({ alignContent: Alignment.Bottom }) {
+        PullRefreshListScaffold({
+          scroller: this.scroller,
+          listSpace: ThemeConstants.SPACE_MD,
+          bottomPadding: COMMENT_COMPOSER_BOTTOM_RESERVE,
+          controller: this.refreshController,
+          onRefresh: async () => {
+            await this.refreshComments()
+          },
+        }) {
+          if (this.visibleComments().length > 0) {
+            ListItem() {
+              // max = 0 → show every comment (the peek on the detail page uses max = 2).
+              GalleryCommentsCard({
+                comments: this.visibleComments(),
+                votingCommentId: this.votingCommentId,
+                onAuthor: (name: string) => {
+                  this.searchUploader(name)
+                },
+                onVote: (comment: EhGalleryComment, vote: number) => {
+                  this.confirmCommentVote(comment, vote)
+                },
+                onReply: (comment: EhGalleryComment) => {
+                  this.openReplyComment(comment)
+                },
+                onEdit: (comment: EhGalleryComment) => {
+                  this.openEditComment(comment)
+                },
+              })
+            }
+          } else {
+            ListItem() {
+              CardEmptyState({ message: $r('app.string.common_no_content') })
+            }
           }
         }
+        this.CommentComposer()
       }
+      .width('100%')
+      .height('100%')
     }
     .titleBar(this.commentsTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
@@ -441,6 +454,81 @@ export struct GalleryCommentsPage {
         this.comments = p.comments
       }
     })
+  }
+
+  @Builder
+  CommentComposer() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      if (this.commentReplyToAuthor.length > 0) {
+        Row({ space: ThemeConstants.SPACE_SM }) {
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            Text($r('app.string.comment_reply_to', this.commentReplyToAuthor))
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_emphasize'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text(this.commentReplyPreview)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .layoutWeight(1)
+          SymbolGlyph($r('sys.symbol.xmark'))
+            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+            .fontColor([$r('sys.color.font_secondary')])
+            .onClick(() => {
+              this.cancelReply()
+            })
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+      }
+      Row({ space: ThemeConstants.SPACE_SM }) {
+        TextArea({
+          text: this.commentText,
+          placeholder: this.commentPlaceholder(),
+        })
+          .height(56)
+          .layoutWeight(1)
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+          .enabled(!this.commentSubmitting && this.canOpenCommentSheet())
+          .onChange((value: string) => {
+            this.commentText = value
+          })
+        SymbolGlyph($r('sys.symbol.arrow_up_circle_fill'))
+          .fontSize(34)
+          .fontColor([this.canSubmitComment() ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary')])
+          .opacity(this.canSubmitComment() ? 1 : 0.45)
+          .onClick(() => {
+            this.submitComment()
+          })
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+      if (this.commentError.length > 0) {
+        Text(this.commentError)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(Color.Red)
+          .width('100%')
+      }
+    }
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_MD,
+      top: ThemeConstants.SPACE_SM,
+      bottom: this.layout.bottomAvoidHeight + this.layout.keyboardHeight + ThemeConstants.SPACE_SM,
+    })
+    .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
+    .borderRadius({
+      topLeft: ThemeConstants.RADIUS_CARD,
+      topRight: ThemeConstants.RADIUS_CARD,
+    })
+    .shadow(ShadowStyle.OUTER_DEFAULT_MD)
   }
 
   @Builder

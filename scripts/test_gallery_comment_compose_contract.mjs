@@ -53,10 +53,13 @@ ok('comments page owns compose sheet state',
     /@Local commentSubmitting: boolean = false/.test(page))
 ok('comments page gates comment compose on route identity and login cookies',
   /private canOpenCommentSheet\(\): boolean[\s\S]*this\.params\.gid\.length > 0[\s\S]*this\.params\.token\.length > 0[\s\S]*EhCookieStore\.getInstance\(\)\.isLogin\(\)/.test(page))
-ok('new comment title action opens the compose sheet',
-  /const newComment: Record<string, Object> = \{[\s\S]*comment_new_title[\s\S]*sys\.symbol\.doc_plaintext[\s\S]*this\.openNewComment\(\)/.test(page))
+ok('new and reply composition use the bottom floating composer, not the title action sheet',
+  /Stack\(\{ alignContent: Alignment\.Bottom \}\)[\s\S]*this\.CommentComposer\(\)/.test(page) &&
+    /@Builder[\s\S]*CommentComposer\(\)[\s\S]*TextArea\(\{[\s\S]*placeholder: this\.commentPlaceholder\(\)[\s\S]*sys\.symbol\.arrow_up_circle_fill/.test(page) &&
+    !/const newComment: Record<string, Object> = \{[\s\S]*comment_new_title[\s\S]*this\.openNewComment\(\)/.test(page))
 ok('reply action pre-fills @author plus encoded comment id and still submits as new comment',
   /private openReplyComment\(comment: EhGalleryComment\): void[\s\S]*this\.commentReplyToId = comment\.commentId[\s\S]*this\.commentText = `@\$\{comment\.author\}\\n\$\{this\.encodeCommentId\(comment\.commentId\)\}\\n`/.test(page) &&
+    /this\.commentReplyPreview = comment\.contentText/.test(page) &&
     /this\.commentEditId = ''/.test(page))
 ok('own-comment edit pre-fills original text and submits commenttext_edit',
   /private openEditComment\(comment: EhGalleryComment\): void[\s\S]*!comment\.canEdit[\s\S]*this\.commentEditId = comment\.commentId[\s\S]*this\.commentEditOriginal = comment\.contentText[\s\S]*this\.commentText = comment\.contentText/.test(page) &&

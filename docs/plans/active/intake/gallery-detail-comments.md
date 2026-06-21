@@ -572,7 +572,7 @@ Type: UX redesign / comment write surface
 
 Priority suggestion: P1
 
-Status: open / research captured
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -616,6 +616,17 @@ Acceptance shape:
 - Cancelling a reply clears the quote and returns to plain new-comment mode without losing the page state.
 - Keyboard appearance and safe-area padding do not cover the send button or hide the active quote.
 - Existing comment vote, uploader-only filter, score badge, and footer icon behavior remain unchanged.
+
+Implementation note:
+
+- Implemented in `feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets` as a bottom floating
+  `CommentComposer()` for plain new comments and row replies. Own-comment edit intentionally remains on
+  the existing sheet path to keep this lane narrow.
+- Contract: `scripts/test_gallery_comment_compose_contract.mjs`.
+- Device evidence on local HarmonyOS emulator `127.0.0.1:5555`: comments page composer
+  `.hvigor/outputs/comment-floating-composer/comments-final.jpeg`; reply mode with quoted preview
+  `.hvigor/outputs/comment-floating-composer/comments-reply.jpeg`.
+- No final EH comment submit was executed.
 
 ### Gallery Comment Vote Must Refresh Visible Score And Icon State
 
