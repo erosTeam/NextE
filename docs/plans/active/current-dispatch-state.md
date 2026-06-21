@@ -157,11 +157,15 @@ a bounded validation path.
    auto-read, vertical mode, double-page mode, far jump, prefetch, cache-hit presentation, and failure/retry
    paths. Do not bundle Reader gesture redesign, double-page architecture, thumbnail strip, auto-read, or
    offline download work into this lane.
-2. App cache architecture and cache management. Define the cache taxonomy and implement the first bounded
-   storage slice after the current Reader state-model fix. Cover image cache, HTML/resolve metadata cache,
-   possible gallery-detail snapshot cache, history/progress local data, invalidation after writes, size/TTL
-   limits, and user-facing cache clearing categories. Do not bundle download/offline Reader or a full data
-   sync system into the first slice.
+2. App storage architecture: cache, durable local data, and settings backup/import. Define the taxonomy and
+   implement the first bounded storage slice after the current Reader state-model fix. Cover the boundary
+   between disposable cache (image bytes, HTML/resolve metadata, gallery-detail snapshots), durable local data
+   (search/viewed history, read progress, local favorites, QuickSearch/tag-translation-ready tables), and small
+   Preferences-backed scalar settings. Use `../V2Next` as the HarmonyOS reference: `LocalDataStore` for RDB
+   records, descriptor/preferences helpers for scalar settings, and the backup service's envelope/preview/
+   rollback/secret-denylist model for settings import/export. User-facing cache clearing must not delete
+   history/progress/local favorites/downloads unless the UI names that destructive category. Do not bundle
+   download/offline Reader, full WebDAV/cloud sync, or every store migration into the first slice.
 3. Tag translation database and localized search candidates. User-visible
    benefit: Chinese/localized tag understanding and search candidate quality, instead of the current tiny
    hardcoded `TagTranslationService` stub. Scope this first lane to the smallest real FE-parity slice:
@@ -182,7 +186,9 @@ in this order, one bounded slice at a time:
 4. MyTags/user-tag wiring into list/detail/search behavior.
 5. Auth/WebView/uconfig depth that blocks FE parity.
 6. Comment/rating/favorite/tag write-operation acceptance and missing display details.
-7. Sync/security/blocking/long-tail FE features.
+7. Settings maintenance depth: backup/import/export, cache management, proxy/custom hosts, blockers, WebDAV
+   settings entry points, and honest labeling of not-yet-implemented surfaces.
+8. Sync/security/blocking/long-tail FE features.
 
 Do not let the queue become empty while these gaps remain. If the current top item looks too large, split its
 first user-visible slice; do not replace it with pending-acceptance rechecks.

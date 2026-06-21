@@ -8,6 +8,8 @@ Purpose:
 - Do not use this file directly as the scheduling source of truth; start from `../current-dispatch-state.md`.
 - Cache work must define storage ownership, invalidation, size limits, and user-facing cache management before
   broad implementation.
+- Durable user data and settings import/export are tracked in `persistence.md`; do not collapse those into a
+  cache-clear implementation.
 
 ## Items
 
@@ -42,7 +44,8 @@ Current evidence:
 - Search history, viewed history, and reading progress are stored as Preferences JSON blobs:
   `SearchHistorySettings` caps search history at 100, `ViewedHistorySettings` caps viewed history at 200,
   and `GalleryReadProgressSettings` stores a JSON array with debounced writes. This is acceptable as a small
-  preference store, but it is not a scalable history/cache repository model.
+  early slice, but it is not a scalable history/cache repository model. The durable-data migration and
+  settings backup concerns are tracked in `persistence.md`.
 - The roadmap already names the missing target shape: `ImageDiskCache`, `ReaderResumeStore`,
   `GalleryCacheRepository`, and RDB-backed local data repositories. Current code only covers fragments.
 

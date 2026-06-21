@@ -67,6 +67,7 @@ write-operation polish.
 | Layout / read / download / search settings | `layout_setting_page.dart`, `read_setting_page.dart`, `download_setting_page.dart`, `search_setting_page.dart` | `LayoutSettingsPage`, `ReaderSettingsPage`, `DownloadSettingsPage`, `SearchSettingsPage` | Partial | Pages exist, but several rows are deliberately scoped to current data only and do not cover FE's full settings depth. |
 | Security / auto lock | `security_setting_page.dart`, `auto_lock_controller.dart`, `unlock_page.dart` | `SecuritySettingsPage`, `SecuritySettingsState` | Partial / hidden risk | Preferences exist, but real lock/enforcement/unlock lifecycle is not complete enough to treat Security as accepted parity. |
 | History | `history_page.dart`, `history_controller.dart` | `ViewedHistoryPage`, `ViewedHistorySettings` | Partial | Basic viewed-history surface exists; deletion, sync, richer controls, and FE retention semantics need acceptance. |
+| Persistence / backup / app data import-export | `advanced_setting_page.dart`, `utils/import_export.dart`, `gallerycache_controller.dart` | `SettingsBootstrap`, Preferences-backed `*Settings`, no backup service | Missing / architecture gap | NextE lacks an app-data export/import workflow and still stores several growing data sets as Preferences JSON. Use V2Next's `LocalDataStore` and backup envelope/denylist/rollback model as the HarmonyOS reference. |
 | WebDAV / sync | `webdav_setting_page.dart`, `webdav_controller.dart`, `login_webdav.dart` | none found | Missing | No WebDAV sync for history/read progress/QuickSearch/custom groups. |
 | MySQL sync | `mysql_sync_page.dart`, `mysql_controller.dart` | intentionally not planned | Deferred / not a gap | Roadmap says MySQL sync is abandoned because no OHOS driver; do not reopen unless product direction changes. |
 | Network custom hosts / proxy / DNS | `custom_hosts_page.dart`, `proxy_page.dart`, `dns_service.dart` | mostly not surfaced | Missing / partial infra | Roadmap prefers DoH/fallback/proxy architecture, but FE-level custom hosts/proxy settings are not complete. |
@@ -180,6 +181,8 @@ Why:
 Scope candidates:
 
 - WebDAV sync for history/read progress/QuickSearch/custom groups.
+- Settings maintenance depth: cache management, app data export/import, proxy/custom hosts, blockers, and
+  WebDAV settings entry points.
 - Custom tab/profile groups and safe-mode/tablet variants.
 - Block rules and image blocking/pHash/QR filtering.
 - Security auto-lock enforcement and unlock page.
@@ -193,4 +196,3 @@ Scope candidates:
 - Every promoted lane must still provide the normal five-line grounding from `always-loaded-rules.md`.
 - UI/interaction work needs FE comparison or must be marked `implemented / needs FE comparison`.
 - Destructive EH writes need explicit authorization and should default to open-dialog/cancel QA.
-
