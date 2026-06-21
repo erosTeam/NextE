@@ -79,7 +79,7 @@ Type: P0/P1 bug / browsing preview pagination
 
 Priority suggestion: P0/P1
 
-Status: reopened / Waterfall top avoidance failed current screenshot
+Status: implemented / pending controller acceptance
 
 Implementation:
 
