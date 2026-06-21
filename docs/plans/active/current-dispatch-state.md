@@ -132,8 +132,13 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-- No default active lane selected after the Waterfall tag strip follow-up. Re-read this file plus the
-  relevant domain intake before choosing the next lane.
+- Current active lane: Gallery comment vote state closure. Scope is limited to comment upvote/downvote and
+  withdraw/cancel behavior: selected up/down state must refresh immediately, tapping the already-selected
+  action must use the neutral withdraw path, and the confirmation dialog plus success/failure feedback must
+  describe the actual action. Do not mix this with comment composer layout, Reader, Grid, Waterfall, or
+  broader FE parity work. Evidence and acceptance details live in
+  `docs/plans/active/intake/gallery-detail-comments.md` under
+  "Gallery Comment Vote Must Refresh Visible Score And Icon State".
 
 ## Recently Closed / Pending Acceptance
 

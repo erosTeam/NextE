@@ -764,6 +764,10 @@ Source:
 
 - User feedback, 2026-06-21: after voting a comment up or down, the comment score does not update in place,
   and the vote button icon state does not visually change.
+- User feedback, 2026-06-22: current main-thread validation is now focused on comment upvote/downvote.
+  The API path may exist, but the confirmation dialog and final success/failure feedback are still wrong.
+  Re-tapping the already-selected upvote/downvote should be treated as a vote-cancel/withdraw path with
+  matching prompt and toast copy, not as another ordinary up/down vote.
 
 Research:
 
@@ -774,6 +778,15 @@ Research:
   vote.
 - This means the next fix should treat the user report as a visible-state regression even if the network
   request and toast are successful.
+- Current NextE code only models two prompt/success states: `vote > 0` and `vote < 0`. That is insufficient
+  for cancel/withdraw feedback.
+- Current `EhApiPhpService.voteComment()` rejects any `comment_vote` outside `1/-1` and also rejects a
+  returned `commentVote` outside `1/-1`. This can incorrectly classify a successful cancel result as a
+  failure if EH returns `comment_vote: 0`.
+- eros_fe evidence: `Api.commitVote()` sends the chosen `comment_vote` directly; `CommitVoteRes.fromJson`
+  parses missing/zero `comment_vote` as `0`; `CommentController._paraRes()` writes `rult.commentVote` back
+  to the row. The FE controller only shows the normal up/down success toast when `commentVote != 0`, which
+  means `0` is a real neutral/withdraw state even if FE's own toast copy is sparse.
 
 Expected behavior:
 
@@ -785,6 +798,12 @@ Expected behavior:
   icons or stale score text on screen.
 - If the request fails, preserve or restore the previous visible score and vote state, then show the failure
   feedback.
+- If the user taps the already-selected upvote or downvote button, the UI must present a cancel/withdraw
+  confirmation and send the correct neutral vote request/handle the neutral response according to EH API
+  behavior. The final state must clear the filled thumb icon and use the returned neutral score/vote state.
+- Dialog title/message and toast copy must match the action actually being taken:
+  upvote, downvote, withdraw upvote, or withdraw downvote. Do not reuse "点赞成功" / "点踩成功" for a
+  withdraw result.
 
 Acceptance shape:
 
@@ -793,8 +812,15 @@ Acceptance shape:
 - When the success path completes, the score badge/text for that comment changes in place and the upvote icon
   shows selected state without refreshing the page.
 - Repeat with downvote; the downvote selected state and returned score are visible immediately.
+- Tap the selected upvote again; the dialog clearly says this will cancel/withdraw the upvote. After success,
+  the row returns to neutral thumb icons and shows the returned score.
+- Tap the selected downvote again; the dialog clearly says this will cancel/withdraw the downvote. After
+  success, the row returns to neutral thumb icons and shows the returned score.
+- Failure toast/copy for any of the four paths must be generic enough or state-specific enough to be truthful.
 - Add or tighten an automated contract so the comment card renders from the refreshed `comments` array state,
   not from a stale copied row or a one-time snapshot.
+- Add a small contract for vote-state decision text and neutral `commentVote = 0` handling so the cancel path
+  cannot regress into the old two-state prompt model.
 
 ### Gallery Uploader Badge And Uploader-Only Filter Regression
 
