@@ -884,7 +884,7 @@ export struct ReaderPage {
             },
           })
         },
-        (img: EhGalleryImage) => `${img.page}-${img.sUrl}-${img.imageUrl}`,
+        (img: EhGalleryImage) => this.readerImageIdentityKey(img),
       )
     }
     .index(this.readerPagerIndex)
@@ -936,6 +936,10 @@ export struct ReaderPage {
 
   private readerImageKey(img: EhGalleryImage): string {
     return `${img.page}-${img.sUrl}-${img.imageUrl}`
+  }
+
+  private readerImageIdentityKey(img: EhGalleryImage): string {
+    return `${img.page}-${img.sUrl}`
   }
 
   private sliderTargetIndex(page: number): number {
@@ -1068,7 +1072,7 @@ export struct ReaderPage {
             })
           }
         },
-        (img: EhGalleryImage) => `${img.page}-${img.sUrl}-${img.imageUrl}`,
+        (img: EhGalleryImage) => this.readerImageIdentityKey(img),
       )
     }
     .width('100%')
