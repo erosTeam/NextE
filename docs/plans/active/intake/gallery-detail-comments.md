@@ -492,13 +492,13 @@ Acceptance shape:
 - Results load for that tag query.
 - Returning to the detail page should keep normal navigation behavior.
 
-### Gallery Comment Vote Icons Should Use Native Thumb Symbols
+### Gallery Comment Footer Icons And Spacing Need Native Semantics
 
 Type: UX polish / parity gap
 
-Priority suggestion: P2
+Priority suggestion: P1
 
-Status: accepted / not implemented
+Status: accepted / partially implemented
 
 Source:
 
@@ -507,6 +507,8 @@ Source:
 - User feedback, 2026-06-21: full comments page action buttons are visually much too spread out. In the
   current screenshot, the three footer icons leave enough horizontal room between them to fit another
   button, while the Next2V reference keeps like/reply/more actions grouped at a compact, readable rhythm.
+- User feedback, 2026-06-21: vote icons have since changed to thumbs, but edit and reply still appear to
+  use the same document icon; icon spacing and the excessive bottom height remain unresolved.
 
 Research:
 
@@ -515,6 +517,8 @@ Research:
   - `$r('sys.symbol.hand_thumbsup_fill')`
   - `$r('sys.symbol.hand_thumbsdown')`
   - `$r('sys.symbol.hand_thumbsdown_fill')`
+  - `$r('sys.symbol.ellipsis_message')` for reply/comment thread action
+  - `$r('sys.symbol.square_and_pencil')` for own-comment edit
 - `SymbolGlyph` supports common transform attributes such as `.rotate({ angle: 180 })`, but rotation is
   unnecessary here because a real thumbs-down symbol exists.
 - eros_fe uses outline thumbs for neutral state and solid thumbs for the selected vote state:
@@ -522,8 +526,13 @@ Research:
 
 Current behavior:
 
-- `GalleryCommentsCard.VoteAction` currently renders `$r('sys.symbol.arrow_up')` and
-  `$r('sys.symbol.arrow_down')`.
+- `GalleryCommentsCard.VoteAction` has been updated to the native thumb symbols.
+- `GalleryCommentsCard.EditAction` and `GalleryCommentsCard.ReplyAction` still both render
+  `$r('sys.symbol.doc_plaintext')`, so the two actions are visually indistinguishable and do not match
+  the requested reply/edit semantics.
+- `scripts/test_gallery_comment_compose_contract.mjs` still asserts `ReplyAction` contains
+  `sys.symbol.doc_plaintext`; the contract must be updated with the UI fix instead of locking the stale
+  icon.
 - The same action row uses fixed `ThemeConstants.BUTTON_HEIGHT` square tap areas, while eros_fe's
   comment tail uses compact button padding. If comment item bottom spacing still looks too tall, inspect
   the action hit-area height before changing comment content spacing.
@@ -537,6 +546,8 @@ Expected behavior:
 - Upvote neutral state uses `hand_thumbsup`; selected upvote uses `hand_thumbsup_fill`.
 - Downvote neutral state uses `hand_thumbsdown`; selected downvote uses `hand_thumbsdown_fill`.
 - Do not rotate `hand_thumbsup_fill` to fake a downvote.
+- Reply uses `ellipsis_message`.
+- Own-comment edit uses `square_and_pencil`.
 - The footer actions should be compactly grouped, closer to the Next2V comment reference: enough hit area
   to tap, but no large dead-looking gaps between like/dislike-or-reply/edit/reply icons. Prefer a small
   local action-cluster width/padding adjustment over changing the whole comment-card spacing.
@@ -548,6 +559,7 @@ Acceptance shape:
 - A comment with no vote shows outline thumbs up/down.
 - A comment with an upvote shows filled thumbs up and outline thumbs down.
 - A comment with a downvote shows outline thumbs up and filled thumbs down.
+- Reply and edit have distinct symbols: `ellipsis_message` and `square_and_pencil`.
 - The footer action row does not add excessive bottom height compared with the comment text/time row.
 - The three visible footer actions are visually grouped; there is not enough empty space between adjacent
   action icons to look like a missing fourth button.
