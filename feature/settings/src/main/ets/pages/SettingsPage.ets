@@ -60,14 +60,6 @@ export struct SettingsPage {
         })
         this.rowDivider()
         ConciseListRow({
-          title: $r('app.string.settings_mytags'),
-          leadingIcon: $r('sys.symbol.bookmark'),
-          action: () => {
-            this.stack.pushPathByName('MyTags', null)
-          },
-        })
-        this.rowDivider()
-        ConciseListRow({
           title: $r('app.string.settings_logout'),
           leadingIcon: $r('sys.symbol.arrow_right'),
           destructive: true,

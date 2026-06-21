@@ -221,6 +221,10 @@ Historical feedback in this section must not trigger new implementation.
 - Settings/user-visible site terminology cleanup is implemented pending controller acceptance: EH
   settings trailing labels and user-visible resource strings now use official `E-Hentai` / `ExHentai`
   names instead of community nicknames or the old "table site" wording.
+- Settings MyTags placement is implemented pending controller acceptance: the Settings root no longer
+  duplicates the EH-owned MyTags entry, while `EH` settings still exposes `我的标签`. Simulator evidence on
+  `127.0.0.1:5555`: `.hvigor/outputs/settings-mytags-placement/settings-root.png` and
+  `.hvigor/outputs/settings-mytags-placement/eh-settings.png`.
 - Reader cached forward page flash is implemented pending controller acceptance after a follow-up
   correction: user testing showed the previous static conclusion was incomplete because visible Reader
   surfaces could still receive a resolved URL and then hide themselves behind local `imageLoaded=false`

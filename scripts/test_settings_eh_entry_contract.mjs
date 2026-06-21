@@ -44,6 +44,8 @@ ok(/settings_eh/.test(settingsRoot) && /pushPathByName\('EhSettings', null\)/.te
   'Settings root exposes an EH row that pushes EhSettings')
 ok(!/toggleSite\(\)/.test(settingsRoot) && !/SiteModeSettings/.test(settingsRoot),
   'Settings root no longer owns the raw site-toggle action')
+ok(!/settings_mytags/.test(settingsRoot) && !/pushPathByName\('MyTags', null\)/.test(settingsRoot),
+  'Settings root does not duplicate the EH-owned My Tags entry')
 
 ok(/export struct EhSettingsPage/.test(ehPage) && /HdsNavDestination/.test(ehPage),
   'EhSettingsPage is a native HDS destination')
