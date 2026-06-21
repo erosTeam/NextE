@@ -16,7 +16,7 @@ Type: browsing mode UI parity / card height control
 
 Priority suggestion: P1/P2
 
-Status: investigated / queued
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -25,11 +25,19 @@ Source:
 
 Current NextE evidence:
 
-- `shared/src/main/ets/components/GalleryWaterfallCard.ets` renders tags with
+- Before this lane, `shared/src/main/ets/components/GalleryWaterfallCard.ets` rendered tags with
   `this.gallery.simpleTags.slice(0, 4)`, `ThemeConstants.FONT_SIZE_TINY`, and a normal wrapping `Flex`.
 - The color path is no longer the main issue: Waterfall tags now use `UserTagStore`, `UserTagSignal`,
   parsed inline background/text colors, and neutral fallback. This follow-up is only about density,
   count, and height control.
+
+Implementation:
+
+- `GalleryWaterfallCard.Tags()` now uses a fixed-height horizontal `Scroll` with two rows of tag chips.
+- The Waterfall-only four-tag cap and tiny text were removed; chips now use caption-sized text and the
+  existing tag color / click-to-search path.
+- Contract coverage was added to `scripts/test_gallery_waterflow_contract.mjs` after simulator visual
+  verification, so the implementation cannot regress to wrapping `Flex`, `slice(0, 4)`, or tiny chips.
 
 FE grounding:
 
@@ -78,6 +86,16 @@ Acceptance shape:
 - Chip font size/readability matches ordinary list tags more closely than the current tiny Waterfall
   chips.
 - Existing tag color parity and tag click search contracts continue to pass.
+
+Verification:
+
+- Contracts: `node scripts/test_gallery_waterflow_contract.mjs`,
+  `node scripts/test_tag_search_query_contract.mjs`, `node scripts/test_list_tag_search_contract.mjs`,
+  `node scripts/test_v1_decorator_inventory_contract.mjs`.
+- Build: `scripts/build_hvigor_signed.sh`.
+- Local HarmonyOS emulator `127.0.0.1:5555`: signed HAP installed, Home Waterfall screenshot captured at
+  `.hvigor/outputs/waterfall-two-row-tags/before.jpeg`, showing two-column Waterfall cards with bounded
+  two-row tags.
 
 ### Waterfall Tag Color Parity
 

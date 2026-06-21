@@ -11,6 +11,8 @@ import { GalleryCategoryCornerBadge } from './GalleryCategoryCornerBadge'
 
 const WATERFALL_MIN_COVER_RATIO: number = 0.5
 const WATERFALL_MAX_COVER_RATIO: number = 1.35
+const WATERFALL_TAG_LIMIT: number = 8
+const WATERFALL_TAG_STRIP_HEIGHT: number = 48
 
 /**
  * Masonry card for ListMode.WATERFALL. Unlike GalleryGridCard, this deliberately allows variable
@@ -87,31 +89,60 @@ export struct GalleryWaterfallCard {
     return $r('sys.color.font_secondary')
   }
 
+  private tagRow(offset: number): SimpleTag[] {
+    const tags: SimpleTag[] = this.gallery.simpleTags.slice(0, WATERFALL_TAG_LIMIT)
+    const row: SimpleTag[] = []
+    for (let i = offset; i < tags.length; i += 2) {
+      row.push(tags[i])
+    }
+    return row
+  }
+
+  @Builder
+  private TagChip(t: SimpleTag) {
+    Text(t.display())
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontColor(this.chipText(t))
+      .backgroundColor(this.chipBg(t))
+      .borderRadius(ThemeConstants.RADIUS_SM)
+      .padding({ left: 6, right: 6, top: 3, bottom: 3 })
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .constraintSize({ maxWidth: 150 })
+      .onClick(() => {
+        this.searchTag(t)
+      })
+  }
+
   @Builder
   private Tags() {
     if (this.gallery.simpleTags.length > 0) {
-      Flex({ wrap: FlexWrap.Wrap }) {
-        ForEach(
-          this.gallery.simpleTags.slice(0, 4),
-          (t: SimpleTag) => {
-            Text(t.display())
-              .fontSize(ThemeConstants.FONT_SIZE_TINY)
-              .fontColor(this.chipText(t))
-              .backgroundColor(this.chipBg(t))
-              .borderRadius(ThemeConstants.RADIUS_SM)
-              .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .constraintSize({ maxWidth: 130 })
-              .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-              .onClick(() => {
-                this.searchTag(t)
-              })
-          },
-          (t: SimpleTag) => `${this.tagSig.version}:${t.namespace}:${t.text}`,
-        )
+      Scroll() {
+        Column({ space: ThemeConstants.SPACE_XS }) {
+          Row({ space: ThemeConstants.SPACE_XS }) {
+            ForEach(
+              this.tagRow(0),
+              (t: SimpleTag) => {
+                this.TagChip(t)
+              },
+              (t: SimpleTag) => `${this.tagSig.version}:top:${t.namespace}:${t.text}`,
+            )
+          }
+          Row({ space: ThemeConstants.SPACE_XS }) {
+            ForEach(
+              this.tagRow(1),
+              (t: SimpleTag) => {
+                this.TagChip(t)
+              },
+              (t: SimpleTag) => `${this.tagSig.version}:bottom:${t.namespace}:${t.text}`,
+            )
+          }
+        }
       }
+      .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
       .width('100%')
+      .height(WATERFALL_TAG_STRIP_HEIGHT)
     }
   }
 

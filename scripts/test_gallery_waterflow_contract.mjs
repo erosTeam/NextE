@@ -85,6 +85,16 @@ assertIncludes(waterfallCard, 'connectUserTagSignal()', 'Waterfall tag chips mus
 assertIncludes(waterfallCard, 'this.tagSig.version', 'Waterfall tag keys must subscribe to late user-tag color updates');
 assertIncludes(waterfallCard, 't.backgroundColor.length > 0', 'Waterfall tag chips must fall back to parsed inline EH background color');
 assertIncludes(waterfallCard, 't.color.length > 0', 'Waterfall tag chips must fall back to parsed inline EH text color');
+assertIncludes(waterfallCard, 'WATERFALL_TAG_LIMIT', 'Waterfall tag density must use an explicit tag-limit policy, not a four-tag literal');
+assertIncludes(waterfallCard, 'WATERFALL_TAG_STRIP_HEIGHT', 'Waterfall tag area must stay fixed-height instead of growing the masonry card');
+assertIncludes(waterfallCard, 'private tagRow(offset: number): SimpleTag[]', 'Waterfall tag strip must split tags into two bounded rows');
+assertIncludes(waterfallCard, 'this.tagRow(0)', 'Waterfall tag strip must render the first horizontal tag row');
+assertIncludes(waterfallCard, 'this.tagRow(1)', 'Waterfall tag strip must render the second horizontal tag row');
+assertIncludes(waterfallCard, '.scrollable(ScrollDirection.Horizontal)', 'Waterfall tag strip must overflow horizontally instead of wrapping vertically');
+assertIncludes(waterfallCard, '.fontSize(ThemeConstants.FONT_SIZE_CAPTION)', 'Waterfall tag chips must use readable caption-size text');
+assertNotIncludes(waterfallCard, 'simpleTags.slice(0, 4)', 'Waterfall tag strip must not regress to a Waterfall-only four-tag cap');
+assertNotIncludes(waterfallCard, 'Flex({ wrap: FlexWrap.Wrap })', 'Waterfall tag strip must not use wrapping Flex that can grow the card height');
+assertNotIncludes(waterfallCard, ".fontSize(ThemeConstants.FONT_SIZE_TINY)\n              .fontColor(this.chipText(t))", 'Waterfall tag chips must not use tiny unreadable text');
 assertNotIncludes(waterfallCard, ".fontColor($r('sys.color.font_secondary'))\n              .backgroundColor($r('sys.color.ohos_id_color_button_normal'))", 'Waterfall tag chips must not be hard-coded neutral when tag color metadata exists');
 assertNotIncludes(waterfallCard, '@Param cellWidth', 'Waterfall card must fill the native WaterFlow cell instead of receiving a hand-calculated width');
 assertNotIncludes(waterfallCard, 'private cardWidth()', 'Waterfall card must not convert hand-calculated cell widths');

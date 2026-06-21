@@ -214,6 +214,10 @@ Historical feedback in this section must not trigger new implementation.
   use the same user-tag color lookup and parsed inline EH tag colors as ordinary list cards, and re-color
   when My Tags metadata arrives late. Simulator evidence on `127.0.0.1:5555` shows Waterfall still
   renders as a two-column mode with colored tag chips instead of fixed neutral tags.
+- Waterfall tag density and two-line horizontal flow is implemented pending controller acceptance:
+  Waterfall cards no longer cap tags at four tiny wrapped chips. They now use a fixed-height horizontal
+  two-row tag strip with caption-sized chips, preserving tag colors and click-to-search. Simulator
+  evidence on `127.0.0.1:5555`: `.hvigor/outputs/waterfall-two-row-tags/before.jpeg`.
 - Settings/user-visible site terminology cleanup is implemented pending controller acceptance: EH
   settings trailing labels and user-visible resource strings now use official `E-Hentai` / `ExHentai`
   names instead of community nicknames or the old "table site" wording.
@@ -261,11 +265,8 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Waterfall tag density and two-line horizontal flow: current Waterfall cards hard-cap visible tags at
-   four and use tiny chips. FE's rich Waterfall card uses a fixed-height two-row horizontal tag flow with
-   tag-limit policy rather than a Waterfall-only literal. Prefer a simple horizontal `Scroll` containing
-   two chip rows for NextE; only use nested ArkUI `WaterFlow` if a small prototype proves
-   `layoutDirection(FlexDirection.Row)` + `rowsTemplate` works without nested-scroll complexity.
+1. No newly selected lane after the Waterfall tag-flow fix. Re-read this file and the relevant domain
+   intake before choosing the next user-visible bug or feature.
 
 ## Pending Explicit Authorization
 
