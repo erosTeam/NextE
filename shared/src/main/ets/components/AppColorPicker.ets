@@ -501,7 +501,12 @@ export struct AppColorPicker {
   }
 
   private isCurrentColor(color: string): boolean {
-    return this.draftColor().toUpperCase() === color.toUpperCase()
+    const current: string = this.normalizedColorFor(this.draftHex)
+    const target: string = this.normalizedColorFor(color)
+    if (current.length > 0 && target.length > 0) {
+      return current.toUpperCase() === target.toUpperCase()
+    }
+    return this.draftColor().toUpperCase() === target.toUpperCase()
   }
 
   private hexDigitsFor(color: string): string {

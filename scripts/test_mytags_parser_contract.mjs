@@ -14,17 +14,22 @@ function parse(html) {
     const col = m[2].match(/border-color:\s*(#[0-9a-fA-F]+)/)
     const txt = m[2].match(/(?:^|;)\s*color:\s*(#[0-9a-fA-F]+)/)
     const fill = m[2].match(/background[^:]*:[^;]*?(#[0-9a-fA-F]+)/)
+    const styleHexes = Array.from(m[2].matchAll(/#[0-9a-fA-F]{6}/g), x => x[0])
     const w = html.match(new RegExp(`id="tagweight_${m[1]}"[^>]*value="([^"]*)"`))
     const tagWeight = w ? w[1] : ''
     const parsedWeight = Number.parseInt(tagWeight, 10)
     const custom = html.match(new RegExp(`id="tagcolor_${m[1]}"[^>]*value="([^"]*)"`))
+    const defaultColor = !custom || custom[1].replace('#', '').trim().length === 0
+    let colorCode = styleHexes.length > 3 ? styleHexes[3] : ''
+    if (!colorCode && custom && custom[1].trim()) colorCode = custom[1].trim().startsWith('#') ? custom[1].trim() : `#${custom[1].trim()}`
     out.tags.push({
       tagId: m[1], tag: m[3], display: m[4],
       translate: translateFullTag(m[3]),
+      colorCode,
       color: col ? col[1] : '',
       textColor: txt ? txt[1] : '',
       fillColor: fill ? fill[1] : (col ? col[1] : ''),
-      defaultColor: !custom || custom[1].replace('#', '').trim().length === 0,
+      defaultColor,
       tagWeight,
       weight: Number.isNaN(parsedWeight) ? 10 : parsedWeight,
       watched: new RegExp(`id="tagwatch_${m[1]}"[^>]*\\schecked`).test(html),
@@ -81,7 +86,7 @@ const synthetic = `
 <div id="usertag_3437"><div><a href="/tag/language:chinese"><div id="tagpreview_3437" class="gt" style="color:#f1f1f1;border-color:#1357df;background:radial-gradient(#1357df,#3377FF)" title="language:chinese">chinese</div></a></div>
 <div><input type="checkbox" id="tagwatch_3437"></div><div><input type="checkbox" id="taghide_3437"></div></div>
 <div><input type="text" id="tagcolor_3437" value=""></div><div><input type="number" id="tagweight_3437" value="10"></div>
-<div id="usertag_441609"><div><a href="/tag/artist:dittaya"><div id="tagpreview_441609" class="gt" style="border-color:#df4646" title="artist:dittaya">dittaya</div></a></div>
+<div id="usertag_441609"><div><a href="/tag/artist:dittaya"><div id="tagpreview_441609" class="gt" style="color:#fffffd;border-color:#DF3672;background:linear-gradient(#AA1144,#FF5692)" title="artist:dittaya">dittaya</div></a></div>
 <div><input type="checkbox" id="tagwatch_441609"></div><div><input type="checkbox" id="taghide_441609" checked></div><div><input type="text" id="tagcolor_441609" value="#df4646"></div><div><input type="number" id="tagweight_441609" value="25"></div></div>
 <div id="usertag_777"><div><a href="/tag/a:short"><div id="tagpreview_777" class="gt" style="border-color:#df4646" title="a:short">short</div></a></div>
 <div><input type="checkbox" id="tagwatch_777"></div><div><input type="checkbox" id="taghide_777"></div><div><input type="number" id="tagweight_777" value="10"></div></div>
@@ -99,7 +104,8 @@ if (syn.tags[1] && syn.tags[1].translate !== '') fail(`unknown tag should not in
 // 3-color parse: text color (#f1f1f1), border (#1357df), fill = gradient start (#1357df) — not white-on-anything.
 if (syn.tags[0] && (syn.tags[0].textColor !== '#f1f1f1' || syn.tags[0].fillColor !== '#1357df')) fail(`syn tag0 colors wrong: ${JSON.stringify(syn.tags[0])}`)
 // A tag with only border-color (no fill/text) falls back: fillColor = border, textColor empty.
-if (syn.tags[1] && (syn.tags[1].fillColor !== '#df4646' || syn.tags[1].textColor !== '')) fail(`syn tag1 colors wrong: ${JSON.stringify(syn.tags[1])}`)
+if (syn.tags[1] && (syn.tags[1].color !== '#DF3672' || syn.tags[1].fillColor !== '#AA1144' || syn.tags[1].textColor !== '#fffffd')) fail(`syn tag1 preview colors wrong: ${JSON.stringify(syn.tags[1])}`)
+if (syn.tags[1] && syn.tags[1].colorCode !== '#FF5692') fail(`syn tag1 editable colorCode should use the eros_fe fourth preview hex, not border/tagcolor: ${JSON.stringify(syn.tags[1])}`)
 if (syn.tags[0] && syn.tags[0].defaultColor !== true) fail(`syn tag0 defaultColor: ${JSON.stringify(syn.tags[0])}`)
 if (syn.tags[1] && syn.tags[1].defaultColor !== false) fail(`syn tag1 defaultColor: ${JSON.stringify(syn.tags[1])}`)
 if (syn.tags[1] && (syn.tags[1].tag !== 'artist:dittaya' || syn.tags[1].hidden !== true)) fail(`syn tag1 hidden not detected: ${JSON.stringify(syn.tags[1])}`)
@@ -151,6 +157,7 @@ if (!/m\.set\('a', 'artist'\)/.test(consts) || !/m\.set\('cos', 'cosplayer'\)/.t
 if (!/tagNsColorMap\.get\(EhConstants\.expandNamespace\(ns\)\)/.test(consts)) fail('tagNamespaceColor does not expand prefix before color lookup')
 const model = read('../shared/src/main/ets/model/EhMytags.ets')
 if (!/EhConstants\.expandNamespace\(raw\)/.test(model)) fail('EhUsertag.namespace does not expand prefix')
+if (!/colorCode:\s*string/.test(model)) fail('EhUsertag.colorCode editable tag color missing')
 if (!/defaultColor:\s*boolean/.test(model)) fail('EhUsertag.defaultColor missing')
 if (!/tagWeight:\s*string/.test(model)) fail('EhUsertag.tagWeight raw string missing')
 if (!/translate:\s*string/.test(model)) fail('EhUsertag.translate missing')
@@ -158,6 +165,8 @@ if (!/canDelete:\s*boolean/.test(model)) fail('EhMytags.canDelete missing')
 const parser = read('../shared/src/main/ets/parser/EhMytagsParser.ets')
 if (!/sets\.sort\(/.test(parser)) fail('EhMytagsParser does not sort tagsets by id')
 if (!/tagcolor_\$\{m\[1\]\}/.test(parser)) fail('EhMytagsParser does not parse per-tag custom color input')
+if (!/t\.colorCode = styleHexes\.length > 3 \? styleHexes\[3\] : ''/.test(parser)) fail('EhMytagsParser does not mirror eros_fe editable colorCode from the fourth preview style hex')
+if (!/styleHexes\(style: string\): string\[\]/.test(parser)) fail('EhMytagsParser missing preview-style hex extraction helper')
 if (!parser.includes('id="tagweight_${m[1]}"[^>]*value="([^"]*)"')) fail('EhMytagsParser does not preserve raw tagweight input')
 if (!/Number\.parseInt\(t\.tagWeight, 10\)/.test(parser)) fail('EhMytagsParser does not derive numeric weight from raw tagWeight')
 if (!/TagTranslationService\.translateFullTag\(t\.tag\)/.test(parser)) fail('EhMytagsParser does not fill EhUsertag.translate')

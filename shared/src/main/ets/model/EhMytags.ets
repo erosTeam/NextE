@@ -12,10 +12,10 @@ export class EhUsertag {
   tag: string = ''
   display: string = ''
   translate: string = ''
-  // EH gives each tag THREE colors via inline style (color:text, border-color, background fill).
-  // Rendering the fill with the EH-supplied text color keeps custom light-fill tags readable
-  // (forcing white text on a light fill is the bug this replaces). `color` = border (kept for compat).
-  color: string = '' // border color
+  // EH exposes multiple colors for a user tag. `colorCode` mirrors eros_fe's editable/writable
+  // tag color. The other colors are preview style colors from the tag chip CSS.
+  colorCode: string = '' // editable / writable tag color
+  color: string = '' // preview border color, kept for compatibility
   fillColor: string = '' // background fill (first gradient stop)
   textColor: string = '' // EH-chosen readable text color
   defaultColor: boolean = true // true when EH's custom-color input is empty

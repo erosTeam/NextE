@@ -143,6 +143,9 @@ export struct MyTagsPage {
   }
 
   private tagFillColor(t: EhUsertag): ResourceColor {
+    if (t.colorCode.length > 0) {
+      return t.colorCode
+    }
     if (t.fillColor.length > 0) {
       return t.fillColor
     }
@@ -181,7 +184,7 @@ export struct MyTagsPage {
     this.editWatched = t.watched
     this.editHidden = t.hidden
     this.editDefaultColor = t.defaultColor
-    this.editColor = t.defaultColor ? '' : (t.color.length > 0 ? t.color : t.fillColor)
+    this.editColor = t.defaultColor ? '' : (t.colorCode.length > 0 ? t.colorCode : t.color)
     this.editWeight = t.tagWeight.length > 0 ? t.tagWeight : `${t.weight}`
     this.editError = ''
     this.openMyTagsSheet(MYTAGS_SHEET_EDIT)

@@ -30,7 +30,10 @@ export class EhMytagsParser {
         t.tag = m[3]
         t.display = m[4]
         t.translate = TagTranslationService.translateFullTag(t.tag)
-        // EH style e.g. `color:#f1f1f1;border-color:#1357df;background:radial-gradient(#1357df,#3377FF)`.
+        // EH style e.g. `color:#f1f1f1;border-color:#1357df;background:radial-gradient(...)`.
+        // eros_fe treats the fourth hex from this preview style as the editable colorCode.
+        const styleHexes: string[] = EhMytagsParser.styleHexes(m[2])
+        t.colorCode = styleHexes.length > 3 ? styleHexes[3] : ''
         const col: RegExpMatchArray | null = m[2].match(/border-color:\s*(#[0-9a-fA-F]+)/)
         t.color = col !== null && col[1] !== undefined ? col[1] : ''
         // Text color: a `color:` NOT preceded by `-` (so it isn't the `border-color`).
@@ -49,6 +52,9 @@ export class EhMytagsParser {
           new RegExp(`id="tagcolor_${m[1]}"[^>]*value="([^"]*)"`),
         )
         t.defaultColor = colorM === null || colorM[1] === undefined || colorM[1].replace('#', '').trim().length === 0
+        if (t.colorCode.length === 0 && colorM !== null && colorM[1] !== undefined && colorM[1].trim().length > 0) {
+          t.colorCode = EhMytagsParser.normalizeHex(colorM[1])
+        }
         t.watched = new RegExp(`id="tagwatch_${m[1]}"[^>]*\\schecked`).test(html)
         t.hidden = new RegExp(`id="taghide_${m[1]}"[^>]*\\schecked`).test(html)
         result.tags.push(t)
@@ -61,6 +67,27 @@ export class EhMytagsParser {
     result.apiuid = HtmlSelectorUtils.group1(html, /var apiuid\s*=\s*(\d+)/)
     result.apikey = HtmlSelectorUtils.group1(html, /var apikey\s*=\s*"([0-9a-f]+)"/)
     return result
+  }
+
+  private static styleHexes(style: string): string[] {
+    const result: string[] = []
+    const re: RegExp = /#[0-9a-fA-F]{6}/g
+    let m: RegExpExecArray | null = re.exec(style)
+    while (m !== null) {
+      if (m[0] !== undefined) {
+        result.push(m[0])
+      }
+      m = re.exec(style)
+    }
+    return result
+  }
+
+  private static normalizeHex(hex: string): string {
+    const trimmed: string = hex.trim()
+    if (trimmed.length === 0) {
+      return ''
+    }
+    return trimmed.startsWith('#') ? trimmed : `#${trimmed}`
   }
 
   /** Parse the `change_tagset` `<select>` into the user's tag sets (id, name, count). */

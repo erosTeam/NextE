@@ -149,6 +149,10 @@ ok(!/mytags_color_hue|mytags_color_saturation|mytags_color_value/.test(colorPick
 ok(/EditTagSheet\(\)[\s\S]*AppColorPicker\(\{[\s\S]*title: \$r\('app\.string\.mytags_color'\)[\s\S]*color: this\.editColor[\s\S]*this\.editColor = value/.test(page) &&
   /AddTagSheet\(\)[\s\S]*AppColorPicker\(\{[\s\S]*title: \$r\('app\.string\.mytags_color'\)[\s\S]*color: this\.addColor[\s\S]*this\.addColor = value/.test(page),
   'existing-tag and new-tag sheets share the reusable AppColorPicker')
+ok(/openEditTag\(t: EhUsertag\)[\s\S]*this\.editColor = t\.defaultColor \? '' : \(t\.colorCode\.length > 0 \? t\.colorCode : t\.color\)/.test(page),
+  'existing-tag edit sheet seeds from EhUsertag.colorCode instead of preview border color')
+ok(/private tagFillColor\(t: EhUsertag\): ResourceColor[\s\S]*if \(t\.colorCode\.length > 0\) \{[\s\S]*return t\.colorCode/.test(page),
+  'MyTags list badge fill uses the same editable colorCode as eros_fe when available')
 ok(!/DraftColorPicker|ColorAxisSlider|MYTAGS_COLOR_CHOICES|MYTAGS_COLOR_TARGET/.test(page),
   'MyTagsPage does not keep a page-local color picker implementation')
 ok(/editWatched = value[\s\S]*if \(value\) \{[\s\S]*this\.editHidden = false/.test(page) &&
