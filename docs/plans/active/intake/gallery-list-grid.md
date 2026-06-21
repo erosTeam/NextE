@@ -10,6 +10,75 @@ Purpose:
 
 ## Items
 
+### Waterfall Tag Density And Two-Line Horizontal Flow
+
+Type: browsing mode UI parity / card height control
+
+Priority suggestion: P1/P2
+
+Status: investigated / queued
+
+Source:
+
+- User feedback, 2026-06-22: Waterfall cards expose too few tags and the chips look too small. The
+  current four-tag cap appears arbitrary, and a normal wrapping layout would make cards grow too tall.
+
+Current NextE evidence:
+
+- `shared/src/main/ets/components/GalleryWaterfallCard.ets` renders tags with
+  `this.gallery.simpleTags.slice(0, 4)`, `ThemeConstants.FONT_SIZE_TINY`, and a normal wrapping `Flex`.
+- The color path is no longer the main issue: Waterfall tags now use `UserTagStore`, `UserTagSignal`,
+  parsed inline background/text colors, and neutral fallback. This follow-up is only about density,
+  count, and height control.
+
+FE grounding:
+
+- `eros_fe/lib/pages/item/gallery_item_flow_large.dart` uses `TagWaterfallFlowViewBox` for rich
+  Waterfall cards.
+- `eros_fe/lib/pages/item/item_base.dart` implements `TagWaterfallFlowViewBox` as a fixed-height,
+  horizontal tag flow with `crossAxisCount = 2` by default, `height = crossAxisCount * 22 - 4`, and a
+  horizontal scroll direction.
+- FE does not hard-code a four-tag cap. It applies `getLimitSimpleTags(simpleTags,
+  ehSettingService.listViewTagLimit)`, where `listViewTagLimit` defaults to `-1` (no limit) and the
+  settings options are `-1, 0, 1, 2, 3, 4, 5, 6, 7`.
+- FE tag chips use 12px text and 4/2/4/2 padding, matching a compact but readable chip scale.
+
+ArkUI feasibility note:
+
+- The offline ArkUI `WaterFlow` reference supports horizontal layout through
+  `.layoutDirection(FlexDirection.Row)` plus `rowsTemplate`, so it is not strictly vertical-only.
+- However, `WaterFlow` is a scrollable component with its own gesture handling, `FlowItem` constraints,
+  and section/template interactions. The current gallery-level `PullRefreshWaterFlowScaffold` also uses
+  `WaterFlowSections`, whose docs state that sections ignore `columnsTemplate` / `rowsTemplate`.
+- For the small tag strip inside each card, prefer the simplest stable visual equivalent first: a
+  fixed-height horizontal `Scroll` containing two `Row`s of tag chips. This preserves the FE behavior
+  users care about (two rows, horizontal overflow, no card-height explosion) without nesting another
+  WaterFlow inside every masonry card.
+
+Implementation direction:
+
+- Replace the Waterfall tag `Flex` wrap with a fixed-height two-row horizontal tag strip.
+- Remove the hard-coded `slice(0, 4)`. Use the same list tag-limit policy as other gallery cards, or a
+  small shared helper that treats `-1` as no limit. If the full settings surface is not ready, use the
+  existing list-card cap as an interim shared constant rather than a Waterfall-only literal.
+- Use `ThemeConstants.FONT_SIZE_CAPTION` / the existing list-chip scale rather than
+  `FONT_SIZE_TINY`.
+- Keep the existing chip color priority and tag click-to-search behavior.
+- Do not change compact Grid; Grid intentionally does not show tags.
+- Only try an actual nested ArkUI `WaterFlow` for tags if a tiny prototype proves horizontal
+  `layoutDirection(FlexDirection.Row)` + `rowsTemplate('1fr 1fr')` works without nested-scroll gesture
+  conflict or unnecessary complexity.
+
+Acceptance shape:
+
+- Waterfall cards show more than four tags when data has them, while the tag area remains bounded to
+  about two chip rows.
+- Horizontal overflow is scrollable or clipped in a controlled way; tags must not grow the card into a
+  tall block.
+- Chip font size/readability matches ordinary list tags more closely than the current tiny Waterfall
+  chips.
+- Existing tag color parity and tag click search contracts continue to pass.
+
 ### Waterfall Tag Color Parity
 
 Type: browsing mode UI parity / tag metadata presentation

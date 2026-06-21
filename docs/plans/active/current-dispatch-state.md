@@ -259,7 +259,11 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-No currently promoted item. Pull the next lane from domain intake only after promoting it here.
+1. Waterfall tag density and two-line horizontal flow: current Waterfall cards hard-cap visible tags at
+   four and use tiny chips. FE's rich Waterfall card uses a fixed-height two-row horizontal tag flow with
+   tag-limit policy rather than a Waterfall-only literal. Prefer a simple horizontal `Scroll` containing
+   two chip rows for NextE; only use nested ArkUI `WaterFlow` if a small prototype proves
+   `layoutDirection(FlexDirection.Row)` + `rowsTemplate` works without nested-scroll complexity.
 
 ## Pending Explicit Authorization
 
