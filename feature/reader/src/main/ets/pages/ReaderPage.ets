@@ -161,6 +161,7 @@ export struct ReaderPage {
   // (left/right thirds + center-column top/bottom fifths).
   @Local viewWidth: number = 0;
   @Local viewHeight: number = 0;
+  @Local loadedPageSignal: number = 0;
   private listScroller: Scroller = new Scroller();
   private thumbScroller: Scroller = new Scroller();
   private horizontalSwiperController: SwiperController = new SwiperController();
@@ -611,6 +612,7 @@ export struct ReaderPage {
       }
     }
     this.loadedPages.push(page)
+    this.loadedPageSignal++
     this.maybeResumeAutoRead(page - 1)
   }
 
@@ -867,6 +869,8 @@ export struct ReaderPage {
           ReaderImagePage({
             image: img,
             imageKey: this.readerImageKey(img),
+            initiallyLoaded: this.isPageImageLoaded(img.page - 1),
+            loadedSignal: this.loadedPageSignal,
             activeIndex: this.vm.currentIndex,
             doubleTapSeq: this.doubleTapSeq,
             doubleTapX: this.doubleTapX,
@@ -981,6 +985,9 @@ export struct ReaderPage {
             second: this.hasSpreadImage(this.spreadSecondIndex(start)) ? this.vm.images[this.spreadSecondIndex(start)] : new EhGalleryImage(),
             hasFirst: this.hasSpreadImage(start),
             hasSecond: this.spreadSecondVisible(start) && this.hasSpreadImage(this.spreadSecondIndex(start)),
+            firstInitiallyLoaded: this.isPageImageLoaded(start),
+            secondInitiallyLoaded: this.isPageImageLoaded(this.spreadSecondIndex(start)),
+            loadedSignal: this.loadedPageSignal,
             rowReversed: this.spreadRowReversed(),
             activeIndex: this.vm.currentIndex,
             doubleTapSeq: this.doubleTapSeq,
@@ -1053,6 +1060,8 @@ export struct ReaderPage {
             ReaderVerticalImage({
               image: img,
               imageKey: this.readerImageKey(img),
+              initiallyLoaded: this.isPageImageLoaded(img.page - 1),
+              loadedSignal: this.loadedPageSignal,
               onImageLoaded: (page: number) => {
                 this.markPageImageLoaded(page)
               },
@@ -1621,6 +1630,9 @@ struct ReaderSpreadSurface {
   @Param second: EhGalleryImage = new EhGalleryImage();
   @Param hasFirst: boolean = false;
   @Param hasSecond: boolean = false;
+  @Param firstInitiallyLoaded: boolean = false;
+  @Param secondInitiallyLoaded: boolean = false;
+  @Param loadedSignal: number = 0;
   @Param rowReversed: boolean = false;
   @Param activeIndex: number = 0;
   @Param doubleTapSeq: number = 0;
@@ -1780,11 +1792,13 @@ struct ReaderSpreadSurface {
   }
 
   @Builder
-  SpreadImageLayer(image: EhGalleryImage, hasImage: boolean) {
+  SpreadImageLayer(image: EhGalleryImage, hasImage: boolean, initiallyLoaded: boolean) {
     if (hasImage) {
       ReaderSpreadImageLayer({
         image: image,
         imageKey: `${image.page}-${image.sUrl}-${image.imageUrl}`,
+        initiallyLoaded: initiallyLoaded,
+        loadedSignal: this.loadedSignal,
         onImageLoaded: (page: number) => {
           this.onImageLoaded(page)
         },
@@ -1803,11 +1817,11 @@ struct ReaderSpreadSurface {
     Stack() {
       Row({ space: ThemeConstants.SPACE_XS }) {
         if (this.rowReversed) {
-          this.SpreadImageLayer(this.second, this.hasSecond)
-          this.SpreadImageLayer(this.first, this.hasFirst)
+          this.SpreadImageLayer(this.second, this.hasSecond, this.secondInitiallyLoaded)
+          this.SpreadImageLayer(this.first, this.hasFirst, this.firstInitiallyLoaded)
         } else {
-          this.SpreadImageLayer(this.first, this.hasFirst)
-          this.SpreadImageLayer(this.second, this.hasSecond)
+          this.SpreadImageLayer(this.first, this.hasFirst, this.firstInitiallyLoaded)
+          this.SpreadImageLayer(this.second, this.hasSecond, this.secondInitiallyLoaded)
         }
       }
       .width('100%')
@@ -1900,6 +1914,8 @@ struct ReaderSpreadSurface {
 struct ReaderSpreadImageLayer {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param imageKey: string = '';
+  @Param initiallyLoaded: boolean = false;
+  @Param loadedSignal: number = 0;
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageMetrics: (page: number, width: number, height: number) => void =
     (_page: number, _width: number, _height: number) => {};
@@ -1916,8 +1932,18 @@ struct ReaderSpreadImageLayer {
 
   @Monitor('imageKey')
   onImageKeyChanged(): void {
+    if (this.adoptResolvedImageUrl()) {
+      return
+    }
     this.resetImageState()
     this.resolve()
+  }
+
+  @Monitor('loadedSignal')
+  onLoadedSignalChanged(): void {
+    if (this.initiallyLoaded && this.imageUrl.length > 0 && this.imageUrl === this.image.imageUrl) {
+      this.imageLoaded = true
+    }
   }
 
   private resetImageState(): void {
@@ -1930,15 +1956,13 @@ struct ReaderSpreadImageLayer {
 
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
-      this.imageUrl = this.image.imageUrl
-      this.imageLoaded = true
-      this.failed = false
-      this.failureKind = ReaderImageFailureKind.Generic
+      this.adoptResolvedImageUrl()
       return
     }
     try {
       this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      this.imageLoaded = this.initiallyLoaded && this.imageUrl === this.image.imageUrl
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
@@ -1947,6 +1971,18 @@ struct ReaderSpreadImageLayer {
       DiagnosticLogger.warn('reader', 'spread_resolve_failed', e.message)
       this.retrySourceAutomatically()
     }
+  }
+
+  private adoptResolvedImageUrl(): boolean {
+    if (this.image.imageUrl.length === 0) {
+      return false
+    }
+    this.autoRetryCount = 0
+    this.imageUrl = this.image.imageUrl
+    this.imageLoaded = this.initiallyLoaded
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
+    return true
   }
 
   private retrySource(): void {
@@ -2025,6 +2061,8 @@ struct ReaderSpreadImageLayer {
 struct ReaderImagePage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param imageKey: string = '';
+  @Param initiallyLoaded: boolean = false;
+  @Param loadedSignal: number = 0;
   @Param activeIndex: number = 0;
   @Param doubleTapSeq: number = 0;
   @Param doubleTapX: number = 0;
@@ -2065,10 +2103,22 @@ struct ReaderImagePage {
 
   @Monitor('imageKey')
   onImageKeyChanged(): void {
+    if (this.adoptResolvedImageUrl()) {
+      this.resetZoom()
+      this.notifyZoom()
+      return
+    }
     this.resetSourceState()
     this.resetZoom()
     this.notifyZoom()
     this.resolve()
+  }
+
+  @Monitor('loadedSignal')
+  onLoadedSignalChanged(): void {
+    if (this.initiallyLoaded && this.imageUrl.length > 0 && this.imageUrl === this.image.imageUrl) {
+      this.imageLoaded = true
+    }
   }
 
   @Monitor('doubleTapSeq')
@@ -2092,15 +2142,13 @@ struct ReaderImagePage {
   // different host, bypassing the cached URL.
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
-      this.imageUrl = this.image.imageUrl
-      this.imageLoaded = true
-      this.failed = false
-      this.failureKind = ReaderImageFailureKind.Generic
+      this.adoptResolvedImageUrl()
       return
     }
     try {
       this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      this.imageLoaded = this.initiallyLoaded && this.imageUrl === this.image.imageUrl
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
@@ -2109,6 +2157,18 @@ struct ReaderImagePage {
       DiagnosticLogger.warn('reader', 'resolve_failed', e.message)
       this.retrySourceAutomatically()
     }
+  }
+
+  private adoptResolvedImageUrl(): boolean {
+    if (this.image.imageUrl.length === 0) {
+      return false
+    }
+    this.autoRetryCount = 0
+    this.imageUrl = this.image.imageUrl
+    this.imageLoaded = this.initiallyLoaded
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
+    return true
   }
 
   private resetSourceState(): void {
@@ -2369,6 +2429,8 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param imageKey: string = '';
+  @Param initiallyLoaded: boolean = false;
+  @Param loadedSignal: number = 0;
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
@@ -2383,22 +2445,30 @@ struct ReaderVerticalImage {
 
   @Monitor('imageKey')
   onImageKeyChanged(): void {
+    if (this.adoptResolvedImageUrl()) {
+      return
+    }
     this.resetSourceState()
     this.resolve()
+  }
+
+  @Monitor('loadedSignal')
+  onLoadedSignalChanged(): void {
+    if (this.initiallyLoaded && this.imageUrl.length > 0 && this.imageUrl === this.image.imageUrl) {
+      this.imageLoaded = true
+    }
   }
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
-      this.imageUrl = this.image.imageUrl
-      this.imageLoaded = true
-      this.failed = false
-      this.failureKind = ReaderImageFailureKind.Generic
+      this.adoptResolvedImageUrl()
       return
     }
     try {
       this.imageLoaded = false
       this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      this.imageLoaded = this.initiallyLoaded && this.imageUrl === this.image.imageUrl
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
@@ -2407,6 +2477,18 @@ struct ReaderVerticalImage {
       DiagnosticLogger.warn('reader', 'resolve_failed', e.message)
       this.retrySourceAutomatically()
     }
+  }
+
+  private adoptResolvedImageUrl(): boolean {
+    if (this.image.imageUrl.length === 0) {
+      return false
+    }
+    this.autoRetryCount = 0
+    this.imageUrl = this.image.imageUrl
+    this.imageLoaded = this.initiallyLoaded
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
+    return true
   }
 
   private resetSourceState(): void {

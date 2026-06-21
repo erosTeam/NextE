@@ -206,11 +206,12 @@ Historical feedback in this section must not trigger new implementation.
   Simulator evidence on `127.0.0.1:5555` shows Waterfall remains a two-column masonry mode after the
   change, with detailed edge-case behavior covered by `scripts/test_gallery_waterflow_contract.mjs`.
 - Reader cached forward page flash is implemented pending controller acceptance: `precacheAhead()` now
-  republishes the traced image list after resolving forward image URLs, and Reader mounts off-screen
-  viewport-sized warmer `Image` nodes for already-resolved forward pages before Swiper exposes them.
-  Simulator evidence on `127.0.0.1:5555` in `.hvigor/outputs/reader-cached-forward-warm/` shows pages
-  12/13 emitted `warm_image_complete` before the next-page turn, and only page 14 started resolve/warm
-  after the turn.
+  republishes the traced image list after resolving forward image URLs, Reader mounts off-screen
+  viewport-sized warmer `Image` nodes, and the visible reader surfaces now consume a reactive
+  loaded-page signal instead of treating `imageUrl` alone as proof that the bitmap has painted.
+  Simulator evidence on `127.0.0.1:5555` in `.hvigor/outputs/reader-cached-forward-state-fix/` shows
+  page 2/3 emitted `warm_image_complete` before the turn, and the first turn to page 2 captured a
+  ready image with no loading/resolving text while only page 4 began the next warm.
 
 ## Parked / Guidance Only
 
