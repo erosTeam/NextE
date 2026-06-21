@@ -291,6 +291,13 @@ Handled status:
   verified prefill, then cancelled. Evidence files live under `.hvigor/outputs/comment-compose-write/`.
   Remaining gap: final comment submit was not clicked because EH comments are real account writes and still
   need an explicitly authorized test target.
+- Comment compose/reply UX follow-up: `open / research captured`. User feedback, 2026-06-22: the current
+  reply/new-comment surface should move away from the top-right action plus half-modal feel toward a
+  safe-area-aware bottom floating composer. The interaction should follow eros_fe's bottom text-field model
+  and row reply state, but use a rounded floating NextE/HDS container: row reply sets a quoted author/comment
+  preview above the input, the quote can be cancelled, and plain new-comment/reply share the same input and
+  send gating. This is a presentation/state-transition lane; reuse the existing protected comment submit
+  plumbing and keep final EH submit behind explicit authorization.
 - Own-comment edit: `implemented / pending controller acceptance and authorized real-submit verification`.
   Commit: `974b698 feat(gallery): support editing own comments`. Scope: full-comments edit footer action
   appears only when `EhCommentParser` sets `canEdit`, edit mode reuses the HDS compose sheet, pre-fills the

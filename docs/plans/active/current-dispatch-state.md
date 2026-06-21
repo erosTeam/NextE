@@ -273,7 +273,13 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-No newly selected lane after comment footer action scale fix.
+- Gallery comments bottom floating reply composer. User feedback, 2026-06-22: the full comments page
+  should not treat the top-right action / half-modal sheet as the primary reply experience. Implement a
+  safe-area-aware bottom floating composer for new comments and row replies, grounded in eros_fe's bottom
+  text-field/reply-state model but styled as a rounded NextE/HDS container. Row reply should show a compact
+  quoted author/comment preview with a cancel action; plain new-comment/reply should share the same input
+  and send gating. Reuse existing protected comment submit/reply plumbing; do not perform final EH submit
+  without explicit authorization, and do not mix in avatar, vote, uploader-filter, or footer-icon changes.
 
 ## Pending Explicit Authorization
 

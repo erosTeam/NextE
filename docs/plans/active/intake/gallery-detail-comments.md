@@ -566,6 +566,57 @@ Acceptance shape:
 - The three visible footer actions are visually grouped; there is not enough empty space between adjacent
   action icons to look like a missing fourth button.
 
+### Gallery Comments Need Bottom Floating Reply Composer
+
+Type: UX redesign / comment write surface
+
+Priority suggestion: P1
+
+Status: open / research captured
+
+Source:
+
+- User feedback, 2026-06-22: the full comments page title action / reply entry still feels wrong. A
+  comment reply should not be represented primarily by a strange top-right button or a generic half-modal.
+- Desired direction: use a bottom-attached floating reply composer that feels closer to a chat input area.
+  When replying to another comment, show a compact quoted preview with the target author/comment excerpt and
+  a clear cancel affordance; sending creates a new reply/comment, not an inline edit of the quoted row.
+- Visual references: Telegram-style rounded floating input/reply preview and eros_fe's existing bottom
+  comment text field. Do not copy Telegram chrome wholesale and do not force a flat Eros FE clone; combine
+  the rounded floating container with NextE/HDS visual language.
+
+Research:
+
+- eros_fe grounds the interaction model:
+  - `lib/pages/gallery/view/comment_page.dart` renders a bottom comment text field with `_buildOriText`
+    above the input for edit/reply state, a multiline text controller, focus node, and a send button.
+  - `lib/pages/gallery/view/comment_item.dart` triggers `commentController.reptyComment(reptyCommentId:
+    galleryComment.id!)` from each comment row's reply icon.
+- NextE already has protected comment submit/reply plumbing. This lane should mostly replace the
+  presentation surface and state transitions, not invent another comment write API path.
+
+Expected behavior:
+
+- Full comments page exposes one persistent bottom composer entry, visually separated from the scroll list
+  and safe-area aware.
+- Tapping a row reply action switches the composer into reply mode, shows a quoted preview of the target
+  author/comment, focuses the input, and allows cancelling back to plain new-comment mode.
+- Plain new comment and reply share the same composer surface and send-state gating.
+- Own-comment edit may reuse the same composer pattern only if it remains clearly labelled as edit and
+  cannot be confused with replying. If that would enlarge the patch, keep edit on the existing path and
+  only redesign new/reply first.
+- Preserve current non-destructive QA rule: opening/typing/cancelling can be validated; final EH comment
+  submit still needs explicit authorization.
+
+Acceptance shape:
+
+- The full comments page no longer relies on a top-right reply/new-comment button as the primary compose
+  interaction.
+- Replying to a comment shows a quoted/cancellable context above the text input.
+- Cancelling a reply clears the quote and returns to plain new-comment mode without losing the page state.
+- Keyboard appearance and safe-area padding do not cover the send button or hide the active quote.
+- Existing comment vote, uploader-only filter, score badge, and footer icon behavior remain unchanged.
+
 ### Gallery Comment Vote Must Refresh Visible Score And Icon State
 
 Type: write-action regression / UI state refresh
