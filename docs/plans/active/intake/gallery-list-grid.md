@@ -16,7 +16,7 @@ Type: browsing mode UI parity / card height control
 
 Priority suggestion: P1/P2
 
-Status: implemented candidate / needs visual QA
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -33,14 +33,15 @@ Current NextE evidence:
 
 Implementation:
 
-- `GalleryWaterfallCard.Tags()` now uses a fixed-height horizontal `Scroll` with two rows of tag chips.
+- `GalleryWaterfallCard.Tags()` now uses a fixed-height horizontal `List` of two-line tag columns.
 - The Waterfall-only four-tag cap and tiny text were removed; chips now use caption-sized text and the
   existing tag color / click-to-search path.
 - Contract coverage was added to `scripts/test_gallery_waterflow_contract.mjs` after simulator visual
   verification, so the implementation cannot regress to wrapping `Flex`, `slice(0, 4)`, or tiny chips.
 - Follow-up implementation changed the strip from two independent horizontal rows to a horizontal sequence
-  of two-line tag columns. This should preserve the fixed-height FE behavior while giving the Scroll a
-  natural content width for horizontal overflow and left-start alignment.
+  of two-line tag columns. The strip uses a native horizontal `List` with `NestedScrollMode.SELF_ONLY`,
+  preserving the fixed-height FE behavior while giving the strip real horizontal scroll extent and keeping
+  horizontal drags off the outer tab Swiper.
 
 FE grounding:
 
@@ -62,9 +63,9 @@ ArkUI feasibility note:
   and section/template interactions. The current gallery-level `PullRefreshWaterFlowScaffold` also uses
   `WaterFlowSections`, whose docs state that sections ignore `columnsTemplate` / `rowsTemplate`.
 - For the small tag strip inside each card, prefer the simplest stable visual equivalent first: a
-  fixed-height horizontal `Scroll` containing two `Row`s of tag chips. This preserves the FE behavior
-  users care about (two rows, horizontal overflow, no card-height explosion) without nesting another
-  WaterFlow inside every masonry card.
+  fixed-height horizontal `List` containing two-line tag columns. This preserves the FE behavior users care
+  about (two rows, horizontal overflow, no card-height explosion) without nesting another WaterFlow inside
+  every masonry card.
 
 Implementation direction:
 
@@ -96,11 +97,13 @@ Verification:
   `node scripts/test_tag_search_query_contract.mjs`, `node scripts/test_list_tag_search_contract.mjs`,
   `node scripts/test_v1_decorator_inventory_contract.mjs`.
 - Build: `scripts/build_hvigor_signed.sh`.
-- Current follow-up verification: source contracts and signed build pass; device visual QA is still needed
-  to confirm left alignment and horizontal drag behavior in the actual Waterfall surface.
-- Local HarmonyOS emulator `127.0.0.1:5555`: signed HAP installed, Home Waterfall screenshot captured at
-  `.hvigor/outputs/waterfall-two-row-tags/before.jpeg`, showing two-column Waterfall cards with bounded
-  two-row tags.
+- Local HarmonyOS emulator `127.0.0.1:5555`: signed HAP installed. Before/after swipe evidence:
+  `.hvigor/outputs/waterfall-tag-strip-qa/list-before-listitem.png` and
+  `.hvigor/outputs/waterfall-tag-strip-qa/after-real-bounds-swipe.png`.
+- The layout dump showed the right-card tag list bounds as `[574,1349][1037,1499]`; swiping within those
+  bounds moved the visible tags from the initial `tel / amatsuji / akausu ko / aomushi ...` set to later
+  tags such as `...syosyo / comichi pota... / ...gama tarou / cotton`, while the top tab stayed on
+  `订阅`. This validates left-start two-line layout plus actual horizontal overflow/scroll.
 
 ### Waterfall Tag Color Parity
 

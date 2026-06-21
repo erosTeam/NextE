@@ -23,6 +23,7 @@ const WATERFALL_TAG_STRIP_HEIGHT: number = 48
 export struct GalleryWaterfallCard {
   @Require @Param gallery: EhGallery;
   private tagSig: UserTagSignal = connectUserTagSignal();
+  private tagScroller: Scroller = new Scroller();
 
   private coverRatio(): number {
     if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
@@ -117,11 +118,11 @@ export struct GalleryWaterfallCard {
   @Builder
   private Tags() {
     if (this.gallery.simpleTags.length > 0) {
-      Scroll() {
-        Row({ space: ThemeConstants.SPACE_XS }) {
-          ForEach(
-            this.tagColumnIndexes(),
-            (index: number) => {
+      List({ space: ThemeConstants.SPACE_XS, scroller: this.tagScroller }) {
+        ForEach(
+          this.tagColumnIndexes(),
+          (index: number) => {
+            ListItem() {
               Column({ space: ThemeConstants.SPACE_XS }) {
                 this.TagChip(this.gallery.simpleTags[index])
                 if (index + 1 < this.gallery.simpleTags.length && index + 1 < WATERFALL_TAG_LIMIT) {
@@ -129,17 +130,17 @@ export struct GalleryWaterfallCard {
                 }
               }
               .alignItems(HorizontalAlign.Start)
-            },
-            (index: number) => `${this.tagSig.version}:col:${index}`,
-          )
-        }
+            }
+          },
+          (index: number) => `${this.tagSig.version}:col:${index}`,
+        )
       }
-      .scrollable(ScrollDirection.Horizontal)
+      .listDirection(Axis.Horizontal)
+      .nestedScroll({ scrollForward: NestedScrollMode.SELF_ONLY, scrollBackward: NestedScrollMode.SELF_ONLY })
       .scrollBar(BarState.Off)
       .align(Alignment.Start)
       .width('100%')
       .height(WATERFALL_TAG_STRIP_HEIGHT)
-      .clip(true)
     }
   }
 

@@ -90,7 +90,9 @@ assertIncludes(waterfallCard, 'WATERFALL_TAG_STRIP_HEIGHT', 'Waterfall tag area 
 assertIncludes(waterfallCard, 'private tagColumnIndexes(): number[]', 'Waterfall tag strip must split tags into fixed two-line columns');
 assertIncludes(waterfallCard, 'this.tagColumnIndexes()', 'Waterfall tag strip must render a horizontal sequence of two-line tag columns');
 assertIncludes(waterfallCard, 'index + 1 < this.gallery.simpleTags.length', 'Waterfall tag strip must render the second tag in each column when available');
-assertIncludes(waterfallCard, '.scrollable(ScrollDirection.Horizontal)', 'Waterfall tag strip must overflow horizontally instead of wrapping vertically');
+assertIncludes(waterfallCard, 'List({ space: ThemeConstants.SPACE_XS, scroller: this.tagScroller })', 'Waterfall tag strip must use a native horizontal List so tag columns create real scroll extent');
+assertIncludes(waterfallCard, '.listDirection(Axis.Horizontal)', 'Waterfall tag strip must overflow horizontally instead of wrapping vertically');
+assertIncludes(waterfallCard, 'NestedScrollMode.SELF_ONLY', 'Waterfall tag strip must keep horizontal drags on the tag list instead of handing them to the outer tab Swiper');
 assertIncludes(waterfallCard, '.fontSize(ThemeConstants.FONT_SIZE_CAPTION)', 'Waterfall tag chips must use readable caption-size text');
 assertNotIncludes(waterfallCard, 'simpleTags.slice(0, 4)', 'Waterfall tag strip must not regress to a Waterfall-only four-tag cap');
 assertNotIncludes(waterfallCard, 'Flex({ wrap: FlexWrap.Wrap })', 'Waterfall tag strip must not use wrapping Flex that can grow the card height');

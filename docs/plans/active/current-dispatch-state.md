@@ -132,10 +132,15 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-- Fix Waterfall tag strip alignment and horizontal overflow. Waterfall cards should keep the FE-like
-  fixed two-line tag strip, left aligned, with horizontal overflow/scroll rather than centered wrapping or
-  clipping that removes the point of the two-line strip. Preserve tag color priority and click-to-search.
-  Keep compact Grid unchanged.
+- No default active lane selected after the Waterfall tag strip follow-up. Re-read this file plus the
+  relevant domain intake before choosing the next lane.
+
+## Recently Closed / Pending Acceptance
+
+- Waterfall tag strip alignment and horizontal overflow is implemented with local emulator evidence:
+  `75f558e` plus follow-up local diff changed Waterfall tags to a native horizontal two-line `List`;
+  `.hvigor/outputs/waterfall-tag-strip-qa/after-real-bounds-swipe.png` shows the strip scrolling inside
+  the card while the top tab stays put. Status: pending controller acceptance, not the next default lane.
 
 ## eros_fe Feature Parity Gap Pool
 
