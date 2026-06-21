@@ -682,7 +682,31 @@ Type: comment parity gap / read presentation
 
 Priority suggestion: P2
 
-Status: accepted / needs implementation
+Status: implemented / pending real-comment acceptance
+
+Implementation:
+
+- `GalleryCommentsCard` now parses the existing NextE reply marker forms before rendering:
+  `@author #commentId#` and the newline BCD-style dot/dash code written by the current reply composer.
+- Resolution is conservative: the quoted floor is rendered only when the target `commentId` is present in
+  the currently loaded comments. If the id cannot be resolved, the raw comment text is preserved.
+- Resolved reply markers are stripped from the visible body and a compact quoted-floor block is rendered
+  above the comment body with referenced author and excerpt.
+
+Verification:
+
+- `node scripts/test_gallery_comment_reply_reference_contract.mjs`
+- `node scripts/test_gallery_comment_compose_contract.mjs`
+- `node scripts/test_gallery_comment_full_entry_contract.mjs`
+- `node scripts/test_v1_decorator_inventory_contract.mjs`
+- `scripts/build_hvigor_signed.sh`
+- Local emulator smoke opened a gallery detail page from a fixed deep link after installing the signed HAP:
+  `.hvigor/outputs/comment-reply-reference-smoke/screen.png`.
+
+Remaining acceptance:
+
+- Needs a real comment sample containing a reply marker on a loaded full comments page, or an authorized
+  safe fixture path, to visually confirm the quoted-floor block against production EH data.
 
 Source:
 

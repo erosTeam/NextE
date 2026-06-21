@@ -65,6 +65,115 @@ export struct GalleryCommentsCard {
     return this.max <= 0 && c.canVote && this.votingCommentId.length === 0
   }
 
+  private codeDigit(code: string): string {
+    if (code === '····') return '0'
+    if (code === '···-') return '1'
+    if (code === '··-·') return '2'
+    if (code === '··--') return '3'
+    if (code === '·-··') return '4'
+    if (code === '·-·-') return '5'
+    if (code === '·--·') return '6'
+    if (code === '·---') return '7'
+    if (code === '-···') return '8'
+    if (code === '-··-') return '9'
+    return ''
+  }
+
+  private normalizeReplyCode(line: string): string {
+    let out: string = ''
+    for (let i = 0; i < line.length; i++) {
+      const ch: string = line.charAt(i)
+      if (ch === '·' || ch === '.') {
+        out += '·'
+      } else if (ch === '-') {
+        out += '-'
+      }
+    }
+    return out
+  }
+
+  private decodeReplyId(line: string): string {
+    const code: string = this.normalizeReplyCode(line)
+    if (code.length === 0 || code.length % 4 !== 0) {
+      return ''
+    }
+    let out: string = ''
+    for (let i = 0; i < code.length; i += 4) {
+      const digit: string = this.codeDigit(code.substring(i, i + 4))
+      if (digit.length === 0) {
+        return ''
+      }
+      out += digit
+    }
+    return out
+  }
+
+  private hashReplyId(line: string): string {
+    const start: number = line.indexOf('#')
+    if (start < 0) {
+      return ''
+    }
+    const end: number = line.indexOf('#', start + 1)
+    if (end <= start + 1) {
+      return ''
+    }
+    return line.substring(start + 1, end)
+  }
+
+  private replyTargetId(text: string): string {
+    const lines: string[] = text.split('\n')
+    if (lines.length === 0) {
+      return ''
+    }
+    const first: string = lines[0].trim()
+    if (!first.startsWith('@')) {
+      return ''
+    }
+    const hashId: string = this.hashReplyId(first)
+    if (hashId.length > 0) {
+      return hashId
+    }
+    return lines.length > 1 ? this.decodeReplyId(lines[1]) : ''
+  }
+
+  private replyReferences(c: EhGalleryComment): EhGalleryComment[] {
+    const id: string = this.replyTargetId(c.contentText)
+    if (id.length === 0 || id === c.commentId) {
+      return []
+    }
+    const out: EhGalleryComment[] = []
+    for (let i = 0; i < this.comments.length; i++) {
+      const candidate: EhGalleryComment = this.comments[i]
+      if (candidate.commentId === id) {
+        out.push(candidate)
+        break
+      }
+    }
+    return out
+  }
+
+  private displayContentText(c: EhGalleryComment): string {
+    if (this.replyReferences(c).length === 0) {
+      return c.contentText
+    }
+    const lines: string[] = c.contentText.split('\n')
+    if (lines.length === 0 || !lines[0].trim().startsWith('@')) {
+      return c.contentText
+    }
+    if (this.hashReplyId(lines[0]).length > 0) {
+      return lines.slice(1).join('\n').trim()
+    }
+    if (lines.length > 1 && this.decodeReplyId(lines[1]).length > 0) {
+      return lines.slice(2).join('\n').trim()
+    }
+    return c.contentText
+  }
+
+  private quoteExcerpt(text: string): string {
+    const clean: string = text.replace(/\n+/g, ' ').trim()
+    return clean.length > 120 ? `${clean.substring(0, 120)}...` : clean
+  }
+
   build() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
       Column({ space: ThemeConstants.SPACE_MD }) {
@@ -143,12 +252,13 @@ export struct GalleryCommentsCard {
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)
+      this.ReplyReferences(c)
       // EH comments are predominantly text + line breaks + URLs (bare or as `<a>` whose link text
       // is the URL). The native URL data-detector turns those into tappable, brand-colored links
       // (eros_fe linkifies bare URLs too) without a heavy HTML/web renderer. In the peek the text is
       // capped at eros_fe's 4 lines; the full page (max === 0) shows it all.
       if (this.max > 0) {
-        Text(c.contentText)
+        Text(this.displayContentText(c))
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
           .fontColor($r('sys.color.font_primary'))
           .width('100%')
@@ -160,7 +270,7 @@ export struct GalleryCommentsCard {
             color: $r('sys.color.font_emphasize'),
           })
       } else {
-        Text(c.contentText)
+        Text(this.displayContentText(c))
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
           .fontColor($r('sys.color.font_primary'))
           .width('100%')
@@ -208,6 +318,39 @@ export struct GalleryCommentsCard {
         this.onMore()
       }
     })
+  }
+
+  @Builder
+  ReplyReferences(c: EhGalleryComment) {
+    ForEach(
+      this.replyReferences(c),
+      (r: EhGalleryComment) => {
+        this.ReplyQuote(r)
+      },
+      (r: EhGalleryComment) => r.commentId,
+    )
+  }
+
+  @Builder
+  ReplyQuote(c: EhGalleryComment) {
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      Text(c.author)
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_emphasize'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(this.quoteExcerpt(c.contentText))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(3)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .padding(ThemeConstants.SPACE_SM)
+    .borderRadius(ThemeConstants.RADIUS_SM)
+    .backgroundColor(ThemeConstants.BG_PRIMARY)
   }
 
   @Builder

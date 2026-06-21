@@ -137,6 +137,10 @@ a bounded validation path.
 
 ## Recently Closed / Pending Acceptance
 
+- Gallery comment reply reference display is implemented and pending real-comment acceptance: NextE now
+  parses existing `@author + encoded comment id` markers into quoted-floor blocks when the referenced
+  comment is present in the loaded list. Contract/build/local emulator smoke passed; final acceptance needs
+  a real loaded comment sample containing that marker.
 - Waterfall tag strip alignment and horizontal overflow is implemented with local emulator evidence:
   `75f558e` plus follow-up local diff changed Waterfall tags to a native horizontal two-line `List`;
   `.hvigor/outputs/waterfall-tag-strip-qa/after-real-bounds-swipe.png` shows the strip scrolling inside
