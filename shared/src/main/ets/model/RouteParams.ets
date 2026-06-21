@@ -112,7 +112,7 @@ export class GalleryWebParams {
   }
 }
 
-/** Params for the non-destructive gallery tag entry surface. */
+/** Params for the protected gallery tag action surface. */
 export class GalleryEditTagsParams {
   gid: string = ''
   token: string = ''

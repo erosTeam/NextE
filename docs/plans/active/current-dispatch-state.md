@@ -182,6 +182,13 @@ Historical feedback in this section must not trigger new implementation.
   flips `imageLoaded`, so the normal loading stage can only cover an invisible pending image, not readable
   content. Simulator evidence on `127.0.0.1:5555` in `.hvigor/outputs/reader-loading-overlay/` shows a
   ready Reader page with one Image and no loading/resolving text in the layout.
+- Gallery detail internal WebView launch crash is implemented pending controller acceptance: `GalleryWebPage`
+  now consumes typed route params in `onReady`, waits until both route params and the ArkWeb controller are
+  ready, and refuses to call `loadUrl('')`. Simulator evidence on `127.0.0.1:5555` showed Home -> detail ->
+  overflow -> `应用内网页` kept `com.erosteam.nexte` foreground and opened the internal WebView route with
+  the gallery title instead of crashing. Evidence is in `.hvigor/outputs/gallery-webview-open/`. The
+  captured WebView body was still blank in this smoke; treat page-content loading as a separate future
+  ArkWeb/content lane if fresh evidence requires it, not as part of the fixed launch-crash issue.
 
 ## Parked / Guidance Only
 
@@ -212,9 +219,6 @@ a bounded validation path.
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-2. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
-   (reported 2026-06-21). Record only for a later small launch/smoke fix; do not let it displace Reader
-   gesture/chrome fixes or the P1 comment regressions.
 
 ## Lane Selection Rule
 

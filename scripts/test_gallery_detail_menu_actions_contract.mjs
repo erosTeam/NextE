@@ -3,8 +3,8 @@
  * Contract for gallery detail title-menu utility actions.
  *
  * The detail title bar should stay compact: favorite/share remain highest-priority inline actions, and
- * HDS maxCount=3 turns the third slot into overflow containing refresh plus non-destructive utility
- * actions. Tag editing is an entry surface only in this lane; no EH tag write endpoint may be submitted.
+ * HDS maxCount=3 turns the third slot into overflow containing refresh plus utility actions. Tag voting
+ * is a protected child surface; the detail menu itself must not submit EH write endpoints.
  *
  * Run: node scripts/test_gallery_detail_menu_actions_contract.mjs
  */
@@ -61,7 +61,10 @@ ok('GalleryWebPage reuses EhWebView with app UA',
   /EhWebView\(\{/.test(webPage) &&
   /this\.controller\.setCustomUserAgent\(EhConstants\.USER_AGENT\)/.test(webPage) &&
   /this\.controller\.loadUrl\(this\.params\.url\)/.test(webPage))
-ok('edit-tags route is a non-destructive entry surface',
+ok('GalleryWebPage consumes route params before loading a non-empty URL',
+  /\.onReady\(\(context: NavDestinationContext\) => \{[\s\S]*const p = context\.pathInfo\.param as GalleryWebParams[\s\S]*this\.params = p[\s\S]*this\.loadIfReady\(\)/.test(webPage) &&
+  /private loadIfReady\(\): void \{[\s\S]*this\.params\.url\.length === 0[\s\S]*return[\s\S]*this\.controller\.loadUrl\(this\.params\.url\)/.test(webPage))
+ok('edit-tags route opens a protected child surface',
   /export class GalleryEditTagsParams/.test(routeParams) &&
   /gid:\s*string/.test(routeParams) &&
   /token:\s*string/.test(routeParams) &&
@@ -70,12 +73,13 @@ ok('edit-tags route is a non-destructive entry surface',
   /export \{ GalleryEditTagsPage \}/.test(galleryIndex) &&
   /name === 'GalleryEditTags'[\s\S]*GalleryEditTagsPage\(\)/.test(entry) &&
   /new GalleryEditTagsParams\(this\.params\.gid, this\.params\.token, connectSiteMode\(\)\.isEx, this\.navTitle\(\)\)/.test(detail))
-ok('edit-tags page displays current tags but has no submit/write endpoint',
+ok('edit-tags page loads current tags and protects tag vote submits behind confirmation',
   /EhApiService\.getInstance\(\)\.getGalleryDetail/.test(editTagsPage) &&
   /this\.tagGroupsData = result\.gallery\.tagGroups/.test(editTagsPage) &&
   /\.onReady\(\(context: NavDestinationContext\) => \{[\s\S]*this\.params = p[\s\S]*this\.loadTags\(\)/.test(editTagsPage) &&
-  /detail_edit_tags_readonly_desc/.test(editTagsPage) &&
-  !/taggallery|setusertag|\.submit\(|method:\s*'POST'|method:\s*"POST"|rategallery|addfav/.test(editTagsPage))
+  /private confirmTagVote\(vote: number\): void[\s\S]*showAlertDialog\([\s\S]*submitTagVote\(tagKey, vote, this\.selectedTagVote\)/.test(editTagsPage) &&
+  /private async submitTagVote\(tagKey: string, vote: number, previousVote: number\): Promise<void>/.test(editTagsPage) &&
+  /EhApiPhpService\.tagGallery\(/.test(editTagsPage))
 ok('detail menu implementation does not call EH destructive tag write endpoints',
   !/taggallery|setusertag/.test(detail))
 

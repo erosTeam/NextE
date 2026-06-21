@@ -218,8 +218,9 @@ Implementation:
   power-user actions move into the overflow menu with `maxCount: 3`.
 - Added non-destructive overflow actions for refresh, edit tags, copy gallery link, copy gallery title,
   external browser open, and internal WebView open.
-- Added `GalleryWeb` and `GalleryEditTags` routes. The edit-tags entry refetches and displays current tags
-  as a read-only surface; it does not call `taggallery`, `setusertag`, or any other EH write endpoint.
+- Added `GalleryWeb` and `GalleryEditTags` routes. The original edit-tags entry refetched and displayed
+  current tags as a read-only surface; the later tag-vote follow-up below upgrades that route into a
+  protected write surface.
 - Follow-up: `eb14d9a feat(gallery): support protected tag voting` upgraded `GalleryEditTags` from the
   original read-only route into a protected tag vote surface. It opens an HDS action sheet from a tag chip,
   confirms before posting `/api.php method=taggallery`, and cancels during automated validation. This
@@ -245,11 +246,17 @@ Validation:
 
 Known follow-up:
 
-- User feedback, 2026-06-21: tapping "应用内网页" currently crashes the app. Keep this as a low-priority
-  WebView stability regression, not a next-lane blocker. The route/page already exist, and
-  `scripts/test_gallery_detail_menu_actions_contract.mjs` only checks the static route/WebView shape; the
-  later fix should add the smallest launch/smoke guard that proves opening the internal WebView does not
-  crash. Do not redesign the in-app browser or move this ahead of Reader gesture and comment regressions.
+- Internal WebView launch crash: `implemented / pending controller acceptance`. Commit:
+  `fix(gallery): guard internal web route loading` in the current main history. Scope: `GalleryWebPage` now consumes `GalleryWebParams` from
+  `NavDestinationContext.pathInfo.param` in `onReady`, waits for both route params and the ArkWeb
+  controller before loading, and guards against `loadUrl('')`. Contract:
+  `scripts/test_gallery_detail_menu_actions_contract.mjs`. Device evidence: Mate X7 emulator target
+  `127.0.0.1:5555`, official signed HAP, Home -> first gallery detail -> overflow -> `应用内网页`; `aa dump`
+  kept `com.erosteam.nexte` foreground and screenshots/layouts in
+  `.hvigor/outputs/gallery-webview-open/` show the internal WebView route title instead of a crash.
+  Remaining caveat: the smoke screenshot still showed a blank WebView body; if that becomes user-visible
+  evidence beyond the launch crash, schedule it as a separate ArkWeb/content-loading lane rather than
+  reopening the route-param crash.
 
 Source:
 
