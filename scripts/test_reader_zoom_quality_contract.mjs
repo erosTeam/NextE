@@ -132,7 +132,7 @@ ok('zoom state is still reported to parent',
   /this\.onZoomChange\(zoomed\)/.test(reader))
 ok('page navigation clears stale parent zoom gate before changing active image',
   /private clearZoomGate\(\): void \{[\s\S]*this\.imageZoomed = false[\s\S]*\}/.test(reader) &&
-  /private turnTo\(target: number\): void \{[\s\S]*this\.clearZoomGate\(\)[\s\S]*this\.vm\.onPageChange\(target\)/.test(reader) &&
+  /private turnTo\(target: number\): void \{[\s\S]*this\.clearZoomGate\(\)[\s\S]*this\.vm\.onPageChange\(targetIndex\)/.test(reader) &&
   /private jumpToPage\(index: number\): void \{[\s\S]*this\.clearZoomGate\(\)[\s\S]*this\.vm\.jumpTo\(index\)/.test(reader) &&
   /HorizontalReader\(\)[\s\S]*\.onChange\(\(i: number\) => \{[\s\S]*this\.clearZoomGate\(\)[\s\S]*this\.vm\.onPageChange\(i\)/.test(reader) &&
   /DoublePageReader\(\)[\s\S]*\.onChange\(\(i: number\) => \{[\s\S]*this\.clearZoomGate\(\)[\s\S]*this\.vm\.onPageChange\(this\.spreadStartIndex\(i\)\)/.test(reader))
