@@ -157,14 +157,19 @@ a bounded validation path.
    auto-read, vertical mode, double-page mode, far jump, prefetch, cache-hit presentation, and failure/retry
    paths. Do not bundle Reader gesture redesign, double-page architecture, thumbnail strip, auto-read, or
    offline download work into this lane.
-2. Tag translation database and localized search candidates. User-visible
+2. App cache architecture and cache management. Define the cache taxonomy and implement the first bounded
+   storage slice after the current Reader state-model fix. Cover image cache, HTML/resolve metadata cache,
+   possible gallery-detail snapshot cache, history/progress local data, invalidation after writes, size/TTL
+   limits, and user-facing cache clearing categories. Do not bundle download/offline Reader or a full data
+   sync system into the first slice.
+3. Tag translation database and localized search candidates. User-visible
    benefit: Chinese/localized tag understanding and search candidate quality, instead of the current tiny
    hardcoded `TagTranslationService` stub. Scope this first lane to the smallest real FE-parity slice:
    replace/extend the stub with the real tag-translation data source or import path, support raw tag ->
    localized display lookup, and feed localized matches into the existing search candidate area with raw
    exact tag insertion. Do not bundle QuickSearch, image search, saved-query management, MyTags write flows,
    or a redesigned SearchFilter into this lane.
-3. Smart-grip / action-alignment support for the gallery detail read/resume action. Run this after the tag
+4. Smart-grip / action-alignment support for the gallery detail read/resume action. Run this after the tag
    translation lane unless the user explicitly redirects. Reuse the Next2V motion-hand/alignment model with
    fixed-left/fixed-right/follow-operation fallback, and do not reopen Home bottom-tab auto-hide.
 
