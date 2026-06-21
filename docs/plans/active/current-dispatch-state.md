@@ -132,11 +132,8 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-- Next candidate lane: common favcat color resolver coverage. Home/Popular and other ordinary
-  gallery-list-producing surfaces should resolve `favTitle -> favcat` through the same shared late metadata
-  path already used by Favorites/Search so favorited gallery hearts do not fall back to the default color on
-  first login/first load. Scope this to shared resolver wiring and list card color refresh; do not mix with
-  favorite write sheets, SearchFilter, Grid/Waterfall layout, or Reader.
+- No code lane is selected in this file after the comment vote closure. Before editing product code, promote
+  exactly one currently unclosed item from a domain intake file into this Active Queue.
 
 ## Recently Closed / Pending Acceptance
 
@@ -145,6 +142,10 @@ a bounded validation path.
   confirmation copy, optimistic row score/icon update, neutral `comment_vote=0` parsing, returned
   score/vote application, and failure rollback. Contracts, i18n parity, V1 inventory, and official signed
   Hvigor build passed. Status: pending real EH account acceptance on a votable comment.
+- Common favcat color resolver coverage is implemented by `afbb7bd fix(gallery): resolve favcat colors in
+  home lists`. Home/Popular/Toplist gallery lists apply the shared non-placeholder `FavcatSlotResolver`
+  and re-resolve visible rows when account favcat metadata arrives late. Status: pending controller/device
+  acceptance with a real favorited Home/Popular row.
 - Gallery comment reply reference display is implemented and pending real-comment acceptance: NextE now
   parses existing `@author + encoded comment id` markers into quoted-floor blocks when the referenced
   comment is present in the loaded list. Contract/build/local emulator smoke passed; final acceptance needs
