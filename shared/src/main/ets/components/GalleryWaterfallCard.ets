@@ -138,11 +138,14 @@ export struct GalleryWaterfallCard {
             )
           }
         }
+        .alignItems(HorizontalAlign.Start)
       }
       .scrollable(ScrollDirection.Horizontal)
       .scrollBar(BarState.Off)
+      .align(Alignment.Start)
       .width('100%')
       .height(WATERFALL_TAG_STRIP_HEIGHT)
+      .clip(true)
     }
   }
 
