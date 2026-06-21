@@ -26,6 +26,7 @@ const entry = read('entry/src/main/ets/pages/Index.ets')
 const routeParams = read('shared/src/main/ets/model/RouteParams.ets')
 const galleryIndex = read('feature/gallery/src/main/ets/Index.ets')
 const webPage = read('entry/src/main/ets/pages/GalleryWebPage.ets')
+const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
 const editTagsPage = read('feature/gallery/src/main/ets/pages/GalleryEditTagsPage.ets')
 
 ok('detail menu uses HDS overflow behavior with maxCount 3',
@@ -60,10 +61,19 @@ ok('internal WebView route is typed and registered',
 ok('GalleryWebPage reuses EhWebView with app UA',
   /EhWebView\(\{/.test(webPage) &&
   /this\.controller\.setCustomUserAgent\(EhConstants\.USER_AGENT\)/.test(webPage) &&
-  /this\.controller\.loadUrl\(this\.params\.url\)/.test(webPage))
+  /this\.safeLoadUrl\(url\)/.test(webPage))
 ok('GalleryWebPage consumes route params before loading a non-empty URL',
   /\.onReady\(\(context: NavDestinationContext\) => \{[\s\S]*const p = context\.pathInfo\.param as GalleryWebParams[\s\S]*this\.params = p[\s\S]*this\.loadIfReady\(\)/.test(webPage) &&
-  /private loadIfReady\(\): void \{[\s\S]*this\.params\.url\.length === 0[\s\S]*return[\s\S]*this\.controller\.loadUrl\(this\.params\.url\)/.test(webPage))
+  /private loadIfReady\(\): void \{[\s\S]*this\.params\.url\.length === 0[\s\S]*return[\s\S]*this\.loadWithCookies\(this\.params\.url\)/.test(webPage))
+ok('GalleryWebPage injects app cookies before safe loading',
+  /EhCookieStore\.getInstance\(\)\.header\(\)/.test(webPage) &&
+  /webview\.WebCookieManager\.configCookie\(baseUrl, `\$\{cookie\}; Path=\/`, false, true\)/.test(webPage) &&
+  /webview\.WebCookieManager\.saveCookieSync\(\)/.test(webPage) &&
+  /webview\.WebCookieManager\.saveCookieAsync\(\)/.test(webPage) &&
+  /private safeLoadUrl\(url: string\): void \{[\s\S]*this\.controller\.loadUrl\(url\)/.test(webPage))
+ok('EntryAbility initializes ArkWeb engine before WebView routes run',
+  /import \{ webview \} from '@kit\.ArkWeb'/.test(entryAbility) &&
+  /webview\.WebviewController\.initializeWebEngine\(\)/.test(entryAbility))
 ok('edit-tags route opens a protected child surface',
   /export class GalleryEditTagsParams/.test(routeParams) &&
   /gid:\s*string/.test(routeParams) &&

@@ -246,17 +246,17 @@ Validation:
 
 Known follow-up:
 
-- Internal WebView launch crash: `implemented / pending controller acceptance`. Commit:
-  `fix(gallery): guard internal web route loading` in the current main history. Scope: `GalleryWebPage` now consumes `GalleryWebParams` from
+- Internal WebView launch/content loading: `implemented / pending controller acceptance`. Commits:
+  `fix(gallery): guard internal web route loading` and follow-up `fix(gallery): load internal web content`
+  in current main history. Scope: `GalleryWebPage` consumes `GalleryWebParams` from
   `NavDestinationContext.pathInfo.param` in `onReady`, waits for both route params and the ArkWeb
-  controller before loading, and guards against `loadUrl('')`. Contract:
+  controller before loading, guards against `loadUrl('')`, injects the app EH cookie jar into ArkWeb,
+  and safe-loads the target URL after `EntryAbility` initializes ArkWeb. Contract:
   `scripts/test_gallery_detail_menu_actions_contract.mjs`. Device evidence: Mate X7 emulator target
   `127.0.0.1:5555`, official signed HAP, Home -> first gallery detail -> overflow -> `应用内网页`; `aa dump`
-  kept `com.erosteam.nexte` foreground and screenshots/layouts in
-  `.hvigor/outputs/gallery-webview-open/` show the internal WebView route title instead of a crash.
-  Remaining caveat: the smoke screenshot still showed a blank WebView body; if that becomes user-visible
-  evidence beyond the launch crash, schedule it as a separate ArkWeb/content-loading lane rather than
-  reopening the route-param crash.
+  kept `com.erosteam.nexte` foreground. `.hvigor/outputs/gallery-webview-open/` shows the route opening
+  without crashing, and `.hvigor/outputs/gallery-webview-content/` shows live EH gallery DOM content in
+  the WebView layout (`Front`, `Watched`, gallery titles, tags, pagination, thumbnail links).
 
 Source:
 

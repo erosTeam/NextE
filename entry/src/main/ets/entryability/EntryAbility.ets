@@ -1,4 +1,5 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit'
+import { webview } from '@kit.ArkWeb'
 import { window } from '@kit.ArkUI'
 import {
   AppStrings,
@@ -30,6 +31,12 @@ export default class EntryAbility extends UIAbility {
   onCreate(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     AppStrings.init(this.context)
     DiagnosticLogger.info('app', 'session_start', 'EntryAbility.onCreate')
+    try {
+      webview.WebviewController.initializeWebEngine()
+    } catch (error) {
+      const e = error as Error
+      DiagnosticLogger.warn('app', 'initialize_web_engine_failed', e.message)
+    }
     this.captureIncomingUrl(want)
   }
 

@@ -3,7 +3,9 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   EhWebView,
   EhConstants,
+  EhCookieStore,
   GalleryWebParams,
+  DiagnosticLogger,
   ThemeConstants,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
@@ -30,7 +32,43 @@ export struct GalleryWebPage {
     }
     this.loadedUrl = this.params.url
     this.controller.setCustomUserAgent(EhConstants.USER_AGENT)
-    this.controller.loadUrl(this.params.url)
+    this.loadWithCookies(this.params.url)
+  }
+
+  private async loadWithCookies(url: string): Promise<void> {
+    try {
+      await this.injectAppCookies(url)
+    } catch (error) {
+      const e = error as Error
+      DiagnosticLogger.warn('webview', 'gallery_webview_cookie_inject_failed', e.message)
+    }
+    this.safeLoadUrl(url)
+  }
+
+  private async injectAppCookies(url: string): Promise<void> {
+    const cookie: string = EhCookieStore.getInstance().header()
+    if (cookie.length === 0) {
+      return
+    }
+    const baseUrl: string = url.startsWith(EhConstants.EX_BASE_URL)
+      ? EhConstants.EX_BASE_URL
+      : EhConstants.EH_BASE_URL
+    await webview.WebCookieManager.configCookie(baseUrl, `${cookie}; Path=/`, false, true)
+    try {
+      webview.WebCookieManager.saveCookieSync()
+    } catch (_error) {
+      await webview.WebCookieManager.saveCookieAsync()
+    }
+  }
+
+  private safeLoadUrl(url: string): void {
+    try {
+      this.controller.loadUrl(url)
+    } catch (error) {
+      const e = error as Error
+      DiagnosticLogger.warn('webview', 'gallery_webview_load_url_failed', e.message)
+      this.loading = false
+    }
   }
 
   build() {

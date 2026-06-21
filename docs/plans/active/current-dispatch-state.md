@@ -182,13 +182,14 @@ Historical feedback in this section must not trigger new implementation.
   flips `imageLoaded`, so the normal loading stage can only cover an invisible pending image, not readable
   content. Simulator evidence on `127.0.0.1:5555` in `.hvigor/outputs/reader-loading-overlay/` shows a
   ready Reader page with one Image and no loading/resolving text in the layout.
-- Gallery detail internal WebView launch crash is implemented pending controller acceptance: `GalleryWebPage`
+- Gallery detail internal WebView launch/content loading is implemented pending controller acceptance: `GalleryWebPage`
   now consumes typed route params in `onReady`, waits until both route params and the ArkWeb controller are
-  ready, and refuses to call `loadUrl('')`. Simulator evidence on `127.0.0.1:5555` showed Home -> detail ->
-  overflow -> `应用内网页` kept `com.erosteam.nexte` foreground and opened the internal WebView route with
-  the gallery title instead of crashing. Evidence is in `.hvigor/outputs/gallery-webview-open/`. The
-  captured WebView body was still blank in this smoke; treat page-content loading as a separate future
-  ArkWeb/content lane if fresh evidence requires it, not as part of the fixed launch-crash issue.
+  ready, refuses to call `loadUrl('')`, initializes ArkWeb at ability startup, injects the app EH cookie
+  jar into ArkWeb, and safe-loads the target URL. Simulator evidence on `127.0.0.1:5555` showed
+  Home -> detail -> overflow -> `应用内网页` kept `com.erosteam.nexte` foreground and opened the internal
+  WebView route with live EH gallery content (`Front`, `Watched`, gallery titles, tags, pagination, and
+  thumbnail links in the layout tree). Evidence is in `.hvigor/outputs/gallery-webview-open/` and
+  `.hvigor/outputs/gallery-webview-content/`.
 
 ## Parked / Guidance Only
 
