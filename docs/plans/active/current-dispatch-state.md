@@ -137,24 +137,32 @@ a bounded validation path.
   clipping that removes the point of the two-line strip. Preserve tag color priority and click-to-search.
   Keep compact Grid unchanged.
 
-## Accepted Gap Pool
+## eros_fe Feature Parity Gap Pool
 
-These are known product gaps or live risks that are already recorded in domain intake files. They are not
-the active lane until promoted, but the main thread must not interpret a short Active Queue as feature
-completion.
+The short Active Queue is only the next stabilization lane. It is not the full product backlog. NextE still
+has broad feature-depth gaps against `../eros_fe`; see
+`docs/plans/active/project-current-state-and-next-plan.md` "Post-stabilization eros_fe feature lanes" before
+claiming parity or selecting a new major feature lane.
 
-- Gallery comments still have accepted follow-ups beyond the repaired composer: parsed reply-floor quote
-  display, visible vote score/icon refresh verification, uploader badge/filter verification, and remaining
-  footer icon/spacing acceptance.
-- Search still has accepted reliability gaps: action-seeded tag search must not autofocus/open the keyboard,
-  route/session edge cases and in-flight submit handling must stay covered, and translation-backed local tag
-  lookup remains a future search enhancement even though network tagsuggest exists.
-- Gallery/detail/list still has accepted visual and data gaps: pull-to-refresh on detail, tag tap/search
-  parity, very tall cover handling, detail-header cover flicker, and current Waterfall tag-strip QA.
-- Reader has several implemented-but-not-accepted risk lanes plus parked architecture work. Do not reopen
-  all Reader work by default, but do not treat the interim single/double-page behavior as final architecture.
-- Settings/history/download/security/smart-grip have partial or parked surfaces. Hidden or pending settings
-  rows are not equivalent to complete downstream features.
+- Auth foundation depth: manual cookie import validation, WebView login preservation, cookie jar persistence,
+  ExHentai/igneous gating, and secret-safety/package-leak checks.
+- Search parity depth: local tag-translation database, translation-backed Chinese/localized tag suggestions,
+  QuickSearch saved queries, scoped search, URL jump, and image search. Network `tagsuggest` alone is not
+  full FE search parity.
+- Favorites parity architecture: per-favcat workspace, local favorites slot, favorite-scoped search,
+  colored/count favcat selector, jump/sort/cursor behavior, and independent state retention.
+- MyTags/usertag management parity: tagset hierarchy, color/watch/hide/weight editing, add/delete flows,
+  tagset create/rename/delete, and wiring usertag metadata into list/detail colors and hide filters.
+- Download/archive/offline reading: queue management, per-image token/509 retry, archive polling/download,
+  offline Reader source, and HarmonyOS-safe storage/export UX.
+- Comments/rating/write-operation depth: comment parser/display completeness, reply-floor quote rendering,
+  poster/uploader navigation, gallery rating submit, favorite move/note editing, and tag edit/add actions.
+- Sync and long-tail FE features: WebDAV history/read-progress/QuickSearch/custom-group sync, custom tab
+  groups/profiles, torrents, similar/search-by-image flows, image blocking/pHash/QR filtering, EPUB export,
+  update/about polish, and tablet/safe-mode variants.
+
+Promote exactly one bounded subfeature from this pool into Active Queue when it becomes the next lane. Do not
+bundle an entire FE parity domain into a single patch.
 
 ## Pending Explicit Authorization
 
