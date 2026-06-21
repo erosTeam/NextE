@@ -177,6 +177,11 @@ Historical feedback in this section must not trigger new implementation.
   rewrite. Simulator evidence on `127.0.0.1:5555` showed tapping the visible `big breasts` list tag
   opened Search with `f:"big breasts$"` in the search field; pipe alias behavior is covered by
   `scripts/test_tag_search_query_contract.mjs`.
+- Reader loading-state overlay regression is implemented pending controller acceptance: horizontal,
+  vertical, and spread image surfaces now keep the `Image` opacity at `0` until `Image.onComplete`
+  flips `imageLoaded`, so the normal loading stage can only cover an invisible pending image, not readable
+  content. Simulator evidence on `127.0.0.1:5555` in `.hvigor/outputs/reader-loading-overlay/` shows a
+  ready Reader page with one Image and no loading/resolving text in the layout.
 
 ## Parked / Guidance Only
 
@@ -203,16 +208,11 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Reader loading-state overlay regression: loading spinner/text can appear on top of an already visible
-   Reader image (reported 2026-06-21). Treat as P1 reading-core visual correctness. Fix narrowly by making
-   loaded image and loading stage mutually exclusive in the visible page state; normal loading should not be
-   modeled as `Stack { Image; ReaderLoadingStage }` overlay composition. Do not reopen byte-progress, cache,
-   double-page, or broad gesture redesign for this bug.
-2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+1. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.
-3. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
+2. Low-priority stability note: internal WebView open from gallery detail currently crashes the app
    (reported 2026-06-21). Record only for a later small launch/smoke fix; do not let it displace Reader
    gesture/chrome fixes or the P1 comment regressions.
 

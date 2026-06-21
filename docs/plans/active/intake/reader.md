@@ -182,7 +182,7 @@ Type: visual state regression / reading core polish
 
 Priority suggestion: P1
 
-Status: accepted / not implemented
+Status: implemented / pending controller acceptance
 
 Source:
 
@@ -220,6 +220,17 @@ Acceptance shape:
   overlay on the same visible image. Ideally the contract should fail if normal loading is represented as
   `Stack { Image; ReaderLoadingStage }` rather than an exclusive loading-vs-image branch. A source grep that
   only proves `LoadingProgress` exists is insufficient.
+
+Implementation:
+
+- Horizontal `ReaderImagePage`, vertical `ReaderVerticalImage`, and double-page `ReaderSpreadImageLayer`
+  now render pending images with `.opacity(this.imageLoaded ? 1 : 0)`.
+- The existing loading stage remains visible only while `imageLoaded` is false, so it covers an invisible
+  pending image instead of readable content.
+- Contract: `scripts/test_reader_loading_progress_contract.mjs` now requires the pending-image opacity gate.
+- Evidence: official signed build passed; simulator `127.0.0.1:5555` evidence in
+  `.hvigor/outputs/reader-loading-overlay/` shows Reader ready state with one Image and no loading/resolving
+  text in the layout.
 
 ### Reader Auto-Read Page Turn Is Missing
 

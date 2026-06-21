@@ -1931,6 +1931,7 @@ struct ReaderSpreadImageLayer {
           .objectFit(ImageFit.Contain)
           .width('100%')
           .height('100%')
+          .opacity(this.imageLoaded ? 1 : 0)
           .draggable(false)
           .onComplete((_event?: ReaderImageLoadEvent) => {
             this.autoRetryCount = 0
@@ -2181,6 +2182,7 @@ struct ReaderImagePage {
           .objectFit(ImageFit.Contain)
           .width('100%')
           .height('100%')
+          .opacity(this.imageLoaded ? 1 : 0)
           .draggable(false)
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
@@ -2396,6 +2398,7 @@ struct ReaderVerticalImage {
           .width('100%')
           .aspectRatio(this.ratio)
           .objectFit(ImageFit.Contain)
+          .opacity(this.imageLoaded ? 1 : 0)
           .draggable(false)
           .onComplete((e) => {
             this.autoRetryCount = 0

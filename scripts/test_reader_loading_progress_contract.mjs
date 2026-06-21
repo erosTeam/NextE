@@ -36,6 +36,8 @@ ok('ReaderLoadingOverlay is not present in ReaderPage',
 ok('image-loading stage is explicitly tied to Image not-yet-complete state',
   /if \(!this\.imageLoaded\) \{[\s\S]*ReaderLoadingStage\(\{ label: \$r\('app\.string\.reader_loading_image'\) \}\)[\s\S]*hitTestBehavior\(HitTestMode\.None\)/.test(reader) &&
   /if \(!this\.imageLoaded\) \{[\s\S]*reader_loading_image[\s\S]*compact: true[\s\S]*hitTestBehavior\(HitTestMode\.None\)/.test(reader))
+ok('image is not visibly painted under the loading stage before Image.onComplete',
+  (reader.match(/\.opacity\(this\.imageLoaded \? 1 : 0\)/g) || []).length >= 3)
 ok('Image.onComplete clears the loading stage',
   /\.onComplete\(\(event\?: ReaderImageLoadEvent\) => \{[\s\S]*this\.imageLoaded = true/.test(reader) &&
   /\.onComplete\(\(e\) => \{[\s\S]*this\.imageLoaded = true/.test(reader))
