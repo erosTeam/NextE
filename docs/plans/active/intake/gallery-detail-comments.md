@@ -642,10 +642,15 @@ Regression evidence / likely cause:
   keyboard height inflates the composer container itself. That explains the current screenshot: the white
   card grows upward and leaves a huge empty body instead of moving a compact floating input bar above the
   input method.
-- `AppModalScaffold` and `SecondaryListScaffold` use keyboard padding as scroll/list reserve content, not
-  as padding inside a floating control. For a floating composer, keyboard metrics should drive bottom
-  offset/position (or an equivalent overlay translation), while the composer keeps its own compact intrinsic
-  height.
+- Next2V grounding corrects the fix direction: do not manually compute a keyboard-height offset for this
+  surface. `TopicEditorPage` sets `getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)` before
+  editing and restores `KeyboardAvoidMode.OFFSET` on disappear, so the page compresses above the keyboard
+  and the TextArea/caret tracking remains usable. Its contract explicitly forbids padding by
+  `keyboardHeight` because `RESIZE` already excludes the keyboard. Sheet-like surfaces use
+  `SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE` in `BindSheetHelper.defaultSheetOptions()`.
+- `layout.keyboardHeight` may still be used as a boolean-style signal that the keyboard is open, for
+  example to choose a small bottom gap, but it should not be added as a large padding/height/offset that
+  creates a keyboard-sized blank strip.
 - Focus evidence: ArkUI `TextArea` supports focus control, and the project already has the right pattern in
   `AppSearchField`: assign a stable `.id(...)`, then defer
   `getUIContext().getFocusController().requestFocus(id)` until the field is mounted. Reply mode should use
@@ -661,6 +666,8 @@ Reopened acceptance:
   between the list and keyboard.
 - When the soft keyboard appears, the composer sits immediately above it with only normal spacing/safe-area
   clearance.
+- Keyboard avoidance should be platform-driven through `KeyboardAvoidMode.RESIZE` or the relevant sheet
+  `SheetKeyboardAvoidMode`, not a hand-rolled `keyboardHeight` geometry calculation.
 - The comments list remains visible behind/above the composer where space allows; the page should not turn
   into a mostly blank white panel.
 - Device evidence must include keyboard-open screenshots for plain new-comment mode and row-reply quote
