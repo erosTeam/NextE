@@ -227,7 +227,12 @@ a bounded validation path.
    `square_and_pencil`, vote icons should remain native thumbs, the stale compose contract should stop
    requiring `doc_plaintext` for reply, and the action cluster should use compact local hit sizing so the
    footer no longer has large horizontal gaps or excessive bottom height.
-2. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
+2. Waterfall extreme strip cover blur: keep the bounded Waterfall cover slot for very tall/webtoon
+   covers, but do not expand an extreme narrow foreground thumbnail to the full column width after the
+   ratio clamp. Source ratios below the Waterfall minimum should fit by bounded slot height / true source
+   ratio, with side area handled as placeholder/backdrop, not by restoring unbounded card height and not
+   by using `forceCoverFit` full-width cover scaling.
+3. Tag/MyTags write actions: taggallery vote, existing MyTags/setusertag editing, existing MyTags
    deletion, MyTags new-user-tag add, and MyTags tagset create/rename/delete are implemented pending
    controller acceptance / authorized real-submit verification. Reopen here only for a fresh tag-vote,
    MyTags edit/delete/add, or tagset-management regression.

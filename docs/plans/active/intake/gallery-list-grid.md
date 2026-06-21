@@ -794,6 +794,26 @@ Implementation:
 - Waterfall uses the same shared category corner badge as Grid while keeping richer title/rating/tags
   semantics separate from compact Grid.
 
+Follow-up, 2026-06-21:
+
+- User screenshot shows an extreme strip/webtoon cover in Waterfall rendered as a very blurry full-column
+  crop. The current ratio clamp prevents the card from becoming unboundedly tall, but the foreground
+  thumbnail is still expanded to the full bounded slot width.
+- Source evidence: `GalleryWaterfallCard.coverRatio()` clamps very tall covers to
+  `WATERFALL_MIN_COVER_RATIO = 0.5`, then passes `forceCoverFit: true` to `EhThumbnail`. The
+  `EhThumbnail.coverRatio > 0` branch renders `Image(...).width('100%').height('100%').objectFit(Cover)`.
+  For a source ratio much narrower than `0.5`, this scales the low-resolution EH thumbnail up to the full
+  column width before cropping, which is the blur the user is seeing.
+- Keep the bounded Waterfall slot height; the bug is foreground image scaling. For source ratios below
+  the Waterfall minimum, the visible foreground should keep its true source ratio and be fit by the
+  bounded slot height instead of being expanded to the full slot width. Empty side area can use the normal
+  placeholder/backdrop treatment, but do not solve this by restoring unbounded card height or by stretching
+  the image.
+- Next repair should add a narrow Waterfall-only thumbnail presentation path or flag rather than changing
+  list/grid/detail cover behavior. The contract should cover an extreme source ratio below `0.5` and
+  assert the bounded slot remains, while `forceCoverFit`/full-width cover scaling is not used for that
+  extreme foreground.
+
 Verification:
 
 - FE grounding: `eros_fe/lib/pages/item/gallery_item_grid.dart` defines min/max fixed cover-ratio guards;
