@@ -34,6 +34,7 @@ const READER_THUMB_STRIP_HEIGHT: number = 84
 const READER_BOTTOM_TOOLBAR_HEIGHT: number = 112
 const READER_PROGRESS_NUMBER_MIN_W: number = 30
 const READER_PROGRESS_SLIDER_GAP: number = 4
+const READER_IMAGE_WARM_AHEAD: number = 2
 class ReaderSpreadResolver {
   static isDoublePage(mode: string, columnMode: string): boolean {
     return mode !== ReadMode.VERTICAL && columnMode !== ReadColumnMode.SINGLE
@@ -212,6 +213,7 @@ export struct ReaderPage {
         }
 
         if (this.readerContentReady()) {
+          this.ReaderImageWarmers()
           this.ReaderTapOverlay()
         }
 
@@ -410,6 +412,56 @@ export struct ReaderPage {
 
   private readerContentReady(): boolean {
     return this.readerReady && this.vm.images.length > 0
+  }
+
+  private warmImageIndexes(): number[] {
+    const indexes: number[] = []
+    if (!this.readerContentReady() || this.viewWidth <= 0 || this.viewHeight <= 0) {
+      return indexes
+    }
+    const to: number = Math.min(this.vm.currentIndex + READER_IMAGE_WARM_AHEAD, this.vm.images.length - 1)
+    for (let i: number = this.vm.currentIndex + 1; i <= to; i++) {
+      if (this.vm.images[i].imageUrl.length > 0) {
+        indexes.push(i)
+      }
+    }
+    return indexes
+  }
+
+  private warmerTranslateX(): number {
+    return this.viewWidth + ThemeConstants.SPACE_XL
+  }
+
+  @Builder
+  ReaderImageWarmers() {
+    Stack() {
+      ForEach(
+        this.warmImageIndexes(),
+        (index: number) => {
+          Image(this.vm.images[index].imageUrl)
+            .objectFit(ImageFit.Contain)
+            .width('100%')
+            .height('100%')
+            // Lay out the warmer at reader-canvas size, then move it off-screen. A 1vp warmer only
+            // proves the URL fetch path; this makes the hidden Image enter the same display-size
+            // pipeline before Swiper exposes the page.
+            .translate({ x: this.warmerTranslateX(), y: 0 })
+            .draggable(false)
+            .onComplete(() => {
+              this.markPageImageLoaded(index + 1)
+              DiagnosticLogger.info('reader', 'warm_image_complete', `page ${index + 1}`)
+            })
+            .onError(() => {
+              DiagnosticLogger.warn('reader', 'warm_image_failed', `page ${index + 1}`)
+            })
+        },
+        (index: number) => `${index}-${this.vm.images[index].imageUrl}`,
+      )
+    }
+    .width('100%')
+    .height('100%')
+    .position({ x: 0, y: 0 })
+    .hitTestBehavior(HitTestMode.None)
   }
 
   // Share the current reader image URL from the reader top bar (eros_fe ViewTopBar share). Prefer the
@@ -1878,8 +1930,10 @@ struct ReaderSpreadImageLayer {
 
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
-      this.imageLoaded = false
       this.imageUrl = this.image.imageUrl
+      this.imageLoaded = true
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
       return
     }
     try {
@@ -2038,8 +2092,10 @@ struct ReaderImagePage {
   // different host, bypassing the cached URL.
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
-      this.imageLoaded = false
       this.imageUrl = this.image.imageUrl
+      this.imageLoaded = true
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
       return
     }
     try {
@@ -2334,8 +2390,10 @@ struct ReaderVerticalImage {
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
-      this.imageLoaded = false
       this.imageUrl = this.image.imageUrl
+      this.imageLoaded = true
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
       return
     }
     try {

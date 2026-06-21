@@ -205,6 +205,12 @@ Historical feedback in this section must not trigger new implementation.
   scaling; the foreground uses `Contain` so very tall/webtoon thumbnails preserve their true source ratio.
   Simulator evidence on `127.0.0.1:5555` shows Waterfall remains a two-column masonry mode after the
   change, with detailed edge-case behavior covered by `scripts/test_gallery_waterflow_contract.mjs`.
+- Reader cached forward page flash is implemented pending controller acceptance: `precacheAhead()` now
+  republishes the traced image list after resolving forward image URLs, and Reader mounts off-screen
+  viewport-sized warmer `Image` nodes for already-resolved forward pages before Swiper exposes them.
+  Simulator evidence on `127.0.0.1:5555` in `.hvigor/outputs/reader-cached-forward-warm/` shows pages
+  12/13 emitted `warm_image_complete` before the next-page turn, and only page 14 started resolve/warm
+  after the turn.
 
 ## Parked / Guidance Only
 
@@ -226,6 +232,10 @@ Items here are real concerns, but they are not active implementation lanes by de
   `127.0.0.1:5555` captured the bottom tab visible before scroll and hidden after a valid high-velocity
   upward swipe. Evidence: `.hvigor/outputs/home-tab-auto-hide/home_tab_auto_fast_start.png` and
   `.hvigor/outputs/home-tab-auto-hide/home_tab_auto_velocity_after.png`.
+- Home bottom-tab auto-hide placement is implemented pending controller acceptance: the visible switch
+  now belongs to Layout settings instead of the Settings root, and the always-loaded settings placement
+  rule records that new settings must be grouped by user-facing information architecture, not by the
+  implementation holder that owns the state.
 - Smart-grip-aware floating action alignment remains parked as a separate medium-priority UX
   enhancement. Do not mix it into Home bottom-tab auto-hide or other lanes by default. If opened later,
   use Next2V's `MotionHandStateService`, `MotionHandEdgeState`, `MotionReplyAlignmentState`, and
@@ -236,24 +246,15 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Reader cached forward page flash: forward page turns can still black-flash even when the next page URL
-   has already been pre-resolved/cached. Keep Reader gesture/chrome/cache baselines intact, but fix the
-   page image presentation state so an already-resolved next page is not forced through
-   `imageLoaded = false` / `opacity(0)` until `Image.onComplete` fires. The first forward transition to a
-   cached page should look like the later back-then-forward transition: no visible black/loading jump.
-2. Common favcat color resolution across Home/Popular/list surfaces: the shared
+1. Common favcat color resolution across Home/Popular/list surfaces: the shared
    `FavcatSlotResolver` exists, but Home/Popular gallery rows can still render the default red heart when
    they carry `favTitle` without a resolved `favcat`. Treat this as one shared account-metadata pipeline
    problem, not one page at a time; wire all gallery-list-producing surfaces to the resolver and late
    favcat-metadata updates.
-3. Waterfall tag color parity: Waterfall cards already show tags, but their chips currently use fixed
+2. Waterfall tag color parity: Waterfall cards already show tags, but their chips currently use fixed
    neutral colors instead of the ordinary list card's user-tag / parsed inline color priority. Reuse the
    existing tag-color lookup behavior for Waterfall only; do not turn this into a Grid redesign.
-4. Settings placement cleanup for Home bottom-tab auto-hide: the setting is currently exposed on the
-   Settings root and the deterministic contract locks that placement. Move the visible switch to the
-   appropriate Layout/display browsing settings surface while preserving `HomeTabSettings` persistence and
-   update the contract so root placement is no longer the target.
-5. Settings/user-visible terminology cleanup: do not use slang labels such as `表站` / `里站` in Settings
+3. Settings/user-visible terminology cleanup: do not use slang labels such as `表站` / `里站` in Settings
    or zh_CN UI copy. Use official service names (`E-Hentai`, `ExHentai`) and update contracts that
    currently require the slang site labels.
 

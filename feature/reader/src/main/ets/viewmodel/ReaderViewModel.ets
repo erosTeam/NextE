@@ -183,6 +183,14 @@ export class ReaderViewModel {
     ReaderViewModel.trimSessionCache()
   }
 
+  private notifyImagesChanged(): void {
+    const next: EhGalleryImage[] = []
+    for (let i: number = 0; i < this.images.length; i++) {
+      next.push(this.images[i])
+    }
+    this.images = next
+  }
+
   private static trimSessionCache(): void {
     if (ReaderViewModel.sessionCache.size <= MAX_READER_SESSION_CACHE) {
       return
@@ -683,6 +691,7 @@ export class ReaderViewModel {
           .resolve(img)
           .then(
             (): void => {
+              this.notifyImagesChanged()
               this.publishSessionCache()
             },
             (): void => {},
