@@ -58,7 +58,7 @@ const RE = {
   favY: /background-position:\s*-?\d+px\s+-?(\d+)px/,
   favTitle: /title="([^"]*)"/,
   tagRow: /<tr><td class="tc">([^:]+):<\/td><td>([\s\S]*?)<\/td><\/tr>/g,
-  tagA: /<a id="ta_[^"]*"([^>]*)>([^<]+)<\/a>/g,
+  tagA: /<a ([^>]*id="ta_[^"]*"[^>]*)>([^<]+)<\/a>/g,
   preview: /<a href="(https:\/\/e[-x]?hentai\.org\/s\/([0-9a-f]+)\/(\d+)-(\d+))">(?:<div[^>]*>)?<div title="Page \d+[^"]*" style="(?:width:(\d+)px;\s*height:(\d+)px;\s*)?background:[^;]*?url\((https:\/\/[^)]+)\)(?:\s*-?(\d+)px)?/g,
   smallPreview: /<div class="gdtm"[\s\S]*?<div[^>]*style="(?:width:(\d+)px;\s*height:(\d+)px;\s*)?background:[^;]*?url\((https:\/\/[^)]+)\)(?:\s*-?(\d+)px)?[\s\S]*?<a href="(https:\/\/e[-x]?hentai\.org\/s\/([0-9a-f]+)\/(\d+)-(\d+))"[\s\S]*?<img[^>]*alt="(\d+)"/g,
   largePreview: /<div class="gdtl"[\s\S]*?<a href="(https:\/\/e[-x]?hentai\.org\/s\/([0-9a-f]+)\/(\d+)-(\d+))"[\s\S]*?<img[^>]*alt="(\d+)"[^>]*src="(https:\/\/[^"]+)"/g,
@@ -72,11 +72,46 @@ function parseTags(html) {
     const tags = [...r[2].matchAll(RE.tagA)].map((m) => {
       const attrs = m[1] || ''
       const vote = attrs.includes('class="tup"') ? 1 : attrs.includes('class="tdn"') ? -1 : 0
-      return { text: m[2].trim(), vote }
+      return { text: rawTagText(r[1].trim(), attrs, m[2]), vote }
     })
     if (r[1].trim() && tags.length) groups.push({ ns: r[1].trim(), tags })
   }
   return groups
+}
+function rawTagText(ns, attrs, displayText) {
+  const href = attrs.match(/href="([^"]*)"/)?.[1] ?? ''
+  const fromHref = rawTagFromHref(ns, htmlUnescape(href))
+  if (fromHref) return fromHref
+  const id = attrs.match(/id="ta_([^"]*)"/)?.[1] ?? ''
+  const fromId = rawTagFromFullTag(ns, id)
+  if (fromId) return fromId
+  return htmlUnescape((displayText || '').trim())
+}
+function rawTagFromHref(ns, href) {
+  const tagPath = '/tag/'
+  const tagIdx = href.indexOf(tagPath)
+  if (tagIdx >= 0) return rawTagFromFullTag(ns, href.slice(tagIdx + tagPath.length))
+  const q = 'f_search='
+  const qIdx = href.indexOf(q)
+  if (qIdx < 0) return ''
+  let value = href.slice(qIdx + q.length)
+  const amp = value.indexOf('&')
+  if (amp >= 0) value = value.slice(0, amp)
+  return rawTagFromFullTag(ns, value)
+}
+function rawTagFromFullTag(ns, value) {
+  let raw = (value || '').trim()
+  const slash = raw.indexOf('/')
+  if (slash >= 0) raw = raw.slice(0, slash)
+  let full = safeDecode(raw.replace(/\+/g, '%20')).trim()
+  const colon = full.indexOf(':')
+  if (colon < 0) return full
+  const gotNs = full.slice(0, colon).trim().toLowerCase()
+  if (gotNs && gotNs !== ns.toLowerCase().trim()) return ''
+  return full.slice(colon + 1).trim()
+}
+function safeDecode(value) {
+  try { return decodeURIComponent(value) } catch { return value }
 }
 function parseImages(html) {
   const imgs = [...html.matchAll(RE.preview)].map((m) => ({
@@ -184,7 +219,18 @@ eq(g1(SYN, RE.apikey), 'abcd1234ef', 'apikey')
 const st = parseTags(SYN)
 eq(st.length, 2, 'tag groups')
 eq(st[0].ns, 'artist', 'group0 ns'); eq(st[1].tags.length, 2, 'female tag count')
+eq(st[0].tags[0].text, 'x', 'detail tags use raw id/href tag text instead of visible display text')
 eq(st[0].tags[0].vote, 0, 'unvoted tag (no class) → vote 0')
+
+const RAW_TAG = `<div id="taglist"><table><tr><td class="tc">artist:</td><td>` +
+  `<div class="gt"><a id="ta_artist:fallback" href="https://e-hentai.org/tag/artist:raw%20artist" class="">Pretty Artist</a></div>` +
+  `<div class="gt"><a id="ta_artist:q" href="https://e-hentai.org/?f_search=artist%3Aquery+artist&f_apply=Apply+Filter" class="">Query Artist</a></div>` +
+  `<div class="gt"><a id="ta_artist:entity" href="#" class="">A&amp;B</a></div>` +
+  `</td></tr></table></div>`
+const rt = parseTags(RAW_TAG)
+eq(rt[0].tags[0].text, 'raw artist', 'detail tag raw text comes from /tag/ns:raw href')
+eq(rt[0].tags[1].text, 'query artist', 'detail tag raw text comes from f_search=ns:raw query')
+eq(rt[0].tags[2].text, 'entity', 'detail tag falls back to id raw text before display text')
 
 // Tag vote state: EH marks a logged-in user's voted tag <a> with class "tup" (+1) / "tdn" (-1); an
 // unvoted tag stays class="" (0). Real EH markup shape (id ta_*, href, class, onclick) — the captured
@@ -197,7 +243,7 @@ const VOTE = `<div id="taglist"><table><tr><td class="tc">female:</td><td>` +
 const vt = parseTags(VOTE)
 eq(vt.length, 1, 'vote: one tag group')
 eq(vt[0].tags.length, 3, 'vote: three tags')
-eq(vt[0].tags[0].text, 'up tag', 'vote: upvoted tag text intact')
+eq(vt[0].tags[0].text, 'up', 'vote: upvoted tag keeps raw href tag text')
 eq(vt[0].tags[0].vote, 1, 'vote: class="tup" → +1')
 eq(vt[0].tags[1].vote, -1, 'vote: class="tdn" → -1')
 eq(vt[0].tags[2].vote, 0, 'vote: class="" → 0')

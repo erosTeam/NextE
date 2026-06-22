@@ -155,12 +155,12 @@ export class EhGalleryDetailParser {
       // Capture the <a> attribute blob so the logged-in user's vote class can be read: EH marks a voted
       // tag <a> with class "tup" (+1) / "tdn" (-1) and leaves it class="" otherwise (eros_fe parses the
       // same attribute). Group 1 = attrs, group 2 = tag text.
-      const tagRe: RegExp = new RegExp('<a id="ta_[^"]*"([^>]*)>([^<]+)</a>', 'g')
+      const tagRe: RegExp = new RegExp('<a ([^>]*id="ta_[^"]*"[^>]*)>([^<]+)</a>', 'g')
       let tagM: RegExpExecArray | null = tagRe.exec(cell)
       while (tagM !== null) {
         if (tagM[2] !== undefined) {
           const attrs: string = tagM[1] !== undefined ? tagM[1] : ''
-          const tag: SimpleTag = new SimpleTag(tagM[2].trim(), '')
+          const tag: SimpleTag = new SimpleTag(EhGalleryDetailParser.rawTagText(ns, attrs, tagM[2]), '')
           if (attrs.includes('class="tup"')) {
             tag.vote = 1
           } else if (attrs.includes('class="tdn"')) {
@@ -176,5 +176,58 @@ export class EhGalleryDetailParser {
       rowM = rowRe.exec(listM[1])
     }
     return groups
+  }
+
+  private static rawTagText(namespace: string, attrs: string, displayText: string): string {
+    const fromHref: string = EhGalleryDetailParser.rawTagFromHref(namespace, HtmlSelectorUtils.group1(attrs, /href="([^"]*)"/))
+    if (fromHref.length > 0) {
+      return fromHref
+    }
+    const fromId: string = EhGalleryDetailParser.rawTagFromFullTag(namespace, HtmlSelectorUtils.group1(attrs, /id="ta_([^"]*)"/))
+    if (fromId.length > 0) {
+      return fromId
+    }
+    return HtmlSelectorUtils.htmlUnescape(displayText.trim())
+  }
+
+  private static rawTagFromHref(namespace: string, href: string): string {
+    if (href.length === 0) {
+      return ''
+    }
+    const clean: string = HtmlSelectorUtils.htmlUnescape(href)
+    const tagPath: string = '/tag/'
+    const tagIdx: number = clean.indexOf(tagPath)
+    if (tagIdx >= 0) {
+      return EhGalleryDetailParser.rawTagFromFullTag(namespace, clean.substring(tagIdx + tagPath.length))
+    }
+    const q: string = 'f_search='
+    const qIdx: number = clean.indexOf(q)
+    if (qIdx < 0) {
+      return ''
+    }
+    let value: string = clean.substring(qIdx + q.length)
+    const amp: number = value.indexOf('&')
+    if (amp >= 0) {
+      value = value.substring(0, amp)
+    }
+    return EhGalleryDetailParser.rawTagFromFullTag(namespace, value)
+  }
+
+  private static rawTagFromFullTag(namespace: string, value: string): string {
+    let raw: string = value.trim()
+    const slash: number = raw.indexOf('/')
+    if (slash >= 0) {
+      raw = raw.substring(0, slash)
+    }
+    const full: string = HtmlSelectorUtils.urlDecode(raw.replace(/\+/g, '%20')).trim()
+    const colon: number = full.indexOf(':')
+    if (colon < 0) {
+      return full
+    }
+    const ns: string = full.substring(0, colon).trim().toLowerCase()
+    if (ns.length > 0 && ns !== namespace.toLowerCase().trim()) {
+      return ''
+    }
+    return full.substring(colon + 1).trim()
   }
 }
