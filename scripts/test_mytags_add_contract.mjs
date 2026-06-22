@@ -76,7 +76,7 @@ ok(/confirmSubmitAdd\(\): void[\s\S]*showAlertDialog[\s\S]*mytags_add_confirm[\s
   'adding a new My Tag is gated by a native confirmation dialog')
 ok(/submitAdd\(\): Promise<void>[\s\S]*EhApiService\.getInstance\(\)\.addUserTag\(\{[\s\S]*tagName: this\.addTagLabel\(\)[\s\S]*tagset: this\.mytags\.currentTagset[\s\S]*color: this\.normalizedAddColor\(\)[\s\S]*weight: this\.addWeight[\s\S]*watched: this\.addWatched[\s\S]*hidden: this\.addHidden/.test(page),
   'MyTagsPage submits the current add draft through addUserTag')
-ok(/submitAdd\(\): Promise<void>[\s\S]*await this\.reloadCurrentTagset\(\)[\s\S]*this\.addSheetShown = false/.test(page),
+ok(/submitAdd\(\): Promise<void>[\s\S]*await this\.reloadCurrentTagset\(\)[\s\S]*this\.closeMyTagsSheet\(\)/.test(page),
   'successful add reloads current tagset and closes the sheet')
 ok(/addWatched = value[\s\S]*if \(value\) \{[\s\S]*this\.addHidden = false/.test(page) &&
   /addHidden = value[\s\S]*if \(value\) \{[\s\S]*this\.addWatched = false/.test(page),

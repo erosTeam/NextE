@@ -34,7 +34,13 @@ export struct SubTabBar {
   @Local tabWidths: number[] = [];
   private scroller: Scroller = new Scroller();
   private viewportWidth: number = 0;
-  private lastCentered: number = -1;
+  private pendingCenterIndex: number = -1;
+  private pendingCenterSmooth: boolean = false;
+  private centeredTarget: number = -1;
+
+  aboutToAppear(): void {
+    this.centerSelectedTab(false, true)
+  }
 
   private selectedIndex(): number {
     const n: number = this.tabs.length
@@ -85,17 +91,34 @@ export struct SubTabBar {
   // Keep the active tab visible (favcat strip can overflow). Centres on the discrete selected tab.
   @Monitor('visualIndex')
   onVisualIndexChange(): void {
+    this.centerSelectedTab(true, false)
+  }
+
+  private centerSelectedTab(smooth: boolean, force: boolean): void {
     if (!this.scrollable) {
       return
     }
     const i: number = this.selectedIndex()
-    if (i === this.lastCentered) {
+    if (!force && i === this.centeredTarget && this.pendingCenterIndex !== i) {
       return
     }
-    this.lastCentered = i
+    this.centeredTarget = i
+    this.centerTab(i, smooth)
+  }
+
+  private centerTab(i: number, smooth: boolean): void {
+    if (!this.scrollable || i < 0 || i >= this.tabs.length) {
+      return
+    }
     const wi: number = i < this.tabWidths.length ? this.tabWidths[i] : 0
+    if (this.viewportWidth <= 0 || wi <= 0) {
+      this.pendingCenterIndex = i
+      this.pendingCenterSmooth = smooth
+      return
+    }
+    this.pendingCenterIndex = -1
     const target: number = this.tabLeft(i) - this.viewportWidth / 2 + wi / 2
-    this.scroller.scrollTo({ xOffset: Math.max(0, target), yOffset: 0, animation: true })
+    this.scroller.scrollTo({ xOffset: Math.max(0, target), yOffset: 0, animation: smooth })
   }
 
   @Builder
@@ -134,6 +157,9 @@ export struct SubTabBar {
           })
           .onAreaChange((_oldValue: Area, newValue: Area) => {
             this.setTabWidth(index, newValue.width as number)
+            if (this.pendingCenterIndex === index) {
+              this.centerTab(index, this.pendingCenterSmooth)
+            }
           })
         },
         // Key MUST include the label + count, not just the stable key: dynamic tabs (favcat) reuse a key
@@ -178,6 +204,11 @@ export struct SubTabBar {
       .height(SELECTOR_BAR_HEIGHT)
       .onAreaChange((_oldValue: Area, newValue: Area) => {
         this.viewportWidth = newValue.width as number
+        if (this.pendingCenterIndex >= 0) {
+          this.centerTab(this.pendingCenterIndex, this.pendingCenterSmooth)
+        } else {
+          this.centerSelectedTab(false, true)
+        }
       })
     } else {
       Stack({ alignContent: Alignment.TopStart }) {

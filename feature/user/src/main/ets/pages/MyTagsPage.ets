@@ -1,4 +1,5 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
+import { common } from '@kit.AbilityKit'
 import {
   AppModalScaffold,
   AppColorPicker,
@@ -14,7 +15,10 @@ import {
   UserTagStore,
   UserTagSignal,
   connectUserTagSignal,
+  TagTranslationSettingsState,
+  connectTagTranslationSettings,
   TagTranslationService,
+  AppStrings,
   DiagnosticLogger,
   PageLoadingState,
   PageErrorState,
@@ -78,6 +82,8 @@ export struct MyTagsPage {
   @Local tagsetName: string = '';
   @Local showingTagsetList: boolean = true;
   @Local tagSig: UserTagSignal = connectUserTagSignal();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  @Local mytagsEpoch: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
@@ -98,18 +104,27 @@ export struct MyTagsPage {
   }
 
   private async load(tagset: string = ''): Promise<void> {
+    const epoch: number = this.mytagsEpoch + 1
+    this.mytagsEpoch = epoch
     this.loading = true
     this.error = ''
     try {
       this.mytags = await EhApiService.getInstance().getMyTags(connectSiteMode().isEx, tagset)
       this.showingTagsetList = tagset.length === 0 && this.mytags.tagSets.length > 1
-      this.publishUserTags()
+      if (this.tagTranslation.enabled) {
+        await this.translateLoadedMyTags(epoch)
+      }
+      if (epoch === this.mytagsEpoch) {
+        this.publishUserTags()
+      }
     } catch (err) {
       const e = err as Error
       this.error = e.message
       DiagnosticLogger.warn('mytags', 'load_failed', e.message)
     }
-    this.loading = false
+    if (epoch === this.mytagsEpoch) {
+      this.loading = false
+    }
   }
 
   private async reloadCurrentTagset(): Promise<void> {
@@ -131,15 +146,140 @@ export struct MyTagsPage {
     return t.display.length > 0 ? t.display : t.tag
   }
 
-  private tagTitle(t: EhUsertag): string {
-    return t.tag.length > 0 ? t.tag : this.tagLabel(t)
+  @Monitor('tagTranslation.enabled')
+  onTagTranslationChange(): void {
+    if (this.loading) {
+      return
+    }
+    this.addTagTranslate = ''
+    if (this.tagTranslation.enabled) {
+      const epoch: number = this.mytagsEpoch + 1
+      this.mytagsEpoch = epoch
+      this.translateLoadedMyTags(epoch).then(() => {})
+    }
   }
 
-  private tagSubtitle(t: EhUsertag): string {
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private async translateLoadedMyTags(epoch: number): Promise<void> {
+    const source: EhMytags = this.mytags
+    const tags: EhUsertag[] = []
+    for (let i = 0; i < source.tags.length; i++) {
+      const copy: EhUsertag = this.copyUsertag(source.tags[i])
+      const translated: string = await TagTranslationService.translateFullTagAsync(this.ctx(), copy.tag)
+      if (translated.length > 0) {
+        copy.translate = translated
+      }
+      tags.push(copy)
+    }
+    if (epoch === this.mytagsEpoch) {
+      this.mytags = this.copyMytagsWithTags(source, tags)
+    }
+  }
+
+  private copyMytagsWithTags(source: EhMytags, tags: EhUsertag[]): EhMytags {
+    const out: EhMytags = new EhMytags()
+    out.tags = tags
+    out.tagSets = source.tagSets
+    out.currentTagset = source.currentTagset
+    out.canDelete = source.canDelete
+    out.apiuid = source.apiuid
+    out.apikey = source.apikey
+    return out
+  }
+
+  private copyUsertag(t: EhUsertag): EhUsertag {
+    const out: EhUsertag = new EhUsertag()
+    out.tagId = t.tagId
+    out.tag = t.tag
+    out.display = t.display
+    out.translate = t.translate
+    out.colorCode = t.colorCode
+    out.color = t.color
+    out.fillColor = t.fillColor
+    out.textColor = t.textColor
+    out.defaultColor = t.defaultColor
+    out.tagWeight = t.tagWeight
+    out.weight = t.weight
+    out.watched = t.watched
+    out.hidden = t.hidden
+    return out
+  }
+
+  private localizedTagLabel(t: EhUsertag): string {
+    if (!this.tagTranslation.enabled) {
+      return ''
+    }
     if (t.translate.length === 0 || t.translate === t.tag || t.translate === this.tagLabel(t)) {
       return ''
     }
     return t.translate
+  }
+
+  private tagTitle(t: EhUsertag): string {
+    const localized: string = this.localizedTagLabel(t)
+    if (localized.length > 0) {
+      return this.localizedFullTagDisplay(t.tag, localized)
+    }
+    return t.tag.length > 0 ? t.tag : this.tagLabel(t)
+  }
+
+  private tagSubtitle(t: EhUsertag): string {
+    const localized: string = this.localizedTagLabel(t)
+    if (localized.length > 0) {
+      return t.tag
+    }
+    return ''
+  }
+
+  private localizedFullTagDisplay(fullTag: string, localized: string): string {
+    const text: string = localized.trim()
+    if (text.length === 0) {
+      return ''
+    }
+    const idx: number = fullTag.indexOf(':')
+    const namespace: string = idx > 0 ? fullTag.substring(0, idx) : 'misc'
+    const label: string = this.localizedNamespaceLabel(namespace)
+    return label.length > 0 ? `${label}:${text}` : text
+  }
+
+  private localizedNamespaceLabel(namespace: string): string {
+    switch (EhConstants.expandNamespace(namespace)) {
+      case 'artist':
+        return AppStrings.get('tag_ns_artist')
+      case 'female':
+        return AppStrings.get('tag_ns_female')
+      case 'male':
+        return AppStrings.get('tag_ns_male')
+      case 'parody':
+        return AppStrings.get('tag_ns_parody')
+      case 'character':
+        return AppStrings.get('tag_ns_character')
+      case 'group':
+        return AppStrings.get('tag_ns_group')
+      case 'language':
+        return AppStrings.get('tag_ns_language')
+      case 'reclass':
+        return AppStrings.get('tag_ns_reclass')
+      case 'cosplayer':
+        return AppStrings.get('tag_ns_cosplayer')
+      case 'misc':
+        return AppStrings.get('tag_ns_misc')
+      case 'mixed':
+        return AppStrings.get('tag_ns_mixed')
+      case 'location':
+        return AppStrings.get('tag_ns_location')
+      case 'other':
+        return AppStrings.get('tag_ns_other')
+      case 'uploader':
+        return AppStrings.get('tag_ns_uploader')
+      case 'temp':
+        return AppStrings.get('tag_ns_temp')
+      default:
+        return EhConstants.expandNamespace(namespace)
+    }
   }
 
   private tagFillColor(t: EhUsertag): ResourceColor {
@@ -179,7 +319,7 @@ export struct MyTagsPage {
   private openEditTag(t: EhUsertag): void {
     this.editTagId = t.tagId
     this.editTagTitle = t.tag
-    this.editTagDisplay = this.tagLabel(t)
+    this.editTagDisplay = this.tagTitle(t)
     this.editTagTranslate = this.tagSubtitle(t)
     this.editWatched = t.watched
     this.editHidden = t.hidden
@@ -549,7 +689,7 @@ export struct MyTagsPage {
   private setAddTagQuery(value: string): void {
     this.addTagQuery = value
     this.addTagName = value.trim()
-    this.addTagTranslate = TagTranslationService.translateFullTag(this.addTagName)
+    this.addTagTranslate = ''
     this.addError = ''
     if (this.addSuppressNextSuggest) {
       this.addSuppressNextSuggest = false
@@ -560,7 +700,22 @@ export struct MyTagsPage {
     }
     const epoch: number = this.addSuggestEpoch + 1
     this.addSuggestEpoch = epoch
+    this.loadAddTagTranslation(this.addTagName, epoch)
     this.loadAddSuggestions(value, epoch)
+  }
+
+  private async loadAddTagTranslation(value: string, epoch: number): Promise<void> {
+    const tag: string = value.trim()
+    if (!this.tagTranslation.enabled || tag.length === 0) {
+      if (epoch === this.addSuggestEpoch) {
+        this.addTagTranslate = ''
+      }
+      return
+    }
+    const translated: string = await TagTranslationService.translateFullTagAsync(this.ctx(), tag)
+    if (epoch === this.addSuggestEpoch) {
+      this.addTagTranslate = this.localizedFullTagDisplay(tag, translated)
+    }
   }
 
   private async loadAddSuggestions(value: string, epoch: number): Promise<void> {
@@ -574,6 +729,14 @@ export struct MyTagsPage {
     }
     this.addSuggesting = true
     try {
+      if (this.tagTranslation.enabled) {
+        const localSuggestions: EhTagSuggestion[] = await TagTranslationService.searchSuggestions(this.ctx(), q, 30)
+        if (epoch === this.addSuggestEpoch && localSuggestions.length > 0) {
+          this.addSuggestions = localSuggestions.filter((s: EhTagSuggestion) => !this.hasExistingTag(s.label()))
+          this.addSuggesting = false
+          return
+        }
+      }
       const suggestions: EhTagSuggestion[] = await EhApiPhpService.tagSuggest(
         EhConstants.baseUrl(connectSiteMode().isEx),
         q,
@@ -598,11 +761,12 @@ export struct MyTagsPage {
     const label: string = s.label()
     this.addTagQuery = label
     this.addTagName = label
-    this.addTagTranslate = TagTranslationService.translateFullTag(label)
+    this.addTagTranslate = this.localizedFullTagDisplay(label, s.displayName)
     this.addSuggestions = []
     this.addSuggesting = false
     this.addSuppressNextSuggest = true
     this.addSuggestEpoch = this.addSuggestEpoch + 1
+    this.loadAddTagTranslation(label, this.addSuggestEpoch)
   }
 
   private myTagsTitleBar(): Record<string, Object> {
@@ -908,12 +1072,6 @@ export struct MyTagsPage {
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .width('100%')
             }
-            Text(this.editTagTitle)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor($r('sys.color.font_tertiary'))
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .width('100%')
           }
           .width('100%')
           this.DraftSwitchRow($r('app.string.mytags_watch'), this.editWatched, this.editSubmitting, (value: boolean) => {
@@ -1156,13 +1314,23 @@ export struct MyTagsPage {
           top: ThemeConstants.SPACE_XS,
           bottom: ThemeConstants.SPACE_XS,
         })
-      Text(s.text)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .layoutWeight(1)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        Text(s.displayName.length > 0 ? s.displayName : s.text)
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (s.displayName.length > 0) {
+          Text(s.text)
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)

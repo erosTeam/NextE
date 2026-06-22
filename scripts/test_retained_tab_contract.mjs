@@ -71,7 +71,8 @@ ok(!/@Local\s+vm:/.test(host) && !/loadData|setData|\.reload\(/.test(host), 'hos
 // signal missed an unvisited subtab's first load — this is the durable fix.
 ok(/@ObservedV2[\s\S]*?class ActiveKeyState[\s\S]*?@Trace\s+activeKey/.test(host), 'host defines a shared ActiveKeyState (@ObservedV2 @Trace activeKey)')
 ok(/@BuilderParam\s+pageBuilder:\s*\(key:\s*string,\s*active:\s*ActiveKeyState/.test(host), 'host passes the SHARED ActiveKeyState to pages (not a per-render isActive boolean)')
-ok(/this\.pageBuilder\(key,\s*this\.active,/.test(host) && !/key === this\.selectedKey/.test(host), 'host hands pages this.active (the old per-render `key === selectedKey` isActive is gone)')
+ok(/this\.pageBuilder\(key,\s*this\.active,/.test(host) && !/this\.pageBuilder\(key,\s*key === this\.selectedKey/.test(host),
+  'host hands pages this.active as the pageBuilder activation signal (not the old per-render boolean isActive)')
 ok((host.match(/this\.active\.activeKey\s*=/g) || []).length >= 3, 'host updates active.activeKey on aboutToAppear + selectedKey change + onChange (every activation path)')
 
 // ── 2. Generic TabItem/key model ─────────────────────────────────────────────────────────────────────
@@ -135,6 +136,14 @@ for (const [name, src, conn] of [
 ok(/@Param\s+scrollable:\s*boolean/.test(subTabBar), 'SubTabBar supports a scrollable mode (favcat overflow)')
 ok(/\.position\(/.test(subTabBar), 'SubTabBar positions ONE sliding indicator (interpolated), not per-tab underlines')
 ok(/@Param\s+visualIndex:\s*number/.test(subTabBar), 'SubTabBar takes the interpolated visualIndex')
+ok(/aboutToAppear\(\): void[\s\S]*this\.centerSelectedTab\(false,\s*true\)/.test(subTabBar),
+  'SubTabBar re-centers the restored selected tab on attach, even when visualIndex did not change')
+ok(/pendingCenterIndex/.test(subTabBar) && /pendingCenterSmooth/.test(subTabBar) &&
+  /if \(this\.viewportWidth <= 0 \|\| wi <= 0\) \{[\s\S]*this\.pendingCenterIndex = i/.test(subTabBar),
+  'SubTabBar defers restored-tab centering until tab width and viewport measurements are available')
+ok(/onAreaChange\([\s\S]*this\.viewportWidth = newValue\.width as number[\s\S]*this\.centerSelectedTab\(false,\s*true\)/.test(subTabBar) &&
+  /if \(this\.pendingCenterIndex === index\) \{[\s\S]*this\.centerTab\(index,\s*this\.pendingCenterSmooth\)/.test(subTabBar),
+  'SubTabBar completes pending restored-tab centering from viewport and tab measurement callbacks')
 // The tab ForEach key MUST include the label + count (not just the stable key): dynamic tabs (favcat reuse
 // favId 0-9 across a seed→real update) would otherwise reuse frozen seed chips, leaving the bar on
 // placeholder "Favorites N / 0" after the parsed favList lands.
