@@ -1244,6 +1244,7 @@ export struct GalleryDetailPage {
       const p = context.pathInfo.param as GalleryDetailParams
       if (p !== undefined && p.gid.length > 0) {
         this.params = p
+        this.vm.setContext(this.ctx())
         const seed: EhGallery = new EhGallery(p.gid, p.token)
         seed.thumbUrl = p.thumbUrl
         seed.imgWidth = p.imgWidth

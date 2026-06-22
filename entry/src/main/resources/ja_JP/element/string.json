@@ -777,6 +777,74 @@
       "value": "未実装"
     },
     {
+      "name": "tag_translation_title",
+      "value": "タグ翻訳"
+    },
+    {
+      "name": "tag_translation_enable",
+      "value": "タグ翻訳を有効化"
+    },
+    {
+      "name": "tag_translation_enable_hint",
+      "value": "タグ名をローカライズ表示し、検索候補でも翻訳名を一致させます。"
+    },
+    {
+      "name": "tag_translation_database",
+      "value": "翻訳データベース"
+    },
+    {
+      "name": "tag_translation_not_installed",
+      "value": "未インストール"
+    },
+    {
+      "name": "tag_translation_no_version",
+      "value": "ローカルバージョンなし"
+    },
+    {
+      "name": "tag_translation_update_now",
+      "value": "今すぐ更新"
+    },
+    {
+      "name": "tag_translation_update_now_hint",
+      "value": "最新のタグ翻訳を確認し、端末に保存します。"
+    },
+    {
+      "name": "tag_translation_update_started",
+      "value": "タグ翻訳の更新を開始しました"
+    },
+    {
+      "name": "tag_translation_update_finished",
+      "value": "タグ翻訳の更新が完了しました"
+    },
+    {
+      "name": "tag_translation_update_failed",
+      "value": "タグ翻訳の更新に失敗しました"
+    },
+    {
+      "name": "tag_translation_updating",
+      "value": "更新中"
+    },
+    {
+      "name": "tag_translation_cdn",
+      "value": "ミラーからダウンロード"
+    },
+    {
+      "name": "tag_translation_cdn_hint",
+      "value": "通常のダウンロードが遅い、または使えない場合にミラーを使用します。"
+    },
+    {
+      "name": "tag_translation_update_mode",
+      "value": "自動更新"
+    },
+    {
+      "name": "tag_translation_update_manual",
+      "value": "手動"
+    },
+    {
+      "name": "tag_translation_update_every_start",
+      "value": "アプリ起動時"
+    },
+    {
       "name": "settings_about",
       "value": "バージョン情報"
     },
@@ -1347,6 +1415,10 @@
     {
       "name": "security_auto_lock_5h",
       "value": "5 時間"
+    },
+    {
+      "name": "common_on",
+      "value": "オン"
     },
     {
       "name": "common_off",

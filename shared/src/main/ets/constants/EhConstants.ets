@@ -185,6 +185,16 @@ export class EhConstants {
     return full
   }
 
+  /** Gallery chip display for localized simple tags; keeps EH's short namespace prefix visible. */
+  static localizedTagDisplay(namespace: string, localized: string): string {
+    const ns: string = EhConstants.compactNamespace(namespace)
+    const text: string = localized.trim()
+    if (ns.length === 0 || text.length === 0) {
+      return text
+    }
+    return `${ns}:${text}`
+  }
+
   /** Display aliases can be "raw | translated"; EH search must use the raw first segment. */
   static canonicalTagText(tag: string): string {
     const raw: string = tag.trim()

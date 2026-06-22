@@ -10,6 +10,7 @@ import {
   EhUrlRouter,
   EhConstants,
   EhTagSuggestion,
+  TagTranslationService,
   GalleryRef,
   ImagePageRouteService,
   ImagePageRouteTarget,
@@ -88,6 +89,10 @@ export struct GallerySearchPage {
   // Search field hosted in this pushed page's HDS title-bar bottomBuilder — cached ONCE (re-issuing
   // the titleBar opts must reuse the same field instance, not remount it and flap the IME).
   private fieldContent: ComponentContent<SearchPageFieldState> | null = null;
+
+  aboutToAppear(): void {
+    this.vm.setContext(this.ctx())
+  }
 
   private ensureFieldContent(): ComponentContent<SearchPageFieldState> {
     if (this.fieldContent === null) {
@@ -181,7 +186,7 @@ export struct GallerySearchPage {
       this.vm.clearSuggestions()
       return
     }
-    this.vm.scheduleTagSuggest(this.fieldState.keyword)
+    this.vm.scheduleTagSuggest(this.fieldState.keyword, this.ctx())
   }
 
   // A whole-string EH URL (no embedded substring) — eros_fe gates its URL-jump on searchText.isURL,
@@ -192,6 +197,21 @@ export struct GallerySearchPage {
 
   private formatSuggestionQuery(s: EhTagSuggestion): string {
     return EhConstants.exactTagSearchQuery(s.namespace, s.text)
+  }
+
+  private suggestionTitle(s: EhTagSuggestion): string {
+    return s.displayName.length > 0 ? s.displayName : this.formatSuggestionQuery(s)
+  }
+
+  private suggestionSubtitle(s: EhTagSuggestion): string {
+    const query: string = this.formatSuggestionQuery(s)
+    if (s.displayName.length > 0) {
+      return query
+    }
+    if (s.namespace.length > 0) {
+      return `${AppStrings.get('search_suggestion_namespace')}${EhConstants.expandNamespace(s.namespace)}`
+    }
+    return ''
   }
 
   private replaceLastToken(query: string, replacement: string): string {
@@ -206,6 +226,7 @@ export struct GallerySearchPage {
     this.fieldState.keyword = next
     this.fieldState.seedSeq = this.fieldState.seedSeq + 1
     this.vm.clearSuggestions()
+    TagTranslationService.touchSuggestion(this.ctx(), s).then(() => {})
   }
 
   /**
@@ -315,14 +336,14 @@ export struct GallerySearchPage {
                 .fontSize(24)
                 .fontColor([$r('sys.color.font_tertiary')])
               Column({ space: ThemeConstants.SPACE_XS }) {
-                Text(this.formatSuggestionQuery(s))
+                Text(this.suggestionTitle(s))
                   .fontSize(ThemeConstants.FONT_SIZE_BODY)
                   .fontWeight(FontWeight.Medium)
                   .fontColor($r('sys.color.font_primary'))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
-                if (s.namespace.length > 0) {
-                  Text(`${AppStrings.get('search_suggestion_namespace')}${EhConstants.expandNamespace(s.namespace)}`)
+                if (this.suggestionSubtitle(s).length > 0) {
+                  Text(this.suggestionSubtitle(s))
                     .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
                     .fontColor($r('sys.color.font_secondary'))
                     .maxLines(1)

@@ -14,8 +14,11 @@ import {
   GalleryTitleState,
   HomeTabSettings,
   HomeTabAutoHideState,
+  TagTranslationSettingsState,
+  connectNavStack,
   connectGalleryTitle,
   connectHomeTabAutoHide,
+  connectTagTranslationSettings,
   ThumbnailModeSettings,
   ThumbnailModeState,
   connectListMode,
@@ -34,7 +37,9 @@ export struct LayoutSettingsPage {
   @Local galleryTitle: GalleryTitleState = connectGalleryTitle();
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local viewMenuShown: boolean = false;
+  private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
   private ctx(): common.UIAbilityContext {
@@ -78,45 +83,57 @@ export struct LayoutSettingsPage {
     ThumbnailModeSettings.setHorizontalThumbnails(this.ctx(), value)
   }
 
+  private tagTranslationStateText(): Resource {
+    return this.tagTranslation.enabled ? $r('app.string.common_on') : $r('app.string.common_off')
+  }
+
   @Builder
   ViewModeMenu() {
     Menu() {
       MenuItem({
         content: $r('app.string.view_list'),
-        symbolEndIcon: this.listMode.mode === ListMode.LIST
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.setViewMode(ListMode.LIST)
-        this.viewMenuShown = false
+        symbolEndIcon:
+          this.listMode.mode === ListMode.LIST
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
       })
+        .onClick(() => {
+          this.setViewMode(ListMode.LIST)
+          this.viewMenuShown = false
+        })
       MenuItem({
         content: $r('app.string.view_simple'),
-        symbolEndIcon: this.listMode.mode === ListMode.SIMPLE_LIST
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.setViewMode(ListMode.SIMPLE_LIST)
-        this.viewMenuShown = false
+        symbolEndIcon:
+          this.listMode.mode === ListMode.SIMPLE_LIST
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
       })
+        .onClick(() => {
+          this.setViewMode(ListMode.SIMPLE_LIST)
+          this.viewMenuShown = false
+        })
       MenuItem({
         content: $r('app.string.view_grid'),
-        symbolEndIcon: this.listMode.mode === ListMode.GRID
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.setViewMode(ListMode.GRID)
-        this.viewMenuShown = false
+        symbolEndIcon:
+          this.listMode.mode === ListMode.GRID
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
       })
+        .onClick(() => {
+          this.setViewMode(ListMode.GRID)
+          this.viewMenuShown = false
+        })
       MenuItem({
         content: $r('app.string.view_waterfall'),
-        symbolEndIcon: this.listMode.mode === ListMode.WATERFALL
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.setViewMode(ListMode.WATERFALL)
-        this.viewMenuShown = false
+        symbolEndIcon:
+          this.listMode.mode === ListMode.WATERFALL
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
       })
+        .onClick(() => {
+          this.setViewMode(ListMode.WATERFALL)
+          this.viewMenuShown = false
+        })
     }
   }
 
@@ -187,6 +204,22 @@ export struct LayoutSettingsPage {
                 },
               })
             }
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.tag_translation_title'),
+              subtitle:
+                this.tagTranslation.version.length > 0
+                  ? this.tagTranslation.version
+                  : $r('app.string.tag_translation_not_installed'),
+              leadingIcon: $r('sys.symbol.textformat'),
+              trailingText: this.tagTranslationStateText(),
+              action: () => {
+                this.stack.pushPathByName('TagTranslationSettings', null)
+              },
+            })
           }
         }
         ListItem() {

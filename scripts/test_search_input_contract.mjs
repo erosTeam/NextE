@@ -213,7 +213,7 @@ const ok = (name, cond) => {
     /clearSearchState\(\): void \{[\s\S]*this\.epoch = this\.epoch \+ 1[\s\S]*this\.query = ''[\s\S]*this\.dataSource\.clear\(\)[\s\S]*this\.hasSearched = false[\s\S]*this\.errorMessage = ''[\s\S]*this\.pendingSearchQuery = ''/.test(vmSrc))
   ok('vm search result writes are guarded by epoch so clear cannot be overwritten by stale requests',
     /const myEpoch: number = this\.epoch/.test(vmSrc) &&
-    /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.dataSource\.setData\(list\.gallerys\)/.test(vmSrc) &&
+    /const rows: EhGallery\[] = await this\.translateRows\(list\.gallerys\)[\s\S]*if \(this\.epoch === myEpoch\) \{[\s\S]*this\.dataSource\.setData\(rows\)/.test(vmSrc) &&
     /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.isLoading = false/.test(vmSrc))
   ok(
     'refresh blocks empty query in every scope',

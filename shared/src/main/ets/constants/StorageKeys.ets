@@ -39,6 +39,10 @@ export class StorageKeys {
   static readonly TOPLIST_TL: string = 'subtab.toplistTl'
   static readonly APP_COLOR_FAVORITES: string = 'app.colorFavorites'
   static readonly HOME_TAB_AUTO_HIDE: string = 'home.tabAutoHide'
+  static readonly BLURRING_OF_COVER_BACKGROUND: string = 'layout.blurringOfCoverBackground'
+  static readonly TAG_TRANSLATION_ENABLED: string = 'tagTranslation.enabled'
+  static readonly TAG_TRANSLATION_USE_CDN: string = 'tagTranslation.useCdn'
+  static readonly TAG_TRANSLATION_UPDATE_MODE: string = 'tagTranslation.updateMode'
 
   // sensitive auth bundle (redacted in logs, never committed)
   static readonly COOKIE_JAR: string = 'auth.cookieJar'

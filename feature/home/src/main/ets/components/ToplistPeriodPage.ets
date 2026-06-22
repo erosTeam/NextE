@@ -1,6 +1,7 @@
 import { SELECTOR_BAR_HEIGHT, ActiveKeyState } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
+import { common } from '@kit.AbilityKit'
 
 /**
  * One retained toplist-PERIOD page (V2Next FeedListPage pattern; mirrors GallerySourcePage). NextE
@@ -28,8 +29,13 @@ export struct ToplistPeriodPage {
     return this.active.activeKey === `${this.periodTl}`
   }
 
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
   aboutToAppear(): void {
     this.vm.syncSource('toplist', this.periodTl)
+    this.vm.setContext(this.ctx())
     if (this.isActive()) {
       this.loadOnce()
     }

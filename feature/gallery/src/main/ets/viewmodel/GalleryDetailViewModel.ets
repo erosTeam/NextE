@@ -10,7 +10,10 @@ import {
   connectSiteMode,
   DiagnosticLogger,
   EhErrorText,
+  TagTranslationService,
+  connectTagTranslationSettings,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 /**
  * Drives the gallery detail page. Seeded with the list-row gallery (cover + title) so the
@@ -31,6 +34,11 @@ export class GalleryDetailViewModel {
   @Trace previewPageCount: number = 1
   private gid: string = ''
   private token: string = ''
+  private context: common.UIAbilityContext | null = null
+
+  setContext(context: common.UIAbilityContext): void {
+    this.context = context
+  }
 
   /** Seed the header from the list row for instant paint. */
   seed(gallery: EhGallery): void {
@@ -98,7 +106,7 @@ export class GalleryDetailViewModel {
       token,
       connectSiteMode().isEx,
     )
-    this.gallery = this.gallery.merge(res.gallery)
+    this.gallery = await this.translateGallery(this.gallery.merge(res.gallery))
     if (!refresh) {
       this.applyNonRefreshSeedRating(seedRatingFallBack, seedRatingCount, seedColorRating)
     }
@@ -129,6 +137,13 @@ export class GalleryDetailViewModel {
     }
   }
 
+  private async translateGallery(gallery: EhGallery): Promise<EhGallery> {
+    if (this.context === null || !connectTagTranslationSettings().enabled) {
+      return gallery
+    }
+    return TagTranslationService.translateGalleryTags(this.context, gallery)
+  }
+
   /** Best-effort gdata metadata enrich for a sparse seed (eros_fe getMoreGalleryInfoOne). Non-fatal:
    * the detail fetch below provides canonical data, so a gdata failure must not block the page. */
   private async enrichFromApi(gid: string, token: string): Promise<void> {
@@ -137,7 +152,7 @@ export class GalleryDetailViewModel {
       const seed: EhGallery = new EhGallery(gid, token)
       const list: EhGallery[] = await EhApiPhpService.galleryData(base, [seed])
       if (list.length > 0) {
-        this.gallery = this.gallery.merge(list[0])
+        this.gallery = await this.translateGallery(this.gallery.merge(list[0]))
       }
     } catch (err) {
       DiagnosticLogger.warn('gallery', 'gdata_enrich_failed', (err as Error).message)

@@ -8,12 +8,15 @@ import {
   FavSelectionState,
   FavcatSlotResolver,
   FavcatSlotResolveResult,
+  TagTranslationService,
+  connectTagTranslationSettings,
   EhConstants,
   connectLocalFav,
   connectSiteMode,
   DiagnosticLogger,
   EhErrorText,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 /**
  * Drives the favorites page. Same BasicDataSource + @Trace itemCount pattern as the home/search
@@ -38,6 +41,11 @@ export class FavoritesViewModel {
   // so an in-flight loadMore that resumes afterwards discards its now-stale (wrong favcat/order)
   // page instead of mixing it into the new list. selectFavcat/toggleOrder run without isLoadingMore.
   private epoch: number = 0
+  private context: common.UIAbilityContext | null = null
+
+  setContext(context: common.UIAbilityContext): void {
+    this.context = context
+  }
 
   private buildQuery(next: string): FavoritesQuery {
     return {
@@ -167,6 +175,13 @@ export class FavoritesViewModel {
     FavcatSlotResolver.applyInPlace(gallerys, favcats)
   }
 
+  private async translateRows(rows: EhGallery[]): Promise<EhGallery[]> {
+    if (this.context === null || !connectTagTranslationSettings().enabled) {
+      return rows
+    }
+    return TagTranslationService.translateGalleries(this.context, rows)
+  }
+
   /**
    * Favorites rows often carry only favTitle, not the numeric slot. If real favcat metadata arrives
    * after the rows were first rendered, re-resolve visible rows and replace the datasource so card
@@ -220,7 +235,7 @@ export class FavoritesViewModel {
     this.hasMore = false
     if (this.isLocalFavcat()) {
       const localRows: EhGallery[] = connectLocalFav().items.map((g: EhGallery) => g.copy())
-      this.dataSource.setData(localRows)
+      this.dataSource.setData(await this.translateRows(localRows))
       this.itemCount = this.dataSource.totalCount()
       this.favList = []
       this.isLoading = false
@@ -230,7 +245,8 @@ export class FavoritesViewModel {
       const list: GalleryList = await this.fetchPageWithOrderSync('')
       this.mergeFavList(list.favList)
       this.resolveFavcatSlots(list.gallerys)
-      this.dataSource.setData(list.gallerys)
+      const rows: EhGallery[] = await this.translateRows(list.gallerys)
+      this.dataSource.setData(rows)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
       this.hasMore = list.nextGid.length > 0
@@ -271,7 +287,7 @@ export class FavoritesViewModel {
       // A favcat switch / order toggle / refresh landed while this fetch was in flight → these rows
       // belong to the OLD favcat/order. Drop them rather than mixing them into the new list.
       if (this.epoch === myEpoch) {
-        const fresh: EhGallery[] = this.dedupeNew(list.gallerys)
+        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
         this.resolveFavcatSlots(fresh)
         if (fresh.length > 0) {
           this.dataSource.appendData(fresh)

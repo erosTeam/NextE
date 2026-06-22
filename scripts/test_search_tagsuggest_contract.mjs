@@ -31,7 +31,12 @@ ok('namespace compaction mirrors eros_fe shortName query prefixes',
 ok('SearchViewModel debounces suggestions on the last token',
   /const TAG_SUGGEST_DELAY_MS:\s*number\s*=\s*450/.test(vm) &&
   /lastSuggestToken\(query: string\)/.test(vm) &&
-  /this\.suggestTimer = setTimeout\(\(\) => \{[\s\S]*this\.fetchSuggestions\(token, myEpoch\)/.test(vm))
+  /this\.suggestTimer = setTimeout\(\(\) => \{[\s\S]*this\.fetchSuggestions\(context, token, myEpoch\)/.test(vm))
+
+ok('SearchViewModel tries local tag translations before EH network tagsuggest',
+  /connectTagTranslationSettings\(\)\.enabled/.test(vm) &&
+  /TagTranslationService\.searchSuggestions\(context, token, 30\)/.test(vm) &&
+  /localRows\.length > 0[\s\S]*return[\s\S]*EhApiPhpService\.tagSuggest/.test(vm))
 
 ok('SearchViewModel last-token split uses space semicolon and quote delimiters',
   /const parts:\s*string\[\]\s*=\s*trimmed\.split\(\s*\/\[ ;"\]\/\s*\)/.test(vm))
@@ -41,9 +46,12 @@ ok('SearchViewModel clears suggestions on submit/clear',
   /this\.clearSuggestions\(\)[\s\S]*this\.query = trimmed/.test(vm) &&
   /clearSearchState\(\): void \{[\s\S]*this\.clearSuggestions\(\)/.test(vm))
 ok('Search page schedules suggestions from the page-owned field state',
-  /@Monitor\('fieldState\.keyword'\)[\s\S]*this\.vm\.scheduleTagSuggest\(this\.fieldState\.keyword\)/.test(page))
+  /@Monitor\('fieldState\.keyword'\)[\s\S]*this\.vm\.scheduleTagSuggest\(this\.fieldState\.keyword, this\.ctx\(\)\)/.test(page))
 ok('Search page formats clicked suggestions as exact EH tag queries',
   /private formatSuggestionQuery\(s: EhTagSuggestion\): string \{[\s\S]*return EhConstants\.exactTagSearchQuery\(s\.namespace, s\.text\)[\s\S]*\}/.test(page))
+ok('Search page may display localized suggestion names but still inserts raw exact EH queries',
+  /suggestionTitle\(s: EhTagSuggestion\)[\s\S]*s\.displayName\.length > 0 \? s\.displayName : this\.formatSuggestionQuery\(s\)/.test(page) &&
+  /private acceptSuggestion\(s: EhTagSuggestion\): void \{[\s\S]*this\.formatSuggestionQuery\(s\)/.test(page))
 ok('Search page replaces only the last token and re-seeds the input field',
   /private replaceLastToken\(query: string, replacement: string\): string/.test(page) &&
   /this\.fieldState\.seedSeq = this\.fieldState\.seedSeq \+ 1/.test(page))

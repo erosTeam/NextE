@@ -3,6 +3,8 @@ import {
   EhApiService,
   EhGallery,
   EhTagSuggestion,
+  TagTranslationService,
+  connectTagTranslationSettings,
   GalleryList,
   GalleryListQuery,
   FavoritesQuery,
@@ -19,6 +21,7 @@ import {
   DiagnosticLogger,
   EhErrorText,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 const TAG_SUGGEST_DELAY_MS: number = 450
 
@@ -55,6 +58,11 @@ export class SearchViewModel {
   @Trace isFavoriteScope: boolean = false
   private favcat: string = 'a'
   private favOrder: string = EhConstants.FAV_ORDER_FAV
+  private context: common.UIAbilityContext | null = null
+
+  setContext(context: common.UIAbilityContext): void {
+    this.context = context
+  }
 
   /** Switch this VM into favorites scope (favorites.php f_search). favcat 'a' = all favorites. */
   seedFavoriteScope(favcat: string): void {
@@ -86,6 +94,13 @@ export class SearchViewModel {
 
   private resolveFavoriteSlots(gallerys: EhGallery[], favcats: Favcat[]): void {
     FavcatSlotResolver.applyInPlace(gallerys, favcats)
+  }
+
+  private async translateRows(rows: EhGallery[]): Promise<EhGallery[]> {
+    if (this.context === null || !connectTagTranslationSettings().enabled) {
+      return rows
+    }
+    return TagTranslationService.translateGalleries(this.context, rows)
   }
 
   resolveVisibleFavoriteSlotsFrom(favcats: Favcat[]): boolean {
@@ -137,7 +152,7 @@ export class SearchViewModel {
     return token
   }
 
-  scheduleTagSuggest(query: string): void {
+  scheduleTagSuggest(query: string, context: common.UIAbilityContext): void {
     if (this.suggestTimer >= 0) {
       clearTimeout(this.suggestTimer)
       this.suggestTimer = -1
@@ -151,7 +166,7 @@ export class SearchViewModel {
     }
     this.isSuggesting = true
     this.suggestTimer = setTimeout(() => {
-      this.fetchSuggestions(token, myEpoch)
+      this.fetchSuggestions(context, token, myEpoch)
     }, TAG_SUGGEST_DELAY_MS)
   }
 
@@ -166,8 +181,23 @@ export class SearchViewModel {
     this.isSuggesting = false
   }
 
-  private async fetchSuggestions(token: string, epoch: number): Promise<void> {
+  private async fetchSuggestions(context: common.UIAbilityContext, token: string, epoch: number): Promise<void> {
     try {
+      let localRows: EhTagSuggestion[] = []
+      try {
+        if (connectTagTranslationSettings().enabled) {
+          localRows = await TagTranslationService.searchSuggestions(context, token, 30)
+        }
+      } catch (localErr) {
+        const e = localErr as Error
+        DiagnosticLogger.warn('search', 'tag_translation_suggest_failed', e.message)
+      }
+      if (this.suggestEpoch === epoch && localRows.length > 0) {
+        this.suggestions = localRows
+        this.suggestionCount = localRows.length
+        this.isSuggesting = false
+        return
+      }
       const rows: EhTagSuggestion[] = await EhApiPhpService.tagSuggest(
         EhConstants.baseUrl(connectSiteMode().isEx),
         token,
@@ -234,9 +264,10 @@ export class SearchViewModel {
     this.hasMore = false
     try {
       const list: GalleryList = await this.fetchPage('')
+      this.resolveFavoriteSlots(list.gallerys, list.favList)
+      const rows: EhGallery[] = await this.translateRows(list.gallerys)
       if (this.epoch === myEpoch) {
-        this.resolveFavoriteSlots(list.gallerys, list.favList)
-        this.dataSource.setData(list.gallerys)
+        this.dataSource.setData(rows)
         this.itemCount = this.dataSource.totalCount()
         this.nextGid = list.nextGid
         this.hasMore = list.nextGid.length > 0
@@ -298,7 +329,8 @@ export class SearchViewModel {
     try {
       const list: GalleryList = await this.fetchPage('')
       this.resolveFavoriteSlots(list.gallerys, list.favList)
-      this.dataSource.setData(list.gallerys)
+      const rows: EhGallery[] = await this.translateRows(list.gallerys)
+      this.dataSource.setData(rows)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
       this.hasMore = list.nextGid.length > 0
@@ -339,7 +371,7 @@ export class SearchViewModel {
       // A new search / filter re-apply / refresh landed while this fetch was in flight → these rows
       // are for the OLD query. Drop them rather than mixing them into the new results.
       if (this.epoch === myEpoch) {
-        const fresh: EhGallery[] = this.dedupeNew(list.gallerys)
+        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
         this.resolveFavoriteSlots(fresh, list.favList)
         if (fresh.length > 0) {
           this.dataSource.appendData(fresh)

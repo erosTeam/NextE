@@ -777,6 +777,74 @@
       "value": "Not implemented yet"
     },
     {
+      "name": "tag_translation_title",
+      "value": "Tag translation"
+    },
+    {
+      "name": "tag_translation_enable",
+      "value": "Enable tag translation"
+    },
+    {
+      "name": "tag_translation_enable_hint",
+      "value": "Show localized tag names and match them in search suggestions."
+    },
+    {
+      "name": "tag_translation_database",
+      "value": "Translation database"
+    },
+    {
+      "name": "tag_translation_not_installed",
+      "value": "Not installed"
+    },
+    {
+      "name": "tag_translation_no_version",
+      "value": "No local version"
+    },
+    {
+      "name": "tag_translation_update_now",
+      "value": "Update now"
+    },
+    {
+      "name": "tag_translation_update_now_hint",
+      "value": "Check for the latest tag translations and save them locally."
+    },
+    {
+      "name": "tag_translation_update_started",
+      "value": "Tag translation update started"
+    },
+    {
+      "name": "tag_translation_update_finished",
+      "value": "Tag translation update finished"
+    },
+    {
+      "name": "tag_translation_update_failed",
+      "value": "Tag translation update failed"
+    },
+    {
+      "name": "tag_translation_updating",
+      "value": "Updating"
+    },
+    {
+      "name": "tag_translation_cdn",
+      "value": "Use download mirror"
+    },
+    {
+      "name": "tag_translation_cdn_hint",
+      "value": "Use a mirror when the default download is slow or unavailable."
+    },
+    {
+      "name": "tag_translation_update_mode",
+      "value": "Auto update"
+    },
+    {
+      "name": "tag_translation_update_manual",
+      "value": "Manual"
+    },
+    {
+      "name": "tag_translation_update_every_start",
+      "value": "On app start"
+    },
+    {
       "name": "settings_about",
       "value": "About"
     },
@@ -1347,6 +1415,10 @@
     {
       "name": "security_auto_lock_5h",
       "value": "5 hours"
+    },
+    {
+      "name": "common_on",
+      "value": "On"
     },
     {
       "name": "common_off",

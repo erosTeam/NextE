@@ -46,7 +46,7 @@ import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
 import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
-import { SettingsPage, EhSettingsPage, LayoutSettingsPage, ReaderSettingsPage, DownloadSettingsPage, SearchSettingsPage, AdvancedSettingsPage, SecuritySettingsPage, AboutPage } from 'settings'
+import { SettingsPage, EhSettingsPage, LayoutSettingsPage, ReaderSettingsPage, DownloadSettingsPage, SearchSettingsPage, TagTranslationSettingsPage, AdvancedSettingsPage, SecuritySettingsPage, AboutPage } from 'settings'
 import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryArchiverPage, GalleryAllThumbnailsPage, GalleryCommentsPage, GalleryEditTagsPage } from 'gallery'
 import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
@@ -533,6 +533,8 @@ struct Index {
       DownloadSettingsPage()
     } else if (name === 'SearchSettings') {
       SearchSettingsPage()
+    } else if (name === 'TagTranslationSettings') {
+      TagTranslationSettingsPage()
     } else if (name === 'AdvancedSettings') {
       AdvancedSettingsPage()
     } else if (name === 'SecuritySettings') {

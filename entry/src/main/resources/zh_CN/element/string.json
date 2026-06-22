@@ -777,6 +777,74 @@
       "value": "暂未实现"
     },
     {
+      "name": "tag_translation_title",
+      "value": "标签翻译"
+    },
+    {
+      "name": "tag_translation_enable",
+      "value": "启用标签翻译"
+    },
+    {
+      "name": "tag_translation_enable_hint",
+      "value": "显示中文/本地化标签名，并在搜索候选中匹配。"
+    },
+    {
+      "name": "tag_translation_database",
+      "value": "翻译数据库"
+    },
+    {
+      "name": "tag_translation_not_installed",
+      "value": "未安装"
+    },
+    {
+      "name": "tag_translation_no_version",
+      "value": "暂无本地版本"
+    },
+    {
+      "name": "tag_translation_update_now",
+      "value": "立即更新"
+    },
+    {
+      "name": "tag_translation_update_now_hint",
+      "value": "检查最新标签翻译，并保存到本地。"
+    },
+    {
+      "name": "tag_translation_update_started",
+      "value": "标签翻译更新开始"
+    },
+    {
+      "name": "tag_translation_update_finished",
+      "value": "标签翻译更新完成"
+    },
+    {
+      "name": "tag_translation_update_failed",
+      "value": "标签翻译更新失败"
+    },
+    {
+      "name": "tag_translation_updating",
+      "value": "更新中"
+    },
+    {
+      "name": "tag_translation_cdn",
+      "value": "使用镜像源下载"
+    },
+    {
+      "name": "tag_translation_cdn_hint",
+      "value": "默认下载较慢或不可用时，改用镜像源下载。"
+    },
+    {
+      "name": "tag_translation_update_mode",
+      "value": "自动更新策略"
+    },
+    {
+      "name": "tag_translation_update_manual",
+      "value": "手动更新"
+    },
+    {
+      "name": "tag_translation_update_every_start",
+      "value": "启动 App 时更新"
+    },
+    {
       "name": "settings_about",
       "value": "关于"
     },
@@ -1347,6 +1415,10 @@
     {
       "name": "security_auto_lock_5h",
       "value": "5 小时"
+    },
+    {
+      "name": "common_on",
+      "value": "开启"
     },
     {
       "name": "common_off",

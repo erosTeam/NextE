@@ -19,6 +19,7 @@ import { UserTagLoader } from '../services/UserTagLoader'
 import { SubtabSelectionSettings } from './SubtabSelectionSettings'
 import { AppColorFavoritesSettings } from './AppColorFavoritesSettings'
 import { HomeTabSettings } from './HomeTabSettings'
+import { TagTranslationSettings } from './TagTranslationSettings'
 
 /**
  * Restores every persisted setting from the preferences store into its AppStorageV2
@@ -49,6 +50,7 @@ export class SettingsBootstrap {
       await SubtabSelectionSettings.restore(context)
       await AppColorFavoritesSettings.restore(context)
       await HomeTabSettings.restore(context)
+      await TagTranslationSettings.restore(context)
       await DownloadSettings.restore(context)
       await DownloadQueueSettings.restore(context)
       await SecuritySettings.restore(context)

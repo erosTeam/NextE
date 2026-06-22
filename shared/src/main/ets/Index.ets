@@ -97,7 +97,7 @@ export {
   CachedImageProgress,
 } from './services/CachedImageFileService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
-export { TagTranslationService } from './services/TagTranslationService'
+export { TagTranslationService, TagTranslationStatus } from './services/TagTranslationService'
 
 // network
 export { EhCookieStore } from './network/EhCookieStore'
@@ -194,6 +194,12 @@ export {
 export { SearchActionState, connectSearchAction } from './state/SearchActionState'
 export { AppColorFavoritesState, connectAppColorFavorites } from './state/AppColorFavoritesState'
 export { HomeTabAutoHideState, connectHomeTabAutoHide } from './state/HomeTabAutoHideState'
+export {
+  TagTranslationSettingsState,
+  connectTagTranslationSettings,
+  TAG_TRANSLATION_UPDATE_EVERY_START,
+  TAG_TRANSLATION_UPDATE_MANUAL,
+} from './state/TagTranslationSettingsState'
 export { SearchPageParams } from './state/SearchPageParams'
 export {
   SearchFilterState,
@@ -241,6 +247,7 @@ export { SecuritySettings } from './settings/SecuritySettings'
 export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
 export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'
 export { HomeTabSettings } from './settings/HomeTabSettings'
+export { TagTranslationSettings } from './settings/TagTranslationSettings'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'

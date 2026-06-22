@@ -6,6 +6,7 @@ import {
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
+import { common } from '@kit.AbilityKit'
 
 /**
  * One retained gallery-SOURCE page (V2Next FeedListPage pattern). Each source (默认/热门/订阅) gets its
@@ -37,10 +38,15 @@ export struct GallerySourcePage {
     return this.active.activeKey === this.sourceKey
   }
 
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
   aboutToAppear(): void {
     // Seed the source before any load (toplist tl is irrelevant to home sources → 0). The VM is this
     // page's own; nothing else writes it.
     this.vm.syncSource(this.sourceKey, 0)
+    this.vm.setContext(this.ctx())
     if (this.isActive()) {
       this.loadOnce()
     }

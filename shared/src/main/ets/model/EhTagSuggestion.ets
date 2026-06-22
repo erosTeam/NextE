@@ -1,11 +1,13 @@
-/** One EH tag suggestion returned by /api.php method=tagsuggest. */
+/** One EH tag suggestion, either EH /api.php tagsuggest or local tag-translation match. */
 export class EhTagSuggestion {
   namespace: string = ''
   text: string = ''
+  displayName: string = ''
 
-  constructor(namespace: string = '', text: string = '') {
+  constructor(namespace: string = '', text: string = '', displayName: string = '') {
     this.namespace = namespace
     this.text = text
+    this.displayName = displayName
   }
 
   label(): string {

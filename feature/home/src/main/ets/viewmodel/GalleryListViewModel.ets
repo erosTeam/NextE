@@ -6,12 +6,15 @@ import {
   Favcat,
   FavcatSlotResolver,
   FavcatSlotResolveResult,
+  TagTranslationService,
+  connectTagTranslationSettings,
   BasicDataSource,
   connectFavSelection,
   connectSiteMode,
   DiagnosticLogger,
   EhErrorText,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 /**
  * Drives one gallery-list source (V2Next FeedViewModel pattern). Rows live in a stable
@@ -46,6 +49,11 @@ export class GalleryListViewModel {
   @Trace toplistTl: number = 15
   private toplistPage: number = 0
   private maxPage: number = 0
+  private context: common.UIAbilityContext | null = null
+
+  setContext(context: common.UIAbilityContext): void {
+    this.context = context
+  }
 
   // EH 'popular' is a single fixed snapshot with no cursor — it never pages (eros_fe popular tab).
   private isPopular(): boolean {
@@ -97,6 +105,13 @@ export class GalleryListViewModel {
 
   private resolveFavoriteSlots(gallerys: EhGallery[]): void {
     FavcatSlotResolver.applyInPlace(gallerys, connectFavSelection().favList)
+  }
+
+  private async translateRows(rows: EhGallery[]): Promise<EhGallery[]> {
+    if (this.context === null || !connectTagTranslationSettings().enabled) {
+      return rows
+    }
+    return TagTranslationService.translateGalleries(this.context, rows)
   }
 
   resolveVisibleFavoriteSlotsFrom(favcats: Favcat[]): boolean {
@@ -152,7 +167,8 @@ export class GalleryListViewModel {
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
       this.resolveFavoriteSlots(list.gallerys)
-      this.dataSource.setData(list.gallerys)
+      const rows: EhGallery[] = await this.translateRows(list.gallerys)
+      this.dataSource.setData(rows)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
@@ -199,7 +215,8 @@ export class GalleryListViewModel {
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
       this.resolveFavoriteSlots(list.gallerys)
-      this.dataSource.setData(list.gallerys)
+      const rows: EhGallery[] = await this.translateRows(list.gallerys)
+      this.dataSource.setData(rows)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
@@ -228,7 +245,8 @@ export class GalleryListViewModel {
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
       this.resolveFavoriteSlots(list.gallerys)
-      this.dataSource.setData(list.gallerys)
+      const rows: EhGallery[] = await this.translateRows(list.gallerys)
+      this.dataSource.setData(rows)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
@@ -269,7 +287,7 @@ export class GalleryListViewModel {
       // in-flight flag below.
       if (this.epoch === myEpoch) {
         this.resolveFavoriteSlots(list.gallerys)
-        const fresh: EhGallery[] = this.dedupeNew(list.gallerys)
+        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
         if (fresh.length > 0) {
           this.dataSource.appendData(fresh)
           this.itemCount = this.dataSource.totalCount()
@@ -304,7 +322,7 @@ export class GalleryListViewModel {
       )
       if (this.epoch === myEpoch) {
         this.resolveFavoriteSlots(list.gallerys)
-        const fresh: EhGallery[] = this.dedupeNew(list.gallerys)
+        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
         if (fresh.length > 0) {
           this.dataSource.appendData(fresh)
           this.itemCount = this.dataSource.totalCount()

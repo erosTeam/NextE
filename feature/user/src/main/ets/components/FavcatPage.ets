@@ -73,6 +73,7 @@ export struct FavcatPage {
   aboutToAppear(): void {
     // Fix this page to its favcat + the current global order before any load.
     this.vm.configure(this.favcatKey, this.favSel.orderByPosted)
+    this.vm.setContext(this.ctx())
     this.vm.seedFavList(this.favSel.favList)
     if (this.isActive()) {
       this.loadOnce()
