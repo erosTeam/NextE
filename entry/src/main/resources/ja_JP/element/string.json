@@ -933,6 +933,18 @@
       "value": "パスワードログイン"
     },
     {
+      "name": "settings_login_web",
+      "value": "ウェブログイン"
+    },
+    {
+      "name": "settings_add_account",
+      "value": "アカウントを追加"
+    },
+    {
+      "name": "account_remove_confirm",
+      "value": "このアカウントを削除しますか？"
+    },
+    {
       "name": "password_login_title",
       "value": "パスワードログイン"
     },

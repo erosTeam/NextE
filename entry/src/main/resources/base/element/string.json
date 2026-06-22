@@ -933,6 +933,18 @@
       "value": "Password login"
     },
     {
+      "name": "settings_login_web",
+      "value": "Web login"
+    },
+    {
+      "name": "settings_add_account",
+      "value": "Add account"
+    },
+    {
+      "name": "account_remove_confirm",
+      "value": "Remove this account?"
+    },
+    {
       "name": "password_login_title",
       "value": "Password login"
     },

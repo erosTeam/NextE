@@ -933,6 +933,18 @@
       "value": "密码登录"
     },
     {
+      "name": "settings_login_web",
+      "value": "网页登录"
+    },
+    {
+      "name": "settings_add_account",
+      "value": "添加账号"
+    },
+    {
+      "name": "account_remove_confirm",
+      "value": "移除此账号？"
+    },
+    {
       "name": "password_login_title",
       "value": "密码登录"
     },

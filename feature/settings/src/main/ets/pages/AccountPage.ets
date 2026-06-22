@@ -1,5 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppStrings,
   AuthState,
@@ -18,16 +19,18 @@ import {
 /**
  * The account hub, reached from the settings account block. Owns everything account-related so the main
  * settings list stays clean. Signed in, it is the multi-account switcher: each saved account is a card,
- * the active one carries a checkmark, tapping another switches to it, swiping left deletes it (which logs
- * out only if it was the last). The login rows double as "add another account". Logged out, just the login
- * routes. Real avatars/nicknames are unavailable (forum-only, CF-blocked), so the avatar is a placeholder
- * and accounts are shown by member id.
+ * the active one carries a checkmark_circle, tapping another switches to it, swiping left deletes it (which
+ * logs out only if it was the last). A single "添加账号" entry opens a menu of the three login methods —
+ * adding always starts a fresh session (EhLoginWebPage clears the WebView), so a different account can sign
+ * in. Real avatars/nicknames are unavailable (forum-only, CF-blocked), so the avatar is a placeholder and
+ * accounts are shown by member id.
  */
 @ComponentV2
 export struct AccountPage {
   @Local auth: AuthState = connectAuth();
   @Local accountList: AccountListState = connectAccountList();
   @Local refreshing: boolean = false;
+  @Local addMenuShown: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
@@ -39,7 +42,7 @@ export struct AccountPage {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
 
-  // Force-refresh igneous (eros_fe's "Refresh Igneous") for the active account — useful if EX access lapsed.
+  // Force-refresh igneous (eros_fe "Refresh Igneous") for the active account — useful if EX access lapsed.
   private refreshIgneous(): void {
     if (this.refreshing) {
       return
@@ -62,8 +65,26 @@ export struct AccountPage {
     CookieJarSettings.switchTo(this.ctx(), memberId)
   }
 
-  private removeAccount(memberId: string): void {
-    CookieJarSettings.removeAccount(this.ctx(), memberId)
+  private confirmRemove(memberId: string): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.account_remove_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.account_remove'),
+        fontColor: Color.Red,
+        action: () => {
+          CookieJarSettings.removeAccount(this.ctx(), memberId)
+        },
+      },
+    })
+  }
+
+  private openLogin(route: string): void {
+    this.addMenuShown = false
+    this.stack.pushPathByName(route, null)
   }
 
   @Builder
@@ -87,7 +108,7 @@ export struct AccountPage {
     .backgroundColor(ThemeConstants.BRAND_PRIMARY)
   }
 
-  // One saved account as a card row; the active account carries a checkmark (single-select).
+  // One saved account as a card row; the active account carries a checkmark_circle (single-select).
   @Builder
   private AccountRow(memberId: string) {
     Row({ space: ThemeConstants.SPACE_MD }) {
@@ -97,8 +118,8 @@ export struct AccountPage {
         .fontColor($r('sys.color.font_primary'))
         .layoutWeight(1)
       if (memberId === this.accountList.activeMemberId) {
-        SymbolGlyph($r('sys.symbol.checkmark'))
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+        SymbolGlyph($r('sys.symbol.checkmark_circle'))
+          .fontSize(ThemeConstants.FONT_SIZE_HEADING)
           .fontColor([ThemeConstants.BRAND_PRIMARY])
       }
     }
@@ -109,47 +130,75 @@ export struct AccountPage {
     .alignItems(VerticalAlign.Center)
   }
 
+  // Swipe-left delete (V2Next pattern): a red trash-icon button, not a full-width text block.
   @Builder
   private DeleteAction(memberId: string) {
-    Text($r('app.string.account_remove'))
-      .fontColor(Color.White)
-      .fontSize(ThemeConstants.FONT_SIZE_BODY)
-      .height('100%')
-      .padding({ left: ThemeConstants.SPACE_LG, right: ThemeConstants.SPACE_LG })
+    Row() {
+      Button() {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+          .fontColor([Color.White])
+      }
+      .width(48)
+      .height(40)
       .backgroundColor(Color.Red)
       .onClick(() => {
-        this.removeAccount(memberId)
-      })
-  }
-
-  // Login routes — also the "add another account" entry when already signed in.
-  @Builder
-  private LoginOptions() {
-    GroupedListSection() {
-      ConciseListRow({
-        title: $r('app.string.settings_login'),
-        leadingIcon: $r('sys.symbol.person_badge_plus'),
-        action: () => {
-          this.stack.pushPathByName('EhLogin', null)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
-        title: $r('app.string.settings_login_password'),
-        leadingIcon: $r('sys.symbol.lock'),
-        action: () => {
-          this.stack.pushPathByName('EhPasswordLogin', null)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
-        title: $r('app.string.settings_login_cookie'),
-        leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
-        action: () => {
-          this.stack.pushPathByName('EhCookieImport', null)
-        },
+        this.confirmRemove(memberId)
       })
     }
+    .height('100%')
+    .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
+    .justifyContent(FlexAlign.Center)
+  }
+
+  // The three login methods, behind the single 添加账号 / 登录账号 entry.
+  @Builder
+  private AddAccountMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.settings_login_web'),
+        symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.person_badge_plus')),
+      })
+        .onClick(() => {
+          this.openLogin('EhLogin')
+        })
+      MenuItem({
+        content: $r('app.string.settings_login_password'),
+        symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.lock')),
+      })
+        .onClick(() => {
+          this.openLogin('EhPasswordLogin')
+        })
+      MenuItem({
+        content: $r('app.string.settings_login_cookie'),
+        symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.arrow_down_to_line_circle_fill')),
+      })
+        .onClick(() => {
+          this.openLogin('EhCookieImport')
+        })
+    }
+  }
+
+  @Builder
+  private AddAccountEntry(title: ResourceStr, icon: Resource) {
+    Column() {
+      GroupedListSection() {
+        ConciseListRow({
+          title: title,
+          leadingIcon: icon,
+          showChevron: false,
+          action: () => {
+            this.addMenuShown = true
+          },
+        })
+      }
+    }
+    .bindMenu(this.addMenuShown, this.AddAccountMenu, {
+      placement: Placement.BottomRight,
+      onDisappear: () => {
+        this.addMenuShown = false
+      },
+    })
   }
 
   build() {
@@ -177,7 +226,7 @@ export struct AccountPage {
             (memberId: string) => memberId,
           )
           ListItem() {
-            this.LoginOptions()
+            this.AddAccountEntry($r('app.string.settings_add_account'), $r('sys.symbol.plus'))
           }
           ListItem() {
             GroupedListSection() {
@@ -201,7 +250,7 @@ export struct AccountPage {
           }
         } else {
           ListItem() {
-            this.LoginOptions()
+            this.AddAccountEntry($r('app.string.settings_login'), $r('sys.symbol.person'))
           }
         }
       }

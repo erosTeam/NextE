@@ -41,6 +41,14 @@ export struct EhLoginWebPage {
               // challenge — a real browser UA lets the login page load like it does in Chrome.
               // Must be set before loadUrl so the very first request carries it.
               this.controller.setCustomUserAgent(EhConstants.USER_AGENT)
+              // Start from a CLEAN WebView session so a *new* account can sign in. The global WebView
+              // cookie store otherwise still holds the active account's forum session, which made the
+              // login page show the current account — there was no way to add another.
+              try {
+                webview.WebCookieManager.clearAllCookiesSync()
+              } catch (e) {
+                DiagnosticLogger.warn('auth', 'web_login_clear_cookie_failed', (e as Error).message)
+              }
               this.controller.loadUrl(EhConstants.FORUMS_LOGIN_URL)
             },
             onPageBegin: () => {
@@ -98,11 +106,16 @@ export struct EhLoginWebPage {
       DiagnosticLogger.warn('auth', 'web_login_fetch_cookie_failed', (e as Error).message)
       return
     }
-    if (!CookieJarSettings.applyFromHeader(header)) {
+    // Peek for the identity cookies WITHOUT mutating the jar, so a still-loading page never half-applies.
+    const member: string = CookieJarSettings.parseCookieValue(header, EhConstants.COOKIE_MEMBER_ID)
+    const pass: string = CookieJarSettings.parseCookieValue(header, EhConstants.COOKIE_PASS_HASH)
+    if (member.length === 0 || pass.length === 0) {
       // Not logged in yet — user is still on the form. Wait for the next page load.
       return
     }
     this.captured = true
+    // Replace (clear + apply) so a newly-added account doesn't inherit the previous account's igneous/sk.
+    CookieJarSettings.replaceFromHeader(header)
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     await CookieJarSettings.save(ctx)
