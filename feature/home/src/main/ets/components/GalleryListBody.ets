@@ -24,6 +24,7 @@ import {
   connectGalleryRatingMutation,
   FavSelectionState,
   connectFavSelection,
+  RootRefreshRegistry,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
@@ -49,6 +50,18 @@ export struct GalleryListBody {
   @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
+
+  // Re-tapping the active bottom tab refreshes this list: the nav shell looks the action up by this list's
+  // Scroller (it tracks each tab's active sub-tab Scroller) and fires it. Used by Gallery + Toplist tabs.
+  aboutToAppear(): void {
+    RootRefreshRegistry.register(this.scroller, () => {
+      this.refreshController.triggerTopRefresh()
+    })
+  }
+
+  aboutToDisappear(): void {
+    RootRefreshRegistry.unregister(this.scroller)
+  }
 
   @Monitor('favoriteMutation.version')
   onFavoriteMutation(): void {

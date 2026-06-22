@@ -34,6 +34,7 @@ import {
   connectGalleryRatingMutation,
   connectTagTranslationSettings,
   TagTranslationSettingsState,
+  RootRefreshRegistry,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { FavoritesViewModel } from '../viewmodel/FavoritesViewModel'
@@ -81,6 +82,14 @@ export struct FavcatPage {
     if (this.isActive()) {
       this.loadOnce()
     }
+    // Re-tapping the active Favorites tab refreshes this favcat's list (nav shell looks up by Scroller).
+    RootRefreshRegistry.register(this.scroller, () => {
+      this.refreshController.triggerTopRefresh()
+    })
+  }
+
+  aboutToDisappear(): void {
+    RootRefreshRegistry.unregister(this.scroller)
   }
 
   // Host's @Trace activeKey reaches cached pages, so first activation (tap or swipe) fires reliably.

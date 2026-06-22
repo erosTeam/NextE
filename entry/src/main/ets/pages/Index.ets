@@ -37,6 +37,7 @@ import {
   immersiveTitleBarOpts,
   immersiveMaterialType,
   InternalQaRoutes,
+  RootRefreshRegistry,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -46,8 +47,27 @@ import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
 import { HomePage, ToplistPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
-import { SettingsPage, EhSettingsPage, LayoutSettingsPage, ReaderSettingsPage, DownloadSettingsPage, SearchSettingsPage, TagTranslationSettingsPage, AdvancedSettingsPage, SecuritySettingsPage, AboutPage } from 'settings'
-import { GalleryDetailPage, GalleryInfoPage, GalleryTorrentsPage, GalleryArchiverPage, GalleryAllThumbnailsPage, GalleryCommentsPage, GalleryEditTagsPage } from 'gallery'
+import {
+  SettingsPage,
+  EhSettingsPage,
+  LayoutSettingsPage,
+  ReaderSettingsPage,
+  DownloadSettingsPage,
+  SearchSettingsPage,
+  TagTranslationSettingsPage,
+  AdvancedSettingsPage,
+  SecuritySettingsPage,
+  AboutPage,
+} from 'settings'
+import {
+  GalleryDetailPage,
+  GalleryInfoPage,
+  GalleryTorrentsPage,
+  GalleryArchiverPage,
+  GalleryAllThumbnailsPage,
+  GalleryCommentsPage,
+  GalleryEditTagsPage,
+} from 'gallery'
 import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
 import { EhLoginWebPage } from './EhLoginWebPage'
@@ -191,7 +211,16 @@ struct Index {
       .then((target: ImagePageRouteTarget) => {
         this.stack.pushPathByName(
           'Reader',
-          new ReaderParams(target.gid, target.token, target.index, target.fileCount, '', [target.seedImage], 0, 0),
+          new ReaderParams(
+            target.gid,
+            target.token,
+            target.index,
+            target.fileCount,
+            '',
+            [target.seedImage],
+            0,
+            0,
+          ),
         )
       })
       .catch((err: Error) => {
@@ -237,6 +266,16 @@ struct Index {
       this.tabsController.bindScroller(index, scroller)
       this.restoreHomeTabIfHidden()
     }
+  }
+
+  // Re-tap of the already-active bottom tab: refresh that tab's ACTIVE sub-tab list (scroll-to-top +
+  // pull-refresh) via the registry, keyed by the active sub-tab's Scroller we already track per tab.
+  // No-op for tabs without a pull-refresh list (downloads/settings).
+  private triggerRootRefresh(index: number): void {
+    if (index < 0 || index >= this.homeTabScrollers.length) {
+      return
+    }
+    RootRefreshRegistry.trigger(this.homeTabScrollers[index])
   }
 
   private applyHomeTabAutoHide(): void {
@@ -343,10 +382,7 @@ struct Index {
         this.openSearch()
       },
     }
-    const items: Record<string, Object>[] = [
-      { 'content': searchInner },
-      this.backToTopMenuItem(),
-    ]
+    const items: Record<string, Object>[] = [{ 'content': searchInner }, this.backToTopMenuItem()]
     return { 'value': items, 'maxCount': 2 }
   }
 
@@ -410,14 +446,14 @@ struct Index {
         this.openFavoriteSelector()
       },
     }
-    const items: Record<string, Object>[] = [
-      { 'content': selectorInner },
-      this.backToTopMenuItem(),
-    ]
+    const items: Record<string, Object>[] = [{ 'content': selectorInner }, this.backToTopMenuItem()]
     return { 'value': items, 'maxCount': 2 }
   }
 
-  private bottomBuilder(content: ComponentContent<Object>, height: number = SELECTOR_BAR_HEIGHT): Record<string, Object> {
+  private bottomBuilder(
+    content: ComponentContent<Object>,
+    height: number = SELECTOR_BAR_HEIGHT,
+  ): Record<string, Object> {
     return {
       'builderComponent': content,
       'height': height,
@@ -479,7 +515,10 @@ struct Index {
             new Object(),
           )
         }
-        content['bottomBuilder'] = this.bottomBuilder(this.downloadTypeBarContent, DOWNLOAD_SELECTOR_BAR_HEIGHT)
+        content['bottomBuilder'] = this.bottomBuilder(
+          this.downloadTypeBarContent,
+          DOWNLOAD_SELECTOR_BAR_HEIGHT,
+        )
         content['menu'] = this.emptyMenu()
       }
       if (this.currentTab !== 2 && this.currentTab !== 3) {
@@ -652,6 +691,13 @@ struct Index {
 
   @Builder
   tabIcon(title: ResourceStr, idx: number) {
-    MainTabIcon({ title: title, idx: idx, currentIndex: this.currentTab })
+    MainTabIcon({
+      title: title,
+      idx: idx,
+      currentIndex: this.currentTab,
+      onSelectedClick: (i: number) => {
+        this.triggerRootRefresh(i)
+      },
+    })
   }
 }

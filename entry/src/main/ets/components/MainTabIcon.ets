@@ -11,6 +11,8 @@ export struct MainTabIcon {
   @Param title: ResourceStr = '';
   @Param idx: number = 0;
   @Param currentIndex: number = 0;
+  // Fired only when THIS already-active tab's icon is re-tapped (V2Next 连点 → scroll-to-top + pull-refresh).
+  @Event onSelectedClick?: (index: number) => void;
 
   // Bottom-tab glyphs: 画廊 / 收藏 / 排行 / 下载 / 设置 (eros_fe IA order). All FILLED variants for a
   // consistent visual weight under SINGLE rendering. 排行 wants list_checkmask but that glyph has no
@@ -64,5 +66,12 @@ export struct MainTabIcon {
     .width('100%')
     .height('100%')
     .padding({ top: ThemeConstants.SPACE_SM - 2, bottom: ThemeConstants.SPACE_XS })
+    .onClick(() => {
+      // Tapping a DIFFERENT tab lets HdsTabs switch (currentIndex !== idx → no-op here); re-tapping the
+      // ALREADY-ACTIVE tab doesn't change the index, so this is where the root-refresh fires.
+      if (this.currentIndex === this.idx && this.onSelectedClick) {
+        this.onSelectedClick(this.idx)
+      }
+    })
   }
 }
