@@ -1,5 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppStrings,
   AuthState,
@@ -26,6 +27,7 @@ export struct EhSettingsPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local auth: AuthState = connectAuth();
   @Local switchingSite: boolean = false;
+  @Local siteMenuShown: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
@@ -37,11 +39,16 @@ export struct EhSettingsPage {
     return this.siteMode.isEx ? 'ExHentai' : 'E-Hentai'
   }
 
-  private toggleSite(): void {
+  // Selecting a site from the dropdown (not a tap-to-cycle toggle). E-Hentai is always allowed;
+  // ExHentai requires login + a real igneous, fetched on demand the first time (eros_fe getExIgneous).
+  private selectSite(toEx: boolean): void {
+    this.siteMenuShown = false
     const ctx: common.UIAbilityContext = this.ctx()
-    if (this.siteMode.isEx) {
-      // ExHentai → E-Hentai is always allowed.
+    if (!toEx) {
       SiteModeSettings.setEx(ctx, false)
+      return
+    }
+    if (this.siteMode.isEx) {
       return
     }
     if (!this.auth.isLogin) {
@@ -52,8 +59,6 @@ export struct EhSettingsPage {
       SiteModeSettings.setEx(ctx, true)
       return
     }
-    // Logged in but no igneous yet: fetch it from exhentai.org/uconfig.php (eros_fe getExIgneous), then
-    // switch only if the account actually has ExHentai access.
     if (this.switchingSite) {
       return
     }
@@ -71,6 +76,30 @@ export struct EhSettingsPage {
       .finally(() => {
         this.switchingSite = false
       })
+  }
+
+  @Builder
+  SiteMenu() {
+    Menu() {
+      MenuItem({
+        content: 'E-Hentai',
+        symbolEndIcon: !this.siteMode.isEx
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      })
+        .onClick(() => {
+          this.selectSite(false)
+        })
+      MenuItem({
+        content: 'ExHentai',
+        symbolEndIcon: this.siteMode.isEx
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      })
+        .onClick(() => {
+          this.selectSite(true)
+        })
+    }
   }
 
   private toast(message: ResourceStr): void {
@@ -114,13 +143,22 @@ export struct EhSettingsPage {
       }) {
         ListItem() {
           GroupedListSection() {
-            ConciseListRow({
-              title: $r('app.string.settings_site'),
-              subtitle: $r('app.string.eh_settings_site_hint'),
-              leadingIcon: $r('sys.symbol.house_fill'),
-              trailingText: this.siteLabel(),
-              action: () => {
-                this.toggleSite()
+            Column() {
+              ConciseListRow({
+                title: $r('app.string.settings_site'),
+                subtitle: $r('app.string.eh_settings_site_hint'),
+                leadingIcon: $r('sys.symbol.house_fill'),
+                trailingText: this.siteLabel(),
+                trailingDropdown: true,
+                action: () => {
+                  this.siteMenuShown = true
+                },
+              })
+            }
+            .bindMenu(this.siteMenuShown, this.SiteMenu, {
+              placement: Placement.BottomRight,
+              onDisappear: () => {
+                this.siteMenuShown = false
               },
             })
           }
