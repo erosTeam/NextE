@@ -58,7 +58,7 @@ export struct GalleryCommentsCard {
   }
 
   private voteColor(c: EhGalleryComment, vote: number): ResourceColor {
-    return c.vote === vote ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary')
+    return c.vote === vote ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_tertiary')
   }
 
   private canVote(c: EhGalleryComment): boolean {

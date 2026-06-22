@@ -19,7 +19,6 @@ export interface ThemeColorOption {
  */
 export class ThemeColorSettings {
   static readonly COLOR_SYSTEM: string = 'system'
-  static readonly COLOR_BLUE: string = 'blue'
   static readonly COLOR_ORANGE: string = 'orange'
   static readonly COLOR_RED: string = 'red'
   static readonly COLOR_PURPLE: string = 'purple'
@@ -33,11 +32,6 @@ export class ThemeColorSettings {
         label: $r('app.string.theme_color_system'),
         value: ThemeColorSettings.COLOR_SYSTEM,
         color: $r('sys.color.brand'),
-      },
-      {
-        label: $r('app.string.theme_color_blue'),
-        value: ThemeColorSettings.COLOR_BLUE,
-        color: '#0958F7',
       },
       {
         label: $r('app.string.theme_color_orange'),
@@ -70,7 +64,6 @@ export class ThemeColorSettings {
   static normalize(color: string): string {
     const v: string = color.trim()
     if (
-      v === ThemeColorSettings.COLOR_BLUE ||
       v === ThemeColorSettings.COLOR_ORANGE ||
       v === ThemeColorSettings.COLOR_RED ||
       v === ThemeColorSettings.COLOR_PURPLE ||
@@ -84,9 +77,6 @@ export class ThemeColorSettings {
 
   static colorValue(color: string): ResourceColor {
     const v: string = ThemeColorSettings.normalize(color)
-    if (v === ThemeColorSettings.COLOR_BLUE) {
-      return '#0958F7'
-    }
     if (v === ThemeColorSettings.COLOR_ORANGE) {
       return '#FE9925'
     }
@@ -107,9 +97,6 @@ export class ThemeColorSettings {
 
   static label(color: string): ResourceStr {
     const v: string = ThemeColorSettings.normalize(color)
-    if (v === ThemeColorSettings.COLOR_BLUE) {
-      return $r('app.string.theme_color_blue')
-    }
     if (v === ThemeColorSettings.COLOR_ORANGE) {
       return $r('app.string.theme_color_orange')
     }

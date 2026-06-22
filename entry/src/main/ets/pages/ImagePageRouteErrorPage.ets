@@ -47,6 +47,7 @@ export struct ImagePageRouteErrorPage {
           LoadingProgress()
             .width(ThemeConstants.LOADING_SIZE)
             .height(ThemeConstants.LOADING_SIZE)
+            .color(ThemeConstants.BRAND_PRIMARY)
         } else {
           PageErrorState({
             message: $r('app.string.image_page_open_failed'),

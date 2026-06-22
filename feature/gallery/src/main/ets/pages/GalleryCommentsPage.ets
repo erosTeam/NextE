@@ -519,7 +519,7 @@ export struct GalleryCommentsPage {
             Blank()
               .width(COMMENT_COMPOSER_QUOTE_LINE_W)
               .height(COMMENT_COMPOSER_QUOTE_LINE_H)
-              .backgroundColor($r('sys.color.font_emphasize'))
+              .backgroundColor(ThemeConstants.BRAND_PRIMARY)
               .borderRadius(COMMENT_COMPOSER_QUOTE_LINE_W / 2)
             Column({ space: ThemeConstants.SPACE_XS }) {
               Text($r('app.string.comment_reply_to', this.commentReplyToAuthor))

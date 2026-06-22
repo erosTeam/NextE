@@ -200,7 +200,10 @@ export struct GalleryWebPage {
         }
 
         if (this.loading) {
-          LoadingProgress().width(ThemeConstants.LOADING_SIZE).height(ThemeConstants.LOADING_SIZE)
+          LoadingProgress()
+            .width(ThemeConstants.LOADING_SIZE)
+            .height(ThemeConstants.LOADING_SIZE)
+            .color(ThemeConstants.BRAND_PRIMARY)
         }
       }
       .width('100%')

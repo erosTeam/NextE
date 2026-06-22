@@ -1402,6 +1402,8 @@ export struct ReaderPage {
           })
             .layoutWeight(1)
             .trackColor(READER_CHROME_TRACK_BG)
+            .selectedColor(ThemeConstants.BRAND_PRIMARY)
+            .blockColor(ThemeConstants.BRAND_PRIMARY)
             .onChange((value: number, mode: SliderChangeMode) => {
               const page: number = Math.round(value)
               if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {

@@ -153,6 +153,21 @@ export struct LayoutSettingsPage {
     }
   }
 
+  // Trailing of the 主题色 row: the CURRENT accent as a swatch + its label + a dropdown chevron (V2Next
+  // SettingsThemeColorDropdownRow). currentColor() reads the @Trace so the swatch tracks the live color.
+  @Builder
+  ThemeColorSuffix() {
+    Row({ space: ThemeConstants.SPACE_SM }) {
+      Circle({ width: 16, height: 16 }).fill(ThemeColorSettings.currentColor())
+      Text(this.themeColorLabel())
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor($r('sys.color.font_secondary'))
+      SymbolGlyph($r('sys.symbol.chevron_down'))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor([$r('sys.color.font_tertiary')])
+    }.alignItems(VerticalAlign.Center)
+  }
+
   // A plain tappable-Row column (not Menu/MenuItem): a custom MenuItem builder swallows the click, so the
   // color dots + reliable onClick live in a Column that bindMenu renders as the popup.
   @Builder
@@ -406,8 +421,9 @@ export struct LayoutSettingsPage {
                 ConciseListRow({
                   title: $r('app.string.settings_theme_color'),
                   leadingIcon: $r('sys.symbol.paintbrush'),
-                  trailingText: this.themeColorLabel(),
-                  trailingDropdown: true,
+                  suffixBuilderParam: () => {
+                    this.ThemeColorSuffix()
+                  },
                   action: () => {
                     this.themeColorMenuShown = true
                   },

@@ -272,6 +272,7 @@ export struct GalleryEditTagsPage {
       LoadingProgress()
         .width(ThemeConstants.LOADING_SIZE)
         .height(ThemeConstants.LOADING_SIZE)
+        .color(ThemeConstants.BRAND_PRIMARY)
         .margin({ top: ThemeConstants.SPACE_XL })
     } else if (this.errorMessage.length > 0) {
       GroupedListSection() {

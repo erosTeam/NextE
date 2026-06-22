@@ -1271,6 +1271,7 @@ export struct GalleryDetailPage {
                 LoadingProgress()
                   .width(ThemeConstants.LOADING_SIZE)
                   .height(ThemeConstants.LOADING_SIZE)
+                  .color(ThemeConstants.BRAND_PRIMARY)
               }
               .width('100%')
               .justifyContent(FlexAlign.Center)
@@ -1304,6 +1305,9 @@ export struct GalleryDetailPage {
             .alignItems(VerticalAlign.Center)
           }
           .height(ThemeConstants.BUTTON_HEIGHT)
+          // Capsule buttons default to the SYSTEM brand color; set the theme accent explicitly so the Read
+          // FAB follows the user's theme color instead of staying system-blue.
+          .backgroundColor(ThemeConstants.BRAND_PRIMARY)
           .shadow(ShadowStyle.OUTER_DEFAULT_MD)
           .translate({ x: this.readFabVisualX() })
           .animation({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut })

@@ -61,7 +61,10 @@ export struct EhLoginWebPage {
         .padding({ top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT })
 
         if (this.loading) {
-          LoadingProgress().width(ThemeConstants.LOADING_SIZE).height(ThemeConstants.LOADING_SIZE)
+          LoadingProgress()
+            .width(ThemeConstants.LOADING_SIZE)
+            .height(ThemeConstants.LOADING_SIZE)
+            .color(ThemeConstants.BRAND_PRIMARY)
         }
       }
       .width('100%')

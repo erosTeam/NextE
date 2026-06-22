@@ -129,6 +129,7 @@ export struct GalleryArchiverPage {
         LoadingProgress()
           .width(ThemeConstants.LOADING_SIZE_SMALL)
           .height(ThemeConstants.LOADING_SIZE_SMALL)
+          .color(ThemeConstants.BRAND_PRIMARY)
       } else {
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(ThemeConstants.FONT_SIZE_TITLE)
@@ -272,6 +273,7 @@ export struct GalleryArchiverPage {
               LoadingProgress()
                 .width(ThemeConstants.LOADING_SIZE)
                 .height(ThemeConstants.LOADING_SIZE)
+                .color(ThemeConstants.BRAND_PRIMARY)
             }
             .width('100%')
             .justifyContent(FlexAlign.Center)
