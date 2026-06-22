@@ -144,8 +144,12 @@ ok(
   'detail list reserves bottom padding for the page-level FAB'
 )
 ok(
-  /\.position\(\{ right: ThemeConstants\.SPACE_LG, bottom: ThemeConstants\.SPACE_LG \}\)/.test(detail),
-  'detail FAB is positioned at the bottom-right safe content edge'
+  /\.position\(\{ left: 0, bottom: ThemeConstants\.SPACE_LG \}\)/.test(detail),
+  'detail FAB rail sits at the bottom safe content edge (full-width rail)'
+)
+ok(
+  /\.translate\(\{ x: this\.readFabVisualX\(\) \}\)/.test(detail),
+  'detail FAB slides to the holding-hand side (smart-grip alignment) instead of a fixed corner'
 )
 
 // 7) Shared chip tokens exist in ThemeConstants.

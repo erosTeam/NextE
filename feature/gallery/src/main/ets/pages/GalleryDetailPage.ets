@@ -130,7 +130,6 @@ export struct GalleryDetailPage {
   @Local ratingSelected: number = 0;
   @Local ratingSubmitting: boolean = false;
   @Local ratingError: string = '';
-  private ratingOptions: number[] = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
   private stack: NavPathStack = connectNavStack().stack;
 
   // Smooth-slide the Read FAB when the resolved edge changes. FlexAlign can't tween, so the button carries
@@ -460,18 +459,6 @@ export struct GalleryDetailPage {
       return `${AppStrings.get('detail_rate_current')}${this.ratingLabel(this.currentPersonalRating())}`
     }
     return AppStrings.get('detail_rate_write_notice')
-  }
-
-  private ratingOptionBackground(value: number): ResourceColor {
-    return this.ratingSelected === value
-      ? $r('app.color.card_background')
-      : $r('sys.color.ohos_id_color_sub_background')
-  }
-
-  private ratingOptionTextColor(value: number): ResourceColor {
-    return this.ratingSelected === value
-      ? $r('sys.color.font_emphasize')
-      : $r('sys.color.font_primary')
   }
 
   private async submitRating(): Promise<void> {
@@ -940,41 +927,6 @@ export struct GalleryDetailPage {
   }
 
   @Builder
-  private RatingOption(value: number) {
-    Row({ space: ThemeConstants.SPACE_MD }) {
-      RatingStars({
-        rating: value,
-        color: EhConstants.ratingStarColor(''),
-        starSize: ThemeConstants.FONT_SIZE_HEADING,
-      })
-      Text(this.ratingLabel(value))
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontWeight(this.ratingSelected === value ? FontWeight.Bold : FontWeight.Regular)
-        .fontColor(this.ratingOptionTextColor(value))
-        .layoutWeight(1)
-      if (this.ratingSelected === value) {
-        SymbolGlyph($r('sys.symbol.checkmark'))
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor([$r('sys.color.font_emphasize')])
-      }
-    }
-    .width('100%')
-    .alignItems(VerticalAlign.Center)
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
-    })
-    .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-    .backgroundColor(this.ratingOptionBackground(value))
-    .enabled(!this.ratingSubmitting)
-    .onClick(() => {
-      this.ratingSelected = value
-    })
-  }
-
-  @Builder
   private FullTitleSheet() {
     AppModalScaffold({
       title: $r('app.string.detail_full_title'),
@@ -1040,33 +992,26 @@ export struct GalleryDetailPage {
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontColor($r('sys.color.font_secondary'))
             .width('100%')
-          if (this.ratingSelected > 0) {
-            Row({ space: ThemeConstants.SPACE_MD }) {
-              Text($r('app.string.detail_rate_selected'))
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontColor($r('sys.color.font_secondary'))
-              RatingStars({
-                rating: this.ratingSelected,
-                color: EhConstants.ratingStarColor(''),
-                starSize: ThemeConstants.FONT_SIZE_HEADING,
-              })
-              Text(this.ratingLabel(this.ratingSelected))
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontWeight(FontWeight.Medium)
-                .fontColor($r('sys.color.font_primary'))
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Center)
-          }
-          Column({ space: ThemeConstants.SPACE_XS }) {
-            ForEach(
-              this.ratingOptions,
-              (value: number) => {
-                this.RatingOption(value)
+          // Slide or tap across the stars to rate (eros_fe rate dialog; 0.5 steps); value updates live below.
+          Column({ space: ThemeConstants.SPACE_SM }) {
+            RatingStars({
+              rating: this.ratingSelected,
+              color: EhConstants.ratingStarColor(''),
+              starSize: 40,
+              interactive: true,
+              onRate: (value: number) => {
+                this.ratingSelected = value
               },
-              (value: number) => value.toString(),
-            )
-          }.width('100%')
+            })
+            Text(this.ratingSelected > 0 ? this.ratingLabel(this.ratingSelected) : '—')
+              .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Center)
+          .padding({ top: ThemeConstants.SPACE_MD, bottom: ThemeConstants.SPACE_MD })
+          .enabled(!this.ratingSubmitting)
           if (this.ratingError.length > 0) {
             Text(this.ratingError)
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
