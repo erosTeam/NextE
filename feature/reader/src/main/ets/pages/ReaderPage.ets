@@ -10,6 +10,7 @@ import {
   EhSpriteThumbnail,
   ReaderParams,
   ImageResolveService,
+  CachedImageFileService,
   DiagnosticLogger,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
@@ -23,6 +24,7 @@ import {
   connectSiteMode,
   ShareUtil,
   ImageSaveUtil,
+  CachedImageProgress,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 
@@ -208,8 +210,8 @@ export struct ReaderPage {
           ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
         }
 
-        // Jump-to-page spinner while a far slider jump loads the intermediate preview pages.
-        if (this.vm.jumping) {
+        // Only show far-jump resolving UI when there is no readable image surface yet.
+        if (this.vm.jumping && !this.readerContentReady()) {
           ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
         }
 
@@ -260,8 +262,8 @@ export struct ReaderPage {
           p.seedImagePageUrl,
         )
           .then(() => {
-            const loadedTarget: number =
-              this.vm.images.length > 0 ? Math.min(requestedIndex, this.vm.images.length - 1) : 0
+            const total: number = this.vm.totalPages()
+            const loadedTarget: number = total > 0 ? Math.min(requestedIndex, total - 1) : 0
             const targetIndex: number = this.normalizedReaderIndex(loadedTarget)
             this.vm.currentIndex = targetIndex
             this.sliderValue = targetIndex + 1
@@ -328,7 +330,7 @@ export struct ReaderPage {
     ) {
       return false
     }
-    if (this.imageZoomed || this.vm.jumping || this.vm.images.length === 0) {
+    if (this.imageZoomed || this.vm.jumping || this.vm.totalPages() === 0) {
       return true
     }
     if (keyCode === KeyCode.KEYCODE_VOLUME_DOWN) {
@@ -405,14 +407,14 @@ export struct ReaderPage {
   }
 
   private currentImage(): EhGalleryImage | null {
-    if (this.vm.currentIndex < 0 || this.vm.currentIndex >= this.vm.images.length) {
+    if (!this.vm.hasPreviewAt(this.vm.currentIndex)) {
       return null
     }
-    return this.vm.images[this.vm.currentIndex]
+    return this.vm.imageAt(this.vm.currentIndex)
   }
 
   private readerContentReady(): boolean {
-    return this.readerReady && this.vm.images.length > 0
+    return this.readerReady && this.vm.totalPages() > 0
   }
 
   private warmImageIndexes(): number[] {
@@ -420,9 +422,9 @@ export struct ReaderPage {
     if (!this.readerContentReady() || this.viewWidth <= 0 || this.viewHeight <= 0) {
       return indexes
     }
-    const to: number = Math.min(this.vm.currentIndex + READER_IMAGE_WARM_AHEAD, this.vm.images.length - 1)
+    const to: number = Math.min(this.vm.currentIndex + READER_IMAGE_WARM_AHEAD, this.vm.totalPages() - 1)
     for (let i: number = this.vm.currentIndex + 1; i <= to; i++) {
-      if (this.vm.images[i].imageUrl.length > 0) {
+      if (this.vm.imageAt(i).imageUrl.length > 0) {
         indexes.push(i)
       }
     }
@@ -439,7 +441,7 @@ export struct ReaderPage {
       ForEach(
         this.warmImageIndexes(),
         (index: number) => {
-          Image(this.vm.images[index].imageUrl)
+          Image(this.vm.imageAt(index).imageUrl)
             .objectFit(ImageFit.Contain)
             .width('100%')
             .height('100%')
@@ -456,7 +458,7 @@ export struct ReaderPage {
               DiagnosticLogger.warn('reader', 'warm_image_failed', `page ${index + 1}`)
             })
         },
-        (index: number) => `${index}-${this.vm.images[index].imageUrl}`,
+        (index: number) => `${index}-${this.vm.imageAt(index).imageUrl}`,
       )
     }
     .width('100%')
@@ -598,7 +600,7 @@ export struct ReaderPage {
     if (this.isPageImageLoaded(index)) {
       return true
     }
-    return index >= 0 && index < this.vm.images.length && this.vm.images[index].imageUrl.length > 0
+    return index >= 0 && index < this.vm.totalPages() && this.vm.imageAt(index).imageUrl.length > 0
   }
 
   private markPageImageLoaded(page: number): void {
@@ -804,7 +806,7 @@ export struct ReaderPage {
       return
     }
     this.clearZoomGate()
-    if (target >= this.vm.images.length || !this.vm.hasPreviewAt(target)) {
+    if (target >= this.vm.totalPages() || !this.vm.hasPreviewAt(target)) {
       this.jumpToPage(target)
       return
     }
@@ -864,27 +866,31 @@ export struct ReaderPage {
   HorizontalReader() {
     Swiper(this.horizontalSwiperController) {
       ForEach(
-        this.vm.images,
-        (img: EhGalleryImage) => {
-          ReaderImagePage({
-            image: img,
-            imageKey: this.readerImageKey(img),
-            initiallyLoaded: this.isPageImageLoaded(img.page - 1),
-            loadedSignal: this.loadedPageSignal,
-            activeIndex: this.vm.currentIndex,
-            doubleTapSeq: this.doubleTapSeq,
-            doubleTapX: this.doubleTapX,
-            doubleTapY: this.doubleTapY,
-            doubleTapTargetPage: this.doubleTapTargetPage,
-            onZoomChange: (zoomed: boolean) => {
-              this.imageZoomed = zoomed
-            },
-            onImageLoaded: (page: number) => {
-              this.markPageImageLoaded(page)
-            },
-          })
+        this.readerPageIndexes(),
+        (index: number) => {
+          if (this.vm.hasPreviewAt(index)) {
+            ReaderImagePage({
+              image: this.vm.imageAt(index),
+              imageKey: this.readerImageKey(this.vm.imageAt(index)),
+              initiallyLoaded: this.isPageImageLoaded(index),
+              loadedSignal: this.loadedPageSignal,
+              activeIndex: this.vm.currentIndex,
+              doubleTapSeq: this.doubleTapSeq,
+              doubleTapX: this.doubleTapX,
+              doubleTapY: this.doubleTapY,
+              doubleTapTargetPage: this.doubleTapTargetPage,
+              onZoomChange: (zoomed: boolean) => {
+                this.imageZoomed = zoomed
+              },
+              onImageLoaded: (page: number) => {
+                this.markPageImageLoaded(page)
+              },
+            })
+          } else {
+            this.ReaderPendingPage(index)
+          }
         },
-        (img: EhGalleryImage) => this.readerImageIdentityKey(img),
+        (index: number) => `${index}-${this.readerImageIdentityKey(this.vm.imageAt(index))}`,
       )
     }
     .index(this.readerPagerIndex)
@@ -934,6 +940,15 @@ export struct ReaderPage {
     return this.doublePageEnabled() ? this.spreadIndexForImage(index) : index
   }
 
+  private readerPageIndexes(): number[] {
+    const total: number = this.vm.totalPages()
+    const out: number[] = []
+    for (let i: number = 0; i < total; i++) {
+      out.push(i)
+    }
+    return out
+  }
+
   private readerImageKey(img: EhGalleryImage): string {
     return `${img.page}-${img.sUrl}-${img.imageUrl}`
   }
@@ -963,7 +978,26 @@ export struct ReaderPage {
   }
 
   private hasSpreadImage(index: number): boolean {
-    return index >= 0 && index < this.vm.images.length && this.vm.hasPreviewAt(index)
+    return index >= 0 && index < this.vm.totalPages() && this.vm.hasPreviewAt(index)
+  }
+
+  private spreadNeedsPreview(start: number): boolean {
+    if (!this.hasSpreadImage(start)) {
+      return true
+    }
+    const second: number = this.spreadSecondIndex(start)
+    return this.spreadSecondVisible(start) && !this.hasSpreadImage(second)
+  }
+
+  private missingSpreadPreviewIndex(start: number): number {
+    if (!this.hasSpreadImage(start)) {
+      return start
+    }
+    const second: number = this.spreadSecondIndex(start)
+    if (this.spreadSecondVisible(start) && !this.hasSpreadImage(second)) {
+      return second
+    }
+    return start
   }
 
   private spreadSecondIndex(start: number): number {
@@ -984,32 +1018,36 @@ export struct ReaderPage {
       ForEach(
         this.spreadStarts(),
         (start: number) => {
-          ReaderSpreadSurface({
-            first: this.hasSpreadImage(start) ? this.vm.images[start] : new EhGalleryImage(),
-            second: this.hasSpreadImage(this.spreadSecondIndex(start)) ? this.vm.images[this.spreadSecondIndex(start)] : new EhGalleryImage(),
-            hasFirst: this.hasSpreadImage(start),
-            hasSecond: this.spreadSecondVisible(start) && this.hasSpreadImage(this.spreadSecondIndex(start)),
-            firstInitiallyLoaded: this.isPageImageLoaded(start),
-            secondInitiallyLoaded: this.isPageImageLoaded(this.spreadSecondIndex(start)),
-            loadedSignal: this.loadedPageSignal,
-            rowReversed: this.spreadRowReversed(),
-            activeIndex: this.vm.currentIndex,
-            doubleTapSeq: this.doubleTapSeq,
-            doubleTapX: this.doubleTapX,
-            doubleTapY: this.doubleTapY,
-            doubleTapTargetPage: this.doubleTapTargetPage,
-            onZoomChange: (zoomed: boolean) => {
-              this.imageZoomed = zoomed
-            },
-            onImageLoaded: (page: number) => {
-              this.markPageImageLoaded(page)
-            },
-          })
+          if (this.spreadNeedsPreview(start)) {
+            this.ReaderPendingPage(this.missingSpreadPreviewIndex(start))
+          } else {
+            ReaderSpreadSurface({
+              first: this.vm.imageAt(start),
+              second: this.hasSpreadImage(this.spreadSecondIndex(start)) ? this.vm.imageAt(this.spreadSecondIndex(start)) : new EhGalleryImage(),
+              hasFirst: true,
+              hasSecond: this.spreadSecondVisible(start) && this.hasSpreadImage(this.spreadSecondIndex(start)),
+              firstInitiallyLoaded: this.isPageImageLoaded(start),
+              secondInitiallyLoaded: this.isPageImageLoaded(this.spreadSecondIndex(start)),
+              loadedSignal: this.loadedPageSignal,
+              rowReversed: this.spreadRowReversed(),
+              activeIndex: this.vm.currentIndex,
+              doubleTapSeq: this.doubleTapSeq,
+              doubleTapX: this.doubleTapX,
+              doubleTapY: this.doubleTapY,
+              doubleTapTargetPage: this.doubleTapTargetPage,
+              onZoomChange: (zoomed: boolean) => {
+                this.imageZoomed = zoomed
+              },
+              onImageLoaded: (page: number) => {
+                this.markPageImageLoaded(page)
+              },
+            })
+          }
         },
         (start: number) => {
-          const first: string = this.hasSpreadImage(start) ? this.vm.images[start].sUrl : ''
+          const first: string = this.hasSpreadImage(start) ? this.vm.imageAt(start).sUrl : ''
           const secondIndex: number = this.spreadSecondIndex(start)
-          const second: string = this.hasSpreadImage(secondIndex) ? this.vm.images[secondIndex].sUrl : ''
+          const second: string = this.hasSpreadImage(secondIndex) ? this.vm.imageAt(secondIndex).sUrl : ''
           return `${start}-${first}-${second}`
         },
       )
@@ -1026,6 +1064,27 @@ export struct ReaderPage {
       this.clearZoomGate()
       this.readerPagerIndex = i
       this.vm.onPageChange(this.spreadStartIndex(i))
+    })
+  }
+
+  @Builder
+  ReaderPendingPage(index: number) {
+    Stack({ alignContent: Alignment.Center }) {
+      if (this.vm.previewFailedIndex === index) {
+        ReaderFailureOverlay({
+          page: index + 1,
+          onRetry: () => {
+            this.vm.warmPreviewForIndex(index)
+          },
+        })
+      } else {
+        ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .onAppear(() => {
+      this.vm.warmPreviewForIndex(index)
     })
   }
 
@@ -1058,21 +1117,25 @@ export struct ReaderPage {
   VerticalReader() {
     List({ initialIndex: this.vm.currentIndex, scroller: this.listScroller }) {
       ForEach(
-        this.vm.images,
-        (img: EhGalleryImage) => {
+        this.readerPageIndexes(),
+        (index: number) => {
           ListItem() {
-            ReaderVerticalImage({
-              image: img,
-              imageKey: this.readerImageKey(img),
-              initiallyLoaded: this.isPageImageLoaded(img.page - 1),
-              loadedSignal: this.loadedPageSignal,
-              onImageLoaded: (page: number) => {
-                this.markPageImageLoaded(page)
-              },
-            })
+            if (this.vm.hasPreviewAt(index)) {
+              ReaderVerticalImage({
+                image: this.vm.imageAt(index),
+                imageKey: this.readerImageKey(this.vm.imageAt(index)),
+                initiallyLoaded: this.isPageImageLoaded(index),
+                loadedSignal: this.loadedPageSignal,
+                onImageLoaded: (page: number) => {
+                  this.markPageImageLoaded(page)
+                },
+              })
+            } else {
+              this.ReaderPendingPage(index)
+            }
           }
         },
-        (img: EhGalleryImage) => this.readerImageIdentityKey(img),
+        (index: number) => `${index}-${this.readerImageIdentityKey(this.vm.imageAt(index))}`,
       )
     }
     .width('100%')
@@ -1926,9 +1989,13 @@ struct ReaderSpreadImageLayer {
 
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
+  @Local sourceImageUrl: string = '';
+  @Local imageProgressLoaded: number = 0;
+  @Local imageProgressTotal: number = 0;
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   private autoRetryCount: number = 0;
+  private loadSeq: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -1936,37 +2003,40 @@ struct ReaderSpreadImageLayer {
 
   @Monitor('imageKey')
   onImageKeyChanged(): void {
-    if (this.adoptResolvedImageUrl()) {
-      return
-    }
     this.resetImageState()
     this.resolve()
   }
 
   @Monitor('loadedSignal')
   onLoadedSignalChanged(): void {
-    if (this.initiallyLoaded && this.imageUrl.length > 0 && this.imageUrl === this.image.imageUrl) {
+    if (this.initiallyLoaded && this.imageUrl.length > 0) {
       this.imageLoaded = true
     }
   }
 
   private resetImageState(): void {
     this.autoRetryCount = 0
+    this.loadSeq++
+    this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
+    this.imageProgressLoaded = 0
+    this.imageProgressTotal = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
   }
 
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
-      this.adoptResolvedImageUrl()
+      await this.loadResolvedImage(this.image.imageUrl)
       return
     }
     try {
+      this.imageUrl = ''
       this.imageLoaded = false
-      this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      this.imageLoaded = true
+      this.sourceImageUrl = ''
+      const resolved: string = await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      await this.loadResolvedImage(resolved)
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
@@ -1977,22 +2047,54 @@ struct ReaderSpreadImageLayer {
     }
   }
 
-  private adoptResolvedImageUrl(): boolean {
-    if (this.image.imageUrl.length === 0) {
-      return false
-    }
+  private async loadResolvedImage(resolved: string): Promise<void> {
+    const seq: number = ++this.loadSeq
     this.autoRetryCount = 0
-    this.imageUrl = this.image.imageUrl
-    this.imageLoaded = true
+    this.sourceImageUrl = resolved
+    this.imageUrl = ''
+    this.imageLoaded = false
+    this.imageProgressLoaded = 0
+    this.imageProgressTotal = 0
+    const result = await CachedImageFileService.load(
+      this.getUIContext().getHostContext() as common.UIAbilityContext,
+      resolved,
+      this.cacheKey(resolved),
+      (progress: CachedImageProgress) => {
+        if (seq !== this.loadSeq) {
+          return
+        }
+        this.imageProgressLoaded = progress.loaded
+        this.imageProgressTotal = progress.total
+      },
+    )
+    if (seq !== this.loadSeq) {
+      return
+    }
+    this.imageUrl = result.displayUri
+    this.imageLoaded = this.initiallyLoaded
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
-    return true
+  }
+
+  private cacheKey(resolved: string): string {
+    return `${this.image.page}-${this.imageKey}-${resolved}`
   }
 
   private retrySource(): void {
     this.autoRetryCount = 0
+    if (this.sourceImageUrl.length > 0) {
+      CachedImageFileService.remove(
+        this.getUIContext().getHostContext() as common.UIAbilityContext,
+        this.sourceImageUrl,
+        this.cacheKey(this.sourceImageUrl),
+      )
+    }
+    this.loadSeq++
+    this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
+    this.imageProgressLoaded = 0
+    this.imageProgressTotal = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.resolve(true)
@@ -2001,8 +2103,12 @@ struct ReaderSpreadImageLayer {
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       this.autoRetryCount++
+      this.loadSeq++
+      this.sourceImageUrl = ''
       this.imageUrl = ''
       this.imageLoaded = false
+      this.imageProgressLoaded = 0
+      this.imageProgressTotal = 0
       this.failed = false
       this.resolve(true)
       return
@@ -2025,7 +2131,6 @@ struct ReaderSpreadImageLayer {
           .objectFit(ImageFit.Contain)
           .width('100%')
           .height('100%')
-          .opacity(this.imageLoaded ? 1 : 0)
           .draggable(false)
           .onComplete((_event?: ReaderImageLoadEvent) => {
             this.autoRetryCount = 0
@@ -2042,10 +2147,12 @@ struct ReaderSpreadImageLayer {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
-        if (!this.imageLoaded) {
-          ReaderLoadingStage({ label: $r('app.string.reader_loading_image') })
-            .hitTestBehavior(HitTestMode.None)
-        }
+      } else if (this.sourceImageUrl.length > 0) {
+        ReaderLoadingStage({
+          label: $r('app.string.reader_loading_image'),
+          loaded: this.imageProgressLoaded,
+          total: this.imageProgressTotal,
+        })
       } else {
         ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
       }
@@ -2077,6 +2184,9 @@ struct ReaderImagePage {
 
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
+  @Local sourceImageUrl: string = '';
+  @Local imageProgressLoaded: number = 0;
+  @Local imageProgressTotal: number = 0;
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Local zoomScale: number = 1;
@@ -2100,6 +2210,7 @@ struct ReaderImagePage {
   private compH: number = 0;
   private lastZoomed: boolean = false;
   private autoRetryCount: number = 0;
+  private loadSeq: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -2107,11 +2218,6 @@ struct ReaderImagePage {
 
   @Monitor('imageKey')
   onImageKeyChanged(): void {
-    if (this.adoptResolvedImageUrl()) {
-      this.resetZoom()
-      this.notifyZoom()
-      return
-    }
     this.resetSourceState()
     this.resetZoom()
     this.notifyZoom()
@@ -2120,7 +2226,7 @@ struct ReaderImagePage {
 
   @Monitor('loadedSignal')
   onLoadedSignalChanged(): void {
-    if (this.initiallyLoaded && this.imageUrl.length > 0 && this.imageUrl === this.image.imageUrl) {
+    if (this.initiallyLoaded && this.imageUrl.length > 0) {
       this.imageLoaded = true
     }
   }
@@ -2146,13 +2252,15 @@ struct ReaderImagePage {
   // different host, bypassing the cached URL.
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
-      this.adoptResolvedImageUrl()
+      await this.loadResolvedImage(this.image.imageUrl)
       return
     }
     try {
+      this.imageUrl = ''
       this.imageLoaded = false
-      this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      this.imageLoaded = true
+      this.sourceImageUrl = ''
+      const resolved: string = await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      await this.loadResolvedImage(resolved)
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
@@ -2163,22 +2271,47 @@ struct ReaderImagePage {
     }
   }
 
-  private adoptResolvedImageUrl(): boolean {
-    if (this.image.imageUrl.length === 0) {
-      return false
-    }
+  private async loadResolvedImage(resolved: string): Promise<void> {
+    const seq: number = ++this.loadSeq
     this.autoRetryCount = 0
-    this.imageUrl = this.image.imageUrl
-    this.imageLoaded = true
+    this.sourceImageUrl = resolved
+    this.imageUrl = ''
+    this.imageLoaded = false
+    this.imageProgressLoaded = 0
+    this.imageProgressTotal = 0
+    const result = await CachedImageFileService.load(
+      this.getUIContext().getHostContext() as common.UIAbilityContext,
+      resolved,
+      this.cacheKey(resolved),
+      (progress: CachedImageProgress) => {
+        if (seq !== this.loadSeq) {
+          return
+        }
+        this.imageProgressLoaded = progress.loaded
+        this.imageProgressTotal = progress.total
+      },
+    )
+    if (seq !== this.loadSeq) {
+      return
+    }
+    this.imageUrl = result.displayUri
+    this.imageLoaded = this.initiallyLoaded
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
-    return true
+  }
+
+  private cacheKey(resolved: string): string {
+    return `${this.image.page}-${this.imageKey}-${resolved}`
   }
 
   private resetSourceState(): void {
     this.autoRetryCount = 0
+    this.loadSeq++
+    this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
+    this.imageProgressLoaded = 0
+    this.imageProgressTotal = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.intrinsicW = 0
@@ -2188,8 +2321,19 @@ struct ReaderImagePage {
   // Retry on failure: re-source (换源) — clear the dead URL and re-resolve from a different host.
   private retrySource(): void {
     this.autoRetryCount = 0
+    if (this.sourceImageUrl.length > 0) {
+      CachedImageFileService.remove(
+        this.getUIContext().getHostContext() as common.UIAbilityContext,
+        this.sourceImageUrl,
+        this.cacheKey(this.sourceImageUrl),
+      )
+    }
+    this.loadSeq++
+    this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
+    this.imageProgressLoaded = 0
+    this.imageProgressTotal = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.resolve(true)
@@ -2198,8 +2342,12 @@ struct ReaderImagePage {
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       this.autoRetryCount++
+      this.loadSeq++
+      this.sourceImageUrl = ''
       this.imageUrl = ''
       this.imageLoaded = false
+      this.imageProgressLoaded = 0
+      this.imageProgressTotal = 0
       this.failed = false
       this.resolve(true)
       return
@@ -2302,7 +2450,6 @@ struct ReaderImagePage {
           .objectFit(ImageFit.Contain)
           .width('100%')
           .height('100%')
-          .opacity(this.imageLoaded ? 1 : 0)
           .draggable(false)
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
@@ -2325,10 +2472,12 @@ struct ReaderImagePage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
-        if (!this.imageLoaded) {
-          ReaderLoadingStage({ label: $r('app.string.reader_loading_image') })
-            .hitTestBehavior(HitTestMode.None)
-        }
+      } else if (this.sourceImageUrl.length > 0) {
+        ReaderLoadingStage({
+          label: $r('app.string.reader_loading_image'),
+          loaded: this.imageProgressLoaded,
+          total: this.imageProgressTotal,
+        })
       } else {
         ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
       }
@@ -2438,10 +2587,14 @@ struct ReaderVerticalImage {
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
+  @Local sourceImageUrl: string = '';
+  @Local imageProgressLoaded: number = 0;
+  @Local imageProgressTotal: number = 0;
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Local ratio: number = DEFAULT_VERTICAL_RATIO;
   private autoRetryCount: number = 0;
+  private loadSeq: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -2449,16 +2602,13 @@ struct ReaderVerticalImage {
 
   @Monitor('imageKey')
   onImageKeyChanged(): void {
-    if (this.adoptResolvedImageUrl()) {
-      return
-    }
     this.resetSourceState()
     this.resolve()
   }
 
   @Monitor('loadedSignal')
   onLoadedSignalChanged(): void {
-    if (this.initiallyLoaded && this.imageUrl.length > 0 && this.imageUrl === this.image.imageUrl) {
+    if (this.initiallyLoaded && this.imageUrl.length > 0) {
       this.imageLoaded = true
     }
   }
@@ -2466,13 +2616,15 @@ struct ReaderVerticalImage {
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
   private async resolve(changeSource: boolean = false): Promise<void> {
     if (!changeSource && this.image.imageUrl.length > 0) {
-      this.adoptResolvedImageUrl()
+      await this.loadResolvedImage(this.image.imageUrl)
       return
     }
     try {
+      this.imageUrl = ''
       this.imageLoaded = false
-      this.imageUrl = await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      this.imageLoaded = true
+      this.sourceImageUrl = ''
+      const resolved: string = await ImageResolveService.getInstance().resolve(this.image, changeSource)
+      await this.loadResolvedImage(resolved)
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
@@ -2483,22 +2635,47 @@ struct ReaderVerticalImage {
     }
   }
 
-  private adoptResolvedImageUrl(): boolean {
-    if (this.image.imageUrl.length === 0) {
-      return false
-    }
+  private async loadResolvedImage(resolved: string): Promise<void> {
+    const seq: number = ++this.loadSeq
     this.autoRetryCount = 0
-    this.imageUrl = this.image.imageUrl
-    this.imageLoaded = true
+    this.sourceImageUrl = resolved
+    this.imageUrl = ''
+    this.imageLoaded = false
+    this.imageProgressLoaded = 0
+    this.imageProgressTotal = 0
+    const result = await CachedImageFileService.load(
+      this.getUIContext().getHostContext() as common.UIAbilityContext,
+      resolved,
+      this.cacheKey(resolved),
+      (progress: CachedImageProgress) => {
+        if (seq !== this.loadSeq) {
+          return
+        }
+        this.imageProgressLoaded = progress.loaded
+        this.imageProgressTotal = progress.total
+      },
+    )
+    if (seq !== this.loadSeq) {
+      return
+    }
+    this.imageUrl = result.displayUri
+    this.imageLoaded = this.initiallyLoaded
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
-    return true
+  }
+
+  private cacheKey(resolved: string): string {
+    return `${this.image.page}-${this.imageKey}-${resolved}`
   }
 
   private resetSourceState(): void {
     this.autoRetryCount = 0
+    this.loadSeq++
+    this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
+    this.imageProgressLoaded = 0
+    this.imageProgressTotal = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.ratio = DEFAULT_VERTICAL_RATIO
@@ -2506,8 +2683,19 @@ struct ReaderVerticalImage {
 
   private retrySource(): void {
     this.autoRetryCount = 0
+    if (this.sourceImageUrl.length > 0) {
+      CachedImageFileService.remove(
+        this.getUIContext().getHostContext() as common.UIAbilityContext,
+        this.sourceImageUrl,
+        this.cacheKey(this.sourceImageUrl),
+      )
+    }
+    this.loadSeq++
+    this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
+    this.imageProgressLoaded = 0
+    this.imageProgressTotal = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.resolve(true)
@@ -2516,8 +2704,12 @@ struct ReaderVerticalImage {
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
       this.autoRetryCount++
+      this.loadSeq++
+      this.sourceImageUrl = ''
       this.imageUrl = ''
       this.imageLoaded = false
+      this.imageProgressLoaded = 0
+      this.imageProgressTotal = 0
       this.failed = false
       this.resolve(true)
       return
@@ -2542,7 +2734,6 @@ struct ReaderVerticalImage {
           .width('100%')
           .aspectRatio(this.ratio)
           .objectFit(ImageFit.Contain)
-          .opacity(this.imageLoaded ? 1 : 0)
           .draggable(false)
           .onComplete((e) => {
             this.autoRetryCount = 0
@@ -2557,13 +2748,13 @@ struct ReaderVerticalImage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
-        if (!this.imageLoaded) {
-          ReaderLoadingStage({
-            label: $r('app.string.reader_loading_image'),
-            compact: true,
-          })
-            .hitTestBehavior(HitTestMode.None)
-        }
+      } else if (this.sourceImageUrl.length > 0) {
+        ReaderLoadingStage({
+          label: $r('app.string.reader_loading_image'),
+          compact: true,
+          loaded: this.imageProgressLoaded,
+          total: this.imageProgressTotal,
+        })
       } else {
         ReaderLoadingStage({
           label: $r('app.string.reader_loading_resolving'),
@@ -2580,21 +2771,61 @@ struct ReaderVerticalImage {
 struct ReaderLoadingStage {
   @Param label: ResourceStr = '';
   @Param compact: boolean = false;
+  @Param loaded: number = 0;
+  @Param total: number = 0;
 
-  private spinnerSize(): number {
-    return this.compact ? ThemeConstants.LOADING_SIZE : ThemeConstants.LOADING_SIZE_LARGE
+  private barWidth(): number {
+    return this.compact ? 120 : 180
+  }
+
+  private hasProgress(): boolean {
+    return this.total > 0
+  }
+
+  private progressRatio(): number {
+    if (!this.hasProgress()) {
+      return 0.32
+    }
+    const ratio: number = this.loaded / this.total
+    if (ratio < 0) {
+      return 0
+    }
+    if (ratio > 1) {
+      return 1
+    }
+    return ratio
+  }
+
+  private progressPercent(): string {
+    return `${Math.round(this.progressRatio() * 100)}%`
   }
 
   build() {
     Column({ space: ThemeConstants.SPACE_SM }) {
-      LoadingProgress()
-        .width(this.spinnerSize())
-        .height(this.spinnerSize())
-        .color(Color.White)
+      Row() {
+        Blank()
+          .width(this.barWidth() * this.progressRatio())
+          .height(4)
+          .backgroundColor(Color.White)
+          .borderRadius(2)
+        Blank()
+          .layoutWeight(1)
+          .height(4)
+      }
+      .width(this.barWidth())
+      .height(4)
+      .backgroundColor('#33FFFFFF')
+      .borderRadius(2)
       Text(this.label)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor(Color.White)
         .textAlign(TextAlign.Center)
+      if (this.hasProgress()) {
+        Text(this.progressPercent())
+          .fontSize(ThemeConstants.FONT_SIZE_META)
+          .fontColor('#CCFFFFFF')
+          .textAlign(TextAlign.Center)
+      }
     }
     .width('100%')
     .height('100%')

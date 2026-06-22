@@ -58,11 +58,11 @@ function turnDecision(images, target) {
 
 const vmSrc = read('feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets')
 ok('Reader exposes hasPreviewAt to page navigation', /\n  hasPreviewAt\(index: number\): boolean \{/.test(vmSrc))
-ok('hasPreviewAt checks the actual /s/ image-page URL', /return this\.images\[index\]\.sUrl\.length > 0/.test(vmSrc))
+ok('hasPreviewAt checks sparse preview metadata, not positional images length', /this\.previewImagesByIndex\.get\(index\)/.test(vmSrc) && /img !== undefined && img\.sUrl\.length > 0/.test(vmSrc))
 
 const pageSrc = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
-ok('ReaderPage turnTo treats sparse placeholders as unloaded', /target >= this\.vm\.images\.length \|\| !this\.vm\.hasPreviewAt\(target\)/.test(pageSrc))
-ok('ReaderPage placeholder route goes through jumpToPage', /if \(target >= this\.vm\.images\.length \|\| !this\.vm\.hasPreviewAt\(target\)\) \{[\s\S]*this\.jumpToPage\(target\)/.test(pageSrc))
+ok('ReaderPage turnTo uses totalPages reachability and preview presence', /target >= this\.vm\.totalPages\(\) \|\| !this\.vm\.hasPreviewAt\(target\)/.test(pageSrc))
+ok('ReaderPage missing-preview route goes through jumpToPage', /if \(target >= this\.vm\.totalPages\(\) \|\| !this\.vm\.hasPreviewAt\(target\)\) \{[\s\S]*this\.jumpToPage\(target\)/.test(pageSrc))
 ok('ReaderPage direct vertical path only runs after preview presence check', /this\.vm\.hasPreviewAt\(target\)[\s\S]*if \(this\.readMode\.mode === ReadMode\.VERTICAL\)/.test(pageSrc))
 
 const imageResolveSrc = read('shared/src/main/ets/services/ImageResolveService.ets')

@@ -78,10 +78,22 @@ export class ReaderViewModel {
   private exhausted: boolean = false
   private cacheKey: string = ''
   private loadedPreviewPages: number[] = []
+  private previewImagesByIndex: Map<number, EhGalleryImage> = new Map()
   // Image-page links per preview page (~20/40, gallery-fixed), measured from the first loaded page.
   // Enables a far jump/resume to fetch the missing preview pages CONCURRENTLY (the slider drop case)
   // instead of one-by-one round-trips (eros_fe far-seek). 0 until the first page lands.
   private perPage: number = 0
+  @Trace previewLoadingIndex: number = -1
+  @Trace previewFailedIndex: number = -1
+  @Trace previewError: string = ''
+
+  private isKnownLastPreviewPage(previewPage: number, count: number): boolean {
+    if (this.fileCount <= 0 || count <= 0) {
+      return false
+    }
+    const pageSize: number = this.perPage > 0 ? this.perPage : count
+    return previewPage * pageSize + count >= this.fileCount
+  }
 
   async init(
     gid: string,
@@ -100,6 +112,7 @@ export class ReaderViewModel {
     this.currentIndex = startIndex
     this.cacheKey = ReaderViewModel.sessionKey(gid, token, connectSiteMode().isEx)
     this.images = []
+    this.previewImagesByIndex.clear()
     this.previewPage = -1
     this.exhausted = false
     this.loadedPreviewPages = []
@@ -120,8 +133,9 @@ export class ReaderViewModel {
     // Clamp a resumed/restored start page that overshoots the gallery's actual length (e.g. the
     // saved lastIndex predates an expunge/shrink, or fewer pages parsed) — mirrors jumpTo's clamp
     // so the Swiper .index() and the progress write-back never go out of range.
-    this.currentIndex = this.images.length > 0 ? Math.min(startIndex, this.images.length - 1) : 0
-    this.precacheAhead()
+    const total: number = this.totalPages()
+    this.currentIndex = total > 0 ? Math.min(startIndex, total - 1) : 0
+    this.precacheFrom(this.currentIndex)
     this.warmPreviewAhead(this.currentIndex)
     this.publishSessionCache()
   }
@@ -142,6 +156,8 @@ export class ReaderViewModel {
     for (let i: number = 0; i < cached.images.length; i++) {
       this.images.push(cached.images[i].copy())
     }
+    this.rebuildPreviewMapFromImages()
+    this.syncImagesFromPreviewMap()
     this.loadedPreviewPages = []
     for (let i: number = 0; i < cached.loadedPreviewPages.length; i++) {
       this.loadedPreviewPages.push(cached.loadedPreviewPages[i])
@@ -184,11 +200,39 @@ export class ReaderViewModel {
   }
 
   private notifyImagesChanged(): void {
-    const next: EhGalleryImage[] = []
+    this.syncImagesFromPreviewMap()
+  }
+
+  private rebuildPreviewMapFromImages(): void {
+    this.previewImagesByIndex.clear()
     for (let i: number = 0; i < this.images.length; i++) {
-      next.push(this.images[i])
+      const img: EhGalleryImage = this.images[i]
+      if (img.page > 0 && img.sUrl.length > 0) {
+        this.previewImagesByIndex.set(img.page - 1, img.copy())
+      }
     }
-    this.images = next
+  }
+
+  private syncImagesFromPreviewMap(): void {
+    const total: number = this.fileCount > 0 ? this.fileCount : this.previewMapUpperBound()
+    const out: EhGalleryImage[] = []
+    for (let i: number = 0; i < total; i++) {
+      const img: EhGalleryImage | undefined = this.previewImagesByIndex.get(i)
+      if (img !== undefined) {
+        out.push(img.copy())
+      }
+    }
+    this.images = out
+  }
+
+  private previewMapUpperBound(): number {
+    let max: number = this.images.length
+    this.previewImagesByIndex.forEach((_img: EhGalleryImage, index: number) => {
+      if (index + 1 > max) {
+        max = index + 1
+      }
+    })
+    return max
   }
 
   private static trimSessionCache(): void {
@@ -232,15 +276,13 @@ export class ReaderViewModel {
     if (seedImages.length === 0 || seedLoadedPages <= 0) {
       return
     }
-    let seeded: EhGalleryImage[] = []
-    seedImages.forEach((img: EhGalleryImage) => {
-      const targetIndex: number = img.page > 0 ? img.page - 1 : seeded.length
-      for (let i: number = seeded.length; i <= targetIndex; i++) {
-        seeded.push(new EhGalleryImage(i + 1))
-      }
-      seeded[targetIndex] = img.copy()
+    seedImages.forEach((img: EhGalleryImage, order: number) => {
+      const targetIndex: number = img.page > 0 ? img.page - 1 : order
+      const copy: EhGalleryImage = img.copy()
+      copy.page = targetIndex + 1
+      this.previewImagesByIndex.set(targetIndex, copy)
     })
-    this.images = seeded
+    this.syncImagesFromPreviewMap()
     this.perPage = seedPerPage > 0 ? seedPerPage : seedImages.length
     this.loadedPreviewPages = []
     if (seedPreviewPages.length > 0) {
@@ -259,11 +301,11 @@ export class ReaderViewModel {
   }
 
   private seedCoversWholeGallery(): boolean {
-    if (this.fileCount <= 0 || this.images.length < this.fileCount) {
+    if (this.fileCount <= 0) {
       return false
     }
     for (let i: number = 0; i < this.fileCount; i++) {
-      if (this.images[i].sUrl.length === 0) {
+      if (!this.hasPreviewAt(i)) {
         return false
       }
     }
@@ -278,19 +320,13 @@ export class ReaderViewModel {
     if (ref === null) {
       return null
     }
-    const seeded: EhGalleryImage[] = []
-    for (let i: number = 0; i < this.images.length; i++) {
-      seeded.push(this.images[i].copy())
-    }
-    for (let i: number = seeded.length; i <= index; i++) {
-      seeded.push(new EhGalleryImage(i + 1))
-    }
-    const img: EhGalleryImage = seeded[index].copy()
+    const existing: EhGalleryImage | undefined = this.previewImagesByIndex.get(index)
+    const img: EhGalleryImage = existing !== undefined ? existing.copy() : new EhGalleryImage(index + 1)
     img.page = index + 1
     img.sUrl = seedImagePageUrl
     img.imgkey = ref.imgkey
-    seeded[index] = img
-    this.images = seeded
+    this.previewImagesByIndex.set(index, img)
+    this.syncImagesFromPreviewMap()
     return img
   }
 
@@ -304,10 +340,11 @@ export class ReaderViewModel {
   }
 
   private applyExactSeed(index: number, seed: EhGalleryImage): void {
-    if (index < 0 || index >= this.images.length) {
+    if (index < 0) {
       return
     }
-    const merged: EhGalleryImage = this.images[index].copy()
+    const existing: EhGalleryImage | undefined = this.previewImagesByIndex.get(index)
+    const merged: EhGalleryImage = existing !== undefined ? existing.copy() : new EhGalleryImage(index + 1)
     if (seed.imgkey.length > 0) {
       merged.imgkey = seed.imgkey
     }
@@ -326,11 +363,8 @@ export class ReaderViewModel {
     if (seed.reloadKey.length > 0) {
       merged.reloadKey = seed.reloadKey
     }
-    const next: EhGalleryImage[] = []
-    for (let i: number = 0; i < this.images.length; i++) {
-      next.push(i === index ? merged : this.images[i])
-    }
-    this.images = next
+    this.previewImagesByIndex.set(index, merged)
+    this.syncImagesFromPreviewMap()
     this.publishSessionCache()
   }
 
@@ -341,9 +375,15 @@ export class ReaderViewModel {
    * round-trip in turn (same request count as the old one-by-one loop — just not serialized).
    */
   private async ensureLoaded(index: number): Promise<void> {
+    if (this.loadingMore) {
+      await this.waitForLoadingComplete()
+    }
     // Load the first page first so perPage is known (and a near target may already be satisfied).
     if (this.previewPage < 0) {
       await this.loadMore()
+    }
+    if (this.loadingMore) {
+      await this.waitForLoadingComplete()
     }
     if (this.exhausted || this.hasPreviewAt(index)) {
       return
@@ -361,7 +401,10 @@ export class ReaderViewModel {
       return
     }
     if (this.loadingMore) {
-      return
+      await this.waitForLoadingComplete()
+      if (this.hasPreviewAt(index) || this.exhausted) {
+        return
+      }
     }
     this.loadingMore = true
     this.error = ''
@@ -394,7 +437,7 @@ export class ReaderViewModel {
             break
           }
           this.mergePreviewPage(from + i, r)
-          if (this.fileCount > 0 && this.images.length >= this.fileCount) {
+          if (this.isKnownLastPreviewPage(from + i, r.length)) {
             this.exhausted = true
             break
           }
@@ -415,10 +458,10 @@ export class ReaderViewModel {
 
   /** Sequential fallback (perPage unknown): extend one preview page at a time until past `index`. */
   private async ensureSequential(index: number): Promise<void> {
-    while (!this.exhausted && this.images.length <= index) {
-      const before: number = this.images.length
+    while (!this.exhausted && !this.hasPreviewAt(index)) {
+      const before: number = this.previewMapUpperBound()
       await this.loadMore()
-      if (this.images.length === before) {
+      if (this.previewMapUpperBound() === before) {
         break
       }
     }
@@ -457,7 +500,7 @@ export class ReaderViewModel {
         if (this.perPage === 0) {
           this.perPage = more.length
         }
-        if (this.fileCount > 0 && this.images.length >= this.fileCount) {
+        if (this.isKnownLastPreviewPage(next, more.length)) {
           this.exhausted = true
         }
         this.publishSessionCache()
@@ -470,84 +513,64 @@ export class ReaderViewModel {
   }
 
   hasPreviewAt(index: number): boolean {
-    if (index < 0 || index >= this.images.length) {
+    if (index < 0) {
       return false
     }
-    return this.images[index].sUrl.length > 0
+    const img: EhGalleryImage | undefined = this.previewImagesByIndex.get(index)
+    return img !== undefined && img.sUrl.length > 0
   }
 
   imageAt(index: number): EhGalleryImage {
-    if (index < 0 || index >= this.images.length) {
+    if (index < 0) {
       return new EhGalleryImage(index + 1)
     }
-    return this.images[index]
+    const img: EhGalleryImage | undefined = this.previewImagesByIndex.get(index)
+    if (img === undefined) {
+      return new EhGalleryImage(index + 1)
+    }
+    return img
   }
 
   warmPreviewForIndex(index: number): void {
-    if (index < 0 || index >= this.totalPages() || this.hasPreviewThumbAt(index)) {
+    if (index < 0 || index >= this.totalPages() || this.hasPreviewAt(index)) {
       return
     }
     DiagnosticLogger.info(
       'reader',
       'thumb_warm_request',
-      `index ${index} images ${this.images.length} perPage ${this.perPage} loaded ${this.hasPreviewAt(index)} thumb ${this.hasPreviewThumbAt(index)}`,
+      `index ${index} images ${this.images.length} perPage ${this.perPage} loaded ${this.hasPreviewAt(index)}`,
     )
-    this.ensurePreviewMetadata(index)
+    this.ensureLoaded(index)
       .then(
         (): void => {},
         (): void => {},
       )
   }
 
-  private async ensurePreviewMetadata(index: number): Promise<void> {
-    if (index < 0 || index >= this.totalPages() || this.hasPreviewThumbAt(index)) {
-      return
-    }
-    DiagnosticLogger.info(
-      'reader',
-      'thumb_metadata_begin',
-      `index ${index} previewPage ${this.previewPage} loadingMore ${this.loadingMore}`,
-    )
-    if (this.previewPage < 0) {
-      await this.loadMore()
-    }
+  private async loadPreviewPageForIndex(index: number): Promise<boolean> {
     if (this.loadingMore) {
       await this.waitForLoadingComplete()
+      if (this.hasPreviewAt(index)) {
+        return true
+      }
     }
-    if (this.perPage <= 0 || this.hasPreviewThumbAt(index)) {
-      DiagnosticLogger.info(
-        'reader',
-        'thumb_metadata_skip',
-        `index ${index} perPage ${this.perPage} thumb ${this.hasPreviewThumbAt(index)}`,
-      )
-      return
-    }
-    await this.loadPreviewPageForIndex(index)
-  }
-
-  private hasPreviewThumbAt(index: number): boolean {
-    if (index < 0 || index >= this.images.length) {
-      return false
-    }
-    return this.images[index].thumbUrl.length > 0
-  }
-
-  private async loadPreviewPageForIndex(index: number): Promise<boolean> {
-    if (this.perPage <= 0 || index < 0 || this.loadingMore) {
+    if (this.perPage <= 0 || index < 0) {
       return false
     }
     const targetPreviewPage: number = Math.floor(index / this.perPage)
     const pageLoaded: boolean = this.isPreviewPageLoaded(targetPreviewPage)
-    const targetHasThumb: boolean = this.hasPreviewThumbAt(index)
     DiagnosticLogger.info(
       'reader',
       'target_preview_request',
-      `index ${index} previewPage ${targetPreviewPage} loaded ${pageLoaded} hasThumb ${targetHasThumb} perPage ${this.perPage}`,
+      `index ${index} previewPage ${targetPreviewPage} loaded ${pageLoaded} hasPreview ${this.hasPreviewAt(index)} perPage ${this.perPage}`,
     )
-    if (pageLoaded && targetHasThumb) {
+    if (pageLoaded && this.hasPreviewAt(index)) {
       return this.hasPreviewAt(index)
     }
     this.loadingMore = true
+    this.previewLoadingIndex = index
+    this.previewFailedIndex = -1
+    this.previewError = ''
     this.error = ''
     try {
       const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
@@ -567,10 +590,14 @@ export class ReaderViewModel {
         this.mergePreviewPage(targetPreviewPage, more)
       }
     } catch (err) {
-      this.error = EhErrorText.forUser(err)
+      this.previewFailedIndex = index
+      this.previewError = EhErrorText.forUser(err)
       DiagnosticLogger.warn('reader', 'target_preview_load_failed', (err as Error).message)
     }
     this.loadingMore = false
+    if (this.previewLoadingIndex === index) {
+      this.previewLoadingIndex = -1
+    }
     return this.hasPreviewAt(index)
   }
 
@@ -578,31 +605,24 @@ export class ReaderViewModel {
     if (pageImages.length === 0) {
       return
     }
-    const next: EhGalleryImage[] = []
-    for (let i: number = 0; i < this.images.length; i++) {
-      next.push(this.images[i].copy())
-    }
     const startIndex: number = previewPage * (this.perPage > 0 ? this.perPage : pageImages.length)
     DiagnosticLogger.info(
       'reader',
       'merge_preview_page',
       `previewPage ${previewPage} count ${pageImages.length} start ${startIndex} first ${pageImages[0].page} firstThumb ${pageImages[0].thumbUrl.length}`,
     )
-    const minLength: number = startIndex + pageImages.length
-    for (let i: number = next.length; i < minLength; i++) {
-      next.push(new EhGalleryImage(i + 1))
-    }
     for (let i: number = 0; i < pageImages.length; i++) {
       const img: EhGalleryImage = pageImages[i]
       const targetIndex: number = img.page > 0 ? img.page - 1 : startIndex + i
-      for (let j: number = next.length; j <= targetIndex; j++) {
-        next.push(new EhGalleryImage(j + 1))
-      }
-      next[targetIndex] = this.mergePreviewImage(next[targetIndex], img)
+      const existing: EhGalleryImage | undefined = this.previewImagesByIndex.get(targetIndex)
+      const base: EhGalleryImage = existing !== undefined ? existing : new EhGalleryImage(targetIndex + 1)
+      this.previewImagesByIndex.set(targetIndex, this.mergePreviewImage(base, img))
     }
-    this.images = next
+    this.syncImagesFromPreviewMap()
     this.markPreviewPageLoaded(previewPage)
     this.advanceContiguousPreviewPage()
+    this.previewFailedIndex = -1
+    this.previewError = ''
     this.publishSessionCache()
   }
 
@@ -655,12 +675,7 @@ export class ReaderViewModel {
 
   onPageChange(index: number): void {
     this.currentIndex = index
-    if (!this.exhausted && !this.hasPreviewAt(index)) {
-      this.ensureLoaded(index)
-    } else if (!this.exhausted && index >= this.images.length - 3) {
-      this.loadMore()
-    }
-    this.precacheAhead()
+    this.prepareTargetPage(index)
     this.publishSessionCache()
   }
 
@@ -668,12 +683,24 @@ export class ReaderViewModel {
   onVerticalScroll(start: number, end: number): void {
     this.currentIndex = start
     if (!this.exhausted && !this.hasPreviewAt(start)) {
-      this.ensureLoaded(start)
-    } else if (!this.exhausted && end >= this.images.length - 3) {
+      this.prepareTargetPage(start)
+    } else if (!this.exhausted && end >= this.previewMapUpperBound() - 3) {
       this.loadMore()
+      this.precacheAhead()
+    } else {
+      this.precacheAhead()
     }
-    this.precacheAhead()
     this.publishSessionCache()
+  }
+
+  private prepareTargetPage(index: number): void {
+    this.ensureLoaded(index)
+      .then(
+        (): void => {
+          this.precacheFrom(index)
+        },
+        (): void => {},
+      )
   }
 
   /**
@@ -683,9 +710,13 @@ export class ReaderViewModel {
    * so this never double-fetches. Skips pages already resolved or not yet loaded.
    */
   private precacheAhead(): void {
-    const to: number = Math.min(this.currentIndex + PRECACHE_AHEAD, this.images.length - 1)
-    for (let i: number = this.currentIndex + 1; i <= to; i++) {
-      const img: EhGalleryImage = this.images[i]
+    this.precacheFrom(this.currentIndex + 1)
+  }
+
+  private precacheFrom(start: number): void {
+    const to: number = Math.min(start + PRECACHE_AHEAD, this.totalPages() - 1)
+    for (let i: number = start; i <= to; i++) {
+      const img: EhGalleryImage = this.imageAt(i)
       if (img.imageUrl.length === 0 && img.sUrl.length > 0) {
         ImageResolveService.getInstance()
           .resolve(img)
@@ -705,7 +736,7 @@ export class ReaderViewModel {
     this.ensureLoaded(target)
       .then(
         (): void => {
-          this.precacheAhead()
+          this.precacheFrom(index)
         },
         (): void => {},
       )
@@ -719,7 +750,7 @@ export class ReaderViewModel {
     this.ensureLoaded(index)
       .then(
         (): void => {
-          this.precacheAhead()
+          this.precacheFrom(index)
         },
         (): void => {},
       )
@@ -727,7 +758,7 @@ export class ReaderViewModel {
 
   /** Total pages for the slider: the known file count, else however many are loaded so far. */
   totalPages(): number {
-    return this.fileCount > 0 ? this.fileCount : this.images.length
+    return this.fileCount > 0 ? this.fileCount : this.previewMapUpperBound()
   }
 
   /**
@@ -743,9 +774,10 @@ export class ReaderViewModel {
     this.jumping = true
     await this.ensureLoaded(index)
     this.jumping = false
-    const target: number = Math.min(index, this.images.length - 1)
+    const total: number = this.totalPages()
+    const target: number = total > 0 ? Math.min(index, total - 1) : 0
     this.currentIndex = target >= 0 ? target : 0
-    this.precacheAhead()
+    this.precacheFrom(target)
     this.publishSessionCache()
     return target >= 0 ? target : 0
   }

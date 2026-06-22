@@ -91,6 +91,11 @@ export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGallery
 
 // services
 export { ImageResolveService } from './services/ImageResolveService'
+export {
+  CachedImageFileService,
+  CachedImageFileResult,
+  CachedImageProgress,
+} from './services/CachedImageFileService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 export { TagTranslationService } from './services/TagTranslationService'
 

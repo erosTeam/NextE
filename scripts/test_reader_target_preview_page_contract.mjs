@@ -36,19 +36,12 @@ const makePreviewPage = (previewPage, perPage) =>
   })
 
 function mergePreviewPage(images, previewPage, pageImages, perPage, loadedPages, contiguousPreviewPage) {
-  const next = images.map((img) => ({ ...img }))
+  const next = new Map(images)
   const startIndex = previewPage * (perPage > 0 ? perPage : pageImages.length)
-  const minLength = startIndex + pageImages.length
-  for (let i = next.length; i < minLength; i++) {
-    next.push({ page: i + 1, sUrl: '' })
-  }
   for (let i = 0; i < pageImages.length; i++) {
     const img = pageImages[i]
     const targetIndex = img.page > 0 ? img.page - 1 : startIndex + i
-    for (let j = next.length; j <= targetIndex; j++) {
-      next.push({ page: j + 1, sUrl: '' })
-    }
-    next[targetIndex] = { ...img }
+    next.set(targetIndex, { ...img })
   }
   const marked = loadedPages.includes(previewPage) ? loadedPages : loadedPages.concat([previewPage])
   let contiguous = contiguousPreviewPage
@@ -60,20 +53,20 @@ function mergePreviewPage(images, previewPage, pageImages, perPage, loadedPages,
 
 {
   let state = {
-    images: makePreviewPage(0, 20),
+    images: new Map(makePreviewPage(0, 20).map((img) => [img.page - 1, img])),
     loadedPages: [0],
     contiguousPreviewPage: 0,
   }
   state = mergePreviewPage(state.images, 4, makePreviewPage(4, 20), 20, state.loadedPages, state.contiguousPreviewPage)
-  eq('target-page direct fetch pads the list up to the target preview page', state.images.length, 100)
-  eq('target absolute page is written at its zero-based index', state.images[86].page, 87)
-  ok('target absolute page carries the /s/ image-page URL immediately', state.images[86].sUrl.endsWith('/3989982-87'))
-  eq('unfetched gap keeps page-number placeholders', state.images[25], { page: 26, sUrl: '' })
+  eq('target-page direct fetch keeps only real preview entries', state.images.size, 40)
+  eq('target absolute page is written at its zero-based index', state.images.get(86).page, 87)
+  ok('target absolute page carries the /s/ image-page URL immediately', state.images.get(86).sUrl.endsWith('/3989982-87'))
+  eq('unfetched gap is missing metadata, not a placeholder preview entry', state.images.has(25), false)
   eq('contiguous pointer does not skip over unfetched gaps', state.contiguousPreviewPage, 0)
   eq('loaded page marker remembers the direct target page', state.loadedPages, [0, 4])
   state = mergePreviewPage(state.images, 1, makePreviewPage(1, 20), 20, state.loadedPages, state.contiguousPreviewPage)
-  eq('sequential load can fill the first gap later', state.images[25].page, 26)
-  ok('filled gap gains its /s/ image-page URL', state.images[25].sUrl.endsWith('/3989982-26'))
+  eq('sequential load can fill the first gap later', state.images.get(25).page, 26)
+  ok('filled gap gains its /s/ image-page URL', state.images.get(25).sUrl.endsWith('/3989982-26'))
   eq('contiguous pointer advances only through continuous loaded preview pages', state.contiguousPreviewPage, 1)
 }
 
@@ -93,11 +86,11 @@ ok('Reader loads target preview page before concurrent gap filling', /const load
 ok('Reader computes target preview page from index and perPage', /const targetPreviewPage: number = Math\.floor\(index \/ this\.perPage\)/.test(vmSrc))
 ok('Reader requests only the target preview page', /getPreviewImages\([\s\S]*targetPreviewPage/.test(vmSrc))
 ok('Reader merges preview pages by absolute image page', /const targetIndex: number = img\.page > 0 \? img\.page - 1 : startIndex \+ i/.test(vmSrc))
-ok('Reader pads gaps with page-number placeholders', /next\.push\(new EhGalleryImage\(j \+ 1\)\)/.test(vmSrc))
+ok('Reader stores preview metadata in sparse per-index state instead of padding gaps', /private previewImagesByIndex: Map<number, EhGalleryImage> = new Map\(\)/.test(vmSrc) && !/next\.push\(new EhGalleryImage\(j \+ 1\)\)/.test(vmSrc))
 ok('Reader does not move contiguous previewPage past unloaded gaps', /advanceContiguousPreviewPage\(\): void[\s\S]*while \(this\.isPreviewPageLoaded\(next\)\)/.test(vmSrc))
 ok('Reader loadMore uses mergePreviewPage instead of blind concat', /this\.mergePreviewPage\(next, more\)/.test(vmSrc) && !/this\.images = this\.images\.concat\(more\)/.test(vmSrc))
-ok('Reader onPageChange loads a missing target slot', /if \(!this\.exhausted && !this\.hasPreviewAt\(index\)\)[\s\S]*this\.ensureLoaded\(index\)/.test(vmSrc))
-ok('Reader vertical scroll loads a missing target slot', /if \(!this\.exhausted && !this\.hasPreviewAt\(start\)\)[\s\S]*this\.ensureLoaded\(start\)/.test(vmSrc))
+ok('Reader onPageChange enters the unified target-page loading path', /onPageChange\(index: number\): void \{[\s\S]*this\.prepareTargetPage\(index\)/.test(vmSrc))
+ok('Reader vertical scroll enters the unified target-page loading path', /onVerticalScroll\(start: number, end: number\): void \{[\s\S]*this\.prepareTargetPage\(start\)/.test(vmSrc))
 ok('Reader precache still skips unresolved placeholders', /img\.imageUrl\.length === 0 && img\.sUrl\.length > 0/.test(vmSrc))
 
 const parserSrc = read('shared/src/main/ets/parser/EhImagePageParser.ets')
