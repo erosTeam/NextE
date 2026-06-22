@@ -10,6 +10,9 @@ export interface EhTextResponse {
   // Server Set-Cookie response (HttpResponse.cookies). Used to capture igneous/identity cookies that EH
   // sets on a response (igneous from exhentai.org/uconfig.php, ipb_* from a forums password login).
   cookies?: string
+  // Full response headers as a JSON string. HttpResponse.cookies is LOSSY (it drops the igneous
+  // Set-Cookie from exhentai.org/uconfig.php), so Set-Cookie capture reads auth cookies from here.
+  rawHeader?: string
 }
 
 const MAX_RETRIES: number = 3
@@ -61,11 +64,12 @@ export class EhHttpClient {
         const code: number = resp.responseCode as number
         const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
         const cookies: string = typeof resp.cookies === 'string' ? resp.cookies : ''
+        const rawHeader: string = JSON.stringify(resp.header)
         req.destroy()
         if (code >= 500 && attempt < MAX_RETRIES - 1) {
           lastError = new Error(`HTTP ${code}`)
         } else {
-          return { statusCode: code, body: body, cookies: cookies }
+          return { statusCode: code, body: body, cookies: cookies, rawHeader: rawHeader }
         }
       } catch (error) {
         const e = error as Error

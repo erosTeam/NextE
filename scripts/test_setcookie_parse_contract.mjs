@@ -9,11 +9,13 @@
 
 const AUTH_NAMES = ['ipb_member_id', 'ipb_pass_hash', 'igneous', 'sk', 'star']
 
-// Mirror of the ArkTS extraction: per name, /name=([^;,\s]+)/, skip 'mystery'.
+// Mirror of the ArkTS extraction: per name, /name=([^;,\s"]+)/, skip 'mystery'. The " in the class lets
+// the same regex read a JSON-stringified response header (HttpResponse.cookies is lossy, so the real
+// igneous is captured from the full header — see CookieJarSettings.refreshIgneous).
 function extract(setCookie) {
   const out = {}
   for (const name of AUTH_NAMES) {
-    const m = new RegExp(`${name}=([^;,\\s]+)`).exec(setCookie)
+    const m = new RegExp(`${name}=([^;,\\s"]+)`).exec(setCookie)
     if (m !== null && m[1].length > 0 && m[1] !== 'mystery') {
       out[name] = m[1]
     }
@@ -58,6 +60,16 @@ check('no auth cookies → nothing', extract('foo=bar; baz=qux; path=/'), {})
 
 // 5. The value must stop at the first delimiter, not swallow attributes.
 check('value stops at ;', extract('igneous=deadbeef; HttpOnly'), { igneous: 'deadbeef' })
+
+// 6. The real fix: igneous lives only in the full response header (JSON-stringified), since HarmonyOS
+//    HttpResponse.cookies drops it. The value must stop at the closing JSON quote, not swallow it.
+check(
+  'igneous from a JSON-stringified response header',
+  extract(
+    '{"set-cookie":"igneous=a1b2c3d4e5f6; expires=Tue, 01-Jan-2030 00:00:00 GMT; path=/; domain=.exhentai.org","content-type":"text/html; charset=UTF-8"}',
+  ),
+  { igneous: 'a1b2c3d4e5f6' },
+)
 
 if (failures > 0) {
   console.error(`\n${failures} check(s) failed`)

@@ -84,8 +84,10 @@ export class CookieJarSettings {
       EhConstants.COOKIE_SK,
       EhConstants.COOKIE_STAR,
     ]
+    // Value stops at ; , whitespace, or " — the last so this also works when fed a JSON-stringified
+    // response header (HttpResponse.cookies is lossy, so the auth cookies are read from there).
     for (const name of names) {
-      const match: RegExpExecArray | null = new RegExp(`${name}=([^;,\\s]+)`).exec(setCookie)
+      const match: RegExpExecArray | null = new RegExp(`${name}=([^;,\\s"]+)`).exec(setCookie)
       if (match !== null && match[1].length > 0 && match[1] !== 'mystery') {
         store.set(name, match[1])
       }
@@ -103,9 +105,22 @@ export class CookieJarSettings {
       const resp: EhTextResponse = await EhHttpClient.getInstance().getText(
         `${EhConstants.EX_BASE_URL}/uconfig.php`,
       )
-      CookieJarSettings.applyFromSetCookie(resp.cookies !== undefined ? resp.cookies : '')
+      // HarmonyOS HttpResponse.cookies drops the igneous Set-Cookie (verified: igneous is absent from
+      // .cookies but present in the full response header), so capture from rawHeader, falling back to
+      // .cookies. applyFromSetCookie regex-extracts each auth cookie by name, so the header JSON is fine.
+      let setCookie: string = resp.rawHeader !== undefined ? resp.rawHeader : ''
+      if (setCookie.length === 0 && resp.cookies !== undefined) {
+        setCookie = resp.cookies
+      }
+      CookieJarSettings.applyFromSetCookie(setCookie)
       const igneous: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_IGNEOUS)
-      if (igneous.length > 0 && igneous !== 'mystery') {
+      const unlocked: boolean = igneous.length > 0 && igneous !== 'mystery'
+      DiagnosticLogger.info(
+        'auth',
+        'refresh_igneous',
+        `status=${resp.statusCode} unlocked=${unlocked}`,
+      )
+      if (unlocked) {
         await CookieJarSettings.save(context)
         return true
       }
