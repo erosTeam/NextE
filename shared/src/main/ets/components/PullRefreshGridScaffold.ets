@@ -73,7 +73,7 @@ export struct PullRefreshGridScaffold {
         left: this.horizontalPadding,
         right: this.horizontalPadding,
       })
-      .edgeEffect(EdgeEffect.None)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .clip(false)
       .onReachEnd(() => {
         if (this.onReachEnd) {

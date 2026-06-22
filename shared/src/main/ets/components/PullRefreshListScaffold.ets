@@ -98,7 +98,7 @@ export struct PullRefreshListScaffold {
       .height('100%')
       .padding({ left: this.horizontalPadding, right: this.horizontalPadding })
       .clip(false)
-      .edgeEffect(EdgeEffect.None)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .onAreaChange((_oldValue: Area, newValue: Area) => {
         this.measuredWidth = newValue.width as number
         if (this.onContentWidth) {

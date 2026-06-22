@@ -51,7 +51,7 @@ import {
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
-import { ComponentContent, promptAction } from '@kit.ArkUI'
+import { ComponentContent, KeyboardAvoidMode, promptAction } from '@kit.ArkUI'
 import { SearchViewModel } from '../viewmodel/SearchViewModel'
 import { SearchFilterSheet } from '../components/SearchFilterSheet'
 import { SearchPageFieldCCBuilder, SearchPageFieldState } from '../components/SearchPageField'
@@ -95,6 +95,11 @@ export struct GallerySearchPage {
 
   aboutToAppear(): void {
     this.vm.setContext(this.ctx())
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
   private ensureFieldContent(): ComponentContent<SearchPageFieldState> {

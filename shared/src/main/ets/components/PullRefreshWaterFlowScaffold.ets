@@ -65,7 +65,7 @@ export struct PullRefreshWaterFlowScaffold {
         left: this.horizontalPadding,
         right: this.horizontalPadding,
       })
-      .edgeEffect(EdgeEffect.None)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
       .clip(false)
       .onAreaChange((_oldValue: Area, newValue: Area) => {
         this.measuredWidth = this.parseAreaWidth(newValue)

@@ -181,6 +181,10 @@ const ok = (name, cond) => {
     /'bottomBuilder': this\.searchBottomBuilder\(this\.ensureFieldContent\(\)\)/.test(pageSrc) &&
     /'menu': this\.searchMenu\(\)/.test(pageSrc) &&
     /dynamicHideTitleBar\(\{[\s\S]*hideTitleArea: true[\s\S]*hideBottomBuilder: false[\s\S]*mode: HideMode\.SCROLL_UP/.test(pageSrc))
+  ok('search page uses native keyboard resize avoidance while focused',
+    /import \{ ComponentContent, KeyboardAvoidMode, promptAction \} from '@kit\.ArkUI'/.test(pageSrc) &&
+    /aboutToAppear\(\): void \{[\s\S]*setKeyboardAvoidMode\(KeyboardAvoidMode\.RESIZE\)/.test(pageSrc) &&
+    /aboutToDisappear\(\): void \{[\s\S]*setKeyboardAvoidMode\(KeyboardAvoidMode\.OFFSET\)/.test(pageSrc))
   ok('bottomBuilder search field uses full content width and does not host page-level filters',
     /HDS title-bar bottomBuilder/.test(fieldSrc) &&
     /@ObservedV2[\s\S]*export class SearchPageFieldState/.test(fieldSrc) &&
