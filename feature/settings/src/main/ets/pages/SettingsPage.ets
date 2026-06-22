@@ -65,7 +65,7 @@ export struct SettingsPage {
           title: $r('app.string.settings_login'),
           leadingIcon: $r('sys.symbol.person'),
           action: () => {
-            this.stack.pushPathByName('Account', null)
+            this.stack.pushPathByName('AccountLogin', null)
           },
         })
       }

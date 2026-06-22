@@ -51,6 +51,7 @@ import {
   SettingsPage,
   EhSettingsPage,
   AccountPage,
+  AccountLoginPage,
   LayoutSettingsPage,
   ReaderSettingsPage,
   DownloadSettingsPage,
@@ -570,6 +571,8 @@ struct Index {
       EhSettingsPage()
     } else if (name === 'Account') {
       AccountPage()
+    } else if (name === 'AccountLogin') {
+      AccountLoginPage()
     } else if (name === 'LayoutSettings') {
       LayoutSettingsPage()
     } else if (name === 'ReaderSettings') {
