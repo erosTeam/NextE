@@ -74,6 +74,33 @@ function lookup(index, namespace, tag) {
   }
   return index.get(t)
 }
+function lookupStore(store, namespace, tag) {
+  return lookup(store.userIndex, namespace, tag) || lookup(store.inlineIndex, namespace, tag)
+}
+function ingestInline(store, simpleTags) {
+  let changed = false
+  for (const st of simpleTags) {
+    if (!st.backgroundColor && !st.color) continue
+    const tagText = canonicalTagText(st.text).trim()
+    if (tagText.length === 0) continue
+    const ns = expandNamespace(st.namespace).trim()
+    const usertag = {
+      tag: ns.length > 0 ? `${ns}:${tagText}` : tagText,
+      fillColor: st.backgroundColor || '',
+      color: st.backgroundColor || '',
+      textColor: st.color || '',
+      hidden: false,
+    }
+    const before = lookup(store.inlineIndex, st.namespace, st.text)
+    buildIndex([usertag]).forEach((value, key) => {
+      store.inlineIndex.set(key, value)
+    })
+    const after = lookup(store.inlineIndex, st.namespace, st.text)
+    changed = changed || before === undefined ||
+      (after !== undefined && (before.fillColor !== after.fillColor || before.textColor !== after.textColor))
+  }
+  return changed
+}
 
 // --- mirror of UserTagEnricher.enrichTags(): fill bg=fillColor, color=textColor on a match ---
 function enrich(index, simpleTags) {
@@ -102,6 +129,7 @@ const USERTAGS = [
   { tag: '', fillColor: '#000000', textColor: '#ffffff', hidden: false }, // empty tag → ignored
 ]
 const index = buildIndex(USERTAGS)
+const store = { userIndex: index, inlineIndex: new Map() }
 
 // ---------- 1. exact ns:tag match colors a chip ----------
 let tags = enrich(index, [{ namespace: 'female', text: 'big breasts', color: '', backgroundColor: '' }])
@@ -156,11 +184,27 @@ check('anyHidden false (colored only)', anyHidden(index, galB.simpleTags), false
 const kept = [galA, galB, galC].filter((g) => !anyHidden(index, g.simpleTags)).map((g) => g.gid)
 check('hide-filter removes hidden galleries', kept, ['B'])
 
+// ---------- 9. list inline colours feed a fallback index for later detail-page chips ----------
+const inlineChanged = ingestInline(store, [
+  { namespace: 'artist', text: 'puyoucha', color: '#f1f1f1', backgroundColor: '#e91e63' },
+])
+check('inline color ingest reports change', inlineChanged, true)
+const inlineHit = lookupStore(store, 'artist', 'puyoucha')
+check('inline color lookup bg', inlineHit?.fillColor, '#e91e63')
+check('inline color lookup text', inlineHit?.textColor, '#f1f1f1')
+check('inline compact namespace lookup bg', lookupStore(store, 'a', 'puyoucha')?.fillColor, '#e91e63')
+check('inline colours do not make tag hidden', lookupStore(store, 'artist', 'puyoucha')?.hidden, false)
+check('hasAny semantics remain MyTags-only for hide filtering', store.userIndex.size > 0, true)
+
 const storeSource = readFileSync(new URL('../shared/src/main/ets/state/UserTagStore.ets', import.meta.url), 'utf8')
-check('source uses raw canonical tag text', /EhConstants\.canonicalTagText\(t\.tag\)/.test(storeSource), true)
+const apiSource = readFileSync(new URL('../shared/src/main/ets/network/EhApiService.ets', import.meta.url), 'utf8')
+check('source uses raw canonical tag text', /EhConstants\.canonicalTagText\((t|tag)\.tag\)/.test(storeSource), true)
 check('source indexes expanded namespace alias', /EhConstants\.expandNamespace\(ns\)/.test(storeSource), true)
 check('source indexes compact namespace alias', /EhConstants\.compactNamespace\(ns\)/.test(storeSource), true)
 check('source lookup never reads translated display fields', /\.translate|\.display/.test(storeSource), false)
+check('source keeps inline colour fallback index', /private inlineIndex: Map<string, EhUsertag>/.test(storeSource), true)
+check('source ingests inline SimpleTag colours', /ingestInlineTags\(tags: SimpleTag\[\]\)/.test(storeSource), true)
+check('network registers inline list tag colours after parse', /registerInlineTagColors\(await EhGalleryListParseTask\.parse\(resp\.body\)\)/.test(apiSource), true)
 
 if (failures > 0) {
   console.error(`\n${failures} check(s) failed`)

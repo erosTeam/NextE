@@ -12,6 +12,7 @@ import { EhGalleryTorrentParser } from '../parser/EhGalleryTorrentParser'
 import { EhGalleryArchiverParser } from '../parser/EhGalleryArchiverParser'
 import { EhGalleryFavoriteParser, GalleryFavoriteInfo } from '../parser/EhGalleryFavoriteParser'
 import { UserTagStore } from '../state/UserTagStore'
+import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
 import { GalleryList } from '../model/GalleryList'
 import { EhGallery } from '../model/EhGallery'
 import { EhGalleryImage } from '../model/EhGalleryImage'
@@ -371,6 +372,19 @@ export class EhApiService {
     return list
   }
 
+  private registerInlineTagColors(list: GalleryList): GalleryList {
+    const store: UserTagStore = UserTagStore.getInstance()
+    let changed: boolean = false
+    list.gallerys.forEach((g: EhGallery) => {
+      changed = store.ingestInlineTags(g.simpleTags) || changed
+    })
+    if (changed) {
+      const sig: UserTagSignal = connectUserTagSignal()
+      sig.version = sig.version + 1
+    }
+    return list
+  }
+
   async getGalleryList(query: GalleryListQuery): Promise<GalleryList> {
     const base: string = EhConstants.baseUrl(query.isEx)
     const isPopular: boolean = query.source === 'popular'
@@ -385,7 +399,7 @@ export class EhApiService {
       // /popular ignores filters and the next cursor — request the bare snapshot.
       const url: string = `${base}${path}`
       const resp = await this.fetch(url, query.isEx, 'list')
-      return this.filterHidden(await EhGalleryListParseTask.parse(resp.body))
+      return this.filterHidden(this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body)))
     }
     if (query.source === 'toplist') {
       // toplist.php is E-Hentai-ONLY (exhentai.org has no toplist → 404), so always use the e-hentai
@@ -393,7 +407,7 @@ export class EhApiService {
       const url: string = `${EhConstants.baseUrl(false)}/toplist.php?tl=${query.tl}&p=${query.page}`
       // toplist.php is hard-pinned to the e-hentai host, so classify it as the table site (isEx=false).
       const resp = await this.fetch(url, false, 'list')
-      return EhGalleryListParseTask.parse(resp.body)
+      return this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))
     }
     if (query.fCats > 0) {
       params.push(`f_cats=${query.fCats}`)
@@ -447,7 +461,7 @@ export class EhApiService {
     const queryStr: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}${path}${queryStr}`
     const resp = await this.fetch(url, query.isEx, 'list')
-    const list: GalleryList = await EhGalleryListParseTask.parse(resp.body)
+    const list: GalleryList = this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))
     // Hide-filter the front page + search results (eros_fe gates on the tag filter), but NOT /watched —
     // a watched-tag list is exactly where you want those tags to show.
     if (query.source !== 'watched' && !query.disableTagFilter) {
@@ -469,7 +483,7 @@ export class EhApiService {
     if (body.indexOf('<table class="itg') < 0 && body.indexOf('class="itg gld') >= 0) {
       body = await this.fetchFavoritesBody(base, query, EhConstants.FAV_DISPLAY_LIST)
     }
-    const list: GalleryList = await EhGalleryListParseTask.parse(body)
+    const list: GalleryList = this.registerInlineTagColors(await EhGalleryListParseTask.parse(body))
     list.favList = EhFavcatListParser.parse(body)
     // Active sort order from the inline_set dropdown (`<option value="f|p" selected>`).
     const orderM: RegExpMatchArray | null = body.match(/<option value="([fp])" selected/)
