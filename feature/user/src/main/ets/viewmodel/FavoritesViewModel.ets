@@ -182,6 +182,17 @@ export class FavoritesViewModel {
     return TagTranslationService.translateGalleries(this.context, rows)
   }
 
+  async reapplyTagTranslation(): Promise<void> {
+    if (this.itemCount === 0) {
+      return
+    }
+    const rows: EhGallery[] = connectTagTranslationSettings().enabled
+      ? await this.translateRows(this.dataSource.getAll())
+      : TagTranslationService.clearGalleriesTranslations(this.dataSource.getAll())
+    this.dataSource.setData(rows)
+    this.itemCount = this.dataSource.totalCount()
+  }
+
   /**
    * Favorites rows often carry only favTitle, not the numeric slot. If real favcat metadata arrives
    * after the rows were first rendered, re-resolve visible rows and replace the datasource so card

@@ -144,6 +144,12 @@ export class GalleryDetailViewModel {
     return TagTranslationService.translateGalleryTags(this.context, gallery)
   }
 
+  async reapplyTagTranslation(): Promise<void> {
+    this.gallery = connectTagTranslationSettings().enabled
+      ? await this.translateGallery(this.gallery)
+      : TagTranslationService.clearGalleryTranslations(this.gallery)
+  }
+
   /** Best-effort gdata metadata enrich for a sparse seed (eros_fe getMoreGalleryInfoOne). Non-fatal:
    * the detail fetch below provides canonical data, so a gdata failure must not block the page. */
   private async enrichFromApi(gid: string, token: string): Promise<void> {

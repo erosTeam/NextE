@@ -34,6 +34,8 @@ import {
   ListMode,
   connectSearchHistory,
   SearchHistoryState,
+  connectTagTranslationSettings,
+  TagTranslationSettingsState,
   SearchHistorySettings,
   SearchFilterSettings,
   connectLayoutSafeArea,
@@ -70,6 +72,7 @@ export struct GallerySearchPage {
   @Local filter: SearchFilterState = connectSearchFilter();
   @Local listMode: ListModeState = connectListMode();
   @Local history: SearchHistoryState = connectSearchHistory();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local favSel: FavSelectionState = connectFavSelection();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
@@ -171,6 +174,11 @@ export struct GallerySearchPage {
       this.ratingMutation.ratingCount,
       this.ratingMutation.colorRating,
     )
+  }
+
+  @Monitor('tagTranslation.enabled')
+  onTagTranslationChange(): void {
+    this.vm.reapplyTagTranslation()
   }
 
   @Monitor('fieldState.submitSeq')

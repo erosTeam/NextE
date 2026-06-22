@@ -1,4 +1,9 @@
-import { SELECTOR_BAR_HEIGHT, ActiveKeyState } from 'shared'
+import {
+  SELECTOR_BAR_HEIGHT,
+  ActiveKeyState,
+  connectTagTranslationSettings,
+  TagTranslationSettingsState,
+} from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
 import { common } from '@kit.AbilityKit'
@@ -23,6 +28,7 @@ export struct ToplistPeriodPage {
   @Param scroller: Scroller = new Scroller();
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   private loadedOnce: boolean = false;
 
   private isActive(): boolean {
@@ -55,6 +61,13 @@ export struct ToplistPeriodPage {
     }
     this.loadedOnce = true
     this.vm.loadData()
+  }
+
+  @Monitor('tagTranslation.enabled')
+  onTagTranslationChange(): void {
+    if (this.loadedOnce) {
+      this.vm.reapplyTagTranslation()
+    }
   }
 
   build() {

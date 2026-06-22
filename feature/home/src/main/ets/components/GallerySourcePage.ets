@@ -1,6 +1,8 @@
 import {
   connectSiteMode,
   SiteModeState,
+  connectTagTranslationSettings,
+  TagTranslationSettingsState,
   SELECTOR_BAR_HEIGHT,
   ActiveKeyState,
 } from 'shared'
@@ -31,6 +33,7 @@ export struct GallerySourcePage {
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
   @Local siteMode: SiteModeState = connectSiteMode();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   // First-load guard: load once on first activation; later activations reuse the retained list.
   private loadedOnce: boolean = false;
 
@@ -75,6 +78,13 @@ export struct GallerySourcePage {
   onSiteChange(): void {
     if (this.loadedOnce) {
       this.vm.reload()
+    }
+  }
+
+  @Monitor('tagTranslation.enabled')
+  onTagTranslationChange(): void {
+    if (this.loadedOnce) {
+      this.vm.reapplyTagTranslation()
     }
   }
 

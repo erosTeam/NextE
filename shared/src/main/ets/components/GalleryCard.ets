@@ -9,6 +9,10 @@ import { UserTagStore } from '../state/UserTagStore'
 import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
 import { connectListMode, ListModeState } from '../state/ListModeState'
 import { connectSearchAction } from '../state/SearchActionState'
+import {
+  connectTagTranslationSettings,
+  TagTranslationSettingsState,
+} from '../state/TagTranslationSettingsState'
 
 // Cap list-card tags so the wrapped chips fill ~3 rows (eros_fe's listViewTagLimit keeps cards balanced).
 const CARD_TAG_LIMIT: number = 8
@@ -33,6 +37,7 @@ export struct GalleryCard {
   @Param listContentWidth: number = 0;
   // Reactive bump from the usertag loader; read in the chip key so cards re-color on a late My Tags load.
   private tagSig: UserTagSignal = connectUserTagSignal();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   // eros_fe `fixedHeightOfListItems` (default true). FIXED → every row is one portrait-cover height with
   // title/tags clipped and the meta foot-anchored (uniform list rhythm); ADAPTIVE → the row grows with its
   // content. Read reactively (@Trace) so flipping the setting re-lays the visible cards live.
@@ -105,6 +110,10 @@ export struct GalleryCard {
     connectSearchAction().publishQuery(query)
   }
 
+  private tagLabel(t: SimpleTag): string {
+    return this.tagTranslation.enabled ? t.display() : t.text
+  }
+
   // Neutral tag chips (flat light-grey fill, no stroke) wrapping up to CARD_TAG_LIMIT. A chip only colors
   // when the tag carries the user's own per-tag color value — never by namespace. Shared by both height
   // modes; the FIXED-mode wrapper clips overflow, the ADAPTIVE-mode card grows to show every row.
@@ -115,7 +124,7 @@ export struct GalleryCard {
         ForEach(
           this.gallery.simpleTags.slice(0, CARD_TAG_LIMIT),
           (t: SimpleTag) => {
-            Text(t.display())
+            Text(this.tagLabel(t))
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
               .fontColor(this.chipText(t))
               .backgroundColor(this.chipBg(t))

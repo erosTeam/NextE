@@ -21,6 +21,14 @@ const homeVm = read('feature/home/src/main/ets/viewmodel/GalleryListViewModel.et
 const detailVm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets')
 const favVm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
 const constants = read('shared/src/main/ets/constants/EhConstants.ets')
+const homePage = read('feature/home/src/main/ets/components/GallerySourcePage.ets')
+const toplistPage = read('feature/home/src/main/ets/components/ToplistPeriodPage.ets')
+const favPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
+const detailPage = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
+const galleryCard = read('shared/src/main/ets/components/GalleryCard.ets')
+const waterfallCard = read('shared/src/main/ets/components/GalleryWaterfallCard.ets')
+const detailTagsCard = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
+const editTagsPage = read('feature/gallery/src/main/ets/pages/GalleryEditTagsPage.ets')
 
 assert.match(store, /relationalStore\.getRdbStore\(context, LOCAL_DATA_STORE_CONFIG\)/)
 assert.match(store, /CREATE TABLE IF NOT EXISTS tag_translations/)
@@ -93,12 +101,33 @@ assert.match(page, /this\.vm\.suggestionCount > 0[\s\S]*this\.SearchSuggestionVi
 assert.match(homeVm, /setContext\(context: common\.UIAbilityContext\)/)
 assert.match(homeVm, /connectTagTranslationSettings\(\)\.enabled[\s\S]*TagTranslationService\.translateGalleries\(this\.context, rows\)/)
 assert.match(homeVm, /translateRows\(list\.gallerys\)[\s\S]*this\.dataSource\.setData\(rows\)/)
+assert.match(homeVm, /reapplyTagTranslation\(\): Promise<void>[\s\S]*clearGalleriesTranslations\(this\.dataSource\.getAll\(\)\)/)
 assert.match(vm, /setContext\(context: common\.UIAbilityContext\)/)
 assert.match(vm, /translateRows\(list\.gallerys\)[\s\S]*this\.dataSource\.setData\(rows\)/)
+assert.match(vm, /reapplyTagTranslation\(\): Promise<void>[\s\S]*clearGalleriesTranslations\(this\.dataSource\.getAll\(\)\)/)
 assert.match(favVm, /setContext\(context: common\.UIAbilityContext\)/)
 assert.match(favVm, /translateRows\(list\.gallerys\)[\s\S]*this\.dataSource\.setData\(rows\)/)
+assert.match(favVm, /reapplyTagTranslation\(\): Promise<void>[\s\S]*clearGalleriesTranslations\(this\.dataSource\.getAll\(\)\)/)
 assert.match(detailVm, /setContext\(context: common\.UIAbilityContext\)/)
 assert.match(detailVm, /TagTranslationService\.translateGalleryTags\(this\.context, gallery\)/)
+assert.match(detailVm, /reapplyTagTranslation\(\): Promise<void>[\s\S]*clearGalleryTranslations\(this\.gallery\)/)
+for (const src of [homePage, toplistPage, page, favPage, detailPage]) {
+  assert.match(src, /@Monitor\('tagTranslation\.enabled'\)[\s\S]*reapplyTagTranslation\(\)/)
+}
+for (const [name, source] of [
+  ['GalleryCard', galleryCard],
+  ['GalleryWaterfallCard', waterfallCard],
+  ['GalleryTagsCard', detailTagsCard],
+  ['GalleryEditTagsPage', editTagsPage],
+]) {
+  assert(
+    source.includes('connectTagTranslationSettings') &&
+      source.includes('@Local tagTranslation') &&
+      source.includes('tagLabel') &&
+      source.includes('this.tagTranslation.enabled ?'),
+    `${name} must render raw tag text immediately when tag translation is disabled`,
+  )
+}
 
 // Mirror the EhTagTranslation raw shape so this contract fails if the expected release JSON shape drifts.
 const sample = {

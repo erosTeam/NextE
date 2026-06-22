@@ -54,6 +54,8 @@ import {
   RatingStars,
   GalleryRatingResult,
   immersiveTitleBarOpts,
+  connectTagTranslationSettings,
+  TagTranslationSettingsState,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { GalleryHeaderCard } from '../components/GalleryHeaderCard'
@@ -96,6 +98,7 @@ export struct GalleryDetailPage {
   @Local localFav: LocalFavState = connectLocalFav();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local favoriteSlotCache: RemoteFavoriteSlotCacheState = connectRemoteFavoriteSlotCache();
   @Local detailSheetShown: boolean = false;
   @Local detailSheetKind: string = '';
@@ -124,6 +127,11 @@ export struct GalleryDetailPage {
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  @Monitor('tagTranslation.enabled')
+  onTagTranslationChange(): void {
+    this.vm.reapplyTagTranslation()
   }
 
   // Record this gallery in viewed-history 5s after open (eros_fe's debounce). By then the detail fetch

@@ -3,6 +3,10 @@ import { EhGallery } from '../model/EhGallery'
 import { EhUsertag } from '../model/EhMytags'
 import { SimpleTag } from '../model/SimpleTag'
 import { connectSearchAction } from '../state/SearchActionState'
+import {
+  connectTagTranslationSettings,
+  TagTranslationSettingsState,
+} from '../state/TagTranslationSettingsState'
 import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
 import { UserTagStore } from '../state/UserTagStore'
 import { ThemeConstants } from '../theme/ThemeConstants'
@@ -23,6 +27,7 @@ const WATERFALL_TAG_STRIP_HEIGHT: number = 48
 export struct GalleryWaterfallCard {
   @Require @Param gallery: EhGallery;
   private tagSig: UserTagSignal = connectUserTagSignal();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   private tagScroller: Scroller = new Scroller();
 
   private coverRatio(): number {
@@ -68,6 +73,10 @@ export struct GalleryWaterfallCard {
     connectSearchAction().publishQuery(query)
   }
 
+  private tagLabel(t: SimpleTag): string {
+    return this.tagTranslation.enabled ? t.display() : t.text
+  }
+
   private chipBg(t: SimpleTag): ResourceColor {
     const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
     if (u !== undefined && u.fillColor.length > 0) {
@@ -101,7 +110,7 @@ export struct GalleryWaterfallCard {
 
   @Builder
   private TagChip(t: SimpleTag) {
-    Text(t.display())
+    Text(this.tagLabel(t))
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
       .fontColor(this.chipText(t))
       .backgroundColor(this.chipBg(t))

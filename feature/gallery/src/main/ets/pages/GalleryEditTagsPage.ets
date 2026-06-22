@@ -17,6 +17,8 @@ import {
   TagGalleryResult,
   immersiveTitleBar,
   connectSiteMode,
+  TagTranslationSettingsState,
+  connectTagTranslationSettings,
 } from 'shared'
 
 /**
@@ -37,6 +39,7 @@ export struct GalleryEditTagsPage {
   @Local selectedTagDisplay: string = '';
   @Local selectedTagVote: number = 0;
   @Local submittingTagKey: string = '';
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   private scroller: Scroller = new Scroller();
 
   private async loadTags(): Promise<void> {
@@ -84,10 +87,14 @@ export struct GalleryEditTagsPage {
   private openTagActions(namespace: string, tag: SimpleTag): void {
     this.selectedNamespace = namespace
     this.selectedTagText = tag.text
-    this.selectedTagDisplay = tag.display()
+    this.selectedTagDisplay = this.tagLabel(tag)
     this.selectedTagVote = tag.vote
     this.errorMessage = ''
     this.actionSheetShown = true
+  }
+
+  private tagLabel(tag: SimpleTag): string {
+    return this.tagTranslation.enabled ? tag.display() : tag.text
   }
 
   private voteActionText(vote: number): ResourceStr {
@@ -228,7 +235,7 @@ export struct GalleryEditTagsPage {
                 ForEach(
                   tg.tags,
                   (tag: SimpleTag) => {
-                    Text(tag.display())
+                    Text(this.tagLabel(tag))
                       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
                       .fontColor(this.tagTextColor(tag))
                       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))

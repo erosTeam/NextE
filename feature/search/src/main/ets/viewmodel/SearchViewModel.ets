@@ -103,6 +103,17 @@ export class SearchViewModel {
     return TagTranslationService.translateGalleries(this.context, rows)
   }
 
+  async reapplyTagTranslation(): Promise<void> {
+    if (this.itemCount === 0) {
+      return
+    }
+    const rows: EhGallery[] = connectTagTranslationSettings().enabled
+      ? await this.translateRows(this.dataSource.getAll())
+      : TagTranslationService.clearGalleriesTranslations(this.dataSource.getAll())
+    this.dataSource.setData(rows)
+    this.itemCount = this.dataSource.totalCount()
+  }
+
   resolveVisibleFavoriteSlotsFrom(favcats: Favcat[]): boolean {
     if (this.itemCount === 0 || favcats.length === 0) {
       return false

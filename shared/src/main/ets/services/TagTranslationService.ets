@@ -129,6 +129,24 @@ export class TagTranslationService {
     return rows.length > 0 ? rows[0] : gallery
   }
 
+  static clearGalleryTranslations(gallery: EhGallery): EhGallery {
+    const g: EhGallery = gallery.copy()
+    for (let i = 0; i < g.simpleTags.length; i++) {
+      g.simpleTags[i].translat = ''
+    }
+    for (let i = 0; i < g.tagGroups.length; i++) {
+      const group: TagGroup = g.tagGroups[i]
+      for (let j = 0; j < group.tags.length; j++) {
+        group.tags[j].translat = ''
+      }
+    }
+    return g
+  }
+
+  static clearGalleriesTranslations(galleries: EhGallery[]): EhGallery[] {
+    return galleries.map((gallery: EhGallery) => TagTranslationService.clearGalleryTranslations(gallery))
+  }
+
   static async translateGalleries(
     context: common.UIAbilityContext,
     galleries: EhGallery[],

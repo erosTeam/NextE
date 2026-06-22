@@ -9,6 +9,8 @@ import {
   UserTagStore,
   UserTagSignal,
   connectUserTagSignal,
+  TagTranslationSettingsState,
+  connectTagTranslationSettings,
   connectSearchAction,
 } from 'shared'
 
@@ -24,6 +26,7 @@ export struct GalleryTagsCard {
   @Require @Param gallery: EhGallery;
   // Reactive bump from the usertag loader; read in the chip key so chips re-color on a late My Tags load.
   private tagSig: UserTagSignal = connectUserTagSignal();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
 
   // Member chip background: the user's own fill color for this tag, else neutral grey. Never namespace.
   chipBg(t: SimpleTag, ns: string): ResourceColor {
@@ -59,6 +62,10 @@ export struct GalleryTagsCard {
     connectSearchAction().publishQuery(query)
   }
 
+  private tagLabel(t: SimpleTag): string {
+    return this.tagTranslation.enabled ? t.display() : t.text
+  }
+
   build() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
       Column({ space: ThemeConstants.SPACE_SM }) {
@@ -92,7 +99,7 @@ export struct GalleryTagsCard {
                   tg.tags,
                   (t: SimpleTag) => {
                     // Neutral grey unless the USER colored this exact tag (eros_fe getColorCode).
-                    Text(t.display())
+                    Text(this.tagLabel(t))
                       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
                       .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
                       .fontColor(this.chipText(t, tg.namespace))
