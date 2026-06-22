@@ -19,6 +19,29 @@ const CACHE_DIR_NAME: string = 'reader-image-cache'
 const DEFAULT_IMAGE_EXTENSION: string = 'jpg'
 
 export class CachedImageFileService {
+  private static inFlight: Map<string, Promise<CachedImageFileResult>> = new Map<string, Promise<CachedImageFileResult>>()
+
+  static cached(
+    context: common.UIAbilityContext,
+    url: string,
+    cacheKey: string,
+  ): CachedImageFileResult | null {
+    if (url.length === 0) {
+      return null
+    }
+    const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
+    const cachedBytes: number = CachedImageFileService.fileSize(filePath)
+    if (cachedBytes <= 0) {
+      return null
+    }
+    return {
+      filePath,
+      displayUri: CachedImageFileService.displayUri(filePath),
+      bytes: cachedBytes,
+      fromCache: true,
+    }
+  }
+
   static async load(
     context: common.UIAbilityContext,
     url: string,
@@ -28,14 +51,38 @@ export class CachedImageFileService {
     if (url.length === 0) {
       throw new Error('image URL is empty')
     }
-    const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
-    const cachedBytes: number = CachedImageFileService.fileSize(filePath)
-    if (cachedBytes > 0) {
-      onProgress({ loaded: cachedBytes, total: cachedBytes })
-      DiagnosticLogger.info('image-cache', 'hit', `${cachedBytes} bytes -> ${CachedImageFileService.displayUri(filePath)}`)
-      return { filePath, displayUri: CachedImageFileService.displayUri(filePath), bytes: cachedBytes, fromCache: true }
+    const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, url, cacheKey)
+    if (cached !== null) {
+      onProgress({ loaded: cached.bytes, total: cached.bytes })
+      DiagnosticLogger.info('image-cache', 'hit', `${cached.bytes} bytes -> ${cached.displayUri}`)
+      return cached
     }
 
+    const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
+    const inFlight: Promise<CachedImageFileResult> | undefined = CachedImageFileService.inFlight.get(filePath)
+    if (inFlight !== undefined) {
+      const result: CachedImageFileResult = await inFlight
+      onProgress({ loaded: result.bytes, total: result.bytes })
+      DiagnosticLogger.info('image-cache', 'join', `${result.bytes} bytes -> ${result.displayUri}`)
+      return result
+    }
+
+    const task: Promise<CachedImageFileResult> = CachedImageFileService.downloadAndStore(context, url, cacheKey, onProgress)
+    CachedImageFileService.inFlight.set(filePath, task)
+    try {
+      return await task
+    } finally {
+      CachedImageFileService.inFlight.delete(filePath)
+    }
+  }
+
+  private static async downloadAndStore(
+    context: common.UIAbilityContext,
+    url: string,
+    cacheKey: string,
+    onProgress: (progress: CachedImageProgress) => void,
+  ): Promise<CachedImageFileResult> {
+    const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
     const tmpPath: string = `${filePath}.part`
     CachedImageFileService.removeIfExists(tmpPath)
     const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
@@ -60,7 +107,7 @@ export class CachedImageFileService {
   static filePath(context: common.UIAbilityContext, url: string, cacheKey: string): string {
     const dir: string = `${context.cacheDir}/${CACHE_DIR_NAME}`
     CachedImageFileService.ensureDir(dir)
-    const key: string = cacheKey.length > 0 ? cacheKey : url
+    const key: string = url.length > 0 ? url : cacheKey
     return `${dir}/${CachedImageFileService.hashKey(key)}.${CachedImageFileService.extensionFromUrl(url)}`
   }
 

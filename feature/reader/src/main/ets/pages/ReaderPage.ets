@@ -6,6 +6,7 @@ import inputConsumer from '@ohos.multimodalInput.inputConsumer'
 import { Action, KeyEvent as InputConsumerKeyEvent } from '@ohos.multimodalInput.keyEvent'
 import {
   ThemeConstants,
+  BasicDataSource,
   EhGalleryImage,
   EhSpriteThumbnail,
   ReaderParams,
@@ -25,6 +26,7 @@ import {
   ShareUtil,
   ImageSaveUtil,
   CachedImageProgress,
+  CachedImageFileResult,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 
@@ -174,6 +176,8 @@ export struct ReaderPage {
   private autoReadTimer: number = -1;
   private autoReadWaitingIndex: number = -1;
   private loadedPages: number[] = [];
+  private spreadDataSource: BasicDataSource<number> = new BasicDataSource<number>();
+  private spreadDataSourceKey: string = '';
   private volumeDownConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private volumeUpConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
 
@@ -865,8 +869,8 @@ export struct ReaderPage {
   @Builder
   HorizontalReader() {
     Swiper(this.horizontalSwiperController) {
-      ForEach(
-        this.readerPageIndexes(),
+      LazyForEach(
+        this.vm.pageIndexSource,
         (index: number) => {
           if (this.vm.hasPreviewAt(index)) {
             ReaderImagePage({
@@ -904,6 +908,7 @@ export struct ReaderPage {
     .onChange((i: number) => {
       this.clearZoomGate()
       this.readerPagerIndex = i
+      DiagnosticLogger.info('reader', 'horizontal_swipe_change', `index ${i} hasPreview ${this.vm.hasPreviewAt(i)}`)
       this.vm.onPageChange(i)
     })
   }
@@ -977,6 +982,15 @@ export struct ReaderPage {
     )
   }
 
+  private spreadStartSource(): BasicDataSource<number> {
+    const key: string = `${this.doublePageEnabled()}-${this.readMode.columnMode}-${this.vm.totalPages()}`
+    if (key !== this.spreadDataSourceKey) {
+      this.spreadDataSourceKey = key
+      this.spreadDataSource.setData(this.spreadStarts())
+    }
+    return this.spreadDataSource
+  }
+
   private hasSpreadImage(index: number): boolean {
     return index >= 0 && index < this.vm.totalPages() && this.vm.hasPreviewAt(index)
   }
@@ -1015,8 +1029,8 @@ export struct ReaderPage {
   @Builder
   DoublePageReader() {
     Swiper(this.doublePageSwiperController) {
-      ForEach(
-        this.spreadStarts(),
+      LazyForEach(
+        this.spreadStartSource(),
         (start: number) => {
           if (this.spreadNeedsPreview(start)) {
             this.ReaderPendingPage(this.missingSpreadPreviewIndex(start))
@@ -1063,7 +1077,9 @@ export struct ReaderPage {
     .onChange((i: number) => {
       this.clearZoomGate()
       this.readerPagerIndex = i
-      this.vm.onPageChange(this.spreadStartIndex(i))
+      const target: number = this.spreadStartIndex(i)
+      DiagnosticLogger.info('reader', 'double_swipe_change', `spread ${i} index ${target} hasPreview ${this.vm.hasPreviewAt(target)}`)
+      this.vm.onPageChange(target)
     })
   }
 
@@ -1074,7 +1090,7 @@ export struct ReaderPage {
         ReaderFailureOverlay({
           page: index + 1,
           onRetry: () => {
-            this.vm.warmPreviewForIndex(index)
+            this.vm.warmPreviewForIndex(index, 'pending-retry')
           },
         })
       } else {
@@ -1083,9 +1099,6 @@ export struct ReaderPage {
     }
     .width('100%')
     .height('100%')
-    .onAppear(() => {
-      this.vm.warmPreviewForIndex(index)
-    })
   }
 
   @Builder
@@ -1116,8 +1129,8 @@ export struct ReaderPage {
   @Builder
   VerticalReader() {
     List({ initialIndex: this.vm.currentIndex, scroller: this.listScroller }) {
-      ForEach(
-        this.readerPageIndexes(),
+      LazyForEach(
+        this.vm.pageIndexSource,
         (index: number) => {
           ListItem() {
             if (this.vm.hasPreviewAt(index)) {
@@ -1353,7 +1366,9 @@ export struct ReaderPage {
   ReaderBottomBar() {
     Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        this.ReaderThumbStrip()
+        if (this.showThumbStrip) {
+          this.ReaderThumbStrip()
+        }
       }
       .width('100%')
       .height(READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2)
@@ -1562,7 +1577,7 @@ export struct ReaderPage {
             'thumb_placeholder_appear',
             `index ${index} page ${image.page} sUrl ${image.sUrl.length} thumb ${image.thumbUrl.length}`,
           )
-          this.vm.warmPreviewForIndex(index)
+          this.vm.warmPreviewForIndex(index, 'thumb-strip')
         })
       }
     }
@@ -2050,15 +2065,29 @@ struct ReaderSpreadImageLayer {
   private async loadResolvedImage(resolved: string): Promise<void> {
     const seq: number = ++this.loadSeq
     this.autoRetryCount = 0
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    const cacheKey: string = this.cacheKey(resolved)
+    const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, resolved, cacheKey)
+    if (cached !== null) {
+      this.sourceImageUrl = resolved
+      this.imageUrl = cached.displayUri
+      this.imageLoaded = true
+      this.imageProgressLoaded = cached.bytes
+      this.imageProgressTotal = cached.bytes
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
+      DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
+      return
+    }
     this.sourceImageUrl = resolved
     this.imageUrl = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
     const result = await CachedImageFileService.load(
-      this.getUIContext().getHostContext() as common.UIAbilityContext,
+      context,
       resolved,
-      this.cacheKey(resolved),
+      cacheKey,
       (progress: CachedImageProgress) => {
         if (seq !== this.loadSeq) {
           return
@@ -2274,15 +2303,29 @@ struct ReaderImagePage {
   private async loadResolvedImage(resolved: string): Promise<void> {
     const seq: number = ++this.loadSeq
     this.autoRetryCount = 0
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    const cacheKey: string = this.cacheKey(resolved)
+    const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, resolved, cacheKey)
+    if (cached !== null) {
+      this.sourceImageUrl = resolved
+      this.imageUrl = cached.displayUri
+      this.imageLoaded = true
+      this.imageProgressLoaded = cached.bytes
+      this.imageProgressTotal = cached.bytes
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
+      DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
+      return
+    }
     this.sourceImageUrl = resolved
     this.imageUrl = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
     const result = await CachedImageFileService.load(
-      this.getUIContext().getHostContext() as common.UIAbilityContext,
+      context,
       resolved,
-      this.cacheKey(resolved),
+      cacheKey,
       (progress: CachedImageProgress) => {
         if (seq !== this.loadSeq) {
           return
@@ -2638,15 +2681,29 @@ struct ReaderVerticalImage {
   private async loadResolvedImage(resolved: string): Promise<void> {
     const seq: number = ++this.loadSeq
     this.autoRetryCount = 0
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    const cacheKey: string = this.cacheKey(resolved)
+    const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, resolved, cacheKey)
+    if (cached !== null) {
+      this.sourceImageUrl = resolved
+      this.imageUrl = cached.displayUri
+      this.imageLoaded = true
+      this.imageProgressLoaded = cached.bytes
+      this.imageProgressTotal = cached.bytes
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
+      DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
+      return
+    }
     this.sourceImageUrl = resolved
     this.imageUrl = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
     const result = await CachedImageFileService.load(
-      this.getUIContext().getHostContext() as common.UIAbilityContext,
+      context,
       resolved,
-      this.cacheKey(resolved),
+      cacheKey,
       (progress: CachedImageProgress) => {
         if (seq !== this.loadSeq) {
           return
@@ -2802,20 +2859,27 @@ struct ReaderLoadingStage {
 
   build() {
     Column({ space: ThemeConstants.SPACE_SM }) {
-      Row() {
-        Blank()
-          .width(this.barWidth() * this.progressRatio())
-          .height(4)
-          .backgroundColor(Color.White)
-          .borderRadius(2)
-        Blank()
-          .layoutWeight(1)
-          .height(4)
+      if (this.hasProgress()) {
+        Row() {
+          Blank()
+            .width(this.barWidth() * this.progressRatio())
+            .height(4)
+            .backgroundColor(Color.White)
+            .borderRadius(2)
+          Blank()
+            .layoutWeight(1)
+            .height(4)
+        }
+        .width(this.barWidth())
+        .height(4)
+        .backgroundColor('#33FFFFFF')
+        .borderRadius(2)
+      } else {
+        LoadingProgress()
+          .width(this.compact ? 24 : 28)
+          .height(this.compact ? 24 : 28)
+          .color(Color.White)
       }
-      .width(this.barWidth())
-      .height(4)
-      .backgroundColor('#33FFFFFF')
-      .borderRadius(2)
       Text(this.label)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor(Color.White)

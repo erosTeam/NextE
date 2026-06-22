@@ -1,4 +1,5 @@
 import {
+  BasicDataSource,
   EhApiService,
   EhGalleryImage,
   ImageResolveService,
@@ -66,6 +67,7 @@ class ReaderSessionSnapshot {
 export class ReaderViewModel {
   private static sessionCache: Map<string, ReaderSessionSnapshot> = new Map()
   @Trace images: EhGalleryImage[] = []
+  pageIndexSource: BasicDataSource<number> = new BasicDataSource<number>()
   @Trace currentIndex: number = 0
   @Trace loadingMore: boolean = false
   @Trace jumping: boolean = false
@@ -112,6 +114,7 @@ export class ReaderViewModel {
     this.currentIndex = startIndex
     this.cacheKey = ReaderViewModel.sessionKey(gid, token, connectSiteMode().isEx)
     this.images = []
+    this.syncPageIndexSource()
     this.previewImagesByIndex.clear()
     this.previewPage = -1
     this.exhausted = false
@@ -126,7 +129,7 @@ export class ReaderViewModel {
     }
     // Load the requested page first. The neighbor pages are warmed after the first paint path is ready,
     // so a later thumbnail or /s/ deep-link start cannot be delayed by preloading pages after it.
-    await this.ensureLoaded(startIndex)
+    await this.ensureLoaded(startIndex, 'init-start')
     if (exactSeed !== null) {
       this.applyExactSeed(startIndex, exactSeed)
     }
@@ -176,7 +179,7 @@ export class ReaderViewModel {
   }
 
   private publishSessionCache(): void {
-    if (this.cacheKey.length === 0 || this.images.length === 0) {
+    if (this.cacheKey.length === 0 || this.previewImagesByIndex.size === 0) {
       return
     }
     const snapshot: ReaderSessionSnapshot = new ReaderSessionSnapshot()
@@ -188,9 +191,9 @@ export class ReaderViewModel {
     snapshot.currentIndex = this.currentIndex
     snapshot.updatedAt = Date.now()
     snapshot.images = []
-    for (let i: number = 0; i < this.images.length; i++) {
-      snapshot.images.push(this.images[i].copy())
-    }
+    this.previewImagesByIndex.forEach((img: EhGalleryImage) => {
+      snapshot.images.push(img.copy())
+    })
     snapshot.loadedPreviewPages = []
     for (let i: number = 0; i < this.loadedPreviewPages.length; i++) {
       snapshot.loadedPreviewPages.push(this.loadedPreviewPages[i])
@@ -214,8 +217,8 @@ export class ReaderViewModel {
   }
 
   private syncImagesFromPreviewMap(): void {
-    const total: number = this.fileCount > 0 ? this.fileCount : this.previewMapUpperBound()
     const out: EhGalleryImage[] = []
+    const total: number = this.previewMapUpperBound()
     for (let i: number = 0; i < total; i++) {
       const img: EhGalleryImage | undefined = this.previewImagesByIndex.get(i)
       if (img !== undefined) {
@@ -223,10 +226,20 @@ export class ReaderViewModel {
       }
     }
     this.images = out
+    this.syncPageIndexSource()
+  }
+
+  private syncPageIndexSource(): void {
+    const total: number = this.totalPages()
+    const indexes: number[] = []
+    for (let i: number = 0; i < total; i++) {
+      indexes.push(i)
+    }
+    this.pageIndexSource.setData(indexes)
   }
 
   private previewMapUpperBound(): number {
-    let max: number = this.images.length
+    let max: number = 0
     this.previewImagesByIndex.forEach((_img: EhGalleryImage, index: number) => {
       if (index + 1 > max) {
         max = index + 1
@@ -374,7 +387,12 @@ export class ReaderViewModel {
    * page CONCURRENTLY once perPage is known, so a far jump pipelines its GETs instead of waiting for each
    * round-trip in turn (same request count as the old one-by-one loop — just not serialized).
    */
-  private async ensureLoaded(index: number): Promise<void> {
+  private async ensureLoaded(index: number, reason: string): Promise<void> {
+    DiagnosticLogger.info(
+      'reader',
+      'ensure_loaded_begin',
+      `reason ${reason} index ${index} current ${this.currentIndex} hasPreview ${this.hasPreviewAt(index)} total ${this.totalPages()} images ${this.images.length} previewPage ${this.previewPage} perPage ${this.perPage}`,
+    )
     if (this.loadingMore) {
       await this.waitForLoadingComplete()
     }
@@ -386,6 +404,7 @@ export class ReaderViewModel {
       await this.waitForLoadingComplete()
     }
     if (this.exhausted || this.hasPreviewAt(index)) {
+      DiagnosticLogger.info('reader', 'ensure_loaded_done', `reason ${reason} index ${index} already-ready exhausted ${this.exhausted}`)
       return
     }
     // eros_fe first asks the target `ser`'s preview page directly. Do the same before filling gaps, so
@@ -393,16 +412,19 @@ export class ReaderViewModel {
     // page-1..target preview pages to serialize or visually snapping back to early pages.
     const loadedTarget: boolean = await this.loadPreviewPageForIndex(index)
     if (loadedTarget || this.exhausted) {
+      DiagnosticLogger.info('reader', 'ensure_loaded_done', `reason ${reason} index ${index} target-loaded ${loadedTarget} exhausted ${this.exhausted}`)
       return
     }
     // perPage unknown (single-page gallery or a parse miss) → fall back to the sequential extend.
     if (this.perPage <= 0) {
       await this.ensureSequential(index)
+      DiagnosticLogger.info('reader', 'ensure_loaded_done', `reason ${reason} index ${index} sequential`)
       return
     }
     if (this.loadingMore) {
       await this.waitForLoadingComplete()
       if (this.hasPreviewAt(index) || this.exhausted) {
+        DiagnosticLogger.info('reader', 'ensure_loaded_done', `reason ${reason} index ${index} after-wait`)
         return
       }
     }
@@ -454,6 +476,11 @@ export class ReaderViewModel {
       DiagnosticLogger.warn('reader', 'jump_load_failed', (err as Error).message)
     }
     this.loadingMore = false
+    DiagnosticLogger.info(
+      'reader',
+      'ensure_loaded_done',
+      `reason ${reason} index ${index} hasPreview ${this.hasPreviewAt(index)} previewPage ${this.previewPage} exhausted ${this.exhausted}`,
+    )
   }
 
   /** Sequential fallback (perPage unknown): extend one preview page at a time until past `index`. */
@@ -531,7 +558,7 @@ export class ReaderViewModel {
     return img
   }
 
-  warmPreviewForIndex(index: number): void {
+  warmPreviewForIndex(index: number, reason: string = 'manual-warm'): void {
     if (index < 0 || index >= this.totalPages() || this.hasPreviewAt(index)) {
       return
     }
@@ -540,7 +567,7 @@ export class ReaderViewModel {
       'thumb_warm_request',
       `index ${index} images ${this.images.length} perPage ${this.perPage} loaded ${this.hasPreviewAt(index)}`,
     )
-    this.ensureLoaded(index)
+    this.ensureLoaded(index, reason)
       .then(
         (): void => {},
         (): void => {},
@@ -674,6 +701,11 @@ export class ReaderViewModel {
   }
 
   onPageChange(index: number): void {
+    DiagnosticLogger.info(
+      'reader',
+      'page_change',
+      `index ${index} hasPreview ${this.hasPreviewAt(index)} total ${this.totalPages()} perPage ${this.perPage}`,
+    )
     this.currentIndex = index
     this.prepareTargetPage(index)
     this.publishSessionCache()
@@ -694,10 +726,11 @@ export class ReaderViewModel {
   }
 
   private prepareTargetPage(index: number): void {
-    this.ensureLoaded(index)
+    this.ensureLoaded(index, 'page-change')
       .then(
         (): void => {
           this.precacheFrom(index)
+          this.warmPreviewAhead(index)
         },
         (): void => {},
       )
@@ -732,8 +765,17 @@ export class ReaderViewModel {
   }
 
   private warmPreviewAhead(index: number): void {
-    const target: number = index + PRECACHE_AHEAD
-    this.ensureLoaded(target)
+    const total: number = this.totalPages()
+    const target: number = Math.min(index + PRECACHE_AHEAD, total - 1)
+    if (target < 0 || target <= index) {
+      return
+    }
+    DiagnosticLogger.info(
+      'reader',
+      'preview_ahead_request',
+      `index ${index} target ${target} total ${total} hasTarget ${this.hasPreviewAt(target)}`,
+    )
+    this.ensureLoaded(target, 'preview-ahead')
       .then(
         (): void => {
           this.precacheFrom(index)
@@ -747,7 +789,7 @@ export class ReaderViewModel {
    * turns after the page component reports Image.onComplete, so this is just preview/url warm-up.
    */
   warmForAutoRead(index: number): void {
-    this.ensureLoaded(index)
+    this.ensureLoaded(index, 'auto-read')
       .then(
         (): void => {
           this.precacheFrom(index)
@@ -758,7 +800,10 @@ export class ReaderViewModel {
 
   /** Total pages for the slider: the known file count, else however many are loaded so far. */
   totalPages(): number {
-    return this.fileCount > 0 ? this.fileCount : this.previewMapUpperBound()
+    if (this.fileCount > 0) {
+      return this.fileCount
+    }
+    return this.previewMapUpperBound()
   }
 
   /**
@@ -772,7 +817,7 @@ export class ReaderViewModel {
       return this.currentIndex
     }
     this.jumping = true
-    await this.ensureLoaded(index)
+    await this.ensureLoaded(index, 'jump')
     this.jumping = false
     const total: number = this.totalPages()
     const target: number = total > 0 ? Math.min(index, total - 1) : 0
