@@ -545,6 +545,18 @@
       "value": "アプリ内Webで開く"
     },
     {
+      "name": "web_nav_back",
+      "value": "戻る"
+    },
+    {
+      "name": "web_nav_forward",
+      "value": "進む"
+    },
+    {
+      "name": "web_nav_refresh",
+      "value": "更新"
+    },
+    {
       "name": "detail_edit_tags_readonly_title",
       "value": "タグ編集は現在読み取り専用です"
     },

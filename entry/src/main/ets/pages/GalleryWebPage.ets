@@ -7,9 +7,8 @@ import {
   GalleryWebParams,
   DiagnosticLogger,
   ThemeConstants,
-  connectLayoutSafeArea,
-  LayoutSafeAreaState,
-  immersiveTitleBar,
+  SecondaryListScaffold,
+  immersiveTitleBarOpts,
 } from 'shared'
 
 /** Generic in-app EH WebView escape hatch for pages whose native parity is still incomplete. */
@@ -18,16 +17,90 @@ export struct GalleryWebPage {
   @Local params: GalleryWebParams = new GalleryWebParams();
   @Local loading: boolean = true;
   @Local controllerReady: boolean = false;
+  // Live <title> from the loaded page (onTitleReceive); falls back to the passed title/url until it arrives.
+  @Local pageTitle: string = '';
+  // Toolbar back/forward enablement, refreshed after each navigation (WebviewController.accessBackward/Forward).
+  @Local canBack: boolean = false;
+  @Local canForward: boolean = false;
   private controller: webview.WebviewController = new webview.WebviewController();
-  private layout: LayoutSafeAreaState = connectLayoutSafeArea();
+  // The scaffold's List owns the scroll; the Web's nestedScroll PARENT_FIRST bubbles into it so the page
+  // scrolls UNDER the immersive title bar (V2Next V2exWebViewScaffold + nestedScroll → immersive nav).
+  private scroller: Scroller = new Scroller();
   private loadedUrl: string = '';
 
   private titleText(): string {
+    if (this.pageTitle.length > 0) {
+      return this.pageTitle
+    }
     return this.params.title.length > 0 ? this.params.title : this.params.url
   }
 
+  private updateNavState(): void {
+    if (!this.controllerReady) {
+      return
+    }
+    try {
+      this.canBack = this.controller.accessBackward()
+      this.canForward = this.controller.accessForward()
+    } catch (_error) {
+      this.canBack = false
+      this.canForward = false
+    }
+  }
+
+  // Back / forward / refresh in the title-bar menu (same Record shape as Index.ets's tab menus). EH pages
+  // have deep internal links (comments, multi-page viewer, pager), so browser-style history nav is useful.
+  private webMenu(): Record<string, Object> {
+    const back: Record<string, Object> = {
+      'label': $r('app.string.web_nav_back'),
+      'icon': $r('sys.symbol.chevron_left'),
+      'isEnabled': this.canBack,
+      'action': () => {
+        if (this.controllerReady && this.controller.accessBackward()) {
+          this.controller.backward()
+        }
+      },
+    }
+    const forward: Record<string, Object> = {
+      'label': $r('app.string.web_nav_forward'),
+      'icon': $r('sys.symbol.chevron_right'),
+      'isEnabled': this.canForward,
+      'action': () => {
+        if (this.controllerReady && this.controller.accessForward()) {
+          this.controller.forward()
+        }
+      },
+    }
+    const refresh: Record<string, Object> = {
+      'label': $r('app.string.web_nav_refresh'),
+      'icon': $r('sys.symbol.arrow_clockwise'),
+      'isEnabled': true,
+      'action': () => {
+        if (this.controllerReady) {
+          this.controller.refresh()
+        }
+      },
+    }
+    const items: Record<string, Object>[] = [
+      { 'content': back },
+      { 'content': forward },
+      { 'content': refresh },
+    ]
+    return { 'value': items, 'maxCount': 3 }
+  }
+
+  private titleBarOpts(): Record<string, Object> {
+    const title: Record<string, Object> = { 'mainTitle': this.titleText() }
+    const content: Record<string, Object> = { 'title': title, 'menu': this.webMenu() }
+    return immersiveTitleBarOpts(content)
+  }
+
   private loadIfReady(): void {
-    if (!this.controllerReady || this.params.url.length === 0 || this.loadedUrl === this.params.url) {
+    if (
+      !this.controllerReady ||
+      this.params.url.length === 0 ||
+      this.loadedUrl === this.params.url
+    ) {
       return
     }
     this.loadedUrl = this.params.url
@@ -45,15 +118,31 @@ export struct GalleryWebPage {
     this.safeLoadUrl(url)
   }
 
+  // EH auth lives across several cookies (ipb_member_id + ipb_pass_hash, plus igneous on ex). WebCookieManager
+  // sets ONE cookie per call, so the whole "a=1; b=2; …" header has to be split and injected per cookie —
+  // passing it as a single value silently kept only the first, leaving the WebView logged out. (V2Next's
+  // CookieJarSettings.restoreToWebCookieManager loops per cookie the same way.)
   private async injectAppCookies(url: string): Promise<void> {
-    const cookie: string = EhCookieStore.getInstance().header()
-    if (cookie.length === 0) {
+    const header: string = EhCookieStore.getInstance().header()
+    if (header.length === 0) {
       return
     }
     const baseUrl: string = url.startsWith(EhConstants.EX_BASE_URL)
       ? EhConstants.EX_BASE_URL
       : EhConstants.EH_BASE_URL
-    await webview.WebCookieManager.configCookie(baseUrl, `${cookie}; Path=/`, false, true)
+    const parts: string[] = header.split(';')
+    for (const part of parts) {
+      const pair: string = part.trim()
+      if (pair.length === 0 || pair.indexOf('=') <= 0) {
+        continue
+      }
+      try {
+        webview.WebCookieManager.configCookieSync(baseUrl, `${pair}; Path=/`, false, true)
+      } catch (error) {
+        const e = error as Error
+        DiagnosticLogger.warn('webview', 'gallery_webview_cookie_config_failed', e.message)
+      }
+    }
     try {
       webview.WebCookieManager.saveCookieSync()
     } catch (_error) {
@@ -74,38 +163,50 @@ export struct GalleryWebPage {
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Center }) {
-        Column() {
-          EhWebView({
-            controller: this.controller,
-            onControllerAttached: () => {
-              this.controllerReady = true
-              this.loadIfReady()
-            },
-            onPageBegin: () => {
-              this.loading = true
-            },
-            onPageEnd: () => {
-              this.loading = false
-            },
-            onErrorReceive: () => {
-              this.loading = false
-            },
-          })
+        // The scaffold's first row insets past the status bar + title bar; the Web (full-bleed ListItem,
+        // height 100%) scrolls UNDER the immersive title bar as nestedScroll feeds the List (V2Next pattern).
+        SecondaryListScaffold({
+          scroller: this.scroller,
+          horizontalPadding: 0,
+          bottomPadding: 0,
+          listSpace: 0,
+        }) {
+          ListItem() {
+            EhWebView({
+              controller: this.controller,
+              onControllerAttached: () => {
+                this.controllerReady = true
+                this.loadIfReady()
+              },
+              onPageBegin: () => {
+                this.loading = true
+              },
+              onPageEnd: () => {
+                this.loading = false
+                this.updateNavState()
+              },
+              onErrorReceive: () => {
+                this.loading = false
+              },
+              onTitleReceive: (event?: OnTitleReceiveEvent) => {
+                if (event !== undefined && event.title.length > 0) {
+                  this.pageTitle = event.title
+                }
+              },
+            })
+          }
+          .height('100%')
+          .clip(false)
         }
-        .width('100%')
-        .height('100%')
-        .padding({ top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT })
 
         if (this.loading) {
-          LoadingProgress()
-            .width(ThemeConstants.LOADING_SIZE)
-            .height(ThemeConstants.LOADING_SIZE)
+          LoadingProgress().width(ThemeConstants.LOADING_SIZE).height(ThemeConstants.LOADING_SIZE)
         }
       }
       .width('100%')
       .height('100%')
     }
-    .titleBar(immersiveTitleBar(this.titleText()))
+    .titleBar(this.titleBarOpts())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as GalleryWebParams

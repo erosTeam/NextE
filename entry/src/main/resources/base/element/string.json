@@ -545,6 +545,18 @@
       "value": "Open in app web"
     },
     {
+      "name": "web_nav_back",
+      "value": "Back"
+    },
+    {
+      "name": "web_nav_forward",
+      "value": "Forward"
+    },
+    {
+      "name": "web_nav_refresh",
+      "value": "Refresh"
+    },
+    {
       "name": "detail_edit_tags_readonly_title",
       "value": "Tag editing is read-only for now"
     },
