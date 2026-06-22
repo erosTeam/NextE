@@ -1393,6 +1393,10 @@
       "value": "绿色"
     },
     {
+      "name": "theme_color_custom",
+      "value": "自定义"
+    },
+    {
       "name": "settings_language",
       "value": "语言"
     },

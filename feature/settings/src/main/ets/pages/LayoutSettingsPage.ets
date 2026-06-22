@@ -42,6 +42,8 @@ import {
   connectThemeColor,
   LanguageState,
   connectLanguageState,
+  AppColorPicker,
+  AppModalScaffold,
 } from 'shared'
 
 /**
@@ -66,6 +68,10 @@ export struct LayoutSettingsPage {
   @Local themeMenuShown: boolean = false;
   @Local themeColorMenuShown: boolean = false;
   @Local languageMenuShown: boolean = false;
+  @Local colorPickerShown: boolean = false;
+  @Local draftCustomColor: string = '#3377FF';
+  @Local pickerChanged: boolean = false;
+  private prevColor: string = 'system';
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
@@ -117,6 +123,50 @@ export struct LayoutSettingsPage {
     LanguageSettings.setMode(this.ctx(), mode)
   }
 
+  // The 自定义 entry opens the shared AppColorPicker in a sheet, seeded from the current accent. colorChange
+  // previews live (apply, no persist); the sheet's confirm persists, its close reverts.
+  private openColorPicker(): void {
+    this.themeColorMenuShown = false
+    this.prevColor = this.themeColor.color
+    this.draftCustomColor = ThemeColorSettings.customSeed(this.themeColor.color)
+    this.pickerChanged = false
+    this.colorPickerShown = true
+  }
+
+  @Builder
+  ColorPickerSheet() {
+    AppModalScaffold({
+      title: $r('app.string.settings_theme_color'),
+      confirmText: $r('app.string.common_ok'),
+      closeAction: () => {
+        if (this.pickerChanged) {
+          ThemeColorSettings.apply(this.prevColor)
+        }
+        this.colorPickerShown = false
+      },
+      confirmAction: () => {
+        ThemeColorSettings.setColor(this.ctx(), this.draftCustomColor)
+        this.colorPickerShown = false
+      },
+    }) {
+      ListItem() {
+        Column() {
+          AppColorPicker({
+            title: $r('app.string.settings_theme_color'),
+            color: this.draftCustomColor,
+            colorChange: (hex: string) => {
+              this.draftCustomColor = hex
+              this.pickerChanged = true
+              ThemeColorSettings.apply(hex)
+            },
+          })
+        }
+        .height(440)
+        .width('100%')
+      }
+    }
+  }
+
   @Builder
   ThemeMenu() {
     Menu() {
@@ -163,6 +213,20 @@ export struct LayoutSettingsPage {
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor($r('sys.color.font_secondary'))
       SymbolGlyph($r('sys.symbol.chevron_down'))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor([$r('sys.color.font_tertiary')])
+    }.alignItems(VerticalAlign.Center)
+  }
+
+  // Trailing of the 自定义 row: the live custom swatch (only when a custom color is active) + a chevron into
+  // the AppColorPicker sheet.
+  @Builder
+  CustomColorSuffix() {
+    Row({ space: ThemeConstants.SPACE_SM }) {
+      if (ThemeColorSettings.isCustom(this.themeColor.color)) {
+        Circle({ width: 16, height: 16 }).fill(ThemeColorSettings.currentColor())
+      }
+      SymbolGlyph($r('sys.symbol.chevron_right'))
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor([$r('sys.color.font_tertiary')])
     }.alignItems(VerticalAlign.Center)
@@ -459,6 +523,22 @@ export struct LayoutSettingsPage {
         ListItem() {
           Column() {
             GroupedListSection() {
+              ConciseListRow({
+                title: $r('app.string.theme_color_custom'),
+                leadingIcon: $r('sys.symbol.paintpalette'),
+                suffixBuilderParam: () => {
+                  this.CustomColorSuffix()
+                },
+                action: () => {
+                  this.openColorPicker()
+                },
+              })
+            }
+          }
+        }
+        ListItem() {
+          Column() {
+            GroupedListSection() {
               Column() {
                 ConciseListRow({
                   title: $r('app.string.settings_view'),
@@ -584,5 +664,9 @@ export struct LayoutSettingsPage {
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_layout')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .bindSheet($$this.colorPickerShown, this.ColorPickerSheet(), {
+      detents: [SheetSize.LARGE],
+      showClose: false,
+    })
   }
 }

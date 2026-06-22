@@ -72,11 +72,37 @@ export class ThemeColorSettings {
     ) {
       return v
     }
+    if (ThemeColorSettings.isHex(v)) {
+      return v.toUpperCase()
+    }
     return ThemeColorSettings.COLOR_SYSTEM
+  }
+
+  static isHex(color: string): boolean {
+    return /^#[0-9a-fA-F]{6}$/.test(color.trim())
+  }
+
+  static isCustom(color: string): boolean {
+    return ThemeColorSettings.isHex(color)
+  }
+
+  // Seed the custom picker from the current selection (a preset → its hex; system → a default blue).
+  static customSeed(color: string): string {
+    const v: string = ThemeColorSettings.normalize(color)
+    if (ThemeColorSettings.isHex(v)) {
+      return v
+    }
+    if (v === ThemeColorSettings.COLOR_SYSTEM) {
+      return '#3377FF'
+    }
+    return ThemeColorSettings.colorValue(v) as string
   }
 
   static colorValue(color: string): ResourceColor {
     const v: string = ThemeColorSettings.normalize(color)
+    if (ThemeColorSettings.isHex(v)) {
+      return v
+    }
     if (v === ThemeColorSettings.COLOR_ORANGE) {
       return '#FE9925'
     }
@@ -97,6 +123,9 @@ export class ThemeColorSettings {
 
   static label(color: string): ResourceStr {
     const v: string = ThemeColorSettings.normalize(color)
+    if (ThemeColorSettings.isHex(v)) {
+      return $r('app.string.theme_color_custom')
+    }
     if (v === ThemeColorSettings.COLOR_ORANGE) {
       return $r('app.string.theme_color_orange')
     }
