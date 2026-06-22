@@ -1354,11 +1354,43 @@
     },
     {
       "name": "settings_layout",
-      "value": "レイアウト"
+      "value": "インターフェース"
     },
     {
       "name": "settings_theme",
-      "value": "テーマ"
+      "value": "ダークモード"
+    },
+    {
+      "name": "settings_theme_color",
+      "value": "テーマカラー"
+    },
+    {
+      "name": "theme_color_system",
+      "value": "デフォルト"
+    },
+    {
+      "name": "theme_color_blue",
+      "value": "ブルー"
+    },
+    {
+      "name": "theme_color_orange",
+      "value": "オレンジ"
+    },
+    {
+      "name": "theme_color_red",
+      "value": "レッド"
+    },
+    {
+      "name": "theme_color_purple",
+      "value": "パープル"
+    },
+    {
+      "name": "theme_color_pink",
+      "value": "ピンク"
+    },
+    {
+      "name": "theme_color_green",
+      "value": "グリーン"
     },
     {
       "name": "settings_language",

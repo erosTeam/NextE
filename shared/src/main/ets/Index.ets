@@ -245,11 +245,14 @@ export {
 export { SettingsBootstrap } from './settings/SettingsBootstrap'
 export { ThemeSettings } from './settings/ThemeSettings'
 export { LanguageSettings } from './settings/LanguageSettings'
+export { ThemeColorSettings, ThemeColorOption } from './settings/ThemeColorSettings'
 export {
   ThemeDisplayState,
   connectThemeDisplay,
   LanguageState,
   connectLanguageState,
+  ThemeColorState,
+  connectThemeColor,
 } from './state/AppearanceState'
 export { CookieJarSettings } from './settings/CookieJarSettings'
 export { SiteModeSettings } from './settings/SiteModeSettings'

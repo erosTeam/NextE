@@ -1354,11 +1354,43 @@
     },
     {
       "name": "settings_layout",
-      "value": "Layout"
+      "value": "Interface"
     },
     {
       "name": "settings_theme",
-      "value": "Theme"
+      "value": "Dark mode"
+    },
+    {
+      "name": "settings_theme_color",
+      "value": "Theme color"
+    },
+    {
+      "name": "theme_color_system",
+      "value": "Default"
+    },
+    {
+      "name": "theme_color_blue",
+      "value": "Blue"
+    },
+    {
+      "name": "theme_color_orange",
+      "value": "Orange"
+    },
+    {
+      "name": "theme_color_red",
+      "value": "Red"
+    },
+    {
+      "name": "theme_color_purple",
+      "value": "Purple"
+    },
+    {
+      "name": "theme_color_pink",
+      "value": "Pink"
+    },
+    {
+      "name": "theme_color_green",
+      "value": "Green"
     },
     {
       "name": "settings_language",

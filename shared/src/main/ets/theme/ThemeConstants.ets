@@ -1,3 +1,5 @@
+import { ThemeColorSettings } from '../settings/ThemeColorSettings'
+
 /**
  * NextE design tokens — the SINGLE source of spacing / font-size / radius / color.
  *
@@ -7,8 +9,11 @@
  * (category colors, tag-namespace colors, favcat slot colors) live in EhSemanticColors.
  */
 export class ThemeConstants {
-  // Brand
-  static readonly BRAND_PRIMARY: ResourceColor = $r('sys.color.brand')
+  // Brand — user-selectable accent (ThemeColorSettings). A getter so every reader re-reads the @Trace color
+  // and recolors when the user picks a new theme color; default 'system' returns $r('sys.color.brand').
+  static get BRAND_PRIMARY(): ResourceColor {
+    return ThemeColorSettings.currentColor()
+  }
   static readonly BRAND_ACCENT: ResourceColor = $r('sys.color.font_secondary')
   // Readable text on a saturated/brand-colored surface (selected chips, badges). White both themes.
   static readonly TEXT_ON_BRAND: ResourceColor = $r('app.color.text_on_brand')

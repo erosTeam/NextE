@@ -32,6 +32,16 @@ import {
   connectActionAlignment,
   MotionHandStateService,
   immersiveTitleBar,
+  ThemeSettings,
+  ThemeColorSettings,
+  ThemeColorOption,
+  LanguageSettings,
+  ThemeDisplayState,
+  connectThemeDisplay,
+  ThemeColorState,
+  connectThemeColor,
+  LanguageState,
+  connectLanguageState,
 } from 'shared'
 
 /**
@@ -50,11 +60,179 @@ export struct LayoutSettingsPage {
   @Local actionAlign: ActionAlignmentState = connectActionAlignment();
   @Local viewMenuShown: boolean = false;
   @Local actionAlignMenuShown: boolean = false;
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
+  @Local themeColor: ThemeColorState = connectThemeColor();
+  @Local language: LanguageState = connectLanguageState();
+  @Local themeMenuShown: boolean = false;
+  @Local themeColorMenuShown: boolean = false;
+  @Local languageMenuShown: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  // --- Appearance header (the "界面" page top): dark mode + theme color + language ---
+
+  private themeModeLabel(): ResourceStr {
+    if (this.themeDisplay.mode === ThemeSettings.MODE_LIGHT) {
+      return $r('app.string.theme_light')
+    }
+    if (this.themeDisplay.mode === ThemeSettings.MODE_DARK) {
+      return $r('app.string.theme_dark')
+    }
+    return $r('app.string.appearance_follow_system')
+  }
+
+  private themeColorLabel(): ResourceStr {
+    return ThemeColorSettings.label(this.themeColor.color)
+  }
+
+  private languageModeLabel(): ResourceStr {
+    if (this.language.mode === LanguageSettings.MODE_ZH_CN) {
+      return $r('app.string.language_zh')
+    }
+    if (this.language.mode === LanguageSettings.MODE_EN) {
+      return $r('app.string.language_en')
+    }
+    if (this.language.mode === LanguageSettings.MODE_JA) {
+      return $r('app.string.language_ja')
+    }
+    return $r('app.string.appearance_follow_system')
+  }
+
+  private setTheme(mode: string): void {
+    this.themeMenuShown = false
+    ThemeSettings.setMode(this.ctx(), mode)
+  }
+
+  private setThemeColor(color: string): void {
+    this.themeColorMenuShown = false
+    ThemeColorSettings.setColor(this.ctx(), color)
+  }
+
+  private setLanguage(mode: string): void {
+    this.languageMenuShown = false
+    LanguageSettings.setMode(this.ctx(), mode)
+  }
+
+  @Builder
+  ThemeMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.appearance_follow_system'),
+        symbolEndIcon:
+          this.themeDisplay.mode === ThemeSettings.MODE_SYSTEM
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setTheme(ThemeSettings.MODE_SYSTEM)
+        })
+      MenuItem({
+        content: $r('app.string.theme_light'),
+        symbolEndIcon:
+          this.themeDisplay.mode === ThemeSettings.MODE_LIGHT
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setTheme(ThemeSettings.MODE_LIGHT)
+        })
+      MenuItem({
+        content: $r('app.string.theme_dark'),
+        symbolEndIcon:
+          this.themeDisplay.mode === ThemeSettings.MODE_DARK
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setTheme(ThemeSettings.MODE_DARK)
+        })
+    }
+  }
+
+  // A plain tappable-Row column (not Menu/MenuItem): a custom MenuItem builder swallows the click, so the
+  // color dots + reliable onClick live in a Column that bindMenu renders as the popup.
+  @Builder
+  ThemeColorMenu() {
+    Column() {
+      ForEach(
+        ThemeColorSettings.options(),
+        (option: ThemeColorOption) => {
+          Row({ space: ThemeConstants.SPACE_MD }) {
+            Circle({ width: 18, height: 18 }).fill(option.color)
+            Text(option.label)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor($r('sys.color.font_primary'))
+              .layoutWeight(1)
+            if (ThemeColorSettings.normalize(this.themeColor.color) === option.value) {
+              SymbolGlyph($r('sys.symbol.checkmark')).fontColor([$r('sys.color.font_emphasize')])
+            }
+          }
+          .width('100%')
+          .padding({
+            left: ThemeConstants.SPACE_MD,
+            right: ThemeConstants.SPACE_MD,
+            top: ThemeConstants.SPACE_SM,
+            bottom: ThemeConstants.SPACE_SM,
+          })
+          .onClick(() => {
+            this.setThemeColor(option.value)
+          })
+        },
+        (option: ThemeColorOption) => option.value,
+      )
+    }
+    .width(184)
+    .padding({ top: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
+  }
+
+  @Builder
+  LanguageMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.appearance_follow_system'),
+        symbolEndIcon:
+          this.language.mode === LanguageSettings.MODE_SYSTEM
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setLanguage(LanguageSettings.MODE_SYSTEM)
+        })
+      MenuItem({
+        content: $r('app.string.language_zh'),
+        symbolEndIcon:
+          this.language.mode === LanguageSettings.MODE_ZH_CN
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setLanguage(LanguageSettings.MODE_ZH_CN)
+        })
+      MenuItem({
+        content: $r('app.string.language_en'),
+        symbolEndIcon:
+          this.language.mode === LanguageSettings.MODE_EN
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setLanguage(LanguageSettings.MODE_EN)
+        })
+      MenuItem({
+        content: $r('app.string.language_ja'),
+        symbolEndIcon:
+          this.language.mode === LanguageSettings.MODE_JA
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setLanguage(LanguageSettings.MODE_JA)
+        })
+    }
   }
 
   private viewModeLabel(): Resource {
@@ -203,6 +381,65 @@ export struct LayoutSettingsPage {
         scroller: this.scroller,
         bottomPadding: ThemeConstants.SPACE_XL,
       }) {
+        ListItem() {
+          Column() {
+            GroupedListSection() {
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_theme'),
+                  leadingIcon: $r('sys.symbol.moon'),
+                  trailingText: this.themeModeLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.themeMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.themeMenuShown, this.ThemeMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.themeMenuShown = false
+                },
+              })
+              this.rowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_theme_color'),
+                  leadingIcon: $r('sys.symbol.paintbrush'),
+                  trailingText: this.themeColorLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.themeColorMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.themeColorMenuShown, this.ThemeColorMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.themeColorMenuShown = false
+                },
+              })
+              this.rowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_language'),
+                  leadingIcon: $r('sys.symbol.translate'),
+                  trailingText: this.languageModeLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.languageMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.languageMenuShown, this.LanguageMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.languageMenuShown = false
+                },
+              })
+            }
+          }
+        }
         ListItem() {
           Column() {
             GroupedListSection() {

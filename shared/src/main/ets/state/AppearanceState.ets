@@ -34,3 +34,20 @@ const LANGUAGE_KEY: string = 'v2:language'
 export function connectLanguageState(): LanguageState {
   return AppStorageV2.connect(LanguageState, LANGUAGE_KEY, () => new LanguageState())!
 }
+
+/**
+ * Reactive APP ACCENT color signal (ThemeColorSettings is the single writer). `color` is the chosen preset
+ * id ('system' keeps the platform brand token; the rest are fixed hex). ThemeConstants.BRAND_PRIMARY is a
+ * getter that reads this, so every brand-tinted control recolors when the user picks a new accent — no
+ * call-site changes (V2Next ThemeColorState pattern).
+ */
+@ObservedV2
+export class ThemeColorState {
+  @Trace color: string = 'system'
+}
+
+const THEME_COLOR_KEY: string = 'v2:themeColor'
+
+export function connectThemeColor(): ThemeColorState {
+  return AppStorageV2.connect(ThemeColorState, THEME_COLOR_KEY, () => new ThemeColorState())!
+}

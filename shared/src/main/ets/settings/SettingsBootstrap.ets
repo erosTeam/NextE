@@ -23,6 +23,7 @@ import { AppColorFavoritesSettings } from './AppColorFavoritesSettings'
 import { HomeTabSettings } from './HomeTabSettings'
 import { TagTranslationSettings } from './TagTranslationSettings'
 import { ThemeSettings } from './ThemeSettings'
+import { ThemeColorSettings } from './ThemeColorSettings'
 import { LanguageSettings } from './LanguageSettings'
 
 /**
@@ -41,6 +42,7 @@ export class SettingsBootstrap {
     try {
       // Theme + language first so the very first paint uses the user's appearance choice (no flash).
       await ThemeSettings.restore(context)
+      await ThemeColorSettings.restore(context)
       await LanguageSettings.restore(context)
       await CookieJarSettings.restore(context)
       await SiteModeSettings.restore(context)
