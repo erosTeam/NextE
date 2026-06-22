@@ -22,6 +22,8 @@ import { SubtabSelectionSettings } from './SubtabSelectionSettings'
 import { AppColorFavoritesSettings } from './AppColorFavoritesSettings'
 import { HomeTabSettings } from './HomeTabSettings'
 import { TagTranslationSettings } from './TagTranslationSettings'
+import { ThemeSettings } from './ThemeSettings'
+import { LanguageSettings } from './LanguageSettings'
 
 /**
  * Restores every persisted setting from the preferences store into its AppStorageV2
@@ -37,6 +39,9 @@ import { TagTranslationSettings } from './TagTranslationSettings'
 export class SettingsBootstrap {
   static async loadAll(context: common.UIAbilityContext): Promise<void> {
     try {
+      // Theme + language first so the very first paint uses the user's appearance choice (no flash).
+      await ThemeSettings.restore(context)
+      await LanguageSettings.restore(context)
       await CookieJarSettings.restore(context)
       await SiteModeSettings.restore(context)
       await ListModeSettings.restore(context)

@@ -1357,6 +1357,38 @@
       "value": "布局"
     },
     {
+      "name": "settings_theme",
+      "value": "主题"
+    },
+    {
+      "name": "settings_language",
+      "value": "语言"
+    },
+    {
+      "name": "appearance_follow_system",
+      "value": "跟随系统"
+    },
+    {
+      "name": "theme_light",
+      "value": "浅色"
+    },
+    {
+      "name": "theme_dark",
+      "value": "深色"
+    },
+    {
+      "name": "language_zh",
+      "value": "简体中文"
+    },
+    {
+      "name": "language_en",
+      "value": "English"
+    },
+    {
+      "name": "language_ja",
+      "value": "日本語"
+    },
+    {
       "name": "settings_download",
       "value": "下载"
     },

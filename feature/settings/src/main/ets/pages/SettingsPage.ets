@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   ThemeConstants,
   connectAuth,
@@ -8,6 +9,12 @@ import {
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
+  ThemeSettings,
+  LanguageSettings,
+  ThemeDisplayState,
+  connectThemeDisplay,
+  LanguageState,
+  connectLanguageState,
 } from 'shared'
 
 /**
@@ -19,6 +26,10 @@ import {
 @ComponentV2
 export struct SettingsPage {
   @Local auth: AuthState = connectAuth();
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
+  @Local language: LanguageState = connectLanguageState();
+  @Local themeMenuShown: boolean = false;
+  @Local languageMenuShown: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   // Index-owned scroller for this tab (title-bar scroll-up auto-hide via bindToScrollable).
   @Param scroller: Scroller = new Scroller();
@@ -37,6 +48,9 @@ export struct SettingsPage {
       }) {
         ListItem() {
           this.AccountSection()
+        }
+        ListItem() {
+          this.AppearanceSection()
         }
         ListItem() {
           this.MainSection()
@@ -87,6 +101,166 @@ export struct SettingsPage {
         })
       }
     }
+  }
+
+  @Builder
+  AppearanceSection() {
+    GroupedListSection() {
+      Column() {
+        ConciseListRow({
+          title: $r('app.string.settings_theme'),
+          leadingIcon: $r('sys.symbol.moon'),
+          trailingText: this.themeModeLabel(),
+          trailingDropdown: true,
+          action: () => {
+            this.themeMenuShown = true
+          },
+        })
+      }
+      .bindMenu(this.themeMenuShown, this.ThemeMenu, {
+        placement: Placement.BottomRight,
+        onDisappear: () => {
+          this.themeMenuShown = false
+        },
+      })
+      this.rowDivider()
+      Column() {
+        ConciseListRow({
+          title: $r('app.string.settings_language'),
+          leadingIcon: $r('sys.symbol.translate'),
+          trailingText: this.languageModeLabel(),
+          trailingDropdown: true,
+          action: () => {
+            this.languageMenuShown = true
+          },
+        })
+      }
+      .bindMenu(this.languageMenuShown, this.LanguageMenu, {
+        placement: Placement.BottomRight,
+        onDisappear: () => {
+          this.languageMenuShown = false
+        },
+      })
+    }
+  }
+
+  @Builder
+  ThemeMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.appearance_follow_system'),
+        symbolEndIcon:
+          this.themeDisplay.mode === ThemeSettings.MODE_SYSTEM
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setTheme(ThemeSettings.MODE_SYSTEM)
+        })
+      MenuItem({
+        content: $r('app.string.theme_light'),
+        symbolEndIcon:
+          this.themeDisplay.mode === ThemeSettings.MODE_LIGHT
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setTheme(ThemeSettings.MODE_LIGHT)
+        })
+      MenuItem({
+        content: $r('app.string.theme_dark'),
+        symbolEndIcon:
+          this.themeDisplay.mode === ThemeSettings.MODE_DARK
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setTheme(ThemeSettings.MODE_DARK)
+        })
+    }
+  }
+
+  @Builder
+  LanguageMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.appearance_follow_system'),
+        symbolEndIcon:
+          this.language.mode === LanguageSettings.MODE_SYSTEM
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setLanguage(LanguageSettings.MODE_SYSTEM)
+        })
+      MenuItem({
+        content: $r('app.string.language_zh'),
+        symbolEndIcon:
+          this.language.mode === LanguageSettings.MODE_ZH_CN
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setLanguage(LanguageSettings.MODE_ZH_CN)
+        })
+      MenuItem({
+        content: $r('app.string.language_en'),
+        symbolEndIcon:
+          this.language.mode === LanguageSettings.MODE_EN
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setLanguage(LanguageSettings.MODE_EN)
+        })
+      MenuItem({
+        content: $r('app.string.language_ja'),
+        symbolEndIcon:
+          this.language.mode === LanguageSettings.MODE_JA
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setLanguage(LanguageSettings.MODE_JA)
+        })
+    }
+  }
+
+  private themeModeLabel(): ResourceStr {
+    if (this.themeDisplay.mode === ThemeSettings.MODE_LIGHT) {
+      return $r('app.string.theme_light')
+    }
+    if (this.themeDisplay.mode === ThemeSettings.MODE_DARK) {
+      return $r('app.string.theme_dark')
+    }
+    return $r('app.string.appearance_follow_system')
+  }
+
+  private languageModeLabel(): ResourceStr {
+    if (this.language.mode === LanguageSettings.MODE_ZH_CN) {
+      return $r('app.string.language_zh')
+    }
+    if (this.language.mode === LanguageSettings.MODE_EN) {
+      return $r('app.string.language_en')
+    }
+    if (this.language.mode === LanguageSettings.MODE_JA) {
+      return $r('app.string.language_ja')
+    }
+    return $r('app.string.appearance_follow_system')
+  }
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private setTheme(mode: string): void {
+    this.themeMenuShown = false
+    ThemeSettings.setMode(this.ctx(), mode)
+  }
+
+  private setLanguage(mode: string): void {
+    this.languageMenuShown = false
+    LanguageSettings.setMode(this.ctx(), mode)
   }
 
   @Builder
@@ -180,5 +354,4 @@ export struct SettingsPage {
       this.getUIContext().getHostContext() as common.UIAbilityContext
     CookieJarSettings.clear(ctx)
   }
-
 }

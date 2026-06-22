@@ -1,10 +1,11 @@
-import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit'
+import { AbilityConstant, UIAbility, Want, Configuration } from '@kit.AbilityKit'
 import { webview } from '@kit.ArkWeb'
 import { window } from '@kit.ArkUI'
 import {
   AppStrings,
   DiagnosticLogger,
   SettingsBootstrap,
+  ThemeSettings,
   MotionHandStateService,
   publishPendingEhUrl,
   EhUrlRouter,
@@ -39,6 +40,18 @@ export default class EntryAbility extends UIAbility {
       DiagnosticLogger.warn('app', 'initialize_web_engine_failed', e.message)
     }
     this.captureIncomingUrl(want)
+    // Keep the theme signal fresh when the DEVICE flips dark/light in follow-system mode, so cached sub-tab
+    // pills recolor immediately (the rest of the UI rebuilds on the config change on its own).
+    try {
+      this.context.getApplicationContext().on('environment', {
+        onConfigurationUpdated: (config: Configuration) => {
+          ThemeSettings.onSystemColorModeChanged(config.colorMode)
+        },
+        onMemoryLevel: (_level: AbilityConstant.MemoryLevel) => {},
+      })
+    } catch (error) {
+      DiagnosticLogger.warn('app', 'environment_callback_register_failed', (error as Error).message)
+    }
   }
 
   onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {

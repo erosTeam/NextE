@@ -243,6 +243,14 @@ export {
 
 // settings
 export { SettingsBootstrap } from './settings/SettingsBootstrap'
+export { ThemeSettings } from './settings/ThemeSettings'
+export { LanguageSettings } from './settings/LanguageSettings'
+export {
+  ThemeDisplayState,
+  connectThemeDisplay,
+  LanguageState,
+  connectLanguageState,
+} from './state/AppearanceState'
 export { CookieJarSettings } from './settings/CookieJarSettings'
 export { SiteModeSettings } from './settings/SiteModeSettings'
 export { ListModeSettings } from './settings/ListModeSettings'

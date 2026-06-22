@@ -1,6 +1,7 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { SELECTOR_BAR_HEIGHT } from '../state/HomeSourceState'
 import { TabItem } from '../model/TabItem'
+import { connectThemeDisplay, ThemeDisplayState } from '../state/AppearanceState'
 
 const INDICATOR_W: number = 18
 const TAB_GAP: number = ThemeConstants.SPACE_XS
@@ -32,6 +33,9 @@ export struct SubTabBar {
   @Event onSelect: (index: number) => void = (_i: number) => {};
   // Per-tab measured widths (onAreaChange) so the indicator tracks real tab centres, not a uniform guess.
   @Local tabWidths: number[] = [];
+  // Reading this signal in the color helper makes this bar (hosted in a CACHED ComponentContent) repaint on
+  // a system dark/light flip — without it the unselected $r('sys.color.*') tokens stay stale.
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   private scroller: Scroller = new Scroller();
   private viewportWidth: number = 0;
   private pendingCenterIndex: number = -1;
@@ -40,6 +44,12 @@ export struct SubTabBar {
 
   aboutToAppear(): void {
     this.centerSelectedTab(false, true)
+  }
+
+  // Returns `color` unchanged; the point is the effectiveDark read, which registers a rebuild dependency so
+  // this cached pill subtree recolors the instant the system (or manual) theme flips.
+  private themeTracked(color: ResourceColor): ResourceColor {
+    return this.themeDisplay.effectiveDark ? color : color
   }
 
   private selectedIndex(): number {
@@ -191,7 +201,7 @@ export struct SubTabBar {
               .fontColor(
                 this.selectedIndex() === index
                   ? this.tabAccentColor(index)
-                  : $r('sys.color.font_secondary'),
+                  : this.themeTracked($r('sys.color.font_secondary')),
               )
               .fontWeight(this.selectedIndex() === index ? FontWeight.Medium : FontWeight.Regular)
               .maxLines(1)
@@ -201,7 +211,7 @@ export struct SubTabBar {
                 .fontColor(
                   this.selectedIndex() === index
                     ? this.tabAccentColor(index)
-                    : $r('sys.color.font_tertiary'),
+                    : this.themeTracked($r('sys.color.font_tertiary')),
                 )
             }
           }
@@ -225,7 +235,8 @@ export struct SubTabBar {
         // seed chips (label/count are @Builder params, captured at create) — the bar stays "Favorites N / 0"
         // after the parse lands. A string label (favcat name) joins the key so a name/count change rebuilds
         // the chip; Resource labels (Home/Toplist, static) contribute '' and stay stable.
-        (tab: TabItem) => `${tab.key}:${typeof tab.label === 'string' ? tab.label : ''}:${tab.count}:${tab.selectedColor}`,
+        (tab: TabItem) =>
+          `${tab.key}:${typeof tab.label === 'string' ? tab.label : ''}:${tab.count}:${tab.selectedColor}`,
       )
     }
     .padding({ left: BAR_PAD, right: BAR_PAD })
@@ -252,8 +263,7 @@ export struct SubTabBar {
         Stack({ alignContent: Alignment.TopStart }) {
           this.tabRow()
           this.indicatorBar()
-        }
-        .height(SELECTOR_BAR_HEIGHT)
+        }.height(SELECTOR_BAR_HEIGHT)
       }
       .scrollable(ScrollDirection.Horizontal)
       .scrollBar(BarState.Off)
