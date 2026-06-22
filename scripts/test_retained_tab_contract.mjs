@@ -149,6 +149,8 @@ ok(/@Param\s+visualIndex:\s*number/.test(subTabBar), 'SubTabBar takes the interp
 ok(/tabAccentColor\(i: number\): ResourceColor[\s\S]*this\.tabs\[i\]\.selectedColor[\s\S]*ThemeConstants\.BRAND_PRIMARY/.test(subTabBar) &&
   /this\.selectedIndex\(\) === index[\s\S]*this\.tabAccentColor\(index\)/.test(subTabBar),
   'SubTabBar selected text can use a per-tab accent color while uncolored surfaces keep brand primary')
+ok(/\.fontWeight\(this\.selectedIndex\(\) === index \? FontWeight\.Bold : FontWeight\.Regular\)/.test(subTabBar),
+  'SubTabBar selected text uses Bold weight for stronger contrast without changing favcat identity colors')
 ok(/indicatorColor\(\): ResourceColor[\s\S]*this\.lerpHexColor\(fromColor, toColor, frac\)/.test(subTabBar) &&
   /\.backgroundColor\(this\.indicatorColor\(\)\)/.test(subTabBar),
   'SubTabBar indicator color interpolates between adjacent tab selectedColor values during swipe')

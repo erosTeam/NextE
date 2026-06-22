@@ -217,7 +217,7 @@ export struct SubTabBar {
                   ? this.tabAccentColor(index)
                   : this.themeTracked($r('sys.color.font_secondary')),
               )
-              .fontWeight(this.selectedIndex() === index ? FontWeight.Medium : FontWeight.Regular)
+              .fontWeight(this.selectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
               .maxLines(1)
             if (tab.count >= 0) {
               Text(`${tab.count}`)
