@@ -50,6 +50,7 @@ import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } fr
 import {
   SettingsPage,
   EhSettingsPage,
+  AccountPage,
   LayoutSettingsPage,
   ReaderSettingsPage,
   DownloadSettingsPage,
@@ -564,6 +565,8 @@ struct Index {
       GalleryCommentsPage()
     } else if (name === 'EhSettings') {
       EhSettingsPage()
+    } else if (name === 'Account') {
+      AccountPage()
     } else if (name === 'LayoutSettings') {
       LayoutSettingsPage()
     } else if (name === 'ReaderSettings') {

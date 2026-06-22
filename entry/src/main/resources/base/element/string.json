@@ -969,6 +969,10 @@
       "value": "Log out"
     },
     {
+      "name": "settings_refresh_igneous",
+      "value": "Refresh Igneous"
+    },
+    {
       "name": "login_success",
       "value": "Logged in"
     },

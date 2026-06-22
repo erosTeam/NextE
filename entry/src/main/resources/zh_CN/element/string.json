@@ -969,6 +969,10 @@
       "value": "退出登录"
     },
     {
+      "name": "settings_refresh_igneous",
+      "value": "刷新 Igneous"
+    },
+    {
       "name": "login_success",
       "value": "登录成功"
     },

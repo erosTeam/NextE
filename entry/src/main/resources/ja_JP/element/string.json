@@ -969,6 +969,10 @@
       "value": "ログアウト"
     },
     {
+      "name": "settings_refresh_igneous",
+      "value": "Igneous を更新"
+    },
+    {
       "name": "login_success",
       "value": "ログインしました"
     },

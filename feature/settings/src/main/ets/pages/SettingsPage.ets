@@ -1,10 +1,8 @@
-import { common } from '@kit.AbilityKit'
 import {
   ThemeConstants,
   connectAuth,
   AuthState,
   connectNavStack,
-  CookieJarSettings,
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
@@ -48,6 +46,8 @@ export struct SettingsPage {
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 
+  // The account block is just an ENTRY to the account hub (AccountPage); all account actions, including
+  // logout, live inside there rather than being exposed on this list.
   @Builder
   AccountSection() {
     GroupedListSection() {
@@ -56,16 +56,8 @@ export struct SettingsPage {
           title: $r('app.string.settings_account'),
           leadingIcon: $r('sys.symbol.person'),
           trailingText: `ID ${this.auth.memberId}`,
-          showChevron: false,
-        })
-        this.rowDivider()
-        ConciseListRow({
-          title: $r('app.string.settings_logout'),
-          leadingIcon: $r('sys.symbol.arrow_right'),
-          destructive: true,
-          showChevron: false,
           action: () => {
-            this.confirmLogout()
+            this.stack.pushPathByName('Account', null)
           },
         })
       } else {
@@ -73,16 +65,7 @@ export struct SettingsPage {
           title: $r('app.string.settings_login'),
           leadingIcon: $r('sys.symbol.person'),
           action: () => {
-            this.stack.pushPathByName('EhLogin', null)
-          },
-        })
-        this.rowDivider()
-        // Safe fallback to the WebView login: paste an existing EH cookie header (donor/other device).
-        ConciseListRow({
-          title: $r('app.string.settings_login_cookie'),
-          leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
-          action: () => {
-            this.stack.pushPathByName('EhCookieImport', null)
+            this.stack.pushPathByName('Account', null)
           },
         })
       }
@@ -156,28 +139,5 @@ export struct SettingsPage {
       .strokeWidth(0.5)
       .color($r('sys.color.ohos_id_color_list_separator'))
       .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  private confirmLogout(): void {
-    this.getUIContext().showAlertDialog({
-      message: $r('app.string.logout_confirm'),
-      primaryButton: {
-        value: $r('app.string.common_cancel'),
-        action: () => {},
-      },
-      secondaryButton: {
-        value: $r('app.string.settings_logout'),
-        fontColor: Color.Red,
-        action: () => {
-          this.logout()
-        },
-      },
-    })
-  }
-
-  private logout(): void {
-    const ctx: common.UIAbilityContext =
-      this.getUIContext().getHostContext() as common.UIAbilityContext
-    CookieJarSettings.clear(ctx)
   }
 }
