@@ -65,13 +65,13 @@ export class ThemeConstants {
   static readonly COVER_BG_BLUR_RADIUS: number = 40
   // Detail tag chip (namespace label + member tags, eros_fe TagButton borderRadius 8): a comfortably
   // rounded chip — RADIUS_SM(4) read as a flat box on the ~18px chip. CHIP_LINE_HEIGHT (eros_fe height
-  // 1.3 over a 12px caption) + the chip's 5px vertical padding give it a comfortable, even-rounded height.
-  static readonly CHIP_RADIUS: number = 10
+  // 1.3 over a 12px caption) + the chip's 4px vertical padding give it a comfortable, even-rounded height.
+  static readonly CHIP_RADIUS: number = 8
   static readonly CHIP_LINE_HEIGHT: number = 16
   // Comfortable detail-chip vertical padding — the single source for the detail tag chips AND the detail
   // category/type badge, so the badge reads as a peer of the chip family instead of a thinner box. (The
   // dense LIST-card chips deliberately stay snugger at 3px; this token is the comfortable detail scale.)
-  static readonly CHIP_PADDING_V: number = 5
+  static readonly CHIP_PADDING_V: number = 4
   // Comment header badges (UP / community score): align with eros_fe's compact 18px pill grammar while
   // keeping NextE's theme-token styling centralized.
   static readonly COMMENT_BADGE_HEIGHT: number = 18

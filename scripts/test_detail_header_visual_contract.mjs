@@ -67,11 +67,22 @@ ok(!/@Event onRead|readLabel\(\)|detail_read|Button\(this\.readLabel\(\)\)/.test
 
 // 2) Favorite/share actions: secondary title-menu affordances, not fake colored header-heart state.
 const detailMenu = section(detail, 'private detailMenu(): Record<string, Object>', '  // Share the gallery')
+const favoriteIconBlock = section(detail, 'private favoriteTitleBarIcon()', '  private galleryUrl()')
 ok(detailMenu.length > 0, 'detailMenu() exists', FILES.detail)
 ok(
-  /this\.localFavoriteLabel\(\)/.test(detailMenu) &&
-    /this\.isLocalFavorite\(\) \? \$r\('sys\.symbol\.heart_fill'\) : \$r\('sys\.symbol\.heart'\)/.test(detailMenu),
+  /'label': \$r\('app\.string\.detail_favorite'\)/.test(detailMenu) &&
+    /'icon': this\.favoriteTitleBarIcon\(\)/.test(detailMenu) &&
+    /openRemoteFavorite\(\)/.test(detailMenu),
   'favorite action is a stateful title-menu item'
+)
+ok(
+  favoriteIconBlock.length > 0 &&
+    /this\.vm\.gallery\.favcat\.length > 0/.test(favoriteIconBlock) &&
+    /this\.isLocalFavorite\(\)/.test(favoriteIconBlock) &&
+    /sys\.symbol\.heart_fill/.test(favoriteIconBlock) &&
+    /sys\.symbol\.heart'/.test(favoriteIconBlock) &&
+    /favCatColor/.test(favoriteIconBlock),
+  'favorite title-bar icon reflects remote favcat, local favorite, or outline heart'
 )
 ok(
   /detail_share/.test(detailMenu) && /sys\.symbol\.share/.test(detailMenu),
@@ -140,7 +151,7 @@ ok(
 // 7) Shared chip tokens exist in ThemeConstants.
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
 const chipPadV = Number((/CHIP_PADDING_V:\s*number\s*=\s*(\d+)/.exec(theme) || [])[1])
-ok(Number.isFinite(chipPadV) && chipPadV >= 5, `ThemeConstants defines a comfortable CHIP_PADDING_V (>=5); got ${chipPadV}`)
+ok(Number.isFinite(chipPadV) && chipPadV >= 4, `ThemeConstants defines a comfortable CHIP_PADDING_V (>=4); got ${chipPadV}`)
 
 // 8) Long-title stress structure: the title/metadata block is a FLEXIBLE, CLIPPED group so a long title
 // can never push the action row out; the action row is a RESERVED sibling (no Blank spacer that can
