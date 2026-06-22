@@ -1393,10 +1393,6 @@
       "value": "Green"
     },
     {
-      "name": "theme_color_custom",
-      "value": "Custom"
-    },
-    {
       "name": "settings_language",
       "value": "Language"
     },
