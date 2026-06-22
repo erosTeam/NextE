@@ -99,7 +99,7 @@ ok(
     /myTagsTitleBar\(\): Record<string, Object>[\s\S]*mytags_tagset_create[\s\S]*this\.openCreateTagset\(\)/.test(page) &&
     /myTagsTitleBar\(\): Record<string, Object>[\s\S]*mytags_tagset_rename[\s\S]*this\.openRenameTagset\(\)/.test(page) &&
     /myTagsTitleBar\(\): Record<string, Object>[\s\S]*mytags_tagset_delete[\s\S]*this\.confirmDeleteTagset\(\)/.test(page) &&
-    /const items: Record<string, Object>\[\] = \[[\s\S]*addInner[\s\S]*createInner[\s\S]*renameInner/.test(page) &&
+    /if \(this\.showingTagsetList\)[\s\S]*createInner[\s\S]*\} else \{[\s\S]*addInner[\s\S]*renameInner/.test(page) &&
     !/mytags_tagset_manage[\s\S]*gearshape/.test(page),
   'MyTags title menu must expose separate add-tag, create-tagset, rename-current-tagset, and delete-current-tagset actions',
 )

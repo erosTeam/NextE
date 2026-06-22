@@ -26,6 +26,7 @@ import {
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
+  GalleryWebParams,
   MyTagsPageParams,
   connectNavStack,
   immersiveTitleBarOpts,
@@ -408,6 +409,21 @@ export struct MyTagsPage {
 
   private canManageCurrentTagset(): boolean {
     return this.mytags.currentTagset.length > 0 && !this.loading && !this.tagsetSubmitting
+  }
+
+  private myTagsWebUrl(): string {
+    const tagset: string = this.mytags.currentTagset.trim()
+    if (tagset.length === 0) {
+      return `${EhConstants.baseUrl(connectSiteMode().isEx)}/mytags`
+    }
+    return `${EhConstants.baseUrl(connectSiteMode().isEx)}/mytags?tagset=${encodeURIComponent(tagset)}`
+  }
+
+  private openMyTagsWeb(): void {
+    const title: string = this.currentTagsetName().length > 0
+      ? this.currentTagsetName()
+      : AppStrings.get('settings_mytags')
+    this.stack.pushPathByName('GalleryWeb', new GalleryWebParams(this.myTagsWebUrl(), title))
   }
 
   private openCreateTagset(): void {
@@ -797,6 +813,14 @@ export struct MyTagsPage {
         this.openRenameTagset()
       },
     }
+    const webInner: Record<string, Object> = {
+      'label': $r('app.string.mytags_open_web'),
+      'icon': $r('sys.symbol.worldclock'),
+      'isEnabled': !this.loading && !this.showingTagsetList,
+      'action': () => {
+        this.openMyTagsWeb()
+      },
+    }
     const deleteInner: Record<string, Object> = {
       'label': $r('app.string.mytags_tagset_delete'),
       'icon': $r('sys.symbol.trash'),
@@ -810,6 +834,7 @@ export struct MyTagsPage {
       items.push({ 'content': createInner })
     } else {
       items.push({ 'content': addInner })
+      items.push({ 'content': webInner })
       items.push({ 'content': renameInner })
     }
     if (!this.showingTagsetList && this.mytags.canDelete) {
