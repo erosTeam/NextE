@@ -1013,6 +1013,18 @@
       "value": "ExHentai はログインとアクセス権が必要"
     },
     {
+      "name": "site_ex_checking",
+      "value": "ExHentai のアクセス権を確認中…"
+    },
+    {
+      "name": "site_ex_unlocked",
+      "value": "ExHentai に切り替えました"
+    },
+    {
+      "name": "site_ex_no_access",
+      "value": "このアカウントは ExHentai にアクセスできません"
+    },
+    {
       "name": "settings_mytags",
       "value": "マイタグ"
     },

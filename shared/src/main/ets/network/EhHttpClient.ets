@@ -7,6 +7,9 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 export interface EhTextResponse {
   statusCode: number
   body: string
+  // Server Set-Cookie response (HttpResponse.cookies). Used to capture igneous/identity cookies that EH
+  // sets on a response (igneous from exhentai.org/uconfig.php, ipb_* from a forums password login).
+  cookies?: string
 }
 
 const MAX_RETRIES: number = 3
@@ -56,12 +59,13 @@ export class EhHttpClient {
           usingCache: false,
         })
         const code: number = resp.responseCode as number
-        const body: string = typeof resp.result === 'string' ? resp.result as string : ''
+        const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
+        const cookies: string = typeof resp.cookies === 'string' ? resp.cookies : ''
         req.destroy()
         if (code >= 500 && attempt < MAX_RETRIES - 1) {
           lastError = new Error(`HTTP ${code}`)
         } else {
-          return { statusCode: code, body: body }
+          return { statusCode: code, body: body, cookies: cookies }
         }
       } catch (error) {
         const e = error as Error
@@ -72,7 +76,7 @@ export class EhHttpClient {
       attempt++
       await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
     }
-    throw (lastError !== null ? lastError : new Error('request failed'))
+    throw lastError !== null ? lastError : new Error('request failed')
   }
 
   /** POST a JSON body (EH /api.php). Same headers/cookies/retry as getText, plus Content-Type. */
@@ -116,7 +120,7 @@ export class EhHttpClient {
       attempt++
       await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
     }
-    throw (lastError !== null ? lastError : new Error('request failed'))
+    throw lastError !== null ? lastError : new Error('request failed')
   }
 
   /** POST a classic PHP form body. Used by protected EH write endpoints after explicit user confirmation. */
@@ -160,7 +164,7 @@ export class EhHttpClient {
       attempt++
       await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
     }
-    throw (lastError !== null ? lastError : new Error('request failed'))
+    throw lastError !== null ? lastError : new Error('request failed')
   }
 
   async downloadBinaryToFile(url: string, filePath: string): Promise<number> {
@@ -209,7 +213,7 @@ export class EhHttpClient {
       attempt++
       await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
     }
-    throw (lastError !== null ? lastError : new Error('binary request failed'))
+    throw lastError !== null ? lastError : new Error('binary request failed')
   }
 
   async downloadBinaryToFileInStream(
@@ -229,7 +233,10 @@ export class EhHttpClient {
           'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
           'Cookie': EhCookieStore.getInstance().header(),
         }
-        file = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC)
+        file = fs.openSync(
+          filePath,
+          fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC,
+        )
         let written: number = 0
         let progressTotal: number = 0
         req.on('dataReceiveProgress', (info: http.DataReceiveProgressInfo) => {
@@ -263,7 +270,11 @@ export class EhHttpClient {
       } catch (error) {
         const e = error as Error
         lastError = e
-        DiagnosticLogger.warn('network', 'http_binary_stream_retry', `attempt ${attempt}: ${e.message}`)
+        DiagnosticLogger.warn(
+          'network',
+          'http_binary_stream_retry',
+          `attempt ${attempt}: ${e.message}`,
+        )
         req.destroy()
       } finally {
         if (file !== null) {
@@ -273,7 +284,7 @@ export class EhHttpClient {
       attempt++
       await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
     }
-    throw (lastError !== null ? lastError : new Error('binary stream request failed'))
+    throw lastError !== null ? lastError : new Error('binary stream request failed')
   }
 
   private static async writeArrayBuffer(filePath: string, bytes: ArrayBuffer): Promise<number> {

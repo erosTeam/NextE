@@ -25,6 +25,7 @@ import {
 export struct EhSettingsPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local auth: AuthState = connectAuth();
+  @Local switchingSite: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
@@ -39,14 +40,41 @@ export struct EhSettingsPage {
   private toggleSite(): void {
     const ctx: common.UIAbilityContext = this.ctx()
     if (this.siteMode.isEx) {
+      // ExHentai → E-Hentai is always allowed.
       SiteModeSettings.setEx(ctx, false)
-    } else if (this.auth.isLogin && this.auth.hasIgneous) {
-      SiteModeSettings.setEx(ctx, true)
-    } else {
-      this.getUIContext()
-        .getPromptAction()
-        .showToast({ message: $r('app.string.site_ex_locked') })
+      return
     }
+    if (!this.auth.isLogin) {
+      this.toast($r('app.string.site_ex_locked'))
+      return
+    }
+    if (this.auth.hasIgneous) {
+      SiteModeSettings.setEx(ctx, true)
+      return
+    }
+    // Logged in but no igneous yet: fetch it from exhentai.org/uconfig.php (eros_fe getExIgneous), then
+    // switch only if the account actually has ExHentai access.
+    if (this.switchingSite) {
+      return
+    }
+    this.switchingSite = true
+    this.toast($r('app.string.site_ex_checking'))
+    CookieJarSettings.refreshIgneous(ctx)
+      .then((ok: boolean) => {
+        if (ok) {
+          SiteModeSettings.setEx(ctx, true)
+          this.toast($r('app.string.site_ex_unlocked'))
+        } else {
+          this.toast($r('app.string.site_ex_no_access'))
+        }
+      })
+      .finally(() => {
+        this.switchingSite = false
+      })
+  }
+
+  private toast(message: ResourceStr): void {
+    this.getUIContext().getPromptAction().showToast({ message: message })
   }
 
   private confirmLogout(): void {

@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
 import { EhCookieStore } from '../network/EhCookieStore'
+import { EhHttpClient, EhTextResponse } from '../network/EhHttpClient'
 import { EhConstants } from '../constants/EhConstants'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
@@ -64,6 +65,55 @@ export class CookieJarSettings {
       }
     }
     return store.isLogin()
+  }
+
+  /**
+   * Capture auth cookies from a response Set-Cookie blob (HttpResponse.cookies). Regex-extracts each known
+   * auth cookie by name — robust against the comma/newline-joined multi-Set-Cookie string HarmonyOS
+   * returns — and skips the `mystery` igneous placeholder. Does NOT persist; the caller saves.
+   */
+  static applyFromSetCookie(setCookie: string): void {
+    if (setCookie.length === 0) {
+      return
+    }
+    const store: EhCookieStore = EhCookieStore.getInstance()
+    const names: string[] = [
+      EhConstants.COOKIE_MEMBER_ID,
+      EhConstants.COOKIE_PASS_HASH,
+      EhConstants.COOKIE_IGNEOUS,
+      EhConstants.COOKIE_SK,
+      EhConstants.COOKIE_STAR,
+    ]
+    for (const name of names) {
+      const match: RegExpExecArray | null = new RegExp(`${name}=([^;,\\s]+)`).exec(setCookie)
+      if (match !== null && match[1].length > 0 && match[1] !== 'mystery') {
+        store.set(name, match[1])
+      }
+    }
+  }
+
+  /**
+   * Obtain a REAL igneous (ExHentai access) the way eros_fe does (getExIgneous): GET exhentai.org/uconfig.php
+   * with the identity cookies — exhentai responds with `Set-Cookie: igneous=<hash>` for accounts that have
+   * EX access (and `mystery`/nothing otherwise). Capture it, persist, refresh AuthState. Returns true iff a
+   * real igneous is now present (i.e. the account can use ExHentai).
+   */
+  static async refreshIgneous(context: common.UIAbilityContext): Promise<boolean> {
+    try {
+      const resp: EhTextResponse = await EhHttpClient.getInstance().getText(
+        `${EhConstants.EX_BASE_URL}/uconfig.php`,
+      )
+      CookieJarSettings.applyFromSetCookie(resp.cookies !== undefined ? resp.cookies : '')
+      const igneous: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_IGNEOUS)
+      if (igneous.length > 0 && igneous !== 'mystery') {
+        await CookieJarSettings.save(context)
+        return true
+      }
+      return false
+    } catch (error) {
+      DiagnosticLogger.warn('auth', 'refresh_igneous_failed', (error as Error).message)
+      return false
+    }
   }
 
   /** Serialize the COMPLETE jar (every captured cookie, not just the known bundle) for storage. */
