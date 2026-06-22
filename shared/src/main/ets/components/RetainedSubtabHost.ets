@@ -45,6 +45,7 @@ export struct RetainedSubtabHost {
   // Hand the active key's Scroller up so the HDS title auto-hide binds the right list.
   @Event onScrollerReady?: (scroller: Scroller) => void;
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
+  @Local swiperIndex: number = 0;
   private swiperController: SwiperController = new SwiperController();
   private scrollers: Map<string, Scroller> = new Map<string, Scroller>();
   private swiperWidth: number = 0;
@@ -93,6 +94,7 @@ export struct RetainedSubtabHost {
     // active.activeKey === itsKey and loads.
     this.active.activeKey = this.selectedKey
     const restoredIndex: number = this.activeIndex()
+    this.swiperIndex = restoredIndex
     this.ignoreStartupDefaultChange = restoredIndex > 0
     this.onVisualIndex(restoredIndex)
     this.notifyActiveScroller()
@@ -102,8 +104,20 @@ export struct RetainedSubtabHost {
   // publish the active key so that page (cached or not) loads on its first activation.
   @Monitor('selectedKey')
   onSelectedKeyChange(): void {
+    if (this.keys.length <= 0) {
+      return
+    }
+    const from: number = Math.max(0, Math.min(this.keys.length - 1, this.swiperIndex))
+    const target: number = this.activeIndex()
+    if (from === target) {
+      this.swiperIndex = from
+      this.active.activeKey = this.selectedKey
+      this.notifyActiveScroller()
+      return
+    }
+    this.swiperIndex = from
     this.active.activeKey = this.selectedKey
-    this.swiperController.changeIndex(this.activeIndex(), true)
+    this.swiperController.changeIndex(target, true)
     this.notifyActiveScroller()
   }
 
@@ -121,12 +135,14 @@ export struct RetainedSubtabHost {
         (key: string) => key,
       )
     }
-    .index(this.activeIndex())
+    .index(this.swiperIndex)
     // Retain ALL keys (bounded per surface) so any away/back switch keeps that key's list + scroll.
     .cachedCount(this.keys.length)
     .nestedScroll(SwiperNestedScrollMode.SELF_ONLY)
     .indicator(false)
     .loop(false)
+    .duration(ThemeConstants.ANIM_DURATION)
+    .curve(Curve.EaseOut)
     .onGestureSwipe((index: number, extraInfo: SwiperAnimationEvent) => {
       this.onVisualIndex(this.visualFromOffset(index, extraInfo))
     })
@@ -137,7 +153,10 @@ export struct RetainedSubtabHost {
       })
     })
     .onAnimationEnd((index: number, _extraInfo: SwiperAnimationEvent) => {
+      this.swiperIndex = index
       this.onVisualIndex(index)
+      this.active.activeKey = this.keys[index]
+      this.notifyActiveScroller()
     })
     .onChange((i: number) => {
       if (this.ignoreStartupDefaultChange) {
@@ -151,6 +170,7 @@ export struct RetainedSubtabHost {
       if (i < 0 || i >= this.keys.length) {
         return
       }
+      this.swiperIndex = i
       this.onVisualIndex(i)
       const key: string = this.keys[i]
       // Publish the settled key immediately (a swipe lands here) so the page loads on first activation even

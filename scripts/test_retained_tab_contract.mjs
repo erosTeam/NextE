@@ -65,6 +65,14 @@ ok(/onVisualIndex\(/.test(host), 'host publishes the interpolated visual index (
 ok(/onSelectKey\(/.test(host), 'host publishes the selected key back to the surface bus on change')
 ok(/onScrollerReady/.test(host), 'host hands the active key scroller up (title-scroller handoff)')
 ok(!/@Local\s+vm:/.test(host) && !/loadData|setData|\.reload\(/.test(host), 'host owns NO content VM and never loads/replaces data')
+ok(/@Local\s+swiperIndex:\s*number\s*=\s*0/.test(host) &&
+  /\.index\(this\.swiperIndex\)/.test(host) &&
+  !/\.index\(this\.activeIndex\(\)\)/.test(host),
+  'host keeps Swiper.index on a local current index so selectedKey target changes cannot declaratively jump past the animation')
+ok(/changeIndex\(target,\s*true\)/.test(host) &&
+  /\.duration\(ThemeConstants\.ANIM_DURATION\)/.test(host) &&
+  /\.curve\(Curve\.EaseOut\)/.test(host),
+  'bar taps ask Swiper to animate from the local current index to the selected target with the project animation timing')
 // EXPLICIT FIRST-ACTIVATION SIGNAL: the host shares an ActiveKeyState (an @ObservedV2 whose @Trace reaches
 // cached pages) and updates active.activeKey on aboutToAppear + selectedKey change + onChange. A per-render
 // isActive @Param does NOT update cached pages (ForEach stable keys + cachedCount), so the old isActive
@@ -159,12 +167,12 @@ ok(/tab\.label[\s\S]{0,40}?tab\.count/.test(subTabBar), 'SubTabBar ForEach key i
 const barH = Number((/SELECTOR_BAR_HEIGHT:\s*number\s*=\s*(\d+)/.exec(homeState) || [])[1])
 ok(Number.isFinite(barH) && barH <= 40, `SELECTOR_BAR_HEIGHT is not inflated (<=40, matches V2Next TAB_BAR_HEIGHT 38); got ${barH}`)
 ok(
-  /private bottomBuilder\(content:\s*ComponentContent<Object>,\s*height:\s*number\s*=\s*SELECTOR_BAR_HEIGHT\)/.test(indexShell) &&
+  /private bottomBuilder\([\s\S]*content:\s*ComponentContent<Object>,[\s\S]*height:\s*number\s*=\s*SELECTOR_BAR_HEIGHT/.test(indexShell) &&
     /'height':\s*height/.test(indexShell) &&
     /this\.bottomBuilder\(this\.sourceBarContent\)/.test(indexShell) &&
     /this\.bottomBuilder\(this\.favcatBarContent\)/.test(indexShell) &&
     /this\.bottomBuilder\(this\.periodBarContent\)/.test(indexShell) &&
-    /this\.bottomBuilder\(this\.downloadTypeBarContent,\s*DOWNLOAD_SELECTOR_BAR_HEIGHT\)/.test(indexShell),
+    /this\.bottomBuilder\([\s\S]*this\.downloadTypeBarContent,[\s\S]*DOWNLOAD_SELECTOR_BAR_HEIGHT,[\s\S]*\)/.test(indexShell),
   'Index retained-tab bottomBuilders default to SELECTOR_BAR_HEIGHT; download selector is the explicit non-retained exception',
 )
 ok(
