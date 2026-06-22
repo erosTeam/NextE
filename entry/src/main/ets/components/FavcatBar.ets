@@ -11,6 +11,7 @@ import {
   connectLocalFav,
   LocalFavState,
   SubtabSelectionSettings,
+  EhConstants,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -39,11 +40,15 @@ export struct FavcatBar {
   // in the full-screen selector so the horizontal bar remains compact.
   private tabs(): TabItem[] {
     if (!this.auth.isLogin) {
-      return [new TabItem('l', $r('app.string.favorites_local'), this.localFav.count())]
+      return [new TabItem('l', $r('app.string.favorites_local'), this.localFav.count(), EhConstants.favCatColor('l'))]
     }
-    const items: TabItem[] = [new TabItem('a', $r('app.string.favorites_all'), this.fav.remoteTotalCount())]
-    this.fav.favList.forEach((fc: Favcat) => items.push(new TabItem(fc.favId, fc.favTitle)))
-    items.push(new TabItem('l', $r('app.string.favorites_local'), this.localFav.count()))
+    const items: TabItem[] = [
+      new TabItem('a', $r('app.string.favorites_all'), this.fav.remoteTotalCount(), EhConstants.favCatColor('a')),
+    ]
+    this.fav.favList.forEach((fc: Favcat) => {
+      items.push(new TabItem(fc.favId, fc.favTitle, -1, EhConstants.favCatColor(fc.favId)))
+    })
+    items.push(new TabItem('l', $r('app.string.favorites_local'), this.localFav.count(), EhConstants.favCatColor('l')))
     return items
   }
 

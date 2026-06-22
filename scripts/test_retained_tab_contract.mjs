@@ -78,6 +78,8 @@ ok((host.match(/this\.active\.activeKey\s*=/g) || []).length >= 3, 'host updates
 // ── 2. Generic TabItem/key model ─────────────────────────────────────────────────────────────────────
 ok(/export class TabItem/.test(tabItem), 'a generic TabItem model exists (key + label + count)')
 ok(/key:\s*string/.test(tabItem) && /label:\s*ResourceStr/.test(tabItem) && /count:\s*number/.test(tabItem), 'TabItem carries key + label + count')
+ok(/selectedColor:\s*string/.test(tabItem) && /constructor\(key: string, label: ResourceStr, count: number = -1, selectedColor: string = ''\)/.test(tabItem),
+  'TabItem carries an optional selectedColor for colored subtab surfaces')
 ok(/import \{ TabItem \}/.test(subTabBar) && !/class SubTabItem/.test(subTabBar), 'SubTabBar uses the shared TabItem model (no local SubTabItem)')
 
 // ── 3. Home + Toplist USE the shared host (no inline Swiper) ──────────────────────────────────────────
@@ -136,6 +138,12 @@ for (const [name, src, conn] of [
 ok(/@Param\s+scrollable:\s*boolean/.test(subTabBar), 'SubTabBar supports a scrollable mode (favcat overflow)')
 ok(/\.position\(/.test(subTabBar), 'SubTabBar positions ONE sliding indicator (interpolated), not per-tab underlines')
 ok(/@Param\s+visualIndex:\s*number/.test(subTabBar), 'SubTabBar takes the interpolated visualIndex')
+ok(/tabAccentColor\(i: number\): ResourceColor[\s\S]*this\.tabs\[i\]\.selectedColor[\s\S]*ThemeConstants\.BRAND_PRIMARY/.test(subTabBar) &&
+  /this\.selectedIndex\(\) === index[\s\S]*this\.tabAccentColor\(index\)/.test(subTabBar),
+  'SubTabBar selected text can use a per-tab accent color while uncolored surfaces keep brand primary')
+ok(/indicatorColor\(\): ResourceColor[\s\S]*this\.lerpHexColor\(fromColor, toColor, frac\)/.test(subTabBar) &&
+  /\.backgroundColor\(this\.indicatorColor\(\)\)/.test(subTabBar),
+  'SubTabBar indicator color interpolates between adjacent tab selectedColor values during swipe')
 ok(/aboutToAppear\(\): void[\s\S]*this\.centerSelectedTab\(false,\s*true\)/.test(subTabBar),
   'SubTabBar re-centers the restored selected tab on attach, even when visualIndex did not change')
 ok(/pendingCenterIndex/.test(subTabBar) && /pendingCenterSmooth/.test(subTabBar) &&
@@ -189,8 +197,13 @@ ok(/orderByPosted/.test(favPage) && /OrderMenu/.test(favPage), 'FavoritesPage pr
 // FavcatBar specifics: scrollable (many favcats overflow). It shows the synthetic all-favorites count
 // as the remote 0-9 aggregate, while keeping per-slot counts out of the compact horizontal bar.
 ok(/scrollable:\s*true/.test(favcatBar), 'FavcatBar uses the SubTabBar scrollable mode (favcat overflow)')
-ok(/new TabItem\(fc\.favId,\s*fc\.favTitle\)/.test(favcatBar), 'FavcatBar builds tabs from the REAL favcat names (fc.favTitle)')
-ok(/new TabItem\('a',\s*\$r\('app\.string\.favorites_all'\),\s*this\.fav\.remoteTotalCount\(\)\)/.test(favcatBar),
+ok(/new TabItem\(fc\.favId,\s*fc\.favTitle,\s*-1,\s*EhConstants\.favCatColor\(fc\.favId\)\)/.test(favcatBar),
+  'FavcatBar builds tabs from the REAL favcat names (fc.favTitle)')
+ok(/EhConstants\.favCatColor\('a'\)/.test(favcatBar) &&
+  /EhConstants\.favCatColor\(fc\.favId\)/.test(favcatBar) &&
+  /EhConstants\.favCatColor\('l'\)/.test(favcatBar),
+  'FavcatBar passes EH favcat identity colors into SubTabBar for selected text + indicator')
+ok(/new TabItem\('a',\s*\$r\('app\.string\.favorites_all'\),\s*this\.fav\.remoteTotalCount\(\),\s*EhConstants\.favCatColor\('a'\)\)/.test(favcatBar),
   'FavcatBar shows the synthetic all-favorites aggregate count')
 ok(!/new TabItem\(fc\.favId,\s*fc\.favTitle,\s*fc\.totNum\)/.test(favcatBar),
   'FavcatBar keeps per-slot counts out of the compact horizontal bar')

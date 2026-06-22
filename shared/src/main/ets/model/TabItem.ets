@@ -12,10 +12,13 @@ export class TabItem {
   label: ResourceStr = ''
   // Optional trailing total (>=0 shows it, e.g. favcat counts; -1 hides it).
   count: number = -1
+  // Optional selected/indicator accent color. Empty keeps the shared brand color.
+  selectedColor: string = ''
 
-  constructor(key: string, label: ResourceStr, count: number = -1) {
+  constructor(key: string, label: ResourceStr, count: number = -1, selectedColor: string = '') {
     this.key = key
     this.label = label
     this.count = count
+    this.selectedColor = selectedColor
   }
 }

@@ -88,6 +88,64 @@ export struct SubTabBar {
     this.tabWidths = next
   }
 
+  private tabAccentColor(i: number): ResourceColor {
+    if (i >= 0 && i < this.tabs.length && this.tabs[i].selectedColor.length > 0) {
+      return this.tabs[i].selectedColor
+    }
+    return ThemeConstants.BRAND_PRIMARY
+  }
+
+  private indicatorColor(): ResourceColor {
+    const n: number = this.tabs.length
+    if (n <= 0) {
+      return ThemeConstants.BRAND_PRIMARY
+    }
+    const vi: number = Math.max(0, Math.min(n - 1, this.visualIndex))
+    const from: number = Math.floor(vi)
+    const to: number = Math.min(from + 1, n - 1)
+    const frac: number = vi - from
+    const fromColor: string = this.normalizedHex(this.tabs[from].selectedColor)
+    const toColor: string = this.normalizedHex(this.tabs[to].selectedColor)
+    if (fromColor.length > 0 && toColor.length > 0) {
+      return this.lerpHexColor(fromColor, toColor, frac)
+    }
+    if (fromColor.length > 0) {
+      return fromColor
+    }
+    if (toColor.length > 0) {
+      return toColor
+    }
+    return ThemeConstants.BRAND_PRIMARY
+  }
+
+  private normalizedHex(color: string): string {
+    let c: string = color.trim()
+    if (c.length === 0) {
+      return ''
+    }
+    if (c.startsWith('#')) {
+      c = c.substring(1)
+    }
+    if (/^[0-9a-fA-F]{3}$/.test(c)) {
+      c = `${c[0]}${c[0]}${c[1]}${c[1]}${c[2]}${c[2]}`
+    }
+    return /^[0-9a-fA-F]{6}$/.test(c) ? `#${c.toUpperCase()}` : ''
+  }
+
+  private lerpHexColor(fromColor: string, toColor: string, frac: number): string {
+    const a: number = Number.parseInt(fromColor.substring(1), 16)
+    const b: number = Number.parseInt(toColor.substring(1), 16)
+    const r: number = Math.round(((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * frac)
+    const g: number = Math.round(((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * frac)
+    const bl: number = Math.round((a & 255) + ((b & 255) - (a & 255)) * frac)
+    return `#${this.hex2(r)}${this.hex2(g)}${this.hex2(bl)}`
+  }
+
+  private hex2(value: number): string {
+    const s: string = Math.max(0, Math.min(255, value)).toString(16).toUpperCase()
+    return s.length === 1 ? `0${s}` : s
+  }
+
   // Keep the active tab visible (favcat strip can overflow). Centres on the discrete selected tab.
   @Monitor('visualIndex')
   onVisualIndexChange(): void {
@@ -132,7 +190,7 @@ export struct SubTabBar {
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
               .fontColor(
                 this.selectedIndex() === index
-                  ? ThemeConstants.BRAND_PRIMARY
+                  ? this.tabAccentColor(index)
                   : $r('sys.color.font_secondary'),
               )
               .fontWeight(this.selectedIndex() === index ? FontWeight.Medium : FontWeight.Regular)
@@ -142,7 +200,7 @@ export struct SubTabBar {
                 .fontSize(ThemeConstants.FONT_SIZE_TINY)
                 .fontColor(
                   this.selectedIndex() === index
-                    ? ThemeConstants.BRAND_PRIMARY
+                    ? this.tabAccentColor(index)
                     : $r('sys.color.font_tertiary'),
                 )
             }
@@ -167,7 +225,7 @@ export struct SubTabBar {
         // seed chips (label/count are @Builder params, captured at create) — the bar stays "Favorites N / 0"
         // after the parse lands. A string label (favcat name) joins the key so a name/count change rebuilds
         // the chip; Resource labels (Home/Toplist, static) contribute '' and stay stable.
-        (tab: TabItem) => `${tab.key}:${typeof tab.label === 'string' ? tab.label : ''}:${tab.count}`,
+        (tab: TabItem) => `${tab.key}:${typeof tab.label === 'string' ? tab.label : ''}:${tab.count}:${tab.selectedColor}`,
       )
     }
     .padding({ left: BAR_PAD, right: BAR_PAD })
@@ -183,7 +241,7 @@ export struct SubTabBar {
       .width(INDICATOR_W)
       .height(3)
       .borderRadius(1.5)
-      .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+      .backgroundColor(this.indicatorColor())
       .position({ x: this.indicatorLeft(), y: INDICATOR_Y })
       .hitTestBehavior(HitTestMode.None)
   }
