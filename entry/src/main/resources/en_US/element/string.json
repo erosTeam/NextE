@@ -929,6 +929,34 @@
       "value": "Log in with cookie"
     },
     {
+      "name": "settings_login_password",
+      "value": "Password login"
+    },
+    {
+      "name": "password_login_title",
+      "value": "Password login"
+    },
+    {
+      "name": "password_login_hint",
+      "value": "Direct login; may be blocked by Cloudflare — if it fails, use the web login."
+    },
+    {
+      "name": "password_login_username",
+      "value": "Username"
+    },
+    {
+      "name": "password_login_password",
+      "value": "Password"
+    },
+    {
+      "name": "password_login_submit",
+      "value": "Log in"
+    },
+    {
+      "name": "password_login_failed",
+      "value": "Login failed — check your credentials, or it was blocked"
+    },
+    {
       "name": "cookie_import_title",
       "value": "Cookie login"
     },

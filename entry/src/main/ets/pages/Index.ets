@@ -73,6 +73,7 @@ import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
 import { EhLoginWebPage } from './EhLoginWebPage'
 import { EhCookieImportPage } from './EhCookieImportPage'
+import { EhPasswordLoginPage } from './EhPasswordLoginPage'
 import { CoverFallbackProbePage } from './CoverFallbackProbePage'
 import { ImagePageRouteErrorPage } from './ImagePageRouteErrorPage'
 import { GalleryWebPage } from './GalleryWebPage'
@@ -553,6 +554,8 @@ struct Index {
       EhLoginWebPage()
     } else if (name === 'EhCookieImport') {
       EhCookieImportPage()
+    } else if (name === 'EhPasswordLogin') {
+      EhPasswordLoginPage()
     } else if (name === 'MyTags') {
       MyTagsPage()
     } else if (name === 'History') {

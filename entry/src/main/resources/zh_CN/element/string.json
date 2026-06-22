@@ -929,6 +929,34 @@
       "value": "使用 Cookie 登录"
     },
     {
+      "name": "settings_login_password",
+      "value": "密码登录"
+    },
+    {
+      "name": "password_login_title",
+      "value": "密码登录"
+    },
+    {
+      "name": "password_login_hint",
+      "value": "直接登录，可能被 Cloudflare 拦截；失败请改用网页登录。"
+    },
+    {
+      "name": "password_login_username",
+      "value": "用户名"
+    },
+    {
+      "name": "password_login_password",
+      "value": "密码"
+    },
+    {
+      "name": "password_login_submit",
+      "value": "登录"
+    },
+    {
+      "name": "password_login_failed",
+      "value": "登录失败，请检查用户名密码（或被拦截）"
+    },
+    {
       "name": "cookie_import_title",
       "value": "Cookie 登录"
     },

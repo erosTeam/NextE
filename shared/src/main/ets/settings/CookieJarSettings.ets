@@ -227,6 +227,49 @@ export class CookieJarSettings {
     }
   }
 
+  /**
+   * In-app forums password login (eros_fe userLogin). POSTs the credentials to the forums login and reads
+   * the response Set-Cookie for the identity cookies. NOTE: forums.e-hentai.org is often Cloudflare-gated,
+   * so this can 403 on some networks — the WebView login is the reliable path; this is the direct form per
+   * request. Returns true iff the response carried ipb_member_id + ipb_pass_hash (a clean login replaces
+   * the active account). The current account is left untouched on failure.
+   */
+  static async passwordLogin(
+    context: common.UIAbilityContext,
+    username: string,
+    password: string,
+  ): Promise<boolean> {
+    const body: string =
+      `CookieDate=365&UserName=${encodeURIComponent(username)}` +
+      `&PassWord=${encodeURIComponent(password)}&temporary_https=off&submit=Log+me+in`
+    try {
+      const resp: EhTextResponse = await EhHttpClient.getInstance().postLogin(
+        EhConstants.FORUMS_LOGIN_URL,
+        body,
+        'https://forums.e-hentai.org/index.php?act=Login&CODE=00',
+      )
+      const setCookie: string = resp.rawHeader !== undefined ? resp.rawHeader : ''
+      const member: RegExpExecArray | null = new RegExp(
+        `${EhConstants.COOKIE_MEMBER_ID}=([0-9]+)`,
+      ).exec(setCookie)
+      const hash: RegExpExecArray | null = new RegExp(
+        `${EhConstants.COOKIE_PASS_HASH}=([0-9a-f]+)`,
+      ).exec(setCookie)
+      const ok: boolean = member !== null && hash !== null
+      DiagnosticLogger.info('auth', 'password_login', `status=${resp.statusCode} ok=${ok}`)
+      if (ok) {
+        EhCookieStore.getInstance().clear()
+        CookieJarSettings.applyFromSetCookie(setCookie)
+        await CookieJarSettings.save(context)
+        return true
+      }
+      return false
+    } catch (error) {
+      DiagnosticLogger.warn('auth', 'password_login_failed', (error as Error).message)
+      return false
+    }
+  }
+
   /** Push the jar's login facts into the reactive AuthState (non-sensitive fields only). */
   static syncAuthState(): void {
     const store: EhCookieStore = EhCookieStore.getInstance()

@@ -171,6 +171,43 @@ export class EhHttpClient {
     throw lastError !== null ? lastError : new Error('request failed')
   }
 
+  /**
+   * POST the forums password-login form (single attempt). Sends a Referer + urlencoded body and returns
+   * the FULL response header (rawHeader) so the caller can capture the Set-Cookie identity cookies — the
+   * login succeeds iff that header carries ipb_member_id + ipb_pass_hash.
+   */
+  async postLogin(url: string, body: string, referer: string): Promise<EhTextResponse> {
+    const req: http.HttpRequest = http.createHttp()
+    try {
+      const header: Record<string, string> = {
+        'User-Agent': EhConstants.USER_AGENT,
+        'Accept': EhConstants.ACCEPT,
+        'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+        'Accept-Encoding': 'gzip',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Referer': referer,
+        'Cookie': EhCookieStore.getInstance().header(),
+      }
+      const resp: http.HttpResponse = await req.request(url, {
+        method: http.RequestMethod.POST,
+        header: header,
+        extraData: body,
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: CONNECT_TIMEOUT_MS,
+        readTimeout: READ_TIMEOUT_MS,
+        usingCache: false,
+      })
+      const code: number = resp.responseCode as number
+      const respBody: string = typeof resp.result === 'string' ? (resp.result as string) : ''
+      const rawHeader: string = JSON.stringify(resp.header)
+      req.destroy()
+      return { statusCode: code, body: respBody, rawHeader: rawHeader }
+    } catch (error) {
+      req.destroy()
+      throw error as Error
+    }
+  }
+
   async downloadBinaryToFile(url: string, filePath: string): Promise<number> {
     let attempt: number = 0
     let lastError: Error | null = null

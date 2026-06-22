@@ -135,6 +135,14 @@ export struct AccountPage {
       })
       this.rowDivider()
       ConciseListRow({
+        title: $r('app.string.settings_login_password'),
+        leadingIcon: $r('sys.symbol.lock'),
+        action: () => {
+          this.stack.pushPathByName('EhPasswordLogin', null)
+        },
+      })
+      this.rowDivider()
+      ConciseListRow({
         title: $r('app.string.settings_login_cookie'),
         leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
         action: () => {

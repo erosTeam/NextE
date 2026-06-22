@@ -929,6 +929,34 @@
       "value": "Cookie でログイン"
     },
     {
+      "name": "settings_login_password",
+      "value": "パスワードログイン"
+    },
+    {
+      "name": "password_login_title",
+      "value": "パスワードログイン"
+    },
+    {
+      "name": "password_login_hint",
+      "value": "直接ログイン。Cloudflare にブロックされる場合があります。失敗時はウェブログインをご利用ください。"
+    },
+    {
+      "name": "password_login_username",
+      "value": "ユーザー名"
+    },
+    {
+      "name": "password_login_password",
+      "value": "パスワード"
+    },
+    {
+      "name": "password_login_submit",
+      "value": "ログイン"
+    },
+    {
+      "name": "password_login_failed",
+      "value": "ログインに失敗しました（認証情報を確認、またはブロック）"
+    },
+    {
       "name": "cookie_import_title",
       "value": "Cookie ログイン"
     },
