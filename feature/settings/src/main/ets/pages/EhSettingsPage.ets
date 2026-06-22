@@ -146,7 +146,6 @@ export struct EhSettingsPage {
             Column() {
               ConciseListRow({
                 title: $r('app.string.settings_site'),
-                subtitle: $r('app.string.eh_settings_site_hint'),
                 leadingIcon: $r('sys.symbol.house_fill'),
                 trailingText: this.siteLabel(),
                 trailingDropdown: true,

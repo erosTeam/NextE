@@ -782,15 +782,11 @@
     },
     {
       "name": "settings_site",
-      "value": "站点"
+      "value": "站点切换"
     },
     {
       "name": "settings_eh",
       "value": "EH"
-    },
-    {
-      "name": "eh_settings_site_hint",
-      "value": "按当前账号权限选择 E-Hentai 或 ExHentai"
     },
     {
       "name": "eh_settings_login_hint",
