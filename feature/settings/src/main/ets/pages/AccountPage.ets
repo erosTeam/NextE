@@ -216,6 +216,7 @@ export struct AccountPage {
           GroupedListSection() {
             ConciseListRow({
               title: $r('app.string.settings_logout'),
+              leadingIcon: $r('sys.symbol.arrow_right_to_line'),
               destructive: true,
               showChevron: false,
               action: () => {
