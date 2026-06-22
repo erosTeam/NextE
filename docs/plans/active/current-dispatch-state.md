@@ -153,25 +153,7 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. Reader loading-state isolation and cached page-turn presentation. This is a fresh P1 regression from
-   user runtime feedback and temporarily preempts FE parity work. No normal Reader loading/resolving
-   indicator may be stacked over a currently visible image, including HTML/image resolving, jumping, cached
-   forward turns, horizontal, vertical, or double-page modes. Fix the state model so loading is mutually
-   exclusive with readable image presentation, and so a cached/pre-resolved next page does not flash black
-   before painting. The same lane must also fix preview-page boundary swiping: the user must be able to swipe
-   past EH preview-page boundaries such as page 40/80 without using tap navigation as a fallback. Pager
-   reachability must come from total page count, not only from the currently loaded preview/image array.
-   Before closing, produce a Reader state-model audit covering swipe, tap-zone, slider, thumbnail strip,
-   auto-read, vertical mode, double-page mode, far jump, prefetch, cache-hit presentation, and failure/retry
-   paths. Do not bundle Reader gesture redesign, double-page architecture, thumbnail strip, auto-read, or
-   offline download work into this lane.
-   Compaction anti-loop rule: the Reader model problem has already been sufficiently identified. Do not spend
-   another turn re-researching from scratch. The minimum accepted model is: pager reachability comes from
-   `totalPages/fileCount`; preview metadata may be sparse per index; resolving/full image URL and bitmap-ready
-   presentation are separate states; swipe/tap/slider/thumbnail/auto-read must enter the same target-page
-   loading path; missing/intermediate preview metadata is loading, not failure. The next main-thread turn must
-   either implement this bounded model or report a concrete compile/API blocker.
-2. App storage architecture: cache, durable local data, and settings backup/import. Define the taxonomy and
+1. App storage architecture: cache, durable local data, and settings backup/import. Define the taxonomy and
    implement the first bounded storage slice after the current Reader state-model fix. Cover the boundary
    between disposable cache (image bytes, HTML/resolve metadata, gallery-detail snapshots), durable local data
    (search/viewed history, read progress, local favorites, QuickSearch/tag-translation-ready tables), and small
@@ -180,14 +162,14 @@ a bounded validation path.
    rollback/secret-denylist model for settings import/export. User-facing cache clearing must not delete
    history/progress/local favorites/downloads unless the UI names that destructive category. Do not bundle
    download/offline Reader, full WebDAV/cloud sync, or every store migration into the first slice.
-3. Tag translation database and localized search candidates. User-visible
+2. Tag translation database and localized search candidates. User-visible
    benefit: Chinese/localized tag understanding and search candidate quality, instead of the current tiny
    hardcoded `TagTranslationService` stub. Scope this first lane to the smallest real FE-parity slice:
    replace/extend the stub with the real tag-translation data source or import path, support raw tag ->
    localized display lookup, and feed localized matches into the existing search candidate area with raw
    exact tag insertion. Do not bundle QuickSearch, image search, saved-query management, MyTags write flows,
    or a redesigned SearchFilter into this lane.
-4. Smart-grip / action-alignment support for the gallery detail read/resume action. Run this after the tag
+3. Smart-grip / action-alignment support for the gallery detail read/resume action. Run this after the tag
    translation lane unless the user explicitly redirects. Reuse the Next2V motion-hand/alignment model with
    fixed-left/fixed-right/follow-operation fallback, and do not reopen Home bottom-tab auto-hide.
 
@@ -209,6 +191,14 @@ first user-visible slice; do not replace it with pending-acceptance rechecks.
 
 ## Recently Closed / Pending Acceptance
 
+- Reader loading-state isolation / cached page-turn presentation / preview-page boundary swiping is
+  implemented by `8a07354 fix(reader): stabilize boundary page loading`. The fix keeps pager reachability
+  based on `totalPages/fileCount`, stores preview metadata sparsely by page index, unifies page-change
+  loading for swipe/tap/jump-style entry points, and adds true cached image display hits with in-flight
+  download joining. Contracts, V1 inventory, official signed build, install on local emulator
+  `127.0.0.1:5555`, fixed gallery deep-link entry to P41, and local logs for the `39 -> 40` preview-page
+  boundary swipe passed. Status: pending controller/user acceptance for visual one-frame flash perception
+  and the wider vertical/double-page/slider/thumbnail/auto-read/failure-retry matrix.
 - Gallery comment vote state closure is implemented by `f7944f4 fix(comments): support vote cancellation`.
   It covers upvote, downvote, withdraw upvote, and withdraw downvote: all four actions use action-specific
   confirmation copy, optimistic row score/icon update, neutral `comment_vote=0` parsing, returned
