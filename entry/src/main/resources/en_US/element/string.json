@@ -305,6 +305,30 @@
       "value": "Blur off-aspect covers' background instead of a color gradient"
     },
     {
+      "name": "settings_action_alignment",
+      "value": "Read button alignment"
+    },
+    {
+      "name": "settings_action_alignment_hint",
+      "value": "Align the Read button to your holding hand for one-handed reach"
+    },
+    {
+      "name": "smart_grip",
+      "value": "Smart grip"
+    },
+    {
+      "name": "follow_operation",
+      "value": "Follow operation"
+    },
+    {
+      "name": "fixed_left",
+      "value": "Fixed left"
+    },
+    {
+      "name": "fixed_right",
+      "value": "Fixed right"
+    },
+    {
       "name": "settings_home_tab_auto_hide",
       "value": "Auto-hide bottom tabs"
     },

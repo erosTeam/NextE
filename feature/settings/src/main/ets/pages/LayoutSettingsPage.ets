@@ -26,6 +26,11 @@ import {
   connectListMode,
   connectThumbnailMode,
   connectCoverBackground,
+  ActionAlignmentSettings,
+  ActionAlignmentState,
+  ActionAlignmentOption,
+  connectActionAlignment,
+  MotionHandStateService,
   immersiveTitleBar,
 } from 'shared'
 
@@ -42,7 +47,9 @@ export struct LayoutSettingsPage {
   @Local coverBg: CoverBackgroundState = connectCoverBackground();
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  @Local actionAlign: ActionAlignmentState = connectActionAlignment();
   @Local viewMenuShown: boolean = false;
+  @Local actionAlignMenuShown: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
@@ -85,6 +92,19 @@ export struct LayoutSettingsPage {
 
   private setBlurringOfCoverBackground(value: boolean): void {
     CoverBackgroundSettings.setBlurringOfCoverBackground(this.ctx(), value)
+  }
+
+  private actionAlignmentLabel(): ResourceStr {
+    return ActionAlignmentSettings.modeLabel(
+      this.actionAlign.alignmentMode,
+      this.actionAlign.holdingHandSupported,
+    )
+  }
+
+  private setActionAlignmentMode(mode: string): void {
+    ActionAlignmentSettings.save(this.ctx(), mode)
+    MotionHandStateService.applyAlignmentMode(mode)
+    this.actionAlignMenuShown = false
   }
 
   private setHorizontalThumbnails(value: boolean): void {
@@ -142,6 +162,30 @@ export struct LayoutSettingsPage {
           this.setViewMode(ListMode.WATERFALL)
           this.viewMenuShown = false
         })
+    }
+  }
+
+  @Builder
+  ActionAlignmentMenu() {
+    Menu() {
+      ForEach(
+        ActionAlignmentSettings.availableOptions(this.actionAlign.holdingHandSupported),
+        (option: ActionAlignmentOption) => {
+          MenuItem({
+            content: option.label,
+            symbolEndIcon:
+              ActionAlignmentSettings.effectiveMode(
+                this.actionAlign.alignmentMode,
+                this.actionAlign.holdingHandSupported,
+              ) === option.mode
+                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+                : undefined,
+          }).onClick(() => {
+            this.setActionAlignmentMode(option.mode)
+          })
+        },
+        (option: ActionAlignmentOption) => option.mode,
+      )
     }
   }
 
@@ -220,6 +264,25 @@ export struct LayoutSettingsPage {
                 checked: this.homeTab.autoHide,
                 switchAction: (value: boolean) => {
                   this.setHomeTabAutoHide(value)
+                },
+              })
+              this.rowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_action_alignment'),
+                  subtitle: $r('app.string.settings_action_alignment_hint'),
+                  leadingIcon: $r('sys.symbol.doc_plaintext'),
+                  trailingText: this.actionAlignmentLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.actionAlignMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.actionAlignMenuShown, this.ActionAlignmentMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.actionAlignMenuShown = false
                 },
               })
             }

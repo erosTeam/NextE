@@ -25,7 +25,11 @@ export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
 export { EhGalleryComment } from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'
 export { EhGalleryTorrent, EhGalleryTorrentList } from './model/EhGalleryTorrent'
-export { EhGalleryArchiverItem, EhGalleryArchiverQuote, EhGalleryArchiverSubmitResult } from './model/EhGalleryArchiver'
+export {
+  EhGalleryArchiverItem,
+  EhGalleryArchiverQuote,
+  EhGalleryArchiverSubmitResult,
+} from './model/EhGalleryArchiver'
 export { GalleryList } from './model/GalleryList'
 export {
   GalleryDetailParams,
@@ -99,6 +103,7 @@ export {
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 export { TagTranslationService, TagTranslationStatus } from './services/TagTranslationService'
 export { CoverColorService } from './services/CoverColorService'
+export { MotionHandStateService, MotionHandEdge } from './services/MotionHandStateService'
 
 // network
 export { EhCookieStore } from './network/EhCookieStore'
@@ -135,6 +140,11 @@ export { DiagnosticLogger } from './diagnostics/DiagnosticLogger'
 
 // utils
 export { ReaderImageTransformCoordinator } from './utils/ReaderImageTransformCoordinator'
+export {
+  ActionFollowTouchTracker,
+  ActionFollowTouchState,
+  ActionFollowTouchUpdate,
+} from './utils/ActionFollowTouchTracker'
 
 // state holders (AppStorageV2)
 export { NavStackHolder, connectNavStack } from './state/NavStackHolder'
@@ -168,6 +178,8 @@ export {
 export { DownloadQueueState, connectDownloadQueue } from './state/DownloadQueueState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { CoverBackgroundState, connectCoverBackground } from './state/CoverBackgroundState'
+export { ActionAlignmentState, connectActionAlignment } from './state/ActionAlignmentState'
+export { ActionHandEdgeState, connectActionHandEdge } from './state/ActionHandEdgeState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
 export { LocalFavState, connectLocalFav } from './state/LocalFavState'
 export {
@@ -238,6 +250,11 @@ export { GalleryTitleSettings } from './settings/GalleryTitleSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
 export { ThumbnailModeSettings } from './settings/ThumbnailModeSettings'
 export { CoverBackgroundSettings } from './settings/CoverBackgroundSettings'
+export {
+  ActionAlignmentSettings,
+  ActionAlignmentMode,
+  ActionAlignmentOption,
+} from './settings/ActionAlignmentSettings'
 export { SearchHistorySettings } from './settings/SearchHistorySettings'
 export { SearchFilterSettings, SearchFilterSnapshot } from './settings/SearchFilterSettings'
 export { FavcatListSettings } from './settings/FavcatListSettings'

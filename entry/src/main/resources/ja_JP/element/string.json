@@ -305,6 +305,30 @@
       "value": "縦横比が異なる表紙の背景を、色グラデーションの代わりにぼかします"
     },
     {
+      "name": "settings_action_alignment",
+      "value": "読むボタンの配置"
+    },
+    {
+      "name": "settings_action_alignment_hint",
+      "value": "片手で持つとき、読むボタンを持つ手側に寄せます"
+    },
+    {
+      "name": "smart_grip",
+      "value": "スマートグリップ"
+    },
+    {
+      "name": "follow_operation",
+      "value": "操作に追従"
+    },
+    {
+      "name": "fixed_left",
+      "value": "左に固定"
+    },
+    {
+      "name": "fixed_right",
+      "value": "右に固定"
+    },
+    {
       "name": "settings_home_tab_auto_hide",
       "value": "下部タブを自動的に隠す"
     },

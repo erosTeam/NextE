@@ -56,6 +56,12 @@ import {
   immersiveTitleBarOpts,
   connectTagTranslationSettings,
   TagTranslationSettingsState,
+  ActionHandEdgeState,
+  connectActionHandEdge,
+  MotionHandStateService,
+  ActionFollowTouchTracker,
+  ActionFollowTouchState,
+  ActionFollowTouchUpdate,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { GalleryHeaderCard } from '../components/GalleryHeaderCard'
@@ -67,6 +73,10 @@ import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
 const DETAIL_SHEET_REMOTE_FAVORITE: string = 'remoteFavorite'
 const DETAIL_SHEET_RATING: string = 'rating'
 const DETAIL_SHEET_FULL_TITLE: string = 'fullTitle'
+// followOperation touch heuristics: a drag counts as a scroll (→ report the operating side) only once its
+// vertical movement clearly dominates, so a tap on content doesn't yank the floating Read button sideways.
+const FOLLOW_OPERATION_VERTICAL_SCROLL_THRESHOLD: number = 12
+const FOLLOW_OPERATION_VERTICAL_DOMINANCE_RATIO: number = 1.2
 
 /**
  * Gallery detail (eros_fe page structure, native HDS rendering). Section order mirrors eros_fe:
@@ -100,6 +110,15 @@ export struct GalleryDetailPage {
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local favoriteSlotCache: RemoteFavoriteSlotCacheState = connectRemoteFavoriteSlotCache();
+  // Resolved Read-FAB hand edge (smart-grip / follow-operation / fixed). visualActionEdge mirrors it and
+  // drives a smooth .translate() slide; root/button widths convert the discrete edge into a continuous X.
+  @Local actionEdge: ActionHandEdgeState = connectActionHandEdge();
+  // Seed from the CURRENT resolved edge (the service resolves it at startup, before this page mounts), so a
+  // page opened while the edge is already 'left' starts left — @Monitor only fires on later changes.
+  @Local visualActionEdge: string = connectActionHandEdge().edge;
+  @Local detailRootWidth: number = 0;
+  @Local readFabWidth: number = 0;
+  private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
   @Local detailSheetShown: boolean = false;
   @Local detailSheetKind: string = '';
   @Local remoteFavoriteSelectedCat: string = '';
@@ -113,6 +132,43 @@ export struct GalleryDetailPage {
   @Local ratingError: string = '';
   private ratingOptions: number[] = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
   private stack: NavPathStack = connectNavStack().stack;
+
+  // Smooth-slide the Read FAB when the resolved edge changes. FlexAlign can't tween, so the button carries
+  // .animation() on its translate and we only flip the target edge here (mirrors V2Next's edge @Monitor).
+  @Monitor('actionEdge.edge')
+  private onActionEdgeChanged(): void {
+    this.visualActionEdge = this.actionEdge.edge
+  }
+
+  // Continuous X for the Read FAB inside the padded full-width rail: left edge = 0 (Start), right edge =
+  // inner width − button width. Interpolated by the button's .animation().
+  private readFabVisualX(): number {
+    if (this.visualActionEdge === 'left') {
+      return 0
+    }
+    const inner: number = this.detailRootWidth - ThemeConstants.SPACE_LG * 2
+    return Math.max(0, inner - this.readFabWidth)
+  }
+
+  // followOperation mode: a scroll-like drag reports its start X so the button hops to the operating side.
+  private handleFollowTouch(event: TouchEvent): void {
+    if (event.touches.length === 0) {
+      return
+    }
+    const touch: TouchObject = event.touches[0]
+    const update: ActionFollowTouchUpdate = ActionFollowTouchTracker.update(
+      this.followTouchState,
+      event.type,
+      touch.x,
+      touch.y,
+      FOLLOW_OPERATION_VERTICAL_SCROLL_THRESHOLD,
+      FOLLOW_OPERATION_VERTICAL_DOMINANCE_RATIO,
+    )
+    this.followTouchState = update.state
+    if (update.shouldReport) {
+      MotionHandStateService.reportFollowOperationX(update.reportX, this.detailRootWidth)
+    }
+  }
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
   // Pending 5s viewed-history timer (eros_fe delays addHistory 5s after open so a quick bounce isn't
@@ -261,18 +317,24 @@ export struct GalleryDetailPage {
 
   private isGalleryQueued(): boolean {
     const gid: string = this.vm.gallery.gid.length > 0 ? this.vm.gallery.gid : this.params.gid
-    const token: string = this.vm.gallery.token.length > 0 ? this.vm.gallery.token : this.params.token
+    const token: string =
+      this.vm.gallery.token.length > 0 ? this.vm.gallery.token : this.params.token
     return this.downloadQueue.galleryTasks.some((task: DownloadGalleryTask) => {
       return task.gid === gid && task.token === token
     })
   }
 
   private downloadTitle(): Resource {
-    return this.isGalleryQueued() ? $r('app.string.download_status_queued') : $r('app.string.detail_download')
+    return this.isGalleryQueued()
+      ? $r('app.string.download_status_queued')
+      : $r('app.string.detail_download')
   }
 
   private currentGalleryForLocalFav(): EhGallery {
-    const g: EhGallery = this.vm.gallery.gid.length > 0 ? this.vm.gallery.copy() : new EhGallery(this.params.gid, this.params.token)
+    const g: EhGallery =
+      this.vm.gallery.gid.length > 0
+        ? this.vm.gallery.copy()
+        : new EhGallery(this.params.gid, this.params.token)
     if (g.thumbUrl.length === 0) {
       g.thumbUrl = this.params.thumbUrl
     }
@@ -301,7 +363,9 @@ export struct GalleryDetailPage {
   }
 
   private localFavoriteActionLabel(): Resource {
-    return this.isLocalFavorite() ? $r('app.string.detail_remove_local_favorite') : $r('app.string.detail_add_local_favorite')
+    return this.isLocalFavorite()
+      ? $r('app.string.detail_remove_local_favorite')
+      : $r('app.string.detail_add_local_favorite')
   }
 
   private async toggleLocalFavorite(): Promise<void> {
@@ -314,9 +378,12 @@ export struct GalleryDetailPage {
       await LocalFavSettings.add(this.ctx(), this.currentGalleryForLocalFav())
       message = $r('app.string.detail_local_favorite_added')
     }
-    this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {
-      // Persistence already completed; toast failure should not roll back local favorite state.
-    })
+    this.getUIContext()
+      .getPromptAction()
+      .openToast({ message: message })
+      .catch((_error: Error) => {
+        // Persistence already completed; toast failure should not roll back local favorite state.
+      })
   }
 
   private confirmRemoveLocalFavorite(): void {
@@ -373,10 +440,12 @@ export struct GalleryDetailPage {
   }
 
   private canSubmitRating(): boolean {
-    return !this.ratingSubmitting &&
+    return (
+      !this.ratingSubmitting &&
       this.ratingSelected > 0 &&
       this.vm.gallery.apikey.length > 0 &&
       this.vm.gallery.apiuid.length > 0
+    )
   }
 
   private ratingLabel(value: number): string {
@@ -394,11 +463,15 @@ export struct GalleryDetailPage {
   }
 
   private ratingOptionBackground(value: number): ResourceColor {
-    return this.ratingSelected === value ? $r('app.color.card_background') : $r('sys.color.ohos_id_color_sub_background')
+    return this.ratingSelected === value
+      ? $r('app.color.card_background')
+      : $r('sys.color.ohos_id_color_sub_background')
   }
 
   private ratingOptionTextColor(value: number): ResourceColor {
-    return this.ratingSelected === value ? $r('sys.color.font_emphasize') : $r('sys.color.font_primary')
+    return this.ratingSelected === value
+      ? $r('sys.color.font_emphasize')
+      : $r('sys.color.font_primary')
   }
 
   private async submitRating(): Promise<void> {
@@ -418,11 +491,15 @@ export struct GalleryDetailPage {
         result.colorRating,
       )
       this.closeDetailSheet()
-      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.detail_rate_success') })
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({ message: $r('app.string.detail_rate_success') })
         .catch((_error: Error) => {})
     } catch (err) {
       this.ratingError = EhErrorText.forUser(err)
-      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.detail_rate_failed') })
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({ message: $r('app.string.detail_rate_failed') })
         .catch((_error: Error) => {})
     } finally {
       this.ratingSubmitting = false
@@ -444,13 +521,16 @@ export struct GalleryDetailPage {
       this.vm.images,
       this.vm.previewPageCount,
     )
-    this.getUIContext().getPromptAction().openToast({
-      message: inserted
-        ? $r('app.string.download_gallery_added')
-        : $r('app.string.download_gallery_already_queued'),
-    }).catch((_error: Error) => {
-      // The queue state has already been written; toast failure should not undo the user action.
-    })
+    this.getUIContext()
+      .getPromptAction()
+      .openToast({
+        message: inserted
+          ? $r('app.string.download_gallery_added')
+          : $r('app.string.download_gallery_already_queued'),
+      })
+      .catch((_error: Error) => {
+        // The queue state has already been written; toast failure should not undo the user action.
+      })
   }
 
   private openThumbnails(): void {
@@ -569,12 +649,14 @@ export struct GalleryDetailPage {
 
   private favoriteTitleBarIcon(): Resource | SymbolGlyphModifier {
     if (this.vm.gallery.favcat.length > 0) {
-      return new SymbolGlyphModifier($r('sys.symbol.heart_fill'))
-        .fontColor([EhConstants.favCatColor(this.vm.gallery.favcat)])
+      return new SymbolGlyphModifier($r('sys.symbol.heart_fill')).fontColor([
+        EhConstants.favCatColor(this.vm.gallery.favcat),
+      ])
     }
     if (this.isLocalFavorite()) {
-      return new SymbolGlyphModifier($r('sys.symbol.heart_fill'))
-        .fontColor([EhConstants.favCatColor('l')])
+      return new SymbolGlyphModifier($r('sys.symbol.heart_fill')).fontColor([
+        EhConstants.favCatColor('l'),
+      ])
     }
     return $r('sys.symbol.heart')
   }
@@ -591,10 +673,12 @@ export struct GalleryDetailPage {
     try {
       await this.vm.refresh()
     } catch (_error) {
-      this.getUIContext().getPromptAction().openToast({
-        message: $r('app.string.common_refresh_failed'),
-      }).catch((_toastError: Error) => {
-      })
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({
+          message: $r('app.string.common_refresh_failed'),
+        })
+        .catch((_toastError: Error) => {})
     } finally {
       this.detailRefreshInFlight = false
     }
@@ -619,13 +703,17 @@ export struct GalleryDetailPage {
     try {
       const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, content)
       pasteboard.getSystemPasteboard().setDataSync(data)
-      this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {
-      })
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({ message: message })
+        .catch((_error: Error) => {})
     } catch (_error) {
-      this.getUIContext().getPromptAction().openToast({
-        message: $r('app.string.error_http'),
-      }).catch((_toastError: Error) => {
-      })
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({
+          message: $r('app.string.error_http'),
+        })
+        .catch((_toastError: Error) => {})
     }
   }
 
@@ -646,12 +734,16 @@ export struct GalleryDetailPage {
 
   private openExternalBrowser(): void {
     const want: Want = { action: 'ohos.want.action.viewData', uri: this.galleryUrl() }
-    this.ctx().startAbility(want).catch((_error: Error) => {
-      this.getUIContext().getPromptAction().openToast({
-        message: $r('app.string.error_http'),
-      }).catch((_toastError: Error) => {
+    this.ctx()
+      .startAbility(want)
+      .catch((_error: Error) => {
+        this.getUIContext()
+          .getPromptAction()
+          .openToast({
+            message: $r('app.string.error_http'),
+          })
+          .catch((_toastError: Error) => {})
       })
-    })
   }
 
   private openInternalWeb(): void {
@@ -664,7 +756,12 @@ export struct GalleryDetailPage {
   private openEditTags(): void {
     this.stack.pushPathByName(
       'GalleryEditTags',
-      new GalleryEditTagsParams(this.params.gid, this.params.token, connectSiteMode().isEx, this.navTitle()),
+      new GalleryEditTagsParams(
+        this.params.gid,
+        this.params.token,
+        connectSiteMode().isEx,
+        this.navTitle(),
+      ),
     )
   }
 
@@ -707,7 +804,7 @@ export struct GalleryDetailPage {
         info.favcats.findIndex((fav: Favcat) => fav.favId === this.remoteFavoriteSelectedCat) >= 0
       const currentStillExists: boolean =
         this.vm.gallery.favcat.length > 0 &&
-          info.favcats.findIndex((fav: Favcat) => fav.favId === this.vm.gallery.favcat) >= 0
+        info.favcats.findIndex((fav: Favcat) => fav.favId === this.vm.gallery.favcat) >= 0
       if (this.vm.gallery.favcat.length > 0 && info.selectFavcat.length > 0) {
         this.remoteFavoriteSelectedCat = info.selectFavcat
       } else if (currentStillExists) {
@@ -735,7 +832,8 @@ export struct GalleryDetailPage {
     const favcat: string =
       this.remoteFavoriteSelectedCat.length > 0 ? this.remoteFavoriteSelectedCat : 'favdel'
     const nextFavcat: string = favcat === 'favdel' ? '' : favcat
-    const nextFavTitle: string = nextFavcat.length > 0 ? this.remoteFavoriteTitleFor(nextFavcat) : ''
+    const nextFavTitle: string =
+      nextFavcat.length > 0 ? this.remoteFavoriteTitleFor(nextFavcat) : ''
     const nextFavNote: string = nextFavcat.length > 0 ? this.remoteFavoriteNote.trim() : ''
     const previousFavcat: string = this.vm.gallery.favcat
     const previousFavTitle: string = this.vm.gallery.favTitle
@@ -756,20 +854,29 @@ export struct GalleryDetailPage {
       await this.vm.refresh()
       this.vm.applyRemoteFavoriteState(nextFavcat, nextFavTitle, nextFavNote)
       this.favoriteMutation.publish(this.params.gid, nextFavcat, nextFavTitle, nextFavNote)
-      this.getUIContext().getPromptAction().openToast({
-        message: $r('app.string.detail_remote_favorite_saved'),
-      }).catch((_toastError: Error) => {
-      })
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({
+          message: $r('app.string.detail_remote_favorite_saved'),
+        })
+        .catch((_toastError: Error) => {})
     } catch (e) {
       this.remoteFavoriteError = EhErrorText.forUser(e)
       this.vm.applyRemoteFavoriteState(previousFavcat, previousFavTitle, previousFavNote)
-      this.favoriteMutation.publish(this.params.gid, previousFavcat, previousFavTitle, previousFavNote)
+      this.favoriteMutation.publish(
+        this.params.gid,
+        previousFavcat,
+        previousFavTitle,
+        previousFavNote,
+      )
       this.remoteFavoriteSelectedCat = previousFavcat
       this.remoteFavoriteNote = previousFavNote
-      this.getUIContext().getPromptAction().openToast({
-        message: this.remoteFavoriteError,
-      }).catch((_toastError: Error) => {
-      })
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({
+          message: this.remoteFavoriteError,
+        })
+        .catch((_toastError: Error) => {})
     } finally {
       this.remoteFavoriteSubmitting = false
     }
@@ -784,7 +891,9 @@ export struct GalleryDetailPage {
   }
 
   private remoteFavoriteSelectedTitle(): string {
-    const index: number = this.remoteFavoriteSlots.findIndex((fav: Favcat) => fav.favId === this.remoteFavoriteSelectedCat)
+    const index: number = this.remoteFavoriteSlots.findIndex(
+      (fav: Favcat) => fav.favId === this.remoteFavoriteSelectedCat,
+    )
     return index >= 0 ? this.remoteFavoriteSlots[index].favTitle : ''
   }
 
@@ -813,8 +922,11 @@ export struct GalleryDetailPage {
     if (this.remoteFavoriteSelectedCat === 'favdel') {
       return Color.Red
     }
-    if (this.remoteFavoriteSelectedCat.length > 0 &&
-      (this.vm.gallery.favcat.length === 0 || this.remoteFavoriteSelectedCat !== this.vm.gallery.favcat)) {
+    if (
+      this.remoteFavoriteSelectedCat.length > 0 &&
+      (this.vm.gallery.favcat.length === 0 ||
+        this.remoteFavoriteSelectedCat !== this.vm.gallery.favcat)
+    ) {
       return $r('sys.color.font_primary')
     }
     return $r('sys.color.font_secondary')
@@ -876,7 +988,10 @@ export struct GalleryDetailPage {
           Column({ space: ThemeConstants.SPACE_MD }) {
             this.TitleReadBlock($r('app.string.detail_display_title'), this.primaryDetailTitle())
             if (this.secondaryDetailTitle().length > 0) {
-              this.TitleReadBlock($r('app.string.detail_alternate_title'), this.secondaryDetailTitle())
+              this.TitleReadBlock(
+                $r('app.string.detail_alternate_title'),
+                this.secondaryDetailTitle(),
+              )
             }
           }
           .width('100%')
@@ -951,16 +1066,14 @@ export struct GalleryDetailPage {
               },
               (value: number) => value.toString(),
             )
-          }
-          .width('100%')
+          }.width('100%')
           if (this.ratingError.length > 0) {
             Text(this.ratingError)
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
               .fontColor(Color.Red)
               .width('100%')
           }
-        }
-        .width('100%')
+        }.width('100%')
       }
     }
   }
@@ -973,8 +1086,12 @@ export struct GalleryDetailPage {
         .fontColor([EhConstants.favCatColor(fav.favId)])
       Text(fav.favTitle)
         .fontSize(ThemeConstants.FONT_SIZE_HEADING)
-        .fontWeight(this.isRemoteFavoriteSlotSelected(fav.favId) || this.isCurrentRemoteFavoriteSlot(fav.favId) ?
-          FontWeight.Medium : FontWeight.Regular)
+        .fontWeight(
+          this.isRemoteFavoriteSlotSelected(fav.favId) ||
+            this.isCurrentRemoteFavoriteSlot(fav.favId)
+            ? FontWeight.Medium
+            : FontWeight.Regular,
+        )
         .fontColor($r('sys.color.font_primary'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -1003,10 +1120,17 @@ export struct GalleryDetailPage {
       bottom: ThemeConstants.SPACE_MD,
     })
     .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-    .backgroundColor(this.isRemoteFavoriteSlotSelected(fav.favId) ? $r('sys.color.ohos_id_color_click_effect') : Color.Transparent)
+    .backgroundColor(
+      this.isRemoteFavoriteSlotSelected(fav.favId)
+        ? $r('sys.color.ohos_id_color_click_effect')
+        : Color.Transparent,
+    )
     .enabled(!this.remoteFavoriteSubmitting)
     .onClick(() => {
-      if (this.isRemoteFavoriteSlotSelected(fav.favId) && this.isCurrentRemoteFavoriteSlot(fav.favId)) {
+      if (
+        this.isRemoteFavoriteSlotSelected(fav.favId) &&
+        this.isCurrentRemoteFavoriteSlot(fav.favId)
+      ) {
         this.remoteFavoriteSelectedCat = 'favdel'
       } else {
         this.remoteFavoriteSelectedCat = fav.favId
@@ -1019,7 +1143,9 @@ export struct GalleryDetailPage {
     Row({ space: ThemeConstants.SPACE_MD }) {
       SymbolGlyph(this.isLocalFavorite() ? $r('sys.symbol.heart_fill') : $r('sys.symbol.heart'))
         .fontSize(24)
-        .fontColor([this.isLocalFavorite() ? EhConstants.favCatColor('l') : $r('sys.color.font_secondary')])
+        .fontColor([
+          this.isLocalFavorite() ? EhConstants.favCatColor('l') : $r('sys.color.font_secondary'),
+        ])
       Text(this.localFavoriteLabel())
         .fontSize(ThemeConstants.FONT_SIZE_HEADING)
         .fontWeight(FontWeight.Medium)
@@ -1089,8 +1215,7 @@ export struct GalleryDetailPage {
               },
               (fav: Favcat) => fav.favId,
             )
-          }
-          .width('100%')
+          }.width('100%')
           this.LocalFavoriteRow()
           if (this.remoteFavoriteError.length > 0) {
             Text(this.remoteFavoriteError)
@@ -1098,8 +1223,7 @@ export struct GalleryDetailPage {
               .fontColor(Color.Red)
               .width('100%')
           }
-        }
-        .width('100%')
+        }.width('100%')
       }
     }
   }
@@ -1219,28 +1343,47 @@ export struct GalleryDetailPage {
             }
           }
         }
-
-        Button({ type: ButtonType.Capsule }) {
-          Row({ space: ThemeConstants.SPACE_SM }) {
-            SymbolGlyph($r('sys.symbol.doc_plaintext'))
-              .fontSize(ThemeConstants.FONT_SIZE_HEADING)
-              .fontColor([ThemeConstants.TEXT_ON_BRAND])
-            Text(this.readFabLabel())
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(ThemeConstants.TEXT_ON_BRAND)
+        Row() {
+          Button({ type: ButtonType.Capsule }) {
+            Row({ space: ThemeConstants.SPACE_SM }) {
+              SymbolGlyph($r('sys.symbol.doc_plaintext'))
+                .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+                .fontColor([ThemeConstants.TEXT_ON_BRAND])
+              Text(this.readFabLabel())
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontWeight(FontWeight.Medium)
+                .fontColor(ThemeConstants.TEXT_ON_BRAND)
+            }
+            .padding({ left: ThemeConstants.SPACE_LG, right: ThemeConstants.SPACE_LG })
+            .height(ThemeConstants.BUTTON_HEIGHT)
+            .alignItems(VerticalAlign.Center)
           }
-          .padding({ left: ThemeConstants.SPACE_LG, right: ThemeConstants.SPACE_LG })
           .height(ThemeConstants.BUTTON_HEIGHT)
-          .alignItems(VerticalAlign.Center)
+          .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+          .translate({ x: this.readFabVisualX() })
+          .animation({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut })
+          .onAreaChange((_oldArea: Area, area: Area) => {
+            this.readFabWidth = area.width as number
+          })
+          .onClick(() => {
+            this.openReader(this.resumeIndex())
+          })
         }
-        .height(ThemeConstants.BUTTON_HEIGHT)
-        .shadow(ShadowStyle.OUTER_DEFAULT_MD)
-        .position({ right: ThemeConstants.SPACE_LG, bottom: ThemeConstants.SPACE_LG })
-        .onClick(() => {
-          this.openReader(this.resumeIndex())
-        })
+        // Full-width bottom rail; the button is Start-anchored and slid horizontally by translate so the
+        // Read FAB aligns to the holding-hand side (smart-grip / follow / fixed). Transparent hit-testing
+        // keeps the underlying list scrollable; only the button itself is tappable.
+        .width('100%')
+        .padding({ left: ThemeConstants.SPACE_LG, right: ThemeConstants.SPACE_LG })
+        .justifyContent(FlexAlign.Start)
+        .hitTestBehavior(HitTestMode.Transparent)
+        .position({ left: 0, bottom: ThemeConstants.SPACE_LG })
       }
+      .onAreaChange((_oldArea: Area, area: Area) => {
+        this.detailRootWidth = area.width as number
+      })
+      .onTouch((event: TouchEvent) => {
+        this.handleFollowTouch(event)
+      })
       .bindSheet($$this.detailSheetShown, this.DetailSheet(), {
         detents: this.detailSheetDetents(),
         showClose: false,
@@ -1315,7 +1458,12 @@ export struct GalleryDetailPage {
               )
             })
         }
-        if (Number.parseInt(this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0', 10) > 0) {
+        if (
+          Number.parseInt(
+            this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0',
+            10,
+          ) > 0
+        ) {
           Text(this.torrentTitle(this.vm.gallery.torrentCount))
             .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
             .fontColor($r('sys.color.font_emphasize'))
@@ -1339,7 +1487,11 @@ export struct GalleryDetailPage {
           })
         Text(this.downloadTitle())
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(this.isGalleryQueued() ? $r('sys.color.font_secondary') : $r('sys.color.font_emphasize'))
+          .fontColor(
+            this.isGalleryQueued()
+              ? $r('sys.color.font_secondary')
+              : $r('sys.color.font_emphasize'),
+          )
           .onClick(() => {
             this.enqueueGalleryDownload()
           })

@@ -305,6 +305,30 @@
       "value": "对比例不匹配的封面用模糊背景代替取色渐变"
     },
     {
+      "name": "settings_action_alignment",
+      "value": "阅读按钮对齐"
+    },
+    {
+      "name": "settings_action_alignment_hint",
+      "value": "单手握持时将阅读按钮对齐到顺手一侧"
+    },
+    {
+      "name": "smart_grip",
+      "value": "智感握姿"
+    },
+    {
+      "name": "follow_operation",
+      "value": "跟随操作"
+    },
+    {
+      "name": "fixed_left",
+      "value": "固定左侧"
+    },
+    {
+      "name": "fixed_right",
+      "value": "固定右侧"
+    },
+    {
       "name": "settings_home_tab_auto_hide",
       "value": "自动隐藏底部栏"
     },

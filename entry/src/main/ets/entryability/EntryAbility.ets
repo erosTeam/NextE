@@ -5,6 +5,7 @@ import {
   AppStrings,
   DiagnosticLogger,
   SettingsBootstrap,
+  MotionHandStateService,
   publishPendingEhUrl,
   EhUrlRouter,
   LayoutSafeAreaBridge,
@@ -59,6 +60,9 @@ export default class EntryAbility extends UIAbility {
       DiagnosticLogger.warn('app', 'configure_window_failed', e.message)
     }
     SettingsBootstrap.loadAll(this.context).finally(() => {
+      // Subscribe grip detection + resolve the Read-button edge now that the alignment mode is restored,
+      // so the floating button mounts on the correct side without a post-load hop.
+      MotionHandStateService.start()
       windowStage.loadContent(ENTRY_PAGE, (err) => {
         if (err.code) {
           DiagnosticLogger.warn('app', 'load_content_failed', JSON.stringify(err))
@@ -156,8 +160,7 @@ export default class EntryAbility extends UIAbility {
       if (this.keyboardHeightCallback) {
         win.off('keyboardHeightChange', this.keyboardHeightCallback)
       }
-    } catch (_error) {
-    }
+    } catch (_error) {}
   }
 
   private captureIncomingUrl(want: Want): void {
