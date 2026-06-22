@@ -34,6 +34,10 @@ const SQL_QUERY_TAG_TRANSLATIONS: string =
   'SELECT namespace, key, name FROM tag_translations ' +
   'WHERE namespace <> \'rows\' AND (key LIKE ? ESCAPE \'\\\' OR name LIKE ? ESCAPE \'\\\') ' +
   'ORDER BY last_use_time DESC, namespace ASC, key ASC LIMIT ?'
+const SQL_QUERY_TAG_TRANSLATIONS_BY_NAMESPACE: string =
+  'SELECT namespace, key, name FROM tag_translations ' +
+  'WHERE namespace = ? AND (key LIKE ? ESCAPE \'\\\' OR name LIKE ? ESCAPE \'\\\') ' +
+  'ORDER BY last_use_time DESC, key ASC LIMIT ?'
 const SQL_CLEAR_TAG_TRANSLATIONS: string = 'DELETE FROM tag_translations'
 const SQL_UPSERT_TAG_VERSION: string =
   'INSERT OR REPLACE INTO tag_translation_meta (key, value) VALUES (?, ?)'
@@ -78,6 +82,11 @@ class RawTagDatabase {
 class PublicTextResponse {
   statusCode: number = 0
   body: string = ''
+}
+
+class TagSuggestionQuery {
+  namespace: string = ''
+  keyword: string = ''
 }
 
 export class TagTranslationStatus {
@@ -177,8 +186,8 @@ export class TagTranslationService {
     keyword: string,
     limit: number = 30,
   ): Promise<EhTagSuggestion[]> {
-    const q: string = keyword.trim().toLowerCase()
-    if (q.length === 0) {
+    const q: TagSuggestionQuery = TagTranslationService.suggestionQuery(keyword)
+    if (q.keyword.length === 0) {
       return []
     }
     if (await TagTranslationService.hasRows(context)) {
@@ -187,7 +196,7 @@ export class TagTranslationService {
         return rows
       }
     }
-    return TagTranslationService.fallbackSuggestions(q, limit)
+    return TagTranslationService.fallbackSuggestions(q.keyword, limit, q.namespace)
   }
 
   static async status(context: common.UIAbilityContext): Promise<TagTranslationStatus> {
@@ -327,13 +336,18 @@ export class TagTranslationService {
 
   private static async queryRdbSuggestions(
     context: common.UIAbilityContext,
-    keyword: string,
+    query: TagSuggestionQuery,
     limit: number,
   ): Promise<EhTagSuggestion[]> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const like: string = `%${TagTranslationService.escapeLike(keyword)}%`
-    const args: relationalStore.ValueType[] = [like, like, limit]
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_QUERY_TAG_TRANSLATIONS, args)
+    const like: string = `%${TagTranslationService.escapeLike(query.keyword)}%`
+    const args: relationalStore.ValueType[] = query.namespace.length > 0
+      ? [query.namespace, like, like, limit]
+      : [like, like, limit]
+    const sql: string = query.namespace.length > 0
+      ? SQL_QUERY_TAG_TRANSLATIONS_BY_NAMESPACE
+      : SQL_QUERY_TAG_TRANSLATIONS
+    const resultSet: relationalStore.ResultSet = await store.querySql(sql, args)
     const rows: EhTagSuggestion[] = []
     try {
       const nsIndex: number = resultSet.getColumnIndex('namespace')
@@ -555,11 +569,41 @@ export class TagTranslationService {
     const text: string = fullTag.trim().toLowerCase()
     const idx: number = text.indexOf(':')
     if (idx <= 0) {
-      return `misc:${text}`
+      return `misc:${TagTranslationService.cleanTagQueryText(text)}`
     }
     const ns: string = EhConstants.expandNamespace(text.substring(0, idx))
-    const tag: string = EhConstants.canonicalTagText(text.substring(idx + 1)).replace(/\$$/, '').trim()
+    const tag: string = TagTranslationService.cleanTagQueryText(text.substring(idx + 1))
     return `${ns}:${tag}`
+  }
+
+  private static suggestionQuery(raw: string): TagSuggestionQuery {
+    const out: TagSuggestionQuery = new TagSuggestionQuery()
+    const text: string = raw.trim().toLowerCase()
+    const idx: number = text.indexOf(':')
+    if (idx > 0) {
+      out.namespace = EhConstants.expandNamespace(text.substring(0, idx))
+      out.keyword = TagTranslationService.cleanTagQueryText(text.substring(idx + 1))
+      return out
+    }
+    out.keyword = TagTranslationService.cleanTagQueryText(text)
+    return out
+  }
+
+  private static cleanTagQueryText(value: string): string {
+    let tag: string = EhConstants.canonicalTagText(value).trim().toLowerCase()
+    if (tag.startsWith('"')) {
+      tag = tag.substring(1).trim()
+    }
+    if (tag.endsWith('"')) {
+      tag = tag.substring(0, tag.length - 1).trim()
+    }
+    if (tag.endsWith('$')) {
+      tag = tag.substring(0, tag.length - 1).trim()
+    }
+    if (tag.endsWith('"')) {
+      tag = tag.substring(0, tag.length - 1).trim()
+    }
+    return tag
   }
 
   private static fallbackTranslate(normalized: string): string {
@@ -593,7 +637,7 @@ export class TagTranslationService {
     }
   }
 
-  private static fallbackSuggestions(keyword: string, limit: number): EhTagSuggestion[] {
+  private static fallbackSuggestions(keyword: string, limit: number, namespace: string = ''): EhTagSuggestion[] {
     const seeds: EhTagSuggestion[] = [
       new EhTagSuggestion('language', 'chinese', '中文'),
       new EhTagSuggestion('language', 'japanese', '日文'),
@@ -611,6 +655,9 @@ export class TagTranslationService {
     const out: EhTagSuggestion[] = []
     for (let i = 0; i < seeds.length && out.length < limit; i++) {
       const s: EhTagSuggestion = seeds[i]
+      if (namespace.length > 0 && s.namespace !== namespace) {
+        continue
+      }
       if (
         s.text.indexOf(keyword) >= 0 ||
         s.displayName.indexOf(keyword) >= 0 ||

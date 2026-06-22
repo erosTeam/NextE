@@ -35,13 +35,16 @@ ok('SearchViewModel debounces suggestions on the last token',
 
 ok('SearchViewModel tries local tag translations before EH network tagsuggest',
   /connectTagTranslationSettings\(\)\.enabled/.test(vm) &&
-  /TagTranslationService\.searchSuggestions\(context, token, 30\)/.test(vm) &&
+  /const LOCAL_TAG_SUGGEST_LIMIT:\s*number\s*=\s*200/.test(vm) &&
+  /TagTranslationService\.searchSuggestions\(context, token, LOCAL_TAG_SUGGEST_LIMIT\)/.test(vm) &&
   /localRows\.length > 0[\s\S]*return[\s\S]*EhApiPhpService\.tagSuggest/.test(vm))
 
-ok('SearchViewModel last-token split uses space semicolon and quote delimiters',
-  /const parts:\s*string\[\]\s*=\s*trimmed\.split\(\s*\/\[ ;"\]\/\s*\)/.test(vm))
-ok('SearchViewModel does not resuggest completed exact/namespaced tokens',
-  /token\.indexOf\(':'\) >= 0 \|\| token\.endsWith\('\$'\)/.test(vm))
+ok('SearchViewModel last-token split keeps namespace prefixes for local translated lookup',
+  /const parts:\s*string\[\]\s*=\s*trimmed\.split\(\s*\/\[ ;\]\/\s*\)/.test(vm) &&
+  !/trimmed\.split\(\s*\/\[ ;"\]\/\s*\)/.test(vm))
+ok('SearchViewModel only suppresses completed exact-tag tokens, not namespaced partial input',
+  /token\.indexOf\('\$'\) >= 0/.test(vm) &&
+  !/token\.indexOf\(':'\) >= 0/.test(vm))
 ok('SearchViewModel clears suggestions on submit/clear',
   /this\.clearSuggestions\(\)[\s\S]*this\.query = trimmed/.test(vm) &&
   /clearSearchState\(\): void \{[\s\S]*this\.clearSuggestions\(\)/.test(vm))

@@ -24,6 +24,7 @@ import {
 import { common } from '@kit.AbilityKit'
 
 const TAG_SUGGEST_DELAY_MS: number = 450
+const LOCAL_TAG_SUGGEST_LIMIT: number = 200
 
 /**
  * Table-site anonymous gallery search (reuses the list endpoint with f_search). Same
@@ -155,9 +156,9 @@ export class SearchViewModel {
     if (trimmed.length === 0 || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return ''
     }
-    const parts: string[] = trimmed.split(/[ ;"]/)
+    const parts: string[] = trimmed.split(/[ ;]/)
     const token: string = parts.length > 0 ? parts[parts.length - 1].trim() : ''
-    if (token.indexOf(':') >= 0 || token.endsWith('$')) {
+    if (token.indexOf('$') >= 0) {
       return ''
     }
     return token
@@ -197,7 +198,7 @@ export class SearchViewModel {
       let localRows: EhTagSuggestion[] = []
       try {
         if (connectTagTranslationSettings().enabled) {
-          localRows = await TagTranslationService.searchSuggestions(context, token, 30)
+          localRows = await TagTranslationService.searchSuggestions(context, token, LOCAL_TAG_SUGGEST_LIMIT)
         }
       } catch (localErr) {
         const e = localErr as Error
