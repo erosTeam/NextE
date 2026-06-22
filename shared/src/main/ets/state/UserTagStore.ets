@@ -1,5 +1,6 @@
 import { EhUsertag } from '../model/EhMytags'
 import { SimpleTag } from '../model/SimpleTag'
+import { EhConstants } from '../constants/EhConstants'
 
 /**
  * Global in-memory store of the user's My Tags (loaded from getMyTags when logged in). It drives the
@@ -28,17 +29,20 @@ export class UserTagStore {
   setTags(tags: EhUsertag[]): void {
     const m: Map<string, EhUsertag> = new Map()
     tags.forEach((t: EhUsertag) => {
-      const key: string = t.tag.toLowerCase().trim()
+      const key: string = EhConstants.canonicalTagText(t.tag).toLowerCase().trim()
       if (key.length === 0) {
         return
       }
-      m.set(key, t)
-      // Plain-tag fallback (no namespace), like eros_fe getColorCode's second lookup.
+      UserTagStore.setAlias(m, key, t)
       const idx: number = key.indexOf(':')
       if (idx >= 0) {
+        const ns: string = key.substring(0, idx).trim()
         const plain: string = key.substring(idx + 1).trim()
-        if (plain.length > 0 && !m.has(plain)) {
-          m.set(plain, t)
+        if (plain.length > 0) {
+          UserTagStore.setAlias(m, `${EhConstants.expandNamespace(ns)}:${plain}`, t)
+          UserTagStore.setAlias(m, `${EhConstants.compactNamespace(ns)}:${plain}`, t)
+          // Plain-tag fallback (no namespace), like eros_fe getColorCode's second lookup.
+          UserTagStore.setAlias(m, plain, t)
         }
       }
     })
@@ -47,15 +51,26 @@ export class UserTagStore {
 
   /** Look up a list tag by namespace + text (eros_fe: try "ns:tag" first, then plain "tag"). */
   lookup(namespace: string, tag: string): EhUsertag | undefined {
-    const t: string = tag.toLowerCase().trim()
+    const t: string = EhConstants.canonicalTagText(tag).toLowerCase().trim()
     const ns: string = namespace.toLowerCase().trim()
     if (ns.length > 0) {
-      const full: EhUsertag | undefined = this.index.get(`${ns}:${t}`)
-      if (full !== undefined) {
-        return full
+      const fullNs: string = EhConstants.expandNamespace(ns)
+      const shortNs: string = EhConstants.compactNamespace(ns)
+      const keys: string[] = [`${ns}:${t}`, `${fullNs}:${t}`, `${shortNs}:${t}`]
+      for (let i = 0; i < keys.length; i++) {
+        const found: EhUsertag | undefined = this.index.get(keys[i])
+        if (found !== undefined) {
+          return found
+        }
       }
     }
     return this.index.get(t)
+  }
+
+  private static setAlias(index: Map<string, EhUsertag>, key: string, tag: EhUsertag): void {
+    if (key.length > 0 && !index.has(key)) {
+      index.set(key, tag)
+    }
   }
 
   isHidden(namespace: string, tag: string): boolean {

@@ -1,6 +1,7 @@
 // Contract test for the usertag → list-tag color enrichment logic (UserTagState + UserTagEnricher).
 // Mirrors the ArkTS keying/lookup/enrich/hide so a regression in the rules is caught without a device.
 // Hard rule under test: list tags are NEUTRAL unless the USER colored that exact tag — never by namespace.
+import { readFileSync } from 'node:fs'
 
 let failures = 0
 function check(name, actual, expected) {
@@ -15,16 +16,47 @@ function check(name, actual, expected) {
 }
 
 // --- mirror of UserTagState.setTags() keying (ns:tag lowercased + plain-tag fallback) ---
+function expandNamespace(ns) {
+  const key = (ns || '').toLowerCase().trim()
+  const map = new Map([
+    ['a', 'artist'], ['c', 'character'], ['f', 'female'], ['g', 'group'], ['l', 'language'],
+    ['m', 'male'], ['p', 'parody'], ['r', 'reclass'], ['o', 'other'], ['x', 'mixed'],
+    ['cos', 'cosplayer'], ['misc', 'misc'],
+  ])
+  return map.get(key) || key
+}
+function compactNamespace(ns) {
+  const full = expandNamespace(ns)
+  const map = new Map([
+    ['artist', 'a'], ['character', 'c'], ['female', 'f'], ['group', 'g'], ['language', 'l'],
+    ['male', 'm'], ['parody', 'p'], ['reclass', 'r'], ['other', 'o'], ['mixed', 'x'],
+    ['cosplayer', 'cos'], ['misc', 'misc'],
+  ])
+  return map.get(full) || full
+}
+function canonicalTagText(tag) {
+  const raw = (tag || '').trim()
+  const pipe = raw.indexOf('|')
+  return pipe >= 0 ? raw.substring(0, pipe).trim() : raw
+}
+function setAlias(index, key, tag) {
+  if (key.length > 0 && !index.has(key)) index.set(key, tag)
+}
 function buildIndex(usertags) {
   const index = new Map()
   for (const t of usertags) {
-    const key = (t.tag || '').toLowerCase().trim()
+    const key = canonicalTagText(t.tag).toLowerCase().trim()
     if (key.length === 0) continue
-    index.set(key, t)
+    setAlias(index, key, t)
     const idx = key.indexOf(':')
     if (idx >= 0) {
+      const ns = key.substring(0, idx).trim()
       const plain = key.substring(idx + 1).trim()
-      if (plain.length > 0 && !index.has(plain)) index.set(plain, t)
+      if (plain.length > 0) {
+        setAlias(index, `${expandNamespace(ns)}:${plain}`, t)
+        setAlias(index, `${compactNamespace(ns)}:${plain}`, t)
+        setAlias(index, plain, t)
+      }
     }
   }
   return index
@@ -32,11 +64,13 @@ function buildIndex(usertags) {
 
 // --- mirror of UserTagState.lookup(): try "ns:tag" then plain "tag" ---
 function lookup(index, namespace, tag) {
-  const t = (tag || '').toLowerCase().trim()
+  const t = canonicalTagText(tag).toLowerCase().trim()
   const ns = (namespace || '').toLowerCase().trim()
   if (ns.length > 0) {
-    const full = index.get(`${ns}:${t}`)
-    if (full !== undefined) return full
+    for (const key of [`${ns}:${t}`, `${expandNamespace(ns)}:${t}`, `${compactNamespace(ns)}:${t}`]) {
+      const full = index.get(key)
+      if (full !== undefined) return full
+    }
   }
   return index.get(t)
 }
@@ -61,6 +95,7 @@ function isHidden(index, namespace, tag) {
 // ---------- fixtures (synthetic My Tags set) ----------
 const USERTAGS = [
   { tag: 'female:big breasts', fillColor: '#330000', textColor: '#ffaaaa', hidden: false },
+  { tag: 'f:huge breasts | 巨乳', fillColor: '#440000', textColor: '#ffbbbb', hidden: false },
   { tag: 'language:chinese', fillColor: '#001133', textColor: '#88aaff', hidden: false },
   { tag: 'parody:original', fillColor: '', textColor: '', hidden: true }, // hidden, no color
   { tag: 'lolicon', fillColor: '#220022', textColor: '#ff88ff', hidden: true }, // plain (no ns)
@@ -81,6 +116,14 @@ check('case-insensitive → bg', tags[0].backgroundColor, '#330000')
 tags = enrich(index, [{ namespace: 'misc', text: 'lolicon', color: '', backgroundColor: '' }])
 check('plain fallback → bg', tags[0].backgroundColor, '#220022')
 check('plain fallback → text', tags[0].color, '#ff88ff')
+
+// ---------- 3b. raw namespace aliases survive translated display labels ----------
+tags = enrich(index, [{ namespace: 'female', text: 'huge breasts', color: '', backgroundColor: '' }])
+check('short usertag key → full namespace lookup bg', tags[0].backgroundColor, '#440000')
+tags = enrich(index, [{ namespace: 'f', text: 'big breasts', color: '', backgroundColor: '' }])
+check('full usertag key → short namespace lookup bg', tags[0].backgroundColor, '#330000')
+tags = enrich(index, [{ namespace: 'female', text: '巨乳', color: '', backgroundColor: '' }])
+check('translated display is not a color key', tags[0].backgroundColor, '')
 
 // ---------- 4. NO namespace coloring: an uncolored tag stays neutral (red line) ----------
 tags = enrich(index, [{ namespace: 'artist', text: 'nobody', color: '', backgroundColor: '' }])
@@ -112,6 +155,12 @@ check('anyHidden true (plain hidden)', anyHidden(index, galC.simpleTags), true)
 check('anyHidden false (colored only)', anyHidden(index, galB.simpleTags), false)
 const kept = [galA, galB, galC].filter((g) => !anyHidden(index, g.simpleTags)).map((g) => g.gid)
 check('hide-filter removes hidden galleries', kept, ['B'])
+
+const storeSource = readFileSync(new URL('../shared/src/main/ets/state/UserTagStore.ets', import.meta.url), 'utf8')
+check('source uses raw canonical tag text', /EhConstants\.canonicalTagText\(t\.tag\)/.test(storeSource), true)
+check('source indexes expanded namespace alias', /EhConstants\.expandNamespace\(ns\)/.test(storeSource), true)
+check('source indexes compact namespace alias', /EhConstants\.compactNamespace\(ns\)/.test(storeSource), true)
+check('source lookup never reads translated display fields', /\.translate|\.display/.test(storeSource), false)
 
 if (failures > 0) {
   console.error(`\n${failures} check(s) failed`)
