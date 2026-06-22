@@ -37,7 +37,6 @@ export struct EhCookieImportPage {
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontColor($r('sys.color.font_secondary'))
             .width('100%')
-
           TextArea({
             text: this.cookieText,
             placeholder: $r('app.string.cookie_import_placeholder'),
@@ -51,7 +50,6 @@ export struct EhCookieImportPage {
             .onChange((value: string) => {
               this.cookieText = value
             })
-
           Button($r('app.string.cookie_import_submit'))
             .width('100%')
             .enabled(!this.submitting && this.cookieText.trim().length > 0)
@@ -99,8 +97,14 @@ export struct EhCookieImportPage {
     }
     const header: string = this.cookieText.trim()
     // Validate identity WITHOUT mutating the live jar, so an invalid paste never half-applies.
-    const memberId: string = CookieJarSettings.parseCookieValue(header, EhConstants.COOKIE_MEMBER_ID)
-    const passHash: string = CookieJarSettings.parseCookieValue(header, EhConstants.COOKIE_PASS_HASH)
+    const memberId: string = CookieJarSettings.parseCookieValue(
+      header,
+      EhConstants.COOKIE_MEMBER_ID,
+    )
+    const passHash: string = CookieJarSettings.parseCookieValue(
+      header,
+      EhConstants.COOKIE_PASS_HASH,
+    )
     if (memberId.length === 0 || passHash.length === 0) {
       // Redacted: presence booleans only, never the pasted values.
       DiagnosticLogger.warn(
@@ -114,14 +118,18 @@ export struct EhCookieImportPage {
       return
     }
     this.submitting = true
-    // Apply the COMPLETE header (donor/permission cookies preserved by applyFromHeader, not dropped).
-    CookieJarSettings.applyFromHeader(header)
+    // Replace the jar with exactly this pasted account (clear first), preserving its complete cookie set
+    // (donor/permission cookies kept, not dropped). Clearing first means importing a second account never
+    // inherits the previous account's igneous/sk.
+    CookieJarSettings.replaceFromHeader(header)
     DiagnosticLogger.info('auth', 'cookie_import_applied', `cookies=${this.cookieCount(header)}`)
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     // save() persists the jar AND refreshes AuthState (isLogin / hasIgneous / memberId) for the UI.
     await CookieJarSettings.save(ctx)
-    this.getUIContext().getPromptAction().showToast({ message: $r('app.string.login_success') })
+    this.getUIContext()
+      .getPromptAction()
+      .showToast({ message: $r('app.string.login_success') })
     this.stack.pop()
   }
 }

@@ -69,6 +69,16 @@ export class CookieJarSettings {
   }
 
   /**
+   * Like applyFromHeader, but CLEARS the jar first so the result is exactly the pasted account — no cookies
+   * leftover from a previously-active account. Used by the cookie-import login so adding a second account
+   * never inherits the previous account's igneous/sk. Returns true iff both identity cookies are present.
+   */
+  static replaceFromHeader(header: string): boolean {
+    EhCookieStore.getInstance().clear()
+    return CookieJarSettings.applyFromHeader(header)
+  }
+
+  /**
    * Capture auth cookies from a response Set-Cookie blob (HttpResponse.cookies). Regex-extracts each known
    * auth cookie by name — robust against the comma/newline-joined multi-Set-Cookie string HarmonyOS
    * returns — and skips the `mystery` igneous placeholder. Does NOT persist; the caller saves.
