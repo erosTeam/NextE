@@ -953,6 +953,10 @@
       "value": "アカウント"
     },
     {
+      "name": "account_remove",
+      "value": "削除"
+    },
+    {
       "name": "settings_logout",
       "value": "ログアウト"
     },

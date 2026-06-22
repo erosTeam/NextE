@@ -953,6 +953,10 @@
       "value": "账号"
     },
     {
+      "name": "account_remove",
+      "value": "删除"
+    },
+    {
       "name": "settings_logout",
       "value": "退出登录"
     },
