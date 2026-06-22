@@ -16,6 +16,11 @@ const constants = read('shared/src/main/ets/constants/EhConstants.ets')
 const vm = read('feature/search/src/main/ets/viewmodel/SearchViewModel.ets')
 const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 const field = read('feature/search/src/main/ets/components/SearchPageField.ets')
+const suggestionStart = page.indexOf('@Builder\n  SearchSuggestionView')
+const suggestionEnd = page.indexOf("  @Monitor('filter.applySeq')")
+const suggestionView = suggestionStart >= 0 && suggestionEnd > suggestionStart
+  ? page.slice(suggestionStart, suggestionEnd)
+  : ''
 
 ok('EhApiPhpService exposes method=tagsuggest',
   /class TagSuggestRequest[\s\S]*method:\s*string\s*=\s*'tagsuggest'/.test(api))
@@ -62,6 +67,14 @@ ok('Search suggestions render as body content, while field stays input-only',
   /SearchSuggestionView\(\)/.test(page) &&
   /this\.vm\.suggestionCount > 0[\s\S]*this\.SearchSuggestionView\(\)/.test(page) &&
   !/sys\.symbol\.funnel|showFilter|FilterSheet|FilterTrigger/.test(field))
+ok('Search suggestions use the same immersive scroll shape as gallery lists',
+  /private suggestionScroller: Scroller = new Scroller\(\)/.test(page) &&
+  /List\(\{ space: ThemeConstants\.SPACE_XS, scroller: this\.suggestionScroller \}\)/.test(suggestionView) &&
+  /Blank\(\)\.height\(this\.layout\.topAvoidHeight \+ ThemeConstants\.TITLE_BAR_HEIGHT \+ SEARCH_FIELD_BOTTOM_HEIGHT\)/.test(suggestionView) &&
+  /Blank\(\)\.height\(this\.layout\.bottomAvoidHeight \+ ThemeConstants\.SPACE_LG\)/.test(suggestionView) &&
+  /\.scrollBar\(BarState\.Off\)[\s\S]*\.edgeEffect\(EdgeEffect\.Spring, \{ alwaysEnabled: true \}\)/.test(suggestionView) &&
+  /bindToScrollable\(\[this\.scroller, this\.suggestionScroller\]\)/.test(page) &&
+  !/\.padding\(\{[\s\S]*top: this\.layout\.topAvoidHeight/.test(suggestionView))
 
 if (process.exitCode) {
   process.exit(process.exitCode)

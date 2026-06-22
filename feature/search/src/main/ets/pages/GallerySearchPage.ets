@@ -88,6 +88,7 @@ export struct GallerySearchPage {
   @Local fieldState: SearchPageFieldState = new SearchPageFieldState();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+  private suggestionScroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
   // Search field hosted in this pushed page's HDS title-bar bottomBuilder — cached ONCE (re-issuing
   // the titleBar opts must reuse the same field instance, not remount it and flap the IME).
@@ -339,7 +340,15 @@ export struct GallerySearchPage {
 
   @Builder
   SearchSuggestionView() {
-    List({ space: ThemeConstants.SPACE_XS }) {
+    List({ space: ThemeConstants.SPACE_XS, scroller: this.suggestionScroller }) {
+      ListItem() {
+        Column() {
+          Blank().height(this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + SEARCH_FIELD_BOTTOM_HEIGHT)
+        }
+        .width('100%')
+      }
+      .clip(false)
+
       ForEach(
         this.vm.suggestions,
         (s: EhTagSuggestion) => {
@@ -381,13 +390,20 @@ export struct GallerySearchPage {
         },
         (s: EhTagSuggestion) => `${s.namespace}:${s.text}`,
       )
+
+      ListItem() {
+        Column() {
+          Blank().height(this.layout.bottomAvoidHeight + ThemeConstants.SPACE_LG)
+        }
+        .width('100%')
+      }
+      .clip(false)
     }
     .width('100%')
     .height('100%')
-    .padding({
-      top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + SEARCH_FIELD_BOTTOM_HEIGHT,
-      bottom: ThemeConstants.SPACE_LG,
-    })
+    .clip(false)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
   }
 
   @Monitor('filter.applySeq')
@@ -691,7 +707,7 @@ export struct GallerySearchPage {
       hideStatusBar: false,
       mode: HideMode.SCROLL_UP,
     })
-    .bindToScrollable([this.scroller])
+    .bindToScrollable([this.scroller, this.suggestionScroller])
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .onReady((context: NavDestinationContext) => {
       // The favorites title-bar magnifier pushed us with a favorite scope param (eros_fe
