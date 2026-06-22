@@ -1046,15 +1046,15 @@
     },
     {
       "name": "site_ex_checking",
-      "value": "正在验证里站访问权限…"
+      "value": "正在验证 ExHentai 访问权限…"
     },
     {
       "name": "site_ex_unlocked",
-      "value": "已切换到里站"
+      "value": "已切换到 ExHentai"
     },
     {
       "name": "site_ex_no_access",
-      "value": "该账号没有里站访问权限"
+      "value": "该账号没有 ExHentai 访问权限"
     },
     {
       "name": "settings_mytags",
