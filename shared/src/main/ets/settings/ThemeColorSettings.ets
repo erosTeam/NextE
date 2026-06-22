@@ -4,6 +4,16 @@ import { connectThemeColor } from '../state/AppearanceState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
+// Preset palette ported verbatim from V2Next (shared/.../settings/ThemeColorSettings.ets): same values,
+// same hex, same label keys, same default. galaxyBlue is the default accent.
+const THEME_COLOR_GALAXY_BLUE: string = 'galaxyBlue'
+const THEME_COLOR_ORANGE_YELLOW: string = 'orangeYellow'
+const THEME_COLOR_CAT_BLUE: string = 'catBlue'
+const THEME_COLOR_HUAWEI_RED: string = 'huaweiRed'
+const THEME_COLOR_ELEGANT_PURPLE: string = 'elegantPurple'
+const THEME_COLOR_BILIBILI_PINK: string = 'bilibiliPink'
+const THEME_COLOR_GRASS_GREEN: string = 'grassGreen'
+
 export interface ThemeColorOption {
   label: ResourceStr
   value: string
@@ -12,107 +22,144 @@ export interface ThemeColorOption {
 
 /**
  * User-selectable ACCENT color, persisted under StorageKeys.THEME_COLOR and the single writer of
- * ThemeColorState. `system` (default) returns the platform brand token so existing installs look unchanged;
- * the rest are fixed hex presets (palette from V2Next). ThemeConstants.BRAND_PRIMARY is a getter reading
- * currentColor() → connectThemeColor().color (@Trace), so picking a color recolors every brand-tinted
- * control with no call-site changes.
+ * ThemeColorState. The seven named presets and their hex are V2Next's, verbatim (galaxyBlue is the default).
+ * NextE adds ONE thing V2Next does not have: a custom accent, which is any valid #RRGGBB hex.
+ * ThemeConstants.BRAND_PRIMARY is a getter reading currentColor() → connectThemeColor().color (@Trace), so
+ * picking a color recolors every brand-tinted control with no call-site changes.
  */
 export class ThemeColorSettings {
-  static readonly COLOR_SYSTEM: string = 'system'
-  static readonly COLOR_ORANGE: string = 'orange'
-  static readonly COLOR_RED: string = 'red'
-  static readonly COLOR_PURPLE: string = 'purple'
-  static readonly COLOR_PINK: string = 'pink'
-  static readonly COLOR_GREEN: string = 'green'
-  static readonly DEFAULT_COLOR: string = 'system'
+  static readonly COLOR_GALAXY_BLUE: string = THEME_COLOR_GALAXY_BLUE
+  static readonly COLOR_ORANGE_YELLOW: string = THEME_COLOR_ORANGE_YELLOW
+  static readonly COLOR_CAT_BLUE: string = THEME_COLOR_CAT_BLUE
+  static readonly COLOR_HUAWEI_RED: string = THEME_COLOR_HUAWEI_RED
+  static readonly COLOR_ELEGANT_PURPLE: string = THEME_COLOR_ELEGANT_PURPLE
+  static readonly COLOR_BILIBILI_PINK: string = THEME_COLOR_BILIBILI_PINK
+  static readonly COLOR_GRASS_GREEN: string = THEME_COLOR_GRASS_GREEN
+  static readonly DEFAULT_COLOR: string = THEME_COLOR_GALAXY_BLUE
 
   static options(): ThemeColorOption[] {
     return [
       {
-        label: $r('app.string.theme_color_system'),
-        value: ThemeColorSettings.COLOR_SYSTEM,
-        color: $r('sys.color.brand'),
+        label: $r('app.string.theme_color_galaxy_blue'),
+        value: THEME_COLOR_GALAXY_BLUE,
+        color: '#0958F7',
       },
       {
-        label: $r('app.string.theme_color_orange'),
-        value: ThemeColorSettings.COLOR_ORANGE,
+        label: $r('app.string.theme_color_orange_yellow'),
+        value: THEME_COLOR_ORANGE_YELLOW,
         color: '#FE9925',
       },
       {
-        label: $r('app.string.theme_color_red'),
-        value: ThemeColorSettings.COLOR_RED,
+        label: $r('app.string.theme_color_cat_blue'),
+        value: THEME_COLOR_CAT_BLUE,
+        color: '#345483',
+      },
+      {
+        label: $r('app.string.theme_color_huawei_red'),
+        value: THEME_COLOR_HUAWEI_RED,
         color: '#D9323B',
       },
       {
-        label: $r('app.string.theme_color_purple'),
-        value: ThemeColorSettings.COLOR_PURPLE,
+        label: $r('app.string.theme_color_elegant_purple'),
+        value: THEME_COLOR_ELEGANT_PURPLE,
         color: '#8143D6',
       },
       {
-        label: $r('app.string.theme_color_pink'),
-        value: ThemeColorSettings.COLOR_PINK,
+        label: $r('app.string.theme_color_bilibili_pink'),
+        value: THEME_COLOR_BILIBILI_PINK,
         color: '#FB80A5',
       },
       {
-        label: $r('app.string.theme_color_green'),
-        value: ThemeColorSettings.COLOR_GREEN,
+        label: $r('app.string.theme_color_grass_green'),
+        value: THEME_COLOR_GRASS_GREEN,
         color: '#8ED931',
       },
     ]
   }
 
-  static normalize(color: string): string {
-    const v: string = color.trim()
-    if (
-      v === ThemeColorSettings.COLOR_ORANGE ||
-      v === ThemeColorSettings.COLOR_RED ||
-      v === ThemeColorSettings.COLOR_PURPLE ||
-      v === ThemeColorSettings.COLOR_PINK ||
-      v === ThemeColorSettings.COLOR_GREEN
-    ) {
-      return v
-    }
-    return ThemeColorSettings.COLOR_SYSTEM
+  static isPreset(value: string): boolean {
+    return (
+      value === THEME_COLOR_GALAXY_BLUE ||
+      value === THEME_COLOR_ORANGE_YELLOW ||
+      value === THEME_COLOR_CAT_BLUE ||
+      value === THEME_COLOR_HUAWEI_RED ||
+      value === THEME_COLOR_ELEGANT_PURPLE ||
+      value === THEME_COLOR_BILIBILI_PINK ||
+      value === THEME_COLOR_GRASS_GREEN
+    )
   }
 
-  static colorValue(color: string): ResourceColor {
-    const v: string = ThemeColorSettings.normalize(color)
-    if (v === ThemeColorSettings.COLOR_ORANGE) {
-      return '#FE9925'
+  // NextE extension: a custom accent is any valid #RRGGBB hex.
+  static isCustom(color: string): boolean {
+    return /^#[0-9a-fA-F]{6}$/.test(color.trim())
+  }
+
+  // Seed the custom picker from the current selection: a preset → its hex, a custom hex → itself.
+  static customSeed(color: string): string {
+    return ThemeColorSettings.colorValue(ThemeColorSettings.normalize(color)) as string
+  }
+
+  static normalize(color: string): string {
+    const value: string = (color || '').trim()
+    if (ThemeColorSettings.isPreset(value)) {
+      return value
     }
-    if (v === ThemeColorSettings.COLOR_RED) {
-      return '#D9323B'
+    if (ThemeColorSettings.isCustom(value)) {
+      return value.toUpperCase()
     }
-    if (v === ThemeColorSettings.COLOR_PURPLE) {
-      return '#8143D6'
-    }
-    if (v === ThemeColorSettings.COLOR_PINK) {
-      return '#FB80A5'
-    }
-    if (v === ThemeColorSettings.COLOR_GREEN) {
-      return '#8ED931'
-    }
-    return $r('sys.color.brand')
+    return THEME_COLOR_GALAXY_BLUE
   }
 
   static label(color: string): ResourceStr {
     const v: string = ThemeColorSettings.normalize(color)
-    if (v === ThemeColorSettings.COLOR_ORANGE) {
-      return $r('app.string.theme_color_orange')
+    if (ThemeColorSettings.isCustom(v)) {
+      return $r('app.string.theme_color_custom')
     }
-    if (v === ThemeColorSettings.COLOR_RED) {
-      return $r('app.string.theme_color_red')
+    if (v === THEME_COLOR_ORANGE_YELLOW) {
+      return $r('app.string.theme_color_orange_yellow')
     }
-    if (v === ThemeColorSettings.COLOR_PURPLE) {
-      return $r('app.string.theme_color_purple')
+    if (v === THEME_COLOR_CAT_BLUE) {
+      return $r('app.string.theme_color_cat_blue')
     }
-    if (v === ThemeColorSettings.COLOR_PINK) {
-      return $r('app.string.theme_color_pink')
+    if (v === THEME_COLOR_HUAWEI_RED) {
+      return $r('app.string.theme_color_huawei_red')
     }
-    if (v === ThemeColorSettings.COLOR_GREEN) {
-      return $r('app.string.theme_color_green')
+    if (v === THEME_COLOR_ELEGANT_PURPLE) {
+      return $r('app.string.theme_color_elegant_purple')
     }
-    return $r('app.string.theme_color_system')
+    if (v === THEME_COLOR_BILIBILI_PINK) {
+      return $r('app.string.theme_color_bilibili_pink')
+    }
+    if (v === THEME_COLOR_GRASS_GREEN) {
+      return $r('app.string.theme_color_grass_green')
+    }
+    return $r('app.string.theme_color_galaxy_blue')
+  }
+
+  static colorValue(color: string): ResourceColor {
+    const v: string = ThemeColorSettings.normalize(color)
+    if (ThemeColorSettings.isCustom(v)) {
+      return v
+    }
+    if (v === THEME_COLOR_ORANGE_YELLOW) {
+      return '#FE9925'
+    }
+    if (v === THEME_COLOR_CAT_BLUE) {
+      return '#345483'
+    }
+    if (v === THEME_COLOR_HUAWEI_RED) {
+      return '#D9323B'
+    }
+    if (v === THEME_COLOR_ELEGANT_PURPLE) {
+      return '#8143D6'
+    }
+    if (v === THEME_COLOR_BILIBILI_PINK) {
+      return '#FB80A5'
+    }
+    if (v === THEME_COLOR_GRASS_GREEN) {
+      return '#8ED931'
+    }
+    return '#0958F7'
   }
 
   static currentColor(): ResourceColor {
@@ -131,7 +178,7 @@ export class ThemeColorSettings {
       )
       const color: string = store.getSync(
         StorageKeys.THEME_COLOR,
-        ThemeColorSettings.COLOR_SYSTEM,
+        ThemeColorSettings.DEFAULT_COLOR,
       ) as string
       ThemeColorSettings.apply(color)
     } catch (error) {

@@ -42,6 +42,9 @@ import {
   connectThemeColor,
   LanguageState,
   connectLanguageState,
+  SettingsCheckedMenuItem,
+  AppColorPicker,
+  AppModalScaffold,
 } from 'shared'
 
 /**
@@ -66,6 +69,9 @@ export struct LayoutSettingsPage {
   @Local themeMenuShown: boolean = false;
   @Local themeColorMenuShown: boolean = false;
   @Local languageMenuShown: boolean = false;
+  @Local colorPickerShown: boolean = false;
+  @Local draftCustomColor: string = '#3377FF';
+  private prevColor: string = '';
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
@@ -110,6 +116,44 @@ export struct LayoutSettingsPage {
   private setThemeColor(color: string): void {
     this.themeColorMenuShown = false
     ThemeColorSettings.setColor(this.ctx(), color)
+  }
+
+  // The 自定义 menu item opens the shared AppColorPicker in a half-modal, seeded from the current accent.
+  // colorChange previews live (apply, no persist); the sheet confirm persists, its close reverts.
+  private openColorPicker(): void {
+    this.themeColorMenuShown = false
+    this.prevColor = this.themeColor.color
+    this.draftCustomColor = ThemeColorSettings.customSeed(this.themeColor.color)
+    this.colorPickerShown = true
+  }
+
+  @Builder
+  ColorPickerSheet() {
+    AppModalScaffold({
+      title: $r('app.string.theme_color_custom'),
+      confirmText: $r('app.string.common_ok'),
+      closeAction: () => {
+        ThemeColorSettings.apply(this.prevColor)
+        this.colorPickerShown = false
+      },
+      confirmAction: () => {
+        ThemeColorSettings.setColor(this.ctx(), this.draftCustomColor)
+        this.colorPickerShown = false
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          AppColorPicker({
+            title: $r('app.string.settings_theme_color'),
+            color: this.draftCustomColor,
+            colorChange: (value: string) => {
+              this.draftCustomColor = value
+              ThemeColorSettings.apply(value)
+            },
+          })
+        }.width('100%')
+      }
+    }
   }
 
   private setLanguage(mode: string): void {
@@ -172,40 +216,51 @@ export struct LayoutSettingsPage {
     }.alignItems(VerticalAlign.Center)
   }
 
-  // A plain tappable-Row column (not Menu/MenuItem): a custom MenuItem builder swallows the click, so the
-  // color dots + reliable onClick live in a Column that bindMenu renders as the popup.
+  // V2Next ThemeColorMenu: a standard Menu of SettingsCheckedMenuItem (paintpalette_fill color dot +
+  // checkmark when selected). The platform MenuItem scrolls when items overflow, so the 自定义 entry fits
+  // in the same dropdown as the presets.
   @Builder
   ThemeColorMenu() {
-    Column() {
+    Menu() {
       ForEach(
         ThemeColorSettings.options(),
         (option: ThemeColorOption) => {
-          Row({ space: ThemeConstants.SPACE_MD }) {
-            Circle({ width: 18, height: 18 }).fill(option.color)
-            Text(option.label)
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontColor($r('sys.color.font_primary'))
-              .layoutWeight(1)
-            if (ThemeColorSettings.normalize(this.themeColor.color) === option.value) {
-              SymbolGlyph($r('sys.symbol.checkmark')).fontColor([$r('sys.color.font_emphasize')])
-            }
-          }
-          .width('100%')
-          .padding({
-            left: ThemeConstants.SPACE_MD,
-            right: ThemeConstants.SPACE_MD,
-            top: ThemeConstants.SPACE_SM,
-            bottom: ThemeConstants.SPACE_SM,
-          })
-          .onClick(() => {
-            this.setThemeColor(option.value)
-          })
+          this.ThemeColorMenuItem(option)
         },
         (option: ThemeColorOption) => option.value,
       )
+      this.CustomColorMenuItem()
     }
-    .width(184)
-    .padding({ top: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
+  }
+
+  @Builder
+  ThemeColorMenuItem(option: ThemeColorOption) {
+    SettingsCheckedMenuItem({
+      label: option.label,
+      selected: ThemeColorSettings.normalize(this.themeColor.color) === option.value,
+      showColorDot: true,
+      color: option.color,
+      selectAction: () => {
+        this.setThemeColor(option.value)
+      },
+    })
+  }
+
+  // NextE-only entry (V2Next has presets only): a 自定义 item in the SAME dropdown that opens the
+  // AppColorPicker half-modal. Its dot shows the live custom color when a custom accent is active.
+  @Builder
+  CustomColorMenuItem() {
+    SettingsCheckedMenuItem({
+      label: $r('app.string.theme_color_custom'),
+      selected: ThemeColorSettings.isCustom(this.themeColor.color),
+      showColorDot: true,
+      color: ThemeColorSettings.isCustom(this.themeColor.color)
+        ? ThemeColorSettings.currentColor()
+        : $r('sys.color.font_tertiary'),
+      selectAction: () => {
+        this.openColorPicker()
+      },
+    })
   }
 
   @Builder
@@ -588,5 +643,9 @@ export struct LayoutSettingsPage {
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_layout')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .bindSheet($$this.colorPickerShown, this.ColorPickerSheet(), {
+      detents: [SheetSize.LARGE],
+      showClose: false,
+    })
   }
 }

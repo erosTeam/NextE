@@ -1365,32 +1365,36 @@
       "value": "Theme color"
     },
     {
-      "name": "theme_color_system",
-      "value": "Default"
+      "name": "theme_color_galaxy_blue",
+      "value": "Galaxy blue"
     },
     {
-      "name": "theme_color_blue",
-      "value": "Blue"
+      "name": "theme_color_orange_yellow",
+      "value": "Orange yellow"
     },
     {
-      "name": "theme_color_orange",
-      "value": "Orange"
+      "name": "theme_color_cat_blue",
+      "value": "Cat blue"
     },
     {
-      "name": "theme_color_red",
-      "value": "Red"
+      "name": "theme_color_huawei_red",
+      "value": "Huawei red"
     },
     {
-      "name": "theme_color_purple",
-      "value": "Purple"
+      "name": "theme_color_elegant_purple",
+      "value": "Elegant purple"
     },
     {
-      "name": "theme_color_pink",
-      "value": "Pink"
+      "name": "theme_color_bilibili_pink",
+      "value": "Bilibili pink"
     },
     {
-      "name": "theme_color_green",
-      "value": "Green"
+      "name": "theme_color_grass_green",
+      "value": "Grass green"
+    },
+    {
+      "name": "theme_color_custom",
+      "value": "Custom"
     },
     {
       "name": "settings_language",

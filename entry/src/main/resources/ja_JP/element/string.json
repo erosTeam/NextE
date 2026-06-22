@@ -1365,32 +1365,36 @@
       "value": "テーマカラー"
     },
     {
-      "name": "theme_color_system",
-      "value": "デフォルト"
+      "name": "theme_color_galaxy_blue",
+      "value": "ギャラクシーブルー"
     },
     {
-      "name": "theme_color_blue",
-      "value": "ブルー"
+      "name": "theme_color_orange_yellow",
+      "value": "オレンジイエロー"
     },
     {
-      "name": "theme_color_orange",
-      "value": "オレンジ"
+      "name": "theme_color_cat_blue",
+      "value": "キャットブルー"
     },
     {
-      "name": "theme_color_red",
-      "value": "レッド"
+      "name": "theme_color_huawei_red",
+      "value": "ファーウェイレッド"
     },
     {
-      "name": "theme_color_purple",
-      "value": "パープル"
+      "name": "theme_color_elegant_purple",
+      "value": "エレガントパープル"
     },
     {
-      "name": "theme_color_pink",
-      "value": "ピンク"
+      "name": "theme_color_bilibili_pink",
+      "value": "ビリビリピンク"
     },
     {
-      "name": "theme_color_green",
-      "value": "グリーン"
+      "name": "theme_color_grass_green",
+      "value": "グラスグリーン"
+    },
+    {
+      "name": "theme_color_custom",
+      "value": "カスタム"
     },
     {
       "name": "settings_language",
