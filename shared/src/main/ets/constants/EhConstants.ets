@@ -367,19 +367,22 @@ export class EhConstants {
 
   /**
    * Rating-star fill colour for a gallery's `colorRating` variant (eros_fe ThemeColors.colorRatingMap):
-   * community/default 'ir' → orange #FF962E; the personally-rated variants 'irr'/'irg'/'irb' →
-   * red/green/blue. Returned as an app.color resource so dark mode resolves too.
+   * community/default 'ir' → orange #FF962E; personally-rated variants use EH's red/green/blue/yellow
+   * classes. Returned as an app.color resource so dark mode resolves too.
    */
   static ratingStarColor(colorRating: string): ResourceColor {
     const v: string = colorRating.trim()
-    if (v === 'irr') {
+    if (v === 'irr' || v.indexOf(' irr') >= 0) {
       return $r('app.color.rating_star_red')
     }
-    if (v === 'irg') {
+    if (v === 'irg' || v.indexOf(' irg') >= 0) {
       return $r('app.color.rating_star_green')
     }
-    if (v === 'irb') {
+    if (v === 'irb' || v.indexOf(' irb') >= 0) {
       return $r('app.color.rating_star_blue')
+    }
+    if (v === 'iry' || v.indexOf(' iry') >= 0) {
+      return $r('app.color.rating_star_yellow')
     }
     return $r('app.color.rating_star_orange')
   }

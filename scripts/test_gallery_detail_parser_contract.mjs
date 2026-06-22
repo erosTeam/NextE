@@ -48,8 +48,8 @@ const RE = {
   visible: /Visible:<\/td><td class="gdt2">([^<]+)</,
   parent: /Parent:<\/td><td class="gdt2"><a href="(https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)">([\s\S]*?)<\/a>/,
   rating: /var average_rating\s*=\s*([\d.]+)/,
-  ratingAttrs: /<div id="rating_image"([^>]*)>/,
-  ratingClass: /class="ir( ir[rgb])?"/,
+  ratingAttrs: /<div\b(?=[^>]*\bid="rating_image")[^>]*>/,
+  ratingClass: /class="[^"]*\b(ir[a-z])\b[^"]*"/,
   ratingPos: /background-position:\s*-?(\d+)px\s+-?(\d+)px/,
   apikey: /var apikey\s*=\s*"([0-9a-f]+)"/,
   // The user's own favorite: #fav inner sprite (favorited only). Match the div blob, then read Y +
@@ -156,12 +156,12 @@ function parseImages(html) {
 }
 // Mirror EhGalleryDetailParser colorRating: #rating_image class "ir" -> '' (community), "ir irX" -> 'irX'.
 function parseRatingColor(html) {
-  const attrs = html.match(RE.ratingAttrs)?.[1] ?? ''
+  const attrs = html.match(RE.ratingAttrs)?.[0] ?? ''
   const m = attrs.match(RE.ratingClass)
   return m && m[1] ? m[1].trim() : ''
 }
 function parseRatingFallBack(html) {
-  const attrs = html.match(RE.ratingAttrs)?.[1] ?? ''
+  const attrs = html.match(RE.ratingAttrs)?.[0] ?? ''
   const m = attrs.match(RE.ratingPos)
   if (!m) return 0
   return (80 - Number.parseFloat(m[1])) / 16 - (m[2] === '21' ? 0.5 : 0)
@@ -254,6 +254,7 @@ eq(parseRatingColor('<div id="rating_image" class="ir" style="background-positio
 eq(parseRatingColor('<div id="rating_image" class="ir irb" style="background-position:0px -1px">'), 'irb', 'ratingColor: ir irb → irb (personal blue)')
 eq(parseRatingColor('<div id="rating_image" class="ir irg" style="background-position:0px -21px">'), 'irg', 'ratingColor: ir irg → irg (personal green)')
 eq(parseRatingColor('<div id="rating_image" class="ir irr">'), 'irr', 'ratingColor: ir irr → irr (personal red)')
+eq(parseRatingColor('<div style="background-position:0px -1px" class="ir iry" id="rating_image">'), 'iry', 'ratingColor: attr-order variant + iry → iry (personal yellow)')
 eq(parseRatingFallBack('<div id="rating_image" class="ir" style="background-position:0px -1px">'), 5, 'ratingFallBack: x=0,y=1 → 5')
 eq(parseRatingFallBack('<div id="rating_image" class="ir" style="background-position:-16px -21px">'), 3.5, 'ratingFallBack: x=16,y=21 → 3.5')
 eq(parsePageCount(SYN), 3, 'preview page count (ptt max label)')

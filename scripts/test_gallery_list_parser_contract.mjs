@@ -29,7 +29,7 @@ const RE = {
   thumbDataSrc: /<div class="glthumb"[^>]*>[\s\S]*?<img[^>]*?\sdata-src="([^"]+)"/,
   thumbSrc: /<div class="glthumb"[^>]*>[\s\S]*?<img[^>]*?\ssrc="([^"]+)"/,
   rating: /<div class="ir[^"]*"[^>]*background-position:\s*-?(\d+)px\s+-?(\d+)px/,
-  ratingClass: /<div class="ir( ir[rgb])?"[^>]*background-position/,
+  ratingClass: /<div class="[^"]*\b(ir[a-z])\b[^"]*"[^>]*background-position/,
   favcat: /id="posted_\d+"[^>]*style="[^"]*border-color:(#\w{3})/,
   favNote: /<div class="glfnote"[^>]*>Note:\s*([^<]+)<\/div>/,
   favTitle: /id="posted_\d+"[^>]*title="([^"]+)"/,
@@ -253,6 +253,10 @@ const VOTED = `<table class="itg gltc"><tr><td class="gl1c glcat"><div class="cn
 const vt = parse(VOTED).gallerys[0]
 eq(vt.rating, 4, 'VOTED.rating still parses (-16px → 4.0) despite "ir irb" class')
 eq(vt.colorRating, 'irb', 'VOTED.colorRating (personal blue vote)')
+const YELLOW = `<table class="itg gltc"><tr><td class="gl1c glcat"><div class="cn ct2">Doujinshi</div></td>` +
+  `<td class="gl3c glname"><a href="https://e-hentai.org/g/445/ffff/"><div class="glink">Yellow Vote</div></a></td>` +
+  `<td class="gl2c"><div class="ir iry" style="background-position:-8px -1px"></div></td></tr></table>`
+eq(parse(YELLOW).gallerys[0].colorRating, 'iry', 'YELLOW.colorRating (personal yellow vote)')
 
 // 2) real fixture — smoke
 const fixture = join(ROOT, 'scripts/fixtures/gallery_list.html')

@@ -31,8 +31,8 @@ export class EhGalleryDetailParser {
   private static readonly RE_RATING_COUNT: RegExp = /id="rating_count"[^>]*>(\d+)</
   // The #rating_image div carries both the personal-rating colour variant and EH's rounded sprite
   // position. eros_fe derives ratingFallBack as `(80 - x) / 16 - (y == 21 ? 0.5 : 0)`.
-  private static readonly RE_RATING_ATTRS: RegExp = /<div id="rating_image"([^>]*)>/
-  private static readonly RE_RATING_CLASS: RegExp = /class="ir( ir[rgb])?"/
+  private static readonly RE_RATING_ATTRS: RegExp = /<div\b(?=[^>]*\bid="rating_image")[^>]*>/
+  private static readonly RE_RATING_CLASS: RegExp = /class="[^"]*\b(ir[a-z])\b[^"]*"/
   private static readonly RE_RATING_POS: RegExp = /background-position:\s*-?(\d+)px\s+-?(\d+)px/
   private static readonly RE_APIUID: RegExp = /var apiuid\s*=\s*(-?\d+)/
   private static readonly RE_APIKEY: RegExp = /var apikey\s*=\s*"([0-9a-f]+)"/
@@ -108,8 +108,8 @@ export class EhGalleryDetailParser {
       g.rating = Number.parseFloat(ratingStr)
     }
     const ratingAttrsM: RegExpMatchArray | null = html.match(EhGalleryDetailParser.RE_RATING_ATTRS)
-    const ratingAttrs: string = ratingAttrsM !== null && ratingAttrsM[1] !== undefined ? ratingAttrsM[1] : ''
-    // Personal-rating colour variant (irr/irg/irb) from the #rating_image class; '' = community-only.
+    const ratingAttrs: string = ratingAttrsM !== null && ratingAttrsM[0] !== undefined ? ratingAttrsM[0] : ''
+    // Personal-rating colour variant (ir* class after base `ir`) from #rating_image; '' = community-only.
     const rcM: RegExpMatchArray | null = ratingAttrs.match(EhGalleryDetailParser.RE_RATING_CLASS)
     const ratingVariant: string = rcM !== null && rcM[1] !== undefined ? rcM[1].trim() : ''
     g.colorRating = ratingVariant

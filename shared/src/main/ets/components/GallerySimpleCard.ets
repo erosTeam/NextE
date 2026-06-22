@@ -46,7 +46,7 @@ export struct GallerySimpleCard {
         Row({ space: ThemeConstants.SPACE_XS }) {
           RatingStars({
             rating: this.gallery.ratingFallBack,
-            color: EhConstants.ratingStarColor(this.gallery.colorRating),
+            colorRating: this.gallery.colorRating,
             starSize: 12,
           })
           Text(this.gallery.ratingFallBack.toFixed(2))

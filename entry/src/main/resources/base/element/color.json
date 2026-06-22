@@ -153,6 +153,10 @@
       "value": "#FF962E"
     },
     {
+      "name": "rating_star_yellow",
+      "value": "#FACC15"
+    },
+    {
       "name": "rating_star_red",
       "value": "#FF6478"
     },

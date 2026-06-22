@@ -154,6 +154,23 @@ export class EhApiPhpService {
     return Number.isNaN(n) ? 0 : n
   }
 
+  private static ratingClassFrom(value: string): string {
+    const v: string = value.trim()
+    if (v.indexOf('irr') >= 0) {
+      return 'irr'
+    }
+    if (v.indexOf('irg') >= 0) {
+      return 'irg'
+    }
+    if (v.indexOf('irb') >= 0) {
+      return 'irb'
+    }
+    if (v.indexOf('iry') >= 0) {
+      return 'iry'
+    }
+    return ''
+  }
+
   static async showPage(
     base: string,
     gid: number,
@@ -219,7 +236,7 @@ export class EhApiPhpService {
     result.userRating = EhApiPhpService.numberFrom(obj.rating_usr)
     result.averageRating = EhApiPhpService.numberFrom(obj.rating_avg)
     result.ratingCount = EhApiPhpService.intFrom(obj.rating_cnt).toString()
-    result.colorRating = typeof obj.rating_cls === 'string' ? obj.rating_cls : ''
+    result.colorRating = typeof obj.rating_cls === 'string' ? EhApiPhpService.ratingClassFrom(obj.rating_cls) : ''
     if (result.userRating <= 0 || result.averageRating <= 0) {
       throw new Error('rategallery: missing rating result')
     }

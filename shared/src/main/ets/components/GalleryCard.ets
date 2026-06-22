@@ -220,7 +220,7 @@ export struct GalleryCard {
           // 5-star cluster (width = 5·starSize), so the bar stays tight like eros_fe — no layoutWeight spread.
           RatingStars({
             rating: this.gallery.ratingFallBack,
-            color: EhConstants.ratingStarColor(this.gallery.colorRating),
+            colorRating: this.gallery.colorRating,
             starSize: 16,
           })
           Blank()

@@ -6,8 +6,8 @@
  * (community orange / personal-rating variant) via StaticRatingBar — gallery_item.dart:478-482 and
  * gallery_item_simple.dart:196-201. The cover-first grid card intentionally does not render a rating
  * row; it is protected by test_gallery_grid_card_visual_contract.mjs. NextE list/simple cards must keep
- * using the shared RatingStars component (#36) + EhConstants.ratingStarColor(colorRating), NOT the
- * system-yellow ArkUI Rating component.
+ * using the shared RatingStars component (#36) with the raw colorRating, NOT the system-yellow ArkUI
+ * Rating component.
  *
  * Run: node scripts/test_list_card_rating_contract.mjs
  */
@@ -48,9 +48,9 @@ for (const f of FILES) {
   ok(/import\s*\{\s*RatingStars\s*\}\s*from\s*'\.\/RatingStars'/.test(src), `${f}: imports RatingStars`)
   // 3) The star colour is sourced from colorRating (orange default / personal variant), not a fixed token.
   ok(
-    /EhConstants\.ratingStarColor\(this\.gallery\.colorRating\)/.test(src),
-    `${f}: star colour comes from EhConstants.ratingStarColor(colorRating)`,
-    'The fill must follow the gallery colorRating, matching eros_fe StaticRatingBar colorLight.'
+    /colorRating:\s*this\.gallery\.colorRating/.test(src),
+    `${f}: star colour receives raw gallery.colorRating`,
+    'The fill must follow the gallery colorRating inside RatingStars, matching eros_fe StaticRatingBar colorLight.'
   )
 }
 

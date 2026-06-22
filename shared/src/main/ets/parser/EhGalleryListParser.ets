@@ -39,7 +39,7 @@ export class EhGalleryListParser {
   private static readonly RE_RATING: RegExp =
     /<div class="ir[^"]*"[^>]*background-position:\s*-?(\d+)px\s+-?(\d+)px/
   private static readonly RE_RATING_CLASS: RegExp =
-    /<div class="ir( ir[rgb])?"[^>]*background-position/
+    /<div class="[^"]*\b(ir[a-z])\b[^"]*"[^>]*background-position/
   private static readonly RE_FAVCAT: RegExp =
     /id="posted_\d+"[^>]*style="[^"]*border-color:(#\w{3})/
   private static readonly RE_FAVNOTE: RegExp = /<div class="glfnote"[^>]*>Note:\s*([^<]+)<\/div>/
@@ -139,7 +139,7 @@ export class EhGalleryListParser {
       // The list `ir` sprite is the gallery's COMMUNITY rating — eros_fe shows this via
       // ratingFallBack (the display rating), distinct from a personal vote.
       g.ratingFallBack = g.rating
-      // Personal-vote color variant (irr/irg/irb), if the user has rated this gallery.
+      // Personal-vote color variant (ir*), if the user has rated this gallery.
       const clsM: RegExpMatchArray | null = row.match(EhGalleryListParser.RE_RATING_CLASS)
       const variant: string = clsM !== null && clsM[1] !== undefined ? clsM[1].trim() : ''
       g.colorRating = variant

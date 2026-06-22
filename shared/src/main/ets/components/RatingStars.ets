@@ -1,8 +1,10 @@
+import { EhConstants } from '../constants/EhConstants'
+
 /**
  * Read-only star rating, tinted (eros_fe StaticRatingBar / GalleryRating): a colour-filled star row
  * clipped over a grey empty-star row, so a fractional rating (e.g. 4.55) shows a partial last star.
  * The fill colour is the gallery's rating colour (community orange, or the personal-rating variant) —
- * passed in by the caller via EhConstants.ratingStarColor(colorRating). No half-star glyph exists in
+ * passed in as raw colorRating and resolved here. No half-star glyph exists in
  * sys.symbol, so the two-layer clip is how the fractional fill is achieved (eros_fe does the same).
  *
  * star_fill (filled) is correct here — this is the rating widget, NOT the InfoBar's quiet metadata grid
@@ -13,6 +15,7 @@
 export struct RatingStars {
   @Param rating: number = 0;
   @Param color: ResourceColor = $r('app.color.rating_star_orange');
+  @Param colorRating: string = '';
   @Param starSize: number = 15;
   // When true the same star row becomes slide/tap-to-rate (eros_fe rate dialog parity): a touch maps to a
   // 0.5-step value reported via onRate. Default false keeps every existing display call read-only + unchanged.
@@ -25,6 +28,10 @@ export struct RatingStars {
   private fillWidth(): number {
     const r: number = this.rating < 0 ? 0 : this.rating > 5 ? 5 : this.rating
     return (r / 5) * (this.starSize * 5)
+  }
+
+  private fillColor(): ResourceColor {
+    return this.colorRating.length > 0 ? EhConstants.ratingStarColor(this.colorRating) : this.color
   }
 
   // Map a touch X (relative to the star row) to a 0.5-step rating: the left half of a star fills to .5, the
@@ -57,13 +64,29 @@ export struct RatingStars {
     }
   }
 
+  @Builder
+  filledStarRow() {
+    Row() {
+      ForEach(
+        this.cells,
+        (_i: number) => {
+          SymbolGlyph($r('sys.symbol.star_fill'))
+            .fontSize(this.starSize)
+            .width(this.starSize)
+            .fontColor([this.fillColor()])
+        },
+        (i: number) => i.toString(),
+      )
+    }
+  }
+
   build() {
     Stack({ alignContent: Alignment.Start }) {
       // Empty/base layer (muted grey), full width.
       this.starRow($r('sys.color.font_tertiary'))
       // Filled layer, clipped to the rating fraction.
       Row() {
-        this.starRow(this.color)
+        this.filledStarRow()
       }
       .width(this.fillWidth())
       .clip(true)

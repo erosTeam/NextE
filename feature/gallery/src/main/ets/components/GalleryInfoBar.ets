@@ -57,13 +57,13 @@ export struct GalleryInfoBar {
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontColor($r('sys.color.font_primary'))
           // Tinted star row (eros_fe GalleryRating): community orange by default, or the personal-rating
-          // variant (red/green/blue) when the gallery is personally rated, via ratingStarColor(colorRating)
+          // variant when the gallery is personally rated, via ratingStarColor(colorRating)
           // — NOT the system default yellow. Fill prefers ratingFallBack (display rating before the user's
           // personal vote); the detail parser does not populate ratingFallBack yet, so fall back to the raw
           // rating when it is 0 (otherwise the stars render empty). The number above stays the raw rating.
           RatingStars({
             rating: this.gallery.ratingFallBack > 0 ? this.gallery.ratingFallBack : this.gallery.rating,
-            color: EhConstants.ratingStarColor(this.gallery.colorRating),
+            colorRating: this.gallery.colorRating,
             starSize: 15,
           })
           Blank()

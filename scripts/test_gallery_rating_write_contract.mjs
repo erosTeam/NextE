@@ -7,6 +7,7 @@
  * - Detail no longer routes Rate to the old readonly web-only dialog.
  * - Rating UI is an AppModalScaffold sheet with half-star choices and title confirm action.
  * - Success writes server-returned rating_usr/rating_avg/rating_cnt/rating_cls into detail + retained lists.
+ * - EH may return rating_cls as the full sprite class (`ir irb`); NextE stores the short variant (`irb`).
  *
  * Run: node scripts/test_gallery_rating_write_contract.mjs
  */
@@ -34,6 +35,7 @@ const homeBody = read('feature/home/src/main/ets/components/GalleryListBody.ets'
 const searchPage = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 const favPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
 const barrel = read('shared/src/main/ets/Index.ets')
+const ratingStars = read('shared/src/main/ets/components/RatingStars.ets')
 
 ok('API exposes rategallery request body with EH fields',
   /class RateGalleryRequest[\s\S]*method: string = 'rategallery'[\s\S]*apikey: string[\s\S]*apiuid: number[\s\S]*gid: number[\s\S]*token: string[\s\S]*rating: number/.test(api))
@@ -46,10 +48,11 @@ ok('API parses server rating response fields',
   /rating_avg/.test(api) &&
   /rating_cnt/.test(api) &&
   /rating_cls/.test(api) &&
+  /private static ratingClassFrom\(value: string\): string \{[\s\S]*v\.indexOf\('irr'\)[\s\S]*return 'irr'[\s\S]*v\.indexOf\('irg'\)[\s\S]*return 'irg'[\s\S]*v\.indexOf\('irb'\)[\s\S]*return 'irb'/.test(api) &&
   /result\.userRating = EhApiPhpService\.numberFrom\(obj\.rating_usr\)/.test(api) &&
   /result\.averageRating = EhApiPhpService\.numberFrom\(obj\.rating_avg\)/.test(api) &&
   /result\.ratingCount = EhApiPhpService\.intFrom\(obj\.rating_cnt\)\.toString\(\)/.test(api) &&
-  /result\.colorRating = typeof obj\.rating_cls === 'string' \? obj\.rating_cls : ''/.test(api))
+  /result\.colorRating = typeof obj\.rating_cls === 'string' \? EhApiPhpService\.ratingClassFrom\(obj\.rating_cls\) : ''/.test(api))
 ok('API rejects missing apikey/apiuid/gid before destructive write',
   /apikey\.length === 0[\s\S]*Number\.isNaN\(apiuidNum\)[\s\S]*Number\.isNaN\(gidNum\)[\s\S]*throw new Error\('rateGallery: missing API key'\)/.test(api))
 
@@ -70,10 +73,9 @@ ok('detail page opens rating sheet rather than readonly web dialog',
   !/openRatingSafety/.test(detail))
 ok('rating sheet uses AppModalScaffold and title confirm action',
   /private RatingSheet\(\)[\s\S]*AppModalScaffold\(\{[\s\S]*title: \$r\('app\.string\.detail_rate'\)[\s\S]*confirmText: \$r\('app\.string\.detail_rate_submit'\)[\s\S]*confirmEnabled: this\.canSubmitRating\(\)[\s\S]*confirmAction: \(\) => \{[\s\S]*this\.submitRating\(\)/.test(detail))
-ok('rating sheet offers half-star choices, not a web fallback',
-  /private ratingOptions: number\[] = \[0\.5, 1, 1\.5, 2, 2\.5, 3, 3\.5, 4, 4\.5, 5\]/.test(detail) &&
-  /RatingStars\(\{[\s\S]*rating: value/.test(detail) &&
-  /this\.ratingSelected = value/.test(detail))
+ok('rating sheet offers interactive half-star selection, not a web fallback',
+  /RatingStars\(\{[\s\S]*rating: this\.ratingSelected[\s\S]*interactive: true[\s\S]*onRate: \(value: number\) => \{[\s\S]*this\.ratingSelected = value/.test(detail) &&
+  /private rateFromX\(x: number\): void \{[\s\S]*Math\.ceil\(fraction \* 10\) \/ 2/.test(ratingStars))
 ok('rating submit publishes mutation after server success',
   /const result: GalleryRatingResult = await this\.vm\.rateGallery\(this\.ratingSelected\)[\s\S]*this\.ratingMutation\.publish\([\s\S]*result\.userRating[\s\S]*result\.averageRating[\s\S]*result\.ratingCount[\s\S]*result\.colorRating/.test(detail))
 ok('rating submit reports failures without closing sheet first',
