@@ -224,6 +224,7 @@ export {
   SEARCH_SCOPE_FAVORITE,
 } from './state/SearchFilterState'
 export { AuthState, connectAuth } from './state/AuthState'
+export { AccountListState, connectAccountList } from './state/AccountListState'
 export {
   HomeSourceState,
   connectHomeSource,
@@ -256,6 +257,7 @@ export {
   connectThemeColor,
 } from './state/AppearanceState'
 export { CookieJarSettings } from './settings/CookieJarSettings'
+export { AccountListSettings } from './settings/AccountListSettings'
 export { SiteModeSettings } from './settings/SiteModeSettings'
 export { ListModeSettings } from './settings/ListModeSettings'
 export { GalleryTitleSettings } from './settings/GalleryTitleSettings'

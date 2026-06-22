@@ -6,6 +6,7 @@ import { EhConstants } from '../constants/EhConstants'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { connectAuth, AuthState } from '../state/AuthState'
+import { AccountListSettings } from './AccountListSettings'
 
 /**
  * Persistence for the sensitive EH auth cookie bundle. HarmonyOS has no cookie jar, so the
@@ -146,6 +147,7 @@ export class CookieJarSettings {
       store.putSync(StorageKeys.COOKIE_JAR, CookieJarSettings.serialize())
       store.flushSync()
       CookieJarSettings.syncAuthState()
+      await AccountListSettings.recordActive(context)
       DiagnosticLogger.info(
         'auth',
         'cookie_jar_saved',
@@ -168,6 +170,8 @@ export class CookieJarSettings {
         CookieJarSettings.applyFromHeader(serialized)
       }
       CookieJarSettings.syncAuthState()
+      await AccountListSettings.load(context)
+      await AccountListSettings.recordActive(context)
       DiagnosticLogger.info(
         'auth',
         'cookie_jar_restored',
@@ -194,7 +198,33 @@ export class CookieJarSettings {
       DiagnosticLogger.warn('auth', 'cookie_jar_clear_failed', (error as Error).message)
     }
     CookieJarSettings.syncAuthState()
+    await AccountListSettings.load(context)
     DiagnosticLogger.info('auth', 'cookie_jar_cleared', 'login=false')
+  }
+
+  /** Switch the active account to a saved one: load its bundle into the jar, persist, refresh. */
+  static async switchTo(context: common.UIAbilityContext, memberId: string): Promise<void> {
+    const bundle: string = await AccountListSettings.bundleOf(context, memberId)
+    if (bundle.length === 0) {
+      return
+    }
+    EhCookieStore.getInstance().clear()
+    CookieJarSettings.applyFromHeader(bundle)
+    await CookieJarSettings.save(context)
+  }
+
+  /** Remove a saved account; if it was the active one, switch to another saved account or fully log out. */
+  static async removeAccount(context: common.UIAbilityContext, memberId: string): Promise<void> {
+    const wasActive: boolean =
+      EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID) === memberId
+    const remaining: string[] = await AccountListSettings.remove(context, memberId)
+    if (wasActive) {
+      if (remaining.length > 0) {
+        await CookieJarSettings.switchTo(context, remaining[0])
+      } else {
+        await CookieJarSettings.clear(context)
+      }
+    }
   }
 
   /** Push the jar's login facts into the reactive AuthState (non-sensitive fields only). */
