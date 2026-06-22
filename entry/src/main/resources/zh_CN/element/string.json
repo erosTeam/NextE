@@ -1625,12 +1625,16 @@
       "value": "杂项"
     },
     {
-      "name": "tag_ns_other",
-      "value": "其他"
-    },
-    {
       "name": "tag_ns_mixed",
       "value": "混合"
+    },
+    {
+      "name": "tag_ns_location",
+      "value": "地点"
+    },
+    {
+      "name": "tag_ns_other",
+      "value": "其他"
     },
     {
       "name": "tag_ns_uploader",

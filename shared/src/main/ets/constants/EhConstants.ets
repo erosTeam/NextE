@@ -132,6 +132,7 @@ export class EhConstants {
       m.set('f', 'female')
       m.set('g', 'group')
       m.set('l', 'language')
+      m.set('loc', 'location')
       m.set('m', 'male')
       m.set('p', 'parody')
       m.set('r', 'reclass')
@@ -163,6 +164,9 @@ export class EhConstants {
     }
     if (full === 'language') {
       return 'l'
+    }
+    if (full === 'location') {
+      return 'loc'
     }
     if (full === 'male') {
       return 'm'
@@ -232,6 +236,7 @@ export class EhConstants {
       m.set('language', $r('app.color.tagns_language'))
       m.set('reclass', $r('app.color.tagns_reclass'))
       m.set('cosplayer', $r('app.color.tagns_cosplayer'))
+      m.set('location', $r('app.color.tagns_location'))
       m.set('other', $r('app.color.tagns_other'))
       m.set('temp', $r('app.color.tagns_temp'))
       m.set('misc', $r('app.color.tagns_misc'))
@@ -260,8 +265,9 @@ export class EhConstants {
       m.set('reclass', $r('app.string.tag_ns_reclass'))
       m.set('cosplayer', $r('app.string.tag_ns_cosplayer'))
       m.set('misc', $r('app.string.tag_ns_misc'))
-      m.set('other', $r('app.string.tag_ns_other'))
       m.set('mixed', $r('app.string.tag_ns_mixed'))
+      m.set('location', $r('app.string.tag_ns_location'))
+      m.set('other', $r('app.string.tag_ns_other'))
       m.set('uploader', $r('app.string.tag_ns_uploader'))
       m.set('temp', $r('app.string.tag_ns_temp'))
       EhConstants.tagNsLabelMap = m

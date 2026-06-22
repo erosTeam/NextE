@@ -1625,12 +1625,16 @@
       "value": "その他"
     },
     {
-      "name": "tag_ns_other",
-      "value": "その他"
-    },
-    {
       "name": "tag_ns_mixed",
       "value": "混合"
+    },
+    {
+      "name": "tag_ns_location",
+      "value": "場所"
+    },
+    {
+      "name": "tag_ns_other",
+      "value": "その他"
     },
     {
       "name": "tag_ns_uploader",

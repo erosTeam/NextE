@@ -1625,12 +1625,16 @@
       "value": "Misc"
     },
     {
-      "name": "tag_ns_other",
-      "value": "Other"
-    },
-    {
       "name": "tag_ns_mixed",
       "value": "Mixed"
+    },
+    {
+      "name": "tag_ns_location",
+      "value": "Location"
+    },
+    {
+      "name": "tag_ns_other",
+      "value": "Other"
     },
     {
       "name": "tag_ns_uploader",
