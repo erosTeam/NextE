@@ -21,8 +21,11 @@ import {
   connectTagTranslationSettings,
   ThumbnailModeSettings,
   ThumbnailModeState,
+  CoverBackgroundSettings,
+  CoverBackgroundState,
   connectListMode,
   connectThumbnailMode,
+  connectCoverBackground,
   immersiveTitleBar,
 } from 'shared'
 
@@ -36,6 +39,7 @@ export struct LayoutSettingsPage {
   @Local listMode: ListModeState = connectListMode();
   @Local galleryTitle: GalleryTitleState = connectGalleryTitle();
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
+  @Local coverBg: CoverBackgroundState = connectCoverBackground();
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local viewMenuShown: boolean = false;
@@ -77,6 +81,10 @@ export struct LayoutSettingsPage {
 
   private setHomeTabAutoHide(value: boolean): void {
     HomeTabSettings.save(this.ctx(), value)
+  }
+
+  private setBlurringOfCoverBackground(value: boolean): void {
+    CoverBackgroundSettings.setBlurringOfCoverBackground(this.ctx(), value)
   }
 
   private setHorizontalThumbnails(value: boolean): void {
@@ -179,6 +187,17 @@ export struct LayoutSettingsPage {
                 checked: this.listMode.fixedHeight,
                 switchAction: (value: boolean) => {
                   this.setFixedHeight(value)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.settings_blurring_of_cover_background'),
+                subtitle: $r('app.string.settings_blurring_of_cover_background_hint'),
+                leadingIcon: $r('sys.symbol.picture'),
+                hasSwitch: true,
+                checked: this.coverBg.blurringOfCoverBackground,
+                switchAction: (value: boolean) => {
+                  this.setBlurringOfCoverBackground(value)
                 },
               })
               this.rowDivider()

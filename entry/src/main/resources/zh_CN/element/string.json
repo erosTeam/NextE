@@ -297,6 +297,14 @@
       "value": "横向缩略图"
     },
     {
+      "name": "settings_blurring_of_cover_background",
+      "value": "封面背景模糊"
+    },
+    {
+      "name": "settings_blurring_of_cover_background_hint",
+      "value": "对比例不匹配的封面用模糊背景代替取色渐变"
+    },
+    {
       "name": "settings_home_tab_auto_hide",
       "value": "自动隐藏底部栏"
     },

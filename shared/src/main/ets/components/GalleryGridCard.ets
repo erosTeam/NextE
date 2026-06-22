@@ -65,6 +65,7 @@ export struct GalleryGridCard {
         radius: ThemeConstants.THUMB_RADIUS,
         sourceWidth: this.gallery.imgWidth,
         sourceHeight: this.gallery.imgHeight,
+        letterboxBackground: true,
       })
       GalleryCategoryCornerBadge({
         category: this.gallery.category,

@@ -98,6 +98,7 @@ export {
 } from './services/CachedImageFileService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 export { TagTranslationService, TagTranslationStatus } from './services/TagTranslationService'
+export { CoverColorService } from './services/CoverColorService'
 
 // network
 export { EhCookieStore } from './network/EhCookieStore'
@@ -166,6 +167,7 @@ export {
 } from './state/DownloadViewState'
 export { DownloadQueueState, connectDownloadQueue } from './state/DownloadQueueState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
+export { CoverBackgroundState, connectCoverBackground } from './state/CoverBackgroundState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
 export { LocalFavState, connectLocalFav } from './state/LocalFavState'
 export {
@@ -235,6 +237,7 @@ export { ListModeSettings } from './settings/ListModeSettings'
 export { GalleryTitleSettings } from './settings/GalleryTitleSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
 export { ThumbnailModeSettings } from './settings/ThumbnailModeSettings'
+export { CoverBackgroundSettings } from './settings/CoverBackgroundSettings'
 export { SearchHistorySettings } from './settings/SearchHistorySettings'
 export { SearchFilterSettings, SearchFilterSnapshot } from './settings/SearchFilterSettings'
 export { FavcatListSettings } from './settings/FavcatListSettings'

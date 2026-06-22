@@ -59,6 +59,19 @@ export struct GalleryCard {
       : this.adaptiveMinHeight()
   }
 
+  // eros_fe cover fit (gallery_item.dart _fit): when the source cover ratio is close to the card cover slot,
+  // fill it (Cover, light crop); when it is far (very wide / very tall), letterbox it (Contain) so the whole
+  // cover shows and EhThumbnail fills the gaps with the cover-color gradient (or blur). Thresholds mirror
+  // eros_fe's asymmetric band around the slot's contain ratio. Unknown source dimensions stay Contain (safe).
+  private coverFillsSlot(): boolean {
+    if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
+      return false
+    }
+    const imageRatio: number = this.gallery.imgWidth / this.gallery.imgHeight
+    const slotRatio: number = this.coverWidth() / this.coverHeight()
+    return imageRatio - slotRatio <= 0.28 && slotRatio - imageRatio <= 0.2
+  }
+
   // Chip background: the user's own fill color for this tag, else the inline-style color (future), else
   // neutral grey. Never namespace-derived.
   chipBg(t: SimpleTag): ResourceColor {
@@ -140,9 +153,10 @@ export struct GalleryCard {
         radius: 0,
         sourceWidth: this.gallery.imgWidth,
         sourceHeight: this.gallery.imgHeight,
-        // The list row grows taller than a cover's aspect when the text column is tall (2-line title +
-        // wrapped tags), so Cover would crop the cover's sides; Contain shows the whole cover over the grey.
-        containFit: true,
+        // Close cover ratios fill the slot (Cover, light crop); far ratios (very wide/tall) letterbox
+        // (Contain) so the whole cover shows, and the cover-color gradient (or blur) fills the gaps.
+        containFit: !this.coverFillsSlot(),
+        letterboxBackground: true,
       })
       Column({ space: ThemeConstants.SPACE_XS }) {
         Text(this.gallery.title())
@@ -265,9 +279,9 @@ export struct GalleryCard {
       .constraintSize(
         this.listMode.fixedHeight
           ? {
-            minHeight: ThemeConstants.LIST_CARD_FIXED_HEIGHT,
-            maxHeight: ThemeConstants.LIST_CARD_FIXED_HEIGHT,
-          }
+              minHeight: ThemeConstants.LIST_CARD_FIXED_HEIGHT,
+              maxHeight: ThemeConstants.LIST_CARD_FIXED_HEIGHT,
+            }
           : { minHeight: this.adaptiveMinHeight() },
       )
     }

@@ -60,6 +60,9 @@ export class ThemeConstants {
   static readonly RADIUS_ROUND: number = 999
   // Thumbnail/cover border radius — distinct from RADIUS_SM so thumb roundness can be tuned independently.
   static readonly THUMB_RADIUS: number = 8
+  // Blur radius for the optional blurred cover background behind an off-aspect (Contain) cover. Only used
+  // when the user enables blurringOfCoverBackground; the default fill is the cheaper color gradient.
+  static readonly COVER_BG_BLUR_RADIUS: number = 40
   // Detail tag chip (namespace label + member tags, eros_fe TagButton borderRadius 8): a comfortably
   // rounded chip — RADIUS_SM(4) read as a flat box on the ~18px chip. CHIP_LINE_HEIGHT (eros_fe height
   // 1.3 over a 12px caption) + the chip's 5px vertical padding give it a comfortable, even-rounded height.

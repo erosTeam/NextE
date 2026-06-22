@@ -128,15 +128,17 @@ export struct GalleryWaterfallCard {
                 if (index + 1 < this.gallery.simpleTags.length && index + 1 < WATERFALL_TAG_LIMIT) {
                   this.TagChip(this.gallery.simpleTags[index + 1])
                 }
-              }
-              .alignItems(HorizontalAlign.Start)
+              }.alignItems(HorizontalAlign.Start)
             }
           },
           (index: number) => `${this.tagSig.version}:col:${index}`,
         )
       }
       .listDirection(Axis.Horizontal)
-      .nestedScroll({ scrollForward: NestedScrollMode.SELF_ONLY, scrollBackward: NestedScrollMode.SELF_ONLY })
+      .nestedScroll({
+        scrollForward: NestedScrollMode.SELF_ONLY,
+        scrollBackward: NestedScrollMode.SELF_ONLY,
+      })
       .scrollBar(BarState.Off)
       .align(Alignment.Start)
       .width('100%')
@@ -155,6 +157,7 @@ export struct GalleryWaterfallCard {
           containFit: this.isExtremeTallCover(),
           sourceWidth: this.gallery.imgWidth,
           sourceHeight: this.gallery.imgHeight,
+          letterboxBackground: true,
         })
         GalleryCategoryCornerBadge({
           category: this.gallery.category,
@@ -180,8 +183,7 @@ export struct GalleryWaterfallCard {
         .borderRadius(ThemeConstants.RADIUS_MD)
         .padding({ left: 7, right: 7, top: 3, bottom: 3 })
         .position({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-      }
-      .width('100%')
+      }.width('100%')
       Column({ space: ThemeConstants.SPACE_XS }) {
         Row({ space: ThemeConstants.SPACE_XS }) {
           if (this.ratingText().length > 0) {

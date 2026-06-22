@@ -297,6 +297,14 @@
       "value": "Horizontal thumbnails"
     },
     {
+      "name": "settings_blurring_of_cover_background",
+      "value": "Blur cover background"
+    },
+    {
+      "name": "settings_blurring_of_cover_background_hint",
+      "value": "Blur off-aspect covers' background instead of a color gradient"
+    },
+    {
       "name": "settings_home_tab_auto_hide",
       "value": "Auto-hide bottom tabs"
     },

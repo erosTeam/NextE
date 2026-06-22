@@ -1,5 +1,7 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
+import { CoverColorService } from '../services/CoverColorService'
+import { connectCoverBackground, CoverBackgroundState } from '../state/CoverBackgroundState'
 
 export const THUMBNAIL_VISUAL_AUTO: number = 0
 export const THUMBNAIL_VISUAL_LOADING: number = 1
@@ -41,14 +43,25 @@ export struct EhThumbnail {
   @Param containFit: boolean = false;
   @Param sourceWidth: number = 0;
   @Param sourceHeight: number = 0;
+  // Opt-in: fill an off-aspect (Contain) cover's letterbox gaps with a background instead of leaving them
+  // transparent/grey. Only the browsing-list surfaces (list/grid/waterfall cards) pass true; detail header,
+  // preview grids, etc. keep the default false so they are untouched. The fill is the cover-color gradient
+  // by default, or a blurred copy of the cover when the user enables blurringOfCoverBackground.
+  @Param letterboxBackground: boolean = false;
   // Internal QA probe only. Default AUTO preserves production network/image behavior.
   @Param visualState: number = THUMBNAIL_VISUAL_AUTO;
   // Cover painted yet? Drives the placeholder spinner. Resets when the row is recycled to a new url.
   @Local loaded: boolean = false;
   @Local failed: boolean = false;
+  // The cover's extracted dominant color (packed 0xAARRGGBB), 0 until resolved. Backs the gradient fill.
+  @Local coverBgColor: number = 0;
+  // Cover-background preference (gradient vs blur). Read in build()/maybeResolveCoverColor so a live toggle
+  // re-flows the fill.
+  @Local coverBgState: CoverBackgroundState = connectCoverBackground();
 
   aboutToAppear(): void {
     this.applyVisualState()
+    this.maybeResolveCoverColor()
   }
 
   @Monitor('url')
@@ -59,6 +72,15 @@ export struct EhThumbnail {
     }
     this.loaded = false
     this.failed = false
+    // Recycled row: drop the previous cover's color and resolve the new one (cache hit repaints instantly).
+    this.coverBgColor = 0
+    this.maybeResolveCoverColor()
+  }
+
+  // Re-flow the gap fill when the user flips gradient ↔ blur at runtime: turning blur OFF needs a color.
+  @Monitor('coverBgState.blurringOfCoverBackground')
+  onCoverBgPrefChange() {
+    this.maybeResolveCoverColor()
   }
 
   @Monitor('visualState')
@@ -122,7 +144,7 @@ export struct EhThumbnail {
       return this.thumbWidth
     }
     if (this.fittedByHeight()) {
-      return this.thumbHeight * this.sourceWidth / this.sourceHeight
+      return (this.thumbHeight * this.sourceWidth) / this.sourceHeight
     }
     return this.thumbWidth
   }
@@ -134,7 +156,7 @@ export struct EhThumbnail {
     if (this.fittedByHeight()) {
       return this.thumbHeight
     }
-    return this.thumbWidth * this.sourceHeight / this.sourceWidth
+    return (this.thumbWidth * this.sourceHeight) / this.sourceWidth
   }
 
   private coverObjectFit(): ImageFit {
@@ -157,18 +179,93 @@ export struct EhThumbnail {
     return ImageFit.Cover
   }
 
+  // True when this cover renders letterboxed (Contain) AND a gradient color is what fills the gaps — i.e.
+  // the gap-fill is enabled, blur is off, and the active branch is a Contain one. Gates color extraction so
+  // we never fetch+decode for covers that fill (Cover) or use the blurred-image fill.
+  private needsCoverColorBg(): boolean {
+    if (!this.letterboxBackground || this.coverBgState.blurringOfCoverBackground) {
+      return false
+    }
+    if (this.containFit && this.hasSourceSize() && !this.fillHeight && !this.stretchHeight) {
+      return true
+    }
+    return this.coverRatio > 0 && this.coverObjectFit() === ImageFit.Contain
+  }
+
+  // Kick off (or reuse) the dominant-color extraction for the current cover. A cached color paints at once;
+  // otherwise the async result is applied only if the row has not been recycled to a different url meanwhile.
+  private maybeResolveCoverColor(): void {
+    if (!this.needsCoverColorBg()) {
+      return
+    }
+    const url: string = EhConstants.cdnThumb(this.url)
+    const hit: number = CoverColorService.getInstance().cached(url)
+    if (hit !== 0) {
+      this.coverBgColor = hit
+      return
+    }
+    CoverColorService.getInstance()
+      .resolve(url)
+      .then((color: number) => {
+        if (EhConstants.cdnThumb(this.url) === url) {
+          this.coverBgColor = color
+        }
+      })
+  }
+
+  // The fully-transparent twin of the extracted color for the gradient's bottom stop. Uses the '#AARRGGBB'
+  // string form: a bare number like 0x00RRGGBB would be read as opaque RGB, not transparent.
+  private fadeColor(): string {
+    const rgb: number = this.coverBgColor & 0x00ffffff
+    return '#00' + rgb.toString(16).padStart(6, '0')
+  }
+
+  // Bottom layer behind an off-aspect cover: a blurred Cover copy of the same image when the user enables
+  // blurringOfCoverBackground, else a vertical gradient from the cover's dominant color fading to transparent
+  // (so it blends into the card). Renders nothing until the image loads (blur) or the color resolves.
+  @Builder
+  coverBackgroundLayer() {
+    if (this.coverBgState.blurringOfCoverBackground) {
+      Image(EhConstants.cdnThumb(this.url))
+        .width('100%')
+        .height('100%')
+        .objectFit(ImageFit.Cover)
+        .blur(ThemeConstants.COVER_BG_BLUR_RADIUS)
+        .borderRadius(this.radius)
+        .clip(true)
+        .renderGroup(true)
+        .draggable(false)
+    } else if (this.coverBgColor !== 0) {
+      Column()
+        .width('100%')
+        .height('100%')
+        .borderRadius(this.radius)
+        .clip(true)
+        .linearGradient({
+          direction: GradientDirection.Bottom,
+          colors: [
+            [this.coverBgColor, 0.0],
+            [this.fadeColor(), 1.0],
+          ],
+        })
+    }
+  }
+
   build() {
     if (this.visualState !== THUMBNAIL_VISUAL_AUTO) {
       Stack({ alignContent: Alignment.Center }) {
         this.coverOverlay()
       }
-        .width(this.thumbWidth)
-        .height(this.thumbHeight)
-        .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
-        .borderRadius(this.radius)
-        .clip(true)
+      .width(this.thumbWidth)
+      .height(this.thumbHeight)
+      .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
+      .borderRadius(this.radius)
+      .clip(true)
     } else if (this.coverRatio > 0) {
       Stack({ alignContent: Alignment.Center }) {
+        if (this.letterboxBackground && this.coverObjectFit() === ImageFit.Contain) {
+          this.coverBackgroundLayer()
+        }
         Image(EhConstants.cdnThumb(this.url))
           .width('100%')
           .height('100%')
@@ -184,15 +281,19 @@ export struct EhThumbnail {
           })
         this.coverOverlay()
       }
-        .width('100%')
-        .aspectRatio(this.coverRatio)
-        .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
-        .borderRadius(this.radius)
-        .clip(true)
+      .width('100%')
+      .aspectRatio(this.coverRatio)
+      .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
+      .borderRadius(this.radius)
+      .clip(true)
     } else if (this.containFit && this.hasSourceSize() && !this.fillHeight && !this.stretchHeight) {
       // Transparent layout slot. Only the REAL image surface is visible; its size follows the EH cover
-      // dimensions, and the radius clips that visible image instead of a permanent grey frame.
+      // dimensions, and the radius clips that visible image instead of a permanent grey frame. When the
+      // caller opts in, the otherwise-transparent gaps are filled by the cover-color gradient (or blur).
       Stack({ alignContent: Alignment.Center }) {
+        if (this.letterboxBackground) {
+          this.coverBackgroundLayer()
+        }
         Image(EhConstants.cdnThumb(this.url))
           .width(this.fittedWidth())
           .height(this.fittedHeight())
@@ -247,8 +348,8 @@ export struct EhThumbnail {
           })
         this.coverOverlay()
       }
-        .width(this.thumbWidth)
-        .height(this.fillHeight ? '100%' : this.thumbHeight)
+      .width(this.thumbWidth)
+      .height(this.fillHeight ? '100%' : this.thumbHeight)
     }
   }
 }

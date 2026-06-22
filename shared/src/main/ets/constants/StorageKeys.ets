@@ -17,6 +17,7 @@ export class StorageKeys {
   static readonly ITEM_WIDTH: string = 'layout.itemWidth'
   static readonly HIDE_GALLERY_THUMBNAILS: string = 'layout.hideGalleryThumbnails' // boolean: hide detail inline previews
   static readonly HORIZONTAL_THUMBNAILS: string = 'layout.horizontalThumbnails' // boolean: horizontal vs grid preview
+  static readonly BLURRING_OF_COVER_BACKGROUND: string = 'layout.blurringOfCoverBackground' // boolean: blur off-aspect cover background (else color gradient)
   static readonly THEME_MODE: string = 'theme.mode' // system/light/dark
   static readonly LANGUAGE: string = 'app.language' // system/zh-CN/en-US/ja-JP
   static readonly SEARCH_HISTORY: string = 'search.history' // JSON array of recent query strings
@@ -39,7 +40,6 @@ export class StorageKeys {
   static readonly TOPLIST_TL: string = 'subtab.toplistTl'
   static readonly APP_COLOR_FAVORITES: string = 'app.colorFavorites'
   static readonly HOME_TAB_AUTO_HIDE: string = 'home.tabAutoHide'
-  static readonly BLURRING_OF_COVER_BACKGROUND: string = 'layout.blurringOfCoverBackground'
   static readonly TAG_TRANSLATION_ENABLED: string = 'tagTranslation.enabled'
   static readonly TAG_TRANSLATION_USE_CDN: string = 'tagTranslation.useCdn'
   static readonly TAG_TRANSLATION_UPDATE_MODE: string = 'tagTranslation.updateMode'

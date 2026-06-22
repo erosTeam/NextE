@@ -84,7 +84,12 @@ const coverWidth = (contentWidth) => {
   ok(/minHeight:\s*ThemeConstants\.LIST_CARD_FIXED_HEIGHT/.test(c), 'fixed mode pins minHeight to kFixedHeight token')
   ok(/maxHeight:\s*ThemeConstants\.LIST_CARD_FIXED_HEIGHT/.test(c), 'fixed mode pins maxHeight to kFixedHeight token')
   ok(/minHeight:\s*this\.adaptiveMinHeight\(\)/.test(c), 'adaptive mode floors from responsive cover height')
-  ok(/containFit:\s*true/.test(c), 'list cover keeps containFit:true after responsive sizing')
+  // Cover fit is now ratio-aware: close source ratios fill the slot (Cover, light crop); far ratios
+  // letterbox (Contain) so EhThumbnail can fill the gaps with the cover-color gradient/blur. The Contain
+  // path (the original regression guard against a grey slab) is preserved for the far case.
+  ok(/private\s+coverFillsSlot\(\):\s*boolean/.test(c), 'GalleryCard decides close-ratio fill vs far-ratio contain via coverFillsSlot()')
+  ok(/containFit:\s*!this\.coverFillsSlot\(\)/.test(c), 'list cover letterboxes (Contain) only when the cover does not fill the slot')
+  ok(/letterboxBackground:\s*true/.test(c), 'list cover opts into the letterbox gap background (cover-color gradient / blur)')
 }
 
 // 2. Theme token values mirror eros_fe gallery_item.dart.
