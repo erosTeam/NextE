@@ -15,6 +15,14 @@ Purpose:
   implement directly from an old historical note if it conflicts with this file. Promote the needed
   current rule into this file first.
 
+## Context Pressure Protocol
+
+When the execution thread reports or shows high context pressure after compaction, treat this file as the
+only scheduling input. Do not scan long intake/history files to rediscover work. Finish only the currently
+active lane from Active Queue, using the smallest remaining implementation/verification step. If the lane
+cannot be closed in the current turn, leave a concise checkpoint with current diff, validated evidence, and
+the next exact command/action, then continue the next feature lane in a fresh execution thread.
+
 ## Current Baseline
 
 These items are current behavior or visual baselines. Do not re-implement, redesign, or re-verify them
