@@ -1,7 +1,12 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { SELECTOR_BAR_HEIGHT } from '../state/HomeSourceState'
 import { TabItem } from '../model/TabItem'
-import { connectThemeDisplay, ThemeDisplayState } from '../state/AppearanceState'
+import {
+  connectThemeDisplay,
+  ThemeDisplayState,
+  connectLanguageState,
+  LanguageState,
+} from '../state/AppearanceState'
 
 const INDICATOR_W: number = 18
 const TAB_GAP: number = ThemeConstants.SPACE_XS
@@ -36,6 +41,10 @@ export struct SubTabBar {
   // Reading this signal in the color helper makes this bar (hosted in a CACHED ComponentContent) repaint on
   // a system dark/light flip — without it the unselected $r('sys.color.*') tokens stay stale.
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
+  // Same idea for language: reading effectiveLocale in selectedIndex() (called for every tab) + folding it
+  // into the ForEach key makes a language switch rebuild + re-key the cached bar, so even the SELECTED tab's
+  // $r label re-resolves (otherwise only the unselected pills, which read a signal, refresh).
+  @Local language: LanguageState = connectLanguageState();
   private scroller: Scroller = new Scroller();
   private viewportWidth: number = 0;
   private pendingCenterIndex: number = -1;
@@ -53,6 +62,11 @@ export struct SubTabBar {
   }
 
   private selectedIndex(): number {
+    // Touch the locale signal so the whole bar depends on it (length is never < 0; this only registers the
+    // @Trace read). selectedIndex() runs in every tab's fontColor/fontWeight, so the bar rebuilds on switch.
+    if (this.language.effectiveLocale.length < 0) {
+      return 0
+    }
     const n: number = this.tabs.length
     if (n <= 0) {
       return 0
@@ -234,9 +248,10 @@ export struct SubTabBar {
         // (favId 0-9) across a seed→real update, so keying on the key alone makes ForEach reuse the frozen
         // seed chips (label/count are @Builder params, captured at create) — the bar stays "Favorites N / 0"
         // after the parse lands. A string label (favcat name) joins the key so a name/count change rebuilds
-        // the chip; Resource labels (Home/Toplist, static) contribute '' and stay stable.
+        // the chip; Resource labels (Home/Toplist) fold in effectiveLocale so a language switch re-keys them
+        // and the $r re-resolves (a stable '' left the SELECTED tab's label frozen after a switch).
         (tab: TabItem) =>
-          `${tab.key}:${typeof tab.label === 'string' ? tab.label : ''}:${tab.count}:${tab.selectedColor}`,
+          `${tab.key}:${typeof tab.label === 'string' ? tab.label : this.language.effectiveLocale}:${tab.count}:${tab.selectedColor}`,
       )
     }
     .padding({ left: BAR_PAD, right: BAR_PAD })
