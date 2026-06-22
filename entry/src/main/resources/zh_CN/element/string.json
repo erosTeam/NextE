@@ -789,18 +789,6 @@
       "value": "EH"
     },
     {
-      "name": "eh_settings_login_hint",
-      "value": "打开应用内 E-Hentai 登录页"
-    },
-    {
-      "name": "eh_settings_cookie_hint",
-      "value": "导入已有 EH Cookie,不改登录链路"
-    },
-    {
-      "name": "eh_settings_mytags_hint",
-      "value": "打开 E-Hentai 我的标签"
-    },
-    {
       "name": "eh_settings_website_settings",
       "value": "网站设置"
     },

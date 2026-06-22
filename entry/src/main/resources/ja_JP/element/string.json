@@ -789,18 +789,6 @@
       "value": "EH"
     },
     {
-      "name": "eh_settings_login_hint",
-      "value": "アプリ内の E-Hentai ログインページを開きます"
-    },
-    {
-      "name": "eh_settings_cookie_hint",
-      "value": "ログイン処理を変えずに既存の EH Cookie をインポート"
-    },
-    {
-      "name": "eh_settings_mytags_hint",
-      "value": "E-Hentai のマイタグを開きます"
-    },
-    {
       "name": "eh_settings_website_settings",
       "value": "ウェブサイト設定"
     },
