@@ -78,6 +78,8 @@ assertIncludes(waterfallCard, 'private isExtremeTallCover(): boolean', 'Waterfal
 assertIncludes(waterfallCard, 'forceCoverFit: !this.isExtremeTallCover()', 'Waterfall normal covers may crop, but extreme strip covers must not be full-width Cover scaled');
 assertIncludes(waterfallCard, 'containFit: this.isExtremeTallCover()', 'Waterfall extreme strip foreground must preserve true source ratio inside the bounded slot');
 assertIncludes(waterfallCard, 'GalleryCategoryCornerBadge', 'Waterfall card must use the same category corner badge as Grid');
+assertIncludes(waterfallCard, 'rightInset: ThemeConstants.SPACE_SM - 2', 'Waterfall category badge must move left from the enlarged clipped corner');
+assertIncludes(waterfallCard, 'topInset: ThemeConstants.SPACE_SM - 2', 'Waterfall category badge must move down from the enlarged clipped corner');
 assertIncludes(waterfallCard, 'sourceWidth: this.gallery.imgWidth', 'Waterfall card must pass source width so cover rendering can avoid distortion');
 assertIncludes(waterfallCard, 'sourceHeight: this.gallery.imgHeight', 'Waterfall card must pass source height so cover rendering can avoid distortion');
 assertIncludes(waterfallCard, 'UserTagStore.getInstance().lookup(t.namespace, t.text)', 'Waterfall tag chips must reuse the same user-tag color lookup as list cards');

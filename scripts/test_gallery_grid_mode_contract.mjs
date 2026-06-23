@@ -39,6 +39,7 @@ ok('gallery grid min width and gap are centralized tokens',
     /GALLERY_GRID_INFO_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
     /GALLERY_GRID_TITLE_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
     /GALLERY_GRID_META_HEIGHT:\s*number\s*=\s*\d+/.test(theme) &&
+    /GALLERY_GRID_CARD_RADIUS:\s*number\s*=\s*16/.test(theme) &&
     /GALLERY_WATERFALL_MIN_W:\s*number\s*=\s*160/.test(theme))
 
 const galleryPages = [
@@ -77,6 +78,7 @@ ok('GalleryGridCard has a compact fixed info-area contract and no tag-driven mas
     /Text\(this\.gallery\.title\(\)\)[\s\S]*\.height\(ThemeConstants\.GALLERY_GRID_TITLE_HEIGHT\)/.test(gridCard) &&
     /\.height\(ThemeConstants\.GALLERY_GRID_META_HEIGHT\)/.test(gridCard) &&
     /\.height\(ThemeConstants\.GALLERY_GRID_INFO_HEIGHT\)/.test(gridCard) &&
+    /\.borderRadius\(ThemeConstants\.GALLERY_GRID_CARD_RADIUS\)/.test(gridCard) &&
     /GalleryCategoryCornerBadge/.test(gridCard) &&
     !/simpleTags/.test(gridCard) &&
     !/tagChips/.test(gridCard))

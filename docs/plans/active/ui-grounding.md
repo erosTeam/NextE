@@ -51,3 +51,13 @@ Primary information: the selected favcat is a stable key where `a` means all fav
 Primary action: tapping either the pinned sub-tab chip or the selector row switches the retained Favorites page and persists the same stable key for the next app launch.
 Reuse or deviation: reuse the existing `SubtabSelectionSettings.setFavoritesFavcat` preference writer for every selection path; deviate from the old selector-only direct V2 mutation because it updated memory without writing `subtab.favoritesFavcat`.
 Verification: retained subtab preference contract, favorites selector contract, V1 decorator inventory, UI grounding contract, and signed HarmonyOS build.
+
+## Active: gallery detail comment cards
+
+Status: active
+Reference implementation: `../V2Next/shared/src/main/ets/components/ReplyCard.ets`, `../V2Next/feature/detail/src/main/ets/components/HotRepliesPanel.ets`, and `feature/gallery/src/main/ets/components/GalleryCommentsCard.ets`.
+Surface type: gallery detail comments preview and full comments page comment list.
+Primary information: each comment is the primary object and should read as its own white card; the detail preview still exposes only the first two comments as one close-knit group.
+Primary action: tapping a preview comment or the comments header opens the full comments page; full comments keep author, vote, reply, and edit actions unchanged.
+Reuse or deviation: reuse Next2V's white top-level reply-card surface, `SPACE_SM - 2` reply spacing on both preview and full comments surfaces, and V2Next's shared large-card radii (`RADIUS_MD = 22`, `RADIUS_CARD = 24`); keep narrow grid tiles on a compact `GALLERY_GRID_CARD_RADIUS = 16`, scale the detail header cover to `RADIUS_MD`, inset the Waterfall category corner badge by `SPACE_SM - 2`, remove the old outer grouped card because it produced card-inside-card chrome, invert quote colors so quoted replies sit on a secondary gray block with `COMMENT_QUOTE_RADIUS = 8` inside the white comment card, and keep score badges on the dark-aware secondary surface instead of separator chrome.
+Verification: gallery comment card layout contract, V2Next card radius contract, full-comments entry contract, reply-reference contract, badge/vote/compose contracts, V1 decorator inventory, UI grounding contract, and signed HarmonyOS build.

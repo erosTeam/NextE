@@ -59,7 +59,7 @@ export struct GalleryHeaderCard {
           url: this.gallery.thumbUrl,
           thumbWidth: COVER_W,
           thumbHeight: COVER_H,
-          radius: ThemeConstants.THUMB_RADIUS,
+          radius: ThemeConstants.RADIUS_MD,
           sourceWidth: this.gallery.imgWidth,
           sourceHeight: this.gallery.imgHeight,
           // Detail cover slot is fixed for the header layout, but the visible image itself keeps the real

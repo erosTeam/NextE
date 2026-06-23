@@ -109,7 +109,7 @@ export struct GalleryGridCard {
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-    .borderRadius(ThemeConstants.RADIUS_CARD)
+    .borderRadius(ThemeConstants.GALLERY_GRID_CARD_RADIUS)
     .backgroundColor($r('app.color.card_background'))
     .clip(true)
   }

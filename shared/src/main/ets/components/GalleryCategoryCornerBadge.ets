@@ -23,6 +23,8 @@ const CATEGORY_BADGE_OPACITY: number = 0.88
 export struct GalleryCategoryCornerBadge {
   @Param category: string = '';
   @Param translated: string = '';
+  @Param rightInset: number = 0;
+  @Param topInset: number = 0;
 
   build() {
     Stack({ alignContent: Alignment.TopEnd }) {
@@ -47,5 +49,6 @@ export struct GalleryCategoryCornerBadge {
     .height(CATEGORY_BADGE_H)
     .borderRadius({ topRight: ThemeConstants.THUMB_RADIUS })
     .clip(true)
+    .position({ right: this.rightInset, top: this.topInset })
   }
 }

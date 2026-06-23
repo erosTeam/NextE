@@ -33,7 +33,10 @@ ok('GalleryCommentsCard has one shared CommentBadge builder',
     /@Builder[\s\S]*CommentBadge\(label: ResourceStr, primary: boolean\)[\s\S]*COMMENT_BADGE_RADIUS/.test(card))
 ok('UP badge uses the shared builder and remains branded',
   /if \(c\.isUploader\) \{[\s\S]*this\.CommentBadge\(\$r\('app\.string\.comment_uploader'\), true\)/.test(card) &&
-    /backgroundColor\(primary \? ThemeConstants\.BRAND_PRIMARY : ThemeConstants\.DIVIDER\)/.test(card))
+    /backgroundColor\(primary \? ThemeConstants\.BRAND_PRIMARY : ThemeConstants\.BG_SUB\)/.test(card))
+ok('score badge uses the dark-aware secondary surface instead of separator chrome',
+  /backgroundColor\(primary \? ThemeConstants\.BRAND_PRIMARY : ThemeConstants\.BG_SUB\)/.test(card) &&
+    !/CommentBadge\(label: ResourceStr, primary: boolean\)[\s\S]*ThemeConstants\.DIVIDER/.test(card))
 ok('score badge uses the same builder and remains tappable',
   /this\.CommentBadge\(this\.displayScore\(c\.score\), false\)[\s\S]*this\.showScoreDetails\(c\)/.test(card))
 ok('score badge normalizes unsigned scores to +N',

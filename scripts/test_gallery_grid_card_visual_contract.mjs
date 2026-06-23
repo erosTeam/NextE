@@ -80,14 +80,18 @@ ok('NextE grid compact info tokens stay small enough for a phone three-column wa
   /static readonly GALLERY_GRID_INFO_HEIGHT: number = 66/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
     /static readonly GALLERY_GRID_TITLE_HEIGHT: number = 40/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
     /static readonly GALLERY_GRID_META_HEIGHT: number = 18/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
+    /static readonly GALLERY_GRID_CARD_RADIUS: number = 16/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
     !/GALLERY_GRID_TAG_AREA_HEIGHT/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')) &&
     !/GALLERY_GRID_TAG_LIMIT/.test(readFileSync(join(ROOT, 'shared/src/main/ets/theme/ThemeConstants.ets'), 'utf8')))
+ok('NextE grid card keeps a compact radius instead of the large grouped-card radius',
+  /borderRadius\(ThemeConstants\.GALLERY_GRID_CARD_RADIUS\)/.test(src) &&
+    !/borderRadius\(ThemeConstants\.RADIUS_CARD\)/.test(src))
 ok('NextE grid does not render the old category/page metadata row below the title',
   !/Text\(this\.gallery\.category\)[\s\S]*Text\(`\$\{this\.gallery\.fileCount\}P`\)/.test(src))
 ok('Gallery list/grid cover slots keep the designed grey placeholder backing',
   /else if \(this\.coverRatio > 0\)[\s\S]*backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(thumbSrc))
 ok('Detail and preview main visual slots do not get a grey letterbox container',
-  /GalleryHeaderCard[\s\S]*EhThumbnail\(\{[\s\S]*containFit:\s*true/.test(detailHeaderSrc) &&
+  /GalleryHeaderCard[\s\S]*EhThumbnail\(\{[\s\S]*radius:\s*ThemeConstants\.RADIUS_MD[\s\S]*containFit:\s*true/.test(detailHeaderSrc) &&
     /Stack\(\{ alignContent: Alignment\.Center \}\)\s*\{[\s\S]*Image\(EhConstants\.cdnThumb\(this\.url\)\)[\s\S]*this\.coverOverlay\(\)[\s\S]*?\}[\s\S]*\.width\(this\.thumbWidth\)[\s\S]*\.height\(this\.thumbHeight\)/.test(containFitBranch) &&
     !/backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(containFitBranch) &&
     /Stack\(\)[\s\S]*\.width\('100%'\)[\s\S]*\.height\(this\.frameHeight\(\)\)[\s\S]*\.alignContent\(Alignment\.Center\)/.test(previewFrameBranch) &&

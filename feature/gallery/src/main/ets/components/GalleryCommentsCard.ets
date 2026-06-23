@@ -1,14 +1,14 @@
-import { ThemeConstants, EhGalleryComment, GroupedListSection } from 'shared'
+import { ThemeConstants, EhGalleryComment } from 'shared'
 
 const COMMENT_FOOTER_ACTION_SIZE: number = 30
 const COMMENT_FOOTER_ICON_SIZE: number = 16
 
 /**
- * Comments card, shared by the detail-page PEEK and the full comments page (eros_fe TopCommentEx +
+ * Comments list, shared by the detail-page PEEK and the full comments page (eros_fe TopCommentEx +
  * galleryComment). `max > 0` is the peek: it shows the first `max` comments, clamps long text, and
  * any non-empty peek can open the full comments page. `max === 0` shows them all (the page). The peek
  * sits BEFORE the previews on the detail page so comments are reachable without scrolling past every
- * thumbnail. v1 read-only; shares the GroupedListSection chrome.
+ * thumbnail.
  */
 @ComponentV2
 export struct GalleryCommentsCard {
@@ -174,48 +174,52 @@ export struct GalleryCommentsCard {
     return clean.length > 120 ? `${clean.substring(0, 120)}...` : clean
   }
 
+  private commentGap(): number {
+    return ThemeConstants.SPACE_SM - 2
+  }
+
   build() {
-    GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
-      Column({ space: ThemeConstants.SPACE_MD }) {
-        // Header — in peek mode the whole row taps through to the full comments page.
-        Row({ space: ThemeConstants.SPACE_XS }) {
-          Text($r('app.string.gallery_comments'))
-            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          if (this.comments.length > 0) {
-            Text(`(${this.comments.length})`)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor($r('sys.color.font_tertiary'))
-          }
-          Blank()
-          if (this.canOpenFullComments()) {
-            Text($r('app.string.detail_view_all'))
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor($r('sys.color.font_emphasize'))
-            SymbolGlyph($r('sys.symbol.chevron_right'))
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor([$r('sys.color.font_tertiary')])
-          }
+    Column({ space: this.commentGap() }) {
+      // Header — in peek mode the whole row taps through to the full comments page. It is deliberately
+      // outside the comment cards, following Next2V's HotRepliesPanel: the comment itself is the card.
+      Row({ space: ThemeConstants.SPACE_XS }) {
+        Text($r('app.string.gallery_comments'))
+          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        if (this.comments.length > 0) {
+          Text(`(${this.comments.length})`)
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_tertiary'))
         }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-        .onClick(() => {
-          if (this.canOpenFullComments()) {
-            this.onMore()
-          }
-        })
-        ForEach(
-          this.shown(),
-          (c: EhGalleryComment, index: number) => {
-            this.CommentRow(c, index === this.shown().length - 1)
-          },
-          (c: EhGalleryComment) => c.commentId,
-        )
+        Blank()
+        if (this.canOpenFullComments()) {
+          Text($r('app.string.detail_view_all'))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_emphasize'))
+          SymbolGlyph($r('sys.symbol.chevron_right'))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor([$r('sys.color.font_tertiary')])
+        }
       }
       .width('100%')
-      .alignItems(HorizontalAlign.Start)
+      .alignItems(VerticalAlign.Center)
+      .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
+      .onClick(() => {
+        if (this.canOpenFullComments()) {
+          this.onMore()
+        }
+      })
+      ForEach(
+        this.shown(),
+        (c: EhGalleryComment, index: number) => {
+          this.CommentRow(c, index === this.shown().length - 1)
+        },
+        (c: EhGalleryComment) => c.commentId,
+      )
     }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   // eros_fe CommentItem(simple): each comment is its own rounded bubble — head (author + UP/score
@@ -306,13 +310,13 @@ export struct GalleryCommentsCard {
     .width('100%')
     .alignItems(HorizontalAlign.Start)
     .padding({
-      left: ThemeConstants.SPACE_SM,
-      right: ThemeConstants.SPACE_SM,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_XS,
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_MD,
+      top: ThemeConstants.SPACE_MD,
+      bottom: ThemeConstants.SPACE_SM,
     })
-    .borderRadius(ThemeConstants.RADIUS_MD)
-    .backgroundColor(ThemeConstants.BG_SUB)
+    .borderRadius(ThemeConstants.RADIUS_CARD)
+    .backgroundColor($r('app.color.card_background'))
     .onClick(() => {
       if (this.canOpenFullComments()) {
         this.onMore()
@@ -349,8 +353,8 @@ export struct GalleryCommentsCard {
     .width('100%')
     .alignItems(HorizontalAlign.Start)
     .padding(ThemeConstants.SPACE_SM)
-    .borderRadius(ThemeConstants.RADIUS_SM)
-    .backgroundColor(ThemeConstants.BG_PRIMARY)
+    .borderRadius(ThemeConstants.COMMENT_QUOTE_RADIUS)
+    .backgroundColor(ThemeConstants.BG_SUB)
   }
 
   @Builder
@@ -404,7 +408,7 @@ export struct GalleryCommentsCard {
       .fontSize(ThemeConstants.FONT_SIZE_TINY)
       .fontWeight(FontWeight.Medium)
       .fontColor(primary ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_secondary'))
-      .backgroundColor(primary ? ThemeConstants.BRAND_PRIMARY : ThemeConstants.DIVIDER)
+      .backgroundColor(primary ? ThemeConstants.BRAND_PRIMARY : ThemeConstants.BG_SUB)
       .borderRadius(ThemeConstants.COMMENT_BADGE_RADIUS)
       .constraintSize({ minWidth: ThemeConstants.COMMENT_BADGE_MIN_WIDTH })
       .height(ThemeConstants.COMMENT_BADGE_HEIGHT)

@@ -73,6 +73,7 @@ ok(/visualState\s*!==\s*THUMBNAIL_VISUAL_AUTO[\s\S]*?Stack\(\{ alignContent: Ali
 ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(headerCard), 'GalleryHeaderCard passes gallery.imgWidth into EhThumbnail')
 ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(headerCard), 'GalleryHeaderCard passes gallery.imgHeight into EhThumbnail')
 ok(/containFit:\s*true/.test(headerCard), 'GalleryHeaderCard still fits the whole cover, no crop/fill policy')
+ok(/radius:\s*ThemeConstants\.RADIUS_MD/.test(headerCard), 'GalleryHeaderCard cover radius scales with the enlarged detail card chrome')
 ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(listCard), 'GalleryCard passes gallery.imgWidth into EhThumbnail')
 ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(listCard), 'GalleryCard passes gallery.imgHeight into EhThumbnail')
 ok(/thumbHeight:\s*this\.coverHeight\(\)/.test(listCard), 'GalleryCard uses an explicit cover slot height')
@@ -82,6 +83,7 @@ ok(!/stretchHeight:\s*true/.test(listCard), 'GalleryCard does not use stretchHei
 // own context: it may pass source dimensions to avoid stretching, but still uses its own coverRatio slot.
 ok(/coverRatio:\s*ThemeConstants\.GALLERY_GRID_COVER_RATIO/.test(gridCard), 'GalleryGridCard keeps its grid-specific cover ratio slot')
 ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(gridCard) && /sourceHeight:\s*this\.gallery\.imgHeight/.test(gridCard), 'GalleryGridCard passes source dimensions so grid covers do not stretch')
+ok(/borderRadius\(ThemeConstants\.GALLERY_GRID_CARD_RADIUS\)/.test(gridCard), 'GalleryGridCard keeps a compact card radius for narrow grid cells')
 ok(!/ImageFit\.Cover[\s\S]*header/i.test(headerCard), 'GalleryHeaderCard does not introduce a header Cover/crop policy')
 
 // 6) Device visual evidence route: hidden QA path renders the real component states without exposing a

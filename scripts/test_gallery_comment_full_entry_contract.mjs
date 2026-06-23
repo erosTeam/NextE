@@ -36,7 +36,7 @@ ok('peek header shows full-comments affordance whenever any peek comment exists'
 ok('peek header click opens full comments for one/two-comment galleries',
   /\.onClick\(\(\) => \{\s*if \(this\.canOpenFullComments\(\)\) \{\s*this\.onMore\(\)/.test(card))
 ok('comment bubble provides a broad full-comments tap target in peek mode',
-  /CommentRow\(c: EhGalleryComment[\s\S]*\.backgroundColor\(ThemeConstants\.BG_SUB\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*if \(this\.canOpenFullComments\(\)\) \{[\s\S]*this\.onMore\(\)/.test(card))
+  /CommentRow\(c: EhGalleryComment[\s\S]*\.backgroundColor\(\$r\('app\.color\.card_background'\)\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*if \(this\.canOpenFullComments\(\)\) \{[\s\S]*this\.onMore\(\)/.test(card))
 ok('full comments page remains full mode and does not pass max/onMore',
   /GalleryCommentsCard\(\{[\s\S]*comments:\s*this\.visibleComments\(\)[\s\S]*onAuthor:/.test(readFileSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets'), 'utf8')) &&
     !/GalleryCommentsCard\(\{[\s\S]*comments:\s*this\.visibleComments\(\)[\s\S]*max:\s*2/.test(readFileSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets'), 'utf8')))

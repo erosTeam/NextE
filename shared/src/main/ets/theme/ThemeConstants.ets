@@ -60,8 +60,8 @@ export class ThemeConstants {
 
   // Border radius
   static readonly RADIUS_SM: number = 4
-  static readonly RADIUS_MD: number = 12
-  static readonly RADIUS_CARD: number = 16
+  static readonly RADIUS_MD: number = 22
+  static readonly RADIUS_CARD: number = 24
   static readonly RADIUS_ROUND: number = 999
   // Thumbnail/cover border radius — distinct from RADIUS_SM so thumb roundness can be tuned independently.
   static readonly THUMB_RADIUS: number = 8
@@ -83,6 +83,7 @@ export class ThemeConstants {
   static readonly COMMENT_BADGE_MIN_WIDTH: number = 18
   static readonly COMMENT_BADGE_PADDING_H: number = 7
   static readonly COMMENT_BADGE_RADIUS: number = 9
+  static readonly COMMENT_QUOTE_RADIUS: number = 8
 
   // Grouped list (SecondaryListScaffold / GroupedListSection / ConciseListRow — V2Next pattern)
   static readonly LIST_SECTION_INSET: number = 4
@@ -125,6 +126,9 @@ export class ThemeConstants {
   static readonly GALLERY_GRID_MIN_W: number = 106
   static readonly GALLERY_WATERFALL_MIN_W: number = 160
   static readonly GALLERY_GRID_GAP: number = 6
+  // Compact grid cards are much narrower than list/detail/settings cards, so they keep the pre-large-card
+  // radius instead of inheriting RADIUS_CARD(24).
+  static readonly GALLERY_GRID_CARD_RADIUS: number = 16
   static readonly GALLERY_GRID_COVER_RATIO: number = 0.7
   static readonly GALLERY_GRID_INFO_HEIGHT: number = 66
   static readonly GALLERY_GRID_TITLE_HEIGHT: number = 40
