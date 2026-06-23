@@ -282,16 +282,17 @@ export class GalleryListViewModel {
     }
     // Stale-cursor guard (eros_fe lastNext == next): no cursor, or it didn't advance since the last
     // page → stop instead of refetching the same rows. Marks the list exhausted.
-    if (this.nextGid.length === 0 || this.nextGid === this.lastNext) {
+    const requestedNext: string = this.nextGid
+    if (requestedNext.length === 0 || requestedNext === this.lastNext) {
       this.hasMore = false
       return
     }
     this.isLoadingMore = true
-    this.lastNext = this.nextGid
+    this.errorMessage = ''
     const myEpoch: number = this.epoch
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(
-        this.buildQuery(this.nextGid),
+        this.buildQuery(requestedNext),
       )
       // A reload/refresh/source-switch happened while this fetch was in flight → its rows belong to
       // the OLD source/host. Drop them (the new list already replaced everything); only clear the
@@ -304,6 +305,7 @@ export class GalleryListViewModel {
           this.itemCount = this.dataSource.totalCount()
         }
         this.nextGid = list.nextGid
+        this.lastNext = requestedNext
         // Exhausted when the cursor is empty OR the page brought no genuinely new rows (server race /
         // repeated boundary page) — guards against an infinite same-page loadMore loop.
         this.hasMore = list.nextGid.length > 0 && fresh.length > 0
@@ -326,6 +328,7 @@ export class GalleryListViewModel {
       return
     }
     this.isLoadingMore = true
+    this.errorMessage = ''
     const myEpoch: number = this.epoch
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(

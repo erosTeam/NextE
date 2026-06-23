@@ -201,6 +201,13 @@ export struct GalleryAllThumbnailsPage {
           onReachEnd: () => {
             this.vm.loadNext()
           },
+          showFooter: true,
+          footerIsLoading: this.vm.loading,
+          footerHasMore: this.vm.hasMore(),
+          footerIsError: this.vm.error.length > 0 && this.vm.hasMore(),
+          onFooterRetry: () => {
+            this.vm.loadNext()
+          },
         }) {
           LazyForEach(
             this.vm.dataSource,

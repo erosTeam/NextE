@@ -281,6 +281,13 @@ export struct FavcatPage {
               this.onDidScroll(offset, state)
             }
           },
+          showFooter: true,
+          footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
+          footerHasMore: this.vm.hasMore,
+          footerIsError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
+          onFooterRetry: () => {
+            this.vm.loadMore()
+          },
         }) {
           LazyForEach(
             this.vm.dataSource,
@@ -319,6 +326,13 @@ export struct FavcatPage {
             if (this.onDidScroll) {
               this.onDidScroll(offset, state)
             }
+          },
+          showFooter: true,
+          footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
+          footerHasMore: this.vm.hasMore,
+          footerIsError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
+          onFooterRetry: () => {
+            this.vm.loadMore()
           },
         }) {
           LazyForEach(

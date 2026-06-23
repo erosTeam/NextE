@@ -1,6 +1,7 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { PullRefresh, PullRefreshController } from './PullRefresh'
 import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeAreaState'
+import { LoadingFooter } from './LoadingFooter'
 
 /**
  * Grid sibling of PullRefreshListScaffold: a responsive Grid inside the same generic PullRefresh.
@@ -25,12 +26,17 @@ export struct PullRefreshGridScaffold {
   @Param topPadding: number = 0;
   @Param itemCount: number = 0;
   @Param nearEndThreshold: number = 0;
+  @Param showFooter: boolean = false;
+  @Param footerIsLoading: boolean = false;
+  @Param footerHasMore: boolean = true;
+  @Param footerIsError: boolean = false;
   @Param controller: PullRefreshController = new PullRefreshController();
   @Event onRefresh?: () => Promise<void>;
   @Event onBottomRefresh?: () => Promise<void>;
   @Event canStartBottomRefresh?: () => boolean;
   @Event onReachEnd?: () => void;
   @Event onNearEnd?: () => void;
+  @Event onFooterRetry?: () => void;
   @Event onScrollIndex?: (start: number, end: number) => void;
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
@@ -136,6 +142,18 @@ export struct PullRefreshGridScaffold {
   private BottomSpacer() {
     GridItem() {
       Column() {
+        if (this.showFooter) {
+          LoadingFooter({
+            isLoading: this.footerIsLoading,
+            hasMore: this.footerHasMore,
+            isError: this.footerIsError,
+            onRetry: () => {
+              if (this.onFooterRetry) {
+                this.onFooterRetry()
+              }
+            },
+          })
+        }
         Blank().height(this.bottomSpacerHeight())
       }
       .width('100%')

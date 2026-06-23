@@ -51,8 +51,10 @@ ok('Initial load uses the same order-sync helper',
   /const list: GalleryList = await this\.fetchPageWithOrderSync\(''\)/.test(vm))
 ok('loadMore captures the current cursor before fetching',
   /const cursor: string = this\.nextGid[\s\S]*const list: GalleryList = await this\.fetchPageWithOrderSync\(cursor\)/.test(vm))
+ok('loadMore clears stale footer error before retry fetch',
+  /this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(vm))
 ok('loadMore dedupes before append for gid-keyed LazyForEach',
-  /const fresh: EhGallery\[\] = this\.dedupeNew\(list\.gallerys\)/.test(vm))
+  /const fresh: EhGallery\[\] = await this\.translateRows\(this\.dedupeNew\(list\.gallerys\)\)/.test(vm))
 ok('loadMore stops when a page brings no genuinely fresh rows',
   /this\.hasMore = list\.nextGid\.length > 0 && fresh\.length > 0/.test(vm))
 ok('loadMore no longer keeps paging solely because the cursor changed',

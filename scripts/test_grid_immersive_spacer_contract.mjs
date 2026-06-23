@@ -44,6 +44,8 @@ function gridBranch(source) {
 }
 
 const scaffold = read('shared/src/main/ets/components/PullRefreshGridScaffold.ets')
+const waterflowScaffold = read('shared/src/main/ets/components/PullRefreshWaterFlowScaffold.ets')
+const loadingFooter = read('shared/src/main/ets/components/LoadingFooter.ets')
 
 ok(
   /Grid\(this\.scroller,\s*this\.gridLayoutOptions\(\)\)/.test(scaffold) &&
@@ -57,6 +59,22 @@ ok(
 ok(
   /@Builder\s*private BottomSpacer\(\) \{[\s\S]*GridItem\(\) \{[\s\S]*Blank\(\)\.height\(this\.bottomSpacerHeight\(\)\)/.test(scaffold),
   'Grid scaffold uses a full-row bottom spacer GridItem',
+)
+ok(
+  /import \{ LoadingFooter \} from '\.\/LoadingFooter'/.test(scaffold) &&
+    /@Param showFooter: boolean = false/.test(scaffold) &&
+    /private BottomSpacer\(\)[\s\S]*if \(this\.showFooter\) \{[\s\S]*LoadingFooter\(\{[\s\S]*onFooterRetry[\s\S]*Blank\(\)\.height\(this\.bottomSpacerHeight\(\)\)/.test(scaffold),
+  'Grid scaffold can render a full-row load-more footer before the bottom spacer',
+)
+ok(
+  /import \{ LoadingFooter \} from '\.\/LoadingFooter'/.test(waterflowScaffold) &&
+    /@Param showFooter: boolean = false/.test(waterflowScaffold) &&
+    /private BottomSpacer\(\)[\s\S]*FlowItem\(\)[\s\S]*if \(this\.showFooter\) \{[\s\S]*LoadingFooter\(\{[\s\S]*onFooterRetry[\s\S]*Blank\(\)\.height\(this\.bottomSpacerHeight\(\)\)/.test(waterflowScaffold),
+  'WaterFlow scaffold can render a full-width load-more footer before the bottom spacer',
+)
+ok(
+  /if \(this\.isLoading\) \{[\s\S]*LoadingProgress\(\)[\s\S]*Text\(\$r\('app\.string\.common_loading'\)\)/.test(loadingFooter),
+  'LoadingFooter loading state includes the system LoadingProgress indicator',
 )
 ok(
   !/contentStartOffset|contentEndOffset/.test(scaffold),
@@ -121,6 +139,8 @@ for (const surface of surfaces) {
   ok(/nearEndThreshold:\s*4/.test(branch), `${surface.name} enables near-end paging threshold`)
   ok(/onNearEnd:\s*\(\) => \{[\s\S]*this\.vm\.loadMore\(\)/.test(branch), `${surface.name} near-end paging loads the next page`)
   ok(/canStartBottomRefresh:\s*\(\) => this\.vm\.canLoadMore\(\)/.test(branch), `${surface.name} keeps VM load-more guard wired`)
+  ok(/showFooter:\s*true[\s\S]*footerIsLoading:\s*this\.vm\.isLoadingMore \|\| this\.vm\.isLoading[\s\S]*footerHasMore:\s*this\.vm\.hasMore[\s\S]*footerIsError:\s*this\.vm\.errorMessage\.length > 0 && this\.vm\.hasMore[\s\S]*onFooterRetry:\s*\(\) => \{[\s\S]*this\.vm\.loadMore\(\)/.test(branch),
+    `${surface.name} GRID branch renders retryable LoadingFooter`)
 
   const viewModel = read(surface.viewModelPath)
   ok(

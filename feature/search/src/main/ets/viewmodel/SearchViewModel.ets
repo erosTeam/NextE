@@ -377,6 +377,7 @@ export class SearchViewModel {
       return
     }
     this.isLoadingMore = true
+    this.errorMessage = ''
     const myEpoch: number = this.epoch
     try {
       const list: GalleryList = await this.fetchPage(this.nextGid)

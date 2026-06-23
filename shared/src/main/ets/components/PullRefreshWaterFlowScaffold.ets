@@ -1,6 +1,7 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { PullRefresh, PullRefreshController } from './PullRefresh'
 import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeAreaState'
+import { LoadingFooter } from './LoadingFooter'
 
 /**
  * WaterFlow sibling of PullRefreshGridScaffold for gallery cards: same refresh, paging, safe-area,
@@ -20,11 +21,16 @@ export struct PullRefreshWaterFlowScaffold {
   @Param bottomPadding: number = ThemeConstants.SPACE_XL;
   @Param topPadding: number = 0;
   @Param itemCount: number = 0;
+  @Param showFooter: boolean = false;
+  @Param footerIsLoading: boolean = false;
+  @Param footerHasMore: boolean = true;
+  @Param footerIsError: boolean = false;
   @Param controller: PullRefreshController = new PullRefreshController();
   @Event onRefresh?: () => Promise<void>;
   @Event onBottomRefresh?: () => Promise<void>;
   @Event canStartBottomRefresh?: () => boolean;
   @Event onReachEnd?: () => void;
+  @Event onFooterRetry?: () => void;
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
   build() {
@@ -141,6 +147,18 @@ export struct PullRefreshWaterFlowScaffold {
   private BottomSpacer() {
     FlowItem() {
       Column() {
+        if (this.showFooter) {
+          LoadingFooter({
+            isLoading: this.footerIsLoading,
+            hasMore: this.footerHasMore,
+            isError: this.footerIsError,
+            onRetry: () => {
+              if (this.onFooterRetry) {
+                this.onFooterRetry()
+              }
+            },
+          })
+        }
         Blank().height(this.bottomSpacerHeight())
       }
       .width('100%')

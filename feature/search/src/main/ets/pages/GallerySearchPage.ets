@@ -554,6 +554,13 @@ export struct GallerySearchPage {
               onNearEnd: () => {
                 this.vm.loadMore()
               },
+              showFooter: true,
+              footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
+              footerHasMore: this.vm.hasMore,
+              footerIsError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
+              onFooterRetry: () => {
+                this.vm.loadMore()
+              },
             }) {
               LazyForEach(
                 this.vm.dataSource,
@@ -597,6 +604,13 @@ export struct GallerySearchPage {
               },
               canStartBottomRefresh: () => this.vm.canLoadMore(),
               onReachEnd: () => {
+                this.vm.loadMore()
+              },
+              showFooter: true,
+              footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
+              footerHasMore: this.vm.hasMore,
+              footerIsError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
+              onFooterRetry: () => {
                 this.vm.loadMore()
               },
             }) {

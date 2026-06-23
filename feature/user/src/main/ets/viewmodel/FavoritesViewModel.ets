@@ -291,6 +291,7 @@ export class FavoritesViewModel {
       return
     }
     this.isLoadingMore = true
+    this.errorMessage = ''
     const myEpoch: number = this.epoch
     const cursor: string = this.nextGid
     try {

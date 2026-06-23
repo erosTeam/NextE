@@ -106,6 +106,8 @@ ok('First-page helper directly loads image page 1 and scrolls to its visible ind
   /private async backToFirstPage\(\): Promise<void> \{[\s\S]*await this\.vm\.loadImagePage\(1\)[\s\S]*const targetIndex: number = this\.vm\.visibleIndexForImagePage\(1\)[\s\S]*this\.scroller\.scrollToIndex\(targetIndex\)/.test(pageSrc))
 ok('AllThumbnails top pull-refresh loads the previous preview page',
   /onRefresh: async \(\) => \{[\s\S]*await this\.loadPreviousPreviewPage\(\)/.test(pageSrc))
+ok('AllThumbnails bottom paging uses the shared retryable LoadingFooter',
+  /showFooter:\s*true[\s\S]*footerIsLoading:\s*this\.vm\.loading[\s\S]*footerHasMore:\s*this\.vm\.hasMore\(\)[\s\S]*footerIsError:\s*this\.vm\.error\.length > 0 && this\.vm\.hasMore\(\)[\s\S]*onFooterRetry:\s*\(\) => \{[\s\S]*this\.vm\.loadNext\(\)/.test(pageSrc))
 ok('Page helper scrolls to the first image in the previous preview page',
   /private async loadPreviousPreviewPage\(\): Promise<void> \{[\s\S]*const firstImagePage: number = await this\.vm\.loadPreviousPreviewPage\(\)[\s\S]*const targetIndex: number = this\.vm\.visibleIndexForImagePage\(firstImagePage\)[\s\S]*this\.scroller\.scrollToIndex\(targetIndex\)/.test(pageSrc))
 ok('Jump menu uses a symbol icon and opens the jump sheet', /'icon': \$r\('sys\.symbol\.arrow_right'\)[\s\S]*this\.jumpSheetShown = true/.test(pageSrc))

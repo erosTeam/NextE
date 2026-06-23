@@ -10,6 +10,8 @@
  *   • dedup-by-gid before append: EH repeats the boundary row across pages; gid is the LazyForEach
  *     key, so duplicates must be filtered (eros_fe tolerates dupes via index keys — NextE cannot).
  *   • exhausted when a page brings no genuinely-new rows (infinite same-page loop guard).
+ *   • failed load-more does not commit lastNext: retry must re-request the same cursor, not flip to
+ *     "no more" because the stale-cursor guard sees its own failed attempt.
  *   • 'popular' is a no-paging fixed snapshot: hasMore stays false and loadMore is a no-op.
  *   • epoch/generation guard: a reload/refresh/source-switch during an in-flight loadMore discards
  *     the stale (cross-source/host) page instead of contaminating the new list + corrupting cursor.
@@ -33,6 +35,7 @@ class VM {
     this.lastNext = ''
     this.hasMore = true
     this.epoch = 0
+    this.errorMessage = ''
     this.fetches = 0 // count of network calls actually issued
   }
   isPopular() {
@@ -69,21 +72,29 @@ class VM {
   // is applied (where a concurrent reload/refresh can land).
   loadMore(server, midFlight) {
     if (this.isLoading || this.isLoadingMore || !this.hasMore || this.isPopular()) return
-    if (this.nextGid.length === 0 || this.nextGid === this.lastNext) {
+    const requestedNext = this.nextGid
+    if (requestedNext.length === 0 || requestedNext === this.lastNext) {
       this.hasMore = false
       return
     }
     this.isLoadingMore = true
-    this.lastNext = this.nextGid
+    this.errorMessage = ''
     const myEpoch = this.epoch
     this.fetches += 1
-    const page = server(this.nextGid)
-    if (midFlight) midFlight()
-    if (this.epoch === myEpoch) {
-      const fresh = this.dedupeNew(page.gallerys)
-      if (fresh.length > 0) this.rows = this.rows.concat(fresh)
-      this.nextGid = page.nextGid
-      this.hasMore = page.nextGid.length > 0 && fresh.length > 0
+    try {
+      const page = server(requestedNext)
+      if (midFlight) midFlight()
+      if (this.epoch === myEpoch) {
+        const fresh = this.dedupeNew(page.gallerys)
+        if (fresh.length > 0) this.rows = this.rows.concat(fresh)
+        this.nextGid = page.nextGid
+        this.lastNext = requestedNext
+        this.hasMore = page.nextGid.length > 0 && fresh.length > 0
+      }
+    } catch (_err) {
+      if (this.epoch === myEpoch) {
+        this.errorMessage = 'load-more failed'
+      }
     }
     this.isLoadingMore = false
   }
@@ -130,7 +141,30 @@ const ok = (name, cond) => {
   ok('stale cursor marks exhausted', vm.hasMore === false)
 }
 
-// 4. empty cursor stops paging
+// 4. failed loadMore keeps the cursor retryable; retry should not become "no more"
+{
+  const vm = new VM('')
+  vm.load(page(['10', '9'], '9'))
+  vm.loadMore((cursor) => {
+    ok('failed request uses current cursor', cursor === '9')
+    throw new Error('boom')
+  })
+  ok('failed loadMore records error', vm.errorMessage.length > 0)
+  ok('failed loadMore keeps hasMore true', vm.hasMore === true)
+  ok('failed loadMore keeps next cursor', vm.nextGid === '9')
+  ok('failed loadMore does not commit lastNext', vm.lastNext === '')
+  ok('failed loadMore releases loading flag', vm.isLoadingMore === false)
+  const fetchesAfterFailure = vm.fetches
+  vm.loadMore((cursor) => {
+    ok('retry reuses same cursor', cursor === '9')
+    return page(['8'], '8')
+  })
+  ok('retry issues a second fetch', vm.fetches === fetchesAfterFailure + 1)
+  ok('retry appends fresh row', vm.rows.map((r) => r.gid).join(',') === '10,9,8')
+  ok('retry clears stale error', vm.errorMessage === '')
+}
+
+// 5. empty cursor stops paging
 {
   const vm = new VM('')
   vm.load(page(['10', '9'], '')) // no next cursor
@@ -139,7 +173,7 @@ const ok = (name, cond) => {
   ok('no cursor → loadMore no-op', vm.fetches === 0)
 }
 
-// 5. all-duplicate page (server race) → exhausted, no infinite loop
+// 6. all-duplicate page (server race) → exhausted, no infinite loop
 {
   const vm = new VM('')
   vm.load(page(['10', '9', '8'], '8'))
@@ -148,7 +182,7 @@ const ok = (name, cond) => {
   ok('exhausted on zero-fresh', vm.hasMore === false)
 }
 
-// 6. popular is a no-paging snapshot
+// 7. popular is a no-paging snapshot
 {
   const vm = new VM('popular')
   vm.load(page(['10', '9', '8'], '8')) // even if a cursor is present, popular never pages
@@ -157,7 +191,7 @@ const ok = (name, cond) => {
   ok('popular loadMore no-op', vm.fetches === 0 && vm.rows.length === 3)
 }
 
-// 7. epoch guard: a source-switch reload during an in-flight loadMore discards the stale page
+// 8. epoch guard: a source-switch reload during an in-flight loadMore discards the stale page
 {
   const vm = new VM('')
   vm.load(page(['10', '9', '8'], '8'))
@@ -174,22 +208,33 @@ const ok = (name, cond) => {
   ok('new source pages forward', vm.rows.map((r) => r.gid).join(',') === '200,199,198,197')
 }
 
-// 8. structural: the guards exist in the .ets
+// 9. structural: the guards exist in the .ets
 {
   const src = readFileSync(
     join(ROOT, 'feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets'),
     'utf8',
   )
+  const loadMoreMatch = /async loadMore\(\): Promise<void> \{[\s\S]*?\n  \}\n\n  \/\*\* Toplist/.exec(src)
+  assert.ok(loadMoreMatch, 'loadMore block located')
+  const loadMoreSrc = loadMoreMatch[0]
+  const beforeFetch = loadMoreSrc.slice(0, loadMoreSrc.indexOf('EhApiService.getInstance().getGalleryList'))
   ok('has isPopular no-paging guard in loadMore', /!this\.hasMore \|\| this\.isPopular\(\)/.test(src))
-  ok('has stale-cursor guard', /this\.nextGid === this\.lastNext/.test(src))
+  ok('captures requested cursor before fetch', /const requestedNext: string = this\.nextGid/.test(src))
+  ok('has stale-cursor guard', /requestedNext === this\.lastNext/.test(src))
+  ok('loadMore clears stale error before retry fetch', /this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(loadMoreSrc))
+  ok('loadMore does not commit lastNext before fetch', !/this\.lastNext =/.test(beforeFetch))
+  ok('fetches the captured requested cursor', /this\.buildQuery\(requestedNext\)/.test(src))
+  ok('commits lastNext only inside successful epoch apply', /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.lastNext = requestedNext/.test(loadMoreSrc))
   ok('dedupes before append', /this\.dedupeNew\(list\.gallerys\)/.test(src))
   ok('exhausted on no-fresh', /list\.nextGid\.length > 0 && fresh\.length > 0/.test(src))
   ok('captures epoch before fetch', /const myEpoch: number = this\.epoch/.test(src))
   ok('guards mutations on epoch', /if \(this\.epoch === myEpoch\)/.test(src))
   ok('reload bumps epoch', /this\.epoch = this\.epoch \+ 1/.test(src))
+  ok('toplist loadMore clears stale error before retry fetch',
+    /private async loadMoreToplist\(\): Promise<void> \{[\s\S]*this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(src))
 }
 
-// 9. cross-cutting: EVERY paged ViewModel carries the SAME two loadMore guards as Home.
+// 10. cross-cutting: EVERY paged ViewModel carries the SAME two loadMore guards as Home.
 // (a) epoch (loadMore-vs-reset) guard — a reset path runs without the isLoadingMore guard, so an
 //     in-flight loadMore could contaminate the new list on favcat/query/source switch.
 // (b) gid-dedup guard — EH repeats the boundary gallery across cursor pages and the LazyForEach key
@@ -205,6 +250,9 @@ const ok = (name, cond) => {
   for (const rel of pagedVms) {
     const src = readFileSync(join(ROOT, rel), 'utf8')
     const name = rel.split('/').pop()
+    const loadMore = /async loadMore\(\): Promise<void> \{[\s\S]*?\n  \}\n\n  canLoadMore/.exec(src)?.[0] ?? ''
+    ok(`${name}: clears stale footer error before retry fetch`,
+      /this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(loadMore))
     ok(`${name}: declares epoch token`, /private epoch: number = 0/.test(src))
     ok(`${name}: captures myEpoch in loadMore`, /const myEpoch: number = this\.epoch/.test(src))
     ok(`${name}: discards stale page on epoch mismatch`, /if \(this\.epoch === myEpoch\)/.test(src))
