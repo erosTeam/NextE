@@ -66,10 +66,11 @@ ok(
     /this\.infoImages = info\.images/.test(tagsCard) &&
     /private InfoMarkdownText\([\s\S]*markdownBodyLines/.test(tagsCard) &&
     /private InfoLinks\([\s\S]*markdownLinks/.test(tagsCard) &&
-    /struct TagInfoIntroImage[\s\S]*renderedWidth\(\): Length[\s\S]*renderedHeight\(\): number/.test(tagsCard) &&
-    /event\.loadingStatus !== 1/.test(tagsCard) &&
-    /onAreaChange\([\s\S]*updateAvailableWidth/.test(tagsCard) &&
-    /private InfoImages\(\)[\s\S]*TagInfoIntroImage\(\{ url: url \}\)/.test(tagsCard) &&
+    /struct TagInfoIntroImage[\s\S]*sourceAspectRatio\(\): number[\s\S]*\.aspectRatio\(this\.sourceAspectRatio\(\)\)/.test(tagsCard) &&
+    !/onComplete\([\s\S]*TagInfoIntroImage/.test(tagsCard) &&
+    /private InfoImages\(\)[\s\S]*Row\(\{ space: ThemeConstants\.SPACE_SM \}\)[\s\S]*this\.InfoImageColumn\(0\)[\s\S]*this\.InfoImageColumn\(1\)/.test(tagsCard) &&
+    /private InfoImageColumn\(remainder: number\)[\s\S]*if \(index % 2 === remainder\)[\s\S]*TagInfoIntroImage\(\{ url: url \}\)/.test(tagsCard) &&
+    /this\.InfoLinks\(\$r\('app\.string\.tag_info_links'\), this\.infoLinks\)[\s\S]*this\.InfoImages\(\)/.test(tagsCard) &&
     /private TagInfoActionButton\([\s\S]*Button\(\{ type: ButtonType\.Circle/.test(tagsCard) &&
     /this\.TagInfoActionButton\([\s\S]*hand_thumbsup[\s\S]*hand_thumbsdown[\s\S]*bookmark/.test(tagsCard) &&
     !/footerActionOneText[\s\S]*tag_vote_up_short/.test(tagsCard) &&

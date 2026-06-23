@@ -151,6 +151,15 @@ ok(
   /\.translate\(\{ x: this\.readFabVisualX\(\) \}\)/.test(detail),
   'detail FAB slides to the holding-hand side (smart-grip alignment) instead of a fixed corner'
 )
+ok(
+  /@Local readFabLayoutReady: boolean = false/.test(detail) &&
+    /@Local readFabShouldAnimate: boolean = false/.test(detail) &&
+    /private onActionEdgeChanged\(\): void \{[\s\S]*this\.readFabShouldAnimate = this\.readFabLayoutReady[\s\S]*this\.visualActionEdge = this\.actionEdge\.edge/.test(detail) &&
+    /private readFabAnimationDuration\(\): number \{[\s\S]*return this\.readFabShouldAnimate \? ThemeConstants\.ANIM_DURATION : 0/.test(detail) &&
+    /\.opacity\(this\.readFabLayoutReady \? 1 : 0\)/.test(detail) &&
+    /\.animation\(\{ duration: this\.readFabAnimationDuration\(\), curve: Curve\.EaseOut \}\)/.test(detail),
+  'detail FAB hides first measurement placement, then animates real hand-edge changes'
+)
 
 // 7) Shared chip tokens exist in ThemeConstants.
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')

@@ -118,6 +118,8 @@ export struct GalleryDetailPage {
   @Local visualActionEdge: string = connectActionHandEdge().edge;
   @Local detailRootWidth: number = 0;
   @Local readFabWidth: number = 0;
+  @Local readFabLayoutReady: boolean = false;
+  @Local readFabShouldAnimate: boolean = false;
   private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
   @Local detailSheetShown: boolean = false;
   @Local detailSheetKind: string = '';
@@ -136,6 +138,7 @@ export struct GalleryDetailPage {
   // .animation() on its translate and we only flip the target edge here (mirrors V2Next's edge @Monitor).
   @Monitor('actionEdge.edge')
   private onActionEdgeChanged(): void {
+    this.readFabShouldAnimate = this.readFabLayoutReady
     this.visualActionEdge = this.actionEdge.edge
   }
 
@@ -147,6 +150,16 @@ export struct GalleryDetailPage {
     }
     const inner: number = this.detailRootWidth - ThemeConstants.SPACE_LG * 2
     return Math.max(0, inner - this.readFabWidth)
+  }
+
+  private readFabAnimationDuration(): number {
+    return this.readFabShouldAnimate ? ThemeConstants.ANIM_DURATION : 0
+  }
+
+  private updateReadFabLayoutReady(): void {
+    if (this.detailRootWidth > 0 && this.readFabWidth > 0) {
+      this.readFabLayoutReady = true
+    }
   }
 
   // followOperation mode: a scroll-like drag reports its start X so the button hops to the operating side.
@@ -1315,9 +1328,11 @@ export struct GalleryDetailPage {
           .backgroundColor(ThemeConstants.BRAND_PRIMARY)
           .shadow(ShadowStyle.OUTER_DEFAULT_MD)
           .translate({ x: this.readFabVisualX() })
-          .animation({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut })
+          .opacity(this.readFabLayoutReady ? 1 : 0)
+          .animation({ duration: this.readFabAnimationDuration(), curve: Curve.EaseOut })
           .onAreaChange((_oldArea: Area, area: Area) => {
             this.readFabWidth = area.width as number
+            this.updateReadFabLayoutReady()
           })
           .onClick(() => {
             this.openReader(this.resumeIndex())
@@ -1334,6 +1349,7 @@ export struct GalleryDetailPage {
       }
       .onAreaChange((_oldArea: Area, area: Area) => {
         this.detailRootWidth = area.width as number
+        this.updateReadFabLayoutReady()
       })
       .onTouch((event: TouchEvent) => {
         this.handleFollowTouch(event)

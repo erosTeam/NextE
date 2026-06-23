@@ -2,12 +2,12 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
-## Active: gallery and thumbnail load-more retry footers
+## Active: gallery detail read button initial hand edge
 
 Status: active
-Reference implementation: `shared/src/main/ets/components/LoadingFooter.ets`, `PullRefreshGridScaffold.ets`, `PullRefreshWaterFlowScaffold.ets`, gallery list mode footer wiring, and `feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets`.
-Surface type: gallery pagination footer across list/grid/waterfall and all-thumbnails bottom paging.
-Primary information: existing rows stay visible; footer shows system spinner loading, tap-to-retry error, or no-more from the real page state.
-Primary action: tapping retry after a load-more error retries the same cursor/page instead of marking the surface exhausted.
-Reuse or deviation: reuse the existing LoadingFooter through optional scaffold footers; no custom thumbnail-only footer.
-Verification: gallery paging contract, grid/thumbnail footer contracts, UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build.
+Reference implementation: `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` read FAB rail and `shared/src/main/ets/services/MotionHandStateService.ets` resolved hand edge.
+Surface type: gallery detail page floating read/resume button.
+Primary information: the button appears on the resolved left/right hand edge without an initial cross-screen slide caused by first layout measurement.
+Primary action: tapping the read button still opens Reader at the saved resume page.
+Reuse or deviation: keep the existing smart-grip/follow/fixed edge state and translate-based slide; only gate animation until root/button widths are measured.
+Verification: detail header visual contract, UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build.

@@ -35,8 +35,9 @@ import {
 const HAPTIC_HD_INTENSITY: number = 80
 const HAPTIC_FALLBACK_DURATION: number = 30
 const TAG_INFO_ACTION_SIZE: number = 32
-const TAG_INFO_SMALL_IMAGE_MAX_W: number = 240
-const TAG_INFO_IMAGE_PLACEHOLDER_H: number = 160
+const TAG_INFO_IMAGE_FALLBACK_RATIO: number = 3 / 4
+const TAG_INFO_IMAGE_MIN_RATIO: number = 0.42
+const TAG_INFO_IMAGE_MAX_RATIO: number = 1.8
 const TAG_INFO_MANAGE_EPOCH_START: number = 0
 const TAG_INFO_MANAGE_EDIT: string = 'edit'
 const TAG_INFO_MANAGE_TAGSET: string = 'tagset'
@@ -47,122 +48,36 @@ class TagInfoLinkItem {
   url: string = ''
 }
 
-interface TagInfoImageLoadEvent {
-  loadingStatus: number
-  width?: number
-  height?: number
-  componentWidth?: number
-  componentHeight?: number
-}
-
 @ComponentV2
 struct TagInfoIntroImage {
   @Param url: string = '';
-  @Local sourceWidthVp: number = 0;
-  @Local sourceHeightVp: number = 0;
-  @Local availableWidth: number = 0;
 
   private imageSizeMatch(): RegExpExecArray | null {
     const reg: RegExp = /-\d+-(\d+)-(\d+)-[A-Za-z0-9]+(?:_(\d+)|_[A-Za-z]+)?\.[A-Za-z0-9]+(?:[?#].*)?$/
     return reg.exec(this.url)
   }
 
-  private initialSourceWidthPx(): number {
+  private sourceAspectRatio(): number {
     const match: RegExpExecArray | null = this.imageSizeMatch()
     if (match === null) {
-      return 0
+      return TAG_INFO_IMAGE_FALLBACK_RATIO
     }
-    const thumbWidth: number = match[3] !== undefined ? Number.parseInt(match[3], 10) : 0
-    return thumbWidth > 0 ? thumbWidth : Number.parseInt(match[1], 10)
-  }
-
-  private initialSourceHeightPx(): number {
-    const match: RegExpExecArray | null = this.imageSizeMatch()
-    if (match === null) {
-      return 0
-    }
-    const thumbWidth: number = match[3] !== undefined ? Number.parseInt(match[3], 10) : 0
     const width: number = Number.parseInt(match[1], 10)
     const height: number = Number.parseInt(match[2], 10)
     if (width <= 0 || height <= 0) {
-      return 0
+      return TAG_INFO_IMAGE_FALLBACK_RATIO
     }
-    return thumbWidth > 0 ? thumbWidth * height / width : height
-  }
-
-  private effectiveSourceWidth(): number {
-    if (this.sourceWidthVp > 0) {
-      return this.sourceWidthVp
-    }
-    const widthPx: number = this.initialSourceWidthPx()
-    return widthPx
-  }
-
-  private effectiveSourceHeight(): number {
-    if (this.sourceHeightVp > 0) {
-      return this.sourceHeightVp
-    }
-    const heightPx: number = this.initialSourceHeightPx()
-    return heightPx
-  }
-
-  private renderedWidth(): Length {
-    const width: number = this.effectiveSourceWidth()
-    if (width > 0 && width <= TAG_INFO_SMALL_IMAGE_MAX_W) {
-      return width
-    }
-    return '100%'
-  }
-
-  private renderedHeight(): number {
-    const width: number = this.effectiveSourceWidth()
-    const height: number = this.effectiveSourceHeight()
-    if (width > 0 && height > 0) {
-      if (width <= TAG_INFO_SMALL_IMAGE_MAX_W) {
-        return height
-      }
-      const targetWidth: number = this.availableWidth > 0 ? this.availableWidth : 360
-      return Math.max(80, Math.min(1200, targetWidth * height / width))
-    }
-    return TAG_INFO_IMAGE_PLACEHOLDER_H
-  }
-
-  private applyLoadEvent(event?: TagInfoImageLoadEvent): void {
-    if (!event || event.loadingStatus !== 1) {
-      return
-    }
-    if (event.width !== undefined && event.height !== undefined && event.width > 0 && event.height > 0) {
-      this.sourceWidthVp = event.width
-      this.sourceHeightVp = event.height
-    }
-  }
-
-  private updateAvailableWidth(value: Area): void {
-    if (typeof value.width === 'number') {
-      this.availableWidth = value.width
-    } else if (typeof value.width === 'string') {
-      const parsed: number = Number.parseFloat(value.width)
-      this.availableWidth = Number.isNaN(parsed) ? 0 : parsed
-    }
+    return Math.min(TAG_INFO_IMAGE_MAX_RATIO, Math.max(TAG_INFO_IMAGE_MIN_RATIO, width / height))
   }
 
   build() {
-    Stack() {
-      Image(this.url)
-        .width(this.renderedWidth())
-        .height(this.renderedHeight())
-        .objectFit(ImageFit.Contain)
-        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-        .clip(true)
-        .onComplete((event?: TagInfoImageLoadEvent) => {
-          this.applyLoadEvent(event)
-        })
-    }
+    Image(this.url)
     .width('100%')
-    .align(Alignment.Center)
-    .onAreaChange((_oldValue: Area, newValue: Area) => {
-      this.updateAvailableWidth(newValue)
-    })
+    .aspectRatio(this.sourceAspectRatio())
+    .objectFit(ImageFit.Contain)
+    .backgroundColor($r('app.color.card_background'))
+    .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+    .clip(true)
   }
 }
 
@@ -863,16 +778,27 @@ export struct GalleryTagsCard {
   private InfoImages() {
     if (this.infoImages.length > 0) {
       ListItem() {
-        Column({ space: ThemeConstants.SPACE_SM }) {
-          ForEach(this.infoImages, (url: string) => {
-            TagInfoIntroImage({ url: url })
-          }, (url: string) => url)
+        Row({ space: ThemeConstants.SPACE_SM }) {
+          this.InfoImageColumn(0)
+          this.InfoImageColumn(1)
         }
+        .alignItems(VerticalAlign.Top)
         .width('100%')
-        .alignItems(HorizontalAlign.Center)
         .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
       }
     }
+  }
+
+  @Builder
+  private InfoImageColumn(remainder: number) {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      ForEach(this.infoImages, (url: string, index: number) => {
+        if (index % 2 === remainder) {
+          TagInfoIntroImage({ url: url })
+        }
+      }, (url: string, index: number) => `${index}:${url}`)
+    }
+    .layoutWeight(1)
   }
 
   @Builder
@@ -986,8 +912,8 @@ export struct GalleryTagsCard {
       }
     } else {
       this.InfoMarkdownText($r('app.string.tag_info_intro'), this.infoIntro)
-      this.InfoImages()
       this.InfoLinks($r('app.string.tag_info_links'), this.infoLinks)
+      this.InfoImages()
       if (this.infoIntro.length === 0 && this.infoLinks.length === 0 && this.infoImages.length === 0) {
         ListItem() {
           Text($r('app.string.tag_info_empty'))
