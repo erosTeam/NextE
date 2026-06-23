@@ -102,7 +102,7 @@ export {
   CachedImageProgress,
 } from './services/CachedImageFileService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
-export { TagTranslationService, TagTranslationStatus } from './services/TagTranslationService'
+export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
 export { CoverColorService } from './services/CoverColorService'
 export { MotionHandStateService, MotionHandEdge } from './services/MotionHandStateService'
 

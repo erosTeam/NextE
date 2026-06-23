@@ -118,6 +118,9 @@ export struct MyTagsPage {
       if (epoch === this.mytagsEpoch) {
         this.publishUserTags()
       }
+      if (epoch === this.mytagsEpoch && this.params.targetTag.length > 0) {
+        await this.openTargetTagAfterLoad(epoch)
+      }
     } catch (err) {
       const e = err as Error
       this.error = e.message
@@ -139,7 +142,7 @@ export struct MyTagsPage {
 
   private selectTagset(id: string): void {
     if (!this.loading && id.length > 0) {
-      this.stack.pushPathByName('MyTags', new MyTagsPageParams(id))
+      this.stack.pushPathByName('MyTags', new MyTagsPageParams(id, this.params.targetTag))
     }
   }
 
@@ -347,6 +350,71 @@ export struct MyTagsPage {
     this.addSuggestEpoch = this.addSuggestEpoch + 1
     this.addSuppressNextSuggest = false
     this.openMyTagsSheet(MYTAGS_SHEET_ADD)
+  }
+
+  private openAddTargetTag(fullTag: string): void {
+    this.openAddTag()
+    this.addTagQuery = fullTag
+    this.addTagName = fullTag
+    this.addWatched = true
+    const epoch: number = this.addSuggestEpoch + 1
+    this.addSuggestEpoch = epoch
+    this.loadAddTagTranslation(fullTag, epoch).then(() => {})
+  }
+
+  private findLoadedTag(fullTag: string): EhUsertag | undefined {
+    const target: string = EhConstants.canonicalTagText(fullTag).toLowerCase().trim()
+    if (target.length === 0) {
+      return undefined
+    }
+    return this.mytags.tags.find((t: EhUsertag) => {
+      return EhConstants.canonicalTagText(t.tag).toLowerCase().trim() === target
+    })
+  }
+
+  private async openTargetTagAfterLoad(epoch: number): Promise<void> {
+    const targetTag: string = this.params.targetTag.trim()
+    if (targetTag.length === 0) {
+      return
+    }
+    const loaded: EhUsertag | undefined = this.findLoadedTag(targetTag)
+    if (loaded !== undefined) {
+      this.params.targetTag = ''
+      this.openEditTag(loaded)
+      return
+    }
+    if (this.showingTagsetList) {
+      const rootMytags: EhMytags = this.mytags
+      for (let i = 0; i < rootMytags.tagSets.length; i++) {
+        const tagsetId: string = rootMytags.tagSets[i].tagsetId
+        if (tagsetId.length === 0) {
+          continue
+        }
+        const tagsetTags: EhMytags = await EhApiService.getInstance().getMyTags(connectSiteMode().isEx, tagsetId)
+        if (epoch !== this.mytagsEpoch) {
+          return
+        }
+        this.mytags = tagsetTags
+        const found: EhUsertag | undefined = this.findLoadedTag(targetTag)
+        if (found !== undefined) {
+          this.showingTagsetList = false
+          this.params.tagsetId = tagsetTags.currentTagset
+          this.params.targetTag = ''
+          if (this.tagTranslation.enabled) {
+            await this.translateLoadedMyTags(epoch)
+          }
+          this.publishUserTags()
+          const translatedFound: EhUsertag | undefined = this.findLoadedTag(targetTag)
+          this.openEditTag(translatedFound !== undefined ? translatedFound : found)
+          return
+        }
+      }
+      this.mytags = rootMytags
+      this.showingTagsetList = true
+      return
+    }
+    this.params.targetTag = ''
+    this.openAddTargetTag(targetTag)
   }
 
   private normalizedEditColor(): string {

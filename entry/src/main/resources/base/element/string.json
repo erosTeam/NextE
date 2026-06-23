@@ -577,6 +577,18 @@
       "value": "Withdraw vote"
     },
     {
+      "name": "tag_vote_up_short",
+      "value": "Up"
+    },
+    {
+      "name": "tag_vote_down_short",
+      "value": "Down"
+    },
+    {
+      "name": "tag_vote_withdraw_short",
+      "value": "Undo"
+    },
+    {
       "name": "tag_vote_current_none",
       "value": "No vote on this tag"
     },
@@ -607,6 +619,30 @@
     {
       "name": "tag_vote_unavailable",
       "value": "Sign in and reload the gallery before voting on tags."
+    },
+    {
+      "name": "tag_info_title",
+      "value": "Tag info"
+    },
+    {
+      "name": "tag_info_intro",
+      "value": "Intro"
+    },
+    {
+      "name": "tag_info_links",
+      "value": "Links"
+    },
+    {
+      "name": "tag_info_empty",
+      "value": "No extra info."
+    },
+    {
+      "name": "tag_info_manage_mytag",
+      "value": "Manage My Tag"
+    },
+    {
+      "name": "tag_info_manage_short",
+      "value": "Manage"
     },
     {
       "name": "detail_add_local_favorite",

@@ -577,6 +577,18 @@
       "value": "投票を取り消す"
     },
     {
+      "name": "tag_vote_up_short",
+      "value": "賛成"
+    },
+    {
+      "name": "tag_vote_down_short",
+      "value": "反対"
+    },
+    {
+      "name": "tag_vote_withdraw_short",
+      "value": "取消"
+    },
+    {
       "name": "tag_vote_current_none",
       "value": "このタグには未投票です"
     },
@@ -607,6 +619,30 @@
     {
       "name": "tag_vote_unavailable",
       "value": "ログインしてギャラリーを再読み込みしてからタグに投票してください。"
+    },
+    {
+      "name": "tag_info_title",
+      "value": "タグ情報"
+    },
+    {
+      "name": "tag_info_intro",
+      "value": "概要"
+    },
+    {
+      "name": "tag_info_links",
+      "value": "リンク"
+    },
+    {
+      "name": "tag_info_empty",
+      "value": "追加情報はありません"
+    },
+    {
+      "name": "tag_info_manage_mytag",
+      "value": "My Tagを管理"
+    },
+    {
+      "name": "tag_info_manage_short",
+      "value": "管理"
     },
     {
       "name": "detail_add_local_favorite",

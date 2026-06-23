@@ -30,6 +30,8 @@ const SQL_SELECT_TAG_VERSION: string =
   'SELECT value FROM tag_translation_meta WHERE key = ? LIMIT 1'
 const SQL_SELECT_TAG_TRANSLATION: string =
   'SELECT name FROM tag_translations WHERE namespace = ? AND key = ? LIMIT 1'
+const SQL_SELECT_TAG_INFO: string =
+  'SELECT name, intro, links FROM tag_translations WHERE namespace = ? AND key = ? LIMIT 1'
 const SQL_QUERY_TAG_TRANSLATIONS: string =
   'SELECT namespace, key, name FROM tag_translations ' +
   'WHERE namespace <> \'rows\' AND (key LIKE ? ESCAPE \'\\\' OR name LIKE ? ESCAPE \'\\\') ' +
@@ -92,6 +94,14 @@ class TagSuggestionQuery {
 export class TagTranslationStatus {
   rowCount: number = 0
   version: string = ''
+}
+
+export class TagTranslationInfo {
+  namespace: string = ''
+  key: string = ''
+  name: string = ''
+  intro: string = ''
+  links: string = ''
 }
 
 export class TagTranslationService {
@@ -197,6 +207,37 @@ export class TagTranslationService {
       }
     }
     return TagTranslationService.fallbackSuggestions(q.keyword, limit, q.namespace)
+  }
+
+  static async lookupTagInfo(
+    context: common.UIAbilityContext,
+    namespace: string,
+    key: string,
+  ): Promise<TagTranslationInfo | null> {
+    const ns: string = EhConstants.expandNamespace(namespace).trim()
+    const tagKey: string = TagTranslationService.cleanTagQueryText(key).toLowerCase()
+    if (ns.length === 0 || tagKey.length === 0 || !(await TagTranslationService.hasRows(context))) {
+      return null
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const args: relationalStore.ValueType[] = [ns, tagKey]
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_TAG_INFO, args)
+    try {
+      if (!resultSet.goToFirstRow()) {
+        return null
+      }
+      const info: TagTranslationInfo = new TagTranslationInfo()
+      info.namespace = ns
+      info.key = tagKey
+      info.name = TagTranslationService.stripNameMarkdown(
+        TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('name')),
+      )
+      info.intro = TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('intro'))
+      info.links = TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('links'))
+      return info
+    } finally {
+      resultSet.close()
+    }
   }
 
   static async status(context: common.UIAbilityContext): Promise<TagTranslationStatus> {

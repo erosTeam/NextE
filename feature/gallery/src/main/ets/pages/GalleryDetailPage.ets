@@ -1227,7 +1227,12 @@ export struct GalleryDetailPage {
 
           if (this.vm.gallery.tagGroups.length > 0) {
             ListItem() {
-              GalleryTagsCard({ gallery: this.vm.gallery })
+              GalleryTagsCard({
+                gallery: this.vm.gallery,
+                onTagVoteChanged: (namespace: string, tagText: string, vote: number) => {
+                  this.vm.applyTagVote(namespace, tagText, vote)
+                },
+              })
             }
           }
 

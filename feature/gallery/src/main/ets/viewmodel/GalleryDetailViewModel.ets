@@ -12,6 +12,8 @@ import {
   EhErrorText,
   TagTranslationService,
   connectTagTranslationSettings,
+  TagGroup,
+  SimpleTag,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -187,6 +189,25 @@ export class GalleryDetailViewModel {
     next.ratingCount = result.ratingCount
     next.colorRating = result.colorRating
     next.isRated = true
+    this.gallery = next
+  }
+
+  applyTagVote(namespace: string, tagText: string, vote: number): void {
+    const next: EhGallery = this.gallery.copy()
+    const groups: TagGroup[] = []
+    for (let i = 0; i < next.tagGroups.length; i++) {
+      const group: TagGroup = next.tagGroups[i]
+      const tags: SimpleTag[] = []
+      for (let j = 0; j < group.tags.length; j++) {
+        const tag: SimpleTag = group.tags[j].copy()
+        if (group.namespace === namespace && tag.text === tagText) {
+          tag.vote = vote
+        }
+        tags.push(tag)
+      }
+      groups.push(new TagGroup(group.namespace, tags))
+    }
+    next.tagGroups = groups
     this.gallery = next
   }
 

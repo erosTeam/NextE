@@ -577,6 +577,18 @@
       "value": "撤回投票"
     },
     {
+      "name": "tag_vote_up_short",
+      "value": "赞成"
+    },
+    {
+      "name": "tag_vote_down_short",
+      "value": "反对"
+    },
+    {
+      "name": "tag_vote_withdraw_short",
+      "value": "撤销"
+    },
+    {
       "name": "tag_vote_current_none",
       "value": "当前未投票"
     },
@@ -607,6 +619,30 @@
     {
       "name": "tag_vote_unavailable",
       "value": "请登录并重新载入画廊后再为标签投票。"
+    },
+    {
+      "name": "tag_info_title",
+      "value": "标签信息"
+    },
+    {
+      "name": "tag_info_intro",
+      "value": "简介"
+    },
+    {
+      "name": "tag_info_links",
+      "value": "链接"
+    },
+    {
+      "name": "tag_info_empty",
+      "value": "暂无更多信息"
+    },
+    {
+      "name": "tag_info_manage_mytag",
+      "value": "管理我的标签"
+    },
+    {
+      "name": "tag_info_manage_short",
+      "value": "管理"
     },
     {
       "name": "detail_add_local_favorite",

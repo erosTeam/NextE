@@ -236,8 +236,10 @@ export class AllThumbnailsParams {
 /** Params for the 'MyTags' destination. Empty tagsetId means the tagset-list landing page. */
 export class MyTagsPageParams {
   tagsetId: string = ''
+  targetTag: string = ''
 
-  constructor(tagsetId: string = '') {
+  constructor(tagsetId: string = '', targetTag: string = '') {
     this.tagsetId = tagsetId
+    this.targetTag = targetTag
   }
 }
