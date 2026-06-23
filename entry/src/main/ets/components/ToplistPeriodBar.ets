@@ -36,10 +36,18 @@ export struct ToplistPeriodBar {
     ]
   }
 
+  private selectedIndex(): number {
+    const selected: string = `${this.home.toplistTl}`
+    const items: TabItem[] = this.tabs()
+    const index: number = items.findIndex((item: TabItem) => item.key === selected)
+    return index < 0 ? 0 : index
+  }
+
   build() {
     SubTabBar({
       tabs: this.tabs(),
       visualIndex: this.visual.value,
+      selectedIndex: this.selectedIndex(),
       onSelect: (index: number) => {
         if (index >= 0 && index < PERIOD_TLS.length) {
           SubtabSelectionSettings.setToplistTl(this.ctx(), PERIOD_TLS[index])

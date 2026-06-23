@@ -42,10 +42,17 @@ export struct HomeSourceBar {
     return items
   }
 
+  private selectedIndex(): number {
+    const items: TabItem[] = this.tabs()
+    const index: number = items.findIndex((item: TabItem) => item.key === this.home.source)
+    return index < 0 ? 0 : index
+  }
+
   build() {
     SubTabBar({
       tabs: this.tabs(),
       visualIndex: this.visual.value,
+      selectedIndex: this.selectedIndex(),
       onSelect: (index: number) => {
         const items: TabItem[] = this.tabs()
         if (index >= 0 && index < items.length) {

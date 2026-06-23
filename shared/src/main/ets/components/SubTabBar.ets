@@ -33,11 +33,14 @@ export struct SubTabBar {
   @Require @Param tabs: TabItem[];
   // Interpolated active index (float) from the Swiper — the source of the indicator position + highlight.
   @Param visualIndex: number = 0;
+  // Discrete selected index from the selection bus. Scrolling listens to this, not visualIndex.
+  @Param selectedIndex: number = -1;
   // When true the tab strip scrolls horizontally (favcat overflow) and the active tab auto-centres.
   @Param scrollable: boolean = false;
   @Event onSelect: (index: number) => void = (_i: number) => {};
   // Per-tab measured widths (onAreaChange) so the indicator tracks real tab centres, not a uniform guess.
   @Local tabWidths: number[] = [];
+  @Local tabLefts: number[] = [];
   // Reading this signal in the color helper makes this bar (hosted in a CACHED ComponentContent) repaint on
   // a system dark/light flip — without it the unselected $r('sys.color.*') tokens stay stale.
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
@@ -46,7 +49,8 @@ export struct SubTabBar {
   // $r label re-resolves (otherwise only the unselected pills, which read a signal, refresh).
   @Local language: LanguageState = connectLanguageState();
   private scroller: Scroller = new Scroller();
-  private viewportWidth: number = 0;
+  private containerReady: boolean = false;
+  private containerGlobalLeft: number = 0;
   private pendingCenterIndex: number = -1;
   private pendingCenterSmooth: boolean = false;
   private centeredTarget: number = -1;
@@ -61,7 +65,7 @@ export struct SubTabBar {
     return this.themeDisplay.effectiveDark ? color : color
   }
 
-  private selectedIndex(): number {
+  private visualSelectedIndex(): number {
     // Touch the locale signal so the whole bar depends on it (length is never < 0; this only registers the
     // @Trace read). selectedIndex() runs in every tab's fontColor/fontWeight, so the bar rebuilds on switch.
     if (this.language.effectiveLocale.length < 0) {
@@ -76,6 +80,9 @@ export struct SubTabBar {
 
   // Left edge of tab i: bar padding + cumulative prior tab widths + inter-tab gaps.
   private tabLeft(i: number): number {
+    if (this.scrollable && i < this.tabLefts.length && this.tabLefts[i] >= 0) {
+      return this.tabLefts[i]
+    }
     let left: number = BAR_PAD
     for (let k = 0; k < i; k++) {
       const w: number = k < this.tabWidths.length ? this.tabWidths[k] : 0
@@ -110,6 +117,36 @@ export struct SubTabBar {
     }
     next[i] = w
     this.tabWidths = next
+  }
+
+  private updateTabLayout(i: number, area: Area): void {
+    const width: number = area.width as number
+    if (width <= 0) {
+      return
+    }
+    this.setTabWidth(i, width)
+    if (this.scrollable) {
+      const nextLefts: number[] = this.tabLefts.slice()
+      while (nextLefts.length <= i) {
+        nextLefts.push(-1)
+      }
+      nextLefts[i] = this.areaX(area.globalPosition?.x) - this.containerGlobalLeft
+      this.tabLefts = nextLefts
+    }
+    if (this.pendingCenterIndex === i) {
+      this.centerTab(i, this.pendingCenterSmooth)
+    }
+  }
+
+  private areaX(value: Length | undefined): number {
+    if (typeof value === 'number') {
+      return value
+    }
+    if (typeof value === 'string') {
+      const parsed: number = Number.parseFloat(value)
+      return Number.isNaN(parsed) ? 0 : parsed
+    }
+    return 0
   }
 
   private tabAccentColor(i: number): ResourceColor {
@@ -170,9 +207,10 @@ export struct SubTabBar {
     return s.length === 1 ? `0${s}` : s
   }
 
-  // Keep the active tab visible (favcat strip can overflow). Centres on the discrete selected tab.
-  @Monitor('visualIndex')
-  onVisualIndexChange(): void {
+  // Keep the active tab visible (favcat strip can overflow). This follows the discrete selection bus,
+  // matching V2Next FeedPills; visualIndex is high-frequency indicator state only.
+  @Monitor('selectedIndex')
+  onSelectedIndexChange(): void {
     this.centerSelectedTab(true, false)
   }
 
@@ -180,7 +218,7 @@ export struct SubTabBar {
     if (!this.scrollable) {
       return
     }
-    const i: number = this.selectedIndex()
+    const i: number = this.centerIndex()
     if (!force && i === this.centeredTarget && this.pendingCenterIndex !== i) {
       return
     }
@@ -192,15 +230,22 @@ export struct SubTabBar {
     if (!this.scrollable || i < 0 || i >= this.tabs.length) {
       return
     }
-    const wi: number = i < this.tabWidths.length ? this.tabWidths[i] : 0
-    if (this.viewportWidth <= 0 || wi <= 0) {
+    if (!this.containerReady) {
       this.pendingCenterIndex = i
       this.pendingCenterSmooth = smooth
       return
     }
     this.pendingCenterIndex = -1
-    const target: number = this.tabLeft(i) - this.viewportWidth / 2 + wi / 2
-    this.scroller.scrollTo({ xOffset: Math.max(0, target), yOffset: 0, animation: smooth })
+    this.scroller.scrollToIndex(i, smooth, ScrollAlign.CENTER)
+  }
+
+  private centerIndex(): number {
+    const n: number = this.tabs.length
+    if (n <= 0) {
+      return 0
+    }
+    const raw: number = this.selectedIndex >= 0 ? this.selectedIndex : this.visualSelectedIndex()
+    return Math.max(0, Math.min(n - 1, raw))
   }
 
   @Builder
@@ -213,17 +258,17 @@ export struct SubTabBar {
             Text(tab.label)
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
               .fontColor(
-                this.selectedIndex() === index
+                this.visualSelectedIndex() === index
                   ? this.tabAccentColor(index)
                   : this.themeTracked($r('sys.color.font_secondary')),
               )
-              .fontWeight(this.selectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
+              .fontWeight(this.visualSelectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
               .maxLines(1)
             if (tab.count >= 0) {
               Text(`${tab.count}`)
                 .fontSize(ThemeConstants.FONT_SIZE_TINY)
                 .fontColor(
-                  this.selectedIndex() === index
+                  this.visualSelectedIndex() === index
                     ? this.tabAccentColor(index)
                     : this.themeTracked($r('sys.color.font_tertiary')),
                 )
@@ -238,10 +283,7 @@ export struct SubTabBar {
             this.onSelect(index)
           })
           .onAreaChange((_oldValue: Area, newValue: Area) => {
-            this.setTabWidth(index, newValue.width as number)
-            if (this.pendingCenterIndex === index) {
-              this.centerTab(index, this.pendingCenterSmooth)
-            }
+            this.updateTabLayout(index, newValue)
           })
         },
         // Key MUST include the label + count, not just the stable key: dynamic tabs (favcat) reuse a key
@@ -274,19 +316,61 @@ export struct SubTabBar {
 
   build() {
     if (this.scrollable) {
-      Scroll(this.scroller) {
-        Stack({ alignContent: Alignment.TopStart }) {
-          this.tabRow()
-          this.indicatorBar()
-        }.height(SELECTOR_BAR_HEIGHT)
+      Stack({ alignContent: Alignment.TopStart }) {
+        List({ space: TAB_GAP, scroller: this.scroller }) {
+          ForEach(
+            this.tabs,
+            (tab: TabItem, index: number) => {
+              ListItem() {
+                Row({ space: 3 }) {
+                  Text(tab.label)
+                    .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                    .fontColor(
+                      this.visualSelectedIndex() === index
+                        ? this.tabAccentColor(index)
+                        : this.themeTracked($r('sys.color.font_secondary')),
+                    )
+                    .fontWeight(this.visualSelectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
+                    .maxLines(1)
+                  if (tab.count >= 0) {
+                    Text(`${tab.count}`)
+                      .fontSize(ThemeConstants.FONT_SIZE_TINY)
+                      .fontColor(
+                        this.visualSelectedIndex() === index
+                          ? this.tabAccentColor(index)
+                          : this.themeTracked($r('sys.color.font_tertiary')),
+                      )
+                  }
+                }
+                .padding({
+                  left: ThemeConstants.SPACE_MD,
+                  right: ThemeConstants.SPACE_MD,
+                  top: ThemeConstants.SPACE_XS,
+                })
+                .onClick(() => {
+                  this.onSelect(index)
+                })
+                .onAreaChange((_oldValue: Area, newValue: Area) => {
+                  this.updateTabLayout(index, newValue)
+                })
+              }
+            },
+            (tab: TabItem) =>
+              `${tab.key}:${typeof tab.label === 'string' ? tab.label : this.language.effectiveLocale}:${tab.count}:${tab.selectedColor}`,
+          )
+        }
+        .listDirection(Axis.Horizontal)
+        .scrollBar(BarState.Off)
+        .padding({ left: BAR_PAD, right: BAR_PAD })
+        .width('100%')
+        .height(SELECTOR_BAR_HEIGHT)
+        this.indicatorBar()
       }
-      .scrollable(ScrollDirection.Horizontal)
-      .scrollBar(BarState.Off)
-      .align(Alignment.Start)
       .width('100%')
       .height(SELECTOR_BAR_HEIGHT)
       .onAreaChange((_oldValue: Area, newValue: Area) => {
-        this.viewportWidth = newValue.width as number
+        this.containerGlobalLeft = this.areaX(newValue.globalPosition?.x)
+        this.containerReady = true
         if (this.pendingCenterIndex >= 0) {
           this.centerTab(this.pendingCenterIndex, this.pendingCenterSmooth)
         } else {
@@ -300,6 +384,9 @@ export struct SubTabBar {
       }
       .width('100%')
       .height(SELECTOR_BAR_HEIGHT)
+      .onAreaChange((_oldValue: Area, newValue: Area) => {
+        this.containerGlobalLeft = this.areaX(newValue.globalPosition?.x)
+      })
     }
   }
 }

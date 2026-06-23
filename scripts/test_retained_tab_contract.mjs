@@ -5,7 +5,7 @@
  * Every UI surface presented as subtabs (Home source, Toplist period, Favorites favcat, future custom
  * subtabs) must share ONE retained-subtab architecture — not per-surface inline patches:
  *   - a shared RetainedSubtabHost owns the Swiper, the per-key Scroller map, cachedCount retention, the
- *     visual-index publishing (onGestureSwipe/onAnimationStart/onAnimationEnd), the onChange selected-key
+ *     visual-index publishing (onGestureSwipe/onAnimationStart/onAnimationEnd), the settled selected-key
  *     publication, and the active-scroller handoff; it owns NO content VM/datasource;
  *   - each subtab KEY gets its own retained page (own @Local VM + datasource + scroller + lazy first load);
  *   - selection STATE is a bus (no datasource); the visual index is a SEPARATE bus the bar consumes;
@@ -62,7 +62,7 @@ ok(
   'host wires the FULL Swiper event set (onGestureSwipe + onAnimationStart + onAnimationEnd + onChange)',
 )
 ok(/onVisualIndex\(/.test(host), 'host publishes the interpolated visual index (bar indicator sync)')
-ok(/onSelectKey\(/.test(host), 'host publishes the selected key back to the surface bus on change')
+ok(/onSelectKey\(/.test(host), 'host publishes the selected key back to the surface bus after settle')
 ok(/onScrollerReady/.test(host), 'host hands the active key scroller up (title-scroller handoff)')
 ok(!/@Local\s+vm:/.test(host) && !/loadData|setData|\.reload\(/.test(host), 'host owns NO content VM and never loads/replaces data')
 ok(/@Local\s+swiperIndex:\s*number\s*=\s*0/.test(host) &&
@@ -74,14 +74,22 @@ ok(/changeIndex\(target,\s*true\)/.test(host) &&
   /\.curve\(Curve\.EaseOut\)/.test(host),
   'bar taps ask Swiper to animate from the local current index to the selected target with the project animation timing')
 // EXPLICIT FIRST-ACTIVATION SIGNAL: the host shares an ActiveKeyState (an @ObservedV2 whose @Trace reaches
-// cached pages) and updates active.activeKey on aboutToAppear + selectedKey change + onChange. A per-render
+// cached pages) and updates active.activeKey on aboutToAppear + selectedKey change + animation settle. A per-render
 // isActive @Param does NOT update cached pages (ForEach stable keys + cachedCount), so the old isActive
 // signal missed an unvisited subtab's first load — this is the durable fix.
 ok(/@ObservedV2[\s\S]*?class ActiveKeyState[\s\S]*?@Trace\s+activeKey/.test(host), 'host defines a shared ActiveKeyState (@ObservedV2 @Trace activeKey)')
 ok(/@BuilderParam\s+pageBuilder:\s*\(key:\s*string,\s*active:\s*ActiveKeyState/.test(host), 'host passes the SHARED ActiveKeyState to pages (not a per-render isActive boolean)')
 ok(/this\.pageBuilder\(key,\s*this\.active,/.test(host) && !/this\.pageBuilder\(key,\s*key === this\.selectedKey/.test(host),
   'host hands pages this.active as the pageBuilder activation signal (not the old per-render boolean isActive)')
-ok((host.match(/this\.active\.activeKey\s*=/g) || []).length >= 3, 'host updates active.activeKey on aboutToAppear + selectedKey change + onChange (every activation path)')
+ok((host.match(/this\.active\.activeKey\s*=/g) || []).length >= 3, 'host updates active.activeKey on aboutToAppear + selectedKey change + animation settle (every activation path)')
+{
+  const animationEnd = /\.onAnimationEnd\(\(index: number[\s\S]*?\n    \}\)/.exec(host)?.[0] ?? ''
+  const onChange = /\.onChange\(\(i: number\) => \{[\s\S]*?\n    \}\)/.exec(host)?.[0] ?? ''
+  ok(/const key: string = this\.keys\[index\][\s\S]*this\.active\.activeKey = key[\s\S]*this\.onSelectKey\(key\)/.test(animationEnd),
+    'host publishes selected key only when Swiper animation settles')
+  ok(!/this\.onSelectKey\(|this\.active\.activeKey = key|this\.onVisualIndex\(i\)/.test(onChange),
+    'host onChange does not prematurely rebuild selection or snap visual index during swipe')
+}
 
 // ── 2. Generic TabItem/key model ─────────────────────────────────────────────────────────────────────
 ok(/export class TabItem/.test(tabItem), 'a generic TabItem model exists (key + label + count)')
@@ -146,22 +154,37 @@ for (const [name, src, conn] of [
 ok(/@Param\s+scrollable:\s*boolean/.test(subTabBar), 'SubTabBar supports a scrollable mode (favcat overflow)')
 ok(/\.position\(/.test(subTabBar), 'SubTabBar positions ONE sliding indicator (interpolated), not per-tab underlines')
 ok(/@Param\s+visualIndex:\s*number/.test(subTabBar), 'SubTabBar takes the interpolated visualIndex')
+ok(/@Param\s+selectedIndex:\s*number/.test(subTabBar), 'SubTabBar takes a discrete selectedIndex for centering')
+for (const [name, src] of [
+  ['HomeSourceBar', sourceBar],
+  ['ToplistPeriodBar', periodBar],
+  ['FavcatBar', favcatBar],
+]) {
+  ok(/selectedIndex:\s*this\.selectedIndex\(\)/.test(src), `${name} passes its selection-bus index to SubTabBar`)
+}
 ok(/tabAccentColor\(i: number\): ResourceColor[\s\S]*this\.tabs\[i\]\.selectedColor[\s\S]*ThemeConstants\.BRAND_PRIMARY/.test(subTabBar) &&
-  /this\.selectedIndex\(\) === index[\s\S]*this\.tabAccentColor\(index\)/.test(subTabBar),
+  /this\.visualSelectedIndex\(\) === index[\s\S]*this\.tabAccentColor\(index\)/.test(subTabBar),
   'SubTabBar selected text can use a per-tab accent color while uncolored surfaces keep brand primary')
-ok(/\.fontWeight\(this\.selectedIndex\(\) === index \? FontWeight\.Bold : FontWeight\.Regular\)/.test(subTabBar),
+ok(/\.fontWeight\(this\.visualSelectedIndex\(\) === index \? FontWeight\.Bold : FontWeight\.Regular\)/.test(subTabBar),
   'SubTabBar selected text uses Bold weight for stronger contrast without changing favcat identity colors')
 ok(/indicatorColor\(\): ResourceColor[\s\S]*this\.lerpHexColor\(fromColor, toColor, frac\)/.test(subTabBar) &&
   /\.backgroundColor\(this\.indicatorColor\(\)\)/.test(subTabBar),
   'SubTabBar indicator color interpolates between adjacent tab selectedColor values during swipe')
+ok(!/@Monitor\('visualIndex'\)[\s\S]*centerSelectedTab/.test(subTabBar),
+  'SubTabBar never scrolls the favcat strip from high-frequency visualIndex updates')
+ok(/@Monitor\('selectedIndex'\)[\s\S]*onSelectedIndexChange\(\): void \{[\s\S]*this\.centerSelectedTab\(true,\s*false\)/.test(subTabBar),
+  'SubTabBar recenters only from the discrete selectedIndex bus')
 ok(/aboutToAppear\(\): void[\s\S]*this\.centerSelectedTab\(false,\s*true\)/.test(subTabBar),
   'SubTabBar re-centers the restored selected tab on attach, even when visualIndex did not change')
 ok(/pendingCenterIndex/.test(subTabBar) && /pendingCenterSmooth/.test(subTabBar) &&
-  /if \(this\.viewportWidth <= 0 \|\| wi <= 0\) \{[\s\S]*this\.pendingCenterIndex = i/.test(subTabBar),
-  'SubTabBar defers restored-tab centering until tab width and viewport measurements are available')
-ok(/onAreaChange\([\s\S]*this\.viewportWidth = newValue\.width as number[\s\S]*this\.centerSelectedTab\(false,\s*true\)/.test(subTabBar) &&
-  /if \(this\.pendingCenterIndex === index\) \{[\s\S]*this\.centerTab\(index,\s*this\.pendingCenterSmooth\)/.test(subTabBar),
-  'SubTabBar completes pending restored-tab centering from viewport and tab measurement callbacks')
+  /if \(!this\.containerReady\) \{[\s\S]*this\.pendingCenterIndex = i/.test(subTabBar),
+  'SubTabBar defers restored-tab centering until the scrollable container is mounted')
+ok(/List\(\{ space: TAB_GAP, scroller: this\.scroller \}\)/.test(subTabBar) &&
+  /this\.scroller\.scrollToIndex\(i,\s*smooth,\s*ScrollAlign\.CENTER\)/.test(subTabBar) &&
+  !/xOffset/.test(subTabBar),
+  'SubTabBar uses native List.scrollToIndex(CENTER), not hand-computed xOffset centering')
+ok(/onAreaChange\([\s\S]*this\.containerReady = true[\s\S]*this\.centerSelectedTab\(false,\s*true\)/.test(subTabBar),
+  'SubTabBar completes pending restored-tab centering when the scrollable container attaches')
 // The tab ForEach key MUST include the label + count (not just the stable key): dynamic tabs (favcat reuse
 // favId 0-9 across a seed→real update) would otherwise reuse frozen seed chips, leaving the bar on
 // placeholder "Favorites N / 0" after the parsed favList lands.

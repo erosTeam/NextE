@@ -21,7 +21,7 @@ export class ActiveKeyState {
  *   - cachedCount = key count (retain ALL keys → switching away/back keeps each key's list + scroll),
  *   - the visual-index publishing from onGestureSwipe / onAnimationStart / onAnimationEnd (the bar's
  *     sliding indicator tracks the finger/page),
- *   - onChange selected-key publication back to the surface bus,
+ *   - settled selected-key publication back to the surface bus,
  *   - the active page's Scroller handoff up (for the HDS title auto-hide binding).
  *
  * The host owns NO content VM/datasource: each key's page (rendered by `pageBuilder`) owns its own VM +
@@ -38,7 +38,7 @@ export struct RetainedSubtabHost {
   // SHARED ActiveKeyState (not a per-render isActive) so every page — cached too — sees activation.
   @BuilderParam pageBuilder:
     (key: string, active: ActiveKeyState, scroller: Scroller, onDidScroll: (offset: number, state: ScrollState) => void) => void;
-  // Publish the new selected key back to the surface bus (onChange / settle).
+  // Publish the new selected key back to the surface bus after the Swiper settles.
   @Event onSelectKey: (key: string) => void = (_k: string) => {};
   // Publish the per-frame interpolated visual index to the surface's visual-index bus (bar indicator).
   @Event onVisualIndex: (value: number) => void = (_v: number) => {};
@@ -155,7 +155,11 @@ export struct RetainedSubtabHost {
     .onAnimationEnd((index: number, _extraInfo: SwiperAnimationEvent) => {
       this.swiperIndex = index
       this.onVisualIndex(index)
-      this.active.activeKey = this.keys[index]
+      const key: string = this.keys[index]
+      this.active.activeKey = key
+      if (key !== this.selectedKey) {
+        this.onSelectKey(key)
+      }
       this.notifyActiveScroller()
     })
     .onChange((i: number) => {
@@ -170,16 +174,6 @@ export struct RetainedSubtabHost {
       if (i < 0 || i >= this.keys.length) {
         return
       }
-      this.swiperIndex = i
-      this.onVisualIndex(i)
-      const key: string = this.keys[i]
-      // Publish the settled key immediately (a swipe lands here) so the page loads on first activation even
-      // before the selection-bus round-trip; then mirror it to the surface bus.
-      this.active.activeKey = key
-      if (key !== this.selectedKey) {
-        this.onSelectKey(key)
-      }
-      this.notifyActiveScroller()
     })
     .onAreaChange((_oldValue: Area, newValue: Area) => {
       this.swiperWidth = newValue.width as number

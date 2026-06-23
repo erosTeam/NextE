@@ -52,10 +52,20 @@ export struct FavcatBar {
     return items
   }
 
+  private selectedIndex(): number {
+    const items: TabItem[] = this.tabs()
+    const selected: string = !this.auth.isLogin
+      ? 'l'
+      : (this.fav.selectedFavcat.length > 0 ? this.fav.selectedFavcat : 'a')
+    const index: number = items.findIndex((item: TabItem) => item.key === selected)
+    return index < 0 ? 0 : index
+  }
+
   build() {
     SubTabBar({
       tabs: this.tabs(),
       visualIndex: this.visual.value,
+      selectedIndex: this.selectedIndex(),
       scrollable: true,
       onSelect: (index: number) => {
         const items: TabItem[] = this.tabs()
