@@ -174,6 +174,7 @@ export struct AccountPage {
       SecondaryListScaffold({
         scroller: this.scroller,
         bottomPadding: ThemeConstants.SPACE_XL,
+        alwaysEnableEdgeSpring: true,
       }) {
         ForEach(
           this.accountList.accounts,

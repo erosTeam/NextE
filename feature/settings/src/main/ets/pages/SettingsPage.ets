@@ -27,6 +27,7 @@ export struct SettingsPage {
       SecondaryListScaffold({
         scroller: this.scroller,
         bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+        alwaysEnableEdgeSpring: true,
         onDidScroll: (offset: number, state: ScrollState) => {
           if (this.onDidScroll) {
             this.onDidScroll(offset, state)

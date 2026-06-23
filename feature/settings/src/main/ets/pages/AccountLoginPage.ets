@@ -42,6 +42,7 @@ export struct AccountLoginPage {
       SecondaryListScaffold({
         scroller: this.scroller,
         bottomPadding: ThemeConstants.SPACE_XL,
+        alwaysEnableEdgeSpring: true,
       }) {
         ListItem() {
           GroupedListSection() {

@@ -98,7 +98,8 @@ export struct PullRefreshListScaffold {
       .height('100%')
       .padding({ left: this.horizontalPadding, right: this.horizontalPadding })
       .clip(false)
-      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+      // PullRefresh owns the edge drag offset; native spring would add a second movement layer.
+      .edgeEffect(EdgeEffect.None)
       .onAreaChange((_oldValue: Area, newValue: Area) => {
         this.measuredWidth = newValue.width as number
         if (this.onContentWidth) {

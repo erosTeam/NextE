@@ -79,7 +79,8 @@ export struct PullRefreshGridScaffold {
         left: this.horizontalPadding,
         right: this.horizontalPadding,
       })
-      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+      // PullRefresh owns the edge drag offset; native spring would add a second movement layer.
+      .edgeEffect(EdgeEffect.None)
       .clip(false)
       .onReachEnd(() => {
         if (this.onReachEnd) {

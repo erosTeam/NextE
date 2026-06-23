@@ -20,6 +20,8 @@ export struct SecondaryListScaffold {
   @Param horizontalPadding: number = ThemeConstants.SPACE_MD
   @Param bottomPadding: number = ThemeConstants.SPACE_XL
   @Param includeKeyboardPadding: boolean = false
+  // Local opt-in for short, non-refresh pages such as Settings. PullRefresh scaffolds keep this off.
+  @Param alwaysEnableEdgeSpring: boolean = false
   @Event onReachEnd?: () => void
   @Event onDidScroll?: (offset: number, state: ScrollState) => void
 
@@ -47,7 +49,9 @@ export struct SecondaryListScaffold {
     .height('100%')
     .padding({ left: this.horizontalPadding, right: this.horizontalPadding })
     .clip(false)
-    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    .edgeEffect(this.alwaysEnableEdgeSpring ? EdgeEffect.Spring : EdgeEffect.None, {
+      alwaysEnabled: this.alwaysEnableEdgeSpring,
+    })
     .onDidScroll((_scrollOffset: number, scrollState: ScrollState) => {
       if (this.onDidScroll) {
         this.onDidScroll(this.scroller.currentOffset().yOffset, scrollState)

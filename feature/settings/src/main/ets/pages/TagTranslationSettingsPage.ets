@@ -185,6 +185,7 @@ export struct TagTranslationSettingsPage {
       SecondaryListScaffold({
         scroller: this.scroller,
         bottomPadding: ThemeConstants.SPACE_XL,
+        alwaysEnableEdgeSpring: true,
       }) {
         ListItem() {
           GroupedListSection() {
