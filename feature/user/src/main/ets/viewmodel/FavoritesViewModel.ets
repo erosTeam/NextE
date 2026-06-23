@@ -400,7 +400,11 @@ export class FavoritesViewModel {
     const from: string = page >= 0 ? this.lastVisibleGid() : ''
     const cursor: string = page >= 0 ? from : this.nextGid
     const requestKey: string = page >= 0 ? `page:${page}:from:${from}` : `next:${cursor}`
-    if (cursor.length === 0 || requestKey === this.lastNext) {
+    if (cursor.length === 0) {
+      this.hasMore = false
+      return
+    }
+    if (requestKey === this.lastNext && this.errorMessage.length === 0) {
       this.hasMore = false
       return
     }

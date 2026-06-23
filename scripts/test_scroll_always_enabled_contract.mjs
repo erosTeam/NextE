@@ -23,6 +23,7 @@ const plainListFiles = [
   'shared/src/main/ets/components/SecondaryListScaffold.ets',
 ]
 const searchPage = 'feature/search/src/main/ets/pages/GallerySearchPage.ets'
+const pullRefresh = 'shared/src/main/ets/components/PullRefresh.ets'
 const settingPages = [
   'feature/settings/src/main/ets/pages/AboutPage.ets',
   'feature/settings/src/main/ets/pages/AccountLoginPage.ets',
@@ -84,6 +85,14 @@ assert.match(
   searchSrc,
   /private suggestionScroller: Scroller = new Scroller\(\)[\s\S]*\.edgeEffect\(EdgeEffect\.Spring,\s*\{\s*alwaysEnabled:\s*true\s*\}\)/,
   'search suggestion list is the local non-refresh sparse-content opt-in',
+)
+passed++
+
+const pullSrc = readFileSync(join(ROOT, pullRefresh), 'utf8')
+assert.match(
+  pullSrc,
+  /private async doBottomRefresh\(\): Promise<void> \{[\s\S]*try \{[\s\S]*await this\.onBottomRefresh\(\)[\s\S]*\} catch \(_error\) \{[\s\S]*RefreshFeedback\.notifyRefreshFailed\(\)[\s\S]*\}[\s\S]*this\.bottomRefreshState = 3[\s\S]*this\.bounceBottomBack\(0\)/,
+  'bottom refresh failures must still feedback and bounce back so scroll interaction is restored',
 )
 passed++
 

@@ -386,7 +386,11 @@ export class SearchViewModel {
       return
     }
     const requestedNext: string = this.nextGid
-    if (requestedNext.length === 0 || requestedNext === this.lastNext) {
+    if (requestedNext.length === 0) {
+      this.hasMore = false
+      return
+    }
+    if (requestedNext === this.lastNext && this.errorMessage.length === 0) {
       this.hasMore = false
       return
     }

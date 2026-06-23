@@ -65,8 +65,10 @@ ok('FavoritesViewModel mirrors FE next getter: nextPage must be > 0 to count as 
   /private hasForwardPage\(list: GalleryList\): boolean \{[\s\S]*return list\.nextPage > 0 \|\| list\.nextGid\.length > 0/.test(vm))
 ok('loadMore captures the current page/from or cursor before fetching',
   /const page: number = this\.nextPage[\s\S]*const from: string = page >= 0 \? this\.lastVisibleGid\(\) : ''[\s\S]*const cursor: string = page >= 0 \? from : this\.nextGid[\s\S]*const requestKey: string = page >= 0 \? `page:\$\{page\}:from:\$\{from\}` : `next:\$\{cursor\}`/.test(vm))
-ok('loadMore stops empty or repeated page/cursor requests before starting a footer fetch',
-  /if \(cursor\.length === 0 \|\| requestKey === this\.lastNext\) \{[\s\S]*this\.hasMore = false[\s\S]*return[\s\S]*\}[\s\S]*this\.isLoadingMore = true/.test(vm))
+ok('loadMore stops empty page/cursor requests before starting a footer fetch',
+  /if \(cursor\.length === 0\) \{[\s\S]*this\.hasMore = false[\s\S]*return[\s\S]*\}[\s\S]*if \(requestKey === this\.lastNext && this\.errorMessage\.length === 0\)/.test(vm))
+ok('loadMore does not convert visible footer error retries into no-more',
+  /if \(requestKey === this\.lastNext && this\.errorMessage\.length === 0\) \{[\s\S]*this\.hasMore = false[\s\S]*return[\s\S]*\}[\s\S]*this\.isLoadingMore = true/.test(vm))
 ok('loadMore clears stale footer error before retry fetch',
   /this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(vm))
 ok('loadMore dedupes before append for gid-keyed LazyForEach',

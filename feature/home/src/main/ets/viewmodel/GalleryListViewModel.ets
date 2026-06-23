@@ -362,7 +362,11 @@ export class GalleryListViewModel {
     // Stale-cursor guard (eros_fe lastNext == next): no cursor, or it didn't advance since the last
     // page → stop instead of refetching the same rows. Marks the list exhausted.
     const requestedNext: string = this.nextGid
-    if (requestedNext.length === 0 || requestedNext === this.lastNext) {
+    if (requestedNext.length === 0) {
+      this.hasMore = false
+      return
+    }
+    if (requestedNext === this.lastNext && this.errorMessage.length === 0) {
       this.hasMore = false
       return
     }

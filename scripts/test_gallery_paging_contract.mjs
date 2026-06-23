@@ -73,7 +73,11 @@ class VM {
   loadMore(server, midFlight) {
     if (this.isLoading || this.isLoadingMore || !this.hasMore || this.isPopular()) return
     const requestedNext = this.nextGid
-    if (requestedNext.length === 0 || requestedNext === this.lastNext) {
+    if (requestedNext.length === 0) {
+      this.hasMore = false
+      return
+    }
+    if (requestedNext === this.lastNext && this.errorMessage.length === 0) {
       this.hasMore = false
       return
     }
@@ -222,6 +226,8 @@ const ok = (name, cond) => {
   ok('captures requested cursor before fetch', /const requestedNext: string = this\.nextGid/.test(src))
   ok('has stale-cursor guard', /requestedNext === this\.lastNext/.test(src))
   ok('loadMore clears stale error before retry fetch', /this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(loadMoreSrc))
+  ok('stale-cursor guard does not convert visible footer errors into no-more',
+    /if \(requestedNext === this\.lastNext && this\.errorMessage\.length === 0\) \{[\s\S]*this\.hasMore = false/.test(loadMoreSrc))
   ok('loadMore does not commit lastNext before fetch', !/this\.lastNext =/.test(beforeFetch))
   ok('fetches the captured requested cursor', /this\.buildQuery\(requestedNext\)/.test(src))
   ok('commits lastNext only inside successful epoch apply', /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.lastNext = requestedNext/.test(loadMoreSrc))
@@ -266,6 +272,8 @@ const ok = (name, cond) => {
       ok(`${name}: favorites paging is based on page/cursor progress, not dedupe count`,
         /this\.hasMore = this\.didPagingAdvance\(page, cursor, list\)/.test(src) &&
         !/this\.hasMore = [^\n]*fresh\.length > 0/.test(src))
+      ok(`${name}: repeated request guard is bypassed for visible footer error retry`,
+        /if \(requestKey === this\.lastNext && this\.errorMessage\.length === 0\) \{[\s\S]*this\.hasMore = false/.test(loadMore))
     } else if (name === 'SearchViewModel.ets') {
       ok(`${name}: declares stale-cursor history`,
         /private lastNext: string = ''/.test(src))
@@ -277,8 +285,12 @@ const ok = (name, cond) => {
         /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.nextGid = list\.nextGid[\s\S]*this\.lastNext = requestedNext/.test(loadMore))
       ok(`${name}: fetches the captured requested cursor`,
         /this\.fetchPage\(requestedNext\)/.test(loadMore))
+      ok(`${name}: repeated cursor guard is bypassed for visible footer error retry`,
+        /if \(requestedNext === this\.lastNext && this\.errorMessage\.length === 0\) \{[\s\S]*this\.hasMore = false/.test(loadMore))
       ok(`${name}: exhausted on no-fresh rows`, /list\.nextGid\.length > 0 && fresh\.length > 0/.test(src))
     } else {
+      ok(`${name}: repeated cursor guard is bypassed for visible footer error retry`,
+        /if \(requestedNext === this\.lastNext && this\.errorMessage\.length === 0\) \{[\s\S]*this\.hasMore = false/.test(loadMore))
       ok(`${name}: exhausted on no-fresh rows`, /list\.nextGid\.length > 0 && fresh\.length > 0/.test(src))
     }
   }

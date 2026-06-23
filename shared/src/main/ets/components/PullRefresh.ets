@@ -201,7 +201,11 @@ export struct PullRefresh {
   }
 
   private async doBottomRefresh(): Promise<void> {
-    await this.onBottomRefresh()
+    try {
+      await this.onBottomRefresh()
+    } catch (_error) {
+      RefreshFeedback.notifyRefreshFailed()
+    }
     this.bottomRefreshState = 3
     setTimeout(() => this.bounceBottomBack(0), ThemeConstants.ANIM_DONE_DELAY_MS)
   }
