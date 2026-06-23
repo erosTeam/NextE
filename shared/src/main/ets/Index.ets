@@ -104,6 +104,7 @@ export {
 } from './services/CachedImageFileService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
+export { EhPageCacheService } from './services/EhPageCacheService'
 export { MyTagsTargetService, MyTagsTargetResolveResult } from './services/MyTagsTargetService'
 export { CoverColorService } from './services/CoverColorService'
 export { MotionHandStateService, MotionHandEdge } from './services/MotionHandStateService'

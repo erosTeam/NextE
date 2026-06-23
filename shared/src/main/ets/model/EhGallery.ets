@@ -104,6 +104,24 @@ export class EhGallery {
       : ''
   }
 
+  /** LazyForEach identity must change when async tag translation fills display text. */
+  renderKey(): string {
+    let key: string = `${this.gid}:${this.translated}`
+    for (let i = 0; i < this.simpleTags.length; i++) {
+      const tag: SimpleTag = this.simpleTags[i]
+      key = `${key}:${tag.namespace}:${tag.text}:${tag.siteLabel}:${tag.translat}`
+    }
+    for (let i = 0; i < this.tagGroups.length; i++) {
+      const group: TagGroup = this.tagGroups[i]
+      key = `${key}:${group.namespace}`
+      for (let j = 0; j < group.tags.length; j++) {
+        const tag: SimpleTag = group.tags[j]
+        key = `${key}:${tag.text}:${tag.translat}`
+      }
+    }
+    return key
+  }
+
   /**
    * Cleaned title for a "similar" search (eros_fe `shortTitle`): strip [..]/(..)/{..} groups,
    * trim, and keep only the part before the first `|`. Used as `title:"<shortTitle>"`.

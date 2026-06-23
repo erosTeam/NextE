@@ -225,14 +225,16 @@ export class EhGalleryListParser {
     }
 
     // Inline tags shown on the list row: <div class="gt" title="namespace:tag" style="...">label</div>.
+    // `title` is the raw EH identity for search/color; inner text is the site's selective visible
+    // prefix policy. Do not recreate that policy from namespace alone.
     // eros_fe reads EH's inline tag colors from the style attr: first #rrggbb = text, fourth = bg.
     const tagTitles: string[] = []
     const tags: SimpleTag[] = []
-    const tagOpenRe: RegExp = /<div class="gt[lc]?"([^>]*)>/g
+    const tagOpenRe: RegExp = /<div class="gt[lc]?"([^>]*)>([\s\S]*?)<\/div>/g
     let tagM: RegExpExecArray | null = tagOpenRe.exec(row)
     while (tagM !== null) {
       const attrs: string = tagM[1] !== undefined ? tagM[1] : ''
-      const nsTag: string = HtmlSelectorUtils.group1(attrs, /title="([^"]+)"/)
+      const nsTag: string = HtmlSelectorUtils.htmlUnescape(HtmlSelectorUtils.group1(attrs, /title="([^"]+)"/))
       if (nsTag.length === 0) {
         tagM = tagOpenRe.exec(row)
         continue
@@ -244,6 +246,9 @@ export class EhGalleryListParser {
       // any short prefix (a→artist).
       const ns: string = idx >= 0 ? EhConstants.expandNamespace(nsTag.substring(0, idx)) : ''
       const tag: SimpleTag = new SimpleTag(text, '', ns)
+      const labelHtml: string = tagM[2] !== undefined ? tagM[2] : ''
+      const siteLabel: string = HtmlSelectorUtils.htmlUnescape(labelHtml.replace(/<[^>]*>/g, '').trim())
+      tag.siteLabel = siteLabel.length > 0 ? siteLabel : text
       const style: string = HtmlSelectorUtils.group1(attrs, /style="([^"]+)"/)
       const colors: string[] = []
       const colorRe: RegExp = /#[0-9a-fA-F]{6}/g

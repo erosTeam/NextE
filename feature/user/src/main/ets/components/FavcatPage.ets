@@ -303,7 +303,7 @@ export struct FavcatPage {
                 this.openDetail(g)
               })
             },
-            (g: EhGallery) => g.gid,
+            (g: EhGallery) => g.renderKey(),
           )
         }
       } else if (this.listMode.mode === ListMode.WATERFALL) {
@@ -352,7 +352,7 @@ export struct FavcatPage {
                 this.openDetail(g)
               })
             },
-            (g: EhGallery) => g.gid,
+            (g: EhGallery) => g.renderKey(),
           )
         }
       } else {
@@ -397,7 +397,7 @@ export struct FavcatPage {
                 this.openDetail(g)
               })
             },
-            (g: EhGallery) => g.gid,
+            (g: EhGallery) => g.renderKey(),
           )
           ListItem() {
             LoadingFooter({

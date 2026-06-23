@@ -36,6 +36,8 @@ const SQL_SELECT_TAG_VERSION: string =
   'SELECT value FROM tag_translation_meta WHERE key = ? LIMIT 1'
 const SQL_SELECT_TAG_TRANSLATION: string =
   'SELECT name FROM tag_translations WHERE namespace = ? AND key = ? LIMIT 1'
+const SQL_SELECT_TAG_TRANSLATIONS_BY_KEYS_PREFIX: string =
+  'SELECT namespace, key, name FROM tag_translations WHERE namespace = ? AND key IN ('
 const SQL_SELECT_TAG_TRANSLATION_BY_KEY: string =
   'SELECT name FROM tag_translations WHERE key = ? ORDER BY namespace ASC LIMIT 1'
 const SQL_SELECT_TAG_INFO: string =
@@ -182,21 +184,33 @@ export class TagTranslationService {
     if (galleries.length === 0) {
       return []
     }
-    const cache: Map<string, string> = new Map<string, string>()
+    const startedAt: number = Date.now()
+    const cache: Map<string, string> = await TagTranslationService.translationMapForGalleries(context, galleries)
     const out: EhGallery[] = []
     for (let i = 0; i < galleries.length; i++) {
       const g: EhGallery = galleries[i].copy()
       for (let j = 0; j < g.simpleTags.length; j++) {
-        await TagTranslationService.translateTagInPlace(context, g.simpleTags[j].namespace, g.simpleTags[j], cache, true)
+        TagTranslationService.applyCachedTagTranslation(g.simpleTags[j].namespace, g.simpleTags[j], cache, true)
       }
       for (let j = 0; j < g.tagGroups.length; j++) {
         const group: TagGroup = g.tagGroups[j]
         for (let k = 0; k < group.tags.length; k++) {
-          await TagTranslationService.translateTagInPlace(context, group.namespace, group.tags[k], cache, false)
+          TagTranslationService.applyCachedTagTranslation(group.namespace, group.tags[k], cache, false)
         }
       }
       out.push(g)
     }
+    let translatedCount: number = 0
+    cache.forEach((value: string) => {
+      if (value.length > 0) {
+        translatedCount = translatedCount + 1
+      }
+    })
+    DiagnosticLogger.info(
+      'tag-translation',
+      'translate_galleries_done',
+      `galleries=${galleries.length} keys=${cache.size} translated=${translatedCount} ms=${Date.now() - startedAt}`,
+    )
     return out
   }
 
@@ -375,7 +389,128 @@ export class TagTranslationService {
       cache.set(fullTag, translated)
     }
     if (translated.length > 0) {
-      tag.translat = includePrefix ? EhConstants.localizedTagDisplay(namespace, translated) : translated
+      tag.translat = includePrefix ? tag.localizedDisplay(translated) : translated
+    }
+  }
+
+  private static async translationMapForGalleries(
+    context: common.UIAbilityContext,
+    galleries: EhGallery[],
+  ): Promise<Map<string, string>> {
+    const translations: Map<string, string> = new Map<string, string>()
+    const namespaces: string[] = []
+    const keysByNamespace: Map<string, string[]> = new Map<string, string[]>()
+    for (let i = 0; i < galleries.length; i++) {
+      const gallery: EhGallery = galleries[i]
+      for (let j = 0; j < gallery.simpleTags.length; j++) {
+        TagTranslationService.collectTranslationKey(
+          gallery.simpleTags[j].namespace,
+          gallery.simpleTags[j].text,
+          namespaces,
+          keysByNamespace,
+          translations,
+        )
+      }
+      for (let j = 0; j < gallery.tagGroups.length; j++) {
+        const group: TagGroup = gallery.tagGroups[j]
+        for (let k = 0; k < group.tags.length; k++) {
+          TagTranslationService.collectTranslationKey(
+            group.namespace,
+            group.tags[k].text,
+            namespaces,
+            keysByNamespace,
+            translations,
+          )
+        }
+      }
+    }
+    if (translations.size === 0 || !(await TagTranslationService.hasRows(context))) {
+      return translations
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    for (let i = 0; i < namespaces.length; i++) {
+      const namespace: string = namespaces[i]
+      const keys: string[] | undefined = keysByNamespace.get(namespace)
+      if (keys !== undefined && keys.length > 0) {
+        await TagTranslationService.queryTranslationBatchForNamespace(store, namespace, keys, translations)
+      }
+    }
+    return translations
+  }
+
+  private static collectTranslationKey(
+    namespace: string,
+    text: string,
+    namespaces: string[],
+    keysByNamespace: Map<string, string[]>,
+    translations: Map<string, string>,
+  ): void {
+    if (namespace.length === 0 || text.length === 0) {
+      return
+    }
+    const normalized: string = TagTranslationService.normalize(`${namespace}:${text}`)
+    const idx: number = normalized.indexOf(':')
+    if (idx <= 0 || translations.has(normalized)) {
+      return
+    }
+    const ns: string = normalized.substring(0, idx)
+    const key: string = normalized.substring(idx + 1)
+    translations.set(normalized, TagTranslationService.fallbackTranslate(normalized))
+    let keys: string[] | undefined = keysByNamespace.get(ns)
+    if (keys === undefined) {
+      keys = []
+      keysByNamespace.set(ns, keys)
+      namespaces.push(ns)
+    }
+    keys.push(key)
+  }
+
+  private static async queryTranslationBatchForNamespace(
+    store: relationalStore.RdbStore,
+    namespace: string,
+    keys: string[],
+    translations: Map<string, string>,
+  ): Promise<void> {
+    const placeholders: string[] = []
+    const args: relationalStore.ValueType[] = [namespace]
+    for (let i = 0; i < keys.length; i++) {
+      placeholders.push('?')
+      args.push(keys[i])
+    }
+    const sql: string = `${SQL_SELECT_TAG_TRANSLATIONS_BY_KEYS_PREFIX}${placeholders.join(',')})`
+    const resultSet: relationalStore.ResultSet = await store.querySql(sql, args)
+    try {
+      const nsIndex: number = resultSet.getColumnIndex('namespace')
+      const keyIndex: number = resultSet.getColumnIndex('key')
+      const nameIndex: number = resultSet.getColumnIndex('name')
+      while (resultSet.goToNextRow()) {
+        const ns: string = resultSet.getString(nsIndex)
+        const key: string = resultSet.getString(keyIndex)
+        const name: string = TagTranslationService.stripNameMarkdown(
+          TagTranslationService.readNullableString(resultSet, nameIndex),
+        )
+        if (ns.length > 0 && key.length > 0 && name.length > 0) {
+          translations.set(`${ns}:${key}`, name)
+        }
+      }
+    } finally {
+      resultSet.close()
+    }
+  }
+
+  private static applyCachedTagTranslation(
+    namespace: string,
+    tag: SimpleTag,
+    cache: Map<string, string>,
+    includePrefix: boolean,
+  ): void {
+    if (namespace.length === 0 || tag.text.length === 0) {
+      return
+    }
+    const normalized: string = TagTranslationService.normalize(`${namespace}:${tag.text}`)
+    const translated: string | undefined = cache.get(normalized)
+    if (translated !== undefined && translated.length > 0) {
+      tag.translat = includePrefix ? tag.localizedDisplay(translated) : translated
     }
   }
 

@@ -1389,7 +1389,7 @@ export struct GalleryDetailPage {
                 },
               })
             }
-          } else if (this.vm.loading) {
+          } else if (this.vm.loading && !this.vm.cachedDetailApplied) {
             ListItem() {
               Row() {
                 LoadingProgress()

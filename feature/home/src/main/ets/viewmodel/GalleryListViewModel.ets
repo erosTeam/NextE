@@ -13,6 +13,7 @@ import {
   connectSiteMode,
   DiagnosticLogger,
   EhErrorText,
+  EhPageCacheService,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -50,6 +51,7 @@ export class GalleryListViewModel {
   private toplistPage: number = 0
   private maxPage: number = 0
   private context: common.UIAbilityContext | null = null
+  private cacheRenderVersion: number = 0
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context
@@ -103,6 +105,10 @@ export class GalleryListViewModel {
     }
   }
 
+  private cacheKey(): string {
+    return EhPageCacheService.homeListKey(connectSiteMode().isEx, this.source, this.toplistTl)
+  }
+
   private resolveFavoriteSlots(gallerys: EhGallery[]): void {
     FavcatSlotResolver.applyInPlace(gallerys, connectFavSelection().favList)
   }
@@ -112,6 +118,84 @@ export class GalleryListViewModel {
       return rows
     }
     return TagTranslationService.translateGalleries(this.context, rows)
+  }
+
+  private async applyCachedFirstPageIfEmpty(): Promise<void> {
+    if (this.context === null || this.itemCount > 0) {
+      return
+    }
+    let cached: GalleryList | null = EhPageCacheService.takePreloadedGalleryList(this.cacheKey())
+    if (cached === null) {
+      cached = await EhPageCacheService.loadGalleryList(this.context, this.cacheKey())
+    }
+    if (cached === null || cached.gallerys.length === 0) {
+      return
+    }
+    this.resolveFavoriteSlots(cached.gallerys)
+    const rows: EhGallery[] = cached.gallerys.map((g: EhGallery) => g.copy())
+    this.cacheRenderVersion = this.cacheRenderVersion + 1
+    const renderVersion: number = this.cacheRenderVersion
+    this.dataSource.setData(rows)
+    this.itemCount = this.dataSource.totalCount()
+    this.nextGid = cached.nextGid
+    this.maxPage = cached.maxPage
+    this.toplistPage = 0
+    this.hasMore = this.firstPageHasMore(cached)
+    this.loaded = true
+    this.translateCachedRowsLater(rows, renderVersion, cached)
+  }
+
+  private async translateCachedRowsLater(
+    rows: EhGallery[],
+    renderVersion: number,
+    cacheSnapshot: GalleryList | null = null,
+  ): Promise<void> {
+    if (this.context === null || !connectTagTranslationSettings().enabled) {
+      return
+    }
+    const translated: EhGallery[] = await this.translateRows(rows)
+    if (this.cacheRenderVersion !== renderVersion || this.itemCount === 0) {
+      return
+    }
+    this.dataSource.setData(translated)
+    this.itemCount = this.dataSource.totalCount()
+    if (cacheSnapshot !== null) {
+      const snapshot: GalleryList = cacheSnapshot.copy()
+      snapshot.gallerys = translated
+      await this.saveFirstPageCache(snapshot)
+    }
+  }
+
+  private async renderFirstPageRows(list: GalleryList, deferTranslation: boolean): Promise<void> {
+    const displayRows: EhGallery[] = list.gallerys.map((g: EhGallery) => g.copy())
+    this.cacheRenderVersion = this.cacheRenderVersion + 1
+    const renderVersion: number = this.cacheRenderVersion
+    if (connectTagTranslationSettings().enabled && !deferTranslation) {
+      const translated: EhGallery[] = await this.translateRows(displayRows)
+      if (this.cacheRenderVersion !== renderVersion) {
+        return
+      }
+      this.dataSource.setData(translated)
+      this.itemCount = this.dataSource.totalCount()
+      const snapshot: GalleryList = list.copy()
+      snapshot.gallerys = translated
+      await this.saveFirstPageCache(snapshot)
+      return
+    }
+    this.dataSource.setData(displayRows)
+    this.itemCount = this.dataSource.totalCount()
+    if (connectTagTranslationSettings().enabled) {
+      this.translateCachedRowsLater(displayRows, renderVersion, list)
+    } else {
+      await this.saveFirstPageCache(list)
+    }
+  }
+
+  private async saveFirstPageCache(list: GalleryList): Promise<void> {
+    if (this.context === null) {
+      return
+    }
+    await EhPageCacheService.saveGalleryList(this.context, this.cacheKey(), list)
   }
 
   async reapplyTagTranslation(): Promise<void> {
@@ -173,14 +257,13 @@ export class GalleryListViewModel {
     if (this.isLoading || this.itemCount > 0) {
       return
     }
+    await this.applyCachedFirstPageIfEmpty()
     this.isLoading = true
     this.errorMessage = ''
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
       this.resolveFavoriteSlots(list.gallerys)
-      const rows: EhGallery[] = await this.translateRows(list.gallerys)
-      this.dataSource.setData(rows)
-      this.itemCount = this.dataSource.totalCount()
+      await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
       this.toplistPage = 0
@@ -226,9 +309,7 @@ export class GalleryListViewModel {
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
       this.resolveFavoriteSlots(list.gallerys)
-      const rows: EhGallery[] = await this.translateRows(list.gallerys)
-      this.dataSource.setData(rows)
-      this.itemCount = this.dataSource.totalCount()
+      await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
       this.toplistPage = 0
@@ -256,9 +337,7 @@ export class GalleryListViewModel {
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
       this.resolveFavoriteSlots(list.gallerys)
-      const rows: EhGallery[] = await this.translateRows(list.gallerys)
-      this.dataSource.setData(rows)
-      this.itemCount = this.dataSource.totalCount()
+      await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
       this.toplistPage = 0

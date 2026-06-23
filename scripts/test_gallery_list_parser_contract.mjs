@@ -35,7 +35,7 @@ const RE = {
   favNote: /<div class="glfnote"[^>]*>Note:\s*([^<]+)<\/div>/,
   favTitle: /id="posted_\d+"[^>]*title="([^"]+)"/,
   posted: /id="posted_\d+"[^>]*>([\s\S]*?)<\/div>/,
-  tagOpen: /<div class="gt[lc]?"([^>]*)>/g,
+  tagOpen: /<div class="gt[lc]?"([^>]*)>([\s\S]*?)<\/div>/g,
   pages: /(\d+) pages/,
   uploader: /\/uploader\/([^"/]+)"/,
   nextIdFirst: /<a[^>]*\bid=["'][ud]next["'][^>]*\bhref=["'][^"']*[?&](?:amp;)?next=([^"'&]+)[^"']*["'][^>]*>/,
@@ -81,13 +81,15 @@ const parseTagAttrs = (row) => {
   const titles = []
   for (const m of row.matchAll(RE.tagOpen)) {
     const attrs = m[1] ?? ''
-    const nsTag = g1(attrs, /title="([^"]+)"/)
+    const nsTag = htmlUnescape(g1(attrs, /title="([^"]+)"/))
     if (!nsTag) continue
     titles.push(nsTag)
     const idx = nsTag.indexOf(':')
+    const siteLabel = htmlUnescape((m[2] ?? '').replace(/<[^>]*>/g, '').trim()) || (idx >= 0 ? nsTag.slice(idx + 1) : nsTag)
     const tag = {
       text: idx >= 0 ? nsTag.slice(idx + 1) : nsTag,
       namespace: idx >= 0 ? nsTag.slice(0, idx) : '',
+      siteLabel,
       color: '',
       backgroundColor: '',
     }
@@ -209,7 +211,7 @@ const SYN = `<table class="itg gltc">
 <div><div><div class="cn cta">Western</div><div id="postedpop_111">2026-06-13 10:00</div></div>
 <div><div class="ir" style="background-position:0px -21px;opacity:1"></div><div>84 pages</div></div></div></div>
 <div><div id="posted_111" style="border-color:#fa0">2026-06-13 10:00</div><div class="ir" style="background-position:0px -21px"></div></div></td>
-<td class="gl3c glname" onmouseover="x"><a href="https://e-hentai.org/g/111/abcd/"><div class="glink">Koumi-jima 2&amp;3 &lt;rev&gt; &#39;final&#39;</div><div><div class="gt" title="language:chinese" style="color:#112233; border-color:#223344; border-left-color:#334455; background-color:#445566;">chinese</div><div class="gtl" title="language:translated">translated</div></div></a><div class="glfnote">Note: keep for later</div></td>
+<td class="gl3c glname" onmouseover="x"><a href="https://e-hentai.org/g/111/abcd/"><div class="glink">Koumi-jima 2&amp;3 &lt;rev&gt; &#39;final&#39;</div><div><div class="gt" title="language:chinese" style="color:#112233; border-color:#223344; border-left-color:#334455; background-color:#445566;">chinese</div><div class="gtl" title="language:translated">translated</div><div class="gt" title="female:big breasts">f:big breasts</div></div></a><div class="glfnote">Note: keep for later</div></td>
 <td class="gl4c glhide"><div><a href="https://e-hentai.org/uploader/marki%C3%B1o">marki&ntilde;o</a></div><div>84 pages</div></td>
 </tr>
 <tr>
@@ -300,11 +302,15 @@ eq(a.title, "Koumi-jima 2&3 <rev> 'final'", 'A.title (HTML entities &amp;/&lt;/&
 eq(a.language, 'chinese', 'A.language (from language: tag)')
 eq(a.translated, 'ZH', 'A.translated (chinese → ZH code)')
 eq(a.simpleTags[0].text, 'chinese', 'A.tag text')
+eq(a.simpleTags[0].siteLabel, 'chinese', 'A.tag site label preserves EH visible text')
 eq(a.simpleTags[0].color, '#112233', 'A.tag text color (first style hex, eros_fe parity)')
 eq(a.simpleTags[0].backgroundColor, '#445566', 'A.tag background color (fourth style hex, eros_fe parity)')
 eq(a.simpleTags[1].text, 'translated', 'A.gtl tag still parsed')
+eq(a.simpleTags[1].siteLabel, 'translated', 'A.gtl site label still parsed')
 eq(a.simpleTags[1].color, '', 'A.gtl tag without style stays neutral text')
 eq(a.simpleTags[1].backgroundColor, '', 'A.gtl tag without style stays neutral bg')
+eq(a.simpleTags[2].text, 'big breasts', 'A.prefixed visible tag raw key still comes from title')
+eq(a.simpleTags[2].siteLabel, 'f:big breasts', 'A.prefixed visible tag preserves EH selective namespace prefix')
 eq(a.favNote, 'keep for later', 'A.favNote (glfnote)')
 eq(a.postTime, '2026-06-13 10:00', 'A.postTime (plain text node)')
 eq(a.expunged, false, 'A.expunged (no child tag)')

@@ -40,14 +40,15 @@ ok('TaskPool helper executes parser with typed taskpool.execute',
 ok('TaskPool helper revives GalleryList and EhGallery model classes',
   /new GalleryList\(\)/.test(task) &&
   /new EhGallery\(raw\.gid, raw\.token\)/.test(task) &&
-  /new SimpleTag\(raw\.text, raw\.translat, raw\.namespace\)/.test(task))
+  /new SimpleTag\(raw\.text, raw\.translat, raw\.namespace\)/.test(task) &&
+  /tag\.siteLabel = raw\.siteLabel/.test(task))
 
 ok('EhApiService imports TaskPool parser helper',
   /import \{ EhGalleryListParseTask \} from '\.\.\/parser\/EhGalleryListParseTask'/.test(api))
 
 ok('EhApiService uses async TaskPool parse for popular, toplist, normal list, and favorites',
   (api.match(/EhGalleryListParseTask\.parse\(resp\.body\)/g) || []).length >= 3 &&
-  /const list: GalleryList = await EhGalleryListParseTask\.parse\(body\)/.test(api))
+  /const list: GalleryList = this\.registerInlineTagColors\(await EhGalleryListParseTask\.parse\(body\)\)/.test(api))
 
 ok('EhApiService no longer imports or directly calls EhGalleryListParser.parse',
   !/import \{ EhGalleryListParser \}/.test(api) &&

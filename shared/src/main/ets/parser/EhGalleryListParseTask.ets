@@ -92,6 +92,7 @@ export class EhGalleryListParseTask {
 
   private static reviveSimpleTag(raw: SimpleTag): SimpleTag {
     const tag: SimpleTag = new SimpleTag(raw.text, raw.translat, raw.namespace)
+    tag.siteLabel = raw.siteLabel
     tag.color = raw.color
     tag.backgroundColor = raw.backgroundColor
     tag.vote = raw.vote

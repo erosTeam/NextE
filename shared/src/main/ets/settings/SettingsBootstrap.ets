@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { EhConstants } from '../constants/EhConstants'
 import { CookieJarSettings } from './CookieJarSettings'
 import { SiteModeSettings } from './SiteModeSettings'
 import { ListModeSettings } from './ListModeSettings'
@@ -27,6 +28,10 @@ import { ThemeSettings } from './ThemeSettings'
 import { ThemeColorSettings } from './ThemeColorSettings'
 import { ImmersiveMaterialSettings } from './ImmersiveMaterialSettings'
 import { LanguageSettings } from './LanguageSettings'
+import { EhPageCacheService } from '../services/EhPageCacheService'
+import { connectSiteMode } from '../state/SiteModeState'
+import { connectHomeSource } from '../state/HomeSourceState'
+import { connectFavSelection } from '../state/FavSelectionState'
 
 /**
  * Restores every persisted setting from the preferences store into its AppStorageV2
@@ -69,6 +74,7 @@ export class SettingsBootstrap {
       await DownloadSettings.restore(context)
       await DownloadQueueSettings.restore(context)
       await SecuritySettings.restore(context)
+      await SettingsBootstrap.preloadPageCaches(context)
       DiagnosticLogger.info('settings', 'bootstrap_loaded', 'cookie jar restored')
       // Fire-and-forget (NOT awaited): load the user's My Tags for per-tag list colors. It's a network
       // round-trip and login-gated, so it must never block the first paint; logged-out users skip it.
@@ -76,6 +82,41 @@ export class SettingsBootstrap {
     } catch (error) {
       const e = error as Error
       DiagnosticLogger.warn('settings', 'bootstrap_failed', e.message)
+    }
+  }
+
+  private static async preloadPageCaches(context: common.UIAbilityContext): Promise<void> {
+    try {
+      const isEx: boolean = connectSiteMode().isEx
+      const home = connectHomeSource()
+      const fav = connectFavSelection()
+      const favOrder: string = fav.orderByPosted ? EhConstants.FAV_ORDER_POSTED : EhConstants.FAV_ORDER_FAV
+      const jobs: Promise<void>[] = []
+      const homeSources: string[] = ['', 'popular', 'watched']
+      for (let i = 0; i < homeSources.length; i++) {
+        jobs.push(EhPageCacheService.preloadGalleryList(
+          context,
+          EhPageCacheService.homeListKey(isEx, homeSources[i], 0),
+        ))
+      }
+      const toplistTls: number[] = [11, 12, 13, 15]
+      for (let i = 0; i < toplistTls.length; i++) {
+        jobs.push(EhPageCacheService.preloadGalleryList(
+          context,
+          EhPageCacheService.homeListKey(isEx, 'toplist', toplistTls[i]),
+        ))
+      }
+      const favcats: string[] = ['a', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+      for (let i = 0; i < favcats.length; i++) {
+        jobs.push(EhPageCacheService.preloadGalleryList(
+          context,
+          EhPageCacheService.favoritesListKey(isEx, favcats[i], favOrder),
+        ))
+      }
+      await Promise.all(jobs)
+      DiagnosticLogger.info('page-cache', 'preload_done', `jobs=${jobs.length} selected=${home.source}/${home.toplistTl}/${fav.selectedFavcat}`)
+    } catch (error) {
+      DiagnosticLogger.warn('page-cache', 'preload_failed', (error as Error).message)
     }
   }
 }

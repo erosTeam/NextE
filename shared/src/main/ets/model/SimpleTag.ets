@@ -9,6 +9,7 @@ export class SimpleTag {
   text: string = ''
   translat: string = ''
   namespace: string = '' // EH tag namespace (female/parody/artist…) — drives the list-chip color
+  siteLabel: string = '' // EH list's visible label; preserves the site's selective short namespace prefix
   color: string = ''
   backgroundColor: string = ''
   // The logged-in user's vote on THIS tag for THIS gallery (eros_fe GalleryTag.vote): EH marks the
@@ -23,11 +24,31 @@ export class SimpleTag {
 
   /** Localized text if available, else the raw EH tag. */
   display(): string {
-    return this.translat.length > 0 ? this.translat : this.text
+    if (this.translat.length > 0) {
+      return this.translat
+    }
+    return this.siteLabel.length > 0 ? this.siteLabel : this.text
+  }
+
+  /** Localize the raw key while preserving EH's original visible prefix decision. */
+  localizedDisplay(localized: string): string {
+    const text: string = localized.trim()
+    if (text.length === 0) {
+      return text
+    }
+    if (this.siteLabel.length === 0 || this.siteLabel === this.text) {
+      return text
+    }
+    const suffix: string = `:${this.text}`
+    if (this.siteLabel.endsWith(suffix)) {
+      return `${this.siteLabel.substring(0, this.siteLabel.length - this.text.length)}${text}`
+    }
+    return text
   }
 
   copy(): SimpleTag {
     const t: SimpleTag = new SimpleTag(this.text, this.translat, this.namespace)
+    t.siteLabel = this.siteLabel
     t.color = this.color
     t.backgroundColor = this.backgroundColor
     t.vote = this.vote

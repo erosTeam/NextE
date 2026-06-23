@@ -587,7 +587,7 @@ export struct GallerySearchPage {
                     )
                   })
                 },
-                (g: EhGallery) => g.gid,
+                (g: EhGallery) => g.renderKey(),
               )
             }
           } else if (this.listMode.mode === ListMode.WATERFALL) {
@@ -642,7 +642,7 @@ export struct GallerySearchPage {
                     )
                   })
                 },
-                (g: EhGallery) => g.gid,
+                (g: EhGallery) => g.renderKey(),
               )
             }
           } else {
@@ -694,7 +694,7 @@ export struct GallerySearchPage {
                     )
                   })
                 },
-                (g: EhGallery) => g.gid,
+                (g: EhGallery) => g.renderKey(),
               )
               ListItem() {
                 LoadingFooter({

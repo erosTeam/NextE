@@ -178,6 +178,15 @@ export struct GalleryTagsCard {
     return this.tagTranslation.enabled ? t.display() : t.text
   }
 
+  private tagGroupRenderKey(tg: TagGroup): string {
+    let key: string = `${tg.namespace}`
+    for (let i = 0; i < tg.tags.length; i++) {
+      const tag: SimpleTag = tg.tags[i]
+      key = `${key}:${tag.text}:${tag.translat}`
+    }
+    return key
+  }
+
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
@@ -1267,14 +1276,14 @@ export struct GalleryTagsCard {
                         )
                     },
                     // version in the key subscribes the card + re-colors chips on a late My Tags load.
-                    (t: SimpleTag) => `${this.tagSig.version}:${tg.namespace}:${t.text}`,
+                    (t: SimpleTag) => `${this.tagSig.version}:${tg.namespace}:${t.text}:${t.translat}`,
                   )
                 }.layoutWeight(1)
               }
               .width('100%')
               .alignItems(VerticalAlign.Top)
             },
-            (tg: TagGroup) => tg.namespace,
+            (tg: TagGroup) => this.tagGroupRenderKey(tg),
           )
         }
         .width('100%')

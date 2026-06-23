@@ -14,6 +14,7 @@ import {
   connectTagTranslationSettings,
   TagGroup,
   SimpleTag,
+  EhPageCacheService,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -31,12 +32,14 @@ export class GalleryDetailViewModel {
   @Trace loading: boolean = false
   @Trace loaded: boolean = false
   @Trace error: string = ''
+  @Trace cachedDetailApplied: boolean = false
   // The detail shows ONLY the first preview page (a peek); previewPageCount drives the "view all"
   // entry → the separate all-thumbnails page owns the rest of the paging (eros_fe firstPageImage).
   @Trace previewPageCount: number = 1
   private gid: string = ''
   private token: string = ''
   private context: common.UIAbilityContext | null = null
+  private detailRenderVersion: number = 0
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context
@@ -53,9 +56,11 @@ export class GalleryDetailViewModel {
     }
     this.loading = true
     this.error = ''
+    this.cachedDetailApplied = false
     this.gid = gid
     this.token = token
     try {
+      await this.applyCachedDetailIfAvailable(gid, token)
       await this.fetchAndApply(gid, token, false)
       this.loaded = true
     } catch (err) {
@@ -63,6 +68,57 @@ export class GalleryDetailViewModel {
       DiagnosticLogger.warn('gallery', 'detail_load_failed', (err as Error).message)
     }
     this.loading = false
+  }
+
+  private detailCacheKey(gid: string = this.gid, token: string = this.token): string {
+    return EhPageCacheService.galleryDetailKey(connectSiteMode().isEx, gid, token)
+  }
+
+  private async applyCachedDetailIfAvailable(gid: string, token: string): Promise<void> {
+    if (this.context === null) {
+      return
+    }
+    const cached: GalleryDetailResult | null =
+      await EhPageCacheService.loadGalleryDetail(this.context, this.detailCacheKey(gid, token))
+    if (cached === null) {
+      return
+    }
+    const merged: EhGallery = this.gallery.merge(cached.gallery)
+    this.detailRenderVersion = this.detailRenderVersion + 1
+    const renderVersion: number = this.detailRenderVersion
+    this.gallery = connectTagTranslationSettings().enabled
+      ? merged
+      : TagTranslationService.clearGalleryTranslations(merged)
+    this.images = cached.images
+    this.comments = cached.comments
+    this.previewPageCount = cached.previewPageCount
+    this.cachedDetailApplied = true
+    this.translateCachedGalleryLater(this.gallery, renderVersion)
+  }
+
+  private async translateCachedGalleryLater(gallery: EhGallery, renderVersion: number): Promise<void> {
+    if (this.context === null || !connectTagTranslationSettings().enabled) {
+      return
+    }
+    const translated: EhGallery = await this.translateGallery(gallery)
+    if (this.detailRenderVersion !== renderVersion) {
+      return
+    }
+    this.gallery = translated
+    this.saveCurrentDetailCache()
+  }
+
+  private async saveCurrentDetailCache(): Promise<void> {
+    if (this.context === null || this.gid.length === 0 || this.token.length === 0) {
+      return
+    }
+    const detail: GalleryDetailResult = new GalleryDetailResult(
+      this.gallery,
+      this.images,
+      this.comments,
+      this.previewPageCount,
+    )
+    await EhPageCacheService.saveGalleryDetail(this.context, this.detailCacheKey(), detail)
   }
 
   /**
@@ -108,13 +164,29 @@ export class GalleryDetailViewModel {
       token,
       connectSiteMode().isEx,
     )
-    this.gallery = await this.translateGallery(this.gallery.merge(res.gallery))
+    const merged: EhGallery = this.gallery.merge(res.gallery)
     if (!refresh) {
-      this.applyNonRefreshSeedRating(seedRatingFallBack, seedRatingCount, seedColorRating)
+      if (seedRatingFallBack > 0 && merged.ratingFallBack <= 0) {
+        merged.ratingFallBack = seedRatingFallBack
+      }
+      if (seedRatingCount.length > 0 && merged.ratingCount.length === 0) {
+        merged.ratingCount = seedRatingCount
+      }
+      if (seedColorRating.length > 0) {
+        merged.colorRating = seedColorRating
+      }
     }
+    this.detailRenderVersion = this.detailRenderVersion + 1
+    const renderVersion: number = this.detailRenderVersion
+    const translated: EhGallery = await this.translateGallery(merged)
+    if (this.detailRenderVersion !== renderVersion) {
+      return
+    }
+    this.gallery = translated
     this.images = res.images
     this.comments = res.comments
     this.previewPageCount = res.previewPageCount
+    await this.saveCurrentDetailCache()
   }
 
   /**
@@ -141,7 +213,7 @@ export class GalleryDetailViewModel {
 
   private async translateGallery(gallery: EhGallery): Promise<EhGallery> {
     if (this.context === null || !connectTagTranslationSettings().enabled) {
-      return gallery
+      return TagTranslationService.clearGalleryTranslations(gallery)
     }
     return TagTranslationService.translateGalleryTags(this.context, gallery)
   }
@@ -180,6 +252,7 @@ export class GalleryDetailViewModel {
     next.favTitle = favTitle
     next.favNote = favNote
     this.gallery = next
+    this.saveCurrentDetailCache()
   }
 
   applyRatingResult(result: GalleryRatingResult): void {
@@ -190,6 +263,7 @@ export class GalleryDetailViewModel {
     next.colorRating = result.colorRating
     next.isRated = true
     this.gallery = next
+    this.saveCurrentDetailCache()
   }
 
   applyTagVote(namespace: string, tagText: string, vote: number): void {
@@ -209,6 +283,7 @@ export class GalleryDetailViewModel {
     }
     next.tagGroups = groups
     this.gallery = next
+    this.saveCurrentDetailCache()
   }
 
   async rateGallery(stars: number): Promise<GalleryRatingResult> {

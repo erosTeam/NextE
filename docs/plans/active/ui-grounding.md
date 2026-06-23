@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: async tag translation visible refresh
+
+Status: active
+Reference implementation: `shared/src/main/ets/utils/BasicDataSource.ets` `setData()` reload contract, `shared/src/main/ets/components/GalleryCard.ets` / `GalleryWaterfallCard.ets` tag chip render path, and `feature/gallery/src/main/ets/components/GalleryTagsCard.ets` detail tag member render path.
+Surface type: gallery list/search/favorites cards and gallery detail tag chips that receive translated tag text after the first raw render.
+Primary information: raw EH tag text may appear briefly, but the same visible card/chip must update to the localized `translat` value when async tag translation finishes.
+Primary action: no new user action; existing card tap/tag tap/long press behavior remains unchanged while render identity changes only to refresh translated text.
+Reuse or deviation: reuse the existing `BasicDataSource.setData()` reload path and existing card/chip components; deviate from pure `gid` / namespace-only `ForEach` keys because async translation changes display text without changing gallery identity.
+Verification: tag translation contract, page cache contract, UI grounding contract, V1 decorator inventory, emulator screenshot evidence for list/detail translated tags, and signed HarmonyOS build.
+
 ## Active: pull-refresh edge-drag ownership
 
 Status: active
