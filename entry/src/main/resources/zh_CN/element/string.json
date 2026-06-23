@@ -1709,6 +1709,10 @@
       "value": "瀑布流"
     },
     {
+      "name": "view_cover_wall",
+      "value": "封面墙"
+    },
+    {
       "name": "read_mode_ltr",
       "value": "左→右"
     },

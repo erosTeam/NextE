@@ -4,6 +4,7 @@ import {
   GalleryCard,
   GalleryGridCard,
   GalleryWaterfallCard,
+  GalleryCoverWallCard,
   GallerySimpleCard,
   GalleryDetailParams,
   ReaderParams,
@@ -625,6 +626,61 @@ export struct GallerySearchPage {
                 (g: EhGallery) => {
                   FlowItem() {
                     GalleryWaterfallCard({ gallery: g })
+                  }
+                  .width('100%')
+                  .onClick(() => {
+                    this.stack.pushPathByName(
+                      'GalleryDetail',
+                      new GalleryDetailParams(
+                        g.gid,
+                        g.token,
+                        g.thumbUrl,
+                        g.title(),
+                        g.fileCount,
+                        g.imgWidth,
+                        g.imgHeight,
+                      ),
+                    )
+                  })
+                },
+                (g: EhGallery) => g.renderKey(),
+              )
+            }
+          } else if (this.listMode.mode === ListMode.COVER_WALL) {
+            PullRefreshWaterFlowScaffold({
+              scroller: this.scroller,
+              minColumnWidth: ThemeConstants.GALLERY_COVER_WALL_MIN_W,
+              itemCount: this.vm.itemCount,
+              gap: ThemeConstants.GALLERY_GRID_GAP,
+              horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
+              topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,
+              bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+              controller: this.refreshController,
+              onRefresh: async () => {
+                await this.vm.refresh()
+              },
+              onBottomRefresh: async () => {
+                await this.vm.loadMore()
+              },
+              canStartBottomRefresh: () => this.vm.canLoadMore(),
+              onReachEnd: () => {
+                if (this.vm.canLoadMore()) {
+                  this.vm.loadMore()
+                }
+              },
+              showFooter: true,
+              footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
+              footerHasMore: this.vm.hasMore,
+              footerIsError: this.vm.errorMessage.length > 0 && this.vm.hasMore,
+              onFooterRetry: () => {
+                this.vm.loadMore()
+              },
+            }) {
+              LazyForEach(
+                this.vm.dataSource,
+                (g: EhGallery) => {
+                  FlowItem() {
+                    GalleryCoverWallCard({ gallery: g })
                   }
                   .width('100%')
                   .onClick(() => {

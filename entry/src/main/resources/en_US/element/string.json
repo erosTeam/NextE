@@ -1709,6 +1709,10 @@
       "value": "Waterfall"
     },
     {
+      "name": "view_cover_wall",
+      "value": "Cover Wall"
+    },
+    {
       "name": "read_mode_ltr",
       "value": "L → R"
     },

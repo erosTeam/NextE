@@ -101,3 +101,13 @@ Primary information: tag chips remain compact tag labels; only their corner radi
 Primary action: tapping a tag still publishes the existing exact-tag search.
 Reuse or deviation: reuse the existing tag chip renderers and introduce one narrow token, `LIST_TAG_RADIUS = 6`, instead of reusing card/badge/detail-chip radii.
 Verification: UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
+
+## Active: gallery cover wall mode
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/tab/view/list/waterfall_flow.dart`, `../eros_fe/lib/pages/item/gallery_item_flow.dart`, and NextE `shared/src/main/ets/components/GalleryWaterfallCard.ets`.
+Surface type: gallery browsing list mode for Home, Search, and Favorites.
+Primary information: the cover image is the entire card, with only the existing category/translated corner badge exposed over the image.
+Primary action: tapping a cover opens the same gallery detail route; refresh, load-more, footer retry, and scroll-title linkage remain the existing WaterFlow behavior.
+Reuse or deviation: reuse `PullRefreshWaterFlowScaffold`, native `FlowItem`, the bounded source-ratio cover policy, and the shared `GalleryCategoryCornerBadge`; deviate from Waterfall by using `GALLERY_COVER_WALL_MIN_W = 120` and omitting title, rating, page/favorite overlay, meta, and tag chips.
+Verification: gallery cover wall mode contract, gallery grid mode contract, gallery waterflow contract, settings layout entry contract, i18n duplicate check, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.

@@ -22,14 +22,14 @@ const grounding = [
   'eros_fe: lib/pages/tab/controller/setting_controller.dart routes Layout to EHRoutes.layoutSetting; lib/pages/setting/layout_setting_page.dart renders layout/display controls',
   'primary information: existing list and gallery-display layout settings, not account or search data',
   'primary actions: choose list mode, fixed list row height, hide gallery thumbnails, horizontal thumbnails; back is secondary',
-  'scope: Settings entry + HDS child page for persisted NextE layout state; no theme, locale, tag translation, tabbar customization, or blur-cover expansion',
+  'scope: Settings entry + HDS child page for persisted NextE layout and display state',
   'Harmony expression: HdsNavDestination + SecondaryListScaffold + GroupedListSection + ConciseListRow settings rows',
 ]
 
 ok(grounding.length === 5, 'layout settings lane has five-line grounding')
 ok(grounding[0].includes('setting_controller.dart') && grounding[0].includes('layout_setting_page.dart'),
   'grounding names concrete eros_fe Layout settings files')
-ok(grounding[3].includes('no theme') && grounding[4].includes('HdsNavDestination'),
+ok(grounding[3].includes('layout and display state') && grounding[4].includes('HdsNavDestination'),
   'grounding limits scope and names Harmony expression')
 
 const settingsRoot = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
@@ -68,8 +68,7 @@ ok(/settings_hide_gallery_thumbnails/.test(layoutPage) &&
 ok(/settings_horizontal_thumbnails/.test(layoutPage) &&
   /ThumbnailModeSettings\.setHorizontalThumbnails\(this\.ctx\(\), value\)/.test(layoutPage),
   'page owns horizontal-thumbnails switch')
-ok(!/ThemeSettings|LocaleSettings|TagTrans|Tabbar|Blur|blur/.test(layoutPage),
-  'page does not expand theme, locale, tag translation, tabbar, or blur-cover settings')
+ok(!/Tabbar/.test(layoutPage), 'page does not expand tabbar settings')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

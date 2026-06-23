@@ -6,6 +6,7 @@ export enum ListMode {
   SIMPLE_LIST = 'simpleList', // compact rows
   GRID = 'grid',
   WATERFALL = 'waterfall',
+  COVER_WALL = 'coverWall',
 }
 
 /**

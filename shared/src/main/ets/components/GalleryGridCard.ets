@@ -2,7 +2,11 @@ import { EhGallery } from '../model/EhGallery'
 import { EhConstants } from '../constants/EhConstants'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhThumbnail } from './EhThumbnail'
-import { GalleryCategoryCornerBadge } from './GalleryCategoryCornerBadge'
+import {
+  CATEGORY_BADGE_COMPACT_TEXT_CENTER_X_RATIO,
+  CATEGORY_BADGE_COMPACT_TEXT_CENTER_Y_RATIO,
+  GalleryCategoryCornerBadge,
+} from './GalleryCategoryCornerBadge'
 
 const COVER_META_PAD_X: number = 7
 const COVER_META_PAD_Y: number = 3
@@ -70,6 +74,8 @@ export struct GalleryGridCard {
       GalleryCategoryCornerBadge({
         category: this.gallery.category,
         translated: this.gallery.translated,
+        textCenterXRatio: CATEGORY_BADGE_COMPACT_TEXT_CENTER_X_RATIO,
+        textCenterYRatio: CATEGORY_BADGE_COMPACT_TEXT_CENTER_Y_RATIO,
       })
       this.CoverMeta()
     }

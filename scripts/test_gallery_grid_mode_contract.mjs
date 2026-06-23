@@ -80,6 +80,8 @@ ok('GalleryGridCard has a compact fixed info-area contract and no tag-driven mas
     /\.height\(ThemeConstants\.GALLERY_GRID_INFO_HEIGHT\)/.test(gridCard) &&
     /\.borderRadius\(ThemeConstants\.GALLERY_GRID_CARD_RADIUS\)/.test(gridCard) &&
     /GalleryCategoryCornerBadge/.test(gridCard) &&
+    /textCenterXRatio:\s*CATEGORY_BADGE_COMPACT_TEXT_CENTER_X_RATIO/.test(gridCard) &&
+    /textCenterYRatio:\s*CATEGORY_BADGE_COMPACT_TEXT_CENTER_Y_RATIO/.test(gridCard) &&
     !/simpleTags/.test(gridCard) &&
     !/tagChips/.test(gridCard))
 

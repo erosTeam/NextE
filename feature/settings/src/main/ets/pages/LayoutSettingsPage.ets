@@ -352,6 +352,9 @@ export struct LayoutSettingsPage {
   }
 
   private viewModeLabel(): Resource {
+    if (this.listMode.mode === ListMode.COVER_WALL) {
+      return $r('app.string.view_cover_wall')
+    }
     if (this.listMode.mode === ListMode.WATERFALL) {
       return $r('app.string.view_waterfall')
     }
@@ -463,6 +466,17 @@ export struct LayoutSettingsPage {
       })
         .onClick(() => {
           this.setViewMode(ListMode.WATERFALL)
+          this.viewMenuShown = false
+        })
+      MenuItem({
+        content: $r('app.string.view_cover_wall'),
+        symbolEndIcon:
+          this.listMode.mode === ListMode.COVER_WALL
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      })
+        .onClick(() => {
+          this.setViewMode(ListMode.COVER_WALL)
           this.viewMenuShown = false
         })
     }

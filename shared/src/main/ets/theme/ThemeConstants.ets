@@ -130,6 +130,7 @@ export class ThemeConstants {
   // the pane width while keeping ordinary phone panes in the intended compact browsing density.
   static readonly GALLERY_GRID_MIN_W: number = 106
   static readonly GALLERY_WATERFALL_MIN_W: number = 160
+  static readonly GALLERY_COVER_WALL_MIN_W: number = 120
   static readonly GALLERY_GRID_GAP: number = 6
   // Compact grid cards are much narrower than list/detail/settings cards, so they keep the pre-large-card
   // radius instead of inheriting RADIUS_CARD(24).

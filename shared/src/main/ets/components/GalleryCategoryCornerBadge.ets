@@ -5,11 +5,10 @@ const CATEGORY_BADGE_W: number = 36
 const CATEGORY_BADGE_H: number = 28
 const CATEGORY_BADGE_TEXT_W: number = 24
 const CATEGORY_BADGE_TEXT_H: number = 12
-const CATEGORY_BADGE_TEXT_CENTER_X: number = CATEGORY_BADGE_W * 0.58
-const CATEGORY_BADGE_TEXT_CENTER_Y: number = CATEGORY_BADGE_H * 0.37
-const CATEGORY_BADGE_TEXT_TOP: number = CATEGORY_BADGE_TEXT_CENTER_Y - CATEGORY_BADGE_TEXT_H / 2
-const CATEGORY_BADGE_TEXT_RIGHT: number =
-  CATEGORY_BADGE_W - CATEGORY_BADGE_TEXT_CENTER_X - CATEGORY_BADGE_TEXT_W / 2
+const CATEGORY_BADGE_DEFAULT_TEXT_CENTER_X_RATIO: number = 0.58
+const CATEGORY_BADGE_DEFAULT_TEXT_CENTER_Y_RATIO: number = 0.37
+export const CATEGORY_BADGE_COMPACT_TEXT_CENTER_X_RATIO: number = 0.62
+export const CATEGORY_BADGE_COMPACT_TEXT_CENTER_Y_RATIO: number = 0.35
 const CATEGORY_BADGE_TEXT_SIZE: number = 8
 const CATEGORY_BADGE_TEXT_ANGLE: number =
   Math.atan(CATEGORY_BADGE_H / CATEGORY_BADGE_W) * 180 / Math.PI
@@ -23,6 +22,16 @@ const CATEGORY_BADGE_OPACITY: number = 0.88
 export struct GalleryCategoryCornerBadge {
   @Param category: string = '';
   @Param translated: string = '';
+  @Param textCenterXRatio: number = CATEGORY_BADGE_DEFAULT_TEXT_CENTER_X_RATIO;
+  @Param textCenterYRatio: number = CATEGORY_BADGE_DEFAULT_TEXT_CENTER_Y_RATIO;
+
+  private textTop(): number {
+    return CATEGORY_BADGE_H * this.textCenterYRatio - CATEGORY_BADGE_TEXT_H / 2
+  }
+
+  private textRight(): number {
+    return CATEGORY_BADGE_W - CATEGORY_BADGE_W * this.textCenterXRatio - CATEGORY_BADGE_TEXT_W / 2
+  }
 
   build() {
     Stack({ alignContent: Alignment.TopEnd }) {
@@ -40,7 +49,7 @@ export struct GalleryCategoryCornerBadge {
           .width(CATEGORY_BADGE_TEXT_W)
           .height(CATEGORY_BADGE_TEXT_H)
           .rotate({ angle: CATEGORY_BADGE_TEXT_ANGLE })
-          .position({ right: CATEGORY_BADGE_TEXT_RIGHT, top: CATEGORY_BADGE_TEXT_TOP })
+          .position({ right: this.textRight(), top: this.textTop() })
       }
     }
     .width(CATEGORY_BADGE_W)

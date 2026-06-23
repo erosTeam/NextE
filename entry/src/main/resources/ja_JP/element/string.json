@@ -1709,6 +1709,10 @@
       "value": "ウォーターフォール"
     },
     {
+      "name": "view_cover_wall",
+      "value": "カバーウォール"
+    },
+    {
       "name": "read_mode_ltr",
       "value": "左→右"
     },

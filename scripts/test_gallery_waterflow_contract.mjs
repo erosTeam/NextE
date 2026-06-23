@@ -112,8 +112,12 @@ assertNotIncludes(waterfallCard, 'GALLERY_GRID_TITLE_HEIGHT', 'Waterfall card mu
 const cornerBadge = read('shared/src/main/ets/components/GalleryCategoryCornerBadge.ets');
 assertIncludes(cornerBadge, 'const CATEGORY_BADGE_W: number = 36', 'Shared category corner badge must use a wider triangle safety area than the old clipped 30px badge');
 assertIncludes(cornerBadge, 'const CATEGORY_BADGE_H: number = 28', 'Shared category corner badge must use a taller triangle safety area than the old clipped 22px badge');
-assertIncludes(cornerBadge, 'CATEGORY_BADGE_W * 0.58', 'Shared category corner badge text center must be recalculated inward from the rounded corner');
-assertIncludes(cornerBadge, 'CATEGORY_BADGE_H * 0.37', 'Shared category corner badge text center must be recalculated down along the diagonal');
+assertIncludes(cornerBadge, 'CATEGORY_BADGE_DEFAULT_TEXT_CENTER_X_RATIO: number = 0.58', 'Shared category corner badge must keep the Waterfall default text center x ratio');
+assertIncludes(cornerBadge, 'CATEGORY_BADGE_DEFAULT_TEXT_CENTER_Y_RATIO: number = 0.37', 'Shared category corner badge must keep the Waterfall default text center y ratio');
+assertIncludes(cornerBadge, '@Param textCenterXRatio', 'Shared category corner badge must parameterize label x offset for compact cover surfaces');
+assertIncludes(cornerBadge, '@Param textCenterYRatio', 'Shared category corner badge must parameterize label y offset for compact cover surfaces');
+assertIncludes(cornerBadge, 'this.textRight()', 'Shared category corner badge must apply the parameterized x offset');
+assertIncludes(cornerBadge, 'this.textTop()', 'Shared category corner badge must apply the parameterized y offset');
 assertNotIncludes(cornerBadge, '@Param rightInset', 'Shared category corner badge must not expose manual right inset drift');
 assertNotIncludes(cornerBadge, '@Param topInset', 'Shared category corner badge must not expose manual top inset drift');
 assertNotIncludes(cornerBadge, '.position({ right: this.rightInset, top: this.topInset })', 'Shared category corner badge must rely on parent corner alignment');
