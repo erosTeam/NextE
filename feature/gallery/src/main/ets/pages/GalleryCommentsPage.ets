@@ -11,7 +11,6 @@ import {
   PullRefreshListScaffold,
   PullRefreshController,
   CardEmptyState,
-  AppModalScaffold,
   AppStrings,
   LayoutSafeAreaState,
   connectLayoutSafeArea,
@@ -57,7 +56,6 @@ export struct GalleryCommentsPage {
   private scroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
   @Local votingCommentId: string = '';
-  @Local commentSheetShown: boolean = false;
   @Local commentText: string = '';
   @Local commentReplyToId: string = '';
   @Local commentReplyToAuthor: string = '';
@@ -117,16 +115,6 @@ export struct GalleryCommentsPage {
     return this.commentEditId.length === 0 || this.commentEditId !== '0'
   }
 
-  private commentSheetTitle(): ResourceStr {
-    if (this.commentEditId.length > 0) {
-      return $r('app.string.comment_edit_title')
-    }
-    if (this.commentReplyToId.length > 0) {
-      return $r('app.string.comment_reply_title')
-    }
-    return $r('app.string.comment_new_title')
-  }
-
   private commentPlaceholder(): ResourceStr {
     if (this.commentEditId.length > 0) {
       return $r('app.string.comment_edit_placeholder')
@@ -135,6 +123,21 @@ export struct GalleryCommentsPage {
       return $r('app.string.comment_reply_placeholder')
     }
     return $r('app.string.comment_new_placeholder')
+  }
+
+  private composerContextTitle(): ResourceStr {
+    if (this.commentEditId.length > 0) {
+      return $r('app.string.comment_edit_original')
+    }
+    return $r('app.string.comment_reply_to', this.commentReplyToAuthor)
+  }
+
+  private composerContextPreview(): string {
+    return this.commentEditId.length > 0 ? this.commentEditOriginal : this.commentReplyPreview
+  }
+
+  private hasComposerContext(): boolean {
+    return this.commentReplyToAuthor.length > 0 || this.commentEditId.length > 0
   }
 
   private encodeCommentId(id: string): string {
@@ -186,10 +189,12 @@ export struct GalleryCommentsPage {
     this.requestCommentFocus()
   }
 
-  private cancelReply(): void {
+  private cancelCommentContext(): void {
     this.commentReplyToId = ''
     this.commentReplyToAuthor = ''
     this.commentReplyPreview = ''
+    this.commentEditId = ''
+    this.commentEditOriginal = ''
     this.commentError = ''
     this.commentText = ''
   }
@@ -209,7 +214,7 @@ export struct GalleryCommentsPage {
     this.commentReplyPreview = ''
     this.commentText = comment.contentText
     this.commentError = ''
-    this.commentSheetShown = true
+    this.requestCommentFocus()
   }
 
   // Tap a comment author → search their uploads (same bus + behavior as the detail page). eros_fe
@@ -402,7 +407,6 @@ export struct GalleryCommentsPage {
         commentId: this.commentEditId,
         isEdit: this.commentEditId.length > 0,
       })
-      this.commentSheetShown = false
       this.commentText = ''
       this.commentReplyToId = ''
       this.commentReplyToAuthor = ''
@@ -497,10 +501,6 @@ export struct GalleryCommentsPage {
     }
     .titleBar(this.commentsTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .bindSheet($$this.commentSheetShown, this.CommentComposeSheet(), {
-      detents: [SheetSize.LARGE],
-      showClose: false,
-    })
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as GalleryCommentsParams
       if (p !== undefined) {
@@ -514,7 +514,7 @@ export struct GalleryCommentsPage {
   CommentComposer() {
     Column() {
       Column({ space: ThemeConstants.SPACE_SM }) {
-        if (this.commentReplyToAuthor.length > 0) {
+        if (this.hasComposerContext()) {
           Row({ space: ThemeConstants.SPACE_SM }) {
             Blank()
               .width(COMMENT_COMPOSER_QUOTE_LINE_W)
@@ -522,7 +522,7 @@ export struct GalleryCommentsPage {
               .backgroundColor(ThemeConstants.BRAND_PRIMARY)
               .borderRadius(COMMENT_COMPOSER_QUOTE_LINE_W / 2)
             Column({ space: ThemeConstants.SPACE_XS }) {
-              Text($r('app.string.comment_reply_to', this.commentReplyToAuthor))
+              Text(this.composerContextTitle())
                 .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
                 .fontWeight(FontWeight.Medium)
                 .fontColor($r('sys.color.font_emphasize'))
@@ -530,7 +530,7 @@ export struct GalleryCommentsPage {
                 .width('100%')
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
-              Text(this.commentReplyPreview)
+              Text(this.composerContextPreview())
                 .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
                 .fontColor($r('sys.color.font_secondary'))
                 .textAlign(TextAlign.Start)
@@ -550,7 +550,7 @@ export struct GalleryCommentsPage {
             .justifyContent(FlexAlign.Center)
             .alignItems(VerticalAlign.Center)
             .onClick(() => {
-              this.cancelReply()
+              this.cancelCommentContext()
             })
           }
           .width('100%')
@@ -609,72 +609,5 @@ export struct GalleryCommentsPage {
       right: COMMENT_COMPOSER_OUTER_GAP,
       bottom: this.composerBottomPadding(),
     })
-  }
-
-  @Builder
-  CommentComposeSheet() {
-    AppModalScaffold({
-      title: this.commentSheetTitle(),
-      includeKeyboardPadding: true,
-      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
-      confirmText: $r('app.string.comment_send'),
-      confirmEnabled: this.canSubmitComment(),
-      confirmLoading: this.commentSubmitting,
-      closeAction: () => {
-        this.commentSheetShown = false
-      },
-      confirmAction: () => {
-        this.submitComment()
-      },
-    }) {
-      ListItem() {
-        Column({ space: ThemeConstants.SPACE_MD }) {
-          if (this.commentReplyToAuthor.length > 0) {
-            Text($r('app.string.comment_reply_to', this.commentReplyToAuthor))
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-          }
-          if (this.commentEditId.length > 0 && this.commentEditOriginal.length > 0) {
-            Text($r('app.string.comment_edit_original'))
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_secondary'))
-              .width('100%')
-            Text(this.commentEditOriginal)
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontColor($r('sys.color.font_primary'))
-              .maxLines(3)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-              .width('100%')
-          }
-          TextArea({
-            text: this.commentText,
-            placeholder: this.commentPlaceholder(),
-          })
-            .width('100%')
-            .height(220)
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .backgroundColor($r('sys.color.ohos_id_color_card_bg'))
-            .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-            .enabled(!this.commentSubmitting)
-            .onChange((value: string) => {
-              this.commentText = value
-            })
-          Text($r('app.string.comment_min_length_hint'))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_tertiary'))
-            .width('100%')
-          if (this.commentError.length > 0) {
-            Text(this.commentError)
-              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-              .fontColor(Color.Red)
-              .width('100%')
-          }
-        }
-        .width('100%')
-      }
-    }
   }
 }

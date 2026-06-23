@@ -45,12 +45,13 @@ ok('GalleryCommentWrite is exported from shared barrel',
   /GalleryCommentWrite/.test(barrel))
 
 const page = read('feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets')
-ok('comments page owns compose sheet state',
-  /@Local commentSheetShown: boolean = false/.test(page) &&
-    /@Local commentText: string = ''/.test(page) &&
+ok('comments page owns bottom composer state for new, reply, and edit',
+  /@Local commentText: string = ''/.test(page) &&
     /@Local commentReplyToId: string = ''/.test(page) &&
     /@Local commentEditId: string = ''/.test(page) &&
-    /@Local commentSubmitting: boolean = false/.test(page))
+    /@Local commentEditOriginal: string = ''/.test(page) &&
+    /@Local commentSubmitting: boolean = false/.test(page) &&
+    !/@Local commentSheetShown: boolean = false/.test(page))
 ok('comments page gates comment compose on route identity and login cookies',
   /private canOpenCommentSheet\(\): boolean[\s\S]*this\.params\.gid\.length > 0[\s\S]*this\.params\.token\.length > 0[\s\S]*EhCookieStore\.getInstance\(\)\.isLogin\(\)/.test(page))
 ok('new and reply composition use the bottom floating composer, not the title action sheet',
@@ -62,15 +63,18 @@ ok('reply action pre-fills @author plus encoded comment id and still submits as 
     /this\.commentReplyPreview = comment\.contentText/.test(page) &&
     /this\.commentEditId = ''/.test(page))
 ok('own-comment edit pre-fills original text and submits commenttext_edit',
-  /private openEditComment\(comment: EhGalleryComment\): void[\s\S]*!comment\.canEdit[\s\S]*this\.commentEditId = comment\.commentId[\s\S]*this\.commentEditOriginal = comment\.contentText[\s\S]*this\.commentText = comment\.contentText/.test(page) &&
+  /private openEditComment\(comment: EhGalleryComment\): void[\s\S]*!comment\.canEdit[\s\S]*this\.commentEditId = comment\.commentId[\s\S]*this\.commentEditOriginal = comment\.contentText[\s\S]*this\.commentText = comment\.contentText[\s\S]*this\.requestCommentFocus\(\)/.test(page) &&
     /postGalleryComment\(\{[\s\S]*commentId: this\.commentEditId[\s\S]*isEdit: this\.commentEditId\.length > 0/.test(page))
-ok('compose sheet changes title and placeholder for edit mode',
-  /private commentSheetTitle\(\): ResourceStr[\s\S]*commentEditId\.length > 0[\s\S]*comment_edit_title/.test(page) &&
-    /private commentPlaceholder\(\): ResourceStr[\s\S]*commentEditId\.length > 0[\s\S]*comment_edit_placeholder/.test(page) &&
-    /comment_edit_original/.test(page))
-ok('comment compose uses AppModalScaffold with title actions, not a bottom primary button',
-  /@Builder[\s\S]*CommentComposeSheet\(\)[\s\S]*AppModalScaffold\(\{[\s\S]*confirmText: \$r\('app\.string\.comment_send'\)[\s\S]*confirmEnabled: this\.canSubmitComment\(\)[\s\S]*confirmLoading: this\.commentSubmitting/.test(page) &&
-    !/CommentComposeSheet\(\)[\s\S]*Button\(\$r\('app\.string\.comment_send'\)/.test(page))
+ok('edit reuses the same bottom composer context preview as replies',
+  /private composerContextTitle\(\): ResourceStr[\s\S]*commentEditId\.length > 0[\s\S]*comment_edit_original[\s\S]*comment_reply_to/.test(page) &&
+    /private composerContextPreview\(\): string[\s\S]*this\.commentEditOriginal : this\.commentReplyPreview/.test(page) &&
+    /@Builder[\s\S]*CommentComposer\(\)[\s\S]*if \(this\.hasComposerContext\(\)\)[\s\S]*Text\(this\.composerContextTitle\(\)\)[\s\S]*Text\(this\.composerContextPreview\(\)\)/.test(page) &&
+    /private commentPlaceholder\(\): ResourceStr[\s\S]*commentEditId\.length > 0[\s\S]*comment_edit_placeholder/.test(page))
+ok('comment compose no longer uses the legacy edit half-modal sheet',
+  !/AppModalScaffold/.test(page) &&
+    !/CommentComposeSheet/.test(page) &&
+    !/bindSheet\(\$\$this\.commentSheetShown/.test(page) &&
+    !/commentSheetTitle/.test(page))
 ok('successful comment submit refreshes the comments instead of fabricating a local row',
   /private async submitComment\(\): Promise<void>[\s\S]*await this\.refreshComments\(\)/.test(page) &&
     !/private async submitComment\(\): Promise<void>[\s\S]*new EhGalleryComment\(\)/.test(page))
