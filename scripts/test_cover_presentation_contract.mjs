@@ -79,7 +79,7 @@ ok(/radius:\s*ThemeConstants\.DETAIL_COVER_RADIUS/.test(headerCard), 'GalleryHea
 ok(!/GalleryHeaderCard[\s\S]*EhThumbnail\(\{[\s\S]*radius:\s*ThemeConstants\.RADIUS_MD/.test(headerCard), 'GalleryHeaderCard cover does not share the enlarged card radius')
 ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(listCard), 'GalleryCard passes gallery.imgWidth into EhThumbnail')
 ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(listCard), 'GalleryCard passes gallery.imgHeight into EhThumbnail')
-ok(/thumbHeight:\s*this\.coverHeight\(\)/.test(listCard), 'GalleryCard uses an explicit cover slot height')
+ok(/thumbHeight:\s*this\.activeCoverHeight\(\)/.test(listCard), 'GalleryCard passes the active cover slot height into EhThumbnail')
 ok(!/stretchHeight:\s*true/.test(listCard), 'GalleryCard does not use stretchHeight intrinsic image sizing')
 
 // 5) This fix must not invent a blanket fill/crop policy for grid cards. Existing grid cover remains its

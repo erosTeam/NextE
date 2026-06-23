@@ -77,7 +77,9 @@ const coverWidth = (contentWidth) => {
   ok(/ThemeConstants\.LIST_CARD_WIDE_COVER_WIDTH/.test(c), 'wide pane width is bounded by the eros_fe wide width token')
   ok(/thumbWidth:\s*this\.coverWidth\(\)/.test(c), 'EhThumbnail width comes from current coverWidth()')
   ok(/private\s+coverHeight\(\):\s*number/.test(c), 'GalleryCard computes cover height locally')
-  ok(/thumbHeight:\s*this\.coverHeight\(\)/.test(c), 'EhThumbnail height comes from current coverHeight()')
+  ok(/@Local\s+coverSlotHeight:\s*number\s*=\s*0/.test(c), 'GalleryCard records the actual stretched cover slot height')
+  ok(/private\s+activeCoverHeight\(\):\s*number/.test(c), 'GalleryCard resolves the active cover slot height')
+  ok(/thumbHeight:\s*this\.activeCoverHeight\(\)/.test(c), 'EhThumbnail height comes from the active cover slot height')
   ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(c), 'list cover passes parsed sourceWidth into EhThumbnail')
   ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(c), 'list cover passes parsed sourceHeight into EhThumbnail')
   ok(!/stretchHeight:\s*true/.test(c), 'list cover does not use intrinsic stretchHeight')
@@ -88,6 +90,8 @@ const coverWidth = (contentWidth) => {
   // letterbox (Contain) so EhThumbnail can fill the gaps with the cover-color gradient/blur. The Contain
   // path (the original regression guard against a grey slab) is preserved for the far case.
   ok(/private\s+coverFillsSlot\(\):\s*boolean/.test(c), 'GalleryCard decides close-ratio fill vs far-ratio contain via coverFillsSlot()')
+  ok(/const\s+slotRatio:\s*number\s*=\s*this\.coverWidth\(\)\s*\/\s*this\.activeCoverHeight\(\)/.test(c), 'cover fit compares the image against the active container ratio')
+  ok(/\.onAreaChange\([\s\S]*area\.height\s+as\s+number[\s\S]*this\.coverSlotHeight\s*=\s*height/.test(c), 'adaptive list cover measures the stretched container height')
   ok(/containFit:\s*!this\.coverFillsSlot\(\)/.test(c), 'list cover letterboxes (Contain) only when the cover does not fill the slot')
   ok(/letterboxBackground:\s*true/.test(c), 'list cover opts into the letterbox gap background (cover-color gradient / blur)')
 }

@@ -80,14 +80,17 @@ const ok = (name, cond) => {
   )
   // The single tag renderer is shared by both modes (no duplicated/diverging chip logic).
   ok('one shared tagChips() builder feeds both modes', /@Builder\s+tagChips\(\)/.test(c))
-  // NO cover stretch/crop regression: list card stays Contain-over-grey in an explicit slot.
-  ok('list cover keeps containFit:true (no Cover side-crop / stretch) in both modes', /containFit:\s*true/.test(c))
+  // Cover fit is based on the real active slot: fixed rows use the fixed height, adaptive rows first
+  // render from the responsive floor and then re-evaluate against the stretched slot height.
+  ok('list cover uses ratio-aware containFit from coverFillsSlot()', /containFit:\s*!this\.coverFillsSlot\(\)/.test(c))
+  ok('GalleryCard records actual adaptive cover slot height', /@Local\s+coverSlotHeight:\s*number\s*=\s*0/.test(c))
+  ok('GalleryCard compares against activeCoverHeight()', /const\s+slotRatio:\s*number\s*=\s*this\.coverWidth\(\)\s*\/\s*this\.activeCoverHeight\(\)/.test(c))
   ok('GalleryCard computes an explicit coverHeight()', /private\s+coverHeight\(\):\s*number/.test(c))
   ok(
     'FIXED cover slot height is exactly LIST_CARD_FIXED_HEIGHT',
     /coverHeight\(\):\s*number\s*\{[\s\S]*?this\.listMode\.fixedHeight[\s\S]*?\?\s*ThemeConstants\.LIST_CARD_FIXED_HEIGHT/.test(c),
   )
-  ok('list cover uses explicit thumbHeight from coverHeight()', /thumbHeight:\s*this\.coverHeight\(\)/.test(c))
+  ok('list cover uses explicit thumbHeight from activeCoverHeight()', /thumbHeight:\s*this\.activeCoverHeight\(\)/.test(c))
   ok('list cover passes parsed source width into EhThumbnail', /sourceWidth:\s*this\.gallery\.imgWidth/.test(c))
   ok('list cover passes parsed source height into EhThumbnail', /sourceHeight:\s*this\.gallery\.imgHeight/.test(c))
   ok('list cover no longer uses stretchHeight, so image intrinsic height cannot drive row height', !/stretchHeight:\s*true/.test(c))

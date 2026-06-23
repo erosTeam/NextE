@@ -42,6 +42,7 @@ export struct GalleryCard {
   // title/tags clipped and the meta foot-anchored (uniform list rhythm); ADAPTIVE → the row grows with its
   // content. Read reactively (@Trace) so flipping the setting re-lays the visible cards live.
   private listMode: ListModeState = connectListMode();
+  @Local coverSlotHeight: number = 0;
 
   private coverWidth(): number {
     const contentWidth: number =
@@ -64,16 +65,23 @@ export struct GalleryCard {
       : this.adaptiveMinHeight()
   }
 
+  private activeCoverHeight(): number {
+    if (!this.listMode.fixedHeight && this.coverSlotHeight > 0) {
+      return this.coverSlotHeight
+    }
+    return this.coverHeight()
+  }
+
   // eros_fe cover fit (gallery_item.dart _fit): when the source cover ratio is close to the card cover slot,
   // fill it (Cover, light crop); when it is far (very wide / very tall), letterbox it (Contain) so the whole
-  // cover shows and EhThumbnail fills the gaps with the cover-color gradient (or blur). Thresholds mirror
-  // eros_fe's asymmetric band around the slot's contain ratio. Unknown source dimensions stay Contain (safe).
+  // cover shows and EhThumbnail fills the gaps with the cover-color gradient (or blur). The slot ratio uses
+  // the actual stretched cover slot when adaptive rows are taller than the initial estimate.
   private coverFillsSlot(): boolean {
     if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
       return false
     }
     const imageRatio: number = this.gallery.imgWidth / this.gallery.imgHeight
-    const slotRatio: number = this.coverWidth() / this.coverHeight()
+    const slotRatio: number = this.coverWidth() / this.activeCoverHeight()
     return imageRatio - slotRatio <= 0.28 && slotRatio - imageRatio <= 0.2
   }
 
@@ -153,19 +161,31 @@ export struct GalleryCard {
     // The cover itself is an explicit slot; otherwise a very tall EH cover can feed intrinsic height back
     // into the row before the right column's fixed-height constraint settles.
     Flex({ direction: FlexDirection.Row, alignItems: ItemAlign.Stretch }) {
-      // Cover: radius 0 here — the card's rounded `.clip(true)` mask rounds its left corners flush to
-      // the card edge while leaving the inner (right) edge square against the text column.
-      EhThumbnail({
-        url: this.gallery.thumbUrl,
-        thumbWidth: this.coverWidth(),
-        thumbHeight: this.coverHeight(),
-        radius: 0,
-        sourceWidth: this.gallery.imgWidth,
-        sourceHeight: this.gallery.imgHeight,
-        // Close cover ratios fill the slot (Cover, light crop); far ratios (very wide/tall) letterbox
-        // (Contain) so the whole cover shows, and the cover-color gradient (or blur) fills the gaps.
-        containFit: !this.coverFillsSlot(),
-        letterboxBackground: true,
+      // Cover: the wrapper is stretched by the row, so adaptive cards compare the image ratio against the
+      // real container height after tags/title have laid out. The thumbnail still receives explicit numbers.
+      Stack({ alignContent: Alignment.Center }) {
+        EhThumbnail({
+          url: this.gallery.thumbUrl,
+          thumbWidth: this.coverWidth(),
+          thumbHeight: this.activeCoverHeight(),
+          radius: 0,
+          sourceWidth: this.gallery.imgWidth,
+          sourceHeight: this.gallery.imgHeight,
+          // Close cover ratios fill the slot (Cover, light crop); far ratios (very wide/tall) letterbox
+          // (Contain) so the whole cover shows, and the cover-color gradient (or blur) fills the gaps.
+          containFit: !this.coverFillsSlot(),
+          letterboxBackground: true,
+        })
+      }
+      .width(this.coverWidth())
+      .onAreaChange((_oldArea: Area, area: Area) => {
+        if (this.listMode.fixedHeight) {
+          return
+        }
+        const height: number = area.height as number
+        if (height > 0 && Math.abs(height - this.coverSlotHeight) > 0.5) {
+          this.coverSlotHeight = height
+        }
       })
       Column({ space: ThemeConstants.SPACE_XS }) {
         Text(this.gallery.title())
