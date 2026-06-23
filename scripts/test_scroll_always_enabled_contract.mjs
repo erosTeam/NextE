@@ -52,6 +52,13 @@ for (const file of pullRefreshFiles) {
     /alwaysEnabled:\s*true/,
     `${file} must not re-enable native sparse-content edge spring`,
   )
+  if (file !== 'shared/src/main/ets/components/PullRefreshListScaffold.ets') {
+    assert.match(
+      src,
+      /@Local\s+scrollEnabled:\s*boolean\s*=\s*true[\s\S]*onScrollEnableChange:\s*\(enabled: boolean\) => \{[\s\S]*this\.scrollEnabled = enabled[\s\S]*\.enableScrollInteraction\(this\.scrollEnabled\)/,
+      `${file} must restore inner scroll interaction through PullRefresh`,
+    )
+  }
   passed++
 }
 
@@ -91,7 +98,7 @@ passed++
 const pullSrc = readFileSync(join(ROOT, pullRefresh), 'utf8')
 assert.match(
   pullSrc,
-  /private async doBottomRefresh\(\): Promise<void> \{[\s\S]*try \{[\s\S]*await this\.onBottomRefresh\(\)[\s\S]*\} catch \(_error\) \{[\s\S]*RefreshFeedback\.notifyRefreshFailed\(\)[\s\S]*\}[\s\S]*this\.bottomRefreshState = 3[\s\S]*this\.bounceBottomBack\(0\)/,
+  /private async doBottomRefresh\(\): Promise<void> \{[\s\S]*try \{[\s\S]*await this\.onBottomRefresh\(\)[\s\S]*\} catch \(_error\) \{[\s\S]*try \{[\s\S]*RefreshFeedback\.notifyRefreshFailed\(\)[\s\S]*\} catch \(_feedbackError\) \{\}[\s\S]*\} finally \{[\s\S]*this\.bottomRefreshState = 3[\s\S]*this\.bounceBottomBack\(0\)/,
   'bottom refresh failures must still feedback and bounce back so scroll interaction is restored',
 )
 passed++

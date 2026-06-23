@@ -194,20 +194,26 @@ export struct PullRefresh {
     try {
       await this.onRefresh()
     } catch (_error) {
-      RefreshFeedback.notifyRefreshFailed()
+      try {
+        RefreshFeedback.notifyRefreshFailed()
+      } catch (_feedbackError) {}
+    } finally {
+      this.refreshState = 3
+      setTimeout(() => this.bounceBack(0), ThemeConstants.ANIM_DONE_DELAY_MS)
     }
-    this.refreshState = 3
-    setTimeout(() => this.bounceBack(0), ThemeConstants.ANIM_DONE_DELAY_MS)
   }
 
   private async doBottomRefresh(): Promise<void> {
     try {
       await this.onBottomRefresh()
     } catch (_error) {
-      RefreshFeedback.notifyRefreshFailed()
+      try {
+        RefreshFeedback.notifyRefreshFailed()
+      } catch (_feedbackError) {}
+    } finally {
+      this.bottomRefreshState = 3
+      setTimeout(() => this.bounceBottomBack(0), ThemeConstants.ANIM_DONE_DELAY_MS)
     }
-    this.bottomRefreshState = 3
-    setTimeout(() => this.bounceBottomBack(0), ThemeConstants.ANIM_DONE_DELAY_MS)
   }
 
   private triggerHaptic(): void {

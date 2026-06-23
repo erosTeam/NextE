@@ -406,7 +406,8 @@ export class EhApiService {
     if (query.source === 'toplist') {
       // toplist.php is E-Hentai-ONLY (exhentai.org has no toplist → 404), so always use the e-hentai
       // host even in 里站 mode. Page-number paging (table.ptt), no cursor/filters (eros_fe toplist tab).
-      const url: string = `${EhConstants.baseUrl(false)}/toplist.php?tl=${query.tl}&p=${query.page}`
+      const pageParam: string = query.page >= 0 ? `&p=${query.page}` : ''
+      const url: string = `${EhConstants.baseUrl(false)}/toplist.php?tl=${query.tl}${pageParam}`
       // toplist.php is hard-pinned to the e-hentai host, so classify it as the table site (isEx=false).
       const resp = await this.fetch(url, false, 'list')
       return this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))

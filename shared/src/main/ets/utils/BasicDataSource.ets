@@ -27,7 +27,7 @@ export class BasicDataSource<T> implements IDataSource {
     this.notifyReload()
   }
 
-  /** Append a page; notifies an incremental add so existing rows aren't rebuilt. */
+  /** Append a page; use the same DataChangeListener family as reload (V2Next pattern). */
   appendData(items: T[]): void {
     if (items.length === 0) {
       return
@@ -35,7 +35,7 @@ export class BasicDataSource<T> implements IDataSource {
     const start: number = this.items.length
     this.items = this.items.concat(items)
     this.listeners.forEach((l: DataChangeListener) => {
-      l.onDatasetChange([{ type: DataOperationType.ADD, index: start, count: items.length }])
+      l.onDataAdd(start)
     })
   }
 

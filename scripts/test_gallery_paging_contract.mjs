@@ -238,6 +238,23 @@ const ok = (name, cond) => {
   ok('reload bumps epoch', /this\.epoch = this\.epoch \+ 1/.test(src))
   ok('toplist loadMore clears stale error before retry fetch',
     /private async loadMoreToplist\(\): Promise<void> \{[\s\S]*this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(src))
+  ok('toplist first-page query omits p=0 like eros_fe',
+    /private buildQuery\(next: string, page: number = -1\): GalleryListQuery/.test(src))
+  ok('toplist stores parsed nextPage after first-page loads and cache restores',
+    (src.match(/this\.toplistNextPage = list\.nextPage/g) ?? []).length >= 3 &&
+    /this\.toplistNextPage = cached\.nextPage/.test(src))
+  ok('toplist first-page hasMore follows parsed ptt nextPage',
+    /return list\.nextPage >= 0 && list\.nextPage <= list\.maxPage/.test(src))
+  ok('toplist loadMore requests parsed nextPage instead of hand-computing current page + 1',
+    /const requestedPage: number = this\.toplistNextPage/.test(src) &&
+    /this\.buildQuery\('', requestedPage\)/.test(src) &&
+    !/this\.toplistPage \+ 1/.test(src))
+  ok('toplist loadMore advances only from the parsed response nextPage',
+    /this\.toplistNextPage = list\.nextPage[\s\S]*this\.hasMore = list\.nextPage >= 0 && list\.nextPage <= this\.maxPage/.test(src) &&
+    !/this\.hasMore = [^\n]*fresh\.length > 0/.test(/private async loadMoreToplist\(\): Promise<void> \{[\s\S]*?\n  \}\n\n  canLoadMore/.exec(src)?.[0] ?? ''))
+  const apiSrc = readFileSync(join(ROOT, 'shared/src/main/ets/network/EhApiService.ets'), 'utf8')
+  ok('toplist network request omits page param until a parsed page is requested',
+    /const pageParam: string = query\.page >= 0 \? `&p=\$\{query\.page\}` : ''[\s\S]*toplist\.php\?tl=\$\{query\.tl\}\$\{pageParam\}/.test(apiSrc))
 }
 
 // 10. cross-cutting: every paged ViewModel carries the same race guards as Home, while the

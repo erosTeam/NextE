@@ -44,11 +44,12 @@ export class GalleryListViewModel {
   // Generation token: reload()/setSource()/refresh() bump it so an in-flight loadMore that resumes
   // afterwards discards its (now cross-source/cross-host) result instead of corrupting the new list.
   private epoch: number = 0
-  // Toplist (排行) is PAGE-paged (table.ptt), not gid-cursored: toplistTl = period, toplistPage =
-  // current 0-based page, maxPage = last page index parsed from the ptt. toplistTl is @Trace so the
-  // period selector row reflects the active period (11 all-time / 12 year / 13 month / 15 yesterday).
+  // Toplist (排行) is PAGE-paged (table.ptt), not gid-cursored: toplistTl = period, toplistNextPage =
+  // the next 0-based page parsed from the ptt. FE stores/requests parsed nextPage directly; do not
+  // hand-compute currentPage + 1 here. toplistTl is @Trace so the period selector row reflects the
+  // active period (11 all-time / 12 year / 13 month / 15 yesterday).
   @Trace toplistTl: number = 15
-  private toplistPage: number = 0
+  private toplistNextPage: number = -1
   private maxPage: number = 0
   private context: common.UIAbilityContext | null = null
   private cacheRenderVersion: number = 0
@@ -84,7 +85,7 @@ export class GalleryListViewModel {
     return out
   }
 
-  private buildQuery(next: string, page: number = 0): GalleryListQuery {
+  private buildQuery(next: string, page: number = -1): GalleryListQuery {
     return {
       isEx: connectSiteMode().isEx,
       source: this.source,
@@ -139,7 +140,7 @@ export class GalleryListViewModel {
     this.itemCount = this.dataSource.totalCount()
     this.nextGid = cached.nextGid
     this.maxPage = cached.maxPage
-    this.toplistPage = 0
+    this.toplistNextPage = cached.nextPage
     this.hasMore = this.firstPageHasMore(cached)
     this.loaded = true
     this.translateCachedRowsLater(rows, renderVersion, cached)
@@ -266,7 +267,7 @@ export class GalleryListViewModel {
       await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
-      this.toplistPage = 0
+      this.toplistNextPage = list.nextPage
       this.hasMore = this.firstPageHasMore(list)
     } catch (err) {
       const e = err as Error
@@ -277,11 +278,11 @@ export class GalleryListViewModel {
     this.loaded = true
   }
 
-  // Whether a fresh first-page load has more: toplist pages while page 0 < maxPage; cursor sources
-  // page while a next cursor exists (popular never pages).
+  // Whether a fresh first-page load has more: toplist follows parsed ptt nextPage; cursor sources page
+  // while a next cursor exists (popular never pages).
   private firstPageHasMore(list: GalleryList): boolean {
     if (this.isToplist()) {
-      return list.maxPage > 0
+      return list.nextPage >= 0 && list.nextPage <= list.maxPage
     }
     return !this.isPopular() && list.nextGid.length > 0
   }
@@ -303,7 +304,7 @@ export class GalleryListViewModel {
     this.errorMessage = ''
     this.nextGid = ''
     this.lastNext = ''
-    this.toplistPage = 0
+    this.toplistNextPage = -1
     this.maxPage = 0
     this.hasMore = false
     try {
@@ -312,7 +313,7 @@ export class GalleryListViewModel {
       await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
-      this.toplistPage = 0
+      this.toplistNextPage = list.nextPage
       this.hasMore = this.firstPageHasMore(list)
     } catch (err) {
       const e = err as Error
@@ -340,7 +341,7 @@ export class GalleryListViewModel {
       await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
-      this.toplistPage = 0
+      this.toplistNextPage = list.nextPage
       this.hasMore = this.firstPageHasMore(list)
     } catch (err) {
       const e = err as Error
@@ -403,10 +404,10 @@ export class GalleryListViewModel {
     this.isLoadingMore = false
   }
 
-  /** Toplist page paging: fetch the next 0-based page (?p=), dedup-append, stop at maxPage. */
+  /** Toplist page paging: request the next ptt-parsed 0-based page (?p=), dedup-append, then store the newly parsed next page. */
   private async loadMoreToplist(): Promise<void> {
-    const nextPage: number = this.toplistPage + 1
-    if (nextPage > this.maxPage) {
+    const requestedPage: number = this.toplistNextPage
+    if (requestedPage < 0 || requestedPage > this.maxPage) {
       this.hasMore = false
       return
     }
@@ -415,7 +416,7 @@ export class GalleryListViewModel {
     const myEpoch: number = this.epoch
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(
-        this.buildQuery('', nextPage),
+        this.buildQuery('', requestedPage),
       )
       if (this.epoch === myEpoch) {
         this.resolveFavoriteSlots(list.gallerys)
@@ -424,8 +425,9 @@ export class GalleryListViewModel {
           this.dataSource.appendData(fresh)
           this.itemCount = this.dataSource.totalCount()
         }
-        this.toplistPage = nextPage
-        this.hasMore = nextPage < this.maxPage && fresh.length > 0
+        this.maxPage = list.maxPage
+        this.toplistNextPage = list.nextPage
+        this.hasMore = list.nextPage >= 0 && list.nextPage <= this.maxPage
       }
     } catch (err) {
       const e = err as Error

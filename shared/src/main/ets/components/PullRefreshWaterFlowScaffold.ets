@@ -26,6 +26,7 @@ export struct PullRefreshWaterFlowScaffold {
   @Param footerHasMore: boolean = true;
   @Param footerIsError: boolean = false;
   @Param controller: PullRefreshController = new PullRefreshController();
+  @Local scrollEnabled: boolean = true;
   @Event onRefresh?: () => Promise<void>;
   @Event onBottomRefresh?: () => Promise<void>;
   @Event canStartBottomRefresh?: () => boolean;
@@ -56,6 +57,9 @@ export struct PullRefreshWaterFlowScaffold {
         }
         return false
       },
+      onScrollEnableChange: (enabled: boolean) => {
+        this.scrollEnabled = enabled
+      },
     }) {
       WaterFlow({ scroller: this.scroller, sections: this.waterFlowSections() }) {
         this.TopSpacer()
@@ -64,6 +68,7 @@ export struct PullRefreshWaterFlowScaffold {
       }
       .columnsGap(this.gap)
       .rowsGap(this.gap)
+      .enableScrollInteraction(this.scrollEnabled)
       .scrollBar(BarState.Off)
       .width('100%')
       .height('100%')
