@@ -35,6 +35,10 @@ import {
   ThemeSettings,
   ThemeColorSettings,
   ThemeColorOption,
+  ImmersiveMaterialSettings,
+  ImmersiveMaterialOption,
+  ImmersiveMaterialSettingsState,
+  connectImmersiveMaterialSettings,
   LanguageSettings,
   ThemeDisplayState,
   connectThemeDisplay,
@@ -69,6 +73,8 @@ export struct LayoutSettingsPage {
   @Local themeMenuShown: boolean = false;
   @Local themeColorMenuShown: boolean = false;
   @Local languageMenuShown: boolean = false;
+  @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
+  @Local immersiveMaterialMenuShown: boolean = false;
   @Local colorPickerShown: boolean = false;
   @Local draftCustomColor: string = '#3377FF';
   private prevColor: string = '';
@@ -116,6 +122,36 @@ export struct LayoutSettingsPage {
   private setThemeColor(color: string): void {
     this.themeColorMenuShown = false
     ThemeColorSettings.setColor(this.ctx(), color)
+  }
+
+  private setImmersiveMaterial(level: string): void {
+    this.immersiveMaterialMenuShown = false
+    ImmersiveMaterialSettings.setLevel(this.ctx(), level)
+  }
+
+  private immersiveMaterialLabel(): ResourceStr {
+    return ImmersiveMaterialSettings.label(this.immersiveMaterial.level)
+  }
+
+  @Builder
+  ImmersiveMaterialMenu() {
+    Menu() {
+      ForEach(
+        ImmersiveMaterialSettings.options(),
+        (option: ImmersiveMaterialOption) => {
+          MenuItem({
+            content: option.label,
+            symbolEndIcon:
+              this.immersiveMaterial.level === option.value
+                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+                : undefined,
+          }).onClick(() => {
+            this.setImmersiveMaterial(option.value)
+          })
+        },
+        (option: ImmersiveMaterialOption) => option.value,
+      )
+    }
   }
 
   // The 自定义 menu item opens the shared AppColorPicker in a half-modal, seeded from the current accent.
@@ -492,6 +528,24 @@ export struct LayoutSettingsPage {
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.themeColorMenuShown = false
+                },
+              })
+              this.rowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.immersive_material'),
+                  leadingIcon: $r('sys.symbol.picture'),
+                  trailingText: this.immersiveMaterialLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.immersiveMaterialMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.immersiveMaterialMenuShown, this.ImmersiveMaterialMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.immersiveMaterialMenuShown = false
                 },
               })
               this.rowDivider()

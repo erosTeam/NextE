@@ -1473,6 +1473,26 @@
       "value": "テーマカラー"
     },
     {
+      "name": "common_auto",
+      "value": "自動"
+    },
+    {
+      "name": "immersive_material",
+      "value": "イマーシブマテリアル"
+    },
+    {
+      "name": "immersive_material_exquisite",
+      "value": "イマーシブ · 精細"
+    },
+    {
+      "name": "immersive_material_gentle",
+      "value": "イマーシブ · ソフト"
+    },
+    {
+      "name": "immersive_material_smooth",
+      "value": "イマーシブ · スムーズ"
+    },
+    {
       "name": "theme_color_galaxy_blue",
       "value": "ギャラクシーブルー"
     },

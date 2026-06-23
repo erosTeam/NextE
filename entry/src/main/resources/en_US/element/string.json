@@ -1473,6 +1473,26 @@
       "value": "Theme color"
     },
     {
+      "name": "common_auto",
+      "value": "Automatic"
+    },
+    {
+      "name": "immersive_material",
+      "value": "Immersive material"
+    },
+    {
+      "name": "immersive_material_exquisite",
+      "value": "Immersive · Exquisite"
+    },
+    {
+      "name": "immersive_material_gentle",
+      "value": "Immersive · Gentle"
+    },
+    {
+      "name": "immersive_material_smooth",
+      "value": "Immersive · Smooth"
+    },
+    {
       "name": "theme_color_galaxy_blue",
       "value": "Galaxy blue"
     },

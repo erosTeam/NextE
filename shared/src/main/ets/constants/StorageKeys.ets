@@ -21,6 +21,7 @@ export class StorageKeys {
   static readonly ACTION_ALIGNMENT_MODE: string = 'layout.actionAlignmentMode' // floating Read button: smartGrip/followOperation/fixedLeft/fixedRight
   static readonly THEME_MODE: string = 'theme.mode' // system/light/dark
   static readonly THEME_COLOR: string = 'theme.color' // accent: system/blue/orange/red/purple/pink/green
+  static readonly IMMERSIVE_MATERIAL_LEVEL: string = 'theme.immersiveMaterialLevel' // adaptive/exquisite/gentle/smooth
   static readonly LANGUAGE: string = 'app.language' // system/zh-CN/en-US/ja-JP
   static readonly SEARCH_HISTORY: string = 'search.history' // JSON array of recent query strings
   static readonly SEARCH_FILTER: string = 'search.filter' // JSON snapshot of advanced-search filters

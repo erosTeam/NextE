@@ -1473,6 +1473,26 @@
       "value": "主题色"
     },
     {
+      "name": "common_auto",
+      "value": "自动"
+    },
+    {
+      "name": "immersive_material",
+      "value": "沉浸光感材质"
+    },
+    {
+      "name": "immersive_material_exquisite",
+      "value": "沉浸 · 精美"
+    },
+    {
+      "name": "immersive_material_gentle",
+      "value": "沉浸 · 轻柔"
+    },
+    {
+      "name": "immersive_material_smooth",
+      "value": "沉浸 · 流畅"
+    },
+    {
       "name": "theme_color_galaxy_blue",
       "value": "银河蓝"
     },

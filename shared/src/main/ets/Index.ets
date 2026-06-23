@@ -253,6 +253,15 @@ export { ThemeSettings } from './settings/ThemeSettings'
 export { LanguageSettings } from './settings/LanguageSettings'
 export { ThemeColorSettings, ThemeColorOption } from './settings/ThemeColorSettings'
 export {
+  ImmersiveMaterialSettings,
+  ImmersiveMaterialOption,
+  ImmersiveMaterialEffect,
+} from './settings/ImmersiveMaterialSettings'
+export {
+  ImmersiveMaterialSettingsState,
+  connectImmersiveMaterialSettings,
+} from './state/ImmersiveMaterialSettingsState'
+export {
   ThemeDisplayState,
   connectThemeDisplay,
   LanguageState,

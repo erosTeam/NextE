@@ -1,4 +1,9 @@
 import { BlurStrategy, ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit'
+import {
+  ImmersiveMaterialSettings,
+  ImmersiveMaterialEffect,
+} from '../settings/ImmersiveMaterialSettings'
+import { connectImmersiveMaterialSettings } from '../state/ImmersiveMaterialSettingsState'
 
 /**
  * IMMERSIVE system material when the device supports it, else ADAPTIVE — so a device that lacks the
@@ -30,9 +35,14 @@ export function immersiveMaterialType(): hdsMaterial.MaterialType {
  * pushed destinations) renders the same immersive backdrop.
  */
 export function immersiveTitleBarOpts(content: Record<string, Object>): Record<string, Object> {
+  // Drive the title-bar material from the user's 沉浸光感材质 choice (falls back to ADAPTIVE on devices
+  // without IMMERSIVE support, i.e. the previous behaviour).
+  const eff: ImmersiveMaterialEffect = ImmersiveMaterialSettings.effect(
+    connectImmersiveMaterialSettings().level,
+  )
   const mat: Record<string, Object> = {
-    'materialType': immersiveMaterialType(),
-    'materialLevel': hdsMaterial.MaterialLevel.ADAPTIVE,
+    'materialType': eff.materialType,
+    'materialLevel': eff.materialLevel,
   }
   const scrollOpts: Record<string, Object> = {
     'enableScrollEffect': true,

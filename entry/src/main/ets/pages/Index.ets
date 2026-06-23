@@ -35,7 +35,9 @@ import {
   SELECTOR_BAR_HEIGHT,
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
   immersiveTitleBarOpts,
-  immersiveMaterialType,
+  ImmersiveMaterialSettings,
+  ImmersiveMaterialSettingsState,
+  connectImmersiveMaterialSettings,
   InternalQaRoutes,
   RootRefreshRegistry,
 } from 'shared'
@@ -119,6 +121,7 @@ struct Index {
   // Mirrors HomeSourceBar gating 订阅 on isLogin.
   @Local auth: AuthState = connectAuth();
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
+  @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   @Local currentTab: number = 0;
   private lastHandledSignal: string = '';
   private lastHandledQuery: string = '';
@@ -661,8 +664,9 @@ struct Index {
         barBottomMargin: ThemeConstants.SPACE_XL,
         adaptToHandedness: true,
         systemMaterialEffect: {
-          materialType: immersiveMaterialType(),
-          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE,
+          materialType: ImmersiveMaterialSettings.effect(this.immersiveMaterial.level).materialType,
+          materialLevel: ImmersiveMaterialSettings.effect(this.immersiveMaterial.level)
+            .materialLevel,
         },
       })
       .onAppear(() => {
