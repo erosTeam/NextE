@@ -6,8 +6,11 @@ import {
   TagGroup,
   SimpleTag,
   EhUsertag,
+  EhMytags,
+  EhMytagSet,
   EhConstants,
   GroupedListSection,
+  ConciseListRow,
   AppModalScaffold,
   AppColorPicker,
   UserTagStore,
@@ -17,12 +20,14 @@ import {
   connectTagTranslationSettings,
   TagTranslationService,
   TagTranslationInfo,
+  MyTagsTargetService,
+  MyTagsTargetResolveResult,
+  EhApiService,
   EhApiPhpService,
   TagGalleryResult,
   EhErrorText,
+  AppStrings,
   DiagnosticLogger,
-  MyTagsPageParams,
-  connectNavStack,
   connectSiteMode,
   connectSearchAction,
 } from 'shared'
@@ -32,6 +37,10 @@ const HAPTIC_FALLBACK_DURATION: number = 30
 const TAG_INFO_ACTION_SIZE: number = 32
 const TAG_INFO_SMALL_IMAGE_MAX_W: number = 240
 const TAG_INFO_IMAGE_PLACEHOLDER_H: number = 160
+const TAG_INFO_MANAGE_EPOCH_START: number = 0
+const TAG_INFO_MANAGE_EDIT: string = 'edit'
+const TAG_INFO_MANAGE_TAGSET: string = 'tagset'
+const TAG_INFO_MANAGE_ADD: string = 'add'
 
 class TagInfoLinkItem {
   label: string = ''
@@ -191,11 +200,29 @@ export struct GalleryTagsCard {
   @Local editTagId: string = '';
   @Local editTagTitle: string = '';
   @Local editTagDisplay: string = '';
+  @Local editTagRaw: string = '';
+  @Local editApiuid: string = '';
+  @Local editApikey: string = '';
   @Local editWatched: boolean = false;
   @Local editHidden: boolean = false;
   @Local editDefaultColor: boolean = true;
   @Local editColor: string = '';
   @Local editWeight: string = '';
+  @Local manageSheetKind: string = '';
+  @Local tagsetLoading: boolean = false;
+  @Local tagsetError: string = '';
+  @Local tagsetOptions: EhMytagSet[] = [];
+  @Local tagsetResolveEpoch: number = TAG_INFO_MANAGE_EPOCH_START;
+  @Local addSubmitting: boolean = false;
+  @Local addError: string = '';
+  @Local addTagset: string = '';
+  @Local addTagTitle: string = '';
+  @Local addTagDisplay: string = '';
+  @Local addWatched: boolean = true;
+  @Local addHidden: boolean = false;
+  @Local addDefaultColor: boolean = true;
+  @Local addColor: string = '';
+  @Local addWeight: string = '10';
   private editSourceTag: EhUsertag | null = null;
 
   // Member chip background: the user's own fill color for this tag, else neutral grey. Never namespace.
@@ -419,27 +446,163 @@ export struct GalleryTagsCard {
     if (tagKey.length === 0) {
       return
     }
-    const existing: EhUsertag | undefined = UserTagStore.getInstance().lookup(this.selectedNamespace, this.selectedTagText)
-    if (existing !== undefined && existing.tagId.length > 0) {
-      this.openEditUserTag(existing)
-      return
-    }
-    connectNavStack().stack.pushPathByName('MyTags', new MyTagsPageParams('', tagKey))
+    const epoch: number = this.tagsetResolveEpoch + 1
+    this.tagsetResolveEpoch = epoch
+    this.tagsetLoading = true
+    this.tagsetError = ''
+    this.tagsetOptions = []
+    this.editSheetShown = false
+    MyTagsTargetService.resolve(connectSiteMode().isEx, tagKey).then((result: MyTagsTargetResolveResult) => {
+      if (epoch !== this.tagsetResolveEpoch) {
+        return
+      }
+      this.tagsetLoading = false
+      if (result.found && result.tag !== null && result.tag.tagId.length > 0) {
+        this.openEditUserTag(result.tag, result.mytags)
+        return
+      }
+      if (result.tagsets.length <= 1) {
+        this.openAddUserTag(result.targetTag, result.tagsetId)
+        return
+      }
+      this.tagsetOptions = result.tagsets
+      this.manageSheetKind = TAG_INFO_MANAGE_TAGSET
+      this.editSheetShown = true
+    }).catch((err: Error) => {
+      if (epoch !== this.tagsetResolveEpoch) {
+        return
+      }
+      this.tagsetLoading = false
+      this.tagsetError = EhErrorText.forUser(err)
+      this.manageSheetKind = TAG_INFO_MANAGE_TAGSET
+      this.editSheetShown = true
+    })
   }
 
-  private openEditUserTag(t: EhUsertag): void {
+  private openAddUserTag(fullTag: string, tagset: string): void {
+    const infoName: string = this.currentInfoNameForFullTag(fullTag)
+    this.addSubmitting = false
+    this.addError = ''
+    this.addTagset = tagset
+    this.addTagTitle = fullTag
+    this.addTagDisplay = this.localizedFullTagDisplay(fullTag, infoName)
+    this.addWatched = true
+    this.addHidden = false
+    this.addDefaultColor = true
+    this.addColor = ''
+    this.addWeight = '10'
+    this.manageSheetKind = TAG_INFO_MANAGE_ADD
+    this.editSheetShown = true
+    this.loadAddTagTranslation(fullTag).then(() => {})
+  }
+
+  private async loadAddTagTranslation(fullTag: string): Promise<void> {
+    if (!this.tagTranslation.enabled) {
+      return
+    }
+    const translated: string = await TagTranslationService.translateFullTagAsync(this.ctx(), fullTag)
+    if (this.addTagTitle === fullTag && translated.length > 0) {
+      const infoName: string = this.currentInfoNameForFullTag(fullTag)
+      this.addTagDisplay = this.localizedFullTagDisplay(fullTag, infoName.length > 0 ? infoName : translated)
+    }
+  }
+
+  private openEditUserTag(t: EhUsertag, mytags: EhMytags): void {
     this.editSourceTag = t
     this.editSubmitting = false
     this.editError = ''
     this.editTagId = t.tagId
     this.editTagTitle = t.tag
-    this.editTagDisplay = t.translate.length > 0 && this.tagTranslation.enabled ? t.translate : (t.display.length > 0 ? t.display : t.tag)
+    this.editTagRaw = t.tag
+    this.editApiuid = mytags.apiuid.length > 0 ? mytags.apiuid : this.gallery.apiuid
+    this.editApikey = mytags.apikey.length > 0 ? mytags.apikey : this.gallery.apikey
+    this.editTagDisplay = this.editTitleForUserTag(t)
     this.editWatched = t.watched
     this.editHidden = t.hidden
     this.editDefaultColor = t.defaultColor
     this.editColor = t.defaultColor ? '' : (t.colorCode.length > 0 ? t.colorCode : t.color)
     this.editWeight = t.tagWeight.length > 0 ? t.tagWeight : `${t.weight}`
+    this.manageSheetKind = TAG_INFO_MANAGE_EDIT
     this.editSheetShown = true
+    this.loadEditTagTranslation(t.tag).then(() => {})
+  }
+
+  private editTitleForUserTag(t: EhUsertag): string {
+    const infoName: string = this.currentInfoNameForFullTag(t.tag)
+    if (infoName.length > 0) {
+      return this.localizedFullTagDisplay(t.tag, infoName)
+    }
+    if (this.tagTranslation.enabled && t.translate.length > 0 && t.translate !== t.tag && t.translate !== t.display) {
+      return this.localizedFullTagDisplay(t.tag, t.translate)
+    }
+    return this.localizedFullTagDisplay(t.tag, '')
+  }
+
+  private async loadEditTagTranslation(fullTag: string): Promise<void> {
+    if (!this.tagTranslation.enabled) {
+      return
+    }
+    const translated: string = await TagTranslationService.translateFullTagAsync(this.ctx(), fullTag)
+    if (this.editTagTitle === fullTag && translated.length > 0) {
+      const infoName: string = this.currentInfoNameForFullTag(fullTag)
+      this.editTagDisplay = this.localizedFullTagDisplay(fullTag, infoName.length > 0 ? infoName : translated)
+    }
+  }
+
+  private currentInfoNameForFullTag(fullTag: string): string {
+    const name: string = this.infoName.trim()
+    if (name.length === 0) {
+      return ''
+    }
+    const selected: string = MyTagsTargetService.normalizeFullTag(this.selectedTagKey())
+    const target: string = MyTagsTargetService.normalizeFullTag(fullTag)
+    return selected.length > 0 && selected === target ? name : ''
+  }
+
+  private localizedFullTagDisplay(fullTag: string, localized: string): string {
+    const idx: number = fullTag.indexOf(':')
+    const namespace: string = idx > 0 ? fullTag.substring(0, idx) : this.selectedNamespace
+    const key: string = idx > 0 ? fullTag.substring(idx + 1) : fullTag
+    const text: string = localized.trim().length > 0 ? localized.trim() : key
+    const label: string = this.localizedNamespaceLabel(namespace)
+    return label.length > 0 ? `${label}:${text}` : text
+  }
+
+  private localizedNamespaceLabel(namespace: string): string {
+    switch (EhConstants.expandNamespace(namespace)) {
+      case 'artist':
+        return AppStrings.get('tag_ns_artist')
+      case 'female':
+        return AppStrings.get('tag_ns_female')
+      case 'male':
+        return AppStrings.get('tag_ns_male')
+      case 'parody':
+        return AppStrings.get('tag_ns_parody')
+      case 'character':
+        return AppStrings.get('tag_ns_character')
+      case 'group':
+        return AppStrings.get('tag_ns_group')
+      case 'language':
+        return AppStrings.get('tag_ns_language')
+      case 'reclass':
+        return AppStrings.get('tag_ns_reclass')
+      case 'cosplayer':
+        return AppStrings.get('tag_ns_cosplayer')
+      case 'misc':
+        return AppStrings.get('tag_ns_misc')
+      case 'mixed':
+        return AppStrings.get('tag_ns_mixed')
+      case 'location':
+        return AppStrings.get('tag_ns_location')
+      case 'other':
+        return AppStrings.get('tag_ns_other')
+      case 'uploader':
+        return AppStrings.get('tag_ns_uploader')
+      case 'temp':
+        return AppStrings.get('tag_ns_temp')
+      default:
+        return EhConstants.expandNamespace(namespace)
+    }
   }
 
   private normalizedEditColor(): string {
@@ -455,9 +618,13 @@ export struct GalleryTagsCard {
 
   private canSubmitEdit(): boolean {
     return this.editTagId.length > 0 &&
-      this.gallery.apikey.length > 0 &&
-      this.gallery.apiuid.length > 0 &&
+      this.editApikey.length > 0 &&
+      this.editApiuid.length > 0 &&
       !this.editSubmitting
+  }
+
+  private canSubmitAdd(): boolean {
+    return this.addTagTitle.length > 0 && this.addTagset.length > 0 && !this.addSubmitting
   }
 
   private confirmSubmitEdit(): void {
@@ -486,8 +653,8 @@ export struct GalleryTagsCard {
     try {
       await EhApiPhpService.setUserTag(
         EhConstants.baseUrl(connectSiteMode().isEx),
-        this.gallery.apikey,
-        this.gallery.apiuid,
+        this.editApikey,
+        this.editApiuid,
         this.editTagId,
         this.editWatched,
         this.editHidden,
@@ -503,6 +670,70 @@ export struct GalleryTagsCard {
       DiagnosticLogger.warn('gallery', 'tag_info_mytag_save_failed', e.message)
     }
     this.editSubmitting = false
+  }
+
+  private confirmSubmitAdd(): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.mytags_add_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.mytags_add'),
+        action: () => {
+          this.submitAdd()
+        },
+      },
+    })
+  }
+
+  private async submitAdd(): Promise<void> {
+    if (!this.canSubmitAdd()) {
+      return
+    }
+    this.addSubmitting = true
+    this.addError = ''
+    try {
+      await EhApiService.getInstance().addUserTag({
+        isEx: connectSiteMode().isEx,
+        tagName: this.addTagTitle,
+        tagset: this.addTagset,
+        color: this.normalizedAddColor(),
+        weight: this.addWeight,
+        watched: this.addWatched,
+        hidden: this.addHidden,
+      })
+      const refreshed: EhMytags = await EhApiService.getInstance().getMyTags(connectSiteMode().isEx, this.addTagset)
+      UserTagStore.getInstance().setTags(refreshed.tags)
+      this.tagSig.version = this.tagSig.version + 1
+      this.editSheetShown = false
+      this.showToast($r('app.string.mytags_add_success'))
+    } catch (err) {
+      const e = err as Error
+      this.addError = e.message
+      DiagnosticLogger.warn('gallery', 'tag_info_mytag_add_failed', e.message)
+    }
+    this.addSubmitting = false
+  }
+
+  private normalizedAddColor(): string {
+    if (this.addDefaultColor) {
+      return ''
+    }
+    const c: string = this.addColor.trim()
+    if (c.length === 0) {
+      return ''
+    }
+    return c.startsWith('#') ? c : `#${c}`
+  }
+
+  private chooseTagsetForAdd(tagsetId: string): void {
+    const tagKey: string = MyTagsTargetService.normalizeFullTag(this.selectedTagKey())
+    if (tagKey.length === 0 || tagsetId.length === 0) {
+      return
+    }
+    this.openAddUserTag(tagKey, tagsetId)
   }
 
   private applyEditedUserTag(color: string): void {
@@ -692,10 +923,7 @@ export struct GalleryTagsCard {
                 this.confirmTagVote(-1)
               })
           }
-          this.TagInfoActionButton($r('sys.symbol.bookmark'), $r('app.string.tag_info_manage_short'),
-            this.submittingTagKey.length === 0, () => {
-              this.openMyTagsForSelectedTag()
-            })
+          this.TagInfoManageActionButton(this.submittingTagKey.length === 0)
         }
         .flexShrink(0)
       }
@@ -718,6 +946,26 @@ export struct GalleryTagsCard {
     .enabled(enabled)
     .accessibilityText(label)
     .onClick(action)
+  }
+
+  @Builder
+  private TagInfoManageActionButton(enabled: boolean) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph($r('sys.symbol.bookmark'))
+        .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+        .fontColor([$r('sys.color.font_secondary')])
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .width(TAG_INFO_ACTION_SIZE)
+    .height(TAG_INFO_ACTION_SIZE)
+    .enabled(enabled)
+    .accessibilityText($r('app.string.tag_info_manage_short'))
+    .onClick(() => {
+      this.openMyTagsForSelectedTag()
+    })
+    .bindSheet($$this.editSheetShown, this.ManageUserTagSheet(), {
+      showClose: false,
+    })
   }
 
   @Builder
@@ -784,6 +1032,83 @@ export struct GalleryTagsCard {
   }
 
   @Builder
+  private MyTagTitleBlock(title: string, raw: string) {
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      Text(title.length > 0 ? title : raw)
+        .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+      if (raw.length > 0 && raw !== title) {
+        Text(raw)
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+      }
+    }
+    .width('100%')
+  }
+
+  @Builder
+  private TagsetSelectSheet() {
+    AppModalScaffold({
+      title: $r('app.string.tag_info_select_tagset_title'),
+      showConfirmAction: false,
+      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+      closeAction: () => {
+        this.editSheetShown = false
+      },
+    }) {
+      if (this.tagsetLoading) {
+        ListItem() {
+          Text($r('app.string.common_loading'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor($r('sys.color.font_secondary'))
+            .width('100%')
+        }
+      } else if (this.tagsetError.length > 0) {
+        ListItem() {
+          Text(this.tagsetError)
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor(Color.Red)
+            .width('100%')
+        }
+      } else {
+        ListItem() {
+          GroupedListSection() {
+            ForEach(this.tagsetOptions, (tagset: EhMytagSet, index: number) => {
+              ConciseListRow({
+                title: tagset.name,
+                trailingText: `${tagset.count}`,
+                trailingDropdown: false,
+                showChevron: true,
+                action: () => {
+                  this.chooseTagsetForAdd(tagset.tagsetId)
+                },
+              })
+              if (index < this.tagsetOptions.length - 1) {
+                this.TagsetRowDivider()
+              }
+            }, (tagset: EhMytagSet) => tagset.tagsetId)
+          }
+        }
+      }
+    }
+  }
+
+  @Builder
+  private TagsetRowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
+  }
+
+  @Builder
   private EditUserTagSheet() {
     AppModalScaffold({
       title: $r('app.string.mytags_edit_title'),
@@ -801,13 +1126,7 @@ export struct GalleryTagsCard {
     }) {
       ListItem() {
         Column({ space: ThemeConstants.SPACE_MD }) {
-          Text(this.editTagDisplay.length > 0 ? this.editTagDisplay : this.editTagTitle)
-            .fontSize(ThemeConstants.FONT_SIZE_HEADING)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
+          this.MyTagTitleBlock(this.editTagDisplay, this.editTagRaw.length > 0 ? this.editTagRaw : this.editTagTitle)
           this.DraftSwitchRow($r('app.string.mytags_watch'), this.editWatched, this.editSubmitting, (value: boolean) => {
             this.editWatched = value
             if (value) {
@@ -865,6 +1184,92 @@ export struct GalleryTagsCard {
   }
 
   @Builder
+  private AddUserTagSheet() {
+    AppModalScaffold({
+      title: $r('app.string.mytags_add_title'),
+      includeKeyboardPadding: true,
+      contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
+      confirmText: $r('app.string.mytags_add'),
+      confirmEnabled: this.canSubmitAdd(),
+      confirmLoading: this.addSubmitting,
+      closeAction: () => {
+        this.editSheetShown = false
+      },
+      confirmAction: () => {
+        this.confirmSubmitAdd()
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          this.MyTagTitleBlock(this.addTagDisplay, this.addTagTitle)
+          this.DraftSwitchRow($r('app.string.mytags_watch'), this.addWatched, this.addSubmitting, (value: boolean) => {
+            this.addWatched = value
+            if (value) {
+              this.addHidden = false
+            }
+          })
+          this.DraftSwitchRow($r('app.string.mytags_hide'), this.addHidden, this.addSubmitting, (value: boolean) => {
+            this.addHidden = value
+            if (value) {
+              this.addWatched = false
+            }
+          })
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            Text($r('app.string.mytags_weight'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .width('100%')
+            TextInput({ text: this.addWeight, placeholder: '10' })
+              .width('100%')
+              .height(48)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .backgroundColor($r('app.color.card_background'))
+              .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+              .enabled(!this.addSubmitting)
+              .type(InputType.Normal)
+              .onChange((value: string) => {
+                this.addWeight = value
+              })
+          }
+          .width('100%')
+          this.DraftSwitchRow($r('app.string.mytags_default_color'), this.addDefaultColor, this.addSubmitting, (value: boolean) => {
+            this.addDefaultColor = value
+          })
+          if (!this.addDefaultColor) {
+            AppColorPicker({
+              title: $r('app.string.mytags_color'),
+              color: this.addColor,
+              disabled: this.addSubmitting,
+              colorChange: (value: string) => {
+                this.addColor = value
+              },
+            })
+          }
+          if (this.addError.length > 0) {
+            Text(this.addError)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor(Color.Red)
+              .width('100%')
+          }
+        }
+        .width('100%')
+      }
+    }
+  }
+
+  @Builder
+  private ManageUserTagSheet() {
+    if (this.manageSheetKind === TAG_INFO_MANAGE_EDIT) {
+      this.EditUserTagSheet()
+    } else if (this.manageSheetKind === TAG_INFO_MANAGE_ADD) {
+      this.AddUserTagSheet()
+    } else if (this.manageSheetKind === TAG_INFO_MANAGE_TAGSET) {
+      this.TagsetSelectSheet()
+    }
+  }
+
+  @Builder
   private TagInfoSheet() {
     Column() {
       AppModalScaffold({
@@ -881,10 +1286,6 @@ export struct GalleryTagsCard {
         this.TagInfoBody()
       }
     }
-    .bindSheet($$this.editSheetShown, this.EditUserTagSheet(), {
-      detents: [SheetSize.LARGE],
-      showClose: false,
-    })
   }
 
   build() {

@@ -9,6 +9,7 @@
  * Run: node scripts/test_ui_quality_grounding_contract.mjs
  */
 import assert from 'node:assert'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -18,6 +19,42 @@ let passed = 0
 const ok = (name, cond) => {
   assert.ok(cond, name)
   passed++
+}
+
+const guide = read('docs/agent-guides/always-loaded-rules.md')
+const groundingDoc = read('docs/plans/active/ui-grounding.md')
+const changed = execFileSync('git', ['diff', '--name-only', 'HEAD'], {
+  cwd: ROOT,
+  encoding: 'utf8',
+}).trim().split('\n').filter(Boolean)
+const untracked = execFileSync('git', ['ls-files', '--others', '--exclude-standard'], {
+  cwd: ROOT,
+  encoding: 'utf8',
+}).trim().split('\n').filter(Boolean)
+const touched = [...changed, ...untracked]
+const uiChanged = touched.filter((file) => /^(entry|feature|shared)\/src\/main\/ets\/.+\.ets$/.test(file))
+const groundingChanged = touched.includes('docs/plans/active/ui-grounding.md')
+
+ok('always-loaded rules require grounding before sheet/settings UI changes',
+  /涉及半模态、设置页、管理页、选择列表、确认 \/ 编辑面板时[\s\S]*写代码前必须先找项目内同类实现并说明复用关系/.test(guide))
+ok('always-loaded rules reject visual guesses as layout parameters',
+  /不要把视觉猜测写成布局参数/.test(guide))
+ok('always-loaded rules name the executable UI grounding contract',
+  /node scripts\/test_ui_quality_grounding_contract\.mjs/.test(guide))
+
+if (uiChanged.length > 0) {
+  ok('UI changes update the active grounding ledger', groundingChanged)
+}
+for (const label of [
+  'Status',
+  'Reference implementation',
+  'Surface type',
+  'Primary information',
+  'Primary action',
+  'Reuse or deviation',
+  'Verification',
+]) {
+  ok(`active UI grounding has ${label}`, new RegExp(`^${label}:\\s+\\S`, 'm').test(groundingDoc))
 }
 
 const torrent = read('feature/gallery/src/main/ets/pages/GalleryTorrentsPage.ets')

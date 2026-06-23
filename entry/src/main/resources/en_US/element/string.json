@@ -645,6 +645,10 @@
       "value": "Manage"
     },
     {
+      "name": "tag_info_select_tagset_title",
+      "value": "Choose tagset"
+    },
+    {
       "name": "detail_add_local_favorite",
       "value": "Add"
     },

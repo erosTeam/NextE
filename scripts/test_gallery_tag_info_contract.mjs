@@ -19,6 +19,7 @@ const tagSettings = read('shared/src/main/ets/settings/TagTranslationSettings.et
 const tagSettingsPage = read('feature/settings/src/main/ets/pages/TagTranslationSettingsPage.ets')
 const routeParams = read('shared/src/main/ets/model/RouteParams.ets')
 const mytagsPage = read('feature/user/src/main/ets/pages/MyTagsPage.ets')
+const mytagsTargetService = read('shared/src/main/ets/services/MyTagsTargetService.ets')
 const resources = [
   'entry/src/main/resources/base/element/string.json',
   'entry/src/main/resources/zh_CN/element/string.json',
@@ -91,26 +92,49 @@ ok(
   'tag-info voting must use taggallery and repaint the detail tag vote color locally',
 )
 ok(
-  /const existing: EhUsertag \| undefined = UserTagStore\.getInstance\(\)\.lookup\(this\.selectedNamespace, this\.selectedTagText\)/.test(tagsCard) &&
-    /existing !== undefined && existing\.tagId\.length > 0[\s\S]*this\.openEditUserTag\(existing\)/.test(tagsCard) &&
+  /MyTagsTargetService\.resolve\(connectSiteMode\(\)\.isEx, tagKey\)/.test(tagsCard) &&
+    /result\.found && result\.tag !== null && result\.tag\.tagId\.length > 0[\s\S]*this\.openEditUserTag\(result\.tag, result\.mytags\)/.test(tagsCard) &&
+    /result\.tagsets\.length <= 1[\s\S]*this\.openAddUserTag\(result\.targetTag, result\.tagsetId\)/.test(tagsCard) &&
+    /this\.tagsetOptions = result\.tagsets/.test(tagsCard) &&
     /this\.editSheetShown = true/.test(tagsCard) &&
-    !/this\.tagInfoShown = false[\s\S]*connectNavStack\(\)\.stack\.pushPathByName\('MyTags'/.test(tagsCard) &&
-    /new MyTagsPageParams\('', tagKey\)/.test(tagsCard) &&
+    /private TagsetSelectSheet\(\)[\s\S]*tag_info_select_tagset_title[\s\S]*this\.chooseTagsetForAdd\(tagset\.tagsetId\)/.test(tagsCard) &&
+    /private AddUserTagSheet\(\)[\s\S]*mytags_add_title[\s\S]*this\.confirmSubmitAdd\(\)/.test(tagsCard) &&
+    !/new MyTagsPageParams\('', tagKey\)/.test(tagsCard) &&
     /targetTag: string = ''/.test(routeParams) &&
-    /openTargetTagAfterLoad\(epoch\)/.test(mytagsPage),
-  'Manage My Tag must edit an already-loaded usertag in a stacked sheet and only route to MyTags as fallback',
+    /openTargetTagAfterLoad\(epoch\)/.test(mytagsPage) &&
+    /export class MyTagsTargetService/.test(mytagsTargetService) &&
+    /static async resolve\(isEx: boolean, fullTag: string\)/.test(mytagsTargetService) &&
+    /getMyTags\(isEx, ''\)/.test(mytagsTargetService) &&
+    /for \(let i = 0; i < root\.tagSets\.length; i\+\+\)[\s\S]*getMyTags\(isEx, tagset\.tagsetId\)/.test(mytagsTargetService),
+  'Manage My Tag must resolve target tag from real MyTags data and use stacked sheets instead of cache-driven routing',
 )
 ok(
   /private EditUserTagSheet\(\)[\s\S]*AppModalScaffold\(\{[\s\S]*mytags_edit_title[\s\S]*mytags_save/.test(tagsCard) &&
-    /EhApiPhpService\.setUserTag\([\s\S]*this\.gallery\.apikey[\s\S]*this\.gallery\.apiuid[\s\S]*this\.editTagId/.test(tagsCard) &&
-    /private TagInfoSheet\(\)[\s\S]*this\.TagInfoHeader\(\)[\s\S]*this\.TagInfoBody\(\)[\s\S]*\.bindSheet\(\$\$this\.editSheetShown, this\.EditUserTagSheet\(\)/.test(tagsCard),
-  'stacked tag edit sheet must be bound inside the tag-info sheet and save through setUserTag',
+    /this\.MyTagTitleBlock\(this\.editTagDisplay, this\.editTagRaw\.length > 0 \? this\.editTagRaw : this\.editTagTitle\)/.test(tagsCard) &&
+    /private currentInfoNameForFullTag\(fullTag: string\): string[\s\S]*this\.infoName\.trim\(\)[\s\S]*MyTagsTargetService\.normalizeFullTag\(this\.selectedTagKey\(\)\)[\s\S]*MyTagsTargetService\.normalizeFullTag\(fullTag\)/.test(tagsCard) &&
+    /private openAddUserTag\(fullTag: string, tagset: string\): void \{[\s\S]*const infoName: string = this\.currentInfoNameForFullTag\(fullTag\)[\s\S]*this\.addTagDisplay = this\.localizedFullTagDisplay\(fullTag, infoName\)/.test(tagsCard) &&
+    /private editTitleForUserTag\(t: EhUsertag\): string \{[\s\S]*const infoName: string = this\.currentInfoNameForFullTag\(t\.tag\)[\s\S]*return this\.localizedFullTagDisplay\(t\.tag, infoName\)/.test(tagsCard) &&
+    /EhApiPhpService\.setUserTag\([\s\S]*this\.editApikey[\s\S]*this\.editApiuid[\s\S]*this\.editTagId/.test(tagsCard) &&
+    /EhApiService\.getInstance\(\)\.addUserTag\([\s\S]*tagName: this\.addTagTitle[\s\S]*tagset: this\.addTagset/.test(tagsCard) &&
+    /private ManageUserTagSheet\(\)[\s\S]*TAG_INFO_MANAGE_EDIT[\s\S]*this\.EditUserTagSheet\(\)[\s\S]*TAG_INFO_MANAGE_ADD[\s\S]*this\.AddUserTagSheet\(\)[\s\S]*TAG_INFO_MANAGE_TAGSET[\s\S]*this\.TagsetSelectSheet\(\)/.test(tagsCard) &&
+    /private TagInfoManageActionButton\([\s\S]*this\.openMyTagsForSelectedTag\(\)[\s\S]*\.bindSheet\(\$\$this\.editSheetShown, this\.ManageUserTagSheet\(\)/.test(tagsCard) &&
+    !/manageSheetDetents|detentSelection|tagsetSheetShown/.test(tagsCard),
+  'stacked tag edit/add sheets must stay inside the tag-info sheet without dynamic height control',
 )
 ok(
-  /findLoadedTag\(targetTag\)[\s\S]*this\.openEditTag\(loaded\)/.test(mytagsPage) &&
-    /for \(let i = 0; i < rootMytags\.tagSets\.length; i\+\+\)[\s\S]*getMyTags\(connectSiteMode\(\)\.isEx, tagsetId\)[\s\S]*this\.openEditTag/.test(mytagsPage) &&
-    /this\.openAddTargetTag\(targetTag\)/.test(mytagsPage),
-  'MyTags target mode must edit an already-added tag directly and only prefill add when absent',
+  /ConciseListRow/.test(tagsCard) &&
+    /private TagsetSelectSheet\(\)[\s\S]*GroupedListSection\(\)[\s\S]*ConciseListRow\(\{[\s\S]*title: tagset\.name[\s\S]*trailingText: `\$\{tagset\.count\}`[\s\S]*showChevron: true[\s\S]*this\.chooseTagsetForAdd\(tagset\.tagsetId\)/.test(tagsCard) &&
+    /private TagsetRowDivider\(\)[\s\S]*ohos_id_color_list_separator/.test(tagsCard) &&
+    !/Text\(`\$\{tagset\.name\} \(\$\{tagset\.count\}\)`\)/.test(tagsCard) &&
+    !/private TagsetSelectSheet\(\)[\s\S]*SymbolGlyph\(\$r\('sys\.symbol\.chevron_right'\)\)/.test(tagsCard),
+  'tagset selection sheet must reuse settings-style list rows instead of hand-rolled row text',
+)
+ok(
+    /MyTagsTargetService\.resolve\(connectSiteMode\(\)\.isEx, targetTag\)/.test(mytagsPage) &&
+    /resolved\.found && resolved\.tag !== null[\s\S]*this\.openEditTag/.test(mytagsPage) &&
+    /MyTagsTargetService\.findLoadedTag\(this\.mytags, targetTag\)/.test(mytagsPage) &&
+    /this\.openAddTargetTag\(resolved\.targetTag\.length > 0 \? resolved\.targetTag : targetTag\)/.test(mytagsPage),
+  'MyTags target mode must share the same resolver as the detail tag-info manage flow',
 )
 
 for (const src of resources) {
@@ -120,6 +144,7 @@ for (const src of resources) {
     'tag_info_links',
     'tag_info_empty',
     'tag_info_manage_mytag',
+    'tag_info_select_tagset_title',
     'tag_translation_intro_image_level',
     'tag_translation_intro_image_disable',
     'tag_translation_intro_image_nonh',

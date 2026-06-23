@@ -30,6 +30,8 @@ import {
   MyTagsPageParams,
   connectNavStack,
   immersiveTitleBarOpts,
+  MyTagsTargetService,
+  MyTagsTargetResolveResult,
 } from 'shared'
 
 const MYTAGS_SHEET_EDIT: string = 'edit'
@@ -362,59 +364,33 @@ export struct MyTagsPage {
     this.loadAddTagTranslation(fullTag, epoch).then(() => {})
   }
 
-  private findLoadedTag(fullTag: string): EhUsertag | undefined {
-    const target: string = EhConstants.canonicalTagText(fullTag).toLowerCase().trim()
-    if (target.length === 0) {
-      return undefined
-    }
-    return this.mytags.tags.find((t: EhUsertag) => {
-      return EhConstants.canonicalTagText(t.tag).toLowerCase().trim() === target
-    })
-  }
-
   private async openTargetTagAfterLoad(epoch: number): Promise<void> {
     const targetTag: string = this.params.targetTag.trim()
     if (targetTag.length === 0) {
       return
     }
-    const loaded: EhUsertag | undefined = this.findLoadedTag(targetTag)
-    if (loaded !== undefined) {
+    const resolved: MyTagsTargetResolveResult = await MyTagsTargetService.resolve(connectSiteMode().isEx, targetTag)
+    if (epoch !== this.mytagsEpoch) {
+      return
+    }
+    this.mytags = resolved.mytags
+    this.showingTagsetList = resolved.tagsets.length > 1 && !resolved.found
+    if (resolved.found && resolved.tag !== null) {
+      this.params.tagsetId = resolved.tagsetId
       this.params.targetTag = ''
-      this.openEditTag(loaded)
+      if (this.tagTranslation.enabled) {
+        await this.translateLoadedMyTags(epoch)
+      }
+      this.publishUserTags()
+      const translatedFound: EhUsertag | undefined = MyTagsTargetService.findLoadedTag(this.mytags, targetTag)
+      this.openEditTag(translatedFound !== undefined ? translatedFound : resolved.tag)
       return
     }
     if (this.showingTagsetList) {
-      const rootMytags: EhMytags = this.mytags
-      for (let i = 0; i < rootMytags.tagSets.length; i++) {
-        const tagsetId: string = rootMytags.tagSets[i].tagsetId
-        if (tagsetId.length === 0) {
-          continue
-        }
-        const tagsetTags: EhMytags = await EhApiService.getInstance().getMyTags(connectSiteMode().isEx, tagsetId)
-        if (epoch !== this.mytagsEpoch) {
-          return
-        }
-        this.mytags = tagsetTags
-        const found: EhUsertag | undefined = this.findLoadedTag(targetTag)
-        if (found !== undefined) {
-          this.showingTagsetList = false
-          this.params.tagsetId = tagsetTags.currentTagset
-          this.params.targetTag = ''
-          if (this.tagTranslation.enabled) {
-            await this.translateLoadedMyTags(epoch)
-          }
-          this.publishUserTags()
-          const translatedFound: EhUsertag | undefined = this.findLoadedTag(targetTag)
-          this.openEditTag(translatedFound !== undefined ? translatedFound : found)
-          return
-        }
-      }
-      this.mytags = rootMytags
-      this.showingTagsetList = true
       return
     }
     this.params.targetTag = ''
-    this.openAddTargetTag(targetTag)
+    this.openAddTargetTag(resolved.targetTag.length > 0 ? resolved.targetTag : targetTag)
   }
 
   private normalizedEditColor(): string {

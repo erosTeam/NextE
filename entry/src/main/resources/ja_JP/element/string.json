@@ -645,6 +645,10 @@
       "value": "管理"
     },
     {
+      "name": "tag_info_select_tagset_title",
+      "value": "タグセットを選択"
+    },
+    {
       "name": "detail_add_local_favorite",
       "value": "追加"
     },
