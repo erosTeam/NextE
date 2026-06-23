@@ -213,6 +213,7 @@ export class AllThumbnailsParams {
   previewPageCount: number = 1
   title: string = ''
   firstPage: EhGalleryImage[] = []
+  initialImagePage: number = 0
 
   constructor(
     gid: string = '',
@@ -222,6 +223,7 @@ export class AllThumbnailsParams {
     previewPageCount: number = 1,
     title: string = '',
     firstPage: EhGalleryImage[] = [],
+    initialImagePage: number = 0,
   ) {
     this.gid = gid
     this.token = token
@@ -230,6 +232,7 @@ export class AllThumbnailsParams {
     this.previewPageCount = previewPageCount
     this.title = title
     this.firstPage = firstPage
+    this.initialImagePage = initialImagePage
   }
 }
 

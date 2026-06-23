@@ -30,12 +30,19 @@ export struct GalleryPreviewGrid {
   @Param horizontal: boolean = false;
   @Param hidden: boolean = false;
   @Event onOpen: (pageZeroBased: number) => void = (_p: number) => {};
-  @Event onMore: () => void = () => {};
+  @Event onMore: (initialImagePage: number) => void = (_initialImagePage: number) => {};
+
+  private lastImagePage(): number {
+    if (this.images.length === 0) {
+      return 0
+    }
+    return this.images[this.images.length - 1].page
+  }
 
   // Centered tappable entry into the all-thumbnails page (eros_fe MorePreviewButton). The label reflects
   // whether more pages remain, but the row always navigates.
   @Builder
-  moreButton() {
+  moreButton(initialImagePage: number) {
     Row({ space: ThemeConstants.SPACE_XS }) {
       Text(
         this.hasMore
@@ -52,7 +59,7 @@ export struct GalleryPreviewGrid {
     .justifyContent(FlexAlign.Center)
     .padding({ top: ThemeConstants.SPACE_MD, bottom: ThemeConstants.SPACE_SM })
     .onClick(() => {
-      this.onMore()
+      this.onMore(initialImagePage)
     })
   }
 
@@ -83,7 +90,7 @@ export struct GalleryPreviewGrid {
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
       if (entry) {
-        this.onMore()
+        this.onMore(0)
       }
     })
   }
@@ -163,7 +170,7 @@ export struct GalleryPreviewGrid {
           // Hidden-inline: no previews — the tappable header AND the button below both open all-thumbnails
           // (eros_fe hideGalleryThumbnails still offers a MorePreviewButton).
           this.sectionHeader(true)
-          this.moreButton()
+          this.moreButton(0)
         } else if (this.horizontal) {
           this.sectionHeader(true)
           this.horizontalRow()
@@ -171,7 +178,7 @@ export struct GalleryPreviewGrid {
           // Default GRID: tappable header entry + inline first-page peek + the button below.
           this.sectionHeader(true)
           this.gridPeek()
-          this.moreButton()
+          this.moreButton(this.lastImagePage())
         }
       }
       .width('100%')

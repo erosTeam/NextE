@@ -41,7 +41,7 @@ ok('detail title refresh reports failure without clearing current content',
   /refreshFromTitle[\s\S]*openToast\(\{[\s\S]*message: \$r\('app\.string\.common_refresh_failed'\)/.test(page) &&
   !/refreshFromTitle[\s\S]*this\.vm\.images\s*=\s*\[\]/.test(page))
 ok('detail title menu keeps favorite/share inline priority and refresh in the HDS overflow set',
-  /const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},\s*\{ 'content': refreshInner \},/.test(page) &&
+  /const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},\s*\{ 'content': commentsInner \},\s*\{ 'content': refreshInner \},/.test(page) &&
   /return \{ 'value': items, 'maxCount': 3 \}/.test(page) &&
   !/tagGallery|setusertag|addTag\(/.test(page))
 ok('detail title reveal still uses onDidScroll', /onDidScroll:\s*\(offset: number\)/.test(page) && /this\.showNavTitle = past/.test(page))

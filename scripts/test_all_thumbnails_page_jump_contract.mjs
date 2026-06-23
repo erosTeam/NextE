@@ -97,6 +97,9 @@ ok('VM keeps contiguous loadedPages only as first-page/reader seed count, not as
   !/this\.loadedPages/.test(loadNextSrc))
 
 const pageSrc = read('feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets')
+const paramsSrc = read('shared/src/main/ets/model/RouteParams.ets')
+const detailSrc = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
+const previewGridSrc = read('feature/gallery/src/main/ets/components/GalleryPreviewGrid.ets')
 ok('AllThumbnails title bar includes a jump menu', /'menu': this\.jumpMenu\(\)/.test(pageSrc))
 ok('Jump menu includes first-page and jump title actions',
   /const items: Record<string, Object>\[\] = \[\s*\{ 'content': firstInner \},\s*\{ 'content': jumpInner \},\s*\][\s\S]*return \{ 'value': items, 'maxCount': 2 \}/.test(pageSrc))
@@ -117,6 +120,26 @@ ok('Jump sheet uses numeric TextInput', /TextInput\(\{ text: this\.jumpPageText[
 ok('Jump validates against fileCount when known', /const maxPage: number = this\.maxImagePage\(\)[\s\S]*page > maxPage/.test(pageSrc))
 ok('Jump asks VM to load the containing preview page directly', /await this\.vm\.loadImagePage\(page\)/.test(pageSrc))
 ok('Jump scrolls the Grid to the target visible index', /const targetIndex: number = this\.vm\.visibleIndexForImagePage\(page\)[\s\S]*this\.scroller\.scrollToIndex\(targetIndex\)/.test(pageSrc))
+ok('AllThumbnails route params carry an optional initial image page',
+  /initialImagePage: number = 0/.test(paramsSrc) &&
+  /firstPage: EhGalleryImage\[\] = \[\],[\s\S]*initialImagePage: number = 0/.test(paramsSrc) &&
+  /this\.initialImagePage = initialImagePage/.test(paramsSrc))
+ok('AllThumbnails positions once from the optional initial image page',
+  /private positionInitialImagePage\(\): void \{[\s\S]*const page: number = this\.params\.initialImagePage[\s\S]*this\.scrollToImagePage\(page\)/.test(pageSrc) &&
+  /this\.vm\.seed\(p\)[\s\S]*this\.positionInitialImagePage\(\)/.test(pageSrc))
+ok('AllThumbnails can load the target page before initial positioning if it was not seeded',
+  /this\.vm\.loadImagePage\(page\)\.then\(\(loaded: boolean\) => \{[\s\S]*this\.scrollToImagePage\(page\)/.test(pageSrc))
+ok('Detail passes the optional initial image page into AllThumbnailsParams',
+  /private openThumbnails\(initialImagePage: number = 0\): void/.test(detailSrc) &&
+  /new AllThumbnailsParams\([\s\S]*this\.vm\.images,[\s\S]*initialImagePage,/.test(detailSrc) &&
+  /onMore: \(initialImagePage: number\) => \{[\s\S]*this\.openThumbnails\(initialImagePage\)/.test(detailSrc))
+ok('Preview header and hidden entry still open all thumbnails from the beginning',
+  /this\.onMore\(0\)/.test(previewGridSrc) &&
+  /this\.moreButton\(0\)/.test(previewGridSrc))
+ok('Only the bottom grid entry asks AllThumbnails to start at the last visible preview image',
+  /private lastImagePage\(\): number/.test(previewGridSrc) &&
+  /this\.moreButton\(this\.lastImagePage\(\)\)/.test(previewGridSrc) &&
+  /this\.onMore\(initialImagePage\)/.test(previewGridSrc))
 ok('AllThumbnails keeps Reader seed params intact', /this\.vm\.loadedImages\(\)[\s\S]*this\.vm\.loadedPreviewPages\(\)[\s\S]*this\.vm\.seedPerPage\(\)[\s\S]*this\.vm\.loadedPreviewPageNumbers\(\)/.test(pageSrc))
 ok('AllThumbnails uses immersive title bar options for menu support', /immersiveTitleBarOpts/.test(pageSrc))
 

@@ -1,4 +1,4 @@
-import { HdsNavDestination } from '@kit.UIDesignKit'
+import { HdsNavDestination, HdsTabsController } from '@kit.UIDesignKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { common, Want } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
@@ -62,6 +62,10 @@ import {
   ActionFollowTouchTracker,
   ActionFollowTouchState,
   ActionFollowTouchUpdate,
+  HdsCapsuleBarButton,
+  ReadButtonStyleSettings,
+  ReadButtonStyleState,
+  connectReadButtonStyle,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { GalleryHeaderCard } from '../components/GalleryHeaderCard'
@@ -120,6 +124,7 @@ export struct GalleryDetailPage {
   @Local readFabWidth: number = 0;
   @Local readFabLayoutReady: boolean = false;
   @Local readFabShouldAnimate: boolean = false;
+  @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
   private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
   @Local detailSheetShown: boolean = false;
   @Local detailSheetKind: string = '';
@@ -133,6 +138,7 @@ export struct GalleryDetailPage {
   @Local ratingSubmitting: boolean = false;
   @Local ratingError: string = '';
   private stack: NavPathStack = connectNavStack().stack;
+  private readFabMaterialController: HdsTabsController = new HdsTabsController();
 
   // Smooth-slide the Read FAB when the resolved edge changes. FlexAlign can't tween, so the button carries
   // .animation() on its translate and we only flip the target edge here (mirrors V2Next's edge @Monitor).
@@ -142,14 +148,47 @@ export struct GalleryDetailPage {
     this.visualActionEdge = this.actionEdge.edge
   }
 
+  @Monitor('readButtonStyle.style')
+  private onReadButtonStyleChanged(): void {
+    this.readFabWidth = 0
+    this.readFabLayoutReady = false
+    this.readFabShouldAnimate = false
+  }
+
   // Continuous X for the Read FAB inside the padded full-width rail: left edge = 0 (Start), right edge =
   // inner width − button width. Interpolated by the button's .animation().
   private readFabVisualX(): number {
     if (this.visualActionEdge === 'left') {
       return 0
     }
-    const inner: number = this.detailRootWidth - ThemeConstants.SPACE_LG * 2
+    const inner: number = this.detailRootWidth - this.readFabRailSideInset() * 2
     return Math.max(0, inner - this.readFabWidth)
+  }
+
+  private readFabUsesHdsMaterial(): boolean {
+    return this.readButtonStyle.style === ReadButtonStyleSettings.STYLE_HDS
+  }
+
+  private readFabRailSideInset(): number {
+    return this.readFabUsesHdsMaterial() ? 0 : ThemeConstants.SPACE_LG
+  }
+
+  private readFabRailBottomInset(): number {
+    return this.readFabUsesHdsMaterial() ? 0 : ThemeConstants.SPACE_LG
+  }
+
+  private readFabOuterHeight(): number {
+    return this.readFabUsesHdsMaterial()
+      ? ThemeConstants.BUTTON_HEIGHT + ThemeConstants.SPACE_LG * 2
+      : ThemeConstants.BUTTON_HEIGHT
+  }
+
+  private readFabMaterialBarWidth(): number {
+    const index: number = this.resumeIndex()
+    if (index <= 0) {
+      return 86
+    }
+    return Math.min(172, 104 + (index + 1).toString().length * 8)
   }
 
   private readFabAnimationDuration(): number {
@@ -533,7 +572,7 @@ export struct GalleryDetailPage {
       })
   }
 
-  private openThumbnails(): void {
+  private openThumbnails(initialImagePage: number = 0): void {
     this.stack.pushPathByName(
       'AllThumbnails',
       new AllThumbnailsParams(
@@ -544,6 +583,7 @@ export struct GalleryDetailPage {
         this.vm.previewPageCount,
         this.navTitle(),
         this.vm.images,
+        initialImagePage,
       ),
     )
   }
@@ -1197,6 +1237,72 @@ export struct GalleryDetailPage {
     }
   }
 
+  @Builder
+  private ReadFabFilledButton() {
+    Button({ type: ButtonType.Capsule }) {
+      Row({ space: ThemeConstants.SPACE_SM }) {
+        SymbolGlyph($r('sys.symbol.doc_plaintext'))
+          .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+          .fontColor([ThemeConstants.TEXT_ON_BRAND])
+        Text(this.readFabLabel())
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(ThemeConstants.TEXT_ON_BRAND)
+      }
+      .padding({ left: ThemeConstants.SPACE_LG, right: ThemeConstants.SPACE_LG })
+      .height(ThemeConstants.BUTTON_HEIGHT)
+      .alignItems(VerticalAlign.Center)
+    }
+    .height(ThemeConstants.BUTTON_HEIGHT)
+    // Capsule buttons default to the SYSTEM brand color; set the theme accent explicitly so the Read
+    // FAB follows the user's theme color instead of staying system-blue.
+    .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+    .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+    .onClick(() => {
+      this.openReader(this.resumeIndex())
+    })
+  }
+
+  @Builder
+  private ReadFabHdsButton() {
+    HdsCapsuleBarButton({
+      controller: this.readFabMaterialController,
+      barWidth: this.readFabMaterialBarWidth(),
+      barHeight: ThemeConstants.BUTTON_HEIGHT,
+      activityPadding: ThemeConstants.SPACE_LG,
+      barBottomMargin: ThemeConstants.SPACE_LG,
+      onButtonClick: () => {
+        this.openReader(this.resumeIndex())
+      },
+    }) {
+      Row({ space: ThemeConstants.SPACE_SM }) {
+        SymbolGlyph($r('sys.symbol.doc_plaintext_fill'))
+          .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+          .fontColor([ThemeConstants.BRAND_PRIMARY])
+        Text(this.readFabLabel())
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(ThemeConstants.BRAND_PRIMARY)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .width('100%')
+      .height(ThemeConstants.BUTTON_HEIGHT)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+      .translate({ y: -ThemeConstants.SPACE_XS })
+    }
+  }
+
+  @Builder
+  private ReadFabButton() {
+    if (this.readFabUsesHdsMaterial()) {
+      this.ReadFabHdsButton()
+    } else {
+      this.ReadFabFilledButton()
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Stack() {
@@ -1278,8 +1384,8 @@ export struct GalleryDetailPage {
                 onOpen: (page0: number) => {
                   this.openReader(page0)
                 },
-                onMore: () => {
-                  this.openThumbnails()
+                onMore: (initialImagePage: number) => {
+                  this.openThumbnails(initialImagePage)
                 },
               })
             }
@@ -1308,25 +1414,10 @@ export struct GalleryDetailPage {
           }
         }
         Row() {
-          Button({ type: ButtonType.Capsule }) {
-            Row({ space: ThemeConstants.SPACE_SM }) {
-              SymbolGlyph($r('sys.symbol.doc_plaintext'))
-                .fontSize(ThemeConstants.FONT_SIZE_HEADING)
-                .fontColor([ThemeConstants.TEXT_ON_BRAND])
-              Text(this.readFabLabel())
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontWeight(FontWeight.Medium)
-                .fontColor(ThemeConstants.TEXT_ON_BRAND)
-            }
-            .padding({ left: ThemeConstants.SPACE_LG, right: ThemeConstants.SPACE_LG })
-            .height(ThemeConstants.BUTTON_HEIGHT)
-            .alignItems(VerticalAlign.Center)
+          Row() {
+            this.ReadFabButton()
           }
-          .height(ThemeConstants.BUTTON_HEIGHT)
-          // Capsule buttons default to the SYSTEM brand color; set the theme accent explicitly so the Read
-          // FAB follows the user's theme color instead of staying system-blue.
-          .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-          .shadow(ShadowStyle.OUTER_DEFAULT_MD)
+          .height(this.readFabOuterHeight())
           .translate({ x: this.readFabVisualX() })
           .opacity(this.readFabLayoutReady ? 1 : 0)
           .animation({ duration: this.readFabAnimationDuration(), curve: Curve.EaseOut })
@@ -1334,18 +1425,15 @@ export struct GalleryDetailPage {
             this.readFabWidth = area.width as number
             this.updateReadFabLayoutReady()
           })
-          .onClick(() => {
-            this.openReader(this.resumeIndex())
-          })
         }
         // Full-width bottom rail; the button is Start-anchored and slid horizontally by translate so the
-        // Read FAB aligns to the holding-hand side (smart-grip / follow / fixed). Transparent hit-testing
-        // keeps the underlying list scrollable; only the button itself is tappable.
+        // Read FAB aligns to the holding-hand side (smart-grip / follow / fixed). HDS material style uses
+        // its internal activity padding for edge clearance, so the rail padding is style-dependent.
         .width('100%')
-        .padding({ left: ThemeConstants.SPACE_LG, right: ThemeConstants.SPACE_LG })
+        .padding({ left: this.readFabRailSideInset(), right: this.readFabRailSideInset() })
         .justifyContent(FlexAlign.Start)
         .hitTestBehavior(HitTestMode.Transparent)
-        .position({ left: 0, bottom: ThemeConstants.SPACE_LG })
+        .position({ left: 0, bottom: this.readFabRailBottomInset() })
       }
       .onAreaChange((_oldArea: Area, area: Area) => {
         this.detailRootWidth = area.width as number

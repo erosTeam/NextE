@@ -8,6 +8,7 @@ import { ReadModeSettings } from './ReadModeSettings'
 import { ThumbnailModeSettings } from './ThumbnailModeSettings'
 import { CoverBackgroundSettings } from './CoverBackgroundSettings'
 import { ActionAlignmentSettings } from './ActionAlignmentSettings'
+import { ReadButtonStyleSettings } from './ReadButtonStyleSettings'
 import { SearchHistorySettings } from './SearchHistorySettings'
 import { SearchFilterSettings } from './SearchFilterSettings'
 import { FavcatListSettings } from './FavcatListSettings'
@@ -54,6 +55,7 @@ export class SettingsBootstrap {
       await ThumbnailModeSettings.restore(context)
       await CoverBackgroundSettings.restore(context)
       await ActionAlignmentSettings.restore(context)
+      await ReadButtonStyleSettings.restore(context)
       await SearchHistorySettings.restore(context)
       await SearchFilterSettings.restore(context)
       await FavcatListSettings.restore(context)

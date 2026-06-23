@@ -30,6 +30,10 @@ import {
   ActionAlignmentState,
   ActionAlignmentOption,
   connectActionAlignment,
+  ReadButtonStyleSettings,
+  ReadButtonStyleOption,
+  ReadButtonStyleState,
+  connectReadButtonStyle,
   MotionHandStateService,
   immersiveTitleBar,
   ThemeSettings,
@@ -65,8 +69,10 @@ export struct LayoutSettingsPage {
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local actionAlign: ActionAlignmentState = connectActionAlignment();
+  @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
   @Local viewMenuShown: boolean = false;
   @Local actionAlignMenuShown: boolean = false;
+  @Local readButtonStyleMenuShown: boolean = false;
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   @Local themeColor: ThemeColorState = connectThemeColor();
   @Local language: LanguageState = connectLanguageState();
@@ -395,6 +401,15 @@ export struct LayoutSettingsPage {
     this.actionAlignMenuShown = false
   }
 
+  private readButtonStyleLabel(): ResourceStr {
+    return ReadButtonStyleSettings.label(this.readButtonStyle.style)
+  }
+
+  private setReadButtonStyle(style: string): void {
+    ReadButtonStyleSettings.setStyle(this.ctx(), style)
+    this.readButtonStyleMenuShown = false
+  }
+
   private setHorizontalThumbnails(value: boolean): void {
     ThumbnailModeSettings.setHorizontalThumbnails(this.ctx(), value)
   }
@@ -473,6 +488,27 @@ export struct LayoutSettingsPage {
           })
         },
         (option: ActionAlignmentOption) => option.mode,
+      )
+    }
+  }
+
+  @Builder
+  ReadButtonStyleMenu() {
+    Menu() {
+      ForEach(
+        ReadButtonStyleSettings.options(),
+        (option: ReadButtonStyleOption) => {
+          MenuItem({
+            content: option.label,
+            symbolEndIcon:
+              ReadButtonStyleSettings.normalizeStyle(this.readButtonStyle.style) === option.style
+                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+                : undefined,
+          }).onClick(() => {
+            this.setReadButtonStyle(option.style)
+          })
+        },
+        (option: ReadButtonStyleOption) => option.style,
       )
     }
   }
@@ -649,6 +685,25 @@ export struct LayoutSettingsPage {
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.actionAlignMenuShown = false
+                },
+              })
+              this.rowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_read_button_style'),
+                  subtitle: $r('app.string.settings_read_button_style_hint'),
+                  leadingIcon: $r('sys.symbol.paintbrush'),
+                  trailingText: this.readButtonStyleLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.readButtonStyleMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.readButtonStyleMenuShown, this.ReadButtonStyleMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.readButtonStyleMenuShown = false
                 },
               })
             }

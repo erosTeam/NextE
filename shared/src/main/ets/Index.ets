@@ -80,6 +80,7 @@ export { SectionHeader } from './components/SectionHeader'
 export { AppSearchField } from './components/AppSearchField'
 export { AppModalScaffold } from './components/AppModalScaffold'
 export { AppColorPicker } from './components/AppColorPicker'
+export { HdsCapsuleBarButton } from './components/HdsCapsuleBarButton'
 
 // parser
 export { HtmlSelectorUtils } from './parser/HtmlSelectorUtils'
@@ -276,6 +277,13 @@ export { SiteModeSettings } from './settings/SiteModeSettings'
 export { ListModeSettings } from './settings/ListModeSettings'
 export { GalleryTitleSettings } from './settings/GalleryTitleSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
+export { ReadButtonStyleSettings, ReadButtonStyleOption } from './settings/ReadButtonStyleSettings'
+export {
+  READ_BUTTON_STYLE_FILLED,
+  READ_BUTTON_STYLE_HDS,
+  ReadButtonStyleState,
+  connectReadButtonStyle,
+} from './state/ReadButtonStyleState'
 export { ThumbnailModeSettings } from './settings/ThumbnailModeSettings'
 export { CoverBackgroundSettings } from './settings/CoverBackgroundSettings'
 export {

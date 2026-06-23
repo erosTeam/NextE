@@ -144,7 +144,7 @@ ok(
   'detail list reserves bottom padding for the page-level FAB'
 )
 ok(
-  /\.position\(\{ left: 0, bottom: ThemeConstants\.SPACE_LG \}\)/.test(detail),
+  /\.position\(\{ left: 0, bottom: this\.readFabRailBottomInset\(\) \}\)/.test(detail),
   'detail FAB rail sits at the bottom safe content edge (full-width rail)'
 )
 ok(

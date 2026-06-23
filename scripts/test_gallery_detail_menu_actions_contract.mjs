@@ -33,8 +33,8 @@ ok('detail menu uses HDS overflow behavior with maxCount 3',
   /return \{ 'value': items, 'maxCount': 3 \}/.test(detail))
 ok('favorite and share remain the first two menu actions',
   /const items: Record<string, Object>\[\] = \[\s*\{ 'content': favoriteInner \},\s*\{ 'content': shareInner \},/.test(detail))
-ok('refresh moves into third-plus overflow actions',
-  /\{ 'content': refreshInner \},\s*\{ 'content': editTagsInner \},/.test(detail))
+ok('comments remain third inline and refresh stays in overflow actions',
+  /\{ 'content': commentsInner \},\s*\{ 'content': refreshInner \},\s*\{ 'content': editTagsInner \},/.test(detail))
 ok('menu includes edit tags, copy link, copy title, external browser, and internal web actions',
   /detail_edit_tags/.test(detail) &&
   /detail_copy_link/.test(detail) &&
@@ -52,7 +52,7 @@ ok('copy actions use the system pasteboard and toast feedback',
 ok('external browser action uses system view-data Want',
   /import \{ common, Want \} from '@kit\.AbilityKit'/.test(detail) &&
   /const want: Want = \{ action: 'ohos\.want\.action\.viewData', uri: this\.galleryUrl\(\) \}/.test(detail) &&
-  /this\.ctx\(\)\.startAbility\(want\)/.test(detail))
+  /this\.ctx\(\)[\s\S]*\.startAbility\(want\)/.test(detail))
 ok('internal WebView route is typed and registered',
   /export class GalleryWebParams/.test(routeParams) &&
   /GalleryWebParams/.test(read('shared/src/main/ets/Index.ets')) &&
@@ -67,7 +67,8 @@ ok('GalleryWebPage consumes route params before loading a non-empty URL',
   /private loadIfReady\(\): void \{[\s\S]*this\.params\.url\.length === 0[\s\S]*return[\s\S]*this\.loadWithCookies\(this\.params\.url\)/.test(webPage))
 ok('GalleryWebPage injects app cookies before safe loading',
   /EhCookieStore\.getInstance\(\)\.header\(\)/.test(webPage) &&
-  /webview\.WebCookieManager\.configCookie\(baseUrl, `\$\{cookie\}; Path=\/`, false, true\)/.test(webPage) &&
+  /const parts: string\[\] = header\.split\(';'\)/.test(webPage) &&
+  /webview\.WebCookieManager\.configCookieSync\(baseUrl, `\$\{pair\}; Path=\/`, false, true\)/.test(webPage) &&
   /webview\.WebCookieManager\.saveCookieSync\(\)/.test(webPage) &&
   /webview\.WebCookieManager\.saveCookieAsync\(\)/.test(webPage) &&
   /private safeLoadUrl\(url: string\): void \{[\s\S]*this\.controller\.loadUrl\(url\)/.test(webPage))
@@ -82,7 +83,7 @@ ok('edit-tags route opens a protected child surface',
   /GalleryEditTagsParams/.test(read('shared/src/main/ets/Index.ets')) &&
   /export \{ GalleryEditTagsPage \}/.test(galleryIndex) &&
   /name === 'GalleryEditTags'[\s\S]*GalleryEditTagsPage\(\)/.test(entry) &&
-  /new GalleryEditTagsParams\(this\.params\.gid, this\.params\.token, connectSiteMode\(\)\.isEx, this\.navTitle\(\)\)/.test(detail))
+  /new GalleryEditTagsParams\([\s\S]*this\.params\.gid,[\s\S]*this\.params\.token,[\s\S]*connectSiteMode\(\)\.isEx,[\s\S]*this\.navTitle\(\)/.test(detail))
 ok('edit-tags page loads current tags and protects tag vote submits behind confirmation',
   /EhApiService\.getInstance\(\)\.getGalleryDetail/.test(editTagsPage) &&
   /this\.tagGroupsData = result\.gallery\.tagGroups/.test(editTagsPage) &&

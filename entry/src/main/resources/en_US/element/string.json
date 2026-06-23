@@ -313,6 +313,22 @@
       "value": "Align the Read button to your holding hand for one-handed reach"
     },
     {
+      "name": "settings_read_button_style",
+      "value": "Read button style"
+    },
+    {
+      "name": "settings_read_button_style_hint",
+      "value": "Change the floating Read button appearance on gallery detail pages"
+    },
+    {
+      "name": "read_button_style_filled",
+      "value": "Filled accent"
+    },
+    {
+      "name": "read_button_style_hds",
+      "value": "HDS material"
+    },
+    {
       "name": "smart_grip",
       "value": "Smart grip"
     },

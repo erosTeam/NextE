@@ -107,6 +107,32 @@ export struct GalleryAllThumbnailsPage {
     }, 50)
   }
 
+  private scrollToImagePage(pageOneBased: number): void {
+    const targetIndex: number = this.vm.visibleIndexForImagePage(pageOneBased)
+    if (targetIndex < 0) {
+      return
+    }
+    setTimeout(() => {
+      this.scroller.scrollToIndex(targetIndex)
+    }, 50)
+  }
+
+  private positionInitialImagePage(): void {
+    const page: number = this.params.initialImagePage
+    if (page <= 1) {
+      return
+    }
+    if (this.vm.visibleIndexForImagePage(page) >= 0) {
+      this.scrollToImagePage(page)
+      return
+    }
+    this.vm.loadImagePage(page).then((loaded: boolean) => {
+      if (loaded) {
+        this.scrollToImagePage(page)
+      }
+    })
+  }
+
   private maxImagePage(): number {
     return this.params.fileCount > 0 ? this.params.fileCount : this.vm.itemCount
   }
@@ -240,6 +266,7 @@ export struct GalleryAllThumbnailsPage {
       if (p !== undefined && p.gid.length > 0) {
         this.params = p
         this.vm.seed(p)
+        this.positionInitialImagePage()
       }
     })
   }

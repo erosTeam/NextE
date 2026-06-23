@@ -313,6 +313,22 @@
       "value": "片手で持つとき、読むボタンを持つ手側に寄せます"
     },
     {
+      "name": "settings_read_button_style",
+      "value": "読むボタンのスタイル"
+    },
+    {
+      "name": "settings_read_button_style_hint",
+      "value": "ギャラリー詳細のフローティング読むボタンの外観を切り替えます"
+    },
+    {
+      "name": "read_button_style_filled",
+      "value": "アクセント塗りつぶし"
+    },
+    {
+      "name": "read_button_style_hds",
+      "value": "HDSマテリアル"
+    },
+    {
       "name": "smart_grip",
       "value": "スマートグリップ"
     },

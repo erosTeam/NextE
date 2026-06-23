@@ -313,6 +313,22 @@
       "value": "单手握持时将阅读按钮对齐到顺手一侧"
     },
     {
+      "name": "settings_read_button_style",
+      "value": "阅读按钮样式"
+    },
+    {
+      "name": "settings_read_button_style_hint",
+      "value": "切换画廊详情页悬浮阅读按钮外观"
+    },
+    {
+      "name": "read_button_style_filled",
+      "value": "实心主色"
+    },
+    {
+      "name": "read_button_style_hds",
+      "value": "光感材质"
+    },
+    {
       "name": "smart_grip",
       "value": "智感握姿"
     },
