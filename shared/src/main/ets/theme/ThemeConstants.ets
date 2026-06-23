@@ -63,6 +63,9 @@ export class ThemeConstants {
   static readonly RADIUS_MD: number = 22
   static readonly RADIUS_CARD: number = 24
   static readonly RADIUS_ROUND: number = 999
+  // Detail header cover is inset inside the large card chrome: larger than compact thumbnails,
+  // but intentionally smaller than the surrounding card radius.
+  static readonly DETAIL_COVER_RADIUS: number = 16
   // Thumbnail/cover border radius — distinct from RADIUS_SM so thumb roundness can be tuned independently.
   static readonly THUMB_RADIUS: number = 8
   // Blur radius for the optional blurred cover background behind an off-aspect (Contain) cover. Only used

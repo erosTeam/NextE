@@ -36,6 +36,7 @@ const parser = read('shared/src/main/ets/parser/EhGalleryDetailParser.ets')
 const headerCard = read('feature/gallery/src/main/ets/components/GalleryHeaderCard.ets')
 const gridCard = read('shared/src/main/ets/components/GalleryGridCard.ets')
 const listCard = read('shared/src/main/ets/components/GalleryCard.ets')
+const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
 
 // 1) The detail parser must preserve EH cover dimensions from #gd1 style. Without them the header can
 // only contain an unknown-aspect image inside a fixed box, which was the source of the grey slab.
@@ -73,7 +74,9 @@ ok(/visualState\s*!==\s*THUMBNAIL_VISUAL_AUTO[\s\S]*?Stack\(\{ alignContent: Ali
 ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(headerCard), 'GalleryHeaderCard passes gallery.imgWidth into EhThumbnail')
 ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(headerCard), 'GalleryHeaderCard passes gallery.imgHeight into EhThumbnail')
 ok(/containFit:\s*true/.test(headerCard), 'GalleryHeaderCard still fits the whole cover, no crop/fill policy')
-ok(/radius:\s*ThemeConstants\.RADIUS_MD/.test(headerCard), 'GalleryHeaderCard cover radius scales with the enlarged detail card chrome')
+ok(/static readonly DETAIL_COVER_RADIUS:\s*number\s*=\s*16/.test(theme), 'ThemeConstants has a dedicated detail cover radius between old 12 and large card chrome')
+ok(/radius:\s*ThemeConstants\.DETAIL_COVER_RADIUS/.test(headerCard), 'GalleryHeaderCard cover uses its dedicated inset cover radius')
+ok(!/GalleryHeaderCard[\s\S]*EhThumbnail\(\{[\s\S]*radius:\s*ThemeConstants\.RADIUS_MD/.test(headerCard), 'GalleryHeaderCard cover does not share the enlarged card radius')
 ok(/sourceWidth:\s*this\.gallery\.imgWidth/.test(listCard), 'GalleryCard passes gallery.imgWidth into EhThumbnail')
 ok(/sourceHeight:\s*this\.gallery\.imgHeight/.test(listCard), 'GalleryCard passes gallery.imgHeight into EhThumbnail')
 ok(/thumbHeight:\s*this\.coverHeight\(\)/.test(listCard), 'GalleryCard uses an explicit cover slot height')

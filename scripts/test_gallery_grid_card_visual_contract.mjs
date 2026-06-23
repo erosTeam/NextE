@@ -91,7 +91,7 @@ ok('NextE grid does not render the old category/page metadata row below the titl
 ok('Gallery list/grid cover slots keep the designed grey placeholder backing',
   /else if \(this\.coverRatio > 0\)[\s\S]*backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(thumbSrc))
 ok('Detail and preview main visual slots do not get a grey letterbox container',
-  /GalleryHeaderCard[\s\S]*EhThumbnail\(\{[\s\S]*radius:\s*ThemeConstants\.RADIUS_MD[\s\S]*containFit:\s*true/.test(detailHeaderSrc) &&
+  /GalleryHeaderCard[\s\S]*EhThumbnail\(\{[\s\S]*radius:\s*ThemeConstants\.DETAIL_COVER_RADIUS[\s\S]*containFit:\s*true/.test(detailHeaderSrc) &&
     /Stack\(\{ alignContent: Alignment\.Center \}\)\s*\{[\s\S]*Image\(EhConstants\.cdnThumb\(this\.url\)\)[\s\S]*this\.coverOverlay\(\)[\s\S]*?\}[\s\S]*\.width\(this\.thumbWidth\)[\s\S]*\.height\(this\.thumbHeight\)/.test(containFitBranch) &&
     !/backgroundColor\(ThemeConstants\.COVER_PLACEHOLDER\)/.test(containFitBranch) &&
     /Stack\(\)[\s\S]*\.width\('100%'\)[\s\S]*\.height\(this\.frameHeight\(\)\)[\s\S]*\.alignContent\(Alignment\.Center\)/.test(previewFrameBranch) &&
