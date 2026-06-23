@@ -27,6 +27,16 @@ EhHttpClient → EhApiService/EhApiPhpService → parser(正则/DOM) → model
 - parser 是最脆弱层(EH 页面结构一变就坏)——每个 parser 配 `scripts/test_*_parser_contract.mjs` + 真实 HTML fixture。
 - 不在组件里硬编码尺寸/颜色/字号,走 `ThemeConstants`;用户可见字符串走 i18n 资源。
 
+## 非预期逻辑排查: 先静态对比,再上机验收
+
+应用出现非预期逻辑、回归或与 `eros_fe` 行为不一致时,不要先靠反复装机 / 截图 / 滑动来穷举。先做静态逻辑排查,把差异说清楚再改代码。
+
+- 先定位同一行为在 `../eros_fe` 的具体文件 / 方法 / 参数构造 / parser 取值方式,并对照 NextE 当前实现。不能只写“参考 FE”。
+- 先回答四个问题:旧逻辑怎么工作;哪次改动改掉了什么;改动当时想解决什么;为什么该差异会导致当前症状。
+- 对 EH 请求、分页、parser、收藏 / 标签 / 搜索 / 阅读状态等行为,必须优先比较 URL 参数、游标 / page / from、DOM selector、字段含义、状态推进条件。设备日志只能验证这些静态结论,不能替代结论。
+- 找不到静态原因前,不要补丁式改参数、换组件、加 workaround、或扩大重构范围。确需临时诊断 UI / 日志时,必须标记为临时,用完移除。
+- 修复后用 contract 锁住已经确认的差异点,例如“完整游标 token 不能被截断”“FE 的 page/from 优先级保持一致”。再用模拟器 / 真机验证用户路径。
+
 ## 新 worktree 依赖前置
 
 新建或切换到新的 NextE worktree 后,首次构建、签名、运行、Preview、DevEco/Hvigor 验证前,必须先确认 OHPM 依赖已安装。默认执行:

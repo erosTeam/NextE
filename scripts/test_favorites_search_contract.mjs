@@ -2,12 +2,12 @@
 /**
  * Contract test for favorites search (eros_fe favorites f_search, scoped to the current favcat).
  *
- * `buildFavUrl` is copy-equal to EhApiService.getFavoritesList's URL assembly (favcat + f_search +
- * inline_set order + next cursor). It locks that a favorites search reuses favorites.php with
- * f_search alongside the selected favcat — NOT a separate endpoint, and WITHOUT eros_fe's commented-
- * out sn/st/sf scope toggles. Structural greps lock the current architecture: Favorites title action
- * pushes the one shared Search page in favorite scope; GallerySearchPage seeds SearchViewModel favorite
- * scope and uses favorites.php f_search.
+ * `buildFavUrl` is copy-equal to EhApiService.fetchFavoritesBody's URL assembly (favcat + f_search +
+ * optional inline_set retry + page/from or next cursor). It locks that a favorites search reuses
+ * favorites.php with f_search alongside the selected favcat — NOT a separate endpoint, and WITHOUT
+ * eros_fe's commented-out sn/st/sf scope toggles. Structural greps lock the current architecture:
+ * Favorites title action pushes the one shared Search page in favorite scope; GallerySearchPage seeds
+ * SearchViewModel favorite scope and uses favorites.php f_search.
  *
  * Run: node scripts/test_favorites_search_contract.mjs
  */
@@ -20,22 +20,27 @@ const EH = 'https://e-hentai.org'
 const EX = 'https://exhentai.org'
 const baseUrl = (isEx) => (isEx ? EX : EH)
 
-// Mirror of fetchFavoritesBody's URL builder. inlineSet is the sort order (fs_f|fs_p) on the first
-// fetch, or 'dm_l' on the thumbnail-mode retry. Defaults to q.order to keep the existing assertions.
+// Mirror of fetchFavoritesBody's URL builder. inlineSet is only supplied for FE-style correction
+// retries: 'dm_l' for thumbnail layout, or fs_f/fs_p when the returned page's active order disagrees.
 function buildFavUrl(q, inlineSet) {
-  const set = inlineSet === undefined ? q.order : inlineSet
+  const set = inlineSet === undefined ? '' : inlineSet
   const base = baseUrl(q.isEx)
   const params = []
   if (q.favcat.length > 0 && q.favcat !== 'a') params.push(`favcat=${q.favcat}`)
   if (q.search.length > 0) params.push(`f_search=${encodeURIComponent(q.search)}`)
   if (set.length > 0) params.push(`inline_set=${set}`)
-  if (q.next.length > 0) params.push(`next=${q.next}`)
+  if (q.page >= 0) {
+    params.push(`page=${q.page}`)
+    if (q.from.length > 0) params.push(`from=${encodeURIComponent(q.from)}`)
+  } else if (q.next.length > 0) {
+    params.push(`next=${encodeURIComponent(q.next)}`)
+  }
   const queryStr = params.length > 0 ? `?${params.join('&')}` : ''
   return `${base}/favorites.php${queryStr}`
 }
 // Mirror of the dm_l retry guard: a thumbnail-mode page (itg gld div, no itg table) needs the retry.
 const needsDmLRetry = (body) => body.indexOf('<table class="itg') < 0 && body.indexOf('class="itg gld') >= 0
-const q = (over) => ({ isEx: false, favcat: 'a', next: '', search: '', order: '', ...over })
+const q = (over) => ({ isEx: false, favcat: 'a', next: '', page: -1, from: '', search: '', order: '', ...over })
 
 let failures = 0
 const eq = (got, want, label) => { if (got !== want) { console.error(`✗ ${label}\n    got:  ${got}\n    want: ${want}`); failures++ } }
@@ -45,15 +50,19 @@ const ok = (cond, label) => { if (!cond) { console.error(`✗ ${label}`); failur
 eq(buildFavUrl(q({ search: 'naruto' })), 'https://e-hentai.org/favorites.php?f_search=naruto', 'fav all + search')
 // Scoped to a favcat: favcat + f_search together (search is WITHIN the selected slot).
 eq(buildFavUrl(q({ favcat: '3', search: 'big breasts' })), 'https://e-hentai.org/favorites.php?favcat=3&f_search=big%20breasts', 'fav slot + search')
-// Search + order + cursor all combine.
-eq(buildFavUrl(q({ favcat: '0', search: 'x', order: 'fs_p', next: '999' })), 'https://e-hentai.org/favorites.php?favcat=0&f_search=x&inline_set=fs_p&next=999', 'fav search + order + next')
+// First page normal fetch does not carry order; order is applied only by a correction retry.
+eq(buildFavUrl(q({ favcat: '0', search: 'x', order: 'fs_p' })), 'https://e-hentai.org/favorites.php?favcat=0&f_search=x', 'fav search + normal first page without inline_set')
+eq(buildFavUrl(q({ favcat: '0', search: 'x', order: 'fs_p' }), 'fs_p'), 'https://e-hentai.org/favorites.php?favcat=0&f_search=x&inline_set=fs_p', 'fav search + order correction retry')
+// Deep cursor/page requests match eros_fe: no inline_set order on paging.
+eq(buildFavUrl(q({ favcat: '0', search: 'x', order: 'fs_p', next: '999-feed' })), 'https://e-hentai.org/favorites.php?favcat=0&f_search=x&next=999-feed', 'fav search + next cursor token without inline_set')
+eq(buildFavUrl(q({ favcat: '0', search: 'x', order: 'fs_p', page: 2, from: '123' })), 'https://e-hentai.org/favorites.php?favcat=0&f_search=x&page=2&from=123', 'fav search + page/from without inline_set')
 // Empty search → no f_search param (clearing restores the full list).
 eq(buildFavUrl(q({ favcat: '3' })), 'https://e-hentai.org/favorites.php?favcat=3', 'fav no search')
 // EX host honored.
 eq(buildFavUrl(q({ isEx: true, search: 'q' })), 'https://exhentai.org/favorites.php?f_search=q', 'fav ex host + search')
 
 // dm_l retry: the second fetch forces inline_set=dm_l (Minimal list mode) preserving favcat/search/next.
-eq(buildFavUrl(q({ favcat: '3', search: 'x', next: '9' }), 'dm_l'), 'https://e-hentai.org/favorites.php?favcat=3&f_search=x&inline_set=dm_l&next=9', 'dm_l retry url preserves favcat/search/next')
+eq(buildFavUrl(q({ favcat: '3', search: 'x', next: '9-feed' }), 'dm_l'), 'https://e-hentai.org/favorites.php?favcat=3&f_search=x&inline_set=dm_l&next=9-feed', 'dm_l retry url preserves favcat/search/next cursor token')
 // Retry guard: only a thumbnail-mode page (itg gld div, no itg table) triggers the retry.
 ok(needsDmLRetry('<div class="itg gld"><div class="gl1t">...</div></div>') === true, 'thumbnail layout → retry')
 ok(needsDmLRetry('<table class="itg gltc"><tr>...</tr></table>') === false, 'table layout → no retry')
@@ -90,6 +99,9 @@ ok(/private runQuery\(query: string\): void \{[\s\S]*this\.vm\.search\(trimmed\)
 // dm_l thumbnail-mode retry wiring in EhApiService.
 const API = read('shared/src/main/ets/network/EhApiService.ets')
 ok(API.includes('private async fetchFavoritesBody('), 'API: fetchFavoritesBody helper')
+ok(/let body: string = await this\.fetchFavoritesBody\(base, query, ''\)/.test(API), 'API: normal favorites request has no inline_set order')
+ok(/const activeOrder: string = this\.favoriteOrderFromBody\(body\)[\s\S]*if \(firstPage && query\.order\.length > 0 && activeOrder\.length > 0 && activeOrder !== query\.order\) \{[\s\S]*fetchFavoritesBody\(base, query, query\.order\)/.test(API), 'API: order inline_set only on correction retry')
+ok(/if \(query\.page >= 0\) \{[\s\S]*page=\$\{query\.page\}[\s\S]*from=\$\{encodeURIComponent\(query\.from\)\}[\s\S]*\} else if \(query\.next\.length > 0\)[\s\S]*next=\$\{encodeURIComponent\(query\.next\)\}/.test(API), 'API: favorites page/from before encoded next cursor')
 ok(API.includes("body.indexOf('<table class=\"itg') < 0 && body.indexOf('class=\"itg gld') >= 0"), 'API: dm_l retry guard (no table + thumbnail div)')
 ok(API.includes('EhConstants.FAV_DISPLAY_LIST'), 'API: retry forces dm_l (FAV_DISPLAY_LIST)')
 const CONST = read('shared/src/main/ets/constants/EhConstants.ets')

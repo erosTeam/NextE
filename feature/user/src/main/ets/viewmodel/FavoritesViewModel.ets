@@ -13,7 +13,6 @@ import {
   EhConstants,
   connectLocalFav,
   connectSiteMode,
-  DiagnosticLogger,
   EhErrorText,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
@@ -37,6 +36,7 @@ export class FavoritesViewModel {
   // Favorites sort order: fs_f (by favorited time, EH default) / fs_p (by posted time).
   @Trace favOrder: string = EhConstants.FAV_ORDER_FAV
   private nextGid: string = ''
+  private nextPage: number = -1
   private lastNext: string = ''
   // Generation token: every page-1 reset (load via order toggle / favcat switch / refresh) bumps it
   // so an in-flight loadMore that resumes afterwards discards its now-stale (wrong favcat/order)
@@ -48,11 +48,13 @@ export class FavoritesViewModel {
     this.context = context
   }
 
-  private buildQuery(next: string): FavoritesQuery {
+  private buildQuery(next: string, page: number = -1, from: string = ''): FavoritesQuery {
     return {
       isEx: connectSiteMode().isEx,
       favcat: this.favcat,
       next: next,
+      page: page,
+      from: from,
       // The favorites TAB always browses the full favcat; f_search now lives on the shared adaptive
       // search page (favorite scope), opened from the title-bar magnifier — not in this list.
       search: '',
@@ -64,15 +66,14 @@ export class FavoritesViewModel {
     return this.favcat === 'l'
   }
 
-  private async fetchPageWithOrderSync(next: string): Promise<GalleryList> {
-    let list: GalleryList = await EhApiService.getInstance().getFavoritesList(this.buildQuery(next))
-    // EH favorites order/display preferences are server-side and can lag by one response after an
-    // inline_set change. Keep this guard on every page fetch, not just page 1, so deep paging stays in
-    // the selected order after an account/display-mode correction.
-    if (list.favOrder.length > 0 && list.favOrder !== this.favOrder) {
-      list = await EhApiService.getInstance().getFavoritesList(this.buildQuery(next))
-    }
-    return list
+  private async fetchPage(
+    next: string,
+    page: number = -1,
+    from: string = '',
+  ): Promise<GalleryList> {
+    return await EhApiService.getInstance().getFavoritesList(
+      this.buildQuery(next, page, from),
+    )
   }
 
   /** Fix this VM to one favcat + order WITHOUT loading (retained per-favcat page; loadData runs on
@@ -183,6 +184,25 @@ export class FavoritesViewModel {
     return TagTranslationService.translateGalleries(this.context, rows)
   }
 
+  private hasForwardPage(list: GalleryList): boolean {
+    return list.nextPage > 0 || list.nextGid.length > 0
+  }
+
+  private didPagingAdvance(requestedPage: number, requestedCursor: string, list: GalleryList): boolean {
+    if (requestedPage >= 0) {
+      return list.nextPage > 0 || list.nextGid.length > 0
+    }
+    return list.nextGid.length > 0 && list.nextGid !== requestedCursor
+  }
+
+  private lastVisibleGid(): string {
+    const rows: EhGallery[] = this.dataSource.getAll()
+    if (rows.length === 0) {
+      return ''
+    }
+    return rows[rows.length - 1].gid
+  }
+
   async reapplyTagTranslation(): Promise<void> {
     if (this.itemCount === 0) {
       return
@@ -244,6 +264,7 @@ export class FavoritesViewModel {
     this.isLoading = true
     this.errorMessage = ''
     this.nextGid = ''
+    this.nextPage = -1
     this.lastNext = ''
     this.hasMore = false
     if (this.isLocalFavcat()) {
@@ -255,18 +276,17 @@ export class FavoritesViewModel {
       return
     }
     try {
-      const list: GalleryList = await this.fetchPageWithOrderSync('')
+      const list: GalleryList = await this.fetchPage('')
       this.mergeFavList(list.favList)
       this.resolveFavcatSlots(list.gallerys)
       const rows: EhGallery[] = await this.translateRows(list.gallerys)
       this.dataSource.setData(rows)
       this.itemCount = this.dataSource.totalCount()
       this.nextGid = list.nextGid
-      this.hasMore = list.nextGid.length > 0
+      this.nextPage = list.nextPage
+      this.hasMore = this.hasForwardPage(list)
     } catch (err) {
-      const e = err as Error
       this.errorMessage = EhErrorText.forUser(err)
-      DiagnosticLogger.warn('favorites', 'load_failed', e.message)
     }
     this.isLoading = false
   }
@@ -292,8 +312,11 @@ export class FavoritesViewModel {
     if (this.isLocalFavcat() || this.isLoading || this.isLoadingMore || !this.hasMore) {
       return
     }
-    const cursor: string = this.nextGid
-    if (cursor.length === 0 || cursor === this.lastNext) {
+    const page: number = this.nextPage
+    const from: string = page >= 0 ? this.lastVisibleGid() : ''
+    const cursor: string = page >= 0 ? from : this.nextGid
+    const requestKey: string = page >= 0 ? `page:${page}:from:${from}` : `next:${cursor}`
+    if (cursor.length === 0 || requestKey === this.lastNext) {
       this.hasMore = false
       return
     }
@@ -301,7 +324,11 @@ export class FavoritesViewModel {
     this.errorMessage = ''
     const myEpoch: number = this.epoch
     try {
-      const list: GalleryList = await this.fetchPageWithOrderSync(cursor)
+      const list: GalleryList = await this.fetchPage(
+        page >= 0 ? '' : cursor,
+        page,
+        from,
+      )
       // A favcat switch / order toggle / refresh landed while this fetch was in flight → these rows
       // belong to the OLD favcat/order. Drop them rather than mixing them into the new list.
       if (this.epoch === myEpoch) {
@@ -312,17 +339,16 @@ export class FavoritesViewModel {
           this.itemCount = this.dataSource.totalCount()
         }
         this.nextGid = list.nextGid
-        this.lastNext = cursor
-        // Exhausted when the cursor is empty OR the page brought no genuinely-new rows (repeated
-        // boundary page / server race). LazyForEach is gid-keyed, so an all-duplicate page is terminal.
-        this.hasMore = list.nextGid.length > 0 && fresh.length > 0
+        this.nextPage = list.nextPage
+        this.lastNext = requestKey
+        // Do not let dedupe decide pagination. EH/eros_fe continue by page/cursor progress; fresh rows
+        // only decide whether there is anything visible to append in this gid-keyed list.
+        this.hasMore = this.didPagingAdvance(page, cursor, list)
       }
     } catch (err) {
-      const e = err as Error
       if (this.epoch === myEpoch) {
         this.errorMessage = EhErrorText.forUser(err)
       }
-      DiagnosticLogger.warn('favorites', 'loadmore_failed', e.message)
     }
     this.isLoadingMore = false
   }

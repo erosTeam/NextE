@@ -67,6 +67,8 @@ export interface FavoritesQuery {
   isEx: boolean
   favcat: string // '' or 'a' = all slots; '0'-'9' = a specific favcat
   next: string // nextGid cursor; '' = first page
+  page: number // 0-based page number for favorites ptt paging; -1 = use cursor/first page
+  from: string // last visible gid paired with page paging; '' for first page/cursor fallback
   search: string // f_search within favorites; '' = none
   order: string // inline_set order: 'fs_f' (favorited time) / 'fs_p' (posted time); '' = EH default
 }
@@ -474,8 +476,10 @@ export class EhApiService {
    * selector bar. Requires login (ipb_*); ExHentai favorites also need igneous. */
   async getFavoritesList(query: FavoritesQuery): Promise<GalleryList> {
     const base: string = EhConstants.baseUrl(query.isEx)
-    // First fetch carries the user's sort order (inline_set=fs_f|fs_p).
-    let body: string = await this.fetchFavoritesBody(base, query, query.order)
+    // Match eros_fe: normal paging sends page/from or next only. inline_set is an exception retry
+    // for display/order correction, not part of the ordinary page request.
+    const firstPage: boolean = query.page < 0 && query.next.length === 0
+    let body: string = await this.fetchFavoritesBody(base, query, '')
     // The gltc TABLE parser only understands the Minimal/Compact layout. If the account's favorites
     // display mode is Thumbnail (`<div class="itg gld">`, no `<table class="itg">`), the parse finds
     // zero rows — so force inline_set=dm_l (Minimal) once and re-fetch (eros_fe dm_l handling). The
@@ -483,16 +487,27 @@ export class EhApiService {
     if (body.indexOf('<table class="itg') < 0 && body.indexOf('class="itg gld') >= 0) {
       body = await this.fetchFavoritesBody(base, query, EhConstants.FAV_DISPLAY_LIST)
     }
+    const activeOrder: string = this.favoriteOrderFromBody(body)
+    if (firstPage && query.order.length > 0 && activeOrder.length > 0 && activeOrder !== query.order) {
+      body = await this.fetchFavoritesBody(base, query, query.order)
+      if (body.indexOf('<table class="itg') < 0 && body.indexOf('class="itg gld') >= 0) {
+        body = await this.fetchFavoritesBody(base, query, EhConstants.FAV_DISPLAY_LIST)
+      }
+    }
     const list: GalleryList = this.registerInlineTagColors(await EhGalleryListParseTask.parse(body))
     list.favList = EhFavcatListParser.parse(body)
     // Active sort order from the inline_set dropdown (`<option value="f|p" selected>`).
-    const orderM: RegExpMatchArray | null = body.match(/<option value="([fp])" selected/)
-    list.favOrder = orderM !== null && orderM[1] !== undefined ? `fs_${orderM[1]}` : ''
+    list.favOrder = this.favoriteOrderFromBody(body)
     return list
   }
 
-  /** Build the favorites.php URL (favcat/f_search/inline_set/next) and return the page body. The
-   * inline_set value is either the sort order (fs_f|fs_p) or a display-mode override (dm_l). */
+  private favoriteOrderFromBody(body: string): string {
+    const orderM: RegExpMatchArray | null = body.match(/<option value="([fp])" selected/)
+    return orderM !== null && orderM[1] !== undefined ? `fs_${orderM[1]}` : ''
+  }
+
+  /** Build the favorites.php URL and return the page body. Favorites uses page+from when the
+   * searchnav exposes page numbers; otherwise it falls back to next cursor paging like normal lists. */
   private async fetchFavoritesBody(
     base: string,
     query: FavoritesQuery,
@@ -508,8 +523,13 @@ export class EhApiService {
     if (inlineSet.length > 0) {
       params.push(`inline_set=${inlineSet}`)
     }
-    if (query.next.length > 0) {
-      params.push(`next=${query.next}`)
+    if (query.page >= 0) {
+      params.push(`page=${query.page}`)
+      if (query.from.length > 0) {
+        params.push(`from=${encodeURIComponent(query.from)}`)
+      }
+    } else if (query.next.length > 0) {
+      params.push(`next=${encodeURIComponent(query.next)}`)
     }
     const queryStr: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}/favorites.php${queryStr}`

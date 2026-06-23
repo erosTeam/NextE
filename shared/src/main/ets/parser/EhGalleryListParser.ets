@@ -51,15 +51,49 @@ export class EhGalleryListParser {
   private static readonly RE_POSTED: RegExp = /id="posted_\d+"[^>]*>([\s\S]*?)<\/div>/
   private static readonly RE_PAGES: RegExp = /(\d+) pages/
   private static readonly RE_UPLOADER: RegExp = /\/uploader\/([^"/]+)"/
-  private static readonly RE_NEXT: RegExp =
-    /<a(?=[^>]*\bid="dnext")(?=[^>]*\bhref="[^"]*[?&](?:amp;)?next=(\d+)")[^>]*>/
-  private static readonly RE_PREV: RegExp =
-    /<a(?=[^>]*\bid="dprev")(?=[^>]*\bhref="[^"]*[?&](?:amp;)?prev=(\d+)")[^>]*>/
+  private static readonly RE_NEXT_ID_FIRST: RegExp =
+    /<a[^>]*\bid=["'][ud]next["'][^>]*\bhref=["'][^"']*[?&](?:amp;)?next=([^"'&]+)[^"']*["'][^>]*>/
+  private static readonly RE_NEXT_HREF_FIRST: RegExp =
+    /<a[^>]*\bhref=["'][^"']*[?&](?:amp;)?next=([^"'&]+)[^"']*["'][^>]*\bid=["'][ud]next["'][^>]*>/
+  private static readonly RE_PREV_ID_FIRST: RegExp =
+    /<a[^>]*\bid=["'][ud]prev["'][^>]*\bhref=["'][^"']*[?&](?:amp;)?prev=([^"'&]+)[^"']*["'][^>]*>/
+  private static readonly RE_PREV_HREF_FIRST: RegExp =
+    /<a[^>]*\bhref=["'][^"']*[?&](?:amp;)?prev=([^"'&]+)[^"']*["'][^>]*\bid=["'][ud]prev["'][^>]*>/
   // Page-number nav table (toplist / search / favorites use it instead of gid cursors).
-  private static readonly RE_PTT: RegExp = /<table class="ptt"[\s\S]*?<\/table>/
+  private static readonly RE_PTT: RegExp =
+    /<table[^>]*class="[^"]*\bptt\b[^"]*"[^>]*>[\s\S]*?<\/table>/
 
   static parse(html: string): GalleryList {
     const list: GalleryList = new GalleryList()
+    list.nextGid = EhGalleryListParser.navCursor(
+      html,
+      EhGalleryListParser.RE_NEXT_ID_FIRST,
+      EhGalleryListParser.RE_NEXT_HREF_FIRST,
+    )
+    list.prevGid = EhGalleryListParser.navCursor(
+      html,
+      EhGalleryListParser.RE_PREV_ID_FIRST,
+      EhGalleryListParser.RE_PREV_HREF_FIRST,
+    )
+    // Page-number paging (table.ptt): eros_fe uses the current ptds cell's adjacent visible page
+    // labels, then subtracts 1. Keep href parsing only as a fallback for arrow-only cells.
+    const pttM: RegExpMatchArray | null = html.match(EhGalleryListParser.RE_PTT)
+    if (pttM !== null && pttM[0] !== undefined) {
+      // EH escapes the page links (?tl=11&amp;p=1) — unescape so the &p= regex matches.
+      const pttBlock: string = pttM[0].replace(/&amp;/g, '&')
+      const pageRe: RegExp = /[?&](?:p|page)=(\d+)/g
+      let max: number = 0
+      let pm: RegExpExecArray | null = pageRe.exec(pttBlock)
+      while (pm !== null) {
+        const p: number = pm[1] !== undefined ? Number.parseInt(pm[1], 10) : 0
+        if (p > max) {
+          max = p
+        }
+        pm = pageRe.exec(pttBlock)
+      }
+      list.maxPage = max
+      EhGalleryListParser.parsePttNeighbors(pttBlock, list)
+    }
     // toplist.php renders `<table class="itg gltc" style="max-width:1250px">` — the front/watched
     // page omits the style attr, so a regex that demanded `">` straight after the class silently
     // missed the toplist table (→ empty list). `[^>]*>` tolerates any extra attributes.
@@ -77,27 +111,50 @@ export class EhGalleryListParser {
       }
     })
     list.gallerys = gals
-    list.nextGid = HtmlSelectorUtils.group1(html, EhGalleryListParser.RE_NEXT)
-    list.prevGid = HtmlSelectorUtils.group1(html, EhGalleryListParser.RE_PREV)
-    // Page-number paging (table.ptt): the highest ?p= link is the last (0-based) page. Toplist uses
-    // this (no gid cursor); harmlessly 0 for cursor pages without a ptt.
-    const pttM: RegExpMatchArray | null = html.match(EhGalleryListParser.RE_PTT)
-    if (pttM !== null && pttM[0] !== undefined) {
-      // EH escapes the page links (?tl=11&amp;p=1) — unescape so the &p= regex matches.
-      const pttBlock: string = pttM[0].replace(/&amp;/g, '&')
-      const pageRe: RegExp = /[?&]p=(\d+)/g
-      let max: number = 0
-      let pm: RegExpExecArray | null = pageRe.exec(pttBlock)
-      while (pm !== null) {
-        const p: number = pm[1] !== undefined ? Number.parseInt(pm[1], 10) : 0
-        if (p > max) {
-          max = p
-        }
-        pm = pageRe.exec(pttBlock)
-      }
-      list.maxPage = max
-    }
     return list
+  }
+
+  private static navCursor(html: string, idFirst: RegExp, hrefFirst: RegExp): string {
+    const idHit: string = HtmlSelectorUtils.group1(html, idFirst)
+    if (idHit.length > 0) {
+      return idHit
+    }
+    return HtmlSelectorUtils.group1(html, hrefFirst)
+  }
+
+  private static parsePttNeighbors(pttBlock: string, list: GalleryList): void {
+    const cellRe: RegExp = /<td([^>]*)>([\s\S]*?)<\/td>/g
+    const pages: number[] = []
+    let currentIndex: number = -1
+    let cm: RegExpExecArray | null = cellRe.exec(pttBlock)
+    while (cm !== null) {
+      const attrs: string = cm[1] !== undefined ? cm[1] : ''
+      const content: string = cm[2] !== undefined ? cm[2] : ''
+      if (/\bclass="[^"]*\bptds\b[^"]*"/.test(attrs)) {
+        currentIndex = pages.length
+      }
+      pages.push(EhGalleryListParser.pttCellPage(content))
+      cm = cellRe.exec(pttBlock)
+    }
+    if (currentIndex < 0) {
+      return
+    }
+    if (currentIndex + 1 < pages.length) {
+      list.nextPage = pages[currentIndex + 1]
+    }
+    if (currentIndex > 0) {
+      list.prevPage = pages[currentIndex - 1]
+    }
+  }
+
+  private static pttCellPage(content: string): number {
+    const text: string = content.replace(/<[^>]*>/g, '').trim()
+    const page: number = Number.parseInt(text, 10)
+    if (page > 0) {
+      return page - 1
+    }
+    const hrefPage: string = HtmlSelectorUtils.group1(content, /[?&](?:p|page)=(\d+)/)
+    return hrefPage.length > 0 ? Number.parseInt(hrefPage, 10) : -1
   }
 
   private static parseRow(row: string): EhGallery | null {

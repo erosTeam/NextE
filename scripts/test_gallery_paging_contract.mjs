@@ -234,13 +234,14 @@ const ok = (name, cond) => {
     /private async loadMoreToplist\(\): Promise<void> \{[\s\S]*this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(src))
 }
 
-// 10. cross-cutting: EVERY paged ViewModel carries the SAME two loadMore guards as Home.
+// 10. cross-cutting: every paged ViewModel carries the same race guards as Home, while the
+// Favorites VM may use FE's page+from pagination instead of only nextGid.
 // (a) epoch (loadMore-vs-reset) guard — a reset path runs without the isLoadingMore guard, so an
 //     in-flight loadMore could contaminate the new list on favcat/query/source switch.
 // (b) gid-dedup guard — EH repeats the boundary gallery across cursor pages and the LazyForEach key
 //     is gid, so an undeduped append injects a duplicate key (churn/throw) and hasMore based on the
 //     raw page length loops forever on an all-duplicate page.
-// Both races are identical in all three VMs; fixing only Home would leave Favorites/Search broken.
+// Both races are shared across all three VMs; fixing only Home would leave Favorites/Search broken.
 {
   const pagedVms = [
     'feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets',
@@ -259,7 +260,13 @@ const ok = (name, cond) => {
     ok(`${name}: bumps epoch on reset`, /this\.epoch = this\.epoch \+ 1/.test(src))
     ok(`${name}: declares dedupeNew helper`, /private dedupeNew\(rows: EhGallery\[\]\): EhGallery\[\]/.test(src))
     ok(`${name}: dedupes new rows by gid before append`, /this\.dedupeNew\(list\.gallerys\)/.test(src))
-    ok(`${name}: exhausted on no-fresh rows`, /list\.nextGid\.length > 0 && fresh\.length > 0/.test(src))
+    if (name === 'FavoritesViewModel.ets') {
+      ok(`${name}: favorites paging is based on page/cursor progress, not dedupe count`,
+        /this\.hasMore = this\.didPagingAdvance\(page, cursor, list\)/.test(src) &&
+        !/this\.hasMore = [^\n]*fresh\.length > 0/.test(src))
+    } else {
+      ok(`${name}: exhausted on no-fresh rows`, /list\.nextGid\.length > 0 && fresh\.length > 0/.test(src))
+    }
   }
 }
 

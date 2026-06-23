@@ -76,6 +76,8 @@ export class SearchViewModel {
       isEx: connectSiteMode().isEx,
       favcat: this.isFavoriteScope ? this.favcat : 'a',
       next: next,
+      page: -1,
+      from: '',
       search: this.query,
       order: this.favOrder,
     }

@@ -18,6 +18,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const PARSER_SRC = readFileSync(join(ROOT, 'shared/src/main/ets/parser/EhGalleryListParser.ets'), 'utf8')
 
 // ── parser mirror (patterns copied verbatim from EhGalleryListParser.ets) ──
 const RE = {
@@ -37,8 +38,10 @@ const RE = {
   tagOpen: /<div class="gt[lc]?"([^>]*)>/g,
   pages: /(\d+) pages/,
   uploader: /\/uploader\/([^"/]+)"/,
-  next: /<a(?=[^>]*\bid="dnext")(?=[^>]*\bhref="[^"]*[?&](?:amp;)?next=(\d+)")[^>]*>/,
-  prev: /<a(?=[^>]*\bid="dprev")(?=[^>]*\bhref="[^"]*[?&](?:amp;)?prev=(\d+)")[^>]*>/,
+  nextIdFirst: /<a[^>]*\bid=["'][ud]next["'][^>]*\bhref=["'][^"']*[?&](?:amp;)?next=([^"'&]+)[^"']*["'][^>]*>/,
+  nextHrefFirst: /<a[^>]*\bhref=["'][^"']*[?&](?:amp;)?next=([^"'&]+)[^"']*["'][^>]*\bid=["'][ud]next["'][^>]*>/,
+  prevIdFirst: /<a[^>]*\bid=["'][ud]prev["'][^>]*\bhref=["'][^"']*[?&](?:amp;)?prev=([^"'&]+)[^"']*["'][^>]*>/,
+  prevHrefFirst: /<a[^>]*\bhref=["'][^"']*[?&](?:amp;)?prev=([^"'&]+)[^"']*["'][^>]*\bid=["'][ud]prev["'][^>]*>/,
 }
 const FAVCAT = new Map([
   ['#000', '0'], ['#f00', '1'], ['#fa0', '2'], ['#dd0', '3'], ['#080', '4'],
@@ -68,6 +71,11 @@ const htmlUnescape = (s) => {
   })
 }
 
+const navCursor = (html, idFirst, hrefFirst) => {
+  const idHit = g1(html, idFirst)
+  return idHit || g1(html, hrefFirst)
+}
+
 const parseTagAttrs = (row) => {
   const tags = []
   const titles = []
@@ -93,14 +101,41 @@ const parseTagAttrs = (row) => {
 }
 
 function parse(html) {
-  const list = { gallerys: [], nextGid: g1(html, RE.next), prevGid: g1(html, RE.prev), maxPage: 0 }
-  // Page-number paging (table.ptt): highest ?p= link = last 0-based page (toplist). Mirror of .ets.
-  const ptt = html.match(/<table class="ptt"[\s\S]*?<\/table>/)
+  const list = {
+    gallerys: [],
+    nextGid: navCursor(html, RE.nextIdFirst, RE.nextHrefFirst),
+    prevGid: navCursor(html, RE.prevIdFirst, RE.prevHrefFirst),
+    maxPage: 0,
+    nextPage: -1,
+    prevPage: -1,
+  }
+  // Page-number paging (table.ptt): eros_fe reads adjacent visible labels and subtracts 1; href
+  // parsing is only the fallback for arrow-only cells. Mirror of .ets.
+  const ptt = html.match(/<table[^>]*class="[^"]*\bptt\b[^"]*"[^>]*>[\s\S]*?<\/table>/)
   if (ptt) {
     const block = ptt[0].replace(/&amp;/g, '&') // EH escapes ?tl=11&amp;p=1
     let max = 0
-    for (const m of block.matchAll(/[?&]p=(\d+)/g)) max = Math.max(max, +m[1])
+    for (const m of block.matchAll(/[?&](?:p|page)=(\d+)/g)) max = Math.max(max, +m[1])
     list.maxPage = max
+    const pages = []
+    let currentIndex = -1
+    for (const m of block.matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/g)) {
+      const attrs = m[1] ?? ''
+      const content = m[2] ?? ''
+      if (/\bclass="[^"]*\bptds\b[^"]*"/.test(attrs)) currentIndex = pages.length
+      const text = content.replace(/<[^>]*>/g, '').trim()
+      const page = Number.parseInt(text, 10)
+      if (page > 0) {
+        pages.push(page - 1)
+        continue
+      }
+      const hrefPage = g1(content, /[?&](?:p|page)=(\d+)/)
+      pages.push(hrefPage ? Number.parseInt(hrefPage, 10) : -1)
+    }
+    if (currentIndex >= 0) {
+      if (currentIndex + 1 < pages.length) list.nextPage = pages[currentIndex + 1]
+      if (currentIndex > 0) list.prevPage = pages[currentIndex - 1]
+    }
   }
   const tbl = html.match(RE.table)
   if (!tbl) return list
@@ -151,6 +186,9 @@ let failures = 0
 const eq = (actual, expected, label) => {
   if (actual !== expected) { console.error(`  ✗ ${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`); failures++ }
 }
+const ok = (cond, label) => {
+  if (!cond) { console.error(`  ✗ ${label}`); failures++ }
+}
 
 // 0) htmlUnescape unit coverage — named/decimal/hex(both cases)/no-double-decode/unknown-verbatim
 console.log('— htmlUnescape unit —')
@@ -163,8 +201,7 @@ eq(htmlUnescape('&unknownent; &copy;'), '&unknownent; &copy;', 'unknown entities
 eq(htmlUnescape('plain text'), 'plain text', 'no entity → unchanged')
 
 // 1) synthetic — exact, deterministic
-const SYN = `<form action="https://e-hentai.org/favorites.php?favcat=0&amp;next=88"></form>
-<table class="itg gltc">
+const SYN = `<table class="itg gltc">
 <tr><th></th><th>Published</th><th>Title</th><th class="glhide">Uploader</th></tr>
 <tr>
 <td class="gl1c glcat"><div class="cn cta" onclick="x">Western</div></td>
@@ -185,20 +222,48 @@ const SYN = `<form action="https://e-hentai.org/favorites.php?favcat=0&amp;next=
 <td class="gl4c glhide"><div><a href="https://e-hentai.org/uploader/bob">bob</a></div><div>46 pages</div></td>
 </tr>
 </table>
-<a href="https://e-hentai.org/favorites.php?favcat=0&amp;prev=77" id="dprev">Prev</a>
-<a id="dnext" href="https://e-hentai.org/favorites.php?favcat=0&amp;next=99">Next</a>`
+<div class="searchnav">
+<a class="nav" href="https://e-hentai.org/favorites.php?favcat=0&amp;prev=77" id="dprev">Prev</a>
+<a class="nav" id="dnext" href="https://e-hentai.org/favorites.php?favcat=0&amp;next=99-abc">Next</a>
+</div>`
 
 console.log('— synthetic fixture —')
 const s = parse(SYN)
 eq(s.gallerys.length, 2, 'gallery count')
-eq(s.nextGid, '99', 'nextGid (from dnext, not earlier stale page URL)')
-eq(s.prevGid, '77', 'prevGid (from dprev)')
+eq(s.nextGid, '99-abc', 'nextGid keeps full EH dnext cursor token')
+eq(s.prevGid, '77', 'prevGid (from EH dprev href)')
+
+{
+  const UPPER_NAV =
+    `<div class="searchnav"><a id="uprev" href="/favorites.php?prev=11">Prev</a>` +
+    `<a id="unext" href="/favorites.php?next=22-feed">Next</a></div>`
+  const upper = parse(UPPER_NAV)
+  eq(upper.nextGid, '22-feed', 'nextGid (from EH unext href, full token)')
+  eq(upper.prevGid, '11', 'prevGid (from EH uprev href)')
+}
+{
+  const SINGLE_QUOTE_NAV =
+    `<div class='searchnav'><a href='/favorites.php?favcat=0&amp;prev=31' id='dprev'>Prev</a>` +
+    `<a id='dnext' href='/favorites.php?favcat=0&amp;next=41'>Next</a></div>`
+  const single = parse(SINGLE_QUOTE_NAV)
+  eq(single.nextGid, '41', 'nextGid (single-quoted dnext href)')
+  eq(single.prevGid, '31', 'prevGid (single-quoted dprev href)')
+}
+ok(
+  !/\(\?=[^/]*next=\(\\d\+\)/.test(PARSER_SRC) && !/\(\?=[^/]*prev=\(\\d\+\)/.test(PARSER_SRC),
+  'nav cursor regex does not rely on lookahead capture groups',
+)
+ok(
+  !/next=\(\\d\+\)/.test(PARSER_SRC) && !/prev=\(\\d\+\)/.test(PARSER_SRC),
+  'nav cursor regex preserves non-numeric EH cursor suffixes',
+)
 
 // toplist ptt page-number paging — maxPage = highest ?p= (HTML-escaped &amp;p=) in the ptt table
 {
   const PTT =
-    `<table class="ptt"><tr><td class="ptds"><a href="https://e-hentai.org/toplist.php?tl=11">1</a></td>` +
-    `<td><a href="https://e-hentai.org/toplist.php?tl=11&amp;p=1">2</a></td>` +
+    `<table class="ptt nosel"><tr><td><a href="https://e-hentai.org/toplist.php?tl=11&amp;p=0">1</a></td>` +
+    `<td data-x="1" class="ptds current"><a href="https://e-hentai.org/toplist.php?tl=11&amp;p=1">2</a></td>` +
+    `<td><a href="https://e-hentai.org/toplist.php?tl=11&amp;p=2">3</a></td>` +
     `<td><a href="https://e-hentai.org/toplist.php?tl=11&amp;p=3">4</a></td></tr></table>` +
     // Real toplist.php tag carries a `style` attr after the class — the table-open regex must
     // tolerate extra attributes (a `">`-anchored regex silently missed it → empty list on device).
@@ -207,8 +272,21 @@ eq(s.prevGid, '77', 'prevGid (from dprev)')
     `<td class="gl3c glname"><a href="https://e-hentai.org/g/9/abc123/"><div class="glink">Top1</div></a></td></tr></table>`
   const pt = parse(PTT)
   eq(pt.maxPage, 3, 'toplist maxPage (highest escaped &amp;p=)')
+  eq(pt.prevPage, 0, 'ptt prevPage is current left neighbor (0-based)')
+  eq(pt.nextPage, 2, 'ptt nextPage is current right neighbor (0-based)')
   eq(pt.gallerys.length, 1, 'toplist row parses despite rank <td> prefix + style attr on table')
   if (pt.gallerys[0]) eq(pt.gallerys[0].gid, '9', 'toplist row gid (rank-prefixed row)')
+}
+
+// Pagination must parse even if the gallery table is absent (e.g. a layout retry path).
+{
+  const NAV_ONLY =
+    `<table class="ptt nosel"><tr><td class="ptds">1</td><td><a href="/favorites.php?page=1">&gt;</a></td></tr></table>` +
+    `<div class="searchnav"><a id="unext" href="https://e-hentai.org/favorites.php?next=222">Next</a></div>`
+  const nav = parse(NAV_ONLY)
+  eq(nav.gallerys.length, 0, 'nav-only gallery count')
+  eq(nav.nextGid, '222', 'nav-only nextGid still parsed')
+  eq(nav.nextPage, 1, 'favorites page= nextPage still parsed when link text is not numeric')
 }
 const a = s.gallerys[0]
 eq(a.gid, '111', 'A.gid'); eq(a.token, 'abcd', 'A.token')
