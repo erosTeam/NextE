@@ -45,6 +45,7 @@ export class StorageKeys {
   static readonly TAG_TRANSLATION_ENABLED: string = 'tagTranslation.enabled'
   static readonly TAG_TRANSLATION_USE_CDN: string = 'tagTranslation.useCdn'
   static readonly TAG_TRANSLATION_UPDATE_MODE: string = 'tagTranslation.updateMode'
+  static readonly TAG_TRANSLATION_INTRO_IMAGE_LEVEL: string = 'tagTranslation.introImageLevel'
 
   // sensitive auth bundle (redacted in logs, never committed)
   static readonly COOKIE_JAR: string = 'auth.cookieJar'

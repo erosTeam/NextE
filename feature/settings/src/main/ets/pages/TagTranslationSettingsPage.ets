@@ -6,6 +6,10 @@ import {
   ConciseListRow,
   GroupedListSection,
   SecondaryListScaffold,
+  TAG_INTRO_IMAGE_DISABLE,
+  TAG_INTRO_IMAGE_NON_H,
+  TAG_INTRO_IMAGE_R18,
+  TAG_INTRO_IMAGE_R18G,
   TAG_TRANSLATION_UPDATE_EVERY_START,
   TAG_TRANSLATION_UPDATE_MANUAL,
   TagTranslationSettings,
@@ -20,6 +24,7 @@ export struct TagTranslationSettingsPage {
   @Local tagSettings: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local updating: boolean = false;
   @Local modeMenuShown: boolean = false;
+  @Local introImageMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
 
   private ctx(): common.UIAbilityContext {
@@ -48,6 +53,19 @@ export struct TagTranslationSettingsPage {
       : $r('app.string.tag_translation_update_manual')
   }
 
+  private introImageLevelText(): Resource {
+    switch (this.tagSettings.introImageLevel) {
+      case TAG_INTRO_IMAGE_DISABLE:
+        return $r('app.string.tag_translation_intro_image_disable')
+      case TAG_INTRO_IMAGE_R18:
+        return $r('app.string.tag_translation_intro_image_r18')
+      case TAG_INTRO_IMAGE_R18G:
+        return $r('app.string.tag_translation_intro_image_r18g')
+      default:
+        return $r('app.string.tag_translation_intro_image_nonh')
+    }
+  }
+
   private setEnabled(value: boolean): void {
     TagTranslationSettings.setEnabled(this.ctx(), value).then(() => {
       if (value && this.tagSettings.rowCount <= 0) {
@@ -63,6 +81,11 @@ export struct TagTranslationSettingsPage {
   private setUpdateMode(mode: string): void {
     TagTranslationSettings.setUpdateMode(this.ctx(), mode)
     this.modeMenuShown = false
+  }
+
+  private setIntroImageLevel(level: string): void {
+    TagTranslationSettings.setIntroImageLevel(this.ctx(), level)
+    this.introImageMenuShown = false
   }
 
   private updateNow(): void {
@@ -115,6 +138,44 @@ export struct TagTranslationSettingsPage {
           : undefined,
       }).onClick(() => {
         this.setUpdateMode(TAG_TRANSLATION_UPDATE_EVERY_START)
+      })
+    }
+  }
+
+  @Builder
+  private IntroImageMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.tag_translation_intro_image_disable'),
+        symbolEndIcon: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_DISABLE
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setIntroImageLevel(TAG_INTRO_IMAGE_DISABLE)
+      })
+      MenuItem({
+        content: $r('app.string.tag_translation_intro_image_nonh'),
+        symbolEndIcon: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_NON_H
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setIntroImageLevel(TAG_INTRO_IMAGE_NON_H)
+      })
+      MenuItem({
+        content: $r('app.string.tag_translation_intro_image_r18'),
+        symbolEndIcon: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_R18
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setIntroImageLevel(TAG_INTRO_IMAGE_R18)
+      })
+      MenuItem({
+        content: $r('app.string.tag_translation_intro_image_r18g'),
+        symbolEndIcon: this.tagSettings.introImageLevel === TAG_INTRO_IMAGE_R18G
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      }).onClick(() => {
+        this.setIntroImageLevel(TAG_INTRO_IMAGE_R18G)
       })
     }
   }
@@ -187,6 +248,25 @@ export struct TagTranslationSettingsPage {
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.modeMenuShown = false
+              },
+            })
+            this.rowDivider()
+            Column() {
+              ConciseListRow({
+                title: $r('app.string.tag_translation_intro_image_level'),
+                subtitle: $r('app.string.tag_translation_intro_image_level_hint'),
+                leadingIcon: $r('sys.symbol.textformat'),
+                trailingText: this.introImageLevelText(),
+                trailingDropdown: true,
+                action: () => {
+                  this.introImageMenuShown = true
+                },
+              })
+            }
+            .bindMenu(this.introImageMenuShown, this.IntroImageMenu, {
+              placement: Placement.BottomRight,
+              onDisappear: () => {
+                this.introImageMenuShown = false
               },
             })
           }

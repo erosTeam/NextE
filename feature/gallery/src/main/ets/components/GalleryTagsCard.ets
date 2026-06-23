@@ -1,4 +1,4 @@
-import { common } from '@kit.AbilityKit'
+import { common, Want } from '@kit.AbilityKit'
 import { vibrator } from '@kit.SensorServiceKit'
 import {
   ThemeConstants,
@@ -29,7 +29,133 @@ import {
 
 const HAPTIC_HD_INTENSITY: number = 80
 const HAPTIC_FALLBACK_DURATION: number = 30
-const TAG_INFO_ACTION_HEIGHT: number = 64
+const TAG_INFO_ACTION_SIZE: number = 32
+const TAG_INFO_SMALL_IMAGE_MAX_W: number = 240
+const TAG_INFO_IMAGE_PLACEHOLDER_H: number = 160
+
+class TagInfoLinkItem {
+  label: string = ''
+  url: string = ''
+}
+
+interface TagInfoImageLoadEvent {
+  loadingStatus: number
+  width?: number
+  height?: number
+  componentWidth?: number
+  componentHeight?: number
+}
+
+@ComponentV2
+struct TagInfoIntroImage {
+  @Param url: string = '';
+  @Local sourceWidthVp: number = 0;
+  @Local sourceHeightVp: number = 0;
+  @Local availableWidth: number = 0;
+
+  private imageSizeMatch(): RegExpExecArray | null {
+    const reg: RegExp = /-\d+-(\d+)-(\d+)-[A-Za-z0-9]+(?:_(\d+)|_[A-Za-z]+)?\.[A-Za-z0-9]+(?:[?#].*)?$/
+    return reg.exec(this.url)
+  }
+
+  private initialSourceWidthPx(): number {
+    const match: RegExpExecArray | null = this.imageSizeMatch()
+    if (match === null) {
+      return 0
+    }
+    const thumbWidth: number = match[3] !== undefined ? Number.parseInt(match[3], 10) : 0
+    return thumbWidth > 0 ? thumbWidth : Number.parseInt(match[1], 10)
+  }
+
+  private initialSourceHeightPx(): number {
+    const match: RegExpExecArray | null = this.imageSizeMatch()
+    if (match === null) {
+      return 0
+    }
+    const thumbWidth: number = match[3] !== undefined ? Number.parseInt(match[3], 10) : 0
+    const width: number = Number.parseInt(match[1], 10)
+    const height: number = Number.parseInt(match[2], 10)
+    if (width <= 0 || height <= 0) {
+      return 0
+    }
+    return thumbWidth > 0 ? thumbWidth * height / width : height
+  }
+
+  private effectiveSourceWidth(): number {
+    if (this.sourceWidthVp > 0) {
+      return this.sourceWidthVp
+    }
+    const widthPx: number = this.initialSourceWidthPx()
+    return widthPx
+  }
+
+  private effectiveSourceHeight(): number {
+    if (this.sourceHeightVp > 0) {
+      return this.sourceHeightVp
+    }
+    const heightPx: number = this.initialSourceHeightPx()
+    return heightPx
+  }
+
+  private renderedWidth(): Length {
+    const width: number = this.effectiveSourceWidth()
+    if (width > 0 && width <= TAG_INFO_SMALL_IMAGE_MAX_W) {
+      return width
+    }
+    return '100%'
+  }
+
+  private renderedHeight(): number {
+    const width: number = this.effectiveSourceWidth()
+    const height: number = this.effectiveSourceHeight()
+    if (width > 0 && height > 0) {
+      if (width <= TAG_INFO_SMALL_IMAGE_MAX_W) {
+        return height
+      }
+      const targetWidth: number = this.availableWidth > 0 ? this.availableWidth : 360
+      return Math.max(80, Math.min(1200, targetWidth * height / width))
+    }
+    return TAG_INFO_IMAGE_PLACEHOLDER_H
+  }
+
+  private applyLoadEvent(event?: TagInfoImageLoadEvent): void {
+    if (!event || event.loadingStatus !== 1) {
+      return
+    }
+    if (event.width !== undefined && event.height !== undefined && event.width > 0 && event.height > 0) {
+      this.sourceWidthVp = event.width
+      this.sourceHeightVp = event.height
+    }
+  }
+
+  private updateAvailableWidth(value: Area): void {
+    if (typeof value.width === 'number') {
+      this.availableWidth = value.width
+    } else if (typeof value.width === 'string') {
+      const parsed: number = Number.parseFloat(value.width)
+      this.availableWidth = Number.isNaN(parsed) ? 0 : parsed
+    }
+  }
+
+  build() {
+    Stack() {
+      Image(this.url)
+        .width(this.renderedWidth())
+        .height(this.renderedHeight())
+        .objectFit(ImageFit.Contain)
+        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+        .clip(true)
+        .onComplete((event?: TagInfoImageLoadEvent) => {
+          this.applyLoadEvent(event)
+        })
+    }
+    .width('100%')
+    .align(Alignment.Center)
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      this.updateAvailableWidth(newValue)
+    })
+  }
+}
 
 /**
  * Detail-page tag groups (namespace label + wrapped chips), one row per namespace. Shares
@@ -56,6 +182,7 @@ export struct GalleryTagsCard {
   @Local infoName: string = '';
   @Local infoIntro: string = '';
   @Local infoLinks: string = '';
+  @Local infoImages: string[] = [];
   @Local infoEpoch: number = 0;
   @Local submittingTagKey: string = '';
   @Local editSheetShown: boolean = false;
@@ -153,6 +280,7 @@ export struct GalleryTagsCard {
     this.infoName = ''
     this.infoIntro = ''
     this.infoLinks = ''
+    this.infoImages = []
     this.infoError = ''
     this.tagInfoShown = true
     const epoch: number = this.infoEpoch + 1
@@ -168,6 +296,7 @@ export struct GalleryTagsCard {
         this.ctx(),
         this.selectedNamespace,
         this.selectedTagText,
+        this.tagTranslation.introImageLevel,
       )
       if (epoch !== this.infoEpoch) {
         return
@@ -176,6 +305,7 @@ export struct GalleryTagsCard {
         this.infoName = info.name
         this.infoIntro = info.intro
         this.infoLinks = info.links
+        this.infoImages = info.images
       }
     } catch (err) {
       if (epoch === this.infoEpoch) {
@@ -394,20 +524,68 @@ export struct GalleryTagsCard {
     this.tagSig.version = this.tagSig.version + 1
   }
 
+  private markdownBodyLines(markdown: string): string[] {
+    let text: string = markdown.replace(/\r\n/g, '\n')
+    text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '')
+    text = text.replace(/^#{1,6}\s*/gm, '')
+    text = text.replace(/\*\*([^*]+)\*\*/g, '$1')
+    text = text.replace(/__([^_]+)__/g, '$1')
+    text = text.replace(/`([^`]+)`/g, '$1')
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+    text = text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim()
+    if (text.length === 0) {
+      return []
+    }
+    return text.split('\n').map((line: string): string => line.trim()).filter((line: string): boolean => line.length > 0)
+  }
+
+  private markdownLinks(markdown: string): TagInfoLinkItem[] {
+    const links: TagInfoLinkItem[] = []
+    const reg: RegExp = /\[([^\]]+)\]\(([^)]+)\)/g
+    let match: RegExpExecArray | null = reg.exec(markdown)
+    while (match !== null) {
+      const item: TagInfoLinkItem = new TagInfoLinkItem()
+      item.label = match[1].trim()
+      item.url = match[2].trim()
+      if (item.label.length > 0 || item.url.length > 0) {
+        links.push(item)
+      }
+      match = reg.exec(markdown)
+    }
+    if (links.length === 0 && markdown.trim().length > 0) {
+      const item: TagInfoLinkItem = new TagInfoLinkItem()
+      item.label = markdown.trim()
+      links.push(item)
+    }
+    return links
+  }
+
+  private openTagInfoLink(url: string): void {
+    if (url.length === 0) {
+      return
+    }
+    const want: Want = { action: 'ohos.want.action.viewData', uri: url }
+    this.ctx().startAbility(want).catch((_error: Error) => {
+      this.getUIContext().getPromptAction().openToast({ message: url }).catch((_toastError: Error) => {})
+    })
+  }
+
   @Builder
-  private InfoText(title: ResourceStr, body: string) {
-    if (body.trim().length > 0) {
+  private InfoMarkdownText(title: ResourceStr, markdown: string) {
+    if (this.markdownBodyLines(markdown).length > 0) {
       ListItem() {
         Column({ space: ThemeConstants.SPACE_XS }) {
           Text(title)
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontWeight(FontWeight.Medium)
             .fontColor($r('sys.color.font_primary'))
             .width('100%')
-          Text(body)
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
+          ForEach(this.markdownBodyLines(markdown), (line: string) => {
+            Text(line)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor($r('sys.color.font_secondary'))
+              .width('100%')
+          }, (line: string) => line)
         }
         .width('100%')
         .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
@@ -416,30 +594,130 @@ export struct GalleryTagsCard {
   }
 
   @Builder
-  private TagInfoHeader() {
-    ListItem() {
-      Column({ space: ThemeConstants.SPACE_XS }) {
-        Text(this.infoName.length > 0 ? this.infoName : this.selectedTagDisplay)
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-          .width('100%')
-        Row() {
-          Text(this.selectedTagKey())
-            .fontSize(ThemeConstants.FONT_SIZE_META)
-            .fontColor($r('sys.color.font_secondary'))
-          if (this.selectedTagVote !== 0) {
-            Text(this.tagVoteLabel())
-              .fontSize(ThemeConstants.FONT_SIZE_META)
-              .fontColor(this.tagVoteColor())
-              .padding({ left: ThemeConstants.SPACE_SM })
-          }
+  private InfoLinks(title: ResourceStr, markdown: string) {
+    if (markdown.trim().length > 0) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_XS }) {
+          Text(title)
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .width('100%')
+          ForEach(this.markdownLinks(markdown), (item: TagInfoLinkItem) => {
+            Column({ space: ThemeConstants.SPACE_XS }) {
+              Text(item.label.length > 0 ? item.label : item.url)
+                .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                .fontColor(item.url.length > 0 ? ThemeConstants.TEXT_LINK : $r('sys.color.font_secondary'))
+                .width('100%')
+              if (item.url.length > 0 && item.url !== item.label) {
+                Text(item.url)
+                  .fontSize(ThemeConstants.FONT_SIZE_META)
+                  .fontColor($r('sys.color.font_secondary'))
+                  .width('100%')
+              }
+            }
+            .width('100%')
+            .onClick(() => {
+              this.openTagInfoLink(item.url)
+            })
+          }, (item: TagInfoLinkItem) => `${item.label}:${item.url}`)
         }
         .width('100%')
+        .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
+      }
+    }
+  }
+
+  @Builder
+  private InfoImages() {
+    if (this.infoImages.length > 0) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_SM }) {
+          ForEach(this.infoImages, (url: string) => {
+            TagInfoIntroImage({ url: url })
+          }, (url: string) => url)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+        .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
+      }
+    }
+  }
+
+  @Builder
+  private TagInfoHeader() {
+    ListItem() {
+      Row({ space: ThemeConstants.SPACE_MD }) {
+        Column({ space: ThemeConstants.SPACE_XS }) {
+          Text(this.infoName.length > 0 ? this.infoName : this.selectedTagDisplay)
+            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .width('100%')
+          Row() {
+            Text(this.selectedTagKey())
+              .fontSize(ThemeConstants.FONT_SIZE_META)
+              .fontColor($r('sys.color.font_secondary'))
+            if (this.selectedTagVote !== 0) {
+              Text(this.tagVoteLabel())
+                .fontSize(ThemeConstants.FONT_SIZE_META)
+                .fontColor(this.tagVoteColor())
+                .padding({ left: ThemeConstants.SPACE_SM })
+            }
+          }
+          .width('100%')
+        }
+        .layoutWeight(1)
+
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          this.TagInfoActionButton(
+            this.selectedTagVote === 0 ? $r('sys.symbol.hand_thumbsup') : $r('sys.symbol.arrow_counterclockwise'),
+            this.selectedTagVote === 0 ? $r('app.string.tag_vote_up_short') : $r('app.string.tag_vote_withdraw_short'),
+            this.submittingTagKey.length === 0,
+            () => {
+              if (this.selectedTagVote === 0) {
+                this.confirmTagVote(1)
+              } else if (this.selectedTagVote > 0) {
+                this.confirmTagVote(-1)
+              } else {
+                this.confirmTagVote(1)
+              }
+            }
+          )
+          if (this.selectedTagVote === 0) {
+            this.TagInfoActionButton($r('sys.symbol.hand_thumbsdown'), $r('app.string.tag_vote_down_short'),
+              this.submittingTagKey.length === 0, () => {
+                this.confirmTagVote(-1)
+              })
+          }
+          this.TagInfoActionButton($r('sys.symbol.bookmark'), $r('app.string.tag_info_manage_short'),
+            this.submittingTagKey.length === 0, () => {
+              this.openMyTagsForSelectedTag()
+            })
+        }
+        .flexShrink(0)
       }
       .width('100%')
+      .alignItems(VerticalAlign.Center)
       .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
     }
+  }
+
+  @Builder
+  private TagInfoActionButton(icon: Resource, label: Resource, enabled: boolean, action: () => void) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph(icon)
+        .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+        .fontColor([$r('sys.color.font_secondary')])
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .width(TAG_INFO_ACTION_SIZE)
+    .height(TAG_INFO_ACTION_SIZE)
+    .enabled(enabled)
+    .accessibilityText(label)
+    .onClick(action)
   }
 
   @Builder
@@ -459,9 +737,10 @@ export struct GalleryTagsCard {
           .width('100%')
       }
     } else {
-      this.InfoText($r('app.string.tag_info_intro'), this.infoIntro)
-      this.InfoText($r('app.string.tag_info_links'), this.infoLinks)
-      if (this.infoIntro.length === 0 && this.infoLinks.length === 0) {
+      this.InfoMarkdownText($r('app.string.tag_info_intro'), this.infoIntro)
+      this.InfoImages()
+      this.InfoLinks($r('app.string.tag_info_links'), this.infoLinks)
+      if (this.infoIntro.length === 0 && this.infoLinks.length === 0 && this.infoImages.length === 0) {
         ListItem() {
           Text($r('app.string.tag_info_empty'))
             .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
@@ -592,40 +871,10 @@ export struct GalleryTagsCard {
         title: $r('app.string.tag_info_title'),
         showConfirmAction: false,
         closeInMenu: true,
-        footerReserveHeight: TAG_INFO_ACTION_HEIGHT + ThemeConstants.SPACE_LG,
-        showFooterActionOne: true,
-        footerActionOneText: this.selectedTagVote === 0 ? $r('app.string.tag_vote_up_short') : $r('app.string.tag_vote_withdraw_short'),
-        footerActionOneIcon: this.selectedTagVote === 0 ? $r('sys.symbol.hand_thumbsup') : $r('sys.symbol.arrow_counterclockwise'),
-        footerActionOneColor: $r('sys.color.font_secondary'),
-        footerActionOneEnabled: this.submittingTagKey.length === 0,
-        showFooterActionTwo: this.selectedTagVote === 0,
-        footerActionTwoText: $r('app.string.tag_vote_down_short'),
-        footerActionTwoIcon: $r('sys.symbol.hand_thumbsdown'),
-        footerActionTwoColor: $r('sys.color.font_secondary'),
-        footerActionTwoEnabled: this.submittingTagKey.length === 0,
-        showFooterActionThree: true,
-        footerActionThreeText: $r('app.string.tag_info_manage_short'),
-        footerActionThreeIcon: $r('sys.symbol.bookmark'),
-        footerActionThreeColor: $r('sys.color.font_secondary'),
-        footerActionThreeEnabled: this.submittingTagKey.length === 0,
+        contentHorizontalPadding: ThemeConstants.SPACE_LG,
         contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
         closeAction: () => {
           this.tagInfoShown = false
-        },
-        footerActionOne: () => {
-          if (this.selectedTagVote === 0) {
-            this.confirmTagVote(1)
-          } else if (this.selectedTagVote > 0) {
-            this.confirmTagVote(-1)
-          } else {
-            this.confirmTagVote(1)
-          }
-        },
-        footerActionTwo: () => {
-          this.confirmTagVote(-1)
-        },
-        footerActionThree: () => {
-          this.openMyTagsForSelectedTag()
         },
       }) {
         this.TagInfoHeader()
@@ -707,7 +956,8 @@ export struct GalleryTagsCard {
     }
     .width('100%')
     .bindSheet($$this.tagInfoShown, this.TagInfoSheet(), {
-      detents: [SheetSize.LARGE],
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      scrollSizeMode: ScrollSizeMode.CONTINUOUS,
       showClose: false,
     })
   }

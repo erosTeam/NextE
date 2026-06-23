@@ -9,6 +9,7 @@ export struct AppModalScaffold {
   @Param includeKeyboardPadding: boolean = false
   @Param enableComponentSafeArea: boolean = true
   @Param contentBackgroundColor: ResourceColor = $r('sys.color.ohos_id_color_sub_background')
+  @Param contentHorizontalPadding: number = ThemeConstants.SPACE_MD
   @Param closeInMenu: boolean = false
   @Param closeIcon: Resource = $r('sys.symbol.xmark')
   @Param footerReserveHeight: number = 0
@@ -61,7 +62,7 @@ export struct AppModalScaffold {
         }
         .height('100%')
         .width('100%')
-        .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
+        .padding({ left: this.contentHorizontalPadding, right: this.contentHorizontalPadding })
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.None)
       }

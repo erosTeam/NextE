@@ -14,6 +14,9 @@ const tagsCard = read('feature/gallery/src/main/ets/components/GalleryTagsCard.e
 const detailPage = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const detailVm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets')
 const tagService = read('shared/src/main/ets/services/TagTranslationService.ets')
+const tagSettingsState = read('shared/src/main/ets/state/TagTranslationSettingsState.ets')
+const tagSettings = read('shared/src/main/ets/settings/TagTranslationSettings.ets')
+const tagSettingsPage = read('feature/settings/src/main/ets/pages/TagTranslationSettingsPage.ets')
 const routeParams = read('shared/src/main/ets/model/RouteParams.ets')
 const mytagsPage = read('feature/user/src/main/ets/pages/MyTagsPage.ets')
 const resources = [
@@ -35,15 +38,50 @@ function ok(condition, message) {
 ok(
   /static async lookupTagInfo\(/.test(tagService) &&
     /SELECT name, intro, links FROM tag_translations/.test(tagService) &&
-    /export class TagTranslationInfo[\s\S]*name: string[\s\S]*intro: string[\s\S]*links: string/.test(tagService),
-  'TagTranslationService must expose local tag name/intro/links lookup',
+    /translateInlineCodeTags\(context, rawIntro\)/.test(tagService) &&
+    /filterIntroImages\([\s\S]*introImageLevel/.test(tagService) &&
+    !/markdownDisplayText/.test(tagService) &&
+    /info\.intro = filteredIntro\.trim\(\)/.test(tagService) &&
+    /info\.links = rawLinks\.trim\(\)/.test(tagService) &&
+    /extractMarkdownImageUrls/.test(tagService) &&
+    /export class TagTranslationInfo[\s\S]*name: string[\s\S]*intro: string[\s\S]*links: string[\s\S]*images: string\[\]/.test(tagService),
+  'TagTranslationService must expose Markdown tag intro/links without flattening display text',
+)
+ok(
+  /TAG_INTRO_IMAGE_DISABLE/.test(tagService) &&
+    /TAG_INTRO_IMAGE_NON_H/.test(tagService) &&
+    /TAG_INTRO_IMAGE_R18/.test(tagService) &&
+    /TAG_INTRO_IMAGE_R18G/.test(tagService) &&
+    /intro\.replace\(regAll, ''\)/.test(tagService) &&
+    /intro\.replace\(regR18And18g, ''\)/.test(tagService) &&
+    /\.replace\(regR18g, ''\)[\s\S]*\.replace\(regR18And18g/.test(tagService),
+  'TagTranslationService must mirror eros_fe tag intro image levels',
 )
 ok(
   /LongPressGesture\(\{ repeat: false, duration: 500 \}\)[\s\S]*this\.openTagInfo\(tg\.namespace, t\)/.test(tagsCard) &&
     /triggerLongPressHaptic\(\)[\s\S]*vibrator\.startVibration/.test(tagsCard) &&
     /AppModalScaffold\(\{[\s\S]*tag_info_title/.test(tagsCard) &&
-    /TagTranslationService\.lookupTagInfo/.test(tagsCard),
-  'GalleryTagsCard must open a tag-info sheet on long press and read local translation info',
+    /TagTranslationService\.lookupTagInfo\([\s\S]*this\.tagTranslation\.introImageLevel/.test(tagsCard) &&
+    /this\.infoImages = info\.images/.test(tagsCard) &&
+    /private InfoMarkdownText\([\s\S]*markdownBodyLines/.test(tagsCard) &&
+    /private InfoLinks\([\s\S]*markdownLinks/.test(tagsCard) &&
+    /struct TagInfoIntroImage[\s\S]*renderedWidth\(\): Length[\s\S]*renderedHeight\(\): number/.test(tagsCard) &&
+    /event\.loadingStatus !== 1/.test(tagsCard) &&
+    /onAreaChange\([\s\S]*updateAvailableWidth/.test(tagsCard) &&
+    /private InfoImages\(\)[\s\S]*TagInfoIntroImage\(\{ url: url \}\)/.test(tagsCard) &&
+    /private TagInfoActionButton\([\s\S]*Button\(\{ type: ButtonType\.Circle/.test(tagsCard) &&
+    /this\.TagInfoActionButton\([\s\S]*hand_thumbsup[\s\S]*hand_thumbsdown[\s\S]*bookmark/.test(tagsCard) &&
+    !/footerActionOneText[\s\S]*tag_vote_up_short/.test(tagsCard) &&
+    /scrollSizeMode: ScrollSizeMode\.CONTINUOUS/.test(tagsCard),
+  'GalleryTagsCard must open a tag-info sheet on long press and render Markdown-derived content blocks',
+)
+ok(
+  /@Trace introImageLevel: string = TAG_INTRO_IMAGE_NON_H/.test(tagSettingsState) &&
+    /setIntroImageLevel/.test(tagSettings) &&
+    /TAG_TRANSLATION_INTRO_IMAGE_LEVEL/.test(tagSettings) &&
+    /IntroImageMenu/.test(tagSettingsPage) &&
+    /tag_translation_intro_image_level/.test(tagSettingsPage),
+  'Tag translation settings must expose the eros_fe tag intro image level switch',
 )
 ok(
   /EhApiPhpService\.tagGallery\([\s\S]*this\.gallery\.apikey[\s\S]*this\.gallery\.apiuid[\s\S]*tagKey[\s\S]*vote/.test(tagsCard) &&
@@ -76,7 +114,18 @@ ok(
 )
 
 for (const src of resources) {
-  for (const key of ['tag_info_title', 'tag_info_intro', 'tag_info_links', 'tag_info_empty', 'tag_info_manage_mytag']) {
+  for (const key of [
+    'tag_info_title',
+    'tag_info_intro',
+    'tag_info_links',
+    'tag_info_empty',
+    'tag_info_manage_mytag',
+    'tag_translation_intro_image_level',
+    'tag_translation_intro_image_disable',
+    'tag_translation_intro_image_nonh',
+    'tag_translation_intro_image_r18',
+    'tag_translation_intro_image_r18g',
+  ]) {
     ok(src.includes(`"name": "${key}"`), `missing i18n key ${key}`)
   }
 }

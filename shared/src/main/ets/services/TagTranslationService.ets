@@ -11,6 +11,12 @@ import { EhTagSuggestion } from '../model/EhTagSuggestion'
 import { SimpleTag } from '../model/SimpleTag'
 import { TagGroup } from '../model/TagGroup'
 import { LocalDataStore } from '../storage/LocalDataStore'
+import {
+  TAG_INTRO_IMAGE_DISABLE,
+  TAG_INTRO_IMAGE_NON_H,
+  TAG_INTRO_IMAGE_R18,
+  TAG_INTRO_IMAGE_R18G,
+} from '../state/TagTranslationSettingsState'
 
 const RELEASE_API_URL: string = 'https://api.github.com/repos/EhTagTranslation/Database/releases/latest'
 const CDN_RELEASE_API_URL: string =
@@ -30,6 +36,8 @@ const SQL_SELECT_TAG_VERSION: string =
   'SELECT value FROM tag_translation_meta WHERE key = ? LIMIT 1'
 const SQL_SELECT_TAG_TRANSLATION: string =
   'SELECT name FROM tag_translations WHERE namespace = ? AND key = ? LIMIT 1'
+const SQL_SELECT_TAG_TRANSLATION_BY_KEY: string =
+  'SELECT name FROM tag_translations WHERE key = ? ORDER BY namespace ASC LIMIT 1'
 const SQL_SELECT_TAG_INFO: string =
   'SELECT name, intro, links FROM tag_translations WHERE namespace = ? AND key = ? LIMIT 1'
 const SQL_QUERY_TAG_TRANSLATIONS: string =
@@ -102,6 +110,7 @@ export class TagTranslationInfo {
   name: string = ''
   intro: string = ''
   links: string = ''
+  images: string[] = []
 }
 
 export class TagTranslationService {
@@ -213,6 +222,7 @@ export class TagTranslationService {
     context: common.UIAbilityContext,
     namespace: string,
     key: string,
+    introImageLevel: string = TAG_INTRO_IMAGE_NON_H,
   ): Promise<TagTranslationInfo | null> {
     const ns: string = EhConstants.expandNamespace(namespace).trim()
     const tagKey: string = TagTranslationService.cleanTagQueryText(key).toLowerCase()
@@ -232,8 +242,15 @@ export class TagTranslationService {
       info.name = TagTranslationService.stripNameMarkdown(
         TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('name')),
       )
-      info.intro = TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('intro'))
-      info.links = TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('links'))
+      const rawIntro: string = TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('intro'))
+      const rawLinks: string = TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('links'))
+      const filteredIntro: string = TagTranslationService.filterIntroImages(
+        await TagTranslationService.translateInlineCodeTags(context, rawIntro),
+        introImageLevel,
+      )
+      info.intro = filteredIntro.trim()
+      info.images = TagTranslationService.extractMarkdownImageUrls(filteredIntro)
+      info.links = rawLinks.trim()
       return info
     } finally {
       resultSet.close()
@@ -604,6 +621,85 @@ export class TagTranslationService {
 
   private static stripNameMarkdown(value: string): string {
     return value.replace(/!\[(\S+)?\]\(.+?\)(\s+)?(\S+)/g, '$3').trim()
+  }
+
+  private static async translateInlineCodeTags(context: common.UIAbilityContext, intro: string): Promise<string> {
+    if (intro.length === 0) {
+      return ''
+    }
+    const regCode: RegExp = /`(([\w:]+\s+?)*[\w:]+)`/g
+    const translations: Map<string, string> = new Map<string, string>()
+    let match: RegExpExecArray | null = regCode.exec(intro)
+    while (match !== null) {
+      const raw: string = match[1]
+      if (!translations.has(raw)) {
+        const name: string = await TagTranslationService.lookupCodeTagName(context, raw)
+        if (name.length > 0 && name !== raw) {
+          translations.set(raw, `${name} (${raw})`)
+        }
+      }
+      match = regCode.exec(intro)
+    }
+    return intro.replace(regCode, (_m: string, raw: string): string => {
+      const translated: string | undefined = translations.get(raw)
+      return translated === undefined ? ` ${raw} ` : ` ${translated} `
+    })
+  }
+
+  private static async lookupCodeTagName(context: common.UIAbilityContext, raw: string): Promise<string> {
+    const text: string = raw.trim().toLowerCase()
+    if (text.length === 0) {
+      return ''
+    }
+    const idx: number = text.indexOf(':')
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const sql: string = idx > 0 ? SQL_SELECT_TAG_TRANSLATION : SQL_SELECT_TAG_TRANSLATION_BY_KEY
+    const args: relationalStore.ValueType[] = idx > 0
+      ? [EhConstants.expandNamespace(text.substring(0, idx)), TagTranslationService.cleanTagQueryText(text.substring(idx + 1))]
+      : [TagTranslationService.cleanTagQueryText(text)]
+    const resultSet: relationalStore.ResultSet = await store.querySql(sql, args)
+    try {
+      if (resultSet.goToFirstRow()) {
+        return TagTranslationService.stripNameMarkdown(
+          TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('name')),
+        )
+      }
+    } finally {
+      resultSet.close()
+    }
+    return raw
+  }
+
+  static filterIntroImages(intro: string, level: string): string {
+    const regR18g: RegExp = /!\[((\S+)?)\]\(##\s+?"(.+?)"\)/g
+    const regR18And18g: RegExp = /!\[((\S+)?)\]\(##?\s+?"(.+?)"\)/g
+    const regAll: RegExp = /!\[((\S+)?)\]\((.+?)\)/g
+    switch (level) {
+      case TAG_INTRO_IMAGE_DISABLE:
+        return intro.replace(regAll, '')
+      case TAG_INTRO_IMAGE_R18:
+        return intro
+          .replace(regR18g, '')
+          .replace(regR18And18g, (_m: string, _alt0: string, alt: string, url: string): string => `![${alt}](${url})`)
+      case TAG_INTRO_IMAGE_R18G:
+        return intro.replace(regR18And18g, (_m: string, _alt0: string, alt: string, url: string): string => `![${alt}](${url})`)
+      default:
+        return intro.replace(regR18And18g, '')
+    }
+  }
+
+  static extractMarkdownImageUrls(value: string): string[] {
+    const urls: string[] = []
+    const regImage: RegExp = /!\[([^\]]*)\]\(([^)]+)\)/g
+    let match: RegExpExecArray | null = regImage.exec(value)
+    while (match !== null) {
+      const url: string = match[2].trim()
+      if (url.length > 0 && url.indexOf('##') !== 0) {
+        urls.push(url)
+      }
+      match = regImage.exec(value)
+    }
+    return urls
   }
 
   private static normalize(fullTag: string): string {

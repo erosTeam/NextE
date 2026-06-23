@@ -909,6 +909,30 @@
       "value": "启动 App 时更新"
     },
     {
+      "name": "tag_translation_intro_image_level",
+      "value": "标签简介图片"
+    },
+    {
+      "name": "tag_translation_intro_image_level_hint",
+      "value": "控制标签翻译简介里的图片显示范围。"
+    },
+    {
+      "name": "tag_translation_intro_image_disable",
+      "value": "全部隐藏"
+    },
+    {
+      "name": "tag_translation_intro_image_nonh",
+      "value": "隐藏 H 图片"
+    },
+    {
+      "name": "tag_translation_intro_image_r18",
+      "value": "隐藏引起不适的图片"
+    },
+    {
+      "name": "tag_translation_intro_image_r18g",
+      "value": "全部显示"
+    },
+    {
       "name": "settings_about",
       "value": "关于"
     },

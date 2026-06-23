@@ -212,6 +212,10 @@ export { HomeTabAutoHideState, connectHomeTabAutoHide } from './state/HomeTabAut
 export {
   TagTranslationSettingsState,
   connectTagTranslationSettings,
+  TAG_INTRO_IMAGE_DISABLE,
+  TAG_INTRO_IMAGE_NON_H,
+  TAG_INTRO_IMAGE_R18,
+  TAG_INTRO_IMAGE_R18G,
   TAG_TRANSLATION_UPDATE_EVERY_START,
   TAG_TRANSLATION_UPDATE_MANUAL,
 } from './state/TagTranslationSettingsState'

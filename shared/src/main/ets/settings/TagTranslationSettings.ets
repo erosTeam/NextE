@@ -4,6 +4,10 @@ import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { TagTranslationService, TagTranslationStatus } from '../services/TagTranslationService'
 import {
+  TAG_INTRO_IMAGE_DISABLE,
+  TAG_INTRO_IMAGE_NON_H,
+  TAG_INTRO_IMAGE_R18,
+  TAG_INTRO_IMAGE_R18G,
   connectTagTranslationSettings,
   TAG_TRANSLATION_UPDATE_EVERY_START,
   TAG_TRANSLATION_UPDATE_MANUAL,
@@ -21,6 +25,9 @@ export class TagTranslationSettings {
       state.useCdn = store.getSync(StorageKeys.TAG_TRANSLATION_USE_CDN, false) as boolean
       state.updateMode = TagTranslationSettings.normalizeMode(
         store.getSync(StorageKeys.TAG_TRANSLATION_UPDATE_MODE, TAG_TRANSLATION_UPDATE_MANUAL) as string,
+      )
+      state.introImageLevel = TagTranslationSettings.normalizeIntroImageLevel(
+        store.getSync(StorageKeys.TAG_TRANSLATION_INTRO_IMAGE_LEVEL, TAG_INTRO_IMAGE_NON_H) as string,
       )
       await TagTranslationSettings.refreshStatus(context)
       TagTranslationSettings.scheduleStartupUpdate(context)
@@ -48,6 +55,18 @@ export class TagTranslationSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'tagtranslation_mode_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setIntroImageLevel(context: common.UIAbilityContext, level: string): Promise<void> {
+    const normalized: string = TagTranslationSettings.normalizeIntroImageLevel(level)
+    connectTagTranslationSettings().introImageLevel = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
+      store.putSync(StorageKeys.TAG_TRANSLATION_INTRO_IMAGE_LEVEL, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'tagtranslation_intro_image_save_failed', (error as Error).message)
     }
   }
 
@@ -99,5 +118,16 @@ export class TagTranslationSettings {
     return mode === TAG_TRANSLATION_UPDATE_EVERY_START
       ? TAG_TRANSLATION_UPDATE_EVERY_START
       : TAG_TRANSLATION_UPDATE_MANUAL
+  }
+
+  private static normalizeIntroImageLevel(level: string): string {
+    switch (level) {
+      case TAG_INTRO_IMAGE_DISABLE:
+      case TAG_INTRO_IMAGE_R18:
+      case TAG_INTRO_IMAGE_R18G:
+        return level
+      default:
+        return TAG_INTRO_IMAGE_NON_H
+    }
   }
 }

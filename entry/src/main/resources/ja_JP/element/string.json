@@ -909,6 +909,30 @@
       "value": "アプリ起動時"
     },
     {
+      "name": "tag_translation_intro_image_level",
+      "value": "タグ説明の画像"
+    },
+    {
+      "name": "tag_translation_intro_image_level_hint",
+      "value": "タグ翻訳の説明に含まれる画像の表示範囲を制御します。"
+    },
+    {
+      "name": "tag_translation_intro_image_disable",
+      "value": "すべて非表示"
+    },
+    {
+      "name": "tag_translation_intro_image_nonh",
+      "value": "H画像を非表示"
+    },
+    {
+      "name": "tag_translation_intro_image_r18",
+      "value": "不快な画像を非表示"
+    },
+    {
+      "name": "tag_translation_intro_image_r18g",
+      "value": "すべて表示"
+    },
+    {
       "name": "settings_about",
       "value": "バージョン情報"
     },
