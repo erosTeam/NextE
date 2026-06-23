@@ -136,7 +136,7 @@ export struct GalleryCard {
               .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
               .fontColor(this.chipText(t))
               .backgroundColor(this.chipBg(t))
-              .borderRadius(ThemeConstants.RADIUS_SM)
+              .borderRadius(ThemeConstants.LIST_TAG_RADIUS)
               // Snug padding so short tags hug their text (eros_fe TagItem is 4/2; 6/3 is the
               // native-snug equivalent — 8/4 ballooned short chips into wide pills with grey flanks).
               .padding({ left: 6, right: 6, top: 3, bottom: 3 })
@@ -272,7 +272,7 @@ export struct GalleryCard {
               .fontWeight(FontWeight.Medium)
               .fontColor(ThemeConstants.TEXT_ON_BRAND)
               .backgroundColor(EhConstants.categoryColor(this.gallery.category))
-              .borderRadius(ThemeConstants.RADIUS_SM)
+              .borderRadius(ThemeConstants.LIST_TAG_RADIUS)
               .padding({
                 left: ThemeConstants.SPACE_SM,
                 right: ThemeConstants.SPACE_SM,

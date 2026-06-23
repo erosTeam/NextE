@@ -91,3 +91,13 @@ Primary information: the cover image remains the left-side visual anchor; the fi
 Primary action: tapping the row still opens gallery detail; this lane only corrects cover fill/background presentation for adaptive list rows.
 Reuse or deviation: reuse the existing measured list width and `EhThumbnail` gradient/blur letterbox background; deviate from the old precomputed `LIST_CARD_COVER_ASPECT` slot by measuring the stretched cover slot height after the right column lays out.
 Verification: list responsive cover contract, list height mode contract, cover presentation contract, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
+
+## Active: gallery list tag chip radius token
+
+Status: active
+Reference implementation: `shared/src/main/ets/components/GalleryCard.ets`, `shared/src/main/ets/components/GalleryWaterfallCard.ets`, and `shared/src/main/ets/theme/ThemeConstants.ets`.
+Surface type: ordinary gallery tag chips in LIST and WATERFALL browsing cards.
+Primary information: tag chips remain compact tag labels; only their corner radius is tuned.
+Primary action: tapping a tag still publishes the existing exact-tag search.
+Reuse or deviation: reuse the existing tag chip renderers and introduce one narrow token, `LIST_TAG_RADIUS = 6`, instead of reusing card/badge/detail-chip radii.
+Verification: UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.

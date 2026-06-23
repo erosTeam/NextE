@@ -116,7 +116,7 @@ export struct GalleryWaterfallCard {
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
       .fontColor(this.chipText(t))
       .backgroundColor(this.chipBg(t))
-      .borderRadius(ThemeConstants.RADIUS_SM)
+      .borderRadius(ThemeConstants.LIST_TAG_RADIUS)
       .padding({ left: 6, right: 6, top: 3, bottom: 3 })
       .maxLines(1)
       .textOverflow({ overflow: TextOverflow.Ellipsis })
