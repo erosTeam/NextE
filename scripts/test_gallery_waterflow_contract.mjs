@@ -78,8 +78,8 @@ assertIncludes(waterfallCard, 'private isExtremeTallCover(): boolean', 'Waterfal
 assertIncludes(waterfallCard, 'forceCoverFit: !this.isExtremeTallCover()', 'Waterfall normal covers may crop, but extreme strip covers must not be full-width Cover scaled');
 assertIncludes(waterfallCard, 'containFit: this.isExtremeTallCover()', 'Waterfall extreme strip foreground must preserve true source ratio inside the bounded slot');
 assertIncludes(waterfallCard, 'GalleryCategoryCornerBadge', 'Waterfall card must use the same category corner badge as Grid');
-assertIncludes(waterfallCard, 'rightInset: ThemeConstants.SPACE_SM - 2', 'Waterfall category badge must move left from the enlarged clipped corner');
-assertIncludes(waterfallCard, 'topInset: ThemeConstants.SPACE_SM - 2', 'Waterfall category badge must move down from the enlarged clipped corner');
+assertNotIncludes(waterfallCard, 'rightInset:', 'Waterfall category badge must stay attached to the cover corner, not be manually shifted inward');
+assertNotIncludes(waterfallCard, 'topInset:', 'Waterfall category badge must stay attached to the cover corner, not be manually shifted inward');
 assertIncludes(waterfallCard, 'sourceWidth: this.gallery.imgWidth', 'Waterfall card must pass source width so cover rendering can avoid distortion');
 assertIncludes(waterfallCard, 'sourceHeight: this.gallery.imgHeight', 'Waterfall card must pass source height so cover rendering can avoid distortion');
 assertIncludes(waterfallCard, 'UserTagStore.getInstance().lookup(t.namespace, t.text)', 'Waterfall tag chips must reuse the same user-tag color lookup as list cards');
@@ -108,6 +108,15 @@ assertNotIncludes(waterfallCard, '@Param cellWidth', 'Waterfall card must fill t
 assertNotIncludes(waterfallCard, 'private cardWidth()', 'Waterfall card must not convert hand-calculated cell widths');
 assertNotIncludes(waterfallCard, 'GALLERY_GRID_INFO_HEIGHT', 'Waterfall card must not reuse fixed Grid card info height');
 assertNotIncludes(waterfallCard, 'GALLERY_GRID_TITLE_HEIGHT', 'Waterfall card must not reuse fixed Grid title height');
+
+const cornerBadge = read('shared/src/main/ets/components/GalleryCategoryCornerBadge.ets');
+assertIncludes(cornerBadge, 'const CATEGORY_BADGE_W: number = 36', 'Shared category corner badge must use a wider triangle safety area than the old clipped 30px badge');
+assertIncludes(cornerBadge, 'const CATEGORY_BADGE_H: number = 28', 'Shared category corner badge must use a taller triangle safety area than the old clipped 22px badge');
+assertIncludes(cornerBadge, 'CATEGORY_BADGE_W * 0.58', 'Shared category corner badge text center must be recalculated inward from the rounded corner');
+assertIncludes(cornerBadge, 'CATEGORY_BADGE_H * 0.37', 'Shared category corner badge text center must be recalculated down along the diagonal');
+assertNotIncludes(cornerBadge, '@Param rightInset', 'Shared category corner badge must not expose manual right inset drift');
+assertNotIncludes(cornerBadge, '@Param topInset', 'Shared category corner badge must not expose manual top inset drift');
+assertNotIncludes(cornerBadge, '.position({ right: this.rightInset, top: this.topInset })', 'Shared category corner badge must rely on parent corner alignment');
 
 const galleryPages = [
   'feature/home/src/main/ets/components/GalleryListBody.ets',

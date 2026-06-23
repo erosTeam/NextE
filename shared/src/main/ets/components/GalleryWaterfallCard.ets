@@ -178,8 +178,6 @@ export struct GalleryWaterfallCard {
         GalleryCategoryCornerBadge({
           category: this.gallery.category,
           translated: this.gallery.translated,
-          rightInset: ThemeConstants.SPACE_SM - 2,
-          topInset: ThemeConstants.SPACE_SM - 2,
         })
         Row({ space: ThemeConstants.SPACE_XS }) {
           if (this.gallery.favcat.length > 0 || this.gallery.favTitle.length > 0) {

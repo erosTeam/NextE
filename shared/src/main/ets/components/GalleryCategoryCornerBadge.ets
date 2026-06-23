@@ -1,12 +1,12 @@
 import { EhConstants } from '../constants/EhConstants'
 import { ThemeConstants } from '../theme/ThemeConstants'
 
-const CATEGORY_BADGE_W: number = 30
-const CATEGORY_BADGE_H: number = 22
-const CATEGORY_BADGE_TEXT_W: number = 22
-const CATEGORY_BADGE_TEXT_H: number = 11
-const CATEGORY_BADGE_TEXT_CENTER_X: number = CATEGORY_BADGE_W * 2 / 3 - 1
-const CATEGORY_BADGE_TEXT_CENTER_Y: number = CATEGORY_BADGE_H / 3 + 1 / 6
+const CATEGORY_BADGE_W: number = 36
+const CATEGORY_BADGE_H: number = 28
+const CATEGORY_BADGE_TEXT_W: number = 24
+const CATEGORY_BADGE_TEXT_H: number = 12
+const CATEGORY_BADGE_TEXT_CENTER_X: number = CATEGORY_BADGE_W * 0.58
+const CATEGORY_BADGE_TEXT_CENTER_Y: number = CATEGORY_BADGE_H * 0.37
 const CATEGORY_BADGE_TEXT_TOP: number = CATEGORY_BADGE_TEXT_CENTER_Y - CATEGORY_BADGE_TEXT_H / 2
 const CATEGORY_BADGE_TEXT_RIGHT: number =
   CATEGORY_BADGE_W - CATEGORY_BADGE_TEXT_CENTER_X - CATEGORY_BADGE_TEXT_W / 2
@@ -23,8 +23,6 @@ const CATEGORY_BADGE_OPACITY: number = 0.88
 export struct GalleryCategoryCornerBadge {
   @Param category: string = '';
   @Param translated: string = '';
-  @Param rightInset: number = 0;
-  @Param topInset: number = 0;
 
   build() {
     Stack({ alignContent: Alignment.TopEnd }) {
@@ -49,6 +47,5 @@ export struct GalleryCategoryCornerBadge {
     .height(CATEGORY_BADGE_H)
     .borderRadius({ topRight: ThemeConstants.THUMB_RADIUS })
     .clip(true)
-    .position({ right: this.rightInset, top: this.topInset })
   }
 }
