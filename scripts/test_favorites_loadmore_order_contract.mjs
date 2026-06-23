@@ -49,15 +49,30 @@ ok('Shared helper retries the same cursor when returned favOrder lags',
   /if \(list\.favOrder\.length > 0 && list\.favOrder !== this\.favOrder\) \{[\s\S]*getFavoritesList\(this\.buildQuery\(next\)\)/.test(vm))
 ok('Initial load uses the same order-sync helper',
   /const list: GalleryList = await this\.fetchPageWithOrderSync\(''\)/.test(vm))
+ok('FavoritesViewModel declares stale-cursor history',
+  /private lastNext: string = ''/.test(vm))
+ok('Initial load resets stale-cursor history with the page cursor',
+  /this\.nextGid = ''[\s\S]*this\.lastNext = ''[\s\S]*this\.hasMore = false/.test(vm))
 ok('loadMore captures the current cursor before fetching',
   /const cursor: string = this\.nextGid[\s\S]*const list: GalleryList = await this\.fetchPageWithOrderSync\(cursor\)/.test(vm))
+ok('loadMore stops empty or repeated cursors before starting a footer fetch',
+  /const cursor: string = this\.nextGid[\s\S]*if \(cursor\.length === 0 \|\| cursor === this\.lastNext\) \{[\s\S]*this\.hasMore = false[\s\S]*return[\s\S]*\}[\s\S]*this\.isLoadingMore = true/.test(vm))
 ok('loadMore clears stale footer error before retry fetch',
   /this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(vm))
 ok('loadMore dedupes before append for gid-keyed LazyForEach',
   /const fresh: EhGallery\[\] = await this\.translateRows\(this\.dedupeNew\(list\.gallerys\)\)/.test(vm))
+ok('loadMore records the successfully requested cursor only after epoch-valid apply',
+  /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.nextGid = list\.nextGid[\s\S]*this\.lastNext = cursor[\s\S]*this\.hasMore = list\.nextGid\.length > 0 && fresh\.length > 0/.test(vm))
 ok('loadMore stops when a page brings no genuinely fresh rows',
   /this\.hasMore = list\.nextGid\.length > 0 && fresh\.length > 0/.test(vm))
 ok('loadMore no longer keeps paging solely because the cursor changed',
   !/this\.hasMore = list\.nextGid\.length > 0 && list\.nextGid !== cursor/.test(vm))
+{
+  const loadMoreStart = vm.indexOf('async loadMore(): Promise<void>')
+  const fetchStart = vm.indexOf('const list: GalleryList = await this.fetchPageWithOrderSync(cursor)', loadMoreStart)
+  const beforeFetch = vm.slice(loadMoreStart, fetchStart)
+  ok('loadMore keeps the same cursor retryable after a failed fetch',
+    !/this\.lastNext = cursor/.test(beforeFetch))
+}
 
 console.log(`✓ favorites load-more order contract: ${passed} assertions passed`)

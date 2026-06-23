@@ -99,11 +99,13 @@ export struct GalleryWaterfallCard {
     return $r('sys.color.font_secondary')
   }
 
-  private tagColumnIndexes(): number[] {
+  private tagRowIndexes(remainder: number): number[] {
     const total: number = Math.min(this.gallery.simpleTags.length, WATERFALL_TAG_LIMIT)
     const indexes: number[] = []
-    for (let i = 0; i < total; i += 2) {
-      indexes.push(i)
+    for (let i = 0; i < total; i++) {
+      if (i % 2 === remainder) {
+        indexes.push(i)
+      }
     }
     return indexes
   }
@@ -125,25 +127,30 @@ export struct GalleryWaterfallCard {
   }
 
   @Builder
+  private TagRow(remainder: number) {
+    Row({ space: ThemeConstants.SPACE_XS }) {
+      ForEach(
+        this.tagRowIndexes(remainder),
+        (index: number) => {
+          this.TagChip(this.gallery.simpleTags[index])
+        },
+        (index: number) => `${this.tagSig.version}:row:${remainder}:${index}`,
+      )
+    }
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
   private Tags() {
     if (this.gallery.simpleTags.length > 0) {
-      List({ space: ThemeConstants.SPACE_XS, scroller: this.tagScroller }) {
-        ForEach(
-          this.tagColumnIndexes(),
-          (index: number) => {
-            ListItem() {
-              Column({ space: ThemeConstants.SPACE_XS }) {
-                this.TagChip(this.gallery.simpleTags[index])
-                if (index + 1 < this.gallery.simpleTags.length && index + 1 < WATERFALL_TAG_LIMIT) {
-                  this.TagChip(this.gallery.simpleTags[index + 1])
-                }
-              }.alignItems(HorizontalAlign.Start)
-            }
-          },
-          (index: number) => `${this.tagSig.version}:col:${index}`,
-        )
+      Scroll(this.tagScroller) {
+        Column({ space: ThemeConstants.SPACE_XS }) {
+          this.TagRow(0)
+          this.TagRow(1)
+        }
+        .alignItems(HorizontalAlign.Start)
       }
-      .listDirection(Axis.Horizontal)
+      .scrollable(ScrollDirection.Horizontal)
       .nestedScroll({
         scrollForward: NestedScrollMode.SELF_ONLY,
         scrollBackward: NestedScrollMode.SELF_ONLY,

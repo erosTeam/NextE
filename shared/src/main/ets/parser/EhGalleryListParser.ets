@@ -51,8 +51,10 @@ export class EhGalleryListParser {
   private static readonly RE_POSTED: RegExp = /id="posted_\d+"[^>]*>([\s\S]*?)<\/div>/
   private static readonly RE_PAGES: RegExp = /(\d+) pages/
   private static readonly RE_UPLOADER: RegExp = /\/uploader\/([^"/]+)"/
-  private static readonly RE_NEXT: RegExp = /[?&]next=(\d+)/
-  private static readonly RE_PREV: RegExp = /[?&]prev=(\d+)/
+  private static readonly RE_NEXT: RegExp =
+    /<a(?=[^>]*\bid="dnext")(?=[^>]*\bhref="[^"]*[?&](?:amp;)?next=(\d+)")[^>]*>/
+  private static readonly RE_PREV: RegExp =
+    /<a(?=[^>]*\bid="dprev")(?=[^>]*\bhref="[^"]*[?&](?:amp;)?prev=(\d+)")[^>]*>/
   // Page-number nav table (toplist / search / favorites use it instead of gid cursors).
   private static readonly RE_PTT: RegExp = /<table class="ptt"[\s\S]*?<\/table>/
 

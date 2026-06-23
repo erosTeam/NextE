@@ -248,7 +248,7 @@ struct Index {
     if (this.currentTab === 4) {
       return $r('app.string.tab_settings')
     }
-    return 'E-Hentai'
+    return $r('app.string.tab_gallery')
   }
 
   private scrollActiveTabToTop(): void {

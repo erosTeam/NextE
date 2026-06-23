@@ -37,6 +37,7 @@ export class FavoritesViewModel {
   // Favorites sort order: fs_f (by favorited time, EH default) / fs_p (by posted time).
   @Trace favOrder: string = EhConstants.FAV_ORDER_FAV
   private nextGid: string = ''
+  private lastNext: string = ''
   // Generation token: every page-1 reset (load via order toggle / favcat switch / refresh) bumps it
   // so an in-flight loadMore that resumes afterwards discards its now-stale (wrong favcat/order)
   // page instead of mixing it into the new list. selectFavcat/toggleOrder run without isLoadingMore.
@@ -243,6 +244,7 @@ export class FavoritesViewModel {
     this.isLoading = true
     this.errorMessage = ''
     this.nextGid = ''
+    this.lastNext = ''
     this.hasMore = false
     if (this.isLocalFavcat()) {
       const localRows: EhGallery[] = connectLocalFav().items.map((g: EhGallery) => g.copy())
@@ -290,10 +292,14 @@ export class FavoritesViewModel {
     if (this.isLocalFavcat() || this.isLoading || this.isLoadingMore || !this.hasMore) {
       return
     }
+    const cursor: string = this.nextGid
+    if (cursor.length === 0 || cursor === this.lastNext) {
+      this.hasMore = false
+      return
+    }
     this.isLoadingMore = true
     this.errorMessage = ''
     const myEpoch: number = this.epoch
-    const cursor: string = this.nextGid
     try {
       const list: GalleryList = await this.fetchPageWithOrderSync(cursor)
       // A favcat switch / order toggle / refresh landed while this fetch was in flight → these rows
@@ -306,6 +312,7 @@ export class FavoritesViewModel {
           this.itemCount = this.dataSource.totalCount()
         }
         this.nextGid = list.nextGid
+        this.lastNext = cursor
         // Exhausted when the cursor is empty OR the page brought no genuinely-new rows (repeated
         // boundary page / server race). LazyForEach is gid-keyed, so an all-duplicate page is terminal.
         this.hasMore = list.nextGid.length > 0 && fresh.length > 0

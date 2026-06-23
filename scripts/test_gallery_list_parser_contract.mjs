@@ -37,7 +37,8 @@ const RE = {
   tagOpen: /<div class="gt[lc]?"([^>]*)>/g,
   pages: /(\d+) pages/,
   uploader: /\/uploader\/([^"/]+)"/,
-  next: /[?&]next=(\d+)/,
+  next: /<a(?=[^>]*\bid="dnext")(?=[^>]*\bhref="[^"]*[?&](?:amp;)?next=(\d+)")[^>]*>/,
+  prev: /<a(?=[^>]*\bid="dprev")(?=[^>]*\bhref="[^"]*[?&](?:amp;)?prev=(\d+)")[^>]*>/,
 }
 const FAVCAT = new Map([
   ['#000', '0'], ['#f00', '1'], ['#fa0', '2'], ['#dd0', '3'], ['#080', '4'],
@@ -92,7 +93,7 @@ const parseTagAttrs = (row) => {
 }
 
 function parse(html) {
-  const list = { gallerys: [], nextGid: g1(html, RE.next), maxPage: 0 }
+  const list = { gallerys: [], nextGid: g1(html, RE.next), prevGid: g1(html, RE.prev), maxPage: 0 }
   // Page-number paging (table.ptt): highest ?p= link = last 0-based page (toplist). Mirror of .ets.
   const ptt = html.match(/<table class="ptt"[\s\S]*?<\/table>/)
   if (ptt) {
@@ -162,7 +163,8 @@ eq(htmlUnescape('&unknownent; &copy;'), '&unknownent; &copy;', 'unknown entities
 eq(htmlUnescape('plain text'), 'plain text', 'no entity → unchanged')
 
 // 1) synthetic — exact, deterministic
-const SYN = `<table class="itg gltc">
+const SYN = `<form action="https://e-hentai.org/favorites.php?favcat=0&amp;next=88"></form>
+<table class="itg gltc">
 <tr><th></th><th>Published</th><th>Title</th><th class="glhide">Uploader</th></tr>
 <tr>
 <td class="gl1c glcat"><div class="cn cta" onclick="x">Western</div></td>
@@ -183,12 +185,14 @@ const SYN = `<table class="itg gltc">
 <td class="gl4c glhide"><div><a href="https://e-hentai.org/uploader/bob">bob</a></div><div>46 pages</div></td>
 </tr>
 </table>
-<a id="dnext" href="https://e-hentai.org/?next=99">Next</a>`
+<a href="https://e-hentai.org/favorites.php?favcat=0&amp;prev=77" id="dprev">Prev</a>
+<a id="dnext" href="https://e-hentai.org/favorites.php?favcat=0&amp;next=99">Next</a>`
 
 console.log('— synthetic fixture —')
 const s = parse(SYN)
 eq(s.gallerys.length, 2, 'gallery count')
-eq(s.nextGid, '99', 'nextGid')
+eq(s.nextGid, '99', 'nextGid (from dnext, not earlier stale page URL)')
+eq(s.prevGid, '77', 'prevGid (from dprev)')
 
 // toplist ptt page-number paging — maxPage = highest ?p= (HTML-escaped &amp;p=) in the ptt table
 {

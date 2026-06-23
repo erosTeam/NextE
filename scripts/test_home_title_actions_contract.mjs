@@ -53,6 +53,9 @@ ok('scope explicitly excludes stale closed lanes', grounding[3].includes('Search
 
 ok('Index defines a single active-scroller back-to-top helper',
   /private\s+scrollActiveTabToTop\(\): void \{\s*this\.titleScroller\.scrollToIndex\(0\)\s*\}/.test(index))
+ok('Root gallery tab title uses the localized Gallery label instead of a hard-coded site name',
+  /private\s+tabTitle\(\): ResourceStr \{[\s\S]*return \$r\('app\.string\.tab_gallery'\)[\s\S]*\}/.test(index) &&
+  !/return 'E-Hentai'/.test(index))
 ok('Index wraps back-to-top in one reusable title-menu item',
   /private\s+backToTopMenuItem\(\): Record<string, Object> \{[\s\S]*'label': \$r\('app\.string\.common_back_to_top'\)[\s\S]*'icon': \$r\('sys\.symbol\.arrow_up'\)[\s\S]*this\.scrollActiveTabToTop\(\)[\s\S]*return \{ 'content': topInner \}/.test(index))
 ok('Home menu still opens search from the title/menu action area',
@@ -60,11 +63,11 @@ ok('Home menu still opens search from the title/menu action area',
 ok('Home menu includes a back-to-top action with a system arrow symbol',
   /'label': \$r\('app\.string\.common_back_to_top'\)[\s\S]*'icon': \$r\('sys\.symbol\.arrow_up'\)[\s\S]*this\.scrollActiveTabToTop\(\)/.test(index))
 ok('Home menu exposes search and back-to-top inline, not as list content',
-  /private\s+searchMenu\(\): Record<string, Object> \{[\s\S]*const items: Record<string, Object>\[\] = \[\s*\{ 'content': searchInner \},\s*this\.backToTopMenuItem\(\),\s*\][\s\S]*return \{ 'value': items, 'maxCount': 2 \}/.test(index))
+  /private\s+searchMenu\(\): Record<string, Object> \{[\s\S]*const items: Record<string, Object>\[\] = \[[\s\S]*\{ 'content': searchInner \}[\s\S]*this\.backToTopMenuItem\(\)[\s\S]*return \{ 'value': items, 'maxCount': 2 \}/.test(index))
 ok('Favorites logged-in menu preserves search/order/selector and adds back-to-top after them',
-  /private\s+favoritesMenu\(\): Record<string, Object> \{[\s\S]*const items: Record<string, Object>\[\] = \[\s*\{ 'content': searchInner \},\s*\{ 'content': orderInner \},\s*\{ 'content': selectorInner \},\s*this\.backToTopMenuItem\(\),\s*\][\s\S]*return \{ 'value': items, 'maxCount': 3 \}/.test(index))
+  /private\s+favoritesMenu\(\): Record<string, Object> \{[\s\S]*const items: Record<string, Object>\[\] = \[[\s\S]*\{ 'content': searchInner \}[\s\S]*\{ 'content': orderInner \}[\s\S]*\{ 'content': selectorInner \}[\s\S]*this\.backToTopMenuItem\(\)[\s\S]*return \{ 'value': items, 'maxCount': 3 \}/.test(index))
 ok('Local Favorites menu keeps selector and adds back-to-top without remote actions',
-  /private\s+localFavoritesMenu\(\): Record<string, Object> \{[\s\S]*const items: Record<string, Object>\[\] = \[\s*\{ 'content': selectorInner \},\s*this\.backToTopMenuItem\(\),\s*\][\s\S]*return \{ 'value': items, 'maxCount': 2 \}/.test(index))
+  /private\s+localFavoritesMenu\(\): Record<string, Object> \{[\s\S]*const items: Record<string, Object>\[\] = \[[\s\S]*\{ 'content': selectorInner \}[\s\S]*this\.backToTopMenuItem\(\)[\s\S]*return \{ 'value': items, 'maxCount': 2 \}/.test(index))
 ok('Toplist wires a top-only title menu while keeping its period bottomBuilder',
   /if \(this\.currentTab === 2\) \{[\s\S]*content\['bottomBuilder'\] = this\.bottomBuilder\(this\.periodBarContent\)[\s\S]*content\['menu'\] = this\.topOnlyMenu\(\)/.test(index))
 ok('Home tab wires the menu through titleBarOpts only',
