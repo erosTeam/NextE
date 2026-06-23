@@ -38,6 +38,8 @@ Raw HAP build (what CI runs, no signing — the M0 acceptance gate):
 hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon
 ```
 
+- **Installing to ANY device or emulator: always install the SIGNED hap** (`entry-default-signed.hap` from the signed build above — run `setup-local-build-profile.sh` once so `build-profile.json5` has `signingConfigs`, even in a worktree). The unsigned `entry-default-unsigned.hap` is **build-only** (the CI gate); `hdc install -r` of it over an already-signed install fails silently-ish with `error: install sign info inconsistent`, leaving the OLD build running while your screenshots look stale/wrong. This applies to **emulators too**, not just real devices. Do **not** `hdc uninstall` to clear the mismatch — it wipes the EH login. When verifying on-device, confirm the install printed `install bundle successfully`, not just the trailing `AppMod finish`.
+
 - **Single bundle ID `com.erosteam.nexte`.** Signing reuses V2Next's account-level debug cert (`~/.config/harmony/debug-signing`: `debug.p12`, `ohos-D.cer`); a NextE-specific Provisioning Profile `profiles/com.erosteam.nexte.p7b` must be minted once (debug, account-level cert). Signing files are never committed; on macOS, local signing lives in ignored `build-profile.local.json5` and is installed via `scripts/setup-local-build-profile.sh`; Linux legacy `dev.sh` uses `scripts/dev.env`.
 
 ## Tests / Gates
