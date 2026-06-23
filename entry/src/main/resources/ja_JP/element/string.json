@@ -857,6 +857,14 @@
       "value": "画像制限"
     },
     {
+      "name": "eh_settings_toplist_hidden_filter",
+      "value": "ランキングで非表示タグを隠す"
+    },
+    {
+      "name": "eh_settings_toplist_hidden_filter_hint",
+      "value": "My Tags で非表示にしたタグを含むギャラリーを標準で隠します"
+    },
+    {
       "name": "eh_settings_image_limits_hint",
       "value": "未実装"
     },

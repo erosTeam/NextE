@@ -60,6 +60,7 @@ export interface GalleryListQuery {
   disableLanguageFilter: boolean // f_sfl: ignore the account's default language filter
   disableUploaderFilter: boolean // f_sfu: ignore the account's default uploader filter
   disableTagFilter: boolean // f_sft: ignore the account's default tag filter
+  applyToplistHiddenUserTags: boolean // local-only: hide Toplist rows carrying My Tags hidden tags
 }
 
 /** Options for a favorites request (favorites.php). */
@@ -364,7 +365,7 @@ export class EhApiService {
    * 'popular' → `/popular` (a fixed snapshot — no paging, no filters, so all params are skipped).
    */
   /** Remove galleries carrying any user-hidden tag (eros_fe TagController.needHide / fetch_list.dart).
-   * Applied to the main + popular + search lists, never watched (you want watched-tag hits) or toplist;
+   * Applied to the main + popular + search lists, and optionally Toplist; never watched (you want watched-tag hits);
    * a no-op until My Tags load, so logged-out / cold-start lists are unfiltered. */
   private filterHidden(list: GalleryList): GalleryList {
     const store: UserTagStore = UserTagStore.getInstance()
@@ -410,7 +411,8 @@ export class EhApiService {
       const url: string = `${EhConstants.baseUrl(false)}/toplist.php?tl=${query.tl}${pageParam}`
       // toplist.php is hard-pinned to the e-hentai host, so classify it as the table site (isEx=false).
       const resp = await this.fetch(url, false, 'list')
-      return this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))
+      const list: GalleryList = this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))
+      return query.applyToplistHiddenUserTags ? this.filterHidden(list) : list
     }
     if (query.fCats > 0) {
       params.push(`f_cats=${query.fCats}`)

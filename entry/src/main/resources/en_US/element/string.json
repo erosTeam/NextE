@@ -857,6 +857,14 @@
       "value": "Image limits"
     },
     {
+      "name": "eh_settings_toplist_hidden_filter",
+      "value": "Hide blocked tags in Toplist"
+    },
+    {
+      "name": "eh_settings_toplist_hidden_filter_hint",
+      "value": "Hide galleries carrying tags blocked in My Tags by default"
+    },
+    {
       "name": "eh_settings_image_limits_hint",
       "value": "Not implemented yet"
     },

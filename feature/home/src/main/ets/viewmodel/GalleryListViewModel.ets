@@ -14,6 +14,7 @@ import {
   DiagnosticLogger,
   EhErrorText,
   EhPageCacheService,
+  connectToplistFilter,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -103,6 +104,9 @@ export class GalleryListViewModel {
       disableLanguageFilter: false,
       disableUploaderFilter: false,
       disableTagFilter: false,
+      applyToplistHiddenUserTags: this.isToplist()
+        ? connectToplistFilter().applyHiddenUserTags
+        : false,
     }
   }
 

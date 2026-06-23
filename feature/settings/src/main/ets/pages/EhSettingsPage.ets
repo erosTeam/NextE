@@ -11,8 +11,11 @@ import {
   SiteModeSettings,
   SiteModeState,
   ThemeConstants,
+  ToplistFilterSettings,
+  ToplistFilterState,
   connectAuth,
   connectSiteMode,
+  connectToplistFilter,
   immersiveTitleBar,
 } from 'shared'
 
@@ -25,6 +28,7 @@ import {
 export struct EhSettingsPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local auth: AuthState = connectAuth();
+  @Local toplistFilter: ToplistFilterState = connectToplistFilter();
   @Local switchingSite: boolean = false;
   @Local siteMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
@@ -104,6 +108,10 @@ export struct EhSettingsPage {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
 
+  private setToplistHiddenFilter(value: boolean): void {
+    ToplistFilterSettings.save(this.ctx(), value)
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -128,6 +136,20 @@ export struct EhSettingsPage {
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.siteMenuShown = false
+              },
+            })
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.eh_settings_toplist_hidden_filter'),
+              subtitle: $r('app.string.eh_settings_toplist_hidden_filter_hint'),
+              leadingIcon: $r('sys.symbol.eye_slash'),
+              hasSwitch: true,
+              checked: this.toplistFilter.applyHiddenUserTags,
+              switchAction: (value: boolean) => {
+                this.setToplistHiddenFilter(value)
               },
             })
           }

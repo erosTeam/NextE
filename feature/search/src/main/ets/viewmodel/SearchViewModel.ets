@@ -153,6 +153,7 @@ export class SearchViewModel {
       disableLanguageFilter: f.disableLanguageFilter,
       disableUploaderFilter: f.disableUploaderFilter,
       disableTagFilter: f.disableTagFilter,
+      applyToplistHiddenUserTags: false,
     }
   }
 

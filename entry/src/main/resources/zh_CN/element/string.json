@@ -857,6 +857,14 @@
       "value": "图片限制"
     },
     {
+      "name": "eh_settings_toplist_hidden_filter",
+      "value": "排行榜屏蔽隐藏标签"
+    },
+    {
+      "name": "eh_settings_toplist_hidden_filter_hint",
+      "value": "默认隐藏带有“我的标签”中屏蔽标签的画廊"
+    },
+    {
       "name": "eh_settings_image_limits_hint",
       "value": "暂未实现"
     },

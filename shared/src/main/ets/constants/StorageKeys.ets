@@ -42,6 +42,7 @@ export class StorageKeys {
   static readonly HOME_SOURCE: string = 'subtab.homeSource'
   static readonly FAVORITES_FAVCAT: string = 'subtab.favoritesFavcat'
   static readonly TOPLIST_TL: string = 'subtab.toplistTl'
+  static readonly TOPLIST_APPLY_HIDDEN_USER_TAGS: string = 'toplist.applyHiddenUserTags'
   static readonly APP_COLOR_FAVORITES: string = 'app.colorFavorites'
   static readonly HOME_TAB_AUTO_HIDE: string = 'home.tabAutoHide'
   static readonly TAG_TRANSLATION_ENABLED: string = 'tagTranslation.enabled'

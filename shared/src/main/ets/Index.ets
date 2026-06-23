@@ -305,7 +305,9 @@ export { SecuritySettings } from './settings/SecuritySettings'
 export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
 export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'
 export { HomeTabSettings } from './settings/HomeTabSettings'
+export { ToplistFilterSettings } from './settings/ToplistFilterSettings'
 export { TagTranslationSettings } from './settings/TagTranslationSettings'
+export { ToplistFilterState, connectToplistFilter } from './state/ToplistFilterState'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'

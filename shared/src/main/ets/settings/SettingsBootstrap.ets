@@ -23,6 +23,7 @@ import { UserTagLoader } from '../services/UserTagLoader'
 import { SubtabSelectionSettings } from './SubtabSelectionSettings'
 import { AppColorFavoritesSettings } from './AppColorFavoritesSettings'
 import { HomeTabSettings } from './HomeTabSettings'
+import { ToplistFilterSettings } from './ToplistFilterSettings'
 import { TagTranslationSettings } from './TagTranslationSettings'
 import { ThemeSettings } from './ThemeSettings'
 import { ThemeColorSettings } from './ThemeColorSettings'
@@ -70,6 +71,7 @@ export class SettingsBootstrap {
       await SubtabSelectionSettings.restore(context)
       await AppColorFavoritesSettings.restore(context)
       await HomeTabSettings.restore(context)
+      await ToplistFilterSettings.restore(context)
       await TagTranslationSettings.restore(context)
       await DownloadSettings.restore(context)
       await DownloadQueueSettings.restore(context)

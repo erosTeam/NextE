@@ -1,8 +1,10 @@
 import {
   SELECTOR_BAR_HEIGHT,
   ActiveKeyState,
+  ToplistFilterState,
   connectTagTranslationSettings,
   TagTranslationSettingsState,
+  connectToplistFilter,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -29,6 +31,7 @@ export struct ToplistPeriodPage {
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  @Local toplistFilter: ToplistFilterState = connectToplistFilter();
   private loadedOnce: boolean = false;
 
   private isActive(): boolean {
@@ -67,6 +70,13 @@ export struct ToplistPeriodPage {
   onTagTranslationChange(): void {
     if (this.loadedOnce) {
       this.vm.reapplyTagTranslation()
+    }
+  }
+
+  @Monitor('toplistFilter.applyHiddenUserTags')
+  onToplistFilterChange(): void {
+    if (this.loadedOnce) {
+      this.vm.reload()
     }
   }
 

@@ -1077,3 +1077,25 @@ Remaining acceptance:
 
 - Needs controller/user acceptance of the Settings row and About page screenshots. No further device
   validation is required unless Settings root or About route changes again.
+
+### Toplist Applies My Tags Hidden Filter
+
+Type: feature parity / EH settings
+
+Priority suggestion: P1
+
+Status: in progress
+
+Grounding:
+
+- `eros_fe` reference: `/Users/honjow/git/eros_fe/lib/pages/tab/fetch_list.dart` and
+  `tag_controller.dart` apply the user's My Tags hide rule when building gallery lists; NextE already
+  has the same local `UserTagStore.anyHidden()` path for normal gallery/search list filtering.
+- Main information: users who marked tags as hidden should not see matching galleries in the Toplist by
+  default.
+- Primary action: a single EH settings switch controls whether Toplist applies the user's hidden My Tags;
+  secondary action is leaving it off to show the raw ranking list.
+- Scope: implement the default-on Toplist local hide filter and settings switch only; no Advanced Search
+  `f_sft`, no server-side Toplist filter params, no MyTags write changes, no list UI redesign.
+- HarmonyOS expression: reuse `EhSettingsPage` + `ConciseListRow` switch and a small
+  Preferences-backed AppStorageV2 holder, then reload retained Toplist period pages when the switch changes.
