@@ -549,10 +549,14 @@ export struct GallerySearchPage {
               },
               canStartBottomRefresh: () => this.vm.canLoadMore(),
               onReachEnd: () => {
-                this.vm.loadMore()
+                if (this.vm.canLoadMore()) {
+                  this.vm.loadMore()
+                }
               },
               onNearEnd: () => {
-                this.vm.loadMore()
+                if (this.vm.canLoadMore()) {
+                  this.vm.loadMore()
+                }
               },
               showFooter: true,
               footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
@@ -604,7 +608,9 @@ export struct GallerySearchPage {
               },
               canStartBottomRefresh: () => this.vm.canLoadMore(),
               onReachEnd: () => {
-                this.vm.loadMore()
+                if (this.vm.canLoadMore()) {
+                  this.vm.loadMore()
+                }
               },
               showFooter: true,
               footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
@@ -655,7 +661,9 @@ export struct GallerySearchPage {
               },
               canStartBottomRefresh: () => this.vm.canLoadMore(),
               onReachEnd: () => {
-                this.vm.loadMore()
+                if (this.vm.canLoadMore()) {
+                  this.vm.loadMore()
+                }
               },
               onContentWidth: (contentWidth: number) => {
                 this.listContentWidth = contentWidth

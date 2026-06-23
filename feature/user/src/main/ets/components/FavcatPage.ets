@@ -271,10 +271,14 @@ export struct FavcatPage {
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
           onReachEnd: () => {
-            this.vm.loadMore()
+            if (this.vm.canLoadMore()) {
+              this.vm.loadMore()
+            }
           },
           onNearEnd: () => {
-            this.vm.loadMore()
+            if (this.vm.canLoadMore()) {
+              this.vm.loadMore()
+            }
           },
           onDidScroll: (offset: number, state: ScrollState) => {
             if (this.onDidScroll) {
@@ -320,7 +324,9 @@ export struct FavcatPage {
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
           onReachEnd: () => {
-            this.vm.loadMore()
+            if (this.vm.canLoadMore()) {
+              this.vm.loadMore()
+            }
           },
           onDidScroll: (offset: number, state: ScrollState) => {
             if (this.onDidScroll) {
@@ -364,7 +370,9 @@ export struct FavcatPage {
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
           onReachEnd: () => {
-            this.vm.loadMore()
+            if (this.vm.canLoadMore()) {
+              this.vm.loadMore()
+            }
           },
           onContentWidth: (contentWidth: number) => {
             this.listContentWidth = contentWidth

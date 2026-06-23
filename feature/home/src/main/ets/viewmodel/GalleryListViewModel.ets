@@ -355,7 +355,7 @@ export class GalleryListViewModel {
   }
 
   canLoadMore(): boolean {
-    return this.hasMore && !this.isLoadingMore
+    return this.hasMore && !this.isLoadingMore && this.errorMessage.length === 0
   }
 
   applyFavoriteMutation(gid: string, favcat: string, favTitle: string): void {

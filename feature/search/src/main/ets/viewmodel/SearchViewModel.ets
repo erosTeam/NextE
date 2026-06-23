@@ -45,6 +45,9 @@ export class SearchViewModel {
   suggestions: EhTagSuggestion[] = []
   private query: string = ''
   private nextGid: string = ''
+  // Last cursor that successfully made it through loadMore. Mirrors GalleryListViewModel's
+  // stale-cursor guard so a failed footer retry never poisons the next manual retry.
+  private lastNext: string = ''
   // Generation token: a new search / filter re-apply / refresh bumps it so an in-flight loadMore
   // that resumes afterwards discards its now-stale (old-query) page instead of mixing it in.
   // search() runs without the isLoadingMore guard, so it can overlap a loadMore.
@@ -242,6 +245,7 @@ export class SearchViewModel {
       this.dataSource.clear()
       this.itemCount = 0
       this.nextGid = ''
+      this.lastNext = ''
       this.hasMore = true
       this.hasSearched = false
       this.errorMessage = ''
@@ -275,6 +279,7 @@ export class SearchViewModel {
     // filter sheet may change immediately, but the body must not flash to an empty loading page.
     // Disable old paging until the replacement page succeeds.
     this.nextGid = ''
+    this.lastNext = ''
     this.hasMore = false
     try {
       const list: GalleryList = await this.fetchPage('')
@@ -314,6 +319,7 @@ export class SearchViewModel {
     this.epoch = this.epoch + 1
     this.query = ''
     this.nextGid = ''
+    this.lastNext = ''
     this.dataSource.clear()
     this.itemCount = 0
     this.isLoading = false
@@ -340,6 +346,7 @@ export class SearchViewModel {
     this.isLoading = true
     this.errorMessage = ''
     this.epoch = this.epoch + 1
+    this.lastNext = ''
     try {
       const list: GalleryList = await this.fetchPage('')
       this.resolveFavoriteSlots(list.gallerys, list.favList)
@@ -378,11 +385,16 @@ export class SearchViewModel {
     if (this.isLoading || this.isLoadingMore || !this.hasMore || !this.hasSearched) {
       return
     }
+    const requestedNext: string = this.nextGid
+    if (requestedNext.length === 0 || requestedNext === this.lastNext) {
+      this.hasMore = false
+      return
+    }
     this.isLoadingMore = true
     this.errorMessage = ''
     const myEpoch: number = this.epoch
     try {
-      const list: GalleryList = await this.fetchPage(this.nextGid)
+      const list: GalleryList = await this.fetchPage(requestedNext)
       // A new search / filter re-apply / refresh landed while this fetch was in flight → these rows
       // are for the OLD query. Drop them rather than mixing them into the new results.
       if (this.epoch === myEpoch) {
@@ -393,6 +405,7 @@ export class SearchViewModel {
           this.itemCount = this.dataSource.totalCount()
         }
         this.nextGid = list.nextGid
+        this.lastNext = requestedNext
         // Exhausted when the cursor is empty OR the page brought no genuinely-new rows (repeated
         // boundary page) — without this an all-duplicate page keeps hasMore true and loops loadMore.
         this.hasMore = list.nextGid.length > 0 && fresh.length > 0
@@ -408,7 +421,7 @@ export class SearchViewModel {
   }
 
   canLoadMore(): boolean {
-    return this.hasMore && !this.isLoadingMore
+    return this.hasMore && !this.isLoadingMore && this.errorMessage.length === 0
   }
 
   applyFavoriteMutation(gid: string, favcat: string, favTitle: string): void {

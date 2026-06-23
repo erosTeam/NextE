@@ -260,10 +260,24 @@ const ok = (name, cond) => {
     ok(`${name}: bumps epoch on reset`, /this\.epoch = this\.epoch \+ 1/.test(src))
     ok(`${name}: declares dedupeNew helper`, /private dedupeNew\(rows: EhGallery\[\]\): EhGallery\[\]/.test(src))
     ok(`${name}: dedupes new rows by gid before append`, /this\.dedupeNew\(list\.gallerys\)/.test(src))
+    ok(`${name}: automatic load-more is disabled while footer error is visible`,
+      /canLoadMore\(\): boolean \{[\s\S]*return this\.hasMore && !this\.isLoadingMore && this\.errorMessage\.length === 0/.test(src))
     if (name === 'FavoritesViewModel.ets') {
       ok(`${name}: favorites paging is based on page/cursor progress, not dedupe count`,
         /this\.hasMore = this\.didPagingAdvance\(page, cursor, list\)/.test(src) &&
         !/this\.hasMore = [^\n]*fresh\.length > 0/.test(src))
+    } else if (name === 'SearchViewModel.ets') {
+      ok(`${name}: declares stale-cursor history`,
+        /private lastNext: string = ''/.test(src))
+      ok(`${name}: captures requested cursor before fetch`,
+        /const requestedNext: string = this\.nextGid/.test(loadMore))
+      ok(`${name}: keeps failed cursor retryable`,
+        !/this\.lastNext = requestedNext/.test(loadMore.slice(0, loadMore.indexOf('const list: GalleryList'))))
+      ok(`${name}: commits lastNext only after successful epoch-valid apply`,
+        /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.nextGid = list\.nextGid[\s\S]*this\.lastNext = requestedNext/.test(loadMore))
+      ok(`${name}: fetches the captured requested cursor`,
+        /this\.fetchPage\(requestedNext\)/.test(loadMore))
+      ok(`${name}: exhausted on no-fresh rows`, /list\.nextGid\.length > 0 && fresh\.length > 0/.test(src))
     } else {
       ok(`${name}: exhausted on no-fresh rows`, /list\.nextGid\.length > 0 && fresh\.length > 0/.test(src))
     }

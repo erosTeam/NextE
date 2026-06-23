@@ -137,7 +137,10 @@ for (const surface of surfaces) {
   ok(/PullRefreshGridScaffold\(\{/.test(branch), `${surface.name} GRID branch uses PullRefreshGridScaffold`)
   ok(/itemCount:\s*this\.vm\.itemCount/.test(branch), `${surface.name} passes current itemCount into grid scaffold`)
   ok(/nearEndThreshold:\s*4/.test(branch), `${surface.name} enables near-end paging threshold`)
-  ok(/onNearEnd:\s*\(\) => \{[\s\S]*this\.vm\.loadMore\(\)/.test(branch), `${surface.name} near-end paging loads the next page`)
+  ok(/onNearEnd:\s*\(\) => \{[\s\S]*if \(this\.vm\.canLoadMore\(\)\) \{[\s\S]*this\.vm\.loadMore\(\)[\s\S]*\}/.test(branch),
+    `${surface.name} near-end paging respects the VM load-more guard`)
+  ok(/onReachEnd:\s*\(\) => \{[\s\S]*if \(this\.vm\.canLoadMore\(\)\) \{[\s\S]*this\.vm\.loadMore\(\)[\s\S]*\}/.test(branch),
+    `${surface.name} reach-end paging respects the VM load-more guard`)
   ok(/canStartBottomRefresh:\s*\(\) => this\.vm\.canLoadMore\(\)/.test(branch), `${surface.name} keeps VM load-more guard wired`)
   ok(/showFooter:\s*true[\s\S]*footerIsLoading:\s*this\.vm\.isLoadingMore \|\| this\.vm\.isLoading[\s\S]*footerHasMore:\s*this\.vm\.hasMore[\s\S]*footerIsError:\s*this\.vm\.errorMessage\.length > 0 && this\.vm\.hasMore[\s\S]*onFooterRetry:\s*\(\) => \{[\s\S]*this\.vm\.loadMore\(\)/.test(branch),
     `${surface.name} GRID branch renders retryable LoadingFooter`)
@@ -148,8 +151,8 @@ for (const surface of surfaces) {
     `${surface.name} ViewModel loadMore rejects duplicate or exhausted loads`,
   )
   ok(
-    /canLoadMore\(\): boolean \{[\s\S]*return this\.hasMore && !this\.isLoadingMore/.test(viewModel),
-    `${surface.name} ViewModel exposes the same duplicate-load guard to the scaffold`,
+    /canLoadMore\(\): boolean \{[\s\S]*return this\.hasMore && !this\.isLoadingMore && this\.errorMessage\.length === 0/.test(viewModel),
+    `${surface.name} ViewModel blocks automatic load-more while the footer is retryable`,
   )
 }
 
