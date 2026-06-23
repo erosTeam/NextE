@@ -15,7 +15,9 @@ import {
   connectLocalFav,
   connectNavStack,
   immersiveTitleBar,
+  SubtabSelectionSettings,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 
 /**
  * Full-screen favcat selector. eros_fe exposes this from the Favorites favcat bar's bars button; NextE
@@ -30,6 +32,10 @@ export struct FavoriteSelectorPage {
   @Local localFav: LocalFavState = connectLocalFav();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   private rows(): Favcat[] {
     const local: Favcat = new Favcat('l', AppStrings.get('favorites_local'), this.localFav.count())
@@ -86,8 +92,12 @@ export struct FavoriteSelectorPage {
     .padding({ right: ThemeConstants.SPACE_MD })
   }
 
-  private selectFavcat(favId: string): void {
-    this.fav.selectedFavcat = favId.length > 0 ? favId : 'a'
+  private async selectFavcat(favId: string): Promise<void> {
+    await SubtabSelectionSettings.setFavoritesFavcat(
+      this.ctx(),
+      favId.length > 0 ? favId : 'a',
+      this.auth.isLogin,
+    )
     this.stack.pop()
   }
 

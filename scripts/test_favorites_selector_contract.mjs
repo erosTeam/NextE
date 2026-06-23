@@ -83,8 +83,10 @@ ok('Selector current marker and counts are secondary metadata, not favcat-colore
   !/AppStrings\.get\('common_yes'\)/.test(page) &&
   /private FavcatSuffix\(fc: Favcat\)[\s\S]*fontColor\(\$r\('sys\.color\.font_secondary'\)\)/.test(page) &&
   /suffixBuilderParam: \(\) =>/.test(page))
-ok('Selecting a favcat writes the shared V2 state and pops the route',
-  /private selectFavcat\(favId: string\): void \{[\s\S]*this\.fav\.selectedFavcat = favId\.length > 0 \? favId : 'a'[\s\S]*this\.stack\.pop\(\)/.test(page))
+ok('Selecting a favcat writes the persisted subtab preference and pops the route',
+  /SubtabSelectionSettings/.test(page) &&
+  /private async selectFavcat\(favId: string\): Promise<void> \{[\s\S]*await SubtabSelectionSettings\.setFavoritesFavcat\([\s\S]*this\.ctx\(\),[\s\S]*favId\.length > 0 \? favId : 'a',[\s\S]*this\.auth\.isLogin,[\s\S]*\)[\s\S]*this\.stack\.pop\(\)/.test(page) &&
+  !/this\.fav\.selectedFavcat = favId/.test(page))
 ok('Selector page does not introduce favorite write calls',
   !/galleryAddFavorite|gallerypopups|setusertag|favdel|addFavorite/.test(page))
 

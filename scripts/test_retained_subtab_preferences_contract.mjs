@@ -72,9 +72,9 @@ ok('Preference writer clamps unavailable sub-tabs instead of restoring invalid s
     /normalizeToplistTl\(tl: number\)/.test(settings) &&
     /tl === 11 \|\| tl === 12 \|\| tl === 13 \|\| tl === 15/.test(settings))
 
-ok('RetainedSubtabHost ignores only the startup default-index event after restoring a non-default tab',
-  /private ignoreStartupDefaultChange: boolean = false/.test(host) &&
-    /const restoredIndex: number = this\.activeIndex\(\)[\s\S]*this\.ignoreStartupDefaultChange = restoredIndex > 0/.test(host) &&
-    /\.onChange\(\(i: number\) => \{[\s\S]*if \(this\.ignoreStartupDefaultChange\) \{[\s\S]*this\.ignoreStartupDefaultChange = false[\s\S]*const expectedIndex: number = this\.activeIndex\(\)[\s\S]*if \(i === 0 && expectedIndex !== 0\) \{[\s\S]*this\.onVisualIndex\(expectedIndex\)[\s\S]*return/.test(host))
+ok('RetainedSubtabHost ignores a spurious startup onChange that disagrees with the restored tab',
+  /private ignoreStartupSelectionChange: boolean = false/.test(host) &&
+    /const restoredIndex: number = this\.activeIndex\(\)[\s\S]*this\.ignoreStartupSelectionChange = true/.test(host) &&
+    /\.onChange\(\(i: number\) => \{[\s\S]*if \(this\.ignoreStartupSelectionChange\) \{[\s\S]*this\.ignoreStartupSelectionChange = false[\s\S]*const expectedIndex: number = this\.activeIndex\(\)[\s\S]*if \(i !== expectedIndex\) \{[\s\S]*this\.onVisualIndex\(expectedIndex\)[\s\S]*return/.test(host))
 
 console.log('✓ retained subtab preference contract passed')
