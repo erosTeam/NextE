@@ -145,6 +145,7 @@ export struct GalleryDetailPage {
   @Local ratingError: string = '';
   private stack: NavPathStack = connectNavStack().stack;
   private readFabMaterialController: HdsTabsController = new HdsTabsController();
+  private actionStripScroller: Scroller = new Scroller();
 
   // Smooth-slide the Read FAB when the resolved edge changes. FlexAlign can't tween, so the button carries
   // .animation() on its translate and we only flip the target edge here (mirrors V2Next's edge @Monitor).
@@ -152,6 +153,7 @@ export struct GalleryDetailPage {
   private onActionEdgeChanged(): void {
     this.readFabShouldAnimate = this.readFabLayoutReady
     this.visualActionEdge = this.actionEdge.edge
+    this.scrollActionStripToEdge()
   }
 
   @Monitor('readButtonStyle.style')
@@ -216,6 +218,13 @@ export struct GalleryDetailPage {
   private updateReadFabLayoutReady(): void {
     if (this.detailRootWidth > 0 && this.readFabWidth > 0) {
       this.readFabLayoutReady = true
+    }
+  }
+
+  private scrollActionStripToEdge(): void {
+    try {
+      this.actionStripScroller.scrollEdge(this.visualActionEdge === 'left' ? Edge.Start : Edge.End)
+    } catch (_error) {
     }
   }
 
@@ -1565,7 +1574,7 @@ export struct GalleryDetailPage {
   @Builder
   relationsRow() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
-      Scroll() {
+      Scroll(this.actionStripScroller) {
         Row({ space: ThemeConstants.SPACE_XS }) {
           this.DetailActionChip($r('sys.symbol.magnifyingglass'), $r('app.string.detail_similar'), true, () => {
             this.openSimilar()
@@ -1595,6 +1604,8 @@ export struct GalleryDetailPage {
             })
         }
         .alignItems(VerticalAlign.Center)
+        .justifyContent(this.visualActionEdge === 'left' ? FlexAlign.Start : FlexAlign.End)
+        .width('100%')
       }
       .scrollable(ScrollDirection.Horizontal)
       .nestedScroll({
@@ -1603,6 +1614,9 @@ export struct GalleryDetailPage {
       })
       .scrollBar(BarState.Off)
       .width('100%')
+      .onAppear(() => {
+        this.scrollActionStripToEdge()
+      })
     }
   }
 }

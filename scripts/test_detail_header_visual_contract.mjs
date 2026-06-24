@@ -160,6 +160,13 @@ ok(
     /\.animation\(\{ duration: this\.readFabAnimationDuration\(\), curve: Curve\.EaseOut \}\)/.test(detail),
   'detail FAB hides first measurement placement, then animates real hand-edge changes'
 )
+ok(
+  /private actionStripScroller: Scroller = new Scroller\(\)/.test(detail) &&
+    /scrollActionStripToEdge\(\): void \{[\s\S]*scrollEdge\(this\.visualActionEdge === 'left' \? Edge\.Start : Edge\.End\)/.test(detail) &&
+    /Scroll\(this\.actionStripScroller\)/.test(detail) &&
+    /justifyContent\(this\.visualActionEdge === 'left' \? FlexAlign\.Start : FlexAlign\.End\)/.test(detail),
+  'detail action strip follows the same smart-grip hand edge, with scroll-edge animation and short-content alignment'
+)
 
 // 7) Shared chip tokens exist in ThemeConstants.
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
