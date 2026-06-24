@@ -2109,6 +2109,10 @@
       "value": "この画像ページを開けません。リンクの期限切れ、または利用できない可能性があります。"
     },
     {
+      "name": "image_page_jump_confirm",
+      "value": "ギャラリーを開きました。%sページ目に移動しますか？"
+    },
+    {
       "name": "favorites_local",
       "value": "ローカル"
     },

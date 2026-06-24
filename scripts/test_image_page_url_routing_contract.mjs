@@ -2,7 +2,7 @@
 /**
  * Contract test for EH /s/ image-page URL routing:
  *   - EhUrlRouter accepts eros_fe-compatible a-z imgkeys/tokens.
- *   - Index deep links do not stop at canHandle(); they resolve /s/ to Reader.
+ *   - Index deep links do not stop at canHandle(); /s/ opens gallery first, then confirms Reader jump.
  *   - Search bare /s/ URLs resolve to Reader instead of becoming ordinary searches.
  *
  * Run: node scripts/test_image_page_url_routing_contract.mjs
@@ -37,21 +37,24 @@ ok('parser extracts parent gallery link', /RE_GALLERY[\s\S]*\/g\\\/\(\\d\+\)\\\/
 ok('parser extracts image serial and total file count', /RE_SER_TOTAL/.test(parserSrc) && /r\.ser = Number\.parseInt/.test(parserSrc) && /r\.fileCount = Number\.parseInt/.test(parserSrc))
 
 const serviceSrc = read('shared/src/main/ets/services/ImagePageRouteService.ets')
-ok('route service fetches image page HTML', /EhHttpClient\.getInstance\(\)\.getText\(url\)/.test(serviceSrc))
+ok('route service normalizes image-page URL to current host', /EhUrlRouter\.toCurrentHost\(url, EhConstants\.baseUrl\(connectSiteMode\(\)\.isEx\)\)/.test(serviceSrc))
+ok('route service fetches image page HTML from current host', /EhHttpClient\.getInstance\(\)\.getText\(currentUrl\)/.test(serviceSrc))
 ok('route service requires parent token', /galleryToken\.length === 0/.test(serviceSrc))
 ok('route service converts serial to zero-based index', /Math\.max\(0, ser - 1\)/.test(serviceSrc))
 ok('route service preserves parsed total file count', /fileCount:\s*number\s*=\s*0/.test(serviceSrc) && /target\.fileCount = parsed\.fileCount/.test(serviceSrc))
 ok('route service returns an exact Reader seed image', /seedImage:\s*EhGalleryImage\s*=\s*new EhGalleryImage\(\)/.test(serviceSrc))
-ok('route service preserves original /s/ URL in seed', /seed\.sUrl = url/.test(serviceSrc))
+ok('route service preserves current-host /s/ URL in seed', /seed\.sUrl = currentUrl/.test(serviceSrc))
 ok('route service preserves parsed full image URL in seed', /seed\.imageUrl = parsed\.imageUrl/.test(serviceSrc))
 ok('route service preserves parsed origin image URL in seed', /seed\.originImageUrl = parsed\.originImageUrl/.test(serviceSrc))
 ok('route service preserves showKey and reloadKey in seed', /seed\.showKey = parsed\.showKey[\s\S]*seed\.reloadKey = parsed\.reloadKey/.test(serviceSrc))
 
 const indexSrc = read('entry/src/main/ets/pages/Index.ets')
-ok('Index still routes /g/ detail links', /EhUrlRouter\.parseGallery\(uri\)[\s\S]*GalleryDetail/.test(indexSrc))
-ok('Index routes /s/ through ImagePageRouteService', /EhUrlRouter\.parseImagePage\(uri\)[\s\S]*openImagePageUrl\(uri\)/.test(indexSrc))
-ok('Index opens Reader for resolved /s/', /ImagePageRouteService\.resolve\(uri\)[\s\S]*pushPathByName\(\s*'Reader'/.test(indexSrc))
-ok('Index passes exact image seed and parsed fileCount without marking preview pages loaded', /new ReaderParams\(target\.gid, target\.token, target\.index, target\.fileCount, '', \[target\.seedImage\], 0, 0\)/.test(indexSrc))
+ok('Index normalizes deep-link host to current site mode', /const currentUri:[\s\S]*EhUrlRouter\.toCurrentHost\(uri, EhConstants\.baseUrl\(connectSiteMode\(\)\.isEx\)\)/.test(indexSrc))
+ok('Index still routes /g/ detail links', /EhUrlRouter\.parseGallery\(currentUri\)[\s\S]*GalleryDetail/.test(indexSrc))
+ok('Index routes /s/ through ImagePageRouteService', /EhUrlRouter\.parseImagePage\(currentUri\)[\s\S]*openImagePageUrl\(currentUri\)/.test(indexSrc))
+ok('Index opens parent GalleryDetail before offering image-page jump', /ImagePageRouteService\.resolve\(uri\)[\s\S]*pushPathByName\(\s*'GalleryDetail'[\s\S]*confirmOpenImagePage\(target\)/.test(indexSrc))
+ok('Index confirms before opening Reader for resolved /s/', /private confirmOpenImagePage\(target: ImagePageRouteTarget\): void[\s\S]*image_page_jump_confirm[\s\S]*pushPathByName\(\s*'Reader'/.test(indexSrc))
+ok('Index passes exact image seed and parsed fileCount without marking preview pages loaded', /new ReaderParams\(\s*target\.gid,\s*target\.token,\s*target\.index,\s*target\.fileCount,\s*'',\s*\[target\.seedImage\],\s*0,\s*0,\s*\)/.test(indexSrc))
 ok('Index shows a visible route-failure page for failed /s/ deep links', /image_page_deep_link_failed[\s\S]*pushPathByName\(\s*'ImagePageRouteError'/.test(indexSrc))
 ok('Index registers the image-page route-failure destination', /name === 'ImagePageRouteError'[\s\S]*ImagePageRouteErrorPage\(\)/.test(indexSrc))
 

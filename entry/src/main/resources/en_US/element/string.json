@@ -2109,6 +2109,10 @@
       "value": "Unable to open this image page. The link may be expired or unavailable."
     },
     {
+      "name": "image_page_jump_confirm",
+      "value": "Opened gallery. Jump to page %s now?"
+    },
+    {
       "name": "favorites_local",
       "value": "Local"
     },

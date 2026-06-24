@@ -1,16 +1,35 @@
 import {
   COMMENT_TRANSLATION_DISPLAY_BILINGUAL,
   CommentTranslationSettingsState,
+  EhConstants,
   EhGalleryComment,
+  EhUrlRouter,
   GalleryCommentActionState,
+  GalleryWebParams,
   GALLERY_COMMENT_ACTION_RENDER_STATE,
   ThemeConstants,
   connectGalleryCommentAction,
   connectCommentTranslationSettings,
+  connectNavStack,
+  connectSiteMode,
+  publishPendingEhUrl,
 } from 'shared'
 
 const COMMENT_FOOTER_ACTION_SIZE: number = 30
 const COMMENT_FOOTER_ICON_SIZE: number = 16
+const COMMENT_LINK_RE: RegExp = /https?:\/\/[^\s<>"'，。！？；、）\]\}]+/g
+
+class CommentTextSegment {
+  key: string = ''
+  text: string = ''
+  url: string = ''
+
+  constructor(key: string = '', text: string = '', url: string = '') {
+    this.key = key
+    this.text = text
+    this.url = url
+  }
+}
 
 /**
  * Comments list, shared by the detail-page PEEK and the full comments page (eros_fe TopCommentEx +
@@ -43,6 +62,7 @@ export struct GalleryCommentsCard {
   @Event onToggleTranslation: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
   @Event onAutoTranslate: (comment: EhGalleryComment, sourceText: string) => void =
     (_comment: EhGalleryComment, _sourceText: string) => {};
+  private stack: NavPathStack = connectNavStack().stack;
   @Local translationSettings: CommentTranslationSettingsState = connectCommentTranslationSettings();
   @Local commentAction: GalleryCommentActionState = connectGalleryCommentAction();
   @Local liveTranslationText: string = '';
@@ -518,6 +538,87 @@ export struct GalleryCommentsCard {
     return this.max > 0 ? ThemeConstants.SPACE_MD : ThemeConstants.SPACE_SM
   }
 
+  private isUrlTailPunctuation(ch: string): boolean {
+    return ch === '.' || ch === ',' || ch === ';' || ch === ':' ||
+      ch === '，' || ch === '。' || ch === '；' || ch === '：' ||
+      ch === '！' || ch === '!' || ch === ')' || ch === '）' ||
+      ch === ']' || ch === '}'
+  }
+
+  private cleanCommentUrl(raw: string): string {
+    let end: number = raw.length
+    while (end > 0 && this.isUrlTailPunctuation(raw.charAt(end - 1))) {
+      end--
+    }
+    return raw.substring(0, end)
+  }
+
+  private commentTextSegments(text: string): CommentTextSegment[] {
+    const out: CommentTextSegment[] = []
+    COMMENT_LINK_RE.lastIndex = 0
+    let cursor: number = 0
+    let seq: number = 0
+    let match: RegExpExecArray | null = COMMENT_LINK_RE.exec(text)
+    while (match !== null) {
+      const raw: string = match[0]
+      const start: number = COMMENT_LINK_RE.lastIndex - raw.length
+      const end: number = COMMENT_LINK_RE.lastIndex
+      const url: string = this.cleanCommentUrl(raw)
+      if (start > cursor) {
+        out.push(new CommentTextSegment(`t${seq++}`, text.substring(cursor, start)))
+      }
+      if (url.length > 0) {
+        out.push(new CommentTextSegment(`u${seq++}`, url, url))
+      }
+      if (url.length < raw.length) {
+        out.push(new CommentTextSegment(`t${seq++}`, raw.substring(url.length)))
+      }
+      cursor = end
+      match = COMMENT_LINK_RE.exec(text)
+    }
+    if (cursor < text.length) {
+      out.push(new CommentTextSegment(`t${seq++}`, text.substring(cursor)))
+    }
+    if (out.length === 0) {
+      out.push(new CommentTextSegment('t0', text))
+    }
+    return out
+  }
+
+  private hasCommentLink(text: string): boolean {
+    COMMENT_LINK_RE.lastIndex = 0
+    const found: boolean = COMMENT_LINK_RE.test(text)
+    COMMENT_LINK_RE.lastIndex = 0
+    return found
+  }
+
+  private firstCommentUrl(text: string): string {
+    const segments: CommentTextSegment[] = this.commentTextSegments(text)
+    for (let i = 0; i < segments.length; i++) {
+      if (segments[i].url.length > 0) {
+        return segments[i].url
+      }
+    }
+    return ''
+  }
+
+  private commentContainsLink(c: EhGalleryComment): boolean {
+    return this.hasCommentLink(this.displayContentText(c)) || this.hasCommentLink(this.translationText(c))
+  }
+
+  private currentHostUrl(url: string): string {
+    return EhUrlRouter.toCurrentHost(url, EhConstants.baseUrl(connectSiteMode().isEx))
+  }
+
+  private openCommentUrl(url: string): void {
+    const currentUrl: string = this.currentHostUrl(url)
+    if (EhUrlRouter.canHandle(currentUrl)) {
+      publishPendingEhUrl(`${Date.now()}:${currentUrl}`)
+      return
+    }
+    this.stack.pushPathByName('GalleryWeb', new GalleryWebParams(currentUrl, currentUrl))
+  }
+
   build() {
     Column({ space: this.commentGap() }) {
       if (this.showHeader) {
@@ -641,7 +742,7 @@ export struct GalleryCommentsCard {
     .borderRadius(ThemeConstants.RADIUS_CARD)
     .backgroundColor($r('app.color.card_background'))
     .onClick(() => {
-      if (this.canOpenFullComments()) {
+      if (this.canOpenFullComments() && !this.commentContainsLink(c)) {
         this.onMore()
       }
     })
@@ -677,27 +778,63 @@ export struct GalleryCommentsCard {
   @Builder
   CommentText(text: string, clamp: boolean, color: ResourceColor) {
     if (clamp) {
-      Text(text)
+      Text() {
+        ForEach(
+          this.commentTextSegments(text),
+          (seg: CommentTextSegment) => {
+            if (seg.url.length > 0) {
+              Span(seg.text)
+                .fontColor($r('sys.color.font_emphasize'))
+                .decoration({ type: TextDecorationType.Underline, color: $r('sys.color.font_emphasize') })
+            } else {
+              Span(seg.text)
+            }
+          },
+          (seg: CommentTextSegment) => seg.key,
+        )
+      }
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor(color)
         .width('100%')
         .maxLines(4)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .enableDataDetector(true)
-        .dataDetectorConfig({
-          types: [TextDataDetectorType.URL],
-          color: $r('sys.color.font_emphasize'),
-        })
+        .gesture(
+          TapGesture({ count: 1 })
+            .onAction(() => {
+              const url: string = this.firstCommentUrl(text)
+              if (url.length > 0) {
+                this.openCommentUrl(url)
+              }
+            }),
+        )
     } else {
-      Text(text)
+      Text() {
+        ForEach(
+          this.commentTextSegments(text),
+          (seg: CommentTextSegment) => {
+            if (seg.url.length > 0) {
+              Span(seg.text)
+                .fontColor($r('sys.color.font_emphasize'))
+                .decoration({ type: TextDecorationType.Underline, color: $r('sys.color.font_emphasize') })
+            } else {
+              Span(seg.text)
+            }
+          },
+          (seg: CommentTextSegment) => seg.key,
+        )
+      }
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor(color)
         .width('100%')
-        .enableDataDetector(true)
-        .dataDetectorConfig({
-          types: [TextDataDetectorType.URL],
-          color: $r('sys.color.font_emphasize'),
-        })
+        .gesture(
+          TapGesture({ count: 1 })
+            .onAction(() => {
+              const url: string = this.firstCommentUrl(text)
+              if (url.length > 0) {
+                this.openCommentUrl(url)
+              }
+            }),
+        )
     }
   }
 

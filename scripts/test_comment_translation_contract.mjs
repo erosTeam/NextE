@@ -182,6 +182,20 @@ ok(
   'comment translation must not overwrite raw comment contentText',
 )
 ok(
+  /commentTextSegments\(text: string\): CommentTextSegment\[\]/.test(commentsCard) &&
+    /Span\(seg\.text\)/.test(commentsCard) &&
+    /firstCommentUrl\(text: string\): string/.test(commentsCard) &&
+    /TapGesture\(\{ count: 1 \}\)/.test(commentsCard) &&
+    /const url: string = this\.firstCommentUrl\(text\)[\s\S]*this\.openCommentUrl\(url\)/.test(commentsCard) &&
+    !/enableDataDetector\(true\)/.test(commentsCard) &&
+    /commentContainsLink\(c: EhGalleryComment\): boolean/.test(commentsCard) &&
+    /this\.canOpenFullComments\(\) && !this\.commentContainsLink\(c\)/.test(commentsCard) &&
+    /EhUrlRouter\.toCurrentHost\(url, EhConstants\.baseUrl\(connectSiteMode\(\)\.isEx\)\)/.test(commentsCard) &&
+    /publishPendingEhUrl\(`\$\{Date\.now\(\)\}:\$\{currentUrl\}`\)/.test(commentsCard) &&
+    /pushPathByName\('GalleryWeb', new GalleryWebParams\(currentUrl, currentUrl\)\)/.test(commentsCard),
+  'comment URL links must be span-routed: EH gallery/image links go native, other links open WebView',
+)
+ok(
   /Status: active[\s\S]*comment translation/.test(read('docs/plans/active/ui-grounding.md')) ||
     /## Active: comment translation/.test(read('docs/plans/active/ui-grounding.md')),
   'UI grounding must include comment translation entry',

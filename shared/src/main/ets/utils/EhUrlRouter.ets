@@ -20,6 +20,7 @@ export interface ImagePageRef {
 export class EhUrlRouter {
   private static readonly GALLERY_RE: RegExp = new RegExp('https?://(?:e-|ex)hentai\\.org/g/(\\d+)/([0-9a-z]+)')
   private static readonly IMAGE_RE: RegExp = new RegExp('https?://(?:e-|ex)hentai\\.org/s/([0-9a-z]+)/(\\d+)-(\\d+)')
+  private static readonly HOST_RE: RegExp = new RegExp('^https?://(?:e-|ex)hentai\\.org')
 
   /** True if the URL is an EH gallery or image-page link this router can route. */
   static canHandle(url: string): boolean {
@@ -40,5 +41,9 @@ export class EhUrlRouter {
       return null
     }
     return { imgkey: m[1], gid: m[2], page: Number.parseInt(m[3], 10) }
+  }
+
+  static toCurrentHost(url: string, baseUrl: string): string {
+    return url.replace(EhUrlRouter.HOST_RE, baseUrl)
   }
 }

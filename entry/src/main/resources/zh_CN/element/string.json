@@ -2109,6 +2109,10 @@
       "value": "无法打开此图片页。链接可能已过期或不可用。"
     },
     {
+      "name": "image_page_jump_confirm",
+      "value": "已打开画廊。要直接跳到第 %s 页吗？"
+    },
+    {
       "name": "favorites_local",
       "value": "本地收藏"
     },

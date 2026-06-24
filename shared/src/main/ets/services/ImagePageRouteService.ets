@@ -2,6 +2,8 @@ import { EhHttpClient, EhTextResponse } from '../network/EhHttpClient'
 import { EhGalleryImage } from '../model/EhGalleryImage'
 import { EhImagePageParser, ImagePageResult } from '../parser/EhImagePageParser'
 import { EhUrlRouter, ImagePageRef } from '../utils/EhUrlRouter'
+import { EhConstants } from '../constants/EhConstants'
+import { connectSiteMode } from '../state/SiteModeState'
 
 /** Resolved route target for an EH image-page URL (/s/{imgkey}/{gid}-{page}). */
 export class ImagePageRouteTarget {
@@ -23,7 +25,8 @@ export class ImagePageRouteService {
     if (ref === null) {
       throw new Error('not an EH image-page URL')
     }
-    const resp: EhTextResponse = await EhHttpClient.getInstance().getText(url)
+    const currentUrl: string = EhUrlRouter.toCurrentHost(url, EhConstants.baseUrl(connectSiteMode().isEx))
+    const resp: EhTextResponse = await EhHttpClient.getInstance().getText(currentUrl)
     if (resp.statusCode !== 200) {
       throw new Error(`image page HTTP ${resp.statusCode}`)
     }
@@ -39,7 +42,7 @@ export class ImagePageRouteService {
     target.index = Math.max(0, ser - 1)
     const seed: EhGalleryImage = new EhGalleryImage(target.index + 1)
     seed.imgkey = ref.imgkey
-    seed.sUrl = url
+    seed.sUrl = currentUrl
     seed.imageUrl = parsed.imageUrl
     seed.originImageUrl = parsed.originImageUrl
     seed.showKey = parsed.showKey

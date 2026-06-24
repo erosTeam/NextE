@@ -15,6 +15,7 @@ import {
   ThemeConstants,
   DiagnosticLogger,
   PendingEhUrlState,
+  EhConstants,
   EhUrlRouter,
   GalleryRef,
   GalleryDetailParams,
@@ -25,6 +26,7 @@ import {
   ReaderParams,
   connectSearchAction,
   SearchActionState,
+  connectSiteMode,
   connectAuth,
   AuthState,
   connectFavSelection,
@@ -196,44 +198,62 @@ struct Index {
     this.lastHandledSignal = signal
     const sep: number = signal.indexOf(':')
     const uri: string = sep >= 0 ? signal.substring(sep + 1) : signal
+    const currentUri: string = EhUrlRouter.toCurrentHost(uri, EhConstants.baseUrl(connectSiteMode().isEx))
     if (uri === InternalQaRoutes.COVER_FALLBACK_PROBE_URI) {
       DiagnosticLogger.info('nav', 'internal_qa_open', 'cover-fallback')
       this.stack.pushPathByName('CoverFallbackProbe', null)
       return
     }
-    const ref: GalleryRef | null = EhUrlRouter.parseGallery(uri)
+    const ref: GalleryRef | null = EhUrlRouter.parseGallery(currentUri)
     if (ref !== null) {
       DiagnosticLogger.info('nav', 'deep_link_open', `/g/${ref.gid}/${ref.token}`)
       this.stack.pushPathByName('GalleryDetail', new GalleryDetailParams(ref.gid, ref.token))
       return
     }
-    if (EhUrlRouter.parseImagePage(uri) !== null) {
+    if (EhUrlRouter.parseImagePage(currentUri) !== null) {
       DiagnosticLogger.info('nav', 'deep_link_open', '/s/')
-      this.openImagePageUrl(uri)
+      this.openImagePageUrl(currentUri)
     }
   }
 
   private openImagePageUrl(uri: string): void {
     ImagePageRouteService.resolve(uri)
       .then((target: ImagePageRouteTarget) => {
-        this.stack.pushPathByName(
-          'Reader',
-          new ReaderParams(
-            target.gid,
-            target.token,
-            target.index,
-            target.fileCount,
-            '',
-            [target.seedImage],
-            0,
-            0,
-          ),
-        )
+        this.stack.pushPathByName('GalleryDetail', new GalleryDetailParams(target.gid, target.token))
+        this.confirmOpenImagePage(target)
       })
       .catch((err: Error) => {
         DiagnosticLogger.warn('nav', 'image_page_deep_link_failed', err.message)
         this.stack.pushPathByName('ImagePageRouteError', new ImagePageRouteErrorParams(uri))
       })
+  }
+
+  private confirmOpenImagePage(target: ImagePageRouteTarget): void {
+    this.getUIContext().showAlertDialog({
+      message: $r('app.string.image_page_jump_confirm', (target.index + 1).toString()),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.detail_read'),
+        action: () => {
+          this.stack.pushPathByName(
+            'Reader',
+            new ReaderParams(
+              target.gid,
+              target.token,
+              target.index,
+              target.fileCount,
+              '',
+              [target.seedImage],
+              0,
+              0,
+            ),
+          )
+        },
+      },
+    })
   }
 
   private tabTitle(): ResourceStr {
