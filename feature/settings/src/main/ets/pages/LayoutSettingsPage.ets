@@ -567,6 +567,7 @@ export struct LayoutSettingsPage {
                 ConciseListRow({
                   title: $r('app.string.settings_theme_color'),
                   leadingIcon: $r('sys.symbol.paintbrush'),
+                  suffixPaddingRight: 0,
                   suffixBuilderParam: () => {
                     this.ThemeColorSuffix()
                   },
