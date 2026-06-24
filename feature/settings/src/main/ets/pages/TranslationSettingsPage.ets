@@ -21,12 +21,21 @@ import {
 export struct TranslationSettingsPage {
   @Local settings: CommentTranslationSettingsState = connectCommentTranslationSettings();
   @Local displayMenuShown: boolean = false;
+  @Local modelMenuShown: boolean = false;
+  @Local fetchingModels: boolean = false;
+  @Local modelOptions: string[] = [];
+  @Local apiUrlDraft: string = '';
+  @Local apiKeyDraft: string = '';
+  @Local modelDraft: string = '';
   @Local clearingCache: boolean = false;
   @Local validatingApi: boolean = false;
   @Local cacheCount: number = 0;
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
+    this.apiUrlDraft = this.settings.apiUrl
+    this.apiKeyDraft = this.settings.apiKey
+    this.modelDraft = this.settings.model
     this.refreshCacheCount()
   }
 
@@ -76,18 +85,21 @@ export struct TranslationSettingsPage {
   }
 
   private setApiUrl(value: string): void {
+    this.apiUrlDraft = value
     const snapshot = this.snapshot()
     snapshot.apiUrl = value.trim()
     this.save(snapshot)
   }
 
   private setApiKey(value: string): void {
+    this.apiKeyDraft = value
     const snapshot = this.snapshot()
     snapshot.apiKey = value.trim()
     this.save(snapshot)
   }
 
   private setModel(value: string): void {
+    this.modelDraft = value
     const snapshot = this.snapshot()
     snapshot.model = value.trim()
     this.save(snapshot)
@@ -181,6 +193,41 @@ export struct TranslationSettingsPage {
       })
   }
 
+  private fetchModels(): void {
+    if (this.fetchingModels) {
+      return
+    }
+    if (this.settings.apiKey.length === 0) {
+      this.getUIContext().getPromptAction().showToast({
+        message: $r('app.string.comment_translation_validate_missing_key'),
+      })
+      return
+    }
+    this.fetchingModels = true
+    CommentTranslationService.fetchConfiguredLlmModels()
+      .then((models: string[]) => {
+        this.modelOptions = models
+        if (models.length === 0) {
+          this.getUIContext().getPromptAction().showToast({
+            message: $r('app.string.comment_translation_models_empty'),
+          })
+          return
+        }
+        if (this.settings.model.length === 0 || models.length === 1) {
+          this.setModel(models[0])
+        }
+        this.modelMenuShown = true
+      })
+      .catch((error: Error) => {
+        this.getUIContext().getPromptAction().showToast({
+          message: $r('app.string.comment_translation_models_failed', error.message),
+        })
+      })
+      .finally(() => {
+        this.fetchingModels = false
+      })
+  }
+
   @Builder
   private rowDivider() {
     Divider()
@@ -212,13 +259,26 @@ export struct TranslationSettingsPage {
   }
 
   @Builder
-  private TextFieldRow(label: ResourceStr, value: string, placeholder: ResourceStr, secret: boolean, onChange: (value: string) => void) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      TextInput({ text: value, placeholder: placeholder })
+  private ModelMenu() {
+    Menu() {
+      ForEach(this.modelOptions, (model: string) => {
+        MenuItem({
+          content: model,
+          symbolEndIcon: this.modelText() === model
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+        }).onClick(() => {
+          this.setModel(model)
+          this.modelMenuShown = false
+        })
+      }, (model: string) => model)
+    }
+  }
+
+  @Builder
+  private TextInputField(field: string, placeholder: ResourceStr, secret: boolean, onChange: (value: string) => void) {
+    if (field === 'apiUrl') {
+      TextInput({ text: $$this.apiUrlDraft, placeholder: placeholder })
         .type(secret ? InputType.Password : InputType.Normal)
         .width('100%')
         .height(48)
@@ -228,6 +288,39 @@ export struct TranslationSettingsPage {
         .onChange((next: string) => {
           onChange(next)
         })
+    } else if (field === 'apiKey') {
+      TextInput({ text: $$this.apiKeyDraft, placeholder: placeholder })
+        .type(secret ? InputType.Password : InputType.Normal)
+        .width('100%')
+        .height(48)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+        .onChange((next: string) => {
+          onChange(next)
+        })
+    } else {
+      TextInput({ text: $$this.modelDraft, placeholder: placeholder })
+        .type(secret ? InputType.Password : InputType.Normal)
+        .width('100%')
+        .height(48)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+        .onChange((next: string) => {
+          onChange(next)
+        })
+    }
+  }
+
+  @Builder
+  private TextFieldRow(label: ResourceStr, field: string, placeholder: ResourceStr, secret: boolean, onChange: (value: string) => void) {
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      Text(label)
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+      this.TextInputField(field, placeholder, secret, onChange)
     }
     .width('100%')
     .padding({
@@ -306,7 +399,7 @@ export struct TranslationSettingsPage {
             this.rowDivider()
             this.TextFieldRow(
               $r('app.string.comment_translation_api_url'),
-              this.settings.apiUrl,
+              'apiUrl',
               $r('app.string.comment_translation_api_url_hint'),
               false,
               (value: string) => {
@@ -316,7 +409,7 @@ export struct TranslationSettingsPage {
             this.rowDivider()
             this.TextFieldRow(
               $r('app.string.comment_translation_api_key'),
-              this.settings.apiKey,
+              'apiKey',
               this.keyStateText(),
               true,
               (value: string) => {
@@ -326,13 +419,35 @@ export struct TranslationSettingsPage {
             this.rowDivider()
             this.TextFieldRow(
               $r('app.string.comment_translation_model'),
-              this.settings.model,
+              'model',
               $r('app.string.comment_translation_model_hint'),
               false,
               (value: string) => {
                 this.setModel(value)
               },
             )
+            this.rowDivider()
+            Column() {
+              ConciseListRow({
+                title: $r('app.string.comment_translation_fetch_models'),
+                subtitle: this.fetchingModels
+                  ? $r('app.string.comment_translation_fetch_models_loading')
+                  : $r('app.string.comment_translation_fetch_models_hint'),
+                leadingIcon: $r('sys.symbol.arrow_down_circle'),
+                trailingText: this.modelOptions.length > 0 ? `${this.modelOptions.length}` : '',
+                showChevron: true,
+                isEnabled: this.settings.enabled && !this.settings.useGoogleOnly && !this.fetchingModels,
+                action: () => {
+                  this.fetchModels()
+                },
+              })
+            }
+            .bindMenu(this.modelMenuShown, this.ModelMenu, {
+              placement: Placement.BottomRight,
+              onDisappear: () => {
+                this.modelMenuShown = false
+              },
+            })
             this.rowDivider()
             ConciseListRow({
               title: $r('app.string.comment_translation_effective_service'),

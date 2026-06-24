@@ -1505,6 +1505,26 @@
       "value": "gpt-4o-mini"
     },
     {
+      "name": "comment_translation_fetch_models",
+      "value": "Fetch models"
+    },
+    {
+      "name": "comment_translation_fetch_models_hint",
+      "value": "Read available models from the current LLM service."
+    },
+    {
+      "name": "comment_translation_fetch_models_loading",
+      "value": "Fetching models…"
+    },
+    {
+      "name": "comment_translation_models_empty",
+      "value": "No models returned"
+    },
+    {
+      "name": "comment_translation_models_failed",
+      "value": "Failed to fetch models: %s"
+    },
+    {
       "name": "comment_translation_effective_service",
       "value": "LLM service"
     },

@@ -1505,6 +1505,26 @@
       "value": "gpt-4o-mini"
     },
     {
+      "name": "comment_translation_fetch_models",
+      "value": "获取模型"
+    },
+    {
+      "name": "comment_translation_fetch_models_hint",
+      "value": "从当前 LLM 服务读取可用模型。"
+    },
+    {
+      "name": "comment_translation_fetch_models_loading",
+      "value": "正在获取模型…"
+    },
+    {
+      "name": "comment_translation_models_empty",
+      "value": "没有返回可用模型"
+    },
+    {
+      "name": "comment_translation_models_failed",
+      "value": "获取模型失败：%s"
+    },
+    {
       "name": "comment_translation_effective_service",
       "value": "LLM 服务"
     },

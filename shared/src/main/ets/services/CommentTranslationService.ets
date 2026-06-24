@@ -46,6 +46,14 @@ class ChatCompletionResponse {
   choices: ChatCompletionChoice[] = []
 }
 
+class LlmModelItem {
+  id: string = ''
+}
+
+class LlmModelsResponse {
+  data: LlmModelItem[] = []
+}
+
 class MemoryTranslationEntry {
   translated: string = ''
   expiresAt: number = 0
@@ -155,6 +163,17 @@ export class CommentTranslationService {
     )
   }
 
+  static async fetchConfiguredLlmModels(): Promise<string[]> {
+    const settings = CommentTranslationSettings.current()
+    if (settings.apiKey.length === 0) {
+      throw new Error('missing_api_key')
+    }
+    return CommentTranslationService.fetchLlmModels(
+      settings.apiUrl.length > 0 ? settings.apiUrl : DEFAULT_LLM_BASE_URL,
+      settings.apiKey,
+    )
+  }
+
   private static async translateAndCache(
     context: common.UIAbilityContext,
     text: string,
@@ -253,6 +272,43 @@ export class CommentTranslationService {
       throw new Error('LLM returned empty response')
     } catch (error) {
       throw error as Error
+    } finally {
+      req.destroy()
+    }
+  }
+
+  private static async fetchLlmModels(baseUrl: string, apiKey: string): Promise<string[]> {
+    const req: http.HttpRequest = http.createHttp()
+    try {
+      const resp: http.HttpResponse = await req.request(`${CommentTranslationService.stripV1(baseUrl)}/v1/models`, {
+        method: http.RequestMethod.GET,
+        header: {
+          'User-Agent': EhConstants.USER_AGENT,
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: TRANSLATION_CONNECT_TIMEOUT_MS,
+        readTimeout: TRANSLATION_READ_TIMEOUT_MS,
+        usingCache: false,
+      })
+      const body: string = typeof resp.result === 'string' ? resp.result as string : ''
+      if ((resp.responseCode as number) !== 200) {
+        throw new Error(`LLM models HTTP ${resp.responseCode as number}`)
+      }
+      const raw: Object = JSON.parse(body) as Object
+      const parsed: LlmModelsResponse = raw as LlmModelsResponse
+      const out: string[] = []
+      if (Array.isArray(parsed.data)) {
+        for (let i = 0; i < parsed.data.length; i++) {
+          const item: LlmModelItem = parsed.data[i]
+          if (item.id.length > 0) {
+            out.push(item.id)
+          }
+        }
+      }
+      out.sort()
+      return out
     } finally {
       req.destroy()
     }

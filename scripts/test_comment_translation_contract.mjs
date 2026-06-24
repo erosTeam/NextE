@@ -64,6 +64,14 @@ ok(
   'LLM validation must hit the configured API directly without Google fallback',
 )
 ok(
+  /static async fetchConfiguredLlmModels\(\): Promise<string\[]>/.test(service) &&
+    /private static async fetchLlmModels\(baseUrl: string, apiKey: string\): Promise<string\[]>/.test(service) &&
+    /\/v1\/models/.test(service) &&
+    /Authorization': `Bearer \$\{apiKey\}`/.test(service) &&
+    /out\.sort\(\)/.test(service),
+  'LLM model fetch must use the configured OpenAI-compatible models endpoint',
+)
+ok(
   /@ObservedV2[\s\S]*CommentTranslationSettingsState/.test(settingsState) &&
     /@Trace enabled/.test(settingsState) &&
     /@Trace apiKey/.test(settingsState),
@@ -85,9 +93,18 @@ ok(
     /pushPathByName\('TranslationSettings'/.test(rootSettings) &&
     /SecondaryListScaffold/.test(settingsPage) &&
     /TextInput/.test(settingsPage) &&
+    /comment_translation_fetch_models/.test(settingsPage) &&
+    /fetchConfiguredLlmModels/.test(settingsPage) &&
+    /@Local modelDraft: string = ''/.test(settingsPage) &&
+    /TextInput\(\{ text: \$\$this\.modelDraft/.test(settingsPage) &&
+    /this\.settings\.model\.length === 0 \|\| models\.length === 1/.test(settingsPage) &&
+    /this\.setModel\(models\[0\]\)/.test(settingsPage) &&
+    /private setModel\(value: string\): void \{[\s\S]*this\.modelDraft = value/.test(settingsPage) &&
+    /ModelMenu/.test(settingsPage) &&
+    /this\.setModel\(model\)/.test(settingsPage) &&
     /comment_translation_validate_api/.test(settingsPage) &&
     /validateConfiguredLlm/.test(settingsPage),
-  'translation settings page must be routed from Settings and use existing settings scaffolds',
+  'translation settings page must be routed from Settings and use existing settings scaffolds, including model fetch',
 )
 ok(
   /TranslationAction/.test(commentsCard) &&

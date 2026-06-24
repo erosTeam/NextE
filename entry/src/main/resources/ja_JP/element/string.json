@@ -1505,6 +1505,26 @@
       "value": "gpt-4o-mini"
     },
     {
+      "name": "comment_translation_fetch_models",
+      "value": "モデルを取得"
+    },
+    {
+      "name": "comment_translation_fetch_models_hint",
+      "value": "現在のLLMサービスから利用可能なモデルを読み込みます。"
+    },
+    {
+      "name": "comment_translation_fetch_models_loading",
+      "value": "モデルを取得中…"
+    },
+    {
+      "name": "comment_translation_models_empty",
+      "value": "利用可能なモデルが返されませんでした"
+    },
+    {
+      "name": "comment_translation_models_failed",
+      "value": "モデル取得に失敗しました：%s"
+    },
+    {
       "name": "comment_translation_effective_service",
       "value": "LLMサービス"
     },
