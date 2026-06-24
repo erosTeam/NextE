@@ -1433,6 +1433,122 @@
       "value": "登录后才能评论"
     },
     {
+      "name": "comment_translation_failed",
+      "value": "翻译失败"
+    },
+    {
+      "name": "settings_translation",
+      "value": "翻译"
+    },
+    {
+      "name": "comment_translation_enable",
+      "value": "评论翻译"
+    },
+    {
+      "name": "comment_translation_enable_hint",
+      "value": "使用你的 API key 翻译画廊评论，失败时回退到 Google。"
+    },
+    {
+      "name": "comment_translation_auto",
+      "value": "自动翻译评论"
+    },
+    {
+      "name": "comment_translation_auto_hint",
+      "value": "打开完整评论页时自动开始翻译。"
+    },
+    {
+      "name": "comment_translation_display_mode",
+      "value": "显示方式"
+    },
+    {
+      "name": "comment_translation_display_replace",
+      "value": "替换原文"
+    },
+    {
+      "name": "comment_translation_display_bilingual",
+      "value": "双语显示"
+    },
+    {
+      "name": "comment_translation_google_only",
+      "value": "使用 Google 翻译"
+    },
+    {
+      "name": "comment_translation_google_only_hint",
+      "value": "跳过 LLM，直接使用 Google。"
+    },
+    {
+      "name": "comment_translation_api_url",
+      "value": "API URL"
+    },
+    {
+      "name": "comment_translation_api_url_hint",
+      "value": "https://api.openai.com"
+    },
+    {
+      "name": "comment_translation_api_key",
+      "value": "API Key"
+    },
+    {
+      "name": "comment_translation_api_key_saved",
+      "value": "已保存"
+    },
+    {
+      "name": "comment_translation_api_key_empty",
+      "value": "未设置"
+    },
+    {
+      "name": "comment_translation_model",
+      "value": "模型"
+    },
+    {
+      "name": "comment_translation_model_hint",
+      "value": "gpt-4o-mini"
+    },
+    {
+      "name": "comment_translation_effective_service",
+      "value": "LLM 服务"
+    },
+    {
+      "name": "comment_translation_validate_api",
+      "value": "验证接口"
+    },
+    {
+      "name": "comment_translation_validate_api_hint",
+      "value": "发送一次短测试请求，不写入缓存"
+    },
+    {
+      "name": "comment_translation_validate_google_only_hint",
+      "value": "Google 兜底模式开启时不可用"
+    },
+    {
+      "name": "comment_translation_validate_success",
+      "value": "接口验证成功"
+    },
+    {
+      "name": "comment_translation_validate_missing_key",
+      "value": "请先设置 API Key"
+    },
+    {
+      "name": "comment_translation_validate_failed",
+      "value": "接口验证失败：%s"
+    },
+    {
+      "name": "comment_translation_clear_cache",
+      "value": "清除翻译缓存"
+    },
+    {
+      "name": "comment_translation_clear_cache_confirm",
+      "value": "清除已缓存的评论翻译？"
+    },
+    {
+      "name": "comment_translation_cache_entries",
+      "value": "已缓存 %d 条翻译"
+    },
+    {
+      "name": "comment_translation_cache_cleared",
+      "value": "翻译缓存已清除"
+    },
+    {
       "name": "filter",
       "value": "筛选"
     },

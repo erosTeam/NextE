@@ -1433,6 +1433,122 @@
       "value": "コメントするにはログインしてください"
     },
     {
+      "name": "comment_translation_failed",
+      "value": "翻訳に失敗しました"
+    },
+    {
+      "name": "settings_translation",
+      "value": "翻訳"
+    },
+    {
+      "name": "comment_translation_enable",
+      "value": "コメント翻訳"
+    },
+    {
+      "name": "comment_translation_enable_hint",
+      "value": "APIキーでギャラリーコメントを翻訳し、失敗時はGoogleにフォールバックします。"
+    },
+    {
+      "name": "comment_translation_auto",
+      "value": "コメントを自動翻訳"
+    },
+    {
+      "name": "comment_translation_auto_hint",
+      "value": "コメント一覧を開いたときに翻訳を開始します。"
+    },
+    {
+      "name": "comment_translation_display_mode",
+      "value": "表示方法"
+    },
+    {
+      "name": "comment_translation_display_replace",
+      "value": "原文を置換"
+    },
+    {
+      "name": "comment_translation_display_bilingual",
+      "value": "二言語表示"
+    },
+    {
+      "name": "comment_translation_google_only",
+      "value": "Google翻訳を使用"
+    },
+    {
+      "name": "comment_translation_google_only_hint",
+      "value": "LLMを使わずGoogleを直接使用します。"
+    },
+    {
+      "name": "comment_translation_api_url",
+      "value": "API URL"
+    },
+    {
+      "name": "comment_translation_api_url_hint",
+      "value": "https://api.openai.com"
+    },
+    {
+      "name": "comment_translation_api_key",
+      "value": "APIキー"
+    },
+    {
+      "name": "comment_translation_api_key_saved",
+      "value": "保存済み"
+    },
+    {
+      "name": "comment_translation_api_key_empty",
+      "value": "未設定"
+    },
+    {
+      "name": "comment_translation_model",
+      "value": "モデル"
+    },
+    {
+      "name": "comment_translation_model_hint",
+      "value": "gpt-4o-mini"
+    },
+    {
+      "name": "comment_translation_effective_service",
+      "value": "LLMサービス"
+    },
+    {
+      "name": "comment_translation_validate_api",
+      "value": "APIを検証"
+    },
+    {
+      "name": "comment_translation_validate_api_hint",
+      "value": "短いテストリクエストを送信します。キャッシュは保存しません"
+    },
+    {
+      "name": "comment_translation_validate_google_only_hint",
+      "value": "Googleのみモードでは利用できません"
+    },
+    {
+      "name": "comment_translation_validate_success",
+      "value": "API検証に成功しました"
+    },
+    {
+      "name": "comment_translation_validate_missing_key",
+      "value": "先にAPI Keyを設定してください"
+    },
+    {
+      "name": "comment_translation_validate_failed",
+      "value": "API検証に失敗しました：%s"
+    },
+    {
+      "name": "comment_translation_clear_cache",
+      "value": "翻訳キャッシュを削除"
+    },
+    {
+      "name": "comment_translation_clear_cache_confirm",
+      "value": "キャッシュされたコメント翻訳を削除しますか？"
+    },
+    {
+      "name": "comment_translation_cache_entries",
+      "value": "%d件の翻訳をキャッシュ"
+    },
+    {
+      "name": "comment_translation_cache_cleared",
+      "value": "翻訳キャッシュを削除しました"
+    },
+    {
       "name": "filter",
       "value": "絞り込み"
     },

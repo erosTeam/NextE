@@ -105,10 +105,23 @@ export {
 } from './services/CachedImageFileService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
+export { CommentTranslationService } from './services/CommentTranslationService'
 export { EhPageCacheService } from './services/EhPageCacheService'
 export { MyTagsTargetService, MyTagsTargetResolveResult } from './services/MyTagsTargetService'
 export { CoverColorService } from './services/CoverColorService'
 export { MotionHandStateService, MotionHandEdge } from './services/MotionHandStateService'
+
+// settings/state
+export {
+  COMMENT_TRANSLATION_DISPLAY_BILINGUAL,
+  COMMENT_TRANSLATION_DISPLAY_REPLACE,
+  CommentTranslationSettingsState,
+  connectCommentTranslationSettings,
+} from './state/CommentTranslationSettingsState'
+export {
+  CommentTranslationSettings,
+  CommentTranslationSettingsSnapshot,
+} from './settings/CommentTranslationSettings'
 
 // network
 export { EhCookieStore } from './network/EhCookieStore'
@@ -199,6 +212,18 @@ export {
   CommentVoteMutationState,
   connectCommentVoteMutation,
 } from './state/CommentVoteMutationState'
+export {
+  GALLERY_COMMENT_ACTION_AUTHOR,
+  GALLERY_COMMENT_ACTION_AUTO_TRANSLATE,
+  GALLERY_COMMENT_ACTION_EDIT,
+  GALLERY_COMMENT_ACTION_REPLY,
+  GALLERY_COMMENT_ACTION_RENDER_STATE,
+  GALLERY_COMMENT_ACTION_TOGGLE_TRANSLATION,
+  GALLERY_COMMENT_ACTION_TRANSLATE,
+  GALLERY_COMMENT_ACTION_VOTE,
+  GalleryCommentActionState,
+  connectGalleryCommentAction,
+} from './state/GalleryCommentActionState'
 export {
   RemoteFavoriteSlotCacheState,
   connectRemoteFavoriteSlotCache,

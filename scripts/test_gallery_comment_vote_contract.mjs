@@ -65,8 +65,9 @@ ok('vote pending state stays out of the comment card so optimistic voting has no
   !/@Param votingCommentId/.test(card) &&
     !/this\.votingCommentId/.test(card) &&
     !/votingCommentId: this\.votingCommentId/.test(page))
-ok('vote row keys include vote and score so optimistic changes repaint',
-  /private commentRowKey\(c: EhGalleryComment\): string \{[\s\S]*`\$\{c\.commentId\}:\$\{c\.vote\}:\$\{c\.score\}`/.test(card) &&
+ok('vote row keys stay stable while observed comment fields repaint',
+  /private commentRowKey\(c: EhGalleryComment\): string \{[\s\S]*return c\.commentId/.test(card) &&
+    !/return `\$\{c\.commentId\}:\$\{c\.vote\}:\$\{c\.score\}`/.test(card) &&
     /\(c: EhGalleryComment\) => this\.commentRowKey\(c\)/.test(card))
 ok('vote actions use native thumbs icons with filled selected state',
   /hand_thumbsup_fill/.test(card) &&
@@ -84,16 +85,21 @@ ok('comments page submits votecomment with route api metadata',
 ok('comments page sends the tapped vote to EH, not local cancellation zero',
   /private async submitCommentVote\(commentId: string, requestVote: number, localVote: number\): Promise<void>[\s\S]*this\.applyLocalVote\(commentId, localVote\)[\s\S]*commentId,[\s\S]*requestVote/.test(page))
 ok('comments page applies returned vote and score to the matching local comment',
-  /private applyVoteResult\(result: CommentVoteResult\): void[\s\S]*next\.vote = result\.commentVote[\s\S]*next\.score = result\.commentScore\.toString\(\)[\s\S]*this\.comments = nextComments/.test(page))
+  /private applyVoteResult\(result: CommentVoteResult\): void[\s\S]*current\.vote = result\.commentVote[\s\S]*current\.score = result\.commentScore\.toString\(\)/.test(page) &&
+    !/private applyVoteResult\(result: CommentVoteResult\): void[\s\S]*this\.comments = nextComments/.test(page))
 ok('comments page publishes confirmed vote mutation for the detail page',
   /connectCommentVoteMutation\(\)\.publish\([\s\S]*this\.params\.gid[\s\S]*result\.commentId[\s\S]*result\.commentScore\.toString\(\)[\s\S]*result\.commentVote/.test(page))
 ok('comments page applies optimistic row vote and rolls back on failure',
-  /private applyLocalVote\(commentId: string, vote: number\): EhGalleryComment \| undefined[\s\S]*previous = this\.cloneComment\(c\)[\s\S]*next\.vote = vote[\s\S]*this\.comments = nextComments/.test(page) &&
+  /private applyLocalVote\(commentId: string, vote: number\): EhGalleryComment \| undefined[\s\S]*previous = this\.cloneComment\(c\)/.test(page) &&
     /score \+ vote - c\.vote/.test(page) &&
-    /private restoreComment\(comment: EhGalleryComment\): void[\s\S]*c\.commentId === comment\.commentId/.test(page) &&
+    /c\.vote = vote/.test(page) &&
+    !/private applyLocalVote\(commentId: string, vote: number\): EhGalleryComment \| undefined[\s\S]*this\.comments = nextComments/.test(page) &&
+    /private restoreComment\(comment: EhGalleryComment\): void[\s\S]*c\.commentId === comment\.commentId[\s\S]*c\.score = comment\.score[\s\S]*c\.vote = comment\.vote/.test(page) &&
     /const previous: EhGalleryComment \| undefined = this\.applyLocalVote\(commentId, localVote\)[\s\S]*catch \(err\) \{[\s\S]*this\.restoreComment\(previous\)/.test(page))
 ok('comments page wires card onVote',
-  /GalleryCommentsCard\(\{[\s\S]*onVote: \(comment: EhGalleryComment, vote: number\) => \{[\s\S]*this\.handleCommentVote\(comment, vote\)/.test(page))
+  /actionScope: this\.params\.gid/.test(page) &&
+    /@Monitor\('commentAction\.version'\)[\s\S]*GALLERY_COMMENT_ACTION_VOTE[\s\S]*this\.handleCommentVote\(comment, this\.commentAction\.vote\)/.test(page) &&
+    /requestVote\(this\.actionScope, c\.commentId, vote\)/.test(card))
 
 const detailPage = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 ok('detail page listens for confirmed comment vote mutation',
@@ -102,7 +108,8 @@ ok('detail page listens for confirmed comment vote mutation',
 
 const detailVm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets')
 ok('detail view model patches comments and cache after a confirmed vote',
-  /applyCommentVote\(commentId: string, score: string, vote: number\): void[\s\S]*next\.score = score[\s\S]*next\.vote = vote[\s\S]*this\.comments = nextComments[\s\S]*this\.saveCurrentDetailCache\(\)/.test(detailVm))
+  /applyCommentVote\(commentId: string, score: string, vote: number\): void[\s\S]*c\.score = score[\s\S]*c\.vote = vote[\s\S]*this\.saveCurrentDetailCache\(\)/.test(detailVm) &&
+    !/applyCommentVote\(commentId: string, score: string, vote: number\): void[\s\S]*this\.comments = nextComments/.test(detailVm))
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

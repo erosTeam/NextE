@@ -1433,6 +1433,122 @@
       "value": "Log in to comment"
     },
     {
+      "name": "comment_translation_failed",
+      "value": "Translation failed"
+    },
+    {
+      "name": "settings_translation",
+      "value": "Translation"
+    },
+    {
+      "name": "comment_translation_enable",
+      "value": "Comment translation"
+    },
+    {
+      "name": "comment_translation_enable_hint",
+      "value": "Translate gallery comments with your API key, with Google as fallback."
+    },
+    {
+      "name": "comment_translation_auto",
+      "value": "Auto translate comments"
+    },
+    {
+      "name": "comment_translation_auto_hint",
+      "value": "Start translating comments when the full comments page opens."
+    },
+    {
+      "name": "comment_translation_display_mode",
+      "value": "Display mode"
+    },
+    {
+      "name": "comment_translation_display_replace",
+      "value": "Replace original"
+    },
+    {
+      "name": "comment_translation_display_bilingual",
+      "value": "Bilingual"
+    },
+    {
+      "name": "comment_translation_google_only",
+      "value": "Use Google Translate"
+    },
+    {
+      "name": "comment_translation_google_only_hint",
+      "value": "Skip LLM and use Google directly."
+    },
+    {
+      "name": "comment_translation_api_url",
+      "value": "API URL"
+    },
+    {
+      "name": "comment_translation_api_url_hint",
+      "value": "https://api.openai.com"
+    },
+    {
+      "name": "comment_translation_api_key",
+      "value": "API key"
+    },
+    {
+      "name": "comment_translation_api_key_saved",
+      "value": "Saved"
+    },
+    {
+      "name": "comment_translation_api_key_empty",
+      "value": "Not set"
+    },
+    {
+      "name": "comment_translation_model",
+      "value": "Model"
+    },
+    {
+      "name": "comment_translation_model_hint",
+      "value": "gpt-4o-mini"
+    },
+    {
+      "name": "comment_translation_effective_service",
+      "value": "LLM service"
+    },
+    {
+      "name": "comment_translation_validate_api",
+      "value": "Validate API"
+    },
+    {
+      "name": "comment_translation_validate_api_hint",
+      "value": "Send a short test request without caching"
+    },
+    {
+      "name": "comment_translation_validate_google_only_hint",
+      "value": "Disabled while Google-only mode is on"
+    },
+    {
+      "name": "comment_translation_validate_success",
+      "value": "API validation succeeded"
+    },
+    {
+      "name": "comment_translation_validate_missing_key",
+      "value": "Set API Key first"
+    },
+    {
+      "name": "comment_translation_validate_failed",
+      "value": "API validation failed: %s"
+    },
+    {
+      "name": "comment_translation_clear_cache",
+      "value": "Clear translation cache"
+    },
+    {
+      "name": "comment_translation_clear_cache_confirm",
+      "value": "Clear cached comment translations?"
+    },
+    {
+      "name": "comment_translation_cache_entries",
+      "value": "%d cached translations"
+    },
+    {
+      "name": "comment_translation_cache_cleared",
+      "value": "Translation cache cleared"
+    },
+    {
       "name": "filter",
       "value": "Filter"
     },

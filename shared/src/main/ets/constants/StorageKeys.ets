@@ -49,6 +49,13 @@ export class StorageKeys {
   static readonly TAG_TRANSLATION_USE_CDN: string = 'tagTranslation.useCdn'
   static readonly TAG_TRANSLATION_UPDATE_MODE: string = 'tagTranslation.updateMode'
   static readonly TAG_TRANSLATION_INTRO_IMAGE_LEVEL: string = 'tagTranslation.introImageLevel'
+  static readonly COMMENT_TRANSLATION_ENABLED: string = 'commentTranslation.enabled'
+  static readonly COMMENT_TRANSLATION_AUTO: string = 'commentTranslation.auto'
+  static readonly COMMENT_TRANSLATION_DISPLAY_MODE: string = 'commentTranslation.displayMode'
+  static readonly COMMENT_TRANSLATION_GOOGLE_ONLY: string = 'commentTranslation.googleOnly'
+  static readonly COMMENT_TRANSLATION_API_URL: string = 'commentTranslation.apiUrl'
+  static readonly COMMENT_TRANSLATION_API_KEY: string = 'commentTranslation.apiKey'
+  static readonly COMMENT_TRANSLATION_MODEL: string = 'commentTranslation.model'
 
   // sensitive auth bundle (redacted in logs, never committed)
   static readonly COOKIE_JAR: string = 'auth.cookieJar'

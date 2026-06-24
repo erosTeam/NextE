@@ -59,6 +59,7 @@ import {
   DownloadSettingsPage,
   SearchSettingsPage,
   TagTranslationSettingsPage,
+  TranslationSettingsPage,
   AdvancedSettingsPage,
   SecuritySettingsPage,
   AboutPage,
@@ -586,6 +587,8 @@ struct Index {
       SearchSettingsPage()
     } else if (name === 'TagTranslationSettings') {
       TagTranslationSettingsPage()
+    } else if (name === 'TranslationSettings') {
+      TranslationSettingsPage()
     } else if (name === 'AdvancedSettings') {
       AdvancedSettingsPage()
     } else if (name === 'SecuritySettings') {

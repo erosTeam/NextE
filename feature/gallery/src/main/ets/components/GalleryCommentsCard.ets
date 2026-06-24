@@ -1,4 +1,13 @@
-import { ThemeConstants, EhGalleryComment } from 'shared'
+import {
+  COMMENT_TRANSLATION_DISPLAY_BILINGUAL,
+  CommentTranslationSettingsState,
+  EhGalleryComment,
+  GalleryCommentActionState,
+  GALLERY_COMMENT_ACTION_RENDER_STATE,
+  ThemeConstants,
+  connectGalleryCommentAction,
+  connectCommentTranslationSettings,
+} from 'shared'
 
 const COMMENT_FOOTER_ACTION_SIZE: number = 30
 const COMMENT_FOOTER_ICON_SIZE: number = 16
@@ -13,25 +22,86 @@ const COMMENT_FOOTER_ICON_SIZE: number = 16
 @ComponentV2
 export struct GalleryCommentsCard {
   @Require @Param comments: EhGalleryComment[];
+  @Param useSingleComment: boolean = false;
+  @Param singleComment: EhGalleryComment = new EhGalleryComment();
+  @Param renderVersion: number = 0;
+  @Param singleTranslationText: string = '';
+  @Param singleTranslationShown: boolean = false;
+  @Param singleTranslationLoading: boolean = false;
+  @Param singleScore: string = '';
+  @Param singleVote: number = 0;
   @Param max: number = 0;
+  @Param showHeader: boolean = true;
+  @Param actionScope: string = '';
   @Event onMore: () => void = () => {};
   @Event onAuthor: (name: string) => void = (_name: string) => {};
   @Event onVote: (comment: EhGalleryComment, vote: number) => void = (_comment: EhGalleryComment, _vote: number) => {};
   @Event onReply: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
   @Event onEdit: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
+  @Event onTranslate: (comment: EhGalleryComment, sourceText: string) => void =
+    (_comment: EhGalleryComment, _sourceText: string) => {};
+  @Event onToggleTranslation: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
+  @Event onAutoTranslate: (comment: EhGalleryComment, sourceText: string) => void =
+    (_comment: EhGalleryComment, _sourceText: string) => {};
+  @Local translationSettings: CommentTranslationSettingsState = connectCommentTranslationSettings();
+  @Local commentAction: GalleryCommentActionState = connectGalleryCommentAction();
+  @Local liveTranslationText: string = '';
+  @Local liveTranslationShown: boolean = false;
+  @Local liveTranslationLoading: boolean = false;
+  @Local liveScore: string = '';
+  @Local liveVote: number = 0;
+
+  @Monitor('commentAction.version')
+  onCommentRenderStateChanged(): void {
+    if (!this.useSingleComment || this.commentAction.action !== GALLERY_COMMENT_ACTION_RENDER_STATE ||
+      this.commentAction.scopeId !== this.actionScope || this.commentAction.commentId !== this.singleComment.commentId) {
+      return
+    }
+    this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+      this.liveTranslationText = this.commentAction.translationText
+      this.liveTranslationShown = this.commentAction.translationShown
+      this.liveTranslationLoading = this.commentAction.translationLoading
+      this.liveScore = this.commentAction.score
+      this.liveVote = this.commentAction.vote
+    })
+  }
+
+  @Monitor('comments', 'translationSettings.enabled', 'translationSettings.autoTranslate')
+  onTranslationInputsChanged(): void {
+    this.autoTranslateVisibleComments()
+  }
+
+  aboutToAppear(): void {
+    if (this.useSingleComment) {
+      this.liveTranslationText = this.singleTranslationText
+      this.liveTranslationShown = this.singleTranslationShown
+      this.liveTranslationLoading = this.singleTranslationLoading
+      this.liveScore = this.singleScore
+      this.liveVote = this.singleVote
+    }
+    this.autoTranslateVisibleComments()
+  }
+
+  private sourceComments(): EhGalleryComment[] {
+    if (this.useSingleComment) {
+      return [this.singleComment]
+    }
+    return this.comments
+  }
 
   private hasMore(): boolean {
-    return this.max > 0 && this.comments.length > this.max
+    return this.max > 0 && this.sourceComments().length > this.max
   }
 
   private canOpenFullComments(): boolean {
-    return this.max > 0 && this.comments.length > 0
+    return this.max > 0 && this.sourceComments().length > 0
   }
 
   private shown(): EhGalleryComment[] {
-    return this.max > 0 && this.comments.length > this.max
-      ? this.comments.slice(0, this.max)
-      : this.comments
+    const source: EhGalleryComment[] = this.sourceComments()
+    return this.max > 0 && source.length > this.max
+      ? source.slice(0, this.max)
+      : source
   }
 
   private showScoreDetails(c: EhGalleryComment): void {
@@ -57,11 +127,11 @@ export struct GalleryCommentsCard {
   }
 
   private commentRowKey(c: EhGalleryComment): string {
-    return `${c.commentId}:${c.vote}:${c.score}`
+    return c.commentId
   }
 
   private voteColor(c: EhGalleryComment, vote: number): ResourceColor {
-    return c.vote === vote ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_tertiary')
+    return this.effectiveVote(c) === vote ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_tertiary')
   }
 
   private canVote(c: EhGalleryComment): boolean {
@@ -129,7 +199,7 @@ export struct GalleryCommentsCard {
   }
 
   private sortedComments(): EhGalleryComment[] {
-    const out: EhGalleryComment[] = this.comments.slice()
+    const out: EhGalleryComment[] = this.sourceComments().slice()
     out.sort((a: EhGalleryComment, b: EhGalleryComment) => this.commentIdNum(b) - this.commentIdNum(a))
     return out
   }
@@ -145,8 +215,9 @@ export struct GalleryCommentsCard {
   }
 
   private commentById(id: string): EhGalleryComment | undefined {
-    for (let i = 0; i < this.comments.length; i++) {
-      const candidate: EhGalleryComment = this.comments[i]
+    const source: EhGalleryComment[] = this.sourceComments()
+    for (let i = 0; i < source.length; i++) {
+      const candidate: EhGalleryComment = source[i]
       if (candidate.commentId === id) {
         return candidate
       }
@@ -289,6 +360,151 @@ export struct GalleryCommentsCard {
     return c.contentText
   }
 
+  private translationEnabled(): boolean {
+    return this.max <= 0 && this.translationSettings.enabled
+  }
+
+  private translationText(c: EhGalleryComment): string {
+    return this.useSingleComment ? this.liveTranslationText : c.translationText
+  }
+
+  private isTranslationShown(c: EhGalleryComment): boolean {
+    return this.useSingleComment ? this.liveTranslationShown : c.translationShown
+  }
+
+  private shouldShowTranslated(c: EhGalleryComment): boolean {
+    if (this.renderVersion < 0) {
+      return false
+    }
+    return this.translationEnabled() && this.isTranslationShown(c) && this.translationText(c).length > 0
+  }
+
+  private activeCommentBodyText(c: EhGalleryComment): string {
+    if (this.shouldShowTranslated(c)) {
+      return this.translationText(c)
+    }
+    return this.displayContentText(c)
+  }
+
+  private isTranslationLoading(c: EhGalleryComment): boolean {
+    return this.useSingleComment ? this.liveTranslationLoading : c.translationLoading
+  }
+
+  private effectiveScore(c: EhGalleryComment): string {
+    return this.useSingleComment ? this.liveScore : c.score
+  }
+
+  private effectiveVote(c: EhGalleryComment): number {
+    return this.useSingleComment ? this.liveVote : c.vote
+  }
+
+  private toggleOrTranslate(c: EhGalleryComment): void {
+    if (!this.translationEnabled() || c.contentText.trim().length === 0) {
+      return
+    }
+    if (this.translationText(c).length > 0) {
+      if (this.useSingleComment) {
+        this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+          this.liveTranslationShown = !this.liveTranslationShown
+          this.liveTranslationLoading = false
+        })
+      }
+      this.publishToggleTranslation(c)
+      return
+    }
+    const sourceText: string = this.displayContentText(c)
+    if (this.useSingleComment) {
+      this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+        this.liveTranslationShown = true
+        this.liveTranslationLoading = true
+      })
+    }
+    this.publishTranslate(c, sourceText)
+  }
+
+  private autoTranslateVisibleComments(): void {
+    if (!this.translationEnabled() || !this.translationSettings.autoTranslate) {
+      return
+    }
+    const shown: EhGalleryComment[] = this.shown()
+    for (let i = 0; i < shown.length; i++) {
+      const c: EhGalleryComment = shown[i]
+      if (c.contentText.trim().length === 0) {
+        continue
+      }
+      if (c.translationAutoStarted) {
+        continue
+      }
+      this.publishAutoTranslate(c, this.displayContentText(c))
+    }
+  }
+
+  private publishAuthor(author: string): void {
+    if (this.actionScope.length > 0) {
+      this.commentAction.requestAuthor(this.actionScope, author)
+      return
+    }
+    this.onAuthor(author)
+  }
+
+  private publishVote(c: EhGalleryComment, vote: number): void {
+    if (this.useSingleComment) {
+      const targetVote: number = this.liveVote === vote ? 0 : vote
+      if (this.liveScore.length > 0) {
+        const score: number = Number.parseInt(this.liveScore, 10)
+        if (!Number.isNaN(score)) {
+          this.liveScore = (score + targetVote - this.liveVote).toString()
+        }
+      }
+      this.liveVote = targetVote
+    }
+    if (this.actionScope.length > 0) {
+      this.commentAction.requestVote(this.actionScope, c.commentId, vote)
+      return
+    }
+    this.onVote(c, vote)
+  }
+
+  private publishReply(c: EhGalleryComment): void {
+    if (this.actionScope.length > 0) {
+      this.commentAction.requestReply(this.actionScope, c.commentId)
+      return
+    }
+    this.onReply(c)
+  }
+
+  private publishEdit(c: EhGalleryComment): void {
+    if (this.actionScope.length > 0) {
+      this.commentAction.requestEdit(this.actionScope, c.commentId)
+      return
+    }
+    this.onEdit(c)
+  }
+
+  private publishTranslate(c: EhGalleryComment, sourceText: string): void {
+    if (this.actionScope.length > 0) {
+      this.commentAction.requestTranslate(this.actionScope, c.commentId, sourceText)
+      return
+    }
+    this.onTranslate(c, sourceText)
+  }
+
+  private publishToggleTranslation(c: EhGalleryComment): void {
+    if (this.actionScope.length > 0) {
+      this.commentAction.requestToggleTranslation(this.actionScope, c.commentId)
+      return
+    }
+    this.onToggleTranslation(c)
+  }
+
+  private publishAutoTranslate(c: EhGalleryComment, sourceText: string): void {
+    if (this.actionScope.length > 0) {
+      this.commentAction.requestAutoTranslate(this.actionScope, c.commentId, sourceText)
+      return
+    }
+    this.onAutoTranslate(c, sourceText)
+  }
+
   private quoteExcerpt(text: string): string {
     const clean: string = text.replace(/\n+/g, ' ').trim()
     return clean.length > 120 ? `${clean.substring(0, 120)}...` : clean
@@ -304,43 +520,49 @@ export struct GalleryCommentsCard {
 
   build() {
     Column({ space: this.commentGap() }) {
-      // Header — in peek mode the whole row taps through to the full comments page. It is deliberately
-      // outside the comment cards, following Next2V's HotRepliesPanel: the comment itself is the card.
-      Row({ space: ThemeConstants.SPACE_XS }) {
-        Text($r('app.string.gallery_comments'))
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        if (this.comments.length > 0) {
-          Text(`(${this.comments.length})`)
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_tertiary'))
+      if (this.showHeader) {
+        // Header — in peek mode the whole row taps through to the full comments page. It is deliberately
+        // outside the comment cards, following Next2V's HotRepliesPanel: the comment itself is the card.
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          Text($r('app.string.gallery_comments'))
+            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+          if (this.sourceComments().length > 0) {
+            Text(`(${this.sourceComments().length})`)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_tertiary'))
+          }
+          Blank()
+          if (this.canOpenFullComments()) {
+            Text($r('app.string.detail_view_all'))
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_emphasize'))
+            SymbolGlyph($r('sys.symbol.chevron_right'))
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor([$r('sys.color.font_tertiary')])
+          }
         }
-        Blank()
-        if (this.canOpenFullComments()) {
-          Text($r('app.string.detail_view_all'))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_emphasize'))
-          SymbolGlyph($r('sys.symbol.chevron_right'))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor([$r('sys.color.font_tertiary')])
-        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+        .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
+        .onClick(() => {
+          if (this.canOpenFullComments()) {
+            this.onMore()
+          }
+        })
       }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-      .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
-      .onClick(() => {
-        if (this.canOpenFullComments()) {
-          this.onMore()
-        }
-      })
-      ForEach(
-        this.shown(),
-        (c: EhGalleryComment, index: number) => {
-          this.CommentRow(c, index === this.shown().length - 1)
-        },
-        (c: EhGalleryComment) => this.commentRowKey(c),
-      )
+      if (this.useSingleComment) {
+        this.CommentRow(this.singleComment, true)
+      } else {
+        ForEach(
+          this.shown(),
+          (c: EhGalleryComment, index: number) => {
+            this.CommentRow(c, index === this.shown().length - 1)
+          },
+          (c: EhGalleryComment) => this.commentRowKey(c),
+        )
+      }
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
@@ -362,17 +584,17 @@ export struct GalleryCommentsCard {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .onClick(() => {
-            this.onAuthor(c.author)
+            this.publishAuthor(c.author)
           })
         // Uploader comments carry an UP badge. The numeric community score is shown only on the FULL
         // comments page (max === 0): eros_fe's CommentItem(simple) gates the score chip behind `!simple`,
         // so the PEEK deliberately suppresses it (author + body + time only, UP for the uploader).
         if (c.isUploader) {
           this.CommentBadge($r('app.string.comment_uploader'), true)
-        } else if (c.score.length > 0 && this.max <= 0) {
-          Row() {
-            this.CommentBadge(this.displayScore(c.score), false)
-          }
+    } else if (this.effectiveScore(c).length > 0 && this.max <= 0) {
+      Row() {
+        this.CommentBadge(this.displayScore(this.effectiveScore(c)), false)
+      }
             .onClick(() => {
               this.showScoreDetails(c)
             })
@@ -381,33 +603,7 @@ export struct GalleryCommentsCard {
       .width('100%')
       .alignItems(VerticalAlign.Center)
       this.ReplyReferences(c)
-      // EH comments are predominantly text + line breaks + URLs (bare or as `<a>` whose link text
-      // is the URL). The native URL data-detector turns those into tappable, brand-colored links
-      // (eros_fe linkifies bare URLs too) without a heavy HTML/web renderer. In the peek the text is
-      // capped at eros_fe's 4 lines; the full page (max === 0) shows it all.
-      if (this.max > 0) {
-        Text(this.displayContentText(c))
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor($r('sys.color.font_primary'))
-          .width('100%')
-          .maxLines(4)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .enableDataDetector(true)
-          .dataDetectorConfig({
-            types: [TextDataDetectorType.URL],
-            color: $r('sys.color.font_emphasize'),
-          })
-      } else {
-        Text(this.displayContentText(c))
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor($r('sys.color.font_primary'))
-          .width('100%')
-          .enableDataDetector(true)
-          .dataDetectorConfig({
-            types: [TextDataDetectorType.URL],
-            color: $r('sys.color.font_emphasize'),
-          })
-      }
+      this.CommentBody(c)
       // Time/actions footer (eros_fe _CommentTail): full comments expose bounded vote actions.
       Row() {
         Text(c.postedTime)
@@ -417,12 +613,15 @@ export struct GalleryCommentsCard {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1)
+        if (this.translationEnabled() && c.contentText.trim().length > 0) {
+          this.TranslationAction(c)
+        }
         if (this.max <= 0 && c.canEdit && c.commentId.length > 0 && c.commentId !== '0') {
           this.EditAction(c)
         }
         if (this.max <= 0 && c.canVote) {
-          this.VoteAction(c, 1, c.vote > 0 ? $r('sys.symbol.hand_thumbsup_fill') : $r('sys.symbol.hand_thumbsup'))
-          this.VoteAction(c, -1, c.vote < 0 ? $r('sys.symbol.hand_thumbsdown_fill') : $r('sys.symbol.hand_thumbsdown'))
+          this.VoteAction(c, 1, this.effectiveVote(c) > 0 ? $r('sys.symbol.hand_thumbsup_fill') : $r('sys.symbol.hand_thumbsup'))
+          this.VoteAction(c, -1, this.effectiveVote(c) < 0 ? $r('sys.symbol.hand_thumbsdown_fill') : $r('sys.symbol.hand_thumbsdown'))
         }
         if (this.max <= 0 && c.commentId.length > 0 && c.commentId !== '0') {
           this.ReplyAction(c)
@@ -446,6 +645,60 @@ export struct GalleryCommentsCard {
         this.onMore()
       }
     })
+  }
+
+  @Builder
+  CommentBody(c: EhGalleryComment) {
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      if (this.useSingleComment && this.liveTranslationShown && this.liveTranslationText.length > 0 &&
+        this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
+        this.CommentText(this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
+        Divider()
+          .strokeWidth(0.5)
+          .color($r('sys.color.ohos_id_color_list_separator'))
+        this.CommentText(this.liveTranslationText, false, $r('sys.color.font_primary'))
+      } else if (this.useSingleComment && this.liveTranslationShown && this.liveTranslationText.length > 0) {
+        this.CommentText(this.liveTranslationText, this.max > 0, $r('sys.color.font_primary'))
+      } else if (this.shouldShowTranslated(c) &&
+        this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
+        this.CommentText(this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
+        Divider()
+          .strokeWidth(0.5)
+          .color($r('sys.color.ohos_id_color_list_separator'))
+        this.CommentText(this.translationText(c), false, $r('sys.color.font_primary'))
+      } else {
+        this.CommentText(this.activeCommentBodyText(c), this.max > 0, $r('sys.color.font_primary'))
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  CommentText(text: string, clamp: boolean, color: ResourceColor) {
+    if (clamp) {
+      Text(text)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor(color)
+        .width('100%')
+        .maxLines(4)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .enableDataDetector(true)
+        .dataDetectorConfig({
+          types: [TextDataDetectorType.URL],
+          color: $r('sys.color.font_emphasize'),
+        })
+    } else {
+      Text(text)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor(color)
+        .width('100%')
+        .enableDataDetector(true)
+        .dataDetectorConfig({
+          types: [TextDataDetectorType.URL],
+          color: $r('sys.color.font_emphasize'),
+        })
+    }
   }
 
   @Builder
@@ -484,14 +737,14 @@ export struct GalleryCommentsCard {
   @Builder
   EditAction(c: EhGalleryComment) {
     this.FooterAction($r('sys.symbol.square_and_pencil'), $r('sys.color.font_tertiary'), false, () => {
-      this.onEdit(c)
+      this.publishEdit(c)
     })
   }
 
   @Builder
   ReplyAction(c: EhGalleryComment) {
     this.FooterAction($r('sys.symbol.ellipsis_message'), $r('sys.color.font_tertiary'), false, () => {
-      this.onReply(c)
+      this.publishReply(c)
     })
   }
 
@@ -499,27 +752,48 @@ export struct GalleryCommentsCard {
   VoteAction(c: EhGalleryComment, vote: number, icon: Resource) {
     this.FooterAction(icon, this.voteColor(c, vote), false, () => {
       if (this.canVote(c)) {
-        this.onVote(c, vote)
+        this.publishVote(c, vote)
       }
     })
   }
 
   @Builder
-  FooterAction(icon: Resource, color: ResourceColor, disabled: boolean, action: () => void) {
-    Row() {
-      SymbolGlyph(icon)
-        .fontSize(COMMENT_FOOTER_ICON_SIZE)
-        .fontColor([color])
+  TranslationAction(c: EhGalleryComment) {
+    if (this.useSingleComment && this.liveTranslationShown && this.liveTranslationText.length > 0) {
+      this.FooterAction($r('sys.symbol.translate'), ThemeConstants.BRAND_PRIMARY, this.liveTranslationLoading, () => {
+        this.toggleOrTranslate(c)
+      })
+    } else if (!this.useSingleComment && c.translationShown && c.translationText.length > 0) {
+      this.FooterAction($r('sys.symbol.translate'), ThemeConstants.BRAND_PRIMARY, c.translationLoading, () => {
+        this.toggleOrTranslate(c)
+      })
+    } else {
+      this.FooterAction($r('sys.symbol.translate'), $r('sys.color.font_tertiary'), this.isTranslationLoading(c), () => {
+        this.toggleOrTranslate(c)
+      })
     }
+  }
+
+  @Builder
+  FooterAction(icon: Resource, color: ResourceColor, disabled: boolean, action: () => void) {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      if (disabled) {
+        LoadingProgress()
+          .width(COMMENT_FOOTER_ICON_SIZE)
+          .height(COMMENT_FOOTER_ICON_SIZE)
+      } else {
+        SymbolGlyph(icon)
+          .fontSize(COMMENT_FOOTER_ICON_SIZE)
+          .fontColor([color])
+      }
+    }
+    .buttonStyle(ButtonStyleMode.NORMAL)
+    .backgroundColor(Color.Transparent)
     .width(COMMENT_FOOTER_ACTION_SIZE)
     .height(COMMENT_FOOTER_ACTION_SIZE)
-    .justifyContent(FlexAlign.Center)
+    .enabled(!disabled)
     .opacity(disabled ? 0.45 : 1)
-    .onClick(() => {
-      if (!disabled) {
-        action()
-      }
-    })
+    .onClick(action)
   }
 
   @Builder

@@ -40,6 +40,17 @@ const SQL_CREATE_EH_PAGE_CACHE_EXPIRES_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_eh_page_cache_expires ON eh_page_cache (expires_at)'
 const SQL_CREATE_EH_PAGE_CACHE_ACCESS_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_eh_page_cache_access ON eh_page_cache (kind, accessed_at DESC)'
+const SQL_CREATE_COMMENT_TRANSLATION_CACHE_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS comment_translation_cache (' +
+    'text_hash TEXT NOT NULL, ' +
+    'target_lang TEXT NOT NULL, ' +
+    'translated TEXT NOT NULL, ' +
+    'cached_at INTEGER NOT NULL, ' +
+    'expires_at INTEGER NOT NULL, ' +
+    'PRIMARY KEY(text_hash, target_lang)' +
+  ')'
+const SQL_CREATE_COMMENT_TRANSLATION_CACHE_EXPIRES_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_comment_translation_cache_expires ON comment_translation_cache (expires_at)'
 
 export class LocalDataStore {
   static async open(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
@@ -53,6 +64,8 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_EH_PAGE_CACHE_TABLE)
     await store.executeSql(SQL_CREATE_EH_PAGE_CACHE_EXPIRES_INDEX)
     await store.executeSql(SQL_CREATE_EH_PAGE_CACHE_ACCESS_INDEX)
+    await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_TABLE)
+    await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_EXPIRES_INDEX)
     return store
   }
 }

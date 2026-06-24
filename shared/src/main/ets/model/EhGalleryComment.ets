@@ -6,16 +6,21 @@
  * `vote` is the current user's vote state (-1/0/+1); canEdit/canVote/scoreDetails/memberId are
  * parser-owned metadata for the full comments page and later guarded write-op lanes.
  */
+@ObservedV2
 export class EhGalleryComment {
-  commentId: string = ''
-  memberId: string = ''
-  author: string = ''
-  postedTime: string = ''
-  contentText: string = ''
-  score: string = ''
-  vote: number = 0
-  canEdit: boolean = false
-  canVote: boolean = false
-  scoreDetails: string[] = []
-  isUploader: boolean = false
+  @Trace commentId: string = ''
+  @Trace memberId: string = ''
+  @Trace author: string = ''
+  @Trace postedTime: string = ''
+  @Trace contentText: string = ''
+  @Trace score: string = ''
+  @Trace vote: number = 0
+  @Trace canEdit: boolean = false
+  @Trace canVote: boolean = false
+  @Trace scoreDetails: string[] = []
+  @Trace isUploader: boolean = false
+  @Trace translationText: string = ''
+  @Trace translationShown: boolean = false
+  @Trace translationLoading: boolean = false
+  @Trace translationAutoStarted: boolean = false
 }

@@ -75,10 +75,12 @@ import { GalleryInfoBar } from '../components/GalleryInfoBar'
 import { GalleryTagsCard } from '../components/GalleryTagsCard'
 import { GalleryPreviewGrid } from '../components/GalleryPreviewGrid'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
+import { GalleryTorrentsContent } from './GalleryTorrentsPage'
 
 const DETAIL_SHEET_REMOTE_FAVORITE: string = 'remoteFavorite'
 const DETAIL_SHEET_RATING: string = 'rating'
 const DETAIL_SHEET_FULL_TITLE: string = 'fullTitle'
+const DETAIL_SHEET_TORRENTS: string = 'torrents'
 // followOperation touch heuristics: a drag counts as a scroll (→ report the operating side) only once its
 // vertical movement clearly dominates, so a tap on content doesn't yank the floating Read button sideways.
 const FOLLOW_OPERATION_VERTICAL_SCROLL_THRESHOLD: number = 12
@@ -115,6 +117,7 @@ export struct GalleryDetailPage {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local commentVoteMutation: CommentVoteMutationState = connectCommentVoteMutation();
+  @Local torrentSheetParams: GalleryTorrentsParams = new GalleryTorrentsParams();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local favoriteSlotCache: RemoteFavoriteSlotCacheState = connectRemoteFavoriteSlotCache();
   // Resolved Read-FAB hand edge (smart-grip / follow-operation / fixed). visualActionEdge mirrors it and
@@ -349,16 +352,14 @@ export struct GalleryDetailPage {
   }
 
   private openTorrents(): void {
-    this.stack.pushPathByName(
-      'GalleryTorrents',
-      new GalleryTorrentsParams(
-        this.params.gid,
-        this.params.token,
-        connectSiteMode().isEx,
-        this.navTitle(),
-        this.vm.gallery.torrentCount,
-      ),
+    this.torrentSheetParams = new GalleryTorrentsParams(
+      this.params.gid,
+      this.params.token,
+      connectSiteMode().isEx,
+      this.navTitle(),
+      this.vm.gallery.torrentCount,
     )
+    this.openDetailSheet(DETAIL_SHEET_TORRENTS)
   }
 
   private openArchiver(): void {
@@ -1249,6 +1250,14 @@ export struct GalleryDetailPage {
       this.RatingSheet()
     } else if (this.detailSheetKind === DETAIL_SHEET_FULL_TITLE) {
       this.FullTitleSheet()
+    } else if (this.detailSheetKind === DETAIL_SHEET_TORRENTS) {
+      GalleryTorrentsContent({
+        params: this.torrentSheetParams,
+        modal: true,
+        closeAction: () => {
+          this.closeDetailSheet()
+        },
+      })
     }
   }
 

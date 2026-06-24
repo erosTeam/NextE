@@ -13,16 +13,20 @@ import {
   ShareUtil,
   AppStrings,
   immersiveTitleBar,
+  AppModalScaffold,
 } from 'shared'
 
-/** Read-only torrent list for a gallery. Mirrors eros_fe's torrent dialog as a pushed native page. */
+/** Read-only torrent list for a gallery. Mirrors eros_fe's torrent dialog; detail opens it as a sheet. */
 @ComponentV2
-export struct GalleryTorrentsPage {
-  @Local params: GalleryTorrentsParams = new GalleryTorrentsParams();
-  @Local loading: boolean = false;
+export struct GalleryTorrentsContent {
+  @Param params: GalleryTorrentsParams = new GalleryTorrentsParams();
+  @Param modal: boolean = false;
+  @Event closeAction?: () => void;
+  @Local loading: boolean = true;
   @Local error: string = '';
   @Local torrentToken: string = '';
   @Local torrents: EhGalleryTorrent[] = [];
+  @Local loadedKey: string = '';
   private scroller: Scroller = new Scroller();
 
   private ctx(): common.UIAbilityContext {
@@ -36,8 +40,26 @@ export struct GalleryTorrentsPage {
     return AppStrings.get('gallery_torrents')
   }
 
+  private paramsKey(): string {
+    return `${this.params.gid}|${this.params.token}|${this.params.isEx ? '1' : '0'}`
+  }
+
+  aboutToAppear(): void {
+    this.loadIfNeeded()
+  }
+
+  private async loadIfNeeded(): Promise<void> {
+    const key: string = this.paramsKey()
+    if (key === this.loadedKey || this.params.gid.length === 0 || this.params.token.length === 0) {
+      return
+    }
+    this.loadedKey = key
+    await this.load()
+  }
+
   private async load(): Promise<void> {
     if (this.params.gid.length === 0 || this.params.token.length === 0) {
+      this.loading = false
       return
     }
     this.loading = true
@@ -92,7 +114,7 @@ export struct GalleryTorrentsPage {
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
-    .layoutWeight(1)
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -113,16 +135,16 @@ export struct GalleryTorrentsPage {
 
   @Builder
   private TorrentItem(torrent: EhGalleryTorrent) {
-    Column({ space: ThemeConstants.SPACE_SM }) {
-      Flex({ wrap: FlexWrap.Wrap }) {
-        this.metric($r('sys.symbol.arrow_up'), torrent.seeds)
-        this.metric($r('sys.symbol.arrow_down'), torrent.peers)
-        this.metric($r('sys.symbol.checkmark_circle'), torrent.downloads)
-        this.metric($r('sys.symbol.doc_plaintext'), torrent.sizeText)
-      }
-      .width('100%')
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      Column({ space: ThemeConstants.SPACE_SM }) {
+        Row({ space: ThemeConstants.SPACE_MD }) {
+          this.metric($r('sys.symbol.arrow_up'), torrent.seeds)
+          this.metric($r('sys.symbol.arrow_down'), torrent.peers)
+          this.metric($r('sys.symbol.checkmark_circle'), torrent.downloads)
+          this.metric($r('sys.symbol.doc_plaintext'), torrent.sizeText)
+        }
+        .width('100%')
 
-      Row({ space: ThemeConstants.SPACE_SM }) {
         Column({ space: ThemeConstants.SPACE_XS }) {
           Text(torrent.name)
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -159,63 +181,101 @@ export struct GalleryTorrentsPage {
           }
           .width('100%')
         }
-        .layoutWeight(1)
-
-        this.MagnetAction(torrent)
+        .width('100%')
       }
-      .width('100%')
+      .layoutWeight(1)
+
+      this.MagnetAction(torrent)
     }
     .width('100%')
+    .alignItems(VerticalAlign.Center)
     .padding({
       left: ThemeConstants.SPACE_LG,
       right: ThemeConstants.SPACE_MD,
       top: ThemeConstants.SPACE_MD,
       bottom: ThemeConstants.SPACE_MD,
     })
-    .borderRadius(ThemeConstants.RADIUS_MD)
+    .borderRadius(ThemeConstants.RADIUS_CARD)
     .backgroundColor($r('app.color.card_background'))
   }
 
+  @Builder
+  private Content() {
+    if (this.loading) {
+      ListItem() {
+        Row() {
+          LoadingProgress()
+            .width(ThemeConstants.LOADING_SIZE)
+            .height(ThemeConstants.LOADING_SIZE)
+            .color(ThemeConstants.BRAND_PRIMARY)
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Center)
+        .padding(ThemeConstants.SPACE_MD)
+      }
+    } else if (this.error.length > 0) {
+      ListItem() {
+        PageErrorState({
+          message: this.error,
+          expand: false,
+          retryAction: () => {
+            this.load()
+          },
+        })
+      }
+    } else if (this.torrents.length === 0) {
+      ListItem() {
+        CardEmptyState({ message: $r('app.string.gallery_torrents_empty') })
+      }
+    } else {
+      ForEach(this.torrents, (torrent: EhGalleryTorrent) => {
+        ListItem() {
+          this.TorrentItem(torrent)
+        }
+      }, (torrent: EhGalleryTorrent) => `${torrent.hash}-${torrent.name}`)
+    }
+  }
+
   build() {
-    HdsNavDestination() {
+    if (this.modal) {
+      AppModalScaffold({
+        title: this.title(),
+        showConfirmAction: false,
+        closeAction: () => {
+          if (this.closeAction) {
+            this.closeAction()
+          }
+        },
+      }) {
+        this.Content()
+      }
+    } else {
       SecondaryListScaffold({
         scroller: this.scroller,
         listSpace: ThemeConstants.SPACE_MD,
         bottomPadding: ThemeConstants.SPACE_XL,
       }) {
-        if (this.loading) {
-          ListItem() {
-            Row() {
-              LoadingProgress()
-                .width(ThemeConstants.LOADING_SIZE)
-                .height(ThemeConstants.LOADING_SIZE)
-                .color(ThemeConstants.BRAND_PRIMARY)
-            }
-            .width('100%')
-            .justifyContent(FlexAlign.Center)
-            .padding(ThemeConstants.SPACE_MD)
-          }
-        } else if (this.error.length > 0) {
-          ListItem() {
-            PageErrorState({
-              message: this.error,
-              expand: false,
-              retryAction: () => {
-                this.load()
-              },
-            })
-          }
-        } else if (this.torrents.length === 0) {
-          ListItem() {
-            CardEmptyState({ message: $r('app.string.gallery_torrents_empty') })
-          }
-        } else {
-          ForEach(this.torrents, (torrent: EhGalleryTorrent) => {
-            ListItem() {
-              this.TorrentItem(torrent)
-            }
-          }, (torrent: EhGalleryTorrent) => torrent.hash)
-        }
+        this.Content()
+      }
+    }
+  }
+}
+
+@ComponentV2
+export struct GalleryTorrentsPage {
+  @Local params: GalleryTorrentsParams = new GalleryTorrentsParams();
+
+  private title(): string {
+    if (this.params.torrentCount.length > 0) {
+      return AppStrings.get('detail_torrents').replace('%s', this.params.torrentCount)
+    }
+    return AppStrings.get('gallery_torrents')
+  }
+
+  build() {
+    HdsNavDestination() {
+      if (this.params.gid.length > 0) {
+        GalleryTorrentsContent({ params: this.params })
       }
     }
     .titleBar(immersiveTitleBar(this.title()))
@@ -224,7 +284,6 @@ export struct GalleryTorrentsPage {
       const p = context.pathInfo.param as GalleryTorrentsParams
       if (p !== undefined) {
         this.params = p
-        this.load()
       }
     })
   }
