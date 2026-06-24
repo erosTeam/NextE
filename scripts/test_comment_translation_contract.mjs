@@ -131,7 +131,8 @@ ok(
     /parentManagedActions: true/.test(commentsPage) &&
     /private sourceComments\(\): EhGalleryComment\[\] \{[\s\S]*this\.useSingleComment[\s\S]*return \[this\.singleComment\]/.test(commentsCard) &&
     /showHeader: false/.test(commentsPage) &&
-    /onTranslate: \(selectedComment: EhGalleryComment, sourceText: string\) => \{[\s\S]*this\.translateComment\(selectedComment, sourceText, false\)/.test(commentsPage) &&
+    /onTranslate: \(selectedComment: EhGalleryComment, sourceText: string\) => \{[\s\S]*return this\.requestCommentTranslation\(selectedComment, sourceText, false\)/.test(commentsPage) &&
+    /onTranslationResolved: \(selectedComment: EhGalleryComment, translated: string\) => \{[\s\S]*this\.applyResolvedCommentTranslation\(selectedComment, translated\)/.test(commentsPage) &&
     /onToggleTranslation: \(selectedComment: EhGalleryComment\) => \{[\s\S]*this\.toggleCommentTranslation\(selectedComment\)/.test(commentsPage) &&
     /onAutoTranslate: \(selectedComment: EhGalleryComment, sourceText: string\) => \{[\s\S]*this\.autoTranslateComment\(selectedComment, sourceText\)/.test(commentsPage) &&
     !/actionScope: this\.params\.gid/.test(commentsPage) &&
@@ -162,6 +163,8 @@ ok(
     /this\.CommentRow\(this\.singleComment, true\)/.test(commentsCard) &&
     /this\.CommentRow\(c, index === this\.shown\(\)\.length - 1\)/.test(commentsCard) &&
     /CommentRow\(c: EhGalleryComment, isLast: boolean\)/.test(commentsCard) &&
+    /CommentRow\(c: EhGalleryComment, isLast: boolean\) \{[\s\S]*if \(this\.canOpenFullComments\(\)\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.onMore\(\)/.test(commentsCard) &&
+    /CommentRowContent\(c: EhGalleryComment\)/.test(commentsCard) &&
     !/CommentRow\([\s\S]*score: string/.test(commentsCard) &&
     !/CommentRow\([\s\S]*translationLoading: boolean/.test(commentsCard) &&
     /@Local localTranslationCommentId: string = ''/.test(commentsCard) &&
@@ -169,6 +172,8 @@ ok(
     /@Local localTranslationShown: boolean = false/.test(commentsCard) &&
     /@Local localTranslationLoading: boolean = false/.test(commentsCard) &&
     /@Monitor\('renderVersion'\)[\s\S]*syncLocalTranslationState/.test(commentsCard) &&
+    !/shouldAnimateTranslationResolve/.test(commentsCard) &&
+    !/useSingleComment && this\.isTranslationShown\(c\) && this\.translationText\(c\)\.length > 0/.test(commentsCard) &&
     /private translationText\(c: EhGalleryComment\): string \{[\s\S]*this\.localTranslationCommentId === this\.renderState\.commentId[\s\S]*return this\.localTranslationText/.test(commentsCard) &&
     /private isTranslationShown\(c: EhGalleryComment\): boolean \{[\s\S]*this\.localTranslationCommentId === this\.renderState\.commentId[\s\S]*return this\.localTranslationShown/.test(commentsCard) &&
     /private isTranslationLoading\(c: EhGalleryComment\): boolean \{[\s\S]*this\.localTranslationCommentId === this\.renderState\.commentId[\s\S]*return this\.localTranslationLoading/.test(commentsCard) &&
@@ -181,11 +186,32 @@ ok(
     /current\.translationText = translated/.test(commentsPage) &&
     /current\.translationShown = shown/.test(commentsPage) &&
     !/this\.comments = nextComments/.test(applyTranslationBody) &&
-    /const next: EhGalleryComment = this\.cloneComment\(current\)[\s\S]*updater\(next\)[\s\S]*comments\[i\] = next[\s\S]*this\.updateRenderState\(next\)[\s\S]*return next/.test(commentsPage) &&
+    /updater\(current\)[\s\S]*comments\[i\] = current[\s\S]*this\.updateRenderState\(current\)[\s\S]*return current/.test(commentsPage) &&
+    !/const next: EhGalleryComment = this\.cloneComment\(current\)[\s\S]*updater\(next\)/.test(commentsPage) &&
     /private updateRenderState\(comment: EhGalleryComment\): void \{[\s\S]*states\[i\]\.applyComment\(comment\)[\s\S]*this\.commentRenderStates = states/.test(commentsPage) &&
     /commentRowKey[\s\S]*return c\.commentId/.test(commentsCard) &&
     !/return `\$\{c\.commentId\}:\$\{c\.vote\}:\$\{c\.score\}:\$\{c\.translationShown\}:\$\{c\.translationLoading\}:\$\{c\.translationText\.length\}`/.test(commentsCard) &&
-    /CommentBody\(c: EhGalleryComment\)[\s\S]*Column\(\{ space: ThemeConstants\.SPACE_XS \}\)[\s\S]*this\.CommentText\(c, this\.activeCommentBodyText\(c, this\.translationText\(c\), this\.isTranslationShown\(c\)\)/.test(commentsCard) &&
+    /CommentBody\(c: EhGalleryComment\)[\s\S]*this\.parentManagedActions && this\.translationEnabled\(\)[\s\S]*this\.localTranslationShown && this\.localTranslationText\.length > 0/.test(commentsCard) &&
+    /@Event onTranslate: \(comment: EhGalleryComment, sourceText: string\) => Promise<string>/.test(commentsCard) &&
+    /@Event onTranslationResolved: \(comment: EhGalleryComment, translated: string\) => void/.test(commentsCard) &&
+    /@Local commentBodyMeasuredHeight: number = 0/.test(commentsCard) &&
+    /@Local commentBodyAnimatedHeight: number = 0/.test(commentsCard) &&
+    /@Local commentBodyHeightLocked: boolean = false/.test(commentsCard) &&
+    /@Local pendingTranslationText: string = ''/.test(commentsCard) &&
+    /@Local pendingTranslationMeasure: boolean = false/.test(commentsCard) &&
+    /private applyResolvedTranslation\(c: EhGalleryComment, translated: string\): void \{[\s\S]*this\.ensureLocalTranslationState\(\)[\s\S]*this\.pendingTranslationText = translated[\s\S]*this\.pendingTranslationMeasure = true/.test(commentsCard) &&
+    /private updateCommentBodyHeight\(area: Area\): void \{[\s\S]*if \(this\.commentBodyHeightLocked\)[\s\S]*const height: number = area\.height as number[\s\S]*this\.commentBodyMeasuredHeight = height/.test(commentsCard) &&
+    /private handlePendingTranslationArea\(c: EhGalleryComment, area: Area\): void \{[\s\S]*const nextHeight: number = area\.height as number[\s\S]*const startHeight: number = this\.commentBodyMeasuredHeight > 0 \? this\.commentBodyMeasuredHeight : nextHeight[\s\S]*this\.commentBodyHeightLocked = true[\s\S]*animateTo\(\{ duration: ThemeConstants\.ANIM_DURATION, curve: Curve\.EaseOut \}[\s\S]*this\.localTranslationText = translated[\s\S]*this\.commentBodyAnimatedHeight = nextHeight[\s\S]*this\.commentBodyHeightLocked = false[\s\S]*this\.publishTranslationResolved\(c, translated\)/.test(commentsCard) &&
+    /CommentBody\(c: EhGalleryComment\)[\s\S]*if \(this\.commentBodyHeightLocked\)[\s\S]*\.height\(this\.commentBodyAnimatedHeight\)[\s\S]*\.clip\(true\)/.test(commentsCard) &&
+    /CommentBodyStackContent\(c: EhGalleryComment\)[\s\S]*\.onAreaChange\(\(_oldArea: Area, area: Area\) => \{[\s\S]*this\.updateCommentBodyHeight\(area\)[\s\S]*this\.pendingTranslationMeasure[\s\S]*this\.PendingTranslationBodyContent\(c, this\.pendingTranslationText\)[\s\S]*\.opacity\(0\)[\s\S]*\.hitTestBehavior\(HitTestMode\.None\)[\s\S]*this\.handlePendingTranslationArea\(c, area\)/.test(commentsCard) &&
+    /private requestCommentTranslation\(comment: EhGalleryComment, sourceText: string, force: boolean\): Promise<string> \{[\s\S]*return CommentTranslationService\.translate\(this\.ctx\(\), sourceText, force\)[\s\S]*return ''/.test(commentsPage) &&
+    /private applyResolvedCommentTranslation\(comment: EhGalleryComment, translated: string\): void \{[\s\S]*this\.applyCommentTranslationState\(comment\.commentId, translated, true, false, undefined\)/.test(commentsPage) &&
+    !/commentBodyTransitionId/.test(commentsCard) &&
+    !/geometryTransition/.test(commentsCard) &&
+    /CommentPlainText\(text: string, color: ResourceColor\)/.test(commentsCard) &&
+    /this\.CommentPlainText\(this\.localTranslationText, \$r\('sys\.color\.font_primary'\)\)/.test(commentsCard) &&
+    !/TransitionEffect\.OPACITY/.test(commentsCard) &&
+    /if \(this\.translationEnabled\(\) && this\.localTranslationShown && this\.localTranslationText\.length > 0\) \{[\s\S]*this\.CommentPlainText\(this\.localTranslationText/.test(commentsCard) &&
     !/translatedComments/.test(commentsCard),
   'comment translation row state must be read inside row builders rather than frozen as builder arguments',
 )
@@ -205,6 +231,7 @@ ok(
     /TranslationAction\(c: EhGalleryComment\)[\s\S]*if \(this\.isTranslationLoading\(c\)\) \{[\s\S]*LoadingProgress/.test(commentsCard + commentsCard.slice(commentsCard.indexOf('FooterAction'))) &&
     /TranslationAction\(c: EhGalleryComment\)[\s\S]*else if \(this\.isTranslationShown\(c\) && this\.translationText\(c\)\.length > 0\) \{[\s\S]*ThemeConstants\.BRAND_PRIMARY[\s\S]*false/.test(commentsCard) &&
     /FooterAction\(icon: Resource, color: ResourceColor, disabled: boolean, action: \(\) => void/.test(commentsCard) &&
+    /\.onClick\(action\)/.test(commentsCard) &&
     /\.backgroundColor\(Color\.Transparent\)/.test(commentsCard),
   'comment footer actions must use system button feedback and loading disabled state',
 )
@@ -216,6 +243,8 @@ ok(
 )
 ok(
     /commentTextSegments\(text: string, c: EhGalleryComment\): CommentTextSegment\[\]/.test(commentsCard) &&
+    /commentTextSegmentKey\(seg: CommentTextSegment\): string \{[\s\S]*seg\.text[\s\S]*seg\.url[\s\S]*seg\.emphasized/.test(commentsCard) &&
+    /\(seg: CommentTextSegment\) => this\.commentTextSegmentKey\(seg\)/.test(commentsCard) &&
     /Span\(seg\.text\)/.test(commentsCard) &&
     !/firstCommentUrl\(text: string\): string/.test(commentsCard) &&
     /if \(clamp\) \{[\s\S]*\.maxLines\(4\)[\s\S]*\} else \{[\s\S]*Span\(seg\.text\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.openCommentUrl\(seg\.url\)/.test(commentsCard) &&

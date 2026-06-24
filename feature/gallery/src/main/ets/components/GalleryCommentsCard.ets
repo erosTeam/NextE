@@ -54,8 +54,10 @@ export struct GalleryCommentsCard {
   @Event onVote: (comment: EhGalleryComment, vote: number) => void = (_comment: EhGalleryComment, _vote: number) => {};
   @Event onReply: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
   @Event onEdit: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
-  @Event onTranslate: (comment: EhGalleryComment, sourceText: string) => void =
-    (_comment: EhGalleryComment, _sourceText: string) => {};
+  @Event onTranslate: (comment: EhGalleryComment, sourceText: string) => Promise<string> =
+    (_comment: EhGalleryComment, _sourceText: string) => Promise.resolve('');
+  @Event onTranslationResolved: (comment: EhGalleryComment, translated: string) => void =
+    (_comment: EhGalleryComment, _translated: string) => {};
   @Event onToggleTranslation: (comment: EhGalleryComment) => void = (_comment: EhGalleryComment) => {};
   @Event onAutoTranslate: (comment: EhGalleryComment, sourceText: string) => void =
     (_comment: EhGalleryComment, _sourceText: string) => {};
@@ -68,6 +70,11 @@ export struct GalleryCommentsCard {
   @Local localTranslationText: string = '';
   @Local localTranslationShown: boolean = false;
   @Local localTranslationLoading: boolean = false;
+  @Local commentBodyMeasuredHeight: number = 0;
+  @Local commentBodyAnimatedHeight: number = 0;
+  @Local commentBodyHeightLocked: boolean = false;
+  @Local pendingTranslationText: string = '';
+  @Local pendingTranslationMeasure: boolean = false;
 
   @Monitor('comments', 'translationSettings.enabled', 'translationSettings.autoTranslate')
   onTranslationInputsChanged(): void {
@@ -587,6 +594,71 @@ export struct GalleryCommentsCard {
     const sourceText: string = this.displayContentText(c)
     this.beginTranslationLoading(c)
     this.publishTranslate(c, sourceText)
+      .then((translated: string) => {
+        if (translated.length > 0) {
+          this.applyResolvedTranslation(c, translated)
+        } else if (this.parentManagedActions) {
+          this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+            this.localTranslationLoading = false
+          })
+        }
+      })
+      .catch(() => {
+        if (this.parentManagedActions) {
+          this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+            this.localTranslationLoading = false
+          })
+        }
+      })
+  }
+
+  private applyResolvedTranslation(c: EhGalleryComment, translated: string): void {
+    if (!this.parentManagedActions) {
+      return
+    }
+    this.ensureLocalTranslationState()
+    this.pendingTranslationText = translated
+    this.pendingTranslationMeasure = true
+  }
+
+  private updateCommentBodyHeight(area: Area): void {
+    if (this.commentBodyHeightLocked) {
+      return
+    }
+    const height: number = area.height as number
+    if (height > 0) {
+      this.commentBodyMeasuredHeight = height
+    }
+  }
+
+  private handlePendingTranslationArea(c: EhGalleryComment, area: Area): void {
+    if (!this.pendingTranslationMeasure || this.pendingTranslationText.length === 0) {
+      return
+    }
+    const nextHeight: number = area.height as number
+    if (nextHeight <= 0) {
+      return
+    }
+    const translated: string = this.pendingTranslationText
+    const startHeight: number = this.commentBodyMeasuredHeight > 0 ? this.commentBodyMeasuredHeight : nextHeight
+    this.pendingTranslationText = ''
+    this.pendingTranslationMeasure = false
+    this.commentBodyAnimatedHeight = startHeight
+    this.commentBodyHeightLocked = true
+    setTimeout((): void => {
+      this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+        this.localTranslationText = translated
+        this.localTranslationShown = true
+        this.localTranslationLoading = false
+        this.commentBodyAnimatedHeight = nextHeight
+      })
+      setTimeout((): void => {
+        this.commentBodyHeightLocked = false
+        this.commentBodyAnimatedHeight = 0
+        this.commentBodyMeasuredHeight = nextHeight
+        this.publishTranslationResolved(c, translated)
+      }, ThemeConstants.ANIM_DURATION + ThemeConstants.ANIM_DONE_DELAY_MS)
+    }, 0)
   }
 
   private autoTranslateVisibleComments(): void {
@@ -648,8 +720,12 @@ export struct GalleryCommentsCard {
     this.onEdit(c)
   }
 
-  private publishTranslate(c: EhGalleryComment, sourceText: string): void {
-    this.onTranslate(c, sourceText)
+  private publishTranslate(c: EhGalleryComment, sourceText: string): Promise<string> {
+    return this.onTranslate(c, sourceText)
+  }
+
+  private publishTranslationResolved(c: EhGalleryComment, translated: string): void {
+    this.onTranslationResolved(c, translated)
   }
 
   private publishToggleTranslation(c: EhGalleryComment): void {
@@ -744,6 +820,10 @@ export struct GalleryCommentsCard {
     return out
   }
 
+  private commentTextSegmentKey(seg: CommentTextSegment): string {
+    return `${seg.key}:${seg.text}:${seg.url}:${seg.emphasized}`
+  }
+
   private currentHostUrl(url: string): string {
     return EhUrlRouter.toCurrentHost(url, EhConstants.baseUrl(connectSiteMode().isEx))
   }
@@ -812,6 +892,42 @@ export struct GalleryCommentsCard {
   // previews), then the time as a small footer. The full comments page (max === 0) shows the whole text.
   @Builder
   CommentRow(c: EhGalleryComment, isLast: boolean) {
+    if (this.canOpenFullComments()) {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        this.CommentRowContent(c)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .padding({
+        left: ThemeConstants.SPACE_MD,
+        right: ThemeConstants.SPACE_MD,
+        top: ThemeConstants.SPACE_MD,
+        bottom: this.commentBottomPadding(),
+      })
+      .borderRadius(ThemeConstants.RADIUS_CARD)
+      .backgroundColor($r('app.color.card_background'))
+      .onClick(() => {
+        this.onMore()
+      })
+    } else {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        this.CommentRowContent(c)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .padding({
+        left: ThemeConstants.SPACE_MD,
+        right: ThemeConstants.SPACE_MD,
+        top: ThemeConstants.SPACE_MD,
+        bottom: this.commentBottomPadding(),
+      })
+      .borderRadius(ThemeConstants.RADIUS_CARD)
+      .backgroundColor($r('app.color.card_background'))
+    }
+  }
+
+  @Builder
+  CommentRowContent(c: EhGalleryComment) {
     Column({ space: ThemeConstants.SPACE_XS }) {
       // Head — author (left) with the UP/score badge pinned right (eros_fe _CommentHead).
       Row({ space: ThemeConstants.SPACE_SM }) {
@@ -868,35 +984,66 @@ export struct GalleryCommentsCard {
       .width('100%')
       .alignItems(VerticalAlign.Center)
     }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_MD,
-      bottom: this.commentBottomPadding(),
-    })
-    .borderRadius(ThemeConstants.RADIUS_CARD)
-    .backgroundColor($r('app.color.card_background'))
-    .onClick(() => {
-      if (this.canOpenFullComments()) {
-        this.onMore()
-      }
-    })
   }
 
   @Builder
   CommentBody(c: EhGalleryComment) {
+    if (this.commentBodyHeightLocked) {
+      Stack({ alignContent: Alignment.TopStart }) {
+        this.CommentBodyStackContent(c)
+      }
+      .width('100%')
+      .height(this.commentBodyAnimatedHeight)
+      .clip(true)
+    } else {
+      Stack({ alignContent: Alignment.TopStart }) {
+        this.CommentBodyStackContent(c)
+      }
+      .width('100%')
+    }
+  }
+
+  @Builder
+  CommentBodyStackContent(c: EhGalleryComment) {
     Column({ space: ThemeConstants.SPACE_XS }) {
-      if (this.useSingleComment && this.isTranslationShown(c) && this.translationText(c).length > 0 &&
+      this.CommentBodyContent(c)
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      this.updateCommentBodyHeight(area)
+    })
+    if (this.parentManagedActions && this.pendingTranslationMeasure && this.pendingTranslationText.length > 0) {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        this.PendingTranslationBodyContent(c, this.pendingTranslationText)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .opacity(0)
+      .hitTestBehavior(HitTestMode.None)
+      .position({ x: 0, y: 0 })
+      .onAreaChange((_oldArea: Area, area: Area) => {
+        this.handlePendingTranslationArea(c, area)
+      })
+    }
+  }
+
+  @Builder
+  CommentBodyContent(c: EhGalleryComment) {
+      if (this.parentManagedActions && this.translationEnabled() &&
+        this.localTranslationShown && this.localTranslationText.length > 0 &&
         this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
         this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.ohos_id_color_list_separator'))
-        this.CommentText(c, this.translationText(c), false, $r('sys.color.font_primary'))
-      } else if (this.useSingleComment && this.isTranslationShown(c) && this.translationText(c).length > 0) {
-        this.CommentText(c, this.translationText(c), this.max > 0, $r('sys.color.font_primary'))
+        this.CommentPlainText(this.localTranslationText, $r('sys.color.font_primary'))
+      } else if (this.parentManagedActions) {
+        if (this.translationEnabled() && this.localTranslationShown && this.localTranslationText.length > 0) {
+          this.CommentPlainText(this.localTranslationText, $r('sys.color.font_primary'))
+        } else {
+          this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'))
+        }
       } else if (this.shouldShowTranslated(c) &&
         this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
         this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
@@ -907,9 +1054,27 @@ export struct GalleryCommentsCard {
       } else {
         this.CommentText(c, this.activeCommentBodyText(c, this.translationText(c), this.isTranslationShown(c)), this.max > 0, $r('sys.color.font_primary'))
       }
+  }
+
+  @Builder
+  PendingTranslationBodyContent(c: EhGalleryComment, translated: string) {
+    if (this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
+      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
+      Divider()
+        .strokeWidth(0.5)
+        .color($r('sys.color.ohos_id_color_list_separator'))
+      this.CommentPlainText(translated, $r('sys.color.font_primary'))
+    } else {
+      this.CommentPlainText(translated, $r('sys.color.font_primary'))
     }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  CommentPlainText(text: string, color: ResourceColor) {
+    Text(text)
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor(color)
+      .width('100%')
   }
 
   @Builder
@@ -930,7 +1095,7 @@ export struct GalleryCommentsCard {
               Span(seg.text)
             }
           },
-          (seg: CommentTextSegment) => seg.key,
+          (seg: CommentTextSegment) => this.commentTextSegmentKey(seg),
         )
       }
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -957,7 +1122,7 @@ export struct GalleryCommentsCard {
               Span(seg.text)
             }
           },
-          (seg: CommentTextSegment) => seg.key,
+          (seg: CommentTextSegment) => this.commentTextSegmentKey(seg),
         )
       }
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -1060,7 +1225,19 @@ export struct GalleryCommentsCard {
 
   @Builder
   TranslationAction(c: EhGalleryComment) {
-    if (this.isTranslationLoading(c)) {
+    if (this.parentManagedActions && this.localTranslationLoading) {
+      this.FooterAction($r('sys.symbol.translate'), $r('sys.color.font_tertiary'), true, () => {
+        this.toggleOrTranslate(c)
+      })
+    } else if (this.parentManagedActions && this.localTranslationShown && this.localTranslationText.length > 0) {
+      this.FooterAction($r('sys.symbol.translate'), ThemeConstants.BRAND_PRIMARY, false, () => {
+        this.toggleOrTranslate(c)
+      })
+    } else if (this.parentManagedActions) {
+      this.FooterAction($r('sys.symbol.translate'), $r('sys.color.font_tertiary'), false, () => {
+        this.toggleOrTranslate(c)
+      })
+    } else if (this.isTranslationLoading(c)) {
       this.FooterAction($r('sys.symbol.translate'), $r('sys.color.font_tertiary'), true, () => {
         this.toggleOrTranslate(c)
       })

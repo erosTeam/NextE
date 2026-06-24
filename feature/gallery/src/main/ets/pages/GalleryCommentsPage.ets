@@ -397,13 +397,12 @@ export struct GalleryCommentsPage {
     for (let i = 0; i < this.comments.length; i++) {
       const current: EhGalleryComment = this.comments[i]
       if (current.commentId === commentId) {
-        const next: EhGalleryComment = this.cloneComment(current)
-        updater(next)
+        updater(current)
         const comments: EhGalleryComment[] = this.comments.slice()
-        comments[i] = next
+        comments[i] = current
         this.comments = comments
-        this.updateRenderState(next)
-        return next
+        this.updateRenderState(current)
+        return current
       }
     }
     return undefined
@@ -424,6 +423,30 @@ export struct GalleryCommentsPage {
       false,
       undefined,
     )
+  }
+
+  private requestCommentTranslation(comment: EhGalleryComment, sourceText: string, force: boolean): Promise<string> {
+    if (comment.commentId.length === 0 || sourceText.trim().length === 0) {
+      return Promise.resolve('')
+    }
+    const current: EhGalleryComment | undefined = this.commentById(comment.commentId)
+    if (current !== undefined && current.translationText.length > 0 && !force) {
+      return Promise.resolve(current.translationText)
+    }
+    return CommentTranslationService.translate(this.ctx(), sourceText, force)
+      .then((translated: string) => translated)
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('translation', 'comment_request_failed', `id=${comment.commentId} ${error.message}`)
+        this.showCommentToast($r('app.string.comment_translation_failed'))
+        return ''
+      })
+  }
+
+  private applyResolvedCommentTranslation(comment: EhGalleryComment, translated: string): void {
+    if (comment.commentId.length === 0 || translated.length === 0) {
+      return
+    }
+    this.applyCommentTranslationState(comment.commentId, translated, true, false, undefined)
   }
 
   private translateComment(comment: EhGalleryComment, sourceText: string, force: boolean): void {
@@ -682,7 +705,10 @@ export struct GalleryCommentsPage {
                       this.openEditComment(selectedComment)
                     },
                     onTranslate: (selectedComment: EhGalleryComment, sourceText: string) => {
-                      this.translateComment(selectedComment, sourceText, false)
+                      return this.requestCommentTranslation(selectedComment, sourceText, false)
+                    },
+                    onTranslationResolved: (selectedComment: EhGalleryComment, translated: string) => {
+                      this.applyResolvedCommentTranslation(selectedComment, translated)
                     },
                     onToggleTranslation: (selectedComment: EhGalleryComment) => {
                       this.toggleCommentTranslation(selectedComment)

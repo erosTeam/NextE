@@ -107,7 +107,8 @@ ok('comments page uses vote-specific cancel success copy',
     /this\.showCommentToast\(this\.voteSuccessText\(tappedVote, result\.commentVote\)\)/.test(page))
 ok('comments page applies returned vote and score to the matching local comment',
   /private applyVoteResult\(result: CommentVoteResult\): void[\s\S]*this\.replaceComment\(result\.commentId, \(current: EhGalleryComment\) => \{[\s\S]*current\.vote = result\.commentVote[\s\S]*current\.score = result\.commentScore\.toString\(\)/.test(page) &&
-    /private replaceComment\(commentId: string, updater: \(comment: EhGalleryComment\) => void\): EhGalleryComment \| undefined \{[\s\S]*const next: EhGalleryComment = this\.cloneComment\(current\)[\s\S]*updater\(next\)[\s\S]*comments\[i\] = next[\s\S]*this\.updateRenderState\(next\)[\s\S]*return next/.test(page) &&
+    /private replaceComment\(commentId: string, updater: \(comment: EhGalleryComment\) => void\): EhGalleryComment \| undefined \{[\s\S]*updater\(current\)[\s\S]*comments\[i\] = current[\s\S]*this\.updateRenderState\(current\)[\s\S]*return current/.test(page) &&
+    !/private replaceComment\(commentId: string, updater: \(comment: EhGalleryComment\) => void\): EhGalleryComment \| undefined \{[\s\S]*const next: EhGalleryComment = this\.cloneComment\(current\)[\s\S]*updater\(next\)/.test(page) &&
     /private updateRenderState\(comment: EhGalleryComment\): void \{[\s\S]*states\[i\]\.applyComment\(comment\)[\s\S]*this\.commentRenderStates = states/.test(page) &&
     /@Local commentRenderVersion: number = 0/.test(page) &&
     /this\.commentRenderVersion\+\+/.test(page))
