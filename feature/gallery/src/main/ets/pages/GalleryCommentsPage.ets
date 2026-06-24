@@ -556,7 +556,7 @@ export struct GalleryCommentsPage {
             .onChange((value: string) => {
               this.commentText = value
             })
-          SymbolGlyph($r('sys.symbol.arrow_up_circle_fill'))
+          SymbolGlyph($r('sys.symbol.location_north_up_right_circle_fill'))
             .fontSize(COMMENT_COMPOSER_SEND_SIZE)
             .fontColor([this.canSubmitComment() ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_tertiary')])
             .opacity(this.canSubmitComment() ? 1 : 0.45)
