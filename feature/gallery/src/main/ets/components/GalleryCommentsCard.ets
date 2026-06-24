@@ -4,11 +4,8 @@ import {
   EhConstants,
   EhGalleryComment,
   EhUrlRouter,
-  GalleryCommentActionState,
   GalleryWebParams,
-  GALLERY_COMMENT_ACTION_RENDER_STATE,
   ThemeConstants,
-  connectGalleryCommentAction,
   connectCommentTranslationSettings,
   connectNavStack,
   connectSiteMode,
@@ -41,17 +38,17 @@ class CommentTextSegment {
 @ComponentV2
 export struct GalleryCommentsCard {
   @Require @Param comments: EhGalleryComment[];
+  @Param referenceComments: EhGalleryComment[] = [];
   @Param useSingleComment: boolean = false;
   @Param singleComment: EhGalleryComment = new EhGalleryComment();
-  @Param renderVersion: number = 0;
-  @Param singleTranslationText: string = '';
-  @Param singleTranslationShown: boolean = false;
-  @Param singleTranslationLoading: boolean = false;
-  @Param singleScore: string = '';
-  @Param singleVote: number = 0;
+  @Param parentManagedActions: boolean = false;
+  @Param renderScore: string = '';
+  @Param renderVote: number = 0;
+  @Param renderTranslationText: string = '';
+  @Param renderTranslationShown: boolean = false;
+  @Param renderTranslationLoading: boolean = false;
   @Param max: number = 0;
   @Param showHeader: boolean = true;
-  @Param actionScope: string = '';
   @Event onMore: () => void = () => {};
   @Event onAuthor: (name: string) => void = (_name: string) => {};
   @Event onVote: (comment: EhGalleryComment, vote: number) => void = (_comment: EhGalleryComment, _vote: number) => {};
@@ -64,27 +61,6 @@ export struct GalleryCommentsCard {
     (_comment: EhGalleryComment, _sourceText: string) => {};
   private stack: NavPathStack = connectNavStack().stack;
   @Local translationSettings: CommentTranslationSettingsState = connectCommentTranslationSettings();
-  @Local commentAction: GalleryCommentActionState = connectGalleryCommentAction();
-  @Local liveTranslationText: string = '';
-  @Local liveTranslationShown: boolean = false;
-  @Local liveTranslationLoading: boolean = false;
-  @Local liveScore: string = '';
-  @Local liveVote: number = 0;
-
-  @Monitor('commentAction.version')
-  onCommentRenderStateChanged(): void {
-    if (!this.useSingleComment || this.commentAction.action !== GALLERY_COMMENT_ACTION_RENDER_STATE ||
-      this.commentAction.scopeId !== this.actionScope || this.commentAction.commentId !== this.singleComment.commentId) {
-      return
-    }
-    this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
-      this.liveTranslationText = this.commentAction.translationText
-      this.liveTranslationShown = this.commentAction.translationShown
-      this.liveTranslationLoading = this.commentAction.translationLoading
-      this.liveScore = this.commentAction.score
-      this.liveVote = this.commentAction.vote
-    })
-  }
 
   @Monitor('comments', 'translationSettings.enabled', 'translationSettings.autoTranslate')
   onTranslationInputsChanged(): void {
@@ -92,13 +68,6 @@ export struct GalleryCommentsCard {
   }
 
   aboutToAppear(): void {
-    if (this.useSingleComment) {
-      this.liveTranslationText = this.singleTranslationText
-      this.liveTranslationShown = this.singleTranslationShown
-      this.liveTranslationLoading = this.singleTranslationLoading
-      this.liveScore = this.singleScore
-      this.liveVote = this.singleVote
-    }
     this.autoTranslateVisibleComments()
   }
 
@@ -107,6 +76,10 @@ export struct GalleryCommentsCard {
       return [this.singleComment]
     }
     return this.comments
+  }
+
+  private referenceSourceComments(): EhGalleryComment[] {
+    return this.referenceComments.length > 0 ? this.referenceComments : this.sourceComments()
   }
 
   private hasMore(): boolean {
@@ -219,7 +192,7 @@ export struct GalleryCommentsCard {
   }
 
   private sortedComments(): EhGalleryComment[] {
-    const out: EhGalleryComment[] = this.sourceComments().slice()
+    const out: EhGalleryComment[] = this.referenceSourceComments().slice()
     out.sort((a: EhGalleryComment, b: EhGalleryComment) => this.commentIdNum(b) - this.commentIdNum(a))
     return out
   }
@@ -235,7 +208,7 @@ export struct GalleryCommentsCard {
   }
 
   private commentById(id: string): EhGalleryComment | undefined {
-    const source: EhGalleryComment[] = this.sourceComments()
+    const source: EhGalleryComment[] = this.referenceSourceComments()
     for (let i = 0; i < source.length; i++) {
       const candidate: EhGalleryComment = source[i]
       if (candidate.commentId === id) {
@@ -385,17 +358,20 @@ export struct GalleryCommentsCard {
   }
 
   private translationText(c: EhGalleryComment): string {
-    return this.useSingleComment ? this.liveTranslationText : c.translationText
+    if (this.parentManagedActions) {
+      return this.renderTranslationText
+    }
+    return this.useSingleComment ? this.singleComment.translationText : c.translationText
   }
 
   private isTranslationShown(c: EhGalleryComment): boolean {
-    return this.useSingleComment ? this.liveTranslationShown : c.translationShown
+    if (this.parentManagedActions) {
+      return this.renderTranslationShown
+    }
+    return this.useSingleComment ? this.singleComment.translationShown : c.translationShown
   }
 
   private shouldShowTranslated(c: EhGalleryComment): boolean {
-    if (this.renderVersion < 0) {
-      return false
-    }
     return this.translationEnabled() && this.isTranslationShown(c) && this.translationText(c).length > 0
   }
 
@@ -407,14 +383,17 @@ export struct GalleryCommentsCard {
   }
 
   private isTranslationLoading(c: EhGalleryComment): boolean {
-    return this.useSingleComment ? this.liveTranslationLoading : c.translationLoading
+    if (this.parentManagedActions) {
+      return this.renderTranslationLoading
+    }
+    return this.useSingleComment ? this.singleComment.translationLoading : c.translationLoading
   }
 
   private beginTranslationLoading(c: EhGalleryComment): void {
     if (this.useSingleComment) {
       this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
-        this.liveTranslationShown = true
-        this.liveTranslationLoading = true
+        c.translationShown = true
+        c.translationLoading = true
       })
       return
     }
@@ -423,11 +402,17 @@ export struct GalleryCommentsCard {
   }
 
   private effectiveScore(c: EhGalleryComment): string {
-    return this.useSingleComment ? this.liveScore : c.score
+    if (this.parentManagedActions) {
+      return this.renderScore
+    }
+    return this.useSingleComment ? this.singleComment.score : c.score
   }
 
   private effectiveVote(c: EhGalleryComment): number {
-    return this.useSingleComment ? this.liveVote : c.vote
+    if (this.parentManagedActions) {
+      return this.renderVote
+    }
+    return this.useSingleComment ? this.singleComment.vote : c.vote
   }
 
   private toggleOrTranslate(c: EhGalleryComment): void {
@@ -435,16 +420,24 @@ export struct GalleryCommentsCard {
       return
     }
     if (this.translationText(c).length > 0) {
+      if (this.parentManagedActions) {
+        this.publishToggleTranslation(c)
+        return
+      }
       if (this.useSingleComment) {
         this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
-          this.liveTranslationShown = !this.liveTranslationShown
-          this.liveTranslationLoading = false
+          c.translationShown = !c.translationShown
+          c.translationLoading = false
         })
       }
       this.publishToggleTranslation(c)
       return
     }
     const sourceText: string = this.displayContentText(c)
+    if (this.parentManagedActions) {
+      this.publishTranslate(c, sourceText)
+      return
+    }
     this.beginTranslationLoading(c)
     this.publishTranslate(c, sourceText)
   }
@@ -467,68 +460,44 @@ export struct GalleryCommentsCard {
   }
 
   private publishAuthor(author: string): void {
-    if (this.actionScope.length > 0) {
-      this.commentAction.requestAuthor(this.actionScope, author)
-      return
-    }
     this.onAuthor(author)
   }
 
   private publishVote(c: EhGalleryComment, vote: number): void {
+    if (this.parentManagedActions) {
+      this.onVote(c, vote)
+      return
+    }
     if (this.useSingleComment) {
-      const targetVote: number = this.liveVote === vote ? 0 : vote
-      if (this.liveScore.length > 0) {
-        const score: number = Number.parseInt(this.liveScore, 10)
+      const targetVote: number = c.vote === vote ? 0 : vote
+      if (c.score.length > 0) {
+        const score: number = Number.parseInt(c.score, 10)
         if (!Number.isNaN(score)) {
-          this.liveScore = (score + targetVote - this.liveVote).toString()
+          c.score = (score + targetVote - c.vote).toString()
         }
       }
-      this.liveVote = targetVote
-    }
-    if (this.actionScope.length > 0) {
-      this.commentAction.requestVote(this.actionScope, c.commentId, vote)
-      return
+      c.vote = targetVote
     }
     this.onVote(c, vote)
   }
 
   private publishReply(c: EhGalleryComment): void {
-    if (this.actionScope.length > 0) {
-      this.commentAction.requestReply(this.actionScope, c.commentId)
-      return
-    }
     this.onReply(c)
   }
 
   private publishEdit(c: EhGalleryComment): void {
-    if (this.actionScope.length > 0) {
-      this.commentAction.requestEdit(this.actionScope, c.commentId)
-      return
-    }
     this.onEdit(c)
   }
 
   private publishTranslate(c: EhGalleryComment, sourceText: string): void {
-    if (this.actionScope.length > 0) {
-      this.commentAction.requestTranslate(this.actionScope, c.commentId, sourceText)
-      return
-    }
     this.onTranslate(c, sourceText)
   }
 
   private publishToggleTranslation(c: EhGalleryComment): void {
-    if (this.actionScope.length > 0) {
-      this.commentAction.requestToggleTranslation(this.actionScope, c.commentId)
-      return
-    }
     this.onToggleTranslation(c)
   }
 
   private publishAutoTranslate(c: EhGalleryComment, sourceText: string): void {
-    if (this.actionScope.length > 0) {
-      this.commentAction.requestAutoTranslate(this.actionScope, c.commentId, sourceText)
-      return
-    }
     this.onAutoTranslate(c, sourceText)
   }
 
@@ -590,27 +559,6 @@ export struct GalleryCommentsCard {
       out.push(new CommentTextSegment('t0', text))
     }
     return out
-  }
-
-  private hasCommentLink(text: string): boolean {
-    COMMENT_LINK_RE.lastIndex = 0
-    const found: boolean = COMMENT_LINK_RE.test(text)
-    COMMENT_LINK_RE.lastIndex = 0
-    return found
-  }
-
-  private firstCommentUrl(text: string): string {
-    const segments: CommentTextSegment[] = this.commentTextSegments(text)
-    for (let i = 0; i < segments.length; i++) {
-      if (segments[i].url.length > 0) {
-        return segments[i].url
-      }
-    }
-    return ''
-  }
-
-  private commentContainsLink(c: EhGalleryComment): boolean {
-    return this.hasCommentLink(this.displayContentText(c)) || this.hasCommentLink(this.translationText(c))
   }
 
   private currentHostUrl(url: string): string {
@@ -684,16 +632,20 @@ export struct GalleryCommentsCard {
     Column({ space: ThemeConstants.SPACE_XS }) {
       // Head — author (left) with the UP/score badge pinned right (eros_fe _CommentHead).
       Row({ space: ThemeConstants.SPACE_SM }) {
-        Text(c.author)
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_emphasize'))
+        Row() {
+          Text(c.author)
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_emphasize'))
+            .constraintSize({ maxWidth: '100%' })
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .onClick(() => {
+              this.publishAuthor(c.author)
+            })
+        }
           .layoutWeight(1)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .onClick(() => {
-            this.publishAuthor(c.author)
-          })
+          .alignItems(VerticalAlign.Center)
         // Uploader comments carry an UP badge. The numeric community score is shown only on the FULL
         // comments page (max === 0): eros_fe's CommentItem(simple) gates the score chip behind `!simple`,
         // so the PEEK deliberately suppresses it (author + body + time only, UP for the uploader).
@@ -749,7 +701,7 @@ export struct GalleryCommentsCard {
     .borderRadius(ThemeConstants.RADIUS_CARD)
     .backgroundColor($r('app.color.card_background'))
     .onClick(() => {
-      if (this.canOpenFullComments() && !this.commentContainsLink(c)) {
+      if (this.canOpenFullComments()) {
         this.onMore()
       }
     })
@@ -758,15 +710,15 @@ export struct GalleryCommentsCard {
   @Builder
   CommentBody(c: EhGalleryComment) {
     Column({ space: ThemeConstants.SPACE_XS }) {
-      if (this.useSingleComment && this.liveTranslationShown && this.liveTranslationText.length > 0 &&
+      if (this.useSingleComment && this.isTranslationShown(c) && this.translationText(c).length > 0 &&
         this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
         this.CommentText(this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.ohos_id_color_list_separator'))
-        this.CommentText(this.liveTranslationText, false, $r('sys.color.font_primary'))
-      } else if (this.useSingleComment && this.liveTranslationShown && this.liveTranslationText.length > 0) {
-        this.CommentText(this.liveTranslationText, this.max > 0, $r('sys.color.font_primary'))
+        this.CommentText(this.translationText(c), false, $r('sys.color.font_primary'))
+      } else if (this.useSingleComment && this.isTranslationShown(c) && this.translationText(c).length > 0) {
+        this.CommentText(this.translationText(c), this.max > 0, $r('sys.color.font_primary'))
       } else if (this.shouldShowTranslated(c) &&
         this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
         this.CommentText(this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
@@ -805,15 +757,6 @@ export struct GalleryCommentsCard {
         .width('100%')
         .maxLines(4)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .gesture(
-          TapGesture({ count: 1 })
-            .onAction(() => {
-              const url: string = this.firstCommentUrl(text)
-              if (url.length > 0) {
-                this.openCommentUrl(url)
-              }
-            }),
-        )
     } else {
       Text() {
         ForEach(
@@ -823,6 +766,9 @@ export struct GalleryCommentsCard {
               Span(seg.text)
                 .fontColor($r('sys.color.font_emphasize'))
                 .decoration({ type: TextDecorationType.Underline, color: $r('sys.color.font_emphasize') })
+                .onClick(() => {
+                  this.openCommentUrl(seg.url)
+                })
             } else {
               Span(seg.text)
             }
@@ -833,15 +779,6 @@ export struct GalleryCommentsCard {
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor(color)
         .width('100%')
-        .gesture(
-          TapGesture({ count: 1 })
-            .onAction(() => {
-              const url: string = this.firstCommentUrl(text)
-              if (url.length > 0) {
-                this.openCommentUrl(url)
-              }
-            }),
-        )
     }
   }
 
@@ -903,12 +840,8 @@ export struct GalleryCommentsCard {
 
   @Builder
   TranslationAction(c: EhGalleryComment) {
-    if (this.useSingleComment && this.liveTranslationShown && this.liveTranslationText.length > 0) {
-      this.FooterAction($r('sys.symbol.translate'), ThemeConstants.BRAND_PRIMARY, this.liveTranslationLoading, () => {
-        this.toggleOrTranslate(c)
-      })
-    } else if (!this.useSingleComment && c.translationShown && c.translationText.length > 0) {
-      this.FooterAction($r('sys.symbol.translate'), ThemeConstants.BRAND_PRIMARY, c.translationLoading, () => {
+    if (this.isTranslationShown(c) && this.translationText(c).length > 0) {
+      this.FooterAction($r('sys.symbol.translate'), ThemeConstants.BRAND_PRIMARY, this.isTranslationLoading(c), () => {
         this.toggleOrTranslate(c)
       })
     } else {
@@ -936,7 +869,7 @@ export struct GalleryCommentsCard {
     .width(COMMENT_FOOTER_ACTION_SIZE)
     .height(COMMENT_FOOTER_ACTION_SIZE)
     .enabled(!disabled)
-    .opacity(disabled ? 0.45 : 1)
+    .opacity(1)
     .onClick(action)
   }
 

@@ -1377,6 +1377,14 @@
       "value": "已取消投票"
     },
     {
+      "name": "comment_vote_cancel_up_success",
+      "value": "已取消赞成"
+    },
+    {
+      "name": "comment_vote_cancel_down_success",
+      "value": "已取消反对"
+    },
+    {
       "name": "comment_vote_failed",
       "value": "投票失败"
     },

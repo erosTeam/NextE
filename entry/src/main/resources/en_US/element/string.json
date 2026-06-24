@@ -1377,6 +1377,14 @@
       "value": "Vote canceled"
     },
     {
+      "name": "comment_vote_cancel_up_success",
+      "value": "Up vote canceled"
+    },
+    {
+      "name": "comment_vote_cancel_down_success",
+      "value": "Down vote canceled"
+    },
+    {
       "name": "comment_vote_failed",
       "value": "Vote failed"
     },

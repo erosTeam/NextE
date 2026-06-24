@@ -90,7 +90,10 @@ const ok = (name, cond) => {
 
   const card = read('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets')
   ok('comments card has onAuthor event', /@Event onAuthor: \(name: string\) => void/.test(card))
-  ok('comment author is tappable', /this\.onAuthor\(c\.author\)/.test(card))
+  ok('comment author is tappable', /this\.publishAuthor\(c\.author\)/.test(card))
+  ok('comment author tap target stays on the name text only',
+    /Row\(\) \{\s*Text\(c\.author\)[\s\S]*?\.onClick\(\(\) => \{\s*this\.publishAuthor\(c\.author\)[\s\S]*?\}\)\s*\}\s*\n\s*\.layoutWeight\(1\)/.test(card) &&
+      !/Text\(c\.author\)[\s\S]*?\.layoutWeight\(1\)[\s\S]*?\.onClick\(\(\) => \{\s*this\.publishAuthor\(c\.author\)/.test(card))
 
   const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
   ok('detail has searchUploader', /searchUploader\(name: string\)/.test(detail))
@@ -102,7 +105,7 @@ const ok = (name, cond) => {
   const page = read('feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets')
   ok('comments page has searchUploader', /searchUploader\(name: string\)/.test(page))
   ok('comments page uploader search is quoted', /publishQuery\(`uploader:"\$\{n\}"`\)/.test(page))
-  ok('comments page wires onAuthor', /onAuthor: \(name: string\) =>/.test(page))
+  ok('comments page wires onAuthor', /onAuthor: \((name|author): string\) =>/.test(page))
 }
 
 console.log(`✓ detail people-search contract: ${passed} assertions passed`)

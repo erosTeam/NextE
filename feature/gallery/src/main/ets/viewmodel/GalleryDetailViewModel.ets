@@ -266,21 +266,36 @@ export class GalleryDetailViewModel {
     this.saveCurrentDetailCache()
   }
 
+  private cloneComment(c: EhGalleryComment): EhGalleryComment {
+    const next: EhGalleryComment = new EhGalleryComment()
+    next.commentId = c.commentId
+    next.memberId = c.memberId
+    next.author = c.author
+    next.postedTime = c.postedTime
+    next.contentText = c.contentText
+    next.score = c.score
+    next.vote = c.vote
+    next.canEdit = c.canEdit
+    next.canVote = c.canVote
+    next.scoreDetails = c.scoreDetails.slice()
+    next.isUploader = c.isUploader
+    next.translationText = c.translationText
+    next.translationShown = c.translationShown
+    next.translationLoading = c.translationLoading
+    next.translationAutoStarted = c.translationAutoStarted
+    return next
+  }
+
   applyCommentVote(commentId: string, score: string, vote: number): void {
-    let found: boolean = false
     for (let i = 0; i < this.comments.length; i++) {
       const c: EhGalleryComment = this.comments[i]
       if (c.commentId === commentId) {
-        found = true
         c.score = score
         c.vote = vote
-        break
+        this.saveCurrentDetailCache()
+        return
       }
     }
-    if (!found) {
-      return
-    }
-    this.saveCurrentDetailCache()
   }
 
   applyTagVote(namespace: string, tagText: string, vote: number): void {

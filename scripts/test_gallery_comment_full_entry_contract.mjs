@@ -29,17 +29,20 @@ function ok(label, condition) {
 ok('detail page still uses a two-comment peek with a full-comments callback',
   /GalleryCommentsCard\(\{[\s\S]*comments:\s*this\.vm\.comments[\s\S]*max:\s*2[\s\S]*onMore:\s*\(\) => \{[\s\S]*this\.openComments\(\)/.test(detail))
 ok('comments card separates has-more from can-open-full-comments',
-  /private hasMore\(\): boolean \{\s*return this\.max > 0 && this\.comments\.length > this\.max\s*\}/.test(card) &&
-    /private canOpenFullComments\(\): boolean \{\s*return this\.max > 0 && this\.comments\.length > 0\s*\}/.test(card))
+  /private hasMore\(\): boolean \{\s*return this\.max > 0 && this\.sourceComments\(\)\.length > this\.max\s*\}/.test(card) &&
+    /private canOpenFullComments\(\): boolean \{\s*return this\.max > 0 && this\.sourceComments\(\)\.length > 0\s*\}/.test(card))
 ok('peek header shows full-comments affordance whenever any peek comment exists',
   /if \(this\.canOpenFullComments\(\)\) \{[\s\S]*Text\(\$r\('app\.string\.detail_view_all'\)\)[\s\S]*SymbolGlyph\(\$r\('sys\.symbol\.chevron_right'\)\)/.test(card))
 ok('peek header click opens full comments for one/two-comment galleries',
   /\.onClick\(\(\) => \{\s*if \(this\.canOpenFullComments\(\)\) \{\s*this\.onMore\(\)/.test(card))
 ok('comment bubble provides a broad full-comments tap target in peek mode',
   /CommentRow\(c: EhGalleryComment[\s\S]*\.backgroundColor\(\$r\('app\.color\.card_background'\)\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*if \(this\.canOpenFullComments\(\)\) \{[\s\S]*this\.onMore\(\)/.test(card))
+ok('peek comment text does not consume the card tap target',
+  /CommentText\(text: string, clamp: boolean, color: ResourceColor\)[\s\S]*if \(clamp\) \{[\s\S]*\.maxLines\(4\)[\s\S]*\.textOverflow\(\{ overflow: TextOverflow\.Ellipsis \}\)[\s\S]*\} else \{[\s\S]*Span\(seg\.text\)[\s\S]*this\.openCommentUrl\(seg\.url\)/.test(card) &&
+    !/firstCommentUrl\(text: string\)/.test(card))
 ok('full comments page remains full mode and does not pass max/onMore',
-  /GalleryCommentsCard\(\{[\s\S]*comments:\s*this\.visibleComments\(\)[\s\S]*onAuthor:/.test(readFileSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets'), 'utf8')) &&
-    !/GalleryCommentsCard\(\{[\s\S]*comments:\s*this\.visibleComments\(\)[\s\S]*max:\s*2/.test(readFileSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets'), 'utf8')))
+  /ForEach\(\s*this\.visibleComments\(\)[\s\S]*GalleryCommentsCard\(\{[\s\S]*comments:\s*\[comment\][\s\S]*referenceComments:\s*this\.comments[\s\S]*onAuthor:/.test(readFileSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets'), 'utf8')) &&
+    !/GalleryCommentsCard\(\{[\s\S]*comments:\s*\[comment\][\s\S]*max:\s*2/.test(readFileSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets'), 'utf8')))
 
 if (failures > 0) {
   console.error(`\n✗ gallery comment full entry contract: ${failures} failure(s)`)

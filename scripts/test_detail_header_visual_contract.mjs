@@ -162,9 +162,16 @@ ok(
 )
 ok(
   /private actionStripScroller: Scroller = new Scroller\(\)/.test(detail) &&
+    /@Local actionStripLayoutReady: boolean = false/.test(detail) &&
+    /@Local actionStripShouldAnimate: boolean = false/.test(detail) &&
+    /actionStripVisualX\(\): number \{[\s\S]*this\.actionStripViewportWidth - this\.actionStripContentWidth/.test(detail) &&
+    /actionStripRailWidth\(\): Length \{[\s\S]*Math\.max\(this\.actionStripViewportWidth, this\.actionStripContentWidth\)/.test(detail) &&
+    /actionStripAnimationDuration\(\): number \{[\s\S]*return this\.actionStripShouldAnimate \? ThemeConstants\.ANIM_DURATION : 0/.test(detail) &&
     /scrollActionStripToEdge\(\): void \{[\s\S]*scrollEdge\(this\.visualActionEdge === 'left' \? Edge\.Start : Edge\.End\)/.test(detail) &&
     /Scroll\(this\.actionStripScroller\)/.test(detail) &&
-    /justifyContent\(this\.visualActionEdge === 'left' \? FlexAlign\.Start : FlexAlign\.End\)/.test(detail),
+    /\.width\(this\.actionStripRailWidth\(\)\)[\s\S]*\.justifyContent\(FlexAlign\.Start\)/.test(detail) &&
+    /\.translate\(\{ x: this\.actionStripVisualX\(\) \}\)/.test(detail) &&
+    /\.animation\(\{ duration: this\.actionStripAnimationDuration\(\), curve: Curve\.EaseOut \}\)/.test(detail),
   'detail action strip follows the same smart-grip hand edge, with scroll-edge animation and short-content alignment'
 )
 

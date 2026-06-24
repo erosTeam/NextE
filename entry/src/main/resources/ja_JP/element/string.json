@@ -1377,6 +1377,14 @@
       "value": "投票を取り消しました"
     },
     {
+      "name": "comment_vote_cancel_up_success",
+      "value": "賛成を取り消しました"
+    },
+    {
+      "name": "comment_vote_cancel_down_success",
+      "value": "反対を取り消しました"
+    },
+    {
       "name": "comment_vote_failed",
       "value": "投票に失敗しました"
     },

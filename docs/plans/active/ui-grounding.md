@@ -149,5 +149,5 @@ Reference implementation: NextE `feature/gallery/src/main/ets/pages/GalleryDetai
 Surface type: gallery detail auxiliary action row below the info bar.
 Primary information: the row exposes secondary actions, not gallery metadata; each action should read as a tappable control with an icon and label.
 Primary action: similar search, torrents, rating, archiver, and gallery download keep their existing actions while becoming compact chip targets; parent-gallery navigation moves to the existing title-bar menu.
-Reuse or deviation: reuse the existing detail section card, title-bar menu, and native horizontal `Scroll`; deviate only from tiny text links by using local capsule `Button` chips with theme-colored icon/text.
-Verification: UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and detail screenshot on a narrow viewport with all available actions.
+Reuse or deviation: reuse the existing detail section card, title-bar menu, native horizontal `Scroll`, and the detail page's smart-grip hand-edge state; deviate only from tiny text links by using local capsule `Button` chips with theme-colored icon/text, and place the chip row on a start-based rail so short rows animate left/right with `translate` instead of jumping through centered alignment.
+Verification: UI grounding contract, detail header visual contract, V1 decorator inventory, signed HarmonyOS build, and detail screenshot on a narrow viewport with all available actions.

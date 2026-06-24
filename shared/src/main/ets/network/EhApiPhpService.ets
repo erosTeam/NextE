@@ -261,7 +261,7 @@ export class EhApiPhpService {
       Number.isNaN(apiuidNum) ||
       Number.isNaN(gidNum) ||
       Number.isNaN(commentIdNum) ||
-      (vote !== 1 && vote !== -1 && vote !== 0)
+      (vote !== 1 && vote !== -1)
     ) {
       throw new Error('voteComment: missing API key')
     }
