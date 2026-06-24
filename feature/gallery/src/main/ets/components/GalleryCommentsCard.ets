@@ -410,6 +410,18 @@ export struct GalleryCommentsCard {
     return this.useSingleComment ? this.liveTranslationLoading : c.translationLoading
   }
 
+  private beginTranslationLoading(c: EhGalleryComment): void {
+    if (this.useSingleComment) {
+      this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+        this.liveTranslationShown = true
+        this.liveTranslationLoading = true
+      })
+      return
+    }
+    c.translationShown = true
+    c.translationLoading = true
+  }
+
   private effectiveScore(c: EhGalleryComment): string {
     return this.useSingleComment ? this.liveScore : c.score
   }
@@ -433,12 +445,7 @@ export struct GalleryCommentsCard {
       return
     }
     const sourceText: string = this.displayContentText(c)
-    if (this.useSingleComment) {
-      this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
-        this.liveTranslationShown = true
-        this.liveTranslationLoading = true
-      })
-    }
+    this.beginTranslationLoading(c)
     this.publishTranslate(c, sourceText)
   }
 

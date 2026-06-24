@@ -148,6 +148,8 @@ ok(
     /animateTo\(\{ duration: ThemeConstants\.ANIM_DURATION, curve: Curve\.EaseOut \}/.test(commentsPage) &&
     /onCommentRenderStateChanged\(\): void[\s\S]*animateTo\(\{ duration: ThemeConstants\.ANIM_DURATION, curve: Curve\.EaseOut \}/.test(commentsCard) &&
     /private toggleOrTranslate\(c: EhGalleryComment\): void[\s\S]*animateTo\(\{ duration: ThemeConstants\.ANIM_DURATION, curve: Curve\.EaseOut \}[\s\S]*this\.liveTranslationShown = !this\.liveTranslationShown/.test(commentsCard) &&
+    /private beginTranslationLoading\(c: EhGalleryComment\): void[\s\S]*this\.liveTranslationShown = true[\s\S]*this\.liveTranslationLoading = true[\s\S]*c\.translationShown = true[\s\S]*c\.translationLoading = true/.test(commentsCard) &&
+    /private toggleOrTranslate\(c: EhGalleryComment\): void[\s\S]*this\.beginTranslationLoading\(c\)[\s\S]*this\.publishTranslate\(c, sourceText\)/.test(commentsCard) &&
     /current\.translationText = translated/.test(commentsPage) &&
     /current\.translationShown = shown/.test(commentsPage) &&
     !/private applyCommentTranslationState[\s\S]*this\.comments = nextComments/.test(commentsPage) &&
