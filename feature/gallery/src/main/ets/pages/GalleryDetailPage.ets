@@ -1554,7 +1554,7 @@ export struct GalleryDetailPage {
           .maxLines(1)
       }
       .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
-      .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM })
+      .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_MD })
       .alignItems(VerticalAlign.Center)
     }
     .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
