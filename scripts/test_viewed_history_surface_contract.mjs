@@ -40,7 +40,12 @@ ok(/@Local history: ViewedHistoryState = connectViewedHistory\(\)/.test(historyP
   'History page reads the V2 viewed-history state')
 ok(/CardEmptyState\(\{ message: \$r\('app\.string\.history_empty'\) \}\)/.test(historyPage),
   'History page renders an explicit empty state')
-ok(/ForEach\(\s*this\.history\.items/.test(historyPage), 'History page renders stored history items')
+ok(/HISTORY_PAGE_SIZE: number = 40/.test(historyPage),
+  'History page caps the initial rendered history rows')
+ok(/ForEach\(\s*this\.visibleHistoryItems\(\)/.test(historyPage),
+  'History page renders a bounded slice of stored history items')
+ok(/onReachEnd: \(\) => \{[\s\S]*this\.loadMoreHistory\(\)/.test(historyPage),
+  'History page appends more rows only when the list reaches the end')
 ok(/new GalleryDetailParams\(item\.gid,\s*item\.token,\s*item\.thumbUrl,\s*this\.titleFor\(item\)\)/.test(historyPage),
   'History item click routes back to GalleryDetail with thumb/title seed in constructor order')
 ok(/ViewedHistorySettings\.clear\(this\.ctx\(\)\)/.test(historyPage),

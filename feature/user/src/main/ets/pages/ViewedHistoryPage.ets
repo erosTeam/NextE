@@ -16,6 +16,8 @@ import {
   immersiveTitleBarOpts,
 } from 'shared'
 
+const HISTORY_PAGE_SIZE: number = 40
+
 /**
  * Recently viewed galleries. eros_fe keeps History as an optional main tab; NextE already records
  * viewed galleries in `ViewedHistorySettings`, so this lane exposes that existing local data through a
@@ -24,6 +26,7 @@ import {
 @ComponentV2
 export struct ViewedHistoryPage {
   @Local history: ViewedHistoryState = connectViewedHistory();
+  @Local visibleCount: number = HISTORY_PAGE_SIZE;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
@@ -78,7 +81,27 @@ export struct ViewedHistoryPage {
   }
 
   private clearHistory(): void {
+    this.visibleCount = HISTORY_PAGE_SIZE
     ViewedHistorySettings.clear(this.ctx())
+  }
+
+  private visibleItemCount(): number {
+    return Math.min(this.visibleCount, this.history.items.length)
+  }
+
+  private visibleHistoryItems(): ViewedGallery[] {
+    const max: number = this.visibleItemCount()
+    const out: ViewedGallery[] = []
+    for (let i = 0; i < max; i++) {
+      out.push(this.history.items[i])
+    }
+    return out
+  }
+
+  private loadMoreHistory(): void {
+    if (this.visibleCount < this.history.items.length) {
+      this.visibleCount = Math.min(this.visibleCount + HISTORY_PAGE_SIZE, this.history.items.length)
+    }
   }
 
   private confirmClearHistory(): void {
@@ -127,7 +150,7 @@ export struct ViewedHistoryPage {
       ListItem() {
         GroupedListSection() {
           ForEach(
-            this.history.items,
+            this.visibleHistoryItems(),
             (item: ViewedGallery, index: number) => {
               ConciseListRow({
                 title: this.titleFor(item),
@@ -138,7 +161,7 @@ export struct ViewedHistoryPage {
                   this.openGallery(item)
                 },
               })
-              if (index < this.history.items.length - 1) {
+              if (index < this.visibleItemCount() - 1) {
                 this.rowDivider()
               }
             },
@@ -162,6 +185,9 @@ export struct ViewedHistoryPage {
       SecondaryListScaffold({
         scroller: this.scroller,
         bottomPadding: ThemeConstants.SPACE_XL,
+        onReachEnd: () => {
+          this.loadMoreHistory()
+        },
       }) {
         this.HistoryRows()
       }
