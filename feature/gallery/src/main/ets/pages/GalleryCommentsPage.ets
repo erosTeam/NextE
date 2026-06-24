@@ -16,6 +16,7 @@ import {
   connectLayoutSafeArea,
   connectSearchAction,
   connectSiteMode,
+  connectCommentVoteMutation,
   DiagnosticLogger,
   EhErrorText,
   immersiveTitleBarOpts,
@@ -254,18 +255,6 @@ export struct GalleryCommentsPage {
     }
   }
 
-  private voteText(vote: number): ResourceStr {
-    return vote > 0 ? $r('app.string.comment_vote_up') : $r('app.string.comment_vote_down')
-  }
-
-  private voteConfirmText(vote: number): ResourceStr {
-    return vote > 0 ? $r('app.string.comment_vote_confirm_up') : $r('app.string.comment_vote_confirm_down')
-  }
-
-  private voteCancelConfirmText(vote: number): ResourceStr {
-    return vote > 0 ? $r('app.string.comment_vote_cancel_up') : $r('app.string.comment_vote_cancel_down')
-  }
-
   private voteSuccessText(vote: number): ResourceStr {
     if (vote === 0) {
       return $r('app.string.comment_vote_cancel_success')
@@ -302,6 +291,12 @@ export struct GalleryCommentsPage {
       }
     })
     this.comments = nextComments
+    connectCommentVoteMutation().publish(
+      this.params.gid,
+      result.commentId,
+      result.commentScore.toString(),
+      result.commentVote,
+    )
   }
 
   private applyLocalVote(commentId: string, vote: number): EhGalleryComment | undefined {
@@ -346,28 +341,15 @@ export struct GalleryCommentsPage {
       return
     }
     const targetVote: number = comment.vote === vote ? 0 : vote
-    this.getUIContext().showAlertDialog({
-      title: this.voteText(vote),
-      message: targetVote === 0 ? this.voteCancelConfirmText(vote) : this.voteConfirmText(vote),
-      primaryButton: {
-        value: $r('app.string.common_cancel'),
-        action: () => {},
-      },
-      secondaryButton: {
-        value: $r('app.string.common_ok'),
-        action: () => {
-          this.submitCommentVote(comment.commentId, targetVote)
-        },
-      },
-    })
+    this.submitCommentVote(comment.commentId, vote, targetVote)
   }
 
-  private async submitCommentVote(commentId: string, vote: number): Promise<void> {
+  private async submitCommentVote(commentId: string, requestVote: number, localVote: number): Promise<void> {
     if (this.votingCommentId.length > 0) {
       return
     }
     this.votingCommentId = commentId
-    const previous: EhGalleryComment | undefined = this.applyLocalVote(commentId, vote)
+    const previous: EhGalleryComment | undefined = this.applyLocalVote(commentId, localVote)
     try {
       const result: CommentVoteResult = await EhApiPhpService.voteComment(
         EhConstants.baseUrl(connectSiteMode().isEx),
@@ -376,10 +358,10 @@ export struct GalleryCommentsPage {
         this.params.gid,
         this.params.token,
         commentId,
-        vote,
+        requestVote,
       )
       this.applyVoteResult(result)
-      this.showCommentToast(this.voteSuccessText(vote))
+      this.showCommentToast(this.voteSuccessText(result.commentVote === 0 ? 0 : requestVote))
     } catch (err) {
       if (previous !== undefined) {
         this.restoreComment(previous)
@@ -473,7 +455,6 @@ export struct GalleryCommentsPage {
               // max = 0 → show every comment (the peek on the detail page uses max = 2).
               GalleryCommentsCard({
                 comments: this.visibleComments(),
-                votingCommentId: this.votingCommentId,
                 onAuthor: (name: string) => {
                   this.searchUploader(name)
                 },

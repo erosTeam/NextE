@@ -266,6 +266,37 @@ export class GalleryDetailViewModel {
     this.saveCurrentDetailCache()
   }
 
+  applyCommentVote(commentId: string, score: string, vote: number): void {
+    const nextComments: EhGalleryComment[] = []
+    let found: boolean = false
+    for (let i = 0; i < this.comments.length; i++) {
+      const c: EhGalleryComment = this.comments[i]
+      if (c.commentId === commentId) {
+        found = true
+        const next: EhGalleryComment = new EhGalleryComment()
+        next.commentId = c.commentId
+        next.memberId = c.memberId
+        next.author = c.author
+        next.postedTime = c.postedTime
+        next.contentText = c.contentText
+        next.score = score
+        next.vote = vote
+        next.canEdit = c.canEdit
+        next.canVote = c.canVote
+        next.scoreDetails = c.scoreDetails.slice()
+        next.isUploader = c.isUploader
+        nextComments.push(next)
+      } else {
+        nextComments.push(c)
+      }
+    }
+    if (!found) {
+      return
+    }
+    this.comments = nextComments
+    this.saveCurrentDetailCache()
+  }
+
   applyTagVote(namespace: string, tagText: string, vote: number): void {
     const next: EhGallery = this.gallery.copy()
     const groups: TagGroup[] = []

@@ -14,7 +14,6 @@ const COMMENT_FOOTER_ICON_SIZE: number = 16
 export struct GalleryCommentsCard {
   @Require @Param comments: EhGalleryComment[];
   @Param max: number = 0;
-  @Param votingCommentId: string = '';
   @Event onMore: () => void = () => {};
   @Event onAuthor: (name: string) => void = (_name: string) => {};
   @Event onVote: (comment: EhGalleryComment, vote: number) => void = (_comment: EhGalleryComment, _vote: number) => {};
@@ -57,12 +56,16 @@ export struct GalleryCommentsCard {
     return `+${value}`
   }
 
+  private commentRowKey(c: EhGalleryComment): string {
+    return `${c.commentId}:${c.vote}:${c.score}`
+  }
+
   private voteColor(c: EhGalleryComment, vote: number): ResourceColor {
     return c.vote === vote ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_tertiary')
   }
 
   private canVote(c: EhGalleryComment): boolean {
-    return this.max <= 0 && c.canVote && this.votingCommentId.length === 0
+    return this.max <= 0 && c.canVote
   }
 
   private codeDigit(code: string): string {
@@ -215,7 +218,7 @@ export struct GalleryCommentsCard {
         (c: EhGalleryComment, index: number) => {
           this.CommentRow(c, index === this.shown().length - 1)
         },
-        (c: EhGalleryComment) => c.commentId,
+        (c: EhGalleryComment) => this.commentRowKey(c),
       )
     }
     .width('100%')
@@ -359,25 +362,21 @@ export struct GalleryCommentsCard {
 
   @Builder
   EditAction(c: EhGalleryComment) {
-    this.FooterAction($r('sys.symbol.square_and_pencil'), $r('sys.color.font_tertiary'), this.votingCommentId.length > 0, () => {
-      if (this.votingCommentId.length === 0) {
-        this.onEdit(c)
-      }
+    this.FooterAction($r('sys.symbol.square_and_pencil'), $r('sys.color.font_tertiary'), false, () => {
+      this.onEdit(c)
     })
   }
 
   @Builder
   ReplyAction(c: EhGalleryComment) {
-    this.FooterAction($r('sys.symbol.ellipsis_message'), $r('sys.color.font_tertiary'), this.votingCommentId.length > 0, () => {
-      if (this.votingCommentId.length === 0) {
-        this.onReply(c)
-      }
+    this.FooterAction($r('sys.symbol.ellipsis_message'), $r('sys.color.font_tertiary'), false, () => {
+      this.onReply(c)
     })
   }
 
   @Builder
   VoteAction(c: EhGalleryComment, vote: number, icon: Resource) {
-    this.FooterAction(icon, this.voteColor(c, vote), this.votingCommentId === c.commentId, () => {
+    this.FooterAction(icon, this.voteColor(c, vote), false, () => {
       if (this.canVote(c)) {
         this.onVote(c, vote)
       }

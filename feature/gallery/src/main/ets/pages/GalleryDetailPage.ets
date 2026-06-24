@@ -41,6 +41,8 @@ import {
   connectGalleryFavoriteMutation,
   GalleryRatingMutationState,
   connectGalleryRatingMutation,
+  CommentVoteMutationState,
+  connectCommentVoteMutation,
   RemoteFavoriteSlotCacheState,
   connectRemoteFavoriteSlotCache,
   ViewedGallery,
@@ -112,6 +114,7 @@ export struct GalleryDetailPage {
   @Local localFav: LocalFavState = connectLocalFav();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
+  @Local commentVoteMutation: CommentVoteMutationState = connectCommentVoteMutation();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local favoriteSlotCache: RemoteFavoriteSlotCacheState = connectRemoteFavoriteSlotCache();
   // Resolved Read-FAB hand edge (smart-grip / follow-operation / fixed). visualActionEdge mirrors it and
@@ -153,6 +156,18 @@ export struct GalleryDetailPage {
     this.readFabWidth = 0
     this.readFabLayoutReady = false
     this.readFabShouldAnimate = false
+  }
+
+  @Monitor('commentVoteMutation.version')
+  private onCommentVoteMutation(): void {
+    if (this.commentVoteMutation.gid !== this.params.gid) {
+      return
+    }
+    this.vm.applyCommentVote(
+      this.commentVoteMutation.commentId,
+      this.commentVoteMutation.score,
+      this.commentVoteMutation.vote,
+    )
   }
 
   // Continuous X for the Read FAB inside the padded full-width rail: left edge = 0 (Start), right edge =

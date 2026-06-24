@@ -196,6 +196,10 @@ export {
   connectGalleryRatingMutation,
 } from './state/GalleryRatingMutationState'
 export {
+  CommentVoteMutationState,
+  connectCommentVoteMutation,
+} from './state/CommentVoteMutationState'
+export {
   RemoteFavoriteSlotCacheState,
   connectRemoteFavoriteSlotCache,
 } from './state/RemoteFavoriteSlotCacheState'
