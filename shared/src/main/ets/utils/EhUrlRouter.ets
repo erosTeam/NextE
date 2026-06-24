@@ -35,6 +35,13 @@ export class EhUrlRouter {
     return { gid: m[1], token: m[2] }
   }
 
+  static wantsComments(url: string): boolean {
+    const lower: string = url.toLowerCase()
+    return lower.indexOf('#comments') >= 0 ||
+      lower.indexOf('nexte=comments') >= 0 ||
+      lower.indexOf('nexte_comments=1') >= 0
+  }
+
   static parseImagePage(url: string): ImagePageRef | null {
     const m: RegExpMatchArray | null = url.match(EhUrlRouter.IMAGE_RE)
     if (!m) {

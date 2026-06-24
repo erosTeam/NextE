@@ -51,6 +51,7 @@ ok('route service preserves showKey and reloadKey in seed', /seed\.showKey = par
 const indexSrc = read('entry/src/main/ets/pages/Index.ets')
 ok('Index normalizes deep-link host to current site mode', /const currentUri:[\s\S]*EhUrlRouter\.toCurrentHost\(uri, EhConstants\.baseUrl\(connectSiteMode\(\)\.isEx\)\)/.test(indexSrc))
 ok('Index still routes /g/ detail links', /EhUrlRouter\.parseGallery\(currentUri\)[\s\S]*GalleryDetail/.test(indexSrc))
+ok('Index can route comment QA gallery links directly to full comments', /EhUrlRouter\.wantsComments\(currentUri\)[\s\S]*pushPathByName\(\s*'GalleryComments'[\s\S]*new GalleryCommentsParams\(ref\.gid, ref\.token\)/.test(indexSrc))
 ok('Index routes /s/ through ImagePageRouteService', /EhUrlRouter\.parseImagePage\(currentUri\)[\s\S]*openImagePageUrl\(currentUri\)/.test(indexSrc))
 ok('Index opens parent GalleryDetail before offering image-page jump', /ImagePageRouteService\.resolve\(uri\)[\s\S]*pushPathByName\(\s*'GalleryDetail'[\s\S]*confirmOpenImagePage\(target\)/.test(indexSrc))
 ok('Index confirms before opening Reader for resolved /s/', /private confirmOpenImagePage\(target: ImagePageRouteTarget\): void[\s\S]*image_page_jump_confirm[\s\S]*pushPathByName\(\s*'Reader'/.test(indexSrc))

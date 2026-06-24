@@ -70,13 +70,20 @@ ok('vote row keys stay stable while observed comment fields repaint',
   /private commentRowKey\(c: EhGalleryComment\): string \{[\s\S]*return c\.commentId/.test(card) &&
     !/return `\$\{c\.commentId\}:\$\{c\.vote\}:\$\{c\.score\}`/.test(card) &&
     /\(c: EhGalleryComment\) => this\.commentRowKey\(c\)/.test(card))
-ok('single comment card can delegate vote state to its parent without local mutation',
+ok('single comment card owns immediate vote display and syncs final parent state by version',
   /@Param parentManagedActions: boolean = false/.test(card) &&
+    /@Param renderVersion: number = 0/.test(card) &&
+    /@Local localVoteCommentId: string = ''/.test(card) &&
+    /@Local localVoteScore: string = ''/.test(card) &&
+    /@Local localVoteValue: number = 0/.test(card) &&
+    /@Monitor\('renderVersion'\)[\s\S]*syncLocalVoteState/.test(card) &&
     !/@Param singleScore/.test(card) &&
     !/@Param singleVote/.test(card) &&
-    /private publishVote\(c: EhGalleryComment, vote: number\): void \{[\s\S]*if \(this\.parentManagedActions\) \{[\s\S]*this\.onVote\(c, vote\)[\s\S]*return[\s\S]*const targetVote: number = c\.vote === vote \? 0 : vote[\s\S]*c\.score = \(score \+ targetVote - c\.vote\)\.toString\(\)[\s\S]*c\.vote = targetVote/.test(card) &&
-    !/commentAction/.test(card) &&
-    !/actionScope/.test(card) &&
+    /private publishVote\(c: EhGalleryComment, vote: number\): void \{[\s\S]*if \(this\.parentManagedActions\) \{[\s\S]*this\.ensureLocalVoteState\(\)[\s\S]*const targetVote: number = this\.localVoteValue === vote \? 0 : vote[\s\S]*this\.localVoteScore = \(score \+ targetVote - this\.localVoteValue\)\.toString\(\)[\s\S]*this\.localVoteValue = targetVote[\s\S]*this\.onVote\(c, vote\)[\s\S]*return[\s\S]*const targetVote: number = c\.vote === vote \? 0 : vote[\s\S]*c\.score = \(score \+ targetVote - c\.vote\)\.toString\(\)[\s\S]*c\.vote = targetVote/.test(card) &&
+    !/this\.renderState\.vote = targetVote/.test(card) &&
+    !/GALLERY_COMMENT_ACTION_RENDER_STATE/.test(card) &&
+    !/@Monitor\('commentAction\.version'\)/.test(card) &&
+    !/@Param actionScope: string = ''/.test(card) &&
     /private voteColor\(c: EhGalleryComment, vote: number\): ResourceColor \{[\s\S]*this\.effectiveVote\(c\) === vote/.test(card) &&
     /private effectiveScore\(c: EhGalleryComment\): string \{[\s\S]*this\.useSingleComment \? this\.singleComment\.score : c\.score/.test(card) &&
     /private effectiveVote\(c: EhGalleryComment\): number \{[\s\S]*this\.useSingleComment \? this\.singleComment\.vote : c\.vote/.test(card))
@@ -100,9 +107,10 @@ ok('comments page uses vote-specific cancel success copy',
     /this\.showCommentToast\(this\.voteSuccessText\(tappedVote, result\.commentVote\)\)/.test(page))
 ok('comments page applies returned vote and score to the matching local comment',
   /private applyVoteResult\(result: CommentVoteResult\): void[\s\S]*this\.replaceComment\(result\.commentId, \(current: EhGalleryComment\) => \{[\s\S]*current\.vote = result\.commentVote[\s\S]*current\.score = result\.commentScore\.toString\(\)/.test(page) &&
-    /private replaceComment\(commentId: string, updater: \(comment: EhGalleryComment\) => void\): EhGalleryComment \| undefined \{[\s\S]*updater\(current\)[\s\S]*return current/.test(page) &&
-    !/comments\[i\] = next/.test(page) &&
-    !/@Local commentRenderVersion/.test(page))
+    /private replaceComment\(commentId: string, updater: \(comment: EhGalleryComment\) => void\): EhGalleryComment \| undefined \{[\s\S]*const next: EhGalleryComment = this\.cloneComment\(current\)[\s\S]*updater\(next\)[\s\S]*comments\[i\] = next[\s\S]*this\.updateRenderState\(next\)[\s\S]*return next/.test(page) &&
+    /private updateRenderState\(comment: EhGalleryComment\): void \{[\s\S]*states\[i\]\.applyComment\(comment\)[\s\S]*this\.commentRenderStates = states/.test(page) &&
+    /@Local commentRenderVersion: number = 0/.test(page) &&
+    /this\.commentRenderVersion\+\+/.test(page))
 ok('comments page publishes confirmed vote mutation for the detail page',
   /connectCommentVoteMutation\(\)\.publish\([\s\S]*this\.params\.gid[\s\S]*result\.commentId[\s\S]*result\.commentScore\.toString\(\)[\s\S]*result\.commentVote/.test(page))
 ok('comments page applies optimistic row vote and rolls back on failure',
@@ -114,10 +122,13 @@ ok('comments page applies optimistic row vote and rolls back on failure',
     /const previous: EhGalleryComment \| undefined = this\.applyLocalVote\(commentId, localVote\)[\s\S]*catch \(err\) \{[\s\S]*this\.restoreComment\(previous\)/.test(page))
 ok('comments page wires card onVote',
   /parentManagedActions: true/.test(page) &&
+    /renderVersion: this\.commentRenderVersion/.test(page) &&
     !/singleScore: comment\.score/.test(page) &&
     !/singleVote: comment\.vote/.test(page) &&
     /onVote: \(selectedComment: EhGalleryComment, vote: number\) => \{[\s\S]*this\.handleCommentVote\(selectedComment, vote\)/.test(page) &&
-    !/@Monitor\('commentAction\.version'\)/.test(page))
+    !/@Monitor\('commentAction\.version'\)/.test(page) &&
+    !/actionScope: this\.params\.gid/.test(page) &&
+    !/requestRenderState\(/.test(page))
 
 const detailPage = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const detailVm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets')

@@ -19,6 +19,7 @@ import {
   EhUrlRouter,
   GalleryRef,
   GalleryDetailParams,
+  GalleryCommentsParams,
   GalleryWebParams,
   ImagePageRouteErrorParams,
   ImagePageRouteService,
@@ -207,6 +208,10 @@ struct Index {
     const ref: GalleryRef | null = EhUrlRouter.parseGallery(currentUri)
     if (ref !== null) {
       DiagnosticLogger.info('nav', 'deep_link_open', `/g/${ref.gid}/${ref.token}`)
+      if (EhUrlRouter.wantsComments(currentUri)) {
+        this.stack.pushPathByName('GalleryComments', new GalleryCommentsParams(ref.gid, ref.token))
+        return
+      }
       this.stack.pushPathByName('GalleryDetail', new GalleryDetailParams(ref.gid, ref.token))
       return
     }

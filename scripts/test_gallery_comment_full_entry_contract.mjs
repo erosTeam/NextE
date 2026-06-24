@@ -38,7 +38,7 @@ ok('peek header click opens full comments for one/two-comment galleries',
 ok('comment bubble provides a broad full-comments tap target in peek mode',
   /CommentRow\(c: EhGalleryComment[\s\S]*\.backgroundColor\(\$r\('app\.color\.card_background'\)\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*if \(this\.canOpenFullComments\(\)\) \{[\s\S]*this\.onMore\(\)/.test(card))
 ok('peek comment text does not consume the card tap target',
-  /CommentText\(text: string, clamp: boolean, color: ResourceColor\)[\s\S]*if \(clamp\) \{[\s\S]*\.maxLines\(4\)[\s\S]*\.textOverflow\(\{ overflow: TextOverflow\.Ellipsis \}\)[\s\S]*\} else \{[\s\S]*Span\(seg\.text\)[\s\S]*this\.openCommentUrl\(seg\.url\)/.test(card) &&
+  /CommentText\(c: EhGalleryComment, text: string, clamp: boolean, color: ResourceColor\)[\s\S]*if \(clamp\) \{[\s\S]*\.maxLines\(4\)[\s\S]*\.textOverflow\(\{ overflow: TextOverflow\.Ellipsis \}\)[\s\S]*\} else \{[\s\S]*Span\(seg\.text\)[\s\S]*this\.openCommentUrl\(seg\.url\)/.test(card) &&
     !/firstCommentUrl\(text: string\)/.test(card))
 ok('full comments page remains full mode and does not pass max/onMore',
   /ForEach\(\s*this\.visibleComments\(\)[\s\S]*GalleryCommentsCard\(\{[\s\S]*comments:\s*\[comment\][\s\S]*referenceComments:\s*this\.comments[\s\S]*onAuthor:/.test(readFileSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets'), 'utf8')) &&

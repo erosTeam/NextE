@@ -26,6 +26,7 @@ import {
   immersiveTitleBarOpts,
 } from 'shared'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
+import { GalleryCommentRenderState } from '../model/GalleryCommentRenderState'
 import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 
 const COMMENT_COMPOSER_BOTTOM_RESERVE: number = 136
@@ -46,40 +47,6 @@ const COMMENT_COMPOSER_QUOTE_TOP_GAP: number =
 const COMMENT_COMPOSER_QUOTE_LEFT_GAP: number =
   COMMENT_COMPOSER_RADIUS - COMMENT_COMPOSER_INNER_GAP - COMMENT_COMPOSER_QUOTE_LINE_W / 2
 const COMMENT_COMPOSER_CLOSE_RIGHT_GAP: number = COMMENT_COMPOSER_INNER_GAP
-
-class CommentRenderState {
-  commentId: string = ''
-  score: string = ''
-  vote: number = 0
-  translationText: string = ''
-  translationShown: boolean = false
-  translationLoading: boolean = false
-  translationAutoStarted: boolean = false
-
-  constructor(c?: EhGalleryComment) {
-    if (c !== undefined) {
-      this.commentId = c.commentId
-      this.score = c.score
-      this.vote = c.vote
-      this.translationText = c.translationText
-      this.translationShown = c.translationShown
-      this.translationLoading = c.translationLoading
-      this.translationAutoStarted = c.translationAutoStarted
-    }
-  }
-
-  copy(): CommentRenderState {
-    const next: CommentRenderState = new CommentRenderState()
-    next.commentId = this.commentId
-    next.score = this.score
-    next.vote = this.vote
-    next.translationText = this.translationText
-    next.translationShown = this.translationShown
-    next.translationLoading = this.translationLoading
-    next.translationAutoStarted = this.translationAutoStarted
-    return next
-  }
-}
 
 /**
  * The separate full comments page (eros_fe galleryComment). The detail page shows a 2-comment peek
@@ -104,7 +71,9 @@ export struct GalleryCommentsPage {
   @Local commentSubmitting: boolean = false;
   @Local commentError: string = '';
   @Local translationSettings: CommentTranslationSettingsState = connectCommentTranslationSettings();
-  @Local commentRenderStates: CommentRenderState[] = [];
+  @Local commentRenderStates: GalleryCommentRenderState[] = [];
+  @Local commentRenderVersion: number = 0;
+  @Local initialRefreshStarted: boolean = false;
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
 
   private requestCommentFocus(): void {
@@ -134,6 +103,17 @@ export struct GalleryCommentsPage {
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
+  private scheduleInitialRefreshIfNeeded(): void {
+    if (this.initialRefreshStarted || this.comments.length > 0 ||
+      this.params.gid.length === 0 || this.params.token.length === 0) {
+      return
+    }
+    this.initialRefreshStarted = true
+    setTimeout(() => {
+      this.refreshController.triggerTopRefresh()
+    }, 0)
+  }
+
   private visibleComments(): EhGalleryComment[] {
     if (!this.uploaderOnly) {
       return this.comments
@@ -145,17 +125,17 @@ export struct GalleryCommentsPage {
     return this.comments.filter((c: EhGalleryComment) => c.isUploader || c.score.length === 0)
   }
 
-  private renderStatesFromComments(comments: EhGalleryComment[]): CommentRenderState[] {
-    const out: CommentRenderState[] = []
+  private renderStatesFromComments(comments: EhGalleryComment[]): GalleryCommentRenderState[] {
+    const out: GalleryCommentRenderState[] = []
     for (let i = 0; i < comments.length; i++) {
-      out.push(new CommentRenderState(comments[i]))
+      out.push(new GalleryCommentRenderState(comments[i]))
     }
     return out
   }
 
-  private renderState(commentId: string): CommentRenderState | undefined {
+  private renderState(commentId: string): GalleryCommentRenderState | undefined {
     for (let i = 0; i < this.commentRenderStates.length; i++) {
-      const state: CommentRenderState = this.commentRenderStates[i]
+      const state: GalleryCommentRenderState = this.commentRenderStates[i]
       if (state.commentId === commentId) {
         return state
       }
@@ -163,42 +143,37 @@ export struct GalleryCommentsPage {
     return undefined
   }
 
+  private renderStateFor(comment: EhGalleryComment): GalleryCommentRenderState {
+    const current: GalleryCommentRenderState | undefined = this.renderState(comment.commentId)
+    if (current !== undefined) {
+      return current
+    }
+    const state: GalleryCommentRenderState = new GalleryCommentRenderState(comment)
+    const states: GalleryCommentRenderState[] = this.commentRenderStates.slice()
+    states.push(state)
+    this.commentRenderStates = states
+    return state
+  }
+
   private updateRenderState(comment: EhGalleryComment): void {
-    const states: CommentRenderState[] = this.commentRenderStates.slice()
+    const states: GalleryCommentRenderState[] = this.commentRenderStates.slice()
     for (let i = 0; i < states.length; i++) {
       if (states[i].commentId === comment.commentId) {
-        states[i] = new CommentRenderState(comment)
+        states[i].applyComment(comment)
         this.commentRenderStates = states
+        this.commentRenderVersion++
         return
       }
     }
-    states.push(new CommentRenderState(comment))
+    const state: GalleryCommentRenderState = new GalleryCommentRenderState(comment)
+    states.push(state)
     this.commentRenderStates = states
-  }
-
-  private renderScore(comment: EhGalleryComment): string {
-    const state: CommentRenderState | undefined = this.renderState(comment.commentId)
-    return state !== undefined ? state.score : comment.score
+    this.commentRenderVersion++
   }
 
   private renderVote(comment: EhGalleryComment): number {
-    const state: CommentRenderState | undefined = this.renderState(comment.commentId)
+    const state: GalleryCommentRenderState | undefined = this.renderState(comment.commentId)
     return state !== undefined ? state.vote : comment.vote
-  }
-
-  private renderTranslationText(comment: EhGalleryComment): string {
-    const state: CommentRenderState | undefined = this.renderState(comment.commentId)
-    return state !== undefined ? state.translationText : comment.translationText
-  }
-
-  private renderTranslationShown(comment: EhGalleryComment): boolean {
-    const state: CommentRenderState | undefined = this.renderState(comment.commentId)
-    return state !== undefined ? state.translationShown : comment.translationShown
-  }
-
-  private renderTranslationLoading(comment: EhGalleryComment): boolean {
-    const state: CommentRenderState | undefined = this.renderState(comment.commentId)
-    return state !== undefined ? state.translationLoading : comment.translationLoading
   }
 
   private canOpenCommentSheet(): boolean {
@@ -335,8 +310,12 @@ export struct GalleryCommentsPage {
         this.params.token,
         connectSiteMode().isEx,
       )
+      this.params.apikey = result.gallery.apikey
+      this.params.apiuid = result.gallery.apiuid
+      this.params.title = result.gallery.displayTitle(false)
       this.comments = result.comments
       this.commentRenderStates = this.renderStatesFromComments(this.comments)
+      this.commentRenderVersion++
       if (this.visibleComments().length === 0) {
         this.uploaderOnly = false
       }
@@ -418,9 +397,13 @@ export struct GalleryCommentsPage {
     for (let i = 0; i < this.comments.length; i++) {
       const current: EhGalleryComment = this.comments[i]
       if (current.commentId === commentId) {
-        updater(current)
-        this.updateRenderState(current)
-        return current
+        const next: EhGalleryComment = this.cloneComment(current)
+        updater(next)
+        const comments: EhGalleryComment[] = this.comments.slice()
+        comments[i] = next
+        this.comments = comments
+        this.updateRenderState(next)
+        return next
       }
     }
     return undefined
@@ -682,12 +665,9 @@ export struct GalleryCommentsPage {
                     referenceComments: this.comments,
                     useSingleComment: true,
                     singleComment: comment,
+                    renderState: this.renderStateFor(comment),
+                    renderVersion: this.commentRenderVersion,
                     parentManagedActions: true,
-                    renderScore: this.renderScore(comment),
-                    renderVote: this.renderVote(comment),
-                    renderTranslationText: this.renderTranslationText(comment),
-                    renderTranslationShown: this.renderTranslationShown(comment),
-                    renderTranslationLoading: this.renderTranslationLoading(comment),
                     showHeader: false,
                     onAuthor: (author: string) => {
                       this.searchUploader(author)
@@ -734,6 +714,7 @@ export struct GalleryCommentsPage {
         this.params = p
         this.comments = p.comments
         this.commentRenderStates = this.renderStatesFromComments(this.comments)
+        this.scheduleInitialRefreshIfNeeded()
       }
     })
   }

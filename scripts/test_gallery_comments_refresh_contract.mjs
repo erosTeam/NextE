@@ -36,9 +36,16 @@ ok('comments page uses PullRefreshListScaffold, not a static SecondaryListScaffo
 ok('comments page keeps a local comments list refreshed from route params',
   /@Local comments: EhGalleryComment\[\] = \[\]/.test(page) &&
     /this\.comments = p\.comments/.test(page) &&
-    /comments: this\.visibleComments\(\)/.test(page))
+    /ForEach\(\s*this\.visibleComments\(\)[\s\S]*comments:\s*\[comment\][\s\S]*referenceComments:\s*this\.comments/.test(page))
+ok('comments page auto-refreshes when opened directly without seeded comments',
+  /@Local initialRefreshStarted: boolean = false/.test(page) &&
+    /private scheduleInitialRefreshIfNeeded\(\): void[\s\S]*this\.comments\.length > 0[\s\S]*this\.params\.gid\.length === 0[\s\S]*this\.refreshController\.triggerTopRefresh\(\)/.test(page) &&
+    /this\.scheduleInitialRefreshIfNeeded\(\)/.test(page))
 ok('refresh fetches the same gallery detail and replaces comments',
   /private async refreshComments\(\): Promise<void>[\s\S]*getGalleryDetail\([\s\S]*this\.params\.gid[\s\S]*this\.params\.token[\s\S]*connectSiteMode\(\)\.isEx[\s\S]*this\.comments = result\.comments/.test(page))
+ok('refresh backfills api metadata so direct-open comments can vote',
+  /this\.params\.apikey = result\.gallery\.apikey/.test(page) &&
+    /this\.params\.apiuid = result\.gallery\.apiuid/.test(page))
 ok('refresh has bounded diagnostics and failure feedback',
   /comments_refresh_ok[\s\S]*comments=\$\{this\.comments\.length\}/.test(page) &&
     /comments_refresh_failed/.test(page) &&
