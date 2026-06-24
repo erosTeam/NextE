@@ -68,6 +68,10 @@ export class SearchViewModel {
     this.context = context
   }
 
+  isCurrentQuery(query: string): boolean {
+    return this.query.length > 0 && this.query === query.trim()
+  }
+
   /** Switch this VM into favorites scope (favorites.php f_search). favcat 'a' = all favorites. */
   seedFavoriteScope(favcat: string): void {
     this.isFavoriteScope = true

@@ -196,8 +196,13 @@ export struct GallerySearchPage {
 
   @Monitor('fieldState.keyword')
   onKeywordChange(): void {
-    if (this.fieldState.keyword.trim().length === 0) {
+    const keyword: string = this.fieldState.keyword.trim()
+    if (keyword.length === 0) {
       this.clearQueryToHistory()
+      this.vm.clearSuggestions()
+      return
+    }
+    if (this.vm.isCurrentQuery(keyword)) {
       this.vm.clearSuggestions()
       return
     }
@@ -214,8 +219,30 @@ export struct GallerySearchPage {
     return EhConstants.exactTagSearchQuery(s.namespace, s.text)
   }
 
+  private suggestionNamespaceLabel(namespace: string): string {
+    const ns: string = EhConstants.expandNamespace(namespace)
+    if (ns === 'artist') return AppStrings.get('tag_ns_artist')
+    if (ns === 'female') return AppStrings.get('tag_ns_female')
+    if (ns === 'male') return AppStrings.get('tag_ns_male')
+    if (ns === 'parody') return AppStrings.get('tag_ns_parody')
+    if (ns === 'character') return AppStrings.get('tag_ns_character')
+    if (ns === 'group') return AppStrings.get('tag_ns_group')
+    if (ns === 'language') return AppStrings.get('tag_ns_language')
+    if (ns === 'reclass') return AppStrings.get('tag_ns_reclass')
+    if (ns === 'cosplayer') return AppStrings.get('tag_ns_cosplayer')
+    if (ns === 'misc') return AppStrings.get('tag_ns_misc')
+    if (ns === 'mixed') return AppStrings.get('tag_ns_mixed')
+    if (ns === 'location') return AppStrings.get('tag_ns_location')
+    if (ns === 'other') return AppStrings.get('tag_ns_other')
+    if (ns === 'uploader') return AppStrings.get('tag_ns_uploader')
+    if (ns === 'temp') return AppStrings.get('tag_ns_temp')
+    return ns
+  }
+
   private suggestionTitle(s: EhTagSuggestion): string {
-    return s.displayName.length > 0 ? s.displayName : this.formatSuggestionQuery(s)
+    return s.displayName.length > 0 ?
+      `${this.suggestionNamespaceLabel(s.namespace)}:${s.displayName}` :
+      this.formatSuggestionQuery(s)
   }
 
   private suggestionSubtitle(s: EhTagSuggestion): string {

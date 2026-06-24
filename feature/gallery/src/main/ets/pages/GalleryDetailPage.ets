@@ -362,6 +362,21 @@ export struct GalleryDetailPage {
     this.openDetailSheet(DETAIL_SHEET_TORRENTS)
   }
 
+  private openParentGallery(): void {
+    if (this.vm.gallery.parentGid.length === 0 || this.vm.gallery.parentGid === this.params.gid) {
+      return
+    }
+    this.stack.pushPathByName(
+      'GalleryDetail',
+      new GalleryDetailParams(
+        this.vm.gallery.parentGid,
+        this.vm.gallery.parentToken,
+        '',
+        '',
+      ),
+    )
+  }
+
   private openArchiver(): void {
     if (this.vm.gallery.archiverLink.length === 0) {
       return
@@ -641,6 +656,14 @@ export struct GalleryDetailPage {
         this.openComments()
       },
     }
+    const parentInner: Record<string, Object> = {
+      'label': $r('app.string.detail_parent'),
+      'icon': $r('sys.symbol.link'),
+      'isEnabled': true,
+      'action': () => {
+        this.openParentGallery()
+      },
+    }
     const refreshInner: Record<string, Object> = {
       'label': $r('app.string.common_refresh'),
       'icon': $r('sys.symbol.arrow_clockwise'),
@@ -700,6 +723,9 @@ export struct GalleryDetailPage {
       { 'content': openBrowserInner },
       { 'content': openWebInner },
     ]
+    if (this.vm.gallery.parentGid.length > 0 && this.vm.gallery.parentGid !== this.params.gid) {
+      items.splice(3, 0, { 'content': parentInner })
+    }
     return { 'value': items, 'maxCount': 3 }
   }
 
@@ -1515,71 +1541,68 @@ export struct GalleryDetailPage {
   }
 
   @Builder
+  private DetailActionChip(icon: Resource, label: ResourceStr, emphasized: boolean, action: () => void) {
+    Button({ type: ButtonType.Capsule }) {
+      Row({ space: ThemeConstants.DETAIL_ACTION_CHIP_GAP }) {
+        SymbolGlyph(icon)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor([emphasized ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary')])
+        Text(label)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(emphasized ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary'))
+          .maxLines(1)
+      }
+      .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
+      .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM })
+      .alignItems(VerticalAlign.Center)
+    }
+    .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onClick(action)
+  }
+
+  @Builder
   relationsRow() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
-      Row({ space: ThemeConstants.SPACE_MD }) {
-        Text($r('app.string.detail_similar'))
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor($r('sys.color.font_emphasize'))
-          .onClick(() => {
+      Scroll() {
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          this.DetailActionChip($r('sys.symbol.magnifyingglass'), $r('app.string.detail_similar'), true, () => {
             this.openSimilar()
           })
-        if (this.vm.gallery.parentGid.length > 0 && this.vm.gallery.parentGid !== this.params.gid) {
-          Text($r('app.string.detail_parent'))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_emphasize'))
-            .onClick(() => {
-              this.stack.pushPathByName(
-                'GalleryDetail',
-                new GalleryDetailParams(
-                  this.vm.gallery.parentGid,
-                  this.vm.gallery.parentToken,
-                  '',
-                  '',
-                ),
-              )
-            })
-        }
-        if (
-          Number.parseInt(
-            this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0',
-            10,
-          ) > 0
-        ) {
-          Text(this.torrentTitle(this.vm.gallery.torrentCount))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_emphasize'))
-            .onClick(() => {
-              this.openTorrents()
-            })
-        }
-        if (this.vm.gallery.archiverLink.length > 0) {
-          Text($r('app.string.download_archiver'))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_emphasize'))
-            .onClick(() => {
+          if (
+            Number.parseInt(
+              this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0',
+              10,
+            ) > 0
+          ) {
+            this.DetailActionChip($r('sys.symbol.doc_plaintext'), this.torrentTitle(this.vm.gallery.torrentCount),
+              true, () => {
+                this.openTorrents()
+              })
+          }
+          if (this.vm.gallery.archiverLink.length > 0) {
+            this.DetailActionChip($r('sys.symbol.externaldrive'), $r('app.string.download_archiver'), true, () => {
               this.openArchiver()
             })
-        }
-        Text($r('app.string.detail_rate'))
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor($r('sys.color.font_emphasize'))
-          .onClick(() => {
+          }
+          this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {
             this.openRatingSheet()
           })
-        Text(this.downloadTitle())
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(
-            this.isGalleryQueued()
-              ? $r('sys.color.font_secondary')
-              : $r('sys.color.font_emphasize'),
-          )
-          .onClick(() => {
-            this.enqueueGalleryDownload()
-          })
+          this.DetailActionChip($r('sys.symbol.arrow_down_to_line'), this.downloadTitle(), !this.isGalleryQueued(),
+            () => {
+              this.enqueueGalleryDownload()
+            })
+        }
+        .alignItems(VerticalAlign.Center)
       }
+      .scrollable(ScrollDirection.Horizontal)
+      .nestedScroll({
+        scrollForward: NestedScrollMode.SELF_ONLY,
+        scrollBackward: NestedScrollMode.SELF_ONLY,
+      })
+      .scrollBar(BarState.Off)
       .width('100%')
-      .alignItems(VerticalAlign.Center)
     }
   }
 }

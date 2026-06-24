@@ -55,10 +55,14 @@ ok('SearchViewModel clears suggestions on submit/clear',
   /clearSearchState\(\): void \{[\s\S]*this\.clearSuggestions\(\)/.test(vm))
 ok('Search page schedules suggestions from the page-owned field state',
   /@Monitor\('fieldState\.keyword'\)[\s\S]*this\.vm\.scheduleTagSuggest\(this\.fieldState\.keyword, this\.ctx\(\)\)/.test(page))
+ok('Search page does not show suggestions for an already-running submitted query',
+  /isCurrentQuery\(query: string\): boolean \{[\s\S]*this\.query\.length > 0[\s\S]*this\.query === query\.trim\(\)/.test(vm) &&
+  /if \(this\.vm\.isCurrentQuery\(keyword\)\) \{[\s\S]*this\.vm\.clearSuggestions\(\)[\s\S]*return[\s\S]*\}/.test(page))
 ok('Search page formats clicked suggestions as exact EH tag queries',
   /private formatSuggestionQuery\(s: EhTagSuggestion\): string \{[\s\S]*return EhConstants\.exactTagSearchQuery\(s\.namespace, s\.text\)[\s\S]*\}/.test(page))
-ok('Search page may display localized suggestion names but still inserts raw exact EH queries',
-  /suggestionTitle\(s: EhTagSuggestion\)[\s\S]*s\.displayName\.length > 0 \? s\.displayName : this\.formatSuggestionQuery\(s\)/.test(page) &&
+ok('Search page displays localized suggestion names with namespace prefix but still inserts raw exact EH queries',
+  /suggestionNamespaceLabel\(namespace: string\): string \{[\s\S]*AppStrings\.get\('tag_ns_female'\)[\s\S]*return ns/.test(page) &&
+  /suggestionTitle\(s: EhTagSuggestion\)[\s\S]*this\.suggestionNamespaceLabel\(s\.namespace\)[\s\S]*s\.displayName[\s\S]*this\.formatSuggestionQuery\(s\)/.test(page) &&
   /private acceptSuggestion\(s: EhTagSuggestion\): void \{[\s\S]*this\.formatSuggestionQuery\(s\)/.test(page))
 ok('Search page replaces only the last token and re-seeds the input field',
   /private replaceLastToken\(query: string, replacement: string\): string/.test(page) &&

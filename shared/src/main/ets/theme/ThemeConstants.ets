@@ -117,6 +117,8 @@ export class ThemeConstants {
   // secondary bare-icon to its left). ACTION_FAV_ICON is the favourite heart glyph, a peer to the pill.
   static readonly ACTION_HEIGHT: number = 36
   static readonly ACTION_FAV_ICON: number = 18
+  static readonly DETAIL_ACTION_CHIP_HEIGHT: number = 28
+  static readonly DETAIL_ACTION_CHIP_GAP: number = 2
   static readonly LOADING_SIZE: number = 32
   static readonly LOADING_SIZE_SMALL: number = 24
   static readonly LOADING_SIZE_LARGE: number = 40
