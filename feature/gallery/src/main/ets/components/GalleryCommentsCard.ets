@@ -123,34 +123,151 @@ export struct GalleryCommentsCard {
     return line.substring(start + 1, end)
   }
 
-  private replyTargetId(text: string): string {
-    const lines: string[] = text.split('\n')
-    if (lines.length === 0) {
-      return ''
-    }
-    const first: string = lines[0].trim()
-    if (!first.startsWith('@')) {
-      return ''
-    }
-    const hashId: string = this.hashReplyId(first)
-    if (hashId.length > 0) {
-      return hashId
-    }
-    return lines.length > 1 ? this.decodeReplyId(lines[1]) : ''
+  private commentIdNum(c: EhGalleryComment): number {
+    const n: number = Number.parseInt(c.commentId, 10)
+    return Number.isNaN(n) ? 0 : n
   }
 
-  private replyReferences(c: EhGalleryComment): EhGalleryComment[] {
-    const id: string = this.replyTargetId(c.contentText)
-    if (id.length === 0 || id === c.commentId) {
-      return []
+  private sortedComments(): EhGalleryComment[] {
+    const out: EhGalleryComment[] = this.comments.slice()
+    out.sort((a: EhGalleryComment, b: EhGalleryComment) => this.commentIdNum(b) - this.commentIdNum(a))
+    return out
+  }
+
+  private candidateComments(c: EhGalleryComment): EhGalleryComment[] {
+    const sorted: EhGalleryComment[] = this.sortedComments()
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].commentId === c.commentId) {
+        return sorted.slice(i)
+      }
     }
-    const out: EhGalleryComment[] = []
+    return []
+  }
+
+  private commentById(id: string): EhGalleryComment | undefined {
     for (let i = 0; i < this.comments.length; i++) {
       const candidate: EhGalleryComment = this.comments[i]
       if (candidate.commentId === id) {
-        out.push(candidate)
-        break
+        return candidate
       }
+    }
+    return undefined
+  }
+
+  private mentionTail(segment: string): string {
+    const at: number = segment.indexOf('@')
+    return at >= 0 ? segment.substring(at + 1).trim() : ''
+  }
+
+  private mentionToken(segment: string): string {
+    const tail: string = this.mentionTail(segment)
+    for (let i = 0; i < tail.length; i++) {
+      const ch: string = tail.charAt(i)
+      if (ch === ' ' || ch === '\n' || ch === '\t' || ch === '\r') {
+        return tail.substring(0, i)
+      }
+    }
+    return tail
+  }
+
+  private isNameSeparator(ch: string): boolean {
+    return ch === ' ' || ch === '\n' || ch === '\t' || ch === '\r' ||
+      ch === '+' || ch === ',' || ch === '.' || ch === '，' || ch === '。'
+  }
+
+  private nameParts(text: string): string[] {
+    const out: string[] = []
+    let current: string = ''
+    for (let i = 0; i < text.length; i++) {
+      const ch: string = text.charAt(i)
+      if (this.isNameSeparator(ch)) {
+        if (current.length > 0) {
+          out.push(current)
+          current = ''
+        }
+      } else {
+        current += ch
+      }
+    }
+    if (current.length > 0) {
+      out.push(current)
+    }
+    return out
+  }
+
+  private normalizedName(name: string): string {
+    return this.nameParts(name).join(' ')
+  }
+
+  private findByAuthor(candidates: EhGalleryComment[], name: string): EhGalleryComment | undefined {
+    if (name.length === 0) {
+      return undefined
+    }
+    for (let i = 0; i < candidates.length; i++) {
+      if (candidates[i].author === name) {
+        return candidates[i]
+      }
+    }
+    return undefined
+  }
+
+  private findBySpaceAuthor(candidates: EhGalleryComment[], segment: string): EhGalleryComment | undefined {
+    const parts: string[] = this.nameParts(this.mentionTail(segment))
+    for (let count = parts.length; count > 0; count--) {
+      const name: string = parts.slice(0, count).join(' ')
+      for (let i = 0; i < candidates.length; i++) {
+        if (this.normalizedName(candidates[i].author) === name) {
+          return candidates[i]
+        }
+      }
+    }
+    return undefined
+  }
+
+  private replyTargetId(segment: string): string {
+    const hashId: string = this.hashReplyId(segment)
+    if (hashId.length > 0) {
+      return hashId
+    }
+    const lines: string[] = segment.split('\n')
+    if (lines.length < 2) {
+      return ''
+    }
+    return this.decodeReplyId(lines[1])
+  }
+
+  private pushReply(out: EhGalleryComment[], c: EhGalleryComment, reply: EhGalleryComment | undefined): void {
+    if (reply === undefined || reply.commentId.length === 0 || reply.commentId === c.commentId) {
+      return
+    }
+    for (let i = 0; i < out.length; i++) {
+      if (out[i].commentId === reply.commentId) {
+        return
+      }
+    }
+    out.push(reply)
+  }
+
+  private replyReferences(c: EhGalleryComment): EhGalleryComment[] {
+    const segments: string[] = c.contentText.split('@')
+    const candidates: EhGalleryComment[] = this.candidateComments(c)
+    const out: EhGalleryComment[] = []
+    for (let i = 1; i < segments.length; i++) {
+      const segment: string = `@${segments[i]}`
+      const id: string = this.replyTargetId(segment)
+      if (id.length > 0) {
+        this.pushReply(out, c, this.commentById(id))
+        continue
+      }
+      const tokenReply: EhGalleryComment | undefined = this.findByAuthor(candidates, this.mentionToken(segment))
+      if (tokenReply !== undefined) {
+        this.pushReply(out, c, tokenReply)
+        continue
+      }
+      this.pushReply(out, c, this.findBySpaceAuthor(candidates, segment))
+    }
+    if (out.length > 0) {
+      return out
     }
     return out
   }
@@ -179,6 +296,10 @@ export struct GalleryCommentsCard {
 
   private commentGap(): number {
     return ThemeConstants.SPACE_SM - 2
+  }
+
+  private commentBottomPadding(): number {
+    return this.max > 0 ? ThemeConstants.SPACE_MD : ThemeConstants.SPACE_SM
   }
 
   build() {
@@ -316,7 +437,7 @@ export struct GalleryCommentsCard {
       left: ThemeConstants.SPACE_MD,
       right: ThemeConstants.SPACE_MD,
       top: ThemeConstants.SPACE_MD,
-      bottom: ThemeConstants.SPACE_SM,
+      bottom: this.commentBottomPadding(),
     })
     .borderRadius(ThemeConstants.RADIUS_CARD)
     .backgroundColor($r('app.color.card_background'))

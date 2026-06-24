@@ -49,6 +49,10 @@ ok('section header is outside comment cards and keeps full-comments affordance',
 ok('each comment row is its own top-level white card',
   /CommentRow\(c: EhGalleryComment[\s\S]*\.borderRadius\(ThemeConstants\.RADIUS_CARD\)[\s\S]*\.backgroundColor\(\$r\('app\.color\.card_background'\)\)/.test(card))
 
+ok('detail peek comment cards have extra bottom padding for the larger corner radius',
+  /private commentBottomPadding\(\): number \{[\s\S]*this\.max > 0 \? ThemeConstants\.SPACE_MD : ThemeConstants\.SPACE_SM/.test(card) &&
+  /bottom: this\.commentBottomPadding\(\)/.test(card))
+
 ok('reply quote inverts the old color relation and sits on the secondary surface inside the white card',
   /COMMENT_QUOTE_RADIUS: number = 8/.test(read('shared/src/main/ets/theme/ThemeConstants.ets')) &&
   /ReplyQuote\(c: EhGalleryComment\)[\s\S]*\.borderRadius\(ThemeConstants\.COMMENT_QUOTE_RADIUS\)[\s\S]*\.backgroundColor\(ThemeConstants\.BG_SUB\)/.test(card) &&
