@@ -202,6 +202,8 @@ export struct ReaderPage {
               .textAlign(TextAlign.Center)
             Button($r('app.string.common_retry'))
               .type(ButtonType.Capsule)
+              .fontColor(ThemeConstants.TEXT_ON_BRAND)
+              .backgroundColor(ThemeConstants.BRAND_PRIMARY)
               .onClick(() => {
                 this.vm.loadMore()
               })

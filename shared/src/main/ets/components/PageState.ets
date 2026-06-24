@@ -33,6 +33,8 @@ export struct PageErrorState {
         .textAlign(TextAlign.Center)
       Button(this.retryLabel)
         .type(ButtonType.Capsule)
+        .fontColor(ThemeConstants.TEXT_ON_BRAND)
+        .backgroundColor(ThemeConstants.BRAND_PRIMARY)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .onClick(() => {
           if (this.retryAction) {

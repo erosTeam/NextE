@@ -196,6 +196,8 @@ export struct GalleryAllThumbnailsPage {
           })
         Button($r('app.string.gallery_preview_jump'))
           .type(ButtonType.Capsule)
+          .fontColor(ThemeConstants.TEXT_ON_BRAND)
+          .backgroundColor(ThemeConstants.BRAND_PRIMARY)
           .layoutWeight(1)
           .onClick(() => {
             this.confirmJump()

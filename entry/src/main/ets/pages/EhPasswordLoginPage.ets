@@ -54,6 +54,8 @@ export struct EhPasswordLoginPage {
             })
           Button($r('app.string.password_login_submit'))
             .width('100%')
+            .fontColor(ThemeConstants.TEXT_ON_BRAND)
+            .backgroundColor(ThemeConstants.BRAND_PRIMARY)
             .enabled(
               !this.submitting && this.username.trim().length > 0 && this.password.length > 0,
             )

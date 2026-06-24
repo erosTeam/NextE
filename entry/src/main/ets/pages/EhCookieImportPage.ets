@@ -52,6 +52,8 @@ export struct EhCookieImportPage {
             })
           Button($r('app.string.cookie_import_submit'))
             .width('100%')
+            .fontColor(ThemeConstants.TEXT_ON_BRAND)
+            .backgroundColor(ThemeConstants.BRAND_PRIMARY)
             .enabled(!this.submitting && this.cookieText.trim().length > 0)
             .onClick(() => {
               this.submit()

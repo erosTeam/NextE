@@ -1,5 +1,6 @@
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { uiMaterial } from '@kit.ArkUI'
+import { ThemeConstants } from '../theme/ThemeConstants'
 
 let appSearchFieldSeq: number = 0
 
@@ -54,7 +55,7 @@ export struct AppSearchField {
         .width('100%')
         .backgroundColor(Color.Transparent)
         .systemMaterial(this.searchMaterial())
-        .searchButton(this.searchButtonText)
+        .searchButton(this.searchButtonText, { fontColor: ThemeConstants.BRAND_PRIMARY })
         .onChange((value: string) => {
           this.handleChange(value)
         })
@@ -74,7 +75,7 @@ export struct AppSearchField {
       .width('100%')
       .height(40)
       .backgroundColor($r('app.color.card_background'))
-      .searchButton(this.searchButtonText)
+      .searchButton(this.searchButtonText, { fontColor: ThemeConstants.BRAND_PRIMARY })
       .onChange((value: string) => {
         this.handleChange(value)
       })

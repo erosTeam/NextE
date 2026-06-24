@@ -558,7 +558,7 @@ export struct GalleryCommentsPage {
             })
           SymbolGlyph($r('sys.symbol.arrow_up_circle_fill'))
             .fontSize(COMMENT_COMPOSER_SEND_SIZE)
-            .fontColor([this.canSubmitComment() ? $r('sys.color.font_emphasize') : $r('sys.color.font_tertiary')])
+            .fontColor([this.canSubmitComment() ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_tertiary')])
             .opacity(this.canSubmitComment() ? 1 : 0.45)
             .onClick(() => {
               this.submitComment()
