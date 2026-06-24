@@ -1,0 +1,141 @@
+name: Build OHOS
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: build-ohos-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  build_hap:
+    name: Build unsigned HAP
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/honjow/harmonyos-build-env:26.0-api26
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify module registration
+        shell: bash
+        run: |
+          node scripts/test_version_consistency_contract.mjs
+
+      - name: Check i18n resources
+        shell: bash
+        run: |
+          python3 scripts/check_i18n_duplicates.py
+
+      - name: Check State Management V2 inventory
+        shell: bash
+        run: |
+          node scripts/test_v1_decorator_inventory_contract.mjs
+
+      - name: Get app version
+        shell: bash
+        run: |
+          version=$(node -e "const fs=require('fs'); const m=fs.readFileSync('oh-package.json5','utf8').match(/\"version\"\\s*:\\s*\"([^\"]+)\"/); console.log(m ? m[1] : '0.0.0')")
+          echo "APP_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Install OHPM dependencies
+        shell: bash
+        run: |
+          ohpm install --all
+
+      - name: Build unsigned HAP (debug)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        shell: bash
+        run: |
+          hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon
+
+      - name: Build unsigned HAP (release)
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        shell: bash
+        run: |
+          hvigorw assembleHap --mode module -p product=default -p buildMode=release --no-daemon
+
+      - name: Collect unsigned HAP
+        shell: bash
+        run: |
+          src="entry/build/default/outputs/default/entry-default-unsigned.hap"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            dst="NextE_${APP_VERSION}_ohos-release-unsigned.hap"
+          else
+            dst="NextE_${APP_VERSION}_ohos-debug-unsigned.hap"
+          fi
+          test -f "$src"
+          cp "$src" "$dst"
+          echo "HAP_PATH=$dst" >> "$GITHUB_ENV"
+
+      - name: Inspect unsigned HAP
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import zipfile
+          from pathlib import Path
+
+          hap = Path(os.environ['HAP_PATH'])
+          with zipfile.ZipFile(hap) as z:
+              names = z.namelist()
+          print(f'HAP: {hap}')
+          print(f'Size MiB: {hap.stat().st_size / 1024 / 1024:.2f}')
+          print(f'arm64 entries: {sum(1 for name in names if name.startswith("libs/arm64-v8a/"))}')
+          print(f'x86_64 entries: {sum(1 for name in names if name.startswith("libs/x86_64/"))}')
+          print(f'has sourceMaps.map: {"ets/sourceMaps.map" in names}')
+          PY
+
+      - name: Upload unsigned HAP
+        uses: actions/upload-artifact@v4
+        with:
+          name: ohos-hap-unsigned
+          path: ${{ env.HAP_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, 'stable') && !contains(github.ref, 'alpha') && !contains(github.ref, 'rc')
+    name: Publish
+    needs: build_hap
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/artifacts
+
+      - name: List artifacts
+        shell: bash
+        run: |
+          ls -R /tmp/artifacts
+
+      - name: Upload to GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: /tmp/artifacts/ohos-hap-unsigned/*.hap
+          tag: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          prerelease: ${{ contains(github.ref, 'pre') }}
+          allowUpdates: true
+          artifactErrorsFailBuild: true
+          replacesArtifacts: true
+          generateReleaseNotes: true
