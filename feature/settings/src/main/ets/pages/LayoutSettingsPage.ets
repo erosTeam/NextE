@@ -376,6 +376,16 @@ export struct LayoutSettingsPage {
     ListModeSettings.setFixedHeight(this.ctx(), value)
   }
 
+  // --- Column-width (grid density) control: slider + live preview, only for grid-like modes ---
+
+  private isGridLikeMode(): boolean {
+    return (
+      this.listMode.mode === ListMode.GRID ||
+      this.listMode.mode === ListMode.WATERFALL ||
+      this.listMode.mode === ListMode.COVER_WALL
+    )
+  }
+
   private setJapaneseTitleInGalleryPage(value: boolean): void {
     GalleryTitleSettings.setJapaneseTitleInGalleryPage(this.ctx(), value)
   }
@@ -642,6 +652,17 @@ export struct LayoutSettingsPage {
                   this.viewMenuShown = false
                 },
               })
+              if (this.isGridLikeMode()) {
+                this.rowDivider()
+                ConciseListRow({
+                  title: $r('app.string.settings_column_width'),
+                  subtitle: $r('app.string.settings_column_width_hint'),
+                  leadingIcon: $r('sys.symbol.square_grid_2x2'),
+                  action: () => {
+                    this.stack.pushPathByName('ColumnDensity', null)
+                  },
+                })
+              }
               this.rowDivider()
               ConciseListRow({
                 title: $r('app.string.settings_list_fixed_height'),

@@ -58,6 +58,7 @@ import {
   AccountPage,
   AccountLoginPage,
   LayoutSettingsPage,
+  ColumnDensityPage,
   ReaderSettingsPage,
   DownloadSettingsPage,
   SearchSettingsPage,
@@ -605,6 +606,8 @@ struct Index {
       AccountLoginPage()
     } else if (name === 'LayoutSettings') {
       LayoutSettingsPage()
+    } else if (name === 'ColumnDensity') {
+      ColumnDensityPage()
     } else if (name === 'ReaderSettings') {
       ReaderSettingsPage()
     } else if (name === 'DownloadSettings') {

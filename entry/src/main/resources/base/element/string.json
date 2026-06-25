@@ -357,6 +357,26 @@
       "value": "Fixed list row height"
     },
     {
+      "name": "settings_column_width",
+      "value": "Grid density"
+    },
+    {
+      "name": "settings_column_width_hint",
+      "value": "Pinch the grid or drag to set items per row"
+    },
+    {
+      "name": "column_density_unit",
+      "value": "cols"
+    },
+    {
+      "name": "column_density_more",
+      "value": "Show more"
+    },
+    {
+      "name": "column_density_fewer",
+      "value": "Show less"
+    },
+    {
       "name": "settings_japanese_title_in_gallery",
       "value": "Japanese title in gallery"
     },

@@ -13,6 +13,10 @@ export class StorageKeys {
   static readonly SITE_MODE_EX: string = 'site.modeEx' // boolean: 表站(false)/里站(true)
   static readonly LIST_MODE: string = 'layout.listMode' // list/simpleList/grid/waterfall
   static readonly LIST_ITEM_FIXED_HEIGHT: string = 'layout.fixedHeightOfListItems' // boolean: fixed(true)/adaptive list rows
+  // Per-mode column min-width (vp) overrides from pinch-zoom / slider. 0 = use base constant.
+  static readonly GRID_COLUMN_WIDTH: string = 'layout.gridColumnWidth'
+  static readonly WATERFALL_COLUMN_WIDTH: string = 'layout.waterfallColumnWidth'
+  static readonly COVER_WALL_COLUMN_WIDTH: string = 'layout.coverWallColumnWidth'
   static readonly JAPANESE_TITLE_IN_GALLERY_PAGE: string = 'layout.japaneseTitleInGalleryPage'
   static readonly ITEM_WIDTH: string = 'layout.itemWidth'
   static readonly HIDE_GALLERY_THUMBNAILS: string = 'layout.hideGalleryThumbnails' // boolean: hide detail inline previews

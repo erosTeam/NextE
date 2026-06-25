@@ -134,6 +134,9 @@ export class ThemeConstants {
   static readonly GALLERY_WATERFALL_MIN_W: number = 160
   static readonly GALLERY_COVER_WALL_MIN_W: number = 120
   static readonly GALLERY_GRID_GAP: number = 6
+  // Clamp for the pinch-zoom / slider column min-width override (vp). Mirrors eros_n's 80–300 extent range.
+  static readonly GALLERY_COL_MIN_W_FLOOR: number = 80
+  static readonly GALLERY_COL_MIN_W_CEIL: number = 300
   // Compact grid cards are much narrower than list/detail/settings cards, so they keep the pre-large-card
   // radius instead of inheriting RADIUS_CARD(24).
   static readonly GALLERY_GRID_CARD_RADIUS: number = 16

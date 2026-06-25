@@ -571,6 +571,7 @@ export struct GallerySearchPage {
             PullRefreshGridScaffold({
               scroller: this.scroller,
               minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
+              pinchModeKey: ListMode.GRID,
               gap: ThemeConstants.GALLERY_GRID_GAP,
               horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
               topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,
@@ -631,6 +632,7 @@ export struct GallerySearchPage {
             PullRefreshWaterFlowScaffold({
               scroller: this.scroller,
               minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W,
+              pinchModeKey: ListMode.WATERFALL,
               itemCount: this.vm.itemCount,
               gap: ThemeConstants.GALLERY_GRID_GAP,
               horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
@@ -686,6 +688,7 @@ export struct GallerySearchPage {
             PullRefreshWaterFlowScaffold({
               scroller: this.scroller,
               minColumnWidth: ThemeConstants.GALLERY_COVER_WALL_MIN_W,
+              pinchModeKey: ListMode.COVER_WALL,
               itemCount: this.vm.itemCount,
               gap: ThemeConstants.GALLERY_GRID_GAP,
               horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,

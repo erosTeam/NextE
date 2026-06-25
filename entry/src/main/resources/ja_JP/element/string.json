@@ -357,6 +357,26 @@
       "value": "リスト行の高さを固定"
     },
     {
+      "name": "settings_column_width",
+      "value": "グリッド密度"
+    },
+    {
+      "name": "settings_column_width_hint",
+      "value": "リストをピンチまたはドラッグして列数を調整"
+    },
+    {
+      "name": "column_density_unit",
+      "value": "列"
+    },
+    {
+      "name": "column_density_more",
+      "value": "表示を増やす"
+    },
+    {
+      "name": "column_density_fewer",
+      "value": "表示を減らす"
+    },
+    {
       "name": "settings_japanese_title_in_gallery",
       "value": "詳細で日本語タイトルを優先"
     },

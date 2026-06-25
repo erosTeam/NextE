@@ -18,9 +18,15 @@ export class ListModeSettings {
         StorageKeys.LIST_ITEM_FIXED_HEIGHT,
         true,
       ) as boolean
+      const gridColW: number = store.getSync(StorageKeys.GRID_COLUMN_WIDTH, 0) as number
+      const waterfallColW: number = store.getSync(StorageKeys.WATERFALL_COLUMN_WIDTH, 0) as number
+      const coverWallColW: number = store.getSync(StorageKeys.COVER_WALL_COLUMN_WIDTH, 0) as number
       const state: ListModeState = connectListMode()
       state.mode = mode
       state.fixedHeight = fixedHeight
+      state.gridColW = gridColW
+      state.waterfallColW = waterfallColW
+      state.coverWallColW = coverWallColW
     } catch (error) {
       DiagnosticLogger.warn('settings', 'listmode_restore_failed', (error as Error).message)
     }
@@ -60,5 +66,47 @@ export class ListModeSettings {
         (error as Error).message,
       )
     }
+  }
+
+  // Single writer of the per-mode column min-width override (pinch-zoom / settings slider). The live
+  // in-memory updates during a pinch/drag are written directly to ListModeState; this persists the
+  // final value on release. `mode` is one of ListMode.GRID/WATERFALL/COVER_WALL.
+  static async setColumnWidth(
+    context: common.UIAbilityContext,
+    mode: string,
+    width: number,
+  ): Promise<void> {
+    connectListMode().setWidthFor(mode, width)
+    const key: string = ListModeSettings.columnWidthKey(mode)
+    if (key.length === 0) {
+      return
+    }
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(key, width)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'settings',
+        'listmode_column_width_save_failed',
+        (error as Error).message,
+      )
+    }
+  }
+
+  private static columnWidthKey(mode: string): string {
+    if (mode === ListMode.GRID) {
+      return StorageKeys.GRID_COLUMN_WIDTH
+    }
+    if (mode === ListMode.WATERFALL) {
+      return StorageKeys.WATERFALL_COLUMN_WIDTH
+    }
+    if (mode === ListMode.COVER_WALL) {
+      return StorageKeys.COVER_WALL_COLUMN_WIDTH
+    }
+    return ''
   }
 }

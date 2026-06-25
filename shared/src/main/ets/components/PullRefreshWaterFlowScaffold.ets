@@ -1,6 +1,10 @@
+import { common } from '@kit.AbilityKit'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { PullRefresh, PullRefreshController } from './PullRefresh'
 import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeAreaState'
+import { connectListMode, ListModeState } from '../state/ListModeState'
+import { ListModeSettings } from '../settings/ListModeSettings'
+import { galleryWaterfallColumnCount, clampColumnWidth } from '../utils/GalleryColumns'
 import { LoadingFooter } from './LoadingFooter'
 
 /**
@@ -15,6 +19,15 @@ export struct PullRefreshWaterFlowScaffold {
   layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Param scroller: Scroller = new Scroller();
   @Param minColumnWidth: number = 0;
+  // When set to a ListMode.GRID/WATERFALL/COVER_WALL key, two-finger pinch adjusts that mode's stored
+  // column width (and the scaffold renders that override). Empty = pinch disabled (e.g. thumbnails grid).
+  @Param pinchModeKey: string = '';
+  listMode: ListModeState = connectListMode();
+  // Pinch = ONE proportional notch per gesture (commit once). Stores the raw scaled width — never snapped
+  // to a column boundary, so it adapts across screen sizes. pinchStartCols only gates the toast.
+  private pinchStartW: number = 0;
+  private pinchStartCols: number = 0;
+  private pinchCommitted: boolean = false;
   @Local measuredWidth: number = 0;
   @Param gap: number = ThemeConstants.SPACE_SM;
   @Param horizontalPadding: number = ThemeConstants.SPACE_MD;
@@ -79,6 +92,25 @@ export struct PullRefreshWaterFlowScaffold {
       // PullRefresh owns the edge drag offset; native spring would add a second movement layer.
       .edgeEffect(EdgeEffect.None)
       .clip(false)
+      // Two-finger pinch continuously scales the column width (fingers:2 leaves single-finger scroll
+      // untouched). Spread → bigger cards; pinch → smaller. The exact width is stored on release.
+      .gesture(
+        PinchGesture({ fingers: 2 })
+          .onActionStart(() => {
+            this.pinchStartW = this.effectiveMinWidth()
+            this.pinchStartCols = this.currentColumns()
+            this.pinchCommitted = false
+          })
+          .onActionUpdate((event: GestureEvent) => {
+            this.applyPinch(event.scale)
+          })
+          .onActionEnd(() => {
+            if (this.pinchModeKey.length > 0) {
+              ListModeSettings.setColumnWidth(this.ctx(), this.pinchModeKey, this.effectiveMinWidth())
+            }
+            this.pinchCommitted = false
+          }),
+      )
       .onAreaChange((_oldValue: Area, newValue: Area) => {
         this.measuredWidth = this.parseAreaWidth(newValue)
       })
@@ -128,14 +160,66 @@ export struct PullRefreshWaterFlowScaffold {
   }
 
   private contentColumnCount(): number {
-    const minWidth: number =
-      this.minColumnWidth > 0 ? this.minColumnWidth : ThemeConstants.GALLERY_WATERFALL_MIN_W
-    if (this.measuredWidth <= 0) {
-      return 2
+    return galleryWaterfallColumnCount(
+      this.measuredWidth,
+      this.effectiveMinWidth(),
+      this.gap,
+      this.horizontalPadding,
+    )
+  }
+
+  // Pinch/slider override (when pinchModeKey set) wins over the base minColumnWidth param.
+  private effectiveMinWidth(): number {
+    if (this.pinchModeKey.length > 0) {
+      const override: number = this.listMode.overrideWidthFor(this.pinchModeKey)
+      if (override > 0) {
+        return override
+      }
     }
-    const contentWidth: number = Math.max(minWidth, this.measuredWidth - this.horizontalPadding * 2)
-    const count: number = Math.floor((contentWidth + this.gap) / (minWidth + this.gap))
-    return Math.max(1, count)
+    return this.minColumnWidth > 0 ? this.minColumnWidth : ThemeConstants.GALLERY_WATERFALL_MIN_W
+  }
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private currentColumns(): number {
+    return galleryWaterfallColumnCount(
+      this.measuredWidth,
+      this.effectiveMinWidth(),
+      this.gap,
+      this.horizontalPadding,
+    )
+  }
+
+  // Pinch IS the slider for minColumnWidth: width tracks the gesture continuously. The only constraint is
+  // that one gesture may cross at most one column boundary — the instant the column count changes we lock
+  // (pinchCommitted) so a single pinch can't skip from 3 to 5. The stored width is the organic value where
+  // the gesture landed, never a snapped/computed boundary. Column count is read only to lock + toast.
+  private applyPinch(scale: number): void {
+    if (this.pinchModeKey.length === 0 || this.pinchCommitted || this.measuredWidth <= 0) {
+      return
+    }
+    const next: number = clampColumnWidth(this.pinchStartW * scale)
+    this.listMode.setWidthFor(this.pinchModeKey, next)
+    const cols: number = galleryWaterfallColumnCount(
+      this.measuredWidth,
+      next,
+      this.gap,
+      this.horizontalPadding,
+    )
+    if (cols !== this.pinchStartCols) {
+      this.pinchCommitted = true
+      this.getUIContext()
+        .getPromptAction()
+        .showToast({
+          message:
+            cols > this.pinchStartCols
+              ? $r('app.string.column_density_more')
+              : $r('app.string.column_density_fewer'),
+          duration: 800,
+        })
+    }
   }
 
   @Builder
