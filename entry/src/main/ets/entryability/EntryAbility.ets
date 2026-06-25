@@ -32,6 +32,7 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     AppStrings.init(this.context)
+    DiagnosticLogger.initializePersistentSink(this.context)
     DiagnosticLogger.info('app', 'session_start', 'EntryAbility.onCreate')
     try {
       webview.WebviewController.initializeWebEngine()
@@ -99,6 +100,7 @@ export default class EntryAbility extends UIAbility {
       this.unwatch(this.mainWindow)
     }
     DiagnosticLogger.info('app', 'session_end', 'EntryAbility.onDestroy')
+    DiagnosticLogger.closePersistentSink()
   }
 
   private refreshSafeAreaInsets(win: window.Window, uiCtx: UIContext): void {

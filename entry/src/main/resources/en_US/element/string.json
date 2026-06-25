@@ -1950,7 +1950,7 @@
     },
     {
       "name": "advanced_diagnostics_hint",
-      "value": "Native NextE events are written to system HiLog for device debugging"
+      "value": "NextE keeps redacted local log files and mirrors events to system HiLog"
     },
     {
       "name": "advanced_write_marker",
@@ -1959,6 +1959,90 @@
     {
       "name": "advanced_marker_written",
       "value": "Diagnostic marker written"
+    },
+    {
+      "name": "diagnostics_enabled",
+      "value": "Keep diagnostics logs"
+    },
+    {
+      "name": "diagnostics_enabled_hint",
+      "value": "Stores redacted local logs for feedback and troubleshooting"
+    },
+    {
+      "name": "diagnostics_min_level",
+      "value": "Minimum level"
+    },
+    {
+      "name": "diagnostics_min_level_hint",
+      "value": "Lower levels keep more details and larger log files"
+    },
+    {
+      "name": "diagnostics_current_launch_recent_count",
+      "value": "Recent records this launch: %1$s"
+    },
+    {
+      "name": "retained_local_log_files_count_arg",
+      "value": "Retained local log files: %1$s"
+    },
+    {
+      "name": "no_local_log_files",
+      "value": "No retained log files yet"
+    },
+    {
+      "name": "diagnostics_export_current",
+      "value": "Export current diagnostics"
+    },
+    {
+      "name": "diagnostics_export_current_hint",
+      "value": "Create a redacted log file and open the system share sheet"
+    },
+    {
+      "name": "clear_boot_records",
+      "value": "Clear this launch records"
+    },
+    {
+      "name": "diagnostics_boot_records_cleared",
+      "value": "This launch records cleared"
+    },
+    {
+      "name": "no_log_files",
+      "value": "No log files"
+    },
+    {
+      "name": "reopen_keeps_logs",
+      "value": "Restart the app to create a retained diagnostics file"
+    },
+    {
+      "name": "current_log_with_time",
+      "value": "Current log · %1$s"
+    },
+    {
+      "name": "startup_log_with_time",
+      "value": "Startup log · %1$s"
+    },
+    {
+      "name": "diagnostics_log_file_share_hint",
+      "value": "%1$s · Tap to share"
+    },
+    {
+      "name": "no_diagnostics_logs",
+      "value": "No diagnostics logs"
+    },
+    {
+      "name": "diagnostics_copied",
+      "value": "Log text copied"
+    },
+    {
+      "name": "diagnostics_share_failed",
+      "value": "Unable to share diagnostics"
+    },
+    {
+      "name": "diagnostics_export_failed",
+      "value": "Unable to export diagnostics"
+    },
+    {
+      "name": "unknown_time",
+      "value": "Unknown time"
     },
     {
       "name": "filter_options",

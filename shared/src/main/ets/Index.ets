@@ -168,7 +168,11 @@ export { EhErrorText } from './i18n/EhErrorText'
 export { FavcatSlotResolver, FavcatSlotResolveResult } from './utils/FavcatSlotResolver'
 
 // diagnostics
-export { DiagnosticLogger } from './diagnostics/DiagnosticLogger'
+export { DiagnosticLogger, DiagnosticLogLevel } from './diagnostics/DiagnosticLogger'
+export { DiagnosticsLogFileSink, DiagnosticsLogFileInfo } from './diagnostics/DiagnosticsLogFileSink'
+export { DiagnosticsStore } from './diagnostics/DiagnosticsStore'
+export { DiagnosticsSettings, DiagnosticsSettingsSnapshot } from './settings/DiagnosticsSettings'
+export { DiagnosticsFileExport, DiagnosticsExportFile } from './settings/DiagnosticsFileExport'
 
 // utils
 export { ReaderImageTransformCoordinator } from './utils/ReaderImageTransformCoordinator'
@@ -256,6 +260,7 @@ export {
 export { SearchActionState, connectSearchAction } from './state/SearchActionState'
 export { AppColorFavoritesState, connectAppColorFavorites } from './state/AppColorFavoritesState'
 export { HomeTabAutoHideState, connectHomeTabAutoHide } from './state/HomeTabAutoHideState'
+export { DiagnosticsState, connectDiagnostics } from './state/DiagnosticsState'
 export {
   TagTranslationSettingsState,
   connectTagTranslationSettings,

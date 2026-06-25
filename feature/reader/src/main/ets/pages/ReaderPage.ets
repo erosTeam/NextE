@@ -2664,9 +2664,19 @@ struct ReaderImagePage {
             if (event && event.width && event.height) {
               this.intrinsicW = this.getUIContext().px2vp(event.width)
               this.intrinsicH = this.getUIContext().px2vp(event.height)
+              DiagnosticLogger.info(
+                'reader',
+                'image_decoded',
+                `page=${this.image.page} width=${event.width} height=${event.height} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
+              )
             } else if (event && event.componentWidth && event.componentHeight) {
               this.intrinsicW = event.componentWidth
               this.intrinsicH = event.componentHeight
+              DiagnosticLogger.info(
+                'reader',
+                'image_decoded_component',
+                `page=${this.image.page} width=${event.componentWidth} height=${event.componentHeight} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
+              )
             }
             this.autoRetryCount = 0
             this.imageLoaded = true
@@ -2986,6 +2996,11 @@ struct ReaderVerticalImage {
             this.onImageLoaded(this.image.page)
             if (e !== undefined && e.width > 0 && e.height > 0) {
               this.ratio = e.width / e.height
+              DiagnosticLogger.info(
+                'reader',
+                'image_decoded',
+                `page=${this.image.page} width=${e.width} height=${e.height} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
+              )
             }
           })
           .onError(() => {

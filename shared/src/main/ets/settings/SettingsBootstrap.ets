@@ -27,6 +27,7 @@ import { ToplistFilterSettings } from './ToplistFilterSettings'
 import { TagTranslationSettings } from './TagTranslationSettings'
 import { CommentTranslationSettings } from './CommentTranslationSettings'
 import { LocalBlockSettings } from './LocalBlockSettings'
+import { DiagnosticsSettings } from './DiagnosticsSettings'
 import { ThemeSettings } from './ThemeSettings'
 import { ThemeColorSettings } from './ThemeColorSettings'
 import { ImmersiveMaterialSettings } from './ImmersiveMaterialSettings'
@@ -77,6 +78,7 @@ export class SettingsBootstrap {
       await TagTranslationSettings.restore(context)
       await CommentTranslationSettings.restore(context)
       await LocalBlockSettings.restore(context)
+      await DiagnosticsSettings.restore(context)
       await DownloadSettings.restore(context)
       await DownloadQueueSettings.restore(context)
       await SecuritySettings.restore(context)

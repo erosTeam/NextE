@@ -1950,7 +1950,7 @@
     },
     {
       "name": "advanced_diagnostics_hint",
-      "value": "NextE のネイティブログは端末デバッグ用にシステム HiLog へ出力されます"
+      "value": "匿名化したローカルログを保持し、システム HiLog にも出力します"
     },
     {
       "name": "advanced_write_marker",
@@ -1959,6 +1959,90 @@
     {
       "name": "advanced_marker_written",
       "value": "診断マーカーを書き込みました"
+    },
+    {
+      "name": "diagnostics_enabled",
+      "value": "診断ログを保持"
+    },
+    {
+      "name": "diagnostics_enabled_hint",
+      "value": "フィードバックと調査用に匿名化したローカルログを保存します"
+    },
+    {
+      "name": "diagnostics_min_level",
+      "value": "最小レベル"
+    },
+    {
+      "name": "diagnostics_min_level_hint",
+      "value": "低いレベルほど詳細が増え、ログファイルも大きくなります"
+    },
+    {
+      "name": "diagnostics_current_launch_recent_count",
+      "value": "今回の起動ログ: %1$s"
+    },
+    {
+      "name": "retained_local_log_files_count_arg",
+      "value": "保持中のローカルログ: %1$s"
+    },
+    {
+      "name": "no_local_log_files",
+      "value": "保持中のログファイルはありません"
+    },
+    {
+      "name": "diagnostics_export_current",
+      "value": "現在の診断をエクスポート"
+    },
+    {
+      "name": "diagnostics_export_current_hint",
+      "value": "匿名化ログファイルを作成して共有シートを開きます"
+    },
+    {
+      "name": "clear_boot_records",
+      "value": "今回の起動ログを消去"
+    },
+    {
+      "name": "diagnostics_boot_records_cleared",
+      "value": "今回の起動ログを消去しました"
+    },
+    {
+      "name": "no_log_files",
+      "value": "ログファイルはありません"
+    },
+    {
+      "name": "reopen_keeps_logs",
+      "value": "アプリを再起動すると保持ログが作成されます"
+    },
+    {
+      "name": "current_log_with_time",
+      "value": "現在のログ · %1$s"
+    },
+    {
+      "name": "startup_log_with_time",
+      "value": "起動ログ · %1$s"
+    },
+    {
+      "name": "diagnostics_log_file_share_hint",
+      "value": "%1$s · タップして共有"
+    },
+    {
+      "name": "no_diagnostics_logs",
+      "value": "診断ログはありません"
+    },
+    {
+      "name": "diagnostics_copied",
+      "value": "ログテキストをコピーしました"
+    },
+    {
+      "name": "diagnostics_share_failed",
+      "value": "診断ログを共有できません"
+    },
+    {
+      "name": "diagnostics_export_failed",
+      "value": "診断ログをエクスポートできません"
+    },
+    {
+      "name": "unknown_time",
+      "value": "時刻不明"
     },
     {
       "name": "filter_options",

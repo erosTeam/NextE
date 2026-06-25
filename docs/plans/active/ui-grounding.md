@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: diagnostics log export
+
+Status: active
+Reference implementation: `../V2Next/shared/src/main/ets/diagnostics/*`, `../V2Next/shared/src/main/ets/settings/DiagnosticsSettings.ets`, `../V2Next/shared/src/main/ets/settings/DiagnosticsFileExport.ets`, and `../V2Next/feature/settings/src/main/ets/pages/DiagnosticsLogPage.ets`.
+Surface type: Settings diagnostics child page plus app lifecycle diagnostics sink.
+Primary information: redacted local diagnostics logs, retained startup log files, current launch record count, and the active minimum log level.
+Primary action: keep diagnostics enabled by default, export/share a redacted log file, share retained log files, clear this launch's in-memory records, or write a test marker for user-feedback correlation.
+Reuse or deviation: reuse NextE `SecondaryListScaffold` / `GroupedListSection` / `ConciseListRow` settings chrome and existing `AdvancedSettings` route; port NExt2V's redactor/store/file-sink/export structure while preserving NextE's existing `DiagnosticLogger.info(category,event,message)` call sites instead of rewriting the app around structured context objects in one lane.
+Verification: diagnostics logger contract, i18n duplicate check, secret safety contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 emulator settings path with a retained/shareable log file plus Hilog evidence from `manual_marker` and reader `image_decoded` dimensions.
+
 ## Active: reader original image display
 
 Status: active

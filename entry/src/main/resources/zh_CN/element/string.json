@@ -1950,7 +1950,7 @@
     },
     {
       "name": "advanced_diagnostics_hint",
-      "value": "NextE 原生日志写入系统 HiLog,用于设备调试"
+      "value": "保留脱敏本地日志，并同步写入系统 HiLog"
     },
     {
       "name": "advanced_write_marker",
@@ -1959,6 +1959,90 @@
     {
       "name": "advanced_marker_written",
       "value": "已写入诊断标记"
+    },
+    {
+      "name": "diagnostics_enabled",
+      "value": "保留诊断日志"
+    },
+    {
+      "name": "diagnostics_enabled_hint",
+      "value": "保存脱敏后的本地日志，便于反馈和排查问题"
+    },
+    {
+      "name": "diagnostics_min_level",
+      "value": "最低级别"
+    },
+    {
+      "name": "diagnostics_min_level_hint",
+      "value": "级别越低，保留的信息越多，日志文件也会更大"
+    },
+    {
+      "name": "diagnostics_current_launch_recent_count",
+      "value": "本次启动记录：%1$s"
+    },
+    {
+      "name": "retained_local_log_files_count_arg",
+      "value": "已保留本地日志文件：%1$s"
+    },
+    {
+      "name": "no_local_log_files",
+      "value": "暂无保留的日志文件"
+    },
+    {
+      "name": "diagnostics_export_current",
+      "value": "导出当前诊断"
+    },
+    {
+      "name": "diagnostics_export_current_hint",
+      "value": "生成脱敏日志文件并打开系统分享"
+    },
+    {
+      "name": "clear_boot_records",
+      "value": "清除本次启动记录"
+    },
+    {
+      "name": "diagnostics_boot_records_cleared",
+      "value": "已清除本次启动记录"
+    },
+    {
+      "name": "no_log_files",
+      "value": "没有日志文件"
+    },
+    {
+      "name": "reopen_keeps_logs",
+      "value": "重启应用后会生成可保留的诊断日志"
+    },
+    {
+      "name": "current_log_with_time",
+      "value": "当前日志 · %1$s"
+    },
+    {
+      "name": "startup_log_with_time",
+      "value": "启动日志 · %1$s"
+    },
+    {
+      "name": "diagnostics_log_file_share_hint",
+      "value": "%1$s · 点击分享"
+    },
+    {
+      "name": "no_diagnostics_logs",
+      "value": "暂无诊断日志"
+    },
+    {
+      "name": "diagnostics_copied",
+      "value": "已复制日志文本"
+    },
+    {
+      "name": "diagnostics_share_failed",
+      "value": "无法分享诊断日志"
+    },
+    {
+      "name": "diagnostics_export_failed",
+      "value": "无法导出诊断日志"
+    },
+    {
+      "name": "unknown_time",
+      "value": "未知时间"
     },
     {
       "name": "filter_options",

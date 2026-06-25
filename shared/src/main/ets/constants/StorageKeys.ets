@@ -57,6 +57,8 @@ export class StorageKeys {
   static readonly COMMENT_TRANSLATION_API_KEY: string = 'commentTranslation.apiKey'
   static readonly COMMENT_TRANSLATION_MODEL: string = 'commentTranslation.model'
   static readonly LOCAL_BLOCK_RULES: string = 'localBlock.rules'
+  static readonly DIAGNOSTICS_ENABLED: string = 'diagnostics.enabled'
+  static readonly DIAGNOSTICS_MIN_LEVEL: string = 'diagnostics.minLevel'
 
   // sensitive auth bundle (redacted in logs, never committed)
   static readonly COOKIE_JAR: string = 'auth.cookieJar'
