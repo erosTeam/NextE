@@ -1,7 +1,12 @@
 import { common } from '@kit.AbilityKit'
+import { display } from '@kit.ArkUI'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { PullRefresh, PullRefreshController } from './PullRefresh'
-import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeAreaState'
+import {
+  connectLayoutSafeArea,
+  LayoutSafeAreaState,
+  LayoutSafeAreaBridge,
+} from '../state/LayoutSafeAreaState'
 import { connectListMode, ListModeState } from '../state/ListModeState'
 import { ListModeSettings } from '../settings/ListModeSettings'
 import { galleryWaterfallColumnCount, clampColumnWidth } from '../utils/GalleryColumns'
@@ -106,13 +111,22 @@ export struct PullRefreshWaterFlowScaffold {
           })
           .onActionEnd(() => {
             if (this.pinchModeKey.length > 0) {
-              ListModeSettings.setColumnWidth(this.ctx(), this.pinchModeKey, this.effectiveMinWidth())
+              ListModeSettings.setColumnWidth(
+                this.ctx(),
+                this.pinchModeKey,
+                this.effectiveMinWidth(),
+              )
             }
             this.pinchCommitted = false
           }),
       )
       .onAreaChange((_oldValue: Area, newValue: Area) => {
-        this.measuredWidth = this.parseAreaWidth(newValue)
+        const w: number = this.parseAreaWidth(newValue)
+        this.measuredWidth = w
+        // Warm the shared cache so the next remount can pick the correct column count on its first frame.
+        if (w > 0) {
+          LayoutSafeAreaBridge.publishGalleryContentWidth(w)
+        }
       })
       .onReachEnd(() => {
         if (this.onReachEnd) {
@@ -161,11 +175,33 @@ export struct PullRefreshWaterFlowScaffold {
 
   private contentColumnCount(): number {
     return galleryWaterfallColumnCount(
-      this.measuredWidth,
+      this.effectiveMeasuredWidth(),
       this.effectiveMinWidth(),
       this.gap,
       this.horizontalPadding,
     )
+  }
+
+  // Width to derive the column count from on the FIRST frame, before onAreaChange has measured this
+  // component. Prefer the real measurement; before that the shared cached gallery width (precise, kept
+  // fresh / invalidated on fold by EntryAbility); last resort the live screen width — anything but the
+  // fixed 2-column default the pure helper falls back to when handed 0.
+  private effectiveMeasuredWidth(): number {
+    if (this.measuredWidth > 0) {
+      return this.measuredWidth
+    }
+    if (this.layout.galleryContentWidth > 0) {
+      return this.layout.galleryContentWidth
+    }
+    return this.screenWidthFallback()
+  }
+
+  private screenWidthFallback(): number {
+    try {
+      return this.getUIContext().px2vp(display.getDefaultDisplaySync().width)
+    } catch (_error) {
+      return 0
+    }
   }
 
   // Pinch/slider override (when pinchModeKey set) wins over the base minColumnWidth param.
@@ -227,10 +263,8 @@ export struct PullRefreshWaterFlowScaffold {
     FlowItem() {
       Column() {
         Blank().height(this.topSpacerHeight())
-      }
-      .width('100%')
-    }
-    .width('100%')
+      }.width('100%')
+    }.width('100%')
   }
 
   @Builder
@@ -250,10 +284,8 @@ export struct PullRefreshWaterFlowScaffold {
           })
         }
         Blank().height(this.bottomSpacerHeight())
-      }
-      .width('100%')
-    }
-    .width('100%')
+      }.width('100%')
+    }.width('100%')
   }
 
   private parseAreaWidth(value: Area): number {

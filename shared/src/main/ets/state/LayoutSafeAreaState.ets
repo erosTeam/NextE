@@ -18,6 +18,11 @@ export class LayoutSafeAreaState {
   @Trace topAvoidHeight: number = 0
   @Trace bottomAvoidHeight: number = 0
   @Trace keyboardHeight: number = 0
+  // Last measured gallery list content width (vp), cached so a remounting WaterFlow can compute its column
+  // count on the FIRST frame instead of falling back to a fixed default. Written by the list scaffolds
+  // (onAreaChange) and invalidated to 0 by EntryAbility on window-size change (fold/unfold, rotation,
+  // split-screen) so a stale pre-fold width never sticks. 0 = unknown.
+  @Trace galleryContentWidth: number = 0
 }
 
 // Single app-wide AppStorageV2 key for the shared safe-area state object.
@@ -57,6 +62,14 @@ export class LayoutSafeAreaBridge {
     const state = connectLayoutSafeArea()
     if (state.keyboardHeight !== keyboardHeight) {
       state.keyboardHeight = keyboardHeight
+    }
+  }
+
+  // Cache the last measured gallery content width (or pass 0 to invalidate on window-size change).
+  static publishGalleryContentWidth(width: number): void {
+    const state = connectLayoutSafeArea()
+    if (state.galleryContentWidth !== width) {
+      state.galleryContentWidth = width
     }
   }
 }

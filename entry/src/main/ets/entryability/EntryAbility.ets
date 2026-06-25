@@ -142,6 +142,9 @@ export default class EntryAbility extends UIAbility {
     }
     this.windowSizeChangeCallback = (_size: window.Size) => {
       this.refreshSafeAreaInsets(win, uiCtx)
+      // Window width changed (fold/unfold, rotation, split-screen): drop the cached gallery content width
+      // so a remounting list recomputes its column count from the new width, not the stale pre-fold one.
+      LayoutSafeAreaBridge.publishGalleryContentWidth(0)
     }
     try {
       win.on('avoidAreaChange', this.avoidAreaChangeCallback)
@@ -180,7 +183,10 @@ export default class EntryAbility extends UIAbility {
 
   private captureIncomingUrl(want: Want): void {
     const uri: string = (want?.uri ?? '').trim()
-    if (uri === InternalQaRoutes.COVER_FALLBACK_PROBE_URI) {
+    if (
+      uri === InternalQaRoutes.COVER_FALLBACK_PROBE_URI ||
+      uri === InternalQaRoutes.READER_GESTURE_PROBE_URI
+    ) {
       publishPendingEhUrl(`${Date.now()}:${uri}`)
       return
     }
