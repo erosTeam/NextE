@@ -13,6 +13,7 @@ import {
   ImageResolveService,
   CachedImageFileService,
   DiagnosticLogger,
+  connectThemeDisplay,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
   connectReadMode,
@@ -39,6 +40,7 @@ const READER_BOTTOM_TOOLBAR_HEIGHT: number = 112
 const READER_PROGRESS_NUMBER_MIN_W: number = 30
 const READER_PROGRESS_SLIDER_GAP: number = 4
 const READER_IMAGE_WARM_AHEAD: number = 2
+const READER_ZOOM_ANIM_DURATION: number = 180
 class ReaderSpreadResolver {
   static isDoublePage(mode: string, columnMode: string): boolean {
     return mode !== ReadMode.VERTICAL && columnMode !== ReadColumnMode.SINGLE
@@ -291,6 +293,7 @@ export struct ReaderPage {
       // restored on aboutToDisappear. The app is already edge-to-edge fullscreen (EntryAbility), so the
       // reader doesn't re-enter fullscreen — the black canvas + faded chrome is the immersive surface.
       this.setReaderKeepScreenOn(true)
+      this.setReaderStatusIconsHidden(true)
       this.requestReaderKeyFocus()
       this.registerVolumeKeyConsumer()
     })
@@ -407,6 +410,17 @@ export struct ReaderPage {
       .getLastWindow(this.hostContext())
       .then((win: window.Window) => {
         win.setWindowKeepScreenOn(active).catch((_e: Error) => {})
+      })
+      .catch((_e: Error) => {})
+  }
+
+  private setReaderStatusIconsHidden(hidden: boolean): void {
+    const restoreColor: string = connectThemeDisplay().effectiveDark ? '#FFFFFFFF' : '#FF000000'
+    const contentColor: string = hidden ? '#00000000' : restoreColor
+    window
+      .getLastWindow(this.hostContext())
+      .then((win: window.Window) => {
+        win.setWindowSystemBarProperties({ statusBarContentColor: contentColor }).catch((_e: Error) => {})
       })
       .catch((_e: Error) => {})
   }
@@ -662,6 +676,7 @@ export struct ReaderPage {
     this.unregisterVolumeKeyConsumer()
     // Always restore (fires on NavDestination pop, incl. swipe-back) so the wakelock never leaks.
     this.setReaderKeepScreenOn(false)
+    this.setReaderStatusIconsHidden(false)
   }
 
   private autoReadIntervalMs(): number {
@@ -1840,6 +1855,7 @@ struct ReaderSpreadSurface {
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
   @Local offsetY: number = 0;
+  @Local zoomAnimating: boolean = false;
   @Local firstIntrinsicW: number = 0;
   @Local firstIntrinsicH: number = 0;
   @Local secondIntrinsicW: number = 0;
@@ -1856,6 +1872,7 @@ struct ReaderSpreadSurface {
   private compW: number = 0;
   private compH: number = 0;
   private lastZoomed: boolean = false;
+  private zoomAnimatingTimerId: number = 0;
 
   private includesPage(page: number): boolean {
     if (this.hasFirst && this.first.page === page) {
@@ -1946,6 +1963,18 @@ struct ReaderSpreadSurface {
     this.offsetY = 0
   }
 
+  private beginZoomAnimation(): void {
+    if (this.zoomAnimatingTimerId > 0) {
+      clearTimeout(this.zoomAnimatingTimerId)
+      this.zoomAnimatingTimerId = 0
+    }
+    this.zoomAnimating = true
+    this.zoomAnimatingTimerId = setTimeout((): void => {
+      this.zoomAnimating = false
+      this.zoomAnimatingTimerId = 0
+    }, READER_ZOOM_ANIM_DURATION + ThemeConstants.ANIM_DONE_DELAY_MS)
+  }
+
   private notifyZoom(): void {
     const zoomed: boolean = ReaderZoomCoordinator.isZoomed(this.zoomScale)
     if (zoomed !== this.lastZoomed) {
@@ -1955,22 +1984,19 @@ struct ReaderSpreadSurface {
   }
 
   private onDoubleTap(tapX: number, tapY: number): void {
+    this.beginZoomAnimation()
     if (ReaderZoomCoordinator.doubleTapTarget(this.zoomScale) === 1) {
-      this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
-        this.resetZoom()
-        this.notifyZoom()
-      })
+      this.resetZoom()
+      this.notifyZoom()
       return
     }
     const target: number = DOUBLE_TAP_SCALE
     const nextX: number = ReaderZoomCoordinator.doubleTapOffset(tapX, this.compW, target)
     const nextY: number = ReaderZoomCoordinator.doubleTapOffset(tapY, this.compH, target)
-    this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
-      this.zoomScale = target
-      this.offsetX = this.clampOffsetX(nextX, target)
-      this.offsetY = this.clampOffsetY(nextY, target)
-      this.notifyZoom()
-    })
+    this.zoomScale = target
+    this.offsetX = this.clampOffsetX(nextX, target)
+    this.offsetY = this.clampOffsetY(nextY, target)
+    this.notifyZoom()
   }
 
   private recordImageMetrics(page: number, width: number, height: number): void {
@@ -2024,6 +2050,7 @@ struct ReaderSpreadSurface {
       .height('100%')
       .scale({ x: this.zoomScale, y: this.zoomScale })
       .translate({ x: this.offsetX, y: this.offsetY })
+      .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
     }
     .width('100%')
     .height('100%')
@@ -2361,6 +2388,7 @@ struct ReaderImagePage {
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
   @Local offsetY: number = 0;
+  @Local zoomAnimating: boolean = false;
   @Local intrinsicW: number = 0;
   @Local intrinsicH: number = 0;
 
@@ -2380,6 +2408,7 @@ struct ReaderImagePage {
   private lastZoomed: boolean = false;
   private autoRetryCount: number = 0;
   private loadSeq: number = 0;
+  private zoomAnimatingTimerId: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -2610,6 +2639,18 @@ struct ReaderImagePage {
     this.baseOffsetY = 0
   }
 
+  private beginZoomAnimation(): void {
+    if (this.zoomAnimatingTimerId > 0) {
+      clearTimeout(this.zoomAnimatingTimerId)
+      this.zoomAnimatingTimerId = 0
+    }
+    this.zoomAnimating = true
+    this.zoomAnimatingTimerId = setTimeout((): void => {
+      this.zoomAnimating = false
+      this.zoomAnimatingTimerId = 0
+    }, READER_ZOOM_ANIM_DURATION + ThemeConstants.ANIM_DONE_DELAY_MS)
+  }
+
   private notifyZoom(): void {
     const zoomed: boolean = ReaderZoomCoordinator.isZoomed(this.zoomScale)
     if (zoomed !== this.lastZoomed) {
@@ -2619,24 +2660,21 @@ struct ReaderImagePage {
   }
 
   private onDoubleTap(tapX: number, tapY: number): void {
+    this.beginZoomAnimation()
     if (ReaderZoomCoordinator.doubleTapTarget(this.zoomScale) === 1) {
-      this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
-        this.resetZoom()
-        this.notifyZoom()
-      })
+      this.resetZoom()
+      this.notifyZoom()
     } else {
       const target: number = DOUBLE_TAP_SCALE
       const nextX: number = ReaderZoomCoordinator.doubleTapOffset(tapX, this.compW, target)
       const nextY: number = ReaderZoomCoordinator.doubleTapOffset(tapY, this.compH, target)
-      this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
-        this.zoomScale = target
-        this.baseZoom = target
-        this.offsetX = this.clampOffsetX(nextX, target)
-        this.offsetY = this.clampOffsetY(nextY, target)
-        this.baseOffsetX = this.offsetX
-        this.baseOffsetY = this.offsetY
-        this.notifyZoom()
-      })
+      this.zoomScale = target
+      this.baseZoom = target
+      this.offsetX = this.clampOffsetX(nextX, target)
+      this.offsetY = this.clampOffsetY(nextY, target)
+      this.baseOffsetX = this.offsetX
+      this.baseOffsetY = this.offsetY
+      this.notifyZoom()
     }
   }
 
@@ -2661,6 +2699,7 @@ struct ReaderImagePage {
           .draggable(false)
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
+          .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
           .onComplete((event?: ReaderImageLoadEvent) => {
             if (event && event.width && event.height) {
               this.intrinsicW = this.getUIContext().px2vp(event.width)
