@@ -283,6 +283,7 @@ export { AuthState, connectAuth } from './state/AuthState'
 export { AccountListState, connectAccountList } from './state/AccountListState'
 export {
   HomeSourceState,
+  HomeSourceBridge,
   connectHomeSource,
   SELECTOR_BAR_HEIGHT,
   TabVisualIndexState,

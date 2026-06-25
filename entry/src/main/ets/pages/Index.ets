@@ -32,6 +32,7 @@ import {
   AuthState,
   connectFavSelection,
   FavSelectionBridge,
+  HomeSourceBridge,
   connectHomeTabAutoHide,
   HomeTabAutoHideState,
   SearchPageParams,
@@ -416,8 +417,22 @@ struct Index {
         this.openSearch()
       },
     }
-    const items: Record<string, Object>[] = [{ 'content': searchInner }, this.backToTopMenuItem()]
-    return { 'value': items, 'maxCount': 2 }
+    // Quick list-layout switcher (mirrors the 收藏 order action): the icon can't anchor a Menu, so it
+    // asks HomePage (which owns an anchor node) to open the native layout dropdown via the command bus.
+    const layoutInner: Record<string, Object> = {
+      'label': $r('app.string.settings_view'),
+      'icon': $r('sys.symbol.square_grid_2x2'),
+      'isEnabled': true,
+      'action': () => {
+        HomeSourceBridge.publishOpenLayoutMenu()
+      },
+    }
+    const items: Record<string, Object>[] = [
+      { 'content': searchInner },
+      { 'content': layoutInner },
+      this.backToTopMenuItem(),
+    ]
+    return { 'value': items, 'maxCount': 3 }
   }
 
   private topOnlyMenu(): Record<string, Object> {

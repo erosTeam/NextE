@@ -18,6 +18,22 @@ export class HomeSourceState {
   // Toplist tab period: tl 11 all-time / 12 year / 13 month / 15 yesterday. Defaults to yesterday
   // (eros_fe's default ranking view — ehsetting_service.dart:144 / default_tabview_controller.dart:58).
   @Trace toplistTl: number = 15
+
+  // ---- command bus: title bar → page (single-writer HomeSourceBridge; HomePage @Monitors cmdSeq) ----
+  // HDS title-bar icons can't anchor a Menu, so the layout icon asks HomePage (which owns an anchor node)
+  // to open the native list-layout dropdown. Command kind: '' | 'openLayoutMenu'.
+  @Trace cmdKind: string = ''
+  // Monotonic sequence so a repeated identical command still fires the page's @Monitor.
+  @Trace cmdSeq: number = 0
+}
+
+/** Single writer for the title-bar → gallery-page command bus (mirrors FavSelectionBridge). */
+export class HomeSourceBridge {
+  static publishOpenLayoutMenu(): void {
+    const s: HomeSourceState = connectHomeSource()
+    s.cmdKind = 'openLayoutMenu'
+    s.cmdSeq = s.cmdSeq + 1
+  }
 }
 
 const HOME_SOURCE_V2_KEY: string = 'v2:homeSource'
