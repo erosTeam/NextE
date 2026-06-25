@@ -65,7 +65,7 @@ ok(!/GalleryRemoteFavoriteParams|GalleryRemoteFavoritePage|name === 'GalleryRemo
   'remote favorite no longer registers a separate route')
 ok(/@Local\s+detailSheetShown:\s*boolean\s*=\s*false/.test(detail) &&
   /@Local\s+detailSheetKind:\s*string\s*=\s*''/.test(detail) &&
-  /\.bindSheet\(\$\$this\.detailSheetShown,\s*this\.DetailSheet\(\),\s*\{[\s\S]*detents:\s*this\.detailSheetDetents\(\)[\s\S]*showClose:\s*false/.test(detail),
+  /\.bindSheet\(\$\$this\.detailSheetShown,\s*this\.DetailSheet\(\),\s*appSheetOptions\(\{[\s\S]*detents:\s*this\.detailSheetDetents\(\)[\s\S]*showClose:\s*false/.test(detail),
   'detail hosts all modal sheets through one bindSheet host so false sibling sheets cannot close the favorite sheet')
 ok(!/\.bindSheet\(\$\$this\.remoteFavoriteSheetShown/.test(detail) &&
   !/\.bindSheet\(\$\$this\.ratingSheetShown/.test(detail) &&
@@ -87,8 +87,8 @@ ok(/HdsNavigationTitleMode\.MODAL/.test(modal) && /HdsNavigation/.test(modal),
   'AppModalScaffold renders an HDS modal navigation shell')
 ok(/closeIcon:\s*Resource\s*=\s*\$r\('sys\.symbol\.xmark'\)/.test(modal) &&
   /confirmIcon:\s*Resource\s*=\s*\$r\('sys\.symbol\.checkmark'\)/.test(modal) &&
-  /subIcon:\s*\{[\s\S]*icon:\s*this\.closeIcon/.test(modal) &&
-  /menu:\s*\{[\s\S]*icon:\s*this\.confirmIcon/.test(modal),
+  /subIcon:\s*this\.closeInMenu \? undefined : \{[\s\S]*icon:\s*this\.closeIcon/.test(modal) &&
+  /menu:\s*\{[\s\S]*this\.showConfirmAction \? \[\{[\s\S]*icon:\s*this\.confirmIcon/.test(modal),
   'AppModalScaffold supplies left cancel and right confirm actions')
 ok(/IconStyleMode\.SMALL/.test(modal) && /confirmEnabled/.test(modal) && /confirmLoading/.test(modal),
   'AppModalScaffold uses HDS small title actions with enabled/loading state')
@@ -105,6 +105,9 @@ ok(/RemoteFavoriteSlotCacheState/.test(detail) &&
   /this\.remoteFavoriteSlots\s*=\s*this\.copyFavcats\(this\.favoriteSlotCache\.favcats\)/.test(detail) &&
   /this\.favoriteSlotCache\.update\(info\.favcats\)/.test(detail),
   'favorite sheet uses an account-level real favcat cache across different galleries')
+ok(/FavcatListSettings/.test(detail) &&
+  /await FavcatListSettings\.persist\(this\.ctx\(\), info\.favcats\)/.test(detail),
+  'favorite popup refresh persists authoritative folder names for cold-start sheet cache')
 ok(/if \(this\.remoteFavoriteSlots\.length === 0 && this\.favoriteSlotCache\.favcats\.length > 0\)[\s\S]*this\.openDetailSheet\(DETAIL_SHEET_REMOTE_FAVORITE\)/.test(remoteDetail),
   'cross-gallery sheet opens with cached real favcat slots before the background popup refresh')
 ok(/catch \(e\) \{[\s\S]*this\.remoteFavoriteError = EhErrorText\.forUser\(e\)[\s\S]*\} finally/.test(remoteDetail) &&
@@ -113,7 +116,7 @@ ok(/catch \(e\) \{[\s\S]*this\.remoteFavoriteError = EhErrorText\.forUser\(e\)[\
 ok(/RemoteFavoriteSlotCacheState/.test(sharedIndex) &&
   /favcats: Favcat\[\]/.test(mutationState + read('shared/src/main/ets/state/RemoteFavoriteSlotCacheState.ets')),
   'remote favorite slot cache is exported as shared V2 state')
-ok(!/connectFavSelection\(\)|this\.favSelection\.favList|FavcatListSettings/.test(detail),
+ok(!/connectFavSelection\(\)|this\.favSelection\.favList/.test(detail),
   'detail sheet does not seed fake or stale favorite-folder names from favorites tab cache')
 ok(!/remoteFavoriteSelectedCat\s*=\s*info\.favcats\.length > 0 \? info\.favcats\[0\]\.favId : ''/.test(detail) &&
   !/remoteFavoriteSelectedCat\s*=\s*info\.favcats\[0\]\.favId/.test(detail),
@@ -186,7 +189,7 @@ ok(/const nextFavcat:\s*string\s*=\s*favcat === 'favdel' \? '' : favcat/.test(de
 ok(/const previousFavcat:\s*string\s*=\s*this\.vm\.gallery\.favcat/.test(detail) &&
   /this\.vm\.applyRemoteFavoriteState\(nextFavcat, nextFavTitle, nextFavNote\)[\s\S]*this\.closeDetailSheet\(\)[\s\S]*try \{/.test(detail),
   'remote favorite submit optimistically closes the sheet and updates UI before waiting for the network')
-ok(/catch \(e\) \{[\s\S]*this\.vm\.applyRemoteFavoriteState\(previousFavcat, previousFavTitle, previousFavNote\)[\s\S]*this\.favoriteMutation\.publish\(this\.params\.gid, previousFavcat, previousFavTitle, previousFavNote\)[\s\S]*openToast/.test(detail),
+ok(/catch \(e\) \{[\s\S]*this\.vm\.applyRemoteFavoriteState\(previousFavcat, previousFavTitle, previousFavNote\)[\s\S]*this\.favoriteMutation\.publish\([\s\S]*this\.params\.gid,[\s\S]*previousFavcat,[\s\S]*previousFavTitle,[\s\S]*previousFavNote,[\s\S]*\)[\s\S]*openToast/.test(detail),
   'remote favorite submit failure rolls detail/list state back and reports the error by toast')
 ok(/applyRemoteFavoriteState\(favcat: string, favTitle: string, favNote: string\)/.test(detailVm) &&
   /next\.favcat\s*=\s*favcat/.test(detailVm) &&

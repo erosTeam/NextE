@@ -5,8 +5,8 @@ const REMOTE_FAVORITE_SLOT_CACHE_KEY: string = 'v2:remoteFavoriteSlotCache'
 
 /**
  * Account-level cache for the EH favorite folder list used by gallery add/remove sheets.
- * It is written only from the gallery favorite popup parser, so new gallery sheets can paint real
- * folder names immediately without borrowing placeholder names from the Favorites tab selector.
+ * It is written from the gallery favorite popup and restored from the persisted favcat snapshot, so new
+ * gallery sheets can paint real folder names immediately without borrowing placeholder selector rows.
  */
 @ObservedV2
 export class RemoteFavoriteSlotCacheState {

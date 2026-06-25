@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: remote favorite folder cache
+
+Status: active
+Reference implementation: existing `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` remote favorite sheet cache path, `shared/src/main/ets/settings/FavcatListSettings.ets` persisted favcat snapshot, and eros_fe profile-backed favorite category metadata.
+Surface type: gallery detail favorite selection half-modal data source only; no visual layout change.
+Primary information: favorite-folder names should appear from the last real cached snapshot immediately, then update from the authoritative gallery favorite popup response.
+Primary action: open the existing favorite selection sheet; choose/remove a remote favorite folder after the background popup refresh reconciles current state.
+Reuse or deviation: reuse the existing `RemoteFavoriteSlotCacheState` and `FavcatListSettings` snapshot instead of creating a second cache; deviate by letting popup refreshes persist names while preserving previous nonzero counts when the popup supplies names without counts.
+Verification: favcat snapshot contract, gallery remote favorite sheet contract, favorites selector contract, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
+
 ## Active: diagnostics log export
 
 Status: active

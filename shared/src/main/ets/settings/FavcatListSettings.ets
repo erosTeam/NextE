@@ -4,6 +4,7 @@ import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { Favcat } from '../model/Favcat'
 import { connectFavSelection, FavSelectionState } from '../state/FavSelectionState'
+import { connectRemoteFavoriteSlotCache } from '../state/RemoteFavoriteSlotCacheState'
 
 /** Persisted snapshot of the remote 0-9 favorite categories. */
 class FavcatSnapshot {
@@ -31,6 +32,7 @@ export class FavcatListSettings {
       const restored: Favcat[] = FavcatListSettings.parse(raw)
       if (restored.length > 0) {
         connectFavSelection().favList = restored
+        connectRemoteFavoriteSlotCache().update(restored)
       }
     } catch (error) {
       DiagnosticLogger.warn('settings', 'favcat_restore_failed', (error as Error).message)
@@ -39,14 +41,18 @@ export class FavcatListSettings {
 
   static async persist(context: common.UIAbilityContext, favcats: Favcat[]): Promise<void> {
     try {
-      const snap: FavcatSnapshot[] = FavcatListSettings.snapshot(favcats)
-      if (snap.length === 0) {
-        return
-      }
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
+      const previousRaw: string = store.getSync(StorageKeys.FAVORITES_FAVCATS, '[]') as string
+      const previous: Favcat[] = FavcatListSettings.parse(previousRaw)
+      const snap: FavcatSnapshot[] = FavcatListSettings.snapshot(
+        FavcatListSettings.mergeWithPreviousCounts(previous, favcats),
+      )
+      if (snap.length === 0) {
+        return
+      }
       store.putSync(StorageKeys.FAVORITES_FAVCATS, JSON.stringify(snap))
       store.flushSync()
     } catch (error) {
@@ -64,6 +70,28 @@ export class FavcatListSettings {
         s.totNum = f.totNum >= 0 ? f.totNum : 0
         out.push(s)
       }
+    })
+    return out
+  }
+
+  private static mergeWithPreviousCounts(previous: Favcat[], incoming: Favcat[]): Favcat[] {
+    const byId: Map<string, Favcat> = new Map<string, Favcat>()
+    previous.forEach((f: Favcat) => {
+      byId.set(f.favId, f)
+    })
+    const out: Favcat[] = []
+    incoming.forEach((f: Favcat) => {
+      const next: Favcat = new Favcat(f.favId, f.favTitle, f.totNum, f.isPlaceholder)
+      const old: Favcat | undefined = byId.get(f.favId)
+      if (
+        old !== undefined &&
+        next.totNum === 0 &&
+        old.totNum > 0 &&
+        next.favTitle === old.favTitle
+      ) {
+        next.totNum = old.totNum
+      }
+      out.push(next)
     })
     return out
   }

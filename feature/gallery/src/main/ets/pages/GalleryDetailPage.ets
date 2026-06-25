@@ -57,6 +57,7 @@ import {
   AppModalScaffold,
   RatingStars,
   GalleryRatingResult,
+  FavcatListSettings,
   immersiveTitleBarOpts,
   connectTagTranslationSettings,
   TagTranslationSettingsState,
@@ -926,6 +927,7 @@ export struct GalleryDetailPage {
       this.remoteFavoriteSlots = info.favcats
       if (info.favcats.length > 0) {
         this.favoriteSlotCache.update(info.favcats)
+        await FavcatListSettings.persist(this.ctx(), info.favcats)
       }
       const selectedStillExists: boolean =
         info.favcats.findIndex((fav: Favcat) => fav.favId === this.remoteFavoriteSelectedCat) >= 0

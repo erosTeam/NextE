@@ -62,6 +62,9 @@ ok('FavSelectionState computes all-favorites aggregate from remote 0-9 slots onl
     /static isRemoteSlot\(favId: string\): boolean \{[\s\S]*n >= 0 && n <= 9/.test(favState))
 ok('FavcatListSettings writes restored snapshot into FavSelectionState',
   /connectFavSelection\(\)\.favList = restored/.test(settings))
+ok('FavcatListSettings also hydrates the remote favorite sheet cache on cold start',
+  /import \{ connectRemoteFavoriteSlotCache \} from '\.\.\/state\/RemoteFavoriteSlotCacheState'/.test(settings) &&
+    /connectRemoteFavoriteSlotCache\(\)\.update\(restored\)/.test(settings))
 ok('FavcatListSettings uses the shared preferences store and key',
   /preferences\.getPreferences\([\s\S]*StorageKeys\.STORE_SETTINGS/.test(settings) &&
     /StorageKeys\.FAVORITES_FAVCATS/.test(settings))
@@ -72,6 +75,9 @@ ok('FavcatListSettings never persists restored placeholder favcats over real met
     /if \(!FavSelectionState\.isPlaceholderFavcat\(restored\)\) \{[\s\S]*out\.push\(restored\)/.test(settings))
 ok('FavcatListSettings avoids persisting an empty snapshot over a good one',
   /if \(snap\.length === 0\) \{[\s\S]*return[\s\S]*\}/.test(settings))
+ok('FavcatListSettings preserves existing counts when a gallery popup refresh only supplies names',
+  /mergeWithPreviousCounts\(previous: Favcat\[\], incoming: Favcat\[\]\): Favcat\[\]/.test(settings) &&
+    /next\.totNum === 0[\s\S]*old\.totNum > 0[\s\S]*next\.favTitle === old\.favTitle[\s\S]*next\.totNum = old\.totNum/.test(settings))
 ok('FavcatListSettings parses defensively and sorts by numeric favId',
   /JSON\.parse\(raw\)/.test(settings) &&
     /Array\.isArray\(parsed\)/.test(settings) &&
@@ -116,8 +122,8 @@ ok('FavcatPage re-resolves visible rows when shared favcat metadata changes or p
 ok('FavcatPage obtains a UIAbilityContext for persistence',
   /private ctx\(\): common\.UIAbilityContext \{[\s\S]*this\.getUIContext\(\)\.getHostContext\(\) as common\.UIAbilityContext/.test(favcatPage))
 ok('FavcatBar shows the synthetic all-favorites aggregate count',
-  /new TabItem\('a',\s*\$r\('app\.string\.favorites_all'\),\s*this\.fav\.remoteTotalCount\(\)\)/.test(favcatBar) &&
-    /new TabItem\(fc\.favId,\s*fc\.favTitle\)/.test(favcatBar))
+  /new TabItem\('a',\s*\$r\('app\.string\.favorites_all'\),\s*this\.fav\.remoteTotalCount\(\)/.test(favcatBar) &&
+    /new TabItem\(fc\.favId,\s*fc\.favTitle/.test(favcatBar))
 ok('FavoriteSelectorPage shows the same aggregate for 全部',
   /new Favcat\('a',\s*AppStrings\.get\('favorites_all'\),\s*this\.fav\.remoteTotalCount\(\)\)/.test(favSelector))
 
@@ -168,6 +174,17 @@ const mergeFavcatMetadata = (current, incoming) => {
   }
   return current
 }
+const mergeWithPreviousCounts = (previous, incoming) => {
+  const byId = new Map(previous.map((f) => [f.favId, f]))
+  return incoming.map((f) => {
+    const next = { ...f }
+    const old = byId.get(f.favId)
+    if (old !== undefined && next.totNum === 0 && old.totNum > 0 && next.favTitle === old.favTitle) {
+      next.totNum = old.totNum
+    }
+    return next
+  })
+}
 const realFavcatTitleMap = (favcats) => {
   const byTitle = new Map()
   for (const f of favcats) {
@@ -216,6 +233,13 @@ assert.deepStrictEqual(
   { favId: '2', favTitle: 'My Real Slot', totNum: 123 },
 )
 assert.deepStrictEqual(
+  snapshot(mergeWithPreviousCounts(
+    [{ favId: '2', favTitle: 'My Real Slot', totNum: 123 }],
+    [{ favId: '2', favTitle: 'My Real Slot', totNum: 0 }],
+  )),
+  [{ favId: '2', favTitle: 'My Real Slot', totNum: 123 }],
+)
+assert.deepStrictEqual(
   resolveVisibleFavoriteSlots(
     [{ gid: '100', favTitle: 'Real Slot 2', favcat: '' }],
     [{ favId: '2', favTitle: 'Favorites 2', totNum: 0, isPlaceholder: true }],
@@ -235,6 +259,6 @@ assert.strictEqual(remoteTotalCount([
   { favId: 'l', favTitle: 'Local', totNum: 3 },
   { favId: '0', favTitle: 'Default', totNum: 4 },
 ]), 613)
-passed += 7
+passed += 8
 
 console.log(`✓ favcat snapshot contract: ${passed} assertions passed`)
