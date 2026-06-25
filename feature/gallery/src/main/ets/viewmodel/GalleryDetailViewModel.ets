@@ -290,8 +290,12 @@ export class GalleryDetailViewModel {
     for (let i = 0; i < this.comments.length; i++) {
       const c: EhGalleryComment = this.comments[i]
       if (c.commentId === commentId) {
-        c.score = score
-        c.vote = vote
+        const comments: EhGalleryComment[] = this.comments.slice()
+        const next: EhGalleryComment = this.cloneComment(c)
+        next.score = score
+        next.vote = vote
+        comments[i] = next
+        this.comments = comments
         this.saveCurrentDetailCache()
         return
       }

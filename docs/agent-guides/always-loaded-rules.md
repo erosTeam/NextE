@@ -41,6 +41,16 @@ EhHttpClient → EhApiService/EhApiPhpService → parser(正则/DOM) → model
 - 找不到静态原因前,不要补丁式改参数、换组件、加 workaround、或扩大重构范围。确需临时诊断 UI / 日志时,必须标记为临时,用完移除。
 - 修复后用 contract 锁住已经确认的差异点,例如“完整游标 token 不能被截断”“FE 的 page/from 优先级保持一致”。再用模拟器 / 真机验证用户路径。
 
+### Contract 使用纪律
+
+Contract 只用于锁定高风险、已确认且容易静默回退的项目不变量。不要把每个 bug、每个 UI 细节、每次返工、每个口头例子都写成 contract。
+
+- 优先用已有测试、编译、模拟器用户路径、静态 diff 说明结果。能用现有验证覆盖的,不新增 contract。
+- 新增 contract 前必须能说明它保护的稳定不变量是什么、为什么普通构建 / 现有测试 / 人工路径不能覆盖、以及它未来失败时应该怎么修。说不清就不加。
+- 禁止用 contract 锁定尚未验收的视觉猜测、临时 workaround、单次实现细节或用户随口举例。contract 只能锁已确认的行为边界。
+- 新 contract 要小而少,优先扩展同域已有脚本;不要为窄场景新建脚本。若 contract 代码开始接近或超过被保护的产品逻辑复杂度,停止添加。
+- 用户要求“测试覆盖”不等于自动新增 contract。先用最小可运行验证;只有需要长期防回归时才落 contract。
+
 ## 新 worktree 依赖前置
 
 新建或切换到新的 NextE worktree 后,首次构建、签名、运行、Preview、DevEco/Hvigor 验证前,必须先确认 OHPM 依赖已安装。默认执行:
