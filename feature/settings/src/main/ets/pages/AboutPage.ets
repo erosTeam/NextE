@@ -30,7 +30,7 @@ export struct AboutPage {
     if (this.appVersion.length > 0) {
       return this.appVersion
     }
-    return '1.0.0'
+    return '1.0.1'
   }
 
   @Builder
