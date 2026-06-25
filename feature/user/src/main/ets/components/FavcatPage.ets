@@ -36,6 +36,8 @@ import {
   connectTagTranslationSettings,
   TagTranslationSettingsState,
   RootRefreshRegistry,
+  LocalBlockState,
+  connectLocalBlock,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { FavoritesViewModel } from '../viewmodel/FavoritesViewModel'
@@ -66,6 +68,7 @@ export struct FavcatPage {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local listContentWidth: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -170,6 +173,13 @@ export struct FavcatPage {
   onTagTranslationChange(): void {
     if (this.loadedOnce) {
       this.vm.reapplyTagTranslation()
+    }
+  }
+
+  @Monitor('localBlock.version')
+  async onLocalBlockChange(): Promise<void> {
+    if (this.loadedOnce) {
+      await this.vm.applyLocalBlockChange()
     }
   }
 

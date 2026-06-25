@@ -20,6 +20,7 @@ import {
   SEARCH_SCOPE_WATCHED,
   DiagnosticLogger,
   EhErrorText,
+  LocalBlockService,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -122,6 +123,25 @@ export class SearchViewModel {
       : TagTranslationService.clearGalleriesTranslations(this.dataSource.getAll())
     this.dataSource.setData(rows)
     this.itemCount = this.dataSource.totalCount()
+  }
+
+  reapplyLocalBlockRules(): void {
+    if (this.itemCount === 0) {
+      return
+    }
+    const rows: EhGallery[] = LocalBlockService.filterGalleries(this.dataSource.getAll())
+    if (rows.length === this.itemCount) {
+      return
+    }
+    this.dataSource.setData(rows)
+    this.itemCount = this.dataSource.totalCount()
+  }
+
+  async applyLocalBlockChange(): Promise<void> {
+    this.reapplyLocalBlockRules()
+    if (this.hasSearched && this.query.length > 0) {
+      await this.search(this.query)
+    }
   }
 
   resolveVisibleFavoriteSlotsFrom(favcats: Favcat[]): boolean {

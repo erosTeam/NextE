@@ -5,6 +5,8 @@ import {
   connectTagTranslationSettings,
   TagTranslationSettingsState,
   connectToplistFilter,
+  LocalBlockState,
+  connectLocalBlock,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -32,6 +34,7 @@ export struct ToplistPeriodPage {
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local toplistFilter: ToplistFilterState = connectToplistFilter();
+  @Local localBlock: LocalBlockState = connectLocalBlock();
   private loadedOnce: boolean = false;
 
   private isActive(): boolean {
@@ -77,6 +80,13 @@ export struct ToplistPeriodPage {
   onToplistFilterChange(): void {
     if (this.loadedOnce) {
       this.vm.reload()
+    }
+  }
+
+  @Monitor('localBlock.version')
+  async onLocalBlockChange(): Promise<void> {
+    if (this.loadedOnce) {
+      await this.vm.applyLocalBlockChange()
     }
   }
 

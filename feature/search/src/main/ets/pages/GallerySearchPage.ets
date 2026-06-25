@@ -50,6 +50,8 @@ import {
   GalleryRatingMutationState,
   connectGalleryRatingMutation,
   appSheetOptions,
+  LocalBlockState,
+  connectLocalBlock,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { BottomBuilderShowType, HdsNavDestination, HideMode } from '@kit.UIDesignKit'
@@ -79,6 +81,7 @@ export struct GallerySearchPage {
   @Local favSel: FavSelectionState = connectFavSelection();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
+  @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local showFilter: boolean = false;
   @Local listContentWidth: number = 0;
   @Local imagePageErrorUrl: string = '';
@@ -187,6 +190,11 @@ export struct GallerySearchPage {
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     this.vm.reapplyTagTranslation()
+  }
+
+  @Monitor('localBlock.version')
+  async onLocalBlockChange(): Promise<void> {
+    await this.vm.applyLocalBlockChange()
   }
 
   @Monitor('fieldState.submitSeq')

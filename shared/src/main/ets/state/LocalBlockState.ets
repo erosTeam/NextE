@@ -19,6 +19,7 @@ export class LocalBlockState {
   @Trace filterCommentsByScore: boolean = false
   @Trace scoreFilteringThreshold: number = -20
   @Trace rules: LocalBlockRule[] = []
+  @Trace version: number = 0
 }
 
 const LOCAL_BLOCK_STATE_KEY: string = 'v2:localBlock'

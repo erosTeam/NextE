@@ -15,6 +15,7 @@ import {
   EhErrorText,
   EhPageCacheService,
   connectToplistFilter,
+  LocalBlockService,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -136,8 +137,9 @@ export class GalleryListViewModel {
     if (cached === null || cached.gallerys.length === 0) {
       return
     }
-    this.resolveFavoriteSlots(cached.gallerys)
-    const rows: EhGallery[] = cached.gallerys.map((g: EhGallery) => g.copy())
+    const visibleCached: GalleryList = LocalBlockService.filterGalleryList(cached.copy())
+    this.resolveFavoriteSlots(visibleCached.gallerys)
+    const rows: EhGallery[] = visibleCached.gallerys.map((g: EhGallery) => g.copy())
     this.cacheRenderVersion = this.cacheRenderVersion + 1
     const renderVersion: number = this.cacheRenderVersion
     this.dataSource.setData(rows)
@@ -212,6 +214,25 @@ export class GalleryListViewModel {
       : TagTranslationService.clearGalleriesTranslations(this.dataSource.getAll())
     this.dataSource.setData(rows)
     this.itemCount = this.dataSource.totalCount()
+  }
+
+  reapplyLocalBlockRules(): void {
+    if (this.itemCount === 0) {
+      return
+    }
+    const rows: EhGallery[] = LocalBlockService.filterGalleries(this.dataSource.getAll())
+    if (rows.length === this.itemCount) {
+      return
+    }
+    this.dataSource.setData(rows)
+    this.itemCount = this.dataSource.totalCount()
+  }
+
+  async applyLocalBlockChange(): Promise<void> {
+    this.reapplyLocalBlockRules()
+    if (this.loaded && !this.isLoading && !this.isLoadingMore) {
+      await this.reload()
+    }
   }
 
   resolveVisibleFavoriteSlotsFrom(favcats: Favcat[]): boolean {

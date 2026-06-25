@@ -16,7 +16,7 @@ import {
   SecondaryListScaffold,
   ThemeConstants,
   connectLocalBlock,
-  immersiveTitleBar,
+  immersiveTitleBarOpts,
   appSheetOptions,
 } from 'shared'
 
@@ -74,9 +74,9 @@ export struct LocalBlockSettingsPage {
     }
   }
 
-  private openNewRule(type: string): void {
+  private openNewRule(): void {
     this.editingRuleId = ''
-    this.draftType = LocalBlockSettings.normalizeType(type)
+    this.draftType = LocalBlockSettings.normalizeType(this.draftType)
     this.draftText = ''
     this.draftEnabled = true
     this.draftRegex = false
@@ -213,16 +213,24 @@ export struct LocalBlockSettingsPage {
           },
           (rule: LocalBlockRule) => rule.id,
         )
-        ConciseListRow({
-          title: $r('app.string.local_block_add_rule'),
-          leadingIcon: $r('sys.symbol.plus'),
-          showChevron: false,
-          action: () => {
-            this.openNewRule(type)
-          },
-        })
       }
     }
+  }
+
+  private titleBar(): Record<string, Object> {
+    const item: Record<string, Object> = {
+      'label': AppStrings.get('local_block_add_rule'),
+      'icon': $r('sys.symbol.plus'),
+      'isEnabled': true,
+      'action': (): void => {
+        this.openNewRule()
+      },
+    }
+    const itemWrap: Record<string, Object> = { 'content': item }
+    const menu: Record<string, Object> = { 'value': [itemWrap], 'maxCount': 1 }
+    const title: Record<string, Object> = { 'mainTitle': AppStrings.get('local_block_title') }
+    const content: Record<string, Object> = { 'title': title, 'menu': menu }
+    return immersiveTitleBarOpts(content)
   }
 
   build() {
@@ -265,7 +273,7 @@ export struct LocalBlockSettingsPage {
         this.RuleSection(LOCAL_BLOCK_TYPE_COMMENT)
       }
     }
-    .titleBar(immersiveTitleBar(AppStrings.get('local_block_title')))
+    .titleBar(this.titleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .bindSheet($$this.ruleSheetShown, this.RuleSheet(), appSheetOptions({
       detents: [SheetSize.LARGE],

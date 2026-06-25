@@ -12,8 +12,15 @@ import {
 } from '../state/LocalBlockState'
 
 export class LocalBlockService {
+  private static normalized(text: string): string {
+    return text
+      .replace(/[\u200B-\u200F\uFEFF]/g, '')
+      .trim()
+  }
+
   static matchText(text: string, blockType: string): boolean {
-    if (text.length === 0) {
+    const normalizedText: string = LocalBlockService.normalized(text)
+    if (normalizedText.length === 0) {
       return false
     }
     const rules: LocalBlockRule[] = connectLocalBlock().rules
@@ -22,19 +29,21 @@ export class LocalBlockService {
       if (rule.blockType !== blockType || !rule.enabled) {
         continue
       }
-      const ruleText: string = rule.ruleText.trim().replace(/\(\?i\)/g, '')
+      const rawRuleText: string = LocalBlockService.normalized(rule.ruleText)
+      const caseInsensitive: boolean = rawRuleText.indexOf('(?i)') >= 0
+      const ruleText: string = rawRuleText.replace(/\(\?i\)/g, '')
       if (ruleText.length === 0) {
         continue
       }
       if (rule.enableRegex) {
         try {
-          if (new RegExp(ruleText).test(text)) {
+          if (new RegExp(ruleText, caseInsensitive ? 'i' : '').test(normalizedText)) {
             return true
           }
         } catch (_error) {
           continue
         }
-      } else if (text.indexOf(ruleText) >= 0) {
+      } else if (normalizedText.toLowerCase().indexOf(ruleText.toLowerCase()) >= 0) {
         return true
       }
     }
@@ -44,12 +53,17 @@ export class LocalBlockService {
   static isGalleryBlocked(gallery: EhGallery): boolean {
     return LocalBlockService.matchText(gallery.englishTitle, LOCAL_BLOCK_TYPE_TITLE) ||
       LocalBlockService.matchText(gallery.japaneseTitle, LOCAL_BLOCK_TYPE_TITLE) ||
-      LocalBlockService.matchText(gallery.uploader, LOCAL_BLOCK_TYPE_UPLOADER)
+      LocalBlockService.matchText(gallery.uploader, LOCAL_BLOCK_TYPE_UPLOADER) ||
+      LocalBlockService.matchText(gallery.title(), LOCAL_BLOCK_TYPE_UPLOADER)
   }
 
   static filterGalleryList(list: GalleryList): GalleryList {
     list.gallerys = list.gallerys.filter((gallery: EhGallery) => !LocalBlockService.isGalleryBlocked(gallery))
     return list
+  }
+
+  static filterGalleries(galleries: EhGallery[]): EhGallery[] {
+    return galleries.filter((gallery: EhGallery) => !LocalBlockService.isGalleryBlocked(gallery))
   }
 
   static isCommentBlocked(comment: EhGalleryComment): boolean {

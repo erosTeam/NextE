@@ -6,11 +6,11 @@ Purpose: current UI work must leave a small, checkable grounding record before p
 
 Status: active
 Reference implementation: `../eros_fe/lib/common/controller/block_controller.dart`, `../eros_fe/lib/pages/setting/block/blockers_page.dart`, `feature/settings/src/main/ets/pages/SearchSettingsPage.ets`, and `feature/gallery/src/main/ets/components/GalleryCommentsCard.ets`.
-Surface type: Search settings entry, local block rules settings page, gallery-list filtering, gallery-detail comment preview, and full comments page.
+Surface type: EH settings entry, local block rules settings page, retained gallery-list/search/favorites filtering, gallery-detail comment preview, and full comments page.
 Primary information: local block rules hide galleries by title/uploader and comments by author/text or low score; raw comment data remains available for reply-reference resolution.
-Primary action: add, edit, enable/disable, or remove a local block rule; optionally enable score-threshold filtering for comments.
-Reuse or deviation: reuse eros_fe's four rule buckets plus low-score threshold, NextE `SecondaryListScaffold` / `GroupedListSection` / `ConciseListRow` settings chrome, and existing per-comment cards; deviate by storing rules in AppStorageV2-backed preferences instead of FE profile JSON.
-Verification: local block contract covering title/uploader/comment-author/comment-text/score/regex/disabled rules, UI grounding contract, V1 decorator inventory, i18n duplicate check, and signed HarmonyOS build.
+Primary action: add a local block rule from the single title-bar `+` entry, edit/enable/disable/remove existing rules in their buckets, or enable score-threshold filtering for comments.
+Reuse or deviation: reuse eros_fe's four rule buckets plus low-score threshold, NextE `SecondaryListScaffold` / `GroupedListSection` / `ConciseListRow` settings chrome, existing per-comment cards, and the retained-list VM `setData()` refresh path used by tag translation/favcat metadata updates; deviate by storing rules in AppStorageV2-backed preferences instead of FE profile JSON.
+Verification: local block contract covering title/uploader/comment-author/comment-text/score/regex/disabled rules, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and emulator user paths for the single add entry retaining the last selected type, adding title/uploader rules, re-filtering already-loaded Home rows, persistence after restart, comment/commentator filtering, score-threshold filtering after vote-state changes, edit/delete cleanup, and no real-device interaction.
 
 ## Active: Toplist hidden My Tags setting
 

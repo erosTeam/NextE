@@ -301,6 +301,25 @@ export class FavoritesViewModel {
     this.itemCount = this.dataSource.totalCount()
   }
 
+  reapplyLocalBlockRules(): void {
+    if (this.itemCount === 0) {
+      return
+    }
+    const rows: EhGallery[] = LocalBlockService.filterGalleries(this.dataSource.getAll())
+    if (rows.length === this.itemCount) {
+      return
+    }
+    this.dataSource.setData(rows)
+    this.itemCount = this.dataSource.totalCount()
+  }
+
+  async applyLocalBlockChange(): Promise<void> {
+    this.reapplyLocalBlockRules()
+    if (!this.isLoading && !this.isLoadingMore) {
+      await this.load()
+    }
+  }
+
   /**
    * Favorites rows often carry only favTitle, not the numeric slot. If real favcat metadata arrives
    * after the rows were first rendered, re-resolve visible rows and replace the datasource so card

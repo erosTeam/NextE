@@ -5,6 +5,8 @@ import {
   TagTranslationSettingsState,
   SELECTOR_BAR_HEIGHT,
   ActiveKeyState,
+  LocalBlockState,
+  connectLocalBlock,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -34,6 +36,7 @@ export struct GallerySourcePage {
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  @Local localBlock: LocalBlockState = connectLocalBlock();
   // First-load guard: load once on first activation; later activations reuse the retained list.
   private loadedOnce: boolean = false;
 
@@ -85,6 +88,13 @@ export struct GallerySourcePage {
   onTagTranslationChange(): void {
     if (this.loadedOnce) {
       this.vm.reapplyTagTranslation()
+    }
+  }
+
+  @Monitor('localBlock.version')
+  async onLocalBlockChange(): Promise<void> {
+    if (this.loadedOnce) {
+      await this.vm.applyLocalBlockChange()
     }
   }
 

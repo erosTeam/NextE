@@ -27,6 +27,10 @@ class LocalBlockSnapshot {
 }
 
 export class LocalBlockSettings {
+  private static bumpVersion(state: LocalBlockState): void {
+    state.version = state.version + 1
+  }
+
   static normalizeType(type: string): string {
     if (type === LOCAL_BLOCK_TYPE_UPLOADER ||
       type === LOCAL_BLOCK_TYPE_COMMENTATOR ||
@@ -66,6 +70,7 @@ export class LocalBlockSettings {
       ? Math.floor(snapshot.scoreFilteringThreshold)
       : -20
     state.rules = LocalBlockSettings.rulesFromSnapshot(snapshot.rules)
+    LocalBlockSettings.bumpVersion(state)
   }
 
   static async restore(context: common.UIAbilityContext): Promise<void> {
@@ -112,6 +117,7 @@ export class LocalBlockSettings {
     const state: LocalBlockState = connectLocalBlock()
     state.filterCommentsByScore = enabled
     state.scoreFilteringThreshold = Math.floor(threshold)
+    LocalBlockSettings.bumpVersion(state)
     await LocalBlockSettings.save(context)
   }
 
@@ -138,6 +144,7 @@ export class LocalBlockSettings {
       rules.push(next)
     }
     state.rules = rules
+    LocalBlockSettings.bumpVersion(state)
     await LocalBlockSettings.save(context)
   }
 
@@ -146,6 +153,7 @@ export class LocalBlockSettings {
     state.rules = state.rules
       .filter((rule: LocalBlockRule) => rule.id !== ruleId)
       .map((rule: LocalBlockRule) => LocalBlockSettings.cloneRule(rule))
+    LocalBlockSettings.bumpVersion(state)
     await LocalBlockSettings.save(context)
   }
 
@@ -158,6 +166,7 @@ export class LocalBlockSettings {
       }
       return next
     })
+    LocalBlockSettings.bumpVersion(state)
     await LocalBlockSettings.save(context)
   }
 
