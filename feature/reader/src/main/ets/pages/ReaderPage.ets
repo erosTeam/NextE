@@ -452,6 +452,7 @@ export struct ReaderPage {
         (index: number) => {
           Image(this.vm.imageAt(index).imageUrl)
             .objectFit(ImageFit.Contain)
+            .interpolation(ImageInterpolation.High)
             .width('100%')
             .height('100%')
             // Lay out the warmer at reader-canvas size, then move it off-screen. A 1vp warmer only
@@ -2023,7 +2024,6 @@ struct ReaderSpreadSurface {
       .height('100%')
       .scale({ x: this.zoomScale, y: this.zoomScale })
       .translate({ x: this.offsetX, y: this.offsetY })
-      .renderGroup(true)
     }
     .width('100%')
     .height('100%')
@@ -2296,6 +2296,7 @@ struct ReaderSpreadImageLayer {
       } else if (this.imageUrl.length > 0) {
         Image(this.imageUrl)
           .objectFit(ImageFit.Contain)
+          .interpolation(ImageInterpolation.High)
           .width('100%')
           .height('100%')
           .draggable(false)
@@ -2654,12 +2655,12 @@ struct ReaderImagePage {
       } else if (this.imageUrl.length > 0) {
         Image(this.imageUrl)
           .objectFit(ImageFit.Contain)
+          .interpolation(ImageInterpolation.High)
           .width('100%')
           .height('100%')
           .draggable(false)
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
-          .renderGroup(true)
           .onComplete((event?: ReaderImageLoadEvent) => {
             if (event && event.width && event.height) {
               this.intrinsicW = this.getUIContext().px2vp(event.width)
@@ -2989,6 +2990,7 @@ struct ReaderVerticalImage {
           .width('100%')
           .aspectRatio(this.ratio)
           .objectFit(ImageFit.Contain)
+          .interpolation(ImageInterpolation.High)
           .draggable(false)
           .onComplete((e) => {
             this.autoRetryCount = 0
