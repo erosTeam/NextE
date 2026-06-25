@@ -1209,7 +1209,7 @@ export struct ReaderPage {
       .gesture(
         GestureGroup(
           GestureMode.Exclusive,
-          TapGesture({ count: 2 }).onAction((e?: GestureEvent) => {
+          TapGesture({ count: 2, distanceThreshold: 8 }).onAction((e?: GestureEvent) => {
             const loc = e ? e.tapLocation : undefined
             const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
             const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
@@ -1790,18 +1790,31 @@ class ReaderZoomCoordinator {
     return ReaderZoomCoordinator.isZoomed(currentScale) ? 1 : DOUBLE_TAP_SCALE
   }
 
-  static doubleTapOffset(tap: number, viewport: number, targetScale: number): number {
-    return (1 - targetScale) * (tap - viewport / 2)
+  static pinchAnchor(
+    center: number,
+    viewport: number,
+    displaySize: number,
+    scale: number,
+    offset: number
+  ): number {
+    const displayed: number = displaySize * scale
+    if (displayed <= 0) {
+      return 0.5
+    }
+    const displayStart: number = (viewport - displayed) / 2 + offset
+    return (center - displayStart) / displayed
   }
 
-  static pinchOffset(
-    pinchCenterStart: number,
+  static anchoredOffset(
+    center: number,
     viewport: number,
-    scaleRatio: number,
-    startOffset: number,
-    centerDrift: number
+    displaySize: number,
+    scale: number,
+    anchor: number
   ): number {
-    return (pinchCenterStart - viewport / 2) * (1 - scaleRatio) + scaleRatio * startOffset + centerDrift
+    const displayed: number = displaySize * scale
+    const point: number = (viewport - displayed) / 2 + displayed * anchor
+    return center - point
   }
 }
 
@@ -1862,13 +1875,12 @@ struct ReaderSpreadSurface {
   @Local secondIntrinsicH: number = 0;
 
   private pinchStartScale: number = 1;
-  private pinchStartOffX: number = 0;
-  private pinchStartOffY: number = 0;
-  private pinchCenterStartX: number = 0;
-  private pinchCenterStartY: number = 0;
+  private pinchAnchorX: number = 0.5;
+  private pinchAnchorY: number = 0.5;
   private panStartOffX: number = 0;
   private panStartOffY: number = 0;
   private isPinching: boolean = false;
+  private ignorePanSequence: boolean = false;
   private compW: number = 0;
   private compH: number = 0;
   private lastZoomed: boolean = false;
@@ -1991,8 +2003,10 @@ struct ReaderSpreadSurface {
       return
     }
     const target: number = DOUBLE_TAP_SCALE
-    const nextX: number = ReaderZoomCoordinator.doubleTapOffset(tapX, this.compW, target)
-    const nextY: number = ReaderZoomCoordinator.doubleTapOffset(tapY, this.compH, target)
+    const anchorX: number = ReaderZoomCoordinator.pinchAnchor(tapX, this.compW, this.displayW(), this.zoomScale, this.offsetX)
+    const anchorY: number = ReaderZoomCoordinator.pinchAnchor(tapY, this.compH, this.displayH(), this.zoomScale, this.offsetY)
+    const nextX: number = ReaderZoomCoordinator.anchoredOffset(tapX, this.compW, this.displayW(), target, anchorX)
+    const nextY: number = ReaderZoomCoordinator.anchoredOffset(tapY, this.compH, this.displayH(), target, anchorY)
     this.zoomScale = target
     this.offsetX = this.clampOffsetX(nextX, target)
     this.offsetY = this.clampOffsetY(nextY, target)
@@ -2069,38 +2083,48 @@ struct ReaderSpreadSurface {
               return
             }
             this.isPinching = true
+            this.ignorePanSequence = true
+            this.zoomAnimating = false
             this.pinchStartScale = this.zoomScale
-            this.pinchStartOffX = this.offsetX
-            this.pinchStartOffY = this.offsetY
-            this.pinchCenterStartX = e.pinchCenterX as number
-            this.pinchCenterStartY = e.pinchCenterY as number
+            this.pinchAnchorX = ReaderZoomCoordinator.pinchAnchor(
+              e.pinchCenterX as number,
+              this.compW,
+              this.displayW(),
+              this.zoomScale,
+              this.offsetX
+            )
+            this.pinchAnchorY = ReaderZoomCoordinator.pinchAnchor(
+              e.pinchCenterY as number,
+              this.compH,
+              this.displayH(),
+              this.zoomScale,
+              this.offsetY
+            )
           })
           .onActionUpdate((e?: GestureEvent) => {
             if (!e) {
               return
             }
             const nextScale: number = this.clampScale(this.pinchStartScale * (e.scale as number))
-            const k: number = nextScale / this.pinchStartScale
-            const dx: number = (e.pinchCenterX as number) - this.pinchCenterStartX
-            const dy: number = (e.pinchCenterY as number) - this.pinchCenterStartY
-            const nextX: number = ReaderZoomCoordinator.pinchOffset(
-              this.pinchCenterStartX,
+            const nextX: number = ReaderZoomCoordinator.anchoredOffset(
+              e.pinchCenterX as number,
               this.compW,
-              k,
-              this.pinchStartOffX,
-              dx
+              this.displayW(),
+              nextScale,
+              this.pinchAnchorX
             )
-            const nextY: number = ReaderZoomCoordinator.pinchOffset(
-              this.pinchCenterStartY,
+            const nextY: number = ReaderZoomCoordinator.anchoredOffset(
+              e.pinchCenterY as number,
               this.compH,
-              k,
-              this.pinchStartOffY,
-              dy
+              this.displayH(),
+              nextScale,
+              this.pinchAnchorY
             )
+            const clampedX: number = this.clampOffsetX(nextX, nextScale)
+            const clampedY: number = this.clampOffsetY(nextY, nextScale)
             this.zoomScale = nextScale
-            this.offsetX = this.clampOffsetX(nextX, nextScale)
-            this.offsetY = this.clampOffsetY(nextY, nextScale)
-            this.notifyZoom()
+            this.offsetX = clampedX
+            this.offsetY = clampedY
           })
           .onActionEnd(() => {
             this.isPinching = false
@@ -2114,18 +2138,23 @@ struct ReaderSpreadSurface {
           .onActionCancel(() => {
             this.isPinching = false
             this.clampOffset()
+            this.notifyZoom()
           }),
         PanGesture({ fingers: 1, direction: PanDirection.All, distance: this.panDistance() })
           .onActionStart(() => {
+            this.ignorePanSequence = this.isPinching
             this.panStartOffX = this.offsetX
             this.panStartOffY = this.offsetY
           })
           .onActionUpdate((e?: GestureEvent) => {
-            if (!e || this.isPinching || !ReaderZoomCoordinator.isZoomed(this.zoomScale)) {
+            if (!e || this.ignorePanSequence || this.isPinching || !ReaderZoomCoordinator.isZoomed(this.zoomScale)) {
               return
             }
             this.offsetX = this.clampOffsetX(this.panStartOffX + (e.offsetX as number), this.zoomScale)
             this.offsetY = this.clampOffsetY(this.panStartOffY + (e.offsetY as number), this.zoomScale)
+          })
+          .onActionEnd(() => {
+            this.ignorePanSequence = false
           }),
       ),
     )
@@ -2392,17 +2421,13 @@ struct ReaderImagePage {
   @Local intrinsicW: number = 0;
   @Local intrinsicH: number = 0;
 
-  private baseZoom: number = 1;
-  private baseOffsetX: number = 0;
-  private baseOffsetY: number = 0;
   private pinchStartScale: number = 1;
-  private pinchStartOffX: number = 0;
-  private pinchStartOffY: number = 0;
-  private pinchCenterStartX: number = 0;
-  private pinchCenterStartY: number = 0;
+  private pinchAnchorX: number = 0.5;
+  private pinchAnchorY: number = 0.5;
   private panStartOffX: number = 0;
   private panStartOffY: number = 0;
   private isPinching: boolean = false;
+  private ignorePanSequence: boolean = false;
   private compW: number = 0;
   private compH: number = 0;
   private lastZoomed: boolean = false;
@@ -2626,17 +2651,12 @@ struct ReaderImagePage {
   private clampOffset(): void {
     this.offsetX = this.clampOffsetX(this.offsetX, this.zoomScale)
     this.offsetY = this.clampOffsetY(this.offsetY, this.zoomScale)
-    this.baseOffsetX = this.offsetX
-    this.baseOffsetY = this.offsetY
   }
 
   private resetZoom(): void {
     this.zoomScale = 1
-    this.baseZoom = 1
     this.offsetX = 0
     this.offsetY = 0
-    this.baseOffsetX = 0
-    this.baseOffsetY = 0
   }
 
   private beginZoomAnimation(): void {
@@ -2666,14 +2686,13 @@ struct ReaderImagePage {
       this.notifyZoom()
     } else {
       const target: number = DOUBLE_TAP_SCALE
-      const nextX: number = ReaderZoomCoordinator.doubleTapOffset(tapX, this.compW, target)
-      const nextY: number = ReaderZoomCoordinator.doubleTapOffset(tapY, this.compH, target)
+      const anchorX: number = ReaderZoomCoordinator.pinchAnchor(tapX, this.compW, this.displayW(), this.zoomScale, this.offsetX)
+      const anchorY: number = ReaderZoomCoordinator.pinchAnchor(tapY, this.compH, this.displayH(), this.zoomScale, this.offsetY)
+      const nextX: number = ReaderZoomCoordinator.anchoredOffset(tapX, this.compW, this.displayW(), target, anchorX)
+      const nextY: number = ReaderZoomCoordinator.anchoredOffset(tapY, this.compH, this.displayH(), target, anchorY)
       this.zoomScale = target
-      this.baseZoom = target
       this.offsetX = this.clampOffsetX(nextX, target)
       this.offsetY = this.clampOffsetY(nextY, target)
-      this.baseOffsetX = this.offsetX
-      this.baseOffsetY = this.offsetY
       this.notifyZoom()
     }
   }
@@ -2756,42 +2775,51 @@ struct ReaderImagePage {
               return
             }
             this.isPinching = true
+            this.ignorePanSequence = true
+            this.zoomAnimating = false
             this.pinchStartScale = this.zoomScale
-            this.pinchStartOffX = this.offsetX
-            this.pinchStartOffY = this.offsetY
-            this.pinchCenterStartX = e.pinchCenterX as number
-            this.pinchCenterStartY = e.pinchCenterY as number
+            this.pinchAnchorX = ReaderZoomCoordinator.pinchAnchor(
+              e.pinchCenterX as number,
+              this.compW,
+              this.displayW(),
+              this.zoomScale,
+              this.offsetX
+            )
+            this.pinchAnchorY = ReaderZoomCoordinator.pinchAnchor(
+              e.pinchCenterY as number,
+              this.compH,
+              this.displayH(),
+              this.zoomScale,
+              this.offsetY
+            )
           })
           .onActionUpdate((e?: GestureEvent) => {
             if (!e) {
               return
             }
             const nextScale: number = this.clampScale(this.pinchStartScale * (e.scale as number))
-            const k: number = nextScale / this.pinchStartScale
-            const dx: number = (e.pinchCenterX as number) - this.pinchCenterStartX
-            const dy: number = (e.pinchCenterY as number) - this.pinchCenterStartY
-            const nextX: number = ReaderZoomCoordinator.pinchOffset(
-              this.pinchCenterStartX,
+            const nextX: number = ReaderZoomCoordinator.anchoredOffset(
+              e.pinchCenterX as number,
               this.compW,
-              k,
-              this.pinchStartOffX,
-              dx
+              this.displayW(),
+              nextScale,
+              this.pinchAnchorX
             )
-            const nextY: number = ReaderZoomCoordinator.pinchOffset(
-              this.pinchCenterStartY,
+            const nextY: number = ReaderZoomCoordinator.anchoredOffset(
+              e.pinchCenterY as number,
               this.compH,
-              k,
-              this.pinchStartOffY,
-              dy
+              this.displayH(),
+              nextScale,
+              this.pinchAnchorY
             )
+            const clampedX: number = this.clampOffsetX(nextX, nextScale)
+            const clampedY: number = this.clampOffsetY(nextY, nextScale)
             this.zoomScale = nextScale
-            this.offsetX = this.clampOffsetX(nextX, nextScale)
-            this.offsetY = this.clampOffsetY(nextY, nextScale)
-            this.notifyZoom()
+            this.offsetX = clampedX
+            this.offsetY = clampedY
           })
           .onActionEnd(() => {
             this.isPinching = false
-            this.baseZoom = this.zoomScale
             if (this.zoomScale <= 1.01) {
               this.resetZoom()
             } else {
@@ -2801,28 +2829,28 @@ struct ReaderImagePage {
           })
           .onActionCancel(() => {
             this.isPinching = false
-            this.baseZoom = this.zoomScale
             this.clampOffset()
+            this.notifyZoom()
+          }),
+        PanGesture({ fingers: 1, direction: PanDirection.All, distance: this.panDistance() })
+          .onActionStart(() => {
+            this.ignorePanSequence = this.isPinching
+            this.panStartOffX = this.offsetX
+            this.panStartOffY = this.offsetY
+          })
+          .onActionUpdate((e?: GestureEvent) => {
+            if (!e || this.ignorePanSequence || this.isPinching || !ReaderZoomCoordinator.isZoomed(this.zoomScale)) {
+              return
+            }
+            const nextX: number = this.clampOffsetX(this.panStartOffX + (e.offsetX as number), this.zoomScale)
+            const nextY: number = this.clampOffsetY(this.panStartOffY + (e.offsetY as number), this.zoomScale)
+            this.offsetX = nextX
+            this.offsetY = nextY
+          })
+          .onActionEnd(() => {
+            this.ignorePanSequence = false
           }),
       ),
-    )
-    .parallelGesture(
-      PanGesture({ fingers: 1, direction: PanDirection.All, distance: this.panDistance() })
-        .onActionStart(() => {
-          this.panStartOffX = this.offsetX
-          this.panStartOffY = this.offsetY
-        })
-        .onActionUpdate((e?: GestureEvent) => {
-          if (!e || this.isPinching || !ReaderZoomCoordinator.isZoomed(this.zoomScale)) {
-            return
-          }
-          this.offsetX = this.clampOffsetX(this.panStartOffX + (e.offsetX as number), this.zoomScale)
-          this.offsetY = this.clampOffsetY(this.panStartOffY + (e.offsetY as number), this.zoomScale)
-        })
-        .onActionEnd(() => {
-          this.baseOffsetX = this.offsetX
-          this.baseOffsetY = this.offsetY
-        }),
     )
   }
 }
