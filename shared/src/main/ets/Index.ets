@@ -80,6 +80,7 @@ export { SettingsCheckedMenuItem } from './components/SettingsCheckedMenuItem'
 export { SectionHeader } from './components/SectionHeader'
 export { AppSearchField } from './components/AppSearchField'
 export { AppModalScaffold } from './components/AppModalScaffold'
+export { appSheetOptions } from './components/AppSheetOptions'
 export { AppColorPicker } from './components/AppColorPicker'
 export { HdsCapsuleBarButton } from './components/HdsCapsuleBarButton'
 
@@ -106,6 +107,7 @@ export {
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
 export { CommentTranslationService } from './services/CommentTranslationService'
+export { LocalBlockService } from './services/LocalBlockService'
 export { EhPageCacheService } from './services/EhPageCacheService'
 export { MyTagsTargetService, MyTagsTargetResolveResult } from './services/MyTagsTargetService'
 export { CoverColorService } from './services/CoverColorService'
@@ -122,6 +124,16 @@ export {
   CommentTranslationSettings,
   CommentTranslationSettingsSnapshot,
 } from './settings/CommentTranslationSettings'
+export {
+  LOCAL_BLOCK_TYPE_COMMENT,
+  LOCAL_BLOCK_TYPE_COMMENTATOR,
+  LOCAL_BLOCK_TYPE_TITLE,
+  LOCAL_BLOCK_TYPE_UPLOADER,
+  LocalBlockRule,
+  LocalBlockState,
+  connectLocalBlock,
+} from './state/LocalBlockState'
+export { LocalBlockSettings } from './settings/LocalBlockSettings'
 
 // network
 export { EhCookieStore } from './network/EhCookieStore'

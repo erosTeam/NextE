@@ -6,7 +6,6 @@ import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeA
 export struct AppModalScaffold {
   @BuilderParam content: () => void
   @Param title: ResourceStr = ''
-  @Param includeKeyboardPadding: boolean = false
   @Param enableComponentSafeArea: boolean = true
   @Param contentBackgroundColor: ResourceColor = $r('sys.color.ohos_id_color_sub_background')
   @Param contentHorizontalPadding: number = ThemeConstants.SPACE_MD
@@ -54,8 +53,7 @@ export struct AppModalScaffold {
           ListItem() {
             Column() {
               Blank()
-                .height(this.layout.bottomAvoidHeight + ThemeConstants.SPACE_MD + this.keyboardPadding() +
-                  this.footerReserveHeight)
+                .height(this.layout.bottomAvoidHeight + ThemeConstants.SPACE_MD + this.footerReserveHeight)
             }
             .width('100%')
           }
@@ -200,13 +198,6 @@ export struct AppModalScaffold {
     .width('100%')
     .height('100%')
     .backgroundColor(this.contentBackgroundColor)
-  }
-
-  private keyboardPadding(): number {
-    if (!this.includeKeyboardPadding) {
-      return 0
-    }
-    return Math.max(0, this.layout.keyboardHeight)
   }
 
   private hasFooterActions(): boolean {

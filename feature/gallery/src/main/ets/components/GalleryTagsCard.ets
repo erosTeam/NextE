@@ -30,6 +30,7 @@ import {
   DiagnosticLogger,
   connectSiteMode,
   connectSearchAction,
+  appSheetOptions,
 } from 'shared'
 
 const HAPTIC_HD_INTENSITY: number = 80
@@ -898,9 +899,10 @@ export struct GalleryTagsCard {
     .onClick(() => {
       this.openMyTagsForSelectedTag()
     })
-    .bindSheet($$this.editSheetShown, this.ManageUserTagSheet(), {
+    .bindSheet($$this.editSheetShown, this.ManageUserTagSheet(), appSheetOptions({
       showClose: false,
-    })
+      keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
+    }))
   }
 
   @Builder
@@ -1047,7 +1049,6 @@ export struct GalleryTagsCard {
   private EditUserTagSheet() {
     AppModalScaffold({
       title: $r('app.string.mytags_edit_title'),
-      includeKeyboardPadding: true,
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
       confirmText: $r('app.string.mytags_save'),
       confirmEnabled: this.canSubmitEdit(),
@@ -1122,7 +1123,6 @@ export struct GalleryTagsCard {
   private AddUserTagSheet() {
     AppModalScaffold({
       title: $r('app.string.mytags_add_title'),
-      includeKeyboardPadding: true,
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
       confirmText: $r('app.string.mytags_add'),
       confirmEnabled: this.canSubmitAdd(),
@@ -1291,10 +1291,10 @@ export struct GalleryTagsCard {
       }
     }
     .width('100%')
-    .bindSheet($$this.tagInfoShown, this.TagInfoSheet(), {
+    .bindSheet($$this.tagInfoShown, this.TagInfoSheet(), appSheetOptions({
       detents: [SheetSize.MEDIUM, SheetSize.LARGE],
       scrollSizeMode: ScrollSizeMode.CONTINUOUS,
       showClose: false,
-    })
+    }))
   }
 }

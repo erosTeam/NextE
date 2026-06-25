@@ -19,6 +19,7 @@ import {
   connectSiteMode,
   TagTranslationSettingsState,
   connectTagTranslationSettings,
+  appSheetOptions,
 } from 'shared'
 
 /**
@@ -381,10 +382,10 @@ export struct GalleryEditTagsPage {
     }
     .titleBar(immersiveTitleBar(this.titleText()))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .bindSheet($$this.actionSheetShown, this.TagActionSheet(), {
+    .bindSheet($$this.actionSheetShown, this.TagActionSheet(), appSheetOptions({
       detents: [SheetSize.MEDIUM],
       showClose: false,
-    })
+    }))
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as GalleryEditTagsParams
       if (p !== undefined) {

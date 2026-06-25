@@ -53,6 +53,7 @@ import {
   SettingsCheckedMenuItem,
   AppColorPicker,
   AppModalScaffold,
+  appSheetOptions,
 } from 'shared'
 
 /**
@@ -768,9 +769,9 @@ export struct LayoutSettingsPage {
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_layout')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .bindSheet($$this.colorPickerShown, this.ColorPickerSheet(), {
+    .bindSheet($$this.colorPickerShown, this.ColorPickerSheet(), appSheetOptions({
       detents: [SheetSize.LARGE],
       showClose: false,
-    })
+    }))
   }
 }

@@ -15,6 +15,7 @@ import {
   connectSiteMode,
   EhErrorText,
   EhPageCacheService,
+  LocalBlockService,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -201,9 +202,10 @@ export class FavoritesViewModel {
     if (cached === null || cached.gallerys.length === 0) {
       return
     }
-    this.mergeFavList(cached.favList)
-    this.resolveFavcatSlots(cached.gallerys)
-    const rows: EhGallery[] = cached.gallerys.map((g: EhGallery) => g.copy())
+    const visibleCached: GalleryList = LocalBlockService.filterGalleryList(cached.copy())
+    this.mergeFavList(visibleCached.favList)
+    this.resolveFavcatSlots(visibleCached.gallerys)
+    const rows: EhGallery[] = visibleCached.gallerys.map((g: EhGallery) => g.copy())
     this.cacheRenderVersion = this.cacheRenderVersion + 1
     const renderVersion: number = this.cacheRenderVersion
     this.dataSource.setData(rows)
@@ -354,7 +356,9 @@ export class FavoritesViewModel {
     this.hasMore = false
     await this.applyCachedFirstPageIfEmpty()
     if (this.isLocalFavcat()) {
-      const localRows: EhGallery[] = connectLocalFav().items.map((g: EhGallery) => g.copy())
+      const localRows: EhGallery[] = connectLocalFav().items
+        .filter((g: EhGallery) => !LocalBlockService.isGalleryBlocked(g))
+        .map((g: EhGallery) => g.copy())
       this.dataSource.setData(await this.translateRows(localRows))
       this.itemCount = this.dataSource.totalCount()
       this.favList = []

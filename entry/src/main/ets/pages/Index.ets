@@ -61,6 +61,7 @@ import {
   ReaderSettingsPage,
   DownloadSettingsPage,
   SearchSettingsPage,
+  LocalBlockSettingsPage,
   TagTranslationSettingsPage,
   TranslationSettingsPage,
   AdvancedSettingsPage,
@@ -610,6 +611,8 @@ struct Index {
       DownloadSettingsPage()
     } else if (name === 'SearchSettings') {
       SearchSettingsPage()
+    } else if (name === 'LocalBlockSettings') {
+      LocalBlockSettingsPage()
     } else if (name === 'TagTranslationSettings') {
       TagTranslationSettingsPage()
     } else if (name === 'TranslationSettings') {

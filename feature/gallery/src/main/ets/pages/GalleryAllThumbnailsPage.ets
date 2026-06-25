@@ -10,6 +10,7 @@ import {
   PullRefreshController,
   AppStrings,
   immersiveTitleBarOpts,
+  appSheetOptions,
 } from 'shared'
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
 
@@ -255,11 +256,11 @@ export struct GalleryAllThumbnailsPage {
       }
       .width('100%')
       .height('100%')
-      .bindSheet($$this.jumpSheetShown, this.JumpSheet(), {
+      .bindSheet($$this.jumpSheetShown, this.JumpSheet(), appSheetOptions({
         detents: [SheetSize.MEDIUM],
         title: { title: $r('app.string.gallery_preview_jump') },
         showClose: true,
-      })
+      }))
     }
     .titleBar(this.previewTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))

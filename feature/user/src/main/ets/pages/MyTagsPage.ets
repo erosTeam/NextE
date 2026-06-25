@@ -32,6 +32,7 @@ import {
   immersiveTitleBarOpts,
   MyTagsTargetService,
   MyTagsTargetResolveResult,
+  appSheetOptions,
 } from 'shared'
 
 const MYTAGS_SHEET_EDIT: string = 'edit'
@@ -916,10 +917,11 @@ export struct MyTagsPage {
     }
     .titleBar(this.myTagsTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .bindSheet($$this.myTagsSheetShown, this.MyTagsSheet(), {
+    .bindSheet($$this.myTagsSheetShown, this.MyTagsSheet(), appSheetOptions({
       detents: this.myTagsSheetDetents(),
       showClose: false,
-    })
+      keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
+    }))
     .onReady((context: NavDestinationContext) => {
       if (context.pathInfo.param instanceof MyTagsPageParams) {
         this.params = context.pathInfo.param as MyTagsPageParams
@@ -1104,7 +1106,6 @@ export struct MyTagsPage {
   private EditTagSheet() {
     AppModalScaffold({
       title: $r('app.string.mytags_edit_title'),
-      includeKeyboardPadding: true,
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
       confirmText: $r('app.string.mytags_save'),
       secondaryText: $r('app.string.mytags_delete'),
@@ -1203,7 +1204,6 @@ export struct MyTagsPage {
   private AddTagSheet() {
     AppModalScaffold({
       title: $r('app.string.mytags_add_title'),
-      includeKeyboardPadding: true,
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
       confirmText: $r('app.string.mytags_add'),
       confirmEnabled: this.canSubmitAdd(),
@@ -1324,7 +1324,6 @@ export struct MyTagsPage {
   private TagsetSheet() {
     AppModalScaffold({
       title: this.tagsetSheetTitle(),
-      includeKeyboardPadding: true,
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
       confirmText: this.tagsetConfirmText(),
       confirmEnabled: this.canSubmitTagset(),

@@ -3,6 +3,7 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   CommentTranslationService,
   CommentTranslationSettingsState,
+  LocalBlockService,
   ThemeConstants,
   EhConstants,
   EhApiService,
@@ -115,14 +116,16 @@ export struct GalleryCommentsPage {
   }
 
   private visibleComments(): EhGalleryComment[] {
-    if (!this.uploaderOnly) {
-      return this.comments
+    let source: EhGalleryComment[] = this.comments
+    if (this.uploaderOnly) {
+      const memberId: string = this.uploaderMemberId()
+      if (memberId.length > 0) {
+        source = this.comments.filter((c: EhGalleryComment) => c.memberId === memberId)
+      } else {
+        source = this.comments.filter((c: EhGalleryComment) => c.isUploader || c.score.length === 0)
+      }
     }
-    const memberId: string = this.uploaderMemberId()
-    if (memberId.length > 0) {
-      return this.comments.filter((c: EhGalleryComment) => c.memberId === memberId)
-    }
-    return this.comments.filter((c: EhGalleryComment) => c.isUploader || c.score.length === 0)
+    return LocalBlockService.filterComments(source)
   }
 
   private renderStatesFromComments(comments: EhGalleryComment[]): GalleryCommentRenderState[] {

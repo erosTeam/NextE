@@ -4,22 +4,21 @@ import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeA
 /**
  * Secondary-page list scaffold (ported verbatim from V2Next). A full-height List whose first
  * row insets past the status bar + HDS title bar and whose last row insets past the gesture
- * bar (+ optional keyboard) — so a routed HdsNavDestination's content scrolls UNDER the title
+ * bar — so a routed HdsNavDestination's content scrolls UNDER the title
  * bar without any magic numbers in the page. Parents pass their own Scroller + the section
  * content builder; favorites / settings / gallery-detail all sit on top of this.
  */
 @ComponentV2
 export struct SecondaryListScaffold {
   @BuilderParam content: () => void
-  // Safe-area / keyboard metrics are published into AppStorageV2 by EntryAbility; reading
-  // these @Trace fields keeps the padding reactive.
+  // Safe-area metrics are published into AppStorageV2 by EntryAbility; reading this state keeps
+  // the padding reactive.
   layout: LayoutSafeAreaState = connectLayoutSafeArea()
   // @Param (not a plain member) because parents pass their own Scroller in by reference.
   @Param scroller: Scroller = new Scroller()
   @Param listSpace: number = ThemeConstants.SPACE_SM - 2
   @Param horizontalPadding: number = ThemeConstants.SPACE_MD
   @Param bottomPadding: number = ThemeConstants.SPACE_XL
-  @Param includeKeyboardPadding: boolean = false
   // Local opt-in for short, non-refresh pages such as Settings. PullRefresh scaffolds keep this off.
   @Param alwaysEnableEdgeSpring: boolean = false
   @Event onReachEnd?: () => void
@@ -39,7 +38,7 @@ export struct SecondaryListScaffold {
 
       ListItem() {
         Column() {
-          Blank().height(this.layout.bottomAvoidHeight + this.bottomPadding + this.keyboardPadding())
+          Blank().height(this.layout.bottomAvoidHeight + this.bottomPadding)
         }
         .width('100%')
       }
@@ -69,10 +68,4 @@ export struct SecondaryListScaffold {
     })
   }
 
-  private keyboardPadding(): number {
-    if (!this.includeKeyboardPadding) {
-      return 0
-    }
-    return Math.max(0, this.layout.keyboardHeight)
-  }
 }

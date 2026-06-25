@@ -1109,6 +1109,14 @@
       "value": "OK"
     },
     {
+      "name": "common_save",
+      "value": "保存"
+    },
+    {
+      "name": "common_delete",
+      "value": "削除"
+    },
+    {
       "name": "common_remove",
       "value": "削除"
     },
@@ -2123,6 +2131,82 @@
     {
       "name": "favorites_local",
       "value": "ローカル"
+    },
+    {
+      "name": "local_block_title",
+      "value": "ローカルブロック"
+    },
+    {
+      "name": "local_block_hint",
+      "value": "一致したギャラリーとコメントをこの端末で非表示にします。"
+    },
+    {
+      "name": "local_block_score_filter",
+      "value": "低スコアコメント"
+    },
+    {
+      "name": "local_block_score_filter_hint",
+      "value": "スコアがしきい値以下のコメントを非表示にします。"
+    },
+    {
+      "name": "local_block_score_threshold",
+      "value": "スコアしきい値"
+    },
+    {
+      "name": "local_block_type_title",
+      "value": "タイトル"
+    },
+    {
+      "name": "local_block_type_uploader",
+      "value": "投稿者"
+    },
+    {
+      "name": "local_block_type_commentator",
+      "value": "コメント投稿者"
+    },
+    {
+      "name": "local_block_type_comment",
+      "value": "コメント本文"
+    },
+    {
+      "name": "local_block_add_rule",
+      "value": "ルールを追加"
+    },
+    {
+      "name": "local_block_edit_rule",
+      "value": "ルールを編集"
+    },
+    {
+      "name": "local_block_rule_type",
+      "value": "ルール種別"
+    },
+    {
+      "name": "local_block_rule_enabled",
+      "value": "有効"
+    },
+    {
+      "name": "local_block_rule_text",
+      "value": "ルール本文"
+    },
+    {
+      "name": "local_block_rule_text_placeholder",
+      "value": "キーワードまたは正規表現"
+    },
+    {
+      "name": "local_block_contains",
+      "value": "含む"
+    },
+    {
+      "name": "local_block_regex",
+      "value": "正規表現"
+    },
+    {
+      "name": "local_block_regex_hint",
+      "value": "JavaScript 正規表現として使用します。"
+    },
+    {
+      "name": "local_block_regex_invalid",
+      "value": "正規表現が無効です"
     },
     {
       "name": "search_suggestion_namespace",

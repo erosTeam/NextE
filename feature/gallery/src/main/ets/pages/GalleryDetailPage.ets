@@ -5,6 +5,7 @@ import { pasteboard } from '@kit.BasicServicesKit'
 import {
   ThemeConstants,
   EhGallery,
+  EhGalleryComment,
   TagGroup,
   EhConstants,
   ShareUtil,
@@ -35,6 +36,7 @@ import {
   DownloadQueueState,
   connectDownloadQueue,
   LocalFavSettings,
+  LocalBlockService,
   LocalFavState,
   connectLocalFav,
   GalleryFavoriteMutationState,
@@ -68,6 +70,7 @@ import {
   ReadButtonStyleSettings,
   ReadButtonStyleState,
   connectReadButtonStyle,
+  appSheetOptions,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { GalleryHeaderCard } from '../components/GalleryHeaderCard'
@@ -845,6 +848,10 @@ export struct GalleryDetailPage {
     this.copyText(this.vm.gallery.title(), $r('app.string.detail_title_copied'))
   }
 
+  private visiblePreviewComments(): EhGalleryComment[] {
+    return LocalBlockService.filterComments(this.vm.comments)
+  }
+
   private openFullTitleSheet(): void {
     if (this.primaryDetailTitle().length === 0 && this.secondaryDetailTitle().length === 0) {
       return
@@ -1255,7 +1262,6 @@ export struct GalleryDetailPage {
   private RemoteFavoriteSheet() {
     AppModalScaffold({
       title: $r('app.string.detail_remote_favorite'),
-      includeKeyboardPadding: true,
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
       confirmText: $r('app.string.detail_remote_favorite_save'),
       confirmEnabled: this.canSubmitRemoteFavorite(),
@@ -1444,10 +1450,11 @@ export struct GalleryDetailPage {
           }
 
           // Comments PEEK — before previews so it is reachable without scrolling the thumbnails.
-          if (this.vm.comments.length > 0) {
+          if (this.visiblePreviewComments().length > 0) {
             ListItem() {
               GalleryCommentsCard({
-                comments: this.vm.comments,
+                comments: this.visiblePreviewComments(),
+                referenceComments: this.vm.comments,
                 max: 2,
                 onMore: () => {
                   this.openComments()
@@ -1530,10 +1537,11 @@ export struct GalleryDetailPage {
       .onTouch((event: TouchEvent) => {
         this.handleFollowTouch(event)
       })
-      .bindSheet($$this.detailSheetShown, this.DetailSheet(), {
+      .bindSheet($$this.detailSheetShown, this.DetailSheet(), appSheetOptions({
         detents: this.detailSheetDetents(),
         showClose: false,
-      })
+        keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
+      }))
     }
     .titleBar(this.detailTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))

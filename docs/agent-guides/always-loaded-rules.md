@@ -2,6 +2,10 @@
 
 每次涉及 NextE 代码改动都适用。硬约束在前。
 
+## 沟通: 禁止口头承诺 / 口头认错替代行动
+
+出现返工、误改、误解或用户指出规则违反时,不要输出空泛道歉、保证、承诺、复述情绪或自我剖析。只给三类信息:已采取的具体动作、对应文件 / 规则依据、验证结果 / 剩余阻塞。需要改变行为时,把规则写入项目文档或代码约束,不要用口头承诺代替。
+
 ## 硬停: 仅用状态管理 V2
 
 State Management V1 在本项目**已废弃**。`entry/`、`feature/`、`shared/` 中禁止引入或恢复任何 V1 组件/状态装饰器:`@Component`、`@State`、`@Prop`、`@Link`、`@Watch`、`@StorageLink`、`@StorageProp`、`@Provide`、`@Consume`、`@ObjectLink`、`@Observed`(裸)、`@Track`、`@LocalStorageLink`、`@LocalStorageProp`。
@@ -65,7 +69,7 @@ ohpm install
 新增或移动任何设置项前,必须先按用户心智归类,不要按实现接线位置归类。根设置页不是“最容易看到”的兜底区,也不是所有全局开关的默认位置。
 
 - 阅读相关进 Reader 设置;下载相关进 Download 设置;搜索相关进 Search 设置;EH / 账号 / 站点相关进 EH / 账号设置;列表、网格、瀑布流、底部栏、导航显示等浏览 / 界面行为进 Layout / 界面 / 导航类设置。
-- 根设置页优先放分类入口。只有没有更好归属、且确实跨全应用高频的少数项,才允许直接放根页。
+- 根设置页只放分类入口,禁止把单个零散设置项直接放根页。只有用户明确要求根页直放时例外。
 - 新设置项写产品代码前,先检查现有 Settings 分类和 `eros_fe` / Next2V 对应入口语义;不能因为状态 holder 在 `Index`、`Home` 或 shared 层,就把开关放到 Settings 根页。
 - 不得用 deterministic contract 锁定尚未经过归属审查的设置位置。contract 只能防止已确认正确的信息架构回退。
 

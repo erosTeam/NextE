@@ -1109,6 +1109,14 @@
       "value": "OK"
     },
     {
+      "name": "common_save",
+      "value": "Save"
+    },
+    {
+      "name": "common_delete",
+      "value": "Delete"
+    },
+    {
       "name": "common_remove",
       "value": "Remove"
     },
@@ -2123,6 +2131,82 @@
     {
       "name": "favorites_local",
       "value": "Local"
+    },
+    {
+      "name": "local_block_title",
+      "value": "Local block"
+    },
+    {
+      "name": "local_block_hint",
+      "value": "Hide matched galleries and comments on this device."
+    },
+    {
+      "name": "local_block_score_filter",
+      "value": "Low-score comments"
+    },
+    {
+      "name": "local_block_score_filter_hint",
+      "value": "Hide comments whose score is at or below the threshold."
+    },
+    {
+      "name": "local_block_score_threshold",
+      "value": "Score threshold"
+    },
+    {
+      "name": "local_block_type_title",
+      "value": "Title"
+    },
+    {
+      "name": "local_block_type_uploader",
+      "value": "Uploader"
+    },
+    {
+      "name": "local_block_type_commentator",
+      "value": "Comment author"
+    },
+    {
+      "name": "local_block_type_comment",
+      "value": "Comment text"
+    },
+    {
+      "name": "local_block_add_rule",
+      "value": "Add rule"
+    },
+    {
+      "name": "local_block_edit_rule",
+      "value": "Edit rule"
+    },
+    {
+      "name": "local_block_rule_type",
+      "value": "Rule type"
+    },
+    {
+      "name": "local_block_rule_enabled",
+      "value": "Enabled"
+    },
+    {
+      "name": "local_block_rule_text",
+      "value": "Rule text"
+    },
+    {
+      "name": "local_block_rule_text_placeholder",
+      "value": "Keyword or regular expression"
+    },
+    {
+      "name": "local_block_contains",
+      "value": "Contains"
+    },
+    {
+      "name": "local_block_regex",
+      "value": "Regular expression"
+    },
+    {
+      "name": "local_block_regex_hint",
+      "value": "Use as a JavaScript regular expression."
+    },
+    {
+      "name": "local_block_regex_invalid",
+      "value": "Invalid regular expression"
     },
     {
       "name": "search_suggestion_namespace",

@@ -7,6 +7,7 @@ import {
   ConciseListRow,
   CookieJarSettings,
   GroupedListSection,
+  LocalBlockState,
   SecondaryListScaffold,
   SiteModeSettings,
   SiteModeState,
@@ -14,6 +15,8 @@ import {
   ToplistFilterSettings,
   ToplistFilterState,
   connectAuth,
+  connectLocalBlock,
+  connectNavStack,
   connectSiteMode,
   connectToplistFilter,
   immersiveTitleBar,
@@ -29,9 +32,11 @@ export struct EhSettingsPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local auth: AuthState = connectAuth();
   @Local toplistFilter: ToplistFilterState = connectToplistFilter();
+  @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local switchingSite: boolean = false;
   @Local siteMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
+  private stack: NavPathStack = connectNavStack().stack;
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -152,11 +157,29 @@ export struct EhSettingsPage {
                 this.setToplistHiddenFilter(value)
               },
             })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.local_block_title'),
+              subtitle: $r('app.string.local_block_hint'),
+              leadingIcon: $r('sys.symbol.eye_slash'),
+              trailingText: `${this.localBlock.rules.length}`,
+              action: () => {
+                this.stack.pushPathByName('LocalBlockSettings', null)
+              },
+            })
           }
         }
       }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_eh')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+  }
+
+  @Builder
+  private rowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
   }
 }

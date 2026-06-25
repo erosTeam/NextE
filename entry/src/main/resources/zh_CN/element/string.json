@@ -1109,6 +1109,14 @@
       "value": "确定"
     },
     {
+      "name": "common_save",
+      "value": "保存"
+    },
+    {
+      "name": "common_delete",
+      "value": "删除"
+    },
+    {
       "name": "common_remove",
       "value": "移除"
     },
@@ -2123,6 +2131,82 @@
     {
       "name": "favorites_local",
       "value": "本地收藏"
+    },
+    {
+      "name": "local_block_title",
+      "value": "本地屏蔽"
+    },
+    {
+      "name": "local_block_hint",
+      "value": "在本机隐藏命中的画廊和评论。"
+    },
+    {
+      "name": "local_block_score_filter",
+      "value": "低分评论"
+    },
+    {
+      "name": "local_block_score_filter_hint",
+      "value": "隐藏评分小于或等于阈值的评论。"
+    },
+    {
+      "name": "local_block_score_threshold",
+      "value": "评分阈值"
+    },
+    {
+      "name": "local_block_type_title",
+      "value": "标题"
+    },
+    {
+      "name": "local_block_type_uploader",
+      "value": "上传者"
+    },
+    {
+      "name": "local_block_type_commentator",
+      "value": "评论人"
+    },
+    {
+      "name": "local_block_type_comment",
+      "value": "评论内容"
+    },
+    {
+      "name": "local_block_add_rule",
+      "value": "添加规则"
+    },
+    {
+      "name": "local_block_edit_rule",
+      "value": "编辑规则"
+    },
+    {
+      "name": "local_block_rule_type",
+      "value": "规则类型"
+    },
+    {
+      "name": "local_block_rule_enabled",
+      "value": "启用"
+    },
+    {
+      "name": "local_block_rule_text",
+      "value": "规则文本"
+    },
+    {
+      "name": "local_block_rule_text_placeholder",
+      "value": "关键词或正则表达式"
+    },
+    {
+      "name": "local_block_contains",
+      "value": "包含匹配"
+    },
+    {
+      "name": "local_block_regex",
+      "value": "正则表达式"
+    },
+    {
+      "name": "local_block_regex_hint",
+      "value": "按 JavaScript 正则表达式匹配。"
+    },
+    {
+      "name": "local_block_regex_invalid",
+      "value": "正则表达式无效"
     },
     {
       "name": "search_suggestion_namespace",

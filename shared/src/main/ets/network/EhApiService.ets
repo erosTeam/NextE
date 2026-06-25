@@ -14,6 +14,7 @@ import { EhGalleryFavoriteParser, GalleryFavoriteInfo } from '../parser/EhGaller
 import { UserTagStore } from '../state/UserTagStore'
 import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
 import { GalleryList } from '../model/GalleryList'
+import { LocalBlockService } from '../services/LocalBlockService'
 import { EhGallery } from '../model/EhGallery'
 import { EhGalleryImage } from '../model/EhGalleryImage'
 import { EhMytags } from '../model/EhMytags'
@@ -375,6 +376,10 @@ export class EhApiService {
     return list
   }
 
+  private filterLocalBlocked(list: GalleryList): GalleryList {
+    return LocalBlockService.filterGalleryList(list)
+  }
+
   private registerInlineTagColors(list: GalleryList): GalleryList {
     const store: UserTagStore = UserTagStore.getInstance()
     let changed: boolean = false
@@ -402,7 +407,7 @@ export class EhApiService {
       // /popular ignores filters and the next cursor — request the bare snapshot.
       const url: string = `${base}${path}`
       const resp = await this.fetch(url, query.isEx, 'list')
-      return this.filterHidden(this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body)))
+      return this.filterLocalBlocked(this.filterHidden(this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))))
     }
     if (query.source === 'toplist') {
       // toplist.php is E-Hentai-ONLY (exhentai.org has no toplist → 404), so always use the e-hentai
@@ -412,7 +417,7 @@ export class EhApiService {
       // toplist.php is hard-pinned to the e-hentai host, so classify it as the table site (isEx=false).
       const resp = await this.fetch(url, false, 'list')
       const list: GalleryList = this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))
-      return query.applyToplistHiddenUserTags ? this.filterHidden(list) : list
+      return this.filterLocalBlocked(query.applyToplistHiddenUserTags ? this.filterHidden(list) : list)
     }
     if (query.fCats > 0) {
       params.push(`f_cats=${query.fCats}`)
@@ -470,9 +475,9 @@ export class EhApiService {
     // Hide-filter the front page + search results (eros_fe gates on the tag filter), but NOT /watched —
     // a watched-tag list is exactly where you want those tags to show.
     if (query.source !== 'watched' && !query.disableTagFilter) {
-      return this.filterHidden(list)
+      return this.filterLocalBlocked(this.filterHidden(list))
     }
-    return list
+    return this.filterLocalBlocked(list)
   }
 
   /** Fetch one favorites.php page: gallery rows (same gltc layout as the list) + the favcat
@@ -501,7 +506,7 @@ export class EhApiService {
     list.favList = EhFavcatListParser.parse(body)
     // Active sort order from the inline_set dropdown (`<option value="f|p" selected>`).
     list.favOrder = this.favoriteOrderFromBody(body)
-    return list
+    return this.filterLocalBlocked(list)
   }
 
   private favoriteOrderFromBody(body: string): string {

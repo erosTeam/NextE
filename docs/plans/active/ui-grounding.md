@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: local block rules
+
+Status: active
+Reference implementation: `../eros_fe/lib/common/controller/block_controller.dart`, `../eros_fe/lib/pages/setting/block/blockers_page.dart`, `feature/settings/src/main/ets/pages/SearchSettingsPage.ets`, and `feature/gallery/src/main/ets/components/GalleryCommentsCard.ets`.
+Surface type: Search settings entry, local block rules settings page, gallery-list filtering, gallery-detail comment preview, and full comments page.
+Primary information: local block rules hide galleries by title/uploader and comments by author/text or low score; raw comment data remains available for reply-reference resolution.
+Primary action: add, edit, enable/disable, or remove a local block rule; optionally enable score-threshold filtering for comments.
+Reuse or deviation: reuse eros_fe's four rule buckets plus low-score threshold, NextE `SecondaryListScaffold` / `GroupedListSection` / `ConciseListRow` settings chrome, and existing per-comment cards; deviate by storing rules in AppStorageV2-backed preferences instead of FE profile JSON.
+Verification: local block contract covering title/uploader/comment-author/comment-text/score/regex/disabled rules, UI grounding contract, V1 decorator inventory, i18n duplicate check, and signed HarmonyOS build.
+
 ## Active: Toplist hidden My Tags setting
 
 Status: active
