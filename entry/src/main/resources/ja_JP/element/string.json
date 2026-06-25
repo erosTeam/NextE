@@ -837,6 +837,10 @@
       "value": "保存できる画像がありません"
     },
     {
+      "name": "reader_original_unavailable",
+      "value": "元画像を利用できません"
+    },
+    {
       "name": "settings_site",
       "value": "サイト切替"
     },

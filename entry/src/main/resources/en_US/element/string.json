@@ -837,6 +837,10 @@
       "value": "No image to save"
     },
     {
+      "name": "reader_original_unavailable",
+      "value": "Original image is unavailable"
+    },
+    {
       "name": "settings_site",
       "value": "Switch site"
     },

@@ -2,9 +2,8 @@
 /**
  * Contract: the reader top-bar share action shares the current image, not only the gallery URL.
  *
- * eros_fe ViewTopBar calls tapShare(), which shares the current GalleryImage's image/original URL.
- * NextE must reuse the existing /s/ -> full-image resolver and only fall back to gallery sharing when
- * the current page cannot be resolved.
+ * eros_fe ViewTopBar calls tapShare(), which shares from the current GalleryImage. NextE must share the
+ * currently displayed source: resampled by default, original only after the user explicitly enables it.
  *
  * Run: node scripts/test_reader_current_image_share_contract.mjs
  */
@@ -25,15 +24,15 @@ const reader = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
 const share = read('shared/src/main/ets/utils/ShareUtil.ets')
 
 ok(/private currentImage\(\): EhGalleryImage \| null/.test(reader), 'Reader exposes a bounded currentImage helper')
-ok(/this\.vm\.currentIndex < 0 \|\| this\.vm\.currentIndex >= this\.vm\.images\.length/.test(reader),
-  'currentImage clamps against the loaded image array')
+ok(/if \(!this\.vm\.hasPreviewAt\(this\.vm\.currentIndex\)\) \{[\s\S]*return null[\s\S]*return this\.vm\.imageAt\(this\.vm\.currentIndex\)/.test(reader),
+  'currentImage clamps through the ReaderViewModel preview guard')
 ok(/private shareCurrentImage\(\): void/.test(reader), 'Reader has a current-image share action')
-ok(/image\.originImageUrl\.length > 0 \? image\.originImageUrl : image\.imageUrl/.test(reader),
-  'current-image share prefers originImageUrl before imageUrl')
-ok(/ImageResolveService\.getInstance\(\)\s*\.\s*resolve\(image\)/.test(reader),
-  'current-image share resolves an unresolved /s/ page before sharing')
-ok(/image\.originImageUrl\.length > 0 \? image\.originImageUrl : imageUrl/.test(reader),
-  'after resolve, share still prefers the newly parsed originImageUrl')
+ok(/const alreadyResolvedUrl: string = this\.currentDisplayUrl\(image\)/.test(reader),
+  'current-image share uses the current display source')
+ok(/this\.resolveCurrentDisplayUrl\(image\)/.test(reader),
+  'current-image share resolves the current display source before sharing')
+ok(/ShareUtil\.shareUrl\(this\.hostContext\(\), imageUrl, title\)/.test(reader),
+  'after resolve, share uses the resolved display source directly')
 ok(/share_image_resolve_failed/.test(reader) && /this\.shareGallery\(\)/.test(reader),
   'resolve failure logs and falls back to gallery sharing')
 ok(/this\.shareCurrentImage\(\)/.test(reader) && !/onClick\(\(\) => \{\s*this\.shareGallery\(\)\s*\}\)/.test(reader),

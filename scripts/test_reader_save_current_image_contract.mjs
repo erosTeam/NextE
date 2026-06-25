@@ -4,8 +4,7 @@
  *
  * FE grounding:
  * - eros_fe Reader ControllerButtonBar exposes Save.
- * - tapSave resolves the current GalleryImage and saves either local file or network/original image
- *   into the photo album.
+ * - tapSave resolves the current GalleryImage and saves the currently displayed source into the photo album.
  *
  * NextE policy:
  * - Expose save as a neutral reader toolbar icon, not a primary filled control.
@@ -43,6 +42,9 @@ ok(/READER_CHROME_ACTION_SIZE: number = 44/.test(reader) &&
 ok(/Text\(`\$\{this\.sliderPreview >= 0 \? this\.sliderPreview : this\.sliderValue\}`\)/.test(reader) &&
     /Text\(`\$\{this\.vm\.totalPages\(\)\}`\)/.test(reader),
   'Reader slider keeps visible current and total page numbers')
+ok(/\.selectedColor\(ThemeConstants\.BRAND_PRIMARY\)/.test(reader) &&
+    !/\.blockColor\(ThemeConstants\.BRAND_PRIMARY\)/.test(reader),
+  'Reader slider keeps brand progress color but leaves the thumb on the platform default color for contrast')
 ok(/toggleThumbStrip\(\): void[\s\S]*animateTo/.test(reader) &&
     /this\.showThumbStrip = !this\.showThumbStrip/.test(reader),
   'Reader thumbnail strip open/close is animated')
@@ -55,10 +57,14 @@ ok(/this\.thumbPageIndexes\(\)/.test(reader) &&
 ok(!/ForEach\(\s*this\.vm\.images/.test(thumbStrip),
   'Reader thumbnail strip is not limited to the currently loaded image array')
 ok(/private saveCurrentImage\(\): void/.test(reader), 'Reader owns a current-image save action')
-ok(/image\.originImageUrl\.length > 0 \? image\.originImageUrl : image\.imageUrl/.test(reader),
-  'save action prefers originImageUrl before imageUrl')
-ok(/ImageResolveService\.getInstance\(\)\s*\.\s*resolve\(image\)/.test(reader),
-  'save action resolves an unresolved current image before saving')
+ok(/@Local savingCurrentImage: boolean = false/.test(reader) &&
+    /if \(this\.savingCurrentImage\)/.test(reader) &&
+    /this\.savingCurrentImage[\s\S]*LoadingProgress\(\)/.test(reader),
+  'save action shows an immediate in-button loading state and ignores duplicate taps')
+ok(/const alreadyResolvedUrl: string = this\.currentDisplayUrl\(image\)/.test(reader),
+  'save action uses the current display source')
+ok(/this\.resolveCurrentDisplayUrl\(image\)/.test(reader),
+  'save action resolves the current display source before saving')
 ok(/ImageSaveUtil\.saveNetworkImageToGallery\(this\.hostContext\(\), url, title\)/.test(reader),
   'Reader delegates the media write to ImageSaveUtil')
 ok(/reader_save_success/.test(reader) && /reader_save_failed/.test(reader),
@@ -92,4 +98,4 @@ if (failures > 0) {
   process.exit(1)
 }
 
-console.log('✓ reader save-current-image contract: 22 assertions passed')
+console.log('✓ reader save-current-image contract: 24 assertions passed')

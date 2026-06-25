@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: reader original image display
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/image_view/view/view_image.dart` long-press current image path into `showImageSheet`, `../eros_fe/lib/pages/image_view/view/view_widget.dart` `showSaveActionSheet` / `showShareActionSheet`, and `../eros_fe/lib/network/request.dart` / `api.dart` showpage parsing of `originImageUrl`.
+Surface type: Reader bottom toolbar current-page image source action.
+Primary information: the current reader page remains the primary surface; original image display is an explicit per-page source switch backed by the parsed `/fullimg` URL.
+Primary action: tap the Reader toolbar original badge to resolve and display the current page's original image; save/share use whatever source is currently displayed.
+Reuse or deviation: reuse NextE `ImageResolveService`, `CachedImageFileService`, existing Reader chrome buttons, and the existing single/double/vertical image renderers; deviate from eros_fe's save/share action sheet by adding an in-reader view toggle because this lane is about viewing the original, not only exporting it.
+Verification: reader original-image contract, image-page parser contract, current-image share/save contracts, i18n duplicate check, V1 decorator inventory, UI grounding contract, signed HarmonyOS build, and X7 emulator user path with screenshot plus hilog evidence containing `original_mode_on` / `display_original` and `fullimg true`.
+
 ## Active: local block rules
 
 Status: active

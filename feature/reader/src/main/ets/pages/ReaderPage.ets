@@ -166,6 +166,9 @@ export struct ReaderPage {
   @Local viewWidth: number = 0;
   @Local viewHeight: number = 0;
   @Local loadedPageSignal: number = 0;
+  @Local originalImagePages: string = '';
+  @Local originalImageResolving: boolean = false;
+  @Local savingCurrentImage: boolean = false;
   private listScroller: Scroller = new Scroller();
   private thumbScroller: Scroller = new Scroller();
   private horizontalSwiperController: SwiperController = new SwiperController();
@@ -473,8 +476,78 @@ export struct ReaderPage {
     .hitTestBehavior(HitTestMode.None)
   }
 
-  // Share the current reader image URL from the reader top bar (eros_fe ViewTopBar share). Prefer the
-  // original/fullimg URL when the image page has exposed it; otherwise share the resolved full image.
+  private originalToken(page: number): string {
+    return `|${page}|`
+  }
+
+  private originalModeForPage(page: number): boolean {
+    return page > 0 && this.originalImagePages.indexOf(this.originalToken(page)) >= 0
+  }
+
+  private originalModeKeyForPage(page: number): string {
+    return this.originalModeForPage(page) ? 'orig' : 'fit'
+  }
+
+  private setOriginalModeForPage(page: number, enabled: boolean): void {
+    const token: string = this.originalToken(page)
+    const has: boolean = this.originalImagePages.indexOf(token) >= 0
+    if (enabled && !has) {
+      this.originalImagePages = `${this.originalImagePages}${token}`
+    } else if (!enabled && has) {
+      this.originalImagePages = this.originalImagePages.replace(token, '')
+    }
+  }
+
+  private currentDisplayUrl(image: EhGalleryImage): string {
+    if (this.originalModeForPage(image.page) && image.originImageUrl.length > 0) {
+      return image.originImageUrl
+    }
+    return image.imageUrl
+  }
+
+  private resolveCurrentDisplayUrl(image: EhGalleryImage): Promise<string> {
+    if (this.originalModeForPage(image.page)) {
+      return ImageResolveService.getInstance().resolveOriginal(image)
+    }
+    return ImageResolveService.getInstance().resolve(image)
+  }
+
+  private toggleOriginalImage(): void {
+    const image: EhGalleryImage | null = this.currentImage()
+    if (image === null || this.originalImageResolving) {
+      return
+    }
+    if (this.originalModeForPage(image.page)) {
+      this.setOriginalModeForPage(image.page, false)
+      DiagnosticLogger.info('reader', 'original_mode_off', `page ${image.page}`)
+      return
+    }
+    this.originalImageResolving = true
+    ImageResolveService.getInstance()
+      .resolveOriginal(image)
+      .then((url: string) => {
+        this.setOriginalModeForPage(image.page, true)
+        DiagnosticLogger.info('reader', 'original_mode_on', `page ${image.page} fullimg ${url.indexOf('/fullimg') >= 0}`)
+      })
+      .catch((err: Error) => {
+        DiagnosticLogger.warn('reader', 'original_resolve_failed', err.message)
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_original_unavailable') })
+      })
+      .finally(() => {
+        this.originalImageResolving = false
+      })
+  }
+
+  private originalButtonColor(): ResourceColor {
+    const image: EhGalleryImage | null = this.currentImage()
+    if (image !== null && this.originalModeForPage(image.page)) {
+      return ThemeConstants.BRAND_PRIMARY
+    }
+    return Color.White
+  }
+
+  // Share the current reader image URL from the reader top bar (eros_fe ViewTopBar share). It uses the
+  // currently displayed source: resampled by default, original only after the user explicitly enables it.
   // If the current page is not resolved yet, resolve it through the same /s/ pipeline the reader uses.
   private shareCurrentImage(): void {
     const image: EhGalleryImage | null = this.currentImage()
@@ -483,17 +556,14 @@ export struct ReaderPage {
       return
     }
     const title: string = `${this.params.title} ${this.vm.currentIndex + 1}`.trim()
-    const alreadyResolvedUrl: string =
-      image.originImageUrl.length > 0 ? image.originImageUrl : image.imageUrl
+    const alreadyResolvedUrl: string = this.currentDisplayUrl(image)
     if (alreadyResolvedUrl.length > 0) {
       ShareUtil.shareUrl(this.hostContext(), alreadyResolvedUrl, title)
       return
     }
-    ImageResolveService.getInstance()
-      .resolve(image)
+    this.resolveCurrentDisplayUrl(image)
       .then((imageUrl: string) => {
-        const url: string = image.originImageUrl.length > 0 ? image.originImageUrl : imageUrl
-        ShareUtil.shareUrl(this.hostContext(), url, title)
+        ShareUtil.shareUrl(this.hostContext(), imageUrl, title)
       })
       .catch((err: Error) => {
         DiagnosticLogger.warn('reader', 'share_image_resolve_failed', err.message)
@@ -513,32 +583,38 @@ export struct ReaderPage {
   }
 
   private saveCurrentImage(): void {
+    if (this.savingCurrentImage) {
+      return
+    }
     const image: EhGalleryImage | null = this.currentImage()
     if (image === null) {
       this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_no_image') })
       return
     }
+    this.savingCurrentImage = true
     const title: string = `${this.params.gid}-${this.vm.currentIndex + 1}`.trim()
-    const alreadyResolvedUrl: string =
-      image.originImageUrl.length > 0 ? image.originImageUrl : image.imageUrl
+    const alreadyResolvedUrl: string = this.currentDisplayUrl(image)
     if (alreadyResolvedUrl.length > 0) {
-      this.saveImageUrl(alreadyResolvedUrl, title)
+      this.saveImageUrl(alreadyResolvedUrl, title).finally(() => {
+        this.savingCurrentImage = false
+      })
       return
     }
-    ImageResolveService.getInstance()
-      .resolve(image)
+    this.resolveCurrentDisplayUrl(image)
       .then((imageUrl: string) => {
-        const url: string = image.originImageUrl.length > 0 ? image.originImageUrl : imageUrl
-        this.saveImageUrl(url, title)
+        return this.saveImageUrl(imageUrl, title)
       })
       .catch((err: Error) => {
         DiagnosticLogger.warn('reader', 'save_image_resolve_failed', err.message)
         this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_failed') })
       })
+      .finally(() => {
+        this.savingCurrentImage = false
+      })
   }
 
-  private saveImageUrl(url: string, title: string): void {
-    ImageSaveUtil.saveNetworkImageToGallery(this.hostContext(), url, title)
+  private saveImageUrl(url: string, title: string): Promise<void> {
+    return ImageSaveUtil.saveNetworkImageToGallery(this.hostContext(), url, title)
       .then(() => {
         this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_success') })
       })
@@ -877,7 +953,8 @@ export struct ReaderPage {
           if (this.vm.hasPreviewAt(index)) {
             ReaderImagePage({
               image: this.vm.imageAt(index),
-              imageKey: this.readerImageKey(this.vm.imageAt(index)),
+              imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}`,
+              preferOriginal: this.originalModeForPage(this.vm.imageAt(index).page),
               initiallyLoaded: this.isPageImageLoaded(index),
               loadedSignal: this.loadedPageSignal,
               activeIndex: this.vm.currentIndex,
@@ -1042,6 +1119,10 @@ export struct ReaderPage {
               second: this.hasSpreadImage(this.spreadSecondIndex(start)) ? this.vm.imageAt(this.spreadSecondIndex(start)) : new EhGalleryImage(),
               hasFirst: true,
               hasSecond: this.spreadSecondVisible(start) && this.hasSpreadImage(this.spreadSecondIndex(start)),
+              firstPreferOriginal: this.originalModeForPage(this.vm.imageAt(start).page),
+              secondPreferOriginal: this.hasSpreadImage(this.spreadSecondIndex(start))
+                ? this.originalModeForPage(this.vm.imageAt(this.spreadSecondIndex(start)).page)
+                : false,
               firstInitiallyLoaded: this.isPageImageLoaded(start),
               secondInitiallyLoaded: this.isPageImageLoaded(this.spreadSecondIndex(start)),
               loadedSignal: this.loadedPageSignal,
@@ -1138,7 +1219,8 @@ export struct ReaderPage {
             if (this.vm.hasPreviewAt(index)) {
               ReaderVerticalImage({
                 image: this.vm.imageAt(index),
-                imageKey: this.readerImageKey(this.vm.imageAt(index)),
+                imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}`,
+                preferOriginal: this.originalModeForPage(this.vm.imageAt(index).page),
                 initiallyLoaded: this.isPageImageLoaded(index),
                 loadedSignal: this.loadedPageSignal,
                 onImageLoaded: (page: number) => {
@@ -1405,7 +1487,6 @@ export struct ReaderPage {
             .layoutWeight(1)
             .trackColor(READER_CHROME_TRACK_BG)
             .selectedColor(ThemeConstants.BRAND_PRIMARY)
-            .blockColor(ThemeConstants.BRAND_PRIMARY)
             .onChange((value: number, mode: SliderChangeMode) => {
               const page: number = Math.round(value)
               if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
@@ -1432,15 +1513,40 @@ export struct ReaderPage {
 
         Row() {
           Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.arrow_down_to_line'))
-              .fontSize(READER_CHROME_ICON_SIZE)
-              .fontColor([Color.White])
+            if (this.savingCurrentImage) {
+              LoadingProgress()
+                .width(READER_CHROME_ICON_SIZE)
+                .height(READER_CHROME_ICON_SIZE)
+                .color(Color.White)
+            } else {
+              SymbolGlyph($r('sys.symbol.arrow_down_to_line'))
+                .fontSize(READER_CHROME_ICON_SIZE)
+                .fontColor([Color.White])
+            }
           }
           .width(READER_CHROME_ACTION_SIZE)
           .height(READER_CHROME_ACTION_SIZE)
           .backgroundColor(Color.Transparent)
           .onClick(() => {
             this.saveCurrentImage()
+          })
+          Button({ type: ButtonType.Circle }) {
+            if (this.originalImageResolving) {
+              LoadingProgress()
+                .width(READER_CHROME_ICON_SIZE)
+                .height(READER_CHROME_ICON_SIZE)
+                .color(ThemeConstants.BRAND_PRIMARY)
+            } else {
+              SymbolGlyph($r('sys.symbol.arrow_outward_and_rectangle'))
+                .fontSize(READER_CHROME_ICON_SIZE)
+                .fontColor([this.originalButtonColor()])
+            }
+          }
+          .width(READER_CHROME_ACTION_SIZE)
+          .height(READER_CHROME_ACTION_SIZE)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            this.toggleOriginalImage()
           })
           Button({ type: ButtonType.Circle }) {
             SymbolGlyph($r('sys.symbol.clock'))
@@ -1716,6 +1822,8 @@ struct ReaderSpreadSurface {
   @Param second: EhGalleryImage = new EhGalleryImage();
   @Param hasFirst: boolean = false;
   @Param hasSecond: boolean = false;
+  @Param firstPreferOriginal: boolean = false;
+  @Param secondPreferOriginal: boolean = false;
   @Param firstInitiallyLoaded: boolean = false;
   @Param secondInitiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
@@ -1878,11 +1986,12 @@ struct ReaderSpreadSurface {
   }
 
   @Builder
-  SpreadImageLayer(image: EhGalleryImage, hasImage: boolean, initiallyLoaded: boolean) {
+  SpreadImageLayer(image: EhGalleryImage, hasImage: boolean, preferOriginal: boolean, initiallyLoaded: boolean) {
     if (hasImage) {
       ReaderSpreadImageLayer({
         image: image,
-        imageKey: `${image.page}-${image.sUrl}-${image.imageUrl}`,
+        imageKey: `${image.page}-${image.sUrl}-${image.imageUrl}-${preferOriginal ? 'orig' : 'fit'}`,
+        preferOriginal: preferOriginal,
         initiallyLoaded: initiallyLoaded,
         loadedSignal: this.loadedSignal,
         onImageLoaded: (page: number) => {
@@ -1903,11 +2012,11 @@ struct ReaderSpreadSurface {
     Stack() {
       Row({ space: ThemeConstants.SPACE_XS }) {
         if (this.rowReversed) {
-          this.SpreadImageLayer(this.second, this.hasSecond, this.secondInitiallyLoaded)
-          this.SpreadImageLayer(this.first, this.hasFirst, this.firstInitiallyLoaded)
+          this.SpreadImageLayer(this.second, this.hasSecond, this.secondPreferOriginal, this.secondInitiallyLoaded)
+          this.SpreadImageLayer(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
         } else {
-          this.SpreadImageLayer(this.first, this.hasFirst, this.firstInitiallyLoaded)
-          this.SpreadImageLayer(this.second, this.hasSecond, this.secondInitiallyLoaded)
+          this.SpreadImageLayer(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
+          this.SpreadImageLayer(this.second, this.hasSecond, this.secondPreferOriginal, this.secondInitiallyLoaded)
         }
       }
       .width('100%')
@@ -2000,6 +2109,7 @@ struct ReaderSpreadSurface {
 struct ReaderSpreadImageLayer {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param imageKey: string = '';
+  @Param preferOriginal: boolean = false;
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
@@ -2026,6 +2136,12 @@ struct ReaderSpreadImageLayer {
     this.resolve()
   }
 
+  @Monitor('preferOriginal')
+  onPreferOriginalChanged(): void {
+    this.resetImageState()
+    this.resolve()
+  }
+
   @Monitor('loadedSignal')
   onLoadedSignalChanged(): void {
     if (this.initiallyLoaded && this.imageUrl.length > 0) {
@@ -2046,6 +2162,24 @@ struct ReaderSpreadImageLayer {
   }
 
   private async resolve(changeSource: boolean = false): Promise<void> {
+    if (!changeSource && this.preferOriginal) {
+      try {
+        this.imageUrl = ''
+        this.imageLoaded = false
+        this.sourceImageUrl = ''
+        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image)
+        DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
+        await this.loadResolvedImage(original)
+        this.failed = false
+        this.failureKind = ReaderImageFailureKind.Generic
+      } catch (err) {
+        const e: Error = err as Error
+        this.failureKind = readerFailureKindFromError(e)
+        DiagnosticLogger.warn('reader', 'spread_original_failed', e.message)
+        this.failed = true
+      }
+      return
+    }
     if (!changeSource && this.image.imageUrl.length > 0) {
       await this.loadResolvedImage(this.image.imageUrl)
       return
@@ -2205,6 +2339,7 @@ struct ReaderSpreadImageLayer {
 struct ReaderImagePage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param imageKey: string = '';
+  @Param preferOriginal: boolean = false;
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
   @Param activeIndex: number = 0;
@@ -2257,6 +2392,12 @@ struct ReaderImagePage {
     this.resolve()
   }
 
+  @Monitor('preferOriginal')
+  onPreferOriginalChanged(): void {
+    this.resetSourceState()
+    this.resolve()
+  }
+
   @Monitor('loadedSignal')
   onLoadedSignalChanged(): void {
     if (this.initiallyLoaded && this.imageUrl.length > 0) {
@@ -2284,6 +2425,24 @@ struct ReaderImagePage {
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) — re-resolves via /s/?nl= for a
   // different host, bypassing the cached URL.
   private async resolve(changeSource: boolean = false): Promise<void> {
+    if (!changeSource && this.preferOriginal) {
+      try {
+        this.imageUrl = ''
+        this.imageLoaded = false
+        this.sourceImageUrl = ''
+        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image)
+        DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
+        await this.loadResolvedImage(original)
+        this.failed = false
+        this.failureKind = ReaderImageFailureKind.Generic
+      } catch (err) {
+        const e: Error = err as Error
+        this.failureKind = readerFailureKindFromError(e)
+        DiagnosticLogger.warn('reader', 'original_failed', e.message)
+        this.failed = true
+      }
+      return
+    }
     if (!changeSource && this.image.imageUrl.length > 0) {
       await this.loadResolvedImage(this.image.imageUrl)
       return
@@ -2629,6 +2788,7 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param imageKey: string = '';
+  @Param preferOriginal: boolean = false;
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
@@ -2653,6 +2813,12 @@ struct ReaderVerticalImage {
     this.resolve()
   }
 
+  @Monitor('preferOriginal')
+  onPreferOriginalChanged(): void {
+    this.resetSourceState()
+    this.resolve()
+  }
+
   @Monitor('loadedSignal')
   onLoadedSignalChanged(): void {
     if (this.initiallyLoaded && this.imageUrl.length > 0) {
@@ -2662,6 +2828,24 @@ struct ReaderVerticalImage {
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
   private async resolve(changeSource: boolean = false): Promise<void> {
+    if (!changeSource && this.preferOriginal) {
+      try {
+        this.imageUrl = ''
+        this.imageLoaded = false
+        this.sourceImageUrl = ''
+        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image)
+        DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
+        await this.loadResolvedImage(original)
+        this.failed = false
+        this.failureKind = ReaderImageFailureKind.Generic
+      } catch (err) {
+        const e: Error = err as Error
+        this.failureKind = readerFailureKindFromError(e)
+        DiagnosticLogger.warn('reader', 'vertical_original_failed', e.message)
+        this.failed = true
+      }
+      return
+    }
     if (!changeSource && this.image.imageUrl.length > 0) {
       await this.loadResolvedImage(this.image.imageUrl)
       return

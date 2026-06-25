@@ -89,6 +89,28 @@ export class ImageResolveService {
     return p
   }
 
+  async resolveOriginal(image: EhGalleryImage): Promise<string> {
+    if (image.originImageUrl.length > 0) {
+      DiagnosticLogger.info('reader', 'resolve_original_cache', `page ${image.page} fullimg true`)
+      return image.originImageUrl
+    }
+    if (image.sUrl.length === 0) {
+      throw new Error('image has no /s/ page url')
+    }
+    const cached: ImagePageResult | undefined = this.resolved.get(image.sUrl)
+    if (cached !== undefined && cached.originImageUrl.length > 0) {
+      this.applyResult(image, cached)
+      DiagnosticLogger.info('reader', 'resolve_original_memory_cache', `page ${image.page} fullimg true`)
+      return image.originImageUrl
+    }
+    await this.doResolve(image, false)
+    if (image.originImageUrl.length === 0) {
+      throw new Error('original image unavailable')
+    }
+    DiagnosticLogger.info('reader', 'resolve_original', `page ${image.page} fullimg ${image.originImageUrl.indexOf('/fullimg') >= 0}`)
+    return image.originImageUrl
+  }
+
   private async doResolve(image: EhGalleryImage, changeSource: boolean): Promise<string> {
     const ref: ImagePageRef | null = EhUrlRouter.parseImagePage(image.sUrl)
     const sIdx: number = image.sUrl.indexOf('/s/')

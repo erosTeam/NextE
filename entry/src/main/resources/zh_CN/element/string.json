@@ -837,6 +837,10 @@
       "value": "当前没有可保存的图片"
     },
     {
+      "name": "reader_original_unavailable",
+      "value": "当前图片没有可用原图"
+    },
+    {
       "name": "settings_site",
       "value": "站点切换"
     },
