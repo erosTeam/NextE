@@ -42,6 +42,11 @@ const applyTranslationEnd = commentsPage.indexOf('private commentById', applyTra
 const applyTranslationBody = applyTranslationStart >= 0 && applyTranslationEnd > applyTranslationStart
   ? commentsPage.slice(applyTranslationStart, applyTranslationEnd)
   : ''
+const autoTranslateStart = commentsCard.indexOf('private autoTranslateVisibleComments')
+const autoTranslateEnd = commentsCard.indexOf('private publishAuthor', autoTranslateStart)
+const autoTranslateBody = autoTranslateStart >= 0 && autoTranslateEnd > autoTranslateStart
+  ? commentsCard.slice(autoTranslateStart, autoTranslateEnd)
+  : ''
 
 ok(
   /CREATE TABLE IF NOT EXISTS comment_translation_cache/.test(store) &&
@@ -58,7 +63,11 @@ ok(
   /Authorization': `Bearer \$\{apiKey\}`/.test(service) &&
     /\/v1\/chat\/completions/.test(service) &&
     /translate\.googleapis\.com\/translate_a\/single/.test(service) &&
-    /llm_failed_google_fallback/.test(service),
+    /llm_failed_google_fallback/.test(service) &&
+    /static protectMentionText\(mention: string\): string/.test(service) &&
+    /restoreMentionTokens\(rawResult\)/.test(service) &&
+    /Keep NEXTEATHEX\.\.\.TOKEN placeholders unchanged/.test(service) &&
+    !/isMentionStop/.test(service),
   'service must support user OpenAI-compatible LLM and Google fallback',
 )
 ok(
@@ -181,8 +190,10 @@ ok(
     /private beginTranslationLoading\(c: EhGalleryComment\): void[\s\S]*if \(this\.parentManagedActions\) \{[\s\S]*this\.ensureLocalTranslationState\(\)[\s\S]*this\.localTranslationShown = true[\s\S]*this\.localTranslationLoading = true[\s\S]*return[\s\S]*c\.translationShown = true[\s\S]*c\.translationLoading = true/.test(commentsCard) &&
     !/this\.renderState\.translationShown = !this\.renderState\.translationShown/.test(commentsCard) &&
     !/this\.renderState\.translationLoading = true/.test(commentsCard) &&
-    /private autoTranslateVisibleComments\(\): void \{[\s\S]*if \(this\.parentManagedActions\) \{[\s\S]*return[\s\S]*this\.translationSettings\.autoTranslate/.test(commentsCard) &&
+    /this\.translationSettings\.autoTranslate[\s\S]*this\.publishAutoTranslate\(c, this\.translationSourceText\(c\)\)/.test(autoTranslateBody) &&
+    !/if \(this\.parentManagedActions\)/.test(autoTranslateBody) &&
     /private toggleOrTranslate\(c: EhGalleryComment\): void[\s\S]*this\.beginTranslationLoading\(c\)[\s\S]*this\.publishTranslate\(c, sourceText\)/.test(commentsCard) &&
+    /private translationSourceText\(c: EhGalleryComment\): string \{[\s\S]*this\.commentTextSegments\(source, c\)[\s\S]*seg\.emphasized \? CommentTranslationService\.protectMentionText\(seg\.text\) : seg\.text/.test(commentsCard) &&
     /current\.translationText = translated/.test(commentsPage) &&
     /current\.translationShown = shown/.test(commentsPage) &&
     !/this\.comments = nextComments/.test(applyTranslationBody) &&
@@ -208,10 +219,10 @@ ok(
     /private applyResolvedCommentTranslation\(comment: EhGalleryComment, translated: string\): void \{[\s\S]*this\.applyCommentTranslationState\(comment\.commentId, translated, true, false, undefined\)/.test(commentsPage) &&
     !/commentBodyTransitionId/.test(commentsCard) &&
     !/geometryTransition/.test(commentsCard) &&
-    /CommentPlainText\(text: string, color: ResourceColor\)/.test(commentsCard) &&
-    /this\.CommentPlainText\(this\.localTranslationText, \$r\('sys\.color\.font_primary'\)\)/.test(commentsCard) &&
+    !/CommentPlainText\(text: string, color: ResourceColor\)/.test(commentsCard) &&
+    /this\.CommentText\(c, this\.localTranslationText, false, \$r\('sys\.color\.font_primary'\)\)/.test(commentsCard) &&
     !/TransitionEffect\.OPACITY/.test(commentsCard) &&
-    /if \(this\.translationEnabled\(\) && this\.localTranslationShown && this\.localTranslationText\.length > 0\) \{[\s\S]*this\.CommentPlainText\(this\.localTranslationText/.test(commentsCard) &&
+    /if \(this\.translationEnabled\(\) && this\.localTranslationShown && this\.localTranslationText\.length > 0\) \{[\s\S]*this\.CommentText\(c, this\.localTranslationText/.test(commentsCard) &&
     !/translatedComments/.test(commentsCard),
   'comment translation row state must be read inside row builders rather than frozen as builder arguments',
 )

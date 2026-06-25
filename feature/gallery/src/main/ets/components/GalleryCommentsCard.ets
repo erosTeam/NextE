@@ -1,10 +1,12 @@
 import {
   COMMENT_TRANSLATION_DISPLAY_BILINGUAL,
   CommentTranslationSettingsState,
+  CommentTranslationService,
   EhConstants,
   EhGalleryComment,
   EhUrlRouter,
   GalleryWebParams,
+  LocalBlockService,
   ThemeConstants,
   connectCommentTranslationSettings,
   connectNavStack,
@@ -75,6 +77,7 @@ export struct GalleryCommentsCard {
   @Local commentBodyHeightLocked: boolean = false;
   @Local pendingTranslationText: string = '';
   @Local pendingTranslationMeasure: boolean = false;
+  @Local expandedBlockedCommentKeys: string[] = [];
 
   @Monitor('comments', 'translationSettings.enabled', 'translationSettings.autoTranslate')
   onTranslationInputsChanged(): void {
@@ -143,6 +146,38 @@ export struct GalleryCommentsCard {
 
   private commentRowKey(c: EhGalleryComment): string {
     return c.commentId
+  }
+
+  private blockedCommentKey(c: EhGalleryComment): string {
+    if (c.commentId.length > 0) {
+      return c.commentId
+    }
+    return `${c.author}:${c.postedTime}:${c.contentText}`
+  }
+
+  private isBlockedComment(c: EhGalleryComment): boolean {
+    return LocalBlockService.shouldCollapseBlockedComments() && LocalBlockService.isCommentBlocked(c)
+  }
+
+  private isBlockedExpanded(c: EhGalleryComment): boolean {
+    return this.expandedBlockedCommentKeys.indexOf(this.blockedCommentKey(c)) >= 0
+  }
+
+  private isBlockedCollapsed(c: EhGalleryComment): boolean {
+    return this.isBlockedComment(c) && !this.isBlockedExpanded(c)
+  }
+
+  private toggleBlockedComment(c: EhGalleryComment): void {
+    const key: string = this.blockedCommentKey(c)
+    this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
+      if (this.expandedBlockedCommentKeys.indexOf(key) >= 0) {
+        this.expandedBlockedCommentKeys = this.expandedBlockedCommentKeys.filter((item: string) => item !== key)
+      } else {
+        const next: string[] = this.expandedBlockedCommentKeys.slice()
+        next.push(key)
+        this.expandedBlockedCommentKeys = next
+      }
+    })
   }
 
   private voteColor(c: EhGalleryComment, vote: number): ResourceColor {
@@ -522,6 +557,17 @@ export struct GalleryCommentsCard {
     return this.displayContentText(c)
   }
 
+  private translationSourceText(c: EhGalleryComment): string {
+    const source: string = this.displayContentText(c)
+    const segments: CommentTextSegment[] = this.commentTextSegments(source, c)
+    let out: string = ''
+    for (let i = 0; i < segments.length; i++) {
+      const seg: CommentTextSegment = segments[i]
+      out += seg.emphasized ? CommentTranslationService.protectMentionText(seg.text) : seg.text
+    }
+    return out
+  }
+
   private isTranslationLoading(c: EhGalleryComment): boolean {
     if (this.parentManagedActions) {
       if (this.localTranslationCommentId === this.renderState.commentId) {
@@ -591,7 +637,7 @@ export struct GalleryCommentsCard {
       this.publishToggleTranslation(c)
       return
     }
-    const sourceText: string = this.displayContentText(c)
+    const sourceText: string = this.translationSourceText(c)
     this.beginTranslationLoading(c)
     this.publishTranslate(c, sourceText)
       .then((translated: string) => {
@@ -662,9 +708,6 @@ export struct GalleryCommentsCard {
   }
 
   private autoTranslateVisibleComments(): void {
-    if (this.parentManagedActions) {
-      return
-    }
     if (!this.translationEnabled() || !this.translationSettings.autoTranslate) {
       return
     }
@@ -677,7 +720,7 @@ export struct GalleryCommentsCard {
       if (c.translationAutoStarted) {
         continue
       }
-      this.publishAutoTranslate(c, this.displayContentText(c))
+      this.publishAutoTranslate(c, this.translationSourceText(c))
     }
   }
 
@@ -739,6 +782,13 @@ export struct GalleryCommentsCard {
   private quoteExcerpt(text: string): string {
     const clean: string = text.replace(/\n+/g, ' ').trim()
     return clean.length > 120 ? `${clean.substring(0, 120)}...` : clean
+  }
+
+  private quoteExcerptText(c: EhGalleryComment): string {
+    if (this.translationEnabled() && c.translationShown && c.translationText.length > 0) {
+      return c.translationText
+    }
+    return c.contentText
   }
 
   private commentGap(): number {
@@ -892,8 +942,28 @@ export struct GalleryCommentsCard {
   // previews), then the time as a small footer. The full comments page (max === 0) shows the whole text.
   @Builder
   CommentRow(c: EhGalleryComment, isLast: boolean) {
-    if (this.canOpenFullComments()) {
+    if (this.isBlockedCollapsed(c)) {
       Column({ space: ThemeConstants.SPACE_XS }) {
+        this.CollapsedBlockedComment(c)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .padding({
+        left: ThemeConstants.SPACE_MD,
+        right: ThemeConstants.SPACE_MD,
+        top: ThemeConstants.SPACE_MD,
+        bottom: this.commentBottomPadding(),
+      })
+      .borderRadius(ThemeConstants.RADIUS_CARD)
+      .backgroundColor($r('app.color.card_background'))
+      .onClick(() => {
+        this.toggleBlockedComment(c)
+      })
+    } else if (this.canOpenFullComments()) {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        if (this.isBlockedComment(c)) {
+          this.ExpandedBlockedHeader(c)
+        }
         this.CommentRowContent(c)
       }
       .width('100%')
@@ -907,10 +977,15 @@ export struct GalleryCommentsCard {
       .borderRadius(ThemeConstants.RADIUS_CARD)
       .backgroundColor($r('app.color.card_background'))
       .onClick(() => {
-        this.onMore()
+        if (!this.isBlockedComment(c)) {
+          this.onMore()
+        }
       })
     } else {
       Column({ space: ThemeConstants.SPACE_XS }) {
+        if (this.isBlockedComment(c)) {
+          this.ExpandedBlockedHeader(c)
+        }
         this.CommentRowContent(c)
       }
       .width('100%')
@@ -924,6 +999,63 @@ export struct GalleryCommentsCard {
       .borderRadius(ThemeConstants.RADIUS_CARD)
       .backgroundColor($r('app.color.card_background'))
     }
+  }
+
+  @Builder
+  CollapsedBlockedComment(c: EhGalleryComment) {
+    Row({ space: ThemeConstants.SPACE_SM }) {
+      SymbolGlyph($r('sys.symbol.eye_slash'))
+        .fontSize(18)
+        .fontColor([$r('sys.color.font_tertiary')])
+      Column({ space: 2 }) {
+        Text($r('app.string.local_block_comment_collapsed'))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_secondary'))
+        Text(this.collapsedBlockedSubtitle(c))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .layoutWeight(1)
+      SymbolGlyph($r('sys.symbol.arrowtriangle_down_fill'))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor([$r('sys.color.font_tertiary')])
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  ExpandedBlockedHeader(c: EhGalleryComment) {
+    Row({ space: ThemeConstants.SPACE_XS }) {
+      SymbolGlyph($r('sys.symbol.eye_slash'))
+        .fontSize(14)
+        .fontColor([$r('sys.color.font_tertiary')])
+      Text($r('app.string.local_block_comment_collapsed'))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor($r('sys.color.font_tertiary'))
+        .layoutWeight(1)
+      Text($r('app.string.local_block_comment_collapse'))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor($r('sys.color.font_emphasize'))
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      this.toggleBlockedComment(c)
+    })
+  }
+
+  private collapsedBlockedSubtitle(c: EhGalleryComment): string {
+    if (c.author.length > 0 && c.postedTime.length > 0) {
+      return `${c.author} · ${c.postedTime}`
+    }
+    if (c.author.length > 0) {
+      return c.author
+    }
+    return c.postedTime
   }
 
   @Builder
@@ -1037,10 +1169,10 @@ export struct GalleryCommentsCard {
         Divider()
           .strokeWidth(0.5)
           .color($r('sys.color.ohos_id_color_list_separator'))
-        this.CommentPlainText(this.localTranslationText, $r('sys.color.font_primary'))
+        this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
       } else if (this.parentManagedActions) {
         if (this.translationEnabled() && this.localTranslationShown && this.localTranslationText.length > 0) {
-          this.CommentPlainText(this.localTranslationText, $r('sys.color.font_primary'))
+          this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
         } else {
           this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'))
         }
@@ -1063,18 +1195,10 @@ export struct GalleryCommentsCard {
       Divider()
         .strokeWidth(0.5)
         .color($r('sys.color.ohos_id_color_list_separator'))
-      this.CommentPlainText(translated, $r('sys.color.font_primary'))
+      this.CommentText(c, translated, false, $r('sys.color.font_primary'))
     } else {
-      this.CommentPlainText(translated, $r('sys.color.font_primary'))
+      this.CommentText(c, translated, false, $r('sys.color.font_primary'))
     }
-  }
-
-  @Builder
-  CommentPlainText(text: string, color: ResourceColor) {
-    Text(text)
-      .fontSize(ThemeConstants.FONT_SIZE_BODY)
-      .fontColor(color)
-      .width('100%')
   }
 
   @Builder
@@ -1151,7 +1275,7 @@ export struct GalleryCommentsCard {
         .fontColor($r('sys.color.font_emphasize'))
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text(this.quoteExcerpt(c.contentText))
+      Text(this.quoteExcerpt(this.quoteExcerptText(c)))
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor($r('sys.color.font_secondary'))
         .maxLines(3)

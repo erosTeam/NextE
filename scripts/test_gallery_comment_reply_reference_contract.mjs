@@ -72,7 +72,8 @@ ok('unresolved reply marker falls back to plain comment text',
 ok('comment card renders a compact quote before the comment body',
   /this\.ReplyReferences\(c\)/.test(card) &&
   /@Builder\s+ReplyQuote\(c: EhGalleryComment\)/.test(card) &&
-  /Text\(this\.quoteExcerpt\(c\.contentText\)\)/.test(card))
+  /private quoteExcerptText\(c: EhGalleryComment\): string[\s\S]*c\.translationShown[\s\S]*return c\.translationText[\s\S]*return c\.contentText/.test(card) &&
+  /Text\(this\.quoteExcerpt\(this\.quoteExcerptText\(c\)\)\)/.test(card))
 
 if (failures === 0) {
   console.log('✓ gallery comment reply reference contract passed')

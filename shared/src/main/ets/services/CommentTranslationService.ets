@@ -179,7 +179,8 @@ export class CommentTranslationService {
     text: string,
     targetLang: string,
   ): Promise<string> {
-    const result: string = await CommentTranslationService.callTranslation(text, targetLang)
+    const rawResult: string = await CommentTranslationService.callTranslation(text, targetLang)
+    const result: string = CommentTranslationService.restoreMentionTokens(rawResult)
     await CommentTranslationService.save(context, text, targetLang, result)
     return result
   }
@@ -235,7 +236,7 @@ export class CommentTranslationService {
     system.role = 'system'
     system.content =
       `You are a translator. Translate the following text to ${CommentTranslationService.langName(targetLang)}. ` +
-      'Output ONLY the translated text, no explanations.'
+      'Keep NEXTEATHEX...TOKEN placeholders unchanged. Output ONLY the translated text, no explanations.'
     const user = new ChatMessage()
     user.role = 'user'
     user.content = text
@@ -380,6 +381,51 @@ export class CommentTranslationService {
     entry.translated = translated
     entry.expiresAt = expiresAt
     CommentTranslationService.memory.set(key, entry)
+  }
+
+  static protectMentionText(mention: string): string {
+    let hex: string = ''
+    for (let i = 0; i < mention.length; i++) {
+      hex += mention.charCodeAt(i).toString(16).padStart(4, '0')
+    }
+    return `NEXTEATHEX${hex}TOKEN`
+  }
+
+  private static restoreMentionTokens(text: string): string {
+    let out: string = ''
+    let cursor: number = 0
+    while (cursor < text.length) {
+      const start: number = text.indexOf('NEXTEATHEX', cursor)
+      if (start < 0) {
+        out += text.substring(cursor)
+        break
+      }
+      const end: number = text.indexOf('TOKEN', start + 10)
+      if (end < 0) {
+        out += text.substring(cursor)
+        break
+      }
+      out += text.substring(cursor, start)
+      const hex: string = text.substring(start + 10, end)
+      out += CommentTranslationService.decodeMentionHex(hex)
+      cursor = end + 5
+    }
+    return out
+  }
+
+  private static decodeMentionHex(hex: string): string {
+    if (hex.length === 0 || hex.length % 4 !== 0) {
+      return ''
+    }
+    let out: string = ''
+    for (let i = 0; i < hex.length; i += 4) {
+      const code: number = Number.parseInt(hex.substring(i, i + 4), 16)
+      if (Number.isNaN(code)) {
+        return ''
+      }
+      out += String.fromCharCode(code)
+    }
+    return out
   }
 
   private static cacheKey(text: string, targetLang: string): string {
