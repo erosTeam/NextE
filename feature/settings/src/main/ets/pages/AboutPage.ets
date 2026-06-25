@@ -8,6 +8,7 @@ import {
   SectionHeader,
   ThemeConstants,
   immersiveTitleBar,
+  DiagnosticLogger,
 } from 'shared'
 
 @ComponentV2
@@ -21,7 +22,7 @@ export struct AboutPage {
         this.appVersion = info.versionName
       })
       .catch((error: Error) => {
-        console.error('get bundle info failed: ' + error.message)
+        DiagnosticLogger.warn('settings', 'about_bundle_info_failed', error.message)
       })
   }
 

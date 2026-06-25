@@ -54,7 +54,11 @@ export class CachedImageFileService {
     const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, url, cacheKey)
     if (cached !== null) {
       onProgress({ loaded: cached.bytes, total: cached.bytes })
-      DiagnosticLogger.info('image-cache', 'hit', `${cached.bytes} bytes -> ${cached.displayUri}`)
+      DiagnosticLogger.info(
+        'image-cache',
+        'hit',
+        `bytes=${cached.bytes} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+      )
       return cached
     }
 
@@ -63,7 +67,11 @@ export class CachedImageFileService {
     if (inFlight !== undefined) {
       const result: CachedImageFileResult = await inFlight
       onProgress({ loaded: result.bytes, total: result.bytes })
-      DiagnosticLogger.info('image-cache', 'join', `${result.bytes} bytes -> ${result.displayUri}`)
+      DiagnosticLogger.info(
+        'image-cache',
+        'join',
+        `bytes=${result.bytes} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+      )
       return result
     }
 
@@ -96,7 +104,11 @@ export class CachedImageFileService {
     fileIo.renameSync(tmpPath, filePath)
     const finalBytes: number = bytes > 0 ? bytes : CachedImageFileService.fileSize(filePath)
     onProgress({ loaded: finalBytes, total: finalBytes })
-    DiagnosticLogger.info('image-cache', 'stored', `${finalBytes} bytes -> ${CachedImageFileService.displayUri(filePath)}`)
+    DiagnosticLogger.info(
+      'image-cache',
+      'stored',
+      `bytes=${finalBytes} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+    )
     return { filePath, displayUri: CachedImageFileService.displayUri(filePath), bytes: finalBytes, fromCache: false }
   }
 

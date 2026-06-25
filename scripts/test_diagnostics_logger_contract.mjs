@@ -75,6 +75,28 @@ const sharedIndex = read('shared/src/main/ets/Index.ets')
 ok(/DiagnosticsLogFileSink/.test(sharedIndex) && /DiagnosticsFileExport/.test(sharedIndex) && /connectDiagnostics/.test(sharedIndex),
   'shared barrel exports diagnostics system')
 
+const favoritesVm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
+ok(/loadmore_start/.test(favoritesVm) && /loadmore_done/.test(favoritesVm) && /loadmore_failed/.test(favoritesVm),
+  'favorites pagination records request, result, and failure diagnostics')
+ok(/cursorHash=/.test(favoritesVm) && /nextHash=/.test(favoritesVm),
+  'favorites pagination logs cursor hashes instead of raw paging tokens')
+
+const commentTranslation = read('shared/src/main/ets/services/CommentTranslationService.ets')
+ok(/comment_translate_start/.test(commentTranslation) && /comment_translate_done/.test(commentTranslation),
+  'comment translation records request lifecycle diagnostics')
+ok(/comment_llm_start/.test(commentTranslation) && /comment_google_start/.test(commentTranslation),
+  'comment translation records provider selection diagnostics')
+
+const imageCache = read('shared/src/main/ets/services/CachedImageFileService.ets')
+ok(/urlHash=/.test(imageCache) && /cacheKeyHash=/.test(imageCache),
+  'image cache diagnostics use hashes for image identity')
+ok(!/DiagnosticLogger\.[^\n]+displayUri/.test(imageCache) && !/-> \$\{[^}]*displayUri/.test(imageCache),
+  'image cache diagnostics do not export local displayUri paths')
+
+const aboutPage = read('feature/settings/src/main/ets/pages/AboutPage.ets')
+ok(!/console\.(log|info|warn|error)/.test(aboutPage), 'About page does not bypass diagnostics with console logging')
+ok(/about_bundle_info_failed/.test(aboutPage), 'About page records bundle info failures through diagnostics')
+
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
   for (const key of [

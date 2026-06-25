@@ -14,6 +14,7 @@ import {
   AppStrings,
   immersiveTitleBar,
   AppModalScaffold,
+  DiagnosticLogger,
 } from 'shared'
 
 /** Read-only torrent list for a gallery. Mirrors eros_fe's torrent dialog; detail opens it as a sheet. */
@@ -64,6 +65,11 @@ export struct GalleryTorrentsContent {
     }
     this.loading = true
     this.error = ''
+    DiagnosticLogger.info(
+      'gallery',
+      'torrents_load_start',
+      `gid=${this.params.gid} tokenHash=${DiagnosticLogger.ownerHash(this.params.token)} isEx=${this.params.isEx}`,
+    )
     try {
       const result: EhGalleryTorrentList =
         await EhApiService.getInstance().getGalleryTorrents(
@@ -73,9 +79,19 @@ export struct GalleryTorrentsContent {
         )
       this.torrentToken = result.torrentToken
       this.torrents = result.torrents
+      DiagnosticLogger.info(
+        'gallery',
+        'torrents_load_done',
+        `gid=${this.params.gid} count=${this.torrents.length} tokenHash=${DiagnosticLogger.ownerHash(this.torrentToken)}`,
+      )
     } catch (e) {
       const err = e as Error
       this.error = err.message.length > 0 ? err.message : AppStrings.get('common_load_failed')
+      DiagnosticLogger.warn(
+        'gallery',
+        'torrents_load_failed',
+        `gid=${this.params.gid} error=${err.message}`,
+      )
     }
     this.loading = false
   }

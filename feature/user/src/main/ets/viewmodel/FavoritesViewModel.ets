@@ -16,6 +16,7 @@ import {
   EhErrorText,
   EhPageCacheService,
   LocalBlockService,
+  DiagnosticLogger,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -382,6 +383,11 @@ export class FavoritesViewModel {
       this.itemCount = this.dataSource.totalCount()
       this.favList = []
       this.isLoading = false
+      DiagnosticLogger.info(
+        'favorites',
+        'load_local_done',
+        `favcat=${this.favcat} rows=${this.itemCount}`,
+      )
       return
     }
     try {
@@ -392,8 +398,18 @@ export class FavoritesViewModel {
       this.nextGid = list.nextGid
       this.nextPage = list.nextPage
       this.hasMore = this.hasForwardPage(list)
+      DiagnosticLogger.info(
+        'favorites',
+        'load_done',
+        `favcat=${this.favcat} order=${this.favOrder} rows=${list.gallerys.length} visible=${this.itemCount} nextPage=${this.nextPage} nextHash=${DiagnosticLogger.ownerHash(this.nextGid)} hasMore=${this.hasMore}`,
+      )
     } catch (err) {
       this.errorMessage = EhErrorText.forUser(err)
+      DiagnosticLogger.warn(
+        'favorites',
+        'load_failed',
+        `favcat=${this.favcat} order=${this.favOrder} error=${(err as Error).message}`,
+      )
     }
     this.isLoading = false
   }
@@ -425,15 +441,30 @@ export class FavoritesViewModel {
     const requestKey: string = page >= 0 ? `page:${page}:from:${from}` : `next:${cursor}`
     if (cursor.length === 0) {
       this.hasMore = false
+      DiagnosticLogger.info(
+        'favorites',
+        'loadmore_no_cursor',
+        `favcat=${this.favcat} order=${this.favOrder} page=${page}`,
+      )
       return
     }
     if (requestKey === this.lastNext && this.errorMessage.length === 0) {
       this.hasMore = false
+      DiagnosticLogger.warn(
+        'favorites',
+        'loadmore_duplicate_cursor',
+        `favcat=${this.favcat} order=${this.favOrder} requestHash=${DiagnosticLogger.ownerHash(requestKey)}`,
+      )
       return
     }
     this.isLoadingMore = true
     this.errorMessage = ''
     const myEpoch: number = this.epoch
+    DiagnosticLogger.info(
+      'favorites',
+      'loadmore_start',
+      `favcat=${this.favcat} order=${this.favOrder} page=${page} cursorHash=${DiagnosticLogger.ownerHash(cursor)} fromHash=${DiagnosticLogger.ownerHash(from)} epoch=${myEpoch}`,
+    )
     try {
       const list: GalleryList = await this.fetchPage(
         page >= 0 ? '' : cursor,
@@ -455,10 +486,26 @@ export class FavoritesViewModel {
         // Do not let dedupe decide pagination. EH/eros_fe continue by page/cursor progress; fresh rows
         // only decide whether there is anything visible to append in this gid-keyed list.
         this.hasMore = this.didPagingAdvance(page, cursor, list)
+        DiagnosticLogger.info(
+          'favorites',
+          'loadmore_done',
+          `favcat=${this.favcat} order=${this.favOrder} requestedPage=${page} rawRows=${list.gallerys.length} freshRows=${fresh.length} total=${this.itemCount} nextPage=${this.nextPage} nextHash=${DiagnosticLogger.ownerHash(this.nextGid)} hasMore=${this.hasMore}`,
+        )
+      } else {
+        DiagnosticLogger.warn(
+          'favorites',
+          'loadmore_stale_drop',
+          `favcat=${this.favcat} order=${this.favOrder} requestEpoch=${myEpoch} currentEpoch=${this.epoch}`,
+        )
       }
     } catch (err) {
       if (this.epoch === myEpoch) {
         this.errorMessage = EhErrorText.forUser(err)
+        DiagnosticLogger.warn(
+          'favorites',
+          'loadmore_failed',
+          `favcat=${this.favcat} order=${this.favOrder} page=${page} cursorHash=${DiagnosticLogger.ownerHash(cursor)} error=${(err as Error).message}`,
+        )
       }
     }
     this.isLoadingMore = false

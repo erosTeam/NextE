@@ -113,11 +113,21 @@ export class CommentTranslationService {
     if (!force) {
       const cached: string = await CommentTranslationService.getCached(context, source, targetLang)
       if (cached.length > 0) {
+        DiagnosticLogger.info(
+          'translation',
+          'comment_cache_hit',
+          `target=${targetLang} len=${source.length} textHash=${DiagnosticLogger.ownerHash(source)}`,
+        )
         return cached
       }
     }
     const inFlight: Promise<string> | undefined = CommentTranslationService.inflight.get(key)
     if (inFlight !== undefined) {
+      DiagnosticLogger.info(
+        'translation',
+        'comment_join_inflight',
+        `target=${targetLang} len=${source.length} textHash=${DiagnosticLogger.ownerHash(source)}`,
+      )
       return inFlight
     }
     const task: Promise<string> = CommentTranslationService.translateAndCache(context, source, targetLang)
@@ -179,9 +189,20 @@ export class CommentTranslationService {
     text: string,
     targetLang: string,
   ): Promise<string> {
+    const startedAt: number = Date.now()
+    DiagnosticLogger.info(
+      'translation',
+      'comment_translate_start',
+      `target=${targetLang} len=${text.length} textHash=${DiagnosticLogger.ownerHash(text)}`,
+    )
     const rawResult: string = await CommentTranslationService.callTranslation(text, targetLang)
     const result: string = CommentTranslationService.restoreMentionTokens(rawResult)
     await CommentTranslationService.save(context, text, targetLang, result)
+    DiagnosticLogger.info(
+      'translation',
+      'comment_translate_done',
+      `target=${targetLang} len=${text.length} resultLen=${result.length} elapsedMs=${Date.now() - startedAt} textHash=${DiagnosticLogger.ownerHash(text)}`,
+    )
     return result
   }
 
@@ -209,18 +230,42 @@ export class CommentTranslationService {
     const settings = CommentTranslationSettings.current()
     if (!settings.useGoogleOnly && settings.apiKey.length > 0) {
       try {
-        return await CommentTranslationService.callLlm(
+        const llmStartedAt: number = Date.now()
+        DiagnosticLogger.info(
+          'translation',
+          'comment_llm_start',
+          `target=${targetLang} len=${text.length} model=${settings.model.length > 0 ? settings.model : DEFAULT_LLM_MODEL} baseHash=${DiagnosticLogger.ownerHash(settings.apiUrl.length > 0 ? settings.apiUrl : DEFAULT_LLM_BASE_URL)}`,
+        )
+        const llmResult: string = await CommentTranslationService.callLlm(
           text,
           targetLang,
           settings.apiUrl.length > 0 ? settings.apiUrl : DEFAULT_LLM_BASE_URL,
           settings.apiKey,
           settings.model.length > 0 ? settings.model : DEFAULT_LLM_MODEL,
         )
+        DiagnosticLogger.info(
+          'translation',
+          'comment_llm_done',
+          `target=${targetLang} resultLen=${llmResult.length} elapsedMs=${Date.now() - llmStartedAt}`,
+        )
+        return llmResult
       } catch (error) {
         DiagnosticLogger.warn('translation', 'llm_failed_google_fallback', (error as Error).message)
       }
     }
-    return CommentTranslationService.callGoogle(text, targetLang)
+    const googleStartedAt: number = Date.now()
+    DiagnosticLogger.info(
+      'translation',
+      'comment_google_start',
+      `target=${targetLang} len=${text.length} textHash=${DiagnosticLogger.ownerHash(text)}`,
+    )
+    const googleResult: string = await CommentTranslationService.callGoogle(text, targetLang)
+    DiagnosticLogger.info(
+      'translation',
+      'comment_google_done',
+      `target=${targetLang} resultLen=${googleResult.length} elapsedMs=${Date.now() - googleStartedAt}`,
+    )
+    return googleResult
   }
 
   private static async callLlm(

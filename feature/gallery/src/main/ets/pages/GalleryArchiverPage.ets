@@ -13,6 +13,7 @@ import {
   AppStrings,
   EhErrorText,
   immersiveTitleBar,
+  DiagnosticLogger,
 } from 'shared'
 
 /**
@@ -40,6 +41,11 @@ export struct GalleryArchiverPage {
     }
     this.loading = true
     this.error = ''
+    DiagnosticLogger.info(
+      'gallery',
+      'archiver_load_start',
+      `gid=${this.params.gid} tokenHash=${DiagnosticLogger.ownerHash(this.params.token)} isEx=${this.params.isEx}`,
+    )
     try {
       this.quote = await EhApiService.getInstance().getGalleryArchiver(
         this.params.gid,
@@ -47,8 +53,18 @@ export struct GalleryArchiverPage {
         this.params.archiverLink,
         this.params.isEx,
       )
+      DiagnosticLogger.info(
+        'gallery',
+        'archiver_load_done',
+        `gid=${this.params.gid} downloadItems=${this.quote.downloadItems.length} hathItems=${this.quote.hathItems.length}`,
+      )
     } catch (e) {
       this.error = EhErrorText.forUser(e)
+      DiagnosticLogger.warn(
+        'gallery',
+        'archiver_load_failed',
+        `gid=${this.params.gid} error=${(e as Error).message}`,
+      )
     }
     this.loading = false
   }
@@ -191,6 +207,11 @@ export struct GalleryArchiverPage {
       return
     }
     this.submittingKey = key
+    DiagnosticLogger.info(
+      'gallery',
+      'archiver_submit_start',
+      `gid=${this.params.gid} type=${isHath ? 'hath' : 'local'} dltype=${item.dltype}`,
+    )
     try {
       const result: EhGalleryArchiverSubmitResult = isHath
         ? await EhApiService.getInstance().submitGalleryArchiverHath(
@@ -215,8 +236,18 @@ export struct GalleryArchiverPage {
       } else {
         this.showArchiverToast($r('app.string.gallery_archiver_submitted'))
       }
+      DiagnosticLogger.info(
+        'gallery',
+        'archiver_submit_done',
+        `gid=${this.params.gid} type=${isHath ? 'hath' : 'local'} hasDownload=${result.localDownloadUrl.length > 0}`,
+      )
     } catch (e) {
       this.showArchiverToast(EhErrorText.forUser(e))
+      DiagnosticLogger.warn(
+        'gallery',
+        'archiver_submit_failed',
+        `gid=${this.params.gid} type=${isHath ? 'hath' : 'local'} dltype=${item.dltype} error=${(e as Error).message}`,
+      )
     }
     this.submittingKey = ''
   }
