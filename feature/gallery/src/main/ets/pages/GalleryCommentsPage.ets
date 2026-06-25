@@ -671,7 +671,6 @@ export struct GalleryCommentsPage {
       Stack({ alignContent: Alignment.Bottom }) {
         PullRefreshListScaffold({
           scroller: this.scroller,
-          listSpace: ThemeConstants.SPACE_MD,
           bottomPadding: COMMENT_COMPOSER_BOTTOM_RESERVE,
           controller: this.refreshController,
           onRefresh: async () => {

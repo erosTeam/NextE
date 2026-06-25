@@ -6,6 +6,8 @@ import {
   AppStrings,
   ConciseListRow,
   GroupedListSection,
+  LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE,
+  LOCAL_BLOCK_COMMENT_DISPLAY_HIDE,
   LOCAL_BLOCK_TYPE_COMMENT,
   LOCAL_BLOCK_TYPE_COMMENTATOR,
   LOCAL_BLOCK_TYPE_TITLE,
@@ -25,6 +27,7 @@ export struct LocalBlockSettingsPage {
   @Local block: LocalBlockState = connectLocalBlock();
   @Local ruleSheetShown: boolean = false;
   @Local typeMenuShown: boolean = false;
+  @Local commentDisplayMenuShown: boolean = false;
   @Local editingRuleId: string = '';
   @Local draftType: string = LOCAL_BLOCK_TYPE_TITLE;
   @Local draftText: string = '';
@@ -46,6 +49,12 @@ export struct LocalBlockSettingsPage {
 
   private scoreThresholdText(): string {
     return `${this.block.scoreFilteringThreshold}`
+  }
+
+  private commentDisplayText(mode: string): ResourceStr {
+    return LocalBlockSettings.normalizeCommentDisplayMode(mode) === LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE
+      ? $r('app.string.local_block_comment_display_collapse')
+      : $r('app.string.local_block_comment_display_hide')
   }
 
   private typeText(type: string): ResourceStr {
@@ -149,6 +158,10 @@ export struct LocalBlockSettingsPage {
     )
   }
 
+  private setCommentDisplayMode(mode: string): void {
+    LocalBlockSettings.setCommentDisplayMode(this.ctx(), mode)
+  }
+
   @Builder
   private rowDivider() {
     Divider()
@@ -181,38 +194,61 @@ export struct LocalBlockSettingsPage {
   }
 
   @Builder
+  private CommentDisplayMenu() {
+    Menu() {
+      this.CommentDisplayMenuItem(LOCAL_BLOCK_COMMENT_DISPLAY_HIDE)
+      this.CommentDisplayMenuItem(LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE)
+    }
+  }
+
+  @Builder
+  private CommentDisplayMenuItem(mode: string) {
+    MenuItem({
+      content: this.commentDisplayText(mode),
+      symbolEndIcon: LocalBlockSettings.normalizeCommentDisplayMode(this.block.commentDisplayMode) === mode
+        ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+        : undefined,
+    }).onClick(() => {
+      this.setCommentDisplayMode(mode)
+      this.commentDisplayMenuShown = false
+    })
+  }
+
+  @Builder
   private RuleSection(type: string) {
-    ListItem() {
-      GroupedListSection() {
-        ConciseListRow({
-          title: this.typeText(type),
-          leadingIcon: this.typeIcon(type),
-          trailingText: `${this.ruleCount(type)}`,
-          showChevron: false,
-        })
-        this.rowDivider()
-        ForEach(
-          this.block.rules.filter((rule: LocalBlockRule) => rule.blockType === type),
-          (rule: LocalBlockRule) => {
-            ConciseListRow({
-              title: rule.ruleText,
-              subtitle: rule.enableRegex
-                ? $r('app.string.local_block_regex')
-                : $r('app.string.local_block_contains'),
-              leadingIcon: rule.enabled ? $r('sys.symbol.eye_slash') : $r('sys.symbol.eye'),
-              hasSwitch: true,
-              checked: rule.enabled,
-              switchAction: (value: boolean) => {
-                LocalBlockSettings.setRuleEnabled(this.ctx(), rule.id, value)
-              },
-              action: () => {
-                this.openEditRule(rule)
-              },
-            })
-            this.rowDivider()
-          },
-          (rule: LocalBlockRule) => rule.id,
-        )
+    if (this.ruleCount(type) > 0) {
+      ListItem() {
+        GroupedListSection() {
+          ConciseListRow({
+            title: this.typeText(type),
+            leadingIcon: this.typeIcon(type),
+            trailingText: `${this.ruleCount(type)}`,
+            showChevron: false,
+          })
+          this.rowDivider()
+          ForEach(
+            this.block.rules.filter((rule: LocalBlockRule) => rule.blockType === type),
+            (rule: LocalBlockRule) => {
+              ConciseListRow({
+                title: rule.ruleText,
+                subtitle: rule.enableRegex
+                  ? $r('app.string.local_block_regex')
+                  : $r('app.string.local_block_contains'),
+                leadingIcon: rule.enabled ? $r('sys.symbol.eye_slash') : $r('sys.symbol.eye'),
+                hasSwitch: true,
+                checked: rule.enabled,
+                switchAction: (value: boolean) => {
+                  LocalBlockSettings.setRuleEnabled(this.ctx(), rule.id, value)
+                },
+                action: () => {
+                  this.openEditRule(rule)
+                },
+              })
+              this.rowDivider()
+            },
+            (rule: LocalBlockRule) => rule.id,
+          )
+        }
       }
     }
   }
@@ -263,6 +299,25 @@ export struct LocalBlockSettingsPage {
               },
               counterIncreaseAction: () => {
                 this.changeThreshold(1)
+              },
+            })
+            this.rowDivider()
+            Column() {
+              ConciseListRow({
+                title: $r('app.string.local_block_comment_display'),
+                subtitle: $r('app.string.local_block_comment_display_hint'),
+                leadingIcon: $r('sys.symbol.text_bubble_left_2'),
+                trailingText: this.commentDisplayText(this.block.commentDisplayMode),
+                trailingDropdown: true,
+                action: () => {
+                  this.commentDisplayMenuShown = true
+                },
+              })
+            }
+            .bindMenu(this.commentDisplayMenuShown, this.CommentDisplayMenu, {
+              placement: Placement.BottomRight,
+              onDisappear: () => {
+                this.commentDisplayMenuShown = false
               },
             })
           }

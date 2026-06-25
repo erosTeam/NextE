@@ -951,8 +951,8 @@ export struct GalleryCommentsCard {
       .padding({
         left: ThemeConstants.SPACE_MD,
         right: ThemeConstants.SPACE_MD,
-        top: ThemeConstants.SPACE_MD,
-        bottom: this.commentBottomPadding(),
+        top: ThemeConstants.SPACE_SM,
+        bottom: ThemeConstants.SPACE_SM,
       })
       .borderRadius(ThemeConstants.RADIUS_CARD)
       .backgroundColor($r('app.color.card_background'))
@@ -1004,27 +1004,50 @@ export struct GalleryCommentsCard {
   @Builder
   CollapsedBlockedComment(c: EhGalleryComment) {
     Row({ space: ThemeConstants.SPACE_SM }) {
-      SymbolGlyph($r('sys.symbol.eye_slash'))
-        .fontSize(18)
-        .fontColor([$r('sys.color.font_tertiary')])
-      Column({ space: 2 }) {
+      Row() {
+        SymbolGlyph($r('sys.symbol.eye_slash'))
+          .fontSize(18)
+          .fontColor([$r('sys.color.font_tertiary')])
+      }
+      .width(24)
+      .height(24)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+
+      Row({ space: 0 }) {
         Text($r('app.string.local_block_comment_collapsed'))
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .lineHeight(24)
           .fontWeight(FontWeight.Medium)
           .fontColor($r('sys.color.font_secondary'))
-        Text(this.collapsedBlockedSubtitle(c))
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor($r('sys.color.font_tertiary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (this.collapsedBlockedSubtitle(c).length > 0) {
+          Text(` · ${this.collapsedBlockedSubtitle(c)}`)
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .lineHeight(24)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+        }
       }
       .layoutWeight(1)
-      SymbolGlyph($r('sys.symbol.arrowtriangle_down_fill'))
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor([$r('sys.color.font_tertiary')])
+      .alignItems(VerticalAlign.Center)
+
+      Row() {
+        SymbolGlyph($r('sys.symbol.arrowtriangle_down_fill'))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor([$r('sys.color.font_tertiary')])
+      }
+      .width(24)
+      .height(24)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
     }
     .width('100%')
     .alignItems(VerticalAlign.Center)
+    .padding({ right: ThemeConstants.SPACE_XS })
   }
 
   @Builder

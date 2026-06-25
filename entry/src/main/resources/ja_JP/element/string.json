@@ -2153,6 +2153,30 @@
       "value": "スコアしきい値"
     },
     {
+      "name": "local_block_comment_display",
+      "value": "ブロック済みコメント"
+    },
+    {
+      "name": "local_block_comment_display_hint",
+      "value": "コメントルールまたは低スコアに一致したコメントの表示方法。"
+    },
+    {
+      "name": "local_block_comment_display_hide",
+      "value": "非表示"
+    },
+    {
+      "name": "local_block_comment_display_collapse",
+      "value": "折りたたみ"
+    },
+    {
+      "name": "local_block_comment_collapsed",
+      "value": "ブロック済みコメント"
+    },
+    {
+      "name": "local_block_comment_collapse",
+      "value": "折りたたむ"
+    },
+    {
       "name": "local_block_type_title",
       "value": "タイトル"
     },

@@ -2153,6 +2153,30 @@
       "value": "Score threshold"
     },
     {
+      "name": "local_block_comment_display",
+      "value": "Blocked comments"
+    },
+    {
+      "name": "local_block_comment_display_hint",
+      "value": "How matched comment rules or low-score comments are shown."
+    },
+    {
+      "name": "local_block_comment_display_hide",
+      "value": "Hide"
+    },
+    {
+      "name": "local_block_comment_display_collapse",
+      "value": "Collapse"
+    },
+    {
+      "name": "local_block_comment_collapsed",
+      "value": "Blocked comment"
+    },
+    {
+      "name": "local_block_comment_collapse",
+      "value": "Collapse"
+    },
+    {
       "name": "local_block_type_title",
       "value": "Title"
     },

@@ -2153,6 +2153,30 @@
       "value": "评分阈值"
     },
     {
+      "name": "local_block_comment_display",
+      "value": "屏蔽评论"
+    },
+    {
+      "name": "local_block_comment_display_hint",
+      "value": "命中评论规则或低分阈值后的显示方式。"
+    },
+    {
+      "name": "local_block_comment_display_hide",
+      "value": "隐藏显示"
+    },
+    {
+      "name": "local_block_comment_display_collapse",
+      "value": "折叠显示"
+    },
+    {
+      "name": "local_block_comment_collapsed",
+      "value": "已屏蔽评论"
+    },
+    {
+      "name": "local_block_comment_collapse",
+      "value": "收起"
+    },
+    {
       "name": "local_block_type_title",
       "value": "标题"
     },

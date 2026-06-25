@@ -42,9 +42,13 @@ ok(keys.includes("LOCAL_BLOCK_RULES: string = 'localBlock.rules'"), 'storage key
 ok(bootstrap.includes('await LocalBlockSettings.restore(context)'), 'settings bootstrap restores local block rules')
 ok(settings.includes('filterCommentsByScore') && settings.includes('scoreFilteringThreshold'),
   'score filter settings persist with rules')
+ok(settings.includes('commentDisplayMode') &&
+  settings.includes('setCommentDisplayMode') &&
+  service.includes('shouldCollapseBlockedComments'),
+  'blocked comment display mode persists and is exposed to comment cards')
 ok(service.includes('replace(/\\(\\?i\\)/g, \'\')') &&
-  service.includes('new RegExp(ruleText).test(text)') &&
-  service.includes('text.indexOf(ruleText) >= 0'),
+  service.includes("new RegExp(ruleText, caseInsensitive ? 'i' : '').test(normalizedText)") &&
+  service.includes('normalizedText.toLowerCase().indexOf(ruleText.toLowerCase()) >= 0'),
 'matching supports FE-style (?i) stripping, regex, and contains')
 ok(api.includes('filterLocalBlocked') &&
   api.includes('return this.filterLocalBlocked(this.filterHidden') &&
@@ -60,6 +64,17 @@ ok(detail.includes('visiblePreviewComments(): EhGalleryComment[]') &&
 ok(comments.includes('LocalBlockService.filterComments(source)') &&
   comments.includes('referenceComments: this.comments'),
 'full comments page filters display comments while retaining raw reference comments')
+ok(localPage.includes('local_block_comment_display') &&
+  localPage.includes('LOCAL_BLOCK_COMMENT_DISPLAY_HIDE') &&
+  localPage.includes('LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE') &&
+  localPage.includes('if (this.ruleCount(type) > 0)'),
+  'settings page exposes hide/collapse display choices and hides empty rule-type sections')
+ok(src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('CollapsedBlockedComment') &&
+  src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('animateTo({ duration: ThemeConstants.ANIM_DURATION') &&
+  src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('LocalBlockService.isCommentBlocked(c)') &&
+  src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('Row({ space: 0 })') &&
+  src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('.width(24)'),
+  'comment cards render blocked comments as animated single-line collapsible cards when configured')
 ok(!settingsPage.includes('local_block_title') &&
   ehSettings.includes("this.stack.pushPathByName('LocalBlockSettings', null)") &&
   ehSettings.includes('localBlock.rules.length') &&
@@ -136,5 +151,12 @@ const scoreOff = beforeComments
   .filter((c) => !commentBlocked(rules, false, -20, c))
   .map((c) => c.commentId)
 eq(scoreOff, ['10', '14', '15'], 'low-score comment remains visible when score filter is off')
+
+const displayComments = (mode, comments) =>
+  mode === 'collapse' ? comments : comments.filter((c) => !commentBlocked(rules, true, -20, c))
+eq(displayComments('hide', beforeComments).map((c) => c.commentId), ['10', '15'],
+  'hide mode removes locally-blocked comments')
+eq(displayComments('collapse', beforeComments).map((c) => c.commentId), ['10', '11', '12', '13', '14', '15'],
+  'collapse mode keeps locally-blocked comments available for collapsed rendering')
 
 console.log('✓ local block contract: FE-style rule types, settings UI wiring, and sample before/after filtering locked')

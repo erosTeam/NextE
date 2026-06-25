@@ -125,6 +125,8 @@ export {
   CommentTranslationSettingsSnapshot,
 } from './settings/CommentTranslationSettings'
 export {
+  LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE,
+  LOCAL_BLOCK_COMMENT_DISPLAY_HIDE,
   LOCAL_BLOCK_TYPE_COMMENT,
   LOCAL_BLOCK_TYPE_COMMENTATOR,
   LOCAL_BLOCK_TYPE_TITLE,

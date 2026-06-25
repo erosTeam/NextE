@@ -3,6 +3,8 @@ import { preferences } from '@kit.ArkData'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import {
+  LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE,
+  LOCAL_BLOCK_COMMENT_DISPLAY_HIDE,
   LOCAL_BLOCK_TYPE_COMMENT,
   LOCAL_BLOCK_TYPE_COMMENTATOR,
   LOCAL_BLOCK_TYPE_TITLE,
@@ -23,6 +25,7 @@ class LocalBlockRuleSnapshot {
 class LocalBlockSnapshot {
   filterCommentsByScore: boolean = false
   scoreFilteringThreshold: number = -20
+  commentDisplayMode: string = LOCAL_BLOCK_COMMENT_DISPLAY_HIDE
   rules: LocalBlockRuleSnapshot[] = []
 }
 
@@ -38,6 +41,12 @@ export class LocalBlockSettings {
       return type
     }
     return LOCAL_BLOCK_TYPE_TITLE
+  }
+
+  static normalizeCommentDisplayMode(mode: string): string {
+    return mode === LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE
+      ? LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE
+      : LOCAL_BLOCK_COMMENT_DISPLAY_HIDE
   }
 
   static cleanText(text: string): string {
@@ -59,6 +68,7 @@ export class LocalBlockSettings {
     const snapshot: LocalBlockSnapshot = new LocalBlockSnapshot()
     snapshot.filterCommentsByScore = state.filterCommentsByScore
     snapshot.scoreFilteringThreshold = state.scoreFilteringThreshold
+    snapshot.commentDisplayMode = LocalBlockSettings.normalizeCommentDisplayMode(state.commentDisplayMode)
     snapshot.rules = LocalBlockSettings.snapshotRules(state.rules)
     return snapshot
   }
@@ -69,6 +79,7 @@ export class LocalBlockSettings {
     state.scoreFilteringThreshold = Number.isFinite(snapshot.scoreFilteringThreshold)
       ? Math.floor(snapshot.scoreFilteringThreshold)
       : -20
+    state.commentDisplayMode = LocalBlockSettings.normalizeCommentDisplayMode(snapshot.commentDisplayMode)
     state.rules = LocalBlockSettings.rulesFromSnapshot(snapshot.rules)
     LocalBlockSettings.bumpVersion(state)
   }
@@ -89,6 +100,9 @@ export class LocalBlockSettings {
       snapshot.scoreFilteringThreshold = typeof parsed.scoreFilteringThreshold === 'number'
         ? parsed.scoreFilteringThreshold as number
         : -20
+      snapshot.commentDisplayMode = typeof parsed.commentDisplayMode === 'string'
+        ? LocalBlockSettings.normalizeCommentDisplayMode(parsed.commentDisplayMode as string)
+        : LOCAL_BLOCK_COMMENT_DISPLAY_HIDE
       if (Array.isArray(parsed.rules)) {
         snapshot.rules = LocalBlockSettings.parseRules(parsed.rules as Object[])
       }
@@ -117,6 +131,13 @@ export class LocalBlockSettings {
     const state: LocalBlockState = connectLocalBlock()
     state.filterCommentsByScore = enabled
     state.scoreFilteringThreshold = Math.floor(threshold)
+    LocalBlockSettings.bumpVersion(state)
+    await LocalBlockSettings.save(context)
+  }
+
+  static async setCommentDisplayMode(context: common.UIAbilityContext, mode: string): Promise<void> {
+    const state: LocalBlockState = connectLocalBlock()
+    state.commentDisplayMode = LocalBlockSettings.normalizeCommentDisplayMode(mode)
     LocalBlockSettings.bumpVersion(state)
     await LocalBlockSettings.save(context)
   }

@@ -4,6 +4,8 @@ export const LOCAL_BLOCK_TYPE_TITLE: string = 'title'
 export const LOCAL_BLOCK_TYPE_UPLOADER: string = 'uploader'
 export const LOCAL_BLOCK_TYPE_COMMENTATOR: string = 'commentator'
 export const LOCAL_BLOCK_TYPE_COMMENT: string = 'comment'
+export const LOCAL_BLOCK_COMMENT_DISPLAY_HIDE: string = 'hide'
+export const LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE: string = 'collapse'
 
 @ObservedV2
 export class LocalBlockRule {
@@ -18,6 +20,7 @@ export class LocalBlockRule {
 export class LocalBlockState {
   @Trace filterCommentsByScore: boolean = false
   @Trace scoreFilteringThreshold: number = -20
+  @Trace commentDisplayMode: string = LOCAL_BLOCK_COMMENT_DISPLAY_HIDE
   @Trace rules: LocalBlockRule[] = []
   @Trace version: number = 0
 }

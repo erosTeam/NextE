@@ -2,6 +2,7 @@ import { EhGallery } from '../model/EhGallery'
 import { EhGalleryComment } from '../model/EhGalleryComment'
 import { GalleryList } from '../model/GalleryList'
 import {
+  LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE,
   LOCAL_BLOCK_TYPE_COMMENT,
   LOCAL_BLOCK_TYPE_COMMENTATOR,
   LOCAL_BLOCK_TYPE_TITLE,
@@ -79,6 +80,13 @@ export class LocalBlockService {
   }
 
   static filterComments(comments: EhGalleryComment[]): EhGalleryComment[] {
+    if (connectLocalBlock().commentDisplayMode === LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE) {
+      return comments
+    }
     return comments.filter((comment: EhGalleryComment) => !LocalBlockService.isCommentBlocked(comment))
+  }
+
+  static shouldCollapseBlockedComments(): boolean {
+    return connectLocalBlock().commentDisplayMode === LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE
   }
 }
