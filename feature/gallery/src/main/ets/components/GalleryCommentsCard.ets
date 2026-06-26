@@ -84,6 +84,19 @@ export struct GalleryCommentsCard {
   @Local localTranslationText: string = '';
   @Local localTranslationShown: boolean = false;
   @Local localTranslationLoading: boolean = false;
+  // Height-measure animation machinery (restored verbatim from the pre-virtualization card): when a
+  // translation appears, the translated body is rendered offscreen to MEASURE its target height, then the
+  // visible body is locked to the start height and animateTo grows it to the target while the content swaps
+  // — giving BOTH a height animation and a content transition. animateTo alone can't do this because the
+  // first appearance has no prior height to interpolate from.
+  @Local commentBodyMeasuredHeight: number = 0;
+  @Local commentBodyAnimatedHeight: number = 0;
+  @Local commentBodyHeightLocked: boolean = false;
+  @Local pendingTranslationText: string = '';
+  @Local pendingTranslationMeasure: boolean = false;
+  // Only a user-initiated translate/toggle animates; auto-translate / cached results sync instantly (as the
+  // original did) so opening a comment-heavy page doesn't animate every visible card at once.
+  private manualTranslateArmed: boolean = false;
   // Per-instance memo of the full-list-dependent parse work (reply resolution sorts the whole comment
   // array). Stable for an instance's comment(s); reset only if the reference list identity changes. Keeps a
   // translation re-render from re-sorting every comment on every frame.
@@ -106,10 +119,10 @@ export struct GalleryCommentsCard {
     this.displayTextCache.clear()
   }
 
-  // The page mutates this comment's render state (translate result, toggle show/hide, loading). Mirror it
-  // into the card's @Local inside the card's OWN animateTo, so the single stable body Text interpolates its
-  // height (and the text crossfades) instead of snapping. Card-owned animateTo is required — the page's
-  // animateTo can't capture this card's layout change across components.
+  // The page mutates this comment's render state (translate result, toggle show/hide, loading). The card
+  // mirrors it into @Local: a user-initiated change (manualTranslateArmed) runs the height-measure animation
+  // (applyResolvedTranslation -> offscreen measure -> animate height + content); auto/cached changes sync
+  // instantly. The spinner flag always follows immediately.
   @Monitor(
     'renderState.translationText',
     'renderState.translationShown',
@@ -119,14 +132,36 @@ export struct GalleryCommentsCard {
     if (!this.parentManagedActions) {
       return
     }
-    this.getUIContext().animateTo(
-      { duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut },
-      () => {
-        this.localTranslationText = this.renderState.translationText
-        this.localTranslationShown = this.renderState.translationShown
-        this.localTranslationLoading = this.renderState.translationLoading
-      },
-    )
+    this.localTranslationLoading = this.renderState.translationLoading
+    const targetText: string = this.renderState.translationText
+    const targetShown: boolean = this.renderState.translationShown
+    const needShow: boolean =
+      targetShown &&
+      targetText.length > 0 &&
+      (!this.localTranslationShown || this.localTranslationText !== targetText)
+    if (needShow) {
+      if (this.manualTranslateArmed) {
+        this.manualTranslateArmed = false
+        this.pendingTranslationText = targetText
+        this.pendingTranslationMeasure = true
+      } else {
+        this.localTranslationText = targetText
+        this.localTranslationShown = true
+      }
+    } else if (!targetShown && this.localTranslationShown) {
+      // Toggle hide: keep the cached text (so re-show is instant to measure) and collapse back to original.
+      if (this.manualTranslateArmed) {
+        this.manualTranslateArmed = false
+        this.getUIContext().animateTo(
+          { duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut },
+          () => {
+            this.localTranslationShown = false
+          },
+        )
+      } else {
+        this.localTranslationShown = false
+      }
+    }
   }
 
   aboutToAppear(): void {
@@ -136,6 +171,50 @@ export struct GalleryCommentsCard {
     this.localTranslationShown = this.renderState.translationShown
     this.localTranslationLoading = this.renderState.translationLoading
     this.autoTranslateVisibleComments()
+  }
+
+  // Offscreen measure → lock → animate height + swap content (restored from the original card).
+  private updateCommentBodyHeight(area: Area): void {
+    if (this.commentBodyHeightLocked) {
+      return
+    }
+    const height: number = area.height as number
+    if (height > 0) {
+      this.commentBodyMeasuredHeight = height
+    }
+  }
+
+  private handlePendingTranslationArea(c: EhGalleryComment, area: Area): void {
+    if (!this.pendingTranslationMeasure || this.pendingTranslationText.length === 0) {
+      return
+    }
+    const nextHeight: number = area.height as number
+    if (nextHeight <= 0) {
+      return
+    }
+    const translated: string = this.pendingTranslationText
+    const startHeight: number =
+      this.commentBodyMeasuredHeight > 0 ? this.commentBodyMeasuredHeight : nextHeight
+    this.pendingTranslationText = ''
+    this.pendingTranslationMeasure = false
+    this.commentBodyAnimatedHeight = startHeight
+    this.commentBodyHeightLocked = true
+    setTimeout((): void => {
+      this.getUIContext().animateTo(
+        { duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut },
+        () => {
+          this.localTranslationText = translated
+          this.localTranslationShown = true
+          this.localTranslationLoading = false
+          this.commentBodyAnimatedHeight = nextHeight
+        },
+      )
+      setTimeout((): void => {
+        this.commentBodyHeightLocked = false
+        this.commentBodyAnimatedHeight = 0
+        this.commentBodyMeasuredHeight = nextHeight
+      }, ThemeConstants.ANIM_DURATION + ThemeConstants.ANIM_DONE_DELAY_MS)
+    }, 0)
   }
 
   private sourceComments(): EhGalleryComment[] {
@@ -661,6 +740,9 @@ export struct GalleryCommentsCard {
       return
     }
     if (this.parentManagedActions) {
+      // User-initiated → arm the height-measure animation; the result/toggle lands via renderState and the
+      // @Monitor runs the animation.
+      this.manualTranslateArmed = true
       if (this.renderState.translationText.length > 0) {
         this.publishToggleTranslation(c)
       } else {
@@ -1142,24 +1224,61 @@ export struct GalleryCommentsCard {
 
   @Builder
   CommentBody(c: EhGalleryComment) {
+    if (this.commentBodyHeightLocked) {
+      // During the appear animation the height is explicitly driven from measured start->target and clipped.
+      Stack({ alignContent: Alignment.TopStart }) {
+        this.CommentBodyStackContent(c)
+      }
+      .width('100%')
+      .height(this.commentBodyAnimatedHeight)
+      .clip(true)
+    } else {
+      Stack({ alignContent: Alignment.TopStart }) {
+        this.CommentBodyStackContent(c)
+      }.width('100%')
+    }
+  }
+
+  @Builder
+  CommentBodyStackContent(c: EhGalleryComment) {
     Column({ space: ThemeConstants.SPACE_XS }) {
       this.CommentBodyContent(c)
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      this.updateCommentBodyHeight(area)
+    })
+    // Offscreen copy of the incoming translated body — measured (onAreaChange) to get the target height
+    // before the visible body animates to it.
+    if (
+      this.parentManagedActions &&
+      this.pendingTranslationMeasure &&
+      this.pendingTranslationText.length > 0
+    ) {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        this.PendingTranslationBodyContent(c, this.pendingTranslationText)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Start)
+      .opacity(0)
+      .hitTestBehavior(HitTestMode.None)
+      .position({ x: 0, y: 0 })
+      .onAreaChange((_oldArea: Area, area: Area) => {
+        this.handlePendingTranslationArea(c, area)
+      })
+    }
   }
 
-  // Active text for the replace-mode body: translation when shown+ready, else original. Reads the card-local
-  // mirror (synced inside the card's animateTo) so the single stable Text node interpolates on change.
-  private replaceModeActiveText(c: EhGalleryComment): string {
-    if (
-      this.translationEnabled() &&
-      this.localTranslationShown &&
-      this.localTranslationText.length > 0
-    ) {
-      return this.localTranslationText
+  @Builder
+  PendingTranslationBodyContent(c: EhGalleryComment, translated: string) {
+    if (this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
+      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
+      Divider().strokeWidth(0.5).color($r('sys.color.ohos_id_color_list_separator'))
+      this.CommentText(c, translated, false, $r('sys.color.font_primary'))
+    } else {
+      this.CommentText(c, translated, false, $r('sys.color.font_primary'))
     }
-    return this.displayContentText(c)
   }
 
   @Builder
@@ -1175,36 +1294,15 @@ export struct GalleryCommentsCard {
       Divider().strokeWidth(0.5).color($r('sys.color.ohos_id_color_list_separator'))
       this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
     } else if (this.parentManagedActions) {
-      // Replace mode: render ONE persistent Text inline. This branch is always taken in replace mode (the
-      // bilingual `if` above is false), so it never structurally flips when the translation toggles — the
-      // Text node persists and the card's animateTo (onRenderStateTranslationChange) interpolates the height.
-      // Reads the card-local mirror so the show/hide toggle animates (card-owned animateTo, see fields).
-      Text() {
-        ForEach(
-          this.commentTextSegments(this.replaceModeActiveText(c), c),
-          (seg: CommentTextSegment) => {
-            if (seg.url.length > 0) {
-              Span(seg.text)
-                .fontColor($r('sys.color.font_emphasize'))
-                .decoration({
-                  type: TextDecorationType.Underline,
-                  color: $r('sys.color.font_emphasize'),
-                })
-                .onClick(() => {
-                  this.openCommentUrl(seg.url)
-                })
-            } else if (seg.emphasized) {
-              Span(seg.text).fontColor($r('sys.color.font_emphasize'))
-            } else {
-              Span(seg.text)
-            }
-          },
-          (seg: CommentTextSegment) => this.commentTextSegmentKey(seg),
-        )
+      if (
+        this.translationEnabled() &&
+        this.localTranslationShown &&
+        this.localTranslationText.length > 0
+      ) {
+        this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
+      } else {
+        this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'))
       }
-      .fontSize(ThemeConstants.FONT_SIZE_BODY)
-      .fontColor($r('sys.color.font_primary'))
-      .width('100%')
     } else if (
       this.shouldShowTranslated(c) &&
       this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
