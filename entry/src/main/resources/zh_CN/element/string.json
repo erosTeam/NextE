@@ -225,6 +225,50 @@
       "value": "默认"
     },
     {
+      "name": "tabs_create_title",
+      "value": "新建标签"
+    },
+    {
+      "name": "tabs_edit_title",
+      "value": "编辑标签"
+    },
+    {
+      "name": "tab_name_label",
+      "value": "名称"
+    },
+    {
+      "name": "tab_name_placeholder",
+      "value": "标签名称"
+    },
+    {
+      "name": "tab_list_type",
+      "value": "列表类型"
+    },
+    {
+      "name": "tab_category",
+      "value": "分类"
+    },
+    {
+      "name": "tab_search_text",
+      "value": "搜索词"
+    },
+    {
+      "name": "tab_advanced",
+      "value": "高级搜索"
+    },
+    {
+      "name": "tab_favcat",
+      "value": "收藏夹"
+    },
+    {
+      "name": "tab_toplist_period",
+      "value": "排行榜周期"
+    },
+    {
+      "name": "tab_name_required",
+      "value": "请输入标签名称"
+    },
+    {
       "name": "toplist_all",
       "value": "全部"
     },

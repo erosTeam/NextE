@@ -294,14 +294,16 @@ tabs_empty_hint.
   + visibility toggle); hiding 选集 drops it from the bar and re-shows on un-hide; swipe-deleting 汉化
   (confirm) removes it; builtins have no swipe. V1 gate 0, contract green, signed build green.
 
-### Phase 4 — Tab Editor (create/edit — the headline feature)
-- [ ] Extract CategorySelector + AdvancedSearchControls from SearchFilterSheet (search sheet
-      re-consumes them; screenshot-verified unchanged).
-- [ ] Build routed TabEditPage (sections 1-6) bound to a transient SearchFilterState; pushed from
-      HomePage long-press / pinned chip and TabManagerPage row tap / +; 保存 validates name, persists,
-      reconfigures active VM; custom-profile 删除 row.
-- DoD: create/edit a gallery profile with search+category+advanced shows correct results; round-trips
-  across restart; search sheet visually unchanged; gate 0; harness-verify green.
+### Phase 4 — Tab Editor (create/edit — the headline feature) ✅ DONE
+- [x] Extracted CategorySelector + AdvancedSearchControls into shared/components; SearchFilterSheet
+      re-consumes them (device-verified the filter sheet is visually unchanged).
+- [x] Built routed TabEditPage (name / list-type Menu / favcat or toplist-period conditional / category /
+      search / advanced / delete) bound to a transient SearchFilterState; pushed from TabManager + (create)
+      and TabManager row tap (edit, uuid param via onReady); 保存 validates name + persists; built-ins
+      reduce to name-only.
+- DoD met: device .197 — created "TestDJ" (gallery + Manga soloed) → appears in bar + manager + loads a
+  distinct list; re-opening it in the editor seeds name + Manga-selected correctly (persist round-trip);
+  search filter sheet unchanged after the extraction. V1 gate 0, i18n parity, contract, signed build green.
 
 ### Phase 5 — favorite list-type fetch
 - [ ] GalleryListViewModel favorite branch (getFavoritesList + favorites paging); favcat pin honored;

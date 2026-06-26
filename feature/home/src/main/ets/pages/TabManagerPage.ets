@@ -6,7 +6,7 @@ import {
   connectNavStack,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
-  immersiveTitleBar,
+  immersiveTitleBarOpts,
   connectCustomProfiles,
   CustomProfilesState,
   CustomProfile,
@@ -32,6 +32,23 @@ export struct TabManagerPage {
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  // Title bar with a top-right '+' that opens the editor in create mode (empty uuid param).
+  private titleBar(): Record<string, Object> {
+    const item: Record<string, Object> = {
+      'label': AppStrings.get('tabs_create_title'),
+      'icon': $r('sys.symbol.plus'),
+      'isEnabled': true,
+      'action': (): void => {
+        this.stack.pushPathByName('TabEdit', '')
+      },
+    }
+    const itemWrap: Record<string, Object> = { 'content': item }
+    const menu: Record<string, Object> = { 'value': [itemWrap], 'maxCount': 1 }
+    const title: Record<string, Object> = { 'mainTitle': AppStrings.get('tabs_manage_title') }
+    const content: Record<string, Object> = { 'title': title, 'menu': menu }
+    return immersiveTitleBarOpts(content)
   }
 
   private typeKey(listType: string): string {
@@ -167,6 +184,9 @@ export struct TabManagerPage {
                     this.DeleteAction(p)
                   },
             })
+            .onClick(() => {
+              this.stack.pushPathByName('TabEdit', p.uuid)
+            })
           },
           (p: CustomProfile) => `${p.uuid}:${p.name}:${p.hidden}:${p.listType}`,
         )
@@ -185,7 +205,7 @@ export struct TabManagerPage {
       })
       .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     }
-    .titleBar(immersiveTitleBar($r('app.string.tabs_manage_title')))
+    .titleBar(this.titleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 }

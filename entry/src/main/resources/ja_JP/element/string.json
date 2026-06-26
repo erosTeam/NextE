@@ -225,6 +225,50 @@
       "value": "デフォルト"
     },
     {
+      "name": "tabs_create_title",
+      "value": "新規タブ"
+    },
+    {
+      "name": "tabs_edit_title",
+      "value": "タブを編集"
+    },
+    {
+      "name": "tab_name_label",
+      "value": "名前"
+    },
+    {
+      "name": "tab_name_placeholder",
+      "value": "タブ名"
+    },
+    {
+      "name": "tab_list_type",
+      "value": "リストタイプ"
+    },
+    {
+      "name": "tab_category",
+      "value": "カテゴリ"
+    },
+    {
+      "name": "tab_search_text",
+      "value": "検索"
+    },
+    {
+      "name": "tab_advanced",
+      "value": "詳細検索"
+    },
+    {
+      "name": "tab_favcat",
+      "value": "お気に入りフォルダ"
+    },
+    {
+      "name": "tab_toplist_period",
+      "value": "ランキング期間"
+    },
+    {
+      "name": "tab_name_required",
+      "value": "タブ名を入力してください"
+    },
+    {
       "name": "toplist_all",
       "value": "全期間"
     },

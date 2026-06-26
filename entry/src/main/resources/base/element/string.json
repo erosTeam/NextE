@@ -225,6 +225,50 @@
       "value": "Default"
     },
     {
+      "name": "tabs_create_title",
+      "value": "New tab"
+    },
+    {
+      "name": "tabs_edit_title",
+      "value": "Edit tab"
+    },
+    {
+      "name": "tab_name_label",
+      "value": "Name"
+    },
+    {
+      "name": "tab_name_placeholder",
+      "value": "Tab name"
+    },
+    {
+      "name": "tab_list_type",
+      "value": "List type"
+    },
+    {
+      "name": "tab_category",
+      "value": "Categories"
+    },
+    {
+      "name": "tab_search_text",
+      "value": "Search"
+    },
+    {
+      "name": "tab_advanced",
+      "value": "Advanced search"
+    },
+    {
+      "name": "tab_favcat",
+      "value": "Favorites folder"
+    },
+    {
+      "name": "tab_toplist_period",
+      "value": "Toplist period"
+    },
+    {
+      "name": "tab_name_required",
+      "value": "Enter a tab name"
+    },
+    {
       "name": "toplist_all",
       "value": "All-Time"
     },
