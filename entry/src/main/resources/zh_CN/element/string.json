@@ -1069,6 +1069,10 @@
       "value": "直接登录，可能被 Cloudflare 拦截；失败请改用网页登录。"
     },
     {
+      "name": "web_login_hint",
+      "value": "使用 E-Hentai 论坛账号登录"
+    },
+    {
       "name": "password_login_username",
       "value": "用户名"
     },

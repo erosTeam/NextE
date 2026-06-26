@@ -1069,6 +1069,10 @@
       "value": "Direct login; may be blocked by Cloudflare — if it fails, use the web login."
     },
     {
+      "name": "web_login_hint",
+      "value": "Sign in with your E-Hentai forum account"
+    },
+    {
       "name": "password_login_username",
       "value": "Username"
     },

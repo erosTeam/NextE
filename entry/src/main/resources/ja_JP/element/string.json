@@ -1069,6 +1069,10 @@
       "value": "直接ログイン。Cloudflare にブロックされる場合があります。失敗時はウェブログインをご利用ください。"
     },
     {
+      "name": "web_login_hint",
+      "value": "E-Hentai フォーラムのアカウントでログイン"
+    },
+    {
       "name": "password_login_username",
       "value": "ユーザー名"
     },

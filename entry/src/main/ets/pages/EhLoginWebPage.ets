@@ -11,6 +11,7 @@ import {
   LayoutSafeAreaState,
   ThemeConstants,
   ThemeColorSettings,
+  AppStrings,
   DiagnosticLogger,
   immersiveTitleBar,
 } from 'shared'
@@ -108,6 +109,11 @@ export struct EhLoginWebPage {
   // the login form page, never the Cloudflare challenge page (which has no such input).
   private restyleLoginForm(): void {
     const accent: string = ThemeColorSettings.currentColor() as string
+    // Localized labels (JSON-encoded so they inject as safe JS string literals regardless of content).
+    const sUser: string = JSON.stringify(AppStrings.get('password_login_username'))
+    const sPass: string = JSON.stringify(AppStrings.get('password_login_password'))
+    const sSubmit: string = JSON.stringify(AppStrings.get('password_login_submit'))
+    const sHint: string = JSON.stringify(AppStrings.get('web_login_hint'))
     const js: string = `(function(){
       var pw=document.querySelector('input[type=password]'); if(!pw) return;
       var form=pw.closest('form'); if(!form) return;
@@ -125,10 +131,10 @@ export struct EhLoginWebPage {
       // and hidden auth fields still work). Everything else (titles, notice, options) is hidden.
       var box=document.createElement('div'); box.id='nx-box';
       form.insertBefore(box, form.firstChild);
-      var hint=document.createElement('div');hint.className='nx-hint';hint.textContent='使用 E-Hentai 论坛账号登录';box.appendChild(hint);
+      var hint=document.createElement('div');hint.className='nx-hint';hint.textContent=${sHint};box.appendChild(hint);
       function field(inp){var w=document.createElement('div');w.className='nx-field';w.appendChild(inp);box.appendChild(w);return w;}
-      if(user){user.setAttribute('placeholder','用户名');field(user);}
-      pw.setAttribute('placeholder','密码');
+      if(user){user.setAttribute('placeholder',${sUser});field(user);}
+      pw.setAttribute('placeholder',${sPass});
       var EYE_ON='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
       var EYE_OFF='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="3" y1="3" x2="21" y2="21"/></svg>';
       var pwWrap=document.createElement('div');pwWrap.className='nx-field nx-pw';pwWrap.appendChild(pw);
@@ -136,7 +142,7 @@ export struct EhLoginWebPage {
       eye.onclick=function(){var h=pw.getAttribute('type')==='password';pw.setAttribute('type',h?'text':'password');eye.innerHTML=h?EYE_ON:EYE_OFF;};
       pwWrap.appendChild(eye);box.appendChild(pwWrap);
       if(cap){var cw=document.createElement('div');cw.className='nx-cap';cw.appendChild(cap);box.appendChild(cw);}
-      if(submit){ if(submit.tagName==='INPUT'){submit.value='登录';}else{submit.textContent='登录';} box.appendChild(submit); }
+      if(submit){ if(submit.tagName==='INPUT'){submit.value=${sSubmit};}else{submit.textContent=${sSubmit};} box.appendChild(submit); }
       // Hide the remaining forum chrome, but NEVER a node that still holds a captcha/iframe.
       Array.prototype.forEach.call(form.children, function(c){
         if(c===box) return;
