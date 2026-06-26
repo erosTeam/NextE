@@ -1113,6 +1113,19 @@ export struct GalleryCommentsCard {
     .alignItems(HorizontalAlign.Start)
   }
 
+  // Replace-mode body text: the translation when shown+ready, else the original. Same node renders both so
+  // the height animates on first appearance (see CommentBodyContent).
+  private parentManagedBodyText(c: EhGalleryComment): string {
+    if (
+      this.translationEnabled() &&
+      this.renderState.translationShown &&
+      this.renderState.translationText.length > 0
+    ) {
+      return this.renderState.translationText
+    }
+    return this.displayContentText(c)
+  }
+
   @Builder
   CommentBodyContent(c: EhGalleryComment) {
     if (
@@ -1126,15 +1139,11 @@ export struct GalleryCommentsCard {
       Divider().strokeWidth(0.5).color($r('sys.color.ohos_id_color_list_separator'))
       this.CommentText(c, this.renderState.translationText, false, $r('sys.color.font_primary'))
     } else if (this.parentManagedActions) {
-      if (
-        this.translationEnabled() &&
-        this.renderState.translationShown &&
-        this.renderState.translationText.length > 0
-      ) {
-        this.CommentText(c, this.renderState.translationText, false, $r('sys.color.font_primary'))
-      } else {
-        this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'))
-      }
+      // Replace mode: ONE stable CommentText whose string swaps original<->translated. Switching builder
+      // branches (separate translated/original nodes) rebuilds the subtree, so on first appearance the new
+      // node has no prior height and the card SNAPS; a single persistent node lets the animateTo in
+      // applyCommentTranslationState interpolate the height instead.
+      this.CommentText(c, this.parentManagedBodyText(c), this.max > 0, $r('sys.color.font_primary'))
     } else if (
       this.shouldShowTranslated(c) &&
       this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
