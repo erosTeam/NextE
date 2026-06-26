@@ -788,6 +788,11 @@ export struct GalleryCommentsCard {
       if (this.autoTranslateStarted(c)) {
         continue
       }
+      // Skip AUTO-translating comments already in the current UI language (local language pre-check). The
+      // manual translate button is unaffected — the user can still force a translation.
+      if (!CommentTranslationService.needsTranslation(c.contentText)) {
+        continue
+      }
       this.publishAutoTranslate(c, this.translationSourceText(c))
     }
   }

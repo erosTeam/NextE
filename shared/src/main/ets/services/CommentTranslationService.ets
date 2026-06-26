@@ -20,7 +20,8 @@ const SQL_UPSERT_COMMENT_TRANSLATION: string =
 const SQL_DELETE_EXPIRED_COMMENT_TRANSLATIONS: string =
   'DELETE FROM comment_translation_cache WHERE expires_at <= ?'
 const SQL_DELETE_COMMENT_TRANSLATIONS: string = 'DELETE FROM comment_translation_cache'
-const SQL_COUNT_COMMENT_TRANSLATIONS: string = 'SELECT COUNT(*) AS c FROM comment_translation_cache WHERE expires_at > ?'
+const SQL_COUNT_COMMENT_TRANSLATIONS: string =
+  'SELECT COUNT(*) AS c FROM comment_translation_cache WHERE expires_at > ?'
 
 class ChatMessage {
   role: string = ''
@@ -77,7 +78,89 @@ export class CommentTranslationService {
     return 'zh-CN'
   }
 
-  static async getCached(context: common.UIAbilityContext, text: string, targetLang: string): Promise<string> {
+  // Local, network-free language pre-check: a comment "needs translation" only when its dominant script
+  // differs from the current UI language's. Cheap heuristic — it cannot tell apart latin-script languages
+  // (en/fr/de all read as "latin") or kana-less Japanese, so it errs toward translating when unsure. Used
+  // to skip AUTO-translating comments the user can already read; the manual translate button is unaffected.
+  static needsTranslation(text: string): boolean {
+    const t: string = text.trim()
+    if (t.length === 0) {
+      return false
+    }
+    const script: string = CommentTranslationService.detectScript(t)
+    if (script === 'unknown') {
+      return true
+    }
+    return script !== CommentTranslationService.targetScriptFamily()
+  }
+
+  private static targetScriptFamily(): string {
+    const target: string = CommentTranslationService.targetLanguage()
+    if (target.startsWith('zh')) {
+      // Simplified and Traditional are the same spoken language: a Chinese reader can read either, so a
+      // Chinese comment never auto-translates regardless of the zh-CN/zh-TW variant.
+      return 'zh'
+    }
+    if (target === 'ja') {
+      return 'ja'
+    }
+    if (target === 'ko') {
+      return 'ko'
+    }
+    return 'latin'
+  }
+
+  // Dominant-script classifier over the BMP: kana ⇒ Japanese, Hangul ⇒ Korean, Han (no kana) ⇒ Chinese,
+  // else Latin letters ⇒ latin. Returns 'unknown' when none are present (digits/punctuation/emoji only).
+  private static detectScript(text: string): string {
+    let han: number = 0
+    let kana: number = 0
+    let hangul: number = 0
+    let latin: number = 0
+    for (let i: number = 0; i < text.length; i++) {
+      const code: number = text.charCodeAt(i)
+      if ((code >= 0x3040 && code <= 0x309f) || (code >= 0x30a0 && code <= 0x30ff)) {
+        kana++
+      } else if (
+        (code >= 0xac00 && code <= 0xd7a3) ||
+        (code >= 0x1100 && code <= 0x11ff) ||
+        (code >= 0x3130 && code <= 0x318f)
+      ) {
+        hangul++
+      } else if (
+        (code >= 0x4e00 && code <= 0x9fff) ||
+        (code >= 0x3400 && code <= 0x4dbf) ||
+        (code >= 0xf900 && code <= 0xfaff)
+      ) {
+        han++
+      } else if (
+        (code >= 0x41 && code <= 0x5a) ||
+        (code >= 0x61 && code <= 0x7a) ||
+        (code >= 0xc0 && code <= 0x24f)
+      ) {
+        latin++
+      }
+    }
+    if (kana > 0) {
+      return 'ja'
+    }
+    if (hangul > 0) {
+      return 'ko'
+    }
+    if (han > 0) {
+      return 'zh'
+    }
+    if (latin > 0) {
+      return 'latin'
+    }
+    return 'unknown'
+  }
+
+  static async getCached(
+    context: common.UIAbilityContext,
+    text: string,
+    targetLang: string,
+  ): Promise<string> {
     const key: string = CommentTranslationService.cacheKey(text, targetLang)
     const now: number = Date.now()
     const mem: MemoryTranslationEntry | undefined = CommentTranslationService.memory.get(key)
@@ -89,8 +172,10 @@ export class CommentTranslationService {
     }
 
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet =
-      await store.querySql(SQL_SELECT_COMMENT_TRANSLATION, [CommentTranslationService.textHash(text), targetLang, now])
+    const resultSet: relationalStore.ResultSet = await store.querySql(
+      SQL_SELECT_COMMENT_TRANSLATION,
+      [CommentTranslationService.textHash(text), targetLang, now],
+    )
     try {
       if (resultSet.goToFirstRow()) {
         const translated: string = resultSet.getString(resultSet.getColumnIndex('translated'))
@@ -103,7 +188,11 @@ export class CommentTranslationService {
     return ''
   }
 
-  static async translate(context: common.UIAbilityContext, text: string, force: boolean = false): Promise<string> {
+  static async translate(
+    context: common.UIAbilityContext,
+    text: string,
+    force: boolean = false,
+  ): Promise<string> {
     const source: string = text.trim()
     if (source.length === 0) {
       return ''
@@ -130,7 +219,11 @@ export class CommentTranslationService {
       )
       return inFlight
     }
-    const task: Promise<string> = CommentTranslationService.translateAndCache(context, source, targetLang)
+    const task: Promise<string> = CommentTranslationService.translateAndCache(
+      context,
+      source,
+      targetLang,
+    )
     CommentTranslationService.inflight.set(key, task)
     try {
       return await task
@@ -147,8 +240,10 @@ export class CommentTranslationService {
 
   static async count(context: common.UIAbilityContext): Promise<number> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet =
-      await store.querySql(SQL_COUNT_COMMENT_TRANSLATIONS, [Date.now()])
+    const resultSet: relationalStore.ResultSet = await store.querySql(
+      SQL_COUNT_COMMENT_TRANSLATIONS,
+      [Date.now()],
+    )
     try {
       if (resultSet.goToFirstRow()) {
         return resultSet.getDouble(resultSet.getColumnIndex('c'))
@@ -214,7 +309,11 @@ export class CommentTranslationService {
   ): Promise<void> {
     const now: number = Date.now()
     const expiresAt: number = now + COMMENT_TRANSLATION_TTL_MS
-    CommentTranslationService.putMemory(CommentTranslationService.cacheKey(text, targetLang), translated, expiresAt)
+    CommentTranslationService.putMemory(
+      CommentTranslationService.cacheKey(text, targetLang),
+      translated,
+      expiresAt,
+    )
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await store.executeSql(SQL_DELETE_EXPIRED_COMMENT_TRANSLATIONS, [now])
     await store.executeSql(SQL_UPSERT_COMMENT_TRANSLATION, [
@@ -289,21 +388,24 @@ export class CommentTranslationService {
 
     const req: http.HttpRequest = http.createHttp()
     try {
-      const resp: http.HttpResponse = await req.request(`${CommentTranslationService.stripV1(baseUrl)}/v1/chat/completions`, {
-        method: http.RequestMethod.POST,
-        header: {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+      const resp: http.HttpResponse = await req.request(
+        `${CommentTranslationService.stripV1(baseUrl)}/v1/chat/completions`,
+        {
+          method: http.RequestMethod.POST,
+          header: {
+            'User-Agent': EhConstants.USER_AGENT,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          extraData: JSON.stringify(reqBody),
+          expectDataType: http.HttpDataType.STRING,
+          connectTimeout: TRANSLATION_CONNECT_TIMEOUT_MS,
+          readTimeout: TRANSLATION_READ_TIMEOUT_MS,
+          usingCache: false,
         },
-        extraData: JSON.stringify(reqBody),
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: TRANSLATION_CONNECT_TIMEOUT_MS,
-        readTimeout: TRANSLATION_READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const body: string = typeof resp.result === 'string' ? resp.result as string : ''
+      )
+      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
       if ((resp.responseCode as number) !== 200) {
         throw new Error(`LLM HTTP ${resp.responseCode as number}`)
       }
@@ -326,19 +428,22 @@ export class CommentTranslationService {
   private static async fetchLlmModels(baseUrl: string, apiKey: string): Promise<string[]> {
     const req: http.HttpRequest = http.createHttp()
     try {
-      const resp: http.HttpResponse = await req.request(`${CommentTranslationService.stripV1(baseUrl)}/v1/models`, {
-        method: http.RequestMethod.GET,
-        header: {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+      const resp: http.HttpResponse = await req.request(
+        `${CommentTranslationService.stripV1(baseUrl)}/v1/models`,
+        {
+          method: http.RequestMethod.GET,
+          header: {
+            'User-Agent': EhConstants.USER_AGENT,
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          expectDataType: http.HttpDataType.STRING,
+          connectTimeout: TRANSLATION_CONNECT_TIMEOUT_MS,
+          readTimeout: TRANSLATION_READ_TIMEOUT_MS,
+          usingCache: false,
         },
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: TRANSLATION_CONNECT_TIMEOUT_MS,
-        readTimeout: TRANSLATION_READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const body: string = typeof resp.result === 'string' ? resp.result as string : ''
+      )
+      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
       if ((resp.responseCode as number) !== 200) {
         throw new Error(`LLM models HTTP ${resp.responseCode as number}`)
       }
@@ -361,7 +466,8 @@ export class CommentTranslationService {
   }
 
   private static async callGoogle(text: string, targetLang: string): Promise<string> {
-    const to: string = targetLang === 'zh-CN' ? 'zh-cn' : (targetLang === 'zh-TW' ? 'zh-tw' : targetLang)
+    const to: string =
+      targetLang === 'zh-CN' ? 'zh-cn' : targetLang === 'zh-TW' ? 'zh-tw' : targetLang
     const url: string =
       `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(to)}` +
       `&dt=t&q=${encodeURIComponent(text)}`
@@ -379,7 +485,7 @@ export class CommentTranslationService {
         readTimeout: TRANSLATION_READ_TIMEOUT_MS,
         usingCache: false,
       })
-      const body: string = typeof resp.result === 'string' ? resp.result as string : ''
+      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
       if ((resp.responseCode as number) !== 200) {
         throw new Error(`Google Translate HTTP ${resp.responseCode as number}`)
       }
