@@ -205,7 +205,7 @@ export struct EhProfileSettingsPage {
       'label': AppStrings.get('common_save'),
       'icon': $r('sys.symbol.checkmark'),
       'isEnabled': !this.loading && !this.saving,
-      'type': IconStyleMode.SMALL,
+      'type': IconStyleMode.NORMAL,
       'action': () => {
         this.save()
       },
@@ -214,7 +214,7 @@ export struct EhProfileSettingsPage {
       'label': AppStrings.get('ehp_open_web'),
       'icon': $r('sys.symbol.link'),
       'isEnabled': true,
-      'type': IconStyleMode.SMALL,
+      'type': IconStyleMode.NORMAL,
       'action': () => {
         this.openWeb()
       },
@@ -316,6 +316,22 @@ export struct EhProfileSettingsPage {
     }
     .titleBar(immersiveTitleBarOpts(this.titleContent()))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+  }
+
+  // ───────────────────────── presence (permission gating) ─────────────────────────
+  // Keep only the options this account actually has on the page (e.g. drop rc=200 without the Hath
+  // perk, or uh donator options). Falls back to all when the page exposed no values for the code.
+  private filterOptions(code: string, all: UcOption[]): UcOption[] {
+    const present: number[] | undefined = this.settings.radioValues.get(code)
+    if (present === undefined || present.length === 0) {
+      return all
+    }
+    return all.filter((o: UcOption) => present.indexOf(o.value) >= 0)
+  }
+
+  // True when the page has this field at all (a checkbox/select absent for the account → hide the row).
+  private hasField(code: string): boolean {
+    return this.settings.fieldNames.indexOf(code) >= 0
   }
 
   // ───────────────────────── option lists ─────────────────────────
@@ -464,27 +480,36 @@ export struct EhProfileSettingsPage {
             this.openNameSheet('rename')
           },
         })
-        this.rowDivider()
-        ConciseListRow({
-          title: $r('app.string.ehp_profile_default'),
-          leadingIcon: $r('sys.symbol.checkmark'),
-          showChevron: false,
-          isEnabled: !this.profileBusy,
-          action: () => {
-            this.runProfileAction('default', `${this.settings.selectedProfile}`, '')
-          },
-        })
-        this.rowDivider()
-        ConciseListRow({
-          title: $r('app.string.ehp_profile_delete'),
-          leadingIcon: $r('sys.symbol.trash'),
-          destructive: true,
-          showChevron: false,
-          isEnabled: !this.profileBusy && this.settings.profiles.length > 1,
-          action: () => {
-            this.confirmDeleteProfile()
-          },
-        })
+        // 设为默认 only when the current profile is not already the default.
+        if (this.settings.selectedProfile !== this.settings.defaultProfile) {
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.ehp_profile_default'),
+            leadingIcon: $r('sys.symbol.checkmark'),
+            showChevron: false,
+            isEnabled: !this.profileBusy,
+            action: () => {
+              this.runProfileAction('default', `${this.settings.selectedProfile}`, '')
+            },
+          })
+        }
+        // 删除 only when there is more than one profile and this is not the default (EH won't delete it).
+        if (
+          this.settings.profiles.length > 1 &&
+          this.settings.selectedProfile !== this.settings.defaultProfile
+        ) {
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.ehp_profile_delete'),
+            leadingIcon: $r('sys.symbol.trash'),
+            destructive: true,
+            showChevron: false,
+            isEnabled: !this.profileBusy,
+            action: () => {
+              this.confirmDeleteProfile()
+            },
+          })
+        }
       }
     }
   }
@@ -536,7 +561,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_uh'),
-          options: this.uhOptions(),
+          options: this.filterOptions('uh', this.uhOptions()),
           current: this.settings.loadImageThroughHAtH,
           onPick: (v: number) => {
             this.settings.loadImageThroughHAtH = v
@@ -545,7 +570,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_xr'),
-          options: this.xrOptions(),
+          options: this.filterOptions('xr', this.xrOptions()),
           current: this.settings.imageSize,
           onPick: (v: number) => {
             this.settings.imageSize = v
@@ -569,6 +594,18 @@ export struct EhProfileSettingsPage {
             this.settings.imageSizeVertical = v
           },
         })
+        // 原图 (oi) lives here, not under MPV; hidden for accounts that can't use it.
+        if (this.hasField('oi')) {
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.ehp_oi'),
+            hasSwitch: true,
+            checked: this.settings.originalImages === 1,
+            switchAction: (value: boolean) => {
+              this.settings.originalImages = value ? 1 : 0
+            },
+          })
+        }
       }
     }
   }
@@ -580,7 +617,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_tl'),
-          options: this.tlOptions(),
+          options: this.filterOptions('tl', this.tlOptions()),
           current: this.settings.galleryNameDisplay,
           onPick: (v: number) => {
             this.settings.galleryNameDisplay = v
@@ -589,7 +626,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_dm'),
-          options: this.dmOptions(),
+          options: this.filterOptions('dm', this.dmOptions()),
           current: this.settings.frontPageSettings,
           onPick: (v: number) => {
             this.settings.frontPageSettings = v
@@ -598,7 +635,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_pn'),
-          options: this.pnOptions(),
+          options: this.filterOptions('pn', this.pnOptions()),
           current: this.settings.showGalleryPageNumbers,
           onPick: (v: number) => {
             this.settings.showGalleryPageNumbers = v
@@ -644,7 +681,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_lt'),
-          options: this.ltOptions(),
+          options: this.filterOptions('lt', this.ltOptions()),
           current: this.settings.mouseOverThumbnails,
           onPick: (v: number) => {
             this.settings.mouseOverThumbnails = v
@@ -653,7 +690,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_ts'),
-          options: this.tsOptions(),
+          options: this.filterOptions('ts', this.tsOptions()),
           current: this.settings.thumbnailSize,
           onPick: (v: number) => {
             this.settings.thumbnailSize = v
@@ -662,7 +699,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_tr'),
-          options: this.trOptions(),
+          options: this.filterOptions('tr', this.trOptions()),
           current: this.settings.thumbnailRows,
           onPick: (v: number) => {
             this.settings.thumbnailRows = v
@@ -699,7 +736,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_cs'),
-          options: this.csOptions(),
+          options: this.filterOptions('cs', this.csOptions()),
           current: this.settings.sortOrderComments,
           onPick: (v: number) => {
             this.settings.sortOrderComments = v
@@ -708,7 +745,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_sc'),
-          options: this.scOptions(),
+          options: this.filterOptions('sc', this.scOptions()),
           current: this.settings.showCommentVotes,
           onPick: (v: number) => {
             this.settings.showCommentVotes = v
@@ -717,7 +754,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_tb'),
-          options: this.tbOptions(),
+          options: this.filterOptions('tb', this.tbOptions()),
           current: this.settings.sortOrderTags,
           onPick: (v: number) => {
             this.settings.sortOrderTags = v
@@ -822,7 +859,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_fs'),
-          options: this.fsOptions(),
+          options: this.filterOptions('fs', this.fsOptions()),
           current: this.settings.sortOrderFavorites,
           onPick: (v: number) => {
             this.settings.sortOrderFavorites = v
@@ -831,7 +868,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_rc'),
-          options: this.rcOptions(),
+          options: this.filterOptions('rc', this.rcOptions()),
           current: this.settings.searchResultCount,
           onPick: (v: number) => {
             this.settings.searchResultCount = v
@@ -865,7 +902,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_ar'),
-          options: this.arOptions(),
+          options: this.filterOptions('ar', this.arOptions()),
           current: this.settings.archiverSettings,
           onPick: (v: number) => {
             this.settings.archiverSettings = v
@@ -891,7 +928,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_ms'),
-          options: this.msOptions(),
+          options: this.filterOptions('ms', this.msOptions()),
           current: this.settings.mpvStyle,
           onPick: (v: number) => {
             this.settings.mpvStyle = v
@@ -905,15 +942,6 @@ export struct EhProfileSettingsPage {
           checked: this.settings.mpvThumbnailPane === 0,
           switchAction: (value: boolean) => {
             this.settings.mpvThumbnailPane = value ? 0 : 1
-          },
-        })
-        this.rowDivider()
-        ConciseListRow({
-          title: $r('app.string.ehp_oi'),
-          hasSwitch: true,
-          checked: this.settings.originalImages === 1,
-          switchAction: (value: boolean) => {
-            this.settings.originalImages = value ? 1 : 0
           },
         })
       }

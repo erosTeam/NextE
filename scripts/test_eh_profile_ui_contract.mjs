@@ -43,6 +43,11 @@ ok('xl grouped per language into a MultiCapsuleSegmentButtonV2', /groupLanguages
 // Rows are built on ConciseListRow (no hand-rolled titles) so fonts stay uniform.
 ok('text + language rows reuse ConciseListRow (uniform titles)', /struct UcTextRow[\s\S]*?ConciseListRow\(/.test(page) && /struct LanguageVariantRow[\s\S]*?ConciseListRow\(/.test(page))
 
+// Permission gating: options filtered to what the page exposes; absent fields hidden; NORMAL icons.
+ok('options filtered by presence + oi gated by field presence', /filterOptions\(/.test(page) && /hasField\('oi'\)/.test(page))
+ok('title-bar action icons use NORMAL size (not SMALL)', /IconStyleMode\.NORMAL/.test(page) && !/IconStyleMode\.SMALL/.test(page))
+ok('profile set-default/delete shown conditionally', /selectedProfile !== this\.settings\.defaultProfile/.test(page))
+
 // Profile management: switch + create/rename/default/delete via postProfileAction.
 ok('profile section with the 5 actions', /ProfileSection\(/.test(page) && /runProfileAction\('', /.test(page) && /runProfileAction\('default'/.test(page) && /runProfileAction\('delete'/.test(page) && /'create'/.test(page) && /'rename'/.test(page))
 ok('profile create/rename use a name sheet (AppModalScaffold + $$ host)', /openNameSheet\(/.test(page) && /\$\$this\.nameSheetShown/.test(page) && /AppModalScaffold\(/.test(page))

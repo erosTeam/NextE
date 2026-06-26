@@ -84,6 +84,10 @@ export class EhUconfigParser {
       s.favorites.push(EhUconfigParser.parseInput(html, `favorite_${i}`))
     }
 
+    // ── Presence (permission/Hath-perk gating): the radio options + field names this page actually has ──
+    s.radioValues = EhUconfigParser.parseRadioValues(html)
+    s.fieldNames = EhUconfigParser.parseFieldNames(html)
+
     // ── Front-page categories (ct_*) ──
     s.categories = EhUconfigParser.parseCategories(html)
 
@@ -92,6 +96,42 @@ export class EhUconfigParser {
     s.excludedLanguages = EhUconfigParser.parseLanguages(html)
 
     return s
+  }
+
+  // Per radio group, the option values actually present (e.g. rc=[0,1,2] when the 200 option needs a
+  // Hath perk the account lacks) — so the UI only offers what this account can pick.
+  private static parseRadioValues(html: string): Map<string, number[]> {
+    const map: Map<string, number[]> = new Map<string, number[]>()
+    const re: RegExp = /<input type="radio" name="([a-z]+)"[^>]*value="(\d+)"/g
+    let m: RegExpExecArray | null = re.exec(html)
+    while (m !== null) {
+      const code: string = m[1]
+      const v: number = Number.parseInt(m[2], 10)
+      let arr: number[] | undefined = map.get(code)
+      if (arr === undefined) {
+        arr = []
+        map.set(code, arr)
+      }
+      if (arr.indexOf(v) < 0) {
+        arr.push(v)
+      }
+      m = re.exec(html)
+    }
+    return map
+  }
+
+  // Every input/select/textarea name present, so absent fields (e.g. oi for accounts without it) hide.
+  private static parseFieldNames(html: string): string[] {
+    const out: string[] = []
+    const re: RegExp = /<(?:input|select|textarea)[^>]*name="([a-z0-9_-]+)"/g
+    let m: RegExpExecArray | null = re.exec(html)
+    while (m !== null) {
+      if (out.indexOf(m[1]) < 0) {
+        out.push(m[1])
+      }
+      m = re.exec(html)
+    }
+    return out
   }
 
   // Front-page category visibility: hidden inputs ct_<key>=0|1 (1 = hidden), label from the sibling div.

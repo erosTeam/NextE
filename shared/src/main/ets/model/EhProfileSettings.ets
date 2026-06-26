@@ -99,6 +99,12 @@ export class EhProfileSettings {
   @Trace excludedNamespaces: EhUconfigToggleItem[] = [] // xn_1..50
   @Trace excludedLanguages: EhUconfigToggleItem[] = [] // xl_* (only the ones present on the page)
 
+  // ── Presence (which options/fields this account actually has — permission/Hath-perk gated) ──
+  // Per radio code, the option values present on the page (e.g. rc=[0,1,2] when 200 needs a Hath perk).
+  radioValues: Map<string, number[]> = new Map<string, number[]>()
+  // All input/select/textarea field names present (so absent toggles/text/selects are hidden).
+  fieldNames: string[] = []
+
   copy(): EhProfileSettings {
     const out: EhProfileSettings = new EhProfileSettings()
     out.profiles = this.profiles.map(
@@ -145,6 +151,8 @@ export class EhProfileSettings {
     out.excludedLanguages = this.excludedLanguages.map(
       (x: EhUconfigToggleItem) => new EhUconfigToggleItem(x.ser, x.name, x.excluded, x.variant),
     )
+    out.radioValues = this.radioValues
+    out.fieldNames = this.fieldNames.slice()
     return out
   }
 }
