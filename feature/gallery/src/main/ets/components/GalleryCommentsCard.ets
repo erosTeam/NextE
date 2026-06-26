@@ -92,8 +92,10 @@ export struct GalleryCommentsCard {
   @Local commentBodyMeasuredHeight: number = 0;
   @Local commentBodyAnimatedHeight: number = 0;
   @Local commentBodyHeightLocked: boolean = false;
-  @Local pendingTranslationText: string = '';
   @Local pendingTranslationMeasure: boolean = false;
+  // Direction of the pending measure-animate: true = animating TO the translation, false = back to original.
+  // The offscreen body renders this target so its height is measured before the visible body animates to it.
+  @Local pendingShowTranslation: boolean = false;
   // Only a user-initiated translate/toggle animates; auto-translate / cached results sync instantly (as the
   // original did) so opening a comment-heavy page doesn't animate every visible card at once.
   private manualTranslateArmed: boolean = false;
@@ -135,32 +137,26 @@ export struct GalleryCommentsCard {
     this.localTranslationLoading = this.renderState.translationLoading
     const targetText: string = this.renderState.translationText
     const targetShown: boolean = this.renderState.translationShown
-    const needShow: boolean =
-      targetShown &&
-      targetText.length > 0 &&
-      (!this.localTranslationShown || this.localTranslationText !== targetText)
-    if (needShow) {
-      if (this.manualTranslateArmed) {
-        this.manualTranslateArmed = false
-        this.pendingTranslationText = targetText
-        this.pendingTranslationMeasure = true
-      } else {
-        this.localTranslationText = targetText
-        this.localTranslationShown = true
-      }
-    } else if (!targetShown && this.localTranslationShown) {
-      // Toggle hide: keep the cached text (so re-show is instant to measure) and collapse back to original.
-      if (this.manualTranslateArmed) {
-        this.manualTranslateArmed = false
-        this.getUIContext().animateTo(
-          { duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut },
-          () => {
-            this.localTranslationShown = false
-          },
-        )
-      } else {
-        this.localTranslationShown = false
-      }
+    const wantTranslation: boolean = targetShown && targetText.length > 0
+    const hasNewText: boolean = targetText.length > 0 && this.localTranslationText !== targetText
+    const needShow: boolean = wantTranslation && (!this.localTranslationShown || hasNewText)
+    const needHide: boolean = !wantTranslation && this.localTranslationShown
+    if (!needShow && !needHide) {
+      return
+    }
+    // Keep the latest translated text available (for the offscreen measure + final render); does not change
+    // the visible body while it is still showing the original (localTranslationShown stays false).
+    if (hasNewText) {
+      this.localTranslationText = targetText
+    }
+    if (this.manualTranslateArmed) {
+      // User-initiated → run the bidirectional height-measure animation.
+      this.manualTranslateArmed = false
+      this.pendingShowTranslation = needShow
+      this.pendingTranslationMeasure = true
+    } else {
+      // Auto / cached → apply instantly.
+      this.localTranslationShown = needShow
     }
   }
 
@@ -184,18 +180,17 @@ export struct GalleryCommentsCard {
     }
   }
 
-  private handlePendingTranslationArea(c: EhGalleryComment, area: Area): void {
-    if (!this.pendingTranslationMeasure || this.pendingTranslationText.length === 0) {
+  private handlePendingTranslationArea(_c: EhGalleryComment, area: Area): void {
+    if (!this.pendingTranslationMeasure) {
       return
     }
     const nextHeight: number = area.height as number
     if (nextHeight <= 0) {
       return
     }
-    const translated: string = this.pendingTranslationText
+    const showTranslation: boolean = this.pendingShowTranslation
     const startHeight: number =
       this.commentBodyMeasuredHeight > 0 ? this.commentBodyMeasuredHeight : nextHeight
-    this.pendingTranslationText = ''
     this.pendingTranslationMeasure = false
     this.commentBodyAnimatedHeight = startHeight
     this.commentBodyHeightLocked = true
@@ -203,8 +198,8 @@ export struct GalleryCommentsCard {
       this.getUIContext().animateTo(
         { duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut },
         () => {
-          this.localTranslationText = translated
-          this.localTranslationShown = true
+          // Flip the visible body to the target (translation or original) and grow/shrink to its height.
+          this.localTranslationShown = showTranslation
           this.localTranslationLoading = false
           this.commentBodyAnimatedHeight = nextHeight
         },
@@ -1249,15 +1244,11 @@ export struct GalleryCommentsCard {
     .onAreaChange((_oldArea: Area, area: Area) => {
       this.updateCommentBodyHeight(area)
     })
-    // Offscreen copy of the incoming translated body — measured (onAreaChange) to get the target height
-    // before the visible body animates to it.
-    if (
-      this.parentManagedActions &&
-      this.pendingTranslationMeasure &&
-      this.pendingTranslationText.length > 0
-    ) {
+    // Offscreen copy of the TARGET body (translation when showing, original when hiding) — measured
+    // (onAreaChange) to get the target height before the visible body animates to it.
+    if (this.parentManagedActions && this.pendingTranslationMeasure) {
       Column({ space: ThemeConstants.SPACE_XS }) {
-        this.PendingTranslationBodyContent(c, this.pendingTranslationText)
+        this.PendingTranslationBodyContent(c)
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
@@ -1271,13 +1262,16 @@ export struct GalleryCommentsCard {
   }
 
   @Builder
-  PendingTranslationBodyContent(c: EhGalleryComment, translated: string) {
-    if (this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
+  PendingTranslationBodyContent(c: EhGalleryComment) {
+    if (!this.pendingShowTranslation) {
+      // Animating back to the original.
+      this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'))
+    } else if (this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL) {
       this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
       Divider().strokeWidth(0.5).color($r('sys.color.ohos_id_color_list_separator'))
-      this.CommentText(c, translated, false, $r('sys.color.font_primary'))
+      this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
     } else {
-      this.CommentText(c, translated, false, $r('sys.color.font_primary'))
+      this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
     }
   }
 
