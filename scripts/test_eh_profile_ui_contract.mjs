@@ -38,6 +38,9 @@ ok('mt toggle is inverted (checked when ===0, on->0 off->1)', /this\.settings\.m
 // Standard infra (no hand-rolled selectors).
 ok('uses ConciseListRow dropdown + SettingsCheckedMenuItem + bindMenu', /trailingDropdown: true/.test(page) && /SettingsCheckedMenuItem\(/.test(page) && /\.bindMenu\(this\.menuShown/.test(page))
 
+// Excluded languages: grouped per language with a multi-select variant segmented control.
+ok('xl grouped per language into a multi-select segmented control', /groupLanguages\(/.test(page) && /VariantSegments\(/.test(page) && /item\.excluded = !item\.excluded/.test(page))
+
 // Wiring.
 ok('route registered', /name === 'EhProfileSettings'[\s\S]*EhProfileSettingsPage\(\)/.test(read('entry/src/main/ets/pages/Index.ets')))
 ok('exported from feature/settings', /export \{ EhProfileSettingsPage \}/.test(read('feature/settings/src/main/ets/Index.ets')))

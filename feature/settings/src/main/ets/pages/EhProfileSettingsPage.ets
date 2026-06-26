@@ -18,6 +18,16 @@ import {
   immersiveTitleBarOpts,
 } from 'shared'
 
+/** One excluded-language table row: the language name + its present variant toggles (orig/trans/rewrite). */
+class EhLanguageRow {
+  name: string = ''
+  variants: EhUconfigToggleItem[] = []
+
+  constructor(name: string) {
+    this.name = name
+  }
+}
+
 /** One radio-group choice: the EH form value + its display label. */
 class UcOption {
   value: number
@@ -39,6 +49,7 @@ class UcOption {
 export struct EhProfileSettingsPage {
   @Local site: SiteModeState = connectSiteMode();
   @Local settings: EhProfileSettings = new EhProfileSettings();
+  @Local langRows: EhLanguageRow[] = [];
   @Local loading: boolean = true;
   @Local saving: boolean = false;
   @Local failed: boolean = false;
@@ -64,6 +75,7 @@ export struct EhProfileSettingsPage {
       .getUserConfig(this.site.isEx)
       .then((s: EhProfileSettings) => {
         this.settings = s
+        this.langRows = EhProfileSettingsPage.groupLanguages(s.excludedLanguages)
         this.loading = false
       })
       .catch(() => {
@@ -531,46 +543,105 @@ export struct EhProfileSettingsPage {
     }
   }
 
-  private langLabel(item: EhUconfigToggleItem): string {
-    if (item.variant < 0) {
-      return item.name
+  // Group the flat xl toggle list into one row per language (preserving page order).
+  private static groupLanguages(items: EhUconfigToggleItem[]): EhLanguageRow[] {
+    const rows: EhLanguageRow[] = []
+    const byName: Map<string, EhLanguageRow> = new Map<string, EhLanguageRow>()
+    for (let i: number = 0; i < items.length; i++) {
+      const item: EhUconfigToggleItem = items[i]
+      let row: EhLanguageRow | undefined = byName.get(item.name)
+      if (row === undefined) {
+        row = new EhLanguageRow(item.name)
+        byName.set(item.name, row)
+        rows.push(row)
+      }
+      row.variants.push(item)
     }
-    const variant: string =
-      item.variant === 2
-        ? AppStrings.get('ehp_xl_rewrite')
-        : item.variant === 1
-          ? AppStrings.get('ehp_xl_translated')
-          : AppStrings.get('ehp_xl_original')
-    return `${item.name} · ${variant}`
+    return rows
   }
 
-  // Excluded languages (xl_*): galleries in a checked language never appear.
+  private variantText(variant: number): string {
+    return variant === 2
+      ? AppStrings.get('ehp_xl_rewrite')
+      : variant === 1
+        ? AppStrings.get('ehp_xl_translated')
+        : AppStrings.get('ehp_xl_original')
+  }
+
+  // Excluded languages (xl_*): EH's table — one row per language, with original/translated/rewrite
+  // chips on the right (tap toggles exclusion). Far denser than one switch-row per (language, variant).
   @Builder
   LanguageSection() {
-    if (this.settings.excludedLanguages.length > 0) {
+    if (this.langRows.length > 0) {
       Column() {
         this.SectionHeader($r('app.string.ehp_sec_xl'))
         GroupedListSection() {
           ForEach(
-            this.settings.excludedLanguages,
-            (item: EhUconfigToggleItem, index: number) => {
-              ConciseListRow({
-                title: this.langLabel(item),
-                hasSwitch: true,
-                checked: item.excluded,
-                switchAction: (value: boolean) => {
-                  item.excluded = value
-                },
+            this.langRows,
+            (row: EhLanguageRow, index: number) => {
+              Row({ space: ThemeConstants.SPACE_SM }) {
+                Text(row.name)
+                  .fontSize(ThemeConstants.FONT_SIZE_LIST_ITEM)
+                  .fontColor($r('sys.color.font_primary'))
+                  .layoutWeight(1)
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                this.VariantSegments(row.variants)
+              }
+              .width('100%')
+              .alignItems(VerticalAlign.Center)
+              .padding({
+                left: ThemeConstants.SPACE_MD,
+                right: ThemeConstants.SPACE_MD,
+                top: ThemeConstants.SPACE_SM,
+                bottom: ThemeConstants.SPACE_SM,
               })
-              if (index < this.settings.excludedLanguages.length - 1) {
+              .constraintSize({ minHeight: 48 })
+              if (index < this.langRows.length - 1) {
                 this.rowDivider()
               }
             },
-            (item: EhUconfigToggleItem) => `xl_${item.ser}`,
+            (row: EhLanguageRow) => row.name,
           )
         }
       }
     }
+  }
+
+  // A multi-select segmented control of the language's variants (original/translated/rewrite). Each
+  // segment toggles independently (a checked variant is excluded). Connected look = one 分段选择器.
+  @Builder
+  VariantSegments(items: EhUconfigToggleItem[]) {
+    Row() {
+      ForEach(
+        items,
+        (item: EhUconfigToggleItem, i: number) => {
+          Text(this.variantText(item.variant))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor(
+              item.excluded ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_secondary'),
+            )
+            .textAlign(TextAlign.Center)
+            .backgroundColor(item.excluded ? ThemeConstants.BRAND_PRIMARY : Color.Transparent)
+            .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+            .onClick(() => {
+              item.excluded = !item.excluded
+            })
+          if (i < items.length - 1) {
+            Divider()
+              .vertical(true)
+              .height(18)
+              .strokeWidth(0.5)
+              .color($r('sys.color.ohos_id_color_list_separator'))
+          }
+        },
+        (item: EhUconfigToggleItem) => `xl_${item.ser}`,
+      )
+    }
+    .clip(true)
+    .borderRadius(ThemeConstants.RADIUS_SM)
+    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+    .border({ width: 0.5, color: $r('sys.color.ohos_id_color_list_separator') })
   }
 
   @Builder
