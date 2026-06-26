@@ -1185,6 +1185,10 @@
       "value": "Cleared"
     },
     {
+      "name": "cache_total",
+      "value": "Cache usage"
+    },
+    {
       "name": "common_remove",
       "value": "Remove"
     },

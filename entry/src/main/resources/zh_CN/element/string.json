@@ -1185,6 +1185,10 @@
       "value": "已清除"
     },
     {
+      "name": "cache_total",
+      "value": "缓存占用"
+    },
+    {
       "name": "common_remove",
       "value": "移除"
     },

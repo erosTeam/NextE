@@ -1185,6 +1185,10 @@
       "value": "クリアしました"
     },
     {
+      "name": "cache_total",
+      "value": "キャッシュ使用量"
+    },
+    {
       "name": "common_remove",
       "value": "削除"
     },
