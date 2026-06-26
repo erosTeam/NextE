@@ -3,7 +3,10 @@ import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   CommentTranslationService,
   CommentTranslationSettingsState,
+  BasicDataSource,
   LocalBlockService,
+  LocalBlockState,
+  connectLocalBlock,
   ThemeConstants,
   EhConstants,
   EhApiService,
@@ -35,7 +38,8 @@ const COMMENT_COMPOSER_FIELD_ID: string = 'gallery-comments-composer-field'
 const COMMENT_COMPOSER_OUTER_GAP: number = ThemeConstants.SPACE_SM
 const COMMENT_COMPOSER_INNER_GAP: number = ThemeConstants.SPACE_XS
 const COMMENT_COMPOSER_SEND_SIZE: number = 36
-const COMMENT_COMPOSER_CLOSE_ICON_SIZE: number = COMMENT_COMPOSER_SEND_SIZE - COMMENT_COMPOSER_INNER_GAP * 2
+const COMMENT_COMPOSER_CLOSE_ICON_SIZE: number =
+  COMMENT_COMPOSER_SEND_SIZE - COMMENT_COMPOSER_INNER_GAP * 2
 const COMMENT_COMPOSER_RADIUS: number = COMMENT_COMPOSER_SEND_SIZE / 2 + COMMENT_COMPOSER_INNER_GAP
 const COMMENT_COMPOSER_INPUT_MAX_H: number = 148
 const COMMENT_COMPOSER_QUOTE_LINE_W: number = 4
@@ -43,11 +47,20 @@ const COMMENT_COMPOSER_QUOTE_TEXT_BLOCK_H: number = 22 * 2 + ThemeConstants.SPAC
 const COMMENT_COMPOSER_QUOTE_LINE_H: number = COMMENT_COMPOSER_QUOTE_TEXT_BLOCK_H
 const COMMENT_COMPOSER_QUOTE_TOP_LIFT: number = COMMENT_COMPOSER_INNER_GAP
 const COMMENT_COMPOSER_QUOTE_TOP_GAP: number =
-  COMMENT_COMPOSER_RADIUS - COMMENT_COMPOSER_QUOTE_LINE_W / 2 - COMMENT_COMPOSER_INNER_GAP -
+  COMMENT_COMPOSER_RADIUS -
+  COMMENT_COMPOSER_QUOTE_LINE_W / 2 -
+  COMMENT_COMPOSER_INNER_GAP -
   COMMENT_COMPOSER_QUOTE_TOP_LIFT
 const COMMENT_COMPOSER_QUOTE_LEFT_GAP: number =
   COMMENT_COMPOSER_RADIUS - COMMENT_COMPOSER_INNER_GAP - COMMENT_COMPOSER_QUOTE_LINE_W / 2
 const COMMENT_COMPOSER_CLOSE_RIGHT_GAP: number = COMMENT_COMPOSER_INNER_GAP
+
+// Snapshot of a comment's vote/score for optimistic-vote rollback (the render state is the source of truth).
+class CommentVoteSnapshot {
+  commentId: string = ''
+  vote: number = 0
+  score: string = ''
+}
 
 /**
  * The separate full comments page (eros_fe galleryComment). The detail page shows a 2-comment peek
@@ -72,10 +85,58 @@ export struct GalleryCommentsPage {
   @Local commentSubmitting: boolean = false;
   @Local commentError: string = '';
   @Local translationSettings: CommentTranslationSettingsState = connectCommentTranslationSettings();
-  @Local commentRenderStates: GalleryCommentRenderState[] = [];
-  @Local commentRenderVersion: number = 0;
+  // LazyForEach virtualizes the comment list: only visible cards mount (so only visible comments
+  // auto-translate) and the source reloads ONLY on refresh / filter change — never on a translation
+  // completion. Per-comment reactive state lives on the @ObservedV2 render states (stable, kept in a Map),
+  // so one completion re-renders exactly one card instead of the whole list. Source is kept out of @Trace
+  // (BasicDataSource contract); commentCount mirrors its size so build() re-evaluates the empty branch.
+  private commentSource: BasicDataSource<EhGalleryComment> = new BasicDataSource();
+  private renderStateMap: Map<string, GalleryCommentRenderState> = new Map();
+  @Local commentCount: number = 0;
   @Local initialRefreshStarted: boolean = false;
+  @Local localBlock: LocalBlockState = connectLocalBlock();
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
+
+  // Rebuild the virtualized list from the current comments + filter. A filter toggle preserves existing
+  // render states by id (so in-flight translations survive); a refresh (resetStates) rebuilds them from the
+  // fresh comments. The render state — NOT the EhGalleryComment — is the single source of truth for the
+  // reactive translation/vote fields.
+  private rebuildCommentList(resetStates: boolean = false): void {
+    const visible: EhGalleryComment[] = this.visibleComments()
+    // Keep render states for ALL comments, not just the currently-visible subset, so a filter toggle
+    // (uploaderOnly) or block-rule change never discards an off-filter comment's vote/translation state —
+    // the render state is the single source of truth and the comment objects are not written back.
+    const nextMap: Map<string, GalleryCommentRenderState> = new Map()
+    for (let i = 0; i < this.comments.length; i++) {
+      const c: EhGalleryComment = this.comments[i]
+      const existing: GalleryCommentRenderState | undefined = this.renderStateMap.get(c.commentId)
+      if (existing !== undefined && !resetStates) {
+        nextMap.set(c.commentId, existing)
+      } else {
+        nextMap.set(c.commentId, new GalleryCommentRenderState(c))
+      }
+    }
+    this.renderStateMap = nextMap
+    this.commentSource.setData(visible)
+    this.commentCount = visible.length
+  }
+
+  private renderStateById(commentId: string): GalleryCommentRenderState | undefined {
+    return this.renderStateMap.get(commentId)
+  }
+
+  @Monitor('uploaderOnly')
+  onUploaderOnlyChange(): void {
+    this.rebuildCommentList()
+  }
+
+  // Block rules / display-mode / score filter changed elsewhere (LocalBlockSettingsPage) while this page
+  // stays mounted: re-apply the filter so the snapshot list + count stay live (the pre-virtualization
+  // build() re-filtered on every render). Preserves render states (resetStates defaults to false).
+  @Monitor('localBlock.version')
+  onLocalBlockChange(): void {
+    this.rebuildCommentList()
+  }
 
   private requestCommentFocus(): void {
     setTimeout(() => {
@@ -91,8 +152,9 @@ export struct GalleryCommentsPage {
   }
 
   private uploaderMemberId(): string {
-    const uploader: EhGalleryComment | undefined =
-      this.comments.find((c: EhGalleryComment) => c.isUploader || c.score.length === 0)
+    const uploader: EhGalleryComment | undefined = this.comments.find(
+      (c: EhGalleryComment) => c.isUploader || c.score.length === 0,
+    )
     return uploader !== undefined ? uploader.memberId : ''
   }
 
@@ -105,8 +167,12 @@ export struct GalleryCommentsPage {
   }
 
   private scheduleInitialRefreshIfNeeded(): void {
-    if (this.initialRefreshStarted || this.comments.length > 0 ||
-      this.params.gid.length === 0 || this.params.token.length === 0) {
+    if (
+      this.initialRefreshStarted ||
+      this.comments.length > 0 ||
+      this.params.gid.length === 0 ||
+      this.params.token.length === 0
+    ) {
       return
     }
     this.initialRefreshStarted = true
@@ -128,63 +194,39 @@ export struct GalleryCommentsPage {
     return LocalBlockService.filterComments(source)
   }
 
-  private renderStatesFromComments(comments: EhGalleryComment[]): GalleryCommentRenderState[] {
-    const out: GalleryCommentRenderState[] = []
-    for (let i = 0; i < comments.length; i++) {
-      out.push(new GalleryCommentRenderState(comments[i]))
-    }
-    return out
-  }
-
-  private renderState(commentId: string): GalleryCommentRenderState | undefined {
-    for (let i = 0; i < this.commentRenderStates.length; i++) {
-      const state: GalleryCommentRenderState = this.commentRenderStates[i]
-      if (state.commentId === commentId) {
-        return state
-      }
-    }
-    return undefined
-  }
-
+  // The LazyForEach builder asks for a comment's render state; it is guaranteed present after
+  // rebuildCommentList, but create-and-insert defensively if a card ever mounts ahead of a rebuild.
   private renderStateFor(comment: EhGalleryComment): GalleryCommentRenderState {
-    const current: GalleryCommentRenderState | undefined = this.renderState(comment.commentId)
+    const current: GalleryCommentRenderState | undefined = this.renderStateMap.get(
+      comment.commentId,
+    )
     if (current !== undefined) {
       return current
     }
     const state: GalleryCommentRenderState = new GalleryCommentRenderState(comment)
-    const states: GalleryCommentRenderState[] = this.commentRenderStates.slice()
-    states.push(state)
-    this.commentRenderStates = states
+    this.renderStateMap.set(comment.commentId, state)
     return state
   }
 
-  private updateRenderState(comment: EhGalleryComment): void {
-    const states: GalleryCommentRenderState[] = this.commentRenderStates.slice()
-    for (let i = 0; i < states.length; i++) {
-      if (states[i].commentId === comment.commentId) {
-        states[i].applyComment(comment)
-        this.commentRenderStates = states
-        this.commentRenderVersion++
-        return
-      }
-    }
-    const state: GalleryCommentRenderState = new GalleryCommentRenderState(comment)
-    states.push(state)
-    this.commentRenderStates = states
-    this.commentRenderVersion++
-  }
-
   private renderVote(comment: EhGalleryComment): number {
-    const state: GalleryCommentRenderState | undefined = this.renderState(comment.commentId)
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(comment.commentId)
     return state !== undefined ? state.vote : comment.vote
   }
 
   private canOpenCommentSheet(): boolean {
-    return this.params.gid.length > 0 && this.params.token.length > 0 && EhCookieStore.getInstance().isLogin()
+    return (
+      this.params.gid.length > 0 &&
+      this.params.token.length > 0 &&
+      EhCookieStore.getInstance().isLogin()
+    )
   }
 
   private canSubmitComment(): boolean {
-    if (this.commentText.trim().length < 10 || !this.canOpenCommentSheet() || this.commentSubmitting) {
+    if (
+      this.commentText.trim().length < 10 ||
+      !this.canOpenCommentSheet() ||
+      this.commentSubmitting
+    ) {
       return false
     }
     return this.commentEditId.length === 0 || this.commentEditId !== '0'
@@ -317,11 +359,10 @@ export struct GalleryCommentsPage {
       this.params.apiuid = result.gallery.apiuid
       this.params.title = result.gallery.displayTitle(false)
       this.comments = result.comments
-      this.commentRenderStates = this.renderStatesFromComments(this.comments)
-      this.commentRenderVersion++
       if (this.visibleComments().length === 0) {
         this.uploaderOnly = false
       }
+      this.rebuildCommentList(true)
       DiagnosticLogger.info(
         'gallery',
         'comments_refresh_ok',
@@ -340,33 +381,19 @@ export struct GalleryCommentsPage {
         ? $r('app.string.comment_vote_cancel_up_success')
         : $r('app.string.comment_vote_cancel_down_success')
     }
-    return resultVote > 0 ? $r('app.string.comment_vote_up_success') : $r('app.string.comment_vote_down_success')
-  }
-
-  private cloneComment(c: EhGalleryComment): EhGalleryComment {
-    const next: EhGalleryComment = new EhGalleryComment()
-    next.commentId = c.commentId
-    next.memberId = c.memberId
-    next.author = c.author
-    next.postedTime = c.postedTime
-    next.contentText = c.contentText
-    next.score = c.score
-    next.vote = c.vote
-    next.canEdit = c.canEdit
-    next.canVote = c.canVote
-    next.scoreDetails = c.scoreDetails.slice()
-    next.isUploader = c.isUploader
-    next.translationText = c.translationText
-    next.translationShown = c.translationShown
-    next.translationLoading = c.translationLoading
-    next.translationAutoStarted = c.translationAutoStarted
-    return next
+    return resultVote > 0
+      ? $r('app.string.comment_vote_up_success')
+      : $r('app.string.comment_vote_down_success')
   }
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  // All reactive comment state mutations go through the per-comment @ObservedV2 render state (a @Trace
+  // write re-renders exactly that one card). No comments-array slice, no global version bump. The animateTo
+  // wraps ONLY this one card's resulting layout change (the body grows/shrinks to fit the translation), so
+  // the height transition is cheap — unlike the pre-refactor list-wide animateTo that drove the jank.
   private applyCommentTranslationState(
     commentId: string,
     translated: string | undefined,
@@ -374,75 +401,44 @@ export struct GalleryCommentsPage {
     loading: boolean | undefined,
     autoStarted: boolean | undefined,
   ): void {
-    this.getUIContext().animateTo({ duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut }, () => {
-      this.replaceComment(commentId, (current: EhGalleryComment) => {
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(commentId)
+    if (state === undefined) {
+      return
+    }
+    this.getUIContext().animateTo(
+      { duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut },
+      () => {
         if (translated !== undefined) {
-          current.translationText = translated
+          state.translationText = translated
         }
         if (shown !== undefined) {
-          current.translationShown = shown
+          state.translationShown = shown
         }
         if (loading !== undefined) {
-          current.translationLoading = loading
+          state.translationLoading = loading
         }
         if (autoStarted !== undefined) {
-          current.translationAutoStarted = autoStarted
+          state.translationAutoStarted = autoStarted
         }
-      })
-    })
-  }
-
-  private commentById(commentId: string): EhGalleryComment | undefined {
-    return this.comments.find((c: EhGalleryComment) => c.commentId === commentId)
-  }
-
-  private replaceComment(commentId: string, updater: (comment: EhGalleryComment) => void): EhGalleryComment | undefined {
-    for (let i = 0; i < this.comments.length; i++) {
-      const current: EhGalleryComment = this.comments[i]
-      if (current.commentId === commentId) {
-        updater(current)
-        const comments: EhGalleryComment[] = this.comments.slice()
-        comments[i] = current
-        this.comments = comments
-        this.updateRenderState(current)
-        return current
-      }
-    }
-    return undefined
+      },
+    )
   }
 
   private toggleCommentTranslation(comment: EhGalleryComment): void {
     if (comment.commentId.length === 0) {
       return
     }
-    const current: EhGalleryComment | undefined = this.commentById(comment.commentId)
-    if (current === undefined || current.translationText.length === 0) {
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(comment.commentId)
+    if (state === undefined || state.translationText.length === 0) {
       return
     }
     this.applyCommentTranslationState(
       comment.commentId,
       undefined,
-      !current.translationShown,
+      !state.translationShown,
       false,
       undefined,
     )
-  }
-
-  private requestCommentTranslation(comment: EhGalleryComment, sourceText: string, force: boolean): Promise<string> {
-    if (comment.commentId.length === 0 || sourceText.trim().length === 0) {
-      return Promise.resolve('')
-    }
-    const current: EhGalleryComment | undefined = this.commentById(comment.commentId)
-    if (current !== undefined && current.translationText.length > 0 && !force) {
-      return Promise.resolve(current.translationText)
-    }
-    return CommentTranslationService.translate(this.ctx(), sourceText, force)
-      .then((translated: string) => translated)
-      .catch((error: Error) => {
-        DiagnosticLogger.warn('translation', 'comment_request_failed', `id=${comment.commentId} ${error.message}`)
-        this.showCommentToast($r('app.string.comment_translation_failed'))
-        return ''
-      })
   }
 
   private applyResolvedCommentTranslation(comment: EhGalleryComment, translated: string): void {
@@ -456,12 +452,12 @@ export struct GalleryCommentsPage {
     if (comment.commentId.length === 0 || sourceText.trim().length === 0) {
       return
     }
-    const current: EhGalleryComment | undefined = this.commentById(comment.commentId)
-    if (current !== undefined && current.translationLoading) {
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(comment.commentId)
+    if (state !== undefined && state.translationLoading) {
       return
     }
-    if (current !== undefined && current.translationText.length > 0 && !force) {
-      this.toggleCommentTranslation(current)
+    if (state !== undefined && state.translationText.length > 0 && !force) {
+      this.toggleCommentTranslation(comment)
       return
     }
     this.applyCommentTranslationState(comment.commentId, undefined, true, true, undefined)
@@ -472,7 +468,11 @@ export struct GalleryCommentsPage {
         }
       })
       .catch((error: Error) => {
-        DiagnosticLogger.warn('translation', 'comment_request_failed', `id=${comment.commentId} ${error.message}`)
+        DiagnosticLogger.warn(
+          'translation',
+          'comment_request_failed',
+          `id=${comment.commentId} ${error.message}`,
+        )
         this.showCommentToast($r('app.string.comment_translation_failed'))
       })
       .finally(() => {
@@ -481,12 +481,22 @@ export struct GalleryCommentsPage {
   }
 
   private autoTranslateComment(comment: EhGalleryComment, sourceText: string): void {
-    if (!this.translationSettings.enabled || !this.translationSettings.autoTranslate ||
-      comment.commentId.length === 0 || comment.translationAutoStarted || sourceText.trim().length === 0) {
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(comment.commentId)
+    if (
+      !this.translationSettings.enabled ||
+      !this.translationSettings.autoTranslate ||
+      comment.commentId.length === 0 ||
+      (state !== undefined && state.translationAutoStarted) ||
+      sourceText.trim().length === 0
+    ) {
       return
     }
     this.applyCommentTranslationState(comment.commentId, undefined, true, false, true)
-    CommentTranslationService.getCached(this.ctx(), sourceText, CommentTranslationService.targetLanguage())
+    CommentTranslationService.getCached(
+      this.ctx(),
+      sourceText,
+      CommentTranslationService.targetLanguage(),
+    )
       .then((cached: string) => {
         if (cached.length > 0) {
           this.applyCommentTranslationState(comment.commentId, cached, true, false, undefined)
@@ -495,16 +505,21 @@ export struct GalleryCommentsPage {
         }
       })
       .catch((error: Error) => {
-        DiagnosticLogger.warn('translation', 'comment_auto_cache_failed', `id=${comment.commentId} ${error.message}`)
+        DiagnosticLogger.warn(
+          'translation',
+          'comment_auto_cache_failed',
+          `id=${comment.commentId} ${error.message}`,
+        )
         this.translateComment(comment, sourceText, false)
       })
   }
 
   private applyVoteResult(result: CommentVoteResult): void {
-    this.replaceComment(result.commentId, (current: EhGalleryComment) => {
-      current.vote = result.commentVote
-      current.score = result.commentScore.toString()
-    })
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(result.commentId)
+    if (state !== undefined) {
+      state.vote = result.commentVote
+      state.score = result.commentScore.toString()
+    }
     connectCommentVoteMutation().publish(
       this.params.gid,
       result.commentId,
@@ -513,35 +528,40 @@ export struct GalleryCommentsPage {
     )
   }
 
-  private applyLocalVote(commentId: string, vote: number): EhGalleryComment | undefined {
-    let previous: EhGalleryComment | undefined = undefined
-    const current: EhGalleryComment | undefined = this.commentById(commentId)
-    if (current !== undefined) {
-      previous = this.cloneComment(current)
-      this.replaceComment(commentId, (next: EhGalleryComment) => {
-        if (next.score.length > 0) {
-          const score: number = Number.parseInt(next.score, 10)
-          if (!Number.isNaN(score)) {
-            next.score = (score + vote - next.vote).toString()
-          }
-        }
-        next.vote = vote
-      })
+  private applyLocalVote(commentId: string, vote: number): CommentVoteSnapshot | undefined {
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(commentId)
+    if (state === undefined) {
+      return undefined
     }
+    const previous: CommentVoteSnapshot = new CommentVoteSnapshot()
+    previous.commentId = commentId
+    previous.vote = state.vote
+    previous.score = state.score
+    if (state.score.length > 0) {
+      const score: number = Number.parseInt(state.score, 10)
+      if (!Number.isNaN(score)) {
+        state.score = (score + vote - state.vote).toString()
+      }
+    }
+    state.vote = vote
     return previous
   }
 
-  private restoreComment(comment: EhGalleryComment): void {
-    this.replaceComment(comment.commentId, (current: EhGalleryComment) => {
-      current.score = comment.score
-      current.vote = comment.vote
-    })
+  private restoreComment(snapshot: CommentVoteSnapshot): void {
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(snapshot.commentId)
+    if (state !== undefined) {
+      state.score = snapshot.score
+      state.vote = snapshot.vote
+    }
   }
 
   private showCommentToast(message: ResourceStr): void {
-    this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {
-      // Toast failures are non-critical; the comment state has already been updated or logged.
-    })
+    this.getUIContext()
+      .getPromptAction()
+      .openToast({ message: message })
+      .catch((_error: Error) => {
+        // Toast failures are non-critical; the comment state has already been updated or logged.
+      })
   }
 
   private handleCommentVote(comment: EhGalleryComment, vote: number): void {
@@ -567,7 +587,7 @@ export struct GalleryCommentsPage {
       return
     }
     this.votingCommentId = commentId
-    const previous: EhGalleryComment | undefined = this.applyLocalVote(commentId, localVote)
+    const previous: CommentVoteSnapshot | undefined = this.applyLocalVote(commentId, localVote)
     try {
       DiagnosticLogger.info(
         'gallery',
@@ -677,21 +697,20 @@ export struct GalleryCommentsPage {
             await this.refreshComments()
           },
         }) {
-          if (this.visibleComments().length > 0) {
+          if (this.commentCount > 0) {
             ListItem() {
               this.CommentsHeader()
             }
-            ForEach(
-              this.visibleComments(),
+            LazyForEach(
+              this.commentSource,
               (comment: EhGalleryComment) => {
                 ListItem() {
                   GalleryCommentsCard({
-                    comments: [comment],
+                    comments: this.comments,
                     referenceComments: this.comments,
                     useSingleComment: true,
                     singleComment: comment,
                     renderState: this.renderStateFor(comment),
-                    renderVersion: this.commentRenderVersion,
                     parentManagedActions: true,
                     showHeader: false,
                     onAuthor: (author: string) => {
@@ -707,9 +726,13 @@ export struct GalleryCommentsPage {
                       this.openEditComment(selectedComment)
                     },
                     onTranslate: (selectedComment: EhGalleryComment, sourceText: string) => {
-                      return this.requestCommentTranslation(selectedComment, sourceText, false)
+                      this.translateComment(selectedComment, sourceText, false)
+                      return Promise.resolve('')
                     },
-                    onTranslationResolved: (selectedComment: EhGalleryComment, translated: string) => {
+                    onTranslationResolved: (
+                      selectedComment: EhGalleryComment,
+                      translated: string,
+                    ) => {
                       this.applyResolvedCommentTranslation(selectedComment, translated)
                     },
                     onToggleTranslation: (selectedComment: EhGalleryComment) => {
@@ -741,7 +764,7 @@ export struct GalleryCommentsPage {
       if (p !== undefined) {
         this.params = p
         this.comments = p.comments
-        this.commentRenderStates = this.renderStatesFromComments(this.comments)
+        this.rebuildCommentList(true)
         this.scheduleInitialRefreshIfNeeded()
       }
     })
@@ -754,7 +777,7 @@ export struct GalleryCommentsPage {
         .fontSize(ThemeConstants.FONT_SIZE_TITLE)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
-      Text(`(${this.visibleComments().length})`)
+      Text(`(${this.commentCount})`)
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor($r('sys.color.font_tertiary'))
       Blank()
@@ -831,7 +854,11 @@ export struct GalleryCommentsPage {
             })
           SymbolGlyph($r('sys.symbol.location_north_up_right_circle_fill'))
             .fontSize(COMMENT_COMPOSER_SEND_SIZE)
-            .fontColor([this.canSubmitComment() ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_tertiary')])
+            .fontColor([
+              this.canSubmitComment()
+                ? ThemeConstants.BRAND_PRIMARY
+                : $r('sys.color.font_tertiary'),
+            ])
             .opacity(this.canSubmitComment() ? 1 : 0.45)
             .onClick(() => {
               this.submitComment()

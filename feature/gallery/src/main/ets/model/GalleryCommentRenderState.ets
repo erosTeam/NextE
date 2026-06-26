@@ -9,6 +9,9 @@ export class GalleryCommentRenderState {
   @Trace translationShown: boolean = false
   @Trace translationLoading: boolean = false
   @Trace translationAutoStarted: boolean = false
+  // Blocked-comment expand toggle (COLLAPSE mode). UI-only; lives here (not as a card @Local) so it
+  // survives LazyForEach card recycling on the full comments page. Not part of applyComment.
+  @Trace blockedExpanded: boolean = false
 
   constructor(c?: EhGalleryComment) {
     if (c !== undefined) {
