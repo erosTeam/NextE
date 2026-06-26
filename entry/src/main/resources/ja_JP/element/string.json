@@ -1189,6 +1189,94 @@
       "value": "キャッシュ使用量"
     },
     {
+      "name": "settings_backup",
+      "value": "バックアップと復元"
+    },
+    {
+      "name": "backup_hint",
+      "value": "設定をファイルに書き出す、またはファイルから復元します。"
+    },
+    {
+      "name": "backup_export",
+      "value": "エクスポート"
+    },
+    {
+      "name": "backup_export_subtitle",
+      "value": "設定をファイルに保存"
+    },
+    {
+      "name": "backup_import",
+      "value": "インポート"
+    },
+    {
+      "name": "backup_import_subtitle",
+      "value": "ファイルから設定を復元"
+    },
+    {
+      "name": "backup_include_secrets",
+      "value": "機密データを含める"
+    },
+    {
+      "name": "backup_include_secrets_hint",
+      "value": "ログイン・保存済みアカウント・API キー——パスワードで暗号化"
+    },
+    {
+      "name": "backup_password",
+      "value": "パスワード"
+    },
+    {
+      "name": "backup_password_repeat",
+      "value": "パスワード（再入力）"
+    },
+    {
+      "name": "backup_password_required",
+      "value": "パスワードを入力してください"
+    },
+    {
+      "name": "backup_password_mismatch",
+      "value": "パスワードが一致しません"
+    },
+    {
+      "name": "backup_export_done",
+      "value": "エクスポートしました"
+    },
+    {
+      "name": "backup_export_failed",
+      "value": "エクスポートに失敗しました"
+    },
+    {
+      "name": "backup_import_invalid",
+      "value": "無効または読み取れないバックアップ"
+    },
+    {
+      "name": "backup_import_done",
+      "value": "設定を復元しました"
+    },
+    {
+      "name": "backup_bad_password",
+      "value": "パスワードが違います"
+    },
+    {
+      "name": "backup_encrypted_title",
+      "value": "暗号化バックアップ"
+    },
+    {
+      "name": "backup_encrypted_hint",
+      "value": "エクスポート時のパスワードを入力してください。"
+    },
+    {
+      "name": "backup_restore_confirm_title",
+      "value": "設定を復元しますか？"
+    },
+    {
+      "name": "backup_restore_confirm_message",
+      "value": "現在の設定が上書きされます。"
+    },
+    {
+      "name": "backup_restore_apply",
+      "value": "復元"
+    },
+    {
       "name": "common_remove",
       "value": "削除"
     },

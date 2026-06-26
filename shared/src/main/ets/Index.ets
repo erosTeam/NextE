@@ -110,6 +110,17 @@ export { CommentTranslationService } from './services/CommentTranslationService'
 export { LocalBlockService } from './services/LocalBlockService'
 export { EhPageCacheService } from './services/EhPageCacheService'
 export { CacheStat } from './services/CacheStat'
+export { BackupService } from './backup/BackupService'
+export {
+  BackupAppMetadata,
+  BackupExportOptions,
+  BackupEnvelopeV1,
+  BackupParseResult,
+  BackupPreview,
+  BackupRestoreResult,
+  BACKUP_FILE_SUFFIX,
+  MAX_BACKUP_BYTES,
+} from './backup/BackupTypes'
 export { MyTagsTargetService, MyTagsTargetResolveResult } from './services/MyTagsTargetService'
 export { CoverColorService } from './services/CoverColorService'
 export { MotionHandStateService, MotionHandEdge } from './services/MotionHandStateService'

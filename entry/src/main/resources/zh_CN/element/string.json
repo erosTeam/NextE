@@ -1189,6 +1189,94 @@
       "value": "缓存占用"
     },
     {
+      "name": "settings_backup",
+      "value": "备份与恢复"
+    },
+    {
+      "name": "backup_hint",
+      "value": "将设置导出为文件,或从文件恢复。"
+    },
+    {
+      "name": "backup_export",
+      "value": "导出"
+    },
+    {
+      "name": "backup_export_subtitle",
+      "value": "把设置保存到文件"
+    },
+    {
+      "name": "backup_import",
+      "value": "导入"
+    },
+    {
+      "name": "backup_import_subtitle",
+      "value": "从文件恢复设置"
+    },
+    {
+      "name": "backup_include_secrets",
+      "value": "包含敏感数据"
+    },
+    {
+      "name": "backup_include_secrets_hint",
+      "value": "登录态、已存账号与 API Key——用密码加密"
+    },
+    {
+      "name": "backup_password",
+      "value": "密码"
+    },
+    {
+      "name": "backup_password_repeat",
+      "value": "重复密码"
+    },
+    {
+      "name": "backup_password_required",
+      "value": "请输入密码"
+    },
+    {
+      "name": "backup_password_mismatch",
+      "value": "两次密码不一致"
+    },
+    {
+      "name": "backup_export_done",
+      "value": "已导出"
+    },
+    {
+      "name": "backup_export_failed",
+      "value": "导出失败"
+    },
+    {
+      "name": "backup_import_invalid",
+      "value": "备份无效或无法读取"
+    },
+    {
+      "name": "backup_import_done",
+      "value": "设置已恢复"
+    },
+    {
+      "name": "backup_bad_password",
+      "value": "密码错误"
+    },
+    {
+      "name": "backup_encrypted_title",
+      "value": "加密备份"
+    },
+    {
+      "name": "backup_encrypted_hint",
+      "value": "请输入导出时设置的密码。"
+    },
+    {
+      "name": "backup_restore_confirm_title",
+      "value": "恢复设置?"
+    },
+    {
+      "name": "backup_restore_confirm_message",
+      "value": "这会覆盖当前设置。"
+    },
+    {
+      "name": "backup_restore_apply",
+      "value": "恢复"
+    },
+    {
       "name": "common_remove",
       "value": "移除"
     },

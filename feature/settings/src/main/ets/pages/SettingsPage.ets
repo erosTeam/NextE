@@ -133,6 +133,14 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
+        title: $r('app.string.settings_backup'),
+        leadingIcon: $r('sys.symbol.cloud_and_arrow_up'),
+        action: () => {
+          this.stack.pushPathByName('BackupSettings', null)
+        },
+      })
+      this.rowDivider()
+      ConciseListRow({
         title: $r('app.string.advanced_diagnostics'),
         leadingIcon: $r('sys.symbol.gearshape'),
         action: () => {

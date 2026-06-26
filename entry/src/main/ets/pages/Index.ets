@@ -61,6 +61,7 @@ import {
   LayoutSettingsPage,
   ColumnDensityPage,
   CacheSettingsPage,
+  BackupSettingsPage,
   ReaderSettingsPage,
   DownloadSettingsPage,
   SearchSettingsPage,
@@ -632,6 +633,8 @@ struct Index {
       ColumnDensityPage()
     } else if (name === 'CacheSettings') {
       CacheSettingsPage()
+    } else if (name === 'BackupSettings') {
+      BackupSettingsPage()
     } else if (name === 'ReaderSettings') {
       ReaderSettingsPage()
     } else if (name === 'DownloadSettings') {

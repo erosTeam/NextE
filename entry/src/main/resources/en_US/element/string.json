@@ -1189,6 +1189,94 @@
       "value": "Cache usage"
     },
     {
+      "name": "settings_backup",
+      "value": "Backup & restore"
+    },
+    {
+      "name": "backup_hint",
+      "value": "Export your settings to a file, or restore from one."
+    },
+    {
+      "name": "backup_export",
+      "value": "Export"
+    },
+    {
+      "name": "backup_export_subtitle",
+      "value": "Save settings to a file"
+    },
+    {
+      "name": "backup_import",
+      "value": "Import"
+    },
+    {
+      "name": "backup_import_subtitle",
+      "value": "Restore settings from a file"
+    },
+    {
+      "name": "backup_include_secrets",
+      "value": "Include sensitive data"
+    },
+    {
+      "name": "backup_include_secrets_hint",
+      "value": "Login, saved accounts and API key — encrypted with a password"
+    },
+    {
+      "name": "backup_password",
+      "value": "Password"
+    },
+    {
+      "name": "backup_password_repeat",
+      "value": "Repeat password"
+    },
+    {
+      "name": "backup_password_required",
+      "value": "Enter a password"
+    },
+    {
+      "name": "backup_password_mismatch",
+      "value": "Passwords do not match"
+    },
+    {
+      "name": "backup_export_done",
+      "value": "Exported"
+    },
+    {
+      "name": "backup_export_failed",
+      "value": "Export failed"
+    },
+    {
+      "name": "backup_import_invalid",
+      "value": "Invalid or unreadable backup"
+    },
+    {
+      "name": "backup_import_done",
+      "value": "Settings restored"
+    },
+    {
+      "name": "backup_bad_password",
+      "value": "Wrong password"
+    },
+    {
+      "name": "backup_encrypted_title",
+      "value": "Encrypted backup"
+    },
+    {
+      "name": "backup_encrypted_hint",
+      "value": "Enter the password used when exporting."
+    },
+    {
+      "name": "backup_restore_confirm_title",
+      "value": "Restore settings?"
+    },
+    {
+      "name": "backup_restore_confirm_message",
+      "value": "This overwrites your current settings."
+    },
+    {
+      "name": "backup_restore_apply",
+      "value": "Restore"
+    },
+    {
       "name": "common_remove",
       "value": "Remove"
     },
