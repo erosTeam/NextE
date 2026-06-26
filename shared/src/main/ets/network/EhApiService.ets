@@ -162,11 +162,15 @@ export class EhApiService {
     return `${encodeURIComponent(name)}=${encodeURIComponent(value)}`
   }
 
-  async getGalleryFavoriteInfo(isEx: boolean, gid: string, token: string): Promise<GalleryFavoriteInfo> {
+  async getGalleryFavoriteInfo(
+    isEx: boolean,
+    gid: string,
+    token: string,
+  ): Promise<GalleryFavoriteInfo> {
     const base: string = EhConstants.baseUrl(isEx)
     const url: string =
       `${base}/gallerypopups.php?gid=${encodeURIComponent(gid)}` +
-        `&t=${encodeURIComponent(token)}&act=addfav`
+      `&t=${encodeURIComponent(token)}&act=addfav`
     const resp: EhTextResponse = await this.fetch(url, isEx, 'generic')
     return EhGalleryFavoriteParser.parse(resp.body)
   }
@@ -175,7 +179,7 @@ export class EhApiService {
     const base: string = EhConstants.baseUrl(update.isEx)
     const url: string =
       `${base}/gallerypopups.php?gid=${encodeURIComponent(update.gid)}` +
-        `&t=${encodeURIComponent(update.token)}&act=addfav`
+      `&t=${encodeURIComponent(update.token)}&act=addfav`
     const body: string = [
       this.formPair('favcat', update.favcat.length > 0 ? update.favcat : 'favdel'),
       this.formPair('update', '1'),
@@ -188,13 +192,23 @@ export class EhApiService {
       throw EhErrorClassifier.network(err as Error, url)
     }
     if (resp.statusCode >= 400) {
-      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(
+        url,
+        update.isEx,
+        resp,
+        'generic',
+      )
       if (failure !== null) {
         throw failure
       }
       throw new Error(`favorite HTTP ${resp.statusCode}`)
     }
-    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(
+      url,
+      update.isEx,
+      resp,
+      'generic',
+    )
     if (failure !== null) {
       throw failure
     }
@@ -227,13 +241,23 @@ export class EhApiService {
       throw EhErrorClassifier.network(err as Error, url)
     }
     if (resp.statusCode >= 400) {
-      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'detail')
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(
+        url,
+        update.isEx,
+        resp,
+        'detail',
+      )
       if (failure !== null) {
         throw failure
       }
       throw new Error(`comment HTTP ${resp.statusCode}`)
     }
-    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'detail')
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(
+      url,
+      update.isEx,
+      resp,
+      'detail',
+    )
     if (failure !== null) {
       throw failure
     }
@@ -268,13 +292,23 @@ export class EhApiService {
       throw EhErrorClassifier.network(err as Error, url)
     }
     if (resp.statusCode >= 400) {
-      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(
+        url,
+        update.isEx,
+        resp,
+        'generic',
+      )
       if (failure !== null) {
         throw failure
       }
       throw new Error(`mytags add HTTP ${resp.statusCode}`)
     }
-    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(
+      url,
+      update.isEx,
+      resp,
+      'generic',
+    )
     if (failure !== null) {
       throw failure
     }
@@ -300,9 +334,7 @@ export class EhApiService {
     }
     const suffix: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}/mytags${suffix}`
-    const pairs: string[] = [
-      this.formPair('tagset_action', action),
-    ]
+    const pairs: string[] = [this.formPair('tagset_action', action)]
     if (action === 'create' || action === 'rename') {
       pairs.push(this.formPair('tagset_name', name))
     }
@@ -313,13 +345,23 @@ export class EhApiService {
       throw EhErrorClassifier.network(err as Error, url)
     }
     if (resp.statusCode >= 400) {
-      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(
+        url,
+        update.isEx,
+        resp,
+        'generic',
+      )
       if (failure !== null) {
         throw failure
       }
       throw new Error(`mytags tagset HTTP ${resp.statusCode}`)
     }
-    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(
+      url,
+      update.isEx,
+      resp,
+      'generic',
+    )
     if (failure !== null) {
       throw failure
     }
@@ -350,13 +392,23 @@ export class EhApiService {
       throw EhErrorClassifier.network(err as Error, url)
     }
     if (resp.statusCode >= 400) {
-      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(
+        url,
+        update.isEx,
+        resp,
+        'generic',
+      )
       if (failure !== null) {
         throw failure
       }
       throw new Error(`mytags delete HTTP ${resp.statusCode}`)
     }
-    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, update.isEx, resp, 'generic')
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(
+      url,
+      update.isEx,
+      resp,
+      'generic',
+    )
     if (failure !== null) {
       throw failure
     }
@@ -409,7 +461,11 @@ export class EhApiService {
       // /popular ignores filters and the next cursor — request the bare snapshot.
       const url: string = `${base}${path}`
       const resp = await this.fetch(url, query.isEx, 'list')
-      return this.filterLocalBlocked(this.filterHidden(this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))))
+      return this.filterLocalBlocked(
+        this.filterHidden(
+          this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body)),
+        ),
+      )
     }
     if (query.source === 'toplist') {
       // toplist.php is E-Hentai-ONLY (exhentai.org has no toplist → 404), so always use the e-hentai
@@ -418,8 +474,12 @@ export class EhApiService {
       const url: string = `${EhConstants.baseUrl(false)}/toplist.php?tl=${query.tl}${pageParam}`
       // toplist.php is hard-pinned to the e-hentai host, so classify it as the table site (isEx=false).
       const resp = await this.fetch(url, false, 'list')
-      const list: GalleryList = this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))
-      return this.filterLocalBlocked(query.applyToplistHiddenUserTags ? this.filterHidden(list) : list)
+      const list: GalleryList = this.registerInlineTagColors(
+        await EhGalleryListParseTask.parse(resp.body),
+      )
+      return this.filterLocalBlocked(
+        query.applyToplistHiddenUserTags ? this.filterHidden(list) : list,
+      )
     }
     if (query.fCats > 0) {
       params.push(`f_cats=${query.fCats}`)
@@ -473,7 +533,9 @@ export class EhApiService {
     const queryStr: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}${path}${queryStr}`
     const resp = await this.fetch(url, query.isEx, 'list')
-    const list: GalleryList = this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body))
+    const list: GalleryList = this.registerInlineTagColors(
+      await EhGalleryListParseTask.parse(resp.body),
+    )
     // Hide-filter the front page + search results (eros_fe gates on the tag filter), but NOT /watched —
     // a watched-tag list is exactly where you want those tags to show.
     if (query.source !== 'watched' && !query.disableTagFilter) {
@@ -498,7 +560,12 @@ export class EhApiService {
       body = await this.fetchFavoritesBody(base, query, EhConstants.FAV_DISPLAY_LIST)
     }
     const activeOrder: string = this.favoriteOrderFromBody(body)
-    if (firstPage && query.order.length > 0 && activeOrder.length > 0 && activeOrder !== query.order) {
+    if (
+      firstPage &&
+      query.order.length > 0 &&
+      activeOrder.length > 0 &&
+      activeOrder !== query.order
+    ) {
       body = await this.fetchFavoritesBody(base, query, query.order)
       if (body.indexOf('<table class="itg') < 0 && body.indexOf('class="itg gld') >= 0) {
         body = await this.fetchFavoritesBody(base, query, EhConstants.FAV_DISPLAY_LIST)
@@ -589,8 +656,51 @@ export class EhApiService {
     }
   }
 
+  /**
+   * Profile action on uconfig.php (eros_fe postEhProfile): action '' = select, 'create' / 'rename' /
+   * 'delete' / 'default'. profileSet is the profile value; name is for create/rename. Returns the
+   * re-parsed config for the resulting active profile.
+   */
+  async postProfileAction(
+    isEx: boolean,
+    action: string,
+    profileSet: string,
+    name: string,
+  ): Promise<EhProfileSettings> {
+    const url: string = `${EhConstants.baseUrl(isEx)}/uconfig.php`
+    const pairs: string[] = [this.formPair('profile_action', action)]
+    if (name.length > 0) {
+      pairs.push(this.formPair('profile_name', name))
+    }
+    if (profileSet.length > 0) {
+      pairs.push(this.formPair('profile_set', profileSet))
+    }
+    let resp: EhTextResponse
+    try {
+      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, pairs.join('&'))
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, url)
+    }
+    if (resp.statusCode >= 400) {
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, 'generic')
+      if (failure !== null) {
+        throw failure
+      }
+      throw new Error(`profile HTTP ${resp.statusCode}`)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, 'generic')
+    if (failure !== null) {
+      throw failure
+    }
+    return EhUconfigParser.parse(resp.body)
+  }
+
   /** Fetch the torrent list for a gallery (eros_fe getTorrent / gallerytorrents.php). */
-  async getGalleryTorrents(gid: string, token: string, isEx: boolean): Promise<EhGalleryTorrentList> {
+  async getGalleryTorrents(
+    gid: string,
+    token: string,
+    isEx: boolean,
+  ): Promise<EhGalleryTorrentList> {
     const url: string = `${EhConstants.baseUrl(isEx)}/gallerytorrents.php?gid=${gid}&t=${token}`
     const resp = await this.fetch(url, isEx, 'generic')
     return EhGalleryTorrentParser.parse(resp.body)
@@ -623,7 +733,9 @@ export class EhApiService {
       this.formPair('dlcheck', dlcheck.trim()),
     ].join('&')
     const resp: EhTextResponse = await this.postArchiverForm(url, body, isEx)
-    const result: EhGalleryArchiverSubmitResult = EhGalleryArchiverParser.parseLocalSubmit(resp.body)
+    const result: EhGalleryArchiverSubmitResult = EhGalleryArchiverParser.parseLocalSubmit(
+      resp.body,
+    )
     result.localDownloadUrl = this.absoluteArchiverUrl(result.localDownloadUrl, isEx)
     if (result.message.length === 0 && result.localDownloadUrl.length > 0) {
       result.message = result.localDownloadUrl
@@ -646,11 +758,17 @@ export class EhApiService {
   }
 
   private archiverUrl(gid: string, token: string, archiverLink: string, isEx: boolean): string {
-    return `${EhConstants.baseUrl(isEx)}/archiver.php?gid=${encodeURIComponent(gid)}` +
+    return (
+      `${EhConstants.baseUrl(isEx)}/archiver.php?gid=${encodeURIComponent(gid)}` +
       `&token=${encodeURIComponent(token)}&or=${encodeURIComponent(archiverLink)}`
+    )
   }
 
-  private async postArchiverForm(url: string, body: string, isEx: boolean): Promise<EhTextResponse> {
+  private async postArchiverForm(
+    url: string,
+    body: string,
+    isEx: boolean,
+  ): Promise<EhTextResponse> {
     let resp: EhTextResponse
     try {
       resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, body)

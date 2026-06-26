@@ -1,5 +1,10 @@
 import { HtmlSelectorUtils } from './HtmlSelectorUtils'
-import { EhProfile, EhProfileSettings, EhUconfigToggleItem } from '../model/EhProfileSettings'
+import {
+  EhProfile,
+  EhProfileSettings,
+  EhUconfigCategory,
+  EhUconfigToggleItem,
+} from '../model/EhProfileSettings'
 
 /**
  * Parses EH uconfig.php (GET) into EhProfileSettings and serializes it back into the POST body.
@@ -79,11 +84,34 @@ export class EhUconfigParser {
       s.favorites.push(EhUconfigParser.parseInput(html, `favorite_${i}`))
     }
 
+    // ── Front-page categories (ct_*) ──
+    s.categories = EhUconfigParser.parseCategories(html)
+
     // ── Excluded namespaces (xn_*) + languages (xl_* table) ──
     s.excludedNamespaces = EhUconfigParser.parseToggles(html, 'xn')
     s.excludedLanguages = EhUconfigParser.parseLanguages(html)
 
     return s
+  }
+
+  // Front-page category visibility: hidden inputs ct_<key>=0|1 (1 = hidden), label from the sibling div.
+  private static parseCategories(html: string): EhUconfigCategory[] {
+    const out: EhUconfigCategory[] = []
+    const re: RegExp = /<input[^>]*name="ct_([a-z-]+)"[^>]*value="(\d)"[^>]*>/g
+    let m: RegExpExecArray | null = re.exec(html)
+    while (m !== null) {
+      const slug: string = m[1]
+      const hidden: boolean = m[2] === '1'
+      const label: string = HtmlSelectorUtils.htmlUnescape(
+        HtmlSelectorUtils.group1(
+          html,
+          new RegExp(`<div[^>]*id="ct_${slug}_div"[^>]*>([^<]*)</div>`),
+        ).trim(),
+      )
+      out.push(new EhUconfigCategory(`ct_${slug}`, label.length > 0 ? label : slug, hidden))
+      m = re.exec(html)
+    }
+    return out
   }
 
   // The Excluded Languages section is a table: each <tr> has the language name in its first <td>, then
@@ -150,6 +178,10 @@ export class EhUconfigParser {
     EhUconfigParser.pushText(parts, 'xu', s.excludedUploaders)
     for (let i: number = 0; i < s.favorites.length; i++) {
       EhUconfigParser.pushText(parts, `favorite_${i}`, s.favorites[i])
+    }
+    for (let i: number = 0; i < s.categories.length; i++) {
+      const c: EhUconfigCategory = s.categories[i]
+      parts.push(`${c.key}=${c.hidden ? '1' : '0'}`)
     }
     for (let i: number = 0; i < s.excludedNamespaces.length; i++) {
       const x: EhUconfigToggleItem = s.excludedNamespaces[i]

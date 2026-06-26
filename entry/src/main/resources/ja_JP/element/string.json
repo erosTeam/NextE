@@ -2831,6 +2831,50 @@
     {
       "name": "ehp_xl_rewrite",
       "value": "リライト"
+    },
+    {
+      "name": "ehp_sec_cats",
+      "value": "トップページのカテゴリ"
+    },
+    {
+      "name": "ehp_sec_profile",
+      "value": "プロファイル"
+    },
+    {
+      "name": "ehp_profile_current",
+      "value": "現在のプロファイル"
+    },
+    {
+      "name": "ehp_profile_create",
+      "value": "新規プロファイル"
+    },
+    {
+      "name": "ehp_profile_rename",
+      "value": "現在のプロファイル名を変更"
+    },
+    {
+      "name": "ehp_profile_default",
+      "value": "既定にする"
+    },
+    {
+      "name": "ehp_profile_delete",
+      "value": "現在のプロファイルを削除"
+    },
+    {
+      "name": "ehp_profile_name_hint",
+      "value": "プロファイル名"
+    },
+    {
+      "name": "ehp_profile_done",
+      "value": "更新しました"
+    },
+    {
+      "name": "ehp_profile_failed",
+      "value": "操作に失敗しました"
+    },
+    {
+      "name": "ehp_profile_delete_confirm",
+      "value": "削除すると元に戻せません。"
     }
   ]
 }

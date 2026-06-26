@@ -2831,6 +2831,50 @@
     {
       "name": "ehp_xl_rewrite",
       "value": "重写"
+    },
+    {
+      "name": "ehp_sec_cats",
+      "value": "首页默认分类"
+    },
+    {
+      "name": "ehp_sec_profile",
+      "value": "配置档案"
+    },
+    {
+      "name": "ehp_profile_current",
+      "value": "当前档案"
+    },
+    {
+      "name": "ehp_profile_create",
+      "value": "新建档案"
+    },
+    {
+      "name": "ehp_profile_rename",
+      "value": "重命名当前档案"
+    },
+    {
+      "name": "ehp_profile_default",
+      "value": "设为默认"
+    },
+    {
+      "name": "ehp_profile_delete",
+      "value": "删除当前档案"
+    },
+    {
+      "name": "ehp_profile_name_hint",
+      "value": "档案名称"
+    },
+    {
+      "name": "ehp_profile_done",
+      "value": "已更新"
+    },
+    {
+      "name": "ehp_profile_failed",
+      "value": "操作失败"
+    },
+    {
+      "name": "ehp_profile_delete_confirm",
+      "value": "删除后无法恢复。"
     }
   ]
 }

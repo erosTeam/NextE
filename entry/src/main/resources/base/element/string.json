@@ -2831,6 +2831,50 @@
     {
       "name": "ehp_xl_rewrite",
       "value": "Rewrite"
+    },
+    {
+      "name": "ehp_sec_cats",
+      "value": "Front Page Categories"
+    },
+    {
+      "name": "ehp_sec_profile",
+      "value": "Profiles"
+    },
+    {
+      "name": "ehp_profile_current",
+      "value": "Current Profile"
+    },
+    {
+      "name": "ehp_profile_create",
+      "value": "New Profile"
+    },
+    {
+      "name": "ehp_profile_rename",
+      "value": "Rename Current Profile"
+    },
+    {
+      "name": "ehp_profile_default",
+      "value": "Set as Default"
+    },
+    {
+      "name": "ehp_profile_delete",
+      "value": "Delete Current Profile"
+    },
+    {
+      "name": "ehp_profile_name_hint",
+      "value": "Profile name"
+    },
+    {
+      "name": "ehp_profile_done",
+      "value": "Updated"
+    },
+    {
+      "name": "ehp_profile_failed",
+      "value": "Action failed"
+    },
+    {
+      "name": "ehp_profile_delete_confirm",
+      "value": "This profile will be deleted and cannot be restored."
     }
   ]
 }

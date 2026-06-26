@@ -43,6 +43,16 @@ ok('xl grouped per language into a MultiCapsuleSegmentButtonV2', /groupLanguages
 // Rows are built on ConciseListRow (no hand-rolled titles) so fonts stay uniform.
 ok('text + language rows reuse ConciseListRow (uniform titles)', /struct UcTextRow[\s\S]*?ConciseListRow\(/.test(page) && /struct LanguageVariantRow[\s\S]*?ConciseListRow\(/.test(page))
 
+// Profile management: switch + create/rename/default/delete via postProfileAction.
+ok('profile section with the 5 actions', /ProfileSection\(/.test(page) && /runProfileAction\('', /.test(page) && /runProfileAction\('default'/.test(page) && /runProfileAction\('delete'/.test(page) && /'create'/.test(page) && /'rename'/.test(page))
+ok('profile create/rename use a name sheet (AppModalScaffold + $$ host)', /openNameSheet\(/.test(page) && /\$\$this\.nameSheetShown/.test(page) && /AppModalScaffold\(/.test(page))
+ok('delete confirms first', /confirmDeleteProfile\(/.test(page) && /showAlertDialog/.test(page))
+const svc = read('shared/src/main/ets/network/EhApiService.ets')
+ok('service postProfileAction posts profile_action/profile_name/profile_set', /postProfileAction\(/.test(svc) && /profile_action/.test(svc) && /profile_name/.test(svc) && /profile_set/.test(svc))
+
+// Front-page categories.
+ok('category section toggles ct visibility', /CategorySection\(/.test(page) && /cat\.hidden = !value/.test(page))
+
 // Wiring.
 ok('route registered', /name === 'EhProfileSettings'[\s\S]*EhProfileSettingsPage\(\)/.test(read('entry/src/main/ets/pages/Index.ets')))
 ok('exported from feature/settings', /export \{ EhProfileSettingsPage \}/.test(read('feature/settings/src/main/ets/Index.ets')))

@@ -68,6 +68,10 @@ uploader2</textarea>
   <div><input type="checkbox" name="xn_1" id="xn_1" value="1" checked="checked" /> reupload</div>
   <div><input type="checkbox" name="xn_2" id="xn_2" value="1" /> mosaic</div>
   <div><input type="checkbox" name="xn_3" id="xn_3" value="1" checked="checked" /> incomplete</div>
+  <div id="catsel">
+    <div><input type="hidden" name="ct_doujinshi" id="ct_doujinshi" value="0" /> <div id="ct_doujinshi_div" class="cs ct2" onclick="toggle_catdefault('doujinshi')">Doujinshi</div></div>
+    <div><input type="hidden" name="ct_misc" id="ct_misc" value="1" /> <div id="ct_misc_div" class="cs ct1" onclick="toggle_catdefault('misc')">Misc</div></div>
+  </div>
 </form>
 <h2>Excluded Languages</h2>
 <table>
@@ -184,6 +188,18 @@ ok('3 namespaces parsed', xn.length === 3)
 ok('xn_1 excluded + named', xn[0].ser === 1 && xn[0].excluded && xn[0].name === 'reupload')
 ok('xn_2 not excluded', xn[1].ser === 2 && !xn[1].excluded)
 ok('xn_3 excluded', xn[2].ser === 3 && xn[2].excluded)
+// ── ct (front-page categories) ──
+const cats = []
+{
+  const re = /<input[^>]*name="ct_([a-z-]+)"[^>]*value="(\d)"[^>]*>/g
+  let m
+  while ((m = re.exec(html)) !== null) {
+    cats.push({ key: `ct_${m[1]}`, hidden: m[2] === '1' })
+  }
+}
+ok('2 categories parsed', cats.length === 2)
+ok('ct_doujinshi shown (0), ct_misc hidden (1)', cats[0].key === 'ct_doujinshi' && !cats[0].hidden && cats[1].key === 'ct_misc' && cats[1].hidden)
+
 ok('5 language toggles across 2 rows', xl.length === 5)
 ok('Japanese·translated (1024) excluded, variant 1', xl[0].ser === 1024 && xl[0].lang === 'Japanese' && xl[0].excluded && xl[0].variant === 1)
 ok('Japanese·rewrite (2048) not excluded, variant 2', xl[1].ser === 2048 && xl[1].variant === 2 && !xl[1].excluded)
@@ -194,6 +210,7 @@ const body = []
 body.push(`uh=${parseRadio('uh')}`, `xr=${parseRadio('xr')}`, `dm=${parseRadio('dm')}`)
 body.push(`rx=${encodeURIComponent(parseInput('rx'))}`, `xu=${encodeURIComponent(parseTextarea('xu'))}`)
 fav.forEach((v, i) => body.push(`favorite_${i}=${encodeURIComponent(v)}`))
+cats.forEach((c) => body.push(`${c.key}=${c.hidden ? '1' : '0'}`))
 xn.filter((x) => x.excluded).forEach((x) => body.push(`xn_${x.ser}=on`))
 xl.filter((x) => x.excluded).forEach((x) => body.push(`xl_${x.ser}=on`))
 body.push('apply=apply')
@@ -213,6 +230,8 @@ for (const code of ['rx', 'ry', 'ru', 'ft', 'wt', 'tp', 'vp', 'hh']) {
 ok('.ets posts apply=apply', src.includes("parts.push('apply=apply')"))
 ok('.ets profile selection NOT in post body (sp cookie)', !src.includes('profile_set=') && !src.includes('sp='))
 ok('.ets parses the xl language table with variant by id range', src.includes('parseLanguages') && src.includes("indexOf('Excluded Languages')") && /ser >= 2048 \? 2 : ser >= 1024 \? 1 : 0/.test(src))
+ok('.ets parses + posts front-page categories (ct_*)', src.includes('parseCategories') && /name="ct_/.test(src) && src.includes('${c.key}=${c.hidden'))
+ok('body posts ct visibility 0/1', joined.includes('ct_doujinshi=0') && joined.includes('ct_misc=1'))
 
 if (failures === 0) {
   console.log('✓ uconfig parser contract passed')

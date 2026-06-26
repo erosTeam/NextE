@@ -8,11 +8,15 @@ import {
 } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
 import {
+  AppModalScaffold,
+  appSheetOptions,
   AppStrings,
   ConciseListRow,
   EhApiService,
   EhConstants,
+  EhProfile,
   EhProfileSettings,
+  EhUconfigCategory,
   EhUconfigToggleItem,
   GalleryWebParams,
   GroupedListSection,
@@ -60,6 +64,10 @@ export struct EhProfileSettingsPage {
   @Local loading: boolean = true;
   @Local saving: boolean = false;
   @Local failed: boolean = false;
+  @Local profileBusy: boolean = false;
+  @Local nameSheetShown: boolean = false;
+  @Local nameInput: string = '';
+  private nameAction: string = 'create';
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
 
@@ -81,14 +89,91 @@ export struct EhProfileSettingsPage {
     EhApiService.getInstance()
       .getUserConfig(this.site.isEx)
       .then((s: EhProfileSettings) => {
-        this.settings = s
-        this.langRows = EhProfileSettingsPage.groupLanguages(s.excludedLanguages)
+        this.applyLoaded(s)
         this.loading = false
       })
       .catch(() => {
         this.failed = true
         this.loading = false
       })
+  }
+
+  private applyLoaded(s: EhProfileSettings): void {
+    this.settings = s
+    this.langRows = EhProfileSettingsPage.groupLanguages(s.excludedLanguages)
+  }
+
+  // ── Profile actions (POST uconfig.php; the response is the resulting profile's config). ──
+  private profileOptions(): UcOption[] {
+    return this.settings.profiles.map((p: EhProfile) => new UcOption(p.value, p.name))
+  }
+
+  private currentProfileName(): string {
+    for (let i: number = 0; i < this.settings.profiles.length; i++) {
+      if (this.settings.profiles[i].value === this.settings.selectedProfile) {
+        return this.settings.profiles[i].name
+      }
+    }
+    return ''
+  }
+
+  private runProfileAction(action: string, profileSet: string, name: string): void {
+    if (this.profileBusy) {
+      return
+    }
+    this.profileBusy = true
+    EhApiService.getInstance()
+      .postProfileAction(this.site.isEx, action, profileSet, name)
+      .then((s: EhProfileSettings) => {
+        this.applyLoaded(s)
+        this.toast($r('app.string.ehp_profile_done'))
+      })
+      .catch(() => {
+        this.toast($r('app.string.ehp_profile_failed'))
+      })
+      .finally(() => {
+        this.profileBusy = false
+      })
+  }
+
+  private selectProfile(value: number): void {
+    if (value !== this.settings.selectedProfile) {
+      this.runProfileAction('', `${value}`, '')
+    }
+  }
+
+  private openNameSheet(action: string): void {
+    this.nameAction = action
+    this.nameInput = action === 'rename' ? this.currentProfileName() : ''
+    this.nameSheetShown = true
+  }
+
+  private confirmNameSheet(): void {
+    const name: string = this.nameInput.trim()
+    if (name.length === 0) {
+      return
+    }
+    this.nameSheetShown = false
+    if (this.nameAction === 'rename') {
+      this.runProfileAction('rename', `${this.settings.selectedProfile}`, name)
+    } else {
+      this.runProfileAction('create', '', name)
+    }
+  }
+
+  private confirmDeleteProfile(): void {
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.ehp_profile_delete'),
+      message: $r('app.string.ehp_profile_delete_confirm'),
+      primaryButton: { value: $r('app.string.common_cancel'), action: () => {} },
+      secondaryButton: {
+        value: $r('app.string.ehp_profile_delete'),
+        fontColor: Color.Red,
+        action: () => {
+          this.runProfileAction('delete', `${this.settings.selectedProfile}`, '')
+        },
+      },
+    })
   }
 
   private save(): void {
@@ -144,79 +229,90 @@ export struct EhProfileSettingsPage {
 
   build() {
     HdsNavDestination() {
-      SecondaryListScaffold({
-        scroller: this.scroller,
-        bottomPadding: ThemeConstants.SPACE_XL,
-        alwaysEnableEdgeSpring: true,
-      }) {
-        if (this.loading) {
-          ListItem() {
-            Row() {
-              LoadingProgress()
-                .width(32)
-                .height(32)
+      Stack() {
+        SecondaryListScaffold({
+          scroller: this.scroller,
+          bottomPadding: ThemeConstants.SPACE_XL,
+          alwaysEnableEdgeSpring: true,
+        }) {
+          if (this.loading) {
+            ListItem() {
+              Row() {
+                LoadingProgress()
+                  .width(32)
+                  .height(32)
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+              .padding({ top: 64 })
             }
-            .width('100%')
-            .justifyContent(FlexAlign.Center)
-            .padding({ top: 64 })
-          }
-        } else if (this.failed) {
-          ListItem() {
-            Column({ space: ThemeConstants.SPACE_MD }) {
-              Text($r('app.string.ehp_load_failed'))
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontColor($r('sys.color.font_secondary'))
-              Button($r('app.string.common_retry'))
-                .onClick(() => {
-                  this.load()
-                })
+          } else if (this.failed) {
+            ListItem() {
+              Column({ space: ThemeConstants.SPACE_MD }) {
+                Text($r('app.string.ehp_load_failed'))
+                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                  .fontColor($r('sys.color.font_secondary'))
+                Button($r('app.string.common_retry'))
+                  .onClick(() => {
+                    this.load()
+                  })
+              }
+              .width('100%')
+              .justifyContent(FlexAlign.Center)
+              .padding({ top: 64 })
             }
-            .width('100%')
-            .justifyContent(FlexAlign.Center)
-            .padding({ top: 64 })
-          }
-        } else {
-          ListItem() {
-            this.ImageSection()
-          }
-          ListItem() {
-            this.DisplaySection()
-          }
-          ListItem() {
-            this.ThumbnailSection()
-          }
-          ListItem() {
-            this.CommentTagSection()
-          }
-          ListItem() {
-            this.NamespaceSection()
-          }
-          ListItem() {
-            this.LanguageSection()
-          }
-          ListItem() {
-            this.FavoriteSortSection()
-          }
-          ListItem() {
-            this.RatingSection()
-          }
-          ListItem() {
-            this.ArchiverSection()
-          }
-          ListItem() {
-            this.MpvSection()
-          }
-          ListItem() {
-            this.HathSection()
-          }
-          ListItem() {
-            this.ExcludedUploaderSection()
-          }
-          ListItem() {
-            this.FavoriteNamesSection()
+          } else {
+            ListItem() {
+              this.ProfileSection()
+            }
+            ListItem() {
+              this.ImageSection()
+            }
+            ListItem() {
+              this.DisplaySection()
+            }
+            ListItem() {
+              this.CategorySection()
+            }
+            ListItem() {
+              this.ThumbnailSection()
+            }
+            ListItem() {
+              this.CommentTagSection()
+            }
+            ListItem() {
+              this.NamespaceSection()
+            }
+            ListItem() {
+              this.LanguageSection()
+            }
+            ListItem() {
+              this.FavoriteSortSection()
+            }
+            ListItem() {
+              this.RatingSection()
+            }
+            ListItem() {
+              this.ArchiverSection()
+            }
+            ListItem() {
+              this.MpvSection()
+            }
+            ListItem() {
+              this.HathSection()
+            }
+            ListItem() {
+              this.ExcludedUploaderSection()
+            }
+            ListItem() {
+              this.FavoriteNamesSection()
+            }
           }
         }
+        this.NameSheetHost()
       }
+      .width('100%')
+      .height('100%')
     }
     .titleBar(immersiveTitleBarOpts(this.titleContent()))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
@@ -334,6 +430,105 @@ export struct EhProfileSettingsPage {
   }
 
   // ───────────────────────── sections ─────────────────────────
+  // Profile management: switch the active profile + create / rename / set-default / delete.
+  @Builder
+  ProfileSection() {
+    Column() {
+      this.SectionHeader($r('app.string.ehp_sec_profile'))
+      GroupedListSection() {
+        UcSelectRow({
+          title: $r('app.string.ehp_profile_current'),
+          options: this.profileOptions(),
+          current: this.settings.selectedProfile,
+          onPick: (v: number) => {
+            this.selectProfile(v)
+          },
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.ehp_profile_create'),
+          leadingIcon: $r('sys.symbol.plus'),
+          showChevron: false,
+          isEnabled: !this.profileBusy,
+          action: () => {
+            this.openNameSheet('create')
+          },
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.ehp_profile_rename'),
+          leadingIcon: $r('sys.symbol.square_and_pencil'),
+          showChevron: false,
+          isEnabled: !this.profileBusy,
+          action: () => {
+            this.openNameSheet('rename')
+          },
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.ehp_profile_default'),
+          leadingIcon: $r('sys.symbol.checkmark'),
+          showChevron: false,
+          isEnabled: !this.profileBusy,
+          action: () => {
+            this.runProfileAction('default', `${this.settings.selectedProfile}`, '')
+          },
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.ehp_profile_delete'),
+          leadingIcon: $r('sys.symbol.trash'),
+          destructive: true,
+          showChevron: false,
+          isEnabled: !this.profileBusy && this.settings.profiles.length > 1,
+          action: () => {
+            this.confirmDeleteProfile()
+          },
+        })
+      }
+    }
+  }
+
+  @Builder
+  NameSheetHost() {
+    Blank()
+      .width(1)
+      .height(1)
+      .bindSheet(
+        $$this.nameSheetShown,
+        this.NameSheet(),
+        appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
+      )
+  }
+
+  @Builder
+  NameSheet() {
+    AppModalScaffold({
+      title:
+        this.nameAction === 'rename'
+          ? $r('app.string.ehp_profile_rename')
+          : $r('app.string.ehp_profile_create'),
+      confirmIcon: $r('sys.symbol.checkmark'),
+      confirmText: $r('app.string.common_save'),
+      closeAction: () => {
+        this.nameSheetShown = false
+      },
+      confirmAction: () => {
+        this.confirmNameSheet()
+      },
+    }) {
+      ListItem() {
+        Column() {
+          TextInput({ text: this.nameInput, placeholder: $r('app.string.ehp_profile_name_hint') })
+            .onChange((v: string) => {
+              this.nameInput = v
+            })
+        }
+        .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
+      }
+    }
+  }
+
   @Builder
   ImageSection() {
     Column() {
@@ -409,6 +604,35 @@ export struct EhProfileSettingsPage {
             this.settings.showGalleryPageNumbers = v
           },
         })
+      }
+    }
+  }
+
+  // Front-page default categories (ct_*): switch ON = shown on the front page / in searches.
+  @Builder
+  CategorySection() {
+    if (this.settings.categories.length > 0) {
+      Column() {
+        this.SectionHeader($r('app.string.ehp_sec_cats'))
+        GroupedListSection() {
+          ForEach(
+            this.settings.categories,
+            (cat: EhUconfigCategory, index: number) => {
+              ConciseListRow({
+                title: cat.label,
+                hasSwitch: true,
+                checked: !cat.hidden,
+                switchAction: (value: boolean) => {
+                  cat.hidden = !value
+                },
+              })
+              if (index < this.settings.categories.length - 1) {
+                this.rowDivider()
+              }
+            },
+            (cat: EhUconfigCategory) => cat.key,
+          )
+        }
       }
     }
   }
