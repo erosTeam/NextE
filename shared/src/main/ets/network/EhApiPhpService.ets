@@ -87,6 +87,7 @@ class TagGalleryRequest {
 
 class TagGalleryResponse {
   error: string = ''
+  tagpane: string = ''
 }
 
 export class TagGalleryResult {
@@ -313,6 +314,7 @@ export class EhApiPhpService {
     token: string,
     tagKey: string,
     vote: number,
+    prevVote: number,
   ): Promise<TagGalleryResult> {
     const apiuidNum: number = Number.parseInt(apiuid, 10)
     const gidNum: number = Number.parseInt(gid, 10)
@@ -356,8 +358,33 @@ export class EhApiPhpService {
     }
     const result: TagGalleryResult = new TagGalleryResult()
     result.tagKey = normalizedTag
-    result.vote = vote
+    // Trust EH's own resulting state from the returned tagpane (sending the opposite vote withdraws to
+    // 0, etc.), not the value we sent — so the UI reflects the truth after toggle/withdraw/switch.
+    const pane: string = typeof obj.tagpane === 'string' ? obj.tagpane : ''
+    result.vote = EhApiPhpService.parseTagVote(pane, normalizedTag, prevVote)
     return result
+  }
+
+  // The resulting vote for `tagKey` parsed from a taggallery tagpane: <a id="ta_<key>" class="tup|tdn|">
+  // (spaces in the key become underscores in the id). Falls back to the prior vote if the tag is not in
+  // the pane (never the SENT value — that turned a withdraw into a phantom downvote).
+  private static parseTagVote(tagpane: string, tagKey: string, fallback: number): number {
+    if (tagpane.length === 0) {
+      return fallback
+    }
+    const at: number = tagpane.indexOf(`id="ta_${tagKey.split(' ').join('_')}"`)
+    if (at < 0) {
+      return fallback
+    }
+    const m: RegExpMatchArray | null = tagpane.substring(at, at + 220).match(/class="([a-z]*)"/)
+    const cls: string = m !== null ? m[1] : ''
+    if (cls === 'tup') {
+      return 1
+    }
+    if (cls === 'tdn') {
+      return -1
+    }
+    return 0
   }
 
   static async setUserTag(

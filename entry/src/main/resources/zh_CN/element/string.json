@@ -653,6 +653,10 @@
       "value": "标签投票失败"
     },
     {
+      "name": "tag_vote_locked",
+      "value": "该标签已锁定，无法继续投票"
+    },
+    {
       "name": "tag_vote_unavailable",
       "value": "请登录并重新载入画廊后再为标签投票。"
     },

@@ -145,6 +145,7 @@ export struct GalleryEditTagsPage {
         this.params.token,
         tagKey,
         vote,
+        previousVote,
       )
       this.applyTagVoteResult(result, previousVote)
       this.actionSheetShown = false

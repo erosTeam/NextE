@@ -183,7 +183,8 @@ export struct GalleryTagsCard {
     let key: string = `${tg.namespace}`
     for (let i = 0; i < tg.tags.length; i++) {
       const tag: SimpleTag = tg.tags[i]
-      key = `${key}:${tag.text}:${tag.translat}`
+      // vote is part of the key so a vote change (applyTagVote rebuilds the tags) re-renders the chips.
+      key = `${key}:${tag.text}:${tag.translat}:${tag.vote}`
     }
     return key
   }
@@ -270,21 +271,12 @@ export struct GalleryTagsCard {
     }
   }
 
-  private tagVoteLabel(): ResourceStr {
-    if (this.selectedTagVote > 0) {
-      return $r('app.string.tag_vote_current_up')
-    }
-    if (this.selectedTagVote < 0) {
-      return $r('app.string.tag_vote_current_down')
-    }
-    return $r('app.string.tag_vote_current_none')
-  }
-
-  private tagVoteColor(): ResourceColor {
-    if (this.selectedTagVote > 0) {
+  // Active tint for a vote button: green when this is the user's current vote, red for down, else neutral.
+  private voteButtonColor(direction: number): ResourceColor {
+    if (direction > 0 && this.selectedTagVote > 0) {
       return $r('app.color.tag_vote_up')
     }
-    if (this.selectedTagVote < 0) {
+    if (direction < 0 && this.selectedTagVote < 0) {
       return $r('app.color.tag_vote_down')
     }
     return $r('sys.color.font_secondary')
@@ -302,21 +294,27 @@ export struct GalleryTagsCard {
     return vote > 0 ? $r('app.string.tag_vote_up') : $r('app.string.tag_vote_down')
   }
 
-  private voteSuccessText(vote: number, previousVote: number): ResourceStr {
-    if ((previousVote > 0 && vote < 0) || (previousVote < 0 && vote > 0)) {
-      return $r('app.string.tag_vote_withdraw_success')
+  // Toast for the resulting state EH reports back (0 = the vote was withdrawn).
+  private voteResultText(resultVote: number): ResourceStr {
+    if (resultVote > 0) {
+      return $r('app.string.tag_vote_up_success')
     }
-    return vote > 0 ? $r('app.string.tag_vote_up_success') : $r('app.string.tag_vote_down_success')
+    if (resultVote < 0) {
+      return $r('app.string.tag_vote_down_success')
+    }
+    return $r('app.string.tag_vote_withdraw_success')
   }
 
-  private confirmTagVote(vote: number): void {
+  // `vote` is the value to send EH (the opposite of the current vote withdraws); `isWithdraw` only
+  // drives the dialog wording so tapping an already-active button reads "撤回投票", not "反对/赞成标签".
+  private confirmTagVote(vote: number, isWithdraw: boolean): void {
     const tagKey: string = this.selectedTagKey()
     if (tagKey.length === 0 || !this.canSubmitTagVote()) {
       this.showToast($r('app.string.tag_vote_unavailable'))
       return
     }
     this.getUIContext().showAlertDialog({
-      title: this.voteActionText(vote),
+      title: isWithdraw ? $r('app.string.tag_vote_withdraw') : this.voteActionText(vote),
       message: tagKey,
       primaryButton: {
         value: $r('app.string.common_cancel'),
@@ -325,13 +323,13 @@ export struct GalleryTagsCard {
       secondaryButton: {
         value: $r('app.string.common_ok'),
         action: () => {
-          this.submitTagVote(tagKey, vote, this.selectedTagVote)
+          this.submitTagVote(tagKey, vote)
         },
       },
     })
   }
 
-  private async submitTagVote(tagKey: string, vote: number, previousVote: number): Promise<void> {
+  private async submitTagVote(tagKey: string, vote: number): Promise<void> {
     if (this.submittingTagKey.length > 0) {
       return
     }
@@ -345,18 +343,21 @@ export struct GalleryTagsCard {
         this.gallery.token,
         tagKey,
         vote,
+        this.selectedTagVote,
       )
-      const nextVote: number =
-        (previousVote > 0 && result.vote < 0) || (previousVote < 0 && result.vote > 0)
-          ? 0
-          : result.vote
-      this.selectedTagVote = nextVote
-      this.onTagVoteChanged(this.selectedNamespace, this.selectedTagText, nextVote)
-      this.showToast(this.voteSuccessText(vote, previousVote))
+      // result.vote is EH's actual resulting state (parsed from the tagpane), not what we sent.
+      this.selectedTagVote = result.vote
+      this.onTagVoteChanged(this.selectedNamespace, this.selectedTagText, result.vote)
+      this.showToast(this.voteResultText(result.vote))
     } catch (err) {
-      this.infoError = EhErrorText.forUser(err)
-      DiagnosticLogger.warn('gallery', 'tag_info_vote_failed', (err as Error).message)
-      this.showToast($r('app.string.tag_vote_failed'))
+      // infoError is the tag-intro area (TagInfoBody renders it INSTEAD of the 简介). A vote failure
+      // must not wipe the intro — surface it as a toast. The usual rejection is EH locking a
+      // well-established tag ("locked for further up/downvotes"); name that case so it doesn't read as
+      // a generic app failure (which is why "votes always fail" on popular galleries).
+      const msg: string = (err as Error).message
+      DiagnosticLogger.warn('gallery', 'tag_info_vote_failed', msg)
+      const locked: boolean = msg.indexOf('locked for further') >= 0
+      this.showToast(locked ? $r('app.string.tag_vote_locked') : $r('app.string.tag_vote_failed'))
     } finally {
       this.submittingTagKey = ''
     }
@@ -823,42 +824,37 @@ export struct GalleryTagsCard {
             .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .width('100%')
-          Row() {
-            Text(this.selectedTagKey())
-              .fontSize(ThemeConstants.FONT_SIZE_META)
-              .fontColor($r('sys.color.font_secondary'))
-            if (this.selectedTagVote !== 0) {
-              Text(this.tagVoteLabel())
-                .fontSize(ThemeConstants.FONT_SIZE_META)
-                .fontColor(this.tagVoteColor())
-                .padding({ left: ThemeConstants.SPACE_SM })
-            }
-          }
-          .width('100%')
+          Text(this.selectedTagKey())
+            .fontSize(ThemeConstants.FONT_SIZE_META)
+            .fontColor($r('sys.color.font_secondary'))
+            .width('100%')
         }
         .layoutWeight(1)
 
         Row({ space: ThemeConstants.SPACE_XS }) {
+          // Single thumbs-up / thumbs-down toggles, tinted when this is the user's current vote; tapping
+          // the active one withdraws. EH's returned state (parsed in submitTagVote) is the source of
+          // truth, so the state needs no separate "已赞成/已反对" label.
           this.TagInfoActionButton(
-            this.selectedTagVote === 0 ? $r('sys.symbol.hand_thumbsup') : $r('sys.symbol.arrow_counterclockwise'),
-            this.selectedTagVote === 0 ? $r('app.string.tag_vote_up_short') : $r('app.string.tag_vote_withdraw_short'),
+            $r('sys.symbol.hand_thumbsup'),
+            $r('app.string.tag_vote_up_short'),
+            1,
             this.submittingTagKey.length === 0,
             () => {
-              if (this.selectedTagVote === 0) {
-                this.confirmTagVote(1)
-              } else if (this.selectedTagVote > 0) {
-                this.confirmTagVote(-1)
-              } else {
-                this.confirmTagVote(1)
-              }
-            }
+              // EH model: re-sending the same direction is a no-op; the OPPOSITE withdraws to 0. So to
+              // clear an existing upvote, send -1; otherwise send +1. isWithdraw drives the dialog wording.
+              this.confirmTagVote(this.selectedTagVote > 0 ? -1 : 1, this.selectedTagVote > 0)
+            },
           )
-          if (this.selectedTagVote === 0) {
-            this.TagInfoActionButton($r('sys.symbol.hand_thumbsdown'), $r('app.string.tag_vote_down_short'),
-              this.submittingTagKey.length === 0, () => {
-                this.confirmTagVote(-1)
-              })
-          }
+          this.TagInfoActionButton(
+            $r('sys.symbol.hand_thumbsdown'),
+            $r('app.string.tag_vote_down_short'),
+            -1,
+            this.submittingTagKey.length === 0,
+            () => {
+              this.confirmTagVote(this.selectedTagVote < 0 ? 1 : -1, this.selectedTagVote < 0)
+            },
+          )
           this.TagInfoManageActionButton(this.submittingTagKey.length === 0)
         }
         .flexShrink(0)
@@ -870,11 +866,18 @@ export struct GalleryTagsCard {
   }
 
   @Builder
-  private TagInfoActionButton(icon: Resource, label: Resource, enabled: boolean, action: () => void) {
+  private TagInfoActionButton(
+    icon: Resource,
+    label: Resource,
+    direction: number,
+    enabled: boolean,
+    action: () => void,
+  ) {
     Button({ type: ButtonType.Circle, stateEffect: true }) {
       SymbolGlyph(icon)
         .fontSize(ThemeConstants.FONT_SIZE_HEADING)
-        .fontColor([$r('sys.color.font_secondary')])
+        // Read selectedTagVote INSIDE the builder — a @Builder value param wouldn't re-render the tint.
+        .fontColor([this.voteButtonColor(direction)])
     }
     .buttonStyle(ButtonStyleMode.NORMAL)
     .width(TAG_INFO_ACTION_SIZE)
@@ -1276,7 +1279,8 @@ export struct GalleryTagsCard {
                         )
                     },
                     // version in the key subscribes the card + re-colors chips on a late My Tags load.
-                    (t: SimpleTag) => `${this.tagSig.version}:${tg.namespace}:${t.text}:${t.translat}`,
+                    (t: SimpleTag) =>
+                      `${this.tagSig.version}:${tg.namespace}:${t.text}:${t.translat}:${t.vote}`,
                   )
                 }.layoutWeight(1)
               }

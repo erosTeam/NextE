@@ -653,6 +653,10 @@
       "value": "Tag vote failed"
     },
     {
+      "name": "tag_vote_locked",
+      "value": "This tag is locked from further voting"
+    },
+    {
       "name": "tag_vote_unavailable",
       "value": "Sign in and reload the gallery before voting on tags."
     },

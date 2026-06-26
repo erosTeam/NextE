@@ -653,6 +653,10 @@
       "value": "タグ投票に失敗しました"
     },
     {
+      "name": "tag_vote_locked",
+      "value": "このタグは投票がロックされています"
+    },
+    {
       "name": "tag_vote_unavailable",
       "value": "ログインしてギャラリーを再読み込みしてからタグに投票してください。"
     },
