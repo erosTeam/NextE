@@ -93,6 +93,7 @@ export { EhUconfigParser } from './parser/EhUconfigParser'
 export {
   EhProfile,
   EhProfileSettings,
+  EhRadioOption,
   EhUconfigToggleItem,
   EhUconfigCategory,
 } from './model/EhProfileSettings'

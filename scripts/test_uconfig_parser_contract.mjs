@@ -232,7 +232,7 @@ ok('.ets profile selection NOT in post body (sp cookie)', !src.includes('profile
 ok('.ets parses the xl language table with variant by id range', src.includes('parseLanguages') && src.includes("indexOf('Excluded Languages')") && /ser >= 2048 \? 2 : ser >= 1024 \? 1 : 0/.test(src))
 ok('.ets parses + posts front-page categories (ct_*)', src.includes('parseCategories') && /name="ct_/.test(src) && src.includes('${c.key}=${c.hidden'))
 ok('body posts ct visibility 0/1', joined.includes('ct_doujinshi=0') && joined.includes('ct_misc=1'))
-ok('.ets parses presence (radio option values + field names) for permission gating', src.includes('parseRadioValues') && src.includes('parseFieldNames'))
+ok('.ets parses options (radios + selects) WITH page labels + field-name presence', src.includes('parseControlOptions') && src.includes('parseFieldNames') && /type="radio" name=[^]*value="[^]*<\/label>/.test(src) && src.includes('<select name='))
 
 if (failures === 0) {
   console.log('✓ uconfig parser contract passed')

@@ -16,6 +16,7 @@ import {
   EhConstants,
   EhProfile,
   EhProfileSettings,
+  EhRadioOption,
   EhUconfigCategory,
   EhUconfigToggleItem,
   GalleryWebParams,
@@ -318,131 +319,90 @@ export struct EhProfileSettingsPage {
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 
-  // ───────────────────────── presence (permission gating) ─────────────────────────
-  // Keep only the options this account actually has on the page (e.g. drop rc=200 without the Hath
-  // perk, or uh donator options). Falls back to all when the page exposed no values for the code.
-  private filterOptions(code: string, all: UcOption[]): UcOption[] {
-    const present: number[] | undefined = this.settings.radioValues.get(code)
-    if (present === undefined || present.length === 0) {
-      return all
+  // ───────────────────────── options (parsed from the page) ─────────────────────────
+  // Options come STRAIGHT from the page (real values + labels + only what this account has — so e.g.
+  // EH's current resample resolutions show, not a stale hard-coded list). A known page-English label is
+  // glossed to Chinese; anything else (resolutions, new options) shows the page's own text verbatim.
+  private pageOptions(code: string): UcOption[] {
+    const opts: EhRadioOption[] | undefined = this.settings.radioGroups.get(code)
+    if (opts === undefined) {
+      return []
     }
-    return all.filter((o: UcOption) => present.indexOf(o.value) >= 0)
+    return opts.map((o: EhRadioOption) => new UcOption(o.value, this.localizeOption(o.label)))
+  }
+
+  private localizeOption(label: string): string {
+    const key: string | undefined = EhProfileSettingsPage.optionZh().get(label)
+    return key !== undefined ? AppStrings.get(key) : label
+  }
+
+  // Page-English option label → i18n key. Keyed by exact text so it never overrides with a wrong gloss:
+  // if EH changes a label (e.g. new resolutions) it just falls through to the page text.
+  private static optionZhCache: Map<string, string> | null = null;
+  private static optionZh(): Map<string, string> {
+    if (EhProfileSettingsPage.optionZhCache !== null) {
+      return EhProfileSettingsPage.optionZhCache
+    }
+    const m: Map<string, string> = new Map<string, string>()
+    m.set('Any client (Recommended)', 'ehp_uh_0')
+    m.set(
+      'Default port clients only (Can be slower. Enable if behind firewall/proxy that blocks outgoing non-standard ports.)',
+      'ehp_uh_1',
+    )
+    m.set(
+      'No [Modern/HTTPS] (Donator only. You will not be able to browse as many pages. Recommended only if having severe problems.)',
+      'ehp_uh_2',
+    )
+    m.set(
+      'No [Legacy/HTTP] (Donator only. May not work by default in modern browsers. Recommended for legacy/outdated browsers only.)',
+      'ehp_uh_3',
+    )
+    m.set('Auto', 'ehp_auto')
+    m.set('Normal', 'ehp_normal')
+    m.set('Small', 'ehp_small')
+    m.set('Default Title', 'ehp_tl_0')
+    m.set('Japanese Title (if available)', 'ehp_tl_1')
+    m.set('Compact', 'ehp_dm_0')
+    m.set('Thumbnail', 'ehp_dm_1')
+    m.set('Extended', 'ehp_dm_2')
+    m.set('Minimal', 'ehp_dm_3')
+    m.set('Minimal+', 'ehp_dm_4')
+    m.set('None', 'ehp_pn_0')
+    m.set('Page Number Only', 'ehp_pn_1')
+    m.set('Page Number + Name', 'ehp_pn_2')
+    m.set(
+      'On mouse-over (pages load faster, but there may be a slight delay before a thumb appears)',
+      'ehp_lt_0',
+    )
+    m.set(
+      'On page load (pages take longer to load, but there is no delay for loading a thumb after the page has loaded)',
+      'ehp_lt_1',
+    )
+    m.set('Oldest comments first', 'ehp_cs_0')
+    m.set('Recent comments first', 'ehp_cs_1')
+    m.set('By highest score', 'ehp_cs_2')
+    m.set('On score hover or click', 'ehp_sc_0')
+    m.set('Always', 'ehp_sc_1')
+    m.set('Alphabetical', 'ehp_tb_0')
+    m.set('By tag power', 'ehp_tb_1')
+    m.set('By last gallery update time', 'ehp_fs_0')
+    m.set('By favorited time', 'ehp_fs_1')
+    m.set('Manual Select, Manual Start (Default)', 'ehp_ar_0')
+    m.set('Manual Select, Auto Start', 'ehp_ar_1')
+    m.set('Auto Select Original, Manual Start', 'ehp_ar_2')
+    m.set('Auto Select Original, Auto Start', 'ehp_ar_3')
+    m.set('Auto Select Resample, Manual Start', 'ehp_ar_4')
+    m.set('Auto Select Resample, Auto Start', 'ehp_ar_5')
+    m.set('Align left', 'ehp_ms_0')
+    m.set('Align center 1', 'ehp_ms_1')
+    m.set('Align center 2', 'ehp_ms_2')
+    EhProfileSettingsPage.optionZhCache = m
+    return m
   }
 
   // True when the page has this field at all (a checkbox/select absent for the account → hide the row).
   private hasField(code: string): boolean {
     return this.settings.fieldNames.indexOf(code) >= 0
-  }
-
-  // ───────────────────────── option lists ─────────────────────────
-  private uhOptions(): UcOption[] {
-    return [
-      new UcOption(0, $r('app.string.ehp_uh_0')),
-      new UcOption(1, $r('app.string.ehp_uh_1')),
-      new UcOption(2, $r('app.string.ehp_uh_2')),
-      new UcOption(3, $r('app.string.ehp_uh_3')),
-    ]
-  }
-
-  private xrOptions(): UcOption[] {
-    return [
-      new UcOption(0, $r('app.string.ehp_auto')),
-      new UcOption(5, '2400x'),
-      new UcOption(4, '1600x'),
-      new UcOption(3, '1280x'),
-      new UcOption(1, '780x'),
-    ]
-  }
-
-  private tlOptions(): UcOption[] {
-    return [new UcOption(0, $r('app.string.ehp_tl_0')), new UcOption(1, $r('app.string.ehp_tl_1'))]
-  }
-
-  private dmOptions(): UcOption[] {
-    return [
-      new UcOption(3, $r('app.string.ehp_dm_3')),
-      new UcOption(4, $r('app.string.ehp_dm_4')),
-      new UcOption(0, $r('app.string.ehp_dm_0')),
-      new UcOption(2, $r('app.string.ehp_dm_2')),
-      new UcOption(1, $r('app.string.ehp_dm_1')),
-    ]
-  }
-
-  private pnOptions(): UcOption[] {
-    return [
-      new UcOption(0, $r('app.string.ehp_pn_0')),
-      new UcOption(1, $r('app.string.ehp_pn_1')),
-      new UcOption(2, $r('app.string.ehp_pn_2')),
-    ]
-  }
-
-  private ltOptions(): UcOption[] {
-    return [new UcOption(0, $r('app.string.ehp_lt_0')), new UcOption(1, $r('app.string.ehp_lt_1'))]
-  }
-
-  private tsOptions(): UcOption[] {
-    return [
-      new UcOption(0, $r('app.string.ehp_auto')),
-      new UcOption(1, $r('app.string.ehp_normal')),
-      new UcOption(2, $r('app.string.ehp_small')),
-    ]
-  }
-
-  private trOptions(): UcOption[] {
-    return [
-      new UcOption(0, '4'),
-      new UcOption(1, '8'),
-      new UcOption(2, '20'),
-      new UcOption(3, '40'),
-    ]
-  }
-
-  private csOptions(): UcOption[] {
-    return [
-      new UcOption(0, $r('app.string.ehp_cs_0')),
-      new UcOption(1, $r('app.string.ehp_cs_1')),
-      new UcOption(2, $r('app.string.ehp_cs_2')),
-    ]
-  }
-
-  private scOptions(): UcOption[] {
-    return [new UcOption(0, $r('app.string.ehp_sc_0')), new UcOption(1, $r('app.string.ehp_sc_1'))]
-  }
-
-  private tbOptions(): UcOption[] {
-    return [new UcOption(0, $r('app.string.ehp_tb_0')), new UcOption(1, $r('app.string.ehp_tb_1'))]
-  }
-
-  private fsOptions(): UcOption[] {
-    return [new UcOption(0, $r('app.string.ehp_fs_0')), new UcOption(1, $r('app.string.ehp_fs_1'))]
-  }
-
-  private rcOptions(): UcOption[] {
-    return [
-      new UcOption(0, '25'),
-      new UcOption(1, '50'),
-      new UcOption(2, '100'),
-      new UcOption(3, '200'),
-    ]
-  }
-
-  private arOptions(): UcOption[] {
-    return [
-      new UcOption(0, $r('app.string.ehp_ar_0')),
-      new UcOption(1, $r('app.string.ehp_ar_1')),
-      new UcOption(2, $r('app.string.ehp_ar_2')),
-      new UcOption(3, $r('app.string.ehp_ar_3')),
-      new UcOption(4, $r('app.string.ehp_ar_4')),
-      new UcOption(5, $r('app.string.ehp_ar_5')),
-    ]
-  }
-
-  private msOptions(): UcOption[] {
-    return [
-      new UcOption(0, $r('app.string.ehp_ms_0')),
-      new UcOption(1, $r('app.string.ehp_ms_1')),
-      new UcOption(2, $r('app.string.ehp_ms_2')),
-    ]
   }
 
   // ───────────────────────── sections ─────────────────────────
@@ -561,7 +521,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_uh'),
-          options: this.filterOptions('uh', this.uhOptions()),
+          options: this.pageOptions('uh'),
           current: this.settings.loadImageThroughHAtH,
           onPick: (v: number) => {
             this.settings.loadImageThroughHAtH = v
@@ -570,7 +530,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_xr'),
-          options: this.filterOptions('xr', this.xrOptions()),
+          options: this.pageOptions('xr'),
           current: this.settings.imageSize,
           onPick: (v: number) => {
             this.settings.imageSize = v
@@ -617,7 +577,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_tl'),
-          options: this.filterOptions('tl', this.tlOptions()),
+          options: this.pageOptions('tl'),
           current: this.settings.galleryNameDisplay,
           onPick: (v: number) => {
             this.settings.galleryNameDisplay = v
@@ -626,7 +586,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_dm'),
-          options: this.filterOptions('dm', this.dmOptions()),
+          options: this.pageOptions('dm'),
           current: this.settings.frontPageSettings,
           onPick: (v: number) => {
             this.settings.frontPageSettings = v
@@ -635,7 +595,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_pn'),
-          options: this.filterOptions('pn', this.pnOptions()),
+          options: this.pageOptions('pn'),
           current: this.settings.showGalleryPageNumbers,
           onPick: (v: number) => {
             this.settings.showGalleryPageNumbers = v
@@ -681,7 +641,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_lt'),
-          options: this.filterOptions('lt', this.ltOptions()),
+          options: this.pageOptions('lt'),
           current: this.settings.mouseOverThumbnails,
           onPick: (v: number) => {
             this.settings.mouseOverThumbnails = v
@@ -690,7 +650,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_ts'),
-          options: this.filterOptions('ts', this.tsOptions()),
+          options: this.pageOptions('ts'),
           current: this.settings.thumbnailSize,
           onPick: (v: number) => {
             this.settings.thumbnailSize = v
@@ -699,7 +659,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_tr'),
-          options: this.filterOptions('tr', this.trOptions()),
+          options: this.pageOptions('tr'),
           current: this.settings.thumbnailRows,
           onPick: (v: number) => {
             this.settings.thumbnailRows = v
@@ -736,7 +696,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_cs'),
-          options: this.filterOptions('cs', this.csOptions()),
+          options: this.pageOptions('cs'),
           current: this.settings.sortOrderComments,
           onPick: (v: number) => {
             this.settings.sortOrderComments = v
@@ -745,7 +705,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_sc'),
-          options: this.filterOptions('sc', this.scOptions()),
+          options: this.pageOptions('sc'),
           current: this.settings.showCommentVotes,
           onPick: (v: number) => {
             this.settings.showCommentVotes = v
@@ -754,7 +714,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_tb'),
-          options: this.filterOptions('tb', this.tbOptions()),
+          options: this.pageOptions('tb'),
           current: this.settings.sortOrderTags,
           onPick: (v: number) => {
             this.settings.sortOrderTags = v
@@ -859,7 +819,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_fs'),
-          options: this.filterOptions('fs', this.fsOptions()),
+          options: this.pageOptions('fs'),
           current: this.settings.sortOrderFavorites,
           onPick: (v: number) => {
             this.settings.sortOrderFavorites = v
@@ -868,7 +828,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_rc'),
-          options: this.filterOptions('rc', this.rcOptions()),
+          options: this.pageOptions('rc'),
           current: this.settings.searchResultCount,
           onPick: (v: number) => {
             this.settings.searchResultCount = v
@@ -902,7 +862,7 @@ export struct EhProfileSettingsPage {
       GroupedListSection() {
         UcSelectRow({
           title: $r('app.string.ehp_ar'),
-          options: this.filterOptions('ar', this.arOptions()),
+          options: this.pageOptions('ar'),
           current: this.settings.archiverSettings,
           onPick: (v: number) => {
             this.settings.archiverSettings = v
@@ -928,7 +888,7 @@ export struct EhProfileSettingsPage {
         this.rowDivider()
         UcSelectRow({
           title: $r('app.string.ehp_ms'),
-          options: this.filterOptions('ms', this.msOptions()),
+          options: this.pageOptions('ms'),
           current: this.settings.mpvStyle,
           onPick: (v: number) => {
             this.settings.mpvStyle = v

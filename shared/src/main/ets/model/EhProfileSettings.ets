@@ -5,6 +5,17 @@
  * read (GET /uconfig.php) and write (POST /uconfig.php with 2-letter codes) mapping.
  */
 
+/** One radio/select option parsed straight from the uconfig page: form value + the page's label text. */
+export class EhRadioOption {
+  value: number = 0
+  label: string = ''
+
+  constructor(value: number, label: string) {
+    this.value = value
+    this.label = label
+  }
+}
+
 @ObservedV2
 export class EhProfile {
   @Trace name: string = ''
@@ -99,9 +110,11 @@ export class EhProfileSettings {
   @Trace excludedNamespaces: EhUconfigToggleItem[] = [] // xn_1..50
   @Trace excludedLanguages: EhUconfigToggleItem[] = [] // xl_* (only the ones present on the page)
 
-  // ── Presence (which options/fields this account actually has — permission/Hath-perk gated) ──
-  // Per radio code, the option values present on the page (e.g. rc=[0,1,2] when 200 needs a Hath perk).
-  radioValues: Map<string, number[]> = new Map<string, number[]>()
+  // ── Options parsed straight from the page (value + the page's own label) ──
+  // Per radio/select code, exactly the options this account's page exposes — so the UI shows EH's real
+  // current choices (correct resolutions etc.), not a stale hard-coded list, and Hath/permission gating
+  // is automatic (absent options simply aren't here).
+  radioGroups: Map<string, EhRadioOption[]> = new Map<string, EhRadioOption[]>()
   // All input/select/textarea field names present (so absent toggles/text/selects are hidden).
   fieldNames: string[] = []
 
@@ -151,7 +164,7 @@ export class EhProfileSettings {
     out.excludedLanguages = this.excludedLanguages.map(
       (x: EhUconfigToggleItem) => new EhUconfigToggleItem(x.ser, x.name, x.excluded, x.variant),
     )
-    out.radioValues = this.radioValues
+    out.radioGroups = this.radioGroups
     out.fieldNames = this.fieldNames.slice()
     return out
   }

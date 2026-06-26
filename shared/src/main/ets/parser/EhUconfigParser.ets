@@ -2,6 +2,7 @@ import { HtmlSelectorUtils } from './HtmlSelectorUtils'
 import {
   EhProfile,
   EhProfileSettings,
+  EhRadioOption,
   EhUconfigCategory,
   EhUconfigToggleItem,
 } from '../model/EhProfileSettings'
@@ -84,8 +85,8 @@ export class EhUconfigParser {
       s.favorites.push(EhUconfigParser.parseInput(html, `favorite_${i}`))
     }
 
-    // ── Presence (permission/Hath-perk gating): the radio options + field names this page actually has ──
-    s.radioValues = EhUconfigParser.parseRadioValues(html)
+    // ── Options straight from the page (real labels + permission gating) + field-name presence ──
+    s.radioGroups = EhUconfigParser.parseControlOptions(html)
     s.fieldNames = EhUconfigParser.parseFieldNames(html)
 
     // ── Front-page categories (ct_*) ──
@@ -98,24 +99,44 @@ export class EhUconfigParser {
     return s
   }
 
-  // Per radio group, the option values actually present (e.g. rc=[0,1,2] when the 200 option needs a
-  // Hath perk the account lacks) — so the UI only offers what this account can pick.
-  private static parseRadioValues(html: string): Map<string, number[]> {
-    const map: Map<string, number[]> = new Map<string, number[]>()
-    const re: RegExp = /<input type="radio" name="([a-z]+)"[^>]*value="(\d+)"/g
-    let m: RegExpExecArray | null = re.exec(html)
-    while (m !== null) {
-      const code: string = m[1]
-      const v: number = Number.parseInt(m[2], 10)
-      let arr: number[] | undefined = map.get(code)
+  // Every radio group + numeric <select> on the page, with its REAL option labels (so the UI shows EH's
+  // actual current choices — e.g. correct resample resolutions — not a stale hard-coded list). Only the
+  // options this account has are present, so permission/Hath gating is automatic.
+  private static parseControlOptions(html: string): Map<string, EhRadioOption[]> {
+    const map: Map<string, EhRadioOption[]> = new Map<string, EhRadioOption[]>()
+    const push = (code: string, value: number, label: string): void => {
+      let arr: EhRadioOption[] | undefined = map.get(code)
       if (arr === undefined) {
         arr = []
         map.set(code, arr)
       }
-      if (arr.indexOf(v) < 0) {
-        arr.push(v)
+      for (let i: number = 0; i < arr.length; i++) {
+        if (arr[i].value === value) {
+          return
+        }
       }
-      m = re.exec(html)
+      arr.push(new EhRadioOption(value, HtmlSelectorUtils.htmlUnescape(label.trim())))
+    }
+    // Radios: <label class="lr"><input type="radio" name="C" value="V" ...><span></span> LABEL</label>
+    const rre: RegExp =
+      /<input type="radio" name="([a-z]+)" value="(\d+)"[^>]*>\s*(?:<span><\/span>)?\s*([^<]*)<\/label>/g
+    let m: RegExpExecArray | null = rre.exec(html)
+    while (m !== null) {
+      push(m[1], Number.parseInt(m[2], 10), m[3])
+      m = rre.exec(html)
+    }
+    // Numeric <select name="C">: each <option value="V">LABEL</option> (e.g. MPV display style).
+    const sre: RegExp = /<select name="([a-z]+)"[^>]*>([\s\S]*?)<\/select>/g
+    let sm: RegExpExecArray | null = sre.exec(html)
+    while (sm !== null) {
+      const code: string = sm[1]
+      const ore: RegExp = /<option value="(\d+)"[^>]*>([\s\S]*?)<\/option>/g
+      let om: RegExpExecArray | null = ore.exec(sm[2])
+      while (om !== null) {
+        push(code, Number.parseInt(om[1], 10), om[2].replace(/<[^>]*>/g, ''))
+        om = ore.exec(sm[2])
+      }
+      sm = sre.exec(html)
     }
     return map
   }
@@ -244,6 +265,7 @@ export class EhUconfigParser {
   }
 
   // The selected radio's value (== index). 0 when none is checked.
+  // The selected value of a radio group (checked input) or a <select> (selected <option>). 0 if none.
   private static parseRadio(html: string, name: string): number {
     const re: RegExp = new RegExp(`<input[^>]*name="${name}"[^>]*>`, 'g')
     let m: RegExpExecArray | null = re.exec(html)
@@ -254,6 +276,15 @@ export class EhUconfigParser {
         return v.length > 0 ? Number.parseInt(v, 10) : 0
       }
       m = re.exec(html)
+    }
+    // <select> fallback: the option carrying `selected`.
+    const sel: string = HtmlSelectorUtils.group1(
+      html,
+      new RegExp(`<select name="${name}"[^>]*>([\\s\\S]*?)</select>`),
+    )
+    if (sel.length > 0) {
+      const v: string = HtmlSelectorUtils.group1(sel, /<option value="(\d+)"[^>]*selected/)
+      return v.length > 0 ? Number.parseInt(v, 10) : 0
     }
     return 0
   }
