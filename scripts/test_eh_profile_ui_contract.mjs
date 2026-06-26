@@ -61,7 +61,7 @@ ok('category section toggles ct visibility', /CategorySection\(/.test(page) && /
 // Wiring.
 ok('route registered', /name === 'EhProfileSettings'[\s\S]*EhProfileSettingsPage\(\)/.test(read('entry/src/main/ets/pages/Index.ets')))
 ok('exported from feature/settings', /export \{ EhProfileSettingsPage \}/.test(read('feature/settings/src/main/ets/Index.ets')))
-ok('EhSettings page links to it', /pushPathByName\('EhProfileSettings'/.test(read('feature/settings/src/main/ets/pages/EhSettingsPage.ets')))
+ok('Account hub links to it (entry lives under 账号, not EH settings)', /pushPathByName\('EhProfileSettings'/.test(read('feature/settings/src/main/ets/pages/AccountPage.ets')))
 
 // i18n parity for a representative spread of the page's keys.
 for (const loc of ['base', 'zh_CN', 'en_US', 'ja_JP']) {
