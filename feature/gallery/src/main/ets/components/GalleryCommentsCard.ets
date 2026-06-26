@@ -1176,6 +1176,11 @@ export struct GalleryCommentsCard {
         }
         .layoutWeight(1)
         .alignItems(VerticalAlign.Center)
+        // Translate action sits in the head row, to the LEFT of the score/UP badge — away from the footer
+        // vote buttons so it can't be mis-tapped while voting.
+        if (this.translationEnabled() && c.contentText.trim().length > 0) {
+          this.TranslationAction(c)
+        }
         // Uploader comments carry an UP badge. The numeric community score is shown only on the FULL
         // comments page (max === 0): eros_fe's CommentItem(simple) gates the score chip behind `!simple`,
         // so the PEEK deliberately suppresses it (author + body + time only, UP for the uploader).
@@ -1198,9 +1203,6 @@ export struct GalleryCommentsCard {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1)
-        if (this.translationEnabled() && c.contentText.trim().length > 0) {
-          this.TranslationAction(c)
-        }
         if (this.max <= 0 && c.canEdit && c.commentId.length > 0 && c.commentId !== '0') {
           this.EditAction(c)
         }

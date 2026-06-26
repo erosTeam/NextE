@@ -1141,6 +1141,10 @@
       "value": "削除"
     },
     {
+      "name": "common_clear",
+      "value": "クリア"
+    },
+    {
       "name": "common_remove",
       "value": "削除"
     },

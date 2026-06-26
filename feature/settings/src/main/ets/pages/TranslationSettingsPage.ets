@@ -16,7 +16,6 @@ import {
   connectCommentTranslationSettings,
   immersiveTitleBar,
 } from 'shared'
-
 @ComponentV2
 export struct TranslationSettingsPage {
   @Local settings: CommentTranslationSettingsState = connectCommentTranslationSettings();
@@ -126,10 +125,9 @@ export struct TranslationSettingsPage {
   }
 
   private refreshCacheCount(): void {
-    CommentTranslationService.count(this.ctx())
-      .then((count: number) => {
-        this.cacheCount = count
-      })
+    CommentTranslationService.count(this.ctx()).then((count: number) => {
+      this.cacheCount = count
+    })
   }
 
   private confirmClearCache(): void {
@@ -140,7 +138,7 @@ export struct TranslationSettingsPage {
         action: () => {},
       },
       secondaryButton: {
-        value: $r('app.string.comment_translation_clear_cache'),
+        value: $r('app.string.common_clear'),
         fontColor: Color.Red,
         action: () => {
           this.clearCache()
@@ -157,9 +155,11 @@ export struct TranslationSettingsPage {
     CommentTranslationService.clear(this.ctx())
       .then(() => {
         this.cacheCount = 0
-        this.getUIContext().getPromptAction().showToast({
-          message: $r('app.string.comment_translation_cache_cleared'),
-        })
+        this.getUIContext()
+          .getPromptAction()
+          .showToast({
+            message: $r('app.string.comment_translation_cache_cleared'),
+          })
       })
       .finally(() => {
         this.clearingCache = false
@@ -171,22 +171,28 @@ export struct TranslationSettingsPage {
       return
     }
     if (this.settings.apiKey.length === 0) {
-      this.getUIContext().getPromptAction().showToast({
-        message: $r('app.string.comment_translation_validate_missing_key'),
-      })
+      this.getUIContext()
+        .getPromptAction()
+        .showToast({
+          message: $r('app.string.comment_translation_validate_missing_key'),
+        })
       return
     }
     this.validatingApi = true
     CommentTranslationService.validateConfiguredLlm()
       .then(() => {
-        this.getUIContext().getPromptAction().showToast({
-          message: $r('app.string.comment_translation_validate_success'),
-        })
+        this.getUIContext()
+          .getPromptAction()
+          .showToast({
+            message: $r('app.string.comment_translation_validate_success'),
+          })
       })
       .catch((error: Error) => {
-        this.getUIContext().getPromptAction().showToast({
-          message: $r('app.string.comment_translation_validate_failed', error.message),
-        })
+        this.getUIContext()
+          .getPromptAction()
+          .showToast({
+            message: $r('app.string.comment_translation_validate_failed', error.message),
+          })
       })
       .finally(() => {
         this.validatingApi = false
@@ -198,9 +204,11 @@ export struct TranslationSettingsPage {
       return
     }
     if (this.settings.apiKey.length === 0) {
-      this.getUIContext().getPromptAction().showToast({
-        message: $r('app.string.comment_translation_validate_missing_key'),
-      })
+      this.getUIContext()
+        .getPromptAction()
+        .showToast({
+          message: $r('app.string.comment_translation_validate_missing_key'),
+        })
       return
     }
     this.fetchingModels = true
@@ -208,9 +216,11 @@ export struct TranslationSettingsPage {
       .then((models: string[]) => {
         this.modelOptions = models
         if (models.length === 0) {
-          this.getUIContext().getPromptAction().showToast({
-            message: $r('app.string.comment_translation_models_empty'),
-          })
+          this.getUIContext()
+            .getPromptAction()
+            .showToast({
+              message: $r('app.string.comment_translation_models_empty'),
+            })
           return
         }
         if (this.settings.model.length === 0 || models.length === 1) {
@@ -219,9 +229,11 @@ export struct TranslationSettingsPage {
         this.modelMenuShown = true
       })
       .catch((error: Error) => {
-        this.getUIContext().getPromptAction().showToast({
-          message: $r('app.string.comment_translation_models_failed', error.message),
-        })
+        this.getUIContext()
+          .getPromptAction()
+          .showToast({
+            message: $r('app.string.comment_translation_models_failed', error.message),
+          })
       })
       .finally(() => {
         this.fetchingModels = false
@@ -241,42 +253,56 @@ export struct TranslationSettingsPage {
     Menu() {
       MenuItem({
         content: $r('app.string.comment_translation_display_replace'),
-        symbolEndIcon: this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_REPLACE
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_REPLACE)
+        symbolEndIcon:
+          this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_REPLACE
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
       })
+        .onClick(() => {
+          this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_REPLACE)
+        })
       MenuItem({
         content: $r('app.string.comment_translation_display_bilingual'),
-        symbolEndIcon: this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
-          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-          : undefined,
-      }).onClick(() => {
-        this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_BILINGUAL)
+        symbolEndIcon:
+          this.settings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
       })
+        .onClick(() => {
+          this.setDisplayMode(COMMENT_TRANSLATION_DISPLAY_BILINGUAL)
+        })
     }
   }
 
   @Builder
   private ModelMenu() {
     Menu() {
-      ForEach(this.modelOptions, (model: string) => {
-        MenuItem({
-          content: model,
-          symbolEndIcon: this.modelText() === model
-            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-            : undefined,
-        }).onClick(() => {
-          this.setModel(model)
-          this.modelMenuShown = false
-        })
-      }, (model: string) => model)
+      ForEach(
+        this.modelOptions,
+        (model: string) => {
+          MenuItem({
+            content: model,
+            symbolEndIcon:
+              this.modelText() === model
+                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+                : undefined,
+          }).onClick(() => {
+            this.setModel(model)
+            this.modelMenuShown = false
+          })
+        },
+        (model: string) => model,
+      )
     }
   }
 
   @Builder
-  private TextInputField(field: string, placeholder: ResourceStr, secret: boolean, onChange: (value: string) => void) {
+  private TextInputField(
+    field: string,
+    placeholder: ResourceStr,
+    secret: boolean,
+    onChange: (value: string) => void,
+  ) {
     if (field === 'apiUrl') {
       TextInput({ text: $$this.apiUrlDraft, placeholder: placeholder })
         .type(secret ? InputType.Password : InputType.Normal)
@@ -314,7 +340,13 @@ export struct TranslationSettingsPage {
   }
 
   @Builder
-  private TextFieldRow(label: ResourceStr, field: string, placeholder: ResourceStr, secret: boolean, onChange: (value: string) => void) {
+  private TextFieldRow(
+    label: ResourceStr,
+    field: string,
+    placeholder: ResourceStr,
+    secret: boolean,
+    onChange: (value: string) => void,
+  ) {
     Column({ space: ThemeConstants.SPACE_XS }) {
       Text(label)
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
@@ -436,7 +468,8 @@ export struct TranslationSettingsPage {
                 leadingIcon: $r('sys.symbol.arrow_down_circle'),
                 trailingText: this.modelOptions.length > 0 ? `${this.modelOptions.length}` : '',
                 showChevron: true,
-                isEnabled: this.settings.enabled && !this.settings.useGoogleOnly && !this.fetchingModels,
+                isEnabled:
+                  this.settings.enabled && !this.settings.useGoogleOnly && !this.fetchingModels,
                 action: () => {
                   this.fetchModels()
                 },
@@ -465,7 +498,8 @@ export struct TranslationSettingsPage {
                 : $r('app.string.comment_translation_validate_api_hint'),
               leadingIcon: $r('sys.symbol.checkmark'),
               showChevron: false,
-              isEnabled: this.settings.enabled && !this.settings.useGoogleOnly && !this.validatingApi,
+              isEnabled:
+                this.settings.enabled && !this.settings.useGoogleOnly && !this.validatingApi,
               action: () => {
                 this.validateApi()
               },

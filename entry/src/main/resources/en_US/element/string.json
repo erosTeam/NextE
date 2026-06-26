@@ -1141,6 +1141,10 @@
       "value": "Delete"
     },
     {
+      "name": "common_clear",
+      "value": "Clear"
+    },
+    {
       "name": "common_remove",
       "value": "Remove"
     },

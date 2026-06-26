@@ -1141,6 +1141,10 @@
       "value": "删除"
     },
     {
+      "name": "common_clear",
+      "value": "清除"
+    },
+    {
       "name": "common_remove",
       "value": "移除"
     },
