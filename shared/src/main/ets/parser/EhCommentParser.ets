@@ -47,7 +47,12 @@ export class EhCommentParser {
         // eros_fe treats the uploader comment as the score-less row; the literal marker is not
         // guaranteed to be present on every captured page shape.
         c.isUploader = m[0].includes('Uploader Comment') || c.score.length === 0
-        out.push(c)
+        // Skip empty-body comments: a real EH comment always has text, so an empty c6 body means a
+        // bad/partial response (e.g. an interstitial/throttle page that still matched the comment shell).
+        // Keeping them rendered N blank rows.
+        if (c.contentText.length > 0) {
+          out.push(c)
+        }
       }
       m = re.exec(html)
     }
@@ -94,9 +99,8 @@ export class EhCommentParser {
     }
     const out: string[] = []
     const firstTag: RegExpMatchArray | null = c7.match(EhCommentParser.RE_FIRST_TAG)
-    const leadHtml: string = firstTag !== null && firstTag.index !== undefined
-      ? c7.substring(0, firstTag.index)
-      : c7
+    const leadHtml: string =
+      firstTag !== null && firstTag.index !== undefined ? c7.substring(0, firstTag.index) : c7
     const lead: string = EhCommentParser.stripHtml(leadHtml).replace(/,\s*$/, '').trim()
     if (lead.length > 0) {
       out.push(lead)

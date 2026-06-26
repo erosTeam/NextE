@@ -38,13 +38,13 @@ ok('score badge uses the dark-aware secondary surface instead of separator chrom
   /backgroundColor\(primary \? ThemeConstants\.BRAND_PRIMARY : ThemeConstants\.BG_SUB\)/.test(card) &&
     !/CommentBadge\(label: ResourceStr, primary: boolean\)[\s\S]*ThemeConstants\.DIVIDER/.test(card))
 ok('score badge uses the same builder and remains tappable',
-  /this\.CommentBadge\(this\.displayScore\(c\.score\), false\)[\s\S]*this\.showScoreDetails\(c\)/.test(card))
+  /this\.CommentBadge\(this\.displayScore\(this\.effectiveScore\(c\)\), false\)[\s\S]*this\.showScoreDetails\(c\)/.test(card))
 ok('score badge normalizes unsigned scores to +N',
   /private displayScore\(score: string\): string[\s\S]*value\.startsWith\('\+'\)[\s\S]*value\.startsWith\('-'\)[\s\S]*return `\+\$\{value\}`/.test(card))
 ok('score badge no longer uses saturated positive or negative backgrounds',
   !/score_positive|score_negative/.test(card))
 ok('detail peek still suppresses numeric score badges',
-  /c\.score\.length > 0 && this\.max <= 0/.test(card))
+  /this\.effectiveScore\(c\)\.length > 0 && this\.max <= 0/.test(card))
 
 for (const locale of ['base', 'zh_CN', 'en_US', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

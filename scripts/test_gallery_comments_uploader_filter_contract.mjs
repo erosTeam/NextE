@@ -28,7 +28,7 @@ ok('comments page owns a page-local uploaderOnly filter state',
 ok('uploader filter derives the uploader memberId from parsed uploader comment metadata',
   /private uploaderMemberId\(\): string[\s\S]*c\.isUploader \|\| c\.score\.length === 0[\s\S]*uploader\.memberId/.test(page))
 ok('visible comments use uploader memberId first and isUploader fallback',
-  /private visibleComments\(\): EhGalleryComment\[\][\s\S]*!this\.uploaderOnly[\s\S]*return this\.comments[\s\S]*c\.memberId === memberId[\s\S]*c\.isUploader \|\| c\.score\.length === 0/.test(page))
+  /private visibleComments\(\): EhGalleryComment\[\][\s\S]*this\.uploaderOnly[\s\S]*c\.memberId === memberId[\s\S]*c\.isUploader \|\| c\.score\.length === 0[\s\S]*LocalBlockService\.filterComments/.test(page))
 ok('comments page title menu exposes all/uploader labels',
   /private commentsTitleBar\(\): Record<string, Object>[\s\S]*comment_filter_uploader_only/.test(page) &&
     /private commentsTitleBar\(\): Record<string, Object>[\s\S]*comment_filter_all/.test(page))
@@ -37,8 +37,9 @@ ok('comments page title menu uses native menu symbols and checkmark active state
     /sys\.symbol\.list_bullet_square_fill/.test(page) &&
     /sys\.symbol\.checkmark/.test(page) &&
     /immersiveTitleBarOpts/.test(page))
-ok('GalleryCommentsCard receives visibleComments rather than mutating the parsed comments list',
-  /GalleryCommentsCard\(\{[\s\S]*comments: this\.visibleComments\(\)/.test(page))
+ok('virtualized list is fed from visibleComments without mutating the parsed comments list',
+  /rebuildCommentList[\s\S]*this\.visibleComments\(\)[\s\S]*this\.commentSource\.setData/.test(page) &&
+    /LazyForEach\(\s*this\.commentSource/.test(page))
 ok('uploader-only filter action only changes local filter state',
   /'action': \(\) => \{\s*this\.uploaderOnly = false\s*\}/.test(page) &&
     /'action': \(\) => \{\s*this\.uploaderOnly = true\s*\}/.test(page) &&

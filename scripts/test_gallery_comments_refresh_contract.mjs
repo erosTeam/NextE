@@ -36,7 +36,9 @@ ok('comments page uses PullRefreshListScaffold, not a static SecondaryListScaffo
 ok('comments page keeps a local comments list refreshed from route params',
   /@Local comments: EhGalleryComment\[\] = \[\]/.test(page) &&
     /this\.comments = p\.comments/.test(page) &&
-    /ForEach\(\s*this\.visibleComments\(\)[\s\S]*comments:\s*\[comment\][\s\S]*referenceComments:\s*this\.comments/.test(page))
+    // Virtualized: LazyForEach over the BasicDataSource, one card per comment (singleComment), with the
+    // full list passed as referenceComments for reply resolution.
+    /LazyForEach\(\s*this\.commentSource[\s\S]*referenceComments:\s*this\.comments[\s\S]*singleComment:\s*comment/.test(page))
 ok('comments page auto-refreshes when opened directly without seeded comments',
   /@Local initialRefreshStarted: boolean = false/.test(page) &&
     /private scheduleInitialRefreshIfNeeded\(\): void[\s\S]*this\.comments\.length > 0[\s\S]*this\.params\.gid\.length === 0[\s\S]*this\.refreshController\.triggerTopRefresh\(\)/.test(page) &&

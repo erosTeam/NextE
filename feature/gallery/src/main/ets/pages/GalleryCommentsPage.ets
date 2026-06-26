@@ -355,6 +355,16 @@ export struct GalleryCommentsPage {
         this.params.token,
         connectSiteMode().isEx,
       )
+      // Bad/interstitial response (no previews and no comments): keep the existing comments instead of
+      // wiping them to a blank list.
+      if (result.images.length === 0 && result.comments.length === 0 && this.comments.length > 0) {
+        DiagnosticLogger.warn(
+          'gallery',
+          'comments_refresh_empty_skip',
+          `gid=${this.params.gid} bad response, keeping existing comments`,
+        )
+        return
+      }
       this.params.apikey = result.gallery.apikey
       this.params.apiuid = result.gallery.apiuid
       this.params.title = result.gallery.displayTitle(false)

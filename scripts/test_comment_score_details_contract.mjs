@@ -23,11 +23,11 @@ ok(
 ok(
   'score details are full-page only and unavailable in detail peek',
   /if \(this\.max > 0 \|\| c\.scoreDetails\.length === 0\)/.test(card) &&
-    /c\.score\.length > 0 && this\.max <= 0/.test(card),
+    /this\.effectiveScore\(c\)\.length > 0 && this\.max <= 0/.test(card),
 )
 ok(
   'score badge is an explicit tappable affordance',
-  /this\.CommentBadge\(this\.displayScore\(c\.score\), false\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.showScoreDetails\(c\)/.test(card),
+  /this\.CommentBadge\(this\.displayScore\(this\.effectiveScore\(c\)\), false\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.showScoreDetails\(c\)/.test(card),
 )
 ok(
   'comment score-details lane does not add destructive comment write actions',

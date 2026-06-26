@@ -78,8 +78,10 @@ export class GalleryDetailViewModel {
     if (this.context === null) {
       return
     }
-    const cached: GalleryDetailResult | null =
-      await EhPageCacheService.loadGalleryDetail(this.context, this.detailCacheKey(gid, token))
+    const cached: GalleryDetailResult | null = await EhPageCacheService.loadGalleryDetail(
+      this.context,
+      this.detailCacheKey(gid, token),
+    )
     if (cached === null) {
       return
     }
@@ -90,13 +92,17 @@ export class GalleryDetailViewModel {
       ? merged
       : TagTranslationService.clearGalleryTranslations(merged)
     this.images = cached.images
-    this.comments = cached.comments
+    // Drop any empty-body comments a previous bad fetch may have cached, so stale blank rows don't show.
+    this.comments = cached.comments.filter((c: EhGalleryComment) => c.contentText.length > 0)
     this.previewPageCount = cached.previewPageCount
     this.cachedDetailApplied = true
     this.translateCachedGalleryLater(this.gallery, renderVersion)
   }
 
-  private async translateCachedGalleryLater(gallery: EhGallery, renderVersion: number): Promise<void> {
+  private async translateCachedGalleryLater(
+    gallery: EhGallery,
+    renderVersion: number,
+  ): Promise<void> {
     if (this.context === null || !connectTagTranslationSettings().enabled) {
       return
     }
@@ -164,6 +170,17 @@ export class GalleryDetailViewModel {
       token,
       connectSiteMode().isEx,
     )
+    // A valid gallery detail always has preview images. No images AND no comments means the response was
+    // not a real detail page (interstitial / IP-throttle / truncated body) — don't overwrite the current
+    // header/images/comments with it and, crucially, don't write that garbage to the page cache.
+    if (res.images.length === 0 && res.comments.length === 0) {
+      DiagnosticLogger.warn(
+        'gallery',
+        'detail_fetch_empty_skip',
+        `gid=${gid} no images/comments; treating as a bad response, keeping existing data + cache`,
+      )
+      return
+    }
     const merged: EhGallery = this.gallery.merge(res.gallery)
     if (!refresh) {
       if (seedRatingFallBack > 0 && merged.ratingFallBack <= 0) {

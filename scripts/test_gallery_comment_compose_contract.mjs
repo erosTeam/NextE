@@ -56,7 +56,7 @@ ok('comments page gates comment compose on route identity and login cookies',
   /private canOpenCommentSheet\(\): boolean[\s\S]*this\.params\.gid\.length > 0[\s\S]*this\.params\.token\.length > 0[\s\S]*EhCookieStore\.getInstance\(\)\.isLogin\(\)/.test(page))
 ok('new and reply composition use the bottom floating composer, not the title action sheet',
   /Stack\(\{ alignContent: Alignment\.Bottom \}\)[\s\S]*this\.CommentComposer\(\)/.test(page) &&
-    /@Builder[\s\S]*CommentComposer\(\)[\s\S]*TextArea\(\{[\s\S]*placeholder: this\.commentPlaceholder\(\)[\s\S]*sys\.symbol\.arrow_up_circle_fill/.test(page) &&
+    /@Builder[\s\S]*CommentComposer\(\)[\s\S]*TextArea\(\{[\s\S]*placeholder: this\.commentPlaceholder\(\)[\s\S]*sys\.symbol\.location_north_up_right_circle_fill[\s\S]*this\.submitComment\(\)/.test(page) &&
     !/const newComment: Record<string, Object> = \{[\s\S]*comment_new_title[\s\S]*this\.openNewComment\(\)/.test(page))
 ok('reply action pre-fills @author plus encoded comment id and still submits as new comment',
   /private openReplyComment\(comment: EhGalleryComment\): void[\s\S]*this\.commentReplyToId = comment\.commentId[\s\S]*this\.commentText = `@\$\{comment\.author\}\\n\$\{this\.encodeCommentId\(comment\.commentId\)\}\\n`/.test(page) &&
@@ -93,7 +93,8 @@ ok('full comments card exposes reply event and keeps peek mode quiet',
 ok('full comments card exposes edit only for editable own comments',
   /@Event onEdit: \(comment: EhGalleryComment\) => void/.test(card) &&
     /if \(this\.max <= 0 && c\.canEdit && c\.commentId\.length > 0 && c\.commentId !== '0'\) \{[\s\S]*this\.EditAction\(c\)/.test(card) &&
-    /EditAction\(c: EhGalleryComment\)[\s\S]*sys\.symbol\.square_and_pencil[\s\S]*this\.onEdit\(c\)/.test(card))
+    /EditAction\(c: EhGalleryComment\)[\s\S]*sys\.symbol\.square_and_pencil[\s\S]*this\.publishEdit\(c\)/.test(card) &&
+    /private publishEdit\(c: EhGalleryComment\): void[\s\S]*this\.onEdit\(c\)/.test(card))
 ok('comment footer actions use compact local hit sizing instead of global primary button height',
   /const COMMENT_FOOTER_ACTION_SIZE: number = \d+/.test(card) &&
     /const COMMENT_FOOTER_ICON_SIZE: number = \d+/.test(card) &&
