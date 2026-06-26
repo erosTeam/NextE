@@ -76,6 +76,14 @@ export struct GalleryCommentsCard {
   private stack: NavPathStack = connectNavStack().stack;
   @Local translationSettings: CommentTranslationSettingsState = connectCommentTranslationSettings();
   @Local expandedBlockedCommentKeys: string[] = [];
+  // Card-local mirror of the page-held render-state translation fields. The body/icon read THESE (in the
+  // parentManaged path) and they are synced from renderState inside the card's OWN animateTo (see
+  // onRenderStateTranslationChange) — so the height/content change is captured and animated. Routing the
+  // animation through the page mutating renderState did not work: a cross-component animateTo doesn't
+  // capture the card's layout change, which is why show/hide toggling stopped animating.
+  @Local localTranslationText: string = '';
+  @Local localTranslationShown: boolean = false;
+  @Local localTranslationLoading: boolean = false;
   // Per-instance memo of the full-list-dependent parse work (reply resolution sorts the whole comment
   // array). Stable for an instance's comment(s); reset only if the reference list identity changes. Keeps a
   // translation re-render from re-sorting every comment on every frame.
@@ -98,7 +106,35 @@ export struct GalleryCommentsCard {
     this.displayTextCache.clear()
   }
 
+  // The page mutates this comment's render state (translate result, toggle show/hide, loading). Mirror it
+  // into the card's @Local inside the card's OWN animateTo, so the single stable body Text interpolates its
+  // height (and the text crossfades) instead of snapping. Card-owned animateTo is required — the page's
+  // animateTo can't capture this card's layout change across components.
+  @Monitor(
+    'renderState.translationText',
+    'renderState.translationShown',
+    'renderState.translationLoading',
+  )
+  onRenderStateTranslationChange(): void {
+    if (!this.parentManagedActions) {
+      return
+    }
+    this.getUIContext().animateTo(
+      { duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut },
+      () => {
+        this.localTranslationText = this.renderState.translationText
+        this.localTranslationShown = this.renderState.translationShown
+        this.localTranslationLoading = this.renderState.translationLoading
+      },
+    )
+  }
+
   aboutToAppear(): void {
+    // Seed the mirror without animation (initial mount / card recycle): the render state may already carry a
+    // cached translation, which should appear instantly, not animate in.
+    this.localTranslationText = this.renderState.translationText
+    this.localTranslationShown = this.renderState.translationShown
+    this.localTranslationLoading = this.renderState.translationLoading
     this.autoTranslateVisibleComments()
   }
 
@@ -552,14 +588,14 @@ export struct GalleryCommentsCard {
 
   private translationText(c: EhGalleryComment): string {
     if (this.parentManagedActions) {
-      return this.renderState.translationText
+      return this.localTranslationText
     }
     return this.useSingleComment ? this.singleComment.translationText : c.translationText
   }
 
   private isTranslationShown(c: EhGalleryComment): boolean {
     if (this.parentManagedActions) {
-      return this.renderState.translationShown
+      return this.localTranslationShown
     }
     return this.useSingleComment ? this.singleComment.translationShown : c.translationShown
   }
@@ -598,7 +634,7 @@ export struct GalleryCommentsCard {
 
   private isTranslationLoading(c: EhGalleryComment): boolean {
     if (this.parentManagedActions) {
-      return this.renderState.translationLoading
+      return this.localTranslationLoading
     }
     return this.useSingleComment ? this.singleComment.translationLoading : c.translationLoading
   }
@@ -1113,15 +1149,15 @@ export struct GalleryCommentsCard {
     .alignItems(HorizontalAlign.Start)
   }
 
-  // Active text for the replace-mode body: translation when shown+ready, else original. Read inside the
-  // inlined Text builder (not passed as a @Builder param) so the dependency on renderState stays reactive.
+  // Active text for the replace-mode body: translation when shown+ready, else original. Reads the card-local
+  // mirror (synced inside the card's animateTo) so the single stable Text node interpolates on change.
   private replaceModeActiveText(c: EhGalleryComment): string {
     if (
       this.translationEnabled() &&
-      this.renderState.translationShown &&
-      this.renderState.translationText.length > 0
+      this.localTranslationShown &&
+      this.localTranslationText.length > 0
     ) {
-      return this.renderState.translationText
+      return this.localTranslationText
     }
     return this.displayContentText(c)
   }
@@ -1131,19 +1167,18 @@ export struct GalleryCommentsCard {
     if (
       this.parentManagedActions &&
       this.translationEnabled() &&
-      this.renderState.translationShown &&
-      this.renderState.translationText.length > 0 &&
+      this.localTranslationShown &&
+      this.localTranslationText.length > 0 &&
       this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
     ) {
       this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_secondary'))
       Divider().strokeWidth(0.5).color($r('sys.color.ohos_id_color_list_separator'))
-      this.CommentText(c, this.renderState.translationText, false, $r('sys.color.font_primary'))
+      this.CommentText(c, this.localTranslationText, false, $r('sys.color.font_primary'))
     } else if (this.parentManagedActions) {
       // Replace mode: render ONE persistent Text inline. This branch is always taken in replace mode (the
-      // bilingual `if` above is false), so it never structurally flips when the translation arrives — the
-      // Text node persists and animateTo interpolates the card height instead of snapping. The segment
-      // source reads renderState @Trace DIRECTLY here (inside this builder, not via a @Builder value param,
-      // which is non-reactive — that was the bug that hid translations), so it still updates reactively.
+      // bilingual `if` above is false), so it never structurally flips when the translation toggles — the
+      // Text node persists and the card's animateTo (onRenderStateTranslationChange) interpolates the height.
+      // Reads the card-local mirror so the show/hide toggle animates (card-owned animateTo, see fields).
       Text() {
         ForEach(
           this.commentTextSegments(this.replaceModeActiveText(c), c),

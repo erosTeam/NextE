@@ -391,9 +391,10 @@ export struct GalleryCommentsPage {
   }
 
   // All reactive comment state mutations go through the per-comment @ObservedV2 render state (a @Trace
-  // write re-renders exactly that one card). No comments-array slice, no global version bump. The animateTo
-  // wraps ONLY this one card's resulting layout change (the body grows/shrinks to fit the translation), so
-  // the height transition is cheap — unlike the pre-refactor list-wide animateTo that drove the jank.
+  // write re-renders exactly that one card). No comments-array slice, no global version bump. Set the fields
+  // SYNCHRONOUSLY here — the animation is owned by the card (it mirrors these into its @Local inside its own
+  // animateTo, which is what actually captures the card's height/content change; a page-side animateTo
+  // across components does not).
   private applyCommentTranslationState(
     commentId: string,
     translated: string | undefined,
@@ -405,23 +406,18 @@ export struct GalleryCommentsPage {
     if (state === undefined) {
       return
     }
-    this.getUIContext().animateTo(
-      { duration: ThemeConstants.ANIM_DURATION, curve: Curve.EaseOut },
-      () => {
-        if (translated !== undefined) {
-          state.translationText = translated
-        }
-        if (shown !== undefined) {
-          state.translationShown = shown
-        }
-        if (loading !== undefined) {
-          state.translationLoading = loading
-        }
-        if (autoStarted !== undefined) {
-          state.translationAutoStarted = autoStarted
-        }
-      },
-    )
+    if (translated !== undefined) {
+      state.translationText = translated
+    }
+    if (shown !== undefined) {
+      state.translationShown = shown
+    }
+    if (loading !== undefined) {
+      state.translationLoading = loading
+    }
+    if (autoStarted !== undefined) {
+      state.translationAutoStarted = autoStarted
+    }
   }
 
   private toggleCommentTranslation(comment: EhGalleryComment): void {
