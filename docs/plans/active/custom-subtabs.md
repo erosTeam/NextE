@@ -305,10 +305,13 @@ tabs_empty_hint.
   distinct list; re-opening it in the editor seeds name + Manga-selected correctly (persist round-trip);
   search filter sheet unchanged after the extraction. V1 gate 0, i18n parity, contract, signed build green.
 
-### Phase 5 — favorite list-type fetch
-- [ ] GalleryListViewModel favorite branch (getFavoritesList + favorites paging); favcat pin honored;
-      cacheKey handling; login-gated.
-- DoD: a favorite-type tab loads the pinned favcat and pages correctly; gate 0; harness-verify green.
+### Phase 5 — favorite list-type fetch ✅ DONE
+- [x] GalleryListViewModel favorite branch: getFavoritesList + favorites page/from paging (ported from
+      FavoritesViewModel) honoring the profile favcat pin; cacheKey stays the per-uuid homeProfileKey.
+- [x] Bonus: GallerySourcePage @Monitor(profiles) reconfigures + reloads the retained VM when THIS page's
+      profile is edited (lastEditTime bump) — a live type/category/favcat edit takes effect without a restart.
+- DoD met: device .197 — a favorite-type TestDJ loaded the user's favorites (f:<favcat> labels visible);
+  editing it favorite→gallery live-reloaded into a gallery list with no restart. V1 gate 0, build green.
 
 ### Phase 6 — per-tab display mode (last, optional polish)
 - [ ] GalleryListBody overrideMode @Param; GallerySourcePage passes profile.displayMode; editor 显示模式

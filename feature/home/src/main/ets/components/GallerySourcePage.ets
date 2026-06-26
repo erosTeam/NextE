@@ -8,6 +8,7 @@ import {
   LocalBlockState,
   connectLocalBlock,
   connectCustomProfiles,
+  CustomProfilesState,
   CustomProfile,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
@@ -39,8 +40,11 @@ export struct GallerySourcePage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local localBlock: LocalBlockState = connectLocalBlock();
+  @Local profilesState: CustomProfilesState = connectCustomProfiles();
   // First-load guard: load once on first activation; later activations reuse the retained list.
   private loadedOnce: boolean = false;
+  // lastEditTime of the profile this VM is configured for; an edit bumps it → reconfigure + reload.
+  private configuredEditTime: number = -1;
 
   private isActive(): boolean {
     return this.active.activeKey === this.sourceKey
@@ -56,12 +60,28 @@ export struct GallerySourcePage {
     const profile: CustomProfile | null = connectCustomProfiles().findByUuid(this.sourceKey)
     if (profile !== null) {
       this.vm.configureFromProfile(profile)
+      this.configuredEditTime = profile.lastEditTime
     } else {
       this.vm.syncSource('', 0)
     }
     this.vm.setContext(this.ctx())
     if (this.isActive()) {
       this.loadOnce()
+    }
+  }
+
+  // A live edit to THIS page's profile (type/category/search/favcat) bumps its lastEditTime; reconfigure
+  // the retained VM and reload so the active tab reflects the change without an app restart.
+  @Monitor('profilesState.profiles')
+  onProfileEdited(): void {
+    const profile: CustomProfile | null = this.profilesState.findByUuid(this.sourceKey)
+    if (profile === null || profile.lastEditTime === this.configuredEditTime) {
+      return
+    }
+    this.configuredEditTime = profile.lastEditTime
+    this.vm.configureFromProfile(profile)
+    if (this.loadedOnce) {
+      this.vm.reload()
     }
   }
 

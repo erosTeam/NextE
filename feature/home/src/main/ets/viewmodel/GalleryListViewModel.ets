@@ -3,6 +3,7 @@ import {
   EhGallery,
   GalleryList,
   GalleryListQuery,
+  FavoritesQuery,
   Favcat,
   FavcatSlotResolver,
   FavcatSlotResolveResult,
@@ -65,6 +66,10 @@ export class GalleryListViewModel {
   // by its uuid so two gallery-type profiles with different searches don't share a cache.
   private profile: CustomProfile | null = null
   private profileUuid: string = ''
+  // Favorite-type profile pins (listType 'favorite'): the favcat slot + the favorites page cursor.
+  // Favorites paging is page+from (or nextGid fallback), distinct from the gid cursor sources.
+  private favcat: string = 'a'
+  private favNextPage: number = -1
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context
@@ -159,6 +164,36 @@ export class GalleryListViewModel {
     this.profileUuid = p.uuid
     this.source = GalleryListViewModel.sourceForListType(p.listType)
     this.toplistTl = p.toplistTl
+    this.favcat = p.favcat
+  }
+
+  private isFavorite(): boolean {
+    return this.source === 'favorite'
+  }
+
+  private buildFavQuery(next: string, page: number, from: string): FavoritesQuery {
+    return {
+      isEx: connectSiteMode().isEx,
+      favcat: this.favcat,
+      next: next,
+      page: page,
+      from: from,
+      search: this.profile !== null ? this.profile.searchText : '',
+      order: '',
+    }
+  }
+
+  /** First-page fetch for the active source (favorite uses getFavoritesList; everything else getGalleryList). */
+  private async fetchFirstPageList(): Promise<GalleryList> {
+    if (this.isFavorite()) {
+      return EhApiService.getInstance().getFavoritesList(this.buildFavQuery('', -1, ''))
+    }
+    return EhApiService.getInstance().getGalleryList(this.buildQuery(''))
+  }
+
+  private lastVisibleGid(): string {
+    const rows: EhGallery[] = this.dataSource.getAll()
+    return rows.length > 0 ? rows[rows.length - 1].gid : ''
   }
 
   private resolveFavoriteSlots(gallerys: EhGallery[]): void {
@@ -333,12 +368,13 @@ export class GalleryListViewModel {
     this.isLoading = true
     this.errorMessage = ''
     try {
-      const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
+      const list: GalleryList = await this.fetchFirstPageList()
       this.resolveFavoriteSlots(list.gallerys)
       await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
       this.toplistNextPage = list.nextPage
+      this.favNextPage = list.nextPage
       this.hasMore = this.firstPageHasMore(list)
     } catch (err) {
       const e = err as Error
@@ -354,6 +390,9 @@ export class GalleryListViewModel {
   private firstPageHasMore(list: GalleryList): boolean {
     if (this.isToplist()) {
       return list.nextPage >= 0 && list.nextPage <= list.maxPage
+    }
+    if (this.isFavorite()) {
+      return list.nextPage > 0 || list.nextGid.length > 0
     }
     return !this.isPopular() && list.nextGid.length > 0
   }
@@ -376,15 +415,17 @@ export class GalleryListViewModel {
     this.nextGid = ''
     this.lastNext = ''
     this.toplistNextPage = -1
+    this.favNextPage = -1
     this.maxPage = 0
     this.hasMore = false
     try {
-      const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
+      const list: GalleryList = await this.fetchFirstPageList()
       this.resolveFavoriteSlots(list.gallerys)
       await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
       this.toplistNextPage = list.nextPage
+      this.favNextPage = list.nextPage
       this.hasMore = this.firstPageHasMore(list)
     } catch (err) {
       const e = err as Error
@@ -407,12 +448,13 @@ export class GalleryListViewModel {
     this.lastNext = ''
     this.epoch = this.epoch + 1
     try {
-      const list: GalleryList = await EhApiService.getInstance().getGalleryList(this.buildQuery(''))
+      const list: GalleryList = await this.fetchFirstPageList()
       this.resolveFavoriteSlots(list.gallerys)
       await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
       this.toplistNextPage = list.nextPage
+      this.favNextPage = list.nextPage
       this.hasMore = this.firstPageHasMore(list)
     } catch (err) {
       const e = err as Error
@@ -429,6 +471,10 @@ export class GalleryListViewModel {
     }
     if (this.isToplist()) {
       await this.loadMoreToplist()
+      return
+    }
+    if (this.isFavorite()) {
+      await this.loadMoreFavorites()
       return
     }
     // Stale-cursor guard (eros_fe lastNext == next): no cursor, or it didn't advance since the last
@@ -506,6 +552,53 @@ export class GalleryListViewModel {
         this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('home', 'toplist_loadmore_failed', e.message)
+    }
+    this.isLoadingMore = false
+  }
+
+  /** Favorites page paging (favorite-type profiles): page+from forward, nextGid fallback. Ported from
+   * the favorites VM — favorites.php pages by page number + last-visible gid, not a pure gid cursor. */
+  private async loadMoreFavorites(): Promise<void> {
+    const page: number = this.favNextPage
+    const from: string = page >= 0 ? this.lastVisibleGid() : ''
+    const cursor: string = page >= 0 ? from : this.nextGid
+    if (cursor.length === 0) {
+      this.hasMore = false
+      return
+    }
+    const requestKey: string = page >= 0 ? `page:${page}:from:${from}` : `next:${cursor}`
+    if (requestKey === this.lastNext && this.errorMessage.length === 0) {
+      this.hasMore = false
+      return
+    }
+    this.isLoadingMore = true
+    this.errorMessage = ''
+    const myEpoch: number = this.epoch
+    try {
+      const list: GalleryList = await EhApiService.getInstance().getFavoritesList(
+        this.buildFavQuery(page >= 0 ? '' : cursor, page, from),
+      )
+      if (this.epoch === myEpoch) {
+        this.resolveFavoriteSlots(list.gallerys)
+        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
+        if (fresh.length > 0) {
+          this.dataSource.appendData(fresh)
+          this.itemCount = this.dataSource.totalCount()
+        }
+        this.nextGid = list.nextGid
+        this.favNextPage = list.nextPage
+        this.lastNext = requestKey
+        this.hasMore =
+          page >= 0
+            ? list.nextPage > 0 || list.nextGid.length > 0
+            : list.nextGid.length > 0 && list.nextGid !== cursor
+      }
+    } catch (err) {
+      const e = err as Error
+      if (this.epoch === myEpoch) {
+        this.errorMessage = EhErrorText.forUser(err)
+      }
+      DiagnosticLogger.warn('home', 'fav_loadmore_failed', e.message)
     }
     this.isLoadingMore = false
   }
