@@ -1113,6 +1113,19 @@ export struct GalleryCommentsCard {
     .alignItems(HorizontalAlign.Start)
   }
 
+  // Active text for the replace-mode body: translation when shown+ready, else original. Read inside the
+  // inlined Text builder (not passed as a @Builder param) so the dependency on renderState stays reactive.
+  private replaceModeActiveText(c: EhGalleryComment): string {
+    if (
+      this.translationEnabled() &&
+      this.renderState.translationShown &&
+      this.renderState.translationText.length > 0
+    ) {
+      return this.renderState.translationText
+    }
+    return this.displayContentText(c)
+  }
+
   @Builder
   CommentBodyContent(c: EhGalleryComment) {
     if (
@@ -1126,18 +1139,37 @@ export struct GalleryCommentsCard {
       Divider().strokeWidth(0.5).color($r('sys.color.ohos_id_color_list_separator'))
       this.CommentText(c, this.renderState.translationText, false, $r('sys.color.font_primary'))
     } else if (this.parentManagedActions) {
-      // Read the @Trace fields directly in this @Builder so the branch flips reactively when the
-      // translation arrives. (@Builder value params are NOT reactive, so a single-node "swap the string"
-      // approach silently stops updating — keep the structural if/else.)
-      if (
-        this.translationEnabled() &&
-        this.renderState.translationShown &&
-        this.renderState.translationText.length > 0
-      ) {
-        this.CommentText(c, this.renderState.translationText, false, $r('sys.color.font_primary'))
-      } else {
-        this.CommentText(c, this.displayContentText(c), this.max > 0, $r('sys.color.font_primary'))
+      // Replace mode: render ONE persistent Text inline. This branch is always taken in replace mode (the
+      // bilingual `if` above is false), so it never structurally flips when the translation arrives — the
+      // Text node persists and animateTo interpolates the card height instead of snapping. The segment
+      // source reads renderState @Trace DIRECTLY here (inside this builder, not via a @Builder value param,
+      // which is non-reactive — that was the bug that hid translations), so it still updates reactively.
+      Text() {
+        ForEach(
+          this.commentTextSegments(this.replaceModeActiveText(c), c),
+          (seg: CommentTextSegment) => {
+            if (seg.url.length > 0) {
+              Span(seg.text)
+                .fontColor($r('sys.color.font_emphasize'))
+                .decoration({
+                  type: TextDecorationType.Underline,
+                  color: $r('sys.color.font_emphasize'),
+                })
+                .onClick(() => {
+                  this.openCommentUrl(seg.url)
+                })
+            } else if (seg.emphasized) {
+              Span(seg.text).fontColor($r('sys.color.font_emphasize'))
+            } else {
+              Span(seg.text)
+            }
+          },
+          (seg: CommentTextSegment) => this.commentTextSegmentKey(seg),
+        )
       }
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor($r('sys.color.font_primary'))
+      .width('100%')
     } else if (
       this.shouldShowTranslated(c) &&
       this.translationSettings.displayMode === COMMENT_TRANSLATION_DISPLAY_BILINGUAL
