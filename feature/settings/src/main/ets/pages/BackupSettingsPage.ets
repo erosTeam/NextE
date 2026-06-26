@@ -1,7 +1,9 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common, bundleManager } from '@kit.AbilityKit'
 import {
+  AppModalScaffold,
   AppStrings,
+  appSheetOptions,
   BackupAppMetadata,
   BackupParseResult,
   ConciseListRow,
@@ -256,12 +258,11 @@ export struct BackupSettingsPage {
     Blank()
       .width(1)
       .height(1)
-      .bindSheet($$this.exportSheetShown, this.ExportSheet(), {
-        height: SheetSize.FIT_CONTENT,
-        onDisappear: () => {
-          this.exportSheetShown = false
-        },
-      })
+      .bindSheet(
+        $$this.exportSheetShown,
+        this.ExportSheet(),
+        appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
+      )
   }
 
   @Builder
@@ -269,96 +270,108 @@ export struct BackupSettingsPage {
     Blank()
       .width(1)
       .height(1)
-      .bindSheet($$this.importPwdSheetShown, this.ImportPasswordSheet(), {
-        height: SheetSize.FIT_CONTENT,
-        onDisappear: () => {
-          this.importPwdSheetShown = false
-        },
-      })
+      .bindSheet(
+        $$this.importPwdSheetShown,
+        this.ImportPasswordSheet(),
+        appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
+      )
   }
 
   @Builder
   ExportSheet() {
-    Column({ space: ThemeConstants.SPACE_MD }) {
-      Text($r('app.string.backup_export'))
-        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-      Row({ space: ThemeConstants.SPACE_SM }) {
-        Column({ space: ThemeConstants.SPACE_XS }) {
-          Text($r('app.string.backup_include_secrets'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor($r('sys.color.font_primary'))
-            .width('100%')
-          Text($r('app.string.backup_include_secrets_hint'))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_secondary'))
-            .width('100%')
+    AppModalScaffold({
+      title: $r('app.string.backup_export'),
+      confirmIcon: $r('sys.symbol.cloud_and_arrow_up'),
+      confirmText: $r('app.string.backup_export'),
+      confirmEnabled: !this.busy,
+      confirmLoading: this.busy,
+      closeAction: () => {
+        this.exportSheetShown = false
+      },
+      confirmAction: () => {
+        this.confirmExport()
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          Row({ space: ThemeConstants.SPACE_SM }) {
+            Column({ space: ThemeConstants.SPACE_XS }) {
+              Text($r('app.string.backup_include_secrets'))
+                .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_primary'))
+                .width('100%')
+              Text($r('app.string.backup_include_secrets_hint'))
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_secondary'))
+                .width('100%')
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Start)
+            Toggle({ type: ToggleType.Switch, isOn: this.includeSecrets })
+              .selectedColor(ThemeConstants.BRAND_PRIMARY)
+              .onChange((value: boolean) => {
+                this.includeSecrets = value
+              })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+          if (this.includeSecrets) {
+            this.PasswordField($r('app.string.backup_password'), (value: string) => {
+              this.exportPwd = value
+            })
+            this.PasswordField($r('app.string.backup_password_repeat'), (value: string) => {
+              this.exportPwd2 = value
+            })
+          }
         }
-        .layoutWeight(1)
-        .alignItems(HorizontalAlign.Start)
-        Toggle({ type: ToggleType.Switch, isOn: this.includeSecrets })
-          .selectedColor(ThemeConstants.BRAND_PRIMARY)
-          .onChange((value: boolean) => {
-            this.includeSecrets = value
-          })
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-      if (this.includeSecrets) {
-        TextInput({ placeholder: $r('app.string.backup_password') })
-          .type(InputType.Password)
-          .onChange((value: string) => {
-            this.exportPwd = value
-          })
-        TextInput({ placeholder: $r('app.string.backup_password_repeat') })
-          .type(InputType.Password)
-          .onChange((value: string) => {
-            this.exportPwd2 = value
-          })
-      }
-      Button($r('app.string.backup_export'))
         .width('100%')
-        .enabled(!this.busy)
-        .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-        .onClick(() => {
-          this.confirmExport()
-        })
+        .alignItems(HorizontalAlign.Start)
+        .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
+      }
     }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-    .padding(ThemeConstants.SPACE_LG)
   }
 
   @Builder
   ImportPasswordSheet() {
-    Column({ space: ThemeConstants.SPACE_MD }) {
-      Text($r('app.string.backup_encrypted_title'))
-        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
+    AppModalScaffold({
+      title: $r('app.string.backup_encrypted_title'),
+      confirmIcon: $r('sys.symbol.doc_plaintext'),
+      confirmText: $r('app.string.backup_import'),
+      confirmEnabled: !this.busy,
+      confirmLoading: this.busy,
+      closeAction: () => {
+        this.importPwdSheetShown = false
+      },
+      confirmAction: () => {
+        this.confirmDecryptImport()
+      },
+    }) {
+      ListItem() {
+        Column({ space: ThemeConstants.SPACE_MD }) {
+          Text($r('app.string.backup_encrypted_hint'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor($r('sys.color.font_secondary'))
+            .width('100%')
+          this.PasswordField($r('app.string.backup_password'), (value: string) => {
+            this.importPwd = value
+          })
+        }
         .width('100%')
-      Text($r('app.string.backup_encrypted_hint'))
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      TextInput({ placeholder: $r('app.string.backup_password') })
-        .type(InputType.Password)
-        .onChange((value: string) => {
-          this.importPwd = value
-        })
-      Button($r('app.string.backup_import'))
-        .width('100%')
-        .enabled(!this.busy)
-        .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-        .onClick(() => {
-          this.confirmDecryptImport()
-        })
+        .alignItems(HorizontalAlign.Start)
+        .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
+      }
     }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-    .padding(ThemeConstants.SPACE_LG)
+  }
+
+  @Builder
+  PasswordField(placeholder: ResourceStr, onChange: (value: string) => void) {
+    TextInput({ placeholder: placeholder })
+      .type(InputType.Password)
+      .width('100%')
+      .onChange((value: string) => {
+        onChange(value)
+      })
   }
 
   @Builder
