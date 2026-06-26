@@ -36,6 +36,12 @@ export default class EntryAbility extends UIAbility {
     DiagnosticLogger.info('app', 'session_start', 'EntryAbility.onCreate')
     try {
       webview.WebviewController.initializeWebEngine()
+      // Hardening for Cloudflare's Turnstile, which runs in a cross-origin iframe
+      // (challenges.cloudflare.com) and sets verification cookies in a third-party context that
+      // ArkWeb blocks by default. (The actual CF login-loop root cause was the WebView UA's OS token
+      // — see EhLoginWebPage; this just keeps the challenge cookies from being dropped.)
+      webview.WebCookieManager.putAcceptCookieEnabled(true)
+      webview.WebCookieManager.putAcceptThirdPartyCookieEnabled(true)
     } catch (error) {
       const e = error as Error
       DiagnosticLogger.warn('app', 'initialize_web_engine_failed', e.message)

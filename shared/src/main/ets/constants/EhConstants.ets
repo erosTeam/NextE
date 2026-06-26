@@ -17,8 +17,13 @@ export class EhConstants {
   static readonly EH_TORRENT_URL: string = 'https://ehtracker.org/get'
   static readonly EX_TORRENT_URL: string = 'https://exhentai.org/torrent'
   static readonly API_PATH: string = '/api.php'
+  // CODE=01 is the login *submit* endpoint (POST target for password login). Opening it via GET in the
+  // WebView renders the form but with a spurious "You must enter a username" banner, so the in-app web
+  // login loads the form page (CODE=00) instead.
   static readonly FORUMS_LOGIN_URL: string =
     'https://forums.e-hentai.org/index.php?act=Login&CODE=01'
+  static readonly FORUMS_LOGIN_FORM_URL: string =
+    'https://forums.e-hentai.org/index.php?act=Login&CODE=00'
 
   // Thumbnail hosts differ per site
   static readonly EH_THUMB_HOST: string = 'https://ehgt.org'

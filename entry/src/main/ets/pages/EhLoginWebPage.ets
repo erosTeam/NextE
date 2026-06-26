@@ -36,20 +36,37 @@ export struct EhLoginWebPage {
           EhWebView({
             controller: this.controller,
             onControllerAttached: () => {
-              // Present the SAME desktop-Chrome UA the app's HTTP client uses (proven to pass
-              // e-hentai's edge). ArkWeb's default WebView UA is what trips Cloudflare's managed
-              // challenge — a real browser UA lets the login page load like it does in Chrome.
-              // Must be set before loadUrl so the very first request carries it.
-              this.controller.setCustomUserAgent(EhConstants.USER_AGENT)
-              // Start from a CLEAN WebView session so a *new* account can sign in. The global WebView
-              // cookie store otherwise still holds the active account's forum session, which made the
-              // login page show the current account — there was no way to add another.
+              // Cloudflare's managed challenge (forums.e-hentai.org login) never clears under ArkWeb's
+              // native UA because its OS token "(Phone; OpenHarmony X)" is unknown to Cloudflare's
+              // device database — the challenge re-issues forever. The Huawei system browser passes
+              // precisely because it injects a "; Android 10" token so it looks like a known Android
+              // device; we mirror that. Derive from the NATIVE UA (getUserAgent) so the Chrome/ArkWeb
+              // versions and the rest of the mobile fingerprint (navigator.platform/WebGL/touch) stay
+              // self-consistent — a spoofed *desktop* UA instead contradicts that fingerprint and also
+              // fails CF (that was the original bug). Must be set before loadUrl.
+              try {
+                const native: string = this.controller.getUserAgent()
+                this.controller.setCustomUserAgent(
+                  native.replace(') AppleWebKit', '; Android 10) AppleWebKit'),
+                )
+              } catch (e) {
+                DiagnosticLogger.warn('auth', 'web_login_set_ua_failed', (e as Error).message)
+              }
+              // Turnstile runs in a cross-origin iframe whose cookies need third-party acceptance.
+              try {
+                webview.WebCookieManager.putAcceptCookieEnabled(true)
+                webview.WebCookieManager.putAcceptThirdPartyCookieEnabled(true)
+              } catch (e) {
+                DiagnosticLogger.warn('auth', 'web_login_accept_cookie_failed', (e as Error).message)
+              }
+              // Start from a CLEAN WebView session so a *new* account can sign in (the store otherwise
+              // still holds the active account's forum session). Re-solving CF afterwards is fine.
               try {
                 webview.WebCookieManager.clearAllCookiesSync()
               } catch (e) {
                 DiagnosticLogger.warn('auth', 'web_login_clear_cookie_failed', (e as Error).message)
               }
-              this.controller.loadUrl(EhConstants.FORUMS_LOGIN_URL)
+              this.controller.loadUrl(EhConstants.FORUMS_LOGIN_FORM_URL)
             },
             onPageBegin: () => {
               this.loading = true
