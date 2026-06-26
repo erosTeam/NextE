@@ -19,6 +19,8 @@ import {
   connectFavSelection,
   FavSelectionState,
   Favcat,
+  ListMode,
+  PROFILE_DISPLAY_GLOBAL,
   PROFILE_TYPE_GALLERY,
   PROFILE_TYPE_POPULAR,
   PROFILE_TYPE_WATCHED,
@@ -37,6 +39,14 @@ const TYPE_OPTIONS: TypeOption[] = [
   { value: PROFILE_TYPE_WATCHED, labelKey: 'tab_type_watched' },
   { value: PROFILE_TYPE_TOPLIST, labelKey: 'tab_type_toplist' },
   { value: PROFILE_TYPE_FAVORITE, labelKey: 'tab_type_favorite' },
+]
+const DISPLAY_OPTIONS: TypeOption[] = [
+  { value: PROFILE_DISPLAY_GLOBAL, labelKey: 'view_follow_global' },
+  { value: ListMode.LIST, labelKey: 'view_list' },
+  { value: ListMode.SIMPLE_LIST, labelKey: 'view_simple' },
+  { value: ListMode.GRID, labelKey: 'view_grid' },
+  { value: ListMode.WATERFALL, labelKey: 'view_waterfall' },
+  { value: ListMode.COVER_WALL, labelKey: 'view_cover_wall' },
 ]
 const TOPLIST_TLS: number[] = [11, 12, 13, 15]
 
@@ -69,6 +79,7 @@ export struct TabEditPage {
   ]);
   @Local private typeMenuShown: boolean = false;
   @Local private favcatMenuShown: boolean = false;
+  @Local private displayMenuShown: boolean = false;
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -120,6 +131,15 @@ export struct TabEditPage {
       }
     }
     return AppStrings.get('tab_type_gallery')
+  }
+
+  private displayLabelText(): string {
+    for (let i = 0; i < DISPLAY_OPTIONS.length; i++) {
+      if (DISPLAY_OPTIONS[i].value === this.displayMode) {
+        return AppStrings.get(DISPLAY_OPTIONS[i].labelKey)
+      }
+    }
+    return AppStrings.get('view_follow_global')
   }
 
   private favcatLabel(): string {
@@ -284,6 +304,28 @@ export struct TabEditPage {
     }
   }
 
+  @Builder
+  private DisplayMenu() {
+    Menu() {
+      ForEach(
+        DISPLAY_OPTIONS,
+        (opt: TypeOption) => {
+          MenuItem({
+            content: $r(`app.string.${opt.labelKey}`),
+            symbolEndIcon:
+              this.displayMode === opt.value
+                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+                : undefined,
+          }).onClick(() => {
+            this.displayMode = opt.value
+            this.displayMenuShown = false
+          })
+        },
+        (opt: TypeOption) => opt.value,
+      )
+    }
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({ bottomPadding: ThemeConstants.SPACE_XL, alwaysEnableEdgeSpring: true }) {
@@ -413,6 +455,27 @@ export struct TabEditPage {
                 }
               }
               .alignItems(HorizontalAlign.Start)
+            }
+          }
+          // Display mode (per-tab renderer; 'global' follows the shared default)
+          ListItem() {
+            GroupedListSection() {
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.tab_display_mode'),
+                  trailingText: this.displayLabelText(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.displayMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.displayMenuShown, this.DisplayMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.displayMenuShown = false
+                },
+              })
             }
           }
           // Delete (existing custom profiles only)

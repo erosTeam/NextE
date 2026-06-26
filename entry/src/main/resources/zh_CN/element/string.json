@@ -269,6 +269,14 @@
       "value": "请输入标签名称"
     },
     {
+      "name": "tab_display_mode",
+      "value": "显示模式"
+    },
+    {
+      "name": "view_follow_global",
+      "value": "跟随全局"
+    },
+    {
       "name": "toplist_all",
       "value": "全部"
     },

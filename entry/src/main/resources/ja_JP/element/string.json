@@ -269,6 +269,14 @@
       "value": "タブ名を入力してください"
     },
     {
+      "name": "tab_display_mode",
+      "value": "表示モード"
+    },
+    {
+      "name": "view_follow_global",
+      "value": "全体に従う"
+    },
+    {
       "name": "toplist_all",
       "value": "全期間"
     },

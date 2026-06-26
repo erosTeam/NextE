@@ -43,6 +43,9 @@ export struct GalleryListBody {
   // Index owns one Scroller per tab and passes it down so the HdsNavigation title can bindToScrollable
   // the ACTIVE tab's list (scroll-up title auto-hide). Default for standalone use.
   @Param scroller: Scroller = new Scroller();
+  // Per-tab display-mode override ('global' = follow the shared ListModeState). Changing it just
+  // re-renders this tab with a different renderer; it does NOT refetch (handled by GallerySourcePage).
+  @Param overrideMode: string = 'global';
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local listMode: ListModeState = connectListMode();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
@@ -89,6 +92,13 @@ export struct GalleryListBody {
     )
   }
 
+  // Renderer to use: the per-tab override when set, else the shared/global mode.
+  private effectiveMode(): string {
+    return this.overrideMode !== 'global' && this.overrideMode.length > 0
+      ? this.overrideMode
+      : this.listMode.mode
+  }
+
   private openDetail(g: EhGallery): void {
     this.stack.pushPathByName(
       'GalleryDetail',
@@ -126,7 +136,7 @@ export struct GalleryListBody {
         // Only the front page takes over the screen when empty; other sources fall through to the
         // scaffold so the pinned bar stays the only chrome (an empty list isn't a dead-end).
         CardEmptyState({ message: $r('app.string.common_no_content') })
-      } else if (this.listMode.mode === ListMode.GRID) {
+      } else if (this.effectiveMode() === ListMode.GRID) {
         PullRefreshGridScaffold({
           scroller: this.scroller,
           minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
@@ -181,7 +191,7 @@ export struct GalleryListBody {
             (g: EhGallery) => g.renderKey(),
           )
         }
-      } else if (this.listMode.mode === ListMode.WATERFALL) {
+      } else if (this.effectiveMode() === ListMode.WATERFALL) {
         PullRefreshWaterFlowScaffold({
           scroller: this.scroller,
           minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W,
@@ -231,7 +241,7 @@ export struct GalleryListBody {
             (g: EhGallery) => g.renderKey(),
           )
         }
-      } else if (this.listMode.mode === ListMode.COVER_WALL) {
+      } else if (this.effectiveMode() === ListMode.COVER_WALL) {
         PullRefreshWaterFlowScaffold({
           scroller: this.scroller,
           minColumnWidth: ThemeConstants.GALLERY_COVER_WALL_MIN_W,
@@ -285,7 +295,7 @@ export struct GalleryListBody {
         PullRefreshListScaffold({
           scroller: this.scroller,
           topPadding: this.topPadding,
-          listSpace: this.listMode.mode === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
+          listSpace: this.effectiveMode() === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
@@ -313,7 +323,7 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery) => {
               ListItem() {
-                if (this.listMode.mode === ListMode.SIMPLE_LIST) {
+                if (this.effectiveMode() === ListMode.SIMPLE_LIST) {
                   GallerySimpleCard({ gallery: g })
                 } else {
                   GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })

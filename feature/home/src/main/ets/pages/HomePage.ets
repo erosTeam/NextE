@@ -11,10 +11,8 @@ import {
   CustomProfilesState,
   CustomProfile,
   CustomProfilesSettings,
-  connectListMode,
-  ListModeState,
+  PROFILE_DISPLAY_GLOBAL,
   ListMode,
-  ListModeSettings,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -46,7 +44,6 @@ export struct HomePage {
   @Local homeSource: HomeSourceState = connectHomeSource();
   @Local profiles: CustomProfilesState = connectCustomProfiles();
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
-  @Local listMode: ListModeState = connectListMode();
   @Local layoutMenuShown: boolean = false;
   // Index consumes the ACTIVE source's scroller for the title-bar bindToScrollable (auto-hide).
   @Event onScrollerReady?: (scroller: Scroller) => void;
@@ -104,14 +101,22 @@ export struct HomePage {
     }
   }
 
+  // The layout menu now pins the display mode to the ACTIVE tab (eros_fe per-tab renderer), via the
+  // light setDisplayMode (no refetch). 跟随全局 ('global') reverts the tab to the shared default.
   private setViewMode(mode: string): void {
-    ListModeSettings.setMode(this.ctx(), mode)
+    CustomProfilesSettings.setDisplayMode(this.ctx(), this.selectedKey(), mode)
     this.layoutMenuShown = false
+  }
+
+  private activeDisplayMode(): string {
+    const p: CustomProfile | null = connectCustomProfiles().findByUuid(this.selectedKey())
+    return p !== null ? p.displayMode : PROFILE_DISPLAY_GLOBAL
   }
 
   @Builder
   LayoutMenu() {
     Menu() {
+      this.LayoutMenuItem($r('app.string.view_follow_global'), PROFILE_DISPLAY_GLOBAL)
       this.LayoutMenuItem($r('app.string.view_list'), ListMode.LIST)
       this.LayoutMenuItem($r('app.string.view_simple'), ListMode.SIMPLE_LIST)
       this.LayoutMenuItem($r('app.string.view_grid'), ListMode.GRID)
@@ -125,7 +130,7 @@ export struct HomePage {
     MenuItem({
       content: label,
       symbolEndIcon:
-        this.listMode.mode === mode
+        this.activeDisplayMode() === mode
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
     }).onClick(() => {

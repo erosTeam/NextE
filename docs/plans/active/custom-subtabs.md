@@ -313,8 +313,15 @@ tabs_empty_hint.
 - DoD met: device .197 — a favorite-type TestDJ loaded the user's favorites (f:<favcat> labels visible);
   editing it favorite→gallery live-reloaded into a gallery list with no restart. V1 gate 0, build green.
 
-### Phase 6 — per-tab display mode (last, optional polish)
-- [ ] GalleryListBody overrideMode @Param; GallerySourcePage passes profile.displayMode; editor 显示模式
-      row enabled; resolve layout-menu write-target (recommend active profile).
-- DoD: switching tabs can change renderer per profile; 跟随全局 works; no column-width regression;
-  gate 0; harness-verify green.
+### Phase 6 — per-tab display mode (last, optional polish) ✅ DONE
+- [x] GalleryListBody overrideMode @Param + effectiveMode() (override else global); GallerySourcePage
+      passes profile.displayMode and re-renders on a display-only edit (no refetch); editor 显示模式 row
+      (跟随全局 + 5 modes); the home layout menu now writes the ACTIVE tab's displayMode via the light
+      CustomProfilesSettings.setDisplayMode (no reload), checkmark reflects the active tab.
+- DoD met: device .197 — layout menu set TestDJ→网格 (re-rendered grid, no refetch) while 默认 stayed
+  list (per-tab isolation); 跟随全局 shown checked for a global tab. V1 gate 0, signed build green.
+
+---
+**All 6 phases complete.** Custom sub-tabs ship: built-in + user profiles, manage page (reorder/hide/
+delete), full editor (create/edit, all 5 list types, category/search/advanced, favcat/period, display
+mode), favorite fetch, live edit-reload, per-tab renderer. Plan ready to move to completed/.

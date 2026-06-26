@@ -269,6 +269,14 @@
       "value": "Enter a tab name"
     },
     {
+      "name": "tab_display_mode",
+      "value": "Display mode"
+    },
+    {
+      "name": "view_follow_global",
+      "value": "Follow global"
+    },
+    {
       "name": "toplist_all",
       "value": "All-Time"
     },

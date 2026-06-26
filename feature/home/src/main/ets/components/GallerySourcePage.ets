@@ -41,6 +41,8 @@ export struct GallerySourcePage {
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local profilesState: CustomProfilesState = connectCustomProfiles();
+  // Per-tab display-mode override passed to the list body ('global' = follow the shared ListModeState).
+  @Local displayMode: string = 'global';
   // First-load guard: load once on first activation; later activations reuse the retained list.
   private loadedOnce: boolean = false;
   // lastEditTime of the profile this VM is configured for; an edit bumps it → reconfigure + reload.
@@ -61,6 +63,7 @@ export struct GallerySourcePage {
     if (profile !== null) {
       this.vm.configureFromProfile(profile)
       this.configuredEditTime = profile.lastEditTime
+      this.displayMode = profile.displayMode
     } else {
       this.vm.syncSource('', 0)
     }
@@ -75,7 +78,15 @@ export struct GallerySourcePage {
   @Monitor('profilesState.profiles')
   onProfileEdited(): void {
     const profile: CustomProfile | null = this.profilesState.findByUuid(this.sourceKey)
-    if (profile === null || profile.lastEditTime === this.configuredEditTime) {
+    if (profile === null) {
+      return
+    }
+    // Display-mode change only re-renders (no refetch).
+    if (profile.displayMode !== this.displayMode) {
+      this.displayMode = profile.displayMode
+    }
+    // Content-affecting edit (type/category/search/favcat) bumps lastEditTime → reconfigure + reload.
+    if (profile.lastEditTime === this.configuredEditTime) {
       return
     }
     this.configuredEditTime = profile.lastEditTime
@@ -130,6 +141,7 @@ export struct GallerySourcePage {
       vm: this.vm,
       topPadding: SELECTOR_BAR_HEIGHT,
       scroller: this.scroller,
+      overrideMode: this.displayMode,
       onDidScroll: (offset: number, state: ScrollState) => {
         if (this.onDidScroll) {
           this.onDidScroll(offset, state)

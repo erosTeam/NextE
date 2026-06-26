@@ -153,6 +153,28 @@ export class CustomProfilesSettings {
     await CustomProfilesSettings.persistAll(context)
   }
 
+  /** Pin a per-tab display mode ('global' = follow the shared ListModeState). Does NOT bump lastEditTime
+   * so the retained page only re-renders with the new renderer — it must not refetch. */
+  static async setDisplayMode(
+    context: common.UIAbilityContext,
+    uuid: string,
+    mode: string,
+  ): Promise<void> {
+    const state: CustomProfilesState = connectCustomProfiles()
+    const next: CustomProfile[] = []
+    state.profiles.forEach((p: CustomProfile) => {
+      if (p.uuid === uuid && p.displayMode !== mode) {
+        const c: CustomProfile = p.copy()
+        c.displayMode = mode
+        next.push(c)
+      } else {
+        next.push(p)
+      }
+    })
+    state.profiles = next
+    await CustomProfilesSettings.persistAll(context)
+  }
+
   /** Show/hide a profile in the bar (built-ins are hidden rather than deleted). */
   static async setHidden(
     context: common.UIAbilityContext,
