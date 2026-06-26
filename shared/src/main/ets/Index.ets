@@ -312,6 +312,22 @@ export {
 } from './state/HomeSourceState'
 export { SubTabBar } from './components/SubTabBar'
 export { TabItem } from './model/TabItem'
+export {
+  CustomProfile,
+  isValidProfileType,
+  newProfileUuid,
+  PROFILE_TYPE_GALLERY,
+  PROFILE_TYPE_POPULAR,
+  PROFILE_TYPE_WATCHED,
+  PROFILE_TYPE_TOPLIST,
+  PROFILE_TYPE_FAVORITE,
+  PROFILE_DISPLAY_GLOBAL,
+  BUILTIN_DEFAULT_UUID,
+  BUILTIN_POPULAR_UUID,
+  BUILTIN_WATCHED_UUID,
+} from './model/CustomProfile'
+export { CustomProfilesState, connectCustomProfiles } from './state/CustomProfilesState'
+export { CustomProfilesSettings } from './settings/CustomProfilesSettings'
 export { RetainedSubtabHost, ActiveKeyState } from './components/RetainedSubtabHost'
 export {
   FavSelectionState,

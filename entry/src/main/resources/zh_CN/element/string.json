@@ -181,6 +181,14 @@
       "value": "排行"
     },
     {
+      "name": "tab_seed_chinese",
+      "value": "汉化"
+    },
+    {
+      "name": "tab_seed_anthology",
+      "value": "选集"
+    },
+    {
       "name": "toplist_all",
       "value": "全部"
     },

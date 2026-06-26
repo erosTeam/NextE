@@ -21,6 +21,7 @@ import { DownloadQueueSettings } from './DownloadQueueSettings'
 import { SecuritySettings } from './SecuritySettings'
 import { UserTagLoader } from '../services/UserTagLoader'
 import { SubtabSelectionSettings } from './SubtabSelectionSettings'
+import { CustomProfilesSettings } from './CustomProfilesSettings'
 import { AppColorFavoritesSettings } from './AppColorFavoritesSettings'
 import { HomeTabSettings } from './HomeTabSettings'
 import { ToplistFilterSettings } from './ToplistFilterSettings'
@@ -72,6 +73,9 @@ export class SettingsBootstrap {
       await ViewedHistorySettings.restore(context)
       await GalleryReadProgressSettings.restore(context)
       await SubtabSelectionSettings.restore(context)
+      // Seed/restore the custom home sub-tab profiles (Phase 1: holder only; the bar still reads
+      // HomeSourceState until Phase 2 wires it to profiles). Migrates the legacy HOME_SOURCE selection.
+      await CustomProfilesSettings.restore(context)
       await AppColorFavoritesSettings.restore(context)
       await HomeTabSettings.restore(context)
       await ToplistFilterSettings.restore(context)

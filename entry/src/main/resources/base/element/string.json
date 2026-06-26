@@ -181,6 +181,14 @@
       "value": "Toplist"
     },
     {
+      "name": "tab_seed_chinese",
+      "value": "Chinese"
+    },
+    {
+      "name": "tab_seed_anthology",
+      "value": "Anthology"
+    },
+    {
       "name": "toplist_all",
       "value": "All-Time"
     },

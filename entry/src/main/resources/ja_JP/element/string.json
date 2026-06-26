@@ -181,6 +181,14 @@
       "value": "ランキング"
     },
     {
+      "name": "tab_seed_chinese",
+      "value": "中国語"
+    },
+    {
+      "name": "tab_seed_anthology",
+      "value": "アンソロジー"
+    },
+    {
       "name": "toplist_all",
       "value": "全期間"
     },
