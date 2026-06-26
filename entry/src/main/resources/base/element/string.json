@@ -2479,6 +2479,338 @@
     {
       "name": "search_suggestion_namespace",
       "value": "Namespace: "
+    },
+    {
+      "name": "ehp_title",
+      "value": "EH Settings"
+    },
+    {
+      "name": "ehp_entry_title",
+      "value": "EH Account Settings"
+    },
+    {
+      "name": "ehp_entry_hint",
+      "value": "Edit your EH profile (uconfig)"
+    },
+    {
+      "name": "ehp_open_web",
+      "value": "Open in web"
+    },
+    {
+      "name": "ehp_saved",
+      "value": "Saved"
+    },
+    {
+      "name": "ehp_save_failed",
+      "value": "Save failed"
+    },
+    {
+      "name": "ehp_load_failed",
+      "value": "Failed to load settings"
+    },
+    {
+      "name": "ehp_sec_image",
+      "value": "Images"
+    },
+    {
+      "name": "ehp_sec_display",
+      "value": "Display"
+    },
+    {
+      "name": "ehp_sec_thumb",
+      "value": "Thumbnails"
+    },
+    {
+      "name": "ehp_sec_comment_tag",
+      "value": "Comments & Tags"
+    },
+    {
+      "name": "ehp_sec_fav",
+      "value": "Favorites & Search"
+    },
+    {
+      "name": "ehp_sec_rating",
+      "value": "Rating Colors"
+    },
+    {
+      "name": "ehp_sec_archiver",
+      "value": "Archiver"
+    },
+    {
+      "name": "ehp_sec_mpv",
+      "value": "Multi-Page Viewer"
+    },
+    {
+      "name": "ehp_sec_hath",
+      "value": "H@H Local Host"
+    },
+    {
+      "name": "ehp_sec_exclude_uploader",
+      "value": "Excluded Uploaders"
+    },
+    {
+      "name": "ehp_sec_fav_names",
+      "value": "Favorite Names"
+    },
+    {
+      "name": "ehp_uh",
+      "value": "Load through H@H"
+    },
+    {
+      "name": "ehp_xr",
+      "value": "Resample Resolution"
+    },
+    {
+      "name": "ehp_rx",
+      "value": "Max Width"
+    },
+    {
+      "name": "ehp_ry",
+      "value": "Max Height"
+    },
+    {
+      "name": "ehp_tl",
+      "value": "Gallery Name Display"
+    },
+    {
+      "name": "ehp_dm",
+      "value": "Front Page Mode"
+    },
+    {
+      "name": "ehp_pn",
+      "value": "Thumbnail Labeling"
+    },
+    {
+      "name": "ehp_lt",
+      "value": "Thumbnail Loading"
+    },
+    {
+      "name": "ehp_ts",
+      "value": "Thumbnail Size"
+    },
+    {
+      "name": "ehp_tr",
+      "value": "Thumbnail Rows"
+    },
+    {
+      "name": "ehp_tp",
+      "value": "Thumbnail Scaling"
+    },
+    {
+      "name": "ehp_vp",
+      "value": "Viewport Override"
+    },
+    {
+      "name": "ehp_cs",
+      "value": "Comment Sort"
+    },
+    {
+      "name": "ehp_sc",
+      "value": "Show Votes"
+    },
+    {
+      "name": "ehp_tb",
+      "value": "Tag Sort"
+    },
+    {
+      "name": "ehp_ft",
+      "value": "Tag Filtering Threshold"
+    },
+    {
+      "name": "ehp_wt",
+      "value": "Tag Watching Threshold"
+    },
+    {
+      "name": "ehp_fs",
+      "value": "Favorites Default Sort"
+    },
+    {
+      "name": "ehp_rc",
+      "value": "Results Per Page"
+    },
+    {
+      "name": "ehp_ru",
+      "value": "Rating Colors"
+    },
+    {
+      "name": "ehp_ar",
+      "value": "Archiver Behavior"
+    },
+    {
+      "name": "ehp_qb",
+      "value": "Always Use Multi-Page Viewer"
+    },
+    {
+      "name": "ehp_ms",
+      "value": "MPV Display Style"
+    },
+    {
+      "name": "ehp_mt",
+      "value": "Thumbnail Pane"
+    },
+    {
+      "name": "ehp_oi",
+      "value": "Original Images"
+    },
+    {
+      "name": "ehp_hh",
+      "value": "Local Network Host"
+    },
+    {
+      "name": "ehp_xu_hint",
+      "value": "One username per line"
+    },
+    {
+      "name": "ehp_fav_name_hint",
+      "value": "Favorite name"
+    },
+    {
+      "name": "ehp_auto",
+      "value": "Auto"
+    },
+    {
+      "name": "ehp_normal",
+      "value": "Normal"
+    },
+    {
+      "name": "ehp_small",
+      "value": "Small"
+    },
+    {
+      "name": "ehp_uh_0",
+      "value": "Any client (Recommended)"
+    },
+    {
+      "name": "ehp_uh_1",
+      "value": "Default port clients only"
+    },
+    {
+      "name": "ehp_uh_2",
+      "value": "No [Modern/HTTPS]"
+    },
+    {
+      "name": "ehp_uh_3",
+      "value": "No [Legacy/HTTP]"
+    },
+    {
+      "name": "ehp_tl_0",
+      "value": "Default Title"
+    },
+    {
+      "name": "ehp_tl_1",
+      "value": "Japanese Title"
+    },
+    {
+      "name": "ehp_dm_0",
+      "value": "Compact"
+    },
+    {
+      "name": "ehp_dm_1",
+      "value": "Thumbnail"
+    },
+    {
+      "name": "ehp_dm_2",
+      "value": "Extended"
+    },
+    {
+      "name": "ehp_dm_3",
+      "value": "Minimal"
+    },
+    {
+      "name": "ehp_dm_4",
+      "value": "Minimal+"
+    },
+    {
+      "name": "ehp_pn_0",
+      "value": "None"
+    },
+    {
+      "name": "ehp_pn_1",
+      "value": "Page Number Only"
+    },
+    {
+      "name": "ehp_pn_2",
+      "value": "Page Number + Name"
+    },
+    {
+      "name": "ehp_lt_0",
+      "value": "On mouse-over"
+    },
+    {
+      "name": "ehp_lt_1",
+      "value": "On page load"
+    },
+    {
+      "name": "ehp_cs_0",
+      "value": "Oldest first"
+    },
+    {
+      "name": "ehp_cs_1",
+      "value": "Recent first"
+    },
+    {
+      "name": "ehp_cs_2",
+      "value": "By highest score"
+    },
+    {
+      "name": "ehp_sc_0",
+      "value": "On hover or click"
+    },
+    {
+      "name": "ehp_sc_1",
+      "value": "Always"
+    },
+    {
+      "name": "ehp_tb_0",
+      "value": "Alphabetical"
+    },
+    {
+      "name": "ehp_tb_1",
+      "value": "By tag power"
+    },
+    {
+      "name": "ehp_fs_0",
+      "value": "By update time"
+    },
+    {
+      "name": "ehp_fs_1",
+      "value": "By favorited time"
+    },
+    {
+      "name": "ehp_ar_0",
+      "value": "Manual Select, Manual Start"
+    },
+    {
+      "name": "ehp_ar_1",
+      "value": "Manual Select, Auto Start"
+    },
+    {
+      "name": "ehp_ar_2",
+      "value": "Auto Original, Manual Start"
+    },
+    {
+      "name": "ehp_ar_3",
+      "value": "Auto Original, Auto Start"
+    },
+    {
+      "name": "ehp_ar_4",
+      "value": "Auto Resample, Manual Start"
+    },
+    {
+      "name": "ehp_ar_5",
+      "value": "Auto Resample, Auto Start"
+    },
+    {
+      "name": "ehp_ms_0",
+      "value": "Align left"
+    },
+    {
+      "name": "ehp_ms_1",
+      "value": "Align center 1"
+    },
+    {
+      "name": "ehp_ms_2",
+      "value": "Align center 2"
     }
   ]
 }

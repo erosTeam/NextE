@@ -2479,6 +2479,338 @@
     {
       "name": "search_suggestion_namespace",
       "value": "名前空間: "
+    },
+    {
+      "name": "ehp_title",
+      "value": "EH 設定"
+    },
+    {
+      "name": "ehp_entry_title",
+      "value": "EH アカウント設定"
+    },
+    {
+      "name": "ehp_entry_hint",
+      "value": "EH プロフィール（uconfig）を編集"
+    },
+    {
+      "name": "ehp_open_web",
+      "value": "ウェブで開く"
+    },
+    {
+      "name": "ehp_saved",
+      "value": "保存しました"
+    },
+    {
+      "name": "ehp_save_failed",
+      "value": "保存に失敗しました"
+    },
+    {
+      "name": "ehp_load_failed",
+      "value": "設定の読み込みに失敗しました"
+    },
+    {
+      "name": "ehp_sec_image",
+      "value": "画像"
+    },
+    {
+      "name": "ehp_sec_display",
+      "value": "表示"
+    },
+    {
+      "name": "ehp_sec_thumb",
+      "value": "サムネイル"
+    },
+    {
+      "name": "ehp_sec_comment_tag",
+      "value": "コメントとタグ"
+    },
+    {
+      "name": "ehp_sec_fav",
+      "value": "お気に入りと検索"
+    },
+    {
+      "name": "ehp_sec_rating",
+      "value": "評価の色"
+    },
+    {
+      "name": "ehp_sec_archiver",
+      "value": "アーカイバー"
+    },
+    {
+      "name": "ehp_sec_mpv",
+      "value": "マルチページビューア"
+    },
+    {
+      "name": "ehp_sec_hath",
+      "value": "H@H ローカルホスト"
+    },
+    {
+      "name": "ehp_sec_exclude_uploader",
+      "value": "除外する投稿者"
+    },
+    {
+      "name": "ehp_sec_fav_names",
+      "value": "お気に入り名"
+    },
+    {
+      "name": "ehp_uh",
+      "value": "H@H 経由で読み込み"
+    },
+    {
+      "name": "ehp_xr",
+      "value": "リサンプル解像度"
+    },
+    {
+      "name": "ehp_rx",
+      "value": "最大幅"
+    },
+    {
+      "name": "ehp_ry",
+      "value": "最大高さ"
+    },
+    {
+      "name": "ehp_tl",
+      "value": "ギャラリー名表示"
+    },
+    {
+      "name": "ehp_dm",
+      "value": "トップページ表示"
+    },
+    {
+      "name": "ehp_pn",
+      "value": "サムネイルのラベル"
+    },
+    {
+      "name": "ehp_lt",
+      "value": "サムネイル読み込み"
+    },
+    {
+      "name": "ehp_ts",
+      "value": "サムネイルサイズ"
+    },
+    {
+      "name": "ehp_tr",
+      "value": "サムネイル行数"
+    },
+    {
+      "name": "ehp_tp",
+      "value": "サムネイル拡大率"
+    },
+    {
+      "name": "ehp_vp",
+      "value": "ビューポート上書き"
+    },
+    {
+      "name": "ehp_cs",
+      "value": "コメント並び順"
+    },
+    {
+      "name": "ehp_sc",
+      "value": "投票数を表示"
+    },
+    {
+      "name": "ehp_tb",
+      "value": "タグ並び順"
+    },
+    {
+      "name": "ehp_ft",
+      "value": "タグフィルタ閾値"
+    },
+    {
+      "name": "ehp_wt",
+      "value": "タグ監視閾値"
+    },
+    {
+      "name": "ehp_fs",
+      "value": "お気に入りの既定並び"
+    },
+    {
+      "name": "ehp_rc",
+      "value": "1ページの件数"
+    },
+    {
+      "name": "ehp_ru",
+      "value": "評価の色"
+    },
+    {
+      "name": "ehp_ar",
+      "value": "アーカイバーの動作"
+    },
+    {
+      "name": "ehp_qb",
+      "value": "常にマルチページビューアを使用"
+    },
+    {
+      "name": "ehp_ms",
+      "value": "MPV 表示スタイル"
+    },
+    {
+      "name": "ehp_mt",
+      "value": "サムネイルペイン"
+    },
+    {
+      "name": "ehp_oi",
+      "value": "オリジナル画像"
+    },
+    {
+      "name": "ehp_hh",
+      "value": "ローカルネットワークホスト"
+    },
+    {
+      "name": "ehp_xu_hint",
+      "value": "1行に1ユーザー名"
+    },
+    {
+      "name": "ehp_fav_name_hint",
+      "value": "お気に入り名"
+    },
+    {
+      "name": "ehp_auto",
+      "value": "自動"
+    },
+    {
+      "name": "ehp_normal",
+      "value": "標準"
+    },
+    {
+      "name": "ehp_small",
+      "value": "小"
+    },
+    {
+      "name": "ehp_uh_0",
+      "value": "任意のクライアント（推奨）"
+    },
+    {
+      "name": "ehp_uh_1",
+      "value": "デフォルトポートのみ"
+    },
+    {
+      "name": "ehp_uh_2",
+      "value": "なし [Modern/HTTPS]"
+    },
+    {
+      "name": "ehp_uh_3",
+      "value": "なし [Legacy/HTTP]"
+    },
+    {
+      "name": "ehp_tl_0",
+      "value": "デフォルトタイトル"
+    },
+    {
+      "name": "ehp_tl_1",
+      "value": "日本語タイトル"
+    },
+    {
+      "name": "ehp_dm_0",
+      "value": "コンパクト"
+    },
+    {
+      "name": "ehp_dm_1",
+      "value": "サムネイル"
+    },
+    {
+      "name": "ehp_dm_2",
+      "value": "拡張"
+    },
+    {
+      "name": "ehp_dm_3",
+      "value": "ミニマル"
+    },
+    {
+      "name": "ehp_dm_4",
+      "value": "ミニマル+"
+    },
+    {
+      "name": "ehp_pn_0",
+      "value": "なし"
+    },
+    {
+      "name": "ehp_pn_1",
+      "value": "ページ番号のみ"
+    },
+    {
+      "name": "ehp_pn_2",
+      "value": "ページ番号 + 名前"
+    },
+    {
+      "name": "ehp_lt_0",
+      "value": "マウスオーバー時"
+    },
+    {
+      "name": "ehp_lt_1",
+      "value": "ページ読み込み時"
+    },
+    {
+      "name": "ehp_cs_0",
+      "value": "古い順"
+    },
+    {
+      "name": "ehp_cs_1",
+      "value": "新しい順"
+    },
+    {
+      "name": "ehp_cs_2",
+      "value": "スコア順"
+    },
+    {
+      "name": "ehp_sc_0",
+      "value": "ホバー/クリック時"
+    },
+    {
+      "name": "ehp_sc_1",
+      "value": "常に"
+    },
+    {
+      "name": "ehp_tb_0",
+      "value": "アルファベット順"
+    },
+    {
+      "name": "ehp_tb_1",
+      "value": "タグの強さ順"
+    },
+    {
+      "name": "ehp_fs_0",
+      "value": "更新時間順"
+    },
+    {
+      "name": "ehp_fs_1",
+      "value": "お気に入り追加順"
+    },
+    {
+      "name": "ehp_ar_0",
+      "value": "手動選択・手動開始"
+    },
+    {
+      "name": "ehp_ar_1",
+      "value": "手動選択・自動開始"
+    },
+    {
+      "name": "ehp_ar_2",
+      "value": "自動(原本)・手動開始"
+    },
+    {
+      "name": "ehp_ar_3",
+      "value": "自動(原本)・自動開始"
+    },
+    {
+      "name": "ehp_ar_4",
+      "value": "自動(再サンプル)・手動開始"
+    },
+    {
+      "name": "ehp_ar_5",
+      "value": "自動(再サンプル)・自動開始"
+    },
+    {
+      "name": "ehp_ms_0",
+      "value": "左揃え"
+    },
+    {
+      "name": "ehp_ms_1",
+      "value": "中央揃え 1"
+    },
+    {
+      "name": "ehp_ms_2",
+      "value": "中央揃え 2"
     }
   ]
 }

@@ -1,0 +1,59 @@
+#!/usr/bin/env node
+/**
+ * Contract for the EH Profile (uconfig) native editor UI wiring.
+ *
+ * Guards the fragile bits: the NON-contiguous radio value maps (image size 0/5/4/3/1, front page
+ * 3/4/0/2/1, archiver 0..5), the inverted mt toggle, the load/save calls, the top-right Save + WebView
+ * actions, route + entry wiring, and i18n parity for the page's keys.
+ * Run: node scripts/test_eh_profile_ui_contract.mjs
+ */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+const ROOT = process.cwd()
+const read = (p) => readFileSync(join(ROOT, p), 'utf8')
+let failures = 0
+const ok = (name, cond) => {
+  if (!cond) {
+    console.error(`✗ ${name}`)
+    failures += 1
+  }
+}
+
+const page = read('feature/settings/src/main/ets/pages/EhProfileSettingsPage.ets')
+
+ok('loads + saves via EhApiService', /getUserConfig\(this\.site\.isEx\)/.test(page) && /saveUserConfig\(this\.site\.isEx, this\.settings\)/.test(page))
+ok('top-right Save action', /AppStrings\.get\('common_save'\)/.test(page) && /this\.save\(\)/.test(page))
+ok('top-right WebView entry opens uconfig.php', /\/uconfig\.php/.test(page) && /pushPathByName\('GalleryWeb'/.test(page))
+
+// Non-contiguous option value maps (value != index — the easy-to-break part).
+ok('image size values 0/5/4/3/1 with 2400x/1600x/1280x/780x', /new UcOption\(5, '2400x'\)/.test(page) && /new UcOption\(4, '1600x'\)/.test(page) && /new UcOption\(3, '1280x'\)/.test(page) && /new UcOption\(1, '780x'\)/.test(page))
+ok('front page mode values 3/4/0/2/1', /new UcOption\(3, \$r\('app\.string\.ehp_dm_3'\)\)/.test(page) && /new UcOption\(4, \$r\('app\.string\.ehp_dm_4'\)\)/.test(page) && /new UcOption\(1, \$r\('app\.string\.ehp_dm_1'\)\)/.test(page))
+ok('archiver values 0..5', /new UcOption\(0, \$r\('app\.string\.ehp_ar_0'\)\)/.test(page) && /new UcOption\(5, \$r\('app\.string\.ehp_ar_5'\)\)/.test(page))
+
+// Toggles + the inverted mt (pane shown when form value is 0).
+ok('oi/qb toggles map 1/0', /this\.settings\.originalImages = value \? 1 : 0/.test(page) && /this\.settings\.alwaysUseMpv = value \? 1 : 0/.test(page))
+ok('mt toggle is inverted (checked when ===0, on->0 off->1)', /this\.settings\.mpvThumbnailPane === 0/.test(page) && /this\.settings\.mpvThumbnailPane = value \? 0 : 1/.test(page))
+
+// Standard infra (no hand-rolled selectors).
+ok('uses ConciseListRow dropdown + SettingsCheckedMenuItem + bindMenu', /trailingDropdown: true/.test(page) && /SettingsCheckedMenuItem\(/.test(page) && /\.bindMenu\(this\.menuShown/.test(page))
+
+// Wiring.
+ok('route registered', /name === 'EhProfileSettings'[\s\S]*EhProfileSettingsPage\(\)/.test(read('entry/src/main/ets/pages/Index.ets')))
+ok('exported from feature/settings', /export \{ EhProfileSettingsPage \}/.test(read('feature/settings/src/main/ets/Index.ets')))
+ok('EhSettings page links to it', /pushPathByName\('EhProfileSettings'/.test(read('feature/settings/src/main/ets/pages/EhSettingsPage.ets')))
+
+// i18n parity for a representative spread of the page's keys.
+for (const loc of ['base', 'zh_CN', 'en_US', 'ja_JP']) {
+  const s = read(`entry/src/main/resources/${loc}/element/string.json`)
+  for (const key of ['ehp_title', 'ehp_entry_title', 'ehp_open_web', 'ehp_uh', 'ehp_xr', 'ehp_ar', 'ehp_mt', 'ehp_dm_3', 'ehp_uh_0', 'ehp_saved']) {
+    ok(`${loc} has ${key}`, new RegExp(`"name": "${key}"`).test(s))
+  }
+}
+
+if (failures === 0) {
+  console.log('✓ eh profile ui contract passed')
+  process.exit(0)
+}
+console.error(`✗ eh profile ui contract: ${failures} failure(s)`)
+process.exit(1)

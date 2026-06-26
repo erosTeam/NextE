@@ -1,5 +1,6 @@
 export { SettingsPage } from './pages/SettingsPage'
 export { EhSettingsPage } from './pages/EhSettingsPage'
+export { EhProfileSettingsPage } from './pages/EhProfileSettingsPage'
 export { AccountPage } from './pages/AccountPage'
 export { AccountLoginPage } from './pages/AccountLoginPage'
 export { LayoutSettingsPage } from './pages/LayoutSettingsPage'

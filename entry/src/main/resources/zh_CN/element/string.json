@@ -2479,6 +2479,338 @@
     {
       "name": "search_suggestion_namespace",
       "value": "命名空间："
+    },
+    {
+      "name": "ehp_title",
+      "value": "EH 设置"
+    },
+    {
+      "name": "ehp_entry_title",
+      "value": "EH 账号设置"
+    },
+    {
+      "name": "ehp_entry_hint",
+      "value": "在线修改 EH Profile（uconfig）"
+    },
+    {
+      "name": "ehp_open_web",
+      "value": "在网页中打开"
+    },
+    {
+      "name": "ehp_saved",
+      "value": "已保存"
+    },
+    {
+      "name": "ehp_save_failed",
+      "value": "保存失败"
+    },
+    {
+      "name": "ehp_load_failed",
+      "value": "加载设置失败"
+    },
+    {
+      "name": "ehp_sec_image",
+      "value": "图片"
+    },
+    {
+      "name": "ehp_sec_display",
+      "value": "显示"
+    },
+    {
+      "name": "ehp_sec_thumb",
+      "value": "缩略图"
+    },
+    {
+      "name": "ehp_sec_comment_tag",
+      "value": "评论与标签"
+    },
+    {
+      "name": "ehp_sec_fav",
+      "value": "收藏与搜索"
+    },
+    {
+      "name": "ehp_sec_rating",
+      "value": "评分颜色"
+    },
+    {
+      "name": "ehp_sec_archiver",
+      "value": "归档"
+    },
+    {
+      "name": "ehp_sec_mpv",
+      "value": "多页查看器"
+    },
+    {
+      "name": "ehp_sec_hath",
+      "value": "H@H 本地主机"
+    },
+    {
+      "name": "ehp_sec_exclude_uploader",
+      "value": "排除上传者"
+    },
+    {
+      "name": "ehp_sec_fav_names",
+      "value": "收藏夹名称"
+    },
+    {
+      "name": "ehp_uh",
+      "value": "通过 H@H 加载"
+    },
+    {
+      "name": "ehp_xr",
+      "value": "重采样分辨率"
+    },
+    {
+      "name": "ehp_rx",
+      "value": "最大宽度"
+    },
+    {
+      "name": "ehp_ry",
+      "value": "最大高度"
+    },
+    {
+      "name": "ehp_tl",
+      "value": "画廊名称显示"
+    },
+    {
+      "name": "ehp_dm",
+      "value": "首页显示模式"
+    },
+    {
+      "name": "ehp_pn",
+      "value": "缩略图标注"
+    },
+    {
+      "name": "ehp_lt",
+      "value": "缩略图加载时机"
+    },
+    {
+      "name": "ehp_ts",
+      "value": "缩略图大小"
+    },
+    {
+      "name": "ehp_tr",
+      "value": "缩略图行数"
+    },
+    {
+      "name": "ehp_tp",
+      "value": "缩略图缩放"
+    },
+    {
+      "name": "ehp_vp",
+      "value": "视口覆盖"
+    },
+    {
+      "name": "ehp_cs",
+      "value": "评论排序"
+    },
+    {
+      "name": "ehp_sc",
+      "value": "显示投票数"
+    },
+    {
+      "name": "ehp_tb",
+      "value": "标签排序"
+    },
+    {
+      "name": "ehp_ft",
+      "value": "标签过滤阈值"
+    },
+    {
+      "name": "ehp_wt",
+      "value": "标签关注阈值"
+    },
+    {
+      "name": "ehp_fs",
+      "value": "收藏默认排序"
+    },
+    {
+      "name": "ehp_rc",
+      "value": "每页结果数"
+    },
+    {
+      "name": "ehp_ru",
+      "value": "评分颜色"
+    },
+    {
+      "name": "ehp_ar",
+      "value": "归档下载方式"
+    },
+    {
+      "name": "ehp_qb",
+      "value": "总是使用多页查看器"
+    },
+    {
+      "name": "ehp_ms",
+      "value": "多页查看器样式"
+    },
+    {
+      "name": "ehp_mt",
+      "value": "显示缩略图侧栏"
+    },
+    {
+      "name": "ehp_oi",
+      "value": "使用原图"
+    },
+    {
+      "name": "ehp_hh",
+      "value": "本地网络主机"
+    },
+    {
+      "name": "ehp_xu_hint",
+      "value": "每行一个用户名"
+    },
+    {
+      "name": "ehp_fav_name_hint",
+      "value": "收藏夹名称"
+    },
+    {
+      "name": "ehp_auto",
+      "value": "自动"
+    },
+    {
+      "name": "ehp_normal",
+      "value": "普通"
+    },
+    {
+      "name": "ehp_small",
+      "value": "小"
+    },
+    {
+      "name": "ehp_uh_0",
+      "value": "任意客户端（推荐）"
+    },
+    {
+      "name": "ehp_uh_1",
+      "value": "仅默认端口客户端"
+    },
+    {
+      "name": "ehp_uh_2",
+      "value": "否 [现代/HTTPS]"
+    },
+    {
+      "name": "ehp_uh_3",
+      "value": "否 [旧版/HTTP]"
+    },
+    {
+      "name": "ehp_tl_0",
+      "value": "默认标题"
+    },
+    {
+      "name": "ehp_tl_1",
+      "value": "日文标题（若有）"
+    },
+    {
+      "name": "ehp_dm_0",
+      "value": "紧凑"
+    },
+    {
+      "name": "ehp_dm_1",
+      "value": "缩略图"
+    },
+    {
+      "name": "ehp_dm_2",
+      "value": "扩展"
+    },
+    {
+      "name": "ehp_dm_3",
+      "value": "极简"
+    },
+    {
+      "name": "ehp_dm_4",
+      "value": "极简+"
+    },
+    {
+      "name": "ehp_pn_0",
+      "value": "无"
+    },
+    {
+      "name": "ehp_pn_1",
+      "value": "仅页码"
+    },
+    {
+      "name": "ehp_pn_2",
+      "value": "页码 + 名称"
+    },
+    {
+      "name": "ehp_lt_0",
+      "value": "鼠标悬停时"
+    },
+    {
+      "name": "ehp_lt_1",
+      "value": "页面加载时"
+    },
+    {
+      "name": "ehp_cs_0",
+      "value": "最早优先"
+    },
+    {
+      "name": "ehp_cs_1",
+      "value": "最新优先"
+    },
+    {
+      "name": "ehp_cs_2",
+      "value": "按评分"
+    },
+    {
+      "name": "ehp_sc_0",
+      "value": "悬停或点击时"
+    },
+    {
+      "name": "ehp_sc_1",
+      "value": "始终"
+    },
+    {
+      "name": "ehp_tb_0",
+      "value": "字母顺序"
+    },
+    {
+      "name": "ehp_tb_1",
+      "value": "按标签权重"
+    },
+    {
+      "name": "ehp_fs_0",
+      "value": "按更新时间"
+    },
+    {
+      "name": "ehp_fs_1",
+      "value": "按收藏时间"
+    },
+    {
+      "name": "ehp_ar_0",
+      "value": "手动选择，手动开始"
+    },
+    {
+      "name": "ehp_ar_1",
+      "value": "手动选择，自动开始"
+    },
+    {
+      "name": "ehp_ar_2",
+      "value": "自动选原图，手动开始"
+    },
+    {
+      "name": "ehp_ar_3",
+      "value": "自动选原图，自动开始"
+    },
+    {
+      "name": "ehp_ar_4",
+      "value": "自动选重采样，手动开始"
+    },
+    {
+      "name": "ehp_ar_5",
+      "value": "自动选重采样，自动开始"
+    },
+    {
+      "name": "ehp_ms_0",
+      "value": "左对齐"
+    },
+    {
+      "name": "ehp_ms_1",
+      "value": "居中 1"
+    },
+    {
+      "name": "ehp_ms_2",
+      "value": "居中 2"
     }
   ]
 }

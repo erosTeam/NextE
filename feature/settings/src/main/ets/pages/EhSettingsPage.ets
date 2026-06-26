@@ -126,6 +126,18 @@ export struct EhSettingsPage {
       }) {
         ListItem() {
           GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.ehp_entry_title'),
+              subtitle: $r('app.string.ehp_entry_hint'),
+              leadingIcon: $r('sys.symbol.person'),
+              action: () => {
+                this.stack.pushPathByName('EhProfileSettings', null)
+              },
+            })
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
             Column() {
               ConciseListRow({
                 title: $r('app.string.settings_site'),

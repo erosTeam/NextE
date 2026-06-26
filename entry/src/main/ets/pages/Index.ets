@@ -56,6 +56,7 @@ import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } fr
 import {
   SettingsPage,
   EhSettingsPage,
+  EhProfileSettingsPage,
   AccountPage,
   AccountLoginPage,
   LayoutSettingsPage,
@@ -623,6 +624,8 @@ struct Index {
       GalleryCommentsPage()
     } else if (name === 'EhSettings') {
       EhSettingsPage()
+    } else if (name === 'EhProfileSettings') {
+      EhProfileSettingsPage()
     } else if (name === 'Account') {
       AccountPage()
     } else if (name === 'AccountLogin') {
