@@ -89,6 +89,13 @@ export { HtmlSelectorUtils } from './parser/HtmlSelectorUtils'
 export { EhGalleryListParser } from './parser/EhGalleryListParser'
 export { EhFavcatListParser } from './parser/EhFavcatListParser'
 export { EhMytagsParser } from './parser/EhMytagsParser'
+export { EhUconfigParser } from './parser/EhUconfigParser'
+export {
+  EhProfile,
+  EhProfileSettings,
+  EhUconfigToggleItem,
+  EhUconfigCategory,
+} from './model/EhProfileSettings'
 export { EhCommentParser } from './parser/EhCommentParser'
 export { EhGalleryDetailParser } from './parser/EhGalleryDetailParser'
 export { EhGalleryImageParser } from './parser/EhGalleryImageParser'

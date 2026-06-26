@@ -5,6 +5,8 @@ import { EhConstants } from '../constants/EhConstants'
 import { EhGalleryListParseTask } from '../parser/EhGalleryListParseTask'
 import { EhFavcatListParser } from '../parser/EhFavcatListParser'
 import { EhMytagsParser } from '../parser/EhMytagsParser'
+import { EhUconfigParser } from '../parser/EhUconfigParser'
+import { EhProfileSettings } from '../model/EhProfileSettings'
 import { EhCommentParser } from '../parser/EhCommentParser'
 import { EhGalleryDetailParser } from '../parser/EhGalleryDetailParser'
 import { EhGalleryImageParser } from '../parser/EhGalleryImageParser'
@@ -552,6 +554,39 @@ export class EhApiService {
     const url: string = `${EhConstants.baseUrl(isEx)}/mytags${suffix}`
     const resp = await this.fetch(url, isEx, 'generic')
     return EhMytagsParser.parse(resp.body)
+  }
+
+  /** Read the EH user config (uconfig.php) for the current site into the editable model. */
+  async getUserConfig(isEx: boolean): Promise<EhProfileSettings> {
+    const url: string = `${EhConstants.baseUrl(isEx)}/uconfig.php`
+    const resp: EhTextResponse = await this.fetch(url, isEx, 'generic')
+    return EhUconfigParser.parse(resp.body)
+  }
+
+  /**
+   * Write the EH user config (POST uconfig.php). Non-idempotent: it overwrites the user's server-side
+   * profile, so the caller must have the user's intent (a Save action), not auto-save.
+   */
+  async saveUserConfig(isEx: boolean, settings: EhProfileSettings): Promise<void> {
+    const url: string = `${EhConstants.baseUrl(isEx)}/uconfig.php`
+    const body: string = EhUconfigParser.buildPostBody(settings)
+    let resp: EhTextResponse
+    try {
+      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, body)
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, url)
+    }
+    if (resp.statusCode >= 400) {
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, 'generic')
+      if (failure !== null) {
+        throw failure
+      }
+      throw new Error(`uconfig HTTP ${resp.statusCode}`)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, 'generic')
+    if (failure !== null) {
+      throw failure
+    }
   }
 
   /** Fetch the torrent list for a gallery (eros_fe getTorrent / gallerytorrents.php). */
