@@ -2811,6 +2811,26 @@
     {
       "name": "ehp_ms_2",
       "value": "居中 2"
+    },
+    {
+      "name": "ehp_sec_xn",
+      "value": "排除标签命名空间"
+    },
+    {
+      "name": "ehp_sec_xl",
+      "value": "排除语言"
+    },
+    {
+      "name": "ehp_xl_original",
+      "value": "原文"
+    },
+    {
+      "name": "ehp_xl_translated",
+      "value": "翻译"
+    },
+    {
+      "name": "ehp_xl_rewrite",
+      "value": "重写"
     }
   ]
 }

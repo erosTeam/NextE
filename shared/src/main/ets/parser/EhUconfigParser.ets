@@ -79,11 +79,43 @@ export class EhUconfigParser {
       s.favorites.push(EhUconfigParser.parseInput(html, `favorite_${i}`))
     }
 
-    // ── Excluded namespaces (xn_1..50) + languages (xl_*) ──
+    // ── Excluded namespaces (xn_*) + languages (xl_* table) ──
     s.excludedNamespaces = EhUconfigParser.parseToggles(html, 'xn')
-    s.excludedLanguages = EhUconfigParser.parseToggles(html, 'xl')
+    s.excludedLanguages = EhUconfigParser.parseLanguages(html)
 
     return s
+  }
+
+  // The Excluded Languages section is a table: each <tr> has the language name in its first <td>, then
+  // checkboxes for original (id < 1024) / translated (1024..2047) / rewrite (>= 2048). Build one toggle
+  // per present checkbox carrying the language name + variant column.
+  private static parseLanguages(html: string): EhUconfigToggleItem[] {
+    const out: EhUconfigToggleItem[] = []
+    const start: number = html.indexOf('Excluded Languages')
+    if (start < 0) {
+      return out
+    }
+    const end: number = html.indexOf('</table>', start)
+    const region: string = end > start ? html.substring(start, end) : html.substring(start)
+    const rows: string[] = HtmlSelectorUtils.rows(region)
+    for (let r: number = 0; r < rows.length; r++) {
+      const row: string = rows[r]
+      if (!row.includes('xl_')) {
+        continue
+      }
+      const cell: string = HtmlSelectorUtils.group1(row, /<td[^>]*>([\s\S]*?)<\/td>/)
+      const lang: string = HtmlSelectorUtils.htmlUnescape(cell.replace(/<[^>]*>/g, '').trim())
+      const re: RegExp = /<input[^>]*name="xl_(\d+)"[^>]*>/g
+      let m: RegExpExecArray | null = re.exec(row)
+      while (m !== null) {
+        const ser: number = Number.parseInt(m[1], 10)
+        const excluded: boolean = m[0].includes('checked')
+        const variant: number = ser >= 2048 ? 2 : ser >= 1024 ? 1 : 0
+        out.push(new EhUconfigToggleItem(ser, lang, excluded, variant))
+        m = re.exec(row)
+      }
+    }
+    return out
   }
 
   /** Build the application/x-www-form-urlencoded POST body. Profile selection is NOT here (sp cookie). */

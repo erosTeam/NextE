@@ -6,6 +6,7 @@ import {
   EhApiService,
   EhConstants,
   EhProfileSettings,
+  EhUconfigToggleItem,
   GalleryWebParams,
   GroupedListSection,
   SecondaryListScaffold,
@@ -167,6 +168,12 @@ export struct EhProfileSettingsPage {
           }
           ListItem() {
             this.CommentTagSection()
+          }
+          ListItem() {
+            this.NamespaceSection()
+          }
+          ListItem() {
+            this.LanguageSection()
           }
           ListItem() {
             this.FavoriteSortSection()
@@ -495,6 +502,77 @@ export struct EhProfileSettingsPage {
     }
   }
 
+  // Excluded tag namespaces (xn_*): exclude a namespace from default tag search.
+  @Builder
+  NamespaceSection() {
+    if (this.settings.excludedNamespaces.length > 0) {
+      Column() {
+        this.SectionHeader($r('app.string.ehp_sec_xn'))
+        GroupedListSection() {
+          ForEach(
+            this.settings.excludedNamespaces,
+            (item: EhUconfigToggleItem, index: number) => {
+              ConciseListRow({
+                title: item.name,
+                hasSwitch: true,
+                checked: item.excluded,
+                switchAction: (value: boolean) => {
+                  item.excluded = value
+                },
+              })
+              if (index < this.settings.excludedNamespaces.length - 1) {
+                this.rowDivider()
+              }
+            },
+            (item: EhUconfigToggleItem) => `xn_${item.ser}`,
+          )
+        }
+      }
+    }
+  }
+
+  private langLabel(item: EhUconfigToggleItem): string {
+    if (item.variant < 0) {
+      return item.name
+    }
+    const variant: string =
+      item.variant === 2
+        ? AppStrings.get('ehp_xl_rewrite')
+        : item.variant === 1
+          ? AppStrings.get('ehp_xl_translated')
+          : AppStrings.get('ehp_xl_original')
+    return `${item.name} · ${variant}`
+  }
+
+  // Excluded languages (xl_*): galleries in a checked language never appear.
+  @Builder
+  LanguageSection() {
+    if (this.settings.excludedLanguages.length > 0) {
+      Column() {
+        this.SectionHeader($r('app.string.ehp_sec_xl'))
+        GroupedListSection() {
+          ForEach(
+            this.settings.excludedLanguages,
+            (item: EhUconfigToggleItem, index: number) => {
+              ConciseListRow({
+                title: this.langLabel(item),
+                hasSwitch: true,
+                checked: item.excluded,
+                switchAction: (value: boolean) => {
+                  item.excluded = value
+                },
+              })
+              if (index < this.settings.excludedLanguages.length - 1) {
+                this.rowDivider()
+              }
+            },
+            (item: EhUconfigToggleItem) => `xl_${item.ser}`,
+          )
+        }
+      }
+    }
+  }
+
   @Builder
   FavoriteSortSection() {
     Column() {
@@ -760,7 +838,8 @@ struct UcTextRow {
   build() {
     Row({ space: ThemeConstants.SPACE_SM }) {
       Text(this.title)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontSize(ThemeConstants.FONT_SIZE_LIST_ITEM)
+        .fontWeight(FontWeight.Regular)
         .fontColor($r('sys.color.font_primary'))
         .layoutWeight(1)
         .maxLines(1)

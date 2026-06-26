@@ -68,9 +68,13 @@ uploader2</textarea>
   <div><input type="checkbox" name="xn_1" id="xn_1" value="1" checked="checked" /> reupload</div>
   <div><input type="checkbox" name="xn_2" id="xn_2" value="1" /> mosaic</div>
   <div><input type="checkbox" name="xn_3" id="xn_3" value="1" checked="checked" /> incomplete</div>
-  <div><input type="checkbox" name="xl_1024" id="xl_1024" value="1" checked="checked" /> Japanese : Translated</div>
-  <div><input type="checkbox" name="xl_2048" id="xl_2048" value="1" /> English : Rewrite</div>
 </form>
+<h2>Excluded Languages</h2>
+<table>
+  <tr><th></th><th>Original</th><th>Translated</th><th>Rewrite</th></tr>
+  <tr><td>Japanese</td><td></td><td><input type="checkbox" name="xl_1024" id="xl_1024" checked="checked" /></td><td><input type="checkbox" name="xl_2048" id="xl_2048" /></td></tr>
+  <tr><td>English</td><td><input type="checkbox" name="xl_1" id="xl_1" /></td><td><input type="checkbox" name="xl_1025" id="xl_1025" checked="checked" /></td><td><input type="checkbox" name="xl_2049" id="xl_2049" /></td></tr>
+</table>
 `
 const ROOT = process.cwd()
 const src = readFileSync(join(ROOT, 'shared/src/main/ets/parser/EhUconfigParser.ets'), 'utf8')
@@ -109,6 +113,26 @@ const parseToggles = (prefix) => {
   let m
   while ((m = re.exec(html)) !== null) {
     out.push({ ser: parseInt(m[2], 10), name: m[3].trim(), excluded: m[1].includes('checked') })
+  }
+  return out
+}
+// xl is a table: language name in the first <td>, checkboxes for original (<1024)/translated
+// (1024..2047)/rewrite (>=2048).
+const parseLanguages = () => {
+  const start = html.indexOf('Excluded Languages')
+  if (start < 0) return []
+  const end = html.indexOf('</table>', start)
+  const region = html.substring(start, end < 0 ? html.length : end)
+  const out = []
+  for (const row of region.match(/<tr[^>]*>[\s\S]*?<\/tr>/g) || []) {
+    if (!row.includes('xl_')) continue
+    const lang = ((row.match(/<td[^>]*>([\s\S]*?)<\/td>/) || ['', ''])[1]).replace(/<[^>]*>/g, '').trim()
+    const re = /<input[^>]*name="xl_(\d+)"[^>]*>/g
+    let m
+    while ((m = re.exec(row)) !== null) {
+      const ser = parseInt(m[1], 10)
+      out.push({ ser, lang, excluded: m[0].includes('checked'), variant: ser >= 2048 ? 2 : ser >= 1024 ? 1 : 0 })
+    }
   }
   return out
 }
@@ -153,14 +177,17 @@ ok('favorite_0 name', fav[0] === 'Favorites 0')
 ok('favorite_1 name', fav[1] === 'To Read')
 ok('favorite_9 html-unescaped', fav[9] === 'Art & CG')
 
-// ── xn / xl ──
+// ── xn (namespaces, id-based) / xl (language table) ──
 const xn = parseToggles('xn')
-const xl = parseToggles('xl')
+const xl = parseLanguages()
 ok('3 namespaces parsed', xn.length === 3)
 ok('xn_1 excluded + named', xn[0].ser === 1 && xn[0].excluded && xn[0].name === 'reupload')
 ok('xn_2 not excluded', xn[1].ser === 2 && !xn[1].excluded)
 ok('xn_3 excluded', xn[2].ser === 3 && xn[2].excluded)
-ok('xl_1024 excluded, xl_2048 not', xl[0].ser === 1024 && xl[0].excluded && xl[1].ser === 2048 && !xl[1].excluded)
+ok('5 language toggles across 2 rows', xl.length === 5)
+ok('Japanese·translated (1024) excluded, variant 1', xl[0].ser === 1024 && xl[0].lang === 'Japanese' && xl[0].excluded && xl[0].variant === 1)
+ok('Japanese·rewrite (2048) not excluded, variant 2', xl[1].ser === 2048 && xl[1].variant === 2 && !xl[1].excluded)
+ok('English·original (1) variant 0, English·translated (1025) excluded', xl[2].ser === 1 && xl[2].lang === 'English' && xl[2].variant === 0 && !xl[2].excluded && xl[3].ser === 1025 && xl[3].excluded && xl[3].variant === 1)
 
 // ── POST body ──
 const body = []
@@ -173,7 +200,7 @@ body.push('apply=apply')
 const joined = body.join('&')
 ok('body has uh=1, xr=2, dm=2', joined.includes('uh=1') && joined.includes('xr=2') && joined.includes('dm=2'))
 ok('body encodes newline in xu', joined.includes('xu=uploader1%0Auploader2'))
-ok('body posts excluded toggles only', joined.includes('xn_1=on') && joined.includes('xn_3=on') && !joined.includes('xn_2=on') && joined.includes('xl_1024=on') && !joined.includes('xl_2048=on'))
+ok('body posts excluded toggles only', joined.includes('xn_1=on') && joined.includes('xn_3=on') && !joined.includes('xn_2=on') && joined.includes('xl_1024=on') && joined.includes('xl_1025=on') && !joined.includes('xl_2048=on'))
 ok('body ends with apply=apply', joined.endsWith('apply=apply'))
 
 // ── Structural: .ets mirrors the same field→code mapping (mirror stays honest) ──
@@ -185,6 +212,7 @@ for (const code of ['rx', 'ry', 'ru', 'ft', 'wt', 'tp', 'vp', 'hh']) {
 }
 ok('.ets posts apply=apply', src.includes("parts.push('apply=apply')"))
 ok('.ets profile selection NOT in post body (sp cookie)', !src.includes('profile_set=') && !src.includes('sp='))
+ok('.ets parses the xl language table with variant by id range', src.includes('parseLanguages') && src.includes("indexOf('Excluded Languages')") && /ser >= 2048 \? 2 : ser >= 1024 \? 1 : 0/.test(src))
 
 if (failures === 0) {
   console.log('✓ uconfig parser contract passed')

@@ -2811,6 +2811,26 @@
     {
       "name": "ehp_ms_2",
       "value": "Align center 2"
+    },
+    {
+      "name": "ehp_sec_xn",
+      "value": "Excluded Tag Namespaces"
+    },
+    {
+      "name": "ehp_sec_xl",
+      "value": "Excluded Languages"
+    },
+    {
+      "name": "ehp_xl_original",
+      "value": "Original"
+    },
+    {
+      "name": "ehp_xl_translated",
+      "value": "Translated"
+    },
+    {
+      "name": "ehp_xl_rewrite",
+      "value": "Rewrite"
     }
   ]
 }

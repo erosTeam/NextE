@@ -2811,6 +2811,26 @@
     {
       "name": "ehp_ms_2",
       "value": "中央揃え 2"
+    },
+    {
+      "name": "ehp_sec_xn",
+      "value": "除外するタグ名前空間"
+    },
+    {
+      "name": "ehp_sec_xl",
+      "value": "除外する言語"
+    },
+    {
+      "name": "ehp_xl_original",
+      "value": "原文"
+    },
+    {
+      "name": "ehp_xl_translated",
+      "value": "翻訳"
+    },
+    {
+      "name": "ehp_xl_rewrite",
+      "value": "リライト"
     }
   ]
 }

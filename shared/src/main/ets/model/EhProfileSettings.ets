@@ -21,17 +21,20 @@ export class EhProfile {
   }
 }
 
-// A single excluded-namespace (xn_1..50) or excluded-language (xl_*) toggle.
+// A single excluded-namespace (xn_*) or excluded-language (xl_*) toggle. For languages, `variant` is
+// the column (0 original / 1 translated / 2 rewrite); -1 when not applicable (namespaces).
 @ObservedV2
 export class EhUconfigToggleItem {
   ser: number = 0
   name: string = ''
   @Trace excluded: boolean = false
+  variant: number = -1
 
-  constructor(ser: number, name: string, excluded: boolean) {
+  constructor(ser: number, name: string, excluded: boolean, variant: number = -1) {
     this.ser = ser
     this.name = name
     this.excluded = excluded
+    this.variant = variant
   }
 }
 
@@ -137,10 +140,10 @@ export class EhProfileSettings {
     )
     out.favorites = this.favorites.slice()
     out.excludedNamespaces = this.excludedNamespaces.map(
-      (x: EhUconfigToggleItem) => new EhUconfigToggleItem(x.ser, x.name, x.excluded),
+      (x: EhUconfigToggleItem) => new EhUconfigToggleItem(x.ser, x.name, x.excluded, x.variant),
     )
     out.excludedLanguages = this.excludedLanguages.map(
-      (x: EhUconfigToggleItem) => new EhUconfigToggleItem(x.ser, x.name, x.excluded),
+      (x: EhUconfigToggleItem) => new EhUconfigToggleItem(x.ser, x.name, x.excluded, x.variant),
     )
     return out
   }
