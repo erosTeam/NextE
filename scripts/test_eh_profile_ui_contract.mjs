@@ -38,8 +38,10 @@ ok('mt toggle is inverted (checked when ===0, on->0 off->1)', /this\.settings\.m
 // Standard infra (no hand-rolled selectors).
 ok('uses ConciseListRow dropdown + SettingsCheckedMenuItem + bindMenu', /trailingDropdown: true/.test(page) && /SettingsCheckedMenuItem\(/.test(page) && /\.bindMenu\(this\.menuShown/.test(page))
 
-// Excluded languages: grouped per language with a multi-select variant segmented control.
-ok('xl grouped per language into a multi-select segmented control', /groupLanguages\(/.test(page) && /VariantSegments\(/.test(page) && /item\.excluded = !item\.excluded/.test(page))
+// Excluded languages: grouped per language with the platform multi-select segmented control.
+ok('xl grouped per language into a MultiCapsuleSegmentButtonV2', /groupLanguages\(/.test(page) && /MultiCapsuleSegmentButtonV2\(/.test(page) && /\$selectedIndexes:/.test(page))
+// Rows are built on ConciseListRow (no hand-rolled titles) so fonts stay uniform.
+ok('text + language rows reuse ConciseListRow (uniform titles)', /struct UcTextRow[\s\S]*?ConciseListRow\(/.test(page) && /struct LanguageVariantRow[\s\S]*?ConciseListRow\(/.test(page))
 
 // Wiring.
 ok('route registered', /name === 'EhProfileSettings'[\s\S]*EhProfileSettingsPage\(\)/.test(read('entry/src/main/ets/pages/Index.ets')))

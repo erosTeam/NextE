@@ -1,4 +1,11 @@
 import { HdsNavDestination, IconStyleMode } from '@kit.UIDesignKit'
+import {
+  ColorMetrics,
+  LengthMetrics,
+  MultiCapsuleSegmentButtonV2,
+  SegmentButtonV2Items,
+  SegmentButtonV2ItemOptions,
+} from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
 import {
   AppStrings,
@@ -560,16 +567,9 @@ export struct EhProfileSettingsPage {
     return rows
   }
 
-  private variantText(variant: number): string {
-    return variant === 2
-      ? AppStrings.get('ehp_xl_rewrite')
-      : variant === 1
-        ? AppStrings.get('ehp_xl_translated')
-        : AppStrings.get('ehp_xl_original')
-  }
-
-  // Excluded languages (xl_*): EH's table — one row per language, with original/translated/rewrite
-  // chips on the right (tap toggles exclusion). Far denser than one switch-row per (language, variant).
+  // Excluded languages (xl_*): EH's table — one row per language with a multi-select segmented control
+  // (original/translated/rewrite) on the right. Each row is its own component so it can own the
+  // MultiCapsuleSegmentButtonV2 selectedIndexes state.
   @Builder
   LanguageSection() {
     if (this.langRows.length > 0) {
@@ -579,24 +579,7 @@ export struct EhProfileSettingsPage {
           ForEach(
             this.langRows,
             (row: EhLanguageRow, index: number) => {
-              Row({ space: ThemeConstants.SPACE_SM }) {
-                Text(row.name)
-                  .fontSize(ThemeConstants.FONT_SIZE_LIST_ITEM)
-                  .fontColor($r('sys.color.font_primary'))
-                  .layoutWeight(1)
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                this.VariantSegments(row.variants)
-              }
-              .width('100%')
-              .alignItems(VerticalAlign.Center)
-              .padding({
-                left: ThemeConstants.SPACE_MD,
-                right: ThemeConstants.SPACE_MD,
-                top: ThemeConstants.SPACE_SM,
-                bottom: ThemeConstants.SPACE_SM,
-              })
-              .constraintSize({ minHeight: 48 })
+              LanguageVariantRow({ row: row })
               if (index < this.langRows.length - 1) {
                 this.rowDivider()
               }
@@ -606,42 +589,6 @@ export struct EhProfileSettingsPage {
         }
       }
     }
-  }
-
-  // A multi-select segmented control of the language's variants (original/translated/rewrite). Each
-  // segment toggles independently (a checked variant is excluded). Connected look = one 分段选择器.
-  @Builder
-  VariantSegments(items: EhUconfigToggleItem[]) {
-    Row() {
-      ForEach(
-        items,
-        (item: EhUconfigToggleItem, i: number) => {
-          Text(this.variantText(item.variant))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor(
-              item.excluded ? ThemeConstants.TEXT_ON_BRAND : $r('sys.color.font_secondary'),
-            )
-            .textAlign(TextAlign.Center)
-            .backgroundColor(item.excluded ? ThemeConstants.BRAND_PRIMARY : Color.Transparent)
-            .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-            .onClick(() => {
-              item.excluded = !item.excluded
-            })
-          if (i < items.length - 1) {
-            Divider()
-              .vertical(true)
-              .height(18)
-              .strokeWidth(0.5)
-              .color($r('sys.color.ohos_id_color_list_separator'))
-          }
-        },
-        (item: EhUconfigToggleItem) => `xl_${item.ser}`,
-      )
-    }
-    .clip(true)
-    .borderRadius(ThemeConstants.RADIUS_SM)
-    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-    .border({ width: 0.5, color: $r('sys.color.ohos_id_color_list_separator') })
   }
 
   @Builder
@@ -896,7 +843,10 @@ struct UcSelectRow {
   }
 }
 
-/** A label + inline text field row bound to a uconfig text input. */
+/**
+ * Label + inline text field, built ON ConciseListRow so the title matches every other row exactly
+ * (the input lives in the row's suffix slot). Never hand-roll the title.
+ */
 @ComponentV2
 struct UcTextRow {
   @Param title: ResourceStr = '';
@@ -907,19 +857,25 @@ struct UcTextRow {
   @Event onChange: (value: string) => void = () => {};
 
   build() {
-    Row({ space: ThemeConstants.SPACE_SM }) {
-      Text(this.title)
-        .fontSize(ThemeConstants.FONT_SIZE_LIST_ITEM)
-        .fontWeight(FontWeight.Regular)
-        .fontColor($r('sys.color.font_primary'))
-        .layoutWeight(1)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    ConciseListRow({
+      title: this.title,
+      showChevron: false,
+      suffixPaddingRight: ThemeConstants.SPACE_MD,
+      suffixBuilderParam: () => {
+        this.InputSuffix()
+      },
+    })
+  }
+
+  @Builder
+  InputSuffix() {
+    Row({ space: ThemeConstants.SPACE_XS }) {
       TextInput({ text: this.value, placeholder: this.placeholder })
         .type(this.numeric ? InputType.Number : InputType.Normal)
         .textAlign(TextAlign.End)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .backgroundColor(Color.Transparent)
+        .padding(0)
         .width(140)
         .onChange((v: string) => {
           this.onChange(v)
@@ -929,15 +885,72 @@ struct UcTextRow {
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
           .fontColor($r('sys.color.font_secondary'))
       }
+    }.alignItems(VerticalAlign.Center)
+  }
+}
+
+/**
+ * One excluded-language row: language name (via ConciseListRow, so the title matches) + a multi-select
+ * variant segmented control (MultiCapsuleSegmentButtonV2) in the suffix. Each segment = one variant;
+ * checked = excluded.
+ */
+@ComponentV2
+struct LanguageVariantRow {
+  @Param row: EhLanguageRow = new EhLanguageRow('');
+  @Local items: SegmentButtonV2Items = new SegmentButtonV2Items([]);
+  @Local selectedIndexes: number[] = [];
+
+  aboutToAppear(): void {
+    const opts: SegmentButtonV2ItemOptions[] = []
+    const sel: number[] = []
+    for (let i: number = 0; i < this.row.variants.length; i++) {
+      const v: EhUconfigToggleItem = this.row.variants[i]
+      opts.push({ text: LanguageVariantRow.variantText(v.variant) })
+      if (v.excluded) {
+        sel.push(i)
+      }
     }
-    .width('100%')
-    .alignItems(VerticalAlign.Center)
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
+    this.items = new SegmentButtonV2Items(opts)
+    this.selectedIndexes = sel
+  }
+
+  private static variantText(variant: number): string {
+    return variant === 2
+      ? AppStrings.get('ehp_xl_rewrite')
+      : variant === 1
+        ? AppStrings.get('ehp_xl_translated')
+        : AppStrings.get('ehp_xl_original')
+  }
+
+  build() {
+    ConciseListRow({
+      title: this.row.name,
+      showChevron: false,
+      suffixPaddingRight: ThemeConstants.SPACE_MD,
+      suffixBuilderParam: () => {
+        this.SegmentSuffix()
+      },
     })
-    .constraintSize({ minHeight: 48 })
+  }
+
+  @Builder
+  SegmentSuffix() {
+    MultiCapsuleSegmentButtonV2({
+      items: this.items,
+      selectedIndexes: this.selectedIndexes,
+      itemFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_CAPTION),
+      itemSelectedFontColor: ColorMetrics.resourceColor(ThemeConstants.TEXT_ON_BRAND),
+      itemSelectedBackgroundColor: ColorMetrics.resourceColor(ThemeConstants.BRAND_PRIMARY),
+      $selectedIndexes: (indexes: number[]) => {
+        this.selectedIndexes = indexes
+        for (let i: number = 0; i < this.row.variants.length; i++) {
+          this.row.variants[i].excluded = indexes.indexOf(i) >= 0
+        }
+      },
+    })
+      // The control fills its container by default, which would swallow the language name; size it to
+      // the segment count so the title keeps its space.
+      .width(this.row.variants.length * 70)
+      .flexShrink(0)
   }
 }
