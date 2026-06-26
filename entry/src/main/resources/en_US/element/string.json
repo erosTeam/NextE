@@ -189,6 +189,42 @@
       "value": "Anthology"
     },
     {
+      "name": "tabs_manage_title",
+      "value": "Manage tabs"
+    },
+    {
+      "name": "tab_type_gallery",
+      "value": "Gallery"
+    },
+    {
+      "name": "tab_type_popular",
+      "value": "Popular"
+    },
+    {
+      "name": "tab_type_watched",
+      "value": "Watched"
+    },
+    {
+      "name": "tab_type_toplist",
+      "value": "Toplist"
+    },
+    {
+      "name": "tab_type_favorite",
+      "value": "Favorites"
+    },
+    {
+      "name": "tab_delete_confirm_title",
+      "value": "Delete tab"
+    },
+    {
+      "name": "tab_delete_confirm_message",
+      "value": "Delete this tab?"
+    },
+    {
+      "name": "tab_builtin_badge",
+      "value": "Default"
+    },
+    {
       "name": "toplist_all",
       "value": "All-Time"
     },

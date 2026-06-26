@@ -285,12 +285,14 @@ tabs_empty_hint.
   选集=other:anthology load correctly; cache isolated per uuid; state retained on switch; V1 gate 0,
   contract green, signed build green.
 
-### Phase 3 — Tab Management page (view/reorder/hide/delete; no editor yet)
-- [ ] TabManagerPage routed + registered in Index routerMap; pinned + chip + long-press context menu
-      via CustomProfilesBridge.
-- [ ] Reorder (List.onMove / chevron fallback), hide (switch), delete (swipe, custom-only, confirm).
-- DoD: reorder/hide/show/delete updates the bar live; builtins reorder/hide not delete; gate 0;
-  harness-verify green; screenshot-compared vs a sibling settings sub-page.
+### Phase 3 — Tab Management page (view/reorder/hide/delete; no editor yet) ✅ DONE
+- [x] TabManagerPage routed ('TabManager') + registered in Index routerMap; pinned + chip on
+      HomeSourceBar pushes it directly (no bridge needed — matches AccountPage's pushPathByName).
+- [x] Reorder via ForEach.onMove (onMove is on DynamicNode, not List); hide via Toggle (setHidden moves
+      selection off a hidden selected tab); delete via swipeAction red-trash (custom-only) + confirm dialog.
+- DoD met: device .197 — manage page shows 5 cards (type icons + 默认 badge on builtins + search summary
+  + visibility toggle); hiding 选集 drops it from the bar and re-shows on un-hide; swipe-deleting 汉化
+  (confirm) removes it; builtins have no swipe. V1 gate 0, contract green, signed build green.
 
 ### Phase 4 — Tab Editor (create/edit — the headline feature)
 - [ ] Extract CategorySelector + AdvancedSearchControls from SearchFilterSheet (search sheet

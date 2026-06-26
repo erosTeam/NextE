@@ -50,7 +50,7 @@ import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
 import { ToplistPeriodBarCCBuilder } from '../components/ToplistPeriodBar'
 import { FavcatBarCCBuilder } from '../components/FavcatBar'
 import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
-import { HomePage, ToplistPage } from 'home'
+import { HomePage, ToplistPage, TabManagerPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
 import {
@@ -618,6 +618,8 @@ struct Index {
       ViewedHistoryPage()
     } else if (name === 'FavoriteSelector') {
       FavoriteSelectorPage()
+    } else if (name === 'TabManager') {
+      TabManagerPage()
     } else if (name === 'AllThumbnails') {
       GalleryAllThumbnailsPage()
     } else if (name === 'GalleryComments') {

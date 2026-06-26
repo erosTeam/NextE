@@ -189,6 +189,42 @@
       "value": "アンソロジー"
     },
     {
+      "name": "tabs_manage_title",
+      "value": "タブを管理"
+    },
+    {
+      "name": "tab_type_gallery",
+      "value": "ギャラリー"
+    },
+    {
+      "name": "tab_type_popular",
+      "value": "人気"
+    },
+    {
+      "name": "tab_type_watched",
+      "value": "購読"
+    },
+    {
+      "name": "tab_type_toplist",
+      "value": "ランキング"
+    },
+    {
+      "name": "tab_type_favorite",
+      "value": "お気に入り"
+    },
+    {
+      "name": "tab_delete_confirm_title",
+      "value": "タブを削除"
+    },
+    {
+      "name": "tab_delete_confirm_message",
+      "value": "このタブを削除しますか?"
+    },
+    {
+      "name": "tab_builtin_badge",
+      "value": "デフォルト"
+    },
+    {
       "name": "toplist_all",
       "value": "全期間"
     },

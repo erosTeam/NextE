@@ -171,7 +171,22 @@ export class CustomProfilesSettings {
       }
     })
     state.profiles = next
+    // If we just hid the selected tab, move the selection to the first still-visible tab so the bar
+    // and the active page stay in sync (no stale selection pointing at a hidden tab).
+    if (hidden && state.selectedUuid === uuid) {
+      state.selectedUuid = CustomProfilesSettings.firstVisibleUuid(next)
+    }
     await CustomProfilesSettings.persistAll(context)
+  }
+
+  /** uuid of the first non-hidden profile, or '' if all hidden. */
+  private static firstVisibleUuid(profiles: CustomProfile[]): string {
+    for (let i = 0; i < profiles.length; i++) {
+      if (!profiles[i].hidden) {
+        return profiles[i].uuid
+      }
+    }
+    return ''
   }
 
   /** Set the active tab and persist the selection. */

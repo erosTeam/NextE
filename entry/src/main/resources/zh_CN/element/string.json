@@ -189,6 +189,42 @@
       "value": "选集"
     },
     {
+      "name": "tabs_manage_title",
+      "value": "管理标签"
+    },
+    {
+      "name": "tab_type_gallery",
+      "value": "画廊"
+    },
+    {
+      "name": "tab_type_popular",
+      "value": "热门"
+    },
+    {
+      "name": "tab_type_watched",
+      "value": "订阅"
+    },
+    {
+      "name": "tab_type_toplist",
+      "value": "排行"
+    },
+    {
+      "name": "tab_type_favorite",
+      "value": "收藏"
+    },
+    {
+      "name": "tab_delete_confirm_title",
+      "value": "删除标签"
+    },
+    {
+      "name": "tab_delete_confirm_message",
+      "value": "删除这个标签?"
+    },
+    {
+      "name": "tab_builtin_badge",
+      "value": "默认"
+    },
+    {
       "name": "toplist_all",
       "value": "全部"
     },

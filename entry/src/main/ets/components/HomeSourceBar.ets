@@ -9,6 +9,8 @@ import {
   connectCustomProfiles,
   CustomProfile,
   CustomProfilesSettings,
+  connectNavStack,
+  ThemeConstants,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -51,18 +53,37 @@ export struct HomeSourceBar {
   }
 
   build() {
-    SubTabBar({
-      tabs: this.tabs(),
-      visualIndex: this.visual.value,
-      selectedIndex: this.selectedIndex(),
-      scrollable: true,
-      onSelect: (index: number) => {
-        const items: TabItem[] = this.tabs()
-        if (index >= 0 && index < items.length) {
-          CustomProfilesSettings.setSelected(this.ctx(), items[index].key)
-        }
-      },
-    })
+    Row() {
+      SubTabBar({
+        tabs: this.tabs(),
+        visualIndex: this.visual.value,
+        selectedIndex: this.selectedIndex(),
+        scrollable: true,
+        onSelect: (index: number) => {
+          const items: TabItem[] = this.tabs()
+          if (index >= 0 && index < items.length) {
+            CustomProfilesSettings.setSelected(this.ctx(), items[index].key)
+          }
+        },
+      })
+        .layoutWeight(1)
+      // Pinned trailing affordance to manage tabs (outside the scroll so it never scrolls away).
+      Button({ type: ButtonType.Circle }) {
+        SymbolGlyph($r('sys.symbol.plus'))
+          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+          .fontColor([$r('sys.color.font_secondary')])
+      }
+      .width(30)
+      .height(30)
+      .margin({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_SM })
+      .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+      .onClick(() => {
+        connectNavStack().stack.pushPathByName('TabManager', null)
+      })
+    }
+    .width('100%')
+    .height('100%')
+    .alignItems(VerticalAlign.Center)
   }
 }
 @Builder
