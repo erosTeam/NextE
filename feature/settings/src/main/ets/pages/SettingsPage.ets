@@ -125,6 +125,14 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
+        title: $r('app.string.settings_cache'),
+        leadingIcon: $r('sys.symbol.externaldrive'),
+        action: () => {
+          this.stack.pushPathByName('CacheSettings', null)
+        },
+      })
+      this.rowDivider()
+      ConciseListRow({
         title: $r('app.string.advanced_diagnostics'),
         leadingIcon: $r('sys.symbol.gearshape'),
         action: () => {

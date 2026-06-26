@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhHttpClient } from '../network/EhHttpClient'
+import { CacheStat } from './CacheStat'
 
 export interface CachedImageProgress {
   loaded: number
@@ -19,7 +20,10 @@ const CACHE_DIR_NAME: string = 'reader-image-cache'
 const DEFAULT_IMAGE_EXTENSION: string = 'jpg'
 
 export class CachedImageFileService {
-  private static inFlight: Map<string, Promise<CachedImageFileResult>> = new Map<string, Promise<CachedImageFileResult>>()
+  private static inFlight: Map<string, Promise<CachedImageFileResult>> = new Map<
+    string,
+    Promise<CachedImageFileResult>
+  >()
 
   static cached(
     context: common.UIAbilityContext,
@@ -51,7 +55,11 @@ export class CachedImageFileService {
     if (url.length === 0) {
       throw new Error('image URL is empty')
     }
-    const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, url, cacheKey)
+    const cached: CachedImageFileResult | null = CachedImageFileService.cached(
+      context,
+      url,
+      cacheKey,
+    )
     if (cached !== null) {
       onProgress({ loaded: cached.bytes, total: cached.bytes })
       DiagnosticLogger.info(
@@ -63,7 +71,8 @@ export class CachedImageFileService {
     }
 
     const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
-    const inFlight: Promise<CachedImageFileResult> | undefined = CachedImageFileService.inFlight.get(filePath)
+    const inFlight: Promise<CachedImageFileResult> | undefined =
+      CachedImageFileService.inFlight.get(filePath)
     if (inFlight !== undefined) {
       const result: CachedImageFileResult = await inFlight
       onProgress({ loaded: result.bytes, total: result.bytes })
@@ -75,7 +84,12 @@ export class CachedImageFileService {
       return result
     }
 
-    const task: Promise<CachedImageFileResult> = CachedImageFileService.downloadAndStore(context, url, cacheKey, onProgress)
+    const task: Promise<CachedImageFileResult> = CachedImageFileService.downloadAndStore(
+      context,
+      url,
+      cacheKey,
+      onProgress,
+    )
     CachedImageFileService.inFlight.set(filePath, task)
     try {
       return await task
@@ -109,11 +123,50 @@ export class CachedImageFileService {
       'stored',
       `bytes=${finalBytes} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
     )
-    return { filePath, displayUri: CachedImageFileService.displayUri(filePath), bytes: finalBytes, fromCache: false }
+    return {
+      filePath,
+      displayUri: CachedImageFileService.displayUri(filePath),
+      bytes: finalBytes,
+      fromCache: false,
+    }
   }
 
   static remove(context: common.UIAbilityContext, url: string, cacheKey: string): void {
     CachedImageFileService.removeIfExists(CachedImageFileService.filePath(context, url, cacheKey))
+  }
+
+  // File count + total bytes of the reader image cache directory, for the cache page.
+  static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
+    const out: CacheStat = new CacheStat()
+    const dir: string = `${context.cacheDir}/${CACHE_DIR_NAME}`
+    try {
+      if (!fileIo.accessSync(dir)) {
+        return out
+      }
+      const names: string[] = fileIo.listFileSync(dir)
+      out.count = names.length
+      for (let i: number = 0; i < names.length; i++) {
+        out.bytes += CachedImageFileService.fileSize(`${dir}/${names[i]}`)
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('image-cache', 'stat_failed', (error as Error).message)
+    }
+    return out
+  }
+
+  static async clear(context: common.UIAbilityContext): Promise<void> {
+    const dir: string = `${context.cacheDir}/${CACHE_DIR_NAME}`
+    try {
+      if (!fileIo.accessSync(dir)) {
+        return
+      }
+      const names: string[] = fileIo.listFileSync(dir)
+      for (let i: number = 0; i < names.length; i++) {
+        CachedImageFileService.removeIfExists(`${dir}/${names[i]}`)
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('image-cache', 'clear_failed', (error as Error).message)
+    }
   }
 
   static filePath(context: common.UIAbilityContext, url: string, cacheKey: string): string {
@@ -154,8 +207,7 @@ export class CachedImageFileService {
   private static removeIfExists(path: string): void {
     try {
       fileIo.unlinkSync(path)
-    } catch (_err) {
-    }
+    } catch (_err) {}
   }
 
   private static hashKey(value: string): string {

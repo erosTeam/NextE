@@ -1145,6 +1145,46 @@
       "value": "クリア"
     },
     {
+      "name": "settings_cache",
+      "value": "ストレージとキャッシュ"
+    },
+    {
+      "name": "cache_page",
+      "value": "ページキャッシュ"
+    },
+    {
+      "name": "cache_image",
+      "value": "画像キャッシュ"
+    },
+    {
+      "name": "cache_comment_translation",
+      "value": "コメント翻訳"
+    },
+    {
+      "name": "cache_tag_translation",
+      "value": "タグ翻訳"
+    },
+    {
+      "name": "cache_clear_all",
+      "value": "すべてのキャッシュをクリア"
+    },
+    {
+      "name": "cache_items_unit",
+      "value": "件"
+    },
+    {
+      "name": "cache_clear_confirm",
+      "value": "このキャッシュをクリアしますか？"
+    },
+    {
+      "name": "cache_clear_all_confirm",
+      "value": "すべてのキャッシュをクリアしますか？"
+    },
+    {
+      "name": "cache_cleared",
+      "value": "クリアしました"
+    },
+    {
       "name": "common_remove",
       "value": "削除"
     },

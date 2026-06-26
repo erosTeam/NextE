@@ -6,6 +6,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { connectLanguageState } from '../state/AppearanceState'
 import { CommentTranslationSettings } from '../settings/CommentTranslationSettings'
 import { LocalDataStore } from '../storage/LocalDataStore'
+import { CacheStat } from './CacheStat'
 
 const COMMENT_TRANSLATION_TTL_MS: number = 7 * 24 * 60 * 60 * 1000
 const TRANSLATION_CONNECT_TIMEOUT_MS: number = 12000
@@ -252,6 +253,29 @@ export class CommentTranslationService {
       resultSet.close()
     }
     return 0
+  }
+
+  // Count + translated-text bytes of the unexpired comment-translation cache, for the cache page.
+  static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
+    const out: CacheStat = new CacheStat()
+    try {
+      const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+      const rs: relationalStore.ResultSet = await store.querySql(
+        'SELECT COUNT(*) AS c, COALESCE(SUM(LENGTH(translated)), 0) AS b FROM comment_translation_cache WHERE expires_at > ?',
+        [Date.now()],
+      )
+      try {
+        if (rs.goToFirstRow()) {
+          out.count = rs.getDouble(rs.getColumnIndex('c'))
+          out.bytes = rs.getDouble(rs.getColumnIndex('b'))
+        }
+      } finally {
+        rs.close()
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('translation', 'comment_cache_stat_failed', (error as Error).message)
+    }
+    return out
   }
 
   static async validateConfiguredLlm(): Promise<void> {

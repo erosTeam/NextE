@@ -11,6 +11,7 @@ import { EhTagSuggestion } from '../model/EhTagSuggestion'
 import { SimpleTag } from '../model/SimpleTag'
 import { TagGroup } from '../model/TagGroup'
 import { LocalDataStore } from '../storage/LocalDataStore'
+import { CacheStat } from './CacheStat'
 import {
   TAG_INTRO_IMAGE_DISABLE,
   TAG_INTRO_IMAGE_NON_H,
@@ -18,7 +19,8 @@ import {
   TAG_INTRO_IMAGE_R18G,
 } from '../state/TagTranslationSettingsState'
 
-const RELEASE_API_URL: string = 'https://api.github.com/repos/EhTagTranslation/Database/releases/latest'
+const RELEASE_API_URL: string =
+  'https://api.github.com/repos/EhTagTranslation/Database/releases/latest'
 const CDN_RELEASE_API_URL: string =
   'https://ghproxy.homeboyc.cn/https://api.github.com/repos/EhTagTranslation/Database/releases/latest'
 const CDN_PREFIX: string = 'https://ghproxy.homeboyc.cn/'
@@ -44,11 +46,11 @@ const SQL_SELECT_TAG_INFO: string =
   'SELECT name, intro, links FROM tag_translations WHERE namespace = ? AND key = ? LIMIT 1'
 const SQL_QUERY_TAG_TRANSLATIONS: string =
   'SELECT namespace, key, name FROM tag_translations ' +
-  'WHERE namespace <> \'rows\' AND (key LIKE ? ESCAPE \'\\\' OR name LIKE ? ESCAPE \'\\\') ' +
+  "WHERE namespace <> 'rows' AND (key LIKE ? ESCAPE '\\' OR name LIKE ? ESCAPE '\\') " +
   'ORDER BY last_use_time DESC, namespace ASC, key ASC LIMIT ?'
 const SQL_QUERY_TAG_TRANSLATIONS_BY_NAMESPACE: string =
   'SELECT namespace, key, name FROM tag_translations ' +
-  'WHERE namespace = ? AND (key LIKE ? ESCAPE \'\\\' OR name LIKE ? ESCAPE \'\\\') ' +
+  "WHERE namespace = ? AND (key LIKE ? ESCAPE '\\' OR name LIKE ? ESCAPE '\\') " +
   'ORDER BY last_use_time DESC, key ASC LIMIT ?'
 const SQL_CLEAR_TAG_TRANSLATIONS: string = 'DELETE FROM tag_translations'
 const SQL_UPSERT_TAG_VERSION: string =
@@ -121,7 +123,10 @@ export class TagTranslationService {
     return TagTranslationService.fallbackTranslate(normalized)
   }
 
-  static async translateFullTagAsync(context: common.UIAbilityContext, fullTag: string): Promise<string> {
+  static async translateFullTagAsync(
+    context: common.UIAbilityContext,
+    fullTag: string,
+  ): Promise<string> {
     const normalized: string = TagTranslationService.normalize(fullTag)
     const idx: number = normalized.indexOf(':')
     if (idx <= 0) {
@@ -134,7 +139,10 @@ export class TagTranslationService {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const args: relationalStore.ValueType[] = [namespace, key]
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_TAG_TRANSLATION, args)
+    const resultSet: relationalStore.ResultSet = await store.querySql(
+      SQL_SELECT_TAG_TRANSLATION,
+      args,
+    )
     try {
       if (resultSet.goToFirstRow()) {
         const name: string = TagTranslationService.readNullableString(
@@ -174,7 +182,9 @@ export class TagTranslationService {
   }
 
   static clearGalleriesTranslations(galleries: EhGallery[]): EhGallery[] {
-    return galleries.map((gallery: EhGallery) => TagTranslationService.clearGalleryTranslations(gallery))
+    return galleries.map((gallery: EhGallery) =>
+      TagTranslationService.clearGalleryTranslations(gallery),
+    )
   }
 
   static async translateGalleries(
@@ -185,17 +195,30 @@ export class TagTranslationService {
       return []
     }
     const startedAt: number = Date.now()
-    const cache: Map<string, string> = await TagTranslationService.translationMapForGalleries(context, galleries)
+    const cache: Map<string, string> = await TagTranslationService.translationMapForGalleries(
+      context,
+      galleries,
+    )
     const out: EhGallery[] = []
     for (let i = 0; i < galleries.length; i++) {
       const g: EhGallery = galleries[i].copy()
       for (let j = 0; j < g.simpleTags.length; j++) {
-        TagTranslationService.applyCachedTagTranslation(g.simpleTags[j].namespace, g.simpleTags[j], cache, true)
+        TagTranslationService.applyCachedTagTranslation(
+          g.simpleTags[j].namespace,
+          g.simpleTags[j],
+          cache,
+          true,
+        )
       }
       for (let j = 0; j < g.tagGroups.length; j++) {
         const group: TagGroup = g.tagGroups[j]
         for (let k = 0; k < group.tags.length; k++) {
-          TagTranslationService.applyCachedTagTranslation(group.namespace, group.tags[k], cache, false)
+          TagTranslationService.applyCachedTagTranslation(
+            group.namespace,
+            group.tags[k],
+            cache,
+            false,
+          )
         }
       }
       out.push(g)
@@ -224,7 +247,11 @@ export class TagTranslationService {
       return []
     }
     if (await TagTranslationService.hasRows(context)) {
-      const rows: EhTagSuggestion[] = await TagTranslationService.queryRdbSuggestions(context, q, limit)
+      const rows: EhTagSuggestion[] = await TagTranslationService.queryRdbSuggestions(
+        context,
+        q,
+        limit,
+      )
       if (rows.length > 0) {
         return rows
       }
@@ -256,8 +283,14 @@ export class TagTranslationService {
       info.name = TagTranslationService.stripNameMarkdown(
         TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('name')),
       )
-      const rawIntro: string = TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('intro'))
-      const rawLinks: string = TagTranslationService.readNullableString(resultSet, resultSet.getColumnIndex('links'))
+      const rawIntro: string = TagTranslationService.readNullableString(
+        resultSet,
+        resultSet.getColumnIndex('intro'),
+      )
+      const rawLinks: string = TagTranslationService.readNullableString(
+        resultSet,
+        resultSet.getColumnIndex('links'),
+      )
       const filteredIntro: string = TagTranslationService.filterIntroImages(
         await TagTranslationService.translateInlineCodeTags(context, rawIntro),
         introImageLevel,
@@ -268,6 +301,37 @@ export class TagTranslationService {
       return info
     } finally {
       resultSet.close()
+    }
+  }
+
+  // Row count + translated-name bytes of the tag-translation table, for the cache page.
+  static async statCache(context: common.UIAbilityContext): Promise<CacheStat> {
+    const out: CacheStat = new CacheStat()
+    try {
+      const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+      const rs: relationalStore.ResultSet = await store.querySql(
+        'SELECT COUNT(*) AS c, COALESCE(SUM(LENGTH(name)), 0) AS b FROM tag_translations',
+      )
+      try {
+        if (rs.goToFirstRow()) {
+          out.count = rs.getDouble(rs.getColumnIndex('c'))
+          out.bytes = rs.getDouble(rs.getColumnIndex('b'))
+        }
+      } finally {
+        rs.close()
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('tag-translation', 'stat_failed', (error as Error).message)
+    }
+    return out
+  }
+
+  static async clearTranslations(context: common.UIAbilityContext): Promise<void> {
+    try {
+      const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+      await store.executeSql(SQL_CLEAR_TAG_TRANSLATIONS)
+    } catch (error) {
+      DiagnosticLogger.warn('tag-translation', 'clear_failed', (error as Error).message)
     }
   }
 
@@ -300,7 +364,10 @@ export class TagTranslationService {
     return out
   }
 
-  static async touchSuggestion(context: common.UIAbilityContext, s: EhTagSuggestion): Promise<void> {
+  static async touchSuggestion(
+    context: common.UIAbilityContext,
+    s: EhTagSuggestion,
+  ): Promise<void> {
     if (s.namespace.length === 0 || s.text.length === 0) {
       return
     }
@@ -334,7 +401,11 @@ export class TagTranslationService {
     await TagTranslationService.downloadPublicFile(downloadUrl, gzPath)
     const rawJson: string = await TagTranslationService.readGzipText(gzPath)
     const rows: TagTranslationEntry[] = TagTranslationService.parseRawDatabase(rawJson)
-    await TagTranslationService.replaceRows(context, rows, TagTranslationService.releaseVersion(release))
+    await TagTranslationService.replaceRows(
+      context,
+      rows,
+      TagTranslationService.releaseVersion(release),
+    )
     DiagnosticLogger.info('tag-translation', 'update_done', `${rows.length} rows`)
     return rows.length
   }
@@ -350,7 +421,9 @@ export class TagTranslationService {
     const namespaces: RawTagNamespace[] = db.data !== undefined && db.data !== null ? db.data : []
     const rows: TagTranslationEntry[] = []
     namespaces.forEach((group: RawTagNamespace) => {
-      const namespace: string = EhConstants.expandNamespace(TagTranslationService.safeString(group.namespace))
+      const namespace: string = EhConstants.expandNamespace(
+        TagTranslationService.safeString(group.namespace),
+      )
       if (namespace.length === 0 || group.data === undefined || group.data === null) {
         return
       }
@@ -432,7 +505,12 @@ export class TagTranslationService {
       const namespace: string = namespaces[i]
       const keys: string[] | undefined = keysByNamespace.get(namespace)
       if (keys !== undefined && keys.length > 0) {
-        await TagTranslationService.queryTranslationBatchForNamespace(store, namespace, keys, translations)
+        await TagTranslationService.queryTranslationBatchForNamespace(
+          store,
+          namespace,
+          keys,
+          translations,
+        )
       }
     }
     return translations
@@ -534,12 +612,12 @@ export class TagTranslationService {
   ): Promise<EhTagSuggestion[]> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const like: string = `%${TagTranslationService.escapeLike(query.keyword)}%`
-    const args: relationalStore.ValueType[] = query.namespace.length > 0
-      ? [query.namespace, like, like, limit]
-      : [like, like, limit]
-    const sql: string = query.namespace.length > 0
-      ? SQL_QUERY_TAG_TRANSLATIONS_BY_NAMESPACE
-      : SQL_QUERY_TAG_TRANSLATIONS
+    const args: relationalStore.ValueType[] =
+      query.namespace.length > 0 ? [query.namespace, like, like, limit] : [like, like, limit]
+    const sql: string =
+      query.namespace.length > 0
+        ? SQL_QUERY_TAG_TRANSLATIONS_BY_NAMESPACE
+        : SQL_QUERY_TAG_TRANSLATIONS
     const resultSet: relationalStore.ResultSet = await store.querySql(sql, args)
     const rows: EhTagSuggestion[] = []
     try {
@@ -603,8 +681,9 @@ export class TagTranslationService {
   }
 
   private static async fetchLatestRelease(useCdn: boolean): Promise<TagTranslationRelease> {
-    const resp: PublicTextResponse =
-      await TagTranslationService.getPublicText(useCdn ? CDN_RELEASE_API_URL : RELEASE_API_URL)
+    const resp: PublicTextResponse = await TagTranslationService.getPublicText(
+      useCdn ? CDN_RELEASE_API_URL : RELEASE_API_URL,
+    )
     if (resp.statusCode !== 200) {
       throw new Error(`tag translation release HTTP ${resp.statusCode}`)
     }
@@ -634,7 +713,7 @@ export class TagTranslationService {
         readTimeout: TAG_DB_READ_TIMEOUT_MS,
         usingCache: false,
       })
-      const body: string = typeof resp.result === 'string' ? resp.result as string : ''
+      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
       return { statusCode: resp.responseCode as number, body: body }
     } finally {
       req.destroy()
@@ -675,7 +754,10 @@ export class TagTranslationService {
   private static writeArrayBuffer(filePath: string, bytes: ArrayBuffer): number {
     let file: fileIo.File | null = null
     try {
-      file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC)
+      file = fileIo.openSync(
+        filePath,
+        fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC,
+      )
       return fileIo.writeSync((file as fileIo.File).fd, bytes)
     } finally {
       if (file !== null) {
@@ -739,7 +821,10 @@ export class TagTranslationService {
     }
   }
 
-  private static readNullableString(resultSet: relationalStore.ResultSet, columnIndex: number): string {
+  private static readNullableString(
+    resultSet: relationalStore.ResultSet,
+    columnIndex: number,
+  ): string {
     if (resultSet.isColumnNull(columnIndex)) {
       return ''
     }
@@ -758,7 +843,10 @@ export class TagTranslationService {
     return value.replace(/!\[(\S+)?\]\(.+?\)(\s+)?(\S+)/g, '$3').trim()
   }
 
-  private static async translateInlineCodeTags(context: common.UIAbilityContext, intro: string): Promise<string> {
+  private static async translateInlineCodeTags(
+    context: common.UIAbilityContext,
+    intro: string,
+  ): Promise<string> {
     if (intro.length === 0) {
       return ''
     }
@@ -781,7 +869,10 @@ export class TagTranslationService {
     })
   }
 
-  private static async lookupCodeTagName(context: common.UIAbilityContext, raw: string): Promise<string> {
+  private static async lookupCodeTagName(
+    context: common.UIAbilityContext,
+    raw: string,
+  ): Promise<string> {
     const text: string = raw.trim().toLowerCase()
     if (text.length === 0) {
       return ''
@@ -789,9 +880,13 @@ export class TagTranslationService {
     const idx: number = text.indexOf(':')
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const sql: string = idx > 0 ? SQL_SELECT_TAG_TRANSLATION : SQL_SELECT_TAG_TRANSLATION_BY_KEY
-    const args: relationalStore.ValueType[] = idx > 0
-      ? [EhConstants.expandNamespace(text.substring(0, idx)), TagTranslationService.cleanTagQueryText(text.substring(idx + 1))]
-      : [TagTranslationService.cleanTagQueryText(text)]
+    const args: relationalStore.ValueType[] =
+      idx > 0
+        ? [
+            EhConstants.expandNamespace(text.substring(0, idx)),
+            TagTranslationService.cleanTagQueryText(text.substring(idx + 1)),
+          ]
+        : [TagTranslationService.cleanTagQueryText(text)]
     const resultSet: relationalStore.ResultSet = await store.querySql(sql, args)
     try {
       if (resultSet.goToFirstRow()) {
@@ -815,9 +910,15 @@ export class TagTranslationService {
       case TAG_INTRO_IMAGE_R18:
         return intro
           .replace(regR18g, '')
-          .replace(regR18And18g, (_m: string, _alt0: string, alt: string, url: string): string => `![${alt}](${url})`)
+          .replace(
+            regR18And18g,
+            (_m: string, _alt0: string, alt: string, url: string): string => `![${alt}](${url})`,
+          )
       case TAG_INTRO_IMAGE_R18G:
-        return intro.replace(regR18And18g, (_m: string, _alt0: string, alt: string, url: string): string => `![${alt}](${url})`)
+        return intro.replace(
+          regR18And18g,
+          (_m: string, _alt0: string, alt: string, url: string): string => `![${alt}](${url})`,
+        )
       default:
         return intro.replace(regR18And18g, '')
     }
@@ -909,7 +1010,11 @@ export class TagTranslationService {
     }
   }
 
-  private static fallbackSuggestions(keyword: string, limit: number, namespace: string = ''): EhTagSuggestion[] {
+  private static fallbackSuggestions(
+    keyword: string,
+    limit: number,
+    namespace: string = '',
+  ): EhTagSuggestion[] {
     const seeds: EhTagSuggestion[] = [
       new EhTagSuggestion('language', 'chinese', '中文'),
       new EhTagSuggestion('language', 'japanese', '日文'),

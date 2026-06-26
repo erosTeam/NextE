@@ -60,6 +60,7 @@ import {
   AccountLoginPage,
   LayoutSettingsPage,
   ColumnDensityPage,
+  CacheSettingsPage,
   ReaderSettingsPage,
   DownloadSettingsPage,
   SearchSettingsPage,
@@ -85,6 +86,7 @@ import { EhLoginWebPage } from './EhLoginWebPage'
 import { EhCookieImportPage } from './EhCookieImportPage'
 import { EhPasswordLoginPage } from './EhPasswordLoginPage'
 import { CoverFallbackProbePage } from './CoverFallbackProbePage'
+import { ReaderGestureProbePage } from './ReaderGestureProbePage'
 import { ImagePageRouteErrorPage } from './ImagePageRouteErrorPage'
 import { GalleryWebPage } from './GalleryWebPage'
 
@@ -206,6 +208,11 @@ struct Index {
     if (uri === InternalQaRoutes.COVER_FALLBACK_PROBE_URI) {
       DiagnosticLogger.info('nav', 'internal_qa_open', 'cover-fallback')
       this.stack.pushPathByName('CoverFallbackProbe', null)
+      return
+    }
+    if (uri === InternalQaRoutes.READER_GESTURE_PROBE_URI) {
+      DiagnosticLogger.info('nav', 'internal_qa_open', 'reader-gesture')
+      this.stack.pushPathByName('ReaderGestureProbe', null)
       return
     }
     const ref: GalleryRef | null = EhUrlRouter.parseGallery(currentUri)
@@ -623,6 +630,8 @@ struct Index {
       LayoutSettingsPage()
     } else if (name === 'ColumnDensity') {
       ColumnDensityPage()
+    } else if (name === 'CacheSettings') {
+      CacheSettingsPage()
     } else if (name === 'ReaderSettings') {
       ReaderSettingsPage()
     } else if (name === 'DownloadSettings') {
@@ -645,6 +654,8 @@ struct Index {
       ImagePageRouteErrorPage()
     } else if (name === 'CoverFallbackProbe') {
       CoverFallbackProbePage()
+    } else if (name === 'ReaderGestureProbe') {
+      ReaderGestureProbePage()
     }
   }
 

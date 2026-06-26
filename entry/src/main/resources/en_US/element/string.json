@@ -1145,6 +1145,46 @@
       "value": "Clear"
     },
     {
+      "name": "settings_cache",
+      "value": "Storage & cache"
+    },
+    {
+      "name": "cache_page",
+      "value": "Page cache"
+    },
+    {
+      "name": "cache_image",
+      "value": "Image cache"
+    },
+    {
+      "name": "cache_comment_translation",
+      "value": "Comment translations"
+    },
+    {
+      "name": "cache_tag_translation",
+      "value": "Tag translations"
+    },
+    {
+      "name": "cache_clear_all",
+      "value": "Clear all caches"
+    },
+    {
+      "name": "cache_items_unit",
+      "value": "items"
+    },
+    {
+      "name": "cache_clear_confirm",
+      "value": "Clear this cache?"
+    },
+    {
+      "name": "cache_clear_all_confirm",
+      "value": "Clear all caches?"
+    },
+    {
+      "name": "cache_cleared",
+      "value": "Cleared"
+    },
+    {
       "name": "common_remove",
       "value": "Remove"
     },

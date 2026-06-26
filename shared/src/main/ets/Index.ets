@@ -109,6 +109,7 @@ export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from 
 export { CommentTranslationService } from './services/CommentTranslationService'
 export { LocalBlockService } from './services/LocalBlockService'
 export { EhPageCacheService } from './services/EhPageCacheService'
+export { CacheStat } from './services/CacheStat'
 export { MyTagsTargetService, MyTagsTargetResolveResult } from './services/MyTagsTargetService'
 export { CoverColorService } from './services/CoverColorService'
 export { MotionHandStateService, MotionHandEdge } from './services/MotionHandStateService'

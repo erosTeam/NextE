@@ -1145,6 +1145,46 @@
       "value": "清除"
     },
     {
+      "name": "settings_cache",
+      "value": "存储与缓存"
+    },
+    {
+      "name": "cache_page",
+      "value": "页面缓存"
+    },
+    {
+      "name": "cache_image",
+      "value": "图片缓存"
+    },
+    {
+      "name": "cache_comment_translation",
+      "value": "评论翻译缓存"
+    },
+    {
+      "name": "cache_tag_translation",
+      "value": "标签翻译缓存"
+    },
+    {
+      "name": "cache_clear_all",
+      "value": "清除全部缓存"
+    },
+    {
+      "name": "cache_items_unit",
+      "value": "项"
+    },
+    {
+      "name": "cache_clear_confirm",
+      "value": "清除该缓存？"
+    },
+    {
+      "name": "cache_clear_all_confirm",
+      "value": "清除全部缓存？"
+    },
+    {
+      "name": "cache_cleared",
+      "value": "已清除"
+    },
+    {
       "name": "common_remove",
       "value": "移除"
     },

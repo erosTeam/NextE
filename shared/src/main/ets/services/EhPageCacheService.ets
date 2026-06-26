@@ -8,6 +8,7 @@ import { EhGalleryImage } from '../model/EhGalleryImage'
 import { Favcat } from '../model/Favcat'
 import { GalleryList } from '../model/GalleryList'
 import { SimpleTag } from '../model/SimpleTag'
+import { CacheStat } from './CacheStat'
 import { TagGroup } from '../model/TagGroup'
 import { GalleryDetailResult } from '../network/EhApiService'
 import { EhCookieStore } from '../network/EhCookieStore'
@@ -30,11 +31,44 @@ const SQL_TOUCH_CACHE: string =
 const SQL_DELETE_EXPIRED_CACHE: string = 'DELETE FROM eh_page_cache WHERE expires_at <= ?'
 const SQL_PRUNE_KIND_CACHE: string =
   'DELETE FROM eh_page_cache WHERE kind = ? AND cache_key NOT IN (' +
-    'SELECT cache_key FROM eh_page_cache WHERE kind = ? ORDER BY accessed_at DESC LIMIT ?' +
+  'SELECT cache_key FROM eh_page_cache WHERE kind = ? ORDER BY accessed_at DESC LIMIT ?' +
   ')'
 
 export class EhPageCacheService {
   private static preloadedGalleryLists: Map<string, GalleryList> = new Map<string, GalleryList>()
+
+  // Count + total payload bytes of the unexpired page cache (gallery list + detail), for the cache page.
+  static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
+    const out: CacheStat = new CacheStat()
+    try {
+      const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+      const rs: relationalStore.ResultSet = await store.querySql(
+        'SELECT COUNT(*) AS c, COALESCE(SUM(LENGTH(payload)), 0) AS b FROM eh_page_cache WHERE expires_at > ?',
+        [Date.now()],
+      )
+      try {
+        if (rs.goToFirstRow()) {
+          out.count = rs.getDouble(rs.getColumnIndex('c'))
+          out.bytes = rs.getDouble(rs.getColumnIndex('b'))
+        }
+      } finally {
+        rs.close()
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('page-cache', 'stat_failed', (error as Error).message)
+    }
+    return out
+  }
+
+  static async clearAll(context: common.UIAbilityContext): Promise<void> {
+    try {
+      const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+      await store.executeSql('DELETE FROM eh_page_cache')
+      EhPageCacheService.preloadedGalleryLists.clear()
+    } catch (error) {
+      DiagnosticLogger.warn('page-cache', 'clear_failed', (error as Error).message)
+    }
+  }
 
   static homeListKey(isEx: boolean, source: string, toplistTl: number): string {
     const sourceKey: string = source.length > 0 ? source : 'front'
@@ -64,7 +98,11 @@ export class EhPageCacheService {
     context: common.UIAbilityContext,
     cacheKey: string,
   ): Promise<GalleryList | null> {
-    const payload: string = await EhPageCacheService.loadPayload(context, CACHE_KIND_GALLERY_LIST, cacheKey)
+    const payload: string = await EhPageCacheService.loadPayload(
+      context,
+      CACHE_KIND_GALLERY_LIST,
+      cacheKey,
+    )
     if (payload.length === 0) {
       return null
     }
@@ -77,7 +115,10 @@ export class EhPageCacheService {
     }
   }
 
-  static async preloadGalleryList(context: common.UIAbilityContext, cacheKey: string): Promise<void> {
+  static async preloadGalleryList(
+    context: common.UIAbilityContext,
+    cacheKey: string,
+  ): Promise<void> {
     const cached: GalleryList | null = await EhPageCacheService.loadGalleryList(context, cacheKey)
     if (cached !== null) {
       EhPageCacheService.preloadedGalleryLists.set(cacheKey, cached)
@@ -117,7 +158,11 @@ export class EhPageCacheService {
     context: common.UIAbilityContext,
     cacheKey: string,
   ): Promise<GalleryDetailResult | null> {
-    const payload: string = await EhPageCacheService.loadPayload(context, CACHE_KIND_GALLERY_DETAIL, cacheKey)
+    const payload: string = await EhPageCacheService.loadPayload(
+      context,
+      CACHE_KIND_GALLERY_DETAIL,
+      cacheKey,
+    )
     if (payload.length === 0) {
       return null
     }
@@ -180,7 +225,9 @@ export class EhPageCacheService {
           return ''
         }
         const payloadIndex: number = resultSet.getColumnIndex('payload')
-        const payload: string = resultSet.isColumnNull(payloadIndex) ? '' : resultSet.getString(payloadIndex)
+        const payload: string = resultSet.isColumnNull(payloadIndex)
+          ? ''
+          : resultSet.getString(payloadIndex)
         await store.executeSql(SQL_TOUCH_CACHE, [now, kind, cacheKey])
         DiagnosticLogger.info('page-cache', 'load_hit', `${kind} bytes=${payload.length}`)
         return payload
@@ -203,14 +250,7 @@ export class EhPageCacheService {
     try {
       const now: number = Date.now()
       const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-      const args: relationalStore.ValueType[] = [
-        kind,
-        cacheKey,
-        payload,
-        now,
-        now + ttlMs,
-        now,
-      ]
+      const args: relationalStore.ValueType[] = [kind, cacheKey, payload, now, now + ttlMs, now]
       await store.executeSql(SQL_UPSERT_CACHE, args)
       await store.executeSql(SQL_DELETE_EXPIRED_CACHE, [now])
       await store.executeSql(SQL_PRUNE_KIND_CACHE, [kind, kind, MAX_CACHE_ROWS_PER_KIND])
@@ -315,7 +355,10 @@ export class EhPageCacheService {
         EhPageCacheService.safeString(t.text),
         siteLabel.length > 0
           ? EhPageCacheService.safeString(t.translat)
-          : EhPageCacheService.stripLegacyGeneratedPrefix(namespace, EhPageCacheService.safeString(t.translat)),
+          : EhPageCacheService.stripLegacyGeneratedPrefix(
+              namespace,
+              EhPageCacheService.safeString(t.translat),
+            ),
         namespace,
       )
       tag.siteLabel = siteLabel
@@ -341,7 +384,12 @@ export class EhPageCacheService {
       return groups
     }
     raw.forEach((g: TagGroup) => {
-      groups.push(new TagGroup(EhPageCacheService.safeString(g.namespace), EhPageCacheService.reviveSimpleTags(g.tags)))
+      groups.push(
+        new TagGroup(
+          EhPageCacheService.safeString(g.namespace),
+          EhPageCacheService.reviveSimpleTags(g.tags),
+        ),
+      )
     })
     return groups
   }
@@ -352,12 +400,14 @@ export class EhPageCacheService {
       return favcats
     }
     raw.forEach((f: Favcat) => {
-      favcats.push(new Favcat(
-        EhPageCacheService.safeString(f.favId),
-        EhPageCacheService.safeString(f.favTitle),
-        EhPageCacheService.safeNumber(f.totNum),
-        EhPageCacheService.safeBoolean(f.isPlaceholder),
-      ))
+      favcats.push(
+        new Favcat(
+          EhPageCacheService.safeString(f.favId),
+          EhPageCacheService.safeString(f.favTitle),
+          EhPageCacheService.safeNumber(f.totNum),
+          EhPageCacheService.safeBoolean(f.isPlaceholder),
+        ),
+      )
     })
     return favcats
   }
