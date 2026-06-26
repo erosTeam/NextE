@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { LengthMetrics, SegmentButtonV2Items, SymbolGlyphModifier, TabSegmentButtonV2 } from '@kit.ArkUI'
+import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
 import {
   ThemeConstants,
   AppStrings,
@@ -9,6 +9,7 @@ import {
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
+  SettingsCheckedMenuItem,
   CategorySelector,
   AdvancedSearchControls,
   SearchFilterState,
@@ -27,6 +28,17 @@ import {
   PROFILE_TYPE_TOPLIST,
   PROFILE_TYPE_FAVORITE,
 } from 'shared'
+
+/** One selectable option for a TabSelectRow dropdown (string value + resolved label). */
+class SelectOption {
+  value: string
+  label: ResourceStr
+
+  constructor(value: string, label: ResourceStr) {
+    this.value = value
+    this.label = label
+  }
+}
 
 interface TypeOption {
   value: string
@@ -52,13 +64,16 @@ const TOPLIST_TLS: number[] = [11, 12, 13, 15]
 
 /**
  * Create / edit one custom home sub-tab profile (eros_fe profile editor) — a full routed page (the user
- * chose a page over a half-modal). The category grid + advanced controls are the shared CategorySelector
- * / AdvancedSearchControls bound to a TRANSIENT SearchFilterState seeded from the profile and read back on
- * save. Built-ins reduce to name-only (their type/search/cats are fixed). 保存 validates a non-empty name.
+ * chose a page over a half-modal). Built on the app's standard settings-form chrome: SecondaryListScaffold
+ * + SectionHeader + GroupedListSection cards of ConciseListRow-based rows (TabSelectRow / TabTextRow), so
+ * it reads exactly like EhProfileSettingsPage and the layout settings page — no hand-rolled rows. The
+ * category grid + advanced controls are the shared CategorySelector / AdvancedSearchControls bound to a
+ * TRANSIENT SearchFilterState seeded from the profile and read back on 保存. Built-ins reduce to name-only.
  */
 @ComponentV2
 export struct TabEditPage {
   private stack: NavPathStack = connectNavStack().stack;
+  private scroller: Scroller = new Scroller();
   private uuid: string = '';
   @Local isCreate: boolean = true;
   @Local builtin: boolean = false;
@@ -67,7 +82,7 @@ export struct TabEditPage {
   @Local searchText: string = '';
   @Local favcat: string = 'a';
   @Local toplistTl: number = 15;
-  @Local displayMode: string = 'global';
+  @Local displayMode: string = PROFILE_DISPLAY_GLOBAL;
   // Transient filter bound to the shared category/advanced controls; seeded on enter, read back on save.
   @Local filter: SearchFilterState = new SearchFilterState();
   @Local favSelection: FavSelectionState = connectFavSelection();
@@ -77,9 +92,6 @@ export struct TabEditPage {
     { text: '' },
     { text: '' },
   ]);
-  @Local private typeMenuShown: boolean = false;
-  @Local private favcatMenuShown: boolean = false;
-  @Local private displayMenuShown: boolean = false;
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -124,37 +136,26 @@ export struct TabEditPage {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
 
-  private typeLabelText(): string {
-    for (let i = 0; i < TYPE_OPTIONS.length; i++) {
-      if (TYPE_OPTIONS[i].value === this.listType) {
-        return AppStrings.get(TYPE_OPTIONS[i].labelKey)
-      }
-    }
-    return AppStrings.get('tab_type_gallery')
+  // ── option lists ──────────────────────────────────────────────────────────
+  private typeOptions(): SelectOption[] {
+    return TYPE_OPTIONS.map((o: TypeOption) => new SelectOption(o.value, AppStrings.get(o.labelKey)))
   }
 
-  private displayLabelText(): string {
-    for (let i = 0; i < DISPLAY_OPTIONS.length; i++) {
-      if (DISPLAY_OPTIONS[i].value === this.displayMode) {
-        return AppStrings.get(DISPLAY_OPTIONS[i].labelKey)
-      }
-    }
-    return AppStrings.get('view_follow_global')
+  private displayOptions(): SelectOption[] {
+    return DISPLAY_OPTIONS.map(
+      (o: TypeOption) => new SelectOption(o.value, AppStrings.get(o.labelKey)),
+    )
   }
 
-  private favcatLabel(): string {
-    if (this.favcat === 'a') {
-      return AppStrings.get('favorites_all')
-    }
-    const list: Favcat[] = this.favSelection.favList
-    for (let i = 0; i < list.length; i++) {
-      if (list[i].favId === this.favcat) {
-        return list[i].favTitle.length > 0 ? list[i].favTitle : this.favcat
-      }
-    }
-    return this.favcat
+  private favcatOptions(): SelectOption[] {
+    const out: SelectOption[] = [new SelectOption('a', AppStrings.get('favorites_all'))]
+    this.favSelection.favList.forEach((f: Favcat) => {
+      out.push(new SelectOption(f.favId, f.favTitle.length > 0 ? f.favTitle : f.favId))
+    })
+    return out
   }
 
+  // ── derived state ─────────────────────────────────────────────────────────
   private usesFilters(): boolean {
     return (
       this.listType === PROFILE_TYPE_GALLERY ||
@@ -176,6 +177,7 @@ export struct TabEditPage {
     return index >= 0 && index < TOPLIST_TLS.length ? TOPLIST_TLS[index] : 15
   }
 
+  // ── actions ───────────────────────────────────────────────────────────────
   private save(): void {
     const trimmed: string = this.name.trim()
     if (trimmed.length === 0) {
@@ -244,159 +246,78 @@ export struct TabEditPage {
     return immersiveTitleBarOpts(content)
   }
 
+  // ── shared form chrome (mirrors EhProfileSettingsPage) ──────────────────────
   @Builder
-  private SectionLabel(label: ResourceStr) {
-    Text(label)
+  private SectionHeader(title: ResourceStr) {
+    Text(title)
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
       .fontColor($r('sys.color.font_secondary'))
-      .margin({ left: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_XS })
-  }
-
-  @Builder
-  private TypeMenu() {
-    Menu() {
-      ForEach(
-        TYPE_OPTIONS,
-        (opt: TypeOption) => {
-          MenuItem({
-            content: $r(`app.string.${opt.labelKey}`),
-            symbolEndIcon:
-              this.listType === opt.value
-                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-                : undefined,
-          }).onClick(() => {
-            this.listType = opt.value
-            this.typeMenuShown = false
-          })
-        },
-        (opt: TypeOption) => opt.value,
-      )
-    }
-  }
-
-  @Builder
-  private FavcatMenu() {
-    Menu() {
-      MenuItem({
-        content: $r('app.string.favorites_all'),
-        symbolEndIcon:
-          this.favcat === 'a' ? new SymbolGlyphModifier($r('sys.symbol.checkmark')) : undefined,
-      }).onClick(() => {
-        this.favcat = 'a'
-        this.favcatMenuShown = false
+      .width('100%')
+      .padding({
+        left: ThemeConstants.SPACE_MD,
+        right: ThemeConstants.SPACE_MD,
+        top: ThemeConstants.SPACE_MD,
+        bottom: ThemeConstants.SPACE_XS,
       })
-      ForEach(
-        this.favSelection.favList,
-        (f: Favcat) => {
-          MenuItem({
-            content: f.favTitle.length > 0 ? f.favTitle : f.favId,
-            symbolEndIcon:
-              this.favcat === f.favId
-                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-                : undefined,
-          }).onClick(() => {
-            this.favcat = f.favId
-            this.favcatMenuShown = false
-          })
-        },
-        (f: Favcat) => f.favId,
-      )
-    }
   }
 
   @Builder
-  private DisplayMenu() {
-    Menu() {
-      ForEach(
-        DISPLAY_OPTIONS,
-        (opt: TypeOption) => {
-          MenuItem({
-            content: $r(`app.string.${opt.labelKey}`),
-            symbolEndIcon:
-              this.displayMode === opt.value
-                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
-                : undefined,
-          }).onClick(() => {
-            this.displayMode = opt.value
-            this.displayMenuShown = false
-          })
-        },
-        (opt: TypeOption) => opt.value,
-      )
-    }
+  private rowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
   }
 
   build() {
     HdsNavDestination() {
-      SecondaryListScaffold({ bottomPadding: ThemeConstants.SPACE_XL, alwaysEnableEdgeSpring: true }) {
-        // Name
+      SecondaryListScaffold({
+        scroller: this.scroller,
+        bottomPadding: ThemeConstants.SPACE_XL,
+        alwaysEnableEdgeSpring: true,
+      }) {
+        // Basic: name, list type, (favorite folder)
         ListItem() {
-          Column() {
-            this.SectionLabel($r('app.string.tab_name_label'))
-            GroupedListSection() {
-              TextInput({ text: this.name, placeholder: $r('app.string.tab_name_placeholder') })
-                .width('100%')
-                .height(48)
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .backgroundColor($r('app.color.card_background'))
-                .borderRadius(ThemeConstants.RADIUS_ROUND)
-                .onChange((value: string) => {
-                  this.name = value
-                })
-            }
-          }
-          .alignItems(HorizontalAlign.Start)
-        }
-        if (!this.builtin) {
-          // List type
-          ListItem() {
-            GroupedListSection() {
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.tab_list_type'),
-                  trailingText: this.typeLabelText(),
-                  trailingDropdown: true,
-                  action: () => {
-                    this.typeMenuShown = true
-                  },
-                })
-              }
-              .bindMenu(this.typeMenuShown, this.TypeMenu, {
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.typeMenuShown = false
+          GroupedListSection() {
+            TabTextRow({
+              title: $r('app.string.tab_name_label'),
+              value: this.name,
+              placeholder: $r('app.string.tab_name_placeholder'),
+              onChange: (v: string) => {
+                this.name = v
+              },
+            })
+            if (!this.builtin) {
+              this.rowDivider()
+              TabSelectRow({
+                title: $r('app.string.tab_list_type'),
+                options: this.typeOptions(),
+                current: this.listType,
+                onPick: (v: string) => {
+                  this.listType = v
                 },
               })
-            }
-          }
-          // Favorite favcat selector
-          if (this.listType === PROFILE_TYPE_FAVORITE) {
-            ListItem() {
-              GroupedListSection() {
-                Column() {
-                  ConciseListRow({
-                    title: $r('app.string.tab_favcat'),
-                    trailingText: this.favcatLabel(),
-                    trailingDropdown: true,
-                    action: () => {
-                      this.favcatMenuShown = true
-                    },
-                  })
-                }
-                .bindMenu(this.favcatMenuShown, this.FavcatMenu, {
-                  placement: Placement.BottomRight,
-                  onDisappear: () => {
-                    this.favcatMenuShown = false
+              if (this.listType === PROFILE_TYPE_FAVORITE) {
+                this.rowDivider()
+                TabSelectRow({
+                  title: $r('app.string.tab_favcat'),
+                  options: this.favcatOptions(),
+                  current: this.favcat,
+                  onPick: (v: string) => {
+                    this.favcat = v
                   },
                 })
               }
             }
           }
+        }
+
+        if (!this.builtin) {
           // Toplist period
           if (this.listType === PROFILE_TYPE_TOPLIST) {
             ListItem() {
               Column() {
-                this.SectionLabel($r('app.string.tab_toplist_period'))
+                this.SectionHeader($r('app.string.tab_toplist_period'))
                 GroupedListSection() {
                   TabSegmentButtonV2({
                     items: this.periodItems,
@@ -410,91 +331,80 @@ export struct TabEditPage {
                   })
                     .width('100%')
                     .constraintSize({ minHeight: 44 })
+                    .padding({
+                      left: ThemeConstants.SPACE_SM,
+                      right: ThemeConstants.SPACE_SM,
+                      top: ThemeConstants.SPACE_SM,
+                      bottom: ThemeConstants.SPACE_SM,
+                    })
                 }
               }
-              .alignItems(HorizontalAlign.Start)
             }
           }
+
           // Category
           if (this.usesFilters()) {
             ListItem() {
               Column() {
-                this.SectionLabel($r('app.string.tab_category'))
+                this.SectionHeader($r('app.string.tab_category'))
                 GroupedListSection() {
                   CategorySelector({ filter: this.filter })
                 }
               }
-              .alignItems(HorizontalAlign.Start)
             }
             // Search text
             ListItem() {
-              Column() {
-                this.SectionLabel($r('app.string.tab_search_text'))
-                GroupedListSection() {
-                  TextInput({ text: this.searchText, placeholder: $r('app.string.search_placeholder') })
-                    .width('100%')
-                    .height(48)
-                    .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                    .backgroundColor($r('app.color.card_background'))
-                    .borderRadius(ThemeConstants.RADIUS_ROUND)
-                    .onChange((value: string) => {
-                      this.searchText = value
-                    })
-                }
+              GroupedListSection() {
+                TabTextRow({
+                  title: $r('app.string.tab_search_text'),
+                  value: this.searchText,
+                  placeholder: $r('app.string.search_placeholder'),
+                  onChange: (v: string) => {
+                    this.searchText = v
+                  },
+                })
               }
-              .alignItems(HorizontalAlign.Start)
             }
           }
-          // Advanced search
+
+          // Advanced search (its own master toggle heads the card)
           if (this.usesAdvanced()) {
             ListItem() {
               Column() {
-                this.SectionLabel($r('app.string.tab_advanced'))
+                this.SectionHeader($r('app.string.tab_advanced'))
                 GroupedListSection() {
                   AdvancedSearchControls({ filter: this.filter })
                 }
               }
-              .alignItems(HorizontalAlign.Start)
             }
           }
-          // Display mode (per-tab renderer; 'global' follows the shared default)
+
+          // Display mode
           ListItem() {
             GroupedListSection() {
-              Column() {
-                ConciseListRow({
-                  title: $r('app.string.tab_display_mode'),
-                  trailingText: this.displayLabelText(),
-                  trailingDropdown: true,
-                  action: () => {
-                    this.displayMenuShown = true
-                  },
-                })
-              }
-              .bindMenu(this.displayMenuShown, this.DisplayMenu, {
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.displayMenuShown = false
+              TabSelectRow({
+                title: $r('app.string.tab_display_mode'),
+                options: this.displayOptions(),
+                current: this.displayMode,
+                onPick: (v: string) => {
+                  this.displayMode = v
                 },
               })
             }
           }
+
           // Delete (existing custom profiles only)
           if (!this.isCreate) {
             ListItem() {
               GroupedListSection() {
-                Row() {
-                  Text($r('app.string.common_delete'))
-                    .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                    .fontColor(Color.Red)
-                    .layoutWeight(1)
-                  SymbolGlyph($r('sys.symbol.trash'))
-                    .fontSize(18)
-                    .fontColor([Color.Red])
-                }
-                .width('100%')
-                .height(48)
-                .onClick(() => {
-                  this.confirmDelete()
+                ConciseListRow({
+                  title: $r('app.string.common_delete'),
+                  leadingIcon: $r('sys.symbol.trash'),
+                  destructive: true,
+                  showChevron: false,
+                  action: () => {
+                    this.confirmDelete()
+                  },
                 })
               }
             }
@@ -508,5 +418,98 @@ export struct TabEditPage {
       const param: string = context.pathInfo.param as string
       this.seedFromParam(typeof param === 'string' ? param : '')
     })
+  }
+}
+
+/** Label + dropdown row bound to a string-valued option set (ConciseListRow + bindMenu, app-standard). */
+@ComponentV2
+struct TabSelectRow {
+  @Param title: ResourceStr = '';
+  @Param options: SelectOption[] = [];
+  @Param current: string = '';
+  @Event onPick: (value: string) => void = () => {};
+  @Local private menuShown: boolean = false;
+
+  private currentLabel(): ResourceStr {
+    for (let i: number = 0; i < this.options.length; i++) {
+      if (this.options[i].value === this.current) {
+        return this.options[i].label
+      }
+    }
+    return ''
+  }
+
+  build() {
+    Column() {
+      ConciseListRow({
+        title: this.title,
+        trailingText: this.currentLabel(),
+        trailingDropdown: true,
+        action: () => {
+          this.menuShown = true
+        },
+      })
+    }
+    .bindMenu(this.menuShown, this.OptionMenu, {
+      placement: Placement.BottomRight,
+      onDisappear: () => {
+        this.menuShown = false
+      },
+    })
+  }
+
+  @Builder
+  OptionMenu() {
+    Menu() {
+      ForEach(
+        this.options,
+        (option: SelectOption) => {
+          SettingsCheckedMenuItem({
+            label: option.label,
+            selected: option.value === this.current,
+            selectAction: () => {
+              this.onPick(option.value)
+              this.menuShown = false
+            },
+          })
+        },
+        (option: SelectOption) => option.value,
+      )
+    }
+  }
+}
+
+/** Label + inline text field, built ON ConciseListRow so the title matches every other row exactly
+ * (the input lives in the row's suffix slot). Mirrors EhProfileSettingsPage's UcTextRow. */
+@ComponentV2
+struct TabTextRow {
+  @Param title: ResourceStr = '';
+  @Param value: string = '';
+  @Param placeholder: ResourceStr = '';
+  @Event onChange: (value: string) => void = () => {};
+
+  build() {
+    ConciseListRow({
+      title: this.title,
+      showChevron: false,
+      suffixPaddingRight: ThemeConstants.SPACE_MD,
+      suffixBuilderParam: () => {
+        this.InputSuffix()
+      },
+    })
+  }
+
+  @Builder
+  InputSuffix() {
+    TextInput({ text: this.value, placeholder: this.placeholder })
+      .textAlign(TextAlign.End)
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor($r('sys.color.font_primary'))
+      .backgroundColor(Color.Transparent)
+      .padding(0)
+      .width(200)
+      .onChange((v: string) => {
+        this.onChange(v)
+      })
   }
 }

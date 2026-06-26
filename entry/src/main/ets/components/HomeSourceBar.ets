@@ -68,15 +68,20 @@ export struct HomeSourceBar {
       })
         .layoutWeight(1)
       // Pinned trailing affordance to manage tabs (outside the scroll so it never scrolls away).
+      // Top-aligned (alignSelf) so the chip sits on the same line as the top-aligned tab labels — only
+      // the chip moves; the SubTabBar position is untouched.
       Button({ type: ButtonType.Circle }) {
-        SymbolGlyph($r('sys.symbol.plus'))
+        SymbolGlyph($r('sys.symbol.list_square'))
           .fontSize(ThemeConstants.FONT_SIZE_TITLE)
           .fontColor([$r('sys.color.font_secondary')])
       }
-      .width(30)
-      .height(30)
+      .width(28)
+      .height(28)
       .margin({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_SM })
       .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+      .alignSelf(ItemAlign.Start)
+      // Fine nudge so the chip's center matches the top-aligned tab labels' baseline exactly.
+      .offset({ y: -2 })
       .onClick(() => {
         connectNavStack().stack.pushPathByName('TabManager', null)
       })
