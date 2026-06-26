@@ -970,20 +970,25 @@ export struct EhProfileSettingsPage {
     Column() {
       this.SectionHeader($r('app.string.ehp_sec_exclude_uploader'))
       GroupedListSection() {
-        Column({ space: ThemeConstants.SPACE_SM }) {
-          TextArea({
-            text: this.settings.excludedUploaders,
-            placeholder: $r('app.string.ehp_xu_hint'),
+        // The TextArea carries its own modest inset (matching the list rows); no extra wrapper padding
+        // so the box doesn't look over-margined.
+        TextArea({
+          text: this.settings.excludedUploaders,
+          placeholder: $r('app.string.ehp_xu_hint'),
+        })
+          .width('100%')
+          .height(116)
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .backgroundColor(Color.Transparent)
+          .padding({
+            left: ThemeConstants.SPACE_MD,
+            right: ThemeConstants.SPACE_MD,
+            top: ThemeConstants.SPACE_SM,
+            bottom: ThemeConstants.SPACE_SM,
           })
-            .height(120)
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .backgroundColor(Color.Transparent)
-            .onChange((v: string) => {
-              this.settings.excludedUploaders = v
-            })
-        }
-        .width('100%')
-        .padding(ThemeConstants.SPACE_MD)
+          .onChange((v: string) => {
+            this.settings.excludedUploaders = v
+          })
       }
     }
   }
