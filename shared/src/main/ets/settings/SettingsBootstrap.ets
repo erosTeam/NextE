@@ -37,6 +37,8 @@ import { EhPageCacheService } from '../services/EhPageCacheService'
 import { connectSiteMode } from '../state/SiteModeState'
 import { connectHomeSource } from '../state/HomeSourceState'
 import { connectFavSelection } from '../state/FavSelectionState'
+import { connectCustomProfiles } from '../state/CustomProfilesState'
+import { CustomProfile, PROFILE_TYPE_FAVORITE } from '../model/CustomProfile'
 
 /**
  * Restores every persisted setting from the preferences store into its AppStorageV2
@@ -104,12 +106,17 @@ export class SettingsBootstrap {
       const fav = connectFavSelection()
       const favOrder: string = fav.orderByPosted ? EhConstants.FAV_ORDER_POSTED : EhConstants.FAV_ORDER_FAV
       const jobs: Promise<void>[] = []
-      const homeSources: string[] = ['', 'popular', 'watched']
-      for (let i = 0; i < homeSources.length; i++) {
-        jobs.push(EhPageCacheService.preloadGalleryList(
-          context,
-          EhPageCacheService.homeListKey(isEx, homeSources[i], 0),
-        ))
+      // Home tabs are custom profiles now; warm each non-hidden, non-favorite profile's uuid-scoped
+      // cache (favorite-type profiles use the favorites cache key — handled with the favorites preload).
+      const profiles: CustomProfile[] = connectCustomProfiles().profiles
+      for (let i = 0; i < profiles.length; i++) {
+        const p: CustomProfile = profiles[i]
+        if (!p.hidden && p.listType !== PROFILE_TYPE_FAVORITE) {
+          jobs.push(EhPageCacheService.preloadGalleryList(
+            context,
+            EhPageCacheService.homeProfileKey(isEx, p.uuid),
+          ))
+        }
       }
       const toplistTls: number[] = [11, 12, 13, 15]
       for (let i = 0; i < toplistTls.length; i++) {
@@ -126,7 +133,7 @@ export class SettingsBootstrap {
         ))
       }
       await Promise.all(jobs)
-      DiagnosticLogger.info('page-cache', 'preload_done', `jobs=${jobs.length} selected=${home.source}/${home.toplistTl}/${fav.selectedFavcat}`)
+      DiagnosticLogger.info('page-cache', 'preload_done', `jobs=${jobs.length} selected=${connectCustomProfiles().selectedUuid}/${home.toplistTl}/${fav.selectedFavcat}`)
     } catch (error) {
       DiagnosticLogger.warn('page-cache', 'preload_failed', (error as Error).message)
     }

@@ -276,12 +276,14 @@ tabs_empty_hint.
 - DoD: app builds + launches identically (bar still shows 默认/热门/订阅, unchanged); seeds persist;
   contract green; v1-decorator gate 0; harness-verify green.
 
-### Phase 2 — read-only dynamic tabs (wire bar/host/VM to profiles)
-- [ ] HomePage visibleSources/selectedKey from holder; HomeSourceBar builds TabItem[] from profiles.
-- [ ] GallerySourcePage resolves profile by uuid; GalleryListViewModel.configureFromProfile +
-      buildQuery/cacheKey from profile; login-gating + fallback.
-- DoD: 默认/热门/订阅 render + load identically; site switch/login/logout correct; scroll retention
-  preserved; gate 0; harness-verify green. (behavior-equivalent refactor onto the profile model)
+### Phase 2 — read-only dynamic tabs (wire bar/host/VM to profiles) ✅ DONE
+- [x] HomePage visibleSources/selectedKey from holder; HomeSourceBar builds TabItem[] from profiles
+      (scrollable); selection via CustomProfilesSettings.setSelected; login fallback.
+- [x] GallerySourcePage resolves profile by uuid; GalleryListViewModel.configureFromProfile +
+      buildQuery/cacheKey (uuid-scoped EhPageCacheService.homeProfileKey) from profile; preload by profile.
+- DoD met: device .197 — 5 tabs (默认/热门/订阅/汉化/选集); 默认=front page, 汉化=language:chinese,
+  选集=other:anthology load correctly; cache isolated per uuid; state retained on switch; V1 gate 0,
+  contract green, signed build green.
 
 ### Phase 3 — Tab Management page (view/reorder/hide/delete; no editor yet)
 - [ ] TabManagerPage routed + registered in Index routerMap; pinned + chip + long-press context menu

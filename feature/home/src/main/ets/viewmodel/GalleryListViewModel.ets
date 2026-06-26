@@ -16,6 +16,11 @@ import {
   EhPageCacheService,
   connectToplistFilter,
   LocalBlockService,
+  CustomProfile,
+  PROFILE_TYPE_POPULAR,
+  PROFILE_TYPE_WATCHED,
+  PROFILE_TYPE_TOPLIST,
+  PROFILE_TYPE_FAVORITE,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -55,6 +60,11 @@ export class GalleryListViewModel {
   private maxPage: number = 0
   private context: common.UIAbilityContext | null = null
   private cacheRenderVersion: number = 0
+  // The custom profile driving this page (null on the legacy toplist/favorites surfaces that use
+  // syncSource). When set, buildQuery() pulls search/category/advanced from it and cacheKey() scopes
+  // by its uuid so two gallery-type profiles with different searches don't share a cache.
+  private profile: CustomProfile | null = null
+  private profileUuid: string = ''
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context
@@ -88,23 +98,28 @@ export class GalleryListViewModel {
   }
 
   private buildQuery(next: string, page: number = -1): GalleryListQuery {
+    // popular (bare snapshot) and toplist (toplist.php) ignore filters; gallery + watched honour the
+    // profile's search/category/advanced. A null profile (legacy surfaces) keeps the old unfiltered query.
+    const p: CustomProfile | null = this.profile
+    const filtered: boolean = !this.isPopular() && !this.isToplist()
+    const useProfile: boolean = p !== null && filtered
     return {
       isEx: connectSiteMode().isEx,
       source: this.source,
       next: next,
       tl: this.isToplist() ? this.toplistTl : 0,
       page: page,
-      fCats: 0,
-      search: '',
-      advancedEnabled: true,
-      minRating: 0,
-      pagesFrom: 0,
-      pagesTo: 0,
-      requireTorrent: false,
-      showExpunged: false,
-      disableLanguageFilter: false,
-      disableUploaderFilter: false,
-      disableTagFilter: false,
+      fCats: useProfile ? p!.fCats() : 0,
+      search: useProfile ? p!.searchText : '',
+      advancedEnabled: useProfile ? p!.advancedEnabled : false,
+      minRating: useProfile ? p!.minRating : 0,
+      pagesFrom: useProfile ? p!.pagesFrom : 0,
+      pagesTo: useProfile ? p!.pagesTo : 0,
+      requireTorrent: useProfile ? p!.requireTorrent : false,
+      showExpunged: useProfile ? p!.showExpunged : false,
+      disableLanguageFilter: useProfile ? p!.disableLanguageFilter : false,
+      disableUploaderFilter: useProfile ? p!.disableUploaderFilter : false,
+      disableTagFilter: useProfile ? p!.disableTagFilter : false,
       applyToplistHiddenUserTags: this.isToplist()
         ? connectToplistFilter().applyHiddenUserTags
         : false,
@@ -112,7 +127,38 @@ export class GalleryListViewModel {
   }
 
   private cacheKey(): string {
+    if (this.profileUuid.length > 0) {
+      return EhPageCacheService.homeProfileKey(connectSiteMode().isEx, this.profileUuid)
+    }
     return EhPageCacheService.homeListKey(connectSiteMode().isEx, this.source, this.toplistTl)
+  }
+
+  /** Map a profile listType to the existing GalleryListQuery.source vocabulary. */
+  private static sourceForListType(listType: string): string {
+    if (listType === PROFILE_TYPE_POPULAR) {
+      return 'popular'
+    }
+    if (listType === PROFILE_TYPE_WATCHED) {
+      return 'watched'
+    }
+    if (listType === PROFILE_TYPE_TOPLIST) {
+      return 'toplist'
+    }
+    if (listType === PROFILE_TYPE_FAVORITE) {
+      return 'favorite'
+    }
+    return ''
+  }
+
+  /**
+   * Configure this VM from a custom profile on (re)mount, WITHOUT reloading — loadData() runs right
+   * after. Drives source/period + the search/filter payload + the cache key.
+   */
+  configureFromProfile(p: CustomProfile): void {
+    this.profile = p
+    this.profileUuid = p.uuid
+    this.source = GalleryListViewModel.sourceForListType(p.listType)
+    this.toplistTl = p.toplistTl
   }
 
   private resolveFavoriteSlots(gallerys: EhGallery[]): void {

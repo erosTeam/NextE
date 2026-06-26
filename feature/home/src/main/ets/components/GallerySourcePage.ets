@@ -7,6 +7,8 @@ import {
   ActiveKeyState,
   LocalBlockState,
   connectLocalBlock,
+  connectCustomProfiles,
+  CustomProfile,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -26,7 +28,7 @@ import { common } from '@kit.AbilityKit'
  */
 @ComponentV2
 export struct GallerySourcePage {
-  // '' front page / 'popular' / 'watched'. Stable for this page's lifetime (the Swiper key).
+  // The custom profile uuid this page renders. Stable for this page's lifetime (the Swiper key).
   @Param sourceKey: string = '';
   // Shared active-key signal from the host; this page is active when active.activeKey === sourceKey.
   @Param active: ActiveKeyState = new ActiveKeyState();
@@ -49,9 +51,14 @@ export struct GallerySourcePage {
   }
 
   aboutToAppear(): void {
-    // Seed the source before any load (toplist tl is irrelevant to home sources → 0). The VM is this
-    // page's own; nothing else writes it.
-    this.vm.syncSource(this.sourceKey, 0)
+    // Configure the VM from this page's custom profile (sourceKey is the profile uuid) before any load;
+    // loadData() runs right after. Fall back to the front-page source if the profile is missing.
+    const profile: CustomProfile | null = connectCustomProfiles().findByUuid(this.sourceKey)
+    if (profile !== null) {
+      this.vm.configureFromProfile(profile)
+    } else {
+      this.vm.syncSource('', 0)
+    }
     this.vm.setContext(this.ctx())
     if (this.isActive()) {
       this.loadOnce()

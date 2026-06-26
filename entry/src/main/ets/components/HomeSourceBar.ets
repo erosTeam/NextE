@@ -1,13 +1,14 @@
 import {
-  HomeSourceState,
-  connectHomeSource,
   AuthState,
   connectAuth,
   connectHomeSourceVisualIndex,
   TabVisualIndexState,
   SubTabBar,
   TabItem,
-  SubtabSelectionSettings,
+  CustomProfilesState,
+  connectCustomProfiles,
+  CustomProfile,
+  CustomProfilesSettings,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -22,7 +23,7 @@ import { common } from '@kit.AbilityKit'
  */
 @ComponentV2
 export struct HomeSourceBar {
-  @Local home: HomeSourceState = connectHomeSource();
+  @Local profiles: CustomProfilesState = connectCustomProfiles();
   @Local auth: AuthState = connectAuth();
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
 
@@ -30,21 +31,22 @@ export struct HomeSourceBar {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
-  // Must mirror HomePage.visibleSources() order so the visual index lines up with the right tab.
+  // Must mirror HomePage.visibleSources() order so the visual index lines up with the right tab:
+  // non-hidden profiles, login-gated (watched/favorite need an account). The TabItem label is the
+  // profile name (a plain string), so a rename produces a new label → SubTabBar redraws.
   private tabs(): TabItem[] {
-    const items: TabItem[] = [
-      new TabItem('', $r('app.string.home_source_default')),
-      new TabItem('popular', $r('app.string.home_source_popular')),
-    ]
-    if (this.auth.isLogin) {
-      items.push(new TabItem('watched', $r('app.string.home_source_watched')))
-    }
+    const items: TabItem[] = []
+    this.profiles.profiles.forEach((p: CustomProfile) => {
+      if (!p.hidden && !(p.requiresLogin() && !this.auth.isLogin)) {
+        items.push(new TabItem(p.uuid, p.name))
+      }
+    })
     return items
   }
 
   private selectedIndex(): number {
     const items: TabItem[] = this.tabs()
-    const index: number = items.findIndex((item: TabItem) => item.key === this.home.source)
+    const index: number = items.findIndex((item: TabItem) => item.key === this.profiles.selectedUuid)
     return index < 0 ? 0 : index
   }
 
@@ -53,10 +55,11 @@ export struct HomeSourceBar {
       tabs: this.tabs(),
       visualIndex: this.visual.value,
       selectedIndex: this.selectedIndex(),
+      scrollable: true,
       onSelect: (index: number) => {
         const items: TabItem[] = this.tabs()
         if (index >= 0 && index < items.length) {
-          SubtabSelectionSettings.setHomeSource(this.ctx(), items[index].key, this.auth.isLogin)
+          CustomProfilesSettings.setSelected(this.ctx(), items[index].key)
         }
       },
     })

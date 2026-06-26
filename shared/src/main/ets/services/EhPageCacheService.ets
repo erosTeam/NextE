@@ -78,6 +78,12 @@ export class EhPageCacheService {
     )
   }
 
+  /** Per-custom-profile home list cache key (uuid-scoped so two gallery-type profiles with different
+   * searches don't collide on the old source-based key). */
+  static homeProfileKey(isEx: boolean, uuid: string): string {
+    return EhPageCacheService.scopedKey(isEx, `home:profile:${EhPageCacheService.encode(uuid)}`)
+  }
+
   static favoritesListKey(isEx: boolean, favcat: string, order: string): string {
     const favcatKey: string = favcat.length > 0 ? favcat : 'a'
     const orderKey: string = order.length > 0 ? order : 'default'

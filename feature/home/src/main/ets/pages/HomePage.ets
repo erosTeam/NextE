@@ -7,7 +7,10 @@ import {
   TabVisualIndexState,
   RetainedSubtabHost,
   ActiveKeyState,
-  SubtabSelectionSettings,
+  connectCustomProfiles,
+  CustomProfilesState,
+  CustomProfile,
+  CustomProfilesSettings,
   connectListMode,
   ListModeState,
   ListMode,
@@ -41,6 +44,7 @@ function gallerySourcePageBuilder(
 export struct HomePage {
   @Local auth: AuthState = connectAuth();
   @Local homeSource: HomeSourceState = connectHomeSource();
+  @Local profiles: CustomProfilesState = connectCustomProfiles();
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
   @Local listMode: ListModeState = connectListMode();
   @Local layoutMenuShown: boolean = false;
@@ -52,17 +56,43 @@ export struct HomePage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
-  // 订阅 (watched) is login-only (eros_fe). The keyed host retains '' / 'popular' when 'watched' is added/
-  // removed on login change. Must mirror HomeSourceBar's tab order so the visual index lines up.
+  // Ordered uuids of the visible (non-hidden, login-gated) profiles — the Swiper keys. Must mirror
+  // HomeSourceBar.tabs() exactly so the visual index lines up. watched/favorite profiles drop when
+  // logged out (CustomProfile.requiresLogin()).
   private visibleSources(): string[] {
-    return this.auth.isLogin ? ['', 'popular', 'watched'] : ['', 'popular']
+    const keys: string[] = []
+    this.profiles.profiles.forEach((p: CustomProfile) => {
+      if (!p.hidden && !(p.requiresLogin() && !this.auth.isLogin)) {
+        keys.push(p.uuid)
+      }
+    })
+    return keys
   }
 
-  // If the user logs out while on 订阅, fall back to the front page (the host then drops the 'watched' key).
+  // Selected profile uuid clamped to a currently-visible key (so a hidden/removed/login-gated selection
+  // can't strand the host on a missing key).
+  private selectedKey(): string {
+    const keys: string[] = this.visibleSources()
+    const sel: string = this.profiles.selectedUuid
+    if (keys.indexOf(sel) >= 0) {
+      return sel
+    }
+    return keys.length > 0 ? keys[0] : ''
+  }
+
+  // If the user logs out while a login-only (watched/favorite) profile is selected, fall back to the
+  // first visible profile (the host then drops the login-gated keys).
   @Monitor('auth.isLogin')
   onLoginChange(): void {
-    if (!this.auth.isLogin && this.homeSource.source === 'watched') {
-      SubtabSelectionSettings.setHomeSource(this.ctx(), '', false)
+    if (this.auth.isLogin) {
+      return
+    }
+    const sel: CustomProfile | null = this.profiles.findByUuid(this.profiles.selectedUuid)
+    if (sel !== null && sel.requiresLogin()) {
+      const keys: string[] = this.visibleSources()
+      if (keys.length > 0) {
+        CustomProfilesSettings.setSelected(this.ctx(), keys[0])
+      }
     }
   }
 
@@ -107,10 +137,10 @@ export struct HomePage {
     Stack({ alignContent: Alignment.TopEnd }) {
       RetainedSubtabHost({
         keys: this.visibleSources(),
-        selectedKey: this.homeSource.source,
+        selectedKey: this.selectedKey(),
         pageBuilder: gallerySourcePageBuilder,
         onSelectKey: (key: string) => {
-          SubtabSelectionSettings.setHomeSource(this.ctx(), key, this.auth.isLogin)
+          CustomProfilesSettings.setSelected(this.ctx(), key)
         },
         onVisualIndex: (value: number) => {
           this.visual.value = value
