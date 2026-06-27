@@ -11,6 +11,7 @@ import {
   SecondaryListScaffold,
   TagTranslationService,
   ThemeConstants,
+  connectNavStack,
   immersiveTitleBar,
 } from 'shared'
 
@@ -29,6 +30,7 @@ export struct CacheSettingsPage {
   @Local tagStat: CacheStat = new CacheStat();
   @Local clearing: boolean = false;
   private scroller: Scroller = new Scroller();
+  private stack: NavPathStack = connectNavStack().stack;
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -171,6 +173,16 @@ export struct CacheSettingsPage {
                 $r('app.string.cache_tag_translation'),
                 $r('sys.symbol.textformat'),
               )
+            }
+            // Backup & restore now lives under Storage (merged from the top-level settings list).
+            GroupedListSection() {
+              ConciseListRow({
+                title: $r('app.string.settings_backup'),
+                leadingIcon: $r('sys.symbol.cloud_and_arrow_up'),
+                action: () => {
+                  this.stack.pushPathByName('BackupSettings', null)
+                },
+              })
             }
             GroupedListSection() {
               ConciseListRow({
