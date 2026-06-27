@@ -131,10 +131,10 @@ const gids = (items) => items.map((i) => i.gid).join(',')
       /viewed_at INTEGER/.test(store) &&
       /deleted_at INTEGER DEFAULT 0/.test(store))
   const repo = read('shared/src/main/ets/storage/ViewedHistoryRepository.ets')
-  ok('repository loads newest-first and replaces the scoped table',
+  ok('repository loads newest-first and tombstones scoped rows',
     /ORDER BY viewed_at DESC, gid DESC LIMIT \?/.test(repo) &&
-      /DELETE FROM viewed_history WHERE scope_key = \?/.test(repo) &&
-      /INSERT OR REPLACE INTO viewed_history/.test(repo))
+      /UPDATE viewed_history SET deleted_at = \?/.test(repo) &&
+      /ON CONFLICT\(scope_key, gid\) DO UPDATE/.test(repo))
   const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
   const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
   ok('backup localData includes viewed history',

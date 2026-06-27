@@ -29,12 +29,12 @@ ok('RDB table stores gallery read progress with sync-ready metadata',
     /PRIMARY KEY\(scope_key, gid\)/.test(store))
 
 const repo = read('shared/src/main/ets/storage/ReadProgressRepository.ets')
-ok('repository loads and replaces read progress through RDB',
+ok('repository loads and tombstones read progress through RDB',
   /class ReadProgressRepository/.test(repo) &&
     /LocalDataStore\.open\(context\)/.test(repo) &&
     /SELECT gid, page_index, updated_at FROM gallery_read_progress/.test(repo) &&
-    /INSERT OR REPLACE INTO gallery_read_progress/.test(repo) &&
-    /DELETE FROM gallery_read_progress WHERE scope_key = \?/.test(repo))
+    /ON CONFLICT\(scope_key, gid\) DO UPDATE/.test(repo) &&
+    /UPDATE gallery_read_progress SET deleted_at = \?/.test(repo))
 
 const settings = read('shared/src/main/ets/settings/GalleryReadProgressSettings.ets')
 ok('settings facade reads/writes RDB and keeps legacy migration',

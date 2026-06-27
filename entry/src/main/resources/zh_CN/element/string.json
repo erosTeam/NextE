@@ -1757,6 +1757,70 @@
       "value": "翻译"
     },
     {
+      "name": "settings_sync",
+      "value": "同步"
+    },
+    {
+      "name": "settings_sync_hint",
+      "value": "通过 WebDAV 手动同步本地数据。"
+    },
+    {
+      "name": "sync_webdav_url",
+      "value": "WebDAV 目录"
+    },
+    {
+      "name": "sync_webdav_url_hint",
+      "value": "https://example.com/remote.php/dav/files/user/NextE"
+    },
+    {
+      "name": "sync_webdav_username",
+      "value": "用户名"
+    },
+    {
+      "name": "sync_webdav_username_hint",
+      "value": "可选"
+    },
+    {
+      "name": "sync_webdav_password",
+      "value": "密码"
+    },
+    {
+      "name": "sync_webdav_password_hint",
+      "value": "可选，仅保存在本机"
+    },
+    {
+      "name": "sync_webdav_url_required",
+      "value": "请先填写 WebDAV 目录"
+    },
+    {
+      "name": "sync_now",
+      "value": "立即同步"
+    },
+    {
+      "name": "sync_now_done",
+      "value": "同步完成"
+    },
+    {
+      "name": "sync_now_failed",
+      "value": "同步失败"
+    },
+    {
+      "name": "sync_status_running",
+      "value": "正在同步..."
+    },
+    {
+      "name": "sync_status_never",
+      "value": "尚未同步"
+    },
+    {
+      "name": "sync_status_success",
+      "value": "上次成功：%s"
+    },
+    {
+      "name": "sync_status_failed",
+      "value": "上次失败：%s"
+    },
+    {
       "name": "comment_translation_enable",
       "value": "评论翻译"
     },
@@ -3015,6 +3079,54 @@
     {
       "name": "ehp_profile_delete_confirm",
       "value": "删除后无法恢复。"
+    },
+    {
+      "name": "sync_dataset_read_progress",
+      "value": "阅读进度"
+    },
+    {
+      "name": "sync_dataset_read_progress_hint",
+      "value": "当前页码与最后阅读位置"
+    },
+    {
+      "name": "sync_dataset_viewed_history",
+      "value": "浏览历史"
+    },
+    {
+      "name": "sync_dataset_viewed_history_hint",
+      "value": "列表和详情中打开过的画廊"
+    },
+    {
+      "name": "sync_dataset_local_favorites",
+      "value": "本地收藏"
+    },
+    {
+      "name": "sync_dataset_local_favorites_hint",
+      "value": "本地保存的画廊记录和备注"
+    },
+    {
+      "name": "sync_dataset_search_history",
+      "value": "搜索历史"
+    },
+    {
+      "name": "sync_dataset_search_history_hint",
+      "value": "最近搜索过的关键词"
+    },
+    {
+      "name": "sync_dataset_local_block",
+      "value": "屏蔽规则"
+    },
+    {
+      "name": "sync_dataset_local_block_hint",
+      "value": "本地屏蔽规则和评论过滤设置"
+    },
+    {
+      "name": "sync_dataset_custom_profiles",
+      "value": "自定义列表标签"
+    },
+    {
+      "name": "sync_dataset_custom_profiles_hint",
+      "value": "自定义 SubTab 配置和选中项"
     }
   ]
 }

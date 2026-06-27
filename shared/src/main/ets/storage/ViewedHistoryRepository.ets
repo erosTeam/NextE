@@ -10,10 +10,14 @@ const SQL_SELECT_ACTIVE: string =
   'FROM viewed_history WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY viewed_at DESC, gid DESC LIMIT ?'
 const SQL_UPSERT: string =
-  'INSERT OR REPLACE INTO viewed_history ' +
+  'INSERT INTO viewed_history ' +
   '(scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)'
-const SQL_DELETE_SCOPE: string = 'DELETE FROM viewed_history WHERE scope_key = ?'
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, gid) DO UPDATE SET ' +
+  'token = excluded.token, title = excluded.title, title_jp = excluded.title_jp, ' +
+  'thumb_url = excluded.thumb_url, category = excluded.category, uploader = excluded.uploader, ' +
+  'rating = excluded.rating, file_count = excluded.file_count, viewed_at = excluded.viewed_at, deleted_at = 0'
+const SQL_TOMBSTONE_SCOPE: string =
+  'UPDATE viewed_history SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 
 export class ViewedHistoryRepository {
   static async load(context: common.UIAbilityContext, limit: number = DEFAULT_LIMIT): Promise<ViewedGallery[]> {
@@ -49,7 +53,7 @@ export class ViewedHistoryRepository {
 
   static async replaceAll(context: common.UIAbilityContext, items: ViewedGallery[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_DELETE_SCOPE, [SCOPE_GLOBAL])
+    await store.executeSql(SQL_TOMBSTONE_SCOPE, [Date.now(), SCOPE_GLOBAL])
     for (let i: number = 0; i < items.length && i < DEFAULT_LIMIT; i++) {
       await ViewedHistoryRepository.upsert(store, items[i])
     }

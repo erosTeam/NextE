@@ -63,6 +63,18 @@ export class StorageKeys {
   static readonly COMMENT_TRANSLATION_API_URL: string = 'commentTranslation.apiUrl'
   static readonly COMMENT_TRANSLATION_API_KEY: string = 'commentTranslation.apiKey'
   static readonly COMMENT_TRANSLATION_MODEL: string = 'commentTranslation.model'
+  static readonly SYNC_WEBDAV_URL: string = 'sync.webdav.url'
+  static readonly SYNC_WEBDAV_USERNAME: string = 'sync.webdav.username'
+  // Sensitive provider credential. Keep local-only: never export through backup or sync.
+  static readonly SYNC_WEBDAV_PASSWORD: string = 'sync.webdav.password'
+  static readonly SYNC_DATASET_READ_PROGRESS: string = 'sync.dataset.readProgress'
+  static readonly SYNC_DATASET_VIEWED_HISTORY: string = 'sync.dataset.viewedHistory'
+  static readonly SYNC_DATASET_LOCAL_FAVORITES: string = 'sync.dataset.localFavorites'
+  static readonly SYNC_DATASET_SEARCH_HISTORY: string = 'sync.dataset.searchHistory'
+  static readonly SYNC_DATASET_LOCAL_BLOCK: string = 'sync.dataset.localBlock'
+  static readonly SYNC_DATASET_CUSTOM_PROFILES: string = 'sync.dataset.customProfiles'
+  static readonly SYNC_LAST_RUN_AT: string = 'sync.lastRunAt'
+  static readonly SYNC_LAST_STATUS: string = 'sync.lastStatus'
   static readonly LOCAL_BLOCK_RULES: string = 'localBlock.rules' // legacy Preferences key; RDB source of truth
   static readonly DIAGNOSTICS_ENABLED: string = 'diagnostics.enabled'
   static readonly DIAGNOSTICS_MIN_LEVEL: string = 'diagnostics.minLevel'

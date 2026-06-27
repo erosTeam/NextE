@@ -1,0 +1,207 @@
+#!/usr/bin/env node
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+const ROOT = process.cwd()
+const read = (p) => readFileSync(join(ROOT, p), 'utf8')
+let failures = 0
+const ok = (name, value) => {
+  if (value) {
+    console.log(`✓ ${name}`)
+  } else {
+    failures += 1
+    console.error(`✗ ${name}`)
+  }
+}
+
+const doc = read('docs/plans/active/sync-design.md')
+ok('sync design excludes Huawei cloud implementation',
+  /Huawei cloud sync is\s+intentionally excluded/.test(doc) &&
+    /manual WebDAV provider/.test(doc))
+ok('sync design lists durable syncable tables',
+  /gallery_read_progress/.test(doc) &&
+    /custom_profile_selection/.test(doc) &&
+    /local_block_rules/.test(doc))
+ok('sync design excludes cache, downloads, and secrets',
+  /tag_translations/.test(doc) &&
+    /download_gallery_tasks/.test(doc) &&
+    /cookie jars, account secrets, LLM API keys, WebDAV passwords/.test(doc))
+ok('sync design requires ON CONFLICT and tombstones',
+  /INSERT \.\.\. ON CONFLICT DO UPDATE/.test(doc) &&
+    /deleted_at` tombstones/.test(doc))
+ok('sync design preserves disabled WebDAV datasets',
+  /Dataset Selection/.test(doc) &&
+    /All groups default to enabled/.test(doc) &&
+    /skips MKCOL\/GET\/\s*merge\/PUT/.test(doc))
+ok('sync design requires WebDAV multi-file layout',
+  /WebDAV File Layout/.test(doc) &&
+    /manifest\.json/.test(doc) &&
+    /read-progress\/00\.json \.\.\. 3f\.json/.test(doc) &&
+    /search-history\/00\.json \.\.\. 3f\.json/.test(doc) &&
+    /stable hash buckets/.test(doc) &&
+    /generatedAt` is derived from the newest record timestamp/.test(doc) &&
+    /64 buckets/.test(doc) &&
+    /PUTs only changed shards/.test(doc) &&
+    /must not write a single all-data `nexte-sync-v1\.json`/.test(doc) &&
+    /legacy\/transition input only/.test(doc))
+
+const repos = [
+  'shared/src/main/ets/storage/SearchHistoryRepository.ets',
+  'shared/src/main/ets/storage/ReadProgressRepository.ets',
+  'shared/src/main/ets/storage/ViewedHistoryRepository.ets',
+  'shared/src/main/ets/storage/LocalFavoriteRepository.ets',
+  'shared/src/main/ets/storage/LocalBlockRepository.ets',
+  'shared/src/main/ets/storage/CustomProfilesRepository.ets',
+]
+
+for (const file of repos) {
+  const src = read(file)
+  ok(`${file} avoids INSERT OR REPLACE`, !/INSERT OR REPLACE/i.test(src))
+  ok(`${file} uses conflict upsert`, /ON CONFLICT/i.test(src))
+}
+
+const types = read('shared/src/main/ets/sync/SyncTypes.ets')
+ok('sync envelope has explicit datasets',
+  /class SyncDatasets/.test(types) &&
+    /readProgress: SyncReadProgressRecord\[\]/.test(types) &&
+    /customProfileSelection: SyncCustomProfileSelectionRecord\[\]/.test(types))
+ok('sync types expose dataset selection toggles',
+  /class SyncDatasetSelection/.test(types) &&
+    /readProgress: boolean = true/.test(types) &&
+    /customProfiles: boolean = true/.test(types))
+ok('sync types do not include cache/download/secrets datasets',
+  !/tagTranslation|ehPageCache|commentTranslation|downloadGallery|cookie|apiKey/i.test(types))
+
+const service = read('shared/src/main/ets/sync/SyncService.ets')
+ok('sync service merges remote raw through local adapter',
+  /mergeRemoteRaw/.test(service) &&
+    /SyncLocalDataAdapter\.mergeEnvelopes/.test(service) &&
+    /SyncLocalDataAdapter\.applyEnvelope/.test(service))
+ok('sync service preserves disabled remote datasets on write-back',
+  /selectDatasets/.test(service) &&
+    /mergeSelectedIntoRemote/.test(service) &&
+    /config\.selection|selection: SyncDatasetSelection/.test(read('shared/src/main/ets/sync/WebDavSyncService.ets')))
+ok('sync service refreshes live state after applying remote data',
+  /refreshSelectedState/.test(service) &&
+    /SearchHistorySettings\.restore/.test(service) &&
+    /GalleryReadProgressSettings\.restore/.test(service) &&
+    /CustomProfilesSettings\.restore/.test(service))
+
+const webdav = read('shared/src/main/ets/sync/WebDavSyncService.ets')
+ok('WebDAV provider uses manifest plus hashed dataset shards',
+    /SYNC_WEBDAV_MANIFEST_FILE/.test(webdav) &&
+    /SYNC_WEBDAV_ROOT_DIR/.test(webdav) &&
+    /'datasets\/' \+ datasetId \+ '\/' \+ shardId \+ '\.json'/.test(webdav) &&
+    /SHARD_COUNT: number = 64/.test(webdav) &&
+    /shardId\(key: string\)/.test(webdav))
+ok('WebDAV provider writes only changed shards',
+  /BackupChecksum\.hashText/.test(webdav) &&
+    /previousShardHash/.test(webdav) &&
+    /continue/.test(webdav) &&
+    /writeChangedShards/.test(webdav) &&
+    /stableGeneratedAt/.test(webdav) &&
+    !/shardEnvelope\.generatedAt\s*=\s*new Date\(\)\.toISOString\(\)/.test(webdav))
+ok('WebDAV provider skips disabled dataset directories',
+  /ensureCollections\(rootUrl: string, config: WebDavSyncConfig\)/.test(webdav) &&
+    /datasetEnabled\(config\.selection, DATASET_IDS\[i\]\)/.test(webdav) &&
+    /continue[\s\S]*makeCollection\(rootUrl \+ 'datasets\/' \+ DATASET_IDS\[i\]/.test(webdav))
+ok('WebDAV provider treats single file as legacy input only',
+  /legacyFileUrl/.test(webdav) &&
+    /SYNC_FILE_NAME/.test(webdav) &&
+    !/writeRemote\([^)]*legacyFileUrl/.test(webdav) &&
+    !/writeRemote\([^)]*SYNC_FILE_NAME/.test(webdav))
+ok('WebDAV basic auth uses UTF-8 encoder',
+  /new util\.TextEncoder\(\)\.encodeInto/.test(webdav) &&
+    /new util\.Base64Helper\(\)\.encodeToStringSync/.test(webdav))
+
+const syncSettings = read('shared/src/main/ets/settings/SyncSettings.ets')
+ok('sync settings persist WebDAV config locally',
+  /SYNC_WEBDAV_URL/.test(syncSettings) &&
+    /SYNC_WEBDAV_USERNAME/.test(syncSettings) &&
+    /SYNC_WEBDAV_PASSWORD/.test(syncSettings) &&
+    /SYNC_DATASET_READ_PROGRESS/.test(syncSettings) &&
+    /static selection/.test(syncSettings) &&
+    /never exported/.test(syncSettings))
+
+const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
+ok('sync settings restore during settings bootstrap',
+  /import \{ SyncSettings \}/.test(bootstrap) &&
+    /await SyncSettings\.restore\(context\)/.test(bootstrap))
+
+const settingsIndex = read('feature/settings/src/main/ets/Index.ets')
+const entryIndex = read('entry/src/main/ets/pages/Index.ets')
+const settingsPage = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
+const cacheSettingsPage = read('feature/settings/src/main/ets/pages/CacheSettingsPage.ets')
+ok('sync settings page is reachable from storage settings navigation',
+  /SyncSettingsPage/.test(settingsIndex) &&
+    /name === 'SyncSettings'/.test(entryIndex) &&
+    /pushPathByName\('SyncSettings'/.test(cacheSettingsPage) &&
+    !/pushPathByName\('SyncSettings'/.test(settingsPage))
+
+const syncPage = read('feature/settings/src/main/ets/pages/SyncSettingsPage.ets')
+ok('manual WebDAV sync page has visible running state',
+  /LoadingProgress/.test(syncPage) &&
+    /sync_status_running/.test(syncPage) &&
+    /this\.syncing = true/.test(syncPage) &&
+    /this\.syncing = false/.test(syncPage))
+ok('manual WebDAV sync page exposes dataset switches',
+  /DatasetRow/.test(syncPage) &&
+    /sync_dataset_read_progress/.test(syncPage) &&
+    /sync_dataset_custom_profiles/.test(syncPage) &&
+    /hasSwitch: true/.test(syncPage))
+
+const backup = read('shared/src/main/ets/backup/BackupService.ets')
+ok('WebDAV password is not exported by backup service',
+  !/SYNC_WEBDAV_PASSWORD|sync\.webdav\.password/.test(backup))
+
+const webdavLocalTest = read('scripts/test_webdav_local_server_contract.mjs')
+ok('local WebDAV server smoke covers sharded WebDAV layout',
+  /createServer/.test(webdavLocalTest) &&
+    /MKCOL/.test(webdavLocalTest) &&
+    /manifest\.json/.test(webdavLocalTest) &&
+    /datasets\/search-history\/0a\.json/.test(webdavLocalTest) &&
+    /datasets\/viewed-history\/2f\.json/.test(webdavLocalTest) &&
+    /legacy single-file path is not written/.test(webdavLocalTest) &&
+    /server enforces Basic auth/.test(webdavLocalTest))
+
+const syncStringKeys = [
+  'settings_sync',
+  'settings_sync_hint',
+  'sync_webdav_url',
+  'sync_webdav_url_hint',
+  'sync_webdav_username',
+  'sync_webdav_username_hint',
+  'sync_webdav_password',
+  'sync_webdav_password_hint',
+  'sync_webdav_url_required',
+  'sync_now',
+  'sync_now_done',
+  'sync_now_failed',
+  'sync_status_running',
+  'sync_status_never',
+  'sync_status_success',
+  'sync_status_failed',
+  'sync_dataset_read_progress',
+  'sync_dataset_read_progress_hint',
+  'sync_dataset_viewed_history',
+  'sync_dataset_viewed_history_hint',
+  'sync_dataset_local_favorites',
+  'sync_dataset_local_favorites_hint',
+  'sync_dataset_search_history',
+  'sync_dataset_search_history_hint',
+  'sync_dataset_local_block',
+  'sync_dataset_local_block_hint',
+  'sync_dataset_custom_profiles',
+  'sync_dataset_custom_profiles_hint',
+]
+for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
+  const strings = JSON.parse(read(`entry/src/main/resources/${locale}/element/string.json`)).string
+  const names = new Set(strings.map((item) => item.name))
+  ok(`sync i18n keys exist in ${locale}`, syncStringKeys.every((key) => names.has(key)))
+}
+
+if (failures > 0) {
+  console.error(`✗ sync design contract: ${failures} failure(s)`)
+  process.exit(1)
+}
+console.log('✓ sync design contract passed')

@@ -66,10 +66,10 @@ ok('local favorites RDB table exists',
   /CREATE TABLE IF NOT EXISTS local_favorites/.test(localStore) &&
     /last_view_time INTEGER/.test(localStore) &&
     /deleted_at INTEGER DEFAULT 0/.test(localStore))
-ok('local favorite repository loads newest-first and replaces the scoped table',
+ok('local favorite repository loads newest-first and tombstones scoped rows',
   /ORDER BY last_view_time DESC, gid DESC/.test(localRepo) &&
-    /DELETE FROM local_favorites WHERE scope_key = \?/.test(localRepo) &&
-    /INSERT OR REPLACE INTO local_favorites/.test(localRepo))
+    /UPDATE local_favorites SET deleted_at = \?/.test(localRepo) &&
+    /ON CONFLICT\(scope_key, gid\) DO UPDATE/.test(localRepo))
 const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
 const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
 ok('backup localData includes local favorites',

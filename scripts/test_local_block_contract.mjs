@@ -58,9 +58,9 @@ ok(settings.includes('migrateLegacyPreferences') &&
     store.includes('position_index INTEGER'),
   'local block RDB tables exist')
   ok(repo.includes('ORDER BY position_index ASC, rule_id ASC') &&
-    repo.includes('DELETE FROM local_block_settings WHERE scope_key = ?') &&
-    repo.includes('INSERT OR REPLACE INTO local_block_rules'),
-  'local block repository preserves order and replaces scoped rows')
+    repo.includes('UPDATE local_block_settings SET deleted_at = ?, updated_at = ?') &&
+    repo.includes('ON CONFLICT(scope_key, rule_id) DO UPDATE'),
+  'local block repository preserves order and tombstones scoped rows')
   const backupTypes = src('shared/src/main/ets/backup/BackupTypes.ets')
   const backupAdapter = src('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
   ok(backupTypes.includes('localBlock: BackupLocalBlockSection') &&

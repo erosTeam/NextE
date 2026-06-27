@@ -15,6 +15,7 @@ import {
   TagTranslationService,
   ThemeConstants,
   appSheetOptions,
+  connectNavStack,
   immersiveTitleBar,
 } from 'shared'
 import {
@@ -391,6 +392,15 @@ export struct CacheSettingsPage {
                   isEnabled: !this.busy,
                   action: () => {
                     this.startImport()
+                  },
+                })
+                this.rowDivider()
+                ConciseListRow({
+                  title: $r('app.string.settings_sync'),
+                  subtitle: $r('app.string.settings_sync_hint'),
+                  leadingIcon: $r('sys.symbol.cloud'),
+                  action: () => {
+                    connectNavStack().stack.pushPathByName('SyncSettings', null)
                   },
                 })
               }

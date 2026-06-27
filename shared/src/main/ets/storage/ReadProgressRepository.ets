@@ -8,9 +8,11 @@ const SQL_SELECT_ACTIVE: string =
   'SELECT gid, page_index, updated_at FROM gallery_read_progress ' +
   'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ORDER BY updated_at DESC'
 const SQL_UPSERT: string =
-  'INSERT OR REPLACE INTO gallery_read_progress ' +
-  '(scope_key, gid, page_index, updated_at, deleted_at) VALUES (?, ?, ?, ?, 0)'
-const SQL_DELETE_SCOPE: string = 'DELETE FROM gallery_read_progress WHERE scope_key = ?'
+  'INSERT INTO gallery_read_progress (scope_key, gid, page_index, updated_at, deleted_at) ' +
+  'VALUES (?, ?, ?, ?, 0) ON CONFLICT(scope_key, gid) DO UPDATE SET ' +
+  'page_index = excluded.page_index, updated_at = excluded.updated_at, deleted_at = 0'
+const SQL_TOMBSTONE_SCOPE: string =
+  'UPDATE gallery_read_progress SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 
 export class ReadProgressRepository {
   static async load(context: common.UIAbilityContext): Promise<ReadProgressEntry[]> {
@@ -52,7 +54,7 @@ export class ReadProgressRepository {
 
   static async replaceAll(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_DELETE_SCOPE, [SCOPE_GLOBAL])
+    await store.executeSql(SQL_TOMBSTONE_SCOPE, [Date.now(), SCOPE_GLOBAL])
     for (let i: number = 0; i < entries.length; i++) {
       const entry: ReadProgressEntry = entries[i]
       if (entry.g.length > 0 && entry.i >= 0) {

@@ -1757,6 +1757,70 @@
       "value": "Translation"
     },
     {
+      "name": "settings_sync",
+      "value": "Sync"
+    },
+    {
+      "name": "settings_sync_hint",
+      "value": "Manually sync durable local data with WebDAV."
+    },
+    {
+      "name": "sync_webdav_url",
+      "value": "WebDAV directory"
+    },
+    {
+      "name": "sync_webdav_url_hint",
+      "value": "https://example.com/remote.php/dav/files/user/NextE"
+    },
+    {
+      "name": "sync_webdav_username",
+      "value": "Username"
+    },
+    {
+      "name": "sync_webdav_username_hint",
+      "value": "Optional"
+    },
+    {
+      "name": "sync_webdav_password",
+      "value": "Password"
+    },
+    {
+      "name": "sync_webdav_password_hint",
+      "value": "Optional, stored only on this device"
+    },
+    {
+      "name": "sync_webdav_url_required",
+      "value": "Set WebDAV directory first"
+    },
+    {
+      "name": "sync_now",
+      "value": "Sync now"
+    },
+    {
+      "name": "sync_now_done",
+      "value": "Sync completed"
+    },
+    {
+      "name": "sync_now_failed",
+      "value": "Sync failed"
+    },
+    {
+      "name": "sync_status_running",
+      "value": "Syncing..."
+    },
+    {
+      "name": "sync_status_never",
+      "value": "Never synced"
+    },
+    {
+      "name": "sync_status_success",
+      "value": "Last success: %s"
+    },
+    {
+      "name": "sync_status_failed",
+      "value": "Last failed: %s"
+    },
+    {
       "name": "comment_translation_enable",
       "value": "Comment translation"
     },
@@ -3015,6 +3079,54 @@
     {
       "name": "ehp_profile_delete_confirm",
       "value": "This profile will be deleted and cannot be restored."
+    },
+    {
+      "name": "sync_dataset_read_progress",
+      "value": "Read progress"
+    },
+    {
+      "name": "sync_dataset_read_progress_hint",
+      "value": "Current page and last read position"
+    },
+    {
+      "name": "sync_dataset_viewed_history",
+      "value": "Browsing history"
+    },
+    {
+      "name": "sync_dataset_viewed_history_hint",
+      "value": "Galleries opened from lists and details"
+    },
+    {
+      "name": "sync_dataset_local_favorites",
+      "value": "Local favorites"
+    },
+    {
+      "name": "sync_dataset_local_favorites_hint",
+      "value": "Locally saved gallery records and notes"
+    },
+    {
+      "name": "sync_dataset_search_history",
+      "value": "Search history"
+    },
+    {
+      "name": "sync_dataset_search_history_hint",
+      "value": "Recent search keywords"
+    },
+    {
+      "name": "sync_dataset_local_block",
+      "value": "Hidden tag rules"
+    },
+    {
+      "name": "sync_dataset_local_block_hint",
+      "value": "Local block rules and comment filter settings"
+    },
+    {
+      "name": "sync_dataset_custom_profiles",
+      "value": "Custom list tabs"
+    },
+    {
+      "name": "sync_dataset_custom_profiles_hint",
+      "value": "Custom SubTab profiles and selected item"
     }
   ]
 }

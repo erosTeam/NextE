@@ -80,9 +80,9 @@ must(settings.includes('migrateLegacyPreferences') &&
     store.includes('position_index INTEGER'),
     'custom profiles RDB tables missing')
   must(repo.includes('ORDER BY position_index ASC, uuid ASC') &&
-    repo.includes('DELETE FROM custom_profiles WHERE scope_key = ?') &&
-    repo.includes('INSERT OR REPLACE INTO custom_profiles'),
-    'custom profiles repository must preserve order and replace scoped rows')
+    repo.includes('UPDATE custom_profiles SET deleted_at = ?') &&
+    repo.includes('ON CONFLICT(scope_key, uuid) DO UPDATE'),
+    'custom profiles repository must preserve order and tombstone scoped rows')
   const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
   const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
   must(backupTypes.includes('customProfiles: BackupCustomProfilesSection') &&

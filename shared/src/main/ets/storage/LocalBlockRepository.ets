@@ -29,15 +29,24 @@ const SQL_SELECT_RULES: string =
   'SELECT rule_id, block_type, rule_text, enabled, enable_regex FROM local_block_rules ' +
   'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ORDER BY position_index ASC, rule_id ASC'
 const SQL_UPSERT_SETTINGS: string =
-  'INSERT OR REPLACE INTO local_block_settings ' +
+  'INSERT INTO local_block_settings ' +
   '(scope_key, filter_comments_by_score, score_filtering_threshold, comment_display_mode, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, 0)'
+  'VALUES (?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key) DO UPDATE SET ' +
+  'filter_comments_by_score = excluded.filter_comments_by_score, ' +
+  'score_filtering_threshold = excluded.score_filtering_threshold, ' +
+  'comment_display_mode = excluded.comment_display_mode, updated_at = excluded.updated_at, deleted_at = 0'
 const SQL_UPSERT_RULE: string =
-  'INSERT OR REPLACE INTO local_block_rules ' +
+  'INSERT INTO local_block_rules ' +
   '(scope_key, rule_id, position_index, block_type, rule_text, enabled, enable_regex, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)'
-const SQL_DELETE_SETTINGS: string = 'DELETE FROM local_block_settings WHERE scope_key = ?'
-const SQL_DELETE_RULES: string = 'DELETE FROM local_block_rules WHERE scope_key = ?'
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  'position_index = excluded.position_index, block_type = excluded.block_type, rule_text = excluded.rule_text, ' +
+  'enabled = excluded.enabled, enable_regex = excluded.enable_regex, updated_at = excluded.updated_at, deleted_at = 0'
+const SQL_TOMBSTONE_SETTINGS: string =
+  'UPDATE local_block_settings SET deleted_at = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
+const SQL_TOMBSTONE_RULES: string =
+  'UPDATE local_block_rules SET deleted_at = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 
 export class LocalBlockRepository {
   static async load(context: common.UIAbilityContext): Promise<LocalBlockSettingsSnapshot> {
@@ -67,14 +76,15 @@ export class LocalBlockRepository {
     snapshot: LocalBlockSettingsSnapshot,
   ): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_DELETE_SETTINGS, [SCOPE_GLOBAL])
-    await store.executeSql(SQL_DELETE_RULES, [SCOPE_GLOBAL])
+    const now: number = Date.now()
+    await store.executeSql(SQL_TOMBSTONE_SETTINGS, [now, now, SCOPE_GLOBAL])
+    await store.executeSql(SQL_TOMBSTONE_RULES, [now, now, SCOPE_GLOBAL])
     await store.executeSql(SQL_UPSERT_SETTINGS, [
       SCOPE_GLOBAL,
       snapshot.filterCommentsByScore ? 1 : 0,
       Math.floor(snapshot.scoreFilteringThreshold),
       snapshot.commentDisplayMode,
-      Date.now(),
+      now,
     ])
     for (let i: number = 0; i < snapshot.rules.length; i++) {
       const rule: LocalBlockRuleSnapshot = snapshot.rules[i]
@@ -89,7 +99,7 @@ export class LocalBlockRepository {
         rule.ruleText,
         rule.enabled ? 1 : 0,
         rule.enableRegex ? 1 : 0,
-        Date.now(),
+        now + i + 1,
       ])
     }
   }

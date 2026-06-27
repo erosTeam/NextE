@@ -142,6 +142,28 @@ export {
   BACKUP_FILE_SUFFIX,
   MAX_BACKUP_BYTES,
 } from './backup/BackupTypes'
+export { SyncService } from './sync/SyncService'
+export { SyncLocalDataAdapter } from './sync/SyncLocalDataAdapter'
+export { WebDavSyncConfig, WebDavSyncService } from './sync/WebDavSyncService'
+export {
+  SYNC_FILE_NAME,
+  SYNC_WEBDAV_MANIFEST_FILE,
+  SYNC_WEBDAV_ROOT_DIR,
+  SyncDatasetSelection,
+  SyncEnvelopeV1,
+  SyncDatasets,
+  SyncManifestDataset,
+  SyncManifestShard,
+  SyncManifestV1,
+  SyncReadProgressRecord,
+  SyncViewedHistoryRecord,
+  SyncLocalFavoriteRecord,
+  SyncSearchHistoryRecord,
+  SyncLocalBlockSettingsRecord,
+  SyncLocalBlockRuleRecord,
+  SyncCustomProfileRecord,
+  SyncCustomProfileSelectionRecord,
+} from './sync/SyncTypes'
 export { MyTagsTargetService, MyTagsTargetResolveResult } from './services/MyTagsTargetService'
 export { CoverColorService } from './services/CoverColorService'
 export { MotionHandStateService, MotionHandEdge } from './services/MotionHandStateService'
@@ -157,6 +179,17 @@ export {
   CommentTranslationSettings,
   CommentTranslationSettingsSnapshot,
 } from './settings/CommentTranslationSettings'
+export {
+  SYNC_STATUS_FAILED,
+  SYNC_STATUS_IDLE,
+  SYNC_STATUS_OK,
+  SyncSettingsState,
+  connectSyncSettings,
+} from './state/SyncSettingsState'
+export {
+  SyncSettings,
+  SyncSettingsSnapshot,
+} from './settings/SyncSettings'
 export {
   LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE,
   LOCAL_BLOCK_COMMENT_DISPLAY_HIDE,

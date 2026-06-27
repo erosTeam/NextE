@@ -10,12 +10,20 @@ const SQL_SELECT_ACTIVE: string =
   'color_rating, fav_note, fav_title, expunged, last_view_time FROM local_favorites ' +
   'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ORDER BY last_view_time DESC, gid DESC'
 const SQL_UPSERT: string =
-  'INSERT OR REPLACE INTO local_favorites ' +
+  'INSERT INTO local_favorites ' +
   '(scope_key, gid, token, url, thumb_url, thumb_url_l, img_width, img_height, english_title, ' +
   'japanese_title, category, uploader, post_time, file_count, rating, rating_fallback, ' +
   'color_rating, fav_note, fav_title, expunged, last_view_time, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)'
-const SQL_DELETE_SCOPE: string = 'DELETE FROM local_favorites WHERE scope_key = ?'
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ' +
+  'ON CONFLICT(scope_key, gid) DO UPDATE SET token = excluded.token, url = excluded.url, ' +
+  'thumb_url = excluded.thumb_url, thumb_url_l = excluded.thumb_url_l, img_width = excluded.img_width, ' +
+  'img_height = excluded.img_height, english_title = excluded.english_title, japanese_title = excluded.japanese_title, ' +
+  'category = excluded.category, uploader = excluded.uploader, post_time = excluded.post_time, ' +
+  'file_count = excluded.file_count, rating = excluded.rating, rating_fallback = excluded.rating_fallback, ' +
+  'color_rating = excluded.color_rating, fav_note = excluded.fav_note, fav_title = excluded.fav_title, ' +
+  'expunged = excluded.expunged, last_view_time = excluded.last_view_time, deleted_at = 0'
+const SQL_TOMBSTONE_SCOPE: string =
+  'UPDATE local_favorites SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 
 export class LocalFavoriteRepository {
   static async load(context: common.UIAbilityContext): Promise<EhGallery[]> {
@@ -37,7 +45,7 @@ export class LocalFavoriteRepository {
 
   static async replaceAll(context: common.UIAbilityContext, items: EhGallery[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_DELETE_SCOPE, [SCOPE_GLOBAL])
+    await store.executeSql(SQL_TOMBSTONE_SCOPE, [Date.now(), SCOPE_GLOBAL])
     for (let i: number = 0; i < items.length; i++) {
       await LocalFavoriteRepository.upsert(store, items[i])
     }

@@ -68,6 +68,7 @@ import {
   LocalBlockSettingsPage,
   TagTranslationSettingsPage,
   TranslationSettingsPage,
+  SyncSettingsPage,
   AdvancedSettingsPage,
   SecuritySettingsPage,
   AboutPage,
@@ -651,6 +652,8 @@ struct Index {
       TagTranslationSettingsPage()
     } else if (name === 'TranslationSettings') {
       TranslationSettingsPage()
+    } else if (name === 'SyncSettings') {
+      SyncSettingsPage()
     } else if (name === 'AdvancedSettings') {
       AdvancedSettingsPage()
     } else if (name === 'SecuritySettings') {

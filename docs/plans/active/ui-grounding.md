@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: storage sync settings
+
+Status: active
+Reference implementation: `feature/settings/src/main/ets/pages/CacheSettingsPage.ets` storage category entry, `feature/settings/src/main/ets/pages/DiagnosticsLogPage.ets` settings child-page structure, `shared/src/main/ets/components/ConciseListRow.ets` switch/input rows, and `../V2Next/feature/settings/src/main/ets/pages/BackupSettingsPage.ets` backup/export grouping.
+Surface type: Storage settings child page for manual WebDAV sync configuration; no Huawei cloud UI in this lane.
+Primary information: WebDAV directory URL, username/password presence, last sync state, and the enabled durable dataset groups.
+Primary action: tap Sync Now to run a manual sync; secondary actions are editing the endpoint credentials and toggling dataset groups.
+Reuse or deviation: reuse NextE `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, V2 settings holder restore/persist pattern, and storage-page navigation; deviate from the old single backup file by presenting dataset switches because WebDAV now writes manifest plus per-dataset shards.
+Verification: sync design contract, local WebDAV sharded server contract, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
+
 ## Active: settings account summary entry
 
 Status: active

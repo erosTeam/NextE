@@ -1757,6 +1757,70 @@
       "value": "翻訳"
     },
     {
+      "name": "settings_sync",
+      "value": "同期"
+    },
+    {
+      "name": "settings_sync_hint",
+      "value": "WebDAVでローカルデータを手動同期します。"
+    },
+    {
+      "name": "sync_webdav_url",
+      "value": "WebDAVディレクトリ"
+    },
+    {
+      "name": "sync_webdav_url_hint",
+      "value": "https://example.com/remote.php/dav/files/user/NextE"
+    },
+    {
+      "name": "sync_webdav_username",
+      "value": "ユーザー名"
+    },
+    {
+      "name": "sync_webdav_username_hint",
+      "value": "任意"
+    },
+    {
+      "name": "sync_webdav_password",
+      "value": "パスワード"
+    },
+    {
+      "name": "sync_webdav_password_hint",
+      "value": "任意、この端末にのみ保存"
+    },
+    {
+      "name": "sync_webdav_url_required",
+      "value": "WebDAVディレクトリを入力してください"
+    },
+    {
+      "name": "sync_now",
+      "value": "今すぐ同期"
+    },
+    {
+      "name": "sync_now_done",
+      "value": "同期しました"
+    },
+    {
+      "name": "sync_now_failed",
+      "value": "同期に失敗しました"
+    },
+    {
+      "name": "sync_status_running",
+      "value": "同期中..."
+    },
+    {
+      "name": "sync_status_never",
+      "value": "未同期"
+    },
+    {
+      "name": "sync_status_success",
+      "value": "前回成功：%s"
+    },
+    {
+      "name": "sync_status_failed",
+      "value": "前回失敗：%s"
+    },
+    {
       "name": "comment_translation_enable",
       "value": "コメント翻訳"
     },
@@ -3015,6 +3079,54 @@
     {
       "name": "ehp_profile_delete_confirm",
       "value": "削除すると元に戻せません。"
+    },
+    {
+      "name": "sync_dataset_read_progress",
+      "value": "読書進捗"
+    },
+    {
+      "name": "sync_dataset_read_progress_hint",
+      "value": "現在ページと最後に読んだ位置"
+    },
+    {
+      "name": "sync_dataset_viewed_history",
+      "value": "閲覧履歴"
+    },
+    {
+      "name": "sync_dataset_viewed_history_hint",
+      "value": "一覧や詳細から開いたギャラリー"
+    },
+    {
+      "name": "sync_dataset_local_favorites",
+      "value": "ローカルお気に入り"
+    },
+    {
+      "name": "sync_dataset_local_favorites_hint",
+      "value": "ローカル保存したギャラリーとメモ"
+    },
+    {
+      "name": "sync_dataset_search_history",
+      "value": "検索履歴"
+    },
+    {
+      "name": "sync_dataset_search_history_hint",
+      "value": "最近検索したキーワード"
+    },
+    {
+      "name": "sync_dataset_local_block",
+      "value": "非表示タグルール"
+    },
+    {
+      "name": "sync_dataset_local_block_hint",
+      "value": "ローカルのブロックルールとコメントフィルター設定"
+    },
+    {
+      "name": "sync_dataset_custom_profiles",
+      "value": "カスタムリストタブ"
+    },
+    {
+      "name": "sync_dataset_custom_profiles_hint",
+      "value": "カスタム SubTab 設定と選択項目"
     }
   ]
 }

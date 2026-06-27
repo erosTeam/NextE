@@ -64,10 +64,10 @@ ok('legacy search history Preferences rows are migrated once',
     /CREATE TABLE IF NOT EXISTS search_history/.test(store) &&
       /position_index INTEGER/.test(store) &&
       /deleted_at INTEGER DEFAULT 0/.test(store))
-  ok('search history repository preserves order and replaces scoped rows',
+  ok('search history repository preserves order and tombstones scoped rows',
     /ORDER BY position_index ASC, updated_at DESC LIMIT \?/.test(repo) &&
-      /DELETE FROM search_history WHERE scope_key = \?/.test(repo) &&
-      /INSERT OR REPLACE INTO search_history/.test(repo))
+      /UPDATE search_history SET deleted_at = \?, updated_at = \?/.test(repo) &&
+      /ON CONFLICT\(scope_key, query_text\) DO UPDATE/.test(repo))
   const backupTypes = readFileSync(join(ROOT, 'shared/src/main/ets/backup/BackupTypes.ets'), 'utf8')
   const backupAdapter = readFileSync(join(ROOT, 'shared/src/main/ets/backup/BackupLocalDataAdapter.ets'), 'utf8')
   ok('backup localData includes search history',

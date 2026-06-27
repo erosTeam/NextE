@@ -16,17 +16,27 @@ const SQL_SELECT_PROFILES: string =
   'builtin, last_edit_time FROM custom_profiles WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY position_index ASC, uuid ASC'
 const SQL_UPSERT_PROFILE: string =
-  'INSERT OR REPLACE INTO custom_profiles ' +
+  'INSERT INTO custom_profiles ' +
   '(scope_key, uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, ' +
   'min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, ' +
   'disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, ' +
-  'last_edit_time, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)'
-const SQL_DELETE_PROFILES: string = 'DELETE FROM custom_profiles WHERE scope_key = ?'
+  'last_edit_time, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ' +
+  'ON CONFLICT(scope_key, uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, ' +
+  'list_type = excluded.list_type, search_text = excluded.search_text, selected_cats = excluded.selected_cats, ' +
+  'advanced_enabled = excluded.advanced_enabled, min_rating = excluded.min_rating, pages_from = excluded.pages_from, ' +
+  'pages_to = excluded.pages_to, require_torrent = excluded.require_torrent, show_expunged = excluded.show_expunged, ' +
+  'disable_language_filter = excluded.disable_language_filter, disable_uploader_filter = excluded.disable_uploader_filter, ' +
+  'disable_tag_filter = excluded.disable_tag_filter, favcat = excluded.favcat, toplist_tl = excluded.toplist_tl, ' +
+  'display_mode = excluded.display_mode, hidden = excluded.hidden, builtin = excluded.builtin, ' +
+  'last_edit_time = excluded.last_edit_time, deleted_at = 0'
+const SQL_TOMBSTONE_PROFILES: string =
+  'UPDATE custom_profiles SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_SELECT_SELECTED: string =
   'SELECT selected_uuid FROM custom_profile_selection WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_UPSERT_SELECTED: string =
-  'INSERT OR REPLACE INTO custom_profile_selection (scope_key, selected_uuid, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, 0)'
+  'INSERT INTO custom_profile_selection (scope_key, selected_uuid, updated_at, deleted_at) ' +
+  'VALUES (?, ?, ?, 0) ON CONFLICT(scope_key) DO UPDATE SET selected_uuid = excluded.selected_uuid, ' +
+  'updated_at = excluded.updated_at, deleted_at = 0'
 
 export class CustomProfilesRepository {
   static async loadProfiles(context: common.UIAbilityContext): Promise<CustomProfile[]> {
@@ -65,7 +75,7 @@ export class CustomProfilesRepository {
     selectedUuid: string,
   ): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_DELETE_PROFILES, [SCOPE_GLOBAL])
+    await store.executeSql(SQL_TOMBSTONE_PROFILES, [Date.now(), SCOPE_GLOBAL])
     for (let i: number = 0; i < profiles.length; i++) {
       await CustomProfilesRepository.upsertProfile(store, profiles[i], i)
     }
