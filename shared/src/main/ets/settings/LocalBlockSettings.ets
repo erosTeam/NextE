@@ -13,21 +13,11 @@ import {
   LocalBlockState,
   connectLocalBlock,
 } from '../state/LocalBlockState'
-
-class LocalBlockRuleSnapshot {
-  id: string = ''
-  blockType: string = LOCAL_BLOCK_TYPE_TITLE
-  ruleText: string = ''
-  enabled: boolean = true
-  enableRegex: boolean = false
-}
-
-class LocalBlockSnapshot {
-  filterCommentsByScore: boolean = false
-  scoreFilteringThreshold: number = -20
-  commentDisplayMode: string = LOCAL_BLOCK_COMMENT_DISPLAY_HIDE
-  rules: LocalBlockRuleSnapshot[] = []
-}
+import {
+  LocalBlockRepository,
+  LocalBlockRuleSnapshot,
+  LocalBlockSettingsSnapshot,
+} from '../storage/LocalBlockRepository'
 
 export class LocalBlockSettings {
   private static bumpVersion(state: LocalBlockState): void {
@@ -63,9 +53,9 @@ export class LocalBlockSettings {
     return out
   }
 
-  private static current(): LocalBlockSnapshot {
+  private static current(): LocalBlockSettingsSnapshot {
     const state: LocalBlockState = connectLocalBlock()
-    const snapshot: LocalBlockSnapshot = new LocalBlockSnapshot()
+    const snapshot: LocalBlockSettingsSnapshot = new LocalBlockSettingsSnapshot()
     snapshot.filterCommentsByScore = state.filterCommentsByScore
     snapshot.scoreFilteringThreshold = state.scoreFilteringThreshold
     snapshot.commentDisplayMode = LocalBlockSettings.normalizeCommentDisplayMode(state.commentDisplayMode)
@@ -73,7 +63,7 @@ export class LocalBlockSettings {
     return snapshot
   }
 
-  private static apply(snapshot: LocalBlockSnapshot): void {
+  private static apply(snapshot: LocalBlockSettingsSnapshot): void {
     const state: LocalBlockState = connectLocalBlock()
     state.filterCommentsByScore = snapshot.filterCommentsByScore
     state.scoreFilteringThreshold = Number.isFinite(snapshot.scoreFilteringThreshold)
@@ -86,41 +76,49 @@ export class LocalBlockSettings {
 
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
-      const raw: string = store.getSync(StorageKeys.LOCAL_BLOCK_RULES, '') as string
-      if (raw.length === 0) {
-        LocalBlockSettings.apply(new LocalBlockSnapshot())
-        return
-      }
-      const parsed = JSON.parse(raw) as Record<string, Object>
-      const snapshot: LocalBlockSnapshot = new LocalBlockSnapshot()
-      snapshot.filterCommentsByScore = typeof parsed.filterCommentsByScore === 'boolean'
-        ? parsed.filterCommentsByScore as boolean
-        : false
-      snapshot.scoreFilteringThreshold = typeof parsed.scoreFilteringThreshold === 'number'
-        ? parsed.scoreFilteringThreshold as number
-        : -20
-      snapshot.commentDisplayMode = typeof parsed.commentDisplayMode === 'string'
-        ? LocalBlockSettings.normalizeCommentDisplayMode(parsed.commentDisplayMode as string)
-        : LOCAL_BLOCK_COMMENT_DISPLAY_HIDE
-      if (Array.isArray(parsed.rules)) {
-        snapshot.rules = LocalBlockSettings.parseRules(parsed.rules as Object[])
-      }
-      LocalBlockSettings.apply(snapshot)
+      await LocalBlockSettings.migrateLegacyPreferences(context)
+      LocalBlockSettings.apply(await LocalBlockRepository.load(context))
     } catch (error) {
       DiagnosticLogger.warn('settings', 'local_block_restore_failed', (error as Error).message)
-      LocalBlockSettings.apply(new LocalBlockSnapshot())
+      LocalBlockSettings.apply(new LocalBlockSettingsSnapshot())
     }
   }
 
   static async save(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
-      store.putSync(StorageKeys.LOCAL_BLOCK_RULES, JSON.stringify(LocalBlockSettings.current()))
-      store.flushSync()
+      await LocalBlockRepository.replaceAll(context, LocalBlockSettings.current())
     } catch (error) {
       DiagnosticLogger.warn('settings', 'local_block_save_failed', (error as Error).message)
     }
+  }
+
+  static async exportForBackup(context: common.UIAbilityContext): Promise<LocalBlockSettingsSnapshot> {
+    await LocalBlockSettings.migrateLegacyPreferences(context)
+    return LocalBlockRepository.load(context)
+  }
+
+  static async restoreBackup(
+    context: common.UIAbilityContext,
+    snapshot: LocalBlockSettingsSnapshot,
+  ): Promise<void> {
+    await LocalBlockRepository.replaceAll(context, snapshot)
+    await LocalBlockSettings.deleteLegacyPreference(context)
+    LocalBlockSettings.apply(await LocalBlockRepository.load(context))
+  }
+
+  static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
+    const raw: string = store.getSync(StorageKeys.LOCAL_BLOCK_RULES, '') as string
+    if (raw.length === 0) {
+      return
+    }
+    try {
+      await LocalBlockRepository.replaceAll(context, LocalBlockSettings.parseSnapshot(raw))
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'local_block_migrate_failed', (error as Error).message)
+    }
+    store.deleteSync(StorageKeys.LOCAL_BLOCK_RULES)
+    store.flushSync()
   }
 
   static async setScoreFilter(
@@ -244,5 +242,29 @@ export class LocalBlockSettings {
       out.push(snapshot)
     })
     return out
+  }
+
+  private static parseSnapshot(raw: string): LocalBlockSettingsSnapshot {
+    const parsed = JSON.parse(raw) as Record<string, Object>
+    const snapshot: LocalBlockSettingsSnapshot = new LocalBlockSettingsSnapshot()
+    snapshot.filterCommentsByScore = typeof parsed.filterCommentsByScore === 'boolean'
+      ? parsed.filterCommentsByScore as boolean
+      : false
+    snapshot.scoreFilteringThreshold = typeof parsed.scoreFilteringThreshold === 'number'
+      ? parsed.scoreFilteringThreshold as number
+      : -20
+    snapshot.commentDisplayMode = typeof parsed.commentDisplayMode === 'string'
+      ? LocalBlockSettings.normalizeCommentDisplayMode(parsed.commentDisplayMode as string)
+      : LOCAL_BLOCK_COMMENT_DISPLAY_HIDE
+    if (Array.isArray(parsed.rules)) {
+      snapshot.rules = LocalBlockSettings.parseRules(parsed.rules as Object[])
+    }
+    return snapshot
+  }
+
+  private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
+    store.deleteSync(StorageKeys.LOCAL_BLOCK_RULES)
+    store.flushSync()
   }
 }

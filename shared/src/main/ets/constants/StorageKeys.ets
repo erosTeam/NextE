@@ -28,27 +28,27 @@ export class StorageKeys {
   static readonly THEME_COLOR: string = 'theme.color' // accent: system/blue/orange/red/purple/pink/green
   static readonly IMMERSIVE_MATERIAL_LEVEL: string = 'theme.immersiveMaterialLevel' // adaptive/exquisite/gentle/smooth
   static readonly LANGUAGE: string = 'app.language' // system/zh-CN/en-US/ja-JP
-  static readonly SEARCH_HISTORY: string = 'search.history' // JSON array of recent query strings
+  static readonly SEARCH_HISTORY: string = 'search.history' // legacy Preferences key; RDB source of truth
   static readonly SEARCH_FILTER: string = 'search.filter' // JSON snapshot of advanced-search filters
   static readonly FAVORITES_FAVCATS: string = 'favorites.favcats' // JSON [Favcat] selector snapshot
-  static readonly LOCAL_FAVORITES: string = 'favorites.local' // JSON [EhGallery] local-only favorites
-  static readonly VIEWED_HISTORY: string = 'viewed.history' // JSON [ViewedGallery] recently-viewed, newest first
+  static readonly LOCAL_FAVORITES: string = 'favorites.local' // legacy Preferences key; RDB source of truth
+  static readonly VIEWED_HISTORY: string = 'viewed.history' // legacy Preferences key; RDB source of truth
   static readonly READING_DIRECTION: string = 'reading.direction' // ltr/rtl/vertical
-  static readonly READING_PROGRESS: string = 'reading.progress' // JSON [{g,i,t}] per-gallery lastIndex
+  static readonly READING_PROGRESS: string = 'reading.progress' // legacy Preferences key; RDB source of truth
   static readonly READING_DOUBLE_PAGE: string = 'reading.doublePage'
   static readonly READING_VOLUME_KEY: string = 'reading.volumeKeyTurn'
   static readonly READING_AUTO_PAGE_SEC: string = 'reading.autoPageSeconds'
   static readonly DOWNLOAD_DIR: string = 'download.dir'
   static readonly DOWNLOAD_CONCURRENCY: string = 'download.concurrency'
   static readonly DOWNLOAD_ORIGINAL: string = 'download.original'
-  static readonly DOWNLOAD_GALLERY_QUEUE: string = 'download.galleryQueue'
+  static readonly DOWNLOAD_GALLERY_QUEUE: string = 'download.galleryQueue' // legacy Preferences key; RDB source of truth
   static readonly SECURITY_AUTO_LOCK_SEC: string = 'security.autoLockSeconds'
   static readonly HOME_SOURCE: string = 'subtab.homeSource'
   static readonly FAVORITES_FAVCAT: string = 'subtab.favoritesFavcat'
   static readonly TOPLIST_TL: string = 'subtab.toplistTl'
   // Custom home sub-tab profiles (JSON array) + the selected profile uuid.
-  static readonly HOME_CUSTOM_PROFILES: string = 'subtab.customProfiles'
-  static readonly HOME_CUSTOM_PROFILES_SELECTED: string = 'subtab.customProfilesSelected'
+  static readonly HOME_CUSTOM_PROFILES: string = 'subtab.customProfiles' // legacy Preferences key; RDB source of truth
+  static readonly HOME_CUSTOM_PROFILES_SELECTED: string = 'subtab.customProfilesSelected' // legacy Preferences key; RDB source of truth
   static readonly TOPLIST_APPLY_HIDDEN_USER_TAGS: string = 'toplist.applyHiddenUserTags'
   static readonly APP_COLOR_FAVORITES: string = 'app.colorFavorites'
   static readonly HOME_TAB_AUTO_HIDE: string = 'home.tabAutoHide'
@@ -63,10 +63,11 @@ export class StorageKeys {
   static readonly COMMENT_TRANSLATION_API_URL: string = 'commentTranslation.apiUrl'
   static readonly COMMENT_TRANSLATION_API_KEY: string = 'commentTranslation.apiKey'
   static readonly COMMENT_TRANSLATION_MODEL: string = 'commentTranslation.model'
-  static readonly LOCAL_BLOCK_RULES: string = 'localBlock.rules'
+  static readonly LOCAL_BLOCK_RULES: string = 'localBlock.rules' // legacy Preferences key; RDB source of truth
   static readonly DIAGNOSTICS_ENABLED: string = 'diagnostics.enabled'
   static readonly DIAGNOSTICS_MIN_LEVEL: string = 'diagnostics.minLevel'
 
   // sensitive auth bundle (redacted in logs, never committed)
   static readonly COOKIE_JAR: string = 'auth.cookieJar'
+  static readonly USER_PROFILE_PREFIX: string = 'auth.profile.'
 }

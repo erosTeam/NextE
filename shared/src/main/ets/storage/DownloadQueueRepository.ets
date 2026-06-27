@@ -1,0 +1,201 @@
+import { common } from '@kit.AbilityKit'
+import { relationalStore } from '@kit.ArkData'
+import {
+  DownloadGalleryTask,
+  DownloadGalleryTaskStatus,
+  DownloadImageSeed,
+} from '../model/DownloadGalleryTask'
+import { LocalDataStore } from './LocalDataStore'
+
+const SCOPE_GLOBAL: string = 'global'
+const SQL_SELECT_TASKS: string =
+  'SELECT gid, token, title, title_jp, thumb_url, page_count, category, uploader, queued_at, ' +
+  'prepared_at, first_page_count, preview_page_count, prepare_error, status FROM download_gallery_tasks ' +
+  'WHERE scope_key = ? ORDER BY queued_at DESC, gid DESC'
+const SQL_SELECT_SEEDS: string =
+  'SELECT page, imgkey, image_page_url, thumb_url, image_url, origin_image_url, show_key, reload_key, ' +
+  'file_path, bytes_written, downloaded_at, download_error FROM download_gallery_seeds ' +
+  'WHERE scope_key = ? AND gid = ? AND token = ? ORDER BY position_index ASC, page ASC'
+const SQL_UPSERT_TASK: string =
+  'INSERT OR REPLACE INTO download_gallery_tasks ' +
+  '(scope_key, gid, token, title, title_jp, thumb_url, page_count, category, uploader, queued_at, ' +
+  'prepared_at, first_page_count, preview_page_count, prepare_error, status) ' +
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+const SQL_UPSERT_SEED: string =
+  'INSERT OR REPLACE INTO download_gallery_seeds ' +
+  '(scope_key, gid, token, image_page_url, position_index, page, imgkey, thumb_url, image_url, ' +
+  'origin_image_url, show_key, reload_key, file_path, bytes_written, downloaded_at, download_error) ' +
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+const SQL_DELETE_TASKS: string = 'DELETE FROM download_gallery_tasks WHERE scope_key = ?'
+const SQL_DELETE_SEEDS: string = 'DELETE FROM download_gallery_seeds WHERE scope_key = ?'
+
+export class DownloadQueueRepository {
+  static async load(context: common.UIAbilityContext): Promise<DownloadGalleryTask[]> {
+    const out: DownloadGalleryTask[] = []
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_TASKS, [SCOPE_GLOBAL])
+    try {
+      while (resultSet.goToNextRow()) {
+        const task: DownloadGalleryTask = DownloadQueueRepository.readTask(resultSet)
+        if (task.gid.length > 0) {
+          task.imageSeeds = await DownloadQueueRepository.loadSeeds(store, task.gid, task.token)
+          out.push(task)
+        }
+      }
+    } finally {
+      resultSet.close()
+    }
+    return out
+  }
+
+  static async replaceAll(context: common.UIAbilityContext, tasks: DownloadGalleryTask[]): Promise<void> {
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_DELETE_SEEDS, [SCOPE_GLOBAL])
+    await store.executeSql(SQL_DELETE_TASKS, [SCOPE_GLOBAL])
+    for (let i: number = 0; i < tasks.length; i++) {
+      await DownloadQueueRepository.upsertTask(store, tasks[i])
+    }
+  }
+
+  private static async upsertTask(
+    store: relationalStore.RdbStore,
+    task: DownloadGalleryTask,
+  ): Promise<void> {
+    if (task.gid.length === 0) {
+      return
+    }
+    await store.executeSql(SQL_UPSERT_TASK, [
+      SCOPE_GLOBAL,
+      task.gid,
+      task.token,
+      task.title,
+      task.titleJp,
+      task.thumbUrl,
+      task.pageCount,
+      task.category,
+      task.uploader,
+      task.queuedAt,
+      task.preparedAt,
+      task.firstPageCount,
+      task.previewPageCount,
+      task.prepareError,
+      DownloadQueueRepository.normalizeStatus(task.status),
+    ])
+    for (let i: number = 0; i < task.imageSeeds.length; i++) {
+      const seed: DownloadImageSeed = task.imageSeeds[i]
+      if (seed.imagePageUrl.length > 0) {
+        await DownloadQueueRepository.upsertSeed(store, task.gid, task.token, seed, i)
+      }
+    }
+  }
+
+  private static async upsertSeed(
+    store: relationalStore.RdbStore,
+    gid: string,
+    token: string,
+    seed: DownloadImageSeed,
+    index: number,
+  ): Promise<void> {
+    await store.executeSql(SQL_UPSERT_SEED, [
+      SCOPE_GLOBAL,
+      gid,
+      token,
+      seed.imagePageUrl,
+      index,
+      seed.page,
+      seed.imgkey,
+      seed.thumbUrl,
+      seed.imageUrl,
+      seed.originImageUrl,
+      seed.showKey,
+      seed.reloadKey,
+      seed.filePath,
+      seed.bytesWritten,
+      seed.downloadedAt,
+      seed.downloadError,
+    ])
+  }
+
+  private static async loadSeeds(
+    store: relationalStore.RdbStore,
+    gid: string,
+    token: string,
+  ): Promise<DownloadImageSeed[]> {
+    const out: DownloadImageSeed[] = []
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SEEDS, [
+      SCOPE_GLOBAL,
+      gid,
+      token,
+    ])
+    try {
+      while (resultSet.goToNextRow()) {
+        const seed: DownloadImageSeed = DownloadQueueRepository.readSeed(resultSet)
+        if (seed.imagePageUrl.length > 0) {
+          out.push(seed)
+        }
+      }
+    } finally {
+      resultSet.close()
+    }
+    return out
+  }
+
+  private static readTask(resultSet: relationalStore.ResultSet): DownloadGalleryTask {
+    const task: DownloadGalleryTask = new DownloadGalleryTask()
+    task.gid = DownloadQueueRepository.stringColumn(resultSet, 'gid')
+    task.token = DownloadQueueRepository.stringColumn(resultSet, 'token')
+    task.title = DownloadQueueRepository.stringColumn(resultSet, 'title')
+    task.titleJp = DownloadQueueRepository.stringColumn(resultSet, 'title_jp')
+    task.thumbUrl = DownloadQueueRepository.stringColumn(resultSet, 'thumb_url')
+    task.pageCount = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'page_count'))
+    task.category = DownloadQueueRepository.stringColumn(resultSet, 'category')
+    task.uploader = DownloadQueueRepository.stringColumn(resultSet, 'uploader')
+    task.queuedAt = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'queued_at'))
+    task.preparedAt = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'prepared_at'))
+    task.firstPageCount = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'first_page_count'))
+    task.previewPageCount = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'preview_page_count'))
+    task.prepareError = DownloadQueueRepository.stringColumn(resultSet, 'prepare_error')
+    task.status = DownloadQueueRepository.normalizeStatus(DownloadQueueRepository.stringColumn(resultSet, 'status'))
+    return task
+  }
+
+  private static readSeed(resultSet: relationalStore.ResultSet): DownloadImageSeed {
+    const seed: DownloadImageSeed = new DownloadImageSeed()
+    seed.page = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'page'))
+    seed.imgkey = DownloadQueueRepository.stringColumn(resultSet, 'imgkey')
+    seed.imagePageUrl = DownloadQueueRepository.stringColumn(resultSet, 'image_page_url')
+    seed.thumbUrl = DownloadQueueRepository.stringColumn(resultSet, 'thumb_url')
+    seed.imageUrl = DownloadQueueRepository.stringColumn(resultSet, 'image_url')
+    seed.originImageUrl = DownloadQueueRepository.stringColumn(resultSet, 'origin_image_url')
+    seed.showKey = DownloadQueueRepository.stringColumn(resultSet, 'show_key')
+    seed.reloadKey = DownloadQueueRepository.stringColumn(resultSet, 'reload_key')
+    seed.filePath = DownloadQueueRepository.stringColumn(resultSet, 'file_path')
+    seed.bytesWritten = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'bytes_written'))
+    seed.downloadedAt = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'downloaded_at'))
+    seed.downloadError = DownloadQueueRepository.stringColumn(resultSet, 'download_error')
+    return seed
+  }
+
+  private static normalizeStatus(status: string): string {
+    if (
+      status === DownloadGalleryTaskStatus.PREPARING ||
+      status === DownloadGalleryTaskStatus.READY ||
+      status === DownloadGalleryTaskStatus.DOWNLOADING ||
+      status === DownloadGalleryTaskStatus.PARTIAL ||
+      status === DownloadGalleryTaskStatus.ERROR
+    ) {
+      return status
+    }
+    return DownloadGalleryTaskStatus.QUEUED
+  }
+
+  private static stringColumn(resultSet: relationalStore.ResultSet, name: string): string {
+    const index: number = resultSet.getColumnIndex(name)
+    return resultSet.isColumnNull(index) ? '' : resultSet.getString(index)
+  }
+
+  private static numberColumn(resultSet: relationalStore.ResultSet, name: string): number {
+    const index: number = resultSet.getColumnIndex(name)
+    return resultSet.isColumnNull(index) ? 0 : resultSet.getDouble(index)
+  }
+}

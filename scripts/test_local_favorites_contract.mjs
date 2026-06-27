@@ -7,7 +7,7 @@
  *   in the user profile.
  * - eros_fe/lib/pages/tab/controller/favorite/favorite_sublist_controller.dart returns that local list
  *   when favcat == 'l', without requesting favorites.php.
- * - NextE keeps the same user-visible `l` slot while using AppStorageV2 + Preferences and the retained
+ * - NextE keeps the same user-visible `l` slot while using AppStorageV2 + RDB and the retained
  *   subtab host already used by Favorites.
  *
  * Run: node scripts/test_local_favorites_contract.mjs
@@ -51,9 +51,31 @@ ok('LocalFavState connects through AppStorageV2',
 ok('Local favorites preference key is centralized',
   /LOCAL_FAVORITES: string = 'favorites\.local'/.test(storageKeys))
 ok('LocalFavSettings restores into LocalFavState',
-  /connectLocalFav\(\)\.items = LocalFavSettings\.parse\(raw\)/.test(localSettings))
-ok('LocalFavSettings persists gallery snapshots',
-  /store\.putSync\(StorageKeys\.LOCAL_FAVORITES, JSON\.stringify\(LocalFavSettings\.snapshot\(items\)\)\)/.test(localSettings))
+  /LocalFavoriteRepository\.load\(context\)/.test(localSettings) &&
+    /connectLocalFav\(\)\.items = await LocalFavoriteRepository\.load\(context\)/.test(localSettings))
+ok('LocalFavSettings persists gallery snapshots through RDB',
+  /LocalFavoriteRepository\.replaceAll\(context, LocalFavSettings\.snapshotGalleries\(items\)\)/.test(localSettings) &&
+    !/store\.putSync\(StorageKeys\.LOCAL_FAVORITES/.test(localSettings))
+ok('legacy local favorite Preferences rows are migrated once',
+  /migrateLegacyPreferences/.test(localSettings) &&
+    /store\.getSync\(StorageKeys\.LOCAL_FAVORITES, ''\)/.test(localSettings) &&
+    /store\.deleteSync\(StorageKeys\.LOCAL_FAVORITES\)/.test(localSettings))
+const localRepo = read('shared/src/main/ets/storage/LocalFavoriteRepository.ets')
+const localStore = read('shared/src/main/ets/storage/LocalDataStore.ets')
+ok('local favorites RDB table exists',
+  /CREATE TABLE IF NOT EXISTS local_favorites/.test(localStore) &&
+    /last_view_time INTEGER/.test(localStore) &&
+    /deleted_at INTEGER DEFAULT 0/.test(localStore))
+ok('local favorite repository loads newest-first and replaces the scoped table',
+  /ORDER BY last_view_time DESC, gid DESC/.test(localRepo) &&
+    /DELETE FROM local_favorites WHERE scope_key = \?/.test(localRepo) &&
+    /INSERT OR REPLACE INTO local_favorites/.test(localRepo))
+const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
+const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
+ok('backup localData includes local favorites',
+  /localFavorites: BackupLocalFavoriteEntry\[\]/.test(backupTypes) &&
+    /LocalFavSettings\.exportForBackup\(context\)/.test(backupAdapter) &&
+    /LocalFavSettings\.restoreBackup\(context, favorites\)/.test(backupAdapter))
 ok('SettingsBootstrap restores local favorites at startup',
   /LocalFavSettings\.restore\(context\)/.test(bootstrap))
 ok('Shared barrel exports local favorites state and settings',
@@ -63,7 +85,7 @@ ok('Shared barrel exports local favorites state and settings',
 ok('FavoritesViewModel has an explicit local favcat branch',
   /private isLocalFavcat\(\): boolean \{[\s\S]*return this\.favcat === 'l'/.test(vm))
 ok('Local favorites load reads AppStorageV2 rows and never pages',
-  /this\.hasMore = false[\s\S]*if \(this\.isLocalFavcat\(\)\) \{[\s\S]*connectLocalFav\(\)\.items\.map[\s\S]*this\.dataSource\.setData\(localRows\)[\s\S]*return/.test(vm))
+  /this\.hasMore = false[\s\S]*if \(this\.isLocalFavcat\(\)\) \{[\s\S]*connectLocalFav\(\)\.items[\s\S]*this\.dataSource\.setData\([\s\S]*localRows[\s\S]*\)[\s\S]*return/.test(vm))
 ok('Local favorites loadMore is a no-op',
   /if \(this\.isLocalFavcat\(\) \|\| this\.isLoading/.test(vm))
 ok('Local favorites order changes are no-ops',
@@ -82,9 +104,9 @@ ok('FavcatPage reloads the retained local page when local favorites change',
   /@Monitor\('localFav\.items'\)[\s\S]*if \(this\.loadedOnce && this\.favcatKey === 'l'\) \{[\s\S]*await this\.vm\.load\(\)/.test(favcatPage))
 
 ok('FavcatBar logged out tab list is local only',
-  /if \(!this\.auth\.isLogin\) \{[\s\S]*new TabItem\('l', \$r\('app\.string\.favorites_local'\), this\.localFav\.count\(\)\)/.test(bar))
+  /if \(!this\.auth\.isLogin\) \{[\s\S]*new TabItem\('l', \$r\('app\.string\.favorites_local'\), this\.localFav\.count\(\), EhConstants\.favCatColor\('l'\)\)/.test(bar))
 ok('FavcatBar logged in tabs append local slot',
-  /items\.push\(new TabItem\('l', \$r\('app\.string\.favorites_local'\), this\.localFav\.count\(\)\)\)/.test(bar))
+  /items\.push\(new TabItem\('l', \$r\('app\.string\.favorites_local'\), this\.localFav\.count\(\), EhConstants\.favCatColor\('l'\)\)\)/.test(bar))
 ok('Index always pins the Favorites favcat bottomBuilder',
   /content\['bottomBuilder'\] = this\.bottomBuilder\(this\.favcatBarContent\)[\s\S]*if \(this\.auth\.isLogin\) \{[\s\S]*content\['menu'\] = this\.favoritesMenu\(\)/.test(index))
 ok('Index does not expose remote favorites actions while logged out',

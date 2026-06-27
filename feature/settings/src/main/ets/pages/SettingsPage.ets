@@ -22,6 +22,40 @@ export struct SettingsPage {
   @Param scroller: Scroller = new Scroller();
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
+  private accountTitle(): string {
+    if (this.auth.nickName.length > 0) {
+      return this.auth.nickName
+    }
+    return `ID ${this.auth.memberId}`
+  }
+
+  private accountSubtitle(): string {
+    if (this.auth.nickName.length > 0) {
+      return `ID ${this.auth.memberId}`
+    }
+    return ''
+  }
+
+  @Builder
+  private AccountAvatar() {
+    Stack() {
+      if (this.auth.avatarUrl.length > 0) {
+        Image(this.auth.avatarUrl)
+          .objectFit(ImageFit.Cover)
+          .width(ThemeConstants.ACCOUNT_AVATAR_SIZE)
+          .height(ThemeConstants.ACCOUNT_AVATAR_SIZE)
+      } else {
+        SymbolGlyph($r('sys.symbol.person_fill'))
+          .fontSize(ThemeConstants.ACCOUNT_AVATAR_SIZE / 2)
+          .fontColor([Color.White])
+      }
+    }
+    .width(ThemeConstants.ACCOUNT_AVATAR_SIZE)
+    .height(ThemeConstants.ACCOUNT_AVATAR_SIZE)
+    .borderRadius(ThemeConstants.ACCOUNT_AVATAR_SIZE / 2)
+    .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+  }
+
   build() {
     Column() {
       SecondaryListScaffold({
@@ -54,9 +88,11 @@ export struct SettingsPage {
     GroupedListSection() {
       if (this.auth.isLogin) {
         ConciseListRow({
-          title: $r('app.string.settings_account'),
-          leadingIcon: $r('sys.symbol.person'),
-          trailingText: `ID ${this.auth.memberId}`,
+          title: this.accountTitle(),
+          subtitle: this.accountSubtitle(),
+          prefixBuilderParam: () => {
+            this.AccountAvatar()
+          },
           action: () => {
             this.stack.pushPathByName('Account', null)
           },
@@ -78,7 +114,7 @@ export struct SettingsPage {
     GroupedListSection() {
       ConciseListRow({
         title: $r('app.string.settings_eh'),
-        leadingIcon: $r('sys.symbol.house_fill'),
+        leadingIcon: $r('sys.symbol.worldclock'),
         action: () => {
           this.stack.pushPathByName('EhSettings', null)
         },
@@ -86,7 +122,7 @@ export struct SettingsPage {
       this.rowDivider()
       ConciseListRow({
         title: $r('app.string.settings_layout'),
-        leadingIcon: $r('sys.symbol.square_grid_2x2'),
+        leadingIcon: $r('sys.symbol.paintpalette'),
         action: () => {
           this.stack.pushPathByName('LayoutSettings', null)
         },

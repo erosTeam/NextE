@@ -49,6 +49,32 @@ ok('grounding: FE clearHistory clears and persists the whole list',
   /void clearHistory\(\)[\s\S]*searchHistory\.clear\(\)[\s\S]*hiveHelper\.setSearchHistory/.test(feController))
 
 ok('NextE caps search history at 100', /const MAX_HISTORY: number = 100/.test(settings))
+ok('NextE persists search history through RDB',
+  /SearchHistoryRepository\.load\(context, MAX_HISTORY\)/.test(settings) &&
+    /SearchHistoryRepository\.replaceAll\(context, items\)/.test(settings) &&
+    !/store\.putSync\(StorageKeys\.SEARCH_HISTORY/.test(settings))
+ok('legacy search history Preferences rows are migrated once',
+  /migrateLegacyPreferences/.test(settings) &&
+    /store\.getSync\(StorageKeys\.SEARCH_HISTORY, ''\)/.test(settings) &&
+    /store\.deleteSync\(StorageKeys\.SEARCH_HISTORY\)/.test(settings))
+{
+  const store = readFileSync(join(ROOT, 'shared/src/main/ets/storage/LocalDataStore.ets'), 'utf8')
+  const repo = readFileSync(join(ROOT, 'shared/src/main/ets/storage/SearchHistoryRepository.ets'), 'utf8')
+  ok('search history RDB table exists',
+    /CREATE TABLE IF NOT EXISTS search_history/.test(store) &&
+      /position_index INTEGER/.test(store) &&
+      /deleted_at INTEGER DEFAULT 0/.test(store))
+  ok('search history repository preserves order and replaces scoped rows',
+    /ORDER BY position_index ASC, updated_at DESC LIMIT \?/.test(repo) &&
+      /DELETE FROM search_history WHERE scope_key = \?/.test(repo) &&
+      /INSERT OR REPLACE INTO search_history/.test(repo))
+  const backupTypes = readFileSync(join(ROOT, 'shared/src/main/ets/backup/BackupTypes.ets'), 'utf8')
+  const backupAdapter = readFileSync(join(ROOT, 'shared/src/main/ets/backup/BackupLocalDataAdapter.ets'), 'utf8')
+  ok('backup localData includes search history',
+    /searchHistory: string\[\]/.test(backupTypes) &&
+      /SearchHistorySettings\.exportForBackup\(context\)/.test(backupAdapter) &&
+      /SearchHistorySettings\.restoreBackup\(context, searchHistory\)/.test(backupAdapter))
+}
 ok('NextE exposes single-entry history removal',
   /static async remove\(context: common\.UIAbilityContext, query: string\): Promise<void>/.test(settings))
 ok('remove preserves order and filters the target query',
@@ -59,7 +85,7 @@ ok('restore parse also caps stale stored history',
   /out\.length < MAX_HISTORY/.test(settings))
 
 ok('Search page imports promptAction for delete feedback',
-  /import \{ ComponentContent, promptAction \} from '@kit\.ArkUI'/.test(page))
+  /import \{[\s\S]*promptAction[\s\S]*\} from '@kit\.ArkUI'/.test(page))
 ok('Search page has deleteSearchHistory helper',
   /private deleteSearchHistory\(query: string\): void \{[\s\S]*SearchHistorySettings\.remove\(this\.ctx\(\), query\)[\s\S]*search_history_deleted/.test(page))
 ok('History chip tap still searches from history',

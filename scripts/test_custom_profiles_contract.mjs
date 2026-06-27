@@ -64,6 +64,32 @@ must(/TOPLIST_PERIODS: number\[\] = \[11, 12, 13, 15\]/.test(settings), 'toplist
 must(settings.includes('clampDisplayMode'), 'displayMode clamp missing')
 must(settings.includes('clampFavcat'), 'favcat clamp missing')
 must(settings.includes('StorageKeys.HOME_SOURCE'), 'migration must read legacy StorageKeys.HOME_SOURCE')
+must(settings.includes('CustomProfilesRepository.loadProfiles(context)'), 'restore must read custom profiles from RDB')
+must(settings.includes('CustomProfilesRepository.replaceAll(context, state.profiles, state.selectedUuid)'), 'persistAll must write custom profiles to RDB')
+must(settings.includes('CustomProfilesRepository.saveSelected(context, uuid)'), 'selected profile must persist through RDB')
+must(!settings.includes('store.putSync(StorageKeys.HOME_CUSTOM_PROFILES,'), 'custom profiles must not write the big JSON list to Preferences')
+must(settings.includes('migrateLegacyPreferences') &&
+  settings.includes("store.getSync(StorageKeys.HOME_CUSTOM_PROFILES, '')") &&
+  settings.includes('store.deleteSync(StorageKeys.HOME_CUSTOM_PROFILES)'),
+  'legacy custom profile Preferences rows must migrate once')
+{
+  const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
+  const repo = read('shared/src/main/ets/storage/CustomProfilesRepository.ets')
+  must(store.includes('CREATE TABLE IF NOT EXISTS custom_profiles') &&
+    store.includes('CREATE TABLE IF NOT EXISTS custom_profile_selection') &&
+    store.includes('position_index INTEGER'),
+    'custom profiles RDB tables missing')
+  must(repo.includes('ORDER BY position_index ASC, uuid ASC') &&
+    repo.includes('DELETE FROM custom_profiles WHERE scope_key = ?') &&
+    repo.includes('INSERT OR REPLACE INTO custom_profiles'),
+    'custom profiles repository must preserve order and replace scoped rows')
+  const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
+  const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
+  must(backupTypes.includes('customProfiles: BackupCustomProfilesSection') &&
+    backupAdapter.includes('CustomProfilesSettings.exportForBackup(context)') &&
+    backupAdapter.includes('CustomProfilesSettings.restoreBackup(context, profiles, section.customProfiles.selectedUuid)'),
+    'backup localData must include custom profiles')
+}
 ;['BUILTIN_DEFAULT_UUID', 'BUILTIN_POPULAR_UUID', 'BUILTIN_WATCHED_UUID'].forEach((u) =>
   must(settings.includes(u), `seedDefaults() missing builtin uuid: ${u}`),
 )

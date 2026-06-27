@@ -38,6 +38,7 @@ const queuePage = read('feature/download/src/main/ets/pages/DownloadQueuePage.et
 const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
 const state = read('shared/src/main/ets/state/DownloadQueueState.ets')
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
+const repository = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const keys = read('shared/src/main/ets/constants/StorageKeys.ets')
 const shared = read('shared/src/main/ets/Index.ets')
@@ -56,8 +57,17 @@ ok(/class DownloadQueueSettings/.test(settings) && /static async restore/.test(s
   'download queue settings owns restore/enqueue/remove')
 ok(/it\.gid === task\.gid && it\.token === task\.token/.test(settings) &&
   /return !existed/.test(settings), 'enqueue dedups by gid/token and reports duplicate state')
-ok(/JSON\.stringify\(tasks\)/.test(settings) && /parse\(raw/.test(settings),
-  'queue persists and defensively parses JSON')
+ok(/DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
+  /DownloadQueueRepository\.load\(context\)/.test(settings),
+  'queue persists through RDB repository')
+ok(!/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings),
+  'queue no longer writes the large task list to Preferences')
+ok(/migrateLegacyPreferences/.test(settings) && /parse\(raw/.test(settings) &&
+  /store\.deleteSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE\)/.test(settings),
+  'queue still imports and deletes the old Preferences JSON')
+ok(/download_gallery_tasks/.test(repository) && /download_gallery_seeds/.test(repository) &&
+  /SQL_UPSERT_TASK/.test(repository) && /SQL_UPSERT_SEED/.test(repository),
+  'queue repository stores task metadata and image seeds in RDB tables')
 ok(/DownloadQueueSettings/.test(bootstrap) && /DownloadQueueSettings\.restore\(context\)/.test(bootstrap),
   'settings bootstrap restores the queue before first paint')
 ok(/DownloadGalleryTask/.test(shared) && /connectDownloadQueue/.test(shared) &&
@@ -75,8 +85,8 @@ ok(/this\.openReader\(this\.resumeIndex\(\)\)/.test(detail),
 
 ok(/@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(queuePage),
   'downloads page reads queue state')
-ok(/selectedActiveCount\(\)[\s\S]*galleryTasks\.length/.test(queuePage),
-  'downloads page summary reflects real Gallery task count')
+ok(/this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.downloadQueue\.galleryTasks\.length > 0/.test(queuePage),
+  'downloads page switches from empty state to real Gallery task rows by task count')
 ok(/GalleryTaskSection/.test(queuePage) && /ForEach\(\s*this\.downloadQueue\.galleryTasks/.test(queuePage) &&
   /task\.displayTitle\(\)/.test(queuePage), 'downloads page renders real task rows')
 ok(/RemoveTaskButton/.test(queuePage) && /DownloadQueueSettings\.removeGallery/.test(queuePage),

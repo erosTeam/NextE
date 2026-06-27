@@ -42,6 +42,32 @@ ok(keys.includes("LOCAL_BLOCK_RULES: string = 'localBlock.rules'"), 'storage key
 ok(bootstrap.includes('await LocalBlockSettings.restore(context)'), 'settings bootstrap restores local block rules')
 ok(settings.includes('filterCommentsByScore') && settings.includes('scoreFilteringThreshold'),
   'score filter settings persist with rules')
+ok(settings.includes('LocalBlockRepository.load(context)') &&
+  settings.includes('LocalBlockRepository.replaceAll(context, LocalBlockSettings.current())') &&
+  !settings.includes('store.putSync(StorageKeys.LOCAL_BLOCK_RULES'),
+  'local block rules persist through RDB, not Preferences JSON')
+ok(settings.includes('migrateLegacyPreferences') &&
+  settings.includes("store.getSync(StorageKeys.LOCAL_BLOCK_RULES, '')") &&
+  settings.includes('store.deleteSync(StorageKeys.LOCAL_BLOCK_RULES)'),
+  'legacy local block Preferences rows are migrated once')
+{
+  const store = src('shared/src/main/ets/storage/LocalDataStore.ets')
+  const repo = src('shared/src/main/ets/storage/LocalBlockRepository.ets')
+  ok(store.includes('CREATE TABLE IF NOT EXISTS local_block_settings') &&
+    store.includes('CREATE TABLE IF NOT EXISTS local_block_rules') &&
+    store.includes('position_index INTEGER'),
+  'local block RDB tables exist')
+  ok(repo.includes('ORDER BY position_index ASC, rule_id ASC') &&
+    repo.includes('DELETE FROM local_block_settings WHERE scope_key = ?') &&
+    repo.includes('INSERT OR REPLACE INTO local_block_rules'),
+  'local block repository preserves order and replaces scoped rows')
+  const backupTypes = src('shared/src/main/ets/backup/BackupTypes.ets')
+  const backupAdapter = src('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
+  ok(backupTypes.includes('localBlock: BackupLocalBlockSection') &&
+    backupAdapter.includes('LocalBlockSettings.exportForBackup(context)') &&
+    backupAdapter.includes('LocalBlockSettings.restoreBackup(context, localBlock)'),
+  'backup localData includes local block rules')
+}
 ok(settings.includes('commentDisplayMode') &&
   settings.includes('setCommentDisplayMode') &&
   service.includes('shouldCollapseBlockedComments'),
@@ -70,7 +96,7 @@ ok(localPage.includes('local_block_comment_display') &&
   localPage.includes('if (this.ruleCount(type) > 0)'),
   'settings page exposes hide/collapse display choices and hides empty rule-type sections')
 ok(src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('CollapsedBlockedComment') &&
-  src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('animateTo({ duration: ThemeConstants.ANIM_DURATION') &&
+  /animateTo\(\s*\{ duration: ThemeConstants\.ANIM_DURATION/.test(src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets')) &&
   src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('LocalBlockService.isCommentBlocked(c)') &&
   src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('Row({ space: 0 })') &&
   src('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets').includes('.width(24)'),

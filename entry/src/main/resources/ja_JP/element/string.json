@@ -1249,6 +1249,14 @@
       "value": "Igneous を更新"
     },
     {
+      "name": "settings_refresh_profile",
+      "value": "Refresh account profile"
+    },
+    {
+      "name": "settings_refresh_profile_hint",
+      "value": "Open the forum profile page and pass security check to fetch nickname and avatar"
+    },
+    {
       "name": "login_success",
       "value": "ログインしました"
     },

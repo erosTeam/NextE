@@ -70,7 +70,9 @@ assertIncludes(index, "export { EhPageCacheService }", 'shared barrel must expor
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets');
 assertIncludes(bootstrap, 'preloadPageCaches(context)', 'settings bootstrap must preload page caches before first content mount');
-assertIncludes(bootstrap, "const homeSources: string[] = ['', 'popular', 'watched']", 'startup preload must cover every Gallery source subtab');
+assertIncludes(bootstrap, 'const profiles: CustomProfile[] = connectCustomProfiles().profiles', 'startup preload must cover custom Gallery profile subtabs');
+assertIncludes(bootstrap, 'p.listType !== PROFILE_TYPE_FAVORITE', 'startup preload must skip favorite-type custom profiles because favorites use favcat cache keys');
+assertIncludes(bootstrap, 'EhPageCacheService.homeProfileKey(isEx, p.uuid)', 'startup preload must use uuid-scoped custom profile cache keys');
 assertIncludes(bootstrap, 'const toplistTls: number[] = [11, 12, 13, 15]', 'startup preload must cover every Toplist period subtab');
 assertIncludes(bootstrap, "const favcats: string[] = ['a', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']", 'startup preload must cover every remote Favorites subtab');
 assertIncludes(bootstrap, 'await Promise.all(jobs)', 'startup cache preload must run subtabs in parallel instead of serially delaying startup');
@@ -93,7 +95,7 @@ if (!/renderFirstPageRows\(list: GalleryList, deferTranslation: boolean\): Promi
   fail('home refresh/reload must not flash untranslated rows when content is already visible');
 }
 assertOrder(homeVm, 'this.dataSource.setData(displayRows)', 'this.translateCachedRowsLater(displayRows, renderVersion, list)', 'home cold/no-content path may render immediately before async tag translation');
-assertOrder(homeVm, 'await this.applyCachedFirstPageIfEmpty()', 'getGalleryList(this.buildQuery', 'home first load must read cache before network fetch');
+assertOrder(homeVm, 'await this.applyCachedFirstPageIfEmpty()', 'const list: GalleryList = await this.fetchFirstPageList()', 'home first load must read cache before network fetch');
 assertIncludes(homeVm, 'await this.saveFirstPageCache(list)', 'home VM must save successful first-page network loads');
 assertIncludes(homeVm, 'snapshot.gallerys = translated', 'home VM must refresh list cache with translated rows after async translation');
 assertIncludes(homeVm, 'this.itemCount > 0', 'home cache must only apply to an empty first screen');

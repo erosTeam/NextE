@@ -100,6 +100,7 @@ export class ThemeConstants {
   static readonly FLOAT_BAR_HEIGHT: number = 56
   static readonly FOOTER_HEIGHT: number = 48
   static readonly BUTTON_HEIGHT: number = 46 // primary action buttons (reader/detail Read, etc.)
+  static readonly ACCOUNT_AVATAR_SIZE: number = 44
   static readonly DOWNLOAD_TASK_CARD_HEIGHT: number = 124
   static readonly DOWNLOAD_TASK_COVER_WIDTH: number = 78
   static readonly DOWNLOAD_TASK_ACTION_SIZE: number = 32

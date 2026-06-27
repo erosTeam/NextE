@@ -1,13 +1,17 @@
 import { webview } from '@kit.ArkWeb'
 import { HdsNavDestination } from '@kit.UIDesignKit'
+import { common } from '@kit.AbilityKit'
 import {
   EhWebView,
   EhConstants,
   EhCookieStore,
   GalleryWebParams,
   DiagnosticLogger,
+  CookieJarSettings,
+  UserProfileService,
   ThemeConstants,
   SecondaryListScaffold,
+  connectNavStack,
   immersiveTitleBarOpts,
 } from 'shared'
 
@@ -23,6 +27,8 @@ export struct GalleryWebPage {
   @Local canBack: boolean = false;
   @Local canForward: boolean = false;
   private controller: webview.WebviewController = new webview.WebviewController();
+  private stack: NavPathStack = connectNavStack().stack;
+  private profileCaptured: boolean = false;
   // The scaffold's List owns the scroll; the Web's nestedScroll PARENT_FIRST bubbles into it so the page
   // scrolls UNDER the immersive title bar (V2Next V2exWebViewScaffold + nestedScroll → immersive nav).
   private scroller: Scroller = new Scroller();
@@ -104,8 +110,27 @@ export struct GalleryWebPage {
       return
     }
     this.loadedUrl = this.params.url
-    this.controller.setCustomUserAgent(EhConstants.USER_AGENT)
+    this.controller.setCustomUserAgent(this.isForumsUrl(this.params.url)
+      ? this.forumsUserAgent()
+      : EhConstants.USER_AGENT)
     this.loadWithCookies(this.params.url)
+  }
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private isForumsUrl(url: string): boolean {
+    return url.startsWith(EhConstants.FORUMS_BASE_URL)
+  }
+
+  private forumsUserAgent(): string {
+    try {
+      const native: string = this.controller.getUserAgent()
+      return native.replace(') AppleWebKit', '; Android 10) AppleWebKit')
+    } catch (_error) {
+      return EhConstants.USER_AGENT
+    }
   }
 
   private async loadWithCookies(url: string): Promise<void> {
@@ -127,9 +152,12 @@ export struct GalleryWebPage {
     if (header.length === 0) {
       return
     }
-    const baseUrl: string = url.startsWith(EhConstants.EX_BASE_URL)
-      ? EhConstants.EX_BASE_URL
-      : EhConstants.EH_BASE_URL
+    let baseUrl: string = EhConstants.EH_BASE_URL
+    if (url.startsWith(EhConstants.EX_BASE_URL)) {
+      baseUrl = EhConstants.EX_BASE_URL
+    } else if (this.isForumsUrl(url)) {
+      baseUrl = EhConstants.FORUMS_BASE_URL
+    }
     const parts: string[] = header.split(';')
     for (const part of parts) {
       const pair: string = part.trim()
@@ -160,6 +188,59 @@ export struct GalleryWebPage {
     }
   }
 
+  private syncLoadedCookies(): void {
+    if (!this.isForumsUrl(this.loadedUrl)) {
+      return
+    }
+    CookieJarSettings.mergeFromWebCookieManager(this.ctx())
+    this.captureForumProfileHtml()
+    setTimeout((): void => {
+      this.captureForumProfileHtml()
+    }, 1000)
+  }
+
+  private async captureForumProfileHtml(): Promise<void> {
+    if (this.loadedUrl.indexOf('showuser=') < 0) {
+      return
+    }
+    try {
+      const payload: string = await this.controller.runJavaScript(`
+        (() => {
+          const name = document.querySelector('#profilename');
+          const avatarBox = name && name.nextElementSibling
+            ? name.nextElementSibling.nextElementSibling
+            : null;
+          const image = avatarBox ? avatarBox.querySelector('img') : null;
+          let avatarUrl = image ? (image.getAttribute('src') || '') : '';
+          if (image && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = image.naturalWidth;
+              canvas.height = image.naturalHeight;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(image, 0, 0);
+              avatarUrl = canvas.toDataURL('image/png');
+            } catch (e) {}
+          }
+          return JSON.stringify({
+            nickName: name && name.textContent ? name.textContent.trim() : '',
+            avatarUrl
+          });
+        })()
+      `)
+      if (UserProfileService.applyProfileDomPayload(payload)) {
+        UserProfileService.materializeAvatar(this.ctx())
+        await UserProfileService.saveActive(this.ctx())
+        if (this.params.closeOnProfileCaptured && !this.profileCaptured) {
+          this.profileCaptured = true
+          this.stack.pop()
+        }
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('auth', 'user_profile_dom_capture_failed', (error as Error).message)
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Center }) {
@@ -184,6 +265,7 @@ export struct GalleryWebPage {
               onPageEnd: () => {
                 this.loading = false
                 this.updateNavState()
+                this.syncLoadedCookies()
               },
               onErrorReceive: () => {
                 this.loading = false

@@ -49,6 +49,17 @@ export class EhCookieStore {
     return parts.join('; ')
   }
 
+  /** Diagnostic only: cookie names without values. Never include this in user-facing exports as secrets. */
+  nameSummary(): string {
+    const names: string[] = []
+    this.cookies.forEach((value: string, name: string) => {
+      if (name !== EhConstants.COOKIE_NW && value.length > 0) {
+        names.push(name)
+      }
+    })
+    return names.join(',')
+  }
+
   /**
    * Every stored cookie as a "name=value; …" string for PERSISTENCE — the COMPLETE jar, not just the
    * known auth bundle. EH gates some galleries (ExHentai-only content shown as "removed or unavailable"

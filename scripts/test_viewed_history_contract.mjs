@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Contract test for the viewed-history store:
- *   shared/src/main/ets/settings/ViewedHistorySettings.ets (add: dedup move-to-front + cap; parse/persist)
+ *   shared/src/main/ets/settings/ViewedHistorySettings.ets (add: dedup move-to-front + cap; RDB persist)
  *   shared/src/main/ets/state/ViewedHistoryState.ets · model/ViewedGallery.ets
  *
  * The functions below are copy-equal to that ArkTS logic (no preferences runtime — pure data). They
@@ -117,6 +117,30 @@ const gids = (items) => items.map((i) => i.gid).join(',')
   const settings = read('shared/src/main/ets/settings/ViewedHistorySettings.ets')
   ok('add dedups by gid', /it\.gid !== entry\.gid/.test(settings))
   ok('history is capped', /MAX_HISTORY: number = 200/.test(settings))
+  ok('history persists through RDB repository',
+    /ViewedHistoryRepository\.load\(context, MAX_HISTORY\)/.test(settings) &&
+      /ViewedHistoryRepository\.replaceAll\(context, items\)/.test(settings) &&
+      !/store\.putSync\(StorageKeys\.VIEWED_HISTORY/.test(settings))
+  ok('legacy Preferences history is migrated once',
+    /migrateLegacyPreferences/.test(settings) &&
+      /store\.getSync\(StorageKeys\.VIEWED_HISTORY, ''\)/.test(settings) &&
+      /store\.deleteSync\(StorageKeys\.VIEWED_HISTORY\)/.test(settings))
+  const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
+  ok('viewed history RDB table exists',
+    /CREATE TABLE IF NOT EXISTS viewed_history/.test(store) &&
+      /viewed_at INTEGER/.test(store) &&
+      /deleted_at INTEGER DEFAULT 0/.test(store))
+  const repo = read('shared/src/main/ets/storage/ViewedHistoryRepository.ets')
+  ok('repository loads newest-first and replaces the scoped table',
+    /ORDER BY viewed_at DESC, gid DESC LIMIT \?/.test(repo) &&
+      /DELETE FROM viewed_history WHERE scope_key = \?/.test(repo) &&
+      /INSERT OR REPLACE INTO viewed_history/.test(repo))
+  const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
+  const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
+  ok('backup localData includes viewed history',
+    /viewedHistory: BackupViewedHistoryEntry\[\]/.test(backupTypes) &&
+      /ViewedHistorySettings\.exportForBackup\(context\)/.test(backupAdapter) &&
+      /ViewedHistorySettings\.restoreBackup\(context, history\)/.test(backupAdapter))
   const boot = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
   ok('bootstrap restores history', /ViewedHistorySettings\.restore\(/.test(boot))
   const keys = read('shared/src/main/ets/constants/StorageKeys.ets')

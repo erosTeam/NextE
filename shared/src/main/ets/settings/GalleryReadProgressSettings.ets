@@ -6,6 +6,7 @@ import {
 } from '../state/GalleryReadProgressState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { ReadProgressRepository } from '../storage/ReadProgressRepository'
 
 // eros_fe debounces the persistent write 3s after the index settles (view_state.dart) so paging
 // fast doesn't hammer the store; the in-memory value updates immediately on every page change.
@@ -26,12 +27,8 @@ export class GalleryReadProgressSettings {
 
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      const raw: string = store.getSync(StorageKeys.READING_PROGRESS, '[]') as string
-      connectGalleryReadProgress().replaceAll(GalleryReadProgressSettings.parse(raw))
+      await GalleryReadProgressSettings.migrateLegacyPreferences(context)
+      connectGalleryReadProgress().replaceAll(await ReadProgressRepository.load(context))
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readprogress_restore_failed', (error as Error).message)
     }
@@ -64,15 +61,47 @@ export class GalleryReadProgressSettings {
   private static async persist(context: common.UIAbilityContext): Promise<void> {
     try {
       const entries: ReadProgressEntry[] = connectGalleryReadProgress().snapshot()
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      store.putSync(StorageKeys.READING_PROGRESS, JSON.stringify(entries))
-      store.flushSync()
+      await ReadProgressRepository.saveAll(context, entries)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readprogress_save_failed', (error as Error).message)
     }
+  }
+
+  static async exportForBackup(context: common.UIAbilityContext): Promise<ReadProgressEntry[]> {
+    await GalleryReadProgressSettings.migrateLegacyPreferences(context)
+    return ReadProgressRepository.load(context)
+  }
+
+  static async restoreBackup(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<void> {
+    await ReadProgressRepository.replaceAll(context, entries)
+    await GalleryReadProgressSettings.deleteLegacyPreference(context)
+    connectGalleryReadProgress().replaceAll(await ReadProgressRepository.load(context))
+  }
+
+  static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    const raw: string = store.getSync(StorageKeys.READING_PROGRESS, '') as string
+    if (raw.length === 0) {
+      return
+    }
+    const entries: ReadProgressEntry[] = GalleryReadProgressSettings.parse(raw)
+    if (entries.length > 0) {
+      await ReadProgressRepository.saveAll(context, entries)
+    }
+    store.deleteSync(StorageKeys.READING_PROGRESS)
+    store.flushSync()
+  }
+
+  private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    store.deleteSync(StorageKeys.READING_PROGRESS)
+    store.flushSync()
   }
 
   private static parse(raw: string): ReadProgressEntry[] {

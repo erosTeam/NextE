@@ -12,6 +12,7 @@ export class EhConstants {
   // Hosts
   static readonly EH_BASE_URL: string = 'https://e-hentai.org'
   static readonly EX_BASE_URL: string = 'https://exhentai.org'
+  static readonly FORUMS_BASE_URL: string = 'https://forums.e-hentai.org'
   static readonly EH_BASE_HOST: string = 'e-hentai.org'
   static readonly EX_BASE_HOST: string = 'exhentai.org'
   static readonly EH_TORRENT_URL: string = 'https://ehtracker.org/get'

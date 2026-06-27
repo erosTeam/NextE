@@ -1249,6 +1249,14 @@
       "value": "刷新 Igneous"
     },
     {
+      "name": "settings_refresh_profile",
+      "value": "刷新账号资料"
+    },
+    {
+      "name": "settings_refresh_profile_hint",
+      "value": "打开论坛资料页，通过安全验证后获取昵称和头像"
+    },
+    {
       "name": "login_success",
       "value": "登录成功"
     },

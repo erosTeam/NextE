@@ -31,9 +31,18 @@ ok('envelope identity + KDF params defined',
   /BACKUP_MAGIC: string = 'NEXTE_BACKUP'/.test(types) &&
     /BACKUP_APP_ID: string = 'com\.erosteam\.nexte'/.test(types) &&
     /BACKUP_KDF_ITERATIONS: number = 210000/.test(types))
-ok("'secrets' is encryption-only, not a plaintext section",
-  /BACKUP_SECTION_NAMES: BackupSectionName\[\] = \['preferences'\]/.test(types) &&
+ok("'secrets' is encryption-only, localData is plaintext durable data",
+  /BACKUP_SECTION_NAMES: BackupSectionName\[\] = \['preferences', 'localData'\]/.test(types) &&
     /BACKUP_ENCRYPTED_ONLY_SECTION_NAMES: BackupSectionName\[\] = \['secrets'\]/.test(types))
+ok('localData section carries durable read progress outside Preferences',
+  /BackupSectionName = 'preferences' \| 'localData' \| 'secrets'/.test(types) &&
+    /interface BackupLocalDataSection/.test(types) &&
+    /readProgress: BackupReadProgressEntry\[\]/.test(types) &&
+    /viewedHistory: BackupViewedHistoryEntry\[\]/.test(types) &&
+    /localFavorites: BackupLocalFavoriteEntry\[\]/.test(types) &&
+    /searchHistory: string\[\]/.test(types) &&
+    /localBlock: BackupLocalBlockSection/.test(types) &&
+    /customProfiles: BackupCustomProfilesSection/.test(types))
 
 const deny = read('shared/src/main/ets/backup/BackupSecretDenylist.ets')
 ok('denylist marks cookie/apikey + auth.accounts as secret',
@@ -52,6 +61,10 @@ ok('adapter splits store by secret + re-checks denylist on restore + reapplies v
 const svc = read('shared/src/main/ets/backup/BackupService.ets')
 ok('service seals into the encrypted container only when includeSecrets',
   /if \(options\.includeSecrets\)[\s\S]*BackupCrypto\.seal\(JSON\.stringify\(envelope\), options\.password\)/.test(svc))
+ok('service exports and restores localData section',
+  /BackupLocalDataAdapter\.exportSection\(context\)/.test(svc) &&
+    /sections: BackupSectionName\[\] = \['preferences', 'localData'\]/.test(svc) &&
+    /BackupLocalDataAdapter\.restoreSection\(context, envelope\.data\.localData\)/.test(svc))
 ok('a plaintext file declaring a secrets section is rejected',
   /!fromEncrypted && envelope\.sections\.indexOf\('secrets'\) >= 0/.test(svc) &&
     /code: 'malformed'/.test(svc))
@@ -64,7 +77,7 @@ ok('checksum is verified on parse',
 ok('shared exports BackupService + types',
   /export \{ BackupService \}/.test(read('shared/src/main/ets/Index.ets')))
 
-const page = read('feature/settings/src/main/ets/pages/BackupSettingsPage.ets')
+const page = read('feature/settings/src/main/ets/pages/CacheSettingsPage.ets')
 ok('page has export + import, secrets require a password, restore confirms first',
   /openExport\(/.test(page) &&
     /startImport\(/.test(page) &&
@@ -76,9 +89,8 @@ ok('encrypted import prompts for a password before restoring',
 ok('sheets use $$ two-way binding on their own hosts',
   /\$\$this\.exportSheetShown/.test(page) && /\$\$this\.importPwdSheetShown/.test(page))
 
-ok('CacheSettings/Backup route wired', /name === 'BackupSettings'[\s\S]*BackupSettingsPage\(\)/.test(read('entry/src/main/ets/pages/Index.ets')))
-ok('settings entry pushes BackupSettings',
-  /app\.string\.settings_backup[\s\S]*pushPathByName\('BackupSettings'/.test(read('feature/settings/src/main/ets/pages/SettingsPage.ets')))
+ok('backup UI is inlined on cache/storage settings page',
+  /backup_export/.test(page) && /backup_import/.test(page) && /BackupFilePickerCoordinator/.test(page))
 
 for (const locale of ['base', 'zh_CN', 'en_US', 'ja_JP']) {
   const s = read(`entry/src/main/resources/${locale}/element/string.json`)

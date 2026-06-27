@@ -118,6 +118,7 @@ export {
 } from './services/CachedImageFileService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
+export { UserProfileService, UserProfileInfo } from './services/UserProfileService'
 export { CommentTranslationService } from './services/CommentTranslationService'
 export { LocalBlockService } from './services/LocalBlockService'
 export { EhPageCacheService } from './services/EhPageCacheService'
@@ -125,10 +126,18 @@ export { CacheStat } from './services/CacheStat'
 export { BackupService } from './backup/BackupService'
 export {
   BackupAppMetadata,
+  BackupCustomProfileEntry,
+  BackupCustomProfilesSection,
   BackupExportOptions,
   BackupEnvelopeV1,
+  BackupLocalBlockRuleEntry,
+  BackupLocalBlockSection,
+  BackupLocalFavoriteEntry,
+  BackupLocalDataSection,
   BackupParseResult,
   BackupPreview,
+  BackupReadProgressEntry,
+  BackupViewedHistoryEntry,
   BackupRestoreResult,
   BACKUP_FILE_SUFFIX,
   MAX_BACKUP_BYTES,

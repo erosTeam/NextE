@@ -13,6 +13,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhHttpClient } from '../network/EhHttpClient'
 import { EhApiService } from '../network/EhApiService'
 import { ImageResolveService } from '../services/ImageResolveService'
+import { DownloadQueueRepository } from '../storage/DownloadQueueRepository'
 
 const MAX_GALLERY_TASKS: number = 200
 
@@ -20,12 +21,8 @@ const MAX_GALLERY_TASKS: number = 200
 export class DownloadQueueSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      const raw: string = store.getSync(StorageKeys.DOWNLOAD_GALLERY_QUEUE, '[]') as string
-      connectDownloadQueue().galleryTasks = DownloadQueueSettings.parse(raw)
+      await DownloadQueueSettings.migrateLegacyPreferences(context)
+      connectDownloadQueue().galleryTasks = await DownloadQueueRepository.load(context)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_restore_failed', (error as Error).message)
     }
@@ -224,15 +221,27 @@ export class DownloadQueueSettings {
     tasks: DownloadGalleryTask[],
   ): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      store.putSync(StorageKeys.DOWNLOAD_GALLERY_QUEUE, JSON.stringify(tasks))
-      store.flushSync()
+      await DownloadQueueRepository.replaceAll(context, tasks)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_save_failed', (error as Error).message)
     }
+  }
+
+  static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    const raw: string = store.getSync(StorageKeys.DOWNLOAD_GALLERY_QUEUE, '') as string
+    if (raw.length === 0) {
+      return
+    }
+    const tasks: DownloadGalleryTask[] = DownloadQueueSettings.parse(raw)
+    if (tasks.length > 0) {
+      await DownloadQueueRepository.replaceAll(context, tasks)
+    }
+    store.deleteSync(StorageKeys.DOWNLOAD_GALLERY_QUEUE)
+    store.flushSync()
   }
 
   private static findTask(gid: string, token: string): DownloadGalleryTask | null {

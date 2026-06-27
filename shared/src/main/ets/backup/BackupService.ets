@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { util } from '@kit.ArkTS'
 import { BackupChecksum } from './BackupChecksum'
 import { BackupCrypto, BackupSealResult } from './BackupCrypto'
+import { BackupLocalDataAdapter } from './BackupLocalDataAdapter'
 import { BackupPreferencesAdapter } from './BackupPreferencesAdapter'
 import {
   BackupAppMetadata,
@@ -10,6 +11,7 @@ import {
   BackupEncryptedEnvelope,
   BackupEnvelopeV1,
   BackupExportOptions,
+  BackupLocalDataSection,
   BackupParseResult,
   BackupPreview,
   BackupRestoreResult,
@@ -64,8 +66,9 @@ export class BackupService {
     options: BackupExportOptions,
   ): Promise<BackupEnvelopeV1> {
     const prefs: SettingsMap = await BackupPreferencesAdapter.exportPreferences(context)
-    const sections: BackupSectionName[] = ['preferences']
-    const data: BackupData = { preferences: prefs }
+    const localData: BackupLocalDataSection = await BackupLocalDataAdapter.exportSection(context)
+    const sections: BackupSectionName[] = ['preferences', 'localData']
+    const data: BackupData = { preferences: prefs, localData: localData }
     const envelope: BackupEnvelopeV1 = {
       magic: BACKUP_MAGIC,
       appId: BACKUP_APP_ID,
@@ -75,13 +78,23 @@ export class BackupService {
       appVersion: metadata.appVersion,
       appVersionCode: metadata.appVersionCode,
       sections: sections,
-      counts: { preferences: BackupPreferencesAdapter.count(prefs) },
+      counts: {
+        preferences: BackupPreferencesAdapter.count(prefs),
+        localData: {
+          readProgress: localData.readProgress.length,
+          viewedHistory: localData.viewedHistory.length,
+          localFavorites: localData.localFavorites.length,
+          searchHistory: localData.searchHistory.length,
+          localBlockRules: localData.localBlock.rules.length,
+          customProfiles: localData.customProfiles.profiles.length,
+        },
+      },
       data: data,
     }
     if (options.includeSecrets) {
       const secrets: SettingsMap = await BackupPreferencesAdapter.exportSecrets(context)
       data.secrets = secrets
-      envelope.sections = ['preferences', 'secrets']
+      envelope.sections = ['preferences', 'localData', 'secrets']
       envelope.counts.secrets = BackupPreferencesAdapter.count(secrets)
     }
     return await BackupChecksum.signEnvelope(envelope)
@@ -198,6 +211,12 @@ export class BackupService {
     try {
       if (envelope.data.preferences !== undefined) {
         await BackupPreferencesAdapter.restore(context, envelope.data.preferences, false)
+      }
+      if (envelope.data.localData !== undefined) {
+        await BackupLocalDataAdapter.restoreSection(context, envelope.data.localData)
+      } else {
+        // Old backups only carry reading.progress in Preferences; migrate that freshly restored key.
+        await BackupLocalDataAdapter.restoreLegacyPreferences(context)
       }
       if (fromEncrypted && envelope.data.secrets !== undefined) {
         await BackupPreferencesAdapter.restore(context, envelope.data.secrets, true)

@@ -105,10 +105,12 @@ export class GalleryArchiverParams {
 export class GalleryWebParams {
   url: string = ''
   title: string = ''
+  closeOnProfileCaptured: boolean = false
 
-  constructor(url: string = '', title: string = '') {
+  constructor(url: string = '', title: string = '', closeOnProfileCaptured: boolean = false) {
     this.url = url
     this.title = title
+    this.closeOnProfileCaptured = closeOnProfileCaptured
   }
 }
 

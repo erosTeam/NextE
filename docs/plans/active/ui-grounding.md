@@ -2,6 +2,26 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: settings account summary entry
+
+Status: active
+Reference implementation: `feature/settings/src/main/ets/pages/AccountPage.ets` `AccountRow` active-account card and `feature/settings/src/main/ets/pages/SettingsPage.ets` existing account entry route.
+Surface type: Settings root account entry only.
+Primary information: when logged in, the top Settings account entry should show the same account identity hierarchy as the account switcher: avatar, nickname when available, and member ID as secondary text.
+Primary action: tapping the account card opens `AccountPage`; signed-out users still tap the existing login row.
+Reuse or deviation: reuse the account switcher card structure and theme tokens; deviate only by replacing the right-side radio selection control with a chevron because this Settings row is navigation, not selection.
+Verification: UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Settings screenshot showing the logged-in account card with avatar/name/ID/chevron.
+
+## Active: reader gesture probe
+
+Status: active
+Reference implementation: HarmonyOS official `PinchGesture` "实现图片跟手缩放" example, HarmonyOS official `TapGesture` double-tap coordinate example, NextE hidden QA route pattern in `entry/src/main/ets/pages/CoverFallbackProbePage.ets`, and current Reader gesture code in `feature/reader/src/main/ets/pages/ReaderPage.ets`.
+Surface type: hidden internal QA page opened by `nexte://qa/reader-gesture`; no Reader product behavior changes in this step.
+Primary information: a single image surface with live scale, offset, pinch anchor ratio, and last event readout so double-tap and pinch state can be inspected.
+Primary action: double-tap the image to verify zoom animation remains visible; manually pinch the zoomed image to verify the official anchor-ratio model before migrating anything into Reader.
+Reuse or deviation: reuse the existing `HdsNavDestination`, immersive title-bar, `ThemeConstants`, `InternalQaRoutes`, and `DiagnosticLogger`; deviate from Reader by excluding Swiper/cache/chrome so the gesture math is isolated.
+Verification: UI grounding contract, V1 decorator inventory, signed HarmonyOS build, emulator hidden-route launch, double-tap burst screenshots/logs; pinch remains `needs manual QA` if automation still cannot synthesize a two-finger gesture.
+
 ## Active: remote favorite folder cache
 
 Status: active

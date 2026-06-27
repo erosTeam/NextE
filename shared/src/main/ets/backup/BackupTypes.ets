@@ -1,7 +1,6 @@
-// Settings backup/restore envelope contract (ported from V2Next, simplified for NextE which keeps all
-// settings in a single Preferences store). A plaintext envelope carries the non-secret 'preferences'
-// section; the 'secrets' section (login cookie bundle, saved accounts, LLM API key) is encryption-only and
-// may travel ONLY inside the encrypted container below — never in cleartext.
+// Settings/local-data backup/restore envelope contract. A plaintext envelope carries non-secret
+// preferences + durable local data; the 'secrets' section is encryption-only and may travel ONLY inside
+// the encrypted container below — never in cleartext.
 export const BACKUP_MAGIC: string = 'NEXTE_BACKUP'
 export const BACKUP_APP_ID: string = 'com.erosteam.nexte'
 export const BACKUP_SCHEMA_VERSION: number = 1
@@ -10,9 +9,9 @@ export const BACKUP_FILE_SUFFIX: string = '.nexte-backup.json'
 export const BACKUP_CHECKSUM_ALGORITHM: string = 'SHA-256'
 export const MAX_BACKUP_BYTES: number = 10 * 1024 * 1024
 
-export type BackupSectionName = 'preferences' | 'secrets'
+export type BackupSectionName = 'preferences' | 'localData' | 'secrets'
 // Plaintext-eligible sections. 'secrets' is intentionally excluded — it only rides inside the cipher.
-export const BACKUP_SECTION_NAMES: BackupSectionName[] = ['preferences']
+export const BACKUP_SECTION_NAMES: BackupSectionName[] = ['preferences', 'localData']
 export const BACKUP_ENCRYPTED_ONLY_SECTION_NAMES: BackupSectionName[] = ['secrets']
 
 // ── Encrypted container (AES-256-GCM + PBKDF2-SHA256), ported verbatim from V2Next ──
@@ -33,12 +32,118 @@ export interface BackupChecksumInfo {
 
 export interface BackupCounts {
   preferences: number
+  localData?: BackupLocalDataCounts
   secrets?: number
+}
+
+export interface BackupLocalDataCounts {
+  readProgress: number
+  viewedHistory: number
+  localFavorites: number
+  searchHistory: number
+  localBlockRules: number
+  customProfiles: number
+}
+
+export interface BackupReadProgressEntry {
+  g: string
+  i: number
+  t: number
+}
+
+export interface BackupLocalDataSection {
+  readProgress: BackupReadProgressEntry[]
+  viewedHistory: BackupViewedHistoryEntry[]
+  localFavorites: BackupLocalFavoriteEntry[]
+  searchHistory: string[]
+  localBlock: BackupLocalBlockSection
+  customProfiles: BackupCustomProfilesSection
+}
+
+export interface BackupViewedHistoryEntry {
+  gid: string
+  token: string
+  title: string
+  titleJp: string
+  thumbUrl: string
+  category: string
+  uploader: string
+  rating: number
+  fileCount: string
+  time: number
+}
+
+export interface BackupLocalFavoriteEntry {
+  gid: string
+  token: string
+  url: string
+  thumbUrl: string
+  thumbUrlL: string
+  imgWidth: number
+  imgHeight: number
+  englishTitle: string
+  japaneseTitle: string
+  category: string
+  uploader: string
+  postTime: string
+  fileCount: string
+  rating: number
+  ratingFallBack: number
+  colorRating: string
+  favNote: string
+  favTitle: string
+  expunged: boolean
+  lastViewTime: number
+}
+
+export interface BackupLocalBlockRuleEntry {
+  id: string
+  blockType: string
+  ruleText: string
+  enabled: boolean
+  enableRegex: boolean
+}
+
+export interface BackupLocalBlockSection {
+  filterCommentsByScore: boolean
+  scoreFilteringThreshold: number
+  commentDisplayMode: string
+  rules: BackupLocalBlockRuleEntry[]
+}
+
+export interface BackupCustomProfileEntry {
+  uuid: string
+  name: string
+  listType: string
+  searchText: string
+  selectedCats: number
+  advancedEnabled: boolean
+  minRating: number
+  pagesFrom: number
+  pagesTo: number
+  requireTorrent: boolean
+  showExpunged: boolean
+  disableLanguageFilter: boolean
+  disableUploaderFilter: boolean
+  disableTagFilter: boolean
+  favcat: string
+  toplistTl: number
+  displayMode: string
+  hidden: boolean
+  builtin: boolean
+  lastEditTime: number
+}
+
+export interface BackupCustomProfilesSection {
+  selectedUuid: string
+  profiles: BackupCustomProfileEntry[]
 }
 
 export interface BackupData {
   // Raw Preferences scalars (booleans/numbers, or JSON strings for composite settings).
   preferences?: Record<string, BackupSettingsValue>
+  // Durable user-local records stored in RDB, kept out of disposable cache tables.
+  localData?: BackupLocalDataSection
   // The denylisted secret keys (auth.cookieJar / auth.accounts / commentTranslation.apiKey).
   secrets?: Record<string, BackupSettingsValue>
 }

@@ -3,6 +3,7 @@ import { preferences } from '@kit.ArkData'
 import { connectSearchHistory } from '../state/SearchHistoryState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { SearchHistoryRepository } from '../storage/SearchHistoryRepository'
 
 const MAX_HISTORY: number = 100
 
@@ -10,12 +11,8 @@ const MAX_HISTORY: number = 100
 export class SearchHistorySettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      const raw: string = store.getSync(StorageKeys.SEARCH_HISTORY, '[]') as string
-      connectSearchHistory().items = SearchHistorySettings.parse(raw)
+      await SearchHistorySettings.migrateLegacyPreferences(context)
+      connectSearchHistory().items = await SearchHistoryRepository.load(context, MAX_HISTORY)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'searchhistory_restore_failed', (error as Error).message)
     }
@@ -40,7 +37,8 @@ export class SearchHistorySettings {
 
   static async clear(context: common.UIAbilityContext): Promise<void> {
     connectSearchHistory().items = []
-    await SearchHistorySettings.persist(context, [])
+    await SearchHistoryRepository.replaceAll(context, [])
+    await SearchHistorySettings.deleteLegacyPreference(context)
   }
 
   /** Remove one query from history, preserving the rest in order. */
@@ -61,15 +59,38 @@ export class SearchHistorySettings {
 
   private static async persist(context: common.UIAbilityContext, items: string[]): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      store.putSync(StorageKeys.SEARCH_HISTORY, JSON.stringify(items))
-      store.flushSync()
+      await SearchHistoryRepository.replaceAll(context, items)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'searchhistory_save_failed', (error as Error).message)
     }
+  }
+
+  static async exportForBackup(context: common.UIAbilityContext): Promise<string[]> {
+    await SearchHistorySettings.migrateLegacyPreferences(context)
+    return SearchHistoryRepository.load(context, MAX_HISTORY)
+  }
+
+  static async restoreBackup(context: common.UIAbilityContext, items: string[]): Promise<void> {
+    await SearchHistoryRepository.replaceAll(context, SearchHistorySettings.normalize(items))
+    await SearchHistorySettings.deleteLegacyPreference(context)
+    connectSearchHistory().items = await SearchHistoryRepository.load(context, MAX_HISTORY)
+  }
+
+  static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    const raw: string = store.getSync(StorageKeys.SEARCH_HISTORY, '') as string
+    if (raw.length === 0) {
+      return
+    }
+    const items: string[] = SearchHistorySettings.parse(raw)
+    if (items.length > 0) {
+      await SearchHistoryRepository.replaceAll(context, items)
+    }
+    store.deleteSync(StorageKeys.SEARCH_HISTORY)
+    store.flushSync()
   }
 
   private static parse(raw: string): string[] {
@@ -88,5 +109,25 @@ export class SearchHistorySettings {
       DiagnosticLogger.warn('settings', 'searchhistory_parse_failed', (error as Error).message)
     }
     return []
+  }
+
+  private static normalize(items: string[]): string[] {
+    const out: string[] = []
+    items.forEach((item: string) => {
+      const query: string = item.trim()
+      if (query.length > 0 && out.indexOf(query) < 0 && out.length < MAX_HISTORY) {
+        out.push(query)
+      }
+    })
+    return out
+  }
+
+  private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    store.deleteSync(StorageKeys.SEARCH_HISTORY)
+    store.flushSync()
   }
 }

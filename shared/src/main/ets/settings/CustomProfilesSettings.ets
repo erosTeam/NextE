@@ -17,6 +17,7 @@ import {
   BUILTIN_POPULAR_UUID,
   BUILTIN_WATCHED_UUID,
 } from '../model/CustomProfile'
+import { CustomProfilesRepository } from '../storage/CustomProfilesRepository'
 
 /** Flat persisted snapshot of a CustomProfile (every field, plain types, safe defaults). */
 class CustomProfileSnapshot {
@@ -61,18 +62,14 @@ const DISPLAY_MODES: string[] = [
 export class CustomProfilesSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      const raw: string = store.getSync(StorageKeys.HOME_CUSTOM_PROFILES, '[]') as string
+      await CustomProfilesSettings.migrateLegacyPreferences(context)
       const state: CustomProfilesState = connectCustomProfiles()
-      let profiles: CustomProfile[] = CustomProfilesSettings.parse(raw)
-      let selected: string = store.getSync(StorageKeys.HOME_CUSTOM_PROFILES_SELECTED, '') as string
+      let profiles: CustomProfile[] = await CustomProfilesRepository.loadProfiles(context)
+      let selected: string = await CustomProfilesRepository.loadSelected(context)
       if (profiles.length === 0) {
         // First run: seed built-ins + starters and map the legacy HOME_SOURCE selection.
         profiles = CustomProfilesSettings.seedDefaults()
-        selected = CustomProfilesSettings.migrateSelected(store)
+        selected = await CustomProfilesSettings.migrateSelected(context)
         state.profiles = profiles
         state.selectedUuid = selected
         await CustomProfilesSettings.persistAll(context)
@@ -215,15 +212,32 @@ export class CustomProfilesSettings {
   static async setSelected(context: common.UIAbilityContext, uuid: string): Promise<void> {
     connectCustomProfiles().selectedUuid = uuid
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      store.putSync(StorageKeys.HOME_CUSTOM_PROFILES_SELECTED, uuid)
-      store.flushSync()
+      await CustomProfilesRepository.saveSelected(context, uuid)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_select_failed', (error as Error).message)
     }
+  }
+
+  static async exportForBackup(context: common.UIAbilityContext): Promise<CustomProfile[]> {
+    await CustomProfilesSettings.migrateLegacyPreferences(context)
+    return CustomProfilesRepository.loadProfiles(context)
+  }
+
+  static async exportSelectedForBackup(context: common.UIAbilityContext): Promise<string> {
+    await CustomProfilesSettings.migrateLegacyPreferences(context)
+    return CustomProfilesRepository.loadSelected(context)
+  }
+
+  static async restoreBackup(
+    context: common.UIAbilityContext,
+    profiles: CustomProfile[],
+    selectedUuid: string,
+  ): Promise<void> {
+    await CustomProfilesRepository.replaceAll(context, profiles, selectedUuid)
+    await CustomProfilesSettings.deleteLegacyPreferences(context)
+    const state: CustomProfilesState = connectCustomProfiles()
+    state.profiles = await CustomProfilesRepository.loadProfiles(context)
+    state.selectedUuid = await CustomProfilesRepository.loadSelected(context)
   }
 
   // ---- internals ----
@@ -231,13 +245,7 @@ export class CustomProfilesSettings {
   private static async persistAll(context: common.UIAbilityContext): Promise<void> {
     try {
       const state: CustomProfilesState = connectCustomProfiles()
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      store.putSync(StorageKeys.HOME_CUSTOM_PROFILES, CustomProfilesSettings.serialize(state.profiles))
-      store.putSync(StorageKeys.HOME_CUSTOM_PROFILES_SELECTED, state.selectedUuid)
-      store.flushSync()
+      await CustomProfilesRepository.replaceAll(context, state.profiles, state.selectedUuid)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_save_failed', (error as Error).message)
     }
@@ -295,7 +303,11 @@ export class CustomProfilesSettings {
   }
 
   /** Map the legacy HOME_SOURCE preference to a built-in uuid (''→default / popular / watched). */
-  private static migrateSelected(store: preferences.Preferences): string {
+  private static async migrateSelected(context: common.UIAbilityContext): Promise<string> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
     const legacy: string = store.getSync(StorageKeys.HOME_SOURCE, '') as string
     if (legacy === 'popular') {
       return BUILTIN_POPULAR_UUID
@@ -304,6 +316,34 @@ export class CustomProfilesSettings {
       return BUILTIN_WATCHED_UUID
     }
     return BUILTIN_DEFAULT_UUID
+  }
+
+  static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    const raw: string = store.getSync(StorageKeys.HOME_CUSTOM_PROFILES, '') as string
+    if (raw.length === 0) {
+      return
+    }
+    const profiles: CustomProfile[] = CustomProfilesSettings.parse(raw)
+    let selected: string = store.getSync(StorageKeys.HOME_CUSTOM_PROFILES_SELECTED, '') as string
+    if (CustomProfilesSettings.indexOfUuid(profiles, selected) < 0) {
+      selected = profiles.length > 0 ? profiles[0].uuid : ''
+    }
+    await CustomProfilesRepository.replaceAll(context, profiles, selected)
+    await CustomProfilesSettings.deleteLegacyPreferences(context)
+  }
+
+  private static async deleteLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    store.deleteSync(StorageKeys.HOME_CUSTOM_PROFILES)
+    store.deleteSync(StorageKeys.HOME_CUSTOM_PROFILES_SELECTED)
+    store.flushSync()
   }
 
   private static serialize(profiles: CustomProfile[]): string {

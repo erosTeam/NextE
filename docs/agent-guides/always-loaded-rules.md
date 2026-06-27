@@ -137,6 +137,18 @@ node scripts/test_ui_quality_grounding_contract.mjs
 - 未覆盖关键反例时,只能标记为 `implemented candidate / needs QA`,不能写成 `implemented / pending acceptance`。
 - 如果用户截图打回,对应条目必须改成 `reopened / failed QA`,并把失败截图暴露出的静态原因和新的验收条件写回 domain intake / dispatch。
 
+### Reader / 图片手势与清晰度验证纪律
+
+阅读器、图片预览、缩放、清晰度、双击 / 双指 / 拖动手势属于高风险交互面。这里的修复不得靠删动画、删 `renderGroup`、改清晰度参数、换 transform 顺序等猜测式手段推进。
+
+- 先找官方 HarmonyOS 图片手势 / PinchGesture / 图形变换示例,以及项目内当前实现的确切差异;不能把 Next2V / eros_fe 当作天然正确答案。
+- 双击缩放动画、清晰度渲染、图片缓存、原图 / 普通图切换等已确认可用行为,未经独立证据不得删除、降级或绕开。
+- 任何 reader 手势改动必须覆盖真实用户路径:先双击放大,再双指缩放;先双指缩放,再拖动;缩放后翻页再返回;单页和双页至少说明是否都覆盖。
+- 验收必须由实现者自行完成,并产出连拍截图、录屏或等价逐帧证据;只跑静态 contract / 构建不能声明手势已修复。
+- 图片清晰度改动必须证明同一张图、同一位置、同一缩放倍率下 reader 与保存到相册 / 源文件的对比结果;不能用旧缓存、错误画廊或无法证明源分辨率的样本代替。
+- 如果当前工具不能合成双指手势或无法录屏,只能报告 `implemented candidate / needs manual QA`,不得声称已通过黑盒验证。
+- 找不到静态原因、拿不出理论证明、或没有黑盒证据时,结论必须写成 `BLOCKED` / `needs QA` / `not verified`;禁止说“已修复”“没问题”“验证通过”。
+
 ### UI 组件结构纪律
 
 写任何可见控件前,先把结构说清楚,再写代码。至少明确:

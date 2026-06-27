@@ -83,6 +83,50 @@ export class EhHttpClient {
     throw lastError !== null ? lastError : new Error('request failed')
   }
 
+  async getTextWithReferer(url: string, referer: string): Promise<EhTextResponse> {
+    let attempt: number = 0
+    let lastError: Error | null = null
+    while (attempt < MAX_RETRIES) {
+      const req: http.HttpRequest = http.createHttp()
+      try {
+        const header: Record<string, string> = {
+          'User-Agent': EhConstants.USER_AGENT,
+          'Accept': EhConstants.ACCEPT,
+          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+          'Accept-Encoding': 'gzip',
+          'Referer': referer,
+          'Cookie': EhCookieStore.getInstance().header(),
+        }
+        const resp: http.HttpResponse = await req.request(url, {
+          method: http.RequestMethod.GET,
+          header: header,
+          expectDataType: http.HttpDataType.STRING,
+          connectTimeout: CONNECT_TIMEOUT_MS,
+          readTimeout: READ_TIMEOUT_MS,
+          usingCache: false,
+        })
+        const code: number = resp.responseCode as number
+        const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
+        const cookies: string = typeof resp.cookies === 'string' ? resp.cookies : ''
+        const rawHeader: string = JSON.stringify(resp.header)
+        req.destroy()
+        if (code >= 500 && attempt < MAX_RETRIES - 1) {
+          lastError = new Error(`HTTP ${code}`)
+        } else {
+          return { statusCode: code, body: body, cookies: cookies, rawHeader: rawHeader }
+        }
+      } catch (error) {
+        const e = error as Error
+        lastError = e
+        DiagnosticLogger.warn('network', 'http_get_referer_retry', `attempt ${attempt}: ${e.message}`)
+        req.destroy()
+      }
+      attempt++
+      await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
+    }
+    throw lastError !== null ? lastError : new Error('request failed')
+  }
+
   /** POST a JSON body (EH /api.php). Same headers/cookies/retry as getText, plus Content-Type. */
   async postJson(url: string, body: string): Promise<EhTextResponse> {
     let attempt: number = 0

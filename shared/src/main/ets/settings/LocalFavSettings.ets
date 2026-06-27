@@ -4,6 +4,7 @@ import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGallery } from '../model/EhGallery'
 import { connectLocalFav } from '../state/LocalFavState'
+import { LocalFavoriteRepository } from '../storage/LocalFavoriteRepository'
 
 class LocalFavGallerySnapshot {
   gid: string = ''
@@ -32,12 +33,8 @@ class LocalFavGallerySnapshot {
 export class LocalFavSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      const raw: string = store.getSync(StorageKeys.LOCAL_FAVORITES, '[]') as string
-      connectLocalFav().items = LocalFavSettings.parse(raw)
+      await LocalFavSettings.migrateLegacyPreferences(context)
+      connectLocalFav().items = await LocalFavoriteRepository.load(context)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'localfav_restore_failed', (error as Error).message)
     }
@@ -45,12 +42,7 @@ export class LocalFavSettings {
 
   static async persist(context: common.UIAbilityContext, items: EhGallery[]): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      store.putSync(StorageKeys.LOCAL_FAVORITES, JSON.stringify(LocalFavSettings.snapshot(items)))
-      store.flushSync()
+      await LocalFavoriteRepository.replaceAll(context, LocalFavSettings.snapshotGalleries(items))
     } catch (error) {
       DiagnosticLogger.warn('settings', 'localfav_save_failed', (error as Error).message)
     }
@@ -102,6 +94,34 @@ export class LocalFavSettings {
     return connectLocalFav().items.some((item: EhGallery) => item.gid === gid)
   }
 
+  static async exportForBackup(context: common.UIAbilityContext): Promise<EhGallery[]> {
+    await LocalFavSettings.migrateLegacyPreferences(context)
+    return LocalFavoriteRepository.load(context)
+  }
+
+  static async restoreBackup(context: common.UIAbilityContext, items: EhGallery[]): Promise<void> {
+    await LocalFavoriteRepository.replaceAll(context, LocalFavSettings.snapshotGalleries(items))
+    await LocalFavSettings.deleteLegacyPreference(context)
+    connectLocalFav().items = await LocalFavoriteRepository.load(context)
+  }
+
+  static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    const raw: string = store.getSync(StorageKeys.LOCAL_FAVORITES, '') as string
+    if (raw.length === 0) {
+      return
+    }
+    const items: EhGallery[] = LocalFavSettings.parse(raw)
+    if (items.length > 0) {
+      await LocalFavoriteRepository.replaceAll(context, items)
+    }
+    store.deleteSync(StorageKeys.LOCAL_FAVORITES)
+    store.flushSync()
+  }
+
   private static prepare(gallery: EhGallery): EhGallery {
     const g: EhGallery = gallery.copy()
     g.favcat = 'l'
@@ -144,6 +164,27 @@ export class LocalFavSettings {
     return out
   }
 
+  private static snapshotGalleries(items: EhGallery[]): EhGallery[] {
+    const snapshots: LocalFavGallerySnapshot[] = LocalFavSettings.snapshot(items)
+    const out: EhGallery[] = []
+    snapshots.forEach((s: LocalFavGallerySnapshot) => {
+      const gallery: EhGallery = LocalFavSettings.fromSnapshot(s)
+      if (gallery.gid.length > 0) {
+        out.push(gallery)
+      }
+    })
+    return out
+  }
+
+  private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    store.deleteSync(StorageKeys.LOCAL_FAVORITES)
+    store.flushSync()
+  }
+
   private static parse(raw: string): EhGallery[] {
     try {
       const parsed: Object = JSON.parse(raw) as Object
@@ -153,31 +194,11 @@ export class LocalFavSettings {
       const out: EhGallery[] = []
       const seen: Set<string> = new Set<string>()
       ;(parsed as LocalFavGallerySnapshot[]).forEach((s: LocalFavGallerySnapshot) => {
-        const gid: string = typeof s.gid === 'string' ? s.gid : ''
-        if (gid.length === 0 || seen.has(gid)) {
+        const g: EhGallery = LocalFavSettings.fromSnapshot(s)
+        if (g.gid.length === 0 || seen.has(g.gid)) {
           return
         }
-        seen.add(gid)
-        const g: EhGallery = new EhGallery(gid, typeof s.token === 'string' ? s.token : '')
-        g.url = typeof s.url === 'string' ? s.url : ''
-        g.thumbUrl = typeof s.thumbUrl === 'string' ? s.thumbUrl : ''
-        g.thumbUrlL = typeof s.thumbUrlL === 'string' ? s.thumbUrlL : ''
-        g.imgWidth = typeof s.imgWidth === 'number' ? s.imgWidth : 0
-        g.imgHeight = typeof s.imgHeight === 'number' ? s.imgHeight : 0
-        g.englishTitle = typeof s.englishTitle === 'string' ? s.englishTitle : ''
-        g.japaneseTitle = typeof s.japaneseTitle === 'string' ? s.japaneseTitle : ''
-        g.category = typeof s.category === 'string' ? s.category : ''
-        g.uploader = typeof s.uploader === 'string' ? s.uploader : ''
-        g.postTime = typeof s.postTime === 'string' ? s.postTime : ''
-        g.fileCount = typeof s.fileCount === 'string' ? s.fileCount : ''
-        g.rating = typeof s.rating === 'number' ? s.rating : 0
-        g.ratingFallBack = typeof s.ratingFallBack === 'number' ? s.ratingFallBack : 0
-        g.colorRating = typeof s.colorRating === 'string' ? s.colorRating : ''
-        g.favNote = typeof s.favNote === 'string' ? s.favNote : ''
-        g.favcat = 'l'
-        g.favTitle = typeof s.favTitle === 'string' && s.favTitle.length > 0 ? s.favTitle : 'Local'
-        g.expunged = typeof s.expunged === 'boolean' ? s.expunged : false
-        g.lastViewTime = typeof s.lastViewTime === 'number' ? s.lastViewTime : 0
+        seen.add(g.gid)
         out.push(g)
       })
       return out
@@ -185,5 +206,30 @@ export class LocalFavSettings {
       DiagnosticLogger.warn('settings', 'localfav_parse_failed', (error as Error).message)
       return []
     }
+  }
+
+  private static fromSnapshot(s: LocalFavGallerySnapshot): EhGallery {
+    const gid: string = typeof s.gid === 'string' ? s.gid : ''
+    const g: EhGallery = new EhGallery(gid, typeof s.token === 'string' ? s.token : '')
+    g.url = typeof s.url === 'string' ? s.url : ''
+    g.thumbUrl = typeof s.thumbUrl === 'string' ? s.thumbUrl : ''
+    g.thumbUrlL = typeof s.thumbUrlL === 'string' ? s.thumbUrlL : ''
+    g.imgWidth = typeof s.imgWidth === 'number' ? s.imgWidth : 0
+    g.imgHeight = typeof s.imgHeight === 'number' ? s.imgHeight : 0
+    g.englishTitle = typeof s.englishTitle === 'string' ? s.englishTitle : ''
+    g.japaneseTitle = typeof s.japaneseTitle === 'string' ? s.japaneseTitle : ''
+    g.category = typeof s.category === 'string' ? s.category : ''
+    g.uploader = typeof s.uploader === 'string' ? s.uploader : ''
+    g.postTime = typeof s.postTime === 'string' ? s.postTime : ''
+    g.fileCount = typeof s.fileCount === 'string' ? s.fileCount : ''
+    g.rating = typeof s.rating === 'number' ? s.rating : 0
+    g.ratingFallBack = typeof s.ratingFallBack === 'number' ? s.ratingFallBack : 0
+    g.colorRating = typeof s.colorRating === 'string' ? s.colorRating : ''
+    g.favNote = typeof s.favNote === 'string' ? s.favNote : ''
+    g.favcat = 'l'
+    g.favTitle = typeof s.favTitle === 'string' && s.favTitle.length > 0 ? s.favTitle : 'Local'
+    g.expunged = typeof s.expunged === 'boolean' ? s.expunged : false
+    g.lastViewTime = typeof s.lastViewTime === 'number' ? s.lastViewTime : 0
+    return g
   }
 }

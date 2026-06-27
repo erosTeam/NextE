@@ -12,6 +12,8 @@ export class AuthState {
   @Trace isLogin: boolean = false
   @Trace hasIgneous: boolean = false
   @Trace memberId: string = ''
+  @Trace nickName: string = ''
+  @Trace avatarUrl: string = ''
 }
 
 const AUTH_KEY: string = 'v2:auth'

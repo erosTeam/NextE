@@ -49,19 +49,30 @@ export class ReaderImageTransformCoordinator {
     return value
   }
 
-  static doubleTapOffset(tap: number, viewport: number, targetScale: number): number {
-    return (1 - targetScale) * (tap - viewport / 2)
+  static pinchAnchor(
+    center: number,
+    viewport: number,
+    displaySize: number,
+    scale: number,
+    offset: number,
+  ): number {
+    const displayed: number = displaySize * scale
+    if (displayed <= 0) {
+      return 0.5
+    }
+    const displayStart: number = (viewport - displayed) / 2 + offset
+    return (center - displayStart) / displayed
   }
 
-  static pinchOffset(
-    startCenter: number,
-    currentCenter: number,
+  static anchoredOffset(
+    center: number,
     viewport: number,
-    startOffset: number,
-    scaleRatio: number,
+    displaySize: number,
+    scale: number,
+    anchor: number,
   ): number {
-    return (startCenter - viewport / 2) * (1 - scaleRatio) +
-      scaleRatio * startOffset +
-      currentCenter - startCenter
+    const displayed: number = displaySize * scale
+    const point: number = (viewport - displayed) / 2 + displayed * anchor
+    return center - point
   }
 }

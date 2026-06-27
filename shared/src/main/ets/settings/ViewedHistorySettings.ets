@@ -4,9 +4,9 @@ import { connectViewedHistory } from '../state/ViewedHistoryState'
 import { ViewedGallery } from '../model/ViewedGallery'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { ViewedHistoryRepository } from '../storage/ViewedHistoryRepository'
 
-// eros_fe's history is DB-backed and effectively unbounded; NextE stores a JSON list in preferences,
-// so cap it to keep the blob small. 200 recent galleries is plenty for a phone history surface.
+// Keep the current NextE retention size while moving the source of truth from Preferences JSON to RDB.
 const MAX_HISTORY: number = 200
 
 /**
@@ -18,12 +18,8 @@ const MAX_HISTORY: number = 200
 export class ViewedHistorySettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      const raw: string = store.getSync(StorageKeys.VIEWED_HISTORY, '[]') as string
-      connectViewedHistory().items = ViewedHistorySettings.parse(raw)
+      await ViewedHistorySettings.migrateLegacyPreferences(context)
+      connectViewedHistory().items = await ViewedHistoryRepository.load(context, MAX_HISTORY)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'history_restore_failed', (error as Error).message)
     }
@@ -47,7 +43,8 @@ export class ViewedHistorySettings {
 
   static async clear(context: common.UIAbilityContext): Promise<void> {
     connectViewedHistory().items = []
-    await ViewedHistorySettings.persist(context, [])
+    await ViewedHistoryRepository.replaceAll(context, [])
+    await ViewedHistorySettings.deleteLegacyPreference(context)
   }
 
   private static async persist(
@@ -55,15 +52,47 @@ export class ViewedHistorySettings {
     items: ViewedGallery[],
   ): Promise<void> {
     try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      store.putSync(StorageKeys.VIEWED_HISTORY, JSON.stringify(items))
-      store.flushSync()
+      await ViewedHistoryRepository.replaceAll(context, items)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'history_save_failed', (error as Error).message)
     }
+  }
+
+  static async exportForBackup(context: common.UIAbilityContext): Promise<ViewedGallery[]> {
+    await ViewedHistorySettings.migrateLegacyPreferences(context)
+    return ViewedHistoryRepository.load(context, MAX_HISTORY)
+  }
+
+  static async restoreBackup(context: common.UIAbilityContext, items: ViewedGallery[]): Promise<void> {
+    await ViewedHistoryRepository.replaceAll(context, items)
+    await ViewedHistorySettings.deleteLegacyPreference(context)
+    connectViewedHistory().items = await ViewedHistoryRepository.load(context, MAX_HISTORY)
+  }
+
+  static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    const raw: string = store.getSync(StorageKeys.VIEWED_HISTORY, '') as string
+    if (raw.length === 0) {
+      return
+    }
+    const items: ViewedGallery[] = ViewedHistorySettings.parse(raw)
+    if (items.length > 0) {
+      await ViewedHistoryRepository.replaceAll(context, items)
+    }
+    store.deleteSync(StorageKeys.VIEWED_HISTORY)
+    store.flushSync()
+  }
+
+  private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    store.deleteSync(StorageKeys.VIEWED_HISTORY)
+    store.flushSync()
   }
 
   /** Defensive parse: bad JSON / shape → []; drop records without a gid; keep newest-first order. */

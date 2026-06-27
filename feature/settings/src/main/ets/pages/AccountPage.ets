@@ -13,6 +13,8 @@ import {
   immersiveTitleBarOpts,
   AccountListState,
   connectAccountList,
+  UserProfileService,
+  GalleryWebParams,
 } from 'shared'
 
 /**
@@ -21,9 +23,41 @@ import {
  * switch, swipe left to delete (no confirm — low misoperation risk). The title bar's top-right
  * person_badge_plus opens the login page to add another account. The bottom 退出登录 (with a confirm) logs
  * out the current account — both delete paths reuse removeAccount (switch to another if any, else logged
- * out). Real avatars/nicknames are unavailable (forum-only, CF-blocked), so the avatar is a placeholder
- * and accounts are shown by member id.
+ * out). Nick/avatar refresh is best-effort from the forums profile page; ID remains the fallback.
  */
+@ComponentV2
+struct AccountAvatar {
+  @Param memberId: string = '';
+  @Param avatarSize: number = 44;
+  @Local auth: AuthState = connectAuth();
+
+  private activeAvatarUrl(): string {
+    if (this.memberId === this.auth.memberId) {
+      return this.auth.avatarUrl
+    }
+    return ''
+  }
+
+  build() {
+    Stack() {
+      if (this.activeAvatarUrl().length > 0) {
+        Image(this.activeAvatarUrl())
+          .objectFit(ImageFit.Cover)
+          .width(this.avatarSize)
+          .height(this.avatarSize)
+      } else {
+        SymbolGlyph($r('sys.symbol.person_fill'))
+          .fontSize(this.avatarSize / 2)
+          .fontColor([Color.White])
+      }
+    }
+    .width(this.avatarSize)
+    .height(this.avatarSize)
+    .borderRadius(this.avatarSize / 2)
+    .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+  }
+}
+
 @ComponentV2
 export struct AccountPage {
   @Local auth: AuthState = connectAuth();
@@ -31,6 +65,10 @@ export struct AccountPage {
   @Local refreshing: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+
+  aboutToAppear(): void {
+    this.restoreProfile()
+  }
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -54,6 +92,21 @@ export struct AccountPage {
       .finally(() => {
         this.refreshing = false
       })
+  }
+
+  private async restoreProfile(): Promise<void> {
+    if (!this.auth.isLogin) {
+      return
+    }
+    await UserProfileService.restoreActive(this.ctx())
+    UserProfileService.materializeAvatar(this.ctx())
+  }
+
+  private openProfileWeb(): void {
+    this.stack.pushPathByName(
+      'GalleryWeb',
+      new GalleryWebParams(UserProfileService.activeProfileUrl(), AppStrings.get('settings_account'), true),
+    )
   }
 
   private switchAccount(memberId: string): void {
@@ -114,27 +167,38 @@ export struct AccountPage {
       .margin({ left: ThemeConstants.SPACE_MD })
   }
 
-  @Builder
-  private Avatar(size: number) {
-    Stack() {
-      SymbolGlyph($r('sys.symbol.person_fill'))
-        .fontSize(size / 2)
-        .fontColor([Color.White])
+  private accountTitle(memberId: string): string {
+    if (memberId === this.auth.memberId && this.auth.nickName.length > 0) {
+      return this.auth.nickName
     }
-    .width(size)
-    .height(size)
-    .borderRadius(size / 2)
-    .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+    return `ID ${memberId}`
+  }
+
+  private accountSubtitle(memberId: string): string {
+    if (memberId === this.auth.memberId && this.auth.nickName.length > 0) {
+      return `ID ${memberId}`
+    }
+    return ''
   }
 
   // One saved account as a card row; the active one is selected via Radio. Tap the row to switch.
   @Builder
   private AccountRow(memberId: string) {
     Row({ space: ThemeConstants.SPACE_MD }) {
-      this.Avatar(44)
-      Text(`ID ${memberId}`)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor($r('sys.color.font_primary'))
+      AccountAvatar({ memberId: memberId, avatarSize: ThemeConstants.ACCOUNT_AVATAR_SIZE })
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        Text(this.accountTitle(memberId))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (this.accountSubtitle(memberId).length > 0) {
+          Text(this.accountSubtitle(memberId))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_secondary'))
+        }
+      }
+        .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
       Radio({ value: memberId, group: 'nexte_accounts' })
         .checked(memberId === this.accountList.activeMemberId)
@@ -209,6 +273,15 @@ export struct AccountPage {
               leadingIcon: $r('sys.symbol.bookmark'),
               action: () => {
                 this.stack.pushPathByName('MyTags', null)
+              },
+            })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.settings_refresh_profile'),
+              subtitle: $r('app.string.settings_refresh_profile_hint'),
+              leadingIcon: $r('sys.symbol.person'),
+              action: () => {
+                this.openProfileWeb()
               },
             })
             this.rowDivider()

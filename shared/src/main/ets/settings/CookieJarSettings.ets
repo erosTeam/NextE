@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
+import { webview } from '@kit.ArkWeb'
 import { EhCookieStore } from '../network/EhCookieStore'
 import { EhHttpClient, EhTextResponse } from '../network/EhHttpClient'
 import { EhConstants } from '../constants/EhConstants'
@@ -7,6 +8,7 @@ import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { connectAuth, AuthState } from '../state/AuthState'
 import { AccountListSettings } from './AccountListSettings'
+import { UserProfileService } from '../services/UserProfileService'
 
 /**
  * Persistence for the sensitive EH auth cookie bundle. HarmonyOS has no cookie jar, so the
@@ -142,6 +144,43 @@ export class CookieJarSettings {
     }
   }
 
+  static async mergeFromWebCookieManager(context: common.UIAbilityContext): Promise<boolean> {
+    try {
+      try {
+        webview.WebCookieManager.saveCookieSync()
+      } catch (_error) {
+        await webview.WebCookieManager.saveCookieAsync()
+      }
+      const ehCookie: string = await webview.WebCookieManager.fetchCookie(EhConstants.EH_BASE_URL)
+      const exCookie: string = await webview.WebCookieManager.fetchCookie(EhConstants.EX_BASE_URL)
+      const forumCookie: string = await webview.WebCookieManager.fetchCookie(
+        EhConstants.FORUMS_BASE_URL,
+      )
+      const header: string = `${ehCookie}; ${exCookie}; ${forumCookie}`
+      const activeMember: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID)
+      const webMember: string = CookieJarSettings.parseCookieValue(header, EhConstants.COOKIE_MEMBER_ID)
+      if (webMember.length > 0 && activeMember.length > 0 && webMember !== activeMember) {
+        DiagnosticLogger.warn(
+          'auth',
+          'web_cookie_merge_skipped',
+          `active=${activeMember} web=${webMember}`,
+        )
+        return false
+      }
+      CookieJarSettings.applyFromHeader(header)
+      await CookieJarSettings.save(context)
+      DiagnosticLogger.info(
+        'auth',
+        'web_cookie_merged',
+        `names=${EhCookieStore.getInstance().nameSummary()}`,
+      )
+      return true
+    } catch (error) {
+      DiagnosticLogger.warn('auth', 'web_cookie_merge_failed', (error as Error).message)
+      return false
+    }
+  }
+
   /** Serialize the COMPLETE jar (every captured cookie, not just the known bundle) for storage. */
   private static serialize(): string {
     return EhCookieStore.getInstance().serializeForPersist()
@@ -182,6 +221,7 @@ export class CookieJarSettings {
       CookieJarSettings.syncAuthState()
       await AccountListSettings.load(context)
       await AccountListSettings.recordActive(context)
+      await UserProfileService.restoreActive(context)
       DiagnosticLogger.info(
         'auth',
         'cookie_jar_restored',
@@ -221,6 +261,7 @@ export class CookieJarSettings {
     EhCookieStore.getInstance().clear()
     CookieJarSettings.applyFromHeader(bundle)
     await CookieJarSettings.save(context)
+    await UserProfileService.restoreActive(context)
   }
 
   /** Remove a saved account; if it was the active one, switch to another saved account or fully log out. */
@@ -284,8 +325,14 @@ export class CookieJarSettings {
   static syncAuthState(): void {
     const store: EhCookieStore = EhCookieStore.getInstance()
     const auth: AuthState = connectAuth()
+    const previousMemberId: string = auth.memberId
+    const nextMemberId: string = store.get(EhConstants.COOKIE_MEMBER_ID)
     auth.isLogin = store.isLogin()
     auth.hasIgneous = store.get(EhConstants.COOKIE_IGNEOUS).length > 0
-    auth.memberId = store.get(EhConstants.COOKIE_MEMBER_ID)
+    auth.memberId = nextMemberId
+    if (!auth.isLogin || previousMemberId !== nextMemberId) {
+      auth.nickName = ''
+      auth.avatarUrl = ''
+    }
   }
 }
