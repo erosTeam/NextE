@@ -273,6 +273,14 @@
       "value": "表示モード"
     },
     {
+      "name": "tag_compose_placeholder",
+      "value": "タグ・キーワードを検索"
+    },
+    {
+      "name": "tag_compose_empty_hint",
+      "value": "上でタグを検索して絞り込み"
+    },
+    {
       "name": "view_follow_global",
       "value": "全体に従う"
     },

@@ -273,6 +273,14 @@
       "value": "Display mode"
     },
     {
+      "name": "tag_compose_placeholder",
+      "value": "Search tags or keywords"
+    },
+    {
+      "name": "tag_compose_empty_hint",
+      "value": "Search tags above to filter this tab"
+    },
+    {
       "name": "view_follow_global",
       "value": "Follow global"
     },

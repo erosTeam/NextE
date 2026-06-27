@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
+import { KeyboardAvoidMode, LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
 import {
   ThemeConstants,
   AppStrings,
@@ -8,10 +8,12 @@ import {
   immersiveTitleBarOpts,
   SecondaryListScaffold,
   GroupedListSection,
+  SectionHeader,
   ConciseListRow,
   SettingsCheckedMenuItem,
   CategorySelector,
   AdvancedSearchControls,
+  TagQueryComposer,
   SearchFilterState,
   connectCustomProfiles,
   CustomProfile,
@@ -102,6 +104,12 @@ export struct TabEditPage {
     this.periodItems[1].text = AppStrings.get('toplist_year')
     this.periodItems[2].text = AppStrings.get('toplist_month')
     this.periodItems[3].text = AppStrings.get('toplist_yesterday')
+    // RESIZE so a focused field (name / tag search) scrolls clear of the soft keyboard.
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
   private seedFromParam(param: string): void {
@@ -246,21 +254,6 @@ export struct TabEditPage {
     return immersiveTitleBarOpts(content)
   }
 
-  // ── shared form chrome (mirrors EhProfileSettingsPage) ──────────────────────
-  @Builder
-  private SectionHeader(title: ResourceStr) {
-    Text(title)
-      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .fontColor($r('sys.color.font_secondary'))
-      .width('100%')
-      .padding({
-        left: ThemeConstants.SPACE_MD,
-        right: ThemeConstants.SPACE_MD,
-        top: ThemeConstants.SPACE_MD,
-        bottom: ThemeConstants.SPACE_XS,
-      })
-  }
-
   @Builder
   private rowDivider() {
     Divider()
@@ -276,19 +269,27 @@ export struct TabEditPage {
         bottomPadding: ThemeConstants.SPACE_XL,
         alwaysEnableEdgeSpring: true,
       }) {
-        // Basic: name, list type, (favorite folder)
+        // Name (full-width stable field — no caret clip, no keyboard flap)
         ListItem() {
-          GroupedListSection() {
-            TabTextRow({
-              title: $r('app.string.tab_name_label'),
-              value: this.name,
-              placeholder: $r('app.string.tab_name_placeholder'),
-              onChange: (v: string) => {
-                this.name = v
-              },
-            })
-            if (!this.builtin) {
-              this.rowDivider()
+          Column() {
+            SectionHeader({ title: $r('app.string.tab_name_label') })
+            GroupedListSection() {
+              StableTextField({
+                value: this.name,
+                placeholder: $r('app.string.tab_name_placeholder'),
+                onChange: (v: string) => {
+                  this.name = v
+                },
+              })
+            }
+          }
+          .alignItems(HorizontalAlign.Start)
+        }
+
+        if (!this.builtin) {
+          // List type (+ favorite folder)
+          ListItem() {
+            GroupedListSection() {
               TabSelectRow({
                 title: $r('app.string.tab_list_type'),
                 options: this.typeOptions(),
@@ -310,14 +311,12 @@ export struct TabEditPage {
               }
             }
           }
-        }
 
-        if (!this.builtin) {
           // Toplist period
           if (this.listType === PROFILE_TYPE_TOPLIST) {
             ListItem() {
               Column() {
-                this.SectionHeader($r('app.string.tab_toplist_period'))
+                SectionHeader({ title: $r('app.string.tab_toplist_period') })
                 GroupedListSection() {
                   TabSegmentButtonV2({
                     items: this.periodItems,
@@ -339,31 +338,31 @@ export struct TabEditPage {
                     })
                 }
               }
+              .alignItems(HorizontalAlign.Start)
             }
           }
 
-          // Category
           if (this.usesFilters()) {
+            // Search composer (tag suggestions + include/exclude chips) — no card; the field is the element
             ListItem() {
-              Column() {
-                this.SectionHeader($r('app.string.tab_category'))
-                GroupedListSection() {
-                  CategorySelector({ filter: this.filter })
-                }
-              }
-            }
-            // Search text
-            ListItem() {
-              GroupedListSection() {
-                TabTextRow({
-                  title: $r('app.string.tab_search_text'),
-                  value: this.searchText,
-                  placeholder: $r('app.string.search_placeholder'),
-                  onChange: (v: string) => {
-                    this.searchText = v
+              Column({ space: ThemeConstants.SPACE_XS }) {
+                SectionHeader({ title: $r('app.string.tab_search_text') })
+                TagQueryComposer({
+                  query: this.searchText,
+                  onQueryChange: (q: string) => {
+                    this.searchText = q
                   },
                 })
               }
+              .alignItems(HorizontalAlign.Start)
+            }
+            // Category grid — colored buttons supply their own surfaces; no white card behind
+            ListItem() {
+              Column() {
+                SectionHeader({ title: $r('app.string.tab_category') })
+                CategorySelector({ filter: this.filter })
+              }
+              .alignItems(HorizontalAlign.Start)
             }
           }
 
@@ -371,11 +370,12 @@ export struct TabEditPage {
           if (this.usesAdvanced()) {
             ListItem() {
               Column() {
-                this.SectionHeader($r('app.string.tab_advanced'))
+                SectionHeader({ title: $r('app.string.tab_advanced') })
                 GroupedListSection() {
                   AdvancedSearchControls({ filter: this.filter })
                 }
               }
+              .alignItems(HorizontalAlign.Start)
             }
           }
 
@@ -479,36 +479,41 @@ struct TabSelectRow {
   }
 }
 
-/** Label + inline text field, built ON ConciseListRow so the title matches every other row exactly
- * (the input lives in the row's suffix slot). Mirrors EhProfileSettingsPage's UcTextRow. */
+/**
+ * Full-width single-line text field with the AppSearchField keyboard-stable mirror pattern: the external
+ * value seeds a private @Local once, build() reads ONLY the @Local, and the parent's value re-seeds it via
+ * @Monitor only when it actually differs — so typing never re-mounts the field (no IME flap) and the caret
+ * is never clipped (full width, left-aligned, real height + padding). Replaces the old suffix-input row.
+ */
 @ComponentV2
-struct TabTextRow {
-  @Param title: ResourceStr = '';
+struct StableTextField {
   @Param value: string = '';
   @Param placeholder: ResourceStr = '';
   @Event onChange: (value: string) => void = () => {};
+  @Local private fieldText: string = '';
 
-  build() {
-    ConciseListRow({
-      title: this.title,
-      showChevron: false,
-      suffixPaddingRight: ThemeConstants.SPACE_MD,
-      suffixBuilderParam: () => {
-        this.InputSuffix()
-      },
-    })
+  aboutToAppear(): void {
+    this.fieldText = this.value
   }
 
-  @Builder
-  InputSuffix() {
-    TextInput({ text: this.value, placeholder: this.placeholder })
-      .textAlign(TextAlign.End)
+  @Monitor('value')
+  onExternalChange(): void {
+    if (this.value !== this.fieldText) {
+      this.fieldText = this.value
+    }
+  }
+
+  build() {
+    TextInput({ text: this.fieldText, placeholder: this.placeholder })
+      .width('100%')
+      .height(44)
       .fontSize(ThemeConstants.FONT_SIZE_BODY)
       .fontColor($r('sys.color.font_primary'))
       .backgroundColor(Color.Transparent)
-      .padding(0)
-      .width(200)
+      .borderRadius(ThemeConstants.RADIUS_MD)
+      .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
       .onChange((v: string) => {
+        this.fieldText = v
         this.onChange(v)
       })
   }

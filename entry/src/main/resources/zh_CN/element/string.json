@@ -273,6 +273,14 @@
       "value": "显示模式"
     },
     {
+      "name": "tag_compose_placeholder",
+      "value": "搜索标签 / 关键词"
+    },
+    {
+      "name": "tag_compose_empty_hint",
+      "value": "在上方搜索标签来筛选此标签页"
+    },
+    {
       "name": "view_follow_global",
       "value": "跟随全局"
     },
