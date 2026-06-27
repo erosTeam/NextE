@@ -15,6 +15,12 @@ import {
   CategorySelector,
   AdvancedSearchControls,
   TagQueryComposer,
+  TagRow,
+  TagQuery,
+  QueryTag,
+  TagRowItem,
+  TagTranslationService,
+  connectTagTranslationSettings,
   SearchFilterState,
   connectCustomProfiles,
   CustomProfile,
@@ -87,6 +93,8 @@ export struct TabEditPage {
   @Local displayMode: string = PROFILE_DISPLAY_GLOBAL;
   @Local filter: SearchFilterState = new SearchFilterState();
   @Local favSelection: FavSelectionState = connectFavSelection();
+  // ns:text -> translated display name for the added tag rows (resolved async as searchText changes).
+  @Local private trans: Map<string, string> = new Map<string, string>();
   @Local private periodItems: SegmentButtonV2Items = new SegmentButtonV2Items([
     { text: '' },
     { text: '' },
@@ -136,6 +144,71 @@ export struct TabEditPage {
     this.filter.disableLanguageFilter = p.disableLanguageFilter
     this.filter.disableUploaderFilter = p.disableUploaderFilter
     this.filter.disableTagFilter = p.disableTagFilter
+    this.ensureTranslations()
+  }
+
+  // ── added tag rows (rendered here, in the scaffold List, so each gets native swipe-to-delete) ──
+  private tagRowItems(): TagRowItem[] {
+    const out: TagRowItem[] = []
+    TagQuery.parse(this.searchText).forEach((t: QueryTag, i: number) => {
+      const name: string | undefined = this.trans.get(TagQuery.keyOf(t))
+      out.push(new TagRowItem(t, i, name !== undefined ? name : ''))
+    })
+    return out
+  }
+
+  @Monitor('searchText')
+  private onSearchTextChanged(): void {
+    this.ensureTranslations()
+  }
+
+  private async ensureTranslations(): Promise<void> {
+    if (!connectTagTranslationSettings().enabled) {
+      return
+    }
+    const tags: QueryTag[] = TagQuery.parse(this.searchText)
+    let changed: boolean = false
+    const next: Map<string, string> = new Map<string, string>()
+    this.trans.forEach((v: string, k: string) => next.set(k, v))
+    for (let i = 0; i < tags.length; i++) {
+      const t: QueryTag = tags[i]
+      if (t.namespace.length === 0) {
+        continue
+      }
+      const key: string = TagQuery.keyOf(t)
+      if (next.has(key)) {
+        continue
+      }
+      try {
+        const full: string = `${t.namespace}:${t.text}`
+        const name: string = await TagTranslationService.translateFullTagAsync(this.ctx(), full)
+        if (name.length > 0 && name !== full && name !== t.text) {
+          next.set(key, name)
+          changed = true
+        }
+      } catch (err) {
+        // translation is best-effort; the raw token still shows.
+      }
+    }
+    if (changed) {
+      this.trans = next
+    }
+  }
+
+  private setTagRelation(index: number, relation: number): void {
+    const tags: QueryTag[] = TagQuery.parse(this.searchText)
+    if (index >= 0 && index < tags.length) {
+      tags[index].relation = relation
+      this.searchText = TagQuery.serialize(tags)
+    }
+  }
+
+  private removeTag(index: number): void {
+    const tags: QueryTag[] = TagQuery.parse(this.searchText)
+    if (index >= 0 && index < tags.length) {
+      tags.splice(index, 1)
+      this.searchText = TagQuery.serialize(tags)
+    }
   }
 
   private toast(message: ResourceStr): void {
@@ -289,6 +362,73 @@ export struct TabEditPage {
       .margin({ left: ThemeConstants.SPACE_MD })
   }
 
+  // The 搜索词 card: a ListItemGroup styled exactly like GroupedListSection (so it matches the other cards),
+  // holding the add field + each added tag as its own ListItem — which is what lets the tag rows swipe-delete
+  // natively while staying tight in one card (space: 0).
+  @Builder
+  private SearchGroup() {
+    ListItemGroup({ space: 0 }) {
+      ListItem() {
+        TagQueryComposer({
+          query: this.searchText,
+          onQueryChange: (q: string) => {
+            this.searchText = q
+          },
+        })
+      }
+      ForEach(
+        this.tagRowItems(),
+        (it: TagRowItem) => {
+          ListItem() {
+            Column() {
+              this.rowDivider()
+              TagRow({
+                tag: it.tag,
+                index: it.index,
+                displayName: it.displayName,
+                onSetRelation: (index: number, rel: number) => {
+                  this.setTagRelation(index, rel)
+                },
+              })
+            }
+            .width('100%')
+          }
+          .swipeAction({
+            end: () => {
+              this.DeleteSwipe(it.index)
+            },
+          })
+        },
+        (it: TagRowItem) => `${it.tag.relation}:${it.tag.namespace}:${it.tag.text}:${it.displayName}`,
+      )
+    }
+    .width('100%')
+    .borderRadius(ThemeConstants.RADIUS_CARD)
+    .clip(true)
+    .padding(ThemeConstants.LIST_SECTION_INSET)
+    .backgroundColor($r('app.color.card_background'))
+  }
+
+  @Builder
+  private DeleteSwipe(index: number) {
+    Row() {
+      Button() {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+          .fontColor([Color.White])
+      }
+      .width(48)
+      .height(40)
+      .backgroundColor(Color.Red)
+      .onClick(() => {
+        this.removeTag(index)
+      })
+    }
+    .height('100%')
+    .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
+    .justifyContent(FlexAlign.Center)
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -380,21 +520,15 @@ export struct TabEditPage {
           }
 
           if (this.usesFilters()) {
-            // Search tags
+            // Search tags — header above, then a card-styled ListItemGroup (the add field + each tag as a
+            // swipe-to-delete row; tight rows, native swipe — only possible because these are real ListItems).
             ListItem() {
               Column() {
                 SectionHeader({ title: $r('app.string.tab_search_text') })
-                GroupedListSection() {
-                  TagQueryComposer({
-                    query: this.searchText,
-                    onQueryChange: (q: string) => {
-                      this.searchText = q
-                    },
-                  })
-                }
               }
               .alignItems(HorizontalAlign.Start)
             }
+            this.SearchGroup()
             // Categories
             ListItem() {
               Column() {

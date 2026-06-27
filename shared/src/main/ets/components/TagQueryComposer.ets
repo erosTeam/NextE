@@ -16,14 +16,14 @@ const LOCAL_LIMIT: number = 30
 const MAX_SUGGESTIONS: number = 12
 
 /** A term's relation to the query: AND = space (default), OR = '~' prefix (EH native), NOT = '-' prefix. */
-enum TagRelation {
+export enum TagRelation {
   AND = 0,
   OR = 1,
   NOT = 2,
 }
 
 /** One token of the composed EH query: a tag (namespace+text) or free text, with its AND/OR/NOT relation. */
-class QueryTag {
+export class QueryTag {
   namespace: string = ''
   text: string = ''
   relation: number = TagRelation.AND
@@ -36,7 +36,7 @@ class QueryTag {
 }
 
 /** A tag paired with its index in the full parsed list + its resolved translation, for one list row. */
-class TagRowItem {
+export class TagRowItem {
   tag: QueryTag
   index: number
   displayName: string
@@ -48,51 +48,9 @@ class TagRowItem {
   }
 }
 
-/**
- * Graphical EH-query composer. Search tags (local translation DB + EH /api.php tagsuggest) and tap a
- * suggestion to add it; added tags are rendered as standard ConciseListRow rows — translated name + raw EH
- * token + a relation dropdown (包含/任一/排除, the same arrowtriangle indicator as every other dropdown) + an
- * × to remove. Relations map to EH native operators (space = AND, '~' = OR, '-' = NOT), so the single `query`
- * string the parent owns flows unchanged through f_search. Every row is a ConciseListRow, so margins, text
- * indent, and the dropdown icon match the rest of the app by construction (no hand-rolled rows).
- */
-@ComponentV2
-export struct TagQueryComposer {
-  @Param query: string = '';
-  @Event onQueryChange: (value: string) => void = () => {};
-  @Local private addText: string = '';
-  @Local private suggestions: EhTagSuggestion[] = [];
-  @Local private suggestionCount: number = 0;
-  // ns:text -> translated display name (filled on add from a suggestion, and async on (re)load).
-  @Local private trans: Map<string, string> = new Map<string, string>();
-  private timer: number = -1;
-  private epoch: number = 0;
-
-  aboutToAppear(): void {
-    this.ensureTranslations()
-  }
-
-  aboutToDisappear(): void {
-    if (this.timer >= 0) {
-      clearTimeout(this.timer)
-      this.timer = -1
-    }
-  }
-
-  @Monitor('query')
-  onQueryChanged(): void {
-    this.ensureTranslations()
-  }
-
-  private ctx(): common.UIAbilityContext {
-    return this.getUIContext().getHostContext() as common.UIAbilityContext
-  }
-
-  // ── query string ⇄ tags ──────────────────────────────────────────────────
-  private tags(): QueryTag[] {
-    return TagQueryComposer.parse(this.query)
-  }
-
+/** Parse / serialize an EH query string ⇄ QueryTag[] (space = AND, '~' = OR, '-' = NOT). Static so the page
+ * that renders the tag rows (in its own List, for swipe) shares the exact round-trip the composer adds with. */
+export class TagQuery {
   private static unwrap(value: string): string {
     let v: string = value
     if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
@@ -104,7 +62,7 @@ export struct TagQueryComposer {
     return v
   }
 
-  private static parseToken(raw: string): QueryTag {
+  static parseToken(raw: string): QueryTag {
     let tok: string = raw
     let rel: number = TagRelation.AND
     if (tok.startsWith('-')) {
@@ -118,10 +76,10 @@ export struct TagQueryComposer {
     if (colon > 0) {
       const ns: string = tok.substring(0, colon)
       if (/^[a-zA-Z]+$/.test(ns)) {
-        return new QueryTag(ns.toLowerCase(), TagQueryComposer.unwrap(tok.substring(colon + 1)), rel)
+        return new QueryTag(ns.toLowerCase(), TagQuery.unwrap(tok.substring(colon + 1)), rel)
       }
     }
-    return new QueryTag('', TagQueryComposer.unwrap(tok), rel)
+    return new QueryTag('', TagQuery.unwrap(tok), rel)
   }
 
   static parse(query: string): QueryTag[] {
@@ -147,7 +105,7 @@ export struct TagQueryComposer {
       tokens.push(cur)
     }
     tokens.forEach((t: string) => {
-      const tag: QueryTag = TagQueryComposer.parseToken(t)
+      const tag: QueryTag = TagQuery.parseToken(t)
       if (tag.text.length > 0 || tag.namespace.length > 0) {
         out.push(tag)
       }
@@ -177,7 +135,7 @@ export struct TagQueryComposer {
   static serialize(tags: QueryTag[]): string {
     const parts: string[] = []
     tags.forEach((t: QueryTag) => {
-      const s: string = TagQueryComposer.tokenOf(t)
+      const s: string = TagQuery.tokenOf(t)
       if (s.length > 0) {
         parts.push(s)
       }
@@ -185,55 +143,45 @@ export struct TagQueryComposer {
     return parts.join(' ')
   }
 
-  private static keyOf(t: QueryTag): string {
+  static keyOf(t: QueryTag): string {
     return `${t.namespace}:${t.text}`
   }
+}
 
-  private rowItems(): TagRowItem[] {
-    const out: TagRowItem[] = []
-    this.tags().forEach((t: QueryTag, i: number) => {
-      const name: string | undefined = this.trans.get(TagQueryComposer.keyOf(t))
-      out.push(new TagRowItem(t, i, name !== undefined ? name : ''))
-    })
-    return out
-  }
+/**
+ * The "add tags" control: a keyboard-stable search field that suggests tags (local translation DB + EH
+ * /api.php tagsuggest); tapping a suggestion (or submitting free text) appends a tag to the query string.
+ * It does NOT render the added tags — the host page renders those as swipe-deletable rows in its own List
+ * (a ListItemGroup) using TagQuery.parse + the exported TagRow, so the rows get native swipe-to-delete and a
+ * tight group. Relations map to EH native operators, so `query` flows through f_search unchanged.
+ */
+@ComponentV2
+export struct TagQueryComposer {
+  @Param query: string = '';
+  @Event onQueryChange: (value: string) => void = () => {};
+  @Local private addText: string = '';
+  @Local private suggestions: EhTagSuggestion[] = [];
+  @Local private suggestionCount: number = 0;
+  private timer: number = -1;
+  private epoch: number = 0;
 
-  // ── translation resolution (reloaded tags show their translated name too) ──
-  private async ensureTranslations(): Promise<void> {
-    if (!connectTagTranslationSettings().enabled) {
-      return
-    }
-    const tags: QueryTag[] = this.tags()
-    let changed: boolean = false
-    const next: Map<string, string> = new Map<string, string>()
-    this.trans.forEach((v: string, k: string) => next.set(k, v))
-    for (let i = 0; i < tags.length; i++) {
-      const t: QueryTag = tags[i]
-      if (t.namespace.length === 0) {
-        continue
-      }
-      const key: string = TagQueryComposer.keyOf(t)
-      if (next.has(key)) {
-        continue
-      }
-      try {
-        const name: string = await TagTranslationService.translateFullTagAsync(this.ctx(), `${t.namespace}:${t.text}`)
-        if (name.length > 0 && name !== `${t.namespace}:${t.text}` && name !== t.text) {
-          next.set(key, name)
-          changed = true
-        }
-      } catch (err) {
-        DiagnosticLogger.warn('tagcompose', 'translate_failed', (err as Error).message)
-      }
-    }
-    if (changed) {
-      this.trans = next
+  aboutToDisappear(): void {
+    if (this.timer >= 0) {
+      clearTimeout(this.timer)
+      this.timer = -1
     }
   }
 
-  // ── mutations ─────────────────────────────────────────────────────────────
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private tags(): QueryTag[] {
+    return TagQuery.parse(this.query)
+  }
+
   private commit(tags: QueryTag[]): void {
-    this.onQueryChange(TagQueryComposer.serialize(tags))
+    this.onQueryChange(TagQuery.serialize(tags))
   }
 
   private alreadyHas(tags: QueryTag[], ns: string, text: string): boolean {
@@ -249,12 +197,6 @@ export struct TagQueryComposer {
     const ns: string = s.namespace.toLowerCase()
     const tags: QueryTag[] = this.tags()
     if (!this.alreadyHas(tags, ns, s.text)) {
-      if (s.displayName.length > 0) {
-        const next: Map<string, string> = new Map<string, string>()
-        this.trans.forEach((v: string, k: string) => next.set(k, v))
-        next.set(`${ns}:${s.text}`, s.displayName)
-        this.trans = next
-      }
       tags.push(new QueryTag(ns, s.text, TagRelation.AND))
       this.commit(tags)
     }
@@ -268,7 +210,7 @@ export struct TagQueryComposer {
     if (text.length === 0) {
       return
     }
-    const tag: QueryTag = TagQueryComposer.parseToken(text)
+    const tag: QueryTag = TagQuery.parseToken(text)
     const tags: QueryTag[] = this.tags()
     if (!this.alreadyHas(tags, tag.namespace, tag.text)) {
       tags.push(tag)
@@ -276,22 +218,6 @@ export struct TagQueryComposer {
     }
     this.addText = ''
     this.clearSuggest()
-  }
-
-  private setRelation(index: number, relation: number): void {
-    const tags: QueryTag[] = this.tags()
-    if (index >= 0 && index < tags.length) {
-      tags[index].relation = relation
-      this.commit(tags)
-    }
-  }
-
-  private removeTag(index: number): void {
-    const tags: QueryTag[] = this.tags()
-    if (index >= 0 && index < tags.length) {
-      tags.splice(index, 1)
-      this.commit(tags)
-    }
   }
 
   // ── tag suggestions (local DB then EH api, debounced) ─────────────────────
@@ -373,8 +299,6 @@ export struct TagQueryComposer {
   }
 
   build() {
-    // One tight list: the search field, then a divider before each suggestion / tag row, so the field and
-    // every row are separated by a hairline (no big gap), all inside the one 搜索词 card.
     Column() {
       AppSearchField({
         text: this.addText,
@@ -406,32 +330,6 @@ export struct TagQueryComposer {
           },
           (s: EhTagSuggestion) => `${s.namespace}:${s.text}:${s.displayName}`,
         )
-      } else if (this.query.trim().length > 0) {
-        ForEach(
-          this.rowItems(),
-          (it: TagRowItem) => {
-            this.rowDivider()
-            TagRow({
-              tag: it.tag,
-              index: it.index,
-              displayName: it.displayName,
-              onSetRelation: (index: number, rel: number) => {
-                this.setRelation(index, rel)
-              },
-              onRemove: (index: number) => {
-                this.removeTag(index)
-              },
-            })
-          },
-          (it: TagRowItem) => `${it.tag.relation}:${it.tag.namespace}:${it.tag.text}:${it.displayName}`,
-        )
-      } else {
-        this.rowDivider()
-        ConciseListRow({
-          title: $r('app.string.tag_compose_empty_hint'),
-          showChevron: false,
-          isEnabled: false,
-        })
       }
     }
     .width('100%')
@@ -440,17 +338,16 @@ export struct TagQueryComposer {
 }
 
 /**
- * One added-tag row — a standard ConciseListRow (so row margins / text indent / dropdown arrow match every
- * other settings row). Title = translated name, subtitle = raw EH token; the suffix is a relation dropdown
- * (包含/任一/排除, standard arrowtriangle indicator) + an × to remove. No hand-rolled row chrome.
+ * One added-tag row — a standard ConciseListRow (title = translated name, subtitle = raw EH token) with a
+ * visible relation selector (包含/任一/排除, the standard arrowtriangle dropdown). Deletion is the host List's
+ * swipeAction, so the row has no × of its own. Exported so the host page can wrap it in a swipeable ListItem.
  */
 @ComponentV2
-struct TagRow {
+export struct TagRow {
   @Param tag: QueryTag = new QueryTag('', '', TagRelation.AND);
   @Param index: number = -1;
   @Param displayName: string = '';
   @Event onSetRelation: (index: number, relation: number) => void = () => {};
-  @Event onRemove: (index: number) => void = () => {};
   @Local private menuShown: boolean = false;
 
   private title(): string {
@@ -509,27 +406,19 @@ struct TagRow {
 
   @Builder
   private Suffix() {
-    Row({ space: ThemeConstants.SPACE_MD }) {
-      // Relation dropdown — same label+arrowtriangle look as ConciseListRow's own trailingDropdown.
-      Row({ space: ThemeConstants.SPACE_XS }) {
-        Text(this.relLabel())
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor(this.relColor())
-        SymbolGlyph($r('sys.symbol.arrowtriangle_down_fill'))
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-          .fontColor([$r('sys.color.font_tertiary')])
-      }
-      .onClick(() => {
-        this.menuShown = true
-      })
-      SymbolGlyph($r('sys.symbol.xmark_circle_fill'))
-        .fontSize(20)
+    // Relation dropdown — same label+arrowtriangle look as ConciseListRow's own trailingDropdown.
+    Row({ space: ThemeConstants.SPACE_XS }) {
+      Text(this.relLabel())
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor(this.relColor())
+      SymbolGlyph($r('sys.symbol.arrowtriangle_down_fill'))
+        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
         .fontColor([$r('sys.color.font_tertiary')])
-        .onClick(() => {
-          this.onRemove(this.index)
-        })
     }
     .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      this.menuShown = true
+    })
   }
 
   @Builder
