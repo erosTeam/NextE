@@ -174,16 +174,7 @@ export struct CacheSettingsPage {
                 $r('sys.symbol.textformat'),
               )
             }
-            // Backup & restore now lives under Storage (merged from the top-level settings list).
-            GroupedListSection() {
-              ConciseListRow({
-                title: $r('app.string.settings_backup'),
-                leadingIcon: $r('sys.symbol.cloud_and_arrow_up'),
-                action: () => {
-                  this.stack.pushPathByName('BackupSettings', null)
-                },
-              })
-            }
+            // Clear-all stays with the cache items (it's a cache action), in its own separated destructive card.
             GroupedListSection() {
               ConciseListRow({
                 title: $r('app.string.cache_clear_all'),
@@ -195,6 +186,16 @@ export struct CacheSettingsPage {
                   this.confirmThenClear($r('app.string.cache_clear_all_confirm'), () => {
                     this.runClear(this.clearEverything())
                   })
+                },
+              })
+            }
+            // Backup & restore (merged from the top-level settings list) sits below the cache controls.
+            GroupedListSection() {
+              ConciseListRow({
+                title: $r('app.string.settings_backup'),
+                leadingIcon: $r('sys.symbol.cloud_and_arrow_up'),
+                action: () => {
+                  this.stack.pushPathByName('BackupSettings', null)
                 },
               })
             }
