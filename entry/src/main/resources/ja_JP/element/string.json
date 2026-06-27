@@ -277,6 +277,46 @@
       "value": "タグ・キーワードを検索"
     },
     {
+      "name": "tag_compose_zone_include",
+      "value": "含む（かつ）"
+    },
+    {
+      "name": "tag_compose_zone_or",
+      "value": "いずれか（または）"
+    },
+    {
+      "name": "tag_compose_zone_exclude",
+      "value": "除外（否）"
+    },
+    {
+      "name": "tag_compose_rel_and",
+      "value": "含む（かつ）"
+    },
+    {
+      "name": "tag_compose_rel_or",
+      "value": "いずれか（または）"
+    },
+    {
+      "name": "tag_compose_rel_not",
+      "value": "除外（否）"
+    },
+    {
+      "name": "tag_compose_remove",
+      "value": "削除"
+    },
+    {
+      "name": "tag_compose_legend",
+      "value": "タグをタップして かつ / または / 否"
+    },
+    {
+      "name": "filter_disable_group",
+      "value": "デフォルトフィルターを無視"
+    },
+    {
+      "name": "tab_section_basic",
+      "value": "基本"
+    },
+    {
       "name": "tag_compose_empty_hint",
       "value": "上でタグを検索して絞り込み"
     },

@@ -112,6 +112,11 @@ export struct AdvancedSearchControls {
             this.changed()
           },
         )
+        // eros_fe groups the three "ignore my default <X> filter" toggles under one sub-header.
+        Text($r('app.string.filter_disable_group'))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_secondary'))
+          .margin({ top: ThemeConstants.SPACE_XS })
         this.ToggleRow(
           $r('app.string.filter_disable_lang'),
           this.filter.disableLanguageFilter,
@@ -229,11 +234,15 @@ export struct AdvancedSearchControls {
 
   @Builder
   PageInput(value: number, onChange: (v: number) => void) {
+    // Fill = sub_background + a hairline border so the field reads as an input on ANY host surface — on the
+    // editor's card_background card the old same-color fill made these boxes invisible.
     TextInput({ text: value > 0 ? `${value}` : '', placeholder: $r('app.string.filter_any') })
       .type(InputType.Number)
+      .textAlign(TextAlign.Center)
       .width(PAGE_INPUT_WIDTH)
       .height(PAGE_INPUT_HEIGHT)
-      .backgroundColor($r('app.color.card_background'))
+      .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+      .border({ width: 0.5, color: $r('sys.color.ohos_id_color_list_separator') })
       .fontSize(FORM_FONT_SIZE)
       .fontWeight(FontWeight.Medium)
       .fontColor($r('sys.color.font_primary'))

@@ -269,10 +269,11 @@ export struct TabEditPage {
         bottomPadding: ThemeConstants.SPACE_XL,
         alwaysEnableEdgeSpring: true,
       }) {
-        // Name (full-width stable field — no caret clip, no keyboard flap)
+        // Basics — name + list type + favcat grouped in one card under one header (consistent with the
+        // app's settings-form grammar: external grey header + a grouped card of rows).
         ListItem() {
           Column() {
-            SectionHeader({ title: $r('app.string.tab_name_label') })
+            SectionHeader({ title: $r('app.string.tab_section_basic') })
             GroupedListSection() {
               StableTextField({
                 value: this.name,
@@ -281,37 +282,34 @@ export struct TabEditPage {
                   this.name = v
                 },
               })
+              if (!this.builtin) {
+                this.rowDivider()
+                TabSelectRow({
+                  title: $r('app.string.tab_list_type'),
+                  options: this.typeOptions(),
+                  current: this.listType,
+                  onPick: (v: string) => {
+                    this.listType = v
+                  },
+                })
+                if (this.listType === PROFILE_TYPE_FAVORITE) {
+                  this.rowDivider()
+                  TabSelectRow({
+                    title: $r('app.string.tab_favcat'),
+                    options: this.favcatOptions(),
+                    current: this.favcat,
+                    onPick: (v: string) => {
+                      this.favcat = v
+                    },
+                  })
+                }
+              }
             }
           }
           .alignItems(HorizontalAlign.Start)
         }
 
         if (!this.builtin) {
-          // List type (+ favorite folder)
-          ListItem() {
-            GroupedListSection() {
-              TabSelectRow({
-                title: $r('app.string.tab_list_type'),
-                options: this.typeOptions(),
-                current: this.listType,
-                onPick: (v: string) => {
-                  this.listType = v
-                },
-              })
-              if (this.listType === PROFILE_TYPE_FAVORITE) {
-                this.rowDivider()
-                TabSelectRow({
-                  title: $r('app.string.tab_favcat'),
-                  options: this.favcatOptions(),
-                  current: this.favcat,
-                  onPick: (v: string) => {
-                    this.favcat = v
-                  },
-                })
-              }
-            }
-          }
-
           // Toplist period
           if (this.listType === PROFILE_TYPE_TOPLIST) {
             ListItem() {
@@ -343,30 +341,34 @@ export struct TabEditPage {
           }
 
           if (this.usesFilters()) {
-            // Search composer (tag suggestions + include/exclude chips) — no card; the field is the element
+            // Search composer (tag suggestions + AND/OR/NOT chips), inside a card so it groups like Basics.
             ListItem() {
-              Column({ space: ThemeConstants.SPACE_XS }) {
+              Column() {
                 SectionHeader({ title: $r('app.string.tab_search_text') })
-                TagQueryComposer({
-                  query: this.searchText,
-                  onQueryChange: (q: string) => {
-                    this.searchText = q
-                  },
-                })
+                GroupedListSection() {
+                  TagQueryComposer({
+                    query: this.searchText,
+                    onQueryChange: (q: string) => {
+                      this.searchText = q
+                    },
+                  })
+                }
               }
               .alignItems(HorizontalAlign.Start)
             }
-            // Category grid — colored buttons supply their own surfaces; no white card behind
+            // Category grid
             ListItem() {
               Column() {
                 SectionHeader({ title: $r('app.string.tab_category') })
-                CategorySelector({ filter: this.filter })
+                GroupedListSection() {
+                  CategorySelector({ filter: this.filter })
+                }
               }
               .alignItems(HorizontalAlign.Start)
             }
           }
 
-          // Advanced search (its own master toggle heads the card)
+          // Advanced search
           if (this.usesAdvanced()) {
             ListItem() {
               Column() {
@@ -379,7 +381,7 @@ export struct TabEditPage {
             }
           }
 
-          // Display mode
+          // Display mode — single self-labeled row, no separate header.
           ListItem() {
             GroupedListSection() {
               TabSelectRow({
@@ -393,7 +395,7 @@ export struct TabEditPage {
             }
           }
 
-          // Delete (existing custom profiles only)
+          // Delete (existing custom profiles only) — separated from the settings groups above.
           if (!this.isCreate) {
             ListItem() {
               GroupedListSection() {
@@ -408,6 +410,7 @@ export struct TabEditPage {
                 })
               }
             }
+            .margin({ top: ThemeConstants.SPACE_LG })
           }
         }
       }

@@ -277,6 +277,46 @@
       "value": "搜索标签 / 关键词"
     },
     {
+      "name": "tag_compose_zone_include",
+      "value": "包含（且）"
+    },
+    {
+      "name": "tag_compose_zone_or",
+      "value": "任一（或）"
+    },
+    {
+      "name": "tag_compose_zone_exclude",
+      "value": "排除（否）"
+    },
+    {
+      "name": "tag_compose_rel_and",
+      "value": "包含（且）"
+    },
+    {
+      "name": "tag_compose_rel_or",
+      "value": "任一（或）"
+    },
+    {
+      "name": "tag_compose_rel_not",
+      "value": "排除（否）"
+    },
+    {
+      "name": "tag_compose_remove",
+      "value": "移除"
+    },
+    {
+      "name": "tag_compose_legend",
+      "value": "点按标签可设为 且 / 或 / 否"
+    },
+    {
+      "name": "filter_disable_group",
+      "value": "忽略默认过滤"
+    },
+    {
+      "name": "tab_section_basic",
+      "value": "基础信息"
+    },
+    {
       "name": "tag_compose_empty_hint",
       "value": "在上方搜索标签来筛选此标签页"
     },
