@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit'
 import { ThemeConstants } from '../theme/ThemeConstants'
-import { AppStrings } from '../i18n/AppStrings'
 import { AppSearchField } from './AppSearchField'
+import { ConciseListRow } from './ConciseListRow'
 import { SettingsCheckedMenuItem } from './SettingsCheckedMenuItem'
 import { EhTagSuggestion } from '../model/EhTagSuggestion'
 import { TagTranslationService } from '../services/TagTranslationService'
@@ -49,12 +49,12 @@ class TagRowItem {
 }
 
 /**
- * Graphical EH-query composer. The user searches tags (local translation DB + EH /api.php tagsuggest, same
- * pipeline as the search page) and taps a suggestion to add it; added tags show as readable ROWS — translated
- * name + raw EH token + a visible 包含/任一/排除 relation selector + remove — NOT tiny chips. Relations map to
- * EH's native operators (space = AND, '~' = OR, '-' = NOT), so the single `query` string the parent owns flows
- * unchanged through f_search. Built from AppSearchField (keyboard-stable) + ConciseListRow (so row height,
- * padding, alignment match every other settings list). Reloaded tags get their translation re-resolved.
+ * Graphical EH-query composer. Search tags (local translation DB + EH /api.php tagsuggest) and tap a
+ * suggestion to add it; added tags are rendered as standard ConciseListRow rows — translated name + raw EH
+ * token + a relation dropdown (包含/任一/排除, the same arrowtriangle indicator as every other dropdown) + an
+ * × to remove. Relations map to EH native operators (space = AND, '~' = OR, '-' = NOT), so the single `query`
+ * string the parent owns flows unchanged through f_search. Every row is a ConciseListRow, so margins, text
+ * indent, and the dropdown icon match the rest of the app by construction (no hand-rolled rows).
  */
 @ComponentV2
 export struct TagQueryComposer {
@@ -189,14 +189,6 @@ export struct TagQueryComposer {
     return `${t.namespace}:${t.text}`
   }
 
-  /** Canonical EH token for a tag, WITHOUT the relation prefix (shown as the row subtitle). */
-  private tokenText(t: QueryTag): string {
-    if (t.namespace.length > 0) {
-      return EhConstants.exactTagSearchQuery(t.namespace, t.text)
-    }
-    return t.text
-  }
-
   private rowItems(): TagRowItem[] {
     const out: TagRowItem[] = []
     this.tags().forEach((t: QueryTag, i: number) => {
@@ -206,7 +198,7 @@ export struct TagQueryComposer {
     return out
   }
 
-  // ── translation resolution (so reloaded tags show their translated name too) ──
+  // ── translation resolution (reloaded tags show their translated name too) ──
   private async ensureTranslations(): Promise<void> {
     if (!connectTagTranslationSettings().enabled) {
       return
@@ -226,7 +218,6 @@ export struct TagQueryComposer {
       }
       try {
         const name: string = await TagTranslationService.translateFullTagAsync(this.ctx(), `${t.namespace}:${t.text}`)
-        // translateFullTagAsync falls back to the input when there's no translation; only keep a real one.
         if (name.length > 0 && name !== `${t.namespace}:${t.text}` && name !== t.text) {
           next.set(key, name)
           changed = true
@@ -369,6 +360,10 @@ export struct TagQueryComposer {
     }
   }
 
+  private suggestionTitle(s: EhTagSuggestion): string {
+    return s.displayName.length > 0 ? `${EhConstants.expandNamespace(s.namespace)}:${s.displayName}` : s.label()
+  }
+
   @Builder
   private rowDivider() {
     Divider()
@@ -378,7 +373,9 @@ export struct TagQueryComposer {
   }
 
   build() {
-    Column({ space: ThemeConstants.SPACE_SM }) {
+    // One tight list: the search field, then a divider before each suggestion / tag row, so the field and
+    // every row are separated by a hairline (no big gap), all inside the one 搜索词 card.
+    Column() {
       AppSearchField({
         text: this.addText,
         placeholder: $r('app.string.tag_compose_placeholder'),
@@ -393,82 +390,49 @@ export struct TagQueryComposer {
       })
 
       if (this.suggestionCount > 0) {
-        this.SuggestionList()
-      } else if (this.query.trim().length > 0) {
-        this.TagList()
-      } else {
-        Text($r('app.string.tag_compose_empty_hint'))
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor($r('sys.color.font_tertiary'))
-          .padding({ top: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-      }
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private SuggestionList() {
-    Column() {
-      ForEach(
-        this.suggestions,
-        (s: EhTagSuggestion) => {
-          Row({ space: ThemeConstants.SPACE_MD }) {
-            SymbolGlyph($r('sys.symbol.magnifyingglass'))
-              .fontSize(22)
-              .fontColor([$r('sys.color.font_tertiary')])
-            Column({ space: 2 }) {
-              Text(s.displayName.length > 0 ? `${EhConstants.expandNamespace(s.namespace)}:${s.displayName}` : s.label())
-                .fontSize(ThemeConstants.FONT_SIZE_BODY)
-                .fontColor($r('sys.color.font_primary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-              Text(s.label())
-                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                .fontColor($r('sys.color.font_tertiary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-          }
-          .width('100%')
-          .height(56)
-          .alignItems(VerticalAlign.Center)
-          .onClick(() => {
-            this.addFromSuggestion(s)
-          })
-        },
-        (s: EhTagSuggestion) => `${s.namespace}:${s.text}:${s.displayName}`,
-      )
-    }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  private TagList() {
-    Column() {
-      ForEach(
-        this.rowItems(),
-        (it: TagRowItem, idx: number) => {
-          if (idx > 0) {
+        ForEach(
+          this.suggestions,
+          (s: EhTagSuggestion) => {
             this.rowDivider()
-          }
-          TagRow({
-            tag: it.tag,
-            index: it.index,
-            displayName: it.displayName,
-            onSetRelation: (index: number, rel: number) => {
-              this.setRelation(index, rel)
-            },
-            onRemove: (index: number) => {
-              this.removeTag(index)
-            },
-          })
-        },
-        (it: TagRowItem) => `${it.tag.relation}:${it.tag.namespace}:${it.tag.text}:${it.displayName}`,
-      )
+            ConciseListRow({
+              title: this.suggestionTitle(s),
+              subtitle: s.label(),
+              leadingIcon: $r('sys.symbol.magnifyingglass'),
+              showChevron: false,
+              action: () => {
+                this.addFromSuggestion(s)
+              },
+            })
+          },
+          (s: EhTagSuggestion) => `${s.namespace}:${s.text}:${s.displayName}`,
+        )
+      } else if (this.query.trim().length > 0) {
+        ForEach(
+          this.rowItems(),
+          (it: TagRowItem) => {
+            this.rowDivider()
+            TagRow({
+              tag: it.tag,
+              index: it.index,
+              displayName: it.displayName,
+              onSetRelation: (index: number, rel: number) => {
+                this.setRelation(index, rel)
+              },
+              onRemove: (index: number) => {
+                this.removeTag(index)
+              },
+            })
+          },
+          (it: TagRowItem) => `${it.tag.relation}:${it.tag.namespace}:${it.tag.text}:${it.displayName}`,
+        )
+      } else {
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.tag_compose_empty_hint'),
+          showChevron: false,
+          isEnabled: false,
+        })
+      }
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
@@ -476,9 +440,9 @@ export struct TagQueryComposer {
 }
 
 /**
- * One added-tag row: namespace color dot + translated name (raw token as the subtitle) + a visible relation
- * selector (包含/任一/排除 dropdown) + remove. A readable full-width row, not a tiny chip; spacing inherits
- * the app row metrics. The relation is set right here (no hidden tap-to-menu on a small pill).
+ * One added-tag row — a standard ConciseListRow (so row margins / text indent / dropdown arrow match every
+ * other settings row). Title = translated name, subtitle = raw EH token; the suffix is a relation dropdown
+ * (包含/任一/排除, standard arrowtriangle indicator) + an × to remove. No hand-rolled row chrome.
  */
 @ComponentV2
 struct TagRow {
@@ -525,51 +489,46 @@ struct TagRow {
   }
 
   build() {
-    Row({ space: ThemeConstants.SPACE_SM }) {
-      Column({ space: 2 }) {
-        Text(this.title())
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor($r('sys.color.font_primary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        if (this.subtitle().length > 0) {
-          Text(this.subtitle())
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_tertiary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      // Relation selector — bare label + chevron, matching the other dropdown rows (列表类型 / 最低评分 / 显示模式).
+    Column() {
+      ConciseListRow({
+        title: this.title(),
+        subtitle: this.subtitle(),
+        showChevron: false,
+        suffixBuilderParam: () => {
+          this.Suffix()
+        },
+      })
+    }
+    .bindMenu(this.menuShown, this.RelationMenu, {
+      placement: Placement.BottomRight,
+      onDisappear: () => {
+        this.menuShown = false
+      },
+    })
+  }
+
+  @Builder
+  private Suffix() {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      // Relation dropdown — same label+arrowtriangle look as ConciseListRow's own trailingDropdown.
       Row({ space: ThemeConstants.SPACE_XS }) {
         Text(this.relLabel())
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
           .fontColor(this.relColor())
-        SymbolGlyph($r('sys.symbol.chevron_down'))
-          .fontSize(14)
-          .fontColor([this.relColor()])
+        SymbolGlyph($r('sys.symbol.arrowtriangle_down_fill'))
+          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+          .fontColor([$r('sys.color.font_tertiary')])
       }
       .onClick(() => {
         this.menuShown = true
       })
-      .bindMenu(this.menuShown, this.RelationMenu, {
-        placement: Placement.Bottom,
-        onDisappear: () => {
-          this.menuShown = false
-        },
-      })
       SymbolGlyph($r('sys.symbol.xmark'))
-        .fontSize(16)
+        .fontSize(18)
         .fontColor([$r('sys.color.font_tertiary')])
-        .margin({ left: ThemeConstants.SPACE_XS })
         .onClick(() => {
           this.onRemove(this.index)
         })
     }
-    .width('100%')
-    .height(60)
     .alignItems(VerticalAlign.Center)
   }
 

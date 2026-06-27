@@ -31,7 +31,7 @@ import {
   PROFILE_TYPE_FAVORITE,
 } from 'shared'
 
-/** One selectable option for a TabSelectRow dropdown (string value + resolved label). */
+/** One option for a dropdown row (string value + resolved label). */
 class SelectOption {
   value: string
   label: ResourceStr
@@ -65,12 +65,11 @@ const DISPLAY_OPTIONS: TypeOption[] = [
 const TOPLIST_TLS: number[] = [11, 12, 13, 15]
 
 /**
- * Create / edit one custom home sub-tab profile (eros_fe profile editor) — a full routed page (the user
- * chose a page over a half-modal). Built on the app's standard settings-form chrome: SecondaryListScaffold
- * + SectionHeader + GroupedListSection cards of ConciseListRow-based rows (TabSelectRow / TabTextRow), so
- * it reads exactly like EhProfileSettingsPage and the layout settings page — no hand-rolled rows. The
- * category grid + advanced controls are the shared CategorySelector / AdvancedSearchControls bound to a
- * TRANSIENT SearchFilterState seeded from the profile and read back on 保存. Built-ins reduce to name-only.
+ * Create / edit one custom home sub-tab profile. Built ENTIRELY from the app's standard list components —
+ * SecondaryListScaffold + SectionHeader + GroupedListSection + ConciseListRow (dropdown / value rows), the
+ * name edited in an AppModalScaffold sheet, the tag query via the shared TagQueryComposer, categories via
+ * CategorySelector, advanced via AdvancedSearchControls. No hand-rolled rows, so margins / text indent /
+ * dropdown icons match every other settings screen by construction. Built-ins reduce to name-only.
  */
 @ComponentV2
 export struct TabEditPage {
@@ -85,7 +84,6 @@ export struct TabEditPage {
   @Local favcat: string = 'a';
   @Local toplistTl: number = 15;
   @Local displayMode: string = PROFILE_DISPLAY_GLOBAL;
-  // Transient filter bound to the shared category/advanced controls; seeded on enter, read back on save.
   @Local filter: SearchFilterState = new SearchFilterState();
   @Local favSelection: FavSelectionState = connectFavSelection();
   @Local private periodItems: SegmentButtonV2Items = new SegmentButtonV2Items([
@@ -104,7 +102,6 @@ export struct TabEditPage {
     this.periodItems[1].text = AppStrings.get('toplist_year')
     this.periodItems[2].text = AppStrings.get('toplist_month')
     this.periodItems[3].text = AppStrings.get('toplist_yesterday')
-    // RESIZE so a focused field (name / tag search) scrolls clear of the soft keyboard.
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
   }
 
@@ -150,9 +147,7 @@ export struct TabEditPage {
   }
 
   private displayOptions(): SelectOption[] {
-    return DISPLAY_OPTIONS.map(
-      (o: TypeOption) => new SelectOption(o.value, AppStrings.get(o.labelKey)),
-    )
+    return DISPLAY_OPTIONS.map((o: TypeOption) => new SelectOption(o.value, AppStrings.get(o.labelKey)))
   }
 
   private favcatOptions(): SelectOption[] {
@@ -161,6 +156,37 @@ export struct TabEditPage {
       out.push(new SelectOption(f.favId, f.favTitle.length > 0 ? f.favTitle : f.favId))
     })
     return out
+  }
+
+  private typeLabel(): string {
+    for (let i = 0; i < TYPE_OPTIONS.length; i++) {
+      if (TYPE_OPTIONS[i].value === this.listType) {
+        return AppStrings.get(TYPE_OPTIONS[i].labelKey)
+      }
+    }
+    return AppStrings.get('tab_type_gallery')
+  }
+
+  private displayLabel(): string {
+    for (let i = 0; i < DISPLAY_OPTIONS.length; i++) {
+      if (DISPLAY_OPTIONS[i].value === this.displayMode) {
+        return AppStrings.get(DISPLAY_OPTIONS[i].labelKey)
+      }
+    }
+    return AppStrings.get('view_follow_global')
+  }
+
+  private favcatLabel(): string {
+    if (this.favcat === 'a') {
+      return AppStrings.get('favorites_all')
+    }
+    const list: Favcat[] = this.favSelection.favList
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].favId === this.favcat) {
+        return list[i].favTitle.length > 0 ? list[i].favTitle : this.favcat
+      }
+    }
+    return this.favcat
   }
 
   // ── derived state ─────────────────────────────────────────────────────────
@@ -267,17 +293,15 @@ export struct TabEditPage {
       SecondaryListScaffold({
         scroller: this.scroller,
         bottomPadding: ThemeConstants.SPACE_XL,
-        alwaysEnableEdgeSpring: true,
+          alwaysEnableEdgeSpring: true,
       }) {
-        // Basics — name + list type + favcat grouped in one card under one header (consistent with the
-        // app's settings-form grammar: external grey header + a grouped card of rows).
+        // Basics — name, list type, (favcat), display mode.
         ListItem() {
           Column() {
             SectionHeader({ title: $r('app.string.tab_section_basic') })
             GroupedListSection() {
-              StableTextField({
+              NameField({
                 value: this.name,
-                placeholder: $r('app.string.tab_name_placeholder'),
                 onChange: (v: string) => {
                   this.name = v
                 },
@@ -286,6 +310,7 @@ export struct TabEditPage {
                 this.rowDivider()
                 TabSelectRow({
                   title: $r('app.string.tab_list_type'),
+                  value: this.typeLabel(),
                   options: this.typeOptions(),
                   current: this.listType,
                   onPick: (v: string) => {
@@ -296,6 +321,7 @@ export struct TabEditPage {
                   this.rowDivider()
                   TabSelectRow({
                     title: $r('app.string.tab_favcat'),
+                    value: this.favcatLabel(),
                     options: this.favcatOptions(),
                     current: this.favcat,
                     onPick: (v: string) => {
@@ -303,6 +329,16 @@ export struct TabEditPage {
                     },
                   })
                 }
+                this.rowDivider()
+                TabSelectRow({
+                  title: $r('app.string.tab_display_mode'),
+                  value: this.displayLabel(),
+                  options: this.displayOptions(),
+                  current: this.displayMode,
+                  onPick: (v: string) => {
+                    this.displayMode = v
+                  },
+                })
               }
             }
           }
@@ -341,7 +377,7 @@ export struct TabEditPage {
           }
 
           if (this.usesFilters()) {
-            // Search composer (tag suggestions + AND/OR/NOT chips), inside a card so it groups like Basics.
+            // Search tags
             ListItem() {
               Column() {
                 SectionHeader({ title: $r('app.string.tab_search_text') })
@@ -356,7 +392,7 @@ export struct TabEditPage {
               }
               .alignItems(HorizontalAlign.Start)
             }
-            // Category grid
+            // Categories
             ListItem() {
               Column() {
                 SectionHeader({ title: $r('app.string.tab_category') })
@@ -368,7 +404,7 @@ export struct TabEditPage {
             }
           }
 
-          // Advanced search
+          // Advanced
           if (this.usesAdvanced()) {
             ListItem() {
               Column() {
@@ -381,21 +417,7 @@ export struct TabEditPage {
             }
           }
 
-          // Display mode — single self-labeled row, no separate header.
-          ListItem() {
-            GroupedListSection() {
-              TabSelectRow({
-                title: $r('app.string.tab_display_mode'),
-                options: this.displayOptions(),
-                current: this.displayMode,
-                onPick: (v: string) => {
-                  this.displayMode = v
-                },
-              })
-            }
-          }
-
-          // Delete (existing custom profiles only) — separated from the settings groups above.
+          // Delete (existing custom profiles only)
           if (!this.isCreate) {
             ListItem() {
               GroupedListSection() {
@@ -424,29 +446,70 @@ export struct TabEditPage {
   }
 }
 
-/** Label + dropdown row bound to a string-valued option set (ConciseListRow + bindMenu, app-standard). */
+/** Inline name editor: a standard ConciseListRow whose suffix is an editable text field (label left, value
+ * right). Mirror pattern (external value seeds a private @Local once; build reads only the @Local) so typing
+ * never re-mounts the field / drops the IME, and there's no half-modal. */
+@ComponentV2
+struct NameField {
+  @Param value: string = '';
+  @Event onChange: (value: string) => void = () => {};
+  @Local private fieldText: string = '';
+
+  aboutToAppear(): void {
+    this.fieldText = this.value
+  }
+
+  @Monitor('value')
+  onExternalChange(): void {
+    if (this.value !== this.fieldText) {
+      this.fieldText = this.value
+    }
+  }
+
+  build() {
+    ConciseListRow({
+      title: $r('app.string.tab_name_label'),
+      showChevron: false,
+      suffixPaddingRight: ThemeConstants.SPACE_MD,
+      suffixBuilderParam: () => {
+        this.Input()
+      },
+    })
+  }
+
+  @Builder
+  private Input() {
+    TextInput({ text: this.fieldText, placeholder: $r('app.string.tab_name_placeholder') })
+      .textAlign(TextAlign.End)
+      .backgroundColor(Color.Transparent)
+      .padding({ top: 0, bottom: 0, left: 0, right: 2 })
+      .width(220)
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor($r('sys.color.font_primary'))
+      .placeholderColor($r('sys.color.font_tertiary'))
+      .onChange((v: string) => {
+        this.fieldText = v
+        this.onChange(v)
+      })
+  }
+}
+
+/** Label + value + dropdown row, on the standard ConciseListRow trailingDropdown (same arrow as every other
+ * dropdown in the app); the menu is a checked-item list. No hand-rolled chrome. */
 @ComponentV2
 struct TabSelectRow {
   @Param title: ResourceStr = '';
+  @Param value: string = '';
   @Param options: SelectOption[] = [];
   @Param current: string = '';
   @Event onPick: (value: string) => void = () => {};
   @Local private menuShown: boolean = false;
 
-  private currentLabel(): ResourceStr {
-    for (let i: number = 0; i < this.options.length; i++) {
-      if (this.options[i].value === this.current) {
-        return this.options[i].label
-      }
-    }
-    return ''
-  }
-
   build() {
     Column() {
       ConciseListRow({
         title: this.title,
-        trailingText: this.currentLabel(),
+        trailingText: this.value,
         trailingDropdown: true,
         action: () => {
           this.menuShown = true
@@ -479,45 +542,6 @@ struct TabSelectRow {
         (option: SelectOption) => option.value,
       )
     }
-  }
-}
-
-/**
- * Full-width single-line text field with the AppSearchField keyboard-stable mirror pattern: the external
- * value seeds a private @Local once, build() reads ONLY the @Local, and the parent's value re-seeds it via
- * @Monitor only when it actually differs — so typing never re-mounts the field (no IME flap) and the caret
- * is never clipped (full width, left-aligned, real height + padding). Replaces the old suffix-input row.
- */
-@ComponentV2
-struct StableTextField {
-  @Param value: string = '';
-  @Param placeholder: ResourceStr = '';
-  @Event onChange: (value: string) => void = () => {};
-  @Local private fieldText: string = '';
-
-  aboutToAppear(): void {
-    this.fieldText = this.value
-  }
-
-  @Monitor('value')
-  onExternalChange(): void {
-    if (this.value !== this.fieldText) {
-      this.fieldText = this.value
-    }
-  }
-
-  build() {
-    TextInput({ text: this.fieldText, placeholder: this.placeholder })
-      .width('100%')
-      .height(44)
-      .fontSize(ThemeConstants.FONT_SIZE_BODY)
-      .fontColor($r('sys.color.font_primary'))
-      .backgroundColor(Color.Transparent)
-      .borderRadius(ThemeConstants.RADIUS_MD)
-      .padding({ left: ThemeConstants.SPACE_MD, right: ThemeConstants.SPACE_MD })
-      .onChange((v: string) => {
-        this.fieldText = v
-        this.onChange(v)
-      })
+    .backgroundColor($r('app.color.card_background'))
   }
 }

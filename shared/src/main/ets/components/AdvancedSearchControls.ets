@@ -216,7 +216,6 @@ export struct AdvancedSearchControls {
       .width(PAGE_INPUT_WIDTH)
       .height(PAGE_INPUT_HEIGHT)
       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-      .border({ width: 0.5, color: $r('sys.color.ohos_id_color_list_separator') })
       .borderRadius(ThemeConstants.RADIUS_MD)
       .fontSize(ThemeConstants.FONT_SIZE_BODY)
       .fontColor($r('sys.color.font_primary'))
