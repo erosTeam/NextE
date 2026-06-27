@@ -79,6 +79,9 @@ export struct GalleryWaterfallCard {
 
   private chipBg(t: SimpleTag): ResourceColor {
     const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    if (u !== undefined && u.colorCode.length > 0) {
+      return u.colorCode
+    }
     if (u !== undefined && u.fillColor.length > 0) {
       return u.fillColor
     }

@@ -177,10 +177,10 @@ Verification: list responsive cover contract, list height mode contract, cover p
 Status: active
 Reference implementation: `shared/src/main/ets/components/GalleryCard.ets`, `shared/src/main/ets/components/GalleryWaterfallCard.ets`, and `shared/src/main/ets/theme/ThemeConstants.ets`.
 Surface type: ordinary gallery tag chips in LIST and WATERFALL browsing cards.
-Primary information: tag chips remain compact tag labels; only their corner radius is tuned.
+Primary information: tag chips remain compact tag labels; their corner radius stays tuned, and user-configured tag colors must match the editable MyTags color rather than EH's darker preview border/fill color.
 Primary action: tapping a tag still publishes the existing exact-tag search.
-Reuse or deviation: reuse the existing tag chip renderers and introduce one narrow token, `LIST_TAG_RADIUS = 6`, instead of reusing card/badge/detail-chip radii.
-Verification: UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
+Reuse or deviation: reuse the existing tag chip renderers and `UserTagStore` lookup; keep inline list colors as fallback, but when a MyTags entry exists prefer `EhUsertag.colorCode` before `fillColor`, matching the edit sheet and MyTags list badge.
+Verification: tag chip contract, MyTags setusertag contract, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
 
 ## Active: gallery cover wall mode
 

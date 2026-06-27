@@ -85,10 +85,13 @@ export struct GalleryCard {
     return imageRatio - slotRatio <= 0.28 && slotRatio - imageRatio <= 0.2
   }
 
-  // Chip background: the user's own fill color for this tag, else the inline-style color (future), else
-  // neutral grey. Never namespace-derived.
+  // Chip background: the user's editable MyTags color, else EH preview fill, else inline-style fallback.
+  // Never namespace-derived.
   chipBg(t: SimpleTag): ResourceColor {
     const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    if (u !== undefined && u.colorCode.length > 0) {
+      return u.colorCode
+    }
     if (u !== undefined && u.fillColor.length > 0) {
       return u.fillColor
     }

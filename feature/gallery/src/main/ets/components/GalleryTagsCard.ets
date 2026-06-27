@@ -141,9 +141,13 @@ export struct GalleryTagsCard {
   @Local addWeight: string = '10';
   private editSourceTag: EhUsertag | null = null;
 
-  // Member chip background: the user's own fill color for this tag, else neutral grey. Never namespace.
+  // Member chip background: the user's editable MyTags color, else EH preview fill, else neutral grey.
+  // Never namespace.
   chipBg(t: SimpleTag, ns: string): ResourceColor {
     const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(ns, t.text)
+    if (u !== undefined && u.colorCode.length > 0) {
+      return u.colorCode
+    }
     if (u !== undefined && u.fillColor.length > 0) {
       return u.fillColor
     }

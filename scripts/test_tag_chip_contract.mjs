@@ -66,12 +66,14 @@ ok(/"name": "tagns_temp"[\s\S]*"value": "#D7D7D6"/.test(lightColors), 'light tem
 ok(/"name": "tagns_other"[\s\S]*"value": "#925554"/.test(darkColors), 'dark other namespace colour mirrors eros_fe')
 ok(/"name": "tagns_temp"[\s\S]*"value": "#63666A"/.test(darkColors), 'dark temp namespace colour mirrors eros_fe')
 
-// 4) Member chip colour resolution preserved (chipBg = usertag fill | neutral; chipText = vote | usertag | neutral).
+// 4) Member chip colour resolution preserved (chipBg = editable usertag color | preview fill | neutral;
+// chipText = vote | usertag | neutral).
 const chipBg = (() => {
   const m = /chipBg\(t: SimpleTag, ns: string\): ResourceColor \{[\s\S]*?\n  \}/.exec(card)
   return m ? m[0] : ''
 })()
-ok(/u\.fillColor/.test(chipBg), 'chipBg uses the usertag fillColor when the user coloured the tag')
+ok(/u\.colorCode[\s\S]*?return u\.colorCode[\s\S]*?u\.fillColor/.test(chipBg),
+  'chipBg uses the editable usertag colorCode before EH preview fillColor')
 ok(/ohos_id_color_sub_background/.test(chipBg), 'chipBg falls back to neutral grey (never namespace)')
 ok(!/tagNamespaceColor/.test(chipBg), 'chipBg never uses the namespace colour for members')
 
