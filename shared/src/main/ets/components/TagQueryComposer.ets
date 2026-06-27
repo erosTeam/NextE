@@ -522,8 +522,8 @@ struct TagRow {
       .onClick(() => {
         this.menuShown = true
       })
-      SymbolGlyph($r('sys.symbol.xmark'))
-        .fontSize(18)
+      SymbolGlyph($r('sys.symbol.xmark_circle_fill'))
+        .fontSize(20)
         .fontColor([$r('sys.color.font_tertiary')])
         .onClick(() => {
           this.onRemove(this.index)
