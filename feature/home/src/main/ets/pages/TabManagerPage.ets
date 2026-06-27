@@ -67,20 +67,22 @@ export struct TabManagerPage {
     return 'tab_type_gallery'
   }
 
-  private typeIcon(listType: string): Resource {
-    if (listType === PROFILE_TYPE_POPULAR) {
+  private typeIcon(p: CustomProfile): Resource {
+    if (p.listType === PROFILE_TYPE_POPULAR) {
       return $r('sys.symbol.star')
     }
-    if (listType === PROFILE_TYPE_WATCHED) {
+    if (p.listType === PROFILE_TYPE_WATCHED) {
       return $r('sys.symbol.bookmark')
     }
-    if (listType === PROFILE_TYPE_TOPLIST) {
+    if (p.listType === PROFILE_TYPE_TOPLIST) {
       return $r('sys.symbol.list_number')
     }
-    if (listType === PROFILE_TYPE_FAVORITE) {
+    if (p.listType === PROFILE_TYPE_FAVORITE) {
       return $r('sys.symbol.heart_fill')
     }
-    return $r('sys.symbol.square_grid_2x2')
+    // Gallery type: the builtin home keeps the grid icon; a custom (non-default) search group uses `more`
+    // so it's visually distinct from the default home tab.
+    return p.builtin ? $r('sys.symbol.square_grid_2x2') : $r('sys.symbol.more')
   }
 
   private summary(p: CustomProfile): string {
@@ -127,7 +129,7 @@ export struct TabManagerPage {
   @Builder
   private ProfileRow(p: CustomProfile) {
     Row({ space: ThemeConstants.SPACE_MD }) {
-      SymbolGlyph(this.typeIcon(p.listType))
+      SymbolGlyph(this.typeIcon(p))
         .fontSize(22)
         .fontColor([$r('sys.color.font_secondary')])
       Column({ space: 2 }) {
