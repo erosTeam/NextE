@@ -277,18 +277,6 @@
       "value": "搜索标签 / 关键词"
     },
     {
-      "name": "tag_compose_zone_include",
-      "value": "包含（且）"
-    },
-    {
-      "name": "tag_compose_zone_or",
-      "value": "任一（或）"
-    },
-    {
-      "name": "tag_compose_zone_exclude",
-      "value": "排除（否）"
-    },
-    {
       "name": "tag_compose_rel_and",
       "value": "包含（且）"
     },
@@ -299,14 +287,6 @@
     {
       "name": "tag_compose_rel_not",
       "value": "排除（否）"
-    },
-    {
-      "name": "tag_compose_remove",
-      "value": "移除"
-    },
-    {
-      "name": "tag_compose_legend",
-      "value": "点按标签可设为 且 / 或 / 否"
     },
     {
       "name": "filter_disable_group",

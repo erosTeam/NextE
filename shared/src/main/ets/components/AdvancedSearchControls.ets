@@ -1,42 +1,37 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { AppStrings } from '../i18n/AppStrings'
 import { SearchFilterState } from '../state/SearchFilterState'
-import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
+import { ConciseListRow } from './ConciseListRow'
+import { SettingsCheckedMenuItem } from './SettingsCheckedMenuItem'
 
 const RATINGS: number[] = [0, 2, 3, 4, 5]
-const SEGMENT_HEIGHT: number = 44
-const SEGMENT_PADDING_V: number = 8
-const TOGGLE_MIN_HEIGHT: number = 44
-const TOGGLE_MAX_WIDTH: number = 520
-const PAGE_INPUT_WIDTH: number = 92
-const PAGE_INPUT_HEIGHT: number = 40
-const PAGE_RANGE_GROUP_WIDTH: number = 220
-const FORM_ROW_MAX_WIDTH: number = 640
-const FORM_LABEL_WIDTH: number = 80
-const FORM_FONT_SIZE: number = ThemeConstants.FONT_SIZE_TITLE
+const PAGE_INPUT_WIDTH: number = 84
+const PAGE_INPUT_HEIGHT: number = 36
+
+/** One min-rating choice for the dropdown. */
+class RatingOption {
+  value: number
+  label: string
+
+  constructor(value: number, label: string) {
+    this.value = value
+    this.label = label
+  }
+}
 
 /**
- * EH advanced-search controls: the master 高级搜索 toggle, and — when enabled — min-rating segment,
- * page-range inputs, and the five eros_fe toggles (torrent / expunged / disable language|uploader|tag
- * filters). Reads/writes the SearchFilterState advanced fields. Extracted from SearchFilterSheet so the
- * search sheet AND the custom-tab editor share one control set. `onChanged` lets the host react (the
- * search sheet bumps applySeq; the editor passes nothing).
+ * EH advanced-search controls: the master 高级选项 switch, and — when on — min-rating, page range, and the
+ * five eros_fe toggles (torrent / expunged / disable language|uploader|tag filters). Built ENTIRELY from the
+ * app-standard ConciseListRow (switch rows, a dropdown row, a row with an input suffix) + rowDivider, so row
+ * height, padding, left-alignment and switch styling all match every other settings list by construction —
+ * no hand-rolled spacing. Reads/writes the SearchFilterState advanced fields; shared by the search filter
+ * sheet and the custom-tab editor. `onChanged` lets the host react.
  */
 @ComponentV2
 export struct AdvancedSearchControls {
   @Param filter: SearchFilterState = new SearchFilterState();
   @Event onChanged?: () => void;
-  @Local private ratingItems: SegmentButtonV2Items = new SegmentButtonV2Items([
-    { text: '' },
-    { text: '2★' },
-    { text: '3★' },
-    { text: '4★' },
-    { text: '5★' },
-  ]);
-
-  aboutToAppear(): void {
-    this.ratingItems[0].text = AppStrings.get('filter_any')
-  }
+  @Local private ratingMenuShown: boolean = false;
 
   private changed(): void {
     if (this.onChanged) {
@@ -44,198 +39,177 @@ export struct AdvancedSearchControls {
     }
   }
 
-  private setAdvancedEnabled(on: boolean): void {
-    if (this.filter.advancedEnabled === on) {
-      return
-    }
-    this.filter.advancedEnabled = on
-    this.changed()
+  private ratingLabel(): string {
+    return this.filter.minRating > 0 ? `${this.filter.minRating}★` : AppStrings.get('filter_any')
   }
 
-  private setRating(rating: number): void {
-    if (this.filter.minRating === rating) {
-      return
+  private ratingOptions(): RatingOption[] {
+    return RATINGS.map((r: number) => new RatingOption(r, r > 0 ? `${r}★` : AppStrings.get('filter_any')))
+  }
+
+  private setRating(value: number): void {
+    if (this.filter.minRating !== value) {
+      this.filter.minRating = value
+      this.changed()
     }
-    this.filter.minRating = rating
-    this.changed()
   }
 
   private setPagesFrom(value: number): void {
-    if (this.filter.pagesFrom === value) {
-      return
+    if (this.filter.pagesFrom !== value) {
+      this.filter.pagesFrom = value
+      this.changed()
     }
-    this.filter.pagesFrom = value
-    this.changed()
   }
 
   private setPagesTo(value: number): void {
-    if (this.filter.pagesTo === value) {
-      return
+    if (this.filter.pagesTo !== value) {
+      this.filter.pagesTo = value
+      this.changed()
     }
-    this.filter.pagesTo = value
-    this.changed()
   }
 
-  private ratingIndex(): number {
-    const index: number = RATINGS.indexOf(this.filter.minRating)
-    return index >= 0 ? index : 0
-  }
-
-  private ratingForIndex(index: number): number {
-    if (index >= 0 && index < RATINGS.length) {
-      return RATINGS[index]
-    }
-    return 0
+  @Builder
+  private rowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
   }
 
   build() {
-    Column({ space: ThemeConstants.SPACE_MD }) {
-      this.ToggleRow($r('app.string.filter_advanced'), this.filter.advancedEnabled, (on: boolean) => {
-        this.setAdvancedEnabled(on)
+    Column() {
+      ConciseListRow({
+        title: $r('app.string.filter_advanced'),
+        hasSwitch: true,
+        checked: this.filter.advancedEnabled,
+        switchAction: (value: boolean) => {
+          if (this.filter.advancedEnabled !== value) {
+            this.filter.advancedEnabled = value
+            this.changed()
+          }
+        },
       })
       if (this.filter.advancedEnabled) {
-        this.RatingRow()
-        this.PageRangeRow()
-        this.ToggleRow(
-          $r('app.string.filter_require_torrent'),
-          this.filter.requireTorrent,
-          (on: boolean) => {
-            this.filter.requireTorrent = on
+        this.rowDivider()
+        Column() {
+          ConciseListRow({
+            title: $r('app.string.filter_rating'),
+            trailingText: this.ratingLabel(),
+            trailingDropdown: true,
+            action: () => {
+              this.ratingMenuShown = true
+            },
+          })
+        }
+        .bindMenu(this.ratingMenuShown, this.RatingMenu, {
+          placement: Placement.BottomRight,
+          onDisappear: () => {
+            this.ratingMenuShown = false
+          },
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.filter_pages'),
+          showChevron: false,
+          suffixPaddingRight: ThemeConstants.SPACE_MD,
+          suffixBuilderParam: () => {
+            this.PageSuffix()
+          },
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.filter_require_torrent'),
+          hasSwitch: true,
+          checked: this.filter.requireTorrent,
+          switchAction: (value: boolean) => {
+            this.filter.requireTorrent = value
             this.changed()
           },
-        )
-        this.ToggleRow(
-          $r('app.string.filter_show_expunged'),
-          this.filter.showExpunged,
-          (on: boolean) => {
-            this.filter.showExpunged = on
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.filter_show_expunged'),
+          hasSwitch: true,
+          checked: this.filter.showExpunged,
+          switchAction: (value: boolean) => {
+            this.filter.showExpunged = value
             this.changed()
           },
-        )
-        // eros_fe groups the three "ignore my default <X> filter" toggles under one sub-header.
-        Text($r('app.string.filter_disable_group'))
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor($r('sys.color.font_secondary'))
-          .margin({ top: ThemeConstants.SPACE_XS })
-        this.ToggleRow(
-          $r('app.string.filter_disable_lang'),
-          this.filter.disableLanguageFilter,
-          (on: boolean) => {
-            this.filter.disableLanguageFilter = on
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.filter_disable_lang'),
+          hasSwitch: true,
+          checked: this.filter.disableLanguageFilter,
+          switchAction: (value: boolean) => {
+            this.filter.disableLanguageFilter = value
             this.changed()
           },
-        )
-        this.ToggleRow(
-          $r('app.string.filter_disable_uploader'),
-          this.filter.disableUploaderFilter,
-          (on: boolean) => {
-            this.filter.disableUploaderFilter = on
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.filter_disable_uploader'),
+          hasSwitch: true,
+          checked: this.filter.disableUploaderFilter,
+          switchAction: (value: boolean) => {
+            this.filter.disableUploaderFilter = value
             this.changed()
           },
-        )
-        this.ToggleRow(
-          $r('app.string.filter_disable_tag'),
-          this.filter.disableTagFilter,
-          (on: boolean) => {
-            this.filter.disableTagFilter = on
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.filter_disable_tag'),
+          hasSwitch: true,
+          checked: this.filter.disableTagFilter,
+          switchAction: (value: boolean) => {
+            this.filter.disableTagFilter = value
             this.changed()
           },
-        )
+        })
       }
     }
     .width('100%')
-    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
-  ToggleRow(label: ResourceStr, value: boolean, onChange: (on: boolean) => void) {
-    Row() {
-      Text(label)
-        .fontSize(FORM_FONT_SIZE)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
-        .layoutWeight(1)
-      Toggle({ type: ToggleType.Switch, isOn: value })
-        .selectedColor(ThemeConstants.BRAND_PRIMARY)
-        .onChange((on: boolean) => {
-          onChange(on)
-        })
+  private RatingMenu() {
+    Menu() {
+      ForEach(
+        this.ratingOptions(),
+        (opt: RatingOption) => {
+          SettingsCheckedMenuItem({
+            label: opt.label,
+            selected: opt.value === this.filter.minRating,
+            selectAction: () => {
+              this.setRating(opt.value)
+              this.ratingMenuShown = false
+            },
+          })
+        },
+        (opt: RatingOption) => `${opt.value}`,
+      )
     }
-    .width('100%')
-    .constraintSize({ minHeight: TOGGLE_MIN_HEIGHT, maxWidth: TOGGLE_MAX_WIDTH })
-    .alignItems(VerticalAlign.Center)
+    .backgroundColor($r('app.color.card_background'))
   }
 
   @Builder
-  RatingRow() {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text($r('app.string.filter_rating'))
-        .fontSize(FORM_FONT_SIZE)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
-      TabSegmentButtonV2({
-        items: this.ratingItems,
-        selectedIndex: this.ratingIndex(),
-        enableStateAnimation: true,
-        itemFontSize: LengthMetrics.vp(FORM_FONT_SIZE),
-        itemSelectedFontSize: LengthMetrics.vp(FORM_FONT_SIZE),
-        itemFontWeight: FontWeight.Medium,
-        itemSelectedFontWeight: FontWeight.Bold,
-        onItemClicked: (index: number) => {
-          this.setRating(this.ratingForIndex(index))
-        },
-        itemPadding: {
-          top: LengthMetrics.vp(SEGMENT_PADDING_V),
-          bottom: LengthMetrics.vp(SEGMENT_PADDING_V),
-          start: LengthMetrics.vp(8),
-          end: LengthMetrics.vp(8),
-        },
+  private PageSuffix() {
+    Row({ space: ThemeConstants.SPACE_SM }) {
+      this.PageInput(this.filter.pagesFrom, (v: number) => {
+        this.setPagesFrom(v)
       })
-        .width('100%')
-        .constraintSize({ minHeight: SEGMENT_HEIGHT })
+      Text('-')
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor($r('sys.color.font_tertiary'))
+      this.PageInput(this.filter.pagesTo, (v: number) => {
+        this.setPagesTo(v)
+      })
     }
-    .width('100%')
-    .constraintSize({ maxWidth: FORM_ROW_MAX_WIDTH })
-    .alignItems(HorizontalAlign.Start)
-  }
-
-  @Builder
-  PageRangeRow() {
-    Row({ space: ThemeConstants.SPACE_MD }) {
-      Text($r('app.string.filter_pages'))
-        .fontSize(FORM_FONT_SIZE)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .lineHeight(ThemeConstants.LINE_HEIGHT_TITLE)
-        .width(FORM_LABEL_WIDTH)
-      Blank().layoutWeight(1)
-      Row({ space: ThemeConstants.SPACE_SM }) {
-        this.PageInput(this.filter.pagesFrom, (v: number) => {
-          this.setPagesFrom(v)
-        })
-        Text('-')
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor($r('sys.color.font_secondary'))
-        this.PageInput(this.filter.pagesTo, (v: number) => {
-          this.setPagesTo(v)
-        })
-      }
-      .width(PAGE_RANGE_GROUP_WIDTH)
-      .alignItems(VerticalAlign.Center)
-      .justifyContent(FlexAlign.Center)
-      Blank().layoutWeight(1)
-    }
-    .width('100%')
-    .constraintSize({ maxWidth: FORM_ROW_MAX_WIDTH })
     .alignItems(VerticalAlign.Center)
   }
 
   @Builder
-  PageInput(value: number, onChange: (v: number) => void) {
-    // Fill = sub_background + a hairline border so the field reads as an input on ANY host surface — on the
-    // editor's card_background card the old same-color fill made these boxes invisible.
+  private PageInput(value: number, onChange: (v: number) => void) {
     TextInput({ text: value > 0 ? `${value}` : '', placeholder: $r('app.string.filter_any') })
       .type(InputType.Number)
       .textAlign(TextAlign.Center)
@@ -243,11 +217,10 @@ export struct AdvancedSearchControls {
       .height(PAGE_INPUT_HEIGHT)
       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
       .border({ width: 0.5, color: $r('sys.color.ohos_id_color_list_separator') })
-      .fontSize(FORM_FONT_SIZE)
-      .fontWeight(FontWeight.Medium)
+      .borderRadius(ThemeConstants.RADIUS_MD)
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
       .fontColor($r('sys.color.font_primary'))
       .placeholderColor($r('sys.color.font_tertiary'))
-      .borderRadius(ThemeConstants.RADIUS_ROUND)
       .onChange((v: string) => {
         const n: number = Number.parseInt(v, 10)
         onChange(Number.isNaN(n) ? 0 : n)

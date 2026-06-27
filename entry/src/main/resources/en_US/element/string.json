@@ -277,18 +277,6 @@
       "value": "Search tags or keywords"
     },
     {
-      "name": "tag_compose_zone_include",
-      "value": "Include · AND"
-    },
-    {
-      "name": "tag_compose_zone_or",
-      "value": "Match any · OR"
-    },
-    {
-      "name": "tag_compose_zone_exclude",
-      "value": "Exclude · NOT"
-    },
-    {
       "name": "tag_compose_rel_and",
       "value": "Include (AND)"
     },
@@ -299,14 +287,6 @@
     {
       "name": "tag_compose_rel_not",
       "value": "Exclude (NOT)"
-    },
-    {
-      "name": "tag_compose_remove",
-      "value": "Remove"
-    },
-    {
-      "name": "tag_compose_legend",
-      "value": "Tap a tag to set AND / OR / NOT"
     },
     {
       "name": "filter_disable_group",

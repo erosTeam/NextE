@@ -15,7 +15,7 @@ const SUGGEST_DELAY_MS: number = 450
 const LOCAL_LIMIT: number = 30
 const MAX_SUGGESTIONS: number = 12
 
-/** A term's relation to the query: AND = space (default), OR = '~' prefix (EH native tilde), NOT = '-'. */
+/** A term's relation to the query: AND = space (default), OR = '~' prefix (EH native), NOT = '-' prefix. */
 enum TagRelation {
   AND = 0,
   OR = 1,
@@ -35,36 +35,42 @@ class QueryTag {
   }
 }
 
-/** A tag paired with its index in the full parsed list, so a zoned chip can mutate the right term. */
-class IndexedTag {
+/** A tag paired with its index in the full parsed list + its resolved translation, for one list row. */
+class TagRowItem {
   tag: QueryTag
   index: number
+  displayName: string
 
-  constructor(tag: QueryTag, index: number) {
+  constructor(tag: QueryTag, index: number, displayName: string) {
     this.tag = tag
     this.index = index
+    this.displayName = displayName
   }
 }
 
 /**
- * Graphical EH-query composer — a stronger take on eros_fe's flat AND-only tag list. The user searches
- * tags (local translation DB + EH /api.php tagsuggest, same pipeline as the search page), taps a suggestion
- * to add a CHIP, then taps a chip to set its relation 包含(且,AND) / 任一(或,OR) / 排除(否,NOT) via a menu —
- * never typing EH operators. Chips render in three zones; the set serialises to the canonical EH query
- * string using EH's native operators (space = AND, '~' = OR, '-' = NOT), so the single `query` string the
- * parent owns flows unchanged through f_search. Built on AppSearchField (keyboard-stable) so typing never
- * flaps the IME; chips contain no TextInput so relation edits never re-mount a field.
+ * Graphical EH-query composer. The user searches tags (local translation DB + EH /api.php tagsuggest, same
+ * pipeline as the search page) and taps a suggestion to add it; added tags show as readable ROWS — translated
+ * name + raw EH token + a visible 包含/任一/排除 relation selector + remove — NOT tiny chips. Relations map to
+ * EH's native operators (space = AND, '~' = OR, '-' = NOT), so the single `query` string the parent owns flows
+ * unchanged through f_search. Built from AppSearchField (keyboard-stable) + ConciseListRow (so row height,
+ * padding, alignment match every other settings list). Reloaded tags get their translation re-resolved.
  */
 @ComponentV2
 export struct TagQueryComposer {
   @Param query: string = '';
   @Event onQueryChange: (value: string) => void = () => {};
-  // Transient "add a tag" field text — NOT part of the query until a suggestion/free-text is committed.
   @Local private addText: string = '';
   @Local private suggestions: EhTagSuggestion[] = [];
   @Local private suggestionCount: number = 0;
+  // ns:text -> translated display name (filled on add from a suggestion, and async on (re)load).
+  @Local private trans: Map<string, string> = new Map<string, string>();
   private timer: number = -1;
   private epoch: number = 0;
+
+  aboutToAppear(): void {
+    this.ensureTranslations()
+  }
 
   aboutToDisappear(): void {
     if (this.timer >= 0) {
@@ -73,11 +79,16 @@ export struct TagQueryComposer {
     }
   }
 
+  @Monitor('query')
+  onQueryChanged(): void {
+    this.ensureTranslations()
+  }
+
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
-  // ── query string ⇄ chips ────────────────────────────────────────────────
+  // ── query string ⇄ tags ──────────────────────────────────────────────────
   private tags(): QueryTag[] {
     return TagQueryComposer.parse(this.query)
   }
@@ -174,6 +185,62 @@ export struct TagQueryComposer {
     return parts.join(' ')
   }
 
+  private static keyOf(t: QueryTag): string {
+    return `${t.namespace}:${t.text}`
+  }
+
+  /** Canonical EH token for a tag, WITHOUT the relation prefix (shown as the row subtitle). */
+  private tokenText(t: QueryTag): string {
+    if (t.namespace.length > 0) {
+      return EhConstants.exactTagSearchQuery(t.namespace, t.text)
+    }
+    return t.text
+  }
+
+  private rowItems(): TagRowItem[] {
+    const out: TagRowItem[] = []
+    this.tags().forEach((t: QueryTag, i: number) => {
+      const name: string | undefined = this.trans.get(TagQueryComposer.keyOf(t))
+      out.push(new TagRowItem(t, i, name !== undefined ? name : ''))
+    })
+    return out
+  }
+
+  // ── translation resolution (so reloaded tags show their translated name too) ──
+  private async ensureTranslations(): Promise<void> {
+    if (!connectTagTranslationSettings().enabled) {
+      return
+    }
+    const tags: QueryTag[] = this.tags()
+    let changed: boolean = false
+    const next: Map<string, string> = new Map<string, string>()
+    this.trans.forEach((v: string, k: string) => next.set(k, v))
+    for (let i = 0; i < tags.length; i++) {
+      const t: QueryTag = tags[i]
+      if (t.namespace.length === 0) {
+        continue
+      }
+      const key: string = TagQueryComposer.keyOf(t)
+      if (next.has(key)) {
+        continue
+      }
+      try {
+        const name: string = await TagTranslationService.translateFullTagAsync(this.ctx(), `${t.namespace}:${t.text}`)
+        // translateFullTagAsync falls back to the input when there's no translation; only keep a real one.
+        if (name.length > 0 && name !== `${t.namespace}:${t.text}` && name !== t.text) {
+          next.set(key, name)
+          changed = true
+        }
+      } catch (err) {
+        DiagnosticLogger.warn('tagcompose', 'translate_failed', (err as Error).message)
+      }
+    }
+    if (changed) {
+      this.trans = next
+    }
+  }
+
+  // ── mutations ─────────────────────────────────────────────────────────────
   private commit(tags: QueryTag[]): void {
     this.onQueryChange(TagQueryComposer.serialize(tags))
   }
@@ -188,9 +255,16 @@ export struct TagQueryComposer {
   }
 
   private addFromSuggestion(s: EhTagSuggestion): void {
+    const ns: string = s.namespace.toLowerCase()
     const tags: QueryTag[] = this.tags()
-    if (!this.alreadyHas(tags, s.namespace.toLowerCase(), s.text)) {
-      tags.push(new QueryTag(s.namespace.toLowerCase(), s.text, TagRelation.AND))
+    if (!this.alreadyHas(tags, ns, s.text)) {
+      if (s.displayName.length > 0) {
+        const next: Map<string, string> = new Map<string, string>()
+        this.trans.forEach((v: string, k: string) => next.set(k, v))
+        next.set(`${ns}:${s.text}`, s.displayName)
+        this.trans = next
+      }
+      tags.push(new QueryTag(ns, s.text, TagRelation.AND))
       this.commit(tags)
     }
     this.addText = ''
@@ -227,16 +301,6 @@ export struct TagQueryComposer {
       tags.splice(index, 1)
       this.commit(tags)
     }
-  }
-
-  private zoneItems(relation: number): IndexedTag[] {
-    const out: IndexedTag[] = []
-    this.tags().forEach((t: QueryTag, i: number) => {
-      if (t.relation === relation) {
-        out.push(new IndexedTag(t, i))
-      }
-    })
-    return out
   }
 
   // ── tag suggestions (local DB then EH api, debounced) ─────────────────────
@@ -305,6 +369,14 @@ export struct TagQueryComposer {
     }
   }
 
+  @Builder
+  private rowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
+  }
+
   build() {
     Column({ space: ThemeConstants.SPACE_SM }) {
       AppSearchField({
@@ -322,8 +394,13 @@ export struct TagQueryComposer {
 
       if (this.suggestionCount > 0) {
         this.SuggestionList()
+      } else if (this.query.trim().length > 0) {
+        this.TagList()
       } else {
-        this.ChipArea()
+        Text($r('app.string.tag_compose_empty_hint'))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_tertiary'))
+          .padding({ top: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
       }
     }
     .width('100%')
@@ -341,7 +418,7 @@ export struct TagQueryComposer {
               .fontSize(22)
               .fontColor([$r('sys.color.font_tertiary')])
             Column({ space: 2 }) {
-              Text(s.displayName.length > 0 ? `${s.namespace}:${s.displayName}` : s.label())
+              Text(s.displayName.length > 0 ? `${EhConstants.expandNamespace(s.namespace)}:${s.displayName}` : s.label())
                 .fontSize(ThemeConstants.FONT_SIZE_BODY)
                 .fontColor($r('sys.color.font_primary'))
                 .maxLines(1)
@@ -356,8 +433,8 @@ export struct TagQueryComposer {
             .alignItems(HorizontalAlign.Start)
           }
           .width('100%')
+          .height(56)
           .alignItems(VerticalAlign.Center)
-          .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
           .onClick(() => {
             this.addFromSuggestion(s)
           })
@@ -370,130 +447,130 @@ export struct TagQueryComposer {
   }
 
   @Builder
-  private ChipArea() {
-    if (this.query.trim().length === 0) {
-      Text($r('app.string.tag_compose_empty_hint'))
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_tertiary'))
-        .padding({ top: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-    } else {
-      Column({ space: ThemeConstants.SPACE_SM }) {
-        Text($r('app.string.tag_compose_legend'))
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor($r('sys.color.font_tertiary'))
-        if (this.zoneItems(TagRelation.AND).length > 0) {
-          this.Zone($r('app.string.tag_compose_zone_include'), TagRelation.AND)
-        }
-        if (this.zoneItems(TagRelation.OR).length > 0) {
-          this.Zone($r('app.string.tag_compose_zone_or'), TagRelation.OR)
-        }
-        if (this.zoneItems(TagRelation.NOT).length > 0) {
-          this.Zone($r('app.string.tag_compose_zone_exclude'), TagRelation.NOT)
-        }
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Start)
-    }
-  }
-
-  @Builder
-  private Zone(caption: ResourceStr, relation: number) {
-    // All three relation zones share one layout (caption + chip flow); the caption is the only
-    // differentiator, so they stay visually consistent (no zone gets a special container).
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(caption)
-        .fontSize(ThemeConstants.FONT_SIZE_TINY)
-        .fontColor($r('sys.color.font_secondary'))
-      Flex({ wrap: FlexWrap.Wrap }) {
-        ForEach(
-          this.zoneItems(relation),
-          (it: IndexedTag) => {
-            TagChip({
-              tag: it.tag,
-              index: it.index,
-              onSetRelation: (index: number, rel: number) => {
-                this.setRelation(index, rel)
-              },
-              onRemove: (index: number) => {
-                this.removeTag(index)
-              },
-            })
-          },
-          (it: IndexedTag) => `${it.tag.relation}:${it.tag.namespace}:${it.tag.text}:${it.index}`,
-        )
-      }
-      .width('100%')
+  private TagList() {
+    Column() {
+      ForEach(
+        this.rowItems(),
+        (it: TagRowItem, idx: number) => {
+          if (idx > 0) {
+            this.rowDivider()
+          }
+          TagRow({
+            tag: it.tag,
+            index: it.index,
+            displayName: it.displayName,
+            onSetRelation: (index: number, rel: number) => {
+              this.setRelation(index, rel)
+            },
+            onRemove: (index: number) => {
+              this.removeTag(index)
+            },
+          })
+        },
+        (it: TagRowItem) => `${it.tag.relation}:${it.tag.namespace}:${it.tag.text}:${it.displayName}`,
+      )
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
   }
 }
 
-/** One tag chip: namespace-colored, shows include/exclude state, tap opens a relation menu (且/或/否 + 移除). */
+/**
+ * One added-tag row: namespace color dot + translated name (raw token as the subtitle) + a visible relation
+ * selector (包含/任一/排除 dropdown) + remove. A readable full-width row, not a tiny chip; spacing inherits
+ * the app row metrics. The relation is set right here (no hidden tap-to-menu on a small pill).
+ */
 @ComponentV2
-struct TagChip {
+struct TagRow {
   @Param tag: QueryTag = new QueryTag('', '', TagRelation.AND);
   @Param index: number = -1;
+  @Param displayName: string = '';
   @Event onSetRelation: (index: number, relation: number) => void = () => {};
   @Event onRemove: (index: number) => void = () => {};
   @Local private menuShown: boolean = false;
 
-  private label(): string {
-    const v: string = this.tag.text
+  private title(): string {
+    if (this.displayName.length > 0) {
+      return this.displayName
+    }
     return this.tag.namespace.length > 0
-      ? `${EhConstants.expandNamespace(this.tag.namespace)}:${v}`
-      : v
+      ? `${EhConstants.expandNamespace(this.tag.namespace)}:${this.tag.text}`
+      : this.tag.text
   }
 
-  private isNot(): boolean {
-    return this.tag.relation === TagRelation.NOT
+  private subtitle(): string {
+    return this.tag.namespace.length > 0
+      ? EhConstants.exactTagSearchQuery(this.tag.namespace, this.tag.text)
+      : ''
+  }
+
+  private relLabel(): ResourceStr {
+    if (this.tag.relation === TagRelation.OR) {
+      return $r('app.string.tag_compose_rel_or')
+    }
+    if (this.tag.relation === TagRelation.NOT) {
+      return $r('app.string.tag_compose_rel_not')
+    }
+    return $r('app.string.tag_compose_rel_and')
+  }
+
+  private relColor(): ResourceColor {
+    if (this.tag.relation === TagRelation.OR) {
+      return ThemeConstants.BRAND_PRIMARY
+    }
+    if (this.tag.relation === TagRelation.NOT) {
+      return Color.Red
+    }
+    return $r('sys.color.font_secondary')
   }
 
   build() {
-    // Search-page chip grammar: ONE neutral pill, namespace shown by a small leading color dot (not a
-    // flooded background). Exclude is signalled ONLY by red (a red '−' + red text), never strikethrough or
-    // dimming (which read as "deleted/disabled", not "excluded").
-    Row({ space: ThemeConstants.SPACE_XS }) {
-      if (this.isNot()) {
-        Text('−')
+    Row({ space: ThemeConstants.SPACE_SM }) {
+      Column({ space: 2 }) {
+        Text(this.title())
           .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(Color.Red)
-      } else if (this.tag.namespace.length > 0) {
-        Circle({ width: 8, height: 8 })
-          .fill(EhConstants.tagNamespaceColor(this.tag.namespace))
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        if (this.subtitle().length > 0) {
+          Text(this.subtitle())
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_tertiary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
       }
-      Text(this.label())
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor(this.isNot() ? Color.Red : $r('sys.color.font_primary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      // Relation selector — bare label + chevron, matching the other dropdown rows (列表类型 / 最低评分 / 显示模式).
+      Row({ space: ThemeConstants.SPACE_XS }) {
+        Text(this.relLabel())
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor(this.relColor())
+        SymbolGlyph($r('sys.symbol.chevron_down'))
+          .fontSize(14)
+          .fontColor([this.relColor()])
+      }
+      .onClick(() => {
+        this.menuShown = true
+      })
+      .bindMenu(this.menuShown, this.RelationMenu, {
+        placement: Placement.Bottom,
+        onDisappear: () => {
+          this.menuShown = false
+        },
+      })
       SymbolGlyph($r('sys.symbol.xmark'))
-        .fontSize(14)
-        .fontColor([this.isNot() ? Color.Red : $r('sys.color.font_secondary')])
+        .fontSize(16)
+        .fontColor([$r('sys.color.font_tertiary')])
+        .margin({ left: ThemeConstants.SPACE_XS })
         .onClick(() => {
           this.onRemove(this.index)
         })
     }
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_SM,
-      top: ThemeConstants.SPACE_XS,
-      bottom: ThemeConstants.SPACE_XS,
-    })
-    .margin({ right: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
-    .borderRadius(ThemeConstants.RADIUS_ROUND)
-    .backgroundColor(this.isNot() ? '#14FF3B30' : $r('sys.color.ohos_id_color_button_normal'))
-    .constraintSize({ maxWidth: '90%' })
-    .onClick(() => {
-      this.menuShown = true
-    })
-    .bindMenu(this.menuShown, this.RelationMenu, {
-      placement: Placement.Bottom,
-      onDisappear: () => {
-        this.menuShown = false
-      },
-    })
+    .width('100%')
+    .height(60)
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -520,14 +597,6 @@ struct TagChip {
         selected: this.tag.relation === TagRelation.NOT,
         selectAction: () => {
           this.onSetRelation(this.index, TagRelation.NOT)
-          this.menuShown = false
-        },
-      })
-      SettingsCheckedMenuItem({
-        label: $r('app.string.tag_compose_remove'),
-        selected: false,
-        selectAction: () => {
-          this.onRemove(this.index)
           this.menuShown = false
         },
       })
