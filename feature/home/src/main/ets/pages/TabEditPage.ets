@@ -86,6 +86,10 @@ export struct TabEditPage {
   @Local isCreate: boolean = true;
   @Local builtin: boolean = false;
   @Local name: string = '';
+  // Edits land here (a plain member) instead of reassigning @Local name on every keystroke — reassigning the
+  // @Local re-renders the whole page, which re-creates the ConciseListRow suffix and re-mounts the TextInput
+  // (dropping the soft keyboard). `name` stays the stable seed the field is built from; `nameDraft` is saved.
+  private nameDraft: string = '';
   @Local listType: string = PROFILE_TYPE_GALLERY;
   @Local searchText: string = '';
   @Local favcat: string = 'a';
@@ -129,6 +133,7 @@ export struct TabEditPage {
     this.isCreate = false
     this.builtin = p.builtin
     this.name = p.name
+    this.nameDraft = p.name
     this.listType = p.listType
     this.searchText = p.searchText
     this.favcat = p.favcat
@@ -287,7 +292,7 @@ export struct TabEditPage {
 
   // ── actions ───────────────────────────────────────────────────────────────
   private save(): void {
-    const trimmed: string = this.name.trim()
+    const trimmed: string = this.nameDraft.trim()
     if (trimmed.length === 0) {
       this.toast($r('app.string.tab_name_required'))
       return
@@ -362,20 +367,25 @@ export struct TabEditPage {
       .margin({ left: ThemeConstants.SPACE_MD })
   }
 
-  // The 搜索词 card: a ListItemGroup styled exactly like GroupedListSection (so it matches the other cards),
-  // holding the add field + each added tag as its own ListItem — which is what lets the tag rows swipe-delete
-  // natively while staying tight in one card (space: 0).
+  // 搜索词 = one card-styled ListItemGroup: the add field sits in the group's HEADER slot (a stable element
+  // that isn't torn down when the item list changes), and each added tag is a swipe-to-delete item. This is
+  // why the soft keyboard survives adding/removing tags — the input is the header, not a recycled item.
+  @Builder
+  private SearchFieldHeader() {
+    Column() {
+      TagQueryComposer({
+        query: this.searchText,
+        onQueryChange: (q: string) => {
+          this.searchText = q
+        },
+      })
+    }
+    .width('100%')
+  }
+
   @Builder
   private SearchGroup() {
-    ListItemGroup({ space: 0 }) {
-      ListItem() {
-        TagQueryComposer({
-          query: this.searchText,
-          onQueryChange: (q: string) => {
-            this.searchText = q
-          },
-        })
-      }
+    ListItemGroup({ header: this.SearchFieldHeader(), space: 0 }) {
       ForEach(
         this.tagRowItems(),
         (it: TagRowItem) => {
@@ -446,7 +456,7 @@ export struct TabEditPage {
                 value: this.name,
                 placeholder: $r('app.string.tab_name_placeholder'),
                 onChange: (v: string) => {
-                  this.name = v
+                  this.nameDraft = v
                 },
               })
               if (!this.builtin) {
