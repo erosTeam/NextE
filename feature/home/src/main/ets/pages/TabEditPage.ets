@@ -10,6 +10,7 @@ import {
   GroupedListSection,
   SectionHeader,
   ConciseListRow,
+  InlineEditRow,
   SettingsCheckedMenuItem,
   CategorySelector,
   AdvancedSearchControls,
@@ -300,8 +301,10 @@ export struct TabEditPage {
           Column() {
             SectionHeader({ title: $r('app.string.tab_section_basic') })
             GroupedListSection() {
-              NameField({
+              InlineEditRow({
+                title: $r('app.string.tab_name_label'),
                 value: this.name,
+                placeholder: $r('app.string.tab_name_placeholder'),
                 onChange: (v: string) => {
                   this.name = v
                 },
@@ -443,54 +446,6 @@ export struct TabEditPage {
       const param: string = context.pathInfo.param as string
       this.seedFromParam(typeof param === 'string' ? param : '')
     })
-  }
-}
-
-/** Inline name editor: a standard ConciseListRow whose suffix is an editable text field (label left, value
- * right). Mirror pattern (external value seeds a private @Local once; build reads only the @Local) so typing
- * never re-mounts the field / drops the IME, and there's no half-modal. */
-@ComponentV2
-struct NameField {
-  @Param value: string = '';
-  @Event onChange: (value: string) => void = () => {};
-  @Local private fieldText: string = '';
-
-  aboutToAppear(): void {
-    this.fieldText = this.value
-  }
-
-  @Monitor('value')
-  onExternalChange(): void {
-    if (this.value !== this.fieldText) {
-      this.fieldText = this.value
-    }
-  }
-
-  build() {
-    ConciseListRow({
-      title: $r('app.string.tab_name_label'),
-      showChevron: false,
-      suffixPaddingRight: ThemeConstants.SPACE_MD,
-      suffixBuilderParam: () => {
-        this.Input()
-      },
-    })
-  }
-
-  @Builder
-  private Input() {
-    TextInput({ text: this.fieldText, placeholder: $r('app.string.tab_name_placeholder') })
-      .textAlign(TextAlign.End)
-      .backgroundColor(Color.Transparent)
-      .padding({ top: 0, bottom: 0, left: 0, right: 2 })
-      .width(220)
-      .fontSize(ThemeConstants.FONT_SIZE_BODY)
-      .fontColor($r('sys.color.font_primary'))
-      .placeholderColor($r('sys.color.font_tertiary'))
-      .onChange((v: string) => {
-        this.fieldText = v
-        this.onChange(v)
-      })
   }
 }
 

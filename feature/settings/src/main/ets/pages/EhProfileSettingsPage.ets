@@ -12,6 +12,7 @@ import {
   appSheetOptions,
   AppStrings,
   ConciseListRow,
+  InlineEditRow,
   EhApiService,
   EhConstants,
   EhProfile,
@@ -537,7 +538,7 @@ export struct EhProfileSettingsPage {
           },
         })
         this.rowDivider()
-        UcTextRow({
+        InlineEditRow({
           title: $r('app.string.ehp_rx'),
           value: this.settings.imageSizeHorizontal,
           numeric: true,
@@ -546,7 +547,7 @@ export struct EhProfileSettingsPage {
           },
         })
         this.rowDivider()
-        UcTextRow({
+        InlineEditRow({
           title: $r('app.string.ehp_ry'),
           value: this.settings.imageSizeVertical,
           numeric: true,
@@ -666,7 +667,7 @@ export struct EhProfileSettingsPage {
           },
         })
         this.rowDivider()
-        UcTextRow({
+        InlineEditRow({
           title: $r('app.string.ehp_tp'),
           value: this.settings.thumbnailScaling,
           numeric: true,
@@ -676,7 +677,7 @@ export struct EhProfileSettingsPage {
           },
         })
         this.rowDivider()
-        UcTextRow({
+        InlineEditRow({
           title: $r('app.string.ehp_vp'),
           value: this.settings.viewportOverride,
           numeric: true,
@@ -721,7 +722,7 @@ export struct EhProfileSettingsPage {
           },
         })
         this.rowDivider()
-        UcTextRow({
+        InlineEditRow({
           title: $r('app.string.ehp_ft'),
           value: this.settings.tagFilteringThreshold,
           numeric: true,
@@ -730,7 +731,7 @@ export struct EhProfileSettingsPage {
           },
         })
         this.rowDivider()
-        UcTextRow({
+        InlineEditRow({
           title: $r('app.string.ehp_wt'),
           value: this.settings.tagWatchingThreshold,
           numeric: true,
@@ -843,7 +844,7 @@ export struct EhProfileSettingsPage {
     Column() {
       this.SectionHeader($r('app.string.ehp_sec_rating'))
       GroupedListSection() {
-        UcTextRow({
+        InlineEditRow({
           title: $r('app.string.ehp_ru'),
           value: this.settings.ratings,
           placeholder: 'RRGGB',
@@ -913,7 +914,7 @@ export struct EhProfileSettingsPage {
     Column() {
       this.SectionHeader($r('app.string.ehp_sec_hath'))
       GroupedListSection() {
-        UcTextRow({
+        InlineEditRow({
           title: $r('app.string.ehp_hh'),
           value: this.settings.hentaiAtHomeLocalNetworkHost,
           placeholder: 'IP:Port',
@@ -961,7 +962,7 @@ export struct EhProfileSettingsPage {
         ForEach(
           this.settings.favorites,
           (name: string, index: number) => {
-            UcTextRow({
+            InlineEditRow({
               title: `${index}`,
               value: name,
               placeholder: $r('app.string.ehp_fav_name_hint'),
@@ -1057,52 +1058,6 @@ struct UcSelectRow {
         (option: UcOption) => `${option.value}`,
       )
     }
-  }
-}
-
-/**
- * Label + inline text field, built ON ConciseListRow so the title matches every other row exactly
- * (the input lives in the row's suffix slot). Never hand-roll the title.
- */
-@ComponentV2
-struct UcTextRow {
-  @Param title: ResourceStr = '';
-  @Param value: string = '';
-  @Param placeholder: ResourceStr = '';
-  @Param numeric: boolean = false;
-  @Param suffix: string = '';
-  @Event onChange: (value: string) => void = () => {};
-
-  build() {
-    ConciseListRow({
-      title: this.title,
-      showChevron: false,
-      suffixPaddingRight: ThemeConstants.SPACE_MD,
-      suffixBuilderParam: () => {
-        this.InputSuffix()
-      },
-    })
-  }
-
-  @Builder
-  InputSuffix() {
-    Row({ space: ThemeConstants.SPACE_XS }) {
-      TextInput({ text: this.value, placeholder: this.placeholder })
-        .type(this.numeric ? InputType.Number : InputType.Normal)
-        .textAlign(TextAlign.End)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .backgroundColor(Color.Transparent)
-        .padding(0)
-        .width(140)
-        .onChange((v: string) => {
-          this.onChange(v)
-        })
-      if (this.suffix.length > 0) {
-        Text(this.suffix)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor($r('sys.color.font_secondary'))
-      }
-    }.alignItems(VerticalAlign.Center)
   }
 }
 
