@@ -57,6 +57,12 @@ ok('adapter splits store by secret + re-checks denylist on restore + reapplies v
     /exportSecrets\(/.test(adapter) &&
     /!allowSecret && BackupSecretDenylist\.isSecret\(key\)/.test(adapter) &&
     /SettingsBootstrap\.loadAll\(context\)/.test(adapter))
+ok('plaintext Preferences export skips cache snapshots and migrated legacy blobs',
+  /PLAINTEXT_EXCLUDED_KEYS/.test(adapter) &&
+    /StorageKeys\.FAVORITES_FAVCATS/.test(adapter) &&
+    /StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(adapter) &&
+    /StorageKeys\.HOME_CUSTOM_PROFILES/.test(adapter) &&
+    /!secret && BackupPreferencesAdapter\.isPlaintextExcluded\(key\)/.test(adapter))
 
 const svc = read('shared/src/main/ets/backup/BackupService.ets')
 ok('service seals into the encrypted container only when includeSecrets',

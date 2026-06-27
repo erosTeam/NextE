@@ -15,6 +15,18 @@ type SettingsMap = Record<string, BackupSettingsValue>
  * SettingsBootstrap.loadAll so changes take effect without a restart.
  */
 export class BackupPreferencesAdapter {
+  private static readonly PLAINTEXT_EXCLUDED_KEYS: string[] = [
+    StorageKeys.FAVORITES_FAVCATS,
+    StorageKeys.SEARCH_HISTORY,
+    StorageKeys.LOCAL_FAVORITES,
+    StorageKeys.VIEWED_HISTORY,
+    StorageKeys.READING_PROGRESS,
+    StorageKeys.DOWNLOAD_GALLERY_QUEUE,
+    StorageKeys.HOME_CUSTOM_PROFILES,
+    StorageKeys.HOME_CUSTOM_PROFILES_SELECTED,
+    StorageKeys.LOCAL_BLOCK_RULES,
+  ]
+
   // Non-secret keys → plaintext section.
   static async exportPreferences(context: common.UIAbilityContext): Promise<SettingsMap> {
     return BackupPreferencesAdapter.dump(context, false)
@@ -41,6 +53,9 @@ export class BackupPreferencesAdapter {
       if (BackupSecretDenylist.isSecret(key) !== secret) {
         continue
       }
+      if (!secret && BackupPreferencesAdapter.isPlaintextExcluded(key)) {
+        continue
+      }
       const value = all[key]
       // The store only holds string/number/boolean (composite settings are JSON strings).
       if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
@@ -48,6 +63,10 @@ export class BackupPreferencesAdapter {
       }
     }
     return out
+  }
+
+  private static isPlaintextExcluded(key: string): boolean {
+    return BackupPreferencesAdapter.PLAINTEXT_EXCLUDED_KEYS.indexOf(key) >= 0
   }
 
   // Write a backed-up map back into the store. `allowSecret=false` re-checks the denylist so a tampered
