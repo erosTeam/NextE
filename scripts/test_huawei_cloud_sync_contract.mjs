@@ -57,7 +57,14 @@ ok('signed build can temporarily disable Huawei cloud sync for public builds',
   /NEXTE_HUAWEI_CLOUD_SYNC/.test(signedBuild) &&
     /HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = false/.test(signedBuild) &&
     /"cloudStructuredDataSyncEnabled": false/.test(signedBuild) &&
-    /trap restore_cloud_flag EXIT/.test(signedBuild))
+    /trap restore_build_flags EXIT/.test(signedBuild))
+
+const githubBuild = read('.github/workflows/build.yml')
+ok('GitHub Actions unsigned build disables Huawei cloud sync for public artifacts',
+  /NEXTE_HUAWEI_CLOUD_SYNC:\s*'0'/.test(githubBuild) &&
+    /Disable Huawei Cloud sync for public CI builds/.test(githubBuild) &&
+    /HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = false/.test(githubBuild) &&
+    /"cloudStructuredDataSyncEnabled": false/.test(githubBuild))
 
 const service = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
 const scheduler = read('shared/src/main/ets/sync/HuaweiCloudSyncScheduler.ets')

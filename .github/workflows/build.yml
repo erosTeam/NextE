@@ -23,6 +23,8 @@ jobs:
   build_hap:
     name: Build unsigned HAP
     runs-on: ubuntu-latest
+    env:
+      NEXTE_HUAWEI_CLOUD_SYNC: '0'
     container:
       image: ghcr.io/honjow/harmonyos-build-env:26.0-api26
       credentials:
@@ -47,6 +49,38 @@ jobs:
         shell: bash
         run: |
           node scripts/test_v1_decorator_inventory_contract.mjs
+
+      - name: Disable Huawei Cloud sync for public CI builds
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import re
+
+          flag = pathlib.Path('shared/src/main/ets/sync/HuaweiCloudSyncBuildFlag.ets')
+          text = flag.read_text(encoding='utf-8')
+          text = re.sub(
+              r'HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = true',
+              'HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = false',
+              text,
+              count=1,
+          )
+          if 'HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = false' not in text:
+              raise SystemExit('Huawei Cloud sync build flag was not disabled')
+          flag.write_text(text, encoding='utf-8')
+
+          app = pathlib.Path('AppScope/app.json5')
+          app_text = app.read_text(encoding='utf-8')
+          app_text = re.sub(
+              r'"cloudStructuredDataSyncEnabled"\s*:\s*true',
+              '"cloudStructuredDataSyncEnabled": false',
+              app_text,
+              count=1,
+          )
+          if '"cloudStructuredDataSyncEnabled": false' not in app_text:
+              raise SystemExit('Huawei Cloud structured-data app flag was not disabled')
+          app.write_text(app_text, encoding='utf-8')
+          PY
 
       - name: Get app version
         shell: bash
