@@ -521,17 +521,30 @@ export struct GalleryCommentsPage {
   }
 
   private applyVoteResult(result: CommentVoteResult): void {
-    const state: GalleryCommentRenderState | undefined = this.renderStateById(result.commentId)
-    if (state !== undefined) {
-      state.vote = result.commentVote
-      state.score = result.commentScore.toString()
-    }
+    this.applyVoteState(result.commentId, result.commentScore.toString(), result.commentVote)
     connectCommentVoteMutation().publish(
       this.params.gid,
       result.commentId,
       result.commentScore.toString(),
       result.commentVote,
     )
+  }
+
+  private applyVoteState(commentId: string, score: string, vote: number): void {
+    for (let i = 0; i < this.comments.length; i++) {
+      const c: EhGalleryComment = this.comments[i]
+      if (c.commentId === commentId) {
+        c.score = score
+        c.vote = vote
+        break
+      }
+    }
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(commentId)
+    if (state !== undefined) {
+      state.score = score
+      state.vote = vote
+    }
+    this.rebuildCommentList()
   }
 
   private applyLocalVote(commentId: string, vote: number): CommentVoteSnapshot | undefined {
@@ -543,22 +556,19 @@ export struct GalleryCommentsPage {
     previous.commentId = commentId
     previous.vote = state.vote
     previous.score = state.score
+    let nextScore: string = state.score
     if (state.score.length > 0) {
       const score: number = Number.parseInt(state.score, 10)
       if (!Number.isNaN(score)) {
-        state.score = (score + vote - state.vote).toString()
+        nextScore = (score + vote - state.vote).toString()
       }
     }
-    state.vote = vote
+    this.applyVoteState(commentId, nextScore, vote)
     return previous
   }
 
   private restoreComment(snapshot: CommentVoteSnapshot): void {
-    const state: GalleryCommentRenderState | undefined = this.renderStateById(snapshot.commentId)
-    if (state !== undefined) {
-      state.score = snapshot.score
-      state.vote = snapshot.vote
-    }
+    this.applyVoteState(snapshot.commentId, snapshot.score, snapshot.vote)
   }
 
   private showCommentToast(message: ResourceStr): void {

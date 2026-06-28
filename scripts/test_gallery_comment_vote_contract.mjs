@@ -73,8 +73,8 @@ ok('vote row keys stay stable while observed comment fields repaint',
 ok('single comment card shows immediate vote/score from the page-held render state',
   /@Param parentManagedActions: boolean = false/.test(card) &&
     /@Param renderState: GalleryCommentRenderState = new GalleryCommentRenderState\(\)/.test(card) &&
-    // The old card-local vote mirrors + version-monitor sync were removed: the @Trace render state passed
-    // in from the page is now the single source of truth for the parentManaged vote/score display.
+    // The old card-local vote mirrors + version-monitor sync were removed: parentManaged cards read
+    // the page-held render state for live score/vote paint.
     !/@Local localVoteCommentId/.test(card) &&
     !/@Local localVoteScore/.test(card) &&
     !/@Local localVoteValue/.test(card) &&
@@ -111,22 +111,24 @@ ok('comments page sends tapped vote to EH while applying target vote locally',
 ok('comments page uses vote-specific cancel success copy',
   /private voteSuccessText\(requestVote: number, resultVote: number\): ResourceStr[\s\S]*comment_vote_cancel_up_success[\s\S]*comment_vote_cancel_down_success/.test(page) &&
     /this\.showCommentToast\(this\.voteSuccessText\(tappedVote, result\.commentVote\)\)/.test(page))
-ok('comments page applies returned vote and score to the matching render state',
-  /private applyVoteResult\(result: CommentVoteResult\): void[\s\S]*const state: GalleryCommentRenderState \| undefined = this\.renderStateById\(result\.commentId\)[\s\S]*state\.vote = result\.commentVote[\s\S]*state\.score = result\.commentScore\.toString\(\)/.test(page) &&
+ok('comments page applies returned vote and score to the matching source comment and render state',
+  /private applyVoteResult\(result: CommentVoteResult\): void[\s\S]*this\.applyVoteState\(result\.commentId, result\.commentScore\.toString\(\), result\.commentVote\)/.test(page) &&
+    /private applyVoteState\(commentId: string, score: string, vote: number\): void \{[\s\S]*const c: EhGalleryComment = this\.comments\[i\][\s\S]*c\.score = score[\s\S]*c\.vote = vote[\s\S]*const state: GalleryCommentRenderState \| undefined = this\.renderStateById\(commentId\)[\s\S]*state\.score = score[\s\S]*state\.vote = vote[\s\S]*this\.rebuildCommentList\(\)/.test(page) &&
     /private renderStateById\(commentId: string\): GalleryCommentRenderState \| undefined \{[\s\S]*return this\.renderStateMap\.get\(commentId\)/.test(page) &&
-    // The @Trace render state held in renderStateMap is the single source of truth — no comments-array
-    // clone/replace and no global version bump are needed to re-render the matching card.
+    // Source comments are updated too, so score-based local-block filtering, collapse state, and reply
+    // references do not read stale scores after the visible row repaints.
     !/this\.commentRenderVersion/.test(page) &&
     !/private replaceComment\(/.test(page) &&
     !/private updateRenderState\(/.test(page))
 ok('comments page publishes confirmed vote mutation for the detail page',
   /connectCommentVoteMutation\(\)\.publish\([\s\S]*this\.params\.gid[\s\S]*result\.commentId[\s\S]*result\.commentScore\.toString\(\)[\s\S]*result\.commentVote/.test(page))
 ok('comments page applies optimistic row vote and rolls back on failure',
-  /private applyLocalVote\(commentId: string, vote: number\): CommentVoteSnapshot \| undefined[\s\S]*const state: GalleryCommentRenderState \| undefined = this\.renderStateById\(commentId\)[\s\S]*previous\.vote = state\.vote[\s\S]*previous\.score = state\.score[\s\S]*state\.score = \(score \+ vote - state\.vote\)\.toString\(\)[\s\S]*state\.vote = vote/.test(page) &&
+  /private applyLocalVote\(commentId: string, vote: number\): CommentVoteSnapshot \| undefined[\s\S]*const state: GalleryCommentRenderState \| undefined = this\.renderStateById\(commentId\)[\s\S]*previous\.vote = state\.vote[\s\S]*previous\.score = state\.score[\s\S]*let nextScore: string = state\.score[\s\S]*nextScore = \(score \+ vote - state\.vote\)\.toString\(\)[\s\S]*this\.applyVoteState\(commentId, nextScore, vote\)/.test(page) &&
     /class CommentVoteSnapshot \{[\s\S]*commentId: string[\s\S]*vote: number[\s\S]*score: string/.test(page) &&
-    /private restoreComment\(snapshot: CommentVoteSnapshot\): void[\s\S]*const state: GalleryCommentRenderState \| undefined = this\.renderStateById\(snapshot\.commentId\)[\s\S]*state\.score = snapshot\.score[\s\S]*state\.vote = snapshot\.vote/.test(page) &&
+    /private restoreComment\(snapshot: CommentVoteSnapshot\): void[\s\S]*this\.applyVoteState\(snapshot\.commentId, snapshot\.score, snapshot\.vote\)/.test(page) &&
     /const previous: CommentVoteSnapshot \| undefined = this\.applyLocalVote\(commentId, localVote\)[\s\S]*catch \(err\) \{[\s\S]*this\.restoreComment\(previous\)/.test(page) &&
-    // The optimistic vote mutates the @Trace render state directly — no comments-array clone/replace.
+    // The optimistic vote mutates the shared source object and @Trace render state directly — no
+    // comments-array clone/replace.
     !/this\.replaceComment\(/.test(page))
 ok('comments page wires card onVote',
   /parentManagedActions: true/.test(page) &&
