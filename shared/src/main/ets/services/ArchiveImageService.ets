@@ -28,7 +28,7 @@ export class ArchiveImageService {
     if (paths.length === 0) {
       throw new Error('archive has no readable images')
     }
-    paths.sort((a: string, b: string) => ArchiveImageService.fileName(a).localeCompare(ArchiveImageService.fileName(b)))
+    paths.sort((a: string, b: string) => ArchiveImageService.naturalPathCompare(a, b))
 
     const images: EhGalleryImage[] = []
     for (let i: number = 0; i < paths.length; i++) {
@@ -79,9 +79,45 @@ export class ArchiveImageService {
       lower.endsWith('.heif')
   }
 
-  private static fileName(path: string): string {
-    const slash: number = path.lastIndexOf('/')
-    return slash >= 0 ? path.substring(slash + 1) : path
+  private static naturalPathCompare(left: string, right: string): number {
+    const a: string = left.toLowerCase()
+    const b: string = right.toLowerCase()
+    let ai: number = 0
+    let bi: number = 0
+    while (ai < a.length && bi < b.length) {
+      const ac: number = a.charCodeAt(ai)
+      const bc: number = b.charCodeAt(bi)
+      if (ArchiveImageService.isDigit(ac) && ArchiveImageService.isDigit(bc)) {
+        const aStart: number = ai
+        const bStart: number = bi
+        while (ai < a.length && ArchiveImageService.isDigit(a.charCodeAt(ai))) {
+          ai++
+        }
+        while (bi < b.length && ArchiveImageService.isDigit(b.charCodeAt(bi))) {
+          bi++
+        }
+        const aNum: number = Number.parseInt(a.substring(aStart, ai), 10)
+        const bNum: number = Number.parseInt(b.substring(bStart, bi), 10)
+        if (aNum !== bNum) {
+          return aNum - bNum
+        }
+        const lenDiff: number = (ai - aStart) - (bi - bStart)
+        if (lenDiff !== 0) {
+          return lenDiff
+        }
+        continue
+      }
+      if (ac !== bc) {
+        return ac - bc
+      }
+      ai++
+      bi++
+    }
+    return a.length - b.length
+  }
+
+  private static isDigit(code: number): boolean {
+    return code >= 48 && code <= 57
   }
 
   private static safePathPart(value: string): string {

@@ -193,7 +193,8 @@ export struct DownloadQueuePage {
   }
 
   private canResumeTask(task: DownloadGalleryTask): boolean {
-    return task.status === DownloadGalleryTaskStatus.ERROR ||
+    return task.status === DownloadGalleryTaskStatus.QUEUED ||
+      task.status === DownloadGalleryTaskStatus.ERROR ||
       task.status === DownloadGalleryTaskStatus.PAUSED ||
       task.status === DownloadGalleryTaskStatus.PARTIAL ||
       task.status === DownloadGalleryTaskStatus.READY

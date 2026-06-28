@@ -89,8 +89,8 @@ ok(/private PauseTaskButton\(task: DownloadGalleryTask\)/.test(page) &&
   /private canPauseTask\(task: DownloadGalleryTask\)[\s\S]*DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
   'running gallery tasks expose a low-weight pause action wired to the shared queue')
 ok(/status === DownloadGalleryTaskStatus\.PAUSED[\s\S]*download_status_paused/.test(page) &&
-  /private canResumeTask\(task: DownloadGalleryTask\)[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page),
-  'paused gallery tasks show paused status and can resume')
+  /private canResumeTask\(task: DownloadGalleryTask\)[\s\S]*DownloadGalleryTaskStatus\.QUEUED[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page),
+  'queued and paused gallery tasks show a low-weight resume action')
 ok(/private ArchiverTaskSection\(\)/.test(page) &&
   /this\.downloadQueue\.archiverTasks/.test(page) &&
   /private DownloadArchiverTaskCard\(task: DownloadArchiverTask\)/.test(page),
@@ -135,6 +135,12 @@ ok(/export class ArchiveImageService/.test(archiveService) &&
   /image\.sUrl = `archive:\/\/\$\{task\.tag\}\/\$\{page\}`/.test(archiveService) &&
   /image\.imageUrl = CachedImageFileService\.displayUri\(paths\[i\]\)/.test(archiveService),
   'ArchiveImageService uses platform zip extraction and produces file:// Reader images')
+ok(/paths\.sort\(\(a: string, b: string\) => ArchiveImageService\.naturalPathCompare\(a, b\)\)/.test(archiveService) &&
+  /private static naturalPathCompare\(left: string, right: string\): number/.test(archiveService) &&
+  /Number\.parseInt\(a\.substring\(aStart, ai\), 10\)/.test(archiveService) &&
+  /private static isDigit\(code: number\): boolean/.test(archiveService) &&
+  !/fileName\(a\)\.localeCompare\(ArchiveImageService\.fileName\(b\)\)/.test(archiveService),
+  'ArchiveImageService uses natural numeric path ordering for archive pages')
 ok(!/ConciseListRow\(\{[\s\S]*title: task\.displayTitle\(\)/.test(page) &&
   !/Button\(\$r\('app\.string\.common_remove'\)\)/.test(page),
   'gallery task rows do not regress to shallow ConciseListRow plus large remove button')

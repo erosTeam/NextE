@@ -32,6 +32,16 @@ Primary action: tap the content area of a completed Gallery or Archiver task to 
 Reuse or deviation: reuse the existing read methods and keep the action column separate so remove/refresh/retry buttons do not share the parent click target.
 Verification: gallery download queue contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence.
 
+## Active: queued download row resume affordance
+
+Status: active
+Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing per-task resume button, `shared/src/main/ets/settings/DownloadQueueSettings.ets` restored `QUEUED/READY/PARTIAL` gallery states, and the Archiver task row which already treats `QUEUED` as resumable.
+Surface type: Downloads tab Gallery task action column.
+Primary information: a queued Gallery task is a resumable task state, not a terminal or read-ready row.
+Primary action: tap the existing small retry/continue icon on a queued Gallery task to run the same `downloadGalleryImages()` executor used by READY, PAUSED, PARTIAL, and ERROR tasks.
+Reuse or deviation: reuse the existing circular resume action and shared executor; do not add a new queue state, scheduler, or separate start button.
+Verification: download workbench contract, download queue RDB contract, V1 decorator inventory, signed HarmonyOS build.
+
 ## Active: download task error detail
 
 Status: active
