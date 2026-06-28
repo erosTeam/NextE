@@ -614,9 +614,10 @@ export class DownloadQueueSettings {
       let tmpPath: string = ''
       try {
         const image: EhGalleryImage = DownloadQueueSettings.seedToImage(seed)
+        const shouldRefreshImageUrl: boolean = i > 0
         const imageUrl: string = useOriginal
-          ? await ImageResolveService.getInstance().resolveOriginal(image)
-          : await ImageResolveService.getInstance().resolve(image)
+          ? await ImageResolveService.getInstance().resolveOriginal(image, shouldRefreshImageUrl)
+          : await ImageResolveService.getInstance().resolve(image, shouldRefreshImageUrl)
         const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)
         result.image = image.copy()
         result.filePath = `${dir}/${DownloadQueueSettings.fileNameForSeed(seed, imageUrl)}`

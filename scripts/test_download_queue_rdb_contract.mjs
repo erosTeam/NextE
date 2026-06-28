@@ -64,6 +64,7 @@ ok('paused download status is a durable queue state',
     /status === DownloadGalleryTaskStatus\.PAUSED/.test(read('shared/src/main/ets/settings/DownloadQueueSettings.ets')))
 
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
+const imageResolve = read('shared/src/main/ets/services/ImageResolveService.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const autoResumeBody = settings.match(/shouldAutoResumeGalleryTask\(task: DownloadGalleryTask\): boolean \{[\s\S]*?\n  \}/)?.[0] ?? ''
 ok('settings facade uses RDB and only reads old Preferences for migration',
@@ -107,6 +108,13 @@ ok('gallery resume fetches seeds before downloading when a restored task has no 
   /static async downloadGalleryImages/.test(settings) &&
     /found !== null && found\.imageSeeds\.length === 0[\s\S]*refreshGallerySeedsFromRemote\(context, gid, token, connectSiteMode\(\)\.isEx\)/.test(settings) &&
     /downloadGalleryImages\(context, gid, token\)/.test(settings))
+ok('failed image download retries re-resolve stale EH one-shot image URLs',
+  /const shouldRefreshImageUrl: boolean = i > 0/.test(settings) &&
+    /resolveOriginal\(image, shouldRefreshImageUrl\)/.test(settings) &&
+    /resolve\(image, shouldRefreshImageUrl\)/.test(settings) &&
+    /async resolveOriginal\(image: EhGalleryImage, changeSource: boolean = false\): Promise<string>/.test(imageResolve) &&
+    /const cached: ImagePageResult \| undefined = changeSource \? undefined : this\.resolved\.get\(image\.sUrl\)/.test(imageResolve) &&
+    /await this\.doResolve\(image, changeSource\)/.test(imageResolve))
 ok('restore validates completed archiver package before keeping read-ready state',
   /out\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*normalizeRestoredArchiverComplete\(out\)/.test(settings) &&
     /downloadedFileSize\(task\.filePath\)/.test(settings) &&
