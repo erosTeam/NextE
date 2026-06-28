@@ -89,6 +89,10 @@
       "value": "下载中"
     },
     {
+      "name": "download_status_paused",
+      "value": "已暂停"
+    },
+    {
       "name": "download_status_partial",
       "value": "部分完成"
     },
@@ -383,6 +387,10 @@
     {
       "name": "common_retry",
       "value": "重试"
+    },
+    {
+      "name": "common_pause",
+      "value": "暂停"
     },
     {
       "name": "common_load_failed",

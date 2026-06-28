@@ -172,6 +172,7 @@ export class DownloadGalleryTaskStatus {
   static readonly PREPARING: string = 'preparing'
   static readonly READY: string = 'ready'
   static readonly DOWNLOADING: string = 'downloading'
+  static readonly PAUSED: string = 'paused'
   static readonly PARTIAL: string = 'partial'
   static readonly COMPLETE: string = 'complete'
   static readonly ERROR: string = 'error'

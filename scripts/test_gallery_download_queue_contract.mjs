@@ -22,7 +22,7 @@ const grounding = [
   'eros_fe: lib/pages/gallery/view/sliver/slivers.dart GalleryActions / DownloadGalleryButton; lib/pages/gallery/controller/gallery_page_controller.dart downloadGallery() / _downloadGallery()',
   'primary information: detail keeps cover/title/uploader/read first; Downloads shows selected queue status and task rows',
   'primary action: Read stays primary on detail; gallery download is secondary but high-frequency; Downloads manages queue visibility',
-  'scope: detail tap enqueues one local Gallery task and Downloads renders/dedups it; later lanes may advance image handling, but this contract still excludes archive remote submit, full background agents, and pause/resume engine',
+  'scope: detail tap enqueues one local Gallery task and Downloads renders/dedups it; Downloads owns lightweight retry/pause/remove task management, but this contract still excludes archive remote submit and a separate background agent',
   'Harmony expression: low-weight detail action row plus HDS grouped list queue rows; segmented Gallery/Archiver stays in title-bar bottomBuilder',
 ]
 
@@ -30,7 +30,7 @@ ok(grounding.length === 5, 'gallery download queue lane has five-line grounding'
 ok(grounding[0].includes('slivers.dart') && grounding[0].includes('DownloadGalleryButton') &&
   grounding[0].includes('gallery_page_controller.dart') && grounding[0].includes('downloadGallery'),
   'grounding names concrete eros_fe files/components/methods')
-ok(grounding[3].includes('full background agents') && grounding[4].includes('bottomBuilder'),
+ok(grounding[3].includes('separate background agent') && grounding[4].includes('bottomBuilder'),
   'grounding states scope boundary and Harmony expression')
 
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
@@ -109,9 +109,9 @@ ok(/localFilePath\(url: string\)/.test(imageCache) &&
   /url\.startsWith\('file:\/\/'\)/.test(imageCache) &&
   /throw new Error\('local image file missing'\)/.test(imageCache),
   'reader image cache treats local file:// images as local files, not network downloads')
-ok(!/postArchiver|downloadRemote|downloadLoacal|downloadLocal|DownloadAgentService|PauseTask/.test(
+ok(!/postArchiver|downloadRemote|downloadLoacal|downloadLocal|DownloadAgentService/.test(
   `${detail}\n${queuePage}\n${settings}`,
-), 'queue surface does not submit archives or introduce a separate pause engine')
+), 'queue surface does not submit archives or introduce a separate background download agent')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

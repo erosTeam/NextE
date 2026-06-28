@@ -71,6 +71,9 @@ export struct DownloadQueuePage {
     if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
       return AppStrings.get('download_status_downloading')
     }
+    if (status === DownloadGalleryTaskStatus.PAUSED) {
+      return AppStrings.get('download_status_paused')
+    }
     if (status === DownloadGalleryTaskStatus.PARTIAL) {
       return AppStrings.get('download_status_partial')
     }
@@ -148,6 +151,10 @@ export struct DownloadQueuePage {
     await DownloadQueueSettings.downloadGalleryImages(this.ctx(), task.gid, task.token)
   }
 
+  private async pauseTask(task: DownloadGalleryTask): Promise<void> {
+    await DownloadQueueSettings.pauseGalleryDownload(this.ctx(), task.gid, task.token)
+  }
+
   private taskKey(task: DownloadGalleryTask): string {
     return `${task.gid}:${task.token}`
   }
@@ -181,10 +188,19 @@ export struct DownloadQueuePage {
     await DownloadQueueSettings.downloadArchiver(this.ctx(), task.tag)
   }
 
+  private async pauseArchiverTask(task: DownloadArchiverTask): Promise<void> {
+    await DownloadQueueSettings.pauseArchiverDownload(this.ctx(), task.tag)
+  }
+
   private canResumeTask(task: DownloadGalleryTask): boolean {
     return task.status === DownloadGalleryTaskStatus.ERROR ||
+      task.status === DownloadGalleryTaskStatus.PAUSED ||
       task.status === DownloadGalleryTaskStatus.PARTIAL ||
       task.status === DownloadGalleryTaskStatus.READY
+  }
+
+  private canPauseTask(task: DownloadGalleryTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.DOWNLOADING
   }
 
   private canReadTask(task: DownloadGalleryTask): boolean {
@@ -202,7 +218,13 @@ export struct DownloadQueuePage {
   }
 
   private canResumeArchiverTask(task: DownloadArchiverTask): boolean {
-    return task.status === DownloadGalleryTaskStatus.ERROR || task.status === DownloadGalleryTaskStatus.QUEUED
+    return task.status === DownloadGalleryTaskStatus.ERROR ||
+      task.status === DownloadGalleryTaskStatus.PAUSED ||
+      task.status === DownloadGalleryTaskStatus.QUEUED
+  }
+
+  private canPauseArchiverTask(task: DownloadArchiverTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.DOWNLOADING
   }
 
   private canReadArchiverTask(task: DownloadArchiverTask): boolean {
@@ -489,6 +511,8 @@ export struct DownloadQueuePage {
         } else if (this.canRefreshTask(task)) {
           this.RefreshTaskButton(task)
         }
+      } else if (this.canPauseTask(task)) {
+        this.PauseTaskButton(task)
       } else if (this.canResumeTask(task)) {
         this.ResumeTaskButton(task)
       }
@@ -506,6 +530,8 @@ export struct DownloadQueuePage {
         this.ArchiverOpeningButton(task)
       } else if (this.canReadArchiverTask(task)) {
         this.ReadArchiverTaskButton(task)
+      } else if (this.canPauseArchiverTask(task)) {
+        this.PauseArchiverTaskButton(task)
       } else if (this.canResumeArchiverTask(task)) {
         this.ResumeArchiverTaskButton(task)
       }
@@ -545,6 +571,22 @@ export struct DownloadQueuePage {
     .accessibilityText($r('app.string.common_retry'))
     .onClick(() => {
       this.resumeTask(task)
+    })
+  }
+
+  @Builder
+  private PauseTaskButton(task: DownloadGalleryTask) {
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph($r('sys.symbol.pause'))
+        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+        .fontColor([ThemeConstants.BRAND_PRIMARY])
+    }
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+    .accessibilityText($r('app.string.common_pause'))
+    .onClick(() => {
+      this.pauseTask(task)
     })
   }
 
@@ -592,6 +634,22 @@ export struct DownloadQueuePage {
     .accessibilityText($r('app.string.common_retry'))
     .onClick(() => {
       this.resumeArchiverTask(task)
+    })
+  }
+
+  @Builder
+  private PauseArchiverTaskButton(task: DownloadArchiverTask) {
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph($r('sys.symbol.pause'))
+        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+        .fontColor([ThemeConstants.BRAND_PRIMARY])
+    }
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+    .accessibilityText($r('app.string.common_pause'))
+    .onClick(() => {
+      this.pauseArchiverTask(task)
     })
   }
 

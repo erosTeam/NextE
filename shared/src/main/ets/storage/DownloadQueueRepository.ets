@@ -266,6 +266,7 @@ export class DownloadQueueRepository {
       status === DownloadGalleryTaskStatus.PREPARING ||
       status === DownloadGalleryTaskStatus.READY ||
       status === DownloadGalleryTaskStatus.DOWNLOADING ||
+      status === DownloadGalleryTaskStatus.PAUSED ||
       status === DownloadGalleryTaskStatus.PARTIAL ||
       status === DownloadGalleryTaskStatus.COMPLETE ||
       status === DownloadGalleryTaskStatus.ERROR

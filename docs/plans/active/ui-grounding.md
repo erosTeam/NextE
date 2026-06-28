@@ -32,6 +32,16 @@ Primary action: the existing low-weight retry button remains the action; the sub
 Reuse or deviation: reuse the existing one-line progress/status subtitle and ellipsis behavior; do not add a second details row, toast-only path, modal, or new error model.
 Verification: gallery download prepare contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence.
 
+## Active: download task pause action
+
+Status: active
+Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing low-weight circular retry/remove/read task actions, and `shared/src/main/ets/settings/DownloadQueueSettings.ets` joined in-flight worker maps.
+Surface type: Downloads tab Gallery and Archiver task action column while a task is actively downloading.
+Primary information: a running task remains visible with its current progress; pause is a lightweight action beside remove, not a separate management page.
+Primary action: tap the small pause icon to stop the task after the current in-flight batch/stream settles, keep already downloaded files, and let the existing retry/resume icon continue later.
+Reuse or deviation: reuse the current task card action column, status model, and cancellation markers; do not introduce a new background agent, per-request abort API, or wide text controls in this slice.
+Verification: download workbench contract, download queue RDB contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence.
+
 ## Active: download speed-limit setting
 
 Status: active

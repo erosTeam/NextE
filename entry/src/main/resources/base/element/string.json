@@ -89,6 +89,10 @@
       "value": "Downloading"
     },
     {
+      "name": "download_status_paused",
+      "value": "Paused"
+    },
+    {
       "name": "download_status_partial",
       "value": "Partial"
     },
@@ -383,6 +387,10 @@
     {
       "name": "common_retry",
       "value": "Retry"
+    },
+    {
+      "name": "common_pause",
+      "value": "Pause"
     },
     {
       "name": "common_load_failed",

@@ -40,6 +40,8 @@ export class DownloadQueueSettings {
   private static galleryPreparations: Map<string, Promise<void>> = new Map<string, Promise<void>>()
   private static galleryDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
   private static archiverDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+  private static cancelledGalleryDownloads: Set<string> = new Set<string>()
+  private static cancelledArchiverDownloads: Set<string> = new Set<string>()
   private static pendingResume: Promise<void> | null = null
 
   static async restore(context: common.UIAbilityContext): Promise<void> {
@@ -74,6 +76,10 @@ export class DownloadQueueSettings {
     let existed: boolean = false
     task.queuedAt = Date.now()
     task.status = DownloadGalleryTaskStatus.QUEUED
+    const key: string = DownloadQueueSettings.taskKey(task.gid, task.token)
+    if (!DownloadQueueSettings.galleryDownloads.has(key)) {
+      DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
+    }
     const refreshed: DownloadGalleryTask = task.copy()
     next.push(refreshed)
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
@@ -102,6 +108,10 @@ export class DownloadQueueSettings {
     gid: string,
     token: string,
   ): Promise<void> {
+    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    if (DownloadQueueSettings.galleryDownloads.has(key)) {
+      DownloadQueueSettings.cancelledGalleryDownloads.add(key)
+    }
     const state = connectDownloadQueue()
     let removed: DownloadGalleryTask | null = null
     const next: DownloadGalleryTask[] = []
@@ -119,6 +129,19 @@ export class DownloadQueueSettings {
     }
   }
 
+  static async pauseGalleryDownload(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+  ): Promise<void> {
+    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    if (!DownloadQueueSettings.galleryDownloads.has(key)) {
+      return
+    }
+    DownloadQueueSettings.cancelledGalleryDownloads.add(key)
+    await DownloadQueueSettings.updateGalleryTaskAfterPause(context, gid, token)
+  }
+
   static async enqueueArchiver(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
@@ -132,6 +155,9 @@ export class DownloadQueueSettings {
     const refreshed: DownloadArchiverTask = task.copy()
     refreshed.queuedAt = Date.now()
     refreshed.status = DownloadGalleryTaskStatus.QUEUED
+    if (!DownloadQueueSettings.archiverDownloads.has(task.tag)) {
+      DownloadQueueSettings.cancelledArchiverDownloads.delete(task.tag)
+    }
     next.push(refreshed)
     state.archiverTasks.forEach((it: DownloadArchiverTask) => {
       if (it.tag === task.tag) {
@@ -161,6 +187,9 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     tag: string,
   ): Promise<void> {
+    if (DownloadQueueSettings.archiverDownloads.has(tag)) {
+      DownloadQueueSettings.cancelledArchiverDownloads.add(tag)
+    }
     const state = connectDownloadQueue()
     let removed: DownloadArchiverTask | null = null
     const next: DownloadArchiverTask[] = []
@@ -178,6 +207,20 @@ export class DownloadQueueSettings {
     }
   }
 
+  static async pauseArchiverDownload(
+    context: common.UIAbilityContext,
+    tag: string,
+  ): Promise<void> {
+    if (!DownloadQueueSettings.archiverDownloads.has(tag)) {
+      return
+    }
+    DownloadQueueSettings.cancelledArchiverDownloads.add(tag)
+    await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
+      it.status = DownloadGalleryTaskStatus.PAUSED
+      it.error = ''
+    })
+  }
+
   static async downloadArchiver(
     context: common.UIAbilityContext,
     tag: string,
@@ -185,14 +228,20 @@ export class DownloadQueueSettings {
     const running: Promise<void> | undefined = DownloadQueueSettings.archiverDownloads.get(tag)
     if (running !== undefined) {
       await running
+      const next: DownloadArchiverTask | null = DownloadQueueSettings.findArchiverTask(tag)
+      if (next !== null && DownloadQueueSettings.shouldContinueAfterJoinedArchiverDownload(next)) {
+        await DownloadQueueSettings.downloadArchiver(context, tag)
+      }
       return
     }
+    DownloadQueueSettings.cancelledArchiverDownloads.delete(tag)
     const task: Promise<void> = DownloadQueueSettings.runArchiverDownload(context, tag)
     DownloadQueueSettings.archiverDownloads.set(tag, task)
     try {
       await task
     } finally {
       DownloadQueueSettings.archiverDownloads.delete(tag)
+      DownloadQueueSettings.cancelledArchiverDownloads.delete(tag)
     }
   }
 
@@ -248,7 +297,7 @@ export class DownloadQueueSettings {
     tag: string,
   ): Promise<void> {
     const task: DownloadArchiverTask | null = DownloadQueueSettings.findArchiverTask(tag)
-    if (task === null || task.url.length === 0) {
+    if (task === null || task.url.length === 0 || DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
       return
     }
     await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
@@ -269,6 +318,10 @@ export class DownloadQueueSettings {
         ARCHIVER_ACCEPT,
         attempts,
       )
+      if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
+        DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_cancelled_file_delete_failed')
+        return
+      }
       await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
         it.status = DownloadGalleryTaskStatus.COMPLETE
         it.fileName = fileName
@@ -280,6 +333,10 @@ export class DownloadQueueSettings {
         it.error = ''
       })
     } catch (error) {
+      if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
+        DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_cancelled_file_delete_failed')
+        return
+      }
       await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
         it.status = DownloadGalleryTaskStatus.ERROR
         it.fileName = fileName
@@ -405,14 +462,20 @@ export class DownloadQueueSettings {
     const running: Promise<void> | undefined = DownloadQueueSettings.galleryDownloads.get(key)
     if (running !== undefined) {
       await running
+      const next: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+      if (next !== null && DownloadQueueSettings.shouldContinueAfterJoinedGalleryDownload(next)) {
+        await DownloadQueueSettings.downloadGalleryImages(context, gid, token)
+      }
       return
     }
+    DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
     const task: Promise<void> = DownloadQueueSettings.runGalleryImageDownload(context, gid, token)
     DownloadQueueSettings.galleryDownloads.set(key, task)
     try {
       await task
     } finally {
       DownloadQueueSettings.galleryDownloads.delete(key)
+      DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
     }
   }
 
@@ -421,8 +484,12 @@ export class DownloadQueueSettings {
     gid: string,
     token: string,
   ): Promise<void> {
+    const key: string = DownloadQueueSettings.taskKey(gid, token)
     let batchIndex: number = 0
     while (true) {
+      if (DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
+        return
+      }
       const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
       if (task === null) {
         return
@@ -443,6 +510,9 @@ export class DownloadQueueSettings {
       }
       if (batchIndex > 0) {
         await DownloadQueueSettings.delay(connectDownloadSettings().requestIntervalSeconds * 1000)
+        if (DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
+          return
+        }
       }
       await DownloadQueueSettings.updateDownloadTaskStatus(
         context,
@@ -460,6 +530,10 @@ export class DownloadQueueSettings {
         jobs.push(DownloadQueueSettings.downloadSeedToFile(context, gid, seed, useOriginal, retryCount))
       })
       const results: DownloadSeedResult[] = await Promise.all(jobs)
+      if (DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
+        DownloadQueueSettings.deleteDownloadSeedResults(results)
+        return
+      }
       const hasError: boolean = await DownloadQueueSettings.applyDownloadResults(
         context,
         gid,
@@ -593,6 +667,29 @@ export class DownloadQueueSettings {
       }
     })
     return count
+  }
+
+  private static shouldContinueAfterJoinedGalleryDownload(task: DownloadGalleryTask): boolean {
+    if (
+      task.status === DownloadGalleryTaskStatus.ERROR ||
+      task.status === DownloadGalleryTaskStatus.PAUSED ||
+      task.status === DownloadGalleryTaskStatus.COMPLETE
+    ) {
+      return false
+    }
+    return DownloadQueueSettings.pendingSeedCount(task.imageSeeds) > 0
+  }
+
+  private static shouldContinueAfterJoinedArchiverDownload(task: DownloadArchiverTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.QUEUED && task.url.length > 0
+  }
+
+  private static deleteDownloadSeedResults(results: DownloadSeedResult[]): void {
+    results.forEach((result: DownloadSeedResult) => {
+      if (result.filePath.length > 0) {
+        DownloadQueueSettings.deleteSandboxPath(result.filePath, 'gallery_cancelled_file_delete_failed')
+      }
+    })
   }
 
   private static async updatePreparedTask(
@@ -849,6 +946,9 @@ export class DownloadQueueSettings {
   }
 
   private static updateArchiverProgress(tag: string, loaded: number, total: number): void {
+    if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
+      return
+    }
     const state = connectDownloadQueue()
     const next: DownloadArchiverTask[] = []
     state.archiverTasks.forEach((it: DownloadArchiverTask) => {
@@ -899,6 +999,25 @@ export class DownloadQueueSettings {
       if (task.gid === gid && task.token === token) {
         task.status = status
         task.prepareError = error
+      }
+      next.push(task)
+    })
+    state.galleryTasks = next
+    await DownloadQueueSettings.persist(context, next)
+  }
+
+  private static async updateGalleryTaskAfterPause(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+  ): Promise<void> {
+    const state = connectDownloadQueue()
+    const next: DownloadGalleryTask[] = []
+    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
+      const task: DownloadGalleryTask = it.copy()
+      if (task.gid === gid && task.token === token) {
+        task.status = DownloadGalleryTaskStatus.PAUSED
+        task.prepareError = ''
       }
       next.push(task)
     })
@@ -1163,6 +1282,7 @@ export class DownloadQueueSettings {
       status === DownloadGalleryTaskStatus.PREPARING ||
       status === DownloadGalleryTaskStatus.READY ||
       status === DownloadGalleryTaskStatus.DOWNLOADING ||
+      status === DownloadGalleryTaskStatus.PAUSED ||
       status === DownloadGalleryTaskStatus.PARTIAL ||
       status === DownloadGalleryTaskStatus.COMPLETE ||
       status === DownloadGalleryTaskStatus.ERROR

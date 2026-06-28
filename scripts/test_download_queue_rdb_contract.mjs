@@ -35,6 +35,7 @@ ok('LocalDataStore creates archiver download task table',
     /file_path TEXT NOT NULL/.test(store))
 
 const repo = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
+const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
 ok('repository loads and replaces queue through RDB',
   /class DownloadQueueRepository/.test(repo) &&
     /LocalDataStore\.open\(context\)/.test(repo) &&
@@ -57,9 +58,14 @@ ok('repository loads and replaces archiver queue through RDB',
     /INSERT OR REPLACE INTO download_archiver_tasks/.test(repo) &&
     /DELETE FROM download_archiver_tasks WHERE scope_key = \?/.test(repo) &&
     /readArchiverTask/.test(repo))
+ok('paused download status is a durable queue state',
+  /static readonly PAUSED: string = 'paused'/.test(model) &&
+    /status === DownloadGalleryTaskStatus\.PAUSED/.test(repo) &&
+    /status === DownloadGalleryTaskStatus\.PAUSED/.test(read('shared/src/main/ets/settings/DownloadQueueSettings.ets')))
 
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
+const autoResumeBody = settings.match(/shouldAutoResumeGalleryTask\(task: DownloadGalleryTask\): boolean \{[\s\S]*?\n  \}/)?.[0] ?? ''
 ok('settings facade uses RDB and only reads old Preferences for migration',
   /DownloadQueueRepository\.load\(context\)/.test(settings) &&
     /DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
@@ -94,6 +100,9 @@ ok('bootstrap resumes restored queued gallery and archiver downloads without blo
     /shouldAutoResumeGalleryTask/.test(settings) &&
     /downloadGalleryImages\(context, galleryTasks\[i\]\.gid, galleryTasks\[i\]\.token\)/.test(settings) &&
     /downloadArchiver\(context, archiverTasks\[i\]\.tag\)/.test(settings))
+ok('bootstrap does not auto-resume paused gallery downloads',
+  /DownloadGalleryTaskStatus\.QUEUED[\s\S]*DownloadGalleryTaskStatus\.READY[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(autoResumeBody) &&
+    !/DownloadGalleryTaskStatus\.PAUSED/.test(autoResumeBody))
 ok('gallery resume fetches seeds before downloading when a restored task has no image-page seeds',
   /static async downloadGalleryImages/.test(settings) &&
     /found !== null && found\.imageSeeds\.length === 0[\s\S]*refreshGallerySeedsFromRemote\(context, gid, token, connectSiteMode\(\)\.isEx\)/.test(settings) &&
@@ -106,11 +115,29 @@ ok('restore validates completed archiver package before keeping read-ready state
 ok('remove deletes gallery download content after the last task for that gid is removed',
   /removeGallery\([\s\S]*let removed: DownloadGalleryTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persist\(context, next\)[\s\S]*!DownloadQueueSettings\.hasGalleryTaskWithGid\(next, gid\)[\s\S]*deleteGalleryContent\(context, removed\)/.test(settings) &&
     /deleteGalleryContent\([\s\S]*context\.filesDir[\s\S]*download-gallery[\s\S]*safePathPart\(task\.gid\)[\s\S]*deleteSandboxPath/.test(settings))
+ok('remove cancels in-flight gallery workers and discards late batch files',
+  /cancelledGalleryDownloads: Set<string>/.test(settings) &&
+    /removeGallery\([\s\S]*galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)/.test(settings) &&
+    /cancelledGalleryDownloads\.has\(key\)[\s\S]*deleteDownloadSeedResults\(results\)[\s\S]*return/.test(settings) &&
+    /deleteDownloadSeedResults\(results: DownloadSeedResult\[\]\)[\s\S]*deleteSandboxPath\(result\.filePath, 'gallery_cancelled_file_delete_failed'\)/.test(settings))
+ok('pause marks running gallery workers cancelled while keeping the task resumable',
+  /static async pauseGalleryDownload/.test(settings) &&
+    /galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)[\s\S]*updateGalleryTaskAfterPause\(context, gid, token\)/.test(settings) &&
+    /updateGalleryTaskAfterPause[\s\S]*task\.status = DownloadGalleryTaskStatus\.PAUSED[\s\S]*task\.prepareError = ''[\s\S]*persist\(context, next\)/.test(settings))
 ok('remove deletes archiver package and extracted reader cache',
   /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiver\(context, next\)[\s\S]*deleteArchiverContent\(context, removed\)/.test(settings) &&
     /deleteArchiverContent\([\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
     /ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'/.test(settings) &&
     /names\[i\]\.startsWith\(prefix\)[\s\S]*deleteSandboxPath/.test(settings))
+ok('remove cancels in-flight archiver workers and deletes late package files',
+  /cancelledArchiverDownloads: Set<string>/.test(settings) &&
+    /removeArchiver\([\s\S]*archiverDownloads\.has\(tag\)[\s\S]*cancelledArchiverDownloads\.add\(tag\)/.test(settings) &&
+    /cancelledArchiverDownloads\.has\(tag\)[\s\S]*deleteSandboxPath\(filePath, 'archiver_cancelled_file_delete_failed'\)[\s\S]*return/.test(settings) &&
+    /shouldContinueAfterJoinedArchiverDownload/.test(settings))
+ok('pause marks running archiver workers cancelled and suppresses late progress callbacks',
+  /static async pauseArchiverDownload/.test(settings) &&
+    /archiverDownloads\.has\(tag\)[\s\S]*cancelledArchiverDownloads\.add\(tag\)[\s\S]*it\.status = DownloadGalleryTaskStatus\.PAUSED/.test(settings) &&
+    /updateArchiverProgress\(tag: string[\s\S]*cancelledArchiverDownloads\.has\(tag\)[\s\S]*return/.test(settings))
 ok('download content cleanup uses platform recursive directory removal',
   /deleteSandboxPath\(path: string, event: string\)[\s\S]*fs\.statSync\(path\)[\s\S]*stat\.isDirectory\(\)[\s\S]*fs\.rmdirSync\(path\)[\s\S]*fs\.unlinkSync\(path\)/.test(settings))
 

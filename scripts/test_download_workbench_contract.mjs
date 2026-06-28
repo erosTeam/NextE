@@ -74,6 +74,15 @@ ok(/private ResumeTaskButton\(task: DownloadGalleryTask\)/.test(page) &&
   /DownloadQueueSettings\.downloadGalleryImages/.test(page) &&
   /common_retry/.test(page),
   'retry/resume action is a low-weight icon action wired to the gallery image executor')
+ok(/private PauseTaskButton\(task: DownloadGalleryTask\)/.test(page) &&
+  /sys\.symbol\.pause/.test(page) &&
+  /DownloadQueueSettings\.pauseGalleryDownload/.test(page) &&
+  /common_pause/.test(page) &&
+  /private canPauseTask\(task: DownloadGalleryTask\)[\s\S]*DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
+  'running gallery tasks expose a low-weight pause action wired to the shared queue')
+ok(/status === DownloadGalleryTaskStatus\.PAUSED[\s\S]*download_status_paused/.test(page) &&
+  /private canResumeTask\(task: DownloadGalleryTask\)[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page),
+  'paused gallery tasks show paused status and can resume')
 ok(/private ArchiverTaskSection\(\)/.test(page) &&
   /this\.downloadQueue\.archiverTasks/.test(page) &&
   /private DownloadArchiverTaskCard\(task: DownloadArchiverTask\)/.test(page),
@@ -81,6 +90,13 @@ ok(/private ArchiverTaskSection\(\)/.test(page) &&
 ok(/DownloadQueueSettings\.downloadArchiver/.test(page) &&
   /DownloadQueueSettings\.removeArchiver/.test(page),
   'archiver task cards wire retry and remove to the archiver queue executor')
+ok(/private PauseArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page) &&
+  /sys\.symbol\.pause/.test(page) &&
+  /DownloadQueueSettings\.pauseArchiverDownload/.test(page) &&
+  /private canPauseArchiverTask\(task: DownloadArchiverTask\)[\s\S]*DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
+  'running archiver tasks expose a low-weight pause action wired to the shared queue')
+ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\)[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page),
+  'paused archiver tasks can resume')
 ok(/private archiverProgressLabel\(task: DownloadArchiverTask\)[\s\S]*task\.status === DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.error\.length > 0[\s\S]*`\$\{this\.statusText\(task\.status\)\} · \$\{task\.error\}`/.test(page),
   'archiver task cards show stored failure reason in the existing status subtitle')
 ok(/ARCHIVER_ACCEPT: string = 'application\/zip,application\/octet-stream,\*\/\*'/.test(queueSettings) &&
@@ -128,6 +144,7 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'download_active_tasks',
     'download_finished_tasks',
     'download_status_empty',
+    'download_status_paused',
     'download_gallery_empty',
     'download_archiver_empty',
     'download_gallery_next_step',
@@ -136,6 +153,7 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'download_concurrency',
     'download_original_images',
     'download_not_configured',
+    'common_pause',
   ]) {
     ok(strings.includes(`"name": "${key}"`), `${locale}: ${key} string exists`)
   }
