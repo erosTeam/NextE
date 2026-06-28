@@ -23,10 +23,12 @@ const ok = (cond, msg) => {
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
 const archiveService = read('shared/src/main/ets/services/ArchiveImageService.ets')
+const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets')
 const bar = read('entry/src/main/ets/components/DownloadTypeBar.ets')
 const index = read('entry/src/main/ets/pages/Index.ets')
 const state = read('shared/src/main/ets/state/DownloadViewState.ets')
 const shared = read('shared/src/main/ets/Index.ets')
+const queueSettings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 
 ok(/export enum DownloadViewType/.test(state) && /GALLERY = 'gallery'/.test(state) &&
   /ARCHIVER = 'archiver'/.test(state), 'download shared state defines Gallery and Archiver queue views')
@@ -79,6 +81,12 @@ ok(/private ArchiverTaskSection\(\)/.test(page) &&
 ok(/DownloadQueueSettings\.downloadArchiver/.test(page) &&
   /DownloadQueueSettings\.removeArchiver/.test(page),
   'archiver task cards wire retry and remove to the archiver queue executor')
+ok(/ARCHIVER_ACCEPT: string = 'application\/zip,application\/octet-stream,\*\/\*'/.test(queueSettings) &&
+  /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT/.test(queueSettings),
+  'archiver executor requests archive bytes with a zip/octet-stream Accept header')
+ok(/const IMAGE_ACCEPT: string = 'image\/avif,image\/webp,image\/apng,image\/\*,\*\/\*;q=0\.8'/.test(httpClient) &&
+  /accept: string = IMAGE_ACCEPT/.test(httpClient),
+  'stream binary download keeps image Accept as the default for Reader image cache')
 ok(/private canReadArchiverTask\(task: DownloadArchiverTask\)/.test(page) &&
   /task\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*task\.filePath\.length > 0/.test(page) &&
   /private ReadArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page),

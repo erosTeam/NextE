@@ -22,6 +22,7 @@ import { DownloadQueueRepository } from '../storage/DownloadQueueRepository'
 
 const MAX_GALLERY_TASKS: number = 200
 const MAX_ARCHIVER_TASKS: number = 100
+const ARCHIVER_ACCEPT: string = 'application/zip,application/octet-stream,*/*'
 
 class DownloadSeedResult {
   originalSeed: DownloadImageSeed = new DownloadImageSeed()
@@ -36,8 +37,14 @@ export class DownloadQueueSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await DownloadQueueSettings.migrateLegacyPreferences(context)
-      connectDownloadQueue().galleryTasks = await DownloadQueueRepository.load(context)
-      connectDownloadQueue().archiverTasks = await DownloadQueueRepository.loadArchiver(context)
+      const galleryTasks: DownloadGalleryTask[] =
+        DownloadQueueSettings.normalizeRestoredGalleryTasks(await DownloadQueueRepository.load(context))
+      const archiverTasks: DownloadArchiverTask[] =
+        DownloadQueueSettings.normalizeRestoredArchiverTasks(await DownloadQueueRepository.loadArchiver(context))
+      connectDownloadQueue().galleryTasks = galleryTasks
+      connectDownloadQueue().archiverTasks = archiverTasks
+      await DownloadQueueSettings.persist(context, galleryTasks)
+      await DownloadQueueSettings.persistArchiver(context, archiverTasks)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_restore_failed', (error as Error).message)
     }
@@ -167,6 +174,7 @@ export class DownloadQueueSettings {
         (loaded: number, total: number) => {
           DownloadQueueSettings.updateArchiverProgress(tag, loaded, total)
         },
+        ARCHIVER_ACCEPT,
       )
       await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
         it.status = DownloadGalleryTaskStatus.COMPLETE
@@ -640,6 +648,39 @@ export class DownloadQueueSettings {
       return a.imagePageUrl === b.imagePageUrl
     }
     return false
+  }
+
+  private static normalizeRestoredGalleryTasks(tasks: DownloadGalleryTask[]): DownloadGalleryTask[] {
+    return tasks.map((task: DownloadGalleryTask) => {
+      const out: DownloadGalleryTask = task.copy()
+      if (
+        out.status === DownloadGalleryTaskStatus.PREPARING ||
+        out.status === DownloadGalleryTaskStatus.DOWNLOADING
+      ) {
+        if (out.downloadedCount() > 0) {
+          out.status = DownloadGalleryTaskStatus.PARTIAL
+        } else if (out.seededCount() > 0) {
+          out.status = DownloadGalleryTaskStatus.READY
+        } else {
+          out.status = DownloadGalleryTaskStatus.QUEUED
+        }
+        out.prepareError = ''
+      }
+      return out
+    })
+  }
+
+  private static normalizeRestoredArchiverTasks(tasks: DownloadArchiverTask[]): DownloadArchiverTask[] {
+    return tasks.map((task: DownloadArchiverTask) => {
+      const out: DownloadArchiverTask = task.copy()
+      if (out.status === DownloadGalleryTaskStatus.DOWNLOADING) {
+        out.status = DownloadGalleryTaskStatus.ERROR
+        if (out.error.length === 0) {
+          out.error = 'download interrupted'
+        }
+      }
+      return out
+    })
   }
 
   private static delay(ms: number): Promise<void> {

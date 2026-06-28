@@ -69,6 +69,15 @@ ok('settings facade uses RDB and only reads old Preferences for migration',
     /store\.deleteSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE\)/.test(settings))
 ok('settings no longer writes the queue back to Preferences',
   !/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings))
+ok('restore normalizes stale in-process gallery download states to resumable states',
+  /normalizeRestoredGalleryTasks\(await DownloadQueueRepository\.load\(context\)\)/.test(settings) &&
+    /out\.status === DownloadGalleryTaskStatus\.PREPARING \|\|[\s\S]*out\.status === DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
+    /out\.downloadedCount\(\) > 0[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(settings) &&
+    /out\.seededCount\(\) > 0[\s\S]*DownloadGalleryTaskStatus\.READY/.test(settings))
+ok('restore normalizes stale archiver download state to retryable error',
+  /normalizeRestoredArchiverTasks\(await DownloadQueueRepository\.loadArchiver\(context\)\)/.test(settings) &&
+    /out\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*DownloadGalleryTaskStatus\.ERROR/.test(settings) &&
+    /download interrupted/.test(settings))
 
 if (failures === 0) {
   console.log('✓ download queue RDB contract passed')

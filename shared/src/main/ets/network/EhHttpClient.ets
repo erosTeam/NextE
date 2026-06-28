@@ -20,6 +20,7 @@ const CONNECT_TIMEOUT_MS: number = 10000
 const READ_TIMEOUT_MS: number = 20000
 const BACKOFF_BASE_MS: number = 800
 const MAX_BINARY_BYTES: number = 100 * 1024 * 1024
+const IMAGE_ACCEPT: string = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
 
 /**
  * EH HTTP transport over @ohos.net.http. Singleton. Sets the desktop Chrome UA + Accept
@@ -260,7 +261,7 @@ export class EhHttpClient {
       try {
         const header: Record<string, string> = {
           'User-Agent': EhConstants.USER_AGENT,
-          'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept': IMAGE_ACCEPT,
           'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
           'Cookie': EhCookieStore.getInstance().header(),
         }
@@ -305,6 +306,7 @@ export class EhHttpClient {
     url: string,
     filePath: string,
     progress: (loaded: number, total: number) => void,
+    accept: string = IMAGE_ACCEPT,
   ): Promise<number> {
     let attempt: number = 0
     let lastError: Error | null = null
@@ -314,7 +316,7 @@ export class EhHttpClient {
       try {
         const header: Record<string, string> = {
           'User-Agent': EhConstants.USER_AGENT,
-          'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept': accept,
           'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
           'Cookie': EhCookieStore.getInstance().header(),
         }
@@ -347,7 +349,7 @@ export class EhHttpClient {
         if (code >= 500 && attempt < MAX_RETRIES - 1) {
           lastError = new Error(`HTTP ${code}`)
         } else if (code !== 200) {
-          throw new Error(`image HTTP ${code}`)
+          throw new Error(`binary HTTP ${code}`)
         } else {
           progress(written, progressTotal > 0 ? progressTotal : written)
           return written
