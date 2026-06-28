@@ -204,30 +204,7 @@ export struct GalleryWebPage {
       return
     }
     try {
-      const payload: string = await this.controller.runJavaScript(`
-        (() => {
-          const name = document.querySelector('#profilename');
-          const avatarBox = name && name.nextElementSibling
-            ? name.nextElementSibling.nextElementSibling
-            : null;
-          const image = avatarBox ? avatarBox.querySelector('img') : null;
-          let avatarUrl = image ? (image.getAttribute('src') || '') : '';
-          if (image && image.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
-            try {
-              const canvas = document.createElement('canvas');
-              canvas.width = image.naturalWidth;
-              canvas.height = image.naturalHeight;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(image, 0, 0);
-              avatarUrl = canvas.toDataURL('image/png');
-            } catch (e) {}
-          }
-          return JSON.stringify({
-            nickName: name && name.textContent ? name.textContent.trim() : '',
-            avatarUrl
-          });
-        })()
-      `)
+      const payload: string = await this.controller.runJavaScript(UserProfileService.profileDomCaptureScript())
       if (UserProfileService.applyProfileDomPayload(payload)) {
         UserProfileService.materializeAvatar(this.ctx())
         await UserProfileService.saveActive(this.ctx())

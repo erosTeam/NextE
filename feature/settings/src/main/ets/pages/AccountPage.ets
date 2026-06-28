@@ -54,6 +54,7 @@ struct AccountAvatar {
     .width(this.avatarSize)
     .height(this.avatarSize)
     .borderRadius(this.avatarSize / 2)
+    .clip(true)
     .backgroundColor(ThemeConstants.BRAND_PRIMARY)
   }
 }

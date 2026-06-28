@@ -33,7 +33,8 @@ export struct SettingsPage {
     if (this.auth.nickName.length > 0) {
       return `ID ${this.auth.memberId}`
     }
-    return ''
+    // Reserve the same secondary-text row before the best-effort profile fetch returns a nickname.
+    return ' '
   }
 
   @Builder
@@ -53,6 +54,7 @@ export struct SettingsPage {
     .width(ThemeConstants.ACCOUNT_AVATAR_SIZE)
     .height(ThemeConstants.ACCOUNT_AVATAR_SIZE)
     .borderRadius(ThemeConstants.ACCOUNT_AVATAR_SIZE / 2)
+    .clip(true)
     .backgroundColor(ThemeConstants.BRAND_PRIMARY)
   }
 

@@ -13,6 +13,7 @@ import {
   ThemeColorSettings,
   AppStrings,
   DiagnosticLogger,
+  UserProfileService,
   immersiveTitleBar,
 } from 'shared'
 
@@ -30,6 +31,8 @@ export struct EhLoginWebPage {
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local loading: boolean = true;
   private captured: boolean = false;
+  private profileCaptureStarted: boolean = false;
+  private finished: boolean = false;
 
   build() {
     HdsNavDestination() {
@@ -75,11 +78,18 @@ export struct EhLoginWebPage {
             },
             onPageEnd: () => {
               this.loading = false
+              if (this.profileCaptureStarted) {
+                this.finishLoginWithProfile()
+                return
+              }
               this.restyleLoginForm()
               this.tryCapture()
             },
             onErrorReceive: () => {
               this.loading = false
+              if (this.profileCaptureStarted) {
+                this.finishLogin()
+              }
             },
           })
         }
@@ -209,6 +219,36 @@ export struct EhLoginWebPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     await CookieJarSettings.save(ctx)
+    this.profileCaptureStarted = true
+    this.loading = true
+    try {
+      this.controller.loadUrl(UserProfileService.activeProfileUrl())
+    } catch (e) {
+      DiagnosticLogger.warn('auth', 'web_login_profile_load_failed', (e as Error).message)
+      this.finishLogin()
+    }
+  }
+
+  private async finishLoginWithProfile(): Promise<void> {
+    try {
+      const payload: string = await this.controller.runJavaScript(UserProfileService.profileDomCaptureScript())
+      if (UserProfileService.applyProfileDomPayload(payload)) {
+        const ctx: common.UIAbilityContext =
+          this.getUIContext().getHostContext() as common.UIAbilityContext
+        UserProfileService.materializeAvatar(ctx)
+        await UserProfileService.saveActive(ctx)
+      }
+    } catch (e) {
+      DiagnosticLogger.warn('auth', 'web_login_profile_capture_failed', (e as Error).message)
+    }
+    this.finishLogin()
+  }
+
+  private finishLogin(): void {
+    if (this.finished) {
+      return
+    }
+    this.finished = true
     promptAction.showToast({ message: $r('app.string.login_success') })
     this.stack.pop()
   }

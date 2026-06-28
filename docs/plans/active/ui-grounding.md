@@ -22,6 +22,16 @@ Primary action: tapping the account card opens `AccountPage`; signed-out users s
 Reuse or deviation: reuse the account switcher card structure and theme tokens; deviate only by replacing the right-side radio selection control with a chevron because this Settings row is navigation, not selection.
 Verification: UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Settings screenshot showing the logged-in account card with avatar/name/ID/chevron.
 
+## Active: WebView login profile capture
+
+Status: active
+Reference implementation: `entry/src/main/ets/pages/EhLoginWebPage.ets` WebView cookie capture, `entry/src/main/ets/pages/GalleryWebPage.ets` profile DOM capture, and `shared/src/main/ets/services/UserProfileService.ets` profile persistence.
+Surface type: WebView login completion flow plus the existing Settings account entry.
+Primary information: after a successful WebView login, the account identity should populate nickname/avatar automatically when the forum profile page is reachable; member ID remains the fallback.
+Primary action: user completes the existing WebView login form; the app loads the active profile once, saves profile metadata if available, and returns as before.
+Reuse or deviation: reuse the existing WebView session and `UserProfileService.applyProfileDomPayload()` path instead of adding a second parser or new setting; deviate only by delaying the login success pop until the best-effort profile capture attempt finishes or fails.
+Verification: UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and logged-in Settings/Account screenshots showing clipped avatar and stable account-entry hierarchy.
+
 ## Active: reader gesture probe
 
 Status: active
