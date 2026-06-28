@@ -4,8 +4,9 @@ Status: active implementation note.
 
 ## Scope
 
-This lane implements the provider-neutral sync spine plus a manual WebDAV provider. Huawei cloud sync is
-intentionally excluded until the syncable RDB schema and write semantics are stable enough to mirror in AGC.
+This lane implements the provider-neutral sync spine plus WebDAV and Huawei Cloud providers. WebDAV is a
+user-configured file sync provider. Huawei Cloud sync is compiled into the app and defaults to visible for
+local/private development builds.
 
 ## Syncable Data
 
@@ -43,12 +44,33 @@ Providers do transport only:
 
 - local file/import-export style sync reads and writes one `nexte-sync-v1.json` envelope
 - manual WebDAV uses a directory layout: a small manifest plus one JSON file per enabled dataset group
-- Huawei cloud sync, when enabled later by a private build/profile, marks the same syncable tables
+- Huawei Cloud sync marks the same syncable RDB tables with `DISTRIBUTED_CLOUD` and syncs the selected
+  table set directly through HarmonyOS RDB cloud sync
 
 Conflict resolution belongs to the sync dataset adapter, not providers.
 
-WebDAV settings are Preferences-backed local settings. The URL and username are configuration; the password is
-a local-only credential and must not appear in backup export, sync envelopes, or logs.
+WebDAV settings are Preferences-backed local settings. The enable switch, URL, and username are configuration;
+the password is a local-only credential and must not appear in backup export, sync envelopes, or logs.
+
+## Huawei Cloud Provider
+
+Huawei Cloud sync reuses the same dataset switches as WebDAV:
+
+- read progress -> `gallery_read_progress`
+- browsing history -> `viewed_history`
+- local favorites -> `local_favorites`
+- search history -> `search_history`
+- local hidden-tag/comment-filter settings -> `local_block_settings`, `local_block_rules`
+- custom list tabs -> `custom_profiles`, `custom_profile_selection`
+
+`HUAWEI_CLOUD_SYNC_BUILD_ENABLED` defaults to true so local development can actually see and test the
+provider. Public release builds that do not configure the matching AGC/HGC cloud schema can run
+`NEXTE_HUAWEI_CLOUD_SYNC=0 scripts/build_hvigor_signed.sh`; the build script temporarily flips the flag for
+that build and restores the source file afterward.
+
+The cloud schema must include only syncable durable user tables. Cache tables, generated tag-translation data,
+download queues, diagnostics, cookie jars, API keys, and WebDAV credentials stay local-only. Every synced table
+column is nullable because RDB cloud sync rejects NOT NULL cloud fields.
 
 ## WebDAV File Layout
 
@@ -78,7 +100,9 @@ Shards are stable hash buckets, not position slices. The bucket key is the datas
 - local favorites: `scope_key + gid`
 - search history: `scope_key + query_text`
 - local block: `scope_key` for settings and `scope_key + rule_id` for rules
-- custom profiles: `scope_key + uuid` for profiles and `scope_key` for selection
+- custom profiles: `scope_key + uuid` for profile records and `scope_key` for selection.
+  The app/export model keeps the semantic field name `uuid`, but the local RDB and AGC cloud table
+  store it as `profile_uuid` because `uuid` is an AGC reserved field name.
 
 The current WebDAV provider uses 64 buckets (`00` through `3f`). A single record update or tombstone
 therefore changes only its stable bucket shard, not every later record.
@@ -118,7 +142,8 @@ merge/PUT for disabled dataset files and leaves the manifest entry untouched.
 - Search history: newer `updated_at` or tombstone wins per `(scope_key, query_text)`.
 - Local block settings: newer `updated_at` or tombstone wins per `scope_key`.
 - Local block rules: newer `updated_at` or tombstone wins per `(scope_key, rule_id)`.
-- Custom profiles: newer `last_edit_time` or tombstone wins per `(scope_key, uuid)`.
+- Custom profiles: newer `last_edit_time` or tombstone wins per semantic `(scope_key, uuid)`;
+  the physical RDB/AGC key column is `(scope_key, profile_uuid)`.
 - Custom profile selection: newer `updated_at` or tombstone wins per `scope_key`.
 
 Search and profile order are carried by `position_index` from the winning record.

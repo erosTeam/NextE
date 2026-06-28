@@ -77,12 +77,16 @@ must(settings.includes('migrateLegacyPreferences') &&
   const repo = read('shared/src/main/ets/storage/CustomProfilesRepository.ets')
   must(store.includes('CREATE TABLE IF NOT EXISTS custom_profiles') &&
     store.includes('CREATE TABLE IF NOT EXISTS custom_profile_selection') &&
+    store.includes('profile_uuid TEXT') &&
+    store.includes('PRIMARY KEY(scope_key, profile_uuid)') &&
+    !/['"]uuid TEXT, /.test(store) &&
     store.includes('position_index INTEGER'),
     'custom profiles RDB tables missing')
-  must(repo.includes('ORDER BY position_index ASC, uuid ASC') &&
+  must(repo.includes('profile_uuid AS uuid') &&
+    repo.includes('ORDER BY position_index ASC, profile_uuid ASC') &&
     repo.includes('UPDATE custom_profiles SET deleted_at = ?') &&
-    repo.includes('ON CONFLICT(scope_key, uuid) DO UPDATE'),
-    'custom profiles repository must preserve order and tombstone scoped rows')
+    repo.includes('ON CONFLICT(scope_key, profile_uuid) DO UPDATE'),
+    'custom profiles repository must map DB profile_uuid to model uuid, preserve order, and tombstone scoped rows')
   const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
   const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
   must(backupTypes.includes('customProfiles: BackupCustomProfilesSection') &&

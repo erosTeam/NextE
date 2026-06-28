@@ -10,18 +10,18 @@ import { LocalDataStore } from './LocalDataStore'
 
 const SCOPE_GLOBAL: string = 'global'
 const SQL_SELECT_PROFILES: string =
-  'SELECT uuid, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, ' +
+  'SELECT profile_uuid AS uuid, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, ' +
   'pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, ' +
   'disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, ' +
   'builtin, last_edit_time FROM custom_profiles WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
-  'ORDER BY position_index ASC, uuid ASC'
+  'ORDER BY position_index ASC, profile_uuid ASC'
 const SQL_UPSERT_PROFILE: string =
   'INSERT INTO custom_profiles ' +
-  '(scope_key, uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, ' +
+  '(scope_key, profile_uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, ' +
   'min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, ' +
   'disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, ' +
   'last_edit_time, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ' +
-  'ON CONFLICT(scope_key, uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, ' +
+  'ON CONFLICT(scope_key, profile_uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, ' +
   'list_type = excluded.list_type, search_text = excluded.search_text, selected_cats = excluded.selected_cats, ' +
   'advanced_enabled = excluded.advanced_enabled, min_rating = excluded.min_rating, pages_from = excluded.pages_from, ' +
   'pages_to = excluded.pages_to, require_torrent = excluded.require_torrent, show_expunged = excluded.show_expunged, ' +

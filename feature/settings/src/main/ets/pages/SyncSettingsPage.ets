@@ -5,6 +5,7 @@ import {
   ConciseListRow,
   DiagnosticLogger,
   GroupedListSection,
+  HuaweiCloudSyncService,
   SecondaryListScaffold,
   SYNC_STATUS_FAILED,
   SYNC_STATUS_OK,
@@ -12,8 +13,7 @@ import {
   SyncSettingsSnapshot,
   SyncSettingsState,
   ThemeConstants,
-  WebDavSyncConfig,
-  WebDavSyncService,
+  connectNavStack,
   connectSyncSettings,
   immersiveTitleBar,
 } from 'shared'
@@ -21,28 +21,16 @@ import {
 @ComponentV2
 export struct SyncSettingsPage {
   @Local private settings: SyncSettingsState = connectSyncSettings();
-  @Local private webdavUrlDraft: string = '';
-  @Local private webdavUsernameDraft: string = '';
-  @Local private webdavPasswordDraft: string = '';
-  @Local private syncing: boolean = false;
+  @Local private cloudSwitching: boolean = false;
   private scroller: Scroller = new Scroller();
-
-  aboutToAppear(): void {
-    this.webdavUrlDraft = this.settings.webdavUrl
-    this.webdavUsernameDraft = this.settings.webdavUsername
-    this.webdavPasswordDraft = this.settings.webdavPassword
-  }
+  private stack: NavPathStack = connectNavStack().stack;
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
   private snapshot(): SyncSettingsSnapshot {
-    const snapshot = SyncSettings.current()
-    snapshot.webdavUrl = this.webdavUrlDraft
-    snapshot.webdavUsername = this.webdavUsernameDraft
-    snapshot.webdavPassword = this.webdavPasswordDraft
-    return snapshot
+    return SyncSettings.current()
   }
 
   private setDataset(field: string, enabled: boolean): void {
@@ -63,27 +51,45 @@ export struct SyncSettingsPage {
     SyncSettings.save(this.ctx(), snapshot)
   }
 
-  private save(): void {
-    SyncSettings.save(this.ctx(), this.snapshot())
-  }
-
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
 
-  private canSync(): boolean {
-    return !this.syncing && this.webdavUrlDraft.trim().length > 0
+  private canHuaweiCloudSync(): boolean {
+    return HuaweiCloudSyncService.available() &&
+      !this.settings.huaweiCloudSyncing &&
+      !this.cloudSwitching &&
+      this.settings.huaweiCloudEnabled
   }
 
-  private statusText(): ResourceStr {
-    if (this.syncing) {
-      return $r('app.string.sync_status_running')
+  private webdavStatusText(): ResourceStr {
+    if (!this.settings.webdavEnabled) {
+      return $r('app.string.sync_provider_disabled')
+    }
+    if (this.settings.webdavUrl.trim().length <= 0) {
+      return $r('app.string.sync_webdav_url_required')
     }
     if (this.settings.lastStatus === SYNC_STATUS_OK) {
       return $r('app.string.sync_status_success', this.formatTime(this.settings.lastRunAt))
     }
     if (this.settings.lastStatus === SYNC_STATUS_FAILED) {
       return $r('app.string.sync_status_failed', this.formatTime(this.settings.lastRunAt))
+    }
+    return $r('app.string.sync_status_never')
+  }
+
+  private huaweiCloudStatusText(): ResourceStr {
+    if (this.settings.huaweiCloudSyncing || this.cloudSwitching) {
+      return $r('app.string.sync_status_running')
+    }
+    if (this.settings.huaweiCloudLastCloudDisabled) {
+      return $r('app.string.sync_huawei_cloud_disabled_status')
+    }
+    if (this.settings.huaweiCloudLastStatus === SYNC_STATUS_OK) {
+      return $r('app.string.sync_status_success', this.formatTime(this.settings.huaweiCloudLastRunAt))
+    }
+    if (this.settings.huaweiCloudLastStatus === SYNC_STATUS_FAILED) {
+      return $r('app.string.sync_status_failed', this.formatTime(this.settings.huaweiCloudLastRunAt))
     }
     return $r('app.string.sync_status_never')
   }
@@ -101,34 +107,69 @@ export struct SyncSettingsPage {
     return `${year}-${month}-${day} ${hour}:${minute}`
   }
 
-  private syncNow(): void {
-    if (!this.canSync()) {
-      if (this.webdavUrlDraft.trim().length <= 0) {
-        this.toast($r('app.string.sync_webdav_url_required'))
-      }
+  private toggleHuaweiCloud(enabled: boolean): void {
+    if (!HuaweiCloudSyncService.available() || this.cloudSwitching) {
       return
     }
-    this.syncing = true
-    this.save()
-    const config = new WebDavSyncConfig()
-    config.directoryUrl = this.webdavUrlDraft.trim()
-    config.username = this.webdavUsernameDraft.trim()
-    config.password = this.webdavPasswordDraft
-    config.selection = SyncSettings.selection(this.snapshot())
-    DiagnosticLogger.info('sync', 'manual_webdav_sync_start', 'provider=webdav')
-    WebDavSyncService.syncNow(this.ctx(), config)
-      .then(() => {
-        SyncSettings.markRun(this.ctx(), SYNC_STATUS_OK)
-        DiagnosticLogger.info('sync', 'manual_webdav_sync_success', 'provider=webdav')
-        this.toast($r('app.string.sync_now_done'))
+    const snapshot = this.snapshot()
+    if (!enabled) {
+      snapshot.huaweiCloudEnabled = false
+      SyncSettings.save(this.ctx(), snapshot)
+      return
+    }
+    this.cloudSwitching = true
+    HuaweiCloudSyncService.ensurePermission(this.ctx())
+      .then((granted: boolean) => {
+        const next = this.snapshot()
+        next.huaweiCloudEnabled = granted
+        if (!granted) {
+          SyncSettings.save(this.ctx(), next)
+          this.toast($r('app.string.sync_huawei_cloud_permission_denied'))
+          return false
+        }
+        return SyncSettings.save(this.ctx(), next)
+          .then(() => HuaweiCloudSyncService.markDistributedTables(
+            this.ctx(),
+            SyncSettings.selection(next),
+          ))
+      })
+      .then((marked: boolean | void) => {
+        if (marked === false) {
+          const next = this.snapshot()
+          next.huaweiCloudEnabled = false
+          SyncSettings.save(this.ctx(), next)
+          this.toast($r('app.string.sync_now_failed'))
+          return
+        }
+        if (marked === true) {
+          this.toast($r('app.string.sync_huawei_cloud_enabled'))
+        }
       })
       .catch((error: Error) => {
-        SyncSettings.markRun(this.ctx(), SYNC_STATUS_FAILED)
-        DiagnosticLogger.warn('sync', 'manual_webdav_sync_failed', error.message)
+        DiagnosticLogger.warn('sync', 'huawei_cloud_enable_failed', error.message)
+        const next = this.snapshot()
+        next.huaweiCloudEnabled = false
+        SyncSettings.save(this.ctx(), next)
         this.toast($r('app.string.sync_now_failed'))
       })
       .finally(() => {
-        this.syncing = false
+        this.cloudSwitching = false
+      })
+  }
+
+  private syncHuaweiCloudNow(): void {
+    if (!this.canHuaweiCloudSync()) {
+      return
+    }
+    DiagnosticLogger.info('sync', 'manual_huawei_cloud_sync_start', 'provider=huawei_cloud')
+    HuaweiCloudSyncService.cloudSyncNow(this.ctx(), SyncSettings.selection(this.snapshot()))
+      .then((ok: boolean) => {
+        DiagnosticLogger.info('sync', 'manual_huawei_cloud_sync_done', `ok=${ok}`)
+        this.toast(ok ? $r('app.string.sync_now_done') : $r('app.string.sync_now_failed'))
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('sync', 'manual_huawei_cloud_sync_failed', error.message)
+        this.toast($r('app.string.sync_now_failed'))
       })
   }
 
@@ -138,62 +179,6 @@ export struct SyncSettingsPage {
       .strokeWidth(0.5)
       .color($r('sys.color.ohos_id_color_list_separator'))
       .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
-  private TextInputRow(
-    label: ResourceStr,
-    placeholder: ResourceStr,
-    secret: boolean,
-    field: string,
-  ) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      Text(label)
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-      if (field === 'url') {
-        TextInput({ text: $$this.webdavUrlDraft, placeholder: placeholder })
-          .type(secret ? InputType.Password : InputType.Normal)
-          .width('100%')
-          .height(48)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .onChange(() => {
-            this.save()
-          })
-      } else if (field === 'username') {
-        TextInput({ text: $$this.webdavUsernameDraft, placeholder: placeholder })
-          .type(secret ? InputType.Password : InputType.Normal)
-          .width('100%')
-          .height(48)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .onChange(() => {
-            this.save()
-          })
-      } else {
-        TextInput({ text: $$this.webdavPasswordDraft, placeholder: placeholder })
-          .type(secret ? InputType.Password : InputType.Normal)
-          .width('100%')
-          .height(48)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .onChange(() => {
-            this.save()
-          })
-      }
-    }
-    .width('100%')
-    .padding({
-      left: ThemeConstants.SPACE_MD,
-      right: ThemeConstants.SPACE_MD,
-      top: ThemeConstants.SPACE_SM,
-      bottom: ThemeConstants.SPACE_SM,
-    })
   }
 
   @Builder
@@ -223,6 +208,33 @@ export struct SyncSettingsPage {
     })
   }
 
+  @Builder
+  private HuaweiCloudSyncRow() {
+    if (this.settings.huaweiCloudSyncing || this.cloudSwitching) {
+      ConciseListRow({
+        title: $r('app.string.sync_huawei_cloud_now'),
+        subtitle: this.huaweiCloudStatusText(),
+        leadingIcon: $r('sys.symbol.cloud_and_arrow_up'),
+        showChevron: false,
+        isEnabled: false,
+        suffixBuilderParam: () => {
+          this.SyncingSuffix()
+        },
+      })
+    } else {
+      ConciseListRow({
+        title: $r('app.string.sync_huawei_cloud_now'),
+        subtitle: this.huaweiCloudStatusText(),
+        leadingIcon: $r('sys.symbol.cloud_and_arrow_up'),
+        showChevron: false,
+        isEnabled: this.canHuaweiCloudSync(),
+        action: () => {
+          this.syncHuaweiCloudNow()
+        },
+      })
+    }
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -232,26 +244,31 @@ export struct SyncSettingsPage {
       }) {
         ListItem() {
           GroupedListSection() {
-            this.TextInputRow(
-              $r('app.string.sync_webdav_url'),
-              $r('app.string.sync_webdav_url_hint'),
-              false,
-              'url',
-            )
-            this.rowDivider()
-            this.TextInputRow(
-              $r('app.string.sync_webdav_username'),
-              $r('app.string.sync_webdav_username_hint'),
-              false,
-              'username',
-            )
-            this.rowDivider()
-            this.TextInputRow(
-              $r('app.string.sync_webdav_password'),
-              $r('app.string.sync_webdav_password_hint'),
-              true,
-              'password',
-            )
+            ConciseListRow({
+              title: $r('app.string.sync_webdav'),
+              subtitle: this.webdavStatusText(),
+              leadingIcon: $r('sys.symbol.externaldrive'),
+              showChevron: true,
+              action: () => {
+                this.stack.pushPathByName('WebDavSyncSettings', null)
+              },
+            })
+            if (HuaweiCloudSyncService.available()) {
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.sync_huawei_cloud'),
+                subtitle: $r('app.string.sync_huawei_cloud_hint'),
+                leadingIcon: $r('sys.symbol.cloud'),
+                showChevron: false,
+                hasSwitch: true,
+                checked: this.settings.huaweiCloudEnabled,
+                switchAction: (value: boolean) => {
+                  this.toggleHuaweiCloud(value)
+                },
+              })
+              this.rowDivider()
+              this.HuaweiCloudSyncRow()
+            }
           }
         }
         ListItem() {
@@ -292,33 +309,6 @@ export struct SyncSettingsPage {
               this.settings.datasetCustomProfiles,
               'customProfiles',
             )
-          }
-        }
-        ListItem() {
-          GroupedListSection() {
-            if (this.syncing) {
-              ConciseListRow({
-                title: $r('app.string.sync_now'),
-                subtitle: this.statusText(),
-                leadingIcon: $r('sys.symbol.arrow_clockwise'),
-                showChevron: false,
-                isEnabled: false,
-                suffixBuilderParam: () => {
-                  this.SyncingSuffix()
-                },
-              })
-            } else {
-              ConciseListRow({
-                title: $r('app.string.sync_now'),
-                subtitle: this.statusText(),
-                leadingIcon: $r('sys.symbol.arrow_clockwise'),
-                showChevron: false,
-                isEnabled: true,
-                action: () => {
-                  this.syncNow()
-                },
-              })
-            }
           }
         }
       }

@@ -1761,8 +1761,28 @@
       "value": "同步"
     },
     {
+      "name": "perm_distributed_datasync_reason",
+      "value": "在多设备间同步本地收藏、历史和阅读记录"
+    },
+    {
       "name": "settings_sync_hint",
-      "value": "通过 WebDAV 手动同步本地数据。"
+      "value": "同步本地耐久数据。"
+    },
+    {
+      "name": "sync_webdav",
+      "value": "WebDAV 同步"
+    },
+    {
+      "name": "sync_webdav_hint",
+      "value": "通过 WebDAV 目录同步选中的本地数据。"
+    },
+    {
+      "name": "sync_provider_disabled",
+      "value": "未启用"
+    },
+    {
+      "name": "sync_webdav_now",
+      "value": "同步到 WebDAV"
     },
     {
       "name": "sync_webdav_url",
@@ -1791,6 +1811,30 @@
     {
       "name": "sync_webdav_url_required",
       "value": "请先填写 WebDAV 目录"
+    },
+    {
+      "name": "sync_huawei_cloud",
+      "value": "华为云同步"
+    },
+    {
+      "name": "sync_huawei_cloud_hint",
+      "value": "将选中的本地数据同步到华为云。"
+    },
+    {
+      "name": "sync_huawei_cloud_now",
+      "value": "同步到华为云"
+    },
+    {
+      "name": "sync_huawei_cloud_enabled",
+      "value": "已启用华为云同步"
+    },
+    {
+      "name": "sync_huawei_cloud_permission_denied",
+      "value": "未授予云同步权限"
+    },
+    {
+      "name": "sync_huawei_cloud_disabled_status",
+      "value": "系统设置中未开启华为云同步"
     },
     {
       "name": "sync_now",

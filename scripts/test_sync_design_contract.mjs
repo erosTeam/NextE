@@ -15,9 +15,11 @@ const ok = (name, value) => {
 }
 
 const doc = read('docs/plans/active/sync-design.md')
-ok('sync design excludes Huawei cloud implementation',
-  /Huawei cloud sync is\s+intentionally excluded/.test(doc) &&
-    /manual WebDAV provider/.test(doc))
+ok('sync design keeps Huawei Cloud visible by default with public-build override',
+  /Huawei Cloud sync is compiled into the app/.test(doc) &&
+    /defaults to visible/.test(doc) &&
+    /NEXTE_HUAWEI_CLOUD_SYNC=0 scripts\/build_hvigor_signed\.sh/.test(doc) &&
+    /manual WebDAV provider|WebDAV provider/.test(doc))
 ok('sync design lists durable syncable tables',
   /gallery_read_progress/.test(doc) &&
     /custom_profile_selection/.test(doc) &&
@@ -118,10 +120,45 @@ const syncSettings = read('shared/src/main/ets/settings/SyncSettings.ets')
 ok('sync settings persist WebDAV config locally',
   /SYNC_WEBDAV_URL/.test(syncSettings) &&
     /SYNC_WEBDAV_USERNAME/.test(syncSettings) &&
+    /SYNC_WEBDAV_ENABLED/.test(syncSettings) &&
     /SYNC_WEBDAV_PASSWORD/.test(syncSettings) &&
     /SYNC_DATASET_READ_PROGRESS/.test(syncSettings) &&
     /static selection/.test(syncSettings) &&
     /never exported/.test(syncSettings))
+ok('sync settings persist Huawei Cloud local status separately',
+  /SYNC_HUAWEI_CLOUD_ENABLED/.test(syncSettings) &&
+    /markHuaweiCloudRun/.test(syncSettings) &&
+    /huaweiCloudLastCloudDisabled/.test(syncSettings))
+
+const cloudBuildFlag = read('shared/src/main/ets/sync/HuaweiCloudSyncBuildFlag.ets')
+const huaweiCloud = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
+const cloudFeatures = read('shared/src/main/ets/sync/CloudSyncFeatures.ets')
+const moduleJson = read('entry/src/main/module.json5')
+const signedBuild = read('scripts/build_hvigor_signed.sh')
+ok('Huawei Cloud sync defaults on and can be disabled by signed build env',
+  /HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = true/.test(cloudBuildFlag) &&
+    /NEXTE_HUAWEI_CLOUD_SYNC/.test(signedBuild) &&
+    /HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = false/.test(signedBuild))
+ok('Huawei Cloud sync service is guarded and uses RDB cloud sync APIs',
+  /HUAWEI_CLOUD_SYNC_BUILD_ENABLED/.test(huaweiCloud) &&
+    /available\(\): boolean/.test(huaweiCloud) &&
+    /DISTRIBUTED_DATASYNC/.test(huaweiCloud) &&
+    /setDistributedTables/.test(huaweiCloud) &&
+    /DISTRIBUTED_CLOUD/.test(huaweiCloud) &&
+    /cloudSync/.test(huaweiCloud) &&
+    /SYNC_MODE_TIME_FIRST/.test(huaweiCloud))
+ok('Huawei Cloud sync uses the same durable dataset table selection',
+  /gallery_read_progress/.test(cloudFeatures) &&
+    /viewed_history/.test(cloudFeatures) &&
+    /local_favorites/.test(cloudFeatures) &&
+    /search_history/.test(cloudFeatures) &&
+    /local_block_settings/.test(cloudFeatures) &&
+    /local_block_rules/.test(cloudFeatures) &&
+    /custom_profiles/.test(cloudFeatures) &&
+    /custom_profile_selection/.test(cloudFeatures) &&
+    !/tag_translations|eh_page_cache|comment_translation_cache|download_gallery_tasks/.test(cloudFeatures))
+ok('Huawei Cloud sync permission is declared for private builds',
+  /ohos\.permission\.DISTRIBUTED_DATASYNC/.test(moduleJson))
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok('sync settings restore during settings bootstrap',
@@ -139,12 +176,27 @@ ok('sync settings page is reachable from storage settings navigation',
     !/pushPathByName\('SyncSettings'/.test(settingsPage))
 
 const syncPage = read('feature/settings/src/main/ets/pages/SyncSettingsPage.ets')
-ok('manual WebDAV sync page has visible running state',
-  /LoadingProgress/.test(syncPage) &&
-    /sync_status_running/.test(syncPage) &&
-    /this\.syncing = true/.test(syncPage) &&
-    /this\.syncing = false/.test(syncPage))
-ok('manual WebDAV sync page exposes dataset switches',
+const webdavPage = read('feature/settings/src/main/ets/pages/WebDavSyncSettingsPage.ets')
+ok('sync overview keeps provider entries and routes WebDAV to a child page',
+  /pushPathByName\('WebDavSyncSettings'/.test(syncPage) &&
+    /sync_webdav/.test(syncPage) &&
+    /sync_huawei_cloud/.test(syncPage) &&
+    /WebDavSyncSettingsPage/.test(settingsIndex) &&
+    /name === 'WebDavSyncSettings'/.test(entryIndex))
+ok('WebDAV sync child page has visible running state and provider switch',
+  /LoadingProgress/.test(webdavPage) &&
+    /sync_status_running/.test(webdavPage) &&
+    /this\.syncing = true/.test(webdavPage) &&
+    /this\.syncing = false/.test(webdavPage) &&
+    /sync_webdav_hint/.test(webdavPage) &&
+    /hasSwitch: true/.test(webdavPage))
+ok('Huawei Cloud provider UI is hidden when provider availability is disabled',
+  /HuaweiCloudSyncService\.available\(\)/.test(syncPage) &&
+    /sync_huawei_cloud/.test(syncPage) &&
+    /sync_huawei_cloud_now/.test(syncPage) &&
+    /HuaweiCloudSyncService\.ensurePermission/.test(syncPage) &&
+    /HuaweiCloudSyncService\.cloudSyncNow/.test(syncPage))
+ok('sync overview exposes provider-neutral dataset switches',
   /DatasetRow/.test(syncPage) &&
     /sync_dataset_read_progress/.test(syncPage) &&
     /sync_dataset_custom_profiles/.test(syncPage) &&
@@ -167,6 +219,9 @@ ok('local WebDAV server smoke covers sharded WebDAV layout',
 const syncStringKeys = [
   'settings_sync',
   'settings_sync_hint',
+  'sync_webdav',
+  'sync_webdav_hint',
+  'sync_provider_disabled',
   'sync_webdav_url',
   'sync_webdav_url_hint',
   'sync_webdav_username',
@@ -174,6 +229,13 @@ const syncStringKeys = [
   'sync_webdav_password',
   'sync_webdav_password_hint',
   'sync_webdav_url_required',
+  'sync_webdav_now',
+  'sync_huawei_cloud',
+  'sync_huawei_cloud_hint',
+  'sync_huawei_cloud_now',
+  'sync_huawei_cloud_enabled',
+  'sync_huawei_cloud_permission_denied',
+  'sync_huawei_cloud_disabled_status',
   'sync_now',
   'sync_now_done',
   'sync_now_failed',

@@ -1761,8 +1761,28 @@
       "value": "同期"
     },
     {
+      "name": "perm_distributed_datasync_reason",
+      "value": "ローカルのお気に入り、履歴、読書記録を端末間で同期します"
+    },
+    {
       "name": "settings_sync_hint",
-      "value": "WebDAVでローカルデータを手動同期します。"
+      "value": "永続的なローカルデータを同期します。"
+    },
+    {
+      "name": "sync_webdav",
+      "value": "WebDAV同期"
+    },
+    {
+      "name": "sync_webdav_hint",
+      "value": "WebDAVディレクトリで選択したローカルデータを同期します。"
+    },
+    {
+      "name": "sync_provider_disabled",
+      "value": "無効"
+    },
+    {
+      "name": "sync_webdav_now",
+      "value": "WebDAVと同期"
     },
     {
       "name": "sync_webdav_url",
@@ -1791,6 +1811,30 @@
     {
       "name": "sync_webdav_url_required",
       "value": "WebDAVディレクトリを入力してください"
+    },
+    {
+      "name": "sync_huawei_cloud",
+      "value": "Huawei Cloud同期"
+    },
+    {
+      "name": "sync_huawei_cloud_hint",
+      "value": "選択したローカルデータをHuawei Cloudと同期します。"
+    },
+    {
+      "name": "sync_huawei_cloud_now",
+      "value": "Huawei Cloudと同期"
+    },
+    {
+      "name": "sync_huawei_cloud_enabled",
+      "value": "Huawei Cloud同期を有効にしました"
+    },
+    {
+      "name": "sync_huawei_cloud_permission_denied",
+      "value": "クラウド同期の権限が許可されていません"
+    },
+    {
+      "name": "sync_huawei_cloud_disabled_status",
+      "value": "システム設定でHuawei Cloud同期が無効です"
     },
     {
       "name": "sync_now",

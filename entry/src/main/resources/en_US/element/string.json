@@ -1761,8 +1761,28 @@
       "value": "Sync"
     },
     {
+      "name": "perm_distributed_datasync_reason",
+      "value": "Sync local favorites, history, and reading records across devices"
+    },
+    {
       "name": "settings_sync_hint",
-      "value": "Manually sync durable local data with WebDAV."
+      "value": "Sync durable local data."
+    },
+    {
+      "name": "sync_webdav",
+      "value": "WebDAV sync"
+    },
+    {
+      "name": "sync_webdav_hint",
+      "value": "Sync selected local data through a WebDAV directory."
+    },
+    {
+      "name": "sync_provider_disabled",
+      "value": "Disabled"
+    },
+    {
+      "name": "sync_webdav_now",
+      "value": "Sync with WebDAV"
     },
     {
       "name": "sync_webdav_url",
@@ -1791,6 +1811,30 @@
     {
       "name": "sync_webdav_url_required",
       "value": "Set WebDAV directory first"
+    },
+    {
+      "name": "sync_huawei_cloud",
+      "value": "Huawei Cloud sync"
+    },
+    {
+      "name": "sync_huawei_cloud_hint",
+      "value": "Sync selected local data with Huawei Cloud."
+    },
+    {
+      "name": "sync_huawei_cloud_now",
+      "value": "Sync with Huawei Cloud"
+    },
+    {
+      "name": "sync_huawei_cloud_enabled",
+      "value": "Huawei Cloud sync enabled"
+    },
+    {
+      "name": "sync_huawei_cloud_permission_denied",
+      "value": "Cloud sync permission was not granted"
+    },
+    {
+      "name": "sync_huawei_cloud_disabled_status",
+      "value": "Huawei Cloud sync is disabled in system settings"
     },
     {
       "name": "sync_now",

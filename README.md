@@ -54,6 +54,12 @@ bash scripts/setup-local-build-profile.sh   # 安装 ignored 的本地签名 bui
 bash scripts/build_hvigor_signed.sh         # 官方 Hvigor 签名构建,产出 entry-default-signed.hap
 ```
 
+华为云同步入口默认开启,方便本地开发和私有签名包验证。公共发布包如果没有配置对应 AGC/HGC 云数据库结构,用下面的构建命令临时关闭入口;脚本会在构建结束后还原源码:
+
+```bash
+NEXTE_HUAWEI_CLOUD_SYNC=0 bash scripts/build_hvigor_signed.sh
+```
+
 `dev.sh` 是 Linux legacy helper,不要在 macOS 上使用。
 
 Linux legacy helper(签名需先准备物料,见下):

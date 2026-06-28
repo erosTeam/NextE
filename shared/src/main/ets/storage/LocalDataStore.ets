@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 7
+export const LOCAL_DATA_SCHEMA_VERSION: number = 8
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -12,7 +12,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'7\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'8\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -153,7 +153,7 @@ const SQL_CREATE_LOCAL_BLOCK_RULES_POSITION_INDEX: string =
 const SQL_CREATE_CUSTOM_PROFILES_TABLE: string =
   'CREATE TABLE IF NOT EXISTS custom_profiles (' +
     'scope_key TEXT, ' +
-    'uuid TEXT, ' +
+    'profile_uuid TEXT, ' +
     'position_index INTEGER, ' +
     'name TEXT, ' +
     'list_type TEXT, ' +
@@ -175,8 +175,51 @@ const SQL_CREATE_CUSTOM_PROFILES_TABLE: string =
     'builtin INTEGER, ' +
     'last_edit_time INTEGER, ' +
     'deleted_at INTEGER DEFAULT 0, ' +
-    'PRIMARY KEY(scope_key, uuid)' +
+    'PRIMARY KEY(scope_key, profile_uuid)' +
   ')'
+const SQL_DROP_CUSTOM_PROFILES_V8_TABLE: string =
+  'DROP TABLE IF EXISTS custom_profiles_v8'
+const SQL_CREATE_CUSTOM_PROFILES_V8_TABLE: string =
+  'CREATE TABLE custom_profiles_v8 (' +
+    'scope_key TEXT, ' +
+    'profile_uuid TEXT, ' +
+    'position_index INTEGER, ' +
+    'name TEXT, ' +
+    'list_type TEXT, ' +
+    'search_text TEXT, ' +
+    'selected_cats INTEGER, ' +
+    'advanced_enabled INTEGER, ' +
+    'min_rating INTEGER, ' +
+    'pages_from INTEGER, ' +
+    'pages_to INTEGER, ' +
+    'require_torrent INTEGER, ' +
+    'show_expunged INTEGER, ' +
+    'disable_language_filter INTEGER, ' +
+    'disable_uploader_filter INTEGER, ' +
+    'disable_tag_filter INTEGER, ' +
+    'favcat TEXT, ' +
+    'toplist_tl INTEGER, ' +
+    'display_mode TEXT, ' +
+    'hidden INTEGER, ' +
+    'builtin INTEGER, ' +
+    'last_edit_time INTEGER, ' +
+    'deleted_at INTEGER DEFAULT 0, ' +
+    'PRIMARY KEY(scope_key, profile_uuid)' +
+  ')'
+const SQL_COPY_CUSTOM_PROFILES_UUID_TO_PROFILE_UUID: string =
+  'INSERT OR REPLACE INTO custom_profiles_v8 ' +
+  '(scope_key, profile_uuid, position_index, name, list_type, search_text, selected_cats, ' +
+  'advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, ' +
+  'disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, ' +
+  'display_mode, hidden, builtin, last_edit_time, deleted_at) ' +
+  'SELECT scope_key, uuid, position_index, name, list_type, search_text, selected_cats, ' +
+  'advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, ' +
+  'disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, ' +
+  'display_mode, hidden, builtin, last_edit_time, deleted_at FROM custom_profiles'
+const SQL_DROP_CUSTOM_PROFILES_TABLE: string =
+  'DROP TABLE custom_profiles'
+const SQL_RENAME_CUSTOM_PROFILES_V8_TABLE: string =
+  'ALTER TABLE custom_profiles_v8 RENAME TO custom_profiles'
 const SQL_CREATE_CUSTOM_PROFILES_POSITION_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_custom_profiles_position ON custom_profiles (position_index ASC)'
 const SQL_CREATE_CUSTOM_PROFILE_SELECTION_TABLE: string =
@@ -257,6 +300,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_LOCAL_BLOCK_SETTINGS_TABLE)
     await store.executeSql(SQL_CREATE_LOCAL_BLOCK_RULES_TABLE)
     await store.executeSql(SQL_CREATE_LOCAL_BLOCK_RULES_POSITION_INDEX)
+    await LocalDataStore.migrateCustomProfilesUuidColumn(store)
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILES_TABLE)
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILES_POSITION_INDEX)
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILE_SELECTION_TABLE)
@@ -269,5 +313,45 @@ export class LocalDataStore {
       store.version = LOCAL_DATA_SCHEMA_VERSION
     }
     return store
+  }
+
+  private static async migrateCustomProfilesUuidColumn(store: relationalStore.RdbStore): Promise<void> {
+    const hasOldUuid: boolean = await LocalDataStore.hasColumn(store, 'custom_profiles', 'uuid')
+    const hasProfileUuid: boolean = await LocalDataStore.hasColumn(store, 'custom_profiles', 'profile_uuid')
+    if (!hasOldUuid || hasProfileUuid) {
+      return
+    }
+    store.beginTransaction()
+    try {
+      await store.executeSql(SQL_DROP_CUSTOM_PROFILES_V8_TABLE)
+      await store.executeSql(SQL_CREATE_CUSTOM_PROFILES_V8_TABLE)
+      await store.executeSql(SQL_COPY_CUSTOM_PROFILES_UUID_TO_PROFILE_UUID)
+      await store.executeSql(SQL_DROP_CUSTOM_PROFILES_TABLE)
+      await store.executeSql(SQL_RENAME_CUSTOM_PROFILES_V8_TABLE)
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      const e: Error = error as Error
+      throw new Error(e.message || 'Failed to migrate custom profiles')
+    }
+  }
+
+  private static async hasColumn(
+    store: relationalStore.RdbStore,
+    tableName: string,
+    columnName: string,
+  ): Promise<boolean> {
+    const rs: relationalStore.ResultSet = await store.querySql('PRAGMA table_info(' + tableName + ')')
+    try {
+      while (rs.goToNextRow()) {
+        const index: number = rs.getColumnIndex('name')
+        if (!rs.isColumnNull(index) && rs.getString(index) === columnName) {
+          return true
+        }
+      }
+    } finally {
+      rs.close()
+    }
+    return false
   }
 }

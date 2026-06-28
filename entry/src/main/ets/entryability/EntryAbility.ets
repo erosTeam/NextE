@@ -11,6 +11,7 @@ import {
   EhUrlRouter,
   LayoutSafeAreaBridge,
   InternalQaRoutes,
+  HuaweiCloudSyncService,
 } from 'shared'
 
 const TRANSPARENT_COLOR: string = '#00FFFFFF'
@@ -80,6 +81,9 @@ export default class EntryAbility extends UIAbility {
       DiagnosticLogger.warn('app', 'configure_window_failed', e.message)
     }
     SettingsBootstrap.loadAll(this.context).finally(() => {
+      HuaweiCloudSyncService.tryEnableStartup(this.context).catch((error: Error) => {
+        DiagnosticLogger.warn('sync', 'huawei_cloud_startup_failed', error.message)
+      })
       // Subscribe grip detection + resolve the Read-button edge now that the alignment mode is restored,
       // so the floating button mounts on the correct side without a post-load hop.
       MotionHandStateService.start()

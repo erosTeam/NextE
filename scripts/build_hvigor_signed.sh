@@ -33,4 +33,35 @@ if ! grep -q '"signingConfigs"' build-profile.json5; then
   exit 2
 fi
 
-exec hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon
+cloud_flag_file="shared/src/main/ets/sync/HuaweiCloudSyncBuildFlag.ets"
+cloud_flag_backup=""
+if [[ "${NEXTE_HUAWEI_CLOUD_SYNC:-1}" == "0" ]]; then
+  cloud_flag_backup="$(mktemp)"
+  cp "$cloud_flag_file" "$cloud_flag_backup"
+  restore_cloud_flag() {
+    if [[ -n "$cloud_flag_backup" && -f "$cloud_flag_backup" ]]; then
+      cp "$cloud_flag_backup" "$cloud_flag_file"
+      rm -f "$cloud_flag_backup"
+    fi
+  }
+  trap restore_cloud_flag EXIT
+  python3 - "$cloud_flag_file" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding='utf-8')
+next_text = re.sub(
+    r'HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = true',
+    'HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = false',
+    text,
+    count=1,
+)
+if next_text == text:
+    raise SystemExit('ERROR: Huawei Cloud sync build flag pattern not found')
+path.write_text(next_text, encoding='utf-8')
+PY
+fi
+
+hvigorw assembleHap --mode module -p product=default -p buildMode=debug --no-daemon

@@ -69,6 +69,7 @@ import {
   TagTranslationSettingsPage,
   TranslationSettingsPage,
   SyncSettingsPage,
+  WebDavSyncSettingsPage,
   AdvancedSettingsPage,
   SecuritySettingsPage,
   AboutPage,
@@ -654,6 +655,8 @@ struct Index {
       TranslationSettingsPage()
     } else if (name === 'SyncSettings') {
       SyncSettingsPage()
+    } else if (name === 'WebDavSyncSettings') {
+      WebDavSyncSettingsPage()
     } else if (name === 'AdvancedSettings') {
       AdvancedSettingsPage()
     } else if (name === 'SecuritySettings') {

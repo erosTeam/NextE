@@ -145,6 +145,9 @@ export {
 export { SyncService } from './sync/SyncService'
 export { SyncLocalDataAdapter } from './sync/SyncLocalDataAdapter'
 export { WebDavSyncConfig, WebDavSyncService } from './sync/WebDavSyncService'
+export { HUAWEI_CLOUD_SYNC_BUILD_ENABLED } from './sync/HuaweiCloudSyncBuildFlag'
+export { HUAWEI_CLOUD_SYNC_TABLES, cloudSyncTablesForSelection } from './sync/CloudSyncFeatures'
+export { HuaweiCloudSyncService } from './sync/HuaweiCloudSyncService'
 export {
   SYNC_FILE_NAME,
   SYNC_WEBDAV_MANIFEST_FILE,

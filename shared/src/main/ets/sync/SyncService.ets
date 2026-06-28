@@ -145,7 +145,7 @@ export class SyncService {
     return out
   }
 
-  private static async refreshSelectedState(
+  static async refreshSelectedState(
     context: common.UIAbilityContext,
     selection: SyncDatasetSelection,
   ): Promise<void> {
