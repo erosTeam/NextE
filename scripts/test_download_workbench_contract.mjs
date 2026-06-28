@@ -22,6 +22,7 @@ const ok = (cond, msg) => {
 }
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
+const archiveService = read('shared/src/main/ets/services/ArchiveImageService.ets')
 const bar = read('entry/src/main/ets/components/DownloadTypeBar.ets')
 const index = read('entry/src/main/ets/pages/Index.ets')
 const state = read('shared/src/main/ets/state/DownloadViewState.ets')
@@ -78,6 +79,21 @@ ok(/private ArchiverTaskSection\(\)/.test(page) &&
 ok(/DownloadQueueSettings\.downloadArchiver/.test(page) &&
   /DownloadQueueSettings\.removeArchiver/.test(page),
   'archiver task cards wire retry and remove to the archiver queue executor')
+ok(/private canReadArchiverTask\(task: DownloadArchiverTask\)/.test(page) &&
+  /task\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*task\.filePath\.length > 0/.test(page) &&
+  /private ReadArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page),
+  'completed archiver tasks expose a low-weight Reader action')
+ok(/ArchiveImageService\.imagesForTask\(this\.ctx\(\), task\)/.test(page) &&
+  /new ReaderParams\(task\.gid, '', 0, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(page),
+  'completed archiver tasks unzip into local Reader seed images')
+ok(/openingArchiverTag/.test(page) && /LoadingProgress\(\)[\s\S]*reader_loading_resolving/.test(page),
+  'archiver Reader action has an opening state while extracting')
+ok(/export class ArchiveImageService/.test(archiveService) &&
+  /zlib\.decompressFile\(task\.filePath, outDir\)/.test(archiveService) &&
+  /fileIo\.listFileSync\(dir\)/.test(archiveService) &&
+  /image\.sUrl = `archive:\/\/\$\{task\.tag\}\/\$\{page\}`/.test(archiveService) &&
+  /image\.imageUrl = CachedImageFileService\.displayUri\(paths\[i\]\)/.test(archiveService),
+  'ArchiveImageService uses platform zip extraction and produces file:// Reader images')
 ok(!/ConciseListRow\(\{[\s\S]*title: task\.displayTitle\(\)/.test(page) &&
   !/Button\(\$r\('app\.string\.common_remove'\)\)/.test(page),
   'gallery task rows do not regress to shallow ConciseListRow plus large remove button')

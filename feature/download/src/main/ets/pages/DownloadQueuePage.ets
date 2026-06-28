@@ -3,6 +3,7 @@ import {
   SecondaryListScaffold,
   CardEmptyState,
   AppStrings,
+  ArchiveImageService,
   CachedImageFileService,
   DownloadArchiverTask,
   DownloadGalleryTask,
@@ -35,6 +36,7 @@ export struct DownloadQueuePage {
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local downloadView: DownloadViewState = connectDownloadView();
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
+  @Local openingArchiverTag: string = '';
   private stack: NavPathStack = connectNavStack().stack;
 
   private ctx(): common.UIAbilityContext {
@@ -159,6 +161,10 @@ export struct DownloadQueuePage {
     return task.status === DownloadGalleryTaskStatus.ERROR || task.status === DownloadGalleryTaskStatus.QUEUED
   }
 
+  private canReadArchiverTask(task: DownloadArchiverTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.COMPLETE && task.filePath.length > 0 && task.bytesWritten > 0
+  }
+
   private archiverProgressRatio(task: DownloadArchiverTask): number {
     if (task.status === DownloadGalleryTaskStatus.COMPLETE) {
       return 1
@@ -212,6 +218,24 @@ export struct DownloadQueuePage {
       images.push(image)
     }
     return images
+  }
+
+  private async openArchiverTask(task: DownloadArchiverTask): Promise<void> {
+    if (this.openingArchiverTag.length > 0) {
+      return
+    }
+    this.openingArchiverTag = task.tag
+    try {
+      const images: EhGalleryImage[] = await ArchiveImageService.imagesForTask(this.ctx(), task)
+      this.stack.pushPathByName(
+        'Reader',
+        new ReaderParams(task.gid, '', 0, images.length, task.displayTitle(), images, 1, images.length),
+      )
+    } catch (error) {
+      this.getUIContext().getPromptAction().showToast({ message: (error as Error).message })
+    } finally {
+      this.openingArchiverTag = ''
+    }
   }
 
   @Builder
@@ -417,7 +441,11 @@ export struct DownloadQueuePage {
   @Builder
   private ArchiverTaskActions(task: DownloadArchiverTask) {
     Column({ space: ThemeConstants.SPACE_XS }) {
-      if (this.canResumeArchiverTask(task)) {
+      if (this.openingArchiverTag === task.tag) {
+        this.ArchiverOpeningButton(task)
+      } else if (this.canReadArchiverTask(task)) {
+        this.ReadArchiverTaskButton(task)
+      } else if (this.canResumeArchiverTask(task)) {
         this.ResumeArchiverTaskButton(task)
       }
       this.RemoveArchiverTaskButton(task)
@@ -473,6 +501,37 @@ export struct DownloadQueuePage {
     .onClick(() => {
       this.resumeArchiverTask(task)
     })
+  }
+
+  @Builder
+  private ReadArchiverTaskButton(task: DownloadArchiverTask) {
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph($r('sys.symbol.arrow_right'))
+        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+        .fontColor([ThemeConstants.BRAND_PRIMARY])
+    }
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+    .accessibilityText($r('app.string.detail_read'))
+    .onClick(() => {
+      this.openArchiverTask(task)
+    })
+  }
+
+  @Builder
+  private ArchiverOpeningButton(_task: DownloadArchiverTask) {
+    Button({ type: ButtonType.Circle }) {
+      LoadingProgress()
+        .width(ThemeConstants.FONT_SIZE_TITLE)
+        .height(ThemeConstants.FONT_SIZE_TITLE)
+        .color(ThemeConstants.BRAND_PRIMARY)
+    }
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+    .enabled(false)
+    .accessibilityText($r('app.string.reader_loading_resolving'))
   }
 
   @Builder

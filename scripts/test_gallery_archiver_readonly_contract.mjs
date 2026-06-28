@@ -40,8 +40,8 @@ const grounding = [
   'eros_fe: lib/pages/gallery/view/archiver_dialog.dart, controller/archiver_controller.dart, common/parser/archiver_parser.dart, network/request.dart',
   'primary information: GP/Credits balance plus local archive and H@H choices with resolution/type, size, and cost',
   'primary action: choose an archive option; secondary actions: retry/back and local archiver queue download',
-  'scope: protected submit plumbing, real archiver queue enqueue, and local archive download; archive package reader is a later lane',
-  'Harmony expression: HDS detail page action rows plus native confirmation before POST and toast/system-open result',
+  'scope: protected submit plumbing, real archiver queue enqueue, local archive download, and completed archive Reader entry',
+  'Harmony expression: HDS detail page action rows plus native confirmation before POST, toast result, and Downloads Archiver task handoff to Reader',
 ]
 
 ok(grounding.length === 5, 'grounding has five lines')

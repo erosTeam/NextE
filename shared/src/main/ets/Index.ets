@@ -112,6 +112,7 @@ export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGallery
 
 // services
 export { ImageResolveService } from './services/ImageResolveService'
+export { ArchiveImageService } from './services/ArchiveImageService'
 export {
   CachedImageFileService,
   CachedImageFileResult,
