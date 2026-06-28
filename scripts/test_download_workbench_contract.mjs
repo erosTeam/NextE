@@ -44,6 +44,14 @@ ok(/this\.downloadView\.viewType\s*=[\s\S]*DownloadViewType\.ARCHIVER/.test(bar)
   'download segmented control writes the selected queue view')
 ok(/DownloadTypeBarCCBuilder/.test(index) && /tab === 3[\s\S]*bottomBuilder/.test(index) &&
   /DOWNLOAD_SELECTOR_BAR_HEIGHT/.test(index), 'Index pins the download segmented control in title-bar bottomBuilder')
+ok(/private downloadMenu\(\): Record<string, Object>/.test(index) &&
+  /download_resume_all/.test(index) &&
+  /download_pause_all/.test(index) &&
+  /content\['menu'\] = this\.downloadMenu\(\)/.test(index),
+  'Downloads tab title bar exposes current-queue batch actions instead of an empty menu')
+ok(/resumeVisibleDownloads\(\)[\s\S]*DownloadQueueSettings\.resumeAllArchiverDownloads\(context\)[\s\S]*DownloadQueueSettings\.resumeAllGalleryDownloads\(context\)/.test(index) &&
+  /pauseVisibleDownloads\(\)[\s\S]*DownloadQueueSettings\.pauseAllArchiverDownloads\(context\)[\s\S]*DownloadQueueSettings\.pauseAllGalleryDownloads\(context\)/.test(index),
+  'Downloads tab batch actions reuse shared queue executors for the active queue type')
 ok(/@Local downloadView: DownloadViewState = connectDownloadView\(\)/.test(page),
   'download page reads the shared selected queue view')
 ok(!/private QueueSwitcher\(\)|SwitchButton|DOWNLOAD_VIEW_GALLERY|DOWNLOAD_VIEW_ARCHIVER/.test(page),
@@ -145,6 +153,8 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'download_finished_tasks',
     'download_status_empty',
     'download_status_paused',
+    'download_resume_all',
+    'download_pause_all',
     'download_gallery_empty',
     'download_archiver_empty',
     'download_gallery_next_step',

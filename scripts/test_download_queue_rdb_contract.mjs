@@ -124,6 +124,11 @@ ok('pause marks running gallery workers cancelled while keeping the task resumab
   /static async pauseGalleryDownload/.test(settings) &&
     /galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)[\s\S]*updateGalleryTaskAfterPause\(context, gid, token\)/.test(settings) &&
     /updateGalleryTaskAfterPause[\s\S]*task\.status = DownloadGalleryTaskStatus\.PAUSED[\s\S]*task\.prepareError = ''[\s\S]*persist\(context, next\)/.test(settings))
+ok('batch gallery actions reuse per-task resume and pause executors',
+  /static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
+    /canResumeGalleryTask\(tasks\[i\]\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token\)/.test(settings) &&
+    /static async pauseAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
+    /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseGalleryDownload\(context, tasks\[i\]\.gid, tasks\[i\]\.token\)/.test(settings))
 ok('remove deletes archiver package and extracted reader cache',
   /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiver\(context, next\)[\s\S]*deleteArchiverContent\(context, removed\)/.test(settings) &&
     /deleteArchiverContent\([\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
@@ -138,6 +143,11 @@ ok('pause marks running archiver workers cancelled and suppresses late progress 
   /static async pauseArchiverDownload/.test(settings) &&
     /archiverDownloads\.has\(tag\)[\s\S]*cancelledArchiverDownloads\.add\(tag\)[\s\S]*it\.status = DownloadGalleryTaskStatus\.PAUSED/.test(settings) &&
     /updateArchiverProgress\(tag: string[\s\S]*cancelledArchiverDownloads\.has\(tag\)[\s\S]*return/.test(settings))
+ok('batch archiver actions reuse per-task resume and pause executors',
+  /static async resumeAllArchiverDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
+    /canResumeArchiverTask\(tasks\[i\]\)[\s\S]*downloadArchiver\(context, tasks\[i\]\.tag\)/.test(settings) &&
+    /static async pauseAllArchiverDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
+    /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseArchiverDownload\(context, tasks\[i\]\.tag\)/.test(settings))
 ok('download content cleanup uses platform recursive directory removal',
   /deleteSandboxPath\(path: string, event: string\)[\s\S]*fs\.statSync\(path\)[\s\S]*stat\.isDirectory\(\)[\s\S]*fs\.rmdirSync\(path\)[\s\S]*fs\.unlinkSync\(path\)/.test(settings))
 

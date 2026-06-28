@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: download queue batch title actions
+
+Status: active
+Reference implementation: `entry/src/main/ets/pages/Index.ets` existing tab title-bar menu items, `entry/src/main/ets/components/DownloadTypeBar.ets` retained Gallery/Archiver segmented control, and `feature/download/src/main/ets/pages/DownloadQueuePage.ets` per-task resume/pause actions.
+Surface type: Downloads tab title-bar trailing menu only.
+Primary information: the task list remains the main surface; the title bar exposes queue-level controls for the currently selected Gallery or Archiver queue.
+Primary action: tap Continue all to retry/resume eligible tasks in the selected queue, or Pause all to pause currently downloading tasks; destructive bulk delete is intentionally not included because current remove semantics delete local files.
+Reuse or deviation: reuse HDS title-bar menu records and existing per-task `DownloadQueueSettings` executors; do not add a summary card, floating toolbar, background agent, or new queue scheduler in this slice.
+Verification: download workbench contract, download queue RDB contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab menu smoke evidence.
+
 ## Active: download incremental refresh action
 
 Status: active

@@ -142,6 +142,28 @@ export class DownloadQueueSettings {
     await DownloadQueueSettings.updateGalleryTaskAfterPause(context, gid, token)
   }
 
+  static async resumeAllGalleryDownloads(context: common.UIAbilityContext): Promise<void> {
+    const tasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.map(
+      (task: DownloadGalleryTask) => task.copy(),
+    )
+    for (let i: number = 0; i < tasks.length; i++) {
+      if (DownloadQueueSettings.canResumeGalleryTask(tasks[i])) {
+        await DownloadQueueSettings.downloadGalleryImages(context, tasks[i].gid, tasks[i].token)
+      }
+    }
+  }
+
+  static async pauseAllGalleryDownloads(context: common.UIAbilityContext): Promise<void> {
+    const tasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.map(
+      (task: DownloadGalleryTask) => task.copy(),
+    )
+    for (let i: number = 0; i < tasks.length; i++) {
+      if (tasks[i].status === DownloadGalleryTaskStatus.DOWNLOADING) {
+        await DownloadQueueSettings.pauseGalleryDownload(context, tasks[i].gid, tasks[i].token)
+      }
+    }
+  }
+
   static async enqueueArchiver(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
@@ -219,6 +241,28 @@ export class DownloadQueueSettings {
       it.status = DownloadGalleryTaskStatus.PAUSED
       it.error = ''
     })
+  }
+
+  static async resumeAllArchiverDownloads(context: common.UIAbilityContext): Promise<void> {
+    const tasks: DownloadArchiverTask[] = connectDownloadQueue().archiverTasks.map(
+      (task: DownloadArchiverTask) => task.copy(),
+    )
+    for (let i: number = 0; i < tasks.length; i++) {
+      if (DownloadQueueSettings.canResumeArchiverTask(tasks[i])) {
+        await DownloadQueueSettings.downloadArchiver(context, tasks[i].tag)
+      }
+    }
+  }
+
+  static async pauseAllArchiverDownloads(context: common.UIAbilityContext): Promise<void> {
+    const tasks: DownloadArchiverTask[] = connectDownloadQueue().archiverTasks.map(
+      (task: DownloadArchiverTask) => task.copy(),
+    )
+    for (let i: number = 0; i < tasks.length; i++) {
+      if (tasks[i].status === DownloadGalleryTaskStatus.DOWNLOADING) {
+        await DownloadQueueSettings.pauseArchiverDownload(context, tasks[i].tag)
+      }
+    }
   }
 
   static async downloadArchiver(
@@ -678,6 +722,20 @@ export class DownloadQueueSettings {
       return false
     }
     return DownloadQueueSettings.pendingSeedCount(task.imageSeeds) > 0
+  }
+
+  private static canResumeGalleryTask(task: DownloadGalleryTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.QUEUED ||
+      task.status === DownloadGalleryTaskStatus.READY ||
+      task.status === DownloadGalleryTaskStatus.PAUSED ||
+      task.status === DownloadGalleryTaskStatus.PARTIAL ||
+      task.status === DownloadGalleryTaskStatus.ERROR
+  }
+
+  private static canResumeArchiverTask(task: DownloadArchiverTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.QUEUED ||
+      task.status === DownloadGalleryTaskStatus.PAUSED ||
+      task.status === DownloadGalleryTaskStatus.ERROR
   }
 
   private static shouldContinueAfterJoinedArchiverDownload(task: DownloadArchiverTask): boolean {

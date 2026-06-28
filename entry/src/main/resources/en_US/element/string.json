@@ -105,6 +105,14 @@
       "value": "Error"
     },
     {
+      "name": "download_resume_all",
+      "value": "Continue all"
+    },
+    {
+      "name": "download_pause_all",
+      "value": "Pause all"
+    },
+    {
       "name": "download_seed_progress",
       "value": "Seeded %s"
     },

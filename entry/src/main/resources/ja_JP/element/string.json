@@ -105,6 +105,14 @@
       "value": "準備失敗"
     },
     {
+      "name": "download_resume_all",
+      "value": "すべて再開"
+    },
+    {
+      "name": "download_pause_all",
+      "value": "すべて一時停止"
+    },
+    {
       "name": "download_seed_progress",
       "value": "準備済み %s"
     },

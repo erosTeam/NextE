@@ -9,6 +9,7 @@ import {
   HideMode,
 } from '@kit.UIDesignKit'
 import { ComponentContent } from '@kit.ArkUI'
+import { common } from '@kit.AbilityKit'
 import {
   connectNavStack,
   connectPendingEhUrl,
@@ -25,6 +26,13 @@ import {
   ImagePageRouteService,
   ImagePageRouteTarget,
   ReaderParams,
+  DownloadArchiverTask,
+  DownloadGalleryTask,
+  DownloadGalleryTaskStatus,
+  DownloadQueueSettings,
+  DownloadQueueState,
+  DownloadViewState,
+  DownloadViewType,
   connectSearchAction,
   SearchActionState,
   connectSiteMode,
@@ -38,6 +46,8 @@ import {
   SearchPageParams,
   SELECTOR_BAR_HEIGHT,
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
+  connectDownloadQueue,
+  connectDownloadView,
   immersiveTitleBarOpts,
   ImmersiveMaterialSettings,
   ImmersiveMaterialSettingsState,
@@ -138,6 +148,8 @@ struct Index {
   @Local safeMode: SafeModeState = connectSafeMode();
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
+  @Local downloadView: DownloadViewState = connectDownloadView();
+  @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
   @Local currentTab: number = 0;
   private lastHandledSignal: string = '';
   private lastHandledQuery: string = '';
@@ -569,6 +581,82 @@ struct Index {
     return { 'value': items, 'maxCount': 2 }
   }
 
+  private downloadMenu(): Record<string, Object> {
+    const items: Record<string, Object>[] = []
+    const resumeInner: Record<string, Object> = {
+      'label': $r('app.string.download_resume_all'),
+      'icon': $r('sys.symbol.arrow_clockwise'),
+      'isEnabled': true,
+      'action': () => {
+        this.resumeVisibleDownloads()
+      },
+    }
+    const pauseInner: Record<string, Object> = {
+      'label': $r('app.string.download_pause_all'),
+      'icon': $r('sys.symbol.pause'),
+      'isEnabled': true,
+      'action': () => {
+        this.pauseVisibleDownloads()
+      },
+    }
+    if (this.downloadHasResumable()) {
+      items.push({ 'content': resumeInner })
+    }
+    if (this.downloadHasPausable()) {
+      items.push({ 'content': pauseInner })
+    }
+    items.push(this.backToTopMenuItem())
+    return { 'value': items, 'maxCount': items.length }
+  }
+
+  private downloadHasResumable(): boolean {
+    if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
+      return this.downloadQueue.archiverTasks.some((task: DownloadArchiverTask) => {
+        return task.status === DownloadGalleryTaskStatus.QUEUED ||
+          task.status === DownloadGalleryTaskStatus.PAUSED ||
+          task.status === DownloadGalleryTaskStatus.ERROR
+      })
+    }
+    return this.downloadQueue.galleryTasks.some((task: DownloadGalleryTask) => {
+      return task.status === DownloadGalleryTaskStatus.QUEUED ||
+        task.status === DownloadGalleryTaskStatus.READY ||
+        task.status === DownloadGalleryTaskStatus.PAUSED ||
+        task.status === DownloadGalleryTaskStatus.PARTIAL ||
+        task.status === DownloadGalleryTaskStatus.ERROR
+    })
+  }
+
+  private downloadHasPausable(): boolean {
+    if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
+      return this.downloadQueue.archiverTasks.some((task: DownloadArchiverTask) => {
+        return task.status === DownloadGalleryTaskStatus.DOWNLOADING
+      })
+    }
+    return this.downloadQueue.galleryTasks.some((task: DownloadGalleryTask) => {
+      return task.status === DownloadGalleryTaskStatus.DOWNLOADING
+    })
+  }
+
+  private resumeVisibleDownloads(): void {
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    const task: Promise<void> = this.downloadView.viewType === DownloadViewType.ARCHIVER
+      ? DownloadQueueSettings.resumeAllArchiverDownloads(context)
+      : DownloadQueueSettings.resumeAllGalleryDownloads(context)
+    task.catch((error: Error) => {
+      DiagnosticLogger.warn('download', 'resume_all_visible_failed', error.message)
+    })
+  }
+
+  private pauseVisibleDownloads(): void {
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    const task: Promise<void> = this.downloadView.viewType === DownloadViewType.ARCHIVER
+      ? DownloadQueueSettings.pauseAllArchiverDownloads(context)
+      : DownloadQueueSettings.pauseAllGalleryDownloads(context)
+    task.catch((error: Error) => {
+      DiagnosticLogger.warn('download', 'pause_all_visible_failed', error.message)
+    })
+  }
+
   private bottomBuilder(
     content: ComponentContent<Object>,
     height: number = SELECTOR_BAR_HEIGHT,
@@ -639,7 +727,7 @@ struct Index {
           this.downloadTypeBarContent,
           DOWNLOAD_SELECTOR_BAR_HEIGHT,
         )
-        content['menu'] = this.emptyMenu()
+        content['menu'] = this.downloadMenu()
       }
       if (tab !== 2 && tab !== 3) {
         content['menu'] = this.emptyMenu()
