@@ -67,6 +67,9 @@ ok(/batchIndex > 0/.test(queueSettings) &&
 ok(/downloadSeedToFile\(context, gid, seed, useOriginal, retryCount\)/.test(queueSettings) &&
   /Math\.round\(retryCount\) \+ 1/.test(queueSettings),
   'gallery image executor retries each failed image according to the persisted retry count')
+ok(/const attempts: number = Math\.max\(1, Math\.round\(connectDownloadSettings\(\)\.retryCount\) \+ 1\)/.test(queueSettings) &&
+  /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
+  'archiver executor retries according to the persisted retry count')
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok(/import \{ DownloadSettings \}/.test(bootstrap) && /await DownloadSettings\.restore\(context\)/.test(bootstrap),

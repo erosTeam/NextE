@@ -307,10 +307,12 @@ export class EhHttpClient {
     filePath: string,
     progress: (loaded: number, total: number) => void,
     accept: string = IMAGE_ACCEPT,
+    maxAttempts: number = MAX_RETRIES,
   ): Promise<number> {
     let attempt: number = 0
     let lastError: Error | null = null
-    while (attempt < MAX_RETRIES) {
+    const attempts: number = Math.max(1, Math.round(maxAttempts))
+    while (attempt < attempts) {
       const req: http.HttpRequest = http.createHttp()
       let file: fs.File | null = null
       try {
@@ -346,7 +348,7 @@ export class EhHttpClient {
         req.destroy()
         fs.closeSync(file)
         file = null
-        if (code >= 500 && attempt < MAX_RETRIES - 1) {
+        if (code >= 500 && attempt < attempts - 1) {
           lastError = new Error(`HTTP ${code}`)
         } else if (code !== 200) {
           throw new Error(`binary HTTP ${code}`)

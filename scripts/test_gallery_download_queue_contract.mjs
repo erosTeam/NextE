@@ -94,8 +94,10 @@ ok(/RemoveTaskButton/.test(queuePage) && /DownloadQueueSettings\.removeGallery/.
   'downloads page can remove local queued tasks')
 ok(/private ReadTaskButton\(task: DownloadGalleryTask\)/.test(queuePage) &&
   /sys\.symbol\.arrow_right/.test(queuePage) &&
-  /new ReaderParams\(task\.gid, task\.token, 0, fileCount, task\.displayTitle\(\), images, loadedPages, perPage\)/.test(queuePage),
-  'completed gallery tasks expose a low-weight Reader entry')
+  /new ReaderParams\(task\.gid, task\.token, 0, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(queuePage),
+  'completed gallery tasks expose a local Reader entry with the full downloaded seed set')
+ok(!/const fileCount: number = task\.pageCount|const loadedPages: number = task\.previewPageCount|const perPage: number = task\.firstPageCount/.test(queuePage),
+  'downloaded gallery Reader entry does not reuse EH preview-page seed params')
 ok(/downloadedSeedImages\(task: DownloadGalleryTask\)/.test(queuePage) &&
   /image\.sUrl = seed\.imagePageUrl/.test(queuePage) &&
   /image\.imageUrl = CachedImageFileService\.displayUri\(seed\.filePath\)/.test(queuePage),

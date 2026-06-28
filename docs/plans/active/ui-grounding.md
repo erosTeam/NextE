@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: download incremental refresh action
+
+Status: active
+Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing low-weight circular task actions, `shared/src/main/ets/settings/DownloadQueueSettings.ets` seed preparation / merge / executor path, and `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` detail-page download seed preparation.
+Surface type: Downloads tab gallery task card action column for completed local downloads.
+Primary information: completed gallery tasks keep read/remove actions visible while exposing a lightweight refresh state that can check remote preview seeds and fill only missing local files.
+Primary action: tap the small refresh icon on a completed gallery task to fetch the current detail preview pages, merge seed metadata by page, and let the existing downloader handle newly pending images.
+Reuse or deviation: reuse the existing circular icon-action column and `prepareGallerySeeds -> mergePreparedSeeds -> downloadGalleryImages` flow instead of adding a second update engine; deviate only by allowing completed tasks to re-enter preparation/download when remote seed refresh discovers new pages.
+Verification: gallery download executor contract, gallery download queue contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab layout evidence.
+
 ## Active: storage sync settings
 
 Status: active

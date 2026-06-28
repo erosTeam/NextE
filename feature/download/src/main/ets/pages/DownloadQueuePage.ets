@@ -17,6 +17,7 @@ import {
   DownloadViewType,
   DownloadViewState,
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
+  connectSiteMode,
   connectDownloadQueue,
   connectDownloadView,
   connectNavStack,
@@ -37,6 +38,7 @@ export struct DownloadQueuePage {
   @Local downloadView: DownloadViewState = connectDownloadView();
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
   @Local openingArchiverTag: string = '';
+  @Local refreshingGalleryKey: string = '';
   private stack: NavPathStack = connectNavStack().stack;
 
   private ctx(): common.UIAbilityContext {
@@ -143,6 +145,35 @@ export struct DownloadQueuePage {
     await DownloadQueueSettings.downloadGalleryImages(this.ctx(), task.gid, task.token)
   }
 
+  private taskKey(task: DownloadGalleryTask): string {
+    return `${task.gid}:${task.token}`
+  }
+
+  private async refreshTask(task: DownloadGalleryTask): Promise<void> {
+    if (this.refreshingGalleryKey.length > 0) {
+      return
+    }
+    const key: string = this.taskKey(task)
+    this.refreshingGalleryKey = key
+    try {
+      await DownloadQueueSettings.refreshGallerySeedsFromRemote(
+        this.ctx(),
+        task.gid,
+        task.token,
+        connectSiteMode().isEx,
+      )
+    } catch (_error) {
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({ message: $r('app.string.common_refresh_failed') })
+        .catch((_toastError: Error) => {})
+    } finally {
+      if (this.refreshingGalleryKey === key) {
+        this.refreshingGalleryKey = ''
+      }
+    }
+  }
+
   private async resumeArchiverTask(task: DownloadArchiverTask): Promise<void> {
     await DownloadQueueSettings.downloadArchiver(this.ctx(), task.tag)
   }
@@ -155,6 +186,10 @@ export struct DownloadQueuePage {
 
   private canReadTask(task: DownloadGalleryTask): boolean {
     return task.status === DownloadGalleryTaskStatus.COMPLETE && task.downloadedCount() > 0
+  }
+
+  private canRefreshTask(task: DownloadGalleryTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.COMPLETE && task.gid.length > 0 && task.token.length > 0
   }
 
   private canResumeArchiverTask(task: DownloadArchiverTask): boolean {
@@ -191,12 +226,9 @@ export struct DownloadQueuePage {
     if (images.length === 0) {
       return
     }
-    const fileCount: number = task.pageCount > 0 ? task.pageCount : images.length
-    const loadedPages: number = task.previewPageCount > 0 ? task.previewPageCount : 1
-    const perPage: number = task.firstPageCount > 0 ? task.firstPageCount : images.length
     this.stack.pushPathByName(
       'Reader',
-      new ReaderParams(task.gid, task.token, 0, fileCount, task.displayTitle(), images, loadedPages, perPage),
+      new ReaderParams(task.gid, task.token, 0, images.length, task.displayTitle(), images, 1, images.length),
     )
   }
 
@@ -428,6 +460,11 @@ export struct DownloadQueuePage {
     Column({ space: ThemeConstants.SPACE_XS }) {
       if (this.canReadTask(task)) {
         this.ReadTaskButton(task)
+        if (this.refreshingGalleryKey === this.taskKey(task)) {
+          this.RefreshingTaskButton(task)
+        } else if (this.canRefreshTask(task)) {
+          this.RefreshTaskButton(task)
+        }
       } else if (this.canResumeTask(task)) {
         this.ResumeTaskButton(task)
       }
@@ -485,6 +522,37 @@ export struct DownloadQueuePage {
     .onClick(() => {
       this.resumeTask(task)
     })
+  }
+
+  @Builder
+  private RefreshTaskButton(task: DownloadGalleryTask) {
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+        .fontColor([ThemeConstants.BRAND_PRIMARY])
+    }
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+    .accessibilityText($r('app.string.common_refresh'))
+    .onClick(() => {
+      this.refreshTask(task)
+    })
+  }
+
+  @Builder
+  private RefreshingTaskButton(_task: DownloadGalleryTask) {
+    Button({ type: ButtonType.Circle }) {
+      LoadingProgress()
+        .width(ThemeConstants.FONT_SIZE_TITLE)
+        .height(ThemeConstants.FONT_SIZE_TITLE)
+        .color(ThemeConstants.BRAND_PRIMARY)
+    }
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+    .enabled(false)
+    .accessibilityText($r('app.string.common_refresh'))
   }
 
   @Builder

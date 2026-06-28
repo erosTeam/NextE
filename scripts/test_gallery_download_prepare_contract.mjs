@@ -55,6 +55,10 @@ ok(/for \(let p = 1; p < totalPreviewPages; p\+\+\)/.test(settings),
   'preparation starts after the first detail preview page and pages through ?p=')
 ok(/imagesToSeeds/.test(settings) && /DownloadImageSeed\.fromGalleryImage/.test(settings),
   'preparation converts parsed preview images into image-page seeds')
+ok(/catch \(error\) \{\s*await DownloadQueueSettings\.updateDownloadTaskStatus\(/.test(settings) &&
+  /DownloadGalleryTaskStatus\.ERROR,\s*\(error as Error\)\.message,\s*\)/.test(settings) &&
+  !/catch \(error\) \{\s*await DownloadQueueSettings\.updatePreparedTask\(/.test(settings),
+  'preparation failure keeps existing seed records instead of replacing them with only the first page')
 ok(/mergeSeeds/.test(settings) && /it\.page === seed\.page \|\| it\.imagePageUrl === seed\.imagePageUrl/.test(settings),
   'preparation dedups seeds by page or image-page URL')
 ok(/parseSeeds/.test(settings) && /typeof raw\.imagePageUrl === 'string'/.test(settings),

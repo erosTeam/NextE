@@ -7,6 +7,7 @@ import {
   DownloadGalleryTaskStatus,
   DownloadImageSeed,
 } from '../model/DownloadGalleryTask'
+import { EhGallery } from '../model/EhGallery'
 import { EhGalleryImage } from '../model/EhGalleryImage'
 import { connectDownloadQueue } from '../state/DownloadQueueState'
 import {
@@ -16,7 +17,7 @@ import {
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhHttpClient } from '../network/EhHttpClient'
-import { EhApiService } from '../network/EhApiService'
+import { EhApiService, GalleryDetailResult } from '../network/EhApiService'
 import { ImageResolveService } from '../services/ImageResolveService'
 import { DownloadQueueRepository } from '../storage/DownloadQueueRepository'
 
@@ -186,6 +187,7 @@ export class DownloadQueueSettings {
     const dir: string = DownloadQueueSettings.ensureArchiverDownloadDir(context)
     const fileName: string = DownloadQueueSettings.archiverFileName(task)
     const filePath: string = `${dir}/${fileName}`
+    const attempts: number = Math.max(1, Math.round(connectDownloadSettings().retryCount) + 1)
     try {
       const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
         task.url,
@@ -194,6 +196,7 @@ export class DownloadQueueSettings {
           DownloadQueueSettings.updateArchiverProgress(tag, loaded, total)
         },
         ARCHIVER_ACCEPT,
+        attempts,
       )
       await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
         it.status = DownloadGalleryTaskStatus.COMPLETE
@@ -213,6 +216,17 @@ export class DownloadQueueSettings {
         it.error = (error as Error).message
       })
     }
+  }
+
+  static async refreshGallerySeedsFromRemote(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    isEx: boolean,
+  ): Promise<void> {
+    const detail: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(gid, token, isEx)
+    await DownloadQueueSettings.updateGalleryTaskMetadata(context, gid, token, detail.gallery)
+    await DownloadQueueSettings.prepareGallerySeeds(context, gid, token, isEx, detail.images, detail.previewPageCount)
   }
 
   /**
@@ -264,14 +278,11 @@ export class DownloadQueueSettings {
         '',
       )
     } catch (error) {
-      await DownloadQueueSettings.updatePreparedTask(
+      await DownloadQueueSettings.updateDownloadTaskStatus(
         context,
         gid,
         token,
         DownloadGalleryTaskStatus.ERROR,
-        initialSeeds,
-        firstPageImages.length,
-        Math.max(previewPageCount, 1),
         (error as Error).message,
       )
       return
@@ -467,6 +478,43 @@ export class DownloadQueueSettings {
         task.previewPageCount = previewPageCount
         task.prepareError = prepareError
         task.preparedAt = status === DownloadGalleryTaskStatus.READY ? Date.now() : task.preparedAt
+      }
+      next.push(task)
+    })
+    state.galleryTasks = next
+    await DownloadQueueSettings.persist(context, next)
+  }
+
+  private static async updateGalleryTaskMetadata(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    gallery: EhGallery,
+  ): Promise<void> {
+    const state = connectDownloadQueue()
+    const next: DownloadGalleryTask[] = []
+    const pageCount: number = Number.parseInt(gallery.fileCount.length > 0 ? gallery.fileCount : '0', 10)
+    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
+      const task: DownloadGalleryTask = it.copy()
+      if (task.gid === gid && task.token === token) {
+        if (gallery.title().length > 0) {
+          task.title = gallery.title()
+        }
+        if (gallery.japaneseTitle.length > 0) {
+          task.titleJp = gallery.japaneseTitle
+        }
+        if (gallery.thumbUrl.length > 0 || gallery.thumbUrlL.length > 0) {
+          task.thumbUrl = gallery.thumbUrl.length > 0 ? gallery.thumbUrl : gallery.thumbUrlL
+        }
+        if (pageCount > 0) {
+          task.pageCount = pageCount
+        }
+        if (gallery.category.length > 0) {
+          task.category = gallery.category
+        }
+        if (gallery.uploader.length > 0) {
+          task.uploader = gallery.uploader
+        }
       }
       next.push(task)
     })

@@ -82,11 +82,12 @@ ok(/DownloadQueueSettings\.downloadArchiver/.test(page) &&
   /DownloadQueueSettings\.removeArchiver/.test(page),
   'archiver task cards wire retry and remove to the archiver queue executor')
 ok(/ARCHIVER_ACCEPT: string = 'application\/zip,application\/octet-stream,\*\/\*'/.test(queueSettings) &&
-  /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT/.test(queueSettings),
-  'archiver executor requests archive bytes with a zip/octet-stream Accept header')
+  /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
+  'archiver executor requests archive bytes with a zip/octet-stream Accept header and configured retries')
 ok(/const IMAGE_ACCEPT: string = 'image\/avif,image\/webp,image\/apng,image\/\*,\*\/\*;q=0\.8'/.test(httpClient) &&
-  /accept: string = IMAGE_ACCEPT/.test(httpClient),
-  'stream binary download keeps image Accept as the default for Reader image cache')
+  /accept: string = IMAGE_ACCEPT/.test(httpClient) &&
+  /maxAttempts: number = MAX_RETRIES/.test(httpClient),
+  'stream binary download keeps image Accept and default retry behavior for Reader image cache')
 ok(/private canReadArchiverTask\(task: DownloadArchiverTask\)/.test(page) &&
   /task\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*task\.filePath\.length > 0/.test(page) &&
   /private ReadArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page),

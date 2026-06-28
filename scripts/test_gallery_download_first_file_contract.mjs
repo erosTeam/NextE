@@ -83,6 +83,13 @@ ok(/parseSeeds/.test(settings) && /raw\.filePath/.test(settings) && /raw\.bytesW
 ok(/mergePreparedSeeds/.test(settings) && /previous\.filePath\.length > 0/.test(settings) &&
   /out\.bytesWritten = previous\.bytesWritten/.test(settings),
   'seed refresh preserves existing downloaded file metadata for incremental updates')
+ok(/refreshGallerySeedsFromRemote/.test(settings) &&
+  /getGalleryDetail\(gid, token, isEx\)/.test(settings) &&
+  /updateGalleryTaskMetadata\(context, gid, token, detail\.gallery\)/.test(settings) &&
+  /prepareGallerySeeds\(context, gid, token, isEx, detail\.images, detail\.previewPageCount\)/.test(settings),
+  'completed queue tasks can refresh remote seeds before the incremental downloader fills missing pages')
+ok(/updateGalleryTaskMetadata/.test(settings) && /task\.pageCount = pageCount/.test(settings),
+  'incremental refresh updates task metadata before comparing downloaded seed progress')
 ok(/private static sameSeed/.test(settings) &&
   /a\.page > 0 && b\.page > 0[\s\S]*return a\.page === b\.page/.test(settings),
   'incremental seed identity follows page number first so refreshed /s/ URLs do not redownload complete pages')
@@ -95,6 +102,8 @@ ok(/downloadBinaryToFile/.test(client) && /HttpDataType\.ARRAY_BUFFER/.test(clie
 
 ok(/download_file_progress/.test(queue) && /task\.downloadProgressText\(\)/.test(queue) &&
   /download_status_complete/.test(queue), 'downloads page shows file progress and complete status')
+ok(/RefreshTaskButton/.test(queue) && /DownloadQueueSettings\.refreshGallerySeedsFromRemote/.test(queue) &&
+  /connectSiteMode\(\)\.isEx/.test(queue), 'completed gallery task rows expose an incremental refresh action')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
