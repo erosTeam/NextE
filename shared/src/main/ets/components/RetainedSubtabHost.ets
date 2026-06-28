@@ -1,4 +1,5 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 /**
  * The active-key signal the host shares with EVERY retained page. Passed by reference (once) to each
@@ -98,12 +99,22 @@ export struct RetainedSubtabHost {
     this.ignoreStartupSelectionChange = true
     this.onVisualIndex(restoredIndex)
     this.notifyActiveScroller()
+    DiagnosticLogger.info(
+      'home-list-anchor',
+      'host_appear',
+      `selected=${this.selectedKey} keys=${this.keys.join(',')} index=${restoredIndex}`,
+    )
   }
 
   // Selection bus changed (a bar tap, a login-gated key removal, etc.) → swipe to that retained page AND
   // publish the active key so that page (cached or not) loads on its first activation.
   @Monitor('selectedKey')
   onSelectedKeyChange(): void {
+    DiagnosticLogger.info(
+      'home-list-anchor',
+      'host_selected_change',
+      `selected=${this.selectedKey} keys=${this.keys.join(',')} swiperIndex=${this.swiperIndex}`,
+    )
     if (this.keys.length <= 0) {
       return
     }
@@ -157,6 +168,11 @@ export struct RetainedSubtabHost {
       this.onVisualIndex(index)
       const key: string = this.keys[index]
       this.active.activeKey = key
+      DiagnosticLogger.info(
+        'home-list-anchor',
+        'host_animation_end',
+        `index=${index} key=${key} selected=${this.selectedKey} keys=${this.keys.join(',')}`,
+      )
       if (key !== this.selectedKey) {
         this.onSelectKey(key)
       }

@@ -16,6 +16,7 @@ import {
   SafeModeState,
   connectSafeMode,
   SAFE_MODE_PROFILE_UUID,
+  DiagnosticLogger,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -168,6 +169,11 @@ export struct HomePage {
           if (this.safeMode.restricted()) {
             return
           }
+          DiagnosticLogger.info(
+            'home-list-anchor',
+            'home_select_key',
+            `from=${this.profiles.selectedUuid} to=${key} visible=${this.visibleSources().join(',')}`,
+          )
           CustomProfilesSettings.setSelected(this.ctx(), key)
         },
         onVisualIndex: (value: number) => {

@@ -23,6 +23,7 @@ import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
 export class LocalBlockSettings {
   private static bumpVersion(state: LocalBlockState): void {
     state.version = state.version + 1
+    DiagnosticLogger.info('settings', 'local_block_version', `version=${state.version} rules=${state.rules.length}`)
   }
 
   static normalizeType(type: string): string {
@@ -66,13 +67,51 @@ export class LocalBlockSettings {
 
   private static apply(snapshot: LocalBlockSettingsSnapshot): void {
     const state: LocalBlockState = connectLocalBlock()
-    state.filterCommentsByScore = snapshot.filterCommentsByScore
-    state.scoreFilteringThreshold = Number.isFinite(snapshot.scoreFilteringThreshold)
+    const next: LocalBlockSettingsSnapshot = LocalBlockSettings.normalizeSnapshot(snapshot)
+    if (LocalBlockSettings.snapshotEquals(LocalBlockSettings.current(), next)) {
+      DiagnosticLogger.info('settings', 'local_block_apply_unchanged', `version=${state.version} rules=${state.rules.length}`)
+      return
+    }
+    state.filterCommentsByScore = next.filterCommentsByScore
+    state.scoreFilteringThreshold = next.scoreFilteringThreshold
+    state.commentDisplayMode = next.commentDisplayMode
+    state.rules = LocalBlockSettings.rulesFromSnapshot(next.rules)
+    LocalBlockSettings.bumpVersion(state)
+  }
+
+  private static normalizeSnapshot(snapshot: LocalBlockSettingsSnapshot): LocalBlockSettingsSnapshot {
+    const out: LocalBlockSettingsSnapshot = new LocalBlockSettingsSnapshot()
+    out.filterCommentsByScore = snapshot.filterCommentsByScore
+    out.scoreFilteringThreshold = Number.isFinite(snapshot.scoreFilteringThreshold)
       ? Math.floor(snapshot.scoreFilteringThreshold)
       : -20
-    state.commentDisplayMode = LocalBlockSettings.normalizeCommentDisplayMode(snapshot.commentDisplayMode)
-    state.rules = LocalBlockSettings.rulesFromSnapshot(snapshot.rules)
-    LocalBlockSettings.bumpVersion(state)
+    out.commentDisplayMode = LocalBlockSettings.normalizeCommentDisplayMode(snapshot.commentDisplayMode)
+    out.rules = LocalBlockSettings.snapshotRules(LocalBlockSettings.rulesFromSnapshot(snapshot.rules))
+    return out
+  }
+
+  private static snapshotEquals(a: LocalBlockSettingsSnapshot, b: LocalBlockSettingsSnapshot): boolean {
+    if (a.filterCommentsByScore !== b.filterCommentsByScore ||
+      Math.floor(a.scoreFilteringThreshold) !== Math.floor(b.scoreFilteringThreshold) ||
+      LocalBlockSettings.normalizeCommentDisplayMode(a.commentDisplayMode) !==
+        LocalBlockSettings.normalizeCommentDisplayMode(b.commentDisplayMode) ||
+      a.rules.length !== b.rules.length) {
+      return false
+    }
+    for (let i: number = 0; i < a.rules.length; i++) {
+      if (!LocalBlockSettings.ruleEquals(a.rules[i], b.rules[i])) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private static ruleEquals(a: LocalBlockRuleSnapshot, b: LocalBlockRuleSnapshot): boolean {
+    return a.id === b.id &&
+      LocalBlockSettings.normalizeType(a.blockType) === LocalBlockSettings.normalizeType(b.blockType) &&
+      LocalBlockSettings.cleanText(a.ruleText) === LocalBlockSettings.cleanText(b.ruleText) &&
+      a.enabled === b.enabled &&
+      a.enableRegex === b.enableRegex
   }
 
   static async restore(context: common.UIAbilityContext): Promise<void> {

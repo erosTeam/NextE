@@ -32,6 +32,8 @@ import { common } from '@kit.AbilityKit'
  */
 @ObservedV2
 export class GalleryListViewModel {
+  private static nextDebugId: number = 1
+  private debugId: number = GalleryListViewModel.nextDebugId++
   // Stable ref; LazyForEach subscribes to its listeners directly, so NOT @Trace.
   dataSource: BasicDataSource<EhGallery> = new BasicDataSource<EhGallery>()
   @Trace itemCount: number = 0
@@ -70,6 +72,10 @@ export class GalleryListViewModel {
   // Favorites paging is page+from (or nextGid fallback), distinct from the gid cursor sources.
   private favcat: string = 'a'
   private favNextPage: number = -1
+
+  debugState(): string {
+    return `vm=${this.debugId} source=${this.source} profile=${this.profileUuid} count=${this.itemCount} loaded=${this.loaded} loading=${this.isLoading} loadingMore=${this.isLoadingMore} hasMore=${this.hasMore} epoch=${this.epoch} next=${this.nextGid} favPage=${this.favNextPage} toplistPage=${this.toplistNextPage}`
+  }
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context
@@ -258,6 +264,11 @@ export class GalleryListViewModel {
     const displayRows: EhGallery[] = list.gallerys.map((g: EhGallery) => g.copy())
     this.cacheRenderVersion = this.cacheRenderVersion + 1
     const renderVersion: number = this.cacheRenderVersion
+    DiagnosticLogger.info(
+      'home-list-anchor',
+      'render_first_page',
+      `${this.debugState()} incoming=${list.gallerys.length} oldCount=${this.itemCount} deferTranslation=${deferTranslation}`,
+    )
     if (connectTagTranslationSettings().enabled && !deferTranslation) {
       const translated: EhGallery[] = await this.translateRows(displayRows)
       if (this.cacheRenderVersion !== renderVersion) {
@@ -361,7 +372,9 @@ export class GalleryListViewModel {
 
   /** First load (skips if already populated). */
   async loadData(): Promise<void> {
+    DiagnosticLogger.info('home-list-anchor', 'load_data_enter', this.debugState())
     if (this.isLoading || this.itemCount > 0) {
+      DiagnosticLogger.info('home-list-anchor', 'load_data_skip', this.debugState())
       return
     }
     await this.applyCachedFirstPageIfEmpty()
@@ -376,6 +389,7 @@ export class GalleryListViewModel {
       this.toplistNextPage = list.nextPage
       this.favNextPage = list.nextPage
       this.hasMore = this.firstPageHasMore(list)
+      DiagnosticLogger.info('home-list-anchor', 'load_data_done', this.debugState())
     } catch (err) {
       const e = err as Error
       this.errorMessage = EhErrorText.forUser(err)
@@ -403,7 +417,9 @@ export class GalleryListViewModel {
    * this avoids the white-screen remount regression while still invalidating stale loadMore results.
    */
   async reload(): Promise<void> {
+    DiagnosticLogger.info('home-list-anchor', 'reload_enter', this.debugState())
     if (this.isLoading) {
+      DiagnosticLogger.info('home-list-anchor', 'reload_skip_loading', this.debugState())
       return
     }
     // Invalidate any in-flight loadMore (it runs without the isLoading flag, so it can overlap a
@@ -427,6 +443,7 @@ export class GalleryListViewModel {
       this.toplistNextPage = list.nextPage
       this.favNextPage = list.nextPage
       this.hasMore = this.firstPageHasMore(list)
+      DiagnosticLogger.info('home-list-anchor', 'reload_done', this.debugState())
     } catch (err) {
       const e = err as Error
       this.errorMessage = EhErrorText.forUser(err)
@@ -439,7 +456,9 @@ export class GalleryListViewModel {
   /** Pull-to-refresh: replace from the first page. Guarded + flagged isLoading so a concurrent
    * loadMore (which checks isLoading) can't interleave its appendData with this setData. */
   async refresh(): Promise<void> {
+    DiagnosticLogger.info('home-list-anchor', 'refresh_enter', this.debugState())
     if (this.isLoading || this.isLoadingMore) {
+      DiagnosticLogger.info('home-list-anchor', 'refresh_skip_busy', this.debugState())
       return
     }
     this.isLoading = true
@@ -456,6 +475,7 @@ export class GalleryListViewModel {
       this.toplistNextPage = list.nextPage
       this.favNextPage = list.nextPage
       this.hasMore = this.firstPageHasMore(list)
+      DiagnosticLogger.info('home-list-anchor', 'refresh_done', this.debugState())
     } catch (err) {
       const e = err as Error
       this.errorMessage = EhErrorText.forUser(err)
@@ -466,7 +486,9 @@ export class GalleryListViewModel {
 
   /** Append the next page at the cursor, with eros_fe's stale-cursor + (gid-keyed) dedup guards. */
   async loadMore(): Promise<void> {
+    DiagnosticLogger.info('home-list-anchor', 'load_more_enter', this.debugState())
     if (this.isLoading || this.isLoadingMore || !this.hasMore || this.isPopular()) {
+      DiagnosticLogger.info('home-list-anchor', 'load_more_skip', this.debugState())
       return
     }
     if (this.isToplist()) {
@@ -482,10 +504,12 @@ export class GalleryListViewModel {
     const requestedNext: string = this.nextGid
     if (requestedNext.length === 0) {
       this.hasMore = false
+      DiagnosticLogger.info('home-list-anchor', 'load_more_empty_cursor', this.debugState())
       return
     }
     if (requestedNext === this.lastNext && this.errorMessage.length === 0) {
       this.hasMore = false
+      DiagnosticLogger.info('home-list-anchor', 'load_more_repeated_cursor', this.debugState())
       return
     }
     this.isLoadingMore = true
@@ -510,6 +534,17 @@ export class GalleryListViewModel {
         // Exhausted when the cursor is empty OR the page brought no genuinely new rows (server race /
         // repeated boundary page) — guards against an infinite same-page loadMore loop.
         this.hasMore = list.nextGid.length > 0 && fresh.length > 0
+        DiagnosticLogger.info(
+          'home-list-anchor',
+          'load_more_done',
+          `${this.debugState()} requested=${requestedNext} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+        )
+      } else {
+        DiagnosticLogger.info(
+          'home-list-anchor',
+          'load_more_drop_stale',
+          `${this.debugState()} requested=${requestedNext} myEpoch=${myEpoch}`,
+        )
       }
     } catch (err) {
       const e = err as Error
@@ -523,9 +558,11 @@ export class GalleryListViewModel {
 
   /** Toplist page paging: request the next ptt-parsed 0-based page (?p=), dedup-append, then store the newly parsed next page. */
   private async loadMoreToplist(): Promise<void> {
+    DiagnosticLogger.info('home-list-anchor', 'toplist_more_enter', this.debugState())
     const requestedPage: number = this.toplistNextPage
     if (requestedPage < 0 || requestedPage > this.maxPage) {
       this.hasMore = false
+      DiagnosticLogger.info('home-list-anchor', 'toplist_more_no_page', this.debugState())
       return
     }
     this.isLoadingMore = true
@@ -545,6 +582,17 @@ export class GalleryListViewModel {
         this.maxPage = list.maxPage
         this.toplistNextPage = list.nextPage
         this.hasMore = list.nextPage >= 0 && list.nextPage <= this.maxPage
+        DiagnosticLogger.info(
+          'home-list-anchor',
+          'toplist_more_done',
+          `${this.debugState()} requestedPage=${requestedPage} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+        )
+      } else {
+        DiagnosticLogger.info(
+          'home-list-anchor',
+          'toplist_more_drop_stale',
+          `${this.debugState()} requestedPage=${requestedPage} myEpoch=${myEpoch}`,
+        )
       }
     } catch (err) {
       const e = err as Error
@@ -559,16 +607,19 @@ export class GalleryListViewModel {
   /** Favorites page paging (favorite-type profiles): page+from forward, nextGid fallback. Ported from
    * the favorites VM — favorites.php pages by page number + last-visible gid, not a pure gid cursor. */
   private async loadMoreFavorites(): Promise<void> {
+    DiagnosticLogger.info('home-list-anchor', 'fav_more_enter', this.debugState())
     const page: number = this.favNextPage
     const from: string = page >= 0 ? this.lastVisibleGid() : ''
     const cursor: string = page >= 0 ? from : this.nextGid
     if (cursor.length === 0) {
       this.hasMore = false
+      DiagnosticLogger.info('home-list-anchor', 'fav_more_empty_cursor', this.debugState())
       return
     }
     const requestKey: string = page >= 0 ? `page:${page}:from:${from}` : `next:${cursor}`
     if (requestKey === this.lastNext && this.errorMessage.length === 0) {
       this.hasMore = false
+      DiagnosticLogger.info('home-list-anchor', 'fav_more_repeated_cursor', `${this.debugState()} requestKey=${requestKey}`)
       return
     }
     this.isLoadingMore = true
@@ -592,6 +643,17 @@ export class GalleryListViewModel {
           page >= 0
             ? list.nextPage > 0 || list.nextGid.length > 0
             : list.nextGid.length > 0 && list.nextGid !== cursor
+        DiagnosticLogger.info(
+          'home-list-anchor',
+          'fav_more_done',
+          `${this.debugState()} requestKey=${requestKey} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+        )
+      } else {
+        DiagnosticLogger.info(
+          'home-list-anchor',
+          'fav_more_drop_stale',
+          `${this.debugState()} requestKey=${requestKey} myEpoch=${myEpoch}`,
+        )
       }
     } catch (err) {
       const e = err as Error

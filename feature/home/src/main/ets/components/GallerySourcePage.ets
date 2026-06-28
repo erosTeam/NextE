@@ -14,6 +14,7 @@ import {
   SafeModeState,
   connectSafeMode,
   SAFE_MODE_PROFILE_UUID,
+  DiagnosticLogger,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -80,6 +81,11 @@ export struct GallerySourcePage {
       this.vm.syncSource('', 0)
     }
     this.vm.setContext(this.ctx())
+    DiagnosticLogger.info(
+      'home-list-anchor',
+      'source_appear',
+      `sourceKey=${this.sourceKey} active=${this.active.activeKey} loadedOnce=${this.loadedOnce} editTime=${this.configuredEditTime} vm=${this.vm.debugState()}`,
+    )
     if (this.isActive()) {
       this.loadOnce()
     }
@@ -104,6 +110,11 @@ export struct GallerySourcePage {
     if (profile.lastEditTime === this.configuredEditTime) {
       return
     }
+    DiagnosticLogger.info(
+      'home-list-anchor',
+      'source_profile_reload',
+      `sourceKey=${this.sourceKey} oldEditTime=${this.configuredEditTime} newEditTime=${profile.lastEditTime} loadedOnce=${this.loadedOnce} vm=${this.vm.debugState()}`,
+    )
     this.configuredEditTime = profile.lastEditTime
     this.vm.configureFromProfile(profile)
     if (this.loadedOnce) {
@@ -121,6 +132,11 @@ export struct GallerySourcePage {
   }
 
   private loadOnce(): void {
+    DiagnosticLogger.info(
+      'home-list-anchor',
+      'source_load_once',
+      `sourceKey=${this.sourceKey} active=${this.active.activeKey} loadedOnce=${this.loadedOnce} vm=${this.vm.debugState()}`,
+    )
     if (this.loadedOnce) {
       return
     }
@@ -133,6 +149,7 @@ export struct GallerySourcePage {
   @Monitor('siteMode.isEx')
   onSiteChange(): void {
     if (this.loadedOnce) {
+      DiagnosticLogger.info('home-list-anchor', 'source_site_reload', `sourceKey=${this.sourceKey} vm=${this.vm.debugState()}`)
       this.vm.reload()
     }
   }
@@ -147,6 +164,7 @@ export struct GallerySourcePage {
   @Monitor('localBlock.version')
   async onLocalBlockChange(): Promise<void> {
     if (this.loadedOnce) {
+      DiagnosticLogger.info('home-list-anchor', 'source_local_block', `sourceKey=${this.sourceKey} vm=${this.vm.debugState()}`)
       await this.vm.applyLocalBlockChange()
     }
   }

@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: gallery list reset diagnostics
+
+Status: active
+Reference implementation: `shared/src/main/ets/diagnostics/DiagnosticLogger.ets` existing redacted persistent hilog sink, `feature/home/src/main/ets/components/GallerySourcePage.ets` retained source lifecycle, and `feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets` first-page / load-more state transitions.
+Surface type: no visible UI change; retained gallery list diagnostics only.
+Primary information: when a retained list unexpectedly returns to one page, logs must show whether it came from a new VM, an explicit reload/refresh, or a local-block version change.
+Primary action: user reproduces the list reset; developer filters `[home-list-anchor]` / `local_block_*` logs and identifies the state transition.
+Reuse or deviation: reuse `DiagnosticLogger` instead of a temporary console/logging path; no layout, button, sheet, color, or navigation changes.
+Verification: local block contract, V1 decorator inventory, UI grounding contract, signed HarmonyOS build, and filtered hilog capture on `192.168.50.103:12345`.
+
 ## Active: download queue batch title actions
 
 Status: active

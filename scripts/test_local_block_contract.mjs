@@ -50,6 +50,10 @@ ok(settings.includes('migrateLegacyPreferences') &&
   settings.includes("store.getSync(StorageKeys.LOCAL_BLOCK_RULES, '')") &&
   settings.includes('store.deleteSync(StorageKeys.LOCAL_BLOCK_RULES)'),
   'legacy local block Preferences rows are migrated once')
+ok(settings.includes('snapshotEquals(LocalBlockSettings.current(), next)') &&
+  settings.includes('local_block_apply_unchanged') &&
+  settings.includes('local_block_version'),
+  'unchanged local block restore/sync does not bump version and reload retained lists')
 {
   const store = src('shared/src/main/ets/storage/LocalDataStore.ets')
   const repo = src('shared/src/main/ets/storage/LocalBlockRepository.ets')
