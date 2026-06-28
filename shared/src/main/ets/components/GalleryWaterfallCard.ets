@@ -155,8 +155,8 @@ export struct GalleryWaterfallCard {
       }
       .scrollable(ScrollDirection.Horizontal)
       .nestedScroll({
-        scrollForward: NestedScrollMode.SELF_ONLY,
-        scrollBackward: NestedScrollMode.SELF_ONLY,
+        scrollForward: NestedScrollMode.SELF_FIRST,
+        scrollBackward: NestedScrollMode.SELF_FIRST,
       })
       .scrollBar(BarState.Off)
       .align(Alignment.Start)

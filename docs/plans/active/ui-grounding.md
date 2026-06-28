@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: waterfall tag strip nested horizontal scroll
+
+Status: active
+Reference implementation: `shared/src/main/ets/components/GalleryWaterfallCard.ets` existing two-row horizontal tag strip inside `RetainedSubtabHost.ets`'s horizontal Swiper.
+Surface type: Waterfall gallery card tag strip gesture handoff; no visual redesign.
+Primary information: waterfall cards keep the compact tag strip visible without blocking page-level horizontal subtab swipes once the strip reaches an edge.
+Primary action: horizontal drag on tags scrolls tags first, then hands edge overflow to the outer Swiper.
+Reuse or deviation: reuse ArkUI `nestedScroll` on the existing tag `Scroll`; change only `SELF_ONLY` to `SELF_FIRST`.
+Verification: V1 decorator inventory, UI grounding contract, and signed HarmonyOS build.
+
 ## Active: retained subtab key-list realignment
 
 Status: active
