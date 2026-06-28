@@ -73,6 +73,9 @@ ok(/changeIndex\(target,\s*true\)/.test(host) &&
   /\.duration\(ThemeConstants\.ANIM_DURATION\)/.test(host) &&
   /\.curve\(Curve\.EaseOut\)/.test(host),
   'bar taps ask Swiper to animate from the local current index to the selected target with the project animation timing')
+ok(/@Monitor\('keys'\)[\s\S]*onKeysChange\(\): void[\s\S]*this\.syncSelectedIndex\(false\)/.test(host) &&
+  /this\.swiperController\.changeIndex\(target,\s*false\)/.test(host),
+  'host re-aligns by stable selectedKey when the key list is reordered/filtered without animating from a stale index')
 // EXPLICIT FIRST-ACTIVATION SIGNAL: the host shares an ActiveKeyState (an @ObservedV2 whose @Trace reaches
 // cached pages) and updates active.activeKey on aboutToAppear + selectedKey change + animation settle. A per-render
 // isActive @Param does NOT update cached pages (ForEach stable keys + cachedCount), so the old isActive

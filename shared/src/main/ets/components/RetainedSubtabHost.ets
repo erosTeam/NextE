@@ -70,6 +70,13 @@ export struct RetainedSubtabHost {
     return idx < 0 ? 0 : idx
   }
 
+  private effectiveActiveKey(): string {
+    if (this.keys.length <= 0) {
+      return ''
+    }
+    return this.keys[this.activeIndex()]
+  }
+
   // Interpolate the visual index from the mid-swipe offset so the bar indicator tracks the finger.
   private visualFromOffset(index: number, extraInfo: SwiperAnimationEvent): number {
     if (this.swiperWidth <= 0) {
@@ -115,20 +122,45 @@ export struct RetainedSubtabHost {
       'host_selected_change',
       `selected=${this.selectedKey} keys=${this.keys.join(',')} swiperIndex=${this.swiperIndex}`,
     )
+    this.syncSelectedIndex(true)
+  }
+
+  @Monitor('keys')
+  onKeysChange(): void {
+    DiagnosticLogger.info(
+      'home-list-anchor',
+      'host_keys_change',
+      `selected=${this.selectedKey} keys=${this.keys.join(',')} swiperIndex=${this.swiperIndex}`,
+    )
+    this.syncSelectedIndex(false)
+  }
+
+  private syncSelectedIndex(animated: boolean): void {
     if (this.keys.length <= 0) {
+      this.swiperIndex = 0
+      this.active.activeKey = ''
+      this.onVisualIndex(0)
       return
     }
     const from: number = Math.max(0, Math.min(this.keys.length - 1, this.swiperIndex))
     const target: number = this.activeIndex()
+    const activeKey: string = this.effectiveActiveKey()
     if (from === target) {
-      this.swiperIndex = from
-      this.active.activeKey = this.selectedKey
+      this.swiperIndex = target
+      this.active.activeKey = activeKey
+      this.onVisualIndex(target)
       this.notifyActiveScroller()
       return
     }
     this.swiperIndex = from
-    this.active.activeKey = this.selectedKey
-    this.swiperController.changeIndex(target, true)
+    this.active.activeKey = activeKey
+    if (animated) {
+      this.swiperController.changeIndex(target, true)
+    } else {
+      this.swiperIndex = target
+      this.swiperController.changeIndex(target, false)
+      this.onVisualIndex(target)
+    }
     this.notifyActiveScroller()
   }
 

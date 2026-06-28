@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: retained subtab key-list realignment
+
+Status: active
+Reference implementation: `shared/src/main/ets/components/RetainedSubtabHost.ets` retained Swiper host, `feature/home/src/main/ets/pages/HomePage.ets` custom-profile uuid keys, and `entry/src/main/ets/components/HomeSourceBar.ets` selected-index-from-key bar model.
+Surface type: Home/custom SubTab retained Swiper state; no visual redesign.
+Primary information: the selected subtab is identified by stable profile uuid, not by whatever index the Swiper previously held.
+Primary action: when custom profile keys are reordered, hidden, restored, or sync-rewritten, the host realigns the Swiper and active page to the selected key.
+Reuse or deviation: reuse `RetainedSubtabHost` as the single framework fix; selected-key changes still animate, key-list reshapes realign without animation to avoid index drift.
+Verification: retained tab contract, V1 decorator inventory, UI grounding contract, and signed HarmonyOS build.
+
 ## Active: gallery list reset diagnostics
 
 Status: active
