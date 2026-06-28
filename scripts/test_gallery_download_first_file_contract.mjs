@@ -56,6 +56,8 @@ ok(/preferOriginal: boolean = false/.test(model) && /task\.preferOriginal = this
 ok(/downloadGalleryImages/.test(settings) &&
   /connectDownloadSettings\(\)\.concurrency/.test(settings) &&
   /pendingSeeds/.test(settings), 'queue executor consumes persisted concurrency to pick pending work')
+ok(/static async downloadGalleryImages[\s\S]*found: DownloadGalleryTask \| null = DownloadQueueSettings\.findTask\(gid, token\)[\s\S]*found !== null && found\.imageSeeds\.length === 0[\s\S]*refreshGallerySeedsFromRemote\(context, gid, token, connectSiteMode\(\)\.isEx\)/.test(settings),
+  'manual gallery resume fetches remote seeds instead of marking no-seed tasks ready')
 ok(/galleryDownloads: Map<string, Promise<void>>/.test(settings) &&
   /static async downloadGalleryImages[\s\S]*galleryDownloads\.get\(key\)[\s\S]*await running[\s\S]*runGalleryImageDownload\(context, gid, token\)[\s\S]*galleryDownloads\.delete\(key\)/.test(settings),
   'queue executor joins an in-flight gallery download instead of starting duplicate workers')

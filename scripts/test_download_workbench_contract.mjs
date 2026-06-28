@@ -81,6 +81,8 @@ ok(/private ArchiverTaskSection\(\)/.test(page) &&
 ok(/DownloadQueueSettings\.downloadArchiver/.test(page) &&
   /DownloadQueueSettings\.removeArchiver/.test(page),
   'archiver task cards wire retry and remove to the archiver queue executor')
+ok(/private archiverProgressLabel\(task: DownloadArchiverTask\)[\s\S]*task\.status === DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.error\.length > 0[\s\S]*`\$\{this\.statusText\(task\.status\)\} · \$\{task\.error\}`/.test(page),
+  'archiver task cards show stored failure reason in the existing status subtitle')
 ok(/ARCHIVER_ACCEPT: string = 'application\/zip,application\/octet-stream,\*\/\*'/.test(queueSettings) &&
   /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
   'archiver executor requests archive bytes with a zip/octet-stream Accept header and configured retries')

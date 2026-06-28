@@ -14,6 +14,7 @@ import {
   connectDownloadSettings,
   DownloadOriginalMode,
 } from '../state/DownloadSettingsState'
+import { connectSiteMode } from '../state/SiteModeState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhHttpClient } from '../network/EhHttpClient'
@@ -39,6 +40,7 @@ export class DownloadQueueSettings {
   private static galleryPreparations: Map<string, Promise<void>> = new Map<string, Promise<void>>()
   private static galleryDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
   private static archiverDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+  private static pendingResume: Promise<void> | null = null
 
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
@@ -191,6 +193,53 @@ export class DownloadQueueSettings {
       await task
     } finally {
       DownloadQueueSettings.archiverDownloads.delete(tag)
+    }
+  }
+
+  static async resumePendingDownloads(
+    context: common.UIAbilityContext,
+  ): Promise<void> {
+    if (DownloadQueueSettings.pendingResume !== null) {
+      await DownloadQueueSettings.pendingResume
+      return
+    }
+    const task: Promise<void> = DownloadQueueSettings.runPendingResume(context)
+    DownloadQueueSettings.pendingResume = task
+    try {
+      await task
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'pending_resume_failed', (error as Error).message)
+    } finally {
+      DownloadQueueSettings.pendingResume = null
+    }
+  }
+
+  private static async runPendingResume(
+    context: common.UIAbilityContext,
+  ): Promise<void> {
+    const galleryTasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.map(
+      (task: DownloadGalleryTask) => task.copy(),
+    )
+    for (let i: number = 0; i < galleryTasks.length; i++) {
+      if (DownloadQueueSettings.shouldAutoResumeGalleryTask(galleryTasks[i])) {
+        try {
+          await DownloadQueueSettings.downloadGalleryImages(context, galleryTasks[i].gid, galleryTasks[i].token)
+        } catch (error) {
+          DiagnosticLogger.warn('download', 'gallery_resume_failed', (error as Error).message)
+        }
+      }
+    }
+    const archiverTasks: DownloadArchiverTask[] = connectDownloadQueue().archiverTasks.map(
+      (task: DownloadArchiverTask) => task.copy(),
+    )
+    for (let i: number = 0; i < archiverTasks.length; i++) {
+      if (archiverTasks[i].status === DownloadGalleryTaskStatus.QUEUED) {
+        try {
+          await DownloadQueueSettings.downloadArchiver(context, archiverTasks[i].tag)
+        } catch (error) {
+          DiagnosticLogger.warn('download', 'archiver_resume_failed', (error as Error).message)
+        }
+      }
     }
   }
 
@@ -347,6 +396,11 @@ export class DownloadQueueSettings {
     gid: string,
     token: string,
   ): Promise<void> {
+    const found: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+    if (found !== null && found.imageSeeds.length === 0) {
+      await DownloadQueueSettings.refreshGallerySeedsFromRemote(context, gid, token, connectSiteMode().isEx)
+      return
+    }
     const key: string = DownloadQueueSettings.taskKey(gid, token)
     const running: Promise<void> | undefined = DownloadQueueSettings.galleryDownloads.get(key)
     if (running !== undefined) {
@@ -949,15 +1003,19 @@ export class DownloadQueueSettings {
     return tasks.map((task: DownloadArchiverTask) => {
       const out: DownloadArchiverTask = task.copy()
       if (out.status === DownloadGalleryTaskStatus.DOWNLOADING) {
-        out.status = DownloadGalleryTaskStatus.ERROR
-        if (out.error.length === 0) {
-          out.error = 'download interrupted'
-        }
+        out.status = DownloadGalleryTaskStatus.QUEUED
+        out.error = ''
       } else if (out.status === DownloadGalleryTaskStatus.COMPLETE) {
         DownloadQueueSettings.normalizeRestoredArchiverComplete(out)
       }
       return out
     })
+  }
+
+  private static shouldAutoResumeGalleryTask(task: DownloadGalleryTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.QUEUED ||
+      task.status === DownloadGalleryTaskStatus.READY ||
+      task.status === DownloadGalleryTaskStatus.PARTIAL
   }
 
   private static normalizeRestoredArchiverComplete(task: DownloadArchiverTask): void {

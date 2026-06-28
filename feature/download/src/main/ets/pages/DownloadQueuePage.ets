@@ -100,6 +100,9 @@ export struct DownloadQueuePage {
   private taskProgressLabel(task: DownloadGalleryTask): string {
     const parts: string[] = []
     if (task.status === DownloadGalleryTaskStatus.ERROR) {
+      if (task.prepareError.length > 0) {
+        return `${this.taskStatusText(task)} · ${task.prepareError}`
+      }
       return this.taskStatusText(task)
     }
     if (task.downloadProgressText().length > 0) {
@@ -224,6 +227,9 @@ export struct DownloadQueuePage {
 
   private archiverProgressLabel(task: DownloadArchiverTask): string {
     if (task.status === DownloadGalleryTaskStatus.ERROR) {
+      if (task.error.length > 0) {
+        return `${this.statusText(task.status)} · ${task.error}`
+      }
       return this.statusText(task.status)
     }
     const progress: string = task.progressText()

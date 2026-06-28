@@ -59,6 +59,7 @@ ok('repository loads and replaces archiver queue through RDB',
     /readArchiverTask/.test(repo))
 
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
+const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok('settings facade uses RDB and only reads old Preferences for migration',
   /DownloadQueueRepository\.load\(context\)/.test(settings) &&
     /DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
@@ -81,10 +82,22 @@ ok('restore validates downloaded seed file paths before trusting complete state'
     /fs\.accessSync\(path\)[\s\S]*fs\.statSync\(path\)[\s\S]*stat\.isFile\(\)/.test(settings) &&
     /item\.filePath = ''[\s\S]*item\.bytesWritten = 0[\s\S]*item\.downloadedAt = 0/.test(settings) &&
     /out\.status === DownloadGalleryTaskStatus\.COMPLETE && out\.pendingDownloadCount\(\) > 0[\s\S]*normalizeRestoredGalleryStatus\(out\)/.test(settings))
-ok('restore normalizes stale archiver download state to retryable error',
+ok('restore normalizes stale archiver download state to queued resume',
   /normalizeRestoredArchiverTasks\(await DownloadQueueRepository\.loadArchiver\(context\)\)/.test(settings) &&
-    /out\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*DownloadGalleryTaskStatus\.ERROR/.test(settings) &&
-    /download interrupted/.test(settings))
+    /out\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*DownloadGalleryTaskStatus\.QUEUED/.test(settings) &&
+    /out\.error = ''/.test(settings))
+ok('bootstrap resumes restored queued gallery and archiver downloads without blocking first paint',
+  /DownloadQueueSettings\.resumePendingDownloads\(context\)/.test(bootstrap) &&
+    !/await DownloadQueueSettings\.resumePendingDownloads/.test(bootstrap) &&
+    /static async resumePendingDownloads/.test(settings) &&
+    /pendingResume: Promise<void> \| null/.test(settings) &&
+    /shouldAutoResumeGalleryTask/.test(settings) &&
+    /downloadGalleryImages\(context, galleryTasks\[i\]\.gid, galleryTasks\[i\]\.token\)/.test(settings) &&
+    /downloadArchiver\(context, archiverTasks\[i\]\.tag\)/.test(settings))
+ok('gallery resume fetches seeds before downloading when a restored task has no image-page seeds',
+  /static async downloadGalleryImages/.test(settings) &&
+    /found !== null && found\.imageSeeds\.length === 0[\s\S]*refreshGallerySeedsFromRemote\(context, gid, token, connectSiteMode\(\)\.isEx\)/.test(settings) &&
+    /downloadGalleryImages\(context, gid, token\)/.test(settings))
 ok('restore validates completed archiver package before keeping read-ready state',
   /out\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*normalizeRestoredArchiverComplete\(out\)/.test(settings) &&
     /downloadedFileSize\(task\.filePath\)/.test(settings) &&

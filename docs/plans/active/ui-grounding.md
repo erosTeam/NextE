@@ -22,6 +22,16 @@ Primary action: tap the content area of a completed Gallery or Archiver task to 
 Reuse or deviation: reuse the existing read methods and keep the action column separate so remove/refresh/retry buttons do not share the parent click target.
 Verification: gallery download queue contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence.
 
+## Active: download task error detail
+
+Status: active
+Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing task progress subtitle, `shared/src/main/ets/model/DownloadGalleryTask.ets` `prepareError`, and `DownloadArchiverTask.error`.
+Surface type: Downloads tab Gallery and Archiver task card status subtitle only.
+Primary information: failed task rows should show the stored failure reason next to the error status so retry/remove is understandable without opening another surface.
+Primary action: the existing low-weight retry button remains the action; the subtitle simply explains what failed.
+Reuse or deviation: reuse the existing one-line progress/status subtitle and ellipsis behavior; do not add a second details row, toast-only path, modal, or new error model.
+Verification: gallery download prepare contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence.
+
 ## Active: download speed-limit setting
 
 Status: active

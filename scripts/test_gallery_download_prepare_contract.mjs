@@ -75,6 +75,8 @@ ok(/download_seed_progress/.test(queue) && /task\.seedProgressText\(\)/.test(que
 ok(/taskStatusText/.test(queue) && /download_status_error/.test(queue) &&
   /task\.status === DownloadGalleryTaskStatus\.PREPARING[\s\S]*?return parts\.join\(' · '\)/.test(queue),
   'downloads page keeps preparation and error states visible in the task subtitle')
+ok(/task\.status === DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.prepareError\.length > 0[\s\S]*`\$\{this\.taskStatusText\(task\)\} · \$\{task\.prepareError\}`/.test(queue),
+  'downloads page shows stored gallery failure reason in the existing status subtitle')
 ok(/task\.seedProgressText\(\)\.length > 0[\s\S]*?return parts\.join\(' · '\)/.test(queue),
   'downloads page keeps seed progress subtitle focused instead of crowding it with lower-priority metadata')
 ok(!/Text\(this\.taskStatus\(task\)\)/.test(queue),
