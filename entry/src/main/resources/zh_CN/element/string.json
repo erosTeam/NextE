@@ -177,6 +177,14 @@
       "value": "单张图片失败后的重试次数。"
     },
     {
+      "name": "download_speed_limit",
+      "value": "速度限制"
+    },
+    {
+      "name": "download_speed_limit_hint",
+      "value": "画廊队列平均速度，0 表示关闭。"
+    },
+    {
       "name": "download_original_hint",
       "value": "压缩图或原始文件。"
     },

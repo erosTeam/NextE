@@ -96,6 +96,9 @@ ok(/private ReadTaskButton\(task: DownloadGalleryTask\)/.test(queuePage) &&
   /sys\.symbol\.arrow_right/.test(queuePage) &&
   /new ReaderParams\(task\.gid, task\.token, 0, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(queuePage),
   'completed gallery tasks expose a local Reader entry with the full downloaded seed set')
+ok(/private openTaskIfComplete\(task: DownloadGalleryTask\): void[\s\S]*this\.canReadTask\(task\)[\s\S]*this\.openDownloadedTask\(task\)/.test(queuePage) &&
+  /\.justifyContent\(FlexAlign\.Start\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.openTaskIfComplete\(task\)/.test(queuePage),
+  'completed gallery task content area opens the local Reader without using the action column')
 ok(!/const fileCount: number = task\.pageCount|const loadedPages: number = task\.previewPageCount|const perPage: number = task\.firstPageCount/.test(queuePage),
   'downloaded gallery Reader entry does not reuse EH preview-page seed params')
 ok(/downloadedSeedImages\(task: DownloadGalleryTask\)/.test(queuePage) &&

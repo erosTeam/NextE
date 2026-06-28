@@ -12,6 +12,26 @@ Primary action: tap the small refresh icon on a completed gallery task to fetch 
 Reuse or deviation: reuse the existing circular icon-action column and `prepareGallerySeeds -> mergePreparedSeeds -> downloadGalleryImages` flow instead of adding a second update engine; deviate only by allowing completed tasks to re-enter preparation/download when remote seed refresh discovers new pages.
 Verification: gallery download executor contract, gallery download queue contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab layout evidence.
 
+## Active: completed download row reader entry
+
+Status: active
+Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing read icon buttons, `ArchiveImageService.imagesForTask()` archive-to-Reader path, and the completed Gallery task `openDownloadedTask()` local file Reader path.
+Surface type: Downloads tab gallery and archiver task cards.
+Primary information: completed task rows show title, cover/icon, progress, and low-weight read/remove actions; the readable content area itself should also act as the read affordance.
+Primary action: tap the content area of a completed Gallery or Archiver task to open the same local Reader path as the read icon; incomplete/error rows stay inert except for retry/remove actions.
+Reuse or deviation: reuse the existing read methods and keep the action column separate so remove/refresh/retry buttons do not share the parent click target.
+Verification: gallery download queue contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence.
+
+## Active: download speed-limit setting
+
+Status: active
+Reference implementation: `feature/settings/src/main/ets/pages/DownloadSettingsPage.ets` existing counter rows for concurrency / interval / retry, and `shared/src/main/ets/settings/DownloadQueueSettings.ets` gallery image batch executor.
+Surface type: Download settings child page and Gallery queue image executor.
+Primary information: users can see whether the gallery queue has an average speed cap, alongside concurrency, interval, retry, and original-image policy.
+Primary action: tap +/- on the speed-limit row to move between off and bounded KB/s steps; the gallery queue delays after successful batches to respect the configured average rate.
+Reuse or deviation: reuse the existing `ConciseListRow` counter pattern and the gallery queue batch loop; do not throttle Reader image cache or rewrite HTTP streaming in this slice.
+Verification: download settings contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, signed HarmonyOS build, and X7 Download settings smoke evidence.
+
 ## Active: storage sync settings
 
 Status: active

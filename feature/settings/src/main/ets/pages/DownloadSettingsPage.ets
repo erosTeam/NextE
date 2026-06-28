@@ -55,6 +55,18 @@ export struct DownloadSettingsPage {
     DownloadSettings.setRetryCount(this.ctx(), this.downloadSettings.retryCount + delta)
   }
 
+  private speedLimitLabel(): string {
+    return this.downloadSettings.speedLimitKbps > 0 ? `${this.downloadSettings.speedLimitKbps}K` :
+    AppStrings.get('common_off')
+  }
+
+  private adjustSpeedLimit(delta: number): void {
+    DownloadSettings.setSpeedLimitKbps(
+      this.ctx(),
+      this.downloadSettings.speedLimitKbps + delta * DownloadSettings.speedLimitStepKbps(),
+    )
+  }
+
   @Builder
   OriginalModeMenu() {
     Menu() {
@@ -160,6 +172,25 @@ export struct DownloadSettingsPage {
                 },
                 counterIncreaseAction: () => {
                   this.adjustRetryCount(1)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.download_speed_limit'),
+                subtitle: $r('app.string.download_speed_limit_hint'),
+                leadingIcon: $r('sys.symbol.clock'),
+                hasCounter: true,
+                counterValue: this.speedLimitLabel(),
+                counterDecreaseEnabled:
+                  this.downloadSettings.speedLimitKbps > DownloadSettings.minSpeedLimitKbps(),
+                counterIncreaseEnabled:
+                  this.downloadSettings.speedLimitKbps < DownloadSettings.maxSpeedLimitKbps(),
+                showChevron: false,
+                counterDecreaseAction: () => {
+                  this.adjustSpeedLimit(-1)
+                },
+                counterIncreaseAction: () => {
+                  this.adjustSpeedLimit(1)
                 },
               })
               this.rowDivider()

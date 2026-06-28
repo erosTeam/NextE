@@ -177,6 +177,14 @@
       "value": "画像ごとの失敗時リトライ回数。"
     },
     {
+      "name": "download_speed_limit",
+      "value": "速度制限"
+    },
+    {
+      "name": "download_speed_limit_hint",
+      "value": "ギャラリーキューの平均速度。0 はオフです。"
+    },
+    {
       "name": "download_original_hint",
       "value": "リサイズ画像または元画像。"
     },

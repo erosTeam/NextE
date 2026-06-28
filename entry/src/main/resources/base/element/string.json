@@ -177,6 +177,14 @@
       "value": "Retries per failed image."
     },
     {
+      "name": "download_speed_limit",
+      "value": "Speed limit"
+    },
+    {
+      "name": "download_speed_limit_hint",
+      "value": "Average gallery queue speed. 0 means off."
+    },
+    {
       "name": "download_original_hint",
       "value": "Resized images or original files."
     },

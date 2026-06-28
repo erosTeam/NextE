@@ -188,6 +188,12 @@ export struct DownloadQueuePage {
     return task.status === DownloadGalleryTaskStatus.COMPLETE && task.downloadedCount() > 0
   }
 
+  private openTaskIfComplete(task: DownloadGalleryTask): void {
+    if (this.canReadTask(task)) {
+      this.openDownloadedTask(task)
+    }
+  }
+
   private canRefreshTask(task: DownloadGalleryTask): boolean {
     return task.status === DownloadGalleryTaskStatus.COMPLETE && task.gid.length > 0 && task.token.length > 0
   }
@@ -198,6 +204,12 @@ export struct DownloadQueuePage {
 
   private canReadArchiverTask(task: DownloadArchiverTask): boolean {
     return task.status === DownloadGalleryTaskStatus.COMPLETE && task.filePath.length > 0 && task.bytesWritten > 0
+  }
+
+  private openArchiverTaskIfComplete(task: DownloadArchiverTask): void {
+    if (this.canReadArchiverTask(task)) {
+      this.openArchiverTask(task)
+    }
   }
 
   private archiverProgressRatio(task: DownloadArchiverTask): number {
@@ -356,6 +368,9 @@ export struct DownloadQueuePage {
       .layoutWeight(1)
       .height('100%')
       .justifyContent(FlexAlign.Start)
+      .onClick(() => {
+        this.openTaskIfComplete(task)
+      })
       this.TaskActions(task)
     }
     .width('100%')
@@ -409,6 +424,9 @@ export struct DownloadQueuePage {
       .layoutWeight(1)
       .height('100%')
       .justifyContent(FlexAlign.Start)
+      .onClick(() => {
+        this.openArchiverTaskIfComplete(task)
+      })
       this.ArchiverTaskActions(task)
     }
     .width('100%')

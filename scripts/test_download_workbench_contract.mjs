@@ -92,6 +92,9 @@ ok(/private canReadArchiverTask\(task: DownloadArchiverTask\)/.test(page) &&
   /task\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*task\.filePath\.length > 0/.test(page) &&
   /private ReadArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page),
   'completed archiver tasks expose a low-weight Reader action')
+ok(/private openArchiverTaskIfComplete\(task: DownloadArchiverTask\): void[\s\S]*this\.canReadArchiverTask\(task\)[\s\S]*this\.openArchiverTask\(task\)/.test(page) &&
+  /\.justifyContent\(FlexAlign\.Start\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.openArchiverTaskIfComplete\(task\)/.test(page),
+  'completed archiver task content area opens the extracted local Reader path without using the action column')
 ok(/ArchiveImageService\.imagesForTask\(this\.ctx\(\), task\)/.test(page) &&
   /new ReaderParams\(task\.gid, '', 0, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(page),
   'completed archiver tasks unzip into local Reader seed images')

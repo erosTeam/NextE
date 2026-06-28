@@ -26,6 +26,7 @@ ok(/@ObservedV2\s+export class DownloadSettingsState/.test(state), 'download set
 ok(/@Trace concurrency: number = 2/.test(state), 'download concurrency defaults to 2')
 ok(/@Trace requestIntervalSeconds: number = 0/.test(state), 'download request interval defaults to off')
 ok(/@Trace retryCount: number = 2/.test(state), 'download retry count defaults to 2')
+ok(/@Trace speedLimitKbps: number = 0/.test(state), 'download speed limit defaults to off')
 ok(/@Trace originalMode: string = DownloadOriginalMode\.ASK/.test(state),
   'download original mode defaults to ask')
 ok(/AppStorageV2\.connect\(\s*DownloadSettingsState/.test(state),
@@ -36,6 +37,7 @@ const queueSettings = read('shared/src/main/ets/settings/DownloadQueueSettings.e
 ok(/StorageKeys\.DOWNLOAD_CONCURRENCY/.test(settings), 'settings persist concurrency key')
 ok(/StorageKeys\.DOWNLOAD_REQUEST_INTERVAL_SECONDS/.test(settings), 'settings persist request interval key')
 ok(/StorageKeys\.DOWNLOAD_RETRY_COUNT/.test(settings), 'settings persist retry count key')
+ok(/StorageKeys\.DOWNLOAD_SPEED_LIMIT_KBPS/.test(settings), 'settings persist speed limit key')
 ok(/StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings), 'settings persist original-mode key')
 ok(/clampConcurrency/.test(settings) && /MIN_CONCURRENCY: number = 1/.test(settings) &&
   /MAX_CONCURRENCY: number = 8/.test(settings), 'settings clamp concurrency to a bounded range')
@@ -43,6 +45,9 @@ ok(/clampRequestIntervalSeconds/.test(settings) && /MIN_REQUEST_INTERVAL_SECONDS
   /MAX_REQUEST_INTERVAL_SECONDS: number = 10/.test(settings), 'settings clamp request interval to a bounded range')
 ok(/clampRetryCount/.test(settings) && /MIN_RETRY_COUNT: number = 0/.test(settings) &&
   /MAX_RETRY_COUNT: number = 5/.test(settings), 'settings clamp retry count to a bounded range')
+ok(/clampSpeedLimitKbps/.test(settings) && /MIN_SPEED_LIMIT_KBPS: number = 0/.test(settings) &&
+  /MAX_SPEED_LIMIT_KBPS: number = 8192/.test(settings) &&
+  /SPEED_LIMIT_STEP_KBPS: number = 256/.test(settings), 'settings clamp speed limit to bounded KB/s steps')
 ok(/normalizeOriginalMode/.test(settings) && /DownloadOriginalMode\.OFF/.test(settings) &&
   /DownloadOriginalMode\.ALWAYS/.test(settings), 'settings normalize original mode enum values')
 ok(/static async restore/.test(settings) && /connectDownloadSettings\(\)/.test(settings),
@@ -54,11 +59,15 @@ ok(/static async setRequestIntervalSeconds/.test(settings) &&
   'settings write request interval to preferences')
 ok(/static async setRetryCount/.test(settings) && /store\.putSync\(StorageKeys\.DOWNLOAD_RETRY_COUNT/.test(settings),
   'settings write retry count to preferences')
+ok(/static async setSpeedLimitKbps/.test(settings) &&
+  /store\.putSync\(StorageKeys\.DOWNLOAD_SPEED_LIMIT_KBPS/.test(settings),
+  'settings write speed limit to preferences')
 ok(/static async setOriginalMode/.test(settings) && /store\.putSync\(StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings),
   'settings write original mode to preferences')
 ok(/connectDownloadSettings\(\)\.concurrency/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.requestIntervalSeconds/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.retryCount/.test(queueSettings) &&
+  /connectDownloadSettings\(\)\.speedLimitKbps/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.originalMode/.test(queueSettings),
   'gallery image executor consumes persisted download policy')
 ok(/batchIndex > 0/.test(queueSettings) &&
@@ -70,6 +79,11 @@ ok(/downloadSeedToFile\(context, gid, seed, useOriginal, retryCount\)/.test(queu
 ok(/const attempts: number = Math\.max\(1, Math\.round\(connectDownloadSettings\(\)\.retryCount\) \+ 1\)/.test(queueSettings) &&
   /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
   'archiver executor retries according to the persisted retry count')
+ok(/const batchStartedAt: number = Date\.now\(\)/.test(queueSettings) &&
+  /delayForSpeedLimit\(batchStartedAt, results\)/.test(queueSettings) &&
+  /const kbps: number = connectDownloadSettings\(\)\.speedLimitKbps/.test(queueSettings) &&
+  /Math\.ceil\(bytes \* 1000 \/ \(kbps \* 1024\)\)/.test(queueSettings),
+  'gallery image executor applies the persisted average speed limit after successful batches')
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok(/import \{ DownloadSettings \}/.test(bootstrap) && /await DownloadSettings\.restore\(context\)/.test(bootstrap),
@@ -107,6 +121,10 @@ ok(/download_request_interval/.test(downloadPage) && /hasCounter: true/.test(dow
 ok(/download_retry_count/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
   /DownloadSettings\.setRetryCount/.test(downloadPage),
   'download settings page exposes persisted retry count as a counter')
+ok(/download_speed_limit/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
+  /DownloadSettings\.setSpeedLimitKbps/.test(downloadPage) &&
+  /speedLimitLabel/.test(downloadPage),
+  'download settings page exposes persisted average speed limit as a counter')
 ok(/download_original_images/.test(downloadPage) && /trailingDropdown: true/.test(downloadPage) &&
   /DownloadSettings\.setOriginalMode/.test(downloadPage),
   'download settings page exposes original-image policy as a native dropdown')
@@ -130,6 +148,8 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   ok(strings.includes('"name": "download_request_interval_hint"'), `${locale}: download_request_interval_hint exists`)
   ok(strings.includes('"name": "download_retry_count"'), `${locale}: download_retry_count exists`)
   ok(strings.includes('"name": "download_retry_count_hint"'), `${locale}: download_retry_count_hint exists`)
+  ok(strings.includes('"name": "download_speed_limit"'), `${locale}: download_speed_limit exists`)
+  ok(strings.includes('"name": "download_speed_limit_hint"'), `${locale}: download_speed_limit_hint exists`)
   ok(strings.includes('"name": "download_original_hint"'), `${locale}: download_original_hint exists`)
   ok(strings.includes('"name": "download_original_ask"'), `${locale}: download_original_ask exists`)
   ok(strings.includes('"name": "download_original_always"'), `${locale}: download_original_always exists`)

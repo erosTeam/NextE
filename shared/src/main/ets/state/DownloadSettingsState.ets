@@ -15,6 +15,7 @@ export class DownloadSettingsState {
   @Trace concurrency: number = 2
   @Trace requestIntervalSeconds: number = 0
   @Trace retryCount: number = 2
+  @Trace speedLimitKbps: number = 0
   @Trace originalMode: string = DownloadOriginalMode.ASK
 }
 

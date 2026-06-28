@@ -325,6 +325,7 @@ export class DownloadQueueSettings {
         DownloadGalleryTaskStatus.DOWNLOADING,
         '',
       )
+      const batchStartedAt: number = Date.now()
       const useOriginal: boolean = task.preferOriginal ||
         connectDownloadSettings().originalMode === DownloadOriginalMode.ALWAYS
       const retryCount: number = connectDownloadSettings().retryCount
@@ -342,6 +343,7 @@ export class DownloadQueueSettings {
       if (hasError) {
         return
       }
+      await DownloadQueueSettings.delayForSpeedLimit(batchStartedAt, results)
       batchIndex++
     }
   }
@@ -762,6 +764,27 @@ export class DownloadQueueSettings {
     })
     state.galleryTasks = next
     await DownloadQueueSettings.persist(context, next)
+  }
+
+  private static async delayForSpeedLimit(startedAt: number, results: DownloadSeedResult[]): Promise<void> {
+    const kbps: number = connectDownloadSettings().speedLimitKbps
+    if (kbps <= 0) {
+      return
+    }
+    let bytes: number = 0
+    results.forEach((result: DownloadSeedResult) => {
+      if (result.error.length === 0 && result.bytes > 0) {
+        bytes += result.bytes
+      }
+    })
+    if (bytes <= 0) {
+      return
+    }
+    const expectedMs: number = Math.ceil(bytes * 1000 / (kbps * 1024))
+    const remainMs: number = expectedMs - (Date.now() - startedAt)
+    if (remainMs > 0) {
+      await DownloadQueueSettings.delay(remainMs)
+    }
   }
 
   private static sameSeed(a: DownloadImageSeed, b: DownloadImageSeed): boolean {
