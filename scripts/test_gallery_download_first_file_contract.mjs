@@ -56,6 +56,9 @@ ok(/preferOriginal: boolean = false/.test(model) && /task\.preferOriginal = this
 ok(/downloadGalleryImages/.test(settings) &&
   /connectDownloadSettings\(\)\.concurrency/.test(settings) &&
   /pendingSeeds/.test(settings), 'queue executor consumes persisted concurrency to pick pending work')
+ok(/galleryDownloads: Map<string, Promise<void>>/.test(settings) &&
+  /static async downloadGalleryImages[\s\S]*galleryDownloads\.get\(key\)[\s\S]*await running[\s\S]*runGalleryImageDownload\(context, gid, token\)[\s\S]*galleryDownloads\.delete\(key\)/.test(settings),
+  'queue executor joins an in-flight gallery download instead of starting duplicate workers')
 ok(/Promise\.all\(jobs\)/.test(settings) && /applyDownloadResults/.test(settings),
   'queue executor parallelizes downloads but merges state in one batch write')
 ok(/ImageResolveService\.getInstance\(\)\.resolve/.test(settings) &&
@@ -66,11 +69,16 @@ ok(/task\.preferOriginal\s*\|\|/.test(settings) &&
   'queue executor honors per-task original preference before the global always policy')
 ok(/EhGalleryImage/.test(settings) && /image\.sUrl = seed\.imagePageUrl/.test(settings),
   'executor turns DownloadImageSeed back into an image-page resolve seed')
-ok(/EhHttpClient\.getInstance\(\)\.downloadBinaryToFile/.test(settings),
-  'executor downloads the resolved URL to a file')
+ok(/downloadBinaryToFileInStream\([\s\S]*imageUrl,[\s\S]*tmpPath,[\s\S]*_loaded: number,[\s\S]*_total: number/.test(settings) &&
+  /tmpPath = `\$\{result\.filePath\}\.part`/.test(settings) &&
+  /fs\.renameSync\(tmpPath, result\.filePath\)/.test(settings),
+  'executor streams the resolved URL to a .part file and atomically promotes it')
 ok(/context\.filesDir/.test(settings) && /download-gallery/.test(settings),
   'executor writes under the app sandbox download-gallery directory')
 ok(/prepareGallerySeeds\(/.test(detail), 'detail download still starts through seed preparation')
+ok(/galleryPreparations: Map<string, Promise<void>>/.test(settings) &&
+  /static async prepareGallerySeeds[\s\S]*galleryPreparations\.get\(key\)[\s\S]*await running[\s\S]*runPrepareGallerySeeds\([\s\S]*galleryPreparations\.delete\(key\)/.test(settings),
+  'seed preparation joins an in-flight gallery prepare instead of fetching duplicate preview pages')
 ok(/enqueueGalleryDownloadWithPolicy/.test(detail) &&
   /DownloadOriginalMode\.ASK/.test(detail) &&
   /showAlertDialog/.test(detail) &&
@@ -91,14 +99,15 @@ ok(/refreshGallerySeedsFromRemote/.test(settings) &&
 ok(/updateGalleryTaskMetadata/.test(settings) && /task\.pageCount = pageCount/.test(settings),
   'incremental refresh updates task metadata before comparing downloaded seed progress')
 ok(/private static sameSeed/.test(settings) &&
-  /a\.page > 0 && b\.page > 0[\s\S]*return a\.page === b\.page/.test(settings),
-  'incremental seed identity follows page number first so refreshed /s/ URLs do not redownload complete pages')
+  /a\.imagePageUrl\.length > 0 && b\.imagePageUrl\.length > 0[\s\S]*return a\.imagePageUrl === b\.imagePageUrl/.test(settings) &&
+  /Image-page URL is the real seed identity[\s\S]*a\.page > 0 && b\.page > 0[\s\S]*return a\.page === b\.page/.test(settings),
+  'incremental seed identity follows /s/ image-page URL first and only falls back to page number for legacy seeds')
 ok(/DownloadGalleryTaskStatus\.COMPLETE/.test(repo) && /DownloadGalleryTaskStatus\.COMPLETE/.test(settings),
   'repository and legacy parser preserve complete status instead of falling back to queued')
 ok(/prefer_original/.test(repo), 'repository persists per-task original preference')
 
-ok(/downloadBinaryToFile/.test(client) && /HttpDataType\.ARRAY_BUFFER/.test(client) &&
-  /fs\.write/.test(client) && /maxLimit/.test(client), 'HTTP client can write binary response to a sandbox file')
+ok(/downloadBinaryToFileInStream/.test(client) && /requestInStream/.test(client) &&
+  /dataReceive/.test(client) && /fs\.writeSync/.test(client), 'HTTP client can stream binary response to a sandbox file')
 
 ok(/download_file_progress/.test(queue) && /task\.downloadProgressText\(\)/.test(queue) &&
   /download_status_complete/.test(queue), 'downloads page shows file progress and complete status')

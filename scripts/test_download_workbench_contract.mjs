@@ -84,6 +84,9 @@ ok(/DownloadQueueSettings\.downloadArchiver/.test(page) &&
 ok(/ARCHIVER_ACCEPT: string = 'application\/zip,application\/octet-stream,\*\/\*'/.test(queueSettings) &&
   /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
   'archiver executor requests archive bytes with a zip/octet-stream Accept header and configured retries')
+ok(/archiverDownloads: Map<string, Promise<void>>/.test(queueSettings) &&
+  /static async downloadArchiver[\s\S]*archiverDownloads\.get\(tag\)[\s\S]*await running[\s\S]*runArchiverDownload\(context, tag\)[\s\S]*archiverDownloads\.delete\(tag\)/.test(queueSettings),
+  'archiver executor joins an in-flight archive download instead of starting duplicate workers')
 ok(/const IMAGE_ACCEPT: string = 'image\/avif,image\/webp,image\/apng,image\/\*,\*\/\*;q=0\.8'/.test(httpClient) &&
   /accept: string = IMAGE_ACCEPT/.test(httpClient) &&
   /maxAttempts: number = MAX_RETRIES/.test(httpClient),

@@ -36,6 +36,10 @@ class DownloadSeedResult {
 
 /** Single writer for the local Gallery download queue. */
 export class DownloadQueueSettings {
+  private static galleryPreparations: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+  private static galleryDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+  private static archiverDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await DownloadQueueSettings.migrateLegacyPreferences(context)
@@ -176,6 +180,24 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     tag: string,
   ): Promise<void> {
+    const running: Promise<void> | undefined = DownloadQueueSettings.archiverDownloads.get(tag)
+    if (running !== undefined) {
+      await running
+      return
+    }
+    const task: Promise<void> = DownloadQueueSettings.runArchiverDownload(context, tag)
+    DownloadQueueSettings.archiverDownloads.set(tag, task)
+    try {
+      await task
+    } finally {
+      DownloadQueueSettings.archiverDownloads.delete(tag)
+    }
+  }
+
+  private static async runArchiverDownload(
+    context: common.UIAbilityContext,
+    tag: string,
+  ): Promise<void> {
     const task: DownloadArchiverTask | null = DownloadQueueSettings.findArchiverTask(tag)
     if (task === null || task.url.length === 0) {
       return
@@ -241,6 +263,36 @@ export class DownloadQueueSettings {
     firstPageImages: EhGalleryImage[],
     previewPageCount: number,
   ): Promise<void> {
+    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    const running: Promise<void> | undefined = DownloadQueueSettings.galleryPreparations.get(key)
+    if (running !== undefined) {
+      await running
+      return
+    }
+    const task: Promise<void> = DownloadQueueSettings.runPrepareGallerySeeds(
+      context,
+      gid,
+      token,
+      isEx,
+      firstPageImages,
+      previewPageCount,
+    )
+    DownloadQueueSettings.galleryPreparations.set(key, task)
+    try {
+      await task
+    } finally {
+      DownloadQueueSettings.galleryPreparations.delete(key)
+    }
+  }
+
+  private static async runPrepareGallerySeeds(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    isEx: boolean,
+    firstPageImages: EhGalleryImage[],
+    previewPageCount: number,
+  ): Promise<void> {
     const initialSeeds: DownloadImageSeed[] = DownloadQueueSettings.imagesToSeeds(firstPageImages)
     await DownloadQueueSettings.updatePreparedTask(
       context,
@@ -291,6 +343,26 @@ export class DownloadQueueSettings {
   }
 
   static async downloadGalleryImages(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+  ): Promise<void> {
+    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    const running: Promise<void> | undefined = DownloadQueueSettings.galleryDownloads.get(key)
+    if (running !== undefined) {
+      await running
+      return
+    }
+    const task: Promise<void> = DownloadQueueSettings.runGalleryImageDownload(context, gid, token)
+    DownloadQueueSettings.galleryDownloads.set(key, task)
+    try {
+      await task
+    } finally {
+      DownloadQueueSettings.galleryDownloads.delete(key)
+    }
+  }
+
+  private static async runGalleryImageDownload(
     context: common.UIAbilityContext,
     gid: string,
     token: string,
@@ -367,6 +439,7 @@ export class DownloadQueueSettings {
     result.originalSeed = seed.copy()
     const attempts: number = Math.max(1, Math.round(retryCount) + 1)
     for (let i: number = 0; i < attempts; i++) {
+      let tmpPath: string = ''
       try {
         const image: EhGalleryImage = DownloadQueueSettings.seedToImage(seed)
         const imageUrl: string = useOriginal
@@ -375,10 +448,19 @@ export class DownloadQueueSettings {
         const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)
         result.image = image.copy()
         result.filePath = `${dir}/${DownloadQueueSettings.fileNameForSeed(seed, imageUrl)}`
-        result.bytes = await EhHttpClient.getInstance().downloadBinaryToFile(imageUrl, result.filePath)
+        tmpPath = `${result.filePath}.part`
+        DownloadQueueSettings.deleteSandboxPath(tmpPath, 'gallery_temp_delete_failed')
+        result.bytes = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
+          imageUrl,
+          tmpPath,
+          (_loaded: number, _total: number) => {},
+        )
+        DownloadQueueSettings.deleteSandboxPath(result.filePath, 'gallery_replace_delete_failed')
+        fs.renameSync(tmpPath, result.filePath)
         result.error = ''
         return result
       } catch (error) {
+        DownloadQueueSettings.deleteSandboxPath(tmpPath, 'gallery_temp_delete_failed')
         result.error = (error as Error).message
       }
     }
@@ -577,6 +659,10 @@ export class DownloadQueueSettings {
       return task.tag === tag
     })
     return hit !== undefined ? hit.copy() : null
+  }
+
+  private static taskKey(gid: string, token: string): string {
+    return `${gid}:${token}`
   }
 
   private static seedToImage(seed: DownloadImageSeed): EhGalleryImage {
@@ -788,11 +874,12 @@ export class DownloadQueueSettings {
   }
 
   private static sameSeed(a: DownloadImageSeed, b: DownloadImageSeed): boolean {
-    if (a.page > 0 && b.page > 0) {
-      return a.page === b.page
-    }
     if (a.imagePageUrl.length > 0 && b.imagePageUrl.length > 0) {
       return a.imagePageUrl === b.imagePageUrl
+    }
+    // Image-page URL is the real seed identity; page number is only a legacy fallback.
+    if (a.page > 0 && b.page > 0) {
+      return a.page === b.page
     }
     return false
   }
