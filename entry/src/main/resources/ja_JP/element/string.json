@@ -1837,6 +1837,18 @@
       "value": "システム設定でHuawei Cloud同期が無効です"
     },
     {
+      "name": "sync_huawei_cloud_open_space",
+      "value": "Huawei Cloudを開く"
+    },
+    {
+      "name": "sync_huawei_cloud_open_space_hint",
+      "value": "システムのCloud設定で、このアプリのデータ同期を有効化または管理します。"
+    },
+    {
+      "name": "sync_huawei_cloud_open_failed",
+      "value": "Huawei Cloud設定を開けませんでした"
+    },
+    {
       "name": "sync_now",
       "value": "今すぐ同期"
     },

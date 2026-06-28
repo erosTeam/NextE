@@ -1837,6 +1837,18 @@
       "value": "Huawei Cloud sync is disabled in system settings"
     },
     {
+      "name": "sync_huawei_cloud_open_space",
+      "value": "Open Huawei Cloud"
+    },
+    {
+      "name": "sync_huawei_cloud_open_space_hint",
+      "value": "Enable or manage app data sync in system Cloud settings."
+    },
+    {
+      "name": "sync_huawei_cloud_open_failed",
+      "value": "Could not open Huawei Cloud settings"
+    },
+    {
       "name": "sync_now",
       "value": "Sync now"
     },

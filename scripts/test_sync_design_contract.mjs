@@ -194,6 +194,8 @@ ok('Huawei Cloud provider UI is hidden when provider availability is disabled',
   /HuaweiCloudSyncService\.available\(\)/.test(syncPage) &&
     /sync_huawei_cloud/.test(syncPage) &&
     /sync_huawei_cloud_now/.test(syncPage) &&
+    /HUAWEI_CLOUD_DEEP_LINK/.test(syncPage) &&
+    /sync_huawei_cloud_open_space/.test(syncPage) &&
     /HuaweiCloudSyncService\.ensurePermission/.test(syncPage) &&
     /HuaweiCloudSyncService\.cloudSyncNow/.test(syncPage))
 ok('sync overview exposes provider-neutral dataset switches',
@@ -236,6 +238,9 @@ const syncStringKeys = [
   'sync_huawei_cloud_enabled',
   'sync_huawei_cloud_permission_denied',
   'sync_huawei_cloud_disabled_status',
+  'sync_huawei_cloud_open_space',
+  'sync_huawei_cloud_open_space_hint',
+  'sync_huawei_cloud_open_failed',
   'sync_now',
   'sync_now_done',
   'sync_now_failed',

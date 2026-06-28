@@ -1,4 +1,4 @@
-import { common } from '@kit.AbilityKit'
+import { common, Want } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
@@ -17,6 +17,8 @@ import {
   connectSyncSettings,
   immersiveTitleBar,
 } from 'shared'
+
+const HUAWEI_CLOUD_DEEP_LINK: string = 'hicloud://cloudDrive/getInfo?path=MainActivity'
 
 @ComponentV2
 export struct SyncSettingsPage {
@@ -173,6 +175,14 @@ export struct SyncSettingsPage {
       })
   }
 
+  private openHuaweiCloudSpace(): void {
+    const want: Want = { action: 'ohos.want.action.viewData', uri: HUAWEI_CLOUD_DEEP_LINK }
+    this.ctx().startAbility(want).catch((error: Error) => {
+      DiagnosticLogger.warn('sync', 'open_huawei_cloud_space_failed', error.message)
+      this.toast($r('app.string.sync_huawei_cloud_open_failed'))
+    })
+  }
+
   @Builder
   private rowDivider() {
     Divider()
@@ -264,6 +274,17 @@ export struct SyncSettingsPage {
                 checked: this.settings.huaweiCloudEnabled,
                 switchAction: (value: boolean) => {
                   this.toggleHuaweiCloud(value)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.sync_huawei_cloud_open_space'),
+                subtitle: this.settings.huaweiCloudLastCloudDisabled ?
+                  $r('app.string.sync_huawei_cloud_disabled_status') : $r('app.string.sync_huawei_cloud_open_space_hint'),
+                leadingIcon: $r('sys.symbol.cloud'),
+                showChevron: true,
+                action: () => {
+                  this.openHuaweiCloudSpace()
                 },
               })
               this.rowDivider()

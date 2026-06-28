@@ -1837,6 +1837,18 @@
       "value": "系统设置中未开启华为云同步"
     },
     {
+      "name": "sync_huawei_cloud_open_space",
+      "value": "打开华为云空间"
+    },
+    {
+      "name": "sync_huawei_cloud_open_space_hint",
+      "value": "在系统云空间中开启或管理本应用数据同步。"
+    },
+    {
+      "name": "sync_huawei_cloud_open_failed",
+      "value": "无法打开华为云空间设置"
+    },
+    {
       "name": "sync_now",
       "value": "立即同步"
     },
