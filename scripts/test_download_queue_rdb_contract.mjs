@@ -72,12 +72,34 @@ ok('settings no longer writes the queue back to Preferences',
 ok('restore normalizes stale in-process gallery download states to resumable states',
   /normalizeRestoredGalleryTasks\(await DownloadQueueRepository\.load\(context\)\)/.test(settings) &&
     /out\.status === DownloadGalleryTaskStatus\.PREPARING \|\|[\s\S]*out\.status === DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
-    /out\.downloadedCount\(\) > 0[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(settings) &&
-    /out\.seededCount\(\) > 0[\s\S]*DownloadGalleryTaskStatus\.READY/.test(settings))
+    /normalizeRestoredGalleryStatus\(out\)/.test(settings) &&
+    /task\.downloadedCount\(\) > 0[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(settings) &&
+    /task\.seededCount\(\) > 0[\s\S]*DownloadGalleryTaskStatus\.READY/.test(settings))
+ok('restore validates downloaded seed file paths before trusting complete state',
+  /out\.imageSeeds = DownloadQueueSettings\.normalizeRestoredSeeds\(out\.imageSeeds\)/.test(settings) &&
+    /downloadedFileSize\(item\.filePath\)/.test(settings) &&
+    /fs\.accessSync\(path\)[\s\S]*fs\.statSync\(path\)[\s\S]*stat\.isFile\(\)/.test(settings) &&
+    /item\.filePath = ''[\s\S]*item\.bytesWritten = 0[\s\S]*item\.downloadedAt = 0/.test(settings) &&
+    /out\.status === DownloadGalleryTaskStatus\.COMPLETE && out\.pendingDownloadCount\(\) > 0[\s\S]*normalizeRestoredGalleryStatus\(out\)/.test(settings))
 ok('restore normalizes stale archiver download state to retryable error',
   /normalizeRestoredArchiverTasks\(await DownloadQueueRepository\.loadArchiver\(context\)\)/.test(settings) &&
     /out\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*DownloadGalleryTaskStatus\.ERROR/.test(settings) &&
     /download interrupted/.test(settings))
+ok('restore validates completed archiver package before keeping read-ready state',
+  /out\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*normalizeRestoredArchiverComplete\(out\)/.test(settings) &&
+    /downloadedFileSize\(task\.filePath\)/.test(settings) &&
+    /bytes > 0[\s\S]*task\.progress = 100[\s\S]*task\.error = ''/.test(settings) &&
+    /task\.status = DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.filePath = ''[\s\S]*task\.bytesWritten = 0[\s\S]*archive file missing/.test(settings))
+ok('remove deletes gallery download content after the last task for that gid is removed',
+  /removeGallery\([\s\S]*let removed: DownloadGalleryTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persist\(context, next\)[\s\S]*!DownloadQueueSettings\.hasGalleryTaskWithGid\(next, gid\)[\s\S]*deleteGalleryContent\(context, removed\)/.test(settings) &&
+    /deleteGalleryContent\([\s\S]*context\.filesDir[\s\S]*download-gallery[\s\S]*safePathPart\(task\.gid\)[\s\S]*deleteSandboxPath/.test(settings))
+ok('remove deletes archiver package and extracted reader cache',
+  /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiver\(context, next\)[\s\S]*deleteArchiverContent\(context, removed\)/.test(settings) &&
+    /deleteArchiverContent\([\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
+    /ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'/.test(settings) &&
+    /names\[i\]\.startsWith\(prefix\)[\s\S]*deleteSandboxPath/.test(settings))
+ok('download content cleanup uses platform recursive directory removal',
+  /deleteSandboxPath\(path: string, event: string\)[\s\S]*fs\.statSync\(path\)[\s\S]*stat\.isDirectory\(\)[\s\S]*fs\.rmdirSync\(path\)[\s\S]*fs\.unlinkSync\(path\)/.test(settings))
 
 if (failures === 0) {
   console.log('✓ download queue RDB contract passed')

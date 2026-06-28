@@ -23,6 +23,7 @@ import { DownloadQueueRepository } from '../storage/DownloadQueueRepository'
 const MAX_GALLERY_TASKS: number = 200
 const MAX_ARCHIVER_TASKS: number = 100
 const ARCHIVER_ACCEPT: string = 'application/zip,application/octet-stream,*/*'
+const ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'
 
 class DownloadSeedResult {
   originalSeed: DownloadImageSeed = new DownloadImageSeed()
@@ -95,11 +96,20 @@ export class DownloadQueueSettings {
     token: string,
   ): Promise<void> {
     const state = connectDownloadQueue()
-    const next: DownloadGalleryTask[] = state.galleryTasks
-      .filter((it: DownloadGalleryTask) => it.gid !== gid || it.token !== token)
-      .map((it: DownloadGalleryTask) => it.copy())
+    let removed: DownloadGalleryTask | null = null
+    const next: DownloadGalleryTask[] = []
+    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
+      if (it.gid === gid && it.token === token) {
+        removed = it.copy()
+        return
+      }
+      next.push(it.copy())
+    })
     state.galleryTasks = next
     await DownloadQueueSettings.persist(context, next)
+    if (removed !== null && !DownloadQueueSettings.hasGalleryTaskWithGid(next, gid)) {
+      DownloadQueueSettings.deleteGalleryContent(context, removed)
+    }
   }
 
   static async enqueueArchiver(
@@ -145,11 +155,20 @@ export class DownloadQueueSettings {
     tag: string,
   ): Promise<void> {
     const state = connectDownloadQueue()
-    const next: DownloadArchiverTask[] = state.archiverTasks
-      .filter((it: DownloadArchiverTask) => it.tag !== tag)
-      .map((it: DownloadArchiverTask) => it.copy())
+    let removed: DownloadArchiverTask | null = null
+    const next: DownloadArchiverTask[] = []
+    state.archiverTasks.forEach((it: DownloadArchiverTask) => {
+      if (it.tag === tag) {
+        removed = it.copy()
+        return
+      }
+      next.push(it.copy())
+    })
     state.archiverTasks = next
     await DownloadQueueSettings.persistArchiver(context, next)
+    if (removed !== null) {
+      DownloadQueueSettings.deleteArchiverContent(context, removed)
+    }
   }
 
   static async downloadArchiver(
@@ -548,6 +567,63 @@ export class DownloadQueueSettings {
     return dir
   }
 
+  private static hasGalleryTaskWithGid(tasks: DownloadGalleryTask[], gid: string): boolean {
+    return tasks.some((task: DownloadGalleryTask) => task.gid === gid)
+  }
+
+  private static deleteGalleryContent(context: common.UIAbilityContext, task: DownloadGalleryTask): void {
+    if (task.gid.length === 0) {
+      return
+    }
+    const dir: string = `${context.filesDir}/download-gallery/${DownloadQueueSettings.safePathPart(task.gid)}`
+    DownloadQueueSettings.deleteSandboxPath(dir, 'gallery_content_delete_failed')
+  }
+
+  private static deleteArchiverContent(context: common.UIAbilityContext, task: DownloadArchiverTask): void {
+    DownloadQueueSettings.deleteSandboxPath(task.filePath, 'archiver_file_delete_failed')
+    DownloadQueueSettings.deleteArchiverExtracts(context, task)
+  }
+
+  private static deleteArchiverExtracts(context: common.UIAbilityContext, task: DownloadArchiverTask): void {
+    if (task.tag.length === 0) {
+      return
+    }
+    const root: string = `${context.cacheDir}/${ARCHIVER_READ_CACHE_DIR}`
+    const prefix: string = `${DownloadQueueSettings.safePathPart(task.tag)}-`
+    try {
+      if (!fs.accessSync(root)) {
+        return
+      }
+      const names: string[] = fs.listFileSync(root)
+      for (let i: number = 0; i < names.length; i++) {
+        if (names[i].startsWith(prefix)) {
+          DownloadQueueSettings.deleteSandboxPath(`${root}/${names[i]}`, 'archiver_extract_delete_failed')
+        }
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'archiver_extract_scan_failed', (error as Error).message)
+    }
+  }
+
+  private static deleteSandboxPath(path: string, event: string): void {
+    if (path.length === 0) {
+      return
+    }
+    try {
+      if (!fs.accessSync(path)) {
+        return
+      }
+      const stat: fs.Stat = fs.statSync(path)
+      if (stat.isDirectory()) {
+        fs.rmdirSync(path)
+      } else {
+        fs.unlinkSync(path)
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('download', event, (error as Error).message)
+    }
+  }
+
   private static safePathPart(value: string): string {
     return value.replace(/[/:*"<>|,?\\]/g, '_')
   }
@@ -653,21 +729,62 @@ export class DownloadQueueSettings {
   private static normalizeRestoredGalleryTasks(tasks: DownloadGalleryTask[]): DownloadGalleryTask[] {
     return tasks.map((task: DownloadGalleryTask) => {
       const out: DownloadGalleryTask = task.copy()
+      out.imageSeeds = DownloadQueueSettings.normalizeRestoredSeeds(out.imageSeeds)
       if (
         out.status === DownloadGalleryTaskStatus.PREPARING ||
         out.status === DownloadGalleryTaskStatus.DOWNLOADING
       ) {
-        if (out.downloadedCount() > 0) {
-          out.status = DownloadGalleryTaskStatus.PARTIAL
-        } else if (out.seededCount() > 0) {
-          out.status = DownloadGalleryTaskStatus.READY
-        } else {
-          out.status = DownloadGalleryTaskStatus.QUEUED
-        }
+        DownloadQueueSettings.normalizeRestoredGalleryStatus(out)
+        out.prepareError = ''
+      } else if (out.status === DownloadGalleryTaskStatus.COMPLETE && out.pendingDownloadCount() > 0) {
+        DownloadQueueSettings.normalizeRestoredGalleryStatus(out)
         out.prepareError = ''
       }
       return out
     })
+  }
+
+  private static normalizeRestoredSeeds(seeds: DownloadImageSeed[]): DownloadImageSeed[] {
+    const out: DownloadImageSeed[] = []
+    seeds.forEach((seed: DownloadImageSeed) => {
+      const item: DownloadImageSeed = seed.copy()
+      if (item.filePath.length > 0) {
+        const bytes: number = DownloadQueueSettings.downloadedFileSize(item.filePath)
+        if (bytes > 0) {
+          item.bytesWritten = bytes
+          item.downloadError = ''
+        } else {
+          item.filePath = ''
+          item.bytesWritten = 0
+          item.downloadedAt = 0
+        }
+      }
+      out.push(item)
+    })
+    return out
+  }
+
+  private static normalizeRestoredGalleryStatus(task: DownloadGalleryTask): void {
+    if (task.downloadedCount() > 0) {
+      task.status = DownloadGalleryTaskStatus.PARTIAL
+    } else if (task.seededCount() > 0) {
+      task.status = DownloadGalleryTaskStatus.READY
+    } else {
+      task.status = DownloadGalleryTaskStatus.QUEUED
+    }
+  }
+
+  private static downloadedFileSize(path: string): number {
+    try {
+      if (!fs.accessSync(path)) {
+        return 0
+      }
+      const stat: fs.Stat = fs.statSync(path)
+      if (stat.isFile() && stat.size > 0) {
+        return stat.size
+      }
+    } catch (_error) {}
+    return 0
   }
 
   private static normalizeRestoredArchiverTasks(tasks: DownloadArchiverTask[]): DownloadArchiverTask[] {
@@ -678,9 +795,30 @@ export class DownloadQueueSettings {
         if (out.error.length === 0) {
           out.error = 'download interrupted'
         }
+      } else if (out.status === DownloadGalleryTaskStatus.COMPLETE) {
+        DownloadQueueSettings.normalizeRestoredArchiverComplete(out)
       }
       return out
     })
+  }
+
+  private static normalizeRestoredArchiverComplete(task: DownloadArchiverTask): void {
+    const bytes: number = DownloadQueueSettings.downloadedFileSize(task.filePath)
+    if (bytes > 0) {
+      task.bytesWritten = bytes
+      task.bytesTotal = task.bytesTotal > 0 ? task.bytesTotal : bytes
+      task.progress = 100
+      task.error = ''
+      return
+    }
+    task.status = DownloadGalleryTaskStatus.ERROR
+    task.filePath = ''
+    task.fileName = ''
+    task.bytesWritten = 0
+    task.bytesTotal = 0
+    task.progress = 0
+    task.downloadedAt = 0
+    task.error = 'archive file missing'
   }
 
   private static delay(ms: number): Promise<void> {
