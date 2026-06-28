@@ -49,16 +49,29 @@ class TagInfoLinkItem {
   url: string = ''
 }
 
+class TagInfoImageLoadEvent {
+  width?: number
+  height?: number
+}
+
 @ComponentV2
 struct TagInfoIntroImage {
   @Param url: string = '';
+  @Local loadedAspectRatio: number = 0;
 
   private imageSizeMatch(): RegExpExecArray | null {
     const reg: RegExp = /-\d+-(\d+)-(\d+)-[A-Za-z0-9]+(?:_(\d+)|_[A-Za-z]+)?\.[A-Za-z0-9]+(?:[?#].*)?$/
     return reg.exec(this.url)
   }
 
+  private clampAspectRatio(ratio: number): number {
+    return Math.min(TAG_INFO_IMAGE_MAX_RATIO, Math.max(TAG_INFO_IMAGE_MIN_RATIO, ratio))
+  }
+
   private sourceAspectRatio(): number {
+    if (this.loadedAspectRatio > 0) {
+      return this.loadedAspectRatio
+    }
     const match: RegExpExecArray | null = this.imageSizeMatch()
     if (match === null) {
       return TAG_INFO_IMAGE_FALLBACK_RATIO
@@ -68,7 +81,17 @@ struct TagInfoIntroImage {
     if (width <= 0 || height <= 0) {
       return TAG_INFO_IMAGE_FALLBACK_RATIO
     }
-    return Math.min(TAG_INFO_IMAGE_MAX_RATIO, Math.max(TAG_INFO_IMAGE_MIN_RATIO, width / height))
+    return this.clampAspectRatio(width / height)
+  }
+
+  private updateLoadedAspectRatio(event?: TagInfoImageLoadEvent): void {
+    if (event === undefined || event.width === undefined || event.height === undefined) {
+      return
+    }
+    if (event.width <= 0 || event.height <= 0) {
+      return
+    }
+    this.loadedAspectRatio = this.clampAspectRatio(event.width / event.height)
   }
 
   build() {
@@ -79,6 +102,9 @@ struct TagInfoIntroImage {
     .backgroundColor($r('app.color.card_background'))
     .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
     .clip(true)
+    .onComplete((event?: TagInfoImageLoadEvent) => {
+      this.updateLoadedAspectRatio(event)
+    })
   }
 }
 

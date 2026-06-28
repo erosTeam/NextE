@@ -381,3 +381,13 @@ Primary information: each queued gallery shows seed preparation, real image-file
 Primary action: detail-page Download starts seed preparation and then the bounded gallery image executor; Archiver local submit adds and downloads a real archive task; failed or partial queue rows can resume through a low-weight icon action, completed gallery rows enter the normal Reader with local file images, completed archive rows unzip into cache and enter the same Reader, while Remove remains secondary; Settings > Download opens the existing dedicated policy page.
 Reuse or deviation: reuse the existing HDS task card, `EhThumbnail`, progress bar, RDB-backed queue, persisted download settings page, Reader route, protected Archiver confirmation flow, platform `zlib.decompressFile`, and circle icon actions; deviate from FE's async zip reader by extracting a completed sandbox zip to cache first because Harmony's built-in zip API exposes whole-file decompression, not random entry reads.
 Verification: gallery download executor contract, archive reader contract, download settings contract, gallery download preparation contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 completed-task Reader smoke when a small downloaded task is available.
+
+## Active: tag info intro image sizing
+
+Status: active
+Reference implementation: `feature/gallery/src/main/ets/components/GalleryTagsCard.ets` `TagInfoIntroImage`, `shared/src/main/ets/components/PreviewThumbTile.ets`, and `feature/reader/src/main/ets/pages/ReaderPage.ets` image `onComplete` metric handling.
+Surface type: tag-info half-modal image block rendered from tag translation Markdown intro images.
+Primary information: the intro image itself is the primary visual; its white rounded surface should match the loaded image ratio instead of reserving a tall placeholder after the image has decoded.
+Primary action: no new action; the sheet still only supports close, vote, and My Tags management.
+Reuse or deviation: reuse the existing two-column image masonry and rounded image component; deviate from the old URL-only ratio guess by replacing the fallback aspect ratio with decoded image width/height from `Image.onComplete` when available.
+Verification: gallery tag-info contract, UI grounding contract, V1 decorator inventory, and current tag-info sheet screenshots with landscape and portrait intro images.

@@ -66,8 +66,9 @@ ok(
     /this\.infoImages = info\.images/.test(tagsCard) &&
     /private InfoMarkdownText\([\s\S]*markdownBodyLines/.test(tagsCard) &&
     /private InfoLinks\([\s\S]*markdownLinks/.test(tagsCard) &&
-    /struct TagInfoIntroImage[\s\S]*sourceAspectRatio\(\): number[\s\S]*\.aspectRatio\(this\.sourceAspectRatio\(\)\)/.test(tagsCard) &&
-    !/onComplete\([\s\S]*TagInfoIntroImage/.test(tagsCard) &&
+    /struct TagInfoIntroImage[\s\S]*@Local loadedAspectRatio: number[\s\S]*sourceAspectRatio\(\): number[\s\S]*\.aspectRatio\(this\.sourceAspectRatio\(\)\)/.test(tagsCard) &&
+    /private updateLoadedAspectRatio\(event\?: TagInfoImageLoadEvent\): void[\s\S]*this\.loadedAspectRatio = this\.clampAspectRatio\(event\.width \/ event\.height\)/.test(tagsCard) &&
+    /\.onComplete\(\(event\?: TagInfoImageLoadEvent\) => \{[\s\S]*this\.updateLoadedAspectRatio\(event\)/.test(tagsCard) &&
     /private InfoImages\(\)[\s\S]*Row\(\{ space: ThemeConstants\.SPACE_SM \}\)[\s\S]*this\.InfoImageColumn\(0\)[\s\S]*this\.InfoImageColumn\(1\)/.test(tagsCard) &&
     /private InfoImageColumn\(remainder: number\)[\s\S]*if \(index % 2 === remainder\)[\s\S]*TagInfoIntroImage\(\{ url: url \}\)/.test(tagsCard) &&
     /this\.InfoLinks\(\$r\('app\.string\.tag_info_links'\), this\.infoLinks\)[\s\S]*this\.InfoImages\(\)/.test(tagsCard) &&
@@ -86,8 +87,8 @@ ok(
   'Tag translation settings must expose the eros_fe tag intro image level switch',
 )
 ok(
-  /EhApiPhpService\.tagGallery\([\s\S]*this\.gallery\.apikey[\s\S]*this\.gallery\.apiuid[\s\S]*tagKey[\s\S]*vote/.test(tagsCard) &&
-    /onTagVoteChanged\(this\.selectedNamespace, this\.selectedTagText, nextVote\)/.test(tagsCard) &&
+    /EhApiPhpService\.tagGallery\([\s\S]*this\.gallery\.apikey[\s\S]*this\.gallery\.apiuid[\s\S]*tagKey[\s\S]*vote/.test(tagsCard) &&
+    /onTagVoteChanged\(this\.selectedNamespace, this\.selectedTagText, result\.vote\)/.test(tagsCard) &&
     /applyTagVote\(namespace: string, tagText: string, vote: number\)/.test(detailVm) &&
     /onTagVoteChanged:[\s\S]*this\.vm\.applyTagVote\(namespace, tagText, vote\)/.test(detailPage),
   'tag-info voting must use taggallery and repaint the detail tag vote color locally',
