@@ -117,6 +117,10 @@ ok(/const IMAGE_ACCEPT: string = 'image\/avif,image\/webp,image\/apng,image\/\*,
   /accept: string = IMAGE_ACCEPT/.test(httpClient) &&
   /maxAttempts: number = MAX_RETRIES/.test(httpClient),
   'stream binary download keeps image Accept and default retry behavior for Reader image cache')
+ok(/const written: number = await EhHttpClient\.writeArrayBuffer\(filePath, bytes\)[\s\S]*if \(written <= 0\) \{[\s\S]*EhHttpClient\.deleteFileQuietly\(filePath\)[\s\S]*throw new Error\('binary response is empty'\)/.test(httpClient) &&
+  /let shouldDeleteFile: boolean = false[\s\S]*if \(code >= 500 && attempt < attempts - 1\) \{[\s\S]*shouldDeleteFile = true[\s\S]*else if \(written <= 0\) \{[\s\S]*shouldDeleteFile = true[\s\S]*catch \(error\) \{[\s\S]*shouldDeleteFile = openedTarget[\s\S]*finally \{[\s\S]*if \(shouldDeleteFile\) \{[\s\S]*EhHttpClient\.deleteFileQuietly\(filePath\)/.test(httpClient) &&
+  /private static deleteFileQuietly\(filePath: string\): void/.test(httpClient),
+  'binary downloads reject and clean up empty or failed responses instead of persisting unreadable files')
 ok(/private canReadArchiverTask\(task: DownloadArchiverTask\)/.test(page) &&
   /task\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*task\.filePath\.length > 0/.test(page) &&
   /private ReadArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page),

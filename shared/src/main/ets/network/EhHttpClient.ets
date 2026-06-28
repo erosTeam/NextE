@@ -287,6 +287,10 @@ export class EhHttpClient {
         } else {
           const bytes: ArrayBuffer = resp.result as ArrayBuffer
           const written: number = await EhHttpClient.writeArrayBuffer(filePath, bytes)
+          if (written <= 0) {
+            EhHttpClient.deleteFileQuietly(filePath)
+            throw new Error('binary response is empty')
+          }
           req.destroy()
           return written
         }
@@ -315,6 +319,8 @@ export class EhHttpClient {
     while (attempt < attempts) {
       const req: http.HttpRequest = http.createHttp()
       let file: fs.File | null = null
+      let openedTarget: boolean = false
+      let shouldDeleteFile: boolean = false
       try {
         const header: Record<string, string> = {
           'User-Agent': EhConstants.USER_AGENT,
@@ -326,6 +332,7 @@ export class EhHttpClient {
           filePath,
           fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC,
         )
+        openedTarget = true
         let written: number = 0
         let progressTotal: number = 0
         req.on('dataReceiveProgress', (info: http.DataReceiveProgressInfo) => {
@@ -349,15 +356,20 @@ export class EhHttpClient {
         fs.closeSync(file)
         file = null
         if (code >= 500 && attempt < attempts - 1) {
+          shouldDeleteFile = true
           lastError = new Error(`HTTP ${code}`)
         } else if (code !== 200) {
           throw new Error(`binary HTTP ${code}`)
+        } else if (written <= 0) {
+          shouldDeleteFile = true
+          throw new Error('binary response is empty')
         } else {
           progress(written, progressTotal > 0 ? progressTotal : written)
           return written
         }
       } catch (error) {
         const e = error as Error
+        shouldDeleteFile = openedTarget
         lastError = e
         DiagnosticLogger.warn(
           'network',
@@ -368,6 +380,9 @@ export class EhHttpClient {
       } finally {
         if (file !== null) {
           fs.closeSync(file)
+        }
+        if (shouldDeleteFile) {
+          EhHttpClient.deleteFileQuietly(filePath)
         }
       }
       attempt++
@@ -386,6 +401,16 @@ export class EhHttpClient {
       if (file !== null) {
         fs.closeSync(file)
       }
+    }
+  }
+
+  private static deleteFileQuietly(filePath: string): void {
+    try {
+      if (filePath.length > 0 && fs.accessSync(filePath)) {
+        fs.unlinkSync(filePath)
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('network', 'http_empty_file_delete_failed', (error as Error).message)
     }
   }
 
