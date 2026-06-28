@@ -74,9 +74,9 @@ const grounding = {
   ],
   download: [
     'eros_fe: lib/pages/tab/view/download_page.dart DownloadTab with CupertinoSlidingSegmentedControl',
-    'primary information: selected gallery/archive queue status and empty queue guidance',
+    'primary information: selected gallery/archive queue status, image download progress, and empty queue guidance',
     'primary action: switch queue type; secondary settings are not queue content',
-    'scope: non-destructive queue workbench shell; no background download engine or settings editing here',
+    'scope: queue workbench plus gallery image executor progress; no archiver submit or settings editing here',
     'Harmony expression: Index HDS title-bar bottomBuilder hosting V2 TabSegmentButtonV2',
   ],
 }

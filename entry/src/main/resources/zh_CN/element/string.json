@@ -93,6 +93,10 @@
       "value": "部分完成"
     },
     {
+      "name": "download_status_complete",
+      "value": "已完成"
+    },
+    {
       "name": "download_status_error",
       "value": "准备失败"
     },
@@ -121,6 +125,10 @@
       "value": "从详情页请求的归档下载会显示在这里。"
     },
     {
+      "name": "download_archiver_already_queued",
+      "value": "已在归档队列中"
+    },
+    {
       "name": "download_concurrency",
       "value": "下载并发"
     },
@@ -135,6 +143,18 @@
     {
       "name": "download_original_always",
       "value": "总是"
+    },
+    {
+      "name": "download_original_prompt",
+      "value": "下载普通压缩图，还是在 EH 提供时下载原始文件？"
+    },
+    {
+      "name": "download_use_regular_image",
+      "value": "普通图"
+    },
+    {
+      "name": "download_use_original_image",
+      "value": "原图"
     },
     {
       "name": "download_concurrency_hint",

@@ -1,5 +1,5 @@
 import { AppStorageV2 } from '@kit.ArkUI'
-import { DownloadGalleryTask } from '../model/DownloadGalleryTask'
+import { DownloadArchiverTask, DownloadGalleryTask } from '../model/DownloadGalleryTask'
 
 /**
  * Local gallery download queue. This is intentionally only queue state: the background image
@@ -8,6 +8,7 @@ import { DownloadGalleryTask } from '../model/DownloadGalleryTask'
 @ObservedV2
 export class DownloadQueueState {
   @Trace galleryTasks: DownloadGalleryTask[] = []
+  @Trace archiverTasks: DownloadArchiverTask[] = []
 }
 
 const DOWNLOAD_QUEUE_KEY: string = 'v2:downloadQueue'

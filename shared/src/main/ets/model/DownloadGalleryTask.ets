@@ -61,6 +61,7 @@ export class DownloadGalleryTask {
   previewPageCount: number = 0
   imageSeeds: DownloadImageSeed[] = []
   prepareError: string = ''
+  preferOriginal: boolean = false
   status: string = DownloadGalleryTaskStatus.QUEUED
 
   static fromGallery(gallery: EhGallery, fallbackGid: string, fallbackToken: string): DownloadGalleryTask {
@@ -100,6 +101,7 @@ export class DownloadGalleryTask {
     task.previewPageCount = this.previewPageCount
     task.imageSeeds = this.imageSeeds.map((seed: DownloadImageSeed) => seed.copy())
     task.prepareError = this.prepareError
+    task.preferOriginal = this.preferOriginal
     task.status = this.status
     return task
   }
@@ -138,6 +140,12 @@ export class DownloadGalleryTask {
     }).length
   }
 
+  pendingDownloadCount(): number {
+    return this.imageSeeds.filter((seed: DownloadImageSeed) => {
+      return seed.filePath.length === 0 && seed.imagePageUrl.length > 0
+    }).length
+  }
+
   downloadProgressText(): string {
     if (this.downloadedCount() === 0) {
       return ''
@@ -165,5 +173,58 @@ export class DownloadGalleryTaskStatus {
   static readonly READY: string = 'ready'
   static readonly DOWNLOADING: string = 'downloading'
   static readonly PARTIAL: string = 'partial'
+  static readonly COMPLETE: string = 'complete'
   static readonly ERROR: string = 'error'
+}
+
+export class DownloadArchiverTask {
+  tag: string = ''
+  gid: string = ''
+  title: string = ''
+  dltype: string = ''
+  resolution: string = ''
+  url: string = ''
+  fileName: string = ''
+  filePath: string = ''
+  queuedAt: number = 0
+  downloadedAt: number = 0
+  bytesWritten: number = 0
+  bytesTotal: number = 0
+  progress: number = 0
+  error: string = ''
+  status: string = DownloadGalleryTaskStatus.QUEUED
+
+  copy(): DownloadArchiverTask {
+    const task: DownloadArchiverTask = new DownloadArchiverTask()
+    task.tag = this.tag
+    task.gid = this.gid
+    task.title = this.title
+    task.dltype = this.dltype
+    task.resolution = this.resolution
+    task.url = this.url
+    task.fileName = this.fileName
+    task.filePath = this.filePath
+    task.queuedAt = this.queuedAt
+    task.downloadedAt = this.downloadedAt
+    task.bytesWritten = this.bytesWritten
+    task.bytesTotal = this.bytesTotal
+    task.progress = this.progress
+    task.error = this.error
+    task.status = this.status
+    return task
+  }
+
+  displayTitle(): string {
+    return this.title.length > 0 ? this.title : `#${this.gid}`
+  }
+
+  progressText(): string {
+    if (this.bytesWritten <= 0) {
+      return ''
+    }
+    if (this.bytesTotal > 0) {
+      return `${this.progress}%`
+    }
+    return `${this.bytesWritten} B`
+  }
 }

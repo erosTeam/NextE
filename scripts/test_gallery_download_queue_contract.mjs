@@ -38,6 +38,7 @@ const queuePage = read('feature/download/src/main/ets/pages/DownloadQueuePage.et
 const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
 const state = read('shared/src/main/ets/state/DownloadQueueState.ets')
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
+const imageCache = read('shared/src/main/ets/services/CachedImageFileService.ets')
 const repository = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const keys = read('shared/src/main/ets/constants/StorageKeys.ets')
@@ -91,9 +92,21 @@ ok(/GalleryTaskSection/.test(queuePage) && /ForEach\(\s*this\.downloadQueue\.gal
   /task\.displayTitle\(\)/.test(queuePage), 'downloads page renders real task rows')
 ok(/RemoveTaskButton/.test(queuePage) && /DownloadQueueSettings\.removeGallery/.test(queuePage),
   'downloads page can remove local queued tasks')
-ok(!/postArchiver|downloadRemote|downloadLoacal|downloadLocal|DownloadAgentService|PauseTask|ResumeTask/.test(
+ok(/private ReadTaskButton\(task: DownloadGalleryTask\)/.test(queuePage) &&
+  /sys\.symbol\.arrow_right/.test(queuePage) &&
+  /new ReaderParams\(task\.gid, task\.token, 0, fileCount, task\.displayTitle\(\), images, loadedPages, perPage\)/.test(queuePage),
+  'completed gallery tasks expose a low-weight Reader entry')
+ok(/downloadedSeedImages\(task: DownloadGalleryTask\)/.test(queuePage) &&
+  /image\.sUrl = seed\.imagePageUrl/.test(queuePage) &&
+  /image\.imageUrl = CachedImageFileService\.displayUri\(seed\.filePath\)/.test(queuePage),
+  'downloaded tasks keep EH /s/ identity while feeding local file:// image URLs to Reader')
+ok(/localFilePath\(url: string\)/.test(imageCache) &&
+  /url\.startsWith\('file:\/\/'\)/.test(imageCache) &&
+  /throw new Error\('local image file missing'\)/.test(imageCache),
+  'reader image cache treats local file:// images as local files, not network downloads')
+ok(!/postArchiver|downloadRemote|downloadLoacal|downloadLocal|DownloadAgentService|PauseTask/.test(
   `${detail}\n${queuePage}\n${settings}`,
-), 'queue surface does not submit archives or introduce a full background/pause-resume engine')
+), 'queue surface does not submit archives or introduce a separate pause engine')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)

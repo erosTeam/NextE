@@ -15,6 +15,7 @@ export { EhTagSuggestion } from './model/EhTagSuggestion'
 export { TagGroup } from './model/TagGroup'
 export { EhGallery } from './model/EhGallery'
 export {
+  DownloadArchiverTask,
   DownloadGalleryTask,
   DownloadGalleryTaskStatus,
   DownloadImageSeed,

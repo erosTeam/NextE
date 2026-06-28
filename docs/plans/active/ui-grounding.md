@@ -261,3 +261,13 @@ Primary information: the row exposes secondary actions, not gallery metadata; ea
 Primary action: similar search, torrents, rating, archiver, and gallery download keep their existing actions while becoming compact chip targets; parent-gallery navigation moves to the existing title-bar menu.
 Reuse or deviation: reuse the existing detail section card, title-bar menu, native horizontal `Scroll`, and the detail page's smart-grip hand-edge state; deviate only from tiny text links by using local capsule `Button` chips with theme-colored icon/text, and place the chip row on a start-based rail so short rows animate left/right with `translate` instead of jumping through centered alignment.
 Verification: UI grounding contract, detail header visual contract, V1 decorator inventory, signed HarmonyOS build, and detail screenshot on a narrow viewport with all available actions.
+
+## Active: gallery download executor progress
+
+Status: active
+Reference implementation: `../eros_fe/lib/common/controller/download_controller.dart` `downloadGallery()` / `_startImageTask()`, `../eros_fe/lib/common/controller/download/image_download_processor.dart` `downloadImageFlow()` / `fetchImageInfo()`, and NextE `feature/download/src/main/ets/pages/DownloadQueuePage.ets`.
+Surface type: Downloads tab Gallery queue task card plus the Settings root entry to the dedicated Download settings page.
+Primary information: each queued gallery shows seed preparation, real image-file download progress, error state, and complete state from recorded sandbox file metadata; Archiver shows real local archive download tasks; Download settings expose the policies the executor currently consumes.
+Primary action: detail-page Download starts seed preparation and then the bounded gallery image executor; Archiver local submit adds and downloads a real archive task; failed or partial queue rows can resume through a low-weight icon action, completed gallery rows enter the normal Reader with local file images, while Remove remains secondary; Settings > Download opens the existing dedicated policy page.
+Reuse or deviation: reuse the existing HDS task card, `EhThumbnail`, progress bar, RDB-backed queue, persisted download settings page, Reader route, protected Archiver confirmation flow, and circle icon actions; deviate from the previous first-file smoke by batching pending seed downloads with persisted concurrency and merging per-page results through one queue writer.
+Verification: gallery download executor contract, download settings contract, gallery download preparation contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 completed-task Reader smoke when a small downloaded task is available.

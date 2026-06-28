@@ -33,6 +33,19 @@ export class CachedImageFileService {
     if (url.length === 0) {
       return null
     }
+    const localPath: string = CachedImageFileService.localFilePath(url)
+    if (localPath.length > 0) {
+      const localBytes: number = CachedImageFileService.fileSize(localPath)
+      if (localBytes <= 0) {
+        return null
+      }
+      return {
+        filePath: localPath,
+        displayUri: CachedImageFileService.displayUri(localPath),
+        bytes: localBytes,
+        fromCache: true,
+      }
+    }
     const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
     const cachedBytes: number = CachedImageFileService.fileSize(filePath)
     if (cachedBytes <= 0) {
@@ -68,6 +81,9 @@ export class CachedImageFileService {
         `bytes=${cached.bytes} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
       )
       return cached
+    }
+    if (CachedImageFileService.localFilePath(url).length > 0) {
+      throw new Error('local image file missing')
     }
 
     const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
@@ -184,6 +200,13 @@ export class CachedImageFileService {
       return `file://${path}`
     }
     return `file:///${path}`
+  }
+
+  private static localFilePath(url: string): string {
+    if (!url.startsWith('file://')) {
+      return ''
+    }
+    return url.substring('file://'.length)
   }
 
   private static ensureDir(dir: string): void {

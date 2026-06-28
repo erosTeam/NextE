@@ -93,6 +93,10 @@
       "value": "一部完了"
     },
     {
+      "name": "download_status_complete",
+      "value": "完了"
+    },
+    {
       "name": "download_status_error",
       "value": "準備失敗"
     },
@@ -121,6 +125,10 @@
       "value": "詳細ページから要求したアーカイブダウンロードがここに表示されます。"
     },
     {
+      "name": "download_archiver_already_queued",
+      "value": "アーカイブキューに追加済みです"
+    },
+    {
       "name": "download_concurrency",
       "value": "ダウンロード同時数"
     },
@@ -135,6 +143,18 @@
     {
       "name": "download_original_always",
       "value": "常に"
+    },
+    {
+      "name": "download_original_prompt",
+      "value": "通常の圧縮画像をダウンロードしますか。それとも EH が提供する原寸ファイルを使いますか。"
+    },
+    {
+      "name": "download_use_regular_image",
+      "value": "通常"
+    },
+    {
+      "name": "download_use_original_image",
+      "value": "原寸"
     },
     {
       "name": "download_concurrency_hint",

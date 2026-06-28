@@ -1,7 +1,9 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
-import { common, Want } from '@kit.AbilityKit'
+import { common } from '@kit.AbilityKit'
 import {
   ThemeConstants,
+  DownloadArchiverTask,
+  DownloadQueueSettings,
   EhApiService,
   EhGalleryArchiverItem,
   EhGalleryArchiverQuote,
@@ -228,9 +230,9 @@ export struct GalleryArchiverPage {
           item.dltype,
           this.localDlcheck(item),
           this.params.isEx,
-        )
+      )
       if (!isHath && result.localDownloadUrl.length > 0) {
-        this.openLocalArchiveDownload(result.localDownloadUrl)
+        await this.enqueueLocalArchiveDownload(item, result.localDownloadUrl)
       } else if (result.message.length > 0) {
         this.showArchiverToast(result.message)
       } else {
@@ -252,13 +254,21 @@ export struct GalleryArchiverPage {
     this.submittingKey = ''
   }
 
-  private openLocalArchiveDownload(url: string): void {
-    const want: Want = { action: 'ohos.want.action.viewData', uri: url }
-    this.ctx().startAbility(want).then(() => {
-      this.showArchiverToast($r('app.string.gallery_archiver_download_started'))
-    }).catch((_error: Error) => {
-      this.showArchiverToast(url)
-    })
+  private async enqueueLocalArchiveDownload(item: EhGalleryArchiverItem, url: string): Promise<void> {
+    const task: DownloadArchiverTask = new DownloadArchiverTask()
+    task.gid = this.params.gid
+    task.dltype = item.dltype
+    task.tag = `${task.gid}:${task.dltype}`
+    task.title = this.params.title
+    task.resolution = item.resolution
+    task.url = url
+    const added: boolean = await DownloadQueueSettings.enqueueArchiver(this.ctx(), task)
+    if (!added) {
+      this.showArchiverToast($r('app.string.download_archiver_already_queued'))
+      return
+    }
+    this.showArchiverToast($r('app.string.gallery_archiver_download_started'))
+    await DownloadQueueSettings.downloadArchiver(this.ctx(), task.tag)
   }
 
   private showArchiverToast(message: ResourceStr): void {

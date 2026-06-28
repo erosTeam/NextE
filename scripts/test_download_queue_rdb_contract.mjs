@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Contract: gallery download queue is local task state in RDB, not a growing Preferences blob.
+ * Contract: gallery and archiver download queues are local task state in RDB, not growing Preferences blobs.
  * Run: node scripts/test_download_queue_rdb_contract.mjs
  */
 import fs from 'fs'
@@ -15,13 +15,24 @@ function ok(name, condition) {
 }
 
 const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
-ok('LocalDataStore creates download task and seed tables',
+ok('LocalDataStore creates gallery download task and seed tables',
   /download_gallery_tasks/.test(store) &&
     /download_gallery_seeds/.test(store) &&
     /PRIMARY KEY\(scope_key, gid, token\)/.test(store) &&
     /PRIMARY KEY\(scope_key, gid, token, image_page_url\)/.test(store) &&
     /idx_download_gallery_tasks_queued/.test(store) &&
-    /idx_download_gallery_seeds_position/.test(store))
+    /idx_download_gallery_seeds_position/.test(store) &&
+    /prefer_original INTEGER NOT NULL DEFAULT 0/.test(store))
+ok('LocalDataStore migrates existing download task rows to include per-task original preference',
+  /LOCAL_DATA_SCHEMA_VERSION: number = 10/.test(store) &&
+    /migrateDownloadGalleryPreferOriginal/.test(store) &&
+    /ALTER TABLE download_gallery_tasks ADD COLUMN prefer_original/.test(store))
+ok('LocalDataStore creates archiver download task table',
+  /download_archiver_tasks/.test(store) &&
+    /PRIMARY KEY\(scope_key, tag\)/.test(store) &&
+    /idx_download_archiver_tasks_queued/.test(store) &&
+    /bytes_written INTEGER NOT NULL/.test(store) &&
+    /file_path TEXT NOT NULL/.test(store))
 
 const repo = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 ok('repository loads and replaces queue through RDB',
@@ -37,11 +48,22 @@ ok('repository restores downloaded seed metadata',
     /seed\.bytesWritten/.test(repo) &&
     /seed\.downloadedAt/.test(repo) &&
     /seed\.downloadError/.test(repo))
+ok('repository persists task original preference',
+  /prefer_original/.test(repo) &&
+    /task\.preferOriginal/.test(repo))
+ok('repository loads and replaces archiver queue through RDB',
+  /loadArchiver\(context/.test(repo) &&
+    /replaceAllArchiver\(context/.test(repo) &&
+    /INSERT OR REPLACE INTO download_archiver_tasks/.test(repo) &&
+    /DELETE FROM download_archiver_tasks WHERE scope_key = \?/.test(repo) &&
+    /readArchiverTask/.test(repo))
 
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 ok('settings facade uses RDB and only reads old Preferences for migration',
   /DownloadQueueRepository\.load\(context\)/.test(settings) &&
     /DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
+    /DownloadQueueRepository\.loadArchiver\(context\)/.test(settings) &&
+    /DownloadQueueRepository\.replaceAllArchiver\(context, tasks\)/.test(settings) &&
     /migrateLegacyPreferences/.test(settings) &&
     /store\.getSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings) &&
     /store\.deleteSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE\)/.test(settings))

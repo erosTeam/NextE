@@ -7,7 +7,7 @@ export enum DownloadOriginalMode {
 }
 
 /**
- * Download preferences shared by the queue workbench and the future download executor.
+ * Download preferences shared by the queue workbench and the gallery image executor.
  * Defaults match a conservative first-run behavior: limited concurrency and ask before original files.
  */
 @ObservedV2

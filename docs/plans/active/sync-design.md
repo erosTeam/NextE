@@ -26,7 +26,7 @@ or plaintext secrets/provider credentials:
 
 - `tag_translations`, `tag_translation_meta`
 - `eh_page_cache`, `comment_translation_cache`
-- `download_gallery_tasks`, `download_gallery_seeds`
+- `download_gallery_tasks`, `download_gallery_seeds`, `download_archiver_tasks`
 - cookie jars, account secrets, LLM API keys, WebDAV passwords
 
 ## Write Semantics

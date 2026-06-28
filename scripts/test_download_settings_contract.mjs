@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Contract: unfinished download policy preferences stay parked until the executor consumes them.
+ * Contract: download policy preferences stay in the dedicated settings page while the gallery image
+ * executor consumes the parts it can currently honor.
  *
- * The Downloads tab is a queue workbench. The parked preferences implementation can stay in code for
- * the later executor lane, but Settings root must not expose controls that do not affect current tasks.
+ * The Downloads tab is still a queue workbench; settings controls must not be mixed into its queue
+ * body. The root entry opens the dedicated Download settings page.
  *
  * Run: node scripts/test_download_settings_contract.mjs
  */
@@ -29,6 +30,7 @@ ok(/AppStorageV2\.connect\(\s*DownloadSettingsState/.test(state),
   'download settings holder connects through AppStorageV2')
 
 const settings = read('shared/src/main/ets/settings/DownloadSettings.ets')
+const queueSettings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 ok(/StorageKeys\.DOWNLOAD_CONCURRENCY/.test(settings), 'settings persist concurrency key')
 ok(/StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings), 'settings persist original-mode key')
 ok(/clampConcurrency/.test(settings) && /MIN_CONCURRENCY: number = 1/.test(settings) &&
@@ -41,6 +43,9 @@ ok(/static async setConcurrency/.test(settings) && /store\.putSync\(StorageKeys\
   'settings write concurrency to preferences')
 ok(/static async setOriginalMode/.test(settings) && /store\.putSync\(StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings),
   'settings write original mode to preferences')
+ok(/connectDownloadSettings\(\)\.concurrency/.test(queueSettings) &&
+  /connectDownloadSettings\(\)\.originalMode/.test(queueSettings),
+  'gallery image executor consumes persisted download policy')
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok(/import \{ DownloadSettings \}/.test(bootstrap) && /await DownloadSettings\.restore\(context\)/.test(bootstrap),
@@ -51,15 +56,17 @@ ok(/DownloadSettingsState/.test(barrel) && /connectDownloadSettings/.test(barrel
   /DownloadSettings/.test(barrel), 'shared barrel exports download settings API')
 
 const settingsRoot = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
-ok(!/settings_download/.test(settingsRoot) && !/pushPathByName\('DownloadSettings'/.test(settingsRoot),
-  'settings root does not expose Download settings until executor consumes the preferences')
+ok(/settings_download/.test(settingsRoot) && /pushPathByName\('DownloadSettings', null\)/.test(settingsRoot),
+  'settings root exposes the dedicated Download settings page')
+ok(/settings_reader[\s\S]*settings_download[\s\S]*settings_search/.test(settingsRoot),
+  'settings root places Download settings between Reader and Search')
 
 const settingsIndex = read('feature/settings/src/main/ets/Index.ets')
-ok(/DownloadSettingsPage/.test(settingsIndex), 'parked settings barrel still exports DownloadSettingsPage')
+ok(/DownloadSettingsPage/.test(settingsIndex), 'settings barrel exports DownloadSettingsPage')
 
 const entryIndex = read('entry/src/main/ets/pages/Index.ets')
 ok(/DownloadSettingsPage/.test(entryIndex) && /name === 'DownloadSettings'/.test(entryIndex),
-  'parked entry router registers the DownloadSettings route for future executor-lane validation')
+  'entry router registers the DownloadSettings route')
 
 const downloadPage = read('feature/settings/src/main/ets/pages/DownloadSettingsPage.ets')
 ok(/eros_fe DownloadSettingPage/.test(downloadPage), 'download settings page records eros_fe grounding')
@@ -92,6 +99,9 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   ok(strings.includes('"name": "download_original_hint"'), `${locale}: download_original_hint exists`)
   ok(strings.includes('"name": "download_original_ask"'), `${locale}: download_original_ask exists`)
   ok(strings.includes('"name": "download_original_always"'), `${locale}: download_original_always exists`)
+  ok(strings.includes('"name": "download_original_prompt"'), `${locale}: download_original_prompt exists`)
+  ok(strings.includes('"name": "download_use_regular_image"'), `${locale}: download_use_regular_image exists`)
+  ok(strings.includes('"name": "download_use_original_image"'), `${locale}: download_use_original_image exists`)
 }
 
 if (failures > 0) {
@@ -99,4 +109,4 @@ if (failures > 0) {
   process.exit(1)
 }
 
-console.log('✓ download settings contract: unfinished download policy entry stays hidden')
+console.log('✓ download settings contract: exposed settings page feeds the gallery executor')

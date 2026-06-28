@@ -39,7 +39,7 @@ ok(/AppStrings\.get\('tab_gallery'\)/.test(bar) && /AppStrings\.get\('download_a
   'download segmented control labels Gallery and Archiver')
 ok(/this\.downloadView\.viewType\s*=[\s\S]*DownloadViewType\.ARCHIVER/.test(bar),
   'download segmented control writes the selected queue view')
-ok(/DownloadTypeBarCCBuilder/.test(index) && /this\.currentTab === 3[\s\S]*bottomBuilder/.test(index) &&
+ok(/DownloadTypeBarCCBuilder/.test(index) && /tab === 3[\s\S]*bottomBuilder/.test(index) &&
   /DOWNLOAD_SELECTOR_BAR_HEIGHT/.test(index), 'Index pins the download segmented control in title-bar bottomBuilder')
 ok(/@Local downloadView: DownloadViewState = connectDownloadView\(\)/.test(page),
   'download page reads the shared selected queue view')
@@ -66,6 +66,18 @@ ok(/private TaskProgressBar\(task: DownloadGalleryTask\)/.test(page) &&
   'gallery task card promotes seed/download progress as task state')
 ok(/Button\(\{ type: ButtonType\.Circle \}\)[\s\S]*sys\.symbol\.trash[\s\S]*common_remove/.test(page),
   'remove action is a low-weight icon action rather than a wide text button')
+ok(/private ResumeTaskButton\(task: DownloadGalleryTask\)/.test(page) &&
+  /sys\.symbol\.arrow_clockwise/.test(page) &&
+  /DownloadQueueSettings\.downloadGalleryImages/.test(page) &&
+  /common_retry/.test(page),
+  'retry/resume action is a low-weight icon action wired to the gallery image executor')
+ok(/private ArchiverTaskSection\(\)/.test(page) &&
+  /this\.downloadQueue\.archiverTasks/.test(page) &&
+  /private DownloadArchiverTaskCard\(task: DownloadArchiverTask\)/.test(page),
+  'archiver queue renders real archive task cards')
+ok(/DownloadQueueSettings\.downloadArchiver/.test(page) &&
+  /DownloadQueueSettings\.removeArchiver/.test(page),
+  'archiver task cards wire retry and remove to the archiver queue executor')
 ok(!/ConciseListRow\(\{[\s\S]*title: task\.displayTitle\(\)/.test(page) &&
   !/Button\(\$r\('app\.string\.common_remove'\)\)/.test(page),
   'gallery task rows do not regress to shallow ConciseListRow plus large remove button')
@@ -87,6 +99,7 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'download_archiver_empty',
     'download_gallery_next_step',
     'download_archiver_next_step',
+    'download_archiver_already_queued',
     'download_concurrency',
     'download_original_images',
     'download_not_configured',

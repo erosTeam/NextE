@@ -35,6 +35,8 @@ import {
   DownloadQueueSettings,
   DownloadQueueState,
   connectDownloadQueue,
+  connectDownloadSettings,
+  DownloadOriginalMode,
   LocalFavSettings,
   LocalBlockService,
   LocalFavState,
@@ -114,8 +116,8 @@ export struct GalleryDetailPage {
   // Detail-preview display mode (eros_fe hideGalleryThumbnails / horizontalThumbnails). Reactive so a
   // settings toggle re-renders this page's preview section live (grid ↔ horizontal ↔ hidden-inline).
   @Local thumbMode: ThumbnailModeState = connectThumbnailMode();
-  // Local gallery download queue state: mirrors eros_fe GalleryTask uniqueness, but this lane only
-  // enqueues/records a task. It does not start the background image downloader.
+  // Local gallery download queue state: mirrors eros_fe GalleryTask uniqueness and updates live while
+  // the gallery image executor resolves prepared seeds into sandbox files.
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
   @Local localFav: LocalFavState = connectLocalFav();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
@@ -618,12 +620,13 @@ export struct GalleryDetailPage {
     }
   }
 
-  private async enqueueGalleryDownload(): Promise<void> {
+  private async enqueueGalleryDownload(preferOriginal: boolean = false): Promise<void> {
     const task: DownloadGalleryTask = DownloadGalleryTask.fromGallery(
       this.vm.gallery,
       this.params.gid,
       this.params.token,
     )
+    task.preferOriginal = preferOriginal
     const inserted: boolean = await DownloadQueueSettings.enqueueGallery(this.ctx(), task)
     DownloadQueueSettings.prepareGallerySeeds(
       this.ctx(),
@@ -643,6 +646,34 @@ export struct GalleryDetailPage {
       .catch((_error: Error) => {
         // The queue state has already been written; toast failure should not undo the user action.
       })
+  }
+
+  private enqueueGalleryDownloadWithPolicy(): void {
+    const originalMode: string = connectDownloadSettings().originalMode
+    if (originalMode === DownloadOriginalMode.ALWAYS) {
+      this.enqueueGalleryDownload(true)
+      return
+    }
+    if (originalMode !== DownloadOriginalMode.ASK) {
+      this.enqueueGalleryDownload(false)
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.download_original_images'),
+      message: $r('app.string.download_original_prompt'),
+      primaryButton: {
+        value: $r('app.string.download_use_regular_image'),
+        action: () => {
+          this.enqueueGalleryDownload(false)
+        },
+      },
+      secondaryButton: {
+        value: $r('app.string.download_use_original_image'),
+        action: () => {
+          this.enqueueGalleryDownload(true)
+        },
+      },
+    })
   }
 
   private openThumbnails(initialImagePage: number = 0): void {
@@ -1640,7 +1671,7 @@ export struct GalleryDetailPage {
             })
             this.DetailActionChip($r('sys.symbol.arrow_down_to_line'), this.downloadTitle(), !this.isGalleryQueued(),
               () => {
-                this.enqueueGalleryDownload()
+                this.enqueueGalleryDownloadWithPolicy()
               })
           }
           .alignItems(VerticalAlign.Center)

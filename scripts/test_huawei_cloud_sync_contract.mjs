@@ -41,6 +41,7 @@ const forbiddenTables = [
   'comment_translation_cache',
   'download_gallery_tasks',
   'download_gallery_seeds',
+  'download_archiver_tasks',
   'schema_meta',
 ]
 

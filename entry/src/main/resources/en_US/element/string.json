@@ -93,6 +93,10 @@
       "value": "Partial"
     },
     {
+      "name": "download_status_complete",
+      "value": "Complete"
+    },
+    {
       "name": "download_status_error",
       "value": "Error"
     },
@@ -121,6 +125,10 @@
       "value": "Archive downloads requested from gallery details will appear here."
     },
     {
+      "name": "download_archiver_already_queued",
+      "value": "Already in archive queue"
+    },
+    {
       "name": "download_concurrency",
       "value": "Download concurrency"
     },
@@ -135,6 +143,18 @@
     {
       "name": "download_original_always",
       "value": "Always"
+    },
+    {
+      "name": "download_original_prompt",
+      "value": "Download regular compressed images, or original files when EH provides them?"
+    },
+    {
+      "name": "download_use_regular_image",
+      "value": "Regular"
+    },
+    {
+      "name": "download_use_original_image",
+      "value": "Original"
     },
     {
       "name": "download_concurrency_hint",

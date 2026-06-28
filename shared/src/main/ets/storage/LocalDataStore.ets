@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 8
+export const LOCAL_DATA_SCHEMA_VERSION: number = 10
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -12,7 +12,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'8\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'10\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -245,9 +245,12 @@ const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_TABLE: string =
     'first_page_count INTEGER NOT NULL, ' +
     'preview_page_count INTEGER NOT NULL, ' +
     'prepare_error TEXT NOT NULL, ' +
+    'prefer_original INTEGER NOT NULL DEFAULT 0, ' +
     'status TEXT NOT NULL, ' +
     'PRIMARY KEY(scope_key, gid, token)' +
   ')'
+const SQL_ADD_DOWNLOAD_GALLERY_TASKS_PREFER_ORIGINAL: string =
+  'ALTER TABLE download_gallery_tasks ADD COLUMN prefer_original INTEGER NOT NULL DEFAULT 0'
 const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_QUEUED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_download_gallery_tasks_queued ON download_gallery_tasks (queued_at DESC)'
 const SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_TABLE: string =
@@ -273,6 +276,28 @@ const SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_TABLE: string =
 const SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_POSITION_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_download_gallery_seeds_position ' +
     'ON download_gallery_seeds (scope_key, gid, token, position_index ASC)'
+const SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS download_archiver_tasks (' +
+    'scope_key TEXT NOT NULL, ' +
+    'tag TEXT NOT NULL, ' +
+    'gid TEXT NOT NULL, ' +
+    'title TEXT NOT NULL, ' +
+    'dltype TEXT NOT NULL, ' +
+    'resolution TEXT NOT NULL, ' +
+    'url TEXT NOT NULL, ' +
+    'file_name TEXT NOT NULL, ' +
+    'file_path TEXT NOT NULL, ' +
+    'queued_at INTEGER NOT NULL, ' +
+    'downloaded_at INTEGER NOT NULL, ' +
+    'bytes_written INTEGER NOT NULL, ' +
+    'bytes_total INTEGER NOT NULL, ' +
+    'progress INTEGER NOT NULL, ' +
+    'error TEXT NOT NULL, ' +
+    'status TEXT NOT NULL, ' +
+    'PRIMARY KEY(scope_key, tag)' +
+  ')'
+const SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_QUEUED_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_download_archiver_tasks_queued ON download_archiver_tasks (queued_at DESC)'
 
 export class LocalDataStore {
   static async open(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
@@ -305,9 +330,12 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILES_POSITION_INDEX)
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILE_SELECTION_TABLE)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_TABLE)
+    await LocalDataStore.migrateDownloadGalleryPreferOriginal(store)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_QUEUED_INDEX)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_TABLE)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_POSITION_INDEX)
+    await store.executeSql(SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_TABLE)
+    await store.executeSql(SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_QUEUED_INDEX)
     await store.executeSql(SQL_UPSERT_SCHEMA_VERSION)
     if (store.version !== LOCAL_DATA_SCHEMA_VERSION) {
       store.version = LOCAL_DATA_SCHEMA_VERSION
@@ -334,6 +362,18 @@ export class LocalDataStore {
       const e: Error = error as Error
       throw new Error(e.message || 'Failed to migrate custom profiles')
     }
+  }
+
+  private static async migrateDownloadGalleryPreferOriginal(store: relationalStore.RdbStore): Promise<void> {
+    const hasPreferOriginal: boolean = await LocalDataStore.hasColumn(
+      store,
+      'download_gallery_tasks',
+      'prefer_original',
+    )
+    if (hasPreferOriginal) {
+      return
+    }
+    await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_PREFER_ORIGINAL)
   }
 
   private static async hasColumn(
