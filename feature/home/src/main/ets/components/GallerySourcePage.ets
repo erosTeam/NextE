@@ -10,6 +10,10 @@ import {
   connectCustomProfiles,
   CustomProfilesState,
   CustomProfile,
+  SafeModeGate,
+  SafeModeState,
+  connectSafeMode,
+  SAFE_MODE_PROFILE_UUID,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -41,6 +45,7 @@ export struct GallerySourcePage {
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local profilesState: CustomProfilesState = connectCustomProfiles();
+  @Local safeMode: SafeModeState = connectSafeMode();
   // Per-tab display-mode override passed to the list body ('global' = follow the shared ListModeState).
   @Local displayMode: string = 'global';
   // First-load guard: load once on first activation; later activations reuse the retained list.
@@ -56,10 +61,17 @@ export struct GallerySourcePage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  private profileForSource(): CustomProfile | null {
+    if (this.safeMode.restricted() || this.sourceKey === SAFE_MODE_PROFILE_UUID) {
+      return SafeModeGate.safeProfile()
+    }
+    return connectCustomProfiles().findByUuid(this.sourceKey)
+  }
+
   aboutToAppear(): void {
     // Configure the VM from this page's custom profile (sourceKey is the profile uuid) before any load;
     // loadData() runs right after. Fall back to the front-page source if the profile is missing.
-    const profile: CustomProfile | null = connectCustomProfiles().findByUuid(this.sourceKey)
+    const profile: CustomProfile | null = this.profileForSource()
     if (profile !== null) {
       this.vm.configureFromProfile(profile)
       this.configuredEditTime = profile.lastEditTime
@@ -77,6 +89,9 @@ export struct GallerySourcePage {
   // the retained VM and reload so the active tab reflects the change without an app restart.
   @Monitor('profilesState.profiles')
   onProfileEdited(): void {
+    if (this.safeMode.restricted() || this.sourceKey === SAFE_MODE_PROFILE_UUID) {
+      return
+    }
     const profile: CustomProfile | null = this.profilesState.findByUuid(this.sourceKey)
     if (profile === null) {
       return

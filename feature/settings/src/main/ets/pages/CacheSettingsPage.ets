@@ -16,7 +16,9 @@ import {
   ThemeConstants,
   appSheetOptions,
   connectNavStack,
+  connectSafeMode,
   immersiveTitleBar,
+  SafeModeState,
 } from 'shared'
 import {
   BackupFilePickerCoordinator,
@@ -46,6 +48,7 @@ export struct CacheSettingsPage {
   @Local importPwdSheetShown: boolean = false;
   @Local importPwd: string = '';
   @Local busy: boolean = false;
+  @Local safeMode: SafeModeState = connectSafeMode();
   private appVersion: string = '';
   private appVersionCode: number = 0;
   private pendingImportRaw: string = '';
@@ -394,15 +397,17 @@ export struct CacheSettingsPage {
                     this.startImport()
                   },
                 })
-                this.rowDivider()
-                ConciseListRow({
-                  title: $r('app.string.settings_sync'),
-                  subtitle: $r('app.string.settings_sync_hint'),
-                  leadingIcon: $r('sys.symbol.cloud'),
-                  action: () => {
-                    connectNavStack().stack.pushPathByName('SyncSettings', null)
-                  },
-                })
+                if (!this.safeMode.restricted()) {
+                  this.rowDivider()
+                  ConciseListRow({
+                    title: $r('app.string.settings_sync'),
+                    subtitle: $r('app.string.settings_sync_hint'),
+                    leadingIcon: $r('sys.symbol.cloud'),
+                    action: () => {
+                      connectNavStack().stack.pushPathByName('SyncSettings', null)
+                    },
+                  })
+                }
               }
             }.width('100%')
           }

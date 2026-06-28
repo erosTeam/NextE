@@ -1,5 +1,5 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
-import { bundleManager } from '@kit.AbilityKit'
+import { bundleManager, common } from '@kit.AbilityKit'
 import {
   AppStrings,
   ConciseListRow,
@@ -9,11 +9,16 @@ import {
   ThemeConstants,
   immersiveTitleBar,
   DiagnosticLogger,
+  SafeModeSettings,
+  SafeModeState,
+  connectSafeMode,
 } from 'shared'
 
 @ComponentV2
 export struct AboutPage {
   @Local appVersion: string = ''
+  @Local safeMode: SafeModeState = connectSafeMode();
+  @Local safeModeTapCount: number = 0;
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -33,6 +38,26 @@ export struct AboutPage {
     return '1.0.2'
   }
 
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private onVersionTap(): void {
+    if (!this.safeMode.buildEnabled || this.safeMode.unlocked) {
+      return
+    }
+    this.safeModeTapCount += 1
+    if (this.safeModeTapCount < 5) {
+      return
+    }
+    SafeModeSettings.unlock(this.ctx())
+    this.getUIContext().getPromptAction()
+      .openToast({ message: $r('app.string.safe_mode_unlocked') })
+      .catch((_error: Error) => {
+        // Unlock state is already persisted; toast failure is non-critical.
+      })
+  }
+
   @Builder
   AppHeader() {
     Column({ space: ThemeConstants.SPACE_XS }) {
@@ -46,6 +71,9 @@ export struct AboutPage {
       Text(this.versionText())
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor($r('sys.color.font_secondary'))
+        .onClick(() => {
+          this.onVersionTap()
+        })
     }
     .width('100%')
     .alignItems(HorizontalAlign.Center)
@@ -81,6 +109,9 @@ export struct AboutPage {
         title: $r('app.string.about_version'),
         trailingText: this.versionText(),
         showChevron: false,
+        action: () => {
+          this.onVersionTap()
+        },
       })
       this.DividerRow()
       ConciseListRow({

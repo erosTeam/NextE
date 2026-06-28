@@ -44,6 +44,9 @@ import {
   connectImmersiveMaterialSettings,
   InternalQaRoutes,
   RootRefreshRegistry,
+  SafeModeGate,
+  SafeModeState,
+  connectSafeMode,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -132,6 +135,7 @@ struct Index {
   // Read so the 收藏 menu gates remote-only actions on login while the local favcat bar stays visible.
   // Mirrors HomeSourceBar gating 订阅 on isLogin.
   @Local auth: AuthState = connectAuth();
+  @Local safeMode: SafeModeState = connectSafeMode();
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   @Local currentTab: number = 0;
@@ -159,6 +163,10 @@ struct Index {
    */
   @Monitor('searchAction.pendingQuery')
   onPendingQuery(): void {
+    if (this.safeMode.restricted()) {
+      this.searchAction.clearPending()
+      return
+    }
     const pq: string = this.searchAction.pendingQuery
     if (pq.length === 0 || pq === this.lastHandledQuery) {
       return
@@ -176,8 +184,23 @@ struct Index {
     this.applyHomeTabAutoHide()
   }
 
+  @Monitor('safeMode.unlocked')
+  onSafeModeUnlocked(): void {
+    if (!this.safeMode.restricted() && (this.currentTab === 1 || this.currentTab === 2)) {
+      const target: number = this.currentTab === 1 ? 3 : 4
+      this.currentTab = target
+      this.titleScroller = this.homeTabScrollers[target]
+      setTimeout((): void => {
+        this.tabsController.changeIndex(target)
+      }, 0)
+    }
+  }
+
   // Push the search page, unless a search page is already on top (then its own @Monitor re-searches).
   private openSearch(focusOnAppear: boolean = true): void {
+    if (this.safeMode.restricted()) {
+      return
+    }
     const names: string[] = this.stack.getAllPathName()
     if (names.length === 0 || names[names.length - 1] !== 'Search') {
       this.stack.pushPathByName('Search', new SearchPageParams('', 'a', '', focusOnAppear))
@@ -188,6 +211,9 @@ struct Index {
   // navigator_util.dart:76-106). The scope + current favcat ride a route param; the search inherits the
   // last-shown favcat ('a' = all favorites → favorites.php omits favcat → searches all).
   private openFavoriteSearch(): void {
+    if (this.safeMode.restricted()) {
+      return
+    }
     const favcat: string = connectFavSelection().selectedFavcat
     const names: string[] = this.stack.getAllPathName()
     if (names.length === 0 || names[names.length - 1] !== 'Search') {
@@ -196,6 +222,9 @@ struct Index {
   }
 
   private openFavoriteSelector(): void {
+    if (this.safeMode.restricted()) {
+      return
+    }
     this.stack.pushPathByName('FavoriteSelector', null)
   }
 
@@ -207,6 +236,10 @@ struct Index {
     this.lastHandledSignal = signal
     const sep: number = signal.indexOf(':')
     const uri: string = sep >= 0 ? signal.substring(sep + 1) : signal
+    if (this.safeMode.restricted()) {
+      DiagnosticLogger.info('nav', 'safe_mode_deep_link_blocked', uri)
+      return
+    }
     const currentUri: string = EhUrlRouter.toCurrentHost(uri, EhConstants.baseUrl(connectSiteMode().isEx))
     if (uri === InternalQaRoutes.COVER_FALLBACK_PROBE_URI) {
       DiagnosticLogger.info('nav', 'internal_qa_open', 'cover-fallback')
@@ -275,19 +308,30 @@ struct Index {
   }
 
   private tabTitle(): ResourceStr {
-    if (this.currentTab === 1) {
+    const tab: number = this.logicalCurrentTab()
+    if (tab === 1) {
       return $r('app.string.tab_favorites')
     }
-    if (this.currentTab === 2) {
+    if (tab === 2) {
       return $r('app.string.tab_toplist')
     }
-    if (this.currentTab === 3) {
+    if (tab === 3) {
       return $r('app.string.tab_download')
     }
-    if (this.currentTab === 4) {
+    if (tab === 4) {
       return $r('app.string.tab_settings')
     }
     return $r('app.string.tab_gallery')
+  }
+
+  private logicalCurrentTab(): number {
+    if (this.safeMode.restricted() && this.currentTab === 1) {
+      return 3
+    }
+    if (this.safeMode.restricted() && this.currentTab === 2) {
+      return 4
+    }
+    return this.currentTab
   }
 
   private scrollActiveTabToTop(): void {
@@ -445,6 +489,22 @@ struct Index {
     return { 'value': items, 'maxCount': 3 }
   }
 
+  private safeGalleryMenu(): Record<string, Object> {
+    const layoutInner: Record<string, Object> = {
+      'label': $r('app.string.settings_view'),
+      'icon': $r('sys.symbol.square_grid_2x2'),
+      'isEnabled': true,
+      'action': () => {
+        HomeSourceBridge.publishOpenLayoutMenu()
+      },
+    }
+    const items: Record<string, Object>[] = [
+      { 'content': layoutInner },
+      this.backToTopMenuItem(),
+    ]
+    return { 'value': items, 'maxCount': 2 }
+  }
+
   private topOnlyMenu(): Record<string, Object> {
     const items: Record<string, Object>[] = [this.backToTopMenuItem()]
     return { 'value': items, 'maxCount': 1 }
@@ -528,7 +588,8 @@ struct Index {
   private titleBarOpts(): Record<string, Object> {
     const title: Record<string, Object> = { 'mainTitle': this.tabTitle() }
     const content: Record<string, Object> = { 'title': title }
-    if (this.currentTab === 0) {
+    const tab: number = this.logicalCurrentTab()
+    if (tab === 0) {
       if (this.sourceBarContent === null) {
         this.sourceBarContent = new ComponentContent<Object>(
           this.getUIContext(),
@@ -537,8 +598,8 @@ struct Index {
         )
       }
       content['bottomBuilder'] = this.bottomBuilder(this.sourceBarContent)
-      content['menu'] = this.searchMenu()
-    } else if (this.currentTab === 1) {
+      content['menu'] = this.safeMode.restricted() ? this.safeGalleryMenu() : this.searchMenu()
+    } else if (tab === 1) {
       // 收藏: the favcat switcher is always pinned so logged-out users can reach the local `l` slot.
       // Search/order/selector remain remote-account actions and are only shown when logged in.
       if (this.favcatBarContent === null) {
@@ -555,7 +616,7 @@ struct Index {
         content['menu'] = this.localFavoritesMenu()
       }
     } else {
-      if (this.currentTab === 2) {
+      if (tab === 2) {
         if (this.periodBarContent === null) {
           this.periodBarContent = new ComponentContent<Object>(
             this.getUIContext(),
@@ -566,7 +627,7 @@ struct Index {
         content['bottomBuilder'] = this.bottomBuilder(this.periodBarContent)
         content['menu'] = this.topOnlyMenu()
       }
-      if (this.currentTab === 3) {
+      if (tab === 3) {
         if (this.downloadTypeBarContent === null) {
           this.downloadTypeBarContent = new ComponentContent<Object>(
             this.getUIContext(),
@@ -580,7 +641,7 @@ struct Index {
         )
         content['menu'] = this.emptyMenu()
       }
-      if (this.currentTab !== 2 && this.currentTab !== 3) {
+      if (tab !== 2 && tab !== 3) {
         content['menu'] = this.emptyMenu()
       }
     }
@@ -591,7 +652,9 @@ struct Index {
 
   @Builder
   routerMap(name: string) {
-    if (name === 'GalleryDetail') {
+    if (!SafeModeGate.routeAllowed(name)) {
+      Column() {}
+    } else if (name === 'GalleryDetail') {
       GalleryDetailPage()
     } else if (name === 'GalleryInfo') {
       GalleryInfoPage()
@@ -687,46 +750,65 @@ struct Index {
             },
           })
         }.tabBar(this.tabIcon($r('app.string.tab_gallery'), 0))
-        TabContent() {
-          // Retained per-favcat sub-tabs own their own scrollers; FavoritesPage reports the ACTIVE favcat's
-          // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
-          FavoritesPage({
-            onScrollerReady: (scroller: Scroller) => {
-              this.setHomeActiveScroller(1, scroller)
-            },
-            onDidScroll: (offset: number, state: ScrollState) => {
-              this.onHomeTabDidScroll(1, offset, state)
-            },
-          })
-        }.tabBar(this.tabIcon($r('app.string.tab_favorites'), 1))
-        TabContent() {
-          // Retained per-period sub-tabs own their own scrollers; ToplistPage reports the ACTIVE period's
-          // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
-          ToplistPage({
-            onScrollerReady: (scroller: Scroller) => {
-              this.setHomeActiveScroller(2, scroller)
-            },
-            onDidScroll: (offset: number, state: ScrollState) => {
-              this.onHomeTabDidScroll(2, offset, state)
-            },
-          })
-        }.tabBar(this.tabIcon($r('app.string.tab_toplist'), 2))
-        TabContent() {
-          DownloadQueuePage({
-            scroller: this.homeTabScrollers[3],
-            onDidScroll: (offset: number, state: ScrollState) => {
-              this.onHomeTabDidScroll(3, offset, state)
-            },
-          })
-        }.tabBar(this.tabIcon($r('app.string.tab_download'), 3))
-        TabContent() {
-          SettingsPage({
-            scroller: this.homeTabScrollers[4],
-            onDidScroll: (offset: number, state: ScrollState) => {
-              this.onHomeTabDidScroll(4, offset, state)
-            },
-          })
-        }.tabBar(this.tabIcon($r('app.string.tab_settings'), 4))
+        if (this.safeMode.restricted()) {
+          TabContent() {
+            DownloadQueuePage({
+              scroller: this.homeTabScrollers[1],
+              onDidScroll: (offset: number, state: ScrollState) => {
+                this.onHomeTabDidScroll(1, offset, state)
+              },
+            })
+          }.tabBar(this.tabIcon($r('app.string.tab_download'), 1))
+          TabContent() {
+            SettingsPage({
+              scroller: this.homeTabScrollers[2],
+              onDidScroll: (offset: number, state: ScrollState) => {
+                this.onHomeTabDidScroll(2, offset, state)
+              },
+            })
+          }.tabBar(this.tabIcon($r('app.string.tab_settings'), 2))
+        } else {
+          TabContent() {
+            // Retained per-favcat sub-tabs own their own scrollers; FavoritesPage reports the ACTIVE favcat's
+            // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
+            FavoritesPage({
+              onScrollerReady: (scroller: Scroller) => {
+                this.setHomeActiveScroller(1, scroller)
+              },
+              onDidScroll: (offset: number, state: ScrollState) => {
+                this.onHomeTabDidScroll(1, offset, state)
+              },
+            })
+          }.tabBar(this.tabIcon($r('app.string.tab_favorites'), 1))
+          TabContent() {
+            // Retained per-period sub-tabs own their own scrollers; ToplistPage reports the ACTIVE period's
+            // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
+            ToplistPage({
+              onScrollerReady: (scroller: Scroller) => {
+                this.setHomeActiveScroller(2, scroller)
+              },
+              onDidScroll: (offset: number, state: ScrollState) => {
+                this.onHomeTabDidScroll(2, offset, state)
+              },
+            })
+          }.tabBar(this.tabIcon($r('app.string.tab_toplist'), 2))
+          TabContent() {
+            DownloadQueuePage({
+              scroller: this.homeTabScrollers[3],
+              onDidScroll: (offset: number, state: ScrollState) => {
+                this.onHomeTabDidScroll(3, offset, state)
+              },
+            })
+          }.tabBar(this.tabIcon($r('app.string.tab_download'), 3))
+          TabContent() {
+            SettingsPage({
+              scroller: this.homeTabScrollers[4],
+              onDidScroll: (offset: number, state: ScrollState) => {
+                this.onHomeTabDidScroll(4, offset, state)
+              },
+            })
+          }.tabBar(this.tabIcon($r('app.string.tab_settings'), 4))
+        }
       }
       .barOverlap(true)
       .barPosition(BarPosition.End)
@@ -780,6 +862,7 @@ struct Index {
     MainTabIcon({
       title: title,
       idx: idx,
+      iconIdx: this.safeMode.restricted() && idx === 1 ? 3 : (this.safeMode.restricted() && idx === 2 ? 4 : idx),
       currentIndex: this.currentTab,
       onSelectedClick: (i: number) => {
         this.triggerRootRefresh(i)

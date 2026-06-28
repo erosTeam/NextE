@@ -11,6 +11,10 @@ import {
   CustomProfilesSettings,
   connectNavStack,
   ThemeConstants,
+  SafeModeState,
+  connectSafeMode,
+  SAFE_MODE_PROFILE_NAME,
+  SAFE_MODE_PROFILE_UUID,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -28,6 +32,7 @@ export struct HomeSourceBar {
   @Local profiles: CustomProfilesState = connectCustomProfiles();
   @Local auth: AuthState = connectAuth();
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
+  @Local safeMode: SafeModeState = connectSafeMode();
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -37,6 +42,9 @@ export struct HomeSourceBar {
   // non-hidden profiles, login-gated (watched/favorite need an account). The TabItem label is the
   // profile name (a plain string), so a rename produces a new label → SubTabBar redraws.
   private tabs(): TabItem[] {
+    if (this.safeMode.restricted()) {
+      return [new TabItem(SAFE_MODE_PROFILE_UUID, SAFE_MODE_PROFILE_NAME)]
+    }
     const items: TabItem[] = []
     this.profiles.profiles.forEach((p: CustomProfile) => {
       if (!p.hidden && !(p.requiresLogin() && !this.auth.isLogin)) {
@@ -47,6 +55,9 @@ export struct HomeSourceBar {
   }
 
   private selectedIndex(): number {
+    if (this.safeMode.restricted()) {
+      return 0
+    }
     const items: TabItem[] = this.tabs()
     const index: number = items.findIndex((item: TabItem) => item.key === this.profiles.selectedUuid)
     return index < 0 ? 0 : index
@@ -60,6 +71,9 @@ export struct HomeSourceBar {
         selectedIndex: this.selectedIndex(),
         scrollable: true,
         onSelect: (index: number) => {
+          if (this.safeMode.restricted()) {
+            return
+          }
           const items: TabItem[] = this.tabs()
           if (index >= 0 && index < items.length) {
             CustomProfilesSettings.setSelected(this.ctx(), items[index].key)
@@ -70,21 +84,23 @@ export struct HomeSourceBar {
       // Pinned trailing affordance to manage tabs (outside the scroll so it never scrolls away).
       // Top-aligned (alignSelf) so the chip sits on the same line as the top-aligned tab labels — only
       // the chip moves; the SubTabBar position is untouched.
-      Button({ type: ButtonType.Circle }) {
-        SymbolGlyph($r('sys.symbol.list_square'))
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-          .fontColor([$r('sys.color.font_secondary')])
+      if (!this.safeMode.restricted()) {
+        Button({ type: ButtonType.Circle }) {
+          SymbolGlyph($r('sys.symbol.list_square'))
+            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+            .fontColor([$r('sys.color.font_secondary')])
+        }
+        .width(28)
+        .height(28)
+        .margin({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_SM })
+        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+        .alignSelf(ItemAlign.Start)
+        // Fine nudge so the chip's center matches the top-aligned tab labels' baseline exactly.
+        .offset({ y: -2 })
+        .onClick(() => {
+          connectNavStack().stack.pushPathByName('TabManager', null)
+        })
       }
-      .width(28)
-      .height(28)
-      .margin({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_SM })
-      .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-      .alignSelf(ItemAlign.Start)
-      // Fine nudge so the chip's center matches the top-aligned tab labels' baseline exactly.
-      .offset({ y: -2 })
-      .onClick(() => {
-        connectNavStack().stack.pushPathByName('TabManager', null)
-      })
     }
     .width('100%')
     .height('100%')

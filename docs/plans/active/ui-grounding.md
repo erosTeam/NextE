@@ -12,6 +12,16 @@ Primary action: tap the WebDAV provider row to open its child page; WebDAV confi
 Reuse or deviation: reuse NextE `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, V2 settings holder restore/persist pattern, and storage-page navigation; keep provider-specific forms/actions in their own provider card or child page instead of mixing WebDAV credentials with the overview. Deviate from the old single backup file by presenting dataset switches because WebDAV now writes manifest plus per-dataset shards and Huawei Cloud marks the same selected RDB tables.
 Verification: sync design contract, Huawei cloud sync contract, local WebDAV sharded server contract, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
 
+## Active: safe mode shell
+
+Status: active
+Reference implementation: `entry/src/main/ets/pages/Index.ets` existing HDS bottom-tab shell, `feature/home/src/main/ets/pages/HomePage.ets` custom-profile driven retained source tabs, `entry/src/main/ets/components/HomeSourceBar.ets` pinned source bar, and `feature/settings/src/main/ets/pages/SettingsPage.ets` shared settings-list primitives.
+Surface type: build-gated restricted app shell plus About-version unlock gesture.
+Primary information: restricted builds should first show Gallery fixed to the NoH profile, Download, and the reduced Settings surface; normal builds remain unchanged.
+Primary action: in a safe-mode build, tapping About version five times persists the unlock and restores the normal tabs, settings entries, login/account routes, custom tab management, search, favorites, and toplist.
+Reuse or deviation: reuse the existing HDS tab shell, `CustomProfile` gallery query path, `SecondaryListScaffold` / `ConciseListRow`, and AppStorageV2 settings restore; deviate only by centralizing visibility and route blocking in `SafeModeGate` instead of scattering raw build-flag checks.
+Verification: safe-mode build flag/static contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, and signed normal plus `NEXTE_SAFE_MODE=1` builds.
+
 ## Active: settings account summary entry
 
 Status: active

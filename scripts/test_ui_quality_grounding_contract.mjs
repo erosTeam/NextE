@@ -94,7 +94,7 @@ ok('torrent page does not render two large share buttons', !/gallery_torrent_sha
 ok('download view state is V2-only and exported', /@ObservedV2[\s\S]*class DownloadViewState/.test(state) && /@Trace\s+viewType/.test(state) && /connectDownloadView/.test(shared))
 ok('download segmented control uses V2-native TabSegmentButtonV2', /TabSegmentButtonV2/.test(downloadBar) && /SegmentButtonV2Items/.test(downloadBar))
 ok('download type bar writes DownloadViewState', /this\.downloadView\.viewType\s*=/.test(downloadBar))
-ok('Index pins download type bar in title-bar bottomBuilder', /DownloadTypeBarCCBuilder/.test(index) && /this\.currentTab === 3[\s\S]*bottomBuilder/.test(index))
+ok('Index pins download type bar in title-bar bottomBuilder', /DownloadTypeBarCCBuilder/.test(index) && /tab === 3[\s\S]*bottomBuilder/.test(index))
 ok('download page reads shared download view state', /@Local\s+downloadView:\s+DownloadViewState\s*=\s*connectDownloadView\(\)/.test(download))
 ok('download queue body no longer owns QueueSwitcher buttons', !/QueueSwitcher|SwitchButton|DOWNLOAD_VIEW_GALLERY|DOWNLOAD_VIEW_ARCHIVER/.test(download))
 ok('download queue body no longer mixes settings preview rows', !/SettingsPreviewSection|download_concurrency|download_original_images/.test(download))

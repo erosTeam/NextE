@@ -1449,6 +1449,10 @@
       "value": "ExHentai に切り替えました"
     },
     {
+      "name": "safe_mode_unlocked",
+      "value": "セーフモードを解除しました"
+    },
+    {
       "name": "site_ex_no_access",
       "value": "このアカウントは ExHentai にアクセスできません"
     },

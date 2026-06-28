@@ -6,6 +6,8 @@ import {
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
+  SafeModeState,
+  connectSafeMode,
 } from 'shared'
 
 /**
@@ -17,6 +19,7 @@ import {
 @ComponentV2
 export struct SettingsPage {
   @Local auth: AuthState = connectAuth();
+  @Local safeMode: SafeModeState = connectSafeMode();
   private stack: NavPathStack = connectNavStack().stack;
   // Index-owned scroller for this tab (title-bar scroll-up auto-hide via bindToScrollable).
   @Param scroller: Scroller = new Scroller();
@@ -70,8 +73,10 @@ export struct SettingsPage {
           }
         },
       }) {
-        ListItem() {
-          this.AccountSection()
+        if (!this.safeMode.restricted()) {
+          ListItem() {
+            this.AccountSection()
+          }
         }
         ListItem() {
           this.MainSection()
@@ -114,14 +119,31 @@ export struct SettingsPage {
   @Builder
   MainSection() {
     GroupedListSection() {
-      ConciseListRow({
-        title: $r('app.string.settings_eh'),
-        leadingIcon: $r('sys.symbol.worldclock'),
-        action: () => {
-          this.stack.pushPathByName('EhSettings', null)
-        },
-      })
-      this.rowDivider()
+      if (!this.safeMode.restricted()) {
+        ConciseListRow({
+          title: $r('app.string.settings_eh'),
+          leadingIcon: $r('sys.symbol.worldclock'),
+          action: () => {
+            this.stack.pushPathByName('EhSettings', null)
+          },
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.settings_translation'),
+          leadingIcon: $r('sys.symbol.translate'),
+          action: () => {
+            this.stack.pushPathByName('TranslationSettings', null)
+          },
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.tab_history'),
+          leadingIcon: $r('sys.symbol.clock'),
+          action: () => {
+            this.stack.pushPathByName('History', null)
+          },
+        })
+      }
       ConciseListRow({
         title: $r('app.string.settings_layout'),
         leadingIcon: $r('sys.symbol.paintpalette'),
@@ -143,22 +165,6 @@ export struct SettingsPage {
         leadingIcon: $r('sys.symbol.magnifyingglass'),
         action: () => {
           this.stack.pushPathByName('SearchSettings', null)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
-        title: $r('app.string.settings_translation'),
-        leadingIcon: $r('sys.symbol.translate'),
-        action: () => {
-          this.stack.pushPathByName('TranslationSettings', null)
-        },
-      })
-      this.rowDivider()
-      ConciseListRow({
-        title: $r('app.string.tab_history'),
-        leadingIcon: $r('sys.symbol.clock'),
-        action: () => {
-          this.stack.pushPathByName('History', null)
         },
       })
       this.rowDivider()

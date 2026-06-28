@@ -34,6 +34,7 @@ import { ThemeSettings } from './ThemeSettings'
 import { ThemeColorSettings } from './ThemeColorSettings'
 import { ImmersiveMaterialSettings } from './ImmersiveMaterialSettings'
 import { LanguageSettings } from './LanguageSettings'
+import { SafeModeSettings } from './SafeModeSettings'
 import { EhPageCacheService } from '../services/EhPageCacheService'
 import { connectSiteMode } from '../state/SiteModeState'
 import { connectHomeSource } from '../state/HomeSourceState'
@@ -60,6 +61,7 @@ export class SettingsBootstrap {
       await ThemeColorSettings.restore(context)
       await ImmersiveMaterialSettings.restore(context)
       await LanguageSettings.restore(context)
+      await SafeModeSettings.restore(context)
       await CookieJarSettings.restore(context)
       await SiteModeSettings.restore(context)
       await ListModeSettings.restore(context)

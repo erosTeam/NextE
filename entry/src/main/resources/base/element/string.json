@@ -1449,6 +1449,10 @@
       "value": "Switched to ExHentai"
     },
     {
+      "name": "safe_mode_unlocked",
+      "value": "Safe mode unlocked"
+    },
+    {
       "name": "site_ex_no_access",
       "value": "This account has no ExHentai access"
     },

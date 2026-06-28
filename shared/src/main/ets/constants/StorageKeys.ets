@@ -80,6 +80,7 @@ export class StorageKeys {
   static readonly SYNC_HUAWEI_CLOUD_LAST_RUN_AT: string = 'sync.huaweiCloud.lastRunAt'
   static readonly SYNC_HUAWEI_CLOUD_LAST_STATUS: string = 'sync.huaweiCloud.lastStatus'
   static readonly SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED: string = 'sync.huaweiCloud.lastCloudDisabled'
+  static readonly SAFE_MODE_UNLOCKED: string = 'safeMode.unlocked'
   static readonly LOCAL_BLOCK_RULES: string = 'localBlock.rules' // legacy Preferences key; RDB source of truth
   static readonly DIAGNOSTICS_ENABLED: string = 'diagnostics.enabled'
   static readonly DIAGNOSTICS_MIN_LEVEL: string = 'diagnostics.minLevel'

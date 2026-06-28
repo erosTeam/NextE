@@ -54,6 +54,8 @@ import {
   AppColorPicker,
   AppModalScaffold,
   appSheetOptions,
+  SafeModeState,
+  connectSafeMode,
 } from 'shared'
 
 /**
@@ -82,6 +84,7 @@ export struct LayoutSettingsPage {
   @Local languageMenuShown: boolean = false;
   @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   @Local immersiveMaterialMenuShown: boolean = false;
+  @Local safeMode: SafeModeState = connectSafeMode();
   @Local colorPickerShown: boolean = false;
   @Local draftCustomColor: string = '#3377FF';
   private prevColor: string = '';
@@ -747,20 +750,22 @@ export struct LayoutSettingsPage {
             }
           }
         }
-        ListItem() {
-          GroupedListSection() {
-            ConciseListRow({
-              title: $r('app.string.tag_translation_title'),
-              subtitle:
-                this.tagTranslation.version.length > 0
-                  ? this.tagTranslation.version
-                  : $r('app.string.tag_translation_not_installed'),
-              leadingIcon: $r('sys.symbol.textformat'),
-              trailingText: this.tagTranslationStateText(),
-              action: () => {
-                this.stack.pushPathByName('TagTranslationSettings', null)
-              },
-            })
+        if (!this.safeMode.restricted()) {
+          ListItem() {
+            GroupedListSection() {
+              ConciseListRow({
+                title: $r('app.string.tag_translation_title'),
+                subtitle:
+                  this.tagTranslation.version.length > 0
+                    ? this.tagTranslation.version
+                    : $r('app.string.tag_translation_not_installed'),
+                leadingIcon: $r('sys.symbol.textformat'),
+                trailingText: this.tagTranslationStateText(),
+                action: () => {
+                  this.stack.pushPathByName('TagTranslationSettings', null)
+                },
+              })
+            }
           }
         }
         ListItem() {

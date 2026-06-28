@@ -1449,6 +1449,10 @@
       "value": "已切换到 ExHentai"
     },
     {
+      "name": "safe_mode_unlocked",
+      "value": "安全模式已关闭"
+    },
+    {
       "name": "site_ex_no_access",
       "value": "该账号没有 ExHentai 访问权限"
     },

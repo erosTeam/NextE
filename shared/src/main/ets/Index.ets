@@ -146,6 +146,8 @@ export { SyncService } from './sync/SyncService'
 export { SyncLocalDataAdapter } from './sync/SyncLocalDataAdapter'
 export { WebDavSyncConfig, WebDavSyncService } from './sync/WebDavSyncService'
 export { HUAWEI_CLOUD_SYNC_BUILD_ENABLED } from './sync/HuaweiCloudSyncBuildFlag'
+export { SAFE_MODE_BUILD_ENABLED } from './safe/SafeModeBuildFlag'
+export { SAFE_MODE_PROFILE_NAME, SAFE_MODE_PROFILE_UUID, SafeModeGate } from './safe/SafeModeGate'
 export { HUAWEI_CLOUD_SYNC_TABLES, cloudSyncTablesForSelection } from './sync/CloudSyncFeatures'
 export { HuaweiCloudSyncService } from './sync/HuaweiCloudSyncService'
 export { HuaweiCloudSyncScheduler } from './sync/HuaweiCloudSyncScheduler'
@@ -351,6 +353,7 @@ export {
   SEARCH_SCOPE_FAVORITE,
 } from './state/SearchFilterState'
 export { AuthState, connectAuth } from './state/AuthState'
+export { SafeModeState, connectSafeMode } from './state/SafeModeState'
 export { AccountListState, connectAccountList } from './state/AccountListState'
 export {
   HomeSourceState,
@@ -389,6 +392,7 @@ export {
 
 // settings
 export { SettingsBootstrap } from './settings/SettingsBootstrap'
+export { SafeModeSettings } from './settings/SafeModeSettings'
 export { ThemeSettings } from './settings/ThemeSettings'
 export { LanguageSettings } from './settings/LanguageSettings'
 export { ThemeColorSettings, ThemeColorOption } from './settings/ThemeColorSettings'

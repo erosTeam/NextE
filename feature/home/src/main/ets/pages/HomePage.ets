@@ -13,6 +13,9 @@ import {
   CustomProfilesSettings,
   PROFILE_DISPLAY_GLOBAL,
   ListMode,
+  SafeModeState,
+  connectSafeMode,
+  SAFE_MODE_PROFILE_UUID,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { SymbolGlyphModifier } from '@kit.ArkUI'
@@ -44,6 +47,7 @@ export struct HomePage {
   @Local homeSource: HomeSourceState = connectHomeSource();
   @Local profiles: CustomProfilesState = connectCustomProfiles();
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
+  @Local safeMode: SafeModeState = connectSafeMode();
   @Local layoutMenuShown: boolean = false;
   // Index consumes the ACTIVE source's scroller for the title-bar bindToScrollable (auto-hide).
   @Event onScrollerReady?: (scroller: Scroller) => void;
@@ -57,6 +61,9 @@ export struct HomePage {
   // HomeSourceBar.tabs() exactly so the visual index lines up. watched/favorite profiles drop when
   // logged out (CustomProfile.requiresLogin()).
   private visibleSources(): string[] {
+    if (this.safeMode.restricted()) {
+      return [SAFE_MODE_PROFILE_UUID]
+    }
     const keys: string[] = []
     this.profiles.profiles.forEach((p: CustomProfile) => {
       if (!p.hidden && !(p.requiresLogin() && !this.auth.isLogin)) {
@@ -69,6 +76,9 @@ export struct HomePage {
   // Selected profile uuid clamped to a currently-visible key (so a hidden/removed/login-gated selection
   // can't strand the host on a missing key).
   private selectedKey(): string {
+    if (this.safeMode.restricted()) {
+      return SAFE_MODE_PROFILE_UUID
+    }
     const keys: string[] = this.visibleSources()
     const sel: string = this.profiles.selectedUuid
     if (keys.indexOf(sel) >= 0) {
@@ -81,6 +91,9 @@ export struct HomePage {
   // first visible profile (the host then drops the login-gated keys).
   @Monitor('auth.isLogin')
   onLoginChange(): void {
+    if (this.safeMode.restricted()) {
+      return
+    }
     if (this.auth.isLogin) {
       return
     }
@@ -104,11 +117,18 @@ export struct HomePage {
   // The layout menu now pins the display mode to the ACTIVE tab (eros_fe per-tab renderer), via the
   // light setDisplayMode (no refetch). 跟随全局 ('global') reverts the tab to the shared default.
   private setViewMode(mode: string): void {
+    if (this.safeMode.restricted()) {
+      this.layoutMenuShown = false
+      return
+    }
     CustomProfilesSettings.setDisplayMode(this.ctx(), this.selectedKey(), mode)
     this.layoutMenuShown = false
   }
 
   private activeDisplayMode(): string {
+    if (this.safeMode.restricted()) {
+      return PROFILE_DISPLAY_GLOBAL
+    }
     const p: CustomProfile | null = connectCustomProfiles().findByUuid(this.selectedKey())
     return p !== null ? p.displayMode : PROFILE_DISPLAY_GLOBAL
   }
@@ -145,6 +165,9 @@ export struct HomePage {
         selectedKey: this.selectedKey(),
         pageBuilder: gallerySourcePageBuilder,
         onSelectKey: (key: string) => {
+          if (this.safeMode.restricted()) {
+            return
+          }
           CustomProfilesSettings.setSelected(this.ctx(), key)
         },
         onVisualIndex: (value: number) => {

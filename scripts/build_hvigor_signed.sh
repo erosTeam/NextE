@@ -34,25 +34,31 @@ if ! grep -q '"signingConfigs"' build-profile.json5; then
 fi
 
 cloud_flag_file="shared/src/main/ets/sync/HuaweiCloudSyncBuildFlag.ets"
+safe_flag_file="shared/src/main/ets/safe/SafeModeBuildFlag.ets"
 app_flag_file="AppScope/app.json5"
 cloud_flag_backup=""
+safe_flag_backup=""
 app_flag_backup=""
+restore_build_flags() {
+  if [[ -n "$cloud_flag_backup" && -f "$cloud_flag_backup" ]]; then
+    cp "$cloud_flag_backup" "$cloud_flag_file"
+    rm -f "$cloud_flag_backup"
+  fi
+  if [[ -n "$safe_flag_backup" && -f "$safe_flag_backup" ]]; then
+    cp "$safe_flag_backup" "$safe_flag_file"
+    rm -f "$safe_flag_backup"
+  fi
+  if [[ -n "$app_flag_backup" && -f "$app_flag_backup" ]]; then
+    cp "$app_flag_backup" "$app_flag_file"
+    rm -f "$app_flag_backup"
+  fi
+}
 if [[ "${NEXTE_HUAWEI_CLOUD_SYNC:-1}" == "0" ]]; then
   cloud_flag_backup="$(mktemp)"
   app_flag_backup="$(mktemp)"
   cp "$cloud_flag_file" "$cloud_flag_backup"
   cp "$app_flag_file" "$app_flag_backup"
-  restore_cloud_flag() {
-    if [[ -n "$cloud_flag_backup" && -f "$cloud_flag_backup" ]]; then
-      cp "$cloud_flag_backup" "$cloud_flag_file"
-      rm -f "$cloud_flag_backup"
-    fi
-    if [[ -n "$app_flag_backup" && -f "$app_flag_backup" ]]; then
-      cp "$app_flag_backup" "$app_flag_file"
-      rm -f "$app_flag_backup"
-    fi
-  }
-  trap restore_cloud_flag EXIT
+  trap restore_build_flags EXIT
   python3 - "$cloud_flag_file" "$app_flag_file" <<'PY'
 import pathlib
 import re
@@ -81,6 +87,29 @@ next_app_text = re.sub(
 if next_app_text == app_text:
     raise SystemExit('ERROR: Huawei Cloud app flag pattern not found')
 app_path.write_text(next_app_text, encoding='utf-8')
+PY
+fi
+
+if [[ "${NEXTE_SAFE_MODE:-0}" == "1" ]]; then
+  safe_flag_backup="$(mktemp)"
+  cp "$safe_flag_file" "$safe_flag_backup"
+  trap restore_build_flags EXIT
+  python3 - "$safe_flag_file" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding='utf-8')
+next_text = re.sub(
+    r'SAFE_MODE_BUILD_ENABLED: boolean = false',
+    'SAFE_MODE_BUILD_ENABLED: boolean = true',
+    text,
+    count=1,
+)
+if next_text == text:
+    raise SystemExit('ERROR: safe mode build flag pattern not found')
+path.write_text(next_text, encoding='utf-8')
 PY
 fi
 

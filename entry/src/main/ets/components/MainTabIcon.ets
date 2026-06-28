@@ -10,6 +10,7 @@ const TAB_SYMBOL_LAYOUT_OFFSET_VP: number = 3
 export struct MainTabIcon {
   @Param title: ResourceStr = '';
   @Param idx: number = 0;
+  @Param iconIdx: number = -1;
   @Param currentIndex: number = 0;
   // Fired only when THIS already-active tab's icon is re-tapped (V2Next 连点 → scroll-to-top + pull-refresh).
   @Event onSelectedClick?: (index: number) => void;
@@ -19,16 +20,17 @@ export struct MainTabIcon {
   // _fill variant (and trophy_fill / square_stack_fill are compile-invalid despite being in the SDK
   // registry), so list_bullet_square_fill is the closest filled "ranked list" equivalent.
   private symbol(): Resource {
-    if (this.idx === 0) {
+    const glyphIndex: number = this.iconIdx >= 0 ? this.iconIdx : this.idx
+    if (glyphIndex === 0) {
       return $r('sys.symbol.square_fill_grid_2x2')
     }
-    if (this.idx === 1) {
+    if (glyphIndex === 1) {
       return $r('sys.symbol.heart_fill')
     }
-    if (this.idx === 2) {
+    if (glyphIndex === 2) {
       return $r('sys.symbol.list_bullet_square_fill')
     }
-    if (this.idx === 3) {
+    if (glyphIndex === 3) {
       return $r('sys.symbol.arrow_down_to_line_circle_fill')
     }
     return $r('sys.symbol.gearshape_fill')
