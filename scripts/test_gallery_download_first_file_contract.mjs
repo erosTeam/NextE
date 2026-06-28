@@ -83,6 +83,9 @@ ok(/parseSeeds/.test(settings) && /raw\.filePath/.test(settings) && /raw\.bytesW
 ok(/mergePreparedSeeds/.test(settings) && /previous\.filePath\.length > 0/.test(settings) &&
   /out\.bytesWritten = previous\.bytesWritten/.test(settings),
   'seed refresh preserves existing downloaded file metadata for incremental updates')
+ok(/private static sameSeed/.test(settings) &&
+  /a\.page > 0 && b\.page > 0[\s\S]*return a\.page === b\.page/.test(settings),
+  'incremental seed identity follows page number first so refreshed /s/ URLs do not redownload complete pages')
 ok(/DownloadGalleryTaskStatus\.COMPLETE/.test(repo) && /DownloadGalleryTaskStatus\.COMPLETE/.test(settings),
   'repository and legacy parser preserve complete status instead of falling back to queued')
 ok(/prefer_original/.test(repo), 'repository persists per-task original preference')

@@ -47,6 +47,14 @@ export struct DownloadSettingsPage {
     DownloadSettings.setConcurrency(this.ctx(), this.downloadSettings.concurrency + delta)
   }
 
+  private adjustRequestInterval(delta: number): void {
+    DownloadSettings.setRequestIntervalSeconds(this.ctx(), this.downloadSettings.requestIntervalSeconds + delta)
+  }
+
+  private adjustRetryCount(delta: number): void {
+    DownloadSettings.setRetryCount(this.ctx(), this.downloadSettings.retryCount + delta)
+  }
+
   @Builder
   OriginalModeMenu() {
     Menu() {
@@ -114,6 +122,44 @@ export struct DownloadSettingsPage {
                 },
                 counterIncreaseAction: () => {
                   this.adjustConcurrency(1)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.download_request_interval'),
+                subtitle: $r('app.string.download_request_interval_hint'),
+                leadingIcon: $r('sys.symbol.clock'),
+                hasCounter: true,
+                counterValue: `${this.downloadSettings.requestIntervalSeconds}`,
+                counterDecreaseEnabled:
+                  this.downloadSettings.requestIntervalSeconds > DownloadSettings.minRequestIntervalSeconds(),
+                counterIncreaseEnabled:
+                  this.downloadSettings.requestIntervalSeconds < DownloadSettings.maxRequestIntervalSeconds(),
+                showChevron: false,
+                counterDecreaseAction: () => {
+                  this.adjustRequestInterval(-1)
+                },
+                counterIncreaseAction: () => {
+                  this.adjustRequestInterval(1)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.download_retry_count'),
+                subtitle: $r('app.string.download_retry_count_hint'),
+                leadingIcon: $r('sys.symbol.arrow_clockwise'),
+                hasCounter: true,
+                counterValue: `${this.downloadSettings.retryCount}`,
+                counterDecreaseEnabled:
+                  this.downloadSettings.retryCount > DownloadSettings.minRetryCount(),
+                counterIncreaseEnabled:
+                  this.downloadSettings.retryCount < DownloadSettings.maxRetryCount(),
+                showChevron: false,
+                counterDecreaseAction: () => {
+                  this.adjustRetryCount(-1)
+                },
+                counterIncreaseAction: () => {
+                  this.adjustRetryCount(1)
                 },
               })
               this.rowDivider()

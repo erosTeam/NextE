@@ -24,6 +24,8 @@ const ok = (cond, msg) => {
 const state = read('shared/src/main/ets/state/DownloadSettingsState.ets')
 ok(/@ObservedV2\s+export class DownloadSettingsState/.test(state), 'download settings holder is V2')
 ok(/@Trace concurrency: number = 2/.test(state), 'download concurrency defaults to 2')
+ok(/@Trace requestIntervalSeconds: number = 0/.test(state), 'download request interval defaults to off')
+ok(/@Trace retryCount: number = 2/.test(state), 'download retry count defaults to 2')
 ok(/@Trace originalMode: string = DownloadOriginalMode\.ASK/.test(state),
   'download original mode defaults to ask')
 ok(/AppStorageV2\.connect\(\s*DownloadSettingsState/.test(state),
@@ -32,20 +34,39 @@ ok(/AppStorageV2\.connect\(\s*DownloadSettingsState/.test(state),
 const settings = read('shared/src/main/ets/settings/DownloadSettings.ets')
 const queueSettings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 ok(/StorageKeys\.DOWNLOAD_CONCURRENCY/.test(settings), 'settings persist concurrency key')
+ok(/StorageKeys\.DOWNLOAD_REQUEST_INTERVAL_SECONDS/.test(settings), 'settings persist request interval key')
+ok(/StorageKeys\.DOWNLOAD_RETRY_COUNT/.test(settings), 'settings persist retry count key')
 ok(/StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings), 'settings persist original-mode key')
 ok(/clampConcurrency/.test(settings) && /MIN_CONCURRENCY: number = 1/.test(settings) &&
   /MAX_CONCURRENCY: number = 8/.test(settings), 'settings clamp concurrency to a bounded range')
+ok(/clampRequestIntervalSeconds/.test(settings) && /MIN_REQUEST_INTERVAL_SECONDS: number = 0/.test(settings) &&
+  /MAX_REQUEST_INTERVAL_SECONDS: number = 10/.test(settings), 'settings clamp request interval to a bounded range')
+ok(/clampRetryCount/.test(settings) && /MIN_RETRY_COUNT: number = 0/.test(settings) &&
+  /MAX_RETRY_COUNT: number = 5/.test(settings), 'settings clamp retry count to a bounded range')
 ok(/normalizeOriginalMode/.test(settings) && /DownloadOriginalMode\.OFF/.test(settings) &&
   /DownloadOriginalMode\.ALWAYS/.test(settings), 'settings normalize original mode enum values')
 ok(/static async restore/.test(settings) && /connectDownloadSettings\(\)/.test(settings),
   'settings restore preferences into the V2 holder')
 ok(/static async setConcurrency/.test(settings) && /store\.putSync\(StorageKeys\.DOWNLOAD_CONCURRENCY/.test(settings),
   'settings write concurrency to preferences')
+ok(/static async setRequestIntervalSeconds/.test(settings) &&
+  /store\.putSync\(StorageKeys\.DOWNLOAD_REQUEST_INTERVAL_SECONDS/.test(settings),
+  'settings write request interval to preferences')
+ok(/static async setRetryCount/.test(settings) && /store\.putSync\(StorageKeys\.DOWNLOAD_RETRY_COUNT/.test(settings),
+  'settings write retry count to preferences')
 ok(/static async setOriginalMode/.test(settings) && /store\.putSync\(StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings),
   'settings write original mode to preferences')
 ok(/connectDownloadSettings\(\)\.concurrency/.test(queueSettings) &&
+  /connectDownloadSettings\(\)\.requestIntervalSeconds/.test(queueSettings) &&
+  /connectDownloadSettings\(\)\.retryCount/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.originalMode/.test(queueSettings),
   'gallery image executor consumes persisted download policy')
+ok(/batchIndex > 0/.test(queueSettings) &&
+  /DownloadQueueSettings\.delay\(connectDownloadSettings\(\)\.requestIntervalSeconds \* 1000\)/.test(queueSettings),
+  'gallery image executor throttles later image batches by the persisted request interval')
+ok(/downloadSeedToFile\(context, gid, seed, useOriginal, retryCount\)/.test(queueSettings) &&
+  /Math\.round\(retryCount\) \+ 1/.test(queueSettings),
+  'gallery image executor retries each failed image according to the persisted retry count')
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok(/import \{ DownloadSettings \}/.test(bootstrap) && /await DownloadSettings\.restore\(context\)/.test(bootstrap),
@@ -77,6 +98,12 @@ ok(/@Local downloadSettings: DownloadSettingsState = connectDownloadSettings\(\)
 ok(/download_concurrency/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
   /DownloadSettings\.setConcurrency/.test(downloadPage),
   'download settings page exposes persisted image concurrency as a counter')
+ok(/download_request_interval/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
+  /DownloadSettings\.setRequestIntervalSeconds/.test(downloadPage),
+  'download settings page exposes persisted request interval as a counter')
+ok(/download_retry_count/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
+  /DownloadSettings\.setRetryCount/.test(downloadPage),
+  'download settings page exposes persisted retry count as a counter')
 ok(/download_original_images/.test(downloadPage) && /trailingDropdown: true/.test(downloadPage) &&
   /DownloadSettings\.setOriginalMode/.test(downloadPage),
   'download settings page exposes original-image policy as a native dropdown')
@@ -96,6 +123,10 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
   ok(strings.includes('"name": "settings_download"'), `${locale}: settings_download exists`)
   ok(strings.includes('"name": "download_concurrency_hint"'), `${locale}: download_concurrency_hint exists`)
+  ok(strings.includes('"name": "download_request_interval"'), `${locale}: download_request_interval exists`)
+  ok(strings.includes('"name": "download_request_interval_hint"'), `${locale}: download_request_interval_hint exists`)
+  ok(strings.includes('"name": "download_retry_count"'), `${locale}: download_retry_count exists`)
+  ok(strings.includes('"name": "download_retry_count_hint"'), `${locale}: download_retry_count_hint exists`)
   ok(strings.includes('"name": "download_original_hint"'), `${locale}: download_original_hint exists`)
   ok(strings.includes('"name": "download_original_ask"'), `${locale}: download_original_ask exists`)
   ok(strings.includes('"name": "download_original_always"'), `${locale}: download_original_always exists`)

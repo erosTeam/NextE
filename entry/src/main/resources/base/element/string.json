@@ -161,6 +161,22 @@
       "value": "Images downloading at once."
     },
     {
+      "name": "download_request_interval",
+      "value": "Download interval"
+    },
+    {
+      "name": "download_request_interval_hint",
+      "value": "Seconds to wait between image batches."
+    },
+    {
+      "name": "download_retry_count",
+      "value": "Retry count"
+    },
+    {
+      "name": "download_retry_count_hint",
+      "value": "Retries per failed image."
+    },
+    {
       "name": "download_original_hint",
       "value": "Resized images or original files."
     },

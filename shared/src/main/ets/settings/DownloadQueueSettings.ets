@@ -257,6 +257,7 @@ export class DownloadQueueSettings {
     gid: string,
     token: string,
   ): Promise<void> {
+    let batchIndex: number = 0
     while (true) {
       const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
       if (task === null) {
@@ -276,6 +277,9 @@ export class DownloadQueueSettings {
         )
         return
       }
+      if (batchIndex > 0) {
+        await DownloadQueueSettings.delay(connectDownloadSettings().requestIntervalSeconds * 1000)
+      }
       await DownloadQueueSettings.updateDownloadTaskStatus(
         context,
         gid,
@@ -285,9 +289,10 @@ export class DownloadQueueSettings {
       )
       const useOriginal: boolean = task.preferOriginal ||
         connectDownloadSettings().originalMode === DownloadOriginalMode.ALWAYS
+      const retryCount: number = connectDownloadSettings().retryCount
       const jobs: Promise<DownloadSeedResult>[] = []
       pending.forEach((seed: DownloadImageSeed) => {
-        jobs.push(DownloadQueueSettings.downloadSeedToFile(context, gid, seed, useOriginal))
+        jobs.push(DownloadQueueSettings.downloadSeedToFile(context, gid, seed, useOriginal, retryCount))
       })
       const results: DownloadSeedResult[] = await Promise.all(jobs)
       const hasError: boolean = await DownloadQueueSettings.applyDownloadResults(
@@ -299,6 +304,7 @@ export class DownloadQueueSettings {
       if (hasError) {
         return
       }
+      batchIndex++
     }
   }
 
@@ -315,20 +321,26 @@ export class DownloadQueueSettings {
     gid: string,
     seed: DownloadImageSeed,
     useOriginal: boolean,
+    retryCount: number,
   ): Promise<DownloadSeedResult> {
     const result: DownloadSeedResult = new DownloadSeedResult()
     result.originalSeed = seed.copy()
-    try {
-      const image: EhGalleryImage = DownloadQueueSettings.seedToImage(seed)
-      const imageUrl: string = useOriginal
-        ? await ImageResolveService.getInstance().resolveOriginal(image)
-        : await ImageResolveService.getInstance().resolve(image)
-      const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)
-      result.image = image.copy()
-      result.filePath = `${dir}/${DownloadQueueSettings.fileNameForSeed(seed, imageUrl)}`
-      result.bytes = await EhHttpClient.getInstance().downloadBinaryToFile(imageUrl, result.filePath)
-    } catch (error) {
-      result.error = (error as Error).message
+    const attempts: number = Math.max(1, Math.round(retryCount) + 1)
+    for (let i: number = 0; i < attempts; i++) {
+      try {
+        const image: EhGalleryImage = DownloadQueueSettings.seedToImage(seed)
+        const imageUrl: string = useOriginal
+          ? await ImageResolveService.getInstance().resolveOriginal(image)
+          : await ImageResolveService.getInstance().resolve(image)
+        const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)
+        result.image = image.copy()
+        result.filePath = `${dir}/${DownloadQueueSettings.fileNameForSeed(seed, imageUrl)}`
+        result.bytes = await EhHttpClient.getInstance().downloadBinaryToFile(imageUrl, result.filePath)
+        result.error = ''
+        return result
+      } catch (error) {
+        result.error = (error as Error).message
+      }
     }
     return result
   }
@@ -621,10 +633,21 @@ export class DownloadQueueSettings {
   }
 
   private static sameSeed(a: DownloadImageSeed, b: DownloadImageSeed): boolean {
+    if (a.page > 0 && b.page > 0) {
+      return a.page === b.page
+    }
     if (a.imagePageUrl.length > 0 && b.imagePageUrl.length > 0) {
       return a.imagePageUrl === b.imagePageUrl
     }
-    return a.page === b.page
+    return false
+  }
+
+  private static delay(ms: number): Promise<void> {
+    return new Promise<void>((resolve: () => void) => {
+      setTimeout(() => {
+        resolve()
+      }, Math.max(0, Math.round(ms)))
+    })
   }
 
   private static parse(raw: string): DownloadGalleryTask[] {

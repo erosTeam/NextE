@@ -161,6 +161,22 @@
       "value": "同时下载图片数。"
     },
     {
+      "name": "download_request_interval",
+      "value": "下载间隔"
+    },
+    {
+      "name": "download_request_interval_hint",
+      "value": "每批图片请求之间等待的秒数。"
+    },
+    {
+      "name": "download_retry_count",
+      "value": "重试次数"
+    },
+    {
+      "name": "download_retry_count_hint",
+      "value": "单张图片失败后的重试次数。"
+    },
+    {
       "name": "download_original_hint",
       "value": "压缩图或原始文件。"
     },

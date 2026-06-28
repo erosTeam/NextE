@@ -10,9 +10,21 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 const MIN_CONCURRENCY: number = 1
 const MAX_CONCURRENCY: number = 8
+const MIN_REQUEST_INTERVAL_SECONDS: number = 0
+const MAX_REQUEST_INTERVAL_SECONDS: number = 10
+const MIN_RETRY_COUNT: number = 0
+const MAX_RETRY_COUNT: number = 5
 
 function clampConcurrency(value: number): number {
   return Math.min(MAX_CONCURRENCY, Math.max(MIN_CONCURRENCY, Math.round(value)))
+}
+
+function clampRequestIntervalSeconds(value: number): number {
+  return Math.min(MAX_REQUEST_INTERVAL_SECONDS, Math.max(MIN_REQUEST_INTERVAL_SECONDS, Math.round(value)))
+}
+
+function clampRetryCount(value: number): number {
+  return Math.min(MAX_RETRY_COUNT, Math.max(MIN_RETRY_COUNT, Math.round(value)))
 }
 
 function normalizeOriginalMode(value: string): string {
@@ -35,12 +47,17 @@ export class DownloadSettings {
         StorageKeys.STORE_SETTINGS,
       )
       const concurrency: number = store.getSync(StorageKeys.DOWNLOAD_CONCURRENCY, 2) as number
+      const requestIntervalSeconds: number =
+        store.getSync(StorageKeys.DOWNLOAD_REQUEST_INTERVAL_SECONDS, 0) as number
+      const retryCount: number = store.getSync(StorageKeys.DOWNLOAD_RETRY_COUNT, 2) as number
       const originalMode: string = store.getSync(
         StorageKeys.DOWNLOAD_ORIGINAL,
         DownloadOriginalMode.ASK,
       ) as string
       const state: DownloadSettingsState = connectDownloadSettings()
       state.concurrency = clampConcurrency(concurrency)
+      state.requestIntervalSeconds = clampRequestIntervalSeconds(requestIntervalSeconds)
+      state.retryCount = clampRetryCount(retryCount)
       state.originalMode = normalizeOriginalMode(originalMode)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_restore_failed', (error as Error).message)
@@ -83,11 +100,63 @@ export class DownloadSettings {
     }
   }
 
+  static async setRequestIntervalSeconds(
+    context: common.UIAbilityContext,
+    seconds: number,
+  ): Promise<void> {
+    const value: number = clampRequestIntervalSeconds(seconds)
+    connectDownloadSettings().requestIntervalSeconds = value
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_REQUEST_INTERVAL_SECONDS, value)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_request_interval_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setRetryCount(
+    context: common.UIAbilityContext,
+    retryCount: number,
+  ): Promise<void> {
+    const value: number = clampRetryCount(retryCount)
+    connectDownloadSettings().retryCount = value
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_RETRY_COUNT, value)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_retry_save_failed', (error as Error).message)
+    }
+  }
+
   static minConcurrency(): number {
     return MIN_CONCURRENCY
   }
 
   static maxConcurrency(): number {
     return MAX_CONCURRENCY
+  }
+
+  static minRequestIntervalSeconds(): number {
+    return MIN_REQUEST_INTERVAL_SECONDS
+  }
+
+  static maxRequestIntervalSeconds(): number {
+    return MAX_REQUEST_INTERVAL_SECONDS
+  }
+
+  static minRetryCount(): number {
+    return MIN_RETRY_COUNT
+  }
+
+  static maxRetryCount(): number {
+    return MAX_RETRY_COUNT
   }
 }

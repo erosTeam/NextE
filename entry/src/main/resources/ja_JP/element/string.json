@@ -161,6 +161,22 @@
       "value": "同時ダウンロード画像数。"
     },
     {
+      "name": "download_request_interval",
+      "value": "ダウンロード間隔"
+    },
+    {
+      "name": "download_request_interval_hint",
+      "value": "画像バッチ間で待機する秒数。"
+    },
+    {
+      "name": "download_retry_count",
+      "value": "リトライ回数"
+    },
+    {
+      "name": "download_retry_count_hint",
+      "value": "画像ごとの失敗時リトライ回数。"
+    },
+    {
       "name": "download_original_hint",
       "value": "リサイズ画像または元画像。"
     },

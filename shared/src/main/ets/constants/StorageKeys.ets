@@ -40,6 +40,8 @@ export class StorageKeys {
   static readonly READING_AUTO_PAGE_SEC: string = 'reading.autoPageSeconds'
   static readonly DOWNLOAD_DIR: string = 'download.dir'
   static readonly DOWNLOAD_CONCURRENCY: string = 'download.concurrency'
+  static readonly DOWNLOAD_REQUEST_INTERVAL_SECONDS: string = 'download.requestIntervalSeconds'
+  static readonly DOWNLOAD_RETRY_COUNT: string = 'download.retryCount'
   static readonly DOWNLOAD_ORIGINAL: string = 'download.original'
   static readonly DOWNLOAD_GALLERY_QUEUE: string = 'download.galleryQueue' // legacy Preferences key; RDB source of truth
   static readonly SECURITY_AUTO_LOCK_SEC: string = 'security.autoLockSeconds'
