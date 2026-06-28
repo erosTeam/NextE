@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: modal scaffold nested vertical scroll
+
+Status: active
+Reference implementation: `shared/src/main/ets/components/AppModalScaffold.ets` shared sheet chrome and its internal scrollable `List`, used by `feature/search/src/main/ets/components/SearchFilterSheet.ets`.
+Surface type: Shared half-modal content scroll gesture handoff; no visual redesign.
+Primary information: modal content remains scrollable while top-edge downward drags can reach the sheet container.
+Primary action: drag inside modal content scrolls the list first, then hands edge overflow to the parent sheet for dismissal/resize.
+Reuse or deviation: reuse ArkUI `nestedScroll` on the existing modal `List`; add only `SELF_FIRST` to both vertical directions.
+Verification: V1 decorator inventory, UI grounding contract, diff check, and signed HarmonyOS build.
+
 ## Active: waterfall tag strip nested horizontal scroll
 
 Status: active

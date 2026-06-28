@@ -63,6 +63,10 @@ export struct AppModalScaffold {
         .padding({ left: this.contentHorizontalPadding, right: this.contentHorizontalPadding })
         .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.None)
+        .nestedScroll({
+          scrollForward: NestedScrollMode.SELF_FIRST,
+          scrollBackward: NestedScrollMode.SELF_FIRST,
+        })
       }
       .titleBar({
         enableComponentSafeArea: this.enableComponentSafeArea,
