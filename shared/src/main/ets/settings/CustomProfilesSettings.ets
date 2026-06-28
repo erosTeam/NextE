@@ -18,6 +18,7 @@ import {
   BUILTIN_WATCHED_UUID,
 } from '../model/CustomProfile'
 import { CustomProfilesRepository } from '../storage/CustomProfilesRepository'
+import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
 
 /** Flat persisted snapshot of a CustomProfile (every field, plain types, safe defaults). */
 class CustomProfileSnapshot {
@@ -78,8 +79,12 @@ export class CustomProfilesSettings {
       if (CustomProfilesSettings.indexOfUuid(profiles, selected) < 0) {
         selected = profiles[0].uuid
       }
-      state.profiles = profiles
+      const migratedProfiles: CustomProfile[] = CustomProfilesSettings.migrateStarterNames(profiles)
+      state.profiles = migratedProfiles
       state.selectedUuid = selected
+      if (migratedProfiles !== profiles) {
+        await CustomProfilesSettings.persistAll(context)
+      }
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_restore_failed', (error as Error).message)
     }
@@ -213,6 +218,7 @@ export class CustomProfilesSettings {
     connectCustomProfiles().selectedUuid = uuid
     try {
       await CustomProfilesRepository.saveSelected(context, uuid)
+      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'custom_profile_selection')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_select_failed', (error as Error).message)
     }
@@ -238,6 +244,7 @@ export class CustomProfilesSettings {
     const state: CustomProfilesState = connectCustomProfiles()
     state.profiles = await CustomProfilesRepository.loadProfiles(context)
     state.selectedUuid = await CustomProfilesRepository.loadSelected(context)
+    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'custom_profiles_restore_backup')
   }
 
   // ---- internals ----
@@ -246,6 +253,7 @@ export class CustomProfilesSettings {
     try {
       const state: CustomProfilesState = connectCustomProfiles()
       await CustomProfilesRepository.replaceAll(context, state.profiles, state.selectedUuid)
+      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'custom_profiles')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_save_failed', (error as Error).message)
     }
@@ -274,7 +282,7 @@ export class CustomProfilesSettings {
         PROFILE_TYPE_WATCHED,
       ),
     )
-    // Two deletable starter examples that show how a saved-search tab works (eros_fe 汉化 / 选集).
+    // Two deletable starter examples that show how a saved-search tab works (中文 / 选集).
     out.push(
       CustomProfilesSettings.starter(AppStrings.get('tab_seed_chinese'), 'language:chinese'),
     )
@@ -300,6 +308,22 @@ export class CustomProfilesSettings {
     p.listType = PROFILE_TYPE_GALLERY
     p.searchText = searchText
     return p
+  }
+
+  private static migrateStarterNames(profiles: CustomProfile[]): CustomProfile[] {
+    let changed: boolean = false
+    const out: CustomProfile[] = []
+    profiles.forEach((p: CustomProfile) => {
+      if (p.searchText === 'language:chinese' && p.name === '汉化') {
+        const c: CustomProfile = p.copy()
+        c.name = AppStrings.get('tab_seed_chinese')
+        out.push(c)
+        changed = true
+      } else {
+        out.push(p)
+      }
+    })
+    return changed ? out : profiles
   }
 
   /** Map the legacy HOME_SOURCE preference to a built-in uuid (''→default / popular / watched). */

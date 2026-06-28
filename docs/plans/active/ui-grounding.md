@@ -32,6 +32,16 @@ Primary action: user completes the existing WebView login form; the app loads th
 Reuse or deviation: reuse the existing WebView session and `UserProfileService.applyProfileDomPayload()` path instead of adding a second parser or new setting; deviate only by delaying the login success pop until the best-effort profile capture attempt finishes or fails.
 Verification: UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and logged-in Settings/Account screenshots showing clipped avatar and stable account-entry hierarchy.
 
+## Active: custom-tab tag suggestion labels
+
+Status: active
+Reference implementation: `feature/search/src/main/ets/pages/GallerySearchPage.ets` localized tag suggestion display and `shared/src/main/ets/components/TagQueryComposer.ets` custom-tab saved-search tag composer.
+Surface type: custom home sub-tab editor tag keyword suggestion list.
+Primary information: local translation matches should show the localized namespace label plus localized tag name, while the raw EH query remains visible as supporting text.
+Primary action: tapping a suggestion appends the raw namespace/key exact EH tag to the custom tab search query.
+Reuse or deviation: reuse the Search page's namespace-label mapping and existing `TagQueryComposer` suggestion flow; deviate only from the previous raw `expandNamespace()` title so translated candidates no longer display an English namespace prefix.
+Verification: search tagsuggest contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, and signed HarmonyOS build.
+
 ## Active: reader gesture probe
 
 Status: active

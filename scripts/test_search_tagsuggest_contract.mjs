@@ -16,6 +16,7 @@ const constants = read('shared/src/main/ets/constants/EhConstants.ets')
 const vm = read('feature/search/src/main/ets/viewmodel/SearchViewModel.ets')
 const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 const field = read('feature/search/src/main/ets/components/SearchPageField.ets')
+const composer = read('shared/src/main/ets/components/TagQueryComposer.ets')
 const suggestionStart = page.indexOf('@Builder\n  SearchSuggestionView')
 const suggestionEnd = page.indexOf("  @Monitor('filter.applySeq')")
 const suggestionView = suggestionStart >= 0 && suggestionEnd > suggestionStart
@@ -64,6 +65,10 @@ ok('Search page displays localized suggestion names with namespace prefix but st
   /suggestionNamespaceLabel\(namespace: string\): string \{[\s\S]*AppStrings\.get\('tag_ns_female'\)[\s\S]*return ns/.test(page) &&
   /suggestionTitle\(s: EhTagSuggestion\)[\s\S]*this\.suggestionNamespaceLabel\(s\.namespace\)[\s\S]*s\.displayName[\s\S]*this\.formatSuggestionQuery\(s\)/.test(page) &&
   /private acceptSuggestion\(s: EhTagSuggestion\): void \{[\s\S]*this\.formatSuggestionQuery\(s\)/.test(page))
+ok('Shared custom-tag composer localizes suggestion namespace labels but commits raw EH tags',
+  /suggestionNamespaceLabel\(namespace: string\): string \{[\s\S]*AppStrings\.get\('tag_ns_female'\)[\s\S]*return ns/.test(composer) &&
+  /suggestionTitle\(s: EhTagSuggestion\)[\s\S]*this\.suggestionNamespaceLabel\(s\.namespace\)[\s\S]*s\.displayName[\s\S]*EhConstants\.exactTagSearchQuery\(s\.namespace, s\.text\)/.test(composer) &&
+  /private addFromSuggestion\(s: EhTagSuggestion\): void \{[\s\S]*tags\.push\(new QueryTag\(ns, s\.text, TagRelation\.AND\)\)/.test(composer))
 ok('Search page replaces only the last token and re-seeds the input field',
   /private replaceLastToken\(query: string, replacement: string\): string/.test(page) &&
   /this\.fieldState\.seedSeq = this\.fieldState\.seedSeq \+ 1/.test(page))

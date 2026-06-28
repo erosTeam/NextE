@@ -148,6 +148,8 @@ export { WebDavSyncConfig, WebDavSyncService } from './sync/WebDavSyncService'
 export { HUAWEI_CLOUD_SYNC_BUILD_ENABLED } from './sync/HuaweiCloudSyncBuildFlag'
 export { HUAWEI_CLOUD_SYNC_TABLES, cloudSyncTablesForSelection } from './sync/CloudSyncFeatures'
 export { HuaweiCloudSyncService } from './sync/HuaweiCloudSyncService'
+export { HuaweiCloudSyncScheduler } from './sync/HuaweiCloudSyncScheduler'
+export type { HuaweiCloudSyncExecutor } from './sync/HuaweiCloudSyncScheduler'
 export {
   SYNC_FILE_NAME,
   SYNC_WEBDAV_MANIFEST_FILE,

@@ -18,6 +18,7 @@ const must = (cond, msg) => {
 const model = read('shared/src/main/ets/model/CustomProfile.ets')
 const settings = read('shared/src/main/ets/settings/CustomProfilesSettings.ets')
 const keys = read('shared/src/main/ets/constants/StorageKeys.ets')
+const zhStrings = read('entry/src/main/resources/zh_CN/element/string.json')
 
 // --- 1. extract the declared fields from the CustomProfile class body ---
 const classMatch = model.match(/export class CustomProfile \{([\s\S]*?)\n\}/)
@@ -72,6 +73,16 @@ must(settings.includes('migrateLegacyPreferences') &&
   settings.includes("store.getSync(StorageKeys.HOME_CUSTOM_PROFILES, '')") &&
   settings.includes('store.deleteSync(StorageKeys.HOME_CUSTOM_PROFILES)'),
   'legacy custom profile Preferences rows must migrate once')
+must(
+  /"name": "tab_seed_chinese",\s*"value": "中文"/.test(zhStrings),
+  'zh_CN starter Chinese custom profile label must be 中文',
+)
+must(settings.includes('migrateStarterNames(profiles)') &&
+  settings.includes("p.searchText === 'language:chinese' && p.name === '汉化'") &&
+  settings.includes("c.name = AppStrings.get('tab_seed_chinese')") &&
+  settings.includes('return changed ? out : profiles') &&
+  settings.includes('if (migratedProfiles !== profiles)'),
+  'legacy 汉化 starter name must migrate to the localized tab_seed_chinese label without rewriting unchanged profiles')
 {
   const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
   const repo = read('shared/src/main/ets/storage/CustomProfilesRepository.ets')

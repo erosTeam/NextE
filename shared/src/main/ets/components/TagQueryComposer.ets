@@ -10,6 +10,7 @@ import { connectSiteMode } from '../state/SiteModeState'
 import { EhApiPhpService } from '../network/EhApiPhpService'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { AppStrings } from '../i18n/AppStrings'
 
 const SUGGEST_DELAY_MS: number = 450
 const LOCAL_LIMIT: number = 30
@@ -287,7 +288,29 @@ export struct TagQueryComposer {
   }
 
   private suggestionTitle(s: EhTagSuggestion): string {
-    return s.displayName.length > 0 ? `${EhConstants.expandNamespace(s.namespace)}:${s.displayName}` : s.label()
+    return s.displayName.length > 0 ?
+      `${this.suggestionNamespaceLabel(s.namespace)}:${s.displayName}` :
+      EhConstants.exactTagSearchQuery(s.namespace, s.text)
+  }
+
+  private suggestionNamespaceLabel(namespace: string): string {
+    const ns: string = EhConstants.expandNamespace(namespace)
+    if (ns === 'artist') return AppStrings.get('tag_ns_artist')
+    if (ns === 'female') return AppStrings.get('tag_ns_female')
+    if (ns === 'male') return AppStrings.get('tag_ns_male')
+    if (ns === 'parody') return AppStrings.get('tag_ns_parody')
+    if (ns === 'character') return AppStrings.get('tag_ns_character')
+    if (ns === 'group') return AppStrings.get('tag_ns_group')
+    if (ns === 'language') return AppStrings.get('tag_ns_language')
+    if (ns === 'reclass') return AppStrings.get('tag_ns_reclass')
+    if (ns === 'cosplayer') return AppStrings.get('tag_ns_cosplayer')
+    if (ns === 'misc') return AppStrings.get('tag_ns_misc')
+    if (ns === 'mixed') return AppStrings.get('tag_ns_mixed')
+    if (ns === 'location') return AppStrings.get('tag_ns_location')
+    if (ns === 'other') return AppStrings.get('tag_ns_other')
+    if (ns === 'uploader') return AppStrings.get('tag_ns_uploader')
+    if (ns === 'temp') return AppStrings.get('tag_ns_temp')
+    return ns
   }
 
   @Builder

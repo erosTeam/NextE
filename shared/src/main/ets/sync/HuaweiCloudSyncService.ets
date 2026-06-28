@@ -117,6 +117,11 @@ export class HuaweiCloudSyncService {
     }
   }
 
+  static async runScheduledSync(context: common.UIAbilityContext, reason: string): Promise<boolean> {
+    DiagnosticLogger.info('sync', 'huawei_cloud_scheduled_request', `reason=${reason}`)
+    return await HuaweiCloudSyncService.cloudSyncNow(context)
+  }
+
   static async tryEnableStartup(context: common.UIAbilityContext): Promise<void> {
     if (!HuaweiCloudSyncService.available()) {
       return

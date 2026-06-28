@@ -5,6 +5,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGallery } from '../model/EhGallery'
 import { connectLocalFav } from '../state/LocalFavState'
 import { LocalFavoriteRepository } from '../storage/LocalFavoriteRepository'
+import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
 
 class LocalFavGallerySnapshot {
   gid: string = ''
@@ -43,6 +44,7 @@ export class LocalFavSettings {
   static async persist(context: common.UIAbilityContext, items: EhGallery[]): Promise<void> {
     try {
       await LocalFavoriteRepository.replaceAll(context, LocalFavSettings.snapshotGalleries(items))
+      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'local_favorites')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'localfav_save_failed', (error as Error).message)
     }
@@ -103,6 +105,7 @@ export class LocalFavSettings {
     await LocalFavoriteRepository.replaceAll(context, LocalFavSettings.snapshotGalleries(items))
     await LocalFavSettings.deleteLegacyPreference(context)
     connectLocalFav().items = await LocalFavoriteRepository.load(context)
+    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'local_favorites_restore_backup')
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {

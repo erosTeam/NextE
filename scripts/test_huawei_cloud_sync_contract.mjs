@@ -60,6 +60,8 @@ ok('signed build can temporarily disable Huawei cloud sync for public builds',
     /trap restore_cloud_flag EXIT/.test(signedBuild))
 
 const service = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
+const scheduler = read('shared/src/main/ets/sync/HuaweiCloudSyncScheduler.ets')
+const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
 ok('Huawei cloud service checks availability before permission or sync',
   /available\(\): boolean/.test(service) &&
     /if \(!HuaweiCloudSyncService\.available\(\)\)/.test(service) &&
@@ -75,6 +77,35 @@ ok('Huawei cloud service uses official RDB cloud sync entry points',
 ok('manual Huawei cloud sync follows Next2V whole marked-store cloudSync path',
   /cloudSync\(\s*relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST,\s*\(progress: relationalStore\.ProgressDetails\) =>/.test(service) &&
     !/\\.cloudSync\(\s*relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST,\s*tables,/.test(service))
+ok('Huawei cloud scheduled sync coalesces writes and foreground events',
+  /LOCAL_WRITE_DEBOUNCE_MS: number = 15000/.test(scheduler) &&
+    /FOREGROUND_DEBOUNCE_MS: number = 3000/.test(scheduler) &&
+    /MIN_ATTEMPT_INTERVAL_MS: number = 45000/.test(scheduler) &&
+    /RETRY_BASE_MS: number = 60000/.test(scheduler) &&
+    /requestAfterLocalWrite/.test(scheduler) &&
+    /requestAfterForeground/.test(scheduler) &&
+    /SyncSettings\.current\(\)\.huaweiCloudEnabled/.test(scheduler) &&
+    /connectSyncSettings\(\)\.huaweiCloudSyncing/.test(scheduler))
+ok('EntryAbility binds Huawei cloud scheduled sync and foreground startup kicks',
+  /HuaweiCloudSyncScheduler\.bindExecutor/.test(entryAbility) &&
+    /HuaweiCloudSyncService\.runScheduledSync\(context, reason\)/.test(entryAbility) &&
+    /HuaweiCloudSyncScheduler\.requestAfterForeground\(this\.context, 'startup'\)/.test(entryAbility) &&
+    /onForeground\(\): void \{[\s\S]*HuaweiCloudSyncScheduler\.requestAfterForeground\(this\.context, 'foreground'\)/.test(entryAbility))
+
+const localWriteFiles = [
+  ['shared/src/main/ets/settings/GalleryReadProgressSettings.ets', 'read_progress'],
+  ['shared/src/main/ets/settings/ViewedHistorySettings.ets', 'viewed_history'],
+  ['shared/src/main/ets/settings/LocalFavSettings.ets', 'local_favorites'],
+  ['shared/src/main/ets/settings/SearchHistorySettings.ets', 'search_history'],
+  ['shared/src/main/ets/settings/LocalBlockSettings.ets', 'local_block'],
+  ['shared/src/main/ets/settings/CustomProfilesSettings.ets', 'custom_profiles'],
+]
+for (const [file, reason] of localWriteFiles) {
+  const src = read(file)
+  ok(`${file} requests Huawei cloud sync after local writes`,
+    /HuaweiCloudSyncScheduler/.test(src) &&
+      src.includes(`requestAfterLocalWrite(context, '${reason}`))
+}
 
 const moduleJson = read('entry/src/main/module.json5')
 ok('distributed data sync permission has required user-grant metadata',
