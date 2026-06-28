@@ -34,18 +34,26 @@ if ! grep -q '"signingConfigs"' build-profile.json5; then
 fi
 
 cloud_flag_file="shared/src/main/ets/sync/HuaweiCloudSyncBuildFlag.ets"
+app_flag_file="AppScope/app.json5"
 cloud_flag_backup=""
+app_flag_backup=""
 if [[ "${NEXTE_HUAWEI_CLOUD_SYNC:-1}" == "0" ]]; then
   cloud_flag_backup="$(mktemp)"
+  app_flag_backup="$(mktemp)"
   cp "$cloud_flag_file" "$cloud_flag_backup"
+  cp "$app_flag_file" "$app_flag_backup"
   restore_cloud_flag() {
     if [[ -n "$cloud_flag_backup" && -f "$cloud_flag_backup" ]]; then
       cp "$cloud_flag_backup" "$cloud_flag_file"
       rm -f "$cloud_flag_backup"
     fi
+    if [[ -n "$app_flag_backup" && -f "$app_flag_backup" ]]; then
+      cp "$app_flag_backup" "$app_flag_file"
+      rm -f "$app_flag_backup"
+    fi
   }
   trap restore_cloud_flag EXIT
-  python3 - "$cloud_flag_file" <<'PY'
+  python3 - "$cloud_flag_file" "$app_flag_file" <<'PY'
 import pathlib
 import re
 import sys
@@ -61,6 +69,18 @@ next_text = re.sub(
 if next_text == text:
     raise SystemExit('ERROR: Huawei Cloud sync build flag pattern not found')
 path.write_text(next_text, encoding='utf-8')
+
+app_path = pathlib.Path(sys.argv[2])
+app_text = app_path.read_text(encoding='utf-8')
+next_app_text = re.sub(
+    r'"cloudStructuredDataSyncEnabled"\s*:\s*true',
+    '"cloudStructuredDataSyncEnabled": false',
+    app_text,
+    count=1,
+)
+if next_app_text == app_text:
+    raise SystemExit('ERROR: Huawei Cloud app flag pattern not found')
+app_path.write_text(next_app_text, encoding='utf-8')
 PY
 fi
 

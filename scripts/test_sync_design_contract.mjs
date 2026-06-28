@@ -24,6 +24,12 @@ ok('sync design lists durable syncable tables',
   /gallery_read_progress/.test(doc) &&
     /custom_profile_selection/.test(doc) &&
     /local_block_rules/.test(doc))
+ok('sync design records Huawei Cloud table-name versus AGC alias split',
+  /tables\[\]\.name` is the local RDB table name/.test(doc) &&
+    /tables\[\]\.alias` is the AGC data type name/.test(doc) &&
+    /GalleryReadProgress/.test(doc) &&
+    /CustomProfileSelection/.test(doc) &&
+    /Do not set both `name` and `alias` to snake_case/.test(doc))
 ok('sync design excludes cache, downloads, and secrets',
   /tag_translations/.test(doc) &&
     /download_gallery_tasks/.test(doc) &&
@@ -135,6 +141,7 @@ const huaweiCloud = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
 const cloudFeatures = read('shared/src/main/ets/sync/CloudSyncFeatures.ets')
 const moduleJson = read('entry/src/main/module.json5')
 const signedBuild = read('scripts/build_hvigor_signed.sh')
+const cloudSchema = JSON.parse(read('entry/src/main/resources/rawfile/arkdata/cloud/cloud_schema.json'))
 ok('Huawei Cloud sync defaults on and can be disabled by signed build env',
   /HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = true/.test(cloudBuildFlag) &&
     /NEXTE_HUAWEI_CLOUD_SYNC/.test(signedBuild) &&
@@ -157,6 +164,16 @@ ok('Huawei Cloud sync uses the same durable dataset table selection',
     /custom_profiles/.test(cloudFeatures) &&
     /custom_profile_selection/.test(cloudFeatures) &&
     !/tag_translations|eh_page_cache|comment_translation_cache|download_gallery_tasks/.test(cloudFeatures))
+const cloudAliasByName = new Map(cloudSchema.databases[0].tables.map((table) => [table.name, table.alias]))
+ok('Huawei Cloud schema keeps local table names but aliases AGC data type names',
+  cloudAliasByName.get('gallery_read_progress') === 'GalleryReadProgress' &&
+    cloudAliasByName.get('viewed_history') === 'ViewedHistory' &&
+    cloudAliasByName.get('local_favorites') === 'LocalFavorites' &&
+    cloudAliasByName.get('search_history') === 'SearchHistory' &&
+    cloudAliasByName.get('local_block_settings') === 'LocalBlockSettings' &&
+    cloudAliasByName.get('local_block_rules') === 'LocalBlockRules' &&
+    cloudAliasByName.get('custom_profiles') === 'CustomProfiles' &&
+    cloudAliasByName.get('custom_profile_selection') === 'CustomProfileSelection')
 ok('Huawei Cloud sync permission is declared for private builds',
   /ohos\.permission\.DISTRIBUTED_DATASYNC/.test(moduleJson))
 

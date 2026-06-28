@@ -24,6 +24,16 @@ const expectedTables = [
   'custom_profiles',
   'custom_profile_selection',
 ]
+const expectedCloudAliases = new Map([
+  ['gallery_read_progress', 'GalleryReadProgress'],
+  ['viewed_history', 'ViewedHistory'],
+  ['local_favorites', 'LocalFavorites'],
+  ['search_history', 'SearchHistory'],
+  ['local_block_settings', 'LocalBlockSettings'],
+  ['local_block_rules', 'LocalBlockRules'],
+  ['custom_profiles', 'CustomProfiles'],
+  ['custom_profile_selection', 'CustomProfileSelection'],
+])
 const forbiddenTables = [
   'tag_translations',
   'tag_translation_meta',
@@ -35,14 +45,18 @@ const forbiddenTables = [
 ]
 
 const buildFlag = read('shared/src/main/ets/sync/HuaweiCloudSyncBuildFlag.ets')
+const appJson = read('AppScope/app.json5')
 ok('Huawei cloud build flag defaults on for local development',
   /HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = true/.test(buildFlag) &&
     /Local development defaults/.test(buildFlag))
+ok('Huawei cloud structured-data app capability defaults on for local development',
+  /"cloudStructuredDataSyncEnabled": true/.test(appJson))
 
 const signedBuild = read('scripts/build_hvigor_signed.sh')
 ok('signed build can temporarily disable Huawei cloud sync for public builds',
   /NEXTE_HUAWEI_CLOUD_SYNC/.test(signedBuild) &&
     /HUAWEI_CLOUD_SYNC_BUILD_ENABLED: boolean = false/.test(signedBuild) &&
+    /"cloudStructuredDataSyncEnabled": false/.test(signedBuild) &&
     /trap restore_cloud_flag EXIT/.test(signedBuild))
 
 const service = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
@@ -58,6 +72,9 @@ ok('Huawei cloud service uses official RDB cloud sync entry points',
     /relationalStore\.DistributedType\.DISTRIBUTED_CLOUD/.test(service) &&
     /relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST/.test(service) &&
     /cloudSync/.test(service))
+ok('manual Huawei cloud sync follows Next2V whole marked-store cloudSync path',
+  /cloudSync\(\s*relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST,\s*\(progress: relationalStore\.ProgressDetails\) =>/.test(service) &&
+    !/\\.cloudSync\(\s*relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST,\s*tables,/.test(service))
 
 const moduleJson = read('entry/src/main/module.json5')
 ok('distributed data sync permission has required user-grant metadata',
@@ -77,8 +94,13 @@ for (const table of forbiddenTables) {
 const schema = JSON.parse(read('entry/src/main/resources/rawfile/arkdata/cloud/cloud_schema.json'))
 ok('cloud schema is for NextE bundle and database',
   schema.bundleName === 'com.erosteam.nexte' &&
+    schema.metaVersion === 65537 &&
+    schema.e2eeEnable === false &&
     schema.databases.length === 1 &&
-    schema.databases[0].name === 'NextE')
+    schema.databases[0].name === 'NextE' &&
+    schema.databases[0].bundleName === 'com.erosteam.nexte' &&
+    schema.databases[0].version === schema.version &&
+    schema.databases[0].autoSyncType === 0)
 
 const schemaTables = schema.databases[0].tables.map((table) => table.name)
 ok('cloud schema table set exactly matches syncable durable tables',
@@ -89,6 +111,8 @@ for (const table of forbiddenTables) {
 }
 
 for (const table of schema.databases[0].tables) {
+  ok(`${table.name} cloud alias matches AGC data type name`,
+    expectedCloudAliases.get(table.name) === table.alias)
   ok(`${table.name} has at least one duplicate-check primary key`,
     table.fields.some((field) => field.primary === true && field.dupCheckCol === true))
   ok(`${table.name} cloud fields are nullable`,

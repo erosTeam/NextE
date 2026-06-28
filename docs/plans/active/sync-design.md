@@ -72,6 +72,13 @@ The cloud schema must include only syncable durable user tables. Cache tables, g
 download queues, diagnostics, cookie jars, API keys, and WebDAV credentials stay local-only. Every synced table
 column is nullable because RDB cloud sync rejects NOT NULL cloud fields.
 
+The cloud schema follows the V2Next pattern: `tables[].name` is the local RDB table name passed to
+`setDistributedTables`, while `tables[].alias` is the AGC data type name. AGC data types currently use
+PascalCase names (`GalleryReadProgress`, `CustomProfileSelection`, etc.) and their advanced local-table
+setting points back to the snake_case RDB table. Do not set both `name` and `alias` to snake_case: device
+logs showed CloudKit then requesting `/kinds/custom_profile_selection/record`, which does not match the
+existing AGC data type and returns `kind is Invalid`.
+
 ## WebDAV File Layout
 
 WebDAV sync stores files under the configured directory:

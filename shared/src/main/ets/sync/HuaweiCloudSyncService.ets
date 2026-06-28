@@ -154,7 +154,6 @@ export class HuaweiCloudSyncService {
       store
         .cloudSync(
           relationalStore.SyncMode.SYNC_MODE_TIME_FIRST,
-          tables,
           (progress: relationalStore.ProgressDetails) => {
             DiagnosticLogger.info(
               'sync',
