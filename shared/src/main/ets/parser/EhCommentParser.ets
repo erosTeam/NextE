@@ -182,12 +182,6 @@ export class EhCommentParser {
     let s: string = html
     s = s.replace(/<br\s*\/?>/g, '\n')
     s = s.replace(/<[^>]+>/g, '')
-    s = s.replace(/&nbsp;/g, ' ')
-    s = s.replace(/&lt;/g, '<')
-    s = s.replace(/&gt;/g, '>')
-    s = s.replace(/&quot;/g, '"')
-    s = s.replace(/&#039;/g, "'")
-    s = s.replace(/&amp;/g, '&')
-    return s.trim()
+    return HtmlSelectorUtils.htmlUnescape(s).replace(/\u00A0/g, ' ').trim()
   }
 }

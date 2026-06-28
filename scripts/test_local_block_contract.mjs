@@ -151,6 +151,7 @@ const rules = [
   { blockType: 'uploader', ruleText: '^BadUploader$', enabled: true, enableRegex: true },
   { blockType: 'commentator', ruleText: 'NoisyUser', enabled: true, enableRegex: false },
   { blockType: 'comment', ruleText: 'spoiler keyword', enabled: true, enableRegex: false },
+  { blockType: 'comment', ruleText: '%realporn%', enabled: true, enableRegex: false },
   { blockType: 'comment', ruleText: '(?i)BadRegexWord', enabled: true, enableRegex: true },
   { blockType: 'comment', ruleText: '[', enabled: true, enableRegex: true },
 ]
@@ -171,6 +172,7 @@ const beforeComments = [
   { commentId: '13', author: 'ReaderC', contentText: 'BadRegexWord should hide after (?i) strip', score: '+5' },
   { commentId: '14', author: 'ReaderD', contentText: 'low score only', score: '-22' },
   { commentId: '15', author: 'ReaderE', contentText: 'invalid regex rule must not hide me', score: '+1' },
+  { commentId: '16', author: 'ReaderF', contentText: 'literal %realporn% marker', score: '+6' },
 ]
 const afterComments = beforeComments
   .filter((c) => !commentBlocked(rules, true, -20, c))
@@ -186,7 +188,7 @@ const displayComments = (mode, comments) =>
   mode === 'collapse' ? comments : comments.filter((c) => !commentBlocked(rules, true, -20, c))
 eq(displayComments('hide', beforeComments).map((c) => c.commentId), ['10', '15'],
   'hide mode removes locally-blocked comments')
-eq(displayComments('collapse', beforeComments).map((c) => c.commentId), ['10', '11', '12', '13', '14', '15'],
+eq(displayComments('collapse', beforeComments).map((c) => c.commentId), ['10', '11', '12', '13', '14', '15', '16'],
   'collapse mode keeps locally-blocked comments available for collapsed rendering')
 
 console.log('✓ local block contract: FE-style rule types, settings UI wiring, and sample before/after filtering locked')

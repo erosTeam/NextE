@@ -13,10 +13,23 @@ const RE_C7 = /<div class="c7"[^>]*>([\s\S]*?)<\/div>/
 const RE_SPAN = /<span[^>]*>([\s\S]*?)<\/span>/g
 const RE_POSTED_PARTS = /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4}),\s+(\d{1,2}):(\d{2})/
 const g1 = (t, re) => { const m = t.match(re); return m && m[1] !== undefined ? m[1] : '' }
+const namedEntities = new Map([
+  ['amp', '&'], ['lt', '<'], ['gt', '>'], ['quot', '"'], ['apos', "'"], ['nbsp', ' '],
+])
+function htmlUnescape(s) {
+  if (!s || !s.includes('&')) return s
+  return s.replace(/&(#[xX][0-9a-fA-F]+|#\d+|[a-zA-Z][a-zA-Z0-9]*);/g, (match, ent) => {
+    if (ent[0] === '#') {
+      const code = ent[1] === 'x' || ent[1] === 'X'
+        ? Number.parseInt(ent.slice(2), 16)
+        : Number.parseInt(ent.slice(1), 10)
+      return Number.isNaN(code) || code <= 0 || code > 0x10ffff ? match : String.fromCodePoint(code)
+    }
+    return namedEntities.get(ent) ?? match
+  })
+}
 function stripHtml(h) {
-  return h.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&').trim()
+  return htmlUnescape(h.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '')).replace(/\u00A0/g, ' ').trim()
 }
 const monthIndex = (m) => [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -107,6 +120,9 @@ if (downVote[0] && downVote[0].vote !== -1) fail(`downvote style should parse as
 
 const uploaderWithoutMarker = parse(`<a name="c4"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=404">real-uploader</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_0">uploader text</div></div>`)
 if (uploaderWithoutMarker[0] && !uploaderWithoutMarker[0].isUploader) fail(`score-less uploader should parse as uploader: ${JSON.stringify(uploaderWithoutMarker[0])}`)
+
+const numericEntities = parse(`<a name="c5"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=505">d</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_10">&#37;realporn&#37; &amp; &#x25;literal&#x25;</div></div>`)
+if (numericEntities[0] && numericEntities[0].contentText !== '%realporn% & %literal%') fail(`numeric entities should decode for literal matching: ${JSON.stringify(numericEntities[0])}`)
 
 // 2. Real fixture.
 const realPath = new URL('./fixtures/gdetail_real.html', import.meta.url)

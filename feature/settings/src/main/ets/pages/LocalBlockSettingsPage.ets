@@ -43,6 +43,10 @@ export struct LocalBlockSettingsPage {
     return this.block.rules.filter((rule: LocalBlockRule) => rule.blockType === type).length
   }
 
+  private rulesForType(type: string): LocalBlockRule[] {
+    return this.block.rules.filter((rule: LocalBlockRule) => rule.blockType === type)
+  }
+
   private totalRules(): number {
     return this.block.rules.length
   }
@@ -227,8 +231,8 @@ export struct LocalBlockSettingsPage {
           })
           this.rowDivider()
           ForEach(
-            this.block.rules.filter((rule: LocalBlockRule) => rule.blockType === type),
-            (rule: LocalBlockRule) => {
+            this.rulesForType(type),
+            (rule: LocalBlockRule, index: number) => {
               ConciseListRow({
                 title: rule.ruleText,
                 subtitle: rule.enableRegex
@@ -244,7 +248,9 @@ export struct LocalBlockSettingsPage {
                   this.openEditRule(rule)
                 },
               })
-              this.rowDivider()
+              if (index < this.ruleCount(type) - 1) {
+                this.rowDivider()
+              }
             },
             (rule: LocalBlockRule) => rule.id,
           )
