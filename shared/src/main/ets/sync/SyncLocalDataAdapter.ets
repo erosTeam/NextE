@@ -2,6 +2,11 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 import { LocalDataStore } from '../storage/LocalDataStore'
 import {
+  PROFILE_TYPE_GALLERY,
+  STARTER_ANTHOLOGY_UUID,
+  STARTER_CHINESE_UUID,
+} from '../model/CustomProfile'
+import {
   SYNC_APP_ID,
   SYNC_MAGIC,
   SYNC_MIN_SUPPORTED_SCHEMA_VERSION,
@@ -600,11 +605,57 @@ export class SyncLocalDataAdapter {
   }
 
   private static keepCustomProfile(map: Map<string, SyncCustomProfileRecord>, r: SyncCustomProfileRecord): void {
-    const key: string = r.scopeKey + ':' + r.uuid
+    const normalized: SyncCustomProfileRecord = SyncLocalDataAdapter.normalizeCustomProfileRecord(r)
+    const key: string = normalized.scopeKey + ':' + normalized.uuid
     const prev: SyncCustomProfileRecord | undefined = map.get(key)
-    if (prev === undefined || SyncLocalDataAdapter.effectiveTime(r.lastEditTime, r.deletedAt) >= SyncLocalDataAdapter.effectiveTime(prev.lastEditTime, prev.deletedAt)) {
-      map.set(key, r)
+    if (prev === undefined || SyncLocalDataAdapter.effectiveTime(normalized.lastEditTime, normalized.deletedAt) >= SyncLocalDataAdapter.effectiveTime(prev.lastEditTime, prev.deletedAt)) {
+      map.set(key, normalized)
     }
+  }
+
+  private static normalizeCustomProfileRecord(r: SyncCustomProfileRecord): SyncCustomProfileRecord {
+    const canonicalUuid: string = SyncLocalDataAdapter.canonicalStarterUuid(r)
+    if (canonicalUuid.length === 0 || r.uuid === canonicalUuid) {
+      return r
+    }
+    const copy: SyncCustomProfileRecord = new SyncCustomProfileRecord()
+    copy.scopeKey = r.scopeKey
+    copy.uuid = canonicalUuid
+    copy.positionIndex = r.positionIndex
+    copy.name = r.name
+    copy.listType = r.listType
+    copy.searchText = r.searchText
+    copy.selectedCats = r.selectedCats
+    copy.advancedEnabled = r.advancedEnabled
+    copy.minRating = r.minRating
+    copy.pagesFrom = r.pagesFrom
+    copy.pagesTo = r.pagesTo
+    copy.requireTorrent = r.requireTorrent
+    copy.showExpunged = r.showExpunged
+    copy.disableLanguageFilter = r.disableLanguageFilter
+    copy.disableUploaderFilter = r.disableUploaderFilter
+    copy.disableTagFilter = r.disableTagFilter
+    copy.favcat = r.favcat
+    copy.toplistTl = r.toplistTl
+    copy.displayMode = r.displayMode
+    copy.hidden = r.hidden
+    copy.builtin = r.builtin
+    copy.lastEditTime = r.lastEditTime
+    copy.deletedAt = r.deletedAt
+    return copy
+  }
+
+  private static canonicalStarterUuid(r: SyncCustomProfileRecord): string {
+    if (r.listType !== PROFILE_TYPE_GALLERY) {
+      return ''
+    }
+    if (r.searchText === 'language:chinese') {
+      return STARTER_CHINESE_UUID
+    }
+    if (r.searchText === 'other:anthology') {
+      return STARTER_ANTHOLOGY_UUID
+    }
+    return ''
   }
 
   private static mergeCustomProfileSelection(a: SyncCustomProfileSelectionRecord[], b: SyncCustomProfileSelectionRecord[]): SyncCustomProfileSelectionRecord[] {

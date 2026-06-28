@@ -8,7 +8,6 @@ import { connectCustomProfiles, CustomProfilesState } from '../state/CustomProfi
 import {
   CustomProfile,
   isValidProfileType,
-  newProfileUuid,
   PROFILE_TYPE_GALLERY,
   PROFILE_TYPE_POPULAR,
   PROFILE_TYPE_WATCHED,
@@ -16,6 +15,8 @@ import {
   BUILTIN_DEFAULT_UUID,
   BUILTIN_POPULAR_UUID,
   BUILTIN_WATCHED_UUID,
+  STARTER_CHINESE_UUID,
+  STARTER_ANTHOLOGY_UUID,
 } from '../model/CustomProfile'
 import { CustomProfilesRepository } from '../storage/CustomProfilesRepository'
 import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
@@ -42,6 +43,12 @@ class CustomProfileSnapshot {
   hidden: boolean = false
   builtin: boolean = false
   lastEditTime: number = 0
+}
+
+class CustomProfilesNormalizeResult {
+  profiles: CustomProfile[] = []
+  selectedUuid: string = ''
+  changed: boolean = false
 }
 
 const TOPLIST_PERIODS: number[] = [11, 12, 13, 15]
@@ -76,13 +83,12 @@ export class CustomProfilesSettings {
         await CustomProfilesSettings.persistAll(context)
         return
       }
-      if (CustomProfilesSettings.indexOfUuid(profiles, selected) < 0) {
-        selected = profiles[0].uuid
-      }
       const migratedProfiles: CustomProfile[] = CustomProfilesSettings.migrateStarterNames(profiles)
-      state.profiles = migratedProfiles
-      state.selectedUuid = selected
-      if (migratedProfiles !== profiles) {
+      const normalized: CustomProfilesNormalizeResult =
+        CustomProfilesSettings.normalizeStarterProfiles(migratedProfiles, selected)
+      state.profiles = normalized.profiles
+      state.selectedUuid = normalized.selectedUuid
+      if (migratedProfiles !== profiles || normalized.changed) {
         await CustomProfilesSettings.persistAll(context)
       }
     } catch (error) {
@@ -284,10 +290,18 @@ export class CustomProfilesSettings {
     )
     // Two deletable starter examples that show how a saved-search tab works (中文 / 选集).
     out.push(
-      CustomProfilesSettings.starter(AppStrings.get('tab_seed_chinese'), 'language:chinese'),
+      CustomProfilesSettings.starter(
+        STARTER_CHINESE_UUID,
+        AppStrings.get('tab_seed_chinese'),
+        'language:chinese',
+      ),
     )
     out.push(
-      CustomProfilesSettings.starter(AppStrings.get('tab_seed_anthology'), 'other:anthology'),
+      CustomProfilesSettings.starter(
+        STARTER_ANTHOLOGY_UUID,
+        AppStrings.get('tab_seed_anthology'),
+        'other:anthology',
+      ),
     )
     return out
   }
@@ -301,9 +315,9 @@ export class CustomProfilesSettings {
     return p
   }
 
-  private static starter(name: string, searchText: string): CustomProfile {
+  private static starter(uuid: string, name: string, searchText: string): CustomProfile {
     const p: CustomProfile = new CustomProfile()
-    p.uuid = newProfileUuid()
+    p.uuid = uuid
     p.name = name
     p.listType = PROFILE_TYPE_GALLERY
     p.searchText = searchText
@@ -324,6 +338,68 @@ export class CustomProfilesSettings {
       }
     })
     return changed ? out : profiles
+  }
+
+  private static normalizeStarterProfiles(
+    profiles: CustomProfile[],
+    selectedUuid: string,
+  ): CustomProfilesNormalizeResult {
+    const result: CustomProfilesNormalizeResult = new CustomProfilesNormalizeResult()
+    const out: CustomProfile[] = []
+    let selected: string = selectedUuid
+    let changed: boolean = false
+    profiles.forEach((p: CustomProfile) => {
+      const canonicalUuid: string = CustomProfilesSettings.canonicalStarterUuid(p)
+      if (canonicalUuid.length === 0) {
+        out.push(p)
+        return
+      }
+      let next: CustomProfile = p
+      if (p.uuid !== canonicalUuid) {
+        next = p.copy()
+        next.uuid = canonicalUuid
+        if (selected === p.uuid) {
+          selected = canonicalUuid
+        }
+        changed = true
+      }
+      const existingIndex: number = CustomProfilesSettings.indexOfUuid(out, canonicalUuid)
+      if (existingIndex < 0) {
+        out.push(next)
+        return
+      }
+      if (CustomProfilesSettings.profileTime(next) >= CustomProfilesSettings.profileTime(out[existingIndex])) {
+        out[existingIndex] = next
+      }
+      changed = true
+    })
+
+    const selectedIndex: number = CustomProfilesSettings.indexOfUuid(out, selected)
+    if (selectedIndex < 0 || out[selectedIndex].hidden) {
+      selected = CustomProfilesSettings.firstVisibleUuid(out)
+      changed = true
+    }
+    result.profiles = out
+    result.selectedUuid = selected
+    result.changed = changed
+    return result
+  }
+
+  private static canonicalStarterUuid(p: CustomProfile): string {
+    if (p.listType !== PROFILE_TYPE_GALLERY) {
+      return ''
+    }
+    if (p.searchText === 'language:chinese') {
+      return STARTER_CHINESE_UUID
+    }
+    if (p.searchText === 'other:anthology') {
+      return STARTER_ANTHOLOGY_UUID
+    }
+    return ''
+  }
+
+  private static profileTime(p: CustomProfile): number {
+    return Math.floor(p.lastEditTime)
   }
 
   /** Map the legacy HOME_SOURCE preference to a built-in uuid (''→default / popular / watched). */

@@ -164,6 +164,7 @@ ok('custom profiles cloud schema avoids AGC reserved uuid field name',
     !customProfileSchema.fields.some((field) => field.colName === 'uuid'))
 
 const localStore = read('shared/src/main/ets/storage/LocalDataStore.ets')
+const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
 for (const table of expectedTables) {
   ok(`local store creates ${table}`, localStore.includes(`CREATE TABLE IF NOT EXISTS ${table} (`))
 }
@@ -173,6 +174,13 @@ ok('custom profiles local RDB uses profile_uuid and migrates old uuid column',
     /migrateCustomProfilesUuidColumn/.test(localStore) &&
     /SQL_COPY_CUSTOM_PROFILES_UUID_TO_PROFILE_UUID/.test(localStore) &&
     !/['"]uuid TEXT, /.test(localStore))
+ok('custom profile sync canonicalizes seeded search tabs before uuid-based merge',
+  /normalizeCustomProfileRecord\(r\)/.test(syncAdapter) &&
+    /canonicalStarterUuid\(r\)/.test(syncAdapter) &&
+    /STARTER_CHINESE_UUID/.test(syncAdapter) &&
+    /STARTER_ANTHOLOGY_UUID/.test(syncAdapter) &&
+    /r\.searchText === 'language:chinese'/.test(syncAdapter) &&
+    /r\.searchText === 'other:anthology'/.test(syncAdapter))
 
 const syncPage = read('feature/settings/src/main/ets/pages/SyncSettingsPage.ets')
 ok('Huawei cloud settings UI is gated by provider availability',

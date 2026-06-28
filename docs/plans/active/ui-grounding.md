@@ -22,6 +22,16 @@ Primary action: in a safe-mode build, tapping About version five times persists 
 Reuse or deviation: reuse the existing HDS tab shell, `CustomProfile` gallery query path, `SecondaryListScaffold` / `ConciseListRow`, and AppStorageV2 settings restore; deviate only by centralizing visibility and route blocking in `SafeModeGate` instead of scattering raw build-flag checks.
 Verification: safe-mode build flag/static contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, and signed normal plus `NEXTE_SAFE_MODE=1` builds.
 
+## Active: normal settings root order
+
+Status: active
+Reference implementation: `feature/settings/src/main/ets/pages/SettingsPage.ets` pre-safe-mode root grouping and the existing `ConciseListRow` / `GroupedListSection` settings primitives.
+Surface type: Settings root information architecture in normal builds.
+Primary information: normal Settings should keep the user-facing category order EH, Interface, Reader, Search, Translation, History, Storage, Diagnostics, About; safe mode only hides restricted entries and must not reorder the remaining normal surface.
+Primary action: tapping a category row navigates to its existing child page; About remains reachable for the safe-mode unlock gesture.
+Reuse or deviation: reuse the existing root settings rows and safe-mode visibility guard; deviate only by placing Translation and History back after Search instead of above Interface.
+Verification: safe-mode contract normal-order assertion, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Settings screenshot/layout order evidence.
+
 ## Active: settings account summary entry
 
 Status: active

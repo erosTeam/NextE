@@ -59,6 +59,10 @@ assert(sourcePage.includes('SafeModeGate.safeProfile()'), 'safe source must use 
 const settings = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
 assert(settings.includes('if (!this.safeMode.restricted())'), 'settings root must hide restricted entries')
 assert(settings.includes("pushPathByName('About'"), 'about must remain reachable for unlock')
+assert(
+  /pushPathByName\('EhSettings'[\s\S]*pushPathByName\('LayoutSettings'[\s\S]*pushPathByName\('ReaderSettings'[\s\S]*pushPathByName\('SearchSettings'[\s\S]*pushPathByName\('TranslationSettings'[\s\S]*pushPathByName\('History'[\s\S]*pushPathByName\('CacheSettings'/.test(settings),
+  'normal settings order must stay EH -> Layout -> Reader -> Search -> Translation -> History -> Cache',
+)
 
 const cacheSettings = read('feature/settings/src/main/ets/pages/CacheSettingsPage.ets')
 assert(cacheSettings.includes('SafeModeState') && cacheSettings.includes("pushPathByName('SyncSettings'"), 'cache settings still owns normal sync entry')

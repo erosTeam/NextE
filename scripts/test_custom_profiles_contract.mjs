@@ -52,7 +52,7 @@ must(/requiresLogin\(\): boolean/.test(model), 'CustomProfile.requiresLogin() mi
 ;[
   'PROFILE_TYPE_GALLERY', 'PROFILE_TYPE_POPULAR', 'PROFILE_TYPE_WATCHED', 'PROFILE_TYPE_TOPLIST',
   'PROFILE_TYPE_FAVORITE', 'PROFILE_DISPLAY_GLOBAL', 'BUILTIN_DEFAULT_UUID', 'BUILTIN_POPULAR_UUID',
-  'BUILTIN_WATCHED_UUID',
+  'BUILTIN_WATCHED_UUID', 'STARTER_CHINESE_UUID', 'STARTER_ANTHOLOGY_UUID',
 ].forEach((c) => must(model.includes(`export const ${c}`), `CustomProfile export const missing: ${c}`))
 
 // --- 4. settings serialize()/parse() must carry every field (drift guard) ---
@@ -81,8 +81,8 @@ must(settings.includes('migrateStarterNames(profiles)') &&
   settings.includes("p.searchText === 'language:chinese' && p.name === '汉化'") &&
   settings.includes("c.name = AppStrings.get('tab_seed_chinese')") &&
   settings.includes('return changed ? out : profiles') &&
-  settings.includes('if (migratedProfiles !== profiles)'),
-  'legacy 汉化 starter name must migrate to the localized tab_seed_chinese label without rewriting unchanged profiles')
+  settings.includes('if (migratedProfiles !== profiles || normalized.changed)'),
+  'legacy 汉化 starter name must migrate to the localized tab_seed_chinese label and persist only changed restore output')
 {
   const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
   const repo = read('shared/src/main/ets/storage/CustomProfilesRepository.ets')
@@ -107,6 +107,17 @@ must(settings.includes('migrateStarterNames(profiles)') &&
 }
 ;['BUILTIN_DEFAULT_UUID', 'BUILTIN_POPULAR_UUID', 'BUILTIN_WATCHED_UUID'].forEach((u) =>
   must(settings.includes(u), `seedDefaults() missing builtin uuid: ${u}`),
+)
+must(
+  settings.includes('normalizeStarterProfiles(migratedProfiles, selected)') &&
+    settings.includes('canonicalStarterUuid(p)') &&
+    settings.includes("p.searchText === 'language:chinese'") &&
+    settings.includes("p.searchText === 'other:anthology'") &&
+    settings.includes('STARTER_CHINESE_UUID') &&
+    settings.includes('STARTER_ANTHOLOGY_UUID') &&
+    settings.includes('out[selectedIndex].hidden') &&
+    settings.includes('firstVisibleUuid(out)'),
+  'restore must canonicalize starter tab UUIDs, dedupe synced seed duplicates, and clamp selected tab to a visible profile',
 )
 
 // --- 6. storage keys declared ---

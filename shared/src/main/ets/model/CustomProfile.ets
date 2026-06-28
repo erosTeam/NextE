@@ -17,6 +17,8 @@ export const PROFILE_DISPLAY_GLOBAL: string = 'global'
 export const BUILTIN_DEFAULT_UUID: string = 'builtin-default'
 export const BUILTIN_POPULAR_UUID: string = 'builtin-popular'
 export const BUILTIN_WATCHED_UUID: string = 'builtin-watched'
+export const STARTER_CHINESE_UUID: string = 'starter-language-chinese'
+export const STARTER_ANTHOLOGY_UUID: string = 'starter-other-anthology'
 
 /**
  * One user-defined home sub-tab — eros_fe `CustomProfile` ported FLAT (ArkTS forbids the nested

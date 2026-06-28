@@ -128,21 +128,6 @@ export struct SettingsPage {
           },
         })
         this.rowDivider()
-        ConciseListRow({
-          title: $r('app.string.settings_translation'),
-          leadingIcon: $r('sys.symbol.translate'),
-          action: () => {
-            this.stack.pushPathByName('TranslationSettings', null)
-          },
-        })
-        this.rowDivider()
-        ConciseListRow({
-          title: $r('app.string.tab_history'),
-          leadingIcon: $r('sys.symbol.clock'),
-          action: () => {
-            this.stack.pushPathByName('History', null)
-          },
-        })
       }
       ConciseListRow({
         title: $r('app.string.settings_layout'),
@@ -168,6 +153,24 @@ export struct SettingsPage {
         },
       })
       this.rowDivider()
+      if (!this.safeMode.restricted()) {
+        ConciseListRow({
+          title: $r('app.string.settings_translation'),
+          leadingIcon: $r('sys.symbol.translate'),
+          action: () => {
+            this.stack.pushPathByName('TranslationSettings', null)
+          },
+        })
+        this.rowDivider()
+        ConciseListRow({
+          title: $r('app.string.tab_history'),
+          leadingIcon: $r('sys.symbol.clock'),
+          action: () => {
+            this.stack.pushPathByName('History', null)
+          },
+        })
+        this.rowDivider()
+      }
       ConciseListRow({
         title: $r('app.string.settings_cache'),
         leadingIcon: $r('sys.symbol.externaldrive'),
