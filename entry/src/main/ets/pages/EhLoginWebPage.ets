@@ -163,6 +163,7 @@ export struct EhLoginWebPage {
     const sSubmit: string = JSON.stringify(AppStrings.get('password_login_submit'))
     const sHint: string = JSON.stringify(AppStrings.get('web_login_hint'))
     const sCaptcha: string = JSON.stringify(AppStrings.get('web_login_captcha'))
+    const sWaitCaptcha: string = JSON.stringify(AppStrings.get('web_login_wait_captcha'))
     const js: string = `(function(){
       var pw=document.querySelector('input[type=password]'); if(!pw) return;
       var form=pw.closest('form'); if(!form) return;
@@ -278,6 +279,7 @@ export struct EhLoginWebPage {
       eye.onclick=function(){var h=pw.getAttribute('type')==='password';pw.setAttribute('type',h?'text':'password');eye.innerHTML=h?EYE_ON:EYE_OFF;};
       pwWrap.appendChild(eye);box.appendChild(pwWrap);
       var cw=document.createElement('div');cw.className='nx-cap nx-cap-empty';box.appendChild(cw);
+      var capStatus=document.createElement('div');capStatus.className='nx-cap-status';capStatus.textContent=${sWaitCaptcha};box.appendChild(capStatus);
       function moveCaptchaPart(n){
         if(!n || n===cw || n===box || n===user || n===pw || isSubmitControl(n)) return false;
         if(cw.contains(n)) return true;
@@ -306,18 +308,54 @@ export struct EhLoginWebPage {
         cw.style.display='flex';
         cw.className='nx-cap';
       }
+      function captchaChallengePresent(){
+        return cw.className.indexOf('nx-cap-empty')<0 || !!captchaNode(document) || captchaMedia().length>0 || !!safeQuery(form,capResponseSel);
+      }
+      function captchaTokenReady(){
+        var controls=safeQueryAll(form,capResponseSel);
+        for(var i=0;i<controls.length;i++){
+          if(cleanText(controls[i].value).length>0) return true;
+        }
+        return false;
+      }
+      function hasManualCaptchaInput(){
+        return captchaInputs().some(function(n){
+          return isTextLikeInput(n) && !safeMatches(n,capResponseSel);
+        });
+      }
+      function updateSubmitState(){
+        if(!submit) return;
+        var hasChallenge=captchaChallengePresent();
+        var ready=!hasChallenge || hasManualCaptchaInput() || captchaTokenReady();
+        submit.disabled=!ready;
+        if(submit.tagName==='INPUT'){submit.value=ready?${sSubmit}:${sWaitCaptcha};}else{submit.textContent=ready?${sSubmit}:${sWaitCaptcha};}
+        if(ready){submit.classList.remove('nx-submit-disabled');capStatus.style.display='none';}
+        else{submit.classList.add('nx-submit-disabled');capStatus.style.display='block';}
+      }
       updateCaptcha();
+      updateSubmitState();
       setTimeout(updateCaptcha, 300);
       setTimeout(updateCaptcha, 1200);
       setTimeout(updateCaptcha, 2500);
       if(window.nxLoginCaptchaObserver){window.nxLoginCaptchaObserver.disconnect();}
-      window.nxLoginCaptchaObserver=new MutationObserver(function(){ updateCaptcha(); });
-      window.nxLoginCaptchaObserver.observe(document.body,{childList:true,subtree:true});
+      window.nxLoginCaptchaObserver=new MutationObserver(function(){ updateCaptcha(); updateSubmitState(); });
+      window.nxLoginCaptchaObserver.observe(document.body,{childList:true,subtree:true,attributes:true,characterData:true});
+      if(window.nxLoginCaptchaTimer){clearInterval(window.nxLoginCaptchaTimer);}
+      window.nxLoginCaptchaTimer=setInterval(function(){ updateCaptcha(); updateSubmitState(); }, 500);
       if(submit){
         submit.removeAttribute('style');
         submit.className='nx-submit';
         if(submit.tagName==='INPUT'){submit.value=${sSubmit};}else{submit.textContent=${sSubmit};}
+        submit.addEventListener('click', function(e){
+          updateCaptcha();
+          updateSubmitState();
+          if(submit.disabled){
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }, true);
         box.appendChild(submit);
+        updateSubmitState();
       }
       // Hide the remaining forum chrome, but NEVER a node that still holds a captcha/iframe.
       Array.prototype.forEach.call(form.children, function(c){
@@ -342,7 +380,9 @@ export struct EhLoginWebPage {
         "#nx-box .nx-cap:empty,#nx-box .nx-cap.nx-cap-empty{display:none!important;margin:0!important;}",
         "#nx-box .nx-cap iframe,#nx-box .nx-cap img,#nx-box .nx-cap canvas{max-width:100%!important;align-self:center!important;}",
         "#nx-box .nx-cap input,#nx-box .nx-cap textarea,#nx-box .nx-captcha-input{font-size:16px!important;width:100%!important;height:48px!important;box-sizing:border-box!important;padding:0 18px!important;border:none!important;border-radius:19px!important;background:#fff!important;color:#1A1A1A!important;outline:none!important;-webkit-appearance:none!important;}",
-        "#nx-box input[type=submit],#nx-box button[type=submit],#nx-box .nx-submit{position:static!important;display:block!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;float:none!important;font-size:16px!important;font-weight:500!important;width:100%!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:999px!important;background:${accent}!important;color:#fff!important;border:none!important;margin:4px 0 0!important;-webkit-appearance:none!important;}"
+        "#nx-box .nx-cap-status{display:none!important;font-size:13px!important;color:#8A8F99!important;text-align:center!important;margin:-6px 0 12px!important;line-height:1.4!important;}",
+        "#nx-box input[type=submit],#nx-box button[type=submit],#nx-box .nx-submit{position:static!important;display:block!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;float:none!important;font-size:16px!important;font-weight:500!important;width:100%!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:999px!important;background:${accent}!important;color:#fff!important;border:none!important;margin:4px 0 0!important;-webkit-appearance:none!important;}",
+        "#nx-box .nx-submit-disabled,#nx-box .nx-submit:disabled{opacity:.55!important;background:#8A8F99!important;color:#fff!important;}"
       ].join('');
       document.getElementsByTagName('head')[0].appendChild(s);
     })()`

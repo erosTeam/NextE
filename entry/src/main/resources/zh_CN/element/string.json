@@ -3371,6 +3371,10 @@
     {
       "name": "web_login_captcha",
       "value": "验证码"
+    },
+    {
+      "name": "web_login_wait_captcha",
+      "value": "等待安全验证"
     }
   ]
 }

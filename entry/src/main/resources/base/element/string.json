@@ -3371,6 +3371,10 @@
     {
       "name": "web_login_captcha",
       "value": "Captcha"
+    },
+    {
+      "name": "web_login_wait_captcha",
+      "value": "Waiting for security check"
     }
   ]
 }

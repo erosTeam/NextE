@@ -3371,6 +3371,10 @@
     {
       "name": "web_login_captcha",
       "value": "認証コード"
+    },
+    {
+      "name": "web_login_wait_captcha",
+      "value": "安全確認を待機中"
     }
   ]
 }
