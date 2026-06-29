@@ -58,6 +58,8 @@ ok('repository loads and replaces queue through RDB',
     /SELECT gid, token, title/.test(repo) &&
     /INSERT OR REPLACE INTO download_gallery_tasks/.test(repo) &&
     /INSERT OR REPLACE INTO download_gallery_seeds/.test(repo) &&
+    /SQL_DELETE_SEEDS_FOR_TASK/.test(repo) &&
+    /replaceGalleryTask\(context: common\.UIAbilityContext, task: DownloadGalleryTask\)/.test(repo) &&
     /DELETE FROM download_gallery_tasks WHERE scope_key = \?/.test(repo) &&
     /DELETE FROM download_gallery_seeds WHERE scope_key = \?/.test(repo))
 ok('repository replaces gallery and archiver queues atomically',
@@ -82,6 +84,7 @@ ok('repository does not persist false complete status for partially downloaded g
 ok('repository loads and replaces archiver queue through RDB',
   /loadArchiver\(context/.test(repo) &&
     /replaceAllArchiver\(context/.test(repo) &&
+    /replaceArchiverTask\(context: common\.UIAbilityContext, task: DownloadArchiverTask\)/.test(repo) &&
     /SELECT tag, gid, token/.test(repo) &&
     /thumb_url/.test(repo) &&
     /parse_source/.test(repo) &&
@@ -104,8 +107,10 @@ const autoResumeBody = settings.match(/shouldAutoResumeGalleryTask\(task: Downlo
 ok('settings facade uses RDB and only reads old Preferences for migration',
   /DownloadQueueRepository\.load\(context\)/.test(settings) &&
     /DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
+    /DownloadQueueRepository\.replaceGalleryTask\(context, task\)/.test(settings) &&
     /DownloadQueueRepository\.loadArchiver\(context\)/.test(settings) &&
     /DownloadQueueRepository\.replaceAllArchiver\(context, tasks\)/.test(settings) &&
+    /DownloadQueueRepository\.replaceArchiverTask\(context, task\)/.test(settings) &&
     /migrateLegacyPreferences/.test(settings) &&
     /store\.getSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings) &&
     /store\.deleteSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE\)/.test(settings))
@@ -118,6 +123,8 @@ ok('download directories keep per-task metadata sidecars for queue recovery',
     /class DownloadArchiverTaskMetadata/.test(settings) &&
     /writeGalleryMetadataTasks\(context, tasks\)/.test(settings) &&
     /writeArchiverMetadataTasks\(context, tasks\)/.test(settings) &&
+    /writeGalleryMetadataTask\(context, task\)/.test(settings) &&
+    /writeArchiverMetadataTask\(context, task\)/.test(settings) &&
     /JSON\.stringify\(\[DownloadQueueSettings\.galleryTaskMetadata\(task\)\]\)/.test(settings) &&
     /JSON\.stringify\(\[DownloadQueueSettings\.archiverTaskMetadata\(task\)\]\)/.test(settings) &&
     !/JSON\.stringify\(\[task\]\)/.test(settings) &&
@@ -200,7 +207,7 @@ ok('pause marks running gallery workers cancelled while keeping the task resumab
   /static async pauseGalleryDownload/.test(settings) &&
     /galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)[\s\S]*updateGalleryTaskAfterPause\(context, gid, token\)/.test(settings) &&
     /updateGalleryStreamProgress\([\s\S]*const key: string = DownloadQueueSettings\.taskKey\(gid, token\)[\s\S]*cancelledGalleryDownloads\.has\(key\)[\s\S]*return[\s\S]*task\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
-    /updateGalleryTaskAfterPause[\s\S]*task\.status = DownloadGalleryTaskStatus\.PAUSED[\s\S]*task\.prepareError = ''[\s\S]*persist\(context, next\)/.test(settings))
+    /updateGalleryTaskAfterPause[\s\S]*task\.status = DownloadGalleryTaskStatus\.PAUSED[\s\S]*task\.prepareError = ''[\s\S]*persistGalleryTask\(context, updatedTask\)/.test(settings))
 ok('batch gallery actions reuse per-task resume and pause executors',
   /static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
     /canResumeGalleryTask\(tasks\[i\]\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token\)/.test(settings) &&

@@ -69,8 +69,9 @@ ok(/class DownloadQueueSettings/.test(settings) && /static async restore/.test(s
 ok(/it\.gid === task\.gid && it\.token === task\.token/.test(settings) &&
   /return !existed/.test(settings), 'enqueue dedups by gid/token and reports duplicate state')
 ok(/DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
+  /DownloadQueueRepository\.replaceGalleryTask\(context, task\)/.test(settings) &&
   /DownloadQueueRepository\.load\(context\)/.test(settings),
-  'queue persists through RDB repository')
+  'queue persists through RDB repository with full writes for structure and per-task writes for progress')
 ok(!/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings),
   'queue no longer writes the large task list to Preferences')
 ok(/isDownloadComplete\(\): boolean/.test(model) &&
@@ -98,6 +99,12 @@ ok(/static async refreshGallerySeedsFromRemote[\s\S]*catch \(error\) \{[\s\S]*up
   'refreshing an incomplete gallery seed list writes a user-facing task error while logging the raw diagnostic cause')
 ok(/private static async updateDownloadTaskStatus[\s\S]*let matched: boolean = false[\s\S]*const exact: boolean = task\.gid === gid && task\.token === token[\s\S]*const gidFallback: boolean = !matched && task\.gid === gid[\s\S]*gallery_status_update[\s\S]*matched=\$\{matched\} exact=\$\{exactMatched\}/.test(settings),
   'download task status updates log exact gid/token matching and can recover old same-gid tasks with token drift')
+ok(/applyDownloadResults\([\s\S]*persistGalleryTask\(context, updatedTask\)/.test(settings) &&
+  /updateDownloadTaskStatus[\s\S]*persistGalleryTask\(context, updatedTask\)/.test(settings) &&
+  /updatePreparedTask[\s\S]*persistGalleryTask\(context, updatedTask\)/.test(settings) &&
+  /updateGalleryTaskAfterPause[\s\S]*persistGalleryTask\(context, updatedTask\)/.test(settings) &&
+  !/applyDownloadResults[\s\S]*persist\(context, next\)/.test(settings),
+  'download progress and status hot paths persist the changed task instead of rewriting the whole queue')
 ok(/migrateLegacyPreferences/.test(settings) && /parse\(raw/.test(settings) &&
   /store\.deleteSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE\)/.test(settings),
   'queue still imports and deletes the old Preferences JSON')

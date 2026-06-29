@@ -30,6 +30,8 @@ const SQL_UPSERT_SEED: string =
   'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 const SQL_DELETE_TASKS: string = 'DELETE FROM download_gallery_tasks WHERE scope_key = ?'
 const SQL_DELETE_SEEDS: string = 'DELETE FROM download_gallery_seeds WHERE scope_key = ?'
+const SQL_DELETE_SEEDS_FOR_TASK: string =
+  'DELETE FROM download_gallery_seeds WHERE scope_key = ? AND gid = ? AND token = ?'
 const SQL_SELECT_ARCHIVER_TASKS: string =
   'SELECT tag, gid, token, title, thumb_url, dltype, resolution, parse_source, url, file_name, file_path, queued_at, downloaded_at, ' +
   'bytes_written, bytes_total, progress, error, status FROM download_archiver_tasks ' +
@@ -77,6 +79,22 @@ export class DownloadQueueRepository {
     }
   }
 
+  static async replaceGalleryTask(context: common.UIAbilityContext, task: DownloadGalleryTask): Promise<void> {
+    if (task.gid.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    store.beginTransaction()
+    try {
+      await store.executeSql(SQL_DELETE_SEEDS_FOR_TASK, [SCOPE_GLOBAL, task.gid, task.token])
+      await DownloadQueueRepository.upsertTask(store, task)
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
+  }
+
   static async loadArchiver(context: common.UIAbilityContext): Promise<DownloadArchiverTask[]> {
     const out: DownloadArchiverTask[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -107,6 +125,14 @@ export class DownloadQueueRepository {
       store.rollBack()
       throw error as Error
     }
+  }
+
+  static async replaceArchiverTask(context: common.UIAbilityContext, task: DownloadArchiverTask): Promise<void> {
+    if (task.tag.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await DownloadQueueRepository.upsertArchiverTask(store, task)
   }
 
   private static async upsertTask(

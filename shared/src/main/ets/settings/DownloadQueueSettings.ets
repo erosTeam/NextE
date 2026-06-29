@@ -1116,6 +1116,7 @@ export class DownloadQueueSettings {
     let firstError: string = ''
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
+    let updatedTask: DownloadGalleryTask | null = null
     let matched: boolean = false
     for (let i: number = 0; i < state.galleryTasks.length; i++) {
       const task: DownloadGalleryTask = state.galleryTasks[i].copy()
@@ -1163,12 +1164,15 @@ export class DownloadQueueSettings {
           'gallery_download_apply_results',
           `gid=${gid} downloaded=${task.downloadedCount()} pending=${DownloadQueueSettings.pendingSeedCount(task.imageSeeds)} expected=${task.expectedFileCount()} pageCount=${task.pageCount} status=${task.status}`,
         )
+        updatedTask = task.copy()
       }
       next.push(task)
     }
     if (matched) {
       DownloadQueueSettings.setGalleryTasks(state, next)
-      await DownloadQueueSettings.persist(context, next)
+      if (updatedTask !== null) {
+        await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+      }
     }
     return hasError
   }
@@ -1315,6 +1319,7 @@ export class DownloadQueueSettings {
   ): Promise<void> {
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
+    let updatedTask: DownloadGalleryTask | null = null
     for (let i: number = 0; i < state.galleryTasks.length; i++) {
       const it: DownloadGalleryTask = state.galleryTasks[i]
       const task: DownloadGalleryTask = it.copy()
@@ -1345,11 +1350,14 @@ export class DownloadQueueSettings {
         task.prepareError = prepareError
         task.preparedAt = status === DownloadGalleryTaskStatus.READY ? Date.now() : task.preparedAt
         task.syncProgressCounts()
+        updatedTask = task.copy()
       }
       next.push(task)
     }
     DownloadQueueSettings.setGalleryTasks(state, next)
-    await DownloadQueueSettings.persist(context, next)
+    if (updatedTask !== null) {
+      await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+    }
   }
 
   private static async updateGalleryTaskMetadata(
@@ -1360,6 +1368,7 @@ export class DownloadQueueSettings {
   ): Promise<void> {
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
+    let updatedTask: DownloadGalleryTask | null = null
     const pageCount: number = gallery.fileCountNumber()
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       const task: DownloadGalleryTask = it.copy()
@@ -1382,11 +1391,14 @@ export class DownloadQueueSettings {
         if (gallery.uploader.length > 0) {
           task.uploader = gallery.uploader
         }
+        updatedTask = task.copy()
       }
       next.push(task)
     })
     DownloadQueueSettings.setGalleryTasks(state, next)
-    await DownloadQueueSettings.persist(context, next)
+    if (updatedTask !== null) {
+      await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+    }
   }
 
   private static async persist(
@@ -1401,6 +1413,18 @@ export class DownloadQueueSettings {
     DownloadQueueSettings.writeGalleryMetadataTasks(context, tasks)
   }
 
+  private static async persistGalleryTask(
+    context: common.UIAbilityContext,
+    task: DownloadGalleryTask,
+  ): Promise<void> {
+    try {
+      await DownloadQueueRepository.replaceGalleryTask(context, task)
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_queue_task_save_failed', (error as Error).message)
+    }
+    DownloadQueueSettings.writeGalleryMetadataTask(context, task)
+  }
+
   private static async persistArchiver(
     context: common.UIAbilityContext,
     tasks: DownloadArchiverTask[],
@@ -1411,6 +1435,18 @@ export class DownloadQueueSettings {
       DiagnosticLogger.warn('settings', 'download_archiver_queue_save_failed', (error as Error).message)
     }
     DownloadQueueSettings.writeArchiverMetadataTasks(context, tasks)
+  }
+
+  private static async persistArchiverTask(
+    context: common.UIAbilityContext,
+    task: DownloadArchiverTask,
+  ): Promise<void> {
+    try {
+      await DownloadQueueRepository.replaceArchiverTask(context, task)
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_archiver_task_save_failed', (error as Error).message)
+    }
+    DownloadQueueSettings.writeArchiverMetadataTask(context, task)
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
@@ -1498,28 +1534,36 @@ export class DownloadQueueSettings {
 
   private static writeGalleryMetadataTasks(context: common.UIAbilityContext, tasks: DownloadGalleryTask[]): void {
     tasks.forEach((task: DownloadGalleryTask) => {
-      if (task.gid.length === 0) {
-        return
-      }
-      DownloadQueueSettings.writeTextFile(
-        DownloadQueueSettings.galleryMetadataPath(context, task.gid),
-        JSON.stringify([DownloadQueueSettings.galleryTaskMetadata(task)]),
-        'gallery_metadata_write_failed',
-      )
+      DownloadQueueSettings.writeGalleryMetadataTask(context, task)
     })
+  }
+
+  private static writeGalleryMetadataTask(context: common.UIAbilityContext, task: DownloadGalleryTask): void {
+    if (task.gid.length === 0) {
+      return
+    }
+    DownloadQueueSettings.writeTextFile(
+      DownloadQueueSettings.galleryMetadataPath(context, task.gid),
+      JSON.stringify([DownloadQueueSettings.galleryTaskMetadata(task)]),
+      'gallery_metadata_write_failed',
+    )
   }
 
   private static writeArchiverMetadataTasks(context: common.UIAbilityContext, tasks: DownloadArchiverTask[]): void {
     tasks.forEach((task: DownloadArchiverTask) => {
-      if (task.tag.length === 0) {
-        return
-      }
-      DownloadQueueSettings.writeTextFile(
-        DownloadQueueSettings.archiverMetadataPath(context, task),
-        JSON.stringify([DownloadQueueSettings.archiverTaskMetadata(task)]),
-        'archiver_metadata_write_failed',
-      )
+      DownloadQueueSettings.writeArchiverMetadataTask(context, task)
     })
+  }
+
+  private static writeArchiverMetadataTask(context: common.UIAbilityContext, task: DownloadArchiverTask): void {
+    if (task.tag.length === 0) {
+      return
+    }
+    DownloadQueueSettings.writeTextFile(
+      DownloadQueueSettings.archiverMetadataPath(context, task),
+      JSON.stringify([DownloadQueueSettings.archiverTaskMetadata(task)]),
+      'archiver_metadata_write_failed',
+    )
   }
 
   private static loadGalleryMetadataTasks(context: common.UIAbilityContext): DownloadGalleryTask[] {
@@ -1907,16 +1951,18 @@ export class DownloadQueueSettings {
   ): Promise<void> {
     const state = connectDownloadQueue()
     const next: DownloadArchiverTask[] = []
+    let updatedTask: DownloadArchiverTask | null = null
     state.archiverTasks.forEach((it: DownloadArchiverTask) => {
       const task: DownloadArchiverTask = it.copy()
       if (task.tag === tag) {
         update(task)
+        updatedTask = task.copy()
       }
       next.push(task)
     })
     DownloadQueueSettings.setArchiverTasks(state, next)
-    if (persist) {
-      await DownloadQueueSettings.persistArchiver(context, next)
+    if (persist && updatedTask !== null) {
+      await DownloadQueueSettings.persistArchiverTask(context, updatedTask)
     }
   }
 
@@ -1929,6 +1975,7 @@ export class DownloadQueueSettings {
   ): Promise<void> {
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
+    let updatedTask: DownloadGalleryTask | null = null
     let matched: boolean = false
     let exactMatched: boolean = false
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
@@ -1947,6 +1994,7 @@ export class DownloadQueueSettings {
         if (status !== DownloadGalleryTaskStatus.DOWNLOADING) {
           task.clearActiveDownloadProgress()
         }
+        updatedTask = task.copy()
       }
       next.push(task)
     })
@@ -1958,7 +2006,9 @@ export class DownloadQueueSettings {
       )
     }
     DownloadQueueSettings.setGalleryTasks(state, next)
-    await DownloadQueueSettings.persist(context, next)
+    if (updatedTask !== null) {
+      await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+    }
   }
 
   private static clearPendingSeedErrors(seeds: DownloadImageSeed[]): DownloadImageSeed[] {
@@ -1978,16 +2028,20 @@ export class DownloadQueueSettings {
   ): Promise<void> {
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
+    let updatedTask: DownloadGalleryTask | null = null
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       const task: DownloadGalleryTask = it.copy()
       if (task.gid === gid && task.token === token) {
         task.status = DownloadGalleryTaskStatus.PAUSED
         task.prepareError = ''
+        updatedTask = task.copy()
       }
       next.push(task)
     })
     DownloadQueueSettings.setGalleryTasks(state, next)
-    await DownloadQueueSettings.persist(context, next)
+    if (updatedTask !== null) {
+      await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+    }
   }
 
   private static async delayForSpeedLimit(startedAt: number, results: DownloadSeedResult[]): Promise<void> {
