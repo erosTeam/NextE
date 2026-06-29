@@ -26,8 +26,24 @@ ok(!/menuBuilderParam|menuShown|menuOnDisappear|\.bindMenu\(/.test(row),
 const dropdownPages = [
   {
     file: 'feature/settings/src/main/ets/pages/LayoutSettingsPage.ets',
-    states: ['viewMenuShown'],
-    builders: ['ViewModeMenu'],
+    states: [
+      'themeMenuShown',
+      'themeColorMenuShown',
+      'immersiveMaterialMenuShown',
+      'languageMenuShown',
+      'viewMenuShown',
+      'actionAlignMenuShown',
+      'readButtonStyleMenuShown',
+    ],
+    builders: [
+      'ThemeMenu',
+      'ThemeColorMenu',
+      'ImmersiveMaterialMenu',
+      'LanguageMenu',
+      'ViewModeMenu',
+      'ActionAlignmentMenu',
+      'ReadButtonStyleMenu',
+    ],
   },
   {
     file: 'feature/settings/src/main/ets/pages/ReaderSettingsPage.ets',
@@ -36,8 +52,8 @@ const dropdownPages = [
   },
   {
     file: 'feature/settings/src/main/ets/pages/DownloadSettingsPage.ets',
-    states: ['originalMenuShown'],
-    builders: ['OriginalModeMenu'],
+    states: ['originalMenuShown', 'archiveBotMenuShown'],
+    builders: ['OriginalModeMenu', 'ArchiveBotTypeMenu'],
   },
   {
     file: 'feature/settings/src/main/ets/pages/SecuritySettingsPage.ets',

@@ -135,8 +135,24 @@ ok(/download_original_images/.test(downloadPage) && /trailingDropdown: true/.tes
 ok(/DownloadOriginalMode\.OFF/.test(downloadPage) && /DownloadOriginalMode\.ASK/.test(downloadPage) &&
   /DownloadOriginalMode\.ALWAYS/.test(downloadPage),
   'download original-image menu covers off, ask, and always')
+ok(/archiveBotBalanceBusy/.test(downloadPage) && /archiveBotCheckInBusy/.test(downloadPage) &&
+  !/@Local archiveBotBusy/.test(downloadPage),
+  'archive bot balance and check-in rows keep independent loading states')
+ok(/canCheckArchiveBotBalance/.test(downloadPage) && /canCheckInArchiveBot/.test(downloadPage) &&
+  /download_archive_bot_balance[\s\S]*archiveBotBalanceBusy[\s\S]*BusySuffix/.test(downloadPage) &&
+  /download_archive_bot_checkin[\s\S]*archiveBotCheckInBusy[\s\S]*BusySuffix/.test(downloadPage),
+  'archive bot balance and check-in actions show row-local loading feedback')
+ok(/archive_bot_balance_check_start/.test(downloadPage) && /archive_bot_balance_check_done/.test(downloadPage) &&
+  /archive_bot_balance_check_failed/.test(downloadPage) && /archive_bot_checkin_start/.test(downloadPage) &&
+  /archive_bot_checkin_done/.test(downloadPage) && /archive_bot_checkin_failed/.test(downloadPage),
+  'archive bot settings validation emits action-level diagnostics')
 ok(!/restore_tasks_data|rebuild_tasks_data|download_location|allow_media_scan/.test(downloadPage),
   'this lane does not add unimplemented download path/task-maintenance placeholders')
+
+const archiveBotService = read('shared/src/main/ets/services/ArchiveBotService.ets')
+ok(/archive_bot_request_start/.test(archiveBotService) && /archive_bot_request_done/.test(archiveBotService) &&
+  /archive_bot_request_failed/.test(archiveBotService) && /DiagnosticLogger\.ownerHash\(gid\)/.test(archiveBotService),
+  'archive bot service emits redacted request start/done/failure diagnostics')
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
 ok(!/connectDownloadSettings|DownloadSettingsState|DownloadSettings\.setConcurrency|DownloadSettings\.setOriginalMode/.test(page),

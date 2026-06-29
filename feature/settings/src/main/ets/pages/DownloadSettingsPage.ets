@@ -8,6 +8,7 @@ import {
   ArchiveBotService,
   ArchiveBotType,
   ConciseListRow,
+  DiagnosticLogger,
   DownloadOriginalMode,
   DownloadSettings,
   DownloadSettingsState,
@@ -30,7 +31,8 @@ export struct DownloadSettingsPage {
   @Local archiveBotMenuShown: boolean = false;
   @Local archiveBotAddressDraft: string = '';
   @Local archiveBotApiKeyDraft: string = '';
-  @Local archiveBotBusy: boolean = false;
+  @Local archiveBotBalanceBusy: boolean = false;
+  @Local archiveBotCheckInBusy: boolean = false;
   @Local archiveBotStatus: string = '';
   private scroller: Scroller = new Scroller();
 
@@ -82,38 +84,48 @@ export struct DownloadSettingsPage {
     DownloadSettings.setArchiveBotApiKey(this.ctx(), this.archiveBotApiKeyDraft)
   }
 
-  private canUseArchiveBot(): boolean {
-    return !this.archiveBotBusy && DownloadSettings.archiveBotReady(this.downloadSettings)
+  private canCheckArchiveBotBalance(): boolean {
+    return !this.archiveBotBalanceBusy && DownloadSettings.archiveBotReady(this.downloadSettings)
+  }
+
+  private canCheckInArchiveBot(): boolean {
+    return !this.archiveBotCheckInBusy && DownloadSettings.archiveBotReady(this.downloadSettings)
   }
 
   private async checkArchiveBotBalance(): Promise<void> {
-    if (!this.canUseArchiveBot()) {
+    if (!this.canCheckArchiveBotBalance()) {
       return
     }
-    this.archiveBotBusy = true
+    this.archiveBotBalanceBusy = true
+    DiagnosticLogger.info('download', 'archive_bot_balance_check_start', this.downloadSettings.archiveBotType)
     try {
       const result: ArchiveBotBalanceResult = await ArchiveBotService.requestBalance(this.downloadSettings)
       this.archiveBotStatus = AppStrings.get('download_archive_bot_balance_result').replace('%s', `${result.gp}`)
+      DiagnosticLogger.info('download', 'archive_bot_balance_check_done', `gp=${result.gp}`)
     } catch (error) {
       this.archiveBotStatus = (error as Error).message
+      DiagnosticLogger.warn('download', 'archive_bot_balance_check_failed', (error as Error).message)
     }
-    this.archiveBotBusy = false
+    this.archiveBotBalanceBusy = false
   }
 
   private async checkInArchiveBot(): Promise<void> {
-    if (!this.canUseArchiveBot()) {
+    if (!this.canCheckInArchiveBot()) {
       return
     }
-    this.archiveBotBusy = true
+    this.archiveBotCheckInBusy = true
+    DiagnosticLogger.info('download', 'archive_bot_checkin_start', this.downloadSettings.archiveBotType)
     try {
       const result: ArchiveBotCheckInResult = await ArchiveBotService.requestCheckIn(this.downloadSettings)
       this.archiveBotStatus = AppStrings.get('download_archive_bot_checkin_result')
         .replace('%s', `${result.reward}`)
         .replace('%s', `${result.gp}`)
+      DiagnosticLogger.info('download', 'archive_bot_checkin_done', `reward=${result.reward} gp=${result.gp}`)
     } catch (error) {
       this.archiveBotStatus = (error as Error).message
+      DiagnosticLogger.warn('download', 'archive_bot_checkin_failed', (error as Error).message)
     }
-    this.archiveBotBusy = false
+    this.archiveBotCheckInBusy = false
   }
 
   private adjustConcurrency(delta: number): void {
@@ -395,7 +407,7 @@ export struct DownloadSettingsPage {
               'apiKey',
             )
             this.rowDivider()
-            if (this.archiveBotBusy) {
+            if (this.archiveBotBalanceBusy) {
               ConciseListRow({
                 title: $r('app.string.download_archive_bot_balance'),
                 subtitle: this.archiveBotStatus.length > 0 ? this.archiveBotStatus :
@@ -414,23 +426,38 @@ export struct DownloadSettingsPage {
                   $r('app.string.download_archive_bot_balance_hint'),
                 leadingIcon: $r('sys.symbol.arrow_clockwise'),
                 showChevron: false,
-                isEnabled: this.canUseArchiveBot(),
+                isEnabled: this.canCheckArchiveBotBalance(),
                 action: () => {
                   this.checkArchiveBotBalance()
                 },
               })
             }
             this.rowDivider()
-            ConciseListRow({
-              title: $r('app.string.download_archive_bot_checkin'),
-              subtitle: $r('app.string.download_archive_bot_checkin_hint'),
-              leadingIcon: $r('sys.symbol.checkmark'),
-              showChevron: false,
-              isEnabled: this.canUseArchiveBot(),
-              action: () => {
-                this.checkInArchiveBot()
-              },
-            })
+            if (this.archiveBotCheckInBusy) {
+              ConciseListRow({
+                title: $r('app.string.download_archive_bot_checkin'),
+                subtitle: this.archiveBotStatus.length > 0 ? this.archiveBotStatus :
+                  $r('app.string.download_archive_bot_checkin_hint'),
+                leadingIcon: $r('sys.symbol.checkmark'),
+                showChevron: false,
+                isEnabled: false,
+                suffixBuilderParam: () => {
+                  this.BusySuffix()
+                },
+              })
+            } else {
+              ConciseListRow({
+                title: $r('app.string.download_archive_bot_checkin'),
+                subtitle: this.archiveBotStatus.length > 0 ? this.archiveBotStatus :
+                  $r('app.string.download_archive_bot_checkin_hint'),
+                leadingIcon: $r('sys.symbol.checkmark'),
+                showChevron: false,
+                isEnabled: this.canCheckInArchiveBot(),
+                action: () => {
+                  this.checkInArchiveBot()
+                },
+              })
+            }
           }
         }
       }

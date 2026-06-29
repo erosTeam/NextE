@@ -94,6 +94,11 @@ export class ArchiveBotService {
     const url: string = ArchiveBotService.endpoint(settings, action)
     const body: string = ArchiveBotService.body(settings, action, gid, token, reParse)
     const req: http.HttpRequest = http.createHttp()
+    DiagnosticLogger.info(
+      'download',
+      'archive_bot_request_start',
+      `${settings.archiveBotType} action=${action} gidHash=${DiagnosticLogger.ownerHash(gid)}`,
+    )
     try {
       const resp: http.HttpResponse = await req.request(url, {
         method: ArchiveBotService.method(settings, action),
@@ -111,7 +116,13 @@ export class ArchiveBotService {
         const errResp: ArchiveBotResponseJson = ArchiveBotService.parseResponse(text)
         throw new Error(ArchiveBotService.message(errResp))
       }
-      return ArchiveBotService.parseResponse(text)
+      const parsed: ArchiveBotResponseJson = ArchiveBotService.parseResponse(text)
+      DiagnosticLogger.info(
+        'download',
+        'archive_bot_request_done',
+        `${settings.archiveBotType} action=${action} code=${parsed.code}`,
+      )
+      return parsed
     } catch (error) {
       req.destroy()
       DiagnosticLogger.warn('download', 'archive_bot_request_failed', `${action}: ${(error as Error).message}`)
