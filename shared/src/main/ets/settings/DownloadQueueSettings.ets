@@ -116,7 +116,17 @@ export class DownloadQueueSettings {
   private static setGalleryTasks(state: DownloadQueueState, tasks: DownloadGalleryTask[]): void {
     const next: DownloadGalleryTask[] = []
     tasks.forEach((task: DownloadGalleryTask) => {
-      next.push(task.copy())
+      const existing: DownloadGalleryTask | null = DownloadQueueSettings.findExistingGalleryTask(
+        state.galleryTasks,
+        task.gid,
+        task.token,
+      )
+      if (existing === null) {
+        next.push(task.copy())
+        return
+      }
+      existing.assignFrom(task)
+      next.push(existing)
     })
     state.galleryTasks = next
     state.revision = state.revision + 1
@@ -125,10 +135,46 @@ export class DownloadQueueSettings {
   private static setArchiverTasks(state: DownloadQueueState, tasks: DownloadArchiverTask[]): void {
     const next: DownloadArchiverTask[] = []
     tasks.forEach((task: DownloadArchiverTask) => {
-      next.push(task.copy())
+      const existing: DownloadArchiverTask | null = DownloadQueueSettings.findExistingArchiverTask(
+        state.archiverTasks,
+        task.tag,
+      )
+      if (existing === null) {
+        next.push(task.copy())
+        return
+      }
+      existing.assignFrom(task)
+      next.push(existing)
     })
     state.archiverTasks = next
     state.revision = state.revision + 1
+  }
+
+  private static findExistingGalleryTask(
+    tasks: DownloadGalleryTask[],
+    gid: string,
+    token: string,
+  ): DownloadGalleryTask | null {
+    for (let i: number = 0; i < tasks.length; i++) {
+      const task: DownloadGalleryTask = tasks[i]
+      if (task.gid === gid && task.token === token) {
+        return task
+      }
+    }
+    return null
+  }
+
+  private static findExistingArchiverTask(
+    tasks: DownloadArchiverTask[],
+    tag: string,
+  ): DownloadArchiverTask | null {
+    for (let i: number = 0; i < tasks.length; i++) {
+      const task: DownloadArchiverTask = tasks[i]
+      if (task.tag === tag) {
+        return task
+      }
+    }
+    return null
   }
 
   private static findGalleryTaskIn(
@@ -1070,37 +1116,39 @@ export class DownloadQueueSettings {
     let firstError: string = ''
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
-    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
-      const task: DownloadGalleryTask = it.copy()
-        if (task.gid === gid && task.token === token) {
-        task.imageSeeds = task.imageSeeds.map((seed: DownloadImageSeed) => {
-          const out: DownloadImageSeed = seed.copy()
+    let matched: boolean = false
+    for (let i: number = 0; i < state.galleryTasks.length; i++) {
+      const task: DownloadGalleryTask = state.galleryTasks[i].copy()
+      if (task.gid === gid && task.token === token) {
+        matched = true
+        for (let seedIndex: number = 0; seedIndex < task.imageSeeds.length; seedIndex++) {
+          const seed: DownloadImageSeed = task.imageSeeds[seedIndex]
           const result: DownloadSeedResult | undefined = results.find((it: DownloadSeedResult) => {
-            return DownloadQueueSettings.sameSeed(out, it.originalSeed)
+            return DownloadQueueSettings.sameSeed(seed, it.originalSeed)
           })
-          if (result !== undefined) {
-            if (result.error.length > 0) {
-              out.downloadError = result.error
-              if (firstError.length === 0) {
-                firstError = result.error
-              }
-              hasError = true
-            } else {
-              out.imageUrl = result.image.imageUrl
-              out.originImageUrl = result.image.originImageUrl
-              out.showKey = result.image.showKey
-              out.reloadKey = result.image.reloadKey
-              out.filePath = result.filePath
-              out.bytesWritten = result.bytes
-              out.downloadedAt = Date.now()
-              out.downloadError = ''
-            }
-            if (task.activeDownloadPage === out.page) {
-              task.clearActiveDownloadProgress()
-            }
+          if (result === undefined) {
+            continue
           }
-          return out
-        })
+          if (result.error.length > 0) {
+            seed.downloadError = result.error
+            if (firstError.length === 0) {
+              firstError = result.error
+            }
+            hasError = true
+          } else {
+            seed.imageUrl = result.image.imageUrl
+            seed.originImageUrl = result.image.originImageUrl
+            seed.showKey = result.image.showKey
+            seed.reloadKey = result.image.reloadKey
+            seed.filePath = result.filePath
+            seed.bytesWritten = result.bytes
+            seed.downloadedAt = Date.now()
+            seed.downloadError = ''
+          }
+          if (task.activeDownloadPage === seed.page) {
+            task.clearActiveDownloadProgress()
+          }
+        }
         const taskError: string = DownloadQueueSettings.firstSeedError(task.imageSeeds)
         hasError = hasError || taskError.length > 0
         task.prepareError = taskError.length > 0 ? taskError : firstError
@@ -1117,9 +1165,11 @@ export class DownloadQueueSettings {
         )
       }
       next.push(task)
-    })
-    DownloadQueueSettings.setGalleryTasks(state, next)
-    await DownloadQueueSettings.persist(context, next)
+    }
+    if (matched) {
+      DownloadQueueSettings.setGalleryTasks(state, next)
+      await DownloadQueueSettings.persist(context, next)
+    }
     return hasError
   }
 
@@ -1793,10 +1843,9 @@ export class DownloadQueueSettings {
     }
     DownloadQueueSettings.galleryProgressPulses.set(pulseKey, now)
     const state = connectDownloadQueue()
-    const next: DownloadGalleryTask[] = []
     let logged: boolean = false
-    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
-      const task: DownloadGalleryTask = it.copy()
+    for (let i: number = 0; i < state.galleryTasks.length; i++) {
+      const task: DownloadGalleryTask = state.galleryTasks[i]
       if (task.gid === gid && (token.length === 0 || task.token === token)) {
         task.activeDownloadPage = seed.page
         task.activeBytesWritten = loaded
@@ -1813,10 +1862,9 @@ export class DownloadQueueSettings {
           )
           logged = true
         }
+        break
       }
-      next.push(task)
-    })
-    DownloadQueueSettings.setGalleryTasks(state, next)
+    }
     if (!logged && total > 0 && loaded >= total) {
       DownloadQueueSettings.galleryProgressLogPulses.set(key, now)
     }

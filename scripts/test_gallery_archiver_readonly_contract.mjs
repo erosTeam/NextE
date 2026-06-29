@@ -392,8 +392,11 @@ ok(/DownloadSettings\.archiveBotReady\(\)/.test(downloadPage) &&
   'download list exposes JHenTai-style switch-to-bot action only for ready, non-bot archive tasks')
 ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\): boolean \{[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*DownloadGalleryTaskStatus\.PREPARING[\s\S]*DownloadGalleryTaskStatus\.PAUSED[\s\S]*DownloadGalleryTaskStatus\.QUEUED/.test(downloadPage),
   'download list can resume archive bot tasks left in resolving/preparing state')
-ok(/struct DownloadArchiverTaskCardView[\s\S]*private canResumeArchiverTask\(\): boolean \{[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*DownloadGalleryTaskStatus\.PREPARING[\s\S]*DownloadGalleryTaskStatus\.PAUSED[\s\S]*DownloadGalleryTaskStatus\.QUEUED/.test(downloadPage),
-  'archiver task card uses the same preparing-resumable rule as the queue page')
+ok(!/@ComponentV2\s+struct DownloadArchiverTaskCardView/.test(downloadPage) &&
+  /private ResumeArchiverTaskButton\(task: DownloadArchiverTask\)[\s\S]*this\.archiverResumeActionIcon\(task\), this\.archiverResumeActionLabel\(task\)/.test(downloadPage) &&
+  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.arrow_right/.test(downloadPage) &&
+  /private archiverResumeActionLabel\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(downloadPage),
+  'archiver task card uses the parent preparing-resumable rule with distinct retry/continue semantics')
 
 const strings = ['base', 'zh_CN', 'en_US', 'ja_JP'].map((locale) =>
   read(`entry/src/main/resources/${locale}/element/string.json`))

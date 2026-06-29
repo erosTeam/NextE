@@ -39,8 +39,8 @@ Reference implementation: `/Users/honjow/git/EhViewer-NekoInverter/app/src/main/
 Surface type: Downloads tab Gallery/Archiver task card status text, progress bar, and task action diagnostics only; no visual redesign of the card layout.
 Primary information: each visible task row must show a status that agrees with the downloaded/seeded/expected file counts and live stream progress.
 Primary action: while a task downloads, the same row updates its progress text/bar without switching tabs; after completion, the row is only complete when the expected file count is satisfied.
-Reuse or deviation: reuse the existing stable task card rows, `DownloadQueueState.revision`, and visible primitive params; deviate from the earlier `pageCount`-only display by deriving an expected count from `pageCount`, seed count, and downloaded count so mismatched metadata cannot fake completion.
-Verification: download workbench contract, gallery download queue contract, gallery download executor contract, V1 decorator inventory, signed HarmonyOS build, and X7 evidence for completed task body -> local Reader plus cover -> source GalleryDetail, with stream/action logs available for later real-download QA.
+Reuse or deviation: reuse the existing stable task card rows and `DownloadQueueState.revision`, but preserve each existing `DownloadGalleryTask` / `DownloadArchiverTask` observed object identity across queue updates so mounted rows read live `@Trace` task fields directly; do not reintroduce shadow `visible*` progress params or fresh-snapshot-only updates.
+Verification: download workbench contract, gallery download queue contract, gallery download executor contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 evidence that a visible downloading row's status text count and progress bar advance together without switching tabs.
 
 ## Active: modal scaffold nested vertical scroll
 

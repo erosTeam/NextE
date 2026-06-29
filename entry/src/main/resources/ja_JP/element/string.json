@@ -105,6 +105,10 @@
       "value": "失敗"
     },
     {
+      "name": "download_resume",
+      "value": "再開"
+    },
+    {
       "name": "download_resume_all",
       "value": "すべて再開"
     },
@@ -1614,6 +1618,22 @@
     },
     {
       "name": "common_remove",
+      "value": "削除"
+    },
+    {
+      "name": "download_delete_task",
+      "value": "ダウンロードを削除"
+    },
+    {
+      "name": "download_delete_confirm_title",
+      "value": "ダウンロードを削除しますか？"
+    },
+    {
+      "name": "download_delete_confirm_message",
+      "value": "ダウンロード一覧から削除し、ローカルファイルも削除します。"
+    },
+    {
+      "name": "download_delete_confirm_action",
       "value": "削除"
     },
     {

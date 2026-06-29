@@ -105,6 +105,10 @@
       "value": "失败"
     },
     {
+      "name": "download_resume",
+      "value": "继续下载"
+    },
+    {
       "name": "download_resume_all",
       "value": "继续全部"
     },
@@ -1615,6 +1619,22 @@
     {
       "name": "common_remove",
       "value": "移除"
+    },
+    {
+      "name": "download_delete_task",
+      "value": "删除下载"
+    },
+    {
+      "name": "download_delete_confirm_title",
+      "value": "删除下载？"
+    },
+    {
+      "name": "download_delete_confirm_message",
+      "value": "将从下载列表移除，并删除本地文件。"
+    },
+    {
+      "name": "download_delete_confirm_action",
+      "value": "删除"
     },
     {
       "name": "common_back_to_top",

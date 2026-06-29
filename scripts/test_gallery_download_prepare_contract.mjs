@@ -91,14 +91,16 @@ ok(/DownloadQueueSettings\.prepareGallerySeeds\([\s\S]*this\.vm\.images,[\s\S]*t
   'detail fire-and-forget preparation logs failures instead of silently swallowing them')
 ok(/download_status_preparing/.test(queue) && /download_status_ready/.test(queue) &&
   /download_status_error/.test(queue), 'downloads page renders preparation statuses')
-ok(/download_seed_progress/.test(queue) && /task\.seedProgressText\(\)/.test(queue),
+ok(/download_seed_progress/.test(queue) &&
+  /private taskProgressLabel\([\s\S]*seededFiles: number,[\s\S]*pageCount: number,[\s\S]*prepareError: string/.test(queue) &&
+  /const seedProgress: string = this\.progressText\(seededFiles, total\)/.test(queue),
   'downloads page shows seed progress in task subtitle')
 ok(/taskStatusText/.test(queue) && /download_status_error/.test(queue) &&
-  /effectiveStatus === DownloadGalleryTaskStatus\.PREPARING[\s\S]*?return parts\.join\(' · '\)/.test(queue),
+  /if \(seedProgress\.length > 0\) \{[\s\S]*effectiveStatus === DownloadGalleryTaskStatus\.PREPARING[\s\S]*parts\.push\(this\.statusText\(effectiveStatus\)\)[\s\S]*return parts\.join\(' · '\)/.test(queue),
   'downloads page keeps preparation and error states visible in the task subtitle')
-ok(/effectiveStatus === DownloadGalleryTaskStatus\.ERROR[\s\S]*prepareError\.length > 0[\s\S]*`\$\{this\.taskStatusText\(effectiveStatus\)\} · \$\{prepareError\}`/.test(queue),
+ok(/if \(status === DownloadGalleryTaskStatus\.ERROR\) \{[\s\S]*prepareError\.length > 0[\s\S]*`\$\{this\.statusText\(effectiveStatus\)\} · \$\{prepareError\}`/.test(queue),
   'downloads page shows stored gallery failure reason in the existing status subtitle')
-ok(/task\.seedProgressText\(\)\.length > 0[\s\S]*?return parts\.join\(' · '\)/.test(queue),
+ok(/seedProgress\.length > 0[\s\S]*return parts\.join\(' · '\)/.test(queue),
   'downloads page keeps seed progress subtitle focused instead of crowding it with lower-priority metadata')
 ok(!/Text\(this\.taskStatus\(task\)\)/.test(queue),
   'downloads page does not duplicate row status in the suffix and squeeze the progress subtitle')

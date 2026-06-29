@@ -105,6 +105,10 @@
       "value": "Error"
     },
     {
+      "name": "download_resume",
+      "value": "Continue"
+    },
+    {
       "name": "download_resume_all",
       "value": "Continue all"
     },
@@ -1615,6 +1619,22 @@
     {
       "name": "common_remove",
       "value": "Remove"
+    },
+    {
+      "name": "download_delete_task",
+      "value": "Delete download"
+    },
+    {
+      "name": "download_delete_confirm_title",
+      "value": "Delete download?"
+    },
+    {
+      "name": "download_delete_confirm_message",
+      "value": "This removes it from Downloads and deletes local files."
+    },
+    {
+      "name": "download_delete_confirm_action",
+      "value": "Delete"
     },
     {
       "name": "common_back_to_top",

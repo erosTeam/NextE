@@ -41,6 +41,14 @@ const repo = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 const client = read('shared/src/main/ets/network/EhHttpClient.ets')
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const queue = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
+const streamProgressBody = settings.slice(
+  settings.indexOf('private static updateGalleryStreamProgress'),
+  settings.indexOf('private static updateArchiverProgress'),
+)
+const applyResultsBody = settings.slice(
+  settings.indexOf('private static async applyDownloadResults'),
+  settings.indexOf('private static firstSeedError'),
+)
 
 ok(/filePath: string = ''/.test(model) && /bytesWritten: number = 0/.test(model) &&
   /downloadError: string = ''/.test(model), 'download seed records sandbox file path, bytes, and error')
@@ -98,9 +106,13 @@ ok(/downloadBinaryToFileInStream\([\s\S]*imageUrl,[\s\S]*tmpPath,[\s\S]*\(loaded
   /fs\.renameSync\(tmpPath, result\.filePath\)/.test(settings),
   'executor streams the resolved URL to a .part file and atomically promotes it')
 ok(/activeDownloadRatio/.test(model) &&
-  /updateGalleryStreamProgress\([\s\S]*gid: string,[\s\S]*token: string,[\s\S]*activeBytesWritten = loaded[\s\S]*activeBytesTotal = total/.test(settings) &&
-  /visibleActiveRatio > 0/.test(queue),
-  'downloads page renders transient stream progress before each file is atomically promoted')
+  /gid: string,[\s\S]*token: string,[\s\S]*activeBytesWritten = loaded[\s\S]*activeBytesTotal = total/.test(streamProgressBody) &&
+  /const task: DownloadGalleryTask = state\.galleryTasks\[i\][\s\S]*task\.activeBytesWritten = loaded[\s\S]*task\.activeBytesTotal = total/.test(streamProgressBody) &&
+  !/setGalleryTasks\(state, next\)/.test(streamProgressBody) &&
+  /const active: number = this\.activeDownloadRatio\(activeBytesWritten, activeBytesTotal\)/.test(queue) &&
+  /private GalleryTaskProgressBar\(task: DownloadGalleryTask\)[\s\S]*task\.activeBytesWritten[\s\S]*task\.activeBytesTotal/.test(queue) &&
+  /private GalleryTaskStatusText\(task: DownloadGalleryTask\)[\s\S]*task\.downloadedFiles[\s\S]*task\.seededFiles/.test(queue),
+  'downloads page renders transient stream progress without replacing the whole gallery queue')
 ok(/context\.filesDir/.test(settings) && /download-gallery/.test(settings),
   'executor writes under the app sandbox download-gallery directory')
 ok(/prepareGallerySeeds\(/.test(detail), 'detail download still starts through seed preparation')
@@ -167,21 +179,21 @@ ok(/prefer_original/.test(repo), 'repository persists per-task original preferen
 ok(/downloadBinaryToFileInStream/.test(client) && /requestInStream/.test(client) &&
   /dataReceive/.test(client) && /fs\.writeSync/.test(client), 'HTTP client can stream binary response to a sandbox file')
 
-ok(/download_file_progress/.test(queue) && /visibleDownloadedFiles/.test(queue) &&
+ok(/download_file_progress/.test(queue) &&
+  /private GalleryTaskStatusText\(task: DownloadGalleryTask\)[\s\S]*this\.taskProgressLabel\([\s\S]*task\.status,[\s\S]*task\.downloadedFiles[\s\S]*task\.seededFiles/.test(queue) &&
   /download_status_complete/.test(queue), 'downloads page shows file progress and complete status')
 ok(/@Monitor\('downloadQueue\.revision'\)/.test(queue) &&
   /downloadQueueTick/.test(queue) &&
   !/BasicDataSource<DownloadGalleryTask>|galleryDataSource/.test(queue) &&
-  /ForEach\(\s*this\.downloadQueue\.galleryTasks,[\s\S]*ListItem\(\)\s*\{[\s\S]*DownloadGalleryTaskCardView\(\{[\s\S]*task: this\.currentGalleryTask\(task\)[\s\S]*downloadQueueRevision: this\.downloadQueueTick/.test(queue) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskCardView[\s\S]*@Param task: DownloadGalleryTask[\s\S]*@Param visibleDownloadedFiles: number = 0[\s\S]*@Param visibleSeededFiles: number = 0[\s\S]*@Param visibleActiveRatio: number = 0[\s\S]*private downloadedFiles\(\): number[\s\S]*return this\.visibleDownloadedFiles[\s\S]*private seededFiles\(\): number[\s\S]*return this\.visibleSeededFiles/.test(queue) &&
-  !/struct DownloadGalleryTaskCardView[\s\S]*@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(queue) &&
-  /visibleStatus: this\.currentGalleryTask\(task\)\.status/.test(queue) &&
-  /visibleDownloadedFiles: this\.currentGalleryTask\(task\)\.downloadedCount\(\)/.test(queue) &&
-  /visibleSeededFiles: this\.currentGalleryTask\(task\)\.seededCount\(\)/.test(queue) &&
-  /visibleActiveRatio: this\.currentGalleryTask\(task\)\.activeDownloadRatio\(\)/.test(queue) &&
-  /private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*next\.push\(task\.copy\(\)\)[\s\S]*state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(settings) &&
-  !/private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*assignFrom\(task\)[\s\S]*state\.galleryTasks = next/.test(settings),
-  'downloads page progress text and bar refresh through fresh task snapshots instead of stale child params')
+  /ForEach\(\s*this\.downloadQueue\.galleryTasks,[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queue) &&
+  !/@ComponentV2\s+struct DownloadGalleryTaskCardView/.test(queue) &&
+  /private GalleryTaskStatusText\(task: DownloadGalleryTask\)[\s\S]*this\.taskProgressLabel\([\s\S]*task\.status,[\s\S]*task\.downloadedFiles,[\s\S]*task\.seededFiles/.test(queue) &&
+  /private GalleryTaskProgressBar\(task: DownloadGalleryTask\)[\s\S]*task\.downloadedFiles[\s\S]*task\.seededFiles[\s\S]*task\.activeBytesWritten/.test(queue) &&
+  !/visibleStatus|visibleDownloadedFiles|visibleSeededFiles|visibleActiveRatio|renderProgressLabel|renderProgressRatio|renderShowProgress/.test(queue) &&
+  /const task: DownloadGalleryTask = state\.galleryTasks\[i\]\.copy\(\)[\s\S]*task\.syncProgressCounts\(\)[\s\S]*DownloadQueueSettings\.setGalleryTasks\(state, next\)/.test(applyResultsBody) &&
+  !/state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(applyResultsBody) &&
+  /private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*findExistingGalleryTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(settings),
+  'downloads page progress text and bar refresh from observed task identity instead of stale scalar params')
 ok(/task\.status = hasError[\s\S]*\? DownloadGalleryTaskStatus\.ERROR[\s\S]*pendingSeedCount\(task\.imageSeeds\) === 0[\s\S]*DownloadQueueSettings\.galleryDoneStatus\(task\)[\s\S]*DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
   /galleryDoneStatus\(task: DownloadGalleryTask\): string[\s\S]*task\.isDownloadComplete\(\)[\s\S]*DownloadGalleryTaskStatus\.COMPLETE[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(settings),
   'gallery executor keeps in-flight batches downloading and only completes through the fileCount-aware done status')

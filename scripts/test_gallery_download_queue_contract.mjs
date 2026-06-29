@@ -134,19 +134,25 @@ ok(/this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.download
   'downloads page switches from empty state to real Gallery task rows by task count')
 ok(/GalleryTaskSection/.test(queuePage) &&
   /ForEach\(\s*this\.downloadQueue\.galleryTasks/.test(queuePage) &&
-  /DownloadGalleryTaskCardView\(\{[\s\S]*task: this\.currentGalleryTask\(task\)[\s\S]*downloadQueueRevision: this\.downloadQueueTick[\s\S]*visibleStatus: this\.currentGalleryTask\(task\)\.status[\s\S]*visibleDownloadedFiles: this\.currentGalleryTask\(task\)\.downloadedCount\(\)/.test(queuePage) &&
-  /visibleExpectedFiles: this\.currentGalleryTask\(task\)\.expectedFileCount\(\)/.test(queuePage) &&
-  /private displayTitle\(\): string[\s\S]*return this\.currentTask\(\)\.displayTitle\(\)/.test(queuePage) &&
-  /struct DownloadGalleryTaskCardView[\s\S]*@Param task: DownloadGalleryTask[\s\S]*private currentTask\(\): DownloadGalleryTask \{[\s\S]*return this\.task[\s\S]*\}/.test(queuePage) &&
-  !/struct DownloadGalleryTaskCardView[\s\S]*@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(queuePage) &&
+  /this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queuePage) &&
+  !/@ComponentV2\s+struct DownloadGalleryTaskCardView/.test(queuePage) &&
+  !/@ComponentV2\s+struct DownloadArchiverTaskCardView/.test(queuePage) &&
+  !/visibleStatus|visibleExpectedFiles|visibleDownloadedFiles|visibleSeededFiles|visibleActiveRatio/.test(queuePage) &&
+  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*Text\(task\.displayTitle\(\)\)[\s\S]*this\.GalleryTaskProgressBar\(task\)[\s\S]*this\.GalleryTaskStatusText\(task\)/.test(queuePage) &&
+  /private GalleryTaskStatusText\(task: DownloadGalleryTask\)[\s\S]*this\.taskProgressLabel\([\s\S]*task\.status,[\s\S]*task\.downloadedFiles,[\s\S]*task\.seededFiles/.test(queuePage) &&
+  /private GalleryTaskProgressBar\(task: DownloadGalleryTask\)[\s\S]*this\.taskProgressRatio\([\s\S]*task\.status,[\s\S]*task\.downloadedFiles,[\s\S]*task\.seededFiles,[\s\S]*task\.activeBytesWritten,[\s\S]*task\.activeBytesTotal/.test(queuePage) &&
+  /private GalleryPrimaryAction\(task: DownloadGalleryTask\)[\s\S]*this\.canPauseTask\(task\)[\s\S]*this\.canResumeTask\(task\)/.test(queuePage) &&
+  /private galleryResumeActionIcon\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.arrow_right/.test(queuePage) &&
+  /private galleryResumeActionLabel\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(queuePage) &&
   /@Monitor\('downloadQueue\.revision'\)[\s\S]*private onDownloadQueueChanged\(\): void/.test(queuePage) &&
-  /private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*next\.push\(task\.copy\(\)\)[\s\S]*state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(settings) &&
-  !/private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*assignFrom\(task\)[\s\S]*state\.galleryTasks = next/.test(settings),
-  'downloads page renders real gallery task rows by stable gid/token with fresh task snapshots for live progress')
+  /private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*findExistingGalleryTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(settings),
+  'downloads page renders real gallery task rows by stable gid/token through the parent queue revision path for live progress')
 ok(/private TaskActionMenu\(\)/.test(queuePage) &&
   /removeActiveGalleryTask/.test(queuePage) &&
+  /download_delete_task/.test(queuePage) &&
+  /private confirmDeleteGalleryTask\(task: DownloadGalleryTask\): void[\s\S]*download_delete_confirm_message[\s\S]*fontColor: Color\.Red[\s\S]*this\.removeTask\(task\)/.test(queuePage) &&
   /DownloadQueueSettings\.removeGallery/.test(queuePage),
-  'downloads page can remove local queued tasks through the native more menu')
+  'downloads page deletes local queued tasks only after an explicit destructive confirmation')
 ok(!/private ReadTaskButton\(task: DownloadGalleryTask\)/.test(queuePage) &&
   /private openDownloadedTask\(task: DownloadGalleryTask\): void[\s\S]*this\.readProgress\.getIndex\(task\.gid\)[\s\S]*gallery_open_local_reader[\s\S]*firstUriHash[\s\S]*new ReaderParams\(task\.gid, task\.token, index, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(queuePage),
   'completed gallery tasks use the content area as the local Reader entry with saved reading progress and the full downloaded seed set')
@@ -177,7 +183,10 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'download_status_queued',
     'download_gallery_added',
     'download_gallery_already_queued',
-    'common_remove',
+    'download_delete_task',
+    'download_delete_confirm_title',
+    'download_delete_confirm_message',
+    'download_delete_confirm_action',
   ]) {
     ok(strings.includes(`"name": "${key}"`), `${locale}: ${key} string exists`)
   }
