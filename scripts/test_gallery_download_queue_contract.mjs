@@ -153,9 +153,9 @@ ok(!/private ReadTaskButton\(task: DownloadGalleryTask\)/.test(queuePage) &&
 ok(/private openTaskIfComplete\(task: DownloadGalleryTask\): void[\s\S]*this\.canReadTask\(task\)[\s\S]*this\.openDownloadedTask\(task\)/.test(queuePage) &&
   /\.onClick\(\(\) => \{[\s\S]*this\.openTaskIfComplete\(task\)/.test(queuePage),
   'completed gallery task content area opens the local Reader without duplicating a read button')
-ok(/private openGalleryTaskSource\(task: DownloadGalleryTask\): void[\s\S]*new GalleryDetailParams/.test(queuePage) &&
+ok(/private openGalleryTaskSource\(task: DownloadGalleryTask\): void[\s\S]*gallery_open_source_from_download[\s\S]*new GalleryDetailParams/.test(queuePage) &&
   /private GalleryTaskCover\(task: DownloadGalleryTask\)[\s\S]*this\.openGalleryTaskSource\(task\)/.test(queuePage),
-  'completed gallery task cover opens the original gallery detail instead of local Reader')
+  'completed gallery task cover opens the original gallery detail with a diagnostic event instead of local Reader')
 ok(!/const fileCount: number = task\.pageCount|const loadedPages: number = task\.previewPageCount|const perPage: number = task\.firstPageCount/.test(queuePage),
   'downloaded gallery Reader entry does not reuse EH preview-page seed params')
 ok(/downloadedSeedImages\(task: DownloadGalleryTask\)/.test(queuePage) &&

@@ -516,6 +516,11 @@ export struct DownloadQueuePage {
     if (task.gid.length === 0 || task.token.length === 0) {
       return
     }
+    DiagnosticLogger.info(
+      'download',
+      'gallery_open_source_from_download',
+      `gid=${task.gid} tokenHash=${DiagnosticLogger.ownerHash(task.token)} status=${task.status}`,
+    )
     this.stack.pushPathByName(
       'GalleryDetail',
       new GalleryDetailParams(
