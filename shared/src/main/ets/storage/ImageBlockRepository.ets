@@ -9,6 +9,7 @@ import {
   ImageBlockFeed,
   ImageBlockFeedItem,
   ImageBlockRule,
+  ImageBlockWhitelistItem,
 } from '../model/ImageBlockRule'
 import { PHashService } from '../services/PHashService'
 import { LocalDataStore } from './LocalDataStore'
@@ -19,22 +20,40 @@ const SQL_SELECT_SUBSCRIPTIONS: string =
   'FROM image_block_subscriptions WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY feed_id ASC'
 const SQL_SELECT_ENABLED_RULES: string =
-  'SELECT r.rule_id, r.hash, r.threshold, r.label, r.scope, r.feed_id, r.source_type, ' +
-  'r.source_url, r.source_page, r.enabled, r.updated_at, r.deleted_at ' +
+  'SELECT r.rule_id, r.hash, ' +
+  'CASE WHEN COALESCE(o.threshold_override, -1) >= 0 THEN o.threshold_override ELSE r.threshold END AS threshold, ' +
+  'r.label, r.scope, r.feed_id, r.source_type, ' +
+  'r.source_url, r.source_page, r.preview_path, r.enabled, r.updated_at, r.deleted_at ' +
   'FROM image_block_rules r LEFT JOIN image_block_subscriptions s ' +
   'ON s.scope_key = r.scope_key AND s.feed_id = r.feed_id AND COALESCE(s.deleted_at, 0) = 0 ' +
+  'LEFT JOIN image_block_rule_overrides o ' +
+  'ON o.scope_key = r.scope_key AND o.rule_id = r.rule_id AND COALESCE(o.deleted_at, 0) = 0 ' +
   'WHERE r.scope_key = ? AND r.enabled > 0 AND COALESCE(r.deleted_at, 0) = 0 ' +
   'AND (r.source_type <> ? OR COALESCE(s.enabled, 0) > 0) ' +
+  'AND COALESCE(o.enabled_override, -1) <> 0 ' +
   'ORDER BY r.source_type ASC, r.feed_id ASC, r.rule_id ASC'
+const SQL_SELECT_SUBSCRIPTION_RULES: string =
+  'SELECT r.rule_id, r.hash, ' +
+  'CASE WHEN COALESCE(o.threshold_override, -1) >= 0 THEN o.threshold_override ELSE r.threshold END AS threshold, ' +
+  'r.label, r.scope, r.feed_id, r.source_type, r.source_url, r.source_page, r.preview_path, ' +
+  'CASE WHEN COALESCE(o.enabled_override, -1) >= 0 THEN o.enabled_override ELSE r.enabled END AS enabled, ' +
+  'r.updated_at, r.deleted_at ' +
+  'FROM image_block_rules r LEFT JOIN image_block_rule_overrides o ' +
+  'ON o.scope_key = r.scope_key AND o.rule_id = r.rule_id AND COALESCE(o.deleted_at, 0) = 0 ' +
+  'WHERE r.scope_key = ? AND r.feed_id = ? AND r.source_type = ? AND COALESCE(r.deleted_at, 0) = 0 ' +
+  'ORDER BY r.rule_id ASC'
 const SQL_SELECT_WHITELIST: string =
   'SELECT hash FROM image_block_whitelist WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY hash ASC'
+const SQL_SELECT_WHITELIST_ITEMS: string =
+  'SELECT hash, preview_path, updated_at FROM image_block_whitelist ' +
+  'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ORDER BY updated_at DESC, hash ASC'
 const SQL_SELECT_LOCAL_RULE_COUNT: string =
   'SELECT COUNT(*) AS rule_count FROM image_block_rules ' +
   'WHERE scope_key = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_SELECT_LOCAL_RULES: string =
   'SELECT rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, ' +
-  'enabled, updated_at, deleted_at ' +
+  'preview_path, enabled, updated_at, deleted_at ' +
   'FROM image_block_rules ' +
   'WHERE scope_key = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY updated_at DESC, rule_id ASC'
@@ -51,11 +70,12 @@ const SQL_UPSERT_SUBSCRIPTION: string =
   'enabled = image_block_subscriptions.enabled, deleted_at = 0'
 const SQL_UPSERT_RULE: string =
   'INSERT INTO image_block_rules ' +
-  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, enabled, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
   'hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, ' +
   'feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, ' +
-  'source_page = excluded.source_page, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = 0'
+  'source_page = excluded.source_page, preview_path = excluded.preview_path, ' +
+  'enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = 0'
 const SQL_TOMBSTONE_SUBSCRIPTION: string =
   'UPDATE image_block_subscriptions SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND feed_id = ? AND COALESCE(deleted_at, 0) = 0'
@@ -68,6 +88,12 @@ const SQL_SET_SUBSCRIPTION_ENABLED: string =
 const SQL_TOMBSTONE_LOCAL_RULE: string =
   'UPDATE image_block_rules SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
+const SQL_UPDATE_LOCAL_RULE_THRESHOLD: string =
+  'UPDATE image_block_rules SET threshold = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND rule_id = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
+const SQL_UPDATE_LOCAL_RULE_ENABLED: string =
+  'UPDATE image_block_rules SET enabled = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND rule_id = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_TOMBSTONE_WHITELIST: string =
   'UPDATE image_block_whitelist SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
@@ -75,9 +101,22 @@ const SQL_TOMBSTONE_ONE_WHITELIST: string =
   'UPDATE image_block_whitelist SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND hash = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_UPSERT_WHITELIST: string =
-  'INSERT INTO image_block_whitelist (scope_key, hash, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, 0) ON CONFLICT(scope_key, hash) DO UPDATE SET ' +
+  'INSERT INTO image_block_whitelist (scope_key, hash, preview_path, updated_at, deleted_at) ' +
+  'VALUES (?, ?, ?, ?, 0) ON CONFLICT(scope_key, hash) DO UPDATE SET ' +
+  'preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_whitelist.preview_path END, ' +
   'updated_at = excluded.updated_at, deleted_at = 0'
+const SQL_UPSERT_RULE_ENABLED_OVERRIDE: string =
+  'INSERT INTO image_block_rule_overrides ' +
+  '(scope_key, rule_id, hash, source_type, enabled_override, threshold_override, updated_at, deleted_at) ' +
+  'VALUES (?, ?, ?, ?, ?, -1, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  'hash = excluded.hash, source_type = excluded.source_type, ' +
+  'enabled_override = excluded.enabled_override, updated_at = excluded.updated_at, deleted_at = 0'
+const SQL_UPSERT_RULE_THRESHOLD_OVERRIDE: string =
+  'INSERT INTO image_block_rule_overrides ' +
+  '(scope_key, rule_id, hash, source_type, enabled_override, threshold_override, updated_at, deleted_at) ' +
+  'VALUES (?, ?, ?, ?, -1, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  'hash = excluded.hash, source_type = excluded.source_type, ' +
+  'threshold_override = excluded.threshold_override, updated_at = excluded.updated_at, deleted_at = 0'
 const SQL_UPSERT_FILE_HASH: string =
   'INSERT INTO image_block_hash_cache ' +
   '(scope_key, file_path, bytes, hash, algorithm, hashed_at, deleted_at) ' +
@@ -152,6 +191,26 @@ export class ImageBlockRepository {
     return out
   }
 
+  static async loadWhitelistItems(context: common.UIAbilityContext): Promise<ImageBlockWhitelistItem[]> {
+    const out: ImageBlockWhitelistItem[] = []
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_WHITELIST_ITEMS, [SCOPE_GLOBAL])
+    try {
+      while (resultSet.goToNextRow()) {
+        const item: ImageBlockWhitelistItem = new ImageBlockWhitelistItem()
+        item.hash = PHashService.normalizeHex64(ImageBlockRepository.stringColumn(resultSet, 'hash'))
+        item.previewPath = ImageBlockRepository.stringColumn(resultSet, 'preview_path')
+        item.updatedAt = Math.floor(ImageBlockRepository.numberColumn(resultSet, 'updated_at'))
+        if (item.hash.length > 0) {
+          out.push(item)
+        }
+      }
+    } finally {
+      resultSet.close()
+    }
+    return out
+  }
+
   static async loadLocalRuleCount(context: common.UIAbilityContext): Promise<number> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_RULE_COUNT, [
@@ -174,6 +233,33 @@ export class ImageBlockRepository {
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_LOCAL_RULES, [
       SCOPE_GLOBAL,
       IMAGE_BLOCK_SOURCE_LOCAL,
+    ])
+    try {
+      while (resultSet.goToNextRow()) {
+        const rule: ImageBlockRule = ImageBlockRepository.readRule(resultSet)
+        if (rule.hash.length > 0) {
+          out.push(rule)
+        }
+      }
+    } finally {
+      resultSet.close()
+    }
+    return out
+  }
+
+  static async loadSubscriptionRules(
+    context: common.UIAbilityContext,
+    feedId: string,
+  ): Promise<ImageBlockRule[]> {
+    const out: ImageBlockRule[] = []
+    if (feedId.length === 0) {
+      return out
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SUBSCRIPTION_RULES, [
+      SCOPE_GLOBAL,
+      feedId,
+      IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
     ])
     try {
       while (resultSet.goToNextRow()) {
@@ -283,6 +369,7 @@ export class ImageBlockRepository {
       IMAGE_BLOCK_SOURCE_LOCAL,
       rule.sourceUrl,
       rule.sourcePage > 0 ? Math.floor(rule.sourcePage) : 0,
+      rule.previewPath,
       rule.enabled ? 1 : 0,
       now,
     ])
@@ -303,6 +390,42 @@ export class ImageBlockRepository {
     ])
   }
 
+  static async setLocalRuleThreshold(
+    context: common.UIAbilityContext,
+    ruleId: string,
+    threshold: number,
+  ): Promise<void> {
+    if (ruleId.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_UPDATE_LOCAL_RULE_THRESHOLD, [
+      PHashService.clampThreshold(threshold),
+      Date.now(),
+      SCOPE_GLOBAL,
+      ruleId,
+      IMAGE_BLOCK_SOURCE_LOCAL,
+    ])
+  }
+
+  static async setLocalRuleEnabled(
+    context: common.UIAbilityContext,
+    ruleId: string,
+    enabled: boolean,
+  ): Promise<void> {
+    if (ruleId.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_UPDATE_LOCAL_RULE_ENABLED, [
+      enabled ? 1 : 0,
+      Date.now(),
+      SCOPE_GLOBAL,
+      ruleId,
+      IMAGE_BLOCK_SOURCE_LOCAL,
+    ])
+  }
+
   static async replaceWhitelist(context: common.UIAbilityContext, hashes: string[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const now: number = Date.now()
@@ -312,7 +435,7 @@ export class ImageBlockRepository {
       for (let i: number = 0; i < hashes.length; i++) {
         const hash: string = PHashService.normalizeHex64(hashes[i])
         if (hash.length > 0) {
-          await store.executeSql(SQL_UPSERT_WHITELIST, [SCOPE_GLOBAL, hash, now + i + 1])
+          await store.executeSql(SQL_UPSERT_WHITELIST, [SCOPE_GLOBAL, hash, '', now + i + 1])
         }
       }
       store.commit()
@@ -323,14 +446,83 @@ export class ImageBlockRepository {
     }
   }
 
-  static async upsertWhitelistHash(context: common.UIAbilityContext, hash: string): Promise<string> {
+  static async upsertWhitelistHash(
+    context: common.UIAbilityContext,
+    hash: string,
+    previewPath: string = '',
+  ): Promise<string> {
     const normalizedHash: string = PHashService.normalizeHex64(hash)
     if (normalizedHash.length === 0) {
       throw new Error('Image block whitelist hash must be 16 hex characters')
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_UPSERT_WHITELIST, [SCOPE_GLOBAL, normalizedHash, Date.now()])
+    await store.executeSql(SQL_UPSERT_WHITELIST, [SCOPE_GLOBAL, normalizedHash, previewPath, Date.now()])
     return normalizedHash
+  }
+
+  static async ignoreRule(
+    context: common.UIAbilityContext,
+    ruleId: string,
+    hash: string,
+    sourceType: string,
+  ): Promise<void> {
+    const normalizedHash: string = PHashService.normalizeHex64(hash)
+    if (ruleId.length === 0 || normalizedHash.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_UPSERT_RULE_ENABLED_OVERRIDE, [
+      SCOPE_GLOBAL,
+      ruleId,
+      normalizedHash,
+      sourceType,
+      0,
+      Date.now(),
+    ])
+  }
+
+  static async setRuleEnabledOverride(
+    context: common.UIAbilityContext,
+    ruleId: string,
+    hash: string,
+    sourceType: string,
+    enabled: boolean,
+  ): Promise<void> {
+    const normalizedHash: string = PHashService.normalizeHex64(hash)
+    if (ruleId.length === 0 || normalizedHash.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_UPSERT_RULE_ENABLED_OVERRIDE, [
+      SCOPE_GLOBAL,
+      ruleId,
+      normalizedHash,
+      sourceType,
+      enabled ? 1 : 0,
+      Date.now(),
+    ])
+  }
+
+  static async setRuleThresholdOverride(
+    context: common.UIAbilityContext,
+    ruleId: string,
+    hash: string,
+    sourceType: string,
+    threshold: number,
+  ): Promise<void> {
+    const normalizedHash: string = PHashService.normalizeHex64(hash)
+    if (ruleId.length === 0 || normalizedHash.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_UPSERT_RULE_THRESHOLD_OVERRIDE, [
+      SCOPE_GLOBAL,
+      ruleId,
+      normalizedHash,
+      sourceType,
+      PHashService.clampThreshold(threshold),
+      Date.now(),
+    ])
   }
 
   static async removeWhitelistHash(context: common.UIAbilityContext, hash: string): Promise<void> {
@@ -390,6 +582,7 @@ export class ImageBlockRepository {
       IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
       '',
       0,
+      '',
       1,
       updatedAt,
     ])
@@ -412,6 +605,7 @@ export class ImageBlockRepository {
     rule.sourceType = ImageBlockRepository.stringColumn(resultSet, 'source_type')
     rule.sourceUrl = ImageBlockRepository.stringColumn(resultSet, 'source_url')
     rule.sourcePage = Math.floor(ImageBlockRepository.numberColumn(resultSet, 'source_page'))
+    rule.previewPath = ImageBlockRepository.stringColumn(resultSet, 'preview_path')
     rule.enabled = Math.floor(ImageBlockRepository.numberColumn(resultSet, 'enabled')) > 0
     rule.updatedAt = Math.floor(ImageBlockRepository.numberColumn(resultSet, 'updated_at'))
     rule.deletedAt = Math.floor(ImageBlockRepository.numberColumn(resultSet, 'deleted_at'))

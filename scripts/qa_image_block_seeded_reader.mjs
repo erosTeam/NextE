@@ -28,7 +28,8 @@ const WHITELIST_SECTION_LABELS = ['误杀放行图片', 'Allowed images', '許�
 const WHITELIST_ROW_TITLE_LABELS = ['已放行图片', 'Allowed image', '許可済み画像']
 const CONTRIBUTION_DRAFT_LABELS = ['复制社区规则草稿', 'Copy community draft', 'コミュニティ下書きをコピー']
 const IMAGE_BLOCK_TITLE_LABELS = ['图片屏蔽', 'Image blocks', '画像ブロック']
-const SUBSCRIPTION_PROVIDER_LABELS = ['Chinese scanlator ads']
+const SUBSCRIPTION_PROVIDER_LABELS = ['社区图片屏蔽规则', 'Community image block rules', 'コミュニティ画像ブロックルール']
+const SAMPLE_HASH = 'ce9e181d354a3cd5'
 
 function argValue(name, fallback) {
   const index = process.argv.indexOf(name)
@@ -455,8 +456,7 @@ function settingsManualRuleVisible(path) {
   const draftVisible = CONTRIBUTION_DRAFT_LABELS.some((label) => text.includes(label))
   return titleVisible &&
     draftVisible &&
-    text.includes('scanlator-ad') &&
-    text.includes('ce9e...3cd5')
+    text.includes(SAMPLE_HASH)
 }
 
 function localRuleCountText(path) {
@@ -481,12 +481,13 @@ function localRuleCountText(path) {
       return
     }
     const text = String(attrs.text || attrs.originalText || '').trim()
-    if (!/^\d+$/.test(text)) {
+    const match = text.match(/^(\d+)/)
+    if (match === null) {
       return
     }
     if (bounds.left > bestLeft) {
       bestLeft = bounds.left
-      found = text
+      found = match[1]
     }
   })
   return found
@@ -514,12 +515,13 @@ function whitelistCountText(path) {
       return
     }
     const text = String(attrs.text || attrs.originalText || '').trim()
-    if (!/^\d+$/.test(text)) {
+    const match = text.match(/^(\d+)/)
+    if (match === null) {
       return
     }
     if (bounds.left > bestLeft) {
       bestLeft = bounds.left
-      found = text
+      found = match[1]
     }
   })
   return found
@@ -545,7 +547,7 @@ function whitelistHashVisibleInSection(path) {
       return
     }
     const text = joinedNodeText(attrs)
-    if (text.includes('ce9e...3cd5')) {
+    if (text.includes(SAMPLE_HASH)) {
       found = true
     }
   })
@@ -561,8 +563,7 @@ function settingsManualRuleRemovedVisible(path) {
     localSectionVisible &&
     localRuleCountText(path) === '0' &&
     !draftVisible &&
-    !text.includes('scanlator-ad / P1') &&
-    !text.includes('ce9e...3cd5')
+    !text.includes(SAMPLE_HASH)
 }
 
 function settingsWhitelistVisible(path) {
@@ -596,7 +597,7 @@ function settingsSubscriptionProviderVisible(path) {
     text.includes('1/1 / 1') &&
     localRuleCountText(path) === '0' &&
     whitelistCountText(path) === '0' &&
-    !text.includes('scanlator-ad / P1')
+    !text.includes(SAMPLE_HASH)
 }
 
 function settingsSubscriptionResetVisible(path) {
@@ -608,7 +609,7 @@ function settingsSubscriptionResetVisible(path) {
     text.includes('1/1 / 0') &&
     localRuleCountText(path) === '0' &&
     whitelistCountText(path) === '0' &&
-    !text.includes('scanlator-ad / P1')
+    !text.includes(SAMPLE_HASH)
 }
 
 function findLocalRuleDeleteButton(path) {
@@ -617,7 +618,7 @@ function findLocalRuleDeleteButton(path) {
   visit(layout, (node) => {
     const attrs = node.attributes || {}
     const text = joinedNodeText(attrs)
-    if (!text.includes('scanlator-ad / P1') && !text.includes('ce9e...3cd5')) {
+    if (!text.includes(SAMPLE_HASH)) {
       return
     }
     if (typeof attrs.bounds !== 'string') {
@@ -682,7 +683,7 @@ function findWhitelistDeleteButton(path) {
       return
     }
     const text = joinedNodeText(attrs)
-    const isWhitelistRowText = text.includes('ce9e...3cd5') ||
+    const isWhitelistRowText = text.includes(SAMPLE_HASH) ||
       WHITELIST_ROW_TITLE_LABELS.some((label) => text.includes(label))
     if (isWhitelistRowText) {
       rowBounds.push(bounds)
@@ -731,13 +732,18 @@ function settingsManualRuleEdgeVisible(path) {
     text.includes('コミュニティ下書きをコピー')
   const missingSourceVisible = text.includes('缺少来源') ||
     text.includes('missing source') ||
+    text.includes('出典なし') ||
     text.includes('ソースなし')
   const duplicateVisible = text.includes('重复') ||
     text.includes('duplicate') ||
     text.includes('重複')
+  const readyVisible = text.includes('1 条可复制') ||
+    text.includes('1 ready') ||
+    text.includes('1 件コピー可')
+  const legacyReadyVisible = text.includes('1/3')
   return titleVisible &&
     draftVisible &&
-    text.includes('1/3') &&
+    (readyVisible || legacyReadyVisible) &&
     missingSourceVisible &&
     duplicateVisible
 }

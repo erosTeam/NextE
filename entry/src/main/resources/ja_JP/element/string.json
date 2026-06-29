@@ -2750,7 +2750,7 @@
     },
     {
       "name": "image_block_hint",
-      "value": "コミュニティ pHash ルールで広告ページを非表示にします。"
+      "value": "リーダーとサムネイルで一致した画像を非表示にします"
     },
     {
       "name": "image_block_update_default",
@@ -2758,7 +2758,7 @@
     },
     {
       "name": "image_block_update_default_hint",
-      "value": "よくある広告ページ用の erosTeam 既定購読を取得します。"
+      "value": "更新を確認します。ローカルルールは変更しません"
     },
     {
       "name": "image_block_updating",
@@ -2789,16 +2789,124 @@
       "value": "件のルール"
     },
     {
+      "name": "image_block_rule_count_format",
+      "value": "%d 件のルール"
+    },
+    {
+      "name": "image_block_image_count_format",
+      "value": "%d 枚の画像"
+    },
+    {
+      "name": "image_block_provider_enabled",
+      "value": "有効"
+    },
+    {
+      "name": "image_block_provider_disabled",
+      "value": "無効"
+    },
+    {
+      "name": "image_block_feed_enabled_hint",
+      "value": "有効。画像ブロックに使用します"
+    },
+    {
+      "name": "image_block_feed_disabled_hint",
+      "value": "無効。現在は使用しません"
+    },
+    {
+      "name": "image_block_default_provider_title",
+      "value": "コミュニティ画像ブロックルール"
+    },
+    {
+      "name": "image_block_source_page_format",
+      "value": "%s ページ"
+    },
+    {
+      "name": "image_block_source_gallery_format",
+      "value": "ギャラリー %s"
+    },
+    {
+      "name": "image_block_source_gallery_token_format",
+      "value": "ギャラリー %s · トークン %s"
+    },
+    {
+      "name": "image_block_rule_blocked_image",
+      "value": "ブロック画像"
+    },
+    {
+      "name": "image_block_rule_missing_source",
+      "value": "ソースなし"
+    },
+    {
+      "name": "image_block_rule_submit_ready",
+      "value": "ソース確認済み"
+    },
+    {
+      "name": "image_block_rule_submit_blocked",
+      "value": "ソース不足"
+    },
+    {
+      "name": "image_block_rule_fingerprint",
+      "value": "識別コード"
+    },
+    {
+      "name": "image_block_rule_threshold",
+      "value": "しきい値"
+    },
+    {
+      "name": "image_block_rule_threshold_hint",
+      "value": "値が大きいほど似た画像にも一致しやすくなります"
+    },
+    {
+      "name": "image_block_threshold_strict",
+      "value": "厳格 0"
+    },
+    {
+      "name": "image_block_threshold_loose",
+      "value": "緩め 12"
+    },
+    {
+      "name": "image_block_rule_settings",
+      "value": "ルール設定"
+    },
+    {
+      "name": "image_block_rule_enabled",
+      "value": "ルールを有効化"
+    },
+    {
+      "name": "image_block_rule_enabled_hint",
+      "value": "オフにすると、このルールだけを無視します"
+    },
+    {
+      "name": "image_block_rule_source",
+      "value": "ソース"
+    },
+    {
+      "name": "image_block_source_subscription",
+      "value": "コミュニティ購読"
+    },
+    {
+      "name": "image_block_local_rule_summary",
+      "value": "ローカル手動ルール"
+    },
+    {
+      "name": "image_block_subscription_rule_summary",
+      "value": "コミュニティルール"
+    },
+    {
+      "name": "image_block_subscription_rules",
+      "value": "購読ルール"
+    },
+    {
       "name": "image_block_local_rules",
       "value": "手動ブロック"
     },
     {
       "name": "image_block_local_rules_hint",
-      "value": "Reader のブロックアイコンから追加し、ローカルで即時有効になります。"
+      "value": "リーダーまたはサムネイルから追加。開くと編集できます"
     },
     {
       "name": "image_block_local_rule_title",
-      "value": "手動 pHash ルール"
+      "value": "手動画像ルール"
     },
     {
       "name": "image_block_local_rule_delete_confirm",
@@ -2813,12 +2921,28 @@
       "value": "ローカル画像ブロックルールの削除に失敗しました"
     },
     {
+      "name": "image_block_thumb_add",
+      "value": "この画像をブロック"
+    },
+    {
+      "name": "image_block_thumb_allow",
+      "value": "現在のブロックルールを解除"
+    },
+    {
+      "name": "image_block_thumb_blocked",
+      "value": "画像ブロックを追加しました"
+    },
+    {
+      "name": "image_block_thumb_allowed",
+      "value": "現在のブロックルールを解除しました"
+    },
+    {
       "name": "image_block_contribution_draft",
       "value": "コミュニティ下書きをコピー"
     },
     {
       "name": "image_block_contribution_draft_hint",
-      "value": "安定したギャラリーソース付きのルールだけを含めます。"
+      "value": "出典が揃ったルールをコピーできます"
     },
     {
       "name": "image_block_contribution_copied",
@@ -2826,7 +2950,15 @@
     },
     {
       "name": "image_block_contribution_empty",
-      "value": "提出できる手動ルールはありません"
+      "value": "確認元がそろったローカルルールはありません"
+    },
+    {
+      "name": "image_block_contribution_none_ready",
+      "value": "0 件コピー可"
+    },
+    {
+      "name": "image_block_contribution_ready_count",
+      "value": "%d 件コピー可"
     },
     {
       "name": "image_block_contribution_failed",
@@ -2834,19 +2966,39 @@
     },
     {
       "name": "image_block_contribution_skipped",
-      "value": "スキップ"
+      "value": "コピーしない項目"
+    },
+    {
+      "name": "image_block_label_separator",
+      "value": "："
+    },
+    {
+      "name": "image_block_inline_separator",
+      "value": " · "
+    },
+    {
+      "name": "image_block_contribution_reason_count_format",
+      "value": "%d 件: %s"
+    },
+    {
+      "name": "image_block_contribution_reason_separator",
+      "value": "、"
     },
     {
       "name": "image_block_contribution_missing_source",
-      "value": "ソースなし"
+      "value": "出典なし"
     },
     {
       "name": "image_block_contribution_duplicate",
-      "value": "重複"
+      "value": "重複ルール"
     },
     {
       "name": "image_block_contribution_invalid",
-      "value": "無効"
+      "value": "識別コード無効"
+    },
+    {
+      "name": "image_block_contribution_unavailable",
+      "value": "コピー不可"
     },
     {
       "name": "image_block_whitelist",
@@ -2854,11 +3006,19 @@
     },
     {
       "name": "image_block_whitelist_hint",
-      "value": "誤検出でブロックされた画像を表示できるようにします。"
+      "value": "ここにある画像は、ルールに一致しても表示されます"
     },
     {
       "name": "image_block_whitelist_hash_title",
       "value": "許可済み画像"
+    },
+    {
+      "name": "image_block_whitelist_status",
+      "value": "許可済み"
+    },
+    {
+      "name": "image_block_whitelist_row_hint",
+      "value": "この画像は今後ブロックされません"
     },
     {
       "name": "image_block_whitelist_delete_confirm",

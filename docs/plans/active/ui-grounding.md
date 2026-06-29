@@ -16,10 +16,10 @@ Verification: image-block foundation contract, reader image-block contract, UI g
 
 Status: active
 Reference implementation: `../eros_fe/lib/pages/setting/block/blockers_page.dart` blocker management semantics, NextE `feature/settings/src/main/ets/pages/EhSettingsPage.ets` EH settings grouping, `feature/settings/src/main/ets/pages/LocalBlockSettingsPage.ets` blocker entry, `feature/settings/src/main/ets/pages/TagTranslationSettingsPage.ets` update-now settings row, and `feature/settings/src/main/ets/pages/AdvancedSettingsPage.ets` clipboard fallback for generated text.
-Surface type: EH settings child page for image-block community subscription refresh, provider enablement, local pHash rule cleanup, assisted contribution draft copy, and false-positive allowlist cleanup.
-Primary information: current community rule provider count, enabled providers, stored subscription rule count, Reader-marked local rules on this device, contribution `ready/total` plus skipped-rule reasons, and images allowed after a false-positive block.
-Primary action: refresh the default erosTeam community manifest; secondary actions are enabling/disabling an installed provider, copying a local-rule JSONL contribution draft, deleting a mistaken local rule, and removing a false-positive allowlist hash.
-Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, `ImageBlockSubscriptionService`, `ImageBlockRepository`, `ImageBlockContributionService`, and the existing pasteboard text-copy pattern; local rows may show label/page, short pHash, threshold, and a public gallery review URL, while allowlist rows show a short pHash only. The contribution action only copies sanitized JSONL from local rules and surfaces `ready/total` plus skipped counts; it does not open GitHub, submit a PR, add OAuth, QR rules, or a custom management table in this lane.
+Surface type: EH settings child page for image-block community subscription refresh, provider enablement, per-rule local overrides, local image-rule cleanup, assisted contribution draft copy, and false-positive allowlist cleanup.
+Primary information: current community rule provider count, enabled providers, stored subscription rule count, Reader-marked local image rules on this device, each selected rule's preview/source/识别码/effective threshold/enabled state, contribution `ready/total` plus skipped-rule reasons, and images allowed after a false-positive block.
+Primary action: refresh the default erosTeam community manifest; secondary actions are opening a provider's rules, enabling/disabling one rule, adjusting one rule threshold, copying a local-rule JSONL contribution draft, deleting a mistaken local rule, and removing a false-positive allowlist hash.
+Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, `AppModalScaffold`, `ImageBlockSubscriptionService`, `ImageBlockRepository`, `ImageBlockContributionService`, and the existing pasteboard text-copy pattern. The main list stays an overview; one specific local/subscription rule opens a half-modal for rule-level switch + threshold controls. Subscription rule edits write local overrides only, never mutate/delete remote feed rows. The contribution action only copies sanitized JSONL from local rules and surfaces human-readable counts such as copyable local rules and skipped reasons; it does not open GitHub, submit a PR, add OAuth, QR rules, or a custom management table in this lane.
 Verification: image-block foundation contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, signed Hvigor build, and 197 settings screenshot after local-rule mark/delete when the device is unlocked.
 
 ## Active: reader local image-block mark action
@@ -411,6 +411,16 @@ Primary information: each queued gallery shows seed preparation, real image-file
 Primary action: detail-page Download starts seed preparation and then the bounded gallery image executor; Archiver local submit adds and downloads a real archive task; failed or partial queue rows can resume through a low-weight icon action, completed gallery rows enter the normal Reader with local file images, completed archive rows unzip into cache and enter the same Reader, while Remove remains secondary; Settings > Download opens the existing dedicated policy page.
 Reuse or deviation: reuse the existing HDS task card, `EhThumbnail`, progress bar, RDB-backed queue, persisted download settings page, Reader route, protected Archiver confirmation flow, platform `zlib.decompressFile`, and circle icon actions; deviate from FE's async zip reader by extracting a completed sandbox zip to cache first because Harmony's built-in zip API exposes whole-file decompression, not random entry reads.
 Verification: gallery download executor contract, archive reader contract, download settings contract, gallery download preparation contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 completed-task Reader smoke when a small downloaded task is available.
+
+## Active: image block visual management
+
+Status: active
+Reference implementation: NextE `feature/settings/src/main/ets/pages/ImageBlockSettingsPage.ets`, Reader-side `ImageBlockRuntimeService.addLocalRuleForFile()` / `addWhitelistForFile()`, and existing HDS settings sections for provider/update actions.
+Surface type: EH Settings child page for image blocking management.
+Primary information: user-managed image-block records are images first: local blocked images and false-positive allowlisted images should show the stored Reader cache preview before hash/threshold metadata.
+Primary action: refresh/toggle community providers, copy submit-ready local rules, delete mistaken local rules, and remove false-positive allowlist entries.
+Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, and `ConciseListRow` only for settings-like actions and provider toggles; deviate for rule/allowlist records by rendering local image cards because a pHash/URL row is not readable management UI.
+Verification: image-block foundation contract, reader image-block contract, i18n duplicate check, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and 197 settings screenshot after a seeded local rule/allowlist exists.
 
 ## Active: tag info intro image sizing
 

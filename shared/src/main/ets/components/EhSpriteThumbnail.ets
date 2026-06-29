@@ -1,5 +1,12 @@
+import { common } from '@kit.AbilityKit'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
+import { ImageBlockDecision } from '../model/ImageBlockRule'
+import { ImageBlockRuntimeService } from '../services/ImageBlockRuntimeService'
+import {
+  ImageBlockRuntimeState,
+  connectImageBlockRuntime,
+} from '../state/ImageBlockRuntimeState'
 
 /**
  * Renders ONE EH preview thumbnail. EH serves a whole preview page's thumbnails as a single sprite
@@ -30,6 +37,10 @@ export struct EhSpriteThumbnail {
   @Param spriteHeight: number = 0;
   @Param displayWidth: number = 78;
   @Param displayHeight: number = 0;
+  @Param enableImageBlock: boolean = false;
+  @Param imageBlockRevision: number = 0;
+  @Event onImageBlockStateChange: (blocked: boolean) => void = () => {};
+  @Event onImageBlockDecisionChange: (decision: ImageBlockDecision) => void = () => {};
   // When true the thumb is sized by displayHeight (row-height layout) and its width follows the true
   // aspect; otherwise it is sized by displayWidth and its height follows the true aspect. Either way the
   // box matches the thumb exactly — no fixed-height overhang that would show a blank strip.
@@ -41,11 +52,38 @@ export struct EhSpriteThumbnail {
   // last cell (the parsed spriteWidth/spriteHeight can under-measure the true canvas).
   @Local sheetRealW: number = 0;
   @Local sheetRealH: number = 0;
+  @Local imageBlocked: boolean = false;
+  @Local imageBlockRuntime: ImageBlockRuntimeState = connectImageBlockRuntime();
+  private blockSeq: number = 0;
 
   @Monitor('url')
   onUrlChange() {
     this.sheetRealW = 0
     this.sheetRealH = 0
+    this.imageBlocked = false
+    this.checkImageBlock()
+  }
+
+  @Monitor('enableImageBlock')
+  onImageBlockToggle() {
+    this.imageBlocked = false
+    this.checkImageBlock()
+  }
+
+  @Monitor('imageBlockRevision')
+  onImageBlockRevisionChange() {
+    this.imageBlocked = false
+    this.checkImageBlock()
+  }
+
+  @Monitor('imageBlockRuntime.signal')
+  onImageBlockRuntimeChange() {
+    this.imageBlocked = false
+    this.checkImageBlock()
+  }
+
+  aboutToAppear(): void {
+    this.checkImageBlock()
   }
 
   // Sprite scale factor: thumb's source dimension → its display dimension.
@@ -80,8 +118,91 @@ export struct EhSpriteThumbnail {
     return this.thumbWidth > 0 && this.thumbHeight > 0 ? this.thumbWidth / this.thumbHeight : 0.7
   }
 
+  private checkImageBlock(): void {
+    const seq: number = ++this.blockSeq
+    if (!this.enableImageBlock || this.url.length === 0) {
+      this.imageBlocked = false
+      this.onImageBlockStateChange(false)
+      this.onImageBlockDecisionChange(new ImageBlockDecision())
+      return
+    }
+    ImageBlockRuntimeService.decisionForThumbnail(
+      this.getUIContext().getHostContext() as common.UIAbilityContext,
+      this.url,
+      this.thumbWidth,
+      this.thumbHeight,
+      this.offsetX,
+      this.spriteWidth,
+      this.spriteHeight,
+    )
+      .then((decision) => {
+        if (seq === this.blockSeq) {
+          this.imageBlocked = decision.blocked
+          this.onImageBlockStateChange(decision.blocked)
+          this.onImageBlockDecisionChange(decision)
+        }
+      })
+      .catch((_error: Error) => {
+        if (seq === this.blockSeq) {
+          this.imageBlocked = false
+          this.onImageBlockStateChange(false)
+          this.onImageBlockDecisionChange(new ImageBlockDecision())
+        }
+      })
+  }
+
+  @Builder
+  private blockedThumb() {
+    Stack({ alignContent: Alignment.Center }) {
+      if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
+        Stack({ alignContent: Alignment.TopStart }) {
+          Image(EhConstants.cdnThumb(this.url))
+            .width(this.sheetRenderWidth())
+            .height(this.sheetRenderHeight())
+            .objectFit(ImageFit.Fill)
+            .offset({ x: -(this.offsetX * this.factor()), y: 0 })
+            .blur(18)
+            .opacity(0.9)
+            .draggable(false)
+        }
+        .width(this.boxWidth())
+        .height(this.boxHeight())
+      } else if (this.fitHeight) {
+        Image(EhConstants.cdnThumb(this.url))
+          .height(this.displayHeight)
+          .aspectRatio(this.wholeImageAspect())
+          .objectFit(ImageFit.Cover)
+          .blur(18)
+          .opacity(0.9)
+          .draggable(false)
+      } else {
+        Image(EhConstants.cdnThumb(this.url))
+          .width(this.displayWidth)
+          .aspectRatio(this.wholeImageAspect())
+          .objectFit(ImageFit.Cover)
+          .blur(18)
+          .opacity(0.9)
+          .draggable(false)
+      }
+      Column()
+        .width(this.boxWidth())
+        .height(this.boxHeight())
+        .backgroundColor('#33000000')
+      SymbolGlyph($r('sys.symbol.eye_slash'))
+        .fontSize(28)
+        .fontColor([Color.White])
+    }
+    .width(this.boxWidth())
+    .height(this.boxHeight())
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .borderRadius(this.radius)
+    .clip(true)
+  }
+
   build() {
-    if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
+    if (this.imageBlocked) {
+      this.blockedThumb()
+    } else if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
       // Crop ONE thumb out of EH's sprite sheet. The sheet is an Image CHILD (not a backgroundImage)
       // inside a fixed box that clips to `radius`. This is deliberate: on HarmonyOS a backgroundImage is
       // NOT clipped by borderRadius + clip(true) (device-verified — the thumb rendered square), but Image

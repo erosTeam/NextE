@@ -1,6 +1,15 @@
+import { common } from '@kit.AbilityKit'
+import { AppStrings } from '../i18n/AppStrings'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhSpriteThumbnail } from './EhSpriteThumbnail'
 import { EhGalleryImage } from '../model/EhGalleryImage'
+import {
+  IMAGE_BLOCK_SOURCE_LOCAL,
+  ImageBlockDecision,
+} from '../model/ImageBlockRule'
+import { ImageBlockRepository } from '../storage/ImageBlockRepository'
+import { ImageBlockRuntimeService } from '../services/ImageBlockRuntimeService'
+import { publishImageBlockRulesChanged } from '../state/ImageBlockRuntimeState'
 
 // Tile image-frame aspect (height = width * aspect). A FIXED portrait frame so every tile — and thus
 // every page number below it — sits at the same height regardless of each thumb's true aspect or a
@@ -21,6 +30,11 @@ export struct PreviewThumbTile {
   @Require @Param image: EhGalleryImage;
   @Event onTap: () => void = () => {};
   @Local measuredWidth: number = 0;
+  @Local menuShown: boolean = false;
+  @Local busy: boolean = false;
+  @Local imageBlockRevision: number = 0;
+  @Local imageBlocked: boolean = false;
+  @Local blockDecision: ImageBlockDecision = new ImageBlockDecision();
 
   private tileWidth(): number {
     return this.measuredWidth > 0 ? this.measuredWidth : ThemeConstants.PREVIEW_THUMB_MIN_W
@@ -44,6 +58,93 @@ export struct PreviewThumbTile {
     return a > 0 && a > FRAME_ASPECT
   }
 
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private toast(message: ResourceStr): void {
+    this.getUIContext().getPromptAction().showToast({ message: message })
+  }
+
+  private addBlockRule(): void {
+    if (this.busy) {
+      return
+    }
+    this.busy = true
+    ImageBlockRuntimeService.addLocalRuleForThumbnail(
+      this.ctx(),
+      this.image.thumbUrl,
+      this.image.thumbWidth,
+      this.image.thumbHeight,
+      this.image.thumbOffsetX,
+      this.image.spriteWidth,
+      this.image.spriteHeight,
+      this.image.sUrl,
+      this.image.page,
+    )
+      .then(() => {
+        this.imageBlocked = true
+        this.imageBlockRevision++
+        publishImageBlockRulesChanged('thumbnail-add')
+        this.toast($r('app.string.image_block_thumb_blocked'))
+      })
+      .catch((error: Error) => {
+        this.toast(`${AppStrings.get('image_block_update_failed')}: ${error.message}`)
+      })
+      .finally(() => {
+        this.busy = false
+      })
+  }
+
+  private unblockMatchedRule(): void {
+    if (this.busy) {
+      return
+    }
+    const decision: ImageBlockDecision = this.blockDecision
+    if (decision.hash.length === 0) {
+      return
+    }
+    this.busy = true
+    const task: Promise<void | string> = decision.sourceType === IMAGE_BLOCK_SOURCE_LOCAL
+      ? ImageBlockRepository.removeLocalRule(this.ctx(), decision.ruleId)
+      : ImageBlockRepository.ignoreRule(this.ctx(), decision.ruleId, decision.hash, decision.sourceType)
+    task
+      .then(() => {
+        this.imageBlocked = false
+        this.blockDecision = new ImageBlockDecision()
+        this.imageBlockRevision++
+        publishImageBlockRulesChanged('thumbnail-unblock-rule')
+        this.toast($r('app.string.image_block_thumb_allowed'))
+      })
+      .catch((error: Error) => {
+        this.toast(`${AppStrings.get('image_block_update_failed')}: ${error.message}`)
+      })
+      .finally(() => {
+        this.busy = false
+      })
+  }
+
+  @Builder
+  private ThumbMenu() {
+    Menu() {
+      if (this.imageBlocked) {
+        MenuItem({ content: $r('app.string.image_block_thumb_allow') })
+          .enabled(!this.busy)
+          .onClick(() => {
+            this.unblockMatchedRule()
+            this.menuShown = false
+          })
+      } else {
+        MenuItem({ content: $r('app.string.image_block_thumb_add') })
+          .enabled(!this.busy)
+          .onClick(() => {
+            this.addBlockRule()
+            this.menuShown = false
+          })
+      }
+    }
+  }
+
   build() {
     Column({ space: ThemeConstants.SPACE_XS }) {
       // Transparent layout slot: constant width × height only reserves alignment for the page number.
@@ -60,6 +161,14 @@ export struct PreviewThumbTile {
             spriteHeight: this.image.spriteHeight,
             fitHeight: true,
             displayHeight: this.frameHeight(),
+            enableImageBlock: true,
+            imageBlockRevision: this.imageBlockRevision,
+            onImageBlockStateChange: (blocked: boolean) => {
+              this.imageBlocked = blocked
+            },
+            onImageBlockDecisionChange: (decision: ImageBlockDecision) => {
+              this.blockDecision = decision
+            },
             // Radius lives on the SPRITE/IMAGE itself (EhSpriteThumbnail clips its sprite to this radius),
             // not on a decorative outer layer — so the visible thumb has real rounded corners even when it
             // fills the frame. Matches the frame's THUMB_RADIUS so the silhouette is one consistent rounded rect.
@@ -74,6 +183,14 @@ export struct PreviewThumbTile {
             spriteWidth: this.image.spriteWidth,
             spriteHeight: this.image.spriteHeight,
             displayWidth: this.tileWidth(),
+            enableImageBlock: true,
+            imageBlockRevision: this.imageBlockRevision,
+            onImageBlockStateChange: (blocked: boolean) => {
+              this.imageBlocked = blocked
+            },
+            onImageBlockDecisionChange: (decision: ImageBlockDecision) => {
+              this.blockDecision = decision
+            },
             radius: ThemeConstants.THUMB_RADIUS,
           })
         }
@@ -82,6 +199,18 @@ export struct PreviewThumbTile {
       .height(this.frameHeight())
       .clip(true)
       .alignContent(Alignment.Center)
+      .gesture(
+        LongPressGesture({ repeat: false, duration: 500 })
+          .onAction(() => {
+            this.menuShown = true
+          }),
+      )
+      .bindMenu(this.menuShown, this.ThumbMenu, {
+        placement: Placement.Bottom,
+        onDisappear: () => {
+          this.menuShown = false
+        },
+      })
 
       // Page number — fixed position below the fixed frame, identical for every tile.
       Text(`${this.image.page}`)

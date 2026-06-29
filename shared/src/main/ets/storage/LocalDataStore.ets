@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 13
+export const LOCAL_DATA_SCHEMA_VERSION: number = 14
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -178,6 +178,7 @@ const SQL_CREATE_IMAGE_BLOCK_RULES_TABLE: string =
     'source_type TEXT, ' +
     'source_url TEXT, ' +
     'source_page INTEGER, ' +
+    'preview_path TEXT, ' +
     'enabled INTEGER, ' +
     'updated_at INTEGER, ' +
     'deleted_at INTEGER DEFAULT 0, ' +
@@ -191,14 +192,35 @@ const SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_URL: string =
   'ALTER TABLE image_block_rules ADD COLUMN source_url TEXT'
 const SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_PAGE: string =
   'ALTER TABLE image_block_rules ADD COLUMN source_page INTEGER'
+const SQL_ADD_IMAGE_BLOCK_RULES_PREVIEW_PATH: string =
+  'ALTER TABLE image_block_rules ADD COLUMN preview_path TEXT'
 const SQL_CREATE_IMAGE_BLOCK_WHITELIST_TABLE: string =
   'CREATE TABLE IF NOT EXISTS image_block_whitelist (' +
     'scope_key TEXT, ' +
     'hash TEXT, ' +
+    'preview_path TEXT, ' +
     'updated_at INTEGER, ' +
     'deleted_at INTEGER DEFAULT 0, ' +
     'PRIMARY KEY(scope_key, hash)' +
   ')'
+const SQL_CREATE_IMAGE_BLOCK_RULE_OVERRIDES_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS image_block_rule_overrides (' +
+    'scope_key TEXT, ' +
+    'rule_id TEXT, ' +
+    'hash TEXT, ' +
+    'source_type TEXT, ' +
+    'enabled_override INTEGER DEFAULT -1, ' +
+    'threshold_override INTEGER DEFAULT -1, ' +
+    'updated_at INTEGER, ' +
+    'deleted_at INTEGER DEFAULT 0, ' +
+    'PRIMARY KEY(scope_key, rule_id)' +
+  ')'
+const SQL_ADD_IMAGE_BLOCK_RULE_OVERRIDES_ENABLED: string =
+  'ALTER TABLE image_block_rule_overrides ADD COLUMN enabled_override INTEGER DEFAULT -1'
+const SQL_ADD_IMAGE_BLOCK_RULE_OVERRIDES_THRESHOLD: string =
+  'ALTER TABLE image_block_rule_overrides ADD COLUMN threshold_override INTEGER DEFAULT -1'
+const SQL_MIGRATE_IMAGE_BLOCK_RULE_OVERRIDES_ENABLED: string =
+  'UPDATE image_block_rule_overrides SET enabled_override = 0 WHERE enabled_override IS NULL OR enabled_override < 0'
 const SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE: string =
   'CREATE TABLE IF NOT EXISTS image_block_hash_cache (' +
     'scope_key TEXT, ' +
@@ -393,6 +415,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_HASH_INDEX)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_FEED_INDEX)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_WHITELIST_TABLE)
+    await LocalDataStore.migrateImageBlockWhitelistPreview(store)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULE_OVERRIDES_TABLE)
+    await LocalDataStore.migrateImageBlockRuleOverrides(store)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_HASH_INDEX)
     await LocalDataStore.migrateCustomProfilesUuidColumn(store)
@@ -454,6 +479,37 @@ export class LocalDataStore {
     const hasSourcePage: boolean = await LocalDataStore.hasColumn(store, 'image_block_rules', 'source_page')
     if (!hasSourcePage) {
       await store.executeSql(SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_PAGE)
+    }
+    const hasRulePreview: boolean = await LocalDataStore.hasColumn(store, 'image_block_rules', 'preview_path')
+    if (!hasRulePreview) {
+      await store.executeSql(SQL_ADD_IMAGE_BLOCK_RULES_PREVIEW_PATH)
+    }
+  }
+
+  private static async migrateImageBlockWhitelistPreview(store: relationalStore.RdbStore): Promise<void> {
+    const hasPreview: boolean = await LocalDataStore.hasColumn(store, 'image_block_whitelist', 'preview_path')
+    if (!hasPreview) {
+      await store.executeSql('ALTER TABLE image_block_whitelist ADD COLUMN preview_path TEXT')
+    }
+  }
+
+  private static async migrateImageBlockRuleOverrides(store: relationalStore.RdbStore): Promise<void> {
+    const hasEnabledOverride: boolean = await LocalDataStore.hasColumn(
+      store,
+      'image_block_rule_overrides',
+      'enabled_override',
+    )
+    if (!hasEnabledOverride) {
+      await store.executeSql(SQL_ADD_IMAGE_BLOCK_RULE_OVERRIDES_ENABLED)
+      await store.executeSql(SQL_MIGRATE_IMAGE_BLOCK_RULE_OVERRIDES_ENABLED)
+    }
+    const hasThresholdOverride: boolean = await LocalDataStore.hasColumn(
+      store,
+      'image_block_rule_overrides',
+      'threshold_override',
+    )
+    if (!hasThresholdOverride) {
+      await store.executeSql(SQL_ADD_IMAGE_BLOCK_RULE_OVERRIDES_THRESHOLD)
     }
   }
 

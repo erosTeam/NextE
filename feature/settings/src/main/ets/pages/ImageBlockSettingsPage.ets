@@ -2,19 +2,26 @@ import { common } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
+  AppModalScaffold,
   AppStrings,
+  appSheetOptions,
   ConciseListRow,
   GroupedListSection,
   ImageBlockContributionBatch,
   ImageBlockContributionService,
   ImageBlockFeed,
+  IMAGE_BLOCK_MAX_THRESHOLD,
+  IMAGE_BLOCK_SOURCE_LOCAL,
+  IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
   ImageBlockRepository,
   ImageBlockRule,
+  ImageBlockWhitelistItem,
   ImageBlockSubscriptionService,
   ImageBlockSubscriptionUpdateResult,
   SecondaryListScaffold,
   ThemeConstants,
   immersiveTitleBar,
+  publishImageBlockRulesChanged,
 } from 'shared'
 
 @ComponentV2
@@ -28,10 +35,17 @@ export struct ImageBlockSettingsPage {
   @Local contributionMissingSourceCount: number = 0;
   @Local contributionDuplicateCount: number = 0;
   @Local contributionInvalidCount: number = 0;
-  @Local whitelistHashes: string[] = [];
+  @Local whitelistItems: ImageBlockWhitelistItem[] = [];
   @Local updating: boolean = false;
   @Local deletingLocalRuleId: string = '';
   @Local deletingWhitelistHash: string = '';
+  @Local ruleSheetShown: boolean = false;
+  @Local feedRulesSheetShown: boolean = false;
+  @Local selectedRule: ImageBlockRule = new ImageBlockRule();
+  @Local selectedFeedTitle: string = '';
+  @Local selectedFeedId: string = '';
+  @Local feedRules: ImageBlockRule[] = [];
+  @Local loadingFeedRules: boolean = false;
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -49,6 +63,9 @@ export struct ImageBlockSettingsPage {
   }
 
   private feedTitle(feed: ImageBlockFeed): string {
+    if (feed.id === 'zh-scanlator-ads') {
+      return AppStrings.get('image_block_default_provider_title')
+    }
     return feed.title.length > 0 ? feed.title : feed.id
   }
 
@@ -77,53 +94,147 @@ export struct ImageBlockSettingsPage {
     if (this.feeds.length <= 0) {
       return AppStrings.get('image_block_no_subscriptions')
     }
-    return `${this.enabledFeeds()}/${this.feeds.length} / ${this.totalRules()}`
+    return this.ruleCountText(this.totalRules())
+  }
+
+  private ruleCountText(count: number): string {
+    return AppStrings.get('image_block_rule_count_format').replace('%d', `${count}`)
+  }
+
+  private imageCountText(count: number): string {
+    return AppStrings.get('image_block_image_count_format').replace('%d', `${count}`)
   }
 
   private feedSubtitle(feed: ImageBlockFeed): string {
-    return `${feed.count} ${AppStrings.get('image_block_rules')} / ${feed.url}`
-  }
-
-  private shortHash(hash: string): string {
-    return hash.length > 8
-      ? `${hash.substring(0, 4)}...${hash.substring(hash.length - 4)}`
-      : hash
+    const state: string = feed.enabled
+      ? AppStrings.get('image_block_feed_enabled_hint')
+      : AppStrings.get('image_block_feed_disabled_hint')
+    return `${state} · ${this.ruleCountText(feed.count)}`
   }
 
   private localRuleSubtitle(rule: ImageBlockRule): string {
-    const source: string = rule.sourceUrl.length > 0
-      ? ` / ${rule.sourceUrl}`
-      : ''
-    return `pHash ${this.shortHash(rule.hash)} / T${rule.threshold}${source}`
+    const parts: string[] = []
+    if (rule.sourceUrl.length > 0) {
+      parts.push(this.readableSource(rule.sourceUrl))
+    } else {
+      parts.push(AppStrings.get('image_block_rule_missing_source'))
+    }
+    if (rule.sourcePage > 0) {
+      parts.push(this.sourcePageText(rule.sourcePage))
+    }
+    return parts.join(AppStrings.get('image_block_inline_separator'))
+  }
+
+  private ruleSubmitStatus(rule: ImageBlockRule): string {
+    if (rule.sourceUrl.length > 0 && rule.sourcePage > 0) {
+      return AppStrings.get('image_block_rule_submit_ready')
+    }
+    return AppStrings.get('image_block_rule_submit_blocked')
   }
 
   private localRuleTitle(rule: ImageBlockRule): string {
-    const label: string = rule.label.length > 0 ? rule.label : AppStrings.get('image_block_local_rule_title')
-    if (rule.sourcePage > 0) {
-      return `${label} / P${rule.sourcePage}`
+    return this.readableRuleLabel(rule.label)
+  }
+
+  private readableRuleLabel(label: string): string {
+    if (label === 'scanlator-ad' || label === 'local' || label.endsWith('-ad') || label.indexOf('-') >= 0) {
+      return AppStrings.get('image_block_rule_blocked_image')
     }
-    return label
+    return label.length > 0 ? label : AppStrings.get('image_block_local_rule_title')
+  }
+
+  private sourcePageText(page: number): string {
+    return AppStrings.get('image_block_source_page_format').replace('%s', `${page}`)
+  }
+
+  private readableSource(sourceUrl: string): string {
+    let out: string = sourceUrl.trim()
+    if (out.startsWith('https://')) {
+      out = out.substring(8)
+    } else if (out.startsWith('http://')) {
+      out = out.substring(7)
+    }
+    if (out.startsWith('e-hentai.org/')) {
+      out = out.substring('e-hentai.org/'.length)
+    } else if (out.startsWith('exhentai.org/')) {
+      out = out.substring('exhentai.org/'.length)
+    }
+    if (out.endsWith('/')) {
+      out = out.substring(0, out.length - 1)
+    }
+    if (out.startsWith('g/')) {
+      const rest: string = out.substring(2)
+      const slash: number = rest.indexOf('/')
+      const galleryId: string = slash >= 0 ? rest.substring(0, slash) : rest
+      if (galleryId.length > 0) {
+        const tokenPart: string = slash >= 0 ? rest.substring(slash + 1) : ''
+        const tokenEnd: number = tokenPart.indexOf('/')
+        const galleryToken: string = tokenEnd >= 0 ? tokenPart.substring(0, tokenEnd) : tokenPart
+        if (galleryToken.length > 0) {
+          return AppStrings.get('image_block_source_gallery_token_format')
+            .replace('%s', galleryId)
+            .replace('%s', galleryToken)
+        }
+        return AppStrings.get('image_block_source_gallery_format').replace('%s', galleryId)
+      }
+    }
+    if (out.length > 56) {
+      return `${out.substring(0, 53)}...`
+    }
+    return out
+  }
+
+  private ruleKindText(rule: ImageBlockRule): string {
+    if (rule.sourceType === IMAGE_BLOCK_SOURCE_SUBSCRIPTION) {
+      return this.selectedFeedTitle.length > 0
+        ? this.selectedFeedTitle
+        : AppStrings.get('image_block_subscription_rule_summary')
+    }
+    return AppStrings.get('image_block_local_rule_summary')
+  }
+
+  private imageUri(path: string): string {
+    if (path.startsWith('file://')) {
+      return path
+    }
+    return path.length > 0 ? `file://${path}` : ''
   }
 
   private contributionDraftTrailing(): string {
     if (this.contributionTotalCount <= 0) {
-      return '0'
+      return AppStrings.get('image_block_contribution_none_ready')
     }
-    return `${this.contributionReadyCount}/${this.contributionTotalCount}`
+    return AppStrings.get('image_block_contribution_ready_count')
+      .replace('%d', `${this.contributionReadyCount}`)
+  }
+
+  private contributionReasonCountText(reason: string, count: number): string {
+    return AppStrings.get('image_block_contribution_reason_count_format')
+      .replace('%d', `${count}`)
+      .replace('%s', reason)
   }
 
   private contributionSkipReasonText(): string {
     const parts: string[] = []
     if (this.contributionMissingSourceCount > 0) {
-      parts.push(`${this.contributionMissingSourceCount} ${AppStrings.get('image_block_contribution_missing_source')}`)
+      parts.push(this.contributionReasonCountText(
+        AppStrings.get('image_block_contribution_missing_source'),
+        this.contributionMissingSourceCount,
+      ))
     }
     if (this.contributionDuplicateCount > 0) {
-      parts.push(`${this.contributionDuplicateCount} ${AppStrings.get('image_block_contribution_duplicate')}`)
+      parts.push(this.contributionReasonCountText(
+        AppStrings.get('image_block_contribution_duplicate'),
+        this.contributionDuplicateCount,
+      ))
     }
     if (this.contributionInvalidCount > 0) {
-      parts.push(`${this.contributionInvalidCount} ${AppStrings.get('image_block_contribution_invalid')}`)
+      parts.push(this.contributionReasonCountText(
+        AppStrings.get('image_block_contribution_invalid'),
+        this.contributionInvalidCount,
+      ))
     }
-    return parts.join(' / ')
+    return parts.join(AppStrings.get('image_block_contribution_reason_separator'))
   }
 
   private contributionDraftSubtitle(): string {
@@ -131,11 +242,15 @@ export struct ImageBlockSettingsPage {
     if (this.contributionSkippedCount <= 0) {
       return hint
     }
+    const labelSeparator: string = AppStrings.get('image_block_label_separator')
     const reasons: string = this.contributionSkipReasonText()
     if (reasons.length <= 0) {
-      return `${hint} ${AppStrings.get('image_block_contribution_skipped')} ${this.contributionSkippedCount}`
+      return `${AppStrings.get('image_block_contribution_skipped')}${labelSeparator}${this.contributionReasonCountText(
+        AppStrings.get('image_block_contribution_unavailable'),
+        this.contributionSkippedCount,
+      )}`
     }
-    return `${hint} ${AppStrings.get('image_block_contribution_skipped')} ${this.contributionSkippedCount}: ${reasons}`
+    return `${AppStrings.get('image_block_contribution_skipped')}${labelSeparator}${reasons}`
   }
 
   private reloadFeeds(): void {
@@ -167,13 +282,141 @@ export struct ImageBlockSettingsPage {
   }
 
   private reloadWhitelist(): void {
-    ImageBlockRepository.loadWhitelist(this.ctx())
-      .then((hashes: string[]) => {
-        this.whitelistHashes = hashes
+    ImageBlockRepository.loadWhitelistItems(this.ctx())
+      .then((items: ImageBlockWhitelistItem[]) => {
+        this.whitelistItems = items
       })
       .catch((error: Error) => {
         this.toast(`${AppStrings.get('image_block_load_failed')}: ${error.message}`)
       })
+  }
+
+  private openLocalRuleSheet(rule: ImageBlockRule): void {
+    this.selectedRule = rule.copy()
+    this.ruleSheetShown = true
+  }
+
+  private openSubscriptionRuleSheet(rule: ImageBlockRule): void {
+    this.selectedRule = rule.copy()
+    this.ruleSheetShown = true
+  }
+
+  private closeRuleSheet(): void {
+    this.ruleSheetShown = false
+  }
+
+  private openFeedRules(feed: ImageBlockFeed): void {
+    this.selectedFeedId = feed.id
+    this.selectedFeedTitle = this.feedTitle(feed)
+    this.feedRules = []
+    this.feedRulesSheetShown = true
+    this.reloadFeedRules()
+  }
+
+  private closeFeedRulesSheet(): void {
+    this.feedRulesSheetShown = false
+  }
+
+  private reloadFeedRules(): void {
+    if (this.selectedFeedId.length === 0 || this.loadingFeedRules) {
+      return
+    }
+    this.loadingFeedRules = true
+    ImageBlockRepository.loadSubscriptionRules(this.ctx(), this.selectedFeedId)
+      .then((rules: ImageBlockRule[]) => {
+        this.feedRules = rules
+        this.syncSelectedRuleFrom(rules)
+      })
+      .catch((error: Error) => {
+        this.toast(`${AppStrings.get('image_block_load_failed')}: ${error.message}`)
+      })
+      .finally(() => {
+        this.loadingFeedRules = false
+      })
+  }
+
+  private syncSelectedRuleFrom(rules: ImageBlockRule[]): void {
+    if (!this.ruleSheetShown || this.selectedRule.id.length === 0) {
+      return
+    }
+    for (let i: number = 0; i < rules.length; i++) {
+      if (rules[i].id === this.selectedRule.id) {
+        this.selectedRule = rules[i].copy()
+        return
+      }
+    }
+  }
+
+  private selectedRuleIsLocal(): boolean {
+    return this.selectedRule.sourceType === IMAGE_BLOCK_SOURCE_LOCAL
+  }
+
+  private ruleSourceText(rule: ImageBlockRule): string {
+    if (rule.sourceType === IMAGE_BLOCK_SOURCE_SUBSCRIPTION) {
+      return this.selectedFeedTitle.length > 0
+        ? this.selectedFeedTitle
+        : AppStrings.get('image_block_source_subscription')
+    }
+    return this.localRuleSubtitle(rule)
+  }
+
+  private setSelectedRuleEnabled(enabled: boolean): void {
+    const rule: ImageBlockRule = this.selectedRule.copy()
+    if (rule.id.length === 0) {
+      return
+    }
+    rule.enabled = enabled
+    this.selectedRule = rule
+    const task: Promise<void> = rule.sourceType === IMAGE_BLOCK_SOURCE_LOCAL
+      ? ImageBlockRepository.setLocalRuleEnabled(this.ctx(), rule.id, enabled)
+      : ImageBlockRepository.setRuleEnabledOverride(this.ctx(), rule.id, rule.hash, rule.sourceType, enabled)
+    task
+      .then(() => {
+        this.afterRuleChanged()
+      })
+      .catch((error: Error) => {
+        this.toast(`${AppStrings.get('image_block_update_failed')}: ${error.message}`)
+      })
+  }
+
+  private clampRuleThreshold(value: number): number {
+    return Math.max(0, Math.min(IMAGE_BLOCK_MAX_THRESHOLD, Math.round(value)))
+  }
+
+  private previewSelectedRuleThreshold(value: number): void {
+    const nextThreshold: number = this.clampRuleThreshold(value)
+    if (nextThreshold === this.selectedRule.threshold) {
+      return
+    }
+    const rule: ImageBlockRule = this.selectedRule.copy()
+    rule.threshold = nextThreshold
+    this.selectedRule = rule
+  }
+
+  private commitSelectedRuleThreshold(value: number): void {
+    const rule: ImageBlockRule = this.selectedRule.copy()
+    if (rule.id.length === 0) {
+      return
+    }
+    const nextThreshold: number = this.clampRuleThreshold(value)
+    rule.threshold = nextThreshold
+    this.selectedRule = rule
+    const task: Promise<void> = rule.sourceType === IMAGE_BLOCK_SOURCE_LOCAL
+      ? ImageBlockRepository.setLocalRuleThreshold(this.ctx(), rule.id, nextThreshold)
+      : ImageBlockRepository.setRuleThresholdOverride(this.ctx(), rule.id, rule.hash, rule.sourceType, nextThreshold)
+    task
+      .then(() => {
+        this.afterRuleChanged()
+      })
+      .catch((error: Error) => {
+        this.toast(`${AppStrings.get('image_block_update_failed')}: ${error.message}`)
+      })
+  }
+
+  private afterRuleChanged(): void {
+    this.reloadLocalRules()
+    this.reloadFeedRules()
+    publishImageBlockRulesChanged('settings-rule-change')
   }
 
   private updateDefault(): void {
@@ -187,6 +430,8 @@ export struct ImageBlockSettingsPage {
         this.reloadFeeds()
         this.reloadLocalRules()
         this.reloadWhitelist()
+        this.reloadFeedRules()
+        publishImageBlockRulesChanged('settings-subscription-update')
         this.toast(`${AppStrings.get('image_block_update_finished')} ${result.updatedFeedCount}/${result.feedCount}, ${result.updatedRuleCount}`)
       })
       .catch((error: Error) => {
@@ -255,6 +500,10 @@ export struct ImageBlockSettingsPage {
     ImageBlockRepository.removeLocalRule(this.ctx(), ruleId)
       .then(() => {
         this.reloadLocalRules()
+        if (this.selectedRule.id === ruleId) {
+          this.closeRuleSheet()
+        }
+        publishImageBlockRulesChanged('settings-local-rule-delete')
         this.toast($r('app.string.image_block_local_rule_deleted'))
       })
       .catch((error: Error) => {
@@ -287,6 +536,18 @@ export struct ImageBlockSettingsPage {
     ImageBlockRepository.setSubscriptionEnabled(this.ctx(), feedId, enabled)
       .then(() => {
         this.reloadFeeds()
+        publishImageBlockRulesChanged('settings-feed-enabled')
+      })
+      .catch((error: Error) => {
+        this.toast(`${AppStrings.get('image_block_update_failed')}: ${error.message}`)
+      })
+  }
+
+  private setLocalRuleThreshold(rule: ImageBlockRule, threshold: number): void {
+    ImageBlockRepository.setLocalRuleThreshold(this.ctx(), rule.id, threshold)
+      .then(() => {
+        this.reloadLocalRules()
+        publishImageBlockRulesChanged('settings-local-threshold')
       })
       .catch((error: Error) => {
         this.toast(`${AppStrings.get('image_block_update_failed')}: ${error.message}`)
@@ -325,55 +586,142 @@ export struct ImageBlockSettingsPage {
   }
 
   @Builder
-  private WhitelistRow(hash: string) {
-    ConciseListRow({
-      title: $r('app.string.image_block_whitelist_hash_title'),
-      subtitle: `pHash ${this.shortHash(hash)}`,
-      leadingIcon: $r('sys.symbol.eye'),
-      showChevron: false,
-      isEnabled: this.deletingWhitelistHash !== hash,
-      suffixPaddingRight: 0,
-      suffixBuilderParam: () => {
-        this.WhitelistDeleteSuffix(hash)
-      },
-    })
+  private PreviewImage(path: string, icon: Resource) {
+    Stack() {
+      if (path.length > 0) {
+        Image(this.imageUri(path))
+          .objectFit(ImageFit.Cover)
+          .width('100%')
+          .height('100%')
+      } else {
+        SymbolGlyph(icon)
+          .fontSize(30)
+          .fontColor([$r('sys.color.font_secondary')])
+      }
+    }
+    .width(88)
+    .height(116)
+    .borderRadius(ThemeConstants.THUMB_RADIUS)
+    .clip(true)
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 
   @Builder
-  private LocalRuleDeleteSuffix(rule: ImageBlockRule) {
-    Button() {
-      if (this.deletingLocalRuleId === rule.id) {
-        LoadingProgress()
-          .width(20)
-          .height(20)
-      } else {
-        SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-          .fontColor([Color.Red])
+  private StatusPill(text: string, isGood: boolean) {
+    Text(text)
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontColor(isGood ? $r('sys.color.ohos_id_color_emphasize') : $r('sys.color.font_secondary'))
+      .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+      .borderRadius(ThemeConstants.CHIP_RADIUS)
+      .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_SM, top: 2, bottom: 2 })
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+  }
+
+  @Builder
+  private WhitelistCard(item: ImageBlockWhitelistItem) {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      this.PreviewImage(item.previewPath, $r('sys.symbol.eye'))
+      Column({ space: ThemeConstants.SPACE_SM }) {
+        Row() {
+          Text($r('app.string.image_block_whitelist_hash_title'))
+            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          this.WhitelistDeleteSuffix(item.hash)
+        }
+        this.StatusPill(AppStrings.get('image_block_whitelist_status'), true)
+        Text($r('app.string.image_block_whitelist_row_hint'))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(`${AppStrings.get('image_block_rule_fingerprint')} ${item.hash}`)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(2)
       }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
     }
-    .buttonStyle(ButtonStyleMode.NORMAL)
-    .backgroundColor(Color.Transparent)
-    .width(48)
-    .height(40)
-    .enabled(this.deletingLocalRuleId.length === 0)
-    .onClick(() => {
-      this.confirmDeleteLocalRule(rule)
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_SM,
+      top: ThemeConstants.SPACE_MD,
+      bottom: ThemeConstants.SPACE_MD,
     })
+    .opacity(this.deletingWhitelistHash === item.hash ? 0.45 : 1.0)
   }
 
   @Builder
   private LocalRuleRow(rule: ImageBlockRule) {
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      this.PreviewImage(rule.previewPath, $r('sys.symbol.eye_slash'))
+      Column({ space: ThemeConstants.SPACE_SM }) {
+        Text(this.localRuleTitle(rule))
+          .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          this.StatusPill(
+            rule.enabled
+              ? AppStrings.get('image_block_provider_enabled')
+              : AppStrings.get('image_block_provider_disabled'),
+            rule.enabled,
+          )
+          this.StatusPill(this.ruleSubmitStatus(rule), rule.sourceUrl.length > 0 && rule.sourcePage > 0)
+        }
+        Text(this.localRuleSubtitle(rule))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(`${AppStrings.get('image_block_rule_fingerprint')} ${rule.hash}`)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(2)
+        Text(`${AppStrings.get('image_block_rule_threshold')} ${rule.threshold}`)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_SM,
+      top: ThemeConstants.SPACE_MD,
+      bottom: ThemeConstants.SPACE_MD,
+    })
+    .opacity(this.deletingLocalRuleId === rule.id ? 0.45 : 1.0)
+    .onClick(() => {
+      this.openLocalRuleSheet(rule)
+    })
+  }
+
+  @Builder
+  private SubscriptionRuleRow(rule: ImageBlockRule) {
     ConciseListRow({
-      title: this.localRuleTitle(rule),
-      subtitle: this.localRuleSubtitle(rule),
+      title: this.readableRuleLabel(rule.label),
+      subtitle: `${AppStrings.get('image_block_rule_threshold')} ${rule.threshold} · ${AppStrings.get('image_block_rule_fingerprint')} ${rule.hash}`,
       subtitleMaxLines: 2,
-      leadingIcon: $r('sys.symbol.eye_slash'),
-      showChevron: false,
-      isEnabled: this.deletingLocalRuleId !== rule.id,
-      suffixPaddingRight: 0,
-      suffixBuilderParam: () => {
-        this.LocalRuleDeleteSuffix(rule)
+      leadingIcon: rule.enabled ? $r('sys.symbol.eye_slash') : $r('sys.symbol.eye'),
+      hasSwitch: true,
+      checked: rule.enabled,
+      switchAction: (value: boolean) => {
+        this.selectedRule = rule.copy()
+        this.setSelectedRuleEnabled(value)
+      },
+      action: () => {
+        this.openSubscriptionRuleSheet(rule)
       },
     })
   }
@@ -404,7 +752,6 @@ export struct ImageBlockSettingsPage {
           GroupedListSection() {
             ConciseListRow({
               title: $r('app.string.image_block_update_default'),
-              subtitle: $r('app.string.image_block_update_default_hint'),
               leadingIcon: $r('sys.symbol.arrow_clockwise'),
               trailingText: this.statusText(),
               showChevron: false,
@@ -424,13 +771,16 @@ export struct ImageBlockSettingsPage {
                   ConciseListRow({
                     title: this.feedTitle(feed),
                     subtitle: this.feedSubtitle(feed),
-                    subtitleMaxLines: 1,
+                    subtitleMaxLines: 2,
                     leadingIcon: $r('sys.symbol.cloud'),
                     showChevron: false,
                     hasSwitch: true,
                     checked: feed.enabled,
                     switchAction: (value: boolean) => {
                       this.setFeedEnabled(feed.id, value)
+                    },
+                    action: () => {
+                      this.openFeedRules(feed)
                     },
                   })
                   if (index < this.feeds.length - 1) {
@@ -446,9 +796,8 @@ export struct ImageBlockSettingsPage {
           GroupedListSection() {
             ConciseListRow({
               title: $r('app.string.image_block_local_rules'),
-              subtitle: $r('app.string.image_block_local_rules_hint'),
               leadingIcon: $r('sys.symbol.eye_slash'),
-              trailingText: `${this.localRuleCount}`,
+              trailingText: this.ruleCountText(this.localRuleCount),
               showChevron: false,
             })
             if (this.localRules.length > 0) {
@@ -463,7 +812,7 @@ export struct ImageBlockSettingsPage {
                     this.rowDivider()
                   }
                 },
-                (rule: ImageBlockRule) => `${rule.id}:${rule.sourceUrl}:${rule.sourcePage}`,
+                (rule: ImageBlockRule) => `${rule.id}:${rule.sourceUrl}:${rule.sourcePage}:${rule.threshold}:${rule.previewPath}:${rule.enabled ? '1' : '0'}`,
               )
             }
           }
@@ -474,20 +823,20 @@ export struct ImageBlockSettingsPage {
               title: $r('app.string.image_block_whitelist'),
               subtitle: $r('app.string.image_block_whitelist_hint'),
               leadingIcon: $r('sys.symbol.eye'),
-              trailingText: `${this.whitelistHashes.length}`,
+              trailingText: this.imageCountText(this.whitelistItems.length),
               showChevron: false,
             })
-            if (this.whitelistHashes.length > 0) {
+            if (this.whitelistItems.length > 0) {
               this.rowDivider()
               ForEach(
-                this.whitelistHashes,
-                (hash: string, index: number) => {
-                  this.WhitelistRow(hash)
-                  if (index < this.whitelistHashes.length - 1) {
+                this.whitelistItems,
+                (item: ImageBlockWhitelistItem, index: number) => {
+                  this.WhitelistCard(item)
+                  if (index < this.whitelistItems.length - 1) {
                     this.rowDivider()
                   }
                 },
-                (hash: string) => hash,
+                (item: ImageBlockWhitelistItem) => item.hash,
               )
             }
           }
@@ -496,5 +845,204 @@ export struct ImageBlockSettingsPage {
     }
     .titleBar(immersiveTitleBar(AppStrings.get('image_block_title')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .bindSheet($$this.feedRulesSheetShown, this.FeedRulesSheet(), appSheetOptions({
+      detents: [SheetSize.LARGE],
+      showClose: false,
+    }))
+    .bindSheet($$this.ruleSheetShown, this.RuleSheet(), appSheetOptions({
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      showClose: false,
+    }))
+  }
+
+  @Builder
+  private ThresholdSliderRow() {
+    ListItem() {
+      GroupedListSection({ inset: 0 }) {
+        Column({ space: ThemeConstants.SPACE_SM }) {
+          Row({ space: ThemeConstants.SPACE_MD }) {
+            SymbolGlyph($r('sys.symbol.list_number'))
+              .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+              .fontColor([$r('sys.color.font_secondary')])
+            Text($r('app.string.image_block_rule_threshold'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .layoutWeight(1)
+            Text(`${this.selectedRule.threshold}/${IMAGE_BLOCK_MAX_THRESHOLD}`)
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(1)
+          }
+          .alignItems(VerticalAlign.Center)
+          Slider({
+            value: this.selectedRule.threshold,
+            min: 0,
+            max: IMAGE_BLOCK_MAX_THRESHOLD,
+            step: 1,
+            style: SliderStyle.InSet,
+          })
+            .width('100%')
+            .selectedColor(ThemeConstants.BRAND_PRIMARY)
+            .onChange((value: number, mode: SliderChangeMode) => {
+              if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
+                this.commitSelectedRuleThreshold(value)
+              } else {
+                this.previewSelectedRuleThreshold(value)
+              }
+            })
+          Row() {
+            Text($r('app.string.image_block_threshold_strict'))
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_secondary'))
+              .layoutWeight(1)
+            Text($r('app.string.image_block_threshold_loose'))
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_secondary'))
+          }
+        }
+        .width('100%')
+        .padding(ThemeConstants.SPACE_MD)
+      }
+    }
+  }
+
+  @Builder
+  private RuleEnabledRow() {
+    ListItem() {
+      GroupedListSection({ inset: 0 }) {
+        Row({ space: ThemeConstants.SPACE_MD }) {
+          SymbolGlyph($r('sys.symbol.checkmark_circle'))
+            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+            .fontColor([$r('sys.color.font_secondary')])
+          Text($r('app.string.image_block_rule_enabled'))
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+          Toggle({ type: ToggleType.Switch, isOn: this.selectedRule.enabled })
+            .selectedColor(ThemeConstants.BRAND_PRIMARY)
+            .onChange((value: boolean) => {
+              this.setSelectedRuleEnabled(value)
+            })
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+        .padding(ThemeConstants.SPACE_MD)
+      }
+    }
+  }
+
+  @Builder
+  private RuleHeader(rule: ImageBlockRule) {
+    ListItem() {
+      GroupedListSection({ inset: 0 }) {
+        Row({ space: ThemeConstants.SPACE_MD }) {
+          this.PreviewImage(
+            rule.previewPath,
+            rule.sourceType === IMAGE_BLOCK_SOURCE_SUBSCRIPTION ? $r('sys.symbol.cloud') : $r('sys.symbol.eye_slash'),
+          )
+          Column({ space: ThemeConstants.SPACE_SM }) {
+            Text(this.readableRuleLabel(rule.label))
+              .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text(this.ruleKindText(rule))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .layoutWeight(1)
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .padding(ThemeConstants.SPACE_MD)
+      }
+    }
+  }
+
+  @Builder
+  private RuleSheet() {
+    AppModalScaffold({
+      title: $r('app.string.image_block_rule_settings'),
+      showConfirmAction: false,
+      showSecondaryAction: this.selectedRuleIsLocal(),
+      secondaryText: $r('app.string.common_delete'),
+      secondaryIcon: $r('sys.symbol.trash'),
+      closeAction: () => {
+        this.closeRuleSheet()
+      },
+      secondaryAction: () => {
+        this.confirmDeleteLocalRule(this.selectedRule)
+      },
+    }) {
+      this.RuleHeader(this.selectedRule)
+      this.RuleEnabledRow()
+      this.ThresholdSliderRow()
+      ListItem() {
+        GroupedListSection({ inset: 0 }) {
+          ConciseListRow({
+            title: $r('app.string.image_block_rule_source'),
+            subtitle: this.ruleSourceText(this.selectedRule),
+            subtitleMaxLines: 3,
+            leadingIcon: this.selectedRule.sourceType === IMAGE_BLOCK_SOURCE_SUBSCRIPTION
+              ? $r('sys.symbol.cloud')
+              : $r('sys.symbol.eye_slash'),
+            showChevron: false,
+          })
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.image_block_rule_fingerprint'),
+            subtitle: this.selectedRule.hash,
+            subtitleMaxLines: 3,
+            leadingIcon: $r('sys.symbol.doc_plaintext'),
+            showChevron: false,
+          })
+        }
+      }
+    }
+  }
+
+  @Builder
+  private FeedRulesSheet() {
+    AppModalScaffold({
+      title: this.selectedFeedTitle,
+      showConfirmAction: false,
+      closeAction: () => {
+        this.closeFeedRulesSheet()
+      },
+    }) {
+      ListItem() {
+        GroupedListSection({ inset: 0 }) {
+          ConciseListRow({
+            title: $r('app.string.image_block_subscription_rules'),
+            subtitle: this.loadingFeedRules
+              ? $r('app.string.image_block_updating')
+              : this.ruleCountText(this.feedRules.length),
+            leadingIcon: $r('sys.symbol.cloud'),
+            showChevron: false,
+          })
+        }
+      }
+      if (this.feedRules.length > 0) {
+        ListItem() {
+          GroupedListSection({ inset: 0 }) {
+            ForEach(
+              this.feedRules,
+              (rule: ImageBlockRule, index: number) => {
+                this.SubscriptionRuleRow(rule)
+                if (index < this.feedRules.length - 1) {
+                  this.rowDivider()
+                }
+              },
+              (rule: ImageBlockRule) => `${rule.id}:${rule.hash}:${rule.threshold}:${rule.enabled ? '1' : '0'}`,
+            )
+          }
+        }
+      }
+    }
   }
 }

@@ -2750,7 +2750,7 @@
     },
     {
       "name": "image_block_hint",
-      "value": "使用社区 pHash 规则隐藏汉化组广告页。"
+      "value": "在阅读器和缩略图里隐藏命中的图片"
     },
     {
       "name": "image_block_update_default",
@@ -2758,7 +2758,7 @@
     },
     {
       "name": "image_block_update_default_hint",
-      "value": "拉取默认 erosTeam 订阅，用于自动隐藏常见广告页。"
+      "value": "检查更新，本地规则不变"
     },
     {
       "name": "image_block_updating",
@@ -2789,16 +2789,124 @@
       "value": "条规则"
     },
     {
+      "name": "image_block_rule_count_format",
+      "value": "%d 条规则"
+    },
+    {
+      "name": "image_block_image_count_format",
+      "value": "%d 张图片"
+    },
+    {
+      "name": "image_block_provider_enabled",
+      "value": "已启用"
+    },
+    {
+      "name": "image_block_provider_disabled",
+      "value": "已停用"
+    },
+    {
+      "name": "image_block_feed_enabled_hint",
+      "value": "已启用，会参与图片屏蔽"
+    },
+    {
+      "name": "image_block_feed_disabled_hint",
+      "value": "已停用，暂时不会生效"
+    },
+    {
+      "name": "image_block_default_provider_title",
+      "value": "社区图片屏蔽规则"
+    },
+    {
+      "name": "image_block_source_page_format",
+      "value": "第 %s 页"
+    },
+    {
+      "name": "image_block_source_gallery_format",
+      "value": "画廊 %s"
+    },
+    {
+      "name": "image_block_source_gallery_token_format",
+      "value": "画廊 %s · 令牌 %s"
+    },
+    {
+      "name": "image_block_rule_blocked_image",
+      "value": "屏蔽图片"
+    },
+    {
+      "name": "image_block_rule_missing_source",
+      "value": "缺少来源"
+    },
+    {
+      "name": "image_block_rule_submit_ready",
+      "value": "来源完整"
+    },
+    {
+      "name": "image_block_rule_submit_blocked",
+      "value": "来源不完整"
+    },
+    {
+      "name": "image_block_rule_fingerprint",
+      "value": "识别码"
+    },
+    {
+      "name": "image_block_rule_threshold",
+      "value": "阈值"
+    },
+    {
+      "name": "image_block_rule_threshold_hint",
+      "value": "数值越大，越容易命中相似图片"
+    },
+    {
+      "name": "image_block_threshold_strict",
+      "value": "严格 0"
+    },
+    {
+      "name": "image_block_threshold_loose",
+      "value": "宽松 12"
+    },
+    {
+      "name": "image_block_rule_settings",
+      "value": "规则设置"
+    },
+    {
+      "name": "image_block_rule_enabled",
+      "value": "启用规则"
+    },
+    {
+      "name": "image_block_rule_enabled_hint",
+      "value": "关闭后只停用这一条规则"
+    },
+    {
+      "name": "image_block_rule_source",
+      "value": "来源"
+    },
+    {
+      "name": "image_block_source_subscription",
+      "value": "社区订阅"
+    },
+    {
+      "name": "image_block_local_rule_summary",
+      "value": "本地手动规则"
+    },
+    {
+      "name": "image_block_subscription_rule_summary",
+      "value": "社区规则"
+    },
+    {
+      "name": "image_block_subscription_rules",
+      "value": "订阅规则"
+    },
+    {
       "name": "image_block_local_rules",
       "value": "本地手动屏蔽"
     },
     {
       "name": "image_block_local_rules_hint",
-      "value": "从 Reader 屏蔽图标添加；本地立即生效。"
+      "value": "阅读器或缩略图添加，点开单条可修改"
     },
     {
       "name": "image_block_local_rule_title",
-      "value": "手动 pHash 规则"
+      "value": "手动图片规则"
     },
     {
       "name": "image_block_local_rule_delete_confirm",
@@ -2813,12 +2921,28 @@
       "value": "删除本地图片屏蔽规则失败"
     },
     {
+      "name": "image_block_thumb_add",
+      "value": "屏蔽这张图"
+    },
+    {
+      "name": "image_block_thumb_allow",
+      "value": "解除当前屏蔽规则"
+    },
+    {
+      "name": "image_block_thumb_blocked",
+      "value": "已添加图片屏蔽"
+    },
+    {
+      "name": "image_block_thumb_allowed",
+      "value": "已解除当前屏蔽规则"
+    },
+    {
       "name": "image_block_contribution_draft",
       "value": "复制社区规则草稿"
     },
     {
       "name": "image_block_contribution_draft_hint",
-      "value": "仅包含带稳定画廊来源的规则。"
+      "value": "来源完整的规则可复制"
     },
     {
       "name": "image_block_contribution_copied",
@@ -2826,7 +2950,15 @@
     },
     {
       "name": "image_block_contribution_empty",
-      "value": "没有可提交的手动规则"
+      "value": "没有来源完整的本地规则"
+    },
+    {
+      "name": "image_block_contribution_none_ready",
+      "value": "0 条可复制"
+    },
+    {
+      "name": "image_block_contribution_ready_count",
+      "value": "%d 条可复制"
     },
     {
       "name": "image_block_contribution_failed",
@@ -2834,7 +2966,23 @@
     },
     {
       "name": "image_block_contribution_skipped",
-      "value": "跳过"
+      "value": "未复制"
+    },
+    {
+      "name": "image_block_label_separator",
+      "value": "："
+    },
+    {
+      "name": "image_block_inline_separator",
+      "value": " · "
+    },
+    {
+      "name": "image_block_contribution_reason_count_format",
+      "value": "%d 条%s"
+    },
+    {
+      "name": "image_block_contribution_reason_separator",
+      "value": "，"
     },
     {
       "name": "image_block_contribution_missing_source",
@@ -2842,11 +2990,15 @@
     },
     {
       "name": "image_block_contribution_duplicate",
-      "value": "重复"
+      "value": "重复规则"
     },
     {
       "name": "image_block_contribution_invalid",
-      "value": "无效"
+      "value": "识别码无效"
+    },
+    {
+      "name": "image_block_contribution_unavailable",
+      "value": "暂不能复制"
     },
     {
       "name": "image_block_whitelist",
@@ -2854,11 +3006,19 @@
     },
     {
       "name": "image_block_whitelist_hint",
-      "value": "图片被误屏蔽后，允许它继续显示。"
+      "value": "这里的图片即使命中规则也会继续显示"
     },
     {
       "name": "image_block_whitelist_hash_title",
       "value": "已放行图片"
+    },
+    {
+      "name": "image_block_whitelist_status",
+      "value": "已放行"
+    },
+    {
+      "name": "image_block_whitelist_row_hint",
+      "value": "这张图以后不会被屏蔽"
     },
     {
       "name": "image_block_whitelist_delete_confirm",

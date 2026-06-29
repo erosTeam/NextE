@@ -2750,7 +2750,7 @@
     },
     {
       "name": "image_block_hint",
-      "value": "Hide scanlator ad pages by community pHash rules."
+      "value": "Hide matched images in the Reader and thumbnail grids"
     },
     {
       "name": "image_block_update_default",
@@ -2758,7 +2758,7 @@
     },
     {
       "name": "image_block_update_default_hint",
-      "value": "Fetch the default erosTeam subscription for common ad pages."
+      "value": "Check updates; local rules stay unchanged"
     },
     {
       "name": "image_block_updating",
@@ -2789,16 +2789,124 @@
       "value": "rules"
     },
     {
+      "name": "image_block_rule_count_format",
+      "value": "%d rules"
+    },
+    {
+      "name": "image_block_image_count_format",
+      "value": "%d images"
+    },
+    {
+      "name": "image_block_provider_enabled",
+      "value": "Enabled"
+    },
+    {
+      "name": "image_block_provider_disabled",
+      "value": "Disabled"
+    },
+    {
+      "name": "image_block_feed_enabled_hint",
+      "value": "Enabled, used for image blocking"
+    },
+    {
+      "name": "image_block_feed_disabled_hint",
+      "value": "Disabled, ignored for now"
+    },
+    {
+      "name": "image_block_default_provider_title",
+      "value": "Community image block rules"
+    },
+    {
+      "name": "image_block_source_page_format",
+      "value": "Page %s"
+    },
+    {
+      "name": "image_block_source_gallery_format",
+      "value": "Gallery %s"
+    },
+    {
+      "name": "image_block_source_gallery_token_format",
+      "value": "Gallery %s · token %s"
+    },
+    {
+      "name": "image_block_rule_blocked_image",
+      "value": "Blocked image"
+    },
+    {
+      "name": "image_block_rule_missing_source",
+      "value": "Missing source"
+    },
+    {
+      "name": "image_block_rule_submit_ready",
+      "value": "Source complete"
+    },
+    {
+      "name": "image_block_rule_submit_blocked",
+      "value": "Source incomplete"
+    },
+    {
+      "name": "image_block_rule_fingerprint",
+      "value": "Match code"
+    },
+    {
+      "name": "image_block_rule_threshold",
+      "value": "Threshold"
+    },
+    {
+      "name": "image_block_rule_threshold_hint",
+      "value": "Higher values match more similar images"
+    },
+    {
+      "name": "image_block_threshold_strict",
+      "value": "Strict 0"
+    },
+    {
+      "name": "image_block_threshold_loose",
+      "value": "Loose 12"
+    },
+    {
+      "name": "image_block_rule_settings",
+      "value": "Rule settings"
+    },
+    {
+      "name": "image_block_rule_enabled",
+      "value": "Enable rule"
+    },
+    {
+      "name": "image_block_rule_enabled_hint",
+      "value": "Turn this off to ignore only this rule"
+    },
+    {
+      "name": "image_block_rule_source",
+      "value": "Source"
+    },
+    {
+      "name": "image_block_source_subscription",
+      "value": "Community subscription"
+    },
+    {
+      "name": "image_block_local_rule_summary",
+      "value": "Local manual rule"
+    },
+    {
+      "name": "image_block_subscription_rule_summary",
+      "value": "Community rule"
+    },
+    {
+      "name": "image_block_subscription_rules",
+      "value": "Subscription rules"
+    },
+    {
       "name": "image_block_local_rules",
       "value": "Manual block rules"
     },
     {
       "name": "image_block_local_rules_hint",
-      "value": "Added from the Reader block icon; works locally right away."
+      "value": "Added from Reader or thumbnails. Open one to edit"
     },
     {
       "name": "image_block_local_rule_title",
-      "value": "Manual pHash rule"
+      "value": "Manual image rule"
     },
     {
       "name": "image_block_local_rule_delete_confirm",
@@ -2813,12 +2921,28 @@
       "value": "Failed to delete local image block rule"
     },
     {
+      "name": "image_block_thumb_add",
+      "value": "Block this image"
+    },
+    {
+      "name": "image_block_thumb_allow",
+      "value": "Unblock current rule"
+    },
+    {
+      "name": "image_block_thumb_blocked",
+      "value": "Image block rule added"
+    },
+    {
+      "name": "image_block_thumb_allowed",
+      "value": "Current rule unblocked"
+    },
+    {
       "name": "image_block_contribution_draft",
       "value": "Copy community draft"
     },
     {
       "name": "image_block_contribution_draft_hint",
-      "value": "Only rules with stable gallery sources are included."
+      "value": "Rules with complete sources can be copied"
     },
     {
       "name": "image_block_contribution_copied",
@@ -2826,7 +2950,15 @@
     },
     {
       "name": "image_block_contribution_empty",
-      "value": "No submit-ready manual rules"
+      "value": "No local rules with complete sources"
+    },
+    {
+      "name": "image_block_contribution_none_ready",
+      "value": "0 ready"
+    },
+    {
+      "name": "image_block_contribution_ready_count",
+      "value": "%d ready"
     },
     {
       "name": "image_block_contribution_failed",
@@ -2834,7 +2966,23 @@
     },
     {
       "name": "image_block_contribution_skipped",
-      "value": "Skipped"
+      "value": "Not copied"
+    },
+    {
+      "name": "image_block_label_separator",
+      "value": ": "
+    },
+    {
+      "name": "image_block_inline_separator",
+      "value": " · "
+    },
+    {
+      "name": "image_block_contribution_reason_count_format",
+      "value": "%d %s"
+    },
+    {
+      "name": "image_block_contribution_reason_separator",
+      "value": ", "
     },
     {
       "name": "image_block_contribution_missing_source",
@@ -2842,11 +2990,15 @@
     },
     {
       "name": "image_block_contribution_duplicate",
-      "value": "duplicate"
+      "value": "duplicate rule"
     },
     {
       "name": "image_block_contribution_invalid",
-      "value": "invalid"
+      "value": "invalid match code"
+    },
+    {
+      "name": "image_block_contribution_unavailable",
+      "value": "unavailable"
     },
     {
       "name": "image_block_whitelist",
@@ -2854,11 +3006,19 @@
     },
     {
       "name": "image_block_whitelist_hint",
-      "value": "Images allowed after a false-positive block."
+      "value": "These images will keep showing even if a rule matches"
     },
     {
       "name": "image_block_whitelist_hash_title",
       "value": "Allowed image"
+    },
+    {
+      "name": "image_block_whitelist_status",
+      "value": "Allowed"
+    },
+    {
+      "name": "image_block_whitelist_row_hint",
+      "value": "This image will keep showing"
     },
     {
       "name": "image_block_whitelist_delete_confirm",

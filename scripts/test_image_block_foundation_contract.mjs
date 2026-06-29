@@ -20,6 +20,13 @@ function assert(condition, message) {
   }
 }
 
+function sliceBetween(text, start, end) {
+  const startIndex = text.indexOf(start)
+  const endIndex = text.indexOf(end, startIndex + start.length)
+  assert(startIndex >= 0 && endIndex > startIndex, `missing slice ${start}`)
+  return text.slice(startIndex, endIndex)
+}
+
 function hexValue(char) {
   const code = char.charCodeAt(0)
   if (code >= 48 && code <= 57) return code - 48
@@ -108,6 +115,7 @@ for (const token of [
   'ImageBlockContributionIssuePackage',
   'ImageBlockRuntimeService',
   'ImageBlockSubscriptionService',
+  'ImageBlockWhitelistItem',
   'PHashService',
   'ImageBlockRepository',
 ]) {
@@ -123,6 +131,7 @@ assert(model.includes('IMAGE_BLOCK_MAX_THRESHOLD: number = 12'), 'max threshold 
 
 const phash = read('shared/src/main/ets/services/PHashService.ets')
 assert(phash.includes('hashImageFileDct64'), 'PHashService must expose image-file dct64 hashing')
+assert(phash.includes('hashImageFileRegionDct64'), 'PHashService must expose sprite-region dct64 hashing for thumbnails')
 assert(phash.includes('@Concurrent'), 'image-file pHash must run off the UI thread')
 assert(phash.includes('image.createImageSource(filePath)'), 'image-file pHash must decode from local file path')
 assert(phash.includes('desiredSize: { width: sampleSize, height: sampleSize }'), 'pHash decode must downsample')
@@ -130,7 +139,7 @@ assert(phash.includes('readPixelsToBuffer'), 'pHash must read PixelMap pixels')
 assert(phash.includes('coeffs.slice(1)'), 'dct64-v1 median must exclude the DC coefficient')
 
 const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
-assert(store.includes('LOCAL_DATA_SCHEMA_VERSION: number = 13'), 'LocalDataStore schema must be 13')
+assert(store.includes('LOCAL_DATA_SCHEMA_VERSION: number = 14'), 'LocalDataStore schema must be 14')
 for (const table of [
   'image_block_subscriptions',
   'image_block_rules',
@@ -157,12 +166,15 @@ assert(repository.includes('loadLocalRules'), 'repository must expose local imag
 assert(repository.includes('removeLocalRule'), 'repository must expose local image-block rule deletion')
 assert(repository.includes('source_url'), 'repository must persist review source URLs for local rules')
 assert(repository.includes('source_page'), 'repository must persist review source pages for local rules')
+assert(repository.includes('preview_path'), 'repository must persist preview image paths for user-managed image-block records')
+assert(repository.includes('loadWhitelistItems'), 'repository must expose whitelist records with preview image paths for settings UI')
 assert(repository.includes('COALESCE(s.enabled, 0) > 0'), 'disabled subscription providers must not match rules')
 assert(repository.includes('feed.enabled ? 1 : 0'), 'new subscription persistence must seed provider enabled state')
 assert(repository.includes('enabled = image_block_subscriptions.enabled'), 'feed refresh must preserve user-disabled providers')
 
 const runtime = read('shared/src/main/ets/services/ImageBlockRuntimeService.ets')
 assert(runtime.includes('decisionForFile'), 'runtime service must expose file decisions')
+assert(runtime.includes('decisionForThumbnail'), 'runtime service must expose pHash thumbnail decisions')
 assert(runtime.includes('addLocalRuleForFile'), 'runtime service must support local rule creation from a file')
 assert(runtime.includes('addWhitelistForFile'), 'runtime service must support false-positive whitelist creation from a file')
 assert(runtime.includes('fileIo.statSync(filePath).size'), 'runtime service must fingerprint file bytes')
@@ -173,11 +185,14 @@ assert(
 )
 assert(runtime.includes('loadCachedFileHash'), 'runtime service must reuse cached pHash values')
 assert(runtime.includes('hashImageFileDct64'), 'runtime service must hash uncached local files')
+assert(runtime.includes('hashImageFileRegionDct64'), 'runtime service must hash one thumbnail region, not the whole EH sprite sheet')
 assert(runtime.includes('ImageBlockService.decisionForHash'), 'runtime service must return rule decisions')
 assert(runtime.includes('upsertLocalRule'), 'runtime service must persist user-marked local rules')
 assert(runtime.includes('upsertWhitelistHash'), 'runtime service must persist user-whitelisted file hashes')
 assert(runtime.includes('sourceUrl: string ='), 'runtime service must accept manual rule source URLs')
 assert(runtime.includes('sourcePage: number ='), 'runtime service must accept manual rule source pages')
+assert(runtime.includes('rule.previewPath = path'), 'runtime service must keep the marked image path for rule management previews')
+assert(runtime.includes('upsertWhitelistHash(context, hash, path)'), 'runtime service must keep the allowlisted image path for previews')
 
 const subscription = read('shared/src/main/ets/services/ImageBlockSubscriptionService.ets')
 assert(subscription.includes('BackupChecksum.hashText'), 'subscription updater must verify feed sha256')
@@ -192,7 +207,7 @@ assert(imageBlockSettings.includes('ImageBlockRepository.setSubscriptionEnabled'
 assert(imageBlockSettings.includes('localRuleCount'), 'settings page must show local rule count')
 assert(imageBlockSettings.includes('ImageBlockRepository.loadLocalRules'), 'settings page must list local rules')
 assert(imageBlockSettings.includes('ImageBlockRepository.removeLocalRule'), 'settings page must delete local rules')
-assert(imageBlockSettings.includes('ImageBlockRepository.loadWhitelist'), 'settings page must list false-positive whitelist hashes')
+assert(imageBlockSettings.includes('ImageBlockRepository.loadWhitelistItems'), 'settings page must list false-positive whitelist images')
 assert(imageBlockSettings.includes('ImageBlockRepository.removeWhitelistHash'), 'settings page must delete false-positive whitelist hashes')
 assert(imageBlockSettings.includes("import { pasteboard } from '@kit.BasicServicesKit'"), 'settings page must use the existing pasteboard text-copy pattern')
 assert(imageBlockSettings.includes('ImageBlockContributionService'), 'settings page must expose assisted local-rule contribution drafts')
@@ -201,7 +216,7 @@ assert(imageBlockSettings.includes('pasteboard.MIMETYPE_TEXT_PLAIN'), 'settings 
 assert(imageBlockSettings.includes('contributionTotalCount'), 'settings page must show contribution ready count against total local rules')
 assert(imageBlockSettings.includes('contributionReadyCount'), 'settings page must show submit-ready local-rule count')
 assert(imageBlockSettings.includes('contributionSkippedCount'), 'settings page must expose skipped local-rule contribution count')
-assert(imageBlockSettings.includes('contributionDraftTrailing'), 'settings contribution row must show ready/total instead of an unexplained count')
+assert(imageBlockSettings.includes('contributionDraftTrailing'), 'settings contribution row must show a labeled copyable count instead of an unexplained number')
 assert(imageBlockSettings.includes('contributionSkipReasonText'), 'settings contribution row must summarize skipped-rule reasons')
 assert(imageBlockSettings.includes('image_block_contribution_draft'), 'settings page must include a contribution draft action row')
 assert(imageBlockSettings.includes('image_block_contribution_empty'), 'settings page must report when no local rules are submit-ready')
@@ -215,6 +230,18 @@ assert(imageBlockSettings.includes('image_block_whitelist_deleted'), 'whitelist 
 assert(imageBlockSettings.includes('localRuleTitle'), 'settings page must show readable local rule titles')
 assert(imageBlockSettings.includes('image_block_whitelist_hash_title'), 'settings page must show readable whitelist row titles')
 assert(imageBlockSettings.includes('sourceUrl'), 'settings page must surface local rule review source URLs')
+assert(imageBlockSettings.includes('PreviewImage'), 'settings page must show images for local rules and allowlist records')
+assert(imageBlockSettings.includes('Image(this.imageUri(path))'), 'settings preview cards must render the stored image path')
+assert(imageBlockSettings.includes("out.substring('e-hentai.org/'.length)"), 'settings source labels must omit the noisy EH host')
+assert(imageBlockSettings.includes('${rule.hash}'), 'settings local rule cards must show the full 16-character fingerprint')
+assert(imageBlockSettings.includes('${item.hash}'), 'settings allowlist cards must show the full 16-character fingerprint')
+assert(!imageBlockSettings.includes('shortHash('), 'settings rule cards must not route fingerprints through a shortened display helper')
+assert(!sliceBetween(imageBlockSettings, 'private LocalRuleRow', 'private SubscriptionRuleRow').includes('ConciseListRow'), 'local rule previews must not be rendered as plain settings rows')
+assert(!sliceBetween(imageBlockSettings, 'private WhitelistCard', 'private LocalRuleRow').includes('ConciseListRow'), 'allowlisted images must not be rendered as plain settings rows')
+assert(imageBlockSettings.includes('RuleSheet'), 'one image block rule must open a rule settings sheet')
+assert(imageBlockSettings.includes('FeedRulesSheet'), 'one subscription provider must expose its concrete rules')
+assert(imageBlockSettings.includes('setRuleEnabledOverride'), 'subscription rule disablement must be a local override')
+assert(imageBlockSettings.includes('setRuleThresholdOverride'), 'subscription rule threshold changes must be a local override')
 assert(
   imageBlockSettings.includes('${feed.id}:${feed.count}:${feed.enabled'),
   'provider row identity must include count/enabled so refreshed feed subtitles repaint',
@@ -222,6 +249,15 @@ assert(
 assert(imageBlockSettings.includes('SecondaryListScaffold'), 'settings page must reuse shared settings scaffold')
 assert(!imageBlockSettings.match(/GitHub|pull request|OAuth|fork|create.*PR/i), 'settings page must not bundle PR submission')
 assert(!imageBlockSettings.match(/Qr|QR|QRCode|qrCode|scanQr/i), 'settings page must not bundle QR blocking')
+
+const spriteThumb = read('shared/src/main/ets/components/EhSpriteThumbnail.ets')
+assert(spriteThumb.includes('@Param enableImageBlock: boolean = false'), 'sprite thumbnails must opt into pHash image-block checks')
+assert(spriteThumb.includes('decisionForThumbnail'), 'sprite thumbnails must use pHash thumbnail decisions')
+assert(spriteThumb.includes('blockedThumb'), 'sprite thumbnails must render a blocked placeholder when pHash matches')
+const previewThumbTile = read('shared/src/main/ets/components/PreviewThumbTile.ets')
+assert(previewThumbTile.includes('enableImageBlock: true'), 'preview thumb tiles must enable pHash image-block checks')
+const galleryPreviewGrid = read('feature/gallery/src/main/ets/components/GalleryPreviewGrid.ets')
+assert(galleryPreviewGrid.includes('enableImageBlock: true'), 'horizontal preview thumbnails must enable pHash image-block checks')
 
 const ehSettings = read('feature/settings/src/main/ets/pages/EhSettingsPage.ets')
 assert(ehSettings.includes("pushPathByName('ImageBlockSettings'"), 'EH settings must route to image block settings')
@@ -523,7 +559,7 @@ assert(
 assert(
   seededQaScript.includes("localRuleCountText(path) === '0'") &&
     seededQaScript.includes("!draftVisible") &&
-    seededQaScript.includes("!text.includes('scanlator-ad / P1')"),
+    seededQaScript.includes('!text.includes(SAMPLE_HASH)'),
   'local-rule deletion QA must verify the visible rule count, contribution row, and local rule row disappear',
 )
 assert(
@@ -532,10 +568,10 @@ assert(
 )
 assert(
   seededQaScript.includes('settingsManualRuleEdgeVisible') &&
-    seededQaScript.includes("text.includes('1/3')") &&
+    seededQaScript.includes("text.includes('1 条可复制')") &&
     seededQaScript.includes("text.includes('missing source')") &&
     seededQaScript.includes("text.includes('duplicate')"),
-  'seeded Reader QA script must verify edge-case ready/total and skipped reasons',
+  'seeded Reader QA script must verify edge-case copyable counts and skipped reasons',
 )
 const whitelistRemovedStart = seededQaScript.indexOf('function settingsWhitelistRemovedVisible')
 const whitelistRemovedEnd = seededQaScript.indexOf('function findLocalRuleDeleteButton')
@@ -549,7 +585,7 @@ assert(
   'seeded Reader QA script must verify allowlist deletion inside the allowlist section',
 )
 assert(
-  !whitelistRemovedFn.includes("!text.includes('ce9e...3cd5')"),
+  !whitelistRemovedFn.includes("!text.includes('" + 'ce9e' + '...' + '3cd5' + "')"),
   'seeded Reader QA script must not globally reject the sample hash because the local-rule section may still contain it',
 )
 assert(
@@ -622,6 +658,16 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'image_block_update_finished',
     'image_block_update_failed',
     'image_block_rules',
+    'image_block_provider_enabled',
+    'image_block_provider_disabled',
+    'image_block_source_page_format',
+    'image_block_default_provider_title',
+    'image_block_rule_blocked_image',
+    'image_block_rule_missing_source',
+    'image_block_rule_submit_ready',
+    'image_block_rule_submit_blocked',
+    'image_block_rule_fingerprint',
+    'image_block_rule_threshold',
     'image_block_local_rules',
     'image_block_local_rules_hint',
     'image_block_local_rule_title',
@@ -640,6 +686,8 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'image_block_whitelist',
     'image_block_whitelist_hint',
     'image_block_whitelist_hash_title',
+    'image_block_whitelist_status',
+    'image_block_whitelist_row_hint',
     'image_block_whitelist_delete_confirm',
     'image_block_whitelist_deleted',
     'image_block_whitelist_delete_failed',

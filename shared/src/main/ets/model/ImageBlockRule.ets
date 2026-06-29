@@ -19,6 +19,7 @@ export class ImageBlockRule {
   sourceType: string = IMAGE_BLOCK_SOURCE_LOCAL
   sourceUrl: string = ''
   sourcePage: number = 0
+  previewPath: string = ''
   enabled: boolean = true
   updatedAt: number = 0
   deletedAt: number = 0
@@ -34,11 +35,18 @@ export class ImageBlockRule {
     rule.sourceType = this.sourceType
     rule.sourceUrl = this.sourceUrl
     rule.sourcePage = this.sourcePage
+    rule.previewPath = this.previewPath
     rule.enabled = this.enabled
     rule.updatedAt = this.updatedAt
     rule.deletedAt = this.deletedAt
     return rule
   }
+}
+
+export class ImageBlockWhitelistItem {
+  hash: string = ''
+  previewPath: string = ''
+  updatedAt: number = 0
 }
 
 export class ImageBlockFeedItem {

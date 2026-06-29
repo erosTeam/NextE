@@ -113,6 +113,7 @@ export struct GalleryPreviewGrid {
                 spriteHeight: img.spriteHeight,
                 fitHeight: true,
                 displayHeight: PREVIEW_H,
+                enableImageBlock: true,
               })
               Text(`${img.page}`)
                 .fontSize(ThemeConstants.FONT_SIZE_TINY)

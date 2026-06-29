@@ -35,6 +35,7 @@ export {
   ImageBlockFeedItem,
   ImageBlockManifest,
   ImageBlockRule,
+  ImageBlockWhitelistItem,
 } from './model/ImageBlockRule'
 export { ViewedGallery } from './model/ViewedGallery'
 export { Favcat } from './model/Favcat'
@@ -215,6 +216,11 @@ export {
   CommentTranslationSettingsState,
   connectCommentTranslationSettings,
 } from './state/CommentTranslationSettingsState'
+export {
+  ImageBlockRuntimeState,
+  connectImageBlockRuntime,
+  publishImageBlockRulesChanged,
+} from './state/ImageBlockRuntimeState'
 export {
   CommentTranslationSettings,
   CommentTranslationSettingsSnapshot,

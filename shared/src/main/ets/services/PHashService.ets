@@ -6,7 +6,13 @@ import {
 } from '../model/ImageBlockRule'
 
 @Concurrent
-async function calculateImageFilePHashDct64(filePath: string): Promise<string> {
+async function calculateImageFilePHashDct64(
+  filePath: string,
+  regionX: number,
+  regionY: number,
+  regionW: number,
+  regionH: number,
+): Promise<string> {
   const sampleSize: number = 32
   const dctSize: number = 8
   const hexBits: number = 64
@@ -17,10 +23,22 @@ async function calculateImageFilePHashDct64(filePath: string): Promise<string> {
   let pixelMap: image.PixelMap | undefined = undefined
   try {
     source = image.createImageSource(filePath)
+    const hasRegion: boolean = regionW > 0 && regionH > 0
     const options: image.DecodingOptions = {
       editable: false,
       desiredSize: { width: sampleSize, height: sampleSize },
       desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+    }
+    if (hasRegion) {
+      options.desiredRegion = {
+        x: Math.max(0, Math.floor(regionX)),
+        y: Math.max(0, Math.floor(regionY)),
+        size: {
+          width: Math.max(1, Math.floor(regionW)),
+          height: Math.max(1, Math.floor(regionH)),
+        },
+      }
+      options.cropAndScaleStrategy = image.CropAndScaleStrategy.CROP_FIRST
     }
     pixelMap = await source.createPixelMap(options)
     const info: image.ImageInfo = await pixelMap.getImageInfo()
@@ -92,8 +110,25 @@ async function calculateImageFilePHashDct64(filePath: string): Promise<string> {
 
 export class PHashService {
   static async hashImageFileDct64(filePath: string): Promise<string> {
+    return PHashService.hashImageFileRegionDct64(filePath, 0, 0, 0, 0)
+  }
+
+  static async hashImageFileRegionDct64(
+    filePath: string,
+    regionX: number,
+    regionY: number,
+    regionW: number,
+    regionH: number,
+  ): Promise<string> {
     try {
-      return await taskpool.execute<[string], string>(calculateImageFilePHashDct64, filePath)
+      return await taskpool.execute<[string, number, number, number, number], string>(
+        calculateImageFilePHashDct64,
+        filePath,
+        regionX,
+        regionY,
+        regionW,
+        regionH,
+      )
     } catch (error) {
       return ''
     }
