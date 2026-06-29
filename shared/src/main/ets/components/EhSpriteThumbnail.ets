@@ -38,6 +38,7 @@ export struct EhSpriteThumbnail {
   @Param displayWidth: number = 78;
   @Param displayHeight: number = 0;
   @Param enableImageBlock: boolean = false;
+  @Param forceImageBlocked: boolean = false;
   @Param imageBlockRevision: number = 0;
   @Event onImageBlockStateChange: (blocked: boolean) => void = () => {};
   @Event onImageBlockDecisionChange: (decision: ImageBlockDecision) => void = () => {};
@@ -55,6 +56,7 @@ export struct EhSpriteThumbnail {
   @Local imageBlocked: boolean = false;
   @Local imageBlockRuntime: ImageBlockRuntimeState = connectImageBlockRuntime();
   private blockSeq: number = 0;
+  private lastBlockKey: string = '';
 
   @Monitor('url')
   onUrlChange() {
@@ -72,13 +74,11 @@ export struct EhSpriteThumbnail {
 
   @Monitor('imageBlockRevision')
   onImageBlockRevisionChange() {
-    this.imageBlocked = false
     this.checkImageBlock()
   }
 
   @Monitor('imageBlockRuntime.signal')
   onImageBlockRuntimeChange() {
-    this.imageBlocked = false
     this.checkImageBlock()
   }
 
@@ -118,14 +118,24 @@ export struct EhSpriteThumbnail {
     return this.thumbWidth > 0 && this.thumbHeight > 0 ? this.thumbWidth / this.thumbHeight : 0.7
   }
 
+  private imageBlockKey(): string {
+    return `${this.url}:${this.thumbWidth}:${this.thumbHeight}:${this.offsetX}:${this.spriteWidth}:${this.spriteHeight}:${this.imageBlockRevision}:${this.imageBlockRuntime.signal}`
+  }
+
   private checkImageBlock(): void {
-    const seq: number = ++this.blockSeq
     if (!this.enableImageBlock || this.url.length === 0) {
+      this.lastBlockKey = ''
       this.imageBlocked = false
       this.onImageBlockStateChange(false)
       this.onImageBlockDecisionChange(new ImageBlockDecision())
       return
     }
+    const key: string = this.imageBlockKey()
+    if (key === this.lastBlockKey) {
+      return
+    }
+    this.lastBlockKey = key
+    const seq: number = ++this.blockSeq
     ImageBlockRuntimeService.decisionForThumbnail(
       this.getUIContext().getHostContext() as common.UIAbilityContext,
       this.url,
@@ -200,7 +210,7 @@ export struct EhSpriteThumbnail {
   }
 
   build() {
-    if (this.imageBlocked) {
+    if (this.forceImageBlocked || this.imageBlocked) {
       this.blockedThumb()
     } else if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
       // Crop ONE thumb out of EH's sprite sheet. The sheet is an Image CHILD (not a backgroundImage)

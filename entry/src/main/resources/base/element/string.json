@@ -2894,7 +2894,7 @@
     },
     {
       "name": "image_block_update_default",
-      "value": "Update community rules"
+      "value": "Update rule subscriptions"
     },
     {
       "name": "image_block_update_default_hint",

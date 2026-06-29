@@ -106,10 +106,7 @@ export struct ImageBlockSettingsPage {
   }
 
   private feedSubtitle(feed: ImageBlockFeed): string {
-    const state: string = feed.enabled
-      ? AppStrings.get('image_block_feed_enabled_hint')
-      : AppStrings.get('image_block_feed_disabled_hint')
-    return `${state} · ${this.ruleCountText(feed.count)}`
+    return this.ruleCountText(feed.count)
   }
 
   private localRuleSubtitle(rule: ImageBlockRule): string {
@@ -547,12 +544,19 @@ export struct ImageBlockSettingsPage {
   }
 
   private setFeedEnabled(feedId: string, enabled: boolean): void {
+    for (let i: number = 0; i < this.feeds.length; i++) {
+      if (this.feeds[i].id === feedId) {
+        this.feeds[i].enabled = enabled
+        this.feeds = this.feeds.slice()
+        break
+      }
+    }
     ImageBlockRepository.setSubscriptionEnabled(this.ctx(), feedId, enabled)
       .then(() => {
-        this.reloadFeeds()
         publishImageBlockRulesChanged('settings-feed-enabled')
       })
       .catch((error: Error) => {
+        this.reloadFeeds()
         this.toast(`${AppStrings.get('image_block_update_failed')}: ${error.message}`)
       })
   }
@@ -574,15 +578,6 @@ export struct ImageBlockSettingsPage {
       .strokeWidth(0.5)
       .color($r('sys.color.ohos_id_color_list_separator'))
       .margin({ left: ThemeConstants.SPACE_MD })
-  }
-
-  @Builder
-  private FeedEnabledSwitch(feed: ImageBlockFeed) {
-    Toggle({ type: ToggleType.Switch, isOn: feed.enabled })
-      .selectedColor(ThemeConstants.BRAND_PRIMARY)
-      .onChange((value: boolean) => {
-        this.setFeedEnabled(feed.id, value)
-      })
   }
 
   @Builder
@@ -837,9 +832,18 @@ export struct ImageBlockSettingsPage {
                     subtitleMaxLines: 2,
                     leadingIcon: $r('sys.symbol.cloud'),
                     showChevron: false,
-                    suffixBuilderParam: () => {
-                      this.FeedEnabledSwitch(feed)
+                    hasSwitch: true,
+                    checked: feed.enabled,
+                    switchAction: (value: boolean) => {
+                      this.setFeedEnabled(feed.id, value)
                     },
+                  })
+                  this.rowDivider()
+                  ConciseListRow({
+                    title: $r('app.string.image_block_subscription_rules'),
+                    subtitle: this.feedTitle(feed),
+                    leadingIcon: $r('sys.symbol.list_bullet'),
+                    trailingText: this.ruleCountText(feed.count),
                     action: () => {
                       this.openFeedRules(feed)
                     },
@@ -848,7 +852,7 @@ export struct ImageBlockSettingsPage {
                     this.rowDivider()
                   }
                 },
-                (feed: ImageBlockFeed) => `${feed.id}:${feed.count}:${feed.enabled ? '1' : '0'}:${feed.sha256}`,
+                (feed: ImageBlockFeed) => feed.id,
               )
             }
           }
@@ -873,7 +877,7 @@ export struct ImageBlockSettingsPage {
                     this.rowDivider()
                   }
                 },
-                (rule: ImageBlockRule) => `${rule.id}:${rule.sourceUrl}:${rule.sourcePage}:${rule.threshold}:${rule.previewPath}:${rule.enabled ? '1' : '0'}`,
+                (rule: ImageBlockRule) => rule.id,
               )
             }
           }
@@ -903,17 +907,35 @@ export struct ImageBlockSettingsPage {
           }
         }
       }
+      this.FeedRulesSheetHost()
+      this.RuleSheetHost()
     }
     .titleBar(immersiveTitleBar(AppStrings.get('image_block_title')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .bindSheet($$this.feedRulesSheetShown, this.FeedRulesSheet(), appSheetOptions({
-      detents: [SheetSize.LARGE],
-      showClose: false,
-    }))
-    .bindSheet($$this.ruleSheetShown, this.RuleSheet(), appSheetOptions({
-      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-      showClose: false,
-    }))
+  }
+
+  @Builder
+  private FeedRulesSheetHost() {
+    Blank()
+      .width(1)
+      .height(1)
+      .bindSheet(
+        $$this.feedRulesSheetShown,
+        this.FeedRulesSheet(),
+        appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
+      )
+  }
+
+  @Builder
+  private RuleSheetHost() {
+    Blank()
+      .width(1)
+      .height(1)
+      .bindSheet(
+        $$this.ruleSheetShown,
+        this.RuleSheet(),
+        appSheetOptions({ detents: [SheetSize.MEDIUM, SheetSize.LARGE], showClose: false }),
+      )
   }
 
   @Builder
@@ -1099,7 +1121,7 @@ export struct ImageBlockSettingsPage {
                   this.rowDivider()
                 }
               },
-              (rule: ImageBlockRule) => `${rule.id}:${rule.sourceUrl}:${rule.sourcePage}:${rule.threshold}:${rule.previewPath}:${rule.enabled ? '1' : '0'}`,
+              (rule: ImageBlockRule) => rule.id,
             )
           }
         }

@@ -6,6 +6,7 @@ import { EhGalleryImage } from '../model/EhGalleryImage'
 import {
   IMAGE_BLOCK_SOURCE_LOCAL,
   ImageBlockDecision,
+  ImageBlockRule,
 } from '../model/ImageBlockRule'
 import { ImageBlockRepository } from '../storage/ImageBlockRepository'
 import { ImageBlockRuntimeService } from '../services/ImageBlockRuntimeService'
@@ -70,7 +71,10 @@ export struct PreviewThumbTile {
     if (this.busy) {
       return
     }
+    const previousBlocked: boolean = this.imageBlocked
+    const previousDecision: ImageBlockDecision = this.blockDecision
     this.busy = true
+    this.imageBlocked = true
     ImageBlockRuntimeService.addLocalRuleForThumbnail(
       this.ctx(),
       this.image.thumbUrl,
@@ -82,13 +86,24 @@ export struct PreviewThumbTile {
       this.image.sUrl,
       this.image.page,
     )
-      .then(() => {
+      .then((rule: ImageBlockRule) => {
+        const decision: ImageBlockDecision = new ImageBlockDecision()
+        decision.blocked = true
+        decision.hash = rule.hash
+        decision.ruleId = rule.id
+        decision.sourceType = rule.sourceType
+        decision.label = rule.label
+        decision.threshold = rule.threshold
+        decision.distance = 0
         this.imageBlocked = true
+        this.blockDecision = decision
         this.imageBlockRevision++
         publishImageBlockRulesChanged('thumbnail-add')
         this.toast($r('app.string.image_block_thumb_blocked'))
       })
       .catch((error: Error) => {
+        this.imageBlocked = previousBlocked
+        this.blockDecision = previousDecision
         this.toast(`${AppStrings.get('image_block_update_failed')}: ${error.message}`)
       })
       .finally(() => {
@@ -162,6 +177,7 @@ export struct PreviewThumbTile {
             fitHeight: true,
             displayHeight: this.frameHeight(),
             enableImageBlock: true,
+            forceImageBlocked: this.imageBlocked,
             imageBlockRevision: this.imageBlockRevision,
             onImageBlockStateChange: (blocked: boolean) => {
               this.imageBlocked = blocked
@@ -184,6 +200,7 @@ export struct PreviewThumbTile {
             spriteHeight: this.image.spriteHeight,
             displayWidth: this.tileWidth(),
             enableImageBlock: true,
+            forceImageBlocked: this.imageBlocked,
             imageBlockRevision: this.imageBlockRevision,
             onImageBlockStateChange: (blocked: boolean) => {
               this.imageBlocked = blocked
