@@ -40,7 +40,14 @@ ok('Web login saves through CookieJarSettings.save', /await CookieJarSettings\.s
 ok('Web login refreshes igneous after the identity jar is saved', /await CookieJarSettings\.save\(ctx\)[\s\S]*refreshIgneousAfterLogin\(ctx\)/.test(page))
 ok('Web login igneous refresh reuses CookieJarSettings.refreshIgneous', /CookieJarSettings\.refreshIgneous\(ctx\)/.test(page))
 ok('CookieJarSettings.refreshIgneous fetches ExHentai uconfig', /EX_BASE_URL\}\/uconfig\.php/.test(settings))
+ok('Web login does not wipe Cloudflare challenge cookies', !/clearAllCookiesSync/.test(page) && /expireWebLoginIdentityCookies\(\)/.test(page))
+ok('Web login only expires EH identity cookies before loading forums', /COOKIE_MEMBER_ID[\s\S]*COOKIE_PASS_HASH[\s\S]*configCookieSync\([\s\S]*Max-Age=0/.test(page) && /expireWebLoginIdentityCookies\(\)[\s\S]*loadUrl\(EhConstants\.FORUMS_LOGIN_FORM_URL\)/.test(page))
 ok('Web login preserves visible forum failure or verification messages', /function loginNotice\(\)[\s\S]*nx-notice[\s\S]*white-space:pre-wrap/.test(page))
+ok('Web login searches the full document for late captcha widgets', /function captchaNode\(n\)/.test(page) && /captchaNode\(document\)/.test(page) && /new MutationObserver\(function\(\)\{ updateCaptcha\(\); \}\)/.test(page))
+ok('Web login recognizes Cloudflare Turnstile captcha widgets', /cf-turnstile/.test(page) && /challenges\.cloudflare\.com/.test(page) && /cf-turnstile-response/.test(page))
+ok('Web login only moves real captcha widgets, not captcha advisory text', /var capSel='\.g-recaptcha,\.cf-turnstile,\[data-sitekey\],iframe/.test(page) && !/\[class\*=captcha\].*\[id\*=captcha\]/.test(page))
+ok('Web login hides the captcha slot when no visible widget is available', /function visibleCaptcha\(n\)/.test(page) && /function collapseCaptcha\(\)/.test(page) && /max-height:96px/.test(page) && /#nx-box \.nx-cap:empty,#nx-box \.nx-cap\.nx-cap-empty\{display:none!important;margin:0!important;\}/.test(page))
+ok('Web login resets the forum submit button layout', /submit\.removeAttribute\('style'\)/.test(page) && /submit\.className='nx-submit'/.test(page) && /position:static!important/.test(page) && /margin:4px 0 0!important/.test(page))
 
 const logCalls = page.match(/DiagnosticLogger\.(info|warn|error)\([\s\S]*?\)/g) || []
 for (const call of logCalls) {

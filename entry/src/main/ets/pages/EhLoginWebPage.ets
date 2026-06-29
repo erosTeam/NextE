@@ -64,13 +64,10 @@ export struct EhLoginWebPage {
               } catch (e) {
                 DiagnosticLogger.warn('auth', 'web_login_accept_cookie_failed', (e as Error).message)
               }
-              // Start from a CLEAN WebView session so a *new* account can sign in (the store otherwise
-              // still holds the active account's forum session). Re-solving CF afterwards is fine.
-              try {
-                webview.WebCookieManager.clearAllCookiesSync()
-              } catch (e) {
-                DiagnosticLogger.warn('auth', 'web_login_clear_cookie_failed', (e as Error).message)
-              }
+              // Start from a clean EH identity without deleting Cloudflare's challenge cookies. Clearing
+              // the whole WebView jar forces a fresh Turnstile challenge and can strand ArkWeb in CF's
+              // verification loop before the forum login form is even reachable.
+              this.expireWebLoginIdentityCookies()
               this.controller.loadUrl(EhConstants.FORUMS_LOGIN_FORM_URL)
             },
             onPageBegin: () => {
@@ -130,8 +127,33 @@ export struct EhLoginWebPage {
       if(document.getElementById('nexte-login-style')) return;
       var user=form.querySelector('input[type=text]');
       var submit=form.querySelector('input[type=submit],button[type=submit]');
-      var capSel='.g-recaptcha,[data-sitekey],iframe[src*=recaptcha],iframe[src*=captcha],[class*=captcha],[class*=recaptcha],[id*=captcha]';
-      var cap=form.querySelector(capSel);
+      var capSel='.g-recaptcha,.cf-turnstile,[data-sitekey],iframe[src*=recaptcha],iframe[src*=captcha],iframe[src*="challenges.cloudflare.com"],iframe[src*=turnstile]';
+      var capResponseSel='textarea[name=g-recaptcha-response],input[name=cf-turnstile-response],textarea[name=cf-turnstile-response]';
+      function safeQuery(n, sel){ try { return n && n.querySelector ? n.querySelector(sel) : null; } catch(_e) { return null; } }
+      function safeMatches(n, sel){ try { return !!(n && n.matches && n.matches(sel)); } catch(_e) { return false; } }
+      function visibleNode(n){
+        if(!n || !n.getBoundingClientRect) return false;
+        var st=window.getComputedStyle ? window.getComputedStyle(n) : null;
+        if(st && (st.display==='none' || st.visibility==='hidden' || st.opacity==='0')) return false;
+        var r=n.getBoundingClientRect();
+        return r.width>=20 && r.height>=20;
+      }
+      function visibleCaptcha(n){
+        if(!visibleNode(n)) return false;
+        var frame=(String(n.tagName || '').toLowerCase()==='iframe') ? n : safeQuery(n,'iframe');
+        if(frame && !visibleNode(frame)) return false;
+        return true;
+      }
+      function collapseCaptcha(){
+        cw.className='nx-cap nx-cap-empty';
+        cw.style.display='none';
+      }
+      function captchaNode(n){
+        if(!n) return null;
+        if(safeMatches(n,capSel)) return n;
+        return safeQuery(n,capSel);
+      }
+      function holdsCaptcha(n){ return !!(captchaNode(n) || safeQuery(n,capResponseSel)); }
       function cleanText(v){ return (v||'').replace(/\\s+/g,' ').trim(); }
       function visibleText(n){ return cleanText(n && n.textContent ? n.textContent : ''); }
       function addNoticeText(out, text){
@@ -175,18 +197,49 @@ export struct EhLoginWebPage {
       var eye=document.createElement('span');eye.className='nx-eye';eye.innerHTML=EYE_OFF;
       eye.onclick=function(){var h=pw.getAttribute('type')==='password';pw.setAttribute('type',h?'text':'password');eye.innerHTML=h?EYE_ON:EYE_OFF;};
       pwWrap.appendChild(eye);box.appendChild(pwWrap);
-      if(cap){var cw=document.createElement('div');cw.className='nx-cap';cw.appendChild(cap);box.appendChild(cw);}
-      if(submit){ if(submit.tagName==='INPUT'){submit.value=${sSubmit};}else{submit.textContent=${sSubmit};} box.appendChild(submit); }
+      var cw=document.createElement('div');cw.className='nx-cap nx-cap-empty';box.appendChild(cw);
+      function updateCaptcha(){
+        var cap=captchaNode(document);
+        if(!cap || cap===cw || cap===box){
+          collapseCaptcha();
+          return;
+        }
+        var holder=null;
+        try { holder=cap.closest ? cap.closest('.g-recaptcha,.cf-turnstile,[data-sitekey]') : null; } catch(_e) { holder=null; }
+        var node=(holder && holder!==box && holder!==cw && !safeQuery(holder,'input[type=text],input[type=password]')) ? holder : cap;
+        if(node.parentNode!==cw){cw.appendChild(node);}
+        node.style.display='';
+        cw.style.display='flex';
+        if(!visibleCaptcha(node)){
+          collapseCaptcha();
+          return;
+        }
+        cw.className='nx-cap';
+      }
+      updateCaptcha();
+      setTimeout(updateCaptcha, 300);
+      setTimeout(updateCaptcha, 1200);
+      setTimeout(updateCaptcha, 2500);
+      if(window.nxLoginCaptchaObserver){window.nxLoginCaptchaObserver.disconnect();}
+      window.nxLoginCaptchaObserver=new MutationObserver(function(){ updateCaptcha(); });
+      window.nxLoginCaptchaObserver.observe(document.body,{childList:true,subtree:true});
+      if(submit){
+        submit.removeAttribute('style');
+        submit.className='nx-submit';
+        if(submit.tagName==='INPUT'){submit.value=${sSubmit};}else{submit.textContent=${sSubmit};}
+        box.appendChild(submit);
+      }
       // Hide the remaining forum chrome, but NEVER a node that still holds a captcha/iframe.
       Array.prototype.forEach.call(form.children, function(c){
         if(c===box) return;
-        if(c.querySelector && c.querySelector('iframe,[class*=captcha],[class*=recaptcha],[data-sitekey],textarea[name=g-recaptcha-response]')) return;
+        if(holdsCaptcha(c)) return;
         c.style.display='none';
       });
       var s=document.createElement('style'); s.id='nexte-login-style';
       s.textContent=[
         "html,body{background:#F1F3F5!important;margin:0!important;padding:0!important;font-family:-apple-system,'HarmonyOS Sans',sans-serif!important;-webkit-text-size-adjust:100%!important;}",
-        "#nx-box{margin:0 auto!important;padding:16px!important;display:block!important;}",
+        "form{display:block!important;height:auto!important;min-height:0!important;margin:0!important;padding:0!important;}",
+        "#nx-box{margin:0 auto!important;padding:16px!important;display:block!important;height:auto!important;min-height:0!important;}",
         "#nx-box .nx-hint{font-size:14px!important;color:#8A8F99!important;padding:2px 6px 18px!important;line-height:1.5!important;}",
         "#nx-box .nx-notice{font-size:14px!important;color:#B42318!important;background:#FFF1F0!important;border-radius:14px!important;padding:10px 12px!important;margin:0 0 16px!important;line-height:1.45!important;white-space:pre-wrap!important;}",
         "#nx-box .nx-field{margin:0 0 16px!important;}",
@@ -195,8 +248,10 @@ export struct EhLoginWebPage {
         "#nx-box .nx-pw{position:relative!important;}",
         "#nx-box .nx-pw input{padding-right:52px!important;}",
         "#nx-box .nx-eye{position:absolute!important;right:14px!important;top:0!important;height:48px!important;display:flex!important;align-items:center!important;color:#9AA0A8!important;cursor:pointer!important;}",
-        "#nx-box .nx-cap{display:flex!important;justify-content:center!important;margin:0 0 16px!important;}",
-        "#nx-box input[type=submit],#nx-box button[type=submit]{font-size:16px!important;font-weight:500!important;width:100%!important;height:48px!important;padding:0!important;border-radius:999px!important;background:${accent}!important;color:#fff!important;border:none!important;margin-top:4px!important;-webkit-appearance:none!important;}"
+        "#nx-box .nx-cap{display:flex!important;justify-content:center!important;margin:0 0 16px!important;min-height:0!important;max-height:96px!important;overflow:hidden!important;}",
+        "#nx-box .nx-cap:empty,#nx-box .nx-cap.nx-cap-empty{display:none!important;margin:0!important;}",
+        "#nx-box .nx-cap iframe{max-width:100%!important;}",
+        "#nx-box input[type=submit],#nx-box button[type=submit],#nx-box .nx-submit{position:static!important;display:block!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;float:none!important;font-size:16px!important;font-weight:500!important;width:100%!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:999px!important;background:${accent}!important;color:#fff!important;border:none!important;margin:4px 0 0!important;-webkit-appearance:none!important;}"
       ].join('');
       document.getElementsByTagName('head')[0].appendChild(s);
     })()`
@@ -204,6 +259,42 @@ export struct EhLoginWebPage {
       this.controller.runJavaScript(js)
     } catch (e) {
       DiagnosticLogger.warn('auth', 'restyle_login_failed', (e as Error).message)
+    }
+  }
+
+  private expireWebLoginIdentityCookies(): void {
+    const authNames: string[] = [
+      EhConstants.COOKIE_MEMBER_ID,
+      EhConstants.COOKIE_PASS_HASH,
+      EhConstants.COOKIE_IGNEOUS,
+      EhConstants.COOKIE_SK,
+      EhConstants.COOKIE_STAR,
+    ]
+    const targets: string[][] = [
+      [EhConstants.EH_BASE_URL, '; Domain=.e-hentai.org'],
+      [EhConstants.FORUMS_BASE_URL, '; Domain=.e-hentai.org'],
+      [EhConstants.FORUMS_BASE_URL, ''],
+      [EhConstants.EX_BASE_URL, '; Domain=.exhentai.org'],
+      [EhConstants.EX_BASE_URL, ''],
+    ]
+    for (const name of authNames) {
+      for (const target of targets) {
+        try {
+          webview.WebCookieManager.configCookieSync(
+            target[0],
+            `${name}=; Path=/${target[1]}; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
+            false,
+            true,
+          )
+        } catch (e) {
+          DiagnosticLogger.warn('auth', 'web_login_expire_cookie_failed', (e as Error).message)
+        }
+      }
+    }
+    try {
+      webview.WebCookieManager.saveCookieSync()
+    } catch (_e) {
+      webview.WebCookieManager.saveCookieAsync()
     }
   }
 
