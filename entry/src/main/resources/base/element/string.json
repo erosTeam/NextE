@@ -3367,6 +3367,10 @@
     {
       "name": "sync_dataset_custom_profiles_hint",
       "value": "Custom SubTab profiles and selected item"
+    },
+    {
+      "name": "web_login_captcha",
+      "value": "Captcha"
     }
   ]
 }

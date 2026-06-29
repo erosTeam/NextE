@@ -3367,6 +3367,10 @@
     {
       "name": "sync_dataset_custom_profiles_hint",
       "value": "自定义 SubTab 配置和选中项"
+    },
+    {
+      "name": "web_login_captcha",
+      "value": "验证码"
     }
   ]
 }

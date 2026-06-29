@@ -162,16 +162,24 @@ export struct EhLoginWebPage {
     const sPass: string = JSON.stringify(AppStrings.get('password_login_password'))
     const sSubmit: string = JSON.stringify(AppStrings.get('password_login_submit'))
     const sHint: string = JSON.stringify(AppStrings.get('web_login_hint'))
+    const sCaptcha: string = JSON.stringify(AppStrings.get('web_login_captcha'))
     const js: string = `(function(){
       var pw=document.querySelector('input[type=password]'); if(!pw) return;
       var form=pw.closest('form'); if(!form) return;
       if(document.getElementById('nexte-login-style')) return;
       var user=form.querySelector('input[type=text]');
       var submit=form.querySelector('input[type=submit],button[type=submit]');
-      var capSel='.g-recaptcha,.cf-turnstile,[data-sitekey],iframe[src*=recaptcha],iframe[src*=captcha],iframe[src*="challenges.cloudflare.com"],iframe[src*=turnstile]';
-      var capResponseSel='textarea[name=g-recaptcha-response],input[name=cf-turnstile-response],textarea[name=cf-turnstile-response]';
+      var capKey='captcha|verify|verification|security|challenge|code';
+      var capSel='.g-recaptcha,.cf-turnstile,[data-sitekey],iframe[src*=recaptcha],iframe[src*=captcha],iframe[src*="challenges.cloudflare.com"],iframe[src*=turnstile],img[src*=captcha],img[src*=verify],img[src*=code]';
+      var capResponseSel='textarea[name=g-recaptcha-response],input[name=cf-turnstile-response],textarea[name=cf-turnstile-response],input[name*=captcha],textarea[name*=captcha],input[id*=captcha],textarea[id*=captcha]';
       function safeQuery(n, sel){ try { return n && n.querySelector ? n.querySelector(sel) : null; } catch(_e) { return null; } }
+      function safeQueryAll(n, sel){ try { return n && n.querySelectorAll ? Array.prototype.slice.call(n.querySelectorAll(sel)) : []; } catch(_e) { return []; } }
       function safeMatches(n, sel){ try { return !!(n && n.matches && n.matches(sel)); } catch(_e) { return false; } }
+      function nodeMeta(n){
+        if(!n) return '';
+        return String((n.getAttribute && (n.getAttribute('name') || n.getAttribute('id') || n.getAttribute('class') || n.getAttribute('src') || n.getAttribute('alt') || n.getAttribute('placeholder'))) || '').toLowerCase();
+      }
+      function looksCaptcha(n){ return new RegExp(capKey,'i').test(nodeMeta(n)); }
       function visibleNode(n){
         if(!n || !n.getBoundingClientRect) return false;
         var st=window.getComputedStyle ? window.getComputedStyle(n) : null;
@@ -195,6 +203,37 @@ export struct EhLoginWebPage {
         return safeQuery(n,capSel);
       }
       function holdsCaptcha(n){ return !!(captchaNode(n) || safeQuery(n,capResponseSel)); }
+      function isTextLikeInput(n){
+        var tag=String(n && n.tagName || '').toLowerCase();
+        var type=String((n && n.getAttribute && n.getAttribute('type')) || 'text').toLowerCase();
+        return tag==='textarea' || tag==='select' || (tag==='input' && /^(text|tel|number|search|url|email)?$/.test(type));
+      }
+      function isSubmitControl(n){
+        if(!n) return false;
+        if(n===submit) return true;
+        var type=String((n.getAttribute && n.getAttribute('type')) || '').toLowerCase();
+        return /^(submit|button|reset|image)$/.test(type);
+      }
+      function captchaInputs(){
+        var out=[];
+        safeQueryAll(form,'input,textarea,select').forEach(function(n){
+          if(n===user || n===pw || isSubmitControl(n)) return;
+          var type=String((n.getAttribute && n.getAttribute('type')) || '').toLowerCase();
+          if(type==='hidden') return;
+          if(looksCaptcha(n) || isTextLikeInput(n)) out.push(n);
+        });
+        return out;
+      }
+      function captchaMedia(){
+        var out=[];
+        safeQueryAll(form,'img,iframe,canvas').forEach(function(n){
+          if(safeMatches(n,capSel) || looksCaptcha(n)) out.push(n);
+        });
+        safeQueryAll(document,capSel).forEach(function(n){
+          if(form.contains(n) && out.indexOf(n)<0) out.push(n);
+        });
+        return out;
+      }
       function cleanText(v){ return (v||'').replace(/\\s+/g,' ').trim(); }
       function visibleText(n){ return cleanText(n && n.textContent ? n.textContent : ''); }
       function addNoticeText(out, text){
@@ -239,22 +278,32 @@ export struct EhLoginWebPage {
       eye.onclick=function(){var h=pw.getAttribute('type')==='password';pw.setAttribute('type',h?'text':'password');eye.innerHTML=h?EYE_ON:EYE_OFF;};
       pwWrap.appendChild(eye);box.appendChild(pwWrap);
       var cw=document.createElement('div');cw.className='nx-cap nx-cap-empty';box.appendChild(cw);
+      function moveCaptchaPart(n){
+        if(!n || n===cw || n===box || n===user || n===pw || isSubmitControl(n)) return false;
+        if(cw.contains(n)) return true;
+        if(n.parentNode){ cw.appendChild(n); }
+        n.removeAttribute && n.removeAttribute('style');
+        n.classList && isTextLikeInput(n) && n.classList.add('nx-captcha-input');
+        if(isTextLikeInput(n) && !n.getAttribute('placeholder')) n.setAttribute('placeholder',${sCaptcha});
+        n.style.display='';
+        return true;
+      }
       function updateCaptcha(){
+        var moved=false;
         var cap=captchaNode(document);
-        if(!cap || cap===cw || cap===box){
+        if(cap && cap!==cw && cap!==box){
+          var holder=null;
+          try { holder=cap.closest ? cap.closest('.g-recaptcha,.cf-turnstile,[data-sitekey]') : null; } catch(_e) { holder=null; }
+          var node=(holder && holder!==box && holder!==cw && !safeQuery(holder,'input[type=text],input[type=password]')) ? holder : cap;
+          moved=moveCaptchaPart(node) || moved;
+        }
+        captchaMedia().forEach(function(n){ moved=moveCaptchaPart(n) || moved; });
+        captchaInputs().forEach(function(n){ moved=moveCaptchaPart(n) || moved; });
+        if(!moved){
           collapseCaptcha();
           return;
         }
-        var holder=null;
-        try { holder=cap.closest ? cap.closest('.g-recaptcha,.cf-turnstile,[data-sitekey]') : null; } catch(_e) { holder=null; }
-        var node=(holder && holder!==box && holder!==cw && !safeQuery(holder,'input[type=text],input[type=password]')) ? holder : cap;
-        if(node.parentNode!==cw){cw.appendChild(node);}
-        node.style.display='';
         cw.style.display='flex';
-        if(!visibleCaptcha(node)){
-          collapseCaptcha();
-          return;
-        }
         cw.className='nx-cap';
       }
       updateCaptcha();
@@ -289,9 +338,10 @@ export struct EhLoginWebPage {
         "#nx-box .nx-pw{position:relative!important;}",
         "#nx-box .nx-pw input{padding-right:52px!important;}",
         "#nx-box .nx-eye{position:absolute!important;right:14px!important;top:0!important;height:48px!important;display:flex!important;align-items:center!important;color:#9AA0A8!important;cursor:pointer!important;}",
-        "#nx-box .nx-cap{display:flex!important;justify-content:center!important;margin:0 0 16px!important;min-height:0!important;max-height:96px!important;overflow:hidden!important;}",
+        "#nx-box .nx-cap{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:10px!important;margin:0 0 16px!important;min-height:0!important;overflow:visible!important;}",
         "#nx-box .nx-cap:empty,#nx-box .nx-cap.nx-cap-empty{display:none!important;margin:0!important;}",
-        "#nx-box .nx-cap iframe{max-width:100%!important;}",
+        "#nx-box .nx-cap iframe,#nx-box .nx-cap img,#nx-box .nx-cap canvas{max-width:100%!important;align-self:center!important;}",
+        "#nx-box .nx-cap input,#nx-box .nx-cap textarea,#nx-box .nx-captcha-input{font-size:16px!important;width:100%!important;height:48px!important;box-sizing:border-box!important;padding:0 18px!important;border:none!important;border-radius:19px!important;background:#fff!important;color:#1A1A1A!important;outline:none!important;-webkit-appearance:none!important;}",
         "#nx-box input[type=submit],#nx-box button[type=submit],#nx-box .nx-submit{position:static!important;display:block!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;float:none!important;font-size:16px!important;font-weight:500!important;width:100%!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:999px!important;background:${accent}!important;color:#fff!important;border:none!important;margin:4px 0 0!important;-webkit-appearance:none!important;}"
       ].join('');
       document.getElementsByTagName('head')[0].appendChild(s);

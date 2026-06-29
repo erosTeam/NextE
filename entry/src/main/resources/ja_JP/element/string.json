@@ -3367,6 +3367,10 @@
     {
       "name": "sync_dataset_custom_profiles_hint",
       "value": "カスタム SubTab 設定と選択項目"
+    },
+    {
+      "name": "web_login_captcha",
+      "value": "認証コード"
     }
   ]
 }
