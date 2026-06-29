@@ -109,6 +109,8 @@ export class DownloadQueueSettings {
   private static cancelledGalleryDownloads: Set<string> = new Set<string>()
   private static cancelledArchiverDownloads: Set<string> = new Set<string>()
   private static galleryProgressPulses: Map<string, number> = new Map<string, number>()
+  private static galleryProgressLogPulses: Map<string, number> = new Map<string, number>()
+  private static archiverProgressLogPulses: Map<string, number> = new Map<string, number>()
   private static pendingResume: Promise<void> | null = null
 
   private static setGalleryTasks(state: DownloadQueueState, tasks: DownloadGalleryTask[]): void {
@@ -193,12 +195,30 @@ export class DownloadQueueSettings {
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       if (it.gid === task.gid && it.token === task.token) {
         existed = true
+        if (it.title.length > 0) {
+          refreshed.title = it.title
+        }
+        if (it.titleJp.length > 0) {
+          refreshed.titleJp = it.titleJp
+        }
+        if (it.thumbUrl.length > 0) {
+          refreshed.thumbUrl = it.thumbUrl
+        }
+        if (it.pageCount > 0) {
+          refreshed.pageCount = it.pageCount
+        }
+        if (it.category.length > 0) {
+          refreshed.category = it.category
+        }
+        if (it.uploader.length > 0) {
+          refreshed.uploader = it.uploader
+        }
         refreshed.imageSeeds = it.imageSeeds.map((seed: DownloadImageSeed) => seed.copy())
         refreshed.firstPageCount = it.firstPageCount
         refreshed.previewPageCount = it.previewPageCount
         refreshed.preparedAt = it.preparedAt
         refreshed.prepareError = it.prepareError
-        refreshed.preferOriginal = it.preferOriginal
+        refreshed.preferOriginal = it.preferOriginal || task.preferOriginal
         refreshed.status = it.status
         refreshed.syncProgressCounts()
         return
@@ -300,6 +320,12 @@ export class DownloadQueueSettings {
     next.push(refreshed)
     state.archiverTasks.forEach((it: DownloadArchiverTask) => {
       if (it.tag === task.tag) {
+        if (it.title.length > 0) {
+          refreshed.title = it.title
+        }
+        if (it.thumbUrl.length > 0) {
+          refreshed.thumbUrl = it.thumbUrl
+        }
         if (
           it.status === DownloadGalleryTaskStatus.COMPLETE &&
             it.filePath.length > 0 &&
@@ -897,7 +923,7 @@ export class DownloadQueueSettings {
         DiagnosticLogger.info(
           'download',
           'gallery_download_done',
-          `gid=${gid} status=${doneStatus} downloaded=${task.downloadedCount()} seeds=${task.imageSeeds.length} pageCount=${task.pageCount}`,
+          `gid=${gid} status=${doneStatus} downloaded=${task.downloadedCount()} seeds=${task.imageSeeds.length} expected=${task.expectedFileCount()} pageCount=${task.pageCount}`,
         )
         return
       }
@@ -1081,7 +1107,7 @@ export class DownloadQueueSettings {
         DiagnosticLogger.info(
           'download',
           'gallery_download_apply_results',
-          `gid=${gid} downloaded=${task.downloadedCount()} pending=${DownloadQueueSettings.pendingSeedCount(task.imageSeeds)} pageCount=${task.pageCount} status=${task.status}`,
+          `gid=${gid} downloaded=${task.downloadedCount()} pending=${DownloadQueueSettings.pendingSeedCount(task.imageSeeds)} expected=${task.expectedFileCount()} pageCount=${task.pageCount} status=${task.status}`,
         )
       }
       next.push(task)
@@ -1724,6 +1750,7 @@ export class DownloadQueueSettings {
     DownloadQueueSettings.galleryProgressPulses.set(pulseKey, now)
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
+    let logged: boolean = false
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       const task: DownloadGalleryTask = it.copy()
       if (task.gid === gid && (token.length === 0 || task.token === token)) {
@@ -1731,16 +1758,31 @@ export class DownloadQueueSettings {
         task.activeBytesWritten = loaded
         task.activeBytesTotal = total
         task.status = DownloadGalleryTaskStatus.DOWNLOADING
+        const logKey: string = key
+        const lastLog: number = DownloadQueueSettings.galleryProgressLogPulses.get(logKey) ?? 0
+        if ((total > 0 && loaded >= total) || now - lastLog >= 2000) {
+          DownloadQueueSettings.galleryProgressLogPulses.set(logKey, now)
+          DiagnosticLogger.info(
+            'download',
+            'gallery_download_stream_progress',
+            `gid=${gid} page=${seed.page} loaded=${loaded} total=${total} downloaded=${task.downloadedCount()} expected=${task.expectedFileCount()}`,
+          )
+          logged = true
+        }
       }
       next.push(task)
     })
     DownloadQueueSettings.setGalleryTasks(state, next)
+    if (!logged && total > 0 && loaded >= total) {
+      DownloadQueueSettings.galleryProgressLogPulses.set(key, now)
+    }
   }
 
   private static updateArchiverProgress(tag: string, loaded: number, total: number): void {
     if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
       return
     }
+    const now: number = Date.now()
     const state = connectDownloadQueue()
     const next: DownloadArchiverTask[] = []
     state.archiverTasks.forEach((it: DownloadArchiverTask) => {
@@ -1750,6 +1792,15 @@ export class DownloadQueueSettings {
         task.bytesTotal = total
         task.progress = total > 0 ? Math.max(0, Math.min(100, Math.round(loaded * 100 / total))) : 0
         task.status = DownloadGalleryTaskStatus.DOWNLOADING
+        const lastLog: number = DownloadQueueSettings.archiverProgressLogPulses.get(tag) ?? 0
+        if ((total > 0 && loaded >= total) || now - lastLog >= 2000) {
+          DownloadQueueSettings.archiverProgressLogPulses.set(tag, now)
+          DiagnosticLogger.info(
+            'download',
+            'archiver_download_stream_progress',
+            `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(tag)} loaded=${loaded} total=${total} progress=${task.progress}`,
+          )
+        }
       }
       next.push(task)
     })

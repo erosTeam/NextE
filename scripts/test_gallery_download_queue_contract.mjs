@@ -74,12 +74,13 @@ ok(/DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
 ok(!/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings),
   'queue no longer writes the large task list to Preferences')
 ok(/isDownloadComplete\(\): boolean/.test(model) &&
-  /this\.pageCount > 0[\s\S]*return this\.seededCount\(\) >= this\.pageCount && downloaded >= this\.pageCount/.test(model) &&
+  /expectedFileCount\(\): number \{[\s\S]*Math\.max\(this\.pageCount, this\.seededCount\(\), this\.downloadedCount\(\)\)/.test(model) &&
+  /const total: number = this\.expectedFileCount\(\)[\s\S]*return this\.seededCount\(\) >= total && downloaded >= total/.test(model) &&
   /galleryDoneStatus\(task: DownloadGalleryTask\): string/.test(settings) &&
   /task\.isDownloadComplete\(\)[\s\S]*DownloadGalleryTaskStatus\.COMPLETE[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(settings) &&
   /applyDownloadResults[\s\S]*DownloadQueueSettings\.galleryDoneStatus\(task\)/.test(settings) &&
   /gallery_download_incomplete_seeds/.test(settings),
-  'gallery task cannot be marked complete while downloaded count is below the known fileCount')
+  'gallery task cannot be marked complete while downloaded count is below the expected file count')
 ok(/shouldRefreshIncompleteSeedList\(task: DownloadGalleryTask\): boolean/.test(settings) &&
   /task\.seededCount\(\) >= task\.pageCount/.test(settings) &&
   /pendingSeedCount\(task\.imageSeeds\) === 0/.test(settings),
@@ -134,6 +135,7 @@ ok(/this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.download
 ok(/GalleryTaskSection/.test(queuePage) &&
   /ForEach\(\s*this\.downloadQueue\.galleryTasks/.test(queuePage) &&
   /DownloadGalleryTaskCardView\(\{[\s\S]*task: this\.currentGalleryTask\(task\)[\s\S]*downloadQueueRevision: this\.downloadQueueTick[\s\S]*visibleStatus: this\.currentGalleryTask\(task\)\.status[\s\S]*visibleDownloadedFiles: this\.currentGalleryTask\(task\)\.downloadedCount\(\)/.test(queuePage) &&
+  /visibleExpectedFiles: this\.currentGalleryTask\(task\)\.expectedFileCount\(\)/.test(queuePage) &&
   /private displayTitle\(\): string[\s\S]*return this\.currentTask\(\)\.displayTitle\(\)/.test(queuePage) &&
   /struct DownloadGalleryTaskCardView[\s\S]*@Param task: DownloadGalleryTask[\s\S]*private currentTask\(\): DownloadGalleryTask \{[\s\S]*return this\.task[\s\S]*\}/.test(queuePage) &&
   !/struct DownloadGalleryTaskCardView[\s\S]*@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(queuePage) &&

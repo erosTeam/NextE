@@ -22,6 +22,16 @@ Primary action: tap an archive option to open the protected native confirmation;
 Reuse or deviation: reuse `bindSheet` + `AppModalScaffold` and extract `GalleryArchiverContent({ modal })` like torrent content; deviate from the previous full NavDestination main path because FE presents this as a lightweight dialog/sheet from gallery detail.
 Verification: gallery archiver readonly contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 gallery-detail screenshot/layout plus hilog showing `detail_archiver_open` and either quote load or `archiver_missing_or_token`.
 
+## Active: download task live progress counters
+
+Status: active
+Reference implementation: `/Users/honjow/git/EhViewer-NekoInverter/app/src/main/java/com/hippo/ehviewer/download/DownloadManager.kt` `NotifyTask` updating `finished/downloaded/total/state` together, and `/Users/honjow/git/JHenTai/lib/src/service/gallery_download_service.dart` `GalleryDownloadProgress` using per-image downloaded facts as the progress source.
+Surface type: Downloads tab Gallery/Archiver task card status text and progress bar only; no visual redesign of the card layout.
+Primary information: each visible task row must show a status that agrees with the downloaded/seeded/expected file counts and live stream progress.
+Primary action: while a task downloads, the same row updates its progress text/bar without switching tabs; after completion, the row is only complete when the expected file count is satisfied.
+Reuse or deviation: reuse the existing stable task card rows, `DownloadQueueState.revision`, and visible primitive params; deviate from the earlier `pageCount`-only display by deriving an expected count from `pageCount`, seed count, and downloaded count so mismatched metadata cannot fake completion.
+Verification: download workbench contract, gallery download queue contract, gallery download executor contract, V1 decorator inventory, signed HarmonyOS build, and X7/197 download-page logs showing stream progress revision updates.
+
 ## Active: modal scaffold nested vertical scroll
 
 Status: active

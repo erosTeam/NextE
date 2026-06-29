@@ -122,18 +122,21 @@ ok(/syncProgressCounts\(\): void \{[\s\S]*this\.seededFiles = this\.imageSeeds\.
   assignFromBody.includes('this.imageSeeds = source.imageSeeds.map') &&
   assignFromBody.includes('this.syncProgressCounts()') &&
   /downloadedCount\(\): number \{[\s\S]*this\.imageSeeds\.length > 0[\s\S]*DownloadGalleryTask\.countDownloadedSeeds\(this\.imageSeeds\)[\s\S]*return this\.downloadedFiles/.test(model) &&
-  /isDownloadComplete\(\): boolean \{[\s\S]*this\.seededCount\(\) >= this\.pageCount && downloaded >= this\.pageCount/.test(model) &&
+  /expectedFileCount\(\): number \{[\s\S]*return Math\.max\(this\.pageCount, this\.seededCount\(\), this\.downloadedCount\(\)\)/.test(model) &&
+  /isDownloadComplete\(\): boolean \{[\s\S]*const total: number = this\.expectedFileCount\(\)[\s\S]*this\.seededCount\(\) >= total && downloaded >= total/.test(model) &&
   /applyDownloadResults[\s\S]*task\.syncProgressCounts\(\)/.test(queueSettings),
-  'gallery download visible counters and completion state use the same seed-backed progress source')
+  'gallery download visible counters and completion state use the same expected seed-backed progress source')
 ok(/private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*next\.push\(task\.copy\(\)\)[\s\S]*state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(queueSettings) &&
   /private static setArchiverTasks\(state: DownloadQueueState, tasks: DownloadArchiverTask\[\]\): void \{[\s\S]*next\.push\(task\.copy\(\)\)[\s\S]*state\.archiverTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(queueSettings) &&
   !/private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*assignFrom\(task\)[\s\S]*state\.galleryTasks = next/.test(queueSettings) &&
   !/private static setArchiverTasks\(state: DownloadQueueState, tasks: DownloadArchiverTask\[\]\): void \{[\s\S]*assignFrom\(task\)[\s\S]*state\.archiverTasks = next/.test(queueSettings),
   'download queue updates publish fresh task snapshots so mounted rows receive live progress params')
-ok(/private effectiveGalleryStatus\(status: string, downloadedFiles: number, pageCount: number\): string/.test(page) &&
+ok(/@Param visibleExpectedFiles: number = 0/.test(page) &&
+  /private expectedFileCount\(pageCount: number, downloadedFiles: number, seededFiles: number\): number \{[\s\S]*return Math\.max\(this\.visibleExpectedFiles, pageCount, downloadedFiles, seededFiles\)/.test(page) &&
+  /private effectiveGalleryStatus\(status: string, downloadedFiles: number, pageCount: number\): string/.test(page) &&
   /status === DownloadGalleryTaskStatus\.COMPLETE && pageCount > 0 && downloadedFiles < pageCount/.test(page) &&
   /private shouldShowGalleryProgress\(status: string, downloadedFiles: number, seededFiles: number\)/.test(page) &&
-  /const effectiveStatus: string = this\.effectiveGalleryStatus\(status, downloadedFiles, this\.visiblePageCount\)/.test(page) &&
+  /const effectiveStatus: string = this\.effectiveGalleryStatus\([\s\S]*status,[\s\S]*downloadedFiles,[\s\S]*this\.expectedFileCount\(this\.visiblePageCount, downloadedFiles, seededFiles\)/.test(page) &&
   /@Param visibleDownloadedFiles: number = 0/.test(page) &&
   /@Param visibleSeededFiles: number = 0/.test(page) &&
   /@Param visibleActiveRatio: number = 0/.test(page) &&
@@ -144,7 +147,7 @@ ok(/private effectiveGalleryStatus\(status: string, downloadedFiles: number, pag
   /this\.TaskStatusText\([\s\S]*this\.taskProgressLabel\([\s\S]*this\.visibleStatus,[\s\S]*this\.downloadedFiles\(\),[\s\S]*this\.seededFiles\(\)/.test(page) &&
   /download_file_progress/.test(page) &&
   /download_seed_progress/.test(page),
-  'gallery task progress text and bar refresh from the same seed-backed visible counters')
+  'gallery task progress text and bar refresh from the same expected seed-backed visible counters')
 ok(/if \(effectiveStatus === DownloadGalleryTaskStatus\.ERROR\) \{[\s\S]*downloadProgress\.length > 0[\s\S]*download_file_progress/.test(page),
   'gallery download failures keep visible downloaded progress instead of hiding mismatched counts behind a generic error')
 ok(/private GalleryTaskActionColumn\(status: string\)/.test(page) &&

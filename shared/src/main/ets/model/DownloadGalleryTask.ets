@@ -170,12 +170,17 @@ export class DownloadGalleryTask {
     return this.seededFiles
   }
 
+  expectedFileCount(): number {
+    return Math.max(this.pageCount, this.seededCount(), this.downloadedCount())
+  }
+
   seedProgressText(): string {
     if (this.seededCount() === 0) {
       return ''
     }
-    if (this.pageCount > 0) {
-      return `${this.seededCount()}/${this.pageCount}`
+    const total: number = this.expectedFileCount()
+    if (total > 0) {
+      return `${this.seededCount()}/${total}`
     }
     return `${this.seededCount()}`
   }
@@ -189,8 +194,9 @@ export class DownloadGalleryTask {
 
   isDownloadComplete(): boolean {
     const downloaded: number = this.downloadedCount()
-    if (this.pageCount > 0) {
-      return this.seededCount() >= this.pageCount && downloaded >= this.pageCount
+    const total: number = this.expectedFileCount()
+    if (total > 0) {
+      return this.seededCount() >= total && downloaded >= total
     }
     return this.imageSeeds.length > 0 && this.pendingDownloadCount() === 0
   }
@@ -205,8 +211,9 @@ export class DownloadGalleryTask {
     if (this.downloadedCount() === 0) {
       return ''
     }
-    if (this.pageCount > 0) {
-      return `${this.downloadedCount()}/${this.pageCount}`
+    const total: number = this.expectedFileCount()
+    if (total > 0) {
+      return `${this.downloadedCount()}/${total}`
     }
     return `${this.downloadedCount()}`
   }

@@ -625,6 +625,7 @@ export struct DownloadQueuePage {
             downloadQueueRevision: this.downloadQueueTick,
             visibleStatus: this.currentGalleryTask(task).status,
             visiblePageCount: this.currentGalleryTask(task).pageCount,
+            visibleExpectedFiles: this.currentGalleryTask(task).expectedFileCount(),
             visibleDownloadedFiles: this.currentGalleryTask(task).downloadedCount(),
             visibleSeededFiles: this.currentGalleryTask(task).seededCount(),
             visibleActiveRatio: this.currentGalleryTask(task).activeDownloadRatio(),
@@ -1120,6 +1121,7 @@ struct DownloadGalleryTaskCardView {
   @Param downloadQueueRevision: number = 0
   @Param visibleStatus: string = DownloadGalleryTaskStatus.QUEUED
   @Param visiblePageCount: number = 0
+  @Param visibleExpectedFiles: number = 0
   @Param visibleDownloadedFiles: number = 0
   @Param visibleSeededFiles: number = 0
   @Param visibleActiveRatio: number = 0
@@ -1190,7 +1192,9 @@ struct DownloadGalleryTaskCardView {
   private taskMetaText(): string {
     const task: DownloadGalleryTask = this.currentTask()
     const parts: string[] = []
-    if (this.visiblePageCount > 0) {
+    if (this.visibleExpectedFiles > 0) {
+      parts.push(`${this.visibleExpectedFiles}P`)
+    } else if (this.visiblePageCount > 0) {
       parts.push(`${this.visiblePageCount}P`)
     }
     if (task.category.length > 0) {
@@ -1217,10 +1221,11 @@ struct DownloadGalleryTaskCardView {
     pageCount: number,
     prepareError: string,
   ): string {
-    const effectiveStatus: string = this.effectiveGalleryStatus(status, downloadedFiles, pageCount)
+    const total: number = this.expectedFileCount(pageCount, downloadedFiles, seededFiles)
+    const effectiveStatus: string = this.effectiveGalleryStatus(status, downloadedFiles, total)
     const parts: string[] = []
-    const downloadProgress: string = this.progressText(downloadedFiles, pageCount)
-    const seedProgress: string = this.progressText(seededFiles, pageCount)
+    const downloadProgress: string = this.progressText(downloadedFiles, total)
+    const seedProgress: string = this.progressText(seededFiles, total)
     if (effectiveStatus === DownloadGalleryTaskStatus.ERROR) {
       if (downloadProgress.length > 0) {
         parts.push(this.taskStatusText(effectiveStatus))
@@ -1269,25 +1274,30 @@ struct DownloadGalleryTaskCardView {
   }
 
   private taskProgressRatio(status: string, downloadedFiles: number, seededFiles: number, pageCount: number): number {
-    const effectiveStatus: string = this.effectiveGalleryStatus(status, downloadedFiles, pageCount)
+    const total: number = this.expectedFileCount(pageCount, downloadedFiles, seededFiles)
+    const effectiveStatus: string = this.effectiveGalleryStatus(status, downloadedFiles, total)
     if (effectiveStatus === DownloadGalleryTaskStatus.COMPLETE) {
       return 1
     }
-    if (pageCount <= 0) {
+    if (total <= 0) {
       return 0
     }
     const active: number = this.visibleActiveRatio
     if (downloadedFiles > 0 || active > 0) {
-      return Math.max(0, Math.min(1, (downloadedFiles + active) / pageCount))
+      return Math.max(0, Math.min(1, (downloadedFiles + active) / total))
     }
     if (seededFiles > 0) {
-      return Math.max(0, Math.min(1, seededFiles / pageCount))
+      return Math.max(0, Math.min(1, seededFiles / total))
     }
     return 0
   }
 
   private canResumeTask(status: string): boolean {
-    const effectiveStatus: string = this.effectiveGalleryStatus(status, this.downloadedFiles(), this.visiblePageCount)
+    const effectiveStatus: string = this.effectiveGalleryStatus(
+      status,
+      this.downloadedFiles(),
+      this.expectedFileCount(this.visiblePageCount, this.downloadedFiles(), this.seededFiles()),
+    )
     return effectiveStatus === DownloadGalleryTaskStatus.QUEUED ||
       effectiveStatus === DownloadGalleryTaskStatus.ERROR ||
       effectiveStatus === DownloadGalleryTaskStatus.PAUSED ||
@@ -1296,7 +1306,11 @@ struct DownloadGalleryTaskCardView {
   }
 
   private canPauseTask(status: string): boolean {
-    return this.effectiveGalleryStatus(status, this.downloadedFiles(), this.visiblePageCount) ===
+    return this.effectiveGalleryStatus(
+      status,
+      this.downloadedFiles(),
+      this.expectedFileCount(this.visiblePageCount, this.downloadedFiles(), this.seededFiles()),
+    ) ===
       DownloadGalleryTaskStatus.DOWNLOADING
   }
 
@@ -1305,7 +1319,7 @@ struct DownloadGalleryTaskCardView {
     return this.effectiveGalleryStatus(
       this.visibleStatus,
       this.downloadedFiles(),
-      this.visiblePageCount,
+      this.expectedFileCount(this.visiblePageCount, this.downloadedFiles(), this.seededFiles()),
     ) ===
       DownloadGalleryTaskStatus.COMPLETE &&
       task.gid.length > 0 &&
@@ -1313,7 +1327,11 @@ struct DownloadGalleryTaskCardView {
   }
 
   private shouldShowGalleryProgress(status: string, downloadedFiles: number, seededFiles: number): boolean {
-    const effectiveStatus: string = this.effectiveGalleryStatus(status, downloadedFiles, this.visiblePageCount)
+    const effectiveStatus: string = this.effectiveGalleryStatus(
+      status,
+      downloadedFiles,
+      this.expectedFileCount(this.visiblePageCount, downloadedFiles, seededFiles),
+    )
     if (effectiveStatus === DownloadGalleryTaskStatus.COMPLETE || effectiveStatus === DownloadGalleryTaskStatus.ERROR) {
       return false
     }
@@ -1332,6 +1350,10 @@ struct DownloadGalleryTaskCardView {
       return DownloadGalleryTaskStatus.PARTIAL
     }
     return status
+  }
+
+  private expectedFileCount(pageCount: number, downloadedFiles: number, seededFiles: number): number {
+    return Math.max(this.visibleExpectedFiles, pageCount, downloadedFiles, seededFiles)
   }
 
   private openSource(): void {
@@ -1430,7 +1452,7 @@ struct DownloadGalleryTaskCardView {
       this.GalleryPrimaryAction(this.effectiveGalleryStatus(
         status,
         this.downloadedFiles(),
-        this.visiblePageCount,
+        this.expectedFileCount(this.visiblePageCount, this.downloadedFiles(), this.seededFiles()),
       ))
       this.GalleryTaskMoreButton()
     }
@@ -1578,7 +1600,11 @@ struct DownloadGalleryTaskCardView {
             this.visiblePageCount,
             this.visiblePrepareError,
           ),
-          this.effectiveGalleryStatus(this.visibleStatus, this.downloadedFiles(), this.visiblePageCount) ===
+          this.effectiveGalleryStatus(
+            this.visibleStatus,
+            this.downloadedFiles(),
+            this.expectedFileCount(this.visiblePageCount, this.downloadedFiles(), this.seededFiles()),
+          ) ===
             DownloadGalleryTaskStatus.ERROR,
         )
       }
