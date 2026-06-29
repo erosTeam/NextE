@@ -1321,6 +1321,22 @@
       "value": "Web login"
     },
     {
+      "name": "web_login_beautify_setting",
+      "value": "Beautify WebView login"
+    },
+    {
+      "name": "web_login_beautify_setting_hint",
+      "value": "Turn off to use the original forum login page if the styled page has issues."
+    },
+    {
+      "name": "web_login_use_original",
+      "value": "Use original page"
+    },
+    {
+      "name": "web_login_use_beautified",
+      "value": "Use styled page"
+    },
+    {
       "name": "settings_add_account",
       "value": "Add account"
     },

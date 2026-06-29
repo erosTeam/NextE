@@ -1321,6 +1321,22 @@
       "value": "网页登录"
     },
     {
+      "name": "web_login_beautify_setting",
+      "value": "美化 WebView 登录页面"
+    },
+    {
+      "name": "web_login_beautify_setting_hint",
+      "value": "关闭后使用论坛原始登录页，避免页面结构变化时影响登录。"
+    },
+    {
+      "name": "web_login_use_original",
+      "value": "使用原始页面"
+    },
+    {
+      "name": "web_login_use_beautified",
+      "value": "使用美化页面"
+    },
+    {
       "name": "settings_add_account",
       "value": "添加账号"
     },

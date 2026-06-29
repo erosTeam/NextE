@@ -458,8 +458,10 @@ export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
 export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'
 export { HomeTabSettings } from './settings/HomeTabSettings'
 export { ToplistFilterSettings } from './settings/ToplistFilterSettings'
+export { WebLoginStyleSettings } from './settings/WebLoginStyleSettings'
 export { TagTranslationSettings } from './settings/TagTranslationSettings'
 export { ToplistFilterState, connectToplistFilter } from './state/ToplistFilterState'
+export { WebLoginStyleState, connectWebLoginStyle } from './state/WebLoginStyleState'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'

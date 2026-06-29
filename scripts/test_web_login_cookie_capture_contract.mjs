@@ -23,6 +23,11 @@ const ok = (name, cond) => {
 
 const page = src('entry/src/main/ets/pages/EhLoginWebPage.ets')
 const settings = src('shared/src/main/ets/settings/CookieJarSettings.ets')
+const accountLogin = src('feature/settings/src/main/ets/pages/AccountLoginPage.ets')
+const styleSettings = src('shared/src/main/ets/settings/WebLoginStyleSettings.ets')
+const styleState = src('shared/src/main/ets/state/WebLoginStyleState.ets')
+const bootstrap = src('shared/src/main/ets/settings/SettingsBootstrap.ets')
+const storageKeys = src('shared/src/main/ets/constants/StorageKeys.ets')
 
 ok('Web login is a V2 component', /@ComponentV2[\s\S]*struct EhLoginWebPage/.test(page))
 ok('Web login fetches table-site WebView cookies', /fetchWebCookie\(EhConstants\.EH_BASE_URL,\s*'eh'\)/.test(page))
@@ -48,6 +53,11 @@ ok('Web login recognizes Cloudflare Turnstile captcha widgets', /cf-turnstile/.t
 ok('Web login only moves real captcha widgets, not captcha advisory text', /var capSel='\.g-recaptcha,\.cf-turnstile,\[data-sitekey\],iframe/.test(page) && !/\[class\*=captcha\].*\[id\*=captcha\]/.test(page))
 ok('Web login hides the captcha slot when no visible widget is available', /function visibleCaptcha\(n\)/.test(page) && /function collapseCaptcha\(\)/.test(page) && /max-height:96px/.test(page) && /#nx-box \.nx-cap:empty,#nx-box \.nx-cap\.nx-cap-empty\{display:none!important;margin:0!important;\}/.test(page))
 ok('Web login resets the forum submit button layout', /submit\.removeAttribute\('style'\)/.test(page) && /submit\.className='nx-submit'/.test(page) && /position:static!important/.test(page) && /margin:4px 0 0!important/.test(page))
+ok('Web login exposes a persistent beautify setting in the login chooser', /connectWebLoginStyle/.test(accountLogin) && /web_login_beautify_setting/.test(accountLogin) && /WebLoginStyleSettings\.save/.test(accountLogin))
+ok('Web login style setting is restored during bootstrap', /WEB_LOGIN_BEAUTIFY_ENABLED/.test(storageKeys) && /@ObservedV2[\s\S]*class WebLoginStyleState[\s\S]*@Trace beautifyEnabled: boolean = true/.test(styleState) && /WebLoginStyleSettings\.restore\(context\)/.test(bootstrap))
+ok('Web login can be switched to raw mode from the title bar', /runtimeBeautifyEnabled/.test(page) && /web_login_use_original/.test(page) && /web_login_use_beautified/.test(page) && /toggleRuntimeLoginStyle\(\)/.test(page))
+ok('Raw Web login mode skips CSS restyling', /if \(this\.runtimeBeautifyEnabled\) \{[\s\S]*this\.restyleLoginForm\(\)/.test(page) && /this\.controller\.loadUrl\(EhConstants\.FORUMS_LOGIN_FORM_URL\)/.test(page))
+ok('Web login style setting persists with the settings store', /StorageKeys\.WEB_LOGIN_BEAUTIFY_ENABLED/.test(styleSettings) && /store\.putSync\(StorageKeys\.WEB_LOGIN_BEAUTIFY_ENABLED, value\)/.test(styleSettings))
 
 const logCalls = page.match(/DiagnosticLogger\.(info|warn|error)\([\s\S]*?\)/g) || []
 for (const call of logCalls) {

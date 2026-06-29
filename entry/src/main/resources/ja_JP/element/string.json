@@ -1321,6 +1321,22 @@
       "value": "ウェブログイン"
     },
     {
+      "name": "web_login_beautify_setting",
+      "value": "WebView ログインを整える"
+    },
+    {
+      "name": "web_login_beautify_setting_hint",
+      "value": "問題がある場合はオフにして、フォーラムの元のログインページを使用します。"
+    },
+    {
+      "name": "web_login_use_original",
+      "value": "元のページを使用"
+    },
+    {
+      "name": "web_login_use_beautified",
+      "value": "整えたページを使用"
+    },
+    {
       "name": "settings_add_account",
       "value": "アカウントを追加"
     },

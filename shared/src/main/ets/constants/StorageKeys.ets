@@ -53,6 +53,7 @@ export class StorageKeys {
   static readonly HOME_SOURCE: string = 'subtab.homeSource'
   static readonly FAVORITES_FAVCAT: string = 'subtab.favoritesFavcat'
   static readonly TOPLIST_TL: string = 'subtab.toplistTl'
+  static readonly WEB_LOGIN_BEAUTIFY_ENABLED: string = 'login.webBeautifyEnabled'
   // Custom home sub-tab profiles (JSON array) + the selected profile uuid.
   static readonly HOME_CUSTOM_PROFILES: string = 'subtab.customProfiles' // legacy Preferences key; RDB source of truth
   static readonly HOME_CUSTOM_PROFILES_SELECTED: string = 'subtab.customProfilesSelected' // legacy Preferences key; RDB source of truth

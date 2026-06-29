@@ -11,10 +11,12 @@ import {
   LayoutSafeAreaState,
   ThemeConstants,
   ThemeColorSettings,
+  WebLoginStyleState,
   AppStrings,
   DiagnosticLogger,
   UserProfileService,
-  immersiveTitleBar,
+  connectWebLoginStyle,
+  immersiveTitleBarOpts,
 } from 'shared'
 
 /**
@@ -30,9 +32,15 @@ export struct EhLoginWebPage {
   private stack: NavPathStack = connectNavStack().stack;
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local loading: boolean = true;
+  @Local webLoginStyle: WebLoginStyleState = connectWebLoginStyle();
+  @Local runtimeBeautifyEnabled: boolean = true;
   private captured: boolean = false;
   private profileCaptureStarted: boolean = false;
   private finished: boolean = false;
+
+  aboutToAppear(): void {
+    this.runtimeBeautifyEnabled = this.webLoginStyle.beautifyEnabled
+  }
 
   build() {
     HdsNavDestination() {
@@ -79,7 +87,9 @@ export struct EhLoginWebPage {
                 this.finishLoginWithProfile()
                 return
               }
-              this.restyleLoginForm()
+              if (this.runtimeBeautifyEnabled) {
+                this.restyleLoginForm()
+              }
               this.tryCapture()
             },
             onErrorReceive: () => {
@@ -105,8 +115,39 @@ export struct EhLoginWebPage {
       .width('100%')
       .height('100%')
     }
-    .titleBar(immersiveTitleBar($r('app.string.nav_login')))
+    .titleBar(this.loginTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+  }
+
+  private loginTitleBar(): Record<string, Object> {
+    const item: Record<string, Object> = {
+      'label': AppStrings.get(
+        this.runtimeBeautifyEnabled ? 'web_login_use_original' : 'web_login_use_beautified',
+      ),
+      'icon': $r('sys.symbol.paintbrush'),
+      'isEnabled': true,
+      'action': (): void => {
+        this.toggleRuntimeLoginStyle()
+      },
+    }
+    const itemWrap: Record<string, Object> = { 'content': item }
+    const menu: Record<string, Object> = { 'value': [itemWrap], 'maxCount': 1 }
+    const title: Record<string, Object> = { 'mainTitle': AppStrings.get('nav_login') }
+    const content: Record<string, Object> = { 'title': title, 'menu': menu }
+    return immersiveTitleBarOpts(content)
+  }
+
+  private toggleRuntimeLoginStyle(): void {
+    this.runtimeBeautifyEnabled = !this.runtimeBeautifyEnabled
+    if (this.runtimeBeautifyEnabled) {
+      this.restyleLoginForm()
+      return
+    }
+    try {
+      this.controller.loadUrl(EhConstants.FORUMS_LOGIN_FORM_URL)
+    } catch (e) {
+      DiagnosticLogger.warn('auth', 'web_login_reload_raw_failed', (e as Error).message)
+    }
   }
 
   // The EH forums login is a fixed-width desktop IPB table buried in forum chrome that ArkWeb shrinks
