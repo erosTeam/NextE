@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: home source trailing action theme
+
+Status: active
+Reference implementation: `shared/src/main/ets/components/SubTabBar.ets` cached bar `themeTracked()` color refresh plus `feature/gallery/src/main/ets/pages/GalleryTorrentsPage.ets` secondary transparent icon action.
+Surface type: Home custom SubTab source bar trailing manage action only.
+Primary information: the pinned manage button stays a secondary affordance beside the scrollable SubTab labels.
+Primary action: tap the trailing list icon to open custom SubTab management.
+Reuse or deviation: reuse transparent secondary icon-button treatment, existing `font_secondary` icon tint, and SubTabBar's `effectiveDark` read so the cached title-bottom content repaints when dark/light mode changes.
+Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and dark/light visual smoke.
+
 ## Active: image block visual management
 
 Status: active

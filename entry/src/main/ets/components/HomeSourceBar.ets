@@ -15,6 +15,8 @@ import {
   connectSafeMode,
   SAFE_MODE_PROFILE_NAME,
   SAFE_MODE_PROFILE_UUID,
+  ThemeDisplayState,
+  connectThemeDisplay,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
@@ -33,6 +35,7 @@ export struct HomeSourceBar {
   @Local auth: AuthState = connectAuth();
   @Local visual: TabVisualIndexState = connectHomeSourceVisualIndex();
   @Local safeMode: SafeModeState = connectSafeMode();
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -63,6 +66,10 @@ export struct HomeSourceBar {
     return index < 0 ? 0 : index
   }
 
+  private themeTracked(color: ResourceColor): ResourceColor {
+    return this.themeDisplay.effectiveDark ? color : color
+  }
+
   build() {
     Row() {
       SubTabBar({
@@ -88,12 +95,12 @@ export struct HomeSourceBar {
         Button({ type: ButtonType.Circle }) {
           SymbolGlyph($r('sys.symbol.list_square'))
             .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-            .fontColor([$r('sys.color.font_secondary')])
+            .fontColor([this.themeTracked($r('sys.color.font_secondary'))])
         }
         .width(28)
         .height(28)
         .margin({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_SM })
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+        .backgroundColor(Color.Transparent)
         .alignSelf(ItemAlign.Start)
         // Fine nudge so the chip's center matches the top-aligned tab labels' baseline exactly.
         .offset({ y: -2 })
