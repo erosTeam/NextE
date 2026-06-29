@@ -2893,6 +2893,10 @@
       "value": "リーダーとサムネイルで一致した画像を非表示にします"
     },
     {
+      "name": "image_block_enabled",
+      "value": "画像ブロックを有効化"
+    },
+    {
       "name": "image_block_update_default",
       "value": "ルール購読を更新"
     },

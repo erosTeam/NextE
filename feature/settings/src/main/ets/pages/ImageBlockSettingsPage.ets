@@ -15,11 +15,14 @@ import {
   IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
   ImageBlockRepository,
   ImageBlockRule,
+  ImageBlockSettings,
+  ImageBlockSettingsState,
   ImageBlockWhitelistItem,
   ImageBlockSubscriptionService,
   ImageBlockSubscriptionUpdateResult,
   SecondaryListScaffold,
   ThemeConstants,
+  connectImageBlockSettings,
   immersiveTitleBar,
   publishImageBlockRulesChanged,
 } from 'shared'
@@ -46,6 +49,7 @@ export struct ImageBlockSettingsPage {
   @Local selectedFeedId: string = '';
   @Local feedRules: ImageBlockRule[] = [];
   @Local loadingFeedRules: boolean = false;
+  @Local imageBlockSettings: ImageBlockSettingsState = connectImageBlockSettings();
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -561,6 +565,16 @@ export struct ImageBlockSettingsPage {
       })
   }
 
+  private setGlobalEnabled(enabled: boolean): void {
+    ImageBlockSettings.setEnabled(this.ctx(), enabled)
+      .then(() => {
+        publishImageBlockRulesChanged('settings-global-enabled')
+      })
+      .catch((error: Error) => {
+        this.toast(`${AppStrings.get('image_block_update_failed')}: ${error.message}`)
+      })
+  }
+
   private setLocalRuleThreshold(rule: ImageBlockRule, threshold: number): void {
     ImageBlockRepository.setLocalRuleThreshold(this.ctx(), rule.id, threshold)
       .then(() => {
@@ -808,6 +822,17 @@ export struct ImageBlockSettingsPage {
       }) {
         ListItem() {
           GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.image_block_enabled'),
+              leadingIcon: $r('sys.symbol.eye_slash'),
+              showChevron: false,
+              hasSwitch: true,
+              checked: this.imageBlockSettings.enabled,
+              switchAction: (value: boolean) => {
+                this.setGlobalEnabled(value)
+              },
+            })
+            this.rowDivider()
             ConciseListRow({
               title: $r('app.string.image_block_update_default'),
               leadingIcon: $r('sys.symbol.arrow_clockwise'),

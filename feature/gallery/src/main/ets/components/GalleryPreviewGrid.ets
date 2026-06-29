@@ -109,6 +109,7 @@ export struct GalleryPreviewGrid {
                 thumbWidth: img.thumbWidth,
                 thumbHeight: img.thumbHeight,
                 offsetX: img.thumbOffsetX,
+                imageKey: img.imgkey,
                 spriteWidth: img.spriteWidth,
                 spriteHeight: img.spriteHeight,
                 fitHeight: true,

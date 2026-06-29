@@ -64,6 +64,7 @@ export class StorageKeys {
   static readonly TAG_TRANSLATION_USE_CDN: string = 'tagTranslation.useCdn'
   static readonly TAG_TRANSLATION_UPDATE_MODE: string = 'tagTranslation.updateMode'
   static readonly TAG_TRANSLATION_INTRO_IMAGE_LEVEL: string = 'tagTranslation.introImageLevel'
+  static readonly IMAGE_BLOCK_ENABLED: string = 'imageBlock.enabled'
   static readonly COMMENT_TRANSLATION_ENABLED: string = 'commentTranslation.enabled'
   static readonly COMMENT_TRANSLATION_AUTO: string = 'commentTranslation.auto'
   static readonly COMMENT_TRANSLATION_DISPLAY_MODE: string = 'commentTranslation.displayMode'

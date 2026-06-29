@@ -2893,6 +2893,10 @@
       "value": "Hide matched images in the Reader and thumbnail grids"
     },
     {
+      "name": "image_block_enabled",
+      "value": "Enable image blocks"
+    },
+    {
       "name": "image_block_update_default",
       "value": "Update rule subscriptions"
     },

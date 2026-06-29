@@ -2893,6 +2893,10 @@
       "value": "在阅读器和缩略图里隐藏命中的图片"
     },
     {
+      "name": "image_block_enabled",
+      "value": "启用图片屏蔽"
+    },
+    {
       "name": "image_block_update_default",
       "value": "更新规则订阅"
     },

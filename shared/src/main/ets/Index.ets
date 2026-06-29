@@ -231,6 +231,10 @@ export {
   publishImageBlockRulesChanged,
 } from './state/ImageBlockRuntimeState'
 export {
+  ImageBlockSettingsState,
+  connectImageBlockSettings,
+} from './state/ImageBlockSettingsState'
+export {
   CommentTranslationSettings,
   CommentTranslationSettingsSnapshot,
 } from './settings/CommentTranslationSettings'
@@ -496,6 +500,7 @@ export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'
 export { HomeTabSettings } from './settings/HomeTabSettings'
 export { ToplistFilterSettings } from './settings/ToplistFilterSettings'
 export { WebLoginStyleSettings } from './settings/WebLoginStyleSettings'
+export { ImageBlockSettings } from './settings/ImageBlockSettings'
 export { TagTranslationSettings } from './settings/TagTranslationSettings'
 export { ToplistFilterState, connectToplistFilter } from './state/ToplistFilterState'
 export { WebLoginStyleState, connectWebLoginStyle } from './state/WebLoginStyleState'

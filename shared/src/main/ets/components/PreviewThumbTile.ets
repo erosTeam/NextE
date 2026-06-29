@@ -85,6 +85,7 @@ export struct PreviewThumbTile {
       this.image.spriteHeight,
       this.image.sUrl,
       this.image.page,
+      this.image.imgkey,
     )
       .then((rule: ImageBlockRule) => {
         const decision: ImageBlockDecision = new ImageBlockDecision()
@@ -172,6 +173,7 @@ export struct PreviewThumbTile {
             thumbWidth: this.image.thumbWidth,
             thumbHeight: this.image.thumbHeight,
             offsetX: this.image.thumbOffsetX,
+            imageKey: this.image.imgkey,
             spriteWidth: this.image.spriteWidth,
             spriteHeight: this.image.spriteHeight,
             fitHeight: true,
@@ -196,6 +198,7 @@ export struct PreviewThumbTile {
             thumbWidth: this.image.thumbWidth,
             thumbHeight: this.image.thumbHeight,
             offsetX: this.image.thumbOffsetX,
+            imageKey: this.image.imgkey,
             spriteWidth: this.image.spriteWidth,
             spriteHeight: this.image.spriteHeight,
             displayWidth: this.tileWidth(),

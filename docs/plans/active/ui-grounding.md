@@ -15,12 +15,12 @@ Verification: UI grounding contract, V1 decorator inventory, diff check, signed 
 ## Active: image block visual management
 
 Status: active
-Reference implementation: NextE `feature/settings/src/main/ets/pages/ImageBlockSettingsPage.ets`, Reader-side `ImageBlockRuntimeService.addLocalRuleForFile()` / `addWhitelistForFile()`, and existing HDS settings sections for provider/update actions; subscription rule rows reuse the same preview-led local rule layout rather than a text-only settings row.
-Surface type: EH Settings child page for image blocking management plus Reader blocked-image presentation.
-Primary information: image-block records are images first, with readable source, enable state, threshold, preview/placeholder, and traceable gallery/page metadata.
-Primary action: refresh/toggle community providers, copy submit-ready local rules, tune one rule, delete mistaken local rules, and remove false-positive allowlist entries.
-Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, `AppModalScaffold`, native `Toggle`, native `Slider`, and the existing preview image row treatment; avoid custom counter controls and avoid showing raw URL path fragments as primary text.
-Verification: image-block foundation contract, reader image-block contract, i18n duplicate check, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and 197 settings/Reader screenshots.
+Reference implementation: NextE `feature/settings/src/main/ets/pages/ImageBlockSettingsPage.ets`, `shared/src/main/ets/components/PreviewThumbTile.ets`, `shared/src/main/ets/components/EhSpriteThumbnail.ets`, Reader-side `ImageBlockRuntimeService.addLocalRuleForFile()` / `addWhitelistForFile()`, and existing HDS settings sections for provider/update actions; subscription rule rows reuse the same preview-led local rule layout rather than a text-only settings row.
+Surface type: EH Settings child page for image blocking management plus Reader/thumbnail blocked-image presentation.
+Primary information: image-block records are images first, with readable source, enable state, threshold, preview/placeholder, traceable gallery/page metadata, and stable already-blocked thumbnail state while rules refresh.
+Primary action: toggle image blocking globally, refresh/toggle rule subscriptions, open subscription rules from a separate row, copy submit-ready local rules, tune one rule, delete mistaken local rules, remove false-positive allowlist entries, and long-press a thumbnail to add/ignore a matching rule.
+Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, `AppModalScaffold`, native `Toggle`, native `Slider`, existing preview image row treatment, `EhSpriteThumbnail`'s native image clipping, and EH image-page keys for thumbnail hash caching; only generate a cropped preview file for sprite-backed manual thumbnail rules so settings rows do not all show the same sprite sheet.
+Verification: image-block foundation contract, reader image-block contract, image-block sample contract, i18n duplicate check, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and 197 settings/Reader/thumbnail screenshots.
 
 ## Active: non-sheet input keyboard avoidance
 

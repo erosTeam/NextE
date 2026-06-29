@@ -33,6 +33,7 @@ export struct EhSpriteThumbnail {
   @Param thumbWidth: number = 0;
   @Param thumbHeight: number = 0;
   @Param offsetX: number = 0;
+  @Param imageKey: string = '';
   @Param spriteWidth: number = 0;
   @Param spriteHeight: number = 0;
   @Param displayWidth: number = 78;
@@ -119,7 +120,7 @@ export struct EhSpriteThumbnail {
   }
 
   private imageBlockKey(): string {
-    return `${this.url}:${this.thumbWidth}:${this.thumbHeight}:${this.offsetX}:${this.spriteWidth}:${this.spriteHeight}:${this.imageBlockRevision}:${this.imageBlockRuntime.signal}`
+    return `${this.imageKey}:${this.url}:${this.thumbWidth}:${this.thumbHeight}:${this.offsetX}:${this.spriteWidth}:${this.spriteHeight}:${this.imageBlockRevision}:${this.imageBlockRuntime.signal}`
   }
 
   private checkImageBlock(): void {
@@ -144,6 +145,8 @@ export struct EhSpriteThumbnail {
       this.offsetX,
       this.spriteWidth,
       this.spriteHeight,
+      this.imageKey,
+      false,
     )
       .then((decision) => {
         if (seq === this.blockSeq) {
