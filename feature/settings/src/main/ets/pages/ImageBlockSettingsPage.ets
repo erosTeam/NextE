@@ -577,6 +577,15 @@ export struct ImageBlockSettingsPage {
   }
 
   @Builder
+  private FeedEnabledSwitch(feed: ImageBlockFeed) {
+    Toggle({ type: ToggleType.Switch, isOn: feed.enabled })
+      .selectedColor(ThemeConstants.BRAND_PRIMARY)
+      .onChange((value: boolean) => {
+        this.setFeedEnabled(feed.id, value)
+      })
+  }
+
+  @Builder
   private WhitelistDeleteSuffix(hash: string) {
     Button() {
       if (this.deletingWhitelistHash === hash) {
@@ -828,10 +837,8 @@ export struct ImageBlockSettingsPage {
                     subtitleMaxLines: 2,
                     leadingIcon: $r('sys.symbol.cloud'),
                     showChevron: false,
-                    hasSwitch: true,
-                    checked: feed.enabled,
-                    switchAction: (value: boolean) => {
-                      this.setFeedEnabled(feed.id, value)
+                    suffixBuilderParam: () => {
+                      this.FeedEnabledSwitch(feed)
                     },
                     action: () => {
                       this.openFeedRules(feed)
