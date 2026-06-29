@@ -74,8 +74,12 @@ const SQL_UPSERT_RULE: string =
   'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
   'hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, ' +
   'feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, ' +
-  'source_page = excluded.source_page, preview_path = excluded.preview_path, ' +
+  'source_page = excluded.source_page, ' +
+  'preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_rules.preview_path END, ' +
   'enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = 0'
+const SQL_UPDATE_RULE_PREVIEW: string =
+  'UPDATE image_block_rules SET preview_path = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND rule_id = ? AND COALESCE(deleted_at, 0) = 0 AND ? <> \'\''
 const SQL_TOMBSTONE_SUBSCRIPTION: string =
   'UPDATE image_block_subscriptions SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND feed_id = ? AND COALESCE(deleted_at, 0) = 0'
@@ -426,6 +430,18 @@ export class ImageBlockRepository {
     ])
   }
 
+  static async rememberRulePreview(
+    context: common.UIAbilityContext,
+    ruleId: string,
+    previewPath: string,
+  ): Promise<void> {
+    if (ruleId.length === 0 || previewPath.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_UPDATE_RULE_PREVIEW, [previewPath, Date.now(), SCOPE_GLOBAL, ruleId, previewPath])
+  }
+
   static async replaceWhitelist(context: common.UIAbilityContext, hashes: string[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const now: number = Date.now()
@@ -580,8 +596,8 @@ export class ImageBlockRepository {
       item.scope.length > 0 ? item.scope : IMAGE_BLOCK_SCOPE_WHOLE,
       feed.id,
       IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
-      '',
-      0,
+      item.sourceUrl,
+      item.sourcePage > 0 ? Math.floor(item.sourcePage) : 0,
       '',
       1,
       updatedAt,

@@ -15,11 +15,11 @@ Verification: UI grounding contract, V1 decorator inventory, diff check, signed 
 ## Active: image block visual management
 
 Status: active
-Reference implementation: NextE `feature/settings/src/main/ets/pages/ImageBlockSettingsPage.ets`, Reader-side `ImageBlockRuntimeService.addLocalRuleForFile()` / `addWhitelistForFile()`, and existing HDS settings sections for provider/update actions.
+Reference implementation: NextE `feature/settings/src/main/ets/pages/ImageBlockSettingsPage.ets`, Reader-side `ImageBlockRuntimeService.addLocalRuleForFile()` / `addWhitelistForFile()`, and existing HDS settings sections for provider/update actions; subscription rule rows reuse the same preview-led local rule layout rather than a text-only settings row.
 Surface type: EH Settings child page for image blocking management plus Reader blocked-image presentation.
 Primary information: image-block records are images first, with readable source, enable state, threshold, preview/placeholder, and traceable gallery/page metadata.
 Primary action: refresh/toggle community providers, copy submit-ready local rules, tune one rule, delete mistaken local rules, and remove false-positive allowlist entries.
-Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, `AppModalScaffold`, native `Toggle`, and native `Slider`; avoid custom counter controls and avoid showing raw URL path fragments as primary text.
+Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, `AppModalScaffold`, native `Toggle`, native `Slider`, and the existing preview image row treatment; avoid custom counter controls and avoid showing raw URL path fragments as primary text.
 Verification: image-block foundation contract, reader image-block contract, i18n duplicate check, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and 197 settings/Reader screenshots.
 
 ## Active: non-sheet input keyboard avoidance

@@ -125,6 +125,15 @@ export struct ImageBlockSettingsPage {
     return parts.join(AppStrings.get('image_block_inline_separator'))
   }
 
+  private subscriptionRuleSubtitle(rule: ImageBlockRule): string {
+    const parts: string[] = [AppStrings.get('image_block_subscription_rule_summary')]
+    const source: string = this.localRuleSubtitle(rule)
+    if (source.length > 0) {
+      parts.push(source)
+    }
+    return parts.join(AppStrings.get('image_block_inline_separator'))
+  }
+
   private ruleSubmitStatus(rule: ImageBlockRule): string {
     if (rule.sourceUrl.length > 0 && rule.sourcePage > 0) {
       return AppStrings.get('image_block_rule_submit_ready')
@@ -353,9 +362,14 @@ export struct ImageBlockSettingsPage {
 
   private ruleSourceText(rule: ImageBlockRule): string {
     if (rule.sourceType === IMAGE_BLOCK_SOURCE_SUBSCRIPTION) {
-      return this.selectedFeedTitle.length > 0
+      const source: string = this.localRuleSubtitle(rule)
+      const feedTitle: string = this.selectedFeedTitle.length > 0
         ? this.selectedFeedTitle
         : AppStrings.get('image_block_source_subscription')
+      if (source.length > 0) {
+        return `${feedTitle}${AppStrings.get('image_block_inline_separator')}${source}`
+      }
+      return feedTitle
     }
     return this.localRuleSubtitle(rule)
   }
@@ -709,20 +723,60 @@ export struct ImageBlockSettingsPage {
 
   @Builder
   private SubscriptionRuleRow(rule: ImageBlockRule) {
-    ConciseListRow({
-      title: this.readableRuleLabel(rule.label),
-      subtitle: `${AppStrings.get('image_block_rule_threshold')} ${rule.threshold} · ${AppStrings.get('image_block_rule_fingerprint')} ${rule.hash}`,
-      subtitleMaxLines: 2,
-      leadingIcon: rule.enabled ? $r('sys.symbol.eye_slash') : $r('sys.symbol.eye'),
-      hasSwitch: true,
-      checked: rule.enabled,
-      switchAction: (value: boolean) => {
-        this.selectedRule = rule.copy()
-        this.setSelectedRuleEnabled(value)
-      },
-      action: () => {
-        this.openSubscriptionRuleSheet(rule)
-      },
+    Row({ space: ThemeConstants.SPACE_MD }) {
+      this.PreviewImage(rule.previewPath, $r('sys.symbol.cloud'))
+      Column({ space: ThemeConstants.SPACE_SM }) {
+        Row({ space: ThemeConstants.SPACE_SM }) {
+          Text(this.readableRuleLabel(rule.label))
+            .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('sys.color.font_primary'))
+            .layoutWeight(1)
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Toggle({ type: ToggleType.Switch, isOn: rule.enabled })
+            .selectedColor(ThemeConstants.BRAND_PRIMARY)
+            .onChange((value: boolean) => {
+              this.selectedRule = rule.copy()
+              this.setSelectedRuleEnabled(value)
+            })
+        }
+        .alignItems(VerticalAlign.Center)
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          this.StatusPill(AppStrings.get('image_block_subscription_rule_summary'), true)
+          this.StatusPill(
+            rule.enabled
+              ? AppStrings.get('image_block_provider_enabled')
+              : AppStrings.get('image_block_provider_disabled'),
+            rule.enabled,
+          )
+        }
+        Text(this.subscriptionRuleSubtitle(rule))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(`${AppStrings.get('image_block_rule_threshold')} ${rule.threshold}`)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(1)
+        Text(`${AppStrings.get('image_block_rule_fingerprint')} ${rule.hash}`)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_tertiary'))
+          .maxLines(2)
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_MD,
+      right: ThemeConstants.SPACE_SM,
+      top: ThemeConstants.SPACE_MD,
+      bottom: ThemeConstants.SPACE_MD,
+    })
+    .onClick(() => {
+      this.openSubscriptionRuleSheet(rule)
     })
   }
 
@@ -1038,7 +1092,7 @@ export struct ImageBlockSettingsPage {
                   this.rowDivider()
                 }
               },
-              (rule: ImageBlockRule) => `${rule.id}:${rule.hash}:${rule.threshold}:${rule.enabled ? '1' : '0'}`,
+              (rule: ImageBlockRule) => `${rule.id}:${rule.sourceUrl}:${rule.sourcePage}:${rule.threshold}:${rule.previewPath}:${rule.enabled ? '1' : '0'}`,
             )
           }
         }

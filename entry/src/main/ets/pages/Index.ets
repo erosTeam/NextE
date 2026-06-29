@@ -579,6 +579,8 @@ struct Index {
     item.threshold = IMAGE_BLOCK_DEFAULT_THRESHOLD
     item.label = 'scanlator-ad'
     item.scope = IMAGE_BLOCK_SCOPE_WHOLE
+    item.sourceUrl = this.IMAGE_BLOCK_QA_SOURCE_URL
+    item.sourcePage = 1
     feed.items.push(item)
     return this.replaceQaSubscription(context, feed)
   }

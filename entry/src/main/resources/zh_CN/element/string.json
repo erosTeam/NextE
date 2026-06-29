@@ -2954,7 +2954,7 @@
     },
     {
       "name": "image_block_default_provider_title",
-      "value": "社区图片屏蔽规则"
+      "value": "图片规则订阅"
     },
     {
       "name": "image_block_source_page_format",
@@ -3022,7 +3022,7 @@
     },
     {
       "name": "image_block_source_subscription",
-      "value": "社区订阅"
+      "value": "规则订阅"
     },
     {
       "name": "image_block_local_rule_summary",
@@ -3030,7 +3030,7 @@
     },
     {
       "name": "image_block_subscription_rule_summary",
-      "value": "社区规则"
+      "value": "订阅规则"
     },
     {
       "name": "image_block_subscription_rules",

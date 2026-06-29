@@ -40,7 +40,11 @@ export class ImageBlockRuntimeService {
     }
 
     const whitelist: string[] = await ImageBlockRepository.loadWhitelist(context)
-    return ImageBlockService.decisionForHash(hash, rules, whitelist)
+    const decision: ImageBlockDecision = ImageBlockService.decisionForHash(hash, rules, whitelist)
+    if (decision.blocked) {
+      await ImageBlockRepository.rememberRulePreview(context, decision.ruleId, path)
+    }
+    return decision
   }
 
   static async decisionForThumbnail(
