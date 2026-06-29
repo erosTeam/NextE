@@ -167,6 +167,15 @@ export struct EhSettingsPage {
                 this.stack.pushPathByName('LocalBlockSettings', null)
               },
             })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.image_block_title'),
+              subtitle: $r('app.string.image_block_hint'),
+              leadingIcon: $r('sys.symbol.eye_slash'),
+              action: () => {
+                this.stack.pushPathByName('ImageBlockSettings', null)
+              },
+            })
           }
         }
       }

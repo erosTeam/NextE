@@ -28,6 +28,8 @@ import {
   ImageSaveUtil,
   CachedImageProgress,
   CachedImageFileResult,
+  ImageBlockDecision,
+  ImageBlockRuntimeService,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 
@@ -171,6 +173,11 @@ export struct ReaderPage {
   @Local originalImagePages: string = '';
   @Local originalImageResolving: boolean = false;
   @Local savingCurrentImage: boolean = false;
+  @Local imageBlockRuleSaving: boolean = false;
+  @Local imageBlockWhitelistSaving: boolean = false;
+  @Local currentImageBlockFilePath: string = '';
+  @Local currentImageBlocked: boolean = false;
+  @Local imageBlockRuleVersion: number = 0;
   private listScroller: Scroller = new Scroller();
   private thumbScroller: Scroller = new Scroller();
   private horizontalSwiperController: SwiperController = new SwiperController();
@@ -181,6 +188,10 @@ export struct ReaderPage {
   private autoReadTimer: number = -1;
   private autoReadWaitingIndex: number = -1;
   private loadedPages: number[] = [];
+  private imageBlockFilePages: number[] = [];
+  private imageBlockFilePaths: string[] = [];
+  private imageBlockStatePages: number[] = [];
+  private imageBlockStateValues: boolean[] = [];
   private spreadDataSource: BasicDataSource<number> = new BasicDataSource<number>();
   private spreadDataSourceKey: string = '';
   private volumeDownConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
@@ -228,7 +239,9 @@ export struct ReaderPage {
 
         if (this.readerContentReady()) {
           this.ReaderImageWarmers()
-          this.ReaderTapOverlay()
+          if (!this.currentImageBlocked) {
+            this.ReaderTapOverlay()
+          }
         }
 
         // Hidden chrome must leave the reader canvas entirely; opacity-only controls can still steal
@@ -259,6 +272,7 @@ export struct ReaderPage {
       if (p !== undefined && p.gid.length > 0) {
         this.readerReady = false
         this.params = p
+        this.showChrome = p.initialChromeVisible
         this.sliderValue = p.index + 1
         const requestedIndex: number = p.index
         this.vm.init(
@@ -639,6 +653,131 @@ export struct ReaderPage {
       })
   }
 
+  private imageBlockFileForPage(page: number): string {
+    for (let i: number = 0; i < this.imageBlockFilePages.length; i++) {
+      if (this.imageBlockFilePages[i] === page) {
+        return this.imageBlockFilePaths[i]
+      }
+    }
+    return ''
+  }
+
+  private imageBlockStateForPage(page: number): boolean {
+    for (let i: number = 0; i < this.imageBlockStatePages.length; i++) {
+      if (this.imageBlockStatePages[i] === page) {
+        return this.imageBlockStateValues[i]
+      }
+    }
+    return false
+  }
+
+  private rememberImageBlockFile(page: number, filePath: string): void {
+    if (page <= 0 || filePath.length === 0) {
+      return
+    }
+    for (let i: number = 0; i < this.imageBlockFilePages.length; i++) {
+      if (this.imageBlockFilePages[i] === page) {
+        this.imageBlockFilePaths[i] = filePath
+        this.syncCurrentImageBlockFile()
+        return
+      }
+    }
+    this.imageBlockFilePages.push(page)
+    this.imageBlockFilePaths.push(filePath)
+    this.syncCurrentImageBlockFile()
+  }
+
+  private syncCurrentImageBlockFile(): void {
+    const page: number = this.vm.currentIndex + 1
+    this.currentImageBlockFilePath = this.imageBlockFileForPage(page)
+    this.currentImageBlocked = this.imageBlockStateForPage(page)
+  }
+
+  private rememberImageBlockState(page: number, blocked: boolean): void {
+    if (page <= 0) {
+      return
+    }
+    for (let i: number = 0; i < this.imageBlockStatePages.length; i++) {
+      if (this.imageBlockStatePages[i] === page) {
+        this.imageBlockStateValues[i] = blocked
+        this.syncCurrentImageBlockFile()
+        return
+      }
+    }
+    this.imageBlockStatePages.push(page)
+    this.imageBlockStateValues.push(blocked)
+    this.syncCurrentImageBlockFile()
+  }
+
+  private markCurrentImageAsBlocked(): void {
+    if (this.imageBlockRuleSaving) {
+      return
+    }
+    const image: EhGalleryImage | null = this.currentImage()
+    if (image === null) {
+      this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_image_block_mark_waiting') })
+      return
+    }
+    const filePath: string = this.currentImageBlockFilePath.length > 0
+      ? this.currentImageBlockFilePath
+      : this.imageBlockFileForPage(image.page)
+    if (filePath.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_image_block_mark_waiting') })
+      return
+    }
+    this.imageBlockRuleSaving = true
+    ImageBlockRuntimeService.addLocalRuleForFile(
+      this.hostContext(),
+      filePath,
+      'scanlator-ad',
+      8,
+      this.currentGallerySourceUrl(),
+      image.page,
+    )
+      .then(() => {
+        this.imageBlockRuleVersion++
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_image_block_mark_added') })
+      })
+      .catch((err: Error) => {
+        DiagnosticLogger.warn('image-block', 'reader_local_rule_failed', err.message)
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_image_block_mark_failed') })
+      })
+      .finally(() => {
+        this.imageBlockRuleSaving = false
+      })
+  }
+
+  private allowImageBlockForPage(page: number): void {
+    if (this.imageBlockWhitelistSaving) {
+      return
+    }
+    const filePath: string = this.imageBlockFileForPage(page)
+    if (filePath.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_image_block_mark_waiting') })
+      return
+    }
+    this.imageBlockWhitelistSaving = true
+    ImageBlockRuntimeService.addWhitelistForFile(this.hostContext(), filePath)
+      .then(() => {
+        this.imageBlockRuleVersion++
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_image_block_allowed') })
+      })
+      .catch((err: Error) => {
+        DiagnosticLogger.warn('image-block', 'reader_whitelist_failed', err.message)
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_image_block_allow_failed') })
+      })
+      .finally(() => {
+        this.imageBlockWhitelistSaving = false
+      })
+  }
+
+  private currentGallerySourceUrl(): string {
+    if (this.params.gid.length === 0 || this.params.token.length === 0) {
+      return ''
+    }
+    return `https://e-hentai.org/g/${this.params.gid}/${this.params.token}/`
+  }
+
   // Keep the slider thumb on the live page when the user swipes (not while they drag the slider),
   // and persist the reading position (eros_fe saveLastIndex: memory now, disk on a 3s debounce).
   @Monitor('vm.currentIndex')
@@ -655,6 +794,7 @@ export struct ReaderPage {
         this.vm.currentIndex,
       )
     }
+    this.syncCurrentImageBlockFile()
   }
 
   @Monitor('readMode.volumeKeyTurn')
@@ -969,10 +1109,11 @@ export struct ReaderPage {
           if (this.vm.hasPreviewAt(index)) {
             ReaderImagePage({
               image: this.vm.imageAt(index),
-              imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}`,
+              imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
               preferOriginal: this.originalModeForPage(this.vm.imageAt(index).page),
               initiallyLoaded: this.isPageImageLoaded(index),
               loadedSignal: this.loadedPageSignal,
+              imageBlockWhitelistSaving: this.imageBlockWhitelistSaving,
               activeIndex: this.vm.currentIndex,
               doubleTapSeq: this.doubleTapSeq,
               doubleTapX: this.doubleTapX,
@@ -983,6 +1124,15 @@ export struct ReaderPage {
               },
               onImageLoaded: (page: number) => {
                 this.markPageImageLoaded(page)
+              },
+              onImageFileReady: (page: number, filePath: string) => {
+                this.rememberImageBlockFile(page, filePath)
+              },
+              onImageBlockState: (page: number, blocked: boolean) => {
+                this.rememberImageBlockState(page, blocked)
+              },
+              onAllowImageBlock: (page: number) => {
+                this.allowImageBlockForPage(page)
               },
             })
           } else {
@@ -1141,6 +1291,8 @@ export struct ReaderPage {
                 : false,
               firstInitiallyLoaded: this.isPageImageLoaded(start),
               secondInitiallyLoaded: this.isPageImageLoaded(this.spreadSecondIndex(start)),
+              imageBlockRuleVersion: this.imageBlockRuleVersion,
+              imageBlockWhitelistSaving: this.imageBlockWhitelistSaving,
               loadedSignal: this.loadedPageSignal,
               rowReversed: this.spreadRowReversed(),
               activeIndex: this.vm.currentIndex,
@@ -1153,6 +1305,15 @@ export struct ReaderPage {
               },
               onImageLoaded: (page: number) => {
                 this.markPageImageLoaded(page)
+              },
+              onImageFileReady: (page: number, filePath: string) => {
+                this.rememberImageBlockFile(page, filePath)
+              },
+              onImageBlockState: (page: number, blocked: boolean) => {
+                this.rememberImageBlockState(page, blocked)
+              },
+              onAllowImageBlock: (page: number) => {
+                this.allowImageBlockForPage(page)
               },
             })
           }
@@ -1235,12 +1396,22 @@ export struct ReaderPage {
             if (this.vm.hasPreviewAt(index)) {
               ReaderVerticalImage({
                 image: this.vm.imageAt(index),
-                imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}`,
+                imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
                 preferOriginal: this.originalModeForPage(this.vm.imageAt(index).page),
                 initiallyLoaded: this.isPageImageLoaded(index),
                 loadedSignal: this.loadedPageSignal,
+                imageBlockWhitelistSaving: this.imageBlockWhitelistSaving,
                 onImageLoaded: (page: number) => {
                   this.markPageImageLoaded(page)
+                },
+                onImageFileReady: (page: number, filePath: string) => {
+                  this.rememberImageBlockFile(page, filePath)
+                },
+                onImageBlockState: (page: number, blocked: boolean) => {
+                  this.rememberImageBlockState(page, blocked)
+                },
+                onAllowImageBlock: (page: number) => {
+                  this.allowImageBlockForPage(page)
                 },
               })
             } else {
@@ -1547,6 +1718,25 @@ export struct ReaderPage {
             this.saveCurrentImage()
           })
           Button({ type: ButtonType.Circle }) {
+            if (this.imageBlockRuleSaving) {
+              LoadingProgress()
+                .width(READER_CHROME_ICON_SIZE)
+                .height(READER_CHROME_ICON_SIZE)
+                .color(Color.White)
+            } else {
+              SymbolGlyph($r('sys.symbol.eye_slash'))
+                .fontSize(READER_CHROME_ICON_SIZE)
+                .fontColor([Color.White])
+            }
+          }
+          .width(READER_CHROME_ACTION_SIZE)
+          .height(READER_CHROME_ACTION_SIZE)
+          .backgroundColor(Color.Transparent)
+          .accessibilityText($r('app.string.reader_image_block_mark'))
+          .onClick(() => {
+            this.markCurrentImageAsBlocked()
+          })
+          Button({ type: ButtonType.Circle }) {
             if (this.originalImageResolving) {
               LoadingProgress()
                 .width(READER_CHROME_ICON_SIZE)
@@ -1835,6 +2025,27 @@ function readerFailureKindFromError(err: Error): ReaderImageFailureKind {
   return ReaderImageFailureKind.Generic
 }
 
+async function readerImageBlockDecisionForFile(
+  context: common.UIAbilityContext,
+  filePath: string,
+  page: number,
+): Promise<ImageBlockDecision> {
+  try {
+    return await ImageBlockRuntimeService.decisionForFile(context, filePath)
+  } catch (err) {
+    DiagnosticLogger.warn('image-block', 'reader_decision_failed', `page=${page} ${(err as Error).message}`)
+    return new ImageBlockDecision()
+  }
+}
+
+function readerLogImageBlocked(page: number, decision: ImageBlockDecision): void {
+  DiagnosticLogger.info(
+    'image-block',
+    'reader_image_blocked',
+    `page=${page} source=${decision.sourceType} feed=${decision.feedId} rule=${DiagnosticLogger.ownerHash(decision.ruleId)} distance=${decision.distance} threshold=${decision.threshold}`,
+  )
+}
+
 // Structural subset of Image.onComplete. Intrinsic bitmap size is converted to vp so
 // contain-fit pan bounds stay in the same coordinate space as gestures.
 interface ReaderImageLoadEvent {
@@ -1855,6 +2066,8 @@ struct ReaderSpreadSurface {
   @Param secondPreferOriginal: boolean = false;
   @Param firstInitiallyLoaded: boolean = false;
   @Param secondInitiallyLoaded: boolean = false;
+  @Param imageBlockRuleVersion: number = 0;
+  @Param imageBlockWhitelistSaving: boolean = false;
   @Param loadedSignal: number = 0;
   @Param rowReversed: boolean = false;
   @Param activeIndex: number = 0;
@@ -1864,6 +2077,11 @@ struct ReaderSpreadSurface {
   @Param doubleTapTargetPage: number = 0;
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
+  @Param onImageFileReady: (page: number, filePath: string) => void =
+    (_page: number, _filePath: string) => {};
+  @Param onImageBlockState: (page: number, blocked: boolean) => void =
+    (_page: number, _blocked: boolean) => {};
+  @Param onAllowImageBlock: (page: number) => void = (_page: number) => {};
 
   @Local zoomScale: number = 1;
   @Local offsetX: number = 0;
@@ -2031,12 +2249,22 @@ struct ReaderSpreadSurface {
     if (hasImage) {
       ReaderSpreadImageLayer({
         image: image,
-        imageKey: `${image.page}-${image.sUrl}-${image.imageUrl}-${preferOriginal ? 'orig' : 'fit'}`,
+        imageKey: `${image.page}-${image.sUrl}-${image.imageUrl}-${preferOriginal ? 'orig' : 'fit'}-${this.imageBlockRuleVersion}`,
         preferOriginal: preferOriginal,
         initiallyLoaded: initiallyLoaded,
         loadedSignal: this.loadedSignal,
+        imageBlockWhitelistSaving: this.imageBlockWhitelistSaving,
         onImageLoaded: (page: number) => {
           this.onImageLoaded(page)
+        },
+        onImageFileReady: (page: number, filePath: string) => {
+          this.onImageFileReady(page, filePath)
+        },
+        onImageBlockState: (page: number, blocked: boolean) => {
+          this.onImageBlockState(page, blocked)
+        },
+        onAllowImageBlock: (page: number) => {
+          this.onAllowImageBlock(page)
         },
         onImageMetrics: (page: number, width: number, height: number) => {
           this.recordImageMetrics(page, width, height)
@@ -2168,7 +2396,13 @@ struct ReaderSpreadImageLayer {
   @Param preferOriginal: boolean = false;
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
+  @Param imageBlockWhitelistSaving: boolean = false;
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
+  @Param onImageFileReady: (page: number, filePath: string) => void =
+    (_page: number, _filePath: string) => {};
+  @Param onImageBlockState: (page: number, blocked: boolean) => void =
+    (_page: number, _blocked: boolean) => {};
+  @Param onAllowImageBlock: (page: number) => void = (_page: number) => {};
   @Param onImageMetrics: (page: number, width: number, height: number) => void =
     (_page: number, _width: number, _height: number) => {};
 
@@ -2177,6 +2411,8 @@ struct ReaderSpreadImageLayer {
   @Local sourceImageUrl: string = '';
   @Local imageProgressLoaded: number = 0;
   @Local imageProgressTotal: number = 0;
+  @Local imageBlocked: boolean = false;
+  @Local imageBlockPreviewUri: string = '';
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   private autoRetryCount: number = 0;
@@ -2213,6 +2449,8 @@ struct ReaderSpreadImageLayer {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
+    this.imageBlocked = false
+    this.imageBlockPreviewUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
   }
@@ -2223,6 +2461,8 @@ struct ReaderSpreadImageLayer {
         this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
+        this.imageBlocked = false
+        this.imageBlockPreviewUri = ''
         const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image)
         DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
         await this.loadResolvedImage(original)
@@ -2244,6 +2484,8 @@ struct ReaderSpreadImageLayer {
       this.imageUrl = ''
       this.imageLoaded = false
       this.sourceImageUrl = ''
+      this.imageBlocked = false
+      this.imageBlockPreviewUri = ''
       const resolved: string = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       await this.loadResolvedImage(resolved)
       this.failed = false
@@ -2259,15 +2501,22 @@ struct ReaderSpreadImageLayer {
   private async loadResolvedImage(resolved: string): Promise<void> {
     const seq: number = ++this.loadSeq
     this.autoRetryCount = 0
+    this.imageBlocked = false
+    this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     const cacheKey: string = this.cacheKey(resolved)
     const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, resolved, cacheKey)
     if (cached !== null) {
       this.sourceImageUrl = resolved
-      this.imageUrl = cached.displayUri
-      this.imageLoaded = true
+      this.imageUrl = ''
       this.imageProgressLoaded = cached.bytes
       this.imageProgressTotal = cached.bytes
+      this.onImageFileReady(this.image.page, cached.filePath)
+      if (await this.applyImageBlockDecision(context, cached.filePath, cached.bytes, cached.displayUri, seq)) {
+        return
+      }
+      this.imageUrl = cached.displayUri
+      this.imageLoaded = true
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
       DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
@@ -2293,10 +2542,45 @@ struct ReaderSpreadImageLayer {
     if (seq !== this.loadSeq) {
       return
     }
+    this.onImageFileReady(this.image.page, result.filePath)
+    if (await this.applyImageBlockDecision(context, result.filePath, result.bytes, result.displayUri, seq)) {
+      return
+    }
     this.imageUrl = result.displayUri
     this.imageLoaded = this.initiallyLoaded
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+  }
+
+  private async applyImageBlockDecision(
+    context: common.UIAbilityContext,
+    filePath: string,
+    bytes: number,
+    displayUri: string,
+    seq: number,
+  ): Promise<boolean> {
+    const decision: ImageBlockDecision = await readerImageBlockDecisionForFile(context, filePath, this.image.page)
+    if (seq !== this.loadSeq) {
+      return true
+    }
+    if (!decision.blocked) {
+      this.imageBlocked = false
+      this.imageBlockPreviewUri = ''
+      this.onImageBlockState(this.image.page, false)
+      return false
+    }
+    this.imageBlocked = true
+    this.imageBlockPreviewUri = displayUri
+    this.onImageBlockState(this.image.page, true)
+    this.imageUrl = ''
+    this.imageLoaded = true
+    this.imageProgressLoaded = bytes
+    this.imageProgressTotal = bytes
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
+    this.onImageLoaded(this.image.page)
+    readerLogImageBlocked(this.image.page, decision)
+    return true
   }
 
   private cacheKey(resolved: string): string {
@@ -2318,6 +2602,8 @@ struct ReaderSpreadImageLayer {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
+    this.imageBlocked = false
+    this.imageBlockPreviewUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.resolve(true)
@@ -2332,6 +2618,8 @@ struct ReaderSpreadImageLayer {
       this.imageLoaded = false
       this.imageProgressLoaded = 0
       this.imageProgressTotal = 0
+      this.imageBlocked = false
+      this.imageBlockPreviewUri = ''
       this.failed = false
       this.resolve(true)
       return
@@ -2371,6 +2659,15 @@ struct ReaderSpreadImageLayer {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+      } else if (this.imageBlocked) {
+        ReaderImageBlockedOverlay({
+          page: this.image.page,
+          previewUri: this.imageBlockPreviewUri,
+          allowing: this.imageBlockWhitelistSaving,
+          onAllow: (page: number) => {
+            this.onAllowImageBlock(page)
+          },
+        })
       } else if (this.sourceImageUrl.length > 0) {
         ReaderLoadingStage({
           label: $r('app.string.reader_loading_image'),
@@ -2399,6 +2696,7 @@ struct ReaderImagePage {
   @Param preferOriginal: boolean = false;
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
+  @Param imageBlockWhitelistSaving: boolean = false;
   @Param activeIndex: number = 0;
   @Param doubleTapSeq: number = 0;
   @Param doubleTapX: number = 0;
@@ -2406,12 +2704,19 @@ struct ReaderImagePage {
   @Param doubleTapTargetPage: number = 0;
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
+  @Param onImageFileReady: (page: number, filePath: string) => void =
+    (_page: number, _filePath: string) => {};
+  @Param onImageBlockState: (page: number, blocked: boolean) => void =
+    (_page: number, _blocked: boolean) => {};
+  @Param onAllowImageBlock: (page: number) => void = (_page: number) => {};
 
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
   @Local sourceImageUrl: string = '';
   @Local imageProgressLoaded: number = 0;
   @Local imageProgressTotal: number = 0;
+  @Local imageBlocked: boolean = false;
+  @Local imageBlockPreviewUri: string = '';
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Local zoomScale: number = 1;
@@ -2485,6 +2790,8 @@ struct ReaderImagePage {
         this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
+        this.imageBlocked = false
+        this.imageBlockPreviewUri = ''
         const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image)
         DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
         await this.loadResolvedImage(original)
@@ -2506,6 +2813,8 @@ struct ReaderImagePage {
       this.imageUrl = ''
       this.imageLoaded = false
       this.sourceImageUrl = ''
+      this.imageBlocked = false
+      this.imageBlockPreviewUri = ''
       const resolved: string = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       await this.loadResolvedImage(resolved)
       this.failed = false
@@ -2521,15 +2830,22 @@ struct ReaderImagePage {
   private async loadResolvedImage(resolved: string): Promise<void> {
     const seq: number = ++this.loadSeq
     this.autoRetryCount = 0
+    this.imageBlocked = false
+    this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     const cacheKey: string = this.cacheKey(resolved)
     const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, resolved, cacheKey)
     if (cached !== null) {
       this.sourceImageUrl = resolved
-      this.imageUrl = cached.displayUri
-      this.imageLoaded = true
+      this.imageUrl = ''
       this.imageProgressLoaded = cached.bytes
       this.imageProgressTotal = cached.bytes
+      this.onImageFileReady(this.image.page, cached.filePath)
+      if (await this.applyImageBlockDecision(context, cached.filePath, cached.bytes, cached.displayUri, seq)) {
+        return
+      }
+      this.imageUrl = cached.displayUri
+      this.imageLoaded = true
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
       DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
@@ -2555,10 +2871,45 @@ struct ReaderImagePage {
     if (seq !== this.loadSeq) {
       return
     }
+    this.onImageFileReady(this.image.page, result.filePath)
+    if (await this.applyImageBlockDecision(context, result.filePath, result.bytes, result.displayUri, seq)) {
+      return
+    }
     this.imageUrl = result.displayUri
     this.imageLoaded = this.initiallyLoaded
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+  }
+
+  private async applyImageBlockDecision(
+    context: common.UIAbilityContext,
+    filePath: string,
+    bytes: number,
+    displayUri: string,
+    seq: number,
+  ): Promise<boolean> {
+    const decision: ImageBlockDecision = await readerImageBlockDecisionForFile(context, filePath, this.image.page)
+    if (seq !== this.loadSeq) {
+      return true
+    }
+    if (!decision.blocked) {
+      this.imageBlocked = false
+      this.imageBlockPreviewUri = ''
+      this.onImageBlockState(this.image.page, false)
+      return false
+    }
+    this.imageBlocked = true
+    this.imageBlockPreviewUri = displayUri
+    this.onImageBlockState(this.image.page, true)
+    this.imageUrl = ''
+    this.imageLoaded = true
+    this.imageProgressLoaded = bytes
+    this.imageProgressTotal = bytes
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
+    this.onImageLoaded(this.image.page)
+    readerLogImageBlocked(this.image.page, decision)
+    return true
   }
 
   private cacheKey(resolved: string): string {
@@ -2573,6 +2924,8 @@ struct ReaderImagePage {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
+    this.imageBlocked = false
+    this.imageBlockPreviewUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.intrinsicW = 0
@@ -2595,6 +2948,8 @@ struct ReaderImagePage {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
+    this.imageBlocked = false
+    this.imageBlockPreviewUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.resolve(true)
@@ -2609,6 +2964,8 @@ struct ReaderImagePage {
       this.imageLoaded = false
       this.imageProgressLoaded = 0
       this.imageProgressTotal = 0
+      this.imageBlocked = false
+      this.imageBlockPreviewUri = ''
       this.failed = false
       this.resolve(true)
       return
@@ -2747,6 +3104,15 @@ struct ReaderImagePage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+      } else if (this.imageBlocked) {
+        ReaderImageBlockedOverlay({
+          page: this.image.page,
+          previewUri: this.imageBlockPreviewUri,
+          allowing: this.imageBlockWhitelistSaving,
+          onAllow: (page: number) => {
+            this.onAllowImageBlock(page)
+          },
+        })
       } else if (this.sourceImageUrl.length > 0) {
         ReaderLoadingStage({
           label: $r('app.string.reader_loading_image'),
@@ -2869,12 +3235,20 @@ struct ReaderVerticalImage {
   @Param preferOriginal: boolean = false;
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
+  @Param imageBlockWhitelistSaving: boolean = false;
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
+  @Param onImageFileReady: (page: number, filePath: string) => void =
+    (_page: number, _filePath: string) => {};
+  @Param onImageBlockState: (page: number, blocked: boolean) => void =
+    (_page: number, _blocked: boolean) => {};
+  @Param onAllowImageBlock: (page: number) => void = (_page: number) => {};
   @Local imageUrl: string = '';
   @Local imageLoaded: boolean = false;
   @Local sourceImageUrl: string = '';
   @Local imageProgressLoaded: number = 0;
   @Local imageProgressTotal: number = 0;
+  @Local imageBlocked: boolean = false;
+  @Local imageBlockPreviewUri: string = '';
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Local ratio: number = DEFAULT_VERTICAL_RATIO;
@@ -2911,6 +3285,8 @@ struct ReaderVerticalImage {
         this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
+        this.imageBlocked = false
+        this.imageBlockPreviewUri = ''
         const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image)
         DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
         await this.loadResolvedImage(original)
@@ -2932,6 +3308,8 @@ struct ReaderVerticalImage {
       this.imageUrl = ''
       this.imageLoaded = false
       this.sourceImageUrl = ''
+      this.imageBlocked = false
+      this.imageBlockPreviewUri = ''
       const resolved: string = await ImageResolveService.getInstance().resolve(this.image, changeSource)
       await this.loadResolvedImage(resolved)
       this.failed = false
@@ -2947,15 +3325,22 @@ struct ReaderVerticalImage {
   private async loadResolvedImage(resolved: string): Promise<void> {
     const seq: number = ++this.loadSeq
     this.autoRetryCount = 0
+    this.imageBlocked = false
+    this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     const cacheKey: string = this.cacheKey(resolved)
     const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, resolved, cacheKey)
     if (cached !== null) {
       this.sourceImageUrl = resolved
-      this.imageUrl = cached.displayUri
-      this.imageLoaded = true
+      this.imageUrl = ''
       this.imageProgressLoaded = cached.bytes
       this.imageProgressTotal = cached.bytes
+      this.onImageFileReady(this.image.page, cached.filePath)
+      if (await this.applyImageBlockDecision(context, cached.filePath, cached.bytes, cached.displayUri, seq)) {
+        return
+      }
+      this.imageUrl = cached.displayUri
+      this.imageLoaded = true
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
       DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
@@ -2981,10 +3366,45 @@ struct ReaderVerticalImage {
     if (seq !== this.loadSeq) {
       return
     }
+    this.onImageFileReady(this.image.page, result.filePath)
+    if (await this.applyImageBlockDecision(context, result.filePath, result.bytes, result.displayUri, seq)) {
+      return
+    }
     this.imageUrl = result.displayUri
     this.imageLoaded = this.initiallyLoaded
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+  }
+
+  private async applyImageBlockDecision(
+    context: common.UIAbilityContext,
+    filePath: string,
+    bytes: number,
+    displayUri: string,
+    seq: number,
+  ): Promise<boolean> {
+    const decision: ImageBlockDecision = await readerImageBlockDecisionForFile(context, filePath, this.image.page)
+    if (seq !== this.loadSeq) {
+      return true
+    }
+    if (!decision.blocked) {
+      this.imageBlocked = false
+      this.imageBlockPreviewUri = ''
+      this.onImageBlockState(this.image.page, false)
+      return false
+    }
+    this.imageBlocked = true
+    this.imageBlockPreviewUri = displayUri
+    this.onImageBlockState(this.image.page, true)
+    this.imageUrl = ''
+    this.imageLoaded = true
+    this.imageProgressLoaded = bytes
+    this.imageProgressTotal = bytes
+    this.failed = false
+    this.failureKind = ReaderImageFailureKind.Generic
+    this.onImageLoaded(this.image.page)
+    readerLogImageBlocked(this.image.page, decision)
+    return true
   }
 
   private cacheKey(resolved: string): string {
@@ -2999,6 +3419,8 @@ struct ReaderVerticalImage {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
+    this.imageBlocked = false
+    this.imageBlockPreviewUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.ratio = DEFAULT_VERTICAL_RATIO
@@ -3019,6 +3441,8 @@ struct ReaderVerticalImage {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
+    this.imageBlocked = false
+    this.imageBlockPreviewUri = ''
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.resolve(true)
@@ -3033,6 +3457,8 @@ struct ReaderVerticalImage {
       this.imageLoaded = false
       this.imageProgressLoaded = 0
       this.imageProgressTotal = 0
+      this.imageBlocked = false
+      this.imageBlockPreviewUri = ''
       this.failed = false
       this.resolve(true)
       return
@@ -3077,6 +3503,16 @@ struct ReaderVerticalImage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+      } else if (this.imageBlocked) {
+        ReaderImageBlockedOverlay({
+          page: this.image.page,
+          compact: true,
+          previewUri: this.imageBlockPreviewUri,
+          allowing: this.imageBlockWhitelistSaving,
+          onAllow: (page: number) => {
+            this.onAllowImageBlock(page)
+          },
+        })
       } else if (this.sourceImageUrl.length > 0) {
         ReaderLoadingStage({
           label: $r('app.string.reader_loading_image'),
@@ -3168,6 +3604,99 @@ struct ReaderLoadingStage {
     .justifyContent(FlexAlign.Center)
     .alignItems(HorizontalAlign.Center)
     .padding(ThemeConstants.SPACE_XL)
+  }
+}
+
+@ComponentV2
+struct ReaderImageBlockedOverlay {
+  @Param page: number = 0;
+  @Param compact: boolean = false;
+  @Param previewUri: string = '';
+  @Param allowing: boolean = false;
+  @Param onAllow: (page: number) => void = (_page: number) => {};
+
+  private iconSize(): number {
+    return this.compact ? 40 : 64
+  }
+
+  private contentWidth(): number {
+    return this.compact ? 196 : 280
+  }
+
+  private overlayHeight(): Length {
+    return this.compact ? 220 : '100%'
+  }
+
+  @Builder
+  BackgroundLayer() {
+    if (this.previewUri.length > 0) {
+      Image(this.previewUri)
+        .width('100%')
+        .height('100%')
+        .objectFit(ImageFit.Contain)
+        .scale({ x: 1.02, y: 1.02 })
+        .blur(ThemeConstants.COVER_BG_BLUR_RADIUS + 40)
+        .opacity(1)
+        .renderGroup(true)
+        .draggable(false)
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor('#66000000')
+    } else {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor(Color.Black)
+    }
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.Center }) {
+      this.BackgroundLayer()
+      Column({ space: ThemeConstants.SPACE_MD }) {
+        SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+          .fontSize(this.iconSize())
+          .fontColor([Color.White])
+        Text($r('app.string.reader_image_blocked'))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor(Color.White)
+          .fontWeight(FontWeight.Medium)
+          .textAlign(TextAlign.Center)
+          .maxLines(2)
+        Text($r('app.string.reader_image_blocked_hint'))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor('#CCFFFFFF')
+          .textAlign(TextAlign.Center)
+          .maxLines(2)
+        if (this.page > 0) {
+          Text(`P${this.page}`)
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor('#BBFFFFFF')
+            .textAlign(TextAlign.Center)
+            .maxLines(1)
+        }
+        if (this.allowing) {
+          Button($r('app.string.reader_image_block_allow'))
+            .type(ButtonType.Capsule)
+            .enabled(false)
+        } else {
+          Button($r('app.string.reader_image_block_allow'))
+            .type(ButtonType.Capsule)
+            .onClick(() => {
+              this.onAllow(this.page)
+            })
+        }
+      }
+      .width(this.contentWidth())
+      .padding(ThemeConstants.SPACE_LG)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+    }
+    .width('100%')
+    .height(this.overlayHeight())
+    .clip(true)
+    .hitTestBehavior(HitTestMode.Default)
   }
 }
 

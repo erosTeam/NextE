@@ -141,6 +141,7 @@ export class ReaderParams {
   seedPerPage: number = 0
   seedPreviewPages: number[] = [] // exact loaded preview-page numbers when the seed is sparse
   seedImagePageUrl: string = '' // exact tapped /s/ image-page URL; resolved first for the initial page
+  initialChromeVisible: boolean = false // hidden QA paths may start with chrome visible for stable automation
 
   constructor(
     gid: string = '',
@@ -153,6 +154,7 @@ export class ReaderParams {
     seedPerPage: number = 0,
     seedPreviewPages: number[] = [],
     seedImagePageUrl: string = '',
+    initialChromeVisible: boolean = false,
   ) {
     this.gid = gid
     this.token = token
@@ -164,6 +166,7 @@ export class ReaderParams {
     this.seedPerPage = seedPerPage
     this.seedPreviewPages = seedPreviewPages
     this.seedImagePageUrl = seedImagePageUrl
+    this.initialChromeVisible = initialChromeVisible
   }
 }
 

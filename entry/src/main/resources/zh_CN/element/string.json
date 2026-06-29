@@ -1033,6 +1033,42 @@
       "value": "正在加载图片"
     },
     {
+      "name": "reader_image_blocked",
+      "value": "图片已隐藏"
+    },
+    {
+      "name": "reader_image_blocked_hint",
+      "value": "命中图片屏蔽规则，可继续阅读其他页。"
+    },
+    {
+      "name": "reader_image_block_mark_waiting",
+      "value": "等待当前图片加载完成"
+    },
+    {
+      "name": "reader_image_block_mark",
+      "value": "屏蔽当前图片"
+    },
+    {
+      "name": "reader_image_block_mark_added",
+      "value": "已添加本地图片屏蔽规则"
+    },
+    {
+      "name": "reader_image_block_mark_failed",
+      "value": "添加图片屏蔽规则失败"
+    },
+    {
+      "name": "reader_image_block_allow",
+      "value": "允许此图"
+    },
+    {
+      "name": "reader_image_block_allowed",
+      "value": "已允许此图"
+    },
+    {
+      "name": "reader_image_block_allow_failed",
+      "value": "允许此图失败"
+    },
+    {
       "name": "reader_save_success",
       "value": "图片已保存"
     },
@@ -2707,6 +2743,134 @@
     {
       "name": "local_block_hint",
       "value": "在本机隐藏命中的画廊和评论。"
+    },
+    {
+      "name": "image_block_title",
+      "value": "图片屏蔽"
+    },
+    {
+      "name": "image_block_hint",
+      "value": "使用社区 pHash 规则隐藏汉化组广告页。"
+    },
+    {
+      "name": "image_block_update_default",
+      "value": "更新社区规则"
+    },
+    {
+      "name": "image_block_update_default_hint",
+      "value": "拉取默认 erosTeam 订阅，用于自动隐藏常见广告页。"
+    },
+    {
+      "name": "image_block_updating",
+      "value": "正在更新"
+    },
+    {
+      "name": "image_block_no_subscriptions",
+      "value": "未安装"
+    },
+    {
+      "name": "image_block_load_failed",
+      "value": "加载图片屏蔽规则失败"
+    },
+    {
+      "name": "image_block_update_started",
+      "value": "正在更新图片屏蔽规则"
+    },
+    {
+      "name": "image_block_update_finished",
+      "value": "图片屏蔽规则已更新"
+    },
+    {
+      "name": "image_block_update_failed",
+      "value": "图片屏蔽规则更新失败"
+    },
+    {
+      "name": "image_block_rules",
+      "value": "条规则"
+    },
+    {
+      "name": "image_block_local_rules",
+      "value": "本地手动屏蔽"
+    },
+    {
+      "name": "image_block_local_rules_hint",
+      "value": "从 Reader 屏蔽图标添加；本地立即生效。"
+    },
+    {
+      "name": "image_block_local_rule_title",
+      "value": "手动 pHash 规则"
+    },
+    {
+      "name": "image_block_local_rule_delete_confirm",
+      "value": "删除这条本地图片屏蔽规则？"
+    },
+    {
+      "name": "image_block_local_rule_deleted",
+      "value": "已删除本地图片屏蔽规则"
+    },
+    {
+      "name": "image_block_local_rule_delete_failed",
+      "value": "删除本地图片屏蔽规则失败"
+    },
+    {
+      "name": "image_block_contribution_draft",
+      "value": "复制社区规则草稿"
+    },
+    {
+      "name": "image_block_contribution_draft_hint",
+      "value": "仅包含带稳定画廊来源的规则。"
+    },
+    {
+      "name": "image_block_contribution_copied",
+      "value": "已复制图片屏蔽草稿"
+    },
+    {
+      "name": "image_block_contribution_empty",
+      "value": "没有可提交的手动规则"
+    },
+    {
+      "name": "image_block_contribution_failed",
+      "value": "复制图片屏蔽草稿失败"
+    },
+    {
+      "name": "image_block_contribution_skipped",
+      "value": "跳过"
+    },
+    {
+      "name": "image_block_contribution_missing_source",
+      "value": "缺少来源"
+    },
+    {
+      "name": "image_block_contribution_duplicate",
+      "value": "重复"
+    },
+    {
+      "name": "image_block_contribution_invalid",
+      "value": "无效"
+    },
+    {
+      "name": "image_block_whitelist",
+      "value": "误杀放行图片"
+    },
+    {
+      "name": "image_block_whitelist_hint",
+      "value": "图片被误屏蔽后，允许它继续显示。"
+    },
+    {
+      "name": "image_block_whitelist_hash_title",
+      "value": "已放行图片"
+    },
+    {
+      "name": "image_block_whitelist_delete_confirm",
+      "value": "移除这张放行图片？"
+    },
+    {
+      "name": "image_block_whitelist_deleted",
+      "value": "已移除放行图片"
+    },
+    {
+      "name": "image_block_whitelist_delete_failed",
+      "value": "移除放行图片失败"
     },
     {
       "name": "local_block_score_filter",

@@ -207,7 +207,16 @@ export default class EntryAbility extends UIAbility {
     const uri: string = (want?.uri ?? '').trim()
     if (
       uri === InternalQaRoutes.COVER_FALLBACK_PROBE_URI ||
-      uri === InternalQaRoutes.READER_GESTURE_PROBE_URI
+      uri === InternalQaRoutes.READER_GESTURE_PROBE_URI ||
+      uri === InternalQaRoutes.IMAGE_BLOCK_SEED_URI ||
+      uri === InternalQaRoutes.IMAGE_BLOCK_SEED_READER_URI ||
+      uri === InternalQaRoutes.IMAGE_BLOCK_SUBSCRIPTION_READER_URI ||
+      uri === InternalQaRoutes.IMAGE_BLOCK_READER_OPEN_URI ||
+      uri === InternalQaRoutes.IMAGE_BLOCK_MANUAL_READER_URI ||
+      uri === InternalQaRoutes.IMAGE_BLOCK_SETTINGS_URI ||
+      uri === InternalQaRoutes.IMAGE_BLOCK_SETTINGS_OPEN_URI ||
+      uri === InternalQaRoutes.IMAGE_BLOCK_SETTINGS_EDGE_URI ||
+      uri === InternalQaRoutes.IMAGE_BLOCK_SETTINGS_REFRESH_URI
     ) {
       publishPendingEhUrl(`${Date.now()}:${uri}`)
       return

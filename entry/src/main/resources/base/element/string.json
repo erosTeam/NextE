@@ -1033,6 +1033,42 @@
       "value": "Loading image"
     },
     {
+      "name": "reader_image_blocked",
+      "value": "Image hidden"
+    },
+    {
+      "name": "reader_image_blocked_hint",
+      "value": "Matched an image block rule. Continue to another page."
+    },
+    {
+      "name": "reader_image_block_mark_waiting",
+      "value": "Wait for the current image to load"
+    },
+    {
+      "name": "reader_image_block_mark",
+      "value": "Block current image"
+    },
+    {
+      "name": "reader_image_block_mark_added",
+      "value": "Added local image block rule"
+    },
+    {
+      "name": "reader_image_block_mark_failed",
+      "value": "Failed to add image block rule"
+    },
+    {
+      "name": "reader_image_block_allow",
+      "value": "Allow this image"
+    },
+    {
+      "name": "reader_image_block_allowed",
+      "value": "Image added to allowlist"
+    },
+    {
+      "name": "reader_image_block_allow_failed",
+      "value": "Failed to allow image"
+    },
+    {
       "name": "reader_save_success",
       "value": "Saved image"
     },
@@ -2707,6 +2743,134 @@
     {
       "name": "local_block_hint",
       "value": "Hide matched galleries and comments on this device."
+    },
+    {
+      "name": "image_block_title",
+      "value": "Image blocks"
+    },
+    {
+      "name": "image_block_hint",
+      "value": "Hide scanlator ad pages by community pHash rules."
+    },
+    {
+      "name": "image_block_update_default",
+      "value": "Update community rules"
+    },
+    {
+      "name": "image_block_update_default_hint",
+      "value": "Fetch the default erosTeam subscription for common ad pages."
+    },
+    {
+      "name": "image_block_updating",
+      "value": "Updating"
+    },
+    {
+      "name": "image_block_no_subscriptions",
+      "value": "Not installed"
+    },
+    {
+      "name": "image_block_load_failed",
+      "value": "Failed to load image block rules"
+    },
+    {
+      "name": "image_block_update_started",
+      "value": "Updating image block rules"
+    },
+    {
+      "name": "image_block_update_finished",
+      "value": "Updated image block rules"
+    },
+    {
+      "name": "image_block_update_failed",
+      "value": "Image block update failed"
+    },
+    {
+      "name": "image_block_rules",
+      "value": "rules"
+    },
+    {
+      "name": "image_block_local_rules",
+      "value": "Manual block rules"
+    },
+    {
+      "name": "image_block_local_rules_hint",
+      "value": "Added from the Reader block icon; works locally right away."
+    },
+    {
+      "name": "image_block_local_rule_title",
+      "value": "Manual pHash rule"
+    },
+    {
+      "name": "image_block_local_rule_delete_confirm",
+      "value": "Delete local image block rule?"
+    },
+    {
+      "name": "image_block_local_rule_deleted",
+      "value": "Deleted local image block rule"
+    },
+    {
+      "name": "image_block_local_rule_delete_failed",
+      "value": "Failed to delete local image block rule"
+    },
+    {
+      "name": "image_block_contribution_draft",
+      "value": "Copy community draft"
+    },
+    {
+      "name": "image_block_contribution_draft_hint",
+      "value": "Only rules with stable gallery sources are included."
+    },
+    {
+      "name": "image_block_contribution_copied",
+      "value": "Copied image block draft"
+    },
+    {
+      "name": "image_block_contribution_empty",
+      "value": "No submit-ready manual rules"
+    },
+    {
+      "name": "image_block_contribution_failed",
+      "value": "Failed to copy image block draft"
+    },
+    {
+      "name": "image_block_contribution_skipped",
+      "value": "Skipped"
+    },
+    {
+      "name": "image_block_contribution_missing_source",
+      "value": "missing source"
+    },
+    {
+      "name": "image_block_contribution_duplicate",
+      "value": "duplicate"
+    },
+    {
+      "name": "image_block_contribution_invalid",
+      "value": "invalid"
+    },
+    {
+      "name": "image_block_whitelist",
+      "value": "Allowed images"
+    },
+    {
+      "name": "image_block_whitelist_hint",
+      "value": "Images allowed after a false-positive block."
+    },
+    {
+      "name": "image_block_whitelist_hash_title",
+      "value": "Allowed image"
+    },
+    {
+      "name": "image_block_whitelist_delete_confirm",
+      "value": "Remove allowed image?"
+    },
+    {
+      "name": "image_block_whitelist_deleted",
+      "value": "Removed allowed image"
+    },
+    {
+      "name": "image_block_whitelist_delete_failed",
+      "value": "Failed to remove allowed image"
     },
     {
       "name": "local_block_score_filter",

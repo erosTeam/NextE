@@ -1,0 +1,173 @@
+{
+  "schema": 1,
+  "kind": "nexte-image-block-public-samples",
+  "updatedAt": "2026-06-29",
+  "searchChecks": [
+    {
+      "query": "other:advertisement",
+      "url": "https://e-hentai.org/?f_search=other%3Aadvertisement",
+      "expected": "no_hits",
+      "evidence": "Public curl returned No hits found on 2026-06-29."
+    },
+    {
+      "query": "other:advertisements",
+      "url": "https://e-hentai.org/?f_search=other%3Aadvertisements",
+      "expected": "no_hits",
+      "evidence": "Public curl returned No hits found on 2026-06-29."
+    },
+    {
+      "query": "other:advertising",
+      "url": "https://e-hentai.org/?f_search=other%3Aadvertising",
+      "expected": "no_hits",
+      "evidence": "Public curl returned No hits found on 2026-06-29."
+    },
+    {
+      "query": "advertisement",
+      "url": "https://e-hentai.org/?f_search=advertisement",
+      "expected": "candidate_gallery_results",
+      "resultCount": 3,
+      "candidateGalleryIds": [3049882, 1757442, 1284740],
+      "evidence": "Public title search returned three gallery candidates on 2026-06-29; live gallery tag checks did not expose an advertisement namespace tag."
+    },
+    {
+      "query": "advertisements",
+      "url": "https://e-hentai.org/?f_search=advertisements",
+      "expected": "candidate_gallery_results",
+      "resultCount": 1,
+      "candidateGalleryIds": [1284740],
+      "evidence": "Public title search returned one short gallery candidate on 2026-06-29; live gallery tag checks did not expose an advertisement namespace tag."
+    },
+    {
+      "query": "advertising",
+      "url": "https://e-hentai.org/?f_search=advertising",
+      "expected": "candidate_gallery_results",
+      "resultCount": 5,
+      "candidateGalleryIds": [3917158, 3636516, 2991483, 2652400, 1678170],
+      "accessibleCandidateGalleryIds": [3917158, 2991483, 2652400, 1678170],
+      "skippedCandidateGalleryIds": [3636516],
+      "evidence": "Public title search returned five gallery candidates on 2026-06-29; gallery 3636516 did not expose unauthenticated title/page metadata, and live gallery tag checks did not expose an advertisement namespace tag."
+    }
+  ],
+  "candidateGalleries": [
+    {
+      "gid": 3049882,
+      "token": "d7e740a39e",
+      "url": "https://e-hentai.org/g/3049882/d7e740a39e/",
+      "title": "[pulpawoelbo] D.VA advertisement (Overwatch)",
+      "category": "Artist CG",
+      "pages": 6,
+      "priority": "seed",
+      "discovery": "title_search",
+      "advertisementNamespaceTags": [],
+      "publicOtherTags": [],
+      "evidence": "Public advertisement title search returned this gallery; visible result tags did not include other:advertisement.",
+      "reason": "First public advertisement-title sample promoted to the seed pHash rule."
+    },
+    {
+      "gid": 3917158,
+      "token": "2db060bc4c",
+      "url": "https://e-hentai.org/g/3917158/2db060bc4c/",
+      "title": "[JustTaylor (Natethecat24/TaylorTheFox24)] GoldWeek Advertising",
+      "category": "Western",
+      "pages": 3,
+      "priority": "short_title_sample",
+      "discovery": "title_search",
+      "advertisementNamespaceTags": [],
+      "publicOtherTags": [],
+      "evidence": "Public advertising title search returned this short gallery; live gallery tag checks did not include an advertisement namespace tag.",
+      "reason": "Shortest additional public advertising-title sample for a future manual-rule smoke."
+    },
+    {
+      "gid": 1284740,
+      "token": "ed8b71498d",
+      "url": "https://e-hentai.org/g/1284740/ed8b71498d/",
+      "title": "[polakuma] advertisements",
+      "category": "Doujinshi",
+      "pages": 6,
+      "priority": "secondary",
+      "discovery": "title_search",
+      "advertisementNamespaceTags": [],
+      "publicOtherTags": ["other:missing cover"],
+      "evidence": "Public advertisement/advertisements title searches returned this gallery; visible result tags did not include other:advertisement.",
+      "reason": "Short public advertisement-title sample for the next manual-rule smoke."
+    },
+    {
+      "gid": 2991483,
+      "token": "416674eea1",
+      "url": "https://e-hentai.org/g/2991483/416674eea1/",
+      "title": "[BlondeUchiha (WolfenUchiha111)] Lunar TF Clinic Advertising",
+      "category": "Western",
+      "pages": 7,
+      "priority": "short_title_sample",
+      "discovery": "title_search",
+      "advertisementNamespaceTags": [],
+      "publicOtherTags": [],
+      "evidence": "Public advertising title search returned this short gallery; live gallery tag checks did not include an advertisement namespace tag.",
+      "reason": "Additional public advertising-title sample; use only as a manual-rule candidate until page-level pHash is reviewed."
+    },
+    {
+      "gid": 2652400,
+      "token": "31b1601675",
+      "url": "https://e-hentai.org/g/2652400/31b1601675/",
+      "title": "[Snao] Vier GRO+ Advertising Agency",
+      "category": "Western",
+      "pages": 25,
+      "priority": "low",
+      "discovery": "title_search",
+      "advertisementNamespaceTags": [],
+      "publicOtherTags": [],
+      "evidence": "Public advertising title search returned this gallery; live gallery tag checks did not include an advertisement namespace tag.",
+      "reason": "Longer advertising-title sample; lower priority than short manual-rule smokes."
+    },
+    {
+      "gid": 1757442,
+      "token": "f27210be8c",
+      "url": "https://e-hentai.org/g/1757442/f27210be8c/",
+      "title": "WORKs EH95-08 Music, Girls, Movies, Advertisement, Books, Comics Introduced By Eguchi Hisashi [JAPANESE EDITION]",
+      "category": "Non-H",
+      "pages": 39,
+      "priority": "low",
+      "discovery": "title_search",
+      "advertisementNamespaceTags": [],
+      "publicOtherTags": ["other:artbook"],
+      "evidence": "Public advertisement title search returned this gallery; visible result tags did not include other:advertisement.",
+      "reason": "General advertisement/artbook sample, useful for discovery but not a short scanlator-ad smoke."
+    },
+    {
+      "gid": 1678170,
+      "token": "58f56e1fb3",
+      "url": "https://e-hentai.org/g/1678170/58f56e1fb3/",
+      "title": "The Bunbunmaru Newspaper Calendar 2017 + Random Advertising Materials",
+      "category": "Non-H",
+      "pages": 40,
+      "priority": "low",
+      "discovery": "title_search",
+      "advertisementNamespaceTags": [],
+      "publicOtherTags": [],
+      "evidence": "Public advertising title search returned this gallery; live gallery tag checks did not include an advertisement namespace tag.",
+      "reason": "Long general advertising-materials sample; useful for discovery but not a first manual-rule smoke."
+    }
+  ],
+  "seedRules": [
+    {
+      "feedId": "zh-scanlator-ads",
+      "galleryUrl": "https://e-hentai.org/g/3049882/d7e740a39e/",
+      "page": 1,
+      "hash": "ce9e181d354a3cd5",
+      "threshold": 8,
+      "label": "scanlator-ad",
+      "scope": "whole"
+    }
+  ],
+  "sourceUrlPolicy": {
+    "stableReviewUrl": "https://e-hentai.org/g/<gid>/<token>/",
+    "forbiddenExamples": [
+      "/s/",
+      "fullimg.php",
+      "showkey",
+      "nl=",
+      "ipb_pass_hash",
+      "igneous"
+    ]
+  }
+}

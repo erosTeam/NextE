@@ -2,6 +2,36 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: reader image block placeholder
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/image_view/view/view_widget.dart` `ViewAD` / `_ImageWithHideState`, `../eros_fe/lib/pages/image_view/view/view_image.dart` hide check, and NextE `feature/reader/src/main/ets/pages/ReaderPage.ets` cached image display path.
+Surface type: Reader per-image content-hidden placeholder for pHash subscription/local image-block matches.
+Primary information: the current reader page was blocked by a local/community pHash rule; show a visible but unreadable blurred preview of the blocked image plus a clear content-hidden state and page number.
+Primary action: continue reading by swiping/tapping to another page; secondary action is allowing the current image when the block is a false positive.
+Reuse or deviation: reuse `CachedImageFileService`, `ImageBlockRuntimeService`, existing Reader loading/failure overlay structure, FE's ViewAD semantics, and NextE's existing `Image(...).blur(...).renderGroup(true)` pattern from `EhThumbnail`; deviate from the first black-canvas placeholder by passing the local cached display URI into `ReaderImageBlockedOverlay` as the same contained image surface, blurred enough to make the image unreadable without turning the Reader page into a black canvas. HDS floating controls, PR submission, QR checks, and full rule management stay separate lanes. When the current page is blocked, the Reader tap overlay must stand down so the whitelist escape action receives the tap.
+Verification: image-block foundation contract, reader image-block contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, signed Hvigor build, and 197 Reader QA showing the visible blurred blocked-image presentation with a seeded or refreshed community rule.
+
+## Active: image block subscription settings
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/setting/block/blockers_page.dart` blocker management semantics, NextE `feature/settings/src/main/ets/pages/EhSettingsPage.ets` EH settings grouping, `feature/settings/src/main/ets/pages/LocalBlockSettingsPage.ets` blocker entry, `feature/settings/src/main/ets/pages/TagTranslationSettingsPage.ets` update-now settings row, and `feature/settings/src/main/ets/pages/AdvancedSettingsPage.ets` clipboard fallback for generated text.
+Surface type: EH settings child page for image-block community subscription refresh, provider enablement, local pHash rule cleanup, assisted contribution draft copy, and false-positive allowlist cleanup.
+Primary information: current community rule provider count, enabled providers, stored subscription rule count, Reader-marked local rules on this device, contribution `ready/total` plus skipped-rule reasons, and images allowed after a false-positive block.
+Primary action: refresh the default erosTeam community manifest; secondary actions are enabling/disabling an installed provider, copying a local-rule JSONL contribution draft, deleting a mistaken local rule, and removing a false-positive allowlist hash.
+Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, `ImageBlockSubscriptionService`, `ImageBlockRepository`, `ImageBlockContributionService`, and the existing pasteboard text-copy pattern; local rows may show label/page, short pHash, threshold, and a public gallery review URL, while allowlist rows show a short pHash only. The contribution action only copies sanitized JSONL from local rules and surfaces `ready/total` plus skipped counts; it does not open GitHub, submit a PR, add OAuth, QR rules, or a custom management table in this lane.
+Verification: image-block foundation contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, signed Hvigor build, and 197 settings screenshot after local-rule mark/delete when the device is unlocked.
+
+## Active: reader local image-block mark action
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/image_view/view/view_widget.dart` image toolbar action family, NextE `feature/reader/src/main/ets/pages/ReaderPage.ets` save/original/thumbnail toolbar buttons, and `ImageBlockRuntimeService.addLocalRuleForFile()`.
+Surface type: Reader bottom toolbar action plus image-block settings local-rule list/count.
+Primary information: the current loaded Reader page can be marked as a local pHash image-block rule, and Settings shows/deletes local rules on this device.
+Primary action: tap the Reader `eye_slash` toolbar action after the page image loads; secondary feedback is a toast and immediate re-render into the blocked placeholder.
+Reuse or deviation: reuse Reader's existing neutral icon toolbar and the existing image-block runtime/local RDB path; attach only a public gallery URL plus page number for later review, and do not add a local-rule table editor, PR submission, whitelist, QR scan, or new modal in this slice.
+Verification: reader image-block contract, image-block foundation contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, signed build, and 197 device QA with a real loaded gallery page.
+
 ## Active: modal scaffold nested vertical scroll
 
 Status: active

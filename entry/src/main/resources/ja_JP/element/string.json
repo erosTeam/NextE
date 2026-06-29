@@ -1033,6 +1033,42 @@
       "value": "画像を読み込み中"
     },
     {
+      "name": "reader_image_blocked",
+      "value": "画像を非表示にしました"
+    },
+    {
+      "name": "reader_image_blocked_hint",
+      "value": "画像ブロックルールに一致しました。別のページへ進めます。"
+    },
+    {
+      "name": "reader_image_block_mark_waiting",
+      "value": "現在の画像の読み込みを待ってください"
+    },
+    {
+      "name": "reader_image_block_mark",
+      "value": "現在の画像をブロック"
+    },
+    {
+      "name": "reader_image_block_mark_added",
+      "value": "ローカル画像ブロックルールを追加しました"
+    },
+    {
+      "name": "reader_image_block_mark_failed",
+      "value": "画像ブロックルールを追加できませんでした"
+    },
+    {
+      "name": "reader_image_block_allow",
+      "value": "この画像を許可"
+    },
+    {
+      "name": "reader_image_block_allowed",
+      "value": "画像を許可リストに追加しました"
+    },
+    {
+      "name": "reader_image_block_allow_failed",
+      "value": "画像を許可できませんでした"
+    },
+    {
       "name": "reader_save_success",
       "value": "画像を保存しました"
     },
@@ -2707,6 +2743,134 @@
     {
       "name": "local_block_hint",
       "value": "一致したギャラリーとコメントをこの端末で非表示にします。"
+    },
+    {
+      "name": "image_block_title",
+      "value": "画像ブロック"
+    },
+    {
+      "name": "image_block_hint",
+      "value": "コミュニティ pHash ルールで広告ページを非表示にします。"
+    },
+    {
+      "name": "image_block_update_default",
+      "value": "コミュニティルールを更新"
+    },
+    {
+      "name": "image_block_update_default_hint",
+      "value": "よくある広告ページ用の erosTeam 既定購読を取得します。"
+    },
+    {
+      "name": "image_block_updating",
+      "value": "更新中"
+    },
+    {
+      "name": "image_block_no_subscriptions",
+      "value": "未インストール"
+    },
+    {
+      "name": "image_block_load_failed",
+      "value": "画像ブロックルールの読み込みに失敗しました"
+    },
+    {
+      "name": "image_block_update_started",
+      "value": "画像ブロックルールを更新中"
+    },
+    {
+      "name": "image_block_update_finished",
+      "value": "画像ブロックルールを更新しました"
+    },
+    {
+      "name": "image_block_update_failed",
+      "value": "画像ブロックルールの更新に失敗しました"
+    },
+    {
+      "name": "image_block_rules",
+      "value": "件のルール"
+    },
+    {
+      "name": "image_block_local_rules",
+      "value": "手動ブロック"
+    },
+    {
+      "name": "image_block_local_rules_hint",
+      "value": "Reader のブロックアイコンから追加し、ローカルで即時有効になります。"
+    },
+    {
+      "name": "image_block_local_rule_title",
+      "value": "手動 pHash ルール"
+    },
+    {
+      "name": "image_block_local_rule_delete_confirm",
+      "value": "このローカル画像ブロックルールを削除しますか？"
+    },
+    {
+      "name": "image_block_local_rule_deleted",
+      "value": "ローカル画像ブロックルールを削除しました"
+    },
+    {
+      "name": "image_block_local_rule_delete_failed",
+      "value": "ローカル画像ブロックルールの削除に失敗しました"
+    },
+    {
+      "name": "image_block_contribution_draft",
+      "value": "コミュニティ下書きをコピー"
+    },
+    {
+      "name": "image_block_contribution_draft_hint",
+      "value": "安定したギャラリーソース付きのルールだけを含めます。"
+    },
+    {
+      "name": "image_block_contribution_copied",
+      "value": "画像ブロック下書きをコピーしました"
+    },
+    {
+      "name": "image_block_contribution_empty",
+      "value": "提出できる手動ルールはありません"
+    },
+    {
+      "name": "image_block_contribution_failed",
+      "value": "画像ブロック下書きのコピーに失敗しました"
+    },
+    {
+      "name": "image_block_contribution_skipped",
+      "value": "スキップ"
+    },
+    {
+      "name": "image_block_contribution_missing_source",
+      "value": "ソースなし"
+    },
+    {
+      "name": "image_block_contribution_duplicate",
+      "value": "重複"
+    },
+    {
+      "name": "image_block_contribution_invalid",
+      "value": "無効"
+    },
+    {
+      "name": "image_block_whitelist",
+      "value": "許可した画像"
+    },
+    {
+      "name": "image_block_whitelist_hint",
+      "value": "誤検出でブロックされた画像を表示できるようにします。"
+    },
+    {
+      "name": "image_block_whitelist_hash_title",
+      "value": "許可済み画像"
+    },
+    {
+      "name": "image_block_whitelist_delete_confirm",
+      "value": "この許可済み画像を削除しますか？"
+    },
+    {
+      "name": "image_block_whitelist_deleted",
+      "value": "許可済み画像を削除しました"
+    },
+    {
+      "name": "image_block_whitelist_delete_failed",
+      "value": "許可済み画像の削除に失敗しました"
     },
     {
       "name": "local_block_score_filter",

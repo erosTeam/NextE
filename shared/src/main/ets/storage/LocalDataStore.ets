@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 10
+export const LOCAL_DATA_SCHEMA_VERSION: number = 13
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -12,7 +12,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'10\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'13\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -150,6 +150,68 @@ const SQL_CREATE_LOCAL_BLOCK_RULES_TABLE: string =
   ')'
 const SQL_CREATE_LOCAL_BLOCK_RULES_POSITION_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_local_block_rules_position ON local_block_rules (position_index ASC)'
+const SQL_CREATE_IMAGE_BLOCK_SUBSCRIPTIONS_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS image_block_subscriptions (' +
+    'scope_key TEXT, ' +
+    'feed_id TEXT, ' +
+    'title TEXT, ' +
+    'url TEXT, ' +
+    'algorithm TEXT, ' +
+    'default_threshold INTEGER, ' +
+    'updated_at INTEGER, ' +
+    'synced_at INTEGER, ' +
+    'sha256 TEXT, ' +
+    'rule_count INTEGER, ' +
+    'enabled INTEGER, ' +
+    'deleted_at INTEGER DEFAULT 0, ' +
+    'PRIMARY KEY(scope_key, feed_id)' +
+  ')'
+const SQL_CREATE_IMAGE_BLOCK_RULES_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS image_block_rules (' +
+    'scope_key TEXT, ' +
+    'rule_id TEXT, ' +
+    'hash TEXT, ' +
+    'threshold INTEGER, ' +
+    'label TEXT, ' +
+    'scope TEXT, ' +
+    'feed_id TEXT, ' +
+    'source_type TEXT, ' +
+    'source_url TEXT, ' +
+    'source_page INTEGER, ' +
+    'enabled INTEGER, ' +
+    'updated_at INTEGER, ' +
+    'deleted_at INTEGER DEFAULT 0, ' +
+    'PRIMARY KEY(scope_key, rule_id)' +
+  ')'
+const SQL_CREATE_IMAGE_BLOCK_RULES_HASH_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_image_block_rules_hash ON image_block_rules (hash)'
+const SQL_CREATE_IMAGE_BLOCK_RULES_FEED_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_image_block_rules_feed ON image_block_rules (feed_id, enabled)'
+const SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_URL: string =
+  'ALTER TABLE image_block_rules ADD COLUMN source_url TEXT'
+const SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_PAGE: string =
+  'ALTER TABLE image_block_rules ADD COLUMN source_page INTEGER'
+const SQL_CREATE_IMAGE_BLOCK_WHITELIST_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS image_block_whitelist (' +
+    'scope_key TEXT, ' +
+    'hash TEXT, ' +
+    'updated_at INTEGER, ' +
+    'deleted_at INTEGER DEFAULT 0, ' +
+    'PRIMARY KEY(scope_key, hash)' +
+  ')'
+const SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS image_block_hash_cache (' +
+    'scope_key TEXT, ' +
+    'file_path TEXT, ' +
+    'bytes INTEGER, ' +
+    'hash TEXT, ' +
+    'algorithm TEXT, ' +
+    'hashed_at INTEGER, ' +
+    'deleted_at INTEGER DEFAULT 0, ' +
+    'PRIMARY KEY(scope_key, file_path)' +
+  ')'
+const SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_HASH_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_image_block_hash_cache_hash ON image_block_hash_cache (hash)'
 const SQL_CREATE_CUSTOM_PROFILES_TABLE: string =
   'CREATE TABLE IF NOT EXISTS custom_profiles (' +
     'scope_key TEXT, ' +
@@ -325,6 +387,14 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_LOCAL_BLOCK_SETTINGS_TABLE)
     await store.executeSql(SQL_CREATE_LOCAL_BLOCK_RULES_TABLE)
     await store.executeSql(SQL_CREATE_LOCAL_BLOCK_RULES_POSITION_INDEX)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_SUBSCRIPTIONS_TABLE)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_TABLE)
+    await LocalDataStore.migrateImageBlockRuleSourceMetadata(store)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_HASH_INDEX)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_FEED_INDEX)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_WHITELIST_TABLE)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_HASH_INDEX)
     await LocalDataStore.migrateCustomProfilesUuidColumn(store)
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILES_TABLE)
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILES_POSITION_INDEX)
@@ -374,6 +444,17 @@ export class LocalDataStore {
       return
     }
     await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_PREFER_ORIGINAL)
+  }
+
+  private static async migrateImageBlockRuleSourceMetadata(store: relationalStore.RdbStore): Promise<void> {
+    const hasSourceUrl: boolean = await LocalDataStore.hasColumn(store, 'image_block_rules', 'source_url')
+    if (!hasSourceUrl) {
+      await store.executeSql(SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_URL)
+    }
+    const hasSourcePage: boolean = await LocalDataStore.hasColumn(store, 'image_block_rules', 'source_page')
+    if (!hasSourcePage) {
+      await store.executeSql(SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_PAGE)
+    }
   }
 
   private static async hasColumn(

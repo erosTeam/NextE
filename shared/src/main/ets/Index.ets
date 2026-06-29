@@ -20,6 +20,22 @@ export {
   DownloadGalleryTaskStatus,
   DownloadImageSeed,
 } from './model/DownloadGalleryTask'
+export {
+  IMAGE_BLOCK_ALGORITHM_DCT64_V1,
+  IMAGE_BLOCK_DEFAULT_MANIFEST_URL,
+  IMAGE_BLOCK_DEFAULT_THRESHOLD,
+  IMAGE_BLOCK_FEED_KIND,
+  IMAGE_BLOCK_MANIFEST_KIND,
+  IMAGE_BLOCK_MAX_THRESHOLD,
+  IMAGE_BLOCK_SCOPE_WHOLE,
+  IMAGE_BLOCK_SOURCE_LOCAL,
+  IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
+  ImageBlockDecision,
+  ImageBlockFeed,
+  ImageBlockFeedItem,
+  ImageBlockManifest,
+  ImageBlockRule,
+} from './model/ImageBlockRule'
 export { ViewedGallery } from './model/ViewedGallery'
 export { Favcat } from './model/Favcat'
 export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
@@ -123,6 +139,21 @@ export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from 
 export { UserProfileService, UserProfileInfo } from './services/UserProfileService'
 export { CommentTranslationService } from './services/CommentTranslationService'
 export { LocalBlockService } from './services/LocalBlockService'
+export { ImageBlockFeedParser } from './services/ImageBlockFeedParser'
+export { ImageBlockService } from './services/ImageBlockService'
+export {
+  ImageBlockContributionBatch,
+  ImageBlockContributionDraft,
+  ImageBlockContributionIssuePackage,
+  ImageBlockContributionService,
+} from './services/ImageBlockContributionService'
+export {
+  ImageBlockSubscriptionService,
+  ImageBlockSubscriptionUpdateResult,
+} from './services/ImageBlockSubscriptionService'
+export { ImageBlockRuntimeService } from './services/ImageBlockRuntimeService'
+export { PHashService } from './services/PHashService'
+export { ImageBlockRepository } from './storage/ImageBlockRepository'
 export { EhPageCacheService } from './services/EhPageCacheService'
 export { CacheStat } from './services/CacheStat'
 export { BackupService } from './backup/BackupService'
