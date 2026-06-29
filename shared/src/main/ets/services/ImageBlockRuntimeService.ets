@@ -85,6 +85,7 @@ export class ImageBlockRuntimeService {
   private static cachedWhitelist: string[] = []
   private static thumbnailColdChain: Promise<void> = Promise.resolve()
   private static thumbnailHashInFlight: Map<string, Promise<string>> = new Map<string, Promise<string>>()
+  private static thumbnailHashMemoryCache: Map<string, string> = new Map<string, string>()
 
   static async decisionForFile(
     context: common.UIAbilityContext,
@@ -140,6 +141,10 @@ export class ImageBlockRuntimeService {
       return empty
     }
     let hash: string = ''
+    const stableKey: string = ImageBlockRuntimeService.stableThumbnailHashKey(sourceKey)
+    if (stableKey.length > 0) {
+      hash = await ImageBlockRuntimeService.loadStableThumbnailHash(context, stableKey)
+    }
     const cached: CachedImageFileResult | null = ImageBlockRuntimeService.cachedThumbnailFile(
       context,
       thumbUrl,
@@ -149,7 +154,7 @@ export class ImageBlockRuntimeService {
       spriteWidth,
       spriteHeight,
     )
-    if (cached !== null) {
+    if (hash.length === 0 && cached !== null) {
       hash = await ImageBlockRuntimeService.hashForThumbnail(
         context,
         cached.filePath,
@@ -523,8 +528,10 @@ export class ImageBlockRuntimeService {
     )
     const inFlight: Promise<string> | undefined = ImageBlockRuntimeService.thumbnailHashInFlight.get(key)
     if (inFlight !== undefined) {
+      ImageBlockRuntimeService.logThumbHash('thumb_hash_queue_join', key)
       return inFlight
     }
+    ImageBlockRuntimeService.logThumbHash('thumb_hash_queue_enqueue', key)
     const task: Promise<string> = ImageBlockRuntimeService.loadAndHashThumbnailAfterPrevious(
       context,
       thumbUrl,
@@ -560,6 +567,7 @@ export class ImageBlockRuntimeService {
     })
     await previous
     try {
+      ImageBlockRuntimeService.logThumbHash('thumb_hash_queue_start', sourceKey.length > 0 ? sourceKey : thumbUrl)
       const cached: CachedImageFileResult = await ImageBlockRuntimeService.loadThumbnailFile(
         context,
         thumbUrl,
@@ -607,13 +615,21 @@ export class ImageBlockRuntimeService {
       spriteWidth,
       spriteHeight,
     )
+    const memoryHash: string | undefined = ImageBlockRuntimeService.thumbnailHashMemoryCache.get(regionKey)
+    if (memoryHash !== undefined && memoryHash.length > 0) {
+      ImageBlockRuntimeService.logThumbHash('thumb_hash_memory_hit', regionKey)
+      return memoryHash
+    }
     let hash: string = await ImageBlockRepository.loadCachedFileHash(context, regionKey, bytes)
     if (hash.length > 0) {
+      ImageBlockRuntimeService.thumbnailHashMemoryCache.set(regionKey, hash)
+      ImageBlockRuntimeService.logThumbHash('thumb_hash_store_hit', regionKey)
       return hash
     }
     if (!computeWhenMissing) {
       return ''
     }
+    ImageBlockRuntimeService.logThumbHash('thumb_hash_compute_start', regionKey)
     if (spriteWidth > 0 && thumbWidth > 0 && thumbHeight > 0) {
       hash = await PHashService.hashImageFileRegionDct64(filePath, offsetX, 0, thumbWidth, thumbHeight)
     } else {
@@ -621,8 +637,36 @@ export class ImageBlockRuntimeService {
     }
     if (hash.length > 0) {
       await ImageBlockRepository.upsertFileHash(context, regionKey, bytes, hash)
+      ImageBlockRuntimeService.thumbnailHashMemoryCache.set(regionKey, hash)
+      ImageBlockRuntimeService.logThumbHash('thumb_hash_compute_done', regionKey)
+    } else {
+      ImageBlockRuntimeService.logThumbHash('thumb_hash_compute_miss', regionKey)
     }
     return hash
+  }
+
+  private static async loadStableThumbnailHash(
+    context: common.UIAbilityContext,
+    stableKey: string,
+  ): Promise<string> {
+    const memoryHash: string | undefined = ImageBlockRuntimeService.thumbnailHashMemoryCache.get(stableKey)
+    if (memoryHash !== undefined && memoryHash.length > 0) {
+      return memoryHash
+    }
+    const hash: string = await ImageBlockRepository.loadCachedFileHashByPath(context, stableKey)
+    if (hash.length > 0) {
+      ImageBlockRuntimeService.thumbnailHashMemoryCache.set(stableKey, hash)
+      ImageBlockRuntimeService.logThumbHash('thumb_hash_stable_hit', stableKey)
+    }
+    return hash
+  }
+
+  private static stableThumbnailHashKey(sourceKey: string): string {
+    return sourceKey.length > 0 ? `eh-thumb:${sourceKey}` : ''
+  }
+
+  private static logThumbHash(event: string, key: string): void {
+    DiagnosticLogger.info('image-block', event, `key=${DiagnosticLogger.ownerHash(key)}`)
   }
 
   private static thumbnailHashKey(
@@ -635,7 +679,7 @@ export class ImageBlockRuntimeService {
     spriteHeight: number,
   ): string {
     if (sourceKey.length > 0) {
-      return `eh-thumb:${sourceKey}`
+      return ImageBlockRuntimeService.stableThumbnailHashKey(sourceKey)
     }
     return `${fallback}#thumb-v2:${thumbWidth}:${thumbHeight}:${offsetX}:${spriteWidth}:${spriteHeight}`
   }

@@ -27,6 +27,9 @@ interface SpriteLoadEvent {
   width?: number
   height?: number
 }
+
+const IMAGE_BLOCK_COMPUTE_DELAY_MS: number = 120
+
 @ComponentV2
 export struct EhSpriteThumbnail {
   @Param url: string = '';
@@ -58,9 +61,11 @@ export struct EhSpriteThumbnail {
   @Local imageBlockRuntime: ImageBlockRuntimeState = connectImageBlockRuntime();
   private blockSeq: number = 0;
   private lastBlockKey: string = '';
+  private computeTimerId: number = 0;
 
   @Monitor('url')
   onUrlChange() {
+    this.clearComputeTimer()
     this.sheetRealW = 0
     this.sheetRealH = 0
     this.imageBlocked = false
@@ -85,6 +90,11 @@ export struct EhSpriteThumbnail {
 
   aboutToAppear(): void {
     this.checkImageBlock()
+  }
+
+  aboutToDisappear(): void {
+    this.clearComputeTimer()
+    this.blockSeq++
   }
 
   // Sprite scale factor: thumb's source dimension → its display dimension.
@@ -175,7 +185,25 @@ export struct EhSpriteThumbnail {
       this.sheetRealW = event.width
       this.sheetRealH = event.height
     }
-    this.checkImageBlock(true)
+    this.scheduleImageBlockCompute()
+  }
+
+  private scheduleImageBlockCompute(): void {
+    this.clearComputeTimer()
+    if (!this.enableImageBlock || this.url.length === 0) {
+      return
+    }
+    this.computeTimerId = setTimeout((): void => {
+      this.computeTimerId = 0
+      this.checkImageBlock(true)
+    }, IMAGE_BLOCK_COMPUTE_DELAY_MS)
+  }
+
+  private clearComputeTimer(): void {
+    if (this.computeTimerId > 0) {
+      clearTimeout(this.computeTimerId)
+      this.computeTimerId = 0
+    }
   }
 
   @Builder

@@ -60,6 +60,9 @@ const SQL_SELECT_LOCAL_RULES: string =
 const SQL_SELECT_FILE_HASH: string =
   'SELECT hash FROM image_block_hash_cache ' +
   'WHERE scope_key = ? AND file_path = ? AND bytes = ? AND algorithm = ? AND COALESCE(deleted_at, 0) = 0'
+const SQL_SELECT_FILE_HASH_BY_PATH: string =
+  'SELECT hash FROM image_block_hash_cache ' +
+  'WHERE scope_key = ? AND file_path = ? AND algorithm = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_UPSERT_SUBSCRIPTION: string =
   'INSERT INTO image_block_subscriptions ' +
   '(scope_key, feed_id, title, url, algorithm, default_threshold, updated_at, synced_at, sha256, rule_count, enabled, deleted_at) ' +
@@ -291,6 +294,29 @@ export class ImageBlockRepository {
       SCOPE_GLOBAL,
       filePath,
       bytes,
+      IMAGE_BLOCK_ALGORITHM_DCT64_V1,
+    ])
+    try {
+      if (resultSet.goToNextRow()) {
+        return PHashService.normalizeHex64(ImageBlockRepository.stringColumn(resultSet, 'hash'))
+      }
+    } finally {
+      resultSet.close()
+    }
+    return ''
+  }
+
+  static async loadCachedFileHashByPath(
+    context: common.UIAbilityContext,
+    filePath: string,
+  ): Promise<string> {
+    if (filePath.length === 0) {
+      return ''
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_FILE_HASH_BY_PATH, [
+      SCOPE_GLOBAL,
+      filePath,
       IMAGE_BLOCK_ALGORITHM_DCT64_V1,
     ])
     try {
