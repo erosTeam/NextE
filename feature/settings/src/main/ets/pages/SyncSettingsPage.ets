@@ -300,30 +300,35 @@ export struct SyncSettingsPage {
               this.settings.datasetReadProgress,
               'readProgress',
             )
+            this.rowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_viewed_history'),
               $r('app.string.sync_dataset_viewed_history_hint'),
               this.settings.datasetViewedHistory,
               'viewedHistory',
             )
+            this.rowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_local_favorites'),
               $r('app.string.sync_dataset_local_favorites_hint'),
               this.settings.datasetLocalFavorites,
               'localFavorites',
             )
+            this.rowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_search_history'),
               $r('app.string.sync_dataset_search_history_hint'),
               this.settings.datasetSearchHistory,
               'searchHistory',
             )
+            this.rowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_local_block'),
               $r('app.string.sync_dataset_local_block_hint'),
               this.settings.datasetLocalBlock,
               'localBlock',
             )
+            this.rowDivider()
             this.DatasetRow(
               $r('app.string.sync_dataset_custom_profiles'),
               $r('app.string.sync_dataset_custom_profiles_hint'),
