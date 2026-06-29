@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppStrings,
   COMMENT_TRANSLATION_DISPLAY_BILINGUAL,
@@ -32,10 +32,15 @@ export struct TranslationSettingsPage {
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
     this.apiUrlDraft = this.settings.apiUrl
     this.apiKeyDraft = this.settings.apiKey
     this.modelDraft = this.settings.model
     this.refreshCacheCount()
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
   private ctx(): common.UIAbilityContext {

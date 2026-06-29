@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppStrings,
   ArchiveBotBalanceResult,
@@ -35,8 +35,13 @@ export struct DownloadSettingsPage {
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
     this.archiveBotAddressDraft = this.downloadSettings.archiveBotAddress
     this.archiveBotApiKeyDraft = this.downloadSettings.archiveBotApiKey
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
   private ctx(): common.UIAbilityContext {

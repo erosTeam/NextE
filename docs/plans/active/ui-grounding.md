@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: non-sheet input keyboard avoidance
+
+Status: active
+Reference implementation: `feature/search/src/main/ets/pages/GallerySearchPage.ets`, `feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets`, and `feature/home/src/main/ets/pages/TabEditPage.ets` page-level `KeyboardAvoidMode.RESIZE` / `OFFSET` lifecycle handling.
+Surface type: pushed full-page input/settings surfaces only; half-modal input fields keep their existing `SheetKeyboardAvoidMode` handling and are excluded from this pass.
+Primary information: focused text fields in WebDAV, download, translation, EH profile, password login, and cookie import pages remain visible when the soft keyboard opens.
+Primary action: focus a field near the lower part of the page and continue editing without the keyboard covering the input.
+Reuse or deviation: reuse the existing page lifecycle keyboard-avoid pattern; do not add manual keyboard-height padding, sheet parameters, or input layout changes.
+Verification: static input scan excluding sheet-hosted fields, UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and simulator/phone smoke for WebDAV field focus.
+
 ## Active: gallery archiver half-modal
 
 Status: active

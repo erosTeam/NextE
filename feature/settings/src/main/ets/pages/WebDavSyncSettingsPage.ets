@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit'
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppStrings,
@@ -28,9 +29,14 @@ export struct WebDavSyncSettingsPage {
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
     this.webdavUrlDraft = this.settings.webdavUrl
     this.webdavUsernameDraft = this.settings.webdavUsername
     this.webdavPasswordDraft = this.settings.webdavPassword
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
   private ctx(): common.UIAbilityContext {

@@ -1,5 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import {
   EhConstants,
   CookieJarSettings,
@@ -28,6 +29,14 @@ export struct EhCookieImportPage {
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local cookieText: string = '';
   @Local submitting: boolean = false;
+
+  aboutToAppear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
+  }
 
   build() {
     HdsNavDestination() {
