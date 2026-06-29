@@ -18,7 +18,7 @@ import {
   LocalBlockRuleSnapshot,
   LocalBlockSettingsSnapshot,
 } from '../storage/LocalBlockRepository'
-import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
+import { SyncScheduler } from '../sync/SyncScheduler'
 
 export class LocalBlockSettings {
   private static bumpVersion(state: LocalBlockState): void {
@@ -127,7 +127,7 @@ export class LocalBlockSettings {
   static async save(context: common.UIAbilityContext): Promise<void> {
     try {
       await LocalBlockRepository.replaceAll(context, LocalBlockSettings.current())
-      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'local_block')
+      SyncScheduler.requestAfterLocalWrite(context, 'local_block')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'local_block_save_failed', (error as Error).message)
     }
@@ -145,7 +145,7 @@ export class LocalBlockSettings {
     await LocalBlockRepository.replaceAll(context, snapshot)
     await LocalBlockSettings.deleteLegacyPreference(context)
     LocalBlockSettings.apply(await LocalBlockRepository.load(context))
-    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'local_block_restore_backup')
+    SyncScheduler.requestAfterLocalWrite(context, 'local_block_restore_backup')
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {

@@ -4,7 +4,7 @@ import { connectSearchHistory } from '../state/SearchHistoryState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { SearchHistoryRepository } from '../storage/SearchHistoryRepository'
-import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
+import { SyncScheduler } from '../sync/SyncScheduler'
 
 const MAX_HISTORY: number = 100
 
@@ -40,7 +40,7 @@ export class SearchHistorySettings {
     connectSearchHistory().items = []
     await SearchHistoryRepository.replaceAll(context, [])
     await SearchHistorySettings.deleteLegacyPreference(context)
-    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'search_history_clear')
+    SyncScheduler.requestAfterLocalWrite(context, 'search_history_clear')
   }
 
   /** Remove one query from history, preserving the rest in order. */
@@ -62,7 +62,7 @@ export class SearchHistorySettings {
   private static async persist(context: common.UIAbilityContext, items: string[]): Promise<void> {
     try {
       await SearchHistoryRepository.replaceAll(context, items)
-      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'search_history')
+      SyncScheduler.requestAfterLocalWrite(context, 'search_history')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'searchhistory_save_failed', (error as Error).message)
     }
@@ -77,7 +77,7 @@ export class SearchHistorySettings {
     await SearchHistoryRepository.replaceAll(context, SearchHistorySettings.normalize(items))
     await SearchHistorySettings.deleteLegacyPreference(context)
     connectSearchHistory().items = await SearchHistoryRepository.load(context, MAX_HISTORY)
-    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'search_history_restore_backup')
+    SyncScheduler.requestAfterLocalWrite(context, 'search_history_restore_backup')
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {

@@ -13,6 +13,7 @@ import {
   InternalQaRoutes,
   HuaweiCloudSyncService,
   HuaweiCloudSyncScheduler,
+  SyncScheduler,
 } from 'shared'
 
 const TRANSPARENT_COLOR: string = '#00FFFFFF'
@@ -36,7 +37,7 @@ export default class EntryAbility extends UIAbility {
     HuaweiCloudSyncScheduler.bindExecutor((context: common.UIAbilityContext, reason: string) => {
       return HuaweiCloudSyncService.runScheduledSync(context, reason)
     })
-    HuaweiCloudSyncScheduler.rememberContext(this.context)
+    SyncScheduler.rememberContext(this.context)
     AppStrings.init(this.context)
     DiagnosticLogger.initializePersistentSink(this.context)
     DiagnosticLogger.info('app', 'session_start', 'EntryAbility.onCreate')
@@ -86,11 +87,11 @@ export default class EntryAbility extends UIAbility {
       DiagnosticLogger.warn('app', 'configure_window_failed', e.message)
     }
     SettingsBootstrap.loadAll(this.context).finally(() => {
-      HuaweiCloudSyncScheduler.rememberContext(this.context)
+      SyncScheduler.rememberContext(this.context)
       HuaweiCloudSyncService.tryEnableStartup(this.context).catch((error: Error) => {
         DiagnosticLogger.warn('sync', 'huawei_cloud_startup_failed', error.message)
       })
-      HuaweiCloudSyncScheduler.requestAfterForeground(this.context, 'startup')
+      SyncScheduler.requestAfterForeground(this.context, 'startup')
       // Subscribe grip detection + resolve the Read-button edge now that the alignment mode is restored,
       // so the floating button mounts on the correct side without a post-load hop.
       MotionHandStateService.start()
@@ -121,8 +122,8 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
-    HuaweiCloudSyncScheduler.rememberContext(this.context)
-    HuaweiCloudSyncScheduler.requestAfterForeground(this.context, 'foreground')
+    SyncScheduler.rememberContext(this.context)
+    SyncScheduler.requestAfterForeground(this.context, 'foreground')
   }
 
   private refreshSafeAreaInsets(win: window.Window, uiCtx: UIContext): void {

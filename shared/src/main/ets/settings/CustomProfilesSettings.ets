@@ -19,7 +19,7 @@ import {
   STARTER_ANTHOLOGY_UUID,
 } from '../model/CustomProfile'
 import { CustomProfilesRepository } from '../storage/CustomProfilesRepository'
-import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
+import { SyncScheduler } from '../sync/SyncScheduler'
 
 /** Flat persisted snapshot of a CustomProfile (every field, plain types, safe defaults). */
 class CustomProfileSnapshot {
@@ -225,7 +225,7 @@ export class CustomProfilesSettings {
     connectCustomProfiles().selectedUuid = uuid
     try {
       await CustomProfilesRepository.saveSelected(context, uuid)
-      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'custom_profile_selection')
+      SyncScheduler.requestAfterLocalWrite(context, 'custom_profile_selection')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_select_failed', (error as Error).message)
     }
@@ -251,7 +251,7 @@ export class CustomProfilesSettings {
     const state: CustomProfilesState = connectCustomProfiles()
     state.profiles = await CustomProfilesRepository.loadProfiles(context)
     state.selectedUuid = await CustomProfilesRepository.loadSelected(context)
-    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'custom_profiles_restore_backup')
+    SyncScheduler.requestAfterLocalWrite(context, 'custom_profiles_restore_backup')
   }
 
   // ---- internals ----
@@ -260,7 +260,7 @@ export class CustomProfilesSettings {
     try {
       const state: CustomProfilesState = connectCustomProfiles()
       await CustomProfilesRepository.replaceAll(context, state.profiles, state.selectedUuid)
-      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'custom_profiles')
+      SyncScheduler.requestAfterLocalWrite(context, 'custom_profiles')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_save_failed', (error as Error).message)
     }
