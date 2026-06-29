@@ -90,10 +90,10 @@ export struct HomeSourceBar {
             .fontSize(ThemeConstants.FONT_SIZE_TITLE)
             .fontColor([$r('sys.color.font_secondary')])
         }
+        .buttonStyle(ButtonStyleMode.NORMAL)
         .width(28)
         .height(28)
         .margin({ left: ThemeConstants.SPACE_XS, right: ThemeConstants.SPACE_SM })
-        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
         .alignSelf(ItemAlign.Start)
         // Fine nudge so the chip's center matches the top-aligned tab labels' baseline exactly.
         .offset({ y: -2 })

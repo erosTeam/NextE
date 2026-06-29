@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: home source trailing action theme
+
+Status: active
+Reference implementation: `feature/gallery/src/main/ets/components/GalleryTagsCard.ets` tag-info circle actions and `shared/src/main/ets/components/AppModalScaffold.ets` footer circle actions using native `ButtonStyleMode.NORMAL`.
+Surface type: Home custom SubTab source bar trailing manage action only.
+Primary information: the pinned manage button stays a secondary affordance beside the scrollable SubTab labels.
+Primary action: tap the trailing list icon to open custom SubTab management.
+Reuse or deviation: reuse native normal circle button theming and existing `font_secondary` icon tint; remove the page-local `ohos_id_color_button_normal` background override that stayed black in dark mode.
+Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and dark/light visual smoke.
+
 ## Active: image block visual management
 
 Status: active
