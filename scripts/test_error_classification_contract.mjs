@@ -114,9 +114,10 @@ function classify(reqUrl, isEx, resp, page) {
   }
   const trimmed = body.trim()
   if (trimmed.length === 0) return isEx ? KIND.SadPanda : KIND.EmptyBody
-  if (looksDedicatedLoginPage(body)) return KIND.LoginRequired
-  if (hasMarker(body, page)) return null
+  if (page !== 'generic' && hasMarker(body, page)) return null
   if (page === 'list' && looksListNoResults(body)) return null
+  if (looksDedicatedLoginPage(body)) return KIND.LoginRequired
+  if (page === 'generic' && hasMarker(body, page)) return null
   if (looksCloudflare(body)) return KIND.Cloudflare
   if (looksLogin(body)) return KIND.LoginRequired
   if (looksBanned(body)) return KIND.RateLimited
@@ -138,6 +139,8 @@ const eq = (name, got, want) => {
 // --- Synthetic bodies (HARD gate; representative of each EH failure mode) ---
 const SYN = {
   validDetail: '<html><h1 id="gn">A Title</h1><div id="gdt">...</div></html>',
+  validDetailWithLoginLink: '<html><a href="https://e-hentai.org/bounce_login.php">x</a>'
+    + '<h1 id="gn">A Title</h1><div id="gdt">...</div></html>',
   validList: '<html><table class="itg gltc"><tr></tr></table>'
     + '<a href="https://forums.e-hentai.org/index.php?act=Login">Login</a></html>', // top-bar login link MUST NOT trip LoginRequired
   zeroResultList: '<html><body><div class="ido"><p>No hits found</p></div>'
@@ -159,6 +162,7 @@ const SYN = {
 
 // 1. Valid pages → usable (null); logged-out list with a top-bar act=Login link is NOT LoginRequired.
 eq('valid detail 200 → usable', classify('https://e-hentai.org/g/1/a/', false, resp(200, SYN.validDetail), 'detail'), null)
+eq('valid detail 200 with bounce login link → usable', classify('https://e-hentai.org/g/1/a/', false, resp(200, SYN.validDetailWithLoginLink), 'detail'), null)
 eq('valid ex detail 200 → usable', classify('https://exhentai.org/g/1/a/', true, resp(200, SYN.validDetail), 'detail'), null)
 eq('valid list 200 (with top-bar login link) → usable, NOT LoginRequired', classify('https://e-hentai.org/', false, resp(200, SYN.validList), 'list'), null)
 eq('zero-result list 200 → usable empty list, NOT ParseFailure/LoginRequired', classify('https://e-hentai.org/?f_search=zzzz', false, resp(200, SYN.zeroResultList), 'list'), null)
@@ -235,7 +239,8 @@ for (const [name, isEx, page] of [
   // NotFound — this is the auth/visibility-completeness gate (donor / ExHentai-only / incomplete-cookie).
   ok('classifier: removed-or-unavailable → MaybeHidden', /looksRemovedOrUnavailable\(body\)[\s\S]*?EhErrorKind\.MaybeHidden/.test(clsSrc))
   ok('classifier: marker-first on 200', /hasMarker\(body, page\)\s*\)\s*\{\s*return null/.test(clsSrc))
-  ok('classifier: dedicated login page is checked before generic marker success', /looksDedicatedLoginPage\(body\)[\s\S]*?EhErrorKind\.LoginRequired[\s\S]*?hasMarker\(body, page\)/.test(clsSrc))
+  ok('classifier: list/detail marker wins before dedicated-login sniff', /page !== 'generic' && EhErrorClassifier\.hasMarker\(body, page\)[\s\S]*?return null[\s\S]*?looksDedicatedLoginPage\(body\)/.test(clsSrc))
+  ok('classifier: dedicated login page is checked before generic marker success', /looksDedicatedLoginPage\(body\)[\s\S]*?EhErrorKind\.LoginRequired[\s\S]*?page === 'generic' && EhErrorClassifier\.hasMarker\(body, page\)/.test(clsSrc))
   ok('classifier: 429/509 → RateLimited', /status === 429 \|\| status === 509/.test(clsSrc))
   ok('classifier: transport wrapper', /static network\(/.test(clsSrc))
 }

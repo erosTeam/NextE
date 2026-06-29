@@ -87,26 +87,26 @@ export class EhErrorClassifier {
         EhErrorClassifier.dev(isEx ? 'sad-panda-empty' : 'empty-body', page, status, host),
       )
     }
+    // A real list/detail page carries its positive marker (a /g/ header or a gltc table). Trust it and
+    // skip login-link sniffing: EH can include bounce/login links in otherwise valid pages, and those are
+    // not auth failures. `generic` keeps the old stricter path below so archiver login forms still fail.
+    if (page !== 'generic' && EhErrorClassifier.hasMarker(body, page)) {
+      return null
+    }
+    // A valid EH search with zero matches may render no `class="itg"` result table at all. Treat that
+    // as a usable empty list before the logged-out top-bar `act=Login` link can be misread as auth failure.
+    if (page === 'list' && EhErrorClassifier.looksListNoResults(body)) {
+      return null
+    }
     // `generic` pages intentionally skip the positive-marker check (image pages, api.php, archiver),
-    // but a dedicated login form is still a hard auth failure. Keep this stricter than looksLogin():
-    // real logged-out list/detail pages contain a top-bar act=Login link, while archiver.php can return
-    // a full "This page requires you to log on" form with HTTP 200.
+    // but a dedicated login form is still a hard auth failure. Keep this stricter than looksLogin().
     if (EhErrorClassifier.looksDedicatedLoginPage(body)) {
       return new EhError(
         EhErrorKind.LoginRequired,
         EhErrorClassifier.dev('login', page, status, host),
       )
     }
-    // A real page carries its positive marker (a /g/ header or a gltc table) — trust it and SKIP the
-    // sentinel sniff. This is marker-first on purpose: every logged-out EH page has a top-bar
-    // "act=Login" link, so running the login sniff before the marker check would misread a valid
-    // logged-out list/detail as LoginRequired. Sentinels only run on a body that lacks the marker.
-    if (EhErrorClassifier.hasMarker(body, page)) {
-      return null
-    }
-    // A valid EH search with zero matches may render no `class="itg"` result table at all. Treat that
-    // as a usable empty list before the logged-out top-bar `act=Login` link can be misread as auth failure.
-    if (page === 'list' && EhErrorClassifier.looksListNoResults(body)) {
+    if (page === 'generic' && EhErrorClassifier.hasMarker(body, page)) {
       return null
     }
     if (EhErrorClassifier.looksCloudflare(body)) {

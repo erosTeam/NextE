@@ -431,3 +431,13 @@ Primary information: the intro image itself is the primary visual; its white rou
 Primary action: no new action; the sheet still only supports close, vote, and My Tags management.
 Reuse or deviation: reuse the existing two-column image masonry and rounded image component; deviate from the old URL-only ratio guess by replacing the fallback aspect ratio with decoded image width/height from `Image.onComplete` when available.
 Verification: gallery tag-info contract, UI grounding contract, V1 decorator inventory, and current tag-info sheet screenshots with landscape and portrait intro images.
+
+## Active: WebView login cookie handoff
+
+Status: active
+Reference implementation: `entry/src/main/ets/pages/EhLoginWebPage.ets`, `entry/src/main/ets/pages/GalleryWebPage.ets` cookie-domain merge, and `shared/src/main/ets/settings/CookieJarSettings.ets` `refreshIgneous()` / complete-jar persistence.
+Surface type: WebView login completion flow plus Home custom-profile source restoration.
+Primary information: after login, the app must hold a native cookie jar that covers table-site, ExHentai, and forums cookies; after app/profile restore, built-in Home sources must still include the login-gated watched/subscription profile.
+Primary action: the user signs in in the WebView and returns to the native app; selecting the subscription source loads `/watched`, and tapping a gallery opens native detail with the same authenticated request stack.
+Reuse or deviation: reuse the existing WebView login form, complete `CookieJarSettings` jar writer, `refreshIgneous()` uconfig fetch, and `CustomProfilesSettings` built-in profile model; deviate only by collecting the ExHentai WebCookieManager domain during login and repairing missing built-in profiles from old/synced data.
+Verification: web-login cookie capture contract, custom-profiles contract, cookie round-trip/set-cookie contracts, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and emulator auth-path logs when a real account is available.

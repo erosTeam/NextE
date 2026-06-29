@@ -132,6 +132,27 @@ export struct EhLoginWebPage {
       var submit=form.querySelector('input[type=submit],button[type=submit]');
       var capSel='.g-recaptcha,[data-sitekey],iframe[src*=recaptcha],iframe[src*=captcha],[class*=captcha],[class*=recaptcha],[id*=captcha]';
       var cap=form.querySelector(capSel);
+      function cleanText(v){ return (v||'').replace(/\\s+/g,' ').trim(); }
+      function visibleText(n){ return cleanText(n && n.textContent ? n.textContent : ''); }
+      function addNoticeText(out, text){
+        var t=cleanText(text); if(!t || t.length<4) return;
+        if(t.indexOf(${sHint})>=0) return;
+        if(out.indexOf(t)>=0) return;
+        out.push(t);
+      }
+      function loginNotice(){
+        var out=[];
+        Array.prototype.forEach.call(document.querySelectorAll('.message,.error,.warning,.ipsMessage,.row1,.row2,td,p,div'), function(n){
+          if(out.length>=3) return;
+          if(n.querySelector && n.querySelector('input,button,iframe,script,style')) return;
+          var t=visibleText(n);
+          if(/(incorrect|invalid|failed|failure|must enter|please enter|required|captcha|verify|verification|security|验证码|验证|错误|失败|请输入|必须)/i.test(t)){
+            addNoticeText(out,t);
+          }
+        });
+        return out.join('\\n').substring(0,420);
+      }
+      var noticeText=loginNotice();
       var mv=document.querySelector('meta[name=viewport]');
       if(!mv){mv=document.createElement('meta');mv.name='viewport';document.getElementsByTagName('head')[0].appendChild(mv);}
       mv.setAttribute('content','width=device-width, initial-scale=1');
@@ -142,6 +163,9 @@ export struct EhLoginWebPage {
       var box=document.createElement('div'); box.id='nx-box';
       form.insertBefore(box, form.firstChild);
       var hint=document.createElement('div');hint.className='nx-hint';hint.textContent=${sHint};box.appendChild(hint);
+      if(noticeText){
+        var notice=document.createElement('div');notice.className='nx-notice';notice.textContent=noticeText;box.appendChild(notice);
+      }
       function field(inp){var w=document.createElement('div');w.className='nx-field';w.appendChild(inp);box.appendChild(w);return w;}
       if(user){user.setAttribute('placeholder',${sUser});field(user);}
       pw.setAttribute('placeholder',${sPass});
@@ -164,6 +188,7 @@ export struct EhLoginWebPage {
         "html,body{background:#F1F3F5!important;margin:0!important;padding:0!important;font-family:-apple-system,'HarmonyOS Sans',sans-serif!important;-webkit-text-size-adjust:100%!important;}",
         "#nx-box{margin:0 auto!important;padding:16px!important;display:block!important;}",
         "#nx-box .nx-hint{font-size:14px!important;color:#8A8F99!important;padding:2px 6px 18px!important;line-height:1.5!important;}",
+        "#nx-box .nx-notice{font-size:14px!important;color:#B42318!important;background:#FFF1F0!important;border-radius:14px!important;padding:10px 12px!important;margin:0 0 16px!important;line-height:1.45!important;white-space:pre-wrap!important;}",
         "#nx-box .nx-field{margin:0 0 16px!important;}",
         "#nx-box input[type=text],#nx-box input[type=password]{font-size:16px!important;width:100%!important;height:48px!important;box-sizing:border-box!important;padding:0 18px!important;border:none!important;border-radius:19px!important;background:#fff!important;color:#1A1A1A!important;outline:none!important;-webkit-appearance:none!important;}",
         "#nx-box input::placeholder{color:#9AA0A8!important;}",
@@ -195,17 +220,10 @@ export struct EhLoginWebPage {
         // best-effort flush; fetch below still reads whatever is committed
       }
     }
-    let header: string = ''
-    try {
-      const ehCookie: string = await webview.WebCookieManager.fetchCookie(EhConstants.EH_BASE_URL)
-      const forumCookie: string = await webview.WebCookieManager.fetchCookie(
-        'https://forums.e-hentai.org',
-      )
-      header = `${ehCookie}; ${forumCookie}`
-    } catch (e) {
-      DiagnosticLogger.warn('auth', 'web_login_fetch_cookie_failed', (e as Error).message)
-      return
-    }
+    const ehCookie: string = await this.fetchWebCookie(EhConstants.EH_BASE_URL, 'eh')
+    const exCookie: string = await this.fetchWebCookie(EhConstants.EX_BASE_URL, 'ex')
+    const forumCookie: string = await this.fetchWebCookie(EhConstants.FORUMS_BASE_URL, 'forums')
+    const header: string = `${ehCookie}; ${exCookie}; ${forumCookie}`
     // Peek for the identity cookies WITHOUT mutating the jar, so a still-loading page never half-applies.
     const member: string = CookieJarSettings.parseCookieValue(header, EhConstants.COOKIE_MEMBER_ID)
     const pass: string = CookieJarSettings.parseCookieValue(header, EhConstants.COOKIE_PASS_HASH)
@@ -219,6 +237,7 @@ export struct EhLoginWebPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     await CookieJarSettings.save(ctx)
+    this.refreshIgneousAfterLogin(ctx)
     this.profileCaptureStarted = true
     this.loading = true
     try {
@@ -227,6 +246,25 @@ export struct EhLoginWebPage {
       DiagnosticLogger.warn('auth', 'web_login_profile_load_failed', (e as Error).message)
       this.finishLogin()
     }
+  }
+
+  private async fetchWebCookie(url: string, hostLabel: string): Promise<string> {
+    try {
+      return await webview.WebCookieManager.fetchCookie(url)
+    } catch (e) {
+      DiagnosticLogger.warn(
+        'auth',
+        'web_login_fetch_cookie_failed',
+        `host=${hostLabel} ${(e as Error).message}`,
+      )
+      return ''
+    }
+  }
+
+  private refreshIgneousAfterLogin(ctx: common.UIAbilityContext): void {
+    CookieJarSettings.refreshIgneous(ctx).then((unlocked: boolean) => {
+      DiagnosticLogger.info('auth', 'web_login_igneous_refresh_done', `unlocked=${unlocked}`)
+    })
   }
 
   private async finishLoginWithProfile(): Promise<void> {

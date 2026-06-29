@@ -78,11 +78,12 @@ must(
   'zh_CN starter Chinese custom profile label must be 中文',
 )
 must(settings.includes('migrateStarterNames(profiles)') &&
+  settings.includes('ensureBuiltins(migratedProfiles)') &&
   settings.includes("p.searchText === 'language:chinese' && p.name === '汉化'") &&
   settings.includes("c.name = AppStrings.get('tab_seed_chinese')") &&
   settings.includes('return changed ? out : profiles') &&
-  settings.includes('if (migratedProfiles !== profiles || normalized.changed)'),
-  'legacy 汉化 starter name must migrate to the localized tab_seed_chinese label and persist only changed restore output')
+  settings.includes('if (migratedProfiles !== profiles || builtinProfiles !== migratedProfiles || normalized.changed)'),
+  'legacy 汉化 starter name and missing builtins must migrate and persist only changed restore output')
 {
   const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
   const repo = read('shared/src/main/ets/storage/CustomProfilesRepository.ets')
@@ -109,7 +110,17 @@ must(settings.includes('migrateStarterNames(profiles)') &&
   must(settings.includes(u), `seedDefaults() missing builtin uuid: ${u}`),
 )
 must(
-  settings.includes('normalizeStarterProfiles(migratedProfiles, selected)') &&
+  settings.includes('private static ensureBuiltins') &&
+    settings.includes('addMissingBuiltin(') &&
+    settings.includes('normalizeBuiltin(') &&
+    settings.includes('builtinListType(') &&
+    settings.includes('BUILTIN_WATCHED_UUID') &&
+    settings.includes("AppStrings.get('home_source_watched')") &&
+    settings.includes('PROFILE_TYPE_WATCHED'),
+  'restore must repair old/synced profile rows that are missing the built-in watched/subscription tab',
+)
+must(
+  settings.includes('normalizeStarterProfiles(builtinProfiles, selected)') &&
     settings.includes('canonicalStarterUuid(p)') &&
     settings.includes("p.searchText === 'language:chinese'") &&
     settings.includes("p.searchText === 'other:anthology'") &&

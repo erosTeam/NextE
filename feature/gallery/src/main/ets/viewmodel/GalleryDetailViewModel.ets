@@ -10,6 +10,7 @@ import {
   connectSiteMode,
   DiagnosticLogger,
   EhErrorText,
+  EhCookieStore,
   TagTranslationService,
   connectTagTranslationSettings,
   TagGroup,
@@ -65,7 +66,12 @@ export class GalleryDetailViewModel {
       this.loaded = true
     } catch (err) {
       this.error = EhErrorText.forUser(err)
-      DiagnosticLogger.warn('gallery', 'detail_load_failed', (err as Error).message)
+      const cookieStore: EhCookieStore = EhCookieStore.getInstance()
+      DiagnosticLogger.warn(
+        'gallery',
+        'detail_load_failed',
+        `${(err as Error).message} login=${cookieStore.isLogin()} cookies=${cookieStore.nameSummary()}`,
+      )
     }
     this.loading = false
   }
