@@ -3706,7 +3706,7 @@
     },
     {
       "name": "sync_dataset_local_block_hint",
-      "value": "ローカルのブロックルールとコメントフィルター設定"
+      "value": "タグ、コメント、画像のブロックルール"
     },
     {
       "name": "sync_dataset_custom_profiles",

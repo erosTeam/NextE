@@ -3706,7 +3706,7 @@
     },
     {
       "name": "sync_dataset_local_block_hint",
-      "value": "本地屏蔽规则和评论过滤设置"
+      "value": "标签、评论和图片屏蔽规则"
     },
     {
       "name": "sync_dataset_custom_profiles",

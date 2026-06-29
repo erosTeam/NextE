@@ -30,7 +30,7 @@ assert.match(phash, /clampThreshold/, 'threshold clamp exists')
 
 const service = read('shared/src/main/ets/services/ImageBlockService.ets')
 assert.match(service, /decisionForHash/, 'hash decision API exists')
-assert.match(service, /isWhitelisted/, 'whitelist check exists before blocking')
+assert.match(service, /isAllowedByRule/, 'allow rules are checked before blocking')
 assert.match(service, /!rule\.enabled/, 'disabled rules are skipped')
 assert.match(service, /distance <= threshold/, 'threshold controls matching')
 
@@ -38,17 +38,18 @@ const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
 for (const table of [
   'image_block_subscriptions',
   'image_block_rules',
-  'image_block_whitelist',
   'image_block_hash_cache',
 ]) {
   assert.match(store, new RegExp(table), `${table} table exists`)
 }
+assert.doesNotMatch(store, /CREATE TABLE IF NOT EXISTS image_block_whitelist/, 'allow rules live in image_block_rules')
+assert.doesNotMatch(store, /CREATE TABLE IF NOT EXISTS image_block_rule_overrides/, 'rule overrides live in image_block_rules')
 
 const repo = read('shared/src/main/ets/storage/ImageBlockRepository.ets')
 assert.match(repo, /replaceSubscription/, 'subscription replacement exists')
 assert.match(repo, /loadEnabledRules/, 'enabled rule loading exists')
 assert.match(repo, /upsertLocalRule/, 'local rule writer exists')
-assert.match(repo, /upsertWhitelistHash/, 'whitelist writer exists')
+assert.match(repo, /upsertAllowRule/, 'allow writer uses image_block_rules')
 
 const subscription = read('shared/src/main/ets/services/ImageBlockSubscriptionService.ets')
 assert.match(subscription, /BackupChecksum\.hashText/, 'feed sha256 is checked')

@@ -29,6 +29,7 @@ const DATASET_VIEWED_HISTORY: string = 'viewed-history'
 const DATASET_LOCAL_FAVORITES: string = 'local-favorites'
 const DATASET_SEARCH_HISTORY: string = 'search-history'
 const DATASET_LOCAL_BLOCK: string = 'local-block'
+const DATASET_IMAGE_BLOCK: string = 'image-block'
 const DATASET_CUSTOM_PROFILES: string = 'custom-profiles'
 const DATASET_IDS: string[] = [
   DATASET_READ_PROGRESS,
@@ -36,6 +37,7 @@ const DATASET_IDS: string[] = [
   DATASET_LOCAL_FAVORITES,
   DATASET_SEARCH_HISTORY,
   DATASET_LOCAL_BLOCK,
+  DATASET_IMAGE_BLOCK,
   DATASET_CUSTOM_PROFILES,
 ]
 
@@ -261,6 +263,13 @@ export class WebDavSyncService {
       for (let i: number = 0; i < envelope.datasets.localBlockRules.length; i++) {
         WebDavSyncService.addShardId(out, envelope.datasets.localBlockRules[i].scopeKey + ':' + envelope.datasets.localBlockRules[i].ruleId)
       }
+    } else if (datasetId === DATASET_IMAGE_BLOCK) {
+      for (let i: number = 0; i < envelope.datasets.imageBlockSubscriptions.length; i++) {
+        WebDavSyncService.addShardId(out, envelope.datasets.imageBlockSubscriptions[i].scopeKey + ':' + envelope.datasets.imageBlockSubscriptions[i].feedId)
+      }
+      for (let i: number = 0; i < envelope.datasets.imageBlockRules.length; i++) {
+        WebDavSyncService.addShardId(out, envelope.datasets.imageBlockRules[i].scopeKey + ':' + envelope.datasets.imageBlockRules[i].ruleId)
+      }
     } else if (datasetId === DATASET_CUSTOM_PROFILES) {
       for (let i: number = 0; i < envelope.datasets.customProfiles.length; i++) {
         WebDavSyncService.addShardId(out, envelope.datasets.customProfiles[i].scopeKey + ':' + envelope.datasets.customProfiles[i].uuid)
@@ -322,6 +331,19 @@ export class WebDavSyncService {
           out.datasets.localBlockRules.push(r)
         }
       }
+    } else if (datasetId === DATASET_IMAGE_BLOCK) {
+      for (let i: number = 0; i < envelope.datasets.imageBlockSubscriptions.length; i++) {
+        const r = envelope.datasets.imageBlockSubscriptions[i]
+        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.feedId) === shardId) {
+          out.datasets.imageBlockSubscriptions.push(r)
+        }
+      }
+      for (let i: number = 0; i < envelope.datasets.imageBlockRules.length; i++) {
+        const r = envelope.datasets.imageBlockRules[i]
+        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.ruleId) === shardId) {
+          out.datasets.imageBlockRules.push(r)
+        }
+      }
     } else if (datasetId === DATASET_CUSTOM_PROFILES) {
       for (let i: number = 0; i < envelope.datasets.customProfiles.length; i++) {
         const r = envelope.datasets.customProfiles[i]
@@ -352,6 +374,9 @@ export class WebDavSyncService {
     } else if (datasetId === DATASET_LOCAL_BLOCK) {
       out.datasets.localBlockSettings = envelope.datasets.localBlockSettings
       out.datasets.localBlockRules = envelope.datasets.localBlockRules
+    } else if (datasetId === DATASET_IMAGE_BLOCK) {
+      out.datasets.imageBlockSubscriptions = envelope.datasets.imageBlockSubscriptions
+      out.datasets.imageBlockRules = envelope.datasets.imageBlockRules
     } else if (datasetId === DATASET_CUSTOM_PROFILES) {
       out.datasets.customProfiles = envelope.datasets.customProfiles
       out.datasets.customProfileSelection = envelope.datasets.customProfileSelection
@@ -374,6 +399,9 @@ export class WebDavSyncService {
     }
     if (datasetId === DATASET_LOCAL_BLOCK) {
       return envelope.datasets.localBlockSettings.length + envelope.datasets.localBlockRules.length
+    }
+    if (datasetId === DATASET_IMAGE_BLOCK) {
+      return envelope.datasets.imageBlockSubscriptions.length + envelope.datasets.imageBlockRules.length
     }
     if (datasetId === DATASET_CUSTOM_PROFILES) {
       return envelope.datasets.customProfiles.length + envelope.datasets.customProfileSelection.length
@@ -405,6 +433,13 @@ export class WebDavSyncService {
       }
       for (let i: number = 0; i < envelope.datasets.localBlockRules.length; i++) {
         out = Math.max(out, envelope.datasets.localBlockRules[i].updatedAt, envelope.datasets.localBlockRules[i].deletedAt)
+      }
+    } else if (datasetId === DATASET_IMAGE_BLOCK) {
+      for (let i: number = 0; i < envelope.datasets.imageBlockSubscriptions.length; i++) {
+        out = Math.max(out, envelope.datasets.imageBlockSubscriptions[i].updatedAt, envelope.datasets.imageBlockSubscriptions[i].deletedAt)
+      }
+      for (let i: number = 0; i < envelope.datasets.imageBlockRules.length; i++) {
+        out = Math.max(out, envelope.datasets.imageBlockRules[i].updatedAt, envelope.datasets.imageBlockRules[i].deletedAt)
       }
     } else if (datasetId === DATASET_CUSTOM_PROFILES) {
       for (let i: number = 0; i < envelope.datasets.customProfiles.length; i++) {
@@ -501,6 +536,7 @@ export class WebDavSyncService {
     out.localFavorites = datasetId === DATASET_LOCAL_FAVORITES
     out.searchHistory = datasetId === DATASET_SEARCH_HISTORY
     out.localBlock = datasetId === DATASET_LOCAL_BLOCK
+    out.imageBlock = datasetId === DATASET_IMAGE_BLOCK
     out.customProfiles = datasetId === DATASET_CUSTOM_PROFILES
     return out
   }
@@ -520,6 +556,9 @@ export class WebDavSyncService {
     }
     if (datasetId === DATASET_LOCAL_BLOCK) {
       return selection.localBlock
+    }
+    if (datasetId === DATASET_IMAGE_BLOCK) {
+      return selection.imageBlock
     }
     if (datasetId === DATASET_CUSTOM_PROFILES) {
       return selection.customProfiles

@@ -83,6 +83,37 @@ export class SyncLocalBlockRuleRecord {
   deletedAt: number = 0
 }
 
+export class SyncImageBlockSubscriptionRecord {
+  scopeKey: string = ''
+  feedId: string = ''
+  title: string = ''
+  url: string = ''
+  algorithm: string = ''
+  defaultThreshold: number = 0
+  updatedAt: number = 0
+  syncedAt: number = 0
+  sha256: string = ''
+  ruleCount: number = 0
+  enabled: boolean = true
+  deletedAt: number = 0
+}
+
+export class SyncImageBlockRuleRecord {
+  scopeKey: string = ''
+  ruleId: string = ''
+  hash: string = ''
+  threshold: number = 0
+  label: string = ''
+  scope: string = ''
+  feedId: string = ''
+  sourceType: string = ''
+  sourceUrl: string = ''
+  sourcePage: number = 0
+  enabled: boolean = true
+  updatedAt: number = 0
+  deletedAt: number = 0
+}
+
 export class SyncCustomProfileRecord {
   scopeKey: string = ''
   uuid: string = ''
@@ -123,6 +154,8 @@ export class SyncDatasets {
   searchHistory: SyncSearchHistoryRecord[] = []
   localBlockSettings: SyncLocalBlockSettingsRecord[] = []
   localBlockRules: SyncLocalBlockRuleRecord[] = []
+  imageBlockSubscriptions: SyncImageBlockSubscriptionRecord[] = []
+  imageBlockRules: SyncImageBlockRuleRecord[] = []
   customProfiles: SyncCustomProfileRecord[] = []
   customProfileSelection: SyncCustomProfileSelectionRecord[] = []
 }
@@ -155,6 +188,7 @@ export class SyncDatasetSelection {
   localFavorites: boolean = true
   searchHistory: boolean = true
   localBlock: boolean = true
+  imageBlock: boolean = true
   customProfiles: boolean = true
 }
 

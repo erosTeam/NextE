@@ -194,33 +194,43 @@ const SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_PAGE: string =
   'ALTER TABLE image_block_rules ADD COLUMN source_page INTEGER'
 const SQL_ADD_IMAGE_BLOCK_RULES_PREVIEW_PATH: string =
   'ALTER TABLE image_block_rules ADD COLUMN preview_path TEXT'
-const SQL_CREATE_IMAGE_BLOCK_WHITELIST_TABLE: string =
-  'CREATE TABLE IF NOT EXISTS image_block_whitelist (' +
-    'scope_key TEXT, ' +
-    'hash TEXT, ' +
-    'preview_path TEXT, ' +
-    'updated_at INTEGER, ' +
-    'deleted_at INTEGER DEFAULT 0, ' +
-    'PRIMARY KEY(scope_key, hash)' +
-  ')'
-const SQL_CREATE_IMAGE_BLOCK_RULE_OVERRIDES_TABLE: string =
-  'CREATE TABLE IF NOT EXISTS image_block_rule_overrides (' +
-    'scope_key TEXT, ' +
-    'rule_id TEXT, ' +
-    'hash TEXT, ' +
-    'source_type TEXT, ' +
-    'enabled_override INTEGER DEFAULT -1, ' +
-    'threshold_override INTEGER DEFAULT -1, ' +
-    'updated_at INTEGER, ' +
-    'deleted_at INTEGER DEFAULT 0, ' +
-    'PRIMARY KEY(scope_key, rule_id)' +
-  ')'
-const SQL_ADD_IMAGE_BLOCK_RULE_OVERRIDES_ENABLED: string =
-  'ALTER TABLE image_block_rule_overrides ADD COLUMN enabled_override INTEGER DEFAULT -1'
-const SQL_ADD_IMAGE_BLOCK_RULE_OVERRIDES_THRESHOLD: string =
-  'ALTER TABLE image_block_rule_overrides ADD COLUMN threshold_override INTEGER DEFAULT -1'
-const SQL_MIGRATE_IMAGE_BLOCK_RULE_OVERRIDES_ENABLED: string =
-  'UPDATE image_block_rule_overrides SET enabled_override = 0 WHERE enabled_override IS NULL OR enabled_override < 0'
+const SQL_MIGRATE_IMAGE_BLOCK_WHITELIST_TO_RULES: string =
+  'INSERT INTO image_block_rules ' +
+  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
+  'SELECT scope_key, \'allow:\' || hash, hash, 0, \'allow\', \'whole\', \'\', \'allow\', \'\', 0, ' +
+  'COALESCE(preview_path, \'\'), 1, COALESCE(updated_at, 0), COALESCE(deleted_at, 0) ' +
+  'FROM image_block_whitelist WHERE hash IS NOT NULL AND hash <> \'\' ' +
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  'preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_rules.preview_path END, ' +
+  'updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+const SQL_MIGRATE_IMAGE_BLOCK_OVERRIDE_ENABLED_TO_RULES: string =
+  'UPDATE image_block_rules SET enabled = COALESCE((' +
+  'SELECT enabled_override FROM image_block_rule_overrides o ' +
+  'WHERE o.scope_key = image_block_rules.scope_key AND o.rule_id = image_block_rules.rule_id ' +
+  'AND COALESCE(o.deleted_at, 0) = 0 AND COALESCE(o.enabled_override, -1) >= 0' +
+  '), enabled), updated_at = MAX(updated_at, COALESCE((' +
+  'SELECT updated_at FROM image_block_rule_overrides o ' +
+  'WHERE o.scope_key = image_block_rules.scope_key AND o.rule_id = image_block_rules.rule_id ' +
+  'AND COALESCE(o.deleted_at, 0) = 0 AND COALESCE(o.enabled_override, -1) >= 0' +
+  '), updated_at)) WHERE EXISTS (' +
+  'SELECT 1 FROM image_block_rule_overrides o WHERE o.scope_key = image_block_rules.scope_key ' +
+  'AND o.rule_id = image_block_rules.rule_id AND COALESCE(o.deleted_at, 0) = 0 ' +
+  'AND COALESCE(o.enabled_override, -1) >= 0)'
+const SQL_MIGRATE_IMAGE_BLOCK_OVERRIDE_THRESHOLD_TO_RULES: string =
+  'UPDATE image_block_rules SET threshold = COALESCE((' +
+  'SELECT threshold_override FROM image_block_rule_overrides o ' +
+  'WHERE o.scope_key = image_block_rules.scope_key AND o.rule_id = image_block_rules.rule_id ' +
+  'AND COALESCE(o.deleted_at, 0) = 0 AND COALESCE(o.threshold_override, -1) >= 0' +
+  '), threshold), updated_at = MAX(updated_at, COALESCE((' +
+  'SELECT updated_at FROM image_block_rule_overrides o ' +
+  'WHERE o.scope_key = image_block_rules.scope_key AND o.rule_id = image_block_rules.rule_id ' +
+  'AND COALESCE(o.deleted_at, 0) = 0 AND COALESCE(o.threshold_override, -1) >= 0' +
+  '), updated_at)) WHERE EXISTS (' +
+  'SELECT 1 FROM image_block_rule_overrides o WHERE o.scope_key = image_block_rules.scope_key ' +
+  'AND o.rule_id = image_block_rules.rule_id AND COALESCE(o.deleted_at, 0) = 0 ' +
+  'AND COALESCE(o.threshold_override, -1) >= 0)'
+const SQL_DROP_IMAGE_BLOCK_WHITELIST_TABLE: string = 'DROP TABLE IF EXISTS image_block_whitelist'
+const SQL_DROP_IMAGE_BLOCK_RULE_OVERRIDES_TABLE: string = 'DROP TABLE IF EXISTS image_block_rule_overrides'
 const SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE: string =
   'CREATE TABLE IF NOT EXISTS image_block_hash_cache (' +
     'scope_key TEXT, ' +
@@ -424,12 +434,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_SUBSCRIPTIONS_TABLE)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_TABLE)
     await LocalDataStore.migrateImageBlockRuleSourceMetadata(store)
+    await LocalDataStore.migrateImageBlockLegacyTables(store)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_HASH_INDEX)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_FEED_INDEX)
-    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_WHITELIST_TABLE)
-    await LocalDataStore.migrateImageBlockWhitelistPreview(store)
-    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULE_OVERRIDES_TABLE)
-    await LocalDataStore.migrateImageBlockRuleOverrides(store)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_HASH_INDEX)
     await LocalDataStore.migrateCustomProfilesUuidColumn(store)
@@ -502,30 +509,46 @@ export class LocalDataStore {
     }
   }
 
-  private static async migrateImageBlockWhitelistPreview(store: relationalStore.RdbStore): Promise<void> {
-    const hasPreview: boolean = await LocalDataStore.hasColumn(store, 'image_block_whitelist', 'preview_path')
-    if (!hasPreview) {
-      await store.executeSql('ALTER TABLE image_block_whitelist ADD COLUMN preview_path TEXT')
+  private static async migrateImageBlockLegacyTables(store: relationalStore.RdbStore): Promise<void> {
+    const hasWhitelist: boolean = await LocalDataStore.hasTable(store, 'image_block_whitelist')
+    const hasOverrides: boolean = await LocalDataStore.hasTable(store, 'image_block_rule_overrides')
+    if (!hasWhitelist && !hasOverrides) {
+      return
     }
-  }
-
-  private static async migrateImageBlockRuleOverrides(store: relationalStore.RdbStore): Promise<void> {
-    const hasEnabledOverride: boolean = await LocalDataStore.hasColumn(
-      store,
-      'image_block_rule_overrides',
-      'enabled_override',
-    )
-    if (!hasEnabledOverride) {
-      await store.executeSql(SQL_ADD_IMAGE_BLOCK_RULE_OVERRIDES_ENABLED)
-      await store.executeSql(SQL_MIGRATE_IMAGE_BLOCK_RULE_OVERRIDES_ENABLED)
-    }
-    const hasThresholdOverride: boolean = await LocalDataStore.hasColumn(
-      store,
-      'image_block_rule_overrides',
-      'threshold_override',
-    )
-    if (!hasThresholdOverride) {
-      await store.executeSql(SQL_ADD_IMAGE_BLOCK_RULE_OVERRIDES_THRESHOLD)
+    store.beginTransaction()
+    try {
+      if (hasWhitelist) {
+        const hasPreview: boolean = await LocalDataStore.hasColumn(store, 'image_block_whitelist', 'preview_path')
+        if (!hasPreview) {
+          await store.executeSql('ALTER TABLE image_block_whitelist ADD COLUMN preview_path TEXT')
+        }
+        await store.executeSql(SQL_MIGRATE_IMAGE_BLOCK_WHITELIST_TO_RULES)
+        await store.executeSql(SQL_DROP_IMAGE_BLOCK_WHITELIST_TABLE)
+      }
+      if (hasOverrides) {
+        const hasEnabledOverride: boolean = await LocalDataStore.hasColumn(
+          store,
+          'image_block_rule_overrides',
+          'enabled_override',
+        )
+        if (hasEnabledOverride) {
+          await store.executeSql(SQL_MIGRATE_IMAGE_BLOCK_OVERRIDE_ENABLED_TO_RULES)
+        }
+        const hasThresholdOverride: boolean = await LocalDataStore.hasColumn(
+          store,
+          'image_block_rule_overrides',
+          'threshold_override',
+        )
+        if (hasThresholdOverride) {
+          await store.executeSql(SQL_MIGRATE_IMAGE_BLOCK_OVERRIDE_THRESHOLD_TO_RULES)
+        }
+        await store.executeSql(SQL_DROP_IMAGE_BLOCK_RULE_OVERRIDES_TABLE)
+      }
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      const e: Error = error as Error
+      throw new Error(e.message || 'Failed to migrate image block rules')
     }
   }
 
@@ -594,5 +617,20 @@ export class LocalDataStore {
       rs.close()
     }
     return false
+  }
+
+  private static async hasTable(
+    store: relationalStore.RdbStore,
+    tableName: string,
+  ): Promise<boolean> {
+    const rs: relationalStore.ResultSet = await store.querySql(
+      'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = ?',
+      [tableName],
+    )
+    try {
+      return rs.goToNextRow()
+    } finally {
+      rs.close()
+    }
   }
 }

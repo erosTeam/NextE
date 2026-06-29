@@ -18,6 +18,8 @@ Sync only durable user-local records with stable keys and timestamps:
 - `search_history`
 - `local_block_settings`
 - `local_block_rules`
+- `image_block_subscriptions`
+- `image_block_rules`
 - `custom_profiles`
 - `custom_profile_selection`
 
@@ -26,6 +28,7 @@ or plaintext secrets/provider credentials:
 
 - `tag_translations`, `tag_translation_meta`
 - `eh_page_cache`, `comment_translation_cache`
+- `image_block_hash_cache`
 - `download_gallery_tasks`, `download_gallery_seeds`, `download_archiver_tasks`
 - cookie jars, account secrets, LLM API keys, WebDAV passwords
 
@@ -92,6 +95,7 @@ nexte-sync-v1/
     local-favorites/00.json ... 3f.json
     search-history/00.json ... 3f.json
     local-block/00.json ... 3f.json
+    image-block/00.json ... 3f.json
     custom-profiles/00.json ... 3f.json
 ```
 
@@ -107,6 +111,7 @@ Shards are stable hash buckets, not position slices. The bucket key is the datas
 - local favorites: `scope_key + gid`
 - search history: `scope_key + query_text`
 - local block: `scope_key` for settings and `scope_key + rule_id` for rules
+- image block: `scope_key + feed_id` for subscriptions and `scope_key + rule_id` for rules
 - custom profiles: `scope_key + uuid` for profile records and `scope_key` for selection.
   The app/export model keeps the semantic field name `uuid`, but the local RDB and AGC cloud table
   store it as `profile_uuid` because `uuid` is an AGC reserved field name.
@@ -128,13 +133,13 @@ migration action.
 
 ## Dataset Selection
 
-Manual WebDAV sync exposes user-facing switches for the durable data groups:
+Manual WebDAV sync supports selection for the durable data groups:
 
 - reading progress (`gallery_read_progress`)
 - browsing history (`viewed_history`)
 - local favorites (`local_favorites`)
 - search history (`search_history`)
-- local hidden-tag/comment-filter settings (`local_block_settings`, `local_block_rules`)
+- block rules (`local_block_settings`, `local_block_rules`, `image_block_subscriptions`, `image_block_rules`)
 - custom list tabs (`custom_profiles`, `custom_profile_selection`)
 
 All groups default to enabled. A disabled group must not be exported from the current device, must not be
@@ -149,6 +154,8 @@ merge/PUT for disabled dataset files and leaves the manifest entry untouched.
 - Search history: newer `updated_at` or tombstone wins per `(scope_key, query_text)`.
 - Local block settings: newer `updated_at` or tombstone wins per `scope_key`.
 - Local block rules: newer `updated_at` or tombstone wins per `(scope_key, rule_id)`.
+- Image block subscriptions: newer `updated_at` or tombstone wins per `(scope_key, feed_id)`.
+- Image block rules: newer `updated_at` or tombstone wins per `(scope_key, rule_id)`.
 - Custom profiles: newer `last_edit_time` or tombstone wins per semantic `(scope_key, uuid)`;
   the physical RDB/AGC key column is `(scope_key, profile_uuid)`.
 - Custom profile selection: newer `updated_at` or tombstone wins per `scope_key`.

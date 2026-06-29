@@ -81,8 +81,6 @@ async function writeImageBlockThumbnailPreview(
 export class ImageBlockRuntimeService {
   private static cachedRulesSignal: string = '#unset'
   private static cachedRules: ImageBlockRule[] = []
-  private static cachedWhitelistSignal: string = '#unset'
-  private static cachedWhitelist: string[] = []
   private static thumbnailColdChain: Promise<void> = Promise.resolve()
   private static thumbnailHashInFlight: Map<string, Promise<string>> = new Map<string, Promise<string>>()
   private static thumbnailHashMemoryCache: Map<string, string> = new Map<string, string>()
@@ -114,8 +112,7 @@ export class ImageBlockRuntimeService {
       return empty
     }
 
-    const whitelist: string[] = await ImageBlockRuntimeService.loadWhitelistCached(context)
-    const decision: ImageBlockDecision = ImageBlockService.decisionForHash(hash, rules, whitelist)
+    const decision: ImageBlockDecision = ImageBlockService.decisionForHash(hash, rules)
     if (decision.blocked) {
       await ImageBlockRepository.rememberRulePreview(context, decision.ruleId, path)
     }
@@ -187,8 +184,7 @@ export class ImageBlockRuntimeService {
     if (rules.length === 0) {
       return empty
     }
-    const whitelist: string[] = await ImageBlockRuntimeService.loadWhitelistCached(context)
-    return ImageBlockService.decisionForHash(hash, rules, whitelist)
+    return ImageBlockService.decisionForHash(hash, rules)
   }
 
   static async decisionForCachedThumbnail(
@@ -236,8 +232,7 @@ export class ImageBlockRuntimeService {
     if (rules.length === 0) {
       return out
     }
-    const whitelist: string[] = await ImageBlockRuntimeService.loadWhitelistCached(context)
-    out.decision = ImageBlockService.decisionForHash(hash, rules, whitelist)
+    out.decision = ImageBlockService.decisionForHash(hash, rules)
     if (out.decision.blocked) {
       out.previewUri = cached.displayUri
       out.previewPath = cached.filePath
@@ -429,17 +424,6 @@ export class ImageBlockRuntimeService {
     ImageBlockRuntimeService.cachedRules = rules
     ImageBlockRuntimeService.cachedRulesSignal = signal
     return rules
-  }
-
-  private static async loadWhitelistCached(context: common.UIAbilityContext): Promise<string[]> {
-    const signal: string = connectImageBlockRuntime().signal
-    if (ImageBlockRuntimeService.cachedWhitelistSignal === signal) {
-      return ImageBlockRuntimeService.cachedWhitelist
-    }
-    const whitelist: string[] = await ImageBlockRepository.loadWhitelist(context)
-    ImageBlockRuntimeService.cachedWhitelist = whitelist
-    ImageBlockRuntimeService.cachedWhitelistSignal = signal
-    return whitelist
   }
 
   private static async thumbnailPreviewPath(

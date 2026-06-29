@@ -1,5 +1,6 @@
 import {
   IMAGE_BLOCK_SCOPE_WHOLE,
+  IMAGE_BLOCK_SOURCE_ALLOW,
   ImageBlockDecision,
   ImageBlockRule,
 } from '../model/ImageBlockRule'
@@ -15,6 +16,9 @@ export class ImageBlockService {
     const decision: ImageBlockDecision = new ImageBlockDecision()
     decision.hash = normalizedHash
     if (normalizedHash.length === 0 || ImageBlockService.isWhitelisted(normalizedHash, whitelist)) {
+      return decision
+    }
+    if (ImageBlockService.isAllowedByRule(normalizedHash, rules)) {
       return decision
     }
 
@@ -53,6 +57,17 @@ export class ImageBlockService {
   private static isWhitelisted(hash: string, whitelist: string[]): boolean {
     for (let i: number = 0; i < whitelist.length; i++) {
       if (PHashService.normalizeHex64(whitelist[i]) === hash) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private static isAllowedByRule(hash: string, rules: ImageBlockRule[]): boolean {
+    for (let i: number = 0; i < rules.length; i++) {
+      const rule: ImageBlockRule = rules[i]
+      if (rule.enabled && rule.sourceType === IMAGE_BLOCK_SOURCE_ALLOW &&
+        PHashService.normalizeHex64(rule.hash) === hash) {
         return true
       }
     }

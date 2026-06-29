@@ -22,6 +22,8 @@ ok('sync design keeps Huawei Cloud visible by default with public-build override
     /manual WebDAV provider|WebDAV provider/.test(doc))
 ok('sync design lists durable syncable tables',
   /gallery_read_progress/.test(doc) &&
+    /image_block_subscriptions/.test(doc) &&
+    /image_block_rules/.test(doc) &&
     /custom_profile_selection/.test(doc) &&
     /local_block_rules/.test(doc))
 ok('sync design records Huawei Cloud table-name versus AGC alias split',
@@ -32,6 +34,7 @@ ok('sync design records Huawei Cloud table-name versus AGC alias split',
     /Do not set both `name` and `alias` to snake_case/.test(doc))
 ok('sync design excludes cache, downloads, and secrets',
   /tag_translations/.test(doc) &&
+    /image_block_hash_cache/.test(doc) &&
     /download_gallery_tasks/.test(doc) &&
     /cookie jars, account secrets, LLM API keys, WebDAV passwords/.test(doc))
 ok('sync design requires ON CONFLICT and tombstones',
@@ -46,6 +49,7 @@ ok('sync design requires WebDAV multi-file layout',
     /manifest\.json/.test(doc) &&
     /read-progress\/00\.json \.\.\. 3f\.json/.test(doc) &&
     /search-history\/00\.json \.\.\. 3f\.json/.test(doc) &&
+    /image-block\/00\.json \.\.\. 3f\.json/.test(doc) &&
     /stable hash buckets/.test(doc) &&
     /generatedAt` is derived from the newest record timestamp/.test(doc) &&
     /64 buckets/.test(doc) &&
@@ -72,13 +76,16 @@ const types = read('shared/src/main/ets/sync/SyncTypes.ets')
 ok('sync envelope has explicit datasets',
   /class SyncDatasets/.test(types) &&
     /readProgress: SyncReadProgressRecord\[\]/.test(types) &&
+    /imageBlockSubscriptions: SyncImageBlockSubscriptionRecord\[\]/.test(types) &&
+    /imageBlockRules: SyncImageBlockRuleRecord\[\]/.test(types) &&
     /customProfileSelection: SyncCustomProfileSelectionRecord\[\]/.test(types))
 ok('sync types expose dataset selection toggles',
   /class SyncDatasetSelection/.test(types) &&
     /readProgress: boolean = true/.test(types) &&
+    /imageBlock: boolean = true/.test(types) &&
     /customProfiles: boolean = true/.test(types))
 ok('sync types do not include cache/download/secrets datasets',
-  !/tagTranslation|ehPageCache|commentTranslation|downloadGallery|cookie|apiKey/i.test(types))
+  !/tagTranslation|ehPageCache|commentTranslation|downloadGallery|imageBlockHashCache|cookie|apiKey/i.test(types))
 
 const service = read('shared/src/main/ets/sync/SyncService.ets')
 ok('sync service merges remote raw through local adapter',
@@ -145,6 +152,9 @@ ok('sync settings persist WebDAV config locally',
     /SYNC_DATASET_READ_PROGRESS/.test(syncSettings) &&
     /static selection/.test(syncSettings) &&
     /never exported/.test(syncSettings))
+ok('image block WebDAV sync shares the block-rules dataset switch',
+  /selection\.localBlock = snapshot\.datasetLocalBlock/.test(syncSettings) &&
+    /selection\.imageBlock = snapshot\.datasetLocalBlock/.test(syncSettings))
 ok('sync settings persist Huawei Cloud local status separately',
   /SYNC_HUAWEI_CLOUD_ENABLED/.test(syncSettings) &&
     /markHuaweiCloudRun/.test(syncSettings) &&

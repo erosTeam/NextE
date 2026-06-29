@@ -80,6 +80,7 @@ export class SyncSettings {
     selection.localFavorites = snapshot.datasetLocalFavorites
     selection.searchHistory = snapshot.datasetSearchHistory
     selection.localBlock = snapshot.datasetLocalBlock
+    selection.imageBlock = snapshot.datasetLocalBlock
     selection.customProfiles = snapshot.datasetCustomProfiles
     return selection
   }

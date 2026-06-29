@@ -5,6 +5,7 @@ import { LocalBlockSettings } from '../settings/LocalBlockSettings'
 import { LocalFavSettings } from '../settings/LocalFavSettings'
 import { SearchHistorySettings } from '../settings/SearchHistorySettings'
 import { ViewedHistorySettings } from '../settings/ViewedHistorySettings'
+import { publishImageBlockRulesChanged } from '../state/ImageBlockRuntimeState'
 import {
   SYNC_APP_ID,
   SYNC_MAGIC,
@@ -107,6 +108,12 @@ export class SyncService {
     if (!Array.isArray(data.localBlockRules)) {
       data.localBlockRules = []
     }
+    if (!Array.isArray(data.imageBlockSubscriptions)) {
+      data.imageBlockSubscriptions = []
+    }
+    if (!Array.isArray(data.imageBlockRules)) {
+      data.imageBlockRules = []
+    }
     if (!Array.isArray(data.customProfiles)) {
       data.customProfiles = []
     }
@@ -138,6 +145,10 @@ export class SyncService {
       out.datasets.localBlockSettings = source.datasets.localBlockSettings
       out.datasets.localBlockRules = source.datasets.localBlockRules
     }
+    if (selection.imageBlock) {
+      out.datasets.imageBlockSubscriptions = source.datasets.imageBlockSubscriptions
+      out.datasets.imageBlockRules = source.datasets.imageBlockRules
+    }
     if (selection.customProfiles) {
       out.datasets.customProfiles = source.datasets.customProfiles
       out.datasets.customProfileSelection = source.datasets.customProfileSelection
@@ -163,6 +174,9 @@ export class SyncService {
     }
     if (selection.localBlock) {
       await LocalBlockSettings.restore(context)
+    }
+    if (selection.imageBlock) {
+      publishImageBlockRulesChanged('sync')
     }
     if (selection.customProfiles) {
       await CustomProfilesSettings.restore(context)

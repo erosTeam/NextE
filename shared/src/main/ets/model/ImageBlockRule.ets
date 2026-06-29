@@ -2,6 +2,7 @@ export const IMAGE_BLOCK_ALGORITHM_DCT64_V1: string = 'dct64-v1'
 export const IMAGE_BLOCK_SCOPE_WHOLE: string = 'whole'
 export const IMAGE_BLOCK_SOURCE_LOCAL: string = 'local'
 export const IMAGE_BLOCK_SOURCE_SUBSCRIPTION: string = 'subscription'
+export const IMAGE_BLOCK_SOURCE_ALLOW: string = 'allow'
 export const IMAGE_BLOCK_DEFAULT_THRESHOLD: number = 8
 export const IMAGE_BLOCK_MAX_THRESHOLD: number = 12
 export const IMAGE_BLOCK_FEED_KIND: string = 'nexte-image-block-feed'

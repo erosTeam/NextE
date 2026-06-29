@@ -16,6 +16,8 @@ import {
   SyncDatasetSelection,
   SyncDatasets,
   SyncEnvelopeV1,
+  SyncImageBlockRuleRecord,
+  SyncImageBlockSubscriptionRecord,
   SyncLocalBlockRuleRecord,
   SyncLocalBlockSettingsRecord,
   SyncLocalFavoriteRecord,
@@ -36,6 +38,10 @@ const SQL_SELECT_LOCAL_BLOCK_SETTINGS: string =
   'SELECT scope_key, filter_comments_by_score, score_filtering_threshold, comment_display_mode, updated_at, deleted_at FROM local_block_settings'
 const SQL_SELECT_LOCAL_BLOCK_RULES: string =
   'SELECT scope_key, rule_id, position_index, block_type, rule_text, enabled, enable_regex, updated_at, deleted_at FROM local_block_rules'
+const SQL_SELECT_IMAGE_BLOCK_SUBSCRIPTIONS: string =
+  'SELECT scope_key, feed_id, title, url, algorithm, default_threshold, updated_at, synced_at, sha256, rule_count, enabled, deleted_at FROM image_block_subscriptions'
+const SQL_SELECT_IMAGE_BLOCK_RULES: string =
+  'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, enabled, updated_at, deleted_at FROM image_block_rules'
 const SQL_SELECT_CUSTOM_PROFILES: string =
   'SELECT scope_key, profile_uuid AS uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, last_edit_time, deleted_at FROM custom_profiles'
 const SQL_SELECT_CUSTOM_PROFILE_SELECTION: string =
@@ -59,6 +65,12 @@ const SQL_APPLY_LOCAL_BLOCK_SETTINGS: string =
 const SQL_APPLY_LOCAL_BLOCK_RULE: string =
   'INSERT INTO local_block_rules (scope_key, rule_id, position_index, block_type, rule_text, enabled, enable_regex, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, rule_id) DO UPDATE SET position_index = excluded.position_index, block_type = excluded.block_type, rule_text = excluded.rule_text, enabled = excluded.enabled, enable_regex = excluded.enable_regex, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+const SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION: string =
+  'INSERT INTO image_block_subscriptions (scope_key, feed_id, title, url, algorithm, default_threshold, updated_at, synced_at, sha256, rule_count, enabled, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
+  'ON CONFLICT(scope_key, feed_id) DO UPDATE SET title = excluded.title, url = excluded.url, algorithm = excluded.algorithm, default_threshold = excluded.default_threshold, updated_at = excluded.updated_at, synced_at = excluded.synced_at, sha256 = excluded.sha256, rule_count = excluded.rule_count, enabled = excluded.enabled, deleted_at = excluded.deleted_at'
+const SQL_APPLY_IMAGE_BLOCK_RULE: string =
+  'INSERT INTO image_block_rules (scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'\', ?, ?, ?) ' +
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
 const SQL_APPLY_CUSTOM_PROFILE: string =
   'INSERT INTO custom_profiles (scope_key, profile_uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, last_edit_time, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, profile_uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, list_type = excluded.list_type, search_text = excluded.search_text, selected_cats = excluded.selected_cats, advanced_enabled = excluded.advanced_enabled, min_rating = excluded.min_rating, pages_from = excluded.pages_from, pages_to = excluded.pages_to, require_torrent = excluded.require_torrent, show_expunged = excluded.show_expunged, disable_language_filter = excluded.disable_language_filter, disable_uploader_filter = excluded.disable_uploader_filter, disable_tag_filter = excluded.disable_tag_filter, favcat = excluded.favcat, toplist_tl = excluded.toplist_tl, display_mode = excluded.display_mode, hidden = excluded.hidden, builtin = excluded.builtin, last_edit_time = excluded.last_edit_time, deleted_at = excluded.deleted_at'
@@ -92,6 +104,11 @@ export class SyncLocalDataAdapter {
       envelope.datasets.localBlockSettings = await SyncLocalDataAdapter.readLocalBlockSettings(store)
       envelope.datasets.localBlockRules = await SyncLocalDataAdapter.readLocalBlockRules(store)
     }
+    if (selection.imageBlock) {
+      envelope.datasets.imageBlockSubscriptions =
+        await SyncLocalDataAdapter.readImageBlockSubscriptions(store)
+      envelope.datasets.imageBlockRules = await SyncLocalDataAdapter.readImageBlockRules(store)
+    }
     if (selection.customProfiles) {
       envelope.datasets.customProfiles = await SyncLocalDataAdapter.readCustomProfiles(store)
       envelope.datasets.customProfileSelection =
@@ -110,6 +127,11 @@ export class SyncLocalDataAdapter {
       await SyncLocalDataAdapter.applySearchHistory(store, envelope.datasets.searchHistory)
       await SyncLocalDataAdapter.applyLocalBlockSettings(store, envelope.datasets.localBlockSettings)
       await SyncLocalDataAdapter.applyLocalBlockRules(store, envelope.datasets.localBlockRules)
+      await SyncLocalDataAdapter.applyImageBlockSubscriptions(
+        store,
+        envelope.datasets.imageBlockSubscriptions,
+      )
+      await SyncLocalDataAdapter.applyImageBlockRules(store, envelope.datasets.imageBlockRules)
       await SyncLocalDataAdapter.applyCustomProfiles(store, envelope.datasets.customProfiles)
       await SyncLocalDataAdapter.applyCustomProfileSelection(
         store,
@@ -138,6 +160,16 @@ export class SyncLocalDataAdapter {
       SyncLocalDataAdapter.mergeLocalBlockSettings(local.datasets.localBlockSettings, remote.datasets.localBlockSettings)
     merged.datasets.localBlockRules =
       SyncLocalDataAdapter.mergeLocalBlockRules(local.datasets.localBlockRules, remote.datasets.localBlockRules)
+    merged.datasets.imageBlockSubscriptions =
+      SyncLocalDataAdapter.mergeImageBlockSubscriptions(
+        local.datasets.imageBlockSubscriptions,
+        remote.datasets.imageBlockSubscriptions,
+      )
+    merged.datasets.imageBlockRules =
+      SyncLocalDataAdapter.mergeImageBlockRules(
+        local.datasets.imageBlockRules,
+        remote.datasets.imageBlockRules,
+      )
     merged.datasets.customProfiles =
       SyncLocalDataAdapter.mergeCustomProfiles(local.datasets.customProfiles, remote.datasets.customProfiles)
     merged.datasets.customProfileSelection =
@@ -169,6 +201,10 @@ export class SyncLocalDataAdapter {
       selectedMerged.datasets.localBlockSettings : remote.datasets.localBlockSettings
     out.datasets.localBlockRules = selection.localBlock ?
       selectedMerged.datasets.localBlockRules : remote.datasets.localBlockRules
+    out.datasets.imageBlockSubscriptions = selection.imageBlock ?
+      selectedMerged.datasets.imageBlockSubscriptions : remote.datasets.imageBlockSubscriptions
+    out.datasets.imageBlockRules = selection.imageBlock ?
+      selectedMerged.datasets.imageBlockRules : remote.datasets.imageBlockRules
     out.datasets.customProfiles = selection.customProfiles ?
       selectedMerged.datasets.customProfiles : remote.datasets.customProfiles
     out.datasets.customProfileSelection = selection.customProfiles ?
@@ -339,6 +375,63 @@ export class SyncLocalDataAdapter {
     return out
   }
 
+  private static async readImageBlockSubscriptions(store: relationalStore.RdbStore): Promise<SyncImageBlockSubscriptionRecord[]> {
+    const out: SyncImageBlockSubscriptionRecord[] = []
+    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_IMAGE_BLOCK_SUBSCRIPTIONS)
+    try {
+      while (rs.goToNextRow()) {
+        const r: SyncImageBlockSubscriptionRecord = new SyncImageBlockSubscriptionRecord()
+        r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
+        r.feedId = SyncLocalDataAdapter.stringColumn(rs, 'feed_id')
+        r.title = SyncLocalDataAdapter.stringColumn(rs, 'title')
+        r.url = SyncLocalDataAdapter.stringColumn(rs, 'url')
+        r.algorithm = SyncLocalDataAdapter.stringColumn(rs, 'algorithm')
+        r.defaultThreshold = SyncLocalDataAdapter.numberColumn(rs, 'default_threshold')
+        r.updatedAt = SyncLocalDataAdapter.numberColumn(rs, 'updated_at')
+        r.syncedAt = SyncLocalDataAdapter.numberColumn(rs, 'synced_at')
+        r.sha256 = SyncLocalDataAdapter.stringColumn(rs, 'sha256')
+        r.ruleCount = SyncLocalDataAdapter.numberColumn(rs, 'rule_count')
+        r.enabled = SyncLocalDataAdapter.numberColumn(rs, 'enabled') > 0
+        r.deletedAt = SyncLocalDataAdapter.numberColumn(rs, 'deleted_at')
+        if (r.scopeKey.length > 0 && r.feedId.length > 0) {
+          out.push(r)
+        }
+      }
+    } finally {
+      rs.close()
+    }
+    return out
+  }
+
+  private static async readImageBlockRules(store: relationalStore.RdbStore): Promise<SyncImageBlockRuleRecord[]> {
+    const out: SyncImageBlockRuleRecord[] = []
+    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_IMAGE_BLOCK_RULES)
+    try {
+      while (rs.goToNextRow()) {
+        const r: SyncImageBlockRuleRecord = new SyncImageBlockRuleRecord()
+        r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
+        r.ruleId = SyncLocalDataAdapter.stringColumn(rs, 'rule_id')
+        r.hash = SyncLocalDataAdapter.stringColumn(rs, 'hash')
+        r.threshold = SyncLocalDataAdapter.numberColumn(rs, 'threshold')
+        r.label = SyncLocalDataAdapter.stringColumn(rs, 'label')
+        r.scope = SyncLocalDataAdapter.stringColumn(rs, 'scope')
+        r.feedId = SyncLocalDataAdapter.stringColumn(rs, 'feed_id')
+        r.sourceType = SyncLocalDataAdapter.stringColumn(rs, 'source_type')
+        r.sourceUrl = SyncLocalDataAdapter.stringColumn(rs, 'source_url')
+        r.sourcePage = SyncLocalDataAdapter.numberColumn(rs, 'source_page')
+        r.enabled = SyncLocalDataAdapter.numberColumn(rs, 'enabled') > 0
+        r.updatedAt = SyncLocalDataAdapter.numberColumn(rs, 'updated_at')
+        r.deletedAt = SyncLocalDataAdapter.numberColumn(rs, 'deleted_at')
+        if (r.scopeKey.length > 0 && r.ruleId.length > 0 && r.hash.length > 0) {
+          out.push(r)
+        }
+      }
+    } finally {
+      rs.close()
+    }
+    return out
+  }
+
   private static async readCustomProfiles(store: relationalStore.RdbStore): Promise<SyncCustomProfileRecord[]> {
     const out: SyncCustomProfileRecord[] = []
     const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_CUSTOM_PROFILES)
@@ -468,6 +561,32 @@ export class SyncLocalDataAdapter {
     }
   }
 
+  private static async applyImageBlockSubscriptions(store: relationalStore.RdbStore, records: SyncImageBlockSubscriptionRecord[]): Promise<void> {
+    for (let i: number = 0; i < records.length; i++) {
+      const r: SyncImageBlockSubscriptionRecord = records[i]
+      if (r.scopeKey.length > 0 && r.feedId.length > 0) {
+        await store.executeSql(SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION, [
+          r.scopeKey, r.feedId, r.title, r.url, r.algorithm, r.defaultThreshold,
+          r.updatedAt, r.syncedAt, r.sha256, r.ruleCount, r.enabled ? 1 : 0,
+          r.deletedAt,
+        ])
+      }
+    }
+  }
+
+  private static async applyImageBlockRules(store: relationalStore.RdbStore, records: SyncImageBlockRuleRecord[]): Promise<void> {
+    for (let i: number = 0; i < records.length; i++) {
+      const r: SyncImageBlockRuleRecord = records[i]
+      if (r.scopeKey.length > 0 && r.ruleId.length > 0 && r.hash.length > 0) {
+        await store.executeSql(SQL_APPLY_IMAGE_BLOCK_RULE, [
+          r.scopeKey, r.ruleId, r.hash, r.threshold, r.label, r.scope, r.feedId,
+          r.sourceType, r.sourceUrl, r.sourcePage, r.enabled ? 1 : 0, r.updatedAt,
+          r.deletedAt,
+        ])
+      }
+    }
+  }
+
   private static async applyCustomProfiles(store: relationalStore.RdbStore, records: SyncCustomProfileRecord[]): Promise<void> {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncCustomProfileRecord = records[i]
@@ -590,6 +709,40 @@ export class SyncLocalDataAdapter {
   private static keepLocalBlockRule(map: Map<string, SyncLocalBlockRuleRecord>, r: SyncLocalBlockRuleRecord): void {
     const key: string = r.scopeKey + ':' + r.ruleId
     const prev: SyncLocalBlockRuleRecord | undefined = map.get(key)
+    if (prev === undefined || SyncLocalDataAdapter.effectiveTime(r.updatedAt, r.deletedAt) >= SyncLocalDataAdapter.effectiveTime(prev.updatedAt, prev.deletedAt)) {
+      map.set(key, r)
+    }
+  }
+
+  private static mergeImageBlockSubscriptions(a: SyncImageBlockSubscriptionRecord[], b: SyncImageBlockSubscriptionRecord[]): SyncImageBlockSubscriptionRecord[] {
+    const map: Map<string, SyncImageBlockSubscriptionRecord> = new Map<string, SyncImageBlockSubscriptionRecord>()
+    a.forEach((r: SyncImageBlockSubscriptionRecord) => SyncLocalDataAdapter.keepImageBlockSubscription(map, r))
+    b.forEach((r: SyncImageBlockSubscriptionRecord) => SyncLocalDataAdapter.keepImageBlockSubscription(map, r))
+    const out: SyncImageBlockSubscriptionRecord[] = []
+    map.forEach((r: SyncImageBlockSubscriptionRecord) => out.push(r))
+    return out
+  }
+
+  private static keepImageBlockSubscription(map: Map<string, SyncImageBlockSubscriptionRecord>, r: SyncImageBlockSubscriptionRecord): void {
+    const key: string = r.scopeKey + ':' + r.feedId
+    const prev: SyncImageBlockSubscriptionRecord | undefined = map.get(key)
+    if (prev === undefined || SyncLocalDataAdapter.effectiveTime(r.updatedAt, r.deletedAt) >= SyncLocalDataAdapter.effectiveTime(prev.updatedAt, prev.deletedAt)) {
+      map.set(key, r)
+    }
+  }
+
+  private static mergeImageBlockRules(a: SyncImageBlockRuleRecord[], b: SyncImageBlockRuleRecord[]): SyncImageBlockRuleRecord[] {
+    const map: Map<string, SyncImageBlockRuleRecord> = new Map<string, SyncImageBlockRuleRecord>()
+    a.forEach((r: SyncImageBlockRuleRecord) => SyncLocalDataAdapter.keepImageBlockRule(map, r))
+    b.forEach((r: SyncImageBlockRuleRecord) => SyncLocalDataAdapter.keepImageBlockRule(map, r))
+    const out: SyncImageBlockRuleRecord[] = []
+    map.forEach((r: SyncImageBlockRuleRecord) => out.push(r))
+    return out
+  }
+
+  private static keepImageBlockRule(map: Map<string, SyncImageBlockRuleRecord>, r: SyncImageBlockRuleRecord): void {
+    const key: string = r.scopeKey + ':' + r.ruleId
+    const prev: SyncImageBlockRuleRecord | undefined = map.get(key)
     if (prev === undefined || SyncLocalDataAdapter.effectiveTime(r.updatedAt, r.deletedAt) >= SyncLocalDataAdapter.effectiveTime(prev.updatedAt, prev.deletedAt)) {
       map.set(key, r)
     }

@@ -4,6 +4,7 @@ import {
   IMAGE_BLOCK_ALGORITHM_DCT64_V1,
   IMAGE_BLOCK_DEFAULT_THRESHOLD,
   IMAGE_BLOCK_SCOPE_WHOLE,
+  IMAGE_BLOCK_SOURCE_ALLOW,
   IMAGE_BLOCK_SOURCE_LOCAL,
   IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
   ImageBlockFeed,
@@ -20,34 +21,30 @@ const SQL_SELECT_SUBSCRIPTIONS: string =
   'FROM image_block_subscriptions WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY feed_id ASC'
 const SQL_SELECT_ENABLED_RULES: string =
-  'SELECT r.rule_id, r.hash, ' +
-  'CASE WHEN COALESCE(o.threshold_override, -1) >= 0 THEN o.threshold_override ELSE r.threshold END AS threshold, ' +
+  'SELECT r.rule_id, r.hash, r.threshold, ' +
   'r.label, r.scope, r.feed_id, r.source_type, ' +
   'r.source_url, r.source_page, r.preview_path, r.enabled, r.updated_at, r.deleted_at ' +
   'FROM image_block_rules r LEFT JOIN image_block_subscriptions s ' +
   'ON s.scope_key = r.scope_key AND s.feed_id = r.feed_id AND COALESCE(s.deleted_at, 0) = 0 ' +
-  'LEFT JOIN image_block_rule_overrides o ' +
-  'ON o.scope_key = r.scope_key AND o.rule_id = r.rule_id AND COALESCE(o.deleted_at, 0) = 0 ' +
   'WHERE r.scope_key = ? AND r.enabled > 0 AND COALESCE(r.deleted_at, 0) = 0 ' +
   'AND (r.source_type <> ? OR COALESCE(s.enabled, 0) > 0) ' +
-  'AND COALESCE(o.enabled_override, -1) <> 0 ' +
   'ORDER BY r.source_type ASC, r.feed_id ASC, r.rule_id ASC'
 const SQL_SELECT_SUBSCRIPTION_RULES: string =
-  'SELECT r.rule_id, r.hash, ' +
-  'CASE WHEN COALESCE(o.threshold_override, -1) >= 0 THEN o.threshold_override ELSE r.threshold END AS threshold, ' +
+  'SELECT r.rule_id, r.hash, r.threshold, ' +
   'r.label, r.scope, r.feed_id, r.source_type, r.source_url, r.source_page, r.preview_path, ' +
-  'CASE WHEN COALESCE(o.enabled_override, -1) >= 0 THEN o.enabled_override ELSE r.enabled END AS enabled, ' +
+  'r.enabled, ' +
   'r.updated_at, r.deleted_at ' +
-  'FROM image_block_rules r LEFT JOIN image_block_rule_overrides o ' +
-  'ON o.scope_key = r.scope_key AND o.rule_id = r.rule_id AND COALESCE(o.deleted_at, 0) = 0 ' +
+  'FROM image_block_rules r ' +
   'WHERE r.scope_key = ? AND r.feed_id = ? AND r.source_type = ? AND COALESCE(r.deleted_at, 0) = 0 ' +
   'ORDER BY r.rule_id ASC'
 const SQL_SELECT_WHITELIST: string =
-  'SELECT hash FROM image_block_whitelist WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
+  'SELECT hash FROM image_block_rules WHERE scope_key = ? AND source_type = ? AND enabled > 0 ' +
+  'AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY hash ASC'
 const SQL_SELECT_WHITELIST_ITEMS: string =
-  'SELECT hash, preview_path, updated_at FROM image_block_whitelist ' +
-  'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ORDER BY updated_at DESC, hash ASC'
+  'SELECT hash, preview_path, updated_at FROM image_block_rules ' +
+  'WHERE scope_key = ? AND source_type = ? AND enabled > 0 AND COALESCE(deleted_at, 0) = 0 ' +
+  'ORDER BY updated_at DESC, hash ASC'
 const SQL_SELECT_LOCAL_RULE_COUNT: string =
   'SELECT COUNT(*) AS rule_count FROM image_block_rules ' +
   'WHERE scope_key = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
@@ -75,11 +72,14 @@ const SQL_UPSERT_RULE: string =
   'INSERT INTO image_block_rules ' +
   '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
   'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
-  'hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, ' +
+  'hash = excluded.hash, ' +
+  'threshold = CASE WHEN image_block_rules.source_type = \'subscription\' THEN image_block_rules.threshold ELSE excluded.threshold END, ' +
+  'label = excluded.label, scope = excluded.scope, ' +
   'feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, ' +
   'source_page = excluded.source_page, ' +
   'preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_rules.preview_path END, ' +
-  'enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = 0'
+  'enabled = CASE WHEN image_block_rules.source_type = \'subscription\' THEN image_block_rules.enabled ELSE excluded.enabled END, ' +
+  'updated_at = excluded.updated_at, deleted_at = 0'
 const SQL_UPDATE_RULE_PREVIEW: string =
   'UPDATE image_block_rules SET preview_path = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND COALESCE(deleted_at, 0) = 0 AND ? <> \'\''
@@ -101,29 +101,18 @@ const SQL_UPDATE_LOCAL_RULE_THRESHOLD: string =
 const SQL_UPDATE_LOCAL_RULE_ENABLED: string =
   'UPDATE image_block_rules SET enabled = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
-const SQL_TOMBSTONE_WHITELIST: string =
-  'UPDATE image_block_whitelist SET deleted_at = ?, updated_at = ? ' +
-  'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
-const SQL_TOMBSTONE_ONE_WHITELIST: string =
-  'UPDATE image_block_whitelist SET deleted_at = ?, updated_at = ? ' +
-  'WHERE scope_key = ? AND hash = ? AND COALESCE(deleted_at, 0) = 0'
-const SQL_UPSERT_WHITELIST: string =
-  'INSERT INTO image_block_whitelist (scope_key, hash, preview_path, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, 0) ON CONFLICT(scope_key, hash) DO UPDATE SET ' +
-  'preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_whitelist.preview_path END, ' +
-  'updated_at = excluded.updated_at, deleted_at = 0'
-const SQL_UPSERT_RULE_ENABLED_OVERRIDE: string =
-  'INSERT INTO image_block_rule_overrides ' +
-  '(scope_key, rule_id, hash, source_type, enabled_override, threshold_override, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, -1, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
-  'hash = excluded.hash, source_type = excluded.source_type, ' +
-  'enabled_override = excluded.enabled_override, updated_at = excluded.updated_at, deleted_at = 0'
-const SQL_UPSERT_RULE_THRESHOLD_OVERRIDE: string =
-  'INSERT INTO image_block_rule_overrides ' +
-  '(scope_key, rule_id, hash, source_type, enabled_override, threshold_override, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, -1, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
-  'hash = excluded.hash, source_type = excluded.source_type, ' +
-  'threshold_override = excluded.threshold_override, updated_at = excluded.updated_at, deleted_at = 0'
+const SQL_TOMBSTONE_ALLOW_RULES: string =
+  'UPDATE image_block_rules SET deleted_at = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
+const SQL_TOMBSTONE_ONE_ALLOW_RULE: string =
+  'UPDATE image_block_rules SET deleted_at = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND source_type = ? AND hash = ? AND COALESCE(deleted_at, 0) = 0'
+const SQL_UPDATE_RULE_ENABLED: string =
+  'UPDATE image_block_rules SET enabled = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND rule_id = ? AND hash = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
+const SQL_UPDATE_RULE_THRESHOLD: string =
+  'UPDATE image_block_rules SET threshold = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND rule_id = ? AND hash = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_UPSERT_FILE_HASH: string =
   'INSERT INTO image_block_hash_cache ' +
   '(scope_key, file_path, bytes, hash, algorithm, hashed_at, deleted_at) ' +
@@ -184,7 +173,10 @@ export class ImageBlockRepository {
   static async loadWhitelist(context: common.UIAbilityContext): Promise<string[]> {
     const out: string[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_WHITELIST, [SCOPE_GLOBAL])
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_WHITELIST, [
+      SCOPE_GLOBAL,
+      IMAGE_BLOCK_SOURCE_ALLOW,
+    ])
     try {
       while (resultSet.goToNextRow()) {
         const hash: string = PHashService.normalizeHex64(ImageBlockRepository.stringColumn(resultSet, 'hash'))
@@ -201,7 +193,10 @@ export class ImageBlockRepository {
   static async loadWhitelistItems(context: common.UIAbilityContext): Promise<ImageBlockWhitelistItem[]> {
     const out: ImageBlockWhitelistItem[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_WHITELIST_ITEMS, [SCOPE_GLOBAL])
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_WHITELIST_ITEMS, [
+      SCOPE_GLOBAL,
+      IMAGE_BLOCK_SOURCE_ALLOW,
+    ])
     try {
       while (resultSet.goToNextRow()) {
         const item: ImageBlockWhitelistItem = new ImageBlockWhitelistItem()
@@ -473,11 +468,16 @@ export class ImageBlockRepository {
     const now: number = Date.now()
     store.beginTransaction()
     try {
-      await store.executeSql(SQL_TOMBSTONE_WHITELIST, [now, now, SCOPE_GLOBAL])
+      await store.executeSql(SQL_TOMBSTONE_ALLOW_RULES, [
+        now,
+        now,
+        SCOPE_GLOBAL,
+        IMAGE_BLOCK_SOURCE_ALLOW,
+      ])
       for (let i: number = 0; i < hashes.length; i++) {
         const hash: string = PHashService.normalizeHex64(hashes[i])
         if (hash.length > 0) {
-          await store.executeSql(SQL_UPSERT_WHITELIST, [SCOPE_GLOBAL, hash, '', now + i + 1])
+          await ImageBlockRepository.upsertAllowRule(store, hash, '', now + i + 1)
         }
       }
       store.commit()
@@ -498,7 +498,7 @@ export class ImageBlockRepository {
       throw new Error('Image block whitelist hash must be 16 hex characters')
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_UPSERT_WHITELIST, [SCOPE_GLOBAL, normalizedHash, previewPath, Date.now()])
+    await ImageBlockRepository.upsertAllowRule(store, normalizedHash, previewPath, Date.now())
     return normalizedHash
   }
 
@@ -513,14 +513,7 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_UPSERT_RULE_ENABLED_OVERRIDE, [
-      SCOPE_GLOBAL,
-      ruleId,
-      normalizedHash,
-      sourceType,
-      0,
-      Date.now(),
-    ])
+    await store.executeSql(SQL_UPDATE_RULE_ENABLED, [0, Date.now(), SCOPE_GLOBAL, ruleId, normalizedHash, sourceType])
   }
 
   static async setRuleEnabledOverride(
@@ -535,13 +528,13 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_UPSERT_RULE_ENABLED_OVERRIDE, [
+    await store.executeSql(SQL_UPDATE_RULE_ENABLED, [
+      enabled ? 1 : 0,
+      Date.now(),
       SCOPE_GLOBAL,
       ruleId,
       normalizedHash,
       sourceType,
-      enabled ? 1 : 0,
-      Date.now(),
     ])
   }
 
@@ -557,13 +550,13 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_UPSERT_RULE_THRESHOLD_OVERRIDE, [
+    await store.executeSql(SQL_UPDATE_RULE_THRESHOLD, [
+      PHashService.clampThreshold(threshold),
+      Date.now(),
       SCOPE_GLOBAL,
       ruleId,
       normalizedHash,
       sourceType,
-      PHashService.clampThreshold(threshold),
-      Date.now(),
     ])
   }
 
@@ -574,10 +567,11 @@ export class ImageBlockRepository {
     }
     const now: number = Date.now()
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_TOMBSTONE_ONE_WHITELIST, [
+    await store.executeSql(SQL_TOMBSTONE_ONE_ALLOW_RULE, [
       now,
       now,
       SCOPE_GLOBAL,
+      IMAGE_BLOCK_SOURCE_ALLOW,
       normalizedHash,
     ])
   }
@@ -625,6 +619,29 @@ export class ImageBlockRepository {
       item.sourceUrl,
       item.sourcePage > 0 ? Math.floor(item.sourcePage) : 0,
       '',
+      1,
+      updatedAt,
+    ])
+  }
+
+  private static async upsertAllowRule(
+    store: relationalStore.RdbStore,
+    hash: string,
+    previewPath: string,
+    updatedAt: number,
+  ): Promise<void> {
+    await store.executeSql(SQL_UPSERT_RULE, [
+      SCOPE_GLOBAL,
+      'allow:' + hash,
+      hash,
+      0,
+      'allow',
+      IMAGE_BLOCK_SCOPE_WHOLE,
+      '',
+      IMAGE_BLOCK_SOURCE_ALLOW,
+      '',
+      0,
+      previewPath,
       1,
       updatedAt,
     ])
