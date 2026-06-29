@@ -103,6 +103,8 @@ export class ImageBlockFeedParser {
     if (item.label.length === 0) {
       item.label = 'scanlator-ad'
     }
+    item.sourceUrl = ImageBlockFeedParser.safeString(raw.sourceUrl)
+    item.sourcePage = Math.floor(ImageBlockFeedParser.safeNumber(raw.sourcePage))
     item.scope = ImageBlockFeedParser.safeString(raw.scope)
     if (item.scope.length === 0) {
       item.scope = IMAGE_BLOCK_SCOPE_WHOLE

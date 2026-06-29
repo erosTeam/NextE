@@ -54,6 +54,8 @@ export class ImageBlockFeedItem {
   threshold: number = IMAGE_BLOCK_DEFAULT_THRESHOLD
   label: string = ''
   scope: string = IMAGE_BLOCK_SCOPE_WHOLE
+  sourceUrl: string = ''
+  sourcePage: number = 0
 }
 
 export class ImageBlockFeed {
