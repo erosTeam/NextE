@@ -1848,6 +1848,10 @@ export class DownloadQueueSettings {
         exactMatched = exactMatched || exact
         task.status = status
         task.prepareError = error
+        if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
+          task.imageSeeds = DownloadQueueSettings.clearPendingSeedErrors(task.imageSeeds)
+          task.syncProgressCounts()
+        }
         if (status !== DownloadGalleryTaskStatus.DOWNLOADING) {
           task.clearActiveDownloadProgress()
         }
@@ -1863,6 +1867,16 @@ export class DownloadQueueSettings {
     }
     DownloadQueueSettings.setGalleryTasks(state, next)
     await DownloadQueueSettings.persist(context, next)
+  }
+
+  private static clearPendingSeedErrors(seeds: DownloadImageSeed[]): DownloadImageSeed[] {
+    return seeds.map((seed: DownloadImageSeed) => {
+      const out: DownloadImageSeed = seed.copy()
+      if (out.filePath.length === 0 && out.imagePageUrl.length > 0) {
+        out.downloadError = ''
+      }
+      return out
+    })
   }
 
   private static async updateGalleryTaskAfterPause(

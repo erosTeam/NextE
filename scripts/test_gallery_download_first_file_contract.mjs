@@ -80,6 +80,9 @@ ok(/private static firstSeedError\(seeds: DownloadImageSeed\[\]\): string/.test(
 ok(/let failedBatchRetries: number = 0/.test(settings) &&
   /if \(hasError\) \{[\s\S]*failedBatchRetries < connectDownloadSettings\(\)\.retryCount[\s\S]*gallery_download_batch_auto_retry[\s\S]*continue[\s\S]*failedBatchRetries = 0/.test(settings),
   'queue executor automatically retries failed batches by re-entering the pending-seed loop')
+ok(/status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*clearPendingSeedErrors\(task\.imageSeeds\)[\s\S]*task\.syncProgressCounts\(\)/.test(settings) &&
+  /private static clearPendingSeedErrors\(seeds: DownloadImageSeed\[\]\): DownloadImageSeed\[\] \{[\s\S]*out\.filePath\.length === 0 && out\.imagePageUrl\.length > 0[\s\S]*out\.downloadError = ''/.test(settings),
+  'retrying or resuming a gallery download clears stale pending-seed errors before the new attempt owns task state')
 ok(/ImageResolveService\.getInstance\(\)\.resolve/.test(settings) &&
   /ImageResolveService\.getInstance\(\)\.resolveOriginal/.test(settings),
   'queue executor resolves normal images and honors the always-original policy')
