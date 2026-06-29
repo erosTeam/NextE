@@ -45,16 +45,20 @@ ok('Web login saves through CookieJarSettings.save', /await CookieJarSettings\.s
 ok('Web login refreshes igneous after the identity jar is saved', /await CookieJarSettings\.save\(ctx\)[\s\S]*refreshIgneousAfterLogin\(ctx\)/.test(page))
 ok('Web login igneous refresh reuses CookieJarSettings.refreshIgneous', /CookieJarSettings\.refreshIgneous\(ctx\)/.test(page))
 ok('CookieJarSettings.refreshIgneous fetches ExHentai uconfig', /EX_BASE_URL\}\/uconfig\.php/.test(settings))
-ok('Web login does not wipe Cloudflare challenge cookies', !/clearAllCookiesSync/.test(page) && /expireWebLoginIdentityCookies\(\)/.test(page))
-ok('Web login only expires EH identity cookies before loading forums', /COOKIE_MEMBER_ID[\s\S]*COOKIE_PASS_HASH[\s\S]*configCookieSync\([\s\S]*Max-Age=0/.test(page) && /expireWebLoginIdentityCookies\(\)[\s\S]*loadUrl\(EhConstants\.FORUMS_LOGIN_FORM_URL\)/.test(page))
-ok('Web login preserves visible forum failure or verification messages', /function loginNotice\(\)[\s\S]*nx-notice[\s\S]*white-space:pre-wrap/.test(page))
-ok('Web login searches the full document for late captcha widgets', /function captchaNode\(n\)/.test(page) && /captchaNode\(document\)/.test(page) && /new MutationObserver\(function\(\)\{ updateCaptcha\(\);/.test(page))
-ok('Web login recognizes Cloudflare Turnstile captcha widgets', /cf-turnstile/.test(page) && /challenges\.cloudflare\.com/.test(page) && /cf-turnstile-response/.test(page))
-ok('Web login only moves real captcha widgets, not captcha advisory text', /var capSel='\.g-recaptcha,\.cf-turnstile,\[data-sitekey\],iframe/.test(page) && !/\[class\*=captcha\].*\[id\*=captcha\]/.test(page))
-ok('Web login preserves legacy forum captcha images and text inputs', /img\[src\*=captcha\]/.test(page) && /function captchaMedia\(\)/.test(page) && /function captchaInputs\(\)/.test(page) && /nx-captcha-input/.test(page))
-ok('Web login hides the captcha slot only when no challenge control is available', /function collapseCaptcha\(\)/.test(page) && /#nx-box \.nx-cap:empty,#nx-box \.nx-cap\.nx-cap-empty\{display:none!important;margin:0!important;\}/.test(page) && /overflow:visible!important/.test(page))
-ok('Web login blocks empty captcha submissions until Turnstile writes a token', /function captchaTokenReady\(\)/.test(page) && /function updateSubmitState\(\)/.test(page) && /submit\.disabled=!ready/.test(page) && /nx-submit-disabled/.test(page) && /nxLoginCaptchaTimer=setInterval/.test(page))
-ok('Web login resets the forum submit button layout', /submit\.removeAttribute\('style'\)/.test(page) && /submit\.className='nx-submit'/.test(page) && /position:static!important/.test(page) && /margin:4px 0 0!important/.test(page))
+ok('Web login does not wipe Cloudflare challenge cookies', !/clearAllCookiesSync/.test(page) && /CookieJarSettings\.expireWebIdentityCookies\(\)/.test(page))
+ok(
+  'Web login only expires EH identity cookies before loading forums',
+  /private static authCookieNames\(\): string\[\][\s\S]*COOKIE_MEMBER_ID[\s\S]*COOKIE_PASS_HASH[\s\S]*ipb_session_id/.test(settings) &&
+    /static expireWebIdentityCookies\(\): void[\s\S]*configCookieSync\([\s\S]*Max-Age=0/.test(settings) &&
+    /CookieJarSettings\.expireWebIdentityCookies\(\)[\s\S]*Web\(\{ src: EhConstants\.FORUMS_LOGIN_FORM_URL/.test(page),
+)
+ok('Web login restyle keeps the forum DOM instead of moving captcha controls', !/MutationObserver/.test(page) && !/appendChild\(.*cap/.test(page) && /Keep the real forum DOM in place/.test(page))
+ok('Web login restyle is guarded against ArkWeb runJavaScript pileups', /private restyleInFlight: boolean = false/.test(page) && /if \(this\.restyleInFlight\)/.test(page) && /setTimeout\(\(\): void => \{[\s\S]*this\.restyleInFlight = false[\s\S]*\}, 1500\)/.test(page))
+ok('Web login avoids ArkWeb-fragile :has selectors', !/:has\(/.test(page))
+ok('Web login tags the real forum form and chrome instead of moving captcha controls', /form\.classList\.add\('nxe-login-form'\)/.test(page) && /nxe-login-chrome/.test(page) && /nxe-login-shell/.test(page))
+ok('Web login applies mobile CSS around the real password form', /document\.querySelector\('input\[type=password\]'\)/.test(page) && /form\.nxe-login-form input\[type=text\]/.test(page) && /form\.nxe-login-form input\[type=submit\]/.test(page))
+ok('Web login marks captcha controls and keeps their media visible', /querySelectorAll\('iframe,canvas,img,\.cf-turnstile,\[data-sitekey\],\[name="cf-turnstile-response"\]'\)/.test(page) && /nxe-login-captcha-row/.test(page) && /visibility:visible!important/.test(page))
+ok('Web login resets the forum submit button layout', /submit\.removeAttribute\('style'\)/.test(page) && /submit\.className='nx-submit'/.test(page) && /position:static!important/.test(page) && /margin:8px 0 0!important/.test(page))
 ok('Web login exposes a persistent beautify setting in the login chooser', /connectWebLoginStyle/.test(accountLogin) && /web_login_beautify_setting/.test(accountLogin) && /WebLoginStyleSettings\.save/.test(accountLogin))
 ok('Web login style setting is restored during bootstrap', /WEB_LOGIN_BEAUTIFY_ENABLED/.test(storageKeys) && /@ObservedV2[\s\S]*class WebLoginStyleState[\s\S]*@Trace beautifyEnabled: boolean = true/.test(styleState) && /WebLoginStyleSettings\.restore\(context\)/.test(bootstrap))
 ok('Web login can be switched to raw mode from the title bar', /runtimeBeautifyEnabled/.test(page) && /web_login_use_original/.test(page) && /web_login_use_beautified/.test(page) && /toggleRuntimeLoginStyle\(\)/.test(page))

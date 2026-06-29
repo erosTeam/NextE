@@ -202,6 +202,16 @@ Primary action: user completes the existing WebView login form; the app loads th
 Reuse or deviation: reuse the existing WebView session and `UserProfileService.applyProfileDomPayload()` path instead of adding a second parser or new setting; deviate only by delaying the login success pop until the best-effort profile capture attempt finishes or fails.
 Verification: UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and logged-in Settings/Account screenshots showing clipped avatar and stable account-entry hierarchy.
 
+## Active: WebView login form styling
+
+Status: active
+Reference implementation: `entry/src/main/ets/pages/EhLoginWebPage.ets` existing WebView login cookie capture and `entry/src/main/ets/pages/GalleryWebPage.ets` direct ArkWeb controller ownership.
+Surface type: EH forums WebView login page only; gallery WebView and normal native password/cookie login pages are out of scope.
+Primary information: the forums login form, username/password inputs, real captcha/Turnstile area, and submit button must remain visible and usable.
+Primary action: user opens Web login, completes any captcha, enters credentials, submits, and the existing cookie capture finishes login.
+Reuse or deviation: reuse the login page WebView lifecycle and cookie capture; deviate from the generic `EhWebView` wrapper because the login page must call `loadUrl()` and `runJavaScript()` through the exact same controller instance used by the visible Web component.
+Verification: web-login cookie capture contract, cookie import contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Web login screenshot/log proving the visible forums page is not styled through an `about:blank` controller.
+
 ## Active: custom-tab tag suggestion labels
 
 Status: active

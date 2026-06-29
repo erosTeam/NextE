@@ -7,7 +7,7 @@
  *
  * This is the SAFE manual fallback to the WebView login. The invariants it locks down:
  *   • the screen is reachable from Settings (pushPathByName('EhCookieImport')) and routed in Index;
- *   • it REUSES CookieJarSettings.applyFromHeader/save (no second cookie parser is hand-rolled);
+ *   • it REUSES CookieJarSettings.replaceFromHeader/save (no second cookie parser is hand-rolled);
  *   • required identity is ipb_member_id + ipb_pass_hash; a paste missing either is rejected and
  *     must NOT mutate/persist the jar (validate-before-apply);
  *   • the COMPLETE pasted header is applied (unknown donor/permission cookies preserved, not
@@ -31,6 +31,8 @@ const src = (rel) => readFileSync(join(ROOT, rel), 'utf8')
 const PAGE = 'entry/src/main/ets/pages/EhCookieImportPage.ets'
 const INDEX = 'entry/src/main/ets/pages/Index.ets'
 const SETTINGS = 'feature/settings/src/main/ets/pages/SettingsPage.ets'
+const ACCOUNT_LOGIN = 'feature/settings/src/main/ets/pages/AccountLoginPage.ets'
+const ACCOUNT_PAGE = 'feature/settings/src/main/ets/pages/AccountPage.ets'
 const COOKIE_SETTINGS = 'shared/src/main/ets/settings/CookieJarSettings.ets'
 
 let passed = 0
@@ -55,17 +57,20 @@ const eq = (name, got, want) => {
   ok("Index routes the 'EhCookieImport' name", /name === 'EhCookieImport'[\s\S]*?EhCookieImportPage\(\)/.test(index))
 
   const settings = src(SETTINGS)
-  ok('Settings pushes the EhCookieImport route', /pushPathByName\('EhCookieImport'/.test(settings))
-  ok('Settings keeps the WebView login route intact', /pushPathByName\('EhLogin'/.test(settings))
-  ok('cookie import row is in the logged-out branch', /settings_login_cookie/.test(settings))
-  ok('logout confirmation keeps cancel as primary button', /primaryButton:\s*\{[\s\S]*?common_cancel[\s\S]*?\}[\s\S]*?secondaryButton:/.test(settings))
-  ok('logout confirmation puts destructive clear on secondary button', /secondaryButton:\s*\{[\s\S]*?settings_logout[\s\S]*?fontColor:\s*Color\.Red[\s\S]*?logout\(\)/.test(settings))
+  const accountLogin = src(ACCOUNT_LOGIN)
+  const accountPage = src(ACCOUNT_PAGE)
+  ok('Settings pushes the account login chooser route', /pushPathByName\('AccountLogin'/.test(settings))
+  ok('Account login pushes the EhCookieImport route', /pushPathByName\('EhCookieImport'/.test(accountLogin))
+  ok('Account login keeps the WebView login route intact', /pushPathByName\('EhLogin'/.test(accountLogin))
+  ok('cookie import row is in the logged-out login chooser', /settings_login_cookie/.test(accountLogin))
+  ok('logout confirmation keeps cancel as primary button', /primaryButton:\s*\{[\s\S]*?common_cancel[\s\S]*?\}[\s\S]*?secondaryButton:/.test(accountPage))
+  ok('logout confirmation puts destructive account removal on secondary button', /secondaryButton:\s*\{[\s\S]*?settings_logout[\s\S]*?fontColor:\s*Color\.Red[\s\S]*?removeAndMaybeExit/.test(accountPage))
 }
 
 // --- 2. Reuse: the page delegates to CookieJarSettings, does not hand-roll a second parser ---
 {
   const page = src(PAGE)
-  ok('page reuses CookieJarSettings.applyFromHeader', /CookieJarSettings\.applyFromHeader\(/.test(page))
+  ok('page reuses CookieJarSettings.replaceFromHeader', /CookieJarSettings\.replaceFromHeader\(/.test(page))
   ok('page reuses CookieJarSettings.save', /CookieJarSettings\.save\(/.test(page))
   ok('page validates via CookieJarSettings.parseCookieValue', /CookieJarSettings\.parseCookieValue\(/.test(page))
   // No bespoke cookie-jar mutation: the page must not poke EhCookieStore.set directly.
@@ -151,7 +156,10 @@ const eq = (name, got, want) => {
 {
   const cookieSettings = src(COOKIE_SETTINGS)
   ok('CookieJarSettings.clear clears the in-memory jar before persistence I/O', /static\s+async\s+clear[\s\S]*?EhCookieStore\.getInstance\(\)\.clear\(\)/.test(cookieSettings))
-  ok('CookieJarSettings.clear syncs AuthState immediately after clearing jar', /EhCookieStore\.getInstance\(\)\.clear\(\)\s*\n\s*\/\/[^\n]*\n\s*CookieJarSettings\.syncAuthState\(\)/.test(cookieSettings))
+  ok('CookieJarSettings.clear expires WebView identity cookies on logout', /static\s+async\s+clear[\s\S]*?CookieJarSettings\.expireWebIdentityCookies\(\)/.test(cookieSettings))
+  ok('CookieJarSettings.switchTo expires stale WebView identity before loading another account', /static\s+async\s+switchTo[\s\S]*?EhCookieStore\.getInstance\(\)\.clear\(\)[\s\S]*?CookieJarSettings\.expireWebIdentityCookies\(\)[\s\S]*?CookieJarSettings\.applyFromHeader\(bundle\)/.test(cookieSettings))
+  ok('WebView identity expiry keeps Cloudflare cookies by avoiding clearAllCookiesSync', /static expireWebIdentityCookies\(\): void[\s\S]*configCookieSync[\s\S]*Max-Age=0/.test(cookieSettings) && !/clearAllCookiesSync/.test(cookieSettings))
+  ok('CookieJarSettings.clear syncs AuthState immediately after clearing jar', /static\s+async\s+clear[\s\S]*?EhCookieStore\.getInstance\(\)\.clear\(\)[\s\S]*?CookieJarSettings\.expireWebIdentityCookies\(\)[\s\S]*?CookieJarSettings\.syncAuthState\(\)/.test(cookieSettings))
   ok('CookieJarSettings.clear deletes persisted cookie jar', /deleteSync\(StorageKeys\.COOKIE_JAR\)/.test(cookieSettings))
 }
 

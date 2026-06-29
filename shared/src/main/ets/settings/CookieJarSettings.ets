@@ -19,6 +19,17 @@ import { UserProfileService } from '../services/UserProfileService'
  * map. Serialized as a cookie-header string ("name=value; …"); only logs counts, never values.
  */
 export class CookieJarSettings {
+  private static authCookieNames(): string[] {
+    return [
+      EhConstants.COOKIE_MEMBER_ID,
+      EhConstants.COOKIE_PASS_HASH,
+      EhConstants.COOKIE_IGNEOUS,
+      EhConstants.COOKIE_SK,
+      EhConstants.COOKIE_STAR,
+      'ipb_session_id',
+    ]
+  }
+
   /** Pull a single cookie value out of a "name=value; name2=value2" header. '' if absent. */
   static parseCookieValue(header: string, name: string): string {
     if (header.length === 0) {
@@ -78,6 +89,41 @@ export class CookieJarSettings {
   static replaceFromHeader(header: string): boolean {
     EhCookieStore.getInstance().clear()
     return CookieJarSettings.applyFromHeader(header)
+  }
+
+  /**
+   * Expire EH identity cookies from ArkWeb's own cookie jar. App logout must clear this too; otherwise
+   * WebView can still show the forums as logged in even after the native request jar is empty.
+   * Cloudflare cookies are deliberately preserved so the next login does not restart CF from zero.
+   */
+  static expireWebIdentityCookies(): void {
+    const targets: string[][] = [
+      [EhConstants.EH_BASE_URL, '; Domain=.e-hentai.org'],
+      [EhConstants.EH_BASE_URL, ''],
+      [EhConstants.FORUMS_BASE_URL, '; Domain=.e-hentai.org'],
+      [EhConstants.FORUMS_BASE_URL, ''],
+      [EhConstants.EX_BASE_URL, '; Domain=.exhentai.org'],
+      [EhConstants.EX_BASE_URL, ''],
+    ]
+    for (const name of CookieJarSettings.authCookieNames()) {
+      for (const target of targets) {
+        try {
+          webview.WebCookieManager.configCookieSync(
+            target[0],
+            `${name}=; Path=/${target[1]}; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`,
+            false,
+            true,
+          )
+        } catch (error) {
+          DiagnosticLogger.warn('auth', 'web_identity_cookie_expire_failed', (error as Error).message)
+        }
+      }
+    }
+    try {
+      webview.WebCookieManager.saveCookieSync()
+    } catch (_error) {
+      webview.WebCookieManager.saveCookieAsync()
+    }
   }
 
   /**
@@ -235,6 +281,7 @@ export class CookieJarSettings {
   /** Log out: clear the jar, the persisted bundle, and the AuthState mirror. */
   static async clear(context: common.UIAbilityContext): Promise<void> {
     EhCookieStore.getInstance().clear()
+    CookieJarSettings.expireWebIdentityCookies()
     // Refresh visible account UI immediately; persistence deletion may await Preferences I/O.
     CookieJarSettings.syncAuthState()
     try {
@@ -259,6 +306,7 @@ export class CookieJarSettings {
       return
     }
     EhCookieStore.getInstance().clear()
+    CookieJarSettings.expireWebIdentityCookies()
     CookieJarSettings.applyFromHeader(bundle)
     await CookieJarSettings.save(context)
     await UserProfileService.restoreActive(context)
