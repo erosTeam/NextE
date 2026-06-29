@@ -193,6 +193,14 @@
       "value": "Retries per failed image"
     },
     {
+      "name": "download_auto_retry_failed",
+      "value": "Auto retry failed tasks"
+    },
+    {
+      "name": "download_auto_retry_failed_hint",
+      "value": "Resume failed tasks on startup, excluding manually paused tasks"
+    },
+    {
       "name": "download_speed_limit",
       "value": "Speed limit"
     },

@@ -20,6 +20,7 @@ export class DownloadSettingsState {
   @Trace concurrency: number = 2
   @Trace requestIntervalSeconds: number = 0
   @Trace retryCount: number = 2
+  @Trace autoRetryFailed: boolean = true
   @Trace speedLimitKbps: number = 0
   @Trace originalMode: string = DownloadOriginalMode.ASK
   @Trace archiveBotType: string = ArchiveBotType.EH_AR_BOT

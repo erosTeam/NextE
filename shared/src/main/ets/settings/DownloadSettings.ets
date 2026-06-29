@@ -72,6 +72,7 @@ export class DownloadSettings {
       const requestIntervalSeconds: number =
         store.getSync(StorageKeys.DOWNLOAD_REQUEST_INTERVAL_SECONDS, 0) as number
       const retryCount: number = store.getSync(StorageKeys.DOWNLOAD_RETRY_COUNT, 2) as number
+      const autoRetryFailed: boolean = store.getSync(StorageKeys.DOWNLOAD_AUTO_RETRY_FAILED, true) as boolean
       const speedLimitKbps: number = store.getSync(StorageKeys.DOWNLOAD_SPEED_LIMIT_KBPS, 0) as number
       const originalMode: string = store.getSync(
         StorageKeys.DOWNLOAD_ORIGINAL,
@@ -92,6 +93,7 @@ export class DownloadSettings {
       state.concurrency = clampConcurrency(concurrency)
       state.requestIntervalSeconds = clampRequestIntervalSeconds(requestIntervalSeconds)
       state.retryCount = clampRetryCount(retryCount)
+      state.autoRetryFailed = autoRetryFailed
       state.speedLimitKbps = clampSpeedLimitKbps(speedLimitKbps)
       state.originalMode = normalizeOriginalMode(originalMode)
       state.archiveBotType = archiveBotType
@@ -240,6 +242,23 @@ export class DownloadSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_retry_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setAutoRetryFailed(
+    context: common.UIAbilityContext,
+    enabled: boolean,
+  ): Promise<void> {
+    connectDownloadSettings().autoRetryFailed = enabled
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_AUTO_RETRY_FAILED, enabled)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_auto_retry_failed_save_failed', (error as Error).message)
     }
   }
 

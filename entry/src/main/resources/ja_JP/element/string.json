@@ -193,6 +193,14 @@
       "value": "画像ごとの失敗時リトライ回数"
     },
     {
+      "name": "download_auto_retry_failed",
+      "value": "失敗タスクを自動再試行"
+    },
+    {
+      "name": "download_auto_retry_failed_hint",
+      "value": "起動時に失敗タスクを再開します。手動で一時停止したタスクは除きます"
+    },
+    {
       "name": "download_speed_limit",
       "value": "速度制限"
     },

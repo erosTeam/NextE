@@ -140,6 +140,10 @@ export struct DownloadSettingsPage {
     DownloadSettings.setRetryCount(this.ctx(), this.downloadSettings.retryCount + delta)
   }
 
+  private setAutoRetryFailed(enabled: boolean): void {
+    DownloadSettings.setAutoRetryFailed(this.ctx(), enabled)
+  }
+
   private speedLimitLabel(): string {
     return this.downloadSettings.speedLimitKbps > 0 ? `${this.downloadSettings.speedLimitKbps}K` :
     AppStrings.get('common_off')
@@ -329,6 +333,18 @@ export struct DownloadSettingsPage {
                 },
                 counterIncreaseAction: () => {
                   this.adjustRetryCount(1)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.download_auto_retry_failed'),
+                subtitle: $r('app.string.download_auto_retry_failed_hint'),
+                leadingIcon: $r('sys.symbol.arrow_clockwise'),
+                hasSwitch: true,
+                checked: this.downloadSettings.autoRetryFailed,
+                showChevron: false,
+                switchAction: (value: boolean) => {
+                  this.setAutoRetryFailed(value)
                 },
               })
               this.rowDivider()

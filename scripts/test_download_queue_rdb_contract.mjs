@@ -151,8 +151,12 @@ ok('bootstrap resumes restored queued gallery and archiver downloads without blo
     /static async resumePendingDownloads/.test(settings) &&
     /pendingResume: Promise<void> \| null/.test(settings) &&
     /shouldAutoResumeGalleryTask/.test(settings) &&
+    /shouldAutoResumeArchiverTask/.test(settings) &&
     /downloadGalleryImages\(context, galleryTasks\[i\]\.gid, galleryTasks\[i\]\.token\)/.test(settings) &&
     /downloadArchiver\(context, archiverTasks\[i\]\.tag\)/.test(settings))
+ok('bootstrap auto-resumes failed tasks only when the Download setting is enabled',
+  /connectDownloadSettings\(\)\.autoRetryFailed && task\.status === DownloadGalleryTaskStatus\.ERROR/.test(autoResumeBody) &&
+    /shouldAutoResumeArchiverTask\(task: DownloadArchiverTask\): boolean \{[\s\S]*connectDownloadSettings\(\)\.autoRetryFailed && task\.status === DownloadGalleryTaskStatus\.ERROR/.test(settings))
 ok('bootstrap does not auto-resume paused gallery downloads',
   /DownloadGalleryTaskStatus\.QUEUED[\s\S]*DownloadGalleryTaskStatus\.READY[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(autoResumeBody) &&
     !/DownloadGalleryTaskStatus\.PAUSED/.test(autoResumeBody))

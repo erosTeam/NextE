@@ -505,8 +505,7 @@ export class DownloadQueueSettings {
       (task: DownloadArchiverTask) => task.copy(),
     )
     for (let i: number = 0; i < archiverTasks.length; i++) {
-      if (archiverTasks[i].status === DownloadGalleryTaskStatus.QUEUED ||
-        archiverTasks[i].status === DownloadGalleryTaskStatus.PREPARING) {
+      if (DownloadQueueSettings.shouldAutoResumeArchiverTask(archiverTasks[i])) {
         try {
           await DownloadQueueSettings.downloadArchiver(context, archiverTasks[i].tag)
         } catch (error) {
@@ -2111,7 +2110,14 @@ export class DownloadQueueSettings {
   private static shouldAutoResumeGalleryTask(task: DownloadGalleryTask): boolean {
     return task.status === DownloadGalleryTaskStatus.QUEUED ||
       task.status === DownloadGalleryTaskStatus.READY ||
-      task.status === DownloadGalleryTaskStatus.PARTIAL
+      task.status === DownloadGalleryTaskStatus.PARTIAL ||
+      (connectDownloadSettings().autoRetryFailed && task.status === DownloadGalleryTaskStatus.ERROR)
+  }
+
+  private static shouldAutoResumeArchiverTask(task: DownloadArchiverTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.QUEUED ||
+      task.status === DownloadGalleryTaskStatus.PREPARING ||
+      (connectDownloadSettings().autoRetryFailed && task.status === DownloadGalleryTaskStatus.ERROR)
   }
 
   private static normalizeRestoredArchiverComplete(task: DownloadArchiverTask): void {

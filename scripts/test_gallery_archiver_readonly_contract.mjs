@@ -383,8 +383,9 @@ ok(/if \(task\.url\.length === 0 && task\.parseSource !== DownloadArchiverParseS
   'bot-source archive tasks skip official unlock/download-page URL requirements and resolve through the bot')
 ok(/private static canResumeArchiverTask\(task: DownloadArchiverTask\): boolean \{[\s\S]*DownloadGalleryTaskStatus\.QUEUED[\s\S]*DownloadGalleryTaskStatus\.PREPARING[\s\S]*DownloadGalleryTaskStatus\.PAUSED[\s\S]*DownloadGalleryTaskStatus\.ERROR/.test(downloadQueue),
   'bot-source archive tasks left in resolving/preparing state can be resumed')
-ok(/for \(let i: number = 0; i < archiverTasks\.length; i\+\+\) \{[\s\S]*archiverTasks\[i\]\.status === DownloadGalleryTaskStatus\.QUEUED \|\|[\s\S]*archiverTasks\[i\]\.status === DownloadGalleryTaskStatus\.PREPARING[\s\S]*downloadArchiver\(context, archiverTasks\[i\]\.tag\)/.test(downloadQueue),
-  'startup pending-resume restarts queued or interrupted preparing archive tasks')
+ok(/for \(let i: number = 0; i < archiverTasks\.length; i\+\+\) \{[\s\S]*shouldAutoResumeArchiverTask\(archiverTasks\[i\]\)[\s\S]*downloadArchiver\(context, archiverTasks\[i\]\.tag\)/.test(downloadQueue) &&
+  /shouldAutoResumeArchiverTask\(task: DownloadArchiverTask\): boolean \{[\s\S]*DownloadGalleryTaskStatus\.QUEUED[\s\S]*DownloadGalleryTaskStatus\.PREPARING[\s\S]*connectDownloadSettings\(\)\.autoRetryFailed && task\.status === DownloadGalleryTaskStatus\.ERROR/.test(downloadQueue),
+  'startup pending-resume restarts queued or interrupted preparing archive tasks and setting-enabled failed archive tasks')
 ok(/DownloadSettings\.archiveBotReady\(\)/.test(downloadPage) &&
   /task\.parseSource === DownloadArchiverParseSource\.BOT/.test(downloadPage) &&
   /download_archiver_use_bot/.test(downloadPage),

@@ -26,6 +26,7 @@ ok(/@ObservedV2\s+export class DownloadSettingsState/.test(state), 'download set
 ok(/@Trace concurrency: number = 2/.test(state), 'download concurrency defaults to 2')
 ok(/@Trace requestIntervalSeconds: number = 0/.test(state), 'download request interval defaults to off')
 ok(/@Trace retryCount: number = 2/.test(state), 'download retry count defaults to 2')
+ok(/@Trace autoRetryFailed: boolean = true/.test(state), 'download failed-task auto retry defaults to on')
 ok(/@Trace speedLimitKbps: number = 0/.test(state), 'download speed limit defaults to off')
 ok(/@Trace originalMode: string = DownloadOriginalMode\.ASK/.test(state),
   'download original mode defaults to ask')
@@ -37,6 +38,7 @@ const queueSettings = read('shared/src/main/ets/settings/DownloadQueueSettings.e
 ok(/StorageKeys\.DOWNLOAD_CONCURRENCY/.test(settings), 'settings persist concurrency key')
 ok(/StorageKeys\.DOWNLOAD_REQUEST_INTERVAL_SECONDS/.test(settings), 'settings persist request interval key')
 ok(/StorageKeys\.DOWNLOAD_RETRY_COUNT/.test(settings), 'settings persist retry count key')
+ok(/StorageKeys\.DOWNLOAD_AUTO_RETRY_FAILED/.test(settings), 'settings persist failed-task auto retry key')
 ok(/StorageKeys\.DOWNLOAD_SPEED_LIMIT_KBPS/.test(settings), 'settings persist speed limit key')
 ok(/StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings), 'settings persist original-mode key')
 ok(/clampConcurrency/.test(settings) && /MIN_CONCURRENCY: number = 1/.test(settings) &&
@@ -59,6 +61,9 @@ ok(/static async setRequestIntervalSeconds/.test(settings) &&
   'settings write request interval to preferences')
 ok(/static async setRetryCount/.test(settings) && /store\.putSync\(StorageKeys\.DOWNLOAD_RETRY_COUNT/.test(settings),
   'settings write retry count to preferences')
+ok(/static async setAutoRetryFailed/.test(settings) &&
+  /store\.putSync\(StorageKeys\.DOWNLOAD_AUTO_RETRY_FAILED/.test(settings),
+  'settings write failed-task auto retry to preferences')
 ok(/static async setSpeedLimitKbps/.test(settings) &&
   /store\.putSync\(StorageKeys\.DOWNLOAD_SPEED_LIMIT_KBPS/.test(settings),
   'settings write speed limit to preferences')
@@ -67,6 +72,7 @@ ok(/static async setOriginalMode/.test(settings) && /store\.putSync\(StorageKeys
 ok(/connectDownloadSettings\(\)\.concurrency/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.requestIntervalSeconds/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.retryCount/.test(queueSettings) &&
+  /connectDownloadSettings\(\)\.autoRetryFailed/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.speedLimitKbps/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.originalMode/.test(queueSettings),
   'gallery image executor consumes persisted download policy')
@@ -125,6 +131,10 @@ ok(/download_request_interval/.test(downloadPage) && /hasCounter: true/.test(dow
 ok(/download_retry_count/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
   /DownloadSettings\.setRetryCount/.test(downloadPage),
   'download settings page exposes persisted retry count as a counter')
+ok(/download_auto_retry_failed/.test(downloadPage) && /hasSwitch: true/.test(downloadPage) &&
+  /checked: this\.downloadSettings\.autoRetryFailed/.test(downloadPage) &&
+  /DownloadSettings\.setAutoRetryFailed/.test(downloadPage),
+  'download settings page exposes failed-task auto retry as a persisted switch')
 ok(/download_speed_limit/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
   /DownloadSettings\.setSpeedLimitKbps/.test(downloadPage) &&
   /speedLimitLabel/.test(downloadPage),
@@ -168,6 +178,8 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   ok(strings.includes('"name": "download_request_interval_hint"'), `${locale}: download_request_interval_hint exists`)
   ok(strings.includes('"name": "download_retry_count"'), `${locale}: download_retry_count exists`)
   ok(strings.includes('"name": "download_retry_count_hint"'), `${locale}: download_retry_count_hint exists`)
+  ok(strings.includes('"name": "download_auto_retry_failed"'), `${locale}: download_auto_retry_failed exists`)
+  ok(strings.includes('"name": "download_auto_retry_failed_hint"'), `${locale}: download_auto_retry_failed_hint exists`)
   ok(strings.includes('"name": "download_speed_limit"'), `${locale}: download_speed_limit exists`)
   ok(strings.includes('"name": "download_speed_limit_hint"'), `${locale}: download_speed_limit_hint exists`)
   ok(strings.includes('"name": "download_original_hint"'), `${locale}: download_original_hint exists`)

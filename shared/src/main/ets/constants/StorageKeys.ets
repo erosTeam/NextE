@@ -42,6 +42,7 @@ export class StorageKeys {
   static readonly DOWNLOAD_CONCURRENCY: string = 'download.concurrency'
   static readonly DOWNLOAD_REQUEST_INTERVAL_SECONDS: string = 'download.requestIntervalSeconds'
   static readonly DOWNLOAD_RETRY_COUNT: string = 'download.retryCount'
+  static readonly DOWNLOAD_AUTO_RETRY_FAILED: string = 'download.autoRetryFailed'
   static readonly DOWNLOAD_SPEED_LIMIT_KBPS: string = 'download.speedLimitKbps'
   static readonly DOWNLOAD_ORIGINAL: string = 'download.original'
   static readonly DOWNLOAD_ARCHIVE_BOT_TYPE: string = 'download.archiveBot.type'
