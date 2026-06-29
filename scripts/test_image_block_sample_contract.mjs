@@ -187,8 +187,8 @@ if (repo.length > 0) {
   assert.equal(distSeed.threshold, seed.threshold, 'dist seed threshold must match the fixture')
   assert.equal(distSeed.label, seed.label, 'dist seed label must match the fixture')
   assert.equal(distSeed.scope, seed.scope, 'dist seed scope must match the fixture')
-  assert.equal(distSeed.sourceUrl, undefined, 'dist feed must strip reviewer-only sourceUrl')
-  assert.equal(distSeed.sourcePage, undefined, 'dist feed must strip reviewer-only sourcePage')
+  assert.equal(distSeed.sourceUrl, seed.galleryUrl, 'dist feed must keep the review source URL for app display')
+  assert.equal(distSeed.sourcePage, seed.page, 'dist feed must keep the review source page for app display')
   assert.equal(distSeed.note, undefined, 'dist feed must strip reviewer-only note')
 
   const draftHash = firstUnusedDraftHash(feed)
@@ -236,7 +236,8 @@ if (repo.length > 0) {
     'refused to apply',
     'clean apply must rebuild dist by default',
     'clean apply must persist structured source page evidence',
-    'rebuilt client feed must strip reviewer-only sourcePage',
+    'rebuilt client feed must keep review sourceUrl',
+    'rebuilt client feed must keep review sourcePage',
   ]) {
     assert.ok(importerSmoke.includes(token), `rules repo importer smoke must cover ${token}`)
   }
