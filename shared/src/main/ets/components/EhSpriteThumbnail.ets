@@ -123,7 +123,7 @@ export struct EhSpriteThumbnail {
     return `${this.imageKey}:${this.url}:${this.thumbWidth}:${this.thumbHeight}:${this.offsetX}:${this.spriteWidth}:${this.spriteHeight}:${this.imageBlockRevision}:${this.imageBlockRuntime.signal}`
   }
 
-  private checkImageBlock(): void {
+  private checkImageBlock(computeWhenMissing: boolean = false): void {
     if (!this.enableImageBlock || this.url.length === 0) {
       this.lastBlockKey = ''
       this.imageBlocked = false
@@ -131,7 +131,7 @@ export struct EhSpriteThumbnail {
       this.onImageBlockDecisionChange(new ImageBlockDecision())
       return
     }
-    const key: string = this.imageBlockKey()
+    const key: string = `${this.imageBlockKey()}:${computeWhenMissing ? 'compute' : 'cache'}`
     if (key === this.lastBlockKey) {
       return
     }
@@ -146,7 +146,7 @@ export struct EhSpriteThumbnail {
       this.spriteWidth,
       this.spriteHeight,
       this.imageKey,
-      false,
+      computeWhenMissing,
     )
       .then((decision) => {
         if (seq === this.blockSeq) {
@@ -162,6 +162,20 @@ export struct EhSpriteThumbnail {
           this.onImageBlockDecisionChange(new ImageBlockDecision())
         }
       })
+  }
+
+  private onThumbComplete(event?: SpriteLoadEvent): void {
+    if (
+      event !== undefined &&
+      event.width !== undefined &&
+      event.height !== undefined &&
+      event.width > 0 &&
+      event.height > 0
+    ) {
+      this.sheetRealW = event.width
+      this.sheetRealH = event.height
+    }
+    this.checkImageBlock(true)
   }
 
   @Builder
@@ -231,16 +245,7 @@ export struct EhSpriteThumbnail {
           .offset({ x: -(this.offsetX * this.factor()), y: 0 })
           .draggable(false)
           .onComplete((event?: SpriteLoadEvent) => {
-            if (
-              event !== undefined &&
-              event.width !== undefined &&
-              event.height !== undefined &&
-              event.width > 0 &&
-              event.height > 0
-            ) {
-              this.sheetRealW = event.width
-              this.sheetRealH = event.height
-            }
+            this.onThumbComplete(event)
           })
       }
       .width(this.boxWidth())
@@ -257,6 +262,9 @@ export struct EhSpriteThumbnail {
         .borderRadius(this.radius)
         .clip(true)
         .draggable(false)
+        .onComplete((event?: SpriteLoadEvent) => {
+          this.onThumbComplete(event)
+        })
     } else {
       // No sprite metadata: whole image, width-driven (same clip(true) so the radius actually rounds).
       Image(EhConstants.cdnThumb(this.url))
@@ -266,6 +274,9 @@ export struct EhSpriteThumbnail {
         .borderRadius(this.radius)
         .clip(true)
         .draggable(false)
+        .onComplete((event?: SpriteLoadEvent) => {
+          this.onThumbComplete(event)
+        })
     }
   }
 }

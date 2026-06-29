@@ -216,7 +216,7 @@ export struct PreviewThumbTile {
         }
       }
       .width('100%')
-      .height(this.frameHeight())
+      .aspectRatio(1 / FRAME_ASPECT)
       .clip(true)
       .alignContent(Alignment.Center)
       .gesture(
