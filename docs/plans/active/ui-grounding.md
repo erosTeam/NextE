@@ -9,7 +9,7 @@ Reference implementation: `5a486221` detail action strip edge alignment and curr
 Surface type: Gallery detail relation/action strip only.
 Primary information: secondary gallery actions remain visible as compact chips.
 Primary action: tap similar/torrent/archiver/rate/download chips; the strip follows the same left/right edge as the Read action.
-Reuse or deviation: reuse the existing action-edge state and Scroll scroller; restore edge scrolling/alignment without restoring the removed width-measurement state.
+Reuse or deviation: reuse the existing action-edge state, Scroll scroller, width measurement, and translate animation from the accepted pre-`85d49d55` implementation.
 Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and detail page light/dark smoke.
 
 ## Active: home source trailing action theme

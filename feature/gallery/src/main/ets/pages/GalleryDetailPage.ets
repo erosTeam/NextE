@@ -149,6 +149,10 @@ export struct GalleryDetailPage {
   @Local readFabWidth: number = 0;
   @Local readFabLayoutReady: boolean = false;
   @Local readFabShouldAnimate: boolean = false;
+  @Local actionStripViewportWidth: number = 0;
+  @Local actionStripContentWidth: number = 0;
+  @Local actionStripLayoutReady: boolean = false;
+  @Local actionStripShouldAnimate: boolean = false;
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
   private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
   @Local detailSheetShown: boolean = false;
@@ -172,6 +176,7 @@ export struct GalleryDetailPage {
   @Monitor('actionEdge.edge')
   private onActionEdgeChanged(): void {
     this.readFabShouldAnimate = this.readFabLayoutReady
+    this.actionStripShouldAnimate = this.actionStripLayoutReady
     this.visualActionEdge = this.actionEdge.edge
     this.scrollActionStripToEdge()
   }
@@ -240,9 +245,33 @@ export struct GalleryDetailPage {
     return this.readFabShouldAnimate ? ThemeConstants.ANIM_DURATION : 0
   }
 
+  private actionStripVisualX(): number {
+    if (this.visualActionEdge === 'left' || this.actionStripContentWidth >= this.actionStripViewportWidth) {
+      return 0
+    }
+    return Math.max(0, this.actionStripViewportWidth - this.actionStripContentWidth)
+  }
+
+  private actionStripRailWidth(): Length {
+    if (this.actionStripViewportWidth <= 0) {
+      return '100%'
+    }
+    return Math.max(this.actionStripViewportWidth, this.actionStripContentWidth)
+  }
+
+  private actionStripAnimationDuration(): number {
+    return this.actionStripShouldAnimate ? ThemeConstants.ANIM_DURATION : 0
+  }
+
   private updateReadFabLayoutReady(): void {
     if (this.detailRootWidth > 0 && this.readFabWidth > 0) {
       this.readFabLayoutReady = true
+    }
+  }
+
+  private updateActionStripLayoutReady(): void {
+    if (this.actionStripViewportWidth > 0 && this.actionStripContentWidth > 0) {
+      this.actionStripLayoutReady = true
     }
   }
 
@@ -1934,36 +1963,47 @@ export struct GalleryDetailPage {
   @Builder
   relationsRow() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
+      // Keep this strip coupled to the smart-grip/follow-operation edge exactly like the Read FAB.
+      // Do not simplify this to a plain horizontal Scroll: the rail width + translate animation is what
+      // preserves smooth left/right edge alignment when the action side changes.
       Scroll(this.actionStripScroller) {
-        Row({ space: ThemeConstants.SPACE_XS }) {
-          this.DetailActionChip($r('sys.symbol.magnifyingglass'), $r('app.string.detail_similar'), true, () => {
-            this.openSimilar()
-          })
-          if (
-            Number.parseInt(
-              this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0',
-              10,
-            ) > 0
-          ) {
-            this.DetailActionChip($r('sys.symbol.doc_plaintext'), this.torrentTitle(this.vm.gallery.torrentCount),
-              true, () => {
-                this.openTorrents()
+        Row() {
+          Row({ space: ThemeConstants.SPACE_XS }) {
+            this.DetailActionChip($r('sys.symbol.magnifyingglass'), $r('app.string.detail_similar'), true, () => {
+              this.openSimilar()
+            })
+            if (
+              Number.parseInt(
+                this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0',
+                10,
+              ) > 0
+            ) {
+              this.DetailActionChip($r('sys.symbol.doc_plaintext'), this.torrentTitle(this.vm.gallery.torrentCount),
+                true, () => {
+                  this.openTorrents()
+                })
+            }
+            this.DetailActionChip($r('sys.symbol.externaldrive'), $r('app.string.download_archiver'), true, () => {
+              this.openArchiver()
+            })
+            this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {
+              this.openRatingSheet()
+            })
+            this.DetailActionChip($r('sys.symbol.arrow_down_to_line'), this.downloadTitle(), !this.isGalleryQueued(),
+              () => {
+                this.onDownloadChipTap()
               })
           }
-          this.DetailActionChip($r('sys.symbol.externaldrive'), $r('app.string.download_archiver'), true, () => {
-            this.openArchiver()
+          .alignItems(VerticalAlign.Center)
+          .translate({ x: this.actionStripVisualX() })
+          .animation({ duration: this.actionStripAnimationDuration(), curve: Curve.EaseOut })
+          .onAreaChange((_oldArea: Area, area: Area) => {
+            this.actionStripContentWidth = area.width as number
+            this.updateActionStripLayoutReady()
           })
-          this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {
-            this.openRatingSheet()
-          })
-          this.DetailActionChip($r('sys.symbol.arrow_down_to_line'), this.downloadTitle(), !this.isGalleryQueued(),
-            () => {
-              this.onDownloadChipTap()
-            })
         }
-        .alignItems(VerticalAlign.Center)
-        .justifyContent(this.visualActionEdge === 'left' ? FlexAlign.Start : FlexAlign.End)
-        .width('100%')
+        .width(this.actionStripRailWidth())
+        .justifyContent(FlexAlign.Start)
       }
       .scrollable(ScrollDirection.Horizontal)
       .nestedScroll({
@@ -1972,6 +2012,10 @@ export struct GalleryDetailPage {
       })
       .scrollBar(BarState.Off)
       .width('100%')
+      .onAreaChange((_oldArea: Area, area: Area) => {
+        this.actionStripViewportWidth = area.width as number
+        this.updateActionStripLayoutReady()
+      })
       .onAppear(() => {
         this.scrollActionStripToEdge()
       })
