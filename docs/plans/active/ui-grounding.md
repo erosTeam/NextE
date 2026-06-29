@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: detail action strip edge alignment
+
+Status: active
+Reference implementation: `5a486221` detail action strip edge alignment and current `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` Read FAB `visualActionEdge` handling.
+Surface type: Gallery detail relation/action strip only.
+Primary information: secondary gallery actions remain visible as compact chips.
+Primary action: tap similar/torrent/archiver/rate/download chips; the strip follows the same left/right edge as the Read action.
+Reuse or deviation: reuse the existing action-edge state and Scroll scroller; restore edge scrolling/alignment without restoring the removed width-measurement state.
+Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and detail page light/dark smoke.
+
 ## Active: home source trailing action theme
 
 Status: active
