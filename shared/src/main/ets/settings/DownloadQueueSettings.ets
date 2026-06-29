@@ -155,9 +155,12 @@ export class DownloadQueueSettings {
         DownloadQueueSettings.normalizeRestoredGalleryTasks(await DownloadQueueRepository.load(context)),
         DownloadQueueSettings.normalizeRestoredGalleryTasks(DownloadQueueSettings.loadGalleryMetadataTasks(context)),
       )
-      const archiverTasks: DownloadArchiverTask[] = DownloadQueueSettings.mergeRestoredArchiverTasks(
-        DownloadQueueSettings.normalizeRestoredArchiverTasks(await DownloadQueueRepository.loadArchiver(context)),
-        DownloadQueueSettings.normalizeRestoredArchiverTasks(DownloadQueueSettings.loadArchiverMetadataTasks(context)),
+      const archiverTasks: DownloadArchiverTask[] = DownloadQueueSettings.hydrateArchiverTasksFromGalleryTasks(
+        DownloadQueueSettings.mergeRestoredArchiverTasks(
+          DownloadQueueSettings.normalizeRestoredArchiverTasks(await DownloadQueueRepository.loadArchiver(context)),
+          DownloadQueueSettings.normalizeRestoredArchiverTasks(DownloadQueueSettings.loadArchiverMetadataTasks(context)),
+        ),
+        galleryTasks,
       )
       const state = connectDownloadQueue()
       DownloadQueueSettings.setGalleryTasks(state, galleryTasks)
@@ -312,6 +315,10 @@ export class DownloadQueueSettings {
     const next: DownloadArchiverTask[] = []
     let shouldDownload: boolean = true
     const refreshed: DownloadArchiverTask = task.copy()
+    DownloadQueueSettings.fillArchiverTaskFromGalleryTask(
+      refreshed,
+      DownloadQueueSettings.findGalleryTaskIn(state.galleryTasks, refreshed.gid, refreshed.token),
+    )
     refreshed.queuedAt = Date.now()
     refreshed.status = DownloadGalleryTaskStatus.QUEUED
     if (!DownloadQueueSettings.archiverDownloads.has(task.tag)) {
@@ -1541,6 +1548,44 @@ export class DownloadQueueSettings {
       }
     })
     return out
+  }
+
+  private static hydrateArchiverTasksFromGalleryTasks(
+    archiverTasks: DownloadArchiverTask[],
+    galleryTasks: DownloadGalleryTask[],
+  ): DownloadArchiverTask[] {
+    const out: DownloadArchiverTask[] = []
+    archiverTasks.forEach((task: DownloadArchiverTask) => {
+      const next: DownloadArchiverTask = task.copy()
+      DownloadQueueSettings.fillArchiverTaskFromGalleryTask(
+        next,
+        DownloadQueueSettings.findGalleryTaskIn(galleryTasks, next.gid, next.token),
+      )
+      out.push(next)
+    })
+    return out
+  }
+
+  private static fillArchiverTaskFromGalleryTask(
+    task: DownloadArchiverTask,
+    galleryTask: DownloadGalleryTask | undefined,
+  ): void {
+    if (galleryTask === undefined) {
+      return
+    }
+    if (task.token.length === 0 && galleryTask.token.length > 0) {
+      task.token = galleryTask.token
+    }
+    if (task.title.length === 0) {
+      if (galleryTask.title.length > 0) {
+        task.title = galleryTask.title
+      } else if (galleryTask.titleJp.length > 0) {
+        task.title = galleryTask.titleJp
+      }
+    }
+    if (task.thumbUrl.length === 0 && galleryTask.thumbUrl.length > 0) {
+      task.thumbUrl = galleryTask.thumbUrl
+    }
   }
 
   private static writeTextFile(path: string, text: string, event: string): void {

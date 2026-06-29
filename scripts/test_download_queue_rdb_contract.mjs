@@ -129,6 +129,12 @@ ok('restore falls back to download metadata sidecars without overriding RDB rows
     /mergeRestoredArchiverTasks\([\s\S]*normalizeRestoredArchiverTasks\(await DownloadQueueRepository\.loadArchiver\(context\)\)[\s\S]*loadArchiverMetadataTasks\(context\)/.test(settings) &&
     /mergeRestoredGalleryTasks\([\s\S]*const out: DownloadGalleryTask\[\] = primary\.map[\s\S]*it\.gid === task\.gid && it\.token === task\.token[\s\S]*out\.push\(task\.copy\(\)\)/.test(settings) &&
     /mergeRestoredArchiverTasks\([\s\S]*const out: DownloadArchiverTask\[\] = primary\.map[\s\S]*it\.tag === task\.tag[\s\S]*out\.push\(task\.copy\(\)\)/.test(settings))
+ok('archiver tasks inherit missing title token and cover from matching gallery queue tasks',
+  /hydrateArchiverTasksFromGalleryTasks\([\s\S]*mergeRestoredArchiverTasks\([\s\S]*galleryTasks/.test(settings) &&
+    /fillArchiverTaskFromGalleryTask\([\s\S]*task\.token\.length === 0[\s\S]*task\.token = galleryTask\.token/.test(settings) &&
+    /task\.title\.length === 0[\s\S]*task\.title = galleryTask\.title/.test(settings) &&
+    /task\.thumbUrl\.length === 0[\s\S]*task\.thumbUrl = galleryTask\.thumbUrl/.test(settings) &&
+    /enqueueArchiver\([\s\S]*fillArchiverTaskFromGalleryTask\([\s\S]*findGalleryTaskIn\(state\.galleryTasks, refreshed\.gid, refreshed\.token\)/.test(settings))
 ok('restore normalizes stale in-process gallery download states to resumable states',
   /normalizeRestoredGalleryTasks\(await DownloadQueueRepository\.load\(context\)\)/.test(settings) &&
     /out\.status === DownloadGalleryTaskStatus\.PREPARING \|\|[\s\S]*out\.status === DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
