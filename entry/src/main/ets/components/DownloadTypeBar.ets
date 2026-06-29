@@ -1,11 +1,12 @@
-import { TabSegmentButtonV2, SegmentButtonV2Items, LengthMetrics } from '@kit.ArkUI'
 import {
   AppStrings,
+  DiagnosticLogger,
   DownloadViewState,
   DownloadViewType,
   ThemeConstants,
   connectDownloadView,
 } from 'shared'
+import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
 
 /**
  * Downloads tab type switcher pinned in the HDS title bar. Mirrors eros_fe's navigation-bar
@@ -14,34 +15,29 @@ import {
 @ComponentV2
 export struct DownloadTypeBar {
   @Local private downloadView: DownloadViewState = connectDownloadView();
-  @Local private tabItems: SegmentButtonV2Items = new SegmentButtonV2Items([{ text: '' }, { text: '' }]);
-
-  aboutToAppear(): void {
-    this.syncLabels()
-  }
+  @Local private items: SegmentButtonV2Items = new SegmentButtonV2Items([{ text: '' }, { text: '' }]);
 
   build() {
     Row() {
       TabSegmentButtonV2({
-        items: this.tabItems,
+        items: this.segmentItems(),
         selectedIndex: this.selectedIndex(),
         enableStateAnimation: true,
-        onItemClicked: (index: number) => {
-          this.downloadView.viewType =
-            index === 1 ? DownloadViewType.ARCHIVER : DownloadViewType.GALLERY
-        },
+        itemFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
+        itemSelectedFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
+        itemFontWeight: FontWeight.Medium,
+        itemSelectedFontWeight: FontWeight.Bold,
         itemPadding: {
-          top: LengthMetrics.vp(6),
-          bottom: LengthMetrics.vp(6),
-          start: LengthMetrics.vp(8),
-          end: LengthMetrics.vp(8),
+          top: LengthMetrics.vp(ThemeConstants.SPACE_XS),
+          bottom: LengthMetrics.vp(ThemeConstants.SPACE_XS),
+          start: LengthMetrics.vp(ThemeConstants.SPACE_MD),
+          end: LengthMetrics.vp(ThemeConstants.SPACE_MD),
+        },
+        onItemClicked: (index: number) => {
+          this.setSelectedIndex(index)
         },
       })
         .width(ThemeConstants.COMPACT_SEGMENT_BUTTON_WIDTH)
-        .constraintSize({
-          minWidth: ThemeConstants.COMPACT_SEGMENT_BUTTON_WIDTH,
-          maxWidth: ThemeConstants.COMPACT_SEGMENT_BUTTON_WIDTH,
-        })
     }
     .width('100%')
     .height('100%')
@@ -59,9 +55,21 @@ export struct DownloadTypeBar {
     return this.downloadView.viewType === DownloadViewType.ARCHIVER ? 1 : 0
   }
 
-  private syncLabels(): void {
-    this.tabItems[0].text = AppStrings.get('tab_gallery')
-    this.tabItems[1].text = AppStrings.get('download_archiver')
+  private segmentItems(): SegmentButtonV2Items {
+    this.items = new SegmentButtonV2Items([
+      { text: AppStrings.get('tab_gallery') },
+      { text: AppStrings.get('download_archiver') },
+    ])
+    return this.items
+  }
+
+  private setSelectedIndex(index: number): void {
+    const next: string = index === 1 ? DownloadViewType.ARCHIVER : DownloadViewType.GALLERY
+    if (this.downloadView.viewType === next) {
+      return
+    }
+    this.downloadView.viewType = next
+    DiagnosticLogger.info('download', 'download_type_switch', `type=${next}`)
   }
 }
 

@@ -44,6 +44,9 @@ export class StorageKeys {
   static readonly DOWNLOAD_RETRY_COUNT: string = 'download.retryCount'
   static readonly DOWNLOAD_SPEED_LIMIT_KBPS: string = 'download.speedLimitKbps'
   static readonly DOWNLOAD_ORIGINAL: string = 'download.original'
+  static readonly DOWNLOAD_ARCHIVE_BOT_TYPE: string = 'download.archiveBot.type'
+  static readonly DOWNLOAD_ARCHIVE_BOT_ADDRESS: string = 'download.archiveBot.address'
+  static readonly DOWNLOAD_ARCHIVE_BOT_API_KEY: string = 'download.archiveBot.apiKey'
   static readonly DOWNLOAD_GALLERY_QUEUE: string = 'download.galleryQueue' // legacy Preferences key; RDB source of truth
   static readonly SECURITY_AUTO_LOCK_SEC: string = 'security.autoLockSeconds'
   static readonly HOME_SOURCE: string = 'subtab.homeSource'

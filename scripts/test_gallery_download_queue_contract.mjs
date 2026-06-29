@@ -36,6 +36,7 @@ ok(grounding[3].includes('separate background agent') && grounding[4].includes('
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const queuePage = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
 const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
+const galleryModel = read('shared/src/main/ets/model/EhGallery.ets')
 const state = read('shared/src/main/ets/state/DownloadQueueState.ets')
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 const imageCache = read('shared/src/main/ets/services/CachedImageFileService.ets')
@@ -46,6 +47,15 @@ const shared = read('shared/src/main/ets/Index.ets')
 
 ok(/export class DownloadGalleryTask/.test(model) && /static fromGallery/.test(model) &&
   /pageCountText/.test(model), 'gallery download task captures display metadata from EhGallery')
+ok(/static parseFileCount\(value: string\): number/.test(galleryModel) &&
+  /value\.replace\(\/\[,，\\s\]\/g, ''\)/.test(galleryModel) &&
+  /fileCountNumber\(\): number \{[\s\S]*EhGallery\.parseFileCount\(this\.fileCount\)/.test(galleryModel) &&
+  /task\.pageCount = gallery\.fileCountNumber\(\)/.test(model) &&
+  /const pageCount: number = gallery\.fileCountNumber\(\)/.test(settings),
+  'download pageCount parsing handles EH thousands separators such as 1,700 instead of parseInt=1')
+ok(/upgradeFromGid/.test(model) &&
+  /task\.upgradeFromGid = gallery\.parentGid !== task\.gid \? gallery\.parentGid : ''/.test(model),
+  'gallery download task records the parent gallery gid for newer-version incremental reuse')
 ok(/DownloadGalleryTaskStatus\.QUEUED/.test(model), 'gallery task status starts as queued')
 ok(/@ObservedV2\s+export class DownloadQueueState/.test(state) &&
   /@Trace galleryTasks: DownloadGalleryTask\[\] = \[\]/.test(state) &&
@@ -63,6 +73,30 @@ ok(/DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
   'queue persists through RDB repository')
 ok(!/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings),
   'queue no longer writes the large task list to Preferences')
+ok(/isDownloadComplete\(\): boolean/.test(model) &&
+  /this\.pageCount > 0[\s\S]*return this\.seededCount\(\) >= this\.pageCount && downloaded >= this\.pageCount/.test(model) &&
+  /galleryDoneStatus\(task: DownloadGalleryTask\): string/.test(settings) &&
+  /task\.isDownloadComplete\(\)[\s\S]*DownloadGalleryTaskStatus\.COMPLETE[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(settings) &&
+  /applyDownloadResults[\s\S]*DownloadQueueSettings\.galleryDoneStatus\(task\)/.test(settings) &&
+  /gallery_download_incomplete_seeds/.test(settings),
+  'gallery task cannot be marked complete while downloaded count is below the known fileCount')
+ok(/shouldRefreshIncompleteSeedList\(task: DownloadGalleryTask\): boolean/.test(settings) &&
+  /task\.seededCount\(\) >= task\.pageCount/.test(settings) &&
+  /pendingSeedCount\(task\.imageSeeds\) === 0/.test(settings),
+  'incomplete prepared seed lists are refreshed instead of treated as complete downloads')
+ok(/import \{ EhErrorText \} from '\.\.\/i18n\/EhErrorText'/.test(settings) &&
+  /import \{ EhErrorKind \} from '\.\.\/network\/EhError'/.test(settings) &&
+  /private static userError\(error: Object\): string \{[\s\S]*EhErrorText\.forUser\(error\)/.test(settings) &&
+  /raw\.indexOf\(' login status='\) >= 0[\s\S]*EhErrorText\.message\(EhErrorKind\.LoginRequired\)/.test(settings) &&
+  /raw\.indexOf\(' maybe-hidden status='\) >= 0[\s\S]*EhErrorText\.message\(EhErrorKind\.MaybeHidden\)/.test(settings) &&
+  !/updateDownloadTaskStatus\([\s\S]{0,260}\(error as Error\)\.message/.test(settings) &&
+  /result\.error = DownloadQueueSettings\.userError\(error as Object\)/.test(settings) &&
+  /it\.error = DownloadQueueSettings\.userError\(error as Object\)/.test(settings),
+  'download queue stores user-facing task errors instead of raw diagnostic messages such as detail login status')
+ok(/static async refreshGallerySeedsFromRemote[\s\S]*catch \(error\) \{[\s\S]*updateDownloadTaskStatus\([\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*DownloadQueueSettings\.userError\(error as Object\)[\s\S]*gallery_seed_refresh_failed[\s\S]*\(error as Error\)\.message/.test(settings),
+  'refreshing an incomplete gallery seed list writes a user-facing task error while logging the raw diagnostic cause')
+ok(/private static async updateDownloadTaskStatus[\s\S]*let matched: boolean = false[\s\S]*const exact: boolean = task\.gid === gid && task\.token === token[\s\S]*const gidFallback: boolean = !matched && task\.gid === gid[\s\S]*gallery_status_update[\s\S]*matched=\$\{matched\} exact=\$\{exactMatched\}/.test(settings),
+  'download task status updates log exact gid/token matching and can recover old same-gid tasks with token drift')
 ok(/migrateLegacyPreferences/.test(settings) && /parse\(raw/.test(settings) &&
   /store\.deleteSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE\)/.test(settings),
   'queue still imports and deletes the old Preferences JSON')
@@ -81,6 +115,15 @@ ok(/enqueueGalleryDownload/.test(detail) && /DownloadGalleryTask\.fromGallery/.t
 ok(/detail_download/.test(detail) && /download_status_queued/.test(detail) &&
   /download_gallery_added/.test(detail) && /download_gallery_already_queued/.test(detail),
   'detail page exposes download/queued labels and toast feedback')
+ok(/private downloadTask\(\): DownloadGalleryTask \| undefined/.test(detail) &&
+  /private effectiveDownloadStatus\(task: DownloadGalleryTask\): string[\s\S]*!task\.isDownloadComplete\(\)[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(detail) &&
+  /const status: string = this\.effectiveDownloadStatus\(task\)[\s\S]*status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*download_status_complete/.test(detail) &&
+  /status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*download_status_downloading/.test(detail) &&
+  /status === DownloadGalleryTaskStatus\.ERROR[\s\S]*download_status_error/.test(detail),
+  'detail page maps the matched queue task status instead of showing queued for every existing task')
+ok(/private onDownloadChipTap\(\): void[\s\S]*this\.isDownloadTaskComplete\(task\)[\s\S]*this\.openDownloadedTaskFromDetail\(task\)[\s\S]*this\.enqueueGalleryDownloadWithPolicy\(\)/.test(detail) &&
+  /private openDownloadedTaskFromDetail\(task: DownloadGalleryTask\): void[\s\S]*CachedImageFileService\.displayUri\(seed\.filePath\)[\s\S]*const index: number = Math\.max\(0, Math\.min\(images\.length - 1, this\.resumeIndex\(\)\)\)[\s\S]*detail_open_local_reader[\s\S]*firstUriHash[\s\S]*new ReaderParams\(task\.gid, task\.token, index, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(detail),
+  'detail page completed download chip opens the local file Reader at the saved reading position instead of re-enqueueing')
 ok(/this\.openReader\(this\.resumeIndex\(\)\)/.test(detail),
   'detail Read action remains the primary header action')
 
@@ -88,17 +131,29 @@ ok(/@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(qu
   'downloads page reads queue state')
 ok(/this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.downloadQueue\.galleryTasks\.length > 0/.test(queuePage),
   'downloads page switches from empty state to real Gallery task rows by task count')
-ok(/GalleryTaskSection/.test(queuePage) && /ForEach\(\s*this\.downloadQueue\.galleryTasks/.test(queuePage) &&
-  /task\.displayTitle\(\)/.test(queuePage), 'downloads page renders real task rows')
-ok(/RemoveTaskButton/.test(queuePage) && /DownloadQueueSettings\.removeGallery/.test(queuePage),
-  'downloads page can remove local queued tasks')
-ok(/private ReadTaskButton\(task: DownloadGalleryTask\)/.test(queuePage) &&
-  /sys\.symbol\.arrow_right/.test(queuePage) &&
-  /new ReaderParams\(task\.gid, task\.token, 0, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(queuePage),
-  'completed gallery tasks expose a local Reader entry with the full downloaded seed set')
+ok(/GalleryTaskSection/.test(queuePage) &&
+  /ForEach\(\s*this\.downloadQueue\.galleryTasks/.test(queuePage) &&
+  /DownloadGalleryTaskCardView\(\{[\s\S]*task: this\.currentGalleryTask\(task\)[\s\S]*downloadQueueRevision: this\.downloadQueueTick[\s\S]*visibleStatus: this\.currentGalleryTask\(task\)\.status[\s\S]*visibleDownloadedFiles: this\.currentGalleryTask\(task\)\.downloadedCount\(\)/.test(queuePage) &&
+  /private displayTitle\(\): string[\s\S]*return this\.currentTask\(\)\.displayTitle\(\)/.test(queuePage) &&
+  /struct DownloadGalleryTaskCardView[\s\S]*@Param task: DownloadGalleryTask[\s\S]*private currentTask\(\): DownloadGalleryTask \{[\s\S]*return this\.task[\s\S]*\}/.test(queuePage) &&
+  !/struct DownloadGalleryTaskCardView[\s\S]*@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(queuePage) &&
+  /@Monitor\('downloadQueue\.revision'\)[\s\S]*private onDownloadQueueChanged\(\): void/.test(queuePage) &&
+  /private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*next\.push\(task\.copy\(\)\)[\s\S]*state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(settings) &&
+  !/private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*assignFrom\(task\)[\s\S]*state\.galleryTasks = next/.test(settings),
+  'downloads page renders real gallery task rows by stable gid/token with fresh task snapshots for live progress')
+ok(/private TaskActionMenu\(\)/.test(queuePage) &&
+  /removeActiveGalleryTask/.test(queuePage) &&
+  /DownloadQueueSettings\.removeGallery/.test(queuePage),
+  'downloads page can remove local queued tasks through the native more menu')
+ok(!/private ReadTaskButton\(task: DownloadGalleryTask\)/.test(queuePage) &&
+  /private openDownloadedTask\(task: DownloadGalleryTask\): void[\s\S]*this\.readProgress\.getIndex\(task\.gid\)[\s\S]*gallery_open_local_reader[\s\S]*firstUriHash[\s\S]*new ReaderParams\(task\.gid, task\.token, index, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(queuePage),
+  'completed gallery tasks use the content area as the local Reader entry with saved reading progress and the full downloaded seed set')
 ok(/private openTaskIfComplete\(task: DownloadGalleryTask\): void[\s\S]*this\.canReadTask\(task\)[\s\S]*this\.openDownloadedTask\(task\)/.test(queuePage) &&
-  /\.justifyContent\(FlexAlign\.Start\)[\s\S]*\.onClick\(\(\) => \{[\s\S]*this\.openTaskIfComplete\(task\)/.test(queuePage),
-  'completed gallery task content area opens the local Reader without using the action column')
+  /\.onClick\(\(\) => \{[\s\S]*this\.openTaskIfComplete\(task\)/.test(queuePage),
+  'completed gallery task content area opens the local Reader without duplicating a read button')
+ok(/private openGalleryTaskSource\(task: DownloadGalleryTask\): void[\s\S]*new GalleryDetailParams/.test(queuePage) &&
+  /private GalleryTaskCover\(task: DownloadGalleryTask\)[\s\S]*this\.openGalleryTaskSource\(task\)/.test(queuePage),
+  'completed gallery task cover opens the original gallery detail instead of local Reader')
 ok(!/const fileCount: number = task\.pageCount|const loadedPages: number = task\.previewPageCount|const perPage: number = task\.firstPageCount/.test(queuePage),
   'downloaded gallery Reader entry does not reuse EH preview-page seed params')
 ok(/downloadedSeedImages\(task: DownloadGalleryTask\)/.test(queuePage) &&

@@ -125,6 +125,11 @@ export struct GalleryCard {
     return this.tagTranslation.enabled ? t.display() : t.text
   }
 
+  private safeForEachKeyPart(value: string): string {
+    const out: string = value.replace(/[^A-Za-z0-9_]/g, '_')
+    return out.length > 0 ? out : '_'
+  }
+
   // Neutral tag chips (flat light-grey fill, no stroke) wrapping up to CARD_TAG_LIMIT. A chip only colors
   // when the tag carries the user's own per-tag color value — never by namespace. Shared by both height
   // modes; the FIXED-mode wrapper clips overflow, the ADAPTIVE-mode card grows to show every row.
@@ -153,7 +158,8 @@ export struct GalleryCard {
           },
           // Key carries tagSig.version: the keyGen runs during build, so reading it subscribes the
           // card; when My Tags load and bump it, the keys change → chips rebuild → re-color.
-          (t: SimpleTag) => `${this.tagSig.version}:${t.namespace}:${t.text}`,
+          (t: SimpleTag, index: number) =>
+            `tag_${this.tagSig.version}_${index}_${this.safeForEachKeyPart(t.namespace)}_${this.safeForEachKeyPart(t.text)}`,
         )
       }.width('100%')
     }

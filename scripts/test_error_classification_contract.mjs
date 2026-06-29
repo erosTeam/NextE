@@ -59,6 +59,16 @@ const looksLogin = (body) => {
     b.includes('you are currently not logged in')
   )
 }
+const looksDedicatedLoginPage = (body) => {
+  const b = body.toLowerCase()
+  return (
+    b.includes('this page requires you to log on') ||
+    b.includes('you are currently not logged in') ||
+    b.includes('bounce_login.php') ||
+    (b.includes('name="username"') && b.includes('name="password"')) ||
+    (b.includes('name="username"') && b.includes('name="passwd"'))
+  )
+}
 const looksBanned = (body) => {
   const b = body.toLowerCase()
   return (
@@ -104,6 +114,7 @@ function classify(reqUrl, isEx, resp, page) {
   }
   const trimmed = body.trim()
   if (trimmed.length === 0) return isEx ? KIND.SadPanda : KIND.EmptyBody
+  if (looksDedicatedLoginPage(body)) return KIND.LoginRequired
   if (hasMarker(body, page)) return null
   if (page === 'list' && looksListNoResults(body)) return null
   if (looksCloudflare(body)) return KIND.Cloudflare
@@ -139,6 +150,8 @@ const SYN = {
   empty: '',
   login: '<html><form><input name="UserName"><input name="PassWord"></form>'
     + '<a href="https://e-hentai.org/bounce_login.php">x</a></html>',
+  archiverLogin: '<html><body><p>This page requires you to log on.</p>'
+    + '<form><input name="UserName"><input name="PassWord"></form></body></html>',
   cloudflare: '<html><head><title>Just a moment...</title></head><body class="cf-browser-verification"></body></html>',
   banned: '<html><p>Your IP address has been temporarily banned for excessive pageloads.</p></html>',
   parsefail: '<html><div class="unexpected">markup changed, no gallery container</div></html>',
@@ -192,6 +205,7 @@ eq('200 no-marker on ex → SadPanda', classify('https://exhentai.org/g/1/a/', t
 
 // 5. 'generic' page (image /s/ pages, api.php callers) skips the marker requirement.
 eq('generic 200 arbitrary body → usable', classify('u', false, resp(200, SYN.parsefail), 'generic'), null)
+eq('generic 200 archiver login page → LoginRequired', classify('https://e-hentai.org/archiver.php?gid=1&token=a', false, resp(200, SYN.archiverLogin), 'generic'), KIND.LoginRequired)
 eq('generic 404 → NotFound', classify('u', false, resp(404, ''), 'generic'), KIND.NotFound)
 
 // 6. Real fixtures (gitignored) — smoke check when present.
@@ -221,6 +235,7 @@ for (const [name, isEx, page] of [
   // NotFound — this is the auth/visibility-completeness gate (donor / ExHentai-only / incomplete-cookie).
   ok('classifier: removed-or-unavailable → MaybeHidden', /looksRemovedOrUnavailable\(body\)[\s\S]*?EhErrorKind\.MaybeHidden/.test(clsSrc))
   ok('classifier: marker-first on 200', /hasMarker\(body, page\)\s*\)\s*\{\s*return null/.test(clsSrc))
+  ok('classifier: dedicated login page is checked before generic marker success', /looksDedicatedLoginPage\(body\)[\s\S]*?EhErrorKind\.LoginRequired[\s\S]*?hasMarker\(body, page\)/.test(clsSrc))
   ok('classifier: 429/509 → RateLimited', /status === 429 \|\| status === 509/.test(clsSrc))
   ok('classifier: transport wrapper', /static network\(/.test(clsSrc))
 }

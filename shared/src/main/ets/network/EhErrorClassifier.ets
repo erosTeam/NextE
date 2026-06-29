@@ -87,6 +87,16 @@ export class EhErrorClassifier {
         EhErrorClassifier.dev(isEx ? 'sad-panda-empty' : 'empty-body', page, status, host),
       )
     }
+    // `generic` pages intentionally skip the positive-marker check (image pages, api.php, archiver),
+    // but a dedicated login form is still a hard auth failure. Keep this stricter than looksLogin():
+    // real logged-out list/detail pages contain a top-bar act=Login link, while archiver.php can return
+    // a full "This page requires you to log on" form with HTTP 200.
+    if (EhErrorClassifier.looksDedicatedLoginPage(body)) {
+      return new EhError(
+        EhErrorKind.LoginRequired,
+        EhErrorClassifier.dev('login', page, status, host),
+      )
+    }
     // A real page carries its positive marker (a /g/ header or a gltc table) — trust it and SKIP the
     // sentinel sniff. This is marker-first on purpose: every logged-out EH page has a top-bar
     // "act=Login" link, so running the login sniff before the marker check would misread a valid
@@ -178,6 +188,17 @@ export class EhErrorClassifier {
       b.indexOf('act=login') >= 0 ||
       (b.indexOf('name="username"') >= 0 && b.indexOf('name="password"') >= 0) ||
       b.indexOf('you are currently not logged in') >= 0
+    )
+  }
+
+  private static looksDedicatedLoginPage(body: string): boolean {
+    const b: string = body.toLowerCase()
+    return (
+      b.indexOf('this page requires you to log on') >= 0 ||
+      b.indexOf('you are currently not logged in') >= 0 ||
+      b.indexOf('bounce_login.php') >= 0 ||
+      (b.indexOf('name="username"') >= 0 && b.indexOf('name="password"') >= 0) ||
+      (b.indexOf('name="username"') >= 0 && b.indexOf('name="passwd"') >= 0)
     )
   }
 

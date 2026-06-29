@@ -132,7 +132,7 @@ export struct AppColorPicker {
                 this.ColorCell(this.hsbToHex(hue, this.saturationForGridRow(row), this.brightnessForGridRow(row)))
               }
             },
-            (hue: number) => `${row}-${hue}`,
+            (hue: number) => `color_${row}_${hue}`,
           )
         },
         (row: number) => `${row}`,

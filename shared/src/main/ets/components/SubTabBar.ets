@@ -149,6 +149,16 @@ export struct SubTabBar {
     return 0
   }
 
+  private safeKeyPart(value: string): string {
+    const out: string = value.replace(/[^A-Za-z0-9_]/g, '_')
+    return out.length > 0 ? out : '_'
+  }
+
+  private tabRenderKey(tab: TabItem, index: number): string {
+    const label: string = typeof tab.label === 'string' ? tab.label : this.language.effectiveLocale
+    return `tab_${index}_${this.safeKeyPart(tab.key)}_${this.safeKeyPart(label)}_${this.safeKeyPart(`${tab.count}`)}_${this.safeKeyPart(tab.selectedColor)}`
+  }
+
   private tabAccentColor(i: number): ResourceColor {
     if (i >= 0 && i < this.tabs.length && this.tabs[i].selectedColor.length > 0) {
       return this.tabs[i].selectedColor
@@ -286,14 +296,7 @@ export struct SubTabBar {
             this.updateTabLayout(index, newValue)
           })
         },
-        // Key MUST include the label + count, not just the stable key: dynamic tabs (favcat) reuse a key
-        // (favId 0-9) across a seed→real update, so keying on the key alone makes ForEach reuse the frozen
-        // seed chips (label/count are @Builder params, captured at create) — the bar stays "Favorites N / 0"
-        // after the parse lands. A string label (favcat name) joins the key so a name/count change rebuilds
-        // the chip; Resource labels (Home/Toplist) fold in effectiveLocale so a language switch re-keys them
-        // and the $r re-resolves (a stable '' left the SELECTED tab's label frozen after a switch).
-        (tab: TabItem) =>
-          `${tab.key}:${typeof tab.label === 'string' ? tab.label : this.language.effectiveLocale}:${tab.count}:${tab.selectedColor}`,
+        (tab: TabItem, index: number) => this.tabRenderKey(tab, index),
       )
     }
     .padding({ left: BAR_PAD, right: BAR_PAD })
@@ -355,8 +358,7 @@ export struct SubTabBar {
                 })
               }
             },
-            (tab: TabItem) =>
-              `${tab.key}:${typeof tab.label === 'string' ? tab.label : this.language.effectiveLocale}:${tab.count}:${tab.selectedColor}`,
+            (tab: TabItem, index: number) => this.tabRenderKey(tab, index),
           )
         }
         .listDirection(Axis.Horizontal)

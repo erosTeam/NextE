@@ -22,10 +22,23 @@ export class ArchiveImageService {
 
     let paths: string[] = ArchiveImageService.listImageFiles(outDir)
     if (paths.length === 0) {
-      await zlib.decompressFile(task.filePath, outDir)
+      try {
+        const startedAt: number = Date.now()
+        const options: zlib.Options = {
+          parallel: zlib.ParallelStrategy.PARALLEL_STRATEGY_PARALLEL_DECOMPRESSION,
+          pathSeparatorStrategy: zlib.PathSeparatorStrategy.PATH_SEPARATOR_STRATEGY_REPLACE_BACKSLASH,
+        }
+        DiagnosticLogger.info('download', 'archive_extract_start', `tag=${task.tag}`)
+        await zlib.decompressFile(task.filePath, outDir, options)
+        DiagnosticLogger.info('download', 'archive_extract_done', `tag=${task.tag} elapsedMs=${Date.now() - startedAt}`)
+      } catch (error) {
+        ArchiveImageService.deletePath(outDir)
+        throw error as Error
+      }
       paths = ArchiveImageService.listImageFiles(outDir)
     }
     if (paths.length === 0) {
+      ArchiveImageService.deletePath(outDir)
       throw new Error('archive has no readable images')
     }
     paths.sort((a: string, b: string) => ArchiveImageService.naturalPathCompare(a, b))
@@ -131,6 +144,22 @@ export class ArchiveImageService {
       if (!fileIo.accessSync(dir)) {
         throw error as Error
       }
+    }
+  }
+
+  private static deletePath(path: string): void {
+    try {
+      if (!fileIo.accessSync(path)) {
+        return
+      }
+      const stat: fileIo.Stat = fileIo.statSync(path)
+      if (stat.isDirectory()) {
+        fileIo.rmdirSync(path)
+      } else {
+        fileIo.unlinkSync(path)
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'archive_extract_delete_failed', (error as Error).message)
     }
   }
 }

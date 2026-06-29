@@ -44,9 +44,13 @@ const RE = {
   ratingCount: /id="rating_count"[^>]*>(\d+)</,
   posted: /Posted:<\/td><td class="gdt2">([^<]+)</,
   torrent: /Torrent Download \((\d+)\)/,
-  archiver: /(?:[?&]|&amp;)or=([^'"]+)/,
+  archiverUrl: /popUp\('([^']*archiver\.php\?[^']*)'/,
+  archiverOr: /\bor=([^'"]*)/,
   visible: /Visible:<\/td><td class="gdt2">([^<]+)</,
   parent: /Parent:<\/td><td class="gdt2"><a href="(https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)">([\s\S]*?)<\/a>/,
+  newerBlock: /<div id="gnd">([\s\S]*?)<\/div>/,
+  newerLink: /<a href="https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/">([\s\S]*?)<\/a>/g,
+  newerDate: /<td class="gdt1">([^<]+)<\/td>/g,
   rating: /var average_rating\s*=\s*([\d.]+)/,
   ratingAttrs: /<div\b(?=[^>]*\bid="rating_image")[^>]*>/,
   ratingClass: /class="[^"]*\b(ir[a-z])\b[^"]*"/,
@@ -175,6 +179,24 @@ function parsePageCount(html) {
   return max
 }
 
+function parseArchiverLink(html) {
+  const fullUrl = htmlUnescape(g1(html, RE.archiverUrl).trim())
+  if (fullUrl) return fullUrl
+  return g1(html, RE.archiverOr).trim()
+}
+
+function parseNewerVersions(html) {
+  const block = html.match(RE.newerBlock)?.[1] ?? ''
+  if (!block) return []
+  const dates = [...block.matchAll(RE.newerDate)].map((m) => (m[1] ?? '').trim())
+  return [...block.matchAll(RE.newerLink)].map((m, index) => ({
+    gid: m[1] ?? '',
+    token: m[2] ?? '',
+    title: htmlUnescape((m[3] ?? '').trim()),
+    posted: dates[index] ?? '',
+  }))
+}
+
 let failures = 0
 const eq = (a, e, label) => { if (a !== e) { console.error(`  ✗ ${label}: expected ${JSON.stringify(e)}, got ${JSON.stringify(a)}`); failures++ } }
 const ok = (c, label) => { if (!c) { console.error(`  ✗ ${label}`); failures++ } }
@@ -185,9 +207,13 @@ const SYN = `<h1 id="gn">Placeholder &amp; Title &#39;v2&#39;</h1><h1 id="gj">�
 <div id="gdn"><a href="https://e-hentai.org/uploader/alice">alice</a></div>
 <div id="gd1"><div style="width:320px;height:180px;background:transparent url(https://ehgt.org/w/aa/bb.webp) 0 0 no-repeat"></div></div>
 <div id="gdd"><table><tr><td class="gdt1">Posted:</td><td class="gdt2">2026-06-13 15:31</td></tr><tr><td class="gdt1">Parent:</td><td class="gdt2"><a href="https://e-hentai.org/g/999/abcd1234/">Parent &amp; Gallery</a></td></tr><tr><td class="gdt1">Visible:</td><td class="gdt2">Yes</td></tr><tr><td class="gdt1">Language:</td><td class="gdt2">Japanese &nbsp;</td></tr><tr><td class="gdt1">File Size:</td><td class="gdt2">123.4 MiB</td></tr><tr><td class="gdt1">Length:</td><td class="gdt2">42 pages</td></tr><tr><td class="gdt1">Favorited:</td><td class="gdt2" id="favcount">7 times</td></tr></table></div>
+<div id="gnd"><table>
+<tr><td class="gdt1">2026-06-14 10:00</td><td><a href="https://e-hentai.org/g/1000/aaa111/">Newer &amp; One</a></td></tr>
+<tr><td class="gdt1">2026-06-15 11:00</td><td><a href="https://exhentai.org/g/1001/bbb222/">Newer Two</a></td></tr>
+</table></div>
 <div id="gdr"><td id="rating_count">128</td></div>
 <div id="rating_image" class="ir irg" style="background-position:-16px -21px"></div>
-<a onclick="return popUp('archiver.php?gid=12345&amp;token=abcdef&amp;or=abc123or')">Archive Download</a>
+<a onclick="return popUp('archiver.php?gid=12345&amp;token=abcdef')">Archive Download</a>
 <p class="g2"><a onclick="return popUp('...')">Torrent Download (5)</a></p>
 <div id="taglist"><table><tr><td class="tc">artist:</td><td><div class="gtl"><a id="ta_artist:x" href="#">someone</a></div></td></tr><tr><td class="tc">female:</td><td><div class="gtl"><a id="ta_female:a" href="#">tag a</a></div><div class="gtw"><a id="ta_female:b" href="#">tag b</a></div></td></tr></table></div>
 <script>var average_rating = 4.33; var apiuid = -1; var apikey = "abcd1234ef";</script>
@@ -211,9 +237,21 @@ eq(g1(SYN, RE.fileSize).trim(), '123.4 MiB', 'fileSize')
 eq(g1(SYN, RE.ratingCount), '128', 'ratingCount')
 eq(g1(SYN, RE.posted).trim(), '2026-06-13 15:31', 'posted')
 eq(g1(SYN, RE.torrent), '5', 'torrentCount')
-eq(g1(SYN, RE.archiver), 'abc123or', 'archiver or token')
+eq(parseArchiverLink(SYN), 'archiver.php?gid=12345&token=abcdef', 'archiver full URL without legacy or token')
+eq(parseArchiverLink(`<a onclick="return popUp('archiver.php?gid=1&amp;token=t&amp;or=abc123or')">Archive Download</a>`),
+  'archiver.php?gid=1&token=t&or=abc123or', 'legacy archiver URL with or token stays usable')
+eq(parseArchiverLink(`onclick="return popUp('x')" data-old="or=abc123or'"`), 'abc123or',
+  'older or-only fallback remains supported')
 eq(g1(SYN, RE.visible).trim(), 'Yes', 'visible')
 const pm = SYN.match(RE.parent); eq(pm && pm[2], '999', 'parentGid'); eq(pm && pm[3], 'abcd1234', 'parentToken'); eq(pm && htmlUnescape(pm[4].trim()), 'Parent & Gallery', 'parentTitle')
+const nv = parseNewerVersions(SYN)
+eq(nv.length, 2, 'newerVersions count')
+eq(nv[0].gid, '1000', 'newerVersions[0] gid')
+eq(nv[0].token, 'aaa111', 'newerVersions[0] token')
+eq(nv[0].title, 'Newer & One', 'newerVersions[0] title')
+eq(nv[0].posted, '2026-06-14 10:00', 'newerVersions[0] posted')
+eq(nv[1].gid, '1001', 'newerVersions[1] gid')
+eq(nv[1].token, 'bbb222', 'newerVersions[1] token')
 eq(g1(SYN, RE.rating), '4.33', 'rating (inline avg)')
 eq(g1(SYN, RE.apikey), 'abcd1234ef', 'apikey')
 const st = parseTags(SYN)
@@ -408,10 +446,15 @@ const modelSrc = readFileSync(join(ROOT, 'shared/src/main/ets/model/EhGallery.et
 ok(/archiverLink:\s*string/.test(modelSrc), 'EhGallery carries archiverLink')
 ok(/visible:\s*string/.test(modelSrc), 'EhGallery carries visible')
 ok(/parentTitle:\s*string/.test(modelSrc), 'EhGallery carries parentTitle')
+ok(/export class EhGalleryVersion/.test(modelSrc) && /newerVersions:\s*EhGalleryVersion\[\]/.test(modelSrc),
+  'EhGallery carries parsed newer-version links')
 const parserSrc = readFileSync(join(ROOT, 'shared/src/main/ets/parser/EhGalleryDetailParser.ets'), 'utf8')
-ok(/RE_ARCHIVER_OR/.test(parserSrc) && /&amp;\)or=/.test(parserSrc), 'detail parser supports raw/HTML-escaped archiver or token')
+ok(/RE_ARCHIVER_URL/.test(parserSrc) && /archiver\\.php/.test(parserSrc) && /RE_ARCHIVER_OR/.test(parserSrc),
+  'detail parser supports modern archiver URL plus older or-token fallback')
 ok(/RE_VISIBLE/.test(parserSrc) && /\.visible\s*=/.test(parserSrc), 'detail parser fills visible')
 ok(/parentTitle/.test(parserSrc), 'detail parser fills parent display text')
+ok(/parseNewerVersions/.test(parserSrc) && /RE_NEWER_BLOCK/.test(parserSrc),
+  'detail parser fills newer-version links')
 ok(/RE_RATING_POS/.test(parserSrc) && /\.ratingFallBack\s*=/.test(parserSrc), 'detail parser fills ratingFallBack from rating sprite')
 const imageParserSrc = readFileSync(join(ROOT, 'shared/src/main/ets/parser/EhGalleryImageParser.ets'), 'utf8')
 ok(/RE_SMALL_PREVIEW/.test(imageParserSrc), 'image parser has gdtm small-thumb branch')

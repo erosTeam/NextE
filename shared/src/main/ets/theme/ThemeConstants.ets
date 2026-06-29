@@ -101,8 +101,13 @@ export class ThemeConstants {
   static readonly FOOTER_HEIGHT: number = 48
   static readonly BUTTON_HEIGHT: number = 46 // primary action buttons (reader/detail Read, etc.)
   static readonly ACCOUNT_AVATAR_SIZE: number = 44
-  static readonly DOWNLOAD_TASK_CARD_HEIGHT: number = 124
   static readonly DOWNLOAD_TASK_COVER_WIDTH: number = 78
+  static readonly DOWNLOAD_TASK_COVER_HEIGHT: number = 104
+  static readonly DOWNLOAD_TASK_CARD_RADIUS: number = ThemeConstants.RADIUS_CARD
+  static readonly DOWNLOAD_TASK_CARD_PADDING: number = ThemeConstants.SPACE_SM
+  // Inner cover radius follows the concentric-corner rule: outer radius minus the cover inset.
+  static readonly DOWNLOAD_TASK_COVER_RADIUS: number =
+    ThemeConstants.DOWNLOAD_TASK_CARD_RADIUS - ThemeConstants.DOWNLOAD_TASK_CARD_PADDING
   static readonly DOWNLOAD_TASK_ACTION_SIZE: number = 32
   static readonly DOWNLOAD_TASK_PROGRESS_HEIGHT: number = 4
   static readonly ARCHIVER_BALANCE_BADGE_SIZE: number = 18

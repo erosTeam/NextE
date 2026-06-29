@@ -74,6 +74,21 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
   grouped-row mitigation is the shipped interim behavior until a deliberate Reader redesign lane is
   opened.
 
+## Current Active Override
+
+- Active lane: Download / Archiver / offline Reader closure. User explicitly redirected the session here;
+  do not resume the generic Active Queue until this lane is either verified or explicitly paused.
+- Required closure evidence is user-path evidence, not only contracts: ordinary gallery download must show
+  detail click logs, enqueue / prepare / download logs, live Downloads-tab progress, completion, and local
+  Reader entry inheriting `GalleryReadProgressState`; archiver must show the FE-style detail `归档` entry,
+  `detail_archiver_open` log, half-modal quote load or `archiver_missing_or_token` error, and protected submit
+  confirmation without unauthorized remote submission.
+- Use logs first for trigger / queue / executor questions. Filter `DiagnosticLogger` / hilog before repeating
+  UI clicks. Screenshots prove visible state; logs prove state transitions.
+- Do not claim this lane complete without X7 or real-device evidence for both ordinary download and archiver
+  entry / quote flow. If archive submit would spend GP/Credits or mutate the account, stop at the native
+  confirmation unless the user explicitly authorizes the submit.
+
 ## Closed / Superseded
 
 Historical feedback in this section must not trigger new implementation.

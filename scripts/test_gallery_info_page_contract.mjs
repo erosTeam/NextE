@@ -86,7 +86,7 @@ ok(/common_yes/.test(src.infoPage) && /common_no/.test(src.infoPage), 'GalleryIn
 ok(/this\.gallery\(\)\.visible/.test(src.infoPage), 'GalleryInfoPage renders EH visible state')
 ok(/this\.gallery\(\)\.parentTitle/.test(src.infoPage), 'GalleryInfoPage renders parent display text')
 ok(/this\.gallery\(\)\.ratingFallBack\.toFixed\(2\)/.test(src.infoPage), 'GalleryInfoPage renders EH sprite display rating')
-ok(/this\.gallery\(\)\.archiverLink/.test(src.infoPage), 'GalleryInfoPage renders archiver or-token for diagnostics/future archiver flow')
+ok(/this\.gallery\(\)\.archiverLink/.test(src.infoPage), 'GalleryInfoPage renders archiver URL/token for diagnostics/future archiver flow')
 
 const locales = [
   'entry/src/main/resources/base/element/string.json',

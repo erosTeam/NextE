@@ -13,9 +13,10 @@ export { InternalQaRoutes } from './constants/InternalQaRoutes'
 export { SimpleTag } from './model/SimpleTag'
 export { EhTagSuggestion } from './model/EhTagSuggestion'
 export { TagGroup } from './model/TagGroup'
-export { EhGallery } from './model/EhGallery'
+export { EhGallery, EhGalleryVersion } from './model/EhGallery'
 export {
   DownloadArchiverTask,
+  DownloadArchiverParseSource,
   DownloadGalleryTask,
   DownloadGalleryTaskStatus,
   DownloadImageSeed,
@@ -113,6 +114,12 @@ export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGallery
 // services
 export { ImageResolveService } from './services/ImageResolveService'
 export { ArchiveImageService } from './services/ArchiveImageService'
+export {
+  ArchiveBotBalanceResult,
+  ArchiveBotCheckInResult,
+  ArchiveBotResolveResult,
+  ArchiveBotService,
+} from './services/ArchiveBotService'
 export {
   CachedImageFileService,
   CachedImageFileResult,
@@ -271,6 +278,7 @@ export { ListMode, ListModeState, connectListMode } from './state/ListModeState'
 export { GalleryTitleState, connectGalleryTitle } from './state/GalleryTitleState'
 export { ReadMode, ReadColumnMode, ReadModeState, connectReadMode } from './state/ReadModeState'
 export {
+  ArchiveBotType,
   DownloadOriginalMode,
   DownloadSettingsState,
   connectDownloadSettings,

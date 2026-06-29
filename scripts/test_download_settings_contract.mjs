@@ -73,7 +73,7 @@ ok(/connectDownloadSettings\(\)\.concurrency/.test(queueSettings) &&
 ok(/batchIndex > 0/.test(queueSettings) &&
   /DownloadQueueSettings\.delay\(connectDownloadSettings\(\)\.requestIntervalSeconds \* 1000\)/.test(queueSettings),
   'gallery image executor throttles later image batches by the persisted request interval')
-ok(/downloadSeedToFile\(context, gid, seed, useOriginal, retryCount\)/.test(queueSettings) &&
+ok(/downloadSeedToFile\(context, gid, token, seed, useOriginal, retryCount\)/.test(queueSettings) &&
   /Math\.round\(retryCount\) \+ 1/.test(queueSettings),
   'gallery image executor retries each failed image according to the persisted retry count')
 ok(/const attempts: number = Math\.max\(1, Math\.round\(connectDownloadSettings\(\)\.retryCount\) \+ 1\)/.test(queueSettings) &&
@@ -84,6 +84,10 @@ ok(/const batchStartedAt: number = Date\.now\(\)/.test(queueSettings) &&
   /const kbps: number = connectDownloadSettings\(\)\.speedLimitKbps/.test(queueSettings) &&
   /Math\.ceil\(bytes \* 1000 \/ \(kbps \* 1024\)\)/.test(queueSettings),
   'gallery image executor applies the persisted average speed limit after successful batches')
+const archiverDownloadBody = queueSettings.match(/private static async runArchiverDownload\([\s\S]*?\n  \}/)?.[0] ?? ''
+ok(/downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(archiverDownloadBody) &&
+  !/delayBytesForSpeedLimit/.test(archiverDownloadBody),
+  'archiver executor does not apply gallery image speed throttling to single package downloads')
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok(/import \{ DownloadSettings \}/.test(bootstrap) && /await DownloadSettings\.restore\(context\)/.test(bootstrap),
@@ -156,6 +160,12 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   ok(strings.includes('"name": "download_original_prompt"'), `${locale}: download_original_prompt exists`)
   ok(strings.includes('"name": "download_use_regular_image"'), `${locale}: download_use_regular_image exists`)
   ok(strings.includes('"name": "download_use_original_image"'), `${locale}: download_use_original_image exists`)
+  ok(strings.includes('"name": "download_archiver_use_bot"'), `${locale}: download_archiver_use_bot exists`)
+  ok(!/普通图|压缩图/.test(strings), `${locale}: legacy compressed/regular image wording is not used`)
+  if (locale === 'zh_CN') {
+    ok(strings.includes('"value": "重采样图片"'), 'zh_CN: regular image option is named 重采样图片')
+    ok(strings.includes('"value": "重采样图片或原始文件"'), 'zh_CN: original image subtitle uses 重采样图片 without trailing punctuation')
+  }
 }
 
 if (failures > 0) {

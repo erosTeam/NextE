@@ -1,5 +1,5 @@
 import { EhHttpClient, EhTextResponse } from './EhHttpClient'
-import { EhError } from './EhError'
+import { EhError, EhErrorKind } from './EhError'
 import { EhErrorClassifier } from './EhErrorClassifier'
 import { EhConstants } from '../constants/EhConstants'
 import { EhGalleryListParseTask } from '../parser/EhGalleryListParseTask'
@@ -12,6 +12,7 @@ import { EhGalleryDetailParser } from '../parser/EhGalleryDetailParser'
 import { EhGalleryImageParser } from '../parser/EhGalleryImageParser'
 import { EhGalleryTorrentParser } from '../parser/EhGalleryTorrentParser'
 import { EhGalleryArchiverParser } from '../parser/EhGalleryArchiverParser'
+import { HtmlSelectorUtils } from '../parser/HtmlSelectorUtils'
 import { EhGalleryFavoriteParser, GalleryFavoriteInfo } from '../parser/EhGalleryFavoriteParser'
 import { UserTagStore } from '../state/UserTagStore'
 import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
@@ -23,6 +24,9 @@ import { EhMytags } from '../model/EhMytags'
 import { EhGalleryComment } from '../model/EhGalleryComment'
 import { EhGalleryTorrentList } from '../model/EhGalleryTorrent'
 import { EhGalleryArchiverQuote, EhGalleryArchiverSubmitResult } from '../model/EhGalleryArchiver'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+
+const ARCHIVER_PREPARE_RETRY_MS: number = 1000
 
 /** Header + first preview page + comments parsed from a gallery detail fetch. */
 export class GalleryDetailResult {
@@ -201,7 +205,7 @@ export class EhApiService {
       if (failure !== null) {
         throw failure
       }
-      throw new Error(`favorite HTTP ${resp.statusCode}`)
+      throw new EhError(EhErrorKind.HttpError, `favorite unclassified status=${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(
       url,
@@ -250,7 +254,7 @@ export class EhApiService {
       if (failure !== null) {
         throw failure
       }
-      throw new Error(`comment HTTP ${resp.statusCode}`)
+      throw new EhError(EhErrorKind.HttpError, `comment unclassified status=${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(
       url,
@@ -301,7 +305,7 @@ export class EhApiService {
       if (failure !== null) {
         throw failure
       }
-      throw new Error(`mytags add HTTP ${resp.statusCode}`)
+      throw new EhError(EhErrorKind.HttpError, `mytags add unclassified status=${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(
       url,
@@ -354,7 +358,7 @@ export class EhApiService {
       if (failure !== null) {
         throw failure
       }
-      throw new Error(`mytags tagset HTTP ${resp.statusCode}`)
+      throw new EhError(EhErrorKind.HttpError, `mytags tagset unclassified status=${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(
       url,
@@ -401,7 +405,7 @@ export class EhApiService {
       if (failure !== null) {
         throw failure
       }
-      throw new Error(`mytags delete HTTP ${resp.statusCode}`)
+      throw new EhError(EhErrorKind.HttpError, `mytags delete unclassified status=${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(
       url,
@@ -648,7 +652,7 @@ export class EhApiService {
       if (failure !== null) {
         throw failure
       }
-      throw new Error(`uconfig HTTP ${resp.statusCode}`)
+      throw new EhError(EhErrorKind.HttpError, `uconfig unclassified status=${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, 'generic')
     if (failure !== null) {
@@ -686,7 +690,7 @@ export class EhApiService {
       if (failure !== null) {
         throw failure
       }
-      throw new Error(`profile HTTP ${resp.statusCode}`)
+      throw new EhError(EhErrorKind.HttpError, `profile unclassified status=${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, 'generic')
     if (failure !== null) {
@@ -732,10 +736,13 @@ export class EhApiService {
       this.formPair('dltype', dltype.trim()),
       this.formPair('dlcheck', dlcheck.trim()),
     ].join('&')
-    const resp: EhTextResponse = await this.postArchiverForm(url, body, isEx)
-    const result: EhGalleryArchiverSubmitResult = EhGalleryArchiverParser.parseLocalSubmit(
-      resp.body,
-    )
+    let resp: EhTextResponse = await this.postArchiverForm(url, body, isEx)
+    let result: EhGalleryArchiverSubmitResult = EhGalleryArchiverParser.parseLocalSubmit(resp.body)
+    if (result.localDownloadUrl.length === 0) {
+      await EhApiService.delay(ARCHIVER_PREPARE_RETRY_MS)
+      resp = await this.postArchiverForm(url, body, isEx)
+      result = EhGalleryArchiverParser.parseLocalSubmit(resp.body)
+    }
     result.localDownloadUrl = this.absoluteArchiverUrl(result.localDownloadUrl, isEx)
     if (result.message.length === 0 && result.localDownloadUrl.length > 0) {
       result.message = result.localDownloadUrl
@@ -758,10 +765,31 @@ export class EhApiService {
   }
 
   private archiverUrl(gid: string, token: string, archiverLink: string, isEx: boolean): string {
+    const link: string = HtmlSelectorUtils.htmlUnescape(archiverLink.trim())
+    if (link.indexOf('archiver.php') >= 0) {
+      return this.normalizeArchiverUrl(link, isEx)
+    }
+    if (link.length === 0) {
+      return `${EhConstants.baseUrl(isEx)}/archiver.php?gid=${encodeURIComponent(gid)}&token=${encodeURIComponent(token)}`
+    }
     return (
       `${EhConstants.baseUrl(isEx)}/archiver.php?gid=${encodeURIComponent(gid)}` +
-      `&token=${encodeURIComponent(token)}&or=${encodeURIComponent(archiverLink)}`
+      `&token=${encodeURIComponent(token)}&or=${encodeURIComponent(link)}`
     )
+  }
+
+  private normalizeArchiverUrl(rawUrl: string, isEx: boolean): string {
+    const base: string = EhConstants.baseUrl(isEx)
+    const absoluteIdx: number = rawUrl.indexOf('/archiver.php')
+    if (absoluteIdx >= 0) {
+      return `${base}${rawUrl.substring(absoluteIdx)}`
+    }
+    const relativeNeedle: string = 'archiver.php'
+    const relativeIdx: number = rawUrl.indexOf(relativeNeedle)
+    if (relativeIdx >= 0) {
+      return `${base}/${rawUrl.substring(relativeIdx)}`
+    }
+    return rawUrl
   }
 
   private async postArchiverForm(
@@ -780,7 +808,7 @@ export class EhApiService {
       if (failure !== null) {
         throw failure
       }
-      throw new Error(`archiver HTTP ${resp.statusCode}`)
+      throw new EhError(EhErrorKind.HttpError, `archiver unclassified status=${resp.statusCode}`)
     }
     const failure: EhError | null = EhErrorClassifier.classifyResponse(url, isEx, resp, 'generic')
     if (failure !== null) {
@@ -799,6 +827,14 @@ export class EhApiService {
     return `${EhConstants.baseUrl(isEx)}/${url}`
   }
 
+  private static delay(ms: number): Promise<void> {
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        resolve()
+      }, ms)
+    })
+  }
+
   /** Fetch a gallery detail page; returns header (incl. tags/apikey) + first preview page. */
   async getGalleryDetail(gid: string, token: string, isEx: boolean): Promise<GalleryDetailResult> {
     const url: string = `${EhConstants.baseUrl(isEx)}/g/${gid}/${token}/`
@@ -807,6 +843,11 @@ export class EhApiService {
     const images: EhGalleryImage[] = EhGalleryImageParser.parse(resp.body)
     const comments: EhGalleryComment[] = EhCommentParser.parse(resp.body)
     const previewPageCount: number = EhGalleryImageParser.parsePageCount(resp.body)
+    DiagnosticLogger.info(
+      'gallery',
+      'detail_fetch_parsed',
+      `gid=${gid} hasArchiver=${gallery.archiverLink.length > 0} torrents=${gallery.torrentCount} images=${images.length} comments=${comments.length}`,
+    )
     return new GalleryDetailResult(gallery, images, comments, previewPageCount)
   }
 

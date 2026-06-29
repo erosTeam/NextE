@@ -216,7 +216,21 @@ export struct GalleryTagsCard {
       // vote is part of the key so a vote change (applyTagVote rebuilds the tags) re-renders the chips.
       key = `${key}:${tag.text}:${tag.translat}:${tag.vote}`
     }
-    return key
+    return `group_${this.safeForEachKeyPart(tg.namespace)}_${this.keyHash(key)}`
+  }
+
+  private safeForEachKeyPart(value: string): string {
+    const safe: string = value.replace(/[^A-Za-z0-9_]/g, '_')
+    return safe.length > 0 ? safe : 'empty'
+  }
+
+  private keyHash(value: string): string {
+    let hash: number = 2166136261
+    for (let i: number = 0; i < value.length; i++) {
+      hash = hash ^ value.charCodeAt(i)
+      hash = Math.imul(hash, 16777619)
+    }
+    return (hash >>> 0).toString(36)
   }
 
   private ctx(): common.UIAbilityContext {
@@ -772,7 +786,7 @@ export struct GalleryTagsCard {
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
               .fontColor($r('sys.color.font_secondary'))
               .width('100%')
-          }, (line: string) => line)
+          }, (line: string, index: number) => `line_${index}_${this.keyHash(line)}`)
         }
         .width('100%')
         .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
@@ -807,7 +821,8 @@ export struct GalleryTagsCard {
             .onClick(() => {
               this.openTagInfoLink(item.url)
             })
-          }, (item: TagInfoLinkItem) => `${item.label}:${item.url}`)
+          }, (item: TagInfoLinkItem, index: number) =>
+            `link_${index}_${item.label}_${item.url}`.replace(/[^A-Za-z0-9_]/g, '_'))
         }
         .width('100%')
         .padding({ top: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
@@ -837,7 +852,7 @@ export struct GalleryTagsCard {
         if (index % 2 === remainder) {
           TagInfoIntroImage({ url: url })
         }
-      }, (url: string, index: number) => `${index}:${url}`)
+      }, (url: string, index: number) => `image_${index}_${url}`.replace(/[^A-Za-z0-9_]/g, '_'))
     }
     .layoutWeight(1)
   }

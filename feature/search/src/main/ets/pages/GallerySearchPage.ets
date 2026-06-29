@@ -425,7 +425,8 @@ export struct GallerySearchPage {
             })
           }
         },
-        (s: EhTagSuggestion) => `${s.namespace}:${s.text}`,
+        (s: EhTagSuggestion, index: number) =>
+          `suggestion_${index}_${s.namespace}_${s.text}`.replace(/[^A-Za-z0-9_]/g, '_'),
       )
 
       ListItem() {

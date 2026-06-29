@@ -102,7 +102,7 @@
     },
     {
       "name": "download_status_error",
-      "value": "準備失敗"
+      "value": "失敗"
     },
     {
       "name": "download_resume_all",
@@ -141,6 +141,10 @@
       "value": "アーカイブキューに追加済みです"
     },
     {
+      "name": "download_archiver_use_bot",
+      "value": "アーカイブBotを使用"
+    },
+    {
       "name": "download_concurrency",
       "value": "ダウンロード同時数"
     },
@@ -158,11 +162,11 @@
     },
     {
       "name": "download_original_prompt",
-      "value": "通常の圧縮画像をダウンロードしますか。それとも EH が提供する原寸ファイルを使いますか。"
+      "value": "リサンプル画像をダウンロードしますか。それとも EH が提供する原寸ファイルを使いますか。"
     },
     {
       "name": "download_use_regular_image",
-      "value": "通常"
+      "value": "リサンプル"
     },
     {
       "name": "download_use_original_image",
@@ -170,7 +174,7 @@
     },
     {
       "name": "download_concurrency_hint",
-      "value": "同時ダウンロード画像数。"
+      "value": "同時ダウンロード画像数"
     },
     {
       "name": "download_request_interval",
@@ -178,7 +182,7 @@
     },
     {
       "name": "download_request_interval_hint",
-      "value": "画像バッチ間で待機する秒数。"
+      "value": "画像バッチ間で待機する秒数"
     },
     {
       "name": "download_retry_count",
@@ -186,7 +190,7 @@
     },
     {
       "name": "download_retry_count_hint",
-      "value": "画像ごとの失敗時リトライ回数。"
+      "value": "画像ごとの失敗時リトライ回数"
     },
     {
       "name": "download_speed_limit",
@@ -194,15 +198,83 @@
     },
     {
       "name": "download_speed_limit_hint",
-      "value": "ギャラリーキューの平均速度。0 はオフです。"
+      "value": "ギャラリーキューの平均速度。0 はオフです"
     },
     {
       "name": "download_original_hint",
-      "value": "リサイズ画像または元画像。"
+      "value": "リサンプル画像または元画像"
+    },
+    {
+      "name": "download_archive_bot_protocol",
+      "value": "Archive Bot"
+    },
+    {
+      "name": "download_archive_bot_hint",
+      "value": "サードパーティサービスで元画像アーカイブリンクを解析します"
+    },
+    {
+      "name": "download_archive_bot_eh_ar_bot",
+      "value": "EH-ArBot"
+    },
+    {
+      "name": "download_archive_bot_archive_at_home",
+      "value": "Archive-at-Home"
+    },
+    {
+      "name": "download_archive_bot_address",
+      "value": "サーバーアドレス"
+    },
+    {
+      "name": "download_archive_bot_address_hint",
+      "value": "Archive Bot API アドレス"
+    },
+    {
+      "name": "download_archive_bot_api_key",
+      "value": "API Key"
+    },
+    {
+      "name": "download_archive_bot_api_key_hint",
+      "value": "Archive Bot API Key"
+    },
+    {
+      "name": "download_archive_bot_balance",
+      "value": "残高を確認"
+    },
+    {
+      "name": "download_archive_bot_balance_hint",
+      "value": "API を検証して Bot 残高を取得します"
+    },
+    {
+      "name": "download_archive_bot_balance_result",
+      "value": "残高 %s GP"
+    },
+    {
+      "name": "download_archive_bot_checkin",
+      "value": "チェックイン"
+    },
+    {
+      "name": "download_archive_bot_checkin_hint",
+      "value": "Archive Bot のデイリーチェックインを実行します"
+    },
+    {
+      "name": "download_archive_bot_checkin_result",
+      "value": "%s GP 獲得、現在 %s GP"
     },
     {
       "name": "download_not_configured",
       "value": "未設定"
+    },
+    {
+      "name": "download_upgrade_newer",
+      "value": "新しい版をダウンロード"
+    },
+    {
+      "name": "download_upgrade_choose",
+      "value": "新しい版を選択"
+    },
+    {
+      "name": "download_upgrade_untitled",
+      "value": "新しい版"
     },
     {
       "name": "download_gallery_added",
@@ -419,6 +491,10 @@
     {
       "name": "common_refresh",
       "value": "更新"
+    },
+    {
+      "name": "common_more_actions",
+      "value": "その他の操作"
     },
     {
       "name": "common_no_content",
@@ -2657,6 +2733,10 @@
       "value": "アーカイブオプションはありません"
     },
     {
+      "name": "gallery_archiver_missing_link",
+      "value": "アーカイブパラメータを取得できませんでした。ギャラリー詳細を更新してからもう一度お試しください。"
+    },
+    {
       "name": "gallery_archiver_download",
       "value": "Download"
     },
@@ -2683,6 +2763,22 @@
     {
       "name": "gallery_archiver_download_started",
       "value": "アーカイブダウンロードを開きました"
+    },
+    {
+      "name": "gallery_archiver_bot",
+      "value": "Archive Bot"
+    },
+    {
+      "name": "gallery_archiver_bot_original",
+      "value": "元画像アーカイブ"
+    },
+    {
+      "name": "gallery_archiver_bot_free",
+      "value": "Bot で無料解析"
+    },
+    {
+      "name": "gallery_archiver_bot_not_ready",
+      "value": "先に Archive Bot を設定してください"
     },
     {
       "name": "image_page_open_failed_title",

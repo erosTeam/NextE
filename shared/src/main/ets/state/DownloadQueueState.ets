@@ -7,6 +7,7 @@ import { DownloadArchiverTask, DownloadGalleryTask } from '../model/DownloadGall
  */
 @ObservedV2
 export class DownloadQueueState {
+  @Trace revision: number = 0
   @Trace galleryTasks: DownloadGalleryTask[] = []
   @Trace archiverTasks: DownloadArchiverTask[] = []
 }

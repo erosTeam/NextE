@@ -100,6 +100,20 @@ export struct MyTagsPage {
     this.myTagsSheetShown = false
   }
 
+  private safeForEachKeyPart(value: string): string {
+    const safe: string = value.replace(/[^A-Za-z0-9_]/g, '_')
+    return safe.length > 0 ? safe : 'empty'
+  }
+
+  private userTagRowKey(t: EhUsertag): string {
+    const raw: string = t.tagId.length > 0 ? t.tagId : t.tag
+    return `tag_${this.safeForEachKeyPart(raw)}`
+  }
+
+  private suggestionRowKey(s: EhTagSuggestion): string {
+    return `suggestion_${this.safeForEachKeyPart(s.namespace)}_${this.safeForEachKeyPart(s.text)}_${this.safeForEachKeyPart(s.displayName)}`
+  }
+
   private myTagsSheetDetents(): [string | number | Resource] {
     if (this.myTagsSheetKind === MYTAGS_SHEET_TAGSET) {
       return [SheetSize.MEDIUM]
@@ -983,7 +997,7 @@ export struct MyTagsPage {
           .width('100%')
         }
       },
-      (t: EhUsertag) => t.tagId.length > 0 ? t.tagId : t.tag,
+      (t: EhUsertag) => this.userTagRowKey(t),
     )
   }
 
@@ -1259,7 +1273,7 @@ export struct MyTagsPage {
                 (s: EhTagSuggestion) => {
                   this.AddSuggestionRow(s)
                 },
-                (s: EhTagSuggestion) => s.label(),
+                (s: EhTagSuggestion) => this.suggestionRowKey(s),
               )
             }
             .width('100%')

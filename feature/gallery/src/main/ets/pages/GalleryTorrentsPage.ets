@@ -110,6 +110,15 @@ export struct GalleryTorrentsContent {
     return `magnet:?xt=urn:btih:${torrent.hash}`
   }
 
+  private safeKeyPart(value: string): string {
+    const safe: string = value.replace(/[^A-Za-z0-9_]/g, '_')
+    return safe.length > 0 ? safe : 'empty'
+  }
+
+  private torrentRowKey(torrent: EhGalleryTorrent): string {
+    return `torrent_${this.safeKeyPart(torrent.hash)}_${this.safeKeyPart(torrent.name)}`
+  }
+
   private shareTorrent(torrent: EhGalleryTorrent): void {
     ShareUtil.shareUrl(this.ctx(), this.torrentUrl(torrent), torrent.name)
   }
@@ -248,7 +257,7 @@ export struct GalleryTorrentsContent {
         ListItem() {
           this.TorrentItem(torrent)
         }
-      }, (torrent: EhGalleryTorrent) => `${torrent.hash}-${torrent.name}`)
+      }, (torrent: EhGalleryTorrent) => this.torrentRowKey(torrent))
     }
   }
 

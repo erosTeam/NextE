@@ -409,7 +409,8 @@ export struct TabEditPage {
             },
           })
         },
-        (it: TagRowItem) => `${it.tag.relation}:${it.tag.namespace}:${it.tag.text}:${it.displayName}`,
+        (it: TagRowItem, index: number) =>
+          `tag_${index}_${it.tag.relation}_${it.tag.namespace}_${it.tag.text}_${it.displayName}`.replace(/[^A-Za-z0-9_]/g, '_'),
       )
     }
     .width('100%')

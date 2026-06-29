@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
-import { EhGallery } from '../model/EhGallery'
+import { EhGallery, EhGalleryVersion } from '../model/EhGallery'
 import { EhGalleryComment } from '../model/EhGalleryComment'
 import { EhGalleryImage } from '../model/EhGalleryImage'
 import { Favcat } from '../model/Favcat'
@@ -341,6 +341,7 @@ export class EhPageCacheService {
     g.parentUrl = EhPageCacheService.safeString(raw.parentUrl)
     g.parentGid = EhPageCacheService.safeString(raw.parentGid)
     g.parentToken = EhPageCacheService.safeString(raw.parentToken)
+    g.newerVersions = EhPageCacheService.reviveGalleryVersions(raw.newerVersions)
     g.apiuid = EhPageCacheService.safeString(raw.apiuid)
     g.apikey = EhPageCacheService.safeString(raw.apikey)
     g.showKey = EhPageCacheService.safeString(raw.showKey)
@@ -398,6 +399,27 @@ export class EhPageCacheService {
       )
     })
     return groups
+  }
+
+  private static reviveGalleryVersions(raw: EhGalleryVersion[]): EhGalleryVersion[] {
+    const versions: EhGalleryVersion[] = []
+    if (raw === undefined || raw === null) {
+      return versions
+    }
+    raw.forEach((item: EhGalleryVersion) => {
+      const gid: string = EhPageCacheService.safeString(item.gid)
+      const token: string = EhPageCacheService.safeString(item.token)
+      if (gid.length === 0 || token.length === 0) {
+        return
+      }
+      const version: EhGalleryVersion = new EhGalleryVersion()
+      version.gid = gid
+      version.token = token
+      version.title = EhPageCacheService.safeString(item.title)
+      version.posted = EhPageCacheService.safeString(item.posted)
+      versions.push(version)
+    })
+    return versions
   }
 
   private static reviveFavcats(raw: Favcat[]): Favcat[] {

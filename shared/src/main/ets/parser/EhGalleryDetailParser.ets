@@ -1,4 +1,4 @@
-import { EhGallery } from '../model/EhGallery'
+import { EhGallery, EhGalleryVersion } from '../model/EhGallery'
 import { TagGroup } from '../model/TagGroup'
 import { SimpleTag } from '../model/SimpleTag'
 import { HtmlSelectorUtils } from './HtmlSelectorUtils'
@@ -37,11 +37,16 @@ export class EhGalleryDetailParser {
   private static readonly RE_APIUID: RegExp = /var apiuid\s*=\s*(-?\d+)/
   private static readonly RE_APIKEY: RegExp = /var apikey\s*=\s*"([0-9a-f]+)"/
   private static readonly RE_TORRENT: RegExp = /Torrent Download \((\d+)\)/
-  private static readonly RE_ARCHIVER_OR: RegExp = /(?:[?&]|&amp;)or=([^'"]+)/
+  private static readonly RE_ARCHIVER_URL: RegExp = /popUp\('([^']*archiver\.php\?[^']*)'/
+  private static readonly RE_ARCHIVER_OR: RegExp = /\bor=([^'"]*)/
   private static readonly RE_VISIBLE: RegExp = /Visible:<\/td><td class="gdt2">([^<]+)</
   // Parent: row links to the parent gallery; capture its /g/{gid}/{token}/ URL (absent → "None").
   private static readonly RE_PARENT: RegExp =
     /Parent:<\/td><td class="gdt2"><a href="(https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/)">([\s\S]*?)<\/a>/
+  private static readonly RE_NEWER_BLOCK: RegExp = /<div id="gnd">([\s\S]*?)<\/div>/
+  private static readonly RE_NEWER_LINK: RegExp =
+    /<a href="https?:\/\/(?:e-|ex)hentai\.org\/g\/(\d+)\/([0-9a-f]+)\/">([\s\S]*?)<\/a>/g
+  private static readonly RE_NEWER_DATE: RegExp = /<td class="gdt1">([^<]+)<\/td>/g
   // The user's OWN favorite state (eros_fe #fav sprite): when favorited, `#fav` holds an inner sprite
   // div whose background-position Y → favcat slot via `(Y-2)/19`, and whose title is the favcat name.
   // When NOT favorited, `#fav` is empty (`<div id="fav"></div>`) — so the inner-div match is the
@@ -122,7 +127,7 @@ export class EhGalleryDetailParser {
     }
 
     g.torrentCount = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_TORRENT)
-    g.archiverLink = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_ARCHIVER_OR)
+    g.archiverLink = EhGalleryDetailParser.parseArchiverLink(html)
     g.visible = HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_VISIBLE).trim()
     const parentM: RegExpMatchArray | null = html.match(EhGalleryDetailParser.RE_PARENT)
     if (parentM !== null && parentM[2] !== undefined && parentM[3] !== undefined) {
@@ -132,8 +137,41 @@ export class EhGalleryDetailParser {
       g.parentTitle = parentM[4] !== undefined ? HtmlSelectorUtils.htmlUnescape(parentM[4].trim()) : ''
     }
 
+    g.newerVersions = EhGalleryDetailParser.parseNewerVersions(html)
     g.tagGroups = EhGalleryDetailParser.parseTags(html)
     return g
+  }
+
+  private static parseNewerVersions(html: string): EhGalleryVersion[] {
+    const blockM: RegExpMatchArray | null = html.match(EhGalleryDetailParser.RE_NEWER_BLOCK)
+    if (blockM === null || blockM[1] === undefined) {
+      return []
+    }
+    const block: string = blockM[1]
+    const dates: string[] = []
+    EhGalleryDetailParser.RE_NEWER_DATE.lastIndex = 0
+    let dateM: RegExpExecArray | null = EhGalleryDetailParser.RE_NEWER_DATE.exec(block)
+    while (dateM !== null) {
+      dates.push(dateM[1] !== undefined ? dateM[1].trim() : '')
+      dateM = EhGalleryDetailParser.RE_NEWER_DATE.exec(block)
+    }
+    const versions: EhGalleryVersion[] = []
+    let index: number = 0
+    EhGalleryDetailParser.RE_NEWER_LINK.lastIndex = 0
+    let linkM: RegExpExecArray | null = EhGalleryDetailParser.RE_NEWER_LINK.exec(block)
+    while (linkM !== null) {
+      if (linkM[1] !== undefined && linkM[2] !== undefined) {
+        const version: EhGalleryVersion = new EhGalleryVersion()
+        version.gid = linkM[1]
+        version.token = linkM[2]
+        version.title = linkM[3] !== undefined ? HtmlSelectorUtils.htmlUnescape(linkM[3].trim()) : ''
+        version.posted = index < dates.length ? dates[index] : ''
+        versions.push(version)
+      }
+      index += 1
+      linkM = EhGalleryDetailParser.RE_NEWER_LINK.exec(block)
+    }
+    return versions
   }
 
   /** Parse #taglist into namespace-grouped tags. */
@@ -188,6 +226,16 @@ export class EhGalleryDetailParser {
       return fromId
     }
     return HtmlSelectorUtils.htmlUnescape(displayText.trim())
+  }
+
+  private static parseArchiverLink(html: string): string {
+    const fullUrl: string = HtmlSelectorUtils.htmlUnescape(
+      HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_ARCHIVER_URL).trim(),
+    )
+    if (fullUrl.length > 0) {
+      return fullUrl
+    }
+    return HtmlSelectorUtils.group1(html, EhGalleryDetailParser.RE_ARCHIVER_OR).trim()
   }
 
   private static rawTagFromHref(namespace: string, href: string): string {

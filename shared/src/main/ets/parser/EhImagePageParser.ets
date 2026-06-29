@@ -1,3 +1,5 @@
+import { EhGallery } from '../model/EhGallery'
+
 /** Parsed result of an EH image page (/s/{imgkey}/{gid}-{page}). */
 export class ImagePageResult {
   imageUrl: string = ''       // <img id="img" src> — the full image (one-shot per-IP token)
@@ -57,8 +59,8 @@ export class EhImagePageParser {
     }
     const ser: RegExpMatchArray | null = html.match(EhImagePageParser.RE_SER_TOTAL)
     if (ser !== null && ser[1] !== undefined && ser[2] !== undefined) {
-      r.ser = Number.parseInt(ser[1], 10)
-      r.fileCount = Number.parseInt(ser[2], 10)
+      r.ser = EhGallery.parseFileCount(ser[1])
+      r.fileCount = EhGallery.parseFileCount(ser[2])
     }
     return r
   }

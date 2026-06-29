@@ -190,7 +190,8 @@ export struct TabManagerPage {
               this.stack.pushPathByName('TabEdit', p.uuid)
             })
           },
-          (p: CustomProfile) => `${p.uuid}:${p.name}:${p.hidden}:${p.listType}`,
+          (p: CustomProfile, index: number) =>
+            `profile_${index}_${p.uuid}_${p.name}_${p.hidden}_${p.listType}`.replace(/[^A-Za-z0-9_]/g, '_'),
         )
           .onMove((from: number, to: number) => {
             CustomProfilesSettings.reorder(this.ctx(), from, to)

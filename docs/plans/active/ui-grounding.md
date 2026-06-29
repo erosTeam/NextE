@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: gallery archiver half-modal
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/gallery/view/archiver_dialog.dart` `showArchiverDialog()` / `ArchiverView`, `feature/gallery/src/main/ets/pages/GalleryTorrentsPage.ets` modal/page dual content pattern, and `shared/src/main/ets/components/AppModalScaffold.ets`.
+Surface type: Gallery detail action-row half-modal for archive quote/options; the route page remains only as a compatibility wrapper.
+Primary information: GP/Credits balance plus Download and H@H archive options with resolution/type, size, and cost.
+Primary action: tap an archive option to open the protected native confirmation; close/retry are secondary sheet actions, and no archive submit is performed before confirmation.
+Reuse or deviation: reuse `bindSheet` + `AppModalScaffold` and extract `GalleryArchiverContent({ modal })` like torrent content; deviate from the previous full NavDestination main path because FE presents this as a lightweight dialog/sheet from gallery detail.
+Verification: gallery archiver readonly contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 gallery-detail screenshot/layout plus hilog showing `detail_archiver_open` and either quote load or `archiver_missing_or_token`.
+
 ## Active: modal scaffold nested vertical scroll
 
 Status: active
@@ -55,31 +65,41 @@ Verification: download workbench contract, download queue RDB contract, UI groun
 ## Active: download incremental refresh action
 
 Status: active
-Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing low-weight circular task actions, `shared/src/main/ets/settings/DownloadQueueSettings.ets` seed preparation / merge / executor path, and `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` detail-page download seed preparation.
-Surface type: Downloads tab gallery task card action column for completed local downloads.
-Primary information: completed gallery tasks keep read/remove actions visible while exposing a lightweight refresh state that can check remote preview seeds and fill only missing local files.
+Reference implementation: `../eros_fe/lib/pages/item/download_gallery_item.dart` completed row tap-to-read behavior, `feature/download/src/main/ets/pages/DownloadQueuePage.ets` bottom task action row, `shared/src/main/ets/settings/DownloadQueueSettings.ets` seed preparation / merge / executor path, and `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` detail-page download seed preparation.
+Surface type: Downloads tab gallery task card bottom action row for completed local downloads.
+Primary information: completed gallery tasks keep the complete status line visible, use the content area as the local read affordance, and expose lightweight refresh/remove actions in the bottom row.
 Primary action: tap the small refresh icon on a completed gallery task to fetch the current detail preview pages, merge seed metadata by page, and let the existing downloader handle newly pending images.
-Reuse or deviation: reuse the existing circular icon-action column and `prepareGallerySeeds -> mergePreparedSeeds -> downloadGalleryImages` flow instead of adding a second update engine; deviate only by allowing completed tasks to re-enter preparation/download when remote seed refresh discovers new pages.
+Reuse or deviation: reuse the bottom task action row and `prepareGallerySeeds -> mergePreparedSeeds -> downloadGalleryImages` flow instead of adding a second update engine; deviate only by allowing completed tasks to re-enter preparation/download when remote seed refresh discovers new pages.
 Verification: gallery download executor contract, gallery download queue contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab layout evidence.
+
+## Active: detail newer-version incremental download
+
+Status: active
+Reference implementation: `/private/tmp/EhViewer/app/src/main/java/com/hippo/ehviewer/ui/scene/GalleryDetailScene.kt` `showGalleryUpgradeDialog()` and `/private/tmp/EhViewer/app/src/main/java/com/hippo/ehviewer/spider/SpiderQueen.kt` `prepareUpgrade()`; NextE reuse point is `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` detail title menu plus `shared/src/main/ets/settings/DownloadQueueSettings.ets` parent-seed inheritance.
+Surface type: Gallery detail title-bar menu action opening a standard AppModalScaffold selection sheet.
+Primary information: when the current gallery already has a completed local download and EH detail exposes newer versions, the sheet lists those newer versions by title plus posted time/gid so the user chooses the target update.
+Primary action: tap one newer-version row to fetch that version detail, enqueue a child gallery download, set the current gid as `upgradeFromGid`, and let the existing imgkey-based inheritance copy already-downloaded parent files before downloading missing pages.
+Reuse or deviation: reuse HDS title-bar menu records, `AppModalScaffold`, `GroupedListSection`, and `ConciseListRow`; do not change the primary Read FAB, do not add a second update engine, and do not auto-submit remote archive/gallery writes.
+Verification: gallery download executor contract, gallery download queue contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 detail-menu smoke evidence.
 
 ## Active: completed download row reader entry
 
 Status: active
-Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing read icon buttons, `ArchiveImageService.imagesForTask()` archive-to-Reader path, and the completed Gallery task `openDownloadedTask()` local file Reader path.
+Reference implementation: `../eros_fe/lib/pages/item/download_gallery_item.dart` tap completed row to enter local reader, `ArchiveImageService.imagesForTask()` archive-to-Reader path, and the completed Gallery task `openDownloadedTask()` local file Reader path.
 Surface type: Downloads tab gallery and archiver task cards.
-Primary information: completed task rows show title, cover/icon, progress, and low-weight read/remove actions; the readable content area itself should also act as the read affordance.
-Primary action: tap the content area of a completed Gallery or Archiver task to open the same local Reader path as the read icon; incomplete/error rows stay inert except for retry/remove actions.
-Reuse or deviation: reuse the existing read methods and keep the action column separate so remove/refresh/retry buttons do not share the parent click target.
+Primary information: completed task rows show title, cover/icon, metadata, and a complete status line; they do not show a full progress bar or a duplicated read button.
+Primary action: tap the completed task content area to open the local Reader path; tap the cover/icon to open the original gallery detail when gid/token are available. Incomplete/error rows stay inert except for retry/pause/remove actions.
+Reuse or deviation: reuse the existing read methods and keep cover/source navigation separate from local Reader navigation; remove/refresh/retry live in the bottom action row so there is no right-side button stack.
 Verification: gallery download queue contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence.
 
 ## Active: queued download row resume affordance
 
 Status: active
 Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing per-task resume button, `shared/src/main/ets/settings/DownloadQueueSettings.ets` restored `QUEUED/READY/PARTIAL` gallery states, and the Archiver task row which already treats `QUEUED` as resumable.
-Surface type: Downloads tab Gallery task action column.
+Surface type: Downloads tab Gallery task bottom action row.
 Primary information: a queued Gallery task is a resumable task state, not a terminal or read-ready row.
-Primary action: tap the existing small retry/continue icon on a queued Gallery task to run the same `downloadGalleryImages()` executor used by READY, PAUSED, PARTIAL, and ERROR tasks.
-Reuse or deviation: reuse the existing circular resume action and shared executor; do not add a new queue state, scheduler, or separate start button.
+Primary action: tap the retry/continue capsule on a queued Gallery task to run the same `downloadGalleryImages()` executor used by READY, PAUSED, PARTIAL, and ERROR tasks.
+Reuse or deviation: reuse the shared executor; do not add a new queue state, scheduler, or separate start button.
 Verification: download workbench contract, download queue RDB contract, V1 decorator inventory, signed HarmonyOS build.
 
 ## Active: download task error detail
@@ -95,11 +115,11 @@ Verification: gallery download prepare contract, download workbench contract, UI
 ## Active: download task pause action
 
 Status: active
-Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing low-weight circular retry/remove/read task actions, and `shared/src/main/ets/settings/DownloadQueueSettings.ets` joined in-flight worker maps.
-Surface type: Downloads tab Gallery and Archiver task action column while a task is actively downloading.
+Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` bottom retry/remove task actions, and `shared/src/main/ets/settings/DownloadQueueSettings.ets` joined in-flight worker maps.
+Surface type: Downloads tab Gallery and Archiver task bottom action row while a task is actively downloading.
 Primary information: a running task remains visible with its current progress; pause is a lightweight action beside remove, not a separate management page.
 Primary action: tap the small pause icon to stop the task after the current in-flight batch/stream settles, keep already downloaded files, and let the existing retry/resume icon continue later.
-Reuse or deviation: reuse the current task card action column, status model, and cancellation markers; do not introduce a new background agent, per-request abort API, or wide text controls in this slice.
+Reuse or deviation: reuse the current task card status model and cancellation markers; do not introduce a new background agent, per-request abort API, or right-side stacked controls in this slice.
 Verification: download workbench contract, download queue RDB contract, UI grounding contract, i18n duplicate check, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence.
 
 ## Active: download speed-limit setting
