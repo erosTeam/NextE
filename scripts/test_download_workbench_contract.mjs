@@ -231,8 +231,10 @@ ok(/private openGalleryTaskSource\(task: DownloadGalleryTask\): void[\s\S]*new G
   /private GalleryTaskCover\(task: DownloadGalleryTask\)[\s\S]*this\.openGalleryTaskSource\(task\)/.test(page),
   'gallery task cover opens the original gallery detail instead of duplicating local Reader')
 ok(/private openArchiverTaskSource\(task: DownloadArchiverTask\): void[\s\S]*task\.token\.length === 0[\s\S]*new GalleryDetailParams/.test(page) &&
+  /archiver_open_source_from_download/.test(page) &&
+  /new GalleryDetailParams\(task\.gid, task\.token, task\.thumbUrl, task\.displayTitle\(\)\)/.test(page) &&
   /private ArchiverTaskCover\(task: DownloadArchiverTask\)[\s\S]*task\.thumbUrl\.length > 0[\s\S]*EhThumbnail\(\{[\s\S]*url: task\.thumbUrl[\s\S]*this\.openArchiverTaskSource\(task\)[\s\S]*sys\.symbol\.arrow_down_to_line/.test(page),
-  'archiver task stores token-backed source navigation and renders the gallery cover when available')
+  'archiver task stores token-backed source navigation, preserves the cover seed, and logs source opens')
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
 ok(/RADIUS_CARD: number = 24/.test(theme) &&
   /SPACE_SM: number = 8/.test(theme) &&
@@ -246,8 +248,9 @@ ok(/RADIUS_CARD: number = 24/.test(theme) &&
   'download task cover radius follows the concentric-corner formula: card radius minus inset padding')
 ok(/ArchiveImageService\.imagesForTask\(this\.ctx\(\), task\)/.test(page) &&
   /const index: number = Math\.max\(0, Math\.min\(images\.length - 1, this\.readProgress\.getIndex\(task\.gid\)\)\)/.test(page) &&
+  /archiver_open_local_reader/.test(page) &&
   /new ReaderParams\(task\.gid, '', index, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(page),
-  'completed archiver tasks unzip into local Reader seed images at the saved reading position')
+  'completed archiver tasks unzip into local Reader seed images at the saved reading position with a diagnostic open event')
 ok(/openingArchiverTag/.test(page) &&
   /private ArchiverOpeningButton\(_task: DownloadArchiverTask\)[\s\S]*LoadingTaskIconButton\(\$r\('app\.string\.reader_loading_resolving'\)/.test(page) &&
   /private LoadingTaskIconButton\(label: Resource\)[\s\S]*LoadingProgress\(\)/.test(page),

@@ -537,9 +537,14 @@ export struct DownloadQueuePage {
     if (task.gid.length === 0 || task.token.length === 0) {
       return
     }
+    DiagnosticLogger.info(
+      'download',
+      'archiver_open_source_from_download',
+      `gid=${task.gid} tokenHash=${DiagnosticLogger.ownerHash(task.token)} tagHash=${DiagnosticLogger.ownerHash(task.tag)} status=${task.status}`,
+    )
     this.stack.pushPathByName(
       'GalleryDetail',
-      new GalleryDetailParams(task.gid, task.token, '', task.displayTitle()),
+      new GalleryDetailParams(task.gid, task.token, task.thumbUrl, task.displayTitle()),
     )
   }
 
@@ -588,6 +593,11 @@ export struct DownloadQueuePage {
     try {
       const images: EhGalleryImage[] = await ArchiveImageService.imagesForTask(this.ctx(), task)
       const index: number = Math.max(0, Math.min(images.length - 1, this.readProgress.getIndex(task.gid)))
+      DiagnosticLogger.info(
+        'download',
+        'archiver_open_local_reader',
+        `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} images=${images.length} index=${index} firstUriHash=${images.length > 0 ? DiagnosticLogger.ownerHash(images[0].imageUrl) : ''}`,
+      )
       this.stack.pushPathByName(
         'Reader',
         new ReaderParams(task.gid, '', index, images.length, task.displayTitle(), images, 1, images.length),

@@ -110,7 +110,7 @@ Surface type: Downloads tab gallery and archiver task cards.
 Primary information: completed task rows show title, cover/icon, metadata, and a complete status line; they do not show a full progress bar or a duplicated read button.
 Primary action: tap the completed task content area to open the local Reader path; tap the cover/icon to open the original gallery detail when gid/token are available. Incomplete/error rows stay inert except for retry/pause/remove actions.
 Reuse or deviation: reuse the existing read methods and keep cover/source navigation separate from local Reader navigation; remove/refresh/retry live in the bottom action row so there is no right-side button stack.
-Verification: gallery download queue contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence.
+Verification: gallery download queue contract, download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads tab smoke evidence; source/open logs must cover both Gallery and Archiver rows, and Archiver source navigation must keep the stored cover seed.
 
 ## Active: queued download row resume affordance
 
