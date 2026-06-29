@@ -82,9 +82,11 @@ export class GalleryTorrentsParams {
 export class GalleryArchiverParams {
   gid: string = ''
   token: string = ''
+  // Modern EH passes a full archiver.php URL; older pages may pass only the legacy `or` token.
   archiverLink: string = ''
   isEx: boolean = false
   title: string = ''
+  thumbUrl: string = ''
 
   constructor(
     gid: string = '',
@@ -92,12 +94,14 @@ export class GalleryArchiverParams {
     archiverLink: string = '',
     isEx: boolean = false,
     title: string = '',
+    thumbUrl: string = '',
   ) {
     this.gid = gid
     this.token = token
     this.archiverLink = archiverLink
     this.isEx = isEx
     this.title = title
+    this.thumbUrl = thumbUrl
   }
 }
 

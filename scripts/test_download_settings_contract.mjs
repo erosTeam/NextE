@@ -26,6 +26,7 @@ ok(/@ObservedV2\s+export class DownloadSettingsState/.test(state), 'download set
 ok(/@Trace concurrency: number = 2/.test(state), 'download concurrency defaults to 2')
 ok(/@Trace requestIntervalSeconds: number = 0/.test(state), 'download request interval defaults to off')
 ok(/@Trace retryCount: number = 2/.test(state), 'download retry count defaults to 2')
+ok(/@Trace autoRetryFailed: boolean = true/.test(state), 'download failed-task auto retry defaults to on')
 ok(/@Trace speedLimitKbps: number = 0/.test(state), 'download speed limit defaults to off')
 ok(/@Trace originalMode: string = DownloadOriginalMode\.ASK/.test(state),
   'download original mode defaults to ask')
@@ -37,6 +38,7 @@ const queueSettings = read('shared/src/main/ets/settings/DownloadQueueSettings.e
 ok(/StorageKeys\.DOWNLOAD_CONCURRENCY/.test(settings), 'settings persist concurrency key')
 ok(/StorageKeys\.DOWNLOAD_REQUEST_INTERVAL_SECONDS/.test(settings), 'settings persist request interval key')
 ok(/StorageKeys\.DOWNLOAD_RETRY_COUNT/.test(settings), 'settings persist retry count key')
+ok(/StorageKeys\.DOWNLOAD_AUTO_RETRY_FAILED/.test(settings), 'settings persist failed-task auto retry key')
 ok(/StorageKeys\.DOWNLOAD_SPEED_LIMIT_KBPS/.test(settings), 'settings persist speed limit key')
 ok(/StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings), 'settings persist original-mode key')
 ok(/clampConcurrency/.test(settings) && /MIN_CONCURRENCY: number = 1/.test(settings) &&
@@ -59,6 +61,9 @@ ok(/static async setRequestIntervalSeconds/.test(settings) &&
   'settings write request interval to preferences')
 ok(/static async setRetryCount/.test(settings) && /store\.putSync\(StorageKeys\.DOWNLOAD_RETRY_COUNT/.test(settings),
   'settings write retry count to preferences')
+ok(/static async setAutoRetryFailed/.test(settings) &&
+  /store\.putSync\(StorageKeys\.DOWNLOAD_AUTO_RETRY_FAILED/.test(settings),
+  'settings write failed-task auto retry to preferences')
 ok(/static async setSpeedLimitKbps/.test(settings) &&
   /store\.putSync\(StorageKeys\.DOWNLOAD_SPEED_LIMIT_KBPS/.test(settings),
   'settings write speed limit to preferences')
@@ -67,13 +72,14 @@ ok(/static async setOriginalMode/.test(settings) && /store\.putSync\(StorageKeys
 ok(/connectDownloadSettings\(\)\.concurrency/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.requestIntervalSeconds/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.retryCount/.test(queueSettings) &&
+  /connectDownloadSettings\(\)\.autoRetryFailed/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.speedLimitKbps/.test(queueSettings) &&
   /connectDownloadSettings\(\)\.originalMode/.test(queueSettings),
   'gallery image executor consumes persisted download policy')
 ok(/batchIndex > 0/.test(queueSettings) &&
   /DownloadQueueSettings\.delay\(connectDownloadSettings\(\)\.requestIntervalSeconds \* 1000\)/.test(queueSettings),
   'gallery image executor throttles later image batches by the persisted request interval')
-ok(/downloadSeedToFile\(context, gid, seed, useOriginal, retryCount\)/.test(queueSettings) &&
+ok(/downloadSeedToFile\(context, gid, token, seed, useOriginal, retryCount\)/.test(queueSettings) &&
   /Math\.round\(retryCount\) \+ 1/.test(queueSettings),
   'gallery image executor retries each failed image according to the persisted retry count')
 ok(/const attempts: number = Math\.max\(1, Math\.round\(connectDownloadSettings\(\)\.retryCount\) \+ 1\)/.test(queueSettings) &&
@@ -84,6 +90,10 @@ ok(/const batchStartedAt: number = Date\.now\(\)/.test(queueSettings) &&
   /const kbps: number = connectDownloadSettings\(\)\.speedLimitKbps/.test(queueSettings) &&
   /Math\.ceil\(bytes \* 1000 \/ \(kbps \* 1024\)\)/.test(queueSettings),
   'gallery image executor applies the persisted average speed limit after successful batches')
+const archiverDownloadBody = queueSettings.match(/private static async runArchiverDownload\([\s\S]*?\n  \}/)?.[0] ?? ''
+ok(/downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(archiverDownloadBody) &&
+  !/delayBytesForSpeedLimit/.test(archiverDownloadBody),
+  'archiver executor does not apply gallery image speed throttling to single package downloads')
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok(/import \{ DownloadSettings \}/.test(bootstrap) && /await DownloadSettings\.restore\(context\)/.test(bootstrap),
@@ -121,6 +131,10 @@ ok(/download_request_interval/.test(downloadPage) && /hasCounter: true/.test(dow
 ok(/download_retry_count/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
   /DownloadSettings\.setRetryCount/.test(downloadPage),
   'download settings page exposes persisted retry count as a counter')
+ok(/download_auto_retry_failed/.test(downloadPage) && /hasSwitch: true/.test(downloadPage) &&
+  /checked: this\.downloadSettings\.autoRetryFailed/.test(downloadPage) &&
+  /DownloadSettings\.setAutoRetryFailed/.test(downloadPage),
+  'download settings page exposes failed-task auto retry as a persisted switch')
 ok(/download_speed_limit/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
   /DownloadSettings\.setSpeedLimitKbps/.test(downloadPage) &&
   /speedLimitLabel/.test(downloadPage),
@@ -131,8 +145,24 @@ ok(/download_original_images/.test(downloadPage) && /trailingDropdown: true/.tes
 ok(/DownloadOriginalMode\.OFF/.test(downloadPage) && /DownloadOriginalMode\.ASK/.test(downloadPage) &&
   /DownloadOriginalMode\.ALWAYS/.test(downloadPage),
   'download original-image menu covers off, ask, and always')
+ok(/archiveBotBalanceBusy/.test(downloadPage) && /archiveBotCheckInBusy/.test(downloadPage) &&
+  !/@Local archiveBotBusy/.test(downloadPage),
+  'archive bot balance and check-in rows keep independent loading states')
+ok(/canCheckArchiveBotBalance/.test(downloadPage) && /canCheckInArchiveBot/.test(downloadPage) &&
+  /download_archive_bot_balance[\s\S]*archiveBotBalanceBusy[\s\S]*BusySuffix/.test(downloadPage) &&
+  /download_archive_bot_checkin[\s\S]*archiveBotCheckInBusy[\s\S]*BusySuffix/.test(downloadPage),
+  'archive bot balance and check-in actions show row-local loading feedback')
+ok(/archive_bot_balance_check_start/.test(downloadPage) && /archive_bot_balance_check_done/.test(downloadPage) &&
+  /archive_bot_balance_check_failed/.test(downloadPage) && /archive_bot_checkin_start/.test(downloadPage) &&
+  /archive_bot_checkin_done/.test(downloadPage) && /archive_bot_checkin_failed/.test(downloadPage),
+  'archive bot settings validation emits action-level diagnostics')
 ok(!/restore_tasks_data|rebuild_tasks_data|download_location|allow_media_scan/.test(downloadPage),
   'this lane does not add unimplemented download path/task-maintenance placeholders')
+
+const archiveBotService = read('shared/src/main/ets/services/ArchiveBotService.ets')
+ok(/archive_bot_request_start/.test(archiveBotService) && /archive_bot_request_done/.test(archiveBotService) &&
+  /archive_bot_request_failed/.test(archiveBotService) && /DiagnosticLogger\.ownerHash\(gid\)/.test(archiveBotService),
+  'archive bot service emits redacted request start/done/failure diagnostics')
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
 ok(!/connectDownloadSettings|DownloadSettingsState|DownloadSettings\.setConcurrency|DownloadSettings\.setOriginalMode/.test(page),
@@ -148,6 +178,8 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   ok(strings.includes('"name": "download_request_interval_hint"'), `${locale}: download_request_interval_hint exists`)
   ok(strings.includes('"name": "download_retry_count"'), `${locale}: download_retry_count exists`)
   ok(strings.includes('"name": "download_retry_count_hint"'), `${locale}: download_retry_count_hint exists`)
+  ok(strings.includes('"name": "download_auto_retry_failed"'), `${locale}: download_auto_retry_failed exists`)
+  ok(strings.includes('"name": "download_auto_retry_failed_hint"'), `${locale}: download_auto_retry_failed_hint exists`)
   ok(strings.includes('"name": "download_speed_limit"'), `${locale}: download_speed_limit exists`)
   ok(strings.includes('"name": "download_speed_limit_hint"'), `${locale}: download_speed_limit_hint exists`)
   ok(strings.includes('"name": "download_original_hint"'), `${locale}: download_original_hint exists`)
@@ -156,6 +188,12 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   ok(strings.includes('"name": "download_original_prompt"'), `${locale}: download_original_prompt exists`)
   ok(strings.includes('"name": "download_use_regular_image"'), `${locale}: download_use_regular_image exists`)
   ok(strings.includes('"name": "download_use_original_image"'), `${locale}: download_use_original_image exists`)
+  ok(strings.includes('"name": "download_archiver_use_bot"'), `${locale}: download_archiver_use_bot exists`)
+  ok(!/普通图|压缩图/.test(strings), `${locale}: legacy compressed/regular image wording is not used`)
+  if (locale === 'zh_CN') {
+    ok(strings.includes('"value": "重采样图片"'), 'zh_CN: regular image option is named 重采样图片')
+    ok(strings.includes('"value": "重采样图片或原始文件"'), 'zh_CN: original image subtitle uses 重采样图片 without trailing punctuation')
+  }
 }
 
 if (failures > 0) {

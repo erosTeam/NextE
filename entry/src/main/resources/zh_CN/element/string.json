@@ -102,7 +102,7 @@
     },
     {
       "name": "download_status_error",
-      "value": "准备失败"
+      "value": "失败"
     },
     {
       "name": "download_resume_all",
@@ -141,6 +141,10 @@
       "value": "已在归档队列中"
     },
     {
+      "name": "download_archiver_use_bot",
+      "value": "使用归档机器人"
+    },
+    {
       "name": "download_concurrency",
       "value": "下载并发"
     },
@@ -158,11 +162,11 @@
     },
     {
       "name": "download_original_prompt",
-      "value": "下载普通压缩图，还是在 EH 提供时下载原始文件？"
+      "value": "下载重采样图片，还是在 EH 提供时下载原始文件？"
     },
     {
       "name": "download_use_regular_image",
-      "value": "普通图"
+      "value": "重采样图片"
     },
     {
       "name": "download_use_original_image",
@@ -170,7 +174,7 @@
     },
     {
       "name": "download_concurrency_hint",
-      "value": "同时下载图片数。"
+      "value": "同时下载图片数"
     },
     {
       "name": "download_request_interval",
@@ -178,7 +182,7 @@
     },
     {
       "name": "download_request_interval_hint",
-      "value": "每批图片请求之间等待的秒数。"
+      "value": "每批图片请求之间等待的秒数"
     },
     {
       "name": "download_retry_count",
@@ -186,7 +190,15 @@
     },
     {
       "name": "download_retry_count_hint",
-      "value": "单张图片失败后的重试次数。"
+      "value": "单张图片失败后的重试次数"
+    },
+    {
+      "name": "download_auto_retry_failed",
+      "value": "自动重试失败任务"
+    },
+    {
+      "name": "download_auto_retry_failed_hint",
+      "value": "启动时恢复失败任务，不包含手动暂停的任务"
     },
     {
       "name": "download_speed_limit",
@@ -194,15 +206,83 @@
     },
     {
       "name": "download_speed_limit_hint",
-      "value": "画廊队列平均速度，0 表示关闭。"
+      "value": "画廊队列平均速度，0 表示关闭"
     },
     {
       "name": "download_original_hint",
-      "value": "压缩图或原始文件。"
+      "value": "重采样图片或原始文件"
+    },
+    {
+      "name": "download_archive_bot_protocol",
+      "value": "归档 Bot"
+    },
+    {
+      "name": "download_archive_bot_hint",
+      "value": "使用第三方服务解析原图归档链接"
+    },
+    {
+      "name": "download_archive_bot_eh_ar_bot",
+      "value": "EH-ArBot"
+    },
+    {
+      "name": "download_archive_bot_archive_at_home",
+      "value": "Archive-at-Home"
+    },
+    {
+      "name": "download_archive_bot_address",
+      "value": "服务地址"
+    },
+    {
+      "name": "download_archive_bot_address_hint",
+      "value": "归档 Bot API 地址"
+    },
+    {
+      "name": "download_archive_bot_api_key",
+      "value": "API Key"
+    },
+    {
+      "name": "download_archive_bot_api_key_hint",
+      "value": "归档 Bot API Key"
+    },
+    {
+      "name": "download_archive_bot_balance",
+      "value": "检查余额"
+    },
+    {
+      "name": "download_archive_bot_balance_hint",
+      "value": "验证接口并读取 Bot 余额"
+    },
+    {
+      "name": "download_archive_bot_balance_result",
+      "value": "余额 %s GP"
+    },
+    {
+      "name": "download_archive_bot_checkin",
+      "value": "签到"
+    },
+    {
+      "name": "download_archive_bot_checkin_hint",
+      "value": "向归档 Bot 请求每日签到"
+    },
+    {
+      "name": "download_archive_bot_checkin_result",
+      "value": "获得 %s GP，当前 %s GP"
     },
     {
       "name": "download_not_configured",
       "value": "未配置"
+    },
+    {
+      "name": "download_upgrade_newer",
+      "value": "下载新版本"
+    },
+    {
+      "name": "download_upgrade_choose",
+      "value": "选择新版本"
+    },
+    {
+      "name": "download_upgrade_untitled",
+      "value": "新版本"
     },
     {
       "name": "download_gallery_added",
@@ -419,6 +499,10 @@
     {
       "name": "common_refresh",
       "value": "刷新"
+    },
+    {
+      "name": "common_more_actions",
+      "value": "更多操作"
     },
     {
       "name": "common_no_content",
@@ -1271,6 +1355,22 @@
     {
       "name": "settings_login_web",
       "value": "网页登录"
+    },
+    {
+      "name": "web_login_beautify_setting",
+      "value": "美化 WebView 登录页面"
+    },
+    {
+      "name": "web_login_beautify_setting_hint",
+      "value": "关闭后使用论坛原始登录页，避免页面结构变化时影响登录。"
+    },
+    {
+      "name": "web_login_use_original",
+      "value": "使用原始页面"
+    },
+    {
+      "name": "web_login_use_beautified",
+      "value": "使用美化页面"
     },
     {
       "name": "settings_add_account",
@@ -2693,6 +2793,10 @@
       "value": "暂无归档选项"
     },
     {
+      "name": "gallery_archiver_missing_link",
+      "value": "未获取到归档参数，请刷新详情页后重试"
+    },
+    {
       "name": "gallery_archiver_download",
       "value": "Download"
     },
@@ -2719,6 +2823,22 @@
     {
       "name": "gallery_archiver_download_started",
       "value": "已打开归档下载"
+    },
+    {
+      "name": "gallery_archiver_bot",
+      "value": "归档 Bot"
+    },
+    {
+      "name": "gallery_archiver_bot_original",
+      "value": "原图归档"
+    },
+    {
+      "name": "gallery_archiver_bot_free",
+      "value": "Bot 免费解析"
+    },
+    {
+      "name": "gallery_archiver_bot_not_ready",
+      "value": "请先配置归档 Bot"
     },
     {
       "name": "image_page_open_failed_title",
@@ -3571,6 +3691,14 @@
     {
       "name": "sync_dataset_custom_profiles_hint",
       "value": "自定义 SubTab 配置和选中项"
+    },
+    {
+      "name": "web_login_captcha",
+      "value": "验证码"
+    },
+    {
+      "name": "web_login_wait_captcha",
+      "value": "等待安全验证"
     }
   ]
 }

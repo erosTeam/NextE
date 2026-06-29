@@ -7,7 +7,7 @@ import {
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { ReadProgressRepository } from '../storage/ReadProgressRepository'
-import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
+import { SyncScheduler } from '../sync/SyncScheduler'
 
 // eros_fe debounces the persistent write 3s after the index settles (view_state.dart) so paging
 // fast doesn't hammer the store; the in-memory value updates immediately on every page change.
@@ -63,7 +63,7 @@ export class GalleryReadProgressSettings {
     try {
       const entries: ReadProgressEntry[] = connectGalleryReadProgress().snapshot()
       await ReadProgressRepository.saveAll(context, entries)
-      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'read_progress')
+      SyncScheduler.requestAfterLocalWrite(context, 'read_progress')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readprogress_save_failed', (error as Error).message)
     }
@@ -78,7 +78,7 @@ export class GalleryReadProgressSettings {
     await ReadProgressRepository.replaceAll(context, entries)
     await GalleryReadProgressSettings.deleteLegacyPreference(context)
     connectGalleryReadProgress().replaceAll(await ReadProgressRepository.load(context))
-    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'read_progress_restore_backup')
+    SyncScheduler.requestAfterLocalWrite(context, 'read_progress_restore_backup')
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {

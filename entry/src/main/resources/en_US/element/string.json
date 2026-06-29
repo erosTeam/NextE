@@ -141,6 +141,10 @@
       "value": "Already in archive queue"
     },
     {
+      "name": "download_archiver_use_bot",
+      "value": "Use archive bot"
+    },
+    {
       "name": "download_concurrency",
       "value": "Download concurrency"
     },
@@ -158,11 +162,11 @@
     },
     {
       "name": "download_original_prompt",
-      "value": "Download regular compressed images, or original files when EH provides them?"
+      "value": "Download resampled images, or original files when EH provides them?"
     },
     {
       "name": "download_use_regular_image",
-      "value": "Regular"
+      "value": "Resampled"
     },
     {
       "name": "download_use_original_image",
@@ -170,7 +174,7 @@
     },
     {
       "name": "download_concurrency_hint",
-      "value": "Images downloading at once."
+      "value": "Images downloading at once"
     },
     {
       "name": "download_request_interval",
@@ -178,7 +182,7 @@
     },
     {
       "name": "download_request_interval_hint",
-      "value": "Seconds to wait between image batches."
+      "value": "Seconds to wait between image batches"
     },
     {
       "name": "download_retry_count",
@@ -186,7 +190,15 @@
     },
     {
       "name": "download_retry_count_hint",
-      "value": "Retries per failed image."
+      "value": "Retries per failed image"
+    },
+    {
+      "name": "download_auto_retry_failed",
+      "value": "Auto retry failed tasks"
+    },
+    {
+      "name": "download_auto_retry_failed_hint",
+      "value": "Resume failed tasks on startup, excluding manually paused tasks"
     },
     {
       "name": "download_speed_limit",
@@ -194,15 +206,83 @@
     },
     {
       "name": "download_speed_limit_hint",
-      "value": "Average gallery queue speed. 0 means off."
+      "value": "Average gallery queue speed. 0 means off"
     },
     {
       "name": "download_original_hint",
-      "value": "Resized images or original files."
+      "value": "Resampled images or original files"
+    },
+    {
+      "name": "download_archive_bot_protocol",
+      "value": "Archive Bot"
+    },
+    {
+      "name": "download_archive_bot_hint",
+      "value": "Resolve original archive links with a third-party service"
+    },
+    {
+      "name": "download_archive_bot_eh_ar_bot",
+      "value": "EH-ArBot"
+    },
+    {
+      "name": "download_archive_bot_archive_at_home",
+      "value": "Archive-at-Home"
+    },
+    {
+      "name": "download_archive_bot_address",
+      "value": "Server address"
+    },
+    {
+      "name": "download_archive_bot_address_hint",
+      "value": "Archive Bot API address"
+    },
+    {
+      "name": "download_archive_bot_api_key",
+      "value": "API Key"
+    },
+    {
+      "name": "download_archive_bot_api_key_hint",
+      "value": "Archive Bot API Key"
+    },
+    {
+      "name": "download_archive_bot_balance",
+      "value": "Check balance"
+    },
+    {
+      "name": "download_archive_bot_balance_hint",
+      "value": "Verify the API and read Bot balance"
+    },
+    {
+      "name": "download_archive_bot_balance_result",
+      "value": "Balance %s GP"
+    },
+    {
+      "name": "download_archive_bot_checkin",
+      "value": "Check in"
+    },
+    {
+      "name": "download_archive_bot_checkin_hint",
+      "value": "Request daily Bot check-in"
+    },
+    {
+      "name": "download_archive_bot_checkin_result",
+      "value": "Got %s GP, now %s GP"
     },
     {
       "name": "download_not_configured",
       "value": "Not configured"
+    },
+    {
+      "name": "download_upgrade_newer",
+      "value": "Download newer version"
+    },
+    {
+      "name": "download_upgrade_choose",
+      "value": "Choose newer version"
+    },
+    {
+      "name": "download_upgrade_untitled",
+      "value": "Newer version"
     },
     {
       "name": "download_gallery_added",
@@ -419,6 +499,10 @@
     {
       "name": "common_refresh",
       "value": "Refresh"
+    },
+    {
+      "name": "common_more_actions",
+      "value": "More actions"
     },
     {
       "name": "common_no_content",
@@ -1271,6 +1355,22 @@
     {
       "name": "settings_login_web",
       "value": "Web login"
+    },
+    {
+      "name": "web_login_beautify_setting",
+      "value": "Beautify WebView login"
+    },
+    {
+      "name": "web_login_beautify_setting_hint",
+      "value": "Turn off to use the original forum login page if the styled page has issues."
+    },
+    {
+      "name": "web_login_use_original",
+      "value": "Use original page"
+    },
+    {
+      "name": "web_login_use_beautified",
+      "value": "Use styled page"
     },
     {
       "name": "settings_add_account",
@@ -2693,6 +2793,10 @@
       "value": "No archive options"
     },
     {
+      "name": "gallery_archiver_missing_link",
+      "value": "Archiver parameter was not found. Refresh the gallery detail and try again."
+    },
+    {
       "name": "gallery_archiver_download",
       "value": "Download"
     },
@@ -2719,6 +2823,22 @@
     {
       "name": "gallery_archiver_download_started",
       "value": "Archive download opened"
+    },
+    {
+      "name": "gallery_archiver_bot",
+      "value": "Archive Bot"
+    },
+    {
+      "name": "gallery_archiver_bot_original",
+      "value": "Original archive"
+    },
+    {
+      "name": "gallery_archiver_bot_free",
+      "value": "Free via Bot"
+    },
+    {
+      "name": "gallery_archiver_bot_not_ready",
+      "value": "Configure Archive Bot first"
     },
     {
       "name": "image_page_open_failed_title",
@@ -3571,6 +3691,14 @@
     {
       "name": "sync_dataset_custom_profiles_hint",
       "value": "Custom SubTab profiles and selected item"
+    },
+    {
+      "name": "web_login_captcha",
+      "value": "Captcha"
+    },
+    {
+      "name": "web_login_wait_captcha",
+      "value": "Waiting for security check"
     }
   ]
 }

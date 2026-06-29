@@ -496,7 +496,7 @@ export struct ReaderPage {
               DiagnosticLogger.warn('reader', 'warm_image_failed', `page ${index + 1}`)
             })
         },
-        (index: number) => `${index}-${this.vm.imageAt(index).imageUrl}`,
+        (index: number) => `warm_${index}_${this.safeForEachKeyHash(this.vm.imageAt(index).imageUrl)}`,
       )
     }
     .width('100%')
@@ -1139,7 +1139,7 @@ export struct ReaderPage {
             this.ReaderPendingPage(index)
           }
         },
-        (index: number) => `${index}-${this.readerImageIdentityKey(this.vm.imageAt(index))}`,
+        (index: number) => `reader_${index}_${this.readerImageIdentityKey(this.vm.imageAt(index))}`,
       )
     }
     .index(this.readerPagerIndex)
@@ -1204,7 +1204,16 @@ export struct ReaderPage {
   }
 
   private readerImageIdentityKey(img: EhGalleryImage): string {
-    return `${img.page}-${img.sUrl}`
+    return `page_${img.page}_${this.safeForEachKeyHash(img.sUrl)}`
+  }
+
+  private safeForEachKeyHash(value: string): string {
+    let hash: number = 2166136261
+    for (let i: number = 0; i < value.length; i++) {
+      hash = hash ^ value.charCodeAt(i)
+      hash = Math.imul(hash, 16777619)
+    }
+    return (hash >>> 0).toString(36)
   }
 
   private sliderTargetIndex(page: number): number {
@@ -1419,7 +1428,7 @@ export struct ReaderPage {
             }
           }
         },
-        (index: number) => `${index}-${this.readerImageIdentityKey(this.vm.imageAt(index))}`,
+        (index: number) => `reader_${index}_${this.readerImageIdentityKey(this.vm.imageAt(index))}`,
       )
     }
     .width('100%')
@@ -1535,7 +1544,7 @@ export struct ReaderPage {
   }
 
   private thumbKey(img: EhGalleryImage): string {
-    return `${img.page}-${img.sUrl}-${img.thumbUrl}`
+    return `thumb_${img.page}_${this.safeForEachKeyHash(`${img.sUrl}:${img.thumbUrl}`)}`
   }
 
   private jumpToThumb(index: number): void {
@@ -1832,7 +1841,7 @@ export struct ReaderPage {
             this.ReaderThumbItem(index)
           }
         },
-        (index: number) => `${index}-${this.thumbKey(this.vm.imageAt(index))}`,
+        (index: number) => `thumb_${index}_${this.thumbKey(this.vm.imageAt(index))}`,
       )
     }
     .listDirection(Axis.Horizontal)

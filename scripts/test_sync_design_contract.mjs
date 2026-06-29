@@ -96,6 +96,8 @@ ok('sync service refreshes live state after applying remote data',
     /CustomProfilesSettings\.restore/.test(service))
 
 const webdav = read('shared/src/main/ets/sync/WebDavSyncService.ets')
+const webdavScheduler = read('shared/src/main/ets/sync/WebDavSyncScheduler.ets')
+const syncScheduler = read('shared/src/main/ets/sync/SyncScheduler.ets')
 ok('WebDAV provider uses manifest plus hashed dataset shards',
     /SYNC_WEBDAV_MANIFEST_FILE/.test(webdav) &&
     /SYNC_WEBDAV_ROOT_DIR/.test(webdav) &&
@@ -121,6 +123,18 @@ ok('WebDAV provider treats single file as legacy input only',
 ok('WebDAV basic auth uses UTF-8 encoder',
   /new util\.TextEncoder\(\)\.encodeInto/.test(webdav) &&
     /new util\.Base64Helper\(\)\.encodeToStringSync/.test(webdav))
+ok('WebDAV provider has automatic scheduled sync',
+  /requestAfterLocalWrite/.test(webdavScheduler) &&
+    /requestAfterForeground/.test(webdavScheduler) &&
+    /WebDavSyncService\.syncNow/.test(webdavScheduler) &&
+    /SyncSettings\.markRun\(context, SYNC_STATUS_OK\)/.test(webdavScheduler) &&
+    /SyncSettings\.markRun\(context, SYNC_STATUS_FAILED\)/.test(webdavScheduler) &&
+    /webdav_scheduled_start/.test(webdavScheduler))
+ok('provider-neutral scheduler dispatches local writes and foreground to WebDAV and Huawei Cloud',
+  /HuaweiCloudSyncScheduler\.requestAfterLocalWrite\(context, reason\)/.test(syncScheduler) &&
+    /WebDavSyncScheduler\.requestAfterLocalWrite\(context, reason\)/.test(syncScheduler) &&
+    /HuaweiCloudSyncScheduler\.requestAfterForeground\(context, reason\)/.test(syncScheduler) &&
+    /WebDavSyncScheduler\.requestAfterForeground\(context, reason\)/.test(syncScheduler))
 
 const syncSettings = read('shared/src/main/ets/settings/SyncSettings.ets')
 ok('sync settings persist WebDAV config locally',
@@ -181,6 +195,26 @@ const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok('sync settings restore during settings bootstrap',
   /import \{ SyncSettings \}/.test(bootstrap) &&
     /await SyncSettings\.restore\(context\)/.test(bootstrap))
+const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
+ok('app lifecycle schedules provider-neutral sync after startup and foreground',
+  /SyncScheduler\.rememberContext\(this\.context\)/.test(entryAbility) &&
+    /SyncScheduler\.requestAfterForeground\(this\.context, 'startup'\)/.test(entryAbility) &&
+    /SyncScheduler\.requestAfterForeground\(this\.context, 'foreground'\)/.test(entryAbility))
+
+for (const file of [
+  'shared/src/main/ets/settings/SearchHistorySettings.ets',
+  'shared/src/main/ets/settings/GalleryReadProgressSettings.ets',
+  'shared/src/main/ets/settings/ViewedHistorySettings.ets',
+  'shared/src/main/ets/settings/LocalFavSettings.ets',
+  'shared/src/main/ets/settings/LocalBlockSettings.ets',
+  'shared/src/main/ets/settings/CustomProfilesSettings.ets',
+]) {
+  const src = read(file)
+  ok(`${file} schedules all sync providers after local durable writes`,
+    /SyncScheduler/.test(src) &&
+      /requestAfterLocalWrite/.test(src) &&
+      !/HuaweiCloudSyncScheduler/.test(src))
+}
 
 const settingsIndex = read('feature/settings/src/main/ets/Index.ets')
 const entryIndex = read('entry/src/main/ets/pages/Index.ets')

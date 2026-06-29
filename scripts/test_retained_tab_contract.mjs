@@ -50,6 +50,7 @@ const indexShell = read('entry/src/main/ets/pages/Index.ets')
 const favPage = read('feature/user/src/main/ets/pages/FavoritesPage.ets')
 const favcatPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
 const favcatBar = read('entry/src/main/ets/components/FavcatBar.ets')
+const ehGallery = read('shared/src/main/ets/model/EhGallery.ets')
 
 // ── 1. Shared host: ALL retained-subtab mechanics live here, ONCE ───────────────────────────────────
 ok(/@ComponentV2/.test(host), 'RetainedSubtabHost is @ComponentV2')
@@ -188,10 +189,17 @@ ok(/List\(\{ space: TAB_GAP, scroller: this\.scroller \}\)/.test(subTabBar) &&
   'SubTabBar uses native List.scrollToIndex(CENTER), not hand-computed xOffset centering')
 ok(/onAreaChange\([\s\S]*this\.containerReady = true[\s\S]*this\.centerSelectedTab\(false,\s*true\)/.test(subTabBar),
   'SubTabBar completes pending restored-tab centering when the scrollable container attaches')
-// The tab ForEach key MUST include the label + count (not just the stable key): dynamic tabs (favcat reuse
-// favId 0-9 across a seed→real update) would otherwise reuse frozen seed chips, leaving the bar on
-// placeholder "Favorites N / 0" after the parsed favList lands.
-ok(/tab\.label[\s\S]{0,40}?tab\.count/.test(subTabBar), 'SubTabBar ForEach key includes tab.label + tab.count so dynamic favcat tabs rebuild on seed→real (no frozen placeholders)')
+// The tab ForEach key MUST include the label + count (not just the stable key) and must be ArkUI-safe:
+// dynamic tabs (favcat reuse favId 0-9 across a seed→real update) would otherwise reuse frozen seed
+// chips, while ":" or "#RRGGBB" in keys makes ArkUI skip dirty marking.
+ok(/private safeKeyPart\(value: string\): string[\s\S]*replace\(\/\[\^A-Za-z0-9_\]\/g, '_'\)/.test(subTabBar) &&
+  /private tabRenderKey\(tab: TabItem, index: number\): string[\s\S]*tab\.key[\s\S]*label[\s\S]*tab\.count[\s\S]*tab\.selectedColor/.test(subTabBar) &&
+  /\(tab: TabItem, index: number\) => this\.tabRenderKey\(tab, index\)/.test(subTabBar),
+  'SubTabBar ForEach key includes tab identity/label/count/color and sanitizes it for ArkUI-safe dirty marking')
+ok(/renderKey\(\): string \{[\s\S]*return `gallery_\$\{EhGallery\.safeKeyPart\(this\.gid\)\}_\$\{EhGallery\.keyHash\(key\)\}`/.test(ehGallery) &&
+  /private static safeKeyPart\(value: string\): string[\s\S]*replace\(\/\[\^A-Za-z0-9_\]\/g, '_'\)/.test(ehGallery) &&
+  /private static keyHash\(value: string\): string/.test(ehGallery),
+  'EhGallery.renderKey hashes translated/tag identity into ArkUI-safe keys for retained gallery lists')
 const barH = Number((/SELECTOR_BAR_HEIGHT:\s*number\s*=\s*(\d+)/.exec(homeState) || [])[1])
 ok(Number.isFinite(barH) && barH <= 40, `SELECTOR_BAR_HEIGHT is not inflated (<=40, matches V2Next TAB_BAR_HEIGHT 38); got ${barH}`)
 ok(

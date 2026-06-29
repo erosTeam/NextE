@@ -34,7 +34,10 @@ ok('router accepts /s/ imgkey with z', canHandle('https://e-hentai.org/s/z9imgke
 
 const parserSrc = read('shared/src/main/ets/parser/EhImagePageParser.ets')
 ok('parser extracts parent gallery link', /RE_GALLERY[\s\S]*\/g\\\/\(\\d\+\)\\\/\(\[0-9a-z\]\+\)/.test(parserSrc))
-ok('parser extracts image serial and total file count', /RE_SER_TOTAL/.test(parserSrc) && /r\.ser = Number\.parseInt/.test(parserSrc) && /r\.fileCount = Number\.parseInt/.test(parserSrc))
+ok('parser extracts image serial and total file count with EH thousands separators', /RE_SER_TOTAL/.test(parserSrc) &&
+  /import \{ EhGallery \} from '..\/model\/EhGallery'/.test(parserSrc) &&
+  /r\.ser = EhGallery\.parseFileCount\(ser\[1\]\)/.test(parserSrc) &&
+  /r\.fileCount = EhGallery\.parseFileCount\(ser\[2\]\)/.test(parserSrc))
 
 const serviceSrc = read('shared/src/main/ets/services/ImagePageRouteService.ets')
 ok('route service normalizes image-page URL to current host', /EhUrlRouter\.toCurrentHost\(url, EhConstants\.baseUrl\(connectSiteMode\(\)\.isEx\)\)/.test(serviceSrc))

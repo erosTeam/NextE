@@ -1,6 +1,7 @@
 /** One selectable archive quote from /archiver.php. */
 export class EhGalleryArchiverItem {
   dltype: string = ''
+  dlcheck: string = ''
   resolution: string = ''
   sizeText: string = ''
   priceText: string = ''
@@ -8,6 +9,7 @@ export class EhGalleryArchiverItem {
   copy(): EhGalleryArchiverItem {
     const out: EhGalleryArchiverItem = new EhGalleryArchiverItem()
     out.dltype = this.dltype
+    out.dlcheck = this.dlcheck
     out.resolution = this.resolution
     out.sizeText = this.sizeText
     out.priceText = this.priceText

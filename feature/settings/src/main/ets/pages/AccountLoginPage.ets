@@ -1,11 +1,15 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
+import { common } from '@kit.AbilityKit'
 import {
   AppStrings,
   ConciseListRow,
   GroupedListSection,
   SecondaryListScaffold,
   ThemeConstants,
+  WebLoginStyleSettings,
+  WebLoginStyleState,
   connectNavStack,
+  connectWebLoginStyle,
   immersiveTitleBar,
   AccountListState,
   connectAccountList,
@@ -20,8 +24,13 @@ import {
 @ComponentV2
 export struct AccountLoginPage {
   @Local accountList: AccountListState = connectAccountList();
+  @Local webLoginStyle: WebLoginStyleState = connectWebLoginStyle();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
 
   // Any method that logs in lands a new active account — leave the chooser so we return to the source page.
   @Monitor('accountList.activeMemberId')
@@ -35,6 +44,10 @@ export struct AccountLoginPage {
       .strokeWidth(0.5)
       .color($r('sys.color.ohos_id_color_list_separator'))
       .margin({ left: ThemeConstants.SPACE_MD })
+  }
+
+  private setWebLoginBeautify(value: boolean): void {
+    WebLoginStyleSettings.save(this.ctx(), value)
   }
 
   build() {
@@ -67,6 +80,20 @@ export struct AccountLoginPage {
               leadingIcon: $r('sys.symbol.arrow_down_to_line_circle_fill'),
               action: () => {
                 this.stack.pushPathByName('EhCookieImport', null)
+              },
+            })
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.web_login_beautify_setting'),
+              subtitle: $r('app.string.web_login_beautify_setting_hint'),
+              leadingIcon: $r('sys.symbol.paintbrush'),
+              hasSwitch: true,
+              checked: this.webLoginStyle.beautifyEnabled,
+              switchAction: (value: boolean) => {
+                this.setWebLoginBeautify(value)
               },
             })
           }

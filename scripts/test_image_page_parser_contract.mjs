@@ -22,6 +22,11 @@ const RE = {
   serTotal: /<div[^>]*class="sn"[^>]*>[\s\S]*?<span>(\d+)<\/span>\s*\/\s*<span>(\d+)<\/span>/,
 }
 
+function parseFileCountText(value) {
+  const normalized = value.replace(/[,，\s]/g, '')
+  return /^[0-9]+$/.test(normalized) ? Number.parseInt(normalized, 10) : 0
+}
+
 let failures = 0
 const eq = (a, e, label) => { if (a !== e) { console.error(`  ✗ ${label}: expected ${JSON.stringify(e)}, got ${JSON.stringify(a)}`); failures++ } }
 const ok = (c, label) => { if (!c) { console.error(`  ✗ ${label}`); failures++ } }
@@ -44,8 +49,9 @@ eq(g1(SYN, RE.nl), '12500-494832', 'reloadKey')
 }
 {
   const st = SYN.match(RE.serTotal)
-  eq(Number.parseInt(st?.[1] ?? '', 10), 37, 'image-page serial')
-  eq(Number.parseInt(st?.[2] ?? '', 10), 138, 'image-page total fileCount')
+  eq(parseFileCountText(st?.[1] ?? ''), 37, 'image-page serial')
+  eq(parseFileCountText(st?.[2] ?? ''), 138, 'image-page total fileCount')
+  eq(parseFileCountText('1,700'), 1700, 'image-page total fileCount with thousands separator')
 }
 
 const fx = join(ROOT, 'scripts/fixtures/image_page.html')

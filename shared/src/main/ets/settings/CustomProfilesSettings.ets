@@ -19,7 +19,7 @@ import {
   STARTER_ANTHOLOGY_UUID,
 } from '../model/CustomProfile'
 import { CustomProfilesRepository } from '../storage/CustomProfilesRepository'
-import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
+import { SyncScheduler } from '../sync/SyncScheduler'
 
 /** Flat persisted snapshot of a CustomProfile (every field, plain types, safe defaults). */
 class CustomProfileSnapshot {
@@ -84,11 +84,12 @@ export class CustomProfilesSettings {
         return
       }
       const migratedProfiles: CustomProfile[] = CustomProfilesSettings.migrateStarterNames(profiles)
+      const builtinProfiles: CustomProfile[] = CustomProfilesSettings.ensureBuiltins(migratedProfiles)
       const normalized: CustomProfilesNormalizeResult =
-        CustomProfilesSettings.normalizeStarterProfiles(migratedProfiles, selected)
+        CustomProfilesSettings.normalizeStarterProfiles(builtinProfiles, selected)
       state.profiles = normalized.profiles
       state.selectedUuid = normalized.selectedUuid
-      if (migratedProfiles !== profiles || normalized.changed) {
+      if (migratedProfiles !== profiles || builtinProfiles !== migratedProfiles || normalized.changed) {
         await CustomProfilesSettings.persistAll(context)
       }
     } catch (error) {
@@ -224,7 +225,7 @@ export class CustomProfilesSettings {
     connectCustomProfiles().selectedUuid = uuid
     try {
       await CustomProfilesRepository.saveSelected(context, uuid)
-      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'custom_profile_selection')
+      SyncScheduler.requestAfterLocalWrite(context, 'custom_profile_selection')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_select_failed', (error as Error).message)
     }
@@ -250,7 +251,7 @@ export class CustomProfilesSettings {
     const state: CustomProfilesState = connectCustomProfiles()
     state.profiles = await CustomProfilesRepository.loadProfiles(context)
     state.selectedUuid = await CustomProfilesRepository.loadSelected(context)
-    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'custom_profiles_restore_backup')
+    SyncScheduler.requestAfterLocalWrite(context, 'custom_profiles_restore_backup')
   }
 
   // ---- internals ----
@@ -259,7 +260,7 @@ export class CustomProfilesSettings {
     try {
       const state: CustomProfilesState = connectCustomProfiles()
       await CustomProfilesRepository.replaceAll(context, state.profiles, state.selectedUuid)
-      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'custom_profiles')
+      SyncScheduler.requestAfterLocalWrite(context, 'custom_profiles')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_save_failed', (error as Error).message)
     }
@@ -322,6 +323,104 @@ export class CustomProfilesSettings {
     p.listType = PROFILE_TYPE_GALLERY
     p.searchText = searchText
     return p
+  }
+
+  private static ensureBuiltins(profiles: CustomProfile[]): CustomProfile[] {
+    const out: CustomProfile[] = []
+    let changed: boolean = false
+    profiles.forEach((p: CustomProfile) => {
+      const normalized: CustomProfile = CustomProfilesSettings.normalizeBuiltin(p)
+      out.push(normalized)
+      if (normalized !== p) {
+        changed = true
+      }
+    })
+    changed = CustomProfilesSettings.addMissingBuiltin(
+      out,
+      BUILTIN_DEFAULT_UUID,
+      AppStrings.get('home_source_default'),
+      PROFILE_TYPE_GALLERY,
+      '',
+    ) || changed
+    changed = CustomProfilesSettings.addMissingBuiltin(
+      out,
+      BUILTIN_POPULAR_UUID,
+      AppStrings.get('home_source_popular'),
+      PROFILE_TYPE_POPULAR,
+      BUILTIN_DEFAULT_UUID,
+    ) || changed
+    changed = CustomProfilesSettings.addMissingBuiltin(
+      out,
+      BUILTIN_WATCHED_UUID,
+      AppStrings.get('home_source_watched'),
+      PROFILE_TYPE_WATCHED,
+      BUILTIN_POPULAR_UUID,
+    ) || changed
+    return changed ? out : profiles
+  }
+
+  private static normalizeBuiltin(profile: CustomProfile): CustomProfile {
+    const listType: string = CustomProfilesSettings.builtinListType(profile.uuid)
+    if (listType.length === 0) {
+      return profile
+    }
+    if (profile.builtin && profile.listType === listType && profile.name.length > 0) {
+      return profile
+    }
+    const next: CustomProfile = profile.copy()
+    next.builtin = true
+    next.listType = listType
+    if (next.name.length === 0) {
+      next.name = CustomProfilesSettings.builtinName(profile.uuid)
+    }
+    return next
+  }
+
+  private static addMissingBuiltin(
+    profiles: CustomProfile[],
+    uuid: string,
+    name: string,
+    listType: string,
+    afterUuid: string,
+  ): boolean {
+    if (CustomProfilesSettings.indexOfUuid(profiles, uuid) >= 0) {
+      return false
+    }
+    const profile: CustomProfile = CustomProfilesSettings.builtin(uuid, name, listType)
+    const afterIndex: number =
+      afterUuid.length > 0 ? CustomProfilesSettings.indexOfUuid(profiles, afterUuid) : -1
+    if (afterIndex >= 0) {
+      profiles.splice(afterIndex + 1, 0, profile)
+    } else {
+      profiles.push(profile)
+    }
+    return true
+  }
+
+  private static builtinListType(uuid: string): string {
+    if (uuid === BUILTIN_DEFAULT_UUID) {
+      return PROFILE_TYPE_GALLERY
+    }
+    if (uuid === BUILTIN_POPULAR_UUID) {
+      return PROFILE_TYPE_POPULAR
+    }
+    if (uuid === BUILTIN_WATCHED_UUID) {
+      return PROFILE_TYPE_WATCHED
+    }
+    return ''
+  }
+
+  private static builtinName(uuid: string): string {
+    if (uuid === BUILTIN_DEFAULT_UUID) {
+      return AppStrings.get('home_source_default')
+    }
+    if (uuid === BUILTIN_POPULAR_UUID) {
+      return AppStrings.get('home_source_popular')
+    }
+    if (uuid === BUILTIN_WATCHED_UUID) {
+      return AppStrings.get('home_source_watched')
+    }
+    return ''
   }
 
   private static migrateStarterNames(profiles: CustomProfile[]): CustomProfile[] {

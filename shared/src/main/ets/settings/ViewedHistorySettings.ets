@@ -5,7 +5,7 @@ import { ViewedGallery } from '../model/ViewedGallery'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { ViewedHistoryRepository } from '../storage/ViewedHistoryRepository'
-import { HuaweiCloudSyncScheduler } from '../sync/HuaweiCloudSyncScheduler'
+import { SyncScheduler } from '../sync/SyncScheduler'
 
 // Keep the current NextE retention size while moving the source of truth from Preferences JSON to RDB.
 const MAX_HISTORY: number = 200
@@ -46,7 +46,7 @@ export class ViewedHistorySettings {
     connectViewedHistory().items = []
     await ViewedHistoryRepository.replaceAll(context, [])
     await ViewedHistorySettings.deleteLegacyPreference(context)
-    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'viewed_history_clear')
+    SyncScheduler.requestAfterLocalWrite(context, 'viewed_history_clear')
   }
 
   private static async persist(
@@ -55,7 +55,7 @@ export class ViewedHistorySettings {
   ): Promise<void> {
     try {
       await ViewedHistoryRepository.replaceAll(context, items)
-      HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'viewed_history')
+      SyncScheduler.requestAfterLocalWrite(context, 'viewed_history')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'history_save_failed', (error as Error).message)
     }
@@ -70,7 +70,7 @@ export class ViewedHistorySettings {
     await ViewedHistoryRepository.replaceAll(context, items)
     await ViewedHistorySettings.deleteLegacyPreference(context)
     connectViewedHistory().items = await ViewedHistoryRepository.load(context, MAX_HISTORY)
-    HuaweiCloudSyncScheduler.requestAfterLocalWrite(context, 'viewed_history_restore_backup')
+    SyncScheduler.requestAfterLocalWrite(context, 'viewed_history_restore_backup')
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {

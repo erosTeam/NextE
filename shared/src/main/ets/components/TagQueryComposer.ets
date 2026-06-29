@@ -351,7 +351,8 @@ export struct TagQueryComposer {
               },
             })
           },
-          (s: EhTagSuggestion) => `${s.namespace}:${s.text}:${s.displayName}`,
+          (s: EhTagSuggestion, index: number) =>
+            `suggestion_${index}_${s.namespace}_${s.text}_${s.displayName}`.replace(/[^A-Za-z0-9_]/g, '_'),
         )
       }
     }

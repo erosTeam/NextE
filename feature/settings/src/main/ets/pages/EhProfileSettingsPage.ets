@@ -1,6 +1,7 @@
 import { HdsNavDestination, IconStyleMode } from '@kit.UIDesignKit'
 import {
   ColorMetrics,
+  KeyboardAvoidMode,
   LengthMetrics,
   MultiCapsuleSegmentButtonV2,
   SegmentButtonV2Items,
@@ -82,7 +83,12 @@ export struct EhProfileSettingsPage {
   }
 
   aboutToAppear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
     this.load()
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
   private load(): void {

@@ -1,5 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import {
   EhConstants,
   CookieJarSettings,
@@ -16,7 +17,7 @@ import {
  * for users who already hold an EH session (donor account, another device) and want to paste the
  * cookie header rather than re-typing their password into a Web form. The user pastes a
  * "name=value; …" Cookie string; we validate the two identity cookies (ipb_member_id +
- * ipb_pass_hash) are present, then hand the WHOLE string to CookieJarSettings.applyFromHeader so
+ * ipb_pass_hash) are present, then replace the jar through CookieJarSettings.replaceFromHeader so
  * unknown donor/permission cookies are preserved (never whitelist-dropped), persist via
  * CookieJarSettings.save (which refreshes AuthState), and pop. The pasted text is sensitive: it
  * lives only in this component's in-memory @Local and the cookie jar — never logged, never
@@ -28,6 +29,14 @@ export struct EhCookieImportPage {
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local cookieText: string = '';
   @Local submitting: boolean = false;
+
+  aboutToAppear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
+  }
 
   build() {
     HdsNavDestination() {

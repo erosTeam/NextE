@@ -60,7 +60,8 @@ ok('internal WebView route is typed and registered',
   /new GalleryWebParams\(this\.galleryUrl\(\), this\.navTitle\(\)\)/.test(detail))
 ok('GalleryWebPage reuses EhWebView with app UA',
   /EhWebView\(\{/.test(webPage) &&
-  /this\.controller\.setCustomUserAgent\(EhConstants\.USER_AGENT\)/.test(webPage) &&
+  /this\.controller\.setCustomUserAgent\(/.test(webPage) &&
+  /this\.isForumsUrl\(this\.params\.url\)[\s\S]*this\.forumsUserAgent\(\)[\s\S]*EhConstants\.USER_AGENT/.test(webPage) &&
   /this\.safeLoadUrl\(url\)/.test(webPage))
 ok('GalleryWebPage consumes route params before loading a non-empty URL',
   /\.onReady\(\(context: NavDestinationContext\) => \{[\s\S]*const p = context\.pathInfo\.param as GalleryWebParams[\s\S]*this\.params = p[\s\S]*this\.loadIfReady\(\)/.test(webPage) &&

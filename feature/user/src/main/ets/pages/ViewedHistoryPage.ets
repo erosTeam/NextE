@@ -165,7 +165,8 @@ export struct ViewedHistoryPage {
                 this.rowDivider()
               }
             },
-            (item: ViewedGallery) => `${item.gid}:${item.token}:${item.time}`,
+            (item: ViewedGallery, index: number) =>
+              `viewed_${index}_${item.gid}_${item.token}_${item.time}`.replace(/[^A-Za-z0-9_]/g, '_'),
           )
         }
       }

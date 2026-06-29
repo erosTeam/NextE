@@ -124,6 +124,12 @@ export struct GalleryWebPage {
     return url.startsWith(EhConstants.FORUMS_BASE_URL)
   }
 
+  private shouldSyncWebCookies(url: string): boolean {
+    return url.startsWith(EhConstants.EH_BASE_URL) ||
+      url.startsWith(EhConstants.EX_BASE_URL) ||
+      this.isForumsUrl(url)
+  }
+
   private forumsUserAgent(): string {
     try {
       const native: string = this.controller.getUserAgent()
@@ -189,10 +195,13 @@ export struct GalleryWebPage {
   }
 
   private syncLoadedCookies(): void {
-    if (!this.isForumsUrl(this.loadedUrl)) {
+    if (!this.shouldSyncWebCookies(this.loadedUrl)) {
       return
     }
     CookieJarSettings.mergeFromWebCookieManager(this.ctx())
+    if (!this.isForumsUrl(this.loadedUrl)) {
+      return
+    }
     this.captureForumProfileHtml()
     setTimeout((): void => {
       this.captureForumProfileHtml()

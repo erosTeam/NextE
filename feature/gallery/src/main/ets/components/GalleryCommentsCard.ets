@@ -266,7 +266,16 @@ export struct GalleryCommentsCard {
     if (c.commentId.length > 0) {
       return c.commentId
     }
-    return `${c.author}:${c.postedTime}:${c.contentText}`
+    return `blocked_${this.safeForEachKeyHash(`${c.author}:${c.postedTime}:${c.contentText}`)}`
+  }
+
+  private safeForEachKeyHash(value: string): string {
+    let hash: number = 2166136261
+    for (let i: number = 0; i < value.length; i++) {
+      hash = hash ^ value.charCodeAt(i)
+      hash = Math.imul(hash, 16777619)
+    }
+    return (hash >>> 0).toString(36)
   }
 
   private isBlockedComment(c: EhGalleryComment): boolean {
@@ -954,7 +963,7 @@ export struct GalleryCommentsCard {
   }
 
   private commentTextSegmentKey(seg: CommentTextSegment): string {
-    return `${seg.key}:${seg.text}:${seg.url}:${seg.emphasized}`
+    return `segment_${seg.key}_${this.safeForEachKeyHash(`${seg.text}:${seg.url}:${seg.emphasized}`)}`
   }
 
   private currentHostUrl(url: string): string {

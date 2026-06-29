@@ -13,9 +13,10 @@ export { InternalQaRoutes } from './constants/InternalQaRoutes'
 export { SimpleTag } from './model/SimpleTag'
 export { EhTagSuggestion } from './model/EhTagSuggestion'
 export { TagGroup } from './model/TagGroup'
-export { EhGallery } from './model/EhGallery'
+export { EhGallery, EhGalleryVersion } from './model/EhGallery'
 export {
   DownloadArchiverTask,
+  DownloadArchiverParseSource,
   DownloadGalleryTask,
   DownloadGalleryTaskStatus,
   DownloadImageSeed,
@@ -131,6 +132,12 @@ export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGallery
 export { ImageResolveService } from './services/ImageResolveService'
 export { ArchiveImageService } from './services/ArchiveImageService'
 export {
+  ArchiveBotBalanceResult,
+  ArchiveBotCheckInResult,
+  ArchiveBotResolveResult,
+  ArchiveBotService,
+} from './services/ArchiveBotService'
+export {
   CachedImageFileService,
   CachedImageFileResult,
   CachedImageProgress,
@@ -186,6 +193,8 @@ export { HUAWEI_CLOUD_SYNC_TABLES, cloudSyncTablesForSelection } from './sync/Cl
 export { HuaweiCloudSyncService } from './sync/HuaweiCloudSyncService'
 export { HuaweiCloudSyncScheduler } from './sync/HuaweiCloudSyncScheduler'
 export type { HuaweiCloudSyncExecutor } from './sync/HuaweiCloudSyncScheduler'
+export { WebDavSyncScheduler } from './sync/WebDavSyncScheduler'
+export { SyncScheduler } from './sync/SyncScheduler'
 export {
   SYNC_FILE_NAME,
   SYNC_WEBDAV_MANIFEST_FILE,
@@ -308,6 +317,7 @@ export { ListMode, ListModeState, connectListMode } from './state/ListModeState'
 export { GalleryTitleState, connectGalleryTitle } from './state/GalleryTitleState'
 export { ReadMode, ReadColumnMode, ReadModeState, connectReadMode } from './state/ReadModeState'
 export {
+  ArchiveBotType,
   DownloadOriginalMode,
   DownloadSettingsState,
   connectDownloadSettings,
@@ -485,8 +495,10 @@ export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
 export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'
 export { HomeTabSettings } from './settings/HomeTabSettings'
 export { ToplistFilterSettings } from './settings/ToplistFilterSettings'
+export { WebLoginStyleSettings } from './settings/WebLoginStyleSettings'
 export { TagTranslationSettings } from './settings/TagTranslationSettings'
 export { ToplistFilterState, connectToplistFilter } from './state/ToplistFilterState'
+export { WebLoginStyleState, connectWebLoginStyle } from './state/WebLoginStyleState'
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'

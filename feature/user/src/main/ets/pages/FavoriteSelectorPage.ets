@@ -134,7 +134,8 @@ export struct FavoriteSelectorPage {
               this.rowDivider()
             }
           },
-          (fc: Favcat) => `${fc.favId}:${fc.favTitle}:${fc.totNum}`,
+          (fc: Favcat, index: number) =>
+            `favcat_${index}_${fc.favId}_${fc.favTitle}_${fc.totNum}`.replace(/[^A-Za-z0-9_]/g, '_'),
         )
       }
     }

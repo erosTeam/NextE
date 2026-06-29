@@ -25,6 +25,7 @@ import { CustomProfilesSettings } from './CustomProfilesSettings'
 import { AppColorFavoritesSettings } from './AppColorFavoritesSettings'
 import { HomeTabSettings } from './HomeTabSettings'
 import { ToplistFilterSettings } from './ToplistFilterSettings'
+import { WebLoginStyleSettings } from './WebLoginStyleSettings'
 import { TagTranslationSettings } from './TagTranslationSettings'
 import { CommentTranslationSettings } from './CommentTranslationSettings'
 import { LocalBlockSettings } from './LocalBlockSettings'
@@ -84,6 +85,7 @@ export class SettingsBootstrap {
       await AppColorFavoritesSettings.restore(context)
       await HomeTabSettings.restore(context)
       await ToplistFilterSettings.restore(context)
+      await WebLoginStyleSettings.restore(context)
       await TagTranslationSettings.restore(context)
       await CommentTranslationSettings.restore(context)
       await LocalBlockSettings.restore(context)

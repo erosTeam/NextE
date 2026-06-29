@@ -5,6 +5,7 @@ import { pasteboard } from '@kit.BasicServicesKit'
 import {
   ThemeConstants,
   EhGallery,
+  EhGalleryVersion,
   EhGalleryComment,
   TagGroup,
   EhConstants,
@@ -21,6 +22,7 @@ import {
   Favcat,
   GalleryFavoriteInfo,
   EhApiService,
+  GalleryDetailResult,
   EhErrorText,
   connectNavStack,
   connectSearchAction,
@@ -32,11 +34,15 @@ import {
   connectThumbnailMode,
   ThumbnailModeState,
   DownloadGalleryTask,
+  DownloadGalleryTaskStatus,
+  DownloadImageSeed,
   DownloadQueueSettings,
   DownloadQueueState,
   connectDownloadQueue,
   connectDownloadSettings,
   DownloadOriginalMode,
+  EhGalleryImage,
+  CachedImageFileService,
   LocalFavSettings,
   LocalBlockService,
   LocalFavState,
@@ -54,6 +60,7 @@ import {
   PullRefreshListScaffold,
   PullRefreshController,
   GroupedListSection,
+  ConciseListRow,
   PageErrorState,
   AppStrings,
   AppModalScaffold,
@@ -74,6 +81,7 @@ import {
   ReadButtonStyleState,
   connectReadButtonStyle,
   appSheetOptions,
+  DiagnosticLogger,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { GalleryHeaderCard } from '../components/GalleryHeaderCard'
@@ -82,11 +90,14 @@ import { GalleryTagsCard } from '../components/GalleryTagsCard'
 import { GalleryPreviewGrid } from '../components/GalleryPreviewGrid'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
 import { GalleryTorrentsContent } from './GalleryTorrentsPage'
+import { GalleryArchiverContent } from './GalleryArchiverPage'
 
 const DETAIL_SHEET_REMOTE_FAVORITE: string = 'remoteFavorite'
 const DETAIL_SHEET_RATING: string = 'rating'
 const DETAIL_SHEET_FULL_TITLE: string = 'fullTitle'
 const DETAIL_SHEET_TORRENTS: string = 'torrents'
+const DETAIL_SHEET_ARCHIVER: string = 'archiver'
+const DETAIL_SHEET_DOWNLOAD_UPGRADE: string = 'downloadUpgrade'
 // followOperation touch heuristics: a drag counts as a scroll (→ report the operating side) only once its
 // vertical movement clearly dominates, so a tap on content doesn't yank the floating Read button sideways.
 const FOLLOW_OPERATION_VERTICAL_SCROLL_THRESHOLD: number = 12
@@ -119,11 +130,13 @@ export struct GalleryDetailPage {
   // Local gallery download queue state: mirrors eros_fe GalleryTask uniqueness and updates live while
   // the gallery image executor resolves prepared seeds into sandbox files.
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
+  @Local downloadQueueSignal: number = 0;
   @Local localFav: LocalFavState = connectLocalFav();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local commentVoteMutation: CommentVoteMutationState = connectCommentVoteMutation();
   @Local torrentSheetParams: GalleryTorrentsParams = new GalleryTorrentsParams();
+  @Local archiverSheetParams: GalleryArchiverParams = new GalleryArchiverParams();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local favoriteSlotCache: RemoteFavoriteSlotCacheState = connectRemoteFavoriteSlotCache();
   // Resolved Read-FAB hand edge (smart-grip / follow-operation / fixed). visualActionEdge mirrors it and
@@ -136,10 +149,6 @@ export struct GalleryDetailPage {
   @Local readFabWidth: number = 0;
   @Local readFabLayoutReady: boolean = false;
   @Local readFabShouldAnimate: boolean = false;
-  @Local actionStripViewportWidth: number = 0;
-  @Local actionStripContentWidth: number = 0;
-  @Local actionStripLayoutReady: boolean = false;
-  @Local actionStripShouldAnimate: boolean = false;
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
   private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
   @Local detailSheetShown: boolean = false;
@@ -153,18 +162,16 @@ export struct GalleryDetailPage {
   @Local ratingSelected: number = 0;
   @Local ratingSubmitting: boolean = false;
   @Local ratingError: string = '';
+  @Local downloadUpgradeBusyGid: string = '';
   private stack: NavPathStack = connectNavStack().stack;
   private readFabMaterialController: HdsTabsController = new HdsTabsController();
-  private actionStripScroller: Scroller = new Scroller();
 
   // Smooth-slide the Read FAB when the resolved edge changes. FlexAlign can't tween, so the button carries
   // .animation() on its translate and we only flip the target edge here (mirrors V2Next's edge @Monitor).
   @Monitor('actionEdge.edge')
   private onActionEdgeChanged(): void {
     this.readFabShouldAnimate = this.readFabLayoutReady
-    this.actionStripShouldAnimate = this.actionStripLayoutReady
     this.visualActionEdge = this.actionEdge.edge
-    this.scrollActionStripToEdge()
   }
 
   @Monitor('readButtonStyle.style')
@@ -184,6 +191,11 @@ export struct GalleryDetailPage {
       this.commentVoteMutation.score,
       this.commentVoteMutation.vote,
     )
+  }
+
+  @Monitor('downloadQueue.revision')
+  private onDownloadQueueChanged(): void {
+    this.downloadQueueSignal = this.downloadQueueSignal + 1
   }
 
   // Continuous X for the Read FAB inside the padded full-width rail: left edge = 0 (Start), right edge =
@@ -226,40 +238,9 @@ export struct GalleryDetailPage {
     return this.readFabShouldAnimate ? ThemeConstants.ANIM_DURATION : 0
   }
 
-  private actionStripVisualX(): number {
-    if (this.visualActionEdge === 'left' || this.actionStripContentWidth >= this.actionStripViewportWidth) {
-      return 0
-    }
-    return Math.max(0, this.actionStripViewportWidth - this.actionStripContentWidth)
-  }
-
-  private actionStripRailWidth(): Length {
-    if (this.actionStripViewportWidth <= 0) {
-      return '100%'
-    }
-    return Math.max(this.actionStripViewportWidth, this.actionStripContentWidth)
-  }
-
-  private actionStripAnimationDuration(): number {
-    return this.actionStripShouldAnimate ? ThemeConstants.ANIM_DURATION : 0
-  }
-
   private updateReadFabLayoutReady(): void {
     if (this.detailRootWidth > 0 && this.readFabWidth > 0) {
       this.readFabLayoutReady = true
-    }
-  }
-
-  private updateActionStripLayoutReady(): void {
-    if (this.actionStripViewportWidth > 0 && this.actionStripContentWidth > 0) {
-      this.actionStripLayoutReady = true
-    }
-  }
-
-  private scrollActionStripToEdge(): void {
-    try {
-      this.actionStripScroller.scrollEdge(this.visualActionEdge === 'left' ? Edge.Start : Edge.End)
-    } catch (_error) {
     }
   }
 
@@ -347,10 +328,7 @@ export struct GalleryDetailPage {
   }
 
   private fileCountNum(): number {
-    return Number.parseInt(
-      this.vm.gallery.fileCount.length > 0 ? this.vm.gallery.fileCount : '0',
-      10,
-    )
+    return this.vm.gallery.fileCountNumber()
   }
 
   private openReader(index: number): void {
@@ -422,38 +400,128 @@ export struct GalleryDetailPage {
   }
 
   private openArchiver(): void {
-    if (this.vm.gallery.archiverLink.length === 0) {
-      return
-    }
-    this.stack.pushPathByName(
-      'GalleryArchiver',
-      new GalleryArchiverParams(
-        this.params.gid,
-        this.params.token,
-        this.vm.gallery.archiverLink,
-        connectSiteMode().isEx,
-        this.navTitle(),
-      ),
+    const thumbUrl: string = this.vm.gallery.thumbUrl.length > 0
+      ? this.vm.gallery.thumbUrl
+      : (this.vm.gallery.thumbUrlL.length > 0 ? this.vm.gallery.thumbUrlL : this.params.thumbUrl)
+    DiagnosticLogger.info(
+      'gallery',
+      'detail_archiver_open',
+      `gid=${this.params.gid} hasArchiverLink=${this.vm.gallery.archiverLink.length > 0}`,
     )
+    this.archiverSheetParams = new GalleryArchiverParams(
+      this.params.gid,
+      this.params.token,
+      this.vm.gallery.archiverLink,
+      connectSiteMode().isEx,
+      this.navTitle(),
+      thumbUrl,
+    )
+    this.openDetailSheet(DETAIL_SHEET_ARCHIVER)
   }
 
   private torrentTitle(count: string): string {
     return AppStrings.get('detail_torrents').replace('%s', count)
   }
 
-  private isGalleryQueued(): boolean {
+  private downloadTask(): DownloadGalleryTask | undefined {
+    if (this.downloadQueueSignal < 0) {
+      return undefined
+    }
+    if (this.downloadQueue.revision < 0) {
+      return undefined
+    }
     const gid: string = this.vm.gallery.gid.length > 0 ? this.vm.gallery.gid : this.params.gid
     const token: string =
       this.vm.gallery.token.length > 0 ? this.vm.gallery.token : this.params.token
-    return this.downloadQueue.galleryTasks.some((task: DownloadGalleryTask) => {
+    return this.downloadQueue.galleryTasks.find((task: DownloadGalleryTask) => {
       return task.gid === gid && task.token === token
     })
   }
 
+  private isGalleryQueued(): boolean {
+    return this.downloadTask() !== undefined
+  }
+
+  private isDownloadTaskComplete(task: DownloadGalleryTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.COMPLETE && task.isDownloadComplete()
+  }
+
+  private effectiveDownloadStatus(task: DownloadGalleryTask): string {
+    if (task.isDownloadComplete()) {
+      return DownloadGalleryTaskStatus.COMPLETE
+    }
+    if (task.status === DownloadGalleryTaskStatus.COMPLETE && !task.isDownloadComplete()) {
+      return DownloadGalleryTaskStatus.PARTIAL
+    }
+    return task.status
+  }
+
   private downloadTitle(): Resource {
-    return this.isGalleryQueued()
-      ? $r('app.string.download_status_queued')
-      : $r('app.string.detail_download')
+    const task: DownloadGalleryTask | undefined = this.downloadTask()
+    if (task === undefined) {
+      return $r('app.string.detail_download')
+    }
+    const status: string = this.effectiveDownloadStatus(task)
+    if (status === DownloadGalleryTaskStatus.COMPLETE) {
+      return $r('app.string.download_status_complete')
+    }
+    if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
+      return $r('app.string.download_status_downloading')
+    }
+    if (status === DownloadGalleryTaskStatus.PAUSED) {
+      return $r('app.string.download_status_paused')
+    }
+    if (status === DownloadGalleryTaskStatus.PARTIAL) {
+      return $r('app.string.download_status_partial')
+    }
+    if (status === DownloadGalleryTaskStatus.ERROR) {
+      return $r('app.string.download_status_error')
+    }
+    if (status === DownloadGalleryTaskStatus.READY) {
+      return $r('app.string.download_status_ready')
+    }
+    return $r('app.string.download_status_queued')
+  }
+
+  private openDownloadedTaskFromDetail(task: DownloadGalleryTask): void {
+    const images: EhGalleryImage[] = []
+    for (let i: number = 0; i < task.imageSeeds.length; i++) {
+      const seed: DownloadImageSeed = task.imageSeeds[i]
+      if (seed.filePath.length === 0 || seed.bytesWritten <= 0) {
+        continue
+      }
+      const image: EhGalleryImage = new EhGalleryImage(seed.page)
+      image.imgkey = seed.imgkey
+      image.sUrl = seed.imagePageUrl
+      image.thumbUrl = seed.thumbUrl
+      image.imageUrl = CachedImageFileService.displayUri(seed.filePath)
+      image.originImageUrl = seed.originImageUrl
+      image.showKey = seed.showKey
+      image.reloadKey = seed.reloadKey
+      images.push(image)
+    }
+    if (images.length === 0) {
+      return
+    }
+    const index: number = Math.max(0, Math.min(images.length - 1, this.resumeIndex()))
+    DiagnosticLogger.info(
+      'download',
+      'detail_open_local_reader',
+      `gid=${task.gid} images=${images.length} index=${index} firstUriHash=${DiagnosticLogger.ownerHash(images[0].imageUrl)}`,
+    )
+    this.stack.pushPathByName(
+      'Reader',
+      new ReaderParams(task.gid, task.token, index, images.length, task.displayTitle(), images, 1, images.length),
+    )
+  }
+
+  private onDownloadChipTap(): void {
+    const task: DownloadGalleryTask | undefined = this.downloadTask()
+    if (task !== undefined && this.isDownloadTaskComplete(task)) {
+      this.openDownloadedTaskFromDetail(task)
+      return
+    }
+    this.enqueueGalleryDownloadWithPolicy()
   }
 
   private currentGalleryForLocalFav(): EhGallery {
@@ -552,9 +620,19 @@ export struct GalleryDetailPage {
     this.detailSheetShown = false
   }
 
-  private detailSheetDetents(): [string | number | Resource] {
+  private detailSheetDetents(): [
+    string | number | Resource,
+    (string | number | Resource)?,
+    (string | number | Resource)?,
+  ] {
     if (this.detailSheetKind === DETAIL_SHEET_RATING) {
       return [SheetSize.MEDIUM]
+    }
+    if (this.detailSheetKind === DETAIL_SHEET_ARCHIVER) {
+      return [SheetSize.MEDIUM, SheetSize.LARGE]
+    }
+    if (this.detailSheetKind === DETAIL_SHEET_DOWNLOAD_UPGRADE) {
+      return [SheetSize.MEDIUM, SheetSize.LARGE]
     }
     return [SheetSize.LARGE]
   }
@@ -627,7 +705,13 @@ export struct GalleryDetailPage {
       this.params.token,
     )
     task.preferOriginal = preferOriginal
+    DiagnosticLogger.info(
+      'download',
+      'detail_enqueue_request',
+      `gid=${task.gid} tokenHash=${DiagnosticLogger.ownerHash(task.token)} preferOriginal=${preferOriginal} images=${this.vm.images.length}`,
+    )
     const inserted: boolean = await DownloadQueueSettings.enqueueGallery(this.ctx(), task)
+    this.downloadQueueSignal = this.downloadQueueSignal + 1
     DownloadQueueSettings.prepareGallerySeeds(
       this.ctx(),
       task.gid,
@@ -635,7 +719,13 @@ export struct GalleryDetailPage {
       connectSiteMode().isEx,
       this.vm.images,
       this.vm.previewPageCount,
-    )
+    ).catch((error: Error) => {
+      DiagnosticLogger.warn(
+        'download',
+        'detail_prepare_failed',
+        `gid=${task.gid} tokenHash=${DiagnosticLogger.ownerHash(task.token)} error=${error.message}`,
+      )
+    })
     this.getUIContext()
       .getPromptAction()
       .openToast({
@@ -650,6 +740,13 @@ export struct GalleryDetailPage {
 
   private enqueueGalleryDownloadWithPolicy(): void {
     const originalMode: string = connectDownloadSettings().originalMode
+    const gid: string = this.vm.gallery.gid.length > 0 ? this.vm.gallery.gid : this.params.gid
+    const token: string = this.vm.gallery.token.length > 0 ? this.vm.gallery.token : this.params.token
+    DiagnosticLogger.info(
+      'download',
+      'detail_download_tap',
+      `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} originalMode=${originalMode}`,
+    )
     if (originalMode === DownloadOriginalMode.ALWAYS) {
       this.enqueueGalleryDownload(true)
       return
@@ -674,6 +771,116 @@ export struct GalleryDetailPage {
         },
       },
     })
+  }
+
+  private canShowDownloadUpgrade(): boolean {
+    const task: DownloadGalleryTask | undefined = this.downloadTask()
+    return task !== undefined &&
+      this.isDownloadTaskComplete(task) &&
+      this.vm.gallery.newerVersions.length > 0
+  }
+
+  private openDownloadUpgradeSheet(): void {
+    if (!this.canShowDownloadUpgrade()) {
+      return
+    }
+    this.downloadUpgradeBusyGid = ''
+    this.openDetailSheet(DETAIL_SHEET_DOWNLOAD_UPGRADE)
+  }
+
+  private enqueueDownloadUpgradeWithPolicy(version: EhGalleryVersion): void {
+    const originalMode: string = connectDownloadSettings().originalMode
+    DiagnosticLogger.info(
+      'download',
+      'detail_download_upgrade_tap',
+      `from=${this.params.gid} to=${version.gid} originalMode=${originalMode}`,
+    )
+    if (originalMode === DownloadOriginalMode.ALWAYS) {
+      this.enqueueDownloadUpgrade(version, true)
+      return
+    }
+    if (originalMode !== DownloadOriginalMode.ASK) {
+      this.enqueueDownloadUpgrade(version, false)
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.download_original_images'),
+      message: $r('app.string.download_original_prompt'),
+      primaryButton: {
+        value: $r('app.string.download_use_regular_image'),
+        action: () => {
+          this.enqueueDownloadUpgrade(version, false)
+        },
+      },
+      secondaryButton: {
+        value: $r('app.string.download_use_original_image'),
+        action: () => {
+          this.enqueueDownloadUpgrade(version, true)
+        },
+      },
+    })
+  }
+
+  private async enqueueDownloadUpgrade(version: EhGalleryVersion, preferOriginal: boolean): Promise<void> {
+    if (this.downloadUpgradeBusyGid.length > 0) {
+      return
+    }
+    this.downloadUpgradeBusyGid = version.gid
+    try {
+      DiagnosticLogger.info(
+        'download',
+        'detail_download_upgrade_start',
+        `from=${this.params.gid} to=${version.gid} tokenHash=${DiagnosticLogger.ownerHash(version.token)} preferOriginal=${preferOriginal}`,
+      )
+      const detail: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(
+        version.gid,
+        version.token,
+        connectSiteMode().isEx,
+      )
+      const task: DownloadGalleryTask = DownloadGalleryTask.fromGallery(
+        detail.gallery,
+        version.gid,
+        version.token,
+      )
+      task.upgradeFromGid = this.params.gid
+      task.preferOriginal = preferOriginal
+      const inserted: boolean = await DownloadQueueSettings.enqueueGallery(this.ctx(), task)
+      this.downloadQueueSignal = this.downloadQueueSignal + 1
+      await DownloadQueueSettings.prepareGallerySeeds(
+        this.ctx(),
+        task.gid,
+        task.token,
+        connectSiteMode().isEx,
+        detail.images,
+        detail.previewPageCount,
+      )
+      DiagnosticLogger.info(
+        'download',
+        'detail_download_upgrade_enqueued',
+        `from=${this.params.gid} to=${task.gid} inserted=${inserted}`,
+      )
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({
+          message: inserted
+            ? $r('app.string.download_gallery_added')
+            : $r('app.string.download_gallery_already_queued'),
+        })
+        .catch((_error: Error) => {})
+      this.closeDetailSheet()
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'download',
+        'detail_download_upgrade_failed',
+        `from=${this.params.gid} to=${version.gid} error=${(error as Error).message}`,
+      )
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({ message: EhErrorText.forUser(error) })
+        .catch((_toastError: Error) => {})
+    } finally {
+      this.downloadUpgradeBusyGid = ''
+    }
   }
 
   private openThumbnails(initialImagePage: number = 0): void {
@@ -745,6 +952,14 @@ export struct GalleryDetailPage {
         this.refreshFromTitle()
       },
     }
+    const downloadUpgradeInner: Record<string, Object> = {
+      'label': $r('app.string.download_upgrade_newer'),
+      'icon': $r('sys.symbol.arrow_down_to_line'),
+      'isEnabled': this.canShowDownloadUpgrade(),
+      'action': () => {
+        this.openDownloadUpgradeSheet()
+      },
+    }
     const editTagsInner: Record<string, Object> = {
       'label': $r('app.string.detail_edit_tags'),
       'icon': $r('sys.symbol.bookmark'),
@@ -798,6 +1013,9 @@ export struct GalleryDetailPage {
     ]
     if (this.vm.gallery.parentGid.length > 0 && this.vm.gallery.parentGid !== this.params.gid) {
       items.splice(3, 0, { 'content': parentInner })
+    }
+    if (this.canShowDownloadUpgrade()) {
+      items.splice(4, 0, { 'content': downloadUpgradeInner })
     }
     return { 'value': items, 'maxCount': 3 }
   }
@@ -1144,6 +1362,59 @@ export struct GalleryDetailPage {
     .alignItems(HorizontalAlign.Start)
   }
 
+  private downloadUpgradeTitle(version: EhGalleryVersion): string {
+    if (version.title.length > 0) {
+      return version.title
+    }
+    return AppStrings.get('download_upgrade_untitled')
+  }
+
+  private downloadUpgradeSubtitle(version: EhGalleryVersion): string {
+    if (version.posted.length > 0) {
+      return `${version.posted} · ${version.gid}`
+    }
+    return version.gid
+  }
+
+  private downloadUpgradeTrailing(version: EhGalleryVersion): string {
+    if (this.downloadUpgradeBusyGid === version.gid) {
+      return AppStrings.get('common_loading')
+    }
+    return ''
+  }
+
+  @Builder
+  private DownloadUpgradeSheet() {
+    AppModalScaffold({
+      title: $r('app.string.download_upgrade_choose'),
+      showConfirmAction: false,
+      closeAction: () => {
+        this.closeDetailSheet()
+      },
+    }) {
+      ListItem() {
+        GroupedListSection({ inset: 0 }) {
+          ForEach(
+            this.vm.gallery.newerVersions,
+            (version: EhGalleryVersion) => {
+              ConciseListRow({
+                title: this.downloadUpgradeTitle(version),
+                subtitle: this.downloadUpgradeSubtitle(version),
+                trailingText: this.downloadUpgradeTrailing(version),
+                showChevron: this.downloadUpgradeBusyGid.length === 0,
+                isEnabled: this.downloadUpgradeBusyGid.length === 0,
+                action: () => {
+                  this.enqueueDownloadUpgradeWithPolicy(version)
+                },
+              })
+            },
+            (version: EhGalleryVersion) => `${version.gid}:${version.token}`,
+          )
+        }
+      }
+    }
+  }
+
   @Builder
   private RatingSheet() {
     AppModalScaffold({
@@ -1353,9 +1624,19 @@ export struct GalleryDetailPage {
       this.RatingSheet()
     } else if (this.detailSheetKind === DETAIL_SHEET_FULL_TITLE) {
       this.FullTitleSheet()
+    } else if (this.detailSheetKind === DETAIL_SHEET_DOWNLOAD_UPGRADE) {
+      this.DownloadUpgradeSheet()
     } else if (this.detailSheetKind === DETAIL_SHEET_TORRENTS) {
       GalleryTorrentsContent({
         params: this.torrentSheetParams,
+        modal: true,
+        closeAction: () => {
+          this.closeDetailSheet()
+        },
+      })
+    } else if (this.detailSheetKind === DETAIL_SHEET_ARCHIVER) {
+      GalleryArchiverContent({
+        params: this.archiverSheetParams,
         modal: true,
         closeAction: () => {
           this.closeDetailSheet()
@@ -1644,46 +1925,34 @@ export struct GalleryDetailPage {
   @Builder
   relationsRow() {
     GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
-      Scroll(this.actionStripScroller) {
-        Row() {
-          Row({ space: ThemeConstants.SPACE_XS }) {
-            this.DetailActionChip($r('sys.symbol.magnifyingglass'), $r('app.string.detail_similar'), true, () => {
-              this.openSimilar()
-            })
-            if (
-              Number.parseInt(
-                this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0',
-                10,
-              ) > 0
-            ) {
-              this.DetailActionChip($r('sys.symbol.doc_plaintext'), this.torrentTitle(this.vm.gallery.torrentCount),
-                true, () => {
-                  this.openTorrents()
-                })
-            }
-            if (this.vm.gallery.archiverLink.length > 0) {
-              this.DetailActionChip($r('sys.symbol.externaldrive'), $r('app.string.download_archiver'), true, () => {
-                this.openArchiver()
-              })
-            }
-            this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {
-              this.openRatingSheet()
-            })
-            this.DetailActionChip($r('sys.symbol.arrow_down_to_line'), this.downloadTitle(), !this.isGalleryQueued(),
-              () => {
-                this.enqueueGalleryDownloadWithPolicy()
+      Scroll() {
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          this.DetailActionChip($r('sys.symbol.magnifyingglass'), $r('app.string.detail_similar'), true, () => {
+            this.openSimilar()
+          })
+          if (
+            Number.parseInt(
+              this.vm.gallery.torrentCount.length > 0 ? this.vm.gallery.torrentCount : '0',
+              10,
+            ) > 0
+          ) {
+            this.DetailActionChip($r('sys.symbol.doc_plaintext'), this.torrentTitle(this.vm.gallery.torrentCount),
+              true, () => {
+                this.openTorrents()
               })
           }
-          .alignItems(VerticalAlign.Center)
-          .translate({ x: this.actionStripVisualX() })
-          .animation({ duration: this.actionStripAnimationDuration(), curve: Curve.EaseOut })
-          .onAreaChange((_oldArea: Area, area: Area) => {
-            this.actionStripContentWidth = area.width as number
-            this.updateActionStripLayoutReady()
+          this.DetailActionChip($r('sys.symbol.externaldrive'), $r('app.string.download_archiver'), true, () => {
+            this.openArchiver()
           })
+          this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {
+            this.openRatingSheet()
+          })
+          this.DetailActionChip($r('sys.symbol.arrow_down_to_line'), this.downloadTitle(), !this.isGalleryQueued(),
+            () => {
+              this.onDownloadChipTap()
+            })
         }
-        .width(this.actionStripRailWidth())
-        .justifyContent(FlexAlign.Start)
+        .alignItems(VerticalAlign.Center)
       }
       .scrollable(ScrollDirection.Horizontal)
       .nestedScroll({
@@ -1692,13 +1961,6 @@ export struct GalleryDetailPage {
       })
       .scrollBar(BarState.Off)
       .width('100%')
-      .onAreaChange((_oldArea: Area, area: Area) => {
-        this.actionStripViewportWidth = area.width as number
-        this.updateActionStripLayoutReady()
-      })
-      .onAppear(() => {
-        this.scrollActionStripToEdge()
-      })
     }
   }
 }

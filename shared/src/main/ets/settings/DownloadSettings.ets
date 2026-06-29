@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
 import {
+  ArchiveBotType,
   connectDownloadSettings,
   DownloadOriginalMode,
   DownloadSettingsState,
@@ -17,6 +18,8 @@ const MAX_RETRY_COUNT: number = 5
 const MIN_SPEED_LIMIT_KBPS: number = 0
 const MAX_SPEED_LIMIT_KBPS: number = 8192
 const SPEED_LIMIT_STEP_KBPS: number = 256
+const DEFAULT_EH_AR_BOT_ADDRESS: string = 'https://eh-arc-api.mhdy.icu'
+const DEFAULT_ARCHIVE_AT_HOME_ADDRESS: string = 'https://api.archive-at-home.org/jhentai'
 
 function clampConcurrency(value: number): number {
   return Math.min(MAX_CONCURRENCY, Math.max(MIN_CONCURRENCY, Math.round(value)))
@@ -46,6 +49,17 @@ function normalizeOriginalMode(value: string): string {
   return DownloadOriginalMode.ASK
 }
 
+function normalizeArchiveBotType(value: string): string {
+  if (value === ArchiveBotType.EH_AR_BOT || value === ArchiveBotType.ARCHIVE_AT_HOME) {
+    return value
+  }
+  return ArchiveBotType.EH_AR_BOT
+}
+
+function defaultArchiveBotAddress(type: string): string {
+  return type === ArchiveBotType.ARCHIVE_AT_HOME ? DEFAULT_ARCHIVE_AT_HOME_ADDRESS : DEFAULT_EH_AR_BOT_ADDRESS
+}
+
 /** Single writer for persisted download preferences. */
 export class DownloadSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
@@ -58,17 +72,33 @@ export class DownloadSettings {
       const requestIntervalSeconds: number =
         store.getSync(StorageKeys.DOWNLOAD_REQUEST_INTERVAL_SECONDS, 0) as number
       const retryCount: number = store.getSync(StorageKeys.DOWNLOAD_RETRY_COUNT, 2) as number
+      const autoRetryFailed: boolean = store.getSync(StorageKeys.DOWNLOAD_AUTO_RETRY_FAILED, true) as boolean
       const speedLimitKbps: number = store.getSync(StorageKeys.DOWNLOAD_SPEED_LIMIT_KBPS, 0) as number
       const originalMode: string = store.getSync(
         StorageKeys.DOWNLOAD_ORIGINAL,
         DownloadOriginalMode.ASK,
       ) as string
+      const archiveBotType: string = normalizeArchiveBotType(
+        store.getSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_TYPE, ArchiveBotType.EH_AR_BOT) as string,
+      )
+      const archiveBotAddress: string = (store.getSync(
+        StorageKeys.DOWNLOAD_ARCHIVE_BOT_ADDRESS,
+        defaultArchiveBotAddress(archiveBotType),
+      ) as string).trim()
+      const archiveBotApiKey: string = (store.getSync(
+        StorageKeys.DOWNLOAD_ARCHIVE_BOT_API_KEY,
+        '',
+      ) as string).trim()
       const state: DownloadSettingsState = connectDownloadSettings()
       state.concurrency = clampConcurrency(concurrency)
       state.requestIntervalSeconds = clampRequestIntervalSeconds(requestIntervalSeconds)
       state.retryCount = clampRetryCount(retryCount)
+      state.autoRetryFailed = autoRetryFailed
       state.speedLimitKbps = clampSpeedLimitKbps(speedLimitKbps)
       state.originalMode = normalizeOriginalMode(originalMode)
+      state.archiveBotType = archiveBotType
+      state.archiveBotAddress = archiveBotAddress.length > 0 ? archiveBotAddress : defaultArchiveBotAddress(archiveBotType)
+      state.archiveBotApiKey = archiveBotApiKey
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_restore_failed', (error as Error).message)
     }
@@ -110,6 +140,75 @@ export class DownloadSettings {
     }
   }
 
+  static async setArchiveBotType(
+    context: common.UIAbilityContext,
+    botType: string,
+  ): Promise<void> {
+    const value: string = normalizeArchiveBotType(botType)
+    const state: DownloadSettingsState = connectDownloadSettings()
+    state.archiveBotType = value
+    if (state.archiveBotAddress.length === 0 ||
+      state.archiveBotAddress === DEFAULT_EH_AR_BOT_ADDRESS ||
+      state.archiveBotAddress === DEFAULT_ARCHIVE_AT_HOME_ADDRESS) {
+      state.archiveBotAddress = defaultArchiveBotAddress(value)
+    }
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_TYPE, value)
+      store.putSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_ADDRESS, state.archiveBotAddress)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_archive_bot_type_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setArchiveBotAddress(
+    context: common.UIAbilityContext,
+    address: string,
+  ): Promise<void> {
+    const value: string = address.trim()
+    connectDownloadSettings().archiveBotAddress = value
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_ADDRESS, value)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_archive_bot_address_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setArchiveBotApiKey(
+    context: common.UIAbilityContext,
+    apiKey: string,
+  ): Promise<void> {
+    const value: string = apiKey.trim()
+    connectDownloadSettings().archiveBotApiKey = value
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_API_KEY, value)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_archive_bot_key_save_failed', (error as Error).message)
+    }
+  }
+
+  static archiveBotReady(state: DownloadSettingsState = connectDownloadSettings()): boolean {
+    return state.archiveBotAddress.trim().length > 0 && state.archiveBotApiKey.trim().length > 0
+  }
+
+  static archiveBotDefaultAddress(botType: string): string {
+    return defaultArchiveBotAddress(normalizeArchiveBotType(botType))
+  }
+
   static async setRequestIntervalSeconds(
     context: common.UIAbilityContext,
     seconds: number,
@@ -143,6 +242,23 @@ export class DownloadSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_retry_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setAutoRetryFailed(
+    context: common.UIAbilityContext,
+    enabled: boolean,
+  ): Promise<void> {
+    connectDownloadSettings().autoRetryFailed = enabled
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_AUTO_RETRY_FAILED, enabled)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_auto_retry_failed_save_failed', (error as Error).message)
     }
   }
 

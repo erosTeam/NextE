@@ -42,13 +42,18 @@ export class StorageKeys {
   static readonly DOWNLOAD_CONCURRENCY: string = 'download.concurrency'
   static readonly DOWNLOAD_REQUEST_INTERVAL_SECONDS: string = 'download.requestIntervalSeconds'
   static readonly DOWNLOAD_RETRY_COUNT: string = 'download.retryCount'
+  static readonly DOWNLOAD_AUTO_RETRY_FAILED: string = 'download.autoRetryFailed'
   static readonly DOWNLOAD_SPEED_LIMIT_KBPS: string = 'download.speedLimitKbps'
   static readonly DOWNLOAD_ORIGINAL: string = 'download.original'
+  static readonly DOWNLOAD_ARCHIVE_BOT_TYPE: string = 'download.archiveBot.type'
+  static readonly DOWNLOAD_ARCHIVE_BOT_ADDRESS: string = 'download.archiveBot.address'
+  static readonly DOWNLOAD_ARCHIVE_BOT_API_KEY: string = 'download.archiveBot.apiKey'
   static readonly DOWNLOAD_GALLERY_QUEUE: string = 'download.galleryQueue' // legacy Preferences key; RDB source of truth
   static readonly SECURITY_AUTO_LOCK_SEC: string = 'security.autoLockSeconds'
   static readonly HOME_SOURCE: string = 'subtab.homeSource'
   static readonly FAVORITES_FAVCAT: string = 'subtab.favoritesFavcat'
   static readonly TOPLIST_TL: string = 'subtab.toplistTl'
+  static readonly WEB_LOGIN_BEAUTIFY_ENABLED: string = 'login.webBeautifyEnabled'
   // Custom home sub-tab profiles (JSON array) + the selected profile uuid.
   static readonly HOME_CUSTOM_PROFILES: string = 'subtab.customProfiles' // legacy Preferences key; RDB source of truth
   static readonly HOME_CUSTOM_PROFILES_SELECTED: string = 'subtab.customProfilesSelected' // legacy Preferences key; RDB source of truth

@@ -12,10 +12,11 @@ import { webview } from '@kit.ArkWeb'
 @ComponentV2
 export struct EhWebView {
   @Param controller: webview.WebviewController = new webview.WebviewController();
-  @Event onControllerAttached?: () => void;
+  @Event onControllerAttached?: (controller: webview.WebviewController) => void;
   @Event onPageBegin?: (event?: OnPageBeginEvent) => void;
   @Event onPageEnd?: (event?: OnPageEndEvent) => void;
   @Event onLoadFinished?: (event?: OnLoadFinishedEvent) => void;
+  @Event onProgressChange?: (event?: OnProgressChangeEvent) => void;
   @Event onErrorReceive?: (event: OnErrorReceiveEvent) => void;
   @Event onTitleReceive?: (event?: OnTitleReceiveEvent) => void;
 
@@ -35,7 +36,7 @@ export struct EhWebView {
       .height('100%')
       .onControllerAttached(() => {
         if (this.onControllerAttached) {
-          this.onControllerAttached()
+          this.onControllerAttached(this.controller)
         }
       })
       .onPageBegin((event: OnPageBeginEvent) => {
@@ -51,6 +52,11 @@ export struct EhWebView {
       .onLoadFinished((event: OnLoadFinishedEvent) => {
         if (this.onLoadFinished) {
           this.onLoadFinished(event)
+        }
+      })
+      .onProgressChange((event: OnProgressChangeEvent) => {
+        if (this.onProgressChange) {
+          this.onProgressChange(event)
         }
       })
       .onErrorReceive((event: OnErrorReceiveEvent) => {

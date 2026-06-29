@@ -253,7 +253,8 @@ export struct GalleryEditTagsPage {
                         this.openTagActions(tg.namespace, tag)
                       })
                   },
-                  (tag: SimpleTag) => `${tg.namespace}:${tag.text}`,
+                  (tag: SimpleTag, index: number) =>
+                    `tag_${index}_${tg.namespace}_${tag.text}`.replace(/[^A-Za-z0-9_]/g, '_'),
                 )
               }.layoutWeight(1)
             }

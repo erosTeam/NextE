@@ -77,6 +77,11 @@ export struct GalleryWaterfallCard {
     return this.tagTranslation.enabled ? t.display() : t.text
   }
 
+  private safeForEachKeyPart(value: string): string {
+    const out: string = value.replace(/[^A-Za-z0-9_]/g, '_')
+    return out.length > 0 ? out : '_'
+  }
+
   private chipBg(t: SimpleTag): ResourceColor {
     const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
     if (u !== undefined && u.colorCode.length > 0) {
@@ -137,7 +142,7 @@ export struct GalleryWaterfallCard {
         (index: number) => {
           this.TagChip(this.gallery.simpleTags[index])
         },
-        (index: number) => `${this.tagSig.version}:row:${remainder}:${index}`,
+        (index: number) => `tag_${this.tagSig.version}_row_${remainder}_${this.safeForEachKeyPart(`${index}`)}`,
       )
     }
     .alignItems(VerticalAlign.Center)

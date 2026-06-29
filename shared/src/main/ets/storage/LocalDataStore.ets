@@ -12,7 +12,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'13\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'14\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -324,6 +324,7 @@ const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_TABLE: string =
     'page_count INTEGER NOT NULL, ' +
     'category TEXT NOT NULL, ' +
     'uploader TEXT NOT NULL, ' +
+    'upgrade_from_gid TEXT NOT NULL DEFAULT \'\', ' +
     'queued_at INTEGER NOT NULL, ' +
     'prepared_at INTEGER NOT NULL, ' +
     'first_page_count INTEGER NOT NULL, ' +
@@ -335,6 +336,8 @@ const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_TABLE: string =
   ')'
 const SQL_ADD_DOWNLOAD_GALLERY_TASKS_PREFER_ORIGINAL: string =
   'ALTER TABLE download_gallery_tasks ADD COLUMN prefer_original INTEGER NOT NULL DEFAULT 0'
+const SQL_ADD_DOWNLOAD_GALLERY_TASKS_UPGRADE_FROM_GID: string =
+  'ALTER TABLE download_gallery_tasks ADD COLUMN upgrade_from_gid TEXT NOT NULL DEFAULT \'\''
 const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_QUEUED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_download_gallery_tasks_queued ON download_gallery_tasks (queued_at DESC)'
 const SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_TABLE: string =
@@ -365,9 +368,12 @@ const SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_TABLE: string =
     'scope_key TEXT NOT NULL, ' +
     'tag TEXT NOT NULL, ' +
     'gid TEXT NOT NULL, ' +
+    'token TEXT NOT NULL DEFAULT \'\', ' +
     'title TEXT NOT NULL, ' +
+    'thumb_url TEXT NOT NULL DEFAULT \'\', ' +
     'dltype TEXT NOT NULL, ' +
     'resolution TEXT NOT NULL, ' +
+    'parse_source TEXT NOT NULL DEFAULT \'official\', ' +
     'url TEXT NOT NULL, ' +
     'file_name TEXT NOT NULL, ' +
     'file_path TEXT NOT NULL, ' +
@@ -380,6 +386,12 @@ const SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_TABLE: string =
     'status TEXT NOT NULL, ' +
     'PRIMARY KEY(scope_key, tag)' +
   ')'
+const SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_TOKEN: string =
+  'ALTER TABLE download_archiver_tasks ADD COLUMN token TEXT NOT NULL DEFAULT \'\''
+const SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_THUMB_URL: string =
+  'ALTER TABLE download_archiver_tasks ADD COLUMN thumb_url TEXT NOT NULL DEFAULT \'\''
+const SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_PARSE_SOURCE: string =
+  'ALTER TABLE download_archiver_tasks ADD COLUMN parse_source TEXT NOT NULL DEFAULT \'official\''
 const SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_QUEUED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_download_archiver_tasks_queued ON download_archiver_tasks (queued_at DESC)'
 
@@ -426,10 +438,14 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILE_SELECTION_TABLE)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_TABLE)
     await LocalDataStore.migrateDownloadGalleryPreferOriginal(store)
+    await LocalDataStore.migrateDownloadGalleryUpgradeFromGid(store)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_QUEUED_INDEX)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_TABLE)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_POSITION_INDEX)
     await store.executeSql(SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_TABLE)
+    await LocalDataStore.migrateDownloadArchiverToken(store)
+    await LocalDataStore.migrateDownloadArchiverThumbUrl(store)
+    await LocalDataStore.migrateDownloadArchiverParseSource(store)
     await store.executeSql(SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_QUEUED_INDEX)
     await store.executeSql(SQL_UPSERT_SCHEMA_VERSION)
     if (store.version !== LOCAL_DATA_SCHEMA_VERSION) {
@@ -511,6 +527,54 @@ export class LocalDataStore {
     if (!hasThresholdOverride) {
       await store.executeSql(SQL_ADD_IMAGE_BLOCK_RULE_OVERRIDES_THRESHOLD)
     }
+  }
+
+  private static async migrateDownloadGalleryUpgradeFromGid(store: relationalStore.RdbStore): Promise<void> {
+    const hasUpgradeFromGid: boolean = await LocalDataStore.hasColumn(
+      store,
+      'download_gallery_tasks',
+      'upgrade_from_gid',
+    )
+    if (hasUpgradeFromGid) {
+      return
+    }
+    await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_UPGRADE_FROM_GID)
+  }
+
+  private static async migrateDownloadArchiverToken(store: relationalStore.RdbStore): Promise<void> {
+    const hasToken: boolean = await LocalDataStore.hasColumn(
+      store,
+      'download_archiver_tasks',
+      'token',
+    )
+    if (hasToken) {
+      return
+    }
+    await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_TOKEN)
+  }
+
+  private static async migrateDownloadArchiverThumbUrl(store: relationalStore.RdbStore): Promise<void> {
+    const hasThumbUrl: boolean = await LocalDataStore.hasColumn(
+      store,
+      'download_archiver_tasks',
+      'thumb_url',
+    )
+    if (hasThumbUrl) {
+      return
+    }
+    await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_THUMB_URL)
+  }
+
+  private static async migrateDownloadArchiverParseSource(store: relationalStore.RdbStore): Promise<void> {
+    const hasParseSource: boolean = await LocalDataStore.hasColumn(
+      store,
+      'download_archiver_tasks',
+      'parse_source',
+    )
+    if (hasParseSource) {
+      return
+    }
+    await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_PARSE_SOURCE)
   }
 
   private static async hasColumn(

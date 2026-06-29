@@ -1,6 +1,22 @@
 import { SimpleTag } from './SimpleTag'
 import { TagGroup } from './TagGroup'
 
+export class EhGalleryVersion {
+  gid: string = ''
+  token: string = ''
+  title: string = ''
+  posted: string = ''
+
+  copy(): EhGalleryVersion {
+    const v: EhGalleryVersion = new EhGalleryVersion()
+    v.gid = this.gid
+    v.token = this.token
+    v.title = this.title
+    v.posted = this.posted
+    return v
+  }
+}
+
 /**
  * Aggregate root for an EH gallery. It accumulates from up to three sources:
  *   1. the list-page parse (thumb, title, category, rating, uploader, favcat)
@@ -60,12 +76,15 @@ export class EhGallery {
 
   // detail-page extras (read): torrent count + parent/newer-version links
   torrentCount: string = ''
-  archiverLink: string = '' // EH `or` token used by archiver.php; not a download action by itself
+  // EH archiver entry. Modern EH detail pages expose the full archiver.php?gid&token URL; older
+  // pages may still only carry an `or` token. The network layer accepts either form.
+  archiverLink: string = ''
   visible: string = ''
   parentTitle: string = ''
   parentUrl: string = ''
   parentGid: string = ''
   parentToken: string = ''
+  newerVersions: EhGalleryVersion[] = []
 
   // api credentials scraped from detail HTML (needed for /api.php mutating calls)
   apiuid: string = ''
@@ -84,6 +103,18 @@ export class EhGallery {
   /** Title to render: English primary, Japanese fallback (caller may invert per setting). */
   title(): string {
     return this.englishTitle.length > 0 ? this.englishTitle : this.japaneseTitle
+  }
+
+  fileCountNumber(): number {
+    return EhGallery.parseFileCount(this.fileCount)
+  }
+
+  static parseFileCount(value: string): number {
+    const normalized: string = value.replace(/[,，\s]/g, '')
+    if (normalized.length === 0 || !/^[0-9]+$/.test(normalized)) {
+      return 0
+    }
+    return Number.parseInt(normalized, 10)
   }
 
   displayTitle(japanesePrimary: boolean): string {
@@ -119,7 +150,21 @@ export class EhGallery {
         key = `${key}:${tag.text}:${tag.translat}`
       }
     }
-    return key
+    return `gallery_${EhGallery.safeKeyPart(this.gid)}_${EhGallery.keyHash(key)}`
+  }
+
+  private static safeKeyPart(value: string): string {
+    const safe: string = value.replace(/[^A-Za-z0-9_]/g, '_')
+    return safe.length > 0 ? safe : 'empty'
+  }
+
+  private static keyHash(value: string): string {
+    let hash: number = 2166136261
+    for (let i = 0; i < value.length; i++) {
+      hash = hash ^ value.charCodeAt(i)
+      hash = Math.imul(hash, 16777619)
+    }
+    return (hash >>> 0).toString(36)
   }
 
   /**
@@ -177,6 +222,7 @@ export class EhGallery {
     g.parentUrl = this.parentUrl
     g.parentGid = this.parentGid
     g.parentToken = this.parentToken
+    g.newerVersions = this.newerVersions.map((v: EhGalleryVersion) => v.copy())
     g.apiuid = this.apiuid
     g.apikey = this.apikey
     g.showKey = this.showKey
@@ -224,6 +270,7 @@ export class EhGallery {
     if (o.parentUrl.length > 0) g.parentUrl = o.parentUrl
     if (o.parentGid.length > 0) g.parentGid = o.parentGid
     if (o.parentToken.length > 0) g.parentToken = o.parentToken
+    if (o.newerVersions.length > 0) g.newerVersions = o.newerVersions.map((v: EhGalleryVersion) => v.copy())
     if (o.apiuid.length > 0) g.apiuid = o.apiuid
     if (o.apikey.length > 0) g.apikey = o.apikey
     if (o.showKey.length > 0) g.showKey = o.showKey

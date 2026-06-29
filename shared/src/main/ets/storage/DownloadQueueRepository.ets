@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 import {
   DownloadArchiverTask,
+  DownloadArchiverParseSource,
   DownloadGalleryTask,
   DownloadGalleryTaskStatus,
   DownloadImageSeed,
@@ -10,7 +11,7 @@ import { LocalDataStore } from './LocalDataStore'
 
 const SCOPE_GLOBAL: string = 'global'
 const SQL_SELECT_TASKS: string =
-  'SELECT gid, token, title, title_jp, thumb_url, page_count, category, uploader, queued_at, ' +
+  'SELECT gid, token, title, title_jp, thumb_url, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
   'prepared_at, first_page_count, preview_page_count, prepare_error, prefer_original, status FROM download_gallery_tasks ' +
   'WHERE scope_key = ? ORDER BY queued_at DESC, gid DESC'
 const SQL_SELECT_SEEDS: string =
@@ -19,9 +20,9 @@ const SQL_SELECT_SEEDS: string =
   'WHERE scope_key = ? AND gid = ? AND token = ? ORDER BY position_index ASC, page ASC'
 const SQL_UPSERT_TASK: string =
   'INSERT OR REPLACE INTO download_gallery_tasks ' +
-  '(scope_key, gid, token, title, title_jp, thumb_url, page_count, category, uploader, queued_at, ' +
+  '(scope_key, gid, token, title, title_jp, thumb_url, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
   'prepared_at, first_page_count, preview_page_count, prepare_error, prefer_original, status) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 const SQL_UPSERT_SEED: string =
   'INSERT OR REPLACE INTO download_gallery_seeds ' +
   '(scope_key, gid, token, image_page_url, position_index, page, imgkey, thumb_url, image_url, ' +
@@ -30,14 +31,14 @@ const SQL_UPSERT_SEED: string =
 const SQL_DELETE_TASKS: string = 'DELETE FROM download_gallery_tasks WHERE scope_key = ?'
 const SQL_DELETE_SEEDS: string = 'DELETE FROM download_gallery_seeds WHERE scope_key = ?'
 const SQL_SELECT_ARCHIVER_TASKS: string =
-  'SELECT tag, gid, title, dltype, resolution, url, file_name, file_path, queued_at, downloaded_at, ' +
+  'SELECT tag, gid, token, title, thumb_url, dltype, resolution, parse_source, url, file_name, file_path, queued_at, downloaded_at, ' +
   'bytes_written, bytes_total, progress, error, status FROM download_archiver_tasks ' +
   'WHERE scope_key = ? ORDER BY queued_at DESC, tag DESC'
 const SQL_UPSERT_ARCHIVER_TASK: string =
   'INSERT OR REPLACE INTO download_archiver_tasks ' +
-  '(scope_key, tag, gid, title, dltype, resolution, url, file_name, file_path, queued_at, downloaded_at, ' +
+  '(scope_key, tag, gid, token, title, thumb_url, dltype, resolution, parse_source, url, file_name, file_path, queued_at, downloaded_at, ' +
   'bytes_written, bytes_total, progress, error, status) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 const SQL_DELETE_ARCHIVER_TASKS: string = 'DELETE FROM download_archiver_tasks WHERE scope_key = ?'
 
 export class DownloadQueueRepository {
@@ -50,6 +51,7 @@ export class DownloadQueueRepository {
         const task: DownloadGalleryTask = DownloadQueueRepository.readTask(resultSet)
         if (task.gid.length > 0) {
           task.imageSeeds = await DownloadQueueRepository.loadSeeds(store, task.gid, task.token)
+          task.syncProgressCounts()
           out.push(task)
         }
       }
@@ -61,10 +63,17 @@ export class DownloadQueueRepository {
 
   static async replaceAll(context: common.UIAbilityContext, tasks: DownloadGalleryTask[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_DELETE_SEEDS, [SCOPE_GLOBAL])
-    await store.executeSql(SQL_DELETE_TASKS, [SCOPE_GLOBAL])
-    for (let i: number = 0; i < tasks.length; i++) {
-      await DownloadQueueRepository.upsertTask(store, tasks[i])
+    store.beginTransaction()
+    try {
+      await store.executeSql(SQL_DELETE_SEEDS, [SCOPE_GLOBAL])
+      await store.executeSql(SQL_DELETE_TASKS, [SCOPE_GLOBAL])
+      for (let i: number = 0; i < tasks.length; i++) {
+        await DownloadQueueRepository.upsertTask(store, tasks[i])
+      }
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
     }
   }
 
@@ -87,9 +96,16 @@ export class DownloadQueueRepository {
 
   static async replaceAllArchiver(context: common.UIAbilityContext, tasks: DownloadArchiverTask[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_DELETE_ARCHIVER_TASKS, [SCOPE_GLOBAL])
-    for (let i: number = 0; i < tasks.length; i++) {
-      await DownloadQueueRepository.upsertArchiverTask(store, tasks[i])
+    store.beginTransaction()
+    try {
+      await store.executeSql(SQL_DELETE_ARCHIVER_TASKS, [SCOPE_GLOBAL])
+      for (let i: number = 0; i < tasks.length; i++) {
+        await DownloadQueueRepository.upsertArchiverTask(store, tasks[i])
+      }
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
     }
   }
 
@@ -110,13 +126,14 @@ export class DownloadQueueRepository {
       task.pageCount,
       task.category,
       task.uploader,
+      task.upgradeFromGid,
       task.queuedAt,
       task.preparedAt,
       task.firstPageCount,
       task.previewPageCount,
       task.prepareError,
       task.preferOriginal ? 1 : 0,
-      DownloadQueueRepository.normalizeStatus(task.status),
+      DownloadQueueRepository.normalizedGalleryStatusForWrite(task),
     ])
     for (let i: number = 0; i < task.imageSeeds.length; i++) {
       const seed: DownloadImageSeed = task.imageSeeds[i]
@@ -187,6 +204,7 @@ export class DownloadQueueRepository {
     task.pageCount = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'page_count'))
     task.category = DownloadQueueRepository.stringColumn(resultSet, 'category')
     task.uploader = DownloadQueueRepository.stringColumn(resultSet, 'uploader')
+    task.upgradeFromGid = DownloadQueueRepository.stringColumn(resultSet, 'upgrade_from_gid')
     task.queuedAt = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'queued_at'))
     task.preparedAt = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'prepared_at'))
     task.firstPageCount = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'first_page_count'))
@@ -225,9 +243,12 @@ export class DownloadQueueRepository {
       SCOPE_GLOBAL,
       task.tag,
       task.gid,
+      task.token,
       task.title,
+      task.thumbUrl,
       task.dltype,
       task.resolution,
+      DownloadQueueRepository.normalizeParseSource(task.parseSource),
       task.url,
       task.fileName,
       task.filePath,
@@ -245,9 +266,14 @@ export class DownloadQueueRepository {
     const task: DownloadArchiverTask = new DownloadArchiverTask()
     task.tag = DownloadQueueRepository.stringColumn(resultSet, 'tag')
     task.gid = DownloadQueueRepository.stringColumn(resultSet, 'gid')
+    task.token = DownloadQueueRepository.stringColumn(resultSet, 'token')
     task.title = DownloadQueueRepository.stringColumn(resultSet, 'title')
+    task.thumbUrl = DownloadQueueRepository.stringColumn(resultSet, 'thumb_url')
     task.dltype = DownloadQueueRepository.stringColumn(resultSet, 'dltype')
     task.resolution = DownloadQueueRepository.stringColumn(resultSet, 'resolution')
+    task.parseSource = DownloadQueueRepository.normalizeParseSource(
+      DownloadQueueRepository.stringColumn(resultSet, 'parse_source'),
+    )
     task.url = DownloadQueueRepository.stringColumn(resultSet, 'url')
     task.fileName = DownloadQueueRepository.stringColumn(resultSet, 'file_name')
     task.filePath = DownloadQueueRepository.stringColumn(resultSet, 'file_path')
@@ -274,6 +300,23 @@ export class DownloadQueueRepository {
       return status
     }
     return DownloadGalleryTaskStatus.QUEUED
+  }
+
+  private static normalizedGalleryStatusForWrite(task: DownloadGalleryTask): string {
+    const status: string = DownloadQueueRepository.normalizeStatus(task.status)
+    if (status === DownloadGalleryTaskStatus.COMPLETE && !task.isDownloadComplete()) {
+      return task.downloadedCount() > 0
+        ? DownloadGalleryTaskStatus.PARTIAL
+        : DownloadGalleryTaskStatus.READY
+    }
+    return status
+  }
+
+  private static normalizeParseSource(value: string): string {
+    if (value === DownloadArchiverParseSource.BOT) {
+      return DownloadArchiverParseSource.BOT
+    }
+    return DownloadArchiverParseSource.OFFICIAL
   }
 
   private static stringColumn(resultSet: relationalStore.ResultSet, name: string): string {

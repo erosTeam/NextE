@@ -1,5 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
+import { KeyboardAvoidMode } from '@kit.ArkUI'
 import {
   CookieJarSettings,
   connectNavStack,
@@ -22,6 +23,14 @@ export struct EhPasswordLoginPage {
   @Local username: string = '';
   @Local password: string = '';
   @Local submitting: boolean = false;
+
+  aboutToAppear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
+  }
+
+  aboutToDisappear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
+  }
 
   build() {
     HdsNavDestination() {
