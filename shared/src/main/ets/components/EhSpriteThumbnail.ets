@@ -29,6 +29,7 @@ interface SpriteLoadEvent {
 }
 
 const IMAGE_BLOCK_COMPUTE_DELAY_MS: number = 120
+const SPRITE_THUMB_ERROR_ICON_SIZE: number = 22
 
 @ComponentV2
 export struct EhSpriteThumbnail {
@@ -57,6 +58,8 @@ export struct EhSpriteThumbnail {
   // last cell (the parsed spriteWidth/spriteHeight can under-measure the true canvas).
   @Local sheetRealW: number = 0;
   @Local sheetRealH: number = 0;
+  @Local loaded: boolean = false;
+  @Local failed: boolean = false;
   @Local imageBlocked: boolean = false;
   @Local imageBlockRuntime: ImageBlockRuntimeState = connectImageBlockRuntime();
   private blockSeq: number = 0;
@@ -68,6 +71,8 @@ export struct EhSpriteThumbnail {
     this.clearComputeTimer()
     this.sheetRealW = 0
     this.sheetRealH = 0
+    this.loaded = false
+    this.failed = false
     this.imageBlocked = false
     this.checkImageBlock()
   }
@@ -106,10 +111,16 @@ export struct EhSpriteThumbnail {
   }
 
   private boxWidth(): number {
+    if (this.fitHeight && (this.thumbWidth <= 0 || this.thumbHeight <= 0)) {
+      return this.displayHeight * this.wholeImageAspect()
+    }
     return this.fitHeight ? this.thumbWidth * this.factor() : this.displayWidth
   }
 
   private boxHeight(): number {
+    if (!this.fitHeight && (this.thumbWidth <= 0 || this.thumbHeight <= 0)) {
+      return this.displayWidth / this.wholeImageAspect()
+    }
     return this.fitHeight ? this.displayHeight : this.thumbHeight * this.factor()
   }
 
@@ -175,6 +186,8 @@ export struct EhSpriteThumbnail {
   }
 
   private onThumbComplete(event?: SpriteLoadEvent): void {
+    this.loaded = true
+    this.failed = false
     if (
       event !== undefined &&
       event.width !== undefined &&
@@ -186,6 +199,11 @@ export struct EhSpriteThumbnail {
       this.sheetRealH = event.height
     }
     this.scheduleImageBlockCompute()
+  }
+
+  private onThumbError(): void {
+    this.loaded = true
+    this.failed = true
   }
 
   private scheduleImageBlockCompute(): void {
@@ -203,6 +221,27 @@ export struct EhSpriteThumbnail {
     if (this.computeTimerId > 0) {
       clearTimeout(this.computeTimerId)
       this.computeTimerId = 0
+    }
+  }
+
+  @Builder
+  private statusOverlay() {
+    if (!this.loaded || this.failed) {
+      Stack({ alignContent: Alignment.Center }) {
+        if (this.failed) {
+          SymbolGlyph($r('sys.symbol.picture'))
+            .fontSize(SPRITE_THUMB_ERROR_ICON_SIZE)
+            .fontColor([$r('sys.color.font_tertiary')])
+        } else {
+          LoadingProgress()
+            .width(ThemeConstants.LOADING_SIZE_SMALL)
+            .height(ThemeConstants.LOADING_SIZE_SMALL)
+            .color($r('sys.color.font_tertiary'))
+        }
+      }
+      .width(this.boxWidth())
+      .height(this.boxHeight())
+      .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
     }
   }
 
@@ -275,6 +314,10 @@ export struct EhSpriteThumbnail {
           .onComplete((event?: SpriteLoadEvent) => {
             this.onThumbComplete(event)
           })
+          .onError(() => {
+            this.onThumbError()
+          })
+        this.statusOverlay()
       }
       .width(this.boxWidth())
       .height(this.boxHeight())
@@ -283,28 +326,48 @@ export struct EhSpriteThumbnail {
     } else if (this.fitHeight) {
       // No sprite metadata (legacy/large-thumb layout): whole image, height-driven. clip(true) so the
       // Cover-fit image is actually rounded to `radius` — borderRadius alone does not clip an Image.
-      Image(EhConstants.cdnThumb(this.url))
-        .height(this.displayHeight)
-        .aspectRatio(this.wholeImageAspect())
-        .objectFit(ImageFit.Cover)
-        .borderRadius(this.radius)
-        .clip(true)
-        .draggable(false)
-        .onComplete((event?: SpriteLoadEvent) => {
-          this.onThumbComplete(event)
-        })
+      Stack({ alignContent: Alignment.Center }) {
+        Image(EhConstants.cdnThumb(this.url))
+          .height(this.displayHeight)
+          .aspectRatio(this.wholeImageAspect())
+          .objectFit(ImageFit.Cover)
+          .borderRadius(this.radius)
+          .clip(true)
+          .draggable(false)
+          .onComplete((event?: SpriteLoadEvent) => {
+            this.onThumbComplete(event)
+          })
+          .onError(() => {
+            this.onThumbError()
+          })
+        this.statusOverlay()
+      }
+      .width(this.boxWidth())
+      .height(this.boxHeight())
+      .borderRadius(this.radius)
+      .clip(true)
     } else {
       // No sprite metadata: whole image, width-driven (same clip(true) so the radius actually rounds).
-      Image(EhConstants.cdnThumb(this.url))
-        .width(this.displayWidth)
-        .aspectRatio(this.wholeImageAspect())
-        .objectFit(ImageFit.Cover)
-        .borderRadius(this.radius)
-        .clip(true)
-        .draggable(false)
-        .onComplete((event?: SpriteLoadEvent) => {
-          this.onThumbComplete(event)
-        })
+      Stack({ alignContent: Alignment.Center }) {
+        Image(EhConstants.cdnThumb(this.url))
+          .width(this.displayWidth)
+          .aspectRatio(this.wholeImageAspect())
+          .objectFit(ImageFit.Cover)
+          .borderRadius(this.radius)
+          .clip(true)
+          .draggable(false)
+          .onComplete((event?: SpriteLoadEvent) => {
+            this.onThumbComplete(event)
+          })
+          .onError(() => {
+            this.onThumbError()
+          })
+        this.statusOverlay()
+      }
+      .width(this.boxWidth())
+      .height(this.boxHeight())
+      .borderRadius(this.radius)
+      .clip(true)
     }
   }
 }

@@ -12,6 +12,16 @@ Primary action: when image blocking is enabled, open the secondary Reader menu a
 Reuse or deviation: reuse the existing image-block runtime write path and platform menu/dialog components; remove the one-tap bottom-toolbar block button so the side-effect action is not mixed with frequent reader controls.
 Verification: UI grounding contract, V1 decorator inventory, i18n resources, diff check, signed HarmonyOS build, and Reader chrome smoke.
 
+## Active: sprite thumbnail loading indicator
+
+Status: active
+Reference implementation: `shared/src/main/ets/components/EhThumbnail.ets` cover placeholder spinner and `shared/src/main/ets/components/EhSpriteThumbnail.ets` preview sprite crop renderer used by detail preview/all-thumbnails.
+Surface type: Gallery detail preview thumbnails and all-thumbnails grid/horizontal thumbnails only.
+Primary information: while EH sprite thumbnails are still decoding, each thumbnail slot should visibly show loading instead of becoming a blank white hole with only the page number.
+Primary action: wait for preview thumbnails to load, then tap a thumbnail to open Reader; long-press image-block actions remain unchanged.
+Reuse or deviation: reuse the existing shared sprite thumbnail renderer and existing `LoadingProgress`/cover placeholder treatment; do not change preview grid layout, detail page spacing, or thumbnail sizing.
+Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and detail preview/all-thumbnails loading smoke.
+
 ## Active: detail action strip edge alignment
 
 Status: active
