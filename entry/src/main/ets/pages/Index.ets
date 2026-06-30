@@ -915,7 +915,7 @@ struct Index {
     const items: Record<string, Object>[] = []
     const resumeInner: Record<string, Object> = {
       'label': $r('app.string.download_resume_all'),
-      'icon': $r('sys.symbol.arrow_clockwise'),
+      'icon': $r('sys.symbol.play_fill'),
       'isEnabled': true,
       'action': () => {
         this.resumeVisibleDownloads()

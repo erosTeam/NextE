@@ -519,5 +519,5 @@ Reference implementation: NextE `feature/download/src/main/ets/pages/DownloadQue
 Surface type: Downloads tab gallery queue task card.
 Primary information: the gallery title is the primary row text and must get the full content-column width after the cover.
 Primary action: tapping completed content still opens local Reader; pause/resume and overflow actions stay secondary controls inside the content area.
-Reuse or deviation: reuse the existing cover, progress/status builders, and circle action buttons; deviate from the old three-column card by treating actions as part of the right content column instead of a third outer column that shrinks the title.
+Reuse or deviation: reuse the existing cover, progress/status builders, and circle action buttons; deviate from the old three-column card by treating actions as part of the right content column instead of a third outer column that shrinks the title, while keeping the proven `FlexAlign.End` action grouping instead of a `Blank().layoutWeight(1)` spacer; keep the action column width stable but use a smaller button frame with the same icon size.
 Verification: download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and device screenshot of long titles with original/resampled tasks.

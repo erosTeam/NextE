@@ -35,6 +35,9 @@ const appSource = [
 ].join('\n')
 ok('download flow never uses ArkUI DownloadFileButton',
   !/\bDownloadFileButton\b/.test(appSource))
+ok('Download mode root is runtime-only and not a persisted settings key',
+  !/\bDOWNLOAD_DIR\b/.test(appSource) &&
+    !/download\.dir/.test(appSource))
 
 const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
 ok('LocalDataStore creates gallery download task and seed tables',
@@ -160,12 +163,15 @@ ok('download directories keep per-task metadata sidecars for queue recovery',
     /new picker\.DocumentViewPicker\(context\)/.test(settings) &&
     /new fileUri\.FileUri\(DownloadQueueSettings\.joinPath\(uri\.trim\(\), marker\)\)\.path/.test(settings) &&
     /\.nexte-download-root/.test(settings) &&
-    /DOWNLOAD_APP_DIR: string = 'NextE'/.test(settings) &&
-    /return DownloadQueueSettings\.joinPath\(downloadRoot, DOWNLOAD_APP_DIR\)/.test(settings) &&
-    /restoreDownloadRoot\(context\)/.test(settings) &&
-    /store\.getSync\(StorageKeys\.DOWNLOAD_DIR/.test(settings) &&
-    /store\.putSync\(StorageKeys\.DOWNLOAD_DIR, root\)/.test(settings) &&
-    /download_root_restored/.test(settings) &&
+    !/DOWNLOAD_APP_DIR: string = 'NextE'/.test(settings) &&
+    !/return DownloadQueueSettings\.joinPath\(downloadRoot, DOWNLOAD_APP_DIR\)/.test(settings) &&
+    /out\.endsWith\('\/NextE\/NextE'\)/.test(settings) &&
+    /out = out\.substring\(0, out\.length - '\/NextE'\.length\)/.test(settings) &&
+    !/restoreDownloadRoot\(context\)/.test(settings) &&
+    !/persistDownloadRoot\(context/.test(settings) &&
+    !/StorageKeys\.DOWNLOAD_DIR/.test(settings) &&
+    !/download_root_restored/.test(settings) &&
+    !/download_root_persist_failed/.test(settings) &&
     /download_mode_root_resolved/.test(settings) &&
     /download_mode_root_failed/.test(settings) &&
     /static async ensureDownloadStorageReady\(context: common\.UIAbilityContext\): Promise<boolean>/.test(settings) &&
@@ -297,6 +303,9 @@ ok('batch gallery actions reuse per-task resume and pause executors',
     /canResumeGalleryTask\(tasks\[i\]\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)/.test(settings) &&
     /static async pauseAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
     /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseGalleryDownload\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)/.test(settings))
+ok('batch gallery resume starts every eligible task without serially waiting on long downloads',
+  /static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\)[\s\S]*!DownloadQueueSettings\.galleryDownloads\.has\(key\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)[\s\S]*\.catch/.test(settings) &&
+    /static async downloadGalleryImages[\s\S]*startGalleryImageDownload\(context, gid, token, preferOriginal\)[\s\S]*galleryDownloads\.set\(key, task\)/.test(settings))
 ok('remove deletes archiver package, metadata sidecar, and extracted reader cache',
   /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiver\(context, next\)[\s\S]*deleteArchiverContent\(context, removed\)/.test(settings) &&
     /deleteArchiverContent\([\s\S]*archiverMetadataPath\(context, task\)[\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
@@ -316,6 +325,9 @@ ok('batch archiver actions reuse per-task resume and pause executors',
     /canResumeArchiverTask\(tasks\[i\]\)[\s\S]*downloadArchiver\(context, tasks\[i\]\.tag\)/.test(settings) &&
     /static async pauseAllArchiverDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
     /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseArchiverDownload\(context, tasks\[i\]\.tag\)/.test(settings))
+ok('batch archiver resume starts every eligible task without serially waiting on long downloads',
+  /static async resumeAllArchiverDownloads\(context: common\.UIAbilityContext\)[\s\S]*!DownloadQueueSettings\.archiverDownloads\.has\(tasks\[i\]\.tag\)[\s\S]*downloadArchiver\(context, tasks\[i\]\.tag\)[\s\S]*\.catch/.test(settings) &&
+    /static async downloadArchiver[\s\S]*startArchiverDownload\(context, tag\)[\s\S]*archiverDownloads\.set\(tag, task\)/.test(settings))
 ok('archiver tasks can switch a failed official original archive to bot parsing without keeping stale package state',
   /static async switchArchiverToBot\([\s\S]*updateArchiverTask\(context, tag, \(task: DownloadArchiverTask\) =>/.test(settings) &&
     /task\.parseSource = DownloadArchiverParseSource\.BOT/.test(settings) &&

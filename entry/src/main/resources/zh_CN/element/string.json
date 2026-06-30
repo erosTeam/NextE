@@ -122,7 +122,7 @@
     },
     {
       "name": "download_file_progress",
-      "value": "已下载 %s"
+      "value": "%s"
     },
     {
       "name": "download_gallery_empty",

@@ -32,6 +32,10 @@ const queueSettings = read('shared/src/main/ets/settings/DownloadQueueSettings.e
 const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
 const galleryRenderKeyBody = page.match(/private galleryRenderKey\(task: DownloadGalleryTask\): string \{([\s\S]*?)\n  \}/)?.[1] ?? ''
 const archiverRenderKeyBody = page.match(/private archiverRenderKey\(task: DownloadArchiverTask\): string \{([\s\S]*?)\n  \}/)?.[1] ?? ''
+const galleryTaskCardBody =
+  page.match(/private DownloadGalleryTaskCard\(task: DownloadGalleryTask\) \{([\s\S]*?)\n  \}\n\n  @Builder\n  private GalleryOriginalBadge/)?.[1] ?? ''
+const archiverTaskCardBody =
+  page.match(/private DownloadArchiverTaskCard\(task: DownloadArchiverTask\) \{([\s\S]*?)\n  \}\n\n  @Builder\n  private GalleryTaskCover/)?.[1] ?? ''
 const galleryStreamProgressBody =
   queueSettings.match(/private static updateGalleryStreamProgress\([\s\S]*?\n  private static updateArchiverProgress/)?.[0] ?? ''
 const archiverStreamProgressBody =
@@ -54,6 +58,7 @@ ok(/DownloadTypeBarCCBuilder/.test(index) && /tab === 3[\s\S]*bottomBuilder/.tes
   /DOWNLOAD_SELECTOR_BAR_HEIGHT/.test(index), 'Index pins the download selector in title-bar bottomBuilder')
 ok(/private downloadMenu\(\): Record<string, Object>/.test(index) &&
   /download_resume_all/.test(index) &&
+  /'label': \$r\('app\.string\.download_resume_all'\)[\s\S]*'icon': \$r\('sys\.symbol\.play_fill'\)/.test(index) &&
   /download_pause_all/.test(index) &&
   /content\['menu'\] = this\.downloadMenu\(\)/.test(index),
   'Downloads tab title bar exposes current-queue batch actions instead of an empty menu')
@@ -174,10 +179,17 @@ ok(/private taskProgressLabel\([\s\S]*const effectiveStatus: string = this\.effe
 ok(/if \(status === DownloadGalleryTaskStatus\.ERROR\) \{[\s\S]*downloadProgress\.length > 0[\s\S]*download_file_progress/.test(page) &&
   !/private taskProgressLabel[\s\S]*task\.downloadProgressText\(\)/.test(page),
   'gallery download failures keep visible downloaded progress instead of hiding mismatched counts behind a generic error')
-ok(/private GalleryTaskActionColumn\(task: DownloadGalleryTask\)/.test(page) &&
-  /private GalleryTaskInlineActionColumn\(task: DownloadGalleryTask\)[\s\S]*Blank\(\)[\s\S]*\.layoutWeight\(1\)[\s\S]*this\.GalleryTaskMoreButton\(task\)[\s\S]*\.height\('100%'\)/.test(page) &&
+ok(!/private GalleryTaskActionColumn\(task: DownloadGalleryTask\)/.test(page) &&
+  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.GalleryTaskStatusText\(task\)[\s\S]*\.layoutWeight\(1\)[\s\S]*\.height\('100%'\)[\s\S]*this\.GalleryTaskInlineActionColumn\(task\)[\s\S]*\.height\(0\)[\s\S]*\.layoutWeight\(1\)/.test(page) &&
+  /private GalleryTaskInlineActionColumn\(task: DownloadGalleryTask\)[\s\S]*this\.GalleryPrimaryAction\(task\)[\s\S]*this\.GalleryTaskMoreButton\(task\)[\s\S]*\.height\('100%'\)[\s\S]*\.justifyContent\(FlexAlign\.End\)/.test(page) &&
+  !/private GalleryTaskInlineActionColumn\(task: DownloadGalleryTask\)[\s\S]*Blank\(\)[\s\S]*\.layoutWeight\(1\)/.test(page) &&
+  galleryTaskCardBody.includes('this.GalleryTaskInlineActionColumn(task)') &&
+  !galleryTaskCardBody.includes('this.GalleryTaskActionColumn(task)') &&
   /private GalleryPrimaryAction\(task: DownloadGalleryTask\)/.test(page) &&
   /private GalleryTaskMoreButton\(task: DownloadGalleryTask\)/.test(page) &&
+  /DOWNLOAD_TASK_ACTION_BUTTON_SIZE: number/.test(read('shared/src/main/ets/theme/ThemeConstants.ets')) &&
+  /private GalleryTaskMoreButton\(task: DownloadGalleryTask\)[\s\S]*fontSize\(ThemeConstants\.FONT_SIZE_TITLE\)[\s\S]*\.width\(ThemeConstants\.DOWNLOAD_TASK_ACTION_BUTTON_SIZE\)[\s\S]*\.height\(ThemeConstants\.DOWNLOAD_TASK_ACTION_BUTTON_SIZE\)/.test(page) &&
+  /private TaskIconButton\(icon: Resource[\s\S]*fontSize\(ThemeConstants\.FONT_SIZE_TITLE\)[\s\S]*\.width\(ThemeConstants\.DOWNLOAD_TASK_ACTION_BUTTON_SIZE\)[\s\S]*\.height\(ThemeConstants\.DOWNLOAD_TASK_ACTION_BUTTON_SIZE\)/.test(page) &&
   /sys\.symbol\.dot_grid_2x2/.test(page) &&
   !/sys\.symbol\.line_3_horizontal/.test(page) &&
   /private TaskActionMenu\(\)/.test(page) &&
@@ -187,8 +199,14 @@ ok(/private GalleryTaskActionColumn\(task: DownloadGalleryTask\)/.test(page) &&
   !/private TaskActions\(task: DownloadGalleryTask\)/.test(page) &&
   !/DOWNLOAD_TASK_CARD_HEIGHT/.test(page),
   'task cards expose one state action plus a native more menu, with destructive deletion behind explicit confirmation')
+ok(!/private ArchiverTaskActionColumn\(task: DownloadArchiverTask\)/.test(page) &&
+  /private DownloadArchiverTaskCard\(task: DownloadArchiverTask\)[\s\S]*this\.ArchiverTaskStatusText\(task\)[\s\S]*\.layoutWeight\(1\)[\s\S]*\.height\('100%'\)[\s\S]*this\.ArchiverTaskInlineActionColumn\(task\)[\s\S]*\.height\(0\)[\s\S]*\.layoutWeight\(1\)/.test(page) &&
+  /private ArchiverTaskInlineActionColumn\(task: DownloadArchiverTask\)[\s\S]*this\.ArchiverPrimaryAction\(task\)[\s\S]*this\.ArchiverTaskMoreButton\(task\)[\s\S]*\.height\('100%'\)[\s\S]*\.justifyContent\(FlexAlign\.End\)/.test(page) &&
+  archiverTaskCardBody.includes('this.ArchiverTaskInlineActionColumn(task)') &&
+  !archiverTaskCardBody.includes('this.ArchiverTaskActionColumn(task)'),
+  'archiver task cards share gallery card title/full-width content structure and inline action column')
 ok(/private ResumeTaskButton\(task: DownloadGalleryTask\)/.test(page) &&
-  /private galleryResumeActionIcon\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.play/.test(page) &&
+  /private galleryResumeActionIcon\(task: DownloadGalleryTask\): Resource[\s\S]*sys\.symbol\.play_fill/.test(page) &&
   /private galleryResumeActionLabel\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(page) &&
   /this\.TaskIconButton\(this\.galleryResumeActionIcon\(task\), this\.galleryResumeActionLabel\(task\)/.test(page) &&
   /DownloadQueueSettings\.downloadGalleryImages\(this\.ctx\(\), task\.gid, task\.token, task\.preferOriginal\)/.test(page) &&
@@ -226,7 +244,7 @@ ok(/private PauseArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page) &&
   /private canPauseArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*task\.status === DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
   'running archiver tasks expose a low-weight pause action wired to the shared queue')
 ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page) &&
-  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.play/.test(page) &&
+  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*sys\.symbol\.play_fill/.test(page) &&
   /private archiverResumeActionLabel\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(page),
   'paused archiver tasks can resume')
 ok(/private archiverProgressLabel\(task: DownloadArchiverTask\): string[\s\S]*task\.status === DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.error\.length > 0[\s\S]*`\$\{this\.statusText\(task\.status\)\} · \$\{task\.error\}`/.test(page),
@@ -235,8 +253,13 @@ ok(/ARCHIVER_ACCEPT: string = 'application\/zip,application\/octet-stream,\*\/\*
   /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
   'archiver executor requests archive bytes with a zip/octet-stream Accept header and configured retries')
 ok(/archiverDownloads: Map<string, Promise<void>>/.test(queueSettings) &&
-  /static async downloadArchiver[\s\S]*archiverDownloads\.get\(tag\)[\s\S]*await running[\s\S]*runArchiverDownload\(context, tag\)[\s\S]*archiverDownloads\.delete\(tag\)/.test(queueSettings),
+  /static async downloadArchiver[\s\S]*archiverDownloads\.get\(tag\)[\s\S]*await running[\s\S]*const task: Promise<void> = DownloadQueueSettings\.startArchiverDownload\(context, tag\)[\s\S]*archiverDownloads\.set\(tag, task\)[\s\S]*archiverDownloads\.delete\(tag\)/.test(queueSettings) &&
+  /private static async startArchiverDownload[\s\S]*ensureDownloadStorageReady\(context\)[\s\S]*runArchiverDownload\(context, tag\)/.test(queueSettings),
   'archiver executor joins an in-flight archive download instead of starting duplicate workers')
+ok(/static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\): Promise<void>[\s\S]*!DownloadQueueSettings\.galleryDownloads\.has\(key\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)[\s\S]*\.catch/.test(queueSettings) &&
+  /static async downloadGalleryImages[\s\S]*const task: Promise<void> = DownloadQueueSettings\.startGalleryImageDownload\(context, gid, token, preferOriginal\)[\s\S]*galleryDownloads\.set\(key, task\)[\s\S]*private static async startGalleryImageDownload/.test(queueSettings) &&
+  /static async resumeAllArchiverDownloads\(context: common\.UIAbilityContext\): Promise<void>[\s\S]*!DownloadQueueSettings\.archiverDownloads\.has\(tasks\[i\]\.tag\)[\s\S]*downloadArchiver\(context, tasks\[i\]\.tag\)[\s\S]*\.catch/.test(queueSettings),
+  'resume-all starts each resumable task once without serially waiting for long downloads')
 ok(/archiver_download_start/.test(queueSettings) &&
   /archiver_download_done/.test(queueSettings) &&
   /archiver_download_failed/.test(queueSettings),

@@ -122,7 +122,7 @@
     },
     {
       "name": "download_file_progress",
-      "value": "Downloaded %s"
+      "value": "%s"
     },
     {
       "name": "download_gallery_empty",

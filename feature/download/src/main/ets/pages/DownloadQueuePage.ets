@@ -60,39 +60,6 @@ export struct DownloadQueuePage {
   @Monitor('downloadQueueSignal.version')
   private onDownloadQueueChanged(): void {
     this.downloadQueueTick = this.downloadQueueTick + 1
-    const debugTask: DownloadGalleryTask | undefined = this.queueDebugTask()
-    const debugArchiverTask: DownloadArchiverTask | undefined = this.queueDebugArchiverTask()
-    let message: string = debugTask === undefined
-      ? `revision=${this.downloadQueue.revision} signal=${this.downloadQueueTick} gallery=0`
-      : `revision=${this.downloadQueue.revision} signal=${this.downloadQueueTick} gid=${debugTask.gid} status=${debugTask.status} downloaded=${debugTask.downloadedCount()} seeded=${debugTask.seededCount()}`
-    message = debugArchiverTask === undefined
-      ? `${message} archiver=${this.downloadQueue.archiverTasks.length}`
-      : `${message} archiverTagHash=${DiagnosticLogger.ownerHash(debugArchiverTask.tag)} archiverStatus=${debugArchiverTask.status} archiverBytes=${debugArchiverTask.bytesWritten}/${debugArchiverTask.bytesTotal} archiverProgress=${debugArchiverTask.progress}`
-    DiagnosticLogger.info(
-      'download',
-      'queue_page_revision',
-      message,
-    )
-  }
-
-  private queueDebugTask(): DownloadGalleryTask | undefined {
-    for (let i: number = 0; i < this.downloadQueue.galleryTasks.length; i++) {
-      const task: DownloadGalleryTask = this.downloadQueue.galleryTasks[i]
-      if (task.status !== DownloadGalleryTaskStatus.COMPLETE) {
-        return task
-      }
-    }
-    return this.downloadQueue.galleryTasks.length > 0 ? this.downloadQueue.galleryTasks[0] : undefined
-  }
-
-  private queueDebugArchiverTask(): DownloadArchiverTask | undefined {
-    for (let i: number = 0; i < this.downloadQueue.archiverTasks.length; i++) {
-      const task: DownloadArchiverTask = this.downloadQueue.archiverTasks[i]
-      if (task.status !== DownloadGalleryTaskStatus.COMPLETE) {
-        return task
-      }
-    }
-    return undefined
   }
 
   private selectedEmptyText(): Resource {
@@ -490,10 +457,7 @@ export struct DownloadQueuePage {
   }
 
   private galleryResumeActionIcon(task: DownloadGalleryTask): Resource {
-    const status: string = this.effectiveGalleryStatus(task.status, task.downloadedCount(), task.pageCount)
-    return status === DownloadGalleryTaskStatus.ERROR
-      ? $r('sys.symbol.arrow_clockwise')
-      : $r('sys.symbol.play')
+    return $r('sys.symbol.play_fill')
   }
 
   private galleryResumeActionLabel(task: DownloadGalleryTask): Resource {
@@ -533,9 +497,7 @@ export struct DownloadQueuePage {
   }
 
   private archiverResumeActionIcon(task: DownloadArchiverTask): Resource {
-    return task.status === DownloadGalleryTaskStatus.ERROR
-      ? $r('sys.symbol.arrow_clockwise')
-      : $r('sys.symbol.play')
+    return $r('sys.symbol.play_fill')
   }
 
   private archiverResumeActionLabel(task: DownloadArchiverTask): Resource {
@@ -808,10 +770,12 @@ export struct DownloadQueuePage {
             this.GalleryTaskStatusText(task)
           }
           .layoutWeight(1)
+          .height('100%')
           this.GalleryTaskInlineActionColumn(task)
         }
         .alignItems(VerticalAlign.Top)
         .width('100%')
+        .height(0)
         .layoutWeight(1)
       }
       .layoutWeight(1)
@@ -858,18 +822,29 @@ export struct DownloadQueuePage {
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
-        if (task.resolution.length > 0 || task.dltype.length > 0) {
-          Text(task.resolution.length > 0 ? task.resolution : task.dltype)
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            if (task.resolution.length > 0 || task.dltype.length > 0) {
+              Text(task.resolution.length > 0 ? task.resolution : task.dltype)
+                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                .fontColor($r('sys.color.font_secondary'))
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width('100%')
+            }
+            if (this.shouldShowArchiverProgress(task)) {
+              this.ArchiverProgressBar(task)
+            }
+            this.ArchiverTaskStatusText(task)
+          }
+          .layoutWeight(1)
+          .height('100%')
+          this.ArchiverTaskInlineActionColumn(task)
         }
-        if (this.shouldShowArchiverProgress(task)) {
-          this.ArchiverProgressBar(task)
-        }
-        this.ArchiverTaskStatusText(task)
+        .alignItems(VerticalAlign.Top)
+        .width('100%')
+        .height(0)
+        .layoutWeight(1)
       }
       .layoutWeight(1)
       .height(ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT)
@@ -877,7 +852,6 @@ export struct DownloadQueuePage {
       .onClick(() => {
         this.openArchiverTaskIfComplete(task)
       })
-      this.ArchiverTaskActionColumn(task)
     }
     .width('100%')
     .padding({ left: ThemeConstants.DOWNLOAD_TASK_CARD_PADDING, right: ThemeConstants.DOWNLOAD_TASK_CARD_PADDING,
@@ -1008,38 +982,25 @@ export struct DownloadQueuePage {
   }
 
   @Builder
-  private GalleryTaskActionColumn(task: DownloadGalleryTask) {
+  private GalleryTaskInlineActionColumn(task: DownloadGalleryTask) {
     Column({ space: ThemeConstants.SPACE_XS }) {
       this.GalleryPrimaryAction(task)
       this.GalleryTaskMoreButton(task)
     }
     .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
-    .height(ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT)
+    .height('100%')
     .justifyContent(FlexAlign.End)
     .alignItems(HorizontalAlign.Center)
   }
 
   @Builder
-  private GalleryTaskInlineActionColumn(task: DownloadGalleryTask) {
-    Column({ space: ThemeConstants.SPACE_XS }) {
-      this.GalleryPrimaryAction(task)
-      Blank()
-        .layoutWeight(1)
-      this.GalleryTaskMoreButton(task)
-    }
-    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
-    .height('100%')
-    .alignItems(HorizontalAlign.Center)
-  }
-
-  @Builder
-  private ArchiverTaskActionColumn(task: DownloadArchiverTask) {
+  private ArchiverTaskInlineActionColumn(task: DownloadArchiverTask) {
     Column({ space: ThemeConstants.SPACE_XS }) {
       this.ArchiverPrimaryAction(task)
       this.ArchiverTaskMoreButton(task)
     }
     .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
-    .height(ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT)
+    .height('100%')
     .justifyContent(FlexAlign.End)
     .alignItems(HorizontalAlign.Center)
   }
@@ -1074,8 +1035,8 @@ export struct DownloadQueuePage {
         .fontColor([$r('sys.color.font_secondary')])
     }
       .buttonStyle(ButtonStyleMode.NORMAL)
-      .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
-      .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+      .width(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
+      .height(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
       .backgroundColor(Color.Transparent)
       .accessibilityText($r('app.string.common_more_actions'))
       .onClick(() => {
@@ -1099,8 +1060,8 @@ export struct DownloadQueuePage {
         .fontColor([$r('sys.color.font_secondary')])
     }
       .buttonStyle(ButtonStyleMode.NORMAL)
-      .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
-      .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+      .width(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
+      .height(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
       .backgroundColor(Color.Transparent)
       .accessibilityText($r('app.string.common_more_actions'))
       .onClick(() => {
@@ -1154,8 +1115,8 @@ export struct DownloadQueuePage {
         .fontColor([tint])
     }
     .buttonStyle(ButtonStyleMode.NORMAL)
-    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
-    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
+    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
     .backgroundColor(Color.Transparent)
     .enabled(enabled)
     .accessibilityText(label)
@@ -1210,8 +1171,8 @@ export struct DownloadQueuePage {
         .color(ThemeConstants.BRAND_PRIMARY)
     }
     .buttonStyle(ButtonStyleMode.NORMAL)
-    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
-    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
+    .height(ThemeConstants.DOWNLOAD_TASK_ACTION_BUTTON_SIZE)
     .backgroundColor(Color.Transparent)
     .enabled(false)
     .accessibilityText(label)

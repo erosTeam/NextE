@@ -84,7 +84,14 @@ export class BackupPreferencesAdapter {
     const keys: string[] = Object.keys(map)
     for (let i: number = 0; i < keys.length; i++) {
       const key: string = keys[i]
-      if (!allowSecret && BackupSecretDenylist.isSecret(key)) {
+      const secretKey: boolean = BackupSecretDenylist.isSecret(key)
+      if (!allowSecret && secretKey) {
+        continue
+      }
+      if (!allowSecret && BackupPreferencesAdapter.isPlaintextExcluded(key)) {
+        continue
+      }
+      if (allowSecret && !secretKey) {
         continue
       }
       store.putSync(key, map[key])

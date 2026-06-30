@@ -54,7 +54,7 @@ EhHttpClient → EhApiService/EhApiPhpService → parser(正则/DOM) → model
 
 下载 / 归档的具体闭环要求:
 
-- 硬停:禁止使用 ArkUI `DownloadFileButton`。NextE 下载入口必须保留项目现有按钮 / 半模态语义;公共 Download 目录获取只允许走 `DocumentViewPicker.save()` + `DocumentPickerMode.DOWNLOAD` + `fileUri.FileUri(...).path` 的路径。
+- 硬停:禁止使用 ArkUI `DownloadFileButton`。NextE 下载入口必须保留项目现有按钮 / 半模态语义;公共 Download 目录获取只允许走 `DocumentViewPicker.save()` + `DocumentPickerMode.DOWNLOAD` + `fileUri.FileUri(...).path` 的路径。`DocumentPickerMode.DOWNLOAD` 返回的就是系统分配给当前应用的 Download 目录,不得再拼接 `NextE` 等应用名子目录,也不得把该根目录写入 Preferences / 同步 / 备份作为用户设置持久化。
 - 普通画廊下载:详情页下载入口可见并可点击 → 日志出现 `detail_download_tap` / `detail_enqueue_request` → 任务进入下载队列 → 日志出现 `gallery_download_start` / `gallery_download_batch_done` 或明确失败原因 → 下载页进度文本和进度条实时更新 → 完成后从下载页进入本地 Reader → Reader 继承同一 `GalleryReadProgressState` 阅读记录。
 - 归档下载:详情页 `归档`入口按 `eros_fe` 行为可见 → 点击后日志出现 `detail_archiver_open` → 归档半模态加载报价或明确显示缺少 `or` 参数的错误并记录 `archiver_missing_or_token` → 报价面板展示 Download / H@H 选项 → 真实提交前必须停在确认框,除非用户明确授权消耗账号资源 → 本地归档下载任务进入归档队列并有 `archiver_download_start` / `archiver_download_done` 或失败日志。
 
