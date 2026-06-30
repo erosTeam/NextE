@@ -1,79 +1,143 @@
-# EhViewer / JHenTai Feature Reference
+# EhViewer / JHenTai Feature Research
 
-Status: active reference, not a direct implementation queue.
+Status: recovered source-backed research note, not a direct implementation queue.
 
-Purpose:
+Current scheduling lives in [Current Dispatch State](current-dispatch-state.md). This file records what was
+actually found in EhViewer/JHenTai and how it compares with current NextE. Before implementation, re-open the
+exact source path and current NextE code.
 
-- Preserve the feature comparison from the EhViewer / JHenTai research thread so it is not lost in
-  dispatch churn.
-- Use this file to choose candidate lanes, then verify current NextE code and the reference source before
-  editing product code.
-- Do not schedule download / archiver work from this file while another active session owns that lane.
+## What Was Missing
 
-## Selection Rule
+The earlier comparison was not preserved as a complete document. It existed only as scattered chat context plus
+some notes inside [Image Block Community Rules](image-block-community-rules.md). This file is the repaired
+research record.
 
-Before saying "what to do next", check:
-
-1. Current NextE implementation and settings entry.
-2. Existing active/completed plan status.
-3. Whether the item is user-visible without depending on the download lane.
-4. Whether HarmonyOS has a native API or project primitive for the needed behavior.
-
-If any of those are unknown, the next task is a code/source verification slice, not implementation.
-
-## Strong Candidates
+## Good Candidates
 
 ### Home EventPane / HentaiVerse Reminder
 
-- Reference idea: EhViewer-style home event/HV reminder surface.
-- Why it is distinct: this is not ordinary gallery browsing polish; it adds a timely home signal that the
-  user can notice without opening a separate page.
-- First NextE slice: verify whether current home parsing already sees event/HV data, then add one compact
-  native Home pane only when real data exists.
-- Non-scope: downloads, push notifications, background polling, or a large activity center.
+Source evidence:
 
-### Reader Touch-Region Guide
+- EhViewer parses the homepage/news `#eventpane` HTML in
+  `/private/tmp/EhViewer-NekoInverter-EhViewer/app/src/main/java/com/hippo/ehviewer/client/parser/EventPaneParser.kt`.
+- EhViewer startup checks news and shows a dialog, with a setting to hide HV monster events, in
+  `/private/tmp/EhViewer-NekoInverter-EhViewer/app/src/main/java/com/hippo/ehviewer/EhApplication.kt`.
+- JHenTai has a cleaner split: `EHSpiderParser.newsPage2Event()` extracts `dawnInfo` and `hvUrl`, then
+  `ScheduleService.checkEHEvent()` shows separate Dawn and HV snackbars. User settings are
+  `showDawnInfo` and `showHVInfo`.
 
-- Reference idea: make tap/turn zones inspectable and support more touch-region layouts.
-- Why it is distinct: it helps users understand Reader controls instead of silently relying on invisible
-  hit areas.
-- First NextE slice: inspect current Reader gesture/tap-zone model, then add a visual guide route or
-  setting preview using the existing Reader settings primitives.
-- Non-scope: Reader architecture rewrite, zoom/pager replacement, or unrelated chrome redesign.
+NextE status:
+
+- No current NextE EventPane/HV implementation was found in `entry/`, `feature/`, or `shared/`.
+
+Recommendation:
+
+- Worth doing. First slice should parse `#eventpane` into structured `dawnInfo` / `hvUrl` and show a compact
+  Home notice or toast/snackbar only when data exists.
+- Skip background polling and push notifications for now.
+
+### Reader Touch Region Guide / Adjustable Center Region
+
+Source evidence:
+
+- JHenTai builds three Reader tap regions in `lib/src/pages/read/read_page.dart`: left, center, right.
+- The center region width is user-adjustable through `gestureRegionWidthRatio` in
+  `lib/src/pages/setting/read/setting_read_page.dart`.
+- Desktop help also documents keyboard shortcuts in the Reader top menu.
+
+NextE status:
+
+- Reader already has volume-key plumbing and Reader settings strings for volume keys.
+- The missing/unclear part is a visible tap-region guide and richer region presets, not basic key paging.
+
+Recommendation:
+
+- Worth doing as a small Reader-settings lane: preview the tap zones, expose a center-region ratio or presets,
+  and keep the implementation shared by horizontal/vertical Reader surfaces.
+- Do not rewrite the pager for this.
 
 ### Privacy Lock / Recent-Task Privacy
 
-- Reference idea: app lock plus recent-task hiding/blur.
-- Why it is distinct: it is a privacy feature, not content filtering.
-- Current note: Settings intake already records `最近任务中模糊处理` and `自动锁定`; reopen from there after
-  checking HarmonyOS API support.
-- First NextE slice: implement the smallest native setting-backed behavior that can be verified on device.
-- Non-scope: account security, cookie migration, or custom authentication framework.
+Source evidence:
+
+- EhViewer has app-level screenshot/recent-task protection via `FLAG_SECURE` in
+  `/private/tmp/EhViewer-NekoInverter-EhViewer/app/src/main/java/com/hippo/ehviewer/ui/EhActivity.kt`.
+- EhViewer has pattern unlock plus biometric unlock in `SecurityScene.kt`, backed by `LockPatternView` and
+  `BiometricPrompt`.
+- EhViewer settings expose pattern protection, secure screenshots/recent-apps, and clear search history in
+  `privacy_settings.xml`.
+
+NextE status:
+
+- NextE already has a Security settings surface with `最近任务中模糊处理` and `自动锁定` strings/page.
+- Need device/API verification before claiming actual recent-task privacy behavior works.
+
+Recommendation:
+
+- Worth doing only as native Harmony behavior, not by porting Android lock-pattern UI.
+- First slice: verify/implement the existing recent-task blur and auto-lock settings end to end.
+- Pattern/PIN/biometric app lock is a later lane after Harmony API confirmation.
 
 ### No Image Mode
 
-- Reference idea: privacy/bandwidth mode that avoids loading gallery images.
-- Why it is distinct: it saves network and avoids exposing images in list/detail surfaces.
-- First NextE slice: list/detail thumbnail suppression behind a setting; Reader behavior should be a
-  separate decision because it changes the primary use flow.
-- Non-scope: download/offline behavior.
+Source evidence:
 
-## Image Blocking Follow-Ups
+- This is a comparison-derived privacy/bandwidth idea rather than a confirmed EhViewer/JHenTai source feature
+  in the checked snippets.
 
-The pHash/community-rule foundation lives in
-[image-block-community-rules.md](image-block-community-rules.md). Remaining ideas from the comparison:
+NextE status:
 
-- Blocked-page presentation: blur the image or thumbnail with a clear center icon; HDS floating controls can
-  replace the old black overlay later.
-- Community contribution: app generates a reviewable JSONL draft; repository/CI validates source URL,
-  source page, hash, threshold, duplicates, and dist output.
-- QR auto-blocking remains deferred because false positives are more likely than pHash matches.
-- Region/crop matching and hash indexes are later scale lanes, not prerequisites for the current app UI.
+- No obvious NextE setting for list/detail image suppression was found.
 
-## Parked
+Recommendation:
 
-- Image search / search-by-image: lower expected use than Home event/HV and privacy features.
-- Super-resolution, Archive Bot, and JHenTai download-heavy ideas: park while the download session owns
-  download/offline work.
-- Any feature that requires spending GP/Credits or mutating the EH account must stay behind an explicit
-  confirmation and user authorization.
+- Maybe worth doing after EventPane/privacy. Smallest useful slice is list/detail thumbnail suppression behind
+  one setting. Reader suppression is separate because it changes the primary use flow.
+
+## Already Covered Or Lower Priority
+
+### Image Blocking / Community pHash Rules
+
+- NextE already has a pHash/community-rule foundation, settings UI, Reader integration, local rules, allowlist,
+  source URL/source page metadata, and contribution draft flow.
+- The remaining useful ideas are presentation and scale: blurred blocked thumbnails/pages with a center icon,
+  HDS floating controls later, and possibly hash indexing if rule count grows.
+- QR auto-blocking remains parked because false positives are likely.
+
+### Local Block Rules
+
+Source evidence:
+
+- JHenTai has grouped local block rules for gallery and comment targets in
+  `lib/src/service/local_block_rule_service.dart`, including attributes like title, tag, uploader, gid,
+  comment user, score, and content.
+
+NextE status:
+
+- NextE already has local block settings for title/uploader/commentator/comment plus score/comment display.
+
+Possible gap:
+
+- JHenTai-style tag/gid blocking and grouped multi-condition rules are more powerful, but also more management
+  UI. Do not do this unless a real user path needs it.
+
+### Reader Volume Keys / Keyboard / Mouse
+
+- NextE already has Reader volume-key settings and ReaderPage volume-key consumer logs.
+- JHenTai has richer desktop support: keyboard listener, mouse-wheel speed setting, and mouse back/forward
+  button helpers.
+- On Harmony phone/tablet this is lower priority; revisit only for keyboard/mouse device support.
+
+### Archive Bot / Super Resolution
+
+- JHenTai has Archive Bot and super-resolution services/settings.
+- Both are expensive lanes and either download-adjacent or model/backend-heavy.
+- Park while another session owns download work.
+
+## Current Priority From This Research
+
+1. Home EventPane / HentaiVerse reminder.
+2. Reader touch-region guide / adjustable region.
+3. Verify and finish recent-task privacy / auto-lock.
+4. No Image Mode.
+5. Image-block presentation polish.
