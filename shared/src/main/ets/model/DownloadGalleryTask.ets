@@ -54,6 +54,8 @@ export class DownloadGalleryTask {
   @Trace title: string = ''
   @Trace titleJp: string = ''
   @Trace thumbUrl: string = ''
+  @Trace imgWidth: number = 0
+  @Trace imgHeight: number = 0
   @Trace pageCount: number = 0
   @Trace category: string = ''
   @Trace uploader: string = ''
@@ -79,6 +81,8 @@ export class DownloadGalleryTask {
     task.title = gallery.title()
     task.titleJp = gallery.japaneseTitle
     task.thumbUrl = gallery.thumbUrl.length > 0 ? gallery.thumbUrl : gallery.thumbUrlL
+    task.imgWidth = gallery.imgWidth
+    task.imgHeight = gallery.imgHeight
     task.pageCount = gallery.fileCountNumber()
     task.category = gallery.category
     task.uploader = gallery.uploader
@@ -102,6 +106,8 @@ export class DownloadGalleryTask {
     task.title = this.title
     task.titleJp = this.titleJp
     task.thumbUrl = this.thumbUrl
+    task.imgWidth = this.imgWidth
+    task.imgHeight = this.imgHeight
     task.pageCount = this.pageCount
     task.category = this.category
     task.uploader = this.uploader
@@ -129,6 +135,8 @@ export class DownloadGalleryTask {
     this.title = source.title
     this.titleJp = source.titleJp
     this.thumbUrl = source.thumbUrl
+    this.imgWidth = source.imgWidth
+    this.imgHeight = source.imgHeight
     this.pageCount = source.pageCount
     this.category = source.category
     this.uploader = source.uploader
@@ -280,6 +288,8 @@ export class DownloadArchiverTask {
   @Trace token: string = ''
   @Trace title: string = ''
   @Trace thumbUrl: string = ''
+  @Trace imgWidth: number = 0
+  @Trace imgHeight: number = 0
   @Trace dltype: string = ''
   @Trace resolution: string = ''
   @Trace parseSource: string = DownloadArchiverParseSource.OFFICIAL
@@ -301,6 +311,8 @@ export class DownloadArchiverTask {
     task.token = this.token
     task.title = this.title
     task.thumbUrl = this.thumbUrl
+    task.imgWidth = this.imgWidth
+    task.imgHeight = this.imgHeight
     task.dltype = this.dltype
     task.resolution = this.resolution
     task.parseSource = this.parseSource
@@ -323,6 +335,8 @@ export class DownloadArchiverTask {
     this.token = source.token
     this.title = source.title
     this.thumbUrl = source.thumbUrl
+    this.imgWidth = source.imgWidth
+    this.imgHeight = source.imgHeight
     this.dltype = source.dltype
     this.resolution = source.resolution
     this.parseSource = source.parseSource

@@ -361,6 +361,8 @@ export struct GalleryArchiverContent {
     task.tag = `${task.gid}:${task.dltype}`
     task.title = this.params.title
     task.thumbUrl = this.params.thumbUrl
+    task.imgWidth = this.params.imgWidth
+    task.imgHeight = this.params.imgHeight
     task.resolution = item.resolution
     task.url = url
     const shouldDownload: boolean = await DownloadQueueSettings.enqueueArchiver(this.ctx(), task)
@@ -390,6 +392,8 @@ export struct GalleryArchiverContent {
     task.tag = `${task.gid}:org`
     task.title = this.params.title
     task.thumbUrl = this.params.thumbUrl
+    task.imgWidth = this.params.imgWidth
+    task.imgHeight = this.params.imgHeight
     task.resolution = item.resolution.length > 0 ? item.resolution : AppStrings.get('gallery_archiver_bot_original')
     task.parseSource = DownloadArchiverParseSource.BOT
     task.url = ''

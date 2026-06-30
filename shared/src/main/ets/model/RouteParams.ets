@@ -87,6 +87,8 @@ export class GalleryArchiverParams {
   isEx: boolean = false
   title: string = ''
   thumbUrl: string = ''
+  imgWidth: number = 0
+  imgHeight: number = 0
 
   constructor(
     gid: string = '',
@@ -95,6 +97,8 @@ export class GalleryArchiverParams {
     isEx: boolean = false,
     title: string = '',
     thumbUrl: string = '',
+    imgWidth: number = 0,
+    imgHeight: number = 0,
   ) {
     this.gid = gid
     this.token = token
@@ -102,6 +106,8 @@ export class GalleryArchiverParams {
     this.isEx = isEx
     this.title = title
     this.thumbUrl = thumbUrl
+    this.imgWidth = imgWidth
+    this.imgHeight = imgHeight
   }
 }
 

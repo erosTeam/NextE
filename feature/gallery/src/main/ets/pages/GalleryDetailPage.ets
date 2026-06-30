@@ -471,6 +471,8 @@ export struct GalleryDetailPage {
       connectSiteMode().isEx,
       this.navTitle(),
       thumbUrl,
+      this.vm.gallery.imgWidth,
+      this.vm.gallery.imgHeight,
     )
     this.openDetailSheet(DETAIL_SHEET_ARCHIVER)
   }

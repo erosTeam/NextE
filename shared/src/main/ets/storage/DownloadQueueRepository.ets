@@ -11,7 +11,7 @@ import { LocalDataStore } from './LocalDataStore'
 
 const SCOPE_GLOBAL: string = 'global'
 const SQL_SELECT_TASKS: string =
-  'SELECT gid, token, title, title_jp, thumb_url, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
+  'SELECT gid, token, title, title_jp, thumb_url, img_width, img_height, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
   'prepared_at, first_page_count, preview_page_count, prepare_error, prefer_original, status FROM download_gallery_tasks ' +
   'WHERE scope_key = ? ORDER BY queued_at DESC, gid DESC'
 const SQL_SELECT_SEEDS: string =
@@ -20,9 +20,9 @@ const SQL_SELECT_SEEDS: string =
   'WHERE scope_key = ? AND gid = ? AND token = ? AND prefer_original = ? ORDER BY position_index ASC, page ASC'
 const SQL_UPSERT_TASK: string =
   'INSERT OR REPLACE INTO download_gallery_tasks ' +
-  '(scope_key, gid, token, title, title_jp, thumb_url, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
+  '(scope_key, gid, token, title, title_jp, thumb_url, img_width, img_height, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
   'prepared_at, first_page_count, preview_page_count, prepare_error, prefer_original, status) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 const SQL_UPSERT_SEED: string =
   'INSERT OR REPLACE INTO download_gallery_seeds ' +
   '(scope_key, gid, token, prefer_original, image_page_url, position_index, page, imgkey, thumb_url, image_url, ' +
@@ -33,14 +33,14 @@ const SQL_DELETE_SEEDS: string = 'DELETE FROM download_gallery_seeds WHERE scope
 const SQL_DELETE_SEEDS_FOR_TASK: string =
   'DELETE FROM download_gallery_seeds WHERE scope_key = ? AND gid = ? AND token = ? AND prefer_original = ?'
 const SQL_SELECT_ARCHIVER_TASKS: string =
-  'SELECT tag, gid, token, title, thumb_url, dltype, resolution, parse_source, url, file_name, file_path, queued_at, downloaded_at, ' +
+  'SELECT tag, gid, token, title, thumb_url, img_width, img_height, dltype, resolution, parse_source, url, file_name, file_path, queued_at, downloaded_at, ' +
   'bytes_written, bytes_total, progress, error, status FROM download_archiver_tasks ' +
   'WHERE scope_key = ? ORDER BY queued_at DESC, tag DESC'
 const SQL_UPSERT_ARCHIVER_TASK: string =
   'INSERT OR REPLACE INTO download_archiver_tasks ' +
-  '(scope_key, tag, gid, token, title, thumb_url, dltype, resolution, parse_source, url, file_name, file_path, queued_at, downloaded_at, ' +
+  '(scope_key, tag, gid, token, title, thumb_url, img_width, img_height, dltype, resolution, parse_source, url, file_name, file_path, queued_at, downloaded_at, ' +
   'bytes_written, bytes_total, progress, error, status) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 const SQL_DELETE_ARCHIVER_TASKS: string = 'DELETE FROM download_archiver_tasks WHERE scope_key = ?'
 
 export class DownloadQueueRepository {
@@ -154,6 +154,8 @@ export class DownloadQueueRepository {
       task.title,
       task.titleJp,
       task.thumbUrl,
+      task.imgWidth,
+      task.imgHeight,
       task.pageCount,
       task.category,
       task.uploader,
@@ -236,6 +238,8 @@ export class DownloadQueueRepository {
     task.title = DownloadQueueRepository.stringColumn(resultSet, 'title')
     task.titleJp = DownloadQueueRepository.stringColumn(resultSet, 'title_jp')
     task.thumbUrl = DownloadQueueRepository.stringColumn(resultSet, 'thumb_url')
+    task.imgWidth = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'img_width'))
+    task.imgHeight = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'img_height'))
     task.pageCount = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'page_count'))
     task.category = DownloadQueueRepository.stringColumn(resultSet, 'category')
     task.uploader = DownloadQueueRepository.stringColumn(resultSet, 'uploader')
@@ -281,6 +285,8 @@ export class DownloadQueueRepository {
       task.token,
       task.title,
       task.thumbUrl,
+      task.imgWidth,
+      task.imgHeight,
       task.dltype,
       task.resolution,
       DownloadQueueRepository.normalizeParseSource(task.parseSource),
@@ -304,6 +310,8 @@ export class DownloadQueueRepository {
     task.token = DownloadQueueRepository.stringColumn(resultSet, 'token')
     task.title = DownloadQueueRepository.stringColumn(resultSet, 'title')
     task.thumbUrl = DownloadQueueRepository.stringColumn(resultSet, 'thumb_url')
+    task.imgWidth = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'img_width'))
+    task.imgHeight = Math.floor(DownloadQueueRepository.numberColumn(resultSet, 'img_height'))
     task.dltype = DownloadQueueRepository.stringColumn(resultSet, 'dltype')
     task.resolution = DownloadQueueRepository.stringColumn(resultSet, 'resolution')
     task.parseSource = DownloadQueueRepository.normalizeParseSource(

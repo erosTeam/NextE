@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: download source cover seed and archive progress publish
+
+Status: active
+Reference implementation: `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing cover-to-source entry, `feature/gallery/src/main/ets/components/GalleryHeaderCard.ets` detail header `EhThumbnail` source-size path, and `shared/src/main/ets/settings/DownloadQueueSettings.ets` ordinary gallery stream-progress throttle.
+Surface type: Downloads tab cover source navigation and archive download progress publishing only; no task-card visual redesign.
+Primary information: opening the source gallery from a downloaded task should paint the detail cover from stable seeded metadata, while large archive downloads should expose coarse live progress without freezing the app.
+Primary action: tap a download-list cover to open the source detail, or start a large archive download and keep navigating while progress advances.
+Reuse or deviation: reuse `GalleryDetailParams` source dimensions and the existing ordinary-download 500ms progress throttle pattern; deviate only by preserving cover dimensions in download tasks and throttling archiver queue publication.
+Verification: download queue RDB contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and 197 archive hilog/user-path smoke.
+
 ## Active: reader image block action safety
 
 Status: active

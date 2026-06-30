@@ -351,6 +351,8 @@ const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_TABLE: string =
     'title TEXT NOT NULL, ' +
     'title_jp TEXT NOT NULL, ' +
     'thumb_url TEXT NOT NULL, ' +
+    'img_width INTEGER NOT NULL DEFAULT 0, ' +
+    'img_height INTEGER NOT NULL DEFAULT 0, ' +
     'page_count INTEGER NOT NULL, ' +
     'category TEXT NOT NULL, ' +
     'uploader TEXT NOT NULL, ' +
@@ -372,6 +374,8 @@ const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_V15_TABLE: string =
     'title TEXT NOT NULL, ' +
     'title_jp TEXT NOT NULL, ' +
     'thumb_url TEXT NOT NULL, ' +
+    'img_width INTEGER NOT NULL DEFAULT 0, ' +
+    'img_height INTEGER NOT NULL DEFAULT 0, ' +
     'page_count INTEGER NOT NULL, ' +
     'category TEXT NOT NULL, ' +
     'uploader TEXT NOT NULL, ' +
@@ -387,9 +391,9 @@ const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_V15_TABLE: string =
   ')'
 const SQL_COPY_DOWNLOAD_GALLERY_TASKS_TO_V15: string =
   'INSERT OR REPLACE INTO download_gallery_tasks_v15 ' +
-    '(scope_key, gid, token, title, title_jp, thumb_url, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
+    '(scope_key, gid, token, title, title_jp, thumb_url, img_width, img_height, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
     'prepared_at, first_page_count, preview_page_count, prepare_error, prefer_original, status) ' +
-  'SELECT scope_key, gid, token, title, title_jp, thumb_url, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
+  'SELECT scope_key, gid, token, title, title_jp, thumb_url, img_width, img_height, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
     'prepared_at, first_page_count, preview_page_count, prepare_error, prefer_original, status FROM download_gallery_tasks'
 const SQL_DROP_DOWNLOAD_GALLERY_TASKS_TABLE: string =
   'DROP TABLE download_gallery_tasks'
@@ -399,6 +403,10 @@ const SQL_ADD_DOWNLOAD_GALLERY_TASKS_PREFER_ORIGINAL: string =
   'ALTER TABLE download_gallery_tasks ADD COLUMN prefer_original INTEGER NOT NULL DEFAULT 0'
 const SQL_ADD_DOWNLOAD_GALLERY_TASKS_UPGRADE_FROM_GID: string =
   'ALTER TABLE download_gallery_tasks ADD COLUMN upgrade_from_gid TEXT NOT NULL DEFAULT \'\''
+const SQL_ADD_DOWNLOAD_GALLERY_TASKS_IMG_WIDTH: string =
+  'ALTER TABLE download_gallery_tasks ADD COLUMN img_width INTEGER NOT NULL DEFAULT 0'
+const SQL_ADD_DOWNLOAD_GALLERY_TASKS_IMG_HEIGHT: string =
+  'ALTER TABLE download_gallery_tasks ADD COLUMN img_height INTEGER NOT NULL DEFAULT 0'
 const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_QUEUED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_download_gallery_tasks_queued ON download_gallery_tasks (queued_at DESC)'
 const SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_TABLE: string =
@@ -466,6 +474,8 @@ const SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_TABLE: string =
     'token TEXT NOT NULL DEFAULT \'\', ' +
     'title TEXT NOT NULL, ' +
     'thumb_url TEXT NOT NULL DEFAULT \'\', ' +
+    'img_width INTEGER NOT NULL DEFAULT 0, ' +
+    'img_height INTEGER NOT NULL DEFAULT 0, ' +
     'dltype TEXT NOT NULL, ' +
     'resolution TEXT NOT NULL, ' +
     'parse_source TEXT NOT NULL DEFAULT \'official\', ' +
@@ -485,6 +495,10 @@ const SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_TOKEN: string =
   'ALTER TABLE download_archiver_tasks ADD COLUMN token TEXT NOT NULL DEFAULT \'\''
 const SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_THUMB_URL: string =
   'ALTER TABLE download_archiver_tasks ADD COLUMN thumb_url TEXT NOT NULL DEFAULT \'\''
+const SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_IMG_WIDTH: string =
+  'ALTER TABLE download_archiver_tasks ADD COLUMN img_width INTEGER NOT NULL DEFAULT 0'
+const SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_IMG_HEIGHT: string =
+  'ALTER TABLE download_archiver_tasks ADD COLUMN img_height INTEGER NOT NULL DEFAULT 0'
 const SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_PARSE_SOURCE: string =
   'ALTER TABLE download_archiver_tasks ADD COLUMN parse_source TEXT NOT NULL DEFAULT \'official\''
 const SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_QUEUED_INDEX: string =
@@ -533,6 +547,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_TABLE)
     await LocalDataStore.migrateDownloadGalleryPreferOriginal(store)
     await LocalDataStore.migrateDownloadGalleryUpgradeFromGid(store)
+    await LocalDataStore.migrateDownloadGalleryCoverDimensions(store)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_TABLE)
     await LocalDataStore.migrateDownloadGalleryTaskQualityKey(store)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_QUEUED_INDEX)
@@ -540,6 +555,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_TABLE)
     await LocalDataStore.migrateDownloadArchiverToken(store)
     await LocalDataStore.migrateDownloadArchiverThumbUrl(store)
+    await LocalDataStore.migrateDownloadArchiverCoverDimensions(store)
     await LocalDataStore.migrateDownloadArchiverParseSource(store)
     await store.executeSql(SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_QUEUED_INDEX)
     await store.executeSql(SQL_UPSERT_SCHEMA_VERSION)
@@ -652,6 +668,25 @@ export class LocalDataStore {
     await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_UPGRADE_FROM_GID)
   }
 
+  private static async migrateDownloadGalleryCoverDimensions(store: relationalStore.RdbStore): Promise<void> {
+    const hasImgWidth: boolean = await LocalDataStore.hasColumn(
+      store,
+      'download_gallery_tasks',
+      'img_width',
+    )
+    if (!hasImgWidth) {
+      await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_IMG_WIDTH)
+    }
+    const hasImgHeight: boolean = await LocalDataStore.hasColumn(
+      store,
+      'download_gallery_tasks',
+      'img_height',
+    )
+    if (!hasImgHeight) {
+      await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_IMG_HEIGHT)
+    }
+  }
+
   private static async migrateDownloadGalleryTaskQualityKey(store: relationalStore.RdbStore): Promise<void> {
     const tasksUsePreferOriginalKey: boolean = await LocalDataStore.hasPrimaryKeyColumn(
       store,
@@ -727,6 +762,25 @@ export class LocalDataStore {
       return
     }
     await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_THUMB_URL)
+  }
+
+  private static async migrateDownloadArchiverCoverDimensions(store: relationalStore.RdbStore): Promise<void> {
+    const hasImgWidth: boolean = await LocalDataStore.hasColumn(
+      store,
+      'download_archiver_tasks',
+      'img_width',
+    )
+    if (!hasImgWidth) {
+      await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_IMG_WIDTH)
+    }
+    const hasImgHeight: boolean = await LocalDataStore.hasColumn(
+      store,
+      'download_archiver_tasks',
+      'img_height',
+    )
+    if (!hasImgHeight) {
+      await store.executeSql(SQL_ADD_DOWNLOAD_ARCHIVER_TASKS_IMG_HEIGHT)
+    }
   }
 
   private static async migrateDownloadArchiverParseSource(store: relationalStore.RdbStore): Promise<void> {

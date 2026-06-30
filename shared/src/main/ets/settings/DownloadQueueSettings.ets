@@ -60,6 +60,8 @@ class DownloadGalleryTaskMetadata {
   title: string = ''
   titleJp: string = ''
   thumbUrl: string = ''
+  imgWidth: number = 0
+  imgHeight: number = 0
   pageCount: number = 0
   category: string = ''
   uploader: string = ''
@@ -80,6 +82,8 @@ class DownloadArchiverTaskMetadata {
   token: string = ''
   title: string = ''
   thumbUrl: string = ''
+  imgWidth: number = 0
+  imgHeight: number = 0
   dltype: string = ''
   resolution: string = ''
   parseSource: string = DownloadArchiverParseSource.OFFICIAL
@@ -113,6 +117,7 @@ export class DownloadQueueSettings {
   private static cancelledArchiverDownloads: Set<string> = new Set<string>()
   private static galleryProgressPulses: Map<string, number> = new Map<string, number>()
   private static galleryProgressLogPulses: Map<string, number> = new Map<string, number>()
+  private static archiverProgressPulses: Map<string, number> = new Map<string, number>()
   private static archiverProgressLogPulses: Map<string, number> = new Map<string, number>()
   private static loggedDownloadDirs: Set<string> = new Set<string>()
   private static downloadPublicRoot: string = ''
@@ -268,6 +273,12 @@ export class DownloadQueueSettings {
         if (it.thumbUrl.length > 0) {
           refreshed.thumbUrl = it.thumbUrl
         }
+        if (it.imgWidth > 0) {
+          refreshed.imgWidth = it.imgWidth
+        }
+        if (it.imgHeight > 0) {
+          refreshed.imgHeight = it.imgHeight
+        }
         if (it.pageCount > 0) {
           refreshed.pageCount = it.pageCount
         }
@@ -399,6 +410,12 @@ export class DownloadQueueSettings {
         }
         if (it.thumbUrl.length > 0) {
           refreshed.thumbUrl = it.thumbUrl
+        }
+        if (it.imgWidth > 0) {
+          refreshed.imgWidth = it.imgWidth
+        }
+        if (it.imgHeight > 0) {
+          refreshed.imgHeight = it.imgHeight
         }
         if (
           it.status === DownloadGalleryTaskStatus.COMPLETE &&
@@ -653,6 +670,7 @@ export class DownloadQueueSettings {
       )
       if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
         DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_cancelled_file_delete_failed')
+        DownloadQueueSettings.archiverProgressPulses.delete(tag)
         DiagnosticLogger.info(
           'download',
           'archiver_download_cancelled',
@@ -670,6 +688,7 @@ export class DownloadQueueSettings {
         it.downloadedAt = Date.now()
         it.error = ''
       })
+      DownloadQueueSettings.archiverProgressPulses.delete(tag)
       DiagnosticLogger.info(
         'download',
         'archiver_download_done',
@@ -678,6 +697,7 @@ export class DownloadQueueSettings {
     } catch (error) {
       if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
         DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_cancelled_file_delete_failed')
+        DownloadQueueSettings.archiverProgressPulses.delete(tag)
         DiagnosticLogger.info(
           'download',
           'archiver_download_cancelled',
@@ -691,6 +711,7 @@ export class DownloadQueueSettings {
         it.filePath = filePath
         it.error = DownloadQueueSettings.userError(error as Object)
       })
+      DownloadQueueSettings.archiverProgressPulses.delete(tag)
       DiagnosticLogger.warn(
         'download',
         'archiver_download_failed',
@@ -1484,6 +1505,12 @@ export class DownloadQueueSettings {
         if (gallery.thumbUrl.length > 0 || gallery.thumbUrlL.length > 0) {
           task.thumbUrl = gallery.thumbUrl.length > 0 ? gallery.thumbUrl : gallery.thumbUrlL
         }
+        if (gallery.imgWidth > 0) {
+          task.imgWidth = gallery.imgWidth
+        }
+        if (gallery.imgHeight > 0) {
+          task.imgHeight = gallery.imgHeight
+        }
         if (pageCount > 0) {
           task.pageCount = pageCount
         }
@@ -2050,6 +2077,12 @@ export class DownloadQueueSettings {
     if (task.thumbUrl.length === 0 && galleryTask.thumbUrl.length > 0) {
       task.thumbUrl = galleryTask.thumbUrl
     }
+    if (task.imgWidth <= 0 && galleryTask.imgWidth > 0) {
+      task.imgWidth = galleryTask.imgWidth
+    }
+    if (task.imgHeight <= 0 && galleryTask.imgHeight > 0) {
+      task.imgHeight = galleryTask.imgHeight
+    }
   }
 
   private static writeTextFile(path: string, text: string, event: string): void {
@@ -2073,6 +2106,8 @@ export class DownloadQueueSettings {
     out.title = task.title
     out.titleJp = task.titleJp
     out.thumbUrl = task.thumbUrl
+    out.imgWidth = task.imgWidth
+    out.imgHeight = task.imgHeight
     out.pageCount = task.pageCount
     out.category = task.category
     out.uploader = task.uploader
@@ -2112,6 +2147,8 @@ export class DownloadQueueSettings {
     out.token = task.token
     out.title = task.title
     out.thumbUrl = task.thumbUrl
+    out.imgWidth = task.imgWidth
+    out.imgHeight = task.imgHeight
     out.dltype = task.dltype
     out.resolution = task.resolution
     out.parseSource = task.parseSource
@@ -2303,7 +2340,16 @@ export class DownloadQueueSettings {
     if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
       return
     }
+    if (loaded <= 0) {
+      return
+    }
     const now: number = Date.now()
+    const complete: boolean = total > 0 && loaded >= total
+    const last: number = DownloadQueueSettings.archiverProgressPulses.get(tag) ?? 0
+    if (!complete && now - last < 500) {
+      return
+    }
+    DownloadQueueSettings.archiverProgressPulses.set(tag, now)
     const state = connectDownloadQueue()
     const next: DownloadArchiverTask[] = []
     state.archiverTasks.forEach((it: DownloadArchiverTask) => {
@@ -2706,6 +2752,8 @@ export class DownloadQueueSettings {
             task.title = typeof rec.title === 'string' ? rec.title : ''
             task.titleJp = typeof rec.titleJp === 'string' ? rec.titleJp : ''
             task.thumbUrl = typeof rec.thumbUrl === 'string' ? rec.thumbUrl : ''
+            task.imgWidth = typeof rec.imgWidth === 'number' ? rec.imgWidth : 0
+            task.imgHeight = typeof rec.imgHeight === 'number' ? rec.imgHeight : 0
             task.pageCount = typeof rec.pageCount === 'number' ? rec.pageCount : 0
             task.category = typeof rec.category === 'string' ? rec.category : ''
             task.uploader = typeof rec.uploader === 'string' ? rec.uploader : ''
@@ -2745,6 +2793,8 @@ export class DownloadQueueSettings {
             task.token = typeof rec.token === 'string' ? rec.token : ''
             task.title = typeof rec.title === 'string' ? rec.title : ''
             task.thumbUrl = typeof rec.thumbUrl === 'string' ? rec.thumbUrl : ''
+            task.imgWidth = typeof rec.imgWidth === 'number' ? rec.imgWidth : 0
+            task.imgHeight = typeof rec.imgHeight === 'number' ? rec.imgHeight : 0
             task.dltype = typeof rec.dltype === 'string' ? rec.dltype : ''
             task.resolution = typeof rec.resolution === 'string' ? rec.resolution : ''
             task.parseSource = typeof rec.parseSource === 'string'

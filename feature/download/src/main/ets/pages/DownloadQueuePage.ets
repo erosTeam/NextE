@@ -600,6 +600,8 @@ export struct DownloadQueuePage {
         task.thumbUrl,
         task.displayTitle(),
         task.pageCount > 0 ? `${task.pageCount}` : '',
+        task.imgWidth,
+        task.imgHeight,
       ),
     )
   }
@@ -615,7 +617,15 @@ export struct DownloadQueuePage {
     )
     this.stack.pushPathByName(
       'GalleryDetail',
-      new GalleryDetailParams(task.gid, task.token, task.thumbUrl, task.displayTitle()),
+      new GalleryDetailParams(
+        task.gid,
+        task.token,
+        task.thumbUrl,
+        task.displayTitle(),
+        '',
+        task.imgWidth,
+        task.imgHeight,
+      ),
     )
   }
 

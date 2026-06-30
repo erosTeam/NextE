@@ -64,6 +64,11 @@ ok('LocalDataStore persists gallery upgrade source for incremental downloads',
   /upgrade_from_gid TEXT NOT NULL DEFAULT/.test(store) &&
     /migrateDownloadGalleryUpgradeFromGid/.test(store) &&
     /ALTER TABLE download_gallery_tasks ADD COLUMN upgrade_from_gid/.test(store))
+ok('LocalDataStore persists download cover dimensions for stable source-detail seeding',
+  /img_width INTEGER NOT NULL DEFAULT 0/.test(store) &&
+    /img_height INTEGER NOT NULL DEFAULT 0/.test(store) &&
+    /migrateDownloadGalleryCoverDimensions/.test(store) &&
+    /migrateDownloadArchiverCoverDimensions/.test(store))
 ok('LocalDataStore creates archiver download task table',
     /download_archiver_tasks/.test(store) &&
     /PRIMARY KEY\(scope_key, tag\)/.test(store) &&
@@ -114,6 +119,11 @@ ok('repository persists task original preference',
 ok('repository persists gallery upgrade source gid',
   /upgrade_from_gid/.test(repo) &&
     /task\.upgradeFromGid/.test(repo))
+ok('repository persists gallery and archiver cover dimensions',
+  /task\.imgWidth/.test(repo) &&
+    /task\.imgHeight/.test(repo) &&
+    /SELECT gid, token, title, title_jp, thumb_url, img_width, img_height/.test(repo) &&
+    /SELECT tag, gid, token, title, thumb_url, img_width, img_height/.test(repo))
 ok('repository does not persist false complete status for partially downloaded galleries',
   /normalizedGalleryStatusForWrite\(task\)/.test(repo) &&
     /status === DownloadGalleryTaskStatus\.COMPLETE && !task\.isDownloadComplete\(\)/.test(repo) &&
@@ -156,6 +166,9 @@ ok('settings facade uses RDB and only reads old Preferences for migration',
     /store\.deleteSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE\)/.test(settings))
 ok('settings no longer writes the queue back to Preferences',
   !/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings))
+ok('archiver stream progress is throttled before publishing the queue state',
+  /archiverProgressPulses: Map<string, number>/.test(settings) &&
+    /private static updateArchiverProgress\(tag: string, loaded: number, total: number\): void \{[\s\S]*if \(!complete && now - last < 500\) \{[\s\S]*return[\s\S]*DownloadQueueSettings\.setArchiverTasks\(state, next\)/.test(settings))
 ok('download directories keep per-task metadata sidecars for queue recovery',
     /DOWNLOAD_METADATA_FILE: string = 'metadata\.json'/.test(settings) &&
     /ARCHIVER_METADATA_SUFFIX: string = '\.metadata\.json'/.test(settings) &&
