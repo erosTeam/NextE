@@ -109,6 +109,7 @@ export class SyncImageBlockRuleRecord {
   sourceType: string = ''
   sourceUrl: string = ''
   sourcePage: number = 0
+  previewPath: string = ''
   enabled: boolean = true
   updatedAt: number = 0
   deletedAt: number = 0

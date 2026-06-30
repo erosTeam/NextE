@@ -13,6 +13,7 @@ import {
   ImageBlockWhitelistItem,
 } from '../model/ImageBlockRule'
 import { PHashService } from '../services/PHashService'
+import { SyncScheduler } from '../sync/SyncScheduler'
 import { LocalDataStore } from './LocalDataStore'
 
 const SCOPE_GLOBAL: string = 'global'
@@ -119,6 +120,15 @@ const SQL_UPSERT_FILE_HASH: string =
   'VALUES (?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, file_path) DO UPDATE SET ' +
   'bytes = excluded.bytes, hash = excluded.hash, algorithm = excluded.algorithm, ' +
   'hashed_at = excluded.hashed_at, deleted_at = 0'
+const SQL_UPSERT_USER_RULE_OVERRIDE: string =
+  'INSERT INTO image_block_user_rules ' +
+  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
+  'VALUES (?, ?, ?, ?, \'\', \'\', \'\', ?, \'\', 0, \'\', ?, ?, 0) ' +
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  'hash = excluded.hash, source_type = excluded.source_type, ' +
+  'threshold = CASE WHEN excluded.threshold >= 0 THEN excluded.threshold ELSE image_block_user_rules.threshold END, ' +
+  'enabled = CASE WHEN excluded.enabled >= 0 THEN excluded.enabled ELSE image_block_user_rules.enabled END, ' +
+  'updated_at = excluded.updated_at, deleted_at = 0'
 
 export class ImageBlockRepository {
   static async loadSubscriptions(context: common.UIAbilityContext): Promise<ImageBlockFeed[]> {
@@ -357,6 +367,7 @@ export class ImageBlockRepository {
         await ImageBlockRepository.upsertSubscriptionItem(store, feed, feed.items[i], now + i + 1)
       }
       store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_subscription')
     } catch (error) {
       store.rollBack()
       const e: Error = error as Error
@@ -374,6 +385,7 @@ export class ImageBlockRepository {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await store.executeSql(SQL_SET_SUBSCRIPTION_ENABLED, [enabled ? 1 : 0, Date.now(), SCOPE_GLOBAL, feedId])
+    ImageBlockRepository.requestSync(context, 'image_block_subscription')
   }
 
   static async upsertLocalRule(context: common.UIAbilityContext, rule: ImageBlockRule): Promise<void> {
@@ -398,6 +410,7 @@ export class ImageBlockRepository {
       rule.enabled ? 1 : 0,
       now,
     ])
+    ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
   static async removeLocalRule(context: common.UIAbilityContext, ruleId: string): Promise<void> {
@@ -413,6 +426,7 @@ export class ImageBlockRepository {
       ruleId,
       IMAGE_BLOCK_SOURCE_LOCAL,
     ])
+    ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
   static async setLocalRuleThreshold(
@@ -431,6 +445,7 @@ export class ImageBlockRepository {
       ruleId,
       IMAGE_BLOCK_SOURCE_LOCAL,
     ])
+    ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
   static async setLocalRuleEnabled(
@@ -449,6 +464,7 @@ export class ImageBlockRepository {
       ruleId,
       IMAGE_BLOCK_SOURCE_LOCAL,
     ])
+    ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
   static async rememberRulePreview(
@@ -461,6 +477,7 @@ export class ImageBlockRepository {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await store.executeSql(SQL_UPDATE_RULE_PREVIEW, [previewPath, Date.now(), SCOPE_GLOBAL, ruleId, previewPath])
+    ImageBlockRepository.requestSync(context, 'image_block_rule_preview')
   }
 
   static async replaceWhitelist(context: common.UIAbilityContext, hashes: string[]): Promise<void> {
@@ -481,6 +498,7 @@ export class ImageBlockRepository {
         }
       }
       store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_allow')
     } catch (error) {
       store.rollBack()
       const e: Error = error as Error
@@ -499,6 +517,7 @@ export class ImageBlockRepository {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await ImageBlockRepository.upsertAllowRule(store, normalizedHash, previewPath, Date.now())
+    ImageBlockRepository.requestSync(context, 'image_block_allow')
     return normalizedHash
   }
 
@@ -513,7 +532,10 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_UPDATE_RULE_ENABLED, [0, Date.now(), SCOPE_GLOBAL, ruleId, normalizedHash, sourceType])
+    const now: number = Date.now()
+    await store.executeSql(SQL_UPDATE_RULE_ENABLED, [0, now, SCOPE_GLOBAL, ruleId, normalizedHash, sourceType])
+    await ImageBlockRepository.upsertSubscriptionOverride(store, ruleId, normalizedHash, sourceType, -1, 0, now)
+    ImageBlockRepository.requestSync(context, 'image_block_rule_override')
   }
 
   static async setRuleEnabledOverride(
@@ -528,14 +550,25 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const now: number = Date.now()
     await store.executeSql(SQL_UPDATE_RULE_ENABLED, [
       enabled ? 1 : 0,
-      Date.now(),
+      now,
       SCOPE_GLOBAL,
       ruleId,
       normalizedHash,
       sourceType,
     ])
+    await ImageBlockRepository.upsertSubscriptionOverride(
+      store,
+      ruleId,
+      normalizedHash,
+      sourceType,
+      -1,
+      enabled ? 1 : 0,
+      now,
+    )
+    ImageBlockRepository.requestSync(context, 'image_block_rule_override')
   }
 
   static async setRuleThresholdOverride(
@@ -550,14 +583,25 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const now: number = Date.now()
     await store.executeSql(SQL_UPDATE_RULE_THRESHOLD, [
       PHashService.clampThreshold(threshold),
-      Date.now(),
+      now,
       SCOPE_GLOBAL,
       ruleId,
       normalizedHash,
       sourceType,
     ])
+    await ImageBlockRepository.upsertSubscriptionOverride(
+      store,
+      ruleId,
+      normalizedHash,
+      sourceType,
+      PHashService.clampThreshold(threshold),
+      -1,
+      now,
+    )
+    ImageBlockRepository.requestSync(context, 'image_block_rule_override')
   }
 
   static async removeWhitelistHash(context: common.UIAbilityContext, hash: string): Promise<void> {
@@ -574,6 +618,7 @@ export class ImageBlockRepository {
       IMAGE_BLOCK_SOURCE_ALLOW,
       normalizedHash,
     ])
+    ImageBlockRepository.requestSync(context, 'image_block_allow')
   }
 
   static async upsertFileHash(
@@ -622,6 +667,33 @@ export class ImageBlockRepository {
       1,
       updatedAt,
     ])
+  }
+
+  private static async upsertSubscriptionOverride(
+    store: relationalStore.RdbStore,
+    ruleId: string,
+    hash: string,
+    sourceType: string,
+    threshold: number,
+    enabled: number,
+    updatedAt: number,
+  ): Promise<void> {
+    if (sourceType !== IMAGE_BLOCK_SOURCE_SUBSCRIPTION) {
+      return
+    }
+    await store.executeSql(SQL_UPSERT_USER_RULE_OVERRIDE, [
+      SCOPE_GLOBAL,
+      ruleId,
+      hash,
+      threshold,
+      IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
+      enabled,
+      updatedAt,
+    ])
+  }
+
+  private static requestSync(context: common.UIAbilityContext, reason: string): void {
+    SyncScheduler.requestAfterLocalWrite(context, reason)
   }
 
   private static async upsertAllowRule(

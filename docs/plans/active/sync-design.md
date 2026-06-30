@@ -19,7 +19,12 @@ Sync only durable user-local records with stable keys and timestamps:
 - `local_block_settings`
 - `local_block_rules`
 - `image_block_subscriptions`
-- `image_block_rules`
+- `image_block_rules` for user-authored image rules only (`local` / `allow`); subscription rule bodies
+  are regenerated from the synced subscription feed metadata and are not exported as user data.
+- Huawei Cloud uses `image_block_user_rules` instead of `image_block_rules`, because RDB cloud sync is
+  table-scoped and cannot filter subscription rule rows.
+  This mirror table stores complete user-authored image rules and per-rule subscription overrides
+  such as enabled state and threshold. It must not store subscription rule bodies.
 - `custom_profiles`
 - `custom_profile_selection`
 
@@ -64,6 +69,7 @@ Huawei Cloud sync reuses the same dataset switches as WebDAV:
 - local favorites -> `local_favorites`
 - search history -> `search_history`
 - local hidden-tag/comment-filter settings -> `local_block_settings`, `local_block_rules`
+- image block subscriptions and user rules -> `image_block_subscriptions`, `image_block_user_rules`
 - custom list tabs -> `custom_profiles`, `custom_profile_selection`
 
 `HUAWEI_CLOUD_SYNC_BUILD_ENABLED` defaults to true so local development can actually see and test the
@@ -155,7 +161,8 @@ merge/PUT for disabled dataset files and leaves the manifest entry untouched.
 - Local block settings: newer `updated_at` or tombstone wins per `scope_key`.
 - Local block rules: newer `updated_at` or tombstone wins per `(scope_key, rule_id)`.
 - Image block subscriptions: newer `updated_at` or tombstone wins per `(scope_key, feed_id)`.
-- Image block rules: newer `updated_at` or tombstone wins per `(scope_key, rule_id)`.
+- Image block rules: newer `updated_at` or tombstone wins per `(scope_key, rule_id)` for non-subscription
+  rules. Subscription feeds sync as feed metadata; their rule bodies are downloaded from the feed.
 - Custom profiles: newer `last_edit_time` or tombstone wins per semantic `(scope_key, uuid)`;
   the physical RDB/AGC key column is `(scope_key, profile_uuid)`.
 - Custom profile selection: newer `updated_at` or tombstone wins per `scope_key`.

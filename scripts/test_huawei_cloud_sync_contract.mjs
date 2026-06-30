@@ -21,6 +21,8 @@ const expectedTables = [
   'search_history',
   'local_block_settings',
   'local_block_rules',
+  'image_block_subscriptions',
+  'image_block_user_rules',
   'custom_profiles',
   'custom_profile_selection',
 ]
@@ -31,6 +33,8 @@ const expectedCloudAliases = new Map([
   ['search_history', 'SearchHistory'],
   ['local_block_settings', 'LocalBlockSettings'],
   ['local_block_rules', 'LocalBlockRules'],
+  ['image_block_subscriptions', 'ImageBlockSubscriptions'],
+  ['image_block_user_rules', 'ImageBlockUserRules'],
   ['custom_profiles', 'CustomProfiles'],
   ['custom_profile_selection', 'CustomProfileSelection'],
 ])
@@ -97,8 +101,8 @@ ok('Huawei cloud scheduled sync coalesces writes and foreground events',
 ok('EntryAbility binds Huawei cloud scheduled sync and foreground startup kicks',
   /HuaweiCloudSyncScheduler\.bindExecutor/.test(entryAbility) &&
     /HuaweiCloudSyncService\.runScheduledSync\(context, reason\)/.test(entryAbility) &&
-    /HuaweiCloudSyncScheduler\.requestAfterForeground\(this\.context, 'startup'\)/.test(entryAbility) &&
-    /onForeground\(\): void \{[\s\S]*HuaweiCloudSyncScheduler\.requestAfterForeground\(this\.context, 'foreground'\)/.test(entryAbility))
+    /SyncScheduler\.requestAfterForeground\(this\.context, 'startup'\)/.test(entryAbility) &&
+    /onForeground\(\): void \{[\s\S]*SyncScheduler\.requestAfterForeground\(this\.context, 'foreground'\)/.test(entryAbility))
 
 const localWriteFiles = [
   ['shared/src/main/ets/settings/GalleryReadProgressSettings.ets', 'read_progress'],
@@ -110,8 +114,8 @@ const localWriteFiles = [
 ]
 for (const [file, reason] of localWriteFiles) {
   const src = read(file)
-  ok(`${file} requests Huawei cloud sync after local writes`,
-    /HuaweiCloudSyncScheduler/.test(src) &&
+  ok(`${file} requests provider-neutral sync after local writes`,
+    /SyncScheduler/.test(src) &&
       src.includes(`requestAfterLocalWrite(context, '${reason}`))
 }
 
@@ -182,6 +186,13 @@ ok('custom profile sync canonicalizes seeded search tabs before uuid-based merge
     /STARTER_ANTHOLOGY_UUID/.test(syncAdapter) &&
     /r\.searchText === 'language:chinese'/.test(syncAdapter) &&
     /r\.searchText === 'other:anthology'/.test(syncAdapter))
+ok('image block sync exports local user rules but not subscription rule bodies',
+  syncAdapter.includes('COALESCE(source_type, \\\'\\\') <> \\\'subscription\\\'') &&
+    /image_block_user_rules/.test(features) &&
+    /prepareHuaweiCloudTables/.test(syncAdapter) &&
+    /applyHuaweiCloudTables/.test(syncAdapter) &&
+    /preview_path/.test(syncAdapter) &&
+    /r\.previewPath = SyncLocalDataAdapter\.stringColumn\(rs, 'preview_path'\)/.test(syncAdapter))
 
 const syncPage = read('feature/settings/src/main/ets/pages/SyncSettingsPage.ets')
 ok('Huawei cloud settings UI is gated by provider availability',

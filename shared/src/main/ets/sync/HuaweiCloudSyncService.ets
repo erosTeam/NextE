@@ -7,6 +7,7 @@ import { LocalDataStore } from '../storage/LocalDataStore'
 import { cloudSyncTablesForSelection } from './CloudSyncFeatures'
 import { HUAWEI_CLOUD_SYNC_BUILD_ENABLED } from './HuaweiCloudSyncBuildFlag'
 import { SyncService } from './SyncService'
+import { SyncLocalDataAdapter } from './SyncLocalDataAdapter'
 import { SyncDatasetSelection } from './SyncTypes'
 
 const SYNC_PERMISSION: Permissions = 'ohos.permission.DISTRIBUTED_DATASYNC'
@@ -54,6 +55,7 @@ export class HuaweiCloudSyncService {
       DiagnosticLogger.warn('sync', 'huawei_cloud_no_tables', 'selection is empty')
       return false
     }
+    await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, selection)
     const signature: string = tables.join(',')
     if (HuaweiCloudSyncService.lastMarkedSignature === signature) {
       return true
@@ -263,8 +265,10 @@ export class HuaweiCloudSyncService {
 
 class SyncServiceBridge {
   static refresh(context: common.UIAbilityContext, selection: SyncDatasetSelection): void {
-    SyncService.refreshSelectedState(context, selection).catch((error: Error) => {
-      DiagnosticLogger.warn('sync', 'huawei_cloud_refresh_state_failed', error.message)
-    })
+    SyncLocalDataAdapter.applyHuaweiCloudTables(context, selection)
+      .then(() => SyncService.refreshSelectedState(context, selection))
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('sync', 'huawei_cloud_refresh_state_failed', error.message)
+      })
   }
 }

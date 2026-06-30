@@ -41,7 +41,29 @@ const SQL_SELECT_LOCAL_BLOCK_RULES: string =
 const SQL_SELECT_IMAGE_BLOCK_SUBSCRIPTIONS: string =
   'SELECT scope_key, feed_id, title, url, algorithm, default_threshold, updated_at, synced_at, sha256, rule_count, enabled, deleted_at FROM image_block_subscriptions'
 const SQL_SELECT_IMAGE_BLOCK_RULES: string =
-  'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, enabled, updated_at, deleted_at FROM image_block_rules'
+  'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at ' +
+  'FROM image_block_rules WHERE COALESCE(source_type, \'\') <> \'subscription\''
+const SQL_SYNC_IMAGE_BLOCK_USER_RULES_FROM_MAIN: string =
+  'INSERT INTO image_block_user_rules ' +
+  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
+  'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at ' +
+  'FROM image_block_rules WHERE COALESCE(source_type, \'\') <> \'subscription\' ' +
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE excluded.updated_at >= image_block_user_rules.updated_at OR excluded.deleted_at >= image_block_user_rules.deleted_at'
+const SQL_APPLY_IMAGE_BLOCK_USER_RULES_TO_MAIN: string =
+  'INSERT INTO image_block_rules ' +
+  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
+  'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at ' +
+  'FROM image_block_user_rules WHERE COALESCE(source_type, \'\') <> \'subscription\' ' +
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE excluded.updated_at >= image_block_rules.updated_at OR excluded.deleted_at >= image_block_rules.deleted_at'
+const SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION_OVERRIDES: string =
+  'UPDATE image_block_rules SET ' +
+  'threshold = CASE WHEN COALESCE((SELECT u.threshold FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type), -1) >= 0 THEN (SELECT u.threshold FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type) ELSE threshold END, ' +
+  'enabled = CASE WHEN COALESCE((SELECT u.enabled FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type), -1) >= 0 THEN (SELECT u.enabled FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type) ELSE enabled END, ' +
+  'updated_at = MAX(updated_at, COALESCE((SELECT u.updated_at FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type), updated_at)), ' +
+  'deleted_at = MAX(deleted_at, COALESCE((SELECT u.deleted_at FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type), deleted_at)) ' +
+  'WHERE source_type = \'subscription\' AND EXISTS (SELECT 1 FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type)'
 const SQL_SELECT_CUSTOM_PROFILES: string =
   'SELECT scope_key, profile_uuid AS uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, last_edit_time, deleted_at FROM custom_profiles'
 const SQL_SELECT_CUSTOM_PROFILE_SELECTION: string =
@@ -69,8 +91,8 @@ const SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION: string =
   'INSERT INTO image_block_subscriptions (scope_key, feed_id, title, url, algorithm, default_threshold, updated_at, synced_at, sha256, rule_count, enabled, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, feed_id) DO UPDATE SET title = excluded.title, url = excluded.url, algorithm = excluded.algorithm, default_threshold = excluded.default_threshold, updated_at = excluded.updated_at, synced_at = excluded.synced_at, sha256 = excluded.sha256, rule_count = excluded.rule_count, enabled = excluded.enabled, deleted_at = excluded.deleted_at'
 const SQL_APPLY_IMAGE_BLOCK_RULE: string =
-  'INSERT INTO image_block_rules (scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'\', ?, ?, ?) ' +
-  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+  'INSERT INTO image_block_rules (scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
 const SQL_APPLY_CUSTOM_PROFILE: string =
   'INSERT INTO custom_profiles (scope_key, profile_uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, last_edit_time, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, profile_uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, list_type = excluded.list_type, search_text = excluded.search_text, selected_cats = excluded.selected_cats, advanced_enabled = excluded.advanced_enabled, min_rating = excluded.min_rating, pages_from = excluded.pages_from, pages_to = excluded.pages_to, require_torrent = excluded.require_torrent, show_expunged = excluded.show_expunged, disable_language_filter = excluded.disable_language_filter, disable_uploader_filter = excluded.disable_uploader_filter, disable_tag_filter = excluded.disable_tag_filter, favcat = excluded.favcat, toplist_tl = excluded.toplist_tl, display_mode = excluded.display_mode, hidden = excluded.hidden, builtin = excluded.builtin, last_edit_time = excluded.last_edit_time, deleted_at = excluded.deleted_at'
@@ -79,6 +101,29 @@ const SQL_APPLY_CUSTOM_PROFILE_SELECTION: string =
   'ON CONFLICT(scope_key) DO UPDATE SET selected_uuid = excluded.selected_uuid, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
 
 export class SyncLocalDataAdapter {
+  static async prepareHuaweiCloudTables(
+    context: common.UIAbilityContext,
+    selection: SyncDatasetSelection,
+  ): Promise<void> {
+    if (!selection.imageBlock) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_SYNC_IMAGE_BLOCK_USER_RULES_FROM_MAIN)
+  }
+
+  static async applyHuaweiCloudTables(
+    context: common.UIAbilityContext,
+    selection: SyncDatasetSelection,
+  ): Promise<void> {
+    if (!selection.imageBlock) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_APPLY_IMAGE_BLOCK_USER_RULES_TO_MAIN)
+    await store.executeSql(SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION_OVERRIDES)
+  }
+
   static async exportEnvelope(
     context: common.UIAbilityContext,
     deviceId: string = '',
@@ -419,6 +464,7 @@ export class SyncLocalDataAdapter {
         r.sourceType = SyncLocalDataAdapter.stringColumn(rs, 'source_type')
         r.sourceUrl = SyncLocalDataAdapter.stringColumn(rs, 'source_url')
         r.sourcePage = SyncLocalDataAdapter.numberColumn(rs, 'source_page')
+        r.previewPath = SyncLocalDataAdapter.stringColumn(rs, 'preview_path')
         r.enabled = SyncLocalDataAdapter.numberColumn(rs, 'enabled') > 0
         r.updatedAt = SyncLocalDataAdapter.numberColumn(rs, 'updated_at')
         r.deletedAt = SyncLocalDataAdapter.numberColumn(rs, 'deleted_at')
@@ -580,8 +626,8 @@ export class SyncLocalDataAdapter {
       if (r.scopeKey.length > 0 && r.ruleId.length > 0 && r.hash.length > 0) {
         await store.executeSql(SQL_APPLY_IMAGE_BLOCK_RULE, [
           r.scopeKey, r.ruleId, r.hash, r.threshold, r.label, r.scope, r.feedId,
-          r.sourceType, r.sourceUrl, r.sourcePage, r.enabled ? 1 : 0, r.updatedAt,
-          r.deletedAt,
+          r.sourceType, r.sourceUrl, r.sourcePage, r.previewPath, r.enabled ? 1 : 0,
+          r.updatedAt, r.deletedAt,
         ])
       }
     }

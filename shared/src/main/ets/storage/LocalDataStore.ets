@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 14
+export const LOCAL_DATA_SCHEMA_VERSION: number = 15
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -12,7 +12,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'14\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'15\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -188,6 +188,26 @@ const SQL_CREATE_IMAGE_BLOCK_RULES_HASH_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_image_block_rules_hash ON image_block_rules (hash)'
 const SQL_CREATE_IMAGE_BLOCK_RULES_FEED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_image_block_rules_feed ON image_block_rules (feed_id, enabled)'
+const SQL_CREATE_IMAGE_BLOCK_USER_RULES_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS image_block_user_rules (' +
+    'scope_key TEXT, ' +
+    'rule_id TEXT, ' +
+    'hash TEXT, ' +
+    'threshold INTEGER, ' +
+    'label TEXT, ' +
+    'scope TEXT, ' +
+    'feed_id TEXT, ' +
+    'source_type TEXT, ' +
+    'source_url TEXT, ' +
+    'source_page INTEGER, ' +
+    'preview_path TEXT, ' +
+    'enabled INTEGER, ' +
+    'updated_at INTEGER, ' +
+    'deleted_at INTEGER DEFAULT 0, ' +
+    'PRIMARY KEY(scope_key, rule_id)' +
+  ')'
+const SQL_CREATE_IMAGE_BLOCK_USER_RULES_HASH_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_image_block_user_rules_hash ON image_block_user_rules (hash)'
 const SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_URL: string =
   'ALTER TABLE image_block_rules ADD COLUMN source_url TEXT'
 const SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_PAGE: string =
@@ -437,6 +457,8 @@ export class LocalDataStore {
     await LocalDataStore.migrateImageBlockLegacyTables(store)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_HASH_INDEX)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_FEED_INDEX)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_USER_RULES_TABLE)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_USER_RULES_HASH_INDEX)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_HASH_INDEX)
     await LocalDataStore.migrateCustomProfilesUuidColumn(store)

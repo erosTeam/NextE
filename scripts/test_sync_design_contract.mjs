@@ -64,6 +64,7 @@ const repos = [
   'shared/src/main/ets/storage/LocalFavoriteRepository.ets',
   'shared/src/main/ets/storage/LocalBlockRepository.ets',
   'shared/src/main/ets/storage/CustomProfilesRepository.ets',
+  'shared/src/main/ets/storage/ImageBlockRepository.ets',
 ]
 
 for (const file of repos) {
@@ -73,6 +74,7 @@ for (const file of repos) {
 }
 
 const types = read('shared/src/main/ets/sync/SyncTypes.ets')
+const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
 ok('sync envelope has explicit datasets',
   /class SyncDatasets/.test(types) &&
     /readProgress: SyncReadProgressRecord\[\]/.test(types) &&
@@ -185,6 +187,9 @@ ok('Huawei Cloud sync uses the same durable dataset table selection',
     /search_history/.test(cloudFeatures) &&
     /local_block_settings/.test(cloudFeatures) &&
     /local_block_rules/.test(cloudFeatures) &&
+    /image_block_subscriptions/.test(cloudFeatures) &&
+    /image_block_user_rules/.test(cloudFeatures) &&
+    !/'image_block_rules'/.test(cloudFeatures) &&
     /custom_profiles/.test(cloudFeatures) &&
     /custom_profile_selection/.test(cloudFeatures) &&
     !/tag_translations|eh_page_cache|comment_translation_cache|download_gallery_tasks|download_archiver_tasks/.test(cloudFeatures))
@@ -196,8 +201,18 @@ ok('Huawei Cloud schema keeps local table names but aliases AGC data type names'
     cloudAliasByName.get('search_history') === 'SearchHistory' &&
     cloudAliasByName.get('local_block_settings') === 'LocalBlockSettings' &&
     cloudAliasByName.get('local_block_rules') === 'LocalBlockRules' &&
+    cloudAliasByName.get('image_block_subscriptions') === 'ImageBlockSubscriptions' &&
+    cloudAliasByName.get('image_block_user_rules') === 'ImageBlockUserRules' &&
+    !cloudAliasByName.has('image_block_rules') &&
     cloudAliasByName.get('custom_profiles') === 'CustomProfiles' &&
     cloudAliasByName.get('custom_profile_selection') === 'CustomProfileSelection')
+ok('image block sync excludes subscription rule bodies from exported user data',
+  /COALESCE\(source_type, \\\'\\\'\) <> \\\'subscription\\\'/.test(syncAdapter) &&
+    /image_block_user_rules/.test(cloudFeatures) &&
+    /prepareHuaweiCloudTables/.test(syncAdapter) &&
+    /applyHuaweiCloudTables/.test(syncAdapter) &&
+    /previewPath: string = ''/.test(types) &&
+    /preview_path/.test(syncAdapter))
 ok('Huawei Cloud sync permission is declared for private builds',
   /ohos\.permission\.DISTRIBUTED_DATASYNC/.test(moduleJson))
 
