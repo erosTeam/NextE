@@ -1,4 +1,8 @@
-# NextE
+<h1 align="center">
+  <img src="docs/assets/app-icon-rounded.png" alt="NextE" width="128" height="128">
+  <br>
+  NextE
+</h1>
 
 原生 **HarmonyOS NEXT** E-Hentai / ExHentai 客户端。
 
