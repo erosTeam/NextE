@@ -181,11 +181,11 @@ ok('Huawei Cloud sync service is guarded and uses RDB cloud sync APIs',
     /DISTRIBUTED_CLOUD/.test(huaweiCloud) &&
     /cloudSync/.test(huaweiCloud) &&
     /SYNC_MODE_TIME_FIRST/.test(huaweiCloud))
-ok('Huawei Cloud sync marks distributed tables before image-block mirror refresh',
+ok('Huawei Cloud sync marks distributed tables before image-block user-rule preparation',
   huaweiCloud.indexOf('await store.setDistributedTables') >= 0 &&
     huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables') >
       huaweiCloud.indexOf('await store.setDistributedTables'))
-ok('Huawei Cloud startup prepares image-block mirror before provider toggle check',
+ok('Huawei Cloud startup prepares image-block legacy user rules before provider toggle check',
   huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)') >= 0 &&
     huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)') <
       huaweiCloud.indexOf('if (!snapshot.huaweiCloudEnabled)'))
@@ -215,17 +215,19 @@ ok('Huawei Cloud schema keeps local table names but aliases AGC data type names'
     !cloudAliasByName.has('image_block_rules') &&
     cloudAliasByName.get('custom_profiles') === 'CustomProfiles' &&
     cloudAliasByName.get('custom_profile_selection') === 'CustomProfileSelection')
-ok('image block sync excludes subscription rule bodies from exported user data',
+ok('image block sync uses image_block_user_rules as the user-rule source table',
   /COALESCE\(source_type, \\\'\\\'\) <> \\\'subscription\\\'/.test(syncAdapter) &&
+    /FROM image_block_user_rules/.test(syncAdapter) &&
     /image_block_user_rules/.test(cloudFeatures) &&
     /prepareHuaweiCloudTables/.test(syncAdapter) &&
     /_selection: SyncDatasetSelection/.test(syncAdapter) &&
     !/_selection\.imageBlock/.test(syncAdapter) &&
-    /image_block_cloud_touch_v1/.test(syncAdapter) &&
+    !/image_block_cloud_touch/.test(syncAdapter) &&
     /prepareHuaweiCloudTables\(context, selection, true\)/.test(huaweiCloud) &&
     /SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN/.test(syncAdapter) &&
-    /SQL_SYNC_USER_RULE_FROM_MAIN/.test(imageBlockRepo) &&
-    /syncOneUserRuleFromMain/.test(imageBlockRepo) &&
+    /SQL_UPSERT_USER_RULE/.test(imageBlockRepo) &&
+    /FROM image_block_user_rules/.test(imageBlockRepo) &&
+    !/syncOneUserRuleFromMain/.test(imageBlockRepo) &&
     /SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(imageBlockRepo) &&
     /applyHuaweiCloudTables/.test(syncAdapter) &&
     /previewPath: string = ''/.test(types) &&

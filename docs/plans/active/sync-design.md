@@ -19,12 +19,13 @@ Sync only durable user-local records with stable keys and timestamps:
 - `local_block_settings`
 - `local_block_rules`
 - `image_block_subscriptions`
-- `image_block_rules` for user-authored image rules only (`local` / `allow`); subscription rule bodies
-  are regenerated from the synced subscription feed metadata and are not exported as user data.
-- Huawei Cloud uses `image_block_user_rules` instead of `image_block_rules`, because RDB cloud sync is
-  table-scoped and cannot filter subscription rule rows.
-  This mirror table stores complete user-authored image rules and per-rule subscription overrides
-  such as enabled state and threshold. It must not store subscription rule bodies.
+- `image_block_user_rules` for user-authored image rules (`local` / `allow`) and per-rule subscription
+  overrides such as enabled state and threshold.
+- `image_block_rules` stores subscription rule bodies only. Subscription bodies are regenerated from
+  synced subscription feed metadata and are not exported as user data.
+  Huawei Cloud syncs `image_block_user_rules` directly; it is the user-rule source table, not a mirror.
+  A legacy prepare step may copy old non-subscription rows out of `image_block_rules`, but normal reads
+  and writes must use `image_block_user_rules`.
 - `custom_profiles`
 - `custom_profile_selection`
 
@@ -145,7 +146,7 @@ Manual WebDAV sync supports selection for the durable data groups:
 - browsing history (`viewed_history`)
 - local favorites (`local_favorites`)
 - search history (`search_history`)
-- block rules (`local_block_settings`, `local_block_rules`, `image_block_subscriptions`, `image_block_rules`)
+- block rules (`local_block_settings`, `local_block_rules`, `image_block_subscriptions`, `image_block_user_rules`)
 - custom list tabs (`custom_profiles`, `custom_profile_selection`)
 
 All groups default to enabled. A disabled group must not be exported from the current device, must not be

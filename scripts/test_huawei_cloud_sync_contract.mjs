@@ -86,7 +86,7 @@ ok('Huawei cloud service uses official RDB cloud sync entry points',
     /relationalStore\.DistributedType\.DISTRIBUTED_CLOUD/.test(service) &&
     /relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST/.test(service) &&
     /cloudSync/.test(service))
-ok('Huawei cloud marks distributed image-block tables before refreshing mirror rows',
+ok('Huawei cloud marks distributed image-block tables before preparing user-rule source rows',
   service.indexOf('await store.setDistributedTables') >= 0 &&
     service.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables') >
       service.indexOf('await store.setDistributedTables'))
@@ -192,19 +192,21 @@ ok('custom profile sync canonicalizes seeded search tabs before uuid-based merge
     /STARTER_ANTHOLOGY_UUID/.test(syncAdapter) &&
     /r\.searchText === 'language:chinese'/.test(syncAdapter) &&
     /r\.searchText === 'other:anthology'/.test(syncAdapter))
-ok('image block sync exports local user rules but not subscription rule bodies',
+ok('image block sync uses image_block_user_rules as the user-rule source table',
   syncAdapter.includes('COALESCE(source_type, \\\'\\\') <> \\\'subscription\\\'') &&
+    /FROM image_block_user_rules/.test(syncAdapter) &&
     /image_block_user_rules/.test(features) &&
     /prepareHuaweiCloudTables/.test(syncAdapter) &&
     /_selection: SyncDatasetSelection/.test(syncAdapter) &&
     !/_selection\.imageBlock/.test(syncAdapter) &&
-    /image_block_cloud_touch_v1/.test(syncAdapter) &&
+    !/image_block_cloud_touch/.test(syncAdapter) &&
     /prepareHuaweiCloudTables\(context, selection, true\)/.test(service) &&
     service.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)') <
       service.indexOf('if (!snapshot.huaweiCloudEnabled)') &&
     /SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN/.test(syncAdapter) &&
-    /SQL_SYNC_USER_RULE_FROM_MAIN/.test(imageBlockRepo) &&
-    /syncOneUserRuleFromMain/.test(imageBlockRepo) &&
+    /SQL_UPSERT_USER_RULE/.test(imageBlockRepo) &&
+    /FROM image_block_user_rules/.test(imageBlockRepo) &&
+    !/syncOneUserRuleFromMain/.test(imageBlockRepo) &&
     /SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(imageBlockRepo) &&
     /applyHuaweiCloudTables/.test(syncAdapter) &&
     /preview_path/.test(syncAdapter) &&

@@ -24,37 +24,51 @@ const SQL_SELECT_SUBSCRIPTIONS: string =
   'FROM image_block_subscriptions WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY feed_id ASC'
 const SQL_SELECT_ENABLED_RULES: string =
-  'SELECT r.rule_id, r.hash, r.threshold, ' +
-  'r.label, r.scope, r.feed_id, r.source_type, ' +
-  'r.source_url, r.source_page, r.preview_path, r.enabled, r.updated_at, r.deleted_at ' +
+  'SELECT rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, ' +
+  'preview_path, enabled, updated_at, deleted_at FROM image_block_user_rules ' +
+  'WHERE scope_key = ? AND enabled > 0 AND COALESCE(deleted_at, 0) = 0 ' +
+  'AND COALESCE(source_type, \'\') <> ? ' +
+  'UNION ALL SELECT r.rule_id, r.hash, ' +
+  'CASE WHEN COALESCE(u.threshold, -1) >= 0 THEN u.threshold ELSE r.threshold END AS threshold, ' +
+  'r.label, r.scope, r.feed_id, r.source_type, r.source_url, r.source_page, r.preview_path, ' +
+  'CASE WHEN COALESCE(u.enabled, -1) >= 0 THEN u.enabled ELSE r.enabled END AS enabled, ' +
+  'CASE WHEN COALESCE(u.updated_at, 0) > COALESCE(r.updated_at, 0) THEN u.updated_at ELSE r.updated_at END AS updated_at, ' +
+  'CASE WHEN COALESCE(u.deleted_at, 0) > COALESCE(r.deleted_at, 0) THEN u.deleted_at ELSE r.deleted_at END AS deleted_at ' +
   'FROM image_block_rules r LEFT JOIN image_block_subscriptions s ' +
   'ON s.scope_key = r.scope_key AND s.feed_id = r.feed_id AND COALESCE(s.deleted_at, 0) = 0 ' +
-  'WHERE r.scope_key = ? AND r.enabled > 0 AND COALESCE(r.deleted_at, 0) = 0 ' +
-  'AND (r.source_type <> ? OR COALESCE(s.enabled, 0) > 0) ' +
-  'ORDER BY r.source_type ASC, r.feed_id ASC, r.rule_id ASC'
+  'LEFT JOIN image_block_user_rules u ON u.scope_key = r.scope_key AND u.rule_id = r.rule_id ' +
+  'AND u.hash = r.hash AND u.source_type = r.source_type AND COALESCE(u.deleted_at, 0) = 0 ' +
+  'WHERE r.scope_key = ? AND r.source_type = ? AND COALESCE(r.deleted_at, 0) = 0 ' +
+  'AND COALESCE(s.enabled, 0) > 0 ' +
+  'AND CASE WHEN COALESCE(u.enabled, -1) >= 0 THEN u.enabled ELSE r.enabled END > 0 ' +
+  'ORDER BY source_type ASC, feed_id ASC, rule_id ASC'
 const SQL_SELECT_SUBSCRIPTION_RULES: string =
-  'SELECT r.rule_id, r.hash, r.threshold, ' +
+  'SELECT r.rule_id, r.hash, ' +
+  'CASE WHEN COALESCE(u.threshold, -1) >= 0 THEN u.threshold ELSE r.threshold END AS threshold, ' +
   'r.label, r.scope, r.feed_id, r.source_type, r.source_url, r.source_page, r.preview_path, ' +
-  'r.enabled, ' +
-  'r.updated_at, r.deleted_at ' +
-  'FROM image_block_rules r ' +
+  'CASE WHEN COALESCE(u.enabled, -1) >= 0 THEN u.enabled ELSE r.enabled END AS enabled, ' +
+  'CASE WHEN COALESCE(u.updated_at, 0) > COALESCE(r.updated_at, 0) THEN u.updated_at ELSE r.updated_at END AS updated_at, ' +
+  'CASE WHEN COALESCE(u.deleted_at, 0) > COALESCE(r.deleted_at, 0) THEN u.deleted_at ELSE r.deleted_at END AS deleted_at ' +
+  'FROM image_block_rules r LEFT JOIN image_block_user_rules u ON u.scope_key = r.scope_key ' +
+  'AND u.rule_id = r.rule_id AND u.hash = r.hash AND u.source_type = r.source_type ' +
+  'AND COALESCE(u.deleted_at, 0) = 0 ' +
   'WHERE r.scope_key = ? AND r.feed_id = ? AND r.source_type = ? AND COALESCE(r.deleted_at, 0) = 0 ' +
   'ORDER BY r.rule_id ASC'
 const SQL_SELECT_WHITELIST: string =
-  'SELECT hash FROM image_block_rules WHERE scope_key = ? AND source_type = ? AND enabled > 0 ' +
+  'SELECT hash FROM image_block_user_rules WHERE scope_key = ? AND source_type = ? AND enabled > 0 ' +
   'AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY hash ASC'
 const SQL_SELECT_WHITELIST_ITEMS: string =
-  'SELECT hash, preview_path, updated_at FROM image_block_rules ' +
+  'SELECT hash, preview_path, updated_at FROM image_block_user_rules ' +
   'WHERE scope_key = ? AND source_type = ? AND enabled > 0 AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY updated_at DESC, hash ASC'
 const SQL_SELECT_LOCAL_RULE_COUNT: string =
-  'SELECT COUNT(*) AS rule_count FROM image_block_rules ' +
+  'SELECT COUNT(*) AS rule_count FROM image_block_user_rules ' +
   'WHERE scope_key = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_SELECT_LOCAL_RULES: string =
   'SELECT rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, ' +
   'preview_path, enabled, updated_at, deleted_at ' +
-  'FROM image_block_rules ' +
+  'FROM image_block_user_rules ' +
   'WHERE scope_key = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY updated_at DESC, rule_id ASC'
 const SQL_SELECT_FILE_HASH: string =
@@ -86,6 +100,9 @@ const SQL_UPSERT_RULE: string =
 const SQL_UPDATE_RULE_PREVIEW: string =
   'UPDATE image_block_rules SET preview_path = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND COALESCE(deleted_at, 0) = 0 AND ? <> \'\''
+const SQL_UPDATE_USER_RULE_PREVIEW: string =
+  'UPDATE image_block_user_rules SET preview_path = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND rule_id = ? AND COALESCE(deleted_at, 0) = 0 AND ? <> \'\''
 const SQL_TOMBSTONE_SUBSCRIPTION: string =
   'UPDATE image_block_subscriptions SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND feed_id = ? AND COALESCE(deleted_at, 0) = 0'
@@ -96,19 +113,19 @@ const SQL_SET_SUBSCRIPTION_ENABLED: string =
   'UPDATE image_block_subscriptions SET enabled = ?, updated_at = ?, deleted_at = 0 ' +
   'WHERE scope_key = ? AND feed_id = ?'
 const SQL_TOMBSTONE_LOCAL_RULE: string =
-  'UPDATE image_block_rules SET deleted_at = ?, updated_at = ? ' +
+  'UPDATE image_block_user_rules SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_UPDATE_LOCAL_RULE_THRESHOLD: string =
-  'UPDATE image_block_rules SET threshold = ?, updated_at = ? ' +
+  'UPDATE image_block_user_rules SET threshold = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_UPDATE_LOCAL_RULE_ENABLED: string =
-  'UPDATE image_block_rules SET enabled = ?, updated_at = ? ' +
+  'UPDATE image_block_user_rules SET enabled = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_TOMBSTONE_ALLOW_RULES: string =
-  'UPDATE image_block_rules SET deleted_at = ?, updated_at = ? ' +
+  'UPDATE image_block_user_rules SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_TOMBSTONE_ONE_ALLOW_RULE: string =
-  'UPDATE image_block_rules SET deleted_at = ?, updated_at = ? ' +
+  'UPDATE image_block_user_rules SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND source_type = ? AND hash = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_UPDATE_RULE_ENABLED: string =
   'UPDATE image_block_rules SET enabled = ?, updated_at = ? ' +
@@ -131,21 +148,15 @@ const SQL_UPSERT_USER_RULE_OVERRIDE: string =
   'threshold = CASE WHEN excluded.threshold >= 0 THEN excluded.threshold ELSE image_block_user_rules.threshold END, ' +
   'enabled = CASE WHEN excluded.enabled >= 0 THEN excluded.enabled ELSE image_block_user_rules.enabled END, ' +
   'updated_at = excluded.updated_at, deleted_at = 0'
-const SQL_SYNC_USER_RULE_FROM_MAIN: string =
+const SQL_UPSERT_USER_RULE: string =
   'INSERT INTO image_block_user_rules ' +
   '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
-  'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at ' +
-  'FROM image_block_rules WHERE scope_key = ? AND rule_id = ? AND COALESCE(source_type, \'\') <> ? ' +
-  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
-  'WHERE excluded.updated_at >= image_block_user_rules.updated_at OR excluded.deleted_at >= image_block_user_rules.deleted_at'
-const SQL_SYNC_USER_RULES_BY_SOURCE_FROM_MAIN: string =
-  'INSERT INTO image_block_user_rules ' +
-  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
-  'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at ' +
-  'FROM image_block_rules WHERE scope_key = ? AND source_type = ? ' +
-  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
-  'WHERE excluded.updated_at >= image_block_user_rules.updated_at OR excluded.deleted_at >= image_block_user_rules.deleted_at'
-
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  'hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, ' +
+  'feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, ' +
+  'source_page = excluded.source_page, ' +
+  'preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, ' +
+  'enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = 0'
 export class ImageBlockRepository {
   static async loadSubscriptions(context: common.UIAbilityContext): Promise<ImageBlockFeed[]> {
     const out: ImageBlockFeed[] = []
@@ -180,6 +191,8 @@ export class ImageBlockRepository {
     const out: ImageBlockRule[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_ENABLED_RULES, [
+      SCOPE_GLOBAL,
+      IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
       SCOPE_GLOBAL,
       IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
     ])
@@ -412,7 +425,7 @@ export class ImageBlockRepository {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const now: number = Date.now()
     const ruleId: string = rule.id.length > 0 ? rule.id : 'local:' + normalizedHash
-    await store.executeSql(SQL_UPSERT_RULE, [
+    await store.executeSql(SQL_UPSERT_USER_RULE, [
       SCOPE_GLOBAL,
       ruleId,
       normalizedHash,
@@ -427,7 +440,6 @@ export class ImageBlockRepository {
       rule.enabled ? 1 : 0,
       now,
     ])
-    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
     ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
@@ -444,7 +456,6 @@ export class ImageBlockRepository {
       ruleId,
       IMAGE_BLOCK_SOURCE_LOCAL,
     ])
-    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
     ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
@@ -464,7 +475,6 @@ export class ImageBlockRepository {
       ruleId,
       IMAGE_BLOCK_SOURCE_LOCAL,
     ])
-    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
     ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
@@ -484,7 +494,6 @@ export class ImageBlockRepository {
       ruleId,
       IMAGE_BLOCK_SOURCE_LOCAL,
     ])
-    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
     ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
@@ -498,7 +507,7 @@ export class ImageBlockRepository {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await store.executeSql(SQL_UPDATE_RULE_PREVIEW, [previewPath, Date.now(), SCOPE_GLOBAL, ruleId, previewPath])
-    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
+    await store.executeSql(SQL_UPDATE_USER_RULE_PREVIEW, [previewPath, Date.now(), SCOPE_GLOBAL, ruleId, previewPath])
     ImageBlockRepository.requestSync(context, 'image_block_rule_preview')
   }
 
@@ -519,7 +528,6 @@ export class ImageBlockRepository {
           await ImageBlockRepository.upsertAllowRule(store, hash, '', now + i + 1)
         }
       }
-      await ImageBlockRepository.syncUserRulesBySourceFromMain(store, IMAGE_BLOCK_SOURCE_ALLOW)
       store.commit()
       ImageBlockRepository.requestSync(context, 'image_block_allow')
     } catch (error) {
@@ -540,7 +548,6 @@ export class ImageBlockRepository {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await ImageBlockRepository.upsertAllowRule(store, normalizedHash, previewPath, Date.now())
-    await ImageBlockRepository.syncOneUserRuleFromMain(store, 'allow:' + normalizedHash)
     ImageBlockRepository.requestSync(context, 'image_block_allow')
     return normalizedHash
   }
@@ -642,7 +649,6 @@ export class ImageBlockRepository {
       IMAGE_BLOCK_SOURCE_ALLOW,
       normalizedHash,
     ])
-    await ImageBlockRepository.syncOneUserRuleFromMain(store, 'allow:' + normalizedHash)
     ImageBlockRepository.requestSync(context, 'image_block_allow')
   }
 
@@ -717,24 +723,6 @@ export class ImageBlockRepository {
     ])
   }
 
-  private static async syncOneUserRuleFromMain(store: relationalStore.RdbStore, ruleId: string): Promise<void> {
-    await store.executeSql(SQL_SYNC_USER_RULE_FROM_MAIN, [
-      SCOPE_GLOBAL,
-      ruleId,
-      IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
-    ])
-  }
-
-  private static async syncUserRulesBySourceFromMain(
-    store: relationalStore.RdbStore,
-    sourceType: string,
-  ): Promise<void> {
-    await store.executeSql(SQL_SYNC_USER_RULES_BY_SOURCE_FROM_MAIN, [
-      SCOPE_GLOBAL,
-      sourceType,
-    ])
-  }
-
   private static requestSync(context: common.UIAbilityContext, reason: string): void {
     SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(SyncSettings.current()))
       .catch((_error: Error) => {
@@ -748,7 +736,7 @@ export class ImageBlockRepository {
     previewPath: string,
     updatedAt: number,
   ): Promise<void> {
-    await store.executeSql(SQL_UPSERT_RULE, [
+    await store.executeSql(SQL_UPSERT_USER_RULE, [
       SCOPE_GLOBAL,
       'allow:' + hash,
       hash,
