@@ -117,6 +117,11 @@ export class SyncSettings {
       snapshot.huaweiCloudLastCloudDisabled =
         store.getSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED, false) as boolean
       SyncSettings.apply(snapshot)
+      DiagnosticLogger.info(
+        'sync',
+        'sync_settings_restore',
+        `huaweiCloud=${snapshot.huaweiCloudEnabled},localBlock=${snapshot.datasetLocalBlock}`,
+      )
     } catch (error) {
       DiagnosticLogger.warn('settings', 'sync_restore_failed', (error as Error).message)
       SyncSettings.apply(new SyncSettingsSnapshot())

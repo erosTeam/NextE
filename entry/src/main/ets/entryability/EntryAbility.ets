@@ -13,7 +13,9 @@ import {
   InternalQaRoutes,
   HuaweiCloudSyncService,
   HuaweiCloudSyncScheduler,
+  SyncLocalDataAdapter,
   SyncScheduler,
+  SyncSettings,
 } from 'shared'
 
 const TRANSPARENT_COLOR: string = '#00FFFFFF'
@@ -88,6 +90,14 @@ export default class EntryAbility extends UIAbility {
     }
     SettingsBootstrap.loadAll(this.context).finally(() => {
       SyncScheduler.rememberContext(this.context)
+      DiagnosticLogger.info('sync', 'image_block_cloud_prepare_request', 'startup')
+      SyncLocalDataAdapter.prepareHuaweiCloudTables(
+        this.context,
+        SyncSettings.selection(SyncSettings.current()),
+        true,
+      ).catch((error: Error) => {
+        DiagnosticLogger.warn('sync', 'image_block_cloud_prepare_failed', error.message)
+      })
       HuaweiCloudSyncService.tryEnableStartup(this.context).catch((error: Error) => {
         DiagnosticLogger.warn('sync', 'huawei_cloud_startup_failed', error.message)
       })

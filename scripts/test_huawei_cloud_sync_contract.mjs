@@ -86,6 +86,10 @@ ok('Huawei cloud service uses official RDB cloud sync entry points',
     /relationalStore\.DistributedType\.DISTRIBUTED_CLOUD/.test(service) &&
     /relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST/.test(service) &&
     /cloudSync/.test(service))
+ok('Huawei cloud marks distributed image-block tables before refreshing mirror rows',
+  service.indexOf('await store.setDistributedTables') >= 0 &&
+    service.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables') >
+      service.indexOf('await store.setDistributedTables'))
 ok('manual Huawei cloud sync follows Next2V whole marked-store cloudSync path',
   /cloudSync\(\s*relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST,\s*\(progress: relationalStore\.ProgressDetails\) =>/.test(service) &&
     !/\\.cloudSync\(\s*relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST,\s*tables,/.test(service))
@@ -101,6 +105,7 @@ ok('Huawei cloud scheduled sync coalesces writes and foreground events',
 ok('EntryAbility binds Huawei cloud scheduled sync and foreground startup kicks',
   /HuaweiCloudSyncScheduler\.bindExecutor/.test(entryAbility) &&
     /HuaweiCloudSyncService\.runScheduledSync\(context, reason\)/.test(entryAbility) &&
+    /SyncLocalDataAdapter\.prepareHuaweiCloudTables\([\s\S]*SyncSettings\.selection\(SyncSettings\.current\(\)\),[\s\S]*true/.test(entryAbility) &&
     /SyncScheduler\.requestAfterForeground\(this\.context, 'startup'\)/.test(entryAbility) &&
     /onForeground\(\): void \{[\s\S]*SyncScheduler\.requestAfterForeground\(this\.context, 'foreground'\)/.test(entryAbility))
 
@@ -170,6 +175,7 @@ ok('custom profiles cloud schema avoids AGC reserved uuid field name',
 
 const localStore = read('shared/src/main/ets/storage/LocalDataStore.ets')
 const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
+const imageBlockRepo = read('shared/src/main/ets/storage/ImageBlockRepository.ets')
 for (const table of expectedTables) {
   ok(`local store creates ${table}`, localStore.includes(`CREATE TABLE IF NOT EXISTS ${table} (`))
 }
@@ -190,6 +196,16 @@ ok('image block sync exports local user rules but not subscription rule bodies',
   syncAdapter.includes('COALESCE(source_type, \\\'\\\') <> \\\'subscription\\\'') &&
     /image_block_user_rules/.test(features) &&
     /prepareHuaweiCloudTables/.test(syncAdapter) &&
+    /_selection: SyncDatasetSelection/.test(syncAdapter) &&
+    !/_selection\.imageBlock/.test(syncAdapter) &&
+    /image_block_cloud_touch_v1/.test(syncAdapter) &&
+    /prepareHuaweiCloudTables\(context, selection, true\)/.test(service) &&
+    service.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)') <
+      service.indexOf('if (!snapshot.huaweiCloudEnabled)') &&
+    /SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN/.test(syncAdapter) &&
+    /SQL_SYNC_USER_RULE_FROM_MAIN/.test(imageBlockRepo) &&
+    /syncOneUserRuleFromMain/.test(imageBlockRepo) &&
+    /SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(imageBlockRepo) &&
     /applyHuaweiCloudTables/.test(syncAdapter) &&
     /preview_path/.test(syncAdapter) &&
     /r\.previewPath = SyncLocalDataAdapter\.stringColumn\(rs, 'preview_path'\)/.test(syncAdapter))

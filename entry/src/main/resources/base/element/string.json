@@ -1137,6 +1137,10 @@
       "value": "Block current image"
     },
     {
+      "name": "reader_image_block_mark_confirm",
+      "value": "Add a local image block rule for the current image?"
+    },
+    {
       "name": "reader_image_block_mark_added",
       "value": "Added local image block rule"
     },

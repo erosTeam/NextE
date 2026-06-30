@@ -48,6 +48,7 @@ export class HuaweiCloudSyncScheduler {
   ): void {
     HuaweiCloudSyncScheduler.context = context
     if (!SyncSettings.current().huaweiCloudEnabled) {
+      DiagnosticLogger.info('sync', 'huawei_cloud_schedule_skipped', `reason=${reason},enabled=false`)
       return
     }
     HuaweiCloudSyncScheduler.pendingReason = reason

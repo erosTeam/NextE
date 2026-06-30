@@ -55,27 +55,26 @@ export class HuaweiCloudSyncService {
       DiagnosticLogger.warn('sync', 'huawei_cloud_no_tables', 'selection is empty')
       return false
     }
-    await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, selection)
     const signature: string = tables.join(',')
-    if (HuaweiCloudSyncService.lastMarkedSignature === signature) {
-      return true
+    if (HuaweiCloudSyncService.lastMarkedSignature !== signature) {
+      try {
+        const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+        const config: relationalStore.DistributedConfig = { autoSync: true }
+        await store.setDistributedTables(
+          tables,
+          relationalStore.DistributedType.DISTRIBUTED_CLOUD,
+          config,
+        )
+        HuaweiCloudSyncService.lastMarkedSignature = signature
+        HuaweiCloudSyncService.bindAutoSyncProgress(context, store)
+        DiagnosticLogger.info('sync', 'huawei_cloud_tables_marked', `tables=${signature}`)
+      } catch (error) {
+        DiagnosticLogger.warn('sync', 'huawei_cloud_mark_tables_failed', (error as Error).message)
+        return false
+      }
     }
-    try {
-      const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-      const config: relationalStore.DistributedConfig = { autoSync: true }
-      await store.setDistributedTables(
-        tables,
-        relationalStore.DistributedType.DISTRIBUTED_CLOUD,
-        config,
-      )
-      HuaweiCloudSyncService.lastMarkedSignature = signature
-      HuaweiCloudSyncService.bindAutoSyncProgress(context, store)
-      DiagnosticLogger.info('sync', 'huawei_cloud_tables_marked', `tables=${signature}`)
-      return true
-    } catch (error) {
-      DiagnosticLogger.warn('sync', 'huawei_cloud_mark_tables_failed', (error as Error).message)
-      return false
-    }
+    await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, selection, true)
+    return true
   }
 
   static async cloudSyncNow(
@@ -129,6 +128,7 @@ export class HuaweiCloudSyncService {
       return
     }
     const snapshot = SyncSettings.current()
+    await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)
     if (!snapshot.huaweiCloudEnabled) {
       return
     }

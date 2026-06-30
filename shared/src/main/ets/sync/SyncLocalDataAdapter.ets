@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { LocalDataStore } from '../storage/LocalDataStore'
 import {
   PROFILE_TYPE_GALLERY,
@@ -43,6 +44,21 @@ const SQL_SELECT_IMAGE_BLOCK_SUBSCRIPTIONS: string =
 const SQL_SELECT_IMAGE_BLOCK_RULES: string =
   'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at ' +
   'FROM image_block_rules WHERE COALESCE(source_type, \'\') <> \'subscription\''
+const SQL_COUNT_IMAGE_BLOCK_MAIN_USER_RULES: string =
+  'SELECT COUNT(*) AS count_value FROM image_block_rules WHERE COALESCE(source_type, \'\') <> \'subscription\''
+const SQL_COUNT_IMAGE_BLOCK_SUBSCRIPTION_DISABLES: string =
+  'SELECT COUNT(*) AS count_value FROM image_block_rules WHERE source_type = \'subscription\' AND enabled = 0'
+const SQL_COUNT_IMAGE_BLOCK_USER_RULES: string =
+  'SELECT COUNT(*) AS count_value FROM image_block_user_rules'
+const IMAGE_BLOCK_CLOUD_TOUCH_META_KEY: string = 'image_block_cloud_touch_v1'
+const SQL_SELECT_SCHEMA_META_VALUE: string =
+  'SELECT value FROM schema_meta WHERE key = ?'
+const SQL_UPSERT_SCHEMA_META_VALUE: string =
+  'INSERT INTO schema_meta (key, value) VALUES (?, ?) ' +
+  'ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+const SQL_TOUCH_IMAGE_BLOCK_USER_RULES_FOR_CLOUD: string =
+  'UPDATE image_block_user_rules SET updated_at = updated_at + 1 ' +
+  'WHERE COALESCE(source_type, \'\') <> \'\''
 const SQL_SYNC_IMAGE_BLOCK_USER_RULES_FROM_MAIN: string =
   'INSERT INTO image_block_user_rules ' +
   '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
@@ -57,6 +73,13 @@ const SQL_APPLY_IMAGE_BLOCK_USER_RULES_TO_MAIN: string =
   'FROM image_block_user_rules WHERE COALESCE(source_type, \'\') <> \'subscription\' ' +
   'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
   'WHERE excluded.updated_at >= image_block_rules.updated_at OR excluded.deleted_at >= image_block_rules.deleted_at'
+const SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN: string =
+  'INSERT INTO image_block_user_rules ' +
+  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
+  'SELECT scope_key, rule_id, hash, -1, \'\', \'\', feed_id, source_type, \'\', 0, \'\', 0, updated_at, deleted_at ' +
+  'FROM image_block_rules WHERE source_type = \'subscription\' AND enabled = 0 ' +
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, feed_id = excluded.feed_id, source_type = excluded.source_type, enabled = 0, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE excluded.updated_at >= image_block_user_rules.updated_at OR excluded.deleted_at >= image_block_user_rules.deleted_at'
 const SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION_OVERRIDES: string =
   'UPDATE image_block_rules SET ' +
   'threshold = CASE WHEN COALESCE((SELECT u.threshold FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type), -1) >= 0 THEN (SELECT u.threshold FROM image_block_user_rules u WHERE u.scope_key = image_block_rules.scope_key AND u.rule_id = image_block_rules.rule_id AND u.hash = image_block_rules.hash AND u.source_type = image_block_rules.source_type) ELSE threshold END, ' +
@@ -103,13 +126,16 @@ const SQL_APPLY_CUSTOM_PROFILE_SELECTION: string =
 export class SyncLocalDataAdapter {
   static async prepareHuaweiCloudTables(
     context: common.UIAbilityContext,
-    selection: SyncDatasetSelection,
+    _selection: SyncDatasetSelection,
+    markExistingImageBlockDirty: boolean = false,
   ): Promise<void> {
-    if (!selection.imageBlock) {
-      return
-    }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await store.executeSql(SQL_SYNC_IMAGE_BLOCK_USER_RULES_FROM_MAIN)
+    await store.executeSql(SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN)
+    if (markExistingImageBlockDirty) {
+      await SyncLocalDataAdapter.touchImageBlockUserRulesForCloudOnce(store)
+    }
+    await SyncLocalDataAdapter.logImageBlockCloudPrepare(store)
   }
 
   static async applyHuaweiCloudTables(
@@ -875,6 +901,59 @@ export class SyncLocalDataAdapter {
 
   private static effectiveTime(updatedAt: number, deletedAt: number): number {
     return Math.max(Math.floor(updatedAt), Math.floor(deletedAt))
+  }
+
+  private static async logImageBlockCloudPrepare(store: relationalStore.RdbStore): Promise<void> {
+    const mainUser: number =
+      await SyncLocalDataAdapter.countRows(store, SQL_COUNT_IMAGE_BLOCK_MAIN_USER_RULES)
+    const subscriptionDisabled: number =
+      await SyncLocalDataAdapter.countRows(store, SQL_COUNT_IMAGE_BLOCK_SUBSCRIPTION_DISABLES)
+    const mirror: number =
+      await SyncLocalDataAdapter.countRows(store, SQL_COUNT_IMAGE_BLOCK_USER_RULES)
+    DiagnosticLogger.info(
+      'sync',
+      'image_block_cloud_prepare',
+      `mainUser=${mainUser},subscriptionDisabled=${subscriptionDisabled},mirror=${mirror}`,
+    )
+  }
+
+  private static async touchImageBlockUserRulesForCloudOnce(store: relationalStore.RdbStore): Promise<void> {
+    const touched: string =
+      await SyncLocalDataAdapter.schemaMetaValue(store, IMAGE_BLOCK_CLOUD_TOUCH_META_KEY)
+    if (touched === '1') {
+      return
+    }
+    const mirror: number =
+      await SyncLocalDataAdapter.countRows(store, SQL_COUNT_IMAGE_BLOCK_USER_RULES)
+    if (mirror > 0) {
+      await store.executeSql(SQL_TOUCH_IMAGE_BLOCK_USER_RULES_FOR_CLOUD)
+    }
+    await store.executeSql(SQL_UPSERT_SCHEMA_META_VALUE, [IMAGE_BLOCK_CLOUD_TOUCH_META_KEY, '1'])
+    DiagnosticLogger.info('sync', 'image_block_cloud_touch', `mirror=${mirror}`)
+  }
+
+  private static async schemaMetaValue(store: relationalStore.RdbStore, key: string): Promise<string> {
+    const rs: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SCHEMA_META_VALUE, [key])
+    try {
+      if (rs.goToNextRow()) {
+        return SyncLocalDataAdapter.stringColumn(rs, 'value')
+      }
+    } finally {
+      rs.close()
+    }
+    return ''
+  }
+
+  private static async countRows(store: relationalStore.RdbStore, sql: string): Promise<number> {
+    const rs: relationalStore.ResultSet = await store.querySql(sql)
+    try {
+      if (rs.goToNextRow()) {
+        return Math.floor(SyncLocalDataAdapter.numberColumn(rs, 'count_value'))
+      }
+    } finally {
+      rs.close()
+    }
+    return 0
   }
 
   private static stringColumn(rs: relationalStore.ResultSet, name: string): string {

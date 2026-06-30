@@ -75,6 +75,7 @@ for (const file of repos) {
 
 const types = read('shared/src/main/ets/sync/SyncTypes.ets')
 const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
+const imageBlockRepo = read('shared/src/main/ets/storage/ImageBlockRepository.ets')
 ok('sync envelope has explicit datasets',
   /class SyncDatasets/.test(types) &&
     /readProgress: SyncReadProgressRecord\[\]/.test(types) &&
@@ -180,6 +181,14 @@ ok('Huawei Cloud sync service is guarded and uses RDB cloud sync APIs',
     /DISTRIBUTED_CLOUD/.test(huaweiCloud) &&
     /cloudSync/.test(huaweiCloud) &&
     /SYNC_MODE_TIME_FIRST/.test(huaweiCloud))
+ok('Huawei Cloud sync marks distributed tables before image-block mirror refresh',
+  huaweiCloud.indexOf('await store.setDistributedTables') >= 0 &&
+    huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables') >
+      huaweiCloud.indexOf('await store.setDistributedTables'))
+ok('Huawei Cloud startup prepares image-block mirror before provider toggle check',
+  huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)') >= 0 &&
+    huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)') <
+      huaweiCloud.indexOf('if (!snapshot.huaweiCloudEnabled)'))
 ok('Huawei Cloud sync uses the same durable dataset table selection',
   /gallery_read_progress/.test(cloudFeatures) &&
     /viewed_history/.test(cloudFeatures) &&
@@ -210,6 +219,14 @@ ok('image block sync excludes subscription rule bodies from exported user data',
   /COALESCE\(source_type, \\\'\\\'\) <> \\\'subscription\\\'/.test(syncAdapter) &&
     /image_block_user_rules/.test(cloudFeatures) &&
     /prepareHuaweiCloudTables/.test(syncAdapter) &&
+    /_selection: SyncDatasetSelection/.test(syncAdapter) &&
+    !/_selection\.imageBlock/.test(syncAdapter) &&
+    /image_block_cloud_touch_v1/.test(syncAdapter) &&
+    /prepareHuaweiCloudTables\(context, selection, true\)/.test(huaweiCloud) &&
+    /SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN/.test(syncAdapter) &&
+    /SQL_SYNC_USER_RULE_FROM_MAIN/.test(imageBlockRepo) &&
+    /syncOneUserRuleFromMain/.test(imageBlockRepo) &&
+    /SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(imageBlockRepo) &&
     /applyHuaweiCloudTables/.test(syncAdapter) &&
     /previewPath: string = ''/.test(types) &&
     /preview_path/.test(syncAdapter))
@@ -223,6 +240,7 @@ ok('sync settings restore during settings bootstrap',
 const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
 ok('app lifecycle schedules provider-neutral sync after startup and foreground',
   /SyncScheduler\.rememberContext\(this\.context\)/.test(entryAbility) &&
+    /SyncLocalDataAdapter\.prepareHuaweiCloudTables\([\s\S]*SyncSettings\.selection\(SyncSettings\.current\(\)\),[\s\S]*true/.test(entryAbility) &&
     /SyncScheduler\.requestAfterForeground\(this\.context, 'startup'\)/.test(entryAbility) &&
     /SyncScheduler\.requestAfterForeground\(this\.context, 'foreground'\)/.test(entryAbility))
 

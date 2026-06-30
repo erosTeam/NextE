@@ -12,7 +12,9 @@ import {
   ImageBlockRule,
   ImageBlockWhitelistItem,
 } from '../model/ImageBlockRule'
+import { SyncSettings } from '../settings/SyncSettings'
 import { PHashService } from '../services/PHashService'
+import { SyncLocalDataAdapter } from '../sync/SyncLocalDataAdapter'
 import { SyncScheduler } from '../sync/SyncScheduler'
 import { LocalDataStore } from './LocalDataStore'
 
@@ -129,6 +131,20 @@ const SQL_UPSERT_USER_RULE_OVERRIDE: string =
   'threshold = CASE WHEN excluded.threshold >= 0 THEN excluded.threshold ELSE image_block_user_rules.threshold END, ' +
   'enabled = CASE WHEN excluded.enabled >= 0 THEN excluded.enabled ELSE image_block_user_rules.enabled END, ' +
   'updated_at = excluded.updated_at, deleted_at = 0'
+const SQL_SYNC_USER_RULE_FROM_MAIN: string =
+  'INSERT INTO image_block_user_rules ' +
+  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
+  'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at ' +
+  'FROM image_block_rules WHERE scope_key = ? AND rule_id = ? AND COALESCE(source_type, \'\') <> ? ' +
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE excluded.updated_at >= image_block_user_rules.updated_at OR excluded.deleted_at >= image_block_user_rules.deleted_at'
+const SQL_SYNC_USER_RULES_BY_SOURCE_FROM_MAIN: string =
+  'INSERT INTO image_block_user_rules ' +
+  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
+  'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at ' +
+  'FROM image_block_rules WHERE scope_key = ? AND source_type = ? ' +
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE excluded.updated_at >= image_block_user_rules.updated_at OR excluded.deleted_at >= image_block_user_rules.deleted_at'
 
 export class ImageBlockRepository {
   static async loadSubscriptions(context: common.UIAbilityContext): Promise<ImageBlockFeed[]> {
@@ -395,9 +411,10 @@ export class ImageBlockRepository {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const now: number = Date.now()
+    const ruleId: string = rule.id.length > 0 ? rule.id : 'local:' + normalizedHash
     await store.executeSql(SQL_UPSERT_RULE, [
       SCOPE_GLOBAL,
-      rule.id.length > 0 ? rule.id : 'local:' + normalizedHash,
+      ruleId,
       normalizedHash,
       PHashService.clampThreshold(rule.threshold),
       rule.label.length > 0 ? rule.label : 'local',
@@ -410,6 +427,7 @@ export class ImageBlockRepository {
       rule.enabled ? 1 : 0,
       now,
     ])
+    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
     ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
@@ -426,6 +444,7 @@ export class ImageBlockRepository {
       ruleId,
       IMAGE_BLOCK_SOURCE_LOCAL,
     ])
+    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
     ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
@@ -445,6 +464,7 @@ export class ImageBlockRepository {
       ruleId,
       IMAGE_BLOCK_SOURCE_LOCAL,
     ])
+    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
     ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
@@ -464,6 +484,7 @@ export class ImageBlockRepository {
       ruleId,
       IMAGE_BLOCK_SOURCE_LOCAL,
     ])
+    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
     ImageBlockRepository.requestSync(context, 'image_block_rule')
   }
 
@@ -477,6 +498,7 @@ export class ImageBlockRepository {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await store.executeSql(SQL_UPDATE_RULE_PREVIEW, [previewPath, Date.now(), SCOPE_GLOBAL, ruleId, previewPath])
+    await ImageBlockRepository.syncOneUserRuleFromMain(store, ruleId)
     ImageBlockRepository.requestSync(context, 'image_block_rule_preview')
   }
 
@@ -497,6 +519,7 @@ export class ImageBlockRepository {
           await ImageBlockRepository.upsertAllowRule(store, hash, '', now + i + 1)
         }
       }
+      await ImageBlockRepository.syncUserRulesBySourceFromMain(store, IMAGE_BLOCK_SOURCE_ALLOW)
       store.commit()
       ImageBlockRepository.requestSync(context, 'image_block_allow')
     } catch (error) {
@@ -517,6 +540,7 @@ export class ImageBlockRepository {
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await ImageBlockRepository.upsertAllowRule(store, normalizedHash, previewPath, Date.now())
+    await ImageBlockRepository.syncOneUserRuleFromMain(store, 'allow:' + normalizedHash)
     ImageBlockRepository.requestSync(context, 'image_block_allow')
     return normalizedHash
   }
@@ -618,6 +642,7 @@ export class ImageBlockRepository {
       IMAGE_BLOCK_SOURCE_ALLOW,
       normalizedHash,
     ])
+    await ImageBlockRepository.syncOneUserRuleFromMain(store, 'allow:' + normalizedHash)
     ImageBlockRepository.requestSync(context, 'image_block_allow')
   }
 
@@ -692,7 +717,28 @@ export class ImageBlockRepository {
     ])
   }
 
+  private static async syncOneUserRuleFromMain(store: relationalStore.RdbStore, ruleId: string): Promise<void> {
+    await store.executeSql(SQL_SYNC_USER_RULE_FROM_MAIN, [
+      SCOPE_GLOBAL,
+      ruleId,
+      IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
+    ])
+  }
+
+  private static async syncUserRulesBySourceFromMain(
+    store: relationalStore.RdbStore,
+    sourceType: string,
+  ): Promise<void> {
+    await store.executeSql(SQL_SYNC_USER_RULES_BY_SOURCE_FROM_MAIN, [
+      SCOPE_GLOBAL,
+      sourceType,
+    ])
+  }
+
   private static requestSync(context: common.UIAbilityContext, reason: string): void {
+    SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(SyncSettings.current()))
+      .catch((_error: Error) => {
+      })
     SyncScheduler.requestAfterLocalWrite(context, reason)
   }
 

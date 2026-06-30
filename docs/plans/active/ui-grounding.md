@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: reader image block action safety
+
+Status: active
+Reference implementation: `feature/reader/src/main/ets/pages/ReaderPage.ets` existing Reader top/bottom chrome, `shared/src/main/ets/components/PreviewThumbTile.ets` native `MenuItem` image-block actions, and `feature/download/src/main/ets/pages/DownloadQueuePage.ets` `showAlertDialog` confirmation pattern.
+Surface type: Reader chrome current-image block action only.
+Primary information: reading controls stay focused on page navigation, current page state, save/original, auto-read, thumbnails, and mode.
+Primary action: when image blocking is enabled, open the secondary Reader menu and explicitly confirm adding a local image block rule for the current image.
+Reuse or deviation: reuse the existing image-block runtime write path and platform menu/dialog components; remove the one-tap bottom-toolbar block button so the side-effect action is not mixed with frequent reader controls.
+Verification: UI grounding contract, V1 decorator inventory, i18n resources, diff check, signed HarmonyOS build, and Reader chrome smoke.
+
 ## Active: detail action strip edge alignment
 
 Status: active

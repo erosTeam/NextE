@@ -30,6 +30,8 @@ import {
   CachedImageFileResult,
   ImageBlockDecision,
   ImageBlockRuntimeService,
+  ImageBlockSettingsState,
+  connectImageBlockSettings,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 
@@ -178,6 +180,8 @@ export struct ReaderPage {
   @Local currentImageBlockFilePath: string = '';
   @Local currentImageBlocked: boolean = false;
   @Local imageBlockRuleVersion: number = 0;
+  @Local imageBlockActionMenuShown: boolean = false;
+  @Local imageBlockSettings: ImageBlockSettingsState = connectImageBlockSettings();
   private listScroller: Scroller = new Scroller();
   private thumbScroller: Scroller = new Scroller();
   private horizontalSwiperController: SwiperController = new SwiperController();
@@ -745,6 +749,30 @@ export struct ReaderPage {
       .finally(() => {
         this.imageBlockRuleSaving = false
       })
+  }
+
+  private canShowReaderImageBlockAction(): boolean {
+    return this.imageBlockSettings.enabled && !this.currentImageBlocked
+  }
+
+  private confirmMarkCurrentImageAsBlocked(): void {
+    if (!this.canShowReaderImageBlockAction() || this.imageBlockRuleSaving) {
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.reader_image_block_mark'),
+      message: $r('app.string.reader_image_block_mark_confirm'),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.reader_image_block_mark'),
+        action: () => {
+          this.markCurrentImageAsBlocked()
+        },
+      },
+    })
   }
 
   private allowImageBlockForPage(page: number): void {
@@ -1539,6 +1567,18 @@ export struct ReaderPage {
     connectNavStack().stack.pushPathByName('ReaderSettings', null)
   }
 
+  @Builder
+  ReaderImageBlockActionMenu() {
+    Menu() {
+      MenuItem({ content: $r('app.string.reader_image_block_mark') })
+        .enabled(!this.imageBlockRuleSaving)
+        .onClick(() => {
+          this.imageBlockActionMenuShown = false
+          this.confirmMarkCurrentImageAsBlocked()
+        })
+    }
+  }
+
   private hasRenderableThumb(img: EhGalleryImage): boolean {
     return img.sUrl.length > 0 && img.thumbUrl.length > 0
   }
@@ -1614,6 +1654,33 @@ export struct ReaderPage {
       .onClick(() => {
         this.shareCurrentImage()
       })
+      if (this.canShowReaderImageBlockAction()) {
+        Button({ type: ButtonType.Circle }) {
+          if (this.imageBlockRuleSaving) {
+            LoadingProgress()
+              .width(READER_CHROME_ICON_SIZE)
+              .height(READER_CHROME_ICON_SIZE)
+              .color(Color.White)
+          } else {
+            SymbolGlyph($r('sys.symbol.dot_grid_2x2'))
+              .fontSize(READER_CHROME_ICON_SIZE)
+              .fontColor([Color.White])
+          }
+        }
+        .width(READER_CHROME_ACTION_SIZE)
+        .height(READER_CHROME_ACTION_SIZE)
+        .backgroundColor(Color.Transparent)
+        .accessibilityText($r('app.string.common_more_actions'))
+        .onClick(() => {
+          this.imageBlockActionMenuShown = true
+        })
+        .bindMenu(this.imageBlockActionMenuShown, this.ReaderImageBlockActionMenu, {
+          placement: Placement.BottomRight,
+          onDisappear: () => {
+            this.imageBlockActionMenuShown = false
+          },
+        })
+      }
       Button({ type: ButtonType.Circle }) {
         SymbolGlyph($r('sys.symbol.gearshape'))
           .fontSize(READER_CHROME_ICON_SIZE)
@@ -1725,25 +1792,6 @@ export struct ReaderPage {
           .backgroundColor(Color.Transparent)
           .onClick(() => {
             this.saveCurrentImage()
-          })
-          Button({ type: ButtonType.Circle }) {
-            if (this.imageBlockRuleSaving) {
-              LoadingProgress()
-                .width(READER_CHROME_ICON_SIZE)
-                .height(READER_CHROME_ICON_SIZE)
-                .color(Color.White)
-            } else {
-              SymbolGlyph($r('sys.symbol.eye_slash'))
-                .fontSize(READER_CHROME_ICON_SIZE)
-                .fontColor([Color.White])
-            }
-          }
-          .width(READER_CHROME_ACTION_SIZE)
-          .height(READER_CHROME_ACTION_SIZE)
-          .backgroundColor(Color.Transparent)
-          .accessibilityText($r('app.string.reader_image_block_mark'))
-          .onClick(() => {
-            this.markCurrentImageAsBlocked()
           })
           Button({ type: ButtonType.Circle }) {
             if (this.originalImageResolving) {

@@ -1137,6 +1137,10 @@
       "value": "現在の画像をブロック"
     },
     {
+      "name": "reader_image_block_mark_confirm",
+      "value": "現在の画像にローカル画像ブロックルールを追加しますか？"
+    },
+    {
       "name": "reader_image_block_mark_added",
       "value": "ローカル画像ブロックルールを追加しました"
     },

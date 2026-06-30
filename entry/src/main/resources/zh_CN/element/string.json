@@ -1137,6 +1137,10 @@
       "value": "屏蔽当前图片"
     },
     {
+      "name": "reader_image_block_mark_confirm",
+      "value": "为当前图片添加一条本地图片屏蔽规则？"
+    },
+    {
       "name": "reader_image_block_mark_added",
       "value": "已添加本地图片屏蔽规则"
     },
