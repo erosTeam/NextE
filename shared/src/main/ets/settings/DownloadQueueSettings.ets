@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
-import { Environment, fileIo as fs, fileUri } from '@kit.CoreFileKit'
+import { fileIo as fs, fileUri, picker } from '@kit.CoreFileKit'
 import {
   DownloadArchiverTask,
   DownloadArchiverParseSource,
@@ -10,7 +10,7 @@ import {
 } from '../model/DownloadGalleryTask'
 import { EhGallery } from '../model/EhGallery'
 import { EhGalleryImage } from '../model/EhGalleryImage'
-import { DownloadQueueState, connectDownloadQueue } from '../state/DownloadQueueState'
+import { DownloadQueueState, connectDownloadQueue, publishDownloadQueueChanged } from '../state/DownloadQueueState'
 import {
   connectDownloadSettings,
   DownloadOriginalMode,
@@ -30,10 +30,10 @@ import { DownloadSettings } from './DownloadSettings'
 
 const MAX_GALLERY_TASKS: number = 200
 const MAX_ARCHIVER_TASKS: number = 100
-const DOWNLOAD_PUBLIC_APP_DIR: string = 'com.erosteam.nexte'
+const DOWNLOAD_APP_DIR: string = 'NextE'
 const DOWNLOAD_GALLERY_DIR: string = 'download-gallery'
 const DOWNLOAD_ARCHIVER_DIR: string = 'download-archiver'
-const DOWNLOAD_PUBLIC_DOCS_URI: string = 'file://docs/storage/Users/currentUser/Download'
+const DOWNLOAD_DIRECTORY_UNAVAILABLE: string = 'Download directory unavailable'
 const ARCHIVER_ACCEPT: string = 'application/zip,application/octet-stream,*/*'
 const ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'
 const DOWNLOAD_METADATA_FILE: string = 'metadata.json'
@@ -115,6 +115,9 @@ export class DownloadQueueSettings {
   private static galleryProgressPulses: Map<string, number> = new Map<string, number>()
   private static galleryProgressLogPulses: Map<string, number> = new Map<string, number>()
   private static archiverProgressLogPulses: Map<string, number> = new Map<string, number>()
+  private static loggedDownloadDirs: Set<string> = new Set<string>()
+  private static downloadPublicRoot: string = ''
+  private static downloadRootRequest: Promise<boolean> | null = null
   private static pendingResume: Promise<void> | null = null
 
   private static setGalleryTasks(state: DownloadQueueState, tasks: DownloadGalleryTask[]): void {
@@ -133,8 +136,7 @@ export class DownloadQueueSettings {
       existing.assignFrom(task)
       next.push(existing)
     })
-    state.galleryTasks = next
-    state.revision = state.revision + 1
+    state.replaceGalleryTasks(next)
   }
 
   private static setArchiverTasks(state: DownloadQueueState, tasks: DownloadArchiverTask[]): void {
@@ -151,8 +153,7 @@ export class DownloadQueueSettings {
       existing.assignFrom(task)
       next.push(existing)
     })
-    state.archiverTasks = next
-    state.revision = state.revision + 1
+    state.replaceArchiverTasks(next)
   }
 
   private static findExistingGalleryTask(
@@ -528,6 +529,13 @@ export class DownloadQueueSettings {
       return
     }
     DownloadQueueSettings.cancelledArchiverDownloads.delete(tag)
+    if (!await DownloadQueueSettings.ensureDownloadStorageReady(context)) {
+      await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
+        it.status = DownloadGalleryTaskStatus.ERROR
+        it.error = DOWNLOAD_DIRECTORY_UNAVAILABLE
+      })
+      return
+    }
     const task: Promise<void> = DownloadQueueSettings.runArchiverDownload(context, tag)
     DownloadQueueSettings.archiverDownloads.set(tag, task)
     try {
@@ -957,6 +965,17 @@ export class DownloadQueueSettings {
       return
     }
     DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
+    if (!await DownloadQueueSettings.ensureDownloadStorageReady(context)) {
+      await DownloadQueueSettings.updateDownloadTaskStatus(
+        context,
+        gid,
+        token,
+        preferOriginal,
+        DownloadGalleryTaskStatus.ERROR,
+        DOWNLOAD_DIRECTORY_UNAVAILABLE,
+      )
+      return
+    }
     const task: Promise<void> = DownloadQueueSettings.runGalleryImageDownload(context, gid, token, preferOriginal)
     DownloadQueueSettings.galleryDownloads.set(key, task)
     try {
@@ -1588,28 +1607,189 @@ export class DownloadQueueSettings {
   }
 
   private static publicDownloadRootDir(): string {
-    try {
-      const publicRoot: string = Environment.getUserDownloadDir().trim()
-      if (publicRoot.length > 0) {
-        return DownloadQueueSettings.joinPath(publicRoot, DOWNLOAD_PUBLIC_APP_DIR)
-      }
-    } catch (_error) {}
-    try {
-      return new fileUri.FileUri(DownloadQueueSettings.joinPath(DOWNLOAD_PUBLIC_DOCS_URI, DOWNLOAD_PUBLIC_APP_DIR)).path
-    } catch (_error) {}
-    return ''
+    if (DownloadQueueSettings.downloadPublicRoot.length > 0) {
+      return DownloadQueueSettings.downloadPublicRoot
+    }
+    throw new Error('download directory unavailable')
   }
 
   private static isPublicDownloadPath(path: string): boolean {
-    const root: string = DownloadQueueSettings.publicDownloadRootDir()
-    return root.length > 0 && (path === root || path.startsWith(root + '/'))
+    try {
+      const root: string = DownloadQueueSettings.publicDownloadRootDir()
+      return path === root || path.startsWith(root + '/')
+    } catch (_error) {
+      return false
+    }
   }
 
   private static downloadRootCandidates(context: common.UIAbilityContext): string[] {
     const out: string[] = []
-    DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.publicDownloadRootDir())
+    if (DownloadQueueSettings.downloadPublicRoot.length > 0) {
+      DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.downloadPublicRoot)
+    }
     DownloadQueueSettings.pushUniquePath(out, context.filesDir)
     return out
+  }
+
+  private static downloadWriteRootCandidates(): string[] {
+    const out: string[] = []
+    DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.publicDownloadRootDir())
+    return out
+  }
+
+  private static async ensureDownloadDirectoryReady(context: common.UIAbilityContext): Promise<boolean> {
+    if (DownloadQueueSettings.downloadPublicRoot.length > 0) {
+      return true
+    }
+    if (await DownloadQueueSettings.restoreDownloadRoot(context)) {
+      return true
+    }
+    if (DownloadQueueSettings.downloadRootRequest !== null) {
+      return await DownloadQueueSettings.downloadRootRequest
+    }
+    const request: Promise<boolean> = DownloadQueueSettings.requestDownloadRootWithDownloadMode(context)
+    DownloadQueueSettings.downloadRootRequest = request
+    try {
+      return await request
+    } finally {
+      DownloadQueueSettings.downloadRootRequest = null
+    }
+  }
+
+  static async ensureDownloadStorageReady(context: common.UIAbilityContext): Promise<boolean> {
+    if (!await DownloadQueueSettings.ensureDownloadDirectoryReady(context)) {
+      return false
+    }
+    try {
+      const roots: string[] = DownloadQueueSettings.downloadWriteRootCandidates()
+      for (let i: number = 0; i < roots.length; i++) {
+        const galleryDir: string = DownloadQueueSettings.joinPath(roots[i], DOWNLOAD_GALLERY_DIR)
+        const archiverDir: string = DownloadQueueSettings.joinPath(roots[i], DOWNLOAD_ARCHIVER_DIR)
+        if (!DownloadQueueSettings.ensureDirectoryExists(galleryDir) ||
+          !DownloadQueueSettings.ensureDirectoryExists(archiverDir)) {
+          throw new Error('download storage directory unavailable')
+        }
+        DownloadQueueSettings.logDownloadDirResolved('gallery-root', galleryDir, context)
+        DownloadQueueSettings.logDownloadDirResolved('archiver-root', archiverDir, context)
+      }
+      return true
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'download_storage_ready_failed', (error as Error).message)
+      return false
+    }
+  }
+
+  private static ensureDirectoryExists(dir: string): boolean {
+    try {
+      fs.mkdirSync(dir, true)
+      return true
+    } catch (_error) {
+      try {
+        return fs.accessSync(dir)
+      } catch (_accessError) {
+        return false
+      }
+    }
+  }
+
+  private static async requestDownloadRootWithDownloadMode(context: common.UIAbilityContext): Promise<boolean> {
+    try {
+      const options = new picker.DocumentSaveOptions()
+      options.pickerMode = picker.DocumentPickerMode.DOWNLOAD
+      const documentPicker = new picker.DocumentViewPicker(context)
+      const result: Array<string> = await documentPicker.save(options)
+      if (result.length === 0) {
+        throw new Error('download mode returned no uri')
+      }
+      const root: string = DownloadQueueSettings.pathFromDownloadModeUri(result[0])
+      if (root.length === 0) {
+        throw new Error('download mode returned empty path')
+      }
+      if (!DownloadQueueSettings.ensureDirectoryExists(root)) {
+        throw new Error('download mode app directory unavailable')
+      }
+      DownloadQueueSettings.downloadPublicRoot = root
+      await DownloadQueueSettings.persistDownloadRoot(context, root)
+      DiagnosticLogger.info(
+        'download',
+        'download_mode_root_resolved',
+        `uriHash=${DiagnosticLogger.ownerHash(result[0])} path=${root}`,
+      )
+      return true
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'download_mode_root_failed', (error as Error).message)
+      return false
+    }
+  }
+
+  private static pathFromDownloadModeUri(uri: string): string {
+    const marker: string = '.nexte-download-root'
+    const markerPath: string = new fileUri.FileUri(DownloadQueueSettings.joinPath(uri.trim(), marker)).path
+    const suffix: string = `/${marker}`
+    if (!markerPath.endsWith(suffix)) {
+      throw new Error('download mode uri path conversion failed')
+    }
+    const downloadRoot: string = DownloadQueueSettings.normalizeDownloadRoot(
+      markerPath.substring(0, markerPath.length - suffix.length),
+    )
+    return DownloadQueueSettings.joinPath(downloadRoot, DOWNLOAD_APP_DIR)
+  }
+
+  private static async restoreDownloadRoot(context: common.UIAbilityContext): Promise<boolean> {
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      const raw: string = store.getSync(StorageKeys.DOWNLOAD_DIR, '') as string
+      const root: string = DownloadQueueSettings.normalizeDownloadRoot(raw)
+      if (root.length === 0) {
+        return false
+      }
+      if (!DownloadQueueSettings.ensureDirectoryExists(root)) {
+        DiagnosticLogger.warn('download', 'download_root_restore_failed', `path=${root}`)
+        return false
+      }
+      DownloadQueueSettings.downloadPublicRoot = root
+      DiagnosticLogger.info('download', 'download_root_restored', `path=${root}`)
+      return true
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'download_root_restore_failed', (error as Error).message)
+      return false
+    }
+  }
+
+  private static async persistDownloadRoot(context: common.UIAbilityContext, root: string): Promise<void> {
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_DIR, root)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'download_root_persist_failed', (error as Error).message)
+    }
+  }
+
+  private static normalizeDownloadRoot(path: string): string {
+    let out: string = path.trim()
+    while (out.endsWith('/') && out.length > 1) {
+      out = out.substring(0, out.length - 1)
+    }
+    return out
+  }
+
+  private static logDownloadDirResolved(kind: string, dir: string, context: common.UIAbilityContext): void {
+    const key: string = `${kind}:${dir}`
+    if (DownloadQueueSettings.loggedDownloadDirs.has(key)) {
+      return
+    }
+    DownloadQueueSettings.loggedDownloadDirs.add(key)
+    const location: string = DownloadQueueSettings.isPublicDownloadPath(dir)
+      ? 'public'
+      : (dir === context.filesDir || dir.startsWith(context.filesDir + '/') ? 'private' : 'other')
+    DiagnosticLogger.info('download', 'download_dir_resolved', `kind=${kind} location=${location} path=${dir}`)
   }
 
   private static galleryRootDirs(context: common.UIAbilityContext): string[] {
@@ -1630,6 +1810,24 @@ export class DownloadQueueSettings {
     return out
   }
 
+  private static galleryWriteRootDirs(): string[] {
+    const out: string[] = []
+    const roots: string[] = DownloadQueueSettings.downloadWriteRootCandidates()
+    for (let i: number = 0; i < roots.length; i++) {
+      DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.joinPath(roots[i], DOWNLOAD_GALLERY_DIR))
+    }
+    return out
+  }
+
+  private static archiverWriteRootDirs(): string[] {
+    const out: string[] = []
+    const roots: string[] = DownloadQueueSettings.downloadWriteRootCandidates()
+    for (let i: number = 0; i < roots.length; i++) {
+      DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.joinPath(roots[i], DOWNLOAD_ARCHIVER_DIR))
+    }
+    return out
+  }
+
   private static legacyGalleryRootDir(context: common.UIAbilityContext): string {
     return `${context.filesDir}/${DOWNLOAD_GALLERY_DIR}`
   }
@@ -1643,17 +1841,24 @@ export class DownloadQueueSettings {
     gid: string,
     preferOriginal: boolean,
   ): string {
-    const roots: string[] = DownloadQueueSettings.galleryRootDirs(context)
+    const roots: string[] = DownloadQueueSettings.galleryWriteRootDirs()
     let lastError: Error | null = null
     for (let i: number = 0; i < roots.length; i++) {
       const dir: string = DownloadQueueSettings.joinPath(roots[i], DownloadQueueSettings.galleryDirName(gid, preferOriginal))
       try {
         fs.mkdirSync(dir, true)
+        DownloadQueueSettings.logDownloadDirResolved('gallery', dir, context)
         return dir
       } catch (error) {
         if (fs.accessSync(dir)) {
+          DownloadQueueSettings.logDownloadDirResolved('gallery', dir, context)
           return dir
         }
+        DiagnosticLogger.warn(
+          'download',
+          'download_dir_candidate_failed',
+          `kind=gallery path=${dir} error=${(error as Error).message}`,
+        )
         lastError = error as Error
       }
     }
@@ -1661,17 +1866,24 @@ export class DownloadQueueSettings {
   }
 
   private static ensureArchiverDownloadDir(context: common.UIAbilityContext): string {
-    const roots: string[] = DownloadQueueSettings.archiverRootDirs(context)
+    const roots: string[] = DownloadQueueSettings.archiverWriteRootDirs()
     let lastError: Error | null = null
     for (let i: number = 0; i < roots.length; i++) {
       const dir: string = roots[i]
       try {
         fs.mkdirSync(dir, true)
+        DownloadQueueSettings.logDownloadDirResolved('archiver', dir, context)
         return dir
       } catch (error) {
         if (fs.accessSync(dir)) {
+          DownloadQueueSettings.logDownloadDirResolved('archiver', dir, context)
           return dir
         }
+        DiagnosticLogger.warn(
+          'download',
+          'download_dir_candidate_failed',
+          `kind=archiver path=${dir} error=${(error as Error).message}`,
+        )
         lastError = error as Error
       }
     }
@@ -1696,11 +1908,15 @@ export class DownloadQueueSettings {
     if (task.gid.length === 0) {
       return
     }
-    DownloadQueueSettings.writeTextFile(
-      DownloadQueueSettings.galleryMetadataPath(context, task),
-      JSON.stringify([DownloadQueueSettings.galleryTaskMetadata(task)]),
-      'gallery_metadata_write_failed',
-    )
+    try {
+      DownloadQueueSettings.writeTextFile(
+        DownloadQueueSettings.galleryMetadataPath(context, task),
+        JSON.stringify([DownloadQueueSettings.galleryTaskMetadata(task)]),
+        'gallery_metadata_write_failed',
+      )
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'gallery_metadata_write_failed', (error as Error).message)
+    }
   }
 
   private static writeArchiverMetadataTasks(context: common.UIAbilityContext, tasks: DownloadArchiverTask[]): void {
@@ -1713,11 +1929,15 @@ export class DownloadQueueSettings {
     if (task.tag.length === 0) {
       return
     }
-    DownloadQueueSettings.writeTextFile(
-      DownloadQueueSettings.archiverMetadataPath(context, task),
-      JSON.stringify([DownloadQueueSettings.archiverTaskMetadata(task)]),
-      'archiver_metadata_write_failed',
-    )
+    try {
+      DownloadQueueSettings.writeTextFile(
+        DownloadQueueSettings.archiverMetadataPath(context, task),
+        JSON.stringify([DownloadQueueSettings.archiverTaskMetadata(task)]),
+        'archiver_metadata_write_failed',
+      )
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'archiver_metadata_write_failed', (error as Error).message)
+    }
   }
 
   private static loadGalleryMetadataTasks(context: common.UIAbilityContext): DownloadGalleryTask[] {
@@ -2059,7 +2279,7 @@ export class DownloadQueueSettings {
     const pulseKey: string = key
     const now: number = Date.now()
     const last: number = DownloadQueueSettings.galleryProgressPulses.get(pulseKey) ?? 0
-    if (total > 0 && loaded < total && now - last < 500) {
+    if (now - last < 500) {
       return
     }
     DownloadQueueSettings.galleryProgressPulses.set(pulseKey, now)
@@ -2085,11 +2305,10 @@ export class DownloadQueueSettings {
           )
           logged = true
         }
-        break
       }
     }
     if (updated) {
-      state.revision = state.revision + 1
+      publishDownloadQueueChanged()
     }
     if (!logged && total > 0 && loaded >= total) {
       DownloadQueueSettings.galleryProgressLogPulses.set(key, now)
@@ -2160,10 +2379,23 @@ export class DownloadQueueSettings {
     const next: DownloadGalleryTask[] = []
     let updatedTask: DownloadGalleryTask | null = null
     let matched: boolean = false
+    let exactMatched: boolean = false
+    for (let i: number = 0; i < state.galleryTasks.length; i++) {
+      const task: DownloadGalleryTask = state.galleryTasks[i]
+      if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
+        exactMatched = true
+        break
+      }
+    }
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       const task: DownloadGalleryTask = it.copy()
-      if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
+      const exact: boolean = DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)
+      const gidFallback: boolean = !exactMatched && task.gid === gid && task.preferOriginal === preferOriginal
+      if (exact || gidFallback) {
         matched = true
+        if (gidFallback && token.length > 0) {
+          task.token = token
+        }
         task.status = status
         task.prepareError = error
         if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
@@ -2181,7 +2413,7 @@ export class DownloadQueueSettings {
       DiagnosticLogger.info(
         'download',
         'gallery_status_update',
-        `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} status=${status} matched=${matched} errorHash=${DiagnosticLogger.ownerHash(error)}`,
+        `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} status=${status} matched=${matched} exact=${exactMatched} errorHash=${DiagnosticLogger.ownerHash(error)}`,
       )
     }
     DownloadQueueSettings.setGalleryTasks(state, next)

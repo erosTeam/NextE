@@ -4,6 +4,7 @@
  * Run: node scripts/test_download_queue_rdb_contract.mjs
  */
 import fs from 'fs'
+import path from 'path'
 
 const read = (p) => fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8')
 let failures = 0
@@ -13,6 +14,27 @@ function ok(name, condition) {
     failures += 1
   }
 }
+
+function readEtsFiles(dir, out = []) {
+  for (const name of fs.readdirSync(dir)) {
+    const full = path.join(dir, name)
+    const stat = fs.statSync(full)
+    if (stat.isDirectory()) {
+      readEtsFiles(full, out)
+    } else if (name.endsWith('.ets')) {
+      out.push(fs.readFileSync(full, 'utf8'))
+    }
+  }
+  return out
+}
+
+const appSource = [
+  ...readEtsFiles('entry/src/main/ets'),
+  ...readEtsFiles('feature'),
+  ...readEtsFiles('shared/src/main/ets'),
+].join('\n')
+ok('download flow never uses ArkUI DownloadFileButton',
+  !/\bDownloadFileButton\b/.test(appSource))
 
 const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
 ok('LocalDataStore creates gallery download task and seed tables',
@@ -115,7 +137,10 @@ ok('paused download status is a durable queue state',
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 const imageResolve = read('shared/src/main/ets/services/ImageResolveService.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
+const moduleJson = read('entry/src/main/module.json5')
 const autoResumeBody = settings.match(/shouldAutoResumeGalleryTask\(task: DownloadGalleryTask\): boolean \{[\s\S]*?\n  \}/)?.[0] ?? ''
+const downloadWriteRootCandidatesBody =
+  settings.match(/downloadWriteRootCandidates\(\): string\[\] \{([\s\S]*?)\n  \}/)?.[1] ?? ''
 ok('settings facade uses RDB and only reads old Preferences for migration',
   /DownloadQueueRepository\.load\(context\)/.test(settings) &&
     /DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
@@ -129,15 +154,44 @@ ok('settings facade uses RDB and only reads old Preferences for migration',
 ok('settings no longer writes the queue back to Preferences',
   !/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings))
 ok('download directories keep per-task metadata sidecars for queue recovery',
-  /DOWNLOAD_METADATA_FILE: string = 'metadata\.json'/.test(settings) &&
+    /DOWNLOAD_METADATA_FILE: string = 'metadata\.json'/.test(settings) &&
     /ARCHIVER_METADATA_SUFFIX: string = '\.metadata\.json'/.test(settings) &&
-    /DOWNLOAD_PUBLIC_APP_DIR: string = 'com\.erosteam\.nexte'/.test(settings) &&
-    /DOWNLOAD_PUBLIC_DOCS_URI: string = 'file:\/\/docs\/storage\/Users\/currentUser\/Download'/.test(settings) &&
-    /Environment\.getUserDownloadDir\(\)/.test(settings) &&
-    /new fileUri\.FileUri\(DownloadQueueSettings\.joinPath\(DOWNLOAD_PUBLIC_DOCS_URI, DOWNLOAD_PUBLIC_APP_DIR\)\)\.path/.test(settings) &&
-    /downloadRootCandidates\(context: common\.UIAbilityContext\)[\s\S]*publicDownloadRootDir\(\)[\s\S]*context\.filesDir/.test(settings) &&
+    /picker\.DocumentPickerMode\.DOWNLOAD/.test(settings) &&
+    /new picker\.DocumentViewPicker\(context\)/.test(settings) &&
+    /new fileUri\.FileUri\(DownloadQueueSettings\.joinPath\(uri\.trim\(\), marker\)\)\.path/.test(settings) &&
+    /\.nexte-download-root/.test(settings) &&
+    /DOWNLOAD_APP_DIR: string = 'NextE'/.test(settings) &&
+    /return DownloadQueueSettings\.joinPath\(downloadRoot, DOWNLOAD_APP_DIR\)/.test(settings) &&
+    /restoreDownloadRoot\(context\)/.test(settings) &&
+    /store\.getSync\(StorageKeys\.DOWNLOAD_DIR/.test(settings) &&
+    /store\.putSync\(StorageKeys\.DOWNLOAD_DIR, root\)/.test(settings) &&
+    /download_root_restored/.test(settings) &&
+    /download_mode_root_resolved/.test(settings) &&
+    /download_mode_root_failed/.test(settings) &&
+    /static async ensureDownloadStorageReady\(context: common\.UIAbilityContext\): Promise<boolean>/.test(settings) &&
+    /download_storage_ready_failed/.test(settings) &&
+    /DOWNLOAD_GALLERY_DIR/.test(settings) &&
+    /DOWNLOAD_ARCHIVER_DIR/.test(settings) &&
+    /ensureDownloadDirectoryReady\(context\)/.test(settings) &&
+    /pathFromDownloadModeUri\(uri: string\): string/.test(settings) &&
+    /DOWNLOAD_DIRECTORY_UNAVAILABLE: string = 'Download directory unavailable'/.test(settings) &&
+    !/DownloadFileButton/.test(appSource) &&
+    !/Environment\.getUserDownloadDir\(\)/.test(settings) &&
+    !/READ_WRITE_DOWNLOAD_DIRECTORY/.test(`${settings}\n${moduleJson}`) &&
+    !/requestPermissionsFromUser\(context, \[DOWNLOAD_DIRECTORY_PERMISSION\]\)/.test(settings) &&
+    /download_dir_candidate_failed/.test(settings) &&
+    /download_dir_resolved/.test(settings) &&
+    /downloadRootCandidates\(context: common\.UIAbilityContext\)[\s\S]*downloadPublicRoot[\s\S]*context\.filesDir/.test(settings) &&
+    /downloadWriteRootCandidates\(\): string\[\] \{[\s\S]*publicDownloadRootDir\(\)[\s\S]*return out[\s\S]*\}/.test(settings) &&
+    !downloadWriteRootCandidatesBody.includes('context.filesDir') &&
     /galleryRootDirs\(context: common\.UIAbilityContext\)[\s\S]*DOWNLOAD_GALLERY_DIR/.test(settings) &&
     /archiverRootDirs\(context: common\.UIAbilityContext\)[\s\S]*DOWNLOAD_ARCHIVER_DIR/.test(settings) &&
+    /galleryWriteRootDirs\(\): string\[\][\s\S]*downloadWriteRootCandidates\(\)/.test(settings) &&
+    /archiverWriteRootDirs\(\): string\[\][\s\S]*downloadWriteRootCandidates\(\)/.test(settings) &&
+    /ensureGalleryDownloadDir\([\s\S]*galleryWriteRootDirs\(\)/.test(settings) &&
+    /ensureArchiverDownloadDir\([\s\S]*archiverWriteRootDirs\(\)/.test(settings) &&
+    /static async downloadGalleryImages[\s\S]*ensureDownloadStorageReady\(context\)/.test(settings) &&
+    /static async downloadArchiver[\s\S]*ensureDownloadStorageReady\(context\)/.test(settings) &&
     /class DownloadGalleryTaskMetadata/.test(settings) &&
     /class DownloadArchiverTaskMetadata/.test(settings) &&
     /writeGalleryMetadataTasks\(context, tasks\)/.test(settings) &&

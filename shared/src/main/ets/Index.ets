@@ -337,7 +337,13 @@ export {
   connectDownloadView,
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
 } from './state/DownloadViewState'
-export { DownloadQueueState, connectDownloadQueue } from './state/DownloadQueueState'
+export {
+  DownloadQueueState,
+  DownloadQueueSignalState,
+  connectDownloadQueue,
+  connectDownloadQueueSignal,
+  publishDownloadQueueChanged,
+} from './state/DownloadQueueState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { CoverBackgroundState, connectCoverBackground } from './state/CoverBackgroundState'
 export { ActionAlignmentState, connectActionAlignment } from './state/ActionAlignmentState'

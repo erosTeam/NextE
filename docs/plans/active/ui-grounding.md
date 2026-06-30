@@ -511,3 +511,13 @@ Primary information: after login, the app must hold a native cookie jar that cov
 Primary action: the user signs in in the WebView and returns to the native app; selecting the subscription source loads `/watched`, and tapping a gallery opens native detail with the same authenticated request stack.
 Reuse or deviation: reuse the existing WebView login form, complete `CookieJarSettings` jar writer, `refreshIgneous()` uconfig fetch, and `CustomProfilesSettings` built-in profile model; deviate only by collecting the ExHentai WebCookieManager domain during login and repairing missing built-in profiles from old/synced data.
 Verification: web-login cookie capture contract, custom-profiles contract, cookie round-trip/set-cookie contracts, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and emulator auth-path logs when a real account is available.
+
+## Active: download gallery task card structure
+
+Status: active
+Reference implementation: NextE `feature/download/src/main/ets/pages/DownloadQueuePage.ets` gallery and archiver task cards, plus `../eros_fe/lib/pages/tab/view/download_page.dart` download task rows.
+Surface type: Downloads tab gallery queue task card.
+Primary information: the gallery title is the primary row text and must get the full content-column width after the cover.
+Primary action: tapping completed content still opens local Reader; pause/resume and overflow actions stay secondary controls inside the content area.
+Reuse or deviation: reuse the existing cover, progress/status builders, and circle action buttons; deviate from the old three-column card by treating actions as part of the right content column instead of a third outer column that shrinks the title.
+Verification: download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and device screenshot of long titles with original/resampled tasks.

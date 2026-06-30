@@ -38,7 +38,9 @@ import {
   DownloadImageSeed,
   DownloadQueueSettings,
   DownloadQueueState,
+  DownloadQueueSignalState,
   connectDownloadQueue,
+  connectDownloadQueueSignal,
   connectDownloadSettings,
   DownloadOriginalMode,
   EhGalleryImage,
@@ -130,7 +132,13 @@ export struct GalleryDetailPage {
   // Local gallery download queue state: mirrors eros_fe GalleryTask uniqueness and updates live while
   // the gallery image executor resolves prepared seeds into sandbox files.
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
-  @Local downloadQueueSignal: number = 0;
+  @Local downloadQueueSignalState: DownloadQueueSignalState = connectDownloadQueueSignal();
+  @Local downloadQueueTick: number = 0;
+  @Local downloadChipHasTask: boolean = false;
+  @Local downloadChipStatus: string = DownloadGalleryTaskStatus.QUEUED;
+  @Local downloadChipComplete: boolean = false;
+  @Local downloadChipDownloaded: number = 0;
+  @Local downloadChipExpected: number = 0;
   @Local localFav: LocalFavState = connectLocalFav();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
@@ -200,9 +208,15 @@ export struct GalleryDetailPage {
     )
   }
 
-  @Monitor('downloadQueue.revision')
+  @Monitor('downloadQueueSignalState.version')
   private onDownloadQueueChanged(): void {
-    this.downloadQueueSignal = this.downloadQueueSignal + 1
+    this.downloadQueueTick = this.downloadQueueTick + 1
+    this.syncDownloadChipState('signal')
+  }
+
+  private markDownloadQueueDirty(): void {
+    this.downloadQueueTick = this.downloadQueueTick + 1
+    this.syncDownloadChipState('local')
   }
 
   // Continuous X for the Read FAB inside the padded full-width rail: left edge = 0 (Start), right edge =
@@ -340,6 +354,10 @@ export struct GalleryDetailPage {
     }, 5000)
   }
 
+  aboutToAppear(): void {
+    this.syncDownloadChipState('appear')
+  }
+
   aboutToDisappear(): void {
     // Left before the 5s debounce fired → this open was transient; don't record it.
     if (this.historyTimer >= 0) {
@@ -462,22 +480,40 @@ export struct GalleryDetailPage {
   }
 
   private downloadTask(): DownloadGalleryTask | undefined {
-    if (this.downloadQueueSignal < 0) {
+    if (this.downloadQueueSignalState.version < 0) {
       return undefined
     }
-    if (this.downloadQueue.revision < 0) {
+    if (this.downloadQueueTick < 0) {
       return undefined
     }
     const gid: string = this.vm.gallery.gid.length > 0 ? this.vm.gallery.gid : this.params.gid
     const token: string =
       this.vm.gallery.token.length > 0 ? this.vm.gallery.token : this.params.token
-    return this.downloadQueue.galleryTasks.find((task: DownloadGalleryTask) => {
-      return task.gid === gid && task.token === token
-    })
+    let best: DownloadGalleryTask | undefined = undefined
+    let bestExact: boolean = false
+    for (let i: number = 0; i < this.downloadQueue.galleryTasks.length; i++) {
+      const task: DownloadGalleryTask = this.downloadQueue.galleryTasks[i]
+      if (task.gid !== gid) {
+        continue
+      }
+      const exact: boolean = token.length === 0 || task.token === token
+      if (!exact && bestExact) {
+        continue
+      }
+      if (best === undefined || exact !== bestExact || task.queuedAt > best.queuedAt) {
+        best = task
+        bestExact = exact
+      }
+    }
+    return best
   }
 
   private isGalleryQueued(): boolean {
     return this.downloadTask() !== undefined
+  }
+
+  private isDownloadChipEnabled(): boolean {
+    return !this.downloadChipHasTask || this.downloadChipComplete
   }
 
   private isDownloadTaskComplete(task: DownloadGalleryTask): boolean {
@@ -494,31 +530,64 @@ export struct GalleryDetailPage {
     return task.status
   }
 
-  private downloadTitle(): Resource {
+  private syncDownloadChipState(reason: string): void {
     const task: DownloadGalleryTask | undefined = this.downloadTask()
+    const oldHasTask: boolean = this.downloadChipHasTask
+    const oldStatus: string = this.downloadChipStatus
+    const oldComplete: boolean = this.downloadChipComplete
+    const oldDownloaded: number = this.downloadChipDownloaded
+    const oldExpected: number = this.downloadChipExpected
     if (task === undefined) {
-      return $r('app.string.detail_download')
+      this.downloadChipHasTask = false
+      this.downloadChipStatus = DownloadGalleryTaskStatus.QUEUED
+      this.downloadChipComplete = false
+      this.downloadChipDownloaded = 0
+      this.downloadChipExpected = 0
+    } else {
+      this.downloadChipHasTask = true
+      this.downloadChipStatus = this.effectiveDownloadStatus(task)
+      this.downloadChipComplete = this.isDownloadTaskComplete(task)
+      this.downloadChipDownloaded = task.downloadedCount()
+      this.downloadChipExpected = task.expectedFileCount()
     }
-    const status: string = this.effectiveDownloadStatus(task)
-    if (status === DownloadGalleryTaskStatus.COMPLETE) {
-      return $r('app.string.download_status_complete')
+    if (
+      oldHasTask !== this.downloadChipHasTask ||
+      oldStatus !== this.downloadChipStatus ||
+      oldComplete !== this.downloadChipComplete ||
+      oldDownloaded !== this.downloadChipDownloaded ||
+      oldExpected !== this.downloadChipExpected
+    ) {
+      DiagnosticLogger.info(
+        'download',
+        'detail_download_chip_sync',
+        `reason=${reason} gid=${this.params.gid} matched=${this.downloadChipHasTask} status=${this.downloadChipStatus} complete=${this.downloadChipComplete} downloaded=${this.downloadChipDownloaded}/${this.downloadChipExpected}`,
+      )
     }
-    if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
-      return $r('app.string.download_status_downloading')
+  }
+
+  private downloadTitle(): string {
+    if (!this.downloadChipHasTask) {
+      return AppStrings.get('detail_download')
     }
-    if (status === DownloadGalleryTaskStatus.PAUSED) {
-      return $r('app.string.download_status_paused')
+    if (this.downloadChipStatus === DownloadGalleryTaskStatus.COMPLETE) {
+      return AppStrings.get('download_status_complete')
     }
-    if (status === DownloadGalleryTaskStatus.PARTIAL) {
-      return $r('app.string.download_status_partial')
+    if (this.downloadChipStatus === DownloadGalleryTaskStatus.DOWNLOADING) {
+      return AppStrings.get('download_status_downloading')
     }
-    if (status === DownloadGalleryTaskStatus.ERROR) {
-      return $r('app.string.download_status_error')
+    if (this.downloadChipStatus === DownloadGalleryTaskStatus.PAUSED) {
+      return AppStrings.get('download_status_paused')
     }
-    if (status === DownloadGalleryTaskStatus.READY) {
-      return $r('app.string.download_status_ready')
+    if (this.downloadChipStatus === DownloadGalleryTaskStatus.PARTIAL) {
+      return AppStrings.get('download_status_partial')
     }
-    return $r('app.string.download_status_queued')
+    if (this.downloadChipStatus === DownloadGalleryTaskStatus.ERROR) {
+      return AppStrings.get('download_status_error')
+    }
+    if (this.downloadChipStatus === DownloadGalleryTaskStatus.READY) {
+      return AppStrings.get('download_status_ready')
+    }
+    return AppStrings.get('download_status_queued')
   }
 
   private openDownloadedTaskFromDetail(task: DownloadGalleryTask): void {
@@ -555,8 +624,10 @@ export struct GalleryDetailPage {
 
   private onDownloadChipTap(): void {
     const task: DownloadGalleryTask | undefined = this.downloadTask()
-    if (task !== undefined && this.isDownloadTaskComplete(task)) {
-      this.openDownloadedTaskFromDetail(task)
+    if (task !== undefined) {
+      if (this.isDownloadTaskComplete(task)) {
+        this.openDownloadedTaskFromDetail(task)
+      }
       return
     }
     this.enqueueGalleryDownloadWithPolicy()
@@ -748,8 +819,15 @@ export struct GalleryDetailPage {
       'detail_enqueue_request',
       `gid=${task.gid} tokenHash=${DiagnosticLogger.ownerHash(task.token)} preferOriginal=${preferOriginal} images=${this.vm.images.length}`,
     )
+    if (!await DownloadQueueSettings.ensureDownloadStorageReady(this.ctx())) {
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({ message: $r('app.string.common_load_failed') })
+        .catch((_error: Error) => {})
+      return
+    }
     const inserted: boolean = await DownloadQueueSettings.enqueueGallery(this.ctx(), task)
-    this.downloadQueueSignal = this.downloadQueueSignal + 1
+    this.markDownloadQueueDirty()
     DownloadQueueSettings.prepareGallerySeeds(
       this.ctx(),
       task.gid,
@@ -884,7 +962,7 @@ export struct GalleryDetailPage {
       task.upgradeFromGid = this.params.gid
       task.preferOriginal = preferOriginal
       const inserted: boolean = await DownloadQueueSettings.enqueueGallery(this.ctx(), task)
-      this.downloadQueueSignal = this.downloadQueueSignal + 1
+      this.markDownloadQueueDirty()
       await DownloadQueueSettings.prepareGallerySeeds(
         this.ctx(),
         task.gid,
@@ -1913,6 +1991,7 @@ export struct GalleryDetailPage {
         // pass it) and fires only for sparse opens (deep link / URL paste, where it's '').
         seed.fileCount = p.fileCount
         this.vm.seed(seed)
+        this.syncDownloadChipState('ready')
         this.vm.load(p.gid, p.token)
         this.scheduleHistoryAdd()
       }
@@ -1941,16 +2020,16 @@ export struct GalleryDetailPage {
   }
 
   @Builder
-  private DetailActionChip(icon: Resource, label: ResourceStr, emphasized: boolean, action: () => void) {
+  private DetailActionChip(icon: Resource, label: ResourceStr, enabled: boolean, action: () => void) {
     Button({ type: ButtonType.Capsule }) {
       Row({ space: ThemeConstants.DETAIL_ACTION_CHIP_GAP }) {
         SymbolGlyph(icon)
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor([emphasized ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary')])
+          .fontColor([enabled ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary')])
         Text(label)
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
           .fontWeight(FontWeight.Medium)
-          .fontColor(emphasized ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary'))
+          .fontColor(enabled ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary'))
           .maxLines(1)
       }
       .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
@@ -1959,7 +2038,33 @@ export struct GalleryDetailPage {
     }
     .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .enabled(enabled)
     .onClick(action)
+  }
+
+  @Builder
+  private DownloadActionChip() {
+    Button({ type: ButtonType.Capsule }) {
+      Row({ space: ThemeConstants.DETAIL_ACTION_CHIP_GAP }) {
+        SymbolGlyph($r('sys.symbol.arrow_down_to_line'))
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor([this.isDownloadChipEnabled() ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary')])
+        Text(this.downloadTitle())
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.isDownloadChipEnabled() ? ThemeConstants.BRAND_PRIMARY : $r('sys.color.font_secondary'))
+          .maxLines(1)
+      }
+      .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
+      .padding({ left: ThemeConstants.SPACE_SM, right: ThemeConstants.SPACE_MD })
+      .alignItems(VerticalAlign.Center)
+    }
+    .height(ThemeConstants.DETAIL_ACTION_CHIP_HEIGHT)
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .enabled(this.isDownloadChipEnabled())
+    .onClick(() => {
+      this.onDownloadChipTap()
+    })
   }
 
   @Builder
@@ -1991,10 +2096,7 @@ export struct GalleryDetailPage {
             this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {
               this.openRatingSheet()
             })
-            this.DetailActionChip($r('sys.symbol.arrow_down_to_line'), this.downloadTitle(), !this.isGalleryQueued(),
-              () => {
-                this.onDownloadChipTap()
-              })
+            this.DownloadActionChip()
           }
           .alignItems(VerticalAlign.Center)
           .translate({ x: this.actionStripVisualX() })

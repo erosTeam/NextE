@@ -16,6 +16,7 @@ import {
   ReaderParams,
   DownloadQueueSettings,
   DownloadQueueState,
+  DownloadQueueSignalState,
   DownloadSettings,
   DownloadViewType,
   DownloadViewState,
@@ -25,6 +26,7 @@ import {
   connectGalleryReadProgress,
   connectSiteMode,
   connectDownloadQueue,
+  connectDownloadQueueSignal,
   connectDownloadView,
   connectNavStack,
 } from 'shared'
@@ -43,6 +45,7 @@ export struct DownloadQueuePage {
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local downloadView: DownloadViewState = connectDownloadView();
   @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
+  @Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal();
   @Local readProgress: GalleryReadProgressState = connectGalleryReadProgress();
   @Local downloadQueueTick: number = 0;
   @Local openingArchiverTag: string = '';
@@ -54,7 +57,7 @@ export struct DownloadQueuePage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
-  @Monitor('downloadQueue.revision')
+  @Monitor('downloadQueueSignal.version')
   private onDownloadQueueChanged(): void {
     this.downloadQueueTick = this.downloadQueueTick + 1
     const debugTask: DownloadGalleryTask | undefined = this.queueDebugTask()
@@ -140,9 +143,6 @@ export struct DownloadQueuePage {
     }
     if (task.category.length > 0) {
       parts.push(task.category)
-    }
-    if (task.uploader.length > 0) {
-      parts.push(task.uploader)
     }
     return parts.join(' · ')
   }
@@ -493,7 +493,7 @@ export struct DownloadQueuePage {
     const status: string = this.effectiveGalleryStatus(task.status, task.downloadedCount(), task.pageCount)
     return status === DownloadGalleryTaskStatus.ERROR
       ? $r('sys.symbol.arrow_clockwise')
-      : $r('sys.symbol.arrow_right')
+      : $r('sys.symbol.play')
   }
 
   private galleryResumeActionLabel(task: DownloadGalleryTask): Resource {
@@ -535,7 +535,7 @@ export struct DownloadQueuePage {
   private archiverResumeActionIcon(task: DownloadArchiverTask): Resource {
     return task.status === DownloadGalleryTaskStatus.ERROR
       ? $r('sys.symbol.arrow_clockwise')
-      : $r('sys.symbol.arrow_right')
+      : $r('sys.symbol.play')
   }
 
   private archiverResumeActionLabel(task: DownloadArchiverTask): Resource {
@@ -771,37 +771,48 @@ export struct DownloadQueuePage {
     Row({ space: ThemeConstants.SPACE_MD }) {
       this.GalleryTaskCover(task)
       Column({ space: ThemeConstants.SPACE_XS }) {
+        Text(task.displayTitle())
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_primary'))
+          .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
         Row({ space: ThemeConstants.SPACE_XS }) {
-          Text(task.displayTitle())
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor($r('sys.color.font_primary'))
-            .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .layoutWeight(1)
-          this.GalleryQualityBadge(task)
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            if (this.taskMetaText(task).length > 0 || task.preferOriginal) {
+              Row({ space: ThemeConstants.SPACE_XS }) {
+                Text(this.taskMetaText(task))
+                  .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                  .fontColor($r('sys.color.font_secondary'))
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .layoutWeight(1)
+                if (task.preferOriginal) {
+                  this.GalleryOriginalBadge()
+                }
+              }
+              .alignItems(VerticalAlign.Center)
+              .width('100%')
+            }
+            if (this.shouldShowGalleryProgress(
+              task.status,
+              task.downloadedFiles,
+              task.seededFiles,
+              task.pageCount,
+              task.activeBytesWritten,
+              task.activeBytesTotal,
+            )) {
+              this.GalleryTaskProgressBar(task)
+            }
+            this.GalleryTaskStatusText(task)
+          }
+          .layoutWeight(1)
+          this.GalleryTaskInlineActionColumn(task)
         }
         .alignItems(VerticalAlign.Top)
         .width('100%')
-        if (this.taskMetaText(task).length > 0) {
-          Text(this.taskMetaText(task))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
-        }
-        if (this.shouldShowGalleryProgress(
-          task.status,
-          task.downloadedFiles,
-          task.seededFiles,
-          task.pageCount,
-          task.activeBytesWritten,
-          task.activeBytesTotal,
-        )) {
-          this.GalleryTaskProgressBar(task)
-        }
-        this.GalleryTaskStatusText(task)
+        .layoutWeight(1)
       }
       .layoutWeight(1)
       .height(ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT)
@@ -809,7 +820,6 @@ export struct DownloadQueuePage {
       .onClick(() => {
         this.openTaskIfComplete(task)
       })
-      this.GalleryTaskActionColumn(task)
     }
     .width('100%')
     .padding({ left: ThemeConstants.DOWNLOAD_TASK_CARD_PADDING, right: ThemeConstants.DOWNLOAD_TASK_CARD_PADDING,
@@ -820,8 +830,8 @@ export struct DownloadQueuePage {
   }
 
   @Builder
-  private GalleryQualityBadge(task: DownloadGalleryTask) {
-    Text(AppStrings.get(task.preferOriginal ? 'download_use_original_image' : 'download_use_regular_image'))
+  private GalleryOriginalBadge() {
+    Text(AppStrings.get('download_use_original_image'))
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
       .fontColor($r('sys.color.font_secondary'))
       .fontWeight(FontWeight.Medium)
@@ -1006,6 +1016,19 @@ export struct DownloadQueuePage {
     .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
     .height(ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT)
     .justifyContent(FlexAlign.End)
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  @Builder
+  private GalleryTaskInlineActionColumn(task: DownloadGalleryTask) {
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      this.GalleryPrimaryAction(task)
+      Blank()
+        .layoutWeight(1)
+      this.GalleryTaskMoreButton(task)
+    }
+    .width(ThemeConstants.DOWNLOAD_TASK_ACTION_SIZE)
+    .height('100%')
     .alignItems(HorizontalAlign.Center)
   }
 

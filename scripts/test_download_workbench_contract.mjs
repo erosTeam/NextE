@@ -62,6 +62,9 @@ ok(/resumeVisibleDownloads\(\)[\s\S]*DownloadQueueSettings\.resumeAllArchiverDow
   'Downloads tab batch actions reuse shared queue executors for the active queue type')
 ok(/@Local downloadView: DownloadViewState = connectDownloadView\(\)/.test(page),
   'download page reads the shared selected queue view')
+ok(/@Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal\(\)/.test(page) &&
+  /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(page),
+  'download page listens to queue signal pulses for live stream progress')
 ok(!/private QueueSwitcher\(\)|SwitchButton|DOWNLOAD_VIEW_GALLERY|DOWNLOAD_VIEW_ARCHIVER/.test(page),
   'download page does not own a scrolling queue switcher')
 ok(/SecondaryListScaffold/.test(page),
@@ -106,15 +109,15 @@ ok(!/renderQueueRevision|renderGalleryTasks|renderArchiverTasks/.test(page) &&
   /ForEach\(\s*this\.downloadQueue\.archiverTasks/.test(page) &&
   /\(task: DownloadGalleryTask\) => this\.galleryRenderKey\(task\)/.test(page) &&
   /\(task: DownloadArchiverTask\) => this\.archiverRenderKey\(task\)/.test(page) &&
-  /@Monitor\('downloadQueue\.revision'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(page) &&
+  /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(page) &&
   /this\.downloadQueueTick < 0/.test(page),
-  'download queue page keeps stable row keys while parent builders receive a queue revision pulse')
+  'download queue page keeps stable row keys while parent builders receive a queue signal pulse')
 const taskMetaTextBody = page.match(/private taskMetaText\(task: DownloadGalleryTask\): string \{([\s\S]*?)\n  \}/)?.[1] ?? ''
-ok(/private GalleryQualityBadge\(task: DownloadGalleryTask\)[\s\S]*task\.preferOriginal \? 'download_use_original_image' : 'download_use_regular_image'/.test(page) &&
-  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.GalleryQualityBadge\(task\)/.test(page) &&
-  !taskMetaTextBody.includes('download_use_original_image') &&
+ok(/private GalleryOriginalBadge\(\)[\s\S]*download_use_original_image/.test(page) &&
+  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*Text\(task\.displayTitle\(\)\)[\s\S]*\.width\('100%'\)[\s\S]*if \(this\.taskMetaText\(task\)\.length > 0 \|\| task\.preferOriginal\)[\s\S]*if \(task\.preferOriginal\) \{[\s\S]*this\.GalleryOriginalBadge\(\)/.test(page) &&
+  !taskMetaTextBody.includes('task.uploader') &&
   !taskMetaTextBody.includes('download_use_regular_image'),
-  'ordinary gallery download cards show original/resampled quality as a title-row badge')
+  'ordinary gallery download cards keep the title full-width and show only original quality in the meta row without uploader noise')
 ok(/@ObservedV2\s+export class DownloadGalleryTask/.test(model) &&
   /@ObservedV2\s+export class DownloadArchiverTask/.test(model) &&
   /@Trace status: string/.test(model) &&
@@ -133,14 +136,14 @@ ok(/syncProgressCounts\(\): void \{[\s\S]*this\.seededFiles = this\.imageSeeds\.
   /isDownloadComplete\(\): boolean \{[\s\S]*const total: number = this\.expectedFileCount\(\)[\s\S]*this\.seededCount\(\) >= total && downloaded >= total/.test(model) &&
   /applyDownloadResults[\s\S]*task\.syncProgressCounts\(\)/.test(queueSettings),
   'gallery download visible counters and completion state use the same expected seed-backed progress source')
-ok(/private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*findExistingGalleryTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(queueSettings) &&
-  /private static setArchiverTasks\(state: DownloadQueueState, tasks: DownloadArchiverTask\[\]\): void \{[\s\S]*findExistingArchiverTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.archiverTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(queueSettings),
+ok(/private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*findExistingGalleryTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.replaceGalleryTasks\(next\)/.test(queueSettings) &&
+  /private static setArchiverTasks\(state: DownloadQueueState, tasks: DownloadArchiverTask\[\]\): void \{[\s\S]*findExistingArchiverTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.replaceArchiverTasks\(next\)/.test(queueSettings),
   'download queue updates preserve observed task identity so mounted rows receive @Trace progress changes')
 ok(/const pulseKey: string = key/.test(galleryStreamProgressBody) &&
   !/`\$\{key\}:\$\{seed\.page\}`/.test(galleryStreamProgressBody) &&
   /let updated: boolean = false/.test(galleryStreamProgressBody) &&
   /updated = true/.test(galleryStreamProgressBody) &&
-  /if \(updated\) \{[\s\S]*state\.revision = state\.revision \+ 1/.test(galleryStreamProgressBody) &&
+  /if \(updated\) \{[\s\S]*publishDownloadQueueChanged\(\)/.test(galleryStreamProgressBody) &&
   !/persistGalleryTask/.test(galleryStreamProgressBody) &&
   !/setGalleryTasks/.test(galleryStreamProgressBody),
   'gallery stream progress publishes a throttled queue revision without persistence or row-key churn')
@@ -172,6 +175,7 @@ ok(/if \(status === DownloadGalleryTaskStatus\.ERROR\) \{[\s\S]*downloadProgress
   !/private taskProgressLabel[\s\S]*task\.downloadProgressText\(\)/.test(page),
   'gallery download failures keep visible downloaded progress instead of hiding mismatched counts behind a generic error')
 ok(/private GalleryTaskActionColumn\(task: DownloadGalleryTask\)/.test(page) &&
+  /private GalleryTaskInlineActionColumn\(task: DownloadGalleryTask\)[\s\S]*Blank\(\)[\s\S]*\.layoutWeight\(1\)[\s\S]*this\.GalleryTaskMoreButton\(task\)[\s\S]*\.height\('100%'\)/.test(page) &&
   /private GalleryPrimaryAction\(task: DownloadGalleryTask\)/.test(page) &&
   /private GalleryTaskMoreButton\(task: DownloadGalleryTask\)/.test(page) &&
   /sys\.symbol\.dot_grid_2x2/.test(page) &&
@@ -184,7 +188,7 @@ ok(/private GalleryTaskActionColumn\(task: DownloadGalleryTask\)/.test(page) &&
   !/DOWNLOAD_TASK_CARD_HEIGHT/.test(page),
   'task cards expose one state action plus a native more menu, with destructive deletion behind explicit confirmation')
 ok(/private ResumeTaskButton\(task: DownloadGalleryTask\)/.test(page) &&
-  /private galleryResumeActionIcon\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.arrow_right/.test(page) &&
+  /private galleryResumeActionIcon\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.play/.test(page) &&
   /private galleryResumeActionLabel\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(page) &&
   /this\.TaskIconButton\(this\.galleryResumeActionIcon\(task\), this\.galleryResumeActionLabel\(task\)/.test(page) &&
   /DownloadQueueSettings\.downloadGalleryImages\(this\.ctx\(\), task\.gid, task\.token, task\.preferOriginal\)/.test(page) &&
@@ -222,7 +226,7 @@ ok(/private PauseArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page) &&
   /private canPauseArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*task\.status === DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
   'running archiver tasks expose a low-weight pause action wired to the shared queue')
 ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page) &&
-  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.arrow_right/.test(page) &&
+  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.play/.test(page) &&
   /private archiverResumeActionLabel\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(page),
   'paused archiver tasks can resume')
 ok(/private archiverProgressLabel\(task: DownloadArchiverTask\): string[\s\S]*task\.status === DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.error\.length > 0[\s\S]*`\$\{this\.statusText\(task\.status\)\} · \$\{task\.error\}`/.test(page),
