@@ -1,14 +1,18 @@
 # Gallery visual + navigation regression contract
 
-- **status**: ACTIVE — REOPENED; completed archive was invalid because several acceptance gates remain partial/unsolved.
+- **status**: HISTORICAL / superseded as scheduling source; completed archive was invalid at the time because
+  several acceptance gates were partial/unsolved.
 - **created**: 2026-06-16 13:11:31 +0800
 - **source**: user feedback in controller chat after #37/#38; persisted because chat-only notes are lost after context compaction
 - **scope owner**: controller, not Claude self-report
-- **reopened**: 2026-06-17 — controller audit after user correction. Previous archive claim is invalid; use the item-by-item audit below before any next work.
+- **reopened**: 2026-06-17 — controller audit after user correction. Previous archive claim was invalid;
+  use the item-by-item audit below only as historical evidence.
 
 ## Control-plane state
 
-This file is the active contract for the next NextE gallery pass. Do not treat prior chat context, Claude PASS summaries, or visual screenshots as sufficient state.
+This file is historical evidence from the gallery regression pass, not a live lane contract. Use
+`docs/plans/active/current-dispatch-state.md`; promote a fresh gallery regression there
+before reopening work from this file.
 
 Current blocking conclusions:
 
@@ -17,7 +21,9 @@ Current blocking conclusions:
 - 2026-06-17 user follow-up: sub-tab switching still briefly flashes an empty/no-data state before entering loading. This is NOT accepted as retained-tab behavior. It belongs to P0 sub-tab switching/reload and must be reproduced/gated; a never-loaded key may show content-area loading, but must not flash `没有数据/没有更多了` or equivalent empty terminal copy before loading.
 - 2026-06-17 screenshot follow-up (`/home/gamer/.hermes/image_cache/img_ce52e06cb803.jpg`): the middle preview thumbnail is still unacceptable after `6deaa8e`; it appears as a thin horizontal strip centered in a tall grey tile. Rounded container corners alone do **not** satisfy preview-thumbnail acceptance. The thumbnail must use the real thumbnail image/proportion with rounded corners, without forcing a new fill/crop policy.
 - 2026-06-17 screenshot follow-up (`/home/gamer/.hermes/image_cache/img_a786e7aab70e.jpg`): the gallery header cover has the same class of defect — the cover image is rendered as the real image strip inside a much taller unrelated grey container. This is not accepted as a correct gallery cover presentation. It must use the real thumbnail/cover proportion with rounded corners; do not solve by inventing blanket fill/crop semantics.
-- Do not continue feature work or cosmetic spot-fixes before the P0 items below are audited and gated.
+- Historical conclusion at the time: do not continue feature work or cosmetic spot-fixes before the P0 items
+  below are audited and gated. This is not a current scheduling override unless promoted by
+  `current-dispatch-state.md`.
 
 Non-negotiable project safety:
 
@@ -225,9 +231,9 @@ Workers must not edit the same files or broaden scope without controller interru
 Agent device QA must use scripts/device-lease.
 ```
 
-## Execution rules for the next worker/controller
+## Historical Execution Rules
 
-Before any code change:
+At the time, before any code change:
 
 1. Read this file.
 2. Read `docs/loop.md` and `docs/agent-guides/always-loaded-rules.md`.

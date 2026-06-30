@@ -1,15 +1,20 @@
-# Controller Work Order — Gallery Visual Re-QA and Fix Queue
+# Historical Gallery Visual Re-QA Evidence
 
-Status: ACTIVE
-Owner: controller
+Status: HISTORICAL / superseded as scheduling source
+Owner: historical controller
 Scope: gallery detail page visual regressions only
 Created: 2026-06-17
+
+Current scheduling note: do not execute this file as a queue. Use
+`docs/plans/active/current-dispatch-state.md`; promote a fresh gallery regression there before reopening
+work from this historical evidence.
 
 ## Why this exists
 
 The previous workflow failed: active issues were treated as completed without item-by-item controller acceptance, and visual fixes were repeatedly reported as done while user screenshots still showed the same class of defects.
 
-This document is the executable control plane for the next work. It is not a post-hoc summary and not a completion claim.
+This document was the control record for that gallery pass. It is historical evidence now, not a current
+scheduling source and not a completion claim.
 
 ## Hard rules
 
@@ -43,7 +48,7 @@ Do not use historical `/home/gamer/...` paths as local paths on this Mac. They r
 
 Current local emulator/hdc state is summarized in `docs/agent-guides/current-mac-codex-handoff.md`. For ordinary responsive-layout QA, prefer the local Mate X7 foldable emulator matrix before falling back to a physical device. For real-device-only QA, still follow `docs/device-lease.md` and verify the target is currently connected before install/screenshot work.
 
-## Current gate queue
+## Historical gate queue
 
 ### Gate V1 — Real thumbnail / cover presentation
 
@@ -306,9 +311,9 @@ Still open / blocked:
   and should not be reopened unless a new active issue is filed.
 ```
 
-### Gate V3 — Existing active visual/navigation items re-audit
+### Gate V3 — Historical visual/navigation re-audit
 
-Status: ACTIVE_REQA_AFTER_MERGED_CANDIDATES
+Status: HISTORICAL_REQA_AFTER_MERGED_CANDIDATES
 Priority: P1
 
 This is the original gallery visual/navigation active plan. Every prior PASS is invalid unless re-backed by current controller evidence under this work order.

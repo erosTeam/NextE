@@ -1,6 +1,6 @@
 # Image Block Community Rules Plan
 
-Status: foundation plus minimal Reader integration in progress on `codex/image-block-foundation`.
+Status: foundation and Reader/settings integration landed on main; remaining items are follow-up lanes.
 
 ## JHenTai Integration Notes
 
@@ -665,9 +665,11 @@ Emulator validation on `127.0.0.1:5555` with a signed HAP:
   `.hvigor/outputs/image-block-settings-edge-5557-screencap-pass/summary.json` and
   `.hvigor/outputs/image-block-settings-edge-5557-screencap-pass/draft_wait_0.png`.
 
-## Adjacent Non-download Feature Order
+## Follow-ups / Reference
 
-1. Verify Reader local pHash marking and local-rule deletion on real galleries containing external scanlator-ad pages.
+These are not a scheduling queue. Use `current-dispatch-state.md` for lane selection.
+
+1. Image-block sample verification on real galleries containing external scanlator-ad pages.
    - Current seeded community sample: `https://e-hentai.org/g/3049882/d7e740a39e/`, page 1, pHash
      `ce9e181d354a3cd5`.
    - 197 device note: settings/manual-rule UI, copy-draft click, Reader placeholder, Reader allowlist,
@@ -677,13 +679,13 @@ Emulator validation on `127.0.0.1:5555` with a signed HAP:
    - Additional sample candidates should prefer gallery titles/tags that explicitly indicate advertisement/external
      pages, but current public checks found title-search candidates rather than a stable advertisement namespace tag.
      Promote only stable, reviewable gallery URLs plus reviewed page pHashes into the rules repository.
-2. Add a seeded Reader QA path that installs one local/subscription rule and verifies the placeholder on device.
+2. Seeded Reader QA path exists; rerun it only when image-block behavior changes.
    - Static precursor added: `docs/fixtures/image-block-public-samples.json` plus
      `scripts/test_image_block_sample_contract.mjs` keep the seed gallery, seed pHash, manifest URL, and rules-repo dist
      output aligned before the device path is re-run.
    - Device precursor added: `scripts/qa_image_block_seeded_reader.mjs` uses the hidden seed routes and signed HAP,
      passes on the local emulator, and exits before install if 197 is still on the lockscreen.
-3. Add Home Dawn / HentaiVerse event pane.
+3. Home EventPane / HentaiVerse reminder.
 4. Add Reader touch-region ratios and a visual touch-area guide.
 5. Add No Image Mode as a privacy/bandwidth toggle.
 6. Park super-resolution, Archive Bot, and download-heavy JHenTai ideas for later lanes.

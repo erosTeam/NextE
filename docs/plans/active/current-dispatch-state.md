@@ -8,6 +8,8 @@ Purpose:
 - Read this before using `product-bug-intake.md` or long active plans to choose work.
 - `product-bug-intake.md` is the short intake index and writing-rule file; it is not the scheduling entry point.
 - Each turn should select at most one item from Active Queue unless the user explicitly redirects.
+- Another active session currently owns download / archiver / offline Reader work. This thread must not edit
+  download files or select download lanes unless the user explicitly redirects it back here.
 - Authority order: this file wins for current scheduling and frozen baselines. Domain intake files under
   `docs/plans/active/intake/` are evidence ledgers. Historical parity / regression files such as
   `docs/parity-driver.md`, `docs/parity-visual-review.md`, and
@@ -74,20 +76,16 @@ as the main output of a new turn unless fresh P0 evidence shows a regression.
   grouped-row mitigation is the shipped interim behavior until a deliberate Reader redesign lane is
   opened.
 
-## Current Active Override
+## Current Coordination
 
-- Active lane: Download / Archiver / offline Reader closure. User explicitly redirected the session here;
-  do not resume the generic Active Queue until this lane is either verified or explicitly paused.
-- Required closure evidence is user-path evidence, not only contracts: ordinary gallery download must show
-  detail click logs, enqueue / prepare / download logs, live Downloads-tab progress, completion, and local
-  Reader entry inheriting `GalleryReadProgressState`; archiver must show the FE-style detail `归档` entry,
-  `detail_archiver_open` log, half-modal quote load or `archiver_missing_or_token` error, and protected submit
-  confirmation without unauthorized remote submission.
-- Use logs first for trigger / queue / executor questions. Filter `DiagnosticLogger` / hilog before repeating
-  UI clicks. Screenshots prove visible state; logs prove state transitions.
-- Do not claim this lane complete without X7 or real-device evidence for both ordinary download and archiver
-  entry / quote flow. If archive submit would spend GP/Credits or mutate the account, stop at the native
-  confirmation unless the user explicitly authorizes the submit.
+- Download / archiver / offline Reader is out of scope for this thread while another session is actively
+  handling it. Treat dirty download files as someone else's work unless the user explicitly asks this thread
+  to take over.
+- Previous EhViewer / JHenTai comparison notes are preserved in
+  [EhViewer / JHenTai Feature Reference](ehviewer-jhentai-feature-comparison.md). Use that file as a candidate
+  reference, not as proof that a feature is missing or implemented.
+- Before naming or starting a "next feature", verify current NextE code and the relevant plan status. Do not
+  answer from stale queue memory alone.
 
 ## Closed / Superseded
 
@@ -168,38 +166,35 @@ Items here are real concerns, but they are not active implementation lanes by de
 Pick from here for the next user-visible bug or feature lane. Prefer items with clear user benefit and
 a bounded validation path.
 
-1. App storage architecture: cache, durable local data, and settings backup/import. Define the taxonomy and
-   implement the first bounded storage slice after the current Reader state-model fix. Cover the boundary
-   between disposable cache (image bytes, HTML/resolve metadata, gallery-detail snapshots), durable local data
-   (search/viewed history, read progress, local favorites, QuickSearch/tag-translation-ready tables), and small
-   Preferences-backed scalar settings. Use `../V2Next` as the HarmonyOS reference: `LocalDataStore` for RDB
-   records, descriptor/preferences helpers for scalar settings, and the backup service's envelope/preview/
-   rollback/secret-denylist model for settings import/export. User-facing cache clearing must not delete
-   history/progress/local favorites/downloads unless the UI names that destructive category. Do not bundle
-   download/offline Reader, full WebDAV/cloud sync, or every store migration into the first slice.
-2. Tag translation database and localized search candidates. User-visible
-   benefit: Chinese/localized tag understanding and search candidate quality, instead of the current tiny
-   hardcoded `TagTranslationService` stub. Scope this first lane to the smallest real FE-parity slice:
-   replace/extend the stub with the real tag-translation data source or import path, support raw tag ->
-   localized display lookup, and feed localized matches into the existing search candidate area with raw
-   exact tag insertion. Do not bundle QuickSearch, image search, saved-query management, MyTags write flows,
-   or a redesigned SearchFilter into this lane.
-3. Smart-grip / action-alignment support for the gallery detail read/resume action. Run this after the tag
-   translation lane unless the user explicitly redirects. Reuse the Next2V motion-hand/alignment model with
-   fixed-left/fixed-right/follow-operation fallback, and do not reopen Home bottom-tab auto-hide.
+1. Home EventPane / HentaiVerse reminder. Verify the current Home parser and reference behavior first, then
+   implement the smallest real-data pane on Home. Do not bundle notifications, background polling, or download
+   work.
+2. Reader touch-region guide / more touch-region types. Inspect the current Reader gesture/tap-zone model,
+   then add a preview/guide using existing Reader settings primitives. Do not rewrite the Reader pager.
+3. Privacy lock / recent-task privacy. Reopen from the Settings intake item for `最近任务中模糊处理` /
+   `自动锁定`, confirm HarmonyOS APIs, and implement one device-verifiable native slice.
+4. No Image Mode. Add a setting-backed list/detail image suppression slice for privacy/bandwidth. Reader
+   behavior is a separate decision because it changes the primary reading flow.
+5. Tag translation database and localized search candidates. Replace or extend the tiny
+   `TagTranslationService` stub with a real import/source path and feed localized matches into the existing
+   search candidate area. Do not bundle QuickSearch, image search, saved-query management, or MyTags write
+   flows.
+6. Smart-grip / action-alignment support for the gallery detail read/resume action. Reuse the Next2V
+   motion-hand/alignment model with fixed-left/fixed-right/follow-operation fallback.
 
 When the items above are implemented or explicitly paused, refill Active Queue from the FE parity pool
 in this order, one bounded slice at a time:
 
 1. QuickSearch saved-query workflow.
 2. Favorites workspace depth: favcat tabs/counts/local slot/search/jump behavior.
-3. Download/archive/offline Reader path.
-4. MyTags/user-tag wiring into list/detail/search behavior.
-5. Auth/WebView/uconfig depth that blocks FE parity.
-6. Comment/rating/favorite/tag write-operation acceptance and missing display details.
-7. Settings maintenance depth: backup/import/export, cache management, proxy/custom hosts, blockers, WebDAV
+3. MyTags/user-tag wiring into list/detail/search behavior.
+4. Auth/WebView/uconfig depth that blocks FE parity.
+5. Comment/rating/favorite/tag write-operation acceptance and missing display details.
+6. Settings maintenance depth: backup/import/export, cache management, proxy/custom hosts, blockers, WebDAV
    settings entry points, and honest labeling of not-yet-implemented surfaces.
-8. Sync/security/blocking/long-tail FE features.
+7. Sync/security/blocking/long-tail FE features.
+8. Download/archive/offline Reader path only after the other active session is finished or explicitly hands it
+   back to this thread.
 
 Do not let the queue become empty while these gaps remain. If the current top item looks too large, split its
 first user-visible slice; do not replace it with pending-acceptance rechecks.

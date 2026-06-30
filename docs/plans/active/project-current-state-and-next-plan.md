@@ -1,11 +1,13 @@
-# Project current state and next plan
+# Historical project state and next-plan snapshot
 
-- **status**: ACTIVE
+- **status**: HISTORICAL / superseded as scheduling source
 - **owner**: controller / project lead
 - **updated**: 2026-06-18 16:33:37 +0800
-- **purpose**: single scheduling snapshot after the Mac migration and the latest list responsive-cover gate.
+- **purpose**: historical scheduling snapshot after the Mac migration and the latest list responsive-cover gate.
 
-This document is a planning control surface, not an acceptance archive. Existing active plans remain queues. Historical PASS logs, worker summaries, and old screenshots are useful evidence, but they do not equal current controller acceptance.
+This document is historical evidence, not the live scheduler. Use
+`docs/plans/active/current-dispatch-state.md` for current scheduling. Historical PASS logs, worker summaries,
+and old screenshots are useful evidence, but they do not equal current controller acceptance.
 
 ## Standing constraints
 
@@ -81,11 +83,11 @@ Known worktrees:
 
 Do not reuse old worktrees for new product lanes. Rebase/review old lanes only when that lane is explicitly resumed.
 
-## Active queues
+## Historical queues
 
 ### 0. Product bug / feature intake maintenance
 
-Status: **active control-plane rule**
+Status: **historical control-plane rule**
 
 Location:
 
@@ -93,16 +95,16 @@ Location:
 docs/plans/active/product-bug-intake.md
 ```
 
-Scheduling rule:
+Historical scheduling rule:
 
 ```text
-- Treat the intake as a live queue, not as acceptance evidence.
+- At the time, treat the intake as a live queue, not as acceptance evidence.
 - When a listed item is fixed/implemented and the handling commit is on main, update that item with:
   Status, commit hash, implemented scope, deterministic contracts/device evidence, and remaining gaps.
 - Do not require every small code commit to edit intake immediately, but do not leave implemented items
   looking like unhandled backlog after a control-plane update.
 - Use implemented / pending device acceptance until current simulator/device/controller acceptance exists.
-- Use accepted only after current evidence has been reviewed for the active queue.
+- Use accepted only after current evidence has been reviewed for the then-active queue.
 ```
 
 Current backfill state:
@@ -236,7 +238,8 @@ Current merge status:
 Merged to main and pushed:
 11069a5 fix(list): make gallery card covers pane-responsive
 
-Controller still needs to review the diff and Mate X7 evidence before marking the active queue accepted.
+Historical note: controller still needed to review the diff and Mate X7 evidence before marking the
+then-active queue accepted.
 If rejected, follow-up fixes stay inside a new responsive/list lane and must not mix with auth or detail visual work.
 ```
 
@@ -709,7 +712,7 @@ detail visual lane.
 
 ### 5. Gallery visual/controller work order
 
-Status: **ACTIVE queue, not globally accepted**
+Status: **HISTORICAL queue, not globally accepted at the time**
 
 Source:
 
@@ -718,11 +721,11 @@ docs/plans/active/controller-work-order-gallery-visual.md
 docs/plans/active/gallery-visual-navigation-regression-contract.md
 ```
 
-Current active meaning:
+Historical active meaning:
 
 ```text
-- Gate V1 detail thumbnail/cover presentation remains a visual acceptance queue.
-- Gate V2 subtab never-loaded empty/no-more flash remains a P0 behavior queue.
+- Gate V1 detail thumbnail/cover presentation remained a visual acceptance queue.
+- Gate V2 subtab never-loaded empty/no-more flash remained a P0 behavior queue.
 - Gate V3 re-audits prior visual/navigation claims.
 - gallery-visual-navigation-regression-contract.md explicitly says prior PASS/archive claims are invalid unless re-backed by current controller evidence.
 - Current Gate V1/V3 re-QA is partial: default grid, horizontal preview/AllThumbnails route,
@@ -810,7 +813,8 @@ device-lease: clean but behind current main; device-lease guidance exists, but c
 
 1. **Acceptance drift**
 
-Historical PASS entries are mixed with reopened active audit language. The controller must treat active plan items as queues until current evidence closes each item.
+Historical PASS entries are mixed with reopened active audit language. Treat them as evidence only unless
+`current-dispatch-state.md` promotes a fresh lane.
 
 2. **Visual evidence weakness**
 
@@ -1069,7 +1073,9 @@ Out of scope:
 
 ## Post-stabilization eros_fe feature lanes
 
-The queues above are stabilization and acceptance work. They do not replace the product roadmap. After the current hard gates are accepted or explicitly parked, NextE still needs feature-depth development against eros_fe. These lanes should get their own active plans before implementation; do not mix them into visual/regression fixes.
+The historical queues above were stabilization and acceptance work. They do not replace the product roadmap.
+Future eros_fe feature-depth lanes should be promoted through `current-dispatch-state.md` before
+implementation.
 
 ### Feature Lane 1 — Auth foundation completion
 

@@ -12,7 +12,8 @@ Purpose:
 Operating rule:
 
 - Do not treat an entry here as immediate authorization to interrupt an active lane.
-- Main-thread scheduling should pull from this file when selecting the next user-visible feature or bug-fix lane.
+- Main-thread scheduling should pull from `current-dispatch-state.md`; use this file only as the short
+  intake index when that dispatch file points here.
 - Prefer issues that improve core use flows over low-priority parity enhancements.
 - Before implementation, verify the relevant eros_fe source behavior and current NextE code path.
 - When an intake item is implemented/fixed and committed, update that item with `Status`,
@@ -65,4 +66,6 @@ Operating rule:
 ## Current Scheduling Entry
 
 - Start from [Current Dispatch State](current-dispatch-state.md).
+- Use [EhViewer / JHenTai Feature Reference](ehviewer-jhentai-feature-comparison.md) only as a recovered
+  comparison/candidate source; verify current NextE implementation before scheduling from it.
 - Treat the domain intake files as evidence ledgers, not direct priority queues.

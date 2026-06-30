@@ -223,26 +223,20 @@ At this handoff there are no live tmux worker sessions and no Hermes background 
 
 ## Active plan state
 
-Active plans to read before scheduling work:
+Scheduling authority:
 
 ```text
-docs/plans/active/controller-work-order-gallery-visual.md
-docs/plans/active/gallery-visual-navigation-regression-contract.md
-docs/plans/active/cookie-login-function-gate.md
+docs/plans/active/current-dispatch-state.md
 ```
 
 Important state:
 
 ```text
-controller-work-order-gallery-visual.md:
-  Gate V1 real thumbnail/cover presentation remains OPEN / not accepted, despite 0652a05 being merged.
-  Gate V2 subtab never-loaded empty/no-more flash has a merged candidate (b3d9e5d), but full controller re-QA remains active.
-  Gate V3 remains active re-audit of previous visual/navigation items.
-
-gallery-visual-navigation-regression-contract.md:
-  Reopened acceptance audit invalidates prior broad completion claims.
-  Many items are NEEDS_CONTROLLER_REQA.
-
+This handoff is machine/device context, not the live feature queue.
+Do not schedule from the older gallery-visual/list-responsive notes below unless current-dispatch-state.md
+promotes them again.
+Another active session owns download / archiver / offline Reader work; this thread should avoid those files
+unless explicitly redirected.
 cookie-login-function-gate.md:
   Manual Cookie login/import candidate is merged at 58e48ba.
   User/manual real-cookie success verification remains open; do not ask for cookie values.
@@ -390,29 +384,28 @@ Minimum acceptance gates for this issue:
 
 Screenshots should be delivered to the controller/user, not only kept as local paths.
 
-## Recommended next scheduling decision
+## Scheduling Pointer
 
-If Codex is asked to arrange the next work, the first clean lane should be a new independent worktree for the list responsive gate, not any existing old lane:
+For lane selection, use:
 
 ```text
-worktree: /Users/honjow/git/NextE-wt/list-responsive-cover
-branch:   agent/codex/list-responsive-cover
-base:     current origin/main or current reviewed main after fetch
+docs/plans/active/current-dispatch-state.md
 ```
 
-Do not mix with:
+Current coordination note:
 
 ```text
-auth-cookie-login WIP
-Gate V1 detail-thumbnail presentation re-audit
-subtab loading lane
-old device-lease lane
+Download / archiver / offline Reader work is owned by another active session unless the user explicitly
+hands it back to this thread.
+Recovered EhViewer / JHenTai comparison candidates live in
+docs/plans/active/ehviewer-jhentai-feature-comparison.md.
 ```
 
-Suggested first worker task:
+Historical worker note:
 
 ```text
-Create a list-card responsive-sizing contract and implementation plan from the evidence above. Then implement the smallest code change that removes GalleryCard startup display cache, measures current list content width, restores eros_fe phone-vs-wide sizing semantics, and verifies on Mate X7 folded/unfolded emulator states.
+The old list-card responsive-sizing worker suggestion is no longer a scheduling recommendation.
+Use current-dispatch-state.md for any next-lane decision.
 ```
 
 ## Agent execution rules for the next phase
