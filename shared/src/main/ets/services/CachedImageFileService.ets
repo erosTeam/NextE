@@ -123,10 +123,33 @@ export class CachedImageFileService {
     const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
     const tmpPath: string = `${filePath}.part`
     CachedImageFileService.removeIfExists(tmpPath)
+    let lastLoggedPercent: number = -20
+    let loggedUnknownTotal: boolean = false
     const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
       url,
       tmpPath,
       (loaded: number, total: number) => {
+        if (total <= 0) {
+          if (!loggedUnknownTotal) {
+            loggedUnknownTotal = true
+            DiagnosticLogger.info(
+              'image-cache',
+              'stream_progress',
+              `loaded=${loaded} total=${total} percent=? urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+            )
+          }
+          onProgress({ loaded, total })
+          return
+        }
+        const percent: number = Math.floor(Math.max(0, Math.min(100, loaded * 100 / total)))
+        if (percent > lastLoggedPercent && (percent >= 100 || percent - lastLoggedPercent >= 20)) {
+          lastLoggedPercent = percent
+          DiagnosticLogger.info(
+            'image-cache',
+            'stream_progress',
+            `loaded=${loaded} total=${total} percent=${percent} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+          )
+        }
         onProgress({ loaded, total })
       },
     )

@@ -335,15 +335,24 @@ export class EhHttpClient {
         openedTarget = true
         let written: number = 0
         let progressTotal: number = 0
+        let progressLoaded: number = 0
         req.on('dataReceiveProgress', (info: http.DataReceiveProgressInfo) => {
-          progressTotal = info.totalSize
-          progress(info.receiveSize, progressTotal)
+          if (info.totalSize > progressTotal) {
+            progressTotal = info.totalSize
+          }
+          if (info.receiveSize > progressLoaded) {
+            progressLoaded = info.receiveSize
+          }
+          progress(progressLoaded, progressTotal)
         })
         req.on('dataReceive', (data: ArrayBuffer) => {
           const offset: number = written
           const len: number = fs.writeSync((file as fs.File).fd, data, { offset: offset })
           written += len
-          progress(written, progressTotal)
+          if (written > progressLoaded) {
+            progressLoaded = written
+          }
+          progress(progressLoaded, progressTotal)
         })
         const code: number = await req.requestInStream(url, {
           method: http.RequestMethod.GET,

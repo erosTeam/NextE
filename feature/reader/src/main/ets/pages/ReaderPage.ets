@@ -45,6 +45,7 @@ const READER_PROGRESS_NUMBER_MIN_W: number = 30
 const READER_PROGRESS_SLIDER_GAP: number = 4
 const READER_IMAGE_WARM_AHEAD: number = 2
 const READER_ZOOM_ANIM_DURATION: number = 180
+const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
 class ReaderSpreadResolver {
   static isDoublePage(mode: string, columnMode: string): boolean {
     return mode !== ReadMode.VERTICAL && columnMode !== ReadColumnMode.SINGLE
@@ -2716,6 +2717,13 @@ struct ReaderSpreadImageLayer {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+        if (!this.imageLoaded) {
+          ReaderLoadingStage({
+            label: $r('app.string.reader_loading_image'),
+            loaded: this.imageProgressLoaded,
+            total: this.imageProgressTotal,
+          })
+        }
       } else if (this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
@@ -3161,6 +3169,13 @@ struct ReaderImagePage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+        if (!this.imageLoaded) {
+          ReaderLoadingStage({
+            label: $r('app.string.reader_loading_image'),
+            loaded: this.imageProgressLoaded,
+            total: this.imageProgressTotal,
+          })
+        }
       } else if (this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
@@ -3560,6 +3575,14 @@ struct ReaderVerticalImage {
             this.imageLoaded = false
             this.retrySourceAutomatically()
           })
+        if (!this.imageLoaded) {
+          ReaderLoadingStage({
+            label: $r('app.string.reader_loading_image'),
+            compact: true,
+            loaded: this.imageProgressLoaded,
+            total: this.imageProgressTotal,
+          })
+        }
       } else if (this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
@@ -3627,13 +3650,12 @@ struct ReaderLoadingStage {
       if (this.hasProgress()) {
         Row() {
           Blank()
-            .width(this.barWidth() * this.progressRatio())
+            .width(this.barWidth())
             .height(4)
             .backgroundColor(Color.White)
             .borderRadius(2)
-          Blank()
-            .layoutWeight(1)
-            .height(4)
+            .scale({ x: this.progressRatio(), y: 1, centerX: 0, centerY: 0 })
+            .animation({ duration: READER_LOADING_PROGRESS_ANIM_DURATION, curve: Curve.EaseOut })
         }
         .width(this.barWidth())
         .height(4)
