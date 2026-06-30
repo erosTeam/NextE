@@ -4,6 +4,7 @@ import { KeyboardAvoidMode } from '@kit.ArkUI'
 import {
   EhConstants,
   CookieJarSettings,
+  closeLoginFlowToAccount,
   connectNavStack,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
@@ -141,6 +142,6 @@ export struct EhCookieImportPage {
     this.getUIContext()
       .getPromptAction()
       .showToast({ message: $r('app.string.login_success') })
-    this.stack.pop()
+    closeLoginFlowToAccount(this.stack)
   }
 }

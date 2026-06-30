@@ -408,6 +408,7 @@ export {
 export { AuthState, connectAuth } from './state/AuthState'
 export { SafeModeState, connectSafeMode } from './state/SafeModeState'
 export { AccountListState, connectAccountList } from './state/AccountListState'
+export { closeLoginFlowToAccount, isTopRoute } from './navigation/LoginFlowNavigation'
 export {
   HomeSourceState,
   HomeSourceBridge,

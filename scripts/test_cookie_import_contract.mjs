@@ -34,6 +34,7 @@ const SETTINGS = 'feature/settings/src/main/ets/pages/SettingsPage.ets'
 const ACCOUNT_LOGIN = 'feature/settings/src/main/ets/pages/AccountLoginPage.ets'
 const ACCOUNT_PAGE = 'feature/settings/src/main/ets/pages/AccountPage.ets'
 const COOKIE_SETTINGS = 'shared/src/main/ets/settings/CookieJarSettings.ets'
+const LOGIN_FLOW = 'shared/src/main/ets/navigation/LoginFlowNavigation.ets'
 
 let passed = 0
 const ok = (name, cond) => {
@@ -63,6 +64,7 @@ const eq = (name, got, want) => {
   ok('Account login pushes the EhCookieImport route', /pushPathByName\('EhCookieImport'/.test(accountLogin))
   ok('Account login keeps the WebView login route intact', /pushPathByName\('EhLogin'/.test(accountLogin))
   ok('cookie import row is in the logged-out login chooser', /settings_login_cookie/.test(accountLogin))
+  ok('Cookie import success closes the whole login flow to Account', /closeLoginFlowToAccount\(this\.stack\)/.test(page) && /pushPathByName\('Account', null\)/.test(src(LOGIN_FLOW)))
   ok('logout confirmation keeps cancel as primary button', /primaryButton:\s*\{[\s\S]*?common_cancel[\s\S]*?\}[\s\S]*?secondaryButton:/.test(accountPage))
   ok('logout confirmation puts destructive account removal on secondary button', /secondaryButton:\s*\{[\s\S]*?settings_logout[\s\S]*?fontColor:\s*Color\.Red[\s\S]*?removeAndMaybeExit/.test(accountPage))
 }

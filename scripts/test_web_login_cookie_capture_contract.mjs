@@ -28,6 +28,7 @@ const styleSettings = src('shared/src/main/ets/settings/WebLoginStyleSettings.et
 const styleState = src('shared/src/main/ets/state/WebLoginStyleState.ets')
 const bootstrap = src('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const storageKeys = src('shared/src/main/ets/constants/StorageKeys.ets')
+const loginFlow = src('shared/src/main/ets/navigation/LoginFlowNavigation.ets')
 
 ok('Web login is a V2 component', /@ComponentV2[\s\S]*struct EhLoginWebPage/.test(page))
 ok('Web login fetches table-site WebView cookies', /fetchWebCookie\(EhConstants\.EH_BASE_URL,\s*'eh'\)/.test(page))
@@ -58,12 +59,16 @@ ok('Web login avoids ArkWeb-fragile :has selectors', !/:has\(/.test(page))
 ok('Web login tags the real forum form and chrome instead of moving captcha controls', /form\.classList\.add\('nxe-login-form'\)/.test(page) && /nxe-login-chrome/.test(page) && /nxe-login-shell/.test(page))
 ok('Web login applies mobile CSS around the real password form', /document\.querySelector\('input\[type=password\]'\)/.test(page) && /form\.nxe-login-form input\[type=text\]/.test(page) && /form\.nxe-login-form input\[type=submit\]/.test(page))
 ok('Web login marks captcha controls and keeps their media visible', /querySelectorAll\('iframe,canvas,img,\.cf-turnstile,\[data-sitekey\],\[name="cf-turnstile-response"\]'\)/.test(page) && /nxe-login-captcha-row/.test(page) && /visibility:visible!important/.test(page))
+ok('Web login keeps a password visibility affordance in the password row', /nxe-login-password-eye/.test(page) && /Toggle password visibility/.test(page) && /pw\.setAttribute\('type',show\?'text':'password'\)/.test(page))
+ok('Web login hides forum option rows in beautified mode', /input\[type=checkbox\]/.test(page) && /Remember me\?/.test(page) && /Log in as invisible/.test(page) && /display:none!important/.test(page))
 ok('Web login resets the forum submit button layout', /submit\.removeAttribute\('style'\)/.test(page) && /submit\.className='nx-submit'/.test(page) && /position:static!important/.test(page) && /margin:8px 0 0!important/.test(page))
 ok('Web login exposes a persistent beautify setting in the login chooser', /connectWebLoginStyle/.test(accountLogin) && /web_login_beautify_setting/.test(accountLogin) && /WebLoginStyleSettings\.save/.test(accountLogin))
 ok('Web login style setting is restored during bootstrap', /WEB_LOGIN_BEAUTIFY_ENABLED/.test(storageKeys) && /@ObservedV2[\s\S]*class WebLoginStyleState[\s\S]*@Trace beautifyEnabled: boolean = true/.test(styleState) && /WebLoginStyleSettings\.restore\(context\)/.test(bootstrap))
-ok('Web login can be switched to raw mode from the title bar', /runtimeBeautifyEnabled/.test(page) && /web_login_use_original/.test(page) && /web_login_use_beautified/.test(page) && /toggleRuntimeLoginStyle\(\)/.test(page))
+ok('Web login can be switched to raw mode from the title bar', /runtimeBeautifyEnabled/.test(page) && /web_login_use_original/.test(page) && /web_login_use_beautified/.test(page) && /sys\.symbol\.eye_slash/.test(page) && /sys\.symbol\.eye/.test(page) && /toggleRuntimeLoginStyle\(\)/.test(page))
 ok('Raw Web login mode skips CSS restyling', /if \(this\.runtimeBeautifyEnabled\) \{[\s\S]*this\.restyleLoginForm\(\)/.test(page) && /this\.controller\.loadUrl\(EhConstants\.FORUMS_LOGIN_FORM_URL\)/.test(page))
 ok('Web login style setting persists with the settings store', /StorageKeys\.WEB_LOGIN_BEAUTIFY_ENABLED/.test(styleSettings) && /store\.putSync\(StorageKeys\.WEB_LOGIN_BEAUTIFY_ENABLED, value\)/.test(styleSettings))
+ok('Web login success closes the whole login flow to Account', /closeLoginFlowToAccount\(this\.stack\)/.test(page) && /function closeLoginFlowToAccount\(stack: NavPathStack\)/.test(loginFlow) && /parent === 'AccountLogin'[\s\S]*stack\.pop\(\)[\s\S]*stack\.pushPathByName\('Account', null\)/.test(loginFlow))
+ok('AccountLogin monitor only closes itself when it is the top route', /isTopRoute\(this\.stack, 'AccountLogin'\)[\s\S]*closeLoginFlowToAccount\(this\.stack\)/.test(accountLogin))
 
 const logCalls = page.match(/DiagnosticLogger\.(info|warn|error)\([\s\S]*?\)/g) || []
 for (const call of logCalls) {

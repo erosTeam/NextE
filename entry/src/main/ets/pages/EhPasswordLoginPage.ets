@@ -3,6 +3,7 @@ import { common } from '@kit.AbilityKit'
 import { KeyboardAvoidMode } from '@kit.ArkUI'
 import {
   CookieJarSettings,
+  closeLoginFlowToAccount,
   connectNavStack,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
@@ -102,7 +103,7 @@ export struct EhPasswordLoginPage {
       this.getUIContext()
         .getPromptAction()
         .showToast({ message: $r('app.string.login_success') })
-      this.stack.pop()
+      closeLoginFlowToAccount(this.stack)
     } else {
       this.getUIContext()
         .getPromptAction()

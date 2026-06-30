@@ -10,7 +10,9 @@ import {
   WebLoginStyleState,
   connectNavStack,
   connectWebLoginStyle,
+  closeLoginFlowToAccount,
   immersiveTitleBar,
+  isTopRoute,
   AccountListState,
   connectAccountList,
 } from 'shared'
@@ -18,8 +20,8 @@ import {
 /**
  * The login page — a dedicated sub-page that just lists the login methods (web / password / cookie).
  * Reached when signed out (Settings → account) or when adding another account (account page top-right
- * person_badge_plus). It auto-dismisses once a login lands (activeMemberId changes) so the user returns
- * to where they came from (Settings or the account page) instead of staying on the chooser.
+ * person_badge_plus). It auto-dismisses once a login lands on this page itself. Method pages close the
+ * whole login flow explicitly, so this monitor must not pop while a child method page is still on top.
  */
 @ComponentV2
 export struct AccountLoginPage {
@@ -35,7 +37,9 @@ export struct AccountLoginPage {
   // Any method that logs in lands a new active account — leave the chooser so we return to the source page.
   @Monitor('accountList.activeMemberId')
   private onLoggedIn() {
-    this.stack.pop()
+    if (isTopRoute(this.stack, 'AccountLogin')) {
+      closeLoginFlowToAccount(this.stack)
+    }
   }
 
   @Builder

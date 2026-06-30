@@ -14,6 +14,7 @@ import {
   AppStrings,
   DiagnosticLogger,
   UserProfileService,
+  closeLoginFlowToAccount,
   connectWebLoginStyle,
   immersiveTitleBarOpts,
 } from 'shared'
@@ -145,7 +146,7 @@ export struct EhLoginWebPage {
       'label': AppStrings.get(
         this.runtimeBeautifyEnabled ? 'web_login_use_original' : 'web_login_use_beautified',
       ),
-      'icon': $r('sys.symbol.paintbrush'),
+      'icon': this.runtimeBeautifyEnabled ? $r('sys.symbol.eye_slash') : $r('sys.symbol.eye'),
       'isEnabled': true,
       'action': (): void => {
         this.toggleRuntimeLoginStyle()
@@ -248,6 +249,30 @@ export struct EhLoginWebPage {
         markField(user,'nxe-login-user-row');
         markField(pw,'nxe-login-pass-row');
         markField(submit,'nxe-login-submit-row');
+        var passBlock=closestBlock(pw);
+        if(passBlock && !document.getElementById('nxe-login-password-eye')){
+          var eye=document.createElement('button');
+          eye.id='nxe-login-password-eye';
+          eye.type='button';
+          eye.className='nxe-login-password-eye';
+          eye.setAttribute('aria-label','Toggle password visibility');
+          var eyeOn='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+          var eyeOff='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C6 20 2 12 2 12a20.15 20.15 0 0 1 5.06-5.94"/><path d="M9.9 4.24A10.76 10.76 0 0 1 12 4c6 0 10 8 10 8a18.4 18.4 0 0 1-2.16 3.19"/><path d="M14.12 14.12A3 3 0 0 1 9.88 9.88"/><path d="M3 3l18 18"/></svg>';
+          eye.innerHTML=eyeOff;
+          eye.onclick=function(){
+            var show=pw.getAttribute('type')==='password';
+            pw.setAttribute('type',show?'text':'password');
+            eye.className=show?'nxe-login-password-eye nxe-login-password-eye-on':'nxe-login-password-eye';
+            eye.innerHTML=show?eyeOn:eyeOff;
+          };
+          passBlock.appendChild(eye);
+        }
+        var optionInputs=form.querySelectorAll('input[type=checkbox],input[name*="remember"],input[name*="invisible"]');
+        for(var o=0;o<optionInputs.length;o++){
+          var optionBlock=closestBlock(optionInputs[o]);
+          addClass(optionBlock,'nxe-login-noise');
+          if(optionBlock && optionBlock.parentElement) addClass(optionBlock.parentElement,'nxe-login-noise');
+        }
         var challengeNodes=form.querySelectorAll('iframe,canvas,img,.cf-turnstile,[data-sitekey],[name="cf-turnstile-response"]');
         for(var c=0;c<challengeNodes.length;c++){
           var challengeBlock=closestBlock(challengeNodes[c]);
@@ -260,23 +285,30 @@ export struct EhLoginWebPage {
           var node=textNodes[t];
           if(node.querySelector && node.querySelector('input,button,iframe,canvas,img,.cf-turnstile,[data-sitekey]')) continue;
           var text=(node.textContent || '').replace(/\\s+/g,' ').trim();
-          if(text === 'Log In' || text === 'Please enter your details below to log in' || text === 'Enter your user name' || text === 'Enter your password' || text.indexOf('IF YOU DO NOT SEE THE CAPTCHA') >= 0 || text.indexOf('You must already have registered') >= 0 || text.indexOf("I've forgotten my password") >= 0 || text === 'Attention!'){
+          if(text.indexOf('Log In') >= 0 || text === 'Options' || text === 'Please enter your details below to log in' || text === 'Enter your user name' || text === 'Enter your password' || text.indexOf('IF YOU DO NOT SEE THE CAPTCHA') >= 0 || text.indexOf('Remember me?') >= 0 || text.indexOf('Log in as invisible') >= 0 || text.indexOf('You must already have registered') >= 0 || text.indexOf("I've forgotten my password") >= 0 || text === 'Attention!'){
             addClass(node,'nxe-login-noise');
           }
         }
-        if(document.getElementById('nexte-login-style')) return 'already-styled';
+        var oldStyle=document.getElementById('nexte-login-style');
+        if(oldStyle && oldStyle.parentElement) oldStyle.parentElement.removeChild(oldStyle);
         var s=document.createElement('style'); s.id='nexte-login-style';
         s.textContent=[
           "html,body{background:#F1F3F5!important;margin:0!important;padding:0!important;font-family:-apple-system,'HarmonyOS Sans',sans-serif!important;-webkit-text-size-adjust:100%!important;}",
           "body.nxe-login-page .nxe-login-chrome{display:none!important;}",
+          "body.nxe-login-page form.nxe-login-form .maintitle,body.nxe-login-page form.nxe-login-form .pformstrip,body.nxe-login-page form.nxe-login-form .formsubtitle,body.nxe-login-page form.nxe-login-form legend,body.nxe-login-page form.nxe-login-form h1,body.nxe-login-page form.nxe-login-form h2,body.nxe-login-page form.nxe-login-form h3{display:none!important;visibility:hidden!important;height:0!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;}",
           "body.nxe-login-page .nxe-login-shell,body.nxe-login-page .nxe-login-shell-parent{display:block!important;width:100%!important;max-width:none!important;box-sizing:border-box!important;margin:0!important;padding:0!important;border:0!important;background:#F1F3F5!important;}",
           "body.nxe-login-page form.nxe-login-form{display:block!important;width:100%!important;max-width:none!important;box-sizing:border-box!important;margin:0!important;padding:18px 16px 24px!important;background:#F1F3F5!important;border:0!important;}",
           "body.nxe-login-page form.nxe-login-form table,body.nxe-login-page form.nxe-login-form tbody,body.nxe-login-page form.nxe-login-form tr,body.nxe-login-page form.nxe-login-form td{display:block!important;width:100%!important;max-width:none!important;box-sizing:border-box!important;border:0!important;background:transparent!important;margin:0!important;padding:0!important;text-align:left!important;}",
           "body.nxe-login-page form.nxe-login-form fieldset,body.nxe-login-page form.nxe-login-form .borderwrap,body.nxe-login-page form.nxe-login-form .tableborder{display:block!important;width:100%!important;max-width:none!important;box-sizing:border-box!important;border:0!important;background:transparent!important;margin:0!important;padding:0!important;}",
           "body.nxe-login-page form.nxe-login-form .nxe-login-user-row,body.nxe-login-page form.nxe-login-form .nxe-login-pass-row,body.nxe-login-page form.nxe-login-form .nxe-login-captcha-row,body.nxe-login-page form.nxe-login-form .nxe-login-submit-row{display:block!important;width:100%!important;box-sizing:border-box!important;margin:0!important;padding:0!important;}",
-          "body.nxe-login-page form.nxe-login-form input[type=text],body.nxe-login-page form.nxe-login-form input[type=password]{font-size:16px!important;width:100%!important;height:48px!important;box-sizing:border-box!important;padding:0 18px!important;border:none!important;border-radius:19px!important;background:#fff!important;color:#1A1A1A!important;outline:none!important;-webkit-appearance:none!important;margin:0 0 12px!important;}",
+          "body.nxe-login-page form.nxe-login-form .nxe-login-pass-row{position:relative!important;}",
+          "body.nxe-login-page form.nxe-login-form input[type=text],body.nxe-login-page form.nxe-login-form input[type=password],body.nxe-login-page form.nxe-login-form input[type=text][name*=Pass],body.nxe-login-page form.nxe-login-form .nxe-login-pass-row input{font-size:16px!important;width:100%!important;height:48px!important;box-sizing:border-box!important;padding:0 18px!important;border:none!important;border-radius:19px!important;background:#fff!important;color:#1A1A1A!important;outline:none!important;-webkit-appearance:none!important;margin:0 0 12px!important;}",
+          "body.nxe-login-page form.nxe-login-form .nxe-login-pass-row input{padding-right:54px!important;}",
           "body.nxe-login-page form.nxe-login-form input::placeholder{color:#9AA0A8!important;}",
-          "body.nxe-login-page form.nxe-login-form input[type=checkbox]{width:20px!important;height:20px!important;}",
+          "body.nxe-login-page form.nxe-login-form input[type=checkbox]{display:none!important;}",
+          "body.nxe-login-page form.nxe-login-form .nxe-login-password-eye{position:absolute!important;right:14px!important;top:0!important;width:40px!important;height:48px!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;color:#9AA0A8!important;display:flex!important;align-items:center!important;justify-content:center!important;z-index:2!important;-webkit-appearance:none!important;}",
+          "body.nxe-login-page form.nxe-login-form .nxe-login-password-eye svg{width:24px!important;height:24px!important;fill:none!important;stroke:currentColor!important;stroke-width:2!important;stroke-linecap:round!important;stroke-linejoin:round!important;}",
+          "body.nxe-login-page form.nxe-login-form .nxe-login-password-eye-on{color:#1A1A1A!important;}",
           "body.nxe-login-page form.nxe-login-form .nxe-login-captcha-row{min-height:76px!important;margin:2px 0 10px!important;overflow:visible!important;}",
           "body.nxe-login-page form.nxe-login-form iframe,body.nxe-login-page form.nxe-login-form img,body.nxe-login-page form.nxe-login-form canvas{max-width:100%!important;visibility:visible!important;opacity:1!important;}",
           "body.nxe-login-page form.nxe-login-form input[type=submit],body.nxe-login-page form.nxe-login-form button[type=submit],body.nxe-login-page form.nxe-login-form .nx-submit{position:static!important;display:block!important;float:none!important;font-size:16px!important;font-weight:500!important;width:100%!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:999px!important;background:${accent}!important;color:#fff!important;border:none!important;margin:8px 0 0!important;-webkit-appearance:none!important;}",
@@ -389,6 +421,6 @@ export struct EhLoginWebPage {
     }
     this.finished = true
     promptAction.showToast({ message: $r('app.string.login_success') })
-    this.stack.pop()
+    closeLoginFlowToAccount(this.stack)
   }
 }
