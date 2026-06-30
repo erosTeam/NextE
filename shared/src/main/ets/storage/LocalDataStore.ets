@@ -362,8 +362,39 @@ const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_TABLE: string =
     'prepare_error TEXT NOT NULL, ' +
     'prefer_original INTEGER NOT NULL DEFAULT 0, ' +
     'status TEXT NOT NULL, ' +
-    'PRIMARY KEY(scope_key, gid, token)' +
+    'PRIMARY KEY(scope_key, gid, token, prefer_original)' +
   ')'
+const SQL_CREATE_DOWNLOAD_GALLERY_TASKS_V15_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS download_gallery_tasks_v15 (' +
+    'scope_key TEXT NOT NULL, ' +
+    'gid TEXT NOT NULL, ' +
+    'token TEXT NOT NULL, ' +
+    'title TEXT NOT NULL, ' +
+    'title_jp TEXT NOT NULL, ' +
+    'thumb_url TEXT NOT NULL, ' +
+    'page_count INTEGER NOT NULL, ' +
+    'category TEXT NOT NULL, ' +
+    'uploader TEXT NOT NULL, ' +
+    'upgrade_from_gid TEXT NOT NULL DEFAULT \'\', ' +
+    'queued_at INTEGER NOT NULL, ' +
+    'prepared_at INTEGER NOT NULL, ' +
+    'first_page_count INTEGER NOT NULL, ' +
+    'preview_page_count INTEGER NOT NULL, ' +
+    'prepare_error TEXT NOT NULL, ' +
+    'prefer_original INTEGER NOT NULL DEFAULT 0, ' +
+    'status TEXT NOT NULL, ' +
+    'PRIMARY KEY(scope_key, gid, token, prefer_original)' +
+  ')'
+const SQL_COPY_DOWNLOAD_GALLERY_TASKS_TO_V15: string =
+  'INSERT OR REPLACE INTO download_gallery_tasks_v15 ' +
+    '(scope_key, gid, token, title, title_jp, thumb_url, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
+    'prepared_at, first_page_count, preview_page_count, prepare_error, prefer_original, status) ' +
+  'SELECT scope_key, gid, token, title, title_jp, thumb_url, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
+    'prepared_at, first_page_count, preview_page_count, prepare_error, prefer_original, status FROM download_gallery_tasks'
+const SQL_DROP_DOWNLOAD_GALLERY_TASKS_TABLE: string =
+  'DROP TABLE download_gallery_tasks'
+const SQL_RENAME_DOWNLOAD_GALLERY_TASKS_V15_TABLE: string =
+  'ALTER TABLE download_gallery_tasks_v15 RENAME TO download_gallery_tasks'
 const SQL_ADD_DOWNLOAD_GALLERY_TASKS_PREFER_ORIGINAL: string =
   'ALTER TABLE download_gallery_tasks ADD COLUMN prefer_original INTEGER NOT NULL DEFAULT 0'
 const SQL_ADD_DOWNLOAD_GALLERY_TASKS_UPGRADE_FROM_GID: string =
@@ -388,11 +419,45 @@ const SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_TABLE: string =
     'bytes_written INTEGER NOT NULL, ' +
     'downloaded_at INTEGER NOT NULL, ' +
     'download_error TEXT NOT NULL, ' +
-    'PRIMARY KEY(scope_key, gid, token, image_page_url)' +
+    'prefer_original INTEGER NOT NULL DEFAULT 0, ' +
+    'PRIMARY KEY(scope_key, gid, token, prefer_original, image_page_url)' +
   ')'
+const SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_V15_TABLE: string =
+  'CREATE TABLE IF NOT EXISTS download_gallery_seeds_v15 (' +
+    'scope_key TEXT NOT NULL, ' +
+    'gid TEXT NOT NULL, ' +
+    'token TEXT NOT NULL, ' +
+    'prefer_original INTEGER NOT NULL DEFAULT 0, ' +
+    'image_page_url TEXT NOT NULL, ' +
+    'position_index INTEGER NOT NULL, ' +
+    'page INTEGER NOT NULL, ' +
+    'imgkey TEXT NOT NULL, ' +
+    'thumb_url TEXT NOT NULL, ' +
+    'image_url TEXT NOT NULL, ' +
+    'origin_image_url TEXT NOT NULL, ' +
+    'show_key TEXT NOT NULL, ' +
+    'reload_key TEXT NOT NULL, ' +
+    'file_path TEXT NOT NULL, ' +
+    'bytes_written INTEGER NOT NULL, ' +
+    'downloaded_at INTEGER NOT NULL, ' +
+    'download_error TEXT NOT NULL, ' +
+    'PRIMARY KEY(scope_key, gid, token, prefer_original, image_page_url)' +
+  ')'
+const SQL_COPY_DOWNLOAD_GALLERY_SEEDS_TO_V15: string =
+  'INSERT OR REPLACE INTO download_gallery_seeds_v15 ' +
+    '(scope_key, gid, token, prefer_original, image_page_url, position_index, page, imgkey, thumb_url, image_url, ' +
+    'origin_image_url, show_key, reload_key, file_path, bytes_written, downloaded_at, download_error) ' +
+  'SELECT s.scope_key, s.gid, s.token, COALESCE(t.prefer_original, 0), s.image_page_url, s.position_index, s.page, ' +
+    's.imgkey, s.thumb_url, s.image_url, s.origin_image_url, s.show_key, s.reload_key, s.file_path, s.bytes_written, ' +
+    's.downloaded_at, s.download_error FROM download_gallery_seeds s ' +
+  'LEFT JOIN download_gallery_tasks t ON t.scope_key = s.scope_key AND t.gid = s.gid AND t.token = s.token'
+const SQL_DROP_DOWNLOAD_GALLERY_SEEDS_TABLE: string =
+  'DROP TABLE download_gallery_seeds'
+const SQL_RENAME_DOWNLOAD_GALLERY_SEEDS_V15_TABLE: string =
+  'ALTER TABLE download_gallery_seeds_v15 RENAME TO download_gallery_seeds'
 const SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_POSITION_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_download_gallery_seeds_position ' +
-    'ON download_gallery_seeds (scope_key, gid, token, position_index ASC)'
+    'ON download_gallery_seeds (scope_key, gid, token, prefer_original, position_index ASC)'
 const SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS download_archiver_tasks (' +
     'scope_key TEXT NOT NULL, ' +
@@ -468,8 +533,9 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_TABLE)
     await LocalDataStore.migrateDownloadGalleryPreferOriginal(store)
     await LocalDataStore.migrateDownloadGalleryUpgradeFromGid(store)
-    await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_QUEUED_INDEX)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_TABLE)
+    await LocalDataStore.migrateDownloadGalleryTaskQualityKey(store)
+    await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_QUEUED_INDEX)
     await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_POSITION_INDEX)
     await store.executeSql(SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_TABLE)
     await LocalDataStore.migrateDownloadArchiverToken(store)
@@ -584,6 +650,59 @@ export class LocalDataStore {
       return
     }
     await store.executeSql(SQL_ADD_DOWNLOAD_GALLERY_TASKS_UPGRADE_FROM_GID)
+  }
+
+  private static async migrateDownloadGalleryTaskQualityKey(store: relationalStore.RdbStore): Promise<void> {
+    const tasksUsePreferOriginalKey: boolean = await LocalDataStore.hasPrimaryKeyColumn(
+      store,
+      'download_gallery_tasks',
+      'prefer_original',
+    )
+    const seedsUsePreferOriginalKey: boolean = await LocalDataStore.hasPrimaryKeyColumn(
+      store,
+      'download_gallery_seeds',
+      'prefer_original',
+    )
+    if (tasksUsePreferOriginalKey && seedsUsePreferOriginalKey) {
+      return
+    }
+    store.beginTransaction()
+    try {
+      await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_TASKS_V15_TABLE)
+      await store.executeSql(SQL_COPY_DOWNLOAD_GALLERY_TASKS_TO_V15)
+      await store.executeSql(SQL_CREATE_DOWNLOAD_GALLERY_SEEDS_V15_TABLE)
+      await store.executeSql(SQL_COPY_DOWNLOAD_GALLERY_SEEDS_TO_V15)
+      await store.executeSql(SQL_DROP_DOWNLOAD_GALLERY_SEEDS_TABLE)
+      await store.executeSql(SQL_DROP_DOWNLOAD_GALLERY_TASKS_TABLE)
+      await store.executeSql(SQL_RENAME_DOWNLOAD_GALLERY_TASKS_V15_TABLE)
+      await store.executeSql(SQL_RENAME_DOWNLOAD_GALLERY_SEEDS_V15_TABLE)
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      const e: Error = error as Error
+      throw new Error(e.message || 'Failed to migrate download gallery quality key')
+    }
+  }
+
+  private static async hasPrimaryKeyColumn(
+    store: relationalStore.RdbStore,
+    tableName: string,
+    columnName: string,
+  ): Promise<boolean> {
+    const rs: relationalStore.ResultSet = await store.querySql('PRAGMA table_info(' + tableName + ')')
+    try {
+      while (rs.goToNextRow()) {
+        const nameIndex: number = rs.getColumnIndex('name')
+        const pkIndex: number = rs.getColumnIndex('pk')
+        if (!rs.isColumnNull(nameIndex) && rs.getString(nameIndex) === columnName &&
+          !rs.isColumnNull(pkIndex) && rs.getDouble(pkIndex) > 0) {
+          return true
+        }
+      }
+    } finally {
+      rs.close()
+    }
+    return false
   }
 
   private static async migrateDownloadArchiverToken(store: relationalStore.RdbStore): Promise<void> {

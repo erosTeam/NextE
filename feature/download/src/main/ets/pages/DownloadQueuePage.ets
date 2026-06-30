@@ -163,6 +163,9 @@ export struct DownloadQueuePage {
     const parts: string[] = []
     const total: number = Math.max(pageCount, downloadedFiles, seededFiles)
     const effectiveStatus: string = this.effectiveGalleryStatus(status, downloadedFiles, total)
+    if (effectiveStatus === DownloadGalleryTaskStatus.COMPLETE) {
+      return this.statusText(effectiveStatus)
+    }
     const downloadProgress: string = this.progressText(downloadedFiles, total)
     const seedProgress: string = this.progressText(seededFiles, total)
     if (status === DownloadGalleryTaskStatus.ERROR) {
@@ -252,7 +255,7 @@ export struct DownloadQueuePage {
   }
 
   private async removeTask(task: DownloadGalleryTask): Promise<void> {
-    await DownloadQueueSettings.removeGallery(this.ctx(), task.gid, task.token)
+    await DownloadQueueSettings.removeGallery(this.ctx(), task.gid, task.token, task.preferOriginal)
   }
 
   private async removeArchiverTask(task: DownloadArchiverTask): Promise<void> {
@@ -260,15 +263,15 @@ export struct DownloadQueuePage {
   }
 
   private async resumeTask(task: DownloadGalleryTask): Promise<void> {
-    await DownloadQueueSettings.downloadGalleryImages(this.ctx(), task.gid, task.token)
+    await DownloadQueueSettings.downloadGalleryImages(this.ctx(), task.gid, task.token, task.preferOriginal)
   }
 
   private async pauseTask(task: DownloadGalleryTask): Promise<void> {
-    await DownloadQueueSettings.pauseGalleryDownload(this.ctx(), task.gid, task.token)
+    await DownloadQueueSettings.pauseGalleryDownload(this.ctx(), task.gid, task.token, task.preferOriginal)
   }
 
   private taskKey(task: DownloadGalleryTask): string {
-    return `${task.gid}:${task.token}`
+    return `${task.gid}:${task.token}:${task.preferOriginal ? 'original' : 'resample'}`
   }
 
   private safeForEachKeyPart(value: string): string {
@@ -276,7 +279,7 @@ export struct DownloadQueuePage {
   }
 
   private galleryRenderKey(task: DownloadGalleryTask): string {
-    return `gallery_${this.safeForEachKeyPart(task.gid)}_${this.safeForEachKeyPart(task.token)}`
+    return `gallery_${this.safeForEachKeyPart(this.taskKey(task))}`
   }
 
   private archiverRenderKey(task: DownloadArchiverTask): string {
@@ -455,6 +458,7 @@ export struct DownloadQueuePage {
         task.gid,
         task.token,
         connectSiteMode().isEx,
+        task.preferOriginal,
       )
     } catch (_error) {
       this.getUIContext()
@@ -767,13 +771,18 @@ export struct DownloadQueuePage {
     Row({ space: ThemeConstants.SPACE_MD }) {
       this.GalleryTaskCover(task)
       Column({ space: ThemeConstants.SPACE_XS }) {
-        Text(task.displayTitle())
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .fontColor($r('sys.color.font_primary'))
-          .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .width('100%')
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          Text(task.displayTitle())
+            .fontSize(ThemeConstants.FONT_SIZE_BODY)
+            .fontColor($r('sys.color.font_primary'))
+            .lineHeight(ThemeConstants.LINE_HEIGHT_BODY)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .layoutWeight(1)
+          this.GalleryQualityBadge(task)
+        }
+        .alignItems(VerticalAlign.Top)
+        .width('100%')
         if (this.taskMetaText(task).length > 0) {
           Text(this.taskMetaText(task))
             .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
@@ -808,6 +817,23 @@ export struct DownloadQueuePage {
     .borderRadius(ThemeConstants.DOWNLOAD_TASK_CARD_RADIUS)
     .backgroundColor($r('app.color.card_background'))
     .alignItems(VerticalAlign.Top)
+  }
+
+  @Builder
+  private GalleryQualityBadge(task: DownloadGalleryTask) {
+    Text(AppStrings.get(task.preferOriginal ? 'download_use_original_image' : 'download_use_regular_image'))
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .fontColor($r('sys.color.font_secondary'))
+      .fontWeight(FontWeight.Medium)
+      .maxLines(1)
+      .padding({
+        left: ThemeConstants.SPACE_XS,
+        right: ThemeConstants.SPACE_XS,
+        top: ThemeConstants.SPACE_XS,
+        bottom: ThemeConstants.SPACE_XS,
+      })
+      .borderRadius(ThemeConstants.LIST_TAG_RADIUS)
+      .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
   }
 
   @Builder

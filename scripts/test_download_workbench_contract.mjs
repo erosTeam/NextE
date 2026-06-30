@@ -32,6 +32,10 @@ const queueSettings = read('shared/src/main/ets/settings/DownloadQueueSettings.e
 const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
 const galleryRenderKeyBody = page.match(/private galleryRenderKey\(task: DownloadGalleryTask\): string \{([\s\S]*?)\n  \}/)?.[1] ?? ''
 const archiverRenderKeyBody = page.match(/private archiverRenderKey\(task: DownloadArchiverTask\): string \{([\s\S]*?)\n  \}/)?.[1] ?? ''
+const galleryStreamProgressBody =
+  queueSettings.match(/private static updateGalleryStreamProgress\([\s\S]*?\n  private static updateArchiverProgress/)?.[0] ?? ''
+const archiverStreamProgressBody =
+  queueSettings.match(/private static updateArchiverProgress\([\s\S]*?\n  private static async updateArchiverTask/)?.[0] ?? ''
 
 ok(/export enum DownloadViewType/.test(state) && /GALLERY = 'gallery'/.test(state) &&
   /ARCHIVER = 'archiver'/.test(state), 'download shared state defines Gallery and Archiver queue views')
@@ -91,8 +95,8 @@ ok(!/BasicDataSource<DownloadGalleryTask>|BasicDataSource<DownloadArchiverTask>|
   'gallery download rows render through parent builders that read direct @Trace progress fields')
 ok(!/renderQueueRevision|renderGalleryTasks|renderArchiverTasks/.test(page) &&
   /private safeForEachKeyPart\(value: string\): string \{[\s\S]*return value\.replace\(\/\[\^A-Za-z0-9_\]\/g, '_'\)/.test(page) &&
-  galleryRenderKeyBody.includes('task.gid') &&
-  galleryRenderKeyBody.includes('task.token') &&
+  /private taskKey\(task: DownloadGalleryTask\): string \{[\s\S]*task\.gid[\s\S]*task\.token[\s\S]*task\.preferOriginal \? 'original' : 'resample'/.test(page) &&
+  galleryRenderKeyBody.includes('this.taskKey(task)') &&
   !galleryRenderKeyBody.includes('task.downloadedFiles') &&
   !galleryRenderKeyBody.includes('task.seededFiles') &&
   archiverRenderKeyBody.includes('task.tag') &&
@@ -105,6 +109,12 @@ ok(!/renderQueueRevision|renderGalleryTasks|renderArchiverTasks/.test(page) &&
   /@Monitor\('downloadQueue\.revision'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(page) &&
   /this\.downloadQueueTick < 0/.test(page),
   'download queue page keeps stable row keys while parent builders receive a queue revision pulse')
+const taskMetaTextBody = page.match(/private taskMetaText\(task: DownloadGalleryTask\): string \{([\s\S]*?)\n  \}/)?.[1] ?? ''
+ok(/private GalleryQualityBadge\(task: DownloadGalleryTask\)[\s\S]*task\.preferOriginal \? 'download_use_original_image' : 'download_use_regular_image'/.test(page) &&
+  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.GalleryQualityBadge\(task\)/.test(page) &&
+  !taskMetaTextBody.includes('download_use_original_image') &&
+  !taskMetaTextBody.includes('download_use_regular_image'),
+  'ordinary gallery download cards show original/resampled quality as a title-row badge')
 ok(/@ObservedV2\s+export class DownloadGalleryTask/.test(model) &&
   /@ObservedV2\s+export class DownloadArchiverTask/.test(model) &&
   /@Trace status: string/.test(model) &&
@@ -126,6 +136,23 @@ ok(/syncProgressCounts\(\): void \{[\s\S]*this\.seededFiles = this\.imageSeeds\.
 ok(/private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*findExistingGalleryTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(queueSettings) &&
   /private static setArchiverTasks\(state: DownloadQueueState, tasks: DownloadArchiverTask\[\]\): void \{[\s\S]*findExistingArchiverTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.archiverTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(queueSettings),
   'download queue updates preserve observed task identity so mounted rows receive @Trace progress changes')
+ok(/const pulseKey: string = key/.test(galleryStreamProgressBody) &&
+  !/`\$\{key\}:\$\{seed\.page\}`/.test(galleryStreamProgressBody) &&
+  /let updated: boolean = false/.test(galleryStreamProgressBody) &&
+  /updated = true/.test(galleryStreamProgressBody) &&
+  /if \(updated\) \{[\s\S]*state\.revision = state\.revision \+ 1/.test(galleryStreamProgressBody) &&
+  !/persistGalleryTask/.test(galleryStreamProgressBody) &&
+  !/setGalleryTasks/.test(galleryStreamProgressBody),
+  'gallery stream progress publishes a throttled queue revision without persistence or row-key churn')
+ok(/task\.bytesWritten = loaded/.test(archiverStreamProgressBody) &&
+  /task\.bytesTotal = total/.test(archiverStreamProgressBody) &&
+  /task\.progress = total > 0/.test(archiverStreamProgressBody) &&
+  /task\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(archiverStreamProgressBody) &&
+  /DownloadQueueSettings\.setArchiverTasks\(state, next\)/.test(archiverStreamProgressBody) &&
+  !/persistArchiverTask/.test(archiverStreamProgressBody) &&
+  !archiverRenderKeyBody.includes('task.bytesWritten') &&
+  !archiverRenderKeyBody.includes('task.progress'),
+  'archiver stream progress republishes live bytes through stable task rows without persistence or row-key churn')
 ok(/expectedFileCount\(\): number \{[\s\S]*return Math\.max\(this\.pageCount, this\.seededCount\(\), this\.downloadedCount\(\)\)/.test(model) &&
   /private effectiveGalleryStatus\(status: string, downloadedFiles: number, pageCount: number\): string/.test(page) &&
   /status === DownloadGalleryTaskStatus\.COMPLETE && pageCount > 0 && downloadedFiles < pageCount/.test(page) &&
@@ -139,6 +166,8 @@ ok(/expectedFileCount\(\): number \{[\s\S]*return Math\.max\(this\.pageCount, th
   /download_file_progress/.test(page) &&
   /download_seed_progress/.test(page),
   'gallery task progress text and bar read direct @Trace fields on each queue revision')
+ok(/private taskProgressLabel\([\s\S]*const effectiveStatus: string = this\.effectiveGalleryStatus\(status, downloadedFiles, total\)[\s\S]*if \(effectiveStatus === DownloadGalleryTaskStatus\.COMPLETE\) \{[\s\S]*return this\.statusText\(effectiveStatus\)[\s\S]*\}[\s\S]*const downloadProgress: string = this\.progressText\(downloadedFiles, total\)/.test(page),
+  'completed gallery downloads show only the completed status instead of a redundant downloaded/total ratio')
 ok(/if \(status === DownloadGalleryTaskStatus\.ERROR\) \{[\s\S]*downloadProgress\.length > 0[\s\S]*download_file_progress/.test(page) &&
   !/private taskProgressLabel[\s\S]*task\.downloadProgressText\(\)/.test(page),
   'gallery download failures keep visible downloaded progress instead of hiding mismatched counts behind a generic error')
@@ -158,12 +187,12 @@ ok(/private ResumeTaskButton\(task: DownloadGalleryTask\)/.test(page) &&
   /private galleryResumeActionIcon\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.arrow_right/.test(page) &&
   /private galleryResumeActionLabel\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(page) &&
   /this\.TaskIconButton\(this\.galleryResumeActionIcon\(task\), this\.galleryResumeActionLabel\(task\)/.test(page) &&
-  /DownloadQueueSettings\.downloadGalleryImages/.test(page) &&
+  /DownloadQueueSettings\.downloadGalleryImages\(this\.ctx\(\), task\.gid, task\.token, task\.preferOriginal\)/.test(page) &&
   /common_retry/.test(page) && /download_resume/.test(page),
   'gallery retry and continue actions use distinct icon/label semantics while sharing the image executor')
 ok(/private PauseTaskButton\(task: DownloadGalleryTask\)/.test(page) &&
   /sys\.symbol\.pause/.test(page) &&
-  /DownloadQueueSettings\.pauseGalleryDownload/.test(page) &&
+  /DownloadQueueSettings\.pauseGalleryDownload\(this\.ctx\(\), task\.gid, task\.token, task\.preferOriginal\)/.test(page) &&
   /common_pause/.test(page) &&
   /private canPauseTask\(task: DownloadGalleryTask\)[\s\S]*DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
   'running gallery tasks expose one compact pause action wired to the shared queue')

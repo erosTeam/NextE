@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
-import { fileIo as fs } from '@kit.CoreFileKit'
+import { Environment, fileIo as fs, fileUri } from '@kit.CoreFileKit'
 import {
   DownloadArchiverTask,
   DownloadArchiverParseSource,
@@ -30,6 +30,10 @@ import { DownloadSettings } from './DownloadSettings'
 
 const MAX_GALLERY_TASKS: number = 200
 const MAX_ARCHIVER_TASKS: number = 100
+const DOWNLOAD_PUBLIC_APP_DIR: string = 'com.erosteam.nexte'
+const DOWNLOAD_GALLERY_DIR: string = 'download-gallery'
+const DOWNLOAD_ARCHIVER_DIR: string = 'download-archiver'
+const DOWNLOAD_PUBLIC_DOCS_URI: string = 'file://docs/storage/Users/currentUser/Download'
 const ARCHIVER_ACCEPT: string = 'application/zip,application/octet-stream,*/*'
 const ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'
 const DOWNLOAD_METADATA_FILE: string = 'metadata.json'
@@ -120,6 +124,7 @@ export class DownloadQueueSettings {
         state.galleryTasks,
         task.gid,
         task.token,
+        task.preferOriginal,
       )
       if (existing === null) {
         next.push(task.copy())
@@ -154,10 +159,11 @@ export class DownloadQueueSettings {
     tasks: DownloadGalleryTask[],
     gid: string,
     token: string,
+    preferOriginal: boolean,
   ): DownloadGalleryTask | null {
     for (let i: number = 0; i < tasks.length; i++) {
       const task: DownloadGalleryTask = tasks[i]
-      if (task.gid === gid && task.token === token) {
+      if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         return task
       }
     }
@@ -181,9 +187,19 @@ export class DownloadQueueSettings {
     tasks: DownloadGalleryTask[],
     gid: string,
     token: string,
+    preferOriginal: boolean | null = null,
   ): DownloadGalleryTask | undefined {
     return tasks.find((task: DownloadGalleryTask) => {
-      return task.gid === gid && (token.length === 0 || task.token === token)
+      if (task.gid !== gid) {
+        return false
+      }
+      if (token.length > 0 && task.token !== token) {
+        return false
+      }
+      if (preferOriginal !== null && task.preferOriginal !== preferOriginal) {
+        return false
+      }
+      return true
     })
   }
 
@@ -219,8 +235,7 @@ export class DownloadQueueSettings {
   }
 
   /**
-   * Add or refresh a gallery queue task. Returns true when a new task was inserted; duplicate gid/token
-   * keeps a single entry and refreshes its metadata, matching eros_fe's unique GalleryTask gid.
+   * Add or refresh a gallery queue task. Raw and resampled downloads are separate tasks.
    */
   static async enqueueGallery(
     context: common.UIAbilityContext,
@@ -235,14 +250,14 @@ export class DownloadQueueSettings {
     let existed: boolean = false
     task.queuedAt = Date.now()
     task.status = DownloadGalleryTaskStatus.QUEUED
-    const key: string = DownloadQueueSettings.taskKey(task.gid, task.token)
+    const key: string = DownloadQueueSettings.taskKey(task.gid, task.token, task.preferOriginal)
     if (!DownloadQueueSettings.galleryDownloads.has(key)) {
       DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
     }
     const refreshed: DownloadGalleryTask = task.copy()
     next.push(refreshed)
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
-      if (it.gid === task.gid && it.token === task.token) {
+      if (DownloadQueueSettings.sameGalleryTask(it, task.gid, task.token, task.preferOriginal)) {
         existed = true
         if (it.title.length > 0) {
           refreshed.title = it.title
@@ -267,7 +282,7 @@ export class DownloadQueueSettings {
         refreshed.previewPageCount = it.previewPageCount
         refreshed.preparedAt = it.preparedAt
         refreshed.prepareError = it.prepareError
-        refreshed.preferOriginal = it.preferOriginal || task.preferOriginal
+        refreshed.preferOriginal = task.preferOriginal
         refreshed.status = it.status
         refreshed.syncProgressCounts()
         return
@@ -281,7 +296,7 @@ export class DownloadQueueSettings {
     DiagnosticLogger.info(
       'download',
       existed ? 'gallery_enqueue_duplicate' : 'gallery_enqueue_added',
-      `gid=${task.gid} tokenHash=${DiagnosticLogger.ownerHash(task.token)} tasks=${next.length}`,
+      `gid=${task.gid} tokenHash=${DiagnosticLogger.ownerHash(task.token)} quality=${DownloadQueueSettings.galleryQuality(task.preferOriginal)} tasks=${next.length}`,
     )
     return !existed
   }
@@ -290,8 +305,9 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     token: string,
+    preferOriginal: boolean = false,
   ): Promise<void> {
-    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
     if (DownloadQueueSettings.galleryDownloads.has(key)) {
       DownloadQueueSettings.cancelledGalleryDownloads.add(key)
     }
@@ -299,7 +315,7 @@ export class DownloadQueueSettings {
     let removed: DownloadGalleryTask | null = null
     const next: DownloadGalleryTask[] = []
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
-      if (it.gid === gid && it.token === token) {
+      if (DownloadQueueSettings.sameGalleryTask(it, gid, token, preferOriginal)) {
         removed = it.copy()
         return
       }
@@ -307,7 +323,7 @@ export class DownloadQueueSettings {
     })
     DownloadQueueSettings.setGalleryTasks(state, next)
     await DownloadQueueSettings.persist(context, next)
-    if (removed !== null && !DownloadQueueSettings.hasGalleryTaskWithGid(next, gid)) {
+    if (removed !== null) {
       DownloadQueueSettings.deleteGalleryContent(context, removed)
     }
   }
@@ -316,13 +332,14 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     token: string,
+    preferOriginal: boolean = false,
   ): Promise<void> {
-    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
     if (!DownloadQueueSettings.galleryDownloads.has(key)) {
       return
     }
     DownloadQueueSettings.cancelledGalleryDownloads.add(key)
-    await DownloadQueueSettings.updateGalleryTaskAfterPause(context, gid, token)
+    await DownloadQueueSettings.updateGalleryTaskAfterPause(context, gid, token, preferOriginal)
   }
 
   static async resumeAllGalleryDownloads(context: common.UIAbilityContext): Promise<void> {
@@ -331,7 +348,7 @@ export class DownloadQueueSettings {
     )
     for (let i: number = 0; i < tasks.length; i++) {
       if (DownloadQueueSettings.canResumeGalleryTask(tasks[i])) {
-        await DownloadQueueSettings.downloadGalleryImages(context, tasks[i].gid, tasks[i].token)
+        await DownloadQueueSettings.downloadGalleryImages(context, tasks[i].gid, tasks[i].token, tasks[i].preferOriginal)
       }
     }
   }
@@ -342,7 +359,7 @@ export class DownloadQueueSettings {
     )
     for (let i: number = 0; i < tasks.length; i++) {
       if (tasks[i].status === DownloadGalleryTaskStatus.DOWNLOADING) {
-        await DownloadQueueSettings.pauseGalleryDownload(context, tasks[i].gid, tasks[i].token)
+        await DownloadQueueSettings.pauseGalleryDownload(context, tasks[i].gid, tasks[i].token, tasks[i].preferOriginal)
       }
     }
   }
@@ -548,7 +565,12 @@ export class DownloadQueueSettings {
     for (let i: number = 0; i < galleryTasks.length; i++) {
       if (DownloadQueueSettings.shouldAutoResumeGalleryTask(galleryTasks[i])) {
         try {
-          await DownloadQueueSettings.downloadGalleryImages(context, galleryTasks[i].gid, galleryTasks[i].token)
+          await DownloadQueueSettings.downloadGalleryImages(
+            context,
+            galleryTasks[i].gid,
+            galleryTasks[i].token,
+            galleryTasks[i].preferOriginal,
+          )
         } catch (error) {
           DiagnosticLogger.warn('download', 'gallery_resume_failed', (error as Error).message)
         }
@@ -716,20 +738,29 @@ export class DownloadQueueSettings {
     gid: string,
     token: string,
     isEx: boolean,
+    preferOriginal: boolean = false,
   ): Promise<void> {
-    const before: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+    const before: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token, preferOriginal)
     const beforeSeeds: number = before !== null ? before.imageSeeds.length : 0
     const beforeDownloaded: number = before !== null ? before.downloadedCount() : 0
     DiagnosticLogger.info(
       'download',
       'gallery_seed_refresh_start',
-      `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} seeds=${beforeSeeds} downloaded=${beforeDownloaded}`,
+      `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} seeds=${beforeSeeds} downloaded=${beforeDownloaded}`,
     )
     try {
       const detail: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(gid, token, isEx)
-      await DownloadQueueSettings.updateGalleryTaskMetadata(context, gid, token, detail.gallery)
-      await DownloadQueueSettings.prepareGallerySeeds(context, gid, token, isEx, detail.images, detail.previewPageCount)
-      const after: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+      await DownloadQueueSettings.updateGalleryTaskMetadata(context, gid, token, preferOriginal, detail.gallery)
+      await DownloadQueueSettings.prepareGallerySeeds(
+        context,
+        gid,
+        token,
+        isEx,
+        detail.images,
+        detail.previewPageCount,
+        preferOriginal,
+      )
+      const after: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token, preferOriginal)
       DiagnosticLogger.info(
         'download',
         'gallery_seed_refresh_done',
@@ -740,6 +771,7 @@ export class DownloadQueueSettings {
         context,
         gid,
         token,
+        preferOriginal,
         DownloadGalleryTaskStatus.ERROR,
         DownloadQueueSettings.userError(error as Object),
       )
@@ -762,8 +794,9 @@ export class DownloadQueueSettings {
     isEx: boolean,
     firstPageImages: EhGalleryImage[],
     previewPageCount: number,
+    preferOriginal: boolean = false,
   ): Promise<void> {
-    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
     const running: Promise<void> | undefined = DownloadQueueSettings.galleryPreparations.get(key)
     if (running !== undefined) {
       await running
@@ -776,6 +809,7 @@ export class DownloadQueueSettings {
       isEx,
       firstPageImages,
       previewPageCount,
+      preferOriginal,
     )
     DownloadQueueSettings.galleryPreparations.set(key, task)
     try {
@@ -792,18 +826,19 @@ export class DownloadQueueSettings {
     isEx: boolean,
     firstPageImages: EhGalleryImage[],
     previewPageCount: number,
+    preferOriginal: boolean,
   ): Promise<void> {
     DiagnosticLogger.info(
       'download',
       'gallery_prepare_start',
-      `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} firstImages=${firstPageImages.length} previewPages=${previewPageCount}`,
+      `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} firstImages=${firstPageImages.length} previewPages=${previewPageCount}`,
     )
     let seedImages: EhGalleryImage[] = firstPageImages.map((image: EhGalleryImage) => image.copy())
     let resolvedPreviewPageCount: number = previewPageCount
     if (seedImages.length === 0) {
       try {
         const detail: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(gid, token, isEx)
-        await DownloadQueueSettings.updateGalleryTaskMetadata(context, gid, token, detail.gallery)
+        await DownloadQueueSettings.updateGalleryTaskMetadata(context, gid, token, preferOriginal, detail.gallery)
         seedImages = detail.images.map((image: EhGalleryImage) => image.copy())
         resolvedPreviewPageCount = detail.previewPageCount
         DiagnosticLogger.info(
@@ -816,6 +851,7 @@ export class DownloadQueueSettings {
           context,
           gid,
           token,
+          preferOriginal,
           DownloadGalleryTaskStatus.ERROR,
           DownloadQueueSettings.userError(error as Object),
         )
@@ -837,6 +873,7 @@ export class DownloadQueueSettings {
       seedImages.length,
       resolvedPreviewPageCount,
       '',
+      preferOriginal,
     )
 
     try {
@@ -847,6 +884,7 @@ export class DownloadQueueSettings {
         token,
         firstPageCount,
         resolvedPreviewPageCount,
+        preferOriginal,
       )
       for (let p = 1; p < totalPreviewPages; p++) {
         const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
@@ -868,6 +906,7 @@ export class DownloadQueueSettings {
         firstPageCount,
         totalPreviewPages,
         '',
+        preferOriginal,
       )
       DiagnosticLogger.info(
         'download',
@@ -879,6 +918,7 @@ export class DownloadQueueSettings {
         context,
         gid,
         token,
+        preferOriginal,
         DownloadGalleryTaskStatus.ERROR,
         DownloadQueueSettings.userError(error as Object),
       )
@@ -889,34 +929,35 @@ export class DownloadQueueSettings {
       )
       return
     }
-    await DownloadQueueSettings.downloadGalleryImages(context, gid, token)
+    await DownloadQueueSettings.downloadGalleryImages(context, gid, token, preferOriginal)
   }
 
   static async downloadGalleryImages(
     context: common.UIAbilityContext,
     gid: string,
     token: string,
+    preferOriginal: boolean = false,
   ): Promise<void> {
-    const found: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+    const found: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token, preferOriginal)
     if (found !== null && (
       found.imageSeeds.length === 0 ||
       DownloadQueueSettings.shouldRefreshIncompleteSeedList(found)
     )) {
-      await DownloadQueueSettings.refreshGallerySeedsFromRemote(context, gid, token, connectSiteMode().isEx)
+      await DownloadQueueSettings.refreshGallerySeedsFromRemote(context, gid, token, connectSiteMode().isEx, preferOriginal)
       return
     }
-    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
     const running: Promise<void> | undefined = DownloadQueueSettings.galleryDownloads.get(key)
     if (running !== undefined) {
       await running
-      const next: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+      const next: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token, preferOriginal)
       if (next !== null && DownloadQueueSettings.shouldContinueAfterJoinedGalleryDownload(next)) {
-        await DownloadQueueSettings.downloadGalleryImages(context, gid, token)
+        await DownloadQueueSettings.downloadGalleryImages(context, gid, token, preferOriginal)
       }
       return
     }
     DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
-    const task: Promise<void> = DownloadQueueSettings.runGalleryImageDownload(context, gid, token)
+    const task: Promise<void> = DownloadQueueSettings.runGalleryImageDownload(context, gid, token, preferOriginal)
     DownloadQueueSettings.galleryDownloads.set(key, task)
     try {
       await task
@@ -930,14 +971,15 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     token: string,
+    preferOriginal: boolean,
   ): Promise<void> {
-    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
     let batchIndex: number = 0
     let failedBatchRetries: number = 0
     DiagnosticLogger.info(
       'download',
       'gallery_download_start',
-      `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)}`,
+      `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)}`,
     )
     while (true) {
       if (DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
@@ -948,7 +990,7 @@ export class DownloadQueueSettings {
         )
         return
       }
-      const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+      const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token, preferOriginal)
       if (task === null) {
         return
       }
@@ -962,6 +1004,7 @@ export class DownloadQueueSettings {
           context,
           gid,
           token,
+          preferOriginal,
           doneStatus,
           '',
         )
@@ -989,6 +1032,7 @@ export class DownloadQueueSettings {
         context,
         gid,
         token,
+        preferOriginal,
         DownloadGalleryTaskStatus.DOWNLOADING,
         '',
       )
@@ -999,10 +1043,10 @@ export class DownloadQueueSettings {
       const jobs: Promise<DownloadSeedResult>[] = []
       pending.forEach((seed: DownloadImageSeed) => {
         jobs.push(
-          DownloadQueueSettings.downloadSeedToFile(context, gid, token, seed, useOriginal, retryCount)
+          DownloadQueueSettings.downloadSeedToFile(context, gid, token, preferOriginal, seed, useOriginal, retryCount)
             .then(async (result: DownloadSeedResult) => {
               if (!DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
-                await DownloadQueueSettings.applyDownloadResults(context, gid, token, [result])
+                await DownloadQueueSettings.applyDownloadResults(context, gid, token, preferOriginal, [result])
                 result.applied = true
               }
               return result
@@ -1051,6 +1095,7 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     token: string,
+    preferOriginal: boolean,
     seed: DownloadImageSeed,
     useOriginal: boolean,
     retryCount: number,
@@ -1082,23 +1127,32 @@ export class DownloadQueueSettings {
         } else {
           imageUrl = await ImageResolveService.getInstance().resolve(image, shouldRefreshImageUrl)
         }
-        const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)
+        const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid, preferOriginal)
         result.image = image.copy()
         result.filePath = `${dir}/${DownloadQueueSettings.fileNameForSeed(seed, imageUrl)}`
-        tmpPath = `${result.filePath}.part`
-        DownloadQueueSettings.deleteSandboxPath(tmpPath, 'gallery_temp_delete_failed')
+        const directPublicWrite: boolean = DownloadQueueSettings.isPublicDownloadPath(result.filePath)
+        const writePath: string = directPublicWrite ? result.filePath : `${result.filePath}.part`
+        tmpPath = writePath
+        DownloadQueueSettings.deleteSandboxPath(writePath, directPublicWrite ? 'gallery_replace_delete_failed' : 'gallery_temp_delete_failed')
         result.bytes = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
           imageUrl,
-          tmpPath,
+          writePath,
           (loaded: number, total: number) => {
-            DownloadQueueSettings.updateGalleryStreamProgress(gid, token, seed, loaded, total)
+            DownloadQueueSettings.updateGalleryStreamProgress(gid, token, preferOriginal, seed, loaded, total)
           },
         )
-        DownloadQueueSettings.deleteSandboxPath(result.filePath, 'gallery_replace_delete_failed')
-        fs.renameSync(tmpPath, result.filePath)
+        if (!directPublicWrite) {
+          DownloadQueueSettings.deleteSandboxPath(result.filePath, 'gallery_replace_delete_failed')
+          fs.renameSync(writePath, result.filePath)
+        }
         result.error = ''
         return result
       } catch (error) {
+        DiagnosticLogger.warn(
+          'download',
+          'gallery_seed_download_failed',
+          `gid=${gid} page=${seed.page} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} error=${(error as Error).message}`,
+        )
         DownloadQueueSettings.deleteSandboxPath(tmpPath, 'gallery_temp_delete_failed')
         result.error = DownloadQueueSettings.userError(error as Object)
       }
@@ -1110,6 +1164,7 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     token: string,
+    preferOriginal: boolean,
     results: DownloadSeedResult[],
   ): Promise<boolean> {
     let hasError: boolean = false
@@ -1120,7 +1175,7 @@ export class DownloadQueueSettings {
     let matched: boolean = false
     for (let i: number = 0; i < state.galleryTasks.length; i++) {
       const task: DownloadGalleryTask = state.galleryTasks[i].copy()
-      if (task.gid === gid && task.token === token) {
+      if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         matched = true
         for (let seedIndex: number = 0; seedIndex < task.imageSeeds.length; seedIndex++) {
           const seed: DownloadImageSeed = task.imageSeeds[seedIndex]
@@ -1226,9 +1281,10 @@ export class DownloadQueueSettings {
     token: string,
     firstPageCount: number,
     parsedPreviewPageCount: number,
+    preferOriginal: boolean,
   ): number {
     let total: number = Math.max(parsedPreviewPageCount, 1)
-    const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token)
+    const task: DownloadGalleryTask | null = DownloadQueueSettings.findTask(gid, token, preferOriginal)
     const pageCount: number = task !== null ? task.pageCount : 0
     if (pageCount > 0 && firstPageCount > 0) {
       total = Math.max(total, Math.ceil(pageCount / firstPageCount))
@@ -1316,6 +1372,7 @@ export class DownloadQueueSettings {
     firstPageCount: number,
     previewPageCount: number,
     prepareError: string,
+    preferOriginal: boolean,
   ): Promise<void> {
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
@@ -1323,7 +1380,7 @@ export class DownloadQueueSettings {
     for (let i: number = 0; i < state.galleryTasks.length; i++) {
       const it: DownloadGalleryTask = state.galleryTasks[i]
       const task: DownloadGalleryTask = it.copy()
-      if (task.gid === gid && task.token === token) {
+      if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         task.status = status
         task.imageSeeds = DownloadQueueSettings.mergePreparedSeeds(
           task.imageSeeds,
@@ -1335,12 +1392,14 @@ export class DownloadQueueSettings {
             state.galleryTasks,
             task.upgradeFromGid,
             '',
+            task.preferOriginal,
           )
           if (parent !== undefined) {
             task.imageSeeds = await DownloadQueueSettings.inheritDownloadedSeedsFromParent(
               context,
               task.gid,
               task.imageSeeds,
+              task.preferOriginal,
               parent,
             )
           }
@@ -1364,6 +1423,7 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     token: string,
+    preferOriginal: boolean,
     gallery: EhGallery,
   ): Promise<void> {
     const state = connectDownloadQueue()
@@ -1372,7 +1432,7 @@ export class DownloadQueueSettings {
     const pageCount: number = gallery.fileCountNumber()
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       const task: DownloadGalleryTask = it.copy()
-      if (task.gid === gid && task.token === token) {
+      if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         if (gallery.title().length > 0) {
           task.title = gallery.title()
         }
@@ -1466,10 +1526,10 @@ export class DownloadQueueSettings {
     store.flushSync()
   }
 
-  private static findTask(gid: string, token: string): DownloadGalleryTask | null {
+  private static findTask(gid: string, token: string, preferOriginal: boolean): DownloadGalleryTask | null {
     const state = connectDownloadQueue()
     const hit: DownloadGalleryTask | undefined = state.galleryTasks.find((task: DownloadGalleryTask) => {
-      return task.gid === gid && task.token === token
+      return DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)
     })
     return hit !== undefined ? hit.copy() : null
   }
@@ -1482,8 +1542,21 @@ export class DownloadQueueSettings {
     return hit !== undefined ? hit.copy() : null
   }
 
-  private static taskKey(gid: string, token: string): string {
-    return `${gid}:${token}`
+  private static sameGalleryTask(
+    task: DownloadGalleryTask,
+    gid: string,
+    token: string,
+    preferOriginal: boolean,
+  ): boolean {
+    return task.gid === gid && task.token === token && task.preferOriginal === preferOriginal
+  }
+
+  private static galleryQuality(preferOriginal: boolean): string {
+    return preferOriginal ? 'original' : 'resample'
+  }
+
+  private static taskKey(gid: string, token: string, preferOriginal: boolean): string {
+    return `${gid}:${token}:${DownloadQueueSettings.galleryQuality(preferOriginal)}`
   }
 
   private static seedToImage(seed: DownloadImageSeed): EhGalleryImage {
@@ -1499,33 +1572,114 @@ export class DownloadQueueSettings {
     return image
   }
 
-  private static ensureGalleryDownloadDir(context: common.UIAbilityContext, gid: string): string {
-    const root: string = `${context.filesDir}/download-gallery`
-    const dir: string = `${root}/${DownloadQueueSettings.safePathPart(gid)}`
+  private static galleryDirName(gid: string, preferOriginal: boolean): string {
+    const base: string = DownloadQueueSettings.safePathPart(gid)
+    return preferOriginal ? `${base}-original` : base
+  }
+
+  private static joinPath(parent: string, child: string): string {
+    return parent.endsWith('/') ? `${parent}${child}` : `${parent}/${child}`
+  }
+
+  private static pushUniquePath(paths: string[], path: string): void {
+    if (path.length > 0 && paths.indexOf(path) < 0) {
+      paths.push(path)
+    }
+  }
+
+  private static publicDownloadRootDir(): string {
     try {
-      fs.mkdirSync(dir, true)
-    } catch (error) {
-      if (!fs.accessSync(dir)) {
-        throw error as Error
+      const publicRoot: string = Environment.getUserDownloadDir().trim()
+      if (publicRoot.length > 0) {
+        return DownloadQueueSettings.joinPath(publicRoot, DOWNLOAD_PUBLIC_APP_DIR)
+      }
+    } catch (_error) {}
+    try {
+      return new fileUri.FileUri(DownloadQueueSettings.joinPath(DOWNLOAD_PUBLIC_DOCS_URI, DOWNLOAD_PUBLIC_APP_DIR)).path
+    } catch (_error) {}
+    return ''
+  }
+
+  private static isPublicDownloadPath(path: string): boolean {
+    const root: string = DownloadQueueSettings.publicDownloadRootDir()
+    return root.length > 0 && (path === root || path.startsWith(root + '/'))
+  }
+
+  private static downloadRootCandidates(context: common.UIAbilityContext): string[] {
+    const out: string[] = []
+    DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.publicDownloadRootDir())
+    DownloadQueueSettings.pushUniquePath(out, context.filesDir)
+    return out
+  }
+
+  private static galleryRootDirs(context: common.UIAbilityContext): string[] {
+    const out: string[] = []
+    const roots: string[] = DownloadQueueSettings.downloadRootCandidates(context)
+    for (let i: number = 0; i < roots.length; i++) {
+      DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.joinPath(roots[i], DOWNLOAD_GALLERY_DIR))
+    }
+    return out
+  }
+
+  private static archiverRootDirs(context: common.UIAbilityContext): string[] {
+    const out: string[] = []
+    const roots: string[] = DownloadQueueSettings.downloadRootCandidates(context)
+    for (let i: number = 0; i < roots.length; i++) {
+      DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.joinPath(roots[i], DOWNLOAD_ARCHIVER_DIR))
+    }
+    return out
+  }
+
+  private static legacyGalleryRootDir(context: common.UIAbilityContext): string {
+    return `${context.filesDir}/${DOWNLOAD_GALLERY_DIR}`
+  }
+
+  private static legacyArchiverRootDir(context: common.UIAbilityContext): string {
+    return `${context.filesDir}/${DOWNLOAD_ARCHIVER_DIR}`
+  }
+
+  private static ensureGalleryDownloadDir(
+    context: common.UIAbilityContext,
+    gid: string,
+    preferOriginal: boolean,
+  ): string {
+    const roots: string[] = DownloadQueueSettings.galleryRootDirs(context)
+    let lastError: Error | null = null
+    for (let i: number = 0; i < roots.length; i++) {
+      const dir: string = DownloadQueueSettings.joinPath(roots[i], DownloadQueueSettings.galleryDirName(gid, preferOriginal))
+      try {
+        fs.mkdirSync(dir, true)
+        return dir
+      } catch (error) {
+        if (fs.accessSync(dir)) {
+          return dir
+        }
+        lastError = error as Error
       }
     }
-    return dir
+    throw lastError ?? new Error('download directory unavailable')
   }
 
   private static ensureArchiverDownloadDir(context: common.UIAbilityContext): string {
-    const dir: string = `${context.filesDir}/download-archiver`
-    try {
-      fs.mkdirSync(dir, true)
-    } catch (error) {
-      if (!fs.accessSync(dir)) {
-        throw error as Error
+    const roots: string[] = DownloadQueueSettings.archiverRootDirs(context)
+    let lastError: Error | null = null
+    for (let i: number = 0; i < roots.length; i++) {
+      const dir: string = roots[i]
+      try {
+        fs.mkdirSync(dir, true)
+        return dir
+      } catch (error) {
+        if (fs.accessSync(dir)) {
+          return dir
+        }
+        lastError = error as Error
       }
     }
-    return dir
+    throw lastError ?? new Error('download directory unavailable')
   }
 
-  private static galleryMetadataPath(context: common.UIAbilityContext, gid: string): string {
-    return `${DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)}/${DOWNLOAD_METADATA_FILE}`
+  private static galleryMetadataPath(context: common.UIAbilityContext, task: DownloadGalleryTask): string {
+    return `${DownloadQueueSettings.ensureGalleryDownloadDir(context, task.gid, task.preferOriginal)}/${DOWNLOAD_METADATA_FILE}`
   }
 
   private static archiverMetadataPath(context: common.UIAbilityContext, task: DownloadArchiverTask): string {
@@ -1543,7 +1697,7 @@ export class DownloadQueueSettings {
       return
     }
     DownloadQueueSettings.writeTextFile(
-      DownloadQueueSettings.galleryMetadataPath(context, task.gid),
+      DownloadQueueSettings.galleryMetadataPath(context, task),
       JSON.stringify([DownloadQueueSettings.galleryTaskMetadata(task)]),
       'gallery_metadata_write_failed',
     )
@@ -1568,21 +1722,26 @@ export class DownloadQueueSettings {
 
   private static loadGalleryMetadataTasks(context: common.UIAbilityContext): DownloadGalleryTask[] {
     const out: DownloadGalleryTask[] = []
-    const root: string = `${context.filesDir}/download-gallery`
+    const roots: string[] = DownloadQueueSettings.galleryRootDirs(context)
+    const legacyRoot: string = DownloadQueueSettings.legacyGalleryRootDir(context)
+    DownloadQueueSettings.pushUniquePath(roots, legacyRoot)
     try {
-      if (!fs.accessSync(root)) {
-        return out
-      }
-      const names: string[] = fs.listFileSync(root)
-      for (let i: number = 0; i < names.length && out.length < MAX_GALLERY_TASKS; i++) {
-        const path: string = `${root}/${names[i]}/${DOWNLOAD_METADATA_FILE}`
-        if (fs.accessSync(path)) {
-          const tasks: DownloadGalleryTask[] = DownloadQueueSettings.parse(fs.readTextSync(path))
-          tasks.forEach((task: DownloadGalleryTask) => {
-            if (out.length < MAX_GALLERY_TASKS) {
-              out.push(task)
-            }
-          })
+      for (let r: number = 0; r < roots.length && out.length < MAX_GALLERY_TASKS; r++) {
+        const root: string = roots[r]
+        if (!fs.accessSync(root)) {
+          continue
+        }
+        const names: string[] = fs.listFileSync(root)
+        for (let i: number = 0; i < names.length && out.length < MAX_GALLERY_TASKS; i++) {
+          const path: string = `${root}/${names[i]}/${DOWNLOAD_METADATA_FILE}`
+          if (fs.accessSync(path)) {
+            const tasks: DownloadGalleryTask[] = DownloadQueueSettings.parse(fs.readTextSync(path))
+            tasks.forEach((task: DownloadGalleryTask) => {
+              if (out.length < MAX_GALLERY_TASKS) {
+                out.push(task)
+              }
+            })
+          }
         }
       }
     } catch (error) {
@@ -1593,22 +1752,27 @@ export class DownloadQueueSettings {
 
   private static loadArchiverMetadataTasks(context: common.UIAbilityContext): DownloadArchiverTask[] {
     const out: DownloadArchiverTask[] = []
-    const root: string = `${context.filesDir}/download-archiver`
+    const roots: string[] = DownloadQueueSettings.archiverRootDirs(context)
+    const legacyRoot: string = DownloadQueueSettings.legacyArchiverRootDir(context)
+    DownloadQueueSettings.pushUniquePath(roots, legacyRoot)
     try {
-      if (!fs.accessSync(root)) {
-        return out
-      }
-      const names: string[] = fs.listFileSync(root)
-      for (let i: number = 0; i < names.length && out.length < MAX_ARCHIVER_TASKS; i++) {
-        if (!names[i].endsWith(ARCHIVER_METADATA_SUFFIX)) {
+      for (let r: number = 0; r < roots.length && out.length < MAX_ARCHIVER_TASKS; r++) {
+        const root: string = roots[r]
+        if (!fs.accessSync(root)) {
           continue
         }
-        const tasks: DownloadArchiverTask[] = DownloadQueueSettings.parseArchiver(fs.readTextSync(`${root}/${names[i]}`))
-        tasks.forEach((task: DownloadArchiverTask) => {
-          if (out.length < MAX_ARCHIVER_TASKS) {
-            out.push(task)
+        const names: string[] = fs.listFileSync(root)
+        for (let i: number = 0; i < names.length && out.length < MAX_ARCHIVER_TASKS; i++) {
+          if (!names[i].endsWith(ARCHIVER_METADATA_SUFFIX)) {
+            continue
           }
-        })
+          const tasks: DownloadArchiverTask[] = DownloadQueueSettings.parseArchiver(fs.readTextSync(`${root}/${names[i]}`))
+          tasks.forEach((task: DownloadArchiverTask) => {
+            if (out.length < MAX_ARCHIVER_TASKS) {
+              out.push(task)
+            }
+          })
+        }
       }
     } catch (error) {
       DiagnosticLogger.warn('download', 'archiver_metadata_restore_failed', (error as Error).message)
@@ -1622,7 +1786,9 @@ export class DownloadQueueSettings {
   ): DownloadGalleryTask[] {
     const out: DownloadGalleryTask[] = primary.map((task: DownloadGalleryTask) => task.copy())
     fallback.forEach((task: DownloadGalleryTask) => {
-      const exists: boolean = out.some((it: DownloadGalleryTask) => it.gid === task.gid && it.token === task.token)
+      const exists: boolean = out.some((it: DownloadGalleryTask) => {
+        return DownloadQueueSettings.sameGalleryTask(it, task.gid, task.token, task.preferOriginal)
+      })
       if (!exists && out.length < MAX_GALLERY_TASKS) {
         out.push(task.copy())
       }
@@ -1758,20 +1924,30 @@ export class DownloadQueueSettings {
     return out
   }
 
-  private static hasGalleryTaskWithGid(tasks: DownloadGalleryTask[], gid: string): boolean {
-    return tasks.some((task: DownloadGalleryTask) => task.gid === gid)
-  }
-
   private static deleteGalleryContent(context: common.UIAbilityContext, task: DownloadGalleryTask): void {
     if (task.gid.length === 0) {
       return
     }
-    const dir: string = `${context.filesDir}/download-gallery/${DownloadQueueSettings.safePathPart(task.gid)}`
-    DownloadQueueSettings.deleteSandboxPath(dir, 'gallery_content_delete_failed')
+    const roots: string[] = DownloadQueueSettings.galleryRootDirs(context)
+    DownloadQueueSettings.pushUniquePath(roots, DownloadQueueSettings.legacyGalleryRootDir(context))
+    for (let i: number = 0; i < roots.length; i++) {
+      DownloadQueueSettings.deleteSandboxPath(
+        DownloadQueueSettings.joinPath(roots[i], DownloadQueueSettings.galleryDirName(task.gid, task.preferOriginal)),
+        'gallery_content_delete_failed',
+      )
+    }
   }
 
   private static deleteArchiverContent(context: common.UIAbilityContext, task: DownloadArchiverTask): void {
     DownloadQueueSettings.deleteSandboxPath(DownloadQueueSettings.archiverMetadataPath(context, task), 'archiver_metadata_delete_failed')
+    const roots: string[] = DownloadQueueSettings.archiverRootDirs(context)
+    DownloadQueueSettings.pushUniquePath(roots, DownloadQueueSettings.legacyArchiverRootDir(context))
+    for (let i: number = 0; i < roots.length; i++) {
+      DownloadQueueSettings.deleteSandboxPath(
+        DownloadQueueSettings.joinPath(roots[i], `${DownloadQueueSettings.safePathPart(task.tag)}${ARCHIVER_METADATA_SUFFIX}`),
+        'archiver_metadata_delete_failed',
+      )
+    }
     DownloadQueueSettings.deleteSandboxPath(task.filePath, 'archiver_file_delete_failed')
     DownloadQueueSettings.deleteArchiverExtracts(context, task)
   }
@@ -1868,18 +2044,19 @@ export class DownloadQueueSettings {
   private static updateGalleryStreamProgress(
     gid: string,
     token: string,
+    preferOriginal: boolean,
     seed: DownloadImageSeed,
     loaded: number,
     total: number,
   ): void {
-    const key: string = DownloadQueueSettings.taskKey(gid, token)
+    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
     if (DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
       return
     }
     if (loaded <= 0) {
       return
     }
-    const pulseKey: string = `${key}:${seed.page}`
+    const pulseKey: string = key
     const now: number = Date.now()
     const last: number = DownloadQueueSettings.galleryProgressPulses.get(pulseKey) ?? 0
     if (total > 0 && loaded < total && now - last < 500) {
@@ -1888,13 +2065,15 @@ export class DownloadQueueSettings {
     DownloadQueueSettings.galleryProgressPulses.set(pulseKey, now)
     const state = connectDownloadQueue()
     let logged: boolean = false
+    let updated: boolean = false
     for (let i: number = 0; i < state.galleryTasks.length; i++) {
       const task: DownloadGalleryTask = state.galleryTasks[i]
-      if (task.gid === gid && (token.length === 0 || task.token === token)) {
+      if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         task.activeDownloadPage = seed.page
         task.activeBytesWritten = loaded
         task.activeBytesTotal = total
         task.status = DownloadGalleryTaskStatus.DOWNLOADING
+        updated = true
         const logKey: string = key
         const lastLog: number = DownloadQueueSettings.galleryProgressLogPulses.get(logKey) ?? 0
         if ((total > 0 && loaded >= total) || now - lastLog >= 2000) {
@@ -1908,6 +2087,9 @@ export class DownloadQueueSettings {
         }
         break
       }
+    }
+    if (updated) {
+      state.revision = state.revision + 1
     }
     if (!logged && total > 0 && loaded >= total) {
       DownloadQueueSettings.galleryProgressLogPulses.set(key, now)
@@ -1970,6 +2152,7 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     token: string,
+    preferOriginal: boolean,
     status: string,
     error: string,
   ): Promise<void> {
@@ -1977,14 +2160,10 @@ export class DownloadQueueSettings {
     const next: DownloadGalleryTask[] = []
     let updatedTask: DownloadGalleryTask | null = null
     let matched: boolean = false
-    let exactMatched: boolean = false
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       const task: DownloadGalleryTask = it.copy()
-      const exact: boolean = task.gid === gid && task.token === token
-      const gidFallback: boolean = !matched && task.gid === gid
-      if (exact || gidFallback) {
+      if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         matched = true
-        exactMatched = exactMatched || exact
         task.status = status
         task.prepareError = error
         if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
@@ -2002,7 +2181,7 @@ export class DownloadQueueSettings {
       DiagnosticLogger.info(
         'download',
         'gallery_status_update',
-        `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} status=${status} matched=${matched} exact=${exactMatched} errorHash=${DiagnosticLogger.ownerHash(error)}`,
+        `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} status=${status} matched=${matched} errorHash=${DiagnosticLogger.ownerHash(error)}`,
       )
     }
     DownloadQueueSettings.setGalleryTasks(state, next)
@@ -2025,13 +2204,14 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     token: string,
+    preferOriginal: boolean,
   ): Promise<void> {
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
     let updatedTask: DownloadGalleryTask | null = null
     state.galleryTasks.forEach((it: DownloadGalleryTask) => {
       const task: DownloadGalleryTask = it.copy()
-      if (task.gid === gid && task.token === token) {
+      if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         task.status = DownloadGalleryTaskStatus.PAUSED
         task.prepareError = ''
         updatedTask = task.copy()
@@ -2087,6 +2267,7 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     seeds: DownloadImageSeed[],
+    preferOriginal: boolean,
     parent: DownloadGalleryTask,
   ): Promise<DownloadImageSeed[]> {
     const inherited: DownloadImageSeed[] = []
@@ -2106,7 +2287,7 @@ export class DownloadQueueSettings {
         inherited.push(out)
         continue
       }
-      const inheritedPath: string = await DownloadQueueSettings.copyInheritedSeedFile(context, gid, out, previous)
+      const inheritedPath: string = await DownloadQueueSettings.copyInheritedSeedFile(context, gid, preferOriginal, out, previous)
       if (inheritedPath.length === 0) {
         inherited.push(out)
         continue
@@ -2127,12 +2308,13 @@ export class DownloadQueueSettings {
   private static async copyInheritedSeedFile(
     context: common.UIAbilityContext,
     gid: string,
+    preferOriginal: boolean,
     seed: DownloadImageSeed,
     previous: DownloadImageSeed,
   ): Promise<string> {
     const ext: string = DownloadQueueSettings.fileExtFromUrl(previous.filePath)
     const targetPath: string =
-      `${DownloadQueueSettings.ensureGalleryDownloadDir(context, gid)}/${DownloadQueueSettings.pageFilePrefix(seed.page)}${ext}`
+      `${DownloadQueueSettings.ensureGalleryDownloadDir(context, gid, preferOriginal)}/${DownloadQueueSettings.pageFilePrefix(seed.page)}${ext}`
     if (DownloadQueueSettings.downloadedFileSize(targetPath) > 0) {
       return targetPath
     }
