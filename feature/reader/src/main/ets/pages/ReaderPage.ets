@@ -836,6 +836,15 @@ export struct ReaderPage {
     }
   }
 
+  @Monitor('readMode.mode')
+  onReadModeChanged(): void {
+    if (this.showThumbStrip) {
+      setTimeout(() => {
+        this.scrollThumbStripTo(this.vm.currentIndex, false)
+      }, 0)
+    }
+  }
+
   // Force-persist on close so the last page survives an unfired debounce (eros_fe saveToStore).
   aboutToDisappear(): void {
     if (this.params.gid.length > 0) {
@@ -1608,14 +1617,27 @@ export struct ReaderPage {
     if (!this.showThumbStrip || index < 0 || index >= this.vm.totalPages()) {
       return
     }
-    this.thumbScroller.scrollToIndex(index, animated)
+    this.thumbScroller.scrollToIndex(this.thumbListIndexForPageIndex(index), animated)
+  }
+
+  private thumbListIndexForPageIndex(index: number): number {
+    if (this.readMode.mode !== ReadMode.RTL) {
+      return index
+    }
+    return this.vm.totalPages() - 1 - index
   }
 
   private thumbPageIndexes(): number[] {
     const total: number = this.vm.totalPages()
     const out: number[] = []
-    for (let i: number = 0; i < total; i++) {
-      out.push(i)
+    if (this.readMode.mode === ReadMode.RTL) {
+      for (let i: number = total - 1; i >= 0; i--) {
+        out.push(i)
+      }
+    } else {
+      for (let i: number = 0; i < total; i++) {
+        out.push(i)
+      }
     }
     return out
   }
@@ -1735,7 +1757,8 @@ export struct ReaderPage {
 
       Column({ space: ThemeConstants.SPACE_XS }) {
         Row({ space: READER_PROGRESS_SLIDER_GAP }) {
-          Text(`${this.sliderPreview >= 0 ? this.sliderPreview : this.sliderValue}`)
+          Text(`${this.readMode.mode === ReadMode.RTL ? this.vm.totalPages() :
+            (this.sliderPreview >= 0 ? this.sliderPreview : this.sliderValue)}`)
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontColor(Color.White)
             .constraintSize({ minWidth: READER_PROGRESS_NUMBER_MIN_W })
@@ -1747,6 +1770,7 @@ export struct ReaderPage {
             max: this.vm.totalPages() > 1 ? this.vm.totalPages() : 1,
             step: 1,
             style: SliderStyle.InSet,
+            reverse: this.readMode.mode === ReadMode.RTL,
           })
             .layoutWeight(1)
             .trackColor(READER_CHROME_TRACK_BG)
@@ -1765,7 +1789,8 @@ export struct ReaderPage {
                 this.scrollThumbStripTo(targetIndex, true)
               }
             })
-          Text(`${this.vm.totalPages()}`)
+          Text(`${this.readMode.mode === ReadMode.RTL ?
+            (this.sliderPreview >= 0 ? this.sliderPreview : this.sliderValue) : this.vm.totalPages()}`)
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontColor(Color.White)
             .constraintSize({ minWidth: READER_PROGRESS_NUMBER_MIN_W })
@@ -1882,7 +1907,11 @@ export struct ReaderPage {
 
   @Builder
   ReaderThumbStrip() {
-    List({ initialIndex: this.vm.currentIndex, scroller: this.thumbScroller, space: ThemeConstants.SPACE_SM }) {
+    List({
+      initialIndex: this.thumbListIndexForPageIndex(this.vm.currentIndex),
+      scroller: this.thumbScroller,
+      space: ThemeConstants.SPACE_SM,
+    }) {
       ForEach(
         this.thumbPageIndexes(),
         (index: number) => {
