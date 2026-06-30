@@ -18,15 +18,23 @@ const store = read('shared/src/main/ets/storage/LocalDataStore.ets')
 ok('LocalDataStore creates gallery download task and seed tables',
   /download_gallery_tasks/.test(store) &&
     /download_gallery_seeds/.test(store) &&
-    /PRIMARY KEY\(scope_key, gid, token\)/.test(store) &&
-    /PRIMARY KEY\(scope_key, gid, token, image_page_url\)/.test(store) &&
+    /PRIMARY KEY\(scope_key, gid, token, prefer_original\)/.test(store) &&
+    /PRIMARY KEY\(scope_key, gid, token, prefer_original, image_page_url\)/.test(store) &&
     /idx_download_gallery_tasks_queued/.test(store) &&
     /idx_download_gallery_seeds_position/.test(store) &&
     /prefer_original INTEGER NOT NULL DEFAULT 0/.test(store))
 ok('LocalDataStore migrates existing download task rows to include per-task original preference',
-  /LOCAL_DATA_SCHEMA_VERSION: number = 14/.test(store) &&
+  /LOCAL_DATA_SCHEMA_VERSION: number = 15/.test(store) &&
     /migrateDownloadGalleryPreferOriginal/.test(store) &&
     /ALTER TABLE download_gallery_tasks ADD COLUMN prefer_original/.test(store))
+ok('LocalDataStore migrates gallery queue keys so original and resampled tasks can coexist',
+  /migrateDownloadGalleryTaskQualityKey/.test(store) &&
+    /hasPrimaryKeyColumn\([\s\S]*download_gallery_tasks[\s\S]*prefer_original/.test(store) &&
+    /hasPrimaryKeyColumn\([\s\S]*download_gallery_seeds[\s\S]*prefer_original/.test(store) &&
+    /download_gallery_tasks_v15/.test(store) &&
+    /download_gallery_seeds_v15/.test(store) &&
+    /ALTER TABLE download_gallery_tasks_v15 RENAME TO download_gallery_tasks/.test(store) &&
+    /ALTER TABLE download_gallery_seeds_v15 RENAME TO download_gallery_seeds/.test(store))
 ok('LocalDataStore persists gallery upgrade source for incremental downloads',
   /upgrade_from_gid TEXT NOT NULL DEFAULT/.test(store) &&
     /migrateDownloadGalleryUpgradeFromGid/.test(store) &&
@@ -73,7 +81,11 @@ ok('repository restores downloaded seed metadata',
     /seed\.downloadError/.test(repo))
 ok('repository persists task original preference',
   /prefer_original/.test(repo) &&
-    /task\.preferOriginal/.test(repo))
+    /task\.preferOriginal/.test(repo) &&
+    /WHERE scope_key = \? AND gid = \? AND token = \? AND prefer_original = \?/.test(repo) &&
+    /SQL_DELETE_SEEDS_FOR_TASK[\s\S]*prefer_original = \?/.test(repo) &&
+    /loadSeeds\(store, task\.gid, task\.token, task\.preferOriginal\)/.test(repo) &&
+    /upsertSeed\(store, task\.gid, task\.token, task\.preferOriginal, seed, i\)/.test(repo))
 ok('repository persists gallery upgrade source gid',
   /upgrade_from_gid/.test(repo) &&
     /task\.upgradeFromGid/.test(repo))
@@ -119,6 +131,13 @@ ok('settings no longer writes the queue back to Preferences',
 ok('download directories keep per-task metadata sidecars for queue recovery',
   /DOWNLOAD_METADATA_FILE: string = 'metadata\.json'/.test(settings) &&
     /ARCHIVER_METADATA_SUFFIX: string = '\.metadata\.json'/.test(settings) &&
+    /DOWNLOAD_PUBLIC_APP_DIR: string = 'com\.erosteam\.nexte'/.test(settings) &&
+    /DOWNLOAD_PUBLIC_DOCS_URI: string = 'file:\/\/docs\/storage\/Users\/currentUser\/Download'/.test(settings) &&
+    /Environment\.getUserDownloadDir\(\)/.test(settings) &&
+    /new fileUri\.FileUri\(DownloadQueueSettings\.joinPath\(DOWNLOAD_PUBLIC_DOCS_URI, DOWNLOAD_PUBLIC_APP_DIR\)\)\.path/.test(settings) &&
+    /downloadRootCandidates\(context: common\.UIAbilityContext\)[\s\S]*publicDownloadRootDir\(\)[\s\S]*context\.filesDir/.test(settings) &&
+    /galleryRootDirs\(context: common\.UIAbilityContext\)[\s\S]*DOWNLOAD_GALLERY_DIR/.test(settings) &&
+    /archiverRootDirs\(context: common\.UIAbilityContext\)[\s\S]*DOWNLOAD_ARCHIVER_DIR/.test(settings) &&
     /class DownloadGalleryTaskMetadata/.test(settings) &&
     /class DownloadArchiverTaskMetadata/.test(settings) &&
     /writeGalleryMetadataTasks\(context, tasks\)/.test(settings) &&
@@ -128,13 +147,15 @@ ok('download directories keep per-task metadata sidecars for queue recovery',
     /JSON\.stringify\(\[DownloadQueueSettings\.galleryTaskMetadata\(task\)\]\)/.test(settings) &&
     /JSON\.stringify\(\[DownloadQueueSettings\.archiverTaskMetadata\(task\)\]\)/.test(settings) &&
     !/JSON\.stringify\(\[task\]\)/.test(settings) &&
-    /galleryMetadataPath\(context: common\.UIAbilityContext, gid: string\)[\s\S]*ensureGalleryDownloadDir\(context, gid\)[\s\S]*DOWNLOAD_METADATA_FILE/.test(settings) &&
+    /galleryMetadataPath\(context: common\.UIAbilityContext, task: DownloadGalleryTask\)[\s\S]*ensureGalleryDownloadDir\(context, task\.gid, task\.preferOriginal\)[\s\S]*DOWNLOAD_METADATA_FILE/.test(settings) &&
     /archiverMetadataPath\(context: common\.UIAbilityContext, task: DownloadArchiverTask\)[\s\S]*ensureArchiverDownloadDir\(context\)[\s\S]*ARCHIVER_METADATA_SUFFIX/.test(settings) &&
     /writeTextFile\(path: string, text: string, event: string\)[\s\S]*fs\.OpenMode\.CREATE[\s\S]*fs\.OpenMode\.TRUNC[\s\S]*fs\.writeSync/.test(settings))
 ok('restore falls back to download metadata sidecars without overriding RDB rows',
-  /mergeRestoredGalleryTasks\([\s\S]*normalizeRestoredGalleryTasks\(await DownloadQueueRepository\.load\(context\)\)[\s\S]*loadGalleryMetadataTasks\(context\)/.test(settings) &&
+    /mergeRestoredGalleryTasks\([\s\S]*normalizeRestoredGalleryTasks\(await DownloadQueueRepository\.load\(context\)\)[\s\S]*loadGalleryMetadataTasks\(context\)/.test(settings) &&
     /mergeRestoredArchiverTasks\([\s\S]*normalizeRestoredArchiverTasks\(await DownloadQueueRepository\.loadArchiver\(context\)\)[\s\S]*loadArchiverMetadataTasks\(context\)/.test(settings) &&
-    /mergeRestoredGalleryTasks\([\s\S]*const out: DownloadGalleryTask\[\] = primary\.map[\s\S]*it\.gid === task\.gid && it\.token === task\.token[\s\S]*out\.push\(task\.copy\(\)\)/.test(settings) &&
+    /loadGalleryMetadataTasks\(context: common\.UIAbilityContext\)[\s\S]*galleryRootDirs\(context\)[\s\S]*legacyGalleryRootDir\(context\)[\s\S]*fs\.listFileSync\(root\)/.test(settings) &&
+    /loadArchiverMetadataTasks\(context: common\.UIAbilityContext\)[\s\S]*archiverRootDirs\(context\)[\s\S]*legacyArchiverRootDir\(context\)[\s\S]*fs\.listFileSync\(root\)/.test(settings) &&
+    /mergeRestoredGalleryTasks\([\s\S]*const out: DownloadGalleryTask\[\] = primary\.map[\s\S]*sameGalleryTask\(it, task\.gid, task\.token, task\.preferOriginal\)[\s\S]*out\.push\(task\.copy\(\)\)/.test(settings) &&
     /mergeRestoredArchiverTasks\([\s\S]*const out: DownloadArchiverTask\[\] = primary\.map[\s\S]*it\.tag === task\.tag[\s\S]*out\.push\(task\.copy\(\)\)/.test(settings))
 ok('archiver tasks inherit missing title token and cover from matching gallery queue tasks',
   /hydrateArchiverTasksFromGalleryTasks\([\s\S]*mergeRestoredArchiverTasks\([\s\S]*galleryTasks/.test(settings) &&
@@ -165,7 +186,7 @@ ok('bootstrap resumes restored queued gallery and archiver downloads without blo
     /pendingResume: Promise<void> \| null/.test(settings) &&
     /shouldAutoResumeGalleryTask/.test(settings) &&
     /shouldAutoResumeArchiverTask/.test(settings) &&
-    /downloadGalleryImages\(context, galleryTasks\[i\]\.gid, galleryTasks\[i\]\.token\)/.test(settings) &&
+    /downloadGalleryImages\([\s\S]*context,[\s\S]*galleryTasks\[i\]\.gid,[\s\S]*galleryTasks\[i\]\.token,[\s\S]*galleryTasks\[i\]\.preferOriginal/.test(settings) &&
     /downloadArchiver\(context, archiverTasks\[i\]\.tag\)/.test(settings))
 ok('bootstrap auto-resumes failed tasks only when the Download setting is enabled',
   /connectDownloadSettings\(\)\.autoRetryFailed && task\.status === DownloadGalleryTaskStatus\.ERROR/.test(autoResumeBody) &&
@@ -175,8 +196,8 @@ ok('bootstrap does not auto-resume paused gallery downloads',
     !/DownloadGalleryTaskStatus\.PAUSED/.test(autoResumeBody))
 ok('gallery resume fetches seeds before downloading when a restored task has no image-page seeds',
   /static async downloadGalleryImages/.test(settings) &&
-    /found !== null[\s\S]*found\.imageSeeds\.length === 0[\s\S]*refreshGallerySeedsFromRemote\(context, gid, token, connectSiteMode\(\)\.isEx\)/.test(settings) &&
-    /downloadGalleryImages\(context, gid, token\)/.test(settings))
+    /found !== null[\s\S]*found\.imageSeeds\.length === 0[\s\S]*refreshGallerySeedsFromRemote\(context, gid, token, connectSiteMode\(\)\.isEx, preferOriginal\)/.test(settings) &&
+    /downloadGalleryImages\(context, gid, token, preferOriginal\)/.test(settings))
 ok('failed image download retries re-resolve stale EH one-shot image URLs',
   /const shouldRefreshImageUrl: boolean = i > 0/.test(settings) &&
     /resolveOriginal\(image, shouldRefreshImageUrl\)/.test(settings) &&
@@ -195,9 +216,18 @@ ok('duplicate archiver submit only suppresses download for a valid completed pac
     /it\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*refreshed\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
     /return shouldDownload/.test(settings) &&
     /const shouldDownload: boolean = await DownloadQueueSettings\.enqueueArchiver/.test(read('feature/gallery/src/main/ets/pages/GalleryArchiverPage.ets')))
-ok('remove deletes gallery download content after the last task for that gid is removed',
-  /removeGallery\([\s\S]*let removed: DownloadGalleryTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persist\(context, next\)[\s\S]*!DownloadQueueSettings\.hasGalleryTaskWithGid\(next, gid\)[\s\S]*deleteGalleryContent\(context, removed\)/.test(settings) &&
-    /deleteGalleryContent\([\s\S]*context\.filesDir[\s\S]*download-gallery[\s\S]*safePathPart\(task\.gid\)[\s\S]*deleteSandboxPath/.test(settings))
+ok('ordinary gallery task identity includes original/resampled quality for matching and storage',
+  /sameGalleryTask\([\s\S]*task\.gid === gid && task\.token === token && task\.preferOriginal === preferOriginal/.test(settings) &&
+    /taskKey\(gid: string, token: string, preferOriginal: boolean\)[\s\S]*galleryQuality\(preferOriginal\)/.test(settings) &&
+    /galleryDirName\(gid: string, preferOriginal: boolean\)[\s\S]*preferOriginal \? `\$\{base\}-original` : base/.test(settings) &&
+    /ensureGalleryDownloadDir\([\s\S]*galleryDirName\(gid, preferOriginal\)/.test(settings))
+ok('incremental gallery downloads inherit files only from the same ordinary quality',
+  /findGalleryTaskIn\([\s\S]*preferOriginal: boolean \| null = null[\s\S]*task\.preferOriginal !== preferOriginal/.test(settings) &&
+    /findGalleryTaskIn\([\s\S]*task\.upgradeFromGid,[\s\S]*'',[\s\S]*task\.preferOriginal/.test(settings) &&
+    /inheritDownloadedSeedsFromParent\([\s\S]*task\.preferOriginal,[\s\S]*parent/.test(settings))
+ok('remove deletes only the selected gallery download quality content',
+  /removeGallery\([\s\S]*preferOriginal: boolean = false[\s\S]*taskKey\(gid, token, preferOriginal\)[\s\S]*sameGalleryTask\(it, gid, token, preferOriginal\)[\s\S]*deleteGalleryContent\(context, removed\)/.test(settings) &&
+    /deleteGalleryContent\([\s\S]*galleryRootDirs\(context\)[\s\S]*legacyGalleryRootDir\(context\)[\s\S]*galleryDirName\(task\.gid, task\.preferOriginal\)[\s\S]*deleteSandboxPath/.test(settings))
 ok('remove cancels in-flight gallery workers and discards late batch files',
   /cancelledGalleryDownloads: Set<string>/.test(settings) &&
     /removeGallery\([\s\S]*galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)/.test(settings) &&
@@ -205,14 +235,14 @@ ok('remove cancels in-flight gallery workers and discards late batch files',
     /deleteDownloadSeedResults\(results: DownloadSeedResult\[\]\)[\s\S]*deleteSandboxPath\(result\.filePath, 'gallery_cancelled_file_delete_failed'\)/.test(settings))
 ok('pause marks running gallery workers cancelled while keeping the task resumable',
   /static async pauseGalleryDownload/.test(settings) &&
-    /galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)[\s\S]*updateGalleryTaskAfterPause\(context, gid, token\)/.test(settings) &&
-    /updateGalleryStreamProgress\([\s\S]*const key: string = DownloadQueueSettings\.taskKey\(gid, token\)[\s\S]*cancelledGalleryDownloads\.has\(key\)[\s\S]*return[\s\S]*task\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
+    /galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)[\s\S]*updateGalleryTaskAfterPause\(context, gid, token, preferOriginal\)/.test(settings) &&
+    /updateGalleryStreamProgress\([\s\S]*preferOriginal: boolean[\s\S]*const key: string = DownloadQueueSettings\.taskKey\(gid, token, preferOriginal\)[\s\S]*cancelledGalleryDownloads\.has\(key\)[\s\S]*return[\s\S]*task\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
     /updateGalleryTaskAfterPause[\s\S]*task\.status = DownloadGalleryTaskStatus\.PAUSED[\s\S]*task\.prepareError = ''[\s\S]*persistGalleryTask\(context, updatedTask\)/.test(settings))
 ok('batch gallery actions reuse per-task resume and pause executors',
   /static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
-    /canResumeGalleryTask\(tasks\[i\]\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token\)/.test(settings) &&
+    /canResumeGalleryTask\(tasks\[i\]\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)/.test(settings) &&
     /static async pauseAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
-    /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseGalleryDownload\(context, tasks\[i\]\.gid, tasks\[i\]\.token\)/.test(settings))
+    /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseGalleryDownload\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)/.test(settings))
 ok('remove deletes archiver package, metadata sidecar, and extracted reader cache',
   /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiver\(context, next\)[\s\S]*deleteArchiverContent\(context, removed\)/.test(settings) &&
     /deleteArchiverContent\([\s\S]*archiverMetadataPath\(context, task\)[\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&

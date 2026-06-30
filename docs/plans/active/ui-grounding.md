@@ -62,6 +62,16 @@ Primary action: while a task downloads, the same row updates its progress text/b
 Reuse or deviation: reuse the existing stable task card rows and `DownloadQueueState.revision`, but preserve each existing `DownloadGalleryTask` / `DownloadArchiverTask` observed object identity across queue updates so mounted rows read live `@Trace` task fields directly; do not reintroduce shadow `visible*` progress params or fresh-snapshot-only updates.
 Verification: download workbench contract, gallery download queue contract, gallery download executor contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 evidence that a visible downloading row's status text count and progress bar advance together without switching tabs.
 
+## Active: ordinary download quality identity
+
+Status: active
+Reference implementation: `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` download original/resampled prompt and `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing Gallery task card metadata/status layout.
+Surface type: Downloads tab Gallery task card metadata plus ordinary gallery download queue identity; no card layout redesign.
+Primary information: a Gallery download row must tell the user whether it is `重采样图片` or `原图`, and the two qualities must not overwrite each other's task, seeds, files, or actions.
+Primary action: choose resampled or original from the detail download prompt, then resume/pause/delete/read that exact quality from the Downloads tab.
+Reuse or deviation: reuse the existing task card metadata line and existing queue executors; deviate only by adding `preferOriginal` to task matching, RDB primary keys, seed storage, file directory names, and task action calls.
+Verification: download workbench contract, download queue RDB contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and X7 Downloads smoke when both ordinary qualities are queued for one gallery.
+
 ## Active: modal scaffold nested vertical scroll
 
 Status: active

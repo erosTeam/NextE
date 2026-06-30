@@ -757,6 +757,7 @@ export struct GalleryDetailPage {
       connectSiteMode().isEx,
       this.vm.images,
       this.vm.previewPageCount,
+      task.preferOriginal,
     ).catch((error: Error) => {
       DiagnosticLogger.warn(
         'download',
@@ -891,6 +892,7 @@ export struct GalleryDetailPage {
         connectSiteMode().isEx,
         detail.images,
         detail.previewPageCount,
+        task.preferOriginal,
       )
       DiagnosticLogger.info(
         'download',

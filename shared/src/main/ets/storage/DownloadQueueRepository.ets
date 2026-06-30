@@ -17,7 +17,7 @@ const SQL_SELECT_TASKS: string =
 const SQL_SELECT_SEEDS: string =
   'SELECT page, imgkey, image_page_url, thumb_url, image_url, origin_image_url, show_key, reload_key, ' +
   'file_path, bytes_written, downloaded_at, download_error FROM download_gallery_seeds ' +
-  'WHERE scope_key = ? AND gid = ? AND token = ? ORDER BY position_index ASC, page ASC'
+  'WHERE scope_key = ? AND gid = ? AND token = ? AND prefer_original = ? ORDER BY position_index ASC, page ASC'
 const SQL_UPSERT_TASK: string =
   'INSERT OR REPLACE INTO download_gallery_tasks ' +
   '(scope_key, gid, token, title, title_jp, thumb_url, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
@@ -25,13 +25,13 @@ const SQL_UPSERT_TASK: string =
   'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 const SQL_UPSERT_SEED: string =
   'INSERT OR REPLACE INTO download_gallery_seeds ' +
-  '(scope_key, gid, token, image_page_url, position_index, page, imgkey, thumb_url, image_url, ' +
+  '(scope_key, gid, token, prefer_original, image_page_url, position_index, page, imgkey, thumb_url, image_url, ' +
   'origin_image_url, show_key, reload_key, file_path, bytes_written, downloaded_at, download_error) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 const SQL_DELETE_TASKS: string = 'DELETE FROM download_gallery_tasks WHERE scope_key = ?'
 const SQL_DELETE_SEEDS: string = 'DELETE FROM download_gallery_seeds WHERE scope_key = ?'
 const SQL_DELETE_SEEDS_FOR_TASK: string =
-  'DELETE FROM download_gallery_seeds WHERE scope_key = ? AND gid = ? AND token = ?'
+  'DELETE FROM download_gallery_seeds WHERE scope_key = ? AND gid = ? AND token = ? AND prefer_original = ?'
 const SQL_SELECT_ARCHIVER_TASKS: string =
   'SELECT tag, gid, token, title, thumb_url, dltype, resolution, parse_source, url, file_name, file_path, queued_at, downloaded_at, ' +
   'bytes_written, bytes_total, progress, error, status FROM download_archiver_tasks ' +
@@ -52,7 +52,7 @@ export class DownloadQueueRepository {
       while (resultSet.goToNextRow()) {
         const task: DownloadGalleryTask = DownloadQueueRepository.readTask(resultSet)
         if (task.gid.length > 0) {
-          task.imageSeeds = await DownloadQueueRepository.loadSeeds(store, task.gid, task.token)
+          task.imageSeeds = await DownloadQueueRepository.loadSeeds(store, task.gid, task.token, task.preferOriginal)
           task.syncProgressCounts()
           out.push(task)
         }
@@ -86,7 +86,12 @@ export class DownloadQueueRepository {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
     try {
-      await store.executeSql(SQL_DELETE_SEEDS_FOR_TASK, [SCOPE_GLOBAL, task.gid, task.token])
+      await store.executeSql(SQL_DELETE_SEEDS_FOR_TASK, [
+        SCOPE_GLOBAL,
+        task.gid,
+        task.token,
+        task.preferOriginal ? 1 : 0,
+      ])
       await DownloadQueueRepository.upsertTask(store, task)
       store.commit()
     } catch (error) {
@@ -164,7 +169,7 @@ export class DownloadQueueRepository {
     for (let i: number = 0; i < task.imageSeeds.length; i++) {
       const seed: DownloadImageSeed = task.imageSeeds[i]
       if (seed.imagePageUrl.length > 0) {
-        await DownloadQueueRepository.upsertSeed(store, task.gid, task.token, seed, i)
+        await DownloadQueueRepository.upsertSeed(store, task.gid, task.token, task.preferOriginal, seed, i)
       }
     }
   }
@@ -173,6 +178,7 @@ export class DownloadQueueRepository {
     store: relationalStore.RdbStore,
     gid: string,
     token: string,
+    preferOriginal: boolean,
     seed: DownloadImageSeed,
     index: number,
   ): Promise<void> {
@@ -180,6 +186,7 @@ export class DownloadQueueRepository {
       SCOPE_GLOBAL,
       gid,
       token,
+      preferOriginal ? 1 : 0,
       seed.imagePageUrl,
       index,
       seed.page,
@@ -200,12 +207,14 @@ export class DownloadQueueRepository {
     store: relationalStore.RdbStore,
     gid: string,
     token: string,
+    preferOriginal: boolean,
   ): Promise<DownloadImageSeed[]> {
     const out: DownloadImageSeed[] = []
     const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SEEDS, [
       SCOPE_GLOBAL,
       gid,
       token,
+      preferOriginal ? 1 : 0,
     ])
     try {
       while (resultSet.goToNextRow()) {
