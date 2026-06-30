@@ -2,9 +2,8 @@
 
 Status: recovered source-backed research note, not a direct implementation queue.
 
-Current scheduling lives in [Current Dispatch State](current-dispatch-state.md). This file records what was
-actually found in EhViewer/JHenTai and how it compares with current NextE. Before implementation, re-open the
-exact source path and current NextE code.
+Use this file as research evidence only. The user's latest explicit request decides what to do next. Before
+implementation, re-open the exact source path and current NextE code.
 
 ## What Was Missing
 

@@ -667,7 +667,7 @@ Emulator validation on `127.0.0.1:5555` with a signed HAP:
 
 ## Follow-ups / Reference
 
-These are not a scheduling queue. Use `current-dispatch-state.md` for lane selection.
+These are not a scheduling queue. Use the user's latest request and `product-bug-intake.md` for planning.
 
 1. Image-block sample verification on real galleries containing external scanlator-ad pages.
    - Current seeded community sample: `https://e-hentai.org/g/3049882/d7e740a39e/`, page 1, pHash

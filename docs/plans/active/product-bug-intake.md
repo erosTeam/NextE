@@ -4,16 +4,15 @@ Status: index and writing rules.
 
 Purpose:
 
-- Keep `current-dispatch-state.md` as the short scheduling source of truth.
-- Keep this file as a domain index and intake writing contract.
+- Keep this file as the short domain index and intake writing contract.
 - Keep full evidence, reproductions, source notes, and status updates in the domain intake files below.
 - Do not append long evidence blocks here.
 
 Operating rule:
 
-- Do not treat an entry here as immediate authorization to interrupt an active lane.
-- Main-thread scheduling should pull from `current-dispatch-state.md`; use this file only as the short
-  intake index when that dispatch file points here.
+- Do not treat an entry here as immediate authorization to interrupt the user's current request.
+- The user's latest explicit request decides what to do next; use this file only to find the right
+  evidence ledger and writing rules.
 - Prefer issues that improve core use flows over low-priority parity enhancements.
 - Before implementation, verify the relevant eros_fe source behavior and current NextE code path.
 - When an intake item is implemented/fixed and committed, update that item with `Status`,
@@ -45,9 +44,9 @@ Operating rule:
 ## Split Writing Rules
 
 - New bugs go first to the matching `docs/plans/active/intake/*.md` file.
-- Only synchronize `current-dispatch-state.md` when the item changes near-term scheduling.
 - `product-bug-intake.md` should stay short; it is not a full evidence ledger.
-- Accepted, superseded, parked, or historical evidence belongs in the domain file or archive, not in the active dispatch queue.
+- Accepted, superseded, parked, or historical evidence belongs in the domain file or archive, not in a
+  recreated global queue.
 
 ## Domain Intake Files
 
@@ -63,9 +62,9 @@ Operating rule:
 - [Cache Architecture Intake](intake/cache.md) — 1 item(s).
 - [General Archive Intake](intake/history-archive.md) — 1 item(s).
 
-## Current Scheduling Entry
+## Current Entry
 
-- Start from [Current Dispatch State](current-dispatch-state.md).
-- Use [EhViewer / JHenTai Feature Reference](ehviewer-jhentai-feature-comparison.md) only as a recovered
-  comparison/candidate source; verify current NextE implementation before scheduling from it.
+- Start from the user's latest explicit request.
+- Use [EhViewer / JHenTai Feature Research](ehviewer-jhentai-feature-comparison.md) only as a source-backed
+  comparison/candidate record; verify current NextE implementation before acting from it.
 - Treat the domain intake files as evidence ledgers, not direct priority queues.

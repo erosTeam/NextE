@@ -82,8 +82,8 @@ write-operation polish.
 
 ## Recommended Major Lanes
 
-These lanes are project-level feature lanes. Promote one bounded subfeature into `current-dispatch-state.md`
-only when it is the next active implementation target.
+These lanes are project-level feature lanes. Do not implement from this audit directly; choose one bounded
+subfeature only when the user asks for that lane or it is written into the current task plan.
 
 ### Lane A — Auth And EH Account Foundation
 
@@ -188,11 +188,11 @@ Scope candidates:
 - Security auto-lock enforcement and unlock page.
 - EPUB export, update check, profile/avatar/settings polish.
 
-## Scheduling Rules
+## Usage Rules
 
-- Do not implement from this audit directly. First promote a single bounded subfeature into
-  `current-dispatch-state.md` Active Queue.
+- Do not implement from this audit directly. First pick one bounded subfeature from the user's current
+  request and verify current NextE code.
 - Do not bundle a whole lane into one patch.
-- Every promoted lane must still provide the normal five-line grounding from `always-loaded-rules.md`.
+- Every lane must still provide the normal five-line grounding from `always-loaded-rules.md`.
 - UI/interaction work needs FE comparison or must be marked `implemented / needs FE comparison`.
 - Destructive EH writes need explicit authorization and should default to open-dialog/cancel QA.

@@ -223,18 +223,16 @@ At this handoff there are no live tmux worker sessions and no Hermes background 
 
 ## Active plan state
 
-Scheduling authority:
+Planning note:
 
 ```text
-docs/plans/active/current-dispatch-state.md
+Use the user's latest explicit request plus docs/plans/active/product-bug-intake.md.
 ```
 
 Important state:
 
 ```text
 This handoff is machine/device context, not the live feature queue.
-Do not schedule from the older gallery-visual/list-responsive notes below unless current-dispatch-state.md
-promotes them again.
 Another active session owns download / archiver / offline Reader work; this thread should avoid those files
 unless explicitly redirected.
 cookie-login-function-gate.md:
@@ -384,12 +382,12 @@ Minimum acceptance gates for this issue:
 
 Screenshots should be delivered to the controller/user, not only kept as local paths.
 
-## Scheduling Pointer
+## Planning Pointer
 
-For lane selection, use:
+For planning context, use:
 
 ```text
-docs/plans/active/current-dispatch-state.md
+docs/plans/active/product-bug-intake.md
 ```
 
 Current coordination note:
@@ -404,8 +402,8 @@ docs/plans/active/ehviewer-jhentai-feature-comparison.md.
 Historical worker note:
 
 ```text
-The old list-card responsive-sizing worker suggestion is no longer a scheduling recommendation.
-Use current-dispatch-state.md for any next-lane decision.
+The old list-card responsive-sizing worker suggestion is no longer a current recommendation.
+Do not choose work from this handoff.
 ```
 
 ## Agent execution rules for the next phase

@@ -1,20 +1,19 @@
 # Historical Gallery Visual Re-QA Evidence
 
-Status: HISTORICAL / superseded as scheduling source
+Status: HISTORICAL / evidence only
 Owner: historical controller
 Scope: gallery detail page visual regressions only
 Created: 2026-06-17
 
-Current scheduling note: do not execute this file as a queue. Use
-`docs/plans/active/current-dispatch-state.md`; promote a fresh gallery regression there before reopening
-work from this historical evidence.
+Current note: do not execute this file as a queue. Reopen work from this historical evidence only when the
+user reports a fresh gallery regression or the current task explicitly names it.
 
 ## Why this exists
 
 The previous workflow failed: active issues were treated as completed without item-by-item controller acceptance, and visual fixes were repeatedly reported as done while user screenshots still showed the same class of defects.
 
-This document was the control record for that gallery pass. It is historical evidence now, not a current
-scheduling source and not a completion claim.
+This document was the control record for that gallery pass. It is historical evidence now, not a current task
+source and not a completion claim.
 
 ## Hard rules
 

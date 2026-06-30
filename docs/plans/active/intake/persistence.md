@@ -6,8 +6,7 @@ Purpose:
 
 - Track NextE's durable local-data, settings-backup, and import/export design gaps separately from
   disposable cache work.
-- Do not use this file directly as the scheduling source of truth; start from
-  `../current-dispatch-state.md`.
+- This file is an evidence ledger, not a priority queue. Start from the user's latest request and use `../product-bug-intake.md` for intake writing rules.
 - Persistence work must define which data is a small preference, which data belongs in RDB, which data is a
   file/cache payload, and which data is secret or account-scoped before implementation.
 

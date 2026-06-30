@@ -1,13 +1,12 @@
 # Historical project state and next-plan snapshot
 
-- **status**: HISTORICAL / superseded as scheduling source
+- **status**: HISTORICAL / evidence only
 - **owner**: controller / project lead
 - **updated**: 2026-06-18 16:33:37 +0800
 - **purpose**: historical scheduling snapshot after the Mac migration and the latest list responsive-cover gate.
 
-This document is historical evidence, not the live scheduler. Use
-`docs/plans/active/current-dispatch-state.md` for current scheduling. Historical PASS logs, worker summaries,
-and old screenshots are useful evidence, but they do not equal current controller acceptance.
+This document is historical evidence, not the live scheduler. Historical PASS logs, worker summaries, and old
+screenshots are useful evidence, but they do not equal current controller acceptance.
 
 ## Standing constraints
 
@@ -813,8 +812,8 @@ device-lease: clean but behind current main; device-lease guidance exists, but c
 
 1. **Acceptance drift**
 
-Historical PASS entries are mixed with reopened active audit language. Treat them as evidence only unless
-`current-dispatch-state.md` promotes a fresh lane.
+Historical PASS entries are mixed with reopened active audit language. Treat them as evidence only unless the
+current task explicitly reopens that lane.
 
 2. **Visual evidence weakness**
 
@@ -1074,8 +1073,7 @@ Out of scope:
 ## Post-stabilization eros_fe feature lanes
 
 The historical queues above were stabilization and acceptance work. They do not replace the product roadmap.
-Future eros_fe feature-depth lanes should be promoted through `current-dispatch-state.md` before
-implementation.
+Future eros_fe feature-depth lanes should be opened as their own current task before implementation.
 
 ### Feature Lane 1 — Auth foundation completion
 

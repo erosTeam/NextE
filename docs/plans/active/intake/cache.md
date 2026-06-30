@@ -5,7 +5,7 @@ Status: domain intake ledger.
 Purpose:
 
 - Track NextE's app-wide cache design gaps separately from one-off Reader/download/history bugs.
-- Do not use this file directly as the scheduling source of truth; start from `../current-dispatch-state.md`.
+- This file is an evidence ledger, not a priority queue. Start from the user's latest request and use `../product-bug-intake.md` for intake writing rules.
 - Cache work must define storage ownership, invalidation, size limits, and user-facing cache management before
   broad implementation.
 - Durable user data and settings import/export are tracked in `persistence.md`; do not collapse those into a

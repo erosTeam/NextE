@@ -5,7 +5,7 @@ Status: domain intake ledger.
 Purpose:
 
 - Preserve full evidence and handling notes for this domain.
-- Do not use this file directly as the scheduling source of truth; start from `../current-dispatch-state.md`.
+- This file is an evidence ledger, not a priority queue. Start from the user's latest request and use `../product-bug-intake.md` for intake writing rules.
 - When an item is implemented, update its Status/commit/evidence here so it does not remain an unhandled queue item.
 
 ## Items
@@ -441,8 +441,8 @@ Handled update, 2026-06-20:
   settings entries are hidden until their downstream enforcement/executor loops exist; EH disabled
   placeholders are hidden; Search/history destructive clears are confirmation-gated; row dropdowns use
   row-local anchors. A 2026-06-20 code audit found no remaining visible Settings row that is an unowned
-  placeholder or immediate destructive action without confirmation. This item should not remain in
-  `current-dispatch-state.md` Active Queue unless fresh Settings regression evidence appears.
+  placeholder or immediate destructive action without confirmation. Reopen only with fresh Settings
+  regression evidence.
 - Security root exposure: implemented / pending controller acceptance. Settings root no longer shows
   the `安全` entry because the underlying recent-task privacy and auto-lock enforcement are not wired.
   The parked `SecuritySettingsPage` / V2 preference foundation remains in code for a future

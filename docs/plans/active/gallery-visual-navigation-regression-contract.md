@@ -1,6 +1,6 @@
 # Gallery visual + navigation regression contract
 
-- **status**: HISTORICAL / superseded as scheduling source; completed archive was invalid at the time because
+- **status**: HISTORICAL / evidence only; completed archive was invalid at the time because
   several acceptance gates were partial/unsolved.
 - **created**: 2026-06-16 13:11:31 +0800
 - **source**: user feedback in controller chat after #37/#38; persisted because chat-only notes are lost after context compaction
@@ -10,9 +10,8 @@
 
 ## Control-plane state
 
-This file is historical evidence from the gallery regression pass, not a live lane contract. Use
-`docs/plans/active/current-dispatch-state.md`; promote a fresh gallery regression there
-before reopening work from this file.
+This file is historical evidence from the gallery regression pass, not a live lane contract. Reopen work from
+this file only when the user reports a fresh gallery regression or the current task explicitly names it.
 
 Current blocking conclusions:
 
@@ -22,8 +21,7 @@ Current blocking conclusions:
 - 2026-06-17 screenshot follow-up (`/home/gamer/.hermes/image_cache/img_ce52e06cb803.jpg`): the middle preview thumbnail is still unacceptable after `6deaa8e`; it appears as a thin horizontal strip centered in a tall grey tile. Rounded container corners alone do **not** satisfy preview-thumbnail acceptance. The thumbnail must use the real thumbnail image/proportion with rounded corners, without forcing a new fill/crop policy.
 - 2026-06-17 screenshot follow-up (`/home/gamer/.hermes/image_cache/img_a786e7aab70e.jpg`): the gallery header cover has the same class of defect — the cover image is rendered as the real image strip inside a much taller unrelated grey container. This is not accepted as a correct gallery cover presentation. It must use the real thumbnail/cover proportion with rounded corners; do not solve by inventing blanket fill/crop semantics.
 - Historical conclusion at the time: do not continue feature work or cosmetic spot-fixes before the P0 items
-  below are audited and gated. This is not a current scheduling override unless promoted by
-  `current-dispatch-state.md`.
+  below are audited and gated. This is not a current scheduling override.
 
 Non-negotiable project safety:
 

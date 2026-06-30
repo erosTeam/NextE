@@ -5,7 +5,7 @@ Status: domain intake ledger.
 Purpose:
 
 - Preserve full evidence and handling notes for this domain.
-- Do not use this file directly as the scheduling source of truth; start from `../current-dispatch-state.md`.
+- This file is an evidence ledger, not a priority queue. Start from the user's latest request and use `../product-bug-intake.md` for intake writing rules.
 - When an item is implemented, update its Status/commit/evidence here so it does not remain an unhandled queue item.
 
 ## Items
