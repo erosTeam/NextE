@@ -531,3 +531,13 @@ Primary information: the gallery title is the primary row text and must get the 
 Primary action: tapping completed content still opens local Reader; pause/resume and overflow actions stay secondary controls inside the content area.
 Reuse or deviation: reuse the existing cover, progress/status builders, and circle action buttons; deviate from the old three-column card by treating actions as part of the right content column instead of a third outer column that shrinks the title, while keeping the proven `FlexAlign.End` action grouping instead of a `Blank().layoutWeight(1)` spacer; keep the action column width stable but use a smaller button frame with the same icon size.
 Verification: download workbench contract, UI grounding contract, V1 decorator inventory, signed HarmonyOS build, and device screenshot of long titles with original/resampled tasks.
+
+## Active: archiver stream timeout
+
+Status: active
+Reference implementation: NextE `shared/src/main/ets/settings/DownloadQueueSettings.ets` archiver stream path, `shared/src/main/ets/network/EhHttpClient.ets` `requestInStream`, and `../eros_fe/lib/common/controller/download_controller.dart` archive download flow.
+Surface type: existing Archiver local download task, no new UI surface.
+Primary information: a large archive task should keep showing real progress until completion or a concrete network failure.
+Primary action: the user starts an archive download from the detail Archiver sheet, then watches the existing Downloads tab task progress; failed tasks keep their retry path.
+Reuse or deviation: reuse the existing stream-to-file client, retry count, task persistence, and progress UI; deviate only by giving archive streams a longer read timeout than ordinary image downloads because 197 logs showed 777 MB archive transfers timing out mid-stream under the generic 20 s binary timeout.
+Verification: 197 hilog evidence for the old `archiver_download_stream_progress` followed by repeated `Operation timeout`, the fixed build retry reaching `archiver_download_done | bytes=777185766`, download RDB contract, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.

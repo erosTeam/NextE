@@ -312,6 +312,7 @@ export class EhHttpClient {
     progress: (loaded: number, total: number) => void,
     accept: string = IMAGE_ACCEPT,
     maxAttempts: number = MAX_RETRIES,
+    readTimeoutMs: number = READ_TIMEOUT_MS,
   ): Promise<number> {
     let attempt: number = 0
     let lastError: Error | null = null
@@ -358,7 +359,7 @@ export class EhHttpClient {
           method: http.RequestMethod.GET,
           header: header,
           connectTimeout: CONNECT_TIMEOUT_MS,
-          readTimeout: READ_TIMEOUT_MS,
+          readTimeout: readTimeoutMs,
           usingCache: false,
         })
         req.destroy()

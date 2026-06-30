@@ -34,6 +34,7 @@ const DOWNLOAD_GALLERY_DIR: string = 'download-gallery'
 const DOWNLOAD_ARCHIVER_DIR: string = 'download-archiver'
 const DOWNLOAD_DIRECTORY_UNAVAILABLE: string = 'Download directory unavailable'
 const ARCHIVER_ACCEPT: string = 'application/zip,application/octet-stream,*/*'
+const ARCHIVER_READ_TIMEOUT_MS: number = 30 * 60 * 1000
 const ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'
 const DOWNLOAD_METADATA_FILE: string = 'metadata.json'
 const ARCHIVER_METADATA_SUFFIX: string = '.metadata.json'
@@ -667,6 +668,7 @@ export class DownloadQueueSettings {
         },
         ARCHIVER_ACCEPT,
         attempts,
+        ARCHIVER_READ_TIMEOUT_MS,
       )
       if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
         DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_cancelled_file_delete_failed')
