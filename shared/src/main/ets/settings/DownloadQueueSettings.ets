@@ -23,6 +23,7 @@ import { EhHttpClient } from '../network/EhHttpClient'
 import { EhApiService, GalleryDetailResult } from '../network/EhApiService'
 import { EhErrorKind } from '../network/EhError'
 import { EhErrorText } from '../i18n/EhErrorText'
+import { AppStrings } from '../i18n/AppStrings'
 import { ImageResolveService } from '../services/ImageResolveService'
 import { ArchiveBotResolveResult, ArchiveBotService } from '../services/ArchiveBotService'
 import { DownloadQueueRepository } from '../storage/DownloadQueueRepository'
@@ -2690,6 +2691,9 @@ export class DownloadQueueSettings {
     }
     if (raw.indexOf(' maybe-hidden status=') >= 0) {
       return EhErrorText.message(EhErrorKind.MaybeHidden)
+    }
+    if (raw.indexOf('binary resume unsupported') >= 0) {
+      return AppStrings.get('download_error_resume_unsupported')
     }
     const message: string = EhErrorText.forUser(error)
     if (message.length > 0) {

@@ -113,6 +113,10 @@
       "value": "继续全部"
     },
     {
+      "name": "download_error_resume_unsupported",
+      "value": "该归档服务器不支持断点续传。"
+    },
+    {
       "name": "download_pause_all",
       "value": "暂停全部"
     },

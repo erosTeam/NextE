@@ -477,16 +477,15 @@ export class EhHttpClient {
             req.destroy()
             return
           }
+          if (attemptStart > 0 && !resumeAccepted) {
+            streamError = 'binary resume unsupported'
+            req.destroy()
+            return
+          }
           if (!prepared) {
-            const mode: number = resumeAccepted ?
-              fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE :
-              fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC
+            const mode: number = fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE
             file = fs.openSync(partialPath, mode)
             openedTarget = true
-            if (!resumeAccepted) {
-              attemptStart = 0
-              written = 0
-            }
             prepared = true
           }
           const len: number = fs.writeSync((file as fs.File).fd, data, { offset: written })
@@ -519,9 +518,8 @@ export class EhHttpClient {
           EhHttpClient.truncateQuietly(partialPath, attemptStart)
           throw new Error(`binary HTTP ${code}`)
         }
-        if (attemptStart > 0 && code === 206 && !resumeAccepted) {
-          EhHttpClient.truncateQuietly(partialPath, attemptStart)
-          throw new Error('invalid content range')
+        if (attemptStart > 0 && !resumeAccepted) {
+          throw new Error(code === 206 ? 'invalid content range' : 'binary resume unsupported')
         }
         if (written <= 0) {
           throw new Error('binary response is empty')
@@ -530,8 +528,8 @@ export class EhHttpClient {
         return written
       } catch (error) {
         const e = error as Error
-        lastError = e
-        if (!cancelled && e.message !== 'binary download cancelled') {
+        lastError = streamError.length > 0 ? new Error(streamError) : e
+        if (!cancelled && streamError.length === 0 && e.message !== 'binary download cancelled') {
           DiagnosticLogger.warn(
             'network',
             'http_binary_resumable_retry',
@@ -546,6 +544,9 @@ export class EhHttpClient {
         if (openedTarget && !cancelled && lastError !== null && written < attemptStart) {
           EhHttpClient.truncateQuietly(partialPath, attemptStart)
         }
+      }
+      if (streamError.length > 0) {
+        throw lastError !== null ? lastError : new Error(streamError)
       }
       if (cancelled || lastError?.message === 'binary download cancelled') {
         throw lastError !== null ? lastError : new Error('binary download cancelled')

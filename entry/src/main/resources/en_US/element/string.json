@@ -113,6 +113,10 @@
       "value": "Continue all"
     },
     {
+      "name": "download_error_resume_unsupported",
+      "value": "This archive server does not support breakpoint resume."
+    },
+    {
       "name": "download_pause_all",
       "value": "Pause all"
     },

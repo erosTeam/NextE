@@ -742,8 +742,8 @@ export struct DownloadQueuePage {
       : $r('app.string.download_resume')
   }
 
-  private canPauseArchiverTask(_task: DownloadArchiverTask): boolean {
-    return false
+  private canPauseArchiverTask(task: DownloadArchiverTask): boolean {
+    return task.status === DownloadGalleryTaskStatus.DOWNLOADING
   }
 
   private setSortMode(mode: string): void {

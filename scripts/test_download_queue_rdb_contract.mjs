@@ -148,6 +148,7 @@ ok('paused download status is a durable queue state',
     /status === DownloadGalleryTaskStatus\.PAUSED/.test(read('shared/src/main/ets/settings/DownloadQueueSettings.ets')))
 
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
+const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets')
 const imageResolve = read('shared/src/main/ets/services/ImageResolveService.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const moduleJson = read('entry/src/main/module.json5')
@@ -331,14 +332,22 @@ ok('remove cancels in-flight archiver workers while preserving partial packages 
     !/archiver_cancelled_file_delete_failed/.test(settings) &&
     /shouldContinueAfterJoinedArchiverDownload/.test(settings))
 ok('archiver package downloads use Range/Content-Range partial files for pause and retry resume',
-  /downloadBinaryToFileInStreamResumable/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
-    /header\['Range'\] = `bytes=\$\{attemptStart\}-`/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
-    /req\.on\('headersReceive'/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
-    /contentRangeStart/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
-    /resumeAccepted/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
+  /downloadBinaryToFileInStreamResumable/.test(httpClient) &&
+    /header\['Range'\] = `bytes=\$\{attemptStart\}-`/.test(httpClient) &&
+    /req\.on\('headersReceive'/.test(httpClient) &&
+    /contentRangeStart/.test(httpClient) &&
+    /resumeAccepted/.test(httpClient) &&
     /const partialPath: string = DownloadQueueSettings\.archiverPartialPath\(filePath\)/.test(settings) &&
     /downloadBinaryToFileInStreamResumable\([\s\S]*partialPath[\s\S]*cancelledArchiverDownloads\.has\(tag\)[\s\S]*resolvedTask\.bytesTotal/.test(settings) &&
     /fs\.renameSync\(partialPath, filePath\)/.test(settings))
+ok('ignored Range responses preserve archiver partial files instead of silently restarting',
+  /attemptStart > 0 && !resumeAccepted[\s\S]*streamError = 'binary resume unsupported'[\s\S]*req\.destroy\(\)/.test(httpClient) &&
+    /attemptStart > 0 && !resumeAccepted[\s\S]*throw new Error\(code === 206 \? 'invalid content range' : 'binary resume unsupported'\)/.test(httpClient) &&
+    /lastError = streamError\.length > 0 \? new Error\(streamError\) : e/.test(httpClient) &&
+    /streamError\.length > 0[\s\S]*throw lastError !== null \? lastError : new Error\(streamError\)/.test(httpClient) &&
+    /streamError\.length === 0 && e\.message !== 'binary download cancelled'/.test(httpClient) &&
+    !/!resumeAccepted[\s\S]{0,220}OpenMode\.TRUNC/.test(httpClient) &&
+    /raw\.indexOf\('binary resume unsupported'\) >= 0[\s\S]*download_error_resume_unsupported/.test(settings))
 ok('pause marks running archiver workers cancelled and suppresses late progress callbacks',
   /static async pauseArchiverDownload/.test(settings) &&
     /archiverDownloads\.has\(tag\)[\s\S]*cancelledArchiverDownloads\.add\(tag\)[\s\S]*it\.status = DownloadGalleryTaskStatus\.PAUSED/.test(settings) &&
