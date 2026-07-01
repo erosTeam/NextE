@@ -651,27 +651,33 @@ export class DownloadQueueSettings {
       'archiver_download_start',
       `gid=${resolvedTask.gid} source=${resolvedTask.parseSource} tagHash=${DiagnosticLogger.ownerHash(tag)}`,
     )
-    await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
-      it.status = DownloadGalleryTaskStatus.DOWNLOADING
-      it.error = ''
-    }, false)
     const dir: string = DownloadQueueSettings.ensureArchiverDownloadDir(context)
     const fileName: string = DownloadQueueSettings.archiverFileName(resolvedTask)
     const filePath: string = `${dir}/${fileName}`
+    const partialPath: string = DownloadQueueSettings.archiverPartialPath(filePath)
+    const partialBytes: number = DownloadQueueSettings.downloadedFileSize(partialPath)
+    await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
+      it.status = DownloadGalleryTaskStatus.DOWNLOADING
+      it.fileName = fileName
+      it.filePath = filePath
+      it.bytesWritten = partialBytes > 0 ? partialBytes : it.bytesWritten
+      it.error = ''
+    }, false)
     const attempts: number = Math.max(1, Math.round(connectDownloadSettings().retryCount) + 1)
     try {
-      const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
+      const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStreamResumable(
         resolvedTask.url,
-        filePath,
+        partialPath,
         (loaded: number, total: number) => {
           DownloadQueueSettings.updateArchiverProgress(tag, loaded, total)
         },
+        () => DownloadQueueSettings.cancelledArchiverDownloads.has(tag),
+        resolvedTask.bytesTotal,
         ARCHIVER_ACCEPT,
         attempts,
         ARCHIVER_READ_TIMEOUT_MS,
       )
       if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
-        DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_cancelled_file_delete_failed')
         DownloadQueueSettings.archiverProgressPulses.delete(tag)
         DiagnosticLogger.info(
           'download',
@@ -680,6 +686,8 @@ export class DownloadQueueSettings {
         )
         return
       }
+      DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_replace_delete_failed')
+      fs.renameSync(partialPath, filePath)
       await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
         it.status = DownloadGalleryTaskStatus.COMPLETE
         it.fileName = fileName
@@ -698,7 +706,6 @@ export class DownloadQueueSettings {
       )
     } catch (error) {
       if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
-        DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_cancelled_file_delete_failed')
         DownloadQueueSettings.archiverProgressPulses.delete(tag)
         DiagnosticLogger.info(
           'download',
@@ -2192,6 +2199,7 @@ export class DownloadQueueSettings {
       )
     }
     DownloadQueueSettings.deleteSandboxPath(task.filePath, 'archiver_file_delete_failed')
+    DownloadQueueSettings.deleteSandboxPath(DownloadQueueSettings.archiverPartialPath(task.filePath), 'archiver_partial_file_delete_failed')
     DownloadQueueSettings.deleteArchiverExtracts(context, task)
   }
 
@@ -2267,6 +2275,10 @@ export class DownloadQueueSettings {
     const name: string = `${DownloadQueueSettings.safePathPart(task.gid)}-${DownloadQueueSettings.safePathPart(task.dltype)}`
     const ext: string = DownloadQueueSettings.fileExtFromUrl(task.url)
     return ext === '.jpg' ? `${name}.zip` : `${name}${ext}`
+  }
+
+  private static archiverPartialPath(filePath: string): string {
+    return filePath.length > 0 ? `${filePath}.part` : ''
   }
 
   private static normalizeArchiverDownloadUrl(url: string): string {

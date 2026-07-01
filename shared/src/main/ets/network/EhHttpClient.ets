@@ -401,6 +401,161 @@ export class EhHttpClient {
     throw lastError !== null ? lastError : new Error('binary stream request failed')
   }
 
+  async downloadBinaryToFileInStreamResumable(
+    url: string,
+    partialPath: string,
+    progress: (loaded: number, total: number) => void,
+    shouldCancel: () => boolean,
+    knownTotal: number = 0,
+    accept: string = IMAGE_ACCEPT,
+    maxAttempts: number = MAX_RETRIES,
+    readTimeoutMs: number = READ_TIMEOUT_MS,
+  ): Promise<number> {
+    let attempt: number = 0
+    let lastError: Error | null = null
+    const attempts: number = Math.max(1, Math.round(maxAttempts))
+    while (attempt < attempts) {
+      const req: http.HttpRequest = http.createHttp()
+      let file: fs.File | null = null
+      let openedTarget: boolean = false
+      let attemptStart: number = EhHttpClient.fileSizeQuietly(partialPath)
+      let written: number = attemptStart
+      let responseTotal: number = knownTotal
+      let headersSeen: boolean = attemptStart <= 0
+      let resumeAccepted: boolean = attemptStart <= 0
+      let resumeDecisionLogged: boolean = attemptStart <= 0
+      let prepared: boolean = false
+      let cancelled: boolean = false
+      let streamError: string = ''
+      try {
+        if (attemptStart > 0) {
+          progress(attemptStart, knownTotal)
+        }
+        const header: Record<string, string> = {
+          'User-Agent': EhConstants.USER_AGENT,
+          'Accept': accept,
+          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+          'Cookie': EhCookieStore.getInstance().header(),
+        }
+        if (attemptStart > 0) {
+          header['Range'] = `bytes=${attemptStart}-`
+        }
+        req.on('headersReceive', (respHeader: Object) => {
+          headersSeen = true
+          const contentRange: string = EhHttpClient.headerValue(respHeader, 'content-range')
+          const rangeStart: number = EhHttpClient.contentRangeStart(contentRange)
+          const rangeTotal: number = EhHttpClient.contentRangeTotal(contentRange)
+          resumeAccepted = attemptStart <= 0 || rangeStart === attemptStart
+          if (attemptStart > 0 && !resumeDecisionLogged) {
+            DiagnosticLogger.info(
+              'network',
+              resumeAccepted ? 'http_binary_resume_accepted' : 'http_binary_resume_ignored',
+              `start=${attemptStart}`,
+            )
+            resumeDecisionLogged = true
+          }
+          if (rangeTotal > 0) {
+            responseTotal = rangeTotal
+            return
+          }
+          const contentLength: number = EhHttpClient.positiveIntHeader(respHeader, 'content-length')
+          if (contentLength > 0) {
+            responseTotal = resumeAccepted ? attemptStart + contentLength : contentLength
+          }
+        })
+        req.on('dataReceive', (data: ArrayBuffer) => {
+          if (cancelled || streamError.length > 0) {
+            return
+          }
+          if (shouldCancel()) {
+            cancelled = true
+            req.destroy()
+            return
+          }
+          if (!headersSeen && attemptStart > 0) {
+            streamError = 'resume response headers missing'
+            req.destroy()
+            return
+          }
+          if (!prepared) {
+            const mode: number = resumeAccepted ?
+              fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE :
+              fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC
+            file = fs.openSync(partialPath, mode)
+            openedTarget = true
+            if (!resumeAccepted) {
+              attemptStart = 0
+              written = 0
+            }
+            prepared = true
+          }
+          const len: number = fs.writeSync((file as fs.File).fd, data, { offset: written })
+          written += len
+          progress(written, responseTotal)
+        })
+        const code: number = await req.requestInStream(url, {
+          method: http.RequestMethod.GET,
+          header: header,
+          connectTimeout: CONNECT_TIMEOUT_MS,
+          readTimeout: readTimeoutMs,
+          usingCache: false,
+        })
+        req.destroy()
+        if (file !== null) {
+          fs.closeSync(file)
+          file = null
+        }
+        if (cancelled || shouldCancel()) {
+          throw new Error('binary download cancelled')
+        }
+        if (streamError.length > 0) {
+          throw new Error(streamError)
+        }
+        if (code === 416 && knownTotal > 0 && attemptStart >= knownTotal) {
+          progress(attemptStart, knownTotal)
+          return attemptStart
+        }
+        if (code !== 200 && code !== 206) {
+          EhHttpClient.truncateQuietly(partialPath, attemptStart)
+          throw new Error(`binary HTTP ${code}`)
+        }
+        if (attemptStart > 0 && code === 206 && !resumeAccepted) {
+          EhHttpClient.truncateQuietly(partialPath, attemptStart)
+          throw new Error('invalid content range')
+        }
+        if (written <= 0) {
+          throw new Error('binary response is empty')
+        }
+        progress(written, responseTotal > 0 ? responseTotal : written)
+        return written
+      } catch (error) {
+        const e = error as Error
+        lastError = e
+        if (!cancelled && e.message !== 'binary download cancelled') {
+          DiagnosticLogger.warn(
+            'network',
+            'http_binary_resumable_retry',
+            `attempt ${attempt}: start=${attemptStart} written=${written} error=${e.message}`,
+          )
+        }
+        req.destroy()
+      } finally {
+        if (file !== null) {
+          fs.closeSync(file)
+        }
+        if (openedTarget && !cancelled && lastError !== null && written < attemptStart) {
+          EhHttpClient.truncateQuietly(partialPath, attemptStart)
+        }
+      }
+      if (cancelled || lastError?.message === 'binary download cancelled') {
+        throw lastError !== null ? lastError : new Error('binary download cancelled')
+      }
+      attempt++
+      await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
+    }
+    throw lastError !== null ? lastError : new Error('binary stream request failed')
+  }
+
   private static async writeArrayBuffer(filePath: string, bytes: ArrayBuffer): Promise<number> {
     let file: fs.File | null = null
     try {
@@ -422,6 +577,60 @@ export class EhHttpClient {
     } catch (error) {
       DiagnosticLogger.warn('network', 'http_empty_file_delete_failed', (error as Error).message)
     }
+  }
+
+  private static fileSizeQuietly(filePath: string): number {
+    try {
+      if (!fs.accessSync(filePath)) {
+        return 0
+      }
+      const stat: fs.Stat = fs.statSync(filePath)
+      return stat.isFile() && stat.size > 0 ? stat.size : 0
+    } catch (_error) {
+      return 0
+    }
+  }
+
+  private static truncateQuietly(filePath: string, len: number): void {
+    try {
+      if (fs.accessSync(filePath)) {
+        fs.truncateSync(filePath, Math.max(0, len))
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('network', 'http_partial_truncate_failed', (error as Error).message)
+    }
+  }
+
+  private static headerValue(header: Object, name: string): string {
+    const record: Record<string, Object> = header as Record<string, Object>
+    const keys: string[] = Object.keys(record)
+    const expected: string = name.toLowerCase()
+    for (let i: number = 0; i < keys.length; i++) {
+      if (keys[i].toLowerCase() === expected) {
+        const value: Object = record[keys[i]]
+        return typeof value === 'string' ? value as string : JSON.stringify(value)
+      }
+    }
+    return ''
+  }
+
+  private static positiveIntHeader(header: Object, name: string): number {
+    const value: string = EhHttpClient.headerValue(header, name)
+    if (value.length === 0) {
+      return 0
+    }
+    const n: number = Number.parseInt(value, 10)
+    return Number.isFinite(n) && n > 0 ? n : 0
+  }
+
+  private static contentRangeStart(value: string): number {
+    const match: RegExpMatchArray | null = value.match(/^bytes\s+(\d+)-\d+\/(\d+|\*)$/i)
+    return match === null ? -1 : Number.parseInt(match[1], 10)
+  }
+
+  private static contentRangeTotal(value: string): number {
+    const match: RegExpMatchArray | null = value.match(/^bytes\s+\d+-\d+\/(\d+)$/i)
+    return match === null ? 0 : Number.parseInt(match[1], 10)
   }
 
   private static delay(ms: number): Promise<void> {

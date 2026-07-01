@@ -319,16 +319,26 @@ ok('batch gallery actions reuse per-task resume and pause executors',
 ok('batch gallery resume starts every eligible task without serially waiting on long downloads',
   /static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\)[\s\S]*!DownloadQueueSettings\.galleryDownloads\.has\(key\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)[\s\S]*\.catch/.test(settings) &&
     /static async downloadGalleryImages[\s\S]*startGalleryImageDownload\(context, gid, token, preferOriginal\)[\s\S]*galleryDownloads\.set\(key, task\)/.test(settings))
-ok('remove deletes archiver package, metadata sidecar, and extracted reader cache',
+ok('remove deletes archiver package, partial package, metadata sidecar, and extracted reader cache',
   /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiver\(context, next\)[\s\S]*deleteArchiverContent\(context, removed\)/.test(settings) &&
-    /deleteArchiverContent\([\s\S]*archiverMetadataPath\(context, task\)[\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
+    /deleteArchiverContent\([\s\S]*archiverMetadataPath\(context, task\)[\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*archiverPartialPath\(task\.filePath\)[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
     /ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'/.test(settings) &&
     /names\[i\]\.startsWith\(prefix\)[\s\S]*deleteSandboxPath/.test(settings))
-ok('remove cancels in-flight archiver workers and deletes late package files',
+ok('remove cancels in-flight archiver workers while preserving partial packages for resumable downloads',
   /cancelledArchiverDownloads: Set<string>/.test(settings) &&
     /removeArchiver\([\s\S]*archiverDownloads\.has\(tag\)[\s\S]*cancelledArchiverDownloads\.add\(tag\)/.test(settings) &&
-    /cancelledArchiverDownloads\.has\(tag\)[\s\S]*deleteSandboxPath\(filePath, 'archiver_cancelled_file_delete_failed'\)[\s\S]*return/.test(settings) &&
+    /cancelledArchiverDownloads\.has\(tag\)[\s\S]*archiverProgressPulses\.delete\(tag\)[\s\S]*return/.test(settings) &&
+    !/archiver_cancelled_file_delete_failed/.test(settings) &&
     /shouldContinueAfterJoinedArchiverDownload/.test(settings))
+ok('archiver package downloads use Range/Content-Range partial files for pause and retry resume',
+  /downloadBinaryToFileInStreamResumable/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
+    /header\['Range'\] = `bytes=\$\{attemptStart\}-`/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
+    /req\.on\('headersReceive'/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
+    /contentRangeStart/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
+    /resumeAccepted/.test(read('shared/src/main/ets/network/EhHttpClient.ets')) &&
+    /const partialPath: string = DownloadQueueSettings\.archiverPartialPath\(filePath\)/.test(settings) &&
+    /downloadBinaryToFileInStreamResumable\([\s\S]*partialPath[\s\S]*cancelledArchiverDownloads\.has\(tag\)[\s\S]*resolvedTask\.bytesTotal/.test(settings) &&
+    /fs\.renameSync\(partialPath, filePath\)/.test(settings))
 ok('pause marks running archiver workers cancelled and suppresses late progress callbacks',
   /static async pauseArchiverDownload/.test(settings) &&
     /archiverDownloads\.has\(tag\)[\s\S]*cancelledArchiverDownloads\.add\(tag\)[\s\S]*it\.status = DownloadGalleryTaskStatus\.PAUSED/.test(settings) &&
