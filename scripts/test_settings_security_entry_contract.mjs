@@ -114,6 +114,8 @@ ok(/SecuritySettingsPage/.test(entryIndex) && /name === 'SecuritySettings'/.test
   'parked entry router still registers the SecuritySettings route for future direct-lane validation')
 ok(/security_unlock_button[\s\S]*ThemeConstants\.TEXT_ON_BRAND[\s\S]*ThemeConstants\.BRAND_PRIMARY/.test(entryIndex),
   'lock overlay unlock button uses the app theme brand color')
+ok(/LoadingProgress\(\)[\s\S]*\.width\(ThemeConstants\.LOADING_SIZE\)[\s\S]*\.height\(ThemeConstants\.LOADING_SIZE\)/.test(entryIndex),
+  'lock overlay authentication spinner uses the standard bounded loading size')
 
 const page = read('feature/settings/src/main/ets/pages/SecuritySettingsPage.ets')
 ok(/@ComponentV2\s+export struct SecuritySettingsPage/.test(page),

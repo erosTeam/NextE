@@ -1392,6 +1392,8 @@ struct SecurityLockOverlay {
         .fontColor($r('sys.color.font_primary'))
       if (this.authenticating) {
         LoadingProgress()
+          .width(ThemeConstants.LOADING_SIZE)
+          .height(ThemeConstants.LOADING_SIZE)
       } else {
         Button($r('app.string.security_unlock_button'))
           .type(ButtonType.Capsule)
@@ -1411,7 +1413,8 @@ struct SecurityLockOverlay {
     .alignItems(HorizontalAlign.Center)
     .width('100%')
     .height('100%')
-    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .backdropBlur(ThemeConstants.LOCK_OVERLAY_BLUR_RADIUS)
+    .backgroundColor(ThemeConstants.LOCK_OVERLAY_TINT)
     .onClick(() => {})
   }
 }

@@ -37,6 +37,9 @@ export class ThemeConstants {
   // future over-image controls). No system token fits an over-image scrim — V2Next hardcodes
   // it per page; this is the shared, reusable version of that literal.
   static readonly OVERLAY_SCRIM: ResourceColor = '#99000000'
+  // Lock screen overlay: blur the app itself instead of replacing it with an opaque page.
+  static readonly LOCK_OVERLAY_TINT: ResourceColor = '#4D808080'
+  static readonly LOCK_OVERLAY_BLUR_RADIUS: number = 60
 
   // Spacing
   static readonly SPACE_XS: number = 4
