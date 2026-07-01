@@ -101,8 +101,10 @@ export struct SecuritySettingsPage {
                 subtitle: $r('app.string.security_recent_tasks_blur_hint'),
                 leadingIcon: $r('sys.symbol.eye_slash'),
                 hasSwitch: true,
-                checked: false,
-                isEnabled: false,
+                checked: this.securitySettings.recentTasksProtectionEnabled,
+                switchAction: (value: boolean) => {
+                  SecuritySettings.setRecentTasksProtection(this.ctx(), value)
+                },
               })
               this.rowDivider()
               Column() {

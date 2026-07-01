@@ -48,7 +48,9 @@ export class StorageKeys {
   static readonly DOWNLOAD_ARCHIVE_BOT_ADDRESS: string = 'download.archiveBot.address'
   static readonly DOWNLOAD_ARCHIVE_BOT_API_KEY: string = 'download.archiveBot.apiKey'
   static readonly DOWNLOAD_GALLERY_QUEUE: string = 'download.galleryQueue' // legacy Preferences key; RDB source of truth
+  static readonly SECURITY_RECENT_TASKS_PROTECTION: string = 'security.recentTasksProtection'
   static readonly SECURITY_AUTO_LOCK_SEC: string = 'security.autoLockSeconds'
+  static readonly SECURITY_LAST_BACKGROUND_AT: string = 'security.lastBackgroundAt'
   static readonly HOME_SOURCE: string = 'subtab.homeSource'
   static readonly FAVORITES_FAVCAT: string = 'subtab.favoritesFavcat'
   static readonly TOPLIST_TL: string = 'subtab.toplistTl'

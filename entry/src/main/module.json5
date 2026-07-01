@@ -9,6 +9,22 @@
       { "name": "ohos.permission.VIBRATE" },
       { "name": "ohos.permission.DETECT_GESTURE" },
       {
+        "name": "ohos.permission.ACCESS_BIOMETRIC",
+        "reason": "$string:perm_access_biometric_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
+        "name": "ohos.permission.PRIVACY_WINDOW",
+        "reason": "$string:perm_privacy_window_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
+      {
         "name": "ohos.permission.DISTRIBUTED_DATASYNC",
         "reason": "$string:perm_distributed_datasync_reason",
         "usedScene": {

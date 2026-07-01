@@ -13,6 +13,7 @@ import {
   InternalQaRoutes,
   HuaweiCloudSyncService,
   HuaweiCloudSyncScheduler,
+  SecuritySettings,
   SyncLocalDataAdapter,
   SyncScheduler,
   SyncSettings,
@@ -84,6 +85,9 @@ export default class EntryAbility extends UIAbility {
         navigationBarColor: TRANSPARENT_COLOR,
       })
       this.mainWindow = win
+      SecuritySettings.bindWindowPrivacyApplier((enabled: boolean): void => {
+        this.applyWindowPrivacy(enabled)
+      })
     } catch (error) {
       const e = error as Error
       DiagnosticLogger.warn('app', 'configure_window_failed', e.message)
@@ -116,6 +120,7 @@ export default class EntryAbility extends UIAbility {
           this.refreshSafeAreaInsets(w, uiCtx)
           this.watchSafeAreaInsets(w, uiCtx)
           this.watchKeyboardHeight(w, uiCtx)
+          SecuritySettings.lockIfNeeded(this.context, 'startup')
         } catch (e) {
           LayoutSafeAreaBridge.publishInsets(FALLBACK_TOP_AVOID, FALLBACK_BOTTOM_AVOID)
         }
@@ -134,6 +139,24 @@ export default class EntryAbility extends UIAbility {
   onForeground(): void {
     SyncScheduler.rememberContext(this.context)
     SyncScheduler.requestAfterForeground(this.context, 'foreground')
+    SecuritySettings.lockIfNeeded(this.context, 'foreground')
+  }
+
+  onBackground(): void {
+    SecuritySettings.recordBackground(this.context)
+  }
+
+  private applyWindowPrivacy(enabled: boolean): void {
+    if (!this.mainWindow) {
+      return
+    }
+    this.mainWindow.setWindowPrivacyMode(enabled)
+      .then(() => {
+        DiagnosticLogger.info('security', 'window_privacy_set', enabled ? 'on' : 'off')
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('security', 'window_privacy_failed', error.message)
+      })
   }
 
   private refreshSafeAreaInsets(win: window.Window, uiCtx: UIContext): void {

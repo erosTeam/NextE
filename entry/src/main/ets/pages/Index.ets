@@ -64,6 +64,9 @@ import {
   SafeModeGate,
   SafeModeState,
   connectSafeMode,
+  SecuritySettings,
+  SecuritySettingsState,
+  connectSecuritySettings,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -154,6 +157,7 @@ struct Index {
   // Mirrors HomeSourceBar gating 订阅 on isLogin.
   @Local auth: AuthState = connectAuth();
   @Local safeMode: SafeModeState = connectSafeMode();
+  @Local securitySettings: SecuritySettingsState = connectSecuritySettings();
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   @Local downloadView: DownloadViewState = connectDownloadView();
@@ -179,6 +183,10 @@ struct Index {
 
   aboutToDisappear(): void {
     this.clearHomeTabAnimationGuardTimer()
+  }
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
   @Monitor('pendingEhUrl.signal')
@@ -1156,123 +1164,136 @@ struct Index {
   }
 
   build() {
-    HdsNavigation(this.stack) {
-      HdsTabs({ controller: this.tabsController }) {
-        TabContent() {
-          // Retained per-source sub-tabs own their own scrollers; HomePage reports the ACTIVE source's
-          // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
-          HomePage({
-            onScrollerReady: (scroller: Scroller) => {
-              this.setHomeActiveScroller(0, scroller)
-            },
-            onDidScroll: (offset: number, state: ScrollState) => {
-              this.onHomeTabDidScroll(0, offset, state)
-            },
-          })
-        }.tabBar(this.tabIcon($r('app.string.tab_gallery'), 0))
-        if (this.safeMode.restricted()) {
+    Stack() {
+      HdsNavigation(this.stack) {
+        HdsTabs({ controller: this.tabsController }) {
           TabContent() {
-            DownloadQueuePage({
-              scroller: this.homeTabScrollers[1],
-              onDidScroll: (offset: number, state: ScrollState) => {
-                this.onHomeTabDidScroll(1, offset, state)
-              },
-            })
-          }.tabBar(this.tabIcon($r('app.string.tab_download'), 1))
-          TabContent() {
-            SettingsPage({
-              scroller: this.homeTabScrollers[2],
-              onDidScroll: (offset: number, state: ScrollState) => {
-                this.onHomeTabDidScroll(2, offset, state)
-              },
-            })
-          }.tabBar(this.tabIcon($r('app.string.tab_settings'), 2))
-        } else {
-          TabContent() {
-            // Retained per-favcat sub-tabs own their own scrollers; FavoritesPage reports the ACTIVE favcat's
+            // Retained per-source sub-tabs own their own scrollers; HomePage reports the ACTIVE source's
             // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
-            FavoritesPage({
+            HomePage({
               onScrollerReady: (scroller: Scroller) => {
-                this.setHomeActiveScroller(1, scroller)
+                this.setHomeActiveScroller(0, scroller)
               },
               onDidScroll: (offset: number, state: ScrollState) => {
-                this.onHomeTabDidScroll(1, offset, state)
+                this.onHomeTabDidScroll(0, offset, state)
               },
             })
-          }.tabBar(this.tabIcon($r('app.string.tab_favorites'), 1))
-          TabContent() {
-            // Retained per-period sub-tabs own their own scrollers; ToplistPage reports the ACTIVE period's
-            // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
-            ToplistPage({
-              onScrollerReady: (scroller: Scroller) => {
-                this.setHomeActiveScroller(2, scroller)
-              },
-              onDidScroll: (offset: number, state: ScrollState) => {
-                this.onHomeTabDidScroll(2, offset, state)
-              },
-            })
-          }.tabBar(this.tabIcon($r('app.string.tab_toplist'), 2))
-          TabContent() {
-            DownloadQueuePage({
-              scroller: this.homeTabScrollers[3],
-              onDidScroll: (offset: number, state: ScrollState) => {
-                this.onHomeTabDidScroll(3, offset, state)
-              },
-            })
-          }.tabBar(this.tabIcon($r('app.string.tab_download'), 3))
-          TabContent() {
-            SettingsPage({
-              scroller: this.homeTabScrollers[4],
-              onDidScroll: (offset: number, state: ScrollState) => {
-                this.onHomeTabDidScroll(4, offset, state)
-              },
-            })
-          }.tabBar(this.tabIcon($r('app.string.tab_settings'), 4))
+          }.tabBar(this.tabIcon($r('app.string.tab_gallery'), 0))
+          if (this.safeMode.restricted()) {
+            TabContent() {
+              DownloadQueuePage({
+                scroller: this.homeTabScrollers[1],
+                onDidScroll: (offset: number, state: ScrollState) => {
+                  this.onHomeTabDidScroll(1, offset, state)
+                },
+              })
+            }.tabBar(this.tabIcon($r('app.string.tab_download'), 1))
+            TabContent() {
+              SettingsPage({
+                scroller: this.homeTabScrollers[2],
+                onDidScroll: (offset: number, state: ScrollState) => {
+                  this.onHomeTabDidScroll(2, offset, state)
+                },
+              })
+            }.tabBar(this.tabIcon($r('app.string.tab_settings'), 2))
+          } else {
+            TabContent() {
+              // Retained per-favcat sub-tabs own their own scrollers; FavoritesPage reports the ACTIVE favcat's
+              // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
+              FavoritesPage({
+                onScrollerReady: (scroller: Scroller) => {
+                  this.setHomeActiveScroller(1, scroller)
+                },
+                onDidScroll: (offset: number, state: ScrollState) => {
+                  this.onHomeTabDidScroll(1, offset, state)
+                },
+              })
+            }.tabBar(this.tabIcon($r('app.string.tab_favorites'), 1))
+            TabContent() {
+              // Retained per-period sub-tabs own their own scrollers; ToplistPage reports the ACTIVE period's
+              // scroller up so the title auto-hide binds the right list (V2Next onScrollerReady chain).
+              ToplistPage({
+                onScrollerReady: (scroller: Scroller) => {
+                  this.setHomeActiveScroller(2, scroller)
+                },
+                onDidScroll: (offset: number, state: ScrollState) => {
+                  this.onHomeTabDidScroll(2, offset, state)
+                },
+              })
+            }.tabBar(this.tabIcon($r('app.string.tab_toplist'), 2))
+            TabContent() {
+              DownloadQueuePage({
+                scroller: this.homeTabScrollers[3],
+                onDidScroll: (offset: number, state: ScrollState) => {
+                  this.onHomeTabDidScroll(3, offset, state)
+                },
+              })
+            }.tabBar(this.tabIcon($r('app.string.tab_download'), 3))
+            TabContent() {
+              SettingsPage({
+                scroller: this.homeTabScrollers[4],
+                onDidScroll: (offset: number, state: ScrollState) => {
+                  this.onHomeTabDidScroll(4, offset, state)
+                },
+              })
+            }.tabBar(this.tabIcon($r('app.string.tab_settings'), 4))
+          }
         }
+        .barOverlap(true)
+        .barPosition(BarPosition.End)
+        .barMode(BarMode.Fixed)
+        .scrollable(false)
+        .animationDuration(0)
+        .barFloatingStyle({
+          barBottomMargin: ThemeConstants.SPACE_XL,
+          adaptToHandedness: true,
+          systemMaterialEffect: {
+            materialType: ImmersiveMaterialSettings.effect(this.immersiveMaterial.level).materialType,
+            materialLevel: ImmersiveMaterialSettings.effect(this.immersiveMaterial.level)
+              .materialLevel,
+          },
+        })
+        .onAppear(() => {
+          this.applyHomeTabAutoHide()
+        })
+        .onChange((index: number) => {
+          this.currentTab = index
+          // Rebind the title bar to the newly-active tab's scroller so it auto-hides off that list.
+          this.titleScroller = this.homeTabScrollers[index]
+          if (this.homeTab.autoHide) {
+            this.restoreHomeTabIfHidden()
+          }
+        })
       }
-      .barOverlap(true)
-      .barPosition(BarPosition.End)
-      .barMode(BarMode.Fixed)
-      .scrollable(false)
-      .animationDuration(0)
-      .barFloatingStyle({
-        barBottomMargin: ThemeConstants.SPACE_XL,
-        adaptToHandedness: true,
-        systemMaterialEffect: {
-          materialType: ImmersiveMaterialSettings.effect(this.immersiveMaterial.level).materialType,
-          materialLevel: ImmersiveMaterialSettings.effect(this.immersiveMaterial.level)
-            .materialLevel,
-        },
+      .navDestination(this.routerMap)
+      // Pin Stack mode (V2Next Index.ets:668): default Auto flips to two-column Split past ~600vp, so on
+      // the unfolded foldable the name-pushed routes would render split instead of full-width pushes.
+      .mode(NavigationMode.Stack)
+      .titleBar(this.titleBarOpts())
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .hideBackButton(true)
+      // Scroll-up auto-hide of the title area (V2Next Index.ets:650-661). The bottomBuilder (源/周期条)
+      // stays pinned (hideBottomBuilder:false), matching V2Next keeping its feed pills reachable while
+      // scrolled. Bound to the active tab's scroller (rebound in onChange).
+      .dynamicHideTitleBar({
+        hideTitleArea: true,
+        hideBottomBuilder: false,
+        hideStatusBar: false,
+        mode: HideMode.SCROLL_UP,
       })
-      .onAppear(() => {
-        this.applyHomeTabAutoHide()
-      })
-      .onChange((index: number) => {
-        this.currentTab = index
-        // Rebind the title bar to the newly-active tab's scroller so it auto-hides off that list.
-        this.titleScroller = this.homeTabScrollers[index]
-        if (this.homeTab.autoHide) {
-          this.restoreHomeTabIfHidden()
-        }
-      })
+      .bindToScrollable([this.titleScroller])
+      .width('100%')
+      .height('100%')
+      if (this.securitySettings.locked) {
+        SecurityLockOverlay({
+          authenticating: this.securitySettings.authenticating,
+          authError: this.securitySettings.authError,
+          onUnlock: () => {
+            SecuritySettings.unlockNow(this.ctx(), 'overlay')
+          },
+        })
+      }
     }
-    .navDestination(this.routerMap)
-    // Pin Stack mode (V2Next Index.ets:668): default Auto flips to two-column Split past ~600vp, so on
-    // the unfolded foldable the name-pushed routes would render split instead of full-width pushes.
-    .mode(NavigationMode.Stack)
-    .titleBar(this.titleBarOpts())
-    .titleMode(HdsNavigationTitleMode.MINI)
-    .hideBackButton(true)
-    // Scroll-up auto-hide of the title area (V2Next Index.ets:650-661). The bottomBuilder (源/周期条)
-    // stays pinned (hideBottomBuilder:false), matching V2Next keeping its feed pills reachable while
-    // scrolled. Bound to the active tab's scroller (rebound in onChange).
-    .dynamicHideTitleBar({
-      hideTitleArea: true,
-      hideBottomBuilder: false,
-      hideStatusBar: false,
-      mode: HideMode.SCROLL_UP,
-    })
-    .bindToScrollable([this.titleScroller])
     .width('100%')
     .height('100%')
   }
@@ -1288,5 +1309,41 @@ struct Index {
         this.triggerRootRefresh(i)
       },
     })
+  }
+}
+
+@ComponentV2
+struct SecurityLockOverlay {
+  @Param authenticating: boolean = false;
+  @Param authError: string = '';
+  @Param onUnlock: () => void = () => {};
+
+  build() {
+    Column({ space: ThemeConstants.SPACE_MD }) {
+      Text($r('app.string.security_locked_title'))
+        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+      if (this.authenticating) {
+        LoadingProgress()
+      } else {
+        Button($r('app.string.security_unlock_button'))
+          .type(ButtonType.Capsule)
+          .onClick(() => {
+            this.onUnlock()
+          })
+      }
+      if (this.authError.length > 0) {
+        Text(this.authError)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+    }
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onClick(() => {})
   }
 }

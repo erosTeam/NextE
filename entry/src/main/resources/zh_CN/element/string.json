@@ -1989,6 +1989,14 @@
       "value": "在多设备间同步本地收藏、历史和阅读记录"
     },
     {
+      "name": "perm_access_biometric_reason",
+      "value": "在自动锁定启用后解锁 NextE"
+    },
+    {
+      "name": "perm_privacy_window_reason",
+      "value": "在截图、录屏和最近任务中隐藏 NextE 内容"
+    },
+    {
       "name": "settings_sync_hint",
       "value": "同步本地耐久数据。"
     },
@@ -2434,7 +2442,7 @@
     },
     {
       "name": "security_recent_tasks_blur_hint",
-      "value": "等待 HarmonyOS 窗口隐私能力接入后启用"
+      "value": "隐藏截图、录屏和最近任务预览中的应用内容"
     },
     {
       "name": "security_auto_lock",
@@ -2442,7 +2450,23 @@
     },
     {
       "name": "security_auto_lock_hint",
-      "value": "偏好会保存; 生物识别锁屏执行是后续独立 lane"
+      "value": "NextE 从后台返回后要求系统身份认证"
+    },
+    {
+      "name": "security_locked_title",
+      "value": "NextE 已锁定"
+    },
+    {
+      "name": "security_unlock_title",
+      "value": "解锁 NextE"
+    },
+    {
+      "name": "security_unlock_button",
+      "value": "解锁"
+    },
+    {
+      "name": "security_unlock_failed",
+      "value": "认证失败"
     },
     {
       "name": "security_auto_lock_disabled",

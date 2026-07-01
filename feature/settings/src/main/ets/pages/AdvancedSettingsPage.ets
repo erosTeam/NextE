@@ -18,6 +18,7 @@ import {
   SecondaryListScaffold,
   ThemeConstants,
   connectDiagnostics,
+  connectNavStack,
   immersiveTitleBar,
 } from 'shared'
 
@@ -27,6 +28,7 @@ export struct AdvancedSettingsPage {
   @Local private logCount: number = 0;
   @Local private logFiles: DiagnosticsLogFileInfo[] = [];
   @Local private levelMenuShown: boolean = false;
+  private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private shareController?: systemShare.ShareController;
 
@@ -212,6 +214,19 @@ export struct AdvancedSettingsPage {
   }
 
   @Builder
+  private NavigationSection() {
+    GroupedListSection() {
+      ConciseListRow({
+        title: $r('app.string.settings_security'),
+        leadingIcon: $r('sys.symbol.lock'),
+        action: () => {
+          this.stack.pushPathByName('SecuritySettings', null)
+        },
+      })
+    }
+  }
+
+  @Builder
   private DiagnosticsSection() {
     GroupedListSection() {
       ConciseListRow({
@@ -331,6 +346,9 @@ export struct AdvancedSettingsPage {
         alwaysEnableEdgeSpring: true,
       }) {
         ListItem() {
+          this.NavigationSection()
+        }
+        ListItem() {
           this.DiagnosticsSection()
         }
         ListItem() {
@@ -341,7 +359,7 @@ export struct AdvancedSettingsPage {
         }
       }
     }
-    .titleBar(immersiveTitleBar(AppStrings.get('advanced_diagnostics')))
+    .titleBar(immersiveTitleBar(AppStrings.get('settings_advanced')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 }
