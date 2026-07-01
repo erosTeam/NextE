@@ -26,10 +26,10 @@ export class ReadModeSettings {
         StorageKeys.STORE_SETTINGS,
       )
       const mode: string = store.getSync(StorageKeys.READING_DIRECTION, ReadMode.LTR) as string
-      const columnMode: string = store.getSync(
+      const rawDoublePage: Object = store.getSync(
         StorageKeys.READING_DOUBLE_PAGE,
-        ReadColumnMode.SINGLE,
-      ) as string
+        false,
+      ) as Object
       const autoPageSeconds: number = store.getSync(
         StorageKeys.READING_AUTO_PAGE_SEC,
         3,
@@ -39,12 +39,26 @@ export class ReadModeSettings {
         false,
       ) as boolean
       connectReadMode().mode = mode
-      connectReadMode().columnMode = columnMode
+      connectReadMode().doublePageEnabled = ReadModeSettings.restoreDoublePageEnabled(rawDoublePage)
+      connectReadMode().columnMode = ReadColumnMode.ODD_LEFT
       connectReadMode().autoPageSeconds = ReadModeSettings.normalizeAutoPageSeconds(autoPageSeconds)
       connectReadMode().volumeKeyTurn = volumeKeyTurn
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readmode_restore_failed', (error as Error).message)
     }
+  }
+
+  private static restoreDoublePageEnabled(value: Object): boolean {
+    if (typeof value === 'boolean') {
+      return value
+    }
+    if (typeof value === 'string') {
+      return value === 'true' ||
+        value === '1' ||
+        value === ReadColumnMode.ODD_LEFT ||
+        value === ReadColumnMode.EVEN_LEFT
+    }
+    return false
   }
 
   static async setMode(context: common.UIAbilityContext, mode: string): Promise<void> {
@@ -61,14 +75,14 @@ export class ReadModeSettings {
     }
   }
 
-  static async setColumnMode(context: common.UIAbilityContext, columnMode: string): Promise<void> {
-    connectReadMode().columnMode = columnMode
+  static async setDoublePageEnabled(context: common.UIAbilityContext, enabled: boolean): Promise<void> {
+    connectReadMode().doublePageEnabled = enabled
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      store.putSync(StorageKeys.READING_DOUBLE_PAGE, columnMode)
+      store.putSync(StorageKeys.READING_DOUBLE_PAGE, enabled)
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_column_save_failed', (error as Error).message)

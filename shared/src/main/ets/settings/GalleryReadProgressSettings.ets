@@ -8,6 +8,7 @@ import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { ReadProgressRepository } from '../storage/ReadProgressRepository'
 import { SyncScheduler } from '../sync/SyncScheduler'
+import { ReadColumnMode } from '../state/ReadModeState'
 
 // eros_fe debounces the persistent write 3s after the index settles (view_state.dart) so paging
 // fast doesn't hammer the store; the in-memory value updates immediately on every page change.
@@ -41,6 +42,23 @@ export class GalleryReadProgressSettings {
       return
     }
     connectGalleryReadProgress().setIndex(gid, index, Date.now())
+    if (GalleryReadProgressSettings.flushTimer >= 0) {
+      clearTimeout(GalleryReadProgressSettings.flushTimer)
+    }
+    GalleryReadProgressSettings.flushTimer = setTimeout(() => {
+      GalleryReadProgressSettings.flushTimer = -1
+      GalleryReadProgressSettings.persist(context)
+    }, FLUSH_DEBOUNCE_MS)
+  }
+
+  static setColumnMode(context: common.UIAbilityContext, gid: string, columnMode: string): void {
+    if (
+      gid.length === 0 ||
+      (columnMode !== ReadColumnMode.ODD_LEFT && columnMode !== ReadColumnMode.EVEN_LEFT)
+    ) {
+      return
+    }
+    connectGalleryReadProgress().setColumnMode(gid, columnMode, Date.now())
     if (GalleryReadProgressSettings.flushTimer >= 0) {
       clearTimeout(GalleryReadProgressSettings.flushTimer)
     }
@@ -121,7 +139,8 @@ export class GalleryReadProgressSettings {
             typeof rec.i === 'number' &&
             rec.i >= 0
           ) {
-            out.push(new ReadProgressEntry(rec.g, rec.i, typeof rec.t === 'number' ? rec.t : 0))
+            const columnMode: string = typeof rec.c === 'string' ? rec.c : ''
+            out.push(new ReadProgressEntry(rec.g, rec.i, typeof rec.t === 'number' ? rec.t : 0, columnMode))
           }
         })
       }

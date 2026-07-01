@@ -21,6 +21,7 @@ export enum ReadColumnMode {
 @ObservedV2
 export class ReadModeState {
   @Trace mode: string = ReadMode.LTR
+  @Trace doublePageEnabled: boolean = false
   @Trace columnMode: string = ReadColumnMode.SINGLE
   @Trace autoPageSeconds: number = 3
   @Trace volumeKeyTurn: boolean = false

@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: reader double-page switch and per-gallery pairing
+
+Status: active
+Reference implementation: current NextE `feature/reader/src/main/ets/pages/ReaderPage.ets` Reader chrome button row, `feature/settings/src/main/ets/pages/ReaderSettingsPage.ets` native switch rows, and eros-style absolute image index reading progress.
+Surface type: Reader bottom chrome plus Reader Settings double-page row only; no image loading, gesture recognizer, or spread renderer redesign.
+Primary information: the user sees one global double-page on/off control, while each gallery keeps its own odd/even spread pairing through reading progress cache.
+Primary action: toggle double-page in settings or Reader chrome, and in double-page mode tap one icon to advance exactly one image page so the current gallery's pairing shifts.
+Reuse or deviation: reuse existing circular Reader toolbar buttons, `ConciseListRow` switch semantics, and the existing `GalleryReadProgressState` persistence path; deviate from the old A/B menu because pairing is not a global preference.
+Verification: reader double-page/slider/initial/tapzone/read-progress contracts, settings dropdown anchor contract, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and X7 Reader smoke.
+
 ## Active: download management search and sorting
 
 Status: active

@@ -18,6 +18,7 @@
             { "colName": "scope_key", "alias": "scope_key", "type": 3, "primary": true, "nullable": true, "dupCheckCol": true },
             { "colName": "gid", "alias": "gid", "type": 3, "primary": true, "nullable": true, "dupCheckCol": true },
             { "colName": "page_index", "alias": "page_index", "type": 1, "primary": false, "nullable": true, "dupCheckCol": false },
+            { "colName": "column_mode", "alias": "column_mode", "type": 3, "primary": false, "nullable": true, "dupCheckCol": false },
             { "colName": "updated_at", "alias": "updated_at", "type": 1, "primary": false, "nullable": true, "dupCheckCol": false },
             { "colName": "deleted_at", "alias": "deleted_at", "type": 1, "primary": false, "nullable": true, "dupCheckCol": false }
           ]

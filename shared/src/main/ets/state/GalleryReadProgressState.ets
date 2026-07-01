@@ -1,4 +1,5 @@
 import { AppStorageV2 } from '@kit.ArkUI'
+import { ReadColumnMode } from './ReadModeState'
 
 /**
  * One persisted reading-progress record (port of eros_fe GalleryCache's lastIndex+time).
@@ -9,11 +10,13 @@ export class ReadProgressEntry {
   g: string = ''
   i: number = 0
   t: number = 0
+  c: string = ''
 
-  constructor(g: string = '', i: number = 0, t: number = 0) {
+  constructor(g: string = '', i: number = 0, t: number = 0, c: string = '') {
     this.g = g
     this.i = i
     this.t = t
+    this.c = c
   }
 }
 
@@ -33,6 +36,7 @@ export class GalleryReadProgressState {
   @Trace revision: number = 0
   private indexMap: Map<string, number> = new Map()
   private timeMap: Map<string, number> = new Map()
+  private columnModeMap: Map<string, string> = new Map()
 
   /** Saved page index for a gallery (0 when none). Reads `revision` so callers subscribe. */
   getIndex(gid: string): number {
@@ -46,6 +50,20 @@ export class GalleryReadProgressState {
     }
     const v: number | undefined = this.indexMap.get(gid)
     return v === undefined ? 0 : v
+  }
+
+  getColumnMode(gid: string): string {
+    if (this.revision < 0) {
+      return ReadColumnMode.ODD_LEFT
+    }
+    if (gid.length === 0) {
+      return ReadColumnMode.ODD_LEFT
+    }
+    const v: string | undefined = this.columnModeMap.get(gid)
+    if (v === ReadColumnMode.EVEN_LEFT || v === ReadColumnMode.ODD_LEFT) {
+      return v
+    }
+    return ReadColumnMode.ODD_LEFT
   }
 
   /**
@@ -62,12 +80,22 @@ export class GalleryReadProgressState {
     this.revision = this.revision + 1
   }
 
+  setColumnMode(gid: string, columnMode: string, time: number): void {
+    if (gid.length === 0 || (columnMode !== ReadColumnMode.ODD_LEFT && columnMode !== ReadColumnMode.EVEN_LEFT)) {
+      return
+    }
+    this.columnModeMap.set(gid, columnMode)
+    this.timeMap.set(gid, time)
+    this.revision = this.revision + 1
+  }
+
   /** Snapshot for persistence. */
   snapshot(): ReadProgressEntry[] {
     const out: ReadProgressEntry[] = []
     this.indexMap.forEach((idx: number, gid: string) => {
       const t: number | undefined = this.timeMap.get(gid)
-      out.push(new ReadProgressEntry(gid, idx, t === undefined ? 0 : t))
+      const c: string | undefined = this.columnModeMap.get(gid)
+      out.push(new ReadProgressEntry(gid, idx, t === undefined ? 0 : t, c === undefined ? '' : c))
     })
     return out
   }
@@ -76,10 +104,14 @@ export class GalleryReadProgressState {
   replaceAll(entries: ReadProgressEntry[]): void {
     this.indexMap.clear()
     this.timeMap.clear()
+    this.columnModeMap.clear()
     entries.forEach((e: ReadProgressEntry) => {
       if (e.g.length > 0 && e.i >= 0) {
         this.indexMap.set(e.g, e.i)
         this.timeMap.set(e.g, e.t)
+        if (e.c === ReadColumnMode.ODD_LEFT || e.c === ReadColumnMode.EVEN_LEFT) {
+          this.columnModeMap.set(e.g, e.c)
+        }
       }
     })
     this.revision = this.revision + 1

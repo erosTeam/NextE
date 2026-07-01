@@ -172,6 +172,15 @@ ok('custom profiles cloud schema avoids AGC reserved uuid field name',
     customProfileSchema.fields.some((field) =>
       field.colName === 'profile_uuid' && field.primary === true && field.dupCheckCol === true) &&
     !customProfileSchema.fields.some((field) => field.colName === 'uuid'))
+const readProgressSchema = schema.databases[0].tables.find((table) => table.name === 'gallery_read_progress')
+ok('gallery read progress cloud schema includes per-gallery double-page pairing',
+  !!readProgressSchema &&
+    readProgressSchema.fields.some((field) =>
+      field.colName === 'column_mode' &&
+      field.type === 3 &&
+      field.primary === false &&
+      field.nullable === true &&
+      field.dupCheckCol === false))
 
 const localStore = read('shared/src/main/ets/storage/LocalDataStore.ets')
 const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')

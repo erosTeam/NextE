@@ -44,7 +44,7 @@ export class BackupLocalDataAdapter {
     for (let i: number = 0; i < source.length; i++) {
       const entry: ReadProgressEntry = source[i]
       if (entry.g.length > 0 && entry.i >= 0) {
-        out.push({ g: entry.g, i: entry.i, t: entry.t })
+        out.push({ g: entry.g, i: entry.i, t: entry.t, c: entry.c })
       }
     }
     return out
@@ -201,7 +201,12 @@ export class BackupLocalDataAdapter {
     for (let i: number = 0; i < source.length; i++) {
       const entry: BackupReadProgressEntry = source[i]
       if (entry.g.length > 0 && entry.i >= 0) {
-        entries.push(new ReadProgressEntry(entry.g, entry.i, entry.t > 0 ? entry.t : 0))
+        entries.push(new ReadProgressEntry(
+          entry.g,
+          entry.i,
+          entry.t > 0 ? entry.t : 0,
+          entry.c === undefined ? '' : entry.c,
+        ))
       }
     }
     await GalleryReadProgressSettings.restoreBackup(context, entries)

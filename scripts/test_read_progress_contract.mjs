@@ -27,6 +27,7 @@ class ProgressStore {
   constructor() {
     this.indexMap = new Map()
     this.timeMap = new Map()
+    this.columnModeMap = new Map()
     this.revision = 0
   }
   getIndex(gid) {
@@ -41,21 +42,38 @@ class ProgressStore {
     this.timeMap.set(gid, time)
     this.revision += 1
   }
+  getColumnMode(gid) {
+    if (this.revision < 0) return 'oddLeft'
+    if (!gid) return 'oddLeft'
+    const v = this.columnModeMap.get(gid)
+    return v === 'evenLeft' || v === 'oddLeft' ? v : 'oddLeft'
+  }
+  setColumnMode(gid, columnMode, time) {
+    if (!gid || (columnMode !== 'oddLeft' && columnMode !== 'evenLeft')) return
+    this.columnModeMap.set(gid, columnMode)
+    this.timeMap.set(gid, time)
+    this.revision += 1
+  }
   snapshot() {
     const out = []
     for (const [g, i] of this.indexMap) {
       const t = this.timeMap.get(g)
-      out.push({ g, i, t: t === undefined ? 0 : t })
+      const c = this.columnModeMap.get(g)
+      out.push({ g, i, t: t === undefined ? 0 : t, c: c === undefined ? '' : c })
     }
     return out
   }
   replaceAll(entries) {
     this.indexMap.clear()
     this.timeMap.clear()
+    this.columnModeMap.clear()
     for (const e of entries) {
       if (e.g && e.i >= 0) {
         this.indexMap.set(e.g, e.i)
         this.timeMap.set(e.g, e.t)
+        if (e.c === 'oddLeft' || e.c === 'evenLeft') {
+          this.columnModeMap.set(e.g, e.c)
+        }
       }
     }
     this.revision += 1
@@ -77,7 +95,12 @@ function parse(raw) {
           typeof rec.i === 'number' &&
           rec.i >= 0
         ) {
-          out.push({ g: rec.g, i: rec.i, t: typeof rec.t === 'number' ? rec.t : 0 })
+          out.push({
+            g: rec.g,
+            i: rec.i,
+            t: typeof rec.t === 'number' ? rec.t : 0,
+            c: typeof rec.c === 'string' ? rec.c : '',
+          })
         }
       }
     }
@@ -103,13 +126,25 @@ const ok = (name, cond) => {
   s.setIndex('111', 4, 1000)
   s.setIndex('222', 0, 1001)
   s.setIndex('333', 87, 1002)
+  s.setColumnMode('333', 'evenLeft', 1003)
   const round = parse(serialize(s.snapshot()))
   const restored = new ProgressStore()
   restored.replaceAll(round)
   ok('round-trip 111→4', restored.getIndex('111') === 4)
   ok('round-trip 222→0', restored.getIndex('222') === 0)
   ok('round-trip 333→87', restored.getIndex('333') === 87)
+  ok('round-trip 333 column mode', restored.getColumnMode('333') === 'evenLeft')
   ok('round-trip preserves count', round.length === 3)
+}
+
+// 1b. column mode is per-gallery and does not alter the saved page index
+{
+  const s = new ProgressStore()
+  s.setIndex('g', 5, 100)
+  s.setColumnMode('g', 'evenLeft', 101)
+  ok('column mode saved per gid', s.getColumnMode('g') === 'evenLeft')
+  ok('column mode does not rewrite index', s.getIndex('g') === 5)
+  ok('unknown column mode defaults', s.getColumnMode('x') === 'oddLeft')
 }
 
 // 2. last-write-wins locally (eros_fe setIndex overwrites unconditionally; t is metadata only)
@@ -169,6 +204,8 @@ const ok = (name, cond) => {
     'utf8',
   )
   ok('reader writes progress on page change', /GalleryReadProgressSettings\.setIndex\(/.test(readerSrc))
+  ok('reader writes per-gallery column mode from one-page action',
+    /GalleryReadProgressSettings\.setColumnMode\(this\.hostContext\(\), this\.params\.gid, columnMode\)/.test(readerSrc))
   ok('reader flushes on close', /aboutToDisappear[\s\S]*GalleryReadProgressSettings\.flush\(/.test(readerSrc))
   const detailSrc = readFileSync(
     join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryDetailPage.ets'),
@@ -184,7 +221,7 @@ const ok = (name, cond) => {
     join(ROOT, 'feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets'),
     'utf8',
   )
-  ok('reader init clamps the start index', /this\.currentIndex = this\.images\.length > 0 \? Math\.min\(startIndex/.test(vmSrc))
+  ok('reader init clamps the start index', /const total: number = this\.totalPages\(\)[\s\S]*this\.currentIndex = total > 0 \? Math\.min\(startIndex, total - 1\) : 0/.test(vmSrc))
 }
 
 // 8. clamp rule (ReaderViewModel.init): a resumed index over the loaded page count is pinned

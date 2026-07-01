@@ -28,7 +28,7 @@ import {
 } from './SyncTypes'
 
 const SQL_SELECT_READ_PROGRESS: string =
-  'SELECT scope_key, gid, page_index, updated_at, deleted_at FROM gallery_read_progress'
+  'SELECT scope_key, gid, page_index, column_mode, updated_at, deleted_at FROM gallery_read_progress'
 const SQL_SELECT_VIEWED_HISTORY: string =
   'SELECT scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, deleted_at FROM viewed_history'
 const SQL_SELECT_LOCAL_FAVORITES: string =
@@ -77,8 +77,8 @@ const SQL_SELECT_CUSTOM_PROFILE_SELECTION: string =
   'SELECT scope_key, selected_uuid, updated_at, deleted_at FROM custom_profile_selection'
 
 const SQL_APPLY_READ_PROGRESS: string =
-  'INSERT INTO gallery_read_progress (scope_key, gid, page_index, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?) ' +
-  'ON CONFLICT(scope_key, gid) DO UPDATE SET page_index = excluded.page_index, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+  'INSERT INTO gallery_read_progress (scope_key, gid, page_index, column_mode, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?) ' +
+  'ON CONFLICT(scope_key, gid) DO UPDATE SET page_index = excluded.page_index, column_mode = excluded.column_mode, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
 const SQL_APPLY_VIEWED_HISTORY: string =
   'INSERT INTO viewed_history (scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, gid) DO UPDATE SET token = excluded.token, title = excluded.title, title_jp = excluded.title_jp, thumb_url = excluded.thumb_url, category = excluded.category, uploader = excluded.uploader, rating = excluded.rating, file_count = excluded.file_count, viewed_at = excluded.viewed_at, deleted_at = excluded.deleted_at'
@@ -280,6 +280,7 @@ export class SyncLocalDataAdapter {
         r.scopeKey = SyncLocalDataAdapter.stringColumn(rs, 'scope_key')
         r.gid = SyncLocalDataAdapter.stringColumn(rs, 'gid')
         r.pageIndex = SyncLocalDataAdapter.numberColumn(rs, 'page_index')
+        r.columnMode = SyncLocalDataAdapter.stringColumn(rs, 'column_mode')
         r.updatedAt = SyncLocalDataAdapter.numberColumn(rs, 'updated_at')
         r.deletedAt = SyncLocalDataAdapter.numberColumn(rs, 'deleted_at')
         if (r.scopeKey.length > 0 && r.gid.length > 0) {
@@ -547,7 +548,14 @@ export class SyncLocalDataAdapter {
     for (let i: number = 0; i < records.length; i++) {
       const r: SyncReadProgressRecord = records[i]
       if (r.scopeKey.length > 0 && r.gid.length > 0) {
-        await store.executeSql(SQL_APPLY_READ_PROGRESS, [r.scopeKey, r.gid, r.pageIndex, r.updatedAt, r.deletedAt])
+        await store.executeSql(SQL_APPLY_READ_PROGRESS, [
+          r.scopeKey,
+          r.gid,
+          r.pageIndex,
+          r.columnMode,
+          r.updatedAt,
+          r.deletedAt,
+        ])
       }
     }
   }

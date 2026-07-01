@@ -24,15 +24,17 @@ ok('RDB table stores gallery read progress with sync-ready metadata',
     /scope_key TEXT/.test(store) &&
     /gid TEXT/.test(store) &&
     /page_index INTEGER/.test(store) &&
+    /column_mode TEXT/.test(store) &&
     /updated_at INTEGER/.test(store) &&
     /deleted_at INTEGER DEFAULT 0/.test(store) &&
     /PRIMARY KEY\(scope_key, gid\)/.test(store))
 
 const repo = read('shared/src/main/ets/storage/ReadProgressRepository.ets')
 ok('repository loads and tombstones read progress through RDB',
-  /class ReadProgressRepository/.test(repo) &&
+    /class ReadProgressRepository/.test(repo) &&
     /LocalDataStore\.open\(context\)/.test(repo) &&
-    /SELECT gid, page_index, updated_at FROM gallery_read_progress/.test(repo) &&
+    /SELECT gid, page_index, column_mode, updated_at FROM gallery_read_progress/.test(repo) &&
+    /column_mode = excluded\.column_mode/.test(repo) &&
     /ON CONFLICT\(scope_key, gid\) DO UPDATE/.test(repo) &&
     /UPDATE gallery_read_progress SET deleted_at = \?/.test(repo))
 
@@ -44,6 +46,9 @@ ok('settings facade reads/writes RDB and keeps legacy migration',
     /store\.deleteSync\(StorageKeys\.READING_PROGRESS\)/.test(settings))
 ok('settings no longer persists reading progress back to Preferences JSON',
   !/store\.putSync\(StorageKeys\.READING_PROGRESS/.test(settings))
+ok('settings persists per-gallery double-page pairing through read progress records',
+  /static setColumnMode\(context: common\.UIAbilityContext, gid: string, columnMode: string\): void/.test(settings) &&
+    /ReadProgressRepository\.saveAll\(context, entries\)/.test(settings))
 
 const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
 const backupService = read('shared/src/main/ets/backup/BackupService.ets')
@@ -52,7 +57,8 @@ ok('backup has a plaintext localData section for read progress',
   /'preferences' \| 'localData' \| 'secrets'/.test(backupTypes) &&
     /BACKUP_SECTION_NAMES: BackupSectionName\[\] = \['preferences', 'localData'\]/.test(backupTypes) &&
     /interface BackupLocalDataSection/.test(backupTypes) &&
-    /readProgress: BackupReadProgressEntry\[\]/.test(backupTypes))
+    /readProgress: BackupReadProgressEntry\[\]/.test(backupTypes) &&
+    /c\?: string/.test(backupTypes))
 ok('backup exports/restores localData and migrates old prefs-only backups',
   /BackupLocalDataAdapter\.exportSection\(context\)/.test(backupService) &&
     /BackupLocalDataAdapter\.restoreSection\(context, envelope\.data\.localData\)/.test(backupService) &&

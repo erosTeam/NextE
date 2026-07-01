@@ -10,6 +10,7 @@ export class SyncReadProgressRecord {
   scopeKey: string = ''
   gid: string = ''
   pageIndex: number = 0
+  columnMode: string = ''
   updatedAt: number = 0
   deletedAt: number = 0
 }

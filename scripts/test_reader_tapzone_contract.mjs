@@ -146,7 +146,7 @@ const MID_Y = 250 // center-middle band
   const tapOverlay = section('ReaderTapOverlay()')
   const overlayExclusiveDoubleBeforeSingle = (source) => {
     const exclusive = source.indexOf('GestureMode.Exclusive')
-    const doubleTap = source.indexOf('TapGesture({ count: 2 })')
+    const doubleTap = source.indexOf('TapGesture({ count: 2')
     const doubleAction = source.indexOf('this.onReaderDoubleTap(tapX, tapY)')
     const singleTap = source.indexOf('TapGesture({ count: 1 })')
     const singleAction = source.indexOf('this.onReaderTap(tapX, tapY)')
@@ -171,7 +171,7 @@ const MID_Y = 250 // center-middle band
       !/READER_SWIPE_TURN_MIN_RATIO|READER_SWIPE_TURN_MAX_RATIO|READER_SWIPE_VERTICAL_REJECT_RATIO/.test(src) &&
       !/\.onTouch\(\(event: TouchEvent\)/.test(tapOverlay) &&
       /Swiper\(this\.horizontalSwiperController\)[\s\S]*\.onChange\(\(i: number\) => \{[\s\S]*this\.vm\.onPageChange\(i\)/.test(horizontalReader) &&
-      /Swiper\(this\.doublePageSwiperController\)[\s\S]*\.onChange\(\(i: number\) => \{[\s\S]*this\.vm\.onPageChange\(this\.spreadStartIndex\(i\)\)/.test(doublePageReader))
+      /Swiper\(this\.doublePageSwiperController\)[\s\S]*\.onChange\(\(i: number\) => \{[\s\S]*const target: number = this\.spreadStartIndex\(i\)[\s\S]*this\.vm\.onPageChange\(target\)/.test(doublePageReader))
   ok('hidden chrome is not opacity-only interactive UI on the reader canvas',
     /if \(this\.readerContentReady\(\) && this\.showChrome\) \{[\s\S]*this\.ReaderTopBar\(\)[\s\S]*this\.ReaderBottomBar\(\)/.test(src) &&
       !/if \(this\.readerContentReady\(\)\) \{\s*this\.ReaderTopBar\(\)\s*this\.ReaderBottomBar\(\)/.test(src) &&

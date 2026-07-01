@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 15
+export const LOCAL_DATA_SCHEMA_VERSION: number = 16
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -12,7 +12,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'15\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'16\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -63,12 +63,15 @@ const SQL_CREATE_GALLERY_READ_PROGRESS_TABLE: string =
     'scope_key TEXT, ' +
     'gid TEXT, ' +
     'page_index INTEGER, ' +
+    'column_mode TEXT, ' +
     'updated_at INTEGER, ' +
     'deleted_at INTEGER DEFAULT 0, ' +
     'PRIMARY KEY(scope_key, gid)' +
   ')'
 const SQL_CREATE_GALLERY_READ_PROGRESS_UPDATED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_gallery_read_progress_updated_at ON gallery_read_progress (updated_at DESC)'
+const SQL_ADD_GALLERY_READ_PROGRESS_COLUMN_MODE: string =
+  'ALTER TABLE gallery_read_progress ADD COLUMN column_mode TEXT'
 const SQL_CREATE_VIEWED_HISTORY_TABLE: string =
   'CREATE TABLE IF NOT EXISTS viewed_history (' +
     'scope_key TEXT, ' +
@@ -520,6 +523,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_TABLE)
     await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_EXPIRES_INDEX)
     await store.executeSql(SQL_CREATE_GALLERY_READ_PROGRESS_TABLE)
+    await LocalDataStore.migrateGalleryReadProgressColumnMode(store)
     await store.executeSql(SQL_CREATE_GALLERY_READ_PROGRESS_UPDATED_INDEX)
     await store.executeSql(SQL_CREATE_VIEWED_HISTORY_TABLE)
     await store.executeSql(SQL_CREATE_VIEWED_HISTORY_VIEWED_INDEX)
@@ -584,6 +588,18 @@ export class LocalDataStore {
       const e: Error = error as Error
       throw new Error(e.message || 'Failed to migrate custom profiles')
     }
+  }
+
+  private static async migrateGalleryReadProgressColumnMode(store: relationalStore.RdbStore): Promise<void> {
+    const hasColumnMode: boolean = await LocalDataStore.hasColumn(
+      store,
+      'gallery_read_progress',
+      'column_mode',
+    )
+    if (hasColumnMode) {
+      return
+    }
+    await store.executeSql(SQL_ADD_GALLERY_READ_PROGRESS_COLUMN_MODE)
   }
 
   private static async migrateDownloadGalleryPreferOriginal(store: relationalStore.RdbStore): Promise<void> {

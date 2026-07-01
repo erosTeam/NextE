@@ -22,6 +22,7 @@ import {
   ReadColumnMode,
   ReadModeSettings,
   GalleryReadProgressSettings,
+  connectGalleryReadProgress,
   connectNavStack,
   connectSiteMode,
   ShareUtil,
@@ -47,8 +48,8 @@ const READER_IMAGE_WARM_AHEAD: number = 2
 const READER_ZOOM_ANIM_DURATION: number = 180
 const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
 class ReaderSpreadResolver {
-  static isDoublePage(mode: string, columnMode: string): boolean {
-    return mode !== ReadMode.VERTICAL && columnMode !== ReadColumnMode.SINGLE
+  static isDoublePage(mode: string, enabled: boolean): boolean {
+    return mode !== ReadMode.VERTICAL && enabled
   }
 
   static spreadIndexForImage(columnMode: string, index: number): number {
@@ -68,38 +69,8 @@ class ReaderSpreadResolver {
     return spreadIndex * 2
   }
 
-  static spreadIndexForMode(columnMode: string, index: number): number {
-    if (columnMode === ReadColumnMode.SINGLE || index <= 0) {
-      return index
-    }
-    return ReaderSpreadResolver.spreadIndexForImage(columnMode, index)
-  }
-
-  static spreadStartForMode(columnMode: string, spreadIndex: number): number {
-    if (columnMode === ReadColumnMode.SINGLE) {
-      return spreadIndex
-    }
-    return ReaderSpreadResolver.spreadStartIndex(columnMode, spreadIndex)
-  }
-
-  static normalizedIndexForColumnMode(columnMode: string, currentIndex: number): number {
-    const spreadIndex: number = ReaderSpreadResolver.spreadIndexForMode(columnMode, currentIndex)
-    return ReaderSpreadResolver.spreadStartForMode(columnMode, spreadIndex)
-  }
-
-  static normalizedReaderIndex(enabled: boolean, columnMode: string, index: number): number {
-    if (!enabled) {
-      return index
-    }
-    return ReaderSpreadResolver.spreadStartIndex(
-      columnMode,
-      ReaderSpreadResolver.spreadIndexForImage(columnMode, index)
-    )
-  }
-
-  static sliderTargetIndex(enabled: boolean, columnMode: string, page: number): number {
-    const index: number = page - 1
-    return ReaderSpreadResolver.normalizedReaderIndex(enabled, columnMode, index)
+  static sliderTargetIndex(page: number): number {
+    return page - 1
   }
 
   static spreadCount(enabled: boolean, columnMode: string, total: number): number {
@@ -278,6 +249,7 @@ export struct ReaderPage {
         this.readerReady = false
         this.params = p
         this.showChrome = p.initialChromeVisible
+        this.readMode.columnMode = connectGalleryReadProgress().getColumnMode(p.gid)
         this.sliderValue = p.index + 1
         const requestedIndex: number = p.index
         this.vm.init(
@@ -294,7 +266,7 @@ export struct ReaderPage {
           .then(() => {
             const total: number = this.vm.totalPages()
             const loadedTarget: number = total > 0 ? Math.min(requestedIndex, total - 1) : 0
-            const targetIndex: number = this.normalizedReaderIndex(loadedTarget)
+            const targetIndex: number = loadedTarget
             this.vm.currentIndex = targetIndex
             this.sliderValue = targetIndex + 1
             this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
@@ -1024,11 +996,7 @@ export struct ReaderPage {
   }
 
   private doublePageEnabled(): boolean {
-    return ReaderSpreadResolver.isDoublePage(this.readMode.mode, this.readMode.columnMode)
-  }
-
-  private pageStep(): number {
-    return this.doublePageEnabled() ? 2 : 1
+    return ReaderSpreadResolver.isDoublePage(this.readMode.mode, this.readMode.doublePageEnabled)
   }
 
   // Left-third tap: LTR / vertical → previous page; RTL (manga) → next (eros_fe tapLeft inverts on RTL).
@@ -1063,7 +1031,7 @@ export struct ReaderPage {
       this.turnSpread(-1)
       return
     }
-    this.turnTo(this.vm.currentIndex - this.pageStep())
+    this.turnTo(this.vm.currentIndex - 1)
   }
 
   private toNext(): void {
@@ -1071,7 +1039,7 @@ export struct ReaderPage {
       this.turnSpread(1)
       return
     }
-    this.turnTo(this.vm.currentIndex + this.pageStep())
+    this.turnTo(this.vm.currentIndex + 1)
   }
 
   // Go to a (page-index) target. Vertical scrolls the list by one image; horizontal moves the Swiper.
@@ -1090,10 +1058,9 @@ export struct ReaderPage {
       this.vm.currentIndex = target
       this.listScroller.scrollToIndex(target)
     } else {
-      const targetIndex: number = this.normalizedReaderIndex(target)
-      this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
-      this.vm.onPageChange(targetIndex)
-      this.syncReaderPagerToIndex(targetIndex, false)
+      this.readerPagerIndex = this.readerPagerIndexFor(target)
+      this.vm.onPageChange(target)
+      this.syncReaderPagerToIndex(target, false)
     }
   }
 
@@ -1107,10 +1074,9 @@ export struct ReaderPage {
         this.vm.currentIndex = target
         this.listScroller.scrollToIndex(target)
       } else {
-        const targetIndex: number = this.normalizedReaderIndex(target)
-        this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
-        this.vm.currentIndex = targetIndex
-        this.syncReaderPagerToIndex(targetIndex, false)
+        this.readerPagerIndex = this.readerPagerIndexFor(target)
+        this.vm.currentIndex = target
+        this.syncReaderPagerToIndex(target, false)
       }
     })
   }
@@ -1204,26 +1170,6 @@ export struct ReaderPage {
     return ReaderSpreadResolver.spreadStartIndex(this.readMode.columnMode, spreadIndex)
   }
 
-  private spreadIndexForMode(columnMode: string, index: number): number {
-    return ReaderSpreadResolver.spreadIndexForMode(columnMode, index)
-  }
-
-  private spreadStartForMode(columnMode: string, spreadIndex: number): number {
-    return ReaderSpreadResolver.spreadStartForMode(columnMode, spreadIndex)
-  }
-
-  private normalizedIndexForColumnMode(columnMode: string): number {
-    return ReaderSpreadResolver.normalizedIndexForColumnMode(columnMode, this.vm.currentIndex)
-  }
-
-  private normalizedReaderIndex(index: number): number {
-    return ReaderSpreadResolver.normalizedReaderIndex(
-      this.doublePageEnabled(),
-      this.readMode.columnMode,
-      index
-    )
-  }
-
   private readerPagerIndexFor(index: number): number {
     return this.doublePageEnabled() ? this.spreadIndexForImage(index) : index
   }
@@ -1255,7 +1201,7 @@ export struct ReaderPage {
   }
 
   private sliderTargetIndex(page: number): number {
-    return ReaderSpreadResolver.sliderTargetIndex(this.doublePageEnabled(), this.readMode.columnMode, page)
+    return ReaderSpreadResolver.sliderTargetIndex(page)
   }
 
   private spreadCount(): number {
@@ -1274,12 +1220,16 @@ export struct ReaderPage {
     )
   }
 
-  private spreadStartSource(): BasicDataSource<number> {
+  private refreshSpreadStartSource(): void {
     const key: string = `${this.doublePageEnabled()}-${this.readMode.columnMode}-${this.vm.totalPages()}`
     if (key !== this.spreadDataSourceKey) {
       this.spreadDataSourceKey = key
       this.spreadDataSource.setData(this.spreadStarts())
     }
+  }
+
+  private spreadStartSource(): BasicDataSource<number> {
+    this.refreshSpreadStartSource()
     return this.spreadDataSource
   }
 
@@ -1512,49 +1462,66 @@ export struct ReaderPage {
     ReadModeSettings.setMode(ctx, next)
   }
 
-  private columnModeLabel(): Resource {
-    if (this.readMode.mode === ReadMode.VERTICAL) {
-      return $r('app.string.common_off')
-    }
-    if (this.readMode.columnMode === ReadColumnMode.ODD_LEFT) {
-      return $r('app.string.read_double_page_a')
-    }
-    if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
-      return $r('app.string.read_double_page_b')
-    }
-    return $r('app.string.common_off')
-  }
-
-  private columnModeIconColor(): ResourceColor {
+  private doublePageIconColor(): ResourceColor {
     if (this.readMode.mode === ReadMode.VERTICAL) {
       return $r('sys.color.font_tertiary')
     }
-    if (this.readMode.columnMode === ReadColumnMode.SINGLE) {
-      return Color.White
-    }
-    return ThemeConstants.BRAND_PRIMARY
+    return this.readMode.doublePageEnabled ? ThemeConstants.BRAND_PRIMARY : Color.White
   }
 
-  private cycleColumnMode(): void {
+  private onePageIconColor(): ResourceColor {
+    return this.canTurnOnePageInDoublePage() ? Color.White : $r('sys.color.font_tertiary')
+  }
+
+  private showOnePageStepButton(): boolean {
+    return this.readMode.mode !== ReadMode.VERTICAL && this.readMode.doublePageEnabled
+  }
+
+  private toggleDoublePage(): void {
     if (this.readMode.mode === ReadMode.VERTICAL) {
       return
     }
-    let next: string = ReadColumnMode.ODD_LEFT
-    if (this.readMode.columnMode === ReadColumnMode.ODD_LEFT) {
-      next = ReadColumnMode.EVEN_LEFT
-    } else if (this.readMode.columnMode === ReadColumnMode.EVEN_LEFT) {
-      next = ReadColumnMode.SINGLE
+    if (this.readMode.columnMode !== ReadColumnMode.ODD_LEFT &&
+      this.readMode.columnMode !== ReadColumnMode.EVEN_LEFT) {
+      this.readMode.columnMode = ReadColumnMode.ODD_LEFT
     }
-    const targetIndex: number = this.normalizedIndexForColumnMode(next)
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
-    ReadModeSettings.setColumnMode(ctx, next)
-    if (this.readMode.mode === ReadMode.VERTICAL) {
+    ReadModeSettings.setDoublePageEnabled(ctx, !this.readMode.doublePageEnabled)
+    this.clearZoomGate()
+    this.syncReaderPagerToIndex(this.vm.currentIndex, false)
+  }
+
+  private canTurnOnePageInDoublePage(): boolean {
+    return this.showOnePageStepButton() && this.currentDoublePageStart() + 1 < this.vm.totalPages()
+  }
+
+  private currentDoublePageStart(): number {
+    return this.spreadStartIndex(this.spreadIndexForImage(this.vm.currentIndex))
+  }
+
+  private columnModeForSpreadStart(index: number): string {
+    if (index <= 0 || index % 2 === 0) {
+      return ReadColumnMode.ODD_LEFT
+    }
+    return ReadColumnMode.EVEN_LEFT
+  }
+
+  private setCurrentGalleryColumnMode(columnMode: string): void {
+    this.readMode.columnMode = columnMode
+    this.refreshSpreadStartSource()
+    if (this.params.gid.length > 0) {
+      GalleryReadProgressSettings.setColumnMode(this.hostContext(), this.params.gid, columnMode)
+    }
+  }
+
+  private turnOnePageInDoublePage(): void {
+    if (!this.canTurnOnePageInDoublePage()) {
       return
     }
-    this.clearZoomGate()
-    this.vm.currentIndex = targetIndex
-    this.sliderValue = targetIndex + 1
+    const targetStart: number = this.currentDoublePageStart() + 1
+    this.setCurrentGalleryColumnMode(this.columnModeForSpreadStart(targetStart))
+    this.turnTo(targetStart)
   }
 
   // Page counter '5 / 120'; while dragging the slider it previews the target page (sliderPreview),
@@ -1871,10 +1838,24 @@ export struct ReaderPage {
           .onClick(() => {
             this.cycleMode()
           })
+          if (this.showOnePageStepButton()) {
+            Button({ type: ButtonType.Circle }) {
+              SymbolGlyph($r('sys.symbol.forward_end_fill'))
+                .fontSize(READER_CHROME_ICON_SIZE)
+                .fontColor([this.onePageIconColor()])
+            }
+            .width(READER_CHROME_ACTION_SIZE)
+            .height(READER_CHROME_ACTION_SIZE)
+            .backgroundColor(Color.Transparent)
+            .enabled(this.canTurnOnePageInDoublePage())
+            .onClick(() => {
+              this.turnOnePageInDoublePage()
+            })
+          }
           Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.rectangle_grid_1x2'))
+            SymbolGlyph($r('sys.symbol.book_open_fill'))
               .fontSize(READER_CHROME_ICON_SIZE)
-              .fontColor([this.columnModeIconColor()])
+              .fontColor([this.doublePageIconColor()])
           }
           .width(READER_CHROME_ACTION_SIZE)
           .height(READER_CHROME_ACTION_SIZE)
@@ -1883,7 +1864,7 @@ export struct ReaderPage {
           )
           .enabled(this.readMode.mode !== ReadMode.VERTICAL)
           .onClick(() => {
-            this.cycleColumnMode()
+            this.toggleDoublePage()
           })
         }
         .width('100%')
@@ -2228,8 +2209,7 @@ struct ReaderSpreadSurface {
     if (count <= 1) {
       return this.compW
     }
-    const contentWidth: number = this.compW - ThemeConstants.SPACE_XS
-    return contentWidth > 0 ? contentWidth / count : this.compW / count
+    return this.compW / count
   }
 
   private imageDisplayW(intrinsicW: number, intrinsicH: number): number {
@@ -2245,8 +2225,7 @@ struct ReaderSpreadSurface {
   private displayW(): number {
     const firstW: number = this.hasFirst ? this.imageDisplayW(this.firstIntrinsicW, this.firstIntrinsicH) : 0
     const secondW: number = this.hasSecond ? this.imageDisplayW(this.secondIntrinsicW, this.secondIntrinsicH) : 0
-    const gap: number = this.hasFirst && this.hasSecond ? ThemeConstants.SPACE_XS : 0
-    const total: number = firstW + secondW + gap
+    const total: number = firstW + secondW
     return total > 0 ? total : this.compW
   }
 
@@ -2366,13 +2345,15 @@ struct ReaderSpreadSurface {
 
   build() {
     Stack() {
-      Row({ space: ThemeConstants.SPACE_XS }) {
-        if (this.rowReversed) {
-          this.SpreadImageLayer(this.second, this.hasSecond, this.secondPreferOriginal, this.secondInitiallyLoaded)
+      Row() {
+        if (!this.hasSecond) {
+          this.SpreadImageLayer(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
+        } else if (this.rowReversed) {
+          this.SpreadImageLayer(this.second, true, this.secondPreferOriginal, this.secondInitiallyLoaded)
           this.SpreadImageLayer(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
         } else {
           this.SpreadImageLayer(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
-          this.SpreadImageLayer(this.second, this.hasSecond, this.secondPreferOriginal, this.secondInitiallyLoaded)
+          this.SpreadImageLayer(this.second, true, this.secondPreferOriginal, this.secondInitiallyLoaded)
         }
       }
       .width('100%')

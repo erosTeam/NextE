@@ -47,8 +47,8 @@ const dropdownPages = [
   },
   {
     file: 'feature/settings/src/main/ets/pages/ReaderSettingsPage.ets',
-    states: ['dirMenuShown', 'columnMenuShown', 'autoPageMenuShown'],
-    builders: ['DirMenu', 'ColumnMenu', 'AutoPageMenu'],
+    states: ['dirMenuShown', 'autoPageMenuShown'],
+    builders: ['DirMenu', 'AutoPageMenu'],
   },
   {
     file: 'feature/settings/src/main/ets/pages/DownloadSettingsPage.ets',
@@ -84,6 +84,14 @@ for (const page of dropdownPages) {
       `${page.file}:${entry.index + 1}: menu opens from the row's trailing side`)
     ok(/onDisappear: \(\) => \{/.test(context),
       `${page.file}:${entry.index + 1}: menu closes through onDisappear`)
+  }
+  if (page.file.endsWith('ReaderSettingsPage.ets')) {
+    ok(/settings_reader_double_page/.test(source) &&
+      /hasSwitch:\s*true[\s\S]*checked:\s*this\.readMode\.doublePageEnabled/.test(source) &&
+      /ReadModeSettings\.setDoublePageEnabled/.test(source),
+      `${page.file}: double-page setting is a switch, not a dropdown`)
+    ok(!/ColumnMenu|columnMenuShown/.test(source),
+      `${page.file}: no stale double-page dropdown menu remains`)
   }
 }
 

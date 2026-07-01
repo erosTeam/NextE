@@ -49,6 +49,7 @@ export interface BackupReadProgressEntry {
   g: string
   i: number
   t: number
+  c?: string
 }
 
 export interface BackupLocalDataSection {
