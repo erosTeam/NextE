@@ -1,5 +1,6 @@
 import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
+import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { userAuth } from '@kit.UserAuthenticationKit'
 import {
   AutoLockTimeout,
@@ -23,6 +24,26 @@ const AUTO_LOCK_VALUES: number[] = [
 ]
 const BIOMETRIC_PERMISSION: Permissions = 'ohos.permission.ACCESS_BIOMETRIC'
 const AUTH_UNAVAILABLE: number = -1
+
+interface AuthCandidate {
+  authTypes: userAuth.UserAuthType[]
+  authTrustLevel: userAuth.AuthTrustLevel
+}
+
+const AUTH_CANDIDATES: AuthCandidate[] = [
+  {
+    authTypes: [userAuth.UserAuthType.FACE, userAuth.UserAuthType.PIN],
+    authTrustLevel: userAuth.AuthTrustLevel.ATL3,
+  },
+  {
+    authTypes: [userAuth.UserAuthType.FINGERPRINT],
+    authTrustLevel: userAuth.AuthTrustLevel.ATL1,
+  },
+  {
+    authTypes: [userAuth.UserAuthType.FACE],
+    authTrustLevel: userAuth.AuthTrustLevel.ATL1,
+  },
+]
 
 export enum SecurityAuthResult {
   SUCCESS,
@@ -254,20 +275,34 @@ export class SecuritySettings {
     }
   }
 
-  private static availableAuthTypes(): userAuth.UserAuthType[] {
-    const types: userAuth.UserAuthType[] = []
-    SecuritySettings.pushAvailableAuthType(types, userAuth.UserAuthType.FACE)
-    SecuritySettings.pushAvailableAuthType(types, userAuth.UserAuthType.FINGERPRINT)
-    SecuritySettings.pushAvailableAuthType(types, userAuth.UserAuthType.PIN)
-    return types
+  private static availableAuthCandidate(): AuthCandidate | null {
+    for (let i = 0; i < AUTH_CANDIDATES.length; i++) {
+      const candidate: AuthCandidate = AUTH_CANDIDATES[i]
+      const types: userAuth.UserAuthType[] = []
+      for (let j = 0; j < candidate.authTypes.length; j++) {
+        SecuritySettings.pushAvailableAuthType(types, candidate.authTypes[j], candidate.authTrustLevel)
+      }
+      if (types.length > 0) {
+        return {
+          authTypes: types,
+          authTrustLevel: candidate.authTrustLevel,
+        }
+      }
+    }
+    return null
   }
 
-  private static pushAvailableAuthType(types: userAuth.UserAuthType[], type: userAuth.UserAuthType): void {
+  private static pushAvailableAuthType(
+    types: userAuth.UserAuthType[],
+    type: userAuth.UserAuthType,
+    trustLevel: userAuth.AuthTrustLevel,
+  ): void {
     try {
-      userAuth.getAvailableStatus(type, userAuth.AuthTrustLevel.ATL1)
+      userAuth.getAvailableStatus(type, trustLevel)
+      DiagnosticLogger.info('security', 'auth_type_available', `${type}@${trustLevel}`)
       types.push(type)
     } catch (error) {
-      DiagnosticLogger.info('security', 'auth_type_unavailable', `${type}: ${(error as Error).message}`)
+      DiagnosticLogger.info('security', 'auth_type_unavailable', `${type}@${trustLevel}: ${(error as Error).message}`)
     }
   }
 
@@ -275,25 +310,26 @@ export class SecuritySettings {
     if (!await SecuritySettings.ensureBiometricPermission(context)) {
       return SecurityAuthResult.UNAVAILABLE
     }
-    const authTypes: userAuth.UserAuthType[] = SecuritySettings.availableAuthTypes()
-    if (authTypes.length <= 0) {
+    const authCandidate: AuthCandidate | null = SecuritySettings.availableAuthCandidate()
+    if (authCandidate === null) {
       DiagnosticLogger.warn('security', 'auth_unavailable', 'no enrolled auth type')
       return SecurityAuthResult.UNAVAILABLE
     }
-    const result: number = await SecuritySettings.startAuthentication(authTypes)
+    const result: number = await SecuritySettings.startAuthentication(authCandidate)
     if (result === AUTH_UNAVAILABLE) {
       return SecurityAuthResult.UNAVAILABLE
     }
     return result === userAuth.UserAuthResultCode.SUCCESS ? SecurityAuthResult.SUCCESS : SecurityAuthResult.FAILED
   }
 
-  private static startAuthentication(authTypes: userAuth.UserAuthType[]): Promise<number> {
+  private static startAuthentication(authCandidate: AuthCandidate): Promise<number> {
     return new Promise<number>((resolve: (value: number) => void): void => {
       try {
+        const random = cryptoFramework.createRandom()
         const authParam: userAuth.AuthParam = {
-          challenge: new Uint8Array([]),
-          authType: authTypes,
-          authTrustLevel: userAuth.AuthTrustLevel.ATL1,
+          challenge: random.generateRandomSync(16).data,
+          authType: authCandidate.authTypes,
+          authTrustLevel: authCandidate.authTrustLevel,
         }
         const widgetParam: userAuth.WidgetParam = {
           title: AppStrings.get('security_unlock_title'),

@@ -64,8 +64,15 @@ ok(/userAuth\.getUserAuthInstance/.test(settings) &&
 ok(/BIOMETRIC_PERMISSION/.test(settings) &&
   /requestPermissionsFromUser\(context, \[BIOMETRIC_PERMISSION\]\)/.test(settings),
   'security authentication requests biometric permission before starting user auth')
-ok(/getAvailableStatus\(type, userAuth\.AuthTrustLevel\.ATL1\)/.test(settings),
-  'security authentication filters unavailable auth types before launching the system sheet')
+ok(/AUTH_CANDIDATES: AuthCandidate\[\]/.test(settings) &&
+  /authTypes: \[userAuth\.UserAuthType\.FACE, userAuth\.UserAuthType\.PIN\]/.test(settings) &&
+  /authTrustLevel: userAuth\.AuthTrustLevel\.ATL3/.test(settings) &&
+  /authTypes: \[userAuth\.UserAuthType\.FINGERPRINT\]/.test(settings) &&
+  /authTrustLevel: userAuth\.AuthTrustLevel\.ATL1/.test(settings),
+  'security authentication probes official auth-type/trust-level groups instead of one global level')
+ok(/getAvailableStatus\(type, trustLevel\)/.test(settings) &&
+  /authTrustLevel: authCandidate\.authTrustLevel/.test(settings),
+  'security authentication launches with the same trust level that passed availability')
 ok(/setAutoLockSecondsWithBoundaryAuth/.test(settings) &&
   /crossesEnabledBoundary/.test(settings),
   'auto-lock only authenticates when crossing the enabled/disabled boundary')

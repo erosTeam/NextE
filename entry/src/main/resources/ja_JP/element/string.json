@@ -2522,7 +2522,7 @@
     },
     {
       "name": "security_auth_unavailable",
-      "value": "先にシステム設定で画面ロックまたは生体認証を設定してください"
+      "value": "先にシステム設定で画面ロック、顔認証、または指紋認証を設定してください"
     },
     {
       "name": "security_auto_lock_disabled",
