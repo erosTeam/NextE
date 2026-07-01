@@ -61,6 +61,19 @@ ok(/userAuth\.getUserAuthInstance/.test(settings) &&
   /userAuth\.UserAuthType\.FINGERPRINT/.test(settings) &&
   /userAuth\.UserAuthType\.PIN/.test(settings),
   'security lock uses native system authentication with biometric plus PIN fallback')
+ok(/BIOMETRIC_PERMISSION/.test(settings) &&
+  /requestPermissionsFromUser\(context, \[BIOMETRIC_PERMISSION\]\)/.test(settings),
+  'security authentication requests biometric permission before starting user auth')
+ok(/getAvailableStatus\(type, userAuth\.AuthTrustLevel\.ATL1\)/.test(settings),
+  'security authentication filters unavailable auth types before launching the system sheet')
+ok(/setAutoLockSecondsWithAuth/.test(settings) &&
+  /setRecentTasksProtectionWithAuth/.test(settings),
+  'security preference mutations expose auth-gated setters')
+ok(/enum SecurityAuthResult/.test(settings) &&
+  /SecurityAuthResult\.UNAVAILABLE/.test(settings) &&
+  /auth_unavailable_unlock/.test(settings) &&
+  /AutoLockTimeout\.DISABLED/.test(settings),
+  'security lock distinguishes unavailable system auth and does not trap the app locked')
 ok(/bindWindowPrivacyApplier/.test(settings) &&
   /state\.recentTasksProtectionEnabled \|\| state\.locked/.test(settings),
   'window privacy stays on for recent-task protection or while locked')
@@ -86,6 +99,8 @@ ok(/SecuritySettingsPage/.test(settingsIndex), 'parked settings barrel still exp
 const entryIndex = read('entry/src/main/ets/pages/Index.ets')
 ok(/SecuritySettingsPage/.test(entryIndex) && /name === 'SecuritySettings'/.test(entryIndex),
   'parked entry router still registers the SecuritySettings route for future direct-lane validation')
+ok(/security_unlock_button[\s\S]*ThemeConstants\.TEXT_ON_BRAND[\s\S]*ThemeConstants\.BRAND_PRIMARY/.test(entryIndex),
+  'lock overlay unlock button uses the app theme brand color')
 
 const page = read('feature/settings/src/main/ets/pages/SecuritySettingsPage.ets')
 ok(/@ComponentV2\s+export struct SecuritySettingsPage/.test(page),
@@ -93,12 +108,19 @@ ok(/@ComponentV2\s+export struct SecuritySettingsPage/.test(page),
 ok(/@Local securitySettings: SecuritySettingsState = connectSecuritySettings\(\)/.test(page),
   'page reads the persisted security settings holder')
 ok(/security_recent_tasks_blur/.test(page) && /hasSwitch: true/.test(page) &&
-  /checked: this\.securitySettings\.recentTasksProtectionEnabled/.test(page) &&
-  /SecuritySettings\.setRecentTasksProtection/.test(page),
-  'recent-task protection switch is wired to persisted native window privacy')
+  /checked: this\.recentTasksProtectionChecked/.test(page) &&
+  /isEnabled: !this\.recentTasksProtectionBusy/.test(page) &&
+  /SecuritySettings\.setRecentTasksProtectionWithAuth/.test(page),
+  'recent-task protection switch confirms through system authentication before changing')
+ok(/@Monitor\('securitySettings\.recentTasksProtectionEnabled'\)/.test(page) &&
+  /recentTasksProtectionChecked = this\.securitySettings\.recentTasksProtectionEnabled/.test(page),
+  'recent-task protection switch display is resynced after auth success or failure')
 ok(/security_auto_lock/.test(page) && /trailingDropdown: true/.test(page) &&
-  /SecuritySettings\.setAutoLockSeconds/.test(page),
-  'page exposes auto-lock preference as a native dropdown')
+  /SecuritySettings\.setAutoLockSecondsWithAuth/.test(page),
+  'page exposes auto-lock preference as an auth-gated native dropdown')
+ok(!/SecuritySettings\.setRecentTasksProtection\(/.test(page) &&
+  !/SecuritySettings\.setAutoLockSeconds\(/.test(page),
+  'settings page does not directly write security preferences without authentication')
 ok(!/userAuth|ACCESS_BIOMETRIC|setWindowPrivacy|blurredInRecentTasks\s*=|checkBiometrics/.test(page),
   'settings page does not hand-roll platform authentication or window APIs')
 

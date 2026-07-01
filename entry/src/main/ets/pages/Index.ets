@@ -1395,6 +1395,8 @@ struct SecurityLockOverlay {
       } else {
         Button($r('app.string.security_unlock_button'))
           .type(ButtonType.Capsule)
+          .fontColor(ThemeConstants.TEXT_ON_BRAND)
+          .backgroundColor(ThemeConstants.BRAND_PRIMARY)
           .onClick(() => {
             this.onUnlock()
           })

@@ -1,4 +1,4 @@
-import { common } from '@kit.AbilityKit'
+import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
 import { userAuth } from '@kit.UserAuthenticationKit'
 import {
@@ -21,6 +21,14 @@ const AUTO_LOCK_VALUES: number[] = [
   AutoLockTimeout.HOURS_1,
   AutoLockTimeout.HOURS_5,
 ]
+const BIOMETRIC_PERMISSION: Permissions = 'ohos.permission.ACCESS_BIOMETRIC'
+const AUTH_UNAVAILABLE: number = -1
+
+enum SecurityAuthResult {
+  SUCCESS,
+  FAILED,
+  UNAVAILABLE,
+}
 
 function normalizeAutoLockSeconds(value: number): number {
   for (let i = 0; i < AUTO_LOCK_VALUES.length; i++) {
@@ -87,6 +95,20 @@ export class SecuritySettings {
     }
   }
 
+  static async setRecentTasksProtectionWithAuth(
+    context: common.UIAbilityContext,
+    enabled: boolean,
+  ): Promise<boolean> {
+    if (connectSecuritySettings().recentTasksProtectionEnabled === enabled) {
+      return true
+    }
+    if (await SecuritySettings.authenticate(context) !== SecurityAuthResult.SUCCESS) {
+      return false
+    }
+    await SecuritySettings.setRecentTasksProtection(context, enabled)
+    return true
+  }
+
   static async setAutoLockSeconds(
     context: common.UIAbilityContext,
     seconds: number,
@@ -103,6 +125,21 @@ export class SecuritySettings {
     } catch (error) {
       DiagnosticLogger.warn('settings', 'security_auto_lock_save_failed', (error as Error).message)
     }
+  }
+
+  static async setAutoLockSecondsWithAuth(
+    context: common.UIAbilityContext,
+    seconds: number,
+  ): Promise<boolean> {
+    const value: number = normalizeAutoLockSeconds(seconds)
+    if (connectSecuritySettings().autoLockSeconds === value) {
+      return true
+    }
+    if (await SecuritySettings.authenticate(context) !== SecurityAuthResult.SUCCESS) {
+      return false
+    }
+    await SecuritySettings.setAutoLockSeconds(context, value)
+    return true
   }
 
   static async recordBackground(context: common.UIAbilityContext): Promise<void> {
@@ -142,15 +179,24 @@ export class SecuritySettings {
     state.authError = ''
     SecuritySettings.applyWindowPrivacy()
     DiagnosticLogger.info('security', 'auth_start', reason)
-    const ok: boolean = await SecuritySettings.authenticate()
+    const result: SecurityAuthResult = await SecuritySettings.authenticate(context)
     state.authenticating = false
-    if (ok) {
+    if (result === SecurityAuthResult.SUCCESS) {
       state.locked = false
       state.authError = ''
       state.lastBackgroundAt = Date.now()
       SecuritySettings.applyWindowPrivacy()
       await SecuritySettings.persistLastBackgroundAt(context, state.lastBackgroundAt)
       DiagnosticLogger.info('security', 'auth_success', reason)
+      return
+    }
+    if (result === SecurityAuthResult.UNAVAILABLE) {
+      state.locked = false
+      state.authError = ''
+      state.autoLockSeconds = AutoLockTimeout.DISABLED
+      SecuritySettings.applyWindowPrivacy()
+      await SecuritySettings.setAutoLockSeconds(context, AutoLockTimeout.DISABLED)
+      DiagnosticLogger.warn('security', 'auth_unavailable_unlock', reason)
       return
     }
     state.authError = AppStrings.get('security_unlock_failed')
@@ -203,16 +249,58 @@ export class SecuritySettings {
     }
   }
 
-  private static authenticate(): Promise<boolean> {
-    return new Promise<boolean>((resolve: (value: boolean) => void): void => {
+  private static async ensureBiometricPermission(context: common.UIAbilityContext): Promise<boolean> {
+    try {
+      const at: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager()
+      const result = await at.requestPermissionsFromUser(context, [BIOMETRIC_PERMISSION])
+      const granted: boolean = result.authResults.length > 0 && result.authResults[0] === 0
+      DiagnosticLogger.info('security', 'biometric_permission', `granted=${granted}`)
+      return granted
+    } catch (error) {
+      DiagnosticLogger.warn('security', 'biometric_permission_failed', (error as Error).message)
+      return false
+    }
+  }
+
+  private static availableAuthTypes(): userAuth.UserAuthType[] {
+    const types: userAuth.UserAuthType[] = []
+    SecuritySettings.pushAvailableAuthType(types, userAuth.UserAuthType.FACE)
+    SecuritySettings.pushAvailableAuthType(types, userAuth.UserAuthType.FINGERPRINT)
+    SecuritySettings.pushAvailableAuthType(types, userAuth.UserAuthType.PIN)
+    return types
+  }
+
+  private static pushAvailableAuthType(types: userAuth.UserAuthType[], type: userAuth.UserAuthType): void {
+    try {
+      userAuth.getAvailableStatus(type, userAuth.AuthTrustLevel.ATL1)
+      types.push(type)
+    } catch (error) {
+      DiagnosticLogger.info('security', 'auth_type_unavailable', `${type}: ${(error as Error).message}`)
+    }
+  }
+
+  private static async authenticate(context: common.UIAbilityContext): Promise<SecurityAuthResult> {
+    if (!await SecuritySettings.ensureBiometricPermission(context)) {
+      return SecurityAuthResult.UNAVAILABLE
+    }
+    const authTypes: userAuth.UserAuthType[] = SecuritySettings.availableAuthTypes()
+    if (authTypes.length <= 0) {
+      DiagnosticLogger.warn('security', 'auth_unavailable', 'no enrolled auth type')
+      return SecurityAuthResult.UNAVAILABLE
+    }
+    const result: number = await SecuritySettings.startAuthentication(authTypes)
+    if (result === AUTH_UNAVAILABLE) {
+      return SecurityAuthResult.UNAVAILABLE
+    }
+    return result === userAuth.UserAuthResultCode.SUCCESS ? SecurityAuthResult.SUCCESS : SecurityAuthResult.FAILED
+  }
+
+  private static startAuthentication(authTypes: userAuth.UserAuthType[]): Promise<number> {
+    return new Promise<number>((resolve: (value: number) => void): void => {
       try {
         const authParam: userAuth.AuthParam = {
           challenge: new Uint8Array([]),
-          authType: [
-            userAuth.UserAuthType.FACE,
-            userAuth.UserAuthType.FINGERPRINT,
-            userAuth.UserAuthType.PIN,
-          ],
+          authType: authTypes,
           authTrustLevel: userAuth.AuthTrustLevel.ATL1,
         }
         const widgetParam: userAuth.WidgetParam = {
@@ -222,13 +310,14 @@ export class SecuritySettings {
           userAuth.getUserAuthInstance(authParam, widgetParam)
         userAuthInstance.on('result', {
           onResult(result: userAuth.UserAuthResult): void {
-            resolve(result.result === userAuth.UserAuthResultCode.SUCCESS)
+            DiagnosticLogger.info('security', 'auth_result', `${result.result}`)
+            resolve(result.result)
           },
         })
         userAuthInstance.start()
       } catch (error) {
         DiagnosticLogger.warn('security', 'auth_exception', (error as Error).message)
-        resolve(false)
+        resolve(AUTH_UNAVAILABLE)
       }
     })
   }
