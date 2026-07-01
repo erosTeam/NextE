@@ -16,13 +16,11 @@ import {
 
 /**
  * Security settings page grounded in eros_fe SecuritySettingPage.
- * Mutations are confirmed through native HarmonyOS authentication before persistence.
+ * Auto-lock enable/disable is confirmed through native HarmonyOS authentication before persistence.
  */
 @ComponentV2
 export struct SecuritySettingsPage {
   @Local securitySettings: SecuritySettingsState = connectSecuritySettings();
-  @Local recentTasksProtectionChecked: boolean = connectSecuritySettings().recentTasksProtectionEnabled;
-  @Local recentTasksProtectionBusy: boolean = false;
   @Local autoLockMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
 
@@ -60,7 +58,7 @@ export struct SecuritySettingsPage {
 
   private setAutoLock(seconds: number): void {
     this.autoLockMenuShown = false
-    SecuritySettings.setAutoLockSecondsWithAuth(this.ctx(), seconds).then((ok: boolean) => {
+    SecuritySettings.setAutoLockSecondsWithBoundaryAuth(this.ctx(), seconds).then((ok: boolean) => {
       if (!ok) {
         this.toast($r('app.string.security_unlock_failed'))
       }
@@ -68,30 +66,11 @@ export struct SecuritySettingsPage {
   }
 
   private setRecentTasksProtection(value: boolean): void {
-    const current: boolean = this.securitySettings.recentTasksProtectionEnabled
-    this.recentTasksProtectionChecked = current
-    if (this.recentTasksProtectionBusy || value === current) {
-      return
-    }
-    this.recentTasksProtectionBusy = true
-    SecuritySettings.setRecentTasksProtectionWithAuth(this.ctx(), value).then((ok: boolean) => {
-      this.recentTasksProtectionChecked = this.securitySettings.recentTasksProtectionEnabled
-      if (!ok) {
-        this.toast($r('app.string.security_unlock_failed'))
-      }
-    }).finally(() => {
-      this.recentTasksProtectionBusy = false
-      this.recentTasksProtectionChecked = this.securitySettings.recentTasksProtectionEnabled
-    })
+    SecuritySettings.setRecentTasksProtection(this.ctx(), value)
   }
 
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
-  }
-
-  @Monitor('securitySettings.recentTasksProtectionEnabled')
-  private syncRecentTasksProtectionSwitch(): void {
-    this.recentTasksProtectionChecked = this.securitySettings.recentTasksProtectionEnabled
   }
 
   @Builder
@@ -133,8 +112,7 @@ export struct SecuritySettingsPage {
                 subtitle: $r('app.string.security_recent_tasks_blur_hint'),
                 leadingIcon: $r('sys.symbol.eye_slash'),
                 hasSwitch: true,
-                checked: this.recentTasksProtectionChecked,
-                isEnabled: !this.recentTasksProtectionBusy,
+                checked: this.securitySettings.recentTasksProtectionEnabled,
                 switchAction: (value: boolean) => {
                   this.setRecentTasksProtection(value)
                 },

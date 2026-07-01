@@ -95,20 +95,6 @@ export class SecuritySettings {
     }
   }
 
-  static async setRecentTasksProtectionWithAuth(
-    context: common.UIAbilityContext,
-    enabled: boolean,
-  ): Promise<boolean> {
-    if (connectSecuritySettings().recentTasksProtectionEnabled === enabled) {
-      return true
-    }
-    if (await SecuritySettings.authenticate(context) !== SecurityAuthResult.SUCCESS) {
-      return false
-    }
-    await SecuritySettings.setRecentTasksProtection(context, enabled)
-    return true
-  }
-
   static async setAutoLockSeconds(
     context: common.UIAbilityContext,
     seconds: number,
@@ -127,15 +113,19 @@ export class SecuritySettings {
     }
   }
 
-  static async setAutoLockSecondsWithAuth(
+  static async setAutoLockSecondsWithBoundaryAuth(
     context: common.UIAbilityContext,
     seconds: number,
   ): Promise<boolean> {
     const value: number = normalizeAutoLockSeconds(seconds)
-    if (connectSecuritySettings().autoLockSeconds === value) {
+    const current: number = connectSecuritySettings().autoLockSeconds
+    if (current === value) {
       return true
     }
-    if (await SecuritySettings.authenticate(context) !== SecurityAuthResult.SUCCESS) {
+    const crossesEnabledBoundary: boolean =
+      (current === AutoLockTimeout.DISABLED) !== (value === AutoLockTimeout.DISABLED)
+    if (crossesEnabledBoundary &&
+      await SecuritySettings.authenticate(context) !== SecurityAuthResult.SUCCESS) {
       return false
     }
     await SecuritySettings.setAutoLockSeconds(context, value)

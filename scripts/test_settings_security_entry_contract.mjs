@@ -66,9 +66,11 @@ ok(/BIOMETRIC_PERMISSION/.test(settings) &&
   'security authentication requests biometric permission before starting user auth')
 ok(/getAvailableStatus\(type, userAuth\.AuthTrustLevel\.ATL1\)/.test(settings),
   'security authentication filters unavailable auth types before launching the system sheet')
-ok(/setAutoLockSecondsWithAuth/.test(settings) &&
-  /setRecentTasksProtectionWithAuth/.test(settings),
-  'security preference mutations expose auth-gated setters')
+ok(/setAutoLockSecondsWithBoundaryAuth/.test(settings) &&
+  /crossesEnabledBoundary/.test(settings),
+  'auto-lock only authenticates when crossing the enabled/disabled boundary')
+ok(!/setRecentTasksProtectionWithAuth/.test(settings),
+  'recent-task privacy switch does not require system authentication')
 ok(/enum SecurityAuthResult/.test(settings) &&
   /SecurityAuthResult\.UNAVAILABLE/.test(settings) &&
   /auth_unavailable_unlock/.test(settings) &&
@@ -108,19 +110,15 @@ ok(/@ComponentV2\s+export struct SecuritySettingsPage/.test(page),
 ok(/@Local securitySettings: SecuritySettingsState = connectSecuritySettings\(\)/.test(page),
   'page reads the persisted security settings holder')
 ok(/security_recent_tasks_blur/.test(page) && /hasSwitch: true/.test(page) &&
-  /checked: this\.recentTasksProtectionChecked/.test(page) &&
-  /isEnabled: !this\.recentTasksProtectionBusy/.test(page) &&
-  /SecuritySettings\.setRecentTasksProtectionWithAuth/.test(page),
-  'recent-task protection switch confirms through system authentication before changing')
-ok(/@Monitor\('securitySettings\.recentTasksProtectionEnabled'\)/.test(page) &&
-  /recentTasksProtectionChecked = this\.securitySettings\.recentTasksProtectionEnabled/.test(page),
-  'recent-task protection switch display is resynced after auth success or failure')
+  /checked: this\.securitySettings\.recentTasksProtectionEnabled/.test(page) &&
+  /SecuritySettings\.setRecentTasksProtection\(this\.ctx\(\), value\)/.test(page),
+  'recent-task protection switch writes directly without authentication')
 ok(/security_auto_lock/.test(page) && /trailingDropdown: true/.test(page) &&
-  /SecuritySettings\.setAutoLockSecondsWithAuth/.test(page),
-  'page exposes auto-lock preference as an auth-gated native dropdown')
-ok(!/SecuritySettings\.setRecentTasksProtection\(/.test(page) &&
+  /SecuritySettings\.setAutoLockSecondsWithBoundaryAuth/.test(page),
+  'page authenticates auto-lock only when enabling or disabling it')
+ok(!/SecuritySettings\.setRecentTasksProtectionWithAuth/.test(page) &&
   !/SecuritySettings\.setAutoLockSeconds\(/.test(page),
-  'settings page does not directly write security preferences without authentication')
+  'settings page does not directly write auto-lock preferences without boundary authentication')
 ok(!/userAuth|ACCESS_BIOMETRIC|setWindowPrivacy|blurredInRecentTasks\s*=|checkBiometrics/.test(page),
   'settings page does not hand-roll platform authentication or window APIs')
 
