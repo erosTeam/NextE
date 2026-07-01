@@ -21,6 +21,7 @@ import { common } from '@kit.AbilityKit'
  */
 @ComponentV2
 export struct ColumnDensityPage {
+  @Param targetMode: string = '';
   @Local listMode: ListModeState = connectListMode()
   @Local previewWidth: number = 0
   private scroller: Scroller = new Scroller()
@@ -30,28 +31,61 @@ export struct ColumnDensityPage {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
+  private effectiveMode(): string {
+    return this.targetMode.length > 0 ? this.targetMode : this.listMode.mode
+  }
+
   private baseColumnWidth(): number {
-    if (this.listMode.mode === ListMode.GRID) {
+    const mode: string = this.effectiveMode()
+    if (mode === ListMode.GRID) {
       return ThemeConstants.GALLERY_GRID_MIN_W
     }
-    if (this.listMode.mode === ListMode.WATERFALL) {
+    if (mode === ListMode.WATERFALL) {
       return ThemeConstants.GALLERY_WATERFALL_MIN_W
+    }
+    if (mode === ListMode.THUMBNAIL_GRID) {
+      return ThemeConstants.PREVIEW_THUMB_MIN_W
     }
     return ThemeConstants.GALLERY_COVER_WALL_MIN_W
   }
 
   private effectiveColumnWidth(): number {
-    const override: number = this.listMode.overrideWidthFor(this.listMode.mode)
+    const override: number = this.listMode.overrideWidthFor(this.effectiveMode())
     return override > 0 ? override : this.baseColumnWidth()
   }
 
-  // gap == horizontalPadding == GALLERY_GRID_GAP here, matching the gallery list scaffolds exactly.
+  private previewGap(): number {
+    return this.effectiveMode() === ListMode.THUMBNAIL_GRID
+      ? ThemeConstants.SPACE_SM
+      : ThemeConstants.GALLERY_GRID_GAP
+  }
+
+  private previewHorizontalPadding(): number {
+    return this.effectiveMode() === ListMode.THUMBNAIL_GRID
+      ? ThemeConstants.SPACE_MD
+      : ThemeConstants.GALLERY_GRID_GAP
+  }
+
+  private titleText(): string {
+    return this.effectiveMode() === ListMode.THUMBNAIL_GRID
+      ? AppStrings.get('settings_thumbnail_column_width')
+      : AppStrings.get('settings_column_width')
+  }
+
+  private hintText(): ResourceStr {
+    return this.effectiveMode() === ListMode.THUMBNAIL_GRID
+      ? $r('app.string.settings_thumbnail_column_width_hint')
+      : $r('app.string.settings_column_width_hint')
+  }
+
+  // Preview uses the same gap/padding family as the target grid so the visible density matches the
+  // surface being configured.
   private currentColumns(): number {
     return galleryWaterfallColumnCount(
       this.previewWidth,
       this.effectiveColumnWidth(),
-      ThemeConstants.GALLERY_GRID_GAP,
-      ThemeConstants.GALLERY_GRID_GAP,
+      this.previewGap(),
+      this.previewHorizontalPadding(),
     )
   }
 
@@ -67,7 +101,7 @@ export struct ColumnDensityPage {
   @Builder
   Preview() {
     Column() {
-      if (this.listMode.mode === ListMode.GRID) {
+      if (this.effectiveMode() === ListMode.GRID || this.effectiveMode() === ListMode.THUMBNAIL_GRID) {
         Grid() {
           ForEach(
             this.previewCells,
@@ -84,8 +118,8 @@ export struct ColumnDensityPage {
           )
         }
         .columnsTemplate(this.previewTemplate())
-        .columnsGap(ThemeConstants.GALLERY_GRID_GAP)
-        .rowsGap(ThemeConstants.GALLERY_GRID_GAP)
+        .columnsGap(this.previewGap())
+        .rowsGap(this.previewGap())
         .enableScrollInteraction(false)
         .scrollBar(BarState.Off)
         .width('100%')
@@ -108,8 +142,8 @@ export struct ColumnDensityPage {
           )
         }
         .columnsTemplate(this.previewTemplate())
-        .columnsGap(ThemeConstants.GALLERY_GRID_GAP)
-        .rowsGap(ThemeConstants.GALLERY_GRID_GAP)
+        .columnsGap(this.previewGap())
+        .rowsGap(this.previewGap())
         .enableScrollInteraction(false)
         .scrollBar(BarState.Off)
         .width('100%')
@@ -119,7 +153,10 @@ export struct ColumnDensityPage {
     // Full-bleed: only the list's own gap as inset, measured width == real gallery list width.
     .width('100%')
     .height(220)
-    .padding({ left: ThemeConstants.GALLERY_GRID_GAP, right: ThemeConstants.GALLERY_GRID_GAP })
+    .padding({
+      left: this.previewHorizontalPadding(),
+      right: this.previewHorizontalPadding(),
+    })
     .clip(true)
     .onAreaChange((_oldValue: Area, newValue: Area) => {
       const parsed: number = Number.parseFloat(`${newValue.width}`)
@@ -139,7 +176,7 @@ export struct ColumnDensityPage {
           Column({ space: ThemeConstants.SPACE_MD }) {
             this.Preview()
             Column({ space: ThemeConstants.SPACE_SM }) {
-              Text($r('app.string.settings_column_width_hint'))
+              Text(this.hintText())
                 .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
                 .fontColor($r('sys.color.font_secondary'))
                 .width('100%')
@@ -157,9 +194,9 @@ export struct ColumnDensityPage {
                 .onChange((value: number, mode: SliderChangeMode) => {
                   const width: number = clampColumnWidth(value)
                   if (mode === SliderChangeMode.End || mode === SliderChangeMode.Click) {
-                    ListModeSettings.setColumnWidth(this.ctx(), this.listMode.mode, width)
+                    ListModeSettings.setColumnWidth(this.ctx(), this.effectiveMode(), width)
                   } else {
-                    this.listMode.setWidthFor(this.listMode.mode, width)
+                    this.listMode.setWidthFor(this.effectiveMode(), width)
                   }
                 })
             }
@@ -170,6 +207,6 @@ export struct ColumnDensityPage {
         }
       }
     }
-    .titleBar(immersiveTitleBar(AppStrings.get('settings_column_width')))
+    .titleBar(immersiveTitleBar(this.titleText()))
   }
 }

@@ -17,6 +17,7 @@ export class StorageKeys {
   static readonly GRID_COLUMN_WIDTH: string = 'layout.gridColumnWidth'
   static readonly WATERFALL_COLUMN_WIDTH: string = 'layout.waterfallColumnWidth'
   static readonly COVER_WALL_COLUMN_WIDTH: string = 'layout.coverWallColumnWidth'
+  static readonly THUMBNAIL_COLUMN_WIDTH: string = 'layout.thumbnailColumnWidth'
   static readonly JAPANESE_TITLE_IN_GALLERY_PAGE: string = 'layout.japaneseTitleInGalleryPage'
   static readonly ITEM_WIDTH: string = 'layout.itemWidth'
   static readonly HIDE_GALLERY_THUMBNAILS: string = 'layout.hideGalleryThumbnails' // boolean: hide detail inline previews

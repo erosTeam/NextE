@@ -9,6 +9,7 @@ import {
   PullRefreshGridScaffold,
   PullRefreshController,
   AppStrings,
+  ListMode,
   immersiveTitleBarOpts,
   appSheetOptions,
 } from 'shared'
@@ -217,6 +218,7 @@ export struct GalleryAllThumbnailsPage {
           // Responsive: ArkUI derives columns from the pane width + min comfortable thumb width. Tiles
           // consume their actual cell width locally; this page does not hand-calculate columns or cells.
           minColumnWidth: ThemeConstants.PREVIEW_THUMB_MIN_W,
+          pinchModeKey: ListMode.THUMBNAIL_GRID,
           itemCount: this.vm.itemCount,
           bottomPadding: ThemeConstants.SPACE_XL,
           controller: this.refreshController,

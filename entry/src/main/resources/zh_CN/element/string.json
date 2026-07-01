@@ -621,6 +621,14 @@
       "value": "横向缩略图"
     },
     {
+      "name": "settings_thumbnail_column_width",
+      "value": "缩略图密度"
+    },
+    {
+      "name": "settings_thumbnail_column_width_hint",
+      "value": "双指缩放缩略图网格或拖动滑块调整每行数量"
+    },
+    {
       "name": "settings_blurring_of_cover_background",
       "value": "封面背景模糊"
     },

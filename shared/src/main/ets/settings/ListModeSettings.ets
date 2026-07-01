@@ -21,12 +21,15 @@ export class ListModeSettings {
       const gridColW: number = store.getSync(StorageKeys.GRID_COLUMN_WIDTH, 0) as number
       const waterfallColW: number = store.getSync(StorageKeys.WATERFALL_COLUMN_WIDTH, 0) as number
       const coverWallColW: number = store.getSync(StorageKeys.COVER_WALL_COLUMN_WIDTH, 0) as number
+      const thumbnailColW: number =
+        store.getSync(StorageKeys.THUMBNAIL_COLUMN_WIDTH, 0) as number
       const state: ListModeState = connectListMode()
       state.mode = mode
       state.fixedHeight = fixedHeight
       state.gridColW = gridColW
       state.waterfallColW = waterfallColW
       state.coverWallColW = coverWallColW
+      state.thumbnailColW = thumbnailColW
     } catch (error) {
       DiagnosticLogger.warn('settings', 'listmode_restore_failed', (error as Error).message)
     }
@@ -70,7 +73,7 @@ export class ListModeSettings {
 
   // Single writer of the per-mode column min-width override (pinch-zoom / settings slider). The live
   // in-memory updates during a pinch/drag are written directly to ListModeState; this persists the
-  // final value on release. `mode` is one of ListMode.GRID/WATERFALL/COVER_WALL.
+  // final value on release. `mode` is one of ListMode.GRID/WATERFALL/COVER_WALL/THUMBNAIL_GRID.
   static async setColumnWidth(
     context: common.UIAbilityContext,
     mode: string,
@@ -106,6 +109,9 @@ export class ListModeSettings {
     }
     if (mode === ListMode.COVER_WALL) {
       return StorageKeys.COVER_WALL_COLUMN_WIDTH
+    }
+    if (mode === ListMode.THUMBNAIL_GRID) {
+      return StorageKeys.THUMBNAIL_COLUMN_WIDTH
     }
     return ''
   }

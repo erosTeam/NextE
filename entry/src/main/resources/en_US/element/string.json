@@ -621,6 +621,14 @@
       "value": "Horizontal thumbnails"
     },
     {
+      "name": "settings_thumbnail_column_width",
+      "value": "Thumbnail density"
+    },
+    {
+      "name": "settings_thumbnail_column_width_hint",
+      "value": "Pinch thumbnail grids or drag to set items per row"
+    },
+    {
       "name": "settings_blurring_of_cover_background",
       "value": "Blur cover background"
     },

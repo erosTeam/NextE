@@ -7,6 +7,7 @@ export enum ListMode {
   GRID = 'grid',
   WATERFALL = 'waterfall',
   COVER_WALL = 'coverWall',
+  THUMBNAIL_GRID = 'thumbnailGrid',
 }
 
 /**
@@ -22,13 +23,14 @@ export enum ListMode {
 export class ListModeState {
   @Trace mode: string = ListMode.LIST
   @Trace fixedHeight: boolean = true
-  // Per-mode minimum column width (vp) override for the three grid-like modes, set by the pinch
+  // Per-mode minimum column width (vp) override for grid-like surfaces, set by the pinch
   // gesture / settings slider. 0 = use the built-in base width (ThemeConstants.GALLERY_*_MIN_W).
   // Width (not column count) is stored so column count stays a derived value — auto-adapts to
   // foldable / orientation width changes instead of fixing a count that would crowd or strand cells.
   @Trace gridColW: number = 0
   @Trace waterfallColW: number = 0
   @Trace coverWallColW: number = 0
+  @Trace thumbnailColW: number = 0
 
   /** Override width for a grid-like mode, or 0 when none is set. */
   overrideWidthFor(mode: string): number {
@@ -41,6 +43,9 @@ export class ListModeState {
     if (mode === ListMode.COVER_WALL) {
       return this.coverWallColW
     }
+    if (mode === ListMode.THUMBNAIL_GRID) {
+      return this.thumbnailColW
+    }
     return 0
   }
 
@@ -52,6 +57,8 @@ export class ListModeState {
       this.waterfallColW = width
     } else if (mode === ListMode.COVER_WALL) {
       this.coverWallColW = width
+    } else if (mode === ListMode.THUMBNAIL_GRID) {
+      this.thumbnailColW = width
     }
   }
 }

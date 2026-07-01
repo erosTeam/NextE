@@ -621,6 +621,14 @@
       "value": "横向きサムネイル"
     },
     {
+      "name": "settings_thumbnail_column_width",
+      "value": "サムネイル密度"
+    },
+    {
+      "name": "settings_thumbnail_column_width_hint",
+      "value": "サムネイルグリッドをピンチまたはドラッグして列数を調整"
+    },
+    {
       "name": "settings_blurring_of_cover_background",
       "value": "表紙背景をぼかす"
     },

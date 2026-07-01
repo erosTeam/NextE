@@ -1,9 +1,16 @@
+import { common } from '@kit.AbilityKit'
 import {
   ThemeConstants,
   EhGalleryImage,
   EhSpriteThumbnail,
   PreviewThumbTile,
   GroupedListSection,
+  ListMode,
+  ListModeSettings,
+  ListModeState,
+  connectListMode,
+  clampColumnWidth,
+  galleryWaterfallColumnCount,
 } from 'shared'
 
 // Horizontal-mode row thumb height (eros_fe ThumbHorizontalList ~200 incl. labels): each thumb keeps
@@ -29,8 +36,13 @@ export struct GalleryPreviewGrid {
   @Param hasMore: boolean = false;
   @Param horizontal: boolean = false;
   @Param hidden: boolean = false;
+  @Local listMode: ListModeState = connectListMode();
+  @Local measuredWidth: number = 0;
   @Event onOpen: (pageZeroBased: number) => void = (_p: number) => {};
   @Event onMore: (initialImagePage: number) => void = (_initialImagePage: number) => {};
+  private pinchStartW: number = 0;
+  private pinchStartCols: number = 0;
+  private pinchCommitted: boolean = false;
 
   private lastImagePage(): number {
     if (this.images.length === 0) {
@@ -138,7 +150,51 @@ export struct GalleryPreviewGrid {
   // Inline grid peek of the first preview page. Responsive column count via columnsTemplate (a true Grid,
   // not a wrapping Flex) so tiles align in columns with uniform gap and the last row left-aligns naturally.
   private columnsTemplate(): string {
-    return `repeat(auto-fit, ${ThemeConstants.PREVIEW_THUMB_MIN_W}vp)`
+    return `repeat(auto-fit, ${this.effectiveMinWidth()}vp)`
+  }
+
+  private effectiveMinWidth(): number {
+    const override: number = this.listMode.overrideWidthFor(ListMode.THUMBNAIL_GRID)
+    return override > 0 ? override : ThemeConstants.PREVIEW_THUMB_MIN_W
+  }
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private currentColumns(): number {
+    return galleryWaterfallColumnCount(
+      this.measuredWidth,
+      this.effectiveMinWidth(),
+      ThemeConstants.SPACE_SM,
+      0,
+    )
+  }
+
+  private applyPinch(scale: number): void {
+    if (this.pinchCommitted || this.measuredWidth <= 0) {
+      return
+    }
+    const next: number = clampColumnWidth(this.pinchStartW * scale)
+    this.listMode.setWidthFor(ListMode.THUMBNAIL_GRID, next)
+    const cols: number = galleryWaterfallColumnCount(
+      this.measuredWidth,
+      next,
+      ThemeConstants.SPACE_SM,
+      0,
+    )
+    if (cols !== this.pinchStartCols) {
+      this.pinchCommitted = true
+      this.getUIContext()
+        .getPromptAction()
+        .showToast({
+          message:
+            cols > this.pinchStartCols
+              ? $r('app.string.column_density_more')
+              : $r('app.string.column_density_fewer'),
+          duration: 800,
+        })
+    }
   }
 
   @Builder
@@ -163,6 +219,25 @@ export struct GalleryPreviewGrid {
     .columnsGap(ThemeConstants.SPACE_SM)
     .rowsGap(ThemeConstants.SPACE_SM)
     .width('100%')
+    .gesture(
+      PinchGesture({ fingers: 2 })
+        .onActionStart(() => {
+          this.pinchStartW = this.effectiveMinWidth()
+          this.pinchStartCols = this.currentColumns()
+          this.pinchCommitted = false
+        })
+        .onActionUpdate((event: GestureEvent) => {
+          this.applyPinch(event.scale)
+        })
+        .onActionEnd(() => {
+          ListModeSettings.setColumnWidth(this.ctx(), ListMode.THUMBNAIL_GRID, this.effectiveMinWidth())
+          this.pinchCommitted = false
+        }),
+    )
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      const parsed: number = Number.parseFloat(`${newValue.width}`)
+      this.measuredWidth = parsed > 0 ? parsed : 0
+    })
   }
 
   build() {

@@ -68,6 +68,7 @@ import {
   SecuritySettings,
   SecuritySettingsState,
   connectSecuritySettings,
+  ListMode,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -1194,6 +1195,8 @@ struct Index {
       LayoutSettingsPage()
     } else if (name === 'ColumnDensity') {
       ColumnDensityPage()
+    } else if (name === 'ThumbnailColumnDensity') {
+      ColumnDensityPage({ targetMode: ListMode.THUMBNAIL_GRID })
     } else if (name === 'CacheSettings') {
       CacheSettingsPage()
     } else if (name === 'ReaderSettings') {

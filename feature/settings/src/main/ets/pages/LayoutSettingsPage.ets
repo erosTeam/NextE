@@ -789,6 +789,15 @@ export struct LayoutSettingsPage {
                 this.setHorizontalThumbnails(value)
               },
             })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.settings_thumbnail_column_width'),
+              subtitle: $r('app.string.settings_thumbnail_column_width_hint'),
+              leadingIcon: $r('sys.symbol.square_grid_2x2'),
+              action: () => {
+                this.stack.pushPathByName('ThumbnailColumnDensity', null)
+              },
+            })
           }
         }
       }

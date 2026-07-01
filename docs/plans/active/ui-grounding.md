@@ -561,3 +561,13 @@ Primary information: a large archive task should keep showing real progress unti
 Primary action: the user starts an archive download from the detail Archiver sheet, then watches the existing Downloads tab task progress; failed tasks keep their retry path.
 Reuse or deviation: reuse the existing stream-to-file client, retry count, task persistence, and progress UI; deviate only by giving archive streams a longer read timeout than ordinary image downloads because 197 logs showed 777 MB archive transfers timing out mid-stream under the generic 20 s binary timeout.
 Verification: 197 hilog evidence for the old `archiver_download_stream_progress` followed by repeated `Operation timeout`, the fixed build retry reaching `archiver_download_done | bytes=777185766`, download RDB contract, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
+
+## Active: thumbnail grid density gesture
+
+Status: active
+Reference implementation: NextE gallery list `PullRefreshGridScaffold` pinch-density path, `feature/gallery/src/main/ets/components/GalleryPreviewGrid.ets`, `feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets`, and eros_fe `../eros_fe/lib/pages/gallery/view/all_thumbnails_page.dart`.
+Surface type: gallery detail inline thumbnail grid plus the all-thumbnails page only.
+Primary information: thumbnail cards remain page-preview thumbnails; the density control changes only how many thumbnail cells fit per row.
+Primary action: two-finger pinch on thumbnail grids and the Layout settings row adjust the shared thumbnail column width; tapping thumbnails still opens the reader.
+Reuse or deviation: reuse the existing list-mode column-width state, slider page, and `PullRefreshGridScaffold.pinchModeKey`; deviate only by wiring the detail inline bare `Grid` to the same persisted thumbnail key because it is not a pull-refresh page.
+Verification: responsive thumbnail grid contract, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and settings/all-thumbnails smoke on X7 when available.
