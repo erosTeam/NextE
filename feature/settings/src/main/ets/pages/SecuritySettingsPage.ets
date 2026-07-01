@@ -7,6 +7,7 @@ import {
   ConciseListRow,
   GroupedListSection,
   SecondaryListScaffold,
+  SecurityAuthResult,
   SecuritySettings,
   SecuritySettingsState,
   ThemeConstants,
@@ -58,8 +59,10 @@ export struct SecuritySettingsPage {
 
   private setAutoLock(seconds: number): void {
     this.autoLockMenuShown = false
-    SecuritySettings.setAutoLockSecondsWithBoundaryAuth(this.ctx(), seconds).then((ok: boolean) => {
-      if (!ok) {
+    SecuritySettings.setAutoLockSecondsWithBoundaryAuth(this.ctx(), seconds).then((result: SecurityAuthResult) => {
+      if (result === SecurityAuthResult.UNAVAILABLE) {
+        this.toast($r('app.string.security_auth_unavailable'))
+      } else if (result !== SecurityAuthResult.SUCCESS) {
         this.toast($r('app.string.security_unlock_failed'))
       }
     })

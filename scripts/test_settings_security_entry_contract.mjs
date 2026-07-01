@@ -69,6 +69,9 @@ ok(/getAvailableStatus\(type, userAuth\.AuthTrustLevel\.ATL1\)/.test(settings),
 ok(/setAutoLockSecondsWithBoundaryAuth/.test(settings) &&
   /crossesEnabledBoundary/.test(settings),
   'auto-lock only authenticates when crossing the enabled/disabled boundary')
+ok(/export enum SecurityAuthResult/.test(settings) &&
+  /Promise<SecurityAuthResult>/.test(settings),
+  'auto-lock boundary setter returns the concrete authentication result')
 ok(!/setRecentTasksProtectionWithAuth/.test(settings),
   'recent-task privacy switch does not require system authentication')
 ok(/enum SecurityAuthResult/.test(settings) &&
@@ -86,6 +89,7 @@ ok(/import \{ SecuritySettings \}/.test(bootstrap) && /await SecuritySettings\.r
 
 const barrel = read('shared/src/main/ets/Index.ets')
 ok(/SecuritySettingsState/.test(barrel) && /connectSecuritySettings/.test(barrel) &&
+  /SecurityAuthResult/.test(barrel) &&
   /SecuritySettings/.test(barrel), 'shared barrel exports security settings API')
 
 const settingsRoot = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
@@ -116,6 +120,9 @@ ok(/security_recent_tasks_blur/.test(page) && /hasSwitch: true/.test(page) &&
 ok(/security_auto_lock/.test(page) && /trailingDropdown: true/.test(page) &&
   /SecuritySettings\.setAutoLockSecondsWithBoundaryAuth/.test(page),
   'page authenticates auto-lock only when enabling or disabling it')
+ok(/SecurityAuthResult\.UNAVAILABLE/.test(page) &&
+  /security_auth_unavailable/.test(page),
+  'settings page shows a specific message when system authentication is not configured')
 ok(!/SecuritySettings\.setRecentTasksProtectionWithAuth/.test(page) &&
   !/SecuritySettings\.setAutoLockSeconds\(/.test(page),
   'settings page does not directly write auto-lock preferences without boundary authentication')
@@ -152,6 +159,7 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'security_unlock_title',
     'security_unlock_button',
     'security_unlock_failed',
+    'security_auth_unavailable',
     'security_auto_lock_disabled',
     'security_auto_lock_instant',
     'security_auto_lock_30s',

@@ -2521,6 +2521,10 @@
       "value": "Authentication failed"
     },
     {
+      "name": "security_auth_unavailable",
+      "value": "Set up a screen lock or biometric authentication in system settings first"
+    },
+    {
       "name": "security_auto_lock_disabled",
       "value": "Disabled"
     },

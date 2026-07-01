@@ -2521,6 +2521,10 @@
       "value": "认证失败"
     },
     {
+      "name": "security_auth_unavailable",
+      "value": "请先在系统设置中设置锁屏密码或生物认证"
+    },
+    {
       "name": "security_auto_lock_disabled",
       "value": "停用"
     },

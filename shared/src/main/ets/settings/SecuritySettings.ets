@@ -24,7 +24,7 @@ const AUTO_LOCK_VALUES: number[] = [
 const BIOMETRIC_PERMISSION: Permissions = 'ohos.permission.ACCESS_BIOMETRIC'
 const AUTH_UNAVAILABLE: number = -1
 
-enum SecurityAuthResult {
+export enum SecurityAuthResult {
   SUCCESS,
   FAILED,
   UNAVAILABLE,
@@ -116,20 +116,22 @@ export class SecuritySettings {
   static async setAutoLockSecondsWithBoundaryAuth(
     context: common.UIAbilityContext,
     seconds: number,
-  ): Promise<boolean> {
+  ): Promise<SecurityAuthResult> {
     const value: number = normalizeAutoLockSeconds(seconds)
     const current: number = connectSecuritySettings().autoLockSeconds
     if (current === value) {
-      return true
+      return SecurityAuthResult.SUCCESS
     }
     const crossesEnabledBoundary: boolean =
       (current === AutoLockTimeout.DISABLED) !== (value === AutoLockTimeout.DISABLED)
-    if (crossesEnabledBoundary &&
-      await SecuritySettings.authenticate(context) !== SecurityAuthResult.SUCCESS) {
-      return false
+    if (crossesEnabledBoundary) {
+      const authResult: SecurityAuthResult = await SecuritySettings.authenticate(context)
+      if (authResult !== SecurityAuthResult.SUCCESS) {
+        return authResult
+      }
     }
     await SecuritySettings.setAutoLockSeconds(context, value)
-    return true
+    return SecurityAuthResult.SUCCESS
   }
 
   static async recordBackground(context: common.UIAbilityContext): Promise<void> {

@@ -502,7 +502,7 @@ export { GalleryReadProgressSettings } from './settings/GalleryReadProgressSetti
 export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
 export { DownloadSettings } from './settings/DownloadSettings'
 export { DownloadQueueSettings } from './settings/DownloadQueueSettings'
-export { SecuritySettings } from './settings/SecuritySettings'
+export { SecurityAuthResult, SecuritySettings } from './settings/SecuritySettings'
 export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
 export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'
 export { HomeTabSettings } from './settings/HomeTabSettings'
