@@ -169,6 +169,14 @@ export struct EhSettingsPage {
             })
             this.rowDivider()
             ConciseListRow({
+              title: $r('app.string.settings_translation'),
+              leadingIcon: $r('sys.symbol.translate'),
+              action: () => {
+                this.stack.pushPathByName('TranslationSettings', null)
+              },
+            })
+            this.rowDivider()
+            ConciseListRow({
               title: $r('app.string.image_block_title'),
               subtitle: $r('app.string.image_block_hint'),
               leadingIcon: $r('sys.symbol.eye_slash'),

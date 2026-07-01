@@ -22,6 +22,7 @@ const commentsPage = read('feature/gallery/src/main/ets/pages/GalleryCommentsPag
 const commentModel = read('shared/src/main/ets/model/EhGalleryComment.ets')
 const settingsPage = read('feature/settings/src/main/ets/pages/TranslationSettingsPage.ets')
 const rootSettings = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
+const ehSettings = read('feature/settings/src/main/ets/pages/EhSettingsPage.ets')
 const entry = read('entry/src/main/ets/pages/Index.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const shared = read('shared/src/main/ets/Index.ets')
@@ -112,7 +113,8 @@ ok(
 )
 ok(
   /TranslationSettingsPage/.test(entry) &&
-    /pushPathByName\('TranslationSettings'/.test(rootSettings) &&
+    !/pushPathByName\('TranslationSettings'/.test(rootSettings) &&
+    /pushPathByName\('TranslationSettings'/.test(ehSettings) &&
     /SecondaryListScaffold/.test(settingsPage) &&
     /TextInput/.test(settingsPage) &&
     /comment_translation_fetch_models/.test(settingsPage) &&
@@ -126,7 +128,7 @@ ok(
     /this\.setModel\(model\)/.test(settingsPage) &&
     /comment_translation_validate_api/.test(settingsPage) &&
     /validateConfiguredLlm/.test(settingsPage),
-  'translation settings page must be routed from Settings and use existing settings scaffolds, including model fetch',
+  'translation settings page must be routed from EH settings and use existing settings scaffolds, including model fetch',
 )
 ok(
   /TranslationAction/.test(commentsCard) &&

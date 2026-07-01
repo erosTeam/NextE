@@ -12,6 +12,16 @@ Primary action: search/filter visible tasks, choose a sort mode, resume/pause/re
 Reuse or deviation: reuse the existing HDS title-bar bottomBuilder, shared `AppSearchField`, task cards, and current task state fields; deviate only by deriving grouped/sorted visible arrays in the page instead of mutating queue order.
 Verification: download management plan doc, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and X7 Downloads search/sort/group smoke.
 
+## Active: security background privacy and native unlock
+
+Status: active
+Reference implementation: `../eros_fe/lib/common/controller/auto_lock_controller.dart`, `../eros_fe/lib/pages/tab/view/unlock_page.dart`, existing NextE `feature/settings/src/main/ets/pages/SecuritySettingsPage.ets`, and `entry/src/main/ets/entryability/EntryAbility.ets` as the window/lifecycle owner.
+Surface type: Security settings rows plus a root full-screen lock overlay only; no custom password page or new navigation route.
+Primary information: users see whether recent-task privacy is enabled and whether returning from background will require system authentication.
+Primary action: toggle recent-task protection, choose an auto-lock timeout, return from background, and unlock with the HarmonyOS system authentication sheet.
+Reuse or deviation: reuse `ConciseListRow`, the existing auto-lock dropdown, native `Window.setWindowPrivacyMode`, and `@ohos.userIAM.userAuth`; deviate from eros_fe only by not building a custom Flutter unlock page.
+Verification: UI grounding contract, V1 decorator inventory, i18n resource check, signed HarmonyOS build, and 197/Emulator smoke for recent-task privacy plus foreground unlock.
+
 ## Active: download source cover seed and archive progress publish
 
 Status: active

@@ -2041,6 +2041,14 @@
       "value": "ローカルのお気に入り、履歴、読書記録を端末間で同期します"
     },
     {
+      "name": "perm_access_biometric_reason",
+      "value": "自動ロック有効時に NextE を解除します"
+    },
+    {
+      "name": "perm_privacy_window_reason",
+      "value": "スクリーンショット、録画、最近のタスクで NextE の内容を非表示にします"
+    },
+    {
       "name": "settings_sync_hint",
       "value": "永続的なローカルデータを同期します。"
     },
@@ -2486,7 +2494,7 @@
     },
     {
       "name": "security_recent_tasks_blur_hint",
-      "value": "HarmonyOS のウィンドウプライバシー対応後に有効化"
+      "value": "スクリーンショット、録画、最近のタスクのプレビューで内容を隠します"
     },
     {
       "name": "security_auto_lock",
@@ -2494,7 +2502,23 @@
     },
     {
       "name": "security_auto_lock_hint",
-      "value": "設定は保存されます。生体認証ロック実行は別 lane です"
+      "value": "NextE がバックグラウンドから戻った後にシステム認証を要求します"
+    },
+    {
+      "name": "security_locked_title",
+      "value": "NextE はロックされています"
+    },
+    {
+      "name": "security_unlock_title",
+      "value": "NextE を解除"
+    },
+    {
+      "name": "security_unlock_button",
+      "value": "解除"
+    },
+    {
+      "name": "security_unlock_failed",
+      "value": "認証に失敗しました"
     },
     {
       "name": "security_auto_lock_disabled",

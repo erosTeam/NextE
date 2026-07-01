@@ -163,14 +163,6 @@ export struct SettingsPage {
       this.rowDivider()
       if (!this.safeMode.restricted()) {
         ConciseListRow({
-          title: $r('app.string.settings_translation'),
-          leadingIcon: $r('sys.symbol.translate'),
-          action: () => {
-            this.stack.pushPathByName('TranslationSettings', null)
-          },
-        })
-        this.rowDivider()
-        ConciseListRow({
           title: $r('app.string.tab_history'),
           leadingIcon: $r('sys.symbol.clock'),
           action: () => {
@@ -188,7 +180,7 @@ export struct SettingsPage {
       })
       this.rowDivider()
       ConciseListRow({
-        title: $r('app.string.advanced_diagnostics'),
+        title: $r('app.string.settings_advanced'),
         leadingIcon: $r('sys.symbol.gearshape'),
         action: () => {
           this.stack.pushPathByName('AdvancedSettings', null)

@@ -2041,6 +2041,14 @@
       "value": "Sync local favorites, history, and reading records across devices"
     },
     {
+      "name": "perm_access_biometric_reason",
+      "value": "Unlock NextE when auto-lock is enabled"
+    },
+    {
+      "name": "perm_privacy_window_reason",
+      "value": "Hide NextE content in screenshots, recordings, and recent tasks"
+    },
+    {
       "name": "settings_sync_hint",
       "value": "Sync durable local data."
     },
@@ -2486,7 +2494,7 @@
     },
     {
       "name": "security_recent_tasks_blur_hint",
-      "value": "Disabled until HarmonyOS window privacy support is implemented"
+      "value": "Hide app content from screenshots, recording, and recent-task previews"
     },
     {
       "name": "security_auto_lock",
@@ -2494,7 +2502,23 @@
     },
     {
       "name": "security_auto_lock_hint",
-      "value": "Preference is saved; biometric lock enforcement is a separate lane"
+      "value": "Require system authentication after NextE returns from background"
+    },
+    {
+      "name": "security_locked_title",
+      "value": "NextE is locked"
+    },
+    {
+      "name": "security_unlock_title",
+      "value": "Unlock NextE"
+    },
+    {
+      "name": "security_unlock_button",
+      "value": "Unlock"
+    },
+    {
+      "name": "security_unlock_failed",
+      "value": "Authentication failed"
     },
     {
       "name": "security_auto_lock_disabled",

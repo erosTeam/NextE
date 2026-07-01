@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 /**
- * Contract: Settings does not expose Security as a user-facing entry until lock enforcement is real.
- * The old preference foundation may stay parked for a future platform-validated lane, but Settings root
- * must not imply recent-task privacy or auto-lock protection is available.
+ * Contract: Security settings are exposed only after real native protection is wired.
  *
  * Run: node scripts/test_settings_security_entry_contract.mjs
  */
@@ -20,28 +18,34 @@ const ok = (cond, msg) => {
 }
 
 const grounding = [
-  'eros_fe: lib/pages/tab/controller/setting_controller.dart routes Security to EHRoutes.securitySetting; lib/pages/setting/security_setting_page.dart renders recent-task blur and auto-lock rows',
-  'primary information: app privacy and auto-lock settings only when real protection is wired',
-  'primary action: none exposed this lane; do not offer an auto-lock chooser without lifecycle/biometric enforcement',
-  'scope: hide the misleading Settings root entry; keep the parked V2 preference foundation for a future protected implementation',
-  'Harmony expression: Settings root reachability is the contract; no HDS entry until the downstream protection is real',
+  'eros_fe: lib/common/controller/auto_lock_controller.dart records leave time and locks on resume; lib/pages/tab/view/unlock_page.dart blocks content behind authentication',
+  'primary information: recent-task privacy and auto-lock timeout backed by native HarmonyOS protection',
+  'primary action: enable recent-task protection, choose auto-lock timeout, unlock through system authentication after background return',
+  'scope: expose the Security settings entry because lifecycle lock enforcement and window privacy are wired',
+  'Harmony expression: Window.setWindowPrivacyMode plus @ohos.userIAM.userAuth; no custom password page',
 ]
 
 ok(grounding.length === 5, 'security settings lane has five-line grounding')
-ok(grounding[0].includes('setting_controller.dart') && grounding[0].includes('security_setting_page.dart'),
+ok(grounding[0].includes('auto_lock_controller.dart') && grounding[0].includes('unlock_page.dart'),
   'grounding names concrete eros_fe Security settings files')
-ok(grounding[3].includes('hide the misleading Settings root entry') &&
-  grounding[4].includes('no HDS entry'), 'grounding limits scope and names Harmony expression')
+ok(grounding[3].includes('expose the Security settings entry') &&
+  grounding[4].includes('Window.setWindowPrivacyMode') &&
+  grounding[4].includes('@ohos.userIAM.userAuth'), 'grounding limits scope and names Harmony expression')
 
 const state = read('shared/src/main/ets/state/SecuritySettingsState.ets')
 ok(/@ObservedV2\s+export class SecuritySettingsState/.test(state), 'security settings holder is V2')
 ok(/@Trace autoLockSeconds: number = AutoLockTimeout\.DISABLED/.test(state),
   'auto-lock defaults to disabled')
+ok(/@Trace recentTasksProtectionEnabled: boolean = false/.test(state) &&
+  /@Trace locked: boolean = false/.test(state),
+  'security state tracks recent-task protection and runtime lock')
 ok(/AppStorageV2\.connect\(\s*SecuritySettingsState/.test(state),
   'security settings holder connects through AppStorageV2')
 
 const settings = read('shared/src/main/ets/settings/SecuritySettings.ets')
 ok(/StorageKeys\.SECURITY_AUTO_LOCK_SEC/.test(settings), 'settings persist auto-lock key')
+ok(/StorageKeys\.SECURITY_RECENT_TASKS_PROTECTION/.test(settings),
+  'settings persist recent-task protection key')
 ok(/AUTO_LOCK_VALUES: number\[\]/.test(settings) &&
   /AutoLockTimeout\.DISABLED/.test(settings) &&
   /AutoLockTimeout\.HOURS_5/.test(settings),
@@ -52,6 +56,14 @@ ok(/static async restore/.test(settings) && /connectSecuritySettings\(\)/.test(s
 ok(/static async setAutoLockSeconds/.test(settings) &&
   /store\.putSync\(StorageKeys\.SECURITY_AUTO_LOCK_SEC/.test(settings),
   'settings write auto-lock timeout to preferences')
+ok(/userAuth\.getUserAuthInstance/.test(settings) &&
+  /userAuth\.UserAuthType\.FACE/.test(settings) &&
+  /userAuth\.UserAuthType\.FINGERPRINT/.test(settings) &&
+  /userAuth\.UserAuthType\.PIN/.test(settings),
+  'security lock uses native system authentication with biometric plus PIN fallback')
+ok(/bindWindowPrivacyApplier/.test(settings) &&
+  /state\.recentTasksProtectionEnabled \|\| state\.locked/.test(settings),
+  'window privacy stays on for recent-task protection or while locked')
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok(/import \{ SecuritySettings \}/.test(bootstrap) && /await SecuritySettings\.restore\(context\)/.test(bootstrap),
@@ -62,8 +74,11 @@ ok(/SecuritySettingsState/.test(barrel) && /connectSecuritySettings/.test(barrel
   /SecuritySettings/.test(barrel), 'shared barrel exports security settings API')
 
 const settingsRoot = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
-ok(!/settings_security/.test(settingsRoot) && !/pushPathByName\('SecuritySettings', null\)/.test(settingsRoot),
-  'Settings root does not expose Security until lock enforcement is implemented')
+ok(!/title:\s*\$r\('app\.string\.settings_security'\)[\s\S]*pushPathByName\('SecuritySettings', null\)/.test(settingsRoot),
+  'Settings root does not expose Security as a top-level row')
+const advancedPage = read('feature/settings/src/main/ets/pages/AdvancedSettingsPage.ets')
+ok(/settings_security/.test(advancedPage) && /pushPathByName\('SecuritySettings', null\)/.test(advancedPage),
+  'Advanced settings exposes Security after lock enforcement is implemented')
 
 const settingsIndex = read('feature/settings/src/main/ets/Index.ets')
 ok(/SecuritySettingsPage/.test(settingsIndex), 'parked settings barrel still exports SecuritySettingsPage')
@@ -78,22 +93,45 @@ ok(/@ComponentV2\s+export struct SecuritySettingsPage/.test(page),
 ok(/@Local securitySettings: SecuritySettingsState = connectSecuritySettings\(\)/.test(page),
   'page reads the persisted security settings holder')
 ok(/security_recent_tasks_blur/.test(page) && /hasSwitch: true/.test(page) &&
-  /checked: false/.test(page) && /isEnabled: false/.test(page),
-  'recent-task blur is visible but disabled, not falsely implemented')
+  /checked: this\.securitySettings\.recentTasksProtectionEnabled/.test(page) &&
+  /SecuritySettings\.setRecentTasksProtection/.test(page),
+  'recent-task protection switch is wired to persisted native window privacy')
 ok(/security_auto_lock/.test(page) && /trailingDropdown: true/.test(page) &&
   /SecuritySettings\.setAutoLockSeconds/.test(page),
   'page exposes auto-lock preference as a native dropdown')
-ok(!/userAuth|ACCESS_BIOMETRIC|WindowPrivacy|setWindowPrivacy|blurredInRecentTasks\s*=|checkBiometrics|Unlock/.test(page),
-  'page does not introduce unvalidated biometric, window privacy, or lock overlay behavior')
+ok(!/userAuth|ACCESS_BIOMETRIC|setWindowPrivacy|blurredInRecentTasks\s*=|checkBiometrics/.test(page),
+  'settings page does not hand-roll platform authentication or window APIs')
+
+const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
+ok(/SecuritySettings\.bindWindowPrivacyApplier/.test(entryAbility) &&
+  /\.setWindowPrivacyMode\(enabled\)/.test(entryAbility),
+  'EntryAbility owns the main-window privacy mode')
+ok(/onBackground\(\): void[\s\S]*SecuritySettings\.recordBackground/.test(entryAbility) &&
+  /onForeground\(\): void[\s\S]*SecuritySettings\.lockIfNeeded/.test(entryAbility),
+  'EntryAbility records background time and checks auto-lock on foreground')
+
+const moduleJson = read('entry/src/main/module.json5')
+ok(/ohos\.permission\.ACCESS_BIOMETRIC/.test(moduleJson) &&
+  /perm_access_biometric_reason/.test(moduleJson),
+  'entry declares biometric access permission with reason')
+ok(/ohos\.permission\.PRIVACY_WINDOW/.test(moduleJson) &&
+  /perm_privacy_window_reason/.test(moduleJson),
+  'entry declares window privacy permission with reason')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
   for (const key of [
     'settings_security',
+    'perm_access_biometric_reason',
+    'perm_privacy_window_reason',
     'security_recent_tasks_blur',
     'security_recent_tasks_blur_hint',
     'security_auto_lock',
     'security_auto_lock_hint',
+    'security_locked_title',
+    'security_unlock_title',
+    'security_unlock_button',
+    'security_unlock_failed',
     'security_auto_lock_disabled',
     'security_auto_lock_instant',
     'security_auto_lock_30s',
@@ -113,4 +151,4 @@ if (failures > 0) {
   process.exit(1)
 }
 
-console.log('✓ settings security entry contract: Security root entry stays hidden until lock enforcement exists')
+console.log('✓ settings security entry contract: native privacy and auto-lock are wired')

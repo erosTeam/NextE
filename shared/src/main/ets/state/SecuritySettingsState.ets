@@ -13,13 +13,17 @@ export enum AutoLockTimeout {
 }
 
 /**
- * Security preferences mirror eros_fe's SecuritySettingPage shape. This state currently persists
- * the user's auto-lock preference only; actual lock enforcement and biometric authentication are a
- * separate feature lane because they require platform capability and lifecycle validation.
+ * Security preferences mirror eros_fe's SecuritySettingPage shape. Runtime lock fields live here too
+ * so the root shell can cover content while native user authentication is pending.
  */
 @ObservedV2
 export class SecuritySettingsState {
+  @Trace recentTasksProtectionEnabled: boolean = false
   @Trace autoLockSeconds: number = AutoLockTimeout.DISABLED
+  @Trace lastBackgroundAt: number = 0
+  @Trace locked: boolean = false
+  @Trace authenticating: boolean = false
+  @Trace authError: string = ''
 }
 
 const SECURITY_SETTINGS_KEY: string = 'v2:securitySettings'

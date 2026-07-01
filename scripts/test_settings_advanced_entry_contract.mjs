@@ -41,24 +41,26 @@ const advancedPageCode = advancedPage.replace(/\/\*[\s\S]*?\*\//g, '').replace(/
 ok(/export \{ AdvancedSettingsPage \}/.test(settingsIndex), 'settings module exports AdvancedSettingsPage')
 ok(/AdvancedSettingsPage/.test(entry) && /name === 'AdvancedSettings'[\s\S]*AdvancedSettingsPage\(\)/.test(entry),
   'entry registers AdvancedSettings route')
-ok(/advanced_diagnostics/.test(settingsRoot) && /pushPathByName\('AdvancedSettings', null\)/.test(settingsRoot),
-  'Settings root exposes a Diagnostics row that pushes the diagnostics route')
-ok(!/title:\s*\$r\('app\.string\.settings_advanced'\)[\s\S]*pushPathByName\('AdvancedSettings', null\)/.test(settingsRoot),
-  'Settings root does not label the diagnostics-only entry as full Advanced')
+ok(/settings_advanced/.test(settingsRoot) && /pushPathByName\('AdvancedSettings', null\)/.test(settingsRoot),
+  'Settings root exposes an Advanced row that pushes the advanced route')
+ok(/title:\s*\$r\('app\.string\.settings_advanced'\)[\s\S]*pushPathByName\('AdvancedSettings', null\)/.test(settingsRoot),
+  'Settings root labels the grouped low-frequency page as Advanced')
 
 ok(/export struct AdvancedSettingsPage/.test(advancedPage) && /HdsNavDestination/.test(advancedPage),
   'AdvancedSettingsPage is a native HDS destination')
-ok(/immersiveTitleBar\(AppStrings\.get\('advanced_diagnostics'\)\)/.test(advancedPage),
-  'diagnostics page title matches its implemented scope')
-ok(/advanced_diagnostics/.test(advancedPage) && /trailingText:\s*'HiLog'/.test(advancedPage),
-  'page explains native HiLog diagnostics')
+ok(/immersiveTitleBar\(AppStrings\.get\('settings_advanced'\)\)/.test(advancedPage),
+  'advanced page title matches the grouped low-frequency scope')
+ok(/settings_security/.test(advancedPage) && /pushPathByName\('SecuritySettings', null\)/.test(advancedPage),
+  'advanced page exposes Security as a child row')
+ok(/diagnostics_enabled/.test(advancedPage) && /diagnostics_min_level/.test(advancedPage),
+  'page exposes native diagnostics controls')
 ok(/advanced_write_marker/.test(advancedPage) &&
   /DiagnosticLogger\.info\('diagnostics', 'manual_marker', `ts=\$\{Date\.now\(\)\}`\)/.test(advancedPage),
   'page writes a timestamped manual diagnostics marker')
-ok(/showToast\(\{[\s\S]*advanced_marker_written/.test(advancedPage),
+ok(/this\.toast\(\$r\('app\.string\.advanced_marker_written'\)\)/.test(advancedPage),
   'marker action gives immediate visible feedback')
-ok(!/Proxy|proxy|Cache|cache|Import|import_app|Export|export_app|Block|blockers|WebDAV|Language|Locale/.test(advancedPageCode),
-  'page does not expose unsupported advanced rows')
+ok(!/Proxy|proxy|import_app|export_app|blockers|WebDAV|Language|Locale/.test(advancedPageCode),
+  'page does not expose unrelated advanced rows')
 
 for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
