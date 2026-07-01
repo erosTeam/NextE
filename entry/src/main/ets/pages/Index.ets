@@ -38,6 +38,7 @@ import {
   DownloadGalleryTaskStatus,
   DownloadQueueSettings,
   DownloadQueueState,
+  DownloadSortMode,
   DownloadViewState,
   DownloadViewType,
   connectSearchAction,
@@ -913,6 +914,17 @@ struct Index {
 
   private downloadMenu(): Record<string, Object> {
     const items: Record<string, Object>[] = []
+    const searchInner: Record<string, Object> = {
+      'label': this.downloadView.searchActive ? $r('app.string.download_search_close') : $r('app.string.tab_search'),
+      'icon': this.downloadView.searchActive ? $r('sys.symbol.xmark') : $r('sys.symbol.magnifyingglass'),
+      'isEnabled': true,
+      'action': () => {
+        this.toggleDownloadSearch()
+      },
+    }
+    items.push({ 'content': searchInner })
+    items.push(this.downloadSortCycleMenuItem())
+    this.appendDownloadSortItems(items)
     const resumeInner: Record<string, Object> = {
       'label': $r('app.string.download_resume_all'),
       'icon': $r('sys.symbol.play_fill'),
@@ -936,7 +948,61 @@ struct Index {
       items.push({ 'content': pauseInner })
     }
     items.push(this.backToTopMenuItem())
-    return { 'value': items, 'maxCount': items.length }
+    return { 'value': items, 'maxCount': 3 }
+  }
+
+  private downloadSortCycleMenuItem(): Record<string, Object> {
+    const sortInner: Record<string, Object> = {
+      'label': $r('app.string.fav_order_title'),
+      'icon': $r('sys.symbol.sort'),
+      'isEnabled': true,
+      'action': () => {
+        this.cycleDownloadSort()
+      },
+    }
+    return { 'content': sortInner }
+  }
+
+  private appendDownloadSortItems(items: Record<string, Object>[]): void {
+    this.pushDownloadSortItem(items, DownloadSortMode.ADDED_DESC, $r('app.string.download_sort_added_desc'))
+    this.pushDownloadSortItem(items, DownloadSortMode.ADDED_ASC, $r('app.string.download_sort_added_asc'))
+    this.pushDownloadSortItem(items, DownloadSortMode.TITLE_ASC, $r('app.string.download_sort_title_asc'))
+    this.pushDownloadSortItem(items, DownloadSortMode.TITLE_DESC, $r('app.string.download_sort_title_desc'))
+  }
+
+  private pushDownloadSortItem(items: Record<string, Object>[], mode: string, label: Resource): void {
+    const sortInner: Record<string, Object> = {
+      'label': label,
+      'icon': this.downloadView.sortMode === mode ? $r('sys.symbol.checkmark') : $r('sys.symbol.sort'),
+      'isEnabled': true,
+      'action': () => {
+        this.downloadView.sortMode = mode
+        DiagnosticLogger.info('download', 'download_sort_change', `mode=${mode}`)
+      },
+    }
+    items.push({ 'content': sortInner })
+  }
+
+  private cycleDownloadSort(): void {
+    if (this.downloadView.sortMode === DownloadSortMode.ADDED_DESC) {
+      this.downloadView.sortMode = DownloadSortMode.ADDED_ASC
+    } else if (this.downloadView.sortMode === DownloadSortMode.ADDED_ASC) {
+      this.downloadView.sortMode = DownloadSortMode.TITLE_ASC
+    } else if (this.downloadView.sortMode === DownloadSortMode.TITLE_ASC) {
+      this.downloadView.sortMode = DownloadSortMode.TITLE_DESC
+    } else {
+      this.downloadView.sortMode = DownloadSortMode.ADDED_DESC
+    }
+    DiagnosticLogger.info('download', 'download_sort_cycle', `mode=${this.downloadView.sortMode}`)
+  }
+
+  private toggleDownloadSearch(): void {
+    const active: boolean = !this.downloadView.searchActive
+    this.downloadView.searchActive = active
+    if (!active) {
+      this.downloadView.searchText = ''
+    }
+    DiagnosticLogger.info('download', active ? 'download_search_open' : 'download_search_close', `type=${this.downloadView.viewType}`)
   }
 
   private downloadHasResumable(): boolean {

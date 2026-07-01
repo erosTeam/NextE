@@ -33,9 +33,13 @@ const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
 const galleryRenderKeyBody = page.match(/private galleryRenderKey\(task: DownloadGalleryTask\): string \{([\s\S]*?)\n  \}/)?.[1] ?? ''
 const archiverRenderKeyBody = page.match(/private archiverRenderKey\(task: DownloadArchiverTask\): string \{([\s\S]*?)\n  \}/)?.[1] ?? ''
 const galleryTaskCardBody =
-  page.match(/private DownloadGalleryTaskCard\(task: DownloadGalleryTask\) \{([\s\S]*?)\n  \}\n\n  @Builder\n  private GalleryOriginalBadge/)?.[1] ?? ''
+  page.match(/private DownloadGalleryTaskCard\(task: DownloadGalleryTask\) \{([\s\S]*?)\n  \}\n\n  @Builder\n  private TaskMetaLine/)?.[1] ?? ''
 const archiverTaskCardBody =
-  page.match(/private DownloadArchiverTaskCard\(task: DownloadArchiverTask\) \{([\s\S]*?)\n  \}\n\n  @Builder\n  private GalleryTaskCover/)?.[1] ?? ''
+  page.match(/private DownloadArchiverTaskCard\(task: DownloadArchiverTask\) \{([\s\S]*?)\n  \}\n\n  @Builder\n  private TaskAddedTimeLine/)?.[1] ?? ''
+const galleryTaskCardOpening =
+  page.match(/private DownloadGalleryTaskCard\(task: DownloadGalleryTask\) \{\n    ([^\n]+)/)?.[1] ?? ''
+const archiverTaskCardOpening =
+  page.match(/private DownloadArchiverTaskCard\(task: DownloadArchiverTask\) \{\n    ([^\n]+)/)?.[1] ?? ''
 const galleryStreamProgressBody =
   queueSettings.match(/private static updateGalleryStreamProgress\([\s\S]*?\n  private static updateArchiverProgress/)?.[0] ?? ''
 const archiverStreamProgressBody =
@@ -78,7 +82,7 @@ ok(!/SummarySection|download_active_tasks|download_finished_tasks|selectedStatus
   'download page does not put settings-like summary rows before the queue')
 ok(/EmptyQueueSection/.test(page) && /selectedEmptyText/.test(page) && /selectedNextStep/.test(page),
   'download page shows per-queue empty-state guidance')
-ok(/ListItem\(\)\s*\{[\s\S]*DOWNLOAD_SELECTOR_BAR_HEIGHT[\s\S]*\}\s*if \(this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.downloadQueue\.galleryTasks\.length > 0\)/.test(page),
+ok(/ListItem\(\)\s*\{[\s\S]*DOWNLOAD_SELECTOR_BAR_HEIGHT[\s\S]*\}\s*if \(this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.selectedVisibleTaskCount\(\) > 0\)/.test(page),
   'download task or empty state follows the pinned selector spacer directly')
 ok(!/SettingsPreviewSection|download_concurrency|download_original_images|connectDownloadSettings/.test(page),
   'download page does not mix download settings into queue content')
@@ -88,8 +92,10 @@ ok(/private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)/.test(page) &&
   /Text\(task\.displayTitle\(\)\)[\s\S]*maxLines\(2\)/.test(page),
   'gallery tasks render as readable task cards with cover and two-line title')
 ok(!/BasicDataSource<DownloadGalleryTask>|BasicDataSource<DownloadArchiverTask>|galleryDataSource|archiverDataSource/.test(page) &&
-  /ForEach\(\s*this\.downloadQueue\.galleryTasks,[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(page) &&
-  /ForEach\(\s*this\.downloadQueue\.archiverTasks,[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadArchiverTaskCard\(this\.currentArchiverTask\(task\)\)/.test(page) &&
+  /private galleryTasksForGroup\(group: number\): DownloadGalleryTask\[\] \{[\s\S]*this\.downloadQueue\.galleryTasks\.length[\s\S]*out\.sort\(\(a: DownloadGalleryTask, b: DownloadGalleryTask\): number => this\.compareGalleryTasks\(a, b\)\)/.test(page) &&
+  /private archiverTasksForGroup\(group: number\): DownloadArchiverTask\[\] \{[\s\S]*this\.downloadQueue\.archiverTasks\.length[\s\S]*out\.sort\(\(a: DownloadArchiverTask, b: DownloadArchiverTask\): number => this\.compareArchiverTasks\(a, b\)\)/.test(page) &&
+  /ForEach\(\s*this\.galleryTasksForGroup\(group\),[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(page) &&
+  /ForEach\(\s*this\.archiverTasksForGroup\(group\),[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadArchiverTaskCard\(this\.currentArchiverTask\(task\)\)/.test(page) &&
   !/@ComponentV2\s+struct DownloadGalleryTaskCardView/.test(page) &&
   !/@ComponentV2\s+struct DownloadArchiverTaskCardView/.test(page) &&
   /private GalleryTaskProgressBar\(task: DownloadGalleryTask\)[\s\S]*this\.taskProgressRatio\([\s\S]*task\.status,[\s\S]*task\.downloadedFiles,[\s\S]*task\.seededFiles,[\s\S]*task\.activeBytesWritten,[\s\S]*task\.activeBytesTotal/.test(page) &&
@@ -110,19 +116,54 @@ ok(!/renderQueueRevision|renderGalleryTasks|renderArchiverTasks/.test(page) &&
   archiverRenderKeyBody.includes('task.tag') &&
   !archiverRenderKeyBody.includes('task.bytesWritten') &&
   !archiverRenderKeyBody.includes('task.progress') &&
-  /ForEach\(\s*this\.downloadQueue\.galleryTasks/.test(page) &&
-  /ForEach\(\s*this\.downloadQueue\.archiverTasks/.test(page) &&
+  /ForEach\(\s*this\.galleryTasksForGroup\(group\)/.test(page) &&
+  /ForEach\(\s*this\.archiverTasksForGroup\(group\)/.test(page) &&
   /\(task: DownloadGalleryTask\) => this\.galleryRenderKey\(task\)/.test(page) &&
   /\(task: DownloadArchiverTask\) => this\.archiverRenderKey\(task\)/.test(page) &&
   /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(page) &&
   /this\.downloadQueueTick < 0/.test(page),
   'download queue page keeps stable row keys while parent builders receive a queue signal pulse')
+ok(/export class DownloadSortMode/.test(state) &&
+  /@Trace searchActive: boolean = false/.test(state) &&
+  /@Trace searchText: string = ''/.test(state) &&
+  /@Trace sortMode: string = DownloadSortMode\.ADDED_DESC/.test(state) &&
+  /AppSearchField/.test(bar) &&
+  /download_search_placeholder/.test(bar) &&
+  !/private closeSearch\(\)/.test(bar) &&
+  /downloadSortCycleMenuItem/.test(index) &&
+  /cycleDownloadSort\(\)/.test(index) &&
+  /appendDownloadSortItems/.test(index) &&
+  /download_sort_added_desc/.test(index) &&
+  /download_sort_title_asc/.test(index),
+  'download management exposes shared V2 search and sort controls in the pinned title area')
+ok(/private galleryMatchesSearch\(task: DownloadGalleryTask, q: string\): boolean \{[\s\S]*task\.displayTitle\(\)[\s\S]*task\.titleJp[\s\S]*task\.gid[\s\S]*task\.category/.test(page) &&
+  /private archiverMatchesSearch\(task: DownloadArchiverTask, q: string\): boolean \{[\s\S]*task\.displayTitle\(\)[\s\S]*task\.gid[\s\S]*task\.resolution[\s\S]*task\.dltype[\s\S]*task\.fileName/.test(page) &&
+  /private groupVisibleCount\(group: number\): number \{[\s\S]*this\.galleryTasksForGroup\(group\)\.length/.test(page) &&
+  /private DownloadTaskGroupHeader\(group: number\)[\s\S]*Text\(this\.groupTitle\(group\)\)[\s\S]*Text\(`\$\{this\.groupVisibleCount\(group\)\}`\)/.test(page) &&
+  /private archiverMetaText\(task: DownloadArchiverTask\): string \{[\s\S]*this\.byteSizeText\(Math\.max\(task\.bytesTotal, task\.bytesWritten\)\)/.test(page) &&
+  /private archiverKindText\(task: DownloadArchiverTask\): string \{[\s\S]*download_use_regular_short/.test(page) &&
+  /private TaskAddedTimeLine\(queuedAt: number\)[\s\S]*this\.addedTimeText\(queuedAt\)/.test(page) &&
+  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.TaskAddedTimeLine\(task\.queuedAt\)/.test(page) &&
+  /private DownloadArchiverTaskCard\(task: DownloadArchiverTask\)[\s\S]*this\.TaskAddedTimeLine\(task\.queuedAt\)/.test(page),
+  'download queue filters by task text, groups by status, and shows added time as a final row plus archive size metadata')
 const taskMetaTextBody = page.match(/private taskMetaText\(task: DownloadGalleryTask\): string \{([\s\S]*?)\n  \}/)?.[1] ?? ''
-ok(/private GalleryOriginalBadge\(\)[\s\S]*download_use_original_image/.test(page) &&
-  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*Text\(task\.displayTitle\(\)\)[\s\S]*\.width\('100%'\)[\s\S]*if \(this\.taskMetaText\(task\)\.length > 0 \|\| task\.preferOriginal\)[\s\S]*if \(task\.preferOriginal\) \{[\s\S]*this\.GalleryOriginalBadge\(\)/.test(page) &&
+ok(/private TaskMetaLine\(metaText: string, qualityLabel: string\)[\s\S]*private QualityBadge\(label: string\)/.test(page) &&
+  /private galleryQualityLabel\(task: DownloadGalleryTask\): string/.test(page) &&
+  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.TaskMetaLine\(this\.taskMetaText\(task\), this\.galleryQualityLabel\(task\)\)/.test(page) &&
+  /private DownloadArchiverTaskCard\(task: DownloadArchiverTask\)[\s\S]*this\.TaskMetaLine\(this\.archiverMetaText\(task\), this\.archiverKindText\(task\)\)/.test(page) &&
   !taskMetaTextBody.includes('task.uploader') &&
   !taskMetaTextBody.includes('download_use_regular_image'),
-  'ordinary gallery download cards keep the title full-width and show only original quality in the meta row without uploader noise')
+  'ordinary and archive download cards share the compact meta row and quality badge, with no uploader noise or regular-image badge in gallery rows')
+ok(galleryTaskCardOpening === 'Row({ space: ThemeConstants.SPACE_MD }) {' &&
+  archiverTaskCardOpening === 'Row({ space: ThemeConstants.SPACE_MD }) {' &&
+  !/private DownloadGalleryTaskCard\(task: DownloadGalleryTask\) \{\s*Column\(\{ space: ThemeConstants\.SPACE_XS \}\) \{[\s\S]*this\.GalleryTaskCover\(task\)[\s\S]*this\.TaskAddedTimeLine\(task\.queuedAt\)/.test(page) &&
+  !/private DownloadArchiverTaskCard\(task: DownloadArchiverTask\) \{\s*Column\(\{ space: ThemeConstants\.SPACE_XS \}\) \{[\s\S]*this\.ArchiverTaskCover\(task\)[\s\S]*this\.TaskAddedTimeLine\(task\.queuedAt\)/.test(page) &&
+  galleryTaskCardBody.includes('.height(ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT)') &&
+  archiverTaskCardBody.includes('.height(ThemeConstants.DOWNLOAD_TASK_COVER_HEIGHT)') &&
+  galleryTaskCardBody.includes('this.TaskAddedTimeLine(task.queuedAt)') &&
+  archiverTaskCardBody.includes('this.TaskAddedTimeLine(task.queuedAt)') &&
+  !/TaskAddedTimeLine\(queuedAt: number\)[\s\S]*DOWNLOAD_TASK_COVER_WIDTH \+ ThemeConstants\.SPACE_MD/.test(page),
+  'download cards keep the cover-height root row; added time lives inside the content column and must not add an extra card-height row')
 ok(/@ObservedV2\s+export class DownloadGalleryTask/.test(model) &&
   /@ObservedV2\s+export class DownloadArchiverTask/.test(model) &&
   /@Trace status: string/.test(model) &&
@@ -180,7 +221,7 @@ ok(/if \(status === DownloadGalleryTaskStatus\.ERROR\) \{[\s\S]*downloadProgress
   !/private taskProgressLabel[\s\S]*task\.downloadProgressText\(\)/.test(page),
   'gallery download failures keep visible downloaded progress instead of hiding mismatched counts behind a generic error')
 ok(!/private GalleryTaskActionColumn\(task: DownloadGalleryTask\)/.test(page) &&
-  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.GalleryTaskStatusText\(task\)[\s\S]*\.layoutWeight\(1\)[\s\S]*\.height\('100%'\)[\s\S]*this\.GalleryTaskInlineActionColumn\(task\)[\s\S]*\.height\(0\)[\s\S]*\.layoutWeight\(1\)/.test(page) &&
+  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.GalleryTaskStatusText\(task\)[\s\S]*this\.GalleryTaskInlineActionColumn\(task\)/.test(page) &&
   /private GalleryTaskInlineActionColumn\(task: DownloadGalleryTask\)[\s\S]*this\.GalleryPrimaryAction\(task\)[\s\S]*this\.GalleryTaskMoreButton\(task\)[\s\S]*\.height\('100%'\)[\s\S]*\.justifyContent\(FlexAlign\.End\)/.test(page) &&
   !/private GalleryTaskInlineActionColumn\(task: DownloadGalleryTask\)[\s\S]*Blank\(\)[\s\S]*\.layoutWeight\(1\)/.test(page) &&
   galleryTaskCardBody.includes('this.GalleryTaskInlineActionColumn(task)') &&
@@ -200,7 +241,7 @@ ok(!/private GalleryTaskActionColumn\(task: DownloadGalleryTask\)/.test(page) &&
   !/DOWNLOAD_TASK_CARD_HEIGHT/.test(page),
   'task cards expose one state action plus a native more menu, with destructive deletion behind explicit confirmation')
 ok(!/private ArchiverTaskActionColumn\(task: DownloadArchiverTask\)/.test(page) &&
-  /private DownloadArchiverTaskCard\(task: DownloadArchiverTask\)[\s\S]*this\.ArchiverTaskStatusText\(task\)[\s\S]*\.layoutWeight\(1\)[\s\S]*\.height\('100%'\)[\s\S]*this\.ArchiverTaskInlineActionColumn\(task\)[\s\S]*\.height\(0\)[\s\S]*\.layoutWeight\(1\)/.test(page) &&
+  /private DownloadArchiverTaskCard\(task: DownloadArchiverTask\)[\s\S]*this\.ArchiverTaskStatusText\(task\)[\s\S]*this\.ArchiverTaskInlineActionColumn\(task\)/.test(page) &&
   /private ArchiverTaskInlineActionColumn\(task: DownloadArchiverTask\)[\s\S]*this\.ArchiverPrimaryAction\(task\)[\s\S]*this\.ArchiverTaskMoreButton\(task\)[\s\S]*\.height\('100%'\)[\s\S]*\.justifyContent\(FlexAlign\.End\)/.test(page) &&
   archiverTaskCardBody.includes('this.ArchiverTaskInlineActionColumn(task)') &&
   !archiverTaskCardBody.includes('this.ArchiverTaskActionColumn(task)'),
@@ -284,7 +325,7 @@ ok(/private openGalleryTaskSource\(task: DownloadGalleryTask\): void[\s\S]*new G
   'gallery task cover opens the original gallery detail instead of duplicating local Reader')
 ok(/private openArchiverTaskSource\(task: DownloadArchiverTask\): void[\s\S]*task\.token\.length === 0[\s\S]*new GalleryDetailParams/.test(page) &&
   /archiver_open_source_from_download/.test(page) &&
-  /new GalleryDetailParams\(task\.gid, task\.token, task\.thumbUrl, task\.displayTitle\(\)\)/.test(page) &&
+  /new GalleryDetailParams\([\s\S]*task\.gid,[\s\S]*task\.token,[\s\S]*task\.thumbUrl,[\s\S]*task\.displayTitle\(\),[\s\S]*task\.imgWidth,[\s\S]*task\.imgHeight/.test(page) &&
   /private ArchiverTaskCover\(task: DownloadArchiverTask\)[\s\S]*task\.thumbUrl\.length > 0[\s\S]*EhThumbnail\(\{[\s\S]*url: task\.thumbUrl[\s\S]*this\.openArchiverTaskSource\(task\)[\s\S]*sys\.symbol\.arrow_down_to_line/.test(page),
   'archiver task stores token-backed source navigation, preserves the cover seed, and logs source opens')
 const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')

@@ -76,7 +76,7 @@ ok(/mergeSeeds/.test(settings) && /it\.page === seed\.page \|\| it\.imagePageUrl
   'preparation dedups seeds by page or image-page URL')
 ok(/inheritDownloadedSeedsFromParent/.test(settings) &&
   /parent\.imageSeeds\.find\(\(it: DownloadImageSeed\) => \{[\s\S]*it\.imgkey === out\.imgkey[\s\S]*downloadedFileSize\(it\.filePath\) > 0/.test(settings) &&
-  /copyInheritedSeedFile\(context, gid, out, previous\)/.test(settings) &&
+  /copyInheritedSeedFile\(context, gid, preferOriginal, out, previous\)/.test(settings) &&
   /fs\.copyFile\(src\.fd, dest\.fd\)/.test(settings) &&
   /gallery_incremental_copy_failed/.test(settings),
   'newer-version downloads reuse parent gallery files by matching stable EH image keys')

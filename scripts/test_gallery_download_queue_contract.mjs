@@ -176,27 +176,24 @@ ok(/this\.openReader\(this\.resumeIndex\(\)\)/.test(detail),
 ok(/@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(queuePage) &&
   /@Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal\(\)/.test(queuePage) &&
   /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(queuePage) &&
-  /this\.downloadQueueSignal\.version < 0/.test(queuePage) &&
+  /this\.downloadQueueTick < 0/.test(queuePage) &&
   !/@Monitor\('downloadQueue\.revision'\)/.test(queuePage),
   'downloads page reads queue state and repaints from the dedicated queue signal')
-ok(/this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.downloadQueue\.galleryTasks\.length > 0/.test(queuePage),
+ok(/this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.selectedVisibleTaskCount\(\) > 0/.test(queuePage) &&
+  /private selectedVisibleTaskCount\(\): number \{[\s\S]*this\.galleryTasksForGroup\(0\)\.length/.test(queuePage),
   'downloads page switches from empty state to real Gallery task rows by task count')
 ok(/GalleryTaskSection/.test(queuePage) &&
-  /ForEach\(\s*this\.downloadQueue\.galleryTasks/.test(queuePage) &&
+  /private galleryTasksForGroup\(group: number\): DownloadGalleryTask\[\] \{[\s\S]*this\.downloadQueue\.galleryTasks\.length/.test(queuePage) &&
+  /ForEach\(\s*this\.galleryTasksForGroup\(group\)/.test(queuePage) &&
   /this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queuePage) &&
   !/@ComponentV2\s+struct DownloadGalleryTaskCardView/.test(queuePage) &&
   !/@ComponentV2\s+struct DownloadArchiverTaskCardView/.test(queuePage) &&
   !/visibleStatus|visibleExpectedFiles|visibleDownloadedFiles|visibleSeededFiles|visibleActiveRatio/.test(queuePage) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskProgressView[\s\S]*Text\(this\.currentTask\(\)\.displayTitle\(\)\)/.test(queuePage) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskProgressView[\s\S]*@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)[\s\S]*private currentTask\(\): DownloadGalleryTask/.test(queuePage) &&
-  /task\.downloadedFiles/.test(queuePage) &&
-  /task\.seededFiles/.test(queuePage) &&
-  /task\.activeBytesWritten/.test(queuePage) &&
-  /task\.activeBytesTotal/.test(queuePage) &&
-  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*DownloadGalleryTaskProgressView\(\{ task: task, queueVersion: this\.downloadQueueTick \}\)/.test(queuePage) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskPrimaryAction[\s\S]*private canPause\(\): boolean[\s\S]*DownloadGalleryTaskStatus\.DOWNLOADING/.test(queuePage) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskPrimaryAction[\s\S]*private resumeActionIcon\(\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.arrow_right/.test(queuePage) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskPrimaryAction[\s\S]*private resumeActionLabel\(\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(queuePage) &&
+  /private GalleryTaskProgressBar\(task: DownloadGalleryTask\)[\s\S]*task\.downloadedFiles[\s\S]*task\.seededFiles[\s\S]*task\.activeBytesWritten[\s\S]*task\.activeBytesTotal/.test(queuePage) &&
+  /private GalleryTaskStatusText\(task: DownloadGalleryTask\)[\s\S]*task\.downloadedFiles[\s\S]*task\.seededFiles/.test(queuePage) &&
+  /private GalleryPrimaryAction\(task: DownloadGalleryTask\)[\s\S]*this\.canPauseTask\(task\)[\s\S]*this\.canResumeTask\(task\)/.test(queuePage) &&
+  /private galleryResumeActionIcon\(task: DownloadGalleryTask\): Resource[\s\S]*sys\.symbol\.play_fill/.test(queuePage) &&
+  /private galleryResumeActionLabel\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(queuePage) &&
   /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void/.test(queuePage) &&
   /private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*findExistingGalleryTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.replaceGalleryTasks\(next\)/.test(settings),
   'downloads page renders real gallery task rows by stable gid/token through mounted row components and the queue signal path for live progress')

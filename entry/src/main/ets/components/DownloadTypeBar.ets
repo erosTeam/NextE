@@ -1,4 +1,5 @@
 import {
+  AppSearchField,
   AppStrings,
   DiagnosticLogger,
   DownloadViewState,
@@ -18,37 +19,64 @@ export struct DownloadTypeBar {
   @Local private items: SegmentButtonV2Items = new SegmentButtonV2Items([{ text: '' }, { text: '' }]);
 
   build() {
-    Row() {
-      TabSegmentButtonV2({
-        items: this.segmentItems(),
-        selectedIndex: this.selectedIndex(),
-        enableStateAnimation: true,
-        itemFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
-        itemSelectedFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
-        itemFontWeight: FontWeight.Medium,
-        itemSelectedFontWeight: FontWeight.Bold,
-        itemPadding: {
-          top: LengthMetrics.vp(ThemeConstants.SPACE_XS),
-          bottom: LengthMetrics.vp(ThemeConstants.SPACE_XS),
-          start: LengthMetrics.vp(ThemeConstants.SPACE_MD),
-          end: LengthMetrics.vp(ThemeConstants.SPACE_MD),
-        },
-        onItemClicked: (index: number) => {
-          this.setSelectedIndex(index)
-        },
+    if (this.downloadView.searchActive) {
+      Row({ space: ThemeConstants.SPACE_SM }) {
+        AppSearchField({
+          text: this.downloadView.searchText,
+          placeholder: $r('app.string.download_search_placeholder'),
+          autoFocus: true,
+          useSystemMaterial: true,
+          onTextChange: (value: string) => {
+            this.downloadView.searchText = value
+          },
+          onSubmit: (value: string) => {
+            this.downloadView.searchText = value
+          },
+        })
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .height('100%')
+      .alignItems(VerticalAlign.Center)
+      .padding({
+        top: ThemeConstants.SPACE_XS,
+        bottom: ThemeConstants.SPACE_XS,
+        left: ThemeConstants.SPACE_MD,
+        right: ThemeConstants.SPACE_MD,
       })
-        .width(ThemeConstants.COMPACT_SEGMENT_BUTTON_WIDTH)
+    } else {
+      Row() {
+        TabSegmentButtonV2({
+          items: this.segmentItems(),
+          selectedIndex: this.selectedIndex(),
+          enableStateAnimation: true,
+          itemFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
+          itemSelectedFontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
+          itemFontWeight: FontWeight.Medium,
+          itemSelectedFontWeight: FontWeight.Bold,
+          itemPadding: {
+            top: LengthMetrics.vp(ThemeConstants.SPACE_XS),
+            bottom: LengthMetrics.vp(ThemeConstants.SPACE_XS),
+            start: LengthMetrics.vp(ThemeConstants.SPACE_MD),
+            end: LengthMetrics.vp(ThemeConstants.SPACE_MD),
+          },
+          onItemClicked: (index: number) => {
+            this.setSelectedIndex(index)
+          },
+        })
+          .width(ThemeConstants.COMPACT_SEGMENT_BUTTON_WIDTH)
+      }
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(VerticalAlign.Center)
+      .padding({
+        top: ThemeConstants.SPACE_XS,
+        bottom: ThemeConstants.SPACE_XS,
+        left: ThemeConstants.SPACE_SM,
+        right: ThemeConstants.SPACE_SM,
+      })
     }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
-    .padding({
-      top: ThemeConstants.SPACE_XS,
-      bottom: ThemeConstants.SPACE_XS,
-      left: ThemeConstants.SPACE_SM,
-      right: ThemeConstants.SPACE_SM,
-    })
   }
 
   private selectedIndex(): number {

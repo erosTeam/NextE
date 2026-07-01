@@ -117,6 +117,54 @@
       "value": "暂停全部"
     },
     {
+      "name": "download_search_placeholder",
+      "value": "搜索下载"
+    },
+    {
+      "name": "download_search_close",
+      "value": "关闭搜索"
+    },
+    {
+      "name": "download_search_empty",
+      "value": "没有匹配的下载"
+    },
+    {
+      "name": "download_sort_added_desc",
+      "value": "添加时间从新到旧"
+    },
+    {
+      "name": "download_sort_added_asc",
+      "value": "添加时间从旧到新"
+    },
+    {
+      "name": "download_sort_title_asc",
+      "value": "标题 A-Z"
+    },
+    {
+      "name": "download_sort_title_desc",
+      "value": "标题 Z-A"
+    },
+    {
+      "name": "download_group_active",
+      "value": "进行中"
+    },
+    {
+      "name": "download_group_paused",
+      "value": "已暂停"
+    },
+    {
+      "name": "download_group_failed",
+      "value": "失败"
+    },
+    {
+      "name": "download_group_completed",
+      "value": "已完成"
+    },
+    {
+      "name": "download_added_on",
+      "value": "添加 %s"
+    },
+    {
       "name": "download_seed_progress",
       "value": "已准备 %s"
     },
@@ -171,6 +219,10 @@
     {
       "name": "download_use_regular_image",
       "value": "重采样图片"
+    },
+    {
+      "name": "download_use_regular_short",
+      "value": "重采样"
     },
     {
       "name": "download_use_original_image",

@@ -117,6 +117,54 @@
       "value": "Pause all"
     },
     {
+      "name": "download_search_placeholder",
+      "value": "Search downloads"
+    },
+    {
+      "name": "download_search_close",
+      "value": "Close search"
+    },
+    {
+      "name": "download_search_empty",
+      "value": "No matching downloads"
+    },
+    {
+      "name": "download_sort_added_desc",
+      "value": "Newest first"
+    },
+    {
+      "name": "download_sort_added_asc",
+      "value": "Oldest first"
+    },
+    {
+      "name": "download_sort_title_asc",
+      "value": "Title A-Z"
+    },
+    {
+      "name": "download_sort_title_desc",
+      "value": "Title Z-A"
+    },
+    {
+      "name": "download_group_active",
+      "value": "Active"
+    },
+    {
+      "name": "download_group_paused",
+      "value": "Paused"
+    },
+    {
+      "name": "download_group_failed",
+      "value": "Failed"
+    },
+    {
+      "name": "download_group_completed",
+      "value": "Completed"
+    },
+    {
+      "name": "download_added_on",
+      "value": "Added %s"
+    },
+    {
       "name": "download_seed_progress",
       "value": "Seeded %s"
     },
@@ -170,6 +218,10 @@
     },
     {
       "name": "download_use_regular_image",
+      "value": "Resampled"
+    },
+    {
+      "name": "download_use_regular_short",
       "value": "Resampled"
     },
     {

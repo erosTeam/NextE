@@ -117,6 +117,54 @@
       "value": "すべて一時停止"
     },
     {
+      "name": "download_search_placeholder",
+      "value": "ダウンロードを検索"
+    },
+    {
+      "name": "download_search_close",
+      "value": "検索を閉じる"
+    },
+    {
+      "name": "download_search_empty",
+      "value": "一致するダウンロードはありません"
+    },
+    {
+      "name": "download_sort_added_desc",
+      "value": "追加日時 新しい順"
+    },
+    {
+      "name": "download_sort_added_asc",
+      "value": "追加日時 古い順"
+    },
+    {
+      "name": "download_sort_title_asc",
+      "value": "タイトル A-Z"
+    },
+    {
+      "name": "download_sort_title_desc",
+      "value": "タイトル Z-A"
+    },
+    {
+      "name": "download_group_active",
+      "value": "実行中"
+    },
+    {
+      "name": "download_group_paused",
+      "value": "一時停止"
+    },
+    {
+      "name": "download_group_failed",
+      "value": "失敗"
+    },
+    {
+      "name": "download_group_completed",
+      "value": "完了"
+    },
+    {
+      "name": "download_added_on",
+      "value": "追加 %s"
+    },
+    {
       "name": "download_seed_progress",
       "value": "準備済み %s"
     },
@@ -170,6 +218,10 @@
     },
     {
       "name": "download_use_regular_image",
+      "value": "リサンプル"
+    },
+    {
+      "name": "download_use_regular_short",
       "value": "リサンプル"
     },
     {

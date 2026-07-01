@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: download management search and sorting
+
+Status: active
+Reference implementation: `../eros_n_ohos/lib/pages/nav/downloads/downloads_page.dart` status-grouped Downloads page, `../eros_fe/lib/pages/item/download_gallery_item.dart` gallery task row, `../eros_fe/lib/pages/item/download_archiver_item.dart` archive task row, and current NextE `entry/src/main/ets/components/DownloadTypeBar.ets` title-bottom queue selector.
+Surface type: Downloads tab task management list and title-bar actions only; no executor, RDB schema, or archive submit changes.
+Primary information: visible download tasks should be searchable, grouped by status, sorted by added time/title, and show enough row metadata to distinguish task type, progress, and queued time.
+Primary action: search/filter visible tasks, choose a sort mode, resume/pause/retry one task, or tap completed content to read locally.
+Reuse or deviation: reuse the existing HDS title-bar bottomBuilder, shared `AppSearchField`, task cards, and current task state fields; deviate only by deriving grouped/sorted visible arrays in the page instead of mutating queue order.
+Verification: download management plan doc, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and X7 Downloads search/sort/group smoke.
+
 ## Active: download source cover seed and archive progress publish
 
 Status: active

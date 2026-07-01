@@ -18,6 +18,7 @@ import {
   DownloadQueueState,
   DownloadQueueSignalState,
   DownloadSettings,
+  DownloadSortMode,
   DownloadViewType,
   DownloadViewState,
   DiagnosticLogger,
@@ -74,6 +75,40 @@ export struct DownloadQueuePage {
       : $r('app.string.download_gallery_next_step')
   }
 
+  private shouldShowEmptyNextStep(): boolean {
+    return !this.hasActiveSearch() || this.selectedVisibleTaskCount() > 0 || this.selectedTaskCount() === 0
+  }
+
+  private hasActiveSearch(): boolean {
+    return this.normalizedSearchText().length > 0
+  }
+
+  private selectedTaskCount(): number {
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+      ? this.downloadQueue.archiverTasks.length
+      : this.downloadQueue.galleryTasks.length
+  }
+
+  private selectedVisibleTaskCount(): number {
+    if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
+      return this.archiverTasksForGroup(0).length +
+        this.archiverTasksForGroup(1).length +
+        this.archiverTasksForGroup(2).length +
+        this.archiverTasksForGroup(3).length
+    }
+    return this.galleryTasksForGroup(0).length +
+      this.galleryTasksForGroup(1).length +
+      this.galleryTasksForGroup(2).length +
+      this.galleryTasksForGroup(3).length
+  }
+
+  private selectedEmptyMessage(): Resource {
+    if (this.selectedTaskCount() > 0 && this.hasActiveSearch() && this.selectedVisibleTaskCount() === 0) {
+      return $r('app.string.download_search_empty')
+    }
+    return this.selectedEmptyText()
+  }
+
   private taskStatusText(status: string, downloadedFiles: number, pageCount: number): string {
     return this.statusText(this.effectiveGalleryStatus(status, downloadedFiles, pageCount))
   }
@@ -112,6 +147,66 @@ export struct DownloadQueuePage {
       parts.push(task.category)
     }
     return parts.join(' · ')
+  }
+
+  private archiverMetaText(task: DownloadArchiverTask): string {
+    const parts: string[] = []
+    const bytes: string = this.byteSizeText(Math.max(task.bytesTotal, task.bytesWritten))
+    if (bytes.length > 0) {
+      parts.push(bytes)
+    }
+    return parts.join(' · ')
+  }
+
+  private galleryQualityLabel(task: DownloadGalleryTask): string {
+    return task.preferOriginal ? AppStrings.get('download_use_original_image') : ''
+  }
+
+  private archiverKindText(task: DownloadArchiverTask): string {
+    const resolution: string = task.resolution.toLowerCase()
+    if (task.dltype === 'org' || resolution.includes('original')) {
+      return AppStrings.get('download_use_original_image')
+    }
+    if (task.dltype === 'res' || resolution.includes('resample')) {
+      return AppStrings.get('download_use_regular_short')
+    }
+    if (task.resolution.length > 0) {
+      return task.resolution
+    }
+    return task.dltype
+  }
+
+  private addedTimeText(value: number): string {
+    const formatted: string = this.formatTimestamp(value)
+    return formatted.length > 0 ? AppStrings.get('download_added_on').replace('%s', formatted) : ''
+  }
+
+  private formatTimestamp(value: number): string {
+    if (value <= 0) {
+      return ''
+    }
+    const d: Date = new Date(value)
+    return `${d.getFullYear()}-${this.pad2(d.getMonth() + 1)}-${this.pad2(d.getDate())} ${this.pad2(d.getHours())}:${this.pad2(d.getMinutes())}`
+  }
+
+  private pad2(value: number): string {
+    return value.toString().padStart(2, '0')
+  }
+
+  private byteSizeText(bytes: number): string {
+    if (bytes <= 0) {
+      return ''
+    }
+    if (bytes >= 1073741824) {
+      return `${Math.round(bytes / 107374182.4) / 10} GB`
+    }
+    if (bytes >= 1048576) {
+      return `${Math.round(bytes / 104857.6) / 10} MB`
+    }
+    if (bytes >= 1024) {
+      return `${Math.round(bytes / 102.4) / 10} KB`
+    }
+    return `${Math.floor(bytes)} B`
   }
 
   private taskProgressLabel(
@@ -292,6 +387,138 @@ export struct DownloadQueuePage {
       }
     }
     return task
+  }
+
+  private galleryTasksForGroup(group: number): DownloadGalleryTask[] {
+    const out: DownloadGalleryTask[] = []
+    const q: string = this.normalizedSearchText()
+    for (let i: number = 0; i < this.downloadQueue.galleryTasks.length; i++) {
+      const task: DownloadGalleryTask = this.downloadQueue.galleryTasks[i]
+      if (this.galleryGroup(task) === group && this.galleryMatchesSearch(task, q)) {
+        out.push(task)
+      }
+    }
+    out.sort((a: DownloadGalleryTask, b: DownloadGalleryTask): number => this.compareGalleryTasks(a, b))
+    return out
+  }
+
+  private archiverTasksForGroup(group: number): DownloadArchiverTask[] {
+    const out: DownloadArchiverTask[] = []
+    const q: string = this.normalizedSearchText()
+    for (let i: number = 0; i < this.downloadQueue.archiverTasks.length; i++) {
+      const task: DownloadArchiverTask = this.downloadQueue.archiverTasks[i]
+      if (this.archiverGroup(task) === group && this.archiverMatchesSearch(task, q)) {
+        out.push(task)
+      }
+    }
+    out.sort((a: DownloadArchiverTask, b: DownloadArchiverTask): number => this.compareArchiverTasks(a, b))
+    return out
+  }
+
+  private normalizedSearchText(): string {
+    return this.downloadView.searchText.trim().toLowerCase()
+  }
+
+  private galleryMatchesSearch(task: DownloadGalleryTask, q: string): boolean {
+    if (q.length === 0) {
+      return true
+    }
+    return this.containsLower(task.displayTitle(), q) ||
+      this.containsLower(task.titleJp, q) ||
+      this.containsLower(task.gid, q) ||
+      this.containsLower(task.category, q)
+  }
+
+  private archiverMatchesSearch(task: DownloadArchiverTask, q: string): boolean {
+    if (q.length === 0) {
+      return true
+    }
+    return this.containsLower(task.displayTitle(), q) ||
+      this.containsLower(task.gid, q) ||
+      this.containsLower(task.resolution, q) ||
+      this.containsLower(task.dltype, q) ||
+      this.containsLower(task.fileName, q)
+  }
+
+  private containsLower(value: string, q: string): boolean {
+    return value.toLowerCase().includes(q)
+  }
+
+  private galleryGroup(task: DownloadGalleryTask): number {
+    const status: string = this.effectiveGalleryStatus(
+      task.status,
+      task.downloadedCount(),
+      Math.max(task.pageCount, task.downloadedCount(), task.seededCount()),
+    )
+    return this.statusGroup(status)
+  }
+
+  private archiverGroup(task: DownloadArchiverTask): number {
+    return this.statusGroup(task.status)
+  }
+
+  private statusGroup(status: string): number {
+    if (status === DownloadGalleryTaskStatus.COMPLETE) {
+      return 3
+    }
+    if (status === DownloadGalleryTaskStatus.ERROR) {
+      return 2
+    }
+    if (status === DownloadGalleryTaskStatus.PAUSED) {
+      return 1
+    }
+    return 0
+  }
+
+  private compareGalleryTasks(a: DownloadGalleryTask, b: DownloadGalleryTask): number {
+    if (this.downloadView.sortMode === DownloadSortMode.ADDED_ASC) {
+      return this.compareNumberThenKey(a.queuedAt, b.queuedAt, this.taskKey(a), this.taskKey(b), true)
+    }
+    if (this.downloadView.sortMode === DownloadSortMode.TITLE_ASC) {
+      return this.compareTextThenTime(a.displayTitle(), b.displayTitle(), a.queuedAt, b.queuedAt, true)
+    }
+    if (this.downloadView.sortMode === DownloadSortMode.TITLE_DESC) {
+      return this.compareTextThenTime(a.displayTitle(), b.displayTitle(), a.queuedAt, b.queuedAt, false)
+    }
+    return this.compareNumberThenKey(a.queuedAt, b.queuedAt, this.taskKey(a), this.taskKey(b), false)
+  }
+
+  private compareArchiverTasks(a: DownloadArchiverTask, b: DownloadArchiverTask): number {
+    if (this.downloadView.sortMode === DownloadSortMode.ADDED_ASC) {
+      return this.compareNumberThenKey(a.queuedAt, b.queuedAt, a.tag, b.tag, true)
+    }
+    if (this.downloadView.sortMode === DownloadSortMode.TITLE_ASC) {
+      return this.compareTextThenTime(a.displayTitle(), b.displayTitle(), a.queuedAt, b.queuedAt, true)
+    }
+    if (this.downloadView.sortMode === DownloadSortMode.TITLE_DESC) {
+      return this.compareTextThenTime(a.displayTitle(), b.displayTitle(), a.queuedAt, b.queuedAt, false)
+    }
+    return this.compareNumberThenKey(a.queuedAt, b.queuedAt, a.tag, b.tag, false)
+  }
+
+  private compareTextThenTime(aText: string, bText: string, aTime: number, bTime: number, asc: boolean): number {
+    const a: string = aText.toLowerCase()
+    const b: string = bText.toLowerCase()
+    if (a < b) {
+      return asc ? -1 : 1
+    }
+    if (a > b) {
+      return asc ? 1 : -1
+    }
+    return this.compareNumberThenKey(aTime, bTime, aText, bText, false)
+  }
+
+  private compareNumberThenKey(aValue: number, bValue: number, aKey: string, bKey: string, asc: boolean): number {
+    if (aValue !== bValue) {
+      return asc ? aValue - bValue : bValue - aValue
+    }
+    if (aKey < bKey) {
+      return -1
+    }
+    if (aKey > bKey) {
+      return 1
+    }
+    return 0
   }
 
   private closeActionMenu(): void {
@@ -693,17 +920,19 @@ export struct DownloadQueuePage {
   @Builder
   private EmptyQueueSection() {
     Column() {
-      CardEmptyState({ message: this.selectedEmptyText(), expand: false })
-      Text(this.selectedNextStep())
-        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor($r('sys.color.font_secondary'))
-        .textAlign(TextAlign.Center)
-        .width('100%')
-        .padding({
-          left: ThemeConstants.SPACE_LG,
-          right: ThemeConstants.SPACE_LG,
-          bottom: ThemeConstants.SPACE_LG,
-        })
+      CardEmptyState({ message: this.selectedEmptyMessage(), expand: false })
+      if (this.shouldShowEmptyNextStep()) {
+        Text(this.selectedNextStep())
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_secondary'))
+          .textAlign(TextAlign.Center)
+          .width('100%')
+          .padding({
+            left: ThemeConstants.SPACE_LG,
+            right: ThemeConstants.SPACE_LG,
+            bottom: ThemeConstants.SPACE_LG,
+          })
+      }
     }
     .width('100%')
     .borderRadius(ThemeConstants.RADIUS_CARD)
@@ -712,8 +941,22 @@ export struct DownloadQueuePage {
 
   @Builder
   private GalleryTaskSection() {
+    this.GalleryTaskGroup(0)
+    this.GalleryTaskGroup(1)
+    this.GalleryTaskGroup(2)
+    this.GalleryTaskGroup(3)
+  }
+
+  @Builder
+  private GalleryTaskGroup(group: number) {
+    if (this.galleryTasksForGroup(group).length > 0) {
+      ListItem() {
+        this.DownloadTaskGroupHeader(group)
+      }
+      .clip(false)
+    }
     ForEach(
-      this.downloadQueue.galleryTasks,
+      this.galleryTasksForGroup(group),
       (task: DownloadGalleryTask) => {
         ListItem() {
           this.DownloadGalleryTaskCard(this.currentGalleryTask(task))
@@ -726,8 +969,22 @@ export struct DownloadQueuePage {
 
   @Builder
   private ArchiverTaskSection() {
+    this.ArchiverTaskGroup(0)
+    this.ArchiverTaskGroup(1)
+    this.ArchiverTaskGroup(2)
+    this.ArchiverTaskGroup(3)
+  }
+
+  @Builder
+  private ArchiverTaskGroup(group: number) {
+    if (this.archiverTasksForGroup(group).length > 0) {
+      ListItem() {
+        this.DownloadTaskGroupHeader(group)
+      }
+      .clip(false)
+    }
     ForEach(
-      this.downloadQueue.archiverTasks,
+      this.archiverTasksForGroup(group),
       (task: DownloadArchiverTask) => {
         ListItem() {
           this.DownloadArchiverTaskCard(this.currentArchiverTask(task))
@@ -736,6 +993,55 @@ export struct DownloadQueuePage {
       },
       (task: DownloadArchiverTask) => this.archiverRenderKey(task),
     )
+  }
+
+  private groupTitle(group: number): Resource {
+    if (group === 1) {
+      return $r('app.string.download_group_paused')
+    }
+    if (group === 2) {
+      return $r('app.string.download_group_failed')
+    }
+    if (group === 3) {
+      return $r('app.string.download_group_completed')
+    }
+    return $r('app.string.download_group_active')
+  }
+
+  private groupVisibleCount(group: number): number {
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+      ? this.archiverTasksForGroup(group).length
+      : this.galleryTasksForGroup(group).length
+  }
+
+  @Builder
+  private DownloadTaskGroupHeader(group: number) {
+    Row({ space: ThemeConstants.SPACE_XS }) {
+      Text(this.groupTitle(group))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor(ThemeConstants.BRAND_PRIMARY)
+        .fontWeight(FontWeight.Medium)
+      Text(`${this.groupVisibleCount(group)}`)
+        .fontSize(ThemeConstants.FONT_SIZE_TINY)
+        .fontColor(ThemeConstants.TEXT_ON_BRAND)
+        .fontWeight(FontWeight.Medium)
+        .padding({
+          left: ThemeConstants.SPACE_XS,
+          right: ThemeConstants.SPACE_XS,
+          top: ThemeConstants.SPACE_XS / 2,
+          bottom: ThemeConstants.SPACE_XS / 2,
+        })
+        .borderRadius(ThemeConstants.RADIUS_ROUND)
+        .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+    }
+    .width('100%')
+    .padding({
+      left: ThemeConstants.SPACE_SM,
+      right: ThemeConstants.SPACE_SM,
+      top: ThemeConstants.SPACE_XS,
+      bottom: ThemeConstants.SPACE_XS,
+    })
+    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
@@ -752,20 +1058,8 @@ export struct DownloadQueuePage {
           .width('100%')
         Row({ space: ThemeConstants.SPACE_XS }) {
           Column({ space: ThemeConstants.SPACE_XS }) {
-            if (this.taskMetaText(task).length > 0 || task.preferOriginal) {
-              Row({ space: ThemeConstants.SPACE_XS }) {
-                Text(this.taskMetaText(task))
-                  .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                  .fontColor($r('sys.color.font_secondary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .layoutWeight(1)
-                if (task.preferOriginal) {
-                  this.GalleryOriginalBadge()
-                }
-              }
-              .alignItems(VerticalAlign.Center)
-              .width('100%')
+            if (this.taskMetaText(task).length > 0 || this.galleryQualityLabel(task).length > 0) {
+              this.TaskMetaLine(this.taskMetaText(task), this.galleryQualityLabel(task))
             }
             if (this.shouldShowGalleryProgress(
               task.status,
@@ -778,6 +1072,7 @@ export struct DownloadQueuePage {
               this.GalleryTaskProgressBar(task)
             }
             this.GalleryTaskStatusText(task)
+            this.TaskAddedTimeLine(task.queuedAt)
           }
           .layoutWeight(1)
           .height('100%')
@@ -804,8 +1099,30 @@ export struct DownloadQueuePage {
   }
 
   @Builder
-  private GalleryOriginalBadge() {
-    Text(AppStrings.get('download_use_original_image'))
+  private TaskMetaLine(metaText: string, qualityLabel: string) {
+    Row({ space: ThemeConstants.SPACE_XS }) {
+      if (metaText.length > 0) {
+        Text(metaText)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .layoutWeight(1)
+      } else {
+        Blank()
+          .layoutWeight(1)
+      }
+      if (qualityLabel.length > 0) {
+        this.QualityBadge(qualityLabel)
+      }
+    }
+    .alignItems(VerticalAlign.Center)
+    .width('100%')
+  }
+
+  @Builder
+  private QualityBadge(label: string) {
+    Text(label)
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
       .fontColor($r('sys.color.font_secondary'))
       .fontWeight(FontWeight.Medium)
@@ -834,18 +1151,14 @@ export struct DownloadQueuePage {
           .width('100%')
         Row({ space: ThemeConstants.SPACE_XS }) {
           Column({ space: ThemeConstants.SPACE_XS }) {
-            if (task.resolution.length > 0 || task.dltype.length > 0) {
-              Text(task.resolution.length > 0 ? task.resolution : task.dltype)
-                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                .fontColor($r('sys.color.font_secondary'))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .width('100%')
+            if (this.archiverMetaText(task).length > 0 || this.archiverKindText(task).length > 0) {
+              this.TaskMetaLine(this.archiverMetaText(task), this.archiverKindText(task))
             }
             if (this.shouldShowArchiverProgress(task)) {
               this.ArchiverProgressBar(task)
             }
             this.ArchiverTaskStatusText(task)
+            this.TaskAddedTimeLine(task.queuedAt)
           }
           .layoutWeight(1)
           .height('100%')
@@ -869,6 +1182,18 @@ export struct DownloadQueuePage {
     .borderRadius(ThemeConstants.DOWNLOAD_TASK_CARD_RADIUS)
     .backgroundColor($r('app.color.card_background'))
     .alignItems(VerticalAlign.Top)
+  }
+
+  @Builder
+  private TaskAddedTimeLine(queuedAt: number) {
+    if (this.addedTimeText(queuedAt).length > 0) {
+      Text(this.addedTimeText(queuedAt))
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor($r('sys.color.font_tertiary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+    }
   }
 
   @Builder
@@ -1205,9 +1530,9 @@ export struct DownloadQueuePage {
           }
           .height(DOWNLOAD_SELECTOR_BAR_HEIGHT)
         }
-        if (this.downloadView.viewType === DownloadViewType.GALLERY && this.downloadQueue.galleryTasks.length > 0) {
+        if (this.downloadView.viewType === DownloadViewType.GALLERY && this.selectedVisibleTaskCount() > 0) {
           this.GalleryTaskSection()
-        } else if (this.downloadView.viewType === DownloadViewType.ARCHIVER && this.downloadQueue.archiverTasks.length > 0) {
+        } else if (this.downloadView.viewType === DownloadViewType.ARCHIVER && this.selectedVisibleTaskCount() > 0) {
           this.ArchiverTaskSection()
         } else {
           ListItem() {

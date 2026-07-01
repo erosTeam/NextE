@@ -332,6 +332,7 @@ export {
   connectSecuritySettings,
 } from './state/SecuritySettingsState'
 export {
+  DownloadSortMode,
   DownloadViewType,
   DownloadViewState,
   connectDownloadView,

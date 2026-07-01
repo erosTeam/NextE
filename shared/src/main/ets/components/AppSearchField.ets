@@ -51,7 +51,7 @@ export struct AppSearchField {
     if (this.useSystemMaterial && deviceInfo.apiAvailable('26.0.0')) {
       Search({ value: this.fieldText, placeholder: this.placeholder })
         .id(this.fieldId)
-        .height(40)
+        .height(ThemeConstants.SEARCH_FIELD_HEIGHT)
         .width('100%')
         .backgroundColor(Color.Transparent)
         .systemMaterial(this.searchMaterial())
@@ -73,7 +73,7 @@ export struct AppSearchField {
     Search({ value: this.fieldText, placeholder: this.placeholder })
       .id(this.fieldId)
       .width('100%')
-      .height(40)
+      .height(ThemeConstants.SEARCH_FIELD_HEIGHT)
       .backgroundColor($r('app.color.card_background'))
       .searchButton(this.searchButtonText, { fontColor: ThemeConstants.BRAND_PRIMARY })
       .onChange((value: string) => {
