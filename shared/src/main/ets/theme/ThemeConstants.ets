@@ -106,7 +106,7 @@ export class ThemeConstants {
   static readonly SEARCH_FIELD_HEIGHT: number = 40
   static readonly ACCOUNT_AVATAR_SIZE: number = 44
   static readonly DOWNLOAD_TASK_COVER_WIDTH: number = 78
-  static readonly DOWNLOAD_TASK_COVER_HEIGHT: number = 104
+  static readonly DOWNLOAD_TASK_COVER_HEIGHT: number = 110
   static readonly DOWNLOAD_TASK_CARD_RADIUS: number = ThemeConstants.RADIUS_CARD
   static readonly DOWNLOAD_TASK_CARD_PADDING: number = ThemeConstants.SPACE_SM
   // Inner cover radius follows the concentric-corner rule: outer radius minus the cover inset.
