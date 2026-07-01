@@ -4,9 +4,8 @@ import {
   ThemeConstants,
   AppStrings,
   connectNavStack,
-  connectLayoutSafeArea,
-  LayoutSafeAreaState,
   immersiveTitleBarOpts,
+  SecondaryListScaffold,
   connectCustomProfiles,
   CustomProfilesState,
   CustomProfile,
@@ -20,13 +19,11 @@ import {
 /**
  * Manage the home sub-tabs: long-press a row to drag-reorder (List.onMove), toggle a tab's visibility,
  * or swipe a custom tab left to delete (built-ins are hide-only). Mirrors AccountPage's swipe/list chrome
- * but uses a raw List (not SecondaryListScaffold) so onMove can attach to the single profile ForEach.
- * Row tap (open the editor) is wired in Phase 4.
+ * while using the shared secondary-page scaffold for safe-area/title-bar insets.
  */
 @ComponentV2
 export struct TabManagerPage {
   @Local profiles: CustomProfilesState = connectCustomProfiles();
-  private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
@@ -170,43 +167,42 @@ export struct TabManagerPage {
     .opacity(p.hidden ? 0.45 : 1)
   }
 
+  @Builder
+  private ProfileListItems() {
+    ForEach(
+      this.profiles.profiles,
+      (p: CustomProfile) => {
+        ListItem() {
+          this.ProfileRow(p)
+        }
+        .swipeAction({
+          end: p.builtin
+            ? undefined
+            : () => {
+                this.DeleteAction(p)
+              },
+        })
+        .onClick(() => {
+          this.stack.pushPathByName('TabEdit', p.uuid)
+        })
+      },
+      (p: CustomProfile, index: number) =>
+        `profile_${index}_${p.uuid}_${p.name}_${p.hidden}_${p.listType}`.replace(/[^A-Za-z0-9_]/g, '_'),
+    )
+      .onMove((from: number, to: number) => {
+        CustomProfilesSettings.reorder(this.ctx(), from, to)
+      })
+  }
+
   build() {
     HdsNavDestination() {
-      List({ space: ThemeConstants.SPACE_SM, scroller: this.scroller }) {
-        ForEach(
-          this.profiles.profiles,
-          (p: CustomProfile) => {
-            ListItem() {
-              this.ProfileRow(p)
-            }
-            .swipeAction({
-              end: p.builtin
-                ? undefined
-                : () => {
-                    this.DeleteAction(p)
-                  },
-            })
-            .onClick(() => {
-              this.stack.pushPathByName('TabEdit', p.uuid)
-            })
-          },
-          (p: CustomProfile, index: number) =>
-            `profile_${index}_${p.uuid}_${p.name}_${p.hidden}_${p.listType}`.replace(/[^A-Za-z0-9_]/g, '_'),
-        )
-          .onMove((from: number, to: number) => {
-            CustomProfilesSettings.reorder(this.ctx(), from, to)
-          })
+      SecondaryListScaffold({
+        scroller: this.scroller,
+        listSpace: ThemeConstants.SPACE_SM,
+        alwaysEnableEdgeSpring: true,
+      }) {
+        this.ProfileListItems()
       }
-      .scrollBar(BarState.Off)
-      .width('100%')
-      .height('100%')
-      .padding({
-        top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + ThemeConstants.SPACE_SM,
-        left: ThemeConstants.SPACE_MD,
-        right: ThemeConstants.SPACE_MD,
-        bottom: this.layout.bottomAvoidHeight + ThemeConstants.SPACE_XL,
-      })
-      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     }
     .titleBar(this.titleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
