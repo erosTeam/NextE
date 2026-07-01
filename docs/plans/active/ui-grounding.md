@@ -5,11 +5,11 @@ Purpose: current UI work must leave a small, checkable grounding record before p
 ## Active: download management search and sorting
 
 Status: active
-Reference implementation: `../eros_n_ohos/lib/pages/nav/downloads/downloads_page.dart` status-grouped Downloads page, `../eros_fe/lib/pages/item/download_gallery_item.dart` gallery task row, `../eros_fe/lib/pages/item/download_archiver_item.dart` archive task row, and current NextE `entry/src/main/ets/components/DownloadTypeBar.ets` title-bottom queue selector.
+Reference implementation: `../eros_n_ohos/lib/pages/nav/downloads/downloads_page.dart` status-grouped Downloads page, `../eros_fe/lib/pages/item/download_gallery_item.dart` gallery task row, `../eros_fe/lib/pages/item/download_archiver_item.dart` archive task row, current NextE `entry/src/main/ets/components/DownloadTypeBar.ets` title-bottom queue selector, and `feature/user/src/main/ets/pages/FavoritesPage.ets` native order menu pattern.
 Surface type: Downloads tab task management list and title-bar actions only; no executor, RDB schema, or archive submit changes.
 Primary information: visible download tasks should be searchable, grouped by status, sorted by added time/title, and show enough row metadata to distinguish task type, progress, and queued time.
-Primary action: search/filter visible tasks, choose a sort mode, resume/pause/retry one task, or tap completed content to read locally.
-Reuse or deviation: reuse the existing HDS title-bar bottomBuilder, shared `AppSearchField`, task cards, and current task state fields; deviate only by deriving grouped/sorted visible arrays in the page instead of mutating queue order.
+Primary action: search/filter visible tasks, choose a sort mode from a native menu, resume/pause/retry one ordinary gallery task, retry an archive task, or tap completed content to read locally.
+Reuse or deviation: reuse the existing HDS title-bar bottomBuilder, shared `AppSearchField`, task cards, current task state fields, and FavoritesPage command-bus menu anchor; deviate only by deriving grouped/sorted visible arrays in the page instead of mutating queue order, and by not exposing archive pause until byte-range resume exists.
 Verification: download management plan doc, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and X7 Downloads search/sort/group smoke.
 
 ## Active: security background privacy and native unlock

@@ -38,7 +38,6 @@ import {
   DownloadGalleryTaskStatus,
   DownloadQueueSettings,
   DownloadQueueState,
-  DownloadSortMode,
   DownloadViewState,
   DownloadViewType,
   connectSearchAction,
@@ -932,8 +931,7 @@ struct Index {
       },
     }
     items.push({ 'content': searchInner })
-    items.push(this.downloadSortCycleMenuItem())
-    this.appendDownloadSortItems(items)
+    items.push(this.downloadSortMenuItem())
     const resumeInner: Record<string, Object> = {
       'label': $r('app.string.download_resume_all'),
       'icon': $r('sys.symbol.play_fill'),
@@ -960,49 +958,21 @@ struct Index {
     return { 'value': items, 'maxCount': 3 }
   }
 
-  private downloadSortCycleMenuItem(): Record<string, Object> {
+  private downloadSortMenuItem(): Record<string, Object> {
     const sortInner: Record<string, Object> = {
       'label': $r('app.string.fav_order_title'),
       'icon': $r('sys.symbol.sort'),
       'isEnabled': true,
       'action': () => {
-        this.cycleDownloadSort()
+        this.openDownloadSortMenu()
       },
     }
     return { 'content': sortInner }
   }
 
-  private appendDownloadSortItems(items: Record<string, Object>[]): void {
-    this.pushDownloadSortItem(items, DownloadSortMode.ADDED_DESC, $r('app.string.download_sort_added_desc'))
-    this.pushDownloadSortItem(items, DownloadSortMode.ADDED_ASC, $r('app.string.download_sort_added_asc'))
-    this.pushDownloadSortItem(items, DownloadSortMode.TITLE_ASC, $r('app.string.download_sort_title_asc'))
-    this.pushDownloadSortItem(items, DownloadSortMode.TITLE_DESC, $r('app.string.download_sort_title_desc'))
-  }
-
-  private pushDownloadSortItem(items: Record<string, Object>[], mode: string, label: Resource): void {
-    const sortInner: Record<string, Object> = {
-      'label': label,
-      'icon': this.downloadView.sortMode === mode ? $r('sys.symbol.checkmark') : $r('sys.symbol.sort'),
-      'isEnabled': true,
-      'action': () => {
-        this.downloadView.sortMode = mode
-        DiagnosticLogger.info('download', 'download_sort_change', `mode=${mode}`)
-      },
-    }
-    items.push({ 'content': sortInner })
-  }
-
-  private cycleDownloadSort(): void {
-    if (this.downloadView.sortMode === DownloadSortMode.ADDED_DESC) {
-      this.downloadView.sortMode = DownloadSortMode.ADDED_ASC
-    } else if (this.downloadView.sortMode === DownloadSortMode.ADDED_ASC) {
-      this.downloadView.sortMode = DownloadSortMode.TITLE_ASC
-    } else if (this.downloadView.sortMode === DownloadSortMode.TITLE_ASC) {
-      this.downloadView.sortMode = DownloadSortMode.TITLE_DESC
-    } else {
-      this.downloadView.sortMode = DownloadSortMode.ADDED_DESC
-    }
-    DiagnosticLogger.info('download', 'download_sort_cycle', `mode=${this.downloadView.sortMode}`)
+  private openDownloadSortMenu(): void {
+    this.downloadView.cmdKind = 'openSortMenu'
+    this.downloadView.cmdSeq = this.downloadView.cmdSeq + 1
   }
 
   private toggleDownloadSearch(): void {
@@ -1018,7 +988,6 @@ struct Index {
     if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
       return this.downloadQueue.archiverTasks.some((task: DownloadArchiverTask) => {
         return task.status === DownloadGalleryTaskStatus.QUEUED ||
-          task.status === DownloadGalleryTaskStatus.PAUSED ||
           task.status === DownloadGalleryTaskStatus.ERROR
       })
     }
@@ -1033,9 +1002,7 @@ struct Index {
 
   private downloadHasPausable(): boolean {
     if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
-      return this.downloadQueue.archiverTasks.some((task: DownloadArchiverTask) => {
-        return task.status === DownloadGalleryTaskStatus.DOWNLOADING
-      })
+      return false
     }
     return this.downloadQueue.galleryTasks.some((task: DownloadGalleryTask) => {
       return task.status === DownloadGalleryTaskStatus.DOWNLOADING

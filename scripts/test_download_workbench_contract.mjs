@@ -127,15 +127,19 @@ ok(/export class DownloadSortMode/.test(state) &&
   /@Trace searchActive: boolean = false/.test(state) &&
   /@Trace searchText: string = ''/.test(state) &&
   /@Trace sortMode: string = DownloadSortMode\.ADDED_DESC/.test(state) &&
+  /@Trace cmdKind: string = ''/.test(state) &&
+  /@Trace cmdSeq: number = 0/.test(state) &&
   /AppSearchField/.test(bar) &&
   /download_search_placeholder/.test(bar) &&
   !/private closeSearch\(\)/.test(bar) &&
-  /downloadSortCycleMenuItem/.test(index) &&
-  /cycleDownloadSort\(\)/.test(index) &&
-  /appendDownloadSortItems/.test(index) &&
-  /download_sort_added_desc/.test(index) &&
-  /download_sort_title_asc/.test(index),
-  'download management exposes shared V2 search and sort controls in the pinned title area')
+  /downloadSortMenuItem/.test(index) &&
+  /openDownloadSortMenu\(\)/.test(index) &&
+  !/cycleDownloadSort\(\)/.test(index) &&
+  !/appendDownloadSortItems/.test(index) &&
+  /@Monitor\('downloadView\.cmdSeq'\)[\s\S]*this\.sortMenuShown = true/.test(page) &&
+  /private SortMenu\(\)[\s\S]*download_sort_added_desc[\s\S]*download_sort_added_asc[\s\S]*download_sort_title_asc[\s\S]*download_sort_title_desc/.test(page) &&
+  /new SymbolGlyphModifier\(\$r\('sys\.symbol\.checkmark'\)\)/.test(page),
+  'download management exposes shared V2 search and native sort menu controls in the pinned title area')
 ok(/private galleryMatchesSearch\(task: DownloadGalleryTask, q: string\): boolean \{[\s\S]*task\.displayTitle\(\)[\s\S]*task\.titleJp[\s\S]*task\.gid[\s\S]*task\.category/.test(page) &&
   /private archiverMatchesSearch\(task: DownloadArchiverTask, q: string\): boolean \{[\s\S]*task\.displayTitle\(\)[\s\S]*task\.gid[\s\S]*task\.resolution[\s\S]*task\.dltype[\s\S]*task\.fileName/.test(page) &&
   /private groupVisibleCount\(group: number\): number \{[\s\S]*this\.galleryTasksForGroup\(group\)\.length/.test(page) &&
@@ -280,14 +284,13 @@ ok(/private TaskActionMenu\(\)[\s\S]*this\.actionMenuKey\.startsWith\('archiver:
   /private switchActiveArchiverToBot\(\): void[\s\S]*DownloadQueueSettings\.switchArchiverToBot\(this\.ctx\(\), task\.tag\)/.test(page),
   'rendered archiver task menu exposes the archive bot parse-source switch from the parent action menu')
 ok(/private PauseArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page) &&
-  /sys\.symbol\.pause/.test(page) &&
   /DownloadQueueSettings\.pauseArchiverDownload/.test(page) &&
-  /private canPauseArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*task\.status === DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
-  'running archiver tasks expose a low-weight pause action wired to the shared queue')
+  /private canPauseArchiverTask\(_task: DownloadArchiverTask\): boolean[\s\S]*return false/.test(page),
+  'archiver task cards do not advertise unsupported pause while retaining the executor guard')
 ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page) &&
   /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*sys\.symbol\.play_fill/.test(page) &&
-  /private archiverResumeActionLabel\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(page),
-  'paused archiver tasks can resume')
+  /private archiverResumeActionLabel\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR \|\| task\.status === DownloadGalleryTaskStatus\.PAUSED[\s\S]*common_retry[\s\S]*download_resume/.test(page),
+  'paused archiver tasks restart as retry instead of promising byte-range resume')
 ok(/private archiverProgressLabel\(task: DownloadArchiverTask\): string[\s\S]*task\.status === DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.error\.length > 0[\s\S]*`\$\{this\.statusText\(task\.status\)\} · \$\{task\.error\}`/.test(page),
   'archiver task cards show stored failure reason in the existing status subtitle')
 ok(/ARCHIVER_ACCEPT: string = 'application\/zip,application\/octet-stream,\*\/\*'/.test(queueSettings) &&

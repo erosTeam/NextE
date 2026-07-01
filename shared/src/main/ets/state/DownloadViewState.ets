@@ -23,6 +23,9 @@ export class DownloadViewState {
   @Trace searchActive: boolean = false
   @Trace searchText: string = ''
   @Trace sortMode: string = DownloadSortMode.ADDED_DESC
+  // Title-bar action bus. The title bar cannot anchor a native Menu, so DownloadQueuePage owns it.
+  @Trace cmdKind: string = ''
+  @Trace cmdSeq: number = 0
 }
 
 const DOWNLOAD_VIEW_KEY: string = 'v2:downloadView'

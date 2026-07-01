@@ -32,6 +32,7 @@ import {
   connectNavStack,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
 
 /**
  * Downloads (下载) bottom tab — plain tab content hosted under Index's shared HDS title bar (no
@@ -52,6 +53,7 @@ export struct DownloadQueuePage {
   @Local openingArchiverTag: string = '';
   @Local refreshingGalleryKey: string = '';
   @Local actionMenuKey: string = '';
+  @Local sortMenuShown: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
 
   private ctx(): common.UIAbilityContext {
@@ -61,6 +63,13 @@ export struct DownloadQueuePage {
   @Monitor('downloadQueueSignal.version')
   private onDownloadQueueChanged(): void {
     this.downloadQueueTick = this.downloadQueueTick + 1
+  }
+
+  @Monitor('downloadView.cmdSeq')
+  private onDownloadViewCommand(): void {
+    if (this.downloadView.cmdKind === 'openSortMenu') {
+      this.sortMenuShown = true
+    }
   }
 
   private selectedEmptyText(): Resource {
@@ -728,13 +737,19 @@ export struct DownloadQueuePage {
   }
 
   private archiverResumeActionLabel(task: DownloadArchiverTask): Resource {
-    return task.status === DownloadGalleryTaskStatus.ERROR
+    return task.status === DownloadGalleryTaskStatus.ERROR || task.status === DownloadGalleryTaskStatus.PAUSED
       ? $r('app.string.common_retry')
       : $r('app.string.download_resume')
   }
 
-  private canPauseArchiverTask(task: DownloadArchiverTask): boolean {
-    return task.status === DownloadGalleryTaskStatus.DOWNLOADING
+  private canPauseArchiverTask(_task: DownloadArchiverTask): boolean {
+    return false
+  }
+
+  private setSortMode(mode: string): void {
+    this.downloadView.sortMode = mode
+    this.sortMenuShown = false
+    DiagnosticLogger.info('download', 'download_sort_change', `mode=${mode}`)
   }
 
   private canReadArchiverTask(task: DownloadArchiverTask): boolean {
@@ -1413,6 +1428,48 @@ export struct DownloadQueuePage {
   }
 
   @Builder
+  private SortMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.download_sort_added_desc'),
+        symbolEndIcon: this.downloadView.sortMode === DownloadSortMode.ADDED_DESC
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      })
+        .onClick(() => {
+          this.setSortMode(DownloadSortMode.ADDED_DESC)
+        })
+      MenuItem({
+        content: $r('app.string.download_sort_added_asc'),
+        symbolEndIcon: this.downloadView.sortMode === DownloadSortMode.ADDED_ASC
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      })
+        .onClick(() => {
+          this.setSortMode(DownloadSortMode.ADDED_ASC)
+        })
+      MenuItem({
+        content: $r('app.string.download_sort_title_asc'),
+        symbolEndIcon: this.downloadView.sortMode === DownloadSortMode.TITLE_ASC
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      })
+        .onClick(() => {
+          this.setSortMode(DownloadSortMode.TITLE_ASC)
+        })
+      MenuItem({
+        content: $r('app.string.download_sort_title_desc'),
+        symbolEndIcon: this.downloadView.sortMode === DownloadSortMode.TITLE_DESC
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      })
+        .onClick(() => {
+          this.setSortMode(DownloadSortMode.TITLE_DESC)
+        })
+    }
+  }
+
+  @Builder
   private TaskActionMenu() {
     Menu() {
       if (this.actionMenuKey.startsWith('gallery:')) {
@@ -1514,32 +1571,46 @@ export struct DownloadQueuePage {
   }
 
   build() {
-    Column() {
-      SecondaryListScaffold({
-        scroller: this.scroller,
-        bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
-        onDidScroll: (offset: number, state: ScrollState) => {
-          if (this.onDidScroll) {
-            this.onDidScroll(offset, state)
-          }
-        },
-      }) {
-        ListItem() {
-          Column() {
-            Blank()
-          }
-          .height(DOWNLOAD_SELECTOR_BAR_HEIGHT)
-        }
-        if (this.downloadView.viewType === DownloadViewType.GALLERY && this.selectedVisibleTaskCount() > 0) {
-          this.GalleryTaskSection()
-        } else if (this.downloadView.viewType === DownloadViewType.ARCHIVER && this.selectedVisibleTaskCount() > 0) {
-          this.ArchiverTaskSection()
-        } else {
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Column() {
+        SecondaryListScaffold({
+          scroller: this.scroller,
+          bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+          onDidScroll: (offset: number, state: ScrollState) => {
+            if (this.onDidScroll) {
+              this.onDidScroll(offset, state)
+            }
+          },
+        }) {
           ListItem() {
-            this.EmptyQueueSection()
+            Column() {
+              Blank()
+            }
+            .height(DOWNLOAD_SELECTOR_BAR_HEIGHT)
+          }
+          if (this.downloadView.viewType === DownloadViewType.GALLERY && this.selectedVisibleTaskCount() > 0) {
+            this.GalleryTaskSection()
+          } else if (this.downloadView.viewType === DownloadViewType.ARCHIVER && this.selectedVisibleTaskCount() > 0) {
+            this.ArchiverTaskSection()
+          } else {
+            ListItem() {
+              this.EmptyQueueSection()
+            }
           }
         }
       }
+      .width('100%')
+      .height('100%')
+      Row()
+        .width(1)
+        .height(1)
+        .hitTestBehavior(HitTestMode.None)
+        .bindMenu(this.sortMenuShown, this.SortMenu, {
+          placement: Placement.BottomRight,
+          onDisappear: () => {
+            this.sortMenuShown = false
+          },
+        })
     }
     .width('100%')
     .height('100%')
