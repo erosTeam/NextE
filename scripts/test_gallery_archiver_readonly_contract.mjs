@@ -312,13 +312,13 @@ ok(/QuoteList\(\$r\('app\.string\.gallery_archiver_hath'\), this\.quote\.hathIte
 ok(/DownloadSettings\.archiveBotReady\(this\.downloadSettings\)/.test(page) &&
   /BotQuoteList\(\)/.test(page),
   'page only renders archive bot options when bot settings are ready')
-ok(/gallery_archiver_bot_original/.test(page) && /gallery_archiver_bot_free/.test(page) &&
+ok(/gallery_archiver_bot_original/.test(page) && !/gallery_archiver_bot_free/.test(page) &&
   /task\.dltype = 'org'/.test(page) &&
   /task\.tag = `\$\{task\.gid\}:org`/.test(page) &&
   !/bot:org/.test(page) &&
   /task\.parseSource = DownloadArchiverParseSource\.BOT/.test(page) &&
   /task\.url = ''/.test(page),
-  'archive bot option reuses the original archive task with bot parse source and no official URL')
+  'archive bot option reuses the original archive task with bot parse source, no misleading free label, and no official URL')
 ok(/QuoteRow\(item: EhGalleryArchiverItem, isHath: boolean\)/.test(page) &&
   /this\.confirmArchiveSubmit\(item, isHath\)/.test(page),
   'quote rows are tappable action rows')
@@ -342,9 +342,11 @@ ok(!/startAbility\(want\)|archiverTaskMap/.test(page),
 ok(!/ShareUtil|shareUrl/.test(page), 'archiver page does not repurpose share as a fake download action')
 
 ok(/https:\/\/eh-arc-api\.mhdy\.icu/.test(downloadSettings) &&
-  /https:\/\/api\.archive-at-home\.org\/jhentai/.test(downloadSettings) &&
+  /DEFAULT_ARCHIVE_AT_HOME_ADDRESS: string = 'https:\/\/api\.archive-at-home\.org'/.test(downloadSettings) &&
+  /LEGACY_ARCHIVE_AT_HOME_ADDRESS: string = 'https:\/\/api\.archive-at-home\.org\/jhentai'/.test(downloadSettings) &&
+  /trimmed === LEGACY_ARCHIVE_AT_HOME_ADDRESS/.test(downloadSettings) &&
   /archiveBotReady/.test(downloadSettings),
-  'download settings carries JHenTai archive bot defaults and readiness check')
+  'download settings carries Archive-at-Home API base defaults, legacy migration, and readiness check')
 ok(/requestBalance/.test(archiveBot) && /requestCheckIn/.test(archiveBot) && /requestResolve/.test(archiveBot),
   'archive bot service exposes balance, check-in, and resolve operations')
 ok(/ARCHIVE_AT_HOME_CLIENT: string = 'app\/jhentai'/.test(archiveBot) &&

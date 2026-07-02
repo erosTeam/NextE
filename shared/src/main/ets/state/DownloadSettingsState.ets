@@ -26,6 +26,8 @@ export class DownloadSettingsState {
   @Trace archiveBotType: string = ArchiveBotType.EH_AR_BOT
   @Trace archiveBotAddress: string = 'https://eh-arc-api.mhdy.icu'
   @Trace archiveBotApiKey: string = ''
+  @Trace archiveBotBalanceGp: number = -1
+  @Trace archiveBotBalanceUpdatedAt: number = 0
 }
 
 const DOWNLOAD_SETTINGS_KEY: string = 'v2:downloadSettings'

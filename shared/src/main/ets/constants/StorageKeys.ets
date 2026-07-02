@@ -48,6 +48,8 @@ export class StorageKeys {
   static readonly DOWNLOAD_ARCHIVE_BOT_TYPE: string = 'download.archiveBot.type'
   static readonly DOWNLOAD_ARCHIVE_BOT_ADDRESS: string = 'download.archiveBot.address'
   static readonly DOWNLOAD_ARCHIVE_BOT_API_KEY: string = 'download.archiveBot.apiKey'
+  static readonly DOWNLOAD_ARCHIVE_BOT_BALANCE_GP: string = 'download.archiveBot.balanceGp'
+  static readonly DOWNLOAD_ARCHIVE_BOT_BALANCE_UPDATED_AT: string = 'download.archiveBot.balanceUpdatedAt'
   static readonly DOWNLOAD_GALLERY_QUEUE: string = 'download.galleryQueue' // legacy Preferences key; RDB source of truth
   static readonly SECURITY_RECENT_TASKS_PROTECTION: string = 'security.recentTasksProtection'
   static readonly SECURITY_AUTO_LOCK_SEC: string = 'security.autoLockSeconds'

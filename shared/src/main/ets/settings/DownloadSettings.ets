@@ -19,7 +19,8 @@ const MIN_SPEED_LIMIT_KBPS: number = 0
 const MAX_SPEED_LIMIT_KBPS: number = 8192
 const SPEED_LIMIT_STEP_KBPS: number = 256
 const DEFAULT_EH_AR_BOT_ADDRESS: string = 'https://eh-arc-api.mhdy.icu'
-const DEFAULT_ARCHIVE_AT_HOME_ADDRESS: string = 'https://api.archive-at-home.org/jhentai'
+const DEFAULT_ARCHIVE_AT_HOME_ADDRESS: string = 'https://api.archive-at-home.org'
+const LEGACY_ARCHIVE_AT_HOME_ADDRESS: string = 'https://api.archive-at-home.org/jhentai'
 
 function clampConcurrency(value: number): number {
   return Math.min(MAX_CONCURRENCY, Math.max(MIN_CONCURRENCY, Math.round(value)))
@@ -60,6 +61,14 @@ function defaultArchiveBotAddress(type: string): string {
   return type === ArchiveBotType.ARCHIVE_AT_HOME ? DEFAULT_ARCHIVE_AT_HOME_ADDRESS : DEFAULT_EH_AR_BOT_ADDRESS
 }
 
+function normalizeArchiveBotAddress(type: string, value: string): string {
+  const trimmed: string = value.trim()
+  if (type === ArchiveBotType.ARCHIVE_AT_HOME && trimmed === LEGACY_ARCHIVE_AT_HOME_ADDRESS) {
+    return DEFAULT_ARCHIVE_AT_HOME_ADDRESS
+  }
+  return trimmed
+}
+
 /** Single writer for persisted download preferences. */
 export class DownloadSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
@@ -81,14 +90,17 @@ export class DownloadSettings {
       const archiveBotType: string = normalizeArchiveBotType(
         store.getSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_TYPE, ArchiveBotType.EH_AR_BOT) as string,
       )
-      const archiveBotAddress: string = (store.getSync(
+      const archiveBotAddress: string = normalizeArchiveBotAddress(archiveBotType, store.getSync(
         StorageKeys.DOWNLOAD_ARCHIVE_BOT_ADDRESS,
         defaultArchiveBotAddress(archiveBotType),
-      ) as string).trim()
+      ) as string)
       const archiveBotApiKey: string = (store.getSync(
         StorageKeys.DOWNLOAD_ARCHIVE_BOT_API_KEY,
         '',
       ) as string).trim()
+      const archiveBotBalanceGp: number = store.getSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_BALANCE_GP, -1) as number
+      const archiveBotBalanceUpdatedAt: number =
+        store.getSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_BALANCE_UPDATED_AT, 0) as number
       const state: DownloadSettingsState = connectDownloadSettings()
       state.concurrency = clampConcurrency(concurrency)
       state.requestIntervalSeconds = clampRequestIntervalSeconds(requestIntervalSeconds)
@@ -99,6 +111,8 @@ export class DownloadSettings {
       state.archiveBotType = archiveBotType
       state.archiveBotAddress = archiveBotAddress.length > 0 ? archiveBotAddress : defaultArchiveBotAddress(archiveBotType)
       state.archiveBotApiKey = archiveBotApiKey
+      state.archiveBotBalanceGp = archiveBotBalanceGp
+      state.archiveBotBalanceUpdatedAt = archiveBotBalanceUpdatedAt
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_restore_failed', (error as Error).message)
     }
@@ -149,7 +163,8 @@ export class DownloadSettings {
     state.archiveBotType = value
     if (state.archiveBotAddress.length === 0 ||
       state.archiveBotAddress === DEFAULT_EH_AR_BOT_ADDRESS ||
-      state.archiveBotAddress === DEFAULT_ARCHIVE_AT_HOME_ADDRESS) {
+      state.archiveBotAddress === DEFAULT_ARCHIVE_AT_HOME_ADDRESS ||
+      state.archiveBotAddress === LEGACY_ARCHIVE_AT_HOME_ADDRESS) {
       state.archiveBotAddress = defaultArchiveBotAddress(value)
     }
     try {
@@ -198,6 +213,28 @@ export class DownloadSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_archive_bot_key_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setArchiveBotBalance(
+    context: common.UIAbilityContext,
+    gp: number,
+  ): Promise<void> {
+    const value: number = Math.max(0, Math.floor(gp))
+    const now: number = Date.now()
+    const state: DownloadSettingsState = connectDownloadSettings()
+    state.archiveBotBalanceGp = value
+    state.archiveBotBalanceUpdatedAt = now
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_BALANCE_GP, value)
+      store.putSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_BALANCE_UPDATED_AT, now)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_archive_bot_balance_save_failed', (error as Error).message)
     }
   }
 

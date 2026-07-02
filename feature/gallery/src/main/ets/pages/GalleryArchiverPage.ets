@@ -254,17 +254,19 @@ export struct GalleryArchiverContent {
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .textAlign(TextAlign.Center)
-      Row({ space: ThemeConstants.SPACE_XS }) {
-        Text(this.botMeta(item))
-          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor($r('sys.color.font_secondary'))
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .textAlign(TextAlign.Center)
+      if (this.botMeta(item).length > 0) {
+        Row({ space: ThemeConstants.SPACE_XS }) {
+          Text(this.botMeta(item))
+            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .textAlign(TextAlign.Center)
+        }
+        .alignItems(VerticalAlign.Center)
+        .justifyContent(FlexAlign.Center)
+        .width('100%')
       }
-      .alignItems(VerticalAlign.Center)
-      .justifyContent(FlexAlign.Center)
-      .width('100%')
     }
     .width('100%')
     .alignItems(HorizontalAlign.Center)
@@ -443,10 +445,7 @@ export struct GalleryArchiverContent {
   }
 
   private botMeta(item: EhGalleryArchiverItem): string {
-    if (item.sizeText.length > 0) {
-      return `${item.sizeText} · ${AppStrings.get('gallery_archiver_bot_free')}`
-    }
-    return AppStrings.get('gallery_archiver_bot_free')
+    return item.sizeText
   }
 
   private botArchiveItem(): EhGalleryArchiverItem {

@@ -146,8 +146,23 @@ ok(/DownloadOriginalMode\.OFF/.test(downloadPage) && /DownloadOriginalMode\.ASK/
   /DownloadOriginalMode\.ALWAYS/.test(downloadPage),
   'download original-image menu covers off, ask, and always')
 ok(/archiveBotBalanceBusy/.test(downloadPage) && /archiveBotCheckInBusy/.test(downloadPage) &&
-  !/@Local archiveBotBusy/.test(downloadPage),
+  /archiveBotBalanceStatus/.test(downloadPage) && /archiveBotCheckInStatus/.test(downloadPage) &&
+  !/@Local archiveBotBusy/.test(downloadPage) && !/@Local archiveBotStatus/.test(downloadPage),
   'archive bot balance and check-in rows keep independent loading states')
+ok(/setArchiveBotBalance\(this\.ctx\(\), result\.gp\)/.test(downloadPage) &&
+  /DOWNLOAD_ARCHIVE_BOT_BALANCE_GP/.test(settings) &&
+  /archiveBotBalanceGp/.test(state),
+  'archive bot balance is cached in persisted download settings')
+ok(/refreshArchiveBotBalanceSilently\(\)/.test(downloadPage) &&
+  /aboutToAppear\(\)[\s\S]*this\.refreshArchiveBotBalanceSilently\(\)/.test(downloadPage) &&
+  /archive_bot_balance_auto_refresh_start/.test(downloadPage) &&
+  /archive_bot_balance_auto_refresh_failed/.test(downloadPage),
+  'download settings page silently refreshes archive bot balance on entry')
+ok(/if \(result\.hasBalance\) \{[\s\S]*setArchiveBotBalance\(this\.ctx\(\), result\.gp\)/.test(downloadPage),
+  'archive bot balance cache is updated only when the response carries a balance field')
+ok(/result\.message\.length > 0 && result\.reward <= 0/.test(downloadPage) &&
+  /result\.hasBalance && \(result\.gp > 0 \|\| result\.reward > 0\)/.test(downloadPage),
+  'archive bot check-in shows server messages and does not let already-checked zero balances overwrite cache')
 ok(/canCheckArchiveBotBalance/.test(downloadPage) && /canCheckInArchiveBot/.test(downloadPage) &&
   /download_archive_bot_balance[\s\S]*archiveBotBalanceBusy[\s\S]*BusySuffix/.test(downloadPage) &&
   /download_archive_bot_checkin[\s\S]*archiveBotCheckInBusy[\s\S]*BusySuffix/.test(downloadPage),
@@ -163,6 +178,10 @@ const archiveBotService = read('shared/src/main/ets/services/ArchiveBotService.e
 ok(/archive_bot_request_start/.test(archiveBotService) && /archive_bot_request_done/.test(archiveBotService) &&
   /archive_bot_request_failed/.test(archiveBotService) && /DiagnosticLogger\.ownerHash\(gid\)/.test(archiveBotService),
   'archive bot service emits redacted request start/done/failure diagnostics')
+ok(/body\.length > 0[\s\S]*extraData: body/.test(archiveBotService) &&
+  /headers\(settings, false\)/.test(archiveBotService) &&
+  /if \(hasBody\) \{[\s\S]*Content-Type/.test(archiveBotService),
+  'archive-at-home no-body actions are sent without JSON body headers')
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
 ok(!/connectDownloadSettings|DownloadSettingsState|DownloadSettings\.setConcurrency|DownloadSettings\.setOriginalMode/.test(page),

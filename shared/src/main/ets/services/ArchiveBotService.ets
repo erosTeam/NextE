@@ -10,6 +10,7 @@ const ARCHIVE_AT_HOME_CLIENT: string = 'app/jhentai'
 class ArchiveBotResponseJson {
   code?: number
   msg?: string
+  message?: string
   data?: ArchiveBotDataJson
   error?: string
 }
@@ -25,12 +26,15 @@ class ArchiveBotDataJson {
 export class ArchiveBotBalanceResult {
   gp: number = 0
   message: string = ''
+  hasBalance: boolean = false
 }
 
 export class ArchiveBotCheckInResult {
   reward: number = 0
   gp: number = 0
   message: string = ''
+  hasReward: boolean = false
+  hasBalance: boolean = false
 }
 
 export class ArchiveBotResolveResult {
@@ -44,6 +48,9 @@ export class ArchiveBotService {
     ArchiveBotService.assertSuccess(resp)
     const data: ArchiveBotDataJson = resp.data !== undefined ? resp.data : new ArchiveBotDataJson()
     const out: ArchiveBotBalanceResult = new ArchiveBotBalanceResult()
+    out.hasBalance = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
+      ? data.balance !== undefined
+      : data.current_GP !== undefined
     out.gp = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
       ? ArchiveBotService.safeNumber(data.balance)
       : ArchiveBotService.safeNumber(data.current_GP)
@@ -56,6 +63,12 @@ export class ArchiveBotService {
     ArchiveBotService.assertSuccess(resp)
     const data: ArchiveBotDataJson = resp.data !== undefined ? resp.data : new ArchiveBotDataJson()
     const out: ArchiveBotCheckInResult = new ArchiveBotCheckInResult()
+    out.hasReward = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
+      ? data.reward !== undefined
+      : data.get_GP !== undefined
+    out.hasBalance = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
+      ? data.balance !== undefined
+      : data.current_GP !== undefined
     out.reward = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
       ? ArchiveBotService.safeNumber(data.reward)
       : ArchiveBotService.safeNumber(data.get_GP)
@@ -100,20 +113,39 @@ export class ArchiveBotService {
       `${settings.archiveBotType} action=${action} gidHash=${DiagnosticLogger.ownerHash(gid)}`,
     )
     try {
-      const resp: http.HttpResponse = await req.request(url, {
-        method: ArchiveBotService.method(settings, action),
-        header: ArchiveBotService.headers(settings),
-        extraData: body,
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: CONNECT_TIMEOUT_MS,
-        readTimeout: READ_TIMEOUT_MS,
-        usingCache: false,
-      })
+      const resp: http.HttpResponse = body.length > 0
+        ? await req.request(url, {
+          method: ArchiveBotService.method(settings, action),
+          header: ArchiveBotService.headers(settings, body.length > 0),
+          extraData: body,
+          expectDataType: http.HttpDataType.STRING,
+          connectTimeout: CONNECT_TIMEOUT_MS,
+          readTimeout: READ_TIMEOUT_MS,
+          usingCache: false,
+        })
+        : await req.request(url, {
+          method: ArchiveBotService.method(settings, action),
+          header: ArchiveBotService.headers(settings, false),
+          expectDataType: http.HttpDataType.STRING,
+          connectTimeout: CONNECT_TIMEOUT_MS,
+          readTimeout: READ_TIMEOUT_MS,
+          usingCache: false,
+        })
       const code: number = resp.responseCode as number
       const text: string = typeof resp.result === 'string' ? resp.result as string : ''
+      DiagnosticLogger.info(
+        'download',
+        'archive_bot_response_summary',
+        `${settings.archiveBotType} action=${action} http=${code} ${ArchiveBotService.responseSummary(text)}`,
+      )
       req.destroy()
       if (code >= 400) {
         const errResp: ArchiveBotResponseJson = ArchiveBotService.parseResponse(text)
+        DiagnosticLogger.warn(
+          'download',
+          'archive_bot_http_error',
+          `${settings.archiveBotType} action=${action} http=${code} message=${ArchiveBotService.message(errResp)}`,
+        )
         throw new Error(ArchiveBotService.message(errResp))
       }
       const parsed: ArchiveBotResponseJson = ArchiveBotService.parseResponse(text)
@@ -151,12 +183,14 @@ export class ArchiveBotService {
     return http.RequestMethod.POST
   }
 
-  private static headers(settings: DownloadSettingsState): Record<string, string> {
+  private static headers(settings: DownloadSettingsState, hasBody: boolean): Record<string, string> {
     const headers: Record<string, string> = {
       'User-Agent': EhConstants.USER_AGENT,
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-      'Content-Type': 'application/json',
+    }
+    if (hasBody) {
+      headers['Content-Type'] = 'application/json'
     }
     if (settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME) {
       headers.Authorization = `Bearer ${settings.archiveBotApiKey}`
@@ -201,14 +235,23 @@ export class ArchiveBotService {
     const out: ArchiveBotResponseJson = new ArchiveBotResponseJson()
     out.code = typeof rec.code === 'number' ? rec.code : 0
     out.msg = typeof rec.msg === 'string' ? rec.msg : ''
+    out.message = typeof rec.message === 'string' ? rec.message : ''
     const raw: ArchiveBotDataJson = rec.data !== undefined ? rec.data : (rec as ArchiveBotDataJson)
     const rawAny = raw as Record<string, Object>
     const data: ArchiveBotDataJson = new ArchiveBotDataJson()
     data.archive_url = typeof raw.archive_url === 'string' ? raw.archive_url : ''
-    data.current_GP = ArchiveBotService.safeNumber(raw.current_GP)
-    data.get_GP = ArchiveBotService.safeNumber(raw.get_GP)
-    data.balance = ArchiveBotService.safeNumber(raw.balance)
-    data.reward = ArchiveBotService.safeNumber(raw.reward)
+    if (raw.current_GP !== undefined) {
+      data.current_GP = ArchiveBotService.safeNumber(raw.current_GP)
+    }
+    if (raw.get_GP !== undefined) {
+      data.get_GP = ArchiveBotService.safeNumber(raw.get_GP)
+    }
+    if (raw.balance !== undefined) {
+      data.balance = ArchiveBotService.safeNumber(raw.balance)
+    }
+    if (raw.reward !== undefined) {
+      data.reward = ArchiveBotService.safeNumber(raw.reward)
+    }
     out.data = data
     out.error = typeof rec.error === 'string' ? rec.error : ''
     if (rec.data !== undefined) {
@@ -231,6 +274,9 @@ export class ArchiveBotService {
   private static message(resp: ArchiveBotResponseJson): string {
     if (typeof resp.msg === 'string' && resp.msg.length > 0) {
       return resp.msg
+    }
+    if (typeof resp.message === 'string' && resp.message.length > 0) {
+      return resp.message
     }
     if (typeof resp.error === 'string' && resp.error.length > 0) {
       return resp.error
@@ -261,6 +307,22 @@ export class ArchiveBotService {
       return 'Already checked in'
     }
     return 'Archive bot error'
+  }
+
+  private static responseSummary(body: string): string {
+    try {
+      const rec = JSON.parse(body) as Record<string, Object>
+      const data = rec.data as Record<string, Object> | undefined
+      const keys: string = Object.keys(rec).join(',')
+      const dataKeys: string = data !== undefined && typeof data === 'object' ? Object.keys(data).join(',') : ''
+      const message: string = typeof rec.message === 'string' ? rec.message as string :
+        typeof rec.msg === 'string' ? rec.msg as string : ''
+      const balance: Object | undefined = data !== undefined && data.balance !== undefined ? data.balance : rec.balance
+      const reward: Object | undefined = data !== undefined && data.reward !== undefined ? data.reward : rec.reward
+      return `keys=${keys} dataKeys=${dataKeys} balance=${balance ?? ''} reward=${reward ?? ''} message=${message}`
+    } catch (_error) {
+      return 'unparseable'
+    }
   }
 
   private static safeNumber(value?: Object): number {
