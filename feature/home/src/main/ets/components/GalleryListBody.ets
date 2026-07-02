@@ -26,6 +26,8 @@ import {
   FavSelectionState,
   connectFavSelection,
   RootRefreshRegistry,
+  LayoutSafeAreaState,
+  connectLayoutSafeArea,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
@@ -52,6 +54,7 @@ export struct GalleryListBody {
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local favSel: FavSelectionState = connectFavSelection();
   @Local listContentWidth: number = 0;
+  private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
 
@@ -114,6 +117,25 @@ export struct GalleryListBody {
     )
   }
 
+  private restoreAfterPrepend(prependedCount: number): void {
+    if (prependedCount <= 0) {
+      return
+    }
+    setTimeout(() => {
+      this.scroller.scrollToIndex(prependedCount + 1, false, ScrollAlign.START)
+      setTimeout(() => {
+        try {
+          const topReserve: number = this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + this.topPadding
+          const yOffset: number = Math.max(0, this.scroller.currentOffset().yOffset - topReserve)
+          this.scroller.scrollTo({
+            xOffset: 0,
+            yOffset,
+          })
+        } catch (_error) {}
+      }, 50)
+    }, 50)
+  }
+
   build() {
     Column() {
       if (
@@ -149,7 +171,7 @@ export struct GalleryListBody {
           nearEndThreshold: 4,
           controller: this.refreshController,
           onRefresh: async () => {
-            await this.vm.refresh()
+            this.restoreAfterPrepend(await this.vm.refresh())
           },
           onBottomRefresh: async () => {
             await this.vm.loadMore()
@@ -203,7 +225,7 @@ export struct GalleryListBody {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
-            await this.vm.refresh()
+            this.restoreAfterPrepend(await this.vm.refresh())
           },
           onBottomRefresh: async () => {
             await this.vm.loadMore()
@@ -253,7 +275,7 @@ export struct GalleryListBody {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
-            await this.vm.refresh()
+            this.restoreAfterPrepend(await this.vm.refresh())
           },
           onBottomRefresh: async () => {
             await this.vm.loadMore()
@@ -299,7 +321,7 @@ export struct GalleryListBody {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
-            await this.vm.refresh()
+            this.restoreAfterPrepend(await this.vm.refresh())
           },
           onBottomRefresh: async () => {
             await this.vm.loadMore()

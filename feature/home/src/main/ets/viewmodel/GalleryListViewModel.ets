@@ -529,15 +529,14 @@ export class GalleryListViewModel {
 
   /** Pull-to-refresh: replace from the first page. Guarded + flagged isLoading so a concurrent
    * loadMore (which checks isLoading) can't interleave its appendData with this setData. */
-  async refresh(): Promise<void> {
+  async refresh(): Promise<number> {
     DiagnosticLogger.info('home-list-anchor', 'refresh_enter', this.debugState())
     if (this.isLoading || this.isLoadingMore) {
       DiagnosticLogger.info('home-list-anchor', 'refresh_skip_busy', this.debugState())
-      return
+      return 0
     }
     if (this.isToplist() && this.afterToplistJump && this.toplistPrevPage >= 0) {
-      await this.loadPreviousToplist()
-      return
+      return await this.loadPreviousToplist()
     }
     this.isLoading = true
     this.errorMessage = ''
@@ -563,6 +562,7 @@ export class GalleryListViewModel {
       DiagnosticLogger.warn('home', 'list_refresh_failed', e.message)
     }
     this.isLoading = false
+    return 0
   }
 
   /** Append the next page at the cursor, with eros_fe's stale-cursor + (gid-keyed) dedup guards. */
@@ -686,12 +686,12 @@ export class GalleryListViewModel {
   }
 
   /** After a page jump, FE treats pull-to-refresh as "load previous page" instead of reloading page 1. */
-  private async loadPreviousToplist(): Promise<void> {
+  private async loadPreviousToplist(): Promise<number> {
     DiagnosticLogger.info('home-list-anchor', 'toplist_prev_enter', this.debugState())
     const requestedPage: number = this.toplistPrevPage
     if (requestedPage < 0 || requestedPage > this.maxPage) {
       DiagnosticLogger.info('home-list-anchor', 'toplist_prev_no_page', this.debugState())
-      return
+      return 0
     }
     this.isLoading = true
     this.errorMessage = ''
@@ -715,6 +715,8 @@ export class GalleryListViewModel {
           'toplist_prev_done',
           `${this.debugState()} requestedPage=${requestedPage} incoming=${list.gallerys.length} fresh=${fresh.length}`,
         )
+        this.isLoading = false
+        return fresh.length
       } else {
         DiagnosticLogger.info(
           'home-list-anchor',
@@ -730,6 +732,7 @@ export class GalleryListViewModel {
       DiagnosticLogger.warn('home', 'toplist_loadprev_failed', e.message)
     }
     this.isLoading = false
+    return 0
   }
 
   /** Favorites page paging (favorite-type profiles): page+from forward, nextGid fallback. Ported from
