@@ -765,6 +765,10 @@
       "value": "第一页"
     },
     {
+      "name": "gallery_jump_date_after",
+      "value": "按日期后跳"
+    },
+    {
       "name": "toplist_jump_help",
       "value": "输入排行榜页码。范围："
     },

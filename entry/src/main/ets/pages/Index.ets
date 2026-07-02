@@ -520,6 +520,14 @@ struct Index {
         this.openSearch()
       },
     }
+    const dateJumpInner: Record<string, Object> = {
+      'label': $r('app.string.gallery_jump_date_after'),
+      'icon': $r('sys.symbol.clock'),
+      'isEnabled': true,
+      'action': () => {
+        HomeSourceBridge.publishOpenDateJumpAfterDialog()
+      },
+    }
     // Quick list-layout switcher (mirrors the 收藏 order action): the icon can't anchor a Menu, so it
     // asks HomePage (which owns an anchor node) to open the native layout dropdown via the command bus.
     const layoutInner: Record<string, Object> = {
@@ -532,6 +540,7 @@ struct Index {
     }
     const items: Record<string, Object>[] = [
       { 'content': searchInner },
+      { 'content': dateJumpInner },
       { 'content': layoutInner },
       this.backToTopMenuItem(),
     ]

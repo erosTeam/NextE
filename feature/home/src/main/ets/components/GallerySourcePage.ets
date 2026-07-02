@@ -15,6 +15,8 @@ import {
   connectSafeMode,
   SAFE_MODE_PROFILE_UUID,
   DiagnosticLogger,
+  HomeSourceState,
+  connectHomeSource,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -47,12 +49,14 @@ export struct GallerySourcePage {
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local profilesState: CustomProfilesState = connectCustomProfiles();
   @Local safeMode: SafeModeState = connectSafeMode();
+  @Local homeSource: HomeSourceState = connectHomeSource();
   // Per-tab display-mode override passed to the list body ('global' = follow the shared ListModeState).
   @Local displayMode: string = 'global';
   // First-load guard: load once on first activation; later activations reuse the retained list.
   private loadedOnce: boolean = false;
   // lastEditTime of the profile this VM is configured for; an edit bumps it → reconfigure + reload.
   private configuredEditTime: number = -1;
+  private selectedJumpDate: Date = new Date();
 
   private isActive(): boolean {
     return this.active.activeKey === this.sourceKey
@@ -131,6 +135,13 @@ export struct GallerySourcePage {
     }
   }
 
+  @Monitor('homeSource.cmdSeq')
+  onHomeCommand(): void {
+    if (this.isActive() && this.homeSource.cmdKind === 'openDateJumpAfterDialog') {
+      this.openDateJumpAfterDialog()
+    }
+  }
+
   private loadOnce(): void {
     DiagnosticLogger.info(
       'home-list-anchor',
@@ -142,6 +153,42 @@ export struct GallerySourcePage {
     }
     this.loadedOnce = true
     this.vm.loadData()
+  }
+
+  private static pad2(value: number): string {
+    return value < 10 ? `0${value}` : `${value}`
+  }
+
+  private static formatDate(value: Date): string {
+    const month: number = value.getMonth() + 1
+    const day: number = value.getDate()
+    return `${value.getFullYear()}-${GallerySourcePage.pad2(month)}-${GallerySourcePage.pad2(day)}`
+  }
+
+  private openDateJumpAfterDialog(): void {
+    if (!this.vm.canJumpToDateAfter()) {
+      return
+    }
+    this.getUIContext().showDatePickerDialog({
+      start: new Date(2007, 2, 20),
+      end: new Date(),
+      selected: this.selectedJumpDate,
+      onDateAccept: (value: Date) => {
+        this.selectedJumpDate = value
+        this.loadedOnce = true
+        const seek: string = GallerySourcePage.formatDate(value)
+        this.vm.jumpToDateAfter(seek)
+          .then((ok: boolean) => {
+            if (ok) {
+              setTimeout(() => {
+                this.scroller.scrollToIndex(0)
+              }, 50)
+            }
+          })
+          .catch((_error: Error) => {
+          })
+      },
+    })
   }
 
   // A 表/里 site switch invalidates this source's rows; reload only if it has already loaded (an

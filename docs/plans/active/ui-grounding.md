@@ -22,6 +22,16 @@ Primary action: toggle double-page in settings or Reader chrome, and in double-p
 Reuse or deviation: reuse existing circular Reader toolbar buttons, `ConciseListRow` switch semantics, and the existing `GalleryReadProgressState` persistence path; deviate from the old A/B menu because pairing is not a global preference.
 Verification: reader double-page/slider/initial/tapzone/read-progress contracts, settings dropdown anchor contract, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and X7 Reader smoke.
 
+## Active: reader direction menu
+
+Status: active
+Reference implementation: `feature/settings/src/main/ets/pages/ReaderSettingsPage.ets` `DirMenu()` native direction picker, current `feature/reader/src/main/ets/pages/ReaderPage.ets` bottom chrome button row, and `ReadModeSettings.setMode()` as the single persisted writer.
+Surface type: Reader bottom chrome direction control only; no Reader Settings, gesture, pager, or double-page model redesign.
+Primary information: the direction button still shows the current LTR/RTL/vertical icon, and the menu shows all three direction choices with a checkmark on the active mode.
+Primary action: tap the Reader direction button, choose left-to-right, right-to-left, or vertical from the native menu, then return to reading with the selected mode persisted.
+Reuse or deviation: reuse the settings page's native `Menu`/`MenuItem` direction picker semantics and existing circular Reader toolbar button; deviate only by replacing the old cyclic tap behavior so users can choose directly.
+Verification: reader double-page contract, UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and X7 Reader chrome smoke.
+
 ## Active: Huawei Cloud sync failure detail
 
 Status: active
@@ -611,3 +621,13 @@ Primary information: thumbnail cards remain page-preview thumbnails; the density
 Primary action: two-finger pinch on thumbnail grids and the Layout settings row adjust the shared thumbnail column width; tapping thumbnails still opens the reader.
 Reuse or deviation: reuse the existing list-mode column-width state, slider page, and `PullRefreshGridScaffold.pinchModeKey`; deviate only by wiring the detail inline bare `Grid` to the same persisted thumbnail key because it is not a pull-refresh page.
 Verification: responsive thumbnail grid contract, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and settings/all-thumbnails smoke on X7 when available.
+
+## Active: gallery date seek after jump
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/tab/controller/tabview_controller.dart` `buildTimeDialog()` / `_jumpToPageWithGidOrTime()`, `../eros_fe/lib/pages/tab/fetch_list.dart` `loadFrom()`, and `../eros_fe/lib/network/request.dart` `getGallery()`.
+Surface type: Home gallery title-bar menu action for ordinary/custom gallery sources.
+Primary information: the active gallery list is replaced by EH results after the chosen date; existing rows remain visible while the request is in flight.
+Primary action: selecting the title-bar date-jump action opens native `UIContext.showDatePickerDialog`, confirms a `seek=yyyy-MM-dd` after-jump, and scrolls the active retained list to its new top; gid and previous-date jumping are explicitly out of scope for this slice.
+Reuse or deviation: reuse the existing HomeSource command bus, retained `GallerySourcePage`, `GalleryListViewModel`, and EH list request path; deviate from FE's combined time/gid sheet by using the platform date picker because this slice only implements the forward date seek.
+Verification: UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and device smoke when a gallery date seek path is exercised.

@@ -57,6 +57,7 @@ export class FavoritesViewModel {
       isEx: connectSiteMode().isEx,
       favcat: this.favcat,
       next: next,
+      seek: '',
       page: page,
       from: from,
       // The favorites TAB always browses the full favcat; f_search now lives on the shared adaptive

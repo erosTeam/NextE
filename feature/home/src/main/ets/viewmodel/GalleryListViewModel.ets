@@ -111,7 +111,7 @@ export class GalleryListViewModel {
     return out
   }
 
-  private buildQuery(next: string, page: number = -1): GalleryListQuery {
+  private buildQuery(next: string, page: number = -1, seek: string = ''): GalleryListQuery {
     // popular (bare snapshot) and toplist (toplist.php) ignore filters; gallery + watched honour the
     // profile's search/category/advanced. A null profile (legacy surfaces) keeps the old unfiltered query.
     const p: CustomProfile | null = this.profile
@@ -121,6 +121,7 @@ export class GalleryListViewModel {
       isEx: connectSiteMode().isEx,
       source: this.source,
       next: next,
+      seek: seek,
       tl: this.isToplist() ? this.toplistTl : 0,
       page: page,
       fCats: useProfile ? p!.fCats() : 0,
@@ -180,11 +181,12 @@ export class GalleryListViewModel {
     return this.source === 'favorite'
   }
 
-  private buildFavQuery(next: string, page: number, from: string): FavoritesQuery {
+  private buildFavQuery(next: string, page: number, from: string, seek: string = ''): FavoritesQuery {
     return {
       isEx: connectSiteMode().isEx,
       favcat: this.favcat,
       next: next,
+      seek: seek,
       page: page,
       from: from,
       search: this.profile !== null ? this.profile.searchText : '',
@@ -431,6 +433,54 @@ export class GalleryListViewModel {
       const e = err as Error
       this.errorMessage = EhErrorText.forUser(err)
       DiagnosticLogger.warn('home', 'toplist_jump_failed', `${this.debugState()} requestedPage=${requestedPage} error=${e.message}`)
+    }
+    this.isLoading = false
+    this.loaded = true
+    return false
+  }
+
+  canJumpToDateAfter(): boolean {
+    return !this.isPopular() && !this.isToplist() && !this.isLoading && !this.isLoadingMore
+  }
+
+  async jumpToDateAfter(seek: string): Promise<boolean> {
+    const dateText: string = seek.trim()
+    if (!this.canJumpToDateAfter() || dateText.length === 0) {
+      return false
+    }
+    DiagnosticLogger.info('home-list-anchor', 'date_jump_after_enter', `${this.debugState()} seek=${dateText}`)
+    this.epoch = this.epoch + 1
+    this.isLoading = true
+    this.errorMessage = ''
+    this.nextGid = ''
+    this.lastNext = ''
+    this.toplistNextPage = -1
+    this.toplistPrevPage = -1
+    this.favNextPage = -1
+    this.maxPage = 0
+    this.currentToplistPage = 0
+    this.afterToplistJump = false
+    this.hasMore = false
+    try {
+      const list: GalleryList = this.isFavorite()
+        ? await EhApiService.getInstance().getFavoritesList(this.buildFavQuery('', -1, '', dateText))
+        : await EhApiService.getInstance().getGalleryList(this.buildQuery('', -1, dateText))
+      this.resolveFavoriteSlots(list.gallerys)
+      await this.renderFirstPageRows(list, this.itemCount === 0, false)
+      this.nextGid = list.nextGid
+      this.maxPage = list.maxPage
+      this.toplistNextPage = list.nextPage
+      this.toplistPrevPage = list.prevPage
+      this.favNextPage = list.nextPage
+      this.hasMore = this.firstPageHasMore(list)
+      DiagnosticLogger.info('home-list-anchor', 'date_jump_after_done', `${this.debugState()} seek=${dateText}`)
+      this.isLoading = false
+      this.loaded = true
+      return true
+    } catch (err) {
+      const e = err as Error
+      this.errorMessage = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('home', 'date_jump_after_failed', `${this.debugState()} seek=${dateText} error=${e.message}`)
     }
     this.isLoading = false
     this.loaded = true

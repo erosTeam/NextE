@@ -765,6 +765,10 @@
       "value": "最初のページ"
     },
     {
+      "name": "gallery_jump_date_after",
+      "value": "日付以後へ移動"
+    },
+    {
       "name": "toplist_jump_help",
       "value": "ランキングのページ番号を入力してください。範囲:"
     },

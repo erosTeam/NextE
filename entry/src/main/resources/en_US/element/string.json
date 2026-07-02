@@ -765,6 +765,10 @@
       "value": "First page"
     },
     {
+      "name": "gallery_jump_date_after",
+      "value": "Jump after date"
+    },
+    {
       "name": "toplist_jump_help",
       "value": "Enter a ranking page number. Range:"
     },
