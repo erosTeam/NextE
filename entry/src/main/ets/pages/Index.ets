@@ -555,8 +555,19 @@ struct Index {
   }
 
   private topOnlyMenu(): Record<string, Object> {
-    const items: Record<string, Object>[] = [this.backToTopMenuItem()]
-    return { 'value': items, 'maxCount': 1 }
+    const jumpInner: Record<string, Object> = {
+      'label': $r('app.string.toplist_jump_page'),
+      'icon': $r('sys.symbol.arrow_right'),
+      'isEnabled': true,
+      'action': () => {
+        HomeSourceBridge.publishOpenToplistJumpDialog()
+      },
+    }
+    const items: Record<string, Object>[] = [
+      { 'content': jumpInner },
+      this.backToTopMenuItem(),
+    ]
+    return { 'value': items, 'maxCount': 2 }
   }
 
   // Empty menu — HDS keeps the last-set title-bar menu across tab switches, so non-gallery tabs must

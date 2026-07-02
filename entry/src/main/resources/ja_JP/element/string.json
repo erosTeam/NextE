@@ -757,6 +757,22 @@
       "value": "有効なページ番号を入力してください"
     },
     {
+      "name": "toplist_jump_page",
+      "value": "移動"
+    },
+    {
+      "name": "toplist_jump_help",
+      "value": "ランキングのページ番号を入力してください。範囲:"
+    },
+    {
+      "name": "toplist_jump_placeholder",
+      "value": "ページ番号"
+    },
+    {
+      "name": "toplist_jump_invalid",
+      "value": "有効なランキングページ番号を入力してください"
+    },
+    {
       "name": "preview_load_more",
       "value": "もっと読み込む"
     },

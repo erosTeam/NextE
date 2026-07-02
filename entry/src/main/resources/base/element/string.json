@@ -757,6 +757,22 @@
       "value": "Enter a valid page number"
     },
     {
+      "name": "toplist_jump_page",
+      "value": "Jump"
+    },
+    {
+      "name": "toplist_jump_help",
+      "value": "Enter a ranking page number. Range:"
+    },
+    {
+      "name": "toplist_jump_placeholder",
+      "value": "Page number"
+    },
+    {
+      "name": "toplist_jump_invalid",
+      "value": "Enter a valid ranking page number"
+    },
+    {
       "name": "preview_load_more",
       "value": "Load more"
     },

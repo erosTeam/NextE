@@ -260,7 +260,11 @@ export class GalleryListViewModel {
     }
   }
 
-  private async renderFirstPageRows(list: GalleryList, deferTranslation: boolean): Promise<void> {
+  private async renderFirstPageRows(
+    list: GalleryList,
+    deferTranslation: boolean,
+    saveCache: boolean = true,
+  ): Promise<void> {
     const displayRows: EhGallery[] = list.gallerys.map((g: EhGallery) => g.copy())
     this.cacheRenderVersion = this.cacheRenderVersion + 1
     const renderVersion: number = this.cacheRenderVersion
@@ -276,16 +280,18 @@ export class GalleryListViewModel {
       }
       this.dataSource.setData(translated)
       this.itemCount = this.dataSource.totalCount()
-      const snapshot: GalleryList = list.copy()
-      snapshot.gallerys = translated
-      await this.saveFirstPageCache(snapshot)
+      if (saveCache) {
+        const snapshot: GalleryList = list.copy()
+        snapshot.gallerys = translated
+        await this.saveFirstPageCache(snapshot)
+      }
       return
     }
     this.dataSource.setData(displayRows)
     this.itemCount = this.dataSource.totalCount()
     if (connectTagTranslationSettings().enabled) {
-      this.translateCachedRowsLater(displayRows, renderVersion, list)
-    } else {
+      this.translateCachedRowsLater(displayRows, renderVersion, saveCache ? list : null)
+    } else if (saveCache) {
       await this.saveFirstPageCache(list)
     }
   }
@@ -368,6 +374,53 @@ export class GalleryListViewModel {
     }
     this.toplistTl = tl
     await this.reload()
+  }
+
+  toplistPageCount(): number {
+    return this.isToplist() ? this.maxPage + 1 : 0
+  }
+
+  async jumpToToplistPage(pageNumber: number): Promise<boolean> {
+    const requestedPage: number = pageNumber - 1
+    if (
+      !this.isToplist() ||
+      this.isLoading ||
+      this.isLoadingMore ||
+      requestedPage < 0 ||
+      requestedPage > this.maxPage
+    ) {
+      return false
+    }
+    DiagnosticLogger.info('home-list-anchor', 'toplist_jump_enter', `${this.debugState()} requestedPage=${requestedPage}`)
+    this.epoch = this.epoch + 1
+    this.isLoading = true
+    this.errorMessage = ''
+    this.nextGid = ''
+    this.lastNext = ''
+    this.toplistNextPage = -1
+    this.hasMore = false
+    try {
+      const list: GalleryList = await EhApiService.getInstance().getGalleryList(
+        this.buildQuery('', requestedPage),
+      )
+      this.resolveFavoriteSlots(list.gallerys)
+      await this.renderFirstPageRows(list, this.itemCount === 0, false)
+      this.nextGid = list.nextGid
+      this.maxPage = list.maxPage
+      this.toplistNextPage = list.nextPage
+      this.hasMore = this.firstPageHasMore(list)
+      DiagnosticLogger.info('home-list-anchor', 'toplist_jump_done', `${this.debugState()} requestedPage=${requestedPage}`)
+      this.isLoading = false
+      this.loaded = true
+      return true
+    } catch (err) {
+      const e = err as Error
+      this.errorMessage = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('home', 'toplist_jump_failed', `${this.debugState()} requestedPage=${requestedPage} error=${e.message}`)
+    }
+    this.isLoading = false
+    this.loaded = true
+    return false
   }
 
   /** First load (skips if already populated). */

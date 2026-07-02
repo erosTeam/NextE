@@ -2,15 +2,20 @@ import {
   SELECTOR_BAR_HEIGHT,
   ActiveKeyState,
   ToplistFilterState,
+  HomeSourceState,
   connectTagTranslationSettings,
   TagTranslationSettingsState,
   connectToplistFilter,
   LocalBlockState,
   connectLocalBlock,
+  connectHomeSource,
+  ThemeConstants,
+  AppStrings,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
 import { common } from '@kit.AbilityKit'
+import { CustomContentDialog } from '@kit.ArkUI'
 
 /**
  * One retained toplist-PERIOD page (V2Next FeedListPage pattern; mirrors GallerySourcePage). NextE
@@ -35,7 +40,38 @@ export struct ToplistPeriodPage {
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local toplistFilter: ToplistFilterState = connectToplistFilter();
   @Local localBlock: LocalBlockState = connectLocalBlock();
+  @Local homeSource: HomeSourceState = connectHomeSource();
+  @Local jumpPageText: string = '';
+  @Local jumpError: string = '';
+  private jumpSubmitting: boolean = false;
   private loadedOnce: boolean = false;
+  private jumpDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.toplist_jump_page'),
+      contentBuilder: () => {
+        this.ToplistJumpDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeJumpDialog()
+          },
+        },
+        {
+          value: $r('app.string.toplist_jump_page'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.confirmToplistJump()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
 
   private isActive(): boolean {
     return this.active.activeKey === `${this.periodTl}`
@@ -58,6 +94,13 @@ export struct ToplistPeriodPage {
   onActiveChange(): void {
     if (this.isActive()) {
       this.loadOnce()
+    }
+  }
+
+  @Monitor('homeSource.cmdSeq')
+  onHomeCommand(): void {
+    if (this.isActive() && this.homeSource.cmdKind === 'openToplistJumpDialog') {
+      this.openJumpDialog()
     }
   }
 
@@ -88,6 +131,89 @@ export struct ToplistPeriodPage {
     if (this.loadedOnce) {
       await this.vm.applyLocalBlockChange()
     }
+  }
+
+  private openJumpDialog(): void {
+    this.jumpPageText = ''
+    this.jumpError = ''
+    this.jumpDialogController.open()
+  }
+
+  private closeJumpDialog(): void {
+    try {
+      this.jumpDialogController.close()
+    } catch (_error) {
+      // Dialog may already be dismissed by tapping outside.
+    }
+  }
+
+  private normalizeJumpInput(value: string): string {
+    return (value || '').replace(/[^0-9]/g, '')
+  }
+
+  private jumpHelpText(): string {
+    const pageCount: number = this.vm.toplistPageCount()
+    if (pageCount <= 0) {
+      return AppStrings.get('toplist_jump_help')
+    }
+    return `${AppStrings.get('toplist_jump_help')} 1 - ${pageCount}`
+  }
+
+  private confirmToplistJump(): void {
+    if (this.jumpSubmitting) {
+      return
+    }
+    const page: number = Number.parseInt(this.jumpPageText, 10)
+    const pageCount: number = this.vm.toplistPageCount()
+    if (Number.isNaN(page) || page <= 0 || (pageCount > 0 && page > pageCount)) {
+      this.jumpError = AppStrings.get('toplist_jump_invalid')
+      return
+    }
+    this.jumpSubmitting = true
+    this.vm.jumpToToplistPage(page)
+      .then((ok: boolean) => {
+        this.jumpSubmitting = false
+        if (!ok) {
+          this.jumpError = AppStrings.get('common_load_failed')
+          return
+        }
+        this.closeJumpDialog()
+        setTimeout(() => {
+          this.scroller.scrollToIndex(0)
+        }, 50)
+      })
+      .catch((_error: Error) => {
+        this.jumpSubmitting = false
+        this.jumpError = AppStrings.get('common_load_failed')
+      })
+  }
+
+  @Builder
+  ToplistJumpDialogContent() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Text(this.jumpHelpText())
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+      TextInput({
+        text: this.jumpPageText,
+        placeholder: $r('app.string.toplist_jump_placeholder'),
+      })
+        .type(InputType.Number)
+        .inputFilter('^[0-9]*$')
+        .defaultFocus(true)
+        .width('100%')
+        .onChange((value: string) => {
+          this.jumpPageText = this.normalizeJumpInput(value)
+          this.jumpError = ''
+        })
+      if (this.jumpError.length > 0) {
+        Text(this.jumpError)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(Color.Red)
+          .width('100%')
+      }
+    }.width('100%')
   }
 
   build() {

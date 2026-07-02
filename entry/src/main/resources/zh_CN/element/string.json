@@ -757,6 +757,22 @@
       "value": "请输入有效页码"
     },
     {
+      "name": "toplist_jump_page",
+      "value": "跳转"
+    },
+    {
+      "name": "toplist_jump_help",
+      "value": "输入排行榜页码。范围："
+    },
+    {
+      "name": "toplist_jump_placeholder",
+      "value": "页码"
+    },
+    {
+      "name": "toplist_jump_invalid",
+      "value": "请输入有效的排行榜页码"
+    },
+    {
       "name": "preview_load_more",
       "value": "加载更多"
     },
