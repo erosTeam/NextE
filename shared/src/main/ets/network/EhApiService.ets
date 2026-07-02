@@ -53,6 +53,7 @@ export interface GalleryListQuery {
   isEx: boolean
   source: string // home source path: '' front page / 'popular' / 'watched' / 'toplist' (page-paged)
   next: string // nextGid cursor for forward paging; '' = first page
+  prev: string // prevGid cursor for backward paging after jump; '' = no previous-page request
   seek: string // yyyy-MM-dd date seek for forward list jumps; '' = no date seek
   tl: number // toplist period (11 all / 12 year / 13 month / 15 yesterday); 0 = not a toplist
   page: number // 0-based page number for page-paged sources (toplist); ignored by cursor sources
@@ -76,6 +77,7 @@ export interface FavoritesQuery {
   isEx: boolean
   favcat: string // '' or 'a' = all slots; '0'-'9' = a specific favcat
   next: string // nextGid cursor; '' = first page
+  prev: string // prevGid cursor for backward paging when no page/from pair is available
   seek: string // yyyy-MM-dd date seek for forward jumps; '' = no date seek
   page: number // 0-based page number for favorites ptt paging; -1 = use cursor/first page
   from: string // last visible gid paired with page paging; '' for first page/cursor fallback
@@ -538,6 +540,8 @@ export class EhApiService {
     }
     if (query.next.length > 0) {
       params.push(`next=${query.next}`)
+    } else if (query.prev.length > 0) {
+      params.push(`prev=${query.prev}`)
     }
     const queryStr: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}${path}${queryStr}`
@@ -619,6 +623,8 @@ export class EhApiService {
       }
     } else if (query.next.length > 0) {
       params.push(`next=${encodeURIComponent(query.next)}`)
+    } else if (query.prev.length > 0) {
+      params.push(`prev=${encodeURIComponent(query.prev)}`)
     }
     const queryStr: string = params.length > 0 ? `?${params.join('&')}` : ''
     const url: string = `${base}/favorites.php${queryStr}`

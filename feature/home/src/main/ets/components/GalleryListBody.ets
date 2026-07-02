@@ -28,6 +28,7 @@ import {
   RootRefreshRegistry,
   LayoutSafeAreaState,
   connectLayoutSafeArea,
+  DiagnosticLogger,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
@@ -121,17 +122,59 @@ export struct GalleryListBody {
     if (prependedCount <= 0) {
       return
     }
-    this.scroller.scrollToIndex(prependedCount + 1, false, ScrollAlign.START)
+    const targetIndex: number = prependedCount + 1
+    const firstDelay: number = ThemeConstants.ANIM_DONE_DELAY_MS + ThemeConstants.ANIM_DURATION + 40
+    const finalDelay: number = firstDelay + ThemeConstants.ANIM_STATE_RESET_MS + 40
+    DiagnosticLogger.info(
+      'home-list-anchor',
+      'restore_prepend_schedule',
+      `prepended=${prependedCount} target=${targetIndex} offset=${this.safeYOffset()} firstDelay=${firstDelay} finalDelay=${finalDelay}`,
+    )
+    this.schedulePrependRestore(targetIndex, firstDelay)
+    this.schedulePrependRestore(targetIndex, finalDelay)
+  }
+
+  private schedulePrependRestore(targetIndex: number, delayMs: number): void {
     setTimeout(() => {
+      this.restorePrependTarget(targetIndex, delayMs)
+    }, delayMs)
+  }
+
+  private restorePrependTarget(targetIndex: number, delayMs: number): void {
+    try {
+      const before: number = this.safeYOffset()
+      this.scroller.scrollToIndex(targetIndex, false, ScrollAlign.START)
+      const alignedOffset: number = this.safeYOffset()
+      const adjustedOffset: number = this.adjustPrependOffset(alignedOffset)
       try {
-        const topReserve: number = this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + this.topPadding
-        const yOffset: number = Math.max(0, this.scroller.currentOffset().yOffset - topReserve)
-        this.scroller.scrollTo({
-          xOffset: 0,
-          yOffset,
-        })
-      } catch (_error) {}
-    }, 0)
+        DiagnosticLogger.info(
+          'home-list-anchor',
+          'restore_prepend_attempt',
+          `target=${targetIndex} delay=${delayMs} before=${before} aligned=${alignedOffset} adjusted=${adjustedOffset} after=${this.safeYOffset()}`,
+        )
+      } catch (_logError) {}
+    } catch (_error) {}
+  }
+
+  private adjustPrependOffset(alignedOffset: number): number {
+    if (alignedOffset <= 0) {
+      return alignedOffset
+    }
+    const topReserve: number = this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + this.topPadding
+    const adjustedOffset: number = Math.max(0, alignedOffset - topReserve)
+    this.scroller.scrollTo({
+      xOffset: 0,
+      yOffset: adjustedOffset,
+    })
+    return adjustedOffset
+  }
+
+  private safeYOffset(): number {
+    try {
+      return this.scroller.currentOffset().yOffset
+    } catch (_error) {
+      return -1
+    }
   }
 
   build() {

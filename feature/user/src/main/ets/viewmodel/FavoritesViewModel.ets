@@ -57,6 +57,7 @@ export class FavoritesViewModel {
       isEx: connectSiteMode().isEx,
       favcat: this.favcat,
       next: next,
+      prev: '',
       seek: '',
       page: page,
       from: from,

@@ -1,4 +1,5 @@
 import { AppStorageV2 } from '@kit.ArkUI'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 /**
  * Gallery + Toplist tab selector state. `source` drives the Gallery tab's pinned source bar
@@ -21,7 +22,7 @@ export class HomeSourceState {
 
   // ---- command bus: title bar → page (single-writer HomeSourceBridge; HomePage @Monitors cmdSeq) ----
   // HDS title-bar icons can't anchor a Menu, so title actions ask the active page to open owned UI.
-  // Command kind: '' | 'openLayoutMenu' | 'openDateJumpAfterDialog' | 'openToplistJumpDialog' | 'jumpToplistFirstPage'.
+  // Command kind: '' | 'openLayoutMenu' | 'openDateJumpAfterDialog' | 'jumpGalleryFirstPage' | 'openToplistJumpDialog' | 'jumpToplistFirstPage'.
   @Trace cmdKind: string = ''
   // Monotonic sequence so a repeated identical command still fires the page's @Monitor.
   @Trace cmdSeq: number = 0
@@ -33,24 +34,35 @@ export class HomeSourceBridge {
     const s: HomeSourceState = connectHomeSource()
     s.cmdKind = 'openLayoutMenu'
     s.cmdSeq = s.cmdSeq + 1
+    DiagnosticLogger.info('home-list-anchor', 'home_command_publish', `kind=openLayoutMenu seq=${s.cmdSeq}`)
   }
 
   static publishOpenDateJumpAfterDialog(): void {
     const s: HomeSourceState = connectHomeSource()
     s.cmdKind = 'openDateJumpAfterDialog'
     s.cmdSeq = s.cmdSeq + 1
+    DiagnosticLogger.info('home-list-anchor', 'home_command_publish', `kind=openDateJumpAfterDialog seq=${s.cmdSeq}`)
   }
 
   static publishOpenToplistJumpDialog(): void {
     const s: HomeSourceState = connectHomeSource()
     s.cmdKind = 'openToplistJumpDialog'
     s.cmdSeq = s.cmdSeq + 1
+    DiagnosticLogger.info('home-list-anchor', 'home_command_publish', `kind=openToplistJumpDialog seq=${s.cmdSeq}`)
+  }
+
+  static publishJumpGalleryFirstPage(): void {
+    const s: HomeSourceState = connectHomeSource()
+    s.cmdKind = 'jumpGalleryFirstPage'
+    s.cmdSeq = s.cmdSeq + 1
+    DiagnosticLogger.info('home-list-anchor', 'home_command_publish', `kind=jumpGalleryFirstPage seq=${s.cmdSeq}`)
   }
 
   static publishJumpToplistFirstPage(): void {
     const s: HomeSourceState = connectHomeSource()
     s.cmdKind = 'jumpToplistFirstPage'
     s.cmdSeq = s.cmdSeq + 1
+    DiagnosticLogger.info('home-list-anchor', 'home_command_publish', `kind=jumpToplistFirstPage seq=${s.cmdSeq}`)
   }
 }
 

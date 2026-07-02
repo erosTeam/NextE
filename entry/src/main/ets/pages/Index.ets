@@ -508,6 +508,18 @@ struct Index {
     return { 'content': topInner }
   }
 
+  private galleryBackToTopMenuItem(): Record<string, Object> {
+    const topInner: Record<string, Object> = {
+      'label': $r('app.string.common_back_to_top'),
+      'icon': $r('sys.symbol.arrow_up'),
+      'isEnabled': true,
+      'action': () => {
+        HomeSourceBridge.publishJumpGalleryFirstPage()
+      },
+    }
+    return { 'content': topInner }
+  }
+
   // 画廊 title-bar utility actions (HDS menu shape: value[]+maxCount). eros_fe exposes search plus
   // list navigation helpers in the trailing cluster; NextE keeps the same title-action semantics while
   // limiting this slice to the reliable active-scroller "back to top" action.
@@ -542,7 +554,7 @@ struct Index {
       { 'content': searchInner },
       { 'content': dateJumpInner },
       { 'content': layoutInner },
-      this.backToTopMenuItem(),
+      this.galleryBackToTopMenuItem(),
     ]
     return { 'value': items, 'maxCount': 3 }
   }
@@ -558,7 +570,7 @@ struct Index {
     }
     const items: Record<string, Object>[] = [
       { 'content': layoutInner },
-      this.backToTopMenuItem(),
+      this.galleryBackToTopMenuItem(),
     ]
     return { 'value': items, 'maxCount': 2 }
   }

@@ -239,7 +239,7 @@ const ok = (name, cond) => {
   ok('toplist loadMore clears stale error before retry fetch',
     /private async loadMoreToplist\(\): Promise<void> \{[\s\S]*this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(src))
   ok('toplist first-page query omits p=0 like eros_fe',
-    /private buildQuery\(next: string, page: number = -1\): GalleryListQuery/.test(src))
+    /private buildQuery\(next: string, page: number = -1[\s\S]*?\): GalleryListQuery/.test(src))
   ok('toplist stores parsed nextPage after first-page loads and cache restores',
     (src.match(/this\.toplistNextPage = list\.nextPage/g) ?? []).length >= 3 &&
     /this\.toplistNextPage = cached\.nextPage/.test(src))
@@ -255,6 +255,18 @@ const ok = (name, cond) => {
   const apiSrc = readFileSync(join(ROOT, 'shared/src/main/ets/network/EhApiService.ets'), 'utf8')
   ok('toplist network request omits page param until a parsed page is requested',
     /const pageParam: string = query\.page >= 0 \? `&p=\$\{query\.page\}` : ''[\s\S]*toplist\.php\?tl=\$\{query\.tl\}\$\{pageParam\}/.test(apiSrc))
+  const homeSourceStateSrc = readFileSync(join(ROOT, 'shared/src/main/ets/state/HomeSourceState.ets'), 'utf8')
+  const indexSrc = readFileSync(join(ROOT, 'entry/src/main/ets/pages/Index.ets'), 'utf8')
+  const sourcePageSrc = readFileSync(join(ROOT, 'feature/home/src/main/ets/components/GallerySourcePage.ets'), 'utf8')
+  ok('gallery back-to-top has a dedicated first-page command instead of reusing pull refresh',
+    /publishJumpGalleryFirstPage\(\)/.test(homeSourceStateSrc) &&
+    /private galleryBackToTopMenuItem\(\): Record<string, Object> \{[\s\S]*HomeSourceBridge\.publishJumpGalleryFirstPage\(\)/.test(indexSrc))
+  ok('active gallery page owns first-page command handling',
+    /this\.homeSource\.cmdKind === 'jumpGalleryFirstPage'[\s\S]*this\.jumpToFirstPage\(\)/.test(sourcePageSrc))
+  ok('date-jump mode back-to-top reloads page 1 instead of prepending another prev page',
+    /shouldJumpGalleryFirstPage\(\): boolean \{[\s\S]*return this\.afterDateJump/.test(src) &&
+    /async jumpGalleryFirstPage\(\): Promise<boolean> \{[\s\S]*await this\.reload\(\)/.test(src) &&
+    /this\.vm\.shouldJumpGalleryFirstPage\(\)[\s\S]*this\.vm\.jumpGalleryFirstPage\(\)/.test(sourcePageSrc))
 }
 
 // 10. cross-cutting: every paged ViewModel carries the same race guards as Home, while the

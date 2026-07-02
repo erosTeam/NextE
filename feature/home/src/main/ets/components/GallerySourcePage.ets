@@ -137,8 +137,18 @@ export struct GallerySourcePage {
 
   @Monitor('homeSource.cmdSeq')
   onHomeCommand(): void {
-    if (this.isActive() && this.homeSource.cmdKind === 'openDateJumpAfterDialog') {
+    if (!this.isActive()) {
+      return
+    }
+    DiagnosticLogger.info(
+      'home-list-anchor',
+      'home_command_receive',
+      `sourceKey=${this.sourceKey} kind=${this.homeSource.cmdKind} seq=${this.homeSource.cmdSeq} vm=${this.vm.debugState()}`,
+    )
+    if (this.homeSource.cmdKind === 'openDateJumpAfterDialog') {
       this.openDateJumpAfterDialog()
+    } else if (this.homeSource.cmdKind === 'jumpGalleryFirstPage') {
+      this.jumpToFirstPage()
     }
   }
 
@@ -167,8 +177,10 @@ export struct GallerySourcePage {
 
   private openDateJumpAfterDialog(): void {
     if (!this.vm.canJumpToDateAfter()) {
+      DiagnosticLogger.info('home-list-anchor', 'date_jump_dialog_blocked', this.vm.debugState())
       return
     }
+    DiagnosticLogger.info('home-list-anchor', 'date_jump_dialog_open', this.vm.debugState())
     this.getUIContext().showDatePickerDialog({
       start: new Date(2007, 2, 20),
       end: new Date(),
@@ -189,6 +201,23 @@ export struct GallerySourcePage {
           })
       },
     })
+  }
+
+  private jumpToFirstPage(): void {
+    if (this.vm.shouldJumpGalleryFirstPage()) {
+      this.vm.jumpGalleryFirstPage()
+        .then((ok: boolean) => {
+          if (ok) {
+            setTimeout(() => {
+              this.scroller.scrollToIndex(0)
+            }, 50)
+          }
+        })
+        .catch((_error: Error) => {
+        })
+      return
+    }
+    this.scroller.scrollToIndex(0)
   }
 
   // A 表/里 site switch invalidates this source's rows; reload only if it has already loaded (an
