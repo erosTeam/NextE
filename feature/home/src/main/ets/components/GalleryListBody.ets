@@ -132,8 +132,8 @@ export struct GalleryListBody {
             yOffset,
           })
         } catch (_error) {}
-      }, 50)
-    }, 50)
+      }, 0)
+    }, 0)
   }
 
   build() {
