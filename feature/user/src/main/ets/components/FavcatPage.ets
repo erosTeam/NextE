@@ -38,8 +38,13 @@ import {
   RootRefreshRegistry,
   LocalBlockState,
   connectLocalBlock,
+  AppStrings,
+  DiagnosticLogger,
+  LayoutSafeAreaState,
+  connectLayoutSafeArea,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
+import { CustomContentDialog } from '@kit.ArkUI'
 import { FavoritesViewModel } from '../viewmodel/FavoritesViewModel'
 
 /**
@@ -70,9 +75,41 @@ export struct FavcatPage {
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local listContentWidth: number = 0;
+  @Local jumpPageText: string = '';
+  @Local jumpError: string = '';
+  private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
   private loadedOnce: boolean = false;
+  private jumpSubmitting: boolean = false;
+  private selectedJumpDate: Date = new Date();
+  private jumpDialogController: CustomDialogController = new CustomDialogController({
+    builder: CustomContentDialog({
+      primaryTitle: $r('app.string.favorites_jump_page'),
+      contentBuilder: () => {
+        this.FavoriteJumpDialogContent()
+      },
+      buttons: [
+        {
+          value: $r('app.string.common_cancel'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.closeJumpDialog()
+          },
+        },
+        {
+          value: $r('app.string.favorites_jump_page'),
+          buttonStyle: ButtonStyleMode.TEXTUAL,
+          action: () => {
+            this.confirmFavoriteJump()
+          },
+        },
+      ],
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
 
   private isActive(): boolean {
     return this.active.activeKey === this.favcatKey
@@ -122,6 +159,18 @@ export struct FavcatPage {
     if (this.loadedOnce) {
       await this.vm.applyOrder(this.favSel.orderByPosted)
       this.publishFavList()
+    }
+  }
+
+  @Monitor('favSel.cmdSeq')
+  onFavoriteCommand(): void {
+    if (!this.isActive()) {
+      return
+    }
+    if (this.favSel.cmdKind === 'openJumpDialog') {
+      this.openJumpAction()
+    } else if (this.favSel.cmdKind === 'jumpFirstPage') {
+      this.jumpToFirstPage()
     }
   }
 
@@ -224,6 +273,229 @@ export struct FavcatPage {
     return current
   }
 
+  private static pad2(value: number): string {
+    return value < 10 ? `0${value}` : `${value}`
+  }
+
+  private static formatDate(value: Date): string {
+    const month: number = value.getMonth() + 1
+    const day: number = value.getDate()
+    return `${value.getFullYear()}-${FavcatPage.pad2(month)}-${FavcatPage.pad2(day)}`
+  }
+
+  private openJumpAction(): void {
+    if (!this.vm.canJumpRemote()) {
+      DiagnosticLogger.info('favorites', 'jump_action_blocked', `favcat=${this.favcatKey}`)
+      return
+    }
+    if (this.vm.canJumpToPageNumber()) {
+      this.openJumpDialog()
+      return
+    }
+    this.openDateJumpAfterDialog()
+  }
+
+  private openJumpDialog(): void {
+    this.jumpPageText = `${this.vm.currentPageNumber()}`
+    this.jumpError = ''
+    this.jumpDialogController.open()
+  }
+
+  private closeJumpDialog(): void {
+    try {
+      this.jumpDialogController.close()
+    } catch (_error) {
+    }
+  }
+
+  private normalizeJumpInput(value: string): string {
+    return (value || '').replace(/[^0-9]/g, '')
+  }
+
+  private jumpHelpText(): string {
+    const pageCount: number = this.vm.pageCount()
+    if (pageCount <= 0) {
+      return AppStrings.get('favorites_jump_help')
+    }
+    return `${AppStrings.get('favorites_jump_help')} 1 - ${pageCount}`
+  }
+
+  private confirmFavoriteJump(): void {
+    if (this.jumpSubmitting) {
+      return
+    }
+    const page: number = Number.parseInt(this.jumpPageText, 10)
+    const pageCount: number = this.vm.pageCount()
+    if (Number.isNaN(page) || page <= 0 || (pageCount > 0 && page > pageCount)) {
+      this.jumpError = AppStrings.get('favorites_jump_invalid')
+      return
+    }
+    this.jumpSubmitting = true
+    this.vm.jumpToPage(page)
+      .then((ok: boolean) => {
+        this.jumpSubmitting = false
+        if (!ok) {
+          this.jumpError = AppStrings.get('common_load_failed')
+          return
+        }
+        this.closeJumpDialog()
+        this.publishFavList()
+        this.scrollToTopSoon()
+      })
+      .catch((_error: Error) => {
+        this.jumpSubmitting = false
+        this.jumpError = AppStrings.get('common_load_failed')
+      })
+  }
+
+  private openDateJumpAfterDialog(): void {
+    this.getUIContext().showDatePickerDialog({
+      start: new Date(2007, 2, 20),
+      end: new Date(),
+      selected: this.selectedJumpDate,
+      onDateAccept: (value: Date) => {
+        this.selectedJumpDate = value
+        const seek: string = FavcatPage.formatDate(value)
+        this.jumpSubmitting = true
+        this.vm.jumpToDateAfter(seek)
+          .then((ok: boolean) => {
+            this.jumpSubmitting = false
+            if (ok) {
+              this.publishFavList()
+              this.scrollToTopSoon()
+            }
+          })
+          .catch((_error: Error) => {
+            this.jumpSubmitting = false
+          })
+      },
+    })
+  }
+
+  private jumpToFirstPage(): void {
+    if (!this.vm.shouldJumpFirstPage()) {
+      this.scrollToTopSoon()
+      return
+    }
+    if (this.jumpSubmitting) {
+      return
+    }
+    this.jumpSubmitting = true
+    this.vm.jumpFirstPage()
+      .then((ok: boolean) => {
+        this.jumpSubmitting = false
+        if (ok) {
+          this.publishFavList()
+          this.scrollToTopSoon()
+        }
+      })
+      .catch((_error: Error) => {
+        this.jumpSubmitting = false
+      })
+  }
+
+  private scrollToTopSoon(): void {
+    setTimeout(() => {
+      try {
+        this.scroller.scrollToIndex(0)
+      } catch (_error) {
+      }
+    }, 50)
+  }
+
+  private refreshCurrentList(): Promise<void> {
+    return this.vm.refresh((prependedCount: number) => {
+      this.restoreAfterPrepend(prependedCount)
+    })
+  }
+
+  private restoreAfterPrepend(prependedCount: number): void {
+    if (prependedCount <= 0) {
+      return
+    }
+    const targetIndex: number = prependedCount + 1
+    const firstDelay: number = ThemeConstants.ANIM_DONE_DELAY_MS + ThemeConstants.ANIM_DURATION + 40
+    const finalDelay: number = firstDelay + ThemeConstants.ANIM_STATE_RESET_MS + 40
+    DiagnosticLogger.info(
+      'favorites',
+      'restore_prepend_schedule',
+      `favcat=${this.favcatKey} prepended=${prependedCount} target=${targetIndex} firstDelay=${firstDelay} finalDelay=${finalDelay}`,
+    )
+    this.schedulePrependRestore(targetIndex, firstDelay)
+    this.schedulePrependRestore(targetIndex, finalDelay)
+  }
+
+  private schedulePrependRestore(targetIndex: number, delayMs: number): void {
+    setTimeout(() => {
+      this.restorePrependTarget(targetIndex, delayMs)
+    }, delayMs)
+  }
+
+  private restorePrependTarget(targetIndex: number, delayMs: number): void {
+    try {
+      const before: number = this.safeYOffset()
+      this.scroller.scrollToIndex(targetIndex, false, ScrollAlign.START)
+      const alignedOffset: number = this.safeYOffset()
+      const adjustedOffset: number = this.adjustPrependOffset(alignedOffset)
+      DiagnosticLogger.info(
+        'favorites',
+        'restore_prepend_attempt',
+        `favcat=${this.favcatKey} target=${targetIndex} delay=${delayMs} before=${before} aligned=${alignedOffset} adjusted=${adjustedOffset} after=${this.safeYOffset()}`,
+      )
+    } catch (_error) {
+    }
+  }
+
+  private adjustPrependOffset(alignedOffset: number): number {
+    if (alignedOffset <= 0) {
+      return alignedOffset
+    }
+    const topReserve: number = this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + SELECTOR_BAR_HEIGHT
+    const adjustedOffset: number = Math.max(0, alignedOffset - topReserve)
+    this.scroller.scrollTo({
+      xOffset: 0,
+      yOffset: adjustedOffset,
+    })
+    return adjustedOffset
+  }
+
+  private safeYOffset(): number {
+    try {
+      return this.scroller.currentOffset().yOffset
+    } catch (_error) {
+      return -1
+    }
+  }
+
+  @Builder
+  FavoriteJumpDialogContent() {
+    Column({ space: ThemeConstants.SPACE_SM }) {
+      Text(this.jumpHelpText())
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+      TextInput({
+        text: this.jumpPageText,
+        placeholder: $r('app.string.favorites_jump_placeholder'),
+      })
+        .type(InputType.Number)
+        .inputFilter('^[0-9]*$')
+        .defaultFocus(true)
+        .width('100%')
+        .onChange((value: string) => {
+          this.jumpPageText = this.normalizeJumpInput(value)
+          this.jumpError = ''
+        })
+      if (this.jumpError.length > 0) {
+        Text(this.jumpError)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor($r('sys.color.ohos_id_color_warning'))
+          .width('100%')
+      }
+    }
+    .width('100%')
+  }
+
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
@@ -276,7 +548,7 @@ export struct FavcatPage {
           nearEndThreshold: 4,
           controller: this.refreshController,
           onRefresh: async () => {
-            await this.vm.refresh()
+            await this.refreshCurrentList()
           },
           onBottomRefresh: async () => {
             await this.vm.loadMore()
@@ -330,7 +602,7 @@ export struct FavcatPage {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
-            await this.vm.refresh()
+            await this.refreshCurrentList()
           },
           onBottomRefresh: async () => {
             await this.vm.loadMore()
@@ -380,7 +652,7 @@ export struct FavcatPage {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
-            await this.vm.refresh()
+            await this.refreshCurrentList()
           },
           onBottomRefresh: async () => {
             await this.vm.loadMore()
@@ -426,7 +698,7 @@ export struct FavcatPage {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
-            await this.vm.refresh()
+            await this.refreshCurrentList()
           },
           onBottomRefresh: async () => {
             await this.vm.loadMore()

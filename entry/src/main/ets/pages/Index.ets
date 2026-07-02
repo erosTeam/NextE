@@ -636,11 +636,28 @@ struct Index {
         this.openFavoriteSelector()
       },
     }
+    const jumpInner: Record<string, Object> = {
+      'label': $r('app.string.favorites_jump_page'),
+      'icon': $r('sys.symbol.chevron_right_circle'),
+      'isEnabled': true,
+      'action': () => {
+        FavSelectionBridge.publishOpenJumpDialog()
+      },
+    }
+    const firstPageInner: Record<string, Object> = {
+      'label': $r('app.string.favorites_first_page'),
+      'icon': $r('sys.symbol.arrow_up_circle'),
+      'isEnabled': true,
+      'action': () => {
+        FavSelectionBridge.publishJumpFirstPage()
+      },
+    }
     const items: Record<string, Object>[] = [
       { 'content': searchInner },
       { 'content': orderInner },
+      { 'content': jumpInner },
       { 'content': selectorInner },
-      this.backToTopMenuItem(),
+      { 'content': firstPageInner },
     ]
     return { 'value': items, 'maxCount': 3 }
   }

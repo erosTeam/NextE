@@ -765,8 +765,28 @@
       "value": "First page"
     },
     {
+      "name": "favorites_jump_page",
+      "value": "Jump"
+    },
+    {
+      "name": "favorites_first_page",
+      "value": "First page"
+    },
+    {
       "name": "gallery_jump_date_after",
       "value": "Jump after date"
+    },
+    {
+      "name": "favorites_jump_help",
+      "value": "Enter a favorites page number. Range:"
+    },
+    {
+      "name": "favorites_jump_placeholder",
+      "value": "Page number"
+    },
+    {
+      "name": "favorites_jump_invalid",
+      "value": "Enter a valid favorites page number"
     },
     {
       "name": "toplist_jump_help",

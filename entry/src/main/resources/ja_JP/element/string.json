@@ -765,8 +765,28 @@
       "value": "最初のページ"
     },
     {
+      "name": "favorites_jump_page",
+      "value": "移動"
+    },
+    {
+      "name": "favorites_first_page",
+      "value": "最初のページ"
+    },
+    {
       "name": "gallery_jump_date_after",
       "value": "日付以後へ移動"
+    },
+    {
+      "name": "favorites_jump_help",
+      "value": "お気に入りのページ番号を入力してください。範囲:"
+    },
+    {
+      "name": "favorites_jump_placeholder",
+      "value": "ページ番号"
+    },
+    {
+      "name": "favorites_jump_invalid",
+      "value": "有効なお気に入りページ番号を入力してください"
     },
     {
       "name": "toplist_jump_help",

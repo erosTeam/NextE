@@ -765,8 +765,28 @@
       "value": "第一页"
     },
     {
+      "name": "favorites_jump_page",
+      "value": "跳转"
+    },
+    {
+      "name": "favorites_first_page",
+      "value": "第一页"
+    },
+    {
       "name": "gallery_jump_date_after",
       "value": "按日期后跳"
+    },
+    {
+      "name": "favorites_jump_help",
+      "value": "输入收藏页码。范围："
+    },
+    {
+      "name": "favorites_jump_placeholder",
+      "value": "页码"
+    },
+    {
+      "name": "favorites_jump_invalid",
+      "value": "请输入有效的收藏页码"
     },
     {
       "name": "toplist_jump_help",

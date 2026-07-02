@@ -39,8 +39,13 @@ export class FavoritesViewModel {
   // Favorites sort order: fs_f (by favorited time, EH default) / fs_p (by posted time).
   @Trace favOrder: string = EhConstants.FAV_ORDER_FAV
   private nextGid: string = ''
+  private prevGid: string = ''
   private nextPage: number = -1
+  private prevPage: number = -1
+  private maxPage: number = 0
   private lastNext: string = ''
+  private lastPrev: string = ''
+  private afterJump: boolean = false
   private cacheRenderVersion: number = 0
   // Generation token: every page-1 reset (load via order toggle / favcat switch / refresh) bumps it
   // so an in-flight loadMore that resumes afterwards discards its now-stale (wrong favcat/order)
@@ -52,13 +57,19 @@ export class FavoritesViewModel {
     this.context = context
   }
 
-  private buildQuery(next: string, page: number = -1, from: string = ''): FavoritesQuery {
+  private buildQuery(
+    next: string,
+    page: number = -1,
+    from: string = '',
+    seek: string = '',
+    prev: string = '',
+  ): FavoritesQuery {
     return {
       isEx: connectSiteMode().isEx,
       favcat: this.favcat,
       next: next,
-      prev: '',
-      seek: '',
+      prev: prev,
+      seek: seek,
       page: page,
       from: from,
       // The favorites TAB always browses the full favcat; f_search now lives on the shared adaptive
@@ -80,9 +91,11 @@ export class FavoritesViewModel {
     next: string,
     page: number = -1,
     from: string = '',
+    seek: string = '',
+    prev: string = '',
   ): Promise<GalleryList> {
     return await EhApiService.getInstance().getFavoritesList(
-      this.buildQuery(next, page, from),
+      this.buildQuery(next, page, from, seek, prev),
     )
   }
 
@@ -214,7 +227,10 @@ export class FavoritesViewModel {
     this.dataSource.setData(rows)
     this.itemCount = this.dataSource.totalCount()
     this.nextGid = cached.nextGid
+    this.prevGid = cached.prevGid
     this.nextPage = cached.nextPage
+    this.prevPage = cached.prevPage
+    this.maxPage = cached.maxPage
     this.hasMore = this.hasForwardPage(cached)
     this.translateCachedRowsLater(rows, renderVersion, cached)
   }
@@ -240,7 +256,11 @@ export class FavoritesViewModel {
     }
   }
 
-  private async renderFirstPageRows(list: GalleryList, deferTranslation: boolean): Promise<void> {
+  private async renderFirstPageRows(
+    list: GalleryList,
+    deferTranslation: boolean,
+    saveCache: boolean = true,
+  ): Promise<void> {
     const displayRows: EhGallery[] = list.gallerys.map((g: EhGallery) => g.copy())
     this.cacheRenderVersion = this.cacheRenderVersion + 1
     const renderVersion: number = this.cacheRenderVersion
@@ -251,16 +271,18 @@ export class FavoritesViewModel {
       }
       this.dataSource.setData(translated)
       this.itemCount = this.dataSource.totalCount()
-      const snapshot: GalleryList = list.copy()
-      snapshot.gallerys = translated
-      await this.saveFirstPageCache(snapshot)
+      if (saveCache) {
+        const snapshot: GalleryList = list.copy()
+        snapshot.gallerys = translated
+        await this.saveFirstPageCache(snapshot)
+      }
       return
     }
     this.dataSource.setData(displayRows)
     this.itemCount = this.dataSource.totalCount()
-    if (connectTagTranslationSettings().enabled) {
+    if (connectTagTranslationSettings().enabled && saveCache) {
       this.translateCachedRowsLater(displayRows, renderVersion, list)
-    } else {
+    } else if (saveCache) {
       await this.saveFirstPageCache(list)
     }
   }
@@ -276,6 +298,36 @@ export class FavoritesViewModel {
 
   private hasForwardPage(list: GalleryList): boolean {
     return list.nextPage > 0 || list.nextGid.length > 0
+  }
+
+  private canLoadPreviousAfterJump(): boolean {
+    return this.afterJump && !this.isLocalFavcat() && (this.prevPage >= 0 || this.prevGid.length > 0)
+  }
+
+  canJumpRemote(): boolean {
+    return !this.isLocalFavcat() && !this.isLoading && !this.isLoadingMore
+  }
+
+  canJumpToPageNumber(): boolean {
+    return this.canJumpRemote() && (this.nextPage >= 0 || this.prevPage >= 0 || this.maxPage > 0)
+  }
+
+  shouldJumpFirstPage(): boolean {
+    return this.afterJump && !this.isLocalFavcat()
+  }
+
+  currentPageNumber(): number {
+    if (this.prevPage >= 0) {
+      return this.prevPage + 2
+    }
+    if (this.nextPage >= 0) {
+      return this.nextPage
+    }
+    return 1
+  }
+
+  pageCount(): number {
+    return this.maxPage > 0 ? this.maxPage + 1 : 0
   }
 
   private didPagingAdvance(requestedPage: number, requestedCursor: string, list: GalleryList): boolean {
@@ -373,8 +425,13 @@ export class FavoritesViewModel {
     this.isLoading = true
     this.errorMessage = ''
     this.nextGid = ''
+    this.prevGid = ''
     this.nextPage = -1
+    this.prevPage = -1
+    this.maxPage = 0
     this.lastNext = ''
+    this.lastPrev = ''
+    this.afterJump = false
     this.hasMore = false
     await this.applyCachedFirstPageIfEmpty()
     if (this.isLocalFavcat()) {
@@ -398,12 +455,15 @@ export class FavoritesViewModel {
       this.resolveFavcatSlots(list.gallerys)
       await this.renderFirstPageRows(list, this.itemCount === 0)
       this.nextGid = list.nextGid
+      this.prevGid = list.prevGid
       this.nextPage = list.nextPage
+      this.prevPage = list.prevPage
+      this.maxPage = list.maxPage
       this.hasMore = this.hasForwardPage(list)
       DiagnosticLogger.info(
         'favorites',
         'load_done',
-        `favcat=${this.favcat} order=${this.favOrder} rows=${list.gallerys.length} visible=${this.itemCount} nextPage=${this.nextPage} nextHash=${DiagnosticLogger.ownerHash(this.nextGid)} hasMore=${this.hasMore}`,
+        `favcat=${this.favcat} order=${this.favOrder} rows=${list.gallerys.length} visible=${this.itemCount} nextPage=${this.nextPage} prevPage=${this.prevPage} nextHash=${DiagnosticLogger.ownerHash(this.nextGid)} prevHash=${DiagnosticLogger.ownerHash(this.prevGid)} hasMore=${this.hasMore}`,
       )
     } catch (err) {
       this.errorMessage = EhErrorText.forUser(err)
@@ -426,11 +486,217 @@ export class FavoritesViewModel {
   }
 
   /** Pull-to-refresh: guarded so a concurrent loadMore can't interleave. */
-  async refresh(): Promise<void> {
+  async refresh(afterPrepend?: (prependedCount: number) => void): Promise<void> {
     if (this.isLoading || this.isLoadingMore) {
       return
     }
+    if (this.canLoadPreviousAfterJump()) {
+      await this.loadPrevious(afterPrepend)
+      return
+    }
     await this.load()
+  }
+
+  async jumpToPage(pageNumber: number): Promise<boolean> {
+    const requestedPage: number = pageNumber - 1
+    const pageCount: number = this.pageCount()
+    if (!this.canJumpRemote() || requestedPage < 0 || (pageCount > 0 && pageNumber > pageCount)) {
+      return false
+    }
+    DiagnosticLogger.info(
+      'favorites',
+      'jump_page_enter',
+      `favcat=${this.favcat} order=${this.favOrder} requestedPage=${requestedPage}`,
+    )
+    this.epoch = this.epoch + 1
+    this.isLoading = true
+    this.errorMessage = ''
+    this.nextGid = ''
+    this.prevGid = ''
+    this.nextPage = -1
+    this.prevPage = -1
+    this.lastNext = ''
+    this.lastPrev = ''
+    this.hasMore = false
+    try {
+      const list: GalleryList = await this.fetchPage('', requestedPage, '')
+      this.mergeFavList(list.favList)
+      this.resolveFavcatSlots(list.gallerys)
+      await this.renderFirstPageRows(list, this.itemCount === 0, false)
+      this.nextGid = list.nextGid
+      this.prevGid = list.prevGid
+      this.nextPage = list.nextPage
+      this.prevPage = list.prevPage
+      this.maxPage = list.maxPage
+      this.afterJump = true
+      this.hasMore = this.hasForwardPage(list)
+      DiagnosticLogger.info(
+        'favorites',
+        'jump_page_done',
+        `favcat=${this.favcat} order=${this.favOrder} requestedPage=${requestedPage} rows=${list.gallerys.length} visible=${this.itemCount} nextPage=${this.nextPage} prevPage=${this.prevPage} nextHash=${DiagnosticLogger.ownerHash(this.nextGid)} prevHash=${DiagnosticLogger.ownerHash(this.prevGid)}`,
+      )
+      this.isLoading = false
+      return true
+    } catch (err) {
+      this.errorMessage = EhErrorText.forUser(err)
+      DiagnosticLogger.warn(
+        'favorites',
+        'jump_page_failed',
+        `favcat=${this.favcat} order=${this.favOrder} requestedPage=${requestedPage} error=${(err as Error).message}`,
+      )
+    }
+    this.isLoading = false
+    return false
+  }
+
+  async jumpToDateAfter(seek: string): Promise<boolean> {
+    const dateText: string = seek.trim()
+    if (!this.canJumpRemote() || dateText.length === 0) {
+      return false
+    }
+    DiagnosticLogger.info(
+      'favorites',
+      'jump_date_after_enter',
+      `favcat=${this.favcat} order=${this.favOrder} seek=${dateText}`,
+    )
+    this.epoch = this.epoch + 1
+    this.isLoading = true
+    this.errorMessage = ''
+    this.nextGid = ''
+    this.prevGid = ''
+    this.nextPage = -1
+    this.prevPage = -1
+    this.maxPage = 0
+    this.lastNext = ''
+    this.lastPrev = ''
+    this.hasMore = false
+    try {
+      const list: GalleryList = await this.fetchPage('', -1, '', dateText)
+      this.mergeFavList(list.favList)
+      this.resolveFavcatSlots(list.gallerys)
+      await this.renderFirstPageRows(list, this.itemCount === 0, false)
+      this.nextGid = list.nextGid
+      this.prevGid = list.prevGid
+      this.nextPage = list.nextPage
+      this.prevPage = list.prevPage
+      this.maxPage = list.maxPage
+      this.afterJump = true
+      this.hasMore = this.hasForwardPage(list)
+      DiagnosticLogger.info(
+        'favorites',
+        'jump_date_after_done',
+        `favcat=${this.favcat} order=${this.favOrder} seek=${dateText} rows=${list.gallerys.length} visible=${this.itemCount} nextPage=${this.nextPage} prevPage=${this.prevPage} nextHash=${DiagnosticLogger.ownerHash(this.nextGid)} prevHash=${DiagnosticLogger.ownerHash(this.prevGid)}`,
+      )
+      this.isLoading = false
+      return true
+    } catch (err) {
+      this.errorMessage = EhErrorText.forUser(err)
+      DiagnosticLogger.warn(
+        'favorites',
+        'jump_date_after_failed',
+        `favcat=${this.favcat} order=${this.favOrder} seek=${dateText} error=${(err as Error).message}`,
+      )
+    }
+    this.isLoading = false
+    return false
+  }
+
+  async jumpFirstPage(): Promise<boolean> {
+    if (this.isLoading || this.isLoadingMore) {
+      return false
+    }
+    DiagnosticLogger.info(
+      'favorites',
+      'jump_first_page_enter',
+      `favcat=${this.favcat} order=${this.favOrder} afterJump=${this.afterJump}`,
+    )
+    await this.load()
+    DiagnosticLogger.info(
+      'favorites',
+      'jump_first_page_done',
+      `favcat=${this.favcat} order=${this.favOrder} visible=${this.itemCount}`,
+    )
+    return true
+  }
+
+  private async loadPrevious(afterPrepend?: (prependedCount: number) => void): Promise<number> {
+    const requestedPage: number = this.prevPage
+    const requestedPrev: string = this.prevGid
+    if (requestedPage < 0 && requestedPrev.length === 0) {
+      DiagnosticLogger.info(
+        'favorites',
+        'loadprev_no_cursor',
+        `favcat=${this.favcat} order=${this.favOrder}`,
+      )
+      return 0
+    }
+    const requestKey: string = requestedPage >= 0
+      ? `page:${requestedPage}:from:${requestedPrev}`
+      : `prev:${requestedPrev}`
+    if (requestKey === this.lastPrev && this.errorMessage.length === 0) {
+      DiagnosticLogger.info(
+        'favorites',
+        'loadprev_repeated_cursor',
+        `favcat=${this.favcat} order=${this.favOrder} requestHash=${DiagnosticLogger.ownerHash(requestKey)}`,
+      )
+      return 0
+    }
+    this.isLoading = true
+    this.errorMessage = ''
+    const myEpoch: number = this.epoch
+    DiagnosticLogger.info(
+      'favorites',
+      'loadprev_start',
+      `favcat=${this.favcat} order=${this.favOrder} requestHash=${DiagnosticLogger.ownerHash(requestKey)} epoch=${myEpoch}`,
+    )
+    try {
+      const list: GalleryList = await this.fetchPage(
+        '',
+        requestedPage,
+        requestedPage >= 0 ? requestedPrev : '',
+        '',
+        requestedPage >= 0 ? '' : requestedPrev,
+      )
+      if (this.epoch === myEpoch) {
+        this.mergeFavList(list.favList)
+        this.resolveFavcatSlots(list.gallerys)
+        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
+        if (fresh.length > 0) {
+          this.dataSource.prependData(fresh)
+          this.itemCount = this.dataSource.totalCount()
+          if (afterPrepend) {
+            afterPrepend(fresh.length)
+          }
+        }
+        this.prevGid = list.prevGid
+        this.prevPage = list.prevPage
+        this.maxPage = list.maxPage
+        this.lastPrev = requestKey
+        DiagnosticLogger.info(
+          'favorites',
+          'loadprev_done',
+          `favcat=${this.favcat} order=${this.favOrder} requestHash=${DiagnosticLogger.ownerHash(requestKey)} incoming=${list.gallerys.length} fresh=${fresh.length} total=${this.itemCount} prevPage=${this.prevPage} prevHash=${DiagnosticLogger.ownerHash(this.prevGid)}`,
+        )
+        this.isLoading = false
+        return fresh.length
+      }
+      DiagnosticLogger.info(
+        'favorites',
+        'loadprev_stale_drop',
+        `favcat=${this.favcat} order=${this.favOrder} requestEpoch=${myEpoch} currentEpoch=${this.epoch}`,
+      )
+    } catch (err) {
+      if (this.epoch === myEpoch) {
+        this.errorMessage = EhErrorText.forUser(err)
+      }
+      DiagnosticLogger.warn(
+        'favorites',
+        'loadprev_failed',
+        `favcat=${this.favcat} order=${this.favOrder} requestHash=${DiagnosticLogger.ownerHash(requestKey)} error=${(err as Error).message}`,
+      )
+    }
+    this.isLoading = false
+    return 0
   }
 
   async loadMore(): Promise<void> {
@@ -484,6 +750,7 @@ export class FavoritesViewModel {
         }
         this.nextGid = list.nextGid
         this.nextPage = list.nextPage
+        this.maxPage = list.maxPage
         this.lastNext = requestKey
         // Do not let dedupe decide pagination. EH/eros_fe continue by page/cursor progress; fresh rows
         // only decide whether there is anything visible to append in this gid-keyed list.

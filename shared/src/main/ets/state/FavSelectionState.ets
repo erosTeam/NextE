@@ -1,4 +1,5 @@
 import { AppStorageV2 } from '@kit.ArkUI'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { Favcat } from '../model/Favcat'
 import { TabVisualIndexState } from './HomeSourceState'
 
@@ -30,7 +31,7 @@ export class FavSelectionState {
   @Trace orderByPosted: boolean = false
 
   // ---- command bus: bar → page (single-writer FavSelectionBridge; page @Monitors cmdSeq) ----
-  // Command kind: '' | 'select' | 'openOrderMenu'.
+  // Command kind: '' | 'select' | 'openOrderMenu' | 'openJumpDialog' | 'jumpFirstPage'.
   @Trace cmdKind: string = ''
   // Command argument (favId for 'select'; '' otherwise).
   @Trace cmdArg: string = ''
@@ -112,5 +113,22 @@ export class FavSelectionBridge {
     s.cmdArg = ''
     s.cmdKind = 'openOrderMenu'
     s.cmdSeq = s.cmdSeq + 1
+    DiagnosticLogger.info('favorites', 'fav_command_publish', `kind=openOrderMenu seq=${s.cmdSeq}`)
+  }
+
+  static publishOpenJumpDialog(): void {
+    const s: FavSelectionState = connectFavSelection()
+    s.cmdArg = ''
+    s.cmdKind = 'openJumpDialog'
+    s.cmdSeq = s.cmdSeq + 1
+    DiagnosticLogger.info('favorites', 'fav_command_publish', `kind=openJumpDialog seq=${s.cmdSeq}`)
+  }
+
+  static publishJumpFirstPage(): void {
+    const s: FavSelectionState = connectFavSelection()
+    s.cmdArg = ''
+    s.cmdKind = 'jumpFirstPage'
+    s.cmdSeq = s.cmdSeq + 1
+    DiagnosticLogger.info('favorites', 'fav_command_publish', `kind=jumpFirstPage seq=${s.cmdSeq}`)
   }
 }
