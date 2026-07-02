@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { window } from '@kit.ArkUI'
+import { SymbolGlyphModifier, window } from '@kit.ArkUI'
 import { KeyCode } from '@kit.InputKit'
 import inputConsumer from '@ohos.multimodalInput.inputConsumer'
 import { Action, KeyEvent as InputConsumerKeyEvent } from '@ohos.multimodalInput.keyEvent'
@@ -153,6 +153,7 @@ export struct ReaderPage {
   @Local currentImageBlocked: boolean = false;
   @Local imageBlockRuleVersion: number = 0;
   @Local imageBlockActionMenuShown: boolean = false;
+  @Local readModeMenuShown: boolean = false;
   @Local imageBlockSettings: ImageBlockSettingsState = connectImageBlockSettings();
   private listScroller: Scroller = new Scroller();
   private thumbScroller: Scroller = new Scroller();
@@ -1448,18 +1449,11 @@ export struct ReaderPage {
     return $r('sys.symbol.arrow_right')
   }
 
-  private cycleMode(): void {
-    let next: string = ReadMode.LTR
-    if (this.readMode.mode === ReadMode.LTR) {
-      next = ReadMode.RTL
-    } else if (this.readMode.mode === ReadMode.RTL) {
-      next = ReadMode.VERTICAL
-    } else {
-      next = ReadMode.LTR
-    }
+  private setReaderMode(mode: string): void {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
-    ReadModeSettings.setMode(ctx, next)
+    ReadModeSettings.setMode(ctx, mode)
+    this.readModeMenuShown = false
   }
 
   private doublePageIconColor(): ResourceColor {
@@ -1542,6 +1536,39 @@ export struct ReaderPage {
   // Reader settings entry (eros_fe top-bar ellipsis → readSetting, view_widget.dart:996-1015).
   private openReaderSettings(): void {
     connectNavStack().stack.pushPathByName('ReaderSettings', null)
+  }
+
+  @Builder
+  ReaderModeMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.read_mode_ltr'),
+        symbolEndIcon:
+          this.readMode.mode === ReadMode.LTR
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setReaderMode(ReadMode.LTR)
+      })
+      MenuItem({
+        content: $r('app.string.read_mode_rtl'),
+        symbolEndIcon:
+          this.readMode.mode === ReadMode.RTL
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setReaderMode(ReadMode.RTL)
+      })
+      MenuItem({
+        content: $r('app.string.read_mode_vertical'),
+        symbolEndIcon:
+          this.readMode.mode === ReadMode.VERTICAL
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setReaderMode(ReadMode.VERTICAL)
+      })
+    }
   }
 
   @Builder
@@ -1835,8 +1862,15 @@ export struct ReaderPage {
           .width(READER_CHROME_ACTION_SIZE)
           .height(READER_CHROME_ACTION_SIZE)
           .backgroundColor(Color.Transparent)
+          .accessibilityText(this.modeLabel())
           .onClick(() => {
-            this.cycleMode()
+            this.readModeMenuShown = true
+          })
+          .bindMenu(this.readModeMenuShown, this.ReaderModeMenu, {
+            placement: Placement.TopRight,
+            onDisappear: () => {
+              this.readModeMenuShown = false
+            },
           })
           if (this.showOnePageStepButton()) {
             Button({ type: ButtonType.Circle }) {

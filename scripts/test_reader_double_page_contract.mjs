@@ -70,6 +70,11 @@ ok('bottom chrome toggles double-page and offers one-page pairing shift',
     /private turnOnePageInDoublePage\(\): void/.test(reader) &&
     /sys\.symbol\.book_open_fill/.test(reader) &&
     /sys\.symbol\.forward_end_fill/.test(reader))
+ok('bottom chrome opens a read-mode menu instead of cycling direction',
+  /@Local readModeMenuShown: boolean = false/.test(reader) &&
+    /ReaderModeMenu\(\)[\s\S]*read_mode_ltr[\s\S]*read_mode_rtl[\s\S]*read_mode_vertical/.test(reader) &&
+    /bindMenu\(this\.readModeMenuShown, this\.ReaderModeMenu/.test(reader) &&
+    !/cycleMode\(\)/.test(reader))
 ok('DoublePageReader renders each spread through one ReaderSpreadSurface, not split image surfaces',
   /@Builder\s+DoublePageReader\(\)[\s\S]*this\.spreadStartSource\(\)[\s\S]*ReaderSpreadSurface\(\{[\s\S]*first: this\.vm\.imageAt\(start\)/.test(reader) &&
     /ReaderSpreadSurface\(\{[\s\S]*second: this\.hasSpreadImage\(this\.spreadSecondIndex\(start\)\) \? this\.vm\.imageAt\(this\.spreadSecondIndex\(start\)\)/.test(reader) &&
