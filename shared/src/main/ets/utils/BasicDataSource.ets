@@ -39,6 +39,16 @@ export class BasicDataSource<T> implements IDataSource {
     })
   }
 
+  /** Prepend a page as real LazyForEach inserts, so List can preserve visible content position. */
+  prependData(items: T[]): void {
+    for (let i: number = items.length - 1; i >= 0; i--) {
+      this.items.splice(0, 0, items[i])
+      this.listeners.forEach((l: DataChangeListener) => {
+        l.onDataAdd(0)
+      })
+    }
+  }
+
   clear(): void {
     this.items = []
     this.notifyReload()

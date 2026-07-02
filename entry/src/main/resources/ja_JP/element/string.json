@@ -761,6 +761,10 @@
       "value": "移動"
     },
     {
+      "name": "toplist_first_page",
+      "value": "最初のページ"
+    },
+    {
       "name": "toplist_jump_help",
       "value": "ランキングのページ番号を入力してください。範囲:"
     },

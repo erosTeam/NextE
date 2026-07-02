@@ -21,7 +21,7 @@ export class HomeSourceState {
 
   // ---- command bus: title bar → page (single-writer HomeSourceBridge; HomePage @Monitors cmdSeq) ----
   // HDS title-bar icons can't anchor a Menu, so title actions ask the active page to open owned UI.
-  // Command kind: '' | 'openLayoutMenu' | 'openToplistJumpDialog'.
+  // Command kind: '' | 'openLayoutMenu' | 'openToplistJumpDialog' | 'jumpToplistFirstPage'.
   @Trace cmdKind: string = ''
   // Monotonic sequence so a repeated identical command still fires the page's @Monitor.
   @Trace cmdSeq: number = 0
@@ -38,6 +38,12 @@ export class HomeSourceBridge {
   static publishOpenToplistJumpDialog(): void {
     const s: HomeSourceState = connectHomeSource()
     s.cmdKind = 'openToplistJumpDialog'
+    s.cmdSeq = s.cmdSeq + 1
+  }
+
+  static publishJumpToplistFirstPage(): void {
+    const s: HomeSourceState = connectHomeSource()
+    s.cmdKind = 'jumpToplistFirstPage'
     s.cmdSeq = s.cmdSeq + 1
   }
 }

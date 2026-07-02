@@ -8,7 +8,7 @@ Status: active
 Reference implementation: `../eros_fe/lib/pages/tab/controller/tabview_controller.dart` `showJumpDialog()` / `_jumpToPage()`, `../eros_fe/lib/common/parser/gallery_list_parser.dart` `table.ptt` page parsing, and `../V2Next/feature/detail/src/main/ets/pages/TopicDetailPage.ets` `CustomContentDialog` jump-floor input.
 Surface type: Toplist title-bar jump action and active period input dialog only; no search/home/favorites page-jump surface.
 Primary information: the user sees a compact page-number dialog with the valid Toplist range from EH's parsed `table.ptt`.
-Primary action: open the Toplist title menu, enter a 1-based page number, confirm, and replace the active ranking period with `toplist.php?p=<page-1>`.
+Primary action: open the Toplist title menu, enter a 1-based page number, confirm, and replace the active ranking period with `toplist.php?p=<page-1>`; use the adjacent first-page action to reload page 1 after a jump.
 Reuse or deviation: reuse the existing title-bar command bus and retained ToplistPeriodPage VM ownership; deviate from the existing all-thumbnails sheet because this is a short scalar input better expressed as a system dialog.
 Verification: UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and Toplist jump smoke on an emulator.
 

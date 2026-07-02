@@ -563,9 +563,17 @@ struct Index {
         HomeSourceBridge.publishOpenToplistJumpDialog()
       },
     }
+    const firstPageInner: Record<string, Object> = {
+      'label': $r('app.string.toplist_first_page'),
+      'icon': $r('sys.symbol.arrow_up_circle'),
+      'isEnabled': true,
+      'action': () => {
+        HomeSourceBridge.publishJumpToplistFirstPage()
+      },
+    }
     const items: Record<string, Object>[] = [
       { 'content': jumpInner },
-      this.backToTopMenuItem(),
+      { 'content': firstPageInner },
     ]
     return { 'value': items, 'maxCount': 2 }
   }

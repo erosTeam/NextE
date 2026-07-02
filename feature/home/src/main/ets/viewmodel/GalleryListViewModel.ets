@@ -60,6 +60,9 @@ export class GalleryListViewModel {
   // active period (11 all-time / 12 year / 13 month / 15 yesterday).
   @Trace toplistTl: number = 15
   private toplistNextPage: number = -1
+  private toplistPrevPage: number = -1
+  private afterToplistJump: boolean = false
+  private currentToplistPage: number = 0
   private maxPage: number = 0
   private context: common.UIAbilityContext | null = null
   private cacheRenderVersion: number = 0
@@ -74,7 +77,7 @@ export class GalleryListViewModel {
   private favNextPage: number = -1
 
   debugState(): string {
-    return `vm=${this.debugId} source=${this.source} profile=${this.profileUuid} count=${this.itemCount} loaded=${this.loaded} loading=${this.isLoading} loadingMore=${this.isLoadingMore} hasMore=${this.hasMore} epoch=${this.epoch} next=${this.nextGid} favPage=${this.favNextPage} toplistPage=${this.toplistNextPage}`
+    return `vm=${this.debugId} source=${this.source} profile=${this.profileUuid} count=${this.itemCount} loaded=${this.loaded} loading=${this.isLoading} loadingMore=${this.isLoadingMore} hasMore=${this.hasMore} epoch=${this.epoch} next=${this.nextGid} favPage=${this.favNextPage} toplistNext=${this.toplistNextPage} toplistPrev=${this.toplistPrevPage} toplistCurrent=${this.currentToplistPage} afterJump=${this.afterToplistJump}`
   }
 
   setContext(context: common.UIAbilityContext): void {
@@ -234,6 +237,9 @@ export class GalleryListViewModel {
     this.nextGid = cached.nextGid
     this.maxPage = cached.maxPage
     this.toplistNextPage = cached.nextPage
+    this.toplistPrevPage = cached.prevPage
+    this.currentToplistPage = 0
+    this.afterToplistJump = false
     this.hasMore = this.firstPageHasMore(cached)
     this.loaded = true
     this.translateCachedRowsLater(rows, renderVersion, cached)
@@ -380,6 +386,10 @@ export class GalleryListViewModel {
     return this.isToplist() ? this.maxPage + 1 : 0
   }
 
+  currentToplistPageNumber(): number {
+    return this.isToplist() ? this.currentToplistPage + 1 : 1
+  }
+
   async jumpToToplistPage(pageNumber: number): Promise<boolean> {
     const requestedPage: number = pageNumber - 1
     if (
@@ -398,6 +408,7 @@ export class GalleryListViewModel {
     this.nextGid = ''
     this.lastNext = ''
     this.toplistNextPage = -1
+    this.toplistPrevPage = -1
     this.hasMore = false
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(
@@ -408,6 +419,9 @@ export class GalleryListViewModel {
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
       this.toplistNextPage = list.nextPage
+      this.toplistPrevPage = list.prevPage
+      this.currentToplistPage = requestedPage
+      this.afterToplistJump = true
       this.hasMore = this.firstPageHasMore(list)
       DiagnosticLogger.info('home-list-anchor', 'toplist_jump_done', `${this.debugState()} requestedPage=${requestedPage}`)
       this.isLoading = false
@@ -441,6 +455,9 @@ export class GalleryListViewModel {
       this.maxPage = list.maxPage
       this.toplistNextPage = list.nextPage
       this.favNextPage = list.nextPage
+      this.toplistPrevPage = list.prevPage
+      this.currentToplistPage = 0
+      this.afterToplistJump = false
       this.hasMore = this.firstPageHasMore(list)
       DiagnosticLogger.info('home-list-anchor', 'load_data_done', this.debugState())
     } catch (err) {
@@ -484,8 +501,10 @@ export class GalleryListViewModel {
     this.nextGid = ''
     this.lastNext = ''
     this.toplistNextPage = -1
+    this.toplistPrevPage = -1
     this.favNextPage = -1
     this.maxPage = 0
+    this.afterToplistJump = false
     this.hasMore = false
     try {
       const list: GalleryList = await this.fetchFirstPageList()
@@ -494,7 +513,9 @@ export class GalleryListViewModel {
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
       this.toplistNextPage = list.nextPage
+      this.toplistPrevPage = list.prevPage
       this.favNextPage = list.nextPage
+      this.currentToplistPage = 0
       this.hasMore = this.firstPageHasMore(list)
       DiagnosticLogger.info('home-list-anchor', 'reload_done', this.debugState())
     } catch (err) {
@@ -514,6 +535,10 @@ export class GalleryListViewModel {
       DiagnosticLogger.info('home-list-anchor', 'refresh_skip_busy', this.debugState())
       return
     }
+    if (this.isToplist() && this.afterToplistJump && this.toplistPrevPage >= 0) {
+      await this.loadPreviousToplist()
+      return
+    }
     this.isLoading = true
     this.errorMessage = ''
     // Refresh replaces from page 1, so the cursor history resets and any in-flight loadMore is void.
@@ -526,7 +551,10 @@ export class GalleryListViewModel {
       this.nextGid = list.nextGid
       this.maxPage = list.maxPage
       this.toplistNextPage = list.nextPage
+      this.toplistPrevPage = list.prevPage
       this.favNextPage = list.nextPage
+      this.currentToplistPage = 0
+      this.afterToplistJump = false
       this.hasMore = this.firstPageHasMore(list)
       DiagnosticLogger.info('home-list-anchor', 'refresh_done', this.debugState())
     } catch (err) {
@@ -655,6 +683,53 @@ export class GalleryListViewModel {
       DiagnosticLogger.warn('home', 'toplist_loadmore_failed', e.message)
     }
     this.isLoadingMore = false
+  }
+
+  /** After a page jump, FE treats pull-to-refresh as "load previous page" instead of reloading page 1. */
+  private async loadPreviousToplist(): Promise<void> {
+    DiagnosticLogger.info('home-list-anchor', 'toplist_prev_enter', this.debugState())
+    const requestedPage: number = this.toplistPrevPage
+    if (requestedPage < 0 || requestedPage > this.maxPage) {
+      DiagnosticLogger.info('home-list-anchor', 'toplist_prev_no_page', this.debugState())
+      return
+    }
+    this.isLoading = true
+    this.errorMessage = ''
+    const myEpoch: number = this.epoch
+    try {
+      const list: GalleryList = await EhApiService.getInstance().getGalleryList(
+        this.buildQuery('', requestedPage),
+      )
+      if (this.epoch === myEpoch) {
+        this.resolveFavoriteSlots(list.gallerys)
+        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
+        if (fresh.length > 0) {
+          this.dataSource.prependData(fresh)
+          this.itemCount = this.dataSource.totalCount()
+          this.currentToplistPage = requestedPage
+        }
+        this.maxPage = list.maxPage
+        this.toplistPrevPage = list.prevPage
+        DiagnosticLogger.info(
+          'home-list-anchor',
+          'toplist_prev_done',
+          `${this.debugState()} requestedPage=${requestedPage} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+        )
+      } else {
+        DiagnosticLogger.info(
+          'home-list-anchor',
+          'toplist_prev_drop_stale',
+          `${this.debugState()} requestedPage=${requestedPage} myEpoch=${myEpoch}`,
+        )
+      }
+    } catch (err) {
+      const e = err as Error
+      if (this.epoch === myEpoch) {
+        this.errorMessage = EhErrorText.forUser(err)
+      }
+      DiagnosticLogger.warn('home', 'toplist_loadprev_failed', e.message)
+    }
+    this.isLoading = false
   }
 
   /** Favorites page paging (favorite-type profiles): page+from forward, nextGid fallback. Ported from

@@ -761,6 +761,10 @@
       "value": "跳转"
     },
     {
+      "name": "toplist_first_page",
+      "value": "第一页"
+    },
+    {
       "name": "toplist_jump_help",
       "value": "输入排行榜页码。范围："
     },

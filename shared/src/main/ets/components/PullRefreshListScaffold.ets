@@ -75,6 +75,7 @@ export struct PullRefreshListScaffold {
         }
       }
       .enableScrollInteraction(this.scrollEnabled)
+      .maintainVisibleContentPosition(true)
       .onDidScroll((_scrollOffset: number, scrollState: ScrollState) => {
         if (this.onDidScroll) {
           this.onDidScroll(this.scroller.currentOffset().yOffset, scrollState)

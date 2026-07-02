@@ -101,6 +101,8 @@ export struct ToplistPeriodPage {
   onHomeCommand(): void {
     if (this.isActive() && this.homeSource.cmdKind === 'openToplistJumpDialog') {
       this.openJumpDialog()
+    } else if (this.isActive() && this.homeSource.cmdKind === 'jumpToplistFirstPage') {
+      this.jumpToFirstPage()
     }
   }
 
@@ -134,7 +136,7 @@ export struct ToplistPeriodPage {
   }
 
   private openJumpDialog(): void {
-    this.jumpPageText = ''
+    this.jumpPageText = `${this.vm.currentToplistPageNumber()}`
     this.jumpError = ''
     this.jumpDialogController.open()
   }
@@ -185,6 +187,23 @@ export struct ToplistPeriodPage {
       .catch((_error: Error) => {
         this.jumpSubmitting = false
         this.jumpError = AppStrings.get('common_load_failed')
+      })
+  }
+
+  private jumpToFirstPage(): void {
+    if (this.jumpSubmitting) {
+      return
+    }
+    this.jumpSubmitting = true
+    this.vm.reload()
+      .then(() => {
+        this.jumpSubmitting = false
+        setTimeout(() => {
+          this.scroller.scrollToIndex(0)
+        }, 50)
+      })
+      .catch((_error: Error) => {
+        this.jumpSubmitting = false
       })
   }
 
