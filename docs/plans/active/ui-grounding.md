@@ -641,3 +641,13 @@ Primary information: the active remote favorite folder remains the list being br
 Primary action: tapping the Favorites jump action opens page-number input when EH exposes page navigation, otherwise the platform date picker; after a jump, pull-to-refresh loads the previous favorites page and the title-bar first-page action reloads the current favorite folder from page 1. Search, sort, folder selection, and local favorites stay secondary/unchanged.
 Reuse or deviation: reuse `FavSelectionBridge`, retained `FavcatPage`, `FavoritesViewModel`, existing HDS title-bar menu items, Toplist's page-number `CustomContentDialog`, Gallery's `showDatePickerDialog`, and the current `PullRefresh*Scaffold` refresh hook; deviate from FE by omitting manual gid/offset jump for this slice and by hiding remote jump behavior for the local-only `l` folder.
 Verification: UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and simulator smoke covering remote page jump, date jump fallback, pull-to-refresh previous-page prepend, first-page escape, and local favorites without a remote jump path.
+
+## Active: download task restore scan
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/setting/download_setting_page.dart` restore/rebuild task-data rows, `../eros_fe/lib/common/controller/download_controller.dart` `restoreGalleryTasks()` / `downloadTaskMigration()`, and `../eros_fe/lib/store/hive/hive.dart` archiver task map persistence.
+Surface type: Settings > Download maintenance row.
+Primary information: the user sees a simple "Restore downloads" setting row that scans existing download metadata rather than a new download queue surface.
+Primary action: tapping the row asks the platform DOWNLOAD directory flow if needed, scans `download-gallery` and `download-archiver` metadata, imports missing tasks into the RDB-backed queue, and reports the result by toast; archive-bot and executor policy rows remain separate.
+Reuse or deviation: reuse NextE `DownloadQueueSettings` metadata parser, RDB repository, settings row pattern, and row-local loading suffix; deviate from FE's Hive/SAF migration because Harmony's public Download app directory is resolved through `DocumentViewPicker.save()` with `DocumentPickerMode.DOWNLOAD`.
+Verification: download settings contract, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and device/settings smoke when a public Download task directory is available.

@@ -329,6 +329,34 @@
       "value": "%s GP 獲得、現在 %s GP"
     },
     {
+      "name": "download_restore_tasks",
+      "value": "ダウンロードを復元"
+    },
+    {
+      "name": "download_restore_tasks_hint",
+      "value": "ダウンロードフォルダのメタデータをスキャン"
+    },
+    {
+      "name": "download_restore_tasks_scanning",
+      "value": "ダウンロードメタデータをスキャン中"
+    },
+    {
+      "name": "download_restore_tasks_done",
+      "value": "%s 件のタスクを復元しました"
+    },
+    {
+      "name": "download_restore_tasks_existing",
+      "value": "新しく復元できるタスクはありません"
+    },
+    {
+      "name": "download_restore_tasks_none",
+      "value": "復元できるタスクが見つかりません"
+    },
+    {
+      "name": "download_restore_tasks_failed",
+      "value": "ダウンロードを復元できません"
+    },
+    {
       "name": "download_not_configured",
       "value": "未設定"
     },

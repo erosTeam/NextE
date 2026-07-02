@@ -79,11 +79,11 @@ ok(/connectDownloadSettings\(\)\.concurrency/.test(queueSettings) &&
 ok(/batchIndex > 0/.test(queueSettings) &&
   /DownloadQueueSettings\.delay\(connectDownloadSettings\(\)\.requestIntervalSeconds \* 1000\)/.test(queueSettings),
   'gallery image executor throttles later image batches by the persisted request interval')
-ok(/downloadSeedToFile\(context, gid, token, seed, useOriginal, retryCount\)/.test(queueSettings) &&
+ok(/downloadSeedToFile\(context, gid, token, preferOriginal, seed, useOriginal, retryCount\)/.test(queueSettings) &&
   /Math\.round\(retryCount\) \+ 1/.test(queueSettings),
   'gallery image executor retries each failed image according to the persisted retry count')
 ok(/const attempts: number = Math\.max\(1, Math\.round\(connectDownloadSettings\(\)\.retryCount\) \+ 1\)/.test(queueSettings) &&
-  /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
+  /downloadBinaryToFileInStreamResumable\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
   'archiver executor retries according to the persisted retry count')
 ok(/const batchStartedAt: number = Date\.now\(\)/.test(queueSettings) &&
   /delayForSpeedLimit\(batchStartedAt, results\)/.test(queueSettings) &&
@@ -91,9 +91,16 @@ ok(/const batchStartedAt: number = Date\.now\(\)/.test(queueSettings) &&
   /Math\.ceil\(bytes \* 1000 \/ \(kbps \* 1024\)\)/.test(queueSettings),
   'gallery image executor applies the persisted average speed limit after successful batches')
 const archiverDownloadBody = queueSettings.match(/private static async runArchiverDownload\([\s\S]*?\n  \}/)?.[0] ?? ''
-ok(/downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(archiverDownloadBody) &&
+ok(/downloadBinaryToFileInStreamResumable\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(archiverDownloadBody) &&
   !/delayBytesForSpeedLimit/.test(archiverDownloadBody),
   'archiver executor does not apply gallery image speed throttling to single package downloads')
+ok(/export class DownloadDirectoryImportResult/.test(queueSettings) &&
+  /static async importTasksFromDownloadDirectory/.test(queueSettings),
+  'download queue settings exposes an explicit metadata import result and entrypoint')
+ok(/importTasksFromDownloadDirectory[\s\S]*ensureDownloadStorageReady\(context\)[\s\S]*loadGalleryMetadataTasks\(context\)[\s\S]*loadArchiverMetadataTasks\(context\)/.test(queueSettings),
+  'download metadata import resolves the public Download app directory before scanning metadata files')
+ok(/importTasksFromDownloadDirectory[\s\S]*mergeRestoredGalleryTasks[\s\S]*mergeRestoredArchiverTasks[\s\S]*persist\(context, galleryTasks\)[\s\S]*persistArchiver\(context, archiverTasks\)/.test(queueSettings),
+  'download metadata import reuses restore merge logic and persists restored gallery plus archiver tasks')
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok(/import \{ DownloadSettings \}/.test(bootstrap) && /await DownloadSettings\.restore\(context\)/.test(bootstrap),
@@ -158,6 +165,16 @@ ok(/refreshArchiveBotBalanceSilently\(\)/.test(downloadPage) &&
   /archive_bot_balance_auto_refresh_start/.test(downloadPage) &&
   /archive_bot_balance_auto_refresh_failed/.test(downloadPage),
   'download settings page silently refreshes archive bot balance on entry')
+ok(/downloadRestoreBusy/.test(downloadPage) &&
+  /restoreDownloadTasks\(\)/.test(downloadPage) &&
+  /DownloadQueueSettings\.importTasksFromDownloadDirectory\(this\.ctx\(\)\)/.test(downloadPage),
+  'download settings page exposes a row-local restore-downloads action')
+ok(/download_restore_tasks[\s\S]*download_restore_tasks_scanning[\s\S]*BusySuffix/.test(downloadPage) &&
+  /download_restore_tasks_done/.test(downloadPage) &&
+  /download_restore_tasks_existing/.test(downloadPage) &&
+  /download_restore_tasks_none/.test(downloadPage) &&
+  /download_restore_tasks_failed/.test(downloadPage),
+  'restore-downloads row has loading feedback and user-facing result toasts')
 ok(/if \(result\.hasBalance\) \{[\s\S]*setArchiveBotBalance\(this\.ctx\(\), result\.gp\)/.test(downloadPage),
   'archive bot balance cache is updated only when the response carries a balance field')
 ok(/result\.message\.length > 0 && result\.reward <= 0/.test(downloadPage) &&
@@ -208,6 +225,13 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   ok(strings.includes('"name": "download_use_regular_image"'), `${locale}: download_use_regular_image exists`)
   ok(strings.includes('"name": "download_use_original_image"'), `${locale}: download_use_original_image exists`)
   ok(strings.includes('"name": "download_archiver_use_bot"'), `${locale}: download_archiver_use_bot exists`)
+  ok(strings.includes('"name": "download_restore_tasks"'), `${locale}: download_restore_tasks exists`)
+  ok(strings.includes('"name": "download_restore_tasks_hint"'), `${locale}: download_restore_tasks_hint exists`)
+  ok(strings.includes('"name": "download_restore_tasks_scanning"'), `${locale}: download_restore_tasks_scanning exists`)
+  ok(strings.includes('"name": "download_restore_tasks_done"'), `${locale}: download_restore_tasks_done exists`)
+  ok(strings.includes('"name": "download_restore_tasks_existing"'), `${locale}: download_restore_tasks_existing exists`)
+  ok(strings.includes('"name": "download_restore_tasks_none"'), `${locale}: download_restore_tasks_none exists`)
+  ok(strings.includes('"name": "download_restore_tasks_failed"'), `${locale}: download_restore_tasks_failed exists`)
   ok(!/普通图|压缩图/.test(strings), `${locale}: legacy compressed/regular image wording is not used`)
   if (locale === 'zh_CN') {
     ok(strings.includes('"value": "重采样图片"'), 'zh_CN: regular image option is named 重采样图片')

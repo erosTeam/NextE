@@ -329,6 +329,34 @@
       "value": "Got %s GP, now %s GP"
     },
     {
+      "name": "download_restore_tasks",
+      "value": "Restore downloads"
+    },
+    {
+      "name": "download_restore_tasks_hint",
+      "value": "Scan metadata in the download folder"
+    },
+    {
+      "name": "download_restore_tasks_scanning",
+      "value": "Scanning download metadata"
+    },
+    {
+      "name": "download_restore_tasks_done",
+      "value": "Restored %s tasks"
+    },
+    {
+      "name": "download_restore_tasks_existing",
+      "value": "No new tasks to restore"
+    },
+    {
+      "name": "download_restore_tasks_none",
+      "value": "No restorable tasks found"
+    },
+    {
+      "name": "download_restore_tasks_failed",
+      "value": "Unable to restore downloads"
+    },
+    {
       "name": "download_not_configured",
       "value": "Not configured"
     },

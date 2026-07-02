@@ -41,6 +41,13 @@ const DOWNLOAD_METADATA_FILE: string = 'metadata.json'
 const ARCHIVER_METADATA_SUFFIX: string = '.metadata.json'
 const ARCHIVE_BOT_SETTINGS_INCOMPLETE: string = 'Archive bot settings are incomplete'
 
+export class DownloadDirectoryImportResult {
+  galleryTasks: number = 0
+  archiverTasks: number = 0
+  scannedGalleryTasks: number = 0
+  scannedArchiverTasks: number = 0
+}
+
 class DownloadImageSeedMetadata {
   page: number = 0
   imgkey: string = ''
@@ -239,6 +246,44 @@ export class DownloadQueueSettings {
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_restore_failed', (error as Error).message)
     }
+  }
+
+  static async importTasksFromDownloadDirectory(context: common.UIAbilityContext): Promise<DownloadDirectoryImportResult> {
+    const result: DownloadDirectoryImportResult = new DownloadDirectoryImportResult()
+    if (!await DownloadQueueSettings.ensureDownloadStorageReady(context)) {
+      DiagnosticLogger.warn('download', 'download_directory_import_unavailable', DOWNLOAD_DIRECTORY_UNAVAILABLE)
+      return result
+    }
+    const state: DownloadQueueState = connectDownloadQueue()
+    const currentGalleryTasks: DownloadGalleryTask[] =
+      DownloadQueueSettings.normalizeRestoredGalleryTasks(state.galleryTasks)
+    const currentArchiverTasks: DownloadArchiverTask[] =
+      DownloadQueueSettings.normalizeRestoredArchiverTasks(state.archiverTasks)
+    const scannedGalleryTasks: DownloadGalleryTask[] =
+      DownloadQueueSettings.normalizeRestoredGalleryTasks(DownloadQueueSettings.loadGalleryMetadataTasks(context))
+    const scannedArchiverTasks: DownloadArchiverTask[] =
+      DownloadQueueSettings.normalizeRestoredArchiverTasks(DownloadQueueSettings.loadArchiverMetadataTasks(context))
+    result.scannedGalleryTasks = scannedGalleryTasks.length
+    result.scannedArchiverTasks = scannedArchiverTasks.length
+    result.galleryTasks = DownloadQueueSettings.countNewGalleryTasks(currentGalleryTasks, scannedGalleryTasks)
+    result.archiverTasks = DownloadQueueSettings.countNewArchiverTasks(currentArchiverTasks, scannedArchiverTasks)
+
+    const galleryTasks: DownloadGalleryTask[] =
+      DownloadQueueSettings.mergeRestoredGalleryTasks(currentGalleryTasks, scannedGalleryTasks)
+    const archiverTasks: DownloadArchiverTask[] = DownloadQueueSettings.hydrateArchiverTasksFromGalleryTasks(
+      DownloadQueueSettings.mergeRestoredArchiverTasks(currentArchiverTasks, scannedArchiverTasks),
+      galleryTasks,
+    )
+    DownloadQueueSettings.setGalleryTasks(state, galleryTasks)
+    DownloadQueueSettings.setArchiverTasks(state, archiverTasks)
+    await DownloadQueueSettings.persist(context, galleryTasks)
+    await DownloadQueueSettings.persistArchiver(context, archiverTasks)
+    DiagnosticLogger.info(
+      'download',
+      'download_directory_import_done',
+      `gallery=${result.galleryTasks}/${result.scannedGalleryTasks} archiver=${result.archiverTasks}/${result.scannedArchiverTasks}`,
+    )
+    return result
   }
 
   /**
@@ -2049,6 +2094,36 @@ export class DownloadQueueSettings {
       }
     })
     return out
+  }
+
+  private static countNewGalleryTasks(
+    primary: DownloadGalleryTask[],
+    fallback: DownloadGalleryTask[],
+  ): number {
+    let count: number = 0
+    fallback.forEach((task: DownloadGalleryTask) => {
+      const exists: boolean = primary.some((it: DownloadGalleryTask) => {
+        return DownloadQueueSettings.sameGalleryTask(it, task.gid, task.token, task.preferOriginal)
+      })
+      if (!exists) {
+        count++
+      }
+    })
+    return count
+  }
+
+  private static countNewArchiverTasks(
+    primary: DownloadArchiverTask[],
+    fallback: DownloadArchiverTask[],
+  ): number {
+    let count: number = 0
+    fallback.forEach((task: DownloadArchiverTask) => {
+      const exists: boolean = primary.some((it: DownloadArchiverTask) => it.tag === task.tag)
+      if (!exists) {
+        count++
+      }
+    })
+    return count
   }
 
   private static hydrateArchiverTasksFromGalleryTasks(

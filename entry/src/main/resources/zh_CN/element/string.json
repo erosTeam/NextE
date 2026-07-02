@@ -329,6 +329,34 @@
       "value": "获得 %s GP，当前 %s GP"
     },
     {
+      "name": "download_restore_tasks",
+      "value": "恢复下载任务"
+    },
+    {
+      "name": "download_restore_tasks_hint",
+      "value": "扫描下载目录中的元数据"
+    },
+    {
+      "name": "download_restore_tasks_scanning",
+      "value": "正在扫描下载元数据"
+    },
+    {
+      "name": "download_restore_tasks_done",
+      "value": "已恢复 %s 个任务"
+    },
+    {
+      "name": "download_restore_tasks_existing",
+      "value": "没有新的可恢复任务"
+    },
+    {
+      "name": "download_restore_tasks_none",
+      "value": "没有找到可恢复任务"
+    },
+    {
+      "name": "download_restore_tasks_failed",
+      "value": "无法恢复下载任务"
+    },
+    {
       "name": "download_not_configured",
       "value": "未配置"
     },

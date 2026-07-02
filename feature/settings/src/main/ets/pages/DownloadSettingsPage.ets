@@ -9,7 +9,9 @@ import {
   ArchiveBotType,
   ConciseListRow,
   DiagnosticLogger,
+  DownloadDirectoryImportResult,
   DownloadOriginalMode,
+  DownloadQueueSettings,
   DownloadSettings,
   DownloadSettingsState,
   GroupedListSection,
@@ -36,6 +38,7 @@ export struct DownloadSettingsPage {
   @Local archiveBotBalanceStatus: string = '';
   @Local archiveBotCheckInStatus: string = '';
   @Local archiveBotBalanceAutoRefreshing: boolean = false;
+  @Local downloadRestoreBusy: boolean = false;
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -174,6 +177,35 @@ export struct DownloadSettingsPage {
       DiagnosticLogger.warn('download', 'archive_bot_checkin_failed', (error as Error).message)
     }
     this.archiveBotCheckInBusy = false
+  }
+
+  private showToast(message: ResourceStr): void {
+    this.getUIContext().getPromptAction().openToast({ message: message }).catch((_error: Error) => {})
+  }
+
+  private async restoreDownloadTasks(): Promise<void> {
+    if (this.downloadRestoreBusy) {
+      return
+    }
+    this.downloadRestoreBusy = true
+    DiagnosticLogger.info('download', 'download_directory_import_start', 'settings')
+    try {
+      const result: DownloadDirectoryImportResult =
+        await DownloadQueueSettings.importTasksFromDownloadDirectory(this.ctx())
+      const imported: number = result.galleryTasks + result.archiverTasks
+      const scanned: number = result.scannedGalleryTasks + result.scannedArchiverTasks
+      if (imported > 0) {
+        this.showToast(AppStrings.get('download_restore_tasks_done').replace('%s', `${imported}`))
+      } else if (scanned > 0) {
+        this.showToast($r('app.string.download_restore_tasks_existing'))
+      } else {
+        this.showToast($r('app.string.download_restore_tasks_none'))
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'download_directory_import_failed', (error as Error).message)
+      this.showToast($r('app.string.download_restore_tasks_failed'))
+    }
+    this.downloadRestoreBusy = false
   }
 
   private adjustConcurrency(delta: number): void {
@@ -431,6 +463,32 @@ export struct DownloadSettingsPage {
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.originalMenuShown = false
+                },
+              })
+            }
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            if (this.downloadRestoreBusy) {
+              ConciseListRow({
+                title: $r('app.string.download_restore_tasks'),
+                subtitle: $r('app.string.download_restore_tasks_scanning'),
+                leadingIcon: $r('sys.symbol.arrow_clockwise'),
+                showChevron: false,
+                isEnabled: false,
+                suffixBuilderParam: () => {
+                  this.BusySuffix()
+                },
+              })
+            } else {
+              ConciseListRow({
+                title: $r('app.string.download_restore_tasks'),
+                subtitle: $r('app.string.download_restore_tasks_hint'),
+                leadingIcon: $r('sys.symbol.arrow_clockwise'),
+                showChevron: false,
+                action: () => {
+                  this.restoreDownloadTasks()
                 },
               })
             }
