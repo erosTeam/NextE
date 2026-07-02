@@ -35,7 +35,7 @@ export struct AboutPage {
     if (this.appVersion.length > 0) {
       return this.appVersion
     }
-    return '1.1.2'
+    return '1.1.3'
   }
 
   private ctx(): common.UIAbilityContext {

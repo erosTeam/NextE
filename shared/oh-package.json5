@@ -1,6 +1,6 @@
 {
   "name": "shared",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "NextE shared library - network, parser, model, state, theme, components, utils",
   "main": "src/main/ets/Index.ets",
   "dependencies": {}
