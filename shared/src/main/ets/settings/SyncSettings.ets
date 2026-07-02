@@ -23,9 +23,11 @@ export class SyncSettingsSnapshot {
   datasetCustomProfiles: boolean = true
   lastRunAt: number = 0
   lastStatus: string = SYNC_STATUS_IDLE
+  lastDetail: string = ''
   huaweiCloudEnabled: boolean = false
   huaweiCloudLastRunAt: number = 0
   huaweiCloudLastStatus: string = SYNC_STATUS_IDLE
+  huaweiCloudLastDetail: string = ''
   huaweiCloudLastCloudDisabled: boolean = false
 }
 
@@ -45,9 +47,11 @@ export class SyncSettings {
     state.datasetCustomProfiles = snapshot.datasetCustomProfiles
     state.lastRunAt = Math.max(0, snapshot.lastRunAt)
     state.lastStatus = SyncSettings.normalizeStatus(snapshot.lastStatus)
+    state.lastDetail = SyncSettings.normalizeDetail(snapshot.lastDetail)
     state.huaweiCloudEnabled = snapshot.huaweiCloudEnabled
     state.huaweiCloudLastRunAt = Math.max(0, snapshot.huaweiCloudLastRunAt)
     state.huaweiCloudLastStatus = SyncSettings.normalizeStatus(snapshot.huaweiCloudLastStatus)
+    state.huaweiCloudLastDetail = SyncSettings.normalizeDetail(snapshot.huaweiCloudLastDetail)
     state.huaweiCloudLastCloudDisabled = snapshot.huaweiCloudLastCloudDisabled
   }
 
@@ -66,9 +70,11 @@ export class SyncSettings {
     snapshot.datasetCustomProfiles = state.datasetCustomProfiles
     snapshot.lastRunAt = state.lastRunAt
     snapshot.lastStatus = SyncSettings.normalizeStatus(state.lastStatus)
+    snapshot.lastDetail = SyncSettings.normalizeDetail(state.lastDetail)
     snapshot.huaweiCloudEnabled = state.huaweiCloudEnabled
     snapshot.huaweiCloudLastRunAt = state.huaweiCloudLastRunAt
     snapshot.huaweiCloudLastStatus = SyncSettings.normalizeStatus(state.huaweiCloudLastStatus)
+    snapshot.huaweiCloudLastDetail = SyncSettings.normalizeDetail(state.huaweiCloudLastDetail)
     snapshot.huaweiCloudLastCloudDisabled = state.huaweiCloudLastCloudDisabled
     return snapshot
   }
@@ -108,12 +114,15 @@ export class SyncSettings {
         store.getSync(StorageKeys.SYNC_DATASET_CUSTOM_PROFILES, true) as boolean
       snapshot.lastRunAt = store.getSync(StorageKeys.SYNC_LAST_RUN_AT, 0) as number
       snapshot.lastStatus = store.getSync(StorageKeys.SYNC_LAST_STATUS, SYNC_STATUS_IDLE) as string
+      snapshot.lastDetail = store.getSync(StorageKeys.SYNC_LAST_DETAIL, '') as string
       snapshot.huaweiCloudEnabled =
         store.getSync(StorageKeys.SYNC_HUAWEI_CLOUD_ENABLED, false) as boolean
       snapshot.huaweiCloudLastRunAt =
         store.getSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_RUN_AT, 0) as number
       snapshot.huaweiCloudLastStatus =
         store.getSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_STATUS, SYNC_STATUS_IDLE) as string
+      snapshot.huaweiCloudLastDetail =
+        store.getSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_DETAIL, '') as string
       snapshot.huaweiCloudLastCloudDisabled =
         store.getSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED, false) as boolean
       SyncSettings.apply(snapshot)
@@ -133,8 +142,10 @@ export class SyncSettings {
     snapshot.webdavUsername = snapshot.webdavUsername.trim()
     snapshot.lastRunAt = Math.max(0, snapshot.lastRunAt)
     snapshot.lastStatus = SyncSettings.normalizeStatus(snapshot.lastStatus)
+    snapshot.lastDetail = SyncSettings.normalizeDetail(snapshot.lastDetail)
     snapshot.huaweiCloudLastRunAt = Math.max(0, snapshot.huaweiCloudLastRunAt)
     snapshot.huaweiCloudLastStatus = SyncSettings.normalizeStatus(snapshot.huaweiCloudLastStatus)
+    snapshot.huaweiCloudLastDetail = SyncSettings.normalizeDetail(snapshot.huaweiCloudLastDetail)
     SyncSettings.apply(snapshot)
     try {
       const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
@@ -150,9 +161,11 @@ export class SyncSettings {
       store.putSync(StorageKeys.SYNC_DATASET_CUSTOM_PROFILES, snapshot.datasetCustomProfiles)
       store.putSync(StorageKeys.SYNC_LAST_RUN_AT, snapshot.lastRunAt)
       store.putSync(StorageKeys.SYNC_LAST_STATUS, snapshot.lastStatus)
+      store.putSync(StorageKeys.SYNC_LAST_DETAIL, snapshot.lastDetail)
       store.putSync(StorageKeys.SYNC_HUAWEI_CLOUD_ENABLED, snapshot.huaweiCloudEnabled)
       store.putSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_RUN_AT, snapshot.huaweiCloudLastRunAt)
       store.putSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_STATUS, snapshot.huaweiCloudLastStatus)
+      store.putSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_DETAIL, snapshot.huaweiCloudLastDetail)
       store.putSync(
         StorageKeys.SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED,
         snapshot.huaweiCloudLastCloudDisabled,
@@ -166,11 +179,14 @@ export class SyncSettings {
   static async markRun(
     context: common.UIAbilityContext,
     status: string,
+    detail: string = '',
     timeMs: number = Date.now(),
   ): Promise<void> {
     const snapshot = SyncSettings.current()
     snapshot.lastRunAt = Math.max(0, timeMs)
     snapshot.lastStatus = SyncSettings.normalizeStatus(status)
+    snapshot.lastDetail =
+      snapshot.lastStatus === SYNC_STATUS_FAILED ? SyncSettings.normalizeDetail(detail) : ''
     await SyncSettings.save(context, snapshot)
   }
 
@@ -178,11 +194,14 @@ export class SyncSettings {
     context: common.UIAbilityContext,
     status: string,
     cloudDisabled: boolean = false,
+    detail: string = '',
     timeMs: number = Date.now(),
   ): Promise<void> {
     const snapshot = SyncSettings.current()
     snapshot.huaweiCloudLastRunAt = Math.max(0, timeMs)
     snapshot.huaweiCloudLastStatus = SyncSettings.normalizeStatus(status)
+    snapshot.huaweiCloudLastDetail =
+      snapshot.huaweiCloudLastStatus === SYNC_STATUS_FAILED ? SyncSettings.normalizeDetail(detail) : ''
     snapshot.huaweiCloudLastCloudDisabled = cloudDisabled
     await SyncSettings.save(context, snapshot)
   }
@@ -196,5 +215,13 @@ export class SyncSettings {
       return status
     }
     return SYNC_STATUS_IDLE
+  }
+
+  private static normalizeDetail(detail: string): string {
+    const trimmed: string = detail.trim()
+    if (trimmed.length > 240) {
+      return trimmed.substring(0, 240)
+    }
+    return trimmed
   }
 }

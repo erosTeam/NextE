@@ -49,7 +49,7 @@ ok('LocalDataStore creates gallery download task and seed tables',
     /idx_download_gallery_seeds_position/.test(store) &&
     /prefer_original INTEGER NOT NULL DEFAULT 0/.test(store))
 ok('LocalDataStore migrates existing download task rows to include per-task original preference',
-  /LOCAL_DATA_SCHEMA_VERSION: number = 15/.test(store) &&
+  /LOCAL_DATA_SCHEMA_VERSION: number = 17/.test(store) &&
     /migrateDownloadGalleryPreferOriginal/.test(store) &&
     /ALTER TABLE download_gallery_tasks ADD COLUMN prefer_original/.test(store))
 ok('LocalDataStore migrates gallery queue keys so original and resampled tasks can coexist',

@@ -18,14 +18,18 @@ Sync only durable user-local records with stable keys and timestamps:
 - `search_history`
 - `local_block_settings`
 - `local_block_rules`
-- `image_block_subscriptions`
 - `image_block_user_rules` for user-authored image rules (`local` / `allow`) and per-rule subscription
   overrides such as enabled state and threshold.
 - `image_block_rules` stores subscription rule bodies only. Subscription bodies are regenerated from
   synced subscription feed metadata and are not exported as user data.
   Huawei Cloud syncs `image_block_user_rules` directly; it is the user-rule source table, not a mirror.
   A legacy prepare step may copy old non-subscription rows out of `image_block_rules`, but normal reads
-  and writes must use `image_block_user_rules`.
+  and writes must use `image_block_user_rules`. Huawei Cloud prepare must not clean, dedupe, delete, or
+  bulk-touch image-rule rows to force upload; ordinary row writes already carry `updated_at`, and the
+  system cloud provider must own dirty tracking.
+- `image_block_subscriptions` stores community subscription feed metadata. WebDAV/export may carry it
+  with the image-block dataset, but Huawei Cloud does not mark or download this table; a stale AGC
+  `ImageBlockSubscriptions` record can otherwise fail the entire RDB cloud sync before user rules upload.
 - `custom_profiles`
 - `custom_profile_selection`
 
@@ -53,8 +57,11 @@ Providers do transport only:
 
 - local file/import-export style sync reads and writes one `nexte-sync-v1.json` envelope
 - manual WebDAV uses a directory layout: a small manifest plus one JSON file per enabled dataset group
-- Huawei Cloud sync marks the same syncable RDB tables with `DISTRIBUTED_CLOUD` and syncs the selected
-  table set directly through HarmonyOS RDB cloud sync
+- Huawei Cloud sync marks the selected RDB cloud table subset with `DISTRIBUTED_CLOUD` and syncs it
+  directly through HarmonyOS RDB cloud sync
+- manual Huawei Cloud sync must expose the last progress code and table-level upload/download/failure
+  counts in diagnostics, the failure toast, and the persisted provider status, so AGC/schema mismatches
+  are not reduced to a generic "sync failed" message after the page or process is recreated
 
 Conflict resolution belongs to the sync dataset adapter, not providers.
 
@@ -70,7 +77,7 @@ Huawei Cloud sync reuses the same dataset switches as WebDAV:
 - local favorites -> `local_favorites`
 - search history -> `search_history`
 - local hidden-tag/comment-filter settings -> `local_block_settings`, `local_block_rules`
-- image block subscriptions and user rules -> `image_block_subscriptions`, `image_block_user_rules`
+- image block user rules -> `image_block_user_rules`
 - custom list tabs -> `custom_profiles`, `custom_profile_selection`
 
 `HUAWEI_CLOUD_SYNC_BUILD_ENABLED` defaults to true so local development can actually see and test the
@@ -82,12 +89,98 @@ The cloud schema must include only syncable durable user tables. Cache tables, g
 download queues, diagnostics, cookie jars, API keys, and WebDAV credentials stay local-only. Every synced table
 column is nullable because RDB cloud sync rejects NOT NULL cloud fields.
 
-The cloud schema follows the V2Next pattern: `tables[].name` is the local RDB table name passed to
-`setDistributedTables`, while `tables[].alias` is the AGC data type name. AGC data types currently use
-PascalCase names (`GalleryReadProgress`, `CustomProfileSelection`, etc.) and their advanced local-table
-setting points back to the snake_case RDB table. Do not set both `name` and `alias` to snake_case: device
-logs showed CloudKit then requesting `/kinds/custom_profile_selection/record`, which does not match the
-existing AGC data type and returns `kind is Invalid`.
+Active image-block Huawei Cloud debugging evidence is tracked in
+[huawei-cloud-image-block-sync-debug-ledger.md](huawei-cloud-image-block-sync-debug-ledger.md). Read that
+ledger before changing `image_block_user_rules` sync behavior so failed routes are not repeated.
+
+Earlier Huawei Cloud schema/data state was not accepted. Verification on 2026-07-01 showed:
+
+- `tables[].name = snake_case local table` is required for `setDistributedTables`; changing table names to
+  AGC record types such as `GalleryReadProgress` makes local distributed-table creation fail with
+  `Analysis sql and trigger failed -1003` because those PascalCase local RDB tables do not exist.
+- `tables[].alias = PascalCase AGC data type` can route CloudKit requests to the PascalCase record type,
+  but it does not make dirty or hand-created cloud records safe. After the AGC data type was handled and
+  the record debugging page was queried again, `ImageBlockUserRules` still had 13 current records. The
+  197 device fetched `normal: 13, deleted: 39` and failed with
+  `Invalid data from cloud, no version[0], lost primary key[1]`,
+  `Cloud data do not contain expected primary field value`, and
+  `image_block_user_rules:up=0/0,down=0/52,fail=52`.
+- The visible fields were `deleted_at`, `enabled`, `feed_id`, `hash`, `label`, `preview_path`, `rule_id`,
+  `scope`, `scope_key`, `source_page`, `source_type`, `source_url`, `threshold`, and `updated_at`.
+
+Current image-block user-rule target: `image_block_user_rules` keeps its local RDB table name and points its
+cloud schema alias to the current AGC development data type `ImageBlockUserRules`. The temporary
+`ImageBlockUserRulesV2` development reset is retired. AGC reports it as production-effective and refuses
+deletion, so it must stay unused; the client must not reference it again. Do not rename the client to another
+versioned image-block data type.
+The `ImageBlockUserRules` AGC development config currently sets the device duplicate key to
+`rule_id,scope_key`; the local `image_block_user_rules` physical RDB table, cloud schema, and every
+`ON CONFLICT` target for that table must use the same order. The app can still canonicalize user-created
+rule IDs to `local:<hash>` or `allow:<hash>`; that identity choice must not be confused with the RDB/cloud
+primary-key column order. The source metadata fields `source_url`,
+`source_page`, and `preview_path` still stay before `enabled`, `updated_at`, and `deleted_at`.
+The AGC record-debug table may display fields alphabetically, but the device cloud mapper and RDB insert
+path are sensitive to the deployed order. Moving the numeric state fields before the source fields corrupts
+rows, for example `source_url=1`, `enabled=https://...`, and `deleted_at=/data/storage/...`, then the next
+upload fails with `Code:400 reason:Param is invalid`.
+If AGC already contains such shifted rows, another device fails before app-level merge with
+`image_block_user_rules:up=0/0,down=0/13,fail=13`; those cloud records must be deleted or repaired in AGC
+before a device can upload clean rows again. Do not hide that condition behind app-side prepare repair.
+
+Do not add a new `CustomProfilesV2`, `ImageBlockUserRulesV3`, or other versioned AGC data type as a routine
+repair for local/cloud metadata drift. Versioned AGC data types are a last-resort development reset tactic,
+not a normal app feature. If a device already has local RDB cloud metadata pointing at records that were
+deleted directly in AGC, fix that as an explicit maintenance/reset case and keep ordinary sync on the
+current AGC data type.
+The local `cloud_schema.json` top-level `version` and database `version` must match the AGC/CloudDrive
+effective schema version seen in device logs. The current effective schema is 17; setting the local cloud
+schema to 20 made CloudDrive fetch `ImageBlockUserRules` records as schema 17 while the app only declared
+schema 20, which produced `can not find schema record type:ImageBlockUserRules`. Local RDB schema version is
+separate and is currently 21 for the image-block column-order rollback migration.
+Earlier 17/V2 and 18/V2 builds could leave devices in a state where other tables synced but image-block user
+rule downloads failed against the versioned data type; the canonical `ImageBlockUserRules` schema keeps the
+AGC device duplicate-key order and keeps client rule identity canonicalization inside the row values.
+Manual Huawei Cloud sync waits 240 seconds
+because the first clean development-environment upload can include hundreds of durable rows;
+197 needed about 126 seconds before CloudDrive returned the table-level finish callback, so the old 120-second
+guard hid the real table details behind a premature timeout.
+
+Image-block cloud touch markers are retired. The app no longer stores
+`image_block_user_rules_cloud_touch_*`, no longer bulk-updates `updated_at` to manufacture dirty rows, and
+no longer marks a separate image-rule upload completion state. That app-managed touch layer created a second
+dirty-state system beside HarmonyOS RDB cloud sync and made duplicate cloud records harder to reason about.
+
+Earlier 197 QA evidence on 2026-07-02: after enabling Huawei Cloud sync in app settings,
+`image_block_user_rules` ran but reported `up=2/13,down=0/0,fail=11`; native logs showed
+`modifyNormalRecords ImageBlockUserRulesV2 count: 13 success:2,fail:11` followed by
+`Code:400 reason:Param is invalid`. Pulling the device DB showed rows corrupted by the field-order mismatch
+above, while AGC data-record debugging for `ImageBlockUserRulesV2` showed the cloud records themselves still
+had the correct named fields. A later attempt that moved local/cloud order to `enabled`, `updated_at`,
+`deleted_at` before source fields reproduced the same local corruption before upload: CloudDrive then logged
+`saveRecordsExPrepare ImageBlockUserRulesV2 count: 11 normal:11,recycle:0,new:0,modify:11,dbType:1` and
+`modifyNormalRecords ImageBlockUserRulesV2 count: 11 success:0,fail:11` without downloading cloud changes.
+The fix is to keep `cloud_schema.json`, the local RDB physical table, and all user-rule conflict targets on
+the AGC device duplicate-key order. Affected development-device or AGC rows still need restoring or explicit
+out-of-band repair before re-testing because already-corrupted row values are not fully reversible after the
+cloud-touch update.
+
+Normal Huawei Cloud sync should stay system-owned: mark the selected tables with `autoSync: false`, prepare
+local durable rows, run `SYNC_MODE_TIME_FIRST`, and report table-level failures. No image-block first-upload
+exception remains. The app must not run cleanDirtyData for `image_block_user_rules`, must not run
+native-first for that table, must not suspend it for the rest of the process, and must not hide
+AGC-development-environment repair behind ordinary sync. If AGC contains duplicate or malformed development
+records, fix the development data directly or through a separately reviewed maintenance tool; do not add
+more app-side cloud repair paths.
+
+Do not set both `name` and `alias` to snake_case: device logs showed CloudKit then requesting
+`/kinds/custom_profile_selection/record`, which does not match the existing AGC data type and returns
+`kind is Invalid`.
+
+Manual and scheduled Huawei Cloud runs call `cloudSync(mode, tables, progress)` with the current selected
+table subset after `setDistributedTables`. `setDistributedTables` only marks tables as distributed; it does
+not provide an API to unmark tables that older builds already marked. Passing the table subset to `cloudSync`
+keeps stale historical distributed-table metadata, such as the removed `image_block_subscriptions` cloud
+mapping, out of the current run.
 
 ## WebDAV File Layout
 
@@ -162,7 +255,7 @@ merge/PUT for disabled dataset files and leaves the manifest entry untouched.
 - Local block settings: newer `updated_at` or tombstone wins per `scope_key`.
 - Local block rules: newer `updated_at` or tombstone wins per `(scope_key, rule_id)`.
 - Image block subscriptions: newer `updated_at` or tombstone wins per `(scope_key, feed_id)`.
-- Image block rules: newer `updated_at` or tombstone wins per `(scope_key, rule_id)` for non-subscription
+- Image block rules: newer `updated_at` or tombstone wins per `(rule_id, scope_key)` for non-subscription
   rules. Subscription feeds sync as feed metadata; their rule bodies are downloaded from the feed.
 - Custom profiles: newer `last_edit_time` or tombstone wins per semantic `(scope_key, uuid)`;
   the physical RDB/AGC key column is `(scope_key, profile_uuid)`.

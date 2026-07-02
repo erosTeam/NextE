@@ -25,13 +25,6 @@ import {
   ImagePageRouteErrorParams,
   ImagePageRouteService,
   ImagePageRouteTarget,
-  IMAGE_BLOCK_ALGORITHM_DCT64_V1,
-  IMAGE_BLOCK_DEFAULT_THRESHOLD,
-  IMAGE_BLOCK_SCOPE_WHOLE,
-  ImageBlockFeed,
-  ImageBlockFeedItem,
-  ImageBlockRepository,
-  ImageBlockRule,
   ReaderParams,
   DownloadArchiverTask,
   DownloadGalleryTask,
@@ -168,13 +161,6 @@ struct Index {
   private lastHandledQuery: string = '';
   private readonly IMAGE_BLOCK_QA_GID: string = '3049882';
   private readonly IMAGE_BLOCK_QA_TOKEN: string = 'd7e740a39e';
-  private readonly IMAGE_BLOCK_QA_HASH: string = 'ce9e181d354a3cd5';
-  private readonly IMAGE_BLOCK_QA_MISSING_SOURCE_HASH: string = '0123456789abcdef';
-  private readonly IMAGE_BLOCK_QA_SOURCE_URL: string = 'https://e-hentai.org/g/3049882/d7e740a39e/';
-  private readonly IMAGE_BLOCK_QA_FEED_ID: string = 'zh-scanlator-ads';
-  private readonly IMAGE_BLOCK_QA_FEED_TITLE: string = 'Chinese scanlator ads';
-  private readonly IMAGE_BLOCK_QA_FEED_URL: string =
-    'https://raw.githubusercontent.com/erosTeam/nexte-image-block-rules/main/dist/zh-scanlator-ads.json';
   private readonly IMAGE_BLOCK_QA_FILE_COUNT: number = 6;
   private readonly IMAGE_BLOCK_QA_TITLE: string = '[pulpawoelbo] D.VA advertisement (Overwatch)';
 
@@ -291,49 +277,14 @@ struct Index {
       this.stack.pushPathByName('ReaderGestureProbe', null)
       return
     }
-    if (uri === InternalQaRoutes.IMAGE_BLOCK_SEED_URI) {
-      DiagnosticLogger.info('nav', 'internal_qa_open', 'image-block-seed')
-      this.openImageBlockSeedQa()
-      return
-    }
-    if (uri === InternalQaRoutes.IMAGE_BLOCK_SEED_READER_URI) {
-      DiagnosticLogger.info('nav', 'internal_qa_open', 'image-block-seed-reader')
-      this.openImageBlockSeedReaderQa()
-      return
-    }
-    if (uri === InternalQaRoutes.IMAGE_BLOCK_SUBSCRIPTION_READER_URI) {
-      DiagnosticLogger.info('nav', 'internal_qa_open', 'image-block-subscription-reader')
-      this.openImageBlockSubscriptionReaderQa()
-      return
-    }
     if (uri === InternalQaRoutes.IMAGE_BLOCK_READER_OPEN_URI) {
       DiagnosticLogger.info('nav', 'internal_qa_open', 'image-block-reader-open')
       this.openImageBlockReaderOpenQa()
       return
     }
-    if (uri === InternalQaRoutes.IMAGE_BLOCK_MANUAL_READER_URI) {
-      DiagnosticLogger.info('nav', 'internal_qa_open', 'image-block-manual-reader')
-      this.openImageBlockManualReaderQa()
-      return
-    }
-    if (uri === InternalQaRoutes.IMAGE_BLOCK_SETTINGS_URI) {
-      DiagnosticLogger.info('nav', 'internal_qa_open', 'image-block-settings')
-      this.openImageBlockSettingsQa()
-      return
-    }
     if (uri === InternalQaRoutes.IMAGE_BLOCK_SETTINGS_OPEN_URI) {
       DiagnosticLogger.info('nav', 'internal_qa_open', 'image-block-settings-open')
       this.stack.pushPathByName('ImageBlockSettings', null)
-      return
-    }
-    if (uri === InternalQaRoutes.IMAGE_BLOCK_SETTINGS_EDGE_URI) {
-      DiagnosticLogger.info('nav', 'internal_qa_open', 'image-block-settings-edge')
-      this.openImageBlockSettingsEdgeQa()
-      return
-    }
-    if (uri === InternalQaRoutes.IMAGE_BLOCK_SETTINGS_REFRESH_URI) {
-      DiagnosticLogger.info('nav', 'internal_qa_open', 'image-block-settings-refresh')
-      this.openImageBlockSettingsRefreshQa()
       return
     }
     const ref: GalleryRef | null = EhUrlRouter.parseGallery(currentUri)
@@ -364,126 +315,6 @@ struct Index {
       })
   }
 
-  private openImageBlockSeedQa(): void {
-    this.seedImageBlockRule()
-      .then(() => {
-        DiagnosticLogger.info('image_block', 'qa_seed_rule_ready', this.IMAGE_BLOCK_QA_HASH)
-        this.stack.pushPathByName(
-          'GalleryDetail',
-          new GalleryDetailParams(this.IMAGE_BLOCK_QA_GID, this.IMAGE_BLOCK_QA_TOKEN),
-        )
-      })
-      .catch((error: Error) => {
-        DiagnosticLogger.warn('image_block', 'qa_seed_rule_failed', error.message)
-        this.stack.pushPathByName(
-          'GalleryDetail',
-          new GalleryDetailParams(this.IMAGE_BLOCK_QA_GID, this.IMAGE_BLOCK_QA_TOKEN),
-        )
-      })
-  }
-
-  private openImageBlockSeedReaderQa(): void {
-    this.seedImageBlockRule()
-      .then(() => {
-        DiagnosticLogger.info('image_block', 'qa_seed_reader_ready', this.IMAGE_BLOCK_QA_HASH)
-        this.stack.pushPathByName(
-          'Reader',
-          new ReaderParams(
-            this.IMAGE_BLOCK_QA_GID,
-            this.IMAGE_BLOCK_QA_TOKEN,
-            0,
-            this.IMAGE_BLOCK_QA_FILE_COUNT,
-            this.IMAGE_BLOCK_QA_TITLE,
-          ),
-        )
-      })
-      .catch((error: Error) => {
-        DiagnosticLogger.warn('image_block', 'qa_seed_reader_failed', error.message)
-        this.stack.pushPathByName(
-          'Reader',
-          new ReaderParams(
-            this.IMAGE_BLOCK_QA_GID,
-            this.IMAGE_BLOCK_QA_TOKEN,
-            0,
-            this.IMAGE_BLOCK_QA_FILE_COUNT,
-            this.IMAGE_BLOCK_QA_TITLE,
-          ),
-        )
-      })
-  }
-
-  private openImageBlockManualReaderQa(): void {
-    this.prepareImageBlockManualMarkQa()
-      .then(() => {
-        DiagnosticLogger.info('image_block', 'qa_manual_reader_ready', this.IMAGE_BLOCK_QA_HASH)
-        this.stack.pushPathByName(
-          'Reader',
-          new ReaderParams(
-            this.IMAGE_BLOCK_QA_GID,
-            this.IMAGE_BLOCK_QA_TOKEN,
-            0,
-            this.IMAGE_BLOCK_QA_FILE_COUNT,
-            this.IMAGE_BLOCK_QA_TITLE,
-            [],
-            0,
-            0,
-            [],
-            '',
-            true,
-          ),
-        )
-      })
-      .catch((error: Error) => {
-        DiagnosticLogger.warn('image_block', 'qa_manual_reader_prepare_failed', error.message)
-        this.stack.pushPathByName(
-          'Reader',
-          new ReaderParams(
-            this.IMAGE_BLOCK_QA_GID,
-            this.IMAGE_BLOCK_QA_TOKEN,
-            0,
-            this.IMAGE_BLOCK_QA_FILE_COUNT,
-            this.IMAGE_BLOCK_QA_TITLE,
-            [],
-            0,
-            0,
-            [],
-            '',
-            true,
-          ),
-        )
-      })
-  }
-
-  private openImageBlockSubscriptionReaderQa(): void {
-    this.seedImageBlockSubscription()
-      .then(() => {
-        DiagnosticLogger.info('image_block', 'qa_subscription_reader_ready', this.IMAGE_BLOCK_QA_HASH)
-        this.stack.pushPathByName(
-          'Reader',
-          new ReaderParams(
-            this.IMAGE_BLOCK_QA_GID,
-            this.IMAGE_BLOCK_QA_TOKEN,
-            0,
-            this.IMAGE_BLOCK_QA_FILE_COUNT,
-            this.IMAGE_BLOCK_QA_TITLE,
-          ),
-        )
-      })
-      .catch((error: Error) => {
-        DiagnosticLogger.warn('image_block', 'qa_subscription_reader_failed', error.message)
-        this.stack.pushPathByName(
-          'Reader',
-          new ReaderParams(
-            this.IMAGE_BLOCK_QA_GID,
-            this.IMAGE_BLOCK_QA_TOKEN,
-            0,
-            this.IMAGE_BLOCK_QA_FILE_COUNT,
-            this.IMAGE_BLOCK_QA_TITLE,
-          ),
-        )
-      })
-  }
-
   private openImageBlockReaderOpenQa(): void {
     this.stack.pushPathByName(
       'Reader',
@@ -495,139 +326,6 @@ struct Index {
         this.IMAGE_BLOCK_QA_TITLE,
       ),
     )
-  }
-
-  private openImageBlockSettingsQa(): void {
-    this.seedImageBlockRule()
-      .then(() => {
-        DiagnosticLogger.info('image_block', 'qa_seed_settings_ready', this.IMAGE_BLOCK_QA_HASH)
-        this.stack.pushPathByName('ImageBlockSettings', null)
-      })
-      .catch((error: Error) => {
-        DiagnosticLogger.warn('image_block', 'qa_seed_settings_failed', error.message)
-        this.stack.pushPathByName('ImageBlockSettings', null)
-      })
-  }
-
-  private openImageBlockSettingsEdgeQa(): void {
-    this.seedImageBlockRuleEdgeCases()
-      .then(() => {
-        DiagnosticLogger.info('image_block', 'qa_seed_settings_edge_ready', this.IMAGE_BLOCK_QA_HASH)
-        this.stack.pushPathByName('ImageBlockSettings', null)
-      })
-      .catch((error: Error) => {
-        DiagnosticLogger.warn('image_block', 'qa_seed_settings_edge_failed', error.message)
-        this.stack.pushPathByName('ImageBlockSettings', null)
-      })
-  }
-
-  private openImageBlockSettingsRefreshQa(): void {
-    this.seedEmptyImageBlockSubscription()
-      .then(() => {
-        DiagnosticLogger.info('image_block', 'qa_seed_settings_refresh_ready', this.IMAGE_BLOCK_QA_FEED_ID)
-        this.stack.pushPathByName('ImageBlockSettings', null)
-      })
-      .catch((error: Error) => {
-        DiagnosticLogger.warn('image_block', 'qa_seed_settings_refresh_failed', error.message)
-        this.stack.pushPathByName('ImageBlockSettings', null)
-      })
-  }
-
-  private seedImageBlockRule(): Promise<void> {
-    const rule: ImageBlockRule = new ImageBlockRule()
-    rule.id = 'local:' + this.IMAGE_BLOCK_QA_HASH
-    rule.hash = this.IMAGE_BLOCK_QA_HASH
-    rule.threshold = IMAGE_BLOCK_DEFAULT_THRESHOLD
-    rule.label = 'scanlator-ad'
-    rule.scope = IMAGE_BLOCK_SCOPE_WHOLE
-    rule.sourceUrl = this.IMAGE_BLOCK_QA_SOURCE_URL
-    rule.sourcePage = 1
-    rule.enabled = true
-    return ImageBlockRepository.upsertLocalRule(this.getUIContext().getHostContext() as common.UIAbilityContext, rule)
-  }
-
-  private seedImageBlockRuleEdgeCases(): Promise<void> {
-    return this.seedImageBlockRule()
-      .then(() => {
-        const missingSource: ImageBlockRule = new ImageBlockRule()
-        missingSource.id = 'local:qa-missing-source'
-        missingSource.hash = this.IMAGE_BLOCK_QA_MISSING_SOURCE_HASH
-        missingSource.threshold = IMAGE_BLOCK_DEFAULT_THRESHOLD
-        missingSource.label = 'missing-source-ad'
-        missingSource.scope = IMAGE_BLOCK_SCOPE_WHOLE
-        missingSource.sourceUrl = ''
-        missingSource.sourcePage = 2
-        missingSource.enabled = true
-        return ImageBlockRepository.upsertLocalRule(
-          this.getUIContext().getHostContext() as common.UIAbilityContext,
-          missingSource,
-        )
-      })
-      .then(() => {
-        const duplicate: ImageBlockRule = new ImageBlockRule()
-        duplicate.id = 'local:qa-duplicate'
-        duplicate.hash = this.IMAGE_BLOCK_QA_HASH
-        duplicate.threshold = IMAGE_BLOCK_DEFAULT_THRESHOLD
-        duplicate.label = 'duplicate-ad'
-        duplicate.scope = IMAGE_BLOCK_SCOPE_WHOLE
-        duplicate.sourceUrl = this.IMAGE_BLOCK_QA_SOURCE_URL
-        duplicate.sourcePage = 1
-        duplicate.enabled = true
-        return ImageBlockRepository.upsertLocalRule(
-          this.getUIContext().getHostContext() as common.UIAbilityContext,
-          duplicate,
-        )
-      })
-  }
-
-  private seedImageBlockSubscription(): Promise<void> {
-    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    const feed: ImageBlockFeed = this.createImageBlockSubscriptionFeed()
-    const item: ImageBlockFeedItem = new ImageBlockFeedItem()
-    item.hash = this.IMAGE_BLOCK_QA_HASH
-    item.threshold = IMAGE_BLOCK_DEFAULT_THRESHOLD
-    item.label = 'scanlator-ad'
-    item.scope = IMAGE_BLOCK_SCOPE_WHOLE
-    item.sourceUrl = this.IMAGE_BLOCK_QA_SOURCE_URL
-    item.sourcePage = 1
-    feed.items.push(item)
-    return this.replaceQaSubscription(context, feed)
-  }
-
-  private seedEmptyImageBlockSubscription(): Promise<void> {
-    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    return this.replaceQaSubscription(context, this.createImageBlockSubscriptionFeed())
-  }
-
-  private createImageBlockSubscriptionFeed(): ImageBlockFeed {
-    const feed: ImageBlockFeed = new ImageBlockFeed()
-    feed.id = this.IMAGE_BLOCK_QA_FEED_ID
-    feed.title = this.IMAGE_BLOCK_QA_FEED_TITLE
-    feed.url = this.IMAGE_BLOCK_QA_FEED_URL
-    feed.algorithm = IMAGE_BLOCK_ALGORITHM_DCT64_V1
-    feed.defaultThreshold = IMAGE_BLOCK_DEFAULT_THRESHOLD
-    feed.updatedAt = Date.now()
-    feed.sha256 = ''
-    feed.enabled = true
-    return feed
-  }
-
-  private replaceQaSubscription(context: common.UIAbilityContext, feed: ImageBlockFeed): Promise<void> {
-    return ImageBlockRepository.removeLocalRule(context, 'local:' + this.IMAGE_BLOCK_QA_HASH)
-      .then(() => ImageBlockRepository.removeLocalRule(context, 'local:qa-missing-source'))
-      .then(() => ImageBlockRepository.removeLocalRule(context, 'local:qa-duplicate'))
-      .then(() => ImageBlockRepository.removeWhitelistHash(context, this.IMAGE_BLOCK_QA_HASH))
-      .then(() => ImageBlockRepository.replaceSubscription(context, feed))
-      .then(() => ImageBlockRepository.setSubscriptionEnabled(context, this.IMAGE_BLOCK_QA_FEED_ID, true))
-  }
-
-  private prepareImageBlockManualMarkQa(): Promise<void> {
-    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    return ImageBlockRepository.removeLocalRule(context, 'local:' + this.IMAGE_BLOCK_QA_HASH)
-      .then(() => ImageBlockRepository.removeLocalRule(context, 'local:qa-missing-source'))
-      .then(() => ImageBlockRepository.removeLocalRule(context, 'local:qa-duplicate'))
-      .then(() => ImageBlockRepository.removeWhitelistHash(context, this.IMAGE_BLOCK_QA_HASH))
-      .then(() => ImageBlockRepository.setSubscriptionEnabled(context, this.IMAGE_BLOCK_QA_FEED_ID, false))
   }
 
   private confirmOpenImagePage(target: ImagePageRouteTarget): void {

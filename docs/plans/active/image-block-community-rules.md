@@ -204,78 +204,13 @@ Implemented in this branch:
    - This provides the first manual-rule QA path without adding a full management UI; cleanup is handled from
      `ImageBlockSettingsPage`.
 
-12. Hidden seeded image-block QA routes
-   - `nexte://qa/image-block-seed` is accepted only by the internal QA allowlist, not published in `module.json5`.
-   - The route inserts a real local rule for `https://e-hentai.org/g/3049882/d7e740a39e/`, page 1, pHash
-     `ce9e181d354a3cd5`, then opens that gallery detail.
-   - `nexte://qa/image-block-seed-reader` uses the same local rule insert path, then opens Reader directly with the
-     reviewed gallery params. It is the default pHash/placeholder QA route so detail-button coordinate drift cannot
-     mask Reader behavior.
-   - `nexte://qa/image-block-subscription-reader` removes the sample local rule, edge-case local rows, and sample
-     allowlist hash, seeds the reviewed pHash through the `zh-scanlator-ads` subscription provider, force-enables that
-     provider, then opens the same reviewed Reader page. It validates subscription storage and provider-enabled Reader
-     decisions without depending on live GitHub network availability.
-   - `nexte://qa/image-block-reader-open` opens the same reviewed Reader page without seeding, cleaning, enabling,
-     disabling, or otherwise mutating image-block state. It exists so follow-up QA can prove a prior settings action
-     changed the runtime decision instead of relying on another route's setup side effects.
-   - `nexte://qa/image-block-manual-reader` removes the sample local rule, the sample edge-case local rows, and the
-     sample allowlist hash, disables the sample `zh-scanlator-ads` provider, then opens the reviewed Reader page
-     without a preexisting block. It passes a QA-only Reader param that starts chrome visible so automation can click
-     the real accessible toolbar action; normal Reader routes still default to hidden chrome. This is the deterministic
-     entry for validating user-created manual rules.
-   - `nexte://qa/image-block-settings` uses the same local rule insert path, then opens Image blocks settings so the
-     manual-rule row and contribution-draft row can be checked without manual navigation.
-   - `nexte://qa/image-block-settings-open` opens Image blocks settings without seeding or mutating rules so a
-     preceding manual mark can be verified as the source of the visible local row.
-   - `nexte://qa/image-block-settings-edge` seeds the normal submit-ready rule plus one missing-source local rule and
-     one duplicate-hash local rule, then opens Image blocks settings so the contribution row can verify `ready/total`
-     and skipped-rule reasons without touching production navigation.
-   - `nexte://qa/image-block-settings-refresh` clears the sample local rules and allowlist, replaces the default
-     `zh-scanlator-ads` subscription provider with an enabled empty feed, then opens Image blocks settings. It exists
-     so automation can prove the visible provider changes from `1/1 / 0` to `1/1 / 1` only after the real
-     erosTeam manifest/feed network update succeeds.
-   - `scripts/qa_image_block_seeded_reader.mjs` is the signed-build device path: preflight layout/screenshot,
-     refuse to install while 197 is on `ScreenLockRootComponent` unless `--wake-unlock` is explicitly passed, install
-     the signed HAP only when unlocked, open the direct Reader route by default, and pass when the blocked placeholder is
-     visible. `--wake-unlock` first records `wake-keep-awake.json` after setting `power-shell timeout -o 600000`, then,
-     only if preflight still shows `ScreenLockRootComponent`, runs `power-shell wakeup` and the verified high-velocity
-     197 unlock swipe before recapturing `preflight_after_wake_unlock`. `--allow-and-verify` also taps the visible
-     `允许此图` / `Allow this image` escape action and passes only after the original image is visible again.
-     `--verify-settings-after-allow` continues from that Reader escape path into the non-seeding settings route and
-     passes only when the allowlist section shows the new pHash row. `--delete-whitelist` additionally clicks the
-     allowlist row's trash action, confirms the native delete dialog, and passes only after the allowlist count is `0`.
-     The deletion verifier scopes hash matching to the allowlist section so the still-valid local-rule row above it
-     does not cause a false failure. `--verify-block-after-whitelist-delete` then reopens the seeded Reader route and
-     passes only when the same page is hidden again, proving allowlist cleanup restores the block decision instead of
-     merely removing the settings row.
-     `--manual-mark` opens the non-seeded manual Reader route, waits for the original image, first looks for the
-     already-visible accessible `屏蔽当前图片` / `Block current image` toolbar action, falls back to the second bottom
-     toolbar action when `uitest dumpLayout` omits icon-only accessibility text, then falls back to center-tap chrome
-     toggling only if needed, and passes when the page becomes the blocked placeholder.
-     `--verify-settings-after-mark` then opens the non-seeding settings route and passes only when the local rule row
-     and contribution draft row are visible.
-     `--delete-local-rule` can be combined with the manual-mark/settings path; it clicks the visible local-rule trash
-     action, confirms the native delete dialog, and passes only after the local-rule count is `0`, the contribution row
-     disappears, and the sample `scanlator-ad / P1` row plus `ce9e...3cd5` pHash are gone.
-     `--verify-image-after-local-rule-delete` then opens the non-mutating Reader route and passes only after the
-     original image is visible, proving local-rule cleanup restores the page rather than only removing the settings row.
-     `--subscription` opens the subscription-seeded Reader route and returns
-     `reader_subscription_placeholder_visible` only when the same reviewed page is hidden by the subscription provider
-     after local rules and allowlist rows have been cleared.
-     `--settings` opens the seeded settings route and checks the manual rule plus contribution draft action;
-     `--settings-edge` opens the edge-case settings route and checks the `1/3` ready/total state plus missing-source
-     and duplicate-hash skip reasons; `--copy-draft` additionally taps that action and captures the post-click layout.
-     `--settings-refresh` opens the reset settings route, verifies `Chinese scanlator ads` is present with `1/1 / 0`,
-     clicks the real `更新社区规则` row, and passes only when the UI updates to `1/1 / 1` with local rules and allowlist
-     still at `0`. `--verify-block-after-settings-refresh` then opens the non-mutating Reader route and passes only when
-     the same reviewed page is hidden by the just-refreshed community subscription.
-     `--via-detail` keeps the detail-page button path and taps the visible upper part of the floating Read button to
-     avoid the gesture bar.
-   - The script now captures screenshots with `uitest screenCap -p` first and keeps `snapshot_display` only as a fallback,
-     because 197 can return black `snapshot_display` frames even when the layout tree is the visible NextE page.
-   - The script now treats signed-HAP install output without `install bundle successfully` as `blocked_install_failed`,
-     because `hdc install` can print an install error while still returning a process success status.
-   - This is a QA-only bridge for manual-rule validation; it is not user-facing rule management or PR submission UI.
+12. Image-block QA routes
+   - Mutating seed routes are retired. QA helpers must not insert sample local rules, delete user rules, replace
+     subscription feeds, or write `qa-*` rows into `image_block_user_rules`.
+   - `nexte://qa/image-block-reader-open` opens the reviewed Reader page without mutating image-block state.
+   - `nexte://qa/image-block-settings-open` opens Image blocks settings without mutating image-block state.
+   - The old `scripts/qa_image_block_seeded_reader.mjs` helper was removed because its default path depended on hidden
+     seed routes that wrote into the real user-rule sync table.
 
 ## App Contribution Flow
 

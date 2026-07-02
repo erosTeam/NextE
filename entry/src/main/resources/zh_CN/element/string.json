@@ -2062,7 +2062,7 @@
     },
     {
       "name": "settings_sync_hint",
-      "value": "同步本地耐久数据。"
+      "value": "同步收藏、历史、阅读记录和屏蔽规则"
     },
     {
       "name": "sync_webdav",
@@ -2070,7 +2070,7 @@
     },
     {
       "name": "sync_webdav_hint",
-      "value": "通过 WebDAV 目录同步选中的本地数据。"
+      "value": "通过 WebDAV 目录同步选中的数据"
     },
     {
       "name": "sync_provider_disabled",
@@ -2114,7 +2114,7 @@
     },
     {
       "name": "sync_huawei_cloud_hint",
-      "value": "将选中的本地数据同步到华为云。"
+      "value": "将选中的数据同步到华为云"
     },
     {
       "name": "sync_huawei_cloud_now",
@@ -2138,7 +2138,7 @@
     },
     {
       "name": "sync_huawei_cloud_open_space_hint",
-      "value": "在系统云空间中开启或管理本应用数据同步。"
+      "value": "在系统云空间中开启或管理本应用数据同步"
     },
     {
       "name": "sync_huawei_cloud_open_failed",

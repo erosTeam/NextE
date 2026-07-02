@@ -4,16 +4,17 @@ import { ReadProgressEntry } from '../state/GalleryReadProgressState'
 import { LocalDataStore } from './LocalDataStore'
 
 const SCOPE_GLOBAL: string = 'global'
+const TABLE_GALLERY_READ_PROGRESS: string = 'gallery_read_progress'
 const SQL_SELECT_ACTIVE: string =
-  'SELECT gid, page_index, column_mode, updated_at FROM gallery_read_progress ' +
+  'SELECT gid, page_index, column_mode, updated_at FROM ' + TABLE_GALLERY_READ_PROGRESS + ' ' +
   'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ORDER BY updated_at DESC'
 const SQL_UPSERT: string =
-  'INSERT INTO gallery_read_progress (scope_key, gid, page_index, column_mode, updated_at, deleted_at) ' +
+  'INSERT INTO ' + TABLE_GALLERY_READ_PROGRESS + ' (scope_key, gid, page_index, column_mode, updated_at, deleted_at) ' +
   'VALUES (?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, gid) DO UPDATE SET ' +
   'page_index = excluded.page_index, column_mode = excluded.column_mode, ' +
   'updated_at = excluded.updated_at, deleted_at = 0'
 const SQL_TOMBSTONE_SCOPE: string =
-  'UPDATE gallery_read_progress SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
+  'UPDATE ' + TABLE_GALLERY_READ_PROGRESS + ' SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 
 export class ReadProgressRepository {
   static async load(context: common.UIAbilityContext): Promise<ReadProgressEntry[]> {

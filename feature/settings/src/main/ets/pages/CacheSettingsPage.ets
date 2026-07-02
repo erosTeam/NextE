@@ -28,10 +28,10 @@ import {
 /**
  * Storage page. Every cache (EH page cache, reader image files, comment translations, tag translations) is a
  * row in a grouped card showing item count + byte size with an explicit per-row clear button; clear-all sits
- * at the end of that same card. Backup & restore is inlined here (no separate sub-page): export dumps the
- * settings store to a file (optionally including the sensitive login/account/API bundle, which then requires
- * a password and is AES-256-GCM encrypted); import reads a file, prompts for the password if encrypted, and
- * re-hydrates settings without a restart.
+ * at the end of that same card. Sync is a top-level storage action; backup & restore is inlined here
+ * (no separate sub-page): export dumps the settings store to a file (optionally including the sensitive
+ * login/account/API bundle, which then requires a password and is AES-256-GCM encrypted); import reads a
+ * file, prompts for the password if encrypted, and re-hydrates settings without a restart.
  */
 @ComponentV2
 export struct CacheSettingsPage {
@@ -331,6 +331,42 @@ export struct CacheSettingsPage {
         }) {
           ListItem() {
             Column({ space: ThemeConstants.SPACE_MD }) {
+              if (!this.safeMode.restricted()) {
+                GroupedListSection() {
+                  ConciseListRow({
+                    title: $r('app.string.settings_sync'),
+                    subtitle: $r('app.string.settings_sync_hint'),
+                    leadingIcon: $r('sys.symbol.cloud'),
+                    action: () => {
+                      connectNavStack().stack.pushPathByName('SyncSettings', null)
+                    },
+                  })
+                }
+              }
+              // Backup & restore, inlined (export / import open their own sheets — no sub-page).
+              GroupedListSection() {
+                ConciseListRow({
+                  title: $r('app.string.backup_export'),
+                  subtitle: $r('app.string.backup_export_subtitle'),
+                  leadingIcon: $r('sys.symbol.cloud_and_arrow_up'),
+                  showChevron: false,
+                  isEnabled: !this.busy,
+                  action: () => {
+                    this.openExport()
+                  },
+                })
+                this.rowDivider()
+                ConciseListRow({
+                  title: $r('app.string.backup_import'),
+                  subtitle: $r('app.string.backup_import_subtitle'),
+                  leadingIcon: $r('sys.symbol.doc_plaintext'),
+                  showChevron: false,
+                  isEnabled: !this.busy,
+                  action: () => {
+                    this.startImport()
+                  },
+                })
+              }
               // Total usage header.
               Row({ space: ThemeConstants.SPACE_XS }) {
                 Text($r('app.string.cache_total'))
@@ -373,41 +409,6 @@ export struct CacheSettingsPage {
                     })
                   },
                 })
-              }
-              // Backup & restore, inlined (export / import open their own sheets — no sub-page).
-              GroupedListSection() {
-                ConciseListRow({
-                  title: $r('app.string.backup_export'),
-                  subtitle: $r('app.string.backup_export_subtitle'),
-                  leadingIcon: $r('sys.symbol.cloud_and_arrow_up'),
-                  showChevron: false,
-                  isEnabled: !this.busy,
-                  action: () => {
-                    this.openExport()
-                  },
-                })
-                this.rowDivider()
-                ConciseListRow({
-                  title: $r('app.string.backup_import'),
-                  subtitle: $r('app.string.backup_import_subtitle'),
-                  leadingIcon: $r('sys.symbol.doc_plaintext'),
-                  showChevron: false,
-                  isEnabled: !this.busy,
-                  action: () => {
-                    this.startImport()
-                  },
-                })
-                if (!this.safeMode.restricted()) {
-                  this.rowDivider()
-                  ConciseListRow({
-                    title: $r('app.string.settings_sync'),
-                    subtitle: $r('app.string.settings_sync_hint'),
-                    leadingIcon: $r('sys.symbol.cloud'),
-                    action: () => {
-                      connectNavStack().stack.pushPathByName('SyncSettings', null)
-                    },
-                  })
-                }
               }
             }.width('100%')
           }

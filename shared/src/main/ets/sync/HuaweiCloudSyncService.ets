@@ -12,14 +12,20 @@ import { SyncDatasetSelection } from './SyncTypes'
 
 const SYNC_PERMISSION: Permissions = 'ohos.permission.DISTRIBUTED_DATASYNC'
 const CLOUD_DISABLED_CODE: number = 3
-const CLOUD_SYNC_TIMEOUT_MS: number = 30000
+const CLOUD_SYNC_TIMEOUT_MS: number = 240000
+const IMAGE_BLOCK_USER_RULES_TABLE: string = 'image_block_user_rules'
 
 export class HuaweiCloudSyncService {
   private static lastMarkedSignature: string = ''
   private static autoSyncListenerBound: boolean = false
+  private static lastRunDetail: string = ''
 
   static available(): boolean {
     return HUAWEI_CLOUD_SYNC_BUILD_ENABLED
+  }
+
+  static lastRunDetailMessage(): string {
+    return HuaweiCloudSyncService.lastRunDetail
   }
 
   static tablesForSelection(selection: SyncDatasetSelection): string[] {
@@ -48,10 +54,12 @@ export class HuaweiCloudSyncService {
     selection: SyncDatasetSelection = SyncSettings.selection(SyncSettings.current()),
   ): Promise<boolean> {
     if (!HuaweiCloudSyncService.available()) {
+      HuaweiCloudSyncService.lastRunDetail = 'provider unavailable'
       return false
     }
     const tables: string[] = HuaweiCloudSyncService.tablesForSelection(selection)
     if (tables.length <= 0) {
+      HuaweiCloudSyncService.lastRunDetail = 'no selected tables'
       DiagnosticLogger.warn('sync', 'huawei_cloud_no_tables', 'selection is empty')
       return false
     }
@@ -59,7 +67,7 @@ export class HuaweiCloudSyncService {
     if (HuaweiCloudSyncService.lastMarkedSignature !== signature) {
       try {
         const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-        const config: relationalStore.DistributedConfig = { autoSync: true }
+        const config: relationalStore.DistributedConfig = { autoSync: false }
         await store.setDistributedTables(
           tables,
           relationalStore.DistributedType.DISTRIBUTED_CLOUD,
@@ -69,11 +77,15 @@ export class HuaweiCloudSyncService {
         HuaweiCloudSyncService.bindAutoSyncProgress(context, store)
         DiagnosticLogger.info('sync', 'huawei_cloud_tables_marked', `tables=${signature}`)
       } catch (error) {
-        DiagnosticLogger.warn('sync', 'huawei_cloud_mark_tables_failed', (error as Error).message)
+        const message: string = (error as Error).message
+        HuaweiCloudSyncService.lastRunDetail = message
+        DiagnosticLogger.warn('sync', 'huawei_cloud_mark_tables_failed', message)
         return false
       }
     }
-    await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, selection, true)
+    if (tables.includes(IMAGE_BLOCK_USER_RULES_TABLE)) {
+      await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, selection)
+    }
     return true
   }
 
@@ -82,36 +94,67 @@ export class HuaweiCloudSyncService {
     selection: SyncDatasetSelection = SyncSettings.selection(SyncSettings.current()),
   ): Promise<boolean> {
     if (!HuaweiCloudSyncService.available()) {
+      HuaweiCloudSyncService.lastRunDetail = 'provider unavailable'
       return false
     }
+    HuaweiCloudSyncService.lastRunDetail = ''
     const state = connectSyncSettings()
     state.huaweiCloudSyncing = true
     state.huaweiCloudLastCloudDisabled = false
+    state.huaweiCloudLastDetail = ''
     try {
       const tables: string[] = HuaweiCloudSyncService.tablesForSelection(selection)
       if (tables.length <= 0) {
-        await SyncSettings.markHuaweiCloudRun(context, SYNC_STATUS_FAILED, false)
+        HuaweiCloudSyncService.lastRunDetail = 'no selected tables'
+        await SyncSettings.markHuaweiCloudRun(
+          context,
+          SYNC_STATUS_FAILED,
+          false,
+          HuaweiCloudSyncService.lastRunDetail,
+        )
         return false
       }
       const marked: boolean = await HuaweiCloudSyncService.markDistributedTables(context, selection)
       if (!marked) {
-        await SyncSettings.markHuaweiCloudRun(context, SYNC_STATUS_FAILED, false)
+        if (HuaweiCloudSyncService.lastRunDetail.length <= 0) {
+          HuaweiCloudSyncService.lastRunDetail = 'setDistributedTables failed'
+        }
+        await SyncSettings.markHuaweiCloudRun(
+          context,
+          SYNC_STATUS_FAILED,
+          false,
+          HuaweiCloudSyncService.lastRunDetail,
+        )
         return false
       }
       const store: relationalStore.RdbStore = await LocalDataStore.open(context)
       const code: number = await HuaweiCloudSyncService.waitCloudSyncFinish(store, tables, context)
-      const ok: boolean = code === 0
+      let ok: boolean = code === 0
       const cloudDisabled: boolean = code === CLOUD_DISABLED_CODE
+      if (!ok && HuaweiCloudSyncService.lastRunDetail.length <= 0) {
+        HuaweiCloudSyncService.lastRunDetail = `code=${code}`
+      }
       await SyncSettings.markHuaweiCloudRun(
         context,
         ok ? SYNC_STATUS_OK : SYNC_STATUS_FAILED,
         cloudDisabled,
+        ok ? '' : HuaweiCloudSyncService.lastRunDetail,
       )
-      DiagnosticLogger.info('sync', 'huawei_cloud_sync_done', `ok=${ok},code=${code}`)
+      DiagnosticLogger.info(
+        'sync',
+        'huawei_cloud_sync_done',
+        `ok=${ok},code=${code},detail=${HuaweiCloudSyncService.lastRunDetail}`,
+      )
       return ok
     } catch (error) {
-      await SyncSettings.markHuaweiCloudRun(context, SYNC_STATUS_FAILED, false)
-      DiagnosticLogger.warn('sync', 'huawei_cloud_sync_failed', (error as Error).message)
+      HuaweiCloudSyncService.lastRunDetail = (error as Error).message
+      await SyncSettings.markHuaweiCloudRun(
+        context,
+        SYNC_STATUS_FAILED,
+        false,
+        HuaweiCloudSyncService.lastRunDetail,
+      )
+      DiagnosticLogger.warn('sync', 'huawei_cloud_sync_failed', HuaweiCloudSyncService.lastRunDetail)
       return false
     } finally {
       state.huaweiCloudSyncing = false
@@ -120,7 +163,10 @@ export class HuaweiCloudSyncService {
 
   static async runScheduledSync(context: common.UIAbilityContext, reason: string): Promise<boolean> {
     DiagnosticLogger.info('sync', 'huawei_cloud_scheduled_request', `reason=${reason}`)
-    return await HuaweiCloudSyncService.cloudSyncNow(context)
+    return await HuaweiCloudSyncService.cloudSyncNow(
+      context,
+      SyncSettings.selection(SyncSettings.current()),
+    )
   }
 
   static async tryEnableStartup(context: common.UIAbilityContext): Promise<void> {
@@ -128,7 +174,6 @@ export class HuaweiCloudSyncService {
       return
     }
     const snapshot = SyncSettings.current()
-    await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)
     if (!snapshot.huaweiCloudEnabled) {
       return
     }
@@ -146,6 +191,7 @@ export class HuaweiCloudSyncService {
     store: relationalStore.RdbStore,
     tables: string[],
     context: common.UIAbilityContext,
+    mode: relationalStore.SyncMode = relationalStore.SyncMode.SYNC_MODE_TIME_FIRST,
   ): Promise<number> {
     return new Promise<number>((resolve: (value: number) => void) => {
       let settled: boolean = false
@@ -156,11 +202,13 @@ export class HuaweiCloudSyncService {
         }
       }
       const timer = setTimeout(() => {
+        HuaweiCloudSyncService.lastRunDetail = `timeout=${CLOUD_SYNC_TIMEOUT_MS}ms`
         finish(-1)
       }, CLOUD_SYNC_TIMEOUT_MS)
       store
         .cloudSync(
-          relationalStore.SyncMode.SYNC_MODE_TIME_FIRST,
+          mode,
+          tables,
           (progress: relationalStore.ProgressDetails) => {
             DiagnosticLogger.info(
               'sync',
@@ -169,6 +217,8 @@ export class HuaweiCloudSyncService {
             )
             if (progress.schedule === relationalStore.Progress.SYNC_FINISH) {
               clearTimeout(timer)
+              HuaweiCloudSyncService.lastRunDetail =
+                HuaweiCloudSyncService.progressDetailMessage(progress, tables)
               HuaweiCloudSyncService.logTableDetails('huawei_cloud_table_detail', progress, tables)
               HuaweiCloudSyncService.refreshAfterDownload(context, progress, tables)
               finish(progress.code)
@@ -177,6 +227,8 @@ export class HuaweiCloudSyncService {
         )
         .catch((error: Error) => {
           clearTimeout(timer)
+          HuaweiCloudSyncService.lastRunDetail =
+            error.message.length > 0 ? error.message : 'cloudSync call rejected'
           DiagnosticLogger.warn('sync', 'huawei_cloud_call_failed', error.message)
           finish(-1)
         })
@@ -200,12 +252,15 @@ export class HuaweiCloudSyncService {
       if (progress.schedule === relationalStore.Progress.SYNC_FINISH) {
         const selection = SyncSettings.selection(SyncSettings.current())
         const tables = HuaweiCloudSyncService.tablesForSelection(selection)
+        HuaweiCloudSyncService.lastRunDetail =
+          HuaweiCloudSyncService.progressDetailMessage(progress, tables)
         HuaweiCloudSyncService.logTableDetails('huawei_cloud_auto_table_detail', progress, tables)
         HuaweiCloudSyncService.refreshAfterDownload(context, progress, tables)
         SyncSettings.markHuaweiCloudRun(
           context,
           progress.code === 0 ? SYNC_STATUS_OK : SYNC_STATUS_FAILED,
           progress.code === CLOUD_DISABLED_CODE,
+          progress.code === 0 ? '' : HuaweiCloudSyncService.lastRunDetail,
         ).catch((error: Error) => {
           DiagnosticLogger.warn('sync', 'huawei_cloud_auto_record_failed', error.message)
         })
@@ -260,6 +315,38 @@ export class HuaweiCloudSyncService {
         `table=${table},up=${detail.upload.successful}/${detail.upload.total},down=${detail.download.successful}/${detail.download.total},fail=${detail.upload.failed + detail.download.failed}`,
       )
     })
+  }
+
+  private static progressDetailMessage(
+    progress: relationalStore.ProgressDetails,
+    tables: string[],
+  ): string {
+    const details: Record<string, relationalStore.TableDetails> = progress.details
+    const parts: string[] = [`code=${progress.code}`]
+    if (!details) {
+      parts.push('details=none')
+      return parts.join('; ')
+    }
+    tables.forEach((table: string) => {
+      const detail: relationalStore.TableDetails | undefined = details[table]
+      if (detail === undefined || detail === null) {
+        if (progress.code !== 0) {
+          parts.push(`${table}:missing`)
+        }
+        return
+      }
+      const failed: number = detail.upload.failed + detail.download.failed
+      if (failed > 0) {
+        parts.push(
+          `${table}:up=${detail.upload.successful}/${detail.upload.total},` +
+            `down=${detail.download.successful}/${detail.download.total},fail=${failed}`,
+        )
+      }
+    })
+    if (progress.code !== 0 && parts.length === 1) {
+      parts.push('failed table details unavailable')
+    }
+    return parts.join('; ')
   }
 }
 

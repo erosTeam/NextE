@@ -33,10 +33,11 @@ const repo = read('shared/src/main/ets/storage/ReadProgressRepository.ets')
 ok('repository loads and tombstones read progress through RDB',
     /class ReadProgressRepository/.test(repo) &&
     /LocalDataStore\.open\(context\)/.test(repo) &&
-    /SELECT gid, page_index, column_mode, updated_at FROM gallery_read_progress/.test(repo) &&
+    /TABLE_GALLERY_READ_PROGRESS: string = 'gallery_read_progress'/.test(repo) &&
+    /SELECT gid, page_index, column_mode, updated_at FROM '\s*\+ TABLE_GALLERY_READ_PROGRESS/.test(repo) &&
     /column_mode = excluded\.column_mode/.test(repo) &&
     /ON CONFLICT\(scope_key, gid\) DO UPDATE/.test(repo) &&
-    /UPDATE gallery_read_progress SET deleted_at = \?/.test(repo))
+    /UPDATE '\s*\+ TABLE_GALLERY_READ_PROGRESS \+ ' SET deleted_at = \?/.test(repo))
 
 const settings = read('shared/src/main/ets/settings/GalleryReadProgressSettings.ets')
 ok('settings facade reads/writes RDB and keeps legacy migration',

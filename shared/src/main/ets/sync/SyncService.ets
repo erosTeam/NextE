@@ -11,9 +11,19 @@ import {
   SYNC_MAGIC,
   SYNC_MIN_SUPPORTED_SCHEMA_VERSION,
   SYNC_SCHEMA_VERSION,
+  SyncCustomProfileRecord,
+  SyncCustomProfileSelectionRecord,
   SyncDatasetSelection,
   SyncDatasets,
   SyncEnvelopeV1,
+  SyncImageBlockRuleRecord,
+  SyncImageBlockSubscriptionRecord,
+  SyncLocalBlockRuleRecord,
+  SyncLocalBlockSettingsRecord,
+  SyncLocalFavoriteRecord,
+  SyncReadProgressRecord,
+  SyncSearchHistoryRecord,
+  SyncViewedHistoryRecord,
 } from './SyncTypes'
 import { SyncLocalDataAdapter } from './SyncLocalDataAdapter'
 
@@ -120,6 +130,187 @@ export class SyncService {
     if (!Array.isArray(data.customProfileSelection)) {
       data.customProfileSelection = []
     }
+    for (let i: number = 0; i < data.readProgress.length; i++) {
+      const r: SyncReadProgressRecord = data.readProgress[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.gid = SyncService.safeString(r.gid)
+      r.pageIndex = SyncService.safeNumber(r.pageIndex)
+      r.columnMode = SyncService.safeString(r.columnMode)
+      r.updatedAt = SyncService.safeNumber(r.updatedAt)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+    for (let i: number = 0; i < data.viewedHistory.length; i++) {
+      const r: SyncViewedHistoryRecord = data.viewedHistory[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.gid = SyncService.safeString(r.gid)
+      r.token = SyncService.safeString(r.token)
+      r.title = SyncService.safeString(r.title)
+      r.titleJp = SyncService.safeString(r.titleJp)
+      r.thumbUrl = SyncService.safeString(r.thumbUrl)
+      r.category = SyncService.safeString(r.category)
+      r.uploader = SyncService.safeString(r.uploader)
+      r.rating = SyncService.safeNumber(r.rating)
+      r.fileCount = SyncService.safeString(r.fileCount)
+      r.viewedAt = SyncService.safeNumber(r.viewedAt)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+    for (let i: number = 0; i < data.localFavorites.length; i++) {
+      const r: SyncLocalFavoriteRecord = data.localFavorites[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.gid = SyncService.safeString(r.gid)
+      r.token = SyncService.safeString(r.token)
+      r.url = SyncService.safeString(r.url)
+      r.thumbUrl = SyncService.safeString(r.thumbUrl)
+      r.thumbUrlL = SyncService.safeString(r.thumbUrlL)
+      r.imgWidth = SyncService.safeNumber(r.imgWidth)
+      r.imgHeight = SyncService.safeNumber(r.imgHeight)
+      r.englishTitle = SyncService.safeString(r.englishTitle)
+      r.japaneseTitle = SyncService.safeString(r.japaneseTitle)
+      r.category = SyncService.safeString(r.category)
+      r.uploader = SyncService.safeString(r.uploader)
+      r.postTime = SyncService.safeString(r.postTime)
+      r.fileCount = SyncService.safeString(r.fileCount)
+      r.rating = SyncService.safeNumber(r.rating)
+      r.ratingFallback = SyncService.safeNumber(r.ratingFallback)
+      r.colorRating = SyncService.safeString(r.colorRating)
+      r.favNote = SyncService.safeString(r.favNote)
+      r.favTitle = SyncService.safeString(r.favTitle)
+      r.expunged = SyncService.safeBoolean(r.expunged)
+      r.lastViewTime = SyncService.safeNumber(r.lastViewTime)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+    for (let i: number = 0; i < data.searchHistory.length; i++) {
+      const r: SyncSearchHistoryRecord = data.searchHistory[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.queryText = SyncService.safeString(r.queryText)
+      r.positionIndex = SyncService.safeNumber(r.positionIndex)
+      r.updatedAt = SyncService.safeNumber(r.updatedAt)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+    for (let i: number = 0; i < data.localBlockSettings.length; i++) {
+      const r: SyncLocalBlockSettingsRecord = data.localBlockSettings[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.filterCommentsByScore = SyncService.safeBoolean(r.filterCommentsByScore)
+      r.scoreFilteringThreshold = SyncService.safeNumber(r.scoreFilteringThreshold)
+      r.commentDisplayMode = SyncService.safeString(r.commentDisplayMode)
+      r.updatedAt = SyncService.safeNumber(r.updatedAt)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+    for (let i: number = 0; i < data.localBlockRules.length; i++) {
+      const r: SyncLocalBlockRuleRecord = data.localBlockRules[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.ruleId = SyncService.safeString(r.ruleId)
+      r.positionIndex = SyncService.safeNumber(r.positionIndex)
+      r.blockType = SyncService.safeString(r.blockType)
+      r.ruleText = SyncService.safeString(r.ruleText)
+      r.enabled = SyncService.safeBoolean(r.enabled)
+      r.enableRegex = SyncService.safeBoolean(r.enableRegex)
+      r.updatedAt = SyncService.safeNumber(r.updatedAt)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+    for (let i: number = 0; i < data.imageBlockSubscriptions.length; i++) {
+      const r: SyncImageBlockSubscriptionRecord = data.imageBlockSubscriptions[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.feedId = SyncService.safeString(r.feedId)
+      r.title = SyncService.safeString(r.title)
+      r.url = SyncService.safeString(r.url)
+      r.algorithm = SyncService.safeString(r.algorithm)
+      r.defaultThreshold = SyncService.safeNumber(r.defaultThreshold)
+      r.updatedAt = SyncService.safeNumber(r.updatedAt)
+      r.syncedAt = SyncService.safeNumber(r.syncedAt)
+      r.sha256 = SyncService.safeString(r.sha256)
+      r.ruleCount = SyncService.safeNumber(r.ruleCount)
+      r.enabled = SyncService.safeBoolean(r.enabled)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+    for (let i: number = 0; i < data.imageBlockRules.length; i++) {
+      const r: SyncImageBlockRuleRecord = data.imageBlockRules[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.ruleId = SyncService.safeString(r.ruleId)
+      r.hash = SyncService.safeString(r.hash)
+      r.threshold = SyncService.safeNumber(r.threshold)
+      r.label = SyncService.safeString(r.label)
+      r.scope = SyncService.safeString(r.scope)
+      r.feedId = SyncService.safeString(r.feedId)
+      r.sourceType = SyncService.safeString(r.sourceType)
+      r.sourceUrl = SyncService.safeString(r.sourceUrl)
+      r.sourcePage = SyncService.safeNumber(r.sourcePage)
+      r.previewPath = SyncService.safeString(r.previewPath)
+      r.enabled = SyncService.safeBoolean(r.enabled)
+      r.updatedAt = SyncService.safeNumber(r.updatedAt)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+    for (let i: number = 0; i < data.customProfiles.length; i++) {
+      const r: SyncCustomProfileRecord = data.customProfiles[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.uuid = SyncService.safeString(r.uuid)
+      r.positionIndex = SyncService.safeNumber(r.positionIndex)
+      r.name = SyncService.safeString(r.name)
+      r.listType = SyncService.safeString(r.listType)
+      r.searchText = SyncService.safeString(r.searchText)
+      r.selectedCats = SyncService.safeNumber(r.selectedCats)
+      r.advancedEnabled = SyncService.safeBoolean(r.advancedEnabled)
+      r.minRating = SyncService.safeNumber(r.minRating)
+      r.pagesFrom = SyncService.safeNumber(r.pagesFrom)
+      r.pagesTo = SyncService.safeNumber(r.pagesTo)
+      r.requireTorrent = SyncService.safeBoolean(r.requireTorrent)
+      r.showExpunged = SyncService.safeBoolean(r.showExpunged)
+      r.disableLanguageFilter = SyncService.safeBoolean(r.disableLanguageFilter)
+      r.disableUploaderFilter = SyncService.safeBoolean(r.disableUploaderFilter)
+      r.disableTagFilter = SyncService.safeBoolean(r.disableTagFilter)
+      r.favcat = SyncService.safeString(r.favcat)
+      r.toplistTl = SyncService.safeNumber(r.toplistTl)
+      r.displayMode = SyncService.safeString(r.displayMode)
+      r.hidden = SyncService.safeBoolean(r.hidden)
+      r.builtin = SyncService.safeBoolean(r.builtin)
+      r.lastEditTime = SyncService.safeNumber(r.lastEditTime)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+    for (let i: number = 0; i < data.customProfileSelection.length; i++) {
+      const r: SyncCustomProfileSelectionRecord = data.customProfileSelection[i]
+      r.scopeKey = SyncService.safeString(r.scopeKey)
+      r.selectedUuid = SyncService.safeString(r.selectedUuid)
+      r.updatedAt = SyncService.safeNumber(r.updatedAt)
+      r.deletedAt = SyncService.safeNumber(r.deletedAt)
+    }
+  }
+
+  private static safeString(value: Object): string {
+    if (typeof value === 'string') {
+      return value
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return `${value}`
+    }
+    return ''
+  }
+
+  private static safeNumber(value: Object): number {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? Math.floor(value) : 0
+    }
+    if (typeof value === 'string') {
+      const parsed: number = Number.parseFloat(value)
+      return Number.isFinite(parsed) ? Math.floor(parsed) : 0
+    }
+    if (typeof value === 'boolean') {
+      return value ? 1 : 0
+    }
+    return 0
+  }
+
+  private static safeBoolean(value: Object): boolean {
+    if (typeof value === 'boolean') {
+      return value
+    }
+    if (typeof value === 'number') {
+      return value > 0
+    }
+    if (typeof value === 'string') {
+      const normalized: string = value.toLowerCase()
+      return normalized === 'true' || normalized === '1'
+    }
+    return false
   }
 
   private static selectDatasets(

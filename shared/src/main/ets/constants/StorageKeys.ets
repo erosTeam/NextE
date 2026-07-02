@@ -87,9 +87,11 @@ export class StorageKeys {
   static readonly SYNC_DATASET_CUSTOM_PROFILES: string = 'sync.dataset.customProfiles'
   static readonly SYNC_LAST_RUN_AT: string = 'sync.lastRunAt'
   static readonly SYNC_LAST_STATUS: string = 'sync.lastStatus'
+  static readonly SYNC_LAST_DETAIL: string = 'sync.lastDetail'
   static readonly SYNC_HUAWEI_CLOUD_ENABLED: string = 'sync.huaweiCloud.enabled'
   static readonly SYNC_HUAWEI_CLOUD_LAST_RUN_AT: string = 'sync.huaweiCloud.lastRunAt'
   static readonly SYNC_HUAWEI_CLOUD_LAST_STATUS: string = 'sync.huaweiCloud.lastStatus'
+  static readonly SYNC_HUAWEI_CLOUD_LAST_DETAIL: string = 'sync.huaweiCloud.lastDetail'
   static readonly SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED: string = 'sync.huaweiCloud.lastCloudDisabled'
   static readonly SAFE_MODE_UNLOCKED: string = 'safeMode.unlocked'
   static readonly LOCAL_BLOCK_RULES: string = 'localBlock.rules' // legacy Preferences key; RDB source of truth

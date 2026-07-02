@@ -76,6 +76,7 @@ export class WebDavSyncService {
       if (!WebDavSyncService.datasetEnabled(config.selection, datasetId)) {
         continue
       }
+      DiagnosticLogger.info('sync', 'webdav_dataset_start', `dataset=${datasetId}`)
       const one: SyncDatasetSelection = WebDavSyncService.selectionForDataset(datasetId)
       let remote: SyncEnvelopeV1 = await WebDavSyncService.readDatasetEnvelope(rootUrl, manifest, datasetId, config)
       if (WebDavSyncService.datasetRecordCount(remote, datasetId) === 0 && legacyRaw.length > 0) {
@@ -85,6 +86,7 @@ export class WebDavSyncService {
       const shards: WebDavBuiltShard[] = await WebDavSyncService.buildShards(merged, datasetId)
       await WebDavSyncService.writeChangedShards(rootUrl, config, manifest, datasetId, shards)
       WebDavSyncService.replaceManifestDataset(manifest, datasetId, shards)
+      DiagnosticLogger.info('sync', 'webdav_dataset_done', `dataset=${datasetId},shards=${shards.length}`)
     }
 
     manifest.generatedAt = new Date().toISOString()

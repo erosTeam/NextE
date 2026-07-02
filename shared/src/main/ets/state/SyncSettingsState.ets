@@ -19,10 +19,12 @@ export class SyncSettingsState {
   @Trace datasetCustomProfiles: boolean = true
   @Trace lastRunAt: number = 0
   @Trace lastStatus: string = SYNC_STATUS_IDLE
+  @Trace lastDetail: string = ''
   @Trace huaweiCloudEnabled: boolean = false
   @Trace huaweiCloudSyncing: boolean = false
   @Trace huaweiCloudLastRunAt: number = 0
   @Trace huaweiCloudLastStatus: string = SYNC_STATUS_IDLE
+  @Trace huaweiCloudLastDetail: string = ''
   @Trace huaweiCloudLastCloudDisabled: boolean = false
 }
 

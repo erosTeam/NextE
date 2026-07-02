@@ -55,14 +55,14 @@ const SQL_SYNC_IMAGE_BLOCK_USER_RULES_FROM_MAIN: string =
   '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
   'SELECT scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at ' +
   'FROM image_block_rules WHERE COALESCE(source_type, \'\') <> \'subscription\' ' +
-  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'ON CONFLICT(rule_id, scope_key) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
   'WHERE excluded.updated_at >= image_block_user_rules.updated_at OR excluded.deleted_at >= image_block_user_rules.deleted_at'
 const SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN: string =
   'INSERT INTO image_block_user_rules ' +
   '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
   'SELECT scope_key, rule_id, hash, -1, \'\', \'\', feed_id, source_type, \'\', 0, \'\', 0, updated_at, deleted_at ' +
   'FROM image_block_rules WHERE source_type = \'subscription\' AND enabled = 0 ' +
-  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, feed_id = excluded.feed_id, source_type = excluded.source_type, enabled = 0, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'ON CONFLICT(rule_id, scope_key) DO UPDATE SET hash = excluded.hash, feed_id = excluded.feed_id, source_type = excluded.source_type, enabled = 0, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
   'WHERE excluded.updated_at >= image_block_user_rules.updated_at OR excluded.deleted_at >= image_block_user_rules.deleted_at'
 const SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION_OVERRIDES: string =
   'UPDATE image_block_rules SET ' +
@@ -99,7 +99,7 @@ const SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION: string =
   'ON CONFLICT(scope_key, feed_id) DO UPDATE SET title = excluded.title, url = excluded.url, algorithm = excluded.algorithm, default_threshold = excluded.default_threshold, updated_at = excluded.updated_at, synced_at = excluded.synced_at, sha256 = excluded.sha256, rule_count = excluded.rule_count, enabled = excluded.enabled, deleted_at = excluded.deleted_at'
 const SQL_APPLY_IMAGE_BLOCK_RULE: string =
   'INSERT INTO image_block_user_rules (scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
-  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+  'ON CONFLICT(rule_id, scope_key) DO UPDATE SET hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, source_page = excluded.source_page, preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
 const SQL_APPLY_CUSTOM_PROFILE: string =
   'INSERT INTO custom_profiles (scope_key, profile_uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, last_edit_time, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, profile_uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, list_type = excluded.list_type, search_text = excluded.search_text, selected_cats = excluded.selected_cats, advanced_enabled = excluded.advanced_enabled, min_rating = excluded.min_rating, pages_from = excluded.pages_from, pages_to = excluded.pages_to, require_torrent = excluded.require_torrent, show_expunged = excluded.show_expunged, disable_language_filter = excluded.disable_language_filter, disable_uploader_filter = excluded.disable_uploader_filter, disable_tag_filter = excluded.disable_tag_filter, favcat = excluded.favcat, toplist_tl = excluded.toplist_tl, display_mode = excluded.display_mode, hidden = excluded.hidden, builtin = excluded.builtin, last_edit_time = excluded.last_edit_time, deleted_at = excluded.deleted_at'
@@ -111,12 +111,19 @@ export class SyncLocalDataAdapter {
   static async prepareHuaweiCloudTables(
     context: common.UIAbilityContext,
     _selection: SyncDatasetSelection,
-    _markExistingImageBlockDirty: boolean = false,
   ): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_SYNC_IMAGE_BLOCK_USER_RULES_FROM_MAIN)
-    await store.executeSql(SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN)
-    await SyncLocalDataAdapter.logImageBlockCloudPrepare(store)
+    store.beginTransaction()
+    try {
+      await store.executeSql(SQL_SYNC_IMAGE_BLOCK_USER_RULES_FROM_MAIN)
+      await store.executeSql(SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN)
+      store.commit()
+      await SyncLocalDataAdapter.logImageBlockCloudPrepare(store)
+    } catch (error) {
+      store.rollBack()
+      const e: Error = error as Error
+      throw new Error(e.message || 'Failed to prepare image block cloud tables')
+    }
   }
 
   static async applyHuaweiCloudTables(

@@ -75,6 +75,9 @@ export struct SyncSettingsPage {
       return $r('app.string.sync_status_success', this.formatTime(this.settings.lastRunAt))
     }
     if (this.settings.lastStatus === SYNC_STATUS_FAILED) {
+      if (this.settings.lastDetail.length > 0) {
+        return `${AppStrings.get('sync_now_failed')}: ${this.settings.lastDetail}`
+      }
       return $r('app.string.sync_status_failed', this.formatTime(this.settings.lastRunAt))
     }
     return $r('app.string.sync_status_never')
@@ -91,9 +94,32 @@ export struct SyncSettingsPage {
       return $r('app.string.sync_status_success', this.formatTime(this.settings.huaweiCloudLastRunAt))
     }
     if (this.settings.huaweiCloudLastStatus === SYNC_STATUS_FAILED) {
+      const detail: string = this.huaweiCloudFailureDetail('')
+      if (detail.length > 0) {
+        return this.huaweiCloudFailureMessage('')
+      }
       return $r('app.string.sync_status_failed', this.formatTime(this.settings.huaweiCloudLastRunAt))
     }
     return $r('app.string.sync_status_never')
+  }
+
+  private huaweiCloudFailureMessage(fallback: string): string {
+    const detail: string = this.huaweiCloudFailureDetail(fallback)
+    if (detail.length <= 0) {
+      return AppStrings.get('sync_now_failed')
+    }
+    return `${AppStrings.get('sync_now_failed')}: ${detail}`
+  }
+
+  private huaweiCloudFailureDetail(fallback: string): string {
+    let detail: string = HuaweiCloudSyncService.lastRunDetailMessage()
+    if (detail.length <= 0) {
+      detail = this.settings.huaweiCloudLastDetail
+    }
+    if (detail.length <= 0) {
+      detail = fallback
+    }
+    return detail
   }
 
   private formatTime(value: number): string {
@@ -166,12 +192,13 @@ export struct SyncSettingsPage {
     DiagnosticLogger.info('sync', 'manual_huawei_cloud_sync_start', 'provider=huawei_cloud')
     HuaweiCloudSyncService.cloudSyncNow(this.ctx(), SyncSettings.selection(this.snapshot()))
       .then((ok: boolean) => {
-        DiagnosticLogger.info('sync', 'manual_huawei_cloud_sync_done', `ok=${ok}`)
-        this.toast(ok ? $r('app.string.sync_now_done') : $r('app.string.sync_now_failed'))
+        const detail: string = HuaweiCloudSyncService.lastRunDetailMessage()
+        DiagnosticLogger.info('sync', 'manual_huawei_cloud_sync_done', `ok=${ok},detail=${detail}`)
+        this.toast(ok ? $r('app.string.sync_now_done') : this.huaweiCloudFailureMessage(''))
       })
       .catch((error: Error) => {
         DiagnosticLogger.warn('sync', 'manual_huawei_cloud_sync_failed', error.message)
-        this.toast($r('app.string.sync_now_failed'))
+        this.toast(this.huaweiCloudFailureMessage(error.message))
       })
   }
 

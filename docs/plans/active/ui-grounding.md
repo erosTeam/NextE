@@ -12,6 +12,16 @@ Primary action: toggle double-page in settings or Reader chrome, and in double-p
 Reuse or deviation: reuse existing circular Reader toolbar buttons, `ConciseListRow` switch semantics, and the existing `GalleryReadProgressState` persistence path; deviate from the old A/B menu because pairing is not a global preference.
 Verification: reader double-page/slider/initial/tapzone/read-progress contracts, settings dropdown anchor contract, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and X7 Reader smoke.
 
+## Active: Huawei Cloud sync failure detail
+
+Status: active
+Reference implementation: current NextE `feature/settings/src/main/ets/pages/SyncSettingsPage.ets` provider row/status pattern, `shared/src/main/ets/settings/SyncSettings.ets` persisted provider status, and `shared/src/main/ets/sync/HuaweiCloudSyncService.ets` RDB cloud progress callback.
+Surface type: Sync settings Huawei Cloud provider status and manual-sync toast only; no new navigation surface, table-management UI, or AGC administration UI.
+Primary information: when manual Huawei Cloud sync fails, the user should see the current progress code and failing table counts instead of a generic failure label.
+Primary action: tap "同步到华为云" and read the immediate toast/status row detail for the failing table.
+Reuse or deviation: reuse the existing `ConciseListRow` status subtitle and `SyncSettings` persistence; deviate only by storing the last failure detail so page/process recreation does not erase the diagnostic.
+Verification: Huawei cloud sync contract, sync design contract, V1 decorator inventory, UI grounding contract, diff check, signed HarmonyOS build, and 197 layout/hilog evidence showing `image_block_user_rules:up=0/0,down=0/39,fail=39`.
+
 ## Active: download management search and sorting
 
 Status: active
@@ -256,10 +266,10 @@ Verification: download settings contract, UI grounding contract, i18n duplicate 
 
 Status: active
 Reference implementation: `feature/settings/src/main/ets/pages/CacheSettingsPage.ets` storage category entry, `feature/settings/src/main/ets/pages/DiagnosticsLogPage.ets` settings child-page structure, `shared/src/main/ets/components/ConciseListRow.ets` switch/input rows, `../V2Next/feature/settings/src/main/ets/pages/BackupSettingsPage.ets` backup/export grouping, and `../V2Next/shared/src/main/ets/storage/LocalDataCloudSync.ets` Huawei RDB cloud-sync wiring.
-Surface type: Storage settings child page with a provider overview plus a WebDAV child page. Local/private development builds show Huawei Cloud by default; public release builds without AGC/HGC cloud setup can disable it through the signed-build environment flag.
+Surface type: Storage settings child page with sync entry first, export/import second, cache usage/actions last, plus a provider overview and a WebDAV child page. Local/private development builds show Huawei Cloud by default; public release builds without AGC/HGC cloud setup can disable it through the signed-build environment flag.
 Primary information: provider enablement, WebDAV last sync state/configuration status, Huawei Cloud last state when available, and the enabled durable dataset groups shared by both providers.
-Primary action: tap the WebDAV provider row to open its child page; WebDAV configuration and WebDAV "sync now" live there. Huawei Cloud enablement and "sync now" stay in the Huawei Cloud provider card. Dataset switches stay on the overview because they are provider-neutral.
-Reuse or deviation: reuse NextE `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, V2 settings holder restore/persist pattern, and storage-page navigation; keep provider-specific forms/actions in their own provider card or child page instead of mixing WebDAV credentials with the overview. Deviate from the old single backup file by presenting dataset switches because WebDAV now writes manifest plus per-dataset shards and Huawei Cloud marks the same selected RDB tables.
+Primary action: tap the top sync card from Storage, then tap the WebDAV provider row to open its child page; WebDAV configuration and WebDAV "sync now" live there. Huawei Cloud enablement and "sync now" stay in the Huawei Cloud provider card. Dataset switches stay on the overview because they are provider-neutral.
+Reuse or deviation: reuse NextE `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, V2 settings holder restore/persist pattern, and storage-page navigation; keep Storage actions separated as sync, export/import, then cache instead of mixing sync into backup/restore. Keep provider-specific forms/actions in their own provider card or child page instead of mixing WebDAV credentials with the overview. Deviate from the old single backup file by presenting dataset switches because WebDAV now writes manifest plus per-dataset shards and Huawei Cloud marks the same selected RDB tables.
 Verification: sync design contract, Huawei cloud sync contract, local WebDAV sharded server contract, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
 
 ## Active: safe mode shell

@@ -83,6 +83,9 @@ export struct WebDavSyncSettingsPage {
       return $r('app.string.sync_status_success', this.formatTime(this.settings.lastRunAt))
     }
     if (this.settings.lastStatus === SYNC_STATUS_FAILED) {
+      if (this.settings.lastDetail.length > 0) {
+        return `${AppStrings.get('sync_now_failed')}: ${this.settings.lastDetail}`
+      }
       return $r('app.string.sync_status_failed', this.formatTime(this.settings.lastRunAt))
     }
     return $r('app.string.sync_status_never')
@@ -123,9 +126,9 @@ export struct WebDavSyncSettingsPage {
         this.toast($r('app.string.sync_now_done'))
       })
       .catch((error: Error) => {
-        SyncSettings.markRun(this.ctx(), SYNC_STATUS_FAILED)
+        SyncSettings.markRun(this.ctx(), SYNC_STATUS_FAILED, error.message)
         DiagnosticLogger.warn('sync', 'manual_webdav_sync_failed', error.message)
-        this.toast($r('app.string.sync_now_failed'))
+        this.toast(`${AppStrings.get('sync_now_failed')}: ${error.message}`)
       })
       .finally(() => {
         this.syncing = false

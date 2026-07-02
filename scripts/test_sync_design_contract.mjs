@@ -26,11 +26,25 @@ ok('sync design lists durable syncable tables',
     /image_block_rules/.test(doc) &&
     /custom_profile_selection/.test(doc) &&
     /local_block_rules/.test(doc))
-ok('sync design records Huawei Cloud table-name versus AGC alias split',
-  /tables\[\]\.name` is the local RDB table name/.test(doc) &&
-    /tables\[\]\.alias` is the AGC data type name/.test(doc) &&
+ok('sync design records Huawei Cloud image-block resolution and stale-metadata caveat',
+  /tables\[\]\.name = snake_case local table/.test(doc) &&
+    /setDistributedTables/.test(doc) &&
     /GalleryReadProgress/.test(doc) &&
-    /CustomProfileSelection/.test(doc) &&
+    /Analysis sql and trigger failed -1003/.test(doc) &&
+    /tables\[\]\.alias = PascalCase AGC data type/.test(doc) &&
+    /route CloudKit requests to the PascalCase record type/.test(doc) &&
+    /normal: 13, deleted: 39/.test(doc) &&
+    /lost primary key\[1\]/.test(doc) &&
+    /Cloud data do not contain expected primary field value/.test(doc) &&
+    /image_block_user_rules:up=0\/0,down=0\/52,fail=52/.test(doc) &&
+    /current AGC development data type `ImageBlockUserRules`/.test(doc) &&
+    /AGC reports it as production-effective and refuses\s+deletion/.test(doc) &&
+    /the client must not reference it again/.test(doc) &&
+    /Do not rename the client to another\s+versioned image-block data type/.test(doc) &&
+    /Do not add a new `CustomProfilesV2`/.test(doc) &&
+    /No image-block first-upload\s+exception remains/.test(doc) &&
+    /must not run cleanDirtyData/.test(doc) &&
+    /must not run\s+native-first/.test(doc) &&
     /Do not set both `name` and `alias` to snake_case/.test(doc))
 ok('sync design excludes cache, downloads, and secrets',
   /tag_translations/.test(doc) &&
@@ -104,6 +118,12 @@ ok('sync service refreshes live state after applying remote data',
     /SearchHistorySettings\.restore/.test(service) &&
     /GalleryReadProgressSettings\.restore/.test(service) &&
     /CustomProfilesSettings\.restore/.test(service))
+ok('sync service normalizes remote JSON records before RDB apply',
+  /safeString\(r\.scopeKey\)/.test(service) &&
+    /safeNumber\(r\.updatedAt\)/.test(service) &&
+    /safeBoolean\(r\.enabled\)/.test(service) &&
+    /return ''/.test(service) &&
+    /return 0/.test(service))
 
 const webdav = read('shared/src/main/ets/sync/WebDavSyncService.ets')
 const webdavScheduler = read('shared/src/main/ets/sync/WebDavSyncScheduler.ets')
@@ -138,7 +158,7 @@ ok('WebDAV provider has automatic scheduled sync',
     /requestAfterForeground/.test(webdavScheduler) &&
     /WebDavSyncService\.syncNow/.test(webdavScheduler) &&
     /SyncSettings\.markRun\(context, SYNC_STATUS_OK\)/.test(webdavScheduler) &&
-    /SyncSettings\.markRun\(context, SYNC_STATUS_FAILED\)/.test(webdavScheduler) &&
+    /SyncSettings\.markRun\(context, SYNC_STATUS_FAILED, error\.message\)/.test(webdavScheduler) &&
     /webdav_scheduled_start/.test(webdavScheduler))
 ok('provider-neutral scheduler dispatches local writes and foreground to WebDAV and Huawei Cloud',
   /HuaweiCloudSyncScheduler\.requestAfterLocalWrite\(context, reason\)/.test(syncScheduler) &&
@@ -147,11 +167,16 @@ ok('provider-neutral scheduler dispatches local writes and foreground to WebDAV 
     /WebDavSyncScheduler\.requestAfterForeground\(context, reason\)/.test(syncScheduler))
 
 const syncSettings = read('shared/src/main/ets/settings/SyncSettings.ets')
+const syncState = read('shared/src/main/ets/state/SyncSettingsState.ets')
+const storageKeys = read('shared/src/main/ets/constants/StorageKeys.ets')
 ok('sync settings persist WebDAV config locally',
   /SYNC_WEBDAV_URL/.test(syncSettings) &&
     /SYNC_WEBDAV_USERNAME/.test(syncSettings) &&
     /SYNC_WEBDAV_ENABLED/.test(syncSettings) &&
     /SYNC_WEBDAV_PASSWORD/.test(syncSettings) &&
+    /SYNC_LAST_DETAIL/.test(storageKeys) &&
+    /lastDetail/.test(syncState) &&
+    /detail: string = ''/.test(syncSettings) &&
     /SYNC_DATASET_READ_PROGRESS/.test(syncSettings) &&
     /static selection/.test(syncSettings) &&
     /never exported/.test(syncSettings))
@@ -161,11 +186,14 @@ ok('image block WebDAV sync shares the block-rules dataset switch',
 ok('sync settings persist Huawei Cloud local status separately',
   /SYNC_HUAWEI_CLOUD_ENABLED/.test(syncSettings) &&
     /markHuaweiCloudRun/.test(syncSettings) &&
+    /SYNC_HUAWEI_CLOUD_LAST_DETAIL/.test(syncSettings) &&
+    /huaweiCloudLastDetail/.test(read('shared/src/main/ets/state/SyncSettingsState.ets')) &&
     /huaweiCloudLastCloudDisabled/.test(syncSettings))
 
 const cloudBuildFlag = read('shared/src/main/ets/sync/HuaweiCloudSyncBuildFlag.ets')
 const huaweiCloud = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
 const cloudFeatures = read('shared/src/main/ets/sync/CloudSyncFeatures.ets')
+const localStore = read('shared/src/main/ets/storage/LocalDataStore.ets')
 const moduleJson = read('entry/src/main/module.json5')
 const signedBuild = read('scripts/build_hvigor_signed.sh')
 const cloudSchema = JSON.parse(read('entry/src/main/resources/rawfile/arkdata/cloud/cloud_schema.json'))
@@ -181,23 +209,58 @@ ok('Huawei Cloud sync service is guarded and uses RDB cloud sync APIs',
     /DISTRIBUTED_CLOUD/.test(huaweiCloud) &&
     /cloudSync/.test(huaweiCloud) &&
     /SYNC_MODE_TIME_FIRST/.test(huaweiCloud))
-ok('Huawei Cloud sync marks distributed tables before image-block user-rule preparation',
+ok('Huawei Cloud sync constrains manual runs to selected tables',
+  /mode: relationalStore\.SyncMode = relationalStore\.SyncMode\.SYNC_MODE_TIME_FIRST/.test(huaweiCloud) &&
+    /\.cloudSync\(\s*mode,\s*tables,\s*\(progress: relationalStore\.ProgressDetails\) =>/.test(huaweiCloud) &&
+    /waitCloudSyncFinish\([\s\S]*store,[\s\S]*tables,[\s\S]*context/.test(huaweiCloud))
+ok('Huawei Cloud sync keeps app-managed image reset/upload repair outside normal system sync',
+  /IMAGE_BLOCK_USER_RULES_TABLE: string = 'image_block_user_rules'/.test(huaweiCloud) &&
+    !/cleanDirtyData\(IMAGE_BLOCK_USER_RULES_TABLE\)/.test(huaweiCloud) &&
+    !/huawei_cloud_image_block_clean_dirty/.test(huaweiCloud) &&
+    !/imageBlockCloudSuspended/.test(huaweiCloud) &&
+    !/shouldUploadImageBlockBeforePull/.test(huaweiCloud) &&
+    !/huawei_cloud_image_block_native_first/.test(huaweiCloud) &&
+    !/SYNC_MODE_NATIVE_FIRST/.test(huaweiCloud) &&
+    !/huawei_cloud_image_block_suspended/.test(huaweiCloud) &&
+    !/treatImageBlockPartialAsSuccess/.test(huaweiCloud) &&
+    !/huawei_cloud_image_block_degraded/.test(huaweiCloud) &&
+    !/huawei_cloud_image_block_native_repair/.test(huaweiCloud) &&
+    !/shouldRepairImageBlockFromLocal/.test(huaweiCloud) &&
+    !/CloudSyncTableResetRepository|huawei_cloud_rebuild_table|huawei_cloud_reseed_table/.test(huaweiCloud) &&
+    /Normal Huawei Cloud sync should stay system-owned/.test(doc) &&
+    /No image-block first-upload\s+exception/.test(doc) &&
+    /must not run cleanDirtyData/.test(doc) &&
+    /must not run\s+native-first/.test(doc))
+const localStoreVersionMatch = localStore.match(/LOCAL_DATA_SCHEMA_VERSION: number = (\d+)/)
+ok('Huawei Cloud schema version is separate from local RDB migration version',
+  !!localStoreVersionMatch &&
+    Number(localStoreVersionMatch[1]) >= 20 &&
+    cloudSchema.version === 17 &&
+    cloudSchema.databases[0].version === cloudSchema.version)
+ok('Huawei Cloud has no image-block cloud touch completion path',
+    /Image-block cloud touch markers are retired/.test(doc) &&
+    !/image_block_user_rules_cloud_touch/.test(syncAdapter) &&
+    !/imageBlockTableSucceeded/.test(huaweiCloud) &&
+    !/image_block_cloud_table_result/.test(huaweiCloud))
+ok('Huawei Cloud sync marks tables before local image-block preparation',
   huaweiCloud.indexOf('await store.setDistributedTables') >= 0 &&
-    huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables') >
-      huaweiCloud.indexOf('await store.setDistributedTables'))
-ok('Huawei Cloud startup prepares image-block legacy user rules before provider toggle check',
-  huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)') >= 0 &&
-    huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(snapshot), true)') <
-      huaweiCloud.indexOf('if (!snapshot.huaweiCloudEnabled)'))
-ok('Huawei Cloud sync uses the same durable dataset table selection',
+    huaweiCloud.indexOf('await store.setDistributedTables') <
+      huaweiCloud.indexOf('await SyncLocalDataAdapter.prepareHuaweiCloudTables') &&
+    /const config: relationalStore\.DistributedConfig = \{ autoSync: false \}/.test(huaweiCloud) &&
+    !/autoSync: true/.test(huaweiCloud))
+ok('Huawei Cloud prepares image-block legacy user rules only on cloud table marking',
+  /static async tryEnableStartup[\s\S]*if \(!snapshot\.huaweiCloudEnabled\)[\s\S]*await HuaweiCloudSyncService\.markDistributedTables/.test(huaweiCloud) &&
+    /prepareHuaweiCloudTables\(context, selection\)/.test(huaweiCloud) &&
+    !/prepareHuaweiCloudTables\(context, selection, true\)/.test(huaweiCloud))
+ok('Huawei Cloud sync uses the durable RDB cloud table subset',
   /gallery_read_progress/.test(cloudFeatures) &&
     /viewed_history/.test(cloudFeatures) &&
     /local_favorites/.test(cloudFeatures) &&
     /search_history/.test(cloudFeatures) &&
     /local_block_settings/.test(cloudFeatures) &&
     /local_block_rules/.test(cloudFeatures) &&
-    /image_block_subscriptions/.test(cloudFeatures) &&
     /image_block_user_rules/.test(cloudFeatures) &&
+    !/image_block_subscriptions/.test(cloudFeatures) &&
     !/'image_block_rules'/.test(cloudFeatures) &&
     /custom_profiles/.test(cloudFeatures) &&
     /custom_profile_selection/.test(cloudFeatures) &&
@@ -210,8 +273,8 @@ ok('Huawei Cloud schema keeps local table names but aliases AGC data type names'
     cloudAliasByName.get('search_history') === 'SearchHistory' &&
     cloudAliasByName.get('local_block_settings') === 'LocalBlockSettings' &&
     cloudAliasByName.get('local_block_rules') === 'LocalBlockRules' &&
-    cloudAliasByName.get('image_block_subscriptions') === 'ImageBlockSubscriptions' &&
     cloudAliasByName.get('image_block_user_rules') === 'ImageBlockUserRules' &&
+    !cloudAliasByName.has('image_block_subscriptions') &&
     !cloudAliasByName.has('image_block_rules') &&
     cloudAliasByName.get('custom_profiles') === 'CustomProfiles' &&
     cloudAliasByName.get('custom_profile_selection') === 'CustomProfileSelection')
@@ -219,16 +282,26 @@ ok('image block sync uses image_block_user_rules as the user-rule source table',
   /COALESCE\(source_type, \\\'\\\'\) <> \\\'subscription\\\'/.test(syncAdapter) &&
     /FROM image_block_user_rules/.test(syncAdapter) &&
     /image_block_user_rules/.test(cloudFeatures) &&
+    !/image_block_subscriptions/.test(cloudFeatures) &&
+    /ON CONFLICT\(rule_id, scope_key\)/.test(syncAdapter) &&
     /prepareHuaweiCloudTables/.test(syncAdapter) &&
     /_selection: SyncDatasetSelection/.test(syncAdapter) &&
     !/_selection\.imageBlock/.test(syncAdapter) &&
+    !/image_block_user_rules_cloud_touch/.test(syncAdapter) &&
     !/image_block_cloud_touch/.test(syncAdapter) &&
-    /prepareHuaweiCloudTables\(context, selection, true\)/.test(huaweiCloud) &&
+    !/markImageBlockCloudTouchComplete/.test(syncAdapter) &&
+    !/completeImageBlockTouchIfNeeded/.test(huaweiCloud) &&
+    !/UPDATE image_block_user_rules SET updated_at = \? WHERE/.test(syncAdapter) &&
+    !/updated_at \+ 1/.test(syncAdapter) &&
+    !/prepareHuaweiCloudTables\(context, selection, true\)/.test(huaweiCloud) &&
+    !/SQL_REPAIR_IMAGE_BLOCK_ACTIVE_USER_RULE_TOMBSTONES/.test(syncAdapter) &&
+    !/dedupeImageBlockUserRules/.test(syncAdapter) &&
+    !/image_block_cloud_dedupe/.test(syncAdapter) &&
     /SQL_SYNC_IMAGE_BLOCK_SUBSCRIPTION_DISABLES_FROM_MAIN/.test(syncAdapter) &&
     /SQL_UPSERT_USER_RULE/.test(imageBlockRepo) &&
     /FROM image_block_user_rules/.test(imageBlockRepo) &&
     !/syncOneUserRuleFromMain/.test(imageBlockRepo) &&
-    /SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(imageBlockRepo) &&
+    !/SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(imageBlockRepo) &&
     /applyHuaweiCloudTables/.test(syncAdapter) &&
     /previewPath: string = ''/.test(types) &&
     /preview_path/.test(syncAdapter))
@@ -242,7 +315,8 @@ ok('sync settings restore during settings bootstrap',
 const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
 ok('app lifecycle schedules provider-neutral sync after startup and foreground',
   /SyncScheduler\.rememberContext\(this\.context\)/.test(entryAbility) &&
-    /SyncLocalDataAdapter\.prepareHuaweiCloudTables\([\s\S]*SyncSettings\.selection\(SyncSettings\.current\(\)\),[\s\S]*true/.test(entryAbility) &&
+    /HuaweiCloudSyncService\.tryEnableStartup\(this\.context\)/.test(entryAbility) &&
+    !/SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(entryAbility) &&
     /SyncScheduler\.requestAfterForeground\(this\.context, 'startup'\)/.test(entryAbility) &&
     /SyncScheduler\.requestAfterForeground\(this\.context, 'foreground'\)/.test(entryAbility))
 
@@ -284,6 +358,8 @@ ok('WebDAV sync child page has visible running state and provider switch',
     /sync_status_running/.test(webdavPage) &&
     /this\.syncing = true/.test(webdavPage) &&
     /this\.syncing = false/.test(webdavPage) &&
+    /this\.settings\.lastDetail/.test(webdavPage) &&
+    /SyncSettings\.markRun\(this\.ctx\(\), SYNC_STATUS_FAILED, error\.message\)/.test(webdavPage) &&
     /sync_webdav_hint/.test(webdavPage) &&
     /hasSwitch: true/.test(webdavPage))
 ok('Huawei Cloud provider UI is hidden when provider availability is disabled',

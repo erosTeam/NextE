@@ -12,9 +12,7 @@ import {
   ImageBlockRule,
   ImageBlockWhitelistItem,
 } from '../model/ImageBlockRule'
-import { SyncSettings } from '../settings/SyncSettings'
 import { PHashService } from '../services/PHashService'
-import { SyncLocalDataAdapter } from '../sync/SyncLocalDataAdapter'
 import { SyncScheduler } from '../sync/SyncScheduler'
 import { LocalDataStore } from './LocalDataStore'
 
@@ -88,7 +86,7 @@ const SQL_UPSERT_SUBSCRIPTION: string =
 const SQL_UPSERT_RULE: string =
   'INSERT INTO image_block_rules ' +
   '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(rule_id, scope_key) DO UPDATE SET ' +
   'hash = excluded.hash, ' +
   'threshold = CASE WHEN image_block_rules.source_type = \'subscription\' THEN image_block_rules.threshold ELSE excluded.threshold END, ' +
   'label = excluded.label, scope = excluded.scope, ' +
@@ -143,7 +141,7 @@ const SQL_UPSERT_USER_RULE_OVERRIDE: string =
   'INSERT INTO image_block_user_rules ' +
   '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
   'VALUES (?, ?, ?, ?, \'\', \'\', \'\', ?, \'\', 0, \'\', ?, ?, 0) ' +
-  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  'ON CONFLICT(rule_id, scope_key) DO UPDATE SET ' +
   'hash = excluded.hash, source_type = excluded.source_type, ' +
   'threshold = CASE WHEN excluded.threshold >= 0 THEN excluded.threshold ELSE image_block_user_rules.threshold END, ' +
   'enabled = CASE WHEN excluded.enabled >= 0 THEN excluded.enabled ELSE image_block_user_rules.enabled END, ' +
@@ -151,7 +149,7 @@ const SQL_UPSERT_USER_RULE_OVERRIDE: string =
 const SQL_UPSERT_USER_RULE: string =
   'INSERT INTO image_block_user_rules ' +
   '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
-  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, rule_id) DO UPDATE SET ' +
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT(rule_id, scope_key) DO UPDATE SET ' +
   'hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, ' +
   'feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, ' +
   'source_page = excluded.source_page, ' +
@@ -724,9 +722,6 @@ export class ImageBlockRepository {
   }
 
   private static requestSync(context: common.UIAbilityContext, reason: string): void {
-    SyncLocalDataAdapter.prepareHuaweiCloudTables(context, SyncSettings.selection(SyncSettings.current()))
-      .catch((_error: Error) => {
-      })
     SyncScheduler.requestAfterLocalWrite(context, reason)
   }
 

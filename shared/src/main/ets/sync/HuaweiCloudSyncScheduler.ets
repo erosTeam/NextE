@@ -14,7 +14,7 @@ const MIN_ATTEMPT_INTERVAL_MS: number = 45000
 const RETRY_BASE_MS: number = 60000
 const RETRY_MAX_MS: number = 300000
 
-// Coalesce noisy local writes into a near-term cloud sync; system autoSync still remains enabled.
+// Coalesce noisy local writes into a near-term cloud sync; cloud table autoSync stays disabled.
 export class HuaweiCloudSyncScheduler {
   private static context: common.UIAbilityContext | null = null
   private static executor: HuaweiCloudSyncExecutor | null = null
@@ -161,6 +161,18 @@ export class HuaweiCloudSyncScheduler {
       HuaweiCloudSyncScheduler.failureCount = 0
     } else {
       HuaweiCloudSyncScheduler.failureCount = Math.min(HuaweiCloudSyncScheduler.failureCount + 1, 4)
+      if (
+        HuaweiCloudSyncScheduler.context !== null &&
+        HuaweiCloudSyncScheduler.executor !== null &&
+        SyncSettings.current().huaweiCloudEnabled
+      ) {
+        const retryReason: string = reason.startsWith('retry:') ? reason : `retry:${reason}`
+        HuaweiCloudSyncScheduler.pendingReason = retryReason
+        HuaweiCloudSyncScheduler.scheduleTimer(
+          HuaweiCloudSyncScheduler.retryDelayMs(),
+          retryReason,
+        )
+      }
     }
     DiagnosticLogger.info(
       'sync',

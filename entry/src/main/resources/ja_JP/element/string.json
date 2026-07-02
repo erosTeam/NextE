@@ -2062,7 +2062,7 @@
     },
     {
       "name": "settings_sync_hint",
-      "value": "永続的なローカルデータを同期します。"
+      "value": "お気に入り、履歴、読書位置、ブロックルールを同期"
     },
     {
       "name": "sync_webdav",
@@ -2070,7 +2070,7 @@
     },
     {
       "name": "sync_webdav_hint",
-      "value": "WebDAVディレクトリで選択したローカルデータを同期します。"
+      "value": "WebDAVディレクトリで選択したデータを同期"
     },
     {
       "name": "sync_provider_disabled",
@@ -2114,7 +2114,7 @@
     },
     {
       "name": "sync_huawei_cloud_hint",
-      "value": "選択したローカルデータをHuawei Cloudと同期します。"
+      "value": "選択したデータをHuawei Cloudと同期"
     },
     {
       "name": "sync_huawei_cloud_now",
@@ -2138,7 +2138,7 @@
     },
     {
       "name": "sync_huawei_cloud_open_space_hint",
-      "value": "システムのCloud設定で、このアプリのデータ同期を有効化または管理します。"
+      "value": "システムのCloud設定でこのアプリのデータ同期を管理"
     },
     {
       "name": "sync_huawei_cloud_open_failed",

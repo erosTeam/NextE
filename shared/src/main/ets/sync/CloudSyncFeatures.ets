@@ -6,7 +6,7 @@ export class CloudSyncFeatureTables {
   static readonly LOCAL_FAVORITES: string[] = ['local_favorites']
   static readonly SEARCH_HISTORY: string[] = ['search_history']
   static readonly LOCAL_BLOCK: string[] = ['local_block_settings', 'local_block_rules']
-  static readonly IMAGE_BLOCK: string[] = ['image_block_subscriptions', 'image_block_user_rules']
+  static readonly IMAGE_BLOCK: string[] = ['image_block_user_rules']
   static readonly CUSTOM_PROFILES: string[] = ['custom_profiles', 'custom_profile_selection']
 }
 
@@ -17,7 +17,6 @@ export const HUAWEI_CLOUD_SYNC_TABLES: string[] = [
   'search_history',
   'local_block_settings',
   'local_block_rules',
-  'image_block_subscriptions',
   'image_block_user_rules',
   'custom_profiles',
   'custom_profile_selection',

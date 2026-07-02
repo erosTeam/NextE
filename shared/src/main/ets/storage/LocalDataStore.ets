@@ -2,17 +2,18 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 16
+export const LOCAL_DATA_SCHEMA_VERSION: number = 21
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
   securityLevel: relationalStore.SecurityLevel.S3,
+  autoCleanDirtyData: true,
 }
 
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'16\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'21\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -193,8 +194,8 @@ const SQL_CREATE_IMAGE_BLOCK_RULES_FEED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_image_block_rules_feed ON image_block_rules (feed_id, enabled)'
 const SQL_CREATE_IMAGE_BLOCK_USER_RULES_TABLE: string =
   'CREATE TABLE IF NOT EXISTS image_block_user_rules (' +
-    'scope_key TEXT, ' +
     'rule_id TEXT, ' +
+    'scope_key TEXT, ' +
     'hash TEXT, ' +
     'threshold INTEGER, ' +
     'label TEXT, ' +
@@ -207,8 +208,48 @@ const SQL_CREATE_IMAGE_BLOCK_USER_RULES_TABLE: string =
     'enabled INTEGER, ' +
     'updated_at INTEGER, ' +
     'deleted_at INTEGER DEFAULT 0, ' +
-    'PRIMARY KEY(scope_key, rule_id)' +
+    'PRIMARY KEY(rule_id, scope_key)' +
   ')'
+const IMAGE_BLOCK_USER_RULE_COLUMNS: string[] = [
+  'rule_id',
+  'scope_key',
+  'hash',
+  'threshold',
+  'label',
+  'scope',
+  'feed_id',
+  'source_type',
+  'source_url',
+  'source_page',
+  'preview_path',
+  'enabled',
+  'updated_at',
+  'deleted_at',
+]
+const SQL_DROP_IMAGE_BLOCK_USER_RULES_V18_TABLE: string =
+  'DROP TABLE IF EXISTS image_block_user_rules_v18'
+const SQL_CREATE_IMAGE_BLOCK_USER_RULES_V18_TABLE: string =
+  'CREATE TABLE image_block_user_rules_v18 (' +
+    'rule_id TEXT, ' +
+    'scope_key TEXT, ' +
+    'hash TEXT, ' +
+    'threshold INTEGER, ' +
+    'label TEXT, ' +
+    'scope TEXT, ' +
+    'feed_id TEXT, ' +
+    'source_type TEXT, ' +
+    'source_url TEXT, ' +
+    'source_page INTEGER, ' +
+    'preview_path TEXT, ' +
+    'enabled INTEGER, ' +
+    'updated_at INTEGER, ' +
+    'deleted_at INTEGER DEFAULT 0, ' +
+    'PRIMARY KEY(rule_id, scope_key)' +
+  ')'
+const SQL_DROP_IMAGE_BLOCK_USER_RULES_TABLE: string =
+  'DROP TABLE image_block_user_rules'
+const SQL_RENAME_IMAGE_BLOCK_USER_RULES_V18_TABLE: string =
+  'ALTER TABLE image_block_user_rules_v18 RENAME TO image_block_user_rules'
 const SQL_CREATE_IMAGE_BLOCK_USER_RULES_HASH_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_image_block_user_rules_hash ON image_block_user_rules (hash)'
 const SQL_ADD_IMAGE_BLOCK_RULES_SOURCE_URL: string =
@@ -541,6 +582,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_HASH_INDEX)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_RULES_FEED_INDEX)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_USER_RULES_TABLE)
+    await LocalDataStore.migrateImageBlockUserRuleColumnOrder(store)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_USER_RULES_HASH_INDEX)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_HASH_INDEX)
@@ -670,6 +712,58 @@ export class LocalDataStore {
       const e: Error = error as Error
       throw new Error(e.message || 'Failed to migrate image block rules')
     }
+  }
+
+  private static async migrateImageBlockUserRuleColumnOrder(store: relationalStore.RdbStore): Promise<void> {
+    const columns: string[] = await LocalDataStore.tableColumns(store, 'image_block_user_rules')
+    if (LocalDataStore.sameColumns(columns, IMAGE_BLOCK_USER_RULE_COLUMNS)) {
+      return
+    }
+    const selectColumns: string[] = IMAGE_BLOCK_USER_RULE_COLUMNS.map((column: string): string => {
+      if (columns.includes(column)) {
+        return column
+      }
+      return LocalDataStore.defaultImageBlockUserRuleColumn(column) + ' AS ' + column
+    })
+    store.beginTransaction()
+    try {
+      await store.executeSql(SQL_DROP_IMAGE_BLOCK_USER_RULES_V18_TABLE)
+      await store.executeSql(SQL_CREATE_IMAGE_BLOCK_USER_RULES_V18_TABLE)
+      await store.executeSql(
+        'INSERT INTO image_block_user_rules_v18 (' +
+        IMAGE_BLOCK_USER_RULE_COLUMNS.join(', ') +
+        ') SELECT ' +
+        selectColumns.join(', ') +
+        ' FROM image_block_user_rules',
+      )
+      await store.executeSql(SQL_DROP_IMAGE_BLOCK_USER_RULES_TABLE)
+      await store.executeSql(SQL_RENAME_IMAGE_BLOCK_USER_RULES_V18_TABLE)
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      const e: Error = error as Error
+      throw new Error(e.message || 'Failed to migrate image block user rules')
+    }
+  }
+
+  private static sameColumns(columns: string[], expected: string[]): boolean {
+    if (columns.length !== expected.length) {
+      return false
+    }
+    for (let index: number = 0; index < expected.length; index++) {
+      if (columns[index] !== expected[index]) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private static defaultImageBlockUserRuleColumn(column: string): string {
+    if (column === 'threshold' || column === 'source_page' || column === 'enabled' ||
+      column === 'updated_at' || column === 'deleted_at') {
+      return '0'
+    }
+    return '\'\''
   }
 
   private static async migrateDownloadGalleryUpgradeFromGid(store: relationalStore.RdbStore): Promise<void> {
@@ -828,6 +922,25 @@ export class LocalDataStore {
       rs.close()
     }
     return false
+  }
+
+  private static async tableColumns(
+    store: relationalStore.RdbStore,
+    tableName: string,
+  ): Promise<string[]> {
+    const columns: string[] = []
+    const rs: relationalStore.ResultSet = await store.querySql('PRAGMA table_info(' + tableName + ')')
+    try {
+      while (rs.goToNextRow()) {
+        const index: number = rs.getColumnIndex('name')
+        if (!rs.isColumnNull(index)) {
+          columns.push(rs.getString(index))
+        }
+      }
+    } finally {
+      rs.close()
+    }
+    return columns
   }
 
   private static async hasTable(

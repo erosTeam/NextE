@@ -2062,7 +2062,7 @@
     },
     {
       "name": "settings_sync_hint",
-      "value": "Sync durable local data."
+      "value": "Sync favorites, history, read progress, and block rules"
     },
     {
       "name": "sync_webdav",
@@ -2070,7 +2070,7 @@
     },
     {
       "name": "sync_webdav_hint",
-      "value": "Sync selected local data through a WebDAV directory."
+      "value": "Sync selected data through a WebDAV directory"
     },
     {
       "name": "sync_provider_disabled",
@@ -2114,7 +2114,7 @@
     },
     {
       "name": "sync_huawei_cloud_hint",
-      "value": "Sync selected local data with Huawei Cloud."
+      "value": "Sync selected data with Huawei Cloud"
     },
     {
       "name": "sync_huawei_cloud_now",
@@ -2138,7 +2138,7 @@
     },
     {
       "name": "sync_huawei_cloud_open_space_hint",
-      "value": "Enable or manage app data sync in system Cloud settings."
+      "value": "Enable or manage app data sync in system Cloud settings"
     },
     {
       "name": "sync_huawei_cloud_open_failed",
