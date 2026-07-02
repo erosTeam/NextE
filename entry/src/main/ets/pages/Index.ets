@@ -557,7 +557,7 @@ struct Index {
   private topOnlyMenu(): Record<string, Object> {
     const jumpInner: Record<string, Object> = {
       'label': $r('app.string.toplist_jump_page'),
-      'icon': $r('sys.symbol.arrow_right'),
+      'icon': $r('sys.symbol.chevron_right_circle'),
       'isEnabled': true,
       'action': () => {
         HomeSourceBridge.publishOpenToplistJumpDialog()

@@ -522,6 +522,16 @@ Primary action: tapping a cover opens the same gallery detail route; refresh, lo
 Reuse or deviation: reuse `PullRefreshWaterFlowScaffold`, native `FlowItem`, the bounded source-ratio cover policy, and the shared `GalleryCategoryCornerBadge`; deviate from Waterfall by using `GALLERY_COVER_WALL_MIN_W = 120` and omitting title, rating, page/favorite overlay, meta, and tag chips.
 Verification: gallery cover wall mode contract, gallery grid mode contract, gallery waterflow contract, settings layout entry contract, i18n duplicate check, UI grounding contract, V1 decorator inventory, and signed HarmonyOS build.
 
+## Active: toplist jump menu icon
+
+Status: active
+Reference implementation: NextE `entry/src/main/ets/pages/Index.ets` `topOnlyMenu()` ranking title-bar menu.
+Surface type: Toplist title-bar overflow menu action.
+Primary information: the menu exposes page navigation actions; the icon should distinguish jump-to-page from jump-to-first-page without changing labels.
+Primary action: tapping `toplist_jump_page` still opens the existing page-number dialog.
+Reuse or deviation: reuse the existing HDS menu item shape and only replace the jump icon with `sys.symbol.chevron_right_circle`.
+Verification: UI grounding contract, V1 decorator inventory, i18n duplicate check, `git diff --check`, and signed HarmonyOS build to confirm the system symbol exists.
+
 ## Active: gallery torrent sheet
 
 Status: active
