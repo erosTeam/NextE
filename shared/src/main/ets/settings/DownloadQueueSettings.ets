@@ -40,6 +40,7 @@ const ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'
 const DOWNLOAD_METADATA_FILE: string = 'metadata.json'
 const ARCHIVER_METADATA_SUFFIX: string = '.metadata.json'
 const ARCHIVE_BOT_SETTINGS_INCOMPLETE: string = 'Archive bot settings are incomplete'
+const DOWNLOAD_PATH_TITLE_MAX_LENGTH: number = 96
 
 export class DownloadDirectoryImportResult {
   galleryTasks: number = 0
@@ -698,7 +699,9 @@ export class DownloadQueueSettings {
       `gid=${resolvedTask.gid} source=${resolvedTask.parseSource} tagHash=${DiagnosticLogger.ownerHash(tag)}`,
     )
     const dir: string = DownloadQueueSettings.ensureArchiverDownloadDir(context)
-    const fileName: string = DownloadQueueSettings.archiverFileName(resolvedTask)
+    const fileName: string = resolvedTask.fileName.length > 0
+      ? resolvedTask.fileName
+      : DownloadQueueSettings.archiverFileName(resolvedTask)
     const filePath: string = `${dir}/${fileName}`
     const partialPath: string = DownloadQueueSettings.archiverPartialPath(filePath)
     const partialBytes: number = DownloadQueueSettings.downloadedFileSize(partialPath)
@@ -1161,7 +1164,16 @@ export class DownloadQueueSettings {
       const jobs: Promise<DownloadSeedResult>[] = []
       pending.forEach((seed: DownloadImageSeed) => {
         jobs.push(
-          DownloadQueueSettings.downloadSeedToFile(context, gid, token, preferOriginal, seed, useOriginal, retryCount)
+          DownloadQueueSettings.downloadSeedToFile(
+            context,
+            gid,
+            token,
+            preferOriginal,
+            DownloadQueueSettings.galleryTaskPathTitle(task),
+            seed,
+            useOriginal,
+            retryCount,
+          )
             .then(async (result: DownloadSeedResult) => {
               if (!DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
                 await DownloadQueueSettings.applyDownloadResults(context, gid, token, preferOriginal, [result])
@@ -1214,6 +1226,7 @@ export class DownloadQueueSettings {
     gid: string,
     token: string,
     preferOriginal: boolean,
+    title: string,
     seed: DownloadImageSeed,
     useOriginal: boolean,
     retryCount: number,
@@ -1245,7 +1258,7 @@ export class DownloadQueueSettings {
         } else {
           imageUrl = await ImageResolveService.getInstance().resolve(image, shouldRefreshImageUrl)
         }
-        const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid, preferOriginal)
+        const dir: string = DownloadQueueSettings.ensureGalleryDownloadDir(context, gid, preferOriginal, title)
         result.image = image.copy()
         result.filePath = `${dir}/${DownloadQueueSettings.fileNameForSeed(seed, imageUrl)}`
         const directPublicWrite: boolean = DownloadQueueSettings.isPublicDownloadPath(result.filePath)
@@ -1696,9 +1709,27 @@ export class DownloadQueueSettings {
     return image
   }
 
-  private static galleryDirName(gid: string, preferOriginal: boolean): string {
+  private static galleryTaskPathTitle(task: DownloadGalleryTask): string {
+    return task.title.length > 0 ? task.title : task.titleJp
+  }
+
+  private static legacyGalleryDirName(gid: string, preferOriginal: boolean): string {
     const base: string = DownloadQueueSettings.safePathPart(gid)
     return preferOriginal ? `${base}-original` : base
+  }
+
+  private static galleryDirName(gid: string, preferOriginal: boolean, title: string): string {
+    const base: string = DownloadQueueSettings.safePathPart(gid)
+    const titlePart: string = DownloadQueueSettings.pathTitlePart(title)
+    const namedBase: string = titlePart.length > 0 ? `${base}-${titlePart}` : base
+    return preferOriginal ? `${namedBase}-original` : namedBase
+  }
+
+  private static galleryDirNameCandidates(gid: string, preferOriginal: boolean, title: string): string[] {
+    const out: string[] = []
+    DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.galleryDirName(gid, preferOriginal, title))
+    DownloadQueueSettings.pushUniquePath(out, DownloadQueueSettings.legacyGalleryDirName(gid, preferOriginal))
+    return out
   }
 
   private static joinPath(parent: string, child: string): string {
@@ -1906,11 +1937,23 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     preferOriginal: boolean,
+    title: string = '',
   ): string {
     const roots: string[] = DownloadQueueSettings.galleryWriteRootDirs()
+    const names: string[] = DownloadQueueSettings.galleryDirNameCandidates(gid, preferOriginal, title)
     let lastError: Error | null = null
     for (let i: number = 0; i < roots.length; i++) {
-      const dir: string = DownloadQueueSettings.joinPath(roots[i], DownloadQueueSettings.galleryDirName(gid, preferOriginal))
+      for (let j: number = 0; j < names.length; j++) {
+        const existingDir: string = DownloadQueueSettings.joinPath(roots[i], names[j])
+        try {
+          if (fs.accessSync(existingDir)) {
+            DownloadQueueSettings.logDownloadDirResolved('gallery', existingDir, context)
+            return existingDir
+          }
+        } catch (_error) {
+        }
+      }
+      const dir: string = DownloadQueueSettings.joinPath(roots[i], names[0])
       try {
         fs.mkdirSync(dir, true)
         DownloadQueueSettings.logDownloadDirResolved('gallery', dir, context)
@@ -1957,7 +2000,12 @@ export class DownloadQueueSettings {
   }
 
   private static galleryMetadataPath(context: common.UIAbilityContext, task: DownloadGalleryTask): string {
-    return `${DownloadQueueSettings.ensureGalleryDownloadDir(context, task.gid, task.preferOriginal)}/${DOWNLOAD_METADATA_FILE}`
+    return `${DownloadQueueSettings.ensureGalleryDownloadDir(
+      context,
+      task.gid,
+      task.preferOriginal,
+      DownloadQueueSettings.galleryTaskPathTitle(task),
+    )}/${DOWNLOAD_METADATA_FILE}`
   }
 
   private static archiverMetadataPath(context: common.UIAbilityContext, task: DownloadArchiverTask): string {
@@ -2256,11 +2304,18 @@ export class DownloadQueueSettings {
     }
     const roots: string[] = DownloadQueueSettings.galleryRootDirs(context)
     DownloadQueueSettings.pushUniquePath(roots, DownloadQueueSettings.legacyGalleryRootDir(context))
+    const names: string[] = DownloadQueueSettings.galleryDirNameCandidates(
+      task.gid,
+      task.preferOriginal,
+      DownloadQueueSettings.galleryTaskPathTitle(task),
+    )
     for (let i: number = 0; i < roots.length; i++) {
-      DownloadQueueSettings.deleteSandboxPath(
-        DownloadQueueSettings.joinPath(roots[i], DownloadQueueSettings.galleryDirName(task.gid, task.preferOriginal)),
-        'gallery_content_delete_failed',
-      )
+      for (let j: number = 0; j < names.length; j++) {
+        DownloadQueueSettings.deleteSandboxPath(
+          DownloadQueueSettings.joinPath(roots[i], names[j]),
+          'gallery_content_delete_failed',
+        )
+      }
     }
   }
 
@@ -2323,6 +2378,14 @@ export class DownloadQueueSettings {
     return value.replace(/[/:*"<>|,?\\]/g, '_')
   }
 
+  private static pathTitlePart(value: string): string {
+    const safe: string = DownloadQueueSettings.safePathPart(value).trim().replace(/\s+/g, ' ')
+    if (safe.length <= DOWNLOAD_PATH_TITLE_MAX_LENGTH) {
+      return safe
+    }
+    return safe.substring(0, DOWNLOAD_PATH_TITLE_MAX_LENGTH).trim()
+  }
+
   private static fileNameForSeed(seed: DownloadImageSeed, imageUrl: string): string {
     return `${DownloadQueueSettings.pageFilePrefix(seed.page)}${DownloadQueueSettings.fileExtFromUrl(imageUrl)}`
   }
@@ -2348,7 +2411,15 @@ export class DownloadQueueSettings {
   }
 
   private static archiverFileName(task: DownloadArchiverTask): string {
-    const name: string = `${DownloadQueueSettings.safePathPart(task.gid)}-${DownloadQueueSettings.safePathPart(task.dltype)}`
+    const titlePart: string = DownloadQueueSettings.pathTitlePart(task.title)
+    const typePart: string = DownloadQueueSettings.safePathPart(task.dltype)
+    let name: string = DownloadQueueSettings.safePathPart(task.gid)
+    if (titlePart.length > 0) {
+      name = `${name}-${titlePart}`
+    }
+    if (typePart.length > 0) {
+      name = `${name}-${typePart}`
+    }
     const ext: string = DownloadQueueSettings.fileExtFromUrl(task.url)
     return ext === '.jpg' ? `${name}.zip` : `${name}${ext}`
   }
@@ -2639,7 +2710,14 @@ export class DownloadQueueSettings {
         inherited.push(out)
         continue
       }
-      const inheritedPath: string = await DownloadQueueSettings.copyInheritedSeedFile(context, gid, preferOriginal, out, previous)
+      const inheritedPath: string = await DownloadQueueSettings.copyInheritedSeedFile(
+        context,
+        gid,
+        preferOriginal,
+        DownloadQueueSettings.galleryTaskPathTitle(parent),
+        out,
+        previous,
+      )
       if (inheritedPath.length === 0) {
         inherited.push(out)
         continue
@@ -2661,12 +2739,13 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     gid: string,
     preferOriginal: boolean,
+    title: string,
     seed: DownloadImageSeed,
     previous: DownloadImageSeed,
   ): Promise<string> {
     const ext: string = DownloadQueueSettings.fileExtFromUrl(previous.filePath)
     const targetPath: string =
-      `${DownloadQueueSettings.ensureGalleryDownloadDir(context, gid, preferOriginal)}/${DownloadQueueSettings.pageFilePrefix(seed.page)}${ext}`
+      `${DownloadQueueSettings.ensureGalleryDownloadDir(context, gid, preferOriginal, title)}/${DownloadQueueSettings.pageFilePrefix(seed.page)}${ext}`
     if (DownloadQueueSettings.downloadedFileSize(targetPath) > 0) {
       return targetPath
     }

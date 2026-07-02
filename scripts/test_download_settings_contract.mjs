@@ -79,9 +79,22 @@ ok(/connectDownloadSettings\(\)\.concurrency/.test(queueSettings) &&
 ok(/batchIndex > 0/.test(queueSettings) &&
   /DownloadQueueSettings\.delay\(connectDownloadSettings\(\)\.requestIntervalSeconds \* 1000\)/.test(queueSettings),
   'gallery image executor throttles later image batches by the persisted request interval')
-ok(/downloadSeedToFile\(context, gid, token, preferOriginal, seed, useOriginal, retryCount\)/.test(queueSettings) &&
+ok(/downloadSeedToFile\([\s\S]*context,[\s\S]*gid,[\s\S]*token,[\s\S]*preferOriginal,[\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(task\),[\s\S]*seed,[\s\S]*useOriginal,[\s\S]*retryCount/.test(queueSettings) &&
   /Math\.round\(retryCount\) \+ 1/.test(queueSettings),
   'gallery image executor retries each failed image according to the persisted retry count')
+ok(/downloadSeedToFile\([\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(task\)[\s\S]*seed,[\s\S]*useOriginal,[\s\S]*retryCount/.test(queueSettings) &&
+  /ensureGalleryDownloadDir\(context, gid, preferOriginal, title\)/.test(queueSettings),
+  'gallery image executor uses the gallery title when creating new download directories')
+ok(/galleryDirName\(gid: string, preferOriginal: boolean, title: string\)[\s\S]*const namedBase: string = titlePart\.length > 0 \? `\$\{base\}-\$\{titlePart\}` : base[\s\S]*return preferOriginal \? `\$\{namedBase\}-original` : namedBase/.test(queueSettings),
+  'new gallery download directories keep gid first and include the title when available')
+ok(/galleryDirNameCandidates\(gid: string, preferOriginal: boolean, title: string\)[\s\S]*galleryDirName\(gid, preferOriginal, title\)[\s\S]*legacyGalleryDirName\(gid, preferOriginal\)/.test(queueSettings) &&
+  /ensureGalleryDownloadDir\([\s\S]*for \(let j: number = 0; j < names\.length; j\+\+\)[\s\S]*fs\.accessSync\(existingDir\)[\s\S]*const dir: string = DownloadQueueSettings\.joinPath\(roots\[i\], names\[0\]\)/.test(queueSettings),
+  'gallery directory resolution prefers named directories while preserving legacy gid-only directories')
+ok(/deleteGalleryContent\([\s\S]*galleryDirNameCandidates\([\s\S]*for \(let j: number = 0; j < names\.length; j\+\+\)[\s\S]*deleteSandboxPath/.test(queueSettings),
+  'gallery content deletion removes both titled and legacy directory candidates')
+ok(/const fileName: string = resolvedTask\.fileName\.length > 0[\s\S]*\? resolvedTask\.fileName[\s\S]*: DownloadQueueSettings\.archiverFileName\(resolvedTask\)/.test(queueSettings) &&
+  /archiverFileName\(task: DownloadArchiverTask\)[\s\S]*pathTitlePart\(task\.title\)[\s\S]*name = `\$\{name\}-\$\{titlePart\}`[\s\S]*name = `\$\{name\}-\$\{typePart\}`/.test(queueSettings),
+  'archiver downloads keep existing file names but include gid, title, and type for new package files')
 ok(/const attempts: number = Math\.max\(1, Math\.round\(connectDownloadSettings\(\)\.retryCount\) \+ 1\)/.test(queueSettings) &&
   /downloadBinaryToFileInStreamResumable\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
   'archiver executor retries according to the persisted retry count')

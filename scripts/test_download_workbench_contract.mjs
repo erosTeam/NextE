@@ -285,8 +285,8 @@ ok(/private TaskActionMenu\(\)[\s\S]*this\.actionMenuKey\.startsWith\('archiver:
   'rendered archiver task menu exposes the archive bot parse-source switch from the parent action menu')
 ok(/private PauseArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page) &&
   /DownloadQueueSettings\.pauseArchiverDownload/.test(page) &&
-  /private canPauseArchiverTask\(_task: DownloadArchiverTask\): boolean[\s\S]*return false/.test(page),
-  'archiver task cards do not advertise unsupported pause while retaining the executor guard')
+  /private canPauseArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*task\.status === DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
+  'running archiver task cards expose one compact pause action wired to the shared queue')
 ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page) &&
   /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*sys\.symbol\.play_fill/.test(page) &&
   /private archiverResumeActionLabel\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR \|\| task\.status === DownloadGalleryTaskStatus\.PAUSED[\s\S]*common_retry[\s\S]*download_resume/.test(page),
@@ -294,7 +294,7 @@ ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*D
 ok(/private archiverProgressLabel\(task: DownloadArchiverTask\): string[\s\S]*task\.status === DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.error\.length > 0[\s\S]*`\$\{this\.statusText\(task\.status\)\} · \$\{task\.error\}`/.test(page),
   'archiver task cards show stored failure reason in the existing status subtitle')
 ok(/ARCHIVER_ACCEPT: string = 'application\/zip,application\/octet-stream,\*\/\*'/.test(queueSettings) &&
-  /downloadBinaryToFileInStream\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
+  /downloadBinaryToFileInStreamResumable\([\s\S]*ARCHIVER_ACCEPT,[\s\S]*attempts/.test(queueSettings),
   'archiver executor requests archive bytes with a zip/octet-stream Accept header and configured retries')
 ok(/archiverDownloads: Map<string, Promise<void>>/.test(queueSettings) &&
   /static async downloadArchiver[\s\S]*archiverDownloads\.get\(tag\)[\s\S]*await running[\s\S]*const task: Promise<void> = DownloadQueueSettings\.startArchiverDownload\(context, tag\)[\s\S]*archiverDownloads\.set\(tag, task\)[\s\S]*archiverDownloads\.delete\(tag\)/.test(queueSettings) &&

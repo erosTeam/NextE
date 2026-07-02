@@ -49,7 +49,7 @@ ok('LocalDataStore creates gallery download task and seed tables',
     /idx_download_gallery_seeds_position/.test(store) &&
     /prefer_original INTEGER NOT NULL DEFAULT 0/.test(store))
 ok('LocalDataStore migrates existing download task rows to include per-task original preference',
-  /LOCAL_DATA_SCHEMA_VERSION: number = 17/.test(store) &&
+  /LOCAL_DATA_SCHEMA_VERSION: number = 21/.test(store) &&
     /migrateDownloadGalleryPreferOriginal/.test(store) &&
     /ALTER TABLE download_gallery_tasks ADD COLUMN prefer_original/.test(store))
 ok('LocalDataStore migrates gallery queue keys so original and resampled tasks can coexist',
@@ -221,7 +221,7 @@ ok('download directories keep per-task metadata sidecars for queue recovery',
     /JSON\.stringify\(\[DownloadQueueSettings\.galleryTaskMetadata\(task\)\]\)/.test(settings) &&
     /JSON\.stringify\(\[DownloadQueueSettings\.archiverTaskMetadata\(task\)\]\)/.test(settings) &&
     !/JSON\.stringify\(\[task\]\)/.test(settings) &&
-    /galleryMetadataPath\(context: common\.UIAbilityContext, task: DownloadGalleryTask\)[\s\S]*ensureGalleryDownloadDir\(context, task\.gid, task\.preferOriginal\)[\s\S]*DOWNLOAD_METADATA_FILE/.test(settings) &&
+    /galleryMetadataPath\(context: common\.UIAbilityContext, task: DownloadGalleryTask\)[\s\S]*ensureGalleryDownloadDir\([\s\S]*task\.gid,[\s\S]*task\.preferOriginal,[\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(task\)[\s\S]*DOWNLOAD_METADATA_FILE/.test(settings) &&
     /archiverMetadataPath\(context: common\.UIAbilityContext, task: DownloadArchiverTask\)[\s\S]*ensureArchiverDownloadDir\(context\)[\s\S]*ARCHIVER_METADATA_SUFFIX/.test(settings) &&
     /writeTextFile\(path: string, text: string, event: string\)[\s\S]*fs\.OpenMode\.CREATE[\s\S]*fs\.OpenMode\.TRUNC[\s\S]*fs\.writeSync/.test(settings))
 ok('restore falls back to download metadata sidecars without overriding RDB rows',
@@ -293,15 +293,16 @@ ok('duplicate archiver submit only suppresses download for a valid completed pac
 ok('ordinary gallery task identity includes original/resampled quality for matching and storage',
   /sameGalleryTask\([\s\S]*task\.gid === gid && task\.token === token && task\.preferOriginal === preferOriginal/.test(settings) &&
     /taskKey\(gid: string, token: string, preferOriginal: boolean\)[\s\S]*galleryQuality\(preferOriginal\)/.test(settings) &&
-    /galleryDirName\(gid: string, preferOriginal: boolean\)[\s\S]*preferOriginal \? `\$\{base\}-original` : base/.test(settings) &&
-    /ensureGalleryDownloadDir\([\s\S]*galleryDirName\(gid, preferOriginal\)/.test(settings))
+    /legacyGalleryDirName\(gid: string, preferOriginal: boolean\)[\s\S]*preferOriginal \? `\$\{base\}-original` : base/.test(settings) &&
+    /galleryDirName\(gid: string, preferOriginal: boolean, title: string\)[\s\S]*const namedBase: string = titlePart\.length > 0 \? `\$\{base\}-\$\{titlePart\}` : base[\s\S]*preferOriginal \? `\$\{namedBase\}-original` : namedBase/.test(settings) &&
+    /ensureGalleryDownloadDir\([\s\S]*galleryDirNameCandidates\(gid, preferOriginal, title\)/.test(settings))
 ok('incremental gallery downloads inherit files only from the same ordinary quality',
   /findGalleryTaskIn\([\s\S]*preferOriginal: boolean \| null = null[\s\S]*task\.preferOriginal !== preferOriginal/.test(settings) &&
     /findGalleryTaskIn\([\s\S]*task\.upgradeFromGid,[\s\S]*'',[\s\S]*task\.preferOriginal/.test(settings) &&
     /inheritDownloadedSeedsFromParent\([\s\S]*task\.preferOriginal,[\s\S]*parent/.test(settings))
 ok('remove deletes only the selected gallery download quality content',
   /removeGallery\([\s\S]*preferOriginal: boolean = false[\s\S]*taskKey\(gid, token, preferOriginal\)[\s\S]*sameGalleryTask\(it, gid, token, preferOriginal\)[\s\S]*deleteGalleryContent\(context, removed\)/.test(settings) &&
-    /deleteGalleryContent\([\s\S]*galleryRootDirs\(context\)[\s\S]*legacyGalleryRootDir\(context\)[\s\S]*galleryDirName\(task\.gid, task\.preferOriginal\)[\s\S]*deleteSandboxPath/.test(settings))
+    /deleteGalleryContent\([\s\S]*galleryRootDirs\(context\)[\s\S]*legacyGalleryRootDir\(context\)[\s\S]*galleryDirNameCandidates\([\s\S]*task\.gid,[\s\S]*task\.preferOriginal,[\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(task\)[\s\S]*deleteSandboxPath/.test(settings))
 ok('remove cancels in-flight gallery workers and discards late batch files',
   /cancelledGalleryDownloads: Set<string>/.test(settings) &&
     /removeGallery\([\s\S]*galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)/.test(settings) &&
