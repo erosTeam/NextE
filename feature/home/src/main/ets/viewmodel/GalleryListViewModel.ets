@@ -529,14 +529,14 @@ export class GalleryListViewModel {
 
   /** Pull-to-refresh: replace from the first page. Guarded + flagged isLoading so a concurrent
    * loadMore (which checks isLoading) can't interleave its appendData with this setData. */
-  async refresh(): Promise<number> {
+  async refresh(afterPrepend?: (prependedCount: number) => void): Promise<number> {
     DiagnosticLogger.info('home-list-anchor', 'refresh_enter', this.debugState())
     if (this.isLoading || this.isLoadingMore) {
       DiagnosticLogger.info('home-list-anchor', 'refresh_skip_busy', this.debugState())
       return 0
     }
     if (this.isToplist() && this.afterToplistJump && this.toplistPrevPage >= 0) {
-      return await this.loadPreviousToplist()
+      return await this.loadPreviousToplist(afterPrepend)
     }
     this.isLoading = true
     this.errorMessage = ''
@@ -686,7 +686,7 @@ export class GalleryListViewModel {
   }
 
   /** After a page jump, FE treats pull-to-refresh as "load previous page" instead of reloading page 1. */
-  private async loadPreviousToplist(): Promise<number> {
+  private async loadPreviousToplist(afterPrepend?: (prependedCount: number) => void): Promise<number> {
     DiagnosticLogger.info('home-list-anchor', 'toplist_prev_enter', this.debugState())
     const requestedPage: number = this.toplistPrevPage
     if (requestedPage < 0 || requestedPage > this.maxPage) {
@@ -707,6 +707,9 @@ export class GalleryListViewModel {
           this.dataSource.prependData(fresh)
           this.itemCount = this.dataSource.totalCount()
           this.currentToplistPage = requestedPage
+          if (afterPrepend) {
+            afterPrepend(fresh.length)
+          }
         }
         this.maxPage = list.maxPage
         this.toplistPrevPage = list.prevPage
