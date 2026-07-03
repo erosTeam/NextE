@@ -153,6 +153,8 @@ Acceptance:
 
 ### Phase 3: Dataset Inventory Contract
 
+Status: inventory document and coverage contract implemented.
+
 Goal: every durable dataset has an explicit owner and backup/sync decision.
 
 Scope:
@@ -163,7 +165,8 @@ Scope:
 
 Acceptance:
 
-- A contract fails if a new `StorageKeys` runtime key is not classified.
+- `node scripts/test_persistence_inventory_contract.mjs`
+- A contract fails if a new `StorageKeys` key is not classified.
 - A contract fails if a new RDB table is added without a backup/sync/cache classification.
 
 ### Phase 4: Remaining Data Moves
@@ -192,7 +195,7 @@ Acceptance:
 
 ## Current Next Action
 
-Run Phase 2 gates for the restore rollback slice, then continue into Phase 3 dataset inventory.
+Run Phase 3 gates for the dataset inventory slice, then decide the smallest Phase 4 legacy cleanup.
 
 ## Emulator Validation
 
