@@ -18,6 +18,8 @@ function unique(values) {
 const doc = read('docs/plans/active/persistence-dataset-inventory.md')
 const storageKeys = read('shared/src/main/ets/constants/StorageKeys.ets')
 const localStore = read('shared/src/main/ets/storage/LocalDataStore.ets')
+const backupAdapter = read('shared/src/main/ets/backup/BackupPreferencesAdapter.ets')
+const localDataAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
 
 const storageKeyNames = unique(
   Array.from(storageKeys.matchAll(/static readonly (\w+): string = '[^']+'/g)).map((m) => m[1]),
@@ -64,6 +66,32 @@ ok('image-block physical tables stay split by responsibility',
   /\| image_block_subscriptions \| metadata \| excluded \| WebDAV \|/.test(doc) &&
     /\| image_block_rules \| subscription-cache \| excluded \| excluded \|/.test(doc) &&
     /\| image_block_user_rules \| local-data \| localData \| WebDAV\+HuaweiCloud \|/.test(doc))
+
+const legacyLocalDataKeys = [
+  'SEARCH_HISTORY',
+  'LOCAL_FAVORITES',
+  'VIEWED_HISTORY',
+  'READING_PROGRESS',
+  'LOCAL_BLOCK_RULES',
+  'HOME_CUSTOM_PROFILES',
+  'HOME_CUSTOM_PROFILES_SELECTED',
+]
+
+for (const key of legacyLocalDataKeys) {
+  ok(`${key} legacy Preferences blob is excluded from plaintext backup`,
+    new RegExp(`StorageKeys\\.${key}`).test(backupAdapter) &&
+      new RegExp(`\\| StorageKeys\\.${key} \\| legacy-local-data \\| excluded \\| excluded \\|`).test(doc))
+}
+
+ok('backup localData restores supported legacy local-data blobs but not download queues',
+  /GalleryReadProgressSettings\.migrateLegacyPreferences\(context\)/.test(localDataAdapter) &&
+    /ViewedHistorySettings\.migrateLegacyPreferences\(context\)/.test(localDataAdapter) &&
+    /LocalFavSettings\.migrateLegacyPreferences\(context\)/.test(localDataAdapter) &&
+    /SearchHistorySettings\.migrateLegacyPreferences\(context\)/.test(localDataAdapter) &&
+    /LocalBlockSettings\.migrateLegacyPreferences\(context\)/.test(localDataAdapter) &&
+    /CustomProfilesSettings\.migrateLegacyPreferences\(context\)/.test(localDataAdapter) &&
+    !/DownloadQueueSettings\.migrateLegacyPreferences\(context\)/.test(localDataAdapter) &&
+    /\| StorageKeys\.DOWNLOAD_GALLERY_QUEUE \| legacy-local-data \| excluded \| excluded \|/.test(doc))
 
 if (failures === 0) {
   console.log('✓ persistence inventory contract passed')

@@ -171,6 +171,8 @@ Acceptance:
 
 ### Phase 4: Remaining Data Moves
 
+Status: legacy fallback audited; keep compatibility migrations, contract now guards backup exclusions.
+
 Goal: remove old Preferences fallback paths only after their RDB owner is proven stable.
 
 Scope:
@@ -184,6 +186,9 @@ Acceptance:
 - Startup restore still works on fresh install and upgraded install.
 - Backup/restore round trip keeps the supported durable datasets.
 - WebDAV/Huawei Cloud sync uses the same durable dataset set as backup unless explicitly excluded.
+- Legacy Preferences blobs for RDB-owned data stay excluded from Preferences backup and migrate through
+  `BackupLocalDataAdapter.restoreLegacyPreferences()` only for supported local-data sections.
+- Download queue legacy data remains excluded from app-data backup.
 
 ## Non-Goals
 
@@ -195,7 +200,7 @@ Acceptance:
 
 ## Current Next Action
 
-Run Phase 3 gates for the dataset inventory slice, then decide the smallest Phase 4 legacy cleanup.
+Run Phase 4 gates for the legacy-boundary contract slice.
 
 ## Emulator Validation
 
