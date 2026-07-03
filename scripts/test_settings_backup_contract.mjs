@@ -73,6 +73,20 @@ ok('plaintext Preferences export skips cache snapshots and migrated legacy blobs
     /!secret && BackupPreferencesAdapter\.isPlaintextExcluded\(key\)/.test(adapter))
 ok('plaintext Preferences restore also skips migrated local-data blobs',
   /!allowSecret && BackupPreferencesAdapter\.isPlaintextExcluded\(key\)/.test(adapter))
+ok('Preferences backup excludes volatile runtime state from plaintext and encrypted sections',
+  /VOLATILE_EXCLUDED_KEYS/.test(adapter) &&
+    /StorageKeys\.SYNC_LAST_RUN_AT/.test(adapter) &&
+    /StorageKeys\.SYNC_LAST_STATUS/.test(adapter) &&
+    /StorageKeys\.SYNC_LAST_DETAIL/.test(adapter) &&
+    /StorageKeys\.SYNC_HUAWEI_CLOUD_LAST_RUN_AT/.test(adapter) &&
+    /StorageKeys\.SYNC_HUAWEI_CLOUD_LAST_STATUS/.test(adapter) &&
+    /StorageKeys\.SYNC_HUAWEI_CLOUD_LAST_DETAIL/.test(adapter) &&
+    /StorageKeys\.SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED/.test(adapter) &&
+    /StorageKeys\.SECURITY_LAST_BACKGROUND_AT/.test(adapter) &&
+    /StorageKeys\.SAFE_MODE_UNLOCKED/.test(adapter) &&
+    /StorageKeys\.DOWNLOAD_ARCHIVE_BOT_BALANCE_GP/.test(adapter) &&
+    /StorageKeys\.DOWNLOAD_ARCHIVE_BOT_BALANCE_UPDATED_AT/.test(adapter) &&
+    /BackupPreferencesAdapter\.isVolatileExcluded\(key\)[\s\S]*continue/.test(adapter))
 
 const svc = read('shared/src/main/ets/backup/BackupService.ets')
 ok('service seals into the encrypted container only when includeSecrets',
@@ -103,6 +117,24 @@ ok('page has export + import, secrets require a password, restore confirms first
     /showAlertDialog/.test(page))
 ok('encrypted import prompts for a password before restoring',
   /result\.encrypted === true/.test(page) && /importPwdSheetShown = true/.test(page))
+ok('encrypted import password input is state-bound and cannot submit empty',
+  /confirmEnabled: !this\.busy && this\.importPwd\.length > 0/.test(page) &&
+    /PasswordField\(text: string, placeholder: ResourceStr/.test(page) &&
+    /TextInput\(\{ text: text, placeholder: placeholder \}\)/.test(page))
+ok('import diagnostics surface parser codes instead of a single generic failure',
+  /importFailureText\(result: BackupParseResult\)/.test(page) &&
+    /backup_import_too_large/.test(page) &&
+    /backup_import_not_json/.test(page) &&
+    /backup_import_foreign/.test(page) &&
+    /backup_import_unsupported/.test(page) &&
+    /backup_import_bad_checksum/.test(page) &&
+    /backup_import_malformed/.test(page))
+ok('restore confirmation previews backup section counts before applying',
+  /BackupService\.preview\(envelope\)/.test(page) &&
+    /restorePreviewMessage\(preview: BackupPreview\)/.test(page) &&
+    /localDataCount\(preview: BackupPreview\)/.test(page) &&
+    /backup_restore_preview_preferences/.test(page) &&
+    /backup_restore_preview_local_data/.test(page))
 ok('sheets use $$ two-way binding on their own hosts',
   /\$\$this\.exportSheetShown/.test(page) && /\$\$this\.importPwdSheetShown/.test(page))
 
@@ -112,7 +144,13 @@ ok('backup UI is inlined on cache/storage settings page',
 for (const locale of ['base', 'zh_CN', 'en_US', 'ja_JP']) {
   const s = read(`entry/src/main/resources/${locale}/element/string.json`)
   for (const key of ['settings_backup', 'backup_export', 'backup_import', 'backup_include_secrets',
-    'backup_password', 'backup_password_mismatch', 'backup_bad_password', 'backup_restore_confirm_title']) {
+    'backup_password', 'backup_password_mismatch', 'backup_bad_password', 'backup_restore_confirm_title',
+    'backup_import_not_json', 'backup_import_too_large', 'backup_import_foreign',
+    'backup_import_unsupported', 'backup_import_bad_checksum', 'backup_import_malformed',
+    'backup_restore_preview_version', 'backup_restore_preview_type',
+    'backup_restore_preview_plain', 'backup_restore_preview_encrypted',
+    'backup_restore_preview_preferences', 'backup_restore_preview_local_data',
+    'backup_restore_preview_secrets']) {
     ok(`${locale} has ${key}`, new RegExp(`"name": "${key}"`).test(s))
   }
 }

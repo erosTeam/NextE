@@ -9,10 +9,11 @@ type SettingsMap = Record<string, BackupSettingsValue>
 
 /**
  * Reads/writes the unified `nexte_settings` Preferences store for backup. The store is split by the
- * secret denylist: non-secret keys form the plaintext 'preferences' section; the secret keys (cookie
- * bundle, saved accounts, LLM API key) form the encrypted-only 'secrets' section. Restore is additive
- * (overwrites present keys, keeps absent ones) and re-applies the store into live state via
- * SettingsBootstrap.loadAll so changes take effect without a restart.
+ * secret denylist: non-secret keys form the plaintext 'preferences' section; credential keys (cookie
+ * bundle, saved accounts, WebDAV password, API keys) form the encrypted-only 'secrets' section.
+ * Runtime-only status keys never travel in either section. Restore is additive (overwrites present keys,
+ * keeps absent ones) and re-applies the store into live state via SettingsBootstrap.loadAll so changes
+ * take effect without a restart.
  */
 export class BackupPreferencesAdapter {
   private static readonly PLAINTEXT_EXCLUDED_KEYS: string[] = [
@@ -25,6 +26,20 @@ export class BackupPreferencesAdapter {
     StorageKeys.HOME_CUSTOM_PROFILES,
     StorageKeys.HOME_CUSTOM_PROFILES_SELECTED,
     StorageKeys.LOCAL_BLOCK_RULES,
+  ]
+
+  private static readonly VOLATILE_EXCLUDED_KEYS: string[] = [
+    StorageKeys.DOWNLOAD_ARCHIVE_BOT_BALANCE_GP,
+    StorageKeys.DOWNLOAD_ARCHIVE_BOT_BALANCE_UPDATED_AT,
+    StorageKeys.SECURITY_LAST_BACKGROUND_AT,
+    StorageKeys.SYNC_LAST_RUN_AT,
+    StorageKeys.SYNC_LAST_STATUS,
+    StorageKeys.SYNC_LAST_DETAIL,
+    StorageKeys.SYNC_HUAWEI_CLOUD_LAST_RUN_AT,
+    StorageKeys.SYNC_HUAWEI_CLOUD_LAST_STATUS,
+    StorageKeys.SYNC_HUAWEI_CLOUD_LAST_DETAIL,
+    StorageKeys.SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED,
+    StorageKeys.SAFE_MODE_UNLOCKED,
   ]
 
   // Non-secret keys → plaintext section.
@@ -50,6 +65,9 @@ export class BackupPreferencesAdapter {
     const keys: string[] = Object.keys(all)
     for (let i: number = 0; i < keys.length; i++) {
       const key: string = keys[i]
+      if (BackupPreferencesAdapter.isVolatileExcluded(key)) {
+        continue
+      }
       if (BackupSecretDenylist.isSecret(key) !== secret) {
         continue
       }
@@ -63,6 +81,10 @@ export class BackupPreferencesAdapter {
       }
     }
     return out
+  }
+
+  private static isVolatileExcluded(key: string): boolean {
+    return BackupPreferencesAdapter.VOLATILE_EXCLUDED_KEYS.indexOf(key) >= 0
   }
 
   private static isPlaintextExcluded(key: string): boolean {
@@ -84,6 +106,9 @@ export class BackupPreferencesAdapter {
     const keys: string[] = Object.keys(map)
     for (let i: number = 0; i < keys.length; i++) {
       const key: string = keys[i]
+      if (BackupPreferencesAdapter.isVolatileExcluded(key)) {
+        continue
+      }
       const secretKey: boolean = BackupSecretDenylist.isSecret(key)
       if (!allowSecret && secretKey) {
         continue

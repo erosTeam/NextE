@@ -1729,6 +1729,30 @@
       "value": "备份无效或无法读取"
     },
     {
+      "name": "backup_import_not_json",
+      "value": "备份文件不是有效 JSON"
+    },
+    {
+      "name": "backup_import_too_large",
+      "value": "备份文件过大"
+    },
+    {
+      "name": "backup_import_foreign",
+      "value": "这不是 NextE 备份"
+    },
+    {
+      "name": "backup_import_unsupported",
+      "value": "备份版本不受支持"
+    },
+    {
+      "name": "backup_import_bad_checksum",
+      "value": "备份完整性校验失败"
+    },
+    {
+      "name": "backup_import_malformed",
+      "value": "备份内容不完整"
+    },
+    {
       "name": "backup_import_done",
       "value": "设置已恢复"
     },
@@ -1751,6 +1775,34 @@
     {
       "name": "backup_restore_confirm_message",
       "value": "这会覆盖当前设置。"
+    },
+    {
+      "name": "backup_restore_preview_version",
+      "value": "版本"
+    },
+    {
+      "name": "backup_restore_preview_type",
+      "value": "类型"
+    },
+    {
+      "name": "backup_restore_preview_plain",
+      "value": "普通备份"
+    },
+    {
+      "name": "backup_restore_preview_encrypted",
+      "value": "加密备份"
+    },
+    {
+      "name": "backup_restore_preview_preferences",
+      "value": "设置项"
+    },
+    {
+      "name": "backup_restore_preview_local_data",
+      "value": "本地数据"
+    },
+    {
+      "name": "backup_restore_preview_secrets",
+      "value": "敏感项"
     },
     {
       "name": "backup_restore_apply",

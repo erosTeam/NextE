@@ -1729,6 +1729,30 @@
       "value": "Invalid or unreadable backup"
     },
     {
+      "name": "backup_import_not_json",
+      "value": "Backup file is not valid JSON"
+    },
+    {
+      "name": "backup_import_too_large",
+      "value": "Backup file is too large"
+    },
+    {
+      "name": "backup_import_foreign",
+      "value": "This is not a NextE backup"
+    },
+    {
+      "name": "backup_import_unsupported",
+      "value": "Backup version is not supported"
+    },
+    {
+      "name": "backup_import_bad_checksum",
+      "value": "Backup integrity check failed"
+    },
+    {
+      "name": "backup_import_malformed",
+      "value": "Backup content is incomplete"
+    },
+    {
       "name": "backup_import_done",
       "value": "Settings restored"
     },
@@ -1751,6 +1775,34 @@
     {
       "name": "backup_restore_confirm_message",
       "value": "This overwrites your current settings."
+    },
+    {
+      "name": "backup_restore_preview_version",
+      "value": "Version"
+    },
+    {
+      "name": "backup_restore_preview_type",
+      "value": "Type"
+    },
+    {
+      "name": "backup_restore_preview_plain",
+      "value": "Plain backup"
+    },
+    {
+      "name": "backup_restore_preview_encrypted",
+      "value": "Encrypted backup"
+    },
+    {
+      "name": "backup_restore_preview_preferences",
+      "value": "Settings"
+    },
+    {
+      "name": "backup_restore_preview_local_data",
+      "value": "Local data"
+    },
+    {
+      "name": "backup_restore_preview_secrets",
+      "value": "Sensitive items"
     },
     {
       "name": "backup_restore_apply",

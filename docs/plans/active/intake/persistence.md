@@ -77,6 +77,15 @@ Expected direction:
   - Files/cache: image bytes, HTML snapshots, resolved image metadata payloads, downloads, and exported files.
   - Secrets: cookies, `ipb_pass_hash`, `igneous`, tokens, proxy passwords, and account credentials. These must
     be excluded from plaintext export unless a separate explicit encrypted flow is designed.
+- Current backup boundary:
+  - Plain preferences backup carries only durable non-secret user choices.
+  - Encrypted backup may additionally carry credentials such as cookies, saved accounts, WebDAV password,
+    comment-translation API key, and archiver bot API key.
+  - Runtime-only status is excluded from both plaintext and encrypted backup: sync last-run status/detail,
+    Huawei Cloud last-run status/detail, cloud-disabled transient flag, last background timestamp, safe-mode
+    unlocked marker, and cached archiver balance.
+  - Local-data backup carries the durable RDB section: read progress, viewed history, local favorites, search
+    history, local block settings/rules, image-block user rules, and custom profiles.
 - Add or design a `LocalDataStore` equivalent before moving more growing data into Preferences JSON blobs.
   The first slice can migrate one high-value table, but the schema should reserve account/site partitioning
   and future sync metadata where needed.

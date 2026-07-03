@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: storage import preview and diagnostics
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/setting/advanced_setting_page.dart` import/export settings rows, `../eros_fe/lib/utils/import_export.dart` backup file flow, and current NextE `feature/settings/src/main/ets/pages/CacheSettingsPage.ets` Storage import/export sheets.
+Surface type: Storage settings import action, encrypted-backup password sheet, and restore confirmation dialog only; no new settings page or sync pathway.
+Primary information: before restore, the user sees the backup type and record counts for settings/local data/sensitive items; invalid files show a concrete import failure reason instead of one generic unreadable message.
+Primary action: tap Import, choose a backup file, enter password when required, review the restore summary, then confirm or cancel.
+Reuse or deviation: reuse the existing Storage page rows, AppModalScaffold password sheet, BackupService.preview(), and platform AlertDialog; deviate from the old generic confirmation only by adding section counts and parser-code-specific toasts.
+Verification: settings backup contract, UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and emulator Storage import/export smoke covering the visible confirmation path.
+
 ## Active: toplist page jump dialog
 
 Status: active

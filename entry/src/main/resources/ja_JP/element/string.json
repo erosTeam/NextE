@@ -1729,6 +1729,30 @@
       "value": "無効または読み取れないバックアップ"
     },
     {
+      "name": "backup_import_not_json",
+      "value": "バックアップファイルが有効な JSON ではありません"
+    },
+    {
+      "name": "backup_import_too_large",
+      "value": "バックアップファイルが大きすぎます"
+    },
+    {
+      "name": "backup_import_foreign",
+      "value": "NextE のバックアップではありません"
+    },
+    {
+      "name": "backup_import_unsupported",
+      "value": "バックアップバージョンはサポートされていません"
+    },
+    {
+      "name": "backup_import_bad_checksum",
+      "value": "バックアップの整合性チェックに失敗しました"
+    },
+    {
+      "name": "backup_import_malformed",
+      "value": "バックアップ内容が不完全です"
+    },
+    {
       "name": "backup_import_done",
       "value": "設定を復元しました"
     },
@@ -1751,6 +1775,34 @@
     {
       "name": "backup_restore_confirm_message",
       "value": "現在の設定が上書きされます。"
+    },
+    {
+      "name": "backup_restore_preview_version",
+      "value": "バージョン"
+    },
+    {
+      "name": "backup_restore_preview_type",
+      "value": "種類"
+    },
+    {
+      "name": "backup_restore_preview_plain",
+      "value": "通常バックアップ"
+    },
+    {
+      "name": "backup_restore_preview_encrypted",
+      "value": "暗号化バックアップ"
+    },
+    {
+      "name": "backup_restore_preview_preferences",
+      "value": "設定項目"
+    },
+    {
+      "name": "backup_restore_preview_local_data",
+      "value": "ローカルデータ"
+    },
+    {
+      "name": "backup_restore_preview_secrets",
+      "value": "機密項目"
     },
     {
       "name": "backup_restore_apply",

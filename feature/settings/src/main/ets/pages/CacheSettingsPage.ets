@@ -5,6 +5,8 @@ import {
   AppStrings,
   BackupAppMetadata,
   BackupParseResult,
+  BackupPreview,
+  BackupService,
   CacheStat,
   CachedImageFileService,
   CommentTranslationService,
@@ -185,6 +187,55 @@ export struct CacheSettingsPage {
     return { appVersion: this.appVersion, appVersionCode: this.appVersionCode }
   }
 
+  private importFailureText(result: BackupParseResult): ResourceStr {
+    if (result.code === 'too_large') {
+      return $r('app.string.backup_import_too_large')
+    }
+    if (result.code === 'not_json') {
+      return $r('app.string.backup_import_not_json')
+    }
+    if (result.code === 'foreign_backup') {
+      return $r('app.string.backup_import_foreign')
+    }
+    if (result.code === 'unsupported_version') {
+      return $r('app.string.backup_import_unsupported')
+    }
+    if (result.code === 'bad_checksum') {
+      return $r('app.string.backup_import_bad_checksum')
+    }
+    if (result.code === 'malformed') {
+      return $r('app.string.backup_import_malformed')
+    }
+    return $r('app.string.backup_import_invalid')
+  }
+
+  private localDataCount(preview: BackupPreview): number {
+    const counts = preview.counts.localData
+    if (counts === undefined) {
+      return 0
+    }
+    return counts.readProgress + counts.viewedHistory + counts.localFavorites + counts.searchHistory +
+      counts.localBlockRules + counts.imageBlockRules + counts.customProfiles
+  }
+
+  private restorePreviewMessage(preview: BackupPreview): string {
+    const lines: string[] = [
+      AppStrings.get('backup_restore_confirm_message'),
+      '',
+      `${AppStrings.get('backup_restore_preview_version')}: ${preview.appVersion} (${preview.appVersionCode})`,
+      `${AppStrings.get('backup_restore_preview_type')}: ${preview.hasSecrets ?
+        AppStrings.get('backup_restore_preview_encrypted') :
+        AppStrings.get('backup_restore_preview_plain')}`,
+      `${AppStrings.get('backup_restore_preview_preferences')}: ${preview.counts.preferences}`,
+      `${AppStrings.get('backup_restore_preview_local_data')}: ${this.localDataCount(preview)}`,
+    ]
+    if (preview.hasSecrets) {
+      const secretCount: number = preview.counts.secrets === undefined ? 0 : preview.counts.secrets
+      lines.push(`${AppStrings.get('backup_restore_preview_secrets')}: ${secretCount}`)
+    }
+    return lines.join('\n')
+  }
+
   private timeStamp(): string {
     const d: Date = new Date()
     const p = (n: number): string => (n < 10 ? `0${n}` : `${n}`)
@@ -250,7 +301,7 @@ export struct CacheSettingsPage {
           return
         }
         if (!result.ok || result.envelope === undefined) {
-          this.toast($r('app.string.backup_import_invalid'))
+          this.toast(this.importFailureText(result))
           return
         }
         this.confirmRestore(result)
@@ -276,7 +327,7 @@ export struct CacheSettingsPage {
           this.toast(
             result.code === 'bad_password'
               ? $r('app.string.backup_bad_password')
-              : $r('app.string.backup_import_invalid'),
+              : this.importFailureText(result),
           )
           return
         }
@@ -296,9 +347,10 @@ export struct CacheSettingsPage {
     if (envelope === undefined) {
       return
     }
+    const preview: BackupPreview = BackupService.preview(envelope)
     this.getUIContext().showAlertDialog({
       title: $r('app.string.backup_restore_confirm_title'),
-      message: $r('app.string.backup_restore_confirm_message'),
+      message: this.restorePreviewMessage(preview),
       primaryButton: { value: $r('app.string.common_cancel'), action: () => {} },
       secondaryButton: {
         value: $r('app.string.backup_restore_apply'),
@@ -521,10 +573,10 @@ export struct CacheSettingsPage {
           .width('100%')
           .alignItems(VerticalAlign.Center)
           if (this.includeSecrets) {
-            this.PasswordField($r('app.string.backup_password'), (value: string) => {
+            this.PasswordField(this.exportPwd, $r('app.string.backup_password'), (value: string) => {
               this.exportPwd = value
             })
-            this.PasswordField($r('app.string.backup_password_repeat'), (value: string) => {
+            this.PasswordField(this.exportPwd2, $r('app.string.backup_password_repeat'), (value: string) => {
               this.exportPwd2 = value
             })
           }
@@ -542,7 +594,7 @@ export struct CacheSettingsPage {
       title: $r('app.string.backup_encrypted_title'),
       confirmIcon: $r('sys.symbol.doc_plaintext'),
       confirmText: $r('app.string.backup_import'),
-      confirmEnabled: !this.busy,
+      confirmEnabled: !this.busy && this.importPwd.length > 0,
       confirmLoading: this.busy,
       closeAction: () => {
         this.importPwdSheetShown = false
@@ -557,7 +609,7 @@ export struct CacheSettingsPage {
             .fontSize(ThemeConstants.FONT_SIZE_BODY)
             .fontColor($r('sys.color.font_secondary'))
             .width('100%')
-          this.PasswordField($r('app.string.backup_password'), (value: string) => {
+          this.PasswordField(this.importPwd, $r('app.string.backup_password'), (value: string) => {
             this.importPwd = value
           })
         }
@@ -569,8 +621,8 @@ export struct CacheSettingsPage {
   }
 
   @Builder
-  PasswordField(placeholder: ResourceStr, onChange: (value: string) => void) {
-    TextInput({ placeholder: placeholder })
+  PasswordField(text: string, placeholder: ResourceStr, onChange: (value: string) => void) {
+    TextInput({ text: text, placeholder: placeholder })
       .type(InputType.Password)
       .width('100%')
       .onChange((value: string) => {

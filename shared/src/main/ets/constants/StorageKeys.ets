@@ -79,7 +79,7 @@ export class StorageKeys {
   static readonly SYNC_WEBDAV_URL: string = 'sync.webdav.url'
   static readonly SYNC_WEBDAV_USERNAME: string = 'sync.webdav.username'
   static readonly SYNC_WEBDAV_ENABLED: string = 'sync.webdav.enabled'
-  // Sensitive provider credential. Keep local-only: never export through backup or sync.
+  // Sensitive provider credential. Never sync; export only inside encrypted backup.
   static readonly SYNC_WEBDAV_PASSWORD: string = 'sync.webdav.password'
   static readonly SYNC_DATASET_READ_PROGRESS: string = 'sync.dataset.readProgress'
   static readonly SYNC_DATASET_VIEWED_HISTORY: string = 'sync.dataset.viewedHistory'
