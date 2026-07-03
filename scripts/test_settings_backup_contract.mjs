@@ -42,7 +42,13 @@ ok('localData section carries durable read progress outside Preferences',
     /localFavorites: BackupLocalFavoriteEntry\[\]/.test(types) &&
     /searchHistory: string\[\]/.test(types) &&
     /localBlock: BackupLocalBlockSection/.test(types) &&
+    /imageBlock: BackupImageBlockSection/.test(types) &&
+    /interface BackupImageBlockRuleEntry/.test(types) &&
     /customProfiles: BackupCustomProfilesSection/.test(types))
+ok('image block backup carries rule metadata, not preview image content',
+  /imageBlockRules: number/.test(types) &&
+    /interface BackupImageBlockRuleEntry/.test(types) &&
+    !/previewPath/.test(types))
 
 const deny = read('shared/src/main/ets/backup/BackupSecretDenylist.ets')
 ok('denylist marks cookie/apikey + auth.accounts as secret',
@@ -74,7 +80,8 @@ ok('service seals into the encrypted container only when includeSecrets',
 ok('service exports and restores localData section',
   /BackupLocalDataAdapter\.exportSection\(context\)/.test(svc) &&
     /sections: BackupSectionName\[\] = \['preferences', 'localData'\]/.test(svc) &&
-    /BackupLocalDataAdapter\.restoreSection\(context, envelope\.data\.localData\)/.test(svc))
+    /BackupLocalDataAdapter\.restoreSection\(context, envelope\.data\.localData\)/.test(svc) &&
+    /imageBlockRules: localData\.imageBlock\.rules\.length/.test(svc))
 ok('a plaintext file declaring a secrets section is rejected',
   /!fromEncrypted && envelope\.sections\.indexOf\('secrets'\) >= 0/.test(svc) &&
     /code: 'malformed'/.test(svc))

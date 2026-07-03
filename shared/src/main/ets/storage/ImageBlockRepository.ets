@@ -69,6 +69,12 @@ const SQL_SELECT_LOCAL_RULES: string =
   'FROM image_block_user_rules ' +
   'WHERE scope_key = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY updated_at DESC, rule_id ASC'
+const SQL_SELECT_USER_RULES_FOR_BACKUP: string =
+  'SELECT rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, ' +
+  'preview_path, enabled, updated_at, deleted_at ' +
+  'FROM image_block_user_rules ' +
+  'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
+  'ORDER BY updated_at ASC, rule_id ASC'
 const SQL_SELECT_FILE_HASH: string =
   'SELECT hash FROM image_block_hash_cache ' +
   'WHERE scope_key = ? AND file_path = ? AND bytes = ? AND algorithm = ? AND COALESCE(deleted_at, 0) = 0'
@@ -155,6 +161,14 @@ const SQL_UPSERT_USER_RULE: string =
   'source_page = excluded.source_page, ' +
   'preview_path = CASE WHEN excluded.preview_path <> \'\' THEN excluded.preview_path ELSE image_block_user_rules.preview_path END, ' +
   'enabled = excluded.enabled, updated_at = excluded.updated_at, deleted_at = 0'
+const SQL_UPSERT_USER_RULE_FROM_BACKUP: string =
+  'INSERT INTO image_block_user_rules ' +
+  '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
+  'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'\', ?, ?, 0) ON CONFLICT(rule_id, scope_key) DO UPDATE SET ' +
+  'hash = excluded.hash, threshold = excluded.threshold, label = excluded.label, scope = excluded.scope, ' +
+  'feed_id = excluded.feed_id, source_type = excluded.source_type, source_url = excluded.source_url, ' +
+  'source_page = excluded.source_page, preview_path = \'\', enabled = excluded.enabled, ' +
+  'updated_at = excluded.updated_at, deleted_at = 0'
 export class ImageBlockRepository {
   static async loadSubscriptions(context: common.UIAbilityContext): Promise<ImageBlockFeed[]> {
     const out: ImageBlockFeed[] = []
@@ -284,6 +298,64 @@ export class ImageBlockRepository {
       resultSet.close()
     }
     return out
+  }
+
+  static async loadUserRulesForBackup(context: common.UIAbilityContext): Promise<ImageBlockRule[]> {
+    const out: ImageBlockRule[] = []
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_USER_RULES_FOR_BACKUP, [SCOPE_GLOBAL])
+    try {
+      while (resultSet.goToNextRow()) {
+        const rule: ImageBlockRule = ImageBlockRepository.readRule(resultSet)
+        if (rule.id.length > 0 && rule.hash.length > 0) {
+          rule.previewPath = ''
+          out.push(rule)
+        }
+      }
+    } finally {
+      resultSet.close()
+    }
+    return out
+  }
+
+  static async restoreUserRulesFromBackup(
+    context: common.UIAbilityContext,
+    rules: ImageBlockRule[],
+  ): Promise<void> {
+    if (rules.length <= 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    store.beginTransaction()
+    try {
+      for (let i: number = 0; i < rules.length; i++) {
+        const rule: ImageBlockRule = rules[i]
+        const hash: string = PHashService.normalizeHex64(rule.hash)
+        if (rule.id.length === 0 || hash.length === 0 || rule.sourceType.length === 0) {
+          continue
+        }
+        await store.executeSql(SQL_UPSERT_USER_RULE_FROM_BACKUP, [
+          SCOPE_GLOBAL,
+          rule.id,
+          hash,
+          PHashService.clampThreshold(rule.threshold),
+          rule.label,
+          rule.scope.length > 0 ? rule.scope : IMAGE_BLOCK_SCOPE_WHOLE,
+          rule.feedId,
+          rule.sourceType,
+          rule.sourceUrl,
+          rule.sourcePage > 0 ? Math.floor(rule.sourcePage) : 0,
+          rule.enabled ? 1 : 0,
+          rule.updatedAt > 0 ? Math.floor(rule.updatedAt) : Date.now(),
+        ])
+      }
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_rule_backup_restore')
+    } catch (error) {
+      store.rollBack()
+      const e: Error = error as Error
+      throw new Error(e.message || 'Failed to restore image block rules')
+    }
   }
 
   static async loadSubscriptionRules(

@@ -10,12 +10,16 @@ import {
   LocalBlockSettingsSnapshot,
 } from '../storage/LocalBlockRepository'
 import { CustomProfile } from '../model/CustomProfile'
+import { ImageBlockRule } from '../model/ImageBlockRule'
 import { CustomProfilesSettings } from '../settings/CustomProfilesSettings'
 import { ViewedGallery } from '../model/ViewedGallery'
 import { ViewedHistorySettings } from '../settings/ViewedHistorySettings'
+import { ImageBlockRepository } from '../storage/ImageBlockRepository'
 import {
   BackupCustomProfileEntry,
   BackupCustomProfilesSection,
+  BackupImageBlockRuleEntry,
+  BackupImageBlockSection,
   BackupLocalBlockRuleEntry,
   BackupLocalBlockSection,
   BackupLocalFavoriteEntry,
@@ -32,6 +36,7 @@ export class BackupLocalDataAdapter {
       localFavorites: await BackupLocalDataAdapter.exportLocalFavorites(context),
       searchHistory: await BackupLocalDataAdapter.exportSearchHistory(context),
       localBlock: await BackupLocalDataAdapter.exportLocalBlock(context),
+      imageBlock: await BackupLocalDataAdapter.exportImageBlock(context),
       customProfiles: await BackupLocalDataAdapter.exportCustomProfiles(context),
     }
   }
@@ -148,6 +153,33 @@ export class BackupLocalDataAdapter {
       commentDisplayMode: source.commentDisplayMode,
       rules: rules,
     }
+  }
+
+  private static async exportImageBlock(
+    context: common.UIAbilityContext,
+  ): Promise<BackupImageBlockSection> {
+    const source: ImageBlockRule[] = await ImageBlockRepository.loadUserRulesForBackup(context)
+    const rules: BackupImageBlockRuleEntry[] = []
+    for (let i: number = 0; i < source.length; i++) {
+      const rule: ImageBlockRule = source[i]
+      if (rule.id.length === 0 || rule.hash.length === 0) {
+        continue
+      }
+      rules.push({
+        id: rule.id,
+        hash: rule.hash,
+        threshold: rule.threshold,
+        label: rule.label,
+        scope: rule.scope,
+        feedId: rule.feedId,
+        sourceType: rule.sourceType,
+        sourceUrl: rule.sourceUrl,
+        sourcePage: rule.sourcePage,
+        enabled: rule.enabled,
+        updatedAt: rule.updatedAt,
+      })
+    }
+    return { rules: rules }
   }
 
   private static async exportCustomProfiles(
@@ -294,6 +326,31 @@ export class BackupLocalDataAdapter {
         }
       }
       await LocalBlockSettings.restoreBackup(context, localBlock)
+    }
+
+    if (section.imageBlock !== undefined) {
+      const imageBlockRules: ImageBlockRule[] = []
+      for (let i: number = 0; i < section.imageBlock.rules.length; i++) {
+        const item: BackupImageBlockRuleEntry = section.imageBlock.rules[i]
+        if (item.id.length === 0 || item.hash.length === 0 || item.sourceType.length === 0) {
+          continue
+        }
+        const rule: ImageBlockRule = new ImageBlockRule()
+        rule.id = item.id
+        rule.hash = item.hash
+        rule.threshold = item.threshold
+        rule.label = item.label
+        rule.scope = item.scope
+        rule.feedId = item.feedId
+        rule.sourceType = item.sourceType
+        rule.sourceUrl = item.sourceUrl
+        rule.sourcePage = item.sourcePage
+        rule.previewPath = ''
+        rule.enabled = item.enabled
+        rule.updatedAt = item.updatedAt
+        imageBlockRules.push(rule)
+      }
+      await ImageBlockRepository.restoreUserRulesFromBackup(context, imageBlockRules)
     }
 
     if (section.customProfiles !== undefined) {

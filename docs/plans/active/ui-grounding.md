@@ -82,6 +82,16 @@ Primary action: when image blocking is enabled, open the secondary Reader menu a
 Reuse or deviation: reuse the existing image-block runtime write path and platform menu/dialog components; remove the one-tap bottom-toolbar block button so the side-effect action is not mixed with frequent reader controls.
 Verification: UI grounding contract, V1 decorator inventory, i18n resources, diff check, signed HarmonyOS build, and Reader chrome smoke.
 
+## Active: image block source rule previews
+
+Status: active
+Reference implementation: current NextE `feature/settings/src/main/ets/pages/ImageBlockSettingsPage.ets` local-rule preview slot, `shared/src/main/ets/services/ImageBlockRuntimeService.ets` preview sprite crop path, and existing `EhApiService.getGalleryDetail()` / `getPreviewImages()` gallery preview loading.
+Surface type: Image block settings local-rule and subscription-rule preview only; no new rules page, no AGC data-object change, and no synced thumbnail payload.
+Primary information: synced or restored rules should show an actual EH source thumbnail when `source_url` / `source_page` can identify the gallery image, instead of leaving the preview column blank.
+Primary action: add or sync an image-block rule with source metadata, open image-block settings, and let the page fetch a preview from the source gallery previews for display.
+Reuse or deviation: keep rule, cloud sync, and backup records as metadata only; use `preview_path` only as a legacy/local file reference and hold fetched local-cache preview paths in the settings page state for the current session.
+Verification: image-block foundation contract, settings backup contract, UI grounding contract, V1 decorator inventory, Huawei cloud sync contract, sync design contract, diff check, signed build, and 237 device settings smoke.
+
 ## Active: sprite thumbnail loading indicator
 
 Status: active

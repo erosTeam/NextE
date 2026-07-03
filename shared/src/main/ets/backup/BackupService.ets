@@ -86,6 +86,7 @@ export class BackupService {
           localFavorites: localData.localFavorites.length,
           searchHistory: localData.searchHistory.length,
           localBlockRules: localData.localBlock.rules.length,
+          imageBlockRules: localData.imageBlock.rules.length,
           customProfiles: localData.customProfiles.profiles.length,
         },
       },

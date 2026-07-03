@@ -304,7 +304,9 @@ ok('image block sync uses image_block_user_rules as the user-rule source table',
     !/SyncLocalDataAdapter\.prepareHuaweiCloudTables/.test(imageBlockRepo) &&
     /applyHuaweiCloudTables/.test(syncAdapter) &&
     /previewPath: string = ''/.test(types) &&
-    /preview_path/.test(syncAdapter))
+    /preview_path/.test(syncAdapter) &&
+    /r\.previewPath = ''/.test(syncAdapter) &&
+    !/r\.previewPath = SyncLocalDataAdapter\.stringColumn\(rs, 'preview_path'\)/.test(syncAdapter))
 ok('Huawei Cloud sync permission is declared for private builds',
   /ohos\.permission\.DISTRIBUTED_DATASYNC/.test(moduleJson))
 

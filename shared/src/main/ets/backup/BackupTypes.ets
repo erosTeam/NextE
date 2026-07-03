@@ -42,6 +42,7 @@ export interface BackupLocalDataCounts {
   localFavorites: number
   searchHistory: number
   localBlockRules: number
+  imageBlockRules: number
   customProfiles: number
 }
 
@@ -58,6 +59,7 @@ export interface BackupLocalDataSection {
   localFavorites: BackupLocalFavoriteEntry[]
   searchHistory: string[]
   localBlock: BackupLocalBlockSection
+  imageBlock: BackupImageBlockSection
   customProfiles: BackupCustomProfilesSection
 }
 
@@ -110,6 +112,24 @@ export interface BackupLocalBlockSection {
   scoreFilteringThreshold: number
   commentDisplayMode: string
   rules: BackupLocalBlockRuleEntry[]
+}
+
+export interface BackupImageBlockRuleEntry {
+  id: string
+  hash: string
+  threshold: number
+  label: string
+  scope: string
+  feedId: string
+  sourceType: string
+  sourceUrl: string
+  sourcePage: number
+  enabled: boolean
+  updatedAt: number
+}
+
+export interface BackupImageBlockSection {
+  rules: BackupImageBlockRuleEntry[]
 }
 
 export interface BackupCustomProfileEntry {

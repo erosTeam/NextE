@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { pasteboard } from '@kit.BasicServicesKit'
+import { fileIo } from '@kit.CoreFileKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   AppModalScaffold,
@@ -14,6 +15,7 @@ import {
   IMAGE_BLOCK_SOURCE_LOCAL,
   IMAGE_BLOCK_SOURCE_SUBSCRIPTION,
   ImageBlockRepository,
+  ImageBlockRuntimeService,
   ImageBlockRule,
   ImageBlockSettings,
   ImageBlockSettingsState,
@@ -204,10 +206,31 @@ export struct ImageBlockSettingsPage {
   }
 
   private imageUri(path: string): string {
+    if (path.startsWith('data:image/')) {
+      return path
+    }
     if (path.startsWith('file://')) {
       return path
     }
     return path.length > 0 ? `file://${path}` : ''
+  }
+
+  private hasPreviewImage(path: string): boolean {
+    if (path.startsWith('data:image/')) {
+      return true
+    }
+    let localPath: string = path
+    if (localPath.startsWith('file://')) {
+      localPath = localPath.substring(7)
+    }
+    if (!localPath.startsWith('/')) {
+      return false
+    }
+    try {
+      return fileIo.statSync(localPath).size > 0
+    } catch (_error) {
+      return false
+    }
   }
 
   private contributionDraftTrailing(): string {
@@ -620,7 +643,7 @@ export struct ImageBlockSettingsPage {
   @Builder
   private PreviewImage(path: string, icon: Resource) {
     Stack() {
-      if (path.length > 0) {
+      if (this.hasPreviewImage(path)) {
         Image(this.imageUri(path))
           .objectFit(ImageFit.Cover)
           .width('100%')
@@ -692,7 +715,7 @@ export struct ImageBlockSettingsPage {
   @Builder
   private LocalRuleRow(rule: ImageBlockRule) {
     Row({ space: ThemeConstants.SPACE_MD }) {
-      this.PreviewImage(rule.previewPath, $r('sys.symbol.eye_slash'))
+      ImageBlockRulePreview({ rule: rule, icon: $r('sys.symbol.eye_slash') })
       Column({ space: ThemeConstants.SPACE_SM }) {
         Text(this.localRuleTitle(rule))
           .fontSize(ThemeConstants.FONT_SIZE_TITLE)
@@ -742,7 +765,7 @@ export struct ImageBlockSettingsPage {
   @Builder
   private SubscriptionRuleRow(rule: ImageBlockRule) {
     Row({ space: ThemeConstants.SPACE_MD }) {
-      this.PreviewImage(rule.previewPath, $r('sys.symbol.cloud'))
+      ImageBlockRulePreview({ rule: rule, icon: $r('sys.symbol.cloud') })
       Column({ space: ThemeConstants.SPACE_SM }) {
         Row({ space: ThemeConstants.SPACE_SM }) {
           Text(this.readableRuleLabel(rule.label))
@@ -1046,10 +1069,10 @@ export struct ImageBlockSettingsPage {
     ListItem() {
       GroupedListSection({ inset: 0 }) {
         Row({ space: ThemeConstants.SPACE_MD }) {
-          this.PreviewImage(
-            rule.previewPath,
-            rule.sourceType === IMAGE_BLOCK_SOURCE_SUBSCRIPTION ? $r('sys.symbol.cloud') : $r('sys.symbol.eye_slash'),
-          )
+          ImageBlockRulePreview({
+            rule: rule,
+            icon: rule.sourceType === IMAGE_BLOCK_SOURCE_SUBSCRIPTION ? $r('sys.symbol.cloud') : $r('sys.symbol.eye_slash'),
+          })
           Column({ space: ThemeConstants.SPACE_SM }) {
             Text(this.readableRuleLabel(rule.label))
               .fontSize(ThemeConstants.FONT_SIZE_TITLE)
@@ -1152,5 +1175,116 @@ export struct ImageBlockSettingsPage {
         }
       }
     }
+  }
+}
+
+@ComponentV2
+struct ImageBlockRulePreview {
+  @Param rule: ImageBlockRule = new ImageBlockRule();
+  @Param icon: Resource = $r('sys.symbol.eye_slash');
+  @Local previewPath: string = '';
+  private loading: boolean = false;
+
+  aboutToAppear(): void {
+    this.syncRulePreviewPath()
+    this.loadSourcePreview()
+  }
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private syncRulePreviewPath(): void {
+    const path: string = this.usableRulePreviewPath()
+    if (path.length > 0) {
+      this.previewPath = path
+    } else if (this.previewPath.length > 0 && this.rule.id.length === 0) {
+      this.previewPath = ''
+    }
+  }
+
+  private usableRulePreviewPath(): string {
+    if (this.rule.previewPath.startsWith('data:image/')) {
+      return ''
+    }
+    return this.rule.previewPath
+  }
+
+  private currentPreviewPath(): string {
+    if (this.previewPath.length > 0) {
+      return this.previewPath
+    }
+    return this.usableRulePreviewPath()
+  }
+
+  private imageUri(path: string): string {
+    if (path.startsWith('data:image/')) {
+      return path
+    }
+    if (path.startsWith('file://')) {
+      return path
+    }
+    return path.length > 0 ? `file://${path}` : ''
+  }
+
+  private hasPreviewImage(path: string): boolean {
+    if (path.startsWith('data:image/')) {
+      return true
+    }
+    let localPath: string = path
+    if (localPath.startsWith('file://')) {
+      localPath = localPath.substring(7)
+    }
+    if (!localPath.startsWith('/')) {
+      return false
+    }
+    try {
+      return fileIo.statSync(localPath).size > 0
+    } catch (_error) {
+      return false
+    }
+  }
+
+  private loadSourcePreview(): void {
+    if (this.loading || this.rule.id.length === 0 || this.rule.sourceUrl.length === 0) {
+      return
+    }
+    if (this.hasPreviewImage(this.currentPreviewPath())) {
+      return
+    }
+    const rule: ImageBlockRule = this.rule.copy()
+    this.loading = true
+    ImageBlockRuntimeService.previewPathForRuleSource(this.ctx(), rule)
+      .then((path: string) => {
+        if (path.length > 0 && this.rule.id === rule.id) {
+          this.previewPath = path
+        }
+      })
+      .catch((error: Error) => {
+        ImageBlockRuntimeService.logPreviewRepairFailure(rule, error.message)
+      })
+      .finally(() => {
+        this.loading = false
+      })
+  }
+
+  build() {
+    Stack() {
+      if (this.hasPreviewImage(this.currentPreviewPath())) {
+        Image(this.imageUri(this.currentPreviewPath()))
+          .objectFit(ImageFit.Cover)
+          .width('100%')
+          .height('100%')
+      } else {
+        SymbolGlyph(this.icon)
+          .fontSize(30)
+          .fontColor([$r('sys.color.font_secondary')])
+      }
+    }
+    .width(88)
+    .height(116)
+    .borderRadius(ThemeConstants.THUMB_RADIUS)
+    .clip(true)
+    .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 }
