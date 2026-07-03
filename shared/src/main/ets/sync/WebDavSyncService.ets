@@ -16,6 +16,16 @@ import {
   SyncManifestDataset,
   SyncManifestShard,
   SyncManifestV1,
+  SyncCustomProfileRecord,
+  SyncCustomProfileSelectionRecord,
+  SyncImageBlockRuleRecord,
+  SyncImageBlockSubscriptionRecord,
+  SyncLocalBlockRuleRecord,
+  SyncLocalBlockSettingsRecord,
+  SyncLocalFavoriteRecord,
+  SyncReadProgressRecord,
+  SyncSearchHistoryRecord,
+  SyncViewedHistoryRecord,
 } from './SyncTypes'
 import { SyncLocalDataAdapter } from './SyncLocalDataAdapter'
 import { SyncService } from './SyncService'
@@ -70,6 +80,7 @@ export class WebDavSyncService {
       WebDavSyncService.parseManifest(await WebDavSyncService.readRemoteOptional(rootUrl + SYNC_WEBDAV_MANIFEST_FILE, config))
     const legacyRaw: string =
       await WebDavSyncService.readRemoteOptional(WebDavSyncService.legacyFileUrl(config.directoryUrl), config)
+    let manifestChanged: boolean = false
 
     for (let i: number = 0; i < DATASET_IDS.length; i++) {
       const datasetId: string = DATASET_IDS[i]
@@ -84,13 +95,19 @@ export class WebDavSyncService {
       }
       const merged: SyncEnvelopeV1 = await SyncService.mergeRemoteEnvelope(context, remote, deviceId, one)
       const shards: WebDavBuiltShard[] = await WebDavSyncService.buildShards(merged, datasetId)
-      await WebDavSyncService.writeChangedShards(rootUrl, config, manifest, datasetId, shards)
+      const prev: SyncManifestDataset | null = WebDavSyncService.findManifestDataset(manifest, datasetId)
+      const changed: boolean = await WebDavSyncService.writeChangedShards(rootUrl, config, prev, shards)
       WebDavSyncService.replaceManifestDataset(manifest, datasetId, shards)
+      if (changed || WebDavSyncService.manifestDatasetChanged(prev, shards)) {
+        manifestChanged = true
+        manifest.generatedAt = new Date().toISOString()
+      }
       DiagnosticLogger.info('sync', 'webdav_dataset_done', `dataset=${datasetId},shards=${shards.length}`)
     }
 
-    manifest.generatedAt = new Date().toISOString()
-    await WebDavSyncService.writeRemote(rootUrl + SYNC_WEBDAV_MANIFEST_FILE, config, JSON.stringify(manifest))
+    if (manifestChanged) {
+      await WebDavSyncService.writeRemote(rootUrl + SYNC_WEBDAV_MANIFEST_FILE, config, JSON.stringify(manifest))
+    }
   }
 
   static async readRemote(url: string, config: WebDavSyncConfig): Promise<string> {
@@ -204,18 +221,40 @@ export class WebDavSyncService {
   private static async writeChangedShards(
     rootUrl: string,
     config: WebDavSyncConfig,
-    manifest: SyncManifestV1,
-    datasetId: string,
+    prev: SyncManifestDataset | null,
     shards: WebDavBuiltShard[],
-  ): Promise<void> {
-    const prev: SyncManifestDataset | null = WebDavSyncService.findManifestDataset(manifest, datasetId)
+  ): Promise<boolean> {
+    let changed: boolean = false
     for (let i: number = 0; i < shards.length; i++) {
       const shard: WebDavBuiltShard = shards[i]
       if (prev !== null && WebDavSyncService.previousShardHash(prev, shard.id) === shard.sha256) {
         continue
       }
       await WebDavSyncService.writeRemote(rootUrl + shard.path, config, shard.raw)
+      changed = true
     }
+    return changed
+  }
+
+  private static manifestDatasetChanged(prev: SyncManifestDataset | null, shards: WebDavBuiltShard[]): boolean {
+    if (prev === null) {
+      return shards.length > 0
+    }
+    if (prev.shards.length !== shards.length) {
+      return true
+    }
+    for (let i: number = 0; i < shards.length; i++) {
+      const shard: WebDavBuiltShard = shards[i]
+      const old: SyncManifestShard | null = WebDavSyncService.previousShard(prev, shard.id)
+      if (old === null ||
+        old.path !== shard.path ||
+        old.sha256 !== shard.sha256 ||
+        old.recordCount !== shard.recordCount ||
+        old.updatedAt !== shard.updatedAt) {
+        return true
+      }
+    }
+    return false
   }
 
   private static async buildShards(envelope: SyncEnvelopeV1, datasetId: string): Promise<WebDavBuiltShard[]> {
@@ -224,6 +263,7 @@ export class WebDavSyncService {
     for (let i: number = 0; i < ids.length; i++) {
       const shardId: string = ids[i]
       const shardEnvelope: SyncEnvelopeV1 = WebDavSyncService.filterShard(envelope, datasetId, shardId)
+      WebDavSyncService.sortShardEnvelope(shardEnvelope, datasetId)
       shardEnvelope.generatedAt = WebDavSyncService.stableGeneratedAt(shardEnvelope, datasetId)
       shardEnvelope.datasetId = datasetId
       shardEnvelope.shardId = shardId
@@ -462,6 +502,57 @@ export class WebDavSyncService {
     return new Date(updatedAt).toISOString()
   }
 
+  private static sortShardEnvelope(envelope: SyncEnvelopeV1, datasetId: string): void {
+    if (datasetId === DATASET_READ_PROGRESS) {
+      envelope.datasets.readProgress.sort((a: SyncReadProgressRecord, b: SyncReadProgressRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey + ':' + a.gid, b.scopeKey + ':' + b.gid)
+      })
+    } else if (datasetId === DATASET_VIEWED_HISTORY) {
+      envelope.datasets.viewedHistory.sort((a: SyncViewedHistoryRecord, b: SyncViewedHistoryRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey + ':' + a.gid, b.scopeKey + ':' + b.gid)
+      })
+    } else if (datasetId === DATASET_LOCAL_FAVORITES) {
+      envelope.datasets.localFavorites.sort((a: SyncLocalFavoriteRecord, b: SyncLocalFavoriteRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey + ':' + a.gid, b.scopeKey + ':' + b.gid)
+      })
+    } else if (datasetId === DATASET_SEARCH_HISTORY) {
+      envelope.datasets.searchHistory.sort((a: SyncSearchHistoryRecord, b: SyncSearchHistoryRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey + ':' + a.queryText, b.scopeKey + ':' + b.queryText)
+      })
+    } else if (datasetId === DATASET_LOCAL_BLOCK) {
+      envelope.datasets.localBlockSettings.sort((a: SyncLocalBlockSettingsRecord, b: SyncLocalBlockSettingsRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey, b.scopeKey)
+      })
+      envelope.datasets.localBlockRules.sort((a: SyncLocalBlockRuleRecord, b: SyncLocalBlockRuleRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey + ':' + a.ruleId, b.scopeKey + ':' + b.ruleId)
+      })
+    } else if (datasetId === DATASET_IMAGE_BLOCK) {
+      envelope.datasets.imageBlockSubscriptions.sort((a: SyncImageBlockSubscriptionRecord, b: SyncImageBlockSubscriptionRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey + ':' + a.feedId, b.scopeKey + ':' + b.feedId)
+      })
+      envelope.datasets.imageBlockRules.sort((a: SyncImageBlockRuleRecord, b: SyncImageBlockRuleRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey + ':' + a.ruleId, b.scopeKey + ':' + b.ruleId)
+      })
+    } else if (datasetId === DATASET_CUSTOM_PROFILES) {
+      envelope.datasets.customProfiles.sort((a: SyncCustomProfileRecord, b: SyncCustomProfileRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey + ':' + a.uuid, b.scopeKey + ':' + b.uuid)
+      })
+      envelope.datasets.customProfileSelection.sort((a: SyncCustomProfileSelectionRecord, b: SyncCustomProfileSelectionRecord): number => {
+        return WebDavSyncService.compareKey(a.scopeKey, b.scopeKey)
+      })
+    }
+  }
+
+  private static compareKey(a: string, b: string): number {
+    if (a < b) {
+      return -1
+    }
+    if (a > b) {
+      return 1
+    }
+    return 0
+  }
+
   private static replaceManifestDataset(
     manifest: SyncManifestV1,
     datasetId: string,
@@ -489,12 +580,17 @@ export class WebDavSyncService {
   }
 
   private static previousShardHash(dataset: SyncManifestDataset, shardId: string): string {
+    const shard: SyncManifestShard | null = WebDavSyncService.previousShard(dataset, shardId)
+    return shard === null ? '' : shard.sha256
+  }
+
+  private static previousShard(dataset: SyncManifestDataset, shardId: string): SyncManifestShard | null {
     for (let i: number = 0; i < dataset.shards.length; i++) {
       if (dataset.shards[i].id === shardId) {
-        return dataset.shards[i].sha256
+        return dataset.shards[i]
       }
     }
-    return ''
+    return null
   }
 
   private static findManifestDataset(manifest: SyncManifestV1, datasetId: string): SyncManifestDataset | null {
