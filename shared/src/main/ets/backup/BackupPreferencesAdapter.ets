@@ -91,6 +91,23 @@ export class BackupPreferencesAdapter {
     return BackupPreferencesAdapter.PLAINTEXT_EXCLUDED_KEYS.indexOf(key) >= 0
   }
 
+  private static acceptsKey(key: string, allowSecret: boolean): boolean {
+    if (BackupPreferencesAdapter.isVolatileExcluded(key)) {
+      return false
+    }
+    const secretKey: boolean = BackupSecretDenylist.isSecret(key)
+    if (!allowSecret && secretKey) {
+      return false
+    }
+    if (!allowSecret && BackupPreferencesAdapter.isPlaintextExcluded(key)) {
+      return false
+    }
+    if (allowSecret && !secretKey) {
+      return false
+    }
+    return true
+  }
+
   // Write a backed-up map back into the store. `allowSecret=false` re-checks the denylist so a tampered
   // plaintext backup can never smuggle a credential key in; `allowSecret=true` is used only for the
   // section decrypted from the cipher container.
@@ -106,20 +123,37 @@ export class BackupPreferencesAdapter {
     const keys: string[] = Object.keys(map)
     for (let i: number = 0; i < keys.length; i++) {
       const key: string = keys[i]
-      if (BackupPreferencesAdapter.isVolatileExcluded(key)) {
-        continue
-      }
-      const secretKey: boolean = BackupSecretDenylist.isSecret(key)
-      if (!allowSecret && secretKey) {
-        continue
-      }
-      if (!allowSecret && BackupPreferencesAdapter.isPlaintextExcluded(key)) {
-        continue
-      }
-      if (allowSecret && !secretKey) {
+      if (!BackupPreferencesAdapter.acceptsKey(key, allowSecret)) {
         continue
       }
       store.putSync(key, map[key])
+    }
+    store.flushSync()
+  }
+
+  static async replace(
+    context: common.UIAbilityContext,
+    map: SettingsMap,
+    allowSecret: boolean,
+  ): Promise<void> {
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    const all = store.getAllSync() as Record<string, preferences.ValueType>
+    const existingKeys: string[] = Object.keys(all)
+    for (let i: number = 0; i < existingKeys.length; i++) {
+      const key: string = existingKeys[i]
+      if (BackupPreferencesAdapter.acceptsKey(key, allowSecret) && map[key] === undefined) {
+        store.deleteSync(key)
+      }
+    }
+    const keys: string[] = Object.keys(map)
+    for (let i: number = 0; i < keys.length; i++) {
+      const key: string = keys[i]
+      if (BackupPreferencesAdapter.acceptsKey(key, allowSecret)) {
+        store.putSync(key, map[key])
+      }
     }
     store.flushSync()
   }

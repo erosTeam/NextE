@@ -61,6 +61,7 @@ const adapter = read('shared/src/main/ets/backup/BackupPreferencesAdapter.ets')
 ok('adapter splits store by secret + re-checks denylist on restore + reapplies via bootstrap',
   /exportPreferences\(/.test(adapter) &&
     /exportSecrets\(/.test(adapter) &&
+    /acceptsKey\(key: string, allowSecret: boolean\)/.test(adapter) &&
     /const secretKey: boolean = BackupSecretDenylist\.isSecret\(key\)/.test(adapter) &&
     /!allowSecret && secretKey/.test(adapter) &&
     /allowSecret && !secretKey/.test(adapter) &&
@@ -87,6 +88,12 @@ ok('Preferences backup excludes volatile runtime state from plaintext and encryp
     /StorageKeys\.DOWNLOAD_ARCHIVE_BOT_BALANCE_GP/.test(adapter) &&
     /StorageKeys\.DOWNLOAD_ARCHIVE_BOT_BALANCE_UPDATED_AT/.test(adapter) &&
     /BackupPreferencesAdapter\.isVolatileExcluded\(key\)[\s\S]*continue/.test(adapter))
+ok('Preferences rollback replaces the backup scope and deletes import-added keys',
+  /static async replace\(/.test(adapter) &&
+    /store\.getAllSync\(\)/.test(adapter) &&
+    /store\.deleteSync\(key\)/.test(adapter) &&
+    /map\[key\] === undefined/.test(adapter) &&
+    /BackupPreferencesAdapter\.acceptsKey\(key, allowSecret\)/.test(adapter))
 
 const svc = read('shared/src/main/ets/backup/BackupService.ets')
 ok('service seals into the encrypted container only when includeSecrets',
@@ -104,6 +111,14 @@ ok('an encrypted file without a password surfaces password_required; wrong passw
     /code: 'bad_password'/.test(svc))
 ok('checksum is verified on parse',
   /BackupChecksum\.verifyEnvelope\(envelope\)/.test(svc) && /code: 'bad_checksum'/.test(svc))
+ok('restore snapshots durable stores and rolls back on section failure',
+  /const rollbackPreferences: SettingsMap = await BackupPreferencesAdapter\.exportPreferences\(context\)/.test(svc) &&
+    /const rollbackLocalData: BackupLocalDataSection = await BackupLocalDataAdapter\.exportSection\(context\)/.test(svc) &&
+    /const rollbackSecrets: SettingsMap = await BackupPreferencesAdapter\.exportSecrets\(context\)/.test(svc) &&
+    /await BackupPreferencesAdapter\.replace\(context, rollbackPreferences, false\)/.test(svc) &&
+    /await BackupLocalDataAdapter\.restoreSection\(context, rollbackLocalData\)/.test(svc) &&
+    /await BackupPreferencesAdapter\.replace\(context, rollbackSecrets, true\)/.test(svc) &&
+    /failedSections: \[failedSection\]/.test(svc))
 
 ok('shared exports BackupService + types',
   /export \{ BackupService \}/.test(read('shared/src/main/ets/Index.ets')))

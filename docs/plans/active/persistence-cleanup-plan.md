@@ -108,7 +108,7 @@ Acceptance:
 
 ### Phase 1: Import Preview And Diagnostics
 
-Status: main path implemented; negative-file emulator cases remain.
+Status: main path implemented; source contract covers parse diagnostics; negative-file emulator cases remain.
 
 Goal: importing a backup should be explainable before and after the user confirms.
 
@@ -127,11 +127,15 @@ Acceptance:
   password input was changed to a state-bound field.
 - Emulator QA covered encrypted import with the correct password and restore-preview counts, including
   encrypted type and sensitive-item count.
+- Source contract covers parser code mapping for invalid JSON, oversized file, foreign backup,
+  unsupported version, malformed envelope, and bad checksum.
 - Remaining emulator QA: invalid JSON, bad checksum, and wrong-password feedback. The system file picker's
   "My phone" storage is not visible through ordinary `hdc shell` paths, so bad files were not injected
   through a test-only app path.
 
 ### Phase 2: Restore Safety
+
+Status: service rollback implemented; runtime failure-injection QA remains.
 
 Goal: restore should not leave a half-written app state when a section fails.
 
@@ -143,7 +147,8 @@ Scope:
 
 Acceptance:
 
-- A deterministic restore-failure check proves restored Preferences/localData are rolled back.
+- Contract proves restore snapshots Preferences/localData/secrets and rolls them back on failure.
+- Preferences rollback replaces the backup scope, including deleting keys introduced by a failed import.
 - Emulator QA covers a failed import and a subsequent valid import.
 
 ### Phase 3: Dataset Inventory Contract
@@ -187,8 +192,7 @@ Acceptance:
 
 ## Current Next Action
 
-Finish Phase 1 negative-file emulator cases, then decide whether Phase 2 rollback is needed before broader
-dataset-inventory work.
+Run Phase 2 gates for the restore rollback slice, then continue into Phase 3 dataset inventory.
 
 ## Emulator Validation
 
