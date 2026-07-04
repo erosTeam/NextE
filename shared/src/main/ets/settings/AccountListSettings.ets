@@ -14,8 +14,6 @@ import { connectAccountList, AccountListState } from '../state/AccountListState'
  * or restores, so login persistence can't break. Switching loads a saved bundle into the jar (in
  * CookieJarSettings). Only logs counts/ids, never cookie values.
  */
-const ACCOUNTS_KEY: string = 'auth.accounts'
-
 class AccountRecord {
   memberId: string = ''
   bundle: string = ''
@@ -81,7 +79,7 @@ export class AccountListSettings {
       context,
       StorageKeys.STORE_SETTINGS,
     )
-    return AccountListSettings.parse(store.getSync(ACCOUNTS_KEY, '') as string)
+    return AccountListSettings.parse(store.getSync(StorageKeys.AUTH_ACCOUNTS, '') as string)
   }
 
   /** Mirror the persisted list into the reactive state (no mutation). */
@@ -107,7 +105,7 @@ export class AccountListSettings {
         StorageKeys.STORE_SETTINGS,
       )
       const records: AccountRecord[] = AccountListSettings.parse(
-        store.getSync(ACCOUNTS_KEY, '') as string,
+        store.getSync(StorageKeys.AUTH_ACCOUNTS, '') as string,
       )
       const updated: AccountRecord[] = []
       let found: boolean = false
@@ -122,7 +120,7 @@ export class AccountListSettings {
       if (!found) {
         updated.push(new AccountRecord(mid, bundle))
       }
-      store.putSync(ACCOUNTS_KEY, AccountListSettings.serialize(updated))
+      store.putSync(StorageKeys.AUTH_ACCOUNTS, AccountListSettings.serialize(updated))
       store.flushSync()
       AccountListSettings.syncState(updated)
       DiagnosticLogger.info('auth', 'account_recorded', `count=${updated.length}`)
@@ -155,7 +153,7 @@ export class AccountListSettings {
         StorageKeys.STORE_SETTINGS,
       )
       const records: AccountRecord[] = AccountListSettings.parse(
-        store.getSync(ACCOUNTS_KEY, '') as string,
+        store.getSync(StorageKeys.AUTH_ACCOUNTS, '') as string,
       )
       const updated: AccountRecord[] = []
       for (const r of records) {
@@ -164,7 +162,7 @@ export class AccountListSettings {
           remaining.push(r.memberId)
         }
       }
-      store.putSync(ACCOUNTS_KEY, AccountListSettings.serialize(updated))
+      store.putSync(StorageKeys.AUTH_ACCOUNTS, AccountListSettings.serialize(updated))
       store.flushSync()
       AccountListSettings.syncState(updated)
     } catch (error) {

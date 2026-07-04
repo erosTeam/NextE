@@ -102,5 +102,6 @@ export class StorageKeys {
 
   // sensitive auth bundle (redacted in logs, never committed)
   static readonly COOKIE_JAR: string = 'auth.cookieJar'
+  static readonly AUTH_ACCOUNTS: string = 'auth.accounts'
   static readonly USER_PROFILE_PREFIX: string = 'auth.profile.'
 }

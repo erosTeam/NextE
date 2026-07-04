@@ -112,6 +112,7 @@ Allowed `Sync` values:
 | StorageKeys.DIAGNOSTICS_ENABLED | setting | plaintext | excluded | Diagnostics switch |
 | StorageKeys.DIAGNOSTICS_MIN_LEVEL | setting | plaintext | excluded | Diagnostics level |
 | StorageKeys.COOKIE_JAR | secret | encrypted-only | excluded | EH cookie jar |
+| StorageKeys.AUTH_ACCOUNTS | secret | encrypted-only | excluded | Saved EH account bundles |
 | StorageKeys.USER_PROFILE_PREFIX | secret-prefix | encrypted-only | excluded | Saved EH account profile prefix |
 
 ## LocalDataStore Tables

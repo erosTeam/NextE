@@ -1,3 +1,5 @@
+import { StorageKeys } from '../constants/StorageKeys'
+
 /**
  * Splits the single `nexte_settings` Preferences store into plaintext-safe keys and secret keys.
  *
@@ -19,7 +21,7 @@ export class BackupSecretDenylist {
   ]
 
   // Exact secret keys with no obvious substring marker (the saved-accounts credential bundle list).
-  private static readonly EXACT_KEYS: string[] = ['auth.accounts']
+  private static readonly EXACT_KEYS: string[] = [StorageKeys.AUTH_ACCOUNTS]
 
   /** True when the key is a secret — excluded from plaintext, included only in the encrypted section. */
   static isSecret(key: string): boolean {

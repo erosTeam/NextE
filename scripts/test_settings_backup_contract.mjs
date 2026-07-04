@@ -55,7 +55,7 @@ ok('denylist marks cookie/apikey + auth.accounts as secret',
   /static isSecret\(key: string\): boolean/.test(deny) &&
     /'cookie'/.test(deny) &&
     /'apikey'/.test(deny) &&
-    /'auth\.accounts'/.test(deny))
+    /StorageKeys\.AUTH_ACCOUNTS/.test(deny))
 
 const adapter = read('shared/src/main/ets/backup/BackupPreferencesAdapter.ets')
 ok('adapter splits store by secret + re-checks denylist on restore + reapplies via bootstrap',
