@@ -731,3 +731,13 @@ Primary information: when the reader chrome is visible but the thumbnail strip i
 Primary action: center/edge taps above the visible toolbar continue to route through the reader tap zones; opening the thumbnail strip still shows the tappable strip.
 Reuse or deviation: reuse the existing reader bottom toolbar, local `showThumbStrip` toggle, and tap overlay; deviate only by collapsing the strip container height/padding to 0 and making bottom chrome height conditional when the strip is closed.
 Verification: reader thumbnail filmstrip contract, reader tap-zone contract, UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build.
+
+## Active: gallery comment HTML links
+
+Status: active
+Reference implementation: `../eros_fe/lib/common/parser/gallery_detail_parser.dart` `parseGalleryComment()` linkify pass, `../eros_fe/lib/const/const.dart` `commentUrlRegExp`, and NextE `feature/gallery/src/main/ets/components/GalleryCommentsCard.ets` existing comment `Span` URL handling.
+Surface type: Gallery detail comment preview and full comments page body text.
+Primary information: comments keep their original readable text; HTML anchor labels remain labels instead of being replaced by raw URLs.
+Primary action: tapping a linked comment label opens the href through the existing EH URL router or in-app web page; plain text, mentions, replies, translation, voting, and comment composition stay unchanged.
+Reuse or deviation: reuse `EhCommentParser`, `EhGalleryComment`, `GalleryCommentsCard` `CommentTextSegment`, `EhUrlRouter`, `GalleryWeb`, and page cache cloning; deviate from FE only by storing anchor start/end metadata instead of keeping a parsed DOM element.
+Verification: comment parser contract, full comment entry contract, comment translation contract, UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build.

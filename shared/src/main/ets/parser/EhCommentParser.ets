@@ -1,5 +1,10 @@
-import { EhGalleryComment } from '../model/EhGalleryComment'
+import { EhGalleryComment, EhGalleryCommentLink } from '../model/EhGalleryComment'
 import { HtmlSelectorUtils } from './HtmlSelectorUtils'
+
+class CommentBodyParseResult {
+  text: string = ''
+  links: EhGalleryCommentLink[] = []
+}
 
 /**
  * Parses the gallery-detail comment list. Each comment is a `<div class="c1">` block holding a
@@ -21,6 +26,8 @@ export class EhCommentParser {
   private static readonly RE_C7: RegExp = /<div class="c7"[^>]*>([\s\S]*?)<\/div>/
   private static readonly RE_SPAN: RegExp = /<span[^>]*>([\s\S]*?)<\/span>/g
   private static readonly RE_FIRST_TAG: RegExp = /<[^>]+>/
+  private static readonly RE_BODY_LINK: RegExp =
+    /<a\b[^>]*\bhref=(["'])([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi
   private static readonly RE_POSTED_PARTS: RegExp =
     /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4}),\s+(\d{1,2}):(\d{2})/
 
@@ -31,8 +38,10 @@ export class EhCommentParser {
     while (m !== null) {
       if (m[1] !== undefined && m[2] !== undefined) {
         const c: EhGalleryComment = new EhGalleryComment()
+        const body: CommentBodyParseResult = EhCommentParser.parseBody(m[2])
         c.commentId = m[1]
-        c.contentText = EhCommentParser.stripHtml(m[2])
+        c.contentText = body.text
+        c.contentLinks = body.links
         c.postedTime = EhCommentParser.localPostedTime(
           HtmlSelectorUtils.group1(m[0], EhCommentParser.RE_DATE).trim(),
         )
@@ -179,9 +188,88 @@ export class EhCommentParser {
   }
 
   private static stripHtml(html: string): string {
+    return EhCommentParser.stripHtmlNoLinks(html)
+  }
+
+  private static stripHtmlNoLinks(html: string): string {
+    return EhCommentParser.stripHtmlFragment(html).trim()
+  }
+
+  private static stripHtmlFragment(html: string): string {
     let s: string = html
     s = s.replace(/<br\s*\/?>/g, '\n')
     s = s.replace(/<[^>]+>/g, '')
-    return HtmlSelectorUtils.htmlUnescape(s).replace(/\u00A0/g, ' ').trim()
+    return HtmlSelectorUtils.htmlUnescape(s).replace(/\u00A0/g, ' ')
+  }
+
+  private static parseBody(html: string): CommentBodyParseResult {
+    const result: CommentBodyParseResult = new CommentBodyParseResult()
+    const links: EhGalleryCommentLink[] = []
+    let text: string = ''
+    let cursor: number = 0
+    const re: RegExp = new RegExp(EhCommentParser.RE_BODY_LINK.source, 'gi')
+    let m: RegExpExecArray | null = re.exec(html)
+    while (m !== null) {
+      const start: number = m.index !== undefined ? m.index : 0
+      if (start > cursor) {
+        text += EhCommentParser.stripHtmlFragment(html.substring(cursor, start))
+      }
+      const href: string = m[2] !== undefined ? m[2] : ''
+      const labelHtml: string = m[3] !== undefined ? m[3] : ''
+      const url: string = HtmlSelectorUtils.htmlUnescape(href).replace(/\u00A0/g, ' ').trim()
+      const label: string = EhCommentParser.stripHtmlNoLinks(labelHtml)
+      const visible: string = label.length > 0 ? label : url
+      const linkStart: number = text.length
+      text += visible
+      if (url.length > 0 && visible.length > 0) {
+        const link: EhGalleryCommentLink = new EhGalleryCommentLink()
+        link.start = linkStart
+        link.end = linkStart + visible.length
+        link.url = url
+        links.push(link)
+      }
+      cursor = re.lastIndex
+      m = re.exec(html)
+    }
+    if (cursor < html.length) {
+      text += EhCommentParser.stripHtmlFragment(html.substring(cursor))
+    }
+    return EhCommentParser.trimBodyParseResult(text, links)
+  }
+
+  private static trimBodyParseResult(text: string, links: EhGalleryCommentLink[]): CommentBodyParseResult {
+    const result: CommentBodyParseResult = new CommentBodyParseResult()
+    const startTrim: number = EhCommentParser.leadingWhitespace(text)
+    const endTrim: number = EhCommentParser.trailingWhitespace(text)
+    const end: number = text.length - endTrim
+    result.text = startTrim < end ? text.substring(startTrim, end) : ''
+    for (let i = 0; i < links.length; i++) {
+      const raw: EhGalleryCommentLink = links[i]
+      if (raw.end <= startTrim || raw.start >= end) {
+        continue
+      }
+      const link: EhGalleryCommentLink = new EhGalleryCommentLink()
+      link.start = raw.start - startTrim
+      link.end = raw.end - startTrim
+      link.url = raw.url
+      result.links.push(link)
+    }
+    return result
+  }
+
+  private static leadingWhitespace(text: string): number {
+    let count: number = 0
+    while (count < text.length && text.charAt(count).trim().length === 0) {
+      count++
+    }
+    return count
+  }
+
+  private static trailingWhitespace(text: string): number {
+    let count: number = 0
+    while (count < text.length && text.charAt(text.length - count - 1).trim().length === 0) {
+      count++
+    }
+    return count
   }
 }

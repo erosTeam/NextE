@@ -4,6 +4,7 @@ import {
   CommentTranslationService,
   EhConstants,
   EhGalleryComment,
+  EhGalleryCommentLink,
   EhUrlRouter,
   GalleryWebParams,
   LocalBlockService,
@@ -930,11 +931,15 @@ export struct GalleryCommentsCard {
     return nextSeq
   }
 
-  private commentTextSegments(text: string, c: EhGalleryComment): CommentTextSegment[] {
-    const out: CommentTextSegment[] = []
+  private pushUrlTextSegments(
+    out: CommentTextSegment[],
+    seq: number,
+    text: string,
+    c: EhGalleryComment,
+  ): number {
     COMMENT_LINK_RE.lastIndex = 0
     let cursor: number = 0
-    let seq: number = 0
+    let nextSeq: number = seq
     let match: RegExpExecArray | null = COMMENT_LINK_RE.exec(text)
     while (match !== null) {
       const raw: string = match[0]
@@ -942,19 +947,69 @@ export struct GalleryCommentsCard {
       const end: number = COMMENT_LINK_RE.lastIndex
       const url: string = this.cleanCommentUrl(raw)
       if (start > cursor) {
-        seq = this.pushCommentTextSegments(out, seq, text.substring(cursor, start), c)
+        nextSeq = this.pushCommentTextSegments(out, nextSeq, text.substring(cursor, start), c)
       }
       if (url.length > 0) {
-        out.push(new CommentTextSegment(`u${seq++}`, url, url))
+        out.push(new CommentTextSegment(`u${nextSeq++}`, url, url))
       }
       if (url.length < raw.length) {
-        seq = this.pushCommentTextSegments(out, seq, raw.substring(url.length), c)
+        nextSeq = this.pushCommentTextSegments(out, nextSeq, raw.substring(url.length), c)
       }
       cursor = end
       match = COMMENT_LINK_RE.exec(text)
     }
     if (cursor < text.length) {
-      this.pushCommentTextSegments(out, seq, text.substring(cursor), c)
+      nextSeq = this.pushCommentTextSegments(out, nextSeq, text.substring(cursor), c)
+    }
+    return nextSeq
+  }
+
+  private commentLinkOffset(text: string, c: EhGalleryComment): number {
+    if (text === c.contentText) {
+      return 0
+    }
+    return c.contentText.indexOf(text)
+  }
+
+  private pushHtmlLinkTextSegments(
+    out: CommentTextSegment[],
+    seq: number,
+    text: string,
+    c: EhGalleryComment,
+  ): number {
+    const offset: number = this.commentLinkOffset(text, c)
+    if (offset < 0) {
+      return seq
+    }
+    let cursor: number = 0
+    let nextSeq: number = seq
+    for (let i = 0; i < c.contentLinks.length; i++) {
+      const link: EhGalleryCommentLink = c.contentLinks[i]
+      const start: number = link.start - offset
+      const end: number = link.end - offset
+      if (start < cursor || end <= 0 || start >= text.length || end > text.length) {
+        continue
+      }
+      if (start > cursor) {
+        nextSeq = this.pushUrlTextSegments(out, nextSeq, text.substring(cursor, start), c)
+      }
+      if (link.url.length > 0 && end > start) {
+        out.push(new CommentTextSegment(`h${nextSeq++}`, text.substring(start, end), link.url))
+      }
+      cursor = end
+    }
+    if (cursor < text.length) {
+      nextSeq = this.pushUrlTextSegments(out, nextSeq, text.substring(cursor), c)
+    }
+    return nextSeq
+  }
+
+  private commentTextSegments(text: string, c: EhGalleryComment): CommentTextSegment[] {
+    const out: CommentTextSegment[] = []
+    if (c.contentLinks.length > 0) {
+      this.pushHtmlLinkTextSegments(out, 0, text, c)
+    } else {
+      this.pushUrlTextSegments(out, 0, text, c)
     }
     if (out.length === 0) {
       out.push(new CommentTextSegment('t0', text))

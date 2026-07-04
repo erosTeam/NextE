@@ -11,6 +11,7 @@ const RE_SCORE = /<div class="c5 nosel"[^>]*>[\s\S]*?([+-]\d+)/
 const RE_C4 = /<div class="c4 nosel"[^>]*>([\s\S]*?)<\/div>/
 const RE_C7 = /<div class="c7"[^>]*>([\s\S]*?)<\/div>/
 const RE_SPAN = /<span[^>]*>([\s\S]*?)<\/span>/g
+const RE_BODY_LINK = /<a\b[^>]*\bhref=(["'])([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi
 const RE_POSTED_PARTS = /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4}),\s+(\d{1,2}):(\d{2})/
 const g1 = (t, re) => { const m = t.match(re); return m && m[1] !== undefined ? m[1] : '' }
 const namedEntities = new Map([
@@ -28,8 +29,45 @@ function htmlUnescape(s) {
     return namedEntities.get(ent) ?? match
   })
 }
+function stripHtmlFragment(h) {
+  return htmlUnescape(h.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '')).replace(/\u00A0/g, ' ')
+}
+function stripHtmlNoLinks(h) {
+  return stripHtmlFragment(h).trim()
+}
+function trimBodyResult(text, links) {
+  const startTrim = text.length - text.trimStart().length
+  const endTrim = text.length - text.trimEnd().length
+  const end = text.length - endTrim
+  return {
+    text: startTrim < end ? text.substring(startTrim, end) : '',
+    links: links
+      .filter(l => l.end > startTrim && l.start < end)
+      .map(l => ({ start: l.start - startTrim, end: l.end - startTrim, url: l.url })),
+  }
+}
+function parseBody(h) {
+  let text = ''
+  const links = []
+  let cursor = 0
+  let m
+  RE_BODY_LINK.lastIndex = 0
+  while ((m = RE_BODY_LINK.exec(h)) !== null) {
+    const start = m.index ?? 0
+    if (start > cursor) text += stripHtmlFragment(h.substring(cursor, start))
+    const url = htmlUnescape(m[2] || '').replace(/\u00A0/g, ' ').trim()
+    const label = stripHtmlNoLinks(m[3] || '')
+    const visible = label.length > 0 ? label : url
+    const linkStart = text.length
+    text += visible
+    if (url.length > 0 && visible.length > 0) links.push({ start: linkStart, end: linkStart + visible.length, url })
+    cursor = RE_BODY_LINK.lastIndex
+  }
+  if (cursor < h.length) text += stripHtmlFragment(h.substring(cursor))
+  return trimBodyResult(text, links)
+}
 function stripHtml(h) {
-  return htmlUnescape(h.replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '')).replace(/\u00A0/g, ' ').trim()
+  return stripHtmlNoLinks(h)
 }
 const monthIndex = (m) => [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -85,8 +123,9 @@ function parse(html) {
   let m
   while ((m = re.exec(html)) !== null) {
     const c4 = g1(m[0], RE_C4)
+    const body = parseBody(m[2] || '')
     out.push({
-      commentId: m[1], contentText: stripHtml(m[2]),
+      commentId: m[1], contentText: body.text, contentLinks: body.links,
       postedTime: localPostedTime(g1(m[0], RE_DATE).trim()), author: g1(m[0], RE_AUTHOR).trim(),
       memberId: g1(m[0], RE_MEMBER_ID).trim(),
       score: g1(m[0], RE_SCORE).trim(), vote: parseVote(c4),
@@ -124,6 +163,11 @@ if (uploaderWithoutMarker[0] && !uploaderWithoutMarker[0].isUploader) fail(`scor
 const numericEntities = parse(`<a name="c5"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=505">d</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_10">&#37;realporn&#37; &amp; &#x25;literal&#x25;</div></div>`)
 if (numericEntities[0] && numericEntities[0].contentText !== '%realporn% & %literal%') fail(`numeric entities should decode for literal matching: ${JSON.stringify(numericEntities[0])}`)
 
+const linkedLabel = parse(`<a name="c6"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=606">e</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_11">see <a href="https://e-hentai.org/g/4029582/a90c43f079/">this gallery</a> ok</div></div>`)
+if (linkedLabel[0] && linkedLabel[0].contentText !== 'see this gallery ok') fail(`linked label should stay readable without exposing href: ${JSON.stringify(linkedLabel[0])}`)
+if (linkedLabel[0] && linkedLabel[0].contentText.includes('4029582')) fail(`linked label must not append raw URL into visible text: ${JSON.stringify(linkedLabel[0])}`)
+if (linkedLabel[0] && JSON.stringify(linkedLabel[0].contentLinks) !== JSON.stringify([{ start: 4, end: 16, url: 'https://e-hentai.org/g/4029582/a90c43f079/' }])) fail(`linked label href metadata wrong: ${JSON.stringify(linkedLabel[0])}`)
+
 // 2. Real fixture.
 const realPath = new URL('./fixtures/gdetail_real.html', import.meta.url)
 if (fs.existsSync(realPath)) {
@@ -147,10 +191,10 @@ if (fs.existsSync(realPath)) {
 
 const modelSrc = fs.readFileSync(new URL('../shared/src/main/ets/model/EhGalleryComment.ets', import.meta.url), 'utf8')
 const parserSrc = fs.readFileSync(new URL('../shared/src/main/ets/parser/EhCommentParser.ets', import.meta.url), 'utf8')
-for (const field of ['memberId', 'vote', 'canEdit', 'canVote', 'scoreDetails']) {
+for (const field of ['memberId', 'vote', 'canEdit', 'canVote', 'scoreDetails', 'contentLinks']) {
   if (!new RegExp(`${field}:`).test(modelSrc)) fail(`model missing ${field}`)
 }
-if (!/RE_MEMBER_ID/.test(parserSrc) || !/parseVote/.test(parserSrc) || !/parseScoreDetails/.test(parserSrc) || !/localPostedTime/.test(parserSrc)) {
+if (!/RE_MEMBER_ID/.test(parserSrc) || !/parseVote/.test(parserSrc) || !/parseScoreDetails/.test(parserSrc) || !/localPostedTime/.test(parserSrc) || !/parseBody/.test(parserSrc)) {
   fail('parser missing comment metadata helpers')
 }
 if (!/c\.isUploader = m\[0\]\.includes\('Uploader Comment'\) \|\| c\.score\.length === 0/.test(parserSrc)) {

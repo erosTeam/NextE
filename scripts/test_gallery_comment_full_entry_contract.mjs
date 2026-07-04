@@ -40,6 +40,11 @@ ok('comment bubble provides a broad full-comments tap target in peek mode',
 ok('peek comment text does not consume the card tap target',
   /CommentText\(c: EhGalleryComment, text: string, clamp: boolean, color: ResourceColor\)[\s\S]*if \(clamp\) \{[\s\S]*\.maxLines\(4\)[\s\S]*\.textOverflow\(\{ overflow: TextOverflow\.Ellipsis \}\)[\s\S]*\} else \{[\s\S]*Span\(seg\.text\)[\s\S]*this\.openCommentUrl\(seg\.url\)/.test(card) &&
     !/firstCommentUrl\(text: string\)/.test(card))
+ok('html anchor comment links keep label text while clicking the stored href',
+  /EhGalleryCommentLink/.test(card) &&
+    /c\.contentLinks\.length > 0/.test(card) &&
+    /new CommentTextSegment\(`h\$\{nextSeq\+\+\}`, text\.substring\(start, end\), link\.url\)/.test(card) &&
+    /this\.openCommentUrl\(seg\.url\)/.test(card))
 ok('full comments page remains full mode and does not pass max/onMore',
   /LazyForEach\(\s*this\.commentSource[\s\S]*GalleryCommentsCard\(\{[\s\S]*referenceComments:\s*this\.comments[\s\S]*useSingleComment:\s*true[\s\S]*singleComment:\s*comment[\s\S]*onAuthor:/.test(readFileSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets'), 'utf8')) &&
     !/GalleryCommentsCard\(\{[\s\S]*max:\s*2/.test(readFileSync(join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets'), 'utf8')))

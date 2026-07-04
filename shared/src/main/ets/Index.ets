@@ -41,7 +41,7 @@ export {
 export { ViewedGallery } from './model/ViewedGallery'
 export { Favcat } from './model/Favcat'
 export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
-export { EhGalleryComment } from './model/EhGalleryComment'
+export { EhGalleryComment, EhGalleryCommentLink } from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'
 export { EhGalleryTorrent, EhGalleryTorrentList } from './model/EhGalleryTorrent'
 export {

@@ -296,6 +296,7 @@ export class GalleryDetailViewModel {
     next.author = c.author
     next.postedTime = c.postedTime
     next.contentText = c.contentText
+    next.contentLinks = c.contentLinks.slice()
     next.score = c.score
     next.vote = c.vote
     next.canEdit = c.canEdit

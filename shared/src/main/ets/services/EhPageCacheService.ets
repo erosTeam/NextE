@@ -3,7 +3,7 @@ import { relationalStore } from '@kit.ArkData'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGallery, EhGalleryVersion } from '../model/EhGallery'
-import { EhGalleryComment } from '../model/EhGalleryComment'
+import { EhGalleryComment, EhGalleryCommentLink } from '../model/EhGalleryComment'
 import { EhGalleryImage } from '../model/EhGalleryImage'
 import { Favcat } from '../model/Favcat'
 import { GalleryList } from '../model/GalleryList'
@@ -476,6 +476,7 @@ export class EhPageCacheService {
       comment.author = EhPageCacheService.safeString(c.author)
       comment.postedTime = EhPageCacheService.safeString(c.postedTime)
       comment.contentText = EhPageCacheService.safeString(c.contentText)
+      comment.contentLinks = EhPageCacheService.copyCommentLinks(c.contentLinks)
       comment.score = EhPageCacheService.safeString(c.score)
       comment.vote = EhPageCacheService.safeNumber(c.vote)
       comment.canEdit = EhPageCacheService.safeBoolean(c.canEdit)
@@ -489,6 +490,21 @@ export class EhPageCacheService {
 
   private static copyComments(comments: EhGalleryComment[]): EhGalleryComment[] {
     return EhPageCacheService.reviveComments(comments)
+  }
+
+  private static copyCommentLinks(raw: EhGalleryCommentLink[]): EhGalleryCommentLink[] {
+    const out: EhGalleryCommentLink[] = []
+    if (raw === undefined || raw === null) {
+      return out
+    }
+    raw.forEach((value: EhGalleryCommentLink) => {
+      const link: EhGalleryCommentLink = new EhGalleryCommentLink()
+      link.start = EhPageCacheService.safeNumber(value.start)
+      link.end = EhPageCacheService.safeNumber(value.end)
+      link.url = EhPageCacheService.safeString(value.url)
+      out.push(link)
+    })
+    return out
   }
 
   private static copyStringArray(raw: string[]): string[] {
