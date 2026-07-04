@@ -1,12 +1,13 @@
 import { common } from '@kit.AbilityKit'
 import { fileIo } from '@kit.CoreFileKit'
 import { image } from '@kit.ImageKit'
-import { util } from '@kit.ArkTS'
+import { taskpool, util } from '@kit.ArkTS'
 import {
   DownloadArchiverTask,
   DownloadGalleryTask,
   DownloadImageSeed,
 } from '../model/DownloadGalleryTask'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { DownloadQueueSettings } from '../settings/DownloadQueueSettings'
 import { ArchiveImageService } from './ArchiveImageService'
 
@@ -32,15 +33,7 @@ class DownloadExportEntry {
 class ZipStoreEntry {
   name: string = ''
   sourcePath: string = ''
-  content: Uint8Array | null = null
-  crc: number = 0
-  size: number = 0
-  localHeaderOffset: number = 0
-}
-
-class ZipEntryStats {
-  crc: number = 0
-  size: number = 0
+  contentText: string = ''
 }
 
 class PngIdatRange {
@@ -65,7 +58,235 @@ class PdfImageInfo {
   idatRanges: PngIdatRange[] = []
 }
 
+@Concurrent
+function writeZipStoreFileTask(filePath: string, entriesJson: string): string {
+  const fileChunkSize: number = 256 * 1024
+  const rawEntries: Record<string, string>[] = JSON.parse(entriesJson) as Record<string, string>[]
+  const crcTable: number[] = []
+
+  const ensureCrcTable = (): void => {
+    if (crcTable.length > 0) {
+      return
+    }
+    for (let i: number = 0; i < 256; i++) {
+      let crc: number = i
+      for (let bit: number = 0; bit < 8; bit++) {
+        crc = (crc & 1) !== 0 ? (0xedb88320 ^ (crc >>> 1)) : (crc >>> 1)
+      }
+      crcTable.push(crc >>> 0)
+    }
+  }
+  const updateCrc = (seed: number, bytes: Uint8Array): number => {
+    ensureCrcTable()
+    let crc: number = seed
+    for (let i: number = 0; i < bytes.byteLength; i++) {
+      crc = crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8)
+    }
+    return crc
+  }
+  const crc32 = (bytes: Uint8Array): number => {
+    return (updateCrc(0xffffffff, bytes) ^ 0xffffffff) >>> 0
+  }
+  const writeBytes = (file: fileIo.File, bytes: Uint8Array): void => {
+    if (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength) {
+      fileIo.writeSync(file.fd, bytes.buffer)
+      return
+    }
+    const exact: Uint8Array = bytes.slice(0, bytes.byteLength)
+    fileIo.writeSync(file.fd, exact.buffer)
+  }
+  const put16 = (bytes: Uint8Array, offset: number, value: number): void => {
+    bytes[offset] = value & 0xff
+    bytes[offset + 1] = (value >>> 8) & 0xff
+  }
+  const put32 = (bytes: Uint8Array, offset: number, value: number): void => {
+    bytes[offset] = value & 0xff
+    bytes[offset + 1] = (value >>> 8) & 0xff
+    bytes[offset + 2] = (value >>> 16) & 0xff
+    bytes[offset + 3] = (value >>> 24) & 0xff
+  }
+  const localHeader = (nameBytes: Uint8Array, crc: number, size: number): Uint8Array => {
+    const bytes: Uint8Array = new Uint8Array(30 + nameBytes.byteLength)
+    put32(bytes, 0, 0x04034b50)
+    put16(bytes, 4, 20)
+    put16(bytes, 6, 0x0800)
+    put16(bytes, 8, 0)
+    put16(bytes, 10, 0)
+    put16(bytes, 12, 0)
+    put32(bytes, 14, crc)
+    put32(bytes, 18, size)
+    put32(bytes, 22, size)
+    put16(bytes, 26, nameBytes.byteLength)
+    put16(bytes, 28, 0)
+    bytes.set(nameBytes, 30)
+    return bytes
+  }
+  const centralHeader = (nameBytes: Uint8Array, crc: number, size: number, localHeaderOffset: number): Uint8Array => {
+    const bytes: Uint8Array = new Uint8Array(46 + nameBytes.byteLength)
+    put32(bytes, 0, 0x02014b50)
+    put16(bytes, 4, 20)
+    put16(bytes, 6, 20)
+    put16(bytes, 8, 0x0800)
+    put16(bytes, 10, 0)
+    put16(bytes, 12, 0)
+    put16(bytes, 14, 0)
+    put32(bytes, 16, crc)
+    put32(bytes, 20, size)
+    put32(bytes, 24, size)
+    put16(bytes, 28, nameBytes.byteLength)
+    put16(bytes, 30, 0)
+    put16(bytes, 32, 0)
+    put16(bytes, 34, 0)
+    put16(bytes, 36, 0)
+    put32(bytes, 38, 0)
+    put32(bytes, 42, localHeaderOffset)
+    bytes.set(nameBytes, 46)
+    return bytes
+  }
+  const endRecord = (count: number, centralSize: number, centralOffset: number): Uint8Array => {
+    const bytes: Uint8Array = new Uint8Array(22)
+    put32(bytes, 0, 0x06054b50)
+    put16(bytes, 4, 0)
+    put16(bytes, 6, 0)
+    put16(bytes, 8, count)
+    put16(bytes, 10, count)
+    put32(bytes, 12, centralSize)
+    put32(bytes, 16, centralOffset)
+    put16(bytes, 20, 0)
+    return bytes
+  }
+  const fileStats = (path: string): number[] => {
+    let source: fileIo.File | null = null
+    try {
+      source = fileIo.openSync(path, fileIo.OpenMode.READ_ONLY)
+      const buffer: ArrayBuffer = new ArrayBuffer(fileChunkSize)
+      let crc: number = 0xffffffff
+      let size: number = 0
+      while (true) {
+        const bytesRead: number = fileIo.readSync(source.fd, buffer, { length: fileChunkSize })
+        if (bytesRead <= 0) {
+          break
+        }
+        crc = updateCrc(crc, new Uint8Array(buffer, 0, bytesRead))
+        size += bytesRead
+      }
+      return [(crc ^ 0xffffffff) >>> 0, size]
+    } finally {
+      if (source !== null) {
+        fileIo.closeSync(source)
+      }
+    }
+  }
+  const writeFileContent = (out: fileIo.File, sourcePath: string): void => {
+    let source: fileIo.File | null = null
+    try {
+      source = fileIo.openSync(sourcePath, fileIo.OpenMode.READ_ONLY)
+      const buffer: ArrayBuffer = new ArrayBuffer(fileChunkSize)
+      while (true) {
+        const bytesRead: number = fileIo.readSync(source.fd, buffer, { length: fileChunkSize })
+        if (bytesRead <= 0) {
+          break
+        }
+        fileIo.writeSync(out.fd, buffer, { length: bytesRead })
+      }
+    } finally {
+      if (source !== null) {
+        fileIo.closeSync(source)
+      }
+    }
+  }
+
+  let file: fileIo.File | null = null
+  try {
+    file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC)
+    let offset: number = 0
+    const centralRecords: Uint8Array[] = []
+    for (let i: number = 0; i < rawEntries.length; i++) {
+      const raw: Record<string, string> = rawEntries[i]
+      const name: string = raw.name
+      const sourcePath: string = raw.sourcePath
+      const contentText: string = raw.contentText
+      const nameBytes: Uint8Array = new util.TextEncoder().encodeInto(name)
+      let crc: number = 0
+      let size: number = 0
+      if (contentText.length > 0) {
+        const contentBytes: Uint8Array = new util.TextEncoder().encodeInto(contentText)
+        crc = crc32(contentBytes)
+        size = contentBytes.byteLength
+        writeBytes(file, localHeader(nameBytes, crc, size))
+        writeBytes(file, contentBytes)
+      } else {
+        const stats: number[] = fileStats(sourcePath)
+        crc = stats[0]
+        size = stats[1]
+        writeBytes(file, localHeader(nameBytes, crc, size))
+        writeFileContent(file, sourcePath)
+      }
+      centralRecords.push(centralHeader(nameBytes, crc, size, offset))
+      offset += 30 + nameBytes.byteLength + size
+    }
+    const centralOffset: number = offset
+    let centralSize: number = 0
+    for (let i: number = 0; i < centralRecords.length; i++) {
+      writeBytes(file, centralRecords[i])
+      centralSize += centralRecords[i].byteLength
+    }
+    writeBytes(file, endRecord(rawEntries.length, centralSize, centralOffset))
+  } finally {
+    if (file !== null) {
+      fileIo.closeSync(file)
+    }
+  }
+  return ''
+}
+
 export class DownloadExportService {
+  private static exportFile(fileName: string, filePath: string, description: string): DownloadExportFile {
+    const out: DownloadExportFile = new DownloadExportFile()
+    out.fileName = fileName
+    out.filePath = filePath
+    out.description = description
+    return out
+  }
+
+  private static fileMtime(path: string): number {
+    const stat: fileIo.Stat = fileIo.statSync(path)
+    return stat.mtime
+  }
+
+  private static newestEntryMtime(entries: DownloadExportEntry[]): number {
+    let newest: number = 0
+    for (let i: number = 0; i < entries.length; i++) {
+      const mtime: number = DownloadExportService.fileMtime(entries[i].sourcePath)
+      if (mtime > newest) {
+        newest = mtime
+      }
+    }
+    return newest
+  }
+
+  private static reusableExportFile(
+    fileName: string,
+    filePath: string,
+    description: string,
+    sourceMtime: number,
+  ): DownloadExportFile | null {
+    try {
+      const stat: fileIo.Stat = fileIo.statSync(filePath)
+      // ponytail: mtime freshness is enough for completed downloads; add a manifest only if stale exports are observed.
+      if (stat.size > 0 && stat.mtime >= sourceMtime) {
+        DiagnosticLogger.info(
+          'download',
+          'download_export_reuse',
+          `pathHash=${DiagnosticLogger.ownerHash(filePath)} size=${stat.size}`,
+        )
+        return DownloadExportService.exportFile(fileName, filePath, description)
+      }
+    } catch (_error) {
+    }
+    return null
+  }
+
   static async exportGallery(
     context: common.UIAbilityContext,
     task: DownloadGalleryTask,
@@ -76,23 +297,25 @@ export class DownloadExportService {
       throw new Error('no downloaded files')
     }
     const ext: string = DownloadExportService.exportExt(format)
-    const fileName: string = `${DownloadExportService.safeBaseName(task.displayTitle(), task.gid)}.${ext}`
+    const title: string = task.displayTitle()
+    const fileName: string = `${DownloadExportService.safeBaseName(title, task.gid)}.${ext}`
     const filePath: string = `${await DownloadExportService.exportDir(context)}/${fileName}`
+    const reusable: DownloadExportFile | null =
+      DownloadExportService.reusableExportFile(fileName, filePath, title, DownloadExportService.newestEntryMtime(entries))
+    if (reusable !== null) {
+      return reusable
+    }
     DownloadExportService.unlinkIfExists(filePath)
     if (format === DownloadExportFormat.PDF) {
       await PdfImageWriter.write(filePath, entries)
     } else if (format === DownloadExportFormat.EPUB) {
-      ZipStoreWriter.write(filePath, DownloadExportService.epubZipEntries(task.displayTitle(), entries))
+      await ZipStoreWriter.write(filePath, DownloadExportService.epubZipEntries(title, entries))
     } else if (format === DownloadExportFormat.HTMLZ) {
-      ZipStoreWriter.write(filePath, DownloadExportService.htmlZipEntries(task.displayTitle(), entries))
+      await ZipStoreWriter.write(filePath, DownloadExportService.htmlZipEntries(title, entries))
     } else {
-      ZipStoreWriter.write(filePath, DownloadExportService.galleryZipEntries(entries))
+      await ZipStoreWriter.write(filePath, DownloadExportService.galleryZipEntries(entries))
     }
-    const out: DownloadExportFile = new DownloadExportFile()
-    out.fileName = fileName
-    out.filePath = filePath
-    out.description = task.displayTitle()
-    return out
+    return DownloadExportService.exportFile(fileName, filePath, title)
   }
 
   static async exportArchiver(
@@ -107,23 +330,25 @@ export class DownloadExportService {
       throw new Error('archive has no readable images')
     }
     const ext: string = DownloadExportService.exportExt(format)
-    const fileName: string = `${DownloadExportService.safeBaseName(task.displayTitle(), task.gid)}.${ext}`
+    const title: string = task.displayTitle()
+    const fileName: string = `${DownloadExportService.safeBaseName(title, task.gid)}.${ext}`
     const filePath: string = `${await DownloadExportService.exportDir(context)}/${fileName}`
+    const reusable: DownloadExportFile | null =
+      DownloadExportService.reusableExportFile(fileName, filePath, title, DownloadExportService.newestEntryMtime(entries))
+    if (reusable !== null) {
+      return reusable
+    }
     DownloadExportService.unlinkIfExists(filePath)
     if (format === DownloadExportFormat.PDF) {
       await PdfImageWriter.write(filePath, entries)
     } else if (format === DownloadExportFormat.EPUB) {
-      ZipStoreWriter.write(filePath, DownloadExportService.epubZipEntries(task.displayTitle(), entries))
+      await ZipStoreWriter.write(filePath, DownloadExportService.epubZipEntries(title, entries))
     } else if (format === DownloadExportFormat.HTMLZ) {
-      ZipStoreWriter.write(filePath, DownloadExportService.htmlZipEntries(task.displayTitle(), entries))
+      await ZipStoreWriter.write(filePath, DownloadExportService.htmlZipEntries(title, entries))
     } else {
-      ZipStoreWriter.write(filePath, DownloadExportService.galleryZipEntries(entries))
+      await ZipStoreWriter.write(filePath, DownloadExportService.galleryZipEntries(entries))
     }
-    const out: DownloadExportFile = new DownloadExportFile()
-    out.fileName = fileName
-    out.filePath = filePath
-    out.description = task.displayTitle()
-    return out
+    return DownloadExportService.exportFile(fileName, filePath, title)
   }
 
   static originalArchiverFile(task: DownloadArchiverTask): DownloadExportFile {
@@ -145,13 +370,15 @@ export class DownloadExportService {
   ): Promise<DownloadExportFile> {
     const source: DownloadExportFile = DownloadExportService.originalArchiverFile(task)
     const filePath: string = `${await DownloadExportService.exportDir(context)}/${source.fileName}`
+    const reusable: DownloadExportFile | null =
+      DownloadExportService.reusableExportFile(source.fileName, filePath, source.description,
+        DownloadExportService.fileMtime(source.filePath))
+    if (reusable !== null) {
+      return reusable
+    }
     DownloadExportService.unlinkIfExists(filePath)
     await DownloadExportService.copyFile(source.filePath, filePath)
-    const out: DownloadExportFile = new DownloadExportFile()
-    out.fileName = source.fileName
-    out.filePath = filePath
-    out.description = source.description
-    return out
+    return DownloadExportService.exportFile(source.fileName, filePath, source.description)
   }
 
   private static pathEntries(paths: string[]): DownloadExportEntry[] {
@@ -270,7 +497,7 @@ export class DownloadExportService {
   private static textEntry(name: string, text: string): ZipStoreEntry {
     const entry: ZipStoreEntry = new ZipStoreEntry()
     entry.name = name
-    entry.content = new util.TextEncoder().encodeInto(text)
+    entry.contentText = text
     return entry
   }
 
@@ -976,200 +1203,8 @@ class PdfImageWriter {
 }
 
 class ZipStoreWriter {
-  private static crcTable: number[] = []
-  private static readonly FILE_CHUNK_SIZE: number = 256 * 1024
-
-  static write(filePath: string, entries: ZipStoreEntry[]): void {
-    let file: fileIo.File | null = null
-    try {
-      file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC)
-      let offset: number = 0
-      const centralRecords: Uint8Array[] = []
-      for (let i: number = 0; i < entries.length; i++) {
-        const entry: ZipStoreEntry = entries[i]
-        const nameBytes: Uint8Array = new util.TextEncoder().encodeInto(entry.name)
-        ZipStoreWriter.prepareEntry(entry)
-        entry.localHeaderOffset = offset
-        const localHeader: Uint8Array = ZipStoreWriter.localHeader(entry, nameBytes)
-        ZipStoreWriter.writeBytes(file, localHeader)
-        if (entry.content !== null) {
-          ZipStoreWriter.writeBytes(file, entry.content)
-        } else {
-          ZipStoreWriter.writeFileContent(file, entry.sourcePath)
-        }
-        offset += localHeader.byteLength + entry.size
-        centralRecords.push(ZipStoreWriter.centralHeader(entry, nameBytes))
-      }
-      const centralOffset: number = offset
-      let centralSize: number = 0
-      for (let i: number = 0; i < centralRecords.length; i++) {
-        ZipStoreWriter.writeBytes(file, centralRecords[i])
-        centralSize += centralRecords[i].byteLength
-      }
-      offset += centralSize
-      ZipStoreWriter.writeBytes(file, ZipStoreWriter.endRecord(entries.length, centralSize, centralOffset))
-    } finally {
-      if (file !== null) {
-        fileIo.closeSync(file)
-      }
-    }
-  }
-
-  private static prepareEntry(entry: ZipStoreEntry): void {
-    if (entry.content !== null) {
-      entry.crc = ZipStoreWriter.crc32(entry.content)
-      entry.size = entry.content.byteLength
-      return
-    }
-    const stats: ZipEntryStats = ZipStoreWriter.fileStats(entry.sourcePath)
-    entry.crc = stats.crc
-    entry.size = stats.size
-  }
-
-  private static fileStats(path: string): ZipEntryStats {
-    let file: fileIo.File | null = null
-    try {
-      file = fileIo.openSync(path, fileIo.OpenMode.READ_ONLY)
-      const buffer: ArrayBuffer = new ArrayBuffer(ZipStoreWriter.FILE_CHUNK_SIZE)
-      let crc: number = 0xffffffff
-      let size: number = 0
-      while (true) {
-        const bytesRead: number = fileIo.readSync(file.fd, buffer, { length: ZipStoreWriter.FILE_CHUNK_SIZE })
-        if (bytesRead <= 0) {
-          break
-        }
-        crc = ZipStoreWriter.updateCrc(crc, new Uint8Array(buffer, 0, bytesRead))
-        size += bytesRead
-      }
-      const stats: ZipEntryStats = new ZipEntryStats()
-      stats.crc = (crc ^ 0xffffffff) >>> 0
-      stats.size = size
-      return stats
-    } finally {
-      if (file !== null) {
-        fileIo.closeSync(file)
-      }
-    }
-  }
-
-  private static writeFileContent(out: fileIo.File, sourcePath: string): void {
-    let source: fileIo.File | null = null
-    try {
-      source = fileIo.openSync(sourcePath, fileIo.OpenMode.READ_ONLY)
-      const buffer: ArrayBuffer = new ArrayBuffer(ZipStoreWriter.FILE_CHUNK_SIZE)
-      while (true) {
-        const bytesRead: number = fileIo.readSync(source.fd, buffer, { length: ZipStoreWriter.FILE_CHUNK_SIZE })
-        if (bytesRead <= 0) {
-          break
-        }
-        fileIo.writeSync(out.fd, buffer, { length: bytesRead })
-      }
-    } finally {
-      if (source !== null) {
-        fileIo.closeSync(source)
-      }
-    }
-  }
-
-  private static writeBytes(file: fileIo.File, bytes: Uint8Array): void {
-    if (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength) {
-      fileIo.writeSync(file.fd, bytes.buffer)
-      return
-    }
-    const exact: Uint8Array = bytes.slice(0, bytes.byteLength)
-    fileIo.writeSync(file.fd, exact.buffer)
-  }
-
-  private static localHeader(entry: ZipStoreEntry, nameBytes: Uint8Array): Uint8Array {
-    const bytes: Uint8Array = new Uint8Array(30 + nameBytes.byteLength)
-    ZipStoreWriter.put32(bytes, 0, 0x04034b50)
-    ZipStoreWriter.put16(bytes, 4, 20)
-    ZipStoreWriter.put16(bytes, 6, 0x0800)
-    ZipStoreWriter.put16(bytes, 8, 0)
-    ZipStoreWriter.put16(bytes, 10, 0)
-    ZipStoreWriter.put16(bytes, 12, 0)
-    ZipStoreWriter.put32(bytes, 14, entry.crc)
-    ZipStoreWriter.put32(bytes, 18, entry.size)
-    ZipStoreWriter.put32(bytes, 22, entry.size)
-    ZipStoreWriter.put16(bytes, 26, nameBytes.byteLength)
-    ZipStoreWriter.put16(bytes, 28, 0)
-    bytes.set(nameBytes, 30)
-    return bytes
-  }
-
-  private static centralHeader(entry: ZipStoreEntry, nameBytes: Uint8Array): Uint8Array {
-    const bytes: Uint8Array = new Uint8Array(46 + nameBytes.byteLength)
-    ZipStoreWriter.put32(bytes, 0, 0x02014b50)
-    ZipStoreWriter.put16(bytes, 4, 20)
-    ZipStoreWriter.put16(bytes, 6, 20)
-    ZipStoreWriter.put16(bytes, 8, 0x0800)
-    ZipStoreWriter.put16(bytes, 10, 0)
-    ZipStoreWriter.put16(bytes, 12, 0)
-    ZipStoreWriter.put16(bytes, 14, 0)
-    ZipStoreWriter.put32(bytes, 16, entry.crc)
-    ZipStoreWriter.put32(bytes, 20, entry.size)
-    ZipStoreWriter.put32(bytes, 24, entry.size)
-    ZipStoreWriter.put16(bytes, 28, nameBytes.byteLength)
-    ZipStoreWriter.put16(bytes, 30, 0)
-    ZipStoreWriter.put16(bytes, 32, 0)
-    ZipStoreWriter.put16(bytes, 34, 0)
-    ZipStoreWriter.put16(bytes, 36, 0)
-    ZipStoreWriter.put32(bytes, 38, 0)
-    ZipStoreWriter.put32(bytes, 42, entry.localHeaderOffset)
-    bytes.set(nameBytes, 46)
-    return bytes
-  }
-
-  private static endRecord(count: number, centralSize: number, centralOffset: number): Uint8Array {
-    const bytes: Uint8Array = new Uint8Array(22)
-    ZipStoreWriter.put32(bytes, 0, 0x06054b50)
-    ZipStoreWriter.put16(bytes, 4, 0)
-    ZipStoreWriter.put16(bytes, 6, 0)
-    ZipStoreWriter.put16(bytes, 8, count)
-    ZipStoreWriter.put16(bytes, 10, count)
-    ZipStoreWriter.put32(bytes, 12, centralSize)
-    ZipStoreWriter.put32(bytes, 16, centralOffset)
-    ZipStoreWriter.put16(bytes, 20, 0)
-    return bytes
-  }
-
-  private static put16(bytes: Uint8Array, offset: number, value: number): void {
-    bytes[offset] = value & 0xff
-    bytes[offset + 1] = (value >>> 8) & 0xff
-  }
-
-  private static put32(bytes: Uint8Array, offset: number, value: number): void {
-    bytes[offset] = value & 0xff
-    bytes[offset + 1] = (value >>> 8) & 0xff
-    bytes[offset + 2] = (value >>> 16) & 0xff
-    bytes[offset + 3] = (value >>> 24) & 0xff
-  }
-
-  private static crc32(bytes: Uint8Array): number {
-    ZipStoreWriter.ensureCrcTable()
-    const crc: number = ZipStoreWriter.updateCrc(0xffffffff, bytes)
-    return (crc ^ 0xffffffff) >>> 0
-  }
-
-  private static updateCrc(seed: number, bytes: Uint8Array): number {
-    ZipStoreWriter.ensureCrcTable()
-    let crc: number = seed
-    for (let i: number = 0; i < bytes.byteLength; i++) {
-      crc = ZipStoreWriter.crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8)
-    }
-    return crc
-  }
-
-  private static ensureCrcTable(): void {
-    if (ZipStoreWriter.crcTable.length > 0) {
-      return
-    }
-    for (let i: number = 0; i < 256; i++) {
-      let crc: number = i
-      for (let bit: number = 0; bit < 8; bit++) {
-        crc = (crc & 1) !== 0 ? (0xedb88320 ^ (crc >>> 1)) : (crc >>> 1)
-      }
-      ZipStoreWriter.crcTable.push(crc >>> 0)
-    }
+  static async write(filePath: string, entries: ZipStoreEntry[]): Promise<void> {
+    const payload: string = JSON.stringify(entries)
+    await taskpool.execute<[string, string], string>(writeZipStoreFileTask, filePath, payload)
   }
 }

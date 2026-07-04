@@ -201,6 +201,10 @@
       "value": "Use archive bot"
     },
     {
+      "name": "download_export",
+      "value": "Export"
+    },
+    {
       "name": "download_export_zip",
       "value": "Export ZIP"
     },

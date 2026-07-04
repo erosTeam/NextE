@@ -17,6 +17,7 @@ import {
   EhThumbnail,
   GalleryDetailParams,
   ReaderParams,
+  ShareUtil,
   DownloadQueueSettings,
   DownloadQueueState,
   DownloadQueueSignalState,
@@ -35,7 +36,7 @@ import {
   connectNavStack,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
-import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { LoadingDialog, SymbolGlyphModifier } from '@kit.ArkUI'
 
 /**
  * Downloads (下载) bottom tab — plain tab content hosted under Index's shared HDS title bar (no
@@ -56,11 +57,32 @@ export struct DownloadQueuePage {
   @Local openingArchiverTag: string = '';
   @Local refreshingGalleryKey: string = '';
   @Local actionMenuKey: string = '';
+  @Local exportingKey: string = '';
   @Local sortMenuShown: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
+  private exportLoadingDialogController: CustomDialogController = new CustomDialogController({
+    builder: LoadingDialog({ content: $r('app.string.download_export_started') }),
+    autoCancel: false,
+    alignment: DialogAlignment.Center,
+    customStyle: false,
+  });
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private beginExport(key: string): boolean {
+    if (this.exportingKey.length > 0) {
+      return false
+    }
+    this.exportingKey = key
+    this.exportLoadingDialogController.open()
+    return true
+  }
+
+  private finishExport(): void {
+    this.exportLoadingDialogController.close()
+    this.exportingKey = ''
   }
 
   @Monitor('downloadQueueSignal.version')
@@ -660,17 +682,17 @@ export struct DownloadQueuePage {
     if (task === undefined || !this.canReadTask(task)) {
       return
     }
-    this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_started') })
-      .catch((_toastError: Error) => {})
+    if (!this.beginExport(`gallery:${task.gid}:${format}`)) {
+      return
+    }
+    let file: DownloadExportFile | null = null
     try {
-      const file: DownloadExportFile = await DownloadExportService.exportGallery(this.ctx(), task, format)
+      file = await DownloadExportService.exportGallery(this.ctx(), task, format)
       DiagnosticLogger.info(
         'download',
         'download_export_gallery',
         `gid=${task.gid} format=${format} pathHash=${DiagnosticLogger.ownerHash(file.filePath)}`,
       )
-      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_done') })
-        .catch((_toastError: Error) => {})
     } catch (error) {
       DiagnosticLogger.warn(
         'download',
@@ -679,6 +701,18 @@ export struct DownloadQueuePage {
       )
       this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_failed') })
         .catch((_toastError: Error) => {})
+    } finally {
+      this.finishExport()
+    }
+    if (file !== null) {
+      ShareUtil.shareFile(this.ctx(), file.fileName, file.filePath, file.fileName)
+        .catch((shareError: Error) => {
+          DiagnosticLogger.warn(
+            'download',
+            'download_export_share_failed',
+            `gid=${task.gid} format=${format} error=${shareError.message}`,
+          )
+        })
     }
   }
 
@@ -688,17 +722,17 @@ export struct DownloadQueuePage {
     if (task === undefined || !this.canReadArchiverTask(task)) {
       return
     }
-    this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_started') })
-      .catch((_toastError: Error) => {})
+    if (!this.beginExport(`archiver:${task.tag}:${format}`)) {
+      return
+    }
+    let file: DownloadExportFile | null = null
     try {
-      const file: DownloadExportFile = await DownloadExportService.exportArchiver(this.ctx(), task, format)
+      file = await DownloadExportService.exportArchiver(this.ctx(), task, format)
       DiagnosticLogger.info(
         'download',
         'download_export_archiver_images',
         `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} format=${format} pathHash=${DiagnosticLogger.ownerHash(file.filePath)}`,
       )
-      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_done') })
-        .catch((_toastError: Error) => {})
     } catch (error) {
       DiagnosticLogger.warn(
         'download',
@@ -707,6 +741,18 @@ export struct DownloadQueuePage {
       )
       this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_failed') })
         .catch((_toastError: Error) => {})
+    } finally {
+      this.finishExport()
+    }
+    if (file !== null) {
+      ShareUtil.shareFile(this.ctx(), file.fileName, file.filePath, file.fileName)
+        .catch((shareError: Error) => {
+          DiagnosticLogger.warn(
+            'download',
+            'download_export_share_failed',
+            `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} format=${format} error=${shareError.message}`,
+          )
+        })
     }
   }
 
@@ -716,17 +762,17 @@ export struct DownloadQueuePage {
     if (task === undefined || !this.canReadArchiverTask(task)) {
       return
     }
-    this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_started') })
-      .catch((_toastError: Error) => {})
+    if (!this.beginExport(`archiver-original:${task.tag}`)) {
+      return
+    }
+    let file: DownloadExportFile | null = null
     try {
-      const file: DownloadExportFile = await DownloadExportService.exportArchiverOriginal(this.ctx(), task)
+      file = await DownloadExportService.exportArchiverOriginal(this.ctx(), task)
       DiagnosticLogger.info(
         'download',
         'download_export_archiver',
         `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} pathHash=${DiagnosticLogger.ownerHash(file.filePath)}`,
       )
-      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_done') })
-        .catch((_toastError: Error) => {})
     } catch (error) {
       DiagnosticLogger.warn(
         'download',
@@ -735,6 +781,18 @@ export struct DownloadQueuePage {
       )
       this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_failed') })
         .catch((_toastError: Error) => {})
+    } finally {
+      this.finishExport()
+    }
+    if (file !== null) {
+      ShareUtil.shareFile(this.ctx(), file.fileName, file.filePath, file.fileName)
+        .catch((shareError: Error) => {
+          DiagnosticLogger.warn(
+            'download',
+            'download_export_share_failed',
+            `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} original=true error=${shareError.message}`,
+          )
+        })
     }
   }
 
@@ -1567,6 +1625,59 @@ export struct DownloadQueuePage {
   }
 
   @Builder
+  private ExportFormatMenu() {
+    Menu() {
+      if (this.actionMenuKey.startsWith('gallery:')) {
+        MenuItem({ content: $r('app.string.download_export_cbz') })
+          .onClick(() => {
+            this.exportActiveGalleryTask(DownloadExportFormat.CBZ)
+          })
+        MenuItem({ content: $r('app.string.download_export_zip') })
+          .onClick(() => {
+            this.exportActiveGalleryTask(DownloadExportFormat.ZIP)
+          })
+        MenuItem({ content: $r('app.string.download_export_epub') })
+          .onClick(() => {
+            this.exportActiveGalleryTask(DownloadExportFormat.EPUB)
+          })
+        MenuItem({ content: $r('app.string.download_export_htmlz') })
+          .onClick(() => {
+            this.exportActiveGalleryTask(DownloadExportFormat.HTMLZ)
+          })
+        MenuItem({ content: $r('app.string.download_export_pdf') })
+          .onClick(() => {
+            this.exportActiveGalleryTask(DownloadExportFormat.PDF)
+          })
+      } else if (this.actionMenuKey.startsWith('archiver:')) {
+        MenuItem({ content: $r('app.string.download_export_cbz') })
+          .onClick(() => {
+            this.exportActiveArchiverTask(DownloadExportFormat.CBZ)
+          })
+        MenuItem({ content: $r('app.string.download_export_zip') })
+          .onClick(() => {
+            this.exportActiveArchiverTask(DownloadExportFormat.ZIP)
+          })
+        MenuItem({ content: $r('app.string.download_export_epub') })
+          .onClick(() => {
+            this.exportActiveArchiverTask(DownloadExportFormat.EPUB)
+          })
+        MenuItem({ content: $r('app.string.download_export_htmlz') })
+          .onClick(() => {
+            this.exportActiveArchiverTask(DownloadExportFormat.HTMLZ)
+          })
+        MenuItem({ content: $r('app.string.download_export_pdf') })
+          .onClick(() => {
+            this.exportActiveArchiverTask(DownloadExportFormat.PDF)
+          })
+        MenuItem({ content: $r('app.string.download_export_archive') })
+          .onClick(() => {
+            this.exportActiveArchiverOriginal()
+          })
+      }
+    }
+  }
+
+  @Builder
   private TaskActionMenu() {
     Menu() {
       if (this.actionMenuKey.startsWith('gallery:')) {
@@ -1577,26 +1688,7 @@ export struct DownloadQueuePage {
             })
         }
         if (this.activeGalleryCanExport()) {
-          MenuItem({ content: $r('app.string.download_export_cbz') })
-            .onClick(() => {
-              this.exportActiveGalleryTask(DownloadExportFormat.CBZ)
-            })
-          MenuItem({ content: $r('app.string.download_export_zip') })
-            .onClick(() => {
-              this.exportActiveGalleryTask(DownloadExportFormat.ZIP)
-            })
-          MenuItem({ content: $r('app.string.download_export_epub') })
-            .onClick(() => {
-              this.exportActiveGalleryTask(DownloadExportFormat.EPUB)
-            })
-          MenuItem({ content: $r('app.string.download_export_htmlz') })
-            .onClick(() => {
-              this.exportActiveGalleryTask(DownloadExportFormat.HTMLZ)
-            })
-          MenuItem({ content: $r('app.string.download_export_pdf') })
-            .onClick(() => {
-              this.exportActiveGalleryTask(DownloadExportFormat.PDF)
-            })
+          MenuItem({ content: $r('app.string.download_export'), builder: this.ExportFormatMenu })
         }
         MenuItem({ content: $r('app.string.download_delete_task') })
           .onClick(() => {
@@ -1610,30 +1702,7 @@ export struct DownloadQueuePage {
             })
         }
         if (this.activeArchiverCanExport()) {
-          MenuItem({ content: $r('app.string.download_export_cbz') })
-            .onClick(() => {
-              this.exportActiveArchiverTask(DownloadExportFormat.CBZ)
-            })
-          MenuItem({ content: $r('app.string.download_export_zip') })
-            .onClick(() => {
-              this.exportActiveArchiverTask(DownloadExportFormat.ZIP)
-            })
-          MenuItem({ content: $r('app.string.download_export_epub') })
-            .onClick(() => {
-              this.exportActiveArchiverTask(DownloadExportFormat.EPUB)
-            })
-          MenuItem({ content: $r('app.string.download_export_htmlz') })
-            .onClick(() => {
-              this.exportActiveArchiverTask(DownloadExportFormat.HTMLZ)
-            })
-          MenuItem({ content: $r('app.string.download_export_pdf') })
-            .onClick(() => {
-              this.exportActiveArchiverTask(DownloadExportFormat.PDF)
-            })
-          MenuItem({ content: $r('app.string.download_export_archive') })
-            .onClick(() => {
-              this.exportActiveArchiverOriginal()
-            })
+          MenuItem({ content: $r('app.string.download_export'), builder: this.ExportFormatMenu })
         }
         MenuItem({ content: $r('app.string.download_delete_task') })
           .onClick(() => {
