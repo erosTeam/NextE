@@ -67,10 +67,10 @@ Verification: download management plan doc, UI grounding contract, V1 decorator 
 Status: active
 Reference implementation: `../V2Next/feature/detail/src/main/ets/pages/TopicDetailPage.ets` reply `LoadingDialog`, current NextE `feature/download/src/main/ets/pages/DownloadQueuePage.ets` completed-task export menu, and `shared/src/main/ets/services/DownloadExportService.ets` deterministic export file paths.
 Surface type: Downloads tab completed-task export action only; no export-history page, progress bar, cancel action, or manifest cache.
-Primary information: after choosing an export format, the user sees a native blocking loading dialog until the export file is ready, then the system share sheet opens.
+Primary information: after choosing an export format, the user sees a native blocking loading dialog until the export file is ready, then the system share sheet opens; PDF failures show the decoder/export error in the toast.
 Primary action: open a completed download task menu, choose one export format, wait for the native loading dialog to close, and pick a target app from the system share sheet.
-Reuse or deviation: reuse Next2V's `CustomDialogController` + system `LoadingDialog`, existing ShareUtil share handoff, and the export file itself as the reuse cache; deviate only by skipping regeneration when the existing file is non-empty and newer than all source images.
-Verification: UI grounding contract, V1 decorator inventory, diff check, signed build, and X7 completed-task export smoke covering loading-to-share plus repeated same-format export.
+Reuse or deviation: reuse Next2V's `CustomDialogController` + system `LoadingDialog`, existing ShareUtil share handoff, the export file itself as the reuse cache for archive-like formats, and HarmonyOS ImageKit decode for PDF images that are not directly embeddable as JPEG/PNG.
+Verification: UI grounding contract, V1 decorator inventory, diff check, signed build, and X7 completed-task export smoke covering loading-to-share, repeated same-format export, and PDF export from system-decodable images.
 
 ## Active: security background privacy and native unlock
 

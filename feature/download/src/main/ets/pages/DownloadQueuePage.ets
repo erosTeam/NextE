@@ -85,6 +85,11 @@ export struct DownloadQueuePage {
     this.exportingKey = ''
   }
 
+  private exportFailureMessage(error: Error): string {
+    const base: string = AppStrings.get('download_export_failed')
+    return error.message.length > 0 ? `${base}: ${error.message}` : base
+  }
+
   @Monitor('downloadQueueSignal.version')
   private onDownloadQueueChanged(): void {
     this.downloadQueueTick = this.downloadQueueTick + 1
@@ -699,7 +704,7 @@ export struct DownloadQueuePage {
         'download_export_gallery_failed',
         `gid=${task.gid} format=${format} error=${(error as Error).message}`,
       )
-      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_failed') })
+      this.getUIContext().getPromptAction().openToast({ message: this.exportFailureMessage(error as Error) })
         .catch((_toastError: Error) => {})
     } finally {
       this.finishExport()
@@ -739,7 +744,7 @@ export struct DownloadQueuePage {
         'download_export_archiver_images_failed',
         `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} format=${format} error=${(error as Error).message}`,
       )
-      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_failed') })
+      this.getUIContext().getPromptAction().openToast({ message: this.exportFailureMessage(error as Error) })
         .catch((_toastError: Error) => {})
     } finally {
       this.finishExport()
@@ -779,7 +784,7 @@ export struct DownloadQueuePage {
         'download_export_archiver_failed',
         `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} error=${(error as Error).message}`,
       )
-      this.getUIContext().getPromptAction().openToast({ message: $r('app.string.download_export_failed') })
+      this.getUIContext().getPromptAction().openToast({ message: this.exportFailureMessage(error as Error) })
         .catch((_toastError: Error) => {})
     } finally {
       this.finishExport()

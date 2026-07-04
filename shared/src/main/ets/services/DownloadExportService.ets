@@ -300,20 +300,27 @@ export class DownloadExportService {
     const title: string = task.displayTitle()
     const fileName: string = `${DownloadExportService.safeBaseName(title, task.gid)}.${ext}`
     const filePath: string = `${await DownloadExportService.exportDir(context)}/${fileName}`
-    const reusable: DownloadExportFile | null =
-      DownloadExportService.reusableExportFile(fileName, filePath, title, DownloadExportService.newestEntryMtime(entries))
-    if (reusable !== null) {
-      return reusable
+    if (format !== DownloadExportFormat.PDF) {
+      const reusable: DownloadExportFile | null =
+        DownloadExportService.reusableExportFile(fileName, filePath, title, DownloadExportService.newestEntryMtime(entries))
+      if (reusable !== null) {
+        return reusable
+      }
     }
     DownloadExportService.unlinkIfExists(filePath)
-    if (format === DownloadExportFormat.PDF) {
-      await PdfImageWriter.write(filePath, entries)
-    } else if (format === DownloadExportFormat.EPUB) {
-      await ZipStoreWriter.write(filePath, DownloadExportService.epubZipEntries(title, entries))
-    } else if (format === DownloadExportFormat.HTMLZ) {
-      await ZipStoreWriter.write(filePath, DownloadExportService.htmlZipEntries(title, entries))
-    } else {
-      await ZipStoreWriter.write(filePath, DownloadExportService.galleryZipEntries(entries))
+    try {
+      if (format === DownloadExportFormat.PDF) {
+        await PdfImageWriter.write(filePath, entries)
+      } else if (format === DownloadExportFormat.EPUB) {
+        await ZipStoreWriter.write(filePath, DownloadExportService.epubZipEntries(title, entries))
+      } else if (format === DownloadExportFormat.HTMLZ) {
+        await ZipStoreWriter.write(filePath, DownloadExportService.htmlZipEntries(title, entries))
+      } else {
+        await ZipStoreWriter.write(filePath, DownloadExportService.galleryZipEntries(entries))
+      }
+    } catch (error) {
+      DownloadExportService.unlinkIfExists(filePath)
+      throw new Error((error as Error).message)
     }
     return DownloadExportService.exportFile(fileName, filePath, title)
   }
@@ -333,20 +340,27 @@ export class DownloadExportService {
     const title: string = task.displayTitle()
     const fileName: string = `${DownloadExportService.safeBaseName(title, task.gid)}.${ext}`
     const filePath: string = `${await DownloadExportService.exportDir(context)}/${fileName}`
-    const reusable: DownloadExportFile | null =
-      DownloadExportService.reusableExportFile(fileName, filePath, title, DownloadExportService.newestEntryMtime(entries))
-    if (reusable !== null) {
-      return reusable
+    if (format !== DownloadExportFormat.PDF) {
+      const reusable: DownloadExportFile | null =
+        DownloadExportService.reusableExportFile(fileName, filePath, title, DownloadExportService.newestEntryMtime(entries))
+      if (reusable !== null) {
+        return reusable
+      }
     }
     DownloadExportService.unlinkIfExists(filePath)
-    if (format === DownloadExportFormat.PDF) {
-      await PdfImageWriter.write(filePath, entries)
-    } else if (format === DownloadExportFormat.EPUB) {
-      await ZipStoreWriter.write(filePath, DownloadExportService.epubZipEntries(title, entries))
-    } else if (format === DownloadExportFormat.HTMLZ) {
-      await ZipStoreWriter.write(filePath, DownloadExportService.htmlZipEntries(title, entries))
-    } else {
-      await ZipStoreWriter.write(filePath, DownloadExportService.galleryZipEntries(entries))
+    try {
+      if (format === DownloadExportFormat.PDF) {
+        await PdfImageWriter.write(filePath, entries)
+      } else if (format === DownloadExportFormat.EPUB) {
+        await ZipStoreWriter.write(filePath, DownloadExportService.epubZipEntries(title, entries))
+      } else if (format === DownloadExportFormat.HTMLZ) {
+        await ZipStoreWriter.write(filePath, DownloadExportService.htmlZipEntries(title, entries))
+      } else {
+        await ZipStoreWriter.write(filePath, DownloadExportService.galleryZipEntries(entries))
+      }
+    } catch (error) {
+      DownloadExportService.unlinkIfExists(filePath)
+      throw new Error((error as Error).message)
     }
     return DownloadExportService.exportFile(fileName, filePath, title)
   }
@@ -377,7 +391,12 @@ export class DownloadExportService {
       return reusable
     }
     DownloadExportService.unlinkIfExists(filePath)
-    await DownloadExportService.copyFile(source.filePath, filePath)
+    try {
+      await DownloadExportService.copyFile(source.filePath, filePath)
+    } catch (error) {
+      DownloadExportService.unlinkIfExists(filePath)
+      throw new Error((error as Error).message)
+    }
     return DownloadExportService.exportFile(source.fileName, filePath, source.description)
   }
 
@@ -667,7 +686,11 @@ class PdfImageWriter {
   static async write(filePath: string, entries: DownloadExportEntry[]): Promise<void> {
     const images: PdfImageInfo[] = []
     for (let i: number = 0; i < entries.length; i++) {
-      images.push(PdfImageWriter.imageInfo(entries[i].sourcePath))
+      try {
+        images.push(await PdfImageWriter.imageInfo(entries[i].sourcePath))
+      } catch (error) {
+        throw new Error(`PDF export failed at ${entries[i].entryName}: ${(error as Error).message}`)
+      }
     }
     let file: fileIo.File | null = null
     try {
@@ -805,15 +828,73 @@ class PdfImageWriter {
       `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageInfo.streamLength} >>\nstream\n`
   }
 
-  private static imageInfo(path: string): PdfImageInfo {
-    const header: Uint8Array = PdfImageWriter.readFileHeader(path, 16)
+  private static async imageInfo(path: string): Promise<PdfImageInfo> {
+    let header: Uint8Array
+    try {
+      header = PdfImageWriter.readFileHeader(path, 16)
+    } catch (error) {
+      if (path.toLowerCase().endsWith('.webp')) {
+        throw new Error('PDF export does not support WebP images on this device')
+      }
+      throw new Error((error as Error).message)
+    }
+    if (PdfImageWriter.isWebP(header)) {
+      throw new Error('PDF export does not support WebP images on this device')
+    }
     if (PdfImageWriter.isPng(header)) {
-      return PdfImageWriter.pngInfo(path)
+      try {
+        return PdfImageWriter.pngInfo(path)
+      } catch (_error) {
+        return await PdfImageWriter.decodedInfo(path)
+      }
     }
     if (PdfImageWriter.isJpeg(header)) {
       return PdfImageWriter.jpegInfo(path)
     }
-    throw new Error('PDF export supports JPEG and PNG images')
+    return await PdfImageWriter.decodedInfo(path)
+  }
+
+  private static async decodedInfo(path: string): Promise<PdfImageInfo> {
+    let source: image.ImageSource | undefined = undefined
+    let pixelMap: image.PixelMap | undefined = undefined
+    try {
+      source = PdfImageWriter.createImageSource(path)
+      const options: image.DecodingOptions = {
+        editable: false,
+        desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
+      }
+      pixelMap = await source.createPixelMap(options)
+      const info: image.ImageInfo = await pixelMap.getImageInfo()
+      const width: number = Math.floor(info.size.width)
+      const height: number = Math.floor(info.size.height)
+      if (width <= 0 || height <= 0) {
+        throw new Error('image size unavailable')
+      }
+      const out: PdfImageInfo = new PdfImageInfo()
+      out.sourcePath = path
+      out.kind = 'decoded'
+      out.width = width
+      out.height = height
+      out.bits = 8
+      out.colorSpace = '/DeviceRGB'
+      out.streamLength = width * height * 3
+      out.alphaStreamLength = width * height
+      out.useDecodedRgba = true
+      return out
+    } catch (error) {
+      if (path.toLowerCase().endsWith('.webp')) {
+        throw new Error('PDF export does not support WebP images on this device')
+      }
+      const message: string = (error as Error).message
+      throw new Error(`PDF export cannot decode image: ${message.length > 0 ? message : 'image decoder rejected file'}`)
+    } finally {
+      if (pixelMap !== undefined) {
+        await pixelMap.release()
+      }
+      if (source !== undefined) {
+        await source.release()
+      }
+    }
   }
 
   private static pngInfo(path: string): PdfImageInfo {
@@ -1058,7 +1139,7 @@ class PdfImageWriter {
     let source: image.ImageSource | undefined = undefined
     let pixelMap: image.PixelMap | undefined = undefined
     try {
-      source = image.createImageSource(imageInfo.sourcePath)
+      source = PdfImageWriter.createImageSource(imageInfo.sourcePath)
       const options: image.DecodingOptions = {
         editable: false,
         desiredPixelFormat: image.PixelMapFormat.RGBA_8888,
@@ -1124,13 +1205,37 @@ class PdfImageWriter {
     }
   }
 
-  private static readExact(file: fileIo.File, length: number): Uint8Array {
-    const buffer: ArrayBuffer = new ArrayBuffer(length)
-    const read: number = fileIo.readSync(file.fd, buffer, { length: length })
-    if (read !== length) {
-      throw new Error('file read failed')
+  private static createImageSource(path: string): image.ImageSource {
+    let file: fileIo.File | null = null
+    try {
+      const stat: fileIo.Stat = fileIo.statSync(path)
+      const length: number = Math.floor(stat.size)
+      if (length <= 0) {
+        throw new Error('image file is empty')
+      }
+      file = fileIo.openSync(path, fileIo.OpenMode.READ_ONLY)
+      return image.createImageSource(PdfImageWriter.readExact(file, length).buffer)
+    } finally {
+      if (file !== null) {
+        fileIo.closeSync(file)
+      }
     }
-    return new Uint8Array(buffer)
+  }
+
+  private static readExact(file: fileIo.File, length: number): Uint8Array {
+    const output: Uint8Array = new Uint8Array(length)
+    let offset: number = 0
+    while (offset < length) {
+      const remaining: number = length - offset
+      const buffer: ArrayBuffer = new ArrayBuffer(remaining)
+      const read: number = fileIo.readSync(file.fd, buffer, { length: remaining })
+      if (read <= 0) {
+        throw new Error('file read failed')
+      }
+      output.set(new Uint8Array(buffer, 0, read), offset)
+      offset += read
+    }
+    return output
   }
 
   private static readByte(file: fileIo.File): number {
@@ -1185,6 +1290,12 @@ class PdfImageWriter {
 
   private static isJpeg(bytes: Uint8Array): boolean {
     return bytes.byteLength >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8
+  }
+
+  private static isWebP(bytes: Uint8Array): boolean {
+    return bytes.byteLength >= 12 &&
+      bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
   }
 
   private static chunkType(bytes: Uint8Array): string {
