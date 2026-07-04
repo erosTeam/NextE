@@ -14,6 +14,23 @@ export class ArchiveImageService {
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
   ): Promise<EhGalleryImage[]> {
+    const paths: string[] = await ArchiveImageService.imagePathsForTask(context, task)
+    const images: EhGalleryImage[] = []
+    for (let i: number = 0; i < paths.length; i++) {
+      const page: number = i + 1
+      const image: EhGalleryImage = new EhGalleryImage(page)
+      image.sUrl = `archive://${task.tag}/${page}`
+      image.imageUrl = CachedImageFileService.displayUri(paths[i])
+      images.push(image)
+    }
+    DiagnosticLogger.info('download', 'archive_reader_images', `tag=${task.tag} images=${images.length}`)
+    return images
+  }
+
+  static async imagePathsForTask(
+    context: common.UIAbilityContext,
+    task: DownloadArchiverTask,
+  ): Promise<string[]> {
     if (task.filePath.length === 0 || !fileIo.accessSync(task.filePath)) {
       throw new Error('archive file missing')
     }
@@ -42,17 +59,7 @@ export class ArchiveImageService {
       throw new Error('archive has no readable images')
     }
     paths.sort((a: string, b: string) => ArchiveImageService.naturalPathCompare(a, b))
-
-    const images: EhGalleryImage[] = []
-    for (let i: number = 0; i < paths.length; i++) {
-      const page: number = i + 1
-      const image: EhGalleryImage = new EhGalleryImage(page)
-      image.sUrl = `archive://${task.tag}/${page}`
-      image.imageUrl = CachedImageFileService.displayUri(paths[i])
-      images.push(image)
-    }
-    DiagnosticLogger.info('download', 'archive_reader_images', `tag=${task.tag} images=${images.length}`)
-    return images
+    return paths
   }
 
   private static extractDir(context: common.UIAbilityContext, task: DownloadArchiverTask): string {

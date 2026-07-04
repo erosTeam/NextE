@@ -142,6 +142,11 @@ export {
   CachedImageFileResult,
   CachedImageProgress,
 } from './services/CachedImageFileService'
+export {
+  DownloadExportFile,
+  DownloadExportFormat,
+  DownloadExportService,
+} from './services/DownloadExportService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
 export { UserProfileService, UserProfileInfo } from './services/UserProfileService'

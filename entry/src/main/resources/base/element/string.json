@@ -201,6 +201,42 @@
       "value": "Use archive bot"
     },
     {
+      "name": "download_export_zip",
+      "value": "Export ZIP"
+    },
+    {
+      "name": "download_export_cbz",
+      "value": "Export CBZ"
+    },
+    {
+      "name": "download_export_epub",
+      "value": "Export EPUB"
+    },
+    {
+      "name": "download_export_htmlz",
+      "value": "Export HTMLZ"
+    },
+    {
+      "name": "download_export_pdf",
+      "value": "Export PDF"
+    },
+    {
+      "name": "download_export_archive",
+      "value": "Export archive"
+    },
+    {
+      "name": "download_export_started",
+      "value": "Exporting"
+    },
+    {
+      "name": "download_export_done",
+      "value": "Export ready"
+    },
+    {
+      "name": "download_export_failed",
+      "value": "Export failed"
+    },
+    {
       "name": "download_concurrency",
       "value": "Download concurrency"
     },

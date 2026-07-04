@@ -681,3 +681,13 @@ Primary information: notification preference is part of download policy and defa
 Primary action: toggling the row enables the persisted preference and requests the platform notification authorization; completed downloads publish a short system notification without adding a new notification center or root settings entry.
 Reuse or deviation: reuse the existing download settings single writer, grouped settings row, i18n resources, and queue completion points; deviate only by adding a thin notification service so permission/publish failures are logged and never change task completion.
 Verification: UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and device smoke for permission prompt plus completed-download notification when available.
+
+## Active: completed download export
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/tab/controller/download_view_controller.dart` `_showExportSheet()` / `_exportZip()` / `_exportEpub()`, `../eros_fe/lib/common/epub/epub_builder.dart` `buildEpub()`, and NextE `feature/download/src/main/ets/pages/DownloadQueuePage.ets` existing completed-task overflow menu.
+Surface type: Downloads tab completed gallery and archiver task overflow actions.
+Primary information: completed tasks remain ordinary download rows; export actions expose file formats only when local files already exist.
+Primary action: tapping a completed gallery task still opens Reader; overflow actions export CBZ/ZIP/EPUB/HTMLZ/PDF into the app's public Download export directory, while completed archiver tasks can export CBZ/ZIP/EPUB/HTMLZ/PDF or copy the original archive file there.
+Reuse or deviation: reuse `DownloadImageSeed.filePath` page order, `ArchiveImageService.imagePathsForTask()`, `DownloadArchiverTask.filePath`, and `DownloadQueueSettings` public Download directory setup; deviate from eros_fe by writing exports directly to the existing Download root instead of opening ShareKit after export, by using the original first downloaded image as the EPUB cover item without generating a cropped or re-encoded cover, by packaging HTMLZ as `index.html` plus original image resources, and by generating PDF pages from original JPEG/PNG streams when the source can be embedded directly. Transparent PNG pages decode to lossless RGB plus alpha mask streams instead of JPEG recompression.
+Verification: UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and X7 emulator smoke that completed gallery export creates CBZ/ZIP/EPUB/HTMLZ/PDF files without leaving NextE through a system share/save panel.

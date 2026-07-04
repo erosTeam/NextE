@@ -34,6 +34,7 @@ const MAX_GALLERY_TASKS: number = 200
 const MAX_ARCHIVER_TASKS: number = 100
 const DOWNLOAD_GALLERY_DIR: string = 'download-gallery'
 const DOWNLOAD_ARCHIVER_DIR: string = 'download-archiver'
+const DOWNLOAD_EXPORT_DIR: string = 'download-exports'
 const DOWNLOAD_DIRECTORY_UNAVAILABLE: string = 'Download directory unavailable'
 const ARCHIVER_ACCEPT: string = 'application/zip,application/octet-stream,*/*'
 const ARCHIVER_READ_TIMEOUT_MS: number = 30 * 60 * 1000
@@ -1814,6 +1815,19 @@ export class DownloadQueueSettings {
       DiagnosticLogger.warn('download', 'download_storage_ready_failed', (error as Error).message)
       return false
     }
+  }
+
+  static async ensureDownloadExportDir(context: common.UIAbilityContext): Promise<string> {
+    if (!await DownloadQueueSettings.ensureDownloadDirectoryReady(context)) {
+      throw new Error('download directory unavailable')
+    }
+    const root: string = DownloadQueueSettings.publicDownloadRootDir()
+    const dir: string = DownloadQueueSettings.joinPath(root, DOWNLOAD_EXPORT_DIR)
+    if (!DownloadQueueSettings.ensureDirectoryExists(dir)) {
+      throw new Error('download export directory unavailable')
+    }
+    DownloadQueueSettings.logDownloadDirResolved('export-root', dir, context)
+    return dir
   }
 
   private static ensureDirectoryExists(dir: string): boolean {

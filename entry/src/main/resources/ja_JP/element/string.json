@@ -201,6 +201,42 @@
       "value": "アーカイブBotを使用"
     },
     {
+      "name": "download_export_zip",
+      "value": "ZIP としてエクスポート"
+    },
+    {
+      "name": "download_export_cbz",
+      "value": "CBZ としてエクスポート"
+    },
+    {
+      "name": "download_export_epub",
+      "value": "EPUB としてエクスポート"
+    },
+    {
+      "name": "download_export_htmlz",
+      "value": "HTMLZ としてエクスポート"
+    },
+    {
+      "name": "download_export_pdf",
+      "value": "PDF としてエクスポート"
+    },
+    {
+      "name": "download_export_archive",
+      "value": "アーカイブをエクスポート"
+    },
+    {
+      "name": "download_export_started",
+      "value": "エクスポート中"
+    },
+    {
+      "name": "download_export_done",
+      "value": "エクスポート準備完了"
+    },
+    {
+      "name": "download_export_failed",
+      "value": "エクスポートに失敗しました"
+    },
+    {
       "name": "download_concurrency",
       "value": "ダウンロード同時数"
     },

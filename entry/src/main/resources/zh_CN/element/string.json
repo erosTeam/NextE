@@ -201,6 +201,42 @@
       "value": "使用归档机器人"
     },
     {
+      "name": "download_export_zip",
+      "value": "导出 ZIP"
+    },
+    {
+      "name": "download_export_cbz",
+      "value": "导出 CBZ"
+    },
+    {
+      "name": "download_export_epub",
+      "value": "导出 EPUB"
+    },
+    {
+      "name": "download_export_htmlz",
+      "value": "导出 HTMLZ"
+    },
+    {
+      "name": "download_export_pdf",
+      "value": "导出 PDF"
+    },
+    {
+      "name": "download_export_archive",
+      "value": "导出归档包"
+    },
+    {
+      "name": "download_export_started",
+      "value": "正在导出"
+    },
+    {
+      "name": "download_export_done",
+      "value": "已导出"
+    },
+    {
+      "name": "download_export_failed",
+      "value": "导出失败"
+    },
+    {
       "name": "download_concurrency",
       "value": "下载并发"
     },

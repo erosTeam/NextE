@@ -1,6 +1,7 @@
 import { systemShare } from '@kit.ShareKit'
 import { uniformTypeDescriptor as utd } from '@kit.ArkData'
 import { common } from '@kit.AbilityKit'
+import { fileUri } from '@kit.CoreFileKit'
 import { EhConstants } from '../constants/EhConstants'
 
 /**
@@ -46,4 +47,29 @@ export class ShareUtil {
     const url: string = `${EhConstants.baseUrl(isEx)}/g/${gid}/${token}/`
     ShareUtil.shareUrl(context, url, title)
   }
+
+  /** Open the system share sheet for an app-local file path. */
+  static async shareFile(
+    context: common.UIAbilityContext,
+    fileName: string,
+    filePath: string,
+    description: string,
+  ): Promise<void> {
+    if (filePath.length === 0) {
+      return
+    }
+    const record: systemShare.SharedRecord = {
+      utd: utd.UniformDataType.FILE,
+      title: fileName,
+      description: description,
+      uri: fileUri.getUriFromPath(filePath),
+    }
+    const data: systemShare.SharedData = new systemShare.SharedData(record)
+    const controller: systemShare.ShareController = new systemShare.ShareController(data)
+    await controller.show(context, {
+      selectionMode: systemShare.SelectionMode.SINGLE,
+      previewMode: systemShare.SharePreviewMode.DEFAULT,
+    })
+  }
+
 }
