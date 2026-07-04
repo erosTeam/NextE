@@ -671,3 +671,13 @@ Primary information: the user sees a simple "Restore downloads" setting row that
 Primary action: tapping the row asks the platform DOWNLOAD directory flow if needed, scans `download-gallery` and `download-archiver` metadata, imports missing tasks into the RDB-backed queue, and reports the result by toast; archive-bot and executor policy rows remain separate.
 Reuse or deviation: reuse NextE `DownloadQueueSettings` metadata parser, RDB repository, settings row pattern, and row-local loading suffix; deviate from FE's Hive/SAF migration because Harmony's public Download app directory is resolved through `DocumentViewPicker.save()` with `DocumentPickerMode.DOWNLOAD`.
 Verification: download settings contract, UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and device/settings smoke when a public Download task directory is available.
+
+## Active: download completion notification
+
+Status: active
+Reference implementation: NextE `feature/settings/src/main/ets/pages/DownloadSettingsPage.ets`, `shared/src/main/ets/settings/DownloadSettings.ets`, `shared/src/main/ets/settings/DownloadQueueSettings.ets`, and HarmonyOS `notificationManager` basic text notifications.
+Surface type: Settings > Download policy row plus system notification after a local download finishes.
+Primary information: notification preference is part of download policy and defaults off; a notification means a gallery task reached COMPLETE or an archive file finished successfully.
+Primary action: toggling the row enables the persisted preference and requests the platform notification authorization; completed downloads publish a short system notification without adding a new notification center or root settings entry.
+Reuse or deviation: reuse the existing download settings single writer, grouped settings row, i18n resources, and queue completion points; deviate only by adding a thin notification service so permission/publish failures are logged and never change task completion.
+Verification: UI grounding contract, V1 decorator inventory, i18n duplicate check, signed HarmonyOS build, and device smoke for permission prompt plus completed-download notification when available.

@@ -261,6 +261,22 @@
       "value": "起動時に失敗タスクを再開します。手動で一時停止したタスクは除きます"
     },
     {
+      "name": "download_notify_complete",
+      "value": "完了通知"
+    },
+    {
+      "name": "download_notify_complete_hint",
+      "value": "ギャラリーまたはアーカイブのダウンロード完了時に通知します"
+    },
+    {
+      "name": "download_notify_complete_title",
+      "value": "ダウンロード完了"
+    },
+    {
+      "name": "download_notify_complete_body",
+      "value": "%s のダウンロードが完了しました"
+    },
+    {
       "name": "download_speed_limit",
       "value": "速度制限"
     },

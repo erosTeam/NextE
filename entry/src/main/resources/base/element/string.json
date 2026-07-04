@@ -261,6 +261,22 @@
       "value": "Resume failed tasks on startup, excluding manually paused tasks"
     },
     {
+      "name": "download_notify_complete",
+      "value": "Completion notifications"
+    },
+    {
+      "name": "download_notify_complete_hint",
+      "value": "Notify when a gallery or archive download completes"
+    },
+    {
+      "name": "download_notify_complete_title",
+      "value": "Download complete"
+    },
+    {
+      "name": "download_notify_complete_body",
+      "value": "%s has finished downloading"
+    },
+    {
       "name": "download_speed_limit",
       "value": "Speed limit"
     },

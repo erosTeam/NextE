@@ -217,6 +217,7 @@ export {
 export { MyTagsTargetService, MyTagsTargetResolveResult } from './services/MyTagsTargetService'
 export { CoverColorService } from './services/CoverColorService'
 export { MotionHandStateService, MotionHandEdge } from './services/MotionHandStateService'
+export { DownloadNotificationService } from './services/DownloadNotificationService'
 
 // settings/state
 export {

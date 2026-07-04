@@ -83,6 +83,7 @@ export class DownloadSettings {
       const retryCount: number = store.getSync(StorageKeys.DOWNLOAD_RETRY_COUNT, 2) as number
       const autoRetryFailed: boolean = store.getSync(StorageKeys.DOWNLOAD_AUTO_RETRY_FAILED, true) as boolean
       const speedLimitKbps: number = store.getSync(StorageKeys.DOWNLOAD_SPEED_LIMIT_KBPS, 0) as number
+      const notifyOnComplete: boolean = store.getSync(StorageKeys.DOWNLOAD_NOTIFY_ON_COMPLETE, false) as boolean
       const originalMode: string = store.getSync(
         StorageKeys.DOWNLOAD_ORIGINAL,
         DownloadOriginalMode.ASK,
@@ -107,6 +108,7 @@ export class DownloadSettings {
       state.retryCount = clampRetryCount(retryCount)
       state.autoRetryFailed = autoRetryFailed
       state.speedLimitKbps = clampSpeedLimitKbps(speedLimitKbps)
+      state.notifyOnComplete = notifyOnComplete
       state.originalMode = normalizeOriginalMode(originalMode)
       state.archiveBotType = archiveBotType
       state.archiveBotAddress = archiveBotAddress.length > 0 ? archiveBotAddress : defaultArchiveBotAddress(archiveBotType)
@@ -314,6 +316,23 @@ export class DownloadSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_speed_limit_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setNotifyOnComplete(
+    context: common.UIAbilityContext,
+    enabled: boolean,
+  ): Promise<void> {
+    connectDownloadSettings().notifyOnComplete = enabled
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_NOTIFY_ON_COMPLETE, enabled)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_notify_on_complete_save_failed', (error as Error).message)
     }
   }
 

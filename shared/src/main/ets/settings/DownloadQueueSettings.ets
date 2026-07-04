@@ -26,6 +26,7 @@ import { EhErrorText } from '../i18n/EhErrorText'
 import { AppStrings } from '../i18n/AppStrings'
 import { ImageResolveService } from '../services/ImageResolveService'
 import { ArchiveBotResolveResult, ArchiveBotService } from '../services/ArchiveBotService'
+import { DownloadNotificationService } from '../services/DownloadNotificationService'
 import { DownloadQueueRepository } from '../storage/DownloadQueueRepository'
 import { DownloadSettings } from './DownloadSettings'
 
@@ -753,6 +754,7 @@ export class DownloadQueueSettings {
         'archiver_download_done',
         `gid=${resolvedTask.gid} source=${resolvedTask.parseSource} tagHash=${DiagnosticLogger.ownerHash(tag)} bytes=${bytes}`,
       )
+      await DownloadNotificationService.publishDownloadComplete(fileName)
     } catch (error) {
       if (DownloadQueueSettings.cancelledArchiverDownloads.has(tag)) {
         DownloadQueueSettings.archiverProgressPulses.delete(tag)
@@ -1135,6 +1137,8 @@ export class DownloadQueueSettings {
             'gallery_download_incomplete_seeds',
             `gid=${gid} downloaded=${task.downloadedCount()} seeds=${task.imageSeeds.length} pageCount=${task.pageCount}`,
           )
+        } else {
+          await DownloadNotificationService.publishDownloadComplete(task.displayTitle())
         }
         DiagnosticLogger.info(
           'download',

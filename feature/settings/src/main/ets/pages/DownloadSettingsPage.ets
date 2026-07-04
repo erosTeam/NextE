@@ -11,6 +11,7 @@ import {
   DiagnosticLogger,
   DownloadDirectoryImportResult,
   DownloadOriginalMode,
+  DownloadNotificationService,
   DownloadQueueSettings,
   DownloadSettings,
   DownloadSettingsState,
@@ -222,6 +223,13 @@ export struct DownloadSettingsPage {
 
   private setAutoRetryFailed(enabled: boolean): void {
     DownloadSettings.setAutoRetryFailed(this.ctx(), enabled)
+  }
+
+  private setNotifyOnComplete(enabled: boolean): void {
+    DownloadSettings.setNotifyOnComplete(this.ctx(), enabled)
+    if (enabled) {
+      DownloadNotificationService.requestEnable(this.ctx())
+    }
   }
 
   private speedLimitLabel(): string {
@@ -444,6 +452,18 @@ export struct DownloadSettingsPage {
                 },
                 counterIncreaseAction: () => {
                   this.adjustSpeedLimit(1)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.download_notify_complete'),
+                subtitle: $r('app.string.download_notify_complete_hint'),
+                leadingIcon: $r('sys.symbol.bell'),
+                hasSwitch: true,
+                checked: this.downloadSettings.notifyOnComplete,
+                showChevron: false,
+                switchAction: (value: boolean) => {
+                  this.setNotifyOnComplete(value)
                 },
               })
               this.rowDivider()

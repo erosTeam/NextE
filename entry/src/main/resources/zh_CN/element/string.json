@@ -261,6 +261,22 @@
       "value": "启动时恢复失败任务，不包含手动暂停的任务"
     },
     {
+      "name": "download_notify_complete",
+      "value": "完成通知"
+    },
+    {
+      "name": "download_notify_complete_hint",
+      "value": "画廊或归档下载完成后发送通知"
+    },
+    {
+      "name": "download_notify_complete_title",
+      "value": "下载完成"
+    },
+    {
+      "name": "download_notify_complete_body",
+      "value": "%s 已下载完成"
+    },
+    {
       "name": "download_speed_limit",
       "value": "速度限制"
     },
