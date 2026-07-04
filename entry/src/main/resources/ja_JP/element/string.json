@@ -309,6 +309,14 @@
       "value": "ギャラリーまたはアーカイブのダウンロード完了時に通知します"
     },
     {
+      "name": "download_hide_from_media_library",
+      "value": "ダウンロード画像を隠す"
+    },
+    {
+      "name": "download_hide_from_media_library_hint",
+      "value": "ダウンロードフォルダに .nomedia を作成してメディアライブラリのスキャンを減らします"
+    },
+    {
       "name": "download_notify_complete_title",
       "value": "ダウンロード完了"
     },

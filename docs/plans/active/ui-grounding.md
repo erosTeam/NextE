@@ -711,3 +711,13 @@ Primary information: completed tasks remain ordinary download rows; export actio
 Primary action: tapping a completed gallery task still opens Reader; overflow shows a single Export parent item, and the submenu exports CBZ/ZIP/EPUB/HTMLZ/PDF into the app's public Download export directory before opening the system share sheet, while completed archiver tasks can additionally copy and share the original archive file.
 Reuse or deviation: reuse `DownloadImageSeed.filePath` page order, `ArchiveImageService.imagePathsForTask()`, `DownloadArchiverTask.filePath`, `DownloadQueueSettings` public Download directory setup, `ShareUtil.shareFile()`, and ArkUI `MenuItemOptions.builder` for the second-level menu; deviate from eros_fe by keeping a public Download copy after export, by using the original first downloaded image as the EPUB cover item without generating a cropped or re-encoded cover, by packaging HTMLZ as `index.html` plus original image resources, by generating PDF pages from original JPEG/PNG streams when the source can be embedded directly, and by running ZIP CRC/file writes in TaskPool so they do not block the UI thread.
 Verification: UI grounding contract, V1 decorator inventory, i18n duplicate check, diff check, signed HarmonyOS build, and X7 emulator smoke that the completed-task menu shows a single Export parent, expands CBZ/ZIP/EPUB/HTMLZ/PDF as a submenu, and opens the system share sheet for an HTMLZ export without producing a new appfreeze.
+
+## Active: download media library hiding
+
+Status: active
+Reference implementation: NextE `feature/settings/src/main/ets/pages/DownloadSettingsPage.ets`, `shared/src/main/ets/settings/DownloadQueueSettings.ets`, and OpenHarmony media scanner `.nomedia` handling.
+Surface type: Settings > Download policy row.
+Primary information: the user sees whether public gallery/archive downloads are kept out of media-library scans.
+Primary action: toggling the switch persists the preference and reconciles `.nomedia` in the already-resolved download folders; later download startup reconciles it again before writing files.
+Reuse or deviation: reuse the existing download settings V2 holder, `ConciseListRow` switch, public `DocumentPickerMode.DOWNLOAD` root flow, and queue storage preparation; deviate only by writing or removing `.nomedia` inside `download-gallery` and `download-archiver`, leaving export files shareable.
+Verification: download settings contract, download queue RDB contract, UI grounding contract, V1 decorator inventory, i18n duplicate check, diff check, and signed HarmonyOS build.

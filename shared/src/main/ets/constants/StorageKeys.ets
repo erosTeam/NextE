@@ -45,6 +45,7 @@ export class StorageKeys {
   static readonly DOWNLOAD_AUTO_RETRY_FAILED: string = 'download.autoRetryFailed'
   static readonly DOWNLOAD_SPEED_LIMIT_KBPS: string = 'download.speedLimitKbps'
   static readonly DOWNLOAD_NOTIFY_ON_COMPLETE: string = 'download.notifyOnComplete'
+  static readonly DOWNLOAD_HIDE_FROM_MEDIA_LIBRARY: string = 'download.hideFromMediaLibrary'
   static readonly DOWNLOAD_ORIGINAL: string = 'download.original'
   static readonly DOWNLOAD_ARCHIVE_BOT_TYPE: string = 'download.archiveBot.type'
   static readonly DOWNLOAD_ARCHIVE_BOT_ADDRESS: string = 'download.archiveBot.address'

@@ -309,6 +309,14 @@
       "value": "画廊或归档下载完成后发送通知"
     },
     {
+      "name": "download_hide_from_media_library",
+      "value": "隐藏下载图片"
+    },
+    {
+      "name": "download_hide_from_media_library_hint",
+      "value": "在下载目录写入 .nomedia，减少媒体库扫描"
+    },
+    {
       "name": "download_notify_complete_title",
       "value": "下载完成"
     },

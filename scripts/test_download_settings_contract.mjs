@@ -28,6 +28,8 @@ ok(/@Trace requestIntervalSeconds: number = 0/.test(state), 'download request in
 ok(/@Trace retryCount: number = 2/.test(state), 'download retry count defaults to 2')
 ok(/@Trace autoRetryFailed: boolean = true/.test(state), 'download failed-task auto retry defaults to on')
 ok(/@Trace speedLimitKbps: number = 0/.test(state), 'download speed limit defaults to off')
+ok(/@Trace hideFromMediaLibrary: boolean = true/.test(state),
+  'download media-library hiding defaults to on')
 ok(/@Trace originalMode: string = DownloadOriginalMode\.ASK/.test(state),
   'download original mode defaults to ask')
 ok(/AppStorageV2\.connect\(\s*DownloadSettingsState/.test(state),
@@ -40,6 +42,8 @@ ok(/StorageKeys\.DOWNLOAD_REQUEST_INTERVAL_SECONDS/.test(settings), 'settings pe
 ok(/StorageKeys\.DOWNLOAD_RETRY_COUNT/.test(settings), 'settings persist retry count key')
 ok(/StorageKeys\.DOWNLOAD_AUTO_RETRY_FAILED/.test(settings), 'settings persist failed-task auto retry key')
 ok(/StorageKeys\.DOWNLOAD_SPEED_LIMIT_KBPS/.test(settings), 'settings persist speed limit key')
+ok(/StorageKeys\.DOWNLOAD_HIDE_FROM_MEDIA_LIBRARY/.test(settings),
+  'settings persist media-library hiding key')
 ok(/StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings), 'settings persist original-mode key')
 ok(/clampConcurrency/.test(settings) && /MIN_CONCURRENCY: number = 1/.test(settings) &&
   /MAX_CONCURRENCY: number = 8/.test(settings), 'settings clamp concurrency to a bounded range')
@@ -67,6 +71,9 @@ ok(/static async setAutoRetryFailed/.test(settings) &&
 ok(/static async setSpeedLimitKbps/.test(settings) &&
   /store\.putSync\(StorageKeys\.DOWNLOAD_SPEED_LIMIT_KBPS/.test(settings),
   'settings write speed limit to preferences')
+ok(/static async setHideFromMediaLibrary/.test(settings) &&
+  /store\.putSync\(StorageKeys\.DOWNLOAD_HIDE_FROM_MEDIA_LIBRARY/.test(settings),
+  'settings write media-library hiding to preferences')
 ok(/static async setOriginalMode/.test(settings) && /store\.putSync\(StorageKeys\.DOWNLOAD_ORIGINAL/.test(settings),
   'settings write original mode to preferences')
 ok(/connectDownloadSettings\(\)\.concurrency/.test(queueSettings) &&
@@ -155,6 +162,11 @@ ok(/download_auto_retry_failed/.test(downloadPage) && /hasSwitch: true/.test(dow
   /checked: this\.downloadSettings\.autoRetryFailed/.test(downloadPage) &&
   /DownloadSettings\.setAutoRetryFailed/.test(downloadPage),
   'download settings page exposes failed-task auto retry as a persisted switch')
+ok(/download_hide_from_media_library/.test(downloadPage) && /hasSwitch: true/.test(downloadPage) &&
+  /checked: this\.downloadSettings\.hideFromMediaLibrary/.test(downloadPage) &&
+  /DownloadSettings\.setHideFromMediaLibrary/.test(downloadPage) &&
+  /DownloadQueueSettings\.reconcileNoMediaMarkersIfReady/.test(downloadPage),
+  'download settings page exposes media-library hiding as a persisted switch')
 ok(/download_speed_limit/.test(downloadPage) && /hasCounter: true/.test(downloadPage) &&
   /DownloadSettings\.setSpeedLimitKbps/.test(downloadPage) &&
   /speedLimitLabel/.test(downloadPage),
@@ -231,6 +243,10 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
   ok(strings.includes('"name": "download_auto_retry_failed_hint"'), `${locale}: download_auto_retry_failed_hint exists`)
   ok(strings.includes('"name": "download_speed_limit"'), `${locale}: download_speed_limit exists`)
   ok(strings.includes('"name": "download_speed_limit_hint"'), `${locale}: download_speed_limit_hint exists`)
+  ok(strings.includes('"name": "download_hide_from_media_library"'),
+    `${locale}: download_hide_from_media_library exists`)
+  ok(strings.includes('"name": "download_hide_from_media_library_hint"'),
+    `${locale}: download_hide_from_media_library_hint exists`)
   ok(strings.includes('"name": "download_original_hint"'), `${locale}: download_original_hint exists`)
   ok(strings.includes('"name": "download_original_ask"'), `${locale}: download_original_ask exists`)
   ok(strings.includes('"name": "download_original_always"'), `${locale}: download_original_always exists`)

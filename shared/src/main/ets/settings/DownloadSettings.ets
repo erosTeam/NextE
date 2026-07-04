@@ -84,6 +84,8 @@ export class DownloadSettings {
       const autoRetryFailed: boolean = store.getSync(StorageKeys.DOWNLOAD_AUTO_RETRY_FAILED, true) as boolean
       const speedLimitKbps: number = store.getSync(StorageKeys.DOWNLOAD_SPEED_LIMIT_KBPS, 0) as number
       const notifyOnComplete: boolean = store.getSync(StorageKeys.DOWNLOAD_NOTIFY_ON_COMPLETE, false) as boolean
+      const hideFromMediaLibrary: boolean =
+        store.getSync(StorageKeys.DOWNLOAD_HIDE_FROM_MEDIA_LIBRARY, true) as boolean
       const originalMode: string = store.getSync(
         StorageKeys.DOWNLOAD_ORIGINAL,
         DownloadOriginalMode.ASK,
@@ -109,6 +111,7 @@ export class DownloadSettings {
       state.autoRetryFailed = autoRetryFailed
       state.speedLimitKbps = clampSpeedLimitKbps(speedLimitKbps)
       state.notifyOnComplete = notifyOnComplete
+      state.hideFromMediaLibrary = hideFromMediaLibrary
       state.originalMode = normalizeOriginalMode(originalMode)
       state.archiveBotType = archiveBotType
       state.archiveBotAddress = archiveBotAddress.length > 0 ? archiveBotAddress : defaultArchiveBotAddress(archiveBotType)
@@ -333,6 +336,23 @@ export class DownloadSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_notify_on_complete_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setHideFromMediaLibrary(
+    context: common.UIAbilityContext,
+    enabled: boolean,
+  ): Promise<void> {
+    connectDownloadSettings().hideFromMediaLibrary = enabled
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.DOWNLOAD_HIDE_FROM_MEDIA_LIBRARY, enabled)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_hide_from_media_library_save_failed', (error as Error).message)
     }
   }
 

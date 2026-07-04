@@ -309,6 +309,14 @@
       "value": "Notify when a gallery or archive download completes"
     },
     {
+      "name": "download_hide_from_media_library",
+      "value": "Hide downloaded images"
+    },
+    {
+      "name": "download_hide_from_media_library_hint",
+      "value": "Write .nomedia in download folders to reduce media library scanning"
+    },
+    {
       "name": "download_notify_complete_title",
       "value": "Download complete"
     },

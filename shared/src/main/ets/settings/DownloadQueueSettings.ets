@@ -41,6 +41,7 @@ const ARCHIVER_READ_TIMEOUT_MS: number = 30 * 60 * 1000
 const ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'
 const DOWNLOAD_METADATA_FILE: string = 'metadata.json'
 const ARCHIVER_METADATA_SUFFIX: string = '.metadata.json'
+const NO_MEDIA_MARKER_FILE: string = '.nomedia'
 const ARCHIVE_BOT_SETTINGS_INCOMPLETE: string = 'Archive bot settings are incomplete'
 const DOWNLOAD_PATH_TITLE_MAX_LENGTH: number = 96
 
@@ -1807,6 +1808,10 @@ export class DownloadQueueSettings {
           !DownloadQueueSettings.ensureDirectoryExists(archiverDir)) {
           throw new Error('download storage directory unavailable')
         }
+        if (!DownloadQueueSettings.reconcileNoMediaMarker(galleryDir) ||
+          !DownloadQueueSettings.reconcileNoMediaMarker(archiverDir)) {
+          throw new Error('download media marker unavailable')
+        }
         DownloadQueueSettings.logDownloadDirResolved('gallery-root', galleryDir, context)
         DownloadQueueSettings.logDownloadDirResolved('archiver-root', archiverDir, context)
       }
@@ -1840,6 +1845,44 @@ export class DownloadQueueSettings {
       } catch (_accessError) {
         return false
       }
+    }
+  }
+
+  static reconcileNoMediaMarkersIfReady(): void {
+    if (DownloadQueueSettings.downloadPublicRoot.length === 0) {
+      return
+    }
+    try {
+      const root: string = DownloadQueueSettings.publicDownloadRootDir()
+      const galleryDir: string = DownloadQueueSettings.joinPath(root, DOWNLOAD_GALLERY_DIR)
+      const archiverDir: string = DownloadQueueSettings.joinPath(root, DOWNLOAD_ARCHIVER_DIR)
+      if (DownloadQueueSettings.ensureDirectoryExists(galleryDir)) {
+        DownloadQueueSettings.reconcileNoMediaMarker(galleryDir)
+      }
+      if (DownloadQueueSettings.ensureDirectoryExists(archiverDir)) {
+        DownloadQueueSettings.reconcileNoMediaMarker(archiverDir)
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'download_no_media_reconcile_failed', (error as Error).message)
+    }
+  }
+
+  private static reconcileNoMediaMarker(dir: string): boolean {
+    const marker: string = DownloadQueueSettings.joinPath(dir, NO_MEDIA_MARKER_FILE)
+    try {
+      if (connectDownloadSettings().hideFromMediaLibrary) {
+        if (!fs.accessSync(marker)) {
+          DownloadQueueSettings.writeTextFile(marker, '', 'download_no_media_marker_write_failed')
+        }
+        return fs.accessSync(marker)
+      }
+      if (fs.accessSync(marker)) {
+        fs.unlinkSync(marker)
+      }
+      return !fs.accessSync(marker)
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'download_no_media_marker_sync_failed', (error as Error).message)
+      return false
     }
   }
 

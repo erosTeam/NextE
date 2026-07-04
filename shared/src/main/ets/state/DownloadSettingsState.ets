@@ -23,6 +23,7 @@ export class DownloadSettingsState {
   @Trace autoRetryFailed: boolean = true
   @Trace speedLimitKbps: number = 0
   @Trace notifyOnComplete: boolean = false
+  @Trace hideFromMediaLibrary: boolean = true
   @Trace originalMode: string = DownloadOriginalMode.ASK
   @Trace archiveBotType: string = ArchiveBotType.EH_AR_BOT
   @Trace archiveBotAddress: string = 'https://eh-arc-api.mhdy.icu'

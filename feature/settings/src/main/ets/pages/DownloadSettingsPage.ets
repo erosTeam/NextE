@@ -232,6 +232,12 @@ export struct DownloadSettingsPage {
     }
   }
 
+  private setHideFromMediaLibrary(enabled: boolean): void {
+    DownloadSettings.setHideFromMediaLibrary(this.ctx(), enabled).then(() => {
+      DownloadQueueSettings.reconcileNoMediaMarkersIfReady()
+    })
+  }
+
   private speedLimitLabel(): string {
     return this.downloadSettings.speedLimitKbps > 0 ? `${this.downloadSettings.speedLimitKbps}K` :
     AppStrings.get('common_off')
@@ -464,6 +470,18 @@ export struct DownloadSettingsPage {
                 showChevron: false,
                 switchAction: (value: boolean) => {
                   this.setNotifyOnComplete(value)
+                },
+              })
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.download_hide_from_media_library'),
+                subtitle: $r('app.string.download_hide_from_media_library_hint'),
+                leadingIcon: $r('sys.symbol.eye_slash'),
+                hasSwitch: true,
+                checked: this.downloadSettings.hideFromMediaLibrary,
+                showChevron: false,
+                switchAction: (value: boolean) => {
+                  this.setHideFromMediaLibrary(value)
                 },
               })
               this.rowDivider()

@@ -192,6 +192,13 @@ ok('download directories keep per-task metadata sidecars for queue recovery',
     /download_storage_ready_failed/.test(settings) &&
     /DOWNLOAD_GALLERY_DIR/.test(settings) &&
     /DOWNLOAD_ARCHIVER_DIR/.test(settings) &&
+    /NO_MEDIA_MARKER_FILE: string = '\.nomedia'/.test(settings) &&
+    /reconcileNoMediaMarker\(galleryDir\)/.test(settings) &&
+    /reconcileNoMediaMarker\(archiverDir\)/.test(settings) &&
+    /connectDownloadSettings\(\)\.hideFromMediaLibrary/.test(settings) &&
+    /writeTextFile\(marker, '', 'download_no_media_marker_write_failed'\)/.test(settings) &&
+    /fs\.unlinkSync\(marker\)/.test(settings) &&
+    /static reconcileNoMediaMarkersIfReady\(\): void/.test(settings) &&
     /ensureDownloadDirectoryReady\(context\)/.test(settings) &&
     /pathFromDownloadModeUri\(uri: string\): string/.test(settings) &&
     /DOWNLOAD_DIRECTORY_UNAVAILABLE: string = 'Download directory unavailable'/.test(settings) &&
