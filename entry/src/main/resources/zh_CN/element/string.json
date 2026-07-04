@@ -1513,6 +1513,46 @@
       "value": "版本"
     },
     {
+      "name": "about_check_update",
+      "value": "检查更新"
+    },
+    {
+      "name": "about_update_hint",
+      "value": "检查 GitHub Releases"
+    },
+    {
+      "name": "about_update_checking",
+      "value": "检查中"
+    },
+    {
+      "name": "about_update_available",
+      "value": "可更新到 %s"
+    },
+    {
+      "name": "about_update_latest",
+      "value": "已是最新版本 %s"
+    },
+    {
+      "name": "about_update_failed",
+      "value": "检查更新失败"
+    },
+    {
+      "name": "about_update_open_release",
+      "value": "打开发布页"
+    },
+    {
+      "name": "about_update_open_failed",
+      "value": "无法打开发布页"
+    },
+    {
+      "name": "about_update_no_notes",
+      "value": "没有发布说明"
+    },
+    {
+      "name": "about_update_notes_truncated",
+      "value": "打开发布页查看完整内容"
+    },
+    {
       "name": "about_platform",
       "value": "平台"
     },

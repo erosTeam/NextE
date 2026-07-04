@@ -1513,6 +1513,46 @@
       "value": "Version"
     },
     {
+      "name": "about_check_update",
+      "value": "Check for updates"
+    },
+    {
+      "name": "about_update_hint",
+      "value": "Check GitHub Releases"
+    },
+    {
+      "name": "about_update_checking",
+      "value": "Checking"
+    },
+    {
+      "name": "about_update_available",
+      "value": "Update to %s"
+    },
+    {
+      "name": "about_update_latest",
+      "value": "Latest version %s"
+    },
+    {
+      "name": "about_update_failed",
+      "value": "Update check failed"
+    },
+    {
+      "name": "about_update_open_release",
+      "value": "Open release"
+    },
+    {
+      "name": "about_update_open_failed",
+      "value": "Failed to open release page"
+    },
+    {
+      "name": "about_update_no_notes",
+      "value": "No release notes"
+    },
+    {
+      "name": "about_update_notes_truncated",
+      "value": "Open the release page for the full notes"
+    },
+    {
       "name": "about_platform",
       "value": "Platform"
     },

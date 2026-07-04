@@ -82,6 +82,16 @@ Primary action: toggle recent-task protection, choose an auto-lock timeout, retu
 Reuse or deviation: reuse `ConciseListRow`, the existing auto-lock dropdown, native `Window.setWindowPrivacyMode`, `@ohos.userIAM.userAuth`, and the existing root `Stack` overlay; deviate from eros_fe only by not building a custom Flutter unlock page.
 Verification: UI grounding contract, V1 decorator inventory, i18n resource check, signed HarmonyOS build, and 197/Emulator smoke for recent-task privacy plus blurred foreground unlock.
 
+## Active: about page update check
+
+Status: active
+Reference implementation: `../eros_fe/lib/pages/setting/about_page.dart` update row and `../eros_fe/lib/common/controller/update_controller.dart` GitHub latest-release check, current NextE `feature/settings/src/main/ets/pages/AboutPage.ets`, and existing external browser `Want` usage in `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets`.
+Surface type: About page app-info section only; no in-app HAP download, installer handoff, automatic background polling, Markdown renderer, or update-source settings.
+Primary information: users see the installed version and a clear row for checking whether GitHub Releases has a newer NextE version.
+Primary action: tap Check for updates, wait for a short checking state, then either see the latest-version result or open the GitHub release page from the update dialog.
+Reuse or deviation: reuse `ConciseListRow`, `showAlertDialog`, `promptAction` toast, `bundleManager` version lookup, and native browser `Want`; deviate from eros_fe by showing plain truncated release notes instead of Markdown and by leaving downloads/install to the release page.
+Verification: UI grounding contract, V1 decorator inventory, i18n duplicate check, diff check, signed build, and emulator About-page check/update smoke.
+
 ## Active: download source cover seed and archive progress publish
 
 Status: active
