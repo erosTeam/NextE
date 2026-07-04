@@ -721,3 +721,13 @@ Primary information: the user sees whether public gallery/archive downloads are 
 Primary action: toggling the switch persists the preference and reconciles `.nomedia` in the already-resolved download folders; later download startup reconciles it again before writing files.
 Reuse or deviation: reuse the existing download settings V2 holder, `ConciseListRow` switch, public `DocumentPickerMode.DOWNLOAD` root flow, and queue storage preparation; deviate only by writing or removing `.nomedia` inside `download-gallery` and `download-archiver`, leaving export files shareable.
 Verification: download settings contract, download queue RDB contract, UI grounding contract, V1 decorator inventory, i18n duplicate check, diff check, and signed HarmonyOS build.
+
+## Active: reader closed thumbnail strip hit area
+
+Status: active
+Reference implementation: NextE `feature/reader/src/main/ets/pages/ReaderPage.ets` `ReaderBottomBar` / `ReaderTapOverlay`, plus `../eros_fe/lib/pages/image_view/view_widget.dart` bottom chrome + optional thumbnail list.
+Surface type: Reader bottom chrome hit area.
+Primary information: when the reader chrome is visible but the thumbnail strip is closed, only the visible toolbar should intercept touches.
+Primary action: center/edge taps above the visible toolbar continue to route through the reader tap zones; opening the thumbnail strip still shows the tappable strip.
+Reuse or deviation: reuse the existing reader bottom toolbar, local `showThumbStrip` toggle, and tap overlay; deviate only by collapsing the strip container height/padding to 0 and making bottom chrome height conditional when the strip is closed.
+Verification: reader thumbnail filmstrip contract, reader tap-zone contract, UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build.

@@ -1730,23 +1730,21 @@ export struct ReaderPage {
   ReaderBottomBar() {
     Stack({ alignContent: Alignment.Bottom }) {
       Column() {
-        if (this.showThumbStrip) {
-          this.ReaderThumbStrip()
-        }
+        this.ReaderThumbStrip()
       }
       .width('100%')
-      .height(READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2)
+      .height(this.showThumbStrip ? READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2 : 0)
       .padding({
         left: ThemeConstants.SPACE_LG,
         right: ThemeConstants.SPACE_LG,
-        top: ThemeConstants.SPACE_SM,
-        bottom: ThemeConstants.SPACE_SM,
+        top: this.showThumbStrip ? ThemeConstants.SPACE_SM : 0,
+        bottom: this.showThumbStrip ? ThemeConstants.SPACE_SM : 0,
       })
       .margin({
         bottom: this.layout.bottomAvoidHeight + READER_BOTTOM_TOOLBAR_HEIGHT,
       })
       .backgroundColor('#CC000000')
-      .visibility(this.showThumbStrip ? Visibility.Visible : Visibility.Hidden)
+      .clip(true)
       .hitTestBehavior(this.showThumbStrip ? HitTestMode.Default : HitTestMode.None)
 
       Column({ space: ThemeConstants.SPACE_XS }) {
@@ -1916,7 +1914,7 @@ export struct ReaderPage {
     }
     .width('100%')
     .height(this.layout.bottomAvoidHeight + READER_BOTTOM_TOOLBAR_HEIGHT +
-      READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2)
+      (this.showThumbStrip ? READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2 : 0))
     .hitTestBehavior(HitTestMode.Default)
   }
 

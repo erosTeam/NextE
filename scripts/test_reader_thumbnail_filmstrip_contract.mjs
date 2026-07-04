@@ -23,6 +23,9 @@ const ok = (name, cond) => {
 }
 
 const reader = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
+const bottomStart = reader.indexOf('@Builder\n  ReaderBottomBar()')
+const bottomEnd = reader.indexOf('\n  @Builder\n  ReaderThumbStrip()', bottomStart)
+const bottomChrome = bottomStart >= 0 && bottomEnd > bottomStart ? reader.slice(bottomStart, bottomEnd) : ''
 
 ok(
   'Reader imports the shared EH sprite thumbnail renderer',
@@ -42,6 +45,18 @@ ok(
 )
 
 ok(
+  'closed filmstrip collapses height instead of becoming a hidden hit-test spacer',
+  bottomChrome.includes('this.ReaderThumbStrip()') &&
+    bottomChrome.includes('.height(this.showThumbStrip ? READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2 : 0)') &&
+    bottomChrome.includes('top: this.showThumbStrip ? ThemeConstants.SPACE_SM : 0') &&
+    bottomChrome.includes('bottom: this.showThumbStrip ? ThemeConstants.SPACE_SM : 0') &&
+    bottomChrome.includes('.clip(true)') &&
+    bottomChrome.includes('(this.showThumbStrip ? READER_THUMB_STRIP_HEIGHT + ThemeConstants.SPACE_SM * 2 : 0)') &&
+    !bottomChrome.includes('.visibility(this.showThumbStrip ? Visibility.Visible : Visibility.Hidden)') &&
+    !/if \(this\.showThumbStrip\) \{[\s\S]*this\.ReaderThumbStrip\(\)/.test(bottomChrome),
+)
+
+ok(
   'filmstrip renders sprites only when real image-page and thumbnail data exist',
   /private hasRenderableThumb\(img: EhGalleryImage\): boolean \{[\s\S]*img\.sUrl\.length > 0 && img\.thumbUrl\.length > 0/.test(reader) &&
     /if \(this\.hasRenderableThumb\(image\)\)/.test(reader),
@@ -49,7 +64,7 @@ ok(
 
 ok(
   'missing thumbnail metadata stays in-place and warms the target preview page',
-  /LoadingProgress\(\)[\s\S]*thumb_placeholder_appear[\s\S]*this\.vm\.warmPreviewForIndex\(index\)/.test(reader),
+  /LoadingProgress\(\)[\s\S]*thumb_placeholder_appear[\s\S]*this\.vm\.warmPreviewForIndex\(index, 'thumb-strip'\)/.test(reader),
 )
 
 ok(
