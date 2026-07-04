@@ -6,7 +6,7 @@
 
 原生 **HarmonyOS NEXT** E-Hentai / ExHentai 客户端。
 
-NextE 以 [eros_fe](https://github.com/3003h/Eros-FE) 作为功能与交互参考，按 HarmonyOS 原生体验重写。
+NextE 以 [eros_fe](https://github.com/erosTeam/eros_fe) 作为功能与交互参考，按 HarmonyOS 原生体验重写。
 
 > NextE 是非官方客户端，与 E-Hentai 无隶属关系。
 
@@ -56,7 +56,7 @@ python3 scripts/check_i18n_duplicates.py
 
 ## 参考与致谢
 
-- 功能与交互参考：[eros_fe](https://github.com/3003h/Eros-FE)、[E-HentaiViewer](https://github.com/kayanouriko/E-HentaiViewer)、[EhViewer](https://github.com/seven332/EhViewer)
+- 功能与交互参考：[eros_fe](https://github.com/erosTeam/eros_fe)、[E-HentaiViewer](https://github.com/kayanouriko/E-HentaiViewer)、[EhViewer](https://github.com/seven332/EhViewer)
 - HarmonyOS 架构参考：V2Next
 - 标签翻译数据：[EhTagTranslation/Database](https://github.com/EhTagTranslation/Database)
 
