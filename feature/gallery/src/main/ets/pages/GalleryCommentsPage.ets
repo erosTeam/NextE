@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit'
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
+  CommentStructuredTranslation,
   CommentTranslationService,
   CommentTranslationSettingsState,
   BasicDataSource,
@@ -13,6 +14,7 @@ import {
   EhApiPhpService,
   EhCookieStore,
   EhGalleryComment,
+  EhGalleryCommentTextSpan,
   CommentVoteResult,
   GalleryCommentsParams,
   PullRefreshListScaffold,
@@ -408,6 +410,7 @@ export struct GalleryCommentsPage {
   private applyCommentTranslationState(
     commentId: string,
     translated: string | undefined,
+    translatedSpans: EhGalleryCommentTextSpan[] | undefined,
     shown: boolean | undefined,
     loading: boolean | undefined,
     autoStarted: boolean | undefined,
@@ -418,6 +421,9 @@ export struct GalleryCommentsPage {
     }
     if (translated !== undefined) {
       state.translationText = translated
+    }
+    if (translatedSpans !== undefined) {
+      state.translationSpans = translatedSpans
     }
     if (shown !== undefined) {
       state.translationShown = shown
@@ -441,6 +447,7 @@ export struct GalleryCommentsPage {
     this.applyCommentTranslationState(
       comment.commentId,
       undefined,
+      undefined,
       !state.translationShown,
       false,
       undefined,
@@ -451,7 +458,7 @@ export struct GalleryCommentsPage {
     if (comment.commentId.length === 0 || translated.length === 0) {
       return
     }
-    this.applyCommentTranslationState(comment.commentId, translated, true, false, undefined)
+    this.applyCommentTranslationState(comment.commentId, translated, undefined, true, false, undefined)
   }
 
   private translateComment(comment: EhGalleryComment, sourceText: string, force: boolean): void {
@@ -466,11 +473,38 @@ export struct GalleryCommentsPage {
       this.toggleCommentTranslation(comment)
       return
     }
-    this.applyCommentTranslationState(comment.commentId, undefined, true, true, undefined)
+    this.applyCommentTranslationState(comment.commentId, undefined, undefined, true, true, undefined)
+    if (comment.contentSpans.length > 0 && sourceText === comment.contentText) {
+      CommentTranslationService.translateStructured(this.ctx(), sourceText, comment.contentSpans, force)
+        .then((translated: CommentStructuredTranslation) => {
+          if (translated.text.length > 0) {
+            this.applyCommentTranslationState(
+              comment.commentId,
+              translated.text,
+              translated.spans,
+              true,
+              false,
+              undefined,
+            )
+          }
+        })
+        .catch((error: Error) => {
+          DiagnosticLogger.warn(
+            'translation',
+            'comment_request_failed',
+            `id=${comment.commentId} ${error.message}`,
+          )
+          this.showCommentToast($r('app.string.comment_translation_failed'))
+        })
+        .finally(() => {
+          this.applyCommentTranslationState(comment.commentId, undefined, undefined, undefined, false, undefined)
+        })
+      return
+    }
     CommentTranslationService.translate(this.ctx(), sourceText, force)
       .then((translated: string) => {
         if (translated.length > 0) {
-          this.applyCommentTranslationState(comment.commentId, translated, true, false, undefined)
+          this.applyCommentTranslationState(comment.commentId, translated, [], true, false, undefined)
         }
       })
       .catch((error: Error) => {
@@ -482,7 +516,7 @@ export struct GalleryCommentsPage {
         this.showCommentToast($r('app.string.comment_translation_failed'))
       })
       .finally(() => {
-        this.applyCommentTranslationState(comment.commentId, undefined, undefined, false, undefined)
+        this.applyCommentTranslationState(comment.commentId, undefined, undefined, undefined, false, undefined)
       })
   }
 
@@ -497,7 +531,11 @@ export struct GalleryCommentsPage {
     ) {
       return
     }
-    this.applyCommentTranslationState(comment.commentId, undefined, true, false, true)
+    this.applyCommentTranslationState(comment.commentId, undefined, undefined, true, false, true)
+    if (comment.contentSpans.length > 0 && sourceText === comment.contentText) {
+      this.translateComment(comment, sourceText, false)
+      return
+    }
     CommentTranslationService.getCached(
       this.ctx(),
       sourceText,
@@ -505,7 +543,7 @@ export struct GalleryCommentsPage {
     )
       .then((cached: string) => {
         if (cached.length > 0) {
-          this.applyCommentTranslationState(comment.commentId, cached, true, false, undefined)
+          this.applyCommentTranslationState(comment.commentId, cached, [], true, false, undefined)
         } else {
           this.translateComment(comment, sourceText, false)
         }

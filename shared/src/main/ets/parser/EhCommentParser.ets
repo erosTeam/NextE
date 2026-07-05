@@ -1,9 +1,45 @@
-import { EhGalleryComment, EhGalleryCommentLink } from '../model/EhGalleryComment'
+import {
+  EhGalleryComment,
+  EhGalleryCommentLink,
+  EhGalleryCommentTextSpan,
+} from '../model/EhGalleryComment'
 import { HtmlSelectorUtils } from './HtmlSelectorUtils'
 
 class CommentBodyParseResult {
   text: string = ''
   links: EhGalleryCommentLink[] = []
+  spans: EhGalleryCommentTextSpan[] = []
+}
+
+class CommentInlineStyle {
+  url: string = ''
+  bold: boolean = false
+  italic: boolean = false
+  underline: boolean = false
+  strike: boolean = false
+  color: string = ''
+
+  copy(): CommentInlineStyle {
+    const next: CommentInlineStyle = new CommentInlineStyle()
+    next.url = this.url
+    next.bold = this.bold
+    next.italic = this.italic
+    next.underline = this.underline
+    next.strike = this.strike
+    next.color = this.color
+    return next
+  }
+
+  hasRenderStyle(): boolean {
+    return (
+      this.url.length > 0 ||
+      this.bold ||
+      this.italic ||
+      this.underline ||
+      this.strike ||
+      this.color.length > 0
+    )
+  }
 }
 
 /**
@@ -42,6 +78,7 @@ export class EhCommentParser {
         c.commentId = m[1]
         c.contentText = body.text
         c.contentLinks = body.links
+        c.contentSpans = body.spans
         c.postedTime = EhCommentParser.localPostedTime(
           HtmlSelectorUtils.group1(m[0], EhCommentParser.RE_DATE).trim(),
         )
@@ -204,40 +241,197 @@ export class EhCommentParser {
 
   private static parseBody(html: string): CommentBodyParseResult {
     const result: CommentBodyParseResult = new CommentBodyParseResult()
-    const links: EhGalleryCommentLink[] = []
-    let text: string = ''
-    let cursor: number = 0
-    const re: RegExp = new RegExp(EhCommentParser.RE_BODY_LINK.source, 'gi')
-    let m: RegExpExecArray | null = re.exec(html)
-    while (m !== null) {
-      const start: number = m.index !== undefined ? m.index : 0
-      if (start > cursor) {
-        text += EhCommentParser.stripHtmlFragment(html.substring(cursor, start))
-      }
-      const href: string = m[2] !== undefined ? m[2] : ''
-      const labelHtml: string = m[3] !== undefined ? m[3] : ''
-      const url: string = HtmlSelectorUtils.htmlUnescape(href).replace(/\u00A0/g, ' ').trim()
-      const label: string = EhCommentParser.stripHtmlNoLinks(labelHtml)
-      const visible: string = label.length > 0 ? label : url
-      const linkStart: number = text.length
-      text += visible
-      if (url.length > 0 && visible.length > 0) {
-        const link: EhGalleryCommentLink = new EhGalleryCommentLink()
-        link.start = linkStart
-        link.end = linkStart + visible.length
-        link.url = url
-        links.push(link)
-      }
-      cursor = re.lastIndex
-      m = re.exec(html)
-    }
-    if (cursor < html.length) {
-      text += EhCommentParser.stripHtmlFragment(html.substring(cursor))
-    }
-    return EhCommentParser.trimBodyParseResult(text, links)
+    EhCommentParser.parseInlineHtml(html, new CommentInlineStyle(), result)
+    return EhCommentParser.trimBodyParseResult(result.text, result.links, result.spans)
   }
 
-  private static trimBodyParseResult(text: string, links: EhGalleryCommentLink[]): CommentBodyParseResult {
+  private static parseInlineHtml(html: string, style: CommentInlineStyle, result: CommentBodyParseResult): void {
+    let cursor: number = 0
+    while (cursor < html.length) {
+      const tagStart: number = html.indexOf('<', cursor)
+      if (tagStart < 0) {
+        EhCommentParser.appendStyledText(result, html.substring(cursor), style)
+        return
+      }
+      if (tagStart > cursor) {
+        EhCommentParser.appendStyledText(result, html.substring(cursor, tagStart), style)
+      }
+      const tagEnd: number = html.indexOf('>', tagStart + 1)
+      if (tagEnd < 0) {
+        EhCommentParser.appendStyledText(result, html.substring(tagStart), style)
+        return
+      }
+      const tag: string = html.substring(tagStart, tagEnd + 1)
+      const name: string = EhCommentParser.tagName(tag)
+      if (tag.startsWith('</')) {
+        cursor = tagEnd + 1
+        continue
+      }
+      if (name === 'br') {
+        EhCommentParser.appendStyledText(result, '\n', style)
+        cursor = tagEnd + 1
+        continue
+      }
+      const closeStart: number = EhCommentParser.findClosingTag(html, tagEnd + 1, name)
+      if (closeStart < 0 || !EhCommentParser.supportedInlineTag(name)) {
+        cursor = tagEnd + 1
+        continue
+      }
+      const nextStyle: CommentInlineStyle = EhCommentParser.styleForTag(name, tag, style)
+      const beforeLength: number = result.text.length
+      EhCommentParser.parseInlineHtml(html.substring(tagEnd + 1, closeStart), nextStyle, result)
+      if (name === 'a' && result.text.length === beforeLength && nextStyle.url.length > 0) {
+        EhCommentParser.appendStyledText(result, nextStyle.url, nextStyle)
+      }
+      const closeEnd: number = html.indexOf('>', closeStart + 1)
+      cursor = closeEnd < 0 ? html.length : closeEnd + 1
+    }
+  }
+
+  private static appendStyledText(
+    result: CommentBodyParseResult,
+    raw: string,
+    style: CommentInlineStyle,
+  ): void {
+    if (raw.length === 0) {
+      return
+    }
+    const text: string = HtmlSelectorUtils.htmlUnescape(raw).replace(/\u00A0/g, ' ')
+    if (text.length === 0) {
+      return
+    }
+    const start: number = result.text.length
+    result.text += text
+    const end: number = result.text.length
+    if (style.url.length > 0) {
+      const link: EhGalleryCommentLink = new EhGalleryCommentLink()
+      link.start = start
+      link.end = end
+      link.url = style.url
+      result.links.push(link)
+    }
+    if (style.hasRenderStyle()) {
+      const span: EhGalleryCommentTextSpan = new EhGalleryCommentTextSpan()
+      span.start = start
+      span.end = end
+      span.url = style.url
+      span.bold = style.bold
+      span.italic = style.italic
+      span.underline = style.underline
+      span.strike = style.strike
+      span.color = style.color
+      result.spans.push(span)
+    }
+  }
+
+  private static tagName(tag: string): string {
+    const m: RegExpMatchArray | null = tag.match(/^<\s*\/?\s*([A-Za-z0-9]+)/)
+    if (m !== null && m[1] !== undefined) {
+      return m[1].toLowerCase()
+    }
+    return ''
+  }
+
+  private static supportedInlineTag(name: string): boolean {
+    return (
+      name === 'a' ||
+      name === 'strong' ||
+      name === 'b' ||
+      name === 'em' ||
+      name === 'i' ||
+      name === 'u' ||
+      name === 'del' ||
+      name === 's' ||
+      name === 'strike' ||
+      name === 'span'
+    )
+  }
+
+  private static findClosingTag(html: string, from: number, name: string): number {
+    if (name.length === 0) {
+      return -1
+    }
+    const re: RegExp = new RegExp(`<\\s*\\/?\\s*${name}\\b[^>]*>`, 'gi')
+    re.lastIndex = from
+    let depth: number = 1
+    let m: RegExpExecArray | null = re.exec(html)
+    while (m !== null) {
+      const token: string = m[0]
+      if (token.startsWith('</')) {
+        depth--
+        if (depth === 0) {
+          return m.index !== undefined ? m.index : -1
+        }
+      } else if (!token.endsWith('/>')) {
+        depth++
+      }
+      m = re.exec(html)
+    }
+    return -1
+  }
+
+  private static styleForTag(name: string, tag: string, parent: CommentInlineStyle): CommentInlineStyle {
+    const style: CommentInlineStyle = parent.copy()
+    if (name === 'a') {
+      style.url = EhCommentParser.attrValue(tag, 'href')
+    } else if (name === 'strong' || name === 'b') {
+      style.bold = true
+    } else if (name === 'em' || name === 'i') {
+      style.italic = true
+    } else if (name === 'u') {
+      style.underline = true
+    } else if (name === 'del' || name === 's' || name === 'strike') {
+      style.strike = true
+    } else if (name === 'span') {
+      EhCommentParser.applyCssStyle(style, EhCommentParser.attrValue(tag, 'style'))
+    }
+    return style
+  }
+
+  private static attrValue(tag: string, name: string): string {
+    const re: RegExp = new RegExp(`${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i')
+    const m: RegExpMatchArray | null = tag.match(re)
+    if (m === null) {
+      return ''
+    }
+    let value: string = ''
+    if (m[1] !== undefined) {
+      value = m[1]
+    } else if (m[2] !== undefined) {
+      value = m[2]
+    } else if (m[3] !== undefined) {
+      value = m[3]
+    }
+    return HtmlSelectorUtils.htmlUnescape(value).replace(/\u00A0/g, ' ').trim()
+  }
+
+  private static applyCssStyle(style: CommentInlineStyle, raw: string): void {
+    const css: string = raw.toLowerCase()
+    if (css.indexOf('font-weight') >= 0 && (css.indexOf('bold') >= 0 || css.indexOf('700') >= 0)) {
+      style.bold = true
+    }
+    if (css.indexOf('font-style') >= 0 && css.indexOf('italic') >= 0) {
+      style.italic = true
+    }
+    if (css.indexOf('text-decoration') >= 0) {
+      if (css.indexOf('underline') >= 0) {
+        style.underline = true
+      }
+      if (css.indexOf('line-through') >= 0) {
+        style.strike = true
+      }
+    }
+    const colorMatch: RegExpMatchArray | null = raw.match(/(?:^|;)\s*color\s*:\s*(#[0-9a-fA-F]{3,8})/)
+    if (colorMatch !== null && colorMatch[1] !== undefined) {
+      style.color = colorMatch[1]
+    }
+  }
+
+  private static trimBodyParseResult(
+    text: string,
+    links: EhGalleryCommentLink[],
+    spans: EhGalleryCommentTextSpan[],
+  ): CommentBodyParseResult {
     const result: CommentBodyParseResult = new CommentBodyParseResult()
     const startTrim: number = EhCommentParser.leadingWhitespace(text)
     const endTrim: number = EhCommentParser.trailingWhitespace(text)
@@ -253,6 +447,22 @@ export class EhCommentParser {
       link.end = raw.end - startTrim
       link.url = raw.url
       result.links.push(link)
+    }
+    for (let i = 0; i < spans.length; i++) {
+      const raw: EhGalleryCommentTextSpan = spans[i]
+      if (raw.end <= startTrim || raw.start >= end) {
+        continue
+      }
+      const span: EhGalleryCommentTextSpan = new EhGalleryCommentTextSpan()
+      span.start = raw.start - startTrim
+      span.end = raw.end - startTrim
+      span.url = raw.url
+      span.bold = raw.bold
+      span.italic = raw.italic
+      span.underline = raw.underline
+      span.strike = raw.strike
+      span.color = raw.color
+      result.spans.push(span)
     }
     return result
   }

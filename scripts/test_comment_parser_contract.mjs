@@ -11,7 +11,6 @@ const RE_SCORE = /<div class="c5 nosel"[^>]*>[\s\S]*?([+-]\d+)/
 const RE_C4 = /<div class="c4 nosel"[^>]*>([\s\S]*?)<\/div>/
 const RE_C7 = /<div class="c7"[^>]*>([\s\S]*?)<\/div>/
 const RE_SPAN = /<span[^>]*>([\s\S]*?)<\/span>/g
-const RE_BODY_LINK = /<a\b[^>]*\bhref=(["'])([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi
 const RE_POSTED_PARTS = /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4}),\s+(\d{1,2}):(\d{2})/
 const g1 = (t, re) => { const m = t.match(re); return m && m[1] !== undefined ? m[1] : '' }
 const namedEntities = new Map([
@@ -35,7 +34,7 @@ function stripHtmlFragment(h) {
 function stripHtmlNoLinks(h) {
   return stripHtmlFragment(h).trim()
 }
-function trimBodyResult(text, links) {
+function trimBodyResult(text, links, spans) {
   const startTrim = text.length - text.trimStart().length
   const endTrim = text.length - text.trimEnd().length
   const end = text.length - endTrim
@@ -44,27 +43,135 @@ function trimBodyResult(text, links) {
     links: links
       .filter(l => l.end > startTrim && l.start < end)
       .map(l => ({ start: l.start - startTrim, end: l.end - startTrim, url: l.url })),
+    spans: spans
+      .filter(s => s.end > startTrim && s.start < end)
+      .map(s => ({
+        start: s.start - startTrim,
+        end: s.end - startTrim,
+        url: s.url || '',
+        bold: !!s.bold,
+        italic: !!s.italic,
+        underline: !!s.underline,
+        strike: !!s.strike,
+        color: s.color || '',
+      })),
   }
 }
 function parseBody(h) {
-  let text = ''
+  const result = { text: '', links: [], spans: [] }
+  parseInlineHtml(h, {}, result)
+  return trimBodyResult(result.text, result.links, result.spans)
+}
+function appendStyledText(result, raw, style) {
+  if (!raw) return
+  const text = htmlUnescape(raw).replace(/\u00A0/g, ' ')
+  if (!text) return
+  const start = result.text.length
+  result.text += text
+  const end = result.text.length
+  if (style.url) result.links.push({ start, end, url: style.url })
+  if (style.url || style.bold || style.italic || style.underline || style.strike || style.color) {
+    result.spans.push({
+      start, end,
+      url: style.url || '',
+      bold: !!style.bold,
+      italic: !!style.italic,
+      underline: !!style.underline,
+      strike: !!style.strike,
+      color: style.color || '',
+    })
+  }
+}
+function tagName(tag) {
+  const m = tag.match(/^<\s*\/?\s*([A-Za-z0-9]+)/)
+  return m && m[1] ? m[1].toLowerCase() : ''
+}
+function supportedInlineTag(name) {
+  return ['a', 'strong', 'b', 'em', 'i', 'u', 'del', 's', 'strike', 'span'].includes(name)
+}
+function findClosingTag(html, from, name) {
+  const re = new RegExp(`<\\s*\\/?\\s*${name}\\b[^>]*>`, 'gi')
+  re.lastIndex = from
+  let depth = 1
+  let m
+  while ((m = re.exec(html)) !== null) {
+    const token = m[0] || ''
+    if (token.startsWith('</')) {
+      depth--
+      if (depth === 0) return m.index ?? -1
+    } else if (!token.endsWith('/>')) {
+      depth++
+    }
+  }
+  return -1
+}
+function attrValue(tag, name) {
+  const re = new RegExp(`${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i')
+  const m = tag.match(re)
+  const value = m ? (m[1] ?? m[2] ?? m[3] ?? '') : ''
+  return htmlUnescape(value).replace(/\u00A0/g, ' ').trim()
+}
+function applyCssStyle(style, raw) {
+  const css = raw.toLowerCase()
+  if (css.includes('font-weight') && (css.includes('bold') || css.includes('700'))) style.bold = true
+  if (css.includes('font-style') && css.includes('italic')) style.italic = true
+  if (css.includes('text-decoration')) {
+    if (css.includes('underline')) style.underline = true
+    if (css.includes('line-through')) style.strike = true
+  }
+  const color = raw.match(/(?:^|;)\s*color\s*:\s*(#[0-9a-fA-F]{3,8})/)
+  if (color && color[1]) style.color = color[1]
+}
+function styleForTag(name, tag, parent) {
+  const style = { ...parent }
+  if (name === 'a') style.url = attrValue(tag, 'href')
+  else if (name === 'strong' || name === 'b') style.bold = true
+  else if (name === 'em' || name === 'i') style.italic = true
+  else if (name === 'u') style.underline = true
+  else if (name === 'del' || name === 's' || name === 'strike') style.strike = true
+  else if (name === 'span') applyCssStyle(style, attrValue(tag, 'style'))
+  return style
+}
+function parseInlineHtml(html, style, result) {
   const links = []
   let cursor = 0
-  let m
-  RE_BODY_LINK.lastIndex = 0
-  while ((m = RE_BODY_LINK.exec(h)) !== null) {
-    const start = m.index ?? 0
-    if (start > cursor) text += stripHtmlFragment(h.substring(cursor, start))
-    const url = htmlUnescape(m[2] || '').replace(/\u00A0/g, ' ').trim()
-    const label = stripHtmlNoLinks(m[3] || '')
-    const visible = label.length > 0 ? label : url
-    const linkStart = text.length
-    text += visible
-    if (url.length > 0 && visible.length > 0) links.push({ start: linkStart, end: linkStart + visible.length, url })
-    cursor = RE_BODY_LINK.lastIndex
+  while (cursor < html.length) {
+    const tagStart = html.indexOf('<', cursor)
+    if (tagStart < 0) {
+      appendStyledText(result, html.substring(cursor), style)
+      return
+    }
+    if (tagStart > cursor) appendStyledText(result, html.substring(cursor, tagStart), style)
+    const tagEnd = html.indexOf('>', tagStart + 1)
+    if (tagEnd < 0) {
+      appendStyledText(result, html.substring(tagStart), style)
+      return
+    }
+    const tag = html.substring(tagStart, tagEnd + 1)
+    const name = tagName(tag)
+    if (tag.startsWith('</')) {
+      cursor = tagEnd + 1
+      continue
+    }
+    if (name === 'br') {
+      appendStyledText(result, '\n', style)
+      cursor = tagEnd + 1
+      continue
+    }
+    const closeStart = findClosingTag(html, tagEnd + 1, name)
+    if (closeStart < 0 || !supportedInlineTag(name)) {
+      cursor = tagEnd + 1
+      continue
+    }
+    const nextStyle = styleForTag(name, tag, style)
+    const before = result.text.length
+    parseInlineHtml(html.substring(tagEnd + 1, closeStart), nextStyle, result)
+    if (name === 'a' && result.text.length === before && nextStyle.url) {
+      appendStyledText(result, nextStyle.url, nextStyle)
+    }
+    const closeEnd = html.indexOf('>', closeStart + 1)
+    cursor = closeEnd < 0 ? html.length : closeEnd + 1
   }
-  if (cursor < h.length) text += stripHtmlFragment(h.substring(cursor))
-  return trimBodyResult(text, links)
 }
 function stripHtml(h) {
   return stripHtmlNoLinks(h)
@@ -125,7 +232,7 @@ function parse(html) {
     const c4 = g1(m[0], RE_C4)
     const body = parseBody(m[2] || '')
     out.push({
-      commentId: m[1], contentText: body.text, contentLinks: body.links,
+      commentId: m[1], contentText: body.text, contentLinks: body.links, contentSpans: body.spans,
       postedTime: localPostedTime(g1(m[0], RE_DATE).trim()), author: g1(m[0], RE_AUTHOR).trim(),
       memberId: g1(m[0], RE_MEMBER_ID).trim(),
       score: g1(m[0], RE_SCORE).trim(), vote: parseVote(c4),
@@ -167,6 +274,19 @@ const linkedLabel = parse(`<a name="c6"></a><div class="c1"><div class="c2"><div
 if (linkedLabel[0] && linkedLabel[0].contentText !== 'see this gallery ok') fail(`linked label should stay readable without exposing href: ${JSON.stringify(linkedLabel[0])}`)
 if (linkedLabel[0] && linkedLabel[0].contentText.includes('4029582')) fail(`linked label must not append raw URL into visible text: ${JSON.stringify(linkedLabel[0])}`)
 if (linkedLabel[0] && JSON.stringify(linkedLabel[0].contentLinks) !== JSON.stringify([{ start: 4, end: 16, url: 'https://e-hentai.org/g/4029582/a90c43f079/' }])) fail(`linked label href metadata wrong: ${JSON.stringify(linkedLabel[0])}`)
+if (linkedLabel[0] && JSON.stringify(linkedLabel[0].contentSpans) !== JSON.stringify([{ start: 4, end: 16, url: 'https://e-hentai.org/g/4029582/a90c43f079/', bold: false, italic: false, underline: false, strike: false, color: '' }])) fail(`linked label render span wrong: ${JSON.stringify(linkedLabel[0])}`)
+
+const richHtml = parse(`<a name="c7"></a><div class="c1"><div class="c2"><div class="c3">Posted on 23 May 2026, 09:00 by: <a href="https://forums.e-hentai.org/index.php?showuser=707">f</a></div><div class="c4 nosel"></div></div><div class="c6" id="comment_12"><strong>bold</strong> <em>italic</em> <u>under</u> <del>gone</del> <span style="color:#ff00aa;font-weight:bold;font-style:italic;text-decoration:underline">style</span></div></div>`)
+if (richHtml[0] && richHtml[0].contentText !== 'bold italic under gone style') fail(`rich html text wrong: ${JSON.stringify(richHtml[0])}`)
+if (richHtml[0]) {
+  const spans = richHtml[0].contentSpans
+  const hasBold = spans.some(s => s.start === 0 && s.end === 4 && s.bold)
+  const hasItalic = spans.some(s => richHtml[0].contentText.substring(s.start, s.end) === 'italic' && s.italic)
+  const hasUnderline = spans.some(s => richHtml[0].contentText.substring(s.start, s.end) === 'under' && s.underline)
+  const hasStrike = spans.some(s => richHtml[0].contentText.substring(s.start, s.end) === 'gone' && s.strike)
+  const hasStyle = spans.some(s => richHtml[0].contentText.substring(s.start, s.end) === 'style' && s.bold && s.italic && s.underline && s.color === '#ff00aa')
+  if (!hasBold || !hasItalic || !hasUnderline || !hasStrike || !hasStyle) fail(`rich html spans wrong: ${JSON.stringify(spans)}`)
+}
 
 // 2. Real fixture.
 const realPath = new URL('./fixtures/gdetail_real.html', import.meta.url)

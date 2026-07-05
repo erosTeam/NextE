@@ -41,7 +41,11 @@ export {
 export { ViewedGallery } from './model/ViewedGallery'
 export { Favcat } from './model/Favcat'
 export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
-export { EhGalleryComment, EhGalleryCommentLink } from './model/EhGalleryComment'
+export {
+  EhGalleryComment,
+  EhGalleryCommentLink,
+  EhGalleryCommentTextSpan,
+} from './model/EhGalleryComment'
 export { EhGalleryImage } from './model/EhGalleryImage'
 export { EhGalleryTorrent, EhGalleryTorrentList } from './model/EhGalleryTorrent'
 export {
@@ -150,7 +154,10 @@ export {
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
 export { UserProfileService, UserProfileInfo } from './services/UserProfileService'
-export { CommentTranslationService } from './services/CommentTranslationService'
+export {
+  CommentStructuredTranslation,
+  CommentTranslationService,
+} from './services/CommentTranslationService'
 export { LocalBlockService } from './services/LocalBlockService'
 export { ImageBlockFeedParser } from './services/ImageBlockFeedParser'
 export { ImageBlockService } from './services/ImageBlockService'

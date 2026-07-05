@@ -5,6 +5,7 @@ import {
   EhConstants,
   EhGalleryComment,
   EhGalleryCommentLink,
+  EhGalleryCommentTextSpan,
   EhUrlRouter,
   GalleryWebParams,
   LocalBlockService,
@@ -25,12 +26,32 @@ class CommentTextSegment {
   text: string = ''
   url: string = ''
   emphasized: boolean = false
+  bold: boolean = false
+  italic: boolean = false
+  underline: boolean = false
+  strike: boolean = false
+  color: string = ''
 
-  constructor(key: string = '', text: string = '', url: string = '', emphasized: boolean = false) {
+  constructor(
+    key: string = '',
+    text: string = '',
+    url: string = '',
+    emphasized: boolean = false,
+    bold: boolean = false,
+    italic: boolean = false,
+    underline: boolean = false,
+    strike: boolean = false,
+    color: string = '',
+  ) {
     this.key = key
     this.text = text
     this.url = url
     this.emphasized = emphasized
+    this.bold = bold
+    this.italic = italic
+    this.underline = underline
+    this.strike = strike
+    this.color = color
   }
 }
 
@@ -83,6 +104,7 @@ export struct GalleryCommentsCard {
   // animation through the page mutating renderState did not work: a cross-component animateTo doesn't
   // capture the card's layout change, which is why show/hide toggling stopped animating.
   @Local localTranslationText: string = '';
+  @Local localTranslationSpans: EhGalleryCommentTextSpan[] = [];
   @Local localTranslationShown: boolean = false;
   @Local localTranslationLoading: boolean = false;
   // Height-measure animation machinery (restored verbatim from the pre-virtualization card): when a
@@ -128,6 +150,7 @@ export struct GalleryCommentsCard {
   // instantly. The spinner flag always follows immediately.
   @Monitor(
     'renderState.translationText',
+    'renderState.translationSpans',
     'renderState.translationShown',
     'renderState.translationLoading',
   )
@@ -149,6 +172,7 @@ export struct GalleryCommentsCard {
     // the visible body while it is still showing the original (localTranslationShown stays false).
     if (hasNewText) {
       this.localTranslationText = targetText
+      this.localTranslationSpans = this.renderState.translationSpans.slice()
     }
     if (this.manualTranslateArmed) {
       // User-initiated → run the bidirectional height-measure animation.
@@ -165,6 +189,7 @@ export struct GalleryCommentsCard {
     // Seed the mirror without animation (initial mount / card recycle): the render state may already carry a
     // cached translation, which should appear instantly, not animate in.
     this.localTranslationText = this.renderState.translationText
+    this.localTranslationSpans = this.renderState.translationSpans.slice()
     this.localTranslationShown = this.renderState.translationShown
     this.localTranslationLoading = this.renderState.translationLoading
     this.autoTranslateVisibleComments()
@@ -792,18 +817,19 @@ export struct GalleryCommentsCard {
     const shown: EhGalleryComment[] = this.shown()
     for (let i = 0; i < shown.length; i++) {
       const c: EhGalleryComment = shown[i]
-      if (c.contentText.trim().length === 0) {
+      if (this.autoTranslateStarted(c)) {
         continue
       }
-      if (this.autoTranslateStarted(c)) {
+      const sourceText: string = this.translationSourceText(c)
+      if (sourceText.trim().length === 0) {
         continue
       }
       // Skip AUTO-translating comments already in the current UI language (local language pre-check). The
       // manual translate button is unaffected — the user can still force a translation.
-      if (!CommentTranslationService.needsTranslation(c.contentText)) {
+      if (!CommentTranslationService.needsTranslation(sourceText)) {
         continue
       }
-      this.publishAutoTranslate(c, this.translationSourceText(c))
+      this.publishAutoTranslate(c, sourceText)
     }
   }
 
@@ -907,24 +933,66 @@ export struct GalleryCommentsCard {
     seq: number,
     text: string,
     c: EhGalleryComment,
+    url: string = '',
+    bold: boolean = false,
+    italic: boolean = false,
+    underline: boolean = false,
+    strike: boolean = false,
+    color: string = '',
   ): number {
     let cursor: number = 0
     let nextSeq: number = seq
     while (cursor < text.length) {
       const at: number = text.indexOf('@', cursor)
       if (at < 0) {
-        out.push(new CommentTextSegment(`t${nextSeq++}`, text.substring(cursor)))
+        out.push(
+          new CommentTextSegment(
+            `t${nextSeq++}`,
+            text.substring(cursor),
+            url,
+            false,
+            bold,
+            italic,
+            underline,
+            strike,
+            color,
+          ),
+        )
         break
       }
       if (at > cursor) {
-        out.push(new CommentTextSegment(`t${nextSeq++}`, text.substring(cursor, at)))
+        out.push(
+          new CommentTextSegment(
+            `t${nextSeq++}`,
+            text.substring(cursor, at),
+            url,
+            false,
+            bold,
+            italic,
+            underline,
+            strike,
+            color,
+          ),
+        )
       }
       const length: number = this.mentionHighlightLength(c, text.substring(at))
       if (length > 1) {
-        out.push(new CommentTextSegment(`m${nextSeq++}`, text.substring(at, at + length), '', true))
+        out.push(
+          new CommentTextSegment(
+            `m${nextSeq++}`,
+            text.substring(at, at + length),
+            url,
+            true,
+            bold,
+            italic,
+            underline,
+            strike,
+            color,
+          ),
+        )
         cursor = at + length
       } else {
-        out.push(new CommentTextSegment(`t${nextSeq++}`, '@'))
+        out.push(new CommentTextSegment(`t${nextSeq++}`, '@', url, false, bold, italic, underline, strike, color))
         cursor = at + 1
       }
     }
@@ -936,6 +1004,11 @@ export struct GalleryCommentsCard {
     seq: number,
     text: string,
     c: EhGalleryComment,
+    bold: boolean = false,
+    italic: boolean = false,
+    underline: boolean = false,
+    strike: boolean = false,
+    color: string = '',
   ): number {
     COMMENT_LINK_RE.lastIndex = 0
     let cursor: number = 0
@@ -947,19 +1020,52 @@ export struct GalleryCommentsCard {
       const end: number = COMMENT_LINK_RE.lastIndex
       const url: string = this.cleanCommentUrl(raw)
       if (start > cursor) {
-        nextSeq = this.pushCommentTextSegments(out, nextSeq, text.substring(cursor, start), c)
+        nextSeq = this.pushCommentTextSegments(
+          out,
+          nextSeq,
+          text.substring(cursor, start),
+          c,
+          '',
+          bold,
+          italic,
+          underline,
+          strike,
+          color,
+        )
       }
       if (url.length > 0) {
-        out.push(new CommentTextSegment(`u${nextSeq++}`, url, url))
+        out.push(new CommentTextSegment(`u${nextSeq++}`, url, url, false, bold, italic, underline, strike, color))
       }
       if (url.length < raw.length) {
-        nextSeq = this.pushCommentTextSegments(out, nextSeq, raw.substring(url.length), c)
+        nextSeq = this.pushCommentTextSegments(
+          out,
+          nextSeq,
+          raw.substring(url.length),
+          c,
+          '',
+          bold,
+          italic,
+          underline,
+          strike,
+          color,
+        )
       }
       cursor = end
       match = COMMENT_LINK_RE.exec(text)
     }
     if (cursor < text.length) {
-      nextSeq = this.pushCommentTextSegments(out, nextSeq, text.substring(cursor), c)
+      nextSeq = this.pushCommentTextSegments(
+        out,
+        nextSeq,
+        text.substring(cursor),
+        c,
+        '',
+        bold,
+        italic,
+        underline,
+        strike,
+        color,
+      )
     }
     return nextSeq
   }
@@ -1004,9 +1110,88 @@ export struct GalleryCommentsCard {
     return nextSeq
   }
 
+  private translationSpans(c: EhGalleryComment): EhGalleryCommentTextSpan[] {
+    if (this.parentManagedActions) {
+      return this.localTranslationSpans
+    }
+    if (this.useSingleComment) {
+      return this.singleComment.translationSpans
+    }
+    return c.translationSpans
+  }
+
+  private sourceSpansForText(text: string, c: EhGalleryComment): EhGalleryCommentTextSpan[] {
+    if (this.shouldShowTranslatedState(this.translationText(c), this.isTranslationShown(c)) &&
+      text === this.translationText(c)) {
+      return this.translationSpans(c)
+    }
+    return c.contentSpans
+  }
+
+  private pushRichTextSegments(
+    out: CommentTextSegment[],
+    seq: number,
+    text: string,
+    c: EhGalleryComment,
+    spans: EhGalleryCommentTextSpan[],
+  ): number {
+    const offset: number = this.commentLinkOffset(text, c)
+    if (offset < 0 && text !== this.translationText(c)) {
+      return seq
+    }
+    let cursor: number = 0
+    let nextSeq: number = seq
+    for (let i = 0; i < spans.length; i++) {
+      const span: EhGalleryCommentTextSpan = spans[i]
+      const start: number = text === this.translationText(c) ? span.start : span.start - offset
+      const end: number = text === this.translationText(c) ? span.end : span.end - offset
+      if (start < cursor || end <= 0 || start >= text.length || end > text.length) {
+        continue
+      }
+      if (start > cursor) {
+        nextSeq = this.pushUrlTextSegments(out, nextSeq, text.substring(cursor, start), c)
+      }
+      const segmentText: string = text.substring(start, end)
+      if (span.url.length > 0) {
+        nextSeq = this.pushCommentTextSegments(
+          out,
+          nextSeq,
+          segmentText,
+          c,
+          span.url,
+          span.bold,
+          span.italic,
+          span.underline,
+          span.strike,
+          span.color,
+        )
+      } else {
+        nextSeq = this.pushUrlTextSegments(
+          out,
+          nextSeq,
+          segmentText,
+          c,
+          span.bold,
+          span.italic,
+          span.underline,
+          span.strike,
+          span.color,
+        )
+      }
+      cursor = end
+    }
+    if (cursor < text.length) {
+      nextSeq = this.pushUrlTextSegments(out, nextSeq, text.substring(cursor), c)
+    }
+    return nextSeq
+  }
+
   private commentTextSegments(text: string, c: EhGalleryComment): CommentTextSegment[] {
     const out: CommentTextSegment[] = []
-    if (c.contentLinks.length > 0) {
+    const richSpans: EhGalleryCommentTextSpan[] = this.sourceSpansForText(text, c)
+    if (richSpans.length > 0) {
+      this.pushRichTextSegments(out, 0, text, c, richSpans)
+    } else if (c.contentLinks.length > 0) {
       this.pushHtmlLinkTextSegments(out, 0, text, c)
     } else {
       this.pushUrlTextSegments(out, 0, text, c)
@@ -1018,7 +1203,37 @@ export struct GalleryCommentsCard {
   }
 
   private commentTextSegmentKey(seg: CommentTextSegment): string {
-    return `segment_${seg.key}_${this.safeForEachKeyHash(`${seg.text}:${seg.url}:${seg.emphasized}`)}`
+    return `segment_${seg.key}_${this.safeForEachKeyHash(`${seg.text}:${seg.url}:${seg.emphasized}:${seg.bold}:${seg.italic}:${seg.underline}:${seg.strike}:${seg.color}`)}`
+  }
+
+  private segmentColor(seg: CommentTextSegment, fallback: ResourceColor): ResourceColor {
+    if (seg.url.length > 0 || seg.emphasized) {
+      return $r('sys.color.font_emphasize')
+    }
+    if (seg.color.length > 0) {
+      return seg.color
+    }
+    return fallback
+  }
+
+  private segmentDecorationType(seg: CommentTextSegment): TextDecorationType {
+    if (seg.url.length > 0 || seg.underline) {
+      return TextDecorationType.Underline
+    }
+    if (seg.strike) {
+      return TextDecorationType.LineThrough
+    }
+    return TextDecorationType.None
+  }
+
+  private segmentDecorationColor(seg: CommentTextSegment, fallback: ResourceColor): ResourceColor {
+    if (seg.url.length > 0 || seg.emphasized) {
+      return $r('sys.color.font_emphasize')
+    }
+    if (seg.color.length > 0) {
+      return seg.color
+    }
+    return fallback
   }
 
   private currentHostUrl(url: string): string {
@@ -1392,18 +1607,19 @@ export struct GalleryCommentsCard {
         ForEach(
           this.commentTextSegments(text, c),
           (seg: CommentTextSegment) => {
-            if (seg.url.length > 0) {
-              Span(seg.text)
-                .fontColor($r('sys.color.font_emphasize'))
-                .decoration({
-                  type: TextDecorationType.Underline,
-                  color: $r('sys.color.font_emphasize'),
-                })
-            } else if (seg.emphasized) {
-              Span(seg.text).fontColor($r('sys.color.font_emphasize'))
-            } else {
-              Span(seg.text)
-            }
+            Span(seg.text)
+              .fontColor(this.segmentColor(seg, color))
+              .fontWeight(seg.bold ? FontWeight.Bold : FontWeight.Regular)
+              .fontStyle(seg.italic ? FontStyle.Italic : FontStyle.Normal)
+              .decoration({
+                type: this.segmentDecorationType(seg),
+                color: this.segmentDecorationColor(seg, color),
+              })
+              .onClick(() => {
+                if (seg.url.length > 0) {
+                  this.openCommentUrl(seg.url)
+                }
+              })
           },
           (seg: CommentTextSegment) => this.commentTextSegmentKey(seg),
         )
@@ -1418,21 +1634,19 @@ export struct GalleryCommentsCard {
         ForEach(
           this.commentTextSegments(text, c),
           (seg: CommentTextSegment) => {
-            if (seg.url.length > 0) {
-              Span(seg.text)
-                .fontColor($r('sys.color.font_emphasize'))
-                .decoration({
-                  type: TextDecorationType.Underline,
-                  color: $r('sys.color.font_emphasize'),
-                })
-                .onClick(() => {
+            Span(seg.text)
+              .fontColor(this.segmentColor(seg, color))
+              .fontWeight(seg.bold ? FontWeight.Bold : FontWeight.Regular)
+              .fontStyle(seg.italic ? FontStyle.Italic : FontStyle.Normal)
+              .decoration({
+                type: this.segmentDecorationType(seg),
+                color: this.segmentDecorationColor(seg, color),
+              })
+              .onClick(() => {
+                if (seg.url.length > 0) {
                   this.openCommentUrl(seg.url)
-                })
-            } else if (seg.emphasized) {
-              Span(seg.text).fontColor($r('sys.color.font_emphasize'))
-            } else {
-              Span(seg.text)
-            }
+                }
+              })
           },
           (seg: CommentTextSegment) => this.commentTextSegmentKey(seg),
         )

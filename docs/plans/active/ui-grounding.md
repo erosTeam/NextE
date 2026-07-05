@@ -752,12 +752,12 @@ Primary action: center/edge taps above the visible toolbar continue to route thr
 Reuse or deviation: reuse the existing reader bottom toolbar, local `showThumbStrip` toggle, and tap overlay; deviate only by collapsing the strip container height/padding to 0 and making bottom chrome height conditional when the strip is closed.
 Verification: reader thumbnail filmstrip contract, reader tap-zone contract, UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build.
 
-## Active: gallery comment HTML links
+## Active: gallery comment HTML links and inline styles
 
 Status: active
-Reference implementation: `../eros_fe/lib/common/parser/gallery_detail_parser.dart` `parseGalleryComment()` linkify pass, `../eros_fe/lib/const/const.dart` `commentUrlRegExp`, and NextE `feature/gallery/src/main/ets/components/GalleryCommentsCard.ets` existing comment `Span` URL handling.
+Reference implementation: `../eros_fe/lib/common/parser/gallery_detail_parser.dart` `parseGalleryComment()` linkify pass, `../eros_fe/lib/pages/gallery/view/comment_item.dart` `buildCommentTile()`, `../eros_fe/lib/const/const.dart` `commentUrlRegExp`, and NextE `feature/gallery/src/main/ets/components/GalleryCommentsCard.ets` existing comment `Span` URL handling.
 Surface type: Gallery detail comment preview and full comments page body text.
-Primary information: comments keep their original readable text; HTML anchor labels remain labels instead of being replaced by raw URLs.
-Primary action: tapping a linked comment label opens the href through the existing EH URL router or in-app web page; plain text, mentions, replies, translation, voting, and comment composition stay unchanged.
-Reuse or deviation: reuse `EhCommentParser`, `EhGalleryComment`, `GalleryCommentsCard` `CommentTextSegment`, `EhUrlRouter`, `GalleryWeb`, and page cache cloning; deviate from FE only by storing anchor start/end metadata instead of keeping a parsed DOM element.
-Verification: comment parser contract, full comment entry contract, comment translation contract, UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build.
+Primary information: comments keep their original readable text and inline meaning; HTML anchor labels remain labels, while bold/italic/underline/strike/span color are visible instead of being flattened to plain text.
+Primary action: tapping a linked comment label opens the href through the existing EH URL router or in-app web page; translated comments preserve structure only when the source text still maps exactly to the parsed comment body, otherwise they fall back to plain translated text.
+Reuse or deviation: reuse `EhCommentParser`, `EhGalleryComment`, `GalleryCommentsCard` `CommentTextSegment`, `EhUrlRouter`, `GalleryWeb`, page cache cloning, and FE's recursive inline-node semantics; deviate from FE by storing serializable text-span ranges instead of a parsed DOM element because NextE cache/state must survive ArkTS model copying.
+Verification: comment parser contract, reply reference contract, comment translation contract, UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build.

@@ -3,7 +3,11 @@ import { relationalStore } from '@kit.ArkData'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGallery, EhGalleryVersion } from '../model/EhGallery'
-import { EhGalleryComment, EhGalleryCommentLink } from '../model/EhGalleryComment'
+import {
+  EhGalleryComment,
+  EhGalleryCommentLink,
+  EhGalleryCommentTextSpan,
+} from '../model/EhGalleryComment'
 import { EhGalleryImage } from '../model/EhGalleryImage'
 import { Favcat } from '../model/Favcat'
 import { GalleryList } from '../model/GalleryList'
@@ -477,12 +481,18 @@ export class EhPageCacheService {
       comment.postedTime = EhPageCacheService.safeString(c.postedTime)
       comment.contentText = EhPageCacheService.safeString(c.contentText)
       comment.contentLinks = EhPageCacheService.copyCommentLinks(c.contentLinks)
+      comment.contentSpans = EhPageCacheService.copyCommentSpans(c.contentSpans)
       comment.score = EhPageCacheService.safeString(c.score)
       comment.vote = EhPageCacheService.safeNumber(c.vote)
       comment.canEdit = EhPageCacheService.safeBoolean(c.canEdit)
       comment.canVote = EhPageCacheService.safeBoolean(c.canVote)
       comment.scoreDetails = EhPageCacheService.copyStringArray(c.scoreDetails)
       comment.isUploader = EhPageCacheService.safeBoolean(c.isUploader)
+      comment.translationText = EhPageCacheService.safeString(c.translationText)
+      comment.translationSpans = EhPageCacheService.copyCommentSpans(c.translationSpans)
+      comment.translationShown = EhPageCacheService.safeBoolean(c.translationShown)
+      comment.translationLoading = EhPageCacheService.safeBoolean(c.translationLoading)
+      comment.translationAutoStarted = EhPageCacheService.safeBoolean(c.translationAutoStarted)
       comments.push(comment)
     })
     return comments
@@ -503,6 +513,26 @@ export class EhPageCacheService {
       link.end = EhPageCacheService.safeNumber(value.end)
       link.url = EhPageCacheService.safeString(value.url)
       out.push(link)
+    })
+    return out
+  }
+
+  private static copyCommentSpans(raw: EhGalleryCommentTextSpan[]): EhGalleryCommentTextSpan[] {
+    const out: EhGalleryCommentTextSpan[] = []
+    if (raw === undefined || raw === null) {
+      return out
+    }
+    raw.forEach((value: EhGalleryCommentTextSpan) => {
+      const span: EhGalleryCommentTextSpan = new EhGalleryCommentTextSpan()
+      span.start = EhPageCacheService.safeNumber(value.start)
+      span.end = EhPageCacheService.safeNumber(value.end)
+      span.url = EhPageCacheService.safeString(value.url)
+      span.bold = EhPageCacheService.safeBoolean(value.bold)
+      span.italic = EhPageCacheService.safeBoolean(value.italic)
+      span.underline = EhPageCacheService.safeBoolean(value.underline)
+      span.strike = EhPageCacheService.safeBoolean(value.strike)
+      span.color = EhPageCacheService.safeString(value.color)
+      out.push(span)
     })
     return out
   }

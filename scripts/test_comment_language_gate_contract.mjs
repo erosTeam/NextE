@@ -38,7 +38,7 @@ ok('detector resolves kana before han so kanji-bearing Japanese is not mistaken 
 const card = read('feature/gallery/src/main/ets/components/GalleryCommentsCard.ets')
 
 ok('auto-translate skips comments already in the current language',
-  /autoTranslateVisibleComments\(\): void \{[\s\S]*!CommentTranslationService\.needsTranslation\(c\.contentText\)[\s\S]*continue[\s\S]*publishAutoTranslate/.test(card))
+  /autoTranslateVisibleComments\(\): void \{[\s\S]*!CommentTranslationService\.needsTranslation\([^)]+\)[\s\S]*continue[\s\S]*publishAutoTranslate/.test(card))
 ok('the manual translate button is NOT gated by needsTranslation (still shown for any non-empty comment)',
   /this\.translationEnabled\(\) && c\.contentText\.trim\(\)\.length > 0\)\s*\{\s*this\.TranslationAction\(c\)/.test(card) &&
     !/needsTranslation[\s\S]{0,40}TranslationAction/.test(card))

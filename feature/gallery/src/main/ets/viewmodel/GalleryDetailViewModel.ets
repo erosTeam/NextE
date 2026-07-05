@@ -297,6 +297,7 @@ export class GalleryDetailViewModel {
     next.postedTime = c.postedTime
     next.contentText = c.contentText
     next.contentLinks = c.contentLinks.slice()
+    next.contentSpans = c.contentSpans.slice()
     next.score = c.score
     next.vote = c.vote
     next.canEdit = c.canEdit
@@ -304,6 +305,7 @@ export class GalleryDetailViewModel {
     next.scoreDetails = c.scoreDetails.slice()
     next.isUploader = c.isUploader
     next.translationText = c.translationText
+    next.translationSpans = c.translationSpans.slice()
     next.translationShown = c.translationShown
     next.translationLoading = c.translationLoading
     next.translationAutoStarted = c.translationAutoStarted

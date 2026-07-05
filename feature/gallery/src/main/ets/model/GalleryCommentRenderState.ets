@@ -1,4 +1,4 @@
-import { EhGalleryComment } from 'shared'
+import { EhGalleryComment, EhGalleryCommentTextSpan } from 'shared'
 
 @ObservedV2
 export class GalleryCommentRenderState {
@@ -6,6 +6,7 @@ export class GalleryCommentRenderState {
   @Trace score: string = ''
   @Trace vote: number = 0
   @Trace translationText: string = ''
+  @Trace translationSpans: EhGalleryCommentTextSpan[] = []
   @Trace translationShown: boolean = false
   @Trace translationLoading: boolean = false
   @Trace translationAutoStarted: boolean = false
@@ -24,6 +25,7 @@ export class GalleryCommentRenderState {
     this.score = c.score
     this.vote = c.vote
     this.translationText = c.translationText
+    this.translationSpans = c.translationSpans.slice()
     this.translationShown = c.translationShown
     this.translationLoading = c.translationLoading
     this.translationAutoStarted = c.translationAutoStarted

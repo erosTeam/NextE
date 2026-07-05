@@ -57,9 +57,9 @@ ok('reply reference falls back to FE-style recent author matching',
 ok('resolved @ mentions are emphasized without coloring unresolved text',
   /emphasized: boolean = false/.test(card) &&
     /private mentionHighlightLength\(c: EhGalleryComment, segment: string\): number[\s\S]*this\.replyTargetId\(segment\)[\s\S]*this\.findByAuthor\(candidates, token\)[\s\S]*this\.matchedMentionNameLength\(candidates, segment\)/.test(card) &&
-    /private commentTextSegments\(text: string, c: EhGalleryComment\): CommentTextSegment\[\][\s\S]*this\.pushCommentTextSegments\(out, seq, text\.substring\(cursor, start\), c\)/.test(card) &&
-    /new CommentTextSegment\(`m\$\{nextSeq\+\+\}`, text\.substring\(at, at \+ length\), '', true\)/.test(card) &&
-    /else if \(seg\.emphasized\) \{[\s\S]*Span\(seg\.text\)[\s\S]*\.fontColor\(\$r\('sys\.color\.font_emphasize'\)\)/.test(card))
+    /private commentTextSegments\(text: string, c: EhGalleryComment\): CommentTextSegment\[\][\s\S]*this\.pushRichTextSegments\(out, 0, text, c, richSpans\)[\s\S]*this\.pushUrlTextSegments\(out, 0, text, c\)/.test(card) &&
+    /new CommentTextSegment\([\s\S]*`m\$\{nextSeq\+\+\}`[\s\S]*text\.substring\(at, at \+ length\)[\s\S]*true/.test(card) &&
+    /private segmentColor\(seg: CommentTextSegment[\s\S]*seg\.url\.length > 0 \|\| seg\.emphasized[\s\S]*font_emphasize/.test(card))
 ok('full comments page single-card rows keep the whole loaded page as the reply reference pool',
   /singleComment: comment/.test(commentsPage) &&
     /referenceComments: this\.comments/.test(commentsPage) &&

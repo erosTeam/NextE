@@ -3,6 +3,7 @@ import { relationalStore } from '@kit.ArkData'
 import { http } from '@kit.NetworkKit'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { EhGalleryCommentTextSpan } from '../model/EhGalleryComment'
 import { connectLanguageState } from '../state/AppearanceState'
 import { CommentTranslationSettings } from '../settings/CommentTranslationSettings'
 import { LocalDataStore } from '../storage/LocalDataStore'
@@ -23,6 +24,10 @@ const SQL_DELETE_EXPIRED_COMMENT_TRANSLATIONS: string =
 const SQL_DELETE_COMMENT_TRANSLATIONS: string = 'DELETE FROM comment_translation_cache'
 const SQL_COUNT_COMMENT_TRANSLATIONS: string =
   'SELECT COUNT(*) AS c FROM comment_translation_cache WHERE expires_at > ?'
+const COMMENT_LANGUAGE_URL_RE: RegExp = /https?:\/\/[^\s<>"']+/g
+const COMMENT_LANGUAGE_DOMAIN_RE: RegExp =
+  /\b(?:www\.)?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?:\/[^\s<>"']*)?/g
+const COMMENT_LANGUAGE_TOKEN_RE: RegExp = /NEXTEATHEX[0-9a-fA-F]+TOKEN/g
 
 class ChatMessage {
   role: string = ''
@@ -61,6 +66,11 @@ class MemoryTranslationEntry {
   expiresAt: number = 0
 }
 
+export class CommentStructuredTranslation {
+  text: string = ''
+  spans: EhGalleryCommentTextSpan[] = []
+}
+
 export class CommentTranslationService {
   private static memory: Map<string, MemoryTranslationEntry> = new Map()
   private static inflight: Map<string, Promise<string>> = new Map()
@@ -84,8 +94,11 @@ export class CommentTranslationService {
   // (en/fr/de all read as "latin") or kana-less Japanese, so it errs toward translating when unsure. Used
   // to skip AUTO-translating comments the user can already read; the manual translate button is unaffected.
   static needsTranslation(text: string): boolean {
-    const t: string = text.trim()
+    const t: string = CommentTranslationService.languageSample(text.trim())
     if (t.length === 0) {
+      return false
+    }
+    if (!CommentTranslationService.hasLanguageSignal(t)) {
       return false
     }
     const script: string = CommentTranslationService.detectScript(t)
@@ -111,6 +124,70 @@ export class CommentTranslationService {
     return 'latin'
   }
 
+  private static languageSample(text: string): string {
+    return text
+      .replace(COMMENT_LANGUAGE_URL_RE, ' ')
+      .replace(COMMENT_LANGUAGE_DOMAIN_RE, ' ')
+      .replace(COMMENT_LANGUAGE_TOKEN_RE, ' ')
+      .trim()
+  }
+
+  private static hasLanguageSignal(text: string): boolean {
+    let cjk: number = 0
+    let other: number = 0
+    let latinRun: number = 0
+    let latinWordCount: number = 0
+    let latinHasVowel: boolean = false
+    for (let i: number = 0; i < text.length; i++) {
+      const code: number = text.charCodeAt(i)
+      if (CommentTranslationService.isLatinLetter(code)) {
+        latinRun++
+        const ch: string = text.charAt(i).toLowerCase()
+        if (ch === 'a' || ch === 'e' || ch === 'i' || ch === 'o' || ch === 'u') {
+          latinHasVowel = true
+        }
+        continue
+      }
+      if (latinRun >= 4 && latinHasVowel) {
+        latinWordCount++
+      }
+      latinRun = 0
+      latinHasVowel = false
+      if (
+        (code >= 0x3040 && code <= 0x30ff) ||
+        (code >= 0x3400 && code <= 0x9fff) ||
+        (code >= 0xac00 && code <= 0xd7a3)
+      ) {
+        cjk++
+      } else if (CommentTranslationService.isOtherLetter(code)) {
+        other++
+      }
+    }
+    if (latinRun >= 4 && latinHasVowel) {
+      latinWordCount++
+    }
+    return cjk >= 2 || other >= 2 || latinWordCount > 0
+  }
+
+  private static isLatinLetter(code: number): boolean {
+    return (
+      (code >= 0x41 && code <= 0x5a) ||
+      (code >= 0x61 && code <= 0x7a) ||
+      (code >= 0xc0 && code <= 0x24f)
+    )
+  }
+
+  private static isOtherLetter(code: number): boolean {
+    return (
+      (code >= 0x0370 && code <= 0x03ff) ||
+      (code >= 0x0400 && code <= 0x052f) ||
+      (code >= 0x0590 && code <= 0x05ff) ||
+      (code >= 0x0600 && code <= 0x06ff) ||
+      (code >= 0x0900 && code <= 0x097f) ||
+      (code >= 0x0e00 && code <= 0x0e7f)
+    )
+  }
+
   // Dominant-script classifier over the BMP: kana ⇒ Japanese, Hangul ⇒ Korean, Han (no kana) ⇒ Chinese,
   // else Latin letters ⇒ latin. Returns 'unknown' when none are present (digits/punctuation/emoji only).
   private static detectScript(text: string): string {
@@ -118,6 +195,7 @@ export class CommentTranslationService {
     let kana: number = 0
     let hangul: number = 0
     let latin: number = 0
+    let other: number = 0
     for (let i: number = 0; i < text.length; i++) {
       const code: number = text.charCodeAt(i)
       if ((code >= 0x3040 && code <= 0x309f) || (code >= 0x30a0 && code <= 0x30ff)) {
@@ -140,6 +218,8 @@ export class CommentTranslationService {
         (code >= 0xc0 && code <= 0x24f)
       ) {
         latin++
+      } else if (CommentTranslationService.isOtherLetter(code)) {
+        other++
       }
     }
     if (kana > 0) {
@@ -153,6 +233,9 @@ export class CommentTranslationService {
     }
     if (latin > 0) {
       return 'latin'
+    }
+    if (other > 0) {
+      return 'other'
     }
     return 'unknown'
   }
@@ -231,6 +314,125 @@ export class CommentTranslationService {
     } finally {
       CommentTranslationService.inflight.delete(key)
     }
+  }
+
+  static async translateStructured(
+    context: common.UIAbilityContext,
+    sourceText: string,
+    sourceSpans: EhGalleryCommentTextSpan[],
+    force: boolean = false,
+  ): Promise<CommentStructuredTranslation> {
+    const result: CommentStructuredTranslation = new CommentStructuredTranslation()
+    if (sourceText.trim().length === 0) {
+      return result
+    }
+    if (sourceSpans.length === 0) {
+      result.text = await CommentTranslationService.translate(context, sourceText, force)
+      return result
+    }
+    let cursor: number = 0
+    const spans: EhGalleryCommentTextSpan[] = sourceSpans.slice()
+    spans.sort((a: EhGalleryCommentTextSpan, b: EhGalleryCommentTextSpan) => a.start - b.start)
+    for (let i = 0; i < spans.length; i++) {
+      const sourceSpan: EhGalleryCommentTextSpan = spans[i]
+      if (
+        sourceSpan.start < cursor ||
+        sourceSpan.end <= 0 ||
+        sourceSpan.start >= sourceText.length ||
+        sourceSpan.end > sourceText.length
+      ) {
+        continue
+      }
+      if (sourceSpan.start > cursor) {
+        result.text += await CommentTranslationService.translateChunk(
+          context,
+          sourceText.substring(cursor, sourceSpan.start),
+          force,
+        )
+      }
+      const translatedStart: number = result.text.length
+      const translatedChunk: string = await CommentTranslationService.translateChunk(
+        context,
+        sourceText.substring(sourceSpan.start, sourceSpan.end),
+        force,
+      )
+      result.text += translatedChunk
+      const translatedEnd: number = result.text.length
+      if (translatedEnd > translatedStart) {
+        const span: EhGalleryCommentTextSpan = new EhGalleryCommentTextSpan()
+        span.start = translatedStart
+        span.end = translatedEnd
+        span.url = sourceSpan.url
+        span.bold = sourceSpan.bold
+        span.italic = sourceSpan.italic
+        span.underline = sourceSpan.underline
+        span.strike = sourceSpan.strike
+        span.color = sourceSpan.color
+        result.spans.push(span)
+      }
+      cursor = sourceSpan.end
+    }
+    if (cursor < sourceText.length) {
+      result.text += await CommentTranslationService.translateChunk(
+        context,
+        sourceText.substring(cursor),
+        force,
+      )
+    }
+    return result
+  }
+
+  private static async translateChunk(
+    context: common.UIAbilityContext,
+    raw: string,
+    force: boolean,
+  ): Promise<string> {
+    if (raw.trim().length === 0) {
+      return raw
+    }
+    const startTrim: number = CommentTranslationService.leadingWhitespace(raw)
+    const endTrim: number = CommentTranslationService.trailingWhitespace(raw)
+    const end: number = raw.length - endTrim
+    const lead: string = raw.substring(0, startTrim)
+    const tail: string = raw.substring(end)
+    const body: string = raw.substring(startTrim, end)
+    if (!CommentTranslationService.hasTranslatableText(body)) {
+      return raw
+    }
+    return `${lead}${await CommentTranslationService.translate(context, body, force)}${tail}`
+  }
+
+  private static hasTranslatableText(text: string): boolean {
+    for (let i = 0; i < text.length; i++) {
+      const code: number = text.charCodeAt(i)
+      if (
+        (code >= 0x30 && code <= 0x39) ||
+        (code >= 0x41 && code <= 0x5a) ||
+        (code >= 0x61 && code <= 0x7a) ||
+        (code >= 0x3040 && code <= 0x30ff) ||
+        (code >= 0x3400 && code <= 0x9fff) ||
+        (code >= 0xac00 && code <= 0xd7a3)
+      ) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private static leadingWhitespace(text: string): number {
+    let count: number = 0
+    while (count < text.length && text.charAt(count).trim().length === 0) {
+      count++
+    }
+    return count
+  }
+
+  private static trailingWhitespace(text: string): number {
+    let count: number = 0
+    while (count < text.length && text.charAt(text.length - count - 1).trim().length === 0) {
+      count++
+    }
+    return count
   }
 
   static async clear(context: common.UIAbilityContext): Promise<void> {
