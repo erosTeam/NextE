@@ -13,7 +13,13 @@ export class SearchHistorySettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await SearchHistorySettings.migrateLegacyPreferences(context)
-      connectSearchHistory().items = await SearchHistoryRepository.load(context, MAX_HISTORY)
+      const state = connectSearchHistory()
+      state.items = await SearchHistoryRepository.load(context, MAX_HISTORY)
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      state.translateEnabled = store.getSync(StorageKeys.SEARCH_HISTORY_TRANSLATE, true) as boolean
     } catch (error) {
       DiagnosticLogger.warn('settings', 'searchhistory_restore_failed', (error as Error).message)
     }
@@ -41,6 +47,20 @@ export class SearchHistorySettings {
     await SearchHistoryRepository.replaceAll(context, [])
     await SearchHistorySettings.deleteLegacyPreference(context)
     SyncScheduler.requestAfterLocalWrite(context, 'search_history_clear')
+  }
+
+  static async setTranslateEnabled(context: common.UIAbilityContext, enabled: boolean): Promise<void> {
+    connectSearchHistory().translateEnabled = enabled
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.SEARCH_HISTORY_TRANSLATE, enabled)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'searchhistory_translate_save_failed', (error as Error).message)
+    }
   }
 
   /** Remove one query from history, preserving the rest in order. */

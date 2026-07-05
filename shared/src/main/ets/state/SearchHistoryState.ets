@@ -8,6 +8,7 @@ import { AppStorageV2 } from '@kit.ArkUI'
 @ObservedV2
 export class SearchHistoryState {
   @Trace items: string[] = []
+  @Trace translateEnabled: boolean = true
 }
 
 const SEARCH_HISTORY_KEY: string = 'v2:searchHistory'

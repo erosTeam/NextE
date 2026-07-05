@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: search history scroll recovery
+
+Status: active
+Reference implementation: current NextE `feature/search/src/main/ets/pages/GallerySearchPage.ets` `SearchSuggestionView()` scrollable suggestion list, the same page's HDS `bindToScrollable` linkage, `feature/home/src/main/ets/pages/TabEditPage.ets` tag translation cache pattern, and FE `../eros_fe/lib/pages/tab/view/search_page.dart` `_searchHistoryBtnWithTranslate()`.
+Surface type: Search landing history area only; no query semantics, suggestion UI, result list, search filter behavior, or history persistence change.
+Primary information: when recent search chips exceed the visible search landing area, the user should still see the same history header, clear action, and chips, with overflow reachable by vertical scroll; long history text wraps; translated tag matches show a secondary line under the raw query.
+Primary action: open Search with no active query, swipe the recent-search history area, tap a chip to search, long-press a chip to delete it, or read the translated tag subtitle when local tag translation is enabled.
+Reuse or deviation: reuse the existing search page scroller pattern, history chip layout, `TagQuery.parse()` and `TagTranslationService.translateFullTagAsync()`; deviate only by giving the history branch its own `Scroll` and by rendering FE-style translated history as a secondary chip line.
+Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and X7 Search history overflow smoke.
+
 ## Active: index route-map coordinator
 
 Status: active

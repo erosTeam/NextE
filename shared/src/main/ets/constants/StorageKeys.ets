@@ -30,6 +30,7 @@ export class StorageKeys {
   static readonly IMMERSIVE_MATERIAL_LEVEL: string = 'theme.immersiveMaterialLevel' // adaptive/exquisite/gentle/smooth
   static readonly LANGUAGE: string = 'app.language' // system/zh-CN/en-US/ja-JP
   static readonly SEARCH_HISTORY: string = 'search.history' // legacy Preferences key; RDB source of truth
+  static readonly SEARCH_HISTORY_TRANSLATE: string = 'search.history.translate'
   static readonly SEARCH_FILTER: string = 'search.filter' // JSON snapshot of advanced-search filters
   static readonly FAVORITES_FAVCATS: string = 'favorites.favcats' // JSON [Favcat] selector snapshot
   static readonly LOCAL_FAVORITES: string = 'favorites.local' // legacy Preferences key; RDB source of truth

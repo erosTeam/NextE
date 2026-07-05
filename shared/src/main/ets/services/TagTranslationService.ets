@@ -259,6 +259,47 @@ export class TagTranslationService {
     return TagTranslationService.fallbackSuggestions(q.keyword, limit, q.namespace)
   }
 
+  static async translateFullTagsAsync(
+    context: common.UIAbilityContext,
+    fullTags: string[],
+  ): Promise<Map<string, string>> {
+    const translations: Map<string, string> = new Map<string, string>()
+    const namespaces: string[] = []
+    const keysByNamespace: Map<string, string[]> = new Map<string, string[]>()
+    for (let i = 0; i < fullTags.length; i++) {
+      const normalized: string = TagTranslationService.normalize(fullTags[i])
+      const idx: number = normalized.indexOf(':')
+      if (idx > 0) {
+        TagTranslationService.collectTranslationKey(
+          normalized.substring(0, idx),
+          normalized.substring(idx + 1),
+          namespaces,
+          keysByNamespace,
+          translations,
+        )
+      } else if (normalized.length > 0 && !translations.has(normalized)) {
+        translations.set(normalized, TagTranslationService.fallbackTranslate(normalized))
+      }
+    }
+    if (translations.size === 0 || !(await TagTranslationService.hasRows(context))) {
+      return translations
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    for (let i = 0; i < namespaces.length; i++) {
+      const namespace: string = namespaces[i]
+      const keys: string[] | undefined = keysByNamespace.get(namespace)
+      if (keys !== undefined && keys.length > 0) {
+        await TagTranslationService.queryTranslationBatchForNamespace(
+          store,
+          namespace,
+          keys,
+          translations,
+        )
+      }
+    }
+    return translations
+  }
+
   static async lookupTagInfo(
     context: common.UIAbilityContext,
     namespace: string,

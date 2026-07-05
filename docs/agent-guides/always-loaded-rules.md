@@ -6,6 +6,12 @@
 
 出现返工、误改、误解或用户指出规则违反时,不要输出空泛道歉、保证、承诺、复述情绪或自我剖析。只给三类信息:已采取的具体动作、对应文件 / 规则依据、验证结果 / 剩余阻塞。需要改变行为时,把规则写入项目文档或代码约束,不要用口头承诺代替。
 
+## 事故账本: 先读已犯错误
+
+处理 NextE 任务时必须把 `docs/agent-guides/incidents/` 视为始终生效的反例账本。用户指出严重误改、假验证、越权设备操作、范围漂移、或反复同类错误时,必须把事实、原因、后果、后续硬要求写入该目录,并在后续同类任务中按账本约束执行。
+
+- [2026-07-06 Search History Verification Failure](incidents/2026-07-06-search-history-verification-failure.md)
+
 ## 硬停: 仅用状态管理 V2
 
 State Management V1 在本项目**已废弃**。`entry/`、`feature/`、`shared/` 中禁止引入或恢复任何 V1 组件/状态装饰器:`@Component`、`@State`、`@Prop`、`@Link`、`@Watch`、`@StorageLink`、`@StorageProp`、`@Provide`、`@Consume`、`@ObjectLink`、`@Observed`(裸)、`@Track`、`@LocalStorageLink`、`@LocalStorageProp`。

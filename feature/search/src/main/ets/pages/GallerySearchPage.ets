@@ -11,6 +11,9 @@ import {
   EhUrlRouter,
   EhConstants,
   EhTagSuggestion,
+  QueryTag,
+  TagQuery,
+  TagRelation,
   TagTranslationService,
   GalleryRef,
   ImagePageRouteService,
@@ -61,6 +64,7 @@ import { SearchFilterSheet } from '../components/SearchFilterSheet'
 import { SearchPageFieldCCBuilder, SearchPageFieldState } from '../components/SearchPageField'
 
 const SEARCH_FIELD_BOTTOM_HEIGHT: number = ThemeConstants.TITLE_BAR_HEIGHT + ThemeConstants.SPACE_SM
+const SEARCH_HISTORY_CHIP_ANIM_DURATION: number = 180
 
 /**
  * Table-site search — a PUSHED page (eros_fe pushes a dedicated search page from the gallery
@@ -82,6 +86,7 @@ export struct GallerySearchPage {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local localBlock: LocalBlockState = connectLocalBlock();
+  @Local historyTranslations: Map<string, string> = new Map<string, string>();
   @Local showFilter: boolean = false;
   @Local listContentWidth: number = 0;
   @Local imagePageErrorUrl: string = '';
@@ -94,7 +99,9 @@ export struct GallerySearchPage {
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private suggestionScroller: Scroller = new Scroller();
+  private historyScroller: Scroller = new Scroller();
   private refreshController: PullRefreshController = new PullRefreshController();
+  private historyTranslationRun: number = 0;
   // Search field hosted in this pushed page's HDS title-bar bottomBuilder — cached ONCE (re-issuing
   // the titleBar opts must reuse the same field instance, not remount it and flap the IME).
   private fieldContent: ComponentContent<SearchPageFieldState> | null = null;
@@ -102,6 +109,7 @@ export struct GallerySearchPage {
   aboutToAppear(): void {
     this.vm.setContext(this.ctx())
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
+    this.refreshHistoryTranslations()
   }
 
   aboutToDisappear(): void {
@@ -190,6 +198,17 @@ export struct GallerySearchPage {
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     this.vm.reapplyTagTranslation()
+    this.refreshHistoryTranslations()
+  }
+
+  @Monitor('history.items')
+  onSearchHistoryItemsChange(): void {
+    this.refreshHistoryTranslations()
+  }
+
+  @Monitor('history.translateEnabled')
+  onSearchHistoryTranslateChange(): void {
+    this.refreshHistoryTranslations()
   }
 
   @Monitor('localBlock.version')
@@ -358,6 +377,202 @@ export struct GallerySearchPage {
     SearchHistorySettings.clear(this.ctx())
   }
 
+  private relationPrefix(relation: number): string {
+    if (relation === TagRelation.NOT) {
+      return '-'
+    }
+    if (relation === TagRelation.OR) {
+      return '~'
+    }
+    return ''
+  }
+
+  private historyRawPart(tag: QueryTag): string {
+    const prefix: string = this.relationPrefix(tag.relation)
+    if (tag.namespace.length > 0) {
+      return `${prefix}${tag.namespace}:${tag.text}`
+    }
+    return `${prefix}${tag.text}`
+  }
+
+  private historyTranslatedPart(tag: QueryTag, translated: string): string {
+    const prefix: string = this.relationPrefix(tag.relation)
+    if (tag.namespace.length > 0) {
+      return `${prefix}${this.suggestionNamespaceLabel(tag.namespace)}:${translated}`
+    }
+    return `${prefix}${translated}`
+  }
+
+  private historyFullTag(tag: QueryTag): string {
+    const text: string = this.historyTranslationKeyText(tag.text)
+    if (tag.namespace.length > 0) {
+      return `${EhConstants.expandNamespace(tag.namespace)}:${text}`
+    }
+    return `misc:${text}`
+  }
+
+  private historyTranslationKeyText(value: string): string {
+    let text: string = EhConstants.canonicalTagText(value).trim().toLowerCase()
+    if (text.startsWith('"')) {
+      text = text.substring(1).trim()
+    }
+    if (text.endsWith('"')) {
+      text = text.substring(0, text.length - 1).trim()
+    }
+    if (text.endsWith('$')) {
+      text = text.substring(0, text.length - 1).trim()
+    }
+    if (text.endsWith('"')) {
+      text = text.substring(0, text.length - 1).trim()
+    }
+    return text
+  }
+
+  private translateHistoryQueryFromCache(query: string, tagTranslations: Map<string, string>): string {
+    const tags: QueryTag[] = TagQuery.parse(query)
+    if (tags.length === 0) {
+      return ''
+    }
+    const parts: string[] = []
+    let changed: boolean = false
+    for (let i = 0; i < tags.length; i++) {
+      const tag: QueryTag = tags[i]
+      const fullTag: string = this.historyFullTag(tag)
+      const translated: string | undefined = tagTranslations.get(fullTag)
+      if (translated !== undefined && translated.length > 0 && translated !== fullTag && translated !== tag.text) {
+        parts.push(this.historyTranslatedPart(tag, translated))
+        changed = true
+      } else {
+        parts.push(this.historyRawPart(tag))
+      }
+    }
+    return changed ? parts.join('   ') : ''
+  }
+
+  private collectHistoryFullTags(items: string[]): string[] {
+    const seen: Set<string> = new Set<string>()
+    const out: string[] = []
+    for (let i = 0; i < items.length; i++) {
+      const tags: QueryTag[] = TagQuery.parse(items[i])
+      for (let j = 0; j < tags.length; j++) {
+        const fullTag: string = this.historyFullTag(tags[j])
+        if (fullTag.length > 0 && !seen.has(fullTag)) {
+          seen.add(fullTag)
+          out.push(fullTag)
+        }
+      }
+    }
+    return out
+  }
+
+  private async refreshHistoryTranslations(): Promise<void> {
+    this.historyTranslationRun = this.historyTranslationRun + 1
+    const run: number = this.historyTranslationRun
+    if (this.history.items.length === 0) {
+      this.applyHistoryTranslations(new Map<string, string>())
+      return
+    }
+    const items: string[] = this.history.items.slice()
+    const missingItems: string[] = []
+    const next: Map<string, string> = new Map<string, string>()
+    for (let i = 0; i < items.length; i++) {
+      const query: string = items[i]
+      const cached: string | undefined = this.historyTranslations.get(query)
+      if (cached !== undefined) {
+        next.set(query, cached)
+      } else {
+        missingItems.push(query)
+      }
+    }
+    if (missingItems.length === 0) {
+      if (next.size !== this.historyTranslations.size) {
+        this.applyHistoryTranslations(next)
+      }
+      return
+    }
+    const tagTranslations: Map<string, string> = await TagTranslationService.translateFullTagsAsync(
+      this.ctx(),
+      this.collectHistoryFullTags(missingItems),
+    )
+    for (let i = 0; i < missingItems.length; i++) {
+      if (run !== this.historyTranslationRun) {
+        return
+      }
+      const query: string = missingItems[i]
+      next.set(query, this.translateHistoryQueryFromCache(query, tagTranslations))
+    }
+    if (run === this.historyTranslationRun) {
+      this.applyHistoryTranslations(next)
+    }
+  }
+
+  private applyHistoryTranslations(next: Map<string, string>): void {
+    this.getUIContext().animateTo(
+      { duration: SEARCH_HISTORY_CHIP_ANIM_DURATION, curve: Curve.EaseOut },
+      () => {
+        this.historyTranslations = next
+      },
+    )
+  }
+
+  private historyTranslation(query: string): string {
+    const translated: string | undefined = this.historyTranslations.get(query)
+    return translated !== undefined ? translated : ''
+  }
+
+  private toggleHistoryTranslation(): void {
+    const nextEnabled: boolean = !this.history.translateEnabled
+    DiagnosticLogger.info(
+      'search',
+      'history_translate_toggle',
+      `from=${this.history.translateEnabled ? 'on' : 'off'} to=${nextEnabled ? 'on' : 'off'}`,
+    )
+    this.getUIContext().animateTo(
+      { duration: SEARCH_HISTORY_CHIP_ANIM_DURATION, curve: Curve.EaseOut },
+      () => {
+        SearchHistorySettings.setTranslateEnabled(this.ctx(), nextEnabled)
+      },
+    )
+  }
+
+  @Builder
+  private HistoryTranslateButton() {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph($r('sys.symbol.translate'))
+        .fontSize(18)
+        .fontColor([
+          this.history.translateEnabled
+            ? ThemeConstants.BRAND_PRIMARY
+            : $r('sys.color.font_tertiary'),
+        ])
+    }
+    .onClick(() => {
+      this.toggleHistoryTranslation()
+    })
+    .width(28)
+    .height(28)
+    .backgroundColor(Color.Transparent)
+    .padding(0)
+    .accessibilityText($r('app.string.tag_translation_title'))
+  }
+
+  @Builder
+  private HistoryClearButton() {
+    Button({ type: ButtonType.Circle, stateEffect: true }) {
+      SymbolGlyph($r('sys.symbol.trash'))
+        .fontSize(18)
+        .fontColor([$r('sys.color.font_emphasize')])
+    }
+    .onClick(() => {
+      this.confirmClearAllSearchHistory()
+    })
+    .width(28)
+    .height(28)
+    .backgroundColor(Color.Transparent)
+    .padding(0)
+    .accessibilityText($r('app.string.search_history_clear'))
+  }
+
   private confirmClearAllSearchHistory(): void {
     this.getUIContext().showAlertDialog({
       message: $r('app.string.search_history_clear_confirm'),
@@ -467,77 +682,93 @@ export struct GallerySearchPage {
   // or a centered hint when there's no history.
   @Builder
   SearchHistoryView() {
-    Column() {
-      if (this.history.items.length > 0) {
-        Row() {
-          Text($r('app.string.search_history'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor($r('sys.color.font_secondary'))
-          Blank()
-          Text($r('app.string.search_history_clear'))
-            .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-            .fontColor($r('sys.color.font_emphasize'))
-            .onClick(() => {
-              this.confirmClearAllSearchHistory()
-            })
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-        .padding({ bottom: ThemeConstants.SPACE_SM })
-        Flex({ wrap: FlexWrap.Wrap }) {
-          ForEach(
-            this.history.items,
-            (q: string) => {
-              Text(q)
-                .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                .fontColor($r('sys.color.font_primary'))
-                .backgroundColor($r('app.color.card_background'))
-                .borderRadius(ThemeConstants.RADIUS_ROUND)
-                .padding({
-                  left: ThemeConstants.SPACE_MD,
-                  right: ThemeConstants.SPACE_MD,
-                  top: ThemeConstants.SPACE_XS,
-                  bottom: ThemeConstants.SPACE_XS,
-                })
-                .margin({ right: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .constraintSize({ maxWidth: '90%' })
-                .onClick(() => {
-                  this.searchFromHistory(q)
-                })
-                .gesture(
-                  LongPressGesture({ repeat: false, duration: 500 })
-                    .onAction(() => {
-                      this.deleteSearchHistory(q)
-                    }),
-                )
-            },
-            (q: string) => q,
-          )
-        }.width('100%')
-      } else {
+    if (this.history.items.length > 0) {
+      Scroll(this.historyScroller) {
         Column() {
-          Text($r('app.string.search_hint'))
-            .fontSize(ThemeConstants.FONT_SIZE_BODY)
-            .fontColor($r('sys.color.font_tertiary'))
-            .textAlign(TextAlign.Center)
+          Row() {
+            Text($r('app.string.search_history'))
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontColor($r('sys.color.font_secondary'))
+            Blank()
+            this.HistoryTranslateButton()
+            this.HistoryClearButton()
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+          .padding({ bottom: ThemeConstants.SPACE_SM })
+          Flex({ wrap: FlexWrap.Wrap }) {
+            ForEach(
+              this.history.items,
+              (q: string) => {
+                Column({ space: ThemeConstants.SPACE_XS }) {
+                  Text(q)
+                    .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                    .fontColor($r('sys.color.font_primary'))
+                    .constraintSize({ maxWidth: '100%' })
+                  if (this.history.translateEnabled && this.historyTranslation(q).length > 0) {
+                    Text(this.historyTranslation(q))
+                      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+                      .fontColor($r('sys.color.font_secondary'))
+                      .constraintSize({ maxWidth: '100%' })
+                  }
+                }
+                  .alignItems(HorizontalAlign.Start)
+                  .backgroundColor($r('app.color.card_background'))
+                  .borderRadius(ThemeConstants.RADIUS_ROUND)
+                  .padding({
+                    left: ThemeConstants.SPACE_MD,
+                    right: ThemeConstants.SPACE_MD,
+                    top: ThemeConstants.SPACE_XS,
+                    bottom: ThemeConstants.SPACE_XS,
+                  })
+                  .margin({ right: ThemeConstants.SPACE_SM, bottom: ThemeConstants.SPACE_SM })
+                  .constraintSize({ maxWidth: '90%' })
+                  .onClick(() => {
+                    this.searchFromHistory(q)
+                  })
+                  .gesture(
+                    LongPressGesture({ repeat: false, duration: 500 })
+                      .onAction(() => {
+                        this.deleteSearchHistory(q)
+                      }),
+                  )
+              },
+              (q: string) => q,
+            )
+          }.width('100%')
         }
         .width('100%')
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
+        .padding({
+          left: ThemeConstants.SPACE_LG,
+          right: ThemeConstants.SPACE_LG,
+          top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + SEARCH_FIELD_BOTTOM_HEIGHT +
+          ThemeConstants.SPACE_MD,
+          bottom: this.layout.bottomAvoidHeight + ThemeConstants.SPACE_LG,
+        })
+        .alignItems(HorizontalAlign.Start)
       }
+      .width('100%')
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    } else {
+      Column() {
+        Text($r('app.string.search_hint'))
+          .fontSize(ThemeConstants.FONT_SIZE_BODY)
+          .fontColor($r('sys.color.font_tertiary'))
+          .textAlign(TextAlign.Center)
+      }
+      .width('100%')
+      .height('100%')
+      .padding({
+        left: ThemeConstants.SPACE_LG,
+        right: ThemeConstants.SPACE_LG,
+        top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + SEARCH_FIELD_BOTTOM_HEIGHT +
+        ThemeConstants.SPACE_MD,
+        bottom: ThemeConstants.SPACE_LG,
+      })
+      .justifyContent(FlexAlign.Center)
     }
-    .width('100%')
-    .height('100%')
-    .padding({
-      left: ThemeConstants.SPACE_LG,
-      right: ThemeConstants.SPACE_LG,
-      top: this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + SEARCH_FIELD_BOTTOM_HEIGHT +
-      ThemeConstants.SPACE_MD,
-      bottom: ThemeConstants.SPACE_LG,
-    })
-    .alignItems(HorizontalAlign.Start)
   }
 
   build() {
@@ -825,7 +1056,7 @@ export struct GallerySearchPage {
       hideStatusBar: false,
       mode: HideMode.SCROLL_UP,
     })
-    .bindToScrollable([this.scroller, this.suggestionScroller])
+    .bindToScrollable([this.scroller, this.suggestionScroller, this.historyScroller])
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .onReady((context: NavDestinationContext) => {
       // The favorites title-bar magnifier pushed us with a favorite scope param (eros_fe
