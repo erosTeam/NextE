@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: index route-map coordinator
+
+Status: active
+Reference implementation: current NextE `entry/src/main/ets/pages/Index.ets` Navigation `routerMap`, `../V2Next/entry/src/main/ets/model/IndexRouteCoordinator.ets`, and HarmonyOS `Navigation` + `NavPathStack` + `navDestination`.
+Surface type: app navigation shell route registration only; no visible page or settings surface change.
+Primary information: route names resolve to a typed destination family before the ArkUI builder renders the existing page component.
+Primary action: pushing an existing route name still opens the same page; unknown or safe-mode-blocked routes render an empty destination.
+Reuse or deviation: reuse the existing HDS Navigation shell, shared `NavPathStack`, `SafeModeGate`, and all page components; deviate only by moving route-name lookup out of the builder so `Index` owns component rendering while the coordinator owns string resolution.
+Verification: UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build.
+
 ## Active: storage import preview and diagnostics
 
 Status: active

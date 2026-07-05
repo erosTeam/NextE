@@ -67,6 +67,8 @@ import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
 import { ToplistPeriodBarCCBuilder } from '../components/ToplistPeriodBar'
 import { FavcatBarCCBuilder } from '../components/FavcatBar'
 import { DownloadTypeBarCCBuilder } from '../components/DownloadTypeBar'
+import { IndexRouteCoordinator } from '../model/IndexRouteCoordinator'
+import type { IndexDestinationFamily } from '../model/IndexRouteCoordinator'
 import { HomePage, ToplistPage, TabManagerPage, TabEditPage } from 'home'
 import { GallerySearchPage } from 'search'
 import { FavoriteSelectorPage, FavoritesPage, MyTagsPage, ViewedHistoryPage } from 'user'
@@ -111,6 +113,216 @@ import { ReaderGestureProbePage } from './ReaderGestureProbePage'
 import { ImagePageRouteErrorPage } from './ImagePageRouteErrorPage'
 import { GalleryWebPage } from './GalleryWebPage'
 
+@Builder
+function IndexEmptyDestinationRoute() {
+  Column() {}
+}
+
+@Builder
+function IndexGalleryDetailRoute() {
+  GalleryDetailPage()
+}
+
+@Builder
+function IndexGalleryInfoRoute() {
+  GalleryInfoPage()
+}
+
+@Builder
+function IndexGalleryTorrentsRoute() {
+  GalleryTorrentsPage()
+}
+
+@Builder
+function IndexGalleryArchiverRoute() {
+  GalleryArchiverPage()
+}
+
+@Builder
+function IndexGalleryWebRoute() {
+  GalleryWebPage()
+}
+
+@Builder
+function IndexGalleryEditTagsRoute() {
+  GalleryEditTagsPage()
+}
+
+@Builder
+function IndexSearchRoute() {
+  GallerySearchPage()
+}
+
+@Builder
+function IndexReaderRoute() {
+  ReaderPage()
+}
+
+@Builder
+function IndexEhLoginRoute() {
+  EhLoginWebPage()
+}
+
+@Builder
+function IndexEhCookieImportRoute() {
+  EhCookieImportPage()
+}
+
+@Builder
+function IndexEhPasswordLoginRoute() {
+  EhPasswordLoginPage()
+}
+
+@Builder
+function IndexMyTagsRoute() {
+  MyTagsPage()
+}
+
+@Builder
+function IndexHistoryRoute() {
+  ViewedHistoryPage()
+}
+
+@Builder
+function IndexFavoriteSelectorRoute() {
+  FavoriteSelectorPage()
+}
+
+@Builder
+function IndexTabManagerRoute() {
+  TabManagerPage()
+}
+
+@Builder
+function IndexTabEditRoute() {
+  TabEditPage()
+}
+
+@Builder
+function IndexAllThumbnailsRoute() {
+  GalleryAllThumbnailsPage()
+}
+
+@Builder
+function IndexGalleryCommentsRoute() {
+  GalleryCommentsPage()
+}
+
+@Builder
+function IndexEhSettingsRoute() {
+  EhSettingsPage()
+}
+
+@Builder
+function IndexEhProfileSettingsRoute() {
+  EhProfileSettingsPage()
+}
+
+@Builder
+function IndexAccountRoute() {
+  AccountPage()
+}
+
+@Builder
+function IndexAccountLoginRoute() {
+  AccountLoginPage()
+}
+
+@Builder
+function IndexLayoutSettingsRoute() {
+  LayoutSettingsPage()
+}
+
+@Builder
+function IndexColumnDensityRoute() {
+  ColumnDensityPage()
+}
+
+@Builder
+function IndexThumbnailColumnDensityRoute() {
+  ColumnDensityPage({ targetMode: ListMode.THUMBNAIL_GRID })
+}
+
+@Builder
+function IndexCacheSettingsRoute() {
+  CacheSettingsPage()
+}
+
+@Builder
+function IndexReaderSettingsRoute() {
+  ReaderSettingsPage()
+}
+
+@Builder
+function IndexDownloadSettingsRoute() {
+  DownloadSettingsPage()
+}
+
+@Builder
+function IndexSearchSettingsRoute() {
+  SearchSettingsPage()
+}
+
+@Builder
+function IndexLocalBlockSettingsRoute() {
+  LocalBlockSettingsPage()
+}
+
+@Builder
+function IndexImageBlockSettingsRoute() {
+  ImageBlockSettingsPage()
+}
+
+@Builder
+function IndexTagTranslationSettingsRoute() {
+  TagTranslationSettingsPage()
+}
+
+@Builder
+function IndexTranslationSettingsRoute() {
+  TranslationSettingsPage()
+}
+
+@Builder
+function IndexSyncSettingsRoute() {
+  SyncSettingsPage()
+}
+
+@Builder
+function IndexWebDavSyncSettingsRoute() {
+  WebDavSyncSettingsPage()
+}
+
+@Builder
+function IndexAdvancedSettingsRoute() {
+  AdvancedSettingsPage()
+}
+
+@Builder
+function IndexSecuritySettingsRoute() {
+  SecuritySettingsPage()
+}
+
+@Builder
+function IndexAboutRoute() {
+  AboutPage()
+}
+
+@Builder
+function IndexImagePageRouteErrorRoute() {
+  ImagePageRouteErrorPage()
+}
+
+@Builder
+function IndexCoverFallbackProbeRoute() {
+  CoverFallbackProbePage()
+}
+
+@Builder
+function IndexReaderGestureProbeRoute() {
+  ReaderGestureProbePage()
+}
+
 /**
  * NextE navigation shell — native HDS (`HdsNavigation` + `HdsTabs` from `@kit.UIDesignKit`,
  * V2Next's pattern). Bottom tabs mirror eros_fe's CupertinoTabBar IA (tabhome_controller.dart:69-92):
@@ -124,6 +336,50 @@ import { GalleryWebPage } from './GalleryWebPage'
 struct Index {
   private stack: NavPathStack = connectNavStack().stack;
   private tabsController: HdsTabsController = new HdsTabsController();
+  private emptyDestinationBuilder: WrappedBuilder<[]> = wrapBuilder<[]>(IndexEmptyDestinationRoute);
+  private mappedDestinationBuilders: Record<string, WrappedBuilder<[]>> = {
+    'galleryDetail': wrapBuilder<[]>(IndexGalleryDetailRoute),
+    'galleryInfo': wrapBuilder<[]>(IndexGalleryInfoRoute),
+    'galleryTorrents': wrapBuilder<[]>(IndexGalleryTorrentsRoute),
+    'galleryArchiver': wrapBuilder<[]>(IndexGalleryArchiverRoute),
+    'galleryWeb': wrapBuilder<[]>(IndexGalleryWebRoute),
+    'galleryEditTags': wrapBuilder<[]>(IndexGalleryEditTagsRoute),
+    'search': wrapBuilder<[]>(IndexSearchRoute),
+    'reader': wrapBuilder<[]>(IndexReaderRoute),
+    'ehLogin': wrapBuilder<[]>(IndexEhLoginRoute),
+    'ehCookieImport': wrapBuilder<[]>(IndexEhCookieImportRoute),
+    'ehPasswordLogin': wrapBuilder<[]>(IndexEhPasswordLoginRoute),
+    'myTags': wrapBuilder<[]>(IndexMyTagsRoute),
+    'history': wrapBuilder<[]>(IndexHistoryRoute),
+    'favoriteSelector': wrapBuilder<[]>(IndexFavoriteSelectorRoute),
+    'tabManager': wrapBuilder<[]>(IndexTabManagerRoute),
+    'tabEdit': wrapBuilder<[]>(IndexTabEditRoute),
+    'allThumbnails': wrapBuilder<[]>(IndexAllThumbnailsRoute),
+    'galleryComments': wrapBuilder<[]>(IndexGalleryCommentsRoute),
+    'ehSettings': wrapBuilder<[]>(IndexEhSettingsRoute),
+    'ehProfileSettings': wrapBuilder<[]>(IndexEhProfileSettingsRoute),
+    'account': wrapBuilder<[]>(IndexAccountRoute),
+    'accountLogin': wrapBuilder<[]>(IndexAccountLoginRoute),
+    'layoutSettings': wrapBuilder<[]>(IndexLayoutSettingsRoute),
+    'columnDensity': wrapBuilder<[]>(IndexColumnDensityRoute),
+    'thumbnailColumnDensity': wrapBuilder<[]>(IndexThumbnailColumnDensityRoute),
+    'cacheSettings': wrapBuilder<[]>(IndexCacheSettingsRoute),
+    'readerSettings': wrapBuilder<[]>(IndexReaderSettingsRoute),
+    'downloadSettings': wrapBuilder<[]>(IndexDownloadSettingsRoute),
+    'searchSettings': wrapBuilder<[]>(IndexSearchSettingsRoute),
+    'localBlockSettings': wrapBuilder<[]>(IndexLocalBlockSettingsRoute),
+    'imageBlockSettings': wrapBuilder<[]>(IndexImageBlockSettingsRoute),
+    'tagTranslationSettings': wrapBuilder<[]>(IndexTagTranslationSettingsRoute),
+    'translationSettings': wrapBuilder<[]>(IndexTranslationSettingsRoute),
+    'syncSettings': wrapBuilder<[]>(IndexSyncSettingsRoute),
+    'webDavSyncSettings': wrapBuilder<[]>(IndexWebDavSyncSettingsRoute),
+    'advancedSettings': wrapBuilder<[]>(IndexAdvancedSettingsRoute),
+    'securitySettings': wrapBuilder<[]>(IndexSecuritySettingsRoute),
+    'about': wrapBuilder<[]>(IndexAboutRoute),
+    'imagePageRouteError': wrapBuilder<[]>(IndexImagePageRouteErrorRoute),
+    'coverFallbackProbe': wrapBuilder<[]>(IndexCoverFallbackProbeRoute),
+    'readerGestureProbe': wrapBuilder<[]>(IndexReaderGestureProbeRoute),
+  };
   private readonly HOME_TAB_SCROLL_DELTA_PX: number = 6;
   private readonly HOME_TAB_ANIMATION_GUARD_MS: number = 180;
   private homeTabLastScrollOffsets: number[] = [0, 0, 0, 0, 0];
@@ -174,6 +430,10 @@ struct Index {
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private mappedDestinationBuilder(family: IndexDestinationFamily): WrappedBuilder<[]> {
+    return this.mappedDestinationBuilders[family] || this.emptyDestinationBuilder
   }
 
   @Monitor('pendingEhUrl.signal')
@@ -869,88 +1129,17 @@ struct Index {
   routerMap(name: string) {
     if (!SafeModeGate.routeAllowed(name)) {
       Column() {}
-    } else if (name === 'GalleryDetail') {
-      GalleryDetailPage()
-    } else if (name === 'GalleryInfo') {
-      GalleryInfoPage()
-    } else if (name === 'GalleryTorrents') {
-      GalleryTorrentsPage()
-    } else if (name === 'GalleryArchiver') {
-      GalleryArchiverPage()
-    } else if (name === 'GalleryWeb') {
-      GalleryWebPage()
-    } else if (name === 'GalleryEditTags') {
-      GalleryEditTagsPage()
-    } else if (name === 'Search') {
-      GallerySearchPage()
-    } else if (name === 'Reader') {
-      ReaderPage()
-    } else if (name === 'EhLogin') {
-      EhLoginWebPage()
-    } else if (name === 'EhCookieImport') {
-      EhCookieImportPage()
-    } else if (name === 'EhPasswordLogin') {
-      EhPasswordLoginPage()
-    } else if (name === 'MyTags') {
-      MyTagsPage()
-    } else if (name === 'History') {
-      ViewedHistoryPage()
-    } else if (name === 'FavoriteSelector') {
-      FavoriteSelectorPage()
-    } else if (name === 'TabManager') {
-      TabManagerPage()
-    } else if (name === 'TabEdit') {
-      TabEditPage()
-    } else if (name === 'AllThumbnails') {
-      GalleryAllThumbnailsPage()
-    } else if (name === 'GalleryComments') {
-      GalleryCommentsPage()
-    } else if (name === 'EhSettings') {
-      EhSettingsPage()
-    } else if (name === 'EhProfileSettings') {
-      EhProfileSettingsPage()
-    } else if (name === 'Account') {
-      AccountPage()
-    } else if (name === 'AccountLogin') {
-      AccountLoginPage()
-    } else if (name === 'LayoutSettings') {
-      LayoutSettingsPage()
-    } else if (name === 'ColumnDensity') {
-      ColumnDensityPage()
-    } else if (name === 'ThumbnailColumnDensity') {
-      ColumnDensityPage({ targetMode: ListMode.THUMBNAIL_GRID })
-    } else if (name === 'CacheSettings') {
-      CacheSettingsPage()
-    } else if (name === 'ReaderSettings') {
-      ReaderSettingsPage()
-    } else if (name === 'DownloadSettings') {
-      DownloadSettingsPage()
-    } else if (name === 'SearchSettings') {
-      SearchSettingsPage()
-    } else if (name === 'LocalBlockSettings') {
-      LocalBlockSettingsPage()
-    } else if (name === 'ImageBlockSettings') {
-      ImageBlockSettingsPage()
-    } else if (name === 'TagTranslationSettings') {
-      TagTranslationSettingsPage()
-    } else if (name === 'TranslationSettings') {
-      TranslationSettingsPage()
-    } else if (name === 'SyncSettings') {
-      SyncSettingsPage()
-    } else if (name === 'WebDavSyncSettings') {
-      WebDavSyncSettingsPage()
-    } else if (name === 'AdvancedSettings') {
-      AdvancedSettingsPage()
-    } else if (name === 'SecuritySettings') {
-      SecuritySettingsPage()
-    } else if (name === 'About') {
-      AboutPage()
-    } else if (name === 'ImagePageRouteError') {
-      ImagePageRouteErrorPage()
-    } else if (name === 'CoverFallbackProbe') {
-      CoverFallbackProbePage()
-    } else if (name === 'ReaderGestureProbe') {
-      ReaderGestureProbePage()
+    } else {
+      this.destinationContent(IndexRouteCoordinator.family(name))
+    }
+  }
+
+  @Builder
+  private destinationContent(family: IndexDestinationFamily | null) {
+    if (family === null) {
+      Column() {}
+    } else {
+      this.mappedDestinationBuilder(family).builder()
     }
   }
 
