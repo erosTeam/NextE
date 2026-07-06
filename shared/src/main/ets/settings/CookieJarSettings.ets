@@ -9,6 +9,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { connectAuth, AuthState } from '../state/AuthState'
 import { AccountListSettings } from './AccountListSettings'
 import { UserProfileService } from '../services/UserProfileService'
+import { CookieJarEntry } from '../model/CookieJarEntry'
 
 /**
  * Persistence for the sensitive EH auth cookie bundle. HarmonyOS has no cookie jar, so the
@@ -30,23 +31,181 @@ export class CookieJarSettings {
     ]
   }
 
-  /** Pull a single cookie value out of a "name=value; name2=value2" header. '' if absent. */
+  /** Pull a single cookie value out of any supported pasted cookie format. '' if absent. */
   static parseCookieValue(header: string, name: string): string {
-    if (header.length === 0) {
-      return ''
-    }
-    const pairs: string[] = header.split(';')
-    for (const pair of pairs) {
-      const trimmed: string = pair.trim()
-      const eq: number = trimmed.indexOf('=')
-      if (eq <= 0) {
-        continue
-      }
-      if (trimmed.substring(0, eq) === name) {
-        return trimmed.substring(eq + 1).trim()
+    const entries: CookieJarEntry[] = CookieJarSettings.parseCookieEntries(header)
+    for (let i: number = 0; i < entries.length; i++) {
+      if (entries[i].name === name) {
+        return entries[i].value
       }
     }
     return ''
+  }
+
+  /** User-facing export / import canonical form. Values are sensitive. */
+  static formatEntries(entries: CookieJarEntry[]): string {
+    const parts: string[] = []
+    for (let i: number = 0; i < entries.length; i++) {
+      if (entries[i].name.length > 0 && entries[i].value.length > 0) {
+        parts.push(`${entries[i].name}=${entries[i].value}`)
+      }
+    }
+    return parts.join('; ')
+  }
+
+  /**
+   * Parse common pasted cookie sources into complete cookie entries:
+   *   - Cookie header: a=b; c=d
+   *   - One cookie per line, with optional Cookie: / Set-Cookie: prefixes
+   *   - Browser-export JSON arrays containing { name, value }
+   */
+  static parseCookieEntries(raw: string): CookieJarEntry[] {
+    const text: string = raw.trim()
+    if (text.length === 0) {
+      return []
+    }
+    const jsonEntries: CookieJarEntry[] = CookieJarSettings.parseJsonCookieEntries(text)
+    if (jsonEntries.length > 0) {
+      return jsonEntries
+    }
+    const entries: CookieJarEntry[] = []
+    const seen: Map<string, boolean> = new Map<string, boolean>()
+    const lines: string[] = text.replace(/\r/g, '\n').split('\n')
+    for (let i: number = 0; i < lines.length; i++) {
+      CookieJarSettings.parseCookieLine(lines[i], entries, seen)
+    }
+    return entries
+  }
+
+  private static parseJsonCookieEntries(text: string): CookieJarEntry[] {
+    if (!text.startsWith('[') && !text.startsWith('{')) {
+      return []
+    }
+    try {
+      const root: Object = JSON.parse(text) as Object
+      const entries: CookieJarEntry[] = []
+      const seen: Map<string, boolean> = new Map<string, boolean>()
+      if (Array.isArray(root)) {
+        CookieJarSettings.parseJsonCookieArray(root, entries, seen)
+      } else if (root !== null && typeof root === 'object') {
+        const rec = root as Record<string, Object>
+        const cookies: Object | undefined = rec.cookies
+        if (cookies !== undefined && Array.isArray(cookies)) {
+          CookieJarSettings.parseJsonCookieArray(cookies, entries, seen)
+        }
+      }
+      return entries
+    } catch (_error) {
+      return []
+    }
+  }
+
+  private static parseJsonCookieArray(
+    rawItems: Object[],
+    entries: CookieJarEntry[],
+    seen: Map<string, boolean>,
+  ): void {
+    for (let i: number = 0; i < rawItems.length; i++) {
+      const rawItem: Object = rawItems[i]
+      if (rawItem === null || typeof rawItem !== 'object' || Array.isArray(rawItem)) {
+        continue
+      }
+      const item = rawItem as Record<string, Object>
+      const rawName: Object | undefined = item.name
+      const rawValue: Object | undefined = item.value
+      if (rawName === undefined || rawValue === undefined) {
+        continue
+      }
+      CookieJarSettings.appendCookieEntry(entries, seen, `${rawName}`, `${rawValue}`)
+    }
+  }
+
+  private static parseCookieLine(
+    rawLine: string,
+    entries: CookieJarEntry[],
+    seen: Map<string, boolean>,
+  ): void {
+    let line: string = rawLine.trim()
+    if (line.length === 0) {
+      return
+    }
+    const lower: string = line.toLowerCase()
+    if (lower.startsWith('cookie:')) {
+      line = line.substring('cookie:'.length).trim()
+      CookieJarSettings.parseCookieFragments(line.split(';'), entries, seen, false)
+      return
+    }
+    if (lower.startsWith('set-cookie:')) {
+      line = line.substring('set-cookie:'.length).trim()
+      const parts: string[] = line.split(';')
+      CookieJarSettings.parseCookieFragments([parts.length > 0 ? parts[0] : line], entries, seen, true)
+      return
+    }
+    if (line.indexOf(';') >= 0) {
+      CookieJarSettings.parseCookieFragments(line.split(';'), entries, seen, false)
+      return
+    }
+    CookieJarSettings.parseCookieFragments([line], entries, seen, false)
+  }
+
+  private static parseCookieFragments(
+    fragments: string[],
+    entries: CookieJarEntry[],
+    seen: Map<string, boolean>,
+    setCookieLine: boolean,
+  ): void {
+    for (let i: number = 0; i < fragments.length; i++) {
+      const fragment: string = fragments[i].trim()
+      if (fragment.length === 0) {
+        continue
+      }
+      if (!setCookieLine && CookieJarSettings.isCookieAttribute(fragment)) {
+        continue
+      }
+      const eq: number = fragment.indexOf('=')
+      if (eq <= 0) {
+        continue
+      }
+      CookieJarSettings.appendCookieEntry(
+        entries,
+        seen,
+        fragment.substring(0, eq).trim(),
+        fragment.substring(eq + 1).trim(),
+      )
+    }
+  }
+
+  private static isCookieAttribute(fragment: string): boolean {
+    const eq: number = fragment.indexOf('=')
+    const name: string = (eq >= 0 ? fragment.substring(0, eq) : fragment).trim().toLowerCase()
+    return (
+      name === 'path' ||
+      name === 'domain' ||
+      name === 'expires' ||
+      name === 'max-age' ||
+      name === 'secure' ||
+      name === 'httponly' ||
+      name === 'samesite'
+    )
+  }
+
+  private static appendCookieEntry(
+    entries: CookieJarEntry[],
+    seen: Map<string, boolean>,
+    name: string,
+    value: string,
+  ): void {
+    if (
+      name.length <= 0 ||
+      value.length <= 0 ||
+      name === EhConstants.COOKIE_NW ||
+      value === 'mystery' ||
+      seen.get(name) === true
+    ) {
+      return
+    }
+    entries.push(new CookieJarEntry(name, value))
+    seen.set(name, true)
   }
 
   /**
@@ -60,23 +219,9 @@ export class CookieJarSettings {
    */
   static applyFromHeader(header: string): boolean {
     const store: EhCookieStore = EhCookieStore.getInstance()
-    const pairs: string[] = header.split(';')
-    for (const pair of pairs) {
-      const trimmed: string = pair.trim()
-      const eq: number = trimmed.indexOf('=')
-      if (eq <= 0) {
-        continue
-      }
-      const name: string = trimmed.substring(0, eq).trim()
-      const value: string = trimmed.substring(eq + 1).trim()
-      if (
-        name.length > 0 &&
-        name !== EhConstants.COOKIE_NW &&
-        value.length > 0 &&
-        value !== 'mystery'
-      ) {
-        store.set(name, value)
-      }
+    const entries: CookieJarEntry[] = CookieJarSettings.parseCookieEntries(header)
+    for (let i: number = 0; i < entries.length; i++) {
+      store.set(entries[i].name, entries[i].value)
     }
     return store.isLogin()
   }

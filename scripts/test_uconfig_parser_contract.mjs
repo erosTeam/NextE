@@ -39,6 +39,7 @@ const html = `
   <input type="text" name="wt" value="20" />
   <textarea name="xu" id="xu">uploader1
 uploader2</textarea>
+  <p>Uploader exclusion quota: <strong>2</strong>/<strong>1,000</strong></p>
   <input type="radio" name="rc" id="rc_0" value="0" checked="checked" />
   <input type="radio" name="lt" id="lt_0" value="0" checked="checked" />
   <input type="radio" name="ts" id="ts_0" value="0" />
@@ -111,6 +112,19 @@ const parseTextarea = (name) => {
   const m = html.match(new RegExp(`<textarea[^>]*name="${name}"[^>]*>([\\s\\S]*?)</textarea>`))
   return m ? m[1].trim() : ''
 }
+const parseXuQuota = () => {
+  const marker = html.match(/<textarea[^>]*(?:name|id)="xu"[\s\S]*?<\/textarea>/)
+  if (!marker || marker.index === undefined) return []
+  const tail = html.substring(marker.index + marker[0].length)
+  const out = []
+  const re = /<strong[^>]*>([\s\S]*?)<\/strong>/g
+  let m
+  while ((m = re.exec(tail)) !== null && out.length < 2) {
+    const value = Number.parseInt(m[1].replace(/<[^>]*>/g, '').replace(/,/g, '').trim(), 10)
+    if (!Number.isNaN(value)) out.push(value)
+  }
+  return out
+}
 const parseToggles = (prefix) => {
   const re = new RegExp(`(<input[^>]*id="${prefix}_(\\d+)"[^>]*>)([^<]*)`, 'g')
   const out = []
@@ -173,6 +187,8 @@ ok('ry=2000', parseInput('ry') === '2000')
 ok('ft=10 / wt=20', parseInput('ft') === '10' && parseInput('wt') === '20')
 ok('hh empty', parseInput('hh') === '')
 ok('xu textarea newline-joined', parseTextarea('xu') === 'uploader1\nuploader2')
+const xuQuota = parseXuQuota()
+ok('xu quota parsed from post-xu strong values', xuQuota.length === 2 && xuQuota[0] === 2 && xuQuota[1] === 1000)
 
 // ── Favorites ──
 const fav = []
@@ -233,6 +249,7 @@ ok('.ets parses the xl language table with variant by id range', src.includes('p
 ok('.ets parses + posts front-page categories (ct_*)', src.includes('parseCategories') && /name="ct_/.test(src) && src.includes('${c.key}=${c.hidden'))
 ok('body posts ct visibility 0/1', joined.includes('ct_doujinshi=0') && joined.includes('ct_misc=1'))
 ok('.ets parses options (radios + selects) WITH page labels + field-name presence', src.includes('parseControlOptions') && src.includes('parseFieldNames') && /type="radio" name=[^]*value="[^]*<\/label>/.test(src) && src.includes('<select name='))
+ok('.ets parses xu quota into model', src.includes('parseXuQuota') && src.includes('s.xuQuotaUsing') && src.includes('s.xuQuotaMax'))
 
 if (failures === 0) {
   console.log('✓ uconfig parser contract passed')

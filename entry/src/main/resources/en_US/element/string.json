@@ -1673,12 +1673,132 @@
       "value": "Import"
     },
     {
+      "name": "cookie_import_confirm",
+      "value": "Confirm login"
+    },
+    {
       "name": "cookie_import_invalid",
       "value": "The cookie must include ipb_member_id and ipb_pass_hash."
     },
     {
+      "name": "cookie_import_preview_title",
+      "value": "Parsed cookies"
+    },
+    {
+      "name": "cookie_import_preview_empty",
+      "value": "Parsed Cookie items will appear here after paste."
+    },
+    {
+      "name": "cookie_import_preview_missing",
+      "value": "Missing ipb_member_id or ipb_pass_hash."
+    },
+    {
+      "name": "cookie_import_preview_count",
+      "value": "%d cookies parsed"
+    },
+    {
       "name": "settings_account",
       "value": "Account"
+    },
+    {
+      "name": "account_cookie_title",
+      "value": "Cookie"
+    },
+    {
+      "name": "account_cookie_summary",
+      "value": "Current Cookie"
+    },
+    {
+      "name": "account_cookie_count_format",
+      "value": "%d cookies"
+    },
+    {
+      "name": "account_cookie_ex_available",
+      "value": "Ex available"
+    },
+    {
+      "name": "account_cookie_ex_locked",
+      "value": "Ex locked"
+    },
+    {
+      "name": "account_cookie_empty",
+      "value": "No Cookie"
+    },
+    {
+      "name": "account_cookie_copy",
+      "value": "Copy"
+    },
+    {
+      "name": "account_cookie_export",
+      "value": "Export"
+    },
+    {
+      "name": "account_cookie_copied",
+      "value": "Cookie copied"
+    },
+    {
+      "name": "account_cookie_copy_failed",
+      "value": "Failed to copy Cookie"
+    },
+    {
+      "name": "account_cookie_exported",
+      "value": "Cookie exported"
+    },
+    {
+      "name": "account_cookie_export_failed",
+      "value": "Failed to export Cookie"
+    },
+    {
+      "name": "account_status_ex",
+      "value": "ExHentai"
+    },
+    {
+      "name": "account_status_profile",
+      "value": "EH profile"
+    },
+    {
+      "name": "account_profile_unknown",
+      "value": "Unknown profile"
+    },
+    {
+      "name": "account_dashboard_not_available",
+      "value": "Unavailable"
+    },
+    {
+      "name": "account_dashboard_not_loaded",
+      "value": "Not loaded"
+    },
+    {
+      "name": "account_dashboard_loading_hint",
+      "value": "Loading from EH."
+    },
+    {
+      "name": "account_dashboard_quota_section",
+      "value": "Image quota"
+    },
+    {
+      "name": "account_image_reset_title",
+      "value": "Reset image quota"
+    },
+    {
+      "name": "account_image_reset_cost_format",
+      "value": "Cost: %d GP"
+    },
+    {
+      "name": "account_image_reset_confirm",
+      "value": "Spend %d GP to reset image quota?"
+    },
+    {
+      "name": "account_image_reset_success",
+      "value": "Image quota reset"
+    },
+    {
+      "name": "account_image_reset_failed",
+      "value": "Failed to reset image quota"
+    },
+    {
+      "name": "account_image_reset_unavailable",
+      "value": "Reset action is not available on the current page"
     },
     {
       "name": "account_remove",

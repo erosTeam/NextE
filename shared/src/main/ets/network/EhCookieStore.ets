@@ -1,4 +1,5 @@
 import { EhConstants } from '../constants/EhConstants'
+import { CookieJarEntry } from '../model/CookieJarEntry'
 
 /**
  * Manual cookie jar — HarmonyOS has no built-in CookieJar for @ohos.net.http, so we keep
@@ -58,6 +59,17 @@ export class EhCookieStore {
       }
     })
     return names.join(',')
+  }
+
+  /** Full cookie entries for user-requested viewing/export only. Values are sensitive. */
+  entries(): CookieJarEntry[] {
+    const entries: CookieJarEntry[] = []
+    this.cookies.forEach((value: string, name: string) => {
+      if (name !== EhConstants.COOKIE_NW && value.length > 0) {
+        entries.push(new CookieJarEntry(name, value))
+      }
+    })
+    return entries
   }
 
   /**

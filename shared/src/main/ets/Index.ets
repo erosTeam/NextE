@@ -14,6 +14,7 @@ export { SimpleTag } from './model/SimpleTag'
 export { EhTagSuggestion } from './model/EhTagSuggestion'
 export { TagGroup } from './model/TagGroup'
 export { EhGallery, EhGalleryVersion } from './model/EhGallery'
+export { CookieJarEntry } from './model/CookieJarEntry'
 export {
   DownloadArchiverTask,
   DownloadArchiverParseSource,
@@ -41,6 +42,7 @@ export {
 export { ViewedGallery } from './model/ViewedGallery'
 export { Favcat } from './model/Favcat'
 export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
+export { EhHome } from './model/EhHome'
 export {
   EhGalleryComment,
   EhGalleryCommentLink,
@@ -117,6 +119,7 @@ export { EhGalleryListParser } from './parser/EhGalleryListParser'
 export { EhFavcatListParser } from './parser/EhFavcatListParser'
 export { EhMytagsParser } from './parser/EhMytagsParser'
 export { EhUconfigParser } from './parser/EhUconfigParser'
+export { EhHomeParser } from './parser/EhHomeParser'
 export {
   EhProfile,
   EhProfileSettings,

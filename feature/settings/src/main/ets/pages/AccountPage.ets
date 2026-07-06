@@ -5,11 +5,20 @@ import {
   AuthState,
   ConciseListRow,
   CookieJarSettings,
+  DiagnosticLogger,
+  EhApiService,
+  EhCookieStore,
+  EhConstants,
+  EhHome,
+  EhProfile,
+  EhProfileSettings,
   GroupedListSection,
   SecondaryListScaffold,
+  SiteModeState,
   ThemeConstants,
   connectAuth,
   connectNavStack,
+  connectSiteMode,
   immersiveTitleBarOpts,
   AccountListState,
   connectAccountList,
@@ -59,16 +68,56 @@ struct AccountAvatar {
   }
 }
 
+class AccountDashboardCache {
+  private static homeSnapshots: Map<string, EhHome> = new Map<string, EhHome>()
+  private static profileSnapshots: Map<string, EhProfileSettings> = new Map<string, EhProfileSettings>()
+
+  static seedHome(key: string): EhHome | null {
+    const cached: EhHome | undefined = AccountDashboardCache.homeSnapshots.get(key)
+    if (cached === undefined) {
+      return null
+    }
+    return cached.copy()
+  }
+
+  static putHome(key: string, home: EhHome): void {
+    AccountDashboardCache.homeSnapshots.set(key, home.copy())
+  }
+
+  static seedProfile(key: string): EhProfileSettings | null {
+    const cached: EhProfileSettings | undefined = AccountDashboardCache.profileSnapshots.get(key)
+    if (cached === undefined) {
+      return null
+    }
+    return cached.copy()
+  }
+
+  static putProfile(key: string, settings: EhProfileSettings): void {
+    AccountDashboardCache.profileSnapshots.set(key, settings.copy())
+  }
+}
+
 @ComponentV2
 export struct AccountPage {
   @Local auth: AuthState = connectAuth();
   @Local accountList: AccountListState = connectAccountList();
-  @Local refreshing: boolean = false;
+  @Local site: SiteModeState = connectSiteMode();
+  @Local home: EhHome = new EhHome();
+  @Local profileSettings: EhProfileSettings = new EhProfileSettings();
+  @Local homeLoading: boolean = false;
+  @Local homeResetting: boolean = false;
+  @Local profileLoading: boolean = false;
+  @Local homeLoaded: boolean = false;
+  @Local profileLoaded: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+  private homeLoadingKey: string = '';
+  private profileLoadingKey: string = '';
 
   aboutToAppear(): void {
     this.restoreProfile()
+    this.restoreDashboardCache()
+    this.loadAccountDashboard()
   }
 
   private ctx(): common.UIAbilityContext {
@@ -79,28 +128,189 @@ export struct AccountPage {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
 
-  // Force-refresh igneous (eros_fe "Refresh Igneous") for the active account — useful if EX access lapsed.
-  private refreshIgneous(): void {
-    if (this.refreshing) {
-      return
-    }
-    this.refreshing = true
-    this.toast($r('app.string.site_ex_checking'))
-    CookieJarSettings.refreshIgneous(this.ctx())
-      .then((ok: boolean) => {
-        this.toast(ok ? $r('app.string.site_ex_unlocked') : $r('app.string.site_ex_no_access'))
-      })
-      .finally(() => {
-        this.refreshing = false
-      })
-  }
-
   private async restoreProfile(): Promise<void> {
     if (!this.auth.isLogin) {
       return
     }
     await UserProfileService.restoreActive(this.ctx())
     UserProfileService.materializeAvatar(this.ctx())
+  }
+
+  private loadAccountDashboard(): void {
+    if (!this.auth.isLogin) {
+      return
+    }
+    this.loadHomeLimits()
+    this.loadProfileSettings()
+  }
+
+  private activeAccountKey(): string {
+    if (this.auth.memberId.length > 0) {
+      return this.auth.memberId
+    }
+    return this.accountList.activeMemberId
+  }
+
+  private profileCacheKey(): string {
+    const siteKey: string = this.site.isEx ? 'ex' : 'eh'
+    return `${this.activeAccountKey()}:${siteKey}`
+  }
+
+  private restoreDashboardCache(): void {
+    const accountKey: string = this.activeAccountKey()
+    if (!this.auth.isLogin || accountKey.length === 0) {
+      return
+    }
+    const cachedHome: EhHome | null = AccountDashboardCache.seedHome(accountKey)
+    if (cachedHome !== null) {
+      this.home = cachedHome
+      this.homeLoaded = true
+    }
+    const cachedProfile: EhProfileSettings | null = AccountDashboardCache.seedProfile(this.profileCacheKey())
+    if (cachedProfile !== null) {
+      this.profileSettings = cachedProfile
+      this.profileLoaded = true
+    }
+  }
+
+  private resetDashboardStateForAccount(): void {
+    this.homeLoading = false
+    this.profileLoading = false
+    this.homeLoadingKey = ''
+    this.profileLoadingKey = ''
+    this.home = new EhHome()
+    this.profileSettings = new EhProfileSettings()
+    this.homeLoaded = false
+    this.profileLoaded = false
+    this.restoreDashboardCache()
+  }
+
+  @Monitor('accountList.activeMemberId')
+  private onActiveAccountChanged(): void {
+    this.resetDashboardStateForAccount()
+    this.loadAccountDashboard()
+  }
+
+  @Monitor('site.isEx')
+  private onSiteModeChanged(): void {
+    this.profileLoading = false
+    this.profileLoadingKey = ''
+    this.profileSettings = new EhProfileSettings()
+    this.profileLoaded = false
+    const cachedProfile: EhProfileSettings | null = AccountDashboardCache.seedProfile(this.profileCacheKey())
+    if (cachedProfile !== null) {
+      this.profileSettings = cachedProfile
+      this.profileLoaded = true
+    }
+    this.loadProfileSettings()
+  }
+
+  private loadHomeLimits(): void {
+    const key: string = this.activeAccountKey()
+    if (key.length === 0) {
+      return
+    }
+    if (this.homeLoading && this.homeLoadingKey === key) {
+      return
+    }
+    this.homeLoading = true
+    this.homeLoadingKey = key
+    EhApiService.getInstance()
+      .getEhHome()
+      .then((home: EhHome) => {
+        AccountDashboardCache.putHome(key, home)
+        if (key !== this.activeAccountKey()) {
+          return
+        }
+        this.home = home
+        this.homeLoaded = true
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('auth', 'account_home_limits_failed', error.message)
+      })
+      .finally(() => {
+        if (this.homeLoadingKey === key) {
+          this.homeLoading = false
+          this.homeLoadingKey = ''
+        }
+      })
+  }
+
+  private confirmResetImageLimits(): void {
+    if (this.homeResetting || this.homeLoading) {
+      return
+    }
+    if (!this.home.hasResetAction()) {
+      this.toast($r('app.string.account_image_reset_unavailable'))
+      return
+    }
+    this.getUIContext().showAlertDialog({
+      message: AppStrings.get('account_image_reset_confirm').replace('%d', `${this.home.resetCost}`),
+      primaryButton: {
+        value: $r('app.string.common_cancel'),
+        action: () => {},
+      },
+      secondaryButton: {
+        value: $r('app.string.account_image_reset_title'),
+        fontColor: ThemeConstants.BRAND_PRIMARY,
+        action: () => {
+          this.resetImageLimits()
+        },
+      },
+    })
+  }
+
+  private resetImageLimits(): void {
+    if (this.homeResetting || !this.home.hasResetAction()) {
+      return
+    }
+    this.homeResetting = true
+    EhApiService.getInstance()
+      .resetImageLimits(this.home)
+      .then((home: EhHome) => {
+        AccountDashboardCache.putHome(this.activeAccountKey(), home)
+        this.home = home
+        this.homeLoaded = true
+        this.toast($r('app.string.account_image_reset_success'))
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('auth', 'account_image_limit_reset_failed', error.message)
+        this.toast($r('app.string.account_image_reset_failed'))
+      })
+      .finally(() => {
+        this.homeResetting = false
+      })
+  }
+
+  private loadProfileSettings(): void {
+    const key: string = this.profileCacheKey()
+    if (this.activeAccountKey().length === 0) {
+      return
+    }
+    if (this.profileLoading && this.profileLoadingKey === key) {
+      return
+    }
+    this.profileLoading = true
+    this.profileLoadingKey = key
+    EhApiService.getInstance()
+      .getUserConfig(this.site.isEx)
+      .then((settings: EhProfileSettings) => {
+        AccountDashboardCache.putProfile(key, settings)
+        if (key !== this.profileCacheKey()) {
+          return
+        }
+        this.profileSettings = settings
+        this.profileLoaded = true
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('auth', 'account_uconfig_failed', error.message)
+      })
+      .finally(() => {
+        if (this.profileLoadingKey === key) {
+          this.profileLoading = false
+          this.profileLoadingKey = ''
+        }
+      })
   }
 
   private openProfileWeb(): void {
@@ -182,6 +392,53 @@ export struct AccountPage {
     return ''
   }
 
+  private cookieSummaryText(): string {
+    const count: number = EhCookieStore.getInstance().entries().length
+    return AppStrings.get('account_cookie_count_format').replace('%d', `${count}`)
+  }
+
+  private exAccessText(): ResourceStr {
+    const igneous: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_IGNEOUS)
+    if (igneous.length > 0 && igneous !== 'mystery') {
+      return $r('app.string.account_cookie_ex_available')
+    }
+    return $r('app.string.account_cookie_ex_locked')
+  }
+
+  private profileNameText(): ResourceStr {
+    if (this.profileLoading && !this.profileLoaded) {
+      return $r('app.string.common_loading')
+    }
+    for (let i: number = 0; i < this.profileSettings.profiles.length; i++) {
+      const profile: EhProfile = this.profileSettings.profiles[i]
+      if (profile.value === this.profileSettings.selectedProfile) {
+        return profile.name
+      }
+    }
+    return this.profileLoaded ? $r('app.string.account_profile_unknown') : $r('app.string.account_dashboard_not_available')
+  }
+
+  private imageQuotaText(): ResourceStr {
+    if (this.homeLoading && !this.homeLoaded) {
+      return $r('app.string.common_loading')
+    }
+    if (this.home.hasImageLimits()) {
+      return `${this.home.currentLimit} / ${this.home.totLimit}`
+    }
+    return this.homeLoaded ? $r('app.string.account_dashboard_not_available') : $r('app.string.account_dashboard_not_loaded')
+  }
+
+  private imageQuotaSubtitle(): ResourceStr {
+    if (this.homeLoading && !this.homeLoaded) {
+      return $r('app.string.account_dashboard_loading_hint')
+    }
+    return ''
+  }
+
+  private imageResetSubtitle(): ResourceStr {
+    return AppStrings.get('account_image_reset_cost_format').replace('%d', `${this.home.resetCost}`)
+  }
+
   // One saved account as a card row; the active one is selected via Radio. Tap the row to switch.
   @Builder
   private AccountRow(memberId: string) {
@@ -261,6 +518,63 @@ export struct AccountPage {
         ListItem() {
           GroupedListSection() {
             ConciseListRow({
+              title: $r('app.string.account_status_ex'),
+              leadingIcon: $r('sys.symbol.lock_open'),
+              trailingText: this.exAccessText(),
+              showChevron: false,
+            })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.account_status_profile'),
+              leadingIcon: $r('sys.symbol.gearshape'),
+              trailingText: this.profileNameText(),
+              showChevron: false,
+            })
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.account_dashboard_quota_section'),
+              subtitle: this.imageQuotaSubtitle(),
+              leadingIcon: $r('sys.symbol.picture_badge_arrow_down'),
+              trailingText: this.imageQuotaText(),
+              showChevron: false,
+              action: () => {
+                this.loadHomeLimits()
+              },
+            })
+            if (this.home.resetCost > 0) {
+              this.rowDivider()
+              ConciseListRow({
+                title: $r('app.string.account_image_reset_title'),
+                subtitle: this.imageResetSubtitle(),
+                leadingIcon: $r('sys.symbol.arrow_clockwise'),
+                trailingText: this.homeResetting ? $r('app.string.common_loading') : '',
+                showChevron: false,
+                action: () => {
+                  this.confirmResetImageLimits()
+                },
+              })
+            }
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.account_cookie_title'),
+              subtitle: this.exAccessText(),
+              leadingIcon: $r('sys.symbol.key'),
+              trailingText: this.cookieSummaryText(),
+              action: () => {
+                this.stack.pushPathByName('AccountCookie', null)
+              },
+            })
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            ConciseListRow({
               title: $r('app.string.ehp_entry_title'),
               subtitle: $r('app.string.ehp_entry_hint'),
               leadingIcon: $r('sys.symbol.gearshape'),
@@ -283,15 +597,6 @@ export struct AccountPage {
               leadingIcon: $r('sys.symbol.person'),
               action: () => {
                 this.openProfileWeb()
-              },
-            })
-            this.rowDivider()
-            ConciseListRow({
-              title: $r('app.string.settings_refresh_igneous'),
-              leadingIcon: $r('sys.symbol.arrow_clockwise'),
-              showChevron: false,
-              action: () => {
-                this.refreshIgneous()
               },
             })
           }

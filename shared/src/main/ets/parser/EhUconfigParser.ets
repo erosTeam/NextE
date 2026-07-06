@@ -15,8 +15,7 @@ import {
  * xn_ / xl_ checkboxes post `=on` when excluded; favorite_0..9 are names. Profile selection rides the
  * `sp` cookie, NOT this body. In-house regex (no HTML lib), per shared parser convention.
  *
- * ponytail: ct_* (front-page category visibility) + the xu quota readout are deferred — eros_fe omits
- * ct too, and posting a guessed ct mapping is destructive; both get added after inspecting a live page.
+ * Front-page categories and the xu quota readout are parsed from the same stable EH controls as eros_fe.
  */
 export class EhUconfigParser {
   static parse(html: string): EhProfileSettings {
@@ -79,6 +78,9 @@ export class EhUconfigParser {
     s.viewportOverride = EhUconfigParser.parseInput(html, 'vp')
     s.hentaiAtHomeLocalNetworkHost = EhUconfigParser.parseInput(html, 'hh')
     s.excludedUploaders = EhUconfigParser.parseTextarea(html, 'xu')
+    const xuQuota: number[] = EhUconfigParser.parseXuQuota(html)
+    s.xuQuotaUsing = xuQuota.length > 0 ? xuQuota[0] : 0
+    s.xuQuotaMax = xuQuota.length > 1 ? xuQuota[1] : 0
 
     // ── Favorites: favorite_0..9 names ──
     for (let i: number = 0; i <= 9; i++) {
@@ -151,6 +153,28 @@ export class EhUconfigParser {
         out.push(m[1])
       }
       m = re.exec(html)
+    }
+    return out
+  }
+
+  // eros_fe reads #xu.parent.nextElementSibling strong[0..1]. Scoped fallback: first post-xu block with
+  // at least two strong numeric values. Defaults to 0/0 when the account/page omits the quota readout.
+  private static parseXuQuota(html: string): number[] {
+    const marker: RegExpMatchArray | null = html.match(/<textarea[^>]*(?:name|id)="xu"[\s\S]*?<\/textarea>/)
+    if (marker === null || marker.index === undefined) {
+      return []
+    }
+    const tail: string = html.substring(marker.index + marker[0].length)
+    const re: RegExp = /<strong[^>]*>([\s\S]*?)<\/strong>/g
+    const out: number[] = []
+    let m: RegExpExecArray | null = re.exec(tail)
+    while (m !== null && out.length < 2) {
+      const raw: string = HtmlSelectorUtils.htmlUnescape(m[1].replace(/<[^>]*>/g, '').trim())
+      const value: number = Number.parseInt(raw.replace(/,/g, ''), 10)
+      if (!Number.isNaN(value)) {
+        out.push(value)
+      }
+      m = re.exec(tail)
     }
     return out
   }

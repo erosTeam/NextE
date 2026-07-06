@@ -6,6 +6,7 @@ import { EhGalleryListParseTask } from '../parser/EhGalleryListParseTask'
 import { EhFavcatListParser } from '../parser/EhFavcatListParser'
 import { EhMytagsParser } from '../parser/EhMytagsParser'
 import { EhUconfigParser } from '../parser/EhUconfigParser'
+import { EhHomeParser } from '../parser/EhHomeParser'
 import { EhProfileSettings } from '../model/EhProfileSettings'
 import { EhCommentParser } from '../parser/EhCommentParser'
 import { EhGalleryDetailParser } from '../parser/EhGalleryDetailParser'
@@ -24,6 +25,7 @@ import { EhMytags } from '../model/EhMytags'
 import { EhGalleryComment } from '../model/EhGalleryComment'
 import { EhGalleryTorrentList } from '../model/EhGalleryTorrent'
 import { EhGalleryArchiverQuote, EhGalleryArchiverSubmitResult } from '../model/EhGalleryArchiver'
+import { EhHome } from '../model/EhHome'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 const ARCHIVER_PREPARE_RETRY_MS: number = 1000
@@ -646,6 +648,45 @@ export class EhApiService {
     const url: string = `${EhConstants.baseUrl(isEx)}/uconfig.php`
     const resp: EhTextResponse = await this.fetch(url, isEx, 'generic')
     return EhUconfigParser.parse(resp.body)
+  }
+
+  /** Read EH account image-limit information from e-hentai.org/home.php (eros_fe getEhHome). */
+  async getEhHome(): Promise<EhHome> {
+    const url: string = `${EhConstants.EH_BASE_URL}/home.php`
+    const resp: EhTextResponse = await this.fetch(url, false, 'generic')
+    return EhHomeParser.parse(resp.body)
+  }
+
+  /**
+   * Reset EH image limits through the action parsed from home.php. This spends GP, so callers must ask for
+   * explicit user confirmation before invoking it.
+   */
+  async resetImageLimits(home: EhHome): Promise<EhHome> {
+    if (!home.hasResetAction()) {
+      throw new EhError(EhErrorKind.ParseFailure, 'image limit reset action missing')
+    }
+    let resp: EhTextResponse
+    try {
+      if (home.resetActionMethod === 'POST') {
+        resp = await EhHttpClient.getInstance().postFormUrlEncoded(home.resetActionUrl, home.resetActionBody)
+      } else {
+        resp = await this.fetch(home.resetActionUrl, false, 'generic')
+      }
+    } catch (err) {
+      throw EhErrorClassifier.network(err as Error, home.resetActionUrl)
+    }
+    if (resp.statusCode >= 400) {
+      const failure: EhError | null = EhErrorClassifier.classifyResponse(home.resetActionUrl, false, resp, 'generic')
+      if (failure !== null) {
+        throw failure
+      }
+      throw new EhError(EhErrorKind.HttpError, `image limit reset status=${resp.statusCode}`)
+    }
+    const failure: EhError | null = EhErrorClassifier.classifyResponse(home.resetActionUrl, false, resp, 'generic')
+    if (failure !== null) {
+      throw failure
+    }
+    return EhHomeParser.parse(resp.body)
   }
 
   /**

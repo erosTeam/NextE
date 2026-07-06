@@ -37,17 +37,27 @@ const HASH = 'ipb_pass_hash'
 // The jar is a Map<string,string> (insertion-ordered, last-writer-wins per name), like the .ets singleton.
 const isLogin = (jar) => (jar.get(MEMBER) || '').length > 0 && (jar.get(HASH) || '').length > 0
 
-const applyFromHeader = (jar, header) => {
+const appendCookieEntry = (entries, seen, name, value) => {
+  if (name.length <= 0 || value.length <= 0 || name === NW || value === 'mystery' || seen.has(name)) return
+  entries.push({ name, value })
+  seen.add(name)
+}
+
+const parseCookieEntries = (header) => {
+  const entries = []
+  const seen = new Set()
   for (const pair of header.split(';')) {
     const trimmed = pair.trim()
     const eq = trimmed.indexOf('=')
     if (eq <= 0) continue
-    const name = trimmed.substring(0, eq).trim()
-    const value = trimmed.substring(eq + 1).trim()
-    // Preserve EVERY cookie except nw (re-forced per request) and EH's valueless `mystery` placeholder.
-    if (name.length > 0 && name !== NW && value.length > 0 && value !== 'mystery') {
-      jar.set(name, value)
-    }
+    appendCookieEntry(entries, seen, trimmed.substring(0, eq).trim(), trimmed.substring(eq + 1).trim())
+  }
+  return entries
+}
+
+const applyFromHeader = (jar, header) => {
+  for (const entry of parseCookieEntries(header)) {
+    jar.set(entry.name, entry.value)
   }
   return isLogin(jar)
 }
@@ -213,7 +223,9 @@ const DONOR_HEADER = kv(
   const cjs = src('shared/src/main/ets/settings/CookieJarSettings.ets')
   ok('CookieJarSettings: no AUTH_NAMES whitelist remains', !/AUTH_NAMES/.test(cjs))
   ok('CookieJarSettings.applyFromHeader present', /static applyFromHeader\(/.test(cjs))
-  ok('applyFromHeader skips nw and `mystery`', /name !== EhConstants\.COOKIE_NW[\s\S]*?value !== 'mystery'/.test(cjs))
+  ok('CookieJarSettings.parseCookieEntries present', /static parseCookieEntries\(raw: string\): CookieJarEntry\[\]/.test(cjs))
+  ok('applyFromHeader uses parsed entries', /CookieJarSettings\.parseCookieEntries\(header\)/.test(cjs))
+  ok('parser skips nw and `mystery`', /name === EhConstants\.COOKIE_NW[\s\S]*?value === 'mystery'/.test(cjs))
   ok('serialize() delegates to serializeForPersist()', /serializeForPersist\(\)/.test(cjs))
   ok('login check = member id + pass hash', /isLogin\(\)/.test(cjs))
 

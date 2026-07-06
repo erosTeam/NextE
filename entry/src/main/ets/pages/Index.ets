@@ -78,6 +78,7 @@ import {
   EhProfileSettingsPage,
   AccountPage,
   AccountLoginPage,
+  AccountCookiePage,
   LayoutSettingsPage,
   ColumnDensityPage,
   CacheSettingsPage,
@@ -229,6 +230,11 @@ function IndexAccountLoginRoute() {
 }
 
 @Builder
+function IndexAccountCookieRoute() {
+  AccountCookiePage()
+}
+
+@Builder
 function IndexLayoutSettingsRoute() {
   LayoutSettingsPage()
 }
@@ -360,6 +366,7 @@ struct Index {
     'ehProfileSettings': wrapBuilder<[]>(IndexEhProfileSettingsRoute),
     'account': wrapBuilder<[]>(IndexAccountRoute),
     'accountLogin': wrapBuilder<[]>(IndexAccountLoginRoute),
+    'accountCookie': wrapBuilder<[]>(IndexAccountCookieRoute),
     'layoutSettings': wrapBuilder<[]>(IndexLayoutSettingsRoute),
     'columnDensity': wrapBuilder<[]>(IndexColumnDensityRoute),
     'thumbnailColumnDensity': wrapBuilder<[]>(IndexThumbnailColumnDensityRoute),

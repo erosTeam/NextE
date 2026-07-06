@@ -1673,12 +1673,132 @@
       "value": "导入"
     },
     {
+      "name": "cookie_import_confirm",
+      "value": "确认登录"
+    },
+    {
       "name": "cookie_import_invalid",
       "value": "Cookie 需包含 ipb_member_id 与 ipb_pass_hash。"
     },
     {
+      "name": "cookie_import_preview_title",
+      "value": "解析结果"
+    },
+    {
+      "name": "cookie_import_preview_empty",
+      "value": "粘贴后会在这里预览 Cookie 项。"
+    },
+    {
+      "name": "cookie_import_preview_missing",
+      "value": "缺少 ipb_member_id 或 ipb_pass_hash。"
+    },
+    {
+      "name": "cookie_import_preview_count",
+      "value": "已解析 %d 个 Cookie"
+    },
+    {
       "name": "settings_account",
       "value": "账号"
+    },
+    {
+      "name": "account_cookie_title",
+      "value": "Cookie"
+    },
+    {
+      "name": "account_cookie_summary",
+      "value": "当前 Cookie"
+    },
+    {
+      "name": "account_cookie_count_format",
+      "value": "%d 个 Cookie"
+    },
+    {
+      "name": "account_cookie_ex_available",
+      "value": "Ex 可用"
+    },
+    {
+      "name": "account_cookie_ex_locked",
+      "value": "Ex 未解锁"
+    },
+    {
+      "name": "account_cookie_empty",
+      "value": "当前没有 Cookie"
+    },
+    {
+      "name": "account_cookie_copy",
+      "value": "复制"
+    },
+    {
+      "name": "account_cookie_export",
+      "value": "导出"
+    },
+    {
+      "name": "account_cookie_copied",
+      "value": "已复制 Cookie"
+    },
+    {
+      "name": "account_cookie_copy_failed",
+      "value": "复制 Cookie 失败"
+    },
+    {
+      "name": "account_cookie_exported",
+      "value": "已导出 Cookie"
+    },
+    {
+      "name": "account_cookie_export_failed",
+      "value": "导出 Cookie 失败"
+    },
+    {
+      "name": "account_status_ex",
+      "value": "ExHentai"
+    },
+    {
+      "name": "account_status_profile",
+      "value": "EH 配置"
+    },
+    {
+      "name": "account_profile_unknown",
+      "value": "未知配置"
+    },
+    {
+      "name": "account_dashboard_not_available",
+      "value": "不可用"
+    },
+    {
+      "name": "account_dashboard_not_loaded",
+      "value": "未加载"
+    },
+    {
+      "name": "account_dashboard_loading_hint",
+      "value": "正在从 EH 加载"
+    },
+    {
+      "name": "account_dashboard_quota_section",
+      "value": "图片配额"
+    },
+    {
+      "name": "account_image_reset_title",
+      "value": "重置图片配额"
+    },
+    {
+      "name": "account_image_reset_cost_format",
+      "value": "消耗：%d GP"
+    },
+    {
+      "name": "account_image_reset_confirm",
+      "value": "将消耗 %d GP 重置图片配额。"
+    },
+    {
+      "name": "account_image_reset_success",
+      "value": "图片配额已重置"
+    },
+    {
+      "name": "account_image_reset_failed",
+      "value": "重置图片配额失败"
+    },
+    {
+      "name": "account_image_reset_unavailable",
+      "value": "当前页面未提供重置入口"
     },
     {
       "name": "account_remove",

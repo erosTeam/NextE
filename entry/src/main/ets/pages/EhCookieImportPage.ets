@@ -3,7 +3,11 @@ import { common } from '@kit.AbilityKit'
 import { KeyboardAvoidMode } from '@kit.ArkUI'
 import {
   EhConstants,
+  AppStrings,
   CookieJarSettings,
+  CookieJarEntry,
+  ConciseListRow,
+  GroupedListSection,
   closeLoginFlowToAccount,
   connectNavStack,
   connectLayoutSafeArea,
@@ -29,6 +33,7 @@ export struct EhCookieImportPage {
   private stack: NavPathStack = connectNavStack().stack;
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local cookieText: string = '';
+  @Local parsedCookies: CookieJarEntry[] = [];
   @Local submitting: boolean = false;
 
   aboutToAppear(): void {
@@ -59,12 +64,14 @@ export struct EhCookieImportPage {
             .enabled(!this.submitting)
             .onChange((value: string) => {
               this.cookieText = value
+              this.refreshParsedCookies()
             })
-          Button($r('app.string.cookie_import_submit'))
+          this.CookiePreviewSection()
+          Button($r('app.string.cookie_import_confirm'))
             .width('100%')
             .fontColor(ThemeConstants.TEXT_ON_BRAND)
             .backgroundColor(ThemeConstants.BRAND_PRIMARY)
-            .enabled(!this.submitting && this.cookieText.trim().length > 0)
+            .enabled(!this.submitting && this.canConfirmCookieImport())
             .onClick(() => {
               this.submit()
             })
@@ -83,40 +90,96 @@ export struct EhCookieImportPage {
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
   }
 
-  // How many real cookies the pasted header carries (name=value, non-empty value, excluding nw).
-  // Used only for a REDACTED diagnostic — never logs the names or values themselves.
-  private cookieCount(header: string): number {
-    let count: number = 0
-    const pairs: string[] = header.split(';')
-    for (const pair of pairs) {
-      const trimmed: string = pair.trim()
-      const eq: number = trimmed.indexOf('=')
-      if (eq <= 0) {
-        continue
-      }
-      const name: string = trimmed.substring(0, eq).trim()
-      const value: string = trimmed.substring(eq + 1).trim()
-      if (name.length > 0 && name !== EhConstants.COOKIE_NW && value.length > 0) {
-        count++
+  private refreshParsedCookies(): void {
+    this.parsedCookies = CookieJarSettings.parseCookieEntries(this.cookieText)
+  }
+
+  private parsedCookieValue(name: string): string {
+    for (let i: number = 0; i < this.parsedCookies.length; i++) {
+      if (this.parsedCookies[i].name === name) {
+        return this.parsedCookies[i].value
       }
     }
-    return count
+    return ''
+  }
+
+  private canConfirmCookieImport(): boolean {
+    return (
+      this.parsedCookieValue(EhConstants.COOKIE_MEMBER_ID).length > 0 &&
+      this.parsedCookieValue(EhConstants.COOKIE_PASS_HASH).length > 0
+    )
+  }
+
+  private previewStatus(): ResourceStr {
+    if (this.cookieText.trim().length <= 0) {
+      return $r('app.string.cookie_import_preview_empty')
+    }
+    if (this.canConfirmCookieImport()) {
+      return AppStrings.get('cookie_import_preview_count').replace('%d', `${this.parsedCookies.length}`)
+    }
+    return $r('app.string.cookie_import_preview_missing')
+  }
+
+  @Builder
+  private rowDivider() {
+    Divider()
+      .strokeWidth(0.5)
+      .color($r('sys.color.ohos_id_color_list_separator'))
+      .margin({ left: ThemeConstants.SPACE_MD })
+  }
+
+  @Builder
+  private CookiePreviewRow(entry: CookieJarEntry) {
+    Column({ space: ThemeConstants.SPACE_XS }) {
+      Text(entry.name)
+        .fontSize(ThemeConstants.FONT_SIZE_LIST_ITEM)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(entry.value)
+        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+        .fontColor($r('sys.color.font_secondary'))
+        .maxLines(2)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+    .padding(ThemeConstants.SPACE_MD)
+  }
+
+  @Builder
+  private CookiePreviewSection() {
+    GroupedListSection() {
+      ConciseListRow({
+        title: $r('app.string.cookie_import_preview_title'),
+        subtitle: this.previewStatus(),
+        leadingIcon: $r('sys.symbol.list_bullet'),
+        showChevron: false,
+      })
+      if (this.parsedCookies.length > 0) {
+        this.rowDivider()
+        ForEach(
+          this.parsedCookies,
+          (entry: CookieJarEntry, index: number) => {
+            this.CookiePreviewRow(entry)
+            if (index < this.parsedCookies.length - 1) {
+              this.rowDivider()
+            }
+          },
+          (entry: CookieJarEntry) => entry.name,
+        )
+      }
+    }
   }
 
   private async submit(): Promise<void> {
     if (this.submitting) {
       return
     }
-    const header: string = this.cookieText.trim()
+    this.refreshParsedCookies()
     // Validate identity WITHOUT mutating the live jar, so an invalid paste never half-applies.
-    const memberId: string = CookieJarSettings.parseCookieValue(
-      header,
-      EhConstants.COOKIE_MEMBER_ID,
-    )
-    const passHash: string = CookieJarSettings.parseCookieValue(
-      header,
-      EhConstants.COOKIE_PASS_HASH,
-    )
+    const memberId: string = this.parsedCookieValue(EhConstants.COOKIE_MEMBER_ID)
+    const passHash: string = this.parsedCookieValue(EhConstants.COOKIE_PASS_HASH)
     if (memberId.length === 0 || passHash.length === 0) {
       // Redacted: presence booleans only, never the pasted values.
       DiagnosticLogger.warn(
@@ -130,11 +193,12 @@ export struct EhCookieImportPage {
       return
     }
     this.submitting = true
+    const header: string = CookieJarSettings.formatEntries(this.parsedCookies)
     // Replace the jar with exactly this pasted account (clear first), preserving its complete cookie set
     // (donor/permission cookies kept, not dropped). Clearing first means importing a second account never
     // inherits the previous account's igneous/sk.
     CookieJarSettings.replaceFromHeader(header)
-    DiagnosticLogger.info('auth', 'cookie_import_applied', `cookies=${this.cookieCount(header)}`)
+    DiagnosticLogger.info('auth', 'cookie_import_applied', `cookies=${this.parsedCookies.length}`)
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     // save() persists the jar AND refreshes AuthState (isLogin / hasIgneous / memberId) for the UI.

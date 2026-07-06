@@ -1,18 +1,89 @@
 #!/usr/bin/env node
-// Contract test for the EH cookie-jar parsing (CookieJarSettings.parseCookieValue /
-// applyFromHeader). Mirrors the ArkTS logic EXACTLY so a drift in either side fails here.
+// Contract test for the EH cookie-jar parsing (CookieJarSettings.parseCookieEntries /
+// parseCookieValue / applyFromHeader). Mirrors the ArkTS logic so parser drift fails here.
 // Run: node scripts/test_cookiejar_contract.mjs  (must report 0 failure(s))
 
-const AUTH_NAMES = ['ipb_member_id', 'ipb_pass_hash', 'igneous', 'sk', 'star']
+const NW = 'nw'
+const MEMBER = 'ipb_member_id'
+const HASH = 'ipb_pass_hash'
 
-// --- mirror of CookieJarSettings.parseCookieValue (ArkTS) ---
-function parseCookieValue(header, name) {
-  if (header.length === 0) return ''
-  for (const pair of header.split(';')) {
-    const trimmed = pair.trim()
-    const eq = trimmed.indexOf('=')
+function isCookieAttribute(fragment) {
+  const eq = fragment.indexOf('=')
+  const name = (eq >= 0 ? fragment.substring(0, eq) : fragment).trim().toLowerCase()
+  return ['path', 'domain', 'expires', 'max-age', 'secure', 'httponly', 'samesite'].includes(name)
+}
+
+function appendCookieEntry(entries, seen, name, value) {
+  if (name.length <= 0 || value.length <= 0 || name === NW || value === 'mystery' || seen.has(name)) return
+  entries.push({ name, value })
+  seen.add(name)
+}
+
+function parseJsonCookieEntries(text) {
+  if (!text.startsWith('[') && !text.startsWith('{')) return []
+  try {
+    const root = JSON.parse(text)
+    const source = Array.isArray(root) ? root : Array.isArray(root.cookies) ? root.cookies : []
+    const entries = []
+    const seen = new Set()
+    for (const item of source) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+      if (item.name === undefined || item.value === undefined) continue
+      appendCookieEntry(entries, seen, `${item.name}`, `${item.value}`)
+    }
+    return entries
+  } catch (_error) {
+    return []
+  }
+}
+
+function parseCookieFragments(fragments, entries, seen, setCookieLine) {
+  for (const raw of fragments) {
+    const fragment = raw.trim()
+    if (fragment.length === 0) continue
+    if (!setCookieLine && isCookieAttribute(fragment)) continue
+    const eq = fragment.indexOf('=')
     if (eq <= 0) continue
-    if (trimmed.substring(0, eq) === name) return trimmed.substring(eq + 1).trim()
+    appendCookieEntry(entries, seen, fragment.substring(0, eq).trim(), fragment.substring(eq + 1).trim())
+  }
+}
+
+function parseCookieLine(rawLine, entries, seen) {
+  let line = rawLine.trim()
+  if (line.length === 0) return
+  const lower = line.toLowerCase()
+  if (lower.startsWith('cookie:')) {
+    line = line.substring('cookie:'.length).trim()
+    parseCookieFragments(line.split(';'), entries, seen, false)
+    return
+  }
+  if (lower.startsWith('set-cookie:')) {
+    line = line.substring('set-cookie:'.length).trim()
+    const parts = line.split(';')
+    parseCookieFragments([parts.length > 0 ? parts[0] : line], entries, seen, true)
+    return
+  }
+  if (line.includes(';')) {
+    parseCookieFragments(line.split(';'), entries, seen, false)
+    return
+  }
+  parseCookieFragments([line], entries, seen, false)
+}
+
+function parseCookieEntries(raw) {
+  const text = raw.trim()
+  if (text.length === 0) return []
+  const jsonEntries = parseJsonCookieEntries(text)
+  if (jsonEntries.length > 0) return jsonEntries
+  const entries = []
+  const seen = new Set()
+  for (const line of text.replace(/\r/g, '\n').split('\n')) parseCookieLine(line, entries, seen)
+  return entries
+}
+
+function parseCookieValue(header, name) {
+  for (const entry of parseCookieEntries(header)) {
+    if (entry.name === name) return entry.value
   }
   return ''
 }
@@ -20,11 +91,10 @@ function parseCookieValue(header, name) {
 // --- mirror of applyFromHeader + EhCookieStore.isLogin ---
 function applyFromHeader(header) {
   const store = {}
-  for (const name of AUTH_NAMES) {
-    const value = parseCookieValue(header, name)
-    if (value.length > 0 && value !== 'mystery') store[name] = value
+  for (const entry of parseCookieEntries(header)) {
+    store[entry.name] = entry.value
   }
-  const isLogin = (store['ipb_member_id'] || '').length > 0 && (store['ipb_pass_hash'] || '').length > 0
+  const isLogin = (store[MEMBER] || '').length > 0 && (store[HASH] || '').length > 0
   return { store, isLogin }
 }
 
@@ -62,7 +132,20 @@ const combined = 'ipb_member_id=111; ipb_pass_hash=aaa ; nw=1; ipb_member_id=222
 check('combined_first_wins_member', parseCookieValue(combined, 'ipb_member_id'), '111')
 check('combined_trims_value', parseCookieValue(combined, 'ipb_pass_hash'), 'aaa')
 
-// 6. Empty / malformed are safe.
+// 6. Newline / Cookie: / Set-Cookie: formats are accepted; attributes are ignored.
+const multiline = 'Cookie: ipb_member_id=321; path=/; ipb_pass_hash=hhh\nSet-Cookie: igneous=ig1; Path=/; Domain=.exhentai.org'
+check('multiline_entries', parseCookieEntries(multiline), [
+  { name: 'ipb_member_id', value: '321' },
+  { name: 'ipb_pass_hash', value: 'hhh' },
+  { name: 'igneous', value: 'ig1' },
+])
+
+// 7. Browser JSON export arrays are accepted.
+const json = JSON.stringify([{ name: MEMBER, value: 'json-mid' }, { name: HASH, value: 'json-hash' }])
+check('json_member', parseCookieValue(json, MEMBER), 'json-mid')
+check('json_is_login', applyFromHeader(json).isLogin, true)
+
+// 8. Empty / malformed are safe.
 check('empty_header', parseCookieValue('', 'ipb_member_id'), '')
 check('malformed_no_eq', parseCookieValue('garbage; =novalue; ipb_member_id=ok', 'ipb_member_id'), 'ok')
 

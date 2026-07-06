@@ -21,6 +21,7 @@ export type IndexDestinationFamily =
   'ehProfileSettings' |
   'account' |
   'accountLogin' |
+  'accountCookie' |
   'layoutSettings' |
   'columnDensity' |
   'thumbnailColumnDensity' |
@@ -65,6 +66,7 @@ export class IndexRouteCoordinator {
     'EhProfileSettings': 'ehProfileSettings',
     'Account': 'account',
     'AccountLogin': 'accountLogin',
+    'AccountCookie': 'accountCookie',
     'LayoutSettings': 'layoutSettings',
     'ColumnDensity': 'columnDensity',
     'ThumbnailColumnDensity': 'thumbnailColumnDensity',

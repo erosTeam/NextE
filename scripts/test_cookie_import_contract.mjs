@@ -7,7 +7,7 @@
  *
  * This is the SAFE manual fallback to the WebView login. The invariants it locks down:
  *   • the screen is reachable from Settings (pushPathByName('EhCookieImport')) and routed in Index;
- *   • it REUSES CookieJarSettings.replaceFromHeader/save (no second cookie parser is hand-rolled);
+ *   • it REUSES CookieJarSettings.parseCookieEntries/replaceFromHeader/save (no page-owned parser);
  *   • required identity is ipb_member_id + ipb_pass_hash; a paste missing either is rejected and
  *     must NOT mutate/persist the jar (validate-before-apply);
  *   • the COMPLETE pasted header is applied (unknown donor/permission cookies preserved, not
@@ -55,7 +55,7 @@ const eq = (name, got, want) => {
 
   const index = src(INDEX)
   ok('Index imports EhCookieImportPage', /import \{ EhCookieImportPage \}/.test(index))
-  ok("Index routes the 'EhCookieImport' name", /name === 'EhCookieImport'[\s\S]*?EhCookieImportPage\(\)/.test(index))
+  ok("Index routes the 'EhCookieImport' family", /'ehCookieImport': wrapBuilder<\[\]>\(IndexEhCookieImportRoute\)/.test(index))
 
   const settings = src(SETTINGS)
   const accountLogin = src(ACCOUNT_LOGIN)
@@ -72,9 +72,11 @@ const eq = (name, got, want) => {
 // --- 2. Reuse: the page delegates to CookieJarSettings, does not hand-roll a second parser ---
 {
   const page = src(PAGE)
+  ok('page parses pasted text through CookieJarSettings.parseCookieEntries', /CookieJarSettings\.parseCookieEntries\(this\.cookieText\)/.test(page))
+  ok('page renders parsed cookies before confirmation', /CookiePreviewSection\(\)[\s\S]*?ForEach\(\s*this\.parsedCookies/.test(page))
   ok('page reuses CookieJarSettings.replaceFromHeader', /CookieJarSettings\.replaceFromHeader\(/.test(page))
   ok('page reuses CookieJarSettings.save', /CookieJarSettings\.save\(/.test(page))
-  ok('page validates via CookieJarSettings.parseCookieValue', /CookieJarSettings\.parseCookieValue\(/.test(page))
+  ok('page confirms only after required cookies exist', /canConfirmCookieImport\(\)[\s\S]*COOKIE_MEMBER_ID[\s\S]*COOKIE_PASS_HASH/.test(page))
   // No bespoke cookie-jar mutation: the page must not poke EhCookieStore.set directly.
   ok('page does NOT call EhCookieStore.set directly', !/EhCookieStore\s*[.(].*\.set\(/.test(page) && !/\.set\(\s*name/.test(page))
 }
@@ -98,8 +100,7 @@ const eq = (name, got, want) => {
   // The pasted text must only flow into CookieJarSettings — never into Preferences/AppStorage/clipboard directly.
   ok('page does not persist cookieText to Preferences directly', !/putSync[\s\S]*cookieText/.test(page))
   ok('page does not stash cookieText in AppStorage', !/AppStorage\w*\.[a-zA-Z]+\([\s\S]*cookieText/.test(page))
-  // A redacted count helper is fine; assert it counts, not logs values.
-  ok('cookieCount helper returns a number (count, not value)', /cookieCount\(header: string\): number/.test(page))
+  ok('diagnostic logs parsed count, not values', /cookie_import_applied'[\s\S]*cookies=\$\{this\.parsedCookies\.length\}/.test(page))
 }
 
 // --- 4. Behavior mirror: validate-before-apply. Missing identity rejects WITHOUT mutating the jar. ---
@@ -109,29 +110,34 @@ const eq = (name, got, want) => {
   const HASH = 'ipb_pass_hash'
   const kv = (...pairs) => pairs.map((p) => `${p[0]}=${p[1]}`).join('; ')
 
-  // Mirror of CookieJarSettings.parseCookieValue (single-cookie extraction).
-  const parseCookieValue = (header, name) => {
-    if (header.length === 0) return ''
-    for (const pair of header.split(';')) {
-      const trimmed = pair.trim()
-      const i = trimmed.indexOf('=')
-      if (i <= 0) continue
-      if (trimmed.substring(0, i) === name) return trimmed.substring(i + 1).trim()
-    }
-    return ''
-  }
-  // Mirror of EhCookieImportPage.submit() guard: apply ONLY when both identity cookies are present.
-  const wouldApply = (jar, header) => {
-    const member = parseCookieValue(header, MEMBER)
-    const hash = parseCookieValue(header, HASH)
-    if (member.length === 0 || hash.length === 0) return false // rejected: jar untouched
+  const parseEntries = (header) => {
+    const entries = []
+    const seen = new Set()
     for (const pair of header.split(';')) {
       const trimmed = pair.trim()
       const i = trimmed.indexOf('=')
       if (i <= 0) continue
       const name = trimmed.substring(0, i).trim()
       const value = trimmed.substring(i + 1).trim()
-      if (name.length > 0 && name !== NW && value.length > 0 && value !== 'mystery') jar.set(name, value)
+      if (name.length > 0 && name !== NW && value.length > 0 && value !== 'mystery' && !seen.has(name)) {
+        entries.push({ name, value })
+        seen.add(name)
+      }
+    }
+    return entries
+  }
+  const valueOf = (entries, name) => {
+    const found = entries.find((entry) => entry.name === name)
+    return found ? found.value : ''
+  }
+  // Mirror of EhCookieImportPage.submit() guard: apply ONLY when both identity cookies are present.
+  const wouldApply = (jar, header) => {
+    const entries = parseEntries(header)
+    const member = valueOf(entries, MEMBER)
+    const hash = valueOf(entries, HASH)
+    if (member.length === 0 || hash.length === 0) return false // rejected: jar untouched
+    for (const entry of entries) {
+      jar.set(entry.name, entry.value)
     }
     return true
   }
@@ -173,7 +179,24 @@ const eq = (name, got, want) => {
     'cookie_import_hint',
     'cookie_import_placeholder',
     'cookie_import_submit',
+    'cookie_import_confirm',
     'cookie_import_invalid',
+    'cookie_import_preview_title',
+    'cookie_import_preview_empty',
+    'cookie_import_preview_missing',
+    'cookie_import_preview_count',
+    'account_cookie_title',
+    'account_cookie_summary',
+    'account_cookie_count_format',
+    'account_cookie_ex_available',
+    'account_cookie_ex_locked',
+    'account_cookie_empty',
+    'account_cookie_copy',
+    'account_cookie_export',
+    'account_cookie_copied',
+    'account_cookie_copy_failed',
+    'account_cookie_exported',
+    'account_cookie_export_failed',
   ]
   const LOCALES = ['base', 'en_US', 'zh_CN', 'ja_JP']
   for (const loc of LOCALES) {

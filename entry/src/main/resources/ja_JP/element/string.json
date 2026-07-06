@@ -1673,12 +1673,132 @@
       "value": "インポート"
     },
     {
+      "name": "cookie_import_confirm",
+      "value": "ログインを確認"
+    },
+    {
       "name": "cookie_import_invalid",
       "value": "Cookie には ipb_member_id と ipb_pass_hash が必要です。"
     },
     {
+      "name": "cookie_import_preview_title",
+      "value": "解析結果"
+    },
+    {
+      "name": "cookie_import_preview_empty",
+      "value": "貼り付け後、Cookie 項目がここに表示されます。"
+    },
+    {
+      "name": "cookie_import_preview_missing",
+      "value": "ipb_member_id または ipb_pass_hash がありません。"
+    },
+    {
+      "name": "cookie_import_preview_count",
+      "value": "%d 個の Cookie を解析"
+    },
+    {
       "name": "settings_account",
       "value": "アカウント"
+    },
+    {
+      "name": "account_cookie_title",
+      "value": "Cookie"
+    },
+    {
+      "name": "account_cookie_summary",
+      "value": "現在の Cookie"
+    },
+    {
+      "name": "account_cookie_count_format",
+      "value": "%d 個の Cookie"
+    },
+    {
+      "name": "account_cookie_ex_available",
+      "value": "Ex 利用可能"
+    },
+    {
+      "name": "account_cookie_ex_locked",
+      "value": "Ex 未解放"
+    },
+    {
+      "name": "account_cookie_empty",
+      "value": "Cookie はありません"
+    },
+    {
+      "name": "account_cookie_copy",
+      "value": "コピー"
+    },
+    {
+      "name": "account_cookie_export",
+      "value": "エクスポート"
+    },
+    {
+      "name": "account_cookie_copied",
+      "value": "Cookie をコピーしました"
+    },
+    {
+      "name": "account_cookie_copy_failed",
+      "value": "Cookie のコピーに失敗しました"
+    },
+    {
+      "name": "account_cookie_exported",
+      "value": "Cookie をエクスポートしました"
+    },
+    {
+      "name": "account_cookie_export_failed",
+      "value": "Cookie のエクスポートに失敗しました"
+    },
+    {
+      "name": "account_status_ex",
+      "value": "ExHentai"
+    },
+    {
+      "name": "account_status_profile",
+      "value": "EH プロファイル"
+    },
+    {
+      "name": "account_profile_unknown",
+      "value": "不明なプロファイル"
+    },
+    {
+      "name": "account_dashboard_not_available",
+      "value": "利用不可"
+    },
+    {
+      "name": "account_dashboard_not_loaded",
+      "value": "未読み込み"
+    },
+    {
+      "name": "account_dashboard_loading_hint",
+      "value": "EH から読み込み中。"
+    },
+    {
+      "name": "account_dashboard_quota_section",
+      "value": "画像クォータ"
+    },
+    {
+      "name": "account_image_reset_title",
+      "value": "画像クォータをリセット"
+    },
+    {
+      "name": "account_image_reset_cost_format",
+      "value": "消費: %d GP"
+    },
+    {
+      "name": "account_image_reset_confirm",
+      "value": "%d GP を消費して画像クォータをリセットします。"
+    },
+    {
+      "name": "account_image_reset_success",
+      "value": "画像クォータをリセットしました"
+    },
+    {
+      "name": "account_image_reset_failed",
+      "value": "画像クォータのリセットに失敗しました"
+    },
+    {
+      "name": "account_image_reset_unavailable",
+      "value": "現在のページにリセット操作がありません"
     },
     {
       "name": "account_remove",

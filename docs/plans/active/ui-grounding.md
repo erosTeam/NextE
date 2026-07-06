@@ -12,6 +12,16 @@ Primary action: open Search with no active query, swipe the recent-search histor
 Reuse or deviation: reuse the existing search page scroller pattern, history chip layout, `TagQuery.parse()` and `TagTranslationService.translateFullTagAsync()`; deviate only by giving the history branch its own `Scroll` and by rendering FE-style translated history as a secondary chip line.
 Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and X7 Search history overflow smoke.
 
+## Active: account dashboard, cookie visibility, and import preview
+
+Status: active
+Reference implementation: current NextE `feature/settings/src/main/ets/pages/AccountPage.ets` account hub rows, `feature/settings/src/main/ets/pages/EhProfileSettingsPage.ets` uconfig loading, FE `../eros_fe/lib/common/parser/home_parser.dart` + `../eros_fe/lib/pages/setting/eh_setting_page.dart` image-limits row, and `feature/settings/src/main/ets/pages/AdvancedSettingsPage.ets` pasteboard copy pattern.
+Surface type: Account hub dashboard plus Cookie child page/export and Cookie login/import page; no GP/Credit balance and no settings root entry.
+Primary information: Account first shows saved accounts, then only account-useful status: Ex availability, EH profile, image quota, and a Cookie summary whose full sensitive values and Igneous maintenance live only in the Cookie child page.
+Primary action: open Account to inspect Ex/profile/quota, tap image quota to refresh, tap reset image quota to confirm GP spend before submitting EH's parsed reset action, open Account -> Cookie to inspect/copy/export the current cookie header or refresh Igneous, or paste cookie material on Cookie login, review parsed `name=value` entries, then confirm login.
+Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, existing account switcher, `EhApiService.getUserConfig()`, `CookieJarSettings`, file picker, pasteboard patterns, and settings-page `showAlertDialog` confirmation; deviate by adding `home.php` quota parsing plus an explicit confirmed image-limit reset action parsed from the live page instead of hard-coded.
+Verification: home/uconfig parser contracts, cookie jar/import contracts, UI grounding contract, V1 decorator inventory, i18n duplicate check, diff check, signed HarmonyOS build, and account dashboard/cookie import smoke that stops at the reset confirmation unless the user explicitly authorizes spending GP.
+
 ## Active: index route-map coordinator
 
 Status: active
