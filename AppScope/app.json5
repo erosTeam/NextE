@@ -2,8 +2,8 @@
   "app": {
     "bundleName": "com.erosteam.nexte",
     "vendor": "erosTeam",
-    "versionCode": 26,
-    "versionName": "1.1.6",
+    "versionCode": 27,
+    "versionName": "1.1.7",
     "icon": "$media:app_icon_layered",
     "label": "$string:app_name",
     "targetAPIVersion": 26,
