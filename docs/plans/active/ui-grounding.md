@@ -12,15 +12,15 @@ Primary action: open Search with no active query, swipe the recent-search histor
 Reuse or deviation: reuse the existing search page scroller pattern, history chip layout, `TagQuery.parse()` and `TagTranslationService.translateFullTagAsync()`; deviate only by giving the history branch its own `Scroll` and by rendering FE-style translated history as a secondary chip line.
 Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and X7 Search history overflow smoke.
 
-## Active: account dashboard, cookie visibility, and import preview
+## Active: account switch identity and per-account favorites state
 
 Status: active
-Reference implementation: current NextE `feature/settings/src/main/ets/pages/AccountPage.ets` account hub rows, `feature/settings/src/main/ets/pages/EhProfileSettingsPage.ets` uconfig loading, FE `../eros_fe/lib/common/parser/home_parser.dart` + `../eros_fe/lib/pages/setting/eh_setting_page.dart` image-limits row, and `feature/settings/src/main/ets/pages/AdvancedSettingsPage.ets` pasteboard copy pattern.
-Surface type: Account hub dashboard plus Cookie child page/export and Cookie login/import page; no GP/Credit balance and no settings root entry.
-Primary information: Account first shows saved accounts, then only account-useful status: Ex availability, EH profile, image quota, and a Cookie summary whose full sensitive values and Igneous maintenance live only in the Cookie child page.
-Primary action: open Account to inspect Ex/profile/quota, tap image quota to refresh, tap reset image quota to confirm GP spend before submitting EH's parsed reset action, open Account -> Cookie to inspect/copy/export the current cookie header or refresh Igneous, or paste cookie material on Cookie login, review parsed `name=value` entries, then confirm login.
-Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, `ConciseListRow`, existing account switcher, `EhApiService.getUserConfig()`, `CookieJarSettings`, file picker, pasteboard patterns, and settings-page `showAlertDialog` confirmation; deviate by adding `home.php` quota parsing plus an explicit confirmed image-limit reset action parsed from the live page instead of hard-coded.
-Verification: home/uconfig parser contracts, cookie jar/import contracts, UI grounding contract, V1 decorator inventory, i18n duplicate check, diff check, signed HarmonyOS build, and account dashboard/cookie import smoke that stops at the reset confirmation unless the user explicitly authorizes spending GP.
+Reference implementation: current NextE `feature/settings/src/main/ets/pages/AccountPage.ets` account switcher rows, `shared/src/main/ets/services/UserProfileService.ets` stored per-member profile snapshots, `shared/src/main/ets/settings/CookieJarSettings.ets` active account switching, and Favorites selector metadata flow in `feature/user/src/main/ets/components/FavcatPage.ets` plus FE `../eros_fe/lib/pages/controller/favorite_sel_controller.dart`.
+Surface type: Account hub switcher rows, Account Cookie summary/detail count, and Favorites favcat selector metadata after account changes; no new account management surface or destructive EH action.
+Primary information: each saved account row should show the best stored identity for that memberId, active Cookie count should reflect the current jar, and Favorites category names/counts should belong to the active account.
+Primary action: tap a saved account row to switch accounts; adding a Cookie/password account should best-effort fetch and save its forum profile; opening Account Cookie or Favorites after switching should show active-account data.
+Reuse or deviation: reuse the existing `SecondaryListScaffold`/account row structure, `AuthState` as a non-sensitive reactive mirror, `UserProfileService` profile snapshots, `CookieJarSettings` as the single account switch writer, and `FavcatListSettings`; deviate only by making favcat snapshot storage memberId-scoped with legacy global fallback.
+Verification: cookie import contract, favcat snapshot contract, UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and account switch smoke on an authorized target covering row identity, Cookie count, and Favorites favcat names/counts.
 
 ## Active: index route-map coordinator
 

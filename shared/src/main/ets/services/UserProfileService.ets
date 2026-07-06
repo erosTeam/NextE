@@ -166,6 +166,32 @@ export class UserProfileService {
     }
   }
 
+  static async loadStoredProfile(
+    context: common.UIAbilityContext,
+    memberId: string,
+  ): Promise<UserProfileInfo> {
+    const info = new UserProfileInfo()
+    if (memberId.length === 0) {
+      return info
+    }
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      const raw: string = store.getSync(UserProfileService.profileKey(memberId), '') as string
+      if (raw.length === 0) {
+        return info
+      }
+      const rec = JSON.parse(raw) as Record<string, Object>
+      info.nickName = typeof rec.nickName === 'string' ? (rec.nickName as string) : ''
+      info.avatarUrl = typeof rec.avatarUrl === 'string' ? (rec.avatarUrl as string) : ''
+    } catch (error) {
+      DiagnosticLogger.warn('auth', 'user_profile_snapshot_load_failed', (error as Error).message)
+    }
+    return info
+  }
+
   static async saveActive(context: common.UIAbilityContext): Promise<void> {
     const auth = connectAuth()
     if (auth.memberId.length === 0 || auth.nickName.length === 0) {
@@ -183,6 +209,21 @@ export class UserProfileService {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('auth', 'user_profile_save_failed', (error as Error).message)
+    }
+  }
+
+  static async refreshAndSaveActive(context: common.UIAbilityContext): Promise<boolean> {
+    try {
+      const ok: boolean = await UserProfileService.refreshActive()
+      if (!ok) {
+        return false
+      }
+      UserProfileService.materializeAvatar(context)
+      await UserProfileService.saveActive(context)
+      return true
+    } catch (error) {
+      DiagnosticLogger.warn('auth', 'user_profile_refresh_save_failed', (error as Error).message)
+      return false
     }
   }
 
@@ -284,6 +325,14 @@ export class UserProfileService {
       `status=${resp.statusCode} profile=${hitProfile} cf=${hitCf} len=${resp.body.length} title=${title} cookies=${EhCookieStore.getInstance().nameSummary()} bodyHash=${DiagnosticLogger.ownerHash(resp.body)}`,
     )
     if (!hitProfile) {
+      return false
+    }
+    if (EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID) !== memberId) {
+      DiagnosticLogger.info(
+        'auth',
+        'user_profile_probe_stale',
+        `memberHash=${DiagnosticLogger.ownerHash(memberId)}`,
+      )
       return false
     }
     return UserProfileService.applyProfileHtml(resp.body)

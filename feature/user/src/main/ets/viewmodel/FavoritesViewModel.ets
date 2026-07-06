@@ -106,6 +106,28 @@ export class FavoritesViewModel {
     this.favOrder = orderByPosted ? EhConstants.FAV_ORDER_POSTED : EhConstants.FAV_ORDER_FAV
   }
 
+  resetForAccount(favcat: string, orderByPosted: boolean, favcats: Favcat[]): void {
+    this.configure(favcat, orderByPosted)
+    this.dataSource.setData([])
+    this.itemCount = 0
+    this.isLoading = false
+    this.isLoadingMore = false
+    this.hasMore = true
+    this.errorMessage = ''
+    this.favList = []
+    this.nextGid = ''
+    this.prevGid = ''
+    this.nextPage = -1
+    this.prevPage = -1
+    this.maxPage = 0
+    this.lastNext = ''
+    this.lastPrev = ''
+    this.afterJump = false
+    this.cacheRenderVersion = this.cacheRenderVersion + 1
+    this.epoch = this.epoch + 1
+    this.seedFavList(favcats)
+  }
+
   /** Apply a new GLOBAL order (favorited-time ↔ posted-time) and reload from page 1; no-op if unchanged.
    * Used by each retained favcat page when the shared order bus toggles. */
   async applyOrder(orderByPosted: boolean): Promise<void> {

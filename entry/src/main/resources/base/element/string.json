@@ -1777,6 +1777,14 @@
       "value": "Image quota"
     },
     {
+      "name": "account_image_high_resolution_limited",
+      "value": "Using IP-based image limits; no restrictions are currently in effect"
+    },
+    {
+      "name": "account_image_unlock_cost_format",
+      "value": "Using IP-based image limits; no restrictions now. Spend %d GP to unlock account-based high-resolution quota for 24 hours."
+    },
+    {
       "name": "account_image_reset_title",
       "value": "Reset image quota"
     },

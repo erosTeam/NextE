@@ -42,6 +42,8 @@ import {
   DiagnosticLogger,
   LayoutSafeAreaState,
   connectLayoutSafeArea,
+  AuthState,
+  connectAuth,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { CustomContentDialog } from '@kit.ArkUI'
@@ -66,6 +68,7 @@ export struct FavcatPage {
   @Param scroller: Scroller = new Scroller();
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local vm: FavoritesViewModel = new FavoritesViewModel();
+  @Local auth: AuthState = connectAuth();
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local listMode: ListModeState = connectListMode();
   @Local favSel: FavSelectionState = connectFavSelection();
@@ -179,6 +182,15 @@ export struct FavcatPage {
     if (this.loadedOnce) {
       await this.vm.load()
       this.publishFavList()
+    }
+  }
+
+  @Monitor('auth.memberId')
+  async onAccountChange(): Promise<void> {
+    this.loadedOnce = false
+    this.vm.resetForAccount(this.favcatKey, this.favSel.orderByPosted, this.favSel.favList)
+    if (this.isActive()) {
+      await this.loadOnce()
     }
   }
 

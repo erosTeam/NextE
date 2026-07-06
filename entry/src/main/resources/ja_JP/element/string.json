@@ -1777,6 +1777,14 @@
       "value": "画像クォータ"
     },
     {
+      "name": "account_image_high_resolution_limited",
+      "value": "現在はIPベースの画像制限を使用中で、制限は発生していません"
+    },
+    {
+      "name": "account_image_unlock_cost_format",
+      "value": "現在はIPベースの画像制限を使用中で、制限はありません。%d GPで24時間のアカウント高解像度クォータを解除できます"
+    },
+    {
       "name": "account_image_reset_title",
       "value": "画像クォータをリセット"
     },

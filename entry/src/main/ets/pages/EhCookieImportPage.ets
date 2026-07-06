@@ -15,6 +15,7 @@ import {
   ThemeConstants,
   DiagnosticLogger,
   immersiveTitleBar,
+  UserProfileService,
 } from 'shared'
 
 /**
@@ -203,6 +204,7 @@ export struct EhCookieImportPage {
       this.getUIContext().getHostContext() as common.UIAbilityContext
     // save() persists the jar AND refreshes AuthState (isLogin / hasIgneous / memberId) for the UI.
     await CookieJarSettings.save(ctx)
+    UserProfileService.refreshAndSaveActive(ctx)
     this.getUIContext()
       .getPromptAction()
       .showToast({ message: $r('app.string.login_success') })

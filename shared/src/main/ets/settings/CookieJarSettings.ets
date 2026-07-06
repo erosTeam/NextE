@@ -10,6 +10,7 @@ import { connectAuth, AuthState } from '../state/AuthState'
 import { AccountListSettings } from './AccountListSettings'
 import { UserProfileService } from '../services/UserProfileService'
 import { CookieJarEntry } from '../model/CookieJarEntry'
+import { FavcatListSettings } from './FavcatListSettings'
 
 /**
  * Persistence for the sensitive EH auth cookie bundle. HarmonyOS has no cookie jar, so the
@@ -388,6 +389,7 @@ export class CookieJarSettings {
       store.flushSync()
       CookieJarSettings.syncAuthState()
       await AccountListSettings.recordActive(context)
+      await FavcatListSettings.restore(context)
       DiagnosticLogger.info(
         'auth',
         'cookie_jar_saved',
@@ -453,6 +455,7 @@ export class CookieJarSettings {
     EhCookieStore.getInstance().clear()
     CookieJarSettings.expireWebIdentityCookies()
     CookieJarSettings.applyFromHeader(bundle)
+    await FavcatListSettings.restore(context)
     await CookieJarSettings.save(context)
     await UserProfileService.restoreActive(context)
   }
@@ -505,6 +508,7 @@ export class CookieJarSettings {
         EhCookieStore.getInstance().clear()
         CookieJarSettings.applyFromSetCookie(setCookie)
         await CookieJarSettings.save(context)
+        UserProfileService.refreshAndSaveActive(context)
         return true
       }
       return false
@@ -520,9 +524,11 @@ export class CookieJarSettings {
     const auth: AuthState = connectAuth()
     const previousMemberId: string = auth.memberId
     const nextMemberId: string = store.get(EhConstants.COOKIE_MEMBER_ID)
+    const igneous: string = store.get(EhConstants.COOKIE_IGNEOUS)
     auth.isLogin = store.isLogin()
-    auth.hasIgneous = store.get(EhConstants.COOKIE_IGNEOUS).length > 0
+    auth.hasIgneous = igneous.length > 0 && igneous !== 'mystery'
     auth.memberId = nextMemberId
+    auth.cookieCount = store.entries().length
     if (!auth.isLogin || previousMemberId !== nextMemberId) {
       auth.nickName = ''
       auth.avatarUrl = ''

@@ -151,6 +151,29 @@ check('high-resolution unlock cost', parseHome(limited), {
   unlockCost: 2500,
 })
 
+const ipBasedHighResolutionQuota = `
+<body>
+  <div class="stuffbox">
+    <div class="homebox">
+      <p>Due to widespread usage of bulk downloaders, high-resolution images can be limited.</p>
+      <p>You are currently using IP-based limits. No restrictions are currently in effect.</p>
+      <p>You can get a Bronze Star or the More Pages hathperk to tie image limits to your account.</p>
+      <p>Alternatively, you can unlock a high-resolution quota for 24 hours by spending <strong>20,000</strong> GP.</p>
+      <p>Note that for the latter, clearing your cookies will revert you to IP-based limits.</p>
+    </div>
+  </div>
+</body>`
+check('ip-based high-resolution quota unlock copy', parseHome(ipBasedHighResolutionQuota), {
+  currentLimit: 0,
+  totLimit: 0,
+  resetCost: 0,
+  resetActionUrl: '',
+  resetActionMethod: '',
+  resetActionBody: '',
+  highResolutionLimited: true,
+  unlockCost: 20000,
+})
+
 const resetLink = `
 <body>
   <div class="stuffbox">

@@ -33,7 +33,12 @@ const INDEX = 'entry/src/main/ets/pages/Index.ets'
 const SETTINGS = 'feature/settings/src/main/ets/pages/SettingsPage.ets'
 const ACCOUNT_LOGIN = 'feature/settings/src/main/ets/pages/AccountLoginPage.ets'
 const ACCOUNT_PAGE = 'feature/settings/src/main/ets/pages/AccountPage.ets'
+const ACCOUNT_COOKIE_PAGE = 'feature/settings/src/main/ets/pages/AccountCookiePage.ets'
 const COOKIE_SETTINGS = 'shared/src/main/ets/settings/CookieJarSettings.ets'
+const AUTH_STATE = 'shared/src/main/ets/state/AuthState.ets'
+const USER_PROFILE = 'shared/src/main/ets/services/UserProfileService.ets'
+const PASSWORD_LOGIN = 'entry/src/main/ets/pages/EhPasswordLoginPage.ets'
+const ZH_STRINGS = 'entry/src/main/resources/zh_CN/element/string.json'
 const LOGIN_FLOW = 'shared/src/main/ets/navigation/LoginFlowNavigation.ets'
 
 let passed = 0
@@ -76,9 +81,53 @@ const eq = (name, got, want) => {
   ok('page renders parsed cookies before confirmation', /CookiePreviewSection\(\)[\s\S]*?ForEach\(\s*this\.parsedCookies/.test(page))
   ok('page reuses CookieJarSettings.replaceFromHeader', /CookieJarSettings\.replaceFromHeader\(/.test(page))
   ok('page reuses CookieJarSettings.save', /CookieJarSettings\.save\(/.test(page))
+  ok('page best-effort refreshes active profile after cookie import',
+    /UserProfileService\.refreshAndSaveActive\(ctx\)/.test(page))
   ok('page confirms only after required cookies exist', /canConfirmCookieImport\(\)[\s\S]*COOKIE_MEMBER_ID[\s\S]*COOKIE_PASS_HASH/.test(page))
   // No bespoke cookie-jar mutation: the page must not poke EhCookieStore.set directly.
   ok('page does NOT call EhCookieStore.set directly', !/EhCookieStore\s*[.(].*\.set\(/.test(page) && !/\.set\(\s*name/.test(page))
+}
+
+// --- 2b. Account switch UI mirrors non-sensitive active jar/profile state ---
+{
+  const authState = src(AUTH_STATE)
+  const cookieSettings = src(COOKIE_SETTINGS)
+  const accountPage = src(ACCOUNT_PAGE)
+  const accountCookiePage = src(ACCOUNT_COOKIE_PAGE)
+  const profileService = src(USER_PROFILE)
+  const passwordLogin = src(PASSWORD_LOGIN)
+  const zhStrings = src(ZH_STRINGS)
+
+  ok('AuthState carries only a non-sensitive cookie count mirror',
+    /@Trace\s+cookieCount:\s*number\s*=\s*0/.test(authState))
+  ok('CookieJarSettings syncs cookieCount from current jar entries',
+    /auth\.cookieCount\s*=\s*store\.entries\(\)\.length/.test(cookieSettings))
+  ok('Account page renders cookie summary from reactive AuthState cookieCount',
+    /account_cookie_count_format[\s\S]*this\.auth\.cookieCount/.test(accountPage))
+  ok('Account page does not render no-limit home.php responses as unavailable quota',
+    /imageQuotaText\(\): ResourceStr[\s\S]*this\.home\.hasImageLimits\(\)[\s\S]*return `\$\{this\.home\.currentLimit\} \/ \$\{this\.home\.totLimit\}`[\s\S]*this\.homeLoaded \? ''/.test(accountPage) &&
+      /imageQuotaSubtitle\(\): ResourceStr[\s\S]*this\.home\.hasUnlockCost\(\)[\s\S]*account_image_unlock_cost_format/.test(accountPage))
+  ok('Chinese high-resolution quota copy preserves IP limit and 24-hour unlock context',
+    zhStrings.includes('当前使用 IP 图片额度，暂无限制') &&
+      zhStrings.includes('解锁 24 小时账号高分辨率额度'))
+  ok('Account Cookie page reloads when active member or cookie count changes',
+    /@Local\s+auth:\s*AuthState\s*=\s*connectAuth\(\)/.test(accountCookiePage) &&
+      /@Monitor\('auth\.memberId', 'auth\.cookieCount'\)[\s\S]*this\.reload\(\)/.test(accountCookiePage))
+  ok('UserProfileService can load stored per-member profile snapshots',
+    /static async loadStoredProfile\([\s\S]*memberId: string[\s\S]*profileKey\(memberId\)/.test(profileService))
+  ok('UserProfileService can refresh, materialize, and save the active profile',
+    /static async refreshAndSaveActive\([\s\S]*refreshActive\(\)[\s\S]*materializeAvatar\(context\)[\s\S]*saveActive\(context\)/.test(profileService))
+  ok('UserProfileService drops stale profile refreshes after account switches',
+    /user_profile_probe_stale/.test(profileService) &&
+      /EhCookieStore\.getInstance\(\)\.get\(EhConstants\.COOKIE_MEMBER_ID\) !== memberId/.test(profileService))
+  ok('Account page loads saved profiles for all visible account rows',
+    /@Local\s+accountProfiles:\s*AccountProfileSummary\[\]/.test(accountPage) &&
+      /loadAccountProfiles\(\)[\s\S]*UserProfileService\.loadStoredProfile\(this\.ctx\(\), memberId\)/.test(accountPage) &&
+      /accountTitle\(memberId: string\)[\s\S]*this\.accountProfile\(memberId\)/.test(accountPage) &&
+      /AccountAvatar\(\{[\s\S]*avatarUrl: this\.accountAvatarUrl\(memberId\)/.test(accountPage))
+  ok('password login path also attempts profile refresh before returning success',
+    /CookieJarSettings\.passwordLogin/.test(passwordLogin) &&
+      /passwordLogin\([\s\S]*UserProfileService\.refreshAndSaveActive\(context\)/.test(cookieSettings))
 }
 
 // --- 3. Redaction: never log the raw header / cookie values; never persist the pasted text ---

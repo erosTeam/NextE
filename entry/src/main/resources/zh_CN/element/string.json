@@ -1777,6 +1777,14 @@
       "value": "图片配额"
     },
     {
+      "name": "account_image_high_resolution_limited",
+      "value": "当前使用 IP 图片额度，暂无限制"
+    },
+    {
+      "name": "account_image_unlock_cost_format",
+      "value": "当前使用 IP 图片额度，暂无限制；可花费 %d GP 解锁 24 小时账号高分辨率额度"
+    },
+    {
       "name": "account_image_reset_title",
       "value": "重置图片配额"
     },

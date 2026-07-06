@@ -7,8 +7,6 @@ import {
   CookieJarSettings,
   DiagnosticLogger,
   EhApiService,
-  EhCookieStore,
-  EhConstants,
   EhHome,
   EhProfile,
   EhProfileSettings,
@@ -23,6 +21,7 @@ import {
   AccountListState,
   connectAccountList,
   UserProfileService,
+  UserProfileInfo,
   GalleryWebParams,
 } from 'shared'
 
@@ -37,20 +36,17 @@ import {
 @ComponentV2
 struct AccountAvatar {
   @Param memberId: string = '';
+  @Param avatarUrl: string = '';
   @Param avatarSize: number = 44;
-  @Local auth: AuthState = connectAuth();
 
-  private activeAvatarUrl(): string {
-    if (this.memberId === this.auth.memberId) {
-      return this.auth.avatarUrl
-    }
-    return ''
+  private displayAvatarUrl(): string {
+    return this.avatarUrl.trim()
   }
 
   build() {
     Stack() {
-      if (this.activeAvatarUrl().length > 0) {
-        Image(this.activeAvatarUrl())
+      if (this.displayAvatarUrl().length > 0) {
+        Image(this.displayAvatarUrl())
           .objectFit(ImageFit.Cover)
           .width(this.avatarSize)
           .height(this.avatarSize)
@@ -65,6 +61,18 @@ struct AccountAvatar {
     .borderRadius(this.avatarSize / 2)
     .clip(true)
     .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+  }
+}
+
+class AccountProfileSummary {
+  memberId: string = ''
+  nickName: string = ''
+  avatarUrl: string = ''
+
+  constructor(memberId: string, nickName: string, avatarUrl: string) {
+    this.memberId = memberId
+    this.nickName = nickName
+    this.avatarUrl = avatarUrl
   }
 }
 
@@ -104,6 +112,7 @@ export struct AccountPage {
   @Local site: SiteModeState = connectSiteMode();
   @Local home: EhHome = new EhHome();
   @Local profileSettings: EhProfileSettings = new EhProfileSettings();
+  @Local accountProfiles: AccountProfileSummary[] = [];
   @Local homeLoading: boolean = false;
   @Local homeResetting: boolean = false;
   @Local profileLoading: boolean = false;
@@ -116,6 +125,7 @@ export struct AccountPage {
 
   aboutToAppear(): void {
     this.restoreProfile()
+    this.loadAccountProfiles()
     this.restoreDashboardCache()
     this.loadAccountDashboard()
   }
@@ -134,6 +144,18 @@ export struct AccountPage {
     }
     await UserProfileService.restoreActive(this.ctx())
     UserProfileService.materializeAvatar(this.ctx())
+    this.loadAccountProfiles()
+  }
+
+  private async loadAccountProfiles(): Promise<void> {
+    const ids: string[] = this.accountList.accounts
+    const rows: AccountProfileSummary[] = []
+    for (let i: number = 0; i < ids.length; i++) {
+      const memberId: string = ids[i]
+      const info: UserProfileInfo = await UserProfileService.loadStoredProfile(this.ctx(), memberId)
+      rows.push(new AccountProfileSummary(memberId, info.nickName, info.avatarUrl))
+    }
+    this.accountProfiles = rows
   }
 
   private loadAccountDashboard(): void {
@@ -187,8 +209,14 @@ export struct AccountPage {
 
   @Monitor('accountList.activeMemberId')
   private onActiveAccountChanged(): void {
+    this.loadAccountProfiles()
     this.resetDashboardStateForAccount()
     this.loadAccountDashboard()
+  }
+
+  @Monitor('accountList.accounts')
+  private onAccountListChanged(): void {
+    this.loadAccountProfiles()
   }
 
   @Monitor('site.isEx')
@@ -382,6 +410,10 @@ export struct AccountPage {
     if (memberId === this.auth.memberId && this.auth.nickName.length > 0) {
       return this.auth.nickName
     }
+    const profile: AccountProfileSummary | null = this.accountProfile(memberId)
+    if (profile !== null && profile.nickName.length > 0) {
+      return profile.nickName
+    }
     return `ID ${memberId}`
   }
 
@@ -389,17 +421,36 @@ export struct AccountPage {
     if (memberId === this.auth.memberId && this.auth.nickName.length > 0) {
       return `ID ${memberId}`
     }
+    const profile: AccountProfileSummary | null = this.accountProfile(memberId)
+    if (profile !== null && profile.nickName.length > 0) {
+      return `ID ${memberId}`
+    }
     return ''
   }
 
+  private accountAvatarUrl(memberId: string): string {
+    if (memberId === this.auth.memberId && this.auth.avatarUrl.length > 0) {
+      return this.auth.avatarUrl
+    }
+    const profile: AccountProfileSummary | null = this.accountProfile(memberId)
+    return profile !== null ? profile.avatarUrl : ''
+  }
+
+  private accountProfile(memberId: string): AccountProfileSummary | null {
+    for (let i: number = 0; i < this.accountProfiles.length; i++) {
+      if (this.accountProfiles[i].memberId === memberId) {
+        return this.accountProfiles[i]
+      }
+    }
+    return null
+  }
+
   private cookieSummaryText(): string {
-    const count: number = EhCookieStore.getInstance().entries().length
-    return AppStrings.get('account_cookie_count_format').replace('%d', `${count}`)
+    return AppStrings.get('account_cookie_count_format').replace('%d', `${this.auth.cookieCount}`)
   }
 
   private exAccessText(): ResourceStr {
-    const igneous: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_IGNEOUS)
-    if (igneous.length > 0 && igneous !== 'mystery') {
+    if (this.auth.hasIgneous) {
       return $r('app.string.account_cookie_ex_available')
     }
     return $r('app.string.account_cookie_ex_locked')
@@ -425,12 +476,18 @@ export struct AccountPage {
     if (this.home.hasImageLimits()) {
       return `${this.home.currentLimit} / ${this.home.totLimit}`
     }
-    return this.homeLoaded ? $r('app.string.account_dashboard_not_available') : $r('app.string.account_dashboard_not_loaded')
+    return this.homeLoaded ? '' : $r('app.string.account_dashboard_not_loaded')
   }
 
   private imageQuotaSubtitle(): ResourceStr {
     if (this.homeLoading && !this.homeLoaded) {
       return $r('app.string.account_dashboard_loading_hint')
+    }
+    if (this.home.hasUnlockCost()) {
+      return AppStrings.get('account_image_unlock_cost_format').replace('%d', `${this.home.unlockCost}`)
+    }
+    if (this.home.highResolutionLimited) {
+      return $r('app.string.account_image_high_resolution_limited')
     }
     return ''
   }
@@ -443,7 +500,11 @@ export struct AccountPage {
   @Builder
   private AccountRow(memberId: string) {
     Row({ space: ThemeConstants.SPACE_MD }) {
-      AccountAvatar({ memberId: memberId, avatarSize: ThemeConstants.ACCOUNT_AVATAR_SIZE })
+      AccountAvatar({
+        memberId: memberId,
+        avatarUrl: this.accountAvatarUrl(memberId),
+        avatarSize: ThemeConstants.ACCOUNT_AVATAR_SIZE,
+      })
       Column({ space: ThemeConstants.SPACE_XS }) {
         Text(this.accountTitle(memberId))
           .fontSize(ThemeConstants.FONT_SIZE_BODY)

@@ -14,6 +14,7 @@ export class AuthState {
   @Trace memberId: string = ''
   @Trace nickName: string = ''
   @Trace avatarUrl: string = ''
+  @Trace cookieCount: number = 0
 }
 
 const AUTH_KEY: string = 'v2:auth'

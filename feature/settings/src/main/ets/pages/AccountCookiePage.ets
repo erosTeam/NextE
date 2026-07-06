@@ -7,17 +7,19 @@ import {
   ConciseListRow,
   CookieJarEntry,
   CookieJarSettings,
-  EhConstants,
   EhCookieStore,
   GroupedListSection,
   SecondaryListScaffold,
   ThemeConstants,
   DiagnosticLogger,
   immersiveTitleBarOpts,
+  AuthState,
+  connectAuth,
 } from 'shared'
 
 @ComponentV2
 export struct AccountCookiePage {
+  @Local auth: AuthState = connectAuth();
   @Local cookieEntries: CookieJarEntry[] = [];
   @Local refreshingIgneous: boolean = false;
   private scroller: Scroller = new Scroller();
@@ -34,6 +36,11 @@ export struct AccountCookiePage {
     this.cookieEntries = EhCookieStore.getInstance().entries()
   }
 
+  @Monitor('auth.memberId', 'auth.cookieCount')
+  private onActiveCookieJarChanged(): void {
+    this.reload()
+  }
+
   private toast(message: ResourceStr): void {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
@@ -43,8 +50,7 @@ export struct AccountCookiePage {
   }
 
   private exStatusText(): ResourceStr {
-    const igneous: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_IGNEOUS)
-    if (igneous.length > 0 && igneous !== 'mystery') {
+    if (this.auth.hasIgneous) {
       return $r('app.string.account_cookie_ex_available')
     }
     return $r('app.string.account_cookie_ex_locked')

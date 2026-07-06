@@ -24,6 +24,7 @@ const ok = (name, cond) => {
 
 const keys = read('shared/src/main/ets/constants/StorageKeys.ets')
 const settings = read('shared/src/main/ets/settings/FavcatListSettings.ets')
+const cookieSettings = read('shared/src/main/ets/settings/CookieJarSettings.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const sharedIndex = read('shared/src/main/ets/Index.ets')
 const favState = read('shared/src/main/ets/state/FavSelectionState.ets')
@@ -68,6 +69,26 @@ ok('FavcatListSettings also hydrates the remote favorite sheet cache on cold sta
 ok('FavcatListSettings uses the shared preferences store and key',
   /preferences\.getPreferences\([\s\S]*StorageKeys\.STORE_SETTINGS/.test(settings) &&
     /StorageKeys\.FAVORITES_FAVCATS/.test(settings))
+ok('FavcatListSettings scopes snapshots by active member id without reusing the legacy global snapshot',
+  /private static activeMemberId\(\): string/.test(settings) &&
+    /private static storageKey\(memberId: string\): string/.test(settings) &&
+    /EhCookieStore\.getInstance\(\)\.get\(EhConstants\.COOKIE_MEMBER_ID\)/.test(settings) &&
+    /return `\$\{StorageKeys\.FAVORITES_FAVCATS\}\.\$\{memberId\}`/.test(settings) &&
+    !/key !== StorageKeys\.FAVORITES_FAVCATS[\s\S]*store\.getSync\(StorageKeys\.FAVORITES_FAVCATS/.test(settings))
+ok('FavcatListSettings requires member-scoped snapshots to carry the active member id',
+  /class FavcatSnapshotEnvelope/.test(settings) &&
+    /new FavcatSnapshotEnvelope\(memberId, snap\)/.test(settings) &&
+    /envelope\.memberId !== memberId/.test(settings) &&
+    /memberId\.length === 0 && Array\.isArray\(parsed\)/.test(settings))
+ok('FavcatListSettings resets live metadata to default slots when the active account has no snapshot',
+  /private static defaultRemoteSlots\(\): Favcat\[\]/.test(settings) &&
+    /new Favcat\(`\$\{i\}`, `Favorites \$\{i\}`, 0, true\)/.test(settings) &&
+    /connectFavSelection\(\)\.favList = fallback/.test(settings) &&
+    /connectRemoteFavoriteSlotCache\(\)\.update\(\[\]\)/.test(settings))
+ok('CookieJarSettings restores active account favcat metadata after save and switch',
+  /import \{ FavcatListSettings \} from '\.\/FavcatListSettings'/.test(cookieSettings) &&
+    /await AccountListSettings\.recordActive\(context\)[\s\S]*await FavcatListSettings\.restore\(context\)/.test(cookieSettings) &&
+    /CookieJarSettings\.applyFromHeader\(bundle\)[\s\S]*await FavcatListSettings\.restore\(context\)[\s\S]*await CookieJarSettings\.save\(context\)/.test(cookieSettings))
 ok('FavcatListSettings persists only remote 0-9 slots',
   /isRemoteSlot\(f\.favId\)/.test(settings) && /n >= 0 && n <= 9/.test(settings))
 ok('FavcatListSettings never persists restored placeholder favcats over real metadata',
@@ -119,6 +140,15 @@ ok('FavcatPage re-resolves visible rows when shared favcat metadata changes or p
   /@Monitor\('favSel\.favList'\)[\s\S]*onFavListChange\(\): void/.test(favcatPage) &&
     /this\.vm\.resolveVisibleFavoriteSlotsFrom\(this\.favSel\.favList\)/.test(favcatPage) &&
     /this\.favSel\.favList = merged[\s\S]*this\.vm\.resolveVisibleFavoriteSlotsFrom\(merged\)/.test(favcatPage))
+ok('FavcatPage resets retained remote pages on active account changes',
+  /@Local\s+auth:\s*AuthState\s*=\s*connectAuth\(\)/.test(favcatPage) &&
+    /@Monitor\('auth\.memberId'\)[\s\S]*onAccountChange\(\): Promise<void>/.test(favcatPage) &&
+    /this\.loadedOnce = false[\s\S]*this\.vm\.resetForAccount\(this\.favcatKey, this\.favSel\.orderByPosted, this\.favSel\.favList\)/.test(favcatPage))
+ok('FavoritesViewModel reset clears stale account rows before active-account reload',
+  /resetForAccount\(favcat: string, orderByPosted: boolean, favcats: Favcat\[\]\): void/.test(favVm) &&
+    /this\.dataSource\.setData\(\[\]\)/.test(favVm) &&
+    /this\.favList = \[\]/.test(favVm) &&
+    /this\.seedFavList\(favcats\)/.test(favVm))
 ok('FavcatPage obtains a UIAbilityContext for persistence',
   /private ctx\(\): common\.UIAbilityContext \{[\s\S]*this\.getUIContext\(\)\.getHostContext\(\) as common\.UIAbilityContext/.test(favcatPage))
 ok('FavcatBar shows the synthetic all-favorites aggregate count',
