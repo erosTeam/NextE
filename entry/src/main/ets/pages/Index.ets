@@ -48,6 +48,7 @@ import {
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
   connectDownloadQueue,
   connectDownloadView,
+  setDownloadQueuePageActive,
   immersiveTitleBarOpts,
   ImmersiveMaterialSettings,
   ImmersiveMaterialSettingsState,
@@ -429,9 +430,11 @@ struct Index {
 
   aboutToAppear(): void {
     this.handlePendingEhUrl()
+    this.syncDownloadQueuePageActive()
   }
 
   aboutToDisappear(): void {
+    setDownloadQueuePageActive(false)
     this.clearHomeTabAnimationGuardTimer()
   }
 
@@ -648,6 +651,14 @@ struct Index {
       return 4
     }
     return this.currentTab
+  }
+
+  private downloadTabIndex(): number {
+    return this.safeMode.restricted() ? 1 : 3
+  }
+
+  private syncDownloadQueuePageActive(): void {
+    setDownloadQueuePageActive(this.currentTab === this.downloadTabIndex())
   }
 
   private scrollActiveTabToTop(): void {
@@ -1245,6 +1256,7 @@ struct Index {
         })
         .onChange((index: number) => {
           this.currentTab = index
+          this.syncDownloadQueuePageActive()
           // Rebind the title bar to the newly-active tab's scroller so it auto-hides off that list.
           this.titleScroller = this.homeTabScrollers[index]
           if (this.homeTab.autoHide) {

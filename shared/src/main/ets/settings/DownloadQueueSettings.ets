@@ -10,7 +10,12 @@ import {
 } from '../model/DownloadGalleryTask'
 import { EhGallery } from '../model/EhGallery'
 import { EhGalleryImage } from '../model/EhGalleryImage'
-import { DownloadQueueState, connectDownloadQueue, publishDownloadQueueChanged } from '../state/DownloadQueueState'
+import {
+  DownloadQueueState,
+  connectDownloadQueue,
+  isDownloadQueuePageActive,
+  publishDownloadQueueChanged,
+} from '../state/DownloadQueueState'
 import {
   connectDownloadSettings,
   DownloadOriginalMode,
@@ -1319,63 +1324,74 @@ export class DownloadQueueSettings {
     let hasError: boolean = false
     let firstError: string = ''
     const state = connectDownloadQueue()
-    const next: DownloadGalleryTask[] = []
     let updatedTask: DownloadGalleryTask | null = null
     let matched: boolean = false
     const changedSeeds: DownloadImageSeed[] = []
     for (let i: number = 0; i < state.galleryTasks.length; i++) {
-      const task: DownloadGalleryTask = state.galleryTasks[i].copy()
+      const task: DownloadGalleryTask = state.galleryTasks[i]
       if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         matched = true
-        for (let seedIndex: number = 0; seedIndex < task.imageSeeds.length; seedIndex++) {
-          const seed: DownloadImageSeed = task.imageSeeds[seedIndex]
-          const result: DownloadSeedResult | undefined = results.find((it: DownloadSeedResult) => {
-            return DownloadQueueSettings.sameSeed(seed, it.originalSeed)
-          })
-          if (result === undefined) {
-            continue
-          }
-          if (result.error.length > 0) {
-            seed.downloadError = result.error
-            if (firstError.length === 0) {
-              firstError = result.error
+        results.forEach((result: DownloadSeedResult) => {
+          for (let seedIndex: number = 0; seedIndex < task.imageSeeds.length; seedIndex++) {
+            const seed: DownloadImageSeed = task.imageSeeds[seedIndex]
+            if (!DownloadQueueSettings.sameSeed(seed, result.originalSeed)) {
+              continue
             }
-            hasError = true
-          } else {
-            seed.imageUrl = result.image.imageUrl
-            seed.originImageUrl = result.image.originImageUrl
-            seed.showKey = result.image.showKey
-            seed.reloadKey = result.image.reloadKey
-            seed.filePath = result.filePath
-            seed.bytesWritten = result.bytes
-            seed.downloadedAt = Date.now()
-            seed.downloadError = ''
+            const wasDownloaded: boolean = seed.filePath.length > 0
+            if (result.error.length > 0) {
+              seed.downloadError = result.error
+              if (firstError.length === 0) {
+                firstError = result.error
+              }
+              hasError = true
+            } else {
+              seed.imageUrl = result.image.imageUrl
+              seed.originImageUrl = result.image.originImageUrl
+              seed.showKey = result.image.showKey
+              seed.reloadKey = result.image.reloadKey
+              seed.filePath = result.filePath
+              seed.bytesWritten = result.bytes
+              seed.downloadedAt = Date.now()
+              seed.downloadError = ''
+            }
+            const isDownloaded: boolean = seed.filePath.length > 0
+            if (isDownloaded && !wasDownloaded) {
+              task.downloadedFiles = Math.min(task.seededCount(), task.downloadedFiles + 1)
+            } else if (!isDownloaded && wasDownloaded) {
+              task.downloadedFiles = Math.max(0, task.downloadedFiles - 1)
+            }
+            if (task.activeDownloadPage === seed.page) {
+              task.clearActiveDownloadProgress()
+            }
+            changedSeeds.push(seed.copy())
+            break
           }
-          if (task.activeDownloadPage === seed.page) {
-            task.clearActiveDownloadProgress()
-          }
-          changedSeeds.push(seed.copy())
+        })
+        if (firstError.length > 0) {
+          task.prepareError = firstError
         }
-        const taskError: string = DownloadQueueSettings.firstSeedError(task.imageSeeds)
-        hasError = hasError || taskError.length > 0
-        task.prepareError = taskError.length > 0 ? taskError : firstError
-        task.syncProgressCounts()
+        hasError = hasError || task.prepareError.length > 0
+        if (task.seededFiles <= 0 || (task.downloadedFiles <= 0 && task.downloadedCount() > 0)) {
+          task.syncProgressCounts()
+        }
+        const pendingCount: number = task.pendingDownloadCount()
         task.status = hasError
           ? DownloadGalleryTaskStatus.ERROR
-          : DownloadQueueSettings.pendingSeedCount(task.imageSeeds) === 0
+          : pendingCount === 0
             ? DownloadQueueSettings.galleryDoneStatus(task)
             : DownloadGalleryTaskStatus.DOWNLOADING
         DiagnosticLogger.info(
           'download',
           'gallery_download_apply_results',
-          `gid=${gid} downloaded=${task.downloadedCount()} pending=${DownloadQueueSettings.pendingSeedCount(task.imageSeeds)} expected=${task.expectedFileCount()} pageCount=${task.pageCount} status=${task.status}`,
+          `gid=${gid} downloaded=${task.downloadedCount()} pending=${pendingCount} expected=${task.expectedFileCount()} pageCount=${task.pageCount} status=${task.status}`,
         )
-        updatedTask = task.copy()
+        updatedTask = task
       }
-      next.push(task)
     }
     if (matched) {
-      DownloadQueueSettings.setGalleryTasks(state, next)
+      if (isDownloadQueuePageActive()) {
+        publishDownloadQueueChanged()
+      }
       if (updatedTask !== null) {
         await DownloadQueueSettings.persistGalleryTaskDelta(context, updatedTask, changedSeeds)
       }
@@ -2166,7 +2182,7 @@ export class DownloadQueueSettings {
       return
     }
     const key: string = DownloadQueueSettings.taskKey(task.gid, task.token, task.preferOriginal)
-    DownloadQueueSettings.pendingGalleryMetadataTasks.set(key, task.copy())
+    DownloadQueueSettings.pendingGalleryMetadataTasks.set(key, task)
     if (DownloadQueueSettings.galleryMetadataFlushTimers.has(key)) {
       return
     }
@@ -2677,7 +2693,9 @@ export class DownloadQueueSettings {
       }
     }
     if (updated) {
-      publishDownloadQueueChanged()
+      if (isDownloadQueuePageActive()) {
+        publishDownloadQueueChanged()
+      }
       DownloadQueueSettings.recordGalleryProgressSignalRate(key, gid, preferOriginal, now)
     }
     if (!logged && total > 0 && loaded >= total) {

@@ -83,8 +83,8 @@ ok(/Promise\.all\(jobs\)/.test(settings) &&
   /downloadSeedToFile\([\s\S]*context,[\s\S]*gid,[\s\S]*token,[\s\S]*preferOriginal,[\s\S]*seed,[\s\S]*useOriginal,[\s\S]*retryCount,[\s\S]*\)[\s\S]*\.then\(async \(result: DownloadSeedResult\)[\s\S]*applyDownloadResults\(context, gid, token, preferOriginal, \[result\]\)[\s\S]*result\.applied = true/.test(settings),
   'queue executor parallelizes downloads and applies each finished seed immediately')
 ok(/private static firstSeedError\(seeds: DownloadImageSeed\[\]\): string/.test(settings) &&
-  /const taskError: string = DownloadQueueSettings\.firstSeedError\(task\.imageSeeds\)/.test(settings) &&
-  /hasError = hasError \|\| taskError\.length > 0/.test(settings),
+  /if \(firstError\.length > 0\) \{[\s\S]*task\.prepareError = firstError/.test(settings) &&
+  /hasError = hasError \|\| task\.prepareError\.length > 0/.test(settings),
   'per-seed progress updates preserve existing seed errors instead of hiding them behind later successes')
 ok(/let failedBatchRetries: number = 0/.test(settings) &&
   /if \(hasError\) \{[\s\S]*failedBatchRetries < connectDownloadSettings\(\)\.retryCount[\s\S]*gallery_download_batch_auto_retry[\s\S]*continue[\s\S]*failedBatchRetries = 0/.test(settings),
@@ -111,6 +111,7 @@ ok(/activeDownloadRatio/.test(model) &&
   /gid: string,[\s\S]*token: string,[\s\S]*activeBytesWritten = loaded[\s\S]*activeBytesTotal = total/.test(streamProgressBody) &&
   /const task: DownloadGalleryTask = state\.galleryTasks\[i\][\s\S]*task\.activeBytesWritten = loaded[\s\S]*task\.activeBytesTotal = total/.test(streamProgressBody) &&
   !/setGalleryTasks\(state, next\)/.test(streamProgressBody) &&
+  /isDownloadQueuePageActive\(\)[\s\S]*publishDownloadQueueChanged\(\)/.test(streamProgressBody) &&
   /private activeDownloadRatio\(activeBytesWritten: number, activeBytesTotal: number\): number/.test(queue) &&
   /private taskProgressRatio\([\s\S]*downloadedFiles: number,[\s\S]*seededFiles: number,[\s\S]*activeBytesWritten: number,[\s\S]*activeBytesTotal: number,[\s\S]*this\.activeDownloadRatio\(activeBytesWritten, activeBytesTotal\)/.test(queue) &&
   /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.taskProgressRatio\([\s\S]*task\.downloadedFiles,[\s\S]*task\.seededFiles,[\s\S]*task\.activeBytesWritten,[\s\S]*task\.activeBytesTotal/.test(queue),
@@ -201,11 +202,12 @@ ok(/@Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueS
   /task\.activeBytesTotal/.test(queue) &&
   /this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queue) &&
   !/visibleStatus|visibleDownloadedFiles|visibleSeededFiles|visibleActiveRatio|renderProgressLabel|renderProgressRatio|renderShowProgress/.test(queue) &&
-  /const task: DownloadGalleryTask = state\.galleryTasks\[i\]\.copy\(\)[\s\S]*task\.syncProgressCounts\(\)[\s\S]*DownloadQueueSettings\.setGalleryTasks\(state, next\)/.test(applyResultsBody) &&
+  /const task: DownloadGalleryTask = state\.galleryTasks\[i\][\s\S]*changedSeeds\.push\(seed\.copy\(\)\)[\s\S]*isDownloadQueuePageActive\(\)[\s\S]*publishDownloadQueueChanged\(\)/.test(applyResultsBody) &&
+  !/DownloadQueueSettings\.setGalleryTasks\(state, next\)/.test(applyResultsBody) &&
   !/state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(applyResultsBody) &&
   /private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*findExistingGalleryTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.replaceGalleryTasks\(next\)/.test(settings),
   'downloads page progress text and bar refresh from observed task identity and the queue signal instead of stale scalar params')
-ok(/task\.status = hasError[\s\S]*\? DownloadGalleryTaskStatus\.ERROR[\s\S]*pendingSeedCount\(task\.imageSeeds\) === 0[\s\S]*DownloadQueueSettings\.galleryDoneStatus\(task\)[\s\S]*DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
+ok(/task\.status = hasError[\s\S]*\? DownloadGalleryTaskStatus\.ERROR[\s\S]*pendingCount === 0[\s\S]*DownloadQueueSettings\.galleryDoneStatus\(task\)[\s\S]*DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
   /galleryDoneStatus\(task: DownloadGalleryTask\): string[\s\S]*task\.isDownloadComplete\(\)[\s\S]*DownloadGalleryTaskStatus\.COMPLETE[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(settings),
   'gallery executor keeps in-flight batches downloading and only completes through the fileCount-aware done status')
 ok(/refreshActiveGalleryTask/.test(queue) &&

@@ -35,6 +35,7 @@ export class DownloadQueueSignalState {
 const DOWNLOAD_QUEUE_KEY: string = 'v2:downloadQueue'
 const DOWNLOAD_QUEUE_SIGNAL_KEY: string = 'v2:downloadQueueSignal'
 let sharedDownloadQueueState: DownloadQueueState | null = null
+let downloadQueuePageActive: boolean = false
 
 export function connectDownloadQueue(): DownloadQueueState {
   if (sharedDownloadQueueState === null) {
@@ -58,4 +59,18 @@ export function connectDownloadQueueSignal(): DownloadQueueSignalState {
 export function publishDownloadQueueChanged(): void {
   const signal: DownloadQueueSignalState = connectDownloadQueueSignal()
   signal.version = signal.version + 1
+}
+
+export function setDownloadQueuePageActive(active: boolean): void {
+  if (downloadQueuePageActive === active) {
+    return
+  }
+  downloadQueuePageActive = active
+  if (active) {
+    publishDownloadQueueChanged()
+  }
+}
+
+export function isDownloadQueuePageActive(): boolean {
+  return downloadQueuePageActive
 }

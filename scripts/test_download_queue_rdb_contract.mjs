@@ -139,9 +139,10 @@ ok('repository does not persist false complete status for partially downloaded g
     /status === DownloadGalleryTaskStatus\.COMPLETE && !task\.isDownloadComplete\(\)/.test(repo) &&
     /task\.downloadedCount\(\) > 0[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(repo))
 ok('ordinary gallery progress keeps realtime state updates while avoiding full seed replacement per image',
-  /DownloadQueueSettings\.setGalleryTasks\(state, next\)/.test(applyResultsBody) &&
+  /isDownloadQueuePageActive\(\)[\s\S]*publishDownloadQueueChanged\(\)/.test(applyResultsBody) &&
     /persistGalleryTaskDelta\(context, updatedTask, changedSeeds\)/.test(applyResultsBody) &&
     !/persistGalleryTask\(context, updatedTask\)/.test(applyResultsBody) &&
+    !/setGalleryTasks\(state, next\)/.test(applyResultsBody) &&
     /private static async persistGalleryTaskDelta/.test(settings) &&
     /DownloadQueueRepository\.updateGalleryTaskDelta\(context, task, changedSeeds\)/.test(settings) &&
     /scheduleGalleryMetadataTask\(context, task\)/.test(settings))

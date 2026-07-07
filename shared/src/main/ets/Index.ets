@@ -359,7 +359,9 @@ export {
   DownloadQueueSignalState,
   connectDownloadQueue,
   connectDownloadQueueSignal,
+  isDownloadQueuePageActive,
   publishDownloadQueueChanged,
+  setDownloadQueuePageActive,
 } from './state/DownloadQueueState'
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { CoverBackgroundState, connectCoverBackground } from './state/CoverBackgroundState'
