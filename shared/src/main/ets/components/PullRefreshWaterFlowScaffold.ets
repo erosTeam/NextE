@@ -286,6 +286,9 @@ export struct PullRefreshWaterFlowScaffold {
         Blank().height(this.bottomSpacerHeight())
       }.width('100%')
     }.width('100%')
+    .onAppear(() => {
+      this.maybeLoadOnTailAppear()
+    })
   }
 
   private parseAreaWidth(value: Area): number {
@@ -299,5 +302,17 @@ export struct PullRefreshWaterFlowScaffold {
 
   private bottomSpacerHeight(): number {
     return this.layout.bottomAvoidHeight + this.bottomPadding
+  }
+
+  private maybeLoadOnTailAppear(): void {
+    if (this.itemCount <= 0) {
+      return
+    }
+    if (this.canStartBottomRefresh && !this.canStartBottomRefresh()) {
+      return
+    }
+    if (this.onReachEnd) {
+      this.onReachEnd()
+    }
   }
 }

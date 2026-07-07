@@ -42,6 +42,9 @@ export struct SecondaryListScaffold {
         }
         .width('100%')
       }
+      .onAppear(() => {
+        this.maybeNotifyReachEnd()
+      })
     }
     .scrollBar(BarState.Off)
     .width('100%')
@@ -68,4 +71,9 @@ export struct SecondaryListScaffold {
     })
   }
 
+  private maybeNotifyReachEnd(): void {
+    if (this.onReachEnd) {
+      this.onReachEnd()
+    }
+  }
 }

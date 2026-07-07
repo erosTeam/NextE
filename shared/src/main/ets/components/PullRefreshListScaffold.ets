@@ -73,6 +73,9 @@ export struct PullRefreshListScaffold {
           }
           .width('100%')
         }
+        .onAppear(() => {
+          this.maybeLoadOnTailAppear()
+        })
       }
       .enableScrollInteraction(this.scrollEnabled)
       .maintainVisibleContentPosition(true)
@@ -116,5 +119,14 @@ export struct PullRefreshListScaffold {
       return this.indicatorTop
     }
     return this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT / 2 + this.topPadding
+  }
+
+  private maybeLoadOnTailAppear(): void {
+    if (this.canStartBottomRefresh && !this.canStartBottomRefresh()) {
+      return
+    }
+    if (this.onReachEnd) {
+      this.onReachEnd()
+    }
   }
 }

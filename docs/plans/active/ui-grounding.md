@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: list tail-appear pagination trigger
+
+Status: active
+Reference implementation: current NextE `shared/src/main/ets/components/PullRefreshListScaffold.ets`, `PullRefreshGridScaffold.ets`, `PullRefreshWaterFlowScaffold.ets`, `SecondaryListScaffold.ets`, Home/Search/Favorites `loadMore()` VM guards, and `../JHenTai/lib/src/widget/eh_gallery_collection.dart` last-item builder-triggered `handleLoadMore`.
+Surface type: existing list/grid/waterfall pagination trigger timing only; no visual layout, card, footer copy, paging cursor, or network API change.
+Primary information: gallery and local lazy lists keep showing the same content and loading footer while the next page can start as soon as the rendered tail enters the build/appear window.
+Primary action: scroll a paged Home/Search/Favorites/all-thumbnails list toward the tail; the existing `canLoadMore()`/`hasMore()` guards decide whether the next page starts before the hard `onReachEnd` boundary.
+Reuse or deviation: reuse the existing scaffold tail spacer, `onReachEnd`/`onNearEnd`, `canStartBottomRefresh`, and page ViewModel concurrency guards; deviate from per-page item-index checks so every `LazyForEach` builder does not duplicate the same last-row logic.
+Verification: UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build; device QA should cover at least one Home/Search/Favorites paged list in list mode and one waterfall/grid mode.
+
 ## Active: search history scroll recovery
 
 Status: active

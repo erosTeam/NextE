@@ -256,6 +256,9 @@ export struct PullRefreshGridScaffold {
       }
       .width('100%')
     }
+    .onAppear(() => {
+      this.maybeLoadOnTailAppear()
+    })
     .clip(false)
   }
 
@@ -283,6 +286,22 @@ export struct PullRefreshGridScaffold {
       return
     }
     if (end < this.itemCount - 1 - this.nearEndThreshold) {
+      return
+    }
+    if (this.canStartBottomRefresh && !this.canStartBottomRefresh()) {
+      return
+    }
+    if (this.onNearEnd) {
+      this.onNearEnd()
+      return
+    }
+    if (this.onReachEnd) {
+      this.onReachEnd()
+    }
+  }
+
+  private maybeLoadOnTailAppear(): void {
+    if (this.itemCount <= 0) {
       return
     }
     if (this.canStartBottomRefresh && !this.canStartBottomRefresh()) {
