@@ -132,6 +132,13 @@ class DownloadSeedResult {
   applied: boolean = false
 }
 
+class DownloadGalleryActiveProgress {
+  page: number = 0
+  loaded: number = 0
+  total: number = 0
+  updatedAt: number = 0
+}
+
 /** Single writer for the local Gallery download queue. */
 export class DownloadQueueSettings {
   private static galleryPreparations: Map<string, Promise<void>> = new Map<string, Promise<void>>()
@@ -143,6 +150,8 @@ export class DownloadQueueSettings {
   private static galleryProgressLogPulses: Map<string, number> = new Map<string, number>()
   private static galleryProgressSignalWindows: Map<string, number> = new Map<string, number>()
   private static galleryProgressSignalCounts: Map<string, number> = new Map<string, number>()
+  private static galleryActiveProgress: Map<string, DownloadGalleryActiveProgress> =
+    new Map<string, DownloadGalleryActiveProgress>()
   private static galleryMetadataFlushTimers: Map<string, number> = new Map<string, number>()
   private static pendingGalleryMetadataTasks: Map<string, DownloadGalleryTask> = new Map<string, DownloadGalleryTask>()
   private static archiverProgressPulses: Map<string, number> = new Map<string, number>()
@@ -1321,6 +1330,7 @@ export class DownloadQueueSettings {
     results: DownloadSeedResult[],
   ): Promise<boolean> {
     const startedAt: number = Date.now()
+    const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
     let hasError: boolean = false
     let firstError: string = ''
     const state = connectDownloadQueue()
@@ -1363,6 +1373,7 @@ export class DownloadQueueSettings {
             if (task.activeDownloadPage === seed.page) {
               task.clearActiveDownloadProgress()
             }
+            DownloadQueueSettings.clearGalleryActiveProgress(key, seed.page)
             changedSeeds.push(seed.copy())
             break
           }
@@ -2668,38 +2679,109 @@ export class DownloadQueueSettings {
       return
     }
     DownloadQueueSettings.galleryProgressPulses.set(pulseKey, now)
+    DownloadQueueSettings.recordGalleryActiveProgress(key, seed.page, loaded, total, now)
+    if (!isDownloadQueuePageActive()) {
+      DownloadQueueSettings.recordGalleryProgressSignalRate(key, gid, preferOriginal, now)
+      return
+    }
+    DownloadQueueSettings.syncGalleryActiveProgressToQueue(key, gid, token, preferOriginal, now)
+  }
+
+  static syncActiveGalleryProgressToQueue(): void {
+    if (!isDownloadQueuePageActive()) {
+      return
+    }
+    const now: number = Date.now()
+    const state = connectDownloadQueue()
+    let updated: boolean = false
+    DownloadQueueSettings.galleryActiveProgress.forEach((progress: DownloadGalleryActiveProgress, key: string) => {
+      for (let i: number = 0; i < state.galleryTasks.length; i++) {
+        const task: DownloadGalleryTask = state.galleryTasks[i]
+        if (DownloadQueueSettings.taskKey(task.gid, task.token, task.preferOriginal) === key) {
+          DownloadQueueSettings.applyGalleryActiveProgress(task, progress)
+          updated = true
+          break
+        }
+      }
+    })
+    if (updated) {
+      publishDownloadQueueChanged()
+    }
+  }
+
+  private static syncGalleryActiveProgressToQueue(
+    key: string,
+    gid: string,
+    token: string,
+    preferOriginal: boolean,
+    now: number,
+  ): void {
+    const progress: DownloadGalleryActiveProgress | undefined = DownloadQueueSettings.galleryActiveProgress.get(key)
+    if (progress === undefined) {
+      return
+    }
     const state = connectDownloadQueue()
     let logged: boolean = false
     let updated: boolean = false
     for (let i: number = 0; i < state.galleryTasks.length; i++) {
       const task: DownloadGalleryTask = state.galleryTasks[i]
       if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
-        task.activeDownloadPage = seed.page
-        task.activeBytesWritten = loaded
-        task.activeBytesTotal = total
-        task.status = DownloadGalleryTaskStatus.DOWNLOADING
+        DownloadQueueSettings.applyGalleryActiveProgress(task, progress)
         updated = true
         const logKey: string = key
         const lastLog: number = DownloadQueueSettings.galleryProgressLogPulses.get(logKey) ?? 0
-        if ((total > 0 && loaded >= total) || now - lastLog >= 2000) {
+        if ((progress.total > 0 && progress.loaded >= progress.total) || now - lastLog >= 2000) {
           DownloadQueueSettings.galleryProgressLogPulses.set(logKey, now)
           DiagnosticLogger.info(
             'download',
             'gallery_download_stream_progress',
-            `gid=${gid} page=${seed.page} loaded=${loaded} total=${total} downloaded=${task.downloadedCount()} expected=${task.expectedFileCount()}`,
+            `gid=${gid} page=${progress.page} loaded=${progress.loaded} total=${progress.total} downloaded=${task.downloadedCount()} expected=${task.expectedFileCount()}`,
           )
           logged = true
         }
       }
     }
     if (updated) {
-      if (isDownloadQueuePageActive()) {
-        publishDownloadQueueChanged()
-      }
+      publishDownloadQueueChanged()
       DownloadQueueSettings.recordGalleryProgressSignalRate(key, gid, preferOriginal, now)
     }
-    if (!logged && total > 0 && loaded >= total) {
+    if (!logged && progress.total > 0 && progress.loaded >= progress.total) {
       DownloadQueueSettings.galleryProgressLogPulses.set(key, now)
+    }
+  }
+
+  private static recordGalleryActiveProgress(
+    key: string,
+    page: number,
+    loaded: number,
+    total: number,
+    now: number,
+  ): void {
+    let progress: DownloadGalleryActiveProgress | undefined = DownloadQueueSettings.galleryActiveProgress.get(key)
+    if (progress === undefined) {
+      progress = new DownloadGalleryActiveProgress()
+      DownloadQueueSettings.galleryActiveProgress.set(key, progress)
+    }
+    progress.page = page
+    progress.loaded = loaded
+    progress.total = total
+    progress.updatedAt = now
+  }
+
+  private static applyGalleryActiveProgress(
+    task: DownloadGalleryTask,
+    progress: DownloadGalleryActiveProgress,
+  ): void {
+    task.activeDownloadPage = progress.page
+    task.activeBytesWritten = progress.loaded
+    task.activeBytesTotal = progress.total
+    task.status = DownloadGalleryTaskStatus.DOWNLOADING
+  }
+
+  private static clearGalleryActiveProgress(key: string, page: number): void {
+    const progress: DownloadGalleryActiveProgress | undefined = DownloadQueueSettings.galleryActiveProgress.get(key)
+    if (progress !== undefined && progress.page === page) {
+      DownloadQueueSettings.galleryActiveProgress.delete(key)
     }
   }
 

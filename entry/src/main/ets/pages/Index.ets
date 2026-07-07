@@ -658,7 +658,11 @@ struct Index {
   }
 
   private syncDownloadQueuePageActive(): void {
-    setDownloadQueuePageActive(this.currentTab === this.downloadTabIndex())
+    const active: boolean = this.currentTab === this.downloadTabIndex()
+    setDownloadQueuePageActive(active)
+    if (active) {
+      DownloadQueueSettings.syncActiveGalleryProgressToQueue()
+    }
   }
 
   private scrollActiveTabToTop(): void {

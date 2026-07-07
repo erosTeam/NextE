@@ -41,9 +41,18 @@ const repo = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 const client = read('shared/src/main/ets/network/EhHttpClient.ets')
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const queue = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
+const indexPage = read('entry/src/main/ets/pages/Index.ets')
 const streamProgressBody = settings.slice(
   settings.indexOf('private static updateGalleryStreamProgress'),
   settings.indexOf('private static updateArchiverProgress'),
+)
+const updateProgressBody = settings.slice(
+  settings.indexOf('private static updateGalleryStreamProgress'),
+  settings.indexOf('static syncActiveGalleryProgressToQueue'),
+)
+const foregroundProgressBody = settings.slice(
+  settings.indexOf('static syncActiveGalleryProgressToQueue'),
+  settings.indexOf('private static recordGalleryProgressSignalRate'),
 )
 const applyResultsBody = settings.slice(
   settings.indexOf('private static async applyDownloadResults'),
@@ -108,14 +117,19 @@ ok(/downloadBinaryToFileInStream\([\s\S]*imageUrl,[\s\S]*writePath,[\s\S]*\(load
   /if \(!directPublicWrite\) \{[\s\S]*fs\.renameSync\(writePath, result\.filePath\)/.test(settings),
   'executor streams the resolved URL to the public file directly or to a sandbox .part file before atomic promote')
 ok(/activeDownloadRatio/.test(model) &&
-  /gid: string,[\s\S]*token: string,[\s\S]*activeBytesWritten = loaded[\s\S]*activeBytesTotal = total/.test(streamProgressBody) &&
-  /const task: DownloadGalleryTask = state\.galleryTasks\[i\][\s\S]*task\.activeBytesWritten = loaded[\s\S]*task\.activeBytesTotal = total/.test(streamProgressBody) &&
+  /recordGalleryActiveProgress\(key, seed\.page, loaded, total, now\)/.test(updateProgressBody) &&
+  /if \(!isDownloadQueuePageActive\(\)\) \{[\s\S]*recordGalleryProgressSignalRate\(key, gid, preferOriginal, now\)[\s\S]*return/.test(updateProgressBody) &&
+  !/connectDownloadQueue\(\)/.test(updateProgressBody) &&
+  !/activeBytesWritten = loaded/.test(updateProgressBody) &&
+  /applyGalleryActiveProgress\(task, progress\)/.test(foregroundProgressBody) &&
+  /task\.activeBytesWritten = progress\.loaded/.test(foregroundProgressBody) &&
+  /publishDownloadQueueChanged\(\)/.test(foregroundProgressBody) &&
+  /DownloadQueueSettings\.syncActiveGalleryProgressToQueue\(\)/.test(indexPage) &&
   !/setGalleryTasks\(state, next\)/.test(streamProgressBody) &&
-  /isDownloadQueuePageActive\(\)[\s\S]*publishDownloadQueueChanged\(\)/.test(streamProgressBody) &&
   /private activeDownloadRatio\(activeBytesWritten: number, activeBytesTotal: number\): number/.test(queue) &&
   /private taskProgressRatio\([\s\S]*downloadedFiles: number,[\s\S]*seededFiles: number,[\s\S]*activeBytesWritten: number,[\s\S]*activeBytesTotal: number,[\s\S]*this\.activeDownloadRatio\(activeBytesWritten, activeBytesTotal\)/.test(queue) &&
   /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.taskProgressRatio\([\s\S]*task\.downloadedFiles,[\s\S]*task\.seededFiles,[\s\S]*task\.activeBytesWritten,[\s\S]*task\.activeBytesTotal/.test(queue),
-  'downloads page renders transient stream progress without replacing the whole gallery queue')
+  'downloads page renders foreground stream progress while background progress avoids observed queue writes')
 ok(/context\.filesDir/.test(settings) && /download-gallery/.test(settings),
   'executor writes under the app sandbox download-gallery directory')
 ok(/prepareGallerySeeds\(/.test(detail), 'detail download still starts through seed preparation')
