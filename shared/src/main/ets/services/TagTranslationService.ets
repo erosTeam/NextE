@@ -96,6 +96,19 @@ class RawTagDatabase {
 class PublicTextResponse {
   statusCode: number = 0
   body: string = ''
+  rawHeader: string = ''
+}
+
+class TagTranslationDownloadSource {
+  label: string = ''
+  releaseUrl: string = ''
+  assetPrefix: string = ''
+
+  constructor(label: string = '', releaseUrl: string = '', assetPrefix: string = '') {
+    this.label = label
+    this.releaseUrl = releaseUrl
+    this.assetPrefix = assetPrefix
+  }
 }
 
 class TagSuggestionQuery {
@@ -429,25 +442,36 @@ export class TagTranslationService {
   static async updateFromLatestRelease(
     context: common.UIAbilityContext,
     useCdn: boolean = false,
+    force: boolean = false,
   ): Promise<number> {
     const release: TagTranslationRelease = await TagTranslationService.fetchLatestRelease(useCdn)
+    const remoteVersion: string = TagTranslationService.releaseVersion(release)
+    if (!force) {
+      const localStatus: TagTranslationStatus = await TagTranslationService.status(context)
+      if (remoteVersion.length > 0 && localStatus.version === remoteVersion) {
+        DiagnosticLogger.info('tag-translation', 'update_skip_latest', remoteVersion)
+        return 0
+      }
+    }
     const assetUrl: string = TagTranslationService.findDbAssetUrl(release)
     if (assetUrl.length === 0) {
       throw new Error('tag translation asset missing')
     }
-    const downloadUrl: string = useCdn ? `${CDN_PREFIX}${assetUrl}` : assetUrl
     const gzPath: string = TagTranslationService.localGzPath(context)
     TagTranslationService.ensureDir(TagTranslationService.localDir(context))
-    DiagnosticLogger.info('tag-translation', 'download_start', DB_ASSET_NAME)
-    await TagTranslationService.downloadPublicFile(downloadUrl, gzPath)
+    const sourceLabel: string = await TagTranslationService.downloadPublicFileWithFallback(
+      assetUrl,
+      gzPath,
+      useCdn,
+    )
     const rawJson: string = await TagTranslationService.readGzipText(gzPath)
     const rows: TagTranslationEntry[] = TagTranslationService.parseRawDatabase(rawJson)
     await TagTranslationService.replaceRows(
       context,
       rows,
-      TagTranslationService.releaseVersion(release),
+      remoteVersion,
     )
-    DiagnosticLogger.info('tag-translation', 'update_done', `${rows.length} rows`)
+    DiagnosticLogger.info('tag-translation', 'update_done', `${rows.length} rows source=${sourceLabel}`)
     return rows.length
   }
 
@@ -722,17 +746,39 @@ export class TagTranslationService {
   }
 
   private static async fetchLatestRelease(useCdn: boolean): Promise<TagTranslationRelease> {
-    const resp: PublicTextResponse = await TagTranslationService.getPublicText(
-      useCdn ? CDN_RELEASE_API_URL : RELEASE_API_URL,
-    )
+    const sources: TagTranslationDownloadSource[] = TagTranslationService.orderedSources(useCdn)
+    const errors: string[] = []
+    for (let i = 0; i < sources.length; i++) {
+      const source: TagTranslationDownloadSource = sources[i]
+      try {
+        return await TagTranslationService.fetchLatestReleaseFrom(source)
+      } catch (error) {
+        const e = error as Error
+        errors.push(`${source.label}: ${e.message}`)
+        DiagnosticLogger.warn('tag-translation', 'release_source_failed', `${source.label}: ${e.message}`)
+      }
+    }
+    throw new Error(`tag translation release failed: ${errors.join('; ')}`)
+  }
+
+  private static async fetchLatestReleaseFrom(
+    source: TagTranslationDownloadSource,
+  ): Promise<TagTranslationRelease> {
+    const resp: PublicTextResponse = await TagTranslationService.getPublicText(source.releaseUrl)
     if (resp.statusCode !== 200) {
-      throw new Error(`tag translation release HTTP ${resp.statusCode}`)
+      throw new Error(TagTranslationService.publicHttpError(
+        'release',
+        source.label,
+        resp.statusCode,
+        resp.body,
+        resp.rawHeader,
+      ))
     }
     let raw: Object
     try {
       raw = JSON.parse(resp.body) as Object
     } catch (error) {
-      throw new Error('tag translation release: invalid JSON')
+      throw new Error(`tag translation release: invalid JSON via ${source.label}`)
     }
     return raw as TagTranslationRelease
   }
@@ -755,13 +801,41 @@ export class TagTranslationService {
         usingCache: false,
       })
       const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-      return { statusCode: resp.responseCode as number, body: body }
+      const rawHeader: string = JSON.stringify(resp.header)
+      return { statusCode: resp.responseCode as number, body: body, rawHeader: rawHeader }
     } finally {
       req.destroy()
     }
   }
 
-  private static async downloadPublicFile(url: string, filePath: string): Promise<number> {
+  private static async downloadPublicFileWithFallback(
+    assetUrl: string,
+    filePath: string,
+    useCdn: boolean,
+  ): Promise<string> {
+    const sources: TagTranslationDownloadSource[] = TagTranslationService.orderedSources(useCdn)
+    const errors: string[] = []
+    for (let i = 0; i < sources.length; i++) {
+      const source: TagTranslationDownloadSource = sources[i]
+      const downloadUrl: string = `${source.assetPrefix}${assetUrl}`
+      try {
+        DiagnosticLogger.info('tag-translation', 'download_start', `${DB_ASSET_NAME} source=${source.label}`)
+        await TagTranslationService.downloadPublicFile(downloadUrl, filePath, source.label)
+        return source.label
+      } catch (error) {
+        const e = error as Error
+        errors.push(`${source.label}: ${e.message}`)
+        DiagnosticLogger.warn('tag-translation', 'asset_source_failed', `${source.label}: ${e.message}`)
+      }
+    }
+    throw new Error(`tag translation asset failed: ${errors.join('; ')}`)
+  }
+
+  private static async downloadPublicFile(
+    url: string,
+    filePath: string,
+    sourceLabel: string,
+  ): Promise<number> {
     const req: http.HttpRequest = http.createHttp()
     try {
       const header: Record<string, string> = {
@@ -779,11 +853,19 @@ export class TagTranslationService {
         usingCache: false,
       })
       const code: number = resp.responseCode as number
+      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
+      const rawHeader: string = JSON.stringify(resp.header)
       if (code !== 200) {
-        throw new Error(`tag translation asset HTTP ${code}`)
+        throw new Error(TagTranslationService.publicHttpError(
+          'asset',
+          sourceLabel,
+          code,
+          body,
+          rawHeader,
+        ))
       }
       if (typeof resp.result === 'string') {
-        throw new Error('tag translation asset is not binary')
+        throw new Error(`tag translation asset is not binary via ${sourceLabel}`)
       }
       const bytes: ArrayBuffer = resp.result as ArrayBuffer
       return TagTranslationService.writeArrayBuffer(filePath, bytes)
@@ -821,6 +903,105 @@ export class TagTranslationService {
 
   private static releaseVersion(release: TagTranslationRelease): string {
     return `${TagTranslationService.safeString(release.tag_name)} ${TagTranslationService.safeString(release.published_at)}`.trim()
+  }
+
+  private static orderedSources(useCdn: boolean): TagTranslationDownloadSource[] {
+    const direct: TagTranslationDownloadSource = new TagTranslationDownloadSource(
+      'direct',
+      RELEASE_API_URL,
+      '',
+    )
+    const mirror: TagTranslationDownloadSource = new TagTranslationDownloadSource(
+      'mirror',
+      CDN_RELEASE_API_URL,
+      CDN_PREFIX,
+    )
+    return useCdn ? [mirror, direct] : [direct, mirror]
+  }
+
+  private static publicHttpError(
+    phase: string,
+    sourceLabel: string,
+    statusCode: number,
+    body: string,
+    rawHeader: string,
+  ): string {
+    const details: string[] = []
+    const message: string = TagTranslationService.responseBodyMessage(body)
+    const rateHint: string = TagTranslationService.rateLimitHint(statusCode, rawHeader)
+    if (message.length > 0) {
+      details.push(message)
+    }
+    if (rateHint.length > 0) {
+      details.push(rateHint)
+    }
+    if ((statusCode === 403 || statusCode === 429) && details.length === 0) {
+      details.push(sourceLabel === 'mirror'
+        ? 'mirror/proxy rejected the request'
+        : 'GitHub rejected or rate-limited the request')
+    }
+    const suffix: string = details.length > 0 ? ` (${details.join('; ')})` : ''
+    return `tag translation ${phase} HTTP ${statusCode} via ${sourceLabel}${suffix}`
+  }
+
+  private static responseBodyMessage(body: string): string {
+    if (body.length === 0) {
+      return ''
+    }
+    const jsonMessage: RegExp = /"message"\s*:\s*"([^"]+)"/
+    const match: RegExpExecArray | null = jsonMessage.exec(body)
+    if (match !== null && match[1].length > 0) {
+      return match[1]
+    }
+    const compact: string = body.replace(/\s+/g, ' ').trim()
+    return compact.length > 120 ? `${compact.substring(0, 120)}...` : compact
+  }
+
+  private static rateLimitHint(statusCode: number, rawHeader: string): string {
+    if (statusCode !== 403 && statusCode !== 429) {
+      return ''
+    }
+    const retryAfter: string = TagTranslationService.headerValue(rawHeader, 'retry-after')
+    if (retryAfter.length > 0) {
+      return `retry after ${retryAfter}s`
+    }
+    const remaining: string = TagTranslationService.headerValue(rawHeader, 'x-ratelimit-remaining')
+    const reset: string = TagTranslationService.headerValue(rawHeader, 'x-ratelimit-reset')
+    if (remaining === '0') {
+      return reset.length > 0
+        ? `GitHub API rate limit exhausted, reset=${reset}`
+        : 'GitHub API rate limit exhausted'
+    }
+    return ''
+  }
+
+  private static headerValue(rawHeader: string, key: string): string {
+    if (rawHeader.length === 0 || key.length === 0) {
+      return ''
+    }
+    const lower: string = rawHeader.toLowerCase()
+    const needle: string = `"${key.toLowerCase()}":`
+    const idx: number = lower.indexOf(needle)
+    if (idx < 0) {
+      return ''
+    }
+    let start: number = idx + needle.length
+    while (start < rawHeader.length) {
+      const ch: string = rawHeader.charAt(start)
+      if (ch !== ' ' && ch !== '"' && ch !== '[') {
+        break
+      }
+      start = start + 1
+    }
+    let end: number = start
+    while (end < rawHeader.length) {
+      const ch: string = rawHeader.charAt(end)
+      if (ch === '"' || ch === ',' || ch === ']' || ch === '}') {
+        break
+      }
+      end = end + 1
+    }
+    return rawHeader.substring(start, end).trim()
   }
 
   private static async readGzipText(path: string): Promise<string> {

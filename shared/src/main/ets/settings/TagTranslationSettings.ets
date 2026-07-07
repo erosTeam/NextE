@@ -77,9 +77,9 @@ export class TagTranslationSettings {
     state.rowCount = status.rowCount
   }
 
-  static async updateNow(context: common.UIAbilityContext): Promise<number> {
+  static async updateNow(context: common.UIAbilityContext, force: boolean = true): Promise<number> {
     const state: TagTranslationSettingsState = connectTagTranslationSettings()
-    const count: number = await TagTranslationService.updateFromLatestRelease(context, state.useCdn)
+    const count: number = await TagTranslationService.updateFromLatestRelease(context, state.useCdn, force)
     await TagTranslationSettings.refreshStatus(context)
     return count
   }
@@ -90,7 +90,7 @@ export class TagTranslationSettings {
       return
     }
     setTimeout(() => {
-      TagTranslationSettings.updateNow(context)
+      TagTranslationSettings.updateNow(context, false)
         .then((count: number) => {
           DiagnosticLogger.info('tag-translation', 'startup_update_done', `${count} rows`)
         })
