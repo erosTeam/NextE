@@ -52,6 +52,15 @@ export struct GalleryAllThumbnailsPage {
     )
   }
 
+  private loadNextIfTailAppeared(index: number): void {
+    if (index < this.vm.itemCount - 1) {
+      return
+    }
+    if (!this.vm.loading && this.vm.error.length === 0 && this.vm.hasMore()) {
+      this.vm.loadNext()
+    }
+  }
+
   private previewTitleBar(): Record<string, Object> {
     const title: Record<string, Object> = { 'mainTitle': AppStrings.get('gallery_preview') }
     const content: Record<string, Object> = { 'title': title, 'menu': this.jumpMenu() }
@@ -242,7 +251,7 @@ export struct GalleryAllThumbnailsPage {
         }) {
           LazyForEach(
             this.vm.dataSource,
-            (img: EhGalleryImage) => {
+            (img: EhGalleryImage, index: number) => {
               GridItem() {
                 PreviewThumbTile({
                   image: img,
@@ -251,6 +260,9 @@ export struct GalleryAllThumbnailsPage {
                   },
                 })
               }
+              .onAppear(() => {
+                this.loadNextIfTailAppeared(index)
+              })
             },
             (img: EhGalleryImage) => `${img.page}`,
           )

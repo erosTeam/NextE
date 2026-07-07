@@ -771,6 +771,15 @@ export struct GallerySearchPage {
     }
   }
 
+  private loadMoreIfTailAppeared(index: number): void {
+    if (index < this.vm.itemCount - 1) {
+      return
+    }
+    if (this.vm.canLoadMore()) {
+      this.vm.loadMore()
+    }
+  }
+
   build() {
     HdsNavDestination() {
       Stack() {
@@ -838,10 +847,13 @@ export struct GallerySearchPage {
             }) {
               LazyForEach(
                 this.vm.dataSource,
-                (g: EhGallery) => {
+                (g: EhGallery, index: number) => {
                   GridItem() {
                     GalleryGridCard({ gallery: g })
                   }
+                  .onAppear(() => {
+                    this.loadMoreIfTailAppeared(index)
+                  })
                   .onClick(() => {
                     this.stack.pushPathByName(
                       'GalleryDetail',
@@ -893,11 +905,14 @@ export struct GallerySearchPage {
             }) {
               LazyForEach(
                 this.vm.dataSource,
-                (g: EhGallery) => {
+                (g: EhGallery, index: number) => {
                   FlowItem() {
                     GalleryWaterfallCard({ gallery: g })
                   }
                   .width('100%')
+                  .onAppear(() => {
+                    this.loadMoreIfTailAppeared(index)
+                  })
                   .onClick(() => {
                     this.stack.pushPathByName(
                       'GalleryDetail',
@@ -949,11 +964,14 @@ export struct GallerySearchPage {
             }) {
               LazyForEach(
                 this.vm.dataSource,
-                (g: EhGallery) => {
+                (g: EhGallery, index: number) => {
                   FlowItem() {
                     GalleryCoverWallCard({ gallery: g })
                   }
                   .width('100%')
+                  .onAppear(() => {
+                    this.loadMoreIfTailAppeared(index)
+                  })
                   .onClick(() => {
                     this.stack.pushPathByName(
                       'GalleryDetail',
@@ -998,7 +1016,7 @@ export struct GallerySearchPage {
             }) {
               LazyForEach(
                 this.vm.dataSource,
-                (g: EhGallery) => {
+                (g: EhGallery, index: number) => {
                   ListItem() {
                     if (this.listMode.mode === ListMode.SIMPLE_LIST) {
                       GallerySimpleCard({ gallery: g })
@@ -1006,6 +1024,9 @@ export struct GallerySearchPage {
                       GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })
                     }
                   }
+                  .onAppear(() => {
+                    this.loadMoreIfTailAppeared(index)
+                  })
                   .onClick(() => {
                     this.stack.pushPathByName(
                       'GalleryDetail',
