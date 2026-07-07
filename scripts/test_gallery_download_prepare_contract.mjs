@@ -37,10 +37,13 @@ const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const queue = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
 const shared = read('shared/src/main/ets/Index.ets')
+const seedBody = model.match(/export class DownloadImageSeed \{([\s\S]*?)\n\}/)?.[1] ?? ''
 
 ok(/export class DownloadImageSeed/.test(model) && /imagePageUrl: string = ''/.test(model) &&
   /static fromGalleryImage/.test(model) && /seed\.imagePageUrl = image\.sUrl/.test(model),
   'download model stores EH /s/ image-page URLs as seeds')
+ok(!/@ObservedV2\s+export class DownloadImageSeed/.test(model) && !seedBody.includes('@Trace'),
+  'download seed records stay plain data so per-page file updates do not fan out through ArkUI state')
 ok(/imageSeeds: DownloadImageSeed\[\] = \[\]/.test(model) && /firstPageCount: number/.test(model) &&
   /previewPageCount: number/.test(model), 'gallery task tracks seed list and preview-page metadata')
 ok(/PREPARING: string = 'preparing'/.test(model) && /READY: string = 'ready'/.test(model) &&
@@ -76,7 +79,7 @@ ok(/mergeSeeds/.test(settings) && /it\.page === seed\.page \|\| it\.imagePageUrl
   'preparation dedups seeds by page or image-page URL')
 ok(/inheritDownloadedSeedsFromParent/.test(settings) &&
   /parent\.imageSeeds\.find\(\(it: DownloadImageSeed\) => \{[\s\S]*it\.imgkey === out\.imgkey[\s\S]*downloadedFileSize\(it\.filePath\) > 0/.test(settings) &&
-  /copyInheritedSeedFile\(context, gid, preferOriginal, out, previous\)/.test(settings) &&
+  /copyInheritedSeedFile\([\s\S]*context,[\s\S]*gid,[\s\S]*preferOriginal,[\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(parent\),[\s\S]*out,[\s\S]*previous,[\s\S]*\)/.test(settings) &&
   /fs\.copyFile\(src\.fd, dest\.fd\)/.test(settings) &&
   /gallery_incremental_copy_failed/.test(settings),
   'newer-version downloads reuse parent gallery files by matching stable EH image keys')

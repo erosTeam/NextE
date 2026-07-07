@@ -21,6 +21,7 @@ const READ_TIMEOUT_MS: number = 20000
 const BACKOFF_BASE_MS: number = 800
 const MAX_BINARY_BYTES: number = 100 * 1024 * 1024
 const IMAGE_ACCEPT: string = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+const STREAM_PROGRESS_INTERVAL_MS: number = 500
 
 /**
  * EH HTTP transport over @ohos.net.http. Singleton. Sets the desktop Chrome UA + Accept
@@ -323,12 +324,7 @@ export class EhHttpClient {
       let openedTarget: boolean = false
       let shouldDeleteFile: boolean = false
       try {
-        const header: Record<string, string> = {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': accept,
-          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-          'Cookie': EhCookieStore.getInstance().header(),
-        }
+        const header: Record<string, string> = EhHttpClient.binaryHeader(accept)
         file = fs.openSync(
           filePath,
           fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC,
@@ -337,6 +333,25 @@ export class EhHttpClient {
         let written: number = 0
         let progressTotal: number = 0
         let progressLoaded: number = 0
+        let lastProgressAt: number = 0
+        let lastProgressLoaded: number = -1
+        let lastProgressTotal: number = -1
+        const emitProgress = (loaded: number, total: number, force: boolean = false): void => {
+          if (loaded <= 0) {
+            return
+          }
+          const now: number = force ? 0 : Date.now()
+          if (!force && now - lastProgressAt < STREAM_PROGRESS_INTERVAL_MS) {
+            return
+          }
+          if (!force && loaded === lastProgressLoaded && total === lastProgressTotal) {
+            return
+          }
+          lastProgressAt = force ? Date.now() : now
+          lastProgressLoaded = loaded
+          lastProgressTotal = total
+          progress(loaded, total)
+        }
         req.on('dataReceiveProgress', (info: http.DataReceiveProgressInfo) => {
           if (info.totalSize > progressTotal) {
             progressTotal = info.totalSize
@@ -344,7 +359,7 @@ export class EhHttpClient {
           if (info.receiveSize > progressLoaded) {
             progressLoaded = info.receiveSize
           }
-          progress(progressLoaded, progressTotal)
+          emitProgress(progressLoaded, progressTotal)
         })
         req.on('dataReceive', (data: ArrayBuffer) => {
           const offset: number = written
@@ -353,7 +368,7 @@ export class EhHttpClient {
           if (written > progressLoaded) {
             progressLoaded = written
           }
-          progress(progressLoaded, progressTotal)
+          emitProgress(progressLoaded, progressTotal)
         })
         const code: number = await req.requestInStream(url, {
           method: http.RequestMethod.GET,
@@ -374,7 +389,7 @@ export class EhHttpClient {
           shouldDeleteFile = true
           throw new Error('binary response is empty')
         } else {
-          progress(written, progressTotal > 0 ? progressTotal : written)
+          emitProgress(written, progressTotal > 0 ? progressTotal : written, true)
           return written
         }
       } catch (error) {
@@ -421,22 +436,36 @@ export class EhHttpClient {
       let attemptStart: number = EhHttpClient.fileSizeQuietly(partialPath)
       let written: number = attemptStart
       let responseTotal: number = knownTotal
+      let lastProgressAt: number = 0
+      let lastProgressLoaded: number = -1
+      let lastProgressTotal: number = -1
       let headersSeen: boolean = attemptStart <= 0
       let resumeAccepted: boolean = attemptStart <= 0
       let resumeDecisionLogged: boolean = attemptStart <= 0
       let prepared: boolean = false
       let cancelled: boolean = false
       let streamError: string = ''
+      const emitProgress = (loaded: number, total: number, force: boolean = false): void => {
+        if (loaded <= 0) {
+          return
+        }
+        const now: number = force ? 0 : Date.now()
+        if (!force && now - lastProgressAt < STREAM_PROGRESS_INTERVAL_MS) {
+          return
+        }
+        if (!force && loaded === lastProgressLoaded && total === lastProgressTotal) {
+          return
+        }
+        lastProgressAt = force ? Date.now() : now
+        lastProgressLoaded = loaded
+        lastProgressTotal = total
+        progress(loaded, total)
+      }
       try {
         if (attemptStart > 0) {
-          progress(attemptStart, knownTotal)
+          emitProgress(attemptStart, knownTotal, true)
         }
-        const header: Record<string, string> = {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': accept,
-          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-          'Cookie': EhCookieStore.getInstance().header(),
-        }
+        const header: Record<string, string> = EhHttpClient.binaryHeader(accept)
         if (attemptStart > 0) {
           header['Range'] = `bytes=${attemptStart}-`
         }
@@ -490,7 +519,7 @@ export class EhHttpClient {
           }
           const len: number = fs.writeSync((file as fs.File).fd, data, { offset: written })
           written += len
-          progress(written, responseTotal)
+          emitProgress(written, responseTotal)
         })
         const code: number = await req.requestInStream(url, {
           method: http.RequestMethod.GET,
@@ -511,7 +540,7 @@ export class EhHttpClient {
           throw new Error(streamError)
         }
         if (code === 416 && knownTotal > 0 && attemptStart >= knownTotal) {
-          progress(attemptStart, knownTotal)
+          emitProgress(attemptStart, knownTotal, true)
           return attemptStart
         }
         if (code !== 200 && code !== 206) {
@@ -524,7 +553,7 @@ export class EhHttpClient {
         if (written <= 0) {
           throw new Error('binary response is empty')
         }
-        progress(written, responseTotal > 0 ? responseTotal : written)
+        emitProgress(written, responseTotal > 0 ? responseTotal : written, true)
         return written
       } catch (error) {
         const e = error as Error
@@ -589,6 +618,15 @@ export class EhHttpClient {
       return stat.isFile() && stat.size > 0 ? stat.size : 0
     } catch (_error) {
       return 0
+    }
+  }
+
+  private static binaryHeader(accept: string): Record<string, string> {
+    return {
+      'User-Agent': EhConstants.USER_AGENT,
+      'Accept': accept,
+      'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+      'Cookie': EhCookieStore.getInstance().header(),
     }
   }
 

@@ -44,6 +44,7 @@ const galleryStreamProgressBody =
   queueSettings.match(/private static updateGalleryStreamProgress\([\s\S]*?\n  private static updateArchiverProgress/)?.[0] ?? ''
 const archiverStreamProgressBody =
   queueSettings.match(/private static updateArchiverProgress\([\s\S]*?\n  private static async updateArchiverTask/)?.[0] ?? ''
+const seedBody = model.match(/export class DownloadImageSeed \{([\s\S]*?)\n\}/)?.[1] ?? ''
 
 ok(/export enum DownloadViewType/.test(state) && /GALLERY = 'gallery'/.test(state) &&
   /ARCHIVER = 'archiver'/.test(state), 'download shared state defines Gallery and Archiver queue views')
@@ -61,11 +62,17 @@ ok(/TabSegmentButtonV2\(\{[\s\S]*items: this\.segmentItems\(\)[\s\S]*selectedInd
 ok(/DownloadTypeBarCCBuilder/.test(index) && /tab === 3[\s\S]*bottomBuilder/.test(index) &&
   /DOWNLOAD_SELECTOR_BAR_HEIGHT/.test(index), 'Index pins the download selector in title-bar bottomBuilder')
 ok(/private downloadMenu\(\): Record<string, Object>/.test(index) &&
+  /@Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal\(\)/.test(index) &&
+  !/@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(index) &&
+  /const signalVersion: number = this\.downloadQueueSignal\.version/.test(index) &&
+  /'maxCount': signalVersion >= 0 \? 3 : 3/.test(index) &&
+  /private downloadHasResumable\(\): boolean \{[\s\S]*const queue = connectDownloadQueue\(\)[\s\S]*queue\.galleryTasks/.test(index) &&
+  /private downloadHasPausable\(\): boolean \{[\s\S]*const queue = connectDownloadQueue\(\)[\s\S]*queue\.galleryTasks/.test(index) &&
   /download_resume_all/.test(index) &&
   /'label': \$r\('app\.string\.download_resume_all'\)[\s\S]*'icon': \$r\('sys\.symbol\.play_fill'\)/.test(index) &&
   /download_pause_all/.test(index) &&
   /content\['menu'\] = this\.downloadMenu\(\)/.test(index),
-  'Downloads tab title bar exposes current-queue batch actions instead of an empty menu')
+  'Downloads tab title bar exposes batch actions without keeping the full queue reactive in the root shell')
 ok(/resumeVisibleDownloads\(\)[\s\S]*DownloadQueueSettings\.resumeAllArchiverDownloads\(context\)[\s\S]*DownloadQueueSettings\.resumeAllGalleryDownloads\(context\)/.test(index) &&
   /pauseVisibleDownloads\(\)[\s\S]*DownloadQueueSettings\.pauseAllArchiverDownloads\(context\)[\s\S]*DownloadQueueSettings\.pauseAllGalleryDownloads\(context\)/.test(index),
   'Downloads tab batch actions reuse shared queue executors for the active queue type')
@@ -169,13 +176,16 @@ ok(galleryTaskCardOpening === 'Row({ space: ThemeConstants.SPACE_MD }) {' &&
   !/TaskAddedTimeLine\(queuedAt: number\)[\s\S]*DOWNLOAD_TASK_COVER_WIDTH \+ ThemeConstants\.SPACE_MD/.test(page),
   'download cards keep the cover-height root row; added time lives inside the content column and must not add an extra card-height row')
 ok(/@ObservedV2\s+export class DownloadGalleryTask/.test(model) &&
+  /export class DownloadImageSeed/.test(model) &&
+  !/@ObservedV2\s+export class DownloadImageSeed/.test(model) &&
+  !seedBody.includes('@Trace') &&
   /@ObservedV2\s+export class DownloadArchiverTask/.test(model) &&
   /@Trace status: string/.test(model) &&
   /@Trace imageSeeds: DownloadImageSeed\[\]/.test(model) &&
   /@Trace seededFiles: number/.test(model) &&
   /@Trace downloadedFiles: number/.test(model) &&
   /@Trace progress: number/.test(model),
-  'download task models are V2-observed so stable ForEach rows can repaint when task fields change')
+  'download task models are V2-observed while per-page seed details stay plain data to avoid high-frequency UI churn')
 const assignFromBody = model.match(/assignFrom\(source: DownloadGalleryTask\): void \{([\s\S]*?)\n  \}/)?.[1] ?? ''
 ok(/syncProgressCounts\(\): void \{[\s\S]*this\.seededFiles = this\.imageSeeds\.length[\s\S]*this\.downloadedFiles = DownloadGalleryTask\.countDownloadedSeeds/.test(model) &&
   assignFromBody.includes('this.status = source.status') &&
@@ -201,11 +211,13 @@ ok(/task\.bytesWritten = loaded/.test(archiverStreamProgressBody) &&
   /task\.bytesTotal = total/.test(archiverStreamProgressBody) &&
   /task\.progress = total > 0/.test(archiverStreamProgressBody) &&
   /task\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(archiverStreamProgressBody) &&
-  /DownloadQueueSettings\.setArchiverTasks\(state, next\)/.test(archiverStreamProgressBody) &&
+  /updated && isDownloadQueuePageActive\(\)/.test(archiverStreamProgressBody) &&
+  /publishDownloadQueueChanged\(\)/.test(archiverStreamProgressBody) &&
+  !/DownloadQueueSettings\.setArchiverTasks\(state, next\)/.test(archiverStreamProgressBody) &&
   !/persistArchiverTask/.test(archiverStreamProgressBody) &&
   !archiverRenderKeyBody.includes('task.bytesWritten') &&
   !archiverRenderKeyBody.includes('task.progress'),
-  'archiver stream progress republishes live bytes through stable task rows without persistence or row-key churn')
+  'archiver stream progress updates stable task rows and only republishes live bytes while the Downloads page is foreground')
 ok(/expectedFileCount\(\): number \{[\s\S]*return Math\.max\(this\.pageCount, this\.seededCount\(\), this\.downloadedCount\(\)\)/.test(model) &&
   /private effectiveGalleryStatus\(status: string, downloadedFiles: number, pageCount: number\): string/.test(page) &&
   /status === DownloadGalleryTaskStatus\.COMPLETE && pageCount > 0 && downloadedFiles < pageCount/.test(page) &&

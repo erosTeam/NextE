@@ -1,20 +1,19 @@
 import { EhGallery } from './EhGallery'
 import { EhGalleryImage } from './EhGalleryImage'
 
-@ObservedV2
 export class DownloadImageSeed {
-  @Trace page: number = 0
-  @Trace imgkey: string = ''
-  @Trace imagePageUrl: string = ''
-  @Trace thumbUrl: string = ''
-  @Trace imageUrl: string = ''
-  @Trace originImageUrl: string = ''
-  @Trace showKey: string = ''
-  @Trace reloadKey: string = ''
-  @Trace filePath: string = ''
-  @Trace bytesWritten: number = 0
-  @Trace downloadedAt: number = 0
-  @Trace downloadError: string = ''
+  page: number = 0
+  imgkey: string = ''
+  imagePageUrl: string = ''
+  thumbUrl: string = ''
+  imageUrl: string = ''
+  originImageUrl: string = ''
+  showKey: string = ''
+  reloadKey: string = ''
+  filePath: string = ''
+  bytesWritten: number = 0
+  downloadedAt: number = 0
+  downloadError: string = ''
 
   static fromGalleryImage(image: EhGalleryImage): DownloadImageSeed {
     const seed: DownloadImageSeed = new DownloadImageSeed()

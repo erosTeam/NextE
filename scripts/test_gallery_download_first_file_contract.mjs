@@ -98,9 +98,9 @@ ok(/private static firstSeedError\(seeds: DownloadImageSeed\[\]\): string/.test(
 ok(/let failedBatchRetries: number = 0/.test(settings) &&
   /if \(hasError\) \{[\s\S]*failedBatchRetries < connectDownloadSettings\(\)\.retryCount[\s\S]*gallery_download_batch_auto_retry[\s\S]*continue[\s\S]*failedBatchRetries = 0/.test(settings),
   'queue executor automatically retries failed batches by re-entering the pending-seed loop')
-ok(/status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*clearPendingSeedErrors\(task\.imageSeeds\)[\s\S]*task\.syncProgressCounts\(\)/.test(settings) &&
-  /private static clearPendingSeedErrors\(seeds: DownloadImageSeed\[\]\): DownloadImageSeed\[\] \{[\s\S]*out\.filePath\.length === 0 && out\.imagePageUrl\.length > 0[\s\S]*out\.downloadError = ''/.test(settings),
-  'retrying or resuming a gallery download clears stale pending-seed errors before the new attempt owns task state')
+ok(/const hadPrepareError: boolean = task\.prepareError\.length > 0[\s\S]*status === DownloadGalleryTaskStatus\.DOWNLOADING && hadPrepareError[\s\S]*clearPendingSeedErrors\(task\.imageSeeds\)[\s\S]*task\.syncProgressCounts\(\)/.test(settings) &&
+  /private static clearPendingSeedErrors\(seeds: DownloadImageSeed\[\]\): void \{[\s\S]*seed\.filePath\.length === 0[\s\S]*seed\.imagePageUrl\.length > 0[\s\S]*seed\.downloadError\.length > 0[\s\S]*seed\.downloadError = ''/.test(settings),
+  'retrying or resuming a gallery download clears stale pending-seed errors only when a new attempt is recovering from an error state')
 ok(/ImageResolveService\.getInstance\(\)\.resolve/.test(settings) &&
   /ImageResolveService\.getInstance\(\)\.resolveOriginal/.test(settings),
   'queue executor resolves normal images and honors the always-original policy')
@@ -216,7 +216,7 @@ ok(/@Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueS
   /task\.activeBytesTotal/.test(queue) &&
   /this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queue) &&
   !/visibleStatus|visibleDownloadedFiles|visibleSeededFiles|visibleActiveRatio|renderProgressLabel|renderProgressRatio|renderShowProgress/.test(queue) &&
-  /const task: DownloadGalleryTask = state\.galleryTasks\[i\][\s\S]*changedSeeds\.push\(seed\.copy\(\)\)[\s\S]*isDownloadQueuePageActive\(\)[\s\S]*publishDownloadQueueChanged\(\)/.test(applyResultsBody) &&
+  /const task: DownloadGalleryTask = state\.galleryTasks\[i\][\s\S]*findSeedIndex\(task\.imageSeeds, result\.originalSeed\)[\s\S]*changedSeeds\.push\(seed\)[\s\S]*isDownloadQueuePageActive\(\)[\s\S]*publishDownloadQueueChanged\(\)/.test(applyResultsBody) &&
   !/DownloadQueueSettings\.setGalleryTasks\(state, next\)/.test(applyResultsBody) &&
   !/state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(applyResultsBody) &&
   /private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*findExistingGalleryTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.replaceGalleryTasks\(next\)/.test(settings),

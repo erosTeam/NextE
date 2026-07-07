@@ -94,6 +94,10 @@ const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 const deltaBody = repo.match(/static async updateGalleryTaskDelta[\s\S]*?\n  static async loadArchiver/)?.[0] ?? ''
 const applyResultsBody = settings.match(/private static async applyDownloadResults[\s\S]*?\n  private static firstSeedError/)?.[0] ?? ''
 const statusBody = settings.match(/private static async updateDownloadTaskStatus[\s\S]*?\n  private static clearPendingSeedErrors/)?.[0] ?? ''
+const archiverStreamProgressBody =
+  settings.match(/private static updateArchiverProgress\([\s\S]*?\n  private static async updateArchiverTask/)?.[0] ?? ''
+const archiverUpdateTaskBody =
+  settings.match(/private static async updateArchiverTask\([\s\S]*?\n  private static async updateDownloadTaskStatus/)?.[0] ?? ''
 ok('repository loads and replaces queue through RDB',
   /class DownloadQueueRepository/.test(repo) &&
     /LocalDataStore\.open\(context\)/.test(repo) &&
@@ -193,9 +197,12 @@ ok('settings facade uses RDB and only reads old Preferences for migration',
     /store\.deleteSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE\)/.test(settings))
 ok('settings no longer writes the queue back to Preferences',
   !/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings))
-ok('archiver stream progress is throttled before publishing the queue state',
+ok('archiver stream progress is throttled and only publishes live UI signals on the Downloads page',
   /archiverProgressPulses: Map<string, number>/.test(settings) &&
-    /private static updateArchiverProgress\(tag: string, loaded: number, total: number\): void \{[\s\S]*if \(!complete && now - last < 500\) \{[\s\S]*return[\s\S]*DownloadQueueSettings\.setArchiverTasks\(state, next\)/.test(settings))
+    /if \(!complete && now - last < 500\) \{[\s\S]*return/.test(archiverStreamProgressBody) &&
+    /let updated: boolean = false/.test(archiverStreamProgressBody) &&
+    /if \(updated && isDownloadQueuePageActive\(\)\) \{[\s\S]*publishDownloadQueueChanged\(\)/.test(archiverStreamProgressBody) &&
+    !/DownloadQueueSettings\.setArchiverTasks\(state, next\)/.test(archiverStreamProgressBody))
 ok('download directories keep per-task metadata sidecars for queue recovery',
     /DOWNLOAD_METADATA_FILE: string = 'metadata\.json'/.test(settings) &&
     /ARCHIVER_METADATA_SUFFIX: string = '\.metadata\.json'/.test(settings) &&
@@ -374,6 +381,22 @@ ok('archiver package downloads use Range/Content-Range partial files for pause a
     /const partialPath: string = DownloadQueueSettings\.archiverPartialPath\(filePath\)/.test(settings) &&
     /downloadBinaryToFileInStreamResumable\([\s\S]*partialPath[\s\S]*cancelledArchiverDownloads\.has\(tag\)[\s\S]*resolvedTask\.bytesTotal/.test(settings) &&
     /fs\.renameSync\(partialPath, filePath\)/.test(settings))
+ok('stream downloads gate chunk progress before it reaches queue state but force final progress',
+  /STREAM_PROGRESS_INTERVAL_MS: number = 500/.test(httpClient) &&
+    /const emitProgress = \(loaded: number, total: number, force: boolean = false\): void =>/.test(httpClient) &&
+    /now - lastProgressAt < STREAM_PROGRESS_INTERVAL_MS/.test(httpClient) &&
+    /emitProgress\(progressLoaded, progressTotal\)/.test(httpClient) &&
+    /emitProgress\(written, progressTotal > 0 \? progressTotal : written, true\)/.test(httpClient) &&
+    /emitProgress\(written, responseTotal > 0 \? responseTotal : written, true\)/.test(httpClient),
+  'ordinary and archive stream progress must stay realtime without one queue callback per network chunk')
+ok('archiver status updates mutate stable task rows without replacing the full queue',
+  /let updatedTask: DownloadArchiverTask \| null = null/.test(archiverUpdateTaskBody) &&
+    /state\.archiverTasks\.forEach\(\(task: DownloadArchiverTask\) =>/.test(archiverUpdateTaskBody) &&
+    /updatedTask = task/.test(archiverUpdateTaskBody) &&
+    /publishDownloadQueueChanged\(\)/.test(archiverUpdateTaskBody) &&
+    /persistArchiverTask\(context, updatedTask\)/.test(archiverUpdateTaskBody) &&
+    !/const next: DownloadArchiverTask\[\]/.test(archiverUpdateTaskBody) &&
+    !/DownloadQueueSettings\.setArchiverTasks\(state, next\)/.test(archiverUpdateTaskBody))
 ok('ignored Range responses preserve archiver partial files instead of silently restarting',
   /attemptStart > 0 && !resumeAccepted[\s\S]*streamError = 'binary resume unsupported'[\s\S]*req\.destroy\(\)/.test(httpClient) &&
     /attemptStart > 0 && !resumeAccepted[\s\S]*throw new Error\(code === 206 \? 'invalid content range' : 'binary resume unsupported'\)/.test(httpClient) &&

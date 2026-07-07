@@ -1342,41 +1342,39 @@ export class DownloadQueueSettings {
       if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         matched = true
         results.forEach((result: DownloadSeedResult) => {
-          for (let seedIndex: number = 0; seedIndex < task.imageSeeds.length; seedIndex++) {
-            const seed: DownloadImageSeed = task.imageSeeds[seedIndex]
-            if (!DownloadQueueSettings.sameSeed(seed, result.originalSeed)) {
-              continue
-            }
-            const wasDownloaded: boolean = seed.filePath.length > 0
-            if (result.error.length > 0) {
-              seed.downloadError = result.error
-              if (firstError.length === 0) {
-                firstError = result.error
-              }
-              hasError = true
-            } else {
-              seed.imageUrl = result.image.imageUrl
-              seed.originImageUrl = result.image.originImageUrl
-              seed.showKey = result.image.showKey
-              seed.reloadKey = result.image.reloadKey
-              seed.filePath = result.filePath
-              seed.bytesWritten = result.bytes
-              seed.downloadedAt = Date.now()
-              seed.downloadError = ''
-            }
-            const isDownloaded: boolean = seed.filePath.length > 0
-            if (isDownloaded && !wasDownloaded) {
-              task.downloadedFiles = Math.min(task.seededCount(), task.downloadedFiles + 1)
-            } else if (!isDownloaded && wasDownloaded) {
-              task.downloadedFiles = Math.max(0, task.downloadedFiles - 1)
-            }
-            if (task.activeDownloadPage === seed.page) {
-              task.clearActiveDownloadProgress()
-            }
-            DownloadQueueSettings.clearGalleryActiveProgress(key, seed.page)
-            changedSeeds.push(seed.copy())
-            break
+          const seedIndex: number = DownloadQueueSettings.findSeedIndex(task.imageSeeds, result.originalSeed)
+          if (seedIndex < 0) {
+            return
           }
+          const seed: DownloadImageSeed = task.imageSeeds[seedIndex]
+          const wasDownloaded: boolean = seed.filePath.length > 0
+          if (result.error.length > 0) {
+            seed.downloadError = result.error
+            if (firstError.length === 0) {
+              firstError = result.error
+            }
+            hasError = true
+          } else {
+            seed.imageUrl = result.image.imageUrl
+            seed.originImageUrl = result.image.originImageUrl
+            seed.showKey = result.image.showKey
+            seed.reloadKey = result.image.reloadKey
+            seed.filePath = result.filePath
+            seed.bytesWritten = result.bytes
+            seed.downloadedAt = Date.now()
+            seed.downloadError = ''
+          }
+          const isDownloaded: boolean = seed.filePath.length > 0
+          if (isDownloaded && !wasDownloaded) {
+            task.downloadedFiles = Math.min(task.seededCount(), task.downloadedFiles + 1)
+          } else if (!isDownloaded && wasDownloaded) {
+            task.downloadedFiles = Math.max(0, task.downloadedFiles - 1)
+          }
+          if (task.activeDownloadPage === seed.page) {
+            task.clearActiveDownloadProgress()
+          }
+          DownloadQueueSettings.clearGalleryActiveProgress(key, seed.page)
+          changedSeeds.push(seed)
         })
         if (firstError.length > 0) {
           task.prepareError = firstError
@@ -1417,6 +1415,23 @@ export class DownloadQueueSettings {
       )
     }
     return hasError
+  }
+
+  private static findSeedIndex(seeds: DownloadImageSeed[], target: DownloadImageSeed): number {
+    const directIndex: number = target.page - 1
+    if (
+      directIndex >= 0 &&
+      directIndex < seeds.length &&
+      DownloadQueueSettings.sameSeed(seeds[directIndex], target)
+    ) {
+      return directIndex
+    }
+    for (let i: number = 0; i < seeds.length; i++) {
+      if (DownloadQueueSettings.sameSeed(seeds[i], target)) {
+        return i
+      }
+    }
+    return -1
   }
 
   private static firstSeedError(seeds: DownloadImageSeed[]): string {
@@ -2822,10 +2837,10 @@ export class DownloadQueueSettings {
     }
     DownloadQueueSettings.archiverProgressPulses.set(tag, now)
     const state = connectDownloadQueue()
-    const next: DownloadArchiverTask[] = []
-    state.archiverTasks.forEach((it: DownloadArchiverTask) => {
-      const task: DownloadArchiverTask = it.copy()
+    let updated: boolean = false
+    state.archiverTasks.forEach((task: DownloadArchiverTask) => {
       if (task.tag === tag) {
+        updated = true
         task.bytesWritten = loaded
         task.bytesTotal = total
         task.progress = total > 0 ? Math.max(0, Math.min(100, Math.round(loaded * 100 / total))) : 0
@@ -2840,9 +2855,10 @@ export class DownloadQueueSettings {
           )
         }
       }
-      next.push(task)
     })
-    DownloadQueueSettings.setArchiverTasks(state, next)
+    if (updated && isDownloadQueuePageActive()) {
+      publishDownloadQueueChanged()
+    }
   }
 
   private static async updateArchiverTask(
@@ -2852,17 +2868,16 @@ export class DownloadQueueSettings {
     persist: boolean = true,
   ): Promise<void> {
     const state = connectDownloadQueue()
-    const next: DownloadArchiverTask[] = []
     let updatedTask: DownloadArchiverTask | null = null
-    state.archiverTasks.forEach((it: DownloadArchiverTask) => {
-      const task: DownloadArchiverTask = it.copy()
+    state.archiverTasks.forEach((task: DownloadArchiverTask) => {
       if (task.tag === tag) {
         update(task)
-        updatedTask = task.copy()
+        updatedTask = task
       }
-      next.push(task)
     })
-    DownloadQueueSettings.setArchiverTasks(state, next)
+    if (updatedTask !== null) {
+      publishDownloadQueueChanged()
+    }
     if (persist && updatedTask !== null) {
       await DownloadQueueSettings.persistArchiverTask(context, updatedTask)
     }
@@ -2877,7 +2892,6 @@ export class DownloadQueueSettings {
     error: string,
   ): Promise<void> {
     const state = connectDownloadQueue()
-    const next: DownloadGalleryTask[] = []
     let updatedTask: DownloadGalleryTask | null = null
     let matched: boolean = false
     let exactMatched: boolean = false
@@ -2888,27 +2902,26 @@ export class DownloadQueueSettings {
         break
       }
     }
-    state.galleryTasks.forEach((it: DownloadGalleryTask) => {
-      const task: DownloadGalleryTask = it.copy()
+    state.galleryTasks.forEach((task: DownloadGalleryTask) => {
       const exact: boolean = DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)
       const gidFallback: boolean = !exactMatched && task.gid === gid && task.preferOriginal === preferOriginal
       if (exact || gidFallback) {
         matched = true
+        const hadPrepareError: boolean = task.prepareError.length > 0
         if (gidFallback && token.length > 0) {
           task.token = token
         }
         task.status = status
         task.prepareError = error
-        if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
-          task.imageSeeds = DownloadQueueSettings.clearPendingSeedErrors(task.imageSeeds)
+        if (status === DownloadGalleryTaskStatus.DOWNLOADING && hadPrepareError) {
+          DownloadQueueSettings.clearPendingSeedErrors(task.imageSeeds)
           task.syncProgressCounts()
         }
         if (status !== DownloadGalleryTaskStatus.DOWNLOADING) {
           task.clearActiveDownloadProgress()
         }
-        updatedTask = task.copy()
+        updatedTask = task
       }
-      next.push(task)
     })
     if (status === DownloadGalleryTaskStatus.ERROR || !matched) {
       DiagnosticLogger.info(
@@ -2917,7 +2930,9 @@ export class DownloadQueueSettings {
         `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} status=${status} matched=${matched} exact=${exactMatched} errorHash=${DiagnosticLogger.ownerHash(error)}`,
       )
     }
-    DownloadQueueSettings.setGalleryTasks(state, next)
+    if (matched) {
+      publishDownloadQueueChanged()
+    }
     if (updatedTask !== null) {
       if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
         await DownloadQueueSettings.persistGalleryTaskHeader(context, updatedTask, false)
@@ -2927,13 +2942,15 @@ export class DownloadQueueSettings {
     }
   }
 
-  private static clearPendingSeedErrors(seeds: DownloadImageSeed[]): DownloadImageSeed[] {
-    return seeds.map((seed: DownloadImageSeed) => {
-      const out: DownloadImageSeed = seed.copy()
-      if (out.filePath.length === 0 && out.imagePageUrl.length > 0) {
-        out.downloadError = ''
+  private static clearPendingSeedErrors(seeds: DownloadImageSeed[]): void {
+    seeds.forEach((seed: DownloadImageSeed) => {
+      if (
+        seed.filePath.length === 0 &&
+        seed.imagePageUrl.length > 0 &&
+        seed.downloadError.length > 0
+      ) {
+        seed.downloadError = ''
       }
-      return out
     })
   }
 

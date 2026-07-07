@@ -30,7 +30,7 @@ import {
   DownloadGalleryTask,
   DownloadGalleryTaskStatus,
   DownloadQueueSettings,
-  DownloadQueueState,
+  DownloadQueueSignalState,
   DownloadViewState,
   DownloadViewType,
   connectSearchAction,
@@ -47,6 +47,7 @@ import {
   SELECTOR_BAR_HEIGHT,
   DOWNLOAD_SELECTOR_BAR_HEIGHT,
   connectDownloadQueue,
+  connectDownloadQueueSignal,
   connectDownloadView,
   setDownloadQueuePageActive,
   immersiveTitleBarOpts,
@@ -419,7 +420,7 @@ struct Index {
   @Local homeTab: HomeTabAutoHideState = connectHomeTabAutoHide();
   @Local immersiveMaterial: ImmersiveMaterialSettingsState = connectImmersiveMaterialSettings();
   @Local downloadView: DownloadViewState = connectDownloadView();
-  @Local downloadQueue: DownloadQueueState = connectDownloadQueue();
+  @Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal();
   @Local currentTab: number = 0;
   private lastHandledSignal: string = '';
   private lastHandledQuery: string = '';
@@ -958,6 +959,7 @@ struct Index {
   }
 
   private downloadMenu(): Record<string, Object> {
+    const signalVersion: number = this.downloadQueueSignal.version
     const items: Record<string, Object>[] = []
     const searchInner: Record<string, Object> = {
       'label': this.downloadView.searchActive ? $r('app.string.download_search_close') : $r('app.string.tab_search'),
@@ -992,7 +994,7 @@ struct Index {
       items.push({ 'content': pauseInner })
     }
     items.push(this.backToTopMenuItem())
-    return { 'value': items, 'maxCount': 3 }
+    return { 'value': items, 'maxCount': signalVersion >= 0 ? 3 : 3 }
   }
 
   private downloadSortMenuItem(): Record<string, Object> {
@@ -1022,13 +1024,14 @@ struct Index {
   }
 
   private downloadHasResumable(): boolean {
+    const queue = connectDownloadQueue()
     if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
-      return this.downloadQueue.archiverTasks.some((task: DownloadArchiverTask) => {
+      return queue.archiverTasks.some((task: DownloadArchiverTask) => {
         return task.status === DownloadGalleryTaskStatus.QUEUED ||
           task.status === DownloadGalleryTaskStatus.ERROR
       })
     }
-    return this.downloadQueue.galleryTasks.some((task: DownloadGalleryTask) => {
+    return queue.galleryTasks.some((task: DownloadGalleryTask) => {
       return task.status === DownloadGalleryTaskStatus.QUEUED ||
         task.status === DownloadGalleryTaskStatus.READY ||
         task.status === DownloadGalleryTaskStatus.PAUSED ||
@@ -1038,10 +1041,11 @@ struct Index {
   }
 
   private downloadHasPausable(): boolean {
+    const queue = connectDownloadQueue()
     if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
       return false
     }
-    return this.downloadQueue.galleryTasks.some((task: DownloadGalleryTask) => {
+    return queue.galleryTasks.some((task: DownloadGalleryTask) => {
       return task.status === DownloadGalleryTaskStatus.DOWNLOADING
     })
   }

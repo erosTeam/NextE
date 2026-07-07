@@ -86,7 +86,9 @@ ok(/DownloadQueueRepository\.replaceAll\(context, tasks\)/.test(settings) &&
 ok(!/state\.revision = state\.revision \+ 1/.test(settings) &&
   /state\.replaceGalleryTasks\(next\)/.test(settings) &&
   /state\.replaceArchiverTasks\(next\)/.test(settings) &&
-  /updateGalleryStreamProgress[\s\S]*const task: DownloadGalleryTask = state\.galleryTasks\[i\][\s\S]*task\.activeBytesWritten = loaded[\s\S]*publishDownloadQueueChanged\(\)/.test(settings),
+  /updateGalleryStreamProgress[\s\S]*recordGalleryActiveProgress\(key, seed\.page, loaded, total, now\)[\s\S]*!isDownloadQueuePageActive\(\)[\s\S]*syncGalleryActiveProgressToQueue\(key, gid, token, preferOriginal, now\)/.test(settings) &&
+  /applyGalleryActiveProgress[\s\S]*task\.activeBytesWritten = progress\.loaded[\s\S]*task\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
+  /syncGalleryActiveProgressToQueue[\s\S]*publishDownloadQueueChanged\(\)/.test(settings),
   'download queue mutations publish through DownloadQueueState methods instead of external revision writes')
 ok(!/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings),
   'queue no longer writes the large task list to Preferences')
