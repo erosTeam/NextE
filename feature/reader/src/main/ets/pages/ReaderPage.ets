@@ -47,6 +47,8 @@ const READER_PROGRESS_SLIDER_GAP: number = 4
 const READER_IMAGE_WARM_AHEAD: number = 2
 const READER_ZOOM_ANIM_DURATION: number = 180
 const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
+const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
+const READER_STATUS_BAR_DARK_CONTENT: string = '#FF000000'
 class ReaderSpreadResolver {
   static isDoublePage(mode: string, enabled: boolean): boolean {
     return mode !== ReadMode.VERTICAL && enabled
@@ -173,6 +175,7 @@ export struct ReaderPage {
   private spreadDataSourceKey: string = '';
   private volumeDownConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private volumeUpConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
+  private readerClosing: boolean = false;
 
   build() {
     HdsNavDestination() {
@@ -244,9 +247,14 @@ export struct ReaderPage {
     }
     .hideTitleBar(true)
     .backgroundColor(Color.Black)
+    .onBackPressed(() => {
+      this.closeReader()
+      return true
+    })
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as ReaderParams
       if (p !== undefined && p.gid.length > 0) {
+        this.readerClosing = false
         this.readerReady = false
         this.params = p
         this.showChrome = p.initialChromeVisible
@@ -285,7 +293,9 @@ export struct ReaderPage {
       // restored on aboutToDisappear. The app is already edge-to-edge fullscreen (EntryAbility), so the
       // reader doesn't re-enter fullscreen — the black canvas + faded chrome is the immersive surface.
       this.setReaderKeepScreenOn(true)
-      this.setReaderStatusIconsHidden(true)
+      setTimeout(() => {
+        this.syncReaderStatusBarWithChrome()
+      }, 0)
       this.requestReaderKeyFocus()
       this.registerVolumeKeyConsumer()
     })
@@ -395,8 +405,7 @@ export struct ReaderPage {
     this.volumeUpConsumer = null
   }
 
-  // Window keep-screen-on toggle (no global system-bar churn — status bar auto-contrasts white over the
-  // black canvas). Best-effort: a failure must not break the reader.
+  // Window keep-screen-on toggle. Best-effort: a failure must not break the reader.
   private setReaderKeepScreenOn(active: boolean): void {
     window
       .getLastWindow(this.hostContext())
@@ -406,15 +415,48 @@ export struct ReaderPage {
       .catch((_e: Error) => {})
   }
 
-  private setReaderStatusIconsHidden(hidden: boolean): void {
-    const restoreColor: string = connectThemeDisplay().effectiveDark ? '#FFFFFFFF' : '#FF000000'
-    const contentColor: string = hidden ? '#00000000' : restoreColor
-    window
+  private appStatusBarContentColor(): string {
+    return connectThemeDisplay().effectiveDark ? READER_STATUS_BAR_LIGHT_CONTENT : READER_STATUS_BAR_DARK_CONTENT
+  }
+
+  private applyReaderStatusBarVisible(visible: boolean, readerChrome: boolean = true): Promise<void> {
+    const contentColor: string = readerChrome ? READER_STATUS_BAR_LIGHT_CONTENT : this.appStatusBarContentColor()
+    const lightIcon: boolean = readerChrome || connectThemeDisplay().effectiveDark
+    return window
       .getLastWindow(this.hostContext())
       .then((win: window.Window) => {
-        win.setWindowSystemBarProperties({ statusBarContentColor: contentColor }).catch((_e: Error) => {})
+        if (visible) {
+          return win.setWindowSystemBarProperties({
+            statusBarContentColor: contentColor,
+            isStatusBarLightIcon: lightIcon,
+          })
+            .catch((_e: Error) => {})
+            .then(() => {
+              return win.setSpecificSystemBarEnabled('status', true, false)
+            })
+        }
+        return win.setSpecificSystemBarEnabled('status', false, false)
       })
       .catch((_e: Error) => {})
+  }
+
+  private setReaderStatusBarVisible(visible: boolean, readerChrome: boolean = true): void {
+    this.applyReaderStatusBarVisible(visible, readerChrome)
+  }
+
+  private syncReaderStatusBarWithChrome(): void {
+    this.setReaderStatusBarVisible(this.showChrome, true)
+  }
+
+  private closeReader(): void {
+    if (this.readerClosing) {
+      return
+    }
+    this.readerClosing = true
+    this.applyReaderStatusBarVisible(true, true)
+      .then(() => {
+        connectNavStack().stack.pop()
+      })
   }
 
   private hostContext(): common.UIAbilityContext {
@@ -827,7 +869,7 @@ export struct ReaderPage {
     this.unregisterVolumeKeyConsumer()
     // Always restore (fires on NavDestination pop, incl. swipe-back) so the wakelock never leaks.
     this.setReaderKeepScreenOn(false)
-    this.setReaderStatusIconsHidden(false)
+    this.setReaderStatusBarVisible(true, false)
   }
 
   private autoReadIntervalMs(): number {
@@ -1528,8 +1570,10 @@ export struct ReaderPage {
   // Center-tap chrome toggle with a fade (eros_fe 300ms fastOutSlowIn; V2Next animateTo idiom). Hooks
   // the SAME onReaderTap center path — no new gesture.
   private toggleChrome(): void {
+    const nextVisible: boolean = !this.showChrome
+    this.setReaderStatusBarVisible(nextVisible, true)
     this.getUIContext().animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => {
-      this.showChrome = !this.showChrome
+      this.showChrome = nextVisible
     })
   }
 
@@ -1652,7 +1696,7 @@ export struct ReaderPage {
       .height(READER_CHROME_ACTION_SIZE)
       .backgroundColor(Color.Transparent)
       .onClick(() => {
-        connectNavStack().stack.pop()
+        this.closeReader()
       })
       Text(this.pageCountText())
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
