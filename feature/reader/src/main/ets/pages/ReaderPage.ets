@@ -251,6 +251,12 @@ export struct ReaderPage {
       this.closeReader()
       return true
     })
+    .onShown(() => {
+      this.syncReaderStatusBarWithChrome()
+    })
+    .onWillHide(() => {
+      this.setReaderStatusBarVisible(true, false)
+    })
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as ReaderParams
       if (p !== undefined && p.gid.length > 0) {
@@ -293,9 +299,6 @@ export struct ReaderPage {
       // restored on aboutToDisappear. The app is already edge-to-edge fullscreen (EntryAbility), so the
       // reader doesn't re-enter fullscreen — the black canvas + faded chrome is the immersive surface.
       this.setReaderKeepScreenOn(true)
-      setTimeout(() => {
-        this.syncReaderStatusBarWithChrome()
-      }, 0)
       this.requestReaderKeyFocus()
       this.registerVolumeKeyConsumer()
     })
@@ -867,9 +870,7 @@ export struct ReaderPage {
     }
     this.stopAutoRead()
     this.unregisterVolumeKeyConsumer()
-    // Always restore (fires on NavDestination pop, incl. swipe-back) so the wakelock never leaks.
     this.setReaderKeepScreenOn(false)
-    this.setReaderStatusBarVisible(true, false)
   }
 
   private autoReadIntervalMs(): number {
