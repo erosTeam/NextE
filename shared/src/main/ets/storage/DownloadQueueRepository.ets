@@ -100,6 +100,38 @@ export class DownloadQueueRepository {
     }
   }
 
+  static async updateGalleryTaskDelta(
+    context: common.UIAbilityContext,
+    task: DownloadGalleryTask,
+    changedSeeds: DownloadImageSeed[],
+  ): Promise<void> {
+    if (task.gid.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    store.beginTransaction()
+    try {
+      await DownloadQueueRepository.upsertTaskHeader(store, task)
+      for (let i: number = 0; i < changedSeeds.length; i++) {
+        const seed: DownloadImageSeed = changedSeeds[i]
+        if (seed.imagePageUrl.length > 0) {
+          await DownloadQueueRepository.upsertSeed(
+            store,
+            task.gid,
+            task.token,
+            task.preferOriginal,
+            seed,
+            DownloadQueueRepository.seedPositionIndex(task, seed),
+          )
+        }
+      }
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
+  }
+
   static async loadArchiver(context: common.UIAbilityContext): Promise<DownloadArchiverTask[]> {
     const out: DownloadArchiverTask[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -147,6 +179,22 @@ export class DownloadQueueRepository {
     if (task.gid.length === 0) {
       return
     }
+    await DownloadQueueRepository.upsertTaskHeader(store, task)
+    for (let i: number = 0; i < task.imageSeeds.length; i++) {
+      const seed: DownloadImageSeed = task.imageSeeds[i]
+      if (seed.imagePageUrl.length > 0) {
+        await DownloadQueueRepository.upsertSeed(store, task.gid, task.token, task.preferOriginal, seed, i)
+      }
+    }
+  }
+
+  private static async upsertTaskHeader(
+    store: relationalStore.RdbStore,
+    task: DownloadGalleryTask,
+  ): Promise<void> {
+    if (task.gid.length === 0) {
+      return
+    }
     await store.executeSql(SQL_UPSERT_TASK, [
       SCOPE_GLOBAL,
       task.gid,
@@ -168,12 +216,6 @@ export class DownloadQueueRepository {
       task.preferOriginal ? 1 : 0,
       DownloadQueueRepository.normalizedGalleryStatusForWrite(task),
     ])
-    for (let i: number = 0; i < task.imageSeeds.length; i++) {
-      const seed: DownloadImageSeed = task.imageSeeds[i]
-      if (seed.imagePageUrl.length > 0) {
-        await DownloadQueueRepository.upsertSeed(store, task.gid, task.token, task.preferOriginal, seed, i)
-      }
-    }
   }
 
   private static async upsertSeed(
@@ -229,6 +271,15 @@ export class DownloadQueueRepository {
       resultSet.close()
     }
     return out
+  }
+
+  private static seedPositionIndex(task: DownloadGalleryTask, seed: DownloadImageSeed): number {
+    for (let i: number = 0; i < task.imageSeeds.length; i++) {
+      if (task.imageSeeds[i].imagePageUrl === seed.imagePageUrl) {
+        return i
+      }
+    }
+    return Math.max(0, seed.page - 1)
   }
 
   private static readTask(resultSet: relationalStore.ResultSet): DownloadGalleryTask {

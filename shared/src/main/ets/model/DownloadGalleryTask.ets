@@ -195,6 +195,9 @@ export class DownloadGalleryTask {
 
   downloadedCount(): number {
     if (this.imageSeeds.length > 0) {
+      if (this.downloadedFiles > 0) {
+        return Math.max(0, Math.min(this.downloadedFiles, this.imageSeeds.length))
+      }
       return DownloadGalleryTask.countDownloadedSeeds(this.imageSeeds)
     }
     return this.downloadedFiles
@@ -210,6 +213,9 @@ export class DownloadGalleryTask {
   }
 
   pendingDownloadCount(): number {
+    if (this.imageSeeds.length > 0 && this.downloadedFiles > 0) {
+      return Math.max(0, this.seededCount() - this.downloadedFiles)
+    }
     return this.imageSeeds.filter((seed: DownloadImageSeed) => {
       return seed.filePath.length === 0 && seed.imagePageUrl.length > 0
     }).length

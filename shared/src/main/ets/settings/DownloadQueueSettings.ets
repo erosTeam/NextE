@@ -44,6 +44,12 @@ const ARCHIVER_METADATA_SUFFIX: string = '.metadata.json'
 const NO_MEDIA_MARKER_FILE: string = '.nomedia'
 const ARCHIVE_BOT_SETTINGS_INCOMPLETE: string = 'Archive bot settings are incomplete'
 const DOWNLOAD_PATH_TITLE_MAX_LENGTH: number = 96
+const DOWNLOAD_PERF_APPLY_WARN_MS: number = 16
+const DOWNLOAD_PERF_PERSIST_WARN_MS: number = 24
+const DOWNLOAD_PERF_METADATA_WARN_MS: number = 16
+const DOWNLOAD_PERF_METADATA_WARN_BYTES: number = 64 * 1024
+const DOWNLOAD_PERF_SIGNAL_WINDOW_MS: number = 2000
+const DOWNLOAD_PROGRESS_METADATA_FLUSH_MS: number = 5000
 
 export class DownloadDirectoryImportResult {
   galleryTasks: number = 0
@@ -130,6 +136,10 @@ export class DownloadQueueSettings {
   private static cancelledArchiverDownloads: Set<string> = new Set<string>()
   private static galleryProgressPulses: Map<string, number> = new Map<string, number>()
   private static galleryProgressLogPulses: Map<string, number> = new Map<string, number>()
+  private static galleryProgressSignalWindows: Map<string, number> = new Map<string, number>()
+  private static galleryProgressSignalCounts: Map<string, number> = new Map<string, number>()
+  private static galleryMetadataFlushTimers: Map<string, number> = new Map<string, number>()
+  private static pendingGalleryMetadataTasks: Map<string, DownloadGalleryTask> = new Map<string, DownloadGalleryTask>()
   private static archiverProgressPulses: Map<string, number> = new Map<string, number>()
   private static archiverProgressLogPulses: Map<string, number> = new Map<string, number>()
   private static loggedDownloadDirs: Set<string> = new Set<string>()
@@ -386,6 +396,7 @@ export class DownloadQueueSettings {
     DownloadQueueSettings.setGalleryTasks(state, next)
     await DownloadQueueSettings.persist(context, next)
     if (removed !== null) {
+      DownloadQueueSettings.cancelScheduledGalleryMetadata(removed)
       DownloadQueueSettings.deleteGalleryContent(context, removed)
     }
   }
@@ -1304,12 +1315,14 @@ export class DownloadQueueSettings {
     preferOriginal: boolean,
     results: DownloadSeedResult[],
   ): Promise<boolean> {
+    const startedAt: number = Date.now()
     let hasError: boolean = false
     let firstError: string = ''
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
     let updatedTask: DownloadGalleryTask | null = null
     let matched: boolean = false
+    const changedSeeds: DownloadImageSeed[] = []
     for (let i: number = 0; i < state.galleryTasks.length; i++) {
       const task: DownloadGalleryTask = state.galleryTasks[i].copy()
       if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
@@ -1341,6 +1354,7 @@ export class DownloadQueueSettings {
           if (task.activeDownloadPage === seed.page) {
             task.clearActiveDownloadProgress()
           }
+          changedSeeds.push(seed.copy())
         }
         const taskError: string = DownloadQueueSettings.firstSeedError(task.imageSeeds)
         hasError = hasError || taskError.length > 0
@@ -1363,8 +1377,17 @@ export class DownloadQueueSettings {
     if (matched) {
       DownloadQueueSettings.setGalleryTasks(state, next)
       if (updatedTask !== null) {
-        await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+        await DownloadQueueSettings.persistGalleryTaskDelta(context, updatedTask, changedSeeds)
       }
+    }
+    const costMs: number = Date.now() - startedAt
+    const seedCount: number = updatedTask !== null ? updatedTask.imageSeeds.length : 0
+    if (costMs >= DOWNLOAD_PERF_APPLY_WARN_MS) {
+      DiagnosticLogger.info(
+        'download',
+        'download_perf_apply_results',
+        `gid=${gid} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} results=${results.length} seeds=${seedCount} matched=${matched} costMs=${costMs}`,
+      )
     }
     return hasError
   }
@@ -1552,7 +1575,11 @@ export class DownloadQueueSettings {
     }
     DownloadQueueSettings.setGalleryTasks(state, next)
     if (updatedTask !== null) {
-      await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+      if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
+        await DownloadQueueSettings.persistGalleryTaskHeader(context, updatedTask, false)
+      } else {
+        await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+      }
     }
   }
 
@@ -1620,12 +1647,67 @@ export class DownloadQueueSettings {
     context: common.UIAbilityContext,
     task: DownloadGalleryTask,
   ): Promise<void> {
+    const startedAt: number = Date.now()
     try {
       await DownloadQueueRepository.replaceGalleryTask(context, task)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_task_save_failed', (error as Error).message)
     }
     DownloadQueueSettings.writeGalleryMetadataTask(context, task)
+    const costMs: number = Date.now() - startedAt
+    if (costMs >= DOWNLOAD_PERF_PERSIST_WARN_MS || task.imageSeeds.length >= 120) {
+      DiagnosticLogger.info(
+        'download',
+        'download_perf_persist_gallery_task',
+        `gid=${task.gid} quality=${DownloadQueueSettings.galleryQuality(task.preferOriginal)} seeds=${task.imageSeeds.length} downloaded=${task.downloadedFiles} costMs=${costMs}`,
+      )
+    }
+  }
+
+  private static async persistGalleryTaskHeader(
+    context: common.UIAbilityContext,
+    task: DownloadGalleryTask,
+    flushMetadata: boolean,
+  ): Promise<void> {
+    const startedAt: number = Date.now()
+    try {
+      await DownloadQueueRepository.updateGalleryTaskDelta(context, task, [])
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_queue_task_header_save_failed', (error as Error).message)
+    }
+    if (flushMetadata) {
+      DownloadQueueSettings.writeGalleryMetadataTask(context, task)
+    }
+    const costMs: number = Date.now() - startedAt
+    if (costMs >= DOWNLOAD_PERF_PERSIST_WARN_MS) {
+      DiagnosticLogger.info(
+        'download',
+        'download_perf_persist_gallery_header',
+        `gid=${task.gid} quality=${DownloadQueueSettings.galleryQuality(task.preferOriginal)} seeds=${task.imageSeeds.length} downloaded=${task.downloadedFiles} metadata=${flushMetadata} costMs=${costMs}`,
+      )
+    }
+  }
+
+  private static async persistGalleryTaskDelta(
+    context: common.UIAbilityContext,
+    task: DownloadGalleryTask,
+    changedSeeds: DownloadImageSeed[],
+  ): Promise<void> {
+    const startedAt: number = Date.now()
+    try {
+      await DownloadQueueRepository.updateGalleryTaskDelta(context, task, changedSeeds)
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_queue_task_delta_save_failed', (error as Error).message)
+    }
+    DownloadQueueSettings.scheduleGalleryMetadataTask(context, task)
+    const costMs: number = Date.now() - startedAt
+    if (costMs >= DOWNLOAD_PERF_PERSIST_WARN_MS) {
+      DiagnosticLogger.info(
+        'download',
+        'download_perf_persist_gallery_delta',
+        `gid=${task.gid} quality=${DownloadQueueSettings.galleryQuality(task.preferOriginal)} seeds=${task.imageSeeds.length} changedSeeds=${changedSeeds.length} downloaded=${task.downloadedFiles} costMs=${costMs}`,
+      )
+    }
   }
 
   private static async persistArchiver(
@@ -2079,16 +2161,60 @@ export class DownloadQueueSettings {
     })
   }
 
+  private static scheduleGalleryMetadataTask(context: common.UIAbilityContext, task: DownloadGalleryTask): void {
+    if (task.gid.length === 0) {
+      return
+    }
+    const key: string = DownloadQueueSettings.taskKey(task.gid, task.token, task.preferOriginal)
+    DownloadQueueSettings.pendingGalleryMetadataTasks.set(key, task.copy())
+    if (DownloadQueueSettings.galleryMetadataFlushTimers.has(key)) {
+      return
+    }
+    const timer: number = setTimeout((): void => {
+      DownloadQueueSettings.galleryMetadataFlushTimers.delete(key)
+      const pending: DownloadGalleryTask | undefined = DownloadQueueSettings.pendingGalleryMetadataTasks.get(key)
+      DownloadQueueSettings.pendingGalleryMetadataTasks.delete(key)
+      if (pending !== undefined) {
+        DownloadQueueSettings.writeGalleryMetadataTask(context, pending)
+      }
+    }, DOWNLOAD_PROGRESS_METADATA_FLUSH_MS)
+    DownloadQueueSettings.galleryMetadataFlushTimers.set(key, timer)
+  }
+
+  private static cancelScheduledGalleryMetadata(task: DownloadGalleryTask): void {
+    if (task.gid.length === 0) {
+      return
+    }
+    const key: string = DownloadQueueSettings.taskKey(task.gid, task.token, task.preferOriginal)
+    const timer: number | undefined = DownloadQueueSettings.galleryMetadataFlushTimers.get(key)
+    if (timer !== undefined) {
+      clearTimeout(timer)
+      DownloadQueueSettings.galleryMetadataFlushTimers.delete(key)
+    }
+    DownloadQueueSettings.pendingGalleryMetadataTasks.delete(key)
+  }
+
   private static writeGalleryMetadataTask(context: common.UIAbilityContext, task: DownloadGalleryTask): void {
     if (task.gid.length === 0) {
       return
     }
+    DownloadQueueSettings.cancelScheduledGalleryMetadata(task)
     try {
+      const startedAt: number = Date.now()
+      const text: string = JSON.stringify([DownloadQueueSettings.galleryTaskMetadata(task)])
       DownloadQueueSettings.writeTextFile(
         DownloadQueueSettings.galleryMetadataPath(context, task),
-        JSON.stringify([DownloadQueueSettings.galleryTaskMetadata(task)]),
+        text,
         'gallery_metadata_write_failed',
       )
+      const costMs: number = Date.now() - startedAt
+      if (costMs >= DOWNLOAD_PERF_METADATA_WARN_MS || text.length >= DOWNLOAD_PERF_METADATA_WARN_BYTES) {
+        DiagnosticLogger.info(
+          'download',
+          'download_perf_gallery_metadata',
+          `gid=${task.gid} quality=${DownloadQueueSettings.galleryQuality(task.preferOriginal)} seeds=${task.imageSeeds.length} jsonBytes=${text.length} costMs=${costMs}`,
+        )
+      }
     } catch (error) {
       DiagnosticLogger.warn('download', 'gallery_metadata_write_failed', (error as Error).message)
     }
@@ -2552,10 +2678,33 @@ export class DownloadQueueSettings {
     }
     if (updated) {
       publishDownloadQueueChanged()
+      DownloadQueueSettings.recordGalleryProgressSignalRate(key, gid, preferOriginal, now)
     }
     if (!logged && total > 0 && loaded >= total) {
       DownloadQueueSettings.galleryProgressLogPulses.set(key, now)
     }
+  }
+
+  private static recordGalleryProgressSignalRate(
+    key: string,
+    gid: string,
+    preferOriginal: boolean,
+    now: number,
+  ): void {
+    const windowStartedAt: number = DownloadQueueSettings.galleryProgressSignalWindows.get(key) ?? now
+    const count: number = (DownloadQueueSettings.galleryProgressSignalCounts.get(key) ?? 0) + 1
+    if (now - windowStartedAt < DOWNLOAD_PERF_SIGNAL_WINDOW_MS) {
+      DownloadQueueSettings.galleryProgressSignalWindows.set(key, windowStartedAt)
+      DownloadQueueSettings.galleryProgressSignalCounts.set(key, count)
+      return
+    }
+    DiagnosticLogger.info(
+      'download',
+      'download_perf_gallery_signal_rate',
+      `gid=${gid} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} keyHash=${DiagnosticLogger.ownerHash(key)} signals=${count} windowMs=${now - windowStartedAt}`,
+    )
+    DownloadQueueSettings.galleryProgressSignalWindows.set(key, now)
+    DownloadQueueSettings.galleryProgressSignalCounts.set(key, 0)
   }
 
   private static updateArchiverProgress(tag: string, loaded: number, total: number): void {
@@ -2670,7 +2819,11 @@ export class DownloadQueueSettings {
     }
     DownloadQueueSettings.setGalleryTasks(state, next)
     if (updatedTask !== null) {
-      await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+      if (status === DownloadGalleryTaskStatus.DOWNLOADING) {
+        await DownloadQueueSettings.persistGalleryTaskHeader(context, updatedTask, false)
+      } else {
+        await DownloadQueueSettings.persistGalleryTask(context, updatedTask)
+      }
     }
   }
 

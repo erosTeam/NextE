@@ -90,6 +90,10 @@ ok('LocalDataStore migrates existing archiver tasks to include parse source',
 
 const repo = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
+const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
+const deltaBody = repo.match(/static async updateGalleryTaskDelta[\s\S]*?\n  static async loadArchiver/)?.[0] ?? ''
+const applyResultsBody = settings.match(/private static async applyDownloadResults[\s\S]*?\n  private static firstSeedError/)?.[0] ?? ''
+const statusBody = settings.match(/private static async updateDownloadTaskStatus[\s\S]*?\n  private static clearPendingSeedErrors/)?.[0] ?? ''
 ok('repository loads and replaces queue through RDB',
   /class DownloadQueueRepository/.test(repo) &&
     /LocalDataStore\.open\(context\)/.test(repo) &&
@@ -104,6 +108,12 @@ ok('repository replaces gallery and archiver queues atomically',
   /static async replaceAll\(context: common\.UIAbilityContext, tasks: DownloadGalleryTask\[\]\): Promise<void> \{[\s\S]*store\.beginTransaction\(\)[\s\S]*SQL_DELETE_SEEDS[\s\S]*SQL_DELETE_TASKS[\s\S]*upsertTask[\s\S]*store\.commit\(\)[\s\S]*catch \(error\) \{[\s\S]*store\.rollBack\(\)[\s\S]*throw error as Error/.test(repo) &&
     /static async replaceAllArchiver\(context: common\.UIAbilityContext, tasks: DownloadArchiverTask\[\]\): Promise<void> \{[\s\S]*store\.beginTransaction\(\)[\s\S]*SQL_DELETE_ARCHIVER_TASKS[\s\S]*upsertArchiverTask[\s\S]*store\.commit\(\)[\s\S]*catch \(error\) \{[\s\S]*store\.rollBack\(\)[\s\S]*throw error as Error/.test(repo),
   'large download queue replacement cannot leave partially deleted seed rows on interruption')
+ok('repository supports incremental gallery task progress writes without deleting all seeds',
+  /static async updateGalleryTaskDelta\([\s\S]*context: common\.UIAbilityContext,[\s\S]*task: DownloadGalleryTask,[\s\S]*changedSeeds: DownloadImageSeed\[\],[\s\S]*\): Promise<void>/.test(repo) &&
+    /upsertTaskHeader\(store, task\)/.test(deltaBody) &&
+    /changedSeeds\.length/.test(deltaBody) &&
+    /upsertSeed\(/.test(deltaBody) &&
+    !/SQL_DELETE_SEEDS_FOR_TASK/.test(deltaBody))
 ok('repository restores downloaded seed metadata',
   /seed\.filePath/.test(repo) &&
     /seed\.bytesWritten/.test(repo) &&
@@ -128,6 +138,22 @@ ok('repository does not persist false complete status for partially downloaded g
   /normalizedGalleryStatusForWrite\(task\)/.test(repo) &&
     /status === DownloadGalleryTaskStatus\.COMPLETE && !task\.isDownloadComplete\(\)/.test(repo) &&
     /task\.downloadedCount\(\) > 0[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(repo))
+ok('ordinary gallery progress keeps realtime state updates while avoiding full seed replacement per image',
+  /DownloadQueueSettings\.setGalleryTasks\(state, next\)/.test(applyResultsBody) &&
+    /persistGalleryTaskDelta\(context, updatedTask, changedSeeds\)/.test(applyResultsBody) &&
+    !/persistGalleryTask\(context, updatedTask\)/.test(applyResultsBody) &&
+    /private static async persistGalleryTaskDelta/.test(settings) &&
+    /DownloadQueueRepository\.updateGalleryTaskDelta\(context, task, changedSeeds\)/.test(settings) &&
+    /scheduleGalleryMetadataTask\(context, task\)/.test(settings))
+ok('ordinary gallery progress throttles metadata sidecar writes but flushes immediate task writes',
+  /DOWNLOAD_PROGRESS_METADATA_FLUSH_MS: number = 5000/.test(settings) &&
+    /galleryMetadataFlushTimers: Map<string, number>/.test(settings) &&
+    /pendingGalleryMetadataTasks: Map<string, DownloadGalleryTask>/.test(settings) &&
+    /writeGalleryMetadataTask\(context, task\)[\s\S]*cancelScheduledGalleryMetadata\(task\)/.test(settings) &&
+    /status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*persistGalleryTaskHeader\(context, updatedTask, false\)[\s\S]*else[\s\S]*persistGalleryTask\(context, updatedTask\)/.test(statusBody))
+ok('download list progress count uses synced counters instead of rescanning large seed arrays after progress starts',
+  /downloadedCount\(\): number \{[\s\S]*this\.downloadedFiles > 0[\s\S]*return Math\.max\(0, Math\.min\(this\.downloadedFiles, this\.imageSeeds\.length\)\)/.test(model) &&
+    /syncProgressCounts\(\): void \{[\s\S]*this\.downloadedFiles = DownloadGalleryTask\.countDownloadedSeeds\(this\.imageSeeds\)/.test(model))
 ok('repository loads and replaces archiver queue through RDB',
   /loadArchiver\(context/.test(repo) &&
     /replaceAllArchiver\(context/.test(repo) &&
@@ -147,7 +173,6 @@ ok('paused download status is a durable queue state',
     /status === DownloadGalleryTaskStatus\.PAUSED/.test(repo) &&
     /status === DownloadGalleryTaskStatus\.PAUSED/.test(read('shared/src/main/ets/settings/DownloadQueueSettings.ets')))
 
-const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets')
 const imageResolve = read('shared/src/main/ets/services/ImageResolveService.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
@@ -308,7 +333,7 @@ ok('incremental gallery downloads inherit files only from the same ordinary qual
     /findGalleryTaskIn\([\s\S]*task\.upgradeFromGid,[\s\S]*'',[\s\S]*task\.preferOriginal/.test(settings) &&
     /inheritDownloadedSeedsFromParent\([\s\S]*task\.preferOriginal,[\s\S]*parent/.test(settings))
 ok('remove deletes only the selected gallery download quality content',
-  /removeGallery\([\s\S]*preferOriginal: boolean = false[\s\S]*taskKey\(gid, token, preferOriginal\)[\s\S]*sameGalleryTask\(it, gid, token, preferOriginal\)[\s\S]*deleteGalleryContent\(context, removed\)/.test(settings) &&
+  /removeGallery\([\s\S]*preferOriginal: boolean = false[\s\S]*taskKey\(gid, token, preferOriginal\)[\s\S]*sameGalleryTask\(it, gid, token, preferOriginal\)[\s\S]*cancelScheduledGalleryMetadata\(removed\)[\s\S]*deleteGalleryContent\(context, removed\)/.test(settings) &&
     /deleteGalleryContent\([\s\S]*galleryRootDirs\(context\)[\s\S]*legacyGalleryRootDir\(context\)[\s\S]*galleryDirNameCandidates\([\s\S]*task\.gid,[\s\S]*task\.preferOriginal,[\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(task\)[\s\S]*deleteSandboxPath/.test(settings))
 ok('remove cancels in-flight gallery workers and discards late batch files',
   /cancelledGalleryDownloads: Set<string>/.test(settings) &&

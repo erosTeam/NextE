@@ -67,7 +67,8 @@ ok(/downloadGalleryImages/.test(settings) &&
 ok(/static async downloadGalleryImages[\s\S]*found: DownloadGalleryTask \| null = DownloadQueueSettings\.findTask\(gid, token, preferOriginal\)[\s\S]*found\.imageSeeds\.length === 0[\s\S]*shouldRefreshIncompleteSeedList\(found\)[\s\S]*refreshGallerySeedsFromRemote\(context, gid, token, connectSiteMode\(\)\.isEx, preferOriginal\)/.test(settings),
   'manual gallery resume fetches remote seeds instead of marking no-seed or incomplete-seed tasks ready')
 ok(/galleryDownloads: Map<string, Promise<void>>/.test(settings) &&
-  /static async downloadGalleryImages[\s\S]*galleryDownloads\.get\(key\)[\s\S]*await running[\s\S]*runGalleryImageDownload\(context, gid, token, preferOriginal\)[\s\S]*galleryDownloads\.delete\(key\)/.test(settings),
+  /static async downloadGalleryImages[\s\S]*galleryDownloads\.get\(key\)[\s\S]*await running[\s\S]*startGalleryImageDownload\(context, gid, token, preferOriginal\)[\s\S]*galleryDownloads\.delete\(key\)/.test(settings) &&
+  /private static async startGalleryImageDownload[\s\S]*runGalleryImageDownload\(context, gid, token, preferOriginal\)/.test(settings),
   'queue executor joins an in-flight gallery download instead of starting duplicate workers')
 ok(/gallery_download_start/.test(settings) &&
   /gallery_download_batch_done/.test(settings) &&
@@ -79,7 +80,7 @@ ok(/let firstError: string = ''/.test(settings) &&
   /firstError=\$\{firstError\}/.test(settings),
   'failed gallery batches log the first seed error for device-side QA')
 ok(/Promise\.all\(jobs\)/.test(settings) &&
-  /downloadSeedToFile\(context, gid, token, preferOriginal, seed, useOriginal, retryCount\)[\s\S]*\.then\(async \(result: DownloadSeedResult\)[\s\S]*applyDownloadResults\(context, gid, token, preferOriginal, \[result\]\)[\s\S]*result\.applied = true/.test(settings),
+  /downloadSeedToFile\([\s\S]*context,[\s\S]*gid,[\s\S]*token,[\s\S]*preferOriginal,[\s\S]*seed,[\s\S]*useOriginal,[\s\S]*retryCount,[\s\S]*\)[\s\S]*\.then\(async \(result: DownloadSeedResult\)[\s\S]*applyDownloadResults\(context, gid, token, preferOriginal, \[result\]\)[\s\S]*result\.applied = true/.test(settings),
   'queue executor parallelizes downloads and applies each finished seed immediately')
 ok(/private static firstSeedError\(seeds: DownloadImageSeed\[\]\): string/.test(settings) &&
   /const taskError: string = DownloadQueueSettings\.firstSeedError\(task\.imageSeeds\)/.test(settings) &&
@@ -110,9 +111,9 @@ ok(/activeDownloadRatio/.test(model) &&
   /gid: string,[\s\S]*token: string,[\s\S]*activeBytesWritten = loaded[\s\S]*activeBytesTotal = total/.test(streamProgressBody) &&
   /const task: DownloadGalleryTask = state\.galleryTasks\[i\][\s\S]*task\.activeBytesWritten = loaded[\s\S]*task\.activeBytesTotal = total/.test(streamProgressBody) &&
   !/setGalleryTasks\(state, next\)/.test(streamProgressBody) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskProgressView[\s\S]*private activeDownloadRatio\(\): number[\s\S]*const task: DownloadGalleryTask = this\.currentTask\(\)[\s\S]*task\.activeBytesWritten[\s\S]*task\.activeBytesTotal/.test(queue) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskProgressView[\s\S]*private progressRatio\(\): number[\s\S]*const task: DownloadGalleryTask = this\.currentTask\(\)[\s\S]*task\.downloadedFiles[\s\S]*task\.seededFiles/.test(queue) &&
-  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*DownloadGalleryTaskProgressView\(\{ task: task, queueVersion: this\.downloadQueueTick \}\)/.test(queue),
+  /private activeDownloadRatio\(activeBytesWritten: number, activeBytesTotal: number\): number/.test(queue) &&
+  /private taskProgressRatio\([\s\S]*downloadedFiles: number,[\s\S]*seededFiles: number,[\s\S]*activeBytesWritten: number,[\s\S]*activeBytesTotal: number,[\s\S]*this\.activeDownloadRatio\(activeBytesWritten, activeBytesTotal\)/.test(queue) &&
+  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*this\.taskProgressRatio\([\s\S]*task\.downloadedFiles,[\s\S]*task\.seededFiles,[\s\S]*task\.activeBytesWritten,[\s\S]*task\.activeBytesTotal/.test(queue),
   'downloads page renders transient stream progress without replacing the whole gallery queue')
 ok(/context\.filesDir/.test(settings) && /download-gallery/.test(settings),
   'executor writes under the app sandbox download-gallery directory')
@@ -159,7 +160,7 @@ ok(/upgradeFromGid/.test(model) &&
   /gallery\.parentGid !== task\.gid \? gallery\.parentGid : ''/.test(model) &&
   /status === DownloadGalleryTaskStatus\.READY[\s\S]*findGalleryTaskIn\([\s\S]*task\.upgradeFromGid[\s\S]*inheritDownloadedSeedsFromParent/.test(settings) &&
   /inheritDownloadedSeedsFromParent\([\s\S]*it\.imgkey === out\.imgkey[\s\S]*downloadedFileSize\(it\.filePath\)[\s\S]*copyInheritedSeedFile/.test(settings) &&
-  /copyInheritedSeedFile\([\s\S]*ensureGalleryDownloadDir\(context, gid, preferOriginal\)[\s\S]*pageFilePrefix\(seed\.page\)[\s\S]*fs\.copyFile\(src\.fd, dest\.fd\)[\s\S]*return DownloadQueueSettings\.downloadedFileSize\(targetPath\) > 0 \? targetPath : ''/.test(settings),
+  /copyInheritedSeedFile\([\s\S]*ensureGalleryDownloadDir\(context, gid, preferOriginal, title\)[\s\S]*pageFilePrefix\(seed\.page\)[\s\S]*fs\.copyFile\(src\.fd, dest\.fd\)[\s\S]*return DownloadQueueSettings\.downloadedFileSize\(targetPath\) > 0 \? targetPath : ''/.test(settings),
   'newer-version gallery downloads inherit parent files by EH imgkey by copying them into the child gallery directory')
 ok(/DETAIL_SHEET_DOWNLOAD_UPGRADE/.test(detail) &&
   /canShowDownloadUpgrade\(\): boolean[\s\S]*this\.isDownloadTaskComplete\(task\)[\s\S]*this\.vm\.gallery\.newerVersions\.length > 0/.test(detail) &&
@@ -181,23 +182,24 @@ ok(/downloadBinaryToFileInStream/.test(client) && /requestInStream/.test(client)
   /dataReceive/.test(client) && /fs\.writeSync/.test(client), 'HTTP client can stream binary response to a sandbox file')
 
 ok(/download_file_progress/.test(queue) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskProgressView[\s\S]*private progressLabel\(\): string[\s\S]*const task: DownloadGalleryTask = this\.currentTask\(\)[\s\S]*task\.downloadedFiles[\s\S]*task\.seededFiles/.test(queue) &&
+  /private progressText\(count: number, pageCount: number\): string/.test(queue) &&
+  /private taskProgressLabel\([\s\S]*downloadedFiles: number,[\s\S]*seededFiles: number,[\s\S]*const downloadProgress: string = this\.progressText\(downloadedFiles, total\)/.test(queue) &&
+  /private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)[\s\S]*task\.downloadedFiles[\s\S]*task\.seededFiles/.test(queue) &&
   /download_status_complete/.test(queue), 'downloads page shows file progress and complete status')
 ok(/@Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal\(\)/.test(queue) &&
   /@Monitor\('downloadQueueSignal\.version'\)/.test(queue) &&
   /downloadQueueTick/.test(queue) &&
   !/@Monitor\('downloadQueue\.revision'\)/.test(queue) &&
   !/BasicDataSource<DownloadGalleryTask>|galleryDataSource/.test(queue) &&
-  /ForEach\(\s*this\.downloadQueue\.galleryTasks,[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queue) &&
+  /ForEach\(\s*this\.galleryTasksForGroup\(group\),[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queue) &&
   !/@ComponentV2\s+struct DownloadGalleryTaskCardView/.test(queue) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskProgressView[\s\S]*@Param task: DownloadGalleryTask[\s\S]*@Param queueVersion: number/.test(queue) &&
-  /@ComponentV2\s+struct DownloadGalleryTaskProgressView[\s\S]*@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)[\s\S]*private currentTask\(\): DownloadGalleryTask/.test(queue) &&
+  /private currentGalleryTask\(task: DownloadGalleryTask\): DownloadGalleryTask \{[\s\S]*this\.downloadQueue\.galleryTasks/.test(queue) &&
   /task\.status/.test(queue) &&
   /task\.downloadedFiles/.test(queue) &&
   /task\.seededFiles/.test(queue) &&
   /task\.activeBytesWritten/.test(queue) &&
   /task\.activeBytesTotal/.test(queue) &&
-  /DownloadGalleryTaskProgressView\(\{ task: task, queueVersion: this\.downloadQueueTick \}\)/.test(queue) &&
+  /this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queue) &&
   !/visibleStatus|visibleDownloadedFiles|visibleSeededFiles|visibleActiveRatio|renderProgressLabel|renderProgressRatio|renderShowProgress/.test(queue) &&
   /const task: DownloadGalleryTask = state\.galleryTasks\[i\]\.copy\(\)[\s\S]*task\.syncProgressCounts\(\)[\s\S]*DownloadQueueSettings\.setGalleryTasks\(state, next\)/.test(applyResultsBody) &&
   !/state\.galleryTasks = next[\s\S]*state\.revision = state\.revision \+ 1/.test(applyResultsBody) &&
