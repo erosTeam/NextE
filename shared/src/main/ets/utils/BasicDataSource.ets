@@ -27,13 +27,15 @@ export class BasicDataSource<T> implements IDataSource {
     this.notifyReload()
   }
 
-  /** Append a page; use the same DataChangeListener family as reload (V2Next pattern). */
+  /** Append a page; keep the backing array stable so long lists do not copy all old rows per page. */
   appendData(items: T[]): void {
     if (items.length === 0) {
       return
     }
     const start: number = this.items.length
-    this.items = this.items.concat(items)
+    for (let i: number = 0; i < items.length; i++) {
+      this.items.push(items[i])
+    }
     this.listeners.forEach((l: DataChangeListener) => {
       l.onDataAdd(start)
     })

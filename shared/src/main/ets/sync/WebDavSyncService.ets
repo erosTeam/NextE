@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit'
-import { util } from '@kit.ArkTS'
+import { taskpool, util } from '@kit.ArkTS'
+import { cryptoFramework } from '@kit.CryptoArchitectureKit'
 import { http } from '@kit.NetworkKit'
-import { BackupChecksum } from '../backup/BackupChecksum'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import {
   SYNC_APP_ID,
@@ -16,6 +16,7 @@ import {
   SyncManifestDataset,
   SyncManifestShard,
   SyncManifestV1,
+  SyncDatasets,
   SyncCustomProfileRecord,
   SyncCustomProfileSelectionRecord,
   SyncImageBlockRuleRecord,
@@ -58,6 +59,308 @@ class WebDavBuiltShard {
   sha256: string = ''
   recordCount: number = 0
   updatedAt: number = 0
+}
+
+@Concurrent
+function buildWebDavShardsTask(rawEnvelope: string, datasetId: string): string {
+  const shardCount: number = 64
+  const datasetReadProgress: string = 'read-progress'
+  const datasetViewedHistory: string = 'viewed-history'
+  const datasetLocalFavorites: string = 'local-favorites'
+  const datasetSearchHistory: string = 'search-history'
+  const datasetLocalBlock: string = 'local-block'
+  const datasetImageBlock: string = 'image-block'
+  const datasetCustomProfiles: string = 'custom-profiles'
+
+  const compareKey = (a: string, b: string): number => {
+    if (a < b) {
+      return -1
+    }
+    if (a > b) {
+      return 1
+    }
+    return 0
+  }
+  const shardIdForKey = (key: string): string => {
+    let hash: number = 2166136261
+    for (let i: number = 0; i < key.length; i++) {
+      hash ^= key.charCodeAt(i)
+      hash = Math.imul(hash, 16777619) >>> 0
+    }
+    return (hash % shardCount).toString(16).padStart(2, '0')
+  }
+  const normalizeEnvelope = (envelope: SyncEnvelopeV1): void => {
+    if (envelope.datasets === undefined || envelope.datasets === null) {
+      envelope.datasets = new SyncDatasets()
+    }
+    if (!Array.isArray(envelope.datasets.readProgress)) {
+      envelope.datasets.readProgress = []
+    }
+    if (!Array.isArray(envelope.datasets.viewedHistory)) {
+      envelope.datasets.viewedHistory = []
+    }
+    if (!Array.isArray(envelope.datasets.localFavorites)) {
+      envelope.datasets.localFavorites = []
+    }
+    if (!Array.isArray(envelope.datasets.searchHistory)) {
+      envelope.datasets.searchHistory = []
+    }
+    if (!Array.isArray(envelope.datasets.localBlockSettings)) {
+      envelope.datasets.localBlockSettings = []
+    }
+    if (!Array.isArray(envelope.datasets.localBlockRules)) {
+      envelope.datasets.localBlockRules = []
+    }
+    if (!Array.isArray(envelope.datasets.imageBlockSubscriptions)) {
+      envelope.datasets.imageBlockSubscriptions = []
+    }
+    if (!Array.isArray(envelope.datasets.imageBlockRules)) {
+      envelope.datasets.imageBlockRules = []
+    }
+    if (!Array.isArray(envelope.datasets.customProfiles)) {
+      envelope.datasets.customProfiles = []
+    }
+    if (!Array.isArray(envelope.datasets.customProfileSelection)) {
+      envelope.datasets.customProfileSelection = []
+    }
+  }
+  const bucketForKey = (ids: string[], envelopes: SyncEnvelopeV1[], key: string): SyncEnvelopeV1 => {
+    const id: string = shardIdForKey(key)
+    for (let i: number = 0; i < ids.length; i++) {
+      if (ids[i] === id) {
+        return envelopes[i]
+      }
+    }
+    const envelope: SyncEnvelopeV1 = new SyncEnvelopeV1()
+    ids.push(id)
+    envelopes.push(envelope)
+    return envelope
+  }
+  const sortBuckets = (ids: string[], envelopes: SyncEnvelopeV1[]): void => {
+    for (let i: number = 0; i < ids.length; i++) {
+      let minIndex: number = i
+      for (let j: number = i + 1; j < ids.length; j++) {
+        if (compareKey(ids[j], ids[minIndex]) < 0) {
+          minIndex = j
+        }
+      }
+      if (minIndex !== i) {
+        const id: string = ids[i]
+        const envelope: SyncEnvelopeV1 = envelopes[i]
+        ids[i] = ids[minIndex]
+        envelopes[i] = envelopes[minIndex]
+        ids[minIndex] = id
+        envelopes[minIndex] = envelope
+      }
+    }
+  }
+  const collectShardBuckets = (
+    envelope: SyncEnvelopeV1,
+    ids: string[],
+    envelopes: SyncEnvelopeV1[],
+  ): void => {
+    if (datasetId === datasetReadProgress) {
+      for (let i: number = 0; i < envelope.datasets.readProgress.length; i++) {
+        const r: SyncReadProgressRecord = envelope.datasets.readProgress[i]
+        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.gid).datasets.readProgress.push(r)
+      }
+    } else if (datasetId === datasetViewedHistory) {
+      for (let i: number = 0; i < envelope.datasets.viewedHistory.length; i++) {
+        const r: SyncViewedHistoryRecord = envelope.datasets.viewedHistory[i]
+        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.gid).datasets.viewedHistory.push(r)
+      }
+    } else if (datasetId === datasetLocalFavorites) {
+      for (let i: number = 0; i < envelope.datasets.localFavorites.length; i++) {
+        const r: SyncLocalFavoriteRecord = envelope.datasets.localFavorites[i]
+        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.gid).datasets.localFavorites.push(r)
+      }
+    } else if (datasetId === datasetSearchHistory) {
+      for (let i: number = 0; i < envelope.datasets.searchHistory.length; i++) {
+        const r: SyncSearchHistoryRecord = envelope.datasets.searchHistory[i]
+        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.queryText).datasets.searchHistory.push(r)
+      }
+    } else if (datasetId === datasetLocalBlock) {
+      for (let i: number = 0; i < envelope.datasets.localBlockSettings.length; i++) {
+        const r: SyncLocalBlockSettingsRecord = envelope.datasets.localBlockSettings[i]
+        bucketForKey(ids, envelopes, r.scopeKey).datasets.localBlockSettings.push(r)
+      }
+      for (let i: number = 0; i < envelope.datasets.localBlockRules.length; i++) {
+        const r: SyncLocalBlockRuleRecord = envelope.datasets.localBlockRules[i]
+        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.ruleId).datasets.localBlockRules.push(r)
+      }
+    } else if (datasetId === datasetImageBlock) {
+      for (let i: number = 0; i < envelope.datasets.imageBlockSubscriptions.length; i++) {
+        const r: SyncImageBlockSubscriptionRecord = envelope.datasets.imageBlockSubscriptions[i]
+        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.feedId).datasets.imageBlockSubscriptions.push(r)
+      }
+      for (let i: number = 0; i < envelope.datasets.imageBlockRules.length; i++) {
+        const r: SyncImageBlockRuleRecord = envelope.datasets.imageBlockRules[i]
+        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.ruleId).datasets.imageBlockRules.push(r)
+      }
+    } else if (datasetId === datasetCustomProfiles) {
+      for (let i: number = 0; i < envelope.datasets.customProfiles.length; i++) {
+        const r: SyncCustomProfileRecord = envelope.datasets.customProfiles[i]
+        bucketForKey(ids, envelopes, r.scopeKey + ':' + r.uuid).datasets.customProfiles.push(r)
+      }
+      for (let i: number = 0; i < envelope.datasets.customProfileSelection.length; i++) {
+        const r: SyncCustomProfileSelectionRecord = envelope.datasets.customProfileSelection[i]
+        bucketForKey(ids, envelopes, r.scopeKey).datasets.customProfileSelection.push(r)
+      }
+    }
+    sortBuckets(ids, envelopes)
+  }
+  const datasetRecordCount = (envelope: SyncEnvelopeV1): number => {
+    if (datasetId === datasetReadProgress) {
+      return envelope.datasets.readProgress.length
+    }
+    if (datasetId === datasetViewedHistory) {
+      return envelope.datasets.viewedHistory.length
+    }
+    if (datasetId === datasetLocalFavorites) {
+      return envelope.datasets.localFavorites.length
+    }
+    if (datasetId === datasetSearchHistory) {
+      return envelope.datasets.searchHistory.length
+    }
+    if (datasetId === datasetLocalBlock) {
+      return envelope.datasets.localBlockSettings.length + envelope.datasets.localBlockRules.length
+    }
+    if (datasetId === datasetImageBlock) {
+      return envelope.datasets.imageBlockSubscriptions.length + envelope.datasets.imageBlockRules.length
+    }
+    if (datasetId === datasetCustomProfiles) {
+      return envelope.datasets.customProfiles.length + envelope.datasets.customProfileSelection.length
+    }
+    return 0
+  }
+  const datasetUpdatedAt = (envelope: SyncEnvelopeV1): number => {
+    let out: number = 0
+    if (datasetId === datasetReadProgress) {
+      for (let i: number = 0; i < envelope.datasets.readProgress.length; i++) {
+        out = Math.max(out, envelope.datasets.readProgress[i].updatedAt, envelope.datasets.readProgress[i].deletedAt)
+      }
+    } else if (datasetId === datasetViewedHistory) {
+      for (let i: number = 0; i < envelope.datasets.viewedHistory.length; i++) {
+        out = Math.max(out, envelope.datasets.viewedHistory[i].viewedAt, envelope.datasets.viewedHistory[i].deletedAt)
+      }
+    } else if (datasetId === datasetLocalFavorites) {
+      for (let i: number = 0; i < envelope.datasets.localFavorites.length; i++) {
+        out = Math.max(out, envelope.datasets.localFavorites[i].lastViewTime, envelope.datasets.localFavorites[i].deletedAt)
+      }
+    } else if (datasetId === datasetSearchHistory) {
+      for (let i: number = 0; i < envelope.datasets.searchHistory.length; i++) {
+        out = Math.max(out, envelope.datasets.searchHistory[i].updatedAt, envelope.datasets.searchHistory[i].deletedAt)
+      }
+    } else if (datasetId === datasetLocalBlock) {
+      for (let i: number = 0; i < envelope.datasets.localBlockSettings.length; i++) {
+        out = Math.max(out, envelope.datasets.localBlockSettings[i].updatedAt, envelope.datasets.localBlockSettings[i].deletedAt)
+      }
+      for (let i: number = 0; i < envelope.datasets.localBlockRules.length; i++) {
+        out = Math.max(out, envelope.datasets.localBlockRules[i].updatedAt, envelope.datasets.localBlockRules[i].deletedAt)
+      }
+    } else if (datasetId === datasetImageBlock) {
+      for (let i: number = 0; i < envelope.datasets.imageBlockSubscriptions.length; i++) {
+        out = Math.max(out, envelope.datasets.imageBlockSubscriptions[i].updatedAt, envelope.datasets.imageBlockSubscriptions[i].deletedAt)
+      }
+      for (let i: number = 0; i < envelope.datasets.imageBlockRules.length; i++) {
+        out = Math.max(out, envelope.datasets.imageBlockRules[i].updatedAt, envelope.datasets.imageBlockRules[i].deletedAt)
+      }
+    } else if (datasetId === datasetCustomProfiles) {
+      for (let i: number = 0; i < envelope.datasets.customProfiles.length; i++) {
+        out = Math.max(out, envelope.datasets.customProfiles[i].lastEditTime, envelope.datasets.customProfiles[i].deletedAt)
+      }
+      for (let i: number = 0; i < envelope.datasets.customProfileSelection.length; i++) {
+        out = Math.max(out, envelope.datasets.customProfileSelection[i].updatedAt, envelope.datasets.customProfileSelection[i].deletedAt)
+      }
+    }
+    return out
+  }
+  const stableGeneratedAt = (envelope: SyncEnvelopeV1): string => {
+    const updatedAt: number = datasetUpdatedAt(envelope)
+    if (updatedAt <= 0) {
+      return ''
+    }
+    return new Date(updatedAt).toISOString()
+  }
+  const sortShardEnvelope = (envelope: SyncEnvelopeV1): void => {
+    if (datasetId === datasetReadProgress) {
+      envelope.datasets.readProgress.sort((a: SyncReadProgressRecord, b: SyncReadProgressRecord): number => {
+        return compareKey(a.scopeKey + ':' + a.gid, b.scopeKey + ':' + b.gid)
+      })
+    } else if (datasetId === datasetViewedHistory) {
+      envelope.datasets.viewedHistory.sort((a: SyncViewedHistoryRecord, b: SyncViewedHistoryRecord): number => {
+        return compareKey(a.scopeKey + ':' + a.gid, b.scopeKey + ':' + b.gid)
+      })
+    } else if (datasetId === datasetLocalFavorites) {
+      envelope.datasets.localFavorites.sort((a: SyncLocalFavoriteRecord, b: SyncLocalFavoriteRecord): number => {
+        return compareKey(a.scopeKey + ':' + a.gid, b.scopeKey + ':' + b.gid)
+      })
+    } else if (datasetId === datasetSearchHistory) {
+      envelope.datasets.searchHistory.sort((a: SyncSearchHistoryRecord, b: SyncSearchHistoryRecord): number => {
+        return compareKey(a.scopeKey + ':' + a.queryText, b.scopeKey + ':' + b.queryText)
+      })
+    } else if (datasetId === datasetLocalBlock) {
+      envelope.datasets.localBlockSettings.sort((a: SyncLocalBlockSettingsRecord, b: SyncLocalBlockSettingsRecord): number => {
+        return compareKey(a.scopeKey, b.scopeKey)
+      })
+      envelope.datasets.localBlockRules.sort((a: SyncLocalBlockRuleRecord, b: SyncLocalBlockRuleRecord): number => {
+        return compareKey(a.scopeKey + ':' + a.ruleId, b.scopeKey + ':' + b.ruleId)
+      })
+    } else if (datasetId === datasetImageBlock) {
+      envelope.datasets.imageBlockSubscriptions.sort((a: SyncImageBlockSubscriptionRecord, b: SyncImageBlockSubscriptionRecord): number => {
+        return compareKey(a.scopeKey + ':' + a.feedId, b.scopeKey + ':' + b.feedId)
+      })
+      envelope.datasets.imageBlockRules.sort((a: SyncImageBlockRuleRecord, b: SyncImageBlockRuleRecord): number => {
+        return compareKey(a.scopeKey + ':' + a.ruleId, b.scopeKey + ':' + b.ruleId)
+      })
+    } else if (datasetId === datasetCustomProfiles) {
+      envelope.datasets.customProfiles.sort((a: SyncCustomProfileRecord, b: SyncCustomProfileRecord): number => {
+        return compareKey(a.scopeKey + ':' + a.uuid, b.scopeKey + ':' + b.uuid)
+      })
+      envelope.datasets.customProfileSelection.sort((a: SyncCustomProfileSelectionRecord, b: SyncCustomProfileSelectionRecord): number => {
+        return compareKey(a.scopeKey, b.scopeKey)
+      })
+    }
+  }
+  const toHex = (bytes: Uint8Array): string => {
+    const parts: string[] = []
+    for (let i: number = 0; i < bytes.length; i++) {
+      parts.push(bytes[i].toString(16).padStart(2, '0'))
+    }
+    return parts.join('')
+  }
+  const hashText = (text: string): string => {
+    const md = cryptoFramework.createMd('SHA256')
+    const bytes: Uint8Array = new util.TextEncoder().encodeInto(text)
+    md.updateSync({ data: bytes })
+    const digest = md.digestSync()
+    return toHex(digest.data)
+  }
+
+  const envelope: SyncEnvelopeV1 = JSON.parse(rawEnvelope) as SyncEnvelopeV1
+  normalizeEnvelope(envelope)
+  const shardIds: string[] = []
+  const shardEnvelopes: SyncEnvelopeV1[] = []
+  collectShardBuckets(envelope, shardIds, shardEnvelopes)
+  const out: Record<string, string | number>[] = []
+  for (let i: number = 0; i < shardIds.length; i++) {
+    const shardId: string = shardIds[i]
+    const shardEnvelope: SyncEnvelopeV1 = shardEnvelopes[i]
+    sortShardEnvelope(shardEnvelope)
+    shardEnvelope.generatedAt = stableGeneratedAt(shardEnvelope)
+    shardEnvelope.datasetId = datasetId
+    shardEnvelope.shardId = shardId
+    const raw: string = JSON.stringify(shardEnvelope)
+    const shard: Record<string, string | number> = {}
+    shard['id'] = shardId
+    shard['path'] = 'datasets/' + datasetId + '/' + shardId + '.json'
+    shard['raw'] = raw
+    shard['sha256'] = hashText(raw)
+    shard['recordCount'] = datasetRecordCount(shardEnvelope)
+    shard['updatedAt'] = datasetUpdatedAt(shardEnvelope)
+    out.push(shard)
+  }
+  return JSON.stringify(out)
 }
 
 export class WebDavSyncConfig {
@@ -258,147 +561,25 @@ export class WebDavSyncService {
   }
 
   private static async buildShards(envelope: SyncEnvelopeV1, datasetId: string): Promise<WebDavBuiltShard[]> {
-    const ids: string[] = WebDavSyncService.collectShardIds(envelope, datasetId)
+    const rawEnvelope: string = JSON.stringify(WebDavSyncService.selectDataset(envelope, datasetId))
+    let rawShards: string = ''
+    try {
+      rawShards = await taskpool.execute<[string, string], string>(buildWebDavShardsTask, rawEnvelope, datasetId)
+    } catch (_error) {
+      rawShards = buildWebDavShardsTask(rawEnvelope, datasetId)
+    }
+    const parsed: WebDavBuiltShard[] = JSON.parse(rawShards) as WebDavBuiltShard[]
     const out: WebDavBuiltShard[] = []
-    for (let i: number = 0; i < ids.length; i++) {
-      const shardId: string = ids[i]
-      const shardEnvelope: SyncEnvelopeV1 = WebDavSyncService.filterShard(envelope, datasetId, shardId)
-      WebDavSyncService.sortShardEnvelope(shardEnvelope, datasetId)
-      shardEnvelope.generatedAt = WebDavSyncService.stableGeneratedAt(shardEnvelope, datasetId)
-      shardEnvelope.datasetId = datasetId
-      shardEnvelope.shardId = shardId
-      const raw: string = JSON.stringify(shardEnvelope)
+    for (let i: number = 0; i < parsed.length; i++) {
+      const raw: WebDavBuiltShard = parsed[i]
       const shard: WebDavBuiltShard = new WebDavBuiltShard()
-      shard.id = shardId
-      shard.path = 'datasets/' + datasetId + '/' + shardId + '.json'
-      shard.raw = raw
-      shard.sha256 = await BackupChecksum.hashText(raw)
-      shard.recordCount = WebDavSyncService.datasetRecordCount(shardEnvelope, datasetId)
-      shard.updatedAt = WebDavSyncService.datasetUpdatedAt(shardEnvelope, datasetId)
+      shard.id = raw.id
+      shard.path = raw.path
+      shard.raw = raw.raw
+      shard.sha256 = raw.sha256
+      shard.recordCount = raw.recordCount
+      shard.updatedAt = raw.updatedAt
       out.push(shard)
-    }
-    return out
-  }
-
-  private static collectShardIds(envelope: SyncEnvelopeV1, datasetId: string): string[] {
-    const out: string[] = []
-    if (datasetId === DATASET_READ_PROGRESS) {
-      for (let i: number = 0; i < envelope.datasets.readProgress.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.readProgress[i].scopeKey + ':' + envelope.datasets.readProgress[i].gid)
-      }
-    } else if (datasetId === DATASET_VIEWED_HISTORY) {
-      for (let i: number = 0; i < envelope.datasets.viewedHistory.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.viewedHistory[i].scopeKey + ':' + envelope.datasets.viewedHistory[i].gid)
-      }
-    } else if (datasetId === DATASET_LOCAL_FAVORITES) {
-      for (let i: number = 0; i < envelope.datasets.localFavorites.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.localFavorites[i].scopeKey + ':' + envelope.datasets.localFavorites[i].gid)
-      }
-    } else if (datasetId === DATASET_SEARCH_HISTORY) {
-      for (let i: number = 0; i < envelope.datasets.searchHistory.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.searchHistory[i].scopeKey + ':' + envelope.datasets.searchHistory[i].queryText)
-      }
-    } else if (datasetId === DATASET_LOCAL_BLOCK) {
-      for (let i: number = 0; i < envelope.datasets.localBlockSettings.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.localBlockSettings[i].scopeKey)
-      }
-      for (let i: number = 0; i < envelope.datasets.localBlockRules.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.localBlockRules[i].scopeKey + ':' + envelope.datasets.localBlockRules[i].ruleId)
-      }
-    } else if (datasetId === DATASET_IMAGE_BLOCK) {
-      for (let i: number = 0; i < envelope.datasets.imageBlockSubscriptions.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.imageBlockSubscriptions[i].scopeKey + ':' + envelope.datasets.imageBlockSubscriptions[i].feedId)
-      }
-      for (let i: number = 0; i < envelope.datasets.imageBlockRules.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.imageBlockRules[i].scopeKey + ':' + envelope.datasets.imageBlockRules[i].ruleId)
-      }
-    } else if (datasetId === DATASET_CUSTOM_PROFILES) {
-      for (let i: number = 0; i < envelope.datasets.customProfiles.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.customProfiles[i].scopeKey + ':' + envelope.datasets.customProfiles[i].uuid)
-      }
-      for (let i: number = 0; i < envelope.datasets.customProfileSelection.length; i++) {
-        WebDavSyncService.addShardId(out, envelope.datasets.customProfileSelection[i].scopeKey)
-      }
-    }
-    return out
-  }
-
-  private static addShardId(out: string[], key: string): void {
-    const id: string = WebDavSyncService.shardId(key)
-    if (out.indexOf(id) < 0) {
-      out.push(id)
-    }
-  }
-
-  private static filterShard(envelope: SyncEnvelopeV1, datasetId: string, shardId: string): SyncEnvelopeV1 {
-    const out: SyncEnvelopeV1 = new SyncEnvelopeV1()
-    if (datasetId === DATASET_READ_PROGRESS) {
-      for (let i: number = 0; i < envelope.datasets.readProgress.length; i++) {
-        const r = envelope.datasets.readProgress[i]
-        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.gid) === shardId) {
-          out.datasets.readProgress.push(r)
-        }
-      }
-    } else if (datasetId === DATASET_VIEWED_HISTORY) {
-      for (let i: number = 0; i < envelope.datasets.viewedHistory.length; i++) {
-        const r = envelope.datasets.viewedHistory[i]
-        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.gid) === shardId) {
-          out.datasets.viewedHistory.push(r)
-        }
-      }
-    } else if (datasetId === DATASET_LOCAL_FAVORITES) {
-      for (let i: number = 0; i < envelope.datasets.localFavorites.length; i++) {
-        const r = envelope.datasets.localFavorites[i]
-        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.gid) === shardId) {
-          out.datasets.localFavorites.push(r)
-        }
-      }
-    } else if (datasetId === DATASET_SEARCH_HISTORY) {
-      for (let i: number = 0; i < envelope.datasets.searchHistory.length; i++) {
-        const r = envelope.datasets.searchHistory[i]
-        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.queryText) === shardId) {
-          out.datasets.searchHistory.push(r)
-        }
-      }
-    } else if (datasetId === DATASET_LOCAL_BLOCK) {
-      for (let i: number = 0; i < envelope.datasets.localBlockSettings.length; i++) {
-        const r = envelope.datasets.localBlockSettings[i]
-        if (WebDavSyncService.shardId(r.scopeKey) === shardId) {
-          out.datasets.localBlockSettings.push(r)
-        }
-      }
-      for (let i: number = 0; i < envelope.datasets.localBlockRules.length; i++) {
-        const r = envelope.datasets.localBlockRules[i]
-        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.ruleId) === shardId) {
-          out.datasets.localBlockRules.push(r)
-        }
-      }
-    } else if (datasetId === DATASET_IMAGE_BLOCK) {
-      for (let i: number = 0; i < envelope.datasets.imageBlockSubscriptions.length; i++) {
-        const r = envelope.datasets.imageBlockSubscriptions[i]
-        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.feedId) === shardId) {
-          out.datasets.imageBlockSubscriptions.push(r)
-        }
-      }
-      for (let i: number = 0; i < envelope.datasets.imageBlockRules.length; i++) {
-        const r = envelope.datasets.imageBlockRules[i]
-        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.ruleId) === shardId) {
-          out.datasets.imageBlockRules.push(r)
-        }
-      }
-    } else if (datasetId === DATASET_CUSTOM_PROFILES) {
-      for (let i: number = 0; i < envelope.datasets.customProfiles.length; i++) {
-        const r = envelope.datasets.customProfiles[i]
-        if (WebDavSyncService.shardId(r.scopeKey + ':' + r.uuid) === shardId) {
-          out.datasets.customProfiles.push(r)
-        }
-      }
-      for (let i: number = 0; i < envelope.datasets.customProfileSelection.length; i++) {
-        const r = envelope.datasets.customProfileSelection[i]
-        if (WebDavSyncService.shardId(r.scopeKey) === shardId) {
-          out.datasets.customProfileSelection.push(r)
-        }
-      }
     }
     return out
   }

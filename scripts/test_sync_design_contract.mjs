@@ -135,12 +135,19 @@ ok('WebDAV provider uses manifest plus hashed dataset shards',
     /SHARD_COUNT: number = 64/.test(webdav) &&
     /shardId\(key: string\)/.test(webdav))
 ok('WebDAV provider writes only changed shards',
-  /BackupChecksum\.hashText/.test(webdav) &&
+  /hashText/.test(webdav) &&
     /previousShardHash/.test(webdav) &&
     /continue/.test(webdav) &&
     /writeChangedShards/.test(webdav) &&
     /stableGeneratedAt/.test(webdav) &&
     !/shardEnvelope\.generatedAt\s*=\s*new Date\(\)\.toISOString\(\)/.test(webdav))
+ok('WebDAV provider builds shards off UI thread with a single bucket pass',
+  /taskpool\.execute<\[string, string\], string>\(buildWebDavShardsTask/.test(webdav) &&
+    /collectShardBuckets/.test(webdav) &&
+    /bucketForKey/.test(webdav) &&
+    /hashText/.test(webdav) &&
+    !/private static filterShard/.test(webdav) &&
+    !/private static collectShardIds/.test(webdav))
 ok('WebDAV provider skips disabled dataset directories',
   /ensureCollections\(rootUrl: string, config: WebDavSyncConfig\)/.test(webdav) &&
     /datasetEnabled\(config\.selection, DATASET_IDS\[i\]\)/.test(webdav) &&

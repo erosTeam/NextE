@@ -274,6 +274,7 @@ export struct GalleryListBody {
           minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W,
           pinchModeKey: ListMode.WATERFALL,
           itemCount: this.vm.itemCount,
+          nearEndThreshold: 4,
           gap: ThemeConstants.GALLERY_GRID_GAP,
           horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
           topPadding: this.topPadding,
@@ -289,6 +290,11 @@ export struct GalleryListBody {
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
           onReachEnd: () => {
+            if (this.vm.canLoadMore()) {
+              this.vm.loadMore()
+            }
+          },
+          onNearEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()
             }
@@ -329,6 +335,7 @@ export struct GalleryListBody {
           minColumnWidth: ThemeConstants.GALLERY_COVER_WALL_MIN_W,
           pinchModeKey: ListMode.COVER_WALL,
           itemCount: this.vm.itemCount,
+          nearEndThreshold: 4,
           gap: ThemeConstants.GALLERY_GRID_GAP,
           horizontalPadding: ThemeConstants.GALLERY_GRID_GAP,
           topPadding: this.topPadding,
@@ -344,6 +351,11 @@ export struct GalleryListBody {
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
           onReachEnd: () => {
+            if (this.vm.canLoadMore()) {
+              this.vm.loadMore()
+            }
+          },
+          onNearEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()
             }

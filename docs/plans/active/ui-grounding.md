@@ -5,12 +5,12 @@ Purpose: current UI work must leave a small, checkable grounding record before p
 ## Active: list tail-appear pagination trigger
 
 Status: active
-Reference implementation: current NextE `shared/src/main/ets/components/PullRefreshListScaffold.ets`, `PullRefreshGridScaffold.ets`, `PullRefreshWaterFlowScaffold.ets`, `SecondaryListScaffold.ets`, Home/Search/Favorites `loadMore()` VM guards, and `../JHenTai/lib/src/widget/eh_gallery_collection.dart` last-item builder-triggered `handleLoadMore`.
-Surface type: existing list/grid/waterfall pagination trigger timing only; no visual layout, card, footer copy, paging cursor, or network API change.
-Primary information: gallery and local lazy lists keep showing the same content and loading footer while the next page can start as soon as the last rendered content item enters the appear window.
+Reference implementation: current NextE `shared/src/main/ets/components/PullRefreshListScaffold.ets`, `PullRefreshGridScaffold.ets`, `PullRefreshWaterFlowScaffold.ets`, `shared/src/main/ets/utils/BasicDataSource.ets`, Home/Search/Favorites `loadMore()` VM guards, and `../JHenTai/lib/src/widget/eh_gallery_collection.dart` last-item builder-triggered `handleLoadMore`.
+Surface type: existing list/grid/waterfall pagination trigger timing and lazy data append path only; no visual layout, card, footer copy, paging cursor, or network API change.
+Primary information: gallery and local lazy lists keep showing the same content and loading footer while the next page can start before the hard tail and append without copying the whole already-rendered list.
 Primary action: scroll a paged Home/Search/Favorites/all-thumbnails list toward the tail; the existing `canLoadMore()`/`hasMore()` guards decide whether the next page starts before the hard `onReachEnd` boundary.
-Reuse or deviation: reuse the existing page item builders, `onReachEnd`/`onNearEnd`, `canStartBottomRefresh`, and page ViewModel concurrency guards; deviate only by adding a last-content-item `onAppear` prefetch point instead of relying on the scaffold footer/safe-area tail.
-Verification: UI grounding contract, V1 decorator inventory, diff check, and signed HarmonyOS build; device QA should cover at least one Home/Search/Favorites paged list in list mode and one waterfall/grid mode.
+Reuse or deviation: reuse the existing page item builders, `onReachEnd`/`onNearEnd`, `canStartBottomRefresh`, page ViewModel concurrency guards, and `LazyForEach` `onDataAdd` notification style; deviate only by making `BasicDataSource.appendData()` push into the stable backing array and by giving WaterFlow the same near-end hook Grid already uses.
+Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and a paged Home/Search/Favorites smoke; performance QA should compare a 120Hz scroll trace before/after a WaterFlow or cover-wall load-more append.
 
 ## Active: search history scroll recovery
 

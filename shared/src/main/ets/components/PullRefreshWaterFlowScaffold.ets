@@ -39,6 +39,7 @@ export struct PullRefreshWaterFlowScaffold {
   @Param bottomPadding: number = ThemeConstants.SPACE_XL;
   @Param topPadding: number = 0;
   @Param itemCount: number = 0;
+  @Param nearEndThreshold: number = 0;
   @Param showFooter: boolean = false;
   @Param footerIsLoading: boolean = false;
   @Param footerHasMore: boolean = true;
@@ -49,7 +50,9 @@ export struct PullRefreshWaterFlowScaffold {
   @Event onBottomRefresh?: () => Promise<void>;
   @Event canStartBottomRefresh?: () => boolean;
   @Event onReachEnd?: () => void;
+  @Event onNearEnd?: () => void;
   @Event onFooterRetry?: () => void;
+  @Event onScrollIndex?: (start: number, end: number) => void;
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
 
   build() {
@@ -138,10 +141,16 @@ export struct PullRefreshWaterFlowScaffold {
           this.onDidScroll(this.scroller.currentOffset().yOffset, scrollState)
         }
       })
-      .onScrollIndex((_start: number, _end: number) => {
+      .onScrollIndex((start: number, end: number) => {
+        const adjustedStart: number = this.galleryIndex(start)
+        const adjustedEnd: number = this.galleryIndex(end)
+        if (this.onScrollIndex) {
+          this.onScrollIndex(adjustedStart, adjustedEnd)
+        }
         if (this.onDidScroll) {
           this.onDidScroll(this.scroller.currentOffset().yOffset, ScrollState.Scroll)
         }
+        this.maybeLoadNearEnd(adjustedEnd)
       })
     }
   }
@@ -304,11 +313,45 @@ export struct PullRefreshWaterFlowScaffold {
     return this.layout.bottomAvoidHeight + this.bottomPadding
   }
 
+  private galleryIndex(rawIndex: number): number {
+    const index: number = rawIndex - 1
+    if (index < 0) {
+      return 0
+    }
+    if (this.itemCount > 0 && index >= this.itemCount) {
+      return this.itemCount - 1
+    }
+    return index
+  }
+
+  private maybeLoadNearEnd(end: number): void {
+    if (this.itemCount <= 0 || this.nearEndThreshold <= 0) {
+      return
+    }
+    if (end < this.itemCount - 1 - this.nearEndThreshold) {
+      return
+    }
+    if (this.canStartBottomRefresh && !this.canStartBottomRefresh()) {
+      return
+    }
+    if (this.onNearEnd) {
+      this.onNearEnd()
+      return
+    }
+    if (this.onReachEnd) {
+      this.onReachEnd()
+    }
+  }
+
   private maybeLoadOnTailAppear(): void {
     if (this.itemCount <= 0) {
       return
     }
     if (this.canStartBottomRefresh && !this.canStartBottomRefresh()) {
+      return
+    }
+    if (this.onNearEnd) {
+      this.onNearEnd()
       return
     }
     if (this.onReachEnd) {
