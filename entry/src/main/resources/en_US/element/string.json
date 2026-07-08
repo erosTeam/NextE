@@ -1321,6 +1321,14 @@
       "value": "Loading image"
     },
     {
+      "name": "reader_loading_decoding",
+      "value": "Preparing image"
+    },
+    {
+      "name": "reader_loading_downloaded",
+      "value": "Downloaded"
+    },
+    {
       "name": "reader_image_blocked",
       "value": "Image hidden"
     },

@@ -1321,6 +1321,14 @@
       "value": "正在加载图片"
     },
     {
+      "name": "reader_loading_decoding",
+      "value": "正在准备图片"
+    },
+    {
+      "name": "reader_loading_downloaded",
+      "value": "已下载"
+    },
+    {
       "name": "reader_image_blocked",
       "value": "图片已隐藏"
     },
