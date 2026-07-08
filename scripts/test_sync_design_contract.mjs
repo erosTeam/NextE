@@ -196,6 +196,14 @@ ok('sync settings persist Huawei Cloud local status separately',
     /SYNC_HUAWEI_CLOUD_LAST_DETAIL/.test(syncSettings) &&
     /huaweiCloudLastDetail/.test(read('shared/src/main/ets/state/SyncSettingsState.ets')) &&
     /huaweiCloudLastCloudDisabled/.test(syncSettings))
+ok('sync run status updates avoid full settings rewrites',
+  /saveRunStatus/.test(syncSettings) &&
+    /saveHuaweiCloudRunStatus/.test(syncSettings) &&
+    /store\.putSync\(StorageKeys\.SYNC_LAST_RUN_AT/.test(syncSettings) &&
+    /store\.putSync\(StorageKeys\.SYNC_HUAWEI_CLOUD_LAST_RUN_AT/.test(syncSettings) &&
+    /await store\.flush\(\)/.test(syncSettings) &&
+    !/markRun[\s\S]{0,450}SyncSettings\.save\(context, snapshot\)/.test(syncSettings) &&
+    !/markHuaweiCloudRun[\s\S]{0,650}SyncSettings\.save\(context, snapshot\)/.test(syncSettings))
 
 const cloudBuildFlag = read('shared/src/main/ets/sync/HuaweiCloudSyncBuildFlag.ets')
 const huaweiCloud = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')

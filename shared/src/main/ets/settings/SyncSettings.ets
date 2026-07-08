@@ -182,12 +182,12 @@ export class SyncSettings {
     detail: string = '',
     timeMs: number = Date.now(),
   ): Promise<void> {
-    const snapshot = SyncSettings.current()
-    snapshot.lastRunAt = Math.max(0, timeMs)
-    snapshot.lastStatus = SyncSettings.normalizeStatus(status)
-    snapshot.lastDetail =
-      snapshot.lastStatus === SYNC_STATUS_FAILED ? SyncSettings.normalizeDetail(detail) : ''
-    await SyncSettings.save(context, snapshot)
+    const state = connectSyncSettings()
+    state.lastRunAt = Math.max(0, timeMs)
+    state.lastStatus = SyncSettings.normalizeStatus(status)
+    state.lastDetail =
+      state.lastStatus === SYNC_STATUS_FAILED ? SyncSettings.normalizeDetail(detail) : ''
+    await SyncSettings.saveRunStatus(context, state.lastRunAt, state.lastStatus, state.lastDetail)
   }
 
   static async markHuaweiCloudRun(
@@ -197,13 +197,19 @@ export class SyncSettings {
     detail: string = '',
     timeMs: number = Date.now(),
   ): Promise<void> {
-    const snapshot = SyncSettings.current()
-    snapshot.huaweiCloudLastRunAt = Math.max(0, timeMs)
-    snapshot.huaweiCloudLastStatus = SyncSettings.normalizeStatus(status)
-    snapshot.huaweiCloudLastDetail =
-      snapshot.huaweiCloudLastStatus === SYNC_STATUS_FAILED ? SyncSettings.normalizeDetail(detail) : ''
-    snapshot.huaweiCloudLastCloudDisabled = cloudDisabled
-    await SyncSettings.save(context, snapshot)
+    const state = connectSyncSettings()
+    state.huaweiCloudLastRunAt = Math.max(0, timeMs)
+    state.huaweiCloudLastStatus = SyncSettings.normalizeStatus(status)
+    state.huaweiCloudLastDetail =
+      state.huaweiCloudLastStatus === SYNC_STATUS_FAILED ? SyncSettings.normalizeDetail(detail) : ''
+    state.huaweiCloudLastCloudDisabled = cloudDisabled
+    await SyncSettings.saveHuaweiCloudRunStatus(
+      context,
+      state.huaweiCloudLastRunAt,
+      state.huaweiCloudLastStatus,
+      state.huaweiCloudLastCloudDisabled,
+      state.huaweiCloudLastDetail,
+    )
   }
 
   static configured(snapshot: SyncSettingsSnapshot): boolean {
@@ -223,5 +229,41 @@ export class SyncSettings {
       return trimmed.substring(0, 240)
     }
     return trimmed
+  }
+
+  private static async saveRunStatus(
+    context: common.UIAbilityContext,
+    lastRunAt: number,
+    lastStatus: string,
+    lastDetail: string,
+  ): Promise<void> {
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
+      store.putSync(StorageKeys.SYNC_LAST_RUN_AT, lastRunAt)
+      store.putSync(StorageKeys.SYNC_LAST_STATUS, lastStatus)
+      store.putSync(StorageKeys.SYNC_LAST_DETAIL, lastDetail)
+      await store.flush()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'sync_run_status_save_failed', (error as Error).message)
+    }
+  }
+
+  private static async saveHuaweiCloudRunStatus(
+    context: common.UIAbilityContext,
+    lastRunAt: number,
+    lastStatus: string,
+    cloudDisabled: boolean,
+    lastDetail: string,
+  ): Promise<void> {
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
+      store.putSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_RUN_AT, lastRunAt)
+      store.putSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_STATUS, lastStatus)
+      store.putSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_DETAIL, lastDetail)
+      store.putSync(StorageKeys.SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED, cloudDisabled)
+      await store.flush()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'sync_huawei_cloud_run_status_save_failed', (error as Error).message)
+    }
   }
 }
