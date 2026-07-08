@@ -6,13 +6,51 @@ export class EhAssetBalanceParser {
     /(current\s+(funds?|balance)|currently\s+have|you\s+(currently\s+)?have|available\s+(funds?|balance)|account\s+balance)/i
 
   static parse(html: string): EhAssetBalance {
+    const exchangeText: string = EhAssetBalanceParser.visibleText(EhAssetBalanceParser.cleanedHtml(html))
+    const exchangeGpText: string = EhAssetBalanceParser.findAvailableAmountInRange(
+      exchangeText,
+      /Sell\s+GP!?/i,
+      /(Active\s+Orders|Bid\s+\(Buyers\)|Ask\s+\(Sellers\))/i,
+      '[A-Za-z]*GP',
+    )
+    const exchangeCreditText: string = EhAssetBalanceParser.findAvailableAmountInRange(
+      exchangeText,
+      /Buy\s+GP!?/i,
+      /Sell\s+GP!?/i,
+      'Credits?|C',
+    )
+    if (exchangeGpText.length > 0 || exchangeCreditText.length > 0) {
+      return new EhAssetBalance(exchangeGpText, exchangeCreditText)
+    }
+
     const text: string = EhAssetBalanceParser.balanceText(html)
     if (text.length === 0) {
       return new EhAssetBalance()
     }
-    const gpText: string = EhAssetBalanceParser.findAmountWithUnit(text, 'k?GP')
-    const creditText: string = EhAssetBalanceParser.findAmountWithUnit(text, 'Credits?')
+    const gpText: string = EhAssetBalanceParser.findAmountWithUnit(text, '[A-Za-z]*GP')
+    const creditText: string = EhAssetBalanceParser.findAmountWithUnit(text, 'Credits?|C')
     return new EhAssetBalance(gpText, creditText)
+  }
+
+  private static findAvailableAmountInRange(
+    text: string,
+    startPattern: RegExp,
+    endPattern: RegExp,
+    unitPattern: string,
+  ): string {
+    const startIndex: number = text.search(startPattern)
+    if (startIndex < 0) {
+      return ''
+    }
+    const afterStart: string = text.substring(startIndex)
+    const endIndex: number = afterStart.search(endPattern)
+    const segment: string = endIndex > 0 ? afterStart.substring(0, endIndex) : afterStart
+    const re: RegExp = new RegExp('Available\\s*:\\s*([0-9][0-9,.]*\\s*(?:' + unitPattern + ')\\b)', 'i')
+    const match: RegExpMatchArray | null = segment.match(re)
+    if (match === null || match.length < 2 || match[1] === undefined) {
+      return ''
+    }
+    return match[1].replace(/\s+/g, ' ').trim()
   }
 
   private static balanceText(html: string): string {
@@ -31,7 +69,7 @@ export class EhAssetBalanceParser {
   }
 
   private static hasGpAndCredits(text: string): boolean {
-    return /[0-9][0-9,.]*\s*k?GP\b/i.test(text) && /[0-9][0-9,.]*\s*Credits?\b/i.test(text)
+    return /[0-9][0-9,.]*\s*[A-Za-z]*GP\b/i.test(text) && /[0-9][0-9,.]*\s*Credits?\b/i.test(text)
   }
 
   private static findAmountWithUnit(text: string, unitPattern: string): string {
@@ -44,12 +82,7 @@ export class EhAssetBalanceParser {
   }
 
   private static visibleBlocks(html: string): string[] {
-    const cleaned: string = html
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<option[\s\S]*?<\/option>/gi, ' ')
-      .replace(/<input\b[^>]*>/gi, ' ')
-      .replace(/<textarea[\s\S]*?<\/textarea>/gi, ' ')
+    const cleaned: string = EhAssetBalanceParser.cleanedHtml(html)
     const re: RegExp = /<(p|div|td|th|li|span)[^>]*>[\s\S]*?<\/\1>/gi
     const out: string[] = []
     let match: RegExpExecArray | null = re.exec(cleaned)
@@ -65,6 +98,15 @@ export class EhAssetBalanceParser {
       out.push(whole)
     }
     return out
+  }
+
+  private static cleanedHtml(html: string): string {
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<option[\s\S]*?<\/option>/gi, ' ')
+      .replace(/<input\b[^>]*>/gi, ' ')
+      .replace(/<textarea[\s\S]*?<\/textarea>/gi, ' ')
   }
 
   private static visibleText(html: string): string {
