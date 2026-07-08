@@ -3836,19 +3836,13 @@ struct ReaderLoadingStage {
   build() {
     Column({ space: ThemeConstants.SPACE_SM }) {
       if (this.hasProgress()) {
-        Row() {
-          Blank()
-            .width(this.barWidth())
-            .height(4)
-            .backgroundColor(Color.White)
-            .borderRadius(2)
-            .scale({ x: this.progressRatio(), y: 1, centerX: 0, centerY: 0 })
-            .animation({ duration: READER_LOADING_PROGRESS_ANIM_DURATION, curve: Curve.EaseOut })
-        }
-        .width(this.barWidth())
-        .height(4)
-        .backgroundColor('#33FFFFFF')
-        .borderRadius(2)
+        Progress({ value: this.loaded, total: this.total, type: ProgressType.Linear })
+          .width(this.barWidth())
+          .height(4)
+          .color(Color.White)
+          .backgroundColor('#33FFFFFF')
+          .style({ strokeWidth: 4, strokeRadius: 2 })
+          .animation({ duration: READER_LOADING_PROGRESS_ANIM_DURATION, curve: Curve.EaseOut })
       } else {
         LoadingProgress()
           .width(this.compact ? 24 : 28)

@@ -38,6 +38,10 @@ const streamMethod = httpClient.substring(
 const loadResolvedMethods = [
   ...reader.matchAll(/private async loadResolvedImage\(resolved: string\): Promise<void> \{[\s\S]*?^  private async applyImageBlockDecision/mg),
 ].map((match) => match[0])
+const loadingStage = reader.substring(
+  reader.indexOf('struct ReaderLoadingStage'),
+  reader.indexOf('struct ReaderFailureOverlay'),
+)
 
 ok('Reader root uses the pre-overlay bottom stack baseline',
   /Stack\(\{ alignContent: Alignment\.Bottom \}\)/.test(reader))
@@ -60,6 +64,10 @@ ok('image presentation is not hidden behind imageLoaded opacity gates',
   !/\.opacity\(this\.imageLoaded \? 1 : 0\)/.test(reader))
 ok('image download progress appears only before a cached render path exists',
   (reader.match(/else if \(this\.sourceImageUrl\.length > 0\) \{[\s\S]*?reader_loading_image/g) || []).length >= 3)
+ok('Reader download progress uses the system linear Progress component instead of a scaled custom bar',
+  /Progress\(\{ value: this\.loaded, total: this\.total, type: ProgressType\.Linear \}\)/.test(loadingStage) &&
+  /\.style\(\{ strokeWidth: 4, strokeRadius: 2 \}\)/.test(loadingStage) &&
+  !/\.scale\(\{ x: this\.progressRatio\(\)/.test(loadingStage))
 ok('resolved remote URLs are converted into cached display URIs before presentation',
   (reader.match(/await this\.loadResolvedImage\(resolved\)/g) || []).length >= 3 &&
   (reader.match(/this\.imageUrl = result\.displayUri/g) || []).length >= 3)
