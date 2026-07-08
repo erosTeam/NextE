@@ -19,6 +19,19 @@ export class ReadModeSettings {
     return Math.round(value)
   }
 
+  private static normalizePreloadPages(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 2
+    }
+    if (value < 0) {
+      return 0
+    }
+    if (value > 5) {
+      return 5
+    }
+    return Math.round(value)
+  }
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
@@ -38,10 +51,15 @@ export class ReadModeSettings {
         StorageKeys.READING_VOLUME_KEY,
         false,
       ) as boolean
+      const preloadPages: number = store.getSync(
+        StorageKeys.READING_PRELOAD_PAGES,
+        2,
+      ) as number
       connectReadMode().mode = mode
       connectReadMode().doublePageEnabled = ReadModeSettings.restoreDoublePageEnabled(rawDoublePage)
       connectReadMode().columnMode = ReadColumnMode.ODD_LEFT
       connectReadMode().autoPageSeconds = ReadModeSettings.normalizeAutoPageSeconds(autoPageSeconds)
+      connectReadMode().preloadPages = ReadModeSettings.normalizePreloadPages(preloadPages)
       connectReadMode().volumeKeyTurn = volumeKeyTurn
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readmode_restore_failed', (error as Error).message)
@@ -115,6 +133,21 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_volume_key_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setPreloadPages(context: common.UIAbilityContext, pages: number): Promise<void> {
+    const normalized: number = ReadModeSettings.normalizePreloadPages(pages)
+    connectReadMode().preloadPages = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_PRELOAD_PAGES, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_preload_pages_save_failed', (error as Error).message)
     }
   }
 }

@@ -8,12 +8,12 @@ import {
   EhErrorText,
   EhUrlRouter,
   ImagePageRef,
+  connectReadMode,
 } from 'shared'
 
-// How many pages ahead to pre-resolve (eros_fe forward preload): warm the next images' URLs so a
-// swipe lands on an already-resolved page instead of waiting for its /s/→URL round-trip.
-const PRECACHE_AHEAD: number = 2
 const MAX_READER_SESSION_CACHE: number = 8
+const DEFAULT_PRELOAD_PAGES: number = 2
+const MAX_PRELOAD_PAGES: number = 5
 
 class ReaderSessionSnapshot {
   key: string = ''
@@ -729,15 +729,29 @@ export class ReaderViewModel {
     this.ensureLoaded(index, 'page-change')
       .then(
         (): void => {
-          this.precacheFrom(index)
+          this.precacheFrom(index + 1)
           this.warmPreviewAhead(index)
         },
         (): void => {},
       )
   }
 
+  private preloadPages(): number {
+    const value: number = connectReadMode().preloadPages
+    if (!Number.isFinite(value)) {
+      return DEFAULT_PRELOAD_PAGES
+    }
+    if (value < 0) {
+      return 0
+    }
+    if (value > MAX_PRELOAD_PAGES) {
+      return MAX_PRELOAD_PAGES
+    }
+    return Math.round(value)
+  }
+
   /**
-   * Pre-resolve the next PRECACHE_AHEAD pages' image URLs (eros_fe forward preload), fire-and-forget,
+   * Pre-resolve the configured next pages' image URLs (eros_fe forward preload), fire-and-forget,
    * so a forward swipe lands on an already-resolved page instead of waiting for its /s/→URL round-trip.
    * resolve() caches the URL onto each image and coalesces with the page component's on-demand resolve,
    * so this never double-fetches. Skips pages already resolved or not yet loaded.
@@ -747,7 +761,11 @@ export class ReaderViewModel {
   }
 
   private precacheFrom(start: number): void {
-    const to: number = Math.min(start + PRECACHE_AHEAD, this.totalPages() - 1)
+    const preloadPages: number = this.preloadPages()
+    if (preloadPages <= 0) {
+      return
+    }
+    const to: number = Math.min(start + preloadPages - 1, this.totalPages() - 1)
     for (let i: number = start; i <= to; i++) {
       const img: EhGalleryImage = this.imageAt(i)
       if (img.imageUrl.length === 0 && img.sUrl.length > 0) {
@@ -765,8 +783,12 @@ export class ReaderViewModel {
   }
 
   private warmPreviewAhead(index: number): void {
+    const preloadPages: number = this.preloadPages()
+    if (preloadPages <= 0) {
+      return
+    }
     const total: number = this.totalPages()
-    const target: number = Math.min(index + PRECACHE_AHEAD, total - 1)
+    const target: number = Math.min(index + preloadPages, total - 1)
     if (target < 0 || target <= index) {
       return
     }

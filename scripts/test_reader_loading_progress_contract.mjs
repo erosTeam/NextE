@@ -23,7 +23,21 @@ const ok = (name, cond) => {
 }
 
 const reader = read('feature/reader/src/main/ets/pages/ReaderPage.ets')
+const vm = read('feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets')
 const cacheService = read('shared/src/main/ets/services/CachedImageFileService.ets')
+const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets')
+const settings = read('shared/src/main/ets/settings/ReadModeSettings.ets')
+const state = read('shared/src/main/ets/state/ReadModeState.ets')
+const keys = read('shared/src/main/ets/constants/StorageKeys.ets')
+const settingsPage = read('feature/settings/src/main/ets/pages/ReaderSettingsPage.ets')
+const zh = read('entry/src/main/resources/zh_CN/element/string.json')
+const streamMethod = httpClient.substring(
+  httpClient.indexOf('async downloadBinaryToFileInStream('),
+  httpClient.indexOf('async downloadBinaryToFileInStreamResumable('),
+)
+const loadResolvedMethods = [
+  ...reader.matchAll(/private async loadResolvedImage\(resolved: string\): Promise<void> \{[\s\S]*?^  private async applyImageBlockDecision/mg),
+].map((match) => match[0])
 
 ok('Reader root uses the pre-overlay bottom stack baseline',
   /Stack\(\{ alignContent: Alignment\.Bottom \}\)/.test(reader))
@@ -49,7 +63,42 @@ ok('image download progress appears only before a cached render path exists',
 ok('resolved remote URLs are converted into cached display URIs before presentation',
   (reader.match(/await this\.loadResolvedImage\(resolved\)/g) || []).length >= 3 &&
   (reader.match(/this\.imageUrl = result\.displayUri/g) || []).length >= 3)
-ok('Image.onComplete still records page loaded state for warmers and auto-read',
+ok('Reader does not keep a remote-URL Image warmer beside the cache pipeline',
+  !/ReaderImageWarmers|warmImageIndexes|READER_IMAGE_WARM_AHEAD|warm_image_complete|warm_image_failed/.test(reader) &&
+  !/Image\(this\.vm\.imageAt\(index\)\.imageUrl\)/.test(reader))
+ok('Reader keeps preload warmers inside the cached image file pipeline',
+  /ReaderCacheWarmers\(\)/.test(reader) &&
+  /struct ReaderCacheWarmImage[\s\S]*CachedImageFileService\.cached[\s\S]*CachedImageFileService\.load[\s\S]*reader_warm_complete/.test(reader) &&
+  /private cacheWarmImageIndexes\(\): number\[\] \{[\s\S]*const preloadPages: number = this\.readerPreloadPages\(\)[\s\S]*this\.vm\.currentIndex \+ preloadPages/.test(reader))
+ok('streamed image downloads do not reuse the short HTML read timeout',
+  /const BINARY_STREAM_READ_TIMEOUT_MS: number = 120000/.test(httpClient) &&
+  /readTimeoutMs: number = BINARY_STREAM_READ_TIMEOUT_MS/.test(streamMethod) &&
+  !/readTimeoutMs: number = READ_TIMEOUT_MS/.test(streamMethod))
+ok('automatic image retry count is not reset at the start of each resolved download attempt',
+  loadResolvedMethods.length === 3 &&
+  loadResolvedMethods.every((method) => {
+    const beforeContext = method.slice(0, method.indexOf('const context: common.UIAbilityContext'))
+    return !/this\.autoRetryCount = 0/.test(beforeContext)
+  }))
+ok('Reader preload page count is persisted with a 0..5 bounded default',
+  /@Trace preloadPages: number = 2/.test(state) &&
+  /READING_PRELOAD_PAGES: string = 'reading\.preloadPages'/.test(keys) &&
+  /private static normalizePreloadPages\(value: number\): number \{[\s\S]*return 2[\s\S]*if \(value < 0\)[\s\S]*return 0[\s\S]*if \(value > 5\)[\s\S]*return 5/.test(settings) &&
+  /StorageKeys\.READING_PRELOAD_PAGES[\s\S]*connectReadMode\(\)\.preloadPages/.test(settings) &&
+  /static async setPreloadPages[\s\S]*store\.putSync\(StorageKeys\.READING_PRELOAD_PAGES, normalized\)/.test(settings))
+ok('Reader settings exposes preload page count choices from 0 to 5',
+  /settings_reader_preload_pages/.test(settingsPage) &&
+  /PreloadPageMenu\(\)/.test(settingsPage) &&
+  /ReadModeSettings\.setPreloadPages/.test(settingsPage) &&
+  /content: '0'[\s\S]*content: '1'[\s\S]*content: '2'[\s\S]*content: '3'[\s\S]*content: '4'[\s\S]*content: '5'/.test(settingsPage) &&
+  /"settings_reader_preload_pages"[\s\S]*"预载页数"/.test(zh))
+ok('Reader preload count drives URL pre-resolve and component cache windows',
+  !/PRECACHE_AHEAD/.test(vm) &&
+  /private preloadPages\(\): number \{[\s\S]*connectReadMode\(\)\.preloadPages[\s\S]*MAX_PRELOAD_PAGES/.test(vm) &&
+  /if \(preloadPages <= 0\) \{[\s\S]*return[\s\S]*const to: number = Math\.min\(start \+ preloadPages - 1/.test(vm) &&
+  (reader.match(/\.cachedCount\(this\.readerPreloadPages\(\)\)/g) || []).length === 3 &&
+  !/\.cachedCount\(2\)/.test(reader))
+ok('Image.onComplete still records page loaded state for visible pages and auto-read',
   /\.onComplete\(\(event\?: ReaderImageLoadEvent\) => \{[\s\S]*this\.imageLoaded = true/.test(reader) &&
   /\.onComplete\(\(e\) => \{[\s\S]*this\.imageLoaded = true/.test(reader))
 ok('bottom chrome is not re-anchored against a centered root',

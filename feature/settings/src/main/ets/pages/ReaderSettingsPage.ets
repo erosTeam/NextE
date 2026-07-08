@@ -26,6 +26,7 @@ export struct ReaderSettingsPage {
   @Local readMode: ReadModeState = connectReadMode();
   @Local dirMenuShown: boolean = false;
   @Local autoPageMenuShown: boolean = false;
+  @Local preloadPageMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
 
   private setMode(mode: string): void {
@@ -46,6 +47,12 @@ export struct ReaderSettingsPage {
     ReadModeSettings.setAutoPageSeconds(ctx, seconds)
   }
 
+  private setPreloadPages(pages: number): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setPreloadPages(ctx, pages)
+  }
+
   private setVolumeKeyTurn(enabled: boolean): void {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -64,6 +71,10 @@ export struct ReaderSettingsPage {
 
   private autoPageLabel(): string {
     return `${this.readMode.autoPageSeconds}s`
+  }
+
+  private preloadPageLabel(): string {
+    return `${this.readMode.preloadPages}`
   }
 
   @Builder
@@ -168,6 +179,72 @@ export struct ReaderSettingsPage {
     }
   }
 
+  @Builder
+  PreloadPageMenu() {
+    Menu() {
+      MenuItem({
+        content: '0',
+        symbolEndIcon:
+          this.readMode.preloadPages === 0
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setPreloadPages(0)
+        this.preloadPageMenuShown = false
+      })
+      MenuItem({
+        content: '1',
+        symbolEndIcon:
+          this.readMode.preloadPages === 1
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setPreloadPages(1)
+        this.preloadPageMenuShown = false
+      })
+      MenuItem({
+        content: '2',
+        symbolEndIcon:
+          this.readMode.preloadPages === 2
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setPreloadPages(2)
+        this.preloadPageMenuShown = false
+      })
+      MenuItem({
+        content: '3',
+        symbolEndIcon:
+          this.readMode.preloadPages === 3
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setPreloadPages(3)
+        this.preloadPageMenuShown = false
+      })
+      MenuItem({
+        content: '4',
+        symbolEndIcon:
+          this.readMode.preloadPages === 4
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setPreloadPages(4)
+        this.preloadPageMenuShown = false
+      })
+      MenuItem({
+        content: '5',
+        symbolEndIcon:
+          this.readMode.preloadPages === 5
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setPreloadPages(5)
+        this.preloadPageMenuShown = false
+      })
+    }
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -222,6 +299,23 @@ export struct ReaderSettingsPage {
                 placement: Placement.BottomRight,
                 onDisappear: () => {
                   this.autoPageMenuShown = false
+                },
+              })
+              this.rowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_reader_preload_pages'),
+                  trailingText: this.preloadPageLabel(),
+                  trailingDropdown: true,
+                  action: () => {
+                    this.preloadPageMenuShown = true
+                  },
+                })
+              }
+              .bindMenu(this.preloadPageMenuShown, this.PreloadPageMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.preloadPageMenuShown = false
                 },
               })
               this.rowDivider()

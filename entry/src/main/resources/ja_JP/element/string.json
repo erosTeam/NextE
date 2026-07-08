@@ -2853,6 +2853,10 @@
       "value": "自動ページ間隔"
     },
     {
+      "name": "settings_reader_preload_pages",
+      "value": "先読みページ数"
+    },
+    {
       "name": "settings_reader_volume_key",
       "value": "音量キーでページ送り"
     },

@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: reader image loading retry stabilization
+
+Status: active
+Reference implementation: current NextE `feature/reader/src/main/ets/pages/ReaderPage.ets` cached image display pipeline, `shared/src/main/ets/services/CachedImageFileService.ets` in-flight image-cache joins, `shared/src/main/ets/network/EhHttpClient.ets` streamed binary download diagnostics, and the exported 2026-07-08 reader log showing repeated `http_binary_stream_retry` timeouts on large pages.
+Surface type: existing Reader image loading, progress, retry behavior, and Reader Settings preload row only; no Reader chrome layout, gesture model, page order, parser, or EH endpoint change.
+Primary information: when large gallery pages load slowly, the progress indicator should reflect cache-backed image downloads, and users can reduce or increase forward preloading from 0 to 5 pages.
+Primary action: open Reader Settings, choose the preload page count, then open a large gallery in Reader and wait for current/adjacent pages to load; the Reader should keep using cached local `file://` display URIs, bounded automatic re-source retries, and the existing retry overlay when attempts are exhausted.
+Reuse or deviation: reuse `CachedImageFileService.load()`/`cached()`, visible Reader image components, and native settings row dropdown menus; deviate by replacing the off-screen `Image(remoteUrl)` warmer with a cache-backed warmer, giving streamed image downloads a longer binary timeout than HTML/API requests, clearing automatic retry count only after success or explicit source reset, and replacing hardcoded preload windows with the persisted 0..5 setting.
+Verification: reader loading progress contract, settings dropdown anchor contract, UI grounding contract, V1 decorator inventory, diff check, and follow-up device/manual QA on the reported large-gallery log scenario; this source pass does not claim a signed build or real-device smoke.
+
 ## Active: account asset balance row
 
 Status: active

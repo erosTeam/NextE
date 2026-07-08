@@ -2853,6 +2853,10 @@
       "value": "Auto page interval"
     },
     {
+      "name": "settings_reader_preload_pages",
+      "value": "Preload pages"
+    },
+    {
       "name": "settings_reader_volume_key",
       "value": "Volume key page turn"
     },

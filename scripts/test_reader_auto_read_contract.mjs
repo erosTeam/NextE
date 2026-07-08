@@ -68,12 +68,12 @@ ok('ReaderPage tracks loaded pages from Image.onComplete',
   /onImageLoaded\(this\.image\.page\)/.test(reader) &&
   /markPageImageLoaded\(page\)/.test(reader))
 ok('Reader auto-read treats onComplete or resolved imageUrl as ready',
-  /private isPageReadyForAutoRead\(index: number\): boolean \{[\s\S]*this\.isPageImageLoaded\(index\)[\s\S]*this\.vm\.images\[index\]\.imageUrl\.length > 0/.test(reader))
+  /private isPageReadyForAutoRead\(index: number\): boolean \{[\s\S]*this\.isPageImageLoaded\(index\)[\s\S]*this\.vm\.imageAt\(index\)\.imageUrl\.length > 0/.test(reader))
 ok('Reader auto-read waits when preview or real image URL is not ready',
   /if \(!this\.vm\.hasPreviewAt\(target\) \|\| !this\.isPageReadyForAutoRead\(target\)\) \{[\s\S]*this\.waitForAutoReadPage\(target\)/.test(reader))
 ok('Waiting auto-read warms target without changing current page',
   /private waitForAutoReadPage\(index: number\): void \{[\s\S]*this\.vm\.warmForAutoRead\(index\)/.test(reader) &&
-  /warmForAutoRead\(index: number\): void \{[\s\S]*this\.ensureLoaded\(index\)[\s\S]*this\.precacheAhead\(\)/.test(vm))
+  /warmForAutoRead\(index: number\): void \{[\s\S]*this\.ensureLoaded\(index, 'auto-read'\)[\s\S]*this\.precacheFrom\(index\)/.test(vm))
 ok('loaded callback resumes paused auto-read',
   /private maybeResumeAutoRead\(index: number\): void \{[\s\S]*this\.startAutoReadTimer\(\)/.test(reader))
 ok('bottom chrome exposes auto-read as a secondary clock control',

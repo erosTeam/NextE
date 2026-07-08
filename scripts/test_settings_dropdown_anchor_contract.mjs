@@ -47,8 +47,8 @@ const dropdownPages = [
   },
   {
     file: 'feature/settings/src/main/ets/pages/ReaderSettingsPage.ets',
-    states: ['dirMenuShown', 'autoPageMenuShown'],
-    builders: ['DirMenu', 'AutoPageMenu'],
+    states: ['dirMenuShown', 'autoPageMenuShown', 'preloadPageMenuShown'],
+    builders: ['DirMenu', 'AutoPageMenu', 'PreloadPageMenu'],
   },
   {
     file: 'feature/settings/src/main/ets/pages/DownloadSettingsPage.ets',

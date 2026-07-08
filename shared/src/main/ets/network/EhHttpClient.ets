@@ -18,6 +18,7 @@ export interface EhTextResponse {
 const MAX_RETRIES: number = 3
 const CONNECT_TIMEOUT_MS: number = 10000
 const READ_TIMEOUT_MS: number = 20000
+const BINARY_STREAM_READ_TIMEOUT_MS: number = 120000
 const BACKOFF_BASE_MS: number = 800
 const MAX_BINARY_BYTES: number = 100 * 1024 * 1024
 const IMAGE_ACCEPT: string = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
@@ -313,7 +314,7 @@ export class EhHttpClient {
     progress: (loaded: number, total: number) => void,
     accept: string = IMAGE_ACCEPT,
     maxAttempts: number = MAX_RETRIES,
-    readTimeoutMs: number = READ_TIMEOUT_MS,
+    readTimeoutMs: number = BINARY_STREAM_READ_TIMEOUT_MS,
   ): Promise<number> {
     let attempt: number = 0
     let lastError: Error | null = null

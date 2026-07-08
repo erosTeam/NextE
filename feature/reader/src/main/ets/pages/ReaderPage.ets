@@ -44,10 +44,11 @@ const READER_THUMB_STRIP_HEIGHT: number = 84
 const READER_BOTTOM_TOOLBAR_HEIGHT: number = 112
 const READER_PROGRESS_NUMBER_MIN_W: number = 30
 const READER_PROGRESS_SLIDER_GAP: number = 4
-const READER_IMAGE_WARM_AHEAD: number = 2
 const READER_ZOOM_ANIM_DURATION: number = 180
 const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
 const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
+const READER_DEFAULT_PRELOAD_PAGES: number = 2
+const READER_MAX_PRELOAD_PAGES: number = 5
 const READER_STATUS_BAR_DARK_CONTENT: string = '#FF000000'
 class ReaderSpreadResolver {
   static isDoublePage(mode: string, enabled: boolean): boolean {
@@ -218,7 +219,7 @@ export struct ReaderPage {
         }
 
         if (this.readerContentReady()) {
-          this.ReaderImageWarmers()
+          this.ReaderCacheWarmers()
           if (!this.currentImageBlocked) {
             this.ReaderTapOverlay()
           }
@@ -477,54 +478,59 @@ export struct ReaderPage {
     return this.readerReady && this.vm.totalPages() > 0
   }
 
-  private warmImageIndexes(): number[] {
+  private readerPreloadPages(): number {
+    const value: number = this.readMode.preloadPages
+    if (!Number.isFinite(value)) {
+      return READER_DEFAULT_PRELOAD_PAGES
+    }
+    if (value < 0) {
+      return 0
+    }
+    if (value > READER_MAX_PRELOAD_PAGES) {
+      return READER_MAX_PRELOAD_PAGES
+    }
+    return Math.round(value)
+  }
+
+  private cacheWarmImageIndexes(): number[] {
     const indexes: number[] = []
-    if (!this.readerContentReady() || this.viewWidth <= 0 || this.viewHeight <= 0) {
+    const preloadPages: number = this.readerPreloadPages()
+    if (!this.readerContentReady() || preloadPages <= 0) {
       return indexes
     }
-    const to: number = Math.min(this.vm.currentIndex + READER_IMAGE_WARM_AHEAD, this.vm.totalPages() - 1)
+    const to: number = Math.min(this.vm.currentIndex + preloadPages, this.vm.totalPages() - 1)
     for (let i: number = this.vm.currentIndex + 1; i <= to; i++) {
-      if (this.vm.imageAt(i).imageUrl.length > 0) {
+      if (this.currentDisplayUrl(this.vm.imageAt(i)).length > 0) {
         indexes.push(i)
       }
     }
     return indexes
   }
 
-  private warmerTranslateX(): number {
-    return this.viewWidth + ThemeConstants.SPACE_XL
-  }
-
   @Builder
-  ReaderImageWarmers() {
+  ReaderCacheWarmers() {
     Stack() {
       ForEach(
-        this.warmImageIndexes(),
+        this.cacheWarmImageIndexes(),
         (index: number) => {
-          Image(this.vm.imageAt(index).imageUrl)
-            .objectFit(ImageFit.Contain)
-            .interpolation(ImageInterpolation.High)
-            .width('100%')
-            .height('100%')
-            // Lay out the warmer at reader-canvas size, then move it off-screen. A 1vp warmer only
-            // proves the URL fetch path; this makes the hidden Image enter the same display-size
-            // pipeline before Swiper exposes the page.
-            .translate({ x: this.warmerTranslateX(), y: 0 })
-            .draggable(false)
-            .onComplete(() => {
-              this.markPageImageLoaded(index + 1)
-              DiagnosticLogger.info('reader', 'warm_image_complete', `page ${index + 1}`)
-            })
-            .onError(() => {
-              DiagnosticLogger.warn('reader', 'warm_image_failed', `page ${index + 1}`)
-            })
+          ReaderCacheWarmImage({
+            page: this.vm.imageAt(index).page,
+            sourceUrl: this.currentDisplayUrl(this.vm.imageAt(index)),
+            imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
+            onImageLoaded: (page: number) => {
+              this.markPageImageLoaded(page)
+            },
+            onImageFileReady: (page: number, filePath: string) => {
+              this.rememberImageBlockFile(page, filePath)
+            },
+          })
         },
-        (index: number) => `warm_${index}_${this.safeForEachKeyHash(this.vm.imageAt(index).imageUrl)}`,
+        (index: number) => `cache_warm_${index}_${this.safeForEachKeyHash(this.currentDisplayUrl(this.vm.imageAt(index)))}`,
       )
     }
-    .width('100%')
-    .height('100%')
-    .position({ x: 0, y: 0 })
+    .width(1)
+    .height(1)
+    .opacity(0)
     .hitTestBehavior(HitTestMode.None)
   }
 
@@ -1193,7 +1199,7 @@ export struct ReaderPage {
     .index(this.readerPagerIndex)
     .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
     .loop(false)
-    .cachedCount(2)
+    .cachedCount(this.readerPreloadPages())
     .indicator(false)
     .disableSwipe(this.imageZoomed)
     .width('100%')
@@ -1370,7 +1376,7 @@ export struct ReaderPage {
     .index(this.readerPagerIndex)
     .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
     .loop(false)
-    .cachedCount(2)
+    .cachedCount(this.readerPreloadPages())
     .indicator(false)
     .disableSwipe(this.imageZoomed)
     .width('100%')
@@ -1465,7 +1471,7 @@ export struct ReaderPage {
     }
     .width('100%')
     .height('100%')
-    .cachedCount(2)
+    .cachedCount(this.readerPreloadPages())
     .scrollBar(BarState.Off)
     .onScrollIndex((start: number, end: number) => {
       this.vm.onVerticalScroll(start, end)
@@ -2202,6 +2208,95 @@ interface ReaderImageLoadEvent {
 }
 
 @ComponentV2
+struct ReaderCacheWarmImage {
+  @Param page: number = 0;
+  @Param sourceUrl: string = '';
+  @Param imageKey: string = '';
+  @Param onImageLoaded: (page: number) => void = (_page: number) => {};
+  @Param onImageFileReady: (page: number, filePath: string) => void =
+    (_page: number, _filePath: string) => {};
+
+  private warmingKey: string = '';
+  private warmedKey: string = '';
+
+  aboutToAppear(): void {
+    this.warm()
+  }
+
+  @Monitor('sourceUrl')
+  onSourceUrlChanged(): void {
+    this.warm()
+  }
+
+  @Monitor('imageKey')
+  onImageKeyChanged(): void {
+    this.warm()
+  }
+
+  private cacheKey(): string {
+    return `${this.page}-${this.imageKey}-${this.sourceUrl}`
+  }
+
+  private markReady(result: CachedImageFileResult, key: string): void {
+    this.warmedKey = key
+    this.onImageFileReady(this.page, result.filePath)
+    this.onImageLoaded(this.page)
+  }
+
+  private warm(): void {
+    if (this.page <= 0 || this.sourceUrl.length === 0) {
+      return
+    }
+    const key: string = this.cacheKey()
+    if (key === this.warmedKey || key === this.warmingKey) {
+      return
+    }
+    const context: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    const cached: CachedImageFileResult | null = CachedImageFileService.cached(
+      context,
+      this.sourceUrl,
+      key,
+    )
+    if (cached !== null) {
+      DiagnosticLogger.info('image-cache', 'reader_warm_hit', `page ${this.page} ${cached.bytes} bytes`)
+      this.markReady(cached, key)
+      return
+    }
+    this.warmingKey = key
+    CachedImageFileService.load(
+      context,
+      this.sourceUrl,
+      key,
+      (_progress: CachedImageProgress) => {},
+    )
+      .then((result: CachedImageFileResult) => {
+        if (this.warmingKey !== key) {
+          return
+        }
+        DiagnosticLogger.info('image-cache', 'reader_warm_complete', `page ${this.page} ${result.bytes} bytes`)
+        this.markReady(result, key)
+      })
+      .catch((err: Error) => {
+        if (this.warmingKey === key) {
+          DiagnosticLogger.warn('image-cache', 'reader_warm_failed', `page ${this.page}: ${err.message}`)
+        }
+      })
+      .finally(() => {
+        if (this.warmingKey === key) {
+          this.warmingKey = ''
+        }
+      })
+  }
+
+  build() {
+    Blank()
+      .width(1)
+      .height(1)
+  }
+}
+
+@ComponentV2
 struct ReaderSpreadSurface {
   @Param first: EhGalleryImage = new EhGalleryImage();
   @Param second: EhGalleryImage = new EhGalleryImage();
@@ -2645,7 +2740,6 @@ struct ReaderSpreadImageLayer {
 
   private async loadResolvedImage(resolved: string): Promise<void> {
     const seq: number = ++this.loadSeq
-    this.autoRetryCount = 0
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -2662,6 +2756,7 @@ struct ReaderSpreadImageLayer {
       }
       this.imageUrl = cached.displayUri
       this.imageLoaded = true
+      this.autoRetryCount = 0
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
       DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
@@ -2693,6 +2788,7 @@ struct ReaderSpreadImageLayer {
     }
     this.imageUrl = result.displayUri
     this.imageLoaded = this.initiallyLoaded
+    this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
   }
@@ -2721,6 +2817,7 @@ struct ReaderSpreadImageLayer {
     this.imageLoaded = true
     this.imageProgressLoaded = bytes
     this.imageProgressTotal = bytes
+    this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.onImageLoaded(this.image.page)
@@ -2981,7 +3078,6 @@ struct ReaderImagePage {
 
   private async loadResolvedImage(resolved: string): Promise<void> {
     const seq: number = ++this.loadSeq
-    this.autoRetryCount = 0
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -2998,6 +3094,7 @@ struct ReaderImagePage {
       }
       this.imageUrl = cached.displayUri
       this.imageLoaded = true
+      this.autoRetryCount = 0
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
       DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
@@ -3029,6 +3126,7 @@ struct ReaderImagePage {
     }
     this.imageUrl = result.displayUri
     this.imageLoaded = this.initiallyLoaded
+    this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
   }
@@ -3057,6 +3155,7 @@ struct ReaderImagePage {
     this.imageLoaded = true
     this.imageProgressLoaded = bytes
     this.imageProgressTotal = bytes
+    this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.onImageLoaded(this.image.page)
@@ -3483,7 +3582,6 @@ struct ReaderVerticalImage {
 
   private async loadResolvedImage(resolved: string): Promise<void> {
     const seq: number = ++this.loadSeq
-    this.autoRetryCount = 0
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -3500,6 +3598,7 @@ struct ReaderVerticalImage {
       }
       this.imageUrl = cached.displayUri
       this.imageLoaded = true
+      this.autoRetryCount = 0
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
       DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
@@ -3531,6 +3630,7 @@ struct ReaderVerticalImage {
     }
     this.imageUrl = result.displayUri
     this.imageLoaded = this.initiallyLoaded
+    this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
   }
@@ -3559,6 +3659,7 @@ struct ReaderVerticalImage {
     this.imageLoaded = true
     this.imageProgressLoaded = bytes
     this.imageProgressTotal = bytes
+    this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.onImageLoaded(this.image.page)

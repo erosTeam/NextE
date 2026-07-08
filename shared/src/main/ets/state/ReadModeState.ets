@@ -24,6 +24,7 @@ export class ReadModeState {
   @Trace doublePageEnabled: boolean = false
   @Trace columnMode: string = ReadColumnMode.SINGLE
   @Trace autoPageSeconds: number = 3
+  @Trace preloadPages: number = 2
   @Trace volumeKeyTurn: boolean = false
 }
 

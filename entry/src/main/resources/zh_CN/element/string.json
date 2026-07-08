@@ -2853,6 +2853,10 @@
       "value": "自动翻页间隔"
     },
     {
+      "name": "settings_reader_preload_pages",
+      "value": "预载页数"
+    },
+    {
       "name": "settings_reader_volume_key",
       "value": "音量键翻页"
     },
