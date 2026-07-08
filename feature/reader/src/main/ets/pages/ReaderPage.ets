@@ -2944,7 +2944,9 @@ struct ReaderSpreadImageLayer {
         })
       } else if (this.sourceImageUrl.length > 0) {
         ReaderLoadingStage({
-          label: $r('app.string.reader_loading_image'),
+          label: this.imageProgressLoaded > 0
+            ? $r('app.string.reader_loading_image')
+            : $r('app.string.reader_loading_requesting'),
           loaded: this.imageProgressLoaded,
           total: this.imageProgressTotal,
         })
@@ -3396,7 +3398,9 @@ struct ReaderImagePage {
         })
       } else if (this.sourceImageUrl.length > 0) {
         ReaderLoadingStage({
-          label: $r('app.string.reader_loading_image'),
+          label: this.imageProgressLoaded > 0
+            ? $r('app.string.reader_loading_image')
+            : $r('app.string.reader_loading_requesting'),
           loaded: this.imageProgressLoaded,
           total: this.imageProgressTotal,
         })
@@ -3804,7 +3808,9 @@ struct ReaderVerticalImage {
         })
       } else if (this.sourceImageUrl.length > 0) {
         ReaderLoadingStage({
-          label: $r('app.string.reader_loading_image'),
+          label: this.imageProgressLoaded > 0
+            ? $r('app.string.reader_loading_image')
+            : $r('app.string.reader_loading_requesting'),
           compact: true,
           loaded: this.imageProgressLoaded,
           total: this.imageProgressTotal,

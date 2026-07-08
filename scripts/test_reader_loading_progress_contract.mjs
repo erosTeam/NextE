@@ -78,7 +78,7 @@ ok('Reader download progress uses the system linear Progress component instead o
 ok('unknown-total image downloads use the native busy indicator instead of an empty linear track',
   /else \{[\s\S]*LoadingProgress\(\)[\s\S]*\.width\(this\.compact \? 24 : 28\)[\s\S]*\.height\(this\.compact \? 24 : 28\)/.test(loadingStage) &&
   /if \(this\.hasProgress\(\)\) \{[\s\S]*Text\(this\.progressPercent\(\)\)/.test(loadingStage) &&
-  !/reader_loading_requesting|reader_loading_received|reader_loading_waiting_response/.test(reader + zh))
+  !/reader_loading_received|reader_loading_waiting_response/.test(reader + zh))
 ok('resolved remote URLs are converted into cached display URIs before presentation',
   (reader.match(/await this\.loadResolvedImage\(resolved\)/g) || []).length >= 3 &&
   (reader.match(/this\.imageUrl = result\.displayUri/g) || []).length >= 3)

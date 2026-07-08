@@ -313,6 +313,7 @@ export class EhHttpClient {
     filePath: string,
     progress: (loaded: number, total: number) => void,
     connectTimeoutMs: number = CONNECT_TIMEOUT_MS,
+    noProgressTimeoutMs: number = 0,
     accept: string = IMAGE_ACCEPT,
     maxAttempts: number = MAX_RETRIES,
     readTimeoutMs: number = BINARY_STREAM_READ_TIMEOUT_MS,
@@ -322,6 +323,24 @@ export class EhHttpClient {
     const attempts: number = Math.max(1, Math.round(maxAttempts))
     while (attempt < attempts) {
       const req: http.HttpRequest = http.createHttp()
+      let noProgressTimer: number = -1
+      let noProgressTimedOut: boolean = false
+      const clearNoProgressTimer = (): void => {
+        if (noProgressTimer >= 0) {
+          clearTimeout(noProgressTimer)
+          noProgressTimer = -1
+        }
+      }
+      const armNoProgressTimer = (): void => {
+        clearNoProgressTimer()
+        if (noProgressTimeoutMs <= 0) {
+          return
+        }
+        noProgressTimer = setTimeout((): void => {
+          noProgressTimedOut = true
+          req.destroy()
+        }, noProgressTimeoutMs)
+      }
       let file: fs.File | null = null
       let openedTarget: boolean = false
       let shouldDeleteFile: boolean = false
@@ -342,6 +361,7 @@ export class EhHttpClient {
           if (loaded <= 0) {
             return
           }
+          clearNoProgressTimer()
           const now: number = force ? 0 : Date.now()
           if (!force && now - lastProgressAt < STREAM_PROGRESS_INTERVAL_MS) {
             return
@@ -354,6 +374,7 @@ export class EhHttpClient {
           lastProgressTotal = total
           progress(loaded, total)
         }
+        armNoProgressTimer()
         req.on('dataReceiveProgress', (info: http.DataReceiveProgressInfo) => {
           if (info.totalSize > progressTotal) {
             progressTotal = info.totalSize
@@ -379,9 +400,13 @@ export class EhHttpClient {
           readTimeout: readTimeoutMs,
           usingCache: false,
         })
+        if (noProgressTimedOut) {
+          throw new Error('binary no progress timeout')
+        }
         req.destroy()
         fs.closeSync(file)
         file = null
+        clearNoProgressTimer()
         if (code >= 500 && attempt < attempts - 1) {
           shouldDeleteFile = true
           lastError = new Error(`HTTP ${code}`)
@@ -397,14 +422,15 @@ export class EhHttpClient {
       } catch (error) {
         const e = error as Error
         shouldDeleteFile = openedTarget
-        lastError = e
+        lastError = noProgressTimedOut ? new Error('binary no progress timeout') : e
         DiagnosticLogger.warn(
           'network',
           'http_binary_stream_retry',
-          `attempt ${attempt}: ${e.message}`,
+          `attempt ${attempt}: ${lastError.message}`,
         )
         req.destroy()
       } finally {
+        clearNoProgressTimer()
         if (file !== null) {
           fs.closeSync(file)
         }

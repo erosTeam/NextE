@@ -1317,6 +1317,10 @@
       "value": "Resolving image"
     },
     {
+      "name": "reader_loading_requesting",
+      "value": "Requesting image"
+    },
+    {
       "name": "reader_loading_image",
       "value": "Loading image"
     },
