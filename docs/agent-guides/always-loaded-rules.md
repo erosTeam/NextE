@@ -77,12 +77,16 @@ EhHttpClient → EhApiService/EhApiPhpService → parser(正则/DOM) → model
 
 ### Contract 使用纪律
 
-Contract 只用于锁定高风险、已确认且容易静默回退的项目不变量。不要把每个 bug、每个 UI 细节、每次返工、每个口头例子都写成 contract。
+Contract 默认不新增。Contract 只用于锁定高风险、已确认且容易静默回退的项目不变量。不要把每个 bug、每个 UI 细节、每次返工、每个口头例子都写成 contract。
 
 - 优先用已有测试、编译、模拟器用户路径、静态 diff 说明结果。能用现有验证覆盖的,不新增 contract。
 - 新增 contract 前必须能说明它保护的稳定不变量是什么、为什么普通构建 / 现有测试 / 人工路径不能覆盖、以及它未来失败时应该怎么修。说不清就不加。
 - 禁止用 contract 锁定尚未验收的视觉猜测、临时 workaround、单次实现细节或用户随口举例。contract 只能锁已确认的行为边界。
-- 新 contract 要小而少,优先扩展同域已有脚本;不要为窄场景新建脚本。若 contract 代码开始接近或超过被保护的产品逻辑复杂度,停止添加。
+- 禁止用 contract 替代真实用户路径验证。用户可见功能必须先用截图 / layout / 日志 / 设备路径证明,不能用“contract 通过”包装成可用。
+- 禁止把示例数字、一次性截图、临时文案、猜测性 parser 规则、尚未取证的页面结构、或未确认的信息架构写成 contract。
+- 新 contract 要小而少,优先扩展同域已有脚本;不要为窄场景新建脚本。若 contract 代码开始接近或超过被保护的产品逻辑复杂度,停止添加并删除该 contract。
+- 新增 contract 前必须检查同域旧 contract,优先合并、删减或复用;不得让 contract 数量无界增长。新增一个窄 contract 时,需要同时说明为什么不能合并进现有脚本。
+- 用户指出 contract 滥用时,立即停止新增 contract,改用现有门禁、人工 / 设备验证、日志证据或静态 diff 完成当前任务;需要长期防回归时,先删减同域低价值 contract 再讨论新增。
 - 用户要求“测试覆盖”不等于自动新增 contract。先用最小可运行验证;只有需要长期防回归时才落 contract。
 
 ## 新 worktree 依赖前置
