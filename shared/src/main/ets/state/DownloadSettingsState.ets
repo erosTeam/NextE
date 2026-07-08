@@ -7,9 +7,10 @@ export enum DownloadOriginalMode {
 }
 
 export enum ArchiveBotType {
-  EH_AR_BOT = 'eh_ar_bot',
   ARCHIVE_AT_HOME = 'archive_at_home',
 }
+
+const DEFAULT_ARCHIVE_AT_HOME_ADDRESS: string = 'https://api.archive-at-home.org'
 
 /**
  * Download preferences shared by the queue workbench and the gallery image executor.
@@ -25,8 +26,8 @@ export class DownloadSettingsState {
   @Trace notifyOnComplete: boolean = false
   @Trace hideFromMediaLibrary: boolean = true
   @Trace originalMode: string = DownloadOriginalMode.ASK
-  @Trace archiveBotType: string = ArchiveBotType.EH_AR_BOT
-  @Trace archiveBotAddress: string = 'https://eh-arc-api.mhdy.icu'
+  @Trace archiveBotType: string = ArchiveBotType.ARCHIVE_AT_HOME
+  @Trace archiveBotAddress: string = DEFAULT_ARCHIVE_AT_HOME_ADDRESS
   @Trace archiveBotApiKey: string = ''
   @Trace archiveBotBalanceGp: number = -1
   @Trace archiveBotBalanceUpdatedAt: number = 0

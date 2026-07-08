@@ -345,10 +345,6 @@
       "value": "サードパーティサービスで元画像アーカイブリンクを解析します"
     },
     {
-      "name": "download_archive_bot_eh_ar_bot",
-      "value": "EH-ArBot"
-    },
-    {
       "name": "download_archive_bot_archive_at_home",
       "value": "Archive-at-Home"
     },
@@ -379,18 +375,6 @@
     {
       "name": "download_archive_bot_balance_result",
       "value": "残高 %s GP"
-    },
-    {
-      "name": "download_archive_bot_checkin",
-      "value": "チェックイン"
-    },
-    {
-      "name": "download_archive_bot_checkin_hint",
-      "value": "Archive Bot のデイリーチェックインを実行します"
-    },
-    {
-      "name": "download_archive_bot_checkin_result",
-      "value": "%s GP 獲得、現在 %s GP"
     },
     {
       "name": "download_restore_tasks",

@@ -345,10 +345,6 @@
       "value": "Resolve original archive links with a third-party service"
     },
     {
-      "name": "download_archive_bot_eh_ar_bot",
-      "value": "EH-ArBot"
-    },
-    {
       "name": "download_archive_bot_archive_at_home",
       "value": "Archive-at-Home"
     },
@@ -379,18 +375,6 @@
     {
       "name": "download_archive_bot_balance_result",
       "value": "Balance %s GP"
-    },
-    {
-      "name": "download_archive_bot_checkin",
-      "value": "Check in"
-    },
-    {
-      "name": "download_archive_bot_checkin_hint",
-      "value": "Request daily Bot check-in"
-    },
-    {
-      "name": "download_archive_bot_checkin_result",
-      "value": "Got %s GP, now %s GP"
     },
     {
       "name": "download_restore_tasks",

@@ -345,10 +345,6 @@
       "value": "使用第三方服务解析原图归档链接"
     },
     {
-      "name": "download_archive_bot_eh_ar_bot",
-      "value": "EH-ArBot"
-    },
-    {
       "name": "download_archive_bot_archive_at_home",
       "value": "Archive-at-Home"
     },
@@ -379,18 +375,6 @@
     {
       "name": "download_archive_bot_balance_result",
       "value": "余额 %s GP"
-    },
-    {
-      "name": "download_archive_bot_checkin",
-      "value": "签到"
-    },
-    {
-      "name": "download_archive_bot_checkin_hint",
-      "value": "向归档 Bot 请求每日签到"
-    },
-    {
-      "name": "download_archive_bot_checkin_result",
-      "value": "获得 %s GP，当前 %s GP"
     },
     {
       "name": "download_restore_tasks",

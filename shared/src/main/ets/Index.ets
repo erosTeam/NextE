@@ -142,7 +142,6 @@ export { ImageResolveService } from './services/ImageResolveService'
 export { ArchiveImageService } from './services/ArchiveImageService'
 export {
   ArchiveBotBalanceResult,
-  ArchiveBotCheckInResult,
   ArchiveBotResolveResult,
   ArchiveBotService,
 } from './services/ArchiveBotService'

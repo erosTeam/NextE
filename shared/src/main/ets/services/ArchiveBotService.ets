@@ -1,5 +1,5 @@
 import { http } from '@kit.NetworkKit'
-import { ArchiveBotType, DownloadSettingsState } from '../state/DownloadSettingsState'
+import { DownloadSettingsState } from '../state/DownloadSettingsState'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
@@ -17,23 +17,12 @@ class ArchiveBotResponseJson {
 
 class ArchiveBotDataJson {
   archive_url?: string
-  current_GP?: Object
-  get_GP?: Object
   balance?: Object
-  reward?: Object
 }
 
 export class ArchiveBotBalanceResult {
   gp: number = 0
   message: string = ''
-  hasBalance: boolean = false
-}
-
-export class ArchiveBotCheckInResult {
-  reward: number = 0
-  gp: number = 0
-  message: string = ''
-  hasReward: boolean = false
   hasBalance: boolean = false
 }
 
@@ -48,33 +37,8 @@ export class ArchiveBotService {
     ArchiveBotService.assertSuccess(resp)
     const data: ArchiveBotDataJson = resp.data !== undefined ? resp.data : new ArchiveBotDataJson()
     const out: ArchiveBotBalanceResult = new ArchiveBotBalanceResult()
-    out.hasBalance = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
-      ? data.balance !== undefined
-      : data.current_GP !== undefined
-    out.gp = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
-      ? ArchiveBotService.safeNumber(data.balance)
-      : ArchiveBotService.safeNumber(data.current_GP)
-    out.message = ArchiveBotService.message(resp)
-    return out
-  }
-
-  static async requestCheckIn(settings: DownloadSettingsState): Promise<ArchiveBotCheckInResult> {
-    const resp: ArchiveBotResponseJson = await ArchiveBotService.requestBot(settings, 'checkin', '', '', false)
-    ArchiveBotService.assertSuccess(resp)
-    const data: ArchiveBotDataJson = resp.data !== undefined ? resp.data : new ArchiveBotDataJson()
-    const out: ArchiveBotCheckInResult = new ArchiveBotCheckInResult()
-    out.hasReward = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
-      ? data.reward !== undefined
-      : data.get_GP !== undefined
-    out.hasBalance = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
-      ? data.balance !== undefined
-      : data.current_GP !== undefined
-    out.reward = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
-      ? ArchiveBotService.safeNumber(data.reward)
-      : ArchiveBotService.safeNumber(data.get_GP)
-    out.gp = settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME
-      ? ArchiveBotService.safeNumber(data.balance)
-      : ArchiveBotService.safeNumber(data.current_GP)
+    out.hasBalance = data.balance !== undefined
+    out.gp = ArchiveBotService.safeNumber(data.balance)
     out.message = ArchiveBotService.message(resp)
     return out
   }
@@ -105,7 +69,7 @@ export class ArchiveBotService {
     reParse: boolean,
   ): Promise<ArchiveBotResponseJson> {
     const url: string = ArchiveBotService.endpoint(settings, action)
-    const body: string = ArchiveBotService.body(settings, action, gid, token, reParse)
+    const body: string = ArchiveBotService.body(action, gid, token, reParse)
     const req: http.HttpRequest = http.createHttp()
     DiagnosticLogger.info(
       'download',
@@ -115,7 +79,7 @@ export class ArchiveBotService {
     try {
       const resp: http.HttpResponse = body.length > 0
         ? await req.request(url, {
-          method: ArchiveBotService.method(settings, action),
+          method: ArchiveBotService.method(action),
           header: ArchiveBotService.headers(settings, body.length > 0),
           extraData: body,
           expectDataType: http.HttpDataType.STRING,
@@ -124,7 +88,7 @@ export class ArchiveBotService {
           usingCache: false,
         })
         : await req.request(url, {
-          method: ArchiveBotService.method(settings, action),
+          method: ArchiveBotService.method(action),
           header: ArchiveBotService.headers(settings, false),
           expectDataType: http.HttpDataType.STRING,
           connectTimeout: CONNECT_TIMEOUT_MS,
@@ -164,20 +128,14 @@ export class ArchiveBotService {
 
   private static endpoint(settings: DownloadSettingsState, action: string): string {
     const base: string = ArchiveBotService.trimRightSlash(settings.archiveBotAddress)
-    if (settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME) {
-      if (action === 'balance') {
-        return `${base}/api/v1/me/balance`
-      }
-      if (action === 'checkin') {
-        return `${base}/api/v1/me/checkin`
-      }
-      return `${base}/api/v1/parse`
+    if (action === 'balance') {
+      return `${base}/api/v1/me/balance`
     }
-    return `${base}/${action === 'resolve' ? 'resolve' : action}`
+    return `${base}/api/v1/parse`
   }
 
-  private static method(settings: DownloadSettingsState, action: string): http.RequestMethod {
-    if (settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME && action === 'balance') {
+  private static method(action: string): http.RequestMethod {
+    if (action === 'balance') {
       return http.RequestMethod.GET
     }
     return http.RequestMethod.POST
@@ -192,42 +150,25 @@ export class ArchiveBotService {
     if (hasBody) {
       headers['Content-Type'] = 'application/json'
     }
-    if (settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME) {
-      headers.Authorization = `Bearer ${settings.archiveBotApiKey}`
-      headers['X-Client'] = ARCHIVE_AT_HOME_CLIENT
-    }
+    headers.Authorization = `Bearer ${settings.archiveBotApiKey}`
+    headers['X-Client'] = ARCHIVE_AT_HOME_CLIENT
     return headers
   }
 
   private static body(
-    settings: DownloadSettingsState,
     action: string,
     gid: string,
     token: string,
     reParse: boolean,
   ): string {
-    if (settings.archiveBotType === ArchiveBotType.ARCHIVE_AT_HOME) {
-      if (action === 'balance') {
-        return ''
-      }
-      if (action === 'checkin') {
-        return ''
-      }
-      return JSON.stringify({
-        gallery_id: gid,
-        gallery_key: token,
-        force: reParse,
-      })
+    if (action === 'balance') {
+      return ''
     }
-    if (action === 'resolve') {
-      return JSON.stringify({
-        apikey: settings.archiveBotApiKey,
-        gid: Number.parseInt(gid, 10),
-        token: token,
-        force_resolve: reParse,
-      })
-    }
-    return JSON.stringify({ apikey: settings.archiveBotApiKey })
+    return JSON.stringify({
+      gallery_id: gid,
+      gallery_key: token,
+      force: reParse,
+    })
   }
 
   private static parseResponse(body: string): ArchiveBotResponseJson {
@@ -240,25 +181,15 @@ export class ArchiveBotService {
     const rawAny = raw as Record<string, Object>
     const data: ArchiveBotDataJson = new ArchiveBotDataJson()
     data.archive_url = typeof raw.archive_url === 'string' ? raw.archive_url : ''
-    if (raw.current_GP !== undefined) {
-      data.current_GP = ArchiveBotService.safeNumber(raw.current_GP)
-    }
-    if (raw.get_GP !== undefined) {
-      data.get_GP = ArchiveBotService.safeNumber(raw.get_GP)
-    }
     if (raw.balance !== undefined) {
       data.balance = ArchiveBotService.safeNumber(raw.balance)
-    }
-    if (raw.reward !== undefined) {
-      data.reward = ArchiveBotService.safeNumber(raw.reward)
     }
     out.data = data
     out.error = typeof rec.error === 'string' ? rec.error : ''
     if (rec.data !== undefined) {
       return out
     }
-    const hasBusinessData: boolean = rawAny.archive_url !== undefined || rawAny.current_GP !== undefined ||
-      rawAny.get_GP !== undefined || rawAny.balance !== undefined || rawAny.reward !== undefined
+    const hasBusinessData: boolean = rawAny.archive_url !== undefined || rawAny.balance !== undefined
     if (!hasBusinessData && typeof rec.code !== 'number') {
       out.code = 99
     }
@@ -303,9 +234,6 @@ export class ArchiveBotService {
     if (code === 6) {
       return 'Parse failed'
     }
-    if (code === 7) {
-      return 'Already checked in'
-    }
     return 'Archive bot error'
   }
 
@@ -318,8 +246,7 @@ export class ArchiveBotService {
       const message: string = typeof rec.message === 'string' ? rec.message as string :
         typeof rec.msg === 'string' ? rec.msg as string : ''
       const balance: Object | undefined = data !== undefined && data.balance !== undefined ? data.balance : rec.balance
-      const reward: Object | undefined = data !== undefined && data.reward !== undefined ? data.reward : rec.reward
-      return `keys=${keys} dataKeys=${dataKeys} balance=${balance ?? ''} reward=${reward ?? ''} message=${message}`
+      return `keys=${keys} dataKeys=${dataKeys} balance=${balance ?? ''} message=${message}`
     } catch (_error) {
       return 'unparseable'
     }
