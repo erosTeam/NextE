@@ -140,6 +140,7 @@ export struct ReaderPage {
   // flat-scrim bars, not the old hand-rolled floating glass card.
   @Local showChrome: boolean = false;
   @Local imageZoomed: boolean = false;
+  @Local verticalZoomedPage: number = -1;
   @Local doubleTapSeq: number = 0;
   @Local doubleTapX: number = 0;
   @Local doubleTapY: number = 0;
@@ -235,7 +236,7 @@ export struct ReaderPage {
 
         if (this.readerContentReady()) {
           this.ReaderCacheWarmers()
-          if (!this.currentImageBlocked) {
+          if (!this.currentImageBlocked && !this.isContinuousVerticalMode()) {
             this.ReaderTapOverlay()
           }
         }
@@ -1065,8 +1066,32 @@ export struct ReaderPage {
     }
   }
 
+  private onVerticalImageTap(page: number, x: number, y: number, width: number, height: number): void {
+    const target: number = page - 1
+    if (target >= 0 && target < this.vm.totalPages() && this.vm.hasPreviewAt(target)) {
+      this.vm.onPageChange(target)
+    }
+    if (this.imageZoomed || width <= 0) {
+      this.toggleChrome()
+      return
+    }
+    const lr: number = width / 3
+    if (x < lr) {
+      this.toPrev()
+    } else if (x > width - lr) {
+      this.toNext()
+    } else if (height > 0 && y < height / 5) {
+      this.toPrev()
+    } else if (height > 0 && y > (height * 4) / 5) {
+      this.toNext()
+    } else {
+      this.toggleChrome()
+    }
+  }
+
   private clearZoomGate(): void {
     this.imageZoomed = false
+    this.verticalZoomedPage = -1
   }
 
   private doubleTapTargetForPoint(x: number): number {
@@ -1498,6 +1523,10 @@ export struct ReaderPage {
                 imageBlockWhitelistSaving: this.imageBlockWhitelistSaving,
                 onZoomChange: (zoomed: boolean) => {
                   this.imageZoomed = zoomed
+                  this.verticalZoomedPage = zoomed ? this.vm.imageAt(index).page : -1
+                },
+                onTap: (page: number, x: number, y: number, width: number, height: number) => {
+                  this.onVerticalImageTap(page, x, y, width, height)
                 },
                 onImageLoaded: (page: number) => {
                   this.markPageImageLoaded(page)
@@ -1516,6 +1545,7 @@ export struct ReaderPage {
               this.ReaderPendingPage(index)
             }
           }
+          .zIndex((this.vm.hasPreviewAt(index) && this.verticalZoomedPage === this.vm.imageAt(index).page) ? 1 : 0)
         },
         (index: number) => `reader_${index}_${this.readerImageIdentityKey(this.vm.imageAt(index))}`,
       )
@@ -3588,6 +3618,8 @@ struct ReaderVerticalImage {
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
   @Param imageBlockWhitelistSaving: boolean = false;
+  @Param onTap: (page: number, x: number, y: number, width: number, height: number) => void =
+    (_page: number, _x: number, _y: number, _width: number, _height: number) => {};
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageFileReady: (page: number, filePath: string) => void =
@@ -3916,6 +3948,10 @@ struct ReaderVerticalImage {
     }
   }
 
+  private onSingleTap(tapX: number, tapY: number): void {
+    this.onTap(this.image.page, tapX, tapY, this.compW, this.compH)
+  }
+
   private onDoubleTap(tapX: number, tapY: number): void {
     this.beginZoomAnimation()
     if (ReaderZoomCoordinator.doubleTapTarget(this.zoomScale) === 1) {
@@ -3932,6 +3968,10 @@ struct ReaderVerticalImage {
     this.offsetX = this.clampOffsetX(nextX, target)
     this.offsetY = this.clampOffsetY(nextY, target)
     this.notifyZoom()
+  }
+
+  private zoomZIndex(): number {
+    return ReaderZoomCoordinator.isZoomed(this.zoomScale) ? 1 : 0
   }
 
   build() {
@@ -4009,7 +4049,7 @@ struct ReaderVerticalImage {
     }
     .width('100%')
     .constraintSize({ minHeight: 220 })
-    .clip(true)
+    .zIndex(this.zoomZIndex())
     .onAreaChange((_o: Area, n: Area) => {
       this.compW = n.width as number
       this.compH = n.height as number
@@ -4018,12 +4058,21 @@ struct ReaderVerticalImage {
     .gesture(
       GestureGroup(
         GestureMode.Parallel,
-        TapGesture({ count: 2, distanceThreshold: 8 }).onAction((e?: GestureEvent) => {
-          const loc = e ? e.tapLocation : undefined
-          const tapX: number = loc ? (loc.x as number) : this.compW / 2
-          const tapY: number = loc ? (loc.y as number) : this.compH / 2
-          this.onDoubleTap(tapX, tapY)
-        }),
+        GestureGroup(
+          GestureMode.Exclusive,
+          TapGesture({ count: 2, distanceThreshold: 8 }).onAction((e?: GestureEvent) => {
+            const loc = e ? e.tapLocation : undefined
+            const tapX: number = loc ? (loc.x as number) : this.compW / 2
+            const tapY: number = loc ? (loc.y as number) : this.compH / 2
+            this.onDoubleTap(tapX, tapY)
+          }),
+          TapGesture({ count: 1 }).onAction((e?: GestureEvent) => {
+            const loc = e ? e.tapLocation : undefined
+            const tapX: number = loc ? (loc.x as number) : this.compW / 2
+            const tapY: number = loc ? (loc.y as number) : this.compH / 2
+            this.onSingleTap(tapX, tapY)
+          }),
+        ),
         PinchGesture({ fingers: 2 })
           .onActionStart((e?: GestureEvent) => {
             if (!e) {
