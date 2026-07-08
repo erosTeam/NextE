@@ -122,7 +122,7 @@ export struct GalleryArchiverContent {
 
   @Builder
   private BalanceRow() {
-    if (this.quote.gp.length > 0 || this.quote.credits.length > 0) {
+    if (!this.params.isEx && (this.quote.gp.length > 0 || this.quote.credits.length > 0)) {
       ListItem() {
         Row({ space: ThemeConstants.SPACE_LG }) {
           if (this.quote.gp.length > 0) {

@@ -1777,6 +1777,10 @@
       "value": "画像クォータ"
     },
     {
+      "name": "account_asset_balance_title",
+      "value": "資産残高"
+    },
+    {
       "name": "account_image_high_resolution_limited",
       "value": "現在はIPベースの画像制限を使用中で、制限は発生していません"
     },

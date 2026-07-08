@@ -13,6 +13,7 @@ import { EhGalleryDetailParser } from '../parser/EhGalleryDetailParser'
 import { EhGalleryImageParser } from '../parser/EhGalleryImageParser'
 import { EhGalleryTorrentParser } from '../parser/EhGalleryTorrentParser'
 import { EhGalleryArchiverParser } from '../parser/EhGalleryArchiverParser'
+import { EhAssetBalanceParser } from '../parser/EhAssetBalanceParser'
 import { HtmlSelectorUtils } from '../parser/HtmlSelectorUtils'
 import { EhGalleryFavoriteParser, GalleryFavoriteInfo } from '../parser/EhGalleryFavoriteParser'
 import { UserTagStore } from '../state/UserTagStore'
@@ -26,6 +27,7 @@ import { EhGalleryComment } from '../model/EhGalleryComment'
 import { EhGalleryTorrentList } from '../model/EhGalleryTorrent'
 import { EhGalleryArchiverQuote, EhGalleryArchiverSubmitResult } from '../model/EhGalleryArchiver'
 import { EhHome } from '../model/EhHome'
+import { EhAssetBalance } from '../model/EhAssetBalance'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 const ARCHIVER_PREPARE_RETRY_MS: number = 1000
@@ -655,6 +657,13 @@ export class EhApiService {
     const url: string = `${EhConstants.EH_BASE_URL}/home.php`
     const resp: EhTextResponse = await this.fetch(url, false, 'generic')
     return EhHomeParser.parse(resp.body)
+  }
+
+  /** Read EH-only GP/Credits balance from e-hentai.org/exchange.php?t=gp. */
+  async getEhAssetBalance(): Promise<EhAssetBalance> {
+    const url: string = `${EhConstants.EH_BASE_URL}/exchange.php?t=gp`
+    const resp: EhTextResponse = await this.fetch(url, false, 'generic')
+    return EhAssetBalanceParser.parse(resp.body)
   }
 
   /**

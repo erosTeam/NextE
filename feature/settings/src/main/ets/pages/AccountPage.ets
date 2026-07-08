@@ -7,6 +7,7 @@ import {
   CookieJarSettings,
   DiagnosticLogger,
   EhApiService,
+  EhAssetBalance,
   EhHome,
   EhProfile,
   EhProfileSettings,
@@ -78,6 +79,7 @@ class AccountProfileSummary {
 
 class AccountDashboardCache {
   private static homeSnapshots: Map<string, EhHome> = new Map<string, EhHome>()
+  private static assetSnapshots: Map<string, EhAssetBalance> = new Map<string, EhAssetBalance>()
   private static profileSnapshots: Map<string, EhProfileSettings> = new Map<string, EhProfileSettings>()
 
   static seedHome(key: string): EhHome | null {
@@ -90,6 +92,18 @@ class AccountDashboardCache {
 
   static putHome(key: string, home: EhHome): void {
     AccountDashboardCache.homeSnapshots.set(key, home.copy())
+  }
+
+  static seedAsset(key: string): EhAssetBalance | null {
+    const cached: EhAssetBalance | undefined = AccountDashboardCache.assetSnapshots.get(key)
+    if (cached === undefined) {
+      return null
+    }
+    return cached.copy()
+  }
+
+  static putAsset(key: string, balance: EhAssetBalance): void {
+    AccountDashboardCache.assetSnapshots.set(key, balance.copy())
   }
 
   static seedProfile(key: string): EhProfileSettings | null {
@@ -111,16 +125,20 @@ export struct AccountPage {
   @Local accountList: AccountListState = connectAccountList();
   @Local site: SiteModeState = connectSiteMode();
   @Local home: EhHome = new EhHome();
+  @Local assetBalance: EhAssetBalance = new EhAssetBalance();
   @Local profileSettings: EhProfileSettings = new EhProfileSettings();
   @Local accountProfiles: AccountProfileSummary[] = [];
   @Local homeLoading: boolean = false;
+  @Local assetLoading: boolean = false;
   @Local homeResetting: boolean = false;
   @Local profileLoading: boolean = false;
   @Local homeLoaded: boolean = false;
+  @Local assetLoaded: boolean = false;
   @Local profileLoaded: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private homeLoadingKey: string = '';
+  private assetLoadingKey: string = '';
   private profileLoadingKey: string = '';
 
   aboutToAppear(): void {
@@ -163,6 +181,7 @@ export struct AccountPage {
       return
     }
     this.loadHomeLimits()
+    this.loadAssetBalance()
     this.loadProfileSettings()
   }
 
@@ -188,6 +207,11 @@ export struct AccountPage {
       this.home = cachedHome
       this.homeLoaded = true
     }
+    const cachedAsset: EhAssetBalance | null = AccountDashboardCache.seedAsset(accountKey)
+    if (cachedAsset !== null) {
+      this.assetBalance = cachedAsset
+      this.assetLoaded = true
+    }
     const cachedProfile: EhProfileSettings | null = AccountDashboardCache.seedProfile(this.profileCacheKey())
     if (cachedProfile !== null) {
       this.profileSettings = cachedProfile
@@ -197,12 +221,16 @@ export struct AccountPage {
 
   private resetDashboardStateForAccount(): void {
     this.homeLoading = false
+    this.assetLoading = false
     this.profileLoading = false
     this.homeLoadingKey = ''
+    this.assetLoadingKey = ''
     this.profileLoadingKey = ''
     this.home = new EhHome()
+    this.assetBalance = new EhAssetBalance()
     this.profileSettings = new EhProfileSettings()
     this.homeLoaded = false
+    this.assetLoaded = false
     this.profileLoaded = false
     this.restoreDashboardCache()
   }
@@ -260,6 +288,37 @@ export struct AccountPage {
         if (this.homeLoadingKey === key) {
           this.homeLoading = false
           this.homeLoadingKey = ''
+        }
+      })
+  }
+
+  private loadAssetBalance(): void {
+    const key: string = this.activeAccountKey()
+    if (key.length === 0) {
+      return
+    }
+    if (this.assetLoading && this.assetLoadingKey === key) {
+      return
+    }
+    this.assetLoading = true
+    this.assetLoadingKey = key
+    EhApiService.getInstance()
+      .getEhAssetBalance()
+      .then((balance: EhAssetBalance) => {
+        AccountDashboardCache.putAsset(key, balance)
+        if (key !== this.activeAccountKey()) {
+          return
+        }
+        this.assetBalance = balance
+        this.assetLoaded = true
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('auth', 'account_asset_balance_failed', error.message)
+      })
+      .finally(() => {
+        if (this.assetLoadingKey === key) {
+          this.assetLoading = false
+          this.assetLoadingKey = ''
         }
       })
   }
@@ -492,6 +551,19 @@ export struct AccountPage {
     return ''
   }
 
+  private assetBalanceValueText(): ResourceStr {
+    if (this.assetLoading && !this.assetLoaded) {
+      return $r('app.string.common_loading')
+    }
+    if (this.assetBalance.gpText.length > 0 && this.assetBalance.creditText.length > 0) {
+      return `${this.assetBalance.gpText} / ${this.assetBalance.creditText}`
+    }
+    if (this.assetBalance.hasAnyBalance()) {
+      return this.assetBalance.gpText.length > 0 ? this.assetBalance.gpText : this.assetBalance.creditText
+    }
+    return this.assetLoaded ? $r('app.string.account_dashboard_not_available') : $r('app.string.account_dashboard_not_loaded')
+  }
+
   private imageResetSubtitle(): ResourceStr {
     return AppStrings.get('account_image_reset_cost_format').replace('%d', `${this.home.resetCost}`)
   }
@@ -590,6 +662,16 @@ export struct AccountPage {
               leadingIcon: $r('sys.symbol.gearshape'),
               trailingText: this.profileNameText(),
               showChevron: false,
+            })
+            this.rowDivider()
+            ConciseListRow({
+              title: $r('app.string.account_asset_balance_title'),
+              subtitle: this.assetBalanceValueText(),
+              leadingIcon: $r('sys.symbol.creditcard'),
+              showChevron: false,
+              action: () => {
+                this.loadAssetBalance()
+              },
             })
           }
         }

@@ -43,6 +43,7 @@ export { ViewedGallery } from './model/ViewedGallery'
 export { Favcat } from './model/Favcat'
 export { EhMytags, EhUsertag, EhMytagSet } from './model/EhMytags'
 export { EhHome } from './model/EhHome'
+export { EhAssetBalance } from './model/EhAssetBalance'
 export {
   EhGalleryComment,
   EhGalleryCommentLink,
@@ -132,6 +133,7 @@ export { EhGalleryDetailParser } from './parser/EhGalleryDetailParser'
 export { EhGalleryImageParser } from './parser/EhGalleryImageParser'
 export { EhGalleryTorrentParser } from './parser/EhGalleryTorrentParser'
 export { EhGalleryArchiverParser } from './parser/EhGalleryArchiverParser'
+export { EhAssetBalanceParser } from './parser/EhAssetBalanceParser'
 export { EhImagePageParser, ImagePageResult } from './parser/EhImagePageParser'
 export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGalleryFavoriteParser'
 

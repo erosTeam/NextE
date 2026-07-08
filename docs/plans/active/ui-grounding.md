@@ -2,6 +2,16 @@
 
 Purpose: current UI work must leave a small, checkable grounding record before product code changes. This is not a design spec and not a component whitelist; it records what existing implementation the change is grounded in and what evidence is required.
 
+## Active: account asset balance row
+
+Status: active
+Reference implementation: current NextE `feature/settings/src/main/ets/pages/AccountPage.ets` grouped account status rows, `shared/src/main/ets/network/EhApiService.ets` EH-only `getEhHome()` account data fetch, and `../eros_fe/lib/common/parser/archiver_parser.dart` GP/Credits text preservation pattern for account funds.
+Surface type: Account hub informational row only; no exchange action, archive submit, GP conversion, Credits conversion, ExHentai endpoint, or destructive EH write.
+Primary information: the account page shows the EH asset balance as two peer values, preserving EH's own GP/kGP and Credits unit text.
+Primary action: open Account or tap the row to refresh; the row loads from `https://e-hentai.org/exchange.php?t=gp` regardless of current EH/EX site mode and shows unavailable rather than guessing when the current-balance text cannot be identified.
+Reuse or deviation: reuse `SecondaryListScaffold`, `GroupedListSection`, and `ConciseListRow`; deviate from trailing-value settings rows by putting the combined `GP / Credits` value in one subtitle line so neither balance is visually promoted over the other.
+Verification: existing UI grounding contract, V1 decorator inventory, i18n duplicate check, diff check, signed HarmonyOS build, and account page smoke when an authorized target/session is available.
+
 ## Active: list tail-appear pagination trigger
 
 Status: active

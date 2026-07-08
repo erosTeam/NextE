@@ -1777,6 +1777,10 @@
       "value": "图片配额"
     },
     {
+      "name": "account_asset_balance_title",
+      "value": "资产余额"
+    },
+    {
       "name": "account_image_high_resolution_limited",
       "value": "当前使用 IP 图片额度，暂无限制"
     },

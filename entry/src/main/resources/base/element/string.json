@@ -1777,6 +1777,10 @@
       "value": "Image quota"
     },
     {
+      "name": "account_asset_balance_title",
+      "value": "Asset balance"
+    },
+    {
       "name": "account_image_high_resolution_limited",
       "value": "Using IP-based image limits; no restrictions are currently in effect"
     },

@@ -11,6 +11,7 @@
 处理 NextE 任务时必须把 `docs/agent-guides/incidents/` 视为始终生效的反例账本。用户指出严重误改、假验证、越权设备操作、范围漂移、或反复同类错误时,必须把事实、原因、后果、后续硬要求写入该目录,并在后续同类任务中按账本约束执行。
 
 - [2026-07-06 Search History Verification Failure](incidents/2026-07-06-search-history-verification-failure.md)
+- [2026-07-08 Account Asset Balance Accountability Failure](incidents/2026-07-08-account-asset-balance-accountability-failure.md)
 
 ## 硬停: 仅用状态管理 V2
 
