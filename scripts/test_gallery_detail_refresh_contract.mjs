@@ -32,6 +32,10 @@ ok(
 ok('detail refresh uses existing scroller', /PullRefreshListScaffold\(\{[\s\S]*scroller:\s*this\.scroller/.test(page))
 ok('detail refresh preserves list spacing and FAB-aware bottom padding', /listSpace:\s*ThemeConstants\.SPACE_MD/.test(page) && /bottomPadding:\s*ThemeConstants\.SPACE_XXL\s*\+\s*ThemeConstants\.BUTTON_HEIGHT/.test(page))
 ok('detail page wires onRefresh to GalleryDetailViewModel.refresh', /onRefresh:\s*async \(\) => \{[\s\S]*await this\.vm\.refresh\(\)/.test(page))
+ok('detail page wires bottom pull-up to the existing all-thumbnails entry',
+  /private detailBottomPreviewInitialPage\(\): number \{[\s\S]*this\.thumbMode\.hideGalleryThumbnails[\s\S]*this\.thumbMode\.horizontalThumbnails[\s\S]*return this\.vm\.images\[this\.vm\.images\.length - 1\]\.page/.test(page) &&
+  /onBottomRefresh:\s*async \(\) => \{[\s\S]*this\.openThumbnails\(this\.detailBottomPreviewInitialPage\(\)\)/.test(page) &&
+  /canStartBottomRefresh:\s*\(\) => this\.vm\.images\.length > 0/.test(page))
 ok('detail title menu includes a non-destructive refresh action',
   /const refreshInner: Record<string, Object> = \{[\s\S]*'label': \$r\('app\.string\.common_refresh'\)[\s\S]*'icon': \$r\('sys\.symbol\.arrow_clockwise'\)[\s\S]*this\.refreshFromTitle\(\)/.test(page))
 ok('detail title refresh reuses the same ViewModel refresh path and guards double taps',

@@ -1019,6 +1019,16 @@ export struct GalleryDetailPage {
     )
   }
 
+  private detailBottomPreviewInitialPage(): number {
+    if (this.thumbMode.hideGalleryThumbnails || this.thumbMode.horizontalThumbnails) {
+      return 0
+    }
+    if (this.vm.images.length === 0) {
+      return 0
+    }
+    return this.vm.images[this.vm.images.length - 1].page
+  }
+
   // Scroll-revealed title (empty until the header card scrolls past) over the app's immersive
   // GRADIENT_BLUR title-bar backdrop, same as every other page.
   private detailTitleBar(): Record<string, Object> {
@@ -1842,6 +1852,10 @@ export struct GalleryDetailPage {
           onRefresh: async () => {
             await this.vm.refresh()
           },
+          onBottomRefresh: async () => {
+            this.openThumbnails(this.detailBottomPreviewInitialPage())
+          },
+          canStartBottomRefresh: () => this.vm.images.length > 0,
           onDidScroll: (offset: number) => {
             const past: boolean = offset > 160
             if (past !== this.showNavTitle) {

@@ -12,6 +12,16 @@ Primary action: scroll a paged Home/Search/Favorites/all-thumbnails list toward 
 Reuse or deviation: reuse the existing page item builders, `onReachEnd`/`onNearEnd`, `canStartBottomRefresh`, page ViewModel concurrency guards, and `LazyForEach` `onDataAdd` notification style; deviate only by making `BasicDataSource.appendData()` push into the stable backing array and by giving WaterFlow the same near-end hook Grid already uses.
 Verification: UI grounding contract, V1 decorator inventory, diff check, signed HarmonyOS build, and a paged Home/Search/Favorites smoke; performance QA should compare a 120Hz scroll trace before/after a WaterFlow or cover-wall load-more append.
 
+## Active: detail preview pull-up entry
+
+Status: active
+Reference implementation: current NextE `feature/gallery/src/main/ets/pages/GalleryDetailPage.ets` detail `PullRefreshListScaffold`, `feature/gallery/src/main/ets/components/GalleryPreviewGrid.ets` `moreButton()` / `onMore(initialImagePage)`, `feature/gallery/src/main/ets/pages/GalleryAllThumbnailsPage.ets` initial-image-page positioning, and existing shared `PullRefresh` bottom-refresh wiring.
+Surface type: Gallery detail bottom-edge gesture only; no preview-card layout, thumbnail mode, AllThumbnails paging, reader launch, network parser, or copy change.
+Primary information: the detail page still shows the same header, comments, first preview page, and explicit preview entries; when the user reaches the bottom, the same all-thumbnails destination is available by continuing the upward pull.
+Primary action: scroll to the bottom of a detail page with preview images and pull upward past the threshold; the app opens AllThumbnails with the same initial image page as the preview card's bottom more-preview button.
+Reuse or deviation: reuse the existing detail scroller, `PullRefreshListScaffold` bottom refresh API, `GalleryPreviewGrid` entry-page semantics, and `openThumbnails()` route params; deviate only by adding a gesture alias for an existing visible action.
+Verification: gallery detail refresh contract, UI grounding contract, V1 decorator inventory, diff check, and device/manual QA on a detail page with previews; gesture QA should also cover hidden/horizontal thumbnail modes and a loaded gallery with no extra preview page.
+
 ## Active: search history scroll recovery
 
 Status: active
