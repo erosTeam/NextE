@@ -312,6 +312,7 @@ export class EhHttpClient {
     url: string,
     filePath: string,
     progress: (loaded: number, total: number) => void,
+    connectTimeoutMs: number = CONNECT_TIMEOUT_MS,
     accept: string = IMAGE_ACCEPT,
     maxAttempts: number = MAX_RETRIES,
     readTimeoutMs: number = BINARY_STREAM_READ_TIMEOUT_MS,
@@ -374,7 +375,7 @@ export class EhHttpClient {
         const code: number = await req.requestInStream(url, {
           method: http.RequestMethod.GET,
           header: header,
-          connectTimeout: CONNECT_TIMEOUT_MS,
+          connectTimeout: connectTimeoutMs,
           readTimeout: readTimeoutMs,
           usingCache: false,
         })

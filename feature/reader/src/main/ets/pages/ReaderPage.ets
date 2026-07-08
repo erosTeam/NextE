@@ -3836,13 +3836,9 @@ struct ReaderLoadingStage {
     return this.total > 0
   }
 
-  private hasLoadedBytes(): boolean {
-    return !this.hasProgress() && this.loaded > 0
-  }
-
   private progressRatio(): number {
     if (!this.hasProgress()) {
-      return 0.32
+      return 0
     }
     const ratio: number = this.loaded / this.total
     if (ratio < 0) {
@@ -3856,15 +3852,6 @@ struct ReaderLoadingStage {
 
   private progressPercent(): string {
     return `${Math.round(this.progressRatio() * 100)}%`
-  }
-
-  private loadedSizeText(): string {
-    const mb: number = this.loaded / 1048576
-    if (mb >= 0.95) {
-      return `${mb.toFixed(1)} MB`
-    }
-    const kb: number = this.loaded / 1024
-    return `${Math.max(1, Math.round(kb))} KB`
   }
 
   build() {
@@ -3889,15 +3876,6 @@ struct ReaderLoadingStage {
         .textAlign(TextAlign.Center)
       if (this.hasProgress()) {
         Text(this.progressPercent())
-          .fontSize(ThemeConstants.FONT_SIZE_META)
-          .fontColor('#CCFFFFFF')
-          .textAlign(TextAlign.Center)
-      } else if (this.hasLoadedBytes()) {
-        Text($r('app.string.reader_loading_downloaded'))
-          .fontSize(ThemeConstants.FONT_SIZE_META)
-          .fontColor('#CCFFFFFF')
-          .textAlign(TextAlign.Center)
-        Text(this.loadedSizeText())
           .fontSize(ThemeConstants.FONT_SIZE_META)
           .fontColor('#CCFFFFFF')
           .textAlign(TextAlign.Center)

@@ -1325,10 +1325,6 @@
       "value": "画像を準備中"
     },
     {
-      "name": "reader_loading_downloaded",
-      "value": "ダウンロード済み"
-    },
-    {
       "name": "reader_image_blocked",
       "value": "画像を非表示にしました"
     },

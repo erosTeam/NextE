@@ -12,6 +12,7 @@
 
 - [2026-07-06 Search History Verification Failure](incidents/2026-07-06-search-history-verification-failure.md)
 - [2026-07-08 Account Asset Balance Accountability Failure](incidents/2026-07-08-account-asset-balance-accountability-failure.md)
+- [2026-07-08 Reader Progress Control Capability Failure](incidents/2026-07-08-reader-progress-control-capability-failure.md)
 
 ## 硬停: 未知即阻断
 

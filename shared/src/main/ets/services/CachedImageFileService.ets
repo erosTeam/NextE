@@ -18,6 +18,7 @@ export interface CachedImageFileResult {
 
 const CACHE_DIR_NAME: string = 'reader-image-cache'
 const DEFAULT_IMAGE_EXTENSION: string = 'jpg'
+const READER_IMAGE_CONNECT_TIMEOUT_MS: number = 6000
 
 export class CachedImageFileService {
   private static inFlight: Map<string, Promise<CachedImageFileResult>> = new Map<
@@ -152,6 +153,7 @@ export class CachedImageFileService {
         }
         onProgress({ loaded, total })
       },
+      READER_IMAGE_CONNECT_TIMEOUT_MS,
     )
     CachedImageFileService.removeIfExists(filePath)
     fileIo.renameSync(tmpPath, filePath)

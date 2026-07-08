@@ -75,11 +75,10 @@ ok('Reader download progress uses the system linear Progress component instead o
   /Progress\(\{ value: this\.loaded, total: this\.total, type: ProgressType\.Linear \}\)/.test(loadingStage) &&
   /\.style\(\{ strokeWidth: 4, strokeRadius: 2 \}\)/.test(loadingStage) &&
   !/\.scale\(\{ x: this\.progressRatio\(\)/.test(loadingStage))
-ok('unknown-total image downloads still expose byte progress',
-  /reader_loading_downloaded/.test(zh) &&
-  /private hasLoadedBytes\(\): boolean \{[\s\S]*!this\.hasProgress\(\) && this\.loaded > 0/.test(loadingStage) &&
-  /private loadedSizeText\(\): string \{[\s\S]*toFixed\(1\)[\s\S]*KB/.test(loadingStage) &&
-  /else if \(this\.hasLoadedBytes\(\)\) \{[\s\S]*reader_loading_downloaded[\s\S]*this\.loadedSizeText\(\)/.test(loadingStage))
+ok('unknown-total image downloads use the native busy indicator instead of an empty linear track',
+  /else \{[\s\S]*LoadingProgress\(\)[\s\S]*\.width\(this\.compact \? 24 : 28\)[\s\S]*\.height\(this\.compact \? 24 : 28\)/.test(loadingStage) &&
+  /if \(this\.hasProgress\(\)\) \{[\s\S]*Text\(this\.progressPercent\(\)\)/.test(loadingStage) &&
+  !/reader_loading_requesting|reader_loading_received|reader_loading_waiting_response/.test(reader + zh))
 ok('resolved remote URLs are converted into cached display URIs before presentation',
   (reader.match(/await this\.loadResolvedImage\(resolved\)/g) || []).length >= 3 &&
   (reader.match(/this\.imageUrl = result\.displayUri/g) || []).length >= 3)
@@ -94,6 +93,11 @@ ok('streamed image downloads do not reuse the short HTML read timeout',
   /const BINARY_STREAM_READ_TIMEOUT_MS: number = 120000/.test(httpClient) &&
   /readTimeoutMs: number = BINARY_STREAM_READ_TIMEOUT_MS/.test(streamMethod) &&
   !/readTimeoutMs: number = READ_TIMEOUT_MS/.test(streamMethod))
+ok('Reader image cache uses a shorter first-byte connect timeout without changing the stream read timeout',
+  /const READER_IMAGE_CONNECT_TIMEOUT_MS: number = 6000/.test(cacheService) &&
+  /downloadBinaryToFileInStream\([\s\S]*READER_IMAGE_CONNECT_TIMEOUT_MS/.test(cacheService) &&
+  /connectTimeoutMs: number = CONNECT_TIMEOUT_MS/.test(streamMethod) &&
+  /connectTimeout: connectTimeoutMs/.test(streamMethod))
 ok('automatic image retry count is not reset at the start of each resolved download attempt',
   loadResolvedMethods.length === 3 &&
   loadResolvedMethods.every((method) => {
