@@ -49,9 +49,14 @@ const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
 const READER_LOADING_COMPLETION_HOLD_MS: number = 160
 const READER_LOADING_INDETERMINATE_ANIM_DURATION: number = 900
 const READER_LOADING_BAR_HEIGHT: number = 4
+const READER_LOADING_BAR_WIDTH: number = 180
+const READER_LOADING_SLIDER_WIDTH: number = 54
 const READER_LOADING_BAR_RADIUS: number = 2
 const READER_LOADING_BAR_BG: ResourceColor = '#33FFFFFF'
 const READER_LOADING_BAR_FG: ResourceColor = Color.White
+const READER_VERTICAL_TAP_MAX_DISTANCE: number = 8
+const READER_VERTICAL_SINGLE_TAP_DELAY_MS: number = 240
+const READER_TOUCH_TAP_SUPPRESS_MS: number = 350
 const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
 const READER_DEFAULT_PRELOAD_PAGES: number = 2
 const READER_MAX_PRELOAD_PAGES: number = 5
@@ -193,6 +198,9 @@ export struct ReaderPage {
   private volumeDownConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private volumeUpConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private readerClosing: boolean = false;
+  private readerTapStartX: number = 0;
+  private readerTapStartY: number = 0;
+  private readerTapSuppressUntilMs: number = 0;
 
   build() {
     HdsNavDestination() {
@@ -1037,6 +1045,9 @@ export struct ReaderPage {
   // image is zoomed, a tap must NOT turn the page (eros_fe defers the tap to the zoomed image) — toggle
   // chrome only. `x`/`y` are the tap position within the full-canvas Swiper/List.
   private onReaderTap(x: number, y: number): void {
+    if (this.consumeReaderTapSuppressed()) {
+      return
+    }
     if (this.imageZoomed || this.viewWidth <= 0) {
       this.toggleChrome()
       return
@@ -1066,26 +1077,55 @@ export struct ReaderPage {
     }
   }
 
-  private onVerticalImageTap(page: number, x: number, y: number, width: number, height: number): void {
-    const target: number = page - 1
-    if (target >= 0 && target < this.vm.totalPages() && this.vm.hasPreviewAt(target)) {
-      this.vm.onPageChange(target)
+  private firstTouch(event: TouchEvent): TouchObject | null {
+    if (event.touches.length > 0) {
+      return event.touches[0]
     }
-    if (this.imageZoomed || width <= 0) {
-      this.toggleChrome()
+    if (event.changedTouches.length > 0) {
+      return event.changedTouches[0]
+    }
+    return null
+  }
+
+  private movedBeyondTap(startX: number, startY: number, x: number, y: number): boolean {
+    const dx: number = x - startX
+    const dy: number = y - startY
+    return (dx * dx + dy * dy) > (READER_VERTICAL_TAP_MAX_DISTANCE * READER_VERTICAL_TAP_MAX_DISTANCE)
+  }
+
+  private suppressReaderTapGesture(): void {
+    this.readerTapSuppressUntilMs = Date.now() + READER_TOUCH_TAP_SUPPRESS_MS
+  }
+
+  private consumeReaderTapSuppressed(): boolean {
+    if (Date.now() <= this.readerTapSuppressUntilMs) {
+      return true
+    }
+    return false
+  }
+
+  private onReaderOverlayTouch(event: TouchEvent): void {
+    const touch: TouchObject | null = this.firstTouch(event)
+    if (touch === null) {
       return
     }
-    const lr: number = width / 3
-    if (x < lr) {
-      this.toPrev()
-    } else if (x > width - lr) {
-      this.toNext()
-    } else if (height > 0 && y < height / 5) {
-      this.toPrev()
-    } else if (height > 0 && y > (height * 4) / 5) {
-      this.toNext()
-    } else {
-      this.toggleChrome()
+    if (event.touches.length > 1 || event.changedTouches.length > 1) {
+      this.suppressReaderTapGesture()
+      return
+    }
+    if (event.type === TouchType.Down) {
+      this.readerTapStartX = touch.x
+      this.readerTapStartY = touch.y
+      return
+    }
+    if (event.type === TouchType.Move) {
+      if (this.movedBeyondTap(this.readerTapStartX, this.readerTapStartY, touch.x, touch.y)) {
+        this.suppressReaderTapGesture()
+      }
+      return
+    }
+    if (event.type === TouchType.Cancel) {
+      this.suppressReaderTapGesture()
     }
   }
 
@@ -1487,10 +1527,16 @@ export struct ReaderPage {
       .width('100%')
       .height('100%')
       .hitTestBehavior(HitTestMode.Transparent)
+      .onTouch((event: TouchEvent) => {
+        this.onReaderOverlayTouch(event)
+      })
       .gesture(
         GestureGroup(
           GestureMode.Exclusive,
           TapGesture({ count: 2, distanceThreshold: 8 }).onAction((e?: GestureEvent) => {
+            if (this.consumeReaderTapSuppressed()) {
+              return
+            }
             const loc = e ? e.tapLocation : undefined
             const tapX: number = loc ? (loc.x as number) : this.viewWidth / 2
             const tapY: number = loc ? (loc.y as number) : this.viewHeight / 2
@@ -1525,8 +1571,8 @@ export struct ReaderPage {
                   this.imageZoomed = zoomed
                   this.verticalZoomedPage = zoomed ? this.vm.imageAt(index).page : -1
                 },
-                onTap: (page: number, x: number, y: number, width: number, height: number) => {
-                  this.onVerticalImageTap(page, x, y, width, height)
+                onChromeTap: () => {
+                  this.toggleChrome()
                 },
                 onImageLoaded: (page: number) => {
                   this.markPageImageLoaded(page)
@@ -1573,14 +1619,21 @@ export struct ReaderPage {
     return $r('app.string.read_mode_ltr')
   }
 
+  private modeIconFor(mode: string): Resource {
+    if (mode === ReadMode.RTL) {
+      return $r('sys.symbol.arrow_left_and_square')
+    }
+    if (mode === ReadMode.TOP_TO_BOTTOM) {
+      return $r('sys.symbol.single_page_flipping')
+    }
+    if (mode === ReadMode.VERTICAL) {
+      return $r('sys.symbol.scroll_vertical')
+    }
+    return $r('sys.symbol.arrow_right_and_square')
+  }
+
   private modeIcon(): Resource {
-    if (this.readMode.mode === ReadMode.RTL) {
-      return $r('sys.symbol.arrow_left')
-    }
-    if (this.readMode.mode === ReadMode.TOP_TO_BOTTOM || this.readMode.mode === ReadMode.VERTICAL) {
-      return $r('sys.symbol.arrow_down')
-    }
-    return $r('sys.symbol.arrow_right')
+    return this.modeIconFor(this.readMode.mode)
   }
 
   private setReaderMode(mode: string): void {
@@ -1679,6 +1732,7 @@ export struct ReaderPage {
     Menu() {
       MenuItem({
         content: $r('app.string.read_mode_ltr'),
+        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.LTR)),
         symbolEndIcon:
           this.readMode.mode === ReadMode.LTR
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
@@ -1688,6 +1742,7 @@ export struct ReaderPage {
       })
       MenuItem({
         content: $r('app.string.read_mode_rtl'),
+        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.RTL)),
         symbolEndIcon:
           this.readMode.mode === ReadMode.RTL
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
@@ -1697,6 +1752,7 @@ export struct ReaderPage {
       })
       MenuItem({
         content: $r('app.string.read_mode_ttb'),
+        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.TOP_TO_BOTTOM)),
         symbolEndIcon:
           this.readMode.mode === ReadMode.TOP_TO_BOTTOM
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
@@ -1706,6 +1762,7 @@ export struct ReaderPage {
       })
       MenuItem({
         content: $r('app.string.read_mode_vertical'),
+        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.VERTICAL)),
         symbolEndIcon:
           this.readMode.mode === ReadMode.VERTICAL
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
@@ -3618,8 +3675,7 @@ struct ReaderVerticalImage {
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
   @Param imageBlockWhitelistSaving: boolean = false;
-  @Param onTap: (page: number, x: number, y: number, width: number, height: number) => void =
-    (_page: number, _x: number, _y: number, _width: number, _height: number) => {};
+  @Param onChromeTap: () => void = () => {};
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageFileReady: (page: number, filePath: string) => void =
@@ -3656,6 +3712,11 @@ struct ReaderVerticalImage {
   private autoRetryCount: number = 0;
   private loadSeq: number = 0;
   private zoomAnimatingTimerId: number = 0;
+  private tapStartX: number = 0;
+  private tapStartY: number = 0;
+  private tapCancelled: boolean = false;
+  private skipNextTapUp: boolean = false;
+  private singleTapTimerId: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
@@ -3666,6 +3727,7 @@ struct ReaderVerticalImage {
       clearTimeout(this.zoomAnimatingTimerId)
       this.zoomAnimatingTimerId = 0
     }
+    this.clearPendingSingleTap()
     this.resetZoom()
     this.notifyZoom()
   }
@@ -3948,11 +4010,82 @@ struct ReaderVerticalImage {
     }
   }
 
-  private onSingleTap(tapX: number, tapY: number): void {
-    this.onTap(this.image.page, tapX, tapY, this.compW, this.compH)
+  private firstTouch(event: TouchEvent): TouchObject | null {
+    if (event.touches.length > 0) {
+      return event.touches[0]
+    }
+    if (event.changedTouches.length > 0) {
+      return event.changedTouches[0]
+    }
+    return null
+  }
+
+  private movedBeyondTap(x: number, y: number): boolean {
+    const dx: number = x - this.tapStartX
+    const dy: number = y - this.tapStartY
+    return (dx * dx + dy * dy) > (READER_VERTICAL_TAP_MAX_DISTANCE * READER_VERTICAL_TAP_MAX_DISTANCE)
+  }
+
+  private clearPendingSingleTap(): void {
+    if (this.singleTapTimerId > 0) {
+      clearTimeout(this.singleTapTimerId)
+      this.singleTapTimerId = 0
+    }
+  }
+
+  private scheduleSingleTap(): void {
+    this.clearPendingSingleTap()
+    this.singleTapTimerId = setTimeout((): void => {
+      this.singleTapTimerId = 0
+      this.onChromeTap()
+    }, READER_VERTICAL_SINGLE_TAP_DELAY_MS)
+  }
+
+  private onImageTouch(event: TouchEvent): void {
+    const touch: TouchObject | null = this.firstTouch(event)
+    if (touch === null) {
+      return
+    }
+    if (event.touches.length > 1 || event.changedTouches.length > 1) {
+      this.tapCancelled = true
+      this.clearPendingSingleTap()
+      return
+    }
+    if (event.type === TouchType.Down) {
+      if (this.singleTapTimerId > 0) {
+        this.clearPendingSingleTap()
+        this.skipNextTapUp = true
+      }
+      this.tapStartX = touch.x
+      this.tapStartY = touch.y
+      this.tapCancelled = false
+      return
+    }
+    if (event.type === TouchType.Move) {
+      if (this.movedBeyondTap(touch.x, touch.y)) {
+        this.tapCancelled = true
+        this.clearPendingSingleTap()
+      }
+      return
+    }
+    if (event.type === TouchType.Up) {
+      if (!this.tapCancelled && !this.skipNextTapUp && !this.movedBeyondTap(touch.x, touch.y)) {
+        this.scheduleSingleTap()
+      }
+      this.skipNextTapUp = false
+      this.tapCancelled = false
+      return
+    }
+    if (event.type === TouchType.Cancel) {
+      this.tapCancelled = true
+      this.skipNextTapUp = false
+      this.clearPendingSingleTap()
+    }
   }
 
   private onDoubleTap(tapX: number, tapY: number): void {
+    this.clearPendingSingleTap()
+    this.skipNextTapUp = false
     this.beginZoomAnimation()
     if (ReaderZoomCoordinator.doubleTapTarget(this.zoomScale) === 1) {
       this.resetZoom()
@@ -4055,24 +4188,18 @@ struct ReaderVerticalImage {
       this.compH = n.height as number
       this.clampOffset()
     })
+    .onTouch((event: TouchEvent) => {
+      this.onImageTouch(event)
+    })
     .gesture(
       GestureGroup(
         GestureMode.Parallel,
-        GestureGroup(
-          GestureMode.Exclusive,
-          TapGesture({ count: 2, distanceThreshold: 8 }).onAction((e?: GestureEvent) => {
-            const loc = e ? e.tapLocation : undefined
-            const tapX: number = loc ? (loc.x as number) : this.compW / 2
-            const tapY: number = loc ? (loc.y as number) : this.compH / 2
-            this.onDoubleTap(tapX, tapY)
-          }),
-          TapGesture({ count: 1 }).onAction((e?: GestureEvent) => {
-            const loc = e ? e.tapLocation : undefined
-            const tapX: number = loc ? (loc.x as number) : this.compW / 2
-            const tapY: number = loc ? (loc.y as number) : this.compH / 2
-            this.onSingleTap(tapX, tapY)
-          }),
-        ),
+        TapGesture({ count: 2, distanceThreshold: 8 }).onAction((e?: GestureEvent) => {
+          const loc = e ? e.tapLocation : undefined
+          const tapX: number = loc ? (loc.x as number) : this.compW / 2
+          const tapY: number = loc ? (loc.y as number) : this.compH / 2
+          this.onDoubleTap(tapX, tapY)
+        }),
         PinchGesture({ fingers: 2 })
           .onActionStart((e?: GestureEvent) => {
             if (!e) {
@@ -4080,6 +4207,8 @@ struct ReaderVerticalImage {
             }
             this.isPinching = true
             this.ignorePanSequence = true
+            this.tapCancelled = true
+            this.clearPendingSingleTap()
             this.zoomAnimating = false
             this.pinchStartScale = this.zoomScale
             this.pinchAnchorX = ReaderZoomCoordinator.pinchAnchor(
@@ -4137,6 +4266,8 @@ struct ReaderVerticalImage {
         PanGesture({ fingers: 1, direction: PanDirection.All, distance: this.panDistance() })
           .onActionStart(() => {
             this.ignorePanSequence = this.isPinching
+            this.tapCancelled = true
+            this.clearPendingSingleTap()
             this.panStartOffX = this.offsetX
             this.panStartOffY = this.offsetY
           })
@@ -4214,11 +4345,11 @@ struct ReaderLoadingBar {
   }
 
   private barWidth(): number {
-    return this.compact ? 120 : 180
+    return READER_LOADING_BAR_WIDTH
   }
 
   private sliderWidth(): number {
-    return this.compact ? 34 : 54
+    return READER_LOADING_SLIDER_WIDTH
   }
 
   private clampedRatio(): number {

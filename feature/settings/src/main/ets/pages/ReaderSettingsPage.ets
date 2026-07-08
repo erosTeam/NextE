@@ -72,6 +72,19 @@ export struct ReaderSettingsPage {
     return $r('app.string.read_mode_ltr')
   }
 
+  private modeIconFor(mode: string): Resource {
+    if (mode === ReadMode.RTL) {
+      return $r('sys.symbol.arrow_left_and_square')
+    }
+    if (mode === ReadMode.TOP_TO_BOTTOM) {
+      return $r('sys.symbol.single_page_flipping')
+    }
+    if (mode === ReadMode.VERTICAL) {
+      return $r('sys.symbol.scroll_vertical')
+    }
+    return $r('sys.symbol.arrow_right_and_square')
+  }
+
   private doublePageAvailable(): boolean {
     return this.readMode.mode === ReadMode.LTR || this.readMode.mode === ReadMode.RTL
   }
@@ -99,6 +112,7 @@ export struct ReaderSettingsPage {
     Menu() {
       MenuItem({
         content: $r('app.string.read_mode_ltr'),
+        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.LTR)),
         symbolEndIcon:
           this.readMode.mode === ReadMode.LTR
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
@@ -109,6 +123,7 @@ export struct ReaderSettingsPage {
       })
       MenuItem({
         content: $r('app.string.read_mode_rtl'),
+        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.RTL)),
         symbolEndIcon:
           this.readMode.mode === ReadMode.RTL
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
@@ -119,6 +134,7 @@ export struct ReaderSettingsPage {
       })
       MenuItem({
         content: $r('app.string.read_mode_ttb'),
+        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.TOP_TO_BOTTOM)),
         symbolEndIcon:
           this.readMode.mode === ReadMode.TOP_TO_BOTTOM
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
@@ -129,6 +145,7 @@ export struct ReaderSettingsPage {
       })
       MenuItem({
         content: $r('app.string.read_mode_vertical'),
+        symbolStartIcon: new SymbolGlyphModifier(this.modeIconFor(ReadMode.VERTICAL)),
         symbolEndIcon:
           this.readMode.mode === ReadMode.VERTICAL
             ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
