@@ -67,7 +67,7 @@ function readerDelay(ms: number): Promise<void> {
 
 class ReaderSpreadResolver {
   static isDoublePage(mode: string, enabled: boolean): boolean {
-    return mode !== ReadMode.VERTICAL && enabled
+    return (mode === ReadMode.LTR || mode === ReadMode.RTL) && enabled
   }
 
   static spreadIndexForImage(columnMode: string, index: number): number {
@@ -197,7 +197,7 @@ export struct ReaderPage {
     HdsNavDestination() {
       Stack({ alignContent: Alignment.Bottom }) {
         if (this.readerContentReady()) {
-          if (this.readMode.mode === ReadMode.VERTICAL) {
+          if (this.isContinuousVerticalMode()) {
             this.VerticalReader()
           } else if (this.doublePageEnabled()) {
             this.DoublePageReader()
@@ -302,7 +302,7 @@ export struct ReaderPage {
             this.sliderValue = targetIndex + 1
             this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
             this.readerReady = true
-            if (this.readMode.mode === ReadMode.VERTICAL) {
+            if (this.isContinuousVerticalMode()) {
               setTimeout(() => {
                 this.listScroller.scrollToIndex(targetIndex)
               }, 50)
@@ -505,6 +505,18 @@ export struct ReaderPage {
       return READER_MAX_PRELOAD_PAGES
     }
     return Math.round(value)
+  }
+
+  private isContinuousVerticalMode(): boolean {
+    return this.readMode.mode === ReadMode.VERTICAL
+  }
+
+  private isPagedVerticalMode(): boolean {
+    return this.readMode.mode === ReadMode.TOP_TO_BOTTOM
+  }
+
+  private isHorizontalPagedMode(): boolean {
+    return this.readMode.mode === ReadMode.LTR || this.readMode.mode === ReadMode.RTL
   }
 
   private cacheWarmImageIndexes(): number[] {
@@ -882,6 +894,10 @@ export struct ReaderPage {
 
   @Monitor('readMode.mode')
   onReadModeChanged(): void {
+    this.clearZoomGate()
+    if (this.readerContentReady()) {
+      this.syncReaderPagerToIndex(this.vm.currentIndex, false)
+    }
     if (this.showThumbStrip) {
       setTimeout(() => {
         this.scrollThumbStripTo(this.vm.currentIndex, false)
@@ -1024,6 +1040,17 @@ export struct ReaderPage {
       this.toggleChrome()
       return
     }
+    if (this.isPagedVerticalMode() && this.viewHeight > 0) {
+      const tb: number = this.viewHeight / 3
+      if (y < tb) {
+        this.toPrev()
+      } else if (y > this.viewHeight - tb) {
+        this.toNext()
+      } else {
+        this.toggleChrome()
+      }
+      return
+    }
     const lr: number = this.viewWidth / 3
     if (x < lr) {
       this.tapLeft()
@@ -1112,7 +1139,7 @@ export struct ReaderPage {
     this.turnTo(this.vm.currentIndex + 1)
   }
 
-  // Go to a (page-index) target. Vertical scrolls the list by one image; horizontal moves the Swiper.
+  // Go to a (page-index) target. Continuous vertical scrolls the List; paged modes move Swiper.
   // A loaded in-range step reuses the swipe path (no jump spinner); a missing preview slot, even when
   // padded into images[], loads via jumpToPage so placeholders are not rendered as image pages.
   private turnTo(target: number): void {
@@ -1124,7 +1151,7 @@ export struct ReaderPage {
       this.jumpToPage(target)
       return
     }
-    if (this.readMode.mode === ReadMode.VERTICAL) {
+    if (this.isContinuousVerticalMode()) {
       this.vm.currentIndex = target
       this.listScroller.scrollToIndex(target)
     } else {
@@ -1134,13 +1161,12 @@ export struct ReaderPage {
     }
   }
 
-  // Jump after loading every page up to the target. Horizontal: set currentIndex so the Swiper's
-  // reactive `.index()` moves there (a fixed `.index` would reset on rebuild). Vertical: scroll the
-  // List to the index (onScrollIndex then updates currentIndex).
+  // Jump after loading every page up to the target. Paged modes set currentIndex so the Swiper's
+  // reactive `.index()` moves there. Continuous vertical scrolls the List to the index.
   private jumpToPage(index: number): void {
     this.clearZoomGate()
     this.vm.jumpTo(index).then((target: number) => {
-      if (this.readMode.mode === ReadMode.VERTICAL) {
+      if (this.isContinuousVerticalMode()) {
         this.vm.currentIndex = target
         this.listScroller.scrollToIndex(target)
       } else {
@@ -1152,7 +1178,7 @@ export struct ReaderPage {
   }
 
   private syncReaderPagerToIndex(index: number, animated: boolean): void {
-    if (this.readMode.mode === ReadMode.VERTICAL) {
+    if (this.isContinuousVerticalMode()) {
       setTimeout(() => {
         this.listScroller.scrollToIndex(index)
       }, 0)
@@ -1218,6 +1244,7 @@ export struct ReaderPage {
     }
     .index(this.readerPagerIndex)
     .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
+    .vertical(this.isPagedVerticalMode())
     .loop(false)
     .cachedCount(this.readerPreloadPages())
     .indicator(false)
@@ -1227,7 +1254,7 @@ export struct ReaderPage {
     .onChange((i: number) => {
       this.clearZoomGate()
       this.readerPagerIndex = i
-      DiagnosticLogger.info('reader', 'horizontal_swipe_change', `index ${i} hasPreview ${this.vm.hasPreviewAt(i)}`)
+      DiagnosticLogger.info('reader', 'paged_swipe_change', `index ${i} mode ${this.readMode.mode} hasPreview ${this.vm.hasPreviewAt(i)}`)
       this.vm.onPageChange(i)
     })
   }
@@ -1395,6 +1422,7 @@ export struct ReaderPage {
     }
     .index(this.readerPagerIndex)
     .direction(this.readMode.mode === ReadMode.RTL ? Direction.Rtl : Direction.Ltr)
+    .vertical(false)
     .loop(false)
     .cachedCount(this.readerPreloadPages())
     .indicator(false)
@@ -1502,6 +1530,9 @@ export struct ReaderPage {
     if (this.readMode.mode === ReadMode.RTL) {
       return $r('app.string.read_mode_rtl')
     }
+    if (this.readMode.mode === ReadMode.TOP_TO_BOTTOM) {
+      return $r('app.string.read_mode_ttb')
+    }
     if (this.readMode.mode === ReadMode.VERTICAL) {
       return $r('app.string.read_mode_vertical')
     }
@@ -1512,7 +1543,7 @@ export struct ReaderPage {
     if (this.readMode.mode === ReadMode.RTL) {
       return $r('sys.symbol.arrow_left')
     }
-    if (this.readMode.mode === ReadMode.VERTICAL) {
+    if (this.readMode.mode === ReadMode.TOP_TO_BOTTOM || this.readMode.mode === ReadMode.VERTICAL) {
       return $r('sys.symbol.arrow_down')
     }
     return $r('sys.symbol.arrow_right')
@@ -1526,7 +1557,7 @@ export struct ReaderPage {
   }
 
   private doublePageIconColor(): ResourceColor {
-    if (this.readMode.mode === ReadMode.VERTICAL) {
+    if (!this.isHorizontalPagedMode()) {
       return $r('sys.color.font_tertiary')
     }
     return this.readMode.doublePageEnabled ? ThemeConstants.BRAND_PRIMARY : Color.White
@@ -1537,11 +1568,11 @@ export struct ReaderPage {
   }
 
   private showOnePageStepButton(): boolean {
-    return this.readMode.mode !== ReadMode.VERTICAL && this.readMode.doublePageEnabled
+    return this.isHorizontalPagedMode() && this.readMode.doublePageEnabled
   }
 
   private toggleDoublePage(): void {
-    if (this.readMode.mode === ReadMode.VERTICAL) {
+    if (!this.isHorizontalPagedMode()) {
       return
     }
     if (this.readMode.columnMode !== ReadColumnMode.ODD_LEFT &&
@@ -1629,6 +1660,15 @@ export struct ReaderPage {
             : undefined,
       }).onClick(() => {
         this.setReaderMode(ReadMode.RTL)
+      })
+      MenuItem({
+        content: $r('app.string.read_mode_ttb'),
+        symbolEndIcon:
+          this.readMode.mode === ReadMode.TOP_TO_BOTTOM
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setReaderMode(ReadMode.TOP_TO_BOTTOM)
       })
       MenuItem({
         content: $r('app.string.read_mode_vertical'),
@@ -1965,7 +2005,7 @@ export struct ReaderPage {
           .backgroundColor(
             Color.Transparent
           )
-          .enabled(this.readMode.mode !== ReadMode.VERTICAL)
+          .enabled(this.isHorizontalPagedMode())
           .onClick(() => {
             this.toggleDoublePage()
           })

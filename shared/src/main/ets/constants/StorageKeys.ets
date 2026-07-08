@@ -35,7 +35,7 @@ export class StorageKeys {
   static readonly FAVORITES_FAVCATS: string = 'favorites.favcats' // JSON [Favcat] selector snapshot
   static readonly LOCAL_FAVORITES: string = 'favorites.local' // legacy Preferences key; RDB source of truth
   static readonly VIEWED_HISTORY: string = 'viewed.history' // legacy Preferences key; RDB source of truth
-  static readonly READING_DIRECTION: string = 'reading.direction' // ltr/rtl/vertical
+  static readonly READING_DIRECTION: string = 'reading.direction' // ltr/rtl/topToBottom/vertical
   static readonly READING_PROGRESS: string = 'reading.progress' // legacy Preferences key; RDB source of truth
   static readonly READING_DOUBLE_PAGE: string = 'reading.doublePage'
   static readonly READING_VOLUME_KEY: string = 'reading.volumeKeyTurn'

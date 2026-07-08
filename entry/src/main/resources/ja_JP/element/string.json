@@ -2978,15 +2978,19 @@
     },
     {
       "name": "read_mode_ltr",
-      "value": "左→右"
+      "value": "左から右"
     },
     {
       "name": "read_mode_rtl",
-      "value": "右→左"
+      "value": "右から左"
+    },
+    {
+      "name": "read_mode_ttb",
+      "value": "上から下"
     },
     {
       "name": "read_mode_vertical",
-      "value": "縦"
+      "value": "縦スクロール"
     },
     {
       "name": "read_double_page_a",

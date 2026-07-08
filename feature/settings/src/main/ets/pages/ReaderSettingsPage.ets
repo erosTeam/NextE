@@ -15,9 +15,9 @@ import {
 } from 'shared'
 
 /**
- * Reader settings (eros_fe 阅读 settings category). Page-turn DIRECTION is a native dropdown picker:
- * the row shows the current mode (左→右 / 右→左 / 竖向) with a chevron, and tapping it opens a native
- * HDS `Menu` with the three options and a `checkmark` on the active one — the same native idiom as the
+ * Reader settings (eros_fe 阅读 settings category). Page-turn mode is a native dropdown picker:
+ * the row shows the current mode with a chevron, and tapping it opens a native
+ * HDS `Menu` with the options and a `checkmark` on the active one — the same native idiom as the
  * favorites order picker (V2Next TopicDetailComponents bindMenu). eros_fe presents direction as an
  * action sheet, NOT inline checkmark rows; this is the native equivalent, not a hand-rolled tick.
  */
@@ -63,10 +63,17 @@ export struct ReaderSettingsPage {
     if (this.readMode.mode === ReadMode.RTL) {
       return $r('app.string.read_mode_rtl')
     }
+    if (this.readMode.mode === ReadMode.TOP_TO_BOTTOM) {
+      return $r('app.string.read_mode_ttb')
+    }
     if (this.readMode.mode === ReadMode.VERTICAL) {
       return $r('app.string.read_mode_vertical')
     }
     return $r('app.string.read_mode_ltr')
+  }
+
+  private doublePageAvailable(): boolean {
+    return this.readMode.mode === ReadMode.LTR || this.readMode.mode === ReadMode.RTL
   }
 
   private autoPageLabel(): string {
@@ -108,6 +115,16 @@ export struct ReaderSettingsPage {
             : undefined,
       }).onClick(() => {
         this.setMode(ReadMode.RTL)
+        this.dirMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.read_mode_ttb'),
+        symbolEndIcon:
+          this.readMode.mode === ReadMode.TOP_TO_BOTTOM
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setMode(ReadMode.TOP_TO_BOTTOM)
         this.dirMenuShown = false
       })
       MenuItem({
@@ -275,13 +292,18 @@ export struct ReaderSettingsPage {
               ConciseListRow({
                 title: $r('app.string.settings_reader_double_page'),
                 hasSwitch: true,
-                checked: this.readMode.doublePageEnabled,
+                checked: this.doublePageAvailable() && this.readMode.doublePageEnabled,
+                isEnabled: this.doublePageAvailable(),
                 showChevron: false,
                 action: () => {
-                  this.setDoublePageEnabled(!this.readMode.doublePageEnabled)
+                  if (this.doublePageAvailable()) {
+                    this.setDoublePageEnabled(!this.readMode.doublePageEnabled)
+                  }
                 },
                 switchAction: (value: boolean) => {
-                  this.setDoublePageEnabled(value)
+                  if (this.doublePageAvailable()) {
+                    this.setDoublePageEnabled(value)
+                  }
                 },
               })
               this.rowDivider()

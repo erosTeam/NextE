@@ -4,6 +4,7 @@ import { AppStorageV2 } from '@kit.ArkUI'
 export enum ReadMode {
   LTR = 'ltr', // horizontal, page 1 on the left (default)
   RTL = 'rtl', // horizontal, page 1 on the right (manga)
+  TOP_TO_BOTTOM = 'topToBottom', // vertical page-by-page
   VERTICAL = 'vertical', // top-to-bottom continuous scroll (webtoon)
 }
 
@@ -15,8 +16,8 @@ export enum ReadColumnMode {
 
 /**
  * Reactive reader direction + horizontal double-page mode. Restored from preferences at startup; the
- * ReaderPage reads it to switch between the horizontal Swiper (LTR/RTL), vertical List, and horizontal
- * single/double-page spread.
+ * ReaderPage reads it to switch between paged Swiper (LTR/RTL/top-to-bottom), continuous vertical
+ * List, and horizontal single/double-page spread.
  */
 @ObservedV2
 export class ReadModeState {

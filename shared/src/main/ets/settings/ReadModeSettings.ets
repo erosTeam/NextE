@@ -6,6 +6,16 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 /** Persists reader direction + double-page mode and is the single writer of ReadModeState. */
 export class ReadModeSettings {
+  private static normalizeMode(mode: string): string {
+    if (mode === ReadMode.LTR ||
+      mode === ReadMode.RTL ||
+      mode === ReadMode.TOP_TO_BOTTOM ||
+      mode === ReadMode.VERTICAL) {
+      return mode
+    }
+    return ReadMode.LTR
+  }
+
   private static normalizeAutoPageSeconds(value: number): number {
     if (!Number.isFinite(value)) {
       return 3
@@ -38,7 +48,9 @@ export class ReadModeSettings {
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      const mode: string = store.getSync(StorageKeys.READING_DIRECTION, ReadMode.LTR) as string
+      const mode: string = ReadModeSettings.normalizeMode(
+        store.getSync(StorageKeys.READING_DIRECTION, ReadMode.LTR) as string
+      )
       const rawDoublePage: Object = store.getSync(
         StorageKeys.READING_DOUBLE_PAGE,
         false,
@@ -80,13 +92,14 @@ export class ReadModeSettings {
   }
 
   static async setMode(context: common.UIAbilityContext, mode: string): Promise<void> {
-    connectReadMode().mode = mode
+    const normalized: string = ReadModeSettings.normalizeMode(mode)
+    connectReadMode().mode = normalized
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      store.putSync(StorageKeys.READING_DIRECTION, mode)
+      store.putSync(StorageKeys.READING_DIRECTION, normalized)
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readmode_save_failed', (error as Error).message)
