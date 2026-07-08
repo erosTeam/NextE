@@ -495,7 +495,7 @@ export struct ReaderPage {
   private cacheWarmImageIndexes(): number[] {
     const indexes: number[] = []
     const preloadPages: number = this.readerPreloadPages()
-    if (!this.readerContentReady() || preloadPages <= 0) {
+    if (!this.readerContentReady() || preloadPages <= 0 || this.viewWidth <= 0 || this.viewHeight <= 0) {
       return indexes
     }
     const to: number = Math.min(this.vm.currentIndex + preloadPages, this.vm.totalPages() - 1)
@@ -505,6 +505,10 @@ export struct ReaderPage {
       }
     }
     return indexes
+  }
+
+  private warmerTranslateX(): number {
+    return this.viewWidth + ThemeConstants.SPACE_XL
   }
 
   @Builder
@@ -523,14 +527,15 @@ export struct ReaderPage {
             onImageFileReady: (page: number, filePath: string) => {
               this.rememberImageBlockFile(page, filePath)
             },
+            translateX: this.warmerTranslateX(),
           })
         },
         (index: number) => `cache_warm_${index}_${this.safeForEachKeyHash(this.currentDisplayUrl(this.vm.imageAt(index)))}`,
       )
     }
-    .width(1)
-    .height(1)
-    .opacity(0)
+    .width('100%')
+    .height('100%')
+    .position({ x: 0, y: 0 })
     .hitTestBehavior(HitTestMode.None)
   }
 
@@ -2212,12 +2217,15 @@ struct ReaderCacheWarmImage {
   @Param page: number = 0;
   @Param sourceUrl: string = '';
   @Param imageKey: string = '';
+  @Param translateX: number = 0;
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageFileReady: (page: number, filePath: string) => void =
     (_page: number, _filePath: string) => {};
 
   private warmingKey: string = '';
   private warmedKey: string = '';
+  private decodedKey: string = '';
+  @Local warmDisplayUri: string = '';
 
   aboutToAppear(): void {
     this.warm()
@@ -2239,12 +2247,13 @@ struct ReaderCacheWarmImage {
 
   private markReady(result: CachedImageFileResult, key: string): void {
     this.warmedKey = key
+    this.warmDisplayUri = result.displayUri
     this.onImageFileReady(this.page, result.filePath)
-    this.onImageLoaded(this.page)
   }
 
   private warm(): void {
     if (this.page <= 0 || this.sourceUrl.length === 0) {
+      this.warmDisplayUri = ''
       return
     }
     const key: string = this.cacheKey()
@@ -2264,6 +2273,7 @@ struct ReaderCacheWarmImage {
       return
     }
     this.warmingKey = key
+    this.warmDisplayUri = ''
     CachedImageFileService.load(
       context,
       this.sourceUrl,
@@ -2290,9 +2300,26 @@ struct ReaderCacheWarmImage {
   }
 
   build() {
-    Blank()
-      .width(1)
-      .height(1)
+    if (this.warmDisplayUri.length > 0) {
+      Image(this.warmDisplayUri)
+        .objectFit(ImageFit.Contain)
+        .interpolation(ImageInterpolation.High)
+        .width('100%')
+        .height('100%')
+        .translate({ x: this.translateX, y: 0 })
+        .draggable(false)
+        .onComplete(() => {
+          if (this.decodedKey === this.warmedKey) {
+            return
+          }
+          this.decodedKey = this.warmedKey
+          this.onImageLoaded(this.page)
+          DiagnosticLogger.info('image-cache', 'reader_warm_decoded', `page ${this.page}`)
+        })
+        .onError(() => {
+          DiagnosticLogger.warn('image-cache', 'reader_warm_decode_failed', `page ${this.page}`)
+        })
+    }
   }
 }
 
