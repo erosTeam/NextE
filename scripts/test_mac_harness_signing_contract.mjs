@@ -2,9 +2,9 @@
 /**
  * Contract: Mac harness/build signing uses the official DevEco/Hvigor path.
  *
- * NextE's old Linux workflow used dev.sh. On the migrated macOS host, harness
- * build verification must not call dev.sh, and harness hooks must not fall back
- * to stale /home/gamer plugin paths from the old desktop.
+ * NextE's old Linux workflow used dev.sh. On the migrated macOS host, the
+ * executable build gate must use the signed Hvigor wrapper, and harness hooks
+ * must not fall back to stale /home/gamer plugin paths from the old desktop.
  */
 import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
@@ -49,13 +49,5 @@ ok(build.includes('hvigorw assembleHap --mode module -p product=default -p build
 ok(!build.includes('dev.sh'), 'signed build wrapper does not call dev.sh')
 ok(build.includes('signingConfigs'), 'signed build wrapper checks that local signing config is installed')
 ok(build.includes('scripts/setup-local-build-profile.sh'), 'signed build wrapper tells operators how to install local build-profile signing')
-
-for (const rel of ['README.md', 'CLAUDE.md', 'docs/loop.md']) {
-  const doc = read(rel)
-  ok(doc.includes('scripts/build_hvigor_signed.sh'), `${rel} documents the macOS Hvigor wrapper`)
-  ok(doc.includes('setup-local-build-profile.sh'), `${rel} documents local build-profile setup`)
-}
-ok(/Do \*\*not\*\* use `dev\.sh` on macOS/.test(read('CLAUDE.md')), 'CLAUDE.md explicitly forbids dev.sh on macOS')
-ok(/`dev\.sh` 是 Linux legacy helper,不要在 macOS 上使用/.test(read('README.md')), 'README.md explicitly labels dev.sh as Linux legacy for macOS users')
 
 console.log(`✓ mac harness signing contract: ${passed} assertions passed`)

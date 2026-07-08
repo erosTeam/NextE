@@ -79,17 +79,24 @@ EhHttpClient → EhApiService/EhApiPhpService → parser(正则/DOM) → model
 
 ### Contract 使用纪律
 
-Contract 默认不新增。Contract 只用于锁定高风险、已确认且容易静默回退的项目不变量。不要把每个 bug、每个 UI 细节、每次返工、每个口头例子都写成 contract。
+Contract 只允许用于会造成严重影响的稳定边界。默认不新增,也不得把每个 bug、UI 细节、返工记录、口头例子或临时实现写成 contract。
 
-- 优先用已有测试、编译、模拟器用户路径、静态 diff 说明结果。能用现有验证覆盖的,不新增 contract。
-- 新增 contract 前必须能说明它保护的稳定不变量是什么、为什么普通构建 / 现有测试 / 人工路径不能覆盖、以及它未来失败时应该怎么修。说不清就不加。
-- 禁止用 contract 锁定尚未验收的视觉猜测、临时 workaround、单次实现细节或用户随口举例。contract 只能锁已确认的行为边界。
-- 禁止用 contract 替代真实用户路径验证。用户可见功能必须先用截图 / layout / 日志 / 设备路径证明,不能用“contract 通过”包装成可用。
-- 禁止把示例数字、一次性截图、临时文案、猜测性 parser 规则、尚未取证的页面结构、或未确认的信息架构写成 contract。
-- 新 contract 要小而少,优先扩展同域已有脚本;不要为窄场景新建脚本。若 contract 代码开始接近或超过被保护的产品逻辑复杂度,停止添加并删除该 contract。
-- 新增 contract 前必须检查同域旧 contract,优先合并、删减或复用;不得让 contract 数量无界增长。新增一个窄 contract 时,需要同时说明为什么不能合并进现有脚本。
-- 用户指出 contract 滥用时,立即停止新增 contract,改用现有门禁、人工 / 设备验证、日志证据或静态 diff 完成当前任务;需要长期防回归时,先删减同域低价值 contract 再讨论新增。
-- 用户要求“测试覆盖”不等于自动新增 contract。先用最小可运行验证;只有需要长期防回归时才落 contract。
+允许场景仅限以下几类:
+
+- 平台硬红线:状态管理 V1 禁止、ArkTS/架构边界、构建/签名/版本一致性。
+- 安全与隐私:凭据泄露、Cookie/session 处理、诊断日志脱敏、会被打包或导出的敏感数据。
+- 数据破坏或远端写操作:评分、收藏、评论、标签、归档请求、同步/备份/恢复、RDB/Preferences 持久化与迁移。
+- 高风险远端协议/parser:真实 fixture 支撑的 EH HTML/API 字段、分页游标、图片解析、错误分类等,其失败会导致主要链路不可用、错误写入或资源浪费。
+- 设备/自动化互斥:会影响真机控制、租约、构建环境的硬约束。
+
+明确禁止:
+
+- UI 视觉、布局、文案、入口位置、按钮样式、间距、圆角、图标选择、loading 文案、截图观感类 contract。
+- grounding、产品语义、信息架构、用户路径验收类 contract。它们必须写成文档、截图、日志或设备验证记录,不能做成正则门禁。
+- 单次事故的补偿性 contract、临时 workaround contract、为证明自己改过而新增的 contract。
+- 无真实 fixture 或无可复现严重后果的 parser 猜测 contract。
+
+新增或扩展 contract 前必须同时满足:能说清严重影响是什么;已有构建、现有测试、日志、截图、人工/设备路径不能覆盖;失败时修复方向明确。任一条件不满足就不能加。用户指出 contract 滥用时,先删减同域低价值 contract,再继续当前任务验证。
 
 ## 新 worktree 依赖前置
 
@@ -121,7 +128,7 @@ ohpm install
 - 阅读相关进 Reader 设置;下载相关进 Download 设置;搜索相关进 Search 设置;EH / 账号 / 站点相关进 EH / 账号设置;列表、网格、瀑布流、底部栏、导航显示等浏览 / 界面行为进 Layout / 界面 / 导航类设置。
 - 根设置页只放分类入口,禁止把单个零散设置项直接放根页。只有用户明确要求根页直放时例外。
 - 新设置项写产品代码前,先检查现有 Settings 分类和 `eros_fe` / Next2V 对应入口语义;不能因为状态 holder 在 `Index`、`Home` 或 shared 层,就把开关放到 Settings 根页。
-- 不得用 deterministic contract 锁定尚未经过归属审查的设置位置。contract 只能防止已确认正确的信息架构回退。
+- 不得用 deterministic contract 锁定设置位置。设置归属只能通过产品语义、参考实现、截图 / layout 和用户路径记录验收。
 
 ### 内容页状态: 禁止 empty-list-first
 
@@ -132,9 +139,9 @@ ohpm install
 - refresh、filter reapply、favcat/source/subtab 切换、route reseed 时,优先保留 stale content 并显示 in-body loading / skeleton / dimmed stale 状态。除非切到完全不同实体且没有 seed/cache,不得把整个页面打回空白。
 - 首次打开没有任何缓存时可以显示 loading/skeleton;有 seed data 的路由页(例如列表进详情携带 title/thumb/basic meta)必须先渲染 seed,再后台补全。
 - reload / paging 失败时保留旧内容并显示 inline error / toast / retry,不要清空页面后只剩错误或空白。
-- 禁止在 `loadData()` / `reload()` / `select*()` / `applyFilter()` 开头无条件执行 `this.items = []`、`this.gallerys = []`、`this.comments = []`、`this.thumbnails = []`、`this.data = new ...()` 等清空展示面的写法。若确需清空,必须在代码注释和 contract 中说明它不是用户可见内容面,或说明没有 stale/seed 可保留。
+- 禁止在 `loadData()` / `reload()` / `select*()` / `applyFilter()` 开头无条件执行 `this.items = []`、`this.gallerys = []`、`this.comments = []`、`this.thumbnails = []`、`this.data = new ...()` 等清空展示面的写法。若确需清空,必须在代码注释和验证记录中说明它不是用户可见内容面,或说明没有 stale/seed 可保留。
 
-涉及列表、搜索、收藏、评论、all-thumbnails、种子 / 磁力链、详情页、Reader 辅助数据、设置子页等内容页改动时,contract 应覆盖“不闪 terminal empty / 不清空 stale content”的关键路径。
+涉及列表、搜索、收藏、评论、all-thumbnails、种子 / 磁力链、详情页、Reader 辅助数据、设置子页等内容页改动时,优先用用户路径、日志和截图证明“不闪 terminal empty / 不清空 stale content”。只有会造成严重数据丢失、错误写回或主要链路不可用时,才允许用 contract 锁定。
 
 ### UI / 功能开工前 grounding
 
@@ -159,13 +166,9 @@ ohpm install
 - 偏离现有实现时必须写清楚原因和证据:参考文件是什么、默认行为哪里不满足、截图 / 设备 / 源码证据是什么。说不清就不要偏离。
 - 不要把视觉猜测写成布局参数。高度、padding、字号、颜色、safe-area、键盘避让、动画、press 态等都应来自现有模式或真实问题;不能用“看起来更稳”作为理由。
 - 多层半模态、滚动内容、底部操作区等平台已经负责承载的行为,先保留系统 / 项目默认机制。只有复现到具体错误后,才做最小修正。
-- 截图验收必须看结构是否像同类页面,不是只看控件是否出现。未经过截图或用户确认的形态,不要写 deterministic contract 锁死。
+- 截图验收必须看结构是否像同类页面,不是只看控件是否出现。未经过截图或用户确认的形态,不得写成门禁;已经确认的形态也只能记录为验收证据,不能升级成 UI contract。
 
-涉及 `entry/`、`feature/`、`shared/` ArkTS UI 文件改动时,运行:
-```bash
-node scripts/test_ui_quality_grounding_contract.mjs
-```
-该 contract 会检查当前 diff 是否同步更新 UI grounding 记录,并拒绝缺少参考实现、页面类型、主信息、主动作、复用 / 偏离理由和验证要求的改动。
+禁止把 UI grounding 做成可执行 contract。UI grounding 只能作为开工前的文档记录和收尾时的截图 / layout / 日志验收依据。
 
 ### UI / 交互验收 Definition of Done
 
@@ -205,7 +208,7 @@ node scripts/test_ui_quality_grounding_contract.mjs
 - 修局部问题时先删掉自作的额外属性,验证平台默认是否已经正确。不要在错误属性之上继续补偿式叠加新属性。
 - `Stack` 只用于明确覆盖层,例如 badge、选中描边、loading overlay。禁止用 `Stack` 猜布局、堆假控件、或把本体 / 状态 / 交互混成一团。
 - 选中态、滑块、色块、列表行等基础控件必须先对照参考图 / 参考实现拆出层级和尺寸,不能边写边猜。
-- 没有经过截图 / 设备 / 用户确认的视觉形态,不要写 deterministic contract。contract 只锁定已经验收正确的结构,不要把猜测制度化。
+- 没有经过截图 / 设备 / 用户确认的视觉形态,不得写成门禁。已经验收正确的结构记录为证据即可,不要把视觉判断制度化成 contract。
 - 用户指出局部问题时,只修对应结构层;不要滑坡到整页重写、换组件体系、或撤掉已确认的基线。
 
 ### 输入 / Composer 控件纪律

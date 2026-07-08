@@ -88,25 +88,17 @@
 
 ## 4. 验证闭环(改动不验证不算完)
 
-**逻辑类**(必过,缺一不算闭环):
+**严重影响边界**(按改动相关性运行,缺少对应验证不算闭环):
 ```bash
 node scripts/test_v1_decorator_inventory_contract.mjs   # 必须 0 file(s)
 node scripts/test_secret_safety_contract.mjs            # 禁止打包凭据资源 / HAP 泄露 / 自动登录注入
 node scripts/test_mac_harness_signing_contract.mjs      # macOS harness/build:官方 Hvigor 签名构建,禁止 dev.sh 与旧 /home/gamer fallback
-node scripts/test_selector_reload_preserves_content_contract.mjs  # selector 切换不得白屏清空旧内容
 node scripts/test_error_classification_contract.mjs     # 失败分类:仅真 404 → notFound,绝不把非 404 报成 404
-node scripts/test_devsh_keepawake_contract.mjs          # 设备 QA 工具:dev.sh --launch/--log/装机 + sign.py 必须 keep-awake
 node scripts/test_device_lease_contract.mjs            # 多 agent 真机 QA:agent 控制设备前必须持有 scripts/device-lease 租期
-node scripts/test_thumbnail_mode_contract.mjs           # 详情预览:默认网格 + 可选横排/隐藏,全模式 all-thumbnails 入口可达
-node scripts/test_responsive_grid_contract.mjs          # 预览网格:列数按宽度自适应(不硬编码)+ 固定瓦片框/页码位置稳定
-node scripts/test_detail_header_visual_contract.mjs     # 详情页 header/InfoBar 硬视觉语义门禁
-node scripts/test_tag_chip_contract.mjs                 # 详情标签 chip 圆角/高度/语义(namespace/usertag/vote 色保留)
-node scripts/test_cover_presentation_contract.mjs       # 封面呈现:独立灰底占位 + 按上下文 fit(列表/详情 Contain,网格 Cover),禁止一刀切裁切
-node scripts/test_list_responsive_cover_contract.mjs    # 列表卡封面:按当前 pane/container 宽度响应,禁止启动 display 缓存
-node scripts/test_retained_tab_contract.mjs             # 保留态子 tab:首页源=按 key 保留页(各自 VM/scroller),选中态为总线;排行周期保持单列表筛选
 bash scripts/build_hvigor_signed.sh                    # macOS:官方 DevEco/Hvigor 签名构建,BUILD SUCCESSFUL
 ```
-新增子系统要补对应的 `scripts/test_*_contract.mjs`(带真实 EH HTML fixture)。
+Contract 只允许用于严重影响边界:V1/架构红线、版本/签名、安全隐私、Cookie/session、非幂等写操作、同步/备份/持久化、真实 fixture 支撑且失败会导致主链路不可用或错误写回的 EH parser/API。UI 视觉、布局、文案、入口位置、grounding、截图观感和单次返工禁止写成 contract。
+
 动了 i18n(增删/改 key)还要跑 `python3 scripts/check_i18n_duplicates.py`(四语言 key 对齐、无重复)。
 
 **视觉类**:签名装机 → 真机截图 → §3 四源对抗审查。

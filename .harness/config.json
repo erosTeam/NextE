@@ -31,11 +31,6 @@
       "blocking": true
     },
     {
-      "name": "selector-reload-preserves-content",
-      "command": "node scripts/test_selector_reload_preserves_content_contract.mjs",
-      "blocking": true
-    },
-    {
       "name": "error-classification",
       "command": "node scripts/test_error_classification_contract.mjs",
       "blocking": true
@@ -51,53 +46,8 @@
       "blocking": true
     },
     {
-      "name": "devsh-keepawake",
-      "command": "node scripts/test_devsh_keepawake_contract.mjs",
-      "blocking": true
-    },
-    {
       "name": "device-lease",
       "command": "node scripts/test_device_lease_contract.mjs",
-      "blocking": true
-    },
-    {
-      "name": "thumbnail-mode",
-      "command": "node scripts/test_thumbnail_mode_contract.mjs",
-      "blocking": true
-    },
-    {
-      "name": "responsive-grid",
-      "command": "node scripts/test_responsive_grid_contract.mjs",
-      "blocking": true
-    },
-    {
-      "name": "detail-header-visual",
-      "command": "node scripts/test_detail_header_visual_contract.mjs",
-      "blocking": true
-    },
-    {
-      "name": "tag-chip",
-      "command": "node scripts/test_tag_chip_contract.mjs",
-      "blocking": true
-    },
-    {
-      "name": "cover-presentation",
-      "command": "node scripts/test_cover_presentation_contract.mjs",
-      "blocking": true
-    },
-    {
-      "name": "list-responsive-cover",
-      "command": "node scripts/test_list_responsive_cover_contract.mjs",
-      "blocking": true
-    },
-    {
-      "name": "list-height-mode",
-      "command": "node scripts/test_list_height_mode_contract.mjs",
-      "blocking": true
-    },
-    {
-      "name": "retained-tab",
-      "command": "node scripts/test_retained_tab_contract.mjs",
       "blocking": true
     },
     {
@@ -171,7 +121,7 @@
       "exclude": "gitkeep"
     },
     {
-      "name": "contract-tests",
+      "name": "severe-contract-tests",
       "glob": "scripts/test_*_contract.mjs"
     }
   ],

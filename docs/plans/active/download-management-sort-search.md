@@ -59,7 +59,7 @@ Completed stays after active/paused/failed regardless of selected sort mode.
 ## Verification
 
 - `node scripts/test_v1_decorator_inventory_contract.mjs`
-- `node scripts/test_ui_quality_grounding_contract.mjs`
+- UI grounding ledger review
 - `python3 scripts/check_i18n_duplicates.py`
 - signed HarmonyOS build
 - X7 emulator first: open Downloads, switch Gallery/Archiver, search hit/miss, switch sort modes, confirm grouped rows and archive metadata do not break card layout.

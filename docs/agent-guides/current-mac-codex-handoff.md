@@ -360,7 +360,7 @@ Implementation direction for a worker:
 - Remove startup-sized module cache from list-card sizing.
 - Measure the current list content/pane width reactively, probably at scaffold/list-body boundary.
 - Pass sizing context into GalleryCard or a shared list-card sizing utility.
-- Encode a deterministic contract that rejects module-level `_coverW` / display.getDefaultDisplaySync based list-card sizing.
+- Record a source check that rejects module-level `_coverW` / display.getDefaultDisplaySync based list-card sizing, then prove it with folded/unfolded device evidence.
 - Preserve existing fixed/adaptive list-height setting semantics.
 - Preserve current cover image presentation constraints: real image ratio, rounded visible image content, no blanket fill/crop rewrite.
 ```
@@ -368,10 +368,10 @@ Implementation direction for a worker:
 Minimum acceptance gates for this issue:
 
 ```text
-- deterministic source contract for no startup display cache in GalleryCard sizing.
-- source contract for phone/narrow vs wide/non-phone width semantics.
+- source review for no startup display cache in GalleryCard sizing.
+- source review for phone/narrow vs wide/non-phone width semantics.
 - `node scripts/test_v1_decorator_inventory_contract.mjs` reports 0.
-- project harness/pre-commit gates relevant to UI contracts.
+- project harness/pre-commit gates relevant to severe-impact boundaries.
 - build succeeds.
 - Mate X7 folded cold-start screenshot.
 - Mate X7 unfolded cold-start screenshot.
