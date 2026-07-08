@@ -44,3 +44,4 @@ The agent mishandled the account asset balance feature and then mishandled the u
 - When the user asks "why did this happen", answer causes first. Do not keep executing implementation or validation as a substitute for the accountability answer.
 - After saying work is stopped or reverted, immediately verify `git status --short` and remove only the agent's residual untracked files before claiming the tree is clean.
 - Serious repeated mistakes must be registered in `docs/agent-guides/incidents/` during the same task, before any further feature work.
+- The general rule is now "unknown blocks implementation": if real page structure, UI semantics, or user-path evidence is missing, stop and gather evidence or report `BLOCKED` before writing parser/UI code.

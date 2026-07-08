@@ -13,6 +13,16 @@
 - [2026-07-06 Search History Verification Failure](incidents/2026-07-06-search-history-verification-failure.md)
 - [2026-07-08 Account Asset Balance Accountability Failure](incidents/2026-07-08-account-asset-balance-accountability-failure.md)
 
+## 硬停: 未知即阻断
+
+涉及远端页面解析、账号 / 资产 / 配额数据、EH 写操作、用户可见状态、或 UI 信息层级时,未知事实必须先变成证据,不能用实现推进来覆盖。
+
+- 不知道真实页面 DOM / 文案 / 返回结构时,禁止写 parser。先取得真实 HTML、脱敏片段、现有 fixture、参考实现 selector,或设备 / 日志证据;拿不到证据则报告 `BLOCKED`。
+- 不知道用户会如何理解信息主次时,禁止写 UI。先明确主信息、同级信息、主次动作和用户第一眼读法;答不出来就停在 grounding,不能套现有组件模板。
+- 不知道真实用户路径是否成立时,禁止说完成。构建、静态 contract、代码存在只证明实现候选;用户可见功能必须用截图 / layout / 日志 / fixture / 设备路径证明。
+- 不知道 contract 是否保护稳定边界时,禁止新增 contract。不要把未知、猜测、示例数字、视觉偏好或临时 workaround 制度化。
+- 对资产、余额、配额、Cookie、写操作等高风险数据,解析不到或证据不足只能显示明确失败 / 不可用,但不能把这种失败包装成已完成。
+
 ## 硬停: 仅用状态管理 V2
 
 State Management V1 在本项目**已废弃**。`entry/`、`feature/`、`shared/` 中禁止引入或恢复任何 V1 组件/状态装饰器:`@Component`、`@State`、`@Prop`、`@Link`、`@Watch`、`@StorageLink`、`@StorageProp`、`@Provide`、`@Consume`、`@ObjectLink`、`@Observed`(裸)、`@Track`、`@LocalStorageLink`、`@LocalStorageProp`。
