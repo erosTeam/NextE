@@ -1496,6 +1496,9 @@ export struct ReaderPage {
                 initiallyLoaded: this.isPageImageLoaded(index),
                 loadedSignal: this.loadedPageSignal,
                 imageBlockWhitelistSaving: this.imageBlockWhitelistSaving,
+                onZoomChange: (zoomed: boolean) => {
+                  this.imageZoomed = zoomed
+                },
                 onImageLoaded: (page: number) => {
                   this.markPageImageLoaded(page)
                 },
@@ -1520,6 +1523,7 @@ export struct ReaderPage {
     .width('100%')
     .height('100%')
     .cachedCount(this.readerPreloadPages())
+    .enableScrollInteraction(!this.imageZoomed)
     .scrollBar(BarState.Off)
     .onScrollIndex((start: number, end: number) => {
       this.vm.onVerticalScroll(start, end)
@@ -1964,22 +1968,18 @@ export struct ReaderPage {
           })
           Blank()
           Button({ type: ButtonType.Circle }) {
-            SymbolGlyph(this.modeIcon())
+            SymbolGlyph($r('sys.symbol.book_open_fill'))
               .fontSize(READER_CHROME_ICON_SIZE)
-              .fontColor([Color.White])
+              .fontColor([this.doublePageIconColor()])
           }
           .width(READER_CHROME_ACTION_SIZE)
           .height(READER_CHROME_ACTION_SIZE)
-          .backgroundColor(Color.Transparent)
-          .accessibilityText(this.modeLabel())
+          .backgroundColor(
+            Color.Transparent
+          )
+          .enabled(this.isHorizontalPagedMode())
           .onClick(() => {
-            this.readModeMenuShown = true
-          })
-          .bindMenu(this.readModeMenuShown, this.ReaderModeMenu, {
-            placement: Placement.TopRight,
-            onDisappear: () => {
-              this.readModeMenuShown = false
-            },
+            this.toggleDoublePage()
           })
           if (this.showOnePageStepButton()) {
             Button({ type: ButtonType.Circle }) {
@@ -1996,18 +1996,22 @@ export struct ReaderPage {
             })
           }
           Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.book_open_fill'))
+            SymbolGlyph(this.modeIcon())
               .fontSize(READER_CHROME_ICON_SIZE)
-              .fontColor([this.doublePageIconColor()])
+              .fontColor([Color.White])
           }
           .width(READER_CHROME_ACTION_SIZE)
           .height(READER_CHROME_ACTION_SIZE)
-          .backgroundColor(
-            Color.Transparent
-          )
-          .enabled(this.isHorizontalPagedMode())
+          .backgroundColor(Color.Transparent)
+          .accessibilityText(this.modeLabel())
           .onClick(() => {
-            this.toggleDoublePage()
+            this.readModeMenuShown = true
+          })
+          .bindMenu(this.readModeMenuShown, this.ReaderModeMenu, {
+            placement: Placement.TopRight,
+            onDisappear: () => {
+              this.readModeMenuShown = false
+            },
           })
         }
         .width('100%')
@@ -3573,8 +3577,8 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 
 /**
  * One page in the vertical (continuous) reader: a full-width image whose height follows the
- * loaded image's aspect ratio (captured in onComplete). No per-image zoom — vertical scroll is
- * the navigation; a min-height keeps the placeholder tappable while resolving.
+ * loaded image's aspect ratio (captured in onComplete). The image owns pinch / double-tap zoom; when
+ * zoomed it reports up so the parent List can pause scrolling while pan moves the image.
  */
 @ComponentV2
 struct ReaderVerticalImage {
@@ -3584,6 +3588,7 @@ struct ReaderVerticalImage {
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
   @Param imageBlockWhitelistSaving: boolean = false;
+  @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageFileReady: (page: number, filePath: string) => void =
     (_page: number, _filePath: string) => {};
@@ -3600,16 +3605,44 @@ struct ReaderVerticalImage {
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Local ratio: number = DEFAULT_VERTICAL_RATIO;
+  @Local zoomScale: number = 1;
+  @Local offsetX: number = 0;
+  @Local offsetY: number = 0;
+  @Local zoomAnimating: boolean = false;
+  @Local intrinsicW: number = 0;
+  @Local intrinsicH: number = 0;
+  private pinchStartScale: number = 1;
+  private pinchAnchorX: number = 0.5;
+  private pinchAnchorY: number = 0.5;
+  private panStartOffX: number = 0;
+  private panStartOffY: number = 0;
+  private isPinching: boolean = false;
+  private ignorePanSequence: boolean = false;
+  private compW: number = 0;
+  private compH: number = 0;
+  private lastZoomed: boolean = false;
   private autoRetryCount: number = 0;
   private loadSeq: number = 0;
+  private zoomAnimatingTimerId: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
   }
 
+  aboutToDisappear(): void {
+    if (this.zoomAnimatingTimerId > 0) {
+      clearTimeout(this.zoomAnimatingTimerId)
+      this.zoomAnimatingTimerId = 0
+    }
+    this.resetZoom()
+    this.notifyZoom()
+  }
+
   @Monitor('imageKey')
   onImageKeyChanged(): void {
     this.resetSourceState()
+    this.resetZoom()
+    this.notifyZoom()
     this.resolve()
   }
 
@@ -3780,6 +3813,8 @@ struct ReaderVerticalImage {
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
     this.ratio = DEFAULT_VERTICAL_RATIO
+    this.intrinsicW = 0
+    this.intrinsicH = 0
   }
 
   private retrySource(): void {
@@ -3822,6 +3857,83 @@ struct ReaderVerticalImage {
     this.failed = true
   }
 
+  private clampScale(value: number): number {
+    return ReaderZoomCoordinator.clampScale(value)
+  }
+
+  private fitScale(): number {
+    return ReaderZoomCoordinator.fitScale(this.compW, this.compH, this.intrinsicW, this.intrinsicH)
+  }
+
+  private displayW(): number {
+    return ReaderZoomCoordinator.displaySize(this.compW, this.intrinsicW, this.fitScale())
+  }
+
+  private displayH(): number {
+    return ReaderZoomCoordinator.displaySize(this.compH, this.intrinsicH, this.fitScale())
+  }
+
+  private clampOffsetX(value: number, scale: number): number {
+    return ReaderZoomCoordinator.clampOffset(value, this.compW, this.displayW(), scale)
+  }
+
+  private clampOffsetY(value: number, scale: number): number {
+    return ReaderZoomCoordinator.clampOffset(value, this.compH, this.displayH(), scale)
+  }
+
+  private panDistance(): number {
+    return ReaderZoomCoordinator.panDistance(this.zoomScale, this.compW, this.compH)
+  }
+
+  private clampOffset(): void {
+    this.offsetX = this.clampOffsetX(this.offsetX, this.zoomScale)
+    this.offsetY = this.clampOffsetY(this.offsetY, this.zoomScale)
+  }
+
+  private resetZoom(): void {
+    this.zoomScale = 1
+    this.offsetX = 0
+    this.offsetY = 0
+  }
+
+  private beginZoomAnimation(): void {
+    if (this.zoomAnimatingTimerId > 0) {
+      clearTimeout(this.zoomAnimatingTimerId)
+      this.zoomAnimatingTimerId = 0
+    }
+    this.zoomAnimating = true
+    this.zoomAnimatingTimerId = setTimeout((): void => {
+      this.zoomAnimating = false
+      this.zoomAnimatingTimerId = 0
+    }, READER_ZOOM_ANIM_DURATION + ThemeConstants.ANIM_DONE_DELAY_MS)
+  }
+
+  private notifyZoom(): void {
+    const zoomed: boolean = ReaderZoomCoordinator.isZoomed(this.zoomScale)
+    if (zoomed !== this.lastZoomed) {
+      this.lastZoomed = zoomed
+      this.onZoomChange(zoomed)
+    }
+  }
+
+  private onDoubleTap(tapX: number, tapY: number): void {
+    this.beginZoomAnimation()
+    if (ReaderZoomCoordinator.doubleTapTarget(this.zoomScale) === 1) {
+      this.resetZoom()
+      this.notifyZoom()
+      return
+    }
+    const target: number = DOUBLE_TAP_SCALE
+    const anchorX: number = ReaderZoomCoordinator.pinchAnchor(tapX, this.compW, this.displayW(), this.zoomScale, this.offsetX)
+    const anchorY: number = ReaderZoomCoordinator.pinchAnchor(tapY, this.compH, this.displayH(), this.zoomScale, this.offsetY)
+    const nextX: number = ReaderZoomCoordinator.anchoredOffset(tapX, this.compW, this.displayW(), target, anchorX)
+    const nextY: number = ReaderZoomCoordinator.anchoredOffset(tapY, this.compH, this.displayH(), target, anchorY)
+    this.zoomScale = target
+    this.offsetX = this.clampOffsetX(nextX, target)
+    this.offsetY = this.clampOffsetY(nextY, target)
+    this.notifyZoom()
+  }
+
   build() {
     Stack() {
       // `failed` first so an Image fetch error (dead token / 509) shows the re-source retry.
@@ -3841,18 +3953,24 @@ struct ReaderVerticalImage {
           .objectFit(ImageFit.Contain)
           .interpolation(ImageInterpolation.High)
           .draggable(false)
+          .scale({ x: this.zoomScale, y: this.zoomScale })
+          .translate({ x: this.offsetX, y: this.offsetY })
+          .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
           .onComplete((e) => {
             this.autoRetryCount = 0
             this.imageLoaded = true
             this.onImageLoaded(this.image.page)
             if (e !== undefined && e.width > 0 && e.height > 0) {
               this.ratio = e.width / e.height
+              this.intrinsicW = this.getUIContext().px2vp(e.width)
+              this.intrinsicH = this.getUIContext().px2vp(e.height)
               DiagnosticLogger.info(
                 'reader',
                 'image_decoded',
                 `page=${this.image.page} width=${e.width} height=${e.height} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
               )
             }
+            this.clampOffset()
           })
           .onError(() => {
             DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
@@ -3891,6 +4009,100 @@ struct ReaderVerticalImage {
     }
     .width('100%')
     .constraintSize({ minHeight: 220 })
+    .clip(true)
+    .onAreaChange((_o: Area, n: Area) => {
+      this.compW = n.width as number
+      this.compH = n.height as number
+      this.clampOffset()
+    })
+    .gesture(
+      GestureGroup(
+        GestureMode.Parallel,
+        TapGesture({ count: 2, distanceThreshold: 8 }).onAction((e?: GestureEvent) => {
+          const loc = e ? e.tapLocation : undefined
+          const tapX: number = loc ? (loc.x as number) : this.compW / 2
+          const tapY: number = loc ? (loc.y as number) : this.compH / 2
+          this.onDoubleTap(tapX, tapY)
+        }),
+        PinchGesture({ fingers: 2 })
+          .onActionStart((e?: GestureEvent) => {
+            if (!e) {
+              return
+            }
+            this.isPinching = true
+            this.ignorePanSequence = true
+            this.zoomAnimating = false
+            this.pinchStartScale = this.zoomScale
+            this.pinchAnchorX = ReaderZoomCoordinator.pinchAnchor(
+              e.pinchCenterX as number,
+              this.compW,
+              this.displayW(),
+              this.zoomScale,
+              this.offsetX
+            )
+            this.pinchAnchorY = ReaderZoomCoordinator.pinchAnchor(
+              e.pinchCenterY as number,
+              this.compH,
+              this.displayH(),
+              this.zoomScale,
+              this.offsetY
+            )
+          })
+          .onActionUpdate((e?: GestureEvent) => {
+            if (!e) {
+              return
+            }
+            const nextScale: number = this.clampScale(this.pinchStartScale * (e.scale as number))
+            const nextX: number = ReaderZoomCoordinator.anchoredOffset(
+              e.pinchCenterX as number,
+              this.compW,
+              this.displayW(),
+              nextScale,
+              this.pinchAnchorX
+            )
+            const nextY: number = ReaderZoomCoordinator.anchoredOffset(
+              e.pinchCenterY as number,
+              this.compH,
+              this.displayH(),
+              nextScale,
+              this.pinchAnchorY
+            )
+            this.zoomScale = nextScale
+            this.offsetX = this.clampOffsetX(nextX, nextScale)
+            this.offsetY = this.clampOffsetY(nextY, nextScale)
+          })
+          .onActionEnd(() => {
+            this.isPinching = false
+            if (this.zoomScale <= 1.01) {
+              this.resetZoom()
+            } else {
+              this.clampOffset()
+            }
+            this.notifyZoom()
+          })
+          .onActionCancel(() => {
+            this.isPinching = false
+            this.clampOffset()
+            this.notifyZoom()
+          }),
+        PanGesture({ fingers: 1, direction: PanDirection.All, distance: this.panDistance() })
+          .onActionStart(() => {
+            this.ignorePanSequence = this.isPinching
+            this.panStartOffX = this.offsetX
+            this.panStartOffY = this.offsetY
+          })
+          .onActionUpdate((e?: GestureEvent) => {
+            if (!e || this.ignorePanSequence || this.isPinching || !ReaderZoomCoordinator.isZoomed(this.zoomScale)) {
+              return
+            }
+            this.offsetX = this.clampOffsetX(this.panStartOffX + (e.offsetX as number), this.zoomScale)
+            this.offsetY = this.clampOffsetY(this.panStartOffY + (e.offsetY as number), this.zoomScale)
+          })
+          .onActionEnd(() => {
+            this.ignorePanSequence = false
+          }),
+      ),
+    )
   }
 }
 
