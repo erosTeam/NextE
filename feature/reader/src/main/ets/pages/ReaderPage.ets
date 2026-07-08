@@ -46,6 +46,7 @@ const READER_PROGRESS_NUMBER_MIN_W: number = 30
 const READER_PROGRESS_SLIDER_GAP: number = 4
 const READER_ZOOM_ANIM_DURATION: number = 180
 const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
+const READER_LOADING_COMPLETION_HOLD_MS: number = 160
 const READER_LOADING_INDETERMINATE_ANIM_DURATION: number = 900
 const READER_LOADING_BAR_HEIGHT: number = 4
 const READER_LOADING_BAR_RADIUS: number = 2
@@ -55,6 +56,15 @@ const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
 const READER_DEFAULT_PRELOAD_PAGES: number = 2
 const READER_MAX_PRELOAD_PAGES: number = 5
 const READER_STATUS_BAR_DARK_CONTENT: string = '#FF000000'
+
+function readerDelay(ms: number): Promise<void> {
+  return new Promise<void>((resolve: () => void) => {
+    setTimeout(() => {
+      resolve()
+    }, Math.max(0, Math.round(ms)))
+  })
+}
+
 class ReaderSpreadResolver {
   static isDoublePage(mode: string, enabled: boolean): boolean {
     return mode !== ReadMode.VERTICAL && enabled
@@ -2815,6 +2825,12 @@ struct ReaderSpreadImageLayer {
       return
     }
     this.onImageFileReady(this.image.page, result.filePath)
+    this.imageProgressLoaded = result.bytes
+    this.imageProgressTotal = result.bytes
+    await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+    if (seq !== this.loadSeq) {
+      return
+    }
     if (await this.applyImageBlockDecision(context, result.filePath, result.bytes, result.displayUri, seq)) {
       return
     }
@@ -3151,6 +3167,12 @@ struct ReaderImagePage {
       return
     }
     this.onImageFileReady(this.image.page, result.filePath)
+    this.imageProgressLoaded = result.bytes
+    this.imageProgressTotal = result.bytes
+    await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+    if (seq !== this.loadSeq) {
+      return
+    }
     if (await this.applyImageBlockDecision(context, result.filePath, result.bytes, result.displayUri, seq)) {
       return
     }
@@ -3653,6 +3675,12 @@ struct ReaderVerticalImage {
       return
     }
     this.onImageFileReady(this.image.page, result.filePath)
+    this.imageProgressLoaded = result.bytes
+    this.imageProgressTotal = result.bytes
+    await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+    if (seq !== this.loadSeq) {
+      return
+    }
     if (await this.applyImageBlockDecision(context, result.filePath, result.bytes, result.displayUri, seq)) {
       return
     }
