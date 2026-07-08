@@ -46,6 +46,11 @@ const READER_PROGRESS_NUMBER_MIN_W: number = 30
 const READER_PROGRESS_SLIDER_GAP: number = 4
 const READER_ZOOM_ANIM_DURATION: number = 180
 const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
+const READER_LOADING_INDETERMINATE_ANIM_DURATION: number = 900
+const READER_LOADING_BAR_HEIGHT: number = 4
+const READER_LOADING_BAR_RADIUS: number = 2
+const READER_LOADING_BAR_BG: ResourceColor = '#33FFFFFF'
+const READER_LOADING_BAR_FG: ResourceColor = Color.White
 const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
 const READER_DEFAULT_PRELOAD_PAGES: number = 2
 const READER_MAX_PRELOAD_PAGES: number = 5
@@ -2944,9 +2949,7 @@ struct ReaderSpreadImageLayer {
         })
       } else if (this.sourceImageUrl.length > 0) {
         ReaderLoadingStage({
-          label: this.imageProgressLoaded > 0
-            ? $r('app.string.reader_loading_image')
-            : $r('app.string.reader_loading_requesting'),
+          label: $r('app.string.reader_loading_image'),
           loaded: this.imageProgressLoaded,
           total: this.imageProgressTotal,
         })
@@ -3398,9 +3401,7 @@ struct ReaderImagePage {
         })
       } else if (this.sourceImageUrl.length > 0) {
         ReaderLoadingStage({
-          label: this.imageProgressLoaded > 0
-            ? $r('app.string.reader_loading_image')
-            : $r('app.string.reader_loading_requesting'),
+          label: $r('app.string.reader_loading_image'),
           loaded: this.imageProgressLoaded,
           total: this.imageProgressTotal,
         })
@@ -3808,9 +3809,7 @@ struct ReaderVerticalImage {
         })
       } else if (this.sourceImageUrl.length > 0) {
         ReaderLoadingStage({
-          label: this.imageProgressLoaded > 0
-            ? $r('app.string.reader_loading_image')
-            : $r('app.string.reader_loading_requesting'),
+          label: $r('app.string.reader_loading_image'),
           compact: true,
           loaded: this.imageProgressLoaded,
           total: this.imageProgressTotal,
@@ -3828,15 +3827,124 @@ struct ReaderVerticalImage {
 }
 
 @ComponentV2
+struct ReaderLoadingBar {
+  @Param compact: boolean = false;
+  @Param determinate: boolean = false;
+  @Param ratio: number = 0;
+  @Local indeterminatePosition: number = 0;
+
+  private indeterminateTimer: number = -1
+
+  aboutToAppear(): void {
+    this.syncIndeterminateAnimation()
+  }
+
+  aboutToDisappear(): void {
+    this.stopIndeterminateAnimation()
+  }
+
+  @Monitor('determinate')
+  private onDeterminateChanged(): void {
+    this.syncIndeterminateAnimation()
+  }
+
+  private syncIndeterminateAnimation(): void {
+    if (this.determinate) {
+      this.stopIndeterminateAnimation()
+      this.indeterminatePosition = 0
+      return
+    }
+    this.startIndeterminateAnimation()
+  }
+
+  private startIndeterminateAnimation(): void {
+    if (this.indeterminateTimer >= 0) {
+      return
+    }
+    this.moveIndeterminateSlider()
+    this.indeterminateTimer = setInterval(() => {
+      this.moveIndeterminateSlider()
+    }, READER_LOADING_INDETERMINATE_ANIM_DURATION)
+  }
+
+  private stopIndeterminateAnimation(): void {
+    if (this.indeterminateTimer >= 0) {
+      clearInterval(this.indeterminateTimer)
+      this.indeterminateTimer = -1
+    }
+  }
+
+  private moveIndeterminateSlider(): void {
+    const next: number = this.indeterminatePosition > 0 ? 0 : 1
+    this.getUIContext().animateTo({
+      duration: READER_LOADING_INDETERMINATE_ANIM_DURATION,
+      curve: Curve.EaseInOut,
+    }, () => {
+      this.indeterminatePosition = next
+    })
+  }
+
+  private barWidth(): number {
+    return this.compact ? 120 : 180
+  }
+
+  private sliderWidth(): number {
+    return this.compact ? 34 : 54
+  }
+
+  private clampedRatio(): number {
+    if (this.ratio < 0) {
+      return 0
+    }
+    if (this.ratio > 1) {
+      return 1
+    }
+    return this.ratio
+  }
+
+  private fillWidth(): number {
+    if (this.determinate) {
+      return this.barWidth() * this.clampedRatio()
+    }
+    return this.sliderWidth()
+  }
+
+  private sliderX(): number {
+    if (this.determinate) {
+      return 0
+    }
+    return (this.barWidth() - this.sliderWidth()) * this.indeterminatePosition
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.Start }) {
+      Row()
+        .width(this.fillWidth())
+        .height(READER_LOADING_BAR_HEIGHT)
+        .backgroundColor(READER_LOADING_BAR_FG)
+        .borderRadius(READER_LOADING_BAR_RADIUS)
+        .translate({ x: this.sliderX() })
+        .animation({
+          duration: this.determinate
+            ? READER_LOADING_PROGRESS_ANIM_DURATION
+            : READER_LOADING_INDETERMINATE_ANIM_DURATION,
+          curve: this.determinate ? Curve.EaseOut : Curve.EaseInOut,
+        })
+    }
+    .width(this.barWidth())
+    .height(READER_LOADING_BAR_HEIGHT)
+    .backgroundColor(READER_LOADING_BAR_BG)
+    .borderRadius(READER_LOADING_BAR_RADIUS)
+    .clip(true)
+  }
+}
+
+@ComponentV2
 struct ReaderLoadingStage {
   @Param label: ResourceStr = '';
   @Param compact: boolean = false;
   @Param loaded: number = 0;
   @Param total: number = 0;
-
-  private barWidth(): number {
-    return this.compact ? 120 : 180
-  }
 
   private hasProgress(): boolean {
     return this.total > 0
@@ -3862,30 +3970,20 @@ struct ReaderLoadingStage {
 
   build() {
     Column({ space: ThemeConstants.SPACE_SM }) {
-      if (this.hasProgress()) {
-        Progress({ value: this.loaded, total: this.total, type: ProgressType.Linear })
-          .width(this.barWidth())
-          .height(4)
-          .color(Color.White)
-          .backgroundColor('#33FFFFFF')
-          .style({ strokeWidth: 4, strokeRadius: 2 })
-          .animation({ duration: READER_LOADING_PROGRESS_ANIM_DURATION, curve: Curve.EaseOut })
-      } else {
-        LoadingProgress()
-          .width(this.compact ? 24 : 28)
-          .height(this.compact ? 24 : 28)
-          .color(Color.White)
-      }
+      ReaderLoadingBar({
+        compact: this.compact,
+        determinate: this.hasProgress(),
+        ratio: this.progressRatio(),
+      })
       Text(this.label)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
         .fontColor(Color.White)
         .textAlign(TextAlign.Center)
-      if (this.hasProgress()) {
-        Text(this.progressPercent())
-          .fontSize(ThemeConstants.FONT_SIZE_META)
-          .fontColor('#CCFFFFFF')
-          .textAlign(TextAlign.Center)
-      }
+      Text(this.hasProgress() ? this.progressPercent() : '0%')
+        .fontSize(ThemeConstants.FONT_SIZE_META)
+        .fontColor('#CCFFFFFF')
+        .textAlign(TextAlign.Center)
+        .opacity(this.hasProgress() ? 1 : 0)
     }
     .width('100%')
     .height('100%')

@@ -1317,10 +1317,6 @@
       "value": "正在解析图片"
     },
     {
-      "name": "reader_loading_requesting",
-      "value": "正在请求图片"
-    },
-    {
       "name": "reader_loading_image",
       "value": "正在加载图片"
     },

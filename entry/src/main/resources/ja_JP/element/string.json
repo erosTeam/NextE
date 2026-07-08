@@ -1317,10 +1317,6 @@
       "value": "画像を解析中"
     },
     {
-      "name": "reader_loading_requesting",
-      "value": "画像をリクエスト中"
-    },
-    {
       "name": "reader_loading_image",
       "value": "画像を読み込み中"
     },
