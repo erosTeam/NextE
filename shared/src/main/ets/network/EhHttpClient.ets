@@ -1,4 +1,12 @@
-import axios, { AbortController, AxiosProgressEvent, AxiosRequestConfig, AxiosResponse } from '@ohos/axios'
+import axios, {
+  AbortController,
+  AxiosAdapter,
+  AxiosProgressEvent,
+  AxiosPromise,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from '@ohos/axios'
 import { http } from '@kit.NetworkKit'
 import { fileIo as fs } from '@kit.CoreFileKit'
 import { EhConstants } from '../constants/EhConstants'
@@ -376,6 +384,72 @@ export class EhHttpClient {
     maxAttempts: number = MAX_RETRIES,
     readTimeoutMs: number = READ_TIMEOUT_MS,
   ): Promise<number> {
+    const config: AxiosRequestConfig<string> = {
+      url: url,
+      method: 'GET',
+      headers: EhHttpClient.binaryHeader(accept),
+      connectTimeout: CONNECT_TIMEOUT_MS,
+      readTimeout: readTimeoutMs,
+      timeout: readTimeoutMs,
+      maxContentLength: MAX_BINARY_BYTES,
+      validateStatus: EhHttpClient.acceptStatus,
+      adapter: EhHttpClient.createResumableDownloadAdapter(
+        partialPath,
+        progress,
+        shouldCancel,
+        knownTotal,
+        accept,
+        maxAttempts,
+      ),
+    }
+    const resp: AxiosResponse<number, string> =
+      await axios.request<number, AxiosResponse<number, string>, string>(config)
+    return resp.data
+  }
+
+  private static createResumableDownloadAdapter(
+    partialPath: string,
+    progress: (loaded: number, total: number) => void,
+    shouldCancel: () => boolean,
+    knownTotal: number,
+    accept: string,
+    maxAttempts: number,
+  ): AxiosAdapter {
+    const adapter: AxiosAdapter = async (
+      config: InternalAxiosRequestConfig,
+    ): AxiosPromise<number> => {
+      const written: number = await EhHttpClient.downloadBinaryToFileInStreamResumableWithConfig(
+        config,
+        partialPath,
+        progress,
+        shouldCancel,
+        knownTotal,
+        accept,
+        maxAttempts,
+      )
+      return {
+        data: written,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: config,
+      }
+    }
+    return adapter
+  }
+
+  private static async downloadBinaryToFileInStreamResumableWithConfig(
+    config: InternalAxiosRequestConfig,
+    partialPath: string,
+    progress: (loaded: number, total: number) => void,
+    shouldCancel: () => boolean,
+    knownTotal: number,
+    accept: string,
+    maxAttempts: number,
+  ): Promise<number> {
+    const url: string = EhHttpClient.requiredUrl(config)
+    const connectTimeoutMs: number = EhHttpClient.timeoutValue(config.connectTimeout, CONNECT_TIMEOUT_MS)
+    const readTimeoutMs: number = EhHttpClient.timeoutValue(config.readTimeout, READ_TIMEOUT_MS)
     let attempt: number = 0
     let lastError: Error | null = null
     const attempts: number = Math.max(1, Math.round(maxAttempts))
@@ -534,6 +608,17 @@ export class EhHttpClient {
       await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
     }
     throw lastError !== null ? lastError : new Error('binary stream request failed')
+  }
+
+  private static requiredUrl(config: InternalAxiosRequestConfig): string {
+    if (config.url === undefined || config.url.length === 0) {
+      throw new Error('resumable download url missing')
+    }
+    return config.url
+  }
+
+  private static timeoutValue(value: number | undefined, fallback: number): number {
+    return value !== undefined && Number.isFinite(value) && value > 0 ? value : fallback
   }
 
   private static async writeArrayBuffer(filePath: string, bytes: ArrayBuffer): Promise<number> {

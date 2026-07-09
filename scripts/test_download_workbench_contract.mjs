@@ -300,7 +300,7 @@ ok(/private PauseArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page) &&
   /private canPauseArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*task\.status === DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
   'running archiver task cards expose one compact pause action wired to the shared queue')
 ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page) &&
-  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*sys\.symbol\.play_fill/.test(page) &&
+  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR \|\| task\.status === DownloadGalleryTaskStatus\.PAUSED[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.arrow_right/.test(page) &&
   /private archiverResumeActionLabel\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR \|\| task\.status === DownloadGalleryTaskStatus\.PAUSED[\s\S]*common_retry[\s\S]*download_resume/.test(page),
   'paused archiver tasks restart as retry instead of promising byte-range resume')
 ok(/private archiverProgressLabel\(task: DownloadArchiverTask\): string[\s\S]*task\.status === DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.error\.length > 0[\s\S]*`\$\{this\.statusText\(task\.status\)\} · \$\{task\.error\}`/.test(page),
@@ -324,8 +324,11 @@ ok(/const IMAGE_ACCEPT: string = 'image\/avif,image\/webp,image\/apng,image\/\*,
   /accept: string = IMAGE_ACCEPT/.test(httpClient) &&
   /maxAttempts: number = MAX_RETRIES/.test(httpClient),
   'stream binary download keeps image Accept and default retry behavior for Reader image cache')
-ok(/const written: number = await EhHttpClient\.writeArrayBuffer\(filePath, bytes\)[\s\S]*if \(written <= 0\) \{[\s\S]*EhHttpClient\.deleteFileQuietly\(filePath\)[\s\S]*throw new Error\('binary response is empty'\)/.test(httpClient) &&
-  /let shouldDeleteFile: boolean = false[\s\S]*if \(code >= 500 && attempt < attempts - 1\) \{[\s\S]*shouldDeleteFile = true[\s\S]*else if \(written <= 0\) \{[\s\S]*shouldDeleteFile = true[\s\S]*catch \(error\) \{[\s\S]*shouldDeleteFile = openedTarget[\s\S]*finally \{[\s\S]*if \(shouldDeleteFile\) \{[\s\S]*EhHttpClient\.deleteFileQuietly\(filePath\)/.test(httpClient) &&
+ok(/const written: number = await EhHttpClient\.writeArrayBuffer\(filePath, resp\.data\)/.test(httpClient) &&
+  /if \(written <= 0\) \{[\s\S]*EhHttpClient\.deleteFileQuietly\(filePath\)[\s\S]*throw new Error\('binary response is empty'\)/.test(httpClient) &&
+  /filePath: filePath[\s\S]*onDownloadProgress: \(event: AxiosProgressEvent\): void[\s\S]*armNoProgressTimer\(\)/.test(httpClient) &&
+  /const written: number = EhHttpClient\.fileSizeQuietly\(filePath\)[\s\S]*if \(written <= 0\) \{[\s\S]*shouldDeleteFile = true[\s\S]*throw new Error\('binary response is empty'\)/.test(httpClient) &&
+  /catch \(error\) \{[\s\S]*shouldDeleteFile = true[\s\S]*http_binary_stream_retry[\s\S]*finally \{[\s\S]*if \(shouldDeleteFile\) \{[\s\S]*EhHttpClient\.deleteFileQuietly\(filePath\)/.test(httpClient) &&
   /private static deleteFileQuietly\(filePath: string\): void/.test(httpClient),
   'binary downloads reject and clean up empty or failed responses instead of persisting unreadable files')
 ok(/private canReadArchiverTask\(task: DownloadArchiverTask\)/.test(page) &&
