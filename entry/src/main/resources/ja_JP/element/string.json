@@ -909,8 +909,20 @@
       "value": "共有"
     },
     {
-      "name": "detail_edit_tags",
-      "value": "タグを編集"
+      "name": "detail_add_tags",
+      "value": "タグを追加"
+    },
+    {
+      "name": "detail_add_tags_placeholder",
+      "value": "新しいタグをカンマ区切りで入力"
+    },
+    {
+      "name": "detail_add_tags_unavailable",
+      "value": "ログインしてギャラリーを再読み込みしてからタグを追加してください。"
+    },
+    {
+      "name": "detail_add_tags_success",
+      "value": "タグを送信しました"
     },
     {
       "name": "detail_favorite",
@@ -1055,14 +1067,6 @@
     {
       "name": "web_nav_refresh",
       "value": "更新"
-    },
-    {
-      "name": "detail_edit_tags_readonly_title",
-      "value": "タグ編集は現在読み取り専用です"
-    },
-    {
-      "name": "detail_edit_tags_readonly_desc",
-      "value": "現在のタグを表示します。ギャラリータグの送信は別の保護された書き込みフローです。"
     },
     {
       "name": "tag_vote_up",

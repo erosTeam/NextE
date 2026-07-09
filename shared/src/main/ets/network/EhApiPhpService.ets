@@ -365,6 +365,59 @@ export class EhApiPhpService {
     return result
   }
 
+  /**
+   * Submit one FE-compatible comma-separated gallery-tag draft. Unlike tag voting, the result can
+   * contain several new tags, so callers reload the gallery rather than inferring a single vote.
+   */
+  static async addGalleryTags(
+    base: string,
+    apikey: string,
+    apiuid: string,
+    gid: string,
+    token: string,
+    tags: string,
+  ): Promise<void> {
+    const apiuidNum: number = Number.parseInt(apiuid, 10)
+    const gidNum: number = Number.parseInt(gid, 10)
+    const normalizedTags: string = tags.trim()
+    if (
+      apikey.length === 0 ||
+      token.length === 0 ||
+      normalizedTags.length === 0 ||
+      Number.isNaN(apiuidNum) ||
+      Number.isNaN(gidNum)
+    ) {
+      throw new Error('addGalleryTags: missing API key')
+    }
+    const req: TagGalleryRequest = new TagGalleryRequest()
+    req.apikey = apikey
+    req.apiuid = apiuidNum
+    req.gid = gidNum
+    req.token = token
+    req.tags = normalizedTags
+    req.vote = 1
+    const resp: EhTextResponse = await EhHttpClient.getInstance().postJson(
+      `${base}/api.php`,
+      JSON.stringify(req),
+    )
+    if (resp.statusCode !== 200) {
+      throw new Error(`taggallery HTTP ${resp.statusCode}`)
+    }
+    let raw: Object
+    try {
+      raw = JSON.parse(resp.body) as Object
+    } catch (e) {
+      throw new Error('taggallery: invalid JSON')
+    }
+    if (raw === null || typeof raw !== 'object') {
+      throw new Error('taggallery: invalid JSON')
+    }
+    const obj: TagGalleryResponse = raw as TagGalleryResponse
+    if (obj.error !== undefined && obj.error.length > 0) {
+      throw new Error(obj.error)
+    }
+  }
+
   // The resulting vote for `tagKey` parsed from a taggallery tagpane: <a id="ta_<key>" class="tup|tdn|">
   // (spaces in the key become underscores in the id). Falls back to the prior vote if the tag is not in
   // the pane (never the SENT value — that turned a withdraw into a phantom downvote).

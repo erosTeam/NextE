@@ -32,7 +32,6 @@ const detailPage = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.et
 const galleryCard = read('shared/src/main/ets/components/GalleryCard.ets')
 const waterfallCard = read('shared/src/main/ets/components/GalleryWaterfallCard.ets')
 const detailTagsCard = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
-const editTagsPage = read('feature/gallery/src/main/ets/pages/GalleryEditTagsPage.ets')
 
 assert.match(store, /relationalStore\.getRdbStore\(context, LOCAL_DATA_STORE_CONFIG\)/)
 assert.match(store, /CREATE TABLE IF NOT EXISTS tag_translations/)
@@ -162,7 +161,6 @@ for (const [name, source] of [
   ['GalleryCard', galleryCard],
   ['GalleryWaterfallCard', waterfallCard],
   ['GalleryTagsCard', detailTagsCard],
-  ['GalleryEditTagsPage', editTagsPage],
 ]) {
   assert(
     source.includes('connectTagTranslationSettings') &&

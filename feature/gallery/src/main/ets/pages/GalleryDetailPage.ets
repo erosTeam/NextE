@@ -15,7 +15,6 @@ import {
   GalleryTorrentsParams,
   GalleryArchiverParams,
   GalleryWebParams,
-  GalleryEditTagsParams,
   ReaderParams,
   GalleryCommentsParams,
   AllThumbnailsParams,
@@ -84,6 +83,8 @@ import {
   connectReadButtonStyle,
   appSheetOptions,
   DiagnosticLogger,
+  SafeModeState,
+  connectSafeMode,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { GalleryHeaderCard } from '../components/GalleryHeaderCard'
@@ -91,6 +92,7 @@ import { GalleryInfoBar } from '../components/GalleryInfoBar'
 import { GalleryTagsCard } from '../components/GalleryTagsCard'
 import { GalleryPreviewGrid } from '../components/GalleryPreviewGrid'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
+import { GalleryAddTagsSheet } from '../components/GalleryAddTagsSheet'
 import { GalleryTorrentsContent } from './GalleryTorrentsPage'
 import { GalleryArchiverContent } from './GalleryArchiverPage'
 
@@ -100,6 +102,7 @@ const DETAIL_SHEET_FULL_TITLE: string = 'fullTitle'
 const DETAIL_SHEET_TORRENTS: string = 'torrents'
 const DETAIL_SHEET_ARCHIVER: string = 'archiver'
 const DETAIL_SHEET_DOWNLOAD_UPGRADE: string = 'downloadUpgrade'
+const DETAIL_SHEET_ADD_TAGS: string = 'addTags'
 // followOperation touch heuristics: a drag counts as a scroll (→ report the operating side) only once its
 // vertical movement clearly dominates, so a tap on content doesn't yank the floating Read button sideways.
 const FOLLOW_OPERATION_VERTICAL_SCROLL_THRESHOLD: number = 12
@@ -143,6 +146,7 @@ export struct GalleryDetailPage {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local commentVoteMutation: CommentVoteMutationState = connectCommentVoteMutation();
+  @Local safeMode: SafeModeState = connectSafeMode();
   @Local torrentSheetParams: GalleryTorrentsParams = new GalleryTorrentsParams();
   @Local archiverSheetParams: GalleryArchiverParams = new GalleryArchiverParams();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
@@ -745,6 +749,9 @@ export struct GalleryDetailPage {
     if (this.detailSheetKind === DETAIL_SHEET_DOWNLOAD_UPGRADE) {
       return [SheetSize.MEDIUM, SheetSize.LARGE]
     }
+    if (this.detailSheetKind === DETAIL_SHEET_ADD_TAGS) {
+      return [SheetSize.LARGE]
+    }
     return [SheetSize.LARGE]
   }
 
@@ -1090,12 +1097,12 @@ export struct GalleryDetailPage {
         this.openDownloadUpgradeSheet()
       },
     }
-    const editTagsInner: Record<string, Object> = {
-      'label': $r('app.string.detail_edit_tags'),
-      'icon': $r('sys.symbol.bookmark'),
-      'isEnabled': true,
+    const addTagsInner: Record<string, Object> = {
+      'label': $r('app.string.detail_add_tags'),
+      'icon': $r('sys.symbol.plus'),
+      'isEnabled': !this.safeMode.restricted(),
       'action': () => {
-        this.openEditTags()
+        this.openAddTags()
       },
     }
     const copyLinkInner: Record<string, Object> = {
@@ -1135,7 +1142,7 @@ export struct GalleryDetailPage {
       { 'content': shareInner },
       { 'content': commentsInner },
       { 'content': refreshInner },
-      { 'content': editTagsInner },
+      { 'content': addTagsInner },
       { 'content': copyLinkInner },
       { 'content': copyTitleInner },
       { 'content': openBrowserInner },
@@ -1260,16 +1267,28 @@ export struct GalleryDetailPage {
     )
   }
 
-  private openEditTags(): void {
-    this.stack.pushPathByName(
-      'GalleryEditTags',
-      new GalleryEditTagsParams(
-        this.params.gid,
-        this.params.token,
-        connectSiteMode().isEx,
-        this.navTitle(),
-      ),
-    )
+  private openAddTags(): void {
+    if (this.safeMode.restricted()) {
+      return
+    }
+    this.openDetailSheet(DETAIL_SHEET_ADD_TAGS)
+  }
+
+  private async refreshTagsAfterAdd(): Promise<void> {
+    this.closeDetailSheet()
+    try {
+      await this.vm.refresh()
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({ message: $r('app.string.detail_add_tags_success') })
+        .catch((_error: Error) => {})
+    } catch (err) {
+      DiagnosticLogger.warn('gallery', 'tag_add_refresh_failed', (err as Error).message)
+      this.getUIContext()
+        .getPromptAction()
+        .openToast({ message: $r('app.string.common_refresh_failed') })
+        .catch((_error: Error) => {})
+    }
   }
 
   private openRemoteFavorite(): void {
@@ -1756,6 +1775,19 @@ export struct GalleryDetailPage {
       this.FullTitleSheet()
     } else if (this.detailSheetKind === DETAIL_SHEET_DOWNLOAD_UPGRADE) {
       this.DownloadUpgradeSheet()
+    } else if (this.detailSheetKind === DETAIL_SHEET_ADD_TAGS) {
+      GalleryAddTagsSheet({
+        gid: this.params.gid,
+        token: this.params.token,
+        isEx: connectSiteMode().isEx,
+        allowSubmit: !this.safeMode.restricted(),
+        closeAction: () => {
+          this.closeDetailSheet()
+        },
+        submittedAction: () => {
+          this.refreshTagsAfterAdd().then(() => {})
+        },
+      })
     } else if (this.detailSheetKind === DETAIL_SHEET_TORRENTS) {
       GalleryTorrentsContent({
         params: this.torrentSheetParams,

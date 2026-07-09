@@ -4,7 +4,6 @@ export type IndexDestinationFamily =
   'galleryTorrents' |
   'galleryArchiver' |
   'galleryWeb' |
-  'galleryEditTags' |
   'search' |
   'reader' |
   'ehLogin' |
@@ -49,7 +48,6 @@ export class IndexRouteCoordinator {
     'GalleryTorrents': 'galleryTorrents',
     'GalleryArchiver': 'galleryArchiver',
     'GalleryWeb': 'galleryWeb',
-    'GalleryEditTags': 'galleryEditTags',
     'Search': 'search',
     'Reader': 'reader',
     'EhLogin': 'ehLogin',

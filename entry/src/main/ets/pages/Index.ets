@@ -104,7 +104,6 @@ import {
   GalleryArchiverPage,
   GalleryAllThumbnailsPage,
   GalleryCommentsPage,
-  GalleryEditTagsPage,
 } from 'gallery'
 import { ReaderPage } from 'reader'
 import { DownloadQueuePage } from 'download'
@@ -144,11 +143,6 @@ function IndexGalleryArchiverRoute() {
 @Builder
 function IndexGalleryWebRoute() {
   GalleryWebPage()
-}
-
-@Builder
-function IndexGalleryEditTagsRoute() {
-  GalleryEditTagsPage()
 }
 
 @Builder
@@ -351,7 +345,6 @@ struct Index {
     'galleryTorrents': wrapBuilder<[]>(IndexGalleryTorrentsRoute),
     'galleryArchiver': wrapBuilder<[]>(IndexGalleryArchiverRoute),
     'galleryWeb': wrapBuilder<[]>(IndexGalleryWebRoute),
-    'galleryEditTags': wrapBuilder<[]>(IndexGalleryEditTagsRoute),
     'search': wrapBuilder<[]>(IndexSearchRoute),
     'reader': wrapBuilder<[]>(IndexReaderRoute),
     'ehLogin': wrapBuilder<[]>(IndexEhLoginRoute),

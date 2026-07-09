@@ -909,8 +909,20 @@
       "value": "Share"
     },
     {
-      "name": "detail_edit_tags",
-      "value": "Edit tags"
+      "name": "detail_add_tags",
+      "value": "Add tags"
+    },
+    {
+      "name": "detail_add_tags_placeholder",
+      "value": "Enter new tags, separated by commas"
+    },
+    {
+      "name": "detail_add_tags_unavailable",
+      "value": "Sign in and reload this gallery before adding tags."
+    },
+    {
+      "name": "detail_add_tags_success",
+      "value": "Tags submitted"
     },
     {
       "name": "detail_favorite",
@@ -1055,14 +1067,6 @@
     {
       "name": "web_nav_refresh",
       "value": "Refresh"
-    },
-    {
-      "name": "detail_edit_tags_readonly_title",
-      "value": "Tag editing is read-only for now"
-    },
-    {
-      "name": "detail_edit_tags_readonly_desc",
-      "value": "Current tags are shown here. Submitting gallery tag changes is a separate protected write flow."
     },
     {
       "name": "tag_vote_up",

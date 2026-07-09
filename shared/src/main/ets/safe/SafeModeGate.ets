@@ -41,7 +41,6 @@ export class SafeModeGate {
       name === 'TabEdit' ||
       name === 'GalleryArchiver' ||
       name === 'GalleryWeb' ||
-      name === 'GalleryEditTags' ||
       name === 'GalleryComments' ||
       name === 'EhSettings' ||
       name === 'EhProfileSettings' ||

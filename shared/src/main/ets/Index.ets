@@ -63,7 +63,6 @@ export {
   GalleryTorrentsParams,
   GalleryArchiverParams,
   GalleryWebParams,
-  GalleryEditTagsParams,
   ReaderParams,
   ImagePageRouteErrorParams,
   GalleryCommentsParams,

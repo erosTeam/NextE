@@ -124,21 +124,6 @@ export class GalleryWebParams {
   }
 }
 
-/** Params for the protected gallery tag action surface. */
-export class GalleryEditTagsParams {
-  gid: string = ''
-  token: string = ''
-  isEx: boolean = false
-  title: string = ''
-
-  constructor(gid: string = '', token: string = '', isEx: boolean = false, title: string = '') {
-    this.gid = gid
-    this.token = token
-    this.isEx = isEx
-    this.title = title
-  }
-}
-
 /** Params for the 'Reader' destination. */
 export class ReaderParams {
   gid: string = ''

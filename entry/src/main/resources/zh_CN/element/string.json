@@ -909,8 +909,20 @@
       "value": "分享"
     },
     {
-      "name": "detail_edit_tags",
-      "value": "编辑标签"
+      "name": "detail_add_tags",
+      "value": "添加标签"
+    },
+    {
+      "name": "detail_add_tags_placeholder",
+      "value": "输入新标签，用逗号分隔"
+    },
+    {
+      "name": "detail_add_tags_unavailable",
+      "value": "请登录并重新载入画廊后再添加标签。"
+    },
+    {
+      "name": "detail_add_tags_success",
+      "value": "标签已提交"
     },
     {
       "name": "detail_favorite",
@@ -1055,14 +1067,6 @@
     {
       "name": "web_nav_refresh",
       "value": "刷新"
-    },
-    {
-      "name": "detail_edit_tags_readonly_title",
-      "value": "标签编辑暂为只读"
-    },
-    {
-      "name": "detail_edit_tags_readonly_desc",
-      "value": "这里显示当前标签。提交画廊标签修改属于单独的受保护写入流程。"
     },
     {
       "name": "tag_vote_up",
