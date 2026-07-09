@@ -1,8 +1,8 @@
 import { common } from '@kit.AbilityKit'
 import { taskpool, util } from '@kit.ArkTS'
 import { cryptoFramework } from '@kit.CryptoArchitectureKit'
-import { http } from '@kit.NetworkKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
 import {
   SYNC_APP_ID,
   SYNC_FILE_NAME,
@@ -414,51 +414,40 @@ export class WebDavSyncService {
   }
 
   static async readRemote(url: string, config: WebDavSyncConfig): Promise<string> {
-    const req: http.HttpRequest = http.createHttp()
-    try {
-      const resp: http.HttpResponse = await req.request(url, {
-        method: http.RequestMethod.GET,
-        header: WebDavSyncService.headers(config),
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: CONNECT_TIMEOUT_MS,
-        readTimeout: READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const code: number = resp.responseCode as number
-      if (code === 404) {
-        return ''
-      }
-      if (code < 200 || code >= 300) {
-        throw new Error(`WebDAV GET failed: HTTP ${code}`)
-      }
-      return typeof resp.result === 'string' ? resp.result as string : ''
-    } finally {
-      req.destroy()
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      url,
+      'GET',
+      WebDavSyncService.headers(config),
+      '',
+      CONNECT_TIMEOUT_MS,
+      READ_TIMEOUT_MS,
+    )
+    const code: number = resp.statusCode
+    if (code === 404) {
+      return ''
     }
+    if (code < 200 || code >= 300) {
+      throw new Error(`WebDAV GET failed: HTTP ${code}`)
+    }
+    return resp.body
   }
 
   static async writeRemote(url: string, config: WebDavSyncConfig, raw: string): Promise<void> {
-    const req: http.HttpRequest = http.createHttp()
-    try {
-      const header: Record<string, string> = WebDavSyncService.headers(config)
-      header['Content-Type'] = 'application/json; charset=utf-8'
-      const resp: http.HttpResponse = await req.request(url, {
-        method: http.RequestMethod.PUT,
-        header: header,
-        extraData: raw,
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: CONNECT_TIMEOUT_MS,
-        readTimeout: READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const code: number = resp.responseCode as number
-      if (code < 200 || code >= 300) {
-        throw new Error(`WebDAV PUT failed: HTTP ${code}`)
-      }
-      DiagnosticLogger.info('sync', 'webdav_sync_uploaded', `url=${url} bytes=${raw.length}`)
-    } finally {
-      req.destroy()
+    const header: Record<string, string> = WebDavSyncService.headers(config)
+    header['Content-Type'] = 'application/json; charset=utf-8'
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      url,
+      'PUT',
+      header,
+      raw,
+      CONNECT_TIMEOUT_MS,
+      READ_TIMEOUT_MS,
+    )
+    const code: number = resp.statusCode
+    if (code < 200 || code >= 300) {
+      throw new Error(`WebDAV PUT failed: HTTP ${code}`)
     }
+    DiagnosticLogger.info('sync', 'webdav_sync_uploaded', `url=${url} bytes=${raw.length}`)
   }
 
   private static async readRemoteOptional(url: string, config: WebDavSyncConfig): Promise<string> {
@@ -477,25 +466,20 @@ export class WebDavSyncService {
   }
 
   private static async makeCollection(url: string, config: WebDavSyncConfig): Promise<void> {
-    const req: http.HttpRequest = http.createHttp()
-    try {
-      const resp: http.HttpResponse = await req.request(url, {
-        method: 'MKCOL' as http.RequestMethod,
-        header: WebDavSyncService.headers(config),
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: CONNECT_TIMEOUT_MS,
-        readTimeout: READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const code: number = resp.responseCode as number
-      if (code === 405 || code === 409 || code === 301 || code === 302) {
-        return
-      }
-      if (code < 200 || code >= 300) {
-        throw new Error(`WebDAV MKCOL failed: HTTP ${code}`)
-      }
-    } finally {
-      req.destroy()
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      url,
+      'MKCOL',
+      WebDavSyncService.headers(config),
+      '',
+      CONNECT_TIMEOUT_MS,
+      READ_TIMEOUT_MS,
+    )
+    const code: number = resp.statusCode
+    if (code === 405 || code === 409 || code === 301 || code === 302) {
+      return
+    }
+    if (code < 200 || code >= 300) {
+      throw new Error(`WebDAV MKCOL failed: HTTP ${code}`)
     }
   }
 

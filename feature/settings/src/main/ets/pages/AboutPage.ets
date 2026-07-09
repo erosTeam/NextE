@@ -1,8 +1,9 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { bundleManager, common, Want } from '@kit.AbilityKit'
-import { http } from '@kit.NetworkKit'
 import {
   AppStrings,
+  AxiosHttpClient,
+  AxiosTextResponse,
   ConciseListRow,
   EhConstants,
   GroupedListSection,
@@ -128,33 +129,26 @@ export struct AboutPage {
   }
 
   private async fetchLatestRelease(): Promise<AppReleaseResponse> {
-    const req: http.HttpRequest = http.createHttp()
+    const header: Record<string, string> = {
+      'User-Agent': EhConstants.USER_AGENT,
+      'Accept': 'application/vnd.github+json,application/json,*/*',
+      'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+    }
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      APP_RELEASE_API_URL,
+      'GET',
+      header,
+      '',
+      APP_UPDATE_CONNECT_TIMEOUT_MS,
+      APP_UPDATE_READ_TIMEOUT_MS,
+    )
+    if (resp.statusCode !== 200) {
+      throw new Error(`GitHub release HTTP ${resp.statusCode}`)
+    }
     try {
-      const header: Record<string, string> = {
-        'User-Agent': EhConstants.USER_AGENT,
-        'Accept': 'application/vnd.github+json,application/json,*/*',
-        'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-      }
-      const resp: http.HttpResponse = await req.request(APP_RELEASE_API_URL, {
-        method: http.RequestMethod.GET,
-        header: header,
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: APP_UPDATE_CONNECT_TIMEOUT_MS,
-        readTimeout: APP_UPDATE_READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const code: number = resp.responseCode as number
-      if (code !== 200) {
-        throw new Error(`GitHub release HTTP ${code}`)
-      }
-      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-      try {
-        return JSON.parse(body) as AppReleaseResponse
-      } catch (_error) {
-        throw new Error('GitHub release JSON invalid')
-      }
-    } finally {
-      req.destroy()
+      return JSON.parse(resp.body) as AppReleaseResponse
+    } catch (_error) {
+      throw new Error('GitHub release JSON invalid')
     }
   }
 

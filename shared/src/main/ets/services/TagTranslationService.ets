@@ -2,12 +2,12 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 import { zlib } from '@kit.BasicServicesKit'
 import { fileIo } from '@kit.CoreFileKit'
-import { http } from '@kit.NetworkKit'
 import util from '@ohos.util'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGallery } from '../model/EhGallery'
 import { EhTagSuggestion } from '../model/EhTagSuggestion'
+import { AxiosBinaryResponse, AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
 import { SimpleTag } from '../model/SimpleTag'
 import { TagGroup } from '../model/TagGroup'
 import { LocalDataStore } from '../storage/LocalDataStore'
@@ -784,28 +784,21 @@ export class TagTranslationService {
   }
 
   private static async getPublicText(url: string): Promise<PublicTextResponse> {
-    const req: http.HttpRequest = http.createHttp()
-    try {
-      const header: Record<string, string> = {
-        'User-Agent': EhConstants.USER_AGENT,
-        'Accept': 'application/vnd.github+json,application/json,*/*',
-        'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-        'Accept-Encoding': 'gzip',
-      }
-      const resp: http.HttpResponse = await req.request(url, {
-        method: http.RequestMethod.GET,
-        header: header,
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: TAG_DB_CONNECT_TIMEOUT_MS,
-        readTimeout: TAG_DB_READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-      const rawHeader: string = JSON.stringify(resp.header)
-      return { statusCode: resp.responseCode as number, body: body, rawHeader: rawHeader }
-    } finally {
-      req.destroy()
+    const header: Record<string, string> = {
+      'User-Agent': EhConstants.USER_AGENT,
+      'Accept': 'application/vnd.github+json,application/json,*/*',
+      'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+      'Accept-Encoding': 'gzip',
     }
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      url,
+      'GET',
+      header,
+      '',
+      TAG_DB_CONNECT_TIMEOUT_MS,
+      TAG_DB_READ_TIMEOUT_MS,
+    )
+    return { statusCode: resp.statusCode, body: resp.body, rawHeader: resp.rawHeader }
   }
 
   private static async downloadPublicFileWithFallback(
@@ -836,42 +829,31 @@ export class TagTranslationService {
     filePath: string,
     sourceLabel: string,
   ): Promise<number> {
-    const req: http.HttpRequest = http.createHttp()
-    try {
-      const header: Record<string, string> = {
-        'User-Agent': EhConstants.USER_AGENT,
-        'Accept': 'application/gzip,application/octet-stream,*/*',
-        'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-      }
-      const resp: http.HttpResponse = await req.request(url, {
-        method: http.RequestMethod.GET,
-        header: header,
-        expectDataType: http.HttpDataType.ARRAY_BUFFER,
-        maxLimit: TAG_DB_MAX_BYTES,
-        connectTimeout: TAG_DB_CONNECT_TIMEOUT_MS,
-        readTimeout: TAG_DB_READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const code: number = resp.responseCode as number
-      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-      const rawHeader: string = JSON.stringify(resp.header)
-      if (code !== 200) {
-        throw new Error(TagTranslationService.publicHttpError(
-          'asset',
-          sourceLabel,
-          code,
-          body,
-          rawHeader,
-        ))
-      }
-      if (typeof resp.result === 'string') {
-        throw new Error(`tag translation asset is not binary via ${sourceLabel}`)
-      }
-      const bytes: ArrayBuffer = resp.result as ArrayBuffer
-      return TagTranslationService.writeArrayBuffer(filePath, bytes)
-    } finally {
-      req.destroy()
+    const header: Record<string, string> = {
+      'User-Agent': EhConstants.USER_AGENT,
+      'Accept': 'application/gzip,application/octet-stream,*/*',
+      'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
     }
+    const resp: AxiosBinaryResponse = await AxiosHttpClient.requestBinary(
+      url,
+      header,
+      TAG_DB_MAX_BYTES,
+      TAG_DB_CONNECT_TIMEOUT_MS,
+      TAG_DB_READ_TIMEOUT_MS,
+    )
+    if (resp.statusCode !== 200) {
+      throw new Error(TagTranslationService.publicHttpError(
+        'asset',
+        sourceLabel,
+        resp.statusCode,
+        resp.body,
+        resp.rawHeader,
+      ))
+    }
+    if (resp.bytes === null) {
+      throw new Error(`tag translation asset is not binary via ${sourceLabel}`)
+    }
+    return TagTranslationService.writeArrayBuffer(filePath, resp.bytes)
   }
 
   private static writeArrayBuffer(filePath: string, bytes: ArrayBuffer): number {

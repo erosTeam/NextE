@@ -280,6 +280,7 @@ export {
 export { LocalBlockSettings } from './settings/LocalBlockSettings'
 
 // network
+export { AxiosBinaryResponse, AxiosHttpClient, AxiosTextResponse } from './network/AxiosHttpClient'
 export { EhCookieStore } from './network/EhCookieStore'
 export { EhHttpClient, EhTextResponse } from './network/EhHttpClient'
 export {

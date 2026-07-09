@@ -140,7 +140,7 @@ const settingsIndex = read('feature/settings/src/main/ets/Index.ets')
 ok(/DownloadSettingsPage/.test(settingsIndex), 'settings barrel exports DownloadSettingsPage')
 
 const entryIndex = read('entry/src/main/ets/pages/Index.ets')
-ok(/DownloadSettingsPage/.test(entryIndex) && /name === 'DownloadSettings'/.test(entryIndex),
+ok(/DownloadSettingsPage/.test(entryIndex) && /'downloadSettings': wrapBuilder<\[]>\(IndexDownloadSettingsRoute\)/.test(entryIndex),
   'entry router registers the DownloadSettings route')
 
 const downloadPage = read('feature/settings/src/main/ets/pages/DownloadSettingsPage.ets')
@@ -222,9 +222,11 @@ const archiveBotService = read('shared/src/main/ets/services/ArchiveBotService.e
 ok(/archive_bot_request_start/.test(archiveBotService) && /archive_bot_request_done/.test(archiveBotService) &&
   /archive_bot_request_failed/.test(archiveBotService) && /DiagnosticLogger\.ownerHash\(gid\)/.test(archiveBotService),
   'archive bot service emits redacted request start/done/failure diagnostics')
-ok(/body\.length > 0[\s\S]*extraData: body/.test(archiveBotService) &&
+const axiosClient = read('shared/src/main/ets/network/AxiosHttpClient.ets')
+ok(/body\.length > 0[\s\S]*AxiosHttpClient\.requestText\([\s\S]*body/.test(archiveBotService) &&
   /headers\(settings, false\)/.test(archiveBotService) &&
-  /if \(hasBody\) \{[\s\S]*Content-Type/.test(archiveBotService),
+  /if \(hasBody\) \{[\s\S]*Content-Type/.test(archiveBotService) &&
+  /if \(body\.length > 0\) \{[\s\S]*config\.data = body/.test(axiosClient),
   'archive-at-home no-body actions are sent without JSON body headers')
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')

@@ -1,5 +1,4 @@
 import { common } from '@kit.AbilityKit'
-import { http } from '@kit.NetworkKit'
 import { BackupChecksum } from '../backup/BackupChecksum'
 import {
   IMAGE_BLOCK_DEFAULT_MANIFEST_URL,
@@ -8,6 +7,7 @@ import {
 } from '../model/ImageBlockRule'
 import { ImageBlockRepository } from '../storage/ImageBlockRepository'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
 import { ImageBlockFeedParser } from './ImageBlockFeedParser'
 
 const CONNECT_TIMEOUT_MS: number = 10000
@@ -69,31 +69,24 @@ export class ImageBlockSubscriptionService {
     if (url.indexOf('https://') !== 0) {
       throw new Error('Image block subscriptions require HTTPS')
     }
-    const req: http.HttpRequest = http.createHttp()
-    try {
-      const header: Record<string, string> = {
-        'Accept': 'application/json,text/plain,*/*',
-        'User-Agent': 'NextE image-block-rules',
-      }
-      const resp: http.HttpResponse = await req.request(url, {
-        method: http.RequestMethod.GET,
-        header: header,
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: CONNECT_TIMEOUT_MS,
-        readTimeout: READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const code: number = resp.responseCode as number
-      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-      if (code < 200 || code >= 300) {
-        throw new Error(`HTTP ${code}`)
-      }
-      if (body.length > maxChars) {
-        throw new Error('Image block subscription response is too large')
-      }
-      return body
-    } finally {
-      req.destroy()
+    const header: Record<string, string> = {
+      'Accept': 'application/json,text/plain,*/*',
+      'User-Agent': 'NextE image-block-rules',
     }
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      url,
+      'GET',
+      header,
+      '',
+      CONNECT_TIMEOUT_MS,
+      READ_TIMEOUT_MS,
+    )
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw new Error(`HTTP ${resp.statusCode}`)
+    }
+    if (resp.body.length > maxChars) {
+      throw new Error('Image block subscription response is too large')
+    }
+    return resp.body
   }
 }
