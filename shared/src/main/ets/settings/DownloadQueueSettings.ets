@@ -763,8 +763,7 @@ export class DownloadQueueSettings {
         )
         return
       }
-      DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_replace_delete_failed')
-      fs.renameSync(partialPath, filePath)
+      await DownloadQueueSettings.finalizeArchiverPartial(partialPath, filePath)
       await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
         it.status = DownloadGalleryTaskStatus.COMPLETE
         it.fileName = fileName
@@ -2881,6 +2880,34 @@ export class DownloadQueueSettings {
     if (persist && updatedTask !== null) {
       await DownloadQueueSettings.persistArchiverTask(context, updatedTask)
     }
+  }
+
+  private static async finalizeArchiverPartial(partialPath: string, filePath: string): Promise<void> {
+    DownloadQueueSettings.deleteSandboxPath(filePath, 'archiver_replace_delete_failed')
+    try {
+      fs.renameSync(partialPath, filePath)
+      return
+    } catch (error) {
+      DiagnosticLogger.warn('download', 'archiver_partial_rename_failed', (error as Error).message)
+    }
+    let src: fs.File | null = null
+    let dest: fs.File | null = null
+    try {
+      src = fs.openSync(partialPath, fs.OpenMode.READ_ONLY)
+      dest = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC)
+      await fs.copyFile(src.fd, dest.fd)
+    } finally {
+      if (src !== null) {
+        fs.closeSync(src)
+      }
+      if (dest !== null) {
+        fs.closeSync(dest)
+      }
+    }
+    if (DownloadQueueSettings.downloadedFileSize(filePath) <= 0) {
+      throw new Error('archive finalize copy failed')
+    }
+    DownloadQueueSettings.deleteSandboxPath(partialPath, 'archiver_partial_delete_failed')
   }
 
   private static async updateDownloadTaskStatus(

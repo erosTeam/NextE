@@ -358,7 +358,7 @@ const settingsPage = read('feature/settings/src/main/ets/pages/SettingsPage.ets'
 const cacheSettingsPage = read('feature/settings/src/main/ets/pages/CacheSettingsPage.ets')
 ok('sync settings page is reachable from storage settings navigation',
   /SyncSettingsPage/.test(settingsIndex) &&
-    /name === 'SyncSettings'/.test(entryIndex) &&
+    /'syncSettings': wrapBuilder<\[]>\(IndexSyncSettingsRoute\)/.test(entryIndex) &&
     /pushPathByName\('SyncSettings'/.test(cacheSettingsPage) &&
     !/pushPathByName\('SyncSettings'/.test(settingsPage))
 
@@ -369,7 +369,7 @@ ok('sync overview keeps provider entries and routes WebDAV to a child page',
     /sync_webdav/.test(syncPage) &&
     /sync_huawei_cloud/.test(syncPage) &&
     /WebDavSyncSettingsPage/.test(settingsIndex) &&
-    /name === 'WebDavSyncSettings'/.test(entryIndex))
+    /'webDavSyncSettings': wrapBuilder<\[]>\(IndexWebDavSyncSettingsRoute\)/.test(entryIndex))
 ok('WebDAV sync child page has visible running state and provider switch',
   /LoadingProgress/.test(webdavPage) &&
     /sync_status_running/.test(webdavPage) &&

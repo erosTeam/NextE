@@ -1,7 +1,7 @@
 import { taskpool } from '@kit.ArkTS'
-import { http } from '@kit.NetworkKit'
 import { image } from '@kit.ImageKit'
 import { effectKit } from '@kit.ArkGraphics2D'
+import axios, { AxiosRequestConfig, AxiosResponse } from '@ohos/axios'
 
 // Decode the thumbnail to a tiny bitmap purely for color sampling — far cheaper than decoding the full
 // cover, and plenty for a dominant-color read (effectKit scales to ~1px internally anyway).
@@ -18,20 +18,23 @@ import { effectKit } from '@kit.ArkGraphics2D'
 async function extractCoverColor(url: string): Promise<number> {
   const decodeSize: number = 32
   const timeoutMs: number = 15000
-  const session: http.HttpRequest = http.createHttp()
   let source: image.ImageSource | undefined = undefined
   let pixelMap: image.PixelMap | undefined = undefined
   try {
-    const resp: http.HttpResponse = await session.request(url, {
-      method: http.RequestMethod.GET,
-      expectDataType: http.HttpDataType.ARRAY_BUFFER,
+    const config: AxiosRequestConfig<string> = {
+      url: url,
+      method: 'GET',
+      responseType: 'array_buffer',
       connectTimeout: timeoutMs,
       readTimeout: timeoutMs,
-    })
-    if (resp.responseCode !== 200 || !(resp.result instanceof ArrayBuffer)) {
+      timeout: timeoutMs,
+    }
+    const resp: AxiosResponse<ArrayBuffer, string> =
+      await axios.request<ArrayBuffer, AxiosResponse<ArrayBuffer, string>, string>(config)
+    if (resp.status !== 200 || !(resp.data instanceof ArrayBuffer)) {
       return 0
     }
-    source = image.createImageSource(resp.result as ArrayBuffer)
+    source = image.createImageSource(resp.data)
     const options: image.DecodingOptions = {
       editable: false,
       desiredSize: { width: decodeSize, height: decodeSize },
@@ -51,7 +54,6 @@ async function extractCoverColor(url: string): Promise<number> {
     if (source !== undefined) {
       await source.release()
     }
-    session.destroy()
   }
 }
 

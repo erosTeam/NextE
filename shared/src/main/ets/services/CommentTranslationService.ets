@@ -1,9 +1,9 @@
 import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
-import { http } from '@kit.NetworkKit'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhGalleryCommentTextSpan } from '../model/EhGalleryComment'
+import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
 import { connectLanguageState } from '../state/AppearanceState'
 import { CommentTranslationSettings } from '../settings/CommentTranslationSettings'
 import { LocalDataStore } from '../storage/LocalDataStore'
@@ -612,28 +612,23 @@ export class CommentTranslationService {
     user.content = text
     reqBody.messages = [system, user]
 
-    const req: http.HttpRequest = http.createHttp()
     try {
-      const resp: http.HttpResponse = await req.request(
+      const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
         `${CommentTranslationService.stripV1(baseUrl)}/v1/chat/completions`,
+        'POST',
         {
-          method: http.RequestMethod.POST,
-          header: {
-            'User-Agent': EhConstants.USER_AGENT,
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          extraData: JSON.stringify(reqBody),
-          expectDataType: http.HttpDataType.STRING,
-          connectTimeout: TRANSLATION_CONNECT_TIMEOUT_MS,
-          readTimeout: TRANSLATION_READ_TIMEOUT_MS,
-          usingCache: false,
+          'User-Agent': EhConstants.USER_AGENT,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
         },
+        JSON.stringify(reqBody),
+        TRANSLATION_CONNECT_TIMEOUT_MS,
+        TRANSLATION_READ_TIMEOUT_MS,
       )
-      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-      if ((resp.responseCode as number) !== 200) {
-        throw new Error(`LLM HTTP ${resp.responseCode as number}`)
+      const body: string = resp.body
+      if (resp.statusCode !== 200) {
+        throw new Error(`LLM HTTP ${resp.statusCode}`)
       }
       const raw: Object = JSON.parse(body) as Object
       const parsed: ChatCompletionResponse = raw as ChatCompletionResponse
@@ -646,49 +641,39 @@ export class CommentTranslationService {
       throw new Error('LLM returned empty response')
     } catch (error) {
       throw error as Error
-    } finally {
-      req.destroy()
     }
   }
 
   private static async fetchLlmModels(baseUrl: string, apiKey: string): Promise<string[]> {
-    const req: http.HttpRequest = http.createHttp()
-    try {
-      const resp: http.HttpResponse = await req.request(
-        `${CommentTranslationService.stripV1(baseUrl)}/v1/models`,
-        {
-          method: http.RequestMethod.GET,
-          header: {
-            'User-Agent': EhConstants.USER_AGENT,
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          expectDataType: http.HttpDataType.STRING,
-          connectTimeout: TRANSLATION_CONNECT_TIMEOUT_MS,
-          readTimeout: TRANSLATION_READ_TIMEOUT_MS,
-          usingCache: false,
-        },
-      )
-      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-      if ((resp.responseCode as number) !== 200) {
-        throw new Error(`LLM models HTTP ${resp.responseCode as number}`)
-      }
-      const raw: Object = JSON.parse(body) as Object
-      const parsed: LlmModelsResponse = raw as LlmModelsResponse
-      const out: string[] = []
-      if (Array.isArray(parsed.data)) {
-        for (let i = 0; i < parsed.data.length; i++) {
-          const item: LlmModelItem = parsed.data[i]
-          if (item.id.length > 0) {
-            out.push(item.id)
-          }
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      `${CommentTranslationService.stripV1(baseUrl)}/v1/models`,
+      'GET',
+      {
+        'User-Agent': EhConstants.USER_AGENT,
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      '',
+      TRANSLATION_CONNECT_TIMEOUT_MS,
+      TRANSLATION_READ_TIMEOUT_MS,
+    )
+    const body: string = resp.body
+    if (resp.statusCode !== 200) {
+      throw new Error(`LLM models HTTP ${resp.statusCode}`)
+    }
+    const raw: Object = JSON.parse(body) as Object
+    const parsed: LlmModelsResponse = raw as LlmModelsResponse
+    const out: string[] = []
+    if (Array.isArray(parsed.data)) {
+      for (let i = 0; i < parsed.data.length; i++) {
+        const item: LlmModelItem = parsed.data[i]
+        if (item.id.length > 0) {
+          out.push(item.id)
         }
       }
-      out.sort()
-      return out
-    } finally {
-      req.destroy()
     }
+    out.sort()
+    return out
   }
 
   private static async callGoogle(text: string, targetLang: string): Promise<string> {
@@ -697,32 +682,27 @@ export class CommentTranslationService {
     const url: string =
       `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(to)}` +
       `&dt=t&q=${encodeURIComponent(text)}`
-    const req: http.HttpRequest = http.createHttp()
-    try {
-      const resp: http.HttpResponse = await req.request(url, {
-        method: http.RequestMethod.GET,
-        header: {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': 'application/json,text/plain,*/*',
-          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-        },
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: TRANSLATION_CONNECT_TIMEOUT_MS,
-        readTimeout: TRANSLATION_READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-      if ((resp.responseCode as number) !== 200) {
-        throw new Error(`Google Translate HTTP ${resp.responseCode as number}`)
-      }
-      const translated: string = CommentTranslationService.parseGoogleBody(body)
-      if (translated.length === 0) {
-        throw new Error('Google Translate returned empty response')
-      }
-      return translated
-    } finally {
-      req.destroy()
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      url,
+      'GET',
+      {
+        'User-Agent': EhConstants.USER_AGENT,
+        'Accept': 'application/json,text/plain,*/*',
+        'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+      },
+      '',
+      TRANSLATION_CONNECT_TIMEOUT_MS,
+      TRANSLATION_READ_TIMEOUT_MS,
+    )
+    const body: string = resp.body
+    if (resp.statusCode !== 200) {
+      throw new Error(`Google Translate HTTP ${resp.statusCode}`)
     }
+    const translated: string = CommentTranslationService.parseGoogleBody(body)
+    if (translated.length === 0) {
+      throw new Error('Google Translate returned empty response')
+    }
+    return translated
   }
 
   private static parseGoogleBody(body: string): string {

@@ -282,7 +282,7 @@ ok(/postFormUrlEncoded\(url, body\)/.test(api) && /EhErrorClassifier\.classifyRe
   'archiver POST uses protected form transport and EH error classification')
 
 ok(/export \{ GalleryArchiverPage \}/.test(galleryIndex), 'gallery barrel exports GalleryArchiverPage')
-ok(/GalleryArchiverPage/.test(entry) && /name === 'GalleryArchiver'[\s\S]*GalleryArchiverPage\(\)/.test(entry),
+ok(/GalleryArchiverPage/.test(entry) && /'galleryArchiver': wrapBuilder<\[]>\(IndexGalleryArchiverRoute\)/.test(entry),
   'entry registers GalleryArchiver route')
 ok(/private openArchiver\(\): void/.test(detail), 'detail page can open archiver sheet')
 ok(/const DETAIL_SHEET_ARCHIVER: string = 'archiver'/.test(detail) &&

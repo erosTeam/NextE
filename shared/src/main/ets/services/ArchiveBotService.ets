@@ -1,7 +1,7 @@
-import { http } from '@kit.NetworkKit'
 import { DownloadSettingsState } from '../state/DownloadSettingsState'
 import { EhConstants } from '../constants/EhConstants'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { AxiosHttpClient, AxiosTextResponse } from '../network/AxiosHttpClient'
 
 const CONNECT_TIMEOUT_MS: number = 10000
 const READ_TIMEOUT_MS: number = 30000
@@ -71,39 +71,30 @@ export class ArchiveBotService {
   ): Promise<ArchiveBotResponseJson> {
     const url: string = ArchiveBotService.endpoint(action)
     const body: string = ArchiveBotService.body(action, gid, token, reParse)
-    const req: http.HttpRequest = http.createHttp()
     DiagnosticLogger.info(
       'download',
       'archive_bot_request_start',
       `${settings.archiveBotType} action=${action} gidHash=${DiagnosticLogger.ownerHash(gid)}`,
     )
     try {
-      const resp: http.HttpResponse = body.length > 0
-        ? await req.request(url, {
-          method: ArchiveBotService.method(action),
-          header: ArchiveBotService.headers(settings, body.length > 0),
-          extraData: body,
-          expectDataType: http.HttpDataType.STRING,
-          connectTimeout: CONNECT_TIMEOUT_MS,
-          readTimeout: READ_TIMEOUT_MS,
-          usingCache: false,
-        })
-        : await req.request(url, {
-          method: ArchiveBotService.method(action),
-          header: ArchiveBotService.headers(settings, false),
-          expectDataType: http.HttpDataType.STRING,
-          connectTimeout: CONNECT_TIMEOUT_MS,
-          readTimeout: READ_TIMEOUT_MS,
-          usingCache: false,
-        })
-      const code: number = resp.responseCode as number
-      const text: string = typeof resp.result === 'string' ? resp.result as string : ''
+      const requestHeaders: Record<string, string> = body.length > 0
+        ? ArchiveBotService.headers(settings, true)
+        : ArchiveBotService.headers(settings, false)
+      const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+        url,
+        ArchiveBotService.method(action),
+        requestHeaders,
+        body,
+        CONNECT_TIMEOUT_MS,
+        READ_TIMEOUT_MS,
+      )
+      const code: number = resp.statusCode
+      const text: string = resp.body
       DiagnosticLogger.info(
         'download',
         'archive_bot_response_summary',
         `${settings.archiveBotType} action=${action} http=${code} ${ArchiveBotService.responseSummary(text)}`,
       )
-      req.destroy()
       if (code >= 400) {
         const errResp: ArchiveBotResponseJson = ArchiveBotService.parseResponse(text)
         DiagnosticLogger.warn(
@@ -121,7 +112,6 @@ export class ArchiveBotService {
       )
       return parsed
     } catch (error) {
-      req.destroy()
       DiagnosticLogger.warn('download', 'archive_bot_request_failed', `${action}: ${(error as Error).message}`)
       throw error as Error
     }
@@ -134,11 +124,11 @@ export class ArchiveBotService {
     return `${ARCHIVE_AT_HOME_BASE_URL}/api/v1/parse`
   }
 
-  private static method(action: string): http.RequestMethod {
+  private static method(action: string): string {
     if (action === 'balance') {
-      return http.RequestMethod.GET
+      return 'GET'
     }
-    return http.RequestMethod.POST
+    return 'POST'
   }
 
   private static headers(settings: DownloadSettingsState, hasBody: boolean): Record<string, string> {

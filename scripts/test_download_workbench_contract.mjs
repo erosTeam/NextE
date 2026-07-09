@@ -300,7 +300,7 @@ ok(/private PauseArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page) &&
   /private canPauseArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*task\.status === DownloadGalleryTaskStatus\.DOWNLOADING/.test(page),
   'running archiver task cards expose one compact pause action wired to the shared queue')
 ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\): boolean[\s\S]*DownloadGalleryTaskStatus\.PAUSED/.test(page) &&
-  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*sys\.symbol\.play_fill/.test(page) &&
+  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR \|\| task\.status === DownloadGalleryTaskStatus\.PAUSED[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.arrow_right/.test(page) &&
   /private archiverResumeActionLabel\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR \|\| task\.status === DownloadGalleryTaskStatus\.PAUSED[\s\S]*common_retry[\s\S]*download_resume/.test(page),
   'paused archiver tasks restart as retry instead of promising byte-range resume')
 ok(/private archiverProgressLabel\(task: DownloadArchiverTask\): string[\s\S]*task\.status === DownloadGalleryTaskStatus\.ERROR[\s\S]*task\.error\.length > 0[\s\S]*`\$\{this\.statusText\(task\.status\)\} · \$\{task\.error\}`/.test(page),
@@ -324,10 +324,24 @@ ok(/const IMAGE_ACCEPT: string = 'image\/avif,image\/webp,image\/apng,image\/\*,
   /accept: string = IMAGE_ACCEPT/.test(httpClient) &&
   /maxAttempts: number = MAX_RETRIES/.test(httpClient),
   'stream binary download keeps image Accept and default retry behavior for Reader image cache')
-ok(/const written: number = await EhHttpClient\.writeArrayBuffer\(filePath, bytes\)[\s\S]*if \(written <= 0\) \{[\s\S]*EhHttpClient\.deleteFileQuietly\(filePath\)[\s\S]*throw new Error\('binary response is empty'\)/.test(httpClient) &&
-  /let shouldDeleteFile: boolean = false[\s\S]*if \(code >= 500 && attempt < attempts - 1\) \{[\s\S]*shouldDeleteFile = true[\s\S]*else if \(written <= 0\) \{[\s\S]*shouldDeleteFile = true[\s\S]*catch \(error\) \{[\s\S]*shouldDeleteFile = openedTarget[\s\S]*finally \{[\s\S]*if \(shouldDeleteFile\) \{[\s\S]*EhHttpClient\.deleteFileQuietly\(filePath\)/.test(httpClient) &&
+ok(/adapter: EhHttpClient\.createStreamDownloadAdapter\([\s\S]*filePath,[\s\S]*progress,[\s\S]*noProgressTimeoutMs,[\s\S]*accept,[\s\S]*maxAttempts/.test(httpClient) &&
+  /private static async downloadBinaryToFileInStreamWithConfig[\s\S]*fs\.OpenMode\.READ_WRITE \| fs\.OpenMode\.CREATE \| fs\.OpenMode\.TRUNC[\s\S]*req\.requestInStream\(url/.test(httpClient) &&
+  /if \(code >= 500 && attempt < attempts - 1\) \{[\s\S]*shouldDeleteFile = true[\s\S]*else if \(written <= 0\) \{[\s\S]*shouldDeleteFile = true/.test(httpClient) &&
+  /catch \(error\) \{[\s\S]*shouldDeleteFile = openedTarget[\s\S]*http_binary_stream_retry[\s\S]*finally \{[\s\S]*if \(shouldDeleteFile\) \{[\s\S]*EhHttpClient\.deleteFileQuietly\(filePath\)/.test(httpClient) &&
   /private static deleteFileQuietly\(filePath: string\): void/.test(httpClient),
   'binary downloads reject and clean up empty or failed responses instead of persisting unreadable files')
+ok(/if \(attemptStart > 0 && !resumeAccepted\) \{[\s\S]*if \(responseTotal > 0 && attemptStart >= responseTotal\) \{[\s\S]*return[\s\S]*streamError = 'binary resume unsupported'/.test(httpClient) &&
+  /if \(attemptStart > 0 && !resumeAccepted && responseTotal > 0 && attemptStart >= responseTotal\) \{[\s\S]*emitProgress\(attemptStart, responseTotal, true\)[\s\S]*return attemptStart/.test(httpClient),
+  'resumable archive downloads treat a complete partial file as finished when the server ignores Range')
+ok(/await DownloadQueueSettings\.finalizeArchiverPartial\(partialPath, filePath\)/.test(queueSettings) &&
+  /private static async finalizeArchiverPartial\(partialPath: string, filePath: string\): Promise<void>/.test(queueSettings) &&
+  /fs\.renameSync\(partialPath, filePath\)/.test(queueSettings) &&
+  /archiver_partial_rename_failed/.test(queueSettings) &&
+  /fs\.openSync\(partialPath, fs\.OpenMode\.READ_ONLY\)/.test(queueSettings) &&
+  /fs\.openSync\(filePath, fs\.OpenMode\.READ_WRITE \| fs\.OpenMode\.CREATE \| fs\.OpenMode\.TRUNC\)/.test(queueSettings) &&
+  /await fs\.copyFile\(src\.fd, dest\.fd\)/.test(queueSettings) &&
+  /DownloadQueueSettings\.deleteSandboxPath\(partialPath, 'archiver_partial_delete_failed'\)/.test(queueSettings),
+  'archive downloads can finalize public Download partial files when rename is denied')
 ok(/private canReadArchiverTask\(task: DownloadArchiverTask\)/.test(page) &&
   /task\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*task\.filePath\.length > 0/.test(page) &&
   !/private ReadArchiverTaskButton\(task: DownloadArchiverTask\)/.test(page),

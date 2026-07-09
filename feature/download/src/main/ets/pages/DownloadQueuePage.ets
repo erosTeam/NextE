@@ -893,7 +893,9 @@ export struct DownloadQueuePage {
   }
 
   private archiverResumeActionIcon(task: DownloadArchiverTask): Resource {
-    return $r('sys.symbol.play_fill')
+    return task.status === DownloadGalleryTaskStatus.ERROR || task.status === DownloadGalleryTaskStatus.PAUSED
+      ? $r('sys.symbol.arrow_clockwise')
+      : $r('sys.symbol.arrow_right')
   }
 
   private archiverResumeActionLabel(task: DownloadArchiverTask): Resource {

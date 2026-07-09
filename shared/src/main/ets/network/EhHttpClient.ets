@@ -1,3 +1,10 @@
+import axios, {
+  AxiosAdapter,
+  AxiosPromise,
+  AxiosRequestConfig,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from '@ohos/axios'
 import { http } from '@kit.NetworkKit'
 import { fileIo as fs } from '@kit.CoreFileKit'
 import { EhConstants } from '../constants/EhConstants'
@@ -25,9 +32,11 @@ const IMAGE_ACCEPT: string = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8
 const STREAM_PROGRESS_INTERVAL_MS: number = 500
 
 /**
- * EH HTTP transport over @ohos.net.http. Singleton. Sets the desktop Chrome UA + Accept
- * headers EH expects, injects the cookie jar (forced nw=1), auto-gzip, exponential-backoff
- * retry on transport errors / 5xx, and destroys each request to avoid leaks.
+ * EH HTTP transport. Text/form requests go through @ohos/axios. Binary downloads use axios
+ * adapters backed by @ohos.net.http streaming so app/public download paths and resumable Range
+ * writes keep their existing file semantics. Sets the desktop Chrome UA + Accept headers EH
+ * expects, injects the cookie jar (forced nw=1), auto-gzip, and applies exponential-backoff
+ * retry on transport errors / 5xx.
  *
  * Anti-block (per the dropped-domain-fronting decision): standard requests + DoH/fallback-IP
  * resolution + user proxy/VPN are layered in later via a pluggable resolver; M1 connects
@@ -44,178 +53,53 @@ export class EhHttpClient {
   }
 
   async getText(url: string): Promise<EhTextResponse> {
-    let attempt: number = 0
-    let lastError: Error | null = null
-    while (attempt < MAX_RETRIES) {
-      const req: http.HttpRequest = http.createHttp()
-      try {
-        const header: Record<string, string> = {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': EhConstants.ACCEPT,
-          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-          'Accept-Encoding': 'gzip',
-          'Cookie': EhCookieStore.getInstance().header(),
-        }
-        const resp: http.HttpResponse = await req.request(url, {
-          method: http.RequestMethod.GET,
-          header: header,
-          expectDataType: http.HttpDataType.STRING,
-          connectTimeout: CONNECT_TIMEOUT_MS,
-          readTimeout: READ_TIMEOUT_MS,
-          usingCache: false,
-        })
-        const code: number = resp.responseCode as number
-        const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-        const cookies: string = typeof resp.cookies === 'string' ? resp.cookies : ''
-        const rawHeader: string = JSON.stringify(resp.header)
-        req.destroy()
-        if (code >= 500 && attempt < MAX_RETRIES - 1) {
-          lastError = new Error(`HTTP ${code}`)
-        } else {
-          return { statusCode: code, body: body, cookies: cookies, rawHeader: rawHeader }
-        }
-      } catch (error) {
-        const e = error as Error
-        lastError = e
-        DiagnosticLogger.warn('network', 'http_get_retry', `attempt ${attempt}: ${e.message}`)
-        req.destroy()
-      }
-      attempt++
-      await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
-    }
-    throw lastError !== null ? lastError : new Error('request failed')
+    return await EhHttpClient.requestTextWithAxios(
+      url,
+      'GET',
+      '',
+      '',
+      '',
+      'http_get_retry',
+      true,
+    )
   }
 
   async getTextWithReferer(url: string, referer: string): Promise<EhTextResponse> {
-    let attempt: number = 0
-    let lastError: Error | null = null
-    while (attempt < MAX_RETRIES) {
-      const req: http.HttpRequest = http.createHttp()
-      try {
-        const header: Record<string, string> = {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': EhConstants.ACCEPT,
-          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-          'Accept-Encoding': 'gzip',
-          'Referer': referer,
-          'Cookie': EhCookieStore.getInstance().header(),
-        }
-        const resp: http.HttpResponse = await req.request(url, {
-          method: http.RequestMethod.GET,
-          header: header,
-          expectDataType: http.HttpDataType.STRING,
-          connectTimeout: CONNECT_TIMEOUT_MS,
-          readTimeout: READ_TIMEOUT_MS,
-          usingCache: false,
-        })
-        const code: number = resp.responseCode as number
-        const body: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-        const cookies: string = typeof resp.cookies === 'string' ? resp.cookies : ''
-        const rawHeader: string = JSON.stringify(resp.header)
-        req.destroy()
-        if (code >= 500 && attempt < MAX_RETRIES - 1) {
-          lastError = new Error(`HTTP ${code}`)
-        } else {
-          return { statusCode: code, body: body, cookies: cookies, rawHeader: rawHeader }
-        }
-      } catch (error) {
-        const e = error as Error
-        lastError = e
-        DiagnosticLogger.warn('network', 'http_get_referer_retry', `attempt ${attempt}: ${e.message}`)
-        req.destroy()
-      }
-      attempt++
-      await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
-    }
-    throw lastError !== null ? lastError : new Error('request failed')
+    return await EhHttpClient.requestTextWithAxios(
+      url,
+      'GET',
+      '',
+      referer,
+      '',
+      'http_get_referer_retry',
+      true,
+    )
   }
 
   /** POST a JSON body (EH /api.php). Same headers/cookies/retry as getText, plus Content-Type. */
   async postJson(url: string, body: string): Promise<EhTextResponse> {
-    let attempt: number = 0
-    let lastError: Error | null = null
-    while (attempt < MAX_RETRIES) {
-      const req: http.HttpRequest = http.createHttp()
-      try {
-        const header: Record<string, string> = {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': EhConstants.ACCEPT,
-          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-          'Accept-Encoding': 'gzip',
-          'Content-Type': 'application/json',
-          'Cookie': EhCookieStore.getInstance().header(),
-        }
-        const resp: http.HttpResponse = await req.request(url, {
-          method: http.RequestMethod.POST,
-          header: header,
-          extraData: body,
-          expectDataType: http.HttpDataType.STRING,
-          connectTimeout: CONNECT_TIMEOUT_MS,
-          readTimeout: READ_TIMEOUT_MS,
-          usingCache: false,
-        })
-        const code: number = resp.responseCode as number
-        const respBody: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-        req.destroy()
-        if (code >= 500 && attempt < MAX_RETRIES - 1) {
-          lastError = new Error(`HTTP ${code}`)
-        } else {
-          return { statusCode: code, body: respBody }
-        }
-      } catch (error) {
-        const e = error as Error
-        lastError = e
-        DiagnosticLogger.warn('network', 'http_post_retry', `attempt ${attempt}: ${e.message}`)
-        req.destroy()
-      }
-      attempt++
-      await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
-    }
-    throw lastError !== null ? lastError : new Error('request failed')
+    return await EhHttpClient.requestTextWithAxios(
+      url,
+      'POST',
+      body,
+      '',
+      'application/json',
+      'http_post_retry',
+      false,
+    )
   }
 
   /** POST a classic PHP form body. Used by protected EH write endpoints after explicit user confirmation. */
   async postFormUrlEncoded(url: string, body: string): Promise<EhTextResponse> {
-    let attempt: number = 0
-    let lastError: Error | null = null
-    while (attempt < MAX_RETRIES) {
-      const req: http.HttpRequest = http.createHttp()
-      try {
-        const header: Record<string, string> = {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': EhConstants.ACCEPT,
-          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-          'Accept-Encoding': 'gzip',
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Cookie': EhCookieStore.getInstance().header(),
-        }
-        const resp: http.HttpResponse = await req.request(url, {
-          method: http.RequestMethod.POST,
-          header: header,
-          extraData: body,
-          expectDataType: http.HttpDataType.STRING,
-          connectTimeout: CONNECT_TIMEOUT_MS,
-          readTimeout: READ_TIMEOUT_MS,
-          usingCache: false,
-        })
-        const code: number = resp.responseCode as number
-        const respBody: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-        req.destroy()
-        if (code >= 500 && attempt < MAX_RETRIES - 1) {
-          lastError = new Error(`HTTP ${code}`)
-        } else {
-          return { statusCode: code, body: respBody }
-        }
-      } catch (error) {
-        const e = error as Error
-        lastError = e
-        DiagnosticLogger.warn('network', 'http_form_retry', `attempt ${attempt}: ${e.message}`)
-        req.destroy()
-      }
-      attempt++
-      await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
-    }
-    throw lastError !== null ? lastError : new Error('request failed')
+    return await EhHttpClient.requestTextWithAxios(
+      url,
+      'POST',
+      body,
+      '',
+      'application/x-www-form-urlencoded',
+      'http_form_retry',
+      false,
+    )
   }
 
   /**
@@ -224,83 +108,143 @@ export class EhHttpClient {
    * login succeeds iff that header carries ipb_member_id + ipb_pass_hash.
    */
   async postLogin(url: string, body: string, referer: string): Promise<EhTextResponse> {
-    const req: http.HttpRequest = http.createHttp()
-    try {
-      const header: Record<string, string> = {
-        'User-Agent': EhConstants.USER_AGENT,
-        'Accept': EhConstants.ACCEPT,
-        'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-        'Accept-Encoding': 'gzip',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Referer': referer,
-        'Cookie': EhCookieStore.getInstance().header(),
+    return await EhHttpClient.requestTextOnceWithAxios(
+      url,
+      'POST',
+      body,
+      referer,
+      'application/x-www-form-urlencoded',
+      true,
+    )
+  }
+
+  private static async requestTextWithAxios(
+    url: string,
+    method: string,
+    body: string,
+    referer: string,
+    contentType: string,
+    retryEvent: string,
+    captureResponseCookies: boolean,
+  ): Promise<EhTextResponse> {
+    let attempt: number = 0
+    let lastError: Error | null = null
+    while (attempt < MAX_RETRIES) {
+      try {
+        const resp: EhTextResponse = await EhHttpClient.requestTextOnceWithAxios(
+          url,
+          method,
+          body,
+          referer,
+          contentType,
+          captureResponseCookies,
+        )
+        if (resp.statusCode >= 500 && attempt < MAX_RETRIES - 1) {
+          lastError = new Error(`HTTP ${resp.statusCode}`)
+        } else {
+          return resp
+        }
+      } catch (error) {
+        const e = error as Error
+        lastError = e
+        DiagnosticLogger.warn('network', retryEvent, `attempt ${attempt}: ${e.message}`)
       }
-      const resp: http.HttpResponse = await req.request(url, {
-        method: http.RequestMethod.POST,
-        header: header,
-        extraData: body,
-        expectDataType: http.HttpDataType.STRING,
-        connectTimeout: CONNECT_TIMEOUT_MS,
-        readTimeout: READ_TIMEOUT_MS,
-        usingCache: false,
-      })
-      const code: number = resp.responseCode as number
-      const respBody: string = typeof resp.result === 'string' ? (resp.result as string) : ''
-      const rawHeader: string = JSON.stringify(resp.header)
-      req.destroy()
-      return { statusCode: code, body: respBody, rawHeader: rawHeader }
-    } catch (error) {
-      req.destroy()
-      throw error as Error
+      attempt++
+      await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
     }
+    throw lastError !== null ? lastError : new Error('request failed')
+  }
+
+  private static async requestTextOnceWithAxios(
+    url: string,
+    method: string,
+    body: string,
+    referer: string,
+    contentType: string,
+    captureResponseCookies: boolean,
+  ): Promise<EhTextResponse> {
+    const header: Record<string, string> = EhHttpClient.textHeader(referer, contentType)
+    const config: AxiosRequestConfig<string> = {
+      url: url,
+      method: method,
+      headers: header,
+      responseType: 'string',
+      connectTimeout: CONNECT_TIMEOUT_MS,
+      readTimeout: READ_TIMEOUT_MS,
+      timeout: READ_TIMEOUT_MS,
+      validateStatus: EhHttpClient.acceptStatus,
+    }
+    if (method === 'POST') {
+      config.data = body
+    }
+    const resp: AxiosResponse<string, string> =
+      await axios.request<string, AxiosResponse<string, string>, string>(config)
+    const rawHeader: string = JSON.stringify(resp.headers)
+    const respBody: string = typeof resp.data === 'string' ? resp.data : ''
+    if (captureResponseCookies) {
+      return { statusCode: resp.status, body: respBody, cookies: rawHeader, rawHeader: rawHeader }
+    }
+    return { statusCode: resp.status, body: respBody, rawHeader: rawHeader }
+  }
+
+  private static textHeader(referer: string, contentType: string): Record<string, string> {
+    const header: Record<string, string> = {
+      'User-Agent': EhConstants.USER_AGENT,
+      'Accept': EhConstants.ACCEPT,
+      'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
+      'Accept-Encoding': 'gzip',
+      'Cookie': EhCookieStore.getInstance().header(),
+    }
+    if (referer.length > 0) {
+      header['Referer'] = referer
+    }
+    if (contentType.length > 0) {
+      header['Content-Type'] = contentType
+    }
+    return header
+  }
+
+  private static acceptStatus(status: number): boolean {
+    return status >= 100 && status <= 599
   }
 
   async downloadBinaryToFile(url: string, filePath: string): Promise<number> {
     let attempt: number = 0
     let lastError: Error | null = null
     while (attempt < MAX_RETRIES) {
-      const req: http.HttpRequest = http.createHttp()
       try {
-        const header: Record<string, string> = {
-          'User-Agent': EhConstants.USER_AGENT,
-          'Accept': IMAGE_ACCEPT,
-          'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
-          'Cookie': EhCookieStore.getInstance().header(),
-        }
-        const resp: http.HttpResponse = await req.request(url, {
-          method: http.RequestMethod.GET,
-          header: header,
-          expectDataType: http.HttpDataType.ARRAY_BUFFER,
-          maxLimit: MAX_BINARY_BYTES,
+        const config: AxiosRequestConfig<string> = {
+          url: url,
+          method: 'GET',
+          headers: EhHttpClient.binaryHeader(IMAGE_ACCEPT),
+          responseType: 'array_buffer',
+          maxContentLength: MAX_BINARY_BYTES,
           connectTimeout: CONNECT_TIMEOUT_MS,
           readTimeout: READ_TIMEOUT_MS,
-          usingCache: false,
-        })
-        const code: number = resp.responseCode as number
+          timeout: READ_TIMEOUT_MS,
+          validateStatus: EhHttpClient.acceptStatus,
+        }
+        const resp: AxiosResponse<ArrayBuffer, string> =
+          await axios.request<ArrayBuffer, AxiosResponse<ArrayBuffer, string>, string>(config)
+        const code: number = resp.status
         if (code >= 500 && attempt < MAX_RETRIES - 1) {
-          req.destroy()
           lastError = new Error(`HTTP ${code}`)
         } else if (code !== 200) {
-          req.destroy()
           throw new Error(`image HTTP ${code}`)
-        } else if (typeof resp.result === 'string') {
-          req.destroy()
+        } else if (!(resp.data instanceof ArrayBuffer)) {
           throw new Error('image response is not binary')
         } else {
-          const bytes: ArrayBuffer = resp.result as ArrayBuffer
-          const written: number = await EhHttpClient.writeArrayBuffer(filePath, bytes)
+          const written: number = await EhHttpClient.writeArrayBuffer(filePath, resp.data)
           if (written <= 0) {
             EhHttpClient.deleteFileQuietly(filePath)
             throw new Error('binary response is empty')
           }
-          req.destroy()
           return written
         }
       } catch (error) {
         const e = error as Error
         lastError = e
         DiagnosticLogger.warn('network', 'http_binary_retry', `attempt ${attempt}: ${e.message}`)
-        req.destroy()
       }
       attempt++
       await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
@@ -318,6 +262,68 @@ export class EhHttpClient {
     maxAttempts: number = MAX_RETRIES,
     readTimeoutMs: number = BINARY_STREAM_READ_TIMEOUT_MS,
   ): Promise<number> {
+    const config: AxiosRequestConfig<string> = {
+      url: url,
+      method: 'GET',
+      headers: EhHttpClient.binaryHeader(accept),
+      connectTimeout: connectTimeoutMs,
+      readTimeout: readTimeoutMs,
+      timeout: readTimeoutMs,
+      maxContentLength: MAX_BINARY_BYTES,
+      validateStatus: EhHttpClient.acceptStatus,
+      adapter: EhHttpClient.createStreamDownloadAdapter(
+        filePath,
+        progress,
+        noProgressTimeoutMs,
+        accept,
+        maxAttempts,
+      ),
+    }
+    const resp: AxiosResponse<number, string> =
+      await axios.request<number, AxiosResponse<number, string>, string>(config)
+    return resp.data
+  }
+
+  private static createStreamDownloadAdapter(
+    filePath: string,
+    progress: (loaded: number, total: number) => void,
+    noProgressTimeoutMs: number,
+    accept: string,
+    maxAttempts: number,
+  ): AxiosAdapter {
+    const adapter: AxiosAdapter = async (
+      config: InternalAxiosRequestConfig,
+    ): AxiosPromise<number> => {
+      const written: number = await EhHttpClient.downloadBinaryToFileInStreamWithConfig(
+        config,
+        filePath,
+        progress,
+        noProgressTimeoutMs,
+        accept,
+        maxAttempts,
+      )
+      return {
+        data: written,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: config,
+      }
+    }
+    return adapter
+  }
+
+  private static async downloadBinaryToFileInStreamWithConfig(
+    config: InternalAxiosRequestConfig,
+    filePath: string,
+    progress: (loaded: number, total: number) => void,
+    noProgressTimeoutMs: number,
+    accept: string,
+    maxAttempts: number,
+  ): Promise<number> {
+    const url: string = EhHttpClient.requiredUrl(config)
+    const connectTimeoutMs: number = EhHttpClient.timeoutValue(config.connectTimeout, CONNECT_TIMEOUT_MS)
+    const readTimeoutMs: number = EhHttpClient.timeoutValue(config.readTimeout, BINARY_STREAM_READ_TIMEOUT_MS)
     let attempt: number = 0
     let lastError: Error | null = null
     const attempts: number = Math.max(1, Math.round(maxAttempts))
@@ -454,6 +460,72 @@ export class EhHttpClient {
     maxAttempts: number = MAX_RETRIES,
     readTimeoutMs: number = READ_TIMEOUT_MS,
   ): Promise<number> {
+    const config: AxiosRequestConfig<string> = {
+      url: url,
+      method: 'GET',
+      headers: EhHttpClient.binaryHeader(accept),
+      connectTimeout: CONNECT_TIMEOUT_MS,
+      readTimeout: readTimeoutMs,
+      timeout: readTimeoutMs,
+      maxContentLength: MAX_BINARY_BYTES,
+      validateStatus: EhHttpClient.acceptStatus,
+      adapter: EhHttpClient.createResumableDownloadAdapter(
+        partialPath,
+        progress,
+        shouldCancel,
+        knownTotal,
+        accept,
+        maxAttempts,
+      ),
+    }
+    const resp: AxiosResponse<number, string> =
+      await axios.request<number, AxiosResponse<number, string>, string>(config)
+    return resp.data
+  }
+
+  private static createResumableDownloadAdapter(
+    partialPath: string,
+    progress: (loaded: number, total: number) => void,
+    shouldCancel: () => boolean,
+    knownTotal: number,
+    accept: string,
+    maxAttempts: number,
+  ): AxiosAdapter {
+    const adapter: AxiosAdapter = async (
+      config: InternalAxiosRequestConfig,
+    ): AxiosPromise<number> => {
+      const written: number = await EhHttpClient.downloadBinaryToFileInStreamResumableWithConfig(
+        config,
+        partialPath,
+        progress,
+        shouldCancel,
+        knownTotal,
+        accept,
+        maxAttempts,
+      )
+      return {
+        data: written,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: config,
+      }
+    }
+    return adapter
+  }
+
+  private static async downloadBinaryToFileInStreamResumableWithConfig(
+    config: InternalAxiosRequestConfig,
+    partialPath: string,
+    progress: (loaded: number, total: number) => void,
+    shouldCancel: () => boolean,
+    knownTotal: number,
+    accept: string,
+    maxAttempts: number,
+  ): Promise<number> {
+    const url: string = EhHttpClient.requiredUrl(config)
+    const connectTimeoutMs: number = EhHttpClient.timeoutValue(config.connectTimeout, CONNECT_TIMEOUT_MS)
+    const readTimeoutMs: number = EhHttpClient.timeoutValue(config.readTimeout, READ_TIMEOUT_MS)
     let attempt: number = 0
     let lastError: Error | null = null
     const attempts: number = Math.max(1, Math.round(maxAttempts))
@@ -535,6 +607,9 @@ export class EhHttpClient {
             return
           }
           if (attemptStart > 0 && !resumeAccepted) {
+            if (responseTotal > 0 && attemptStart >= responseTotal) {
+              return
+            }
             streamError = 'binary resume unsupported'
             req.destroy()
             return
@@ -575,6 +650,10 @@ export class EhHttpClient {
           EhHttpClient.truncateQuietly(partialPath, attemptStart)
           throw new Error(`binary HTTP ${code}`)
         }
+        if (attemptStart > 0 && !resumeAccepted && responseTotal > 0 && attemptStart >= responseTotal) {
+          emitProgress(attemptStart, responseTotal, true)
+          return attemptStart
+        }
         if (attemptStart > 0 && !resumeAccepted) {
           throw new Error(code === 206 ? 'invalid content range' : 'binary resume unsupported')
         }
@@ -612,6 +691,17 @@ export class EhHttpClient {
       await EhHttpClient.delay(BACKOFF_BASE_MS * attempt)
     }
     throw lastError !== null ? lastError : new Error('binary stream request failed')
+  }
+
+  private static requiredUrl(config: InternalAxiosRequestConfig): string {
+    if (config.url === undefined || config.url.length === 0) {
+      throw new Error('resumable download url missing')
+    }
+    return config.url
+  }
+
+  private static timeoutValue(value: number | undefined, fallback: number): number {
+    return value !== undefined && Number.isFinite(value) && value > 0 ? value : fallback
   }
 
   private static async writeArrayBuffer(filePath: string, bytes: ArrayBuffer): Promise<number> {
