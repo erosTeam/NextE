@@ -2,6 +2,7 @@ import { image } from '@kit.ImageKit'
 import {
   CacheStrategy,
   DownSamplingStrategy,
+  EventImage,
   HeaderOptions,
   ImageInfo,
   ImageKnifeComponentV2,
@@ -101,7 +102,7 @@ export struct ImageKnifeProImageAdapter {
         this.onError()
       },
     }
-    option.onComplete = (_event) => {
+    option.onComplete = (_event: EventImage | undefined) => {
       this.markComplete()
     }
     if (this.radius > 0) {
