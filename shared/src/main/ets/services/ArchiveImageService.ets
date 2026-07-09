@@ -4,7 +4,7 @@ import { fileIo } from '@kit.CoreFileKit'
 import { DownloadArchiverTask } from '../model/DownloadGalleryTask'
 import { EhGalleryImage } from '../model/EhGalleryImage'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
-import { CachedImageFileService } from './CachedImageFileService'
+import { ImagePipelineService } from './ImagePipelineService'
 
 const ARCHIVE_IMAGE_CACHE_DIR: string = 'download-archiver-read'
 
@@ -20,7 +20,7 @@ export class ArchiveImageService {
       const page: number = i + 1
       const image: EhGalleryImage = new EhGalleryImage(page)
       image.sUrl = `archive://${task.tag}/${page}`
-      image.imageUrl = CachedImageFileService.displayUri(paths[i])
+      image.imageUrl = ImagePipelineService.displayUri(paths[i])
       images.push(image)
     }
     DiagnosticLogger.info('download', 'archive_reader_images', `tag=${task.tag} images=${images.length}`)

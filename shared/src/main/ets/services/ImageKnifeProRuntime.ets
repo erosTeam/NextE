@@ -6,7 +6,6 @@ import {
   HeaderOptions,
   ImageKnife,
   ImageKnifeOptionV2,
-  ImageKnifeRequest,
   Priority,
 } from '@ohos/imageknifepro'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
@@ -14,6 +13,7 @@ import { EhConstants } from '../constants/EhConstants'
 import { EhCookieStore } from '../network/EhCookieStore'
 import { CacheStat } from './CacheStat'
 import { CachedImageFileResult, CachedImageFileService, CachedImageProgress } from './CachedImageFileService'
+import { EH_IMAGE_PRIORITY_LOW } from './ImagePipelineTypes'
 
 const IMAGEKNIFE_FILE_CACHE_COUNT: number = 192
 const IMAGEKNIFE_FILE_CACHE_BYTES: number = 96 * 1024 * 1024
@@ -131,24 +131,23 @@ export class ImageKnifeProRuntime {
     }
   }
 
-  static preload(url: string, priority: Priority = Priority.LOW): ImageKnifeRequest | null {
+  static preload(url: string, priority: number = EH_IMAGE_PRIORITY_LOW): void {
     if (url.length === 0 || !ImageKnifeProRuntime.initialized) {
-      return null
+      return
     }
     try {
       const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
       option.loadSrc = url
       option.headerOption = ImageKnifeProRuntime.defaultHeaders()
       option.writeCacheStrategy = CacheStrategy.DEFAULT
-      option.priority = priority
-      return ImageKnife.getInstance().preload(option)
+      option.priority = ImageKnifeProRuntime.priorityFromNumber(priority)
+      ImageKnife.getInstance().preload(option)
     } catch (error) {
       DiagnosticLogger.warn(
         'imageknife',
         'preload_failed',
         `urlHash=${DiagnosticLogger.ownerHash(url)} error=${(error as Error).message}`,
       )
-      return null
     }
   }
 
@@ -313,17 +312,6 @@ export class ImageKnifeProRuntime {
         'reader_imageknife_cache_remove_failed',
         `urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)} error=${(error as Error).message}`,
       )
-    }
-  }
-
-  static cancelPreload(request: ImageKnifeRequest | null): void {
-    if (request === null) {
-      return
-    }
-    try {
-      ImageKnife.getInstance().cancel(request)
-    } catch (error) {
-      DiagnosticLogger.warn('imageknife', 'preload_cancel_failed', (error as Error).message)
     }
   }
 

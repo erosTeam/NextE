@@ -13,7 +13,7 @@ import {
   InternalQaRoutes,
   HuaweiCloudSyncService,
   HuaweiCloudSyncScheduler,
-  ImageKnifeProRuntime,
+  ImagePipelineService,
   SecuritySettings,
   SyncScheduler,
 } from 'shared'
@@ -43,7 +43,7 @@ export default class EntryAbility extends UIAbility {
     AppStrings.init(this.context)
     DiagnosticLogger.initializePersistentSink(this.context)
     DiagnosticLogger.info('app', 'session_start', 'EntryAbility.onCreate')
-    ImageKnifeProRuntime.initialize(this.context)
+    ImagePipelineService.initialize(this.context)
     try {
       webview.WebviewController.initializeWebEngine()
       // Hardening for Cloudflare's Turnstile, which runs in a cross-origin iframe
@@ -131,12 +131,12 @@ export default class EntryAbility extends UIAbility {
   onForeground(): void {
     SyncScheduler.rememberContext(this.context)
     SyncScheduler.requestAfterForeground(this.context, 'foreground')
-    ImageKnifeProRuntime.reloadOnForeground()
+    ImagePipelineService.reloadOnForeground()
     SecuritySettings.lockIfNeeded(this.context, 'foreground')
   }
 
   onBackground(): void {
-    ImageKnifeProRuntime.clearOnBackground()
+    ImagePipelineService.clearOnBackground()
     SecuritySettings.recordBackground(this.context)
   }
 

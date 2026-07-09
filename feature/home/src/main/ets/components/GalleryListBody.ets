@@ -30,7 +30,7 @@ import {
   LayoutSafeAreaState,
   connectLayoutSafeArea,
   DiagnosticLogger,
-  ImageKnifeProRuntime,
+  ImagePipelineService,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
@@ -206,7 +206,7 @@ export struct GalleryListBody {
         continue
       }
       this.rememberPreloadedCover(url)
-      ImageKnifeProRuntime.preload(url)
+      ImagePipelineService.preloadCover(url)
     }
   }
 

@@ -8,12 +8,11 @@ import {
   BackupPreview,
   BackupService,
   CacheStat,
-  CachedImageFileService,
   CommentTranslationService,
   ConciseListRow,
   EhPageCacheService,
   GroupedListSection,
-  ImageKnifeProRuntime,
+  ImagePipelineService,
   SecondaryListScaffold,
   TagTranslationService,
   ThemeConstants,
@@ -80,10 +79,7 @@ export struct CacheSettingsPage {
     EhPageCacheService.stat(this.ctx()).then((s: CacheStat) => {
       this.pageStat = s
     })
-    CachedImageFileService.stat(this.ctx()).then((s: CacheStat) => {
-      const imageKnifeStat: CacheStat = ImageKnifeProRuntime.stat()
-      s.count += imageKnifeStat.count
-      s.bytes += imageKnifeStat.bytes
+    ImagePipelineService.stat(this.ctx()).then((s: CacheStat) => {
       this.imageStat = s
     })
     CommentTranslationService.stat(this.ctx()).then((s: CacheStat) => {
@@ -183,8 +179,7 @@ export struct CacheSettingsPage {
   }
 
   private async clearImageCaches(): Promise<void> {
-    await CachedImageFileService.clear(this.ctx())
-    await ImageKnifeProRuntime.clearCache()
+    await ImagePipelineService.clearCache(this.ctx())
   }
 
   // ── Backup ──────────────────────────────────────────────────────────────

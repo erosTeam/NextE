@@ -78,12 +78,7 @@ export {
   THUMBNAIL_VISUAL_LOADING,
   THUMBNAIL_VISUAL_ERROR,
 } from './components/EhThumbnail'
-export {
-  EhImageKnifeImage,
-  EH_IMAGE_PRIORITY_HIGH,
-  EH_IMAGE_PRIORITY_LOW,
-  EH_IMAGE_PRIORITY_MEDIUM,
-} from './components/EhImageKnifeImage'
+export { EhImageKnifeImage } from './components/EhImageKnifeImage'
 export { EhSpriteThumbnail } from './components/EhSpriteThumbnail'
 export { PreviewThumbTile } from './components/PreviewThumbTile'
 export { RatingStars } from './components/RatingStars'
@@ -145,7 +140,23 @@ export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGallery
 
 // services
 export { ImageResolveService } from './services/ImageResolveService'
-export { ImageKnifeProRuntime } from './services/ImageKnifeProRuntime'
+export { ImagePipelineService } from './services/ImagePipelineService'
+export {
+  EH_IMAGE_DOWNSAMPLING_AT_LEAST,
+  EH_IMAGE_DOWNSAMPLING_AT_MOST,
+  EH_IMAGE_DOWNSAMPLING_CENTER_INSIDE_MEMORY,
+  EH_IMAGE_DOWNSAMPLING_CENTER_INSIDE_QUALITY,
+  EH_IMAGE_DOWNSAMPLING_DEFAULT,
+  EH_IMAGE_DOWNSAMPLING_DESIRED_SIZE_ASPECT_FILL,
+  EH_IMAGE_DOWNSAMPLING_DESIRED_SIZE_ASPECT_FIT,
+  EH_IMAGE_DOWNSAMPLING_DESIRED_SIZE_FILL,
+  EH_IMAGE_DOWNSAMPLING_FIT_CENTER_MEMORY,
+  EH_IMAGE_DOWNSAMPLING_FIT_CENTER_QUALITY,
+  EH_IMAGE_DOWNSAMPLING_NONE,
+  EH_IMAGE_PRIORITY_HIGH,
+  EH_IMAGE_PRIORITY_LOW,
+  EH_IMAGE_PRIORITY_MEDIUM,
+} from './services/ImagePipelineTypes'
 export { ArchiveImageService } from './services/ArchiveImageService'
 export {
   ArchiveBotBalanceResult,
@@ -153,7 +164,6 @@ export {
   ArchiveBotService,
 } from './services/ArchiveBotService'
 export {
-  CachedImageFileService,
   CachedImageFileResult,
   CachedImageProgress,
 } from './services/CachedImageFileService'

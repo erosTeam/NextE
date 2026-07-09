@@ -44,7 +44,7 @@ import {
   connectDownloadSettings,
   DownloadOriginalMode,
   EhGalleryImage,
-  CachedImageFileService,
+  ImagePipelineService,
   LocalFavSettings,
   LocalBlockService,
   LocalFavState,
@@ -603,7 +603,7 @@ export struct GalleryDetailPage {
       image.imgkey = seed.imgkey
       image.sUrl = seed.imagePageUrl
       image.thumbUrl = seed.thumbUrl
-      image.imageUrl = CachedImageFileService.displayUri(seed.filePath)
+      image.imageUrl = ImagePipelineService.displayUri(seed.filePath)
       image.originImageUrl = seed.originImageUrl
       image.showKey = seed.showKey
       image.reloadKey = seed.reloadKey

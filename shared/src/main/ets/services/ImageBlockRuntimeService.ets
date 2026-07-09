@@ -20,7 +20,7 @@ import { ImageBlockRepository } from '../storage/ImageBlockRepository'
 import { EhUrlRouter, GalleryRef, ImagePageRef } from '../utils/EhUrlRouter'
 import { CachedImageFileResult, CachedImageFileService } from './CachedImageFileService'
 import { ImageBlockService } from './ImageBlockService'
-import { ImageKnifeProRuntime } from './ImageKnifeProRuntime'
+import { ImagePipelineService } from './ImagePipelineService'
 import { ImagePageRouteService, ImagePageRouteTarget } from './ImagePageRouteService'
 import { PHashService } from './PHashService'
 
@@ -667,7 +667,7 @@ export class ImageBlockRuntimeService {
     const url: string = EhConstants.cdnThumb(thumbUrl)
     const cacheKey: string = `thumb-block:${url}:${thumbWidth}:${thumbHeight}:${offsetX}:${spriteWidth}:${spriteHeight}`
     const imageKnifeResult: CachedImageFileResult | null =
-      await ImageKnifeProRuntime.preloadImageBlockThumbnailFile(context, url, cacheKey)
+      await ImagePipelineService.preloadImageBlockThumbnailFile(context, url, cacheKey)
     if (imageKnifeResult !== null) {
       return imageKnifeResult
     }

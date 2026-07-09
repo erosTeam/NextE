@@ -14,8 +14,7 @@ import {
   EhSpriteThumbnail,
   ReaderParams,
   ImageResolveService,
-  CachedImageFileService,
-  ImageKnifeProRuntime,
+  ImagePipelineService,
   DiagnosticLogger,
   connectThemeDisplay,
   connectLayoutSafeArea,
@@ -2412,35 +2411,11 @@ struct ReaderCacheWarmImage {
     key: string,
   ): Promise<void> {
     try {
-      const imageKnifeResult: CachedImageFileResult | null =
-        await ImageKnifeProRuntime.preloadReaderFile(
-          context,
-          this.sourceUrl,
-          key,
-          EH_IMAGE_PRIORITY_LOW,
-        )
-      if (this.warmingKey !== key) {
-        return
-      }
-      if (imageKnifeResult !== null) {
-        DiagnosticLogger.info(
-          'imageknife',
-          'reader_imageknife_file_ready',
-          `page=${this.page} bytes=${imageKnifeResult.bytes} warm=true`,
-        )
-        this.markReady(imageKnifeResult, key)
-        return
-      }
-      DiagnosticLogger.info(
-        'imageknife',
-        'reader_imageknife_fallback_cached_service',
-        `page=${this.page} warm=true urlHash=${DiagnosticLogger.ownerHash(this.sourceUrl)} cacheKeyHash=${DiagnosticLogger.ownerHash(key)}`,
-      )
-      const result: CachedImageFileResult = await CachedImageFileService.load(
+      const result: CachedImageFileResult = await ImagePipelineService.loadReaderFile(
         context,
         this.sourceUrl,
         key,
-        (_progress: CachedImageProgress) => {},
+        EH_IMAGE_PRIORITY_LOW,
       )
       if (this.warmingKey !== key) {
         return
@@ -2953,55 +2928,11 @@ struct ReaderSpreadImageLayer {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
-    const imageKnifeResult: CachedImageFileResult | null =
-      await ImageKnifeProRuntime.preloadReaderFile(
-        context,
-        resolved,
-        cacheKey,
-        EH_IMAGE_PRIORITY_HIGH,
-        (progress: CachedImageProgress) => {
-          if (seq !== this.loadSeq) {
-            return
-          }
-          this.imageProgressLoaded = progress.loaded
-          this.imageProgressTotal = progress.total
-        },
-      )
-    if (seq !== this.loadSeq) {
-      return
-    }
-    if (imageKnifeResult !== null) {
-      this.onImageFileReady(this.image.page, imageKnifeResult.filePath)
-      this.imageProgressLoaded = imageKnifeResult.bytes
-      this.imageProgressTotal = imageKnifeResult.bytes
-      DiagnosticLogger.info(
-        'imageknife',
-        'reader_imageknife_file_ready',
-        `page=${this.image.page} bytes=${imageKnifeResult.bytes} warm=false`,
-      )
-      await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
-      if (seq !== this.loadSeq) {
-        return
-      }
-      if (await this.applyImageBlockDecision(context, imageKnifeResult.filePath, imageKnifeResult.bytes, imageKnifeResult.displayUri, seq)) {
-        return
-      }
-      this.imageUrl = imageKnifeResult.displayUri
-      this.imageLoaded = this.initiallyLoaded
-      this.autoRetryCount = 0
-      this.failed = false
-      this.failureKind = ReaderImageFailureKind.Generic
-      return
-    }
-    DiagnosticLogger.info(
-      'imageknife',
-      'reader_imageknife_fallback_cached_service',
-      `page=${this.image.page} warm=false urlHash=${DiagnosticLogger.ownerHash(resolved)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
-    )
-    const result = await CachedImageFileService.load(
+    const result: CachedImageFileResult = await ImagePipelineService.loadReaderFile(
       context,
       resolved,
       cacheKey,
+      EH_IMAGE_PRIORITY_HIGH,
       (progress: CachedImageProgress) => {
         if (seq !== this.loadSeq) {
           return
@@ -3070,12 +3001,7 @@ struct ReaderSpreadImageLayer {
     this.autoRetryCount = 0
     if (this.sourceImageUrl.length > 0) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-      ImageKnifeProRuntime.removeReaderFile(
-        context,
-        this.sourceImageUrl,
-        this.cacheKey(this.sourceImageUrl),
-      )
-      CachedImageFileService.remove(
+      ImagePipelineService.removeReaderFile(
         context,
         this.sourceImageUrl,
         this.cacheKey(this.sourceImageUrl),
@@ -3345,55 +3271,11 @@ struct ReaderImagePage {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
-    const imageKnifeResult: CachedImageFileResult | null =
-      await ImageKnifeProRuntime.preloadReaderFile(
-        context,
-        resolved,
-        cacheKey,
-        EH_IMAGE_PRIORITY_HIGH,
-        (progress: CachedImageProgress) => {
-          if (seq !== this.loadSeq) {
-            return
-          }
-          this.imageProgressLoaded = progress.loaded
-          this.imageProgressTotal = progress.total
-        },
-      )
-    if (seq !== this.loadSeq) {
-      return
-    }
-    if (imageKnifeResult !== null) {
-      this.onImageFileReady(this.image.page, imageKnifeResult.filePath)
-      this.imageProgressLoaded = imageKnifeResult.bytes
-      this.imageProgressTotal = imageKnifeResult.bytes
-      DiagnosticLogger.info(
-        'imageknife',
-        'reader_imageknife_file_ready',
-        `page=${this.image.page} bytes=${imageKnifeResult.bytes} warm=false`,
-      )
-      await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
-      if (seq !== this.loadSeq) {
-        return
-      }
-      if (await this.applyImageBlockDecision(context, imageKnifeResult.filePath, imageKnifeResult.bytes, imageKnifeResult.displayUri, seq)) {
-        return
-      }
-      this.imageUrl = imageKnifeResult.displayUri
-      this.imageLoaded = this.initiallyLoaded
-      this.autoRetryCount = 0
-      this.failed = false
-      this.failureKind = ReaderImageFailureKind.Generic
-      return
-    }
-    DiagnosticLogger.info(
-      'imageknife',
-      'reader_imageknife_fallback_cached_service',
-      `page=${this.image.page} warm=false urlHash=${DiagnosticLogger.ownerHash(resolved)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
-    )
-    const result = await CachedImageFileService.load(
+    const result: CachedImageFileResult = await ImagePipelineService.loadReaderFile(
       context,
       resolved,
       cacheKey,
+      EH_IMAGE_PRIORITY_HIGH,
       (progress: CachedImageProgress) => {
         if (seq !== this.loadSeq) {
           return
@@ -3479,12 +3361,7 @@ struct ReaderImagePage {
     this.autoRetryCount = 0
     if (this.sourceImageUrl.length > 0) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-      ImageKnifeProRuntime.removeReaderFile(
-        context,
-        this.sourceImageUrl,
-        this.cacheKey(this.sourceImageUrl),
-      )
-      CachedImageFileService.remove(
+      ImagePipelineService.removeReaderFile(
         context,
         this.sourceImageUrl,
         this.cacheKey(this.sourceImageUrl),
@@ -3934,55 +3811,11 @@ struct ReaderVerticalImage {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
-    const imageKnifeResult: CachedImageFileResult | null =
-      await ImageKnifeProRuntime.preloadReaderFile(
-        context,
-        resolved,
-        cacheKey,
-        EH_IMAGE_PRIORITY_HIGH,
-        (progress: CachedImageProgress) => {
-          if (seq !== this.loadSeq) {
-            return
-          }
-          this.imageProgressLoaded = progress.loaded
-          this.imageProgressTotal = progress.total
-        },
-      )
-    if (seq !== this.loadSeq) {
-      return
-    }
-    if (imageKnifeResult !== null) {
-      this.onImageFileReady(this.image.page, imageKnifeResult.filePath)
-      this.imageProgressLoaded = imageKnifeResult.bytes
-      this.imageProgressTotal = imageKnifeResult.bytes
-      DiagnosticLogger.info(
-        'imageknife',
-        'reader_imageknife_file_ready',
-        `page=${this.image.page} bytes=${imageKnifeResult.bytes} warm=false`,
-      )
-      await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
-      if (seq !== this.loadSeq) {
-        return
-      }
-      if (await this.applyImageBlockDecision(context, imageKnifeResult.filePath, imageKnifeResult.bytes, imageKnifeResult.displayUri, seq)) {
-        return
-      }
-      this.imageUrl = imageKnifeResult.displayUri
-      this.imageLoaded = this.initiallyLoaded
-      this.autoRetryCount = 0
-      this.failed = false
-      this.failureKind = ReaderImageFailureKind.Generic
-      return
-    }
-    DiagnosticLogger.info(
-      'imageknife',
-      'reader_imageknife_fallback_cached_service',
-      `page=${this.image.page} warm=false urlHash=${DiagnosticLogger.ownerHash(resolved)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
-    )
-    const result = await CachedImageFileService.load(
+    const result: CachedImageFileResult = await ImagePipelineService.loadReaderFile(
       context,
       resolved,
       cacheKey,
+      EH_IMAGE_PRIORITY_HIGH,
       (progress: CachedImageProgress) => {
         if (seq !== this.loadSeq) {
           return
@@ -4068,12 +3901,7 @@ struct ReaderVerticalImage {
     this.autoRetryCount = 0
     if (this.sourceImageUrl.length > 0) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-      ImageKnifeProRuntime.removeReaderFile(
-        context,
-        this.sourceImageUrl,
-        this.cacheKey(this.sourceImageUrl),
-      )
-      CachedImageFileService.remove(
+      ImagePipelineService.removeReaderFile(
         context,
         this.sourceImageUrl,
         this.cacheKey(this.sourceImageUrl),
