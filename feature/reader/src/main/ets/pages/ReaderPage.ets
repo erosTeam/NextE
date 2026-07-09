@@ -9,6 +9,8 @@ import {
   BasicDataSource,
   EhGalleryImage,
   EhImageKnifeImage,
+  EH_IMAGE_PRIORITY_HIGH,
+  EH_IMAGE_PRIORITY_LOW,
   EhSpriteThumbnail,
   ReaderParams,
   ImageResolveService,
@@ -2454,6 +2456,7 @@ struct ReaderCacheWarmImage {
         widthValue: '100%',
         heightValue: '100%',
         objectFit: ImageFit.Contain,
+        priority: EH_IMAGE_PRIORITY_LOW,
         onComplete: () => {
           if (this.decodedKey === this.warmedKey) {
             return
@@ -3081,6 +3084,7 @@ struct ReaderSpreadImageLayer {
           widthValue: '100%',
           heightValue: '100%',
           objectFit: ImageFit.Contain,
+          priority: EH_IMAGE_PRIORITY_HIGH,
           onImageInfo: (width: number, height: number) => {
             this.onImageDecoded(width, height)
           },
@@ -3541,6 +3545,7 @@ struct ReaderImagePage {
           widthValue: '100%',
           heightValue: '100%',
           objectFit: ImageFit.Contain,
+          priority: EH_IMAGE_PRIORITY_HIGH,
           onImageInfo: (width: number, height: number) => {
             this.onImageDecoded(width, height)
           },
@@ -4167,6 +4172,7 @@ struct ReaderVerticalImage {
           widthValue: '100%',
           heightValue: '100%',
           objectFit: ImageFit.Contain,
+          priority: EH_IMAGE_PRIORITY_HIGH,
           onImageInfo: (width: number, height: number) => {
             this.onImageDecoded(width, height)
           },
@@ -4524,6 +4530,7 @@ struct ReaderImageBlockedOverlay {
         widthValue: '100%',
         heightValue: '100%',
         objectFit: ImageFit.Contain,
+        priority: EH_IMAGE_PRIORITY_LOW,
       })
         .scale({ x: 1.02, y: 1.02 })
         .blur(ThemeConstants.COVER_BG_BLUR_RADIUS + 40)

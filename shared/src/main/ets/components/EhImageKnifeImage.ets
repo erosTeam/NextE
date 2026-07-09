@@ -10,6 +10,10 @@ import {
 } from '@ohos/imageknifepro'
 import { ImageKnifeProRuntime } from '../services/ImageKnifeProRuntime'
 
+export const EH_IMAGE_PRIORITY_HIGH: number = 0
+export const EH_IMAGE_PRIORITY_MEDIUM: number = 1
+export const EH_IMAGE_PRIORITY_LOW: number = 2
+
 @ComponentV2
 export struct EhImageKnifeImage {
   @Param src: string = '';
@@ -20,7 +24,7 @@ export struct EhImageKnifeImage {
   @Param enableCache: boolean = true;
   @Param fileCacheName: string = '';
   @Param signature: string = '';
-  @Param priority: Priority = Priority.MEDIUM;
+  @Param priority: number = EH_IMAGE_PRIORITY_MEDIUM;
   @Param downSampling: DownSamplingStrategy = DownSamplingStrategy.DEFAULT;
   @Param desiredWidth: number = 0;
   @Param desiredHeight: number = 0;
@@ -58,7 +62,7 @@ export struct EhImageKnifeImage {
     option.objectFit = this.objectFit
     option.writeCacheStrategy = this.enableCache ? CacheStrategy.DEFAULT : CacheStrategy.NONE
     option.headerOption = this.headers()
-    option.priority = this.priority
+    option.priority = this.imageKnifePriority()
     if (this.fileCacheName.length > 0) {
       option.fileCacheName = this.fileCacheName
     }
@@ -106,6 +110,16 @@ export struct EhImageKnifeImage {
 
   private headers(): HeaderOptions[] {
     return ImageKnifeProRuntime.defaultHeaders()
+  }
+
+  private imageKnifePriority(): Priority {
+    if (this.priority === EH_IMAGE_PRIORITY_HIGH) {
+      return Priority.HIGH
+    }
+    if (this.priority === EH_IMAGE_PRIORITY_LOW) {
+      return Priority.LOW
+    }
+    return Priority.MEDIUM
   }
 
   build() {

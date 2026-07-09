@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
-import { EhImageKnifeImage } from './EhImageKnifeImage'
+import { EhImageKnifeImage, EH_IMAGE_PRIORITY_LOW } from './EhImageKnifeImage'
 import { ImageBlockDecision } from '../model/ImageBlockRule'
 import { ImageBlockRuntimeService } from '../services/ImageBlockRuntimeService'
 import {
@@ -261,6 +261,7 @@ export struct EhSpriteThumbnail {
             widthValue: this.sheetRenderWidth(),
             heightValue: this.sheetRenderHeight(),
             objectFit: ImageFit.Fill,
+            priority: EH_IMAGE_PRIORITY_LOW,
             onImageInfo: (width: number, height: number) => {
               this.sheetRealW = width
               this.sheetRealH = height
@@ -278,6 +279,7 @@ export struct EhSpriteThumbnail {
           widthValue: this.boxWidth(),
           heightValue: this.boxHeight(),
           objectFit: ImageFit.Cover,
+          priority: EH_IMAGE_PRIORITY_LOW,
         })
           .blur(18)
           .opacity(0.9)
@@ -287,6 +289,7 @@ export struct EhSpriteThumbnail {
           widthValue: this.boxWidth(),
           heightValue: this.boxHeight(),
           objectFit: ImageFit.Cover,
+          priority: EH_IMAGE_PRIORITY_LOW,
         })
           .blur(18)
           .opacity(0.9)

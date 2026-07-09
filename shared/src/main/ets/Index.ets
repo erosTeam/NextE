@@ -78,7 +78,12 @@ export {
   THUMBNAIL_VISUAL_LOADING,
   THUMBNAIL_VISUAL_ERROR,
 } from './components/EhThumbnail'
-export { EhImageKnifeImage } from './components/EhImageKnifeImage'
+export {
+  EhImageKnifeImage,
+  EH_IMAGE_PRIORITY_HIGH,
+  EH_IMAGE_PRIORITY_LOW,
+  EH_IMAGE_PRIORITY_MEDIUM,
+} from './components/EhImageKnifeImage'
 export { EhSpriteThumbnail } from './components/EhSpriteThumbnail'
 export { PreviewThumbTile } from './components/PreviewThumbTile'
 export { RatingStars } from './components/RatingStars'

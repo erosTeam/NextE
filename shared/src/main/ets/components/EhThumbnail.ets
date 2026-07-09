@@ -2,7 +2,7 @@ import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 import { CoverColorService } from '../services/CoverColorService'
 import { connectCoverBackground, CoverBackgroundState } from '../state/CoverBackgroundState'
-import { EhImageKnifeImage } from './EhImageKnifeImage'
+import { EhImageKnifeImage, EH_IMAGE_PRIORITY_LOW } from './EhImageKnifeImage'
 
 export const THUMBNAIL_VISUAL_AUTO: number = 0
 export const THUMBNAIL_VISUAL_LOADING: number = 1
@@ -233,6 +233,7 @@ export struct EhThumbnail {
         heightValue: '100%',
         objectFit: ImageFit.Cover,
         radius: this.radius,
+        priority: EH_IMAGE_PRIORITY_LOW,
       })
         .blur(ThemeConstants.COVER_BG_BLUR_RADIUS)
         .renderGroup(true)
