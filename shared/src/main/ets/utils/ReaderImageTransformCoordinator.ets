@@ -1,10 +1,13 @@
 export class ReaderImageTransformCoordinator {
   static readonly MIN_DYNAMIC_MAX_SCALE: number = 4
   static readonly MAX_DYNAMIC_MAX_SCALE: number = 12
+  static readonly MAX_EFFECTIVE_MAX_SCALE: number = 48
   static readonly NATIVE_SCALE_HEADROOM: number = 2
-  static readonly DOUBLE_TAP_MIN_SCALE: number = 1.5
-  static readonly DOUBLE_TAP_MAX_SCALE: number = 3
+  static readonly DOUBLE_TAP_PRIMARY_SCALE: number = 2
   static readonly DOUBLE_TAP_FALLBACK_SCALE: number = 2
+  static readonly DOUBLE_TAP_SCALE_EPSILON: number = 0.02
+  static readonly PINCH_ELASTIC_MIN_SCALE: number = 0.8
+  static readonly PINCH_UNDER_SCALE_RESISTANCE: number = 0.35
 
   static clampScale(value: number, maxScale: number = ReaderImageTransformCoordinator.MIN_DYNAMIC_MAX_SCALE): number {
     if (!Number.isFinite(value)) {
@@ -13,11 +16,26 @@ export class ReaderImageTransformCoordinator {
     if (value < 1) {
       return 1
     }
-    const boundedMax: number = ReaderImageTransformCoordinator.saneMaxScale(maxScale)
+    const boundedMax: number = ReaderImageTransformCoordinator.saneEffectiveMaxScale(maxScale)
     if (value > boundedMax) {
       return boundedMax
     }
     return value
+  }
+
+  static clampPinchScale(
+    value: number,
+    maxScale: number = ReaderImageTransformCoordinator.MIN_DYNAMIC_MAX_SCALE,
+  ): number {
+    if (!Number.isFinite(value)) {
+      return 1
+    }
+    if (value >= 1) {
+      return ReaderImageTransformCoordinator.clampScale(value, maxScale)
+    }
+    const resisted: number = 1 -
+      (1 - value) * ReaderImageTransformCoordinator.PINCH_UNDER_SCALE_RESISTANCE
+    return Math.max(ReaderImageTransformCoordinator.PINCH_ELASTIC_MIN_SCALE, resisted)
   }
 
   static saneMaxScale(value: number): number {
@@ -26,6 +44,16 @@ export class ReaderImageTransformCoordinator {
     }
     if (value > ReaderImageTransformCoordinator.MAX_DYNAMIC_MAX_SCALE) {
       return ReaderImageTransformCoordinator.MAX_DYNAMIC_MAX_SCALE
+    }
+    return value
+  }
+
+  static saneEffectiveMaxScale(value: number): number {
+    if (!Number.isFinite(value) || value < ReaderImageTransformCoordinator.MIN_DYNAMIC_MAX_SCALE) {
+      return ReaderImageTransformCoordinator.MIN_DYNAMIC_MAX_SCALE
+    }
+    if (value > ReaderImageTransformCoordinator.MAX_EFFECTIVE_MAX_SCALE) {
+      return ReaderImageTransformCoordinator.MAX_EFFECTIVE_MAX_SCALE
     }
     return value
   }
@@ -64,21 +92,124 @@ export class ReaderImageTransformCoordinator {
     )
   }
 
-  static doubleTapTarget(currentScale: number, maxScale: number, nativeScale: number): number {
-    if (currentScale > 1.01) {
+  static scaleForReferenceDisplay(
+    targetReferenceScale: number,
+    displayW: number,
+    displayH: number,
+    referenceDisplayW: number,
+    referenceDisplayH: number,
+  ): number {
+    if (
+      !Number.isFinite(targetReferenceScale) || targetReferenceScale <= 0 ||
+      displayW <= 0 || displayH <= 0 || referenceDisplayW <= 0 || referenceDisplayH <= 0
+    ) {
+      return targetReferenceScale
+    }
+    const scaleW: number = (referenceDisplayW * targetReferenceScale) / displayW
+    const scaleH: number = (referenceDisplayH * targetReferenceScale) / displayH
+    const scale: number = Math.min(scaleW, scaleH)
+    return scale > 0 && Number.isFinite(scale) ? scale : targetReferenceScale
+  }
+
+  static dynamicMaxScaleForDisplay(
+    intrinsicW: number,
+    intrinsicH: number,
+    displayW: number,
+    displayH: number,
+    referenceDisplayW: number,
+    referenceDisplayH: number,
+  ): number {
+    const referenceMax: number = ReaderImageTransformCoordinator.dynamicMaxScale(
+      intrinsicW,
+      intrinsicH,
+      referenceDisplayW,
+      referenceDisplayH,
+    )
+    return ReaderImageTransformCoordinator.saneEffectiveMaxScale(
+      ReaderImageTransformCoordinator.scaleForReferenceDisplay(
+        referenceMax,
+        displayW,
+        displayH,
+        referenceDisplayW,
+        referenceDisplayH,
+      ),
+    )
+  }
+
+  static nearScale(first: number, second: number): boolean {
+    return Math.abs(first - second) <= ReaderImageTransformCoordinator.DOUBLE_TAP_SCALE_EPSILON
+  }
+
+  static nextDoubleTapScale(
+    currentScale: number,
+    maxScale: number,
+    primaryScale: number,
+    nativeScale: number,
+    pinchAdjusted: boolean,
+  ): number {
+    if (pinchAdjusted && currentScale > 1.01) {
       return 1
     }
-    let target: number = nativeScale
-    if (!Number.isFinite(target) || target <= 0) {
-      target = ReaderImageTransformCoordinator.DOUBLE_TAP_FALLBACK_SCALE
+    const primary: number = ReaderImageTransformCoordinator.clampScale(primaryScale, maxScale)
+    const native: number = ReaderImageTransformCoordinator.clampScale(nativeScale, maxScale)
+    if (currentScale <= 1.01) {
+      return primary
     }
-    if (target < ReaderImageTransformCoordinator.DOUBLE_TAP_MIN_SCALE) {
-      target = ReaderImageTransformCoordinator.DOUBLE_TAP_MIN_SCALE
+    if (
+      ReaderImageTransformCoordinator.nearScale(currentScale, primary) &&
+      native > 1 + ReaderImageTransformCoordinator.DOUBLE_TAP_SCALE_EPSILON
+    ) {
+      return native
     }
-    if (target > ReaderImageTransformCoordinator.DOUBLE_TAP_MAX_SCALE) {
-      target = ReaderImageTransformCoordinator.DOUBLE_TAP_MAX_SCALE
-    }
-    return ReaderImageTransformCoordinator.clampScale(target, maxScale)
+    return 1
+  }
+
+  static doubleTapTarget(
+    currentScale: number,
+    maxScale: number,
+    nativeScale: number,
+    pinchAdjusted: boolean = false,
+  ): number {
+    return ReaderImageTransformCoordinator.nextDoubleTapScale(
+      currentScale,
+      maxScale,
+      ReaderImageTransformCoordinator.DOUBLE_TAP_PRIMARY_SCALE,
+      nativeScale,
+      pinchAdjusted,
+    )
+  }
+
+  static doubleTapTargetForDisplay(
+    currentScale: number,
+    maxScale: number,
+    referenceNativeScale: number,
+    displayW: number,
+    displayH: number,
+    referenceDisplayW: number,
+    referenceDisplayH: number,
+    pinchAdjusted: boolean = false,
+  ): number {
+    const primary: number = ReaderImageTransformCoordinator.scaleForReferenceDisplay(
+      ReaderImageTransformCoordinator.DOUBLE_TAP_PRIMARY_SCALE,
+      displayW,
+      displayH,
+      referenceDisplayW,
+      referenceDisplayH,
+    )
+    const native: number = ReaderImageTransformCoordinator.scaleForReferenceDisplay(
+      referenceNativeScale,
+      displayW,
+      displayH,
+      referenceDisplayW,
+      referenceDisplayH,
+    )
+    return ReaderImageTransformCoordinator.nextDoubleTapScale(
+      currentScale,
+      maxScale,
+      primary,
+      native,
+      pinchAdjusted,
+    )
   }
 
   static maxOffset(viewport: number, displaySize: number, scale: number): number {
