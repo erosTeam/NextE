@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { fileIo } from '@kit.CoreFileKit'
 import {
   CacheStrategy,
+  CacheErrorCode,
   HeaderOptions,
   ImageKnife,
   ImageKnifeOptionV2,
@@ -20,6 +21,10 @@ const IMAGEKNIFE_MEMORY_CACHE_COUNT: number = 128
 const IMAGEKNIFE_MEMORY_CACHE_BYTES: number = 32 * 1024 * 1024
 const IMAGEKNIFE_MAX_REQUESTS: number = 8
 const IMAGEKNIFE_CACHE_DIR: string = 'imageknife-cover-cache'
+const IMAGEKNIFE_READER_CACHE_NAME: string = 'reader'
+const IMAGEKNIFE_READER_CACHE_DIR: string = 'imageknife-reader-cache'
+const IMAGEKNIFE_READER_FILE_CACHE_COUNT: number = 384
+const IMAGEKNIFE_READER_FILE_CACHE_BYTES: number = 256 * 1024 * 1024
 const IMAGEKNIFE_READER_CONNECT_TIMEOUT_MS: number = 6000
 const IMAGEKNIFE_READER_READ_TIMEOUT_MS: number = 60000
 
@@ -42,6 +47,7 @@ export class ImageKnifeProRuntime {
         )
         .then(() => {
           DiagnosticLogger.info('imageknife', 'file_cache_ready', IMAGEKNIFE_CACHE_DIR)
+          ImageKnifeProRuntime.initializeReaderFileCache(context)
         })
         .catch((error: Error) => {
           DiagnosticLogger.warn('imageknife', 'file_cache_failed', error.message)
@@ -91,6 +97,18 @@ export class ImageKnifeProRuntime {
       const bytes: number | undefined = imageKnife.getCurrentCacheSize(CacheStrategy.FILE)
       out.count = ImageKnifeProRuntime.safeMetric(count)
       out.bytes = ImageKnifeProRuntime.safeMetric(bytes)
+      if (imageKnife.isFileCacheInit(IMAGEKNIFE_READER_CACHE_NAME)) {
+        const readerCount: number | undefined = imageKnife.getCurrentCacheNum(
+          CacheStrategy.FILE,
+          IMAGEKNIFE_READER_CACHE_NAME,
+        )
+        const readerBytes: number | undefined = imageKnife.getCurrentCacheSize(
+          CacheStrategy.FILE,
+          IMAGEKNIFE_READER_CACHE_NAME,
+        )
+        out.count += ImageKnifeProRuntime.safeMetric(readerCount)
+        out.bytes += ImageKnifeProRuntime.safeMetric(readerBytes)
+      }
     } catch (error) {
       DiagnosticLogger.warn('imageknife', 'stat_failed', (error as Error).message)
     }
@@ -103,6 +121,9 @@ export class ImageKnifeProRuntime {
       imageKnife.removeAllMemoryCache()
       if (imageKnife.isFileCacheInit()) {
         await imageKnife.removeAllFileCache()
+      }
+      if (imageKnife.isFileCacheInit(IMAGEKNIFE_READER_CACHE_NAME)) {
+        await imageKnife.removeAllFileCache(IMAGEKNIFE_READER_CACHE_NAME)
       }
       DiagnosticLogger.info('imageknife', 'cache_cleared', IMAGEKNIFE_CACHE_DIR)
     } catch (error) {
@@ -144,10 +165,11 @@ export class ImageKnifeProRuntime {
       ImageKnifeProRuntime.initialize(context)
     }
     const startedAt: number = Date.now()
+    const readerCacheReady: boolean = ImageKnifeProRuntime.isReaderFileCacheReady()
     DiagnosticLogger.info(
       'imageknife',
       'reader_imageknife_preload_start',
-      `urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+      `cache=${ImageKnifeProRuntime.readerCacheLabel(readerCacheReady)} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
     )
     try {
       const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
@@ -157,6 +179,9 @@ export class ImageKnifeProRuntime {
       option.writeCacheStrategy = CacheStrategy.DEFAULT
       option.priority = ImageKnifeProRuntime.priorityFromNumber(priority)
       option.signature = cacheKey
+      if (readerCacheReady) {
+        option.fileCacheName = IMAGEKNIFE_READER_CACHE_NAME
+      }
       option.httpOption = {
         connectTimeout: IMAGEKNIFE_READER_CONNECT_TIMEOUT_MS,
         readTimeout: IMAGEKNIFE_READER_READ_TIMEOUT_MS,
@@ -174,7 +199,7 @@ export class ImageKnifeProRuntime {
       DiagnosticLogger.info(
         'imageknife',
         'reader_imageknife_preload_done',
-        `bytes=${bytes} costMs=${Date.now() - startedAt} pathHash=${DiagnosticLogger.ownerHash(filePath)} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+        `cache=${ImageKnifeProRuntime.readerCacheLabel(readerCacheReady)} bytes=${bytes} costMs=${Date.now() - startedAt} pathHash=${DiagnosticLogger.ownerHash(filePath)} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
       )
       return {
         filePath,
@@ -206,6 +231,9 @@ export class ImageKnifeProRuntime {
       option.context = context
       option.headerOption = ImageKnifeProRuntime.readerHeaders()
       option.signature = cacheKey
+      if (ImageKnifeProRuntime.isReaderFileCacheReady()) {
+        option.fileCacheName = IMAGEKNIFE_READER_CACHE_NAME
+      }
       ImageKnife.getInstance().removeFileCache(option)
       DiagnosticLogger.info(
         'imageknife',
@@ -238,6 +266,55 @@ export class ImageKnifeProRuntime {
     headers.push({ key: 'Accept', value: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8' })
     headers.push({ key: 'Accept-Language', value: EhConstants.ACCEPT_LANGUAGE })
     return headers
+  }
+
+  private static initializeReaderFileCache(context: common.UIAbilityContext): void {
+    try {
+      const imageKnife: ImageKnife = ImageKnife.getInstance()
+      if (imageKnife.isFileCacheInit(IMAGEKNIFE_READER_CACHE_NAME)) {
+        return
+      }
+      imageKnife
+        .addSmallEndFileCache(
+          IMAGEKNIFE_READER_CACHE_NAME,
+          context,
+          IMAGEKNIFE_READER_CACHE_DIR,
+          IMAGEKNIFE_READER_FILE_CACHE_COUNT,
+          IMAGEKNIFE_READER_FILE_CACHE_BYTES,
+        )
+        .then((code: CacheErrorCode) => {
+          if (code === CacheErrorCode.SUCCESS || code === CacheErrorCode.CACHE_NAME_OCCUPIED) {
+            DiagnosticLogger.info(
+              'imageknife',
+              'reader_file_cache_ready',
+              `${IMAGEKNIFE_READER_CACHE_DIR} code=${code}`,
+            )
+            return
+          }
+          DiagnosticLogger.warn(
+            'imageknife',
+            'reader_file_cache_failed',
+            `${IMAGEKNIFE_READER_CACHE_DIR} code=${code}`,
+          )
+        })
+        .catch((error: Error) => {
+          DiagnosticLogger.warn('imageknife', 'reader_file_cache_failed', error.message)
+        })
+    } catch (error) {
+      DiagnosticLogger.warn('imageknife', 'reader_file_cache_failed', (error as Error).message)
+    }
+  }
+
+  private static isReaderFileCacheReady(): boolean {
+    try {
+      return ImageKnife.getInstance().isFileCacheInit(IMAGEKNIFE_READER_CACHE_NAME)
+    } catch (_error) {
+      return false
+    }
+  }
+
+  private static readerCacheLabel(readerCacheReady: boolean): string {
+    return readerCacheReady ? IMAGEKNIFE_READER_CACHE_NAME : 'default'
   }
 
   private static readerHeaders(): HeaderOptions[] {
