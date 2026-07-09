@@ -1,5 +1,6 @@
 import {
   ThemeConstants,
+  EhConstants,
   EhGallery,
   GalleryCard,
   GalleryGridCard,
@@ -29,8 +30,12 @@ import {
   LayoutSafeAreaState,
   connectLayoutSafeArea,
   DiagnosticLogger,
+  ImageKnifeProRuntime,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
+
+const COVER_PRELOAD_AHEAD_COUNT: number = 4
+const COVER_PRELOAD_REMEMBER_LIMIT: number = 96
 
 /**
  * The shared gallery-list body (loading / error / empty / grid / list / simple branches + paging),
@@ -58,6 +63,7 @@ export struct GalleryListBody {
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
+  private preloadedCoverUrls: string[] = [];
 
   // Re-tapping the active bottom tab refreshes this list: the nav shell looks the action up by this list's
   // Scroller (it tracks each tab's active sub-tab Scroller) and fires it. Used by Gallery + Toplist tabs.
@@ -186,6 +192,31 @@ export struct GalleryListBody {
     }
   }
 
+  private onGalleryAppear(index: number): void {
+    this.loadMoreIfTailAppeared(index)
+    this.preloadCoversAhead(index)
+  }
+
+  private preloadCoversAhead(index: number): void {
+    const end: number = Math.min(this.vm.itemCount, index + COVER_PRELOAD_AHEAD_COUNT + 1)
+    for (let i: number = index + 1; i < end; i++) {
+      const gallery: EhGallery = this.vm.dataSource.getData(i)
+      const url: string = EhConstants.cdnThumb(gallery.thumbUrl)
+      if (url.length === 0 || this.preloadedCoverUrls.indexOf(url) >= 0) {
+        continue
+      }
+      this.rememberPreloadedCover(url)
+      ImageKnifeProRuntime.preload(url)
+    }
+  }
+
+  private rememberPreloadedCover(url: string): void {
+    this.preloadedCoverUrls.push(url)
+    if (this.preloadedCoverUrls.length > COVER_PRELOAD_REMEMBER_LIMIT) {
+      this.preloadedCoverUrls.splice(0, this.preloadedCoverUrls.length - COVER_PRELOAD_REMEMBER_LIMIT)
+    }
+  }
+
   build() {
     Column() {
       if (
@@ -259,7 +290,7 @@ export struct GalleryListBody {
                 GalleryGridCard({ gallery: g })
               }
               .onAppear(() => {
-                this.loadMoreIfTailAppeared(index)
+                this.onGalleryAppear(index)
               })
               .onClick(() => {
                 this.openDetail(g)
@@ -320,7 +351,7 @@ export struct GalleryListBody {
               }
               .width('100%')
               .onAppear(() => {
-                this.loadMoreIfTailAppeared(index)
+                this.onGalleryAppear(index)
               })
               .onClick(() => {
                 this.openDetail(g)
@@ -381,7 +412,7 @@ export struct GalleryListBody {
               }
               .width('100%')
               .onAppear(() => {
-                this.loadMoreIfTailAppeared(index)
+                this.onGalleryAppear(index)
               })
               .onClick(() => {
                 this.openDetail(g)
@@ -431,7 +462,7 @@ export struct GalleryListBody {
                 }
               }
               .onAppear(() => {
-                this.loadMoreIfTailAppeared(index)
+                this.onGalleryAppear(index)
               })
               .onClick(() => {
                 this.openDetail(g)
