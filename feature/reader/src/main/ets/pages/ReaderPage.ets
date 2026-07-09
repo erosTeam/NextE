@@ -15,6 +15,7 @@ import {
   ReaderParams,
   ImageResolveService,
   CachedImageFileService,
+  ImageKnifeProRuntime,
   DiagnosticLogger,
   connectThemeDisplay,
   connectLayoutSafeArea,
@@ -2337,6 +2338,11 @@ async function readerImageBlockDecisionForFile(
   page: number,
 ): Promise<ImageBlockDecision> {
   try {
+    DiagnosticLogger.info(
+      'imageknife',
+      'reader_imageknife_block_decision',
+      `page=${page} fileHash=${DiagnosticLogger.ownerHash(filePath)}`,
+    )
     return await ImageBlockRuntimeService.decisionForFile(context, filePath)
   } catch (err) {
     DiagnosticLogger.warn('image-block', 'reader_decision_failed', `page=${page} ${(err as Error).message}`)
@@ -2401,6 +2407,57 @@ struct ReaderCacheWarmImage {
     this.onImageFileReady(this.page, result.filePath)
   }
 
+  private async warmByImageKnifeOrFallback(
+    context: common.UIAbilityContext,
+    key: string,
+  ): Promise<void> {
+    try {
+      const imageKnifeResult: CachedImageFileResult | null =
+        await ImageKnifeProRuntime.preloadReaderFile(
+          context,
+          this.sourceUrl,
+          key,
+          EH_IMAGE_PRIORITY_LOW,
+        )
+      if (this.warmingKey !== key) {
+        return
+      }
+      if (imageKnifeResult !== null) {
+        DiagnosticLogger.info(
+          'imageknife',
+          'reader_imageknife_file_ready',
+          `page=${this.page} bytes=${imageKnifeResult.bytes} warm=true`,
+        )
+        this.markReady(imageKnifeResult, key)
+        return
+      }
+      DiagnosticLogger.info(
+        'imageknife',
+        'reader_imageknife_fallback_cached_service',
+        `page=${this.page} warm=true urlHash=${DiagnosticLogger.ownerHash(this.sourceUrl)} cacheKeyHash=${DiagnosticLogger.ownerHash(key)}`,
+      )
+      const result: CachedImageFileResult = await CachedImageFileService.load(
+        context,
+        this.sourceUrl,
+        key,
+        (_progress: CachedImageProgress) => {},
+      )
+      if (this.warmingKey !== key) {
+        return
+      }
+      DiagnosticLogger.info('image-cache', 'reader_warm_complete', `page ${this.page} ${result.bytes} bytes`)
+      this.markReady(result, key)
+    } catch (err) {
+      if (this.warmingKey === key) {
+        DiagnosticLogger.warn('image-cache', 'reader_warm_failed', `page ${this.page}: ${(err as Error).message}`)
+      }
+    } finally {
+      if (this.warmingKey === key) {
+        this.warmingKey = ''
+      }
+    }
+  }
+
   private warm(): void {
     if (this.page <= 0 || this.sourceUrl.length === 0) {
       this.warmDisplayUri = ''
@@ -2424,29 +2481,7 @@ struct ReaderCacheWarmImage {
     }
     this.warmingKey = key
     this.warmDisplayUri = ''
-    CachedImageFileService.load(
-      context,
-      this.sourceUrl,
-      key,
-      (_progress: CachedImageProgress) => {},
-    )
-      .then((result: CachedImageFileResult) => {
-        if (this.warmingKey !== key) {
-          return
-        }
-        DiagnosticLogger.info('image-cache', 'reader_warm_complete', `page ${this.page} ${result.bytes} bytes`)
-        this.markReady(result, key)
-      })
-      .catch((err: Error) => {
-        if (this.warmingKey === key) {
-          DiagnosticLogger.warn('image-cache', 'reader_warm_failed', `page ${this.page}: ${err.message}`)
-        }
-      })
-      .finally(() => {
-        if (this.warmingKey === key) {
-          this.warmingKey = ''
-        }
-      })
+    this.warmByImageKnifeOrFallback(context, key)
   }
 
   build() {
@@ -2464,6 +2499,7 @@ struct ReaderCacheWarmImage {
           this.decodedKey = this.warmedKey
           this.onImageLoaded(this.page)
           DiagnosticLogger.info('image-cache', 'reader_warm_decoded', `page ${this.page}`)
+          DiagnosticLogger.info('imageknife', 'reader_imageknife_display_decoded', `page=${this.page} warm=true`)
         },
         onError: () => {
           DiagnosticLogger.warn('image-cache', 'reader_warm_decode_failed', `page ${this.page}`)
@@ -2945,6 +2981,44 @@ struct ReaderSpreadImageLayer {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
+    const imageKnifeResult: CachedImageFileResult | null =
+      await ImageKnifeProRuntime.preloadReaderFile(
+        context,
+        resolved,
+        cacheKey,
+        EH_IMAGE_PRIORITY_HIGH,
+      )
+    if (seq !== this.loadSeq) {
+      return
+    }
+    if (imageKnifeResult !== null) {
+      this.onImageFileReady(this.image.page, imageKnifeResult.filePath)
+      this.imageProgressLoaded = imageKnifeResult.bytes
+      this.imageProgressTotal = imageKnifeResult.bytes
+      DiagnosticLogger.info(
+        'imageknife',
+        'reader_imageknife_file_ready',
+        `page=${this.image.page} bytes=${imageKnifeResult.bytes} warm=false`,
+      )
+      await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+      if (seq !== this.loadSeq) {
+        return
+      }
+      if (await this.applyImageBlockDecision(context, imageKnifeResult.filePath, imageKnifeResult.bytes, imageKnifeResult.displayUri, seq)) {
+        return
+      }
+      this.imageUrl = imageKnifeResult.displayUri
+      this.imageLoaded = this.initiallyLoaded
+      this.autoRetryCount = 0
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
+      return
+    }
+    DiagnosticLogger.info(
+      'imageknife',
+      'reader_imageknife_fallback_cached_service',
+      `page=${this.image.page} warm=false urlHash=${DiagnosticLogger.ownerHash(resolved)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+    )
     const result = await CachedImageFileService.load(
       context,
       resolved,
@@ -3016,8 +3090,14 @@ struct ReaderSpreadImageLayer {
   private retrySource(): void {
     this.autoRetryCount = 0
     if (this.sourceImageUrl.length > 0) {
+      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+      ImageKnifeProRuntime.removeReaderFile(
+        context,
+        this.sourceImageUrl,
+        this.cacheKey(this.sourceImageUrl),
+      )
       CachedImageFileService.remove(
-        this.getUIContext().getHostContext() as common.UIAbilityContext,
+        context,
         this.sourceImageUrl,
         this.cacheKey(this.sourceImageUrl),
       )
@@ -3066,6 +3146,11 @@ struct ReaderSpreadImageLayer {
     if (width > 0 && height > 0) {
       this.onImageMetrics(this.image.page, width, height)
     }
+    DiagnosticLogger.info(
+      'imageknife',
+      'reader_imageknife_display_decoded',
+      `page=${this.image.page} width=${width} height=${height}`,
+    )
   }
 
   build() {
@@ -3299,6 +3384,44 @@ struct ReaderImagePage {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
+    const imageKnifeResult: CachedImageFileResult | null =
+      await ImageKnifeProRuntime.preloadReaderFile(
+        context,
+        resolved,
+        cacheKey,
+        EH_IMAGE_PRIORITY_HIGH,
+      )
+    if (seq !== this.loadSeq) {
+      return
+    }
+    if (imageKnifeResult !== null) {
+      this.onImageFileReady(this.image.page, imageKnifeResult.filePath)
+      this.imageProgressLoaded = imageKnifeResult.bytes
+      this.imageProgressTotal = imageKnifeResult.bytes
+      DiagnosticLogger.info(
+        'imageknife',
+        'reader_imageknife_file_ready',
+        `page=${this.image.page} bytes=${imageKnifeResult.bytes} warm=false`,
+      )
+      await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+      if (seq !== this.loadSeq) {
+        return
+      }
+      if (await this.applyImageBlockDecision(context, imageKnifeResult.filePath, imageKnifeResult.bytes, imageKnifeResult.displayUri, seq)) {
+        return
+      }
+      this.imageUrl = imageKnifeResult.displayUri
+      this.imageLoaded = this.initiallyLoaded
+      this.autoRetryCount = 0
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
+      return
+    }
+    DiagnosticLogger.info(
+      'imageknife',
+      'reader_imageknife_fallback_cached_service',
+      `page=${this.image.page} warm=false urlHash=${DiagnosticLogger.ownerHash(resolved)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+    )
     const result = await CachedImageFileService.load(
       context,
       resolved,
@@ -3387,8 +3510,14 @@ struct ReaderImagePage {
   private retrySource(): void {
     this.autoRetryCount = 0
     if (this.sourceImageUrl.length > 0) {
+      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+      ImageKnifeProRuntime.removeReaderFile(
+        context,
+        this.sourceImageUrl,
+        this.cacheKey(this.sourceImageUrl),
+      )
       CachedImageFileService.remove(
-        this.getUIContext().getHostContext() as common.UIAbilityContext,
+        context,
         this.sourceImageUrl,
         this.cacheKey(this.sourceImageUrl),
       )
@@ -3442,6 +3571,11 @@ struct ReaderImagePage {
         `page=${this.image.page} width=${width} height=${height} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
       )
     }
+    DiagnosticLogger.info(
+      'imageknife',
+      'reader_imageknife_display_decoded',
+      `page=${this.image.page} width=${width} height=${height}`,
+    )
     this.markImageLoaded()
     this.clampOffset()
   }
@@ -3850,6 +3984,44 @@ struct ReaderVerticalImage {
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
+    const imageKnifeResult: CachedImageFileResult | null =
+      await ImageKnifeProRuntime.preloadReaderFile(
+        context,
+        resolved,
+        cacheKey,
+        EH_IMAGE_PRIORITY_HIGH,
+      )
+    if (seq !== this.loadSeq) {
+      return
+    }
+    if (imageKnifeResult !== null) {
+      this.onImageFileReady(this.image.page, imageKnifeResult.filePath)
+      this.imageProgressLoaded = imageKnifeResult.bytes
+      this.imageProgressTotal = imageKnifeResult.bytes
+      DiagnosticLogger.info(
+        'imageknife',
+        'reader_imageknife_file_ready',
+        `page=${this.image.page} bytes=${imageKnifeResult.bytes} warm=false`,
+      )
+      await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+      if (seq !== this.loadSeq) {
+        return
+      }
+      if (await this.applyImageBlockDecision(context, imageKnifeResult.filePath, imageKnifeResult.bytes, imageKnifeResult.displayUri, seq)) {
+        return
+      }
+      this.imageUrl = imageKnifeResult.displayUri
+      this.imageLoaded = this.initiallyLoaded
+      this.autoRetryCount = 0
+      this.failed = false
+      this.failureKind = ReaderImageFailureKind.Generic
+      return
+    }
+    DiagnosticLogger.info(
+      'imageknife',
+      'reader_imageknife_fallback_cached_service',
+      `page=${this.image.page} warm=false urlHash=${DiagnosticLogger.ownerHash(resolved)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+    )
     const result = await CachedImageFileService.load(
       context,
       resolved,
@@ -3938,8 +4110,14 @@ struct ReaderVerticalImage {
   private retrySource(): void {
     this.autoRetryCount = 0
     if (this.sourceImageUrl.length > 0) {
+      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+      ImageKnifeProRuntime.removeReaderFile(
+        context,
+        this.sourceImageUrl,
+        this.cacheKey(this.sourceImageUrl),
+      )
       CachedImageFileService.remove(
-        this.getUIContext().getHostContext() as common.UIAbilityContext,
+        context,
         this.sourceImageUrl,
         this.cacheKey(this.sourceImageUrl),
       )
@@ -4146,6 +4324,11 @@ struct ReaderVerticalImage {
         `page=${this.image.page} width=${width} height=${height} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
       )
     }
+    DiagnosticLogger.info(
+      'imageknife',
+      'reader_imageknife_display_decoded',
+      `page=${this.image.page} width=${width} height=${height}`,
+    )
     this.markImageLoaded()
     this.clampOffset()
   }
