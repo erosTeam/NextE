@@ -217,6 +217,66 @@ export class ImageKnifeProRuntime {
     }
   }
 
+  static async preloadImageBlockThumbnailFile(
+    context: common.UIAbilityContext,
+    url: string,
+    cacheKey: string,
+  ): Promise<CachedImageFileResult | null> {
+    if (url.length === 0) {
+      return null
+    }
+    if (!ImageKnifeProRuntime.initialized) {
+      ImageKnifeProRuntime.initialize(context)
+    }
+    const startedAt: number = Date.now()
+    DiagnosticLogger.info(
+      'imageknife',
+      'imageblock_imageknife_thumb_preload_start',
+      `urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+    )
+    try {
+      const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
+      option.loadSrc = url
+      option.context = context
+      option.headerOption = ImageKnifeProRuntime.readerHeaders()
+      option.writeCacheStrategy = CacheStrategy.DEFAULT
+      option.priority = Priority.LOW
+      option.signature = cacheKey
+      option.httpOption = {
+        connectTimeout: IMAGEKNIFE_READER_CONNECT_TIMEOUT_MS,
+        readTimeout: IMAGEKNIFE_READER_READ_TIMEOUT_MS,
+      }
+      const filePath: string = await ImageKnife.getInstance().preloadCache(option)
+      const bytes: number = ImageKnifeProRuntime.fileSize(filePath)
+      if (filePath.length === 0 || bytes <= 0) {
+        DiagnosticLogger.warn(
+          'imageknife',
+          'imageblock_imageknife_thumb_preload_failed',
+          `emptyResult=${filePath.length === 0} bytes=${bytes} costMs=${Date.now() - startedAt} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+        )
+        return null
+      }
+      DiagnosticLogger.info(
+        'imageknife',
+        'imageblock_imageknife_thumb_preload_done',
+        `bytes=${bytes} costMs=${Date.now() - startedAt} pathHash=${DiagnosticLogger.ownerHash(filePath)} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+      )
+      return {
+        filePath,
+        displayUri: CachedImageFileService.displayUri(filePath),
+        bytes,
+        fromCache: false,
+      }
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'imageknife',
+        'imageblock_imageknife_thumb_preload_failed',
+        `costMs=${Date.now() - startedAt} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)} error=${(error as Error).message}`,
+      )
+      return null
+    }
+  }
+
   static removeReaderFile(
     context: common.UIAbilityContext,
     url: string,
