@@ -3289,6 +3289,10 @@
       "value": "EH にリクエストを送信し、GP または Credits を消費する場合があります。"
     },
     {
+      "name": "gallery_archiver_submit_free_notice",
+      "value": "EH に無料のアーカイブリクエストを送信します。GP または Credits は消費しません。"
+    },
+    {
       "name": "gallery_archiver_submitted",
       "value": "アーカイブ要求を送信しました"
     },

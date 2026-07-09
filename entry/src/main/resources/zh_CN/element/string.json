@@ -3289,6 +3289,10 @@
       "value": "这会向 EH 提交请求，并可能消耗 GP 或 Credits。"
     },
     {
+      "name": "gallery_archiver_submit_free_notice",
+      "value": "这会向 EH 提交免费归档请求，不会消耗 GP 或 Credits。"
+    },
+    {
       "name": "gallery_archiver_submitted",
       "value": "归档请求已提交"
     },

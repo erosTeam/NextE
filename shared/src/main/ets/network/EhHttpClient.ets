@@ -1,7 +1,5 @@
 import axios, {
-  AbortController,
   AxiosAdapter,
-  AxiosProgressEvent,
   AxiosPromise,
   AxiosRequestConfig,
   AxiosResponse,
@@ -34,10 +32,11 @@ const IMAGE_ACCEPT: string = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8
 const STREAM_PROGRESS_INTERVAL_MS: number = 500
 
 /**
- * EH HTTP transport. Text/form requests and non-resumable binary downloads go through @ohos/axios;
- * resumable range downloads keep direct @ohos.net.http streaming. Sets the desktop Chrome UA + Accept
- * headers EH expects, injects the cookie jar (forced nw=1), auto-gzip, and applies
- * exponential-backoff retry on transport errors / 5xx.
+ * EH HTTP transport. Text/form requests go through @ohos/axios. Binary downloads use axios
+ * adapters backed by @ohos.net.http streaming so app/public download paths and resumable Range
+ * writes keep their existing file semantics. Sets the desktop Chrome UA + Accept headers EH
+ * expects, injects the cookie jar (forced nw=1), auto-gzip, and applies exponential-backoff
+ * retry on transport errors / 5xx.
  *
  * Anti-block (per the dropped-domain-fronting decision): standard requests + DoH/fallback-IP
  * resolution + user proxy/VPN are layered in later via a pluggable resolver; M1 connects
@@ -263,13 +262,75 @@ export class EhHttpClient {
     maxAttempts: number = MAX_RETRIES,
     readTimeoutMs: number = BINARY_STREAM_READ_TIMEOUT_MS,
   ): Promise<number> {
+    const config: AxiosRequestConfig<string> = {
+      url: url,
+      method: 'GET',
+      headers: EhHttpClient.binaryHeader(accept),
+      connectTimeout: connectTimeoutMs,
+      readTimeout: readTimeoutMs,
+      timeout: readTimeoutMs,
+      maxContentLength: MAX_BINARY_BYTES,
+      validateStatus: EhHttpClient.acceptStatus,
+      adapter: EhHttpClient.createStreamDownloadAdapter(
+        filePath,
+        progress,
+        noProgressTimeoutMs,
+        accept,
+        maxAttempts,
+      ),
+    }
+    const resp: AxiosResponse<number, string> =
+      await axios.request<number, AxiosResponse<number, string>, string>(config)
+    return resp.data
+  }
+
+  private static createStreamDownloadAdapter(
+    filePath: string,
+    progress: (loaded: number, total: number) => void,
+    noProgressTimeoutMs: number,
+    accept: string,
+    maxAttempts: number,
+  ): AxiosAdapter {
+    const adapter: AxiosAdapter = async (
+      config: InternalAxiosRequestConfig,
+    ): AxiosPromise<number> => {
+      const written: number = await EhHttpClient.downloadBinaryToFileInStreamWithConfig(
+        config,
+        filePath,
+        progress,
+        noProgressTimeoutMs,
+        accept,
+        maxAttempts,
+      )
+      return {
+        data: written,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: config,
+      }
+    }
+    return adapter
+  }
+
+  private static async downloadBinaryToFileInStreamWithConfig(
+    config: InternalAxiosRequestConfig,
+    filePath: string,
+    progress: (loaded: number, total: number) => void,
+    noProgressTimeoutMs: number,
+    accept: string,
+    maxAttempts: number,
+  ): Promise<number> {
+    const url: string = EhHttpClient.requiredUrl(config)
+    const connectTimeoutMs: number = EhHttpClient.timeoutValue(config.connectTimeout, CONNECT_TIMEOUT_MS)
+    const readTimeoutMs: number = EhHttpClient.timeoutValue(config.readTimeout, BINARY_STREAM_READ_TIMEOUT_MS)
     let attempt: number = 0
     let lastError: Error | null = null
     const attempts: number = Math.max(1, Math.round(maxAttempts))
     while (attempt < attempts) {
+      const req: http.HttpRequest = http.createHttp()
       let noProgressTimer: number = -1
       let noProgressTimedOut: boolean = false
-      const controller: AbortController | null = noProgressTimeoutMs > 0 ? new AbortController() : null
       const clearNoProgressTimer = (): void => {
         if (noProgressTimer >= 0) {
           clearTimeout(noProgressTimer)
@@ -283,14 +344,20 @@ export class EhHttpClient {
         }
         noProgressTimer = setTimeout((): void => {
           noProgressTimedOut = true
-          if (controller !== null) {
-            controller.abort()
-          }
+          req.destroy()
         }, noProgressTimeoutMs)
       }
+      let file: fs.File | null = null
+      let openedTarget: boolean = false
       let shouldDeleteFile: boolean = false
       try {
-        EhHttpClient.deleteFileQuietly(filePath)
+        const header: Record<string, string> = EhHttpClient.binaryHeader(accept)
+        file = fs.openSync(
+          filePath,
+          fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC,
+        )
+        openedTarget = true
+        let written: number = 0
         let progressTotal: number = 0
         let progressLoaded: number = 0
         let lastProgressAt: number = 0
@@ -314,56 +381,65 @@ export class EhHttpClient {
           progress(loaded, total)
         }
         armNoProgressTimer()
-        const config: AxiosRequestConfig<string> = {
-          url: url,
-          method: 'GET',
-          headers: EhHttpClient.binaryHeader(accept),
-          filePath: filePath,
-          connectTimeout: connectTimeoutMs,
-          readTimeout: readTimeoutMs,
-          timeout: readTimeoutMs,
-          maxContentLength: MAX_BINARY_BYTES,
-          onDownloadProgress: (event: AxiosProgressEvent): void => {
-            if (event.total !== undefined && event.total > progressTotal) {
-              progressTotal = event.total
-            }
-            if (event.loaded > progressLoaded) {
-              progressLoaded = event.loaded
-            }
-            emitProgress(progressLoaded, progressTotal)
-            armNoProgressTimer()
-          },
-        }
-        if (controller !== null) {
-          config.signal = controller.signal
-        }
-        await axios.request<string, AxiosResponse<string, string>, string>(config)
-        if (noProgressTimedOut) {
-          throw new Error('binary no progress timeout')
-        }
-        clearNoProgressTimer()
-        const written: number = EhHttpClient.fileSizeQuietly(filePath)
-        if (written <= 0) {
-          shouldDeleteFile = true
-          throw new Error('binary response is empty')
-        } else {
+        req.on('dataReceiveProgress', (info: http.DataReceiveProgressInfo) => {
+          if (info.totalSize > progressTotal) {
+            progressTotal = info.totalSize
+          }
+          if (info.receiveSize > progressLoaded) {
+            progressLoaded = info.receiveSize
+          }
+          emitProgress(progressLoaded, progressTotal)
+        })
+        req.on('dataReceive', (data: ArrayBuffer) => {
+          const offset: number = written
+          const len: number = fs.writeSync((file as fs.File).fd, data, { offset: offset })
+          written += len
           if (written > progressLoaded) {
             progressLoaded = written
           }
+          emitProgress(progressLoaded, progressTotal)
+        })
+        const code: number = await req.requestInStream(url, {
+          method: http.RequestMethod.GET,
+          header: header,
+          connectTimeout: connectTimeoutMs,
+          readTimeout: readTimeoutMs,
+          usingCache: false,
+        })
+        if (noProgressTimedOut) {
+          throw new Error('binary no progress timeout')
+        }
+        req.destroy()
+        fs.closeSync(file)
+        file = null
+        clearNoProgressTimer()
+        if (code >= 500 && attempt < attempts - 1) {
+          shouldDeleteFile = true
+          lastError = new Error(`HTTP ${code}`)
+        } else if (code !== 200) {
+          throw new Error(`binary HTTP ${code}`)
+        } else if (written <= 0) {
+          shouldDeleteFile = true
+          throw new Error('binary response is empty')
+        } else {
           emitProgress(written, progressTotal > 0 ? progressTotal : written, true)
           return written
         }
       } catch (error) {
         const e = error as Error
-        shouldDeleteFile = true
+        shouldDeleteFile = openedTarget
         lastError = noProgressTimedOut ? new Error('binary no progress timeout') : e
         DiagnosticLogger.warn(
           'network',
           'http_binary_stream_retry',
           `attempt ${attempt}: ${lastError.message}`,
         )
+        req.destroy()
       } finally {
         clearNoProgressTimer()
+        if (file !== null) {
+          fs.closeSync(file)
+        }
         if (shouldDeleteFile) {
           EhHttpClient.deleteFileQuietly(filePath)
         }
@@ -531,6 +607,9 @@ export class EhHttpClient {
             return
           }
           if (attemptStart > 0 && !resumeAccepted) {
+            if (responseTotal > 0 && attemptStart >= responseTotal) {
+              return
+            }
             streamError = 'binary resume unsupported'
             req.destroy()
             return
@@ -570,6 +649,10 @@ export class EhHttpClient {
         if (code !== 200 && code !== 206) {
           EhHttpClient.truncateQuietly(partialPath, attemptStart)
           throw new Error(`binary HTTP ${code}`)
+        }
+        if (attemptStart > 0 && !resumeAccepted && responseTotal > 0 && attemptStart >= responseTotal) {
+          emitProgress(attemptStart, responseTotal, true)
+          return attemptStart
         }
         if (attemptStart > 0 && !resumeAccepted) {
           throw new Error(code === 206 ? 'invalid content range' : 'binary resume unsupported')

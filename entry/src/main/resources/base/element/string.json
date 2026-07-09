@@ -3289,6 +3289,10 @@
       "value": "This submits a request to EH and may spend GP or Credits."
     },
     {
+      "name": "gallery_archiver_submit_free_notice",
+      "value": "This submits a free archive request to EH and will not spend GP or Credits."
+    },
+    {
       "name": "gallery_archiver_submitted",
       "value": "Archive request submitted"
     },

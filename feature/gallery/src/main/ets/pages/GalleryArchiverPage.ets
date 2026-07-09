@@ -26,8 +26,8 @@ import {
 /**
  * Archive quote/options page. Grounded in eros_fe ArchiverView: local archive options POST
  * `dltype/dlcheck` and return a generated download URL; H@H options POST `hathdl_xres` and return an
- * EH status message. Every submit remains protected behind a native confirmation because it can spend
- * account GP/Credits.
+ * EH status message. Submits remain protected behind a native confirmation; free options use a
+ * non-spend notice while paid/H@H options keep the GP/Credits warning.
  */
 @ComponentV2
 export struct GalleryArchiverContent {
@@ -290,7 +290,7 @@ export struct GalleryArchiverContent {
     }
     this.getUIContext().showAlertDialog({
       title: isHath ? $r('app.string.gallery_archiver_hath_confirm') : $r('app.string.gallery_archiver_download_confirm'),
-      message: this.confirmMessage(item),
+      message: this.confirmMessage(item, isHath),
       primaryButton: {
         value: $r('app.string.common_cancel'),
         action: () => {},
@@ -425,7 +425,7 @@ export struct GalleryArchiverContent {
     })
   }
 
-  private confirmMessage(item: EhGalleryArchiverItem): string {
+  private confirmMessage(item: EhGalleryArchiverItem, isHath: boolean): string {
     const parts: string[] = []
     if (item.resolution.length > 0) {
       parts.push(item.resolution)
@@ -433,8 +433,17 @@ export struct GalleryArchiverContent {
     if (item.sizeText.length > 0 || item.priceText.length > 0) {
       parts.push(`${item.sizeText} · ${item.priceText}`.trim())
     }
-    parts.push(AppStrings.get('gallery_archiver_submit_notice'))
+    parts.push(AppStrings.get(this.isFreeLocalArchive(item, isHath)
+      ? 'gallery_archiver_submit_free_notice'
+      : 'gallery_archiver_submit_notice'))
     return parts.join('\n')
+  }
+
+  private isFreeLocalArchive(item: EhGalleryArchiverItem, isHath: boolean): boolean {
+    if (isHath) {
+      return false
+    }
+    return item.priceText.trim().toLowerCase() === 'free'
   }
 
   private quoteMeta(item: EhGalleryArchiverItem): string {
