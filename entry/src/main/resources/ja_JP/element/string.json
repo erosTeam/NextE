@@ -2869,6 +2869,18 @@
       "value": "両ページモード"
     },
     {
+      "name": "settings_reader_spread_layout",
+      "value": "両ページレイアウト"
+    },
+    {
+      "name": "settings_reader_spread_layout_joined",
+      "value": "結合"
+    },
+    {
+      "name": "settings_reader_spread_layout_split",
+      "value": "均等"
+    },
+    {
       "name": "settings_reader_auto_page_interval",
       "value": "自動ページ間隔"
     },

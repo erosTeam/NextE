@@ -6,6 +6,7 @@ import {
   connectReadMode,
   ReadModeState,
   ReadMode,
+  ReadSpreadLayout,
   ReadModeSettings,
   SecondaryListScaffold,
   GroupedListSection,
@@ -25,6 +26,7 @@ import {
 export struct ReaderSettingsPage {
   @Local readMode: ReadModeState = connectReadMode();
   @Local dirMenuShown: boolean = false;
+  @Local spreadLayoutMenuShown: boolean = false;
   @Local autoPageMenuShown: boolean = false;
   @Local preloadPageMenuShown: boolean = false;
   private scroller: Scroller = new Scroller();
@@ -39,6 +41,12 @@ export struct ReaderSettingsPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setDoublePageEnabled(ctx, enabled)
+  }
+
+  private setSpreadLayoutMode(mode: string): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setSpreadLayoutMode(ctx, mode)
   }
 
   private setAutoPageSeconds(seconds: number): void {
@@ -87,6 +95,13 @@ export struct ReaderSettingsPage {
 
   private doublePageAvailable(): boolean {
     return this.readMode.mode === ReadMode.LTR || this.readMode.mode === ReadMode.RTL
+  }
+
+  private spreadLayoutLabel(): Resource {
+    if (this.readMode.spreadLayoutMode === ReadSpreadLayout.SPLIT) {
+      return $r('app.string.settings_reader_spread_layout_split')
+    }
+    return $r('app.string.settings_reader_spread_layout_joined')
   }
 
   private autoPageLabel(): string {
@@ -214,6 +229,32 @@ export struct ReaderSettingsPage {
   }
 
   @Builder
+  SpreadLayoutMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.settings_reader_spread_layout_joined'),
+        symbolEndIcon:
+          this.readMode.spreadLayoutMode === ReadSpreadLayout.JOINED
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setSpreadLayoutMode(ReadSpreadLayout.JOINED)
+        this.spreadLayoutMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.settings_reader_spread_layout_split'),
+        symbolEndIcon:
+          this.readMode.spreadLayoutMode === ReadSpreadLayout.SPLIT
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setSpreadLayoutMode(ReadSpreadLayout.SPLIT)
+        this.spreadLayoutMenuShown = false
+      })
+    }
+  }
+
+  @Builder
   PreloadPageMenu() {
     Menu() {
       MenuItem({
@@ -321,6 +362,26 @@ export struct ReaderSettingsPage {
                   if (this.doublePageAvailable()) {
                     this.setDoublePageEnabled(value)
                   }
+                },
+              })
+              this.rowDivider()
+              Column() {
+                ConciseListRow({
+                  title: $r('app.string.settings_reader_spread_layout'),
+                  trailingText: this.spreadLayoutLabel(),
+                  trailingDropdown: true,
+                  isEnabled: this.doublePageAvailable(),
+                  action: () => {
+                    if (this.doublePageAvailable()) {
+                      this.spreadLayoutMenuShown = true
+                    }
+                  },
+                })
+              }
+              .bindMenu(this.spreadLayoutMenuShown, this.SpreadLayoutMenu, {
+                placement: Placement.BottomRight,
+                onDisappear: () => {
+                  this.spreadLayoutMenuShown = false
                 },
               })
               this.rowDivider()

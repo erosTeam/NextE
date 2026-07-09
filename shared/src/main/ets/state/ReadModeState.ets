@@ -14,6 +14,11 @@ export enum ReadColumnMode {
   EVEN_LEFT = 'evenLeft',
 }
 
+export enum ReadSpreadLayout {
+  JOINED = 'joined',
+  SPLIT = 'split',
+}
+
 /**
  * Reactive reader direction + horizontal double-page mode. Restored from preferences at startup; the
  * ReaderPage reads it to switch between paged Swiper (LTR/RTL/top-to-bottom), continuous vertical
@@ -24,6 +29,7 @@ export class ReadModeState {
   @Trace mode: string = ReadMode.LTR
   @Trace doublePageEnabled: boolean = false
   @Trace columnMode: string = ReadColumnMode.SINGLE
+  @Trace spreadLayoutMode: string = ReadSpreadLayout.JOINED
   @Trace autoPageSeconds: number = 3
   @Trace preloadPages: number = 2
   @Trace volumeKeyTurn: boolean = false

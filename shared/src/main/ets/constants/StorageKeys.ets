@@ -38,6 +38,7 @@ export class StorageKeys {
   static readonly READING_DIRECTION: string = 'reading.direction' // ltr/rtl/topToBottom/vertical
   static readonly READING_PROGRESS: string = 'reading.progress' // legacy Preferences key; RDB source of truth
   static readonly READING_DOUBLE_PAGE: string = 'reading.doublePage'
+  static readonly READING_SPREAD_LAYOUT: string = 'reading.spreadLayout'
   static readonly READING_VOLUME_KEY: string = 'reading.volumeKeyTurn'
   static readonly READING_AUTO_PAGE_SEC: string = 'reading.autoPageSeconds'
   static readonly READING_PRELOAD_PAGES: string = 'reading.preloadPages'

@@ -1,9 +1,9 @@
 export class ReaderImageTransformCoordinator {
-  static readonly MIN_DYNAMIC_MAX_SCALE: number = 2.5
-  static readonly MAX_DYNAMIC_MAX_SCALE: number = 8
-  static readonly NATIVE_SCALE_HEADROOM: number = 1.2
+  static readonly MIN_DYNAMIC_MAX_SCALE: number = 4
+  static readonly MAX_DYNAMIC_MAX_SCALE: number = 12
+  static readonly NATIVE_SCALE_HEADROOM: number = 2
   static readonly DOUBLE_TAP_MIN_SCALE: number = 1.5
-  static readonly DOUBLE_TAP_MAX_SCALE: number = 2.5
+  static readonly DOUBLE_TAP_MAX_SCALE: number = 3
   static readonly DOUBLE_TAP_FALLBACK_SCALE: number = 2
 
   static clampScale(value: number, maxScale: number = ReaderImageTransformCoordinator.MIN_DYNAMIC_MAX_SCALE): number {

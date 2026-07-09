@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
-import { connectReadMode, ReadColumnMode, ReadMode } from '../state/ReadModeState'
+import { connectReadMode, ReadColumnMode, ReadMode, ReadSpreadLayout } from '../state/ReadModeState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
@@ -42,6 +42,13 @@ export class ReadModeSettings {
     return Math.round(value)
   }
 
+  private static normalizeSpreadLayout(mode: string): string {
+    if (mode === ReadSpreadLayout.SPLIT || mode === ReadSpreadLayout.JOINED) {
+      return mode
+    }
+    return ReadSpreadLayout.JOINED
+  }
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
@@ -67,9 +74,13 @@ export class ReadModeSettings {
         StorageKeys.READING_PRELOAD_PAGES,
         2,
       ) as number
+      const spreadLayoutMode: string = ReadModeSettings.normalizeSpreadLayout(
+        store.getSync(StorageKeys.READING_SPREAD_LAYOUT, ReadSpreadLayout.JOINED) as string
+      )
       connectReadMode().mode = mode
       connectReadMode().doublePageEnabled = ReadModeSettings.restoreDoublePageEnabled(rawDoublePage)
       connectReadMode().columnMode = ReadColumnMode.ODD_LEFT
+      connectReadMode().spreadLayoutMode = spreadLayoutMode
       connectReadMode().autoPageSeconds = ReadModeSettings.normalizeAutoPageSeconds(autoPageSeconds)
       connectReadMode().preloadPages = ReadModeSettings.normalizePreloadPages(preloadPages)
       connectReadMode().volumeKeyTurn = volumeKeyTurn
@@ -117,6 +128,21 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_column_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setSpreadLayoutMode(context: common.UIAbilityContext, mode: string): Promise<void> {
+    const normalized: string = ReadModeSettings.normalizeSpreadLayout(mode)
+    connectReadMode().spreadLayoutMode = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_SPREAD_LAYOUT, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_spread_layout_save_failed', (error as Error).message)
     }
   }
 

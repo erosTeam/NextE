@@ -2869,6 +2869,18 @@
       "value": "双页模式"
     },
     {
+      "name": "settings_reader_spread_layout",
+      "value": "双页布局"
+    },
+    {
+      "name": "settings_reader_spread_layout_joined",
+      "value": "拼合"
+    },
+    {
+      "name": "settings_reader_spread_layout_split",
+      "value": "均分"
+    },
+    {
       "name": "settings_reader_auto_page_interval",
       "value": "自动翻页间隔"
     },

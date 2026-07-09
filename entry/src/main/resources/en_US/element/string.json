@@ -2869,6 +2869,18 @@
       "value": "Double page"
     },
     {
+      "name": "settings_reader_spread_layout",
+      "value": "Double-page layout"
+    },
+    {
+      "name": "settings_reader_spread_layout_joined",
+      "value": "Joined"
+    },
+    {
+      "name": "settings_reader_spread_layout_split",
+      "value": "Split"
+    },
+    {
       "name": "settings_reader_auto_page_interval",
       "value": "Auto page interval"
     },

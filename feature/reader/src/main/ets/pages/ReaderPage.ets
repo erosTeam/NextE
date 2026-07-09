@@ -24,6 +24,7 @@ import {
   ReadModeState,
   ReadMode,
   ReadColumnMode,
+  ReadSpreadLayout,
   ReadModeSettings,
   GalleryReadProgressSettings,
   connectGalleryReadProgress,
@@ -1653,10 +1654,13 @@ export struct ReaderPage {
                 : false,
               firstInitiallyLoaded: this.isPageImageLoaded(start),
               secondInitiallyLoaded: this.isPageImageLoaded(this.spreadSecondIndex(start)),
+              viewportW: this.viewWidth,
+              viewportH: this.viewHeight,
               imageBlockRuleVersion: this.imageBlockRuleVersion,
               imageBlockWhitelistSaving: this.imageBlockWhitelistSaving,
               loadedSignal: this.loadedPageSignal,
               rowReversed: this.spreadRowReversed(),
+              spreadLayoutMode: this.readMode.spreadLayoutMode,
               activeIndex: this.vm.currentIndex,
               doubleTapSeq: this.doubleTapSeq,
               doubleTapX: this.doubleTapX,
@@ -2483,11 +2487,11 @@ export struct ReaderPage {
   }
 }
 
-const MIN_DYNAMIC_MAX_SCALE: number = 2.5
-const MAX_DYNAMIC_MAX_SCALE: number = 8
-const NATIVE_SCALE_HEADROOM: number = 1.2
+const MIN_DYNAMIC_MAX_SCALE: number = 4
+const MAX_DYNAMIC_MAX_SCALE: number = 12
+const NATIVE_SCALE_HEADROOM: number = 2
 const DOUBLE_TAP_MIN_SCALE: number = 1.5
-const DOUBLE_TAP_MAX_SCALE: number = 2.5
+const DOUBLE_TAP_MAX_SCALE: number = 3
 const DOUBLE_TAP_FALLBACK_SCALE: number = 2
 const IMAGE_AUTO_RETRY_LIMIT: number = 3
 
@@ -2807,10 +2811,13 @@ struct ReaderSpreadSurface {
   @Param secondPreferOriginal: boolean = false;
   @Param firstInitiallyLoaded: boolean = false;
   @Param secondInitiallyLoaded: boolean = false;
+  @Param viewportW: number = 0;
+  @Param viewportH: number = 0;
   @Param imageBlockRuleVersion: number = 0;
   @Param imageBlockWhitelistSaving: boolean = false;
   @Param loadedSignal: number = 0;
   @Param rowReversed: boolean = false;
+  @Param spreadLayoutMode: string = ReadSpreadLayout.JOINED;
   @Param activeIndex: number = 0;
   @Param doubleTapSeq: number = 0;
   @Param doubleTapX: number = 0;
@@ -2832,6 +2839,9 @@ struct ReaderSpreadSurface {
   @Local firstIntrinsicH: number = 0;
   @Local secondIntrinsicW: number = 0;
   @Local secondIntrinsicH: number = 0;
+  @Local compW: number = 0;
+  @Local compH: number = 0;
+  @Local zoomFocusPage: number = 0;
 
   private pinchStartScale: number = 1;
   private pinchAnchorX: number = 0.5;
@@ -2840,10 +2850,31 @@ struct ReaderSpreadSurface {
   private panStartOffY: number = 0;
   private isPinching: boolean = false;
   private ignorePanSequence: boolean = false;
-  private compW: number = 0;
-  private compH: number = 0;
   private lastZoomed: boolean = false;
   private zoomAnimatingTimerId: number = 0;
+
+  aboutToAppear(): void {
+    this.applyViewportFallback()
+  }
+
+  @Monitor('viewportW')
+  onViewportWChanged(): void {
+    this.applyViewportFallback()
+  }
+
+  @Monitor('viewportH')
+  onViewportHChanged(): void {
+    this.applyViewportFallback()
+  }
+
+  private applyViewportFallback(): void {
+    if (this.compW <= 0 && this.viewportW > 0) {
+      this.compW = this.viewportW
+    }
+    if (this.compH <= 0 && this.viewportH > 0) {
+      this.compH = this.viewportH
+    }
+  }
 
   private includesPage(page: number): boolean {
     if (this.hasFirst && this.first.page === page) {
@@ -2866,6 +2897,7 @@ struct ReaderSpreadSurface {
     if (!this.includesPage(this.activeIndex + 1)) {
       this.resetZoom()
       this.notifyZoom()
+      this.zoomFocusPage = 0
     }
   }
 
@@ -2873,7 +2905,13 @@ struct ReaderSpreadSurface {
     if (!this.hasSecond) {
       return this.hasFirst ? this.first.page : 0
     }
-    const leftPane: boolean = x < this.compW / 2
+    let leftPane: boolean = x < this.compW / 2
+    if (this.usesJoinedLayout()) {
+      const leftEdge: number = (this.compW - this.joinedFrameW()) / 2
+      const leftVisualPage: number = this.rowReversed ? this.second.page : this.first.page
+      const boundary: number = leftEdge + this.paneWidthForPage(leftVisualPage)
+      leftPane = x < boundary
+    }
     if (this.rowReversed) {
       return leftPane ? this.second.page : this.first.page
     }
@@ -2902,8 +2940,8 @@ struct ReaderSpreadSurface {
 
   private imageFitScaleForPage(page: number): number {
     return ReaderZoomCoordinator.fitScale(
-      this.paneWidth(),
-      this.compH,
+      this.paneWidthForPage(page),
+      this.paneHeightForPage(page),
       this.intrinsicWForPage(page),
       this.intrinsicHForPage(page),
     )
@@ -2911,7 +2949,7 @@ struct ReaderSpreadSurface {
 
   private imageDisplayWForPage(page: number): number {
     return ReaderZoomCoordinator.displaySize(
-      this.paneWidth(),
+      this.paneWidthForPage(page),
       this.intrinsicWForPage(page),
       this.imageFitScaleForPage(page),
     )
@@ -2919,7 +2957,7 @@ struct ReaderSpreadSurface {
 
   private imageDisplayHForPage(page: number): number {
     return ReaderZoomCoordinator.displaySize(
-      this.compH,
+      this.paneHeightForPage(page),
       this.intrinsicHForPage(page),
       this.imageFitScaleForPage(page),
     )
@@ -2944,6 +2982,9 @@ struct ReaderSpreadSurface {
   }
 
   private activeMaxScale(): number {
+    if (this.includesPage(this.zoomFocusPage)) {
+      return this.maxScaleForPage(this.zoomFocusPage)
+    }
     const page: number = this.activeIndex + 1
     if (this.includesPage(page)) {
       return this.maxScaleForPage(page)
@@ -2967,6 +3008,63 @@ struct ReaderSpreadSurface {
     return this.compW / count
   }
 
+  private usesJoinedLayout(): boolean {
+    return this.hasFirst && this.hasSecond && this.spreadLayoutMode === ReadSpreadLayout.JOINED
+  }
+
+  private saneImageRatio(width: number, height: number): number {
+    if (width > 0 && height > 0) {
+      const ratio: number = width / height
+      return ratio > 0 && Number.isFinite(ratio) ? ratio : 0.75
+    }
+    return 0.75
+  }
+
+  private imageRatioForPage(page: number): number {
+    return this.saneImageRatio(this.intrinsicWForPage(page), this.intrinsicHForPage(page))
+  }
+
+  private joinedRatioBoth(): number {
+    if (!this.usesJoinedLayout()) {
+      return this.saneImageRatio(this.compW, this.compH)
+    }
+    const ratio: number = this.imageRatioForPage(this.first.page) + this.imageRatioForPage(this.second.page)
+    return ratio > 0 && Number.isFinite(ratio) ? ratio : 1.5
+  }
+
+  private joinedFrameH(): number {
+    if (!this.usesJoinedLayout()) {
+      return this.compH
+    }
+    const ratioBoth: number = this.joinedRatioBoth()
+    if (this.compW <= 0 || this.compH <= 0 || ratioBoth <= 0) {
+      return this.compH
+    }
+    const fitByWidth: number = this.compW / ratioBoth
+    const height: number = Math.min(this.compH, fitByWidth)
+    return height > 0 && Number.isFinite(height) ? height : this.compH
+  }
+
+  private joinedFrameW(): number {
+    if (!this.usesJoinedLayout()) {
+      return this.compW
+    }
+    const width: number = this.joinedFrameH() * this.joinedRatioBoth()
+    return width > 0 && Number.isFinite(width) ? width : this.compW
+  }
+
+  private paneWidthForPage(page: number): number {
+    if (!this.usesJoinedLayout()) {
+      return this.paneWidth()
+    }
+    const width: number = this.joinedFrameH() * this.imageRatioForPage(page)
+    return width > 0 && Number.isFinite(width) ? width : this.paneWidth()
+  }
+
+  private paneHeightForPage(_page: number): number {
+    return this.usesJoinedLayout() ? this.joinedFrameH() : this.compH
+  }
+
   private imageDisplayW(intrinsicW: number, intrinsicH: number): number {
     const fit: number = ReaderZoomCoordinator.fitScale(this.paneWidth(), this.compH, intrinsicW, intrinsicH)
     return ReaderZoomCoordinator.displaySize(this.paneWidth(), intrinsicW, fit)
@@ -2978,6 +3076,9 @@ struct ReaderSpreadSurface {
   }
 
   private displayW(): number {
+    if (this.usesJoinedLayout()) {
+      return this.joinedFrameW()
+    }
     const firstW: number = this.hasFirst ? this.imageDisplayW(this.firstIntrinsicW, this.firstIntrinsicH) : 0
     const secondW: number = this.hasSecond ? this.imageDisplayW(this.secondIntrinsicW, this.secondIntrinsicH) : 0
     const total: number = firstW + secondW
@@ -2985,6 +3086,9 @@ struct ReaderSpreadSurface {
   }
 
   private displayH(): number {
+    if (this.usesJoinedLayout()) {
+      return this.joinedFrameH()
+    }
     const firstH: number = this.hasFirst ? this.imageDisplayH(this.firstIntrinsicW, this.firstIntrinsicH) : 0
     const secondH: number = this.hasSecond ? this.imageDisplayH(this.secondIntrinsicW, this.secondIntrinsicH) : 0
     const total: number = Math.max(firstH, secondH)
@@ -3038,6 +3142,7 @@ struct ReaderSpreadSurface {
   private onDoubleTap(tapX: number, tapY: number): void {
     this.beginZoomAnimation()
     const page: number = this.pageForPoint(tapX)
+    this.zoomFocusPage = page
     const maxScale: number = this.maxScaleForPage(page)
     const nativeScale: number = this.nativeScaleForPage(page)
     const target: number = ReaderZoomCoordinator.doubleTapTarget(this.zoomScale, maxScale, nativeScale)
@@ -3069,12 +3174,16 @@ struct ReaderSpreadSurface {
     this.clampOffset()
   }
 
+  private spreadImageKey(image: EhGalleryImage, preferOriginal: boolean): string {
+    return `${image.page}-${image.sUrl}-${image.imageUrl}-${preferOriginal ? 'orig' : 'fit'}-${this.imageBlockRuleVersion}`
+  }
+
   @Builder
   SpreadImageLayer(image: EhGalleryImage, hasImage: boolean, preferOriginal: boolean, initiallyLoaded: boolean) {
     if (hasImage) {
       ReaderSpreadImageLayer({
         image: image,
-        imageKey: `${image.page}-${image.sUrl}-${image.imageUrl}-${preferOriginal ? 'orig' : 'fit'}-${this.imageBlockRuleVersion}`,
+        imageKey: this.spreadImageKey(image, preferOriginal),
         preferOriginal: preferOriginal,
         initiallyLoaded: initiallyLoaded,
         loadedSignal: this.loadedSignal,
@@ -3095,32 +3204,67 @@ struct ReaderSpreadSurface {
           this.recordImageMetrics(page, width, height)
         },
       })
-        .layoutWeight(1)
     } else {
       Blank()
-        .layoutWeight(1)
     }
+  }
+
+  @Builder
+  SpreadImageSlot(image: EhGalleryImage, hasImage: boolean, preferOriginal: boolean, initiallyLoaded: boolean) {
+    Column() {
+      this.SpreadImageLayer(image, hasImage, preferOriginal, initiallyLoaded)
+    }
+    .layoutWeight(1)
+    .height('100%')
+  }
+
+  @Builder
+  JoinedSpreadImageSlot(image: EhGalleryImage, hasImage: boolean, preferOriginal: boolean, initiallyLoaded: boolean) {
+    Column() {
+      this.SpreadImageLayer(image, hasImage, preferOriginal, initiallyLoaded)
+    }
+    .width(this.paneWidthForPage(image.page))
+    .height(this.joinedFrameH())
   }
 
   build() {
     Stack() {
-      Row() {
-        if (!this.hasSecond) {
-          this.SpreadImageLayer(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
-        } else if (this.rowReversed) {
-          this.SpreadImageLayer(this.second, true, this.secondPreferOriginal, this.secondInitiallyLoaded)
-          this.SpreadImageLayer(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
-        } else {
-          this.SpreadImageLayer(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
-          this.SpreadImageLayer(this.second, true, this.secondPreferOriginal, this.secondInitiallyLoaded)
+      if (this.usesJoinedLayout()) {
+        Row() {
+          if (this.rowReversed) {
+            this.JoinedSpreadImageSlot(this.second, true, this.secondPreferOriginal, this.secondInitiallyLoaded)
+            this.JoinedSpreadImageSlot(this.first, true, this.firstPreferOriginal, this.firstInitiallyLoaded)
+          } else {
+            this.JoinedSpreadImageSlot(this.first, true, this.firstPreferOriginal, this.firstInitiallyLoaded)
+            this.JoinedSpreadImageSlot(this.second, true, this.secondPreferOriginal, this.secondInitiallyLoaded)
+          }
         }
+        .width(this.joinedFrameW())
+        .height(this.joinedFrameH())
+        .justifyContent(FlexAlign.Center)
+        .scale({ x: this.zoomScale, y: this.zoomScale })
+        .translate({ x: this.offsetX, y: this.offsetY })
+        .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
+      } else {
+        Row() {
+          if (!this.hasSecond) {
+            this.SpreadImageSlot(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
+          } else if (this.rowReversed) {
+            this.SpreadImageSlot(this.second, true, this.secondPreferOriginal, this.secondInitiallyLoaded)
+            this.SpreadImageSlot(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
+          } else {
+            this.SpreadImageSlot(this.first, this.hasFirst, this.firstPreferOriginal, this.firstInitiallyLoaded)
+            this.SpreadImageSlot(this.second, true, this.secondPreferOriginal, this.secondInitiallyLoaded)
+          }
+        }
+        .width('100%')
+        .height('100%')
+        .scale({ x: this.zoomScale, y: this.zoomScale })
+        .translate({ x: this.offsetX, y: this.offsetY })
+        .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
       }
-      .width('100%')
-      .height('100%')
-      .scale({ x: this.zoomScale, y: this.zoomScale })
-      .translate({ x: this.offsetX, y: this.offsetY })
-      .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
     }
+    .alignContent(Alignment.Center)
     .width('100%')
     .height('100%')
     .clip(true)
@@ -3140,6 +3284,7 @@ struct ReaderSpreadSurface {
             this.isPinching = true
             this.ignorePanSequence = true
             this.zoomAnimating = false
+            this.zoomFocusPage = this.pageForPoint(e.pinchCenterX as number)
             this.pinchStartScale = this.zoomScale
             this.pinchAnchorX = ReaderZoomCoordinator.pinchAnchor(
               e.pinchCenterX as number,
@@ -3160,9 +3305,10 @@ struct ReaderSpreadSurface {
             if (!e) {
               return
             }
+            this.zoomFocusPage = this.pageForPoint(e.pinchCenterX as number)
             const nextScale: number = this.clampScale(
               this.pinchStartScale * (e.scale as number),
-              this.maxScaleForPage(this.pageForPoint(e.pinchCenterX as number)),
+              this.maxScaleForPage(this.zoomFocusPage),
             )
             const nextX: number = ReaderZoomCoordinator.anchoredOffset(
               e.pinchCenterX as number,
