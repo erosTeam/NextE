@@ -1,16 +1,31 @@
 export class ReaderImageTransformCoordinator {
-  static readonly DOUBLE_TAP_SCALE: number = 2.5
-  static readonly MAX_SCALE: number = 4
+  static readonly MIN_DYNAMIC_MAX_SCALE: number = 2.5
+  static readonly MAX_DYNAMIC_MAX_SCALE: number = 8
+  static readonly NATIVE_SCALE_HEADROOM: number = 1.2
+  static readonly DOUBLE_TAP_MIN_SCALE: number = 1.5
+  static readonly DOUBLE_TAP_MAX_SCALE: number = 2.5
+  static readonly DOUBLE_TAP_FALLBACK_SCALE: number = 2
 
-  static clampScale(value: number): number {
+  static clampScale(value: number, maxScale: number = ReaderImageTransformCoordinator.MIN_DYNAMIC_MAX_SCALE): number {
     if (!Number.isFinite(value)) {
       return 1
     }
     if (value < 1) {
       return 1
     }
-    if (value > ReaderImageTransformCoordinator.MAX_SCALE) {
-      return ReaderImageTransformCoordinator.MAX_SCALE
+    const boundedMax: number = ReaderImageTransformCoordinator.saneMaxScale(maxScale)
+    if (value > boundedMax) {
+      return boundedMax
+    }
+    return value
+  }
+
+  static saneMaxScale(value: number): number {
+    if (!Number.isFinite(value) || value < ReaderImageTransformCoordinator.MIN_DYNAMIC_MAX_SCALE) {
+      return ReaderImageTransformCoordinator.MIN_DYNAMIC_MAX_SCALE
+    }
+    if (value > ReaderImageTransformCoordinator.MAX_DYNAMIC_MAX_SCALE) {
+      return ReaderImageTransformCoordinator.MAX_DYNAMIC_MAX_SCALE
     }
     return value
   }
@@ -30,6 +45,40 @@ export class ReaderImageTransformCoordinator {
       intrinsic,
       crossIntrinsic,
     )
+  }
+
+  static nativeScale(intrinsicW: number, intrinsicH: number, displayW: number, displayH: number): number {
+    if (intrinsicW <= 0 || intrinsicH <= 0 || displayW <= 0 || displayH <= 0) {
+      return ReaderImageTransformCoordinator.DOUBLE_TAP_FALLBACK_SCALE
+    }
+    const scaleW: number = intrinsicW / displayW
+    const scaleH: number = intrinsicH / displayH
+    const scale: number = Math.min(scaleW, scaleH)
+    return scale > 0 && Number.isFinite(scale) ? scale : ReaderImageTransformCoordinator.DOUBLE_TAP_FALLBACK_SCALE
+  }
+
+  static dynamicMaxScale(intrinsicW: number, intrinsicH: number, displayW: number, displayH: number): number {
+    const native: number = ReaderImageTransformCoordinator.nativeScale(intrinsicW, intrinsicH, displayW, displayH)
+    return ReaderImageTransformCoordinator.saneMaxScale(
+      native * ReaderImageTransformCoordinator.NATIVE_SCALE_HEADROOM,
+    )
+  }
+
+  static doubleTapTarget(currentScale: number, maxScale: number, nativeScale: number): number {
+    if (currentScale > 1.01) {
+      return 1
+    }
+    let target: number = nativeScale
+    if (!Number.isFinite(target) || target <= 0) {
+      target = ReaderImageTransformCoordinator.DOUBLE_TAP_FALLBACK_SCALE
+    }
+    if (target < ReaderImageTransformCoordinator.DOUBLE_TAP_MIN_SCALE) {
+      target = ReaderImageTransformCoordinator.DOUBLE_TAP_MIN_SCALE
+    }
+    if (target > ReaderImageTransformCoordinator.DOUBLE_TAP_MAX_SCALE) {
+      target = ReaderImageTransformCoordinator.DOUBLE_TAP_MAX_SCALE
+    }
+    return ReaderImageTransformCoordinator.clampScale(target, maxScale)
   }
 
   static maxOffset(viewport: number, displaySize: number, scale: number): number {
