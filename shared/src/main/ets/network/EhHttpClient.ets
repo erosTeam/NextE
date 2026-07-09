@@ -29,7 +29,7 @@ const BINARY_STREAM_READ_TIMEOUT_MS: number = 120000
 const BACKOFF_BASE_MS: number = 800
 const MAX_BINARY_BYTES: number = 100 * 1024 * 1024
 const IMAGE_ACCEPT: string = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
-const STREAM_PROGRESS_INTERVAL_MS: number = 500
+const STREAM_PROGRESS_INTERVAL_MS: number = 250
 
 /**
  * EH HTTP transport. Text/form requests go through @ohos/axios. Binary downloads use axios

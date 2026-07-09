@@ -55,6 +55,7 @@ const DOWNLOAD_PERF_METADATA_WARN_MS: number = 16
 const DOWNLOAD_PERF_METADATA_WARN_BYTES: number = 64 * 1024
 const DOWNLOAD_PERF_SIGNAL_WINDOW_MS: number = 2000
 const DOWNLOAD_PROGRESS_METADATA_FLUSH_MS: number = 5000
+const DOWNLOAD_QUEUE_PROGRESS_INTERVAL_MS: number = 250
 
 export class DownloadDirectoryImportResult {
   galleryTasks: number = 0
@@ -2689,7 +2690,7 @@ export class DownloadQueueSettings {
     const pulseKey: string = key
     const now: number = Date.now()
     const last: number = DownloadQueueSettings.galleryProgressPulses.get(pulseKey) ?? 0
-    if (now - last < 500) {
+    if (now - last < DOWNLOAD_QUEUE_PROGRESS_INTERVAL_MS) {
       return
     }
     DownloadQueueSettings.galleryProgressPulses.set(pulseKey, now)
@@ -2831,7 +2832,7 @@ export class DownloadQueueSettings {
     const now: number = Date.now()
     const complete: boolean = total > 0 && loaded >= total
     const last: number = DownloadQueueSettings.archiverProgressPulses.get(tag) ?? 0
-    if (!complete && now - last < 500) {
+    if (!complete && now - last < DOWNLOAD_QUEUE_PROGRESS_INTERVAL_MS) {
       return
     }
     DownloadQueueSettings.archiverProgressPulses.set(tag, now)
@@ -2842,7 +2843,7 @@ export class DownloadQueueSettings {
         updated = true
         task.bytesWritten = loaded
         task.bytesTotal = total
-        task.progress = total > 0 ? Math.max(0, Math.min(100, Math.round(loaded * 100 / total))) : 0
+        task.progress = total > 0 ? Math.max(0, Math.min(100, loaded * 100 / total)) : 0
         task.status = DownloadGalleryTaskStatus.DOWNLOADING
         const lastLog: number = DownloadQueueSettings.archiverProgressLogPulses.get(tag) ?? 0
         if ((total > 0 && loaded >= total) || now - lastLog >= 2000) {

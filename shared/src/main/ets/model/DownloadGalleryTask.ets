@@ -366,7 +366,13 @@ export class DownloadArchiverTask {
       return ''
     }
     if (this.bytesTotal > 0) {
-      return `${this.progress}%`
+      if (this.progress >= 100) {
+        return '100%'
+      }
+      if (this.progress <= 0) {
+        return '0%'
+      }
+      return `${Math.round(this.progress * 10) / 10}%`
     }
     return `${this.bytesWritten} B`
   }

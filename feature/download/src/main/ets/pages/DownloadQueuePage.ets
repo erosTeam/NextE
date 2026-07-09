@@ -323,6 +323,10 @@ export struct DownloadQueuePage {
     return Math.max(0, Math.min(1, activeBytesWritten / activeBytesTotal))
   }
 
+  private progressValue(ratio: number): number {
+    return Math.max(0, Math.min(100, ratio * 100))
+  }
+
   private taskProgressRatio(
     status: string,
     downloadedFiles: number,
@@ -1452,45 +1456,47 @@ export struct DownloadQueuePage {
 
   @Builder
   private GalleryTaskProgressBar(task: DownloadGalleryTask) {
-    Row() {
-      Blank()
-        .width(`${Math.max(4, Math.round(this.taskProgressRatio(
-          task.status,
-          task.downloadedFiles,
-          task.seededFiles,
-          task.pageCount,
-          task.activeBytesWritten,
-          task.activeBytesTotal,
-        ) * 100))}%`)
-        .height(ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT)
-        .borderRadius(ThemeConstants.RADIUS_SM)
-        .backgroundColor(task.status === DownloadGalleryTaskStatus.ERROR
-          ? Color.Red
-          : ThemeConstants.BRAND_PRIMARY)
-    }
-    .width('100%')
-    .height(ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT)
-    .borderRadius(ThemeConstants.RADIUS_SM)
-    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-    .clip(true)
+    Progress({
+      value: this.progressValue(this.taskProgressRatio(
+        task.status,
+        task.downloadedFiles,
+        task.seededFiles,
+        task.pageCount,
+        task.activeBytesWritten,
+        task.activeBytesTotal,
+      )),
+      total: 100,
+      type: ProgressType.Linear,
+    })
+      .width('100%')
+      .style({
+        strokeWidth: ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT,
+        strokeRadius: ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT / 2,
+        enableSmoothEffect: true,
+      })
+      .color(task.status === DownloadGalleryTaskStatus.ERROR
+        ? Color.Red
+        : ThemeConstants.BRAND_PRIMARY)
+      .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
   }
 
   @Builder
   private ArchiverProgressBar(task: DownloadArchiverTask) {
-    Row() {
-      Blank()
-        .width(`${Math.max(4, Math.round(this.archiverProgressRatio(task) * 100))}%`)
-        .height(ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT)
-        .borderRadius(ThemeConstants.RADIUS_SM)
-        .backgroundColor(task.status === DownloadGalleryTaskStatus.ERROR
-          ? Color.Red
-          : ThemeConstants.BRAND_PRIMARY)
-    }
-    .width('100%')
-    .height(ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT)
-    .borderRadius(ThemeConstants.RADIUS_SM)
-    .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-    .clip(true)
+    Progress({
+      value: this.progressValue(this.archiverProgressRatio(task)),
+      total: 100,
+      type: ProgressType.Linear,
+    })
+      .width('100%')
+      .style({
+        strokeWidth: ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT,
+        strokeRadius: ThemeConstants.DOWNLOAD_TASK_PROGRESS_HEIGHT / 2,
+        enableSmoothEffect: true,
+      })
+      .color(task.status === DownloadGalleryTaskStatus.ERROR
+        ? Color.Red
+        : ThemeConstants.BRAND_PRIMARY)
+      .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
   }
 
   @Builder
