@@ -10,7 +10,7 @@ import {
 
 const INDICATOR_W: number = 18
 const TAB_GAP: number = ThemeConstants.SPACE_XS
-const BAR_PAD: number = ThemeConstants.SPACE_SM
+const BAR_PAD: number = 0
 // Underline baseline (V2Next FeedPills: indicator at TAB_BAR_HEIGHT - 14): the tab labels are TOP-aligned
 // with a small top padding, and the 3px indicator sits just under them — so the bar fills its height
 // tightly instead of floating a centred label with empty space above/below (which read as a tall bar).
