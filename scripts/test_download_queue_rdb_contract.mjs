@@ -199,7 +199,8 @@ ok('settings no longer writes the queue back to Preferences',
   !/store\.putSync\(StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(settings))
 ok('archiver stream progress is throttled and only publishes live UI signals on the Downloads page',
   /archiverProgressPulses: Map<string, number>/.test(settings) &&
-    /if \(!complete && now - last < 500\) \{[\s\S]*return/.test(archiverStreamProgressBody) &&
+    /DOWNLOAD_QUEUE_PROGRESS_INTERVAL_MS: number = 250/.test(settings) &&
+    /if \(!complete && now - last < DOWNLOAD_QUEUE_PROGRESS_INTERVAL_MS\) \{[\s\S]*return/.test(archiverStreamProgressBody) &&
     /let updated: boolean = false/.test(archiverStreamProgressBody) &&
     /if \(updated && isDownloadQueuePageActive\(\)\) \{[\s\S]*publishDownloadQueueChanged\(\)/.test(archiverStreamProgressBody) &&
     !/DownloadQueueSettings\.setArchiverTasks\(state, next\)/.test(archiverStreamProgressBody))
@@ -382,7 +383,7 @@ ok('archiver package downloads use Range/Content-Range partial files for pause a
     /downloadBinaryToFileInStreamResumable\([\s\S]*partialPath[\s\S]*cancelledArchiverDownloads\.has\(tag\)[\s\S]*resolvedTask\.bytesTotal/.test(settings) &&
     /fs\.renameSync\(partialPath, filePath\)/.test(settings))
 ok('stream downloads gate chunk progress before it reaches queue state but force final progress',
-  /STREAM_PROGRESS_INTERVAL_MS: number = 500/.test(httpClient) &&
+  /STREAM_PROGRESS_INTERVAL_MS: number = 250/.test(httpClient) &&
     /const emitProgress = \(loaded: number, total: number, force: boolean = false\): void =>/.test(httpClient) &&
     /now - lastProgressAt < STREAM_PROGRESS_INTERVAL_MS/.test(httpClient) &&
     /emitProgress\(progressLoaded, progressTotal\)/.test(httpClient) &&
@@ -397,13 +398,15 @@ ok('archiver status updates mutate stable task rows without replacing the full q
     /persistArchiverTask\(context, updatedTask\)/.test(archiverUpdateTaskBody) &&
     !/const next: DownloadArchiverTask\[\]/.test(archiverUpdateTaskBody) &&
     !/DownloadQueueSettings\.setArchiverTasks\(state, next\)/.test(archiverUpdateTaskBody))
-ok('ignored Range responses preserve archiver partial files instead of silently restarting',
+ok('ignored Range responses fail visibly, then clear archiver partial state so explicit retry starts from byte zero',
   /attemptStart > 0 && !resumeAccepted[\s\S]*streamError = 'binary resume unsupported'[\s\S]*req\.destroy\(\)/.test(httpClient) &&
     /attemptStart > 0 && !resumeAccepted[\s\S]*throw new Error\(code === 206 \? 'invalid content range' : 'binary resume unsupported'\)/.test(httpClient) &&
     /lastError = streamError\.length > 0 \? new Error\(streamError\) : e/.test(httpClient) &&
     /streamError\.length > 0[\s\S]*throw lastError !== null \? lastError : new Error\(streamError\)/.test(httpClient) &&
     /streamError\.length === 0 && e\.message !== 'binary download cancelled'/.test(httpClient) &&
     !/!resumeAccepted[\s\S]{0,220}OpenMode\.TRUNC/.test(httpClient) &&
+    /const restartFromHead: boolean = DownloadQueueSettings\.isArchiverResumeUnsupportedError\(error as Object\)[\s\S]*DownloadQueueSettings\.deleteSandboxPath\(partialPath, 'archiver_partial_restart_delete_failed'\)[\s\S]*it\.bytesWritten = 0[\s\S]*it\.progress = 0/.test(settings) &&
+    /private static isArchiverResumeUnsupportedError\(error: Object\): boolean \{[\s\S]*binary resume unsupported[\s\S]*invalid content range/.test(settings) &&
     /raw\.indexOf\('binary resume unsupported'\) >= 0[\s\S]*download_error_resume_unsupported/.test(settings))
 ok('pause marks running archiver workers cancelled and suppresses late progress callbacks',
   /static async pauseArchiverDownload/.test(settings) &&

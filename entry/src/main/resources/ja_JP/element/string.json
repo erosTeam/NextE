@@ -114,7 +114,7 @@
     },
     {
       "name": "download_error_resume_unsupported",
-      "value": "このアーカイブサーバーはレジュームに対応していません。"
+      "value": "アーカイブを再開できません。再ダウンロードしてください。"
     },
     {
       "name": "download_pause_all",

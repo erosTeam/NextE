@@ -792,10 +792,18 @@ export class DownloadQueueSettings {
         )
         return
       }
+      const restartFromHead: boolean = DownloadQueueSettings.isArchiverResumeUnsupportedError(error as Object)
+      if (restartFromHead) {
+        DownloadQueueSettings.deleteSandboxPath(partialPath, 'archiver_partial_restart_delete_failed')
+      }
       await DownloadQueueSettings.updateArchiverTask(context, tag, (it: DownloadArchiverTask) => {
         it.status = DownloadGalleryTaskStatus.ERROR
         it.fileName = fileName
         it.filePath = filePath
+        if (restartFromHead) {
+          it.bytesWritten = 0
+          it.progress = 0
+        }
         it.error = DownloadQueueSettings.userError(error as Object)
       })
       DownloadQueueSettings.archiverProgressPulses.delete(tag)
@@ -3195,6 +3203,11 @@ export class DownloadQueueSettings {
       }
     } catch (_error) {}
     return 0
+  }
+
+  private static isArchiverResumeUnsupportedError(error: Object): boolean {
+    const raw: string = (error as Error).message
+    return raw.indexOf('binary resume unsupported') >= 0 || raw.indexOf('invalid content range') >= 0
   }
 
   private static userError(error: Object): string {

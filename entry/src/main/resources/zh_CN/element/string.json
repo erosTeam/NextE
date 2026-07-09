@@ -114,7 +114,7 @@
     },
     {
       "name": "download_error_resume_unsupported",
-      "value": "该归档服务器不支持断点续传。"
+      "value": "归档无法续传，请重新下载。"
     },
     {
       "name": "download_pause_all",
