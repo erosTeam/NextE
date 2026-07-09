@@ -1289,6 +1289,58 @@
       "value": "换源重试"
     },
     {
+      "name": "reader_reload_source",
+      "value": "换源重载"
+    },
+    {
+      "name": "reader_image_info",
+      "value": "图片信息"
+    },
+    {
+      "name": "reader_image_info_title",
+      "value": "图片信息 · 第 %d 页"
+    },
+    {
+      "name": "reader_image_info_format",
+      "value": "格式：%s"
+    },
+    {
+      "name": "reader_image_info_size",
+      "value": "大小：%s"
+    },
+    {
+      "name": "reader_image_info_current",
+      "value": "当前：%s"
+    },
+    {
+      "name": "reader_image_info_resampled",
+      "value": "重采样图片"
+    },
+    {
+      "name": "reader_image_info_original",
+      "value": "原图"
+    },
+    {
+      "name": "reader_image_info_dimensions",
+      "value": "尺寸：%d x %d"
+    },
+    {
+      "name": "reader_image_info_original_available",
+      "value": "原图：可用"
+    },
+    {
+      "name": "reader_image_info_original_unavailable",
+      "value": "原图：不可用"
+    },
+    {
+      "name": "reader_image_info_source",
+      "value": "图源：%s"
+    },
+    {
+      "name": "reader_image_info_unknown",
+      "value": "未知"
+    },
+    {
       "name": "reader_retry_source_hint",
       "value": "已尝试备用源，可重试当前图片。"
     },

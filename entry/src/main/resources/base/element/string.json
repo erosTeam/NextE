@@ -1289,6 +1289,58 @@
       "value": "Retry source"
     },
     {
+      "name": "reader_reload_source",
+      "value": "Reload source"
+    },
+    {
+      "name": "reader_image_info",
+      "value": "Image information"
+    },
+    {
+      "name": "reader_image_info_title",
+      "value": "Image information · Page %d"
+    },
+    {
+      "name": "reader_image_info_format",
+      "value": "Format: %s"
+    },
+    {
+      "name": "reader_image_info_size",
+      "value": "Size: %s"
+    },
+    {
+      "name": "reader_image_info_current",
+      "value": "Current: %s"
+    },
+    {
+      "name": "reader_image_info_resampled",
+      "value": "Resampled image"
+    },
+    {
+      "name": "reader_image_info_original",
+      "value": "Original image"
+    },
+    {
+      "name": "reader_image_info_dimensions",
+      "value": "Dimensions: %d x %d"
+    },
+    {
+      "name": "reader_image_info_original_available",
+      "value": "Original: Available"
+    },
+    {
+      "name": "reader_image_info_original_unavailable",
+      "value": "Original: Unavailable"
+    },
+    {
+      "name": "reader_image_info_source",
+      "value": "Source: %s"
+    },
+    {
+      "name": "reader_image_info_unknown",
+      "value": "Unknown"
+    },
+    {
       "name": "reader_retry_source_hint",
       "value": "Alternate sources failed. Retry this image."
     },

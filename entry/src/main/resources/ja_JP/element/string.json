@@ -1289,6 +1289,58 @@
       "value": "ソースを再試行"
     },
     {
+      "name": "reader_reload_source",
+      "value": "ソースを再読み込み"
+    },
+    {
+      "name": "reader_image_info",
+      "value": "画像情報"
+    },
+    {
+      "name": "reader_image_info_title",
+      "value": "画像情報 · ページ %d"
+    },
+    {
+      "name": "reader_image_info_format",
+      "value": "形式: %s"
+    },
+    {
+      "name": "reader_image_info_size",
+      "value": "サイズ: %s"
+    },
+    {
+      "name": "reader_image_info_current",
+      "value": "現在: %s"
+    },
+    {
+      "name": "reader_image_info_resampled",
+      "value": "リサンプル画像"
+    },
+    {
+      "name": "reader_image_info_original",
+      "value": "オリジナル画像"
+    },
+    {
+      "name": "reader_image_info_dimensions",
+      "value": "サイズ: %d x %d"
+    },
+    {
+      "name": "reader_image_info_original_available",
+      "value": "オリジナル: 利用可能"
+    },
+    {
+      "name": "reader_image_info_original_unavailable",
+      "value": "オリジナル: 利用不可"
+    },
+    {
+      "name": "reader_image_info_source",
+      "value": "画像元: %s"
+    },
+    {
+      "name": "reader_image_info_unknown",
+      "value": "不明"
+    },
+    {
       "name": "reader_retry_source_hint",
       "value": "別ソースでも失敗しました。この画像を再試行できます。"
     },
