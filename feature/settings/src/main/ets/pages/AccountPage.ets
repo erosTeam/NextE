@@ -11,6 +11,7 @@ import {
   EhHome,
   EhProfile,
   EhProfileSettings,
+  EhImageKnifeImage,
   GroupedListSection,
   SecondaryListScaffold,
   SiteModeState,
@@ -47,10 +48,13 @@ struct AccountAvatar {
   build() {
     Stack() {
       if (this.displayAvatarUrl().length > 0) {
-        Image(this.displayAvatarUrl())
-          .objectFit(ImageFit.Cover)
-          .width(this.avatarSize)
-          .height(this.avatarSize)
+        EhImageKnifeImage({
+          src: this.displayAvatarUrl(),
+          objectFit: ImageFit.Cover,
+          widthValue: this.avatarSize,
+          heightValue: this.avatarSize,
+          radius: this.avatarSize / 2,
+        })
       } else {
         SymbolGlyph($r('sys.symbol.person_fill'))
           .fontSize(this.avatarSize / 2)

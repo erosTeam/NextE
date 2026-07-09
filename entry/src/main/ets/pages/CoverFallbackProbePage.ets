@@ -1,6 +1,7 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import {
   EhThumbnail,
+  EhImageKnifeImage,
   THUMBNAIL_VISUAL_LOADING,
   THUMBNAIL_VISUAL_ERROR,
   ThemeConstants,
@@ -133,11 +134,12 @@ export struct CoverFallbackProbePage {
   private pendingImageProbe() {
     Column({ space: ThemeConstants.SPACE_SM }) {
       Stack({ alignContent: Alignment.Center }) {
-        Image(PROBE_PENDING_IMAGE_URL)
-          .width(72)
-          .height(72)
-          .objectFit(ImageFit.Cover)
-          .draggable(false)
+        EhImageKnifeImage({
+          src: PROBE_PENDING_IMAGE_URL,
+          widthValue: 72,
+          heightValue: 72,
+          objectFit: ImageFit.Cover,
+        })
         LoadingProgress()
           .width(32)
           .height(32)

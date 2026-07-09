@@ -24,6 +24,7 @@ import {
   MyTagsTargetResolveResult,
   EhApiService,
   EhApiPhpService,
+  EhImageKnifeImage,
   TagGalleryResult,
   EhErrorText,
   AppStrings,
@@ -47,11 +48,6 @@ const TAG_INFO_MANAGE_ADD: string = 'add'
 class TagInfoLinkItem {
   label: string = ''
   url: string = ''
-}
-
-class TagInfoImageLoadEvent {
-  width?: number
-  height?: number
 }
 
 @ComponentV2
@@ -84,27 +80,29 @@ struct TagInfoIntroImage {
     return this.clampAspectRatio(width / height)
   }
 
-  private updateLoadedAspectRatio(event?: TagInfoImageLoadEvent): void {
-    if (event === undefined || event.width === undefined || event.height === undefined) {
+  private updateLoadedAspectRatio(width: number, height: number): void {
+    if (width <= 0 || height <= 0) {
       return
     }
-    if (event.width <= 0 || event.height <= 0) {
-      return
-    }
-    this.loadedAspectRatio = this.clampAspectRatio(event.width / event.height)
+    this.loadedAspectRatio = this.clampAspectRatio(width / height)
   }
 
   build() {
-    Image(this.url)
-    .width('100%')
-    .aspectRatio(this.sourceAspectRatio())
-    .objectFit(ImageFit.Contain)
-    .backgroundColor($r('app.color.card_background'))
-    .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-    .clip(true)
-    .onComplete((event?: TagInfoImageLoadEvent) => {
-      this.updateLoadedAspectRatio(event)
+    EhImageKnifeImage({
+      src: this.url,
+      widthValue: '100%',
+      heightValue: '100%',
+      objectFit: ImageFit.Contain,
+      radius: ThemeConstants.LIST_ROW_RADIUS,
+      onImageInfo: (width: number, height: number) => {
+        this.updateLoadedAspectRatio(width, height)
+      },
     })
+      .width('100%')
+      .aspectRatio(this.sourceAspectRatio())
+      .backgroundColor($r('app.color.card_background'))
+      .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+      .clip(true)
   }
 }
 

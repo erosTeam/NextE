@@ -4,6 +4,7 @@
   "description": "NextE shared library - network, parser, model, state, theme, components, utils",
   "main": "src/main/ets/Index.ets",
   "dependencies": {
-    "@ohos/axios": "2.2.12"
+    "@ohos/axios": "2.2.12",
+    "@ohos/imageknifepro": "1.0.16"
   }
 }

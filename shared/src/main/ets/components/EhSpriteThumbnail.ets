@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
+import { EhImageKnifeImage } from './EhImageKnifeImage'
 import { ImageBlockDecision } from '../model/ImageBlockRule'
 import { ImageBlockRuntimeService } from '../services/ImageBlockRuntimeService'
 import {
@@ -22,10 +23,15 @@ import {
  */
 // Subset of ArkUI's Image onComplete event we read: the DECODED source pixel size of the sprite sheet.
 // Optional because the callback can fire with no payload (first pass / error).
-interface SpriteLoadEvent {
-  loadingStatus: number
+class SpriteLoadEvent {
+  loadingStatus: number = 0
   width?: number
   height?: number
+
+  constructor(width: number = 0, height: number = 0) {
+    this.width = width
+    this.height = height
+  }
 }
 
 const IMAGE_BLOCK_COMPUTE_DELAY_MS: number = 120
@@ -250,33 +256,40 @@ export struct EhSpriteThumbnail {
     Stack({ alignContent: Alignment.Center }) {
       if (this.spriteWidth > 0 && this.thumbWidth > 0 && this.thumbHeight > 0) {
         Stack({ alignContent: Alignment.TopStart }) {
-          Image(EhConstants.cdnThumb(this.url))
-            .width(this.sheetRenderWidth())
-            .height(this.sheetRenderHeight())
-            .objectFit(ImageFit.Fill)
+          EhImageKnifeImage({
+            src: EhConstants.cdnThumb(this.url),
+            widthValue: this.sheetRenderWidth(),
+            heightValue: this.sheetRenderHeight(),
+            objectFit: ImageFit.Fill,
+            onImageInfo: (width: number, height: number) => {
+              this.sheetRealW = width
+              this.sheetRealH = height
+            },
+          })
             .offset({ x: -(this.offsetX * this.factor()), y: 0 })
             .blur(18)
             .opacity(0.9)
-            .draggable(false)
         }
         .width(this.boxWidth())
         .height(this.boxHeight())
       } else if (this.fitHeight) {
-        Image(EhConstants.cdnThumb(this.url))
-          .height(this.displayHeight)
-          .aspectRatio(this.wholeImageAspect())
-          .objectFit(ImageFit.Cover)
+        EhImageKnifeImage({
+          src: EhConstants.cdnThumb(this.url),
+          widthValue: this.boxWidth(),
+          heightValue: this.boxHeight(),
+          objectFit: ImageFit.Cover,
+        })
           .blur(18)
           .opacity(0.9)
-          .draggable(false)
       } else {
-        Image(EhConstants.cdnThumb(this.url))
-          .width(this.displayWidth)
-          .aspectRatio(this.wholeImageAspect())
-          .objectFit(ImageFit.Cover)
+        EhImageKnifeImage({
+          src: EhConstants.cdnThumb(this.url),
+          widthValue: this.boxWidth(),
+          heightValue: this.boxHeight(),
+          objectFit: ImageFit.Cover,
+        })
           .blur(18)
           .opacity(0.9)
-          .draggable(false)
       }
       Column()
         .width(this.boxWidth())
@@ -305,18 +318,22 @@ export struct EhSpriteThumbnail {
       // to this thumb's column; the box is exactly the scaled thumb, so only this thumb shows — undistorted,
       // rounded.
       Stack({ alignContent: Alignment.TopStart }) {
-        Image(EhConstants.cdnThumb(this.url))
-          .width(this.sheetRenderWidth())
-          .height(this.sheetRenderHeight())
-          .objectFit(ImageFit.Fill)
-          .offset({ x: -(this.offsetX * this.factor()), y: 0 })
-          .draggable(false)
-          .onComplete((event?: SpriteLoadEvent) => {
-            this.onThumbComplete(event)
-          })
-          .onError(() => {
+        EhImageKnifeImage({
+          src: EhConstants.cdnThumb(this.url),
+          widthValue: this.sheetRenderWidth(),
+          heightValue: this.sheetRenderHeight(),
+          objectFit: ImageFit.Fill,
+          onComplete: () => {
+            this.onThumbComplete()
+          },
+          onImageInfo: (width: number, height: number) => {
+            this.onThumbComplete(new SpriteLoadEvent(width, height))
+          },
+          onError: () => {
             this.onThumbError()
-          })
+          },
+        })
+          .offset({ x: -(this.offsetX * this.factor()), y: 0 })
         this.statusOverlay()
       }
       .width(this.boxWidth())
@@ -327,19 +344,22 @@ export struct EhSpriteThumbnail {
       // No sprite metadata (legacy/large-thumb layout): whole image, height-driven. clip(true) so the
       // Cover-fit image is actually rounded to `radius` — borderRadius alone does not clip an Image.
       Stack({ alignContent: Alignment.Center }) {
-        Image(EhConstants.cdnThumb(this.url))
-          .height(this.displayHeight)
-          .aspectRatio(this.wholeImageAspect())
-          .objectFit(ImageFit.Cover)
-          .borderRadius(this.radius)
-          .clip(true)
-          .draggable(false)
-          .onComplete((event?: SpriteLoadEvent) => {
-            this.onThumbComplete(event)
-          })
-          .onError(() => {
+        EhImageKnifeImage({
+          src: EhConstants.cdnThumb(this.url),
+          widthValue: this.boxWidth(),
+          heightValue: this.boxHeight(),
+          objectFit: ImageFit.Cover,
+          radius: this.radius,
+          onComplete: () => {
+            this.onThumbComplete()
+          },
+          onImageInfo: (width: number, height: number) => {
+            this.onThumbComplete(new SpriteLoadEvent(width, height))
+          },
+          onError: () => {
             this.onThumbError()
-          })
+          },
+        })
         this.statusOverlay()
       }
       .width(this.boxWidth())
@@ -349,19 +369,22 @@ export struct EhSpriteThumbnail {
     } else {
       // No sprite metadata: whole image, width-driven (same clip(true) so the radius actually rounds).
       Stack({ alignContent: Alignment.Center }) {
-        Image(EhConstants.cdnThumb(this.url))
-          .width(this.displayWidth)
-          .aspectRatio(this.wholeImageAspect())
-          .objectFit(ImageFit.Cover)
-          .borderRadius(this.radius)
-          .clip(true)
-          .draggable(false)
-          .onComplete((event?: SpriteLoadEvent) => {
-            this.onThumbComplete(event)
-          })
-          .onError(() => {
+        EhImageKnifeImage({
+          src: EhConstants.cdnThumb(this.url),
+          widthValue: this.boxWidth(),
+          heightValue: this.boxHeight(),
+          objectFit: ImageFit.Cover,
+          radius: this.radius,
+          onComplete: () => {
+            this.onThumbComplete()
+          },
+          onImageInfo: (width: number, height: number) => {
+            this.onThumbComplete(new SpriteLoadEvent(width, height))
+          },
+          onError: () => {
             this.onThumbError()
-          })
+          },
+        })
         this.statusOverlay()
       }
       .width(this.boxWidth())

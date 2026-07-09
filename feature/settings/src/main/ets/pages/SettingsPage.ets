@@ -6,6 +6,7 @@ import {
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
+  EhImageKnifeImage,
   SafeModeState,
   connectSafeMode,
 } from 'shared'
@@ -44,10 +45,13 @@ export struct SettingsPage {
   private AccountAvatar() {
     Stack() {
       if (this.auth.avatarUrl.length > 0) {
-        Image(this.auth.avatarUrl)
-          .objectFit(ImageFit.Cover)
-          .width(ThemeConstants.ACCOUNT_AVATAR_SIZE)
-          .height(ThemeConstants.ACCOUNT_AVATAR_SIZE)
+        EhImageKnifeImage({
+          src: this.auth.avatarUrl,
+          objectFit: ImageFit.Cover,
+          widthValue: ThemeConstants.ACCOUNT_AVATAR_SIZE,
+          heightValue: ThemeConstants.ACCOUNT_AVATAR_SIZE,
+          radius: ThemeConstants.ACCOUNT_AVATAR_SIZE / 2,
+        })
       } else {
         SymbolGlyph($r('sys.symbol.person_fill'))
           .fontSize(ThemeConstants.ACCOUNT_AVATAR_SIZE / 2)

@@ -2,6 +2,7 @@ import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 import { CoverColorService } from '../services/CoverColorService'
 import { connectCoverBackground, CoverBackgroundState } from '../state/CoverBackgroundState'
+import { EhImageKnifeImage } from './EhImageKnifeImage'
 
 export const THUMBNAIL_VISUAL_AUTO: number = 0
 export const THUMBNAIL_VISUAL_LOADING: number = 1
@@ -226,15 +227,15 @@ export struct EhThumbnail {
   @Builder
   coverBackgroundLayer() {
     if (this.coverBgState.blurringOfCoverBackground) {
-      Image(EhConstants.cdnThumb(this.url))
-        .width('100%')
-        .height('100%')
-        .objectFit(ImageFit.Cover)
+      EhImageKnifeImage({
+        src: EhConstants.cdnThumb(this.url),
+        widthValue: '100%',
+        heightValue: '100%',
+        objectFit: ImageFit.Cover,
+        radius: this.radius,
+      })
         .blur(ThemeConstants.COVER_BG_BLUR_RADIUS)
-        .borderRadius(this.radius)
-        .clip(true)
         .renderGroup(true)
-        .draggable(false)
     } else if (this.coverBgColor !== 0) {
       Column()
         .width('100%')
@@ -266,19 +267,21 @@ export struct EhThumbnail {
         if (this.letterboxBackground && this.coverObjectFit() === ImageFit.Contain) {
           this.coverBackgroundLayer()
         }
-        Image(EhConstants.cdnThumb(this.url))
-          .width('100%')
-          .height('100%')
-          .objectFit(this.coverObjectFit())
-          .draggable(false)
-          .onComplete(() => {
+        EhImageKnifeImage({
+          src: EhConstants.cdnThumb(this.url),
+          widthValue: '100%',
+          heightValue: '100%',
+          objectFit: this.coverObjectFit(),
+          radius: this.radius,
+          onComplete: () => {
             this.loaded = true
             this.failed = false
-          })
-          .onError(() => {
+          },
+          onError: () => {
             this.loaded = true
             this.failed = true
-          })
+          },
+        })
         this.coverOverlay()
       }
       .width('100%')
@@ -294,58 +297,60 @@ export struct EhThumbnail {
         if (this.letterboxBackground) {
           this.coverBackgroundLayer()
         }
-        Image(EhConstants.cdnThumb(this.url))
-          .width(this.fittedWidth())
-          .height(this.fittedHeight())
-          .objectFit(ImageFit.Fill)
-          .borderRadius(this.radius)
-          .clip(true)
-          .draggable(false)
-          .onComplete(() => {
+        EhImageKnifeImage({
+          src: EhConstants.cdnThumb(this.url),
+          widthValue: this.fittedWidth(),
+          heightValue: this.fittedHeight(),
+          objectFit: ImageFit.Fill,
+          radius: this.radius,
+          onComplete: () => {
             this.loaded = true
             this.failed = false
-          })
-          .onError(() => {
+          },
+          onError: () => {
             this.loaded = true
             this.failed = true
-          })
+          },
+        })
         this.coverOverlay()
       }
       .width(this.thumbWidth)
       .height(this.thumbHeight)
     } else if (this.stretchHeight) {
-      Image(EhConstants.cdnThumb(this.url))
-        .width(this.thumbWidth)
-        .objectFit(this.containFit ? ImageFit.Contain : ImageFit.Cover)
-        .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
-        .borderRadius(this.radius)
-        .draggable(false)
-        .onComplete(() => {
+      EhImageKnifeImage({
+        src: EhConstants.cdnThumb(this.url),
+        widthValue: this.thumbWidth,
+        heightValue: '100%',
+        objectFit: this.containFit ? ImageFit.Contain : ImageFit.Cover,
+        radius: this.radius,
+        onComplete: () => {
           this.loaded = true
           this.failed = false
-        })
-        .onError(() => {
+        },
+        onError: () => {
           this.loaded = true
           this.failed = true
-        })
+        },
+      })
+        .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
         .overlay(this.coverOverlay(), { align: Alignment.Center })
     } else {
       Stack({ alignContent: Alignment.Center }) {
-        Image(EhConstants.cdnThumb(this.url))
-          .width(this.thumbWidth)
-          .height(this.fillHeight ? '100%' : this.thumbHeight)
-          .objectFit(this.containFit ? ImageFit.Contain : ImageFit.Cover)
-          .backgroundColor(ThemeConstants.COVER_PLACEHOLDER)
-          .borderRadius(this.radius)
-          .draggable(false)
-          .onComplete(() => {
+        EhImageKnifeImage({
+          src: EhConstants.cdnThumb(this.url),
+          widthValue: this.thumbWidth,
+          heightValue: this.fillHeight ? '100%' : this.thumbHeight,
+          objectFit: this.containFit ? ImageFit.Contain : ImageFit.Cover,
+          radius: this.radius,
+          onComplete: () => {
             this.loaded = true
             this.failed = false
-          })
-          .onError(() => {
+          },
+          onError: () => {
             this.loaded = true
             this.failed = true
-          })
+          },
+        })
         this.coverOverlay()
       }
       .width(this.thumbWidth)

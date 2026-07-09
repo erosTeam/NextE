@@ -8,6 +8,7 @@ import {
   ThemeConstants,
   BasicDataSource,
   EhGalleryImage,
+  EhImageKnifeImage,
   EhSpriteThumbnail,
   ReaderParams,
   ImageResolveService,
@@ -2448,24 +2449,24 @@ struct ReaderCacheWarmImage {
 
   build() {
     if (this.warmDisplayUri.length > 0) {
-      Image(this.warmDisplayUri)
-        .objectFit(ImageFit.Contain)
-        .interpolation(ImageInterpolation.High)
-        .width('100%')
-        .height('100%')
-        .translate({ x: this.translateX, y: 0 })
-        .draggable(false)
-        .onComplete(() => {
+      EhImageKnifeImage({
+        src: this.warmDisplayUri,
+        widthValue: '100%',
+        heightValue: '100%',
+        objectFit: ImageFit.Contain,
+        onComplete: () => {
           if (this.decodedKey === this.warmedKey) {
             return
           }
           this.decodedKey = this.warmedKey
           this.onImageLoaded(this.page)
           DiagnosticLogger.info('image-cache', 'reader_warm_decoded', `page ${this.page}`)
-        })
-        .onError(() => {
+        },
+        onError: () => {
           DiagnosticLogger.warn('image-cache', 'reader_warm_decode_failed', `page ${this.page}`)
-        })
+        },
+      })
+        .translate({ x: this.translateX, y: 0 })
     }
   }
 }
@@ -3049,6 +3050,21 @@ struct ReaderSpreadImageLayer {
     this.failed = true
   }
 
+  private markImageLoaded(): void {
+    this.autoRetryCount = 0
+    if (!this.imageLoaded) {
+      this.imageLoaded = true
+      this.onImageLoaded(this.image.page)
+    }
+  }
+
+  private onImageDecoded(width: number, height: number): void {
+    this.markImageLoaded()
+    if (width > 0 && height > 0) {
+      this.onImageMetrics(this.image.page, width, height)
+    }
+  }
+
   build() {
     Stack() {
       if (this.failed) {
@@ -3060,27 +3076,23 @@ struct ReaderSpreadImageLayer {
           },
         })
       } else if (this.imageUrl.length > 0) {
-        Image(this.imageUrl)
-          .objectFit(ImageFit.Contain)
-          .interpolation(ImageInterpolation.High)
-          .width('100%')
-          .height('100%')
-          .draggable(false)
-          .onComplete((_event?: ReaderImageLoadEvent) => {
-            this.autoRetryCount = 0
-            this.imageLoaded = true
-            this.onImageLoaded(this.image.page)
-            if (_event && _event.width && _event.height) {
-              this.onImageMetrics(this.image.page, _event.width, _event.height)
-            } else if (_event && _event.componentWidth && _event.componentHeight) {
-              this.onImageMetrics(this.image.page, _event.componentWidth, _event.componentHeight)
-            }
-          })
-          .onError(() => {
+        EhImageKnifeImage({
+          src: this.imageUrl,
+          widthValue: '100%',
+          heightValue: '100%',
+          objectFit: ImageFit.Contain,
+          onImageInfo: (width: number, height: number) => {
+            this.onImageDecoded(width, height)
+          },
+          onComplete: () => {
+            this.markImageLoaded()
+          },
+          onError: () => {
             DiagnosticLogger.warn('reader', 'spread_image_load_failed', `page ${this.image.page}`)
             this.imageLoaded = false
             this.retrySourceAutomatically()
-          })
+          },
+        })
         if (!this.imageLoaded) {
           ReaderLoadingStage({
             label: $r('app.string.reader_loading_decoding'),
@@ -3408,6 +3420,28 @@ struct ReaderImagePage {
     this.failed = true
   }
 
+  private markImageLoaded(): void {
+    this.autoRetryCount = 0
+    if (!this.imageLoaded) {
+      this.imageLoaded = true
+      this.onImageLoaded(this.image.page)
+    }
+  }
+
+  private onImageDecoded(width: number, height: number): void {
+    if (width > 0 && height > 0) {
+      this.intrinsicW = this.getUIContext().px2vp(width)
+      this.intrinsicH = this.getUIContext().px2vp(height)
+      DiagnosticLogger.info(
+        'reader',
+        'image_decoded',
+        `page=${this.image.page} width=${width} height=${height} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
+      )
+    }
+    this.markImageLoaded()
+    this.clampOffset()
+  }
+
   private clampScale(value: number): number {
     return ReaderZoomCoordinator.clampScale(value)
   }
@@ -3502,43 +3536,27 @@ struct ReaderImagePage {
           },
         })
       } else if (this.imageUrl.length > 0) {
-        Image(this.imageUrl)
-          .objectFit(ImageFit.Contain)
-          .interpolation(ImageInterpolation.High)
-          .width('100%')
-          .height('100%')
-          .draggable(false)
-          .scale({ x: this.zoomScale, y: this.zoomScale })
-          .translate({ x: this.offsetX, y: this.offsetY })
-          .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
-          .onComplete((event?: ReaderImageLoadEvent) => {
-            if (event && event.width && event.height) {
-              this.intrinsicW = this.getUIContext().px2vp(event.width)
-              this.intrinsicH = this.getUIContext().px2vp(event.height)
-              DiagnosticLogger.info(
-                'reader',
-                'image_decoded',
-                `page=${this.image.page} width=${event.width} height=${event.height} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
-              )
-            } else if (event && event.componentWidth && event.componentHeight) {
-              this.intrinsicW = event.componentWidth
-              this.intrinsicH = event.componentHeight
-              DiagnosticLogger.info(
-                'reader',
-                'image_decoded_component',
-                `page=${this.image.page} width=${event.componentWidth} height=${event.componentHeight} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
-              )
-            }
-            this.autoRetryCount = 0
-            this.imageLoaded = true
-            this.onImageLoaded(this.image.page)
+        EhImageKnifeImage({
+          src: this.imageUrl,
+          widthValue: '100%',
+          heightValue: '100%',
+          objectFit: ImageFit.Contain,
+          onImageInfo: (width: number, height: number) => {
+            this.onImageDecoded(width, height)
+          },
+          onComplete: () => {
+            this.markImageLoaded()
             this.clampOffset()
-          })
-          .onError(() => {
+          },
+          onError: () => {
             DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
             this.imageLoaded = false
             this.retrySourceAutomatically()
-          })
+          },
+        })
+          .scale({ x: this.zoomScale, y: this.zoomScale })
+          .translate({ x: this.offsetX, y: this.offsetY })
+          .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
         if (!this.imageLoaded) {
           ReaderLoadingStage({
             label: $r('app.string.reader_loading_decoding'),
@@ -4104,6 +4122,29 @@ struct ReaderVerticalImage {
     this.notifyZoom()
   }
 
+  private markImageLoaded(): void {
+    this.autoRetryCount = 0
+    if (!this.imageLoaded) {
+      this.imageLoaded = true
+      this.onImageLoaded(this.image.page)
+    }
+  }
+
+  private onImageDecoded(width: number, height: number): void {
+    if (width > 0 && height > 0) {
+      this.ratio = width / height
+      this.intrinsicW = this.getUIContext().px2vp(width)
+      this.intrinsicH = this.getUIContext().px2vp(height)
+      DiagnosticLogger.info(
+        'reader',
+        'image_decoded',
+        `page=${this.image.page} width=${width} height=${height} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
+      )
+    }
+    this.markImageLoaded()
+    this.clampOffset()
+  }
+
   private zoomZIndex(): number {
     return ReaderZoomCoordinator.isZoomed(this.zoomScale) ? 1 : 0
   }
@@ -4121,36 +4162,29 @@ struct ReaderVerticalImage {
           },
         })
       } else if (this.imageUrl.length > 0) {
-        Image(this.imageUrl)
-          .width('100%')
-          .aspectRatio(this.ratio)
-          .objectFit(ImageFit.Contain)
-          .interpolation(ImageInterpolation.High)
-          .draggable(false)
-          .scale({ x: this.zoomScale, y: this.zoomScale })
-          .translate({ x: this.offsetX, y: this.offsetY })
-          .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
-          .onComplete((e) => {
-            this.autoRetryCount = 0
-            this.imageLoaded = true
-            this.onImageLoaded(this.image.page)
-            if (e !== undefined && e.width > 0 && e.height > 0) {
-              this.ratio = e.width / e.height
-              this.intrinsicW = this.getUIContext().px2vp(e.width)
-              this.intrinsicH = this.getUIContext().px2vp(e.height)
-              DiagnosticLogger.info(
-                'reader',
-                'image_decoded',
-                `page=${this.image.page} width=${e.width} height=${e.height} urlHash=${DiagnosticLogger.ownerHash(this.imageUrl)}`,
-              )
-            }
+        EhImageKnifeImage({
+          src: this.imageUrl,
+          widthValue: '100%',
+          heightValue: '100%',
+          objectFit: ImageFit.Contain,
+          onImageInfo: (width: number, height: number) => {
+            this.onImageDecoded(width, height)
+          },
+          onComplete: () => {
+            this.markImageLoaded()
             this.clampOffset()
-          })
-          .onError(() => {
+          },
+          onError: () => {
             DiagnosticLogger.warn('reader', 'image_load_failed', `page ${this.image.page}`)
             this.imageLoaded = false
             this.retrySourceAutomatically()
-          })
+          },
+        })
+          .width('100%')
+          .aspectRatio(this.ratio)
+          .scale({ x: this.zoomScale, y: this.zoomScale })
+          .translate({ x: this.offsetX, y: this.offsetY })
+          .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
         if (!this.imageLoaded) {
           ReaderLoadingStage({
             label: $r('app.string.reader_loading_decoding'),
@@ -4485,15 +4519,16 @@ struct ReaderImageBlockedOverlay {
   @Builder
   BackgroundLayer() {
     if (this.previewUri.length > 0) {
-      Image(this.previewUri)
-        .width('100%')
-        .height('100%')
-        .objectFit(ImageFit.Contain)
+      EhImageKnifeImage({
+        src: this.previewUri,
+        widthValue: '100%',
+        heightValue: '100%',
+        objectFit: ImageFit.Contain,
+      })
         .scale({ x: 1.02, y: 1.02 })
         .blur(ThemeConstants.COVER_BG_BLUR_RADIUS + 40)
         .opacity(1)
         .renderGroup(true)
-        .draggable(false)
       Column()
         .width('100%')
         .height('100%')

@@ -78,6 +78,7 @@ export {
   THUMBNAIL_VISUAL_LOADING,
   THUMBNAIL_VISUAL_ERROR,
 } from './components/EhThumbnail'
+export { EhImageKnifeImage } from './components/EhImageKnifeImage'
 export { EhSpriteThumbnail } from './components/EhSpriteThumbnail'
 export { PreviewThumbTile } from './components/PreviewThumbTile'
 export { RatingStars } from './components/RatingStars'
@@ -139,6 +140,7 @@ export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGallery
 
 // services
 export { ImageResolveService } from './services/ImageResolveService'
+export { ImageKnifeProRuntime } from './services/ImageKnifeProRuntime'
 export { ArchiveImageService } from './services/ArchiveImageService'
 export {
   ArchiveBotBalanceResult,
