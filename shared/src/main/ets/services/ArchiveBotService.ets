@@ -5,6 +5,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
 const CONNECT_TIMEOUT_MS: number = 10000
 const READ_TIMEOUT_MS: number = 30000
+const ARCHIVE_AT_HOME_BASE_URL: string = 'https://api.archive-at-home.org'
 const ARCHIVE_AT_HOME_CLIENT: string = 'app/jhentai'
 
 class ArchiveBotResponseJson {
@@ -68,7 +69,7 @@ export class ArchiveBotService {
     token: string,
     reParse: boolean,
   ): Promise<ArchiveBotResponseJson> {
-    const url: string = ArchiveBotService.endpoint(settings, action)
+    const url: string = ArchiveBotService.endpoint(action)
     const body: string = ArchiveBotService.body(action, gid, token, reParse)
     const req: http.HttpRequest = http.createHttp()
     DiagnosticLogger.info(
@@ -126,12 +127,11 @@ export class ArchiveBotService {
     }
   }
 
-  private static endpoint(settings: DownloadSettingsState, action: string): string {
-    const base: string = ArchiveBotService.trimRightSlash(settings.archiveBotAddress)
+  private static endpoint(action: string): string {
     if (action === 'balance') {
-      return `${base}/api/v1/me/balance`
+      return `${ARCHIVE_AT_HOME_BASE_URL}/api/v1/me/balance`
     }
-    return `${base}/api/v1/parse`
+    return `${ARCHIVE_AT_HOME_BASE_URL}/api/v1/parse`
   }
 
   private static method(action: string): http.RequestMethod {
@@ -263,11 +263,4 @@ export class ArchiveBotService {
     return 0
   }
 
-  private static trimRightSlash(value: string): string {
-    let out: string = value.trim()
-    while (out.endsWith('/')) {
-      out = out.substring(0, out.length - 1)
-    }
-    return out
-  }
 }

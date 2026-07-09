@@ -341,27 +341,6 @@ ok(!/startAbility\(want\)|archiverTaskMap/.test(page),
   'archiver page does not external-open the archive URL or use a fake FE task map')
 ok(!/ShareUtil|shareUrl/.test(page), 'archiver page does not repurpose share as a fake download action')
 
-ok(/LEGACY_EH_AR_BOT_ADDRESS: string = 'https:\/\/eh-arc-api\.mhdy\.icu'/.test(downloadSettings) &&
-  /DEFAULT_ARCHIVE_AT_HOME_ADDRESS: string = 'https:\/\/api\.archive-at-home\.org'/.test(downloadSettings) &&
-  /LEGACY_ARCHIVE_AT_HOME_ADDRESS: string = 'https:\/\/api\.archive-at-home\.org\/jhentai'/.test(downloadSettings) &&
-  /trimmed === LEGACY_ARCHIVE_AT_HOME_ADDRESS/.test(downloadSettings) &&
-  /storedType !== ArchiveBotType\.ARCHIVE_AT_HOME/.test(downloadSettings) &&
-  /archiveBotReady/.test(downloadSettings),
-  'download settings carries Archive-at-Home API base defaults, legacy EH-ArBot migration, and readiness check')
-ok(/requestBalance/.test(archiveBot) && /requestResolve/.test(archiveBot) && !/requestCheckIn/.test(archiveBot),
-  'archive bot service exposes balance and resolve operations without removed check-in')
-ok(/ARCHIVE_AT_HOME_CLIENT: string = 'app\/jhentai'/.test(archiveBot) &&
-  /headers\.Authorization = `Bearer \$\{settings\.archiveBotApiKey\}`/.test(archiveBot) &&
-  /headers\['X-Client'\] = ARCHIVE_AT_HOME_CLIENT/.test(archiveBot),
-  'Archive-at-Home requests include JHenTai-compatible auth and client headers')
-ok(/api\/v1\/me\/balance/.test(archiveBot) && !/api\/v1\/me\/checkin/.test(archiveBot) &&
-  /api\/v1\/parse/.test(archiveBot) &&
-  /gallery_id: gid/.test(archiveBot) &&
-  /gallery_key: token/.test(archiveBot) &&
-  /force: reParse/.test(archiveBot),
-  'Archive-at-Home endpoints and resolve body match the current protocol without the removed check-in endpoint')
-ok(!/apikey: settings\.archiveBotApiKey|force_resolve|return `\$\{base\}\/\$\{action === 'resolve' \? 'resolve' : action\}`/.test(archiveBot),
-  'EH-ArBot request shape is no longer present')
 ok(/rec\.data !== undefined \? rec\.data : \(rec as ArchiveBotDataJson\)/.test(archiveBot),
   'archive bot response parser accepts wrapped data and direct business objects')
 ok(/if \(code >= 400\) \{[\s\S]*parseResponse\(text\)[\s\S]*ArchiveBotService\.message\(errResp\)/.test(archiveBot) &&

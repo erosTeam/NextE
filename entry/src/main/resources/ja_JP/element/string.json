@@ -349,12 +349,12 @@
       "value": "Archive-at-Home"
     },
     {
-      "name": "download_archive_bot_address",
-      "value": "サーバーアドレス"
+      "name": "download_archive_bot_get_key",
+      "value": "API Key を取得"
     },
     {
-      "name": "download_archive_bot_address_hint",
-      "value": "Archive Bot API アドレス"
+      "name": "download_archive_bot_get_key_hint",
+      "value": "Archive-at-Home Telegram Bot を開きます"
     },
     {
       "name": "download_archive_bot_api_key",

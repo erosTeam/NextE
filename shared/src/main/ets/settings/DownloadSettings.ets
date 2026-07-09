@@ -18,9 +18,7 @@ const MAX_RETRY_COUNT: number = 5
 const MIN_SPEED_LIMIT_KBPS: number = 0
 const MAX_SPEED_LIMIT_KBPS: number = 8192
 const SPEED_LIMIT_STEP_KBPS: number = 256
-const LEGACY_EH_AR_BOT_ADDRESS: string = 'https://eh-arc-api.mhdy.icu'
 const DEFAULT_ARCHIVE_AT_HOME_ADDRESS: string = 'https://api.archive-at-home.org'
-const LEGACY_ARCHIVE_AT_HOME_ADDRESS: string = 'https://api.archive-at-home.org/jhentai'
 
 function clampConcurrency(value: number): number {
   return Math.min(MAX_CONCURRENCY, Math.max(MIN_CONCURRENCY, Math.round(value)))
@@ -61,17 +59,6 @@ function defaultArchiveBotAddress(): string {
   return DEFAULT_ARCHIVE_AT_HOME_ADDRESS
 }
 
-function normalizeArchiveBotAddress(storedType: string, value: string): string {
-  const trimmed: string = value.trim()
-  if (storedType !== ArchiveBotType.ARCHIVE_AT_HOME) {
-    return DEFAULT_ARCHIVE_AT_HOME_ADDRESS
-  }
-  if (trimmed === LEGACY_ARCHIVE_AT_HOME_ADDRESS || trimmed === LEGACY_EH_AR_BOT_ADDRESS) {
-    return DEFAULT_ARCHIVE_AT_HOME_ADDRESS
-  }
-  return trimmed
-}
-
 /** Single writer for persisted download preferences. */
 export class DownloadSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
@@ -96,10 +83,6 @@ export class DownloadSettings {
       const storedArchiveBotType: string =
         store.getSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_TYPE, ArchiveBotType.ARCHIVE_AT_HOME) as string
       const archiveBotType: string = normalizeArchiveBotType(storedArchiveBotType)
-      const archiveBotAddress: string = normalizeArchiveBotAddress(storedArchiveBotType, store.getSync(
-        StorageKeys.DOWNLOAD_ARCHIVE_BOT_ADDRESS,
-        defaultArchiveBotAddress(),
-      ) as string)
       const archiveBotApiKey: string = (store.getSync(
         StorageKeys.DOWNLOAD_ARCHIVE_BOT_API_KEY,
         '',
@@ -117,7 +100,7 @@ export class DownloadSettings {
       state.hideFromMediaLibrary = hideFromMediaLibrary
       state.originalMode = normalizeOriginalMode(originalMode)
       state.archiveBotType = archiveBotType
-      state.archiveBotAddress = archiveBotAddress.length > 0 ? archiveBotAddress : defaultArchiveBotAddress()
+      state.archiveBotAddress = defaultArchiveBotAddress()
       state.archiveBotApiKey = archiveBotApiKey
       state.archiveBotBalanceGp = archiveBotBalanceGp
       state.archiveBotBalanceUpdatedAt = archiveBotBalanceUpdatedAt
@@ -162,24 +145,6 @@ export class DownloadSettings {
     }
   }
 
-  static async setArchiveBotAddress(
-    context: common.UIAbilityContext,
-    address: string,
-  ): Promise<void> {
-    const value: string = address.trim()
-    connectDownloadSettings().archiveBotAddress = value
-    try {
-      const store: preferences.Preferences = await preferences.getPreferences(
-        context,
-        StorageKeys.STORE_SETTINGS,
-      )
-      store.putSync(StorageKeys.DOWNLOAD_ARCHIVE_BOT_ADDRESS, value)
-      store.flushSync()
-    } catch (error) {
-      DiagnosticLogger.warn('settings', 'download_archive_bot_address_save_failed', (error as Error).message)
-    }
-  }
-
   static async setArchiveBotApiKey(
     context: common.UIAbilityContext,
     apiKey: string,
@@ -221,7 +186,7 @@ export class DownloadSettings {
   }
 
   static archiveBotReady(state: DownloadSettingsState = connectDownloadSettings()): boolean {
-    return state.archiveBotAddress.trim().length > 0 && state.archiveBotApiKey.trim().length > 0
+    return state.archiveBotApiKey.trim().length > 0
   }
 
   static async setRequestIntervalSeconds(

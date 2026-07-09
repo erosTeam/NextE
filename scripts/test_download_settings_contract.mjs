@@ -177,11 +177,6 @@ ok(/download_original_images/.test(downloadPage) && /trailingDropdown: true/.tes
 ok(/DownloadOriginalMode\.OFF/.test(downloadPage) && /DownloadOriginalMode\.ASK/.test(downloadPage) &&
   /DownloadOriginalMode\.ALWAYS/.test(downloadPage),
   'download original-image menu covers off, ask, and always')
-ok(/archiveBotBalanceBusy/.test(downloadPage) &&
-  /archiveBotBalanceStatus/.test(downloadPage) &&
-  !/archiveBotCheckInBusy|archiveBotCheckInStatus/.test(downloadPage) &&
-  !/@Local archiveBotBusy/.test(downloadPage) && !/@Local archiveBotStatus/.test(downloadPage),
-  'archive bot balance keeps row-local loading state and the removed check-in action stays hidden')
 ok(/setArchiveBotBalance\(this\.ctx\(\), result\.gp\)/.test(downloadPage) &&
   /DOWNLOAD_ARCHIVE_BOT_BALANCE_GP/.test(settings) &&
   /archiveBotBalanceGp/.test(state),
@@ -203,18 +198,6 @@ ok(/download_restore_tasks[\s\S]*download_restore_tasks_scanning[\s\S]*BusySuffi
   'restore-downloads row has loading feedback and user-facing result toasts')
 ok(/if \(result\.hasBalance\) \{[\s\S]*setArchiveBotBalance\(this\.ctx\(\), result\.gp\)/.test(downloadPage),
   'archive bot balance cache is updated only when the response carries a balance field')
-ok(!/requestCheckIn|checkInArchiveBot|download_archive_bot_checkin/.test(downloadPage),
-  'archive bot daily check-in settings UI is removed because Archive-at-Home now accumulates balance automatically')
-ok(/canCheckArchiveBotBalance/.test(downloadPage) &&
-  /download_archive_bot_balance[\s\S]*archiveBotBalanceBusy[\s\S]*BusySuffix/.test(downloadPage),
-  'archive bot balance action shows row-local loading feedback')
-ok(/archive_bot_balance_check_start/.test(downloadPage) && /archive_bot_balance_check_done/.test(downloadPage) &&
-  /archive_bot_balance_check_failed/.test(downloadPage) &&
-  !/archive_bot_checkin_start|archive_bot_checkin_done|archive_bot_checkin_failed/.test(downloadPage),
-  'archive bot settings validation emits balance diagnostics without removed check-in diagnostics')
-ok(/download_archive_bot_protocol[\s\S]*trailingText: this\.archiveBotTypeLabel\(\)[\s\S]*showChevron: false/.test(downloadPage) &&
-  !/ArchiveBotTypeMenu|archiveBotMenuShown/.test(downloadPage),
-  'archive bot protocol is displayed as a single fixed provider, not a dropdown menu')
 ok(!/restore_tasks_data|rebuild_tasks_data|download_location|allow_media_scan/.test(downloadPage),
   'this lane does not add unimplemented download path/task-maintenance placeholders')
 

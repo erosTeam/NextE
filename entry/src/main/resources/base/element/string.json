@@ -349,12 +349,12 @@
       "value": "Archive-at-Home"
     },
     {
-      "name": "download_archive_bot_address",
-      "value": "Server address"
+      "name": "download_archive_bot_get_key",
+      "value": "Get API Key"
     },
     {
-      "name": "download_archive_bot_address_hint",
-      "value": "Archive Bot API address"
+      "name": "download_archive_bot_get_key_hint",
+      "value": "Open the Archive-at-Home Telegram bot"
     },
     {
       "name": "download_archive_bot_api_key",

@@ -1,5 +1,5 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
-import { common } from '@kit.AbilityKit'
+import { common, Want } from '@kit.AbilityKit'
 import { KeyboardAvoidMode, SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppStrings,
@@ -20,6 +20,8 @@ import {
   immersiveTitleBar,
 } from 'shared'
 
+const ARCHIVE_AT_HOME_BOT_URL: string = 'https://t.me/ArchiveAtHome_bot'
+
 /**
  * Download settings page grounded in eros_fe DownloadSettingPage:
  * the queue tab shows tasks, while this settings surface owns policy controls.
@@ -29,7 +31,6 @@ import {
 export struct DownloadSettingsPage {
   @Local downloadSettings: DownloadSettingsState = connectDownloadSettings();
   @Local originalMenuShown: boolean = false;
-  @Local archiveBotAddressDraft: string = '';
   @Local archiveBotApiKeyDraft: string = '';
   @Local archiveBotBalanceBusy: boolean = false;
   @Local archiveBotBalanceStatus: string = '';
@@ -39,7 +40,6 @@ export struct DownloadSettingsPage {
 
   aboutToAppear(): void {
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
-    this.archiveBotAddressDraft = this.downloadSettings.archiveBotAddress
     this.archiveBotApiKeyDraft = this.downloadSettings.archiveBotApiKey
     this.refreshArchiveBotBalanceSilently()
   }
@@ -66,20 +66,20 @@ export struct DownloadSettingsPage {
     DownloadSettings.setOriginalMode(this.ctx(), mode)
   }
 
-  private archiveBotTypeLabel(): Resource {
-    return $r('app.string.download_archive_bot_archive_at_home')
-  }
-
-  private saveArchiveBotAddress(): void {
-    DownloadSettings.setArchiveBotAddress(this.ctx(), this.archiveBotAddressDraft)
-  }
-
   private saveArchiveBotApiKey(): void {
     DownloadSettings.setArchiveBotApiKey(this.ctx(), this.archiveBotApiKeyDraft)
   }
 
   private canCheckArchiveBotBalance(): boolean {
     return !this.archiveBotBalanceBusy && DownloadSettings.archiveBotReady(this.downloadSettings)
+  }
+
+  private openArchiveAtHomeBot(): void {
+    const want: Want = { action: 'ohos.want.action.viewData', uri: ARCHIVE_AT_HOME_BOT_URL }
+    this.ctx().startAbility(want).catch((error: Error) => {
+      DiagnosticLogger.warn('settings', 'download_archive_bot_open_tg_failed', error.message)
+      this.showToast($r('app.string.error_http'))
+    })
   }
 
   private balanceSubtitle(): ResourceStr {
@@ -244,35 +244,22 @@ export struct DownloadSettingsPage {
   }
 
   @Builder
-  private TextInputRow(label: ResourceStr, placeholder: ResourceStr, secret: boolean, field: string) {
+  private TextInputRow(label: ResourceStr, placeholder: ResourceStr, secret: boolean) {
     Column({ space: ThemeConstants.SPACE_XS }) {
       Text(label)
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
         .fontColor($r('sys.color.font_secondary'))
         .width('100%')
-      if (field === 'address') {
-        TextInput({ text: $$this.archiveBotAddressDraft, placeholder: placeholder })
-          .type(secret ? InputType.Password : InputType.Normal)
-          .width('100%')
-          .height(48)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .onChange(() => {
-            this.saveArchiveBotAddress()
-          })
-      } else {
-        TextInput({ text: $$this.archiveBotApiKeyDraft, placeholder: placeholder })
-          .type(secret ? InputType.Password : InputType.Normal)
-          .width('100%')
-          .height(48)
-          .fontSize(ThemeConstants.FONT_SIZE_BODY)
-          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
-          .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
-          .onChange(() => {
-            this.saveArchiveBotApiKey()
-          })
-      }
+      TextInput({ text: $$this.archiveBotApiKeyDraft, placeholder: placeholder })
+        .type(secret ? InputType.Password : InputType.Normal)
+        .width('100%')
+        .height(48)
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+        .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
+        .onChange(() => {
+          this.saveArchiveBotApiKey()
+        })
     }
     .width('100%')
     .padding({
@@ -463,25 +450,25 @@ export struct DownloadSettingsPage {
         ListItem() {
           GroupedListSection() {
             ConciseListRow({
-              title: $r('app.string.download_archive_bot_protocol'),
+              title: $r('app.string.download_archive_bot_archive_at_home'),
               subtitle: $r('app.string.download_archive_bot_hint'),
               leadingIcon: $r('sys.symbol.externaldrive'),
-              trailingText: this.archiveBotTypeLabel(),
               showChevron: false,
             })
             this.rowDivider()
-            this.TextInputRow(
-              $r('app.string.download_archive_bot_address'),
-              $r('app.string.download_archive_bot_address_hint'),
-              false,
-              'address',
-            )
+            ConciseListRow({
+              title: $r('app.string.download_archive_bot_get_key'),
+              subtitle: $r('app.string.download_archive_bot_get_key_hint'),
+              leadingIcon: $r('sys.symbol.link'),
+              action: () => {
+                this.openArchiveAtHomeBot()
+              },
+            })
             this.rowDivider()
             this.TextInputRow(
               $r('app.string.download_archive_bot_api_key'),
               $r('app.string.download_archive_bot_api_key_hint'),
               true,
-              'apiKey',
             )
             this.rowDivider()
             if (this.archiveBotBalanceBusy) {
