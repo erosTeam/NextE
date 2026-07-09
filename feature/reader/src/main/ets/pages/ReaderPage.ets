@@ -2469,16 +2469,6 @@ struct ReaderCacheWarmImage {
     }
     const context: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
-    const cached: CachedImageFileResult | null = CachedImageFileService.cached(
-      context,
-      this.sourceUrl,
-      key,
-    )
-    if (cached !== null) {
-      DiagnosticLogger.info('image-cache', 'reader_warm_hit', `page ${this.page} ${cached.bytes} bytes`)
-      this.markReady(cached, key)
-      return
-    }
     this.warmingKey = key
     this.warmDisplayUri = ''
     this.warmByImageKnifeOrFallback(context, key)
@@ -2958,24 +2948,6 @@ struct ReaderSpreadImageLayer {
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     const cacheKey: string = this.cacheKey(resolved)
-    const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, resolved, cacheKey)
-    if (cached !== null) {
-      this.sourceImageUrl = resolved
-      this.imageUrl = ''
-      this.imageProgressLoaded = cached.bytes
-      this.imageProgressTotal = cached.bytes
-      this.onImageFileReady(this.image.page, cached.filePath)
-      if (await this.applyImageBlockDecision(context, cached.filePath, cached.bytes, cached.displayUri, seq)) {
-        return
-      }
-      this.imageUrl = cached.displayUri
-      this.imageLoaded = true
-      this.autoRetryCount = 0
-      this.failed = false
-      this.failureKind = ReaderImageFailureKind.Generic
-      DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
-      return
-    }
     this.sourceImageUrl = resolved
     this.imageUrl = ''
     this.imageLoaded = false
@@ -3361,24 +3333,6 @@ struct ReaderImagePage {
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     const cacheKey: string = this.cacheKey(resolved)
-    const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, resolved, cacheKey)
-    if (cached !== null) {
-      this.sourceImageUrl = resolved
-      this.imageUrl = ''
-      this.imageProgressLoaded = cached.bytes
-      this.imageProgressTotal = cached.bytes
-      this.onImageFileReady(this.image.page, cached.filePath)
-      if (await this.applyImageBlockDecision(context, cached.filePath, cached.bytes, cached.displayUri, seq)) {
-        return
-      }
-      this.imageUrl = cached.displayUri
-      this.imageLoaded = true
-      this.autoRetryCount = 0
-      this.failed = false
-      this.failureKind = ReaderImageFailureKind.Generic
-      DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
-      return
-    }
     this.sourceImageUrl = resolved
     this.imageUrl = ''
     this.imageLoaded = false
@@ -3961,24 +3915,6 @@ struct ReaderVerticalImage {
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     const cacheKey: string = this.cacheKey(resolved)
-    const cached: CachedImageFileResult | null = CachedImageFileService.cached(context, resolved, cacheKey)
-    if (cached !== null) {
-      this.sourceImageUrl = resolved
-      this.imageUrl = ''
-      this.imageProgressLoaded = cached.bytes
-      this.imageProgressTotal = cached.bytes
-      this.onImageFileReady(this.image.page, cached.filePath)
-      if (await this.applyImageBlockDecision(context, cached.filePath, cached.bytes, cached.displayUri, seq)) {
-        return
-      }
-      this.imageUrl = cached.displayUri
-      this.imageLoaded = true
-      this.autoRetryCount = 0
-      this.failed = false
-      this.failureKind = ReaderImageFailureKind.Generic
-      DiagnosticLogger.info('image-cache', 'reader_display_hit', `page ${this.image.page} ${cached.bytes} bytes`)
-      return
-    }
     this.sourceImageUrl = resolved
     this.imageUrl = ''
     this.imageLoaded = false
