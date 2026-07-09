@@ -117,6 +117,14 @@
       "value": "Archive resume failed. Download again."
     },
     {
+      "name": "download_error_archive_link_expired",
+      "value": "Archive link expired. Request again."
+    },
+    {
+      "name": "download_error_archive_rate_limited",
+      "value": "Too many requests. Try later."
+    },
+    {
       "name": "download_pause_all",
       "value": "Pause all"
     },

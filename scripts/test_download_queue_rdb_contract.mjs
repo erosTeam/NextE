@@ -407,7 +407,12 @@ ok('ignored Range responses fail visibly, then clear archiver partial state so e
     !/!resumeAccepted[\s\S]{0,220}OpenMode\.TRUNC/.test(httpClient) &&
     /const restartFromHead: boolean = DownloadQueueSettings\.isArchiverResumeUnsupportedError\(error as Object\)[\s\S]*DownloadQueueSettings\.deleteSandboxPath\(partialPath, 'archiver_partial_restart_delete_failed'\)[\s\S]*it\.bytesWritten = 0[\s\S]*it\.progress = 0/.test(settings) &&
     /private static isArchiverResumeUnsupportedError\(error: Object\): boolean \{[\s\S]*binary resume unsupported[\s\S]*invalid content range/.test(settings) &&
-    /raw\.indexOf\('binary resume unsupported'\) >= 0[\s\S]*download_error_resume_unsupported/.test(settings))
+    /DownloadQueueSettings\.isArchiverResumeUnsupportedError\(error\)[\s\S]*download_error_resume_unsupported/.test(settings))
+ok('archiver HTTP 410/404/429 failures use EH archive-specific user messages',
+  /private static isArchiverLinkExpiredError\(error: Object\): boolean \{[\s\S]*binary HTTP 410[\s\S]*binary HTTP 404/.test(settings) &&
+    /private static isArchiverRateLimitedError\(error: Object\): boolean \{[\s\S]*binary HTTP 429/.test(settings) &&
+    /DownloadQueueSettings\.isArchiverLinkExpiredError\(error\)[\s\S]*download_error_archive_link_expired/.test(settings) &&
+    /DownloadQueueSettings\.isArchiverRateLimitedError\(error\)[\s\S]*download_error_archive_rate_limited/.test(settings))
 ok('pause marks running archiver workers cancelled and suppresses late progress callbacks',
   /static async pauseArchiverDownload/.test(settings) &&
     /archiverDownloads\.has\(tag\)[\s\S]*cancelledArchiverDownloads\.add\(tag\)[\s\S]*it\.status = DownloadGalleryTaskStatus\.PAUSED/.test(settings) &&

@@ -117,6 +117,14 @@
       "value": "アーカイブを再開できません。再ダウンロードしてください。"
     },
     {
+      "name": "download_error_archive_link_expired",
+      "value": "リンクが期限切れです。再取得してください。"
+    },
+    {
+      "name": "download_error_archive_rate_limited",
+      "value": "リクエスト過多です。後で再試行してください。"
+    },
+    {
       "name": "download_pause_all",
       "value": "すべて一時停止"
     },

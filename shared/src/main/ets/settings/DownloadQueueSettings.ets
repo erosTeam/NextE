@@ -3210,6 +3210,16 @@ export class DownloadQueueSettings {
     return raw.indexOf('binary resume unsupported') >= 0 || raw.indexOf('invalid content range') >= 0
   }
 
+  private static isArchiverLinkExpiredError(error: Object): boolean {
+    const raw: string = (error as Error).message
+    return raw.indexOf('binary HTTP 410') >= 0 || raw.indexOf('binary HTTP 404') >= 0
+  }
+
+  private static isArchiverRateLimitedError(error: Object): boolean {
+    const raw: string = (error as Error).message
+    return raw.indexOf('binary HTTP 429') >= 0
+  }
+
   private static userError(error: Object): string {
     const raw: string = (error as Error).message
     if (raw.indexOf(' login status=') >= 0) {
@@ -3218,8 +3228,14 @@ export class DownloadQueueSettings {
     if (raw.indexOf(' maybe-hidden status=') >= 0) {
       return EhErrorText.message(EhErrorKind.MaybeHidden)
     }
-    if (raw.indexOf('binary resume unsupported') >= 0) {
+    if (DownloadQueueSettings.isArchiverResumeUnsupportedError(error)) {
       return AppStrings.get('download_error_resume_unsupported')
+    }
+    if (DownloadQueueSettings.isArchiverLinkExpiredError(error)) {
+      return AppStrings.get('download_error_archive_link_expired')
+    }
+    if (DownloadQueueSettings.isArchiverRateLimitedError(error)) {
+      return AppStrings.get('download_error_archive_rate_limited')
     }
     const message: string = EhErrorText.forUser(error)
     if (message.length > 0) {
