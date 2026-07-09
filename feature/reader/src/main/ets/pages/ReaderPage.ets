@@ -6,6 +6,7 @@ import inputConsumer from '@ohos.multimodalInput.inputConsumer'
 import { Action, KeyEvent as InputConsumerKeyEvent } from '@ohos.multimodalInput.keyEvent'
 import {
   ThemeConstants,
+  AppStrings,
   BasicDataSource,
   EhGalleryImage,
   EhImageKnifeImage,
@@ -175,6 +176,8 @@ export struct ReaderPage {
   @Local originalImagePages: string = '';
   @Local originalImageResolving: boolean = false;
   @Local savingCurrentImage: boolean = false;
+  @Local saveSpreadMenuShown: boolean = false;
+  @Local originalSpreadMenuShown: boolean = false;
   @Local imageBlockRuleSaving: boolean = false;
   @Local imageBlockWhitelistSaving: boolean = false;
   @Local currentImageBlockFilePath: string = '';
@@ -250,6 +253,9 @@ export struct ReaderPage {
           this.ReaderCacheWarmers()
           if (!this.currentImageBlocked && !this.isContinuousVerticalMode()) {
             this.ReaderTapOverlay()
+          }
+          if (this.originalImageResolving) {
+            ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
           }
         }
 
@@ -502,6 +508,47 @@ export struct ReaderPage {
     return this.vm.imageAt(this.vm.currentIndex)
   }
 
+  private spreadVisualLeftIndex(): number {
+    if (!this.doublePageEnabled()) {
+      return this.vm.currentIndex
+    }
+    const start: number = this.currentDoublePageStart()
+    const second: number = this.spreadSecondIndex(start)
+    if (this.spreadRowReversed() && this.hasSpreadImage(second)) {
+      return second
+    }
+    return start
+  }
+
+  private spreadVisualRightIndex(): number {
+    if (!this.doublePageEnabled()) {
+      return -1
+    }
+    const start: number = this.currentDoublePageStart()
+    const second: number = this.spreadSecondIndex(start)
+    if (!this.spreadSecondVisible(start) || !this.hasSpreadImage(second)) {
+      return -1
+    }
+    return this.spreadRowReversed() ? start : second
+  }
+
+  private spreadVisualIndexes(): number[] {
+    const out: number[] = []
+    const left: number = this.spreadVisualLeftIndex()
+    if (this.hasSpreadImage(left)) {
+      out.push(left)
+    }
+    const right: number = this.spreadVisualRightIndex()
+    if (this.hasSpreadImage(right)) {
+      out.push(right)
+    }
+    return out
+  }
+
+  private hasTwoSpreadActions(): boolean {
+    return this.doublePageEnabled() && this.spreadVisualIndexes().length > 1
+  }
+
   private readerContentReady(): boolean {
     return this.readerReady && this.vm.totalPages() > 0
   }
@@ -596,8 +643,10 @@ export struct ReaderPage {
     const has: boolean = this.originalImagePages.indexOf(token) >= 0
     if (enabled && !has) {
       this.originalImagePages = `${this.originalImagePages}${token}`
+      this.refreshSpreadStartSource(true)
     } else if (!enabled && has) {
       this.originalImagePages = this.originalImagePages.replace(token, '')
+      this.refreshSpreadStartSource(true)
     }
   }
 
@@ -615,33 +664,136 @@ export struct ReaderPage {
     return ImageResolveService.getInstance().resolve(image)
   }
 
-  private toggleOriginalImage(): void {
-    const image: EhGalleryImage | null = this.currentImage()
-    if (image === null || this.originalImageResolving) {
+  private originalModeForIndex(index: number): boolean {
+    if (!this.vm.hasPreviewAt(index)) {
+      return false
+    }
+    return this.originalModeForPage(this.vm.imageAt(index).page)
+  }
+
+  private anyOriginalModeForIndexes(indexes: number[]): boolean {
+    for (let i: number = 0; i < indexes.length; i++) {
+      if (this.originalModeForIndex(indexes[i])) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private allOriginalModeForIndexes(indexes: number[]): boolean {
+    if (indexes.length === 0) {
+      return false
+    }
+    for (let i: number = 0; i < indexes.length; i++) {
+      if (!this.originalModeForIndex(indexes[i])) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private async enableOriginalImages(indexes: number[]): Promise<void> {
+    for (let i: number = 0; i < indexes.length; i++) {
+      const index: number = indexes[i]
+      if (!this.vm.hasPreviewAt(index)) {
+        continue
+      }
+      const image: EhGalleryImage = this.vm.imageAt(index)
+      if (this.originalModeForPage(image.page)) {
+        continue
+      }
+      try {
+        const url: string = await ImageResolveService.getInstance().resolveOriginal(image)
+        this.setOriginalModeForPage(image.page, true)
+        DiagnosticLogger.info('reader', 'original_mode_on', `page ${image.page} fullimg ${url.indexOf('/fullimg') >= 0}`)
+      } catch (err) {
+        const e: Error = err as Error
+        DiagnosticLogger.warn('reader', 'original_resolve_failed', e.message)
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_original_unavailable') })
+      }
+    }
+  }
+
+  private missingOriginalPagesMessage(pages: number[]): string {
+    if (pages.length === 0) {
+      return AppStrings.get('reader_original_unavailable')
+    }
+    const pageText: string = pages.map((page: number) => `${page}`).join(', ')
+    return AppStrings.get('reader_spread_original_pages_unavailable').replace('%s', pageText)
+  }
+
+  private async enableOriginalImagesWithPageFeedback(indexes: number[]): Promise<void> {
+    const missingPages: number[] = []
+    for (let i: number = 0; i < indexes.length; i++) {
+      const index: number = indexes[i]
+      if (!this.vm.hasPreviewAt(index)) {
+        continue
+      }
+      const image: EhGalleryImage = this.vm.imageAt(index)
+      if (this.originalModeForPage(image.page)) {
+        continue
+      }
+      try {
+        const url: string = await ImageResolveService.getInstance().resolveOriginal(image)
+        this.setOriginalModeForPage(image.page, true)
+        DiagnosticLogger.info('reader', 'original_mode_on', `page ${image.page} fullimg ${url.indexOf('/fullimg') >= 0}`)
+      } catch (err) {
+        const e: Error = err as Error
+        DiagnosticLogger.warn('reader', 'spread_original_resolve_failed', e.message)
+        missingPages.push(image.page)
+      }
+    }
+    if (missingPages.length > 0) {
+      this.getUIContext().getPromptAction().showToast({
+        message: this.missingOriginalPagesMessage(missingPages),
+      })
+    }
+  }
+
+  private toggleOriginalImagesAtIndexes(indexes: number[]): void {
+    if (indexes.length === 0 || this.originalImageResolving) {
       return
     }
-    if (this.originalModeForPage(image.page)) {
-      this.setOriginalModeForPage(image.page, false)
-      DiagnosticLogger.info('reader', 'original_mode_off', `page ${image.page}`)
+    if (this.allOriginalModeForIndexes(indexes)) {
+      for (let i: number = 0; i < indexes.length; i++) {
+        if (this.vm.hasPreviewAt(indexes[i])) {
+          const image: EhGalleryImage = this.vm.imageAt(indexes[i])
+          this.setOriginalModeForPage(image.page, false)
+          DiagnosticLogger.info('reader', 'original_mode_off', `page ${image.page}`)
+        }
+      }
       return
     }
     this.originalImageResolving = true
-    ImageResolveService.getInstance()
-      .resolveOriginal(image)
-      .then((url: string) => {
-        this.setOriginalModeForPage(image.page, true)
-        DiagnosticLogger.info('reader', 'original_mode_on', `page ${image.page} fullimg ${url.indexOf('/fullimg') >= 0}`)
-      })
-      .catch((err: Error) => {
-        DiagnosticLogger.warn('reader', 'original_resolve_failed', err.message)
-        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_original_unavailable') })
-      })
+    const task: Promise<void> = indexes.length > 1
+      ? this.enableOriginalImagesWithPageFeedback(indexes)
+      : this.enableOriginalImages(indexes)
+    task
       .finally(() => {
         this.originalImageResolving = false
       })
   }
 
+  private toggleOriginalImage(): void {
+    this.toggleOriginalImagesAtIndexes([this.vm.currentIndex])
+  }
+
+  private openOriginalAction(): void {
+    if (this.originalImageResolving) {
+      return
+    }
+    if (this.hasTwoSpreadActions()) {
+      this.saveSpreadMenuShown = false
+      this.originalSpreadMenuShown = true
+      return
+    }
+    this.toggleOriginalImage()
+  }
+
   private originalButtonColor(): ResourceColor {
+    if (this.hasTwoSpreadActions() && this.anyOriginalModeForIndexes(this.spreadVisualIndexes())) {
+      return ThemeConstants.BRAND_PRIMARY
+    }
     const image: EhGalleryImage | null = this.currentImage()
     if (image !== null && this.originalModeForPage(image.page)) {
       return ThemeConstants.BRAND_PRIMARY
@@ -685,35 +837,69 @@ export struct ReaderPage {
     )
   }
 
-  private saveCurrentImage(): void {
+  private async saveImagesSequential(indexes: number[]): Promise<void> {
+    for (let i: number = 0; i < indexes.length; i++) {
+      const index: number = indexes[i]
+      if (!this.vm.hasPreviewAt(index)) {
+        continue
+      }
+      const image: EhGalleryImage = this.vm.imageAt(index)
+      const title: string = `${this.params.gid}-${index + 1}`.trim()
+      const alreadyResolvedUrl: string = this.currentDisplayUrl(image)
+      try {
+        if (alreadyResolvedUrl.length > 0) {
+          await this.saveImageUrl(alreadyResolvedUrl, title)
+        } else {
+          const imageUrl: string = await this.resolveCurrentDisplayUrl(image)
+          await this.saveImageUrl(imageUrl, title)
+        }
+      } catch (err) {
+        const e: Error = err as Error
+        DiagnosticLogger.warn('reader', 'save_image_resolve_failed', e.message)
+        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_failed') })
+      }
+    }
+  }
+
+  private saveImagesAtIndexes(indexes: number[]): void {
     if (this.savingCurrentImage) {
       return
     }
-    const image: EhGalleryImage | null = this.currentImage()
-    if (image === null) {
+    if (indexes.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_no_image') })
+      return
+    }
+    const valid: number[] = []
+    for (let i: number = 0; i < indexes.length; i++) {
+      if (this.vm.hasPreviewAt(indexes[i])) {
+        valid.push(indexes[i])
+      }
+    }
+    if (valid.length === 0) {
       this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_no_image') })
       return
     }
     this.savingCurrentImage = true
-    const title: string = `${this.params.gid}-${this.vm.currentIndex + 1}`.trim()
-    const alreadyResolvedUrl: string = this.currentDisplayUrl(image)
-    if (alreadyResolvedUrl.length > 0) {
-      this.saveImageUrl(alreadyResolvedUrl, title).finally(() => {
-        this.savingCurrentImage = false
-      })
-      return
-    }
-    this.resolveCurrentDisplayUrl(image)
-      .then((imageUrl: string) => {
-        return this.saveImageUrl(imageUrl, title)
-      })
-      .catch((err: Error) => {
-        DiagnosticLogger.warn('reader', 'save_image_resolve_failed', err.message)
-        this.getUIContext().getPromptAction().showToast({ message: $r('app.string.reader_save_failed') })
-      })
+    this.saveImagesSequential(valid)
       .finally(() => {
         this.savingCurrentImage = false
       })
+  }
+
+  private saveCurrentImage(): void {
+    this.saveImagesAtIndexes([this.vm.currentIndex])
+  }
+
+  private openSaveAction(): void {
+    if (this.savingCurrentImage) {
+      return
+    }
+    if (this.hasTwoSpreadActions()) {
+      this.originalSpreadMenuShown = false
+      this.saveSpreadMenuShown = true
+      return
+    }
+    this.saveCurrentImage()
   }
 
   private saveImageUrl(url: string, title: string): Promise<void> {
@@ -1357,6 +1543,19 @@ export struct ReaderPage {
     return `page_${img.page}_${this.safeForEachKeyHash(img.sUrl)}`
   }
 
+  private spreadImageIdentityKey(index: number): string {
+    if (!this.hasSpreadImage(index)) {
+      return 'empty'
+    }
+    const img: EhGalleryImage = this.vm.imageAt(index)
+    return `${this.readerImageIdentityKey(img)}_${this.originalModeKeyForPage(img.page)}`
+  }
+
+  private spreadRenderKey(start: number): string {
+    const secondIndex: number = this.spreadSecondIndex(start)
+    return `spread_${start}_${this.spreadImageIdentityKey(start)}_${this.spreadImageIdentityKey(secondIndex)}_${this.imageBlockRuleVersion}`
+  }
+
   private safeForEachKeyHash(value: string): string {
     let hash: number = 2166136261
     for (let i: number = 0; i < value.length; i++) {
@@ -1386,9 +1585,9 @@ export struct ReaderPage {
     )
   }
 
-  private refreshSpreadStartSource(): void {
+  private refreshSpreadStartSource(force: boolean = false): void {
     const key: string = `${this.doublePageEnabled()}-${this.readMode.columnMode}-${this.vm.totalPages()}`
-    if (key !== this.spreadDataSourceKey) {
+    if (force || key !== this.spreadDataSourceKey) {
       this.spreadDataSourceKey = key
       this.spreadDataSource.setData(this.spreadStarts())
     }
@@ -1481,12 +1680,7 @@ export struct ReaderPage {
             })
           }
         },
-        (start: number) => {
-          const first: string = this.hasSpreadImage(start) ? this.vm.imageAt(start).sUrl : ''
-          const secondIndex: number = this.spreadSecondIndex(start)
-          const second: string = this.hasSpreadImage(secondIndex) ? this.vm.imageAt(secondIndex).sUrl : ''
-          return `${start}-${first}-${second}`
-        },
+        (start: number) => this.spreadRenderKey(start),
       )
     }
     .index(this.readerPagerIndex)
@@ -1729,6 +1923,69 @@ export struct ReaderPage {
   // Reader settings entry (eros_fe top-bar ellipsis → readSetting, view_widget.dart:996-1015).
   private openReaderSettings(): void {
     connectNavStack().stack.pushPathByName('ReaderSettings', null)
+  }
+
+  private spreadPageLabel(key: string, index: number): string {
+    return AppStrings.get(key).replace('%d', `${index + 1}`)
+  }
+
+  private spreadBothOriginalLabel(): string {
+    return this.allOriginalModeForIndexes(this.spreadVisualIndexes())
+      ? AppStrings.get('reader_spread_original_disable_both')
+      : AppStrings.get('reader_spread_original_enable_both')
+  }
+
+  @Builder
+  private SaveSpreadMenuItem(index: number, key: string) {
+    if (this.hasSpreadImage(index)) {
+      MenuItem({ content: this.spreadPageLabel(key, index) })
+        .onClick(() => {
+          this.saveSpreadMenuShown = false
+          this.saveImagesAtIndexes([index])
+        })
+    }
+  }
+
+  @Builder
+  private OriginalSpreadMenuItem(index: number, key: string) {
+    if (this.hasSpreadImage(index)) {
+      MenuItem({
+        content: this.spreadPageLabel(key, index),
+        symbolEndIcon: this.originalModeForIndex(index)
+          ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+          : undefined,
+      })
+        .onClick(() => {
+          this.originalSpreadMenuShown = false
+          this.toggleOriginalImagesAtIndexes([index])
+        })
+    }
+  }
+
+  @Builder
+  private ReaderSaveSpreadMenu() {
+    Menu() {
+      this.SaveSpreadMenuItem(this.spreadVisualLeftIndex(), 'reader_spread_left_page')
+      this.SaveSpreadMenuItem(this.spreadVisualRightIndex(), 'reader_spread_right_page')
+      MenuItem({ content: AppStrings.get('reader_spread_save_both') })
+        .onClick(() => {
+          this.saveSpreadMenuShown = false
+          this.saveImagesAtIndexes(this.spreadVisualIndexes())
+        })
+    }
+  }
+
+  @Builder
+  private ReaderOriginalSpreadMenu() {
+    Menu() {
+      this.OriginalSpreadMenuItem(this.spreadVisualLeftIndex(), 'reader_spread_left_page')
+      this.OriginalSpreadMenuItem(this.spreadVisualRightIndex(), 'reader_spread_right_page')
+      MenuItem({ content: this.spreadBothOriginalLabel() })
+        .onClick(() => {
+          this.originalSpreadMenuShown = false
+          this.toggleOriginalImagesAtIndexes(this.spreadVisualIndexes())
+        })
+    }
   }
 
   @Builder
@@ -2015,7 +2272,13 @@ export struct ReaderPage {
           .height(READER_CHROME_ACTION_SIZE)
           .backgroundColor(Color.Transparent)
           .onClick(() => {
-            this.saveCurrentImage()
+            this.openSaveAction()
+          })
+          .bindMenu(this.saveSpreadMenuShown, this.ReaderSaveSpreadMenu, {
+            placement: Placement.TopRight,
+            onDisappear: () => {
+              this.saveSpreadMenuShown = false
+            },
           })
           Button({ type: ButtonType.Circle }) {
             if (this.originalImageResolving) {
@@ -2033,7 +2296,13 @@ export struct ReaderPage {
           .height(READER_CHROME_ACTION_SIZE)
           .backgroundColor(Color.Transparent)
           .onClick(() => {
-            this.toggleOriginalImage()
+            this.openOriginalAction()
+          })
+          .bindMenu(this.originalSpreadMenuShown, this.ReaderOriginalSpreadMenu, {
+            placement: Placement.TopRight,
+            onDisappear: () => {
+              this.originalSpreadMenuShown = false
+            },
           })
           Button({ type: ButtonType.Circle }) {
             SymbolGlyph($r('sys.symbol.clock'))

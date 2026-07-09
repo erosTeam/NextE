@@ -1373,6 +1373,30 @@
       "value": "元画像を利用できません"
     },
     {
+      "name": "reader_spread_original_pages_unavailable",
+      "value": "%sページに元画像がありません"
+    },
+    {
+      "name": "reader_spread_left_page",
+      "value": "左側 · %dページ"
+    },
+    {
+      "name": "reader_spread_right_page",
+      "value": "右側 · %dページ"
+    },
+    {
+      "name": "reader_spread_save_both",
+      "value": "2ページを保存"
+    },
+    {
+      "name": "reader_spread_original_enable_both",
+      "value": "両方を元画像にする"
+    },
+    {
+      "name": "reader_spread_original_disable_both",
+      "value": "両方の元画像をオフ"
+    },
+    {
       "name": "settings_site",
       "value": "サイト切替"
     },

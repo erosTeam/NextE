@@ -1373,6 +1373,30 @@
       "value": "当前图片没有可用原图"
     },
     {
+      "name": "reader_spread_original_pages_unavailable",
+      "value": "第 %s 页没有可用原图"
+    },
+    {
+      "name": "reader_spread_left_page",
+      "value": "左侧 · 第 %d 页"
+    },
+    {
+      "name": "reader_spread_right_page",
+      "value": "右侧 · 第 %d 页"
+    },
+    {
+      "name": "reader_spread_save_both",
+      "value": "保存两页"
+    },
+    {
+      "name": "reader_spread_original_enable_both",
+      "value": "两页使用原图"
+    },
+    {
+      "name": "reader_spread_original_disable_both",
+      "value": "关闭两页原图"
+    },
+    {
       "name": "settings_site",
       "value": "站点切换"
     },

@@ -1373,6 +1373,30 @@
       "value": "Original image is unavailable"
     },
     {
+      "name": "reader_spread_original_pages_unavailable",
+      "value": "No original image for page %s"
+    },
+    {
+      "name": "reader_spread_left_page",
+      "value": "Left · Page %d"
+    },
+    {
+      "name": "reader_spread_right_page",
+      "value": "Right · Page %d"
+    },
+    {
+      "name": "reader_spread_save_both",
+      "value": "Save both pages"
+    },
+    {
+      "name": "reader_spread_original_enable_both",
+      "value": "Use original for both"
+    },
+    {
+      "name": "reader_spread_original_disable_both",
+      "value": "Turn off originals"
+    },
+    {
       "name": "settings_site",
       "value": "Switch site"
     },
