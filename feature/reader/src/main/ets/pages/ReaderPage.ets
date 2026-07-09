@@ -2959,6 +2959,13 @@ struct ReaderSpreadImageLayer {
         resolved,
         cacheKey,
         EH_IMAGE_PRIORITY_HIGH,
+        (progress: CachedImageProgress) => {
+          if (seq !== this.loadSeq) {
+            return
+          }
+          this.imageProgressLoaded = progress.loaded
+          this.imageProgressTotal = progress.total
+        },
       )
     if (seq !== this.loadSeq) {
       return
@@ -3344,6 +3351,13 @@ struct ReaderImagePage {
         resolved,
         cacheKey,
         EH_IMAGE_PRIORITY_HIGH,
+        (progress: CachedImageProgress) => {
+          if (seq !== this.loadSeq) {
+            return
+          }
+          this.imageProgressLoaded = progress.loaded
+          this.imageProgressTotal = progress.total
+        },
       )
     if (seq !== this.loadSeq) {
       return
@@ -3926,6 +3940,13 @@ struct ReaderVerticalImage {
         resolved,
         cacheKey,
         EH_IMAGE_PRIORITY_HIGH,
+        (progress: CachedImageProgress) => {
+          if (seq !== this.loadSeq) {
+            return
+          }
+          this.imageProgressLoaded = progress.loaded
+          this.imageProgressTotal = progress.total
+        },
       )
     if (seq !== this.loadSeq) {
       return

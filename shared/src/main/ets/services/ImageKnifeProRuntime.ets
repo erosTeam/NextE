@@ -13,7 +13,7 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhConstants } from '../constants/EhConstants'
 import { EhCookieStore } from '../network/EhCookieStore'
 import { CacheStat } from './CacheStat'
-import { CachedImageFileResult, CachedImageFileService } from './CachedImageFileService'
+import { CachedImageFileResult, CachedImageFileService, CachedImageProgress } from './CachedImageFileService'
 
 const IMAGEKNIFE_FILE_CACHE_COUNT: number = 192
 const IMAGEKNIFE_FILE_CACHE_BYTES: number = 96 * 1024 * 1024
@@ -157,6 +157,7 @@ export class ImageKnifeProRuntime {
     url: string,
     cacheKey: string,
     priority: number,
+    onProgress?: (progress: CachedImageProgress) => void,
   ): Promise<CachedImageFileResult | null> {
     if (url.length === 0) {
       return null
@@ -179,6 +180,12 @@ export class ImageKnifeProRuntime {
       option.writeCacheStrategy = CacheStrategy.DEFAULT
       option.priority = ImageKnifeProRuntime.priorityFromNumber(priority)
       option.signature = cacheKey
+      if (onProgress !== undefined) {
+        option.progressListener = (progress: number) => {
+          const percent: number = ImageKnifeProRuntime.normalizedPercent(progress)
+          onProgress({ loaded: percent, total: 100 })
+        }
+      }
       if (readerCacheReady) {
         option.fileCacheName = IMAGEKNIFE_READER_CACHE_NAME
       }
@@ -405,6 +412,13 @@ export class ImageKnifeProRuntime {
     } catch (_err) {
       return 0
     }
+  }
+
+  private static normalizedPercent(progress: number): number {
+    if (progress <= 1) {
+      return Math.round(Math.max(0, progress) * 100)
+    }
+    return Math.round(Math.max(0, Math.min(100, progress)))
   }
 
   private static safeMetric(value: number | undefined): number {
