@@ -49,8 +49,9 @@ const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
 const READER_LOADING_COMPLETION_HOLD_MS: number = 160
 const READER_LOADING_INDETERMINATE_ANIM_DURATION: number = 900
 const READER_LOADING_BAR_HEIGHT: number = 4
-const READER_LOADING_BAR_WIDTH: number = 180
-const READER_LOADING_SLIDER_WIDTH: number = 54
+const READER_LOADING_BAR_WIDTH_PERCENT: string = '80%'
+const READER_LOADING_BAR_MAX_WIDTH: number = 180
+const READER_LOADING_SLIDER_WIDTH_RATIO: number = 0.3
 const READER_LOADING_BAR_RADIUS: number = 2
 const READER_LOADING_BAR_BG: ResourceColor = '#33FFFFFF'
 const READER_LOADING_BAR_FG: ResourceColor = Color.White
@@ -4292,6 +4293,7 @@ struct ReaderLoadingBar {
   @Param determinate: boolean = false;
   @Param ratio: number = 0;
   @Local indeterminatePosition: number = 0;
+  @Local trackWidth: number = 0;
 
   private indeterminateTimer: number = -1
 
@@ -4345,11 +4347,14 @@ struct ReaderLoadingBar {
   }
 
   private barWidth(): number {
-    return READER_LOADING_BAR_WIDTH
+    if (this.trackWidth > 0) {
+      return this.trackWidth
+    }
+    return READER_LOADING_BAR_MAX_WIDTH
   }
 
   private sliderWidth(): number {
-    return READER_LOADING_SLIDER_WIDTH
+    return this.barWidth() * READER_LOADING_SLIDER_WIDTH_RATIO
   }
 
   private clampedRatio(): number {
@@ -4391,11 +4396,15 @@ struct ReaderLoadingBar {
           curve: this.determinate ? Curve.EaseOut : Curve.EaseInOut,
         })
     }
-    .width(this.barWidth())
+    .width(READER_LOADING_BAR_WIDTH_PERCENT)
+    .constraintSize({ maxWidth: READER_LOADING_BAR_MAX_WIDTH })
     .height(READER_LOADING_BAR_HEIGHT)
     .backgroundColor(READER_LOADING_BAR_BG)
     .borderRadius(READER_LOADING_BAR_RADIUS)
     .clip(true)
+    .onAreaChange((_oldArea: Area, area: Area) => {
+      this.trackWidth = area.width as number
+    })
   }
 }
 
