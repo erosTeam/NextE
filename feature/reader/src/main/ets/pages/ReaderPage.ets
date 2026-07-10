@@ -2098,7 +2098,7 @@ export struct ReaderPage {
       return $r('sys.symbol.arrow_left_and_square')
     }
     if (mode === ReadMode.TOP_TO_BOTTOM) {
-      return $r('sys.symbol.single_page_flipping')
+      return $r('sys.symbol.square_and_arrow_down_1')
     }
     if (mode === ReadMode.VERTICAL) {
       return $r('sys.symbol.scroll_vertical')
@@ -2666,7 +2666,7 @@ export struct ReaderPage {
             this.toggleAutoRead()
           })
           Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.square_grid_2x2'))
+            SymbolGlyph($r('sys.symbol.rectangle_grid_2x1'))
               .fontSize(READER_CHROME_ICON_SIZE)
               .fontColor([this.showThumbStrip ? ThemeConstants.BRAND_PRIMARY : Color.White])
           }
@@ -2679,7 +2679,7 @@ export struct ReaderPage {
           Blank()
           if (this.showOnePageStepButton()) {
             Button({ type: ButtonType.Circle }) {
-              SymbolGlyph($r('sys.symbol.forward_end_fill'))
+              SymbolGlyph($r('sys.symbol.transfer'))
                 .fontSize(READER_CHROME_ICON_SIZE)
                 .fontColor([this.onePageIconColor()])
             }
@@ -2692,7 +2692,7 @@ export struct ReaderPage {
             })
           }
           Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.book_open_fill'))
+            SymbolGlyph($r('sys.symbol.book'))
               .fontSize(READER_CHROME_ICON_SIZE)
               .fontColor([this.doublePageIconColor()])
           }

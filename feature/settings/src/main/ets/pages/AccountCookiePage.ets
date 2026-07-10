@@ -126,7 +126,7 @@ export struct AccountCookiePage {
   private cookieTitleBar(): Record<string, Object> {
     const copyItem: Record<string, Object> = {
       'label': AppStrings.get('account_cookie_copy'),
-      'icon': $r('sys.symbol.square_and_square'),
+      'icon': $r('sys.symbol.doc_text_on_doc_text'),
       'isEnabled': this.cookieEntries.length > 0,
       'action': (): void => {
         this.copyCookie()

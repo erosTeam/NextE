@@ -1110,7 +1110,7 @@ export struct GalleryDetailPage {
     }
     const copyLinkInner: Record<string, Object> = {
       'label': $r('app.string.detail_copy_link'),
-      'icon': $r('sys.symbol.link'),
+      'icon': $r('sys.symbol.doc_text_on_doc_text'),
       'isEnabled': true,
       'action': () => {
         this.copyGalleryLink()
@@ -1118,7 +1118,7 @@ export struct GalleryDetailPage {
     }
     const copyTitleInner: Record<string, Object> = {
       'label': $r('app.string.detail_copy_title'),
-      'icon': $r('sys.symbol.doc_plaintext'),
+      'icon': $r('sys.symbol.doc_text_on_doc_text'),
       'isEnabled': true,
       'action': () => {
         this.copyGalleryTitle()
@@ -2141,7 +2141,7 @@ export struct GalleryDetailPage {
                   this.openTorrents()
                 })
             }
-            this.DetailActionChip($r('sys.symbol.externaldrive'), $r('app.string.download_archiver'), true, () => {
+            this.DetailActionChip($r('sys.symbol.doc_zipper'), $r('app.string.download_archiver'), true, () => {
               this.openArchiver()
             })
             this.DetailActionChip($r('sys.symbol.star'), $r('app.string.detail_rate'), true, () => {

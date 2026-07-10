@@ -826,7 +826,7 @@ export struct ImageBlockSettingsPage {
     ConciseListRow({
       title: $r('app.string.image_block_contribution_draft'),
       subtitle: this.contributionDraftSubtitle(),
-      leadingIcon: $r('sys.symbol.doc_plaintext'),
+      leadingIcon: $r('sys.symbol.doc_text_on_doc_text'),
       trailingText: this.contributionDraftTrailing(),
       showChevron: false,
       isEnabled: this.contributionReadyCount > 0,
