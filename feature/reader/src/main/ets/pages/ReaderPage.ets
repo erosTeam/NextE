@@ -2426,10 +2426,11 @@ export struct ReaderPage {
   }
 
   private toggleThumbStrip(): void {
+    const nextVisible: boolean = !this.showThumbStrip
     this.getUIContext().animateTo({ duration: 180, curve: Curve.FastOutSlowIn }, () => {
-      this.showThumbStrip = !this.showThumbStrip
+      this.showThumbStrip = nextVisible
     })
-    if (!this.showThumbStrip) {
+    if (nextVisible) {
       setTimeout(() => {
         this.scrollThumbStripTo(this.vm.currentIndex, false)
       }, 0)
