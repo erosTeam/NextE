@@ -571,6 +571,7 @@ export class DownloadQueueSettings {
       DownloadQueueSettings.cancelledGalleryDownloads.add(key)
       DownloadQueueSettings.gallerySeedScheduler.cancelQueued(key)
     }
+    DownloadQueueSettings.clearGalleryRuntimeState(key)
     const state = connectDownloadQueue()
     let removed: DownloadGalleryTask | null = null
     const next: DownloadGalleryTask[] = []
@@ -601,6 +602,7 @@ export class DownloadQueueSettings {
     }
     DownloadQueueSettings.cancelledGalleryDownloads.add(key)
     DownloadQueueSettings.gallerySeedScheduler.cancelQueued(key)
+    DownloadQueueSettings.clearGalleryRuntimeState(key)
     await DownloadQueueSettings.updateGalleryTaskAfterPause(context, gid, token, preferOriginal)
   }
 
@@ -809,6 +811,7 @@ export class DownloadQueueSettings {
     try {
       await task
     } finally {
+      DownloadQueueSettings.clearArchiverRuntimeState(tag)
       DownloadQueueSettings.archiverDownloads.delete(tag)
       DownloadQueueSettings.cancelledArchiverDownloads.delete(tag)
     }
@@ -1296,6 +1299,7 @@ export class DownloadQueueSettings {
     try {
       await task
     } finally {
+      DownloadQueueSettings.clearGalleryRuntimeState(key)
       DownloadQueueSettings.galleryDownloads.delete(key)
       DownloadQueueSettings.cancelledGalleryDownloads.delete(key)
     }
@@ -3017,6 +3021,22 @@ export class DownloadQueueSettings {
     }
   }
 
+  // These values exist only to make an active stream feel live. They must not survive pause,
+  // removal, completion, or failure: syncActiveGalleryProgressToQueue would otherwise revive an
+  // old task as DOWNLOADING when the Downloads tab is shown again.
+  private static clearGalleryRuntimeState(key: string): void {
+    DownloadQueueSettings.galleryProgressPulses.delete(key)
+    DownloadQueueSettings.galleryProgressLogPulses.delete(key)
+    DownloadQueueSettings.galleryProgressSignalWindows.delete(key)
+    DownloadQueueSettings.galleryProgressSignalCounts.delete(key)
+    DownloadQueueSettings.galleryActiveProgress.delete(key)
+  }
+
+  private static clearArchiverRuntimeState(tag: string): void {
+    DownloadQueueSettings.archiverProgressPulses.delete(tag)
+    DownloadQueueSettings.archiverProgressLogPulses.delete(tag)
+  }
+
   private static recordGalleryProgressSignalRate(
     key: string,
     gid: string,
@@ -3213,6 +3233,7 @@ export class DownloadQueueSettings {
       if (DownloadQueueSettings.sameGalleryTask(task, gid, token, preferOriginal)) {
         task.status = DownloadGalleryTaskStatus.PAUSED
         task.prepareError = ''
+        task.clearActiveDownloadProgress()
         updatedTask = task.copy()
       }
       next.push(task)

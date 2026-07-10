@@ -362,7 +362,15 @@ ok('pause marks running gallery workers cancelled while keeping the task resumab
   /static async pauseGalleryDownload/.test(settings) &&
     /galleryDownloads\.has\(key\)[\s\S]*cancelledGalleryDownloads\.add\(key\)[\s\S]*updateGalleryTaskAfterPause\(context, gid, token, preferOriginal\)/.test(settings) &&
     /updateGalleryStreamProgress\([\s\S]*preferOriginal: boolean[\s\S]*const key: string = DownloadQueueSettings\.taskKey\(gid, token, preferOriginal\)[\s\S]*cancelledGalleryDownloads\.has\(key\)[\s\S]*return[\s\S]*task\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
-    /updateGalleryTaskAfterPause[\s\S]*task\.status = DownloadGalleryTaskStatus\.PAUSED[\s\S]*task\.prepareError = ''[\s\S]*persistGalleryTask\(context, updatedTask\)/.test(settings))
+    /updateGalleryTaskAfterPause[\s\S]*task\.status = DownloadGalleryTaskStatus\.PAUSED[\s\S]*task\.prepareError = ''[\s\S]*task\.clearActiveDownloadProgress\(\)[\s\S]*persistGalleryTask\(context, updatedTask\)/.test(settings))
+ok('terminal gallery work clears transient stream state so pause or removal cannot revive a task as downloading',
+  /private static clearGalleryRuntimeState\(key: string\): void \{[\s\S]*galleryProgressPulses\.delete\(key\)[\s\S]*galleryProgressLogPulses\.delete\(key\)[\s\S]*galleryProgressSignalWindows\.delete\(key\)[\s\S]*galleryProgressSignalCounts\.delete\(key\)[\s\S]*galleryActiveProgress\.delete\(key\)/.test(settings) &&
+    /static async removeGallery[\s\S]*gallerySeedScheduler\.cancelQueued\(key\)[\s\S]*clearGalleryRuntimeState\(key\)/.test(settings) &&
+    /static async pauseGalleryDownload[\s\S]*gallerySeedScheduler\.cancelQueued\(key\)[\s\S]*clearGalleryRuntimeState\(key\)[\s\S]*updateGalleryTaskAfterPause/.test(settings) &&
+    /static async downloadGalleryImages[\s\S]*try \{[\s\S]*await task[\s\S]*\} finally \{[\s\S]*clearGalleryRuntimeState\(key\)[\s\S]*galleryDownloads\.delete\(key\)/.test(settings))
+ok('terminal archiver work clears its transient progress clocks',
+  /private static clearArchiverRuntimeState\(tag: string\): void \{[\s\S]*archiverProgressPulses\.delete\(tag\)[\s\S]*archiverProgressLogPulses\.delete\(tag\)/.test(settings) &&
+    /static async downloadArchiver[\s\S]*try \{[\s\S]*await task[\s\S]*\} finally \{[\s\S]*clearArchiverRuntimeState\(tag\)[\s\S]*archiverDownloads\.delete\(tag\)/.test(settings))
 ok('batch gallery actions reuse per-task resume and pause executors',
   /static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
     /canResumeGalleryTask\(tasks\[i\]\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)/.test(settings) &&
