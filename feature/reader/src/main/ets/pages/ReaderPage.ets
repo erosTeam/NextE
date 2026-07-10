@@ -176,6 +176,7 @@ export struct ReaderPage {
   @Local viewHeight: number = 0;
   @Local loadedPageSignal: number = 0;
   @Local originalImagePages: string = '';
+  @Local originalAvailablePages: string = '';
   @Local originalImageResolving: boolean = false;
   @Local savingCurrentImage: boolean = false;
   @Local saveSpreadMenuShown: boolean = false;
@@ -630,7 +631,7 @@ export struct ReaderPage {
       AppStrings.get('reader_image_info_current').replace('%s', this.originalModeForPage(image.page)
         ? AppStrings.get('reader_image_info_original')
         : AppStrings.get('reader_image_info_resampled')),
-      image.originImageUrl.length > 0
+      this.originalAvailableForIndex(index)
         ? AppStrings.get('reader_image_info_original_available')
         : AppStrings.get('reader_image_info_original_unavailable'),
     ]
@@ -819,6 +820,58 @@ export struct ReaderPage {
     return this.originalModeForPage(this.vm.imageAt(index).page)
   }
 
+  private setOriginalAvailableForPage(page: number, available: boolean): void {
+    const token: string = this.originalToken(page)
+    const has: boolean = this.originalAvailablePages.indexOf(token) >= 0
+    if (available && !has) {
+      this.originalAvailablePages = `${this.originalAvailablePages}${token}`
+    } else if (!available && has) {
+      this.originalAvailablePages = this.originalAvailablePages.replace(token, '')
+    }
+  }
+
+  private syncOriginalAvailabilityForPage(page: number): void {
+    const index: number = page - 1
+    if (!this.vm.hasPreviewAt(index)) {
+      return
+    }
+    const image: EhGalleryImage = this.vm.imageAt(index)
+    if (image.page !== page) {
+      return
+    }
+    this.setOriginalAvailableForPage(page, image.originImageUrl.length > 0)
+  }
+
+  private originalAvailableForIndex(index: number): boolean {
+    if (!this.vm.hasPreviewAt(index)) {
+      return false
+    }
+    const image: EhGalleryImage = this.vm.imageAt(index)
+    return image.originImageUrl.length > 0 ||
+      this.originalAvailablePages.indexOf(this.originalToken(image.page)) >= 0
+  }
+
+  private anyOriginalAvailableForIndexes(indexes: number[]): boolean {
+    for (let i: number = 0; i < indexes.length; i++) {
+      if (this.originalAvailableForIndex(indexes[i])) {
+        return true
+      }
+    }
+    return false
+  }
+
+  private allOriginalAvailableForIndexes(indexes: number[]): boolean {
+    if (indexes.length === 0) {
+      return false
+    }
+    for (let i: number = 0; i < indexes.length; i++) {
+      if (!this.originalAvailableForIndex(indexes[i])) {
+        return false
+      }
+    }
+    return true
+  }
+
   private anyOriginalModeForIndexes(indexes: number[]): boolean {
     for (let i: number = 0; i < indexes.length; i++) {
       if (this.originalModeForIndex(indexes[i])) {
@@ -944,7 +997,7 @@ export struct ReaderPage {
   }
 
   private openOriginalAction(): void {
-    if (this.originalImageResolving) {
+    if (this.originalImageResolving || !this.originalActionEnabled()) {
       return
     }
     if (this.hasTwoSpreadActions()) {
@@ -953,6 +1006,18 @@ export struct ReaderPage {
       return
     }
     this.toggleOriginalImage()
+  }
+
+  private originalActionEnabled(): boolean {
+    const indexes: number[] = this.hasTwoSpreadActions()
+      ? this.spreadVisualIndexes()
+      : [this.vm.currentIndex]
+    return this.anyOriginalModeForIndexes(indexes) || this.anyOriginalAvailableForIndexes(indexes)
+  }
+
+  private originalSpreadBothActionEnabled(): boolean {
+    const indexes: number[] = this.spreadVisualIndexes()
+    return this.allOriginalModeForIndexes(indexes) || this.allOriginalAvailableForIndexes(indexes)
   }
 
   private originalButtonColor(): ResourceColor {
@@ -1305,6 +1370,7 @@ export struct ReaderPage {
     if (page <= 0) {
       return
     }
+    this.syncOriginalAvailabilityForPage(page)
     for (let i: number = 0; i < this.loadedPages.length; i++) {
       if (this.loadedPages[i] === page) {
         this.maybeResumeAutoRead(page - 1)
@@ -2238,6 +2304,7 @@ export struct ReaderPage {
           ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
           : undefined,
       })
+        .enabled(this.originalModeForIndex(index) || this.originalAvailableForIndex(index))
         .onClick(() => {
           this.originalSpreadMenuShown = false
           this.toggleOriginalImagesAtIndexes([index])
@@ -2264,6 +2331,7 @@ export struct ReaderPage {
       this.OriginalSpreadMenuItem(this.spreadVisualLeftIndex(), 'reader_spread_left_page')
       this.OriginalSpreadMenuItem(this.spreadVisualRightIndex(), 'reader_spread_right_page')
       MenuItem({ content: this.spreadBothOriginalLabel() })
+        .enabled(this.originalSpreadBothActionEnabled())
         .onClick(() => {
           this.originalSpreadMenuShown = false
           this.toggleOriginalImagesAtIndexes(this.spreadVisualIndexes())
@@ -2576,6 +2644,7 @@ export struct ReaderPage {
           .width(READER_CHROME_ACTION_SIZE)
           .height(READER_CHROME_ACTION_SIZE)
           .backgroundColor(Color.Transparent)
+          .enabled(!this.originalImageResolving && this.originalActionEnabled())
           .onClick(() => {
             this.openOriginalAction()
           })
