@@ -96,6 +96,7 @@ import {
   AdvancedSettingsPage,
   SecuritySettingsPage,
   AboutPage,
+  SystemSymbolBrowserPage,
 } from 'settings'
 import {
   GalleryDetailPage,
@@ -311,6 +312,11 @@ function IndexAboutRoute() {
 }
 
 @Builder
+function IndexSystemSymbolBrowserRoute() {
+  SystemSymbolBrowserPage()
+}
+
+@Builder
 function IndexImagePageRouteErrorRoute() {
   ImagePageRouteErrorPage()
 }
@@ -378,6 +384,7 @@ struct Index {
     'advancedSettings': wrapBuilder<[]>(IndexAdvancedSettingsRoute),
     'securitySettings': wrapBuilder<[]>(IndexSecuritySettingsRoute),
     'about': wrapBuilder<[]>(IndexAboutRoute),
+    'systemSymbolBrowser': wrapBuilder<[]>(IndexSystemSymbolBrowserRoute),
     'imagePageRouteError': wrapBuilder<[]>(IndexImagePageRouteErrorRoute),
     'coverFallbackProbe': wrapBuilder<[]>(IndexCoverFallbackProbeRoute),
     'readerGestureProbe': wrapBuilder<[]>(IndexReaderGestureProbeRoute),

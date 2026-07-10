@@ -37,6 +37,7 @@ export type IndexDestinationFamily =
   'advancedSettings' |
   'securitySettings' |
   'about' |
+  'systemSymbolBrowser' |
   'imagePageRouteError' |
   'coverFallbackProbe' |
   'readerGestureProbe'
@@ -81,6 +82,7 @@ export class IndexRouteCoordinator {
     'AdvancedSettings': 'advancedSettings',
     'SecuritySettings': 'securitySettings',
     'About': 'about',
+    'SystemSymbolBrowser': 'systemSymbolBrowser',
     'ImagePageRouteError': 'imagePageRouteError',
     'CoverFallbackProbe': 'coverFallbackProbe',
     'ReaderGestureProbe': 'readerGestureProbe',

@@ -1657,6 +1657,26 @@
       "value": "使用 E-Hentai 服务仍需遵守源站规则。"
     },
     {
+      "name": "system_symbol_browser_title",
+      "value": "系统图标"
+    },
+    {
+      "name": "system_symbol_browser_search_hint",
+      "value": "搜索图标名称"
+    },
+    {
+      "name": "system_symbol_browser_count",
+      "value": "%s 个系统图标 · 点击复制资源名"
+    },
+    {
+      "name": "system_symbol_browser_copied",
+      "value": "已复制：%s"
+    },
+    {
+      "name": "system_symbol_browser_copy_failed",
+      "value": "复制资源名失败"
+    },
+    {
       "name": "gallery_meta",
       "value": "%s页 · %s · 收藏 %s"
     },

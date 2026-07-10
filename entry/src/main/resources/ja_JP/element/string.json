@@ -1657,6 +1657,26 @@
       "value": "E-Hentai サービスの利用には、引き続き元サイトの規則が適用されます。"
     },
     {
+      "name": "system_symbol_browser_title",
+      "value": "システムシンボル"
+    },
+    {
+      "name": "system_symbol_browser_search_hint",
+      "value": "シンボル名を検索"
+    },
+    {
+      "name": "system_symbol_browser_count",
+      "value": "%s 個のシステムシンボル · タップしてリソース名をコピー"
+    },
+    {
+      "name": "system_symbol_browser_copied",
+      "value": "コピーしました：%s"
+    },
+    {
+      "name": "system_symbol_browser_copy_failed",
+      "value": "リソース名をコピーできませんでした"
+    },
+    {
       "name": "gallery_meta",
       "value": "%sページ · %s · お気に入り %s"
     },

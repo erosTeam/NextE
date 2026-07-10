@@ -57,7 +57,7 @@ Operating rule:
 - [Search Intake](intake/search.md) — 8 item(s).
 - [Reader Intake](intake/reader.md) — 16 item(s).
 - [Downloads Intake](intake/downloads.md) — 2 item(s).
-- [Settings And History Intake](intake/settings.md) — 10 item(s).
+- [Settings And History Intake](intake/settings.md) — 11 item(s).
 - [Persistence And Backup Intake](intake/persistence.md) — 1 item(s).
 - [Cache Architecture Intake](intake/cache.md) — 1 item(s).
 - [General Archive Intake](intake/history-archive.md) — 1 item(s).

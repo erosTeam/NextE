@@ -1657,6 +1657,26 @@
       "value": "Use of E-Hentai services remains subject to the source site's rules."
     },
     {
+      "name": "system_symbol_browser_title",
+      "value": "System Symbols"
+    },
+    {
+      "name": "system_symbol_browser_search_hint",
+      "value": "Search symbol names"
+    },
+    {
+      "name": "system_symbol_browser_count",
+      "value": "%s system symbols · Tap to copy the resource name"
+    },
+    {
+      "name": "system_symbol_browser_copied",
+      "value": "Copied: %s"
+    },
+    {
+      "name": "system_symbol_browser_copy_failed",
+      "value": "Failed to copy the resource name"
+    },
+    {
       "name": "gallery_meta",
       "value": "%sP · %s · Favorited %s"
     },

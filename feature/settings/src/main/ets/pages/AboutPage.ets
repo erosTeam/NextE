@@ -15,12 +15,15 @@ import {
   SafeModeSettings,
   SafeModeState,
   connectSafeMode,
+  connectNavStack,
 } from 'shared'
 
 const APP_RELEASE_API_URL: string = 'https://api.github.com/repos/erosTeam/NextE/releases/latest'
 const APP_UPDATE_CONNECT_TIMEOUT_MS: number = 15000
 const APP_UPDATE_READ_TIMEOUT_MS: number = 20000
 const RELEASE_BODY_MAX_CHARS: number = 1800
+const SYSTEM_SYMBOL_BROWSER_OPEN_TAPS: number = 5
+const SYSTEM_SYMBOL_BROWSER_TAP_WINDOW_MS: number = 2500
 
 class AppReleaseResponse {
   tag_name: string = ''
@@ -33,6 +36,7 @@ export struct AboutPage {
   @Local appVersion: string = ''
   @Local safeMode: SafeModeState = connectSafeMode();
   @Local safeModeTapCount: number = 0;
+  @Local platformTapCount: number = 0;
   @Local updateChecking: boolean = false;
   @Local updateChecked: boolean = false;
   @Local latestVersion: string = '';
@@ -40,6 +44,8 @@ export struct AboutPage {
   private releasePageUrl: string = '';
   private releaseBody: string = '';
   private scroller: Scroller = new Scroller();
+  private stack: NavPathStack = connectNavStack().stack;
+  private lastPlatformTapAt: number = 0;
 
   aboutToAppear(): void {
     bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION)
@@ -95,6 +101,20 @@ export struct AboutPage {
       .catch((_error: Error) => {
         // Unlock state is already persisted; toast failure is non-critical.
       })
+  }
+
+  private onPlatformTap(): void {
+    const now: number = Date.now()
+    if (now - this.lastPlatformTapAt > SYSTEM_SYMBOL_BROWSER_TAP_WINDOW_MS) {
+      this.platformTapCount = 0
+    }
+    this.lastPlatformTapAt = now
+    this.platformTapCount += 1
+    if (this.platformTapCount < SYSTEM_SYMBOL_BROWSER_OPEN_TAPS) {
+      return
+    }
+    this.platformTapCount = 0
+    this.stack.pushPathByName('SystemSymbolBrowser', null)
   }
 
   private checkUpdate(): void {
@@ -295,6 +315,9 @@ export struct AboutPage {
         title: $r('app.string.about_platform'),
         trailingText: 'HarmonyOS NEXT',
         showChevron: false,
+        action: () => {
+          this.onPlatformTap()
+        },
       })
     }
   }

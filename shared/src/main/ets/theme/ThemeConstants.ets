@@ -104,6 +104,9 @@ export class ThemeConstants {
   static readonly FOOTER_HEIGHT: number = 48
   static readonly BUTTON_HEIGHT: number = 46 // primary action buttons (reader/detail Read, etc.)
   static readonly SEARCH_FIELD_HEIGHT: number = 40
+  static readonly SYSTEM_SYMBOL_GRID_MIN_WIDTH: number = 112
+  static readonly SYSTEM_SYMBOL_CARD_HEIGHT: number = 112
+  static readonly SYSTEM_SYMBOL_GLYPH_SIZE: number = 36
   static readonly ACCOUNT_AVATAR_SIZE: number = 44
   static readonly DOWNLOAD_TASK_COVER_WIDTH: number = 78
   static readonly DOWNLOAD_TASK_COVER_HEIGHT: number = 110

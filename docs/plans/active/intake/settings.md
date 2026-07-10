@@ -10,6 +10,68 @@ Purpose:
 
 ## Items
 
+### Hidden System Symbol Reference Page
+
+Type: developer reference / system symbol discovery
+
+Priority suggestion: P2 / bounded developer utility
+
+Status: implemented / needs controller acceptance
+
+Source:
+
+- User request, 2026-07-10: the HarmonyOS API website does not show every available system icon,
+  while the SDK resource table lists names without a visual preview. Provide a hidden in-app reference
+  page that shows every compile-SDK system symbol and copies its resource name when tapped.
+
+Grounding:
+
+- `eros_fe` reference: `/Users/honjow/git/eros_fe/lib/pages/setting/about_page.dart` is the concrete
+  About/version surface used for the hidden entry; eros_fe has no HarmonyOS system-symbol browser, so
+  the catalog itself is target-platform developer tooling rather than an EH product-parity feature.
+- Primary information: a searchable visual grid of every `sys.symbol.*` entry accepted by the current
+  DevEco compile SDK; the glyph and exact resource name are peers on each card.
+- Primary action: tap a symbol card to copy `sys.symbol.<name>`; secondary action is filtering by any
+  name fragment. Neither action changes app settings or user data.
+- Scope: generate and check in the catalog from DevEco `sysResource.js`, open it by rapidly tapping the
+  About `Platform / HarmonyOS NEXT` row five times, search, preview, and copy. The existing version-tap
+  safe-mode unlock remains independent. No online icon source, favorites, categories,
+  or runtime SDK scraping.
+- HarmonyOS expression: routed `HdsNavDestination`, native `Search`, responsive lazy `Grid`,
+  `SymbolGlyph`, system pasteboard, and the existing immersive title bar.
+
+User path and negative states:
+
+- Settings -> About -> rapidly tap `Platform / HarmonyOS NEXT` five times -> symbol reference page -> type a name
+  fragment -> tap a card -> copied resource-name toast.
+- Empty search results show a terminal no-results state rather than an empty grid with stale count.
+- Narrow/folded panes reduce the responsive grid column count; wide panes add columns without changing
+  card density.
+- The full 4,000+ entry catalog is rendered through `LazyForEach`; filtering reloads the stable data
+  source instead of mounting every icon at once.
+
+Acceptance:
+
+- Re-running `scripts/generate_system_symbol_catalog.mjs` against the active DevEco SDK produces the
+  checked-in catalog deterministically.
+- A signed build succeeds and the hidden entry, search, responsive layout, symbol rendering, and
+  clipboard toast are verified on a connected emulator/device.
+
+Handled update, 2026-07-10:
+
+- Generated 4,027 compile-SDK symbols from DevEco `sysResource.js`. Catalog construction is deferred
+  until the page opens, and the grid uses `LazyForEach`, so normal app startup does not allocate every
+  catalog entry or mount every card.
+- Final hidden entry is independent of the version/safe-mode gesture: Settings -> About -> tap
+  `Platform / HarmonyOS NEXT` five times.
+- Signed Hvigor build succeeded; V1 inventory reported `0 file(s)`; four-locale i18n parity,
+  safe-mode contract, and `git diff --check` passed.
+- Mate X7 emulator `127.0.0.1:5555`: verified the five-tap entry, all-symbol grid, search to the unique
+  `square_and_square` result, copy toast/system pasteboard value `sys.symbol.square_and_square`, and
+  the terminal no-results state. Expanded layout rendered five columns; folded layout rendered two,
+  then the emulator was restored to expanded state. Evidence:
+  `/private/tmp/nexte_system_symbol_evidence/`.
+
 ### Settings UI Must Extend Shared Primitives, Not Hand-Roll Local Rows
 
 Type: implementation quality / settings UI baseline
