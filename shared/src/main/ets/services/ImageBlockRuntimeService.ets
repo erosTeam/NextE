@@ -24,11 +24,67 @@ import { ImagePipelineService } from './ImagePipelineService'
 import { ImagePageRouteService, ImagePageRouteTarget } from './ImagePageRouteService'
 import { PHashService } from './PHashService'
 
+const MAX_THUMBNAIL_HASH_MEMORY_ENTRIES: number = 1024
+
 export class ImageBlockThumbnailDecision {
   decision: ImageBlockDecision = new ImageBlockDecision()
   previewUri: string = ''
   previewPath: string = ''
   bytes: number = 0
+}
+
+/**
+ * Keeps recent thumbnail pHashes in the process without retaining every thumbnail visited in a long
+ * browsing session. The repository remains the durable cache, so evicting a value only adds a later
+ * lightweight lookup; it never changes an image-block decision or causes a thumbnail to be recomputed.
+ */
+export class ImageBlockThumbnailHashMemoryCache {
+  private readonly maxEntries: number
+  private entries: Map<string, string> = new Map()
+
+  constructor(maxEntries: number = MAX_THUMBNAIL_HASH_MEMORY_ENTRIES) {
+    this.maxEntries = maxEntries > 0 ? maxEntries : 1
+  }
+
+  get(key: string): string {
+    const value: string | undefined = this.entries.get(key)
+    if (value === undefined) {
+      return ''
+    }
+    this.entries.delete(key)
+    this.entries.set(key, value)
+    return value
+  }
+
+  put(key: string, hash: string): void {
+    if (key.length === 0 || hash.length === 0) {
+      return
+    }
+    this.entries.delete(key)
+    this.entries.set(key, hash)
+    this.trim()
+  }
+
+  size(): number {
+    return this.entries.size
+  }
+
+  private trim(): void {
+    while (this.entries.size > this.maxEntries) {
+      let found: boolean = false
+      let oldest: string = ''
+      this.entries.forEach((_hash: string, key: string): void => {
+        if (!found) {
+          found = true
+          oldest = key
+        }
+      })
+      if (!found) {
+        return
+      }
+      this.entries.delete(oldest)
+    }
+  }
 }
 
 class ImageBlockSourcePreviewTarget {
@@ -97,7 +153,8 @@ export class ImageBlockRuntimeService {
   private static cachedRules: ImageBlockRule[] = []
   private static thumbnailColdChain: Promise<void> = Promise.resolve()
   private static thumbnailHashInFlight: Map<string, Promise<string>> = new Map<string, Promise<string>>()
-  private static thumbnailHashMemoryCache: Map<string, string> = new Map<string, string>()
+  private static thumbnailHashMemoryCache: ImageBlockThumbnailHashMemoryCache =
+    new ImageBlockThumbnailHashMemoryCache()
 
   static async decisionForFile(
     context: common.UIAbilityContext,
@@ -801,14 +858,14 @@ export class ImageBlockRuntimeService {
       spriteWidth,
       spriteHeight,
     )
-    const memoryHash: string | undefined = ImageBlockRuntimeService.thumbnailHashMemoryCache.get(regionKey)
-    if (memoryHash !== undefined && memoryHash.length > 0) {
+    const memoryHash: string = ImageBlockRuntimeService.thumbnailHashMemoryCache.get(regionKey)
+    if (memoryHash.length > 0) {
       ImageBlockRuntimeService.logThumbHash('thumb_hash_memory_hit', regionKey)
       return memoryHash
     }
     let hash: string = await ImageBlockRepository.loadCachedFileHash(context, regionKey, bytes)
     if (hash.length > 0) {
-      ImageBlockRuntimeService.thumbnailHashMemoryCache.set(regionKey, hash)
+      ImageBlockRuntimeService.thumbnailHashMemoryCache.put(regionKey, hash)
       ImageBlockRuntimeService.logThumbHash('thumb_hash_store_hit', regionKey)
       return hash
     }
@@ -823,7 +880,7 @@ export class ImageBlockRuntimeService {
     }
     if (hash.length > 0) {
       await ImageBlockRepository.upsertFileHash(context, regionKey, bytes, hash)
-      ImageBlockRuntimeService.thumbnailHashMemoryCache.set(regionKey, hash)
+      ImageBlockRuntimeService.thumbnailHashMemoryCache.put(regionKey, hash)
       ImageBlockRuntimeService.logThumbHash('thumb_hash_compute_done', regionKey)
     } else {
       ImageBlockRuntimeService.logThumbHash('thumb_hash_compute_miss', regionKey)
@@ -835,13 +892,13 @@ export class ImageBlockRuntimeService {
     context: common.UIAbilityContext,
     stableKey: string,
   ): Promise<string> {
-    const memoryHash: string | undefined = ImageBlockRuntimeService.thumbnailHashMemoryCache.get(stableKey)
-    if (memoryHash !== undefined && memoryHash.length > 0) {
+    const memoryHash: string = ImageBlockRuntimeService.thumbnailHashMemoryCache.get(stableKey)
+    if (memoryHash.length > 0) {
       return memoryHash
     }
     const hash: string = await ImageBlockRepository.loadCachedFileHashByPath(context, stableKey)
     if (hash.length > 0) {
-      ImageBlockRuntimeService.thumbnailHashMemoryCache.set(stableKey, hash)
+      ImageBlockRuntimeService.thumbnailHashMemoryCache.put(stableKey, hash)
       ImageBlockRuntimeService.logThumbHash('thumb_hash_stable_hit', stableKey)
     }
     return hash

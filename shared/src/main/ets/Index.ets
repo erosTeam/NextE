@@ -138,8 +138,9 @@ export { EhImagePageParser, ImagePageResult } from './parser/EhImagePageParser'
 export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGalleryFavoriteParser'
 
 // services
-export { ImageResolveService } from './services/ImageResolveService'
+export { ImageResolveMemoryCache, ImageResolveService } from './services/ImageResolveService'
 export { ImagePipelineService } from './services/ImagePipelineService'
+export { ReaderImagePriorityScheduler, ReaderImagePriorityTask } from './services/ReaderImageFileCacheService'
 export {
   EH_IMAGE_DOWNSAMPLING_AT_LEAST,
   EH_IMAGE_DOWNSAMPLING_AT_MOST,
@@ -175,7 +176,13 @@ export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePag
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
 export { UserProfileService, UserProfileInfo } from './services/UserProfileService'
 export {
+  COMMENT_TRANSLATION_PRIORITY_AUTO,
+  COMMENT_TRANSLATION_PRIORITY_INTERACTIVE,
   CommentStructuredTranslation,
+  CommentTranslationCacheEpoch,
+  CommentTranslationMemoryCache,
+  CommentTranslationQueueScheduler,
+  CommentTranslationQueueTask,
   CommentTranslationService,
 } from './services/CommentTranslationService'
 export { LocalBlockService } from './services/LocalBlockService'
@@ -191,10 +198,13 @@ export {
   ImageBlockSubscriptionService,
   ImageBlockSubscriptionUpdateResult,
 } from './services/ImageBlockSubscriptionService'
-export { ImageBlockRuntimeService } from './services/ImageBlockRuntimeService'
+export {
+  ImageBlockRuntimeService,
+  ImageBlockThumbnailHashMemoryCache,
+} from './services/ImageBlockRuntimeService'
 export { PHashService } from './services/PHashService'
 export { ImageBlockRepository } from './storage/ImageBlockRepository'
-export { EhPageCacheService } from './services/EhPageCacheService'
+export { EhPageCacheService, PreloadedGalleryListMemoryCache } from './services/EhPageCacheService'
 export { CacheStat } from './services/CacheStat'
 export { BackupService } from './backup/BackupService'
 export {
@@ -247,7 +257,12 @@ export {
   SyncCustomProfileSelectionRecord,
 } from './sync/SyncTypes'
 export { MyTagsTargetService, MyTagsTargetResolveResult } from './services/MyTagsTargetService'
-export { CoverColorService } from './services/CoverColorService'
+export {
+  CoverColorMemoryCache,
+  CoverColorQueueScheduler,
+  CoverColorQueueTask,
+  CoverColorService,
+} from './services/CoverColorService'
 export { MotionHandStateService, MotionHandEdge } from './services/MotionHandStateService'
 export { DownloadNotificationService } from './services/DownloadNotificationService'
 
@@ -538,7 +553,12 @@ export { LocalFavSettings } from './settings/LocalFavSettings'
 export { GalleryReadProgressSettings } from './settings/GalleryReadProgressSettings'
 export { ViewedHistorySettings } from './settings/ViewedHistorySettings'
 export { DownloadSettings } from './settings/DownloadSettings'
-export { DownloadDirectoryImportResult, DownloadQueueSettings } from './settings/DownloadQueueSettings'
+export {
+  DownloadDirectoryImportResult,
+  DownloadQueueSettings,
+  GallerySeedQueueTask,
+  GallerySeedScheduler,
+} from './settings/DownloadQueueSettings'
 export { SecurityAuthResult, SecuritySettings } from './settings/SecuritySettings'
 export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
 export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'

@@ -158,9 +158,10 @@ export class LocalBlockSettings {
       await LocalBlockRepository.replaceAll(context, LocalBlockSettings.parseSnapshot(raw))
     } catch (error) {
       DiagnosticLogger.warn('settings', 'local_block_migrate_failed', (error as Error).message)
+      // Keep the only legacy copy intact. A later startup can retry once the RDB write succeeds.
+      return
     }
-    store.deleteSync(StorageKeys.LOCAL_BLOCK_RULES)
-    store.flushSync()
+    await LocalBlockSettings.deleteLegacyPreference(context)
   }
 
   static async setScoreFilter(

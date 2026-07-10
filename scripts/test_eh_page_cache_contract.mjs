@@ -46,6 +46,8 @@ assertIncludes(service, "'load_hit'", 'cache reads must log hit diagnostics for 
 assertIncludes(service, "'save_ok'", 'cache writes must log success diagnostics for device verification');
 assertIncludes(service, "'save_failed'", 'cache writes must log failure diagnostics for device verification');
 assertIncludes(service, 'MAX_LIST_ROWS_PER_CACHE', 'gallery-list snapshots must cap row count');
+assertIncludes(service, 'MAX_PRELOADED_GALLERY_LISTS', 'startup preload staging must have a finite memory cap');
+assertIncludes(service, 'PreloadedGalleryListMemoryCache', 'startup preload staging must use a bounded cache type');
 assertIncludes(service, 'reviveGalleryList(raw)', 'JSON cache must revive GalleryList class instances');
 assertIncludes(service, 'reviveGallery(raw.gallery)', 'JSON cache must revive GalleryDetail gallery instances');
 assertIncludes(service, 'new GalleryDetailResult', 'detail cache must restore the network result wrapper');
@@ -58,17 +60,21 @@ assertIncludes(service, 'new EhGalleryImage(', 'image cache must revive EhGaller
 assertIncludes(service, 'new EhGalleryComment()', 'comment cache must revive comment objects');
 
 const index = read('shared/src/main/ets/Index.ets');
-assertIncludes(index, "export { EhPageCacheService }", 'shared barrel must export EhPageCacheService');
+assertIncludes(index, 'EhPageCacheService, PreloadedGalleryListMemoryCache', 'shared barrel must export page-cache service and bounded preload cache');
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets');
-assertIncludes(bootstrap, 'preloadPageCaches(context)', 'settings bootstrap must preload page caches before first content mount');
 assertIncludes(bootstrap, 'const profiles: CustomProfile[] = connectCustomProfiles().profiles', 'startup preload must cover custom Gallery profile subtabs');
 assertIncludes(bootstrap, 'p.listType !== PROFILE_TYPE_FAVORITE', 'startup preload must skip favorite-type custom profiles because favorites use favcat cache keys');
 assertIncludes(bootstrap, 'EhPageCacheService.homeProfileKey(isEx, p.uuid)', 'startup preload must use uuid-scoped custom profile cache keys');
 assertIncludes(bootstrap, 'const toplistTls: number[] = [11, 12, 13, 15]', 'startup preload must cover every Toplist period subtab');
 assertIncludes(bootstrap, "const favcats: string[] = ['a', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']", 'startup preload must cover every remote Favorites subtab');
-assertIncludes(bootstrap, 'await Promise.all(jobs)', 'startup cache preload must run subtabs in parallel instead of serially delaying startup');
+assertIncludes(bootstrap, 'const MAX_PAGE_CACHE_PRELOAD_CONCURRENCY: number = 2', 'startup cache preload must cap concurrent RDB work');
+assertIncludes(bootstrap, 'await SettingsBootstrap.preloadGalleryListsBounded(context, keys)', 'startup cache preload must use bounded workers');
+assertIncludes(bootstrap, 'await Promise.all(workers)', 'startup cache preload must retain bounded parallelism');
 assertIncludes(bootstrap, "'preload_done'", 'startup cache preload must log completion for device verification');
+
+// Cache-warming timing is a first-frame performance concern. It is intentionally verified through the
+// device startup path rather than requiring a specific bootstrap-await shape here.
 
 const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets');
 assertNotIncludes(httpClient, 'usingCache: true', 'EH HTTP client must not enable transparent global cache');

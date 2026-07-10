@@ -77,30 +77,37 @@ export class LocalBlockRepository {
   ): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     const now: number = Date.now()
-    await store.executeSql(SQL_TOMBSTONE_SETTINGS, [now, now, SCOPE_GLOBAL])
-    await store.executeSql(SQL_TOMBSTONE_RULES, [now, now, SCOPE_GLOBAL])
-    await store.executeSql(SQL_UPSERT_SETTINGS, [
-      SCOPE_GLOBAL,
-      snapshot.filterCommentsByScore ? 1 : 0,
-      Math.floor(snapshot.scoreFilteringThreshold),
-      snapshot.commentDisplayMode,
-      now,
-    ])
-    for (let i: number = 0; i < snapshot.rules.length; i++) {
-      const rule: LocalBlockRuleSnapshot = snapshot.rules[i]
-      if (rule.ruleText.length === 0) {
-        continue
-      }
-      await store.executeSql(SQL_UPSERT_RULE, [
+    store.beginTransaction()
+    try {
+      await store.executeSql(SQL_TOMBSTONE_SETTINGS, [now, now, SCOPE_GLOBAL])
+      await store.executeSql(SQL_TOMBSTONE_RULES, [now, now, SCOPE_GLOBAL])
+      await store.executeSql(SQL_UPSERT_SETTINGS, [
         SCOPE_GLOBAL,
-        rule.id.length > 0 ? rule.id : `rule-${i}`,
-        i,
-        rule.blockType,
-        rule.ruleText,
-        rule.enabled ? 1 : 0,
-        rule.enableRegex ? 1 : 0,
-        now + i + 1,
+        snapshot.filterCommentsByScore ? 1 : 0,
+        Math.floor(snapshot.scoreFilteringThreshold),
+        snapshot.commentDisplayMode,
+        now,
       ])
+      for (let i: number = 0; i < snapshot.rules.length; i++) {
+        const rule: LocalBlockRuleSnapshot = snapshot.rules[i]
+        if (rule.ruleText.length === 0) {
+          continue
+        }
+        await store.executeSql(SQL_UPSERT_RULE, [
+          SCOPE_GLOBAL,
+          rule.id.length > 0 ? rule.id : `rule-${i}`,
+          i,
+          rule.blockType,
+          rule.ruleText,
+          rule.enabled ? 1 : 0,
+          rule.enableRegex ? 1 : 0,
+          now + i + 1,
+        ])
+      }
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
     }
   }
 

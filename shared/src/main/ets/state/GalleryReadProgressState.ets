@@ -3,8 +3,9 @@ import { ReadColumnMode } from './ReadModeState'
 
 /**
  * One persisted reading-progress record (port of eros_fe GalleryCache's lastIndex+time).
- * `t` is the last-write epoch millis. Locally it's just metadata (writes are last-write-wins);
- * it's the seam for later cross-device sync, which reconciles newest-wins across sources.
+ * `t` is the last-write epoch millis. A local mutation advances it monotonically per gallery so
+ * deferred RDB writes can reject an older snapshot that completes after a newer one; the in-memory
+ * page index itself still follows last-call-wins. It is also the seam for cross-device newest-wins.
  */
 export class ReadProgressEntry {
   g: string = ''
@@ -67,16 +68,16 @@ export class GalleryReadProgressState {
   }
 
   /**
-   * Update one gallery's progress in memory. Last write wins (eros_fe's local
-   * GalleryCacheController.setIndex overwrites unconditionally — newest-wins is reconciled only at
-   * the sync layer, so `t` is recorded but NOT compared here). Disk flush is the caller's job.
+   * Update one gallery's progress in memory. The page itself is last-call-wins (matching eros_fe),
+   * while `t` advances monotonically for this gid so an older deferred snapshot cannot win on disk.
+   * Disk flush is the caller's job.
    */
   setIndex(gid: string, index: number, time: number): void {
     if (gid.length === 0 || index < 0) {
       return
     }
     this.indexMap.set(gid, index)
-    this.timeMap.set(gid, time)
+    this.timeMap.set(gid, this.nextUpdatedAt(gid, time))
     this.revision = this.revision + 1
   }
 
@@ -84,8 +85,13 @@ export class GalleryReadProgressState {
     if (gid.length === 0 || (columnMode !== ReadColumnMode.ODD_LEFT && columnMode !== ReadColumnMode.EVEN_LEFT)) {
       return
     }
+    // A reader can change the pairing before it turns a page. Keep a page-zero record so this
+    // per-gallery preference is included in the persistence snapshot rather than being dropped.
+    if (!this.indexMap.has(gid)) {
+      this.indexMap.set(gid, 0)
+    }
     this.columnModeMap.set(gid, columnMode)
-    this.timeMap.set(gid, time)
+    this.timeMap.set(gid, this.nextUpdatedAt(gid, time))
     this.revision = this.revision + 1
   }
 
@@ -115,6 +121,50 @@ export class GalleryReadProgressState {
       }
     })
     this.revision = this.revision + 1
+  }
+
+  /** Merge entries that changed while an async store refresh was in flight. */
+  mergeNewest(entries: ReadProgressEntry[]): void {
+    let changed: boolean = false
+    entries.forEach((entry: ReadProgressEntry) => {
+      if (entry.g.length === 0 || entry.i < 0) {
+        return
+      }
+      const currentTime: number | undefined = this.timeMap.get(entry.g)
+      if (currentTime !== undefined && currentTime > entry.t) {
+        return
+      }
+      const currentIndex: number | undefined = this.indexMap.get(entry.g)
+      const currentColumnMode: string | undefined = this.columnModeMap.get(entry.g)
+      const nextColumnMode: string =
+        entry.c === ReadColumnMode.ODD_LEFT || entry.c === ReadColumnMode.EVEN_LEFT ? entry.c : ''
+      if (
+        currentTime === entry.t && currentIndex === entry.i &&
+        (currentColumnMode === undefined ? '' : currentColumnMode) === nextColumnMode
+      ) {
+        return
+      }
+      this.indexMap.set(entry.g, entry.i)
+      this.timeMap.set(entry.g, entry.t)
+      if (nextColumnMode.length > 0) {
+        this.columnModeMap.set(entry.g, nextColumnMode)
+      } else {
+        this.columnModeMap.delete(entry.g)
+      }
+      changed = true
+    })
+    if (changed) {
+      this.revision = this.revision + 1
+    }
+  }
+
+  private nextUpdatedAt(gid: string, requestedTime: number): number {
+    const previous: number | undefined = this.timeMap.get(gid)
+    const requested: number = Math.max(0, Math.floor(requestedTime))
+    if (previous === undefined || requested > previous) {
+      return requested
+    }
+    return previous + 1
   }
 }
 

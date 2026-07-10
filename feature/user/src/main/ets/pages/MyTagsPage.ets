@@ -38,6 +38,7 @@ import {
 const MYTAGS_SHEET_EDIT: string = 'edit'
 const MYTAGS_SHEET_ADD: string = 'add'
 const MYTAGS_SHEET_TAGSET: string = 'tagset'
+const ADD_TAG_SUGGEST_DELAY_MS: number = 450
 
 /**
  * My Tags (mytags) — the user's watched / hidden / color-flagged tags. Routed page off Settings.
@@ -90,6 +91,7 @@ export struct MyTagsPage {
   @Local mytagsEpoch: number = 0;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
+  private addSuggestTimer: number = -1;
 
   private openMyTagsSheet(kind: string): void {
     this.myTagsSheetKind = kind
@@ -97,7 +99,28 @@ export struct MyTagsPage {
   }
 
   private closeMyTagsSheet(): void {
+    if (this.myTagsSheetKind === MYTAGS_SHEET_ADD) {
+      this.cancelAddSuggestions()
+    }
     this.myTagsSheetShown = false
+  }
+
+  aboutToDisappear(): void {
+    this.cancelAddSuggestions()
+  }
+
+  private clearAddSuggestTimer(): void {
+    if (this.addSuggestTimer >= 0) {
+      clearTimeout(this.addSuggestTimer)
+      this.addSuggestTimer = -1
+    }
+  }
+
+  private cancelAddSuggestions(): void {
+    this.clearAddSuggestTimer()
+    this.addSuggestEpoch = this.addSuggestEpoch + 1
+    this.addSuggestions = []
+    this.addSuggesting = false
   }
 
   private safeForEachKeyPart(value: string): string {
@@ -363,8 +386,7 @@ export struct MyTagsPage {
     this.addDefaultColor = true
     this.addColor = ''
     this.addWeight = '10'
-    this.addSuggestions = []
-    this.addSuggestEpoch = this.addSuggestEpoch + 1
+    this.cancelAddSuggestions()
     this.addSuppressNextSuggest = false
     this.openMyTagsSheet(MYTAGS_SHEET_ADD)
   }
@@ -768,11 +790,10 @@ export struct MyTagsPage {
     this.addError = ''
     if (this.addSuppressNextSuggest) {
       this.addSuppressNextSuggest = false
-      this.addSuggestions = []
-      this.addSuggesting = false
-      this.addSuggestEpoch = this.addSuggestEpoch + 1
+      this.cancelAddSuggestions()
       return
     }
+    this.clearAddSuggestTimer()
     const epoch: number = this.addSuggestEpoch + 1
     this.addSuggestEpoch = epoch
     this.loadAddTagTranslation(this.addTagName, epoch)
@@ -803,15 +824,41 @@ export struct MyTagsPage {
       return
     }
     this.addSuggesting = true
+    let localSuggestions: EhTagSuggestion[] = []
     try {
       if (this.tagTranslation.enabled) {
-        const localSuggestions: EhTagSuggestion[] = await TagTranslationService.searchSuggestions(this.ctx(), q, 30)
-        if (epoch === this.addSuggestEpoch && localSuggestions.length > 0) {
-          this.addSuggestions = localSuggestions.filter((s: EhTagSuggestion) => !this.hasExistingTag(s.label()))
-          this.addSuggesting = false
-          return
-        }
+        localSuggestions = await TagTranslationService.searchSuggestions(this.ctx(), q, 30)
       }
+    } catch (err) {
+      const e = err as Error
+      if (epoch === this.addSuggestEpoch) {
+        DiagnosticLogger.warn('mytags', 'local_suggest_failed', e.message)
+      }
+    }
+    if (epoch !== this.addSuggestEpoch) {
+      return
+    }
+    if (localSuggestions.length > 0) {
+      this.addSuggestions = localSuggestions.filter((s: EhTagSuggestion) => !this.hasExistingTag(s.label()))
+      this.addSuggesting = false
+      return
+    }
+    this.scheduleRemoteAddSuggestions(q, epoch)
+  }
+
+  private scheduleRemoteAddSuggestions(q: string, epoch: number): void {
+    this.clearAddSuggestTimer()
+    this.addSuggestTimer = setTimeout((): void => {
+      this.addSuggestTimer = -1
+      this.loadRemoteAddSuggestions(q, epoch).then(() => {})
+    }, ADD_TAG_SUGGEST_DELAY_MS)
+  }
+
+  private async loadRemoteAddSuggestions(q: string, epoch: number): Promise<void> {
+    if (epoch !== this.addSuggestEpoch) {
+      return
+    }
+    try {
       const suggestions: EhTagSuggestion[] = await EhApiPhpService.tagSuggest(
         EhConstants.baseUrl(connectSiteMode().isEx),
         q,
@@ -838,8 +885,9 @@ export struct MyTagsPage {
     this.addTagName = label
     this.addTagTranslate = this.localizedFullTagDisplay(label, s.displayName)
     this.addSuggestions = []
-    this.addSuggesting = false
     this.addSuppressNextSuggest = true
+    this.clearAddSuggestTimer()
+    this.addSuggesting = false
     this.addSuggestEpoch = this.addSuggestEpoch + 1
     this.loadAddTagTranslation(label, this.addSuggestEpoch)
   }

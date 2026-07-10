@@ -167,7 +167,10 @@ export struct GalleryAddTagsSheet {
       if (this.tagTranslation.enabled) {
         local = await TagTranslationService.searchSuggestions(this.ctx(), token, LOCAL_SUGGEST_LIMIT)
       }
-      if (epoch === this.suggestEpoch && local.length > 0) {
+      if (epoch !== this.suggestEpoch) {
+        return
+      }
+      if (local.length > 0) {
         this.suggestions = local.slice(0, MAX_SUGGESTIONS)
         return
       }

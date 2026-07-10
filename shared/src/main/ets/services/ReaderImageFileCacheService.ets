@@ -8,12 +8,14 @@ import {
   CachedImageProgress,
 } from './CachedImageFileService'
 import { CacheStat } from './CacheStat'
+import { EH_IMAGE_PRIORITY_LOW } from './ImagePipelineTypes'
 
 const CACHE_DIR_NAME: string = 'reader-image-file-cache'
 const CACHE_FILE_EXTENSION: string = 'img'
 const READER_IMAGE_CONNECT_TIMEOUT_MS: number = 6000
 const READER_IMAGE_NO_PROGRESS_TIMEOUT_MS: number = 10000
 const MAX_CACHE_FILE_COUNT: number = 4096
+const MAX_LOW_PRIORITY_DOWNLOADS: number = 1
 
 class ReaderImageCacheEntry {
   path: string = ''
@@ -27,6 +29,208 @@ class ReaderImageCacheEntry {
   }
 }
 
+/** A small, deterministic scheduler for Reader byte downloads (separate from ImageKnife decoding). */
+export class ReaderImagePriorityTask {
+  key: string = ''
+  priority: number = EH_IMAGE_PRIORITY_LOW
+  started: boolean = false
+  lowSlot: boolean = false
+  private startAction: () => void = () => {}
+
+  constructor(key: string, priority: number, startAction: () => void) {
+    this.key = key
+    this.priority = priority
+    this.startAction = startAction
+  }
+
+  start(): void {
+    this.startAction()
+  }
+}
+
+/**
+ * Low-priority warmers use one network slot. Any visible (non-low) request starts immediately and
+ * can promote the same queued warmer without duplicating its download; running requests are not
+ * aborted because NetworkKit does not expose safe stream-priority mutation.
+ */
+export class ReaderImagePriorityScheduler {
+  private lowQueue: ReaderImagePriorityTask[] = []
+  private lowRunning: number = 0
+
+  schedule(task: ReaderImagePriorityTask): void {
+    if (task.started) {
+      return
+    }
+    if (this.isLowPriority(task.priority)) {
+      this.lowQueue.push(task)
+      this.drainLowQueue()
+      return
+    }
+    this.start(task, false)
+  }
+
+  promote(task: ReaderImagePriorityTask, priority: number): void {
+    if (priority >= task.priority) {
+      return
+    }
+    task.priority = priority
+    if (task.started || this.isLowPriority(priority)) {
+      return
+    }
+    this.removeQueued(task)
+    this.start(task, false)
+  }
+
+  /**
+   * Drop a request that has not acquired a network slot yet. Running requests are deliberately left
+   * alone: NetworkKit cannot safely abort their stream without risking a partial-cache race.
+   */
+  cancel(task: ReaderImagePriorityTask): boolean {
+    if (task.started) {
+      return false
+    }
+    return this.removeQueued(task)
+  }
+
+  complete(task: ReaderImagePriorityTask): void {
+    if (!task.lowSlot) {
+      return
+    }
+    task.lowSlot = false
+    if (this.lowRunning > 0) {
+      this.lowRunning--
+    }
+    this.drainLowQueue()
+  }
+
+  private drainLowQueue(): void {
+    while (this.lowRunning < MAX_LOW_PRIORITY_DOWNLOADS && this.lowQueue.length > 0) {
+      const next: ReaderImagePriorityTask | undefined = this.lowQueue.shift()
+      if (next !== undefined && !next.started) {
+        this.start(next, true)
+      }
+    }
+  }
+
+  private start(task: ReaderImagePriorityTask, useLowSlot: boolean): void {
+    if (task.started) {
+      return
+    }
+    task.started = true
+    task.lowSlot = useLowSlot
+    if (useLowSlot) {
+      this.lowRunning++
+    }
+    task.start()
+  }
+
+  private removeQueued(task: ReaderImagePriorityTask): boolean {
+    for (let i: number = 0; i < this.lowQueue.length; i++) {
+      if (this.lowQueue[i] === task) {
+        this.lowQueue.splice(i, 1)
+        return true
+      }
+    }
+    return false
+  }
+
+  private isLowPriority(priority: number): boolean {
+    return priority === EH_IMAGE_PRIORITY_LOW
+  }
+}
+
+class ReaderImageLoadTask {
+  context: common.UIAbilityContext
+  url: string
+  cacheKey: string
+  filePath: string
+  limitBytes: number
+  priorityTask: ReaderImagePriorityTask
+  private progressListeners: Array<(progress: CachedImageProgress) => void> = []
+  private lastProgress: CachedImageProgress = { loaded: 0, total: 0 }
+  private hasProgress: boolean = false
+  private completion: Promise<void> = Promise.resolve()
+  private releaseCompletion: () => void = () => {}
+  private finished: boolean = false
+  private result: CachedImageFileResult | null = null
+  private failureMessage: string = ''
+
+  constructor(
+    context: common.UIAbilityContext,
+    url: string,
+    cacheKey: string,
+    filePath: string,
+    limitBytes: number,
+    priority: number,
+  ) {
+    this.context = context
+    this.url = url
+    this.cacheKey = cacheKey
+    this.filePath = filePath
+    this.limitBytes = limitBytes
+    this.priorityTask = new ReaderImagePriorityTask(filePath, priority, () => {
+      ReaderImageFileCacheService.startDownload(this)
+    })
+    this.completion = new Promise<void>((resolve: () => void): void => {
+      this.releaseCompletion = resolve
+    })
+  }
+
+  addProgressListener(listener: (progress: CachedImageProgress) => void): void {
+    this.progressListeners.push(listener)
+    if (this.hasProgress) {
+      this.notifyListener(listener, this.lastProgress)
+    }
+  }
+
+  publishProgress(progress: CachedImageProgress): void {
+    this.hasProgress = true
+    this.lastProgress = { loaded: progress.loaded, total: progress.total }
+    this.progressListeners.forEach((listener: (progress: CachedImageProgress) => void) => {
+      this.notifyListener(listener, this.lastProgress)
+    })
+  }
+
+  complete(result: CachedImageFileResult): void {
+    if (this.finished) {
+      return
+    }
+    this.finished = true
+    this.result = result
+    this.publishProgress({ loaded: result.bytes, total: result.bytes })
+    this.releaseCompletion()
+  }
+
+  fail(error: Error): void {
+    if (this.finished) {
+      return
+    }
+    this.finished = true
+    this.failureMessage = error.message.length > 0 ? error.message : 'reader image download failed'
+    this.releaseCompletion()
+  }
+
+  async waitForResult(): Promise<CachedImageFileResult> {
+    await this.completion
+    if (this.failureMessage.length > 0) {
+      throw new Error(this.failureMessage)
+    }
+    if (this.result === null) {
+      throw new Error('reader image download finished without a result')
+    }
+    return this.result
+  }
+
+  private notifyListener(
+    listener: (progress: CachedImageProgress) => void,
+    progress: CachedImageProgress,
+  ): void {
+    try {
+      listener({ loaded: progress.loaded, total: progress.total })
+    } catch (_error) {}
+  }
+}
+
 /**
  * App-owned Reader image-byte cache.
  *
@@ -35,10 +239,11 @@ class ReaderImageCacheEntry {
  * file and owns its memory cache; this service owns only durable Reader image bytes and LRU eviction.
  */
 export class ReaderImageFileCacheService {
-  private static inFlight: Map<string, Promise<CachedImageFileResult>> = new Map<
+  private static inFlight: Map<string, ReaderImageLoadTask> = new Map<
     string,
-    Promise<CachedImageFileResult>
+    ReaderImageLoadTask
   >()
+  private static readonly scheduler: ReaderImagePriorityScheduler = new ReaderImagePriorityScheduler()
   private static pruneChain: Promise<void> = Promise.resolve()
 
   static cacheKey(gid: string, token: string, page: number, original: boolean): string {
@@ -76,6 +281,7 @@ export class ReaderImageFileCacheService {
     url: string,
     cacheKey: string,
     limitBytes: number,
+    priority: number,
     onProgress: (progress: CachedImageProgress) => void,
   ): Promise<CachedImageFileResult> {
     if (url.length === 0) {
@@ -103,17 +309,35 @@ export class ReaderImageFileCacheService {
     }
 
     const filePath: string = ReaderImageFileCacheService.filePath(context, cacheKey)
-    const running: Promise<CachedImageFileResult> | undefined =
+    const running: ReaderImageLoadTask | undefined =
       ReaderImageFileCacheService.inFlight.get(filePath)
     if (running !== undefined) {
-      const result: CachedImageFileResult = await running
-      onProgress({ loaded: result.bytes, total: result.bytes })
-      DiagnosticLogger.info(
-        'image-cache',
-        'reader_disk_join',
-        `bytes=${result.bytes} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
-      )
-      return result
+      // A queued warmer is still safe to replace. This matters when a Reader retry re-resolves the
+      // same page identity to a fresh CDN URL: promoting the old queued URL would silently defeat
+      // the retry. Existing waiters are released with a controlled failure below.
+      if (!running.priorityTask.started && running.url !== url) {
+        ReaderImageFileCacheService.cancelQueuedTask(running, 'reader image source superseded')
+      } else {
+        running.addProgressListener(onProgress)
+        const wasQueued: boolean = !running.priorityTask.started
+        if (priority < running.priorityTask.priority) {
+          ReaderImageFileCacheService.scheduler.promote(running.priorityTask, priority)
+          if (wasQueued && running.priorityTask.started) {
+            DiagnosticLogger.info(
+              'image-cache',
+              'reader_disk_promoted',
+              `priority=${priority} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+            )
+          }
+        }
+        const result: CachedImageFileResult = await running.waitForResult()
+        DiagnosticLogger.info(
+          'image-cache',
+          'reader_disk_join',
+          `bytes=${result.bytes} priority=${priority} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+        )
+        return result
+      }
     }
 
     DiagnosticLogger.info(
@@ -121,29 +345,89 @@ export class ReaderImageFileCacheService {
       'reader_disk_miss',
       `urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
     )
-    const task: Promise<CachedImageFileResult> = ReaderImageFileCacheService.downloadAndStore(
+    const task: ReaderImageLoadTask = new ReaderImageLoadTask(
       context,
       url,
       cacheKey,
+      filePath,
       limitBytes,
-      onProgress,
+      priority,
     )
+    task.addProgressListener(onProgress)
     ReaderImageFileCacheService.inFlight.set(filePath, task)
-    try {
-      return await task
-    } finally {
-      ReaderImageFileCacheService.inFlight.delete(filePath)
+    ReaderImageFileCacheService.scheduler.schedule(task.priorityTask)
+    return await task.waitForResult()
+  }
+
+  // ReaderImageLoadTask owns the deferred start callback, so ArkTS requires this same-file entry
+  // point to be callable by the task object rather than marking it private.
+  static startDownload(task: ReaderImageLoadTask): void {
+    ReaderImageFileCacheService.downloadAndStore(
+      task.context,
+      task.url,
+      task.cacheKey,
+      task.filePath,
+      task.limitBytes,
+      task.priorityTask.priority,
+      (progress: CachedImageProgress) => task.publishProgress(progress),
+    ).then(
+      (result: CachedImageFileResult): void => {
+        task.complete(result)
+        ReaderImageFileCacheService.settleTask(task)
+      },
+      (error: Error): void => {
+        task.fail(error)
+        ReaderImageFileCacheService.settleTask(task)
+      },
+    )
+  }
+
+  private static settleTask(task: ReaderImageLoadTask): void {
+    const active: ReaderImageLoadTask | undefined = ReaderImageFileCacheService.inFlight.get(task.filePath)
+    if (active === task) {
+      ReaderImageFileCacheService.inFlight.delete(task.filePath)
     }
+    ReaderImageFileCacheService.scheduler.complete(task.priorityTask)
+  }
+
+  static cancelQueued(context: common.UIAbilityContext, cacheKey: string): boolean {
+    if (cacheKey.length === 0) {
+      return false
+    }
+    const filePath: string = ReaderImageFileCacheService.filePath(context, cacheKey)
+    const task: ReaderImageLoadTask | undefined = ReaderImageFileCacheService.inFlight.get(filePath)
+    if (task === undefined) {
+      return false
+    }
+    return ReaderImageFileCacheService.cancelQueuedTask(task, 'reader image request cancelled')
+  }
+
+  private static cancelQueuedTask(task: ReaderImageLoadTask, reason: string): boolean {
+    if (!ReaderImageFileCacheService.scheduler.cancel(task.priorityTask)) {
+      return false
+    }
+    const active: ReaderImageLoadTask | undefined = ReaderImageFileCacheService.inFlight.get(task.filePath)
+    if (active === task) {
+      ReaderImageFileCacheService.inFlight.delete(task.filePath)
+    }
+    task.fail(new Error(reason))
+    DiagnosticLogger.info(
+      'image-cache',
+      'reader_disk_queued_cancelled',
+      `cacheKeyHash=${DiagnosticLogger.ownerHash(task.cacheKey)}`,
+    )
+    return true
   }
 
   private static async downloadAndStore(
     context: common.UIAbilityContext,
     url: string,
     cacheKey: string,
+    filePath: string,
     limitBytes: number,
+    priority: number,
     onProgress: (progress: CachedImageProgress) => void,
   ): Promise<CachedImageFileResult> {
-    const filePath: string = ReaderImageFileCacheService.filePath(context, cacheKey)
     const tmpPath: string = `${filePath}.part`
     ReaderImageFileCacheService.removeIfExists(tmpPath)
     let lastLoggedPercent: number = -20
@@ -152,7 +436,7 @@ export class ReaderImageFileCacheService {
       DiagnosticLogger.info(
         'image-cache',
         'reader_network_start',
-        `urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+        `priority=${priority} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
       )
       const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
         url,
@@ -214,6 +498,7 @@ export class ReaderImageFileCacheService {
     if (cacheKey.length === 0) {
       return
     }
+    ReaderImageFileCacheService.cancelQueued(context, cacheKey)
     ReaderImageFileCacheService.removeIfExists(ReaderImageFileCacheService.filePath(context, cacheKey))
     DiagnosticLogger.info(
       'image-cache',

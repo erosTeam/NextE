@@ -38,6 +38,13 @@ ok(settings.includes('migrateLegacyPreferences') &&
   settings.includes("store.getSync(StorageKeys.LOCAL_BLOCK_RULES, '')") &&
   settings.includes('store.deleteSync(StorageKeys.LOCAL_BLOCK_RULES)'),
   'legacy local block Preferences rows are migrated once')
+{
+  const migrationStart = settings.indexOf('static async migrateLegacyPreferences')
+  const migrationEnd = settings.indexOf('static async setScoreFilter', migrationStart)
+  const migration = settings.substring(migrationStart, migrationEnd)
+  ok(/await LocalBlockRepository\.replaceAll\(context, LocalBlockSettings\.parseSnapshot\(raw\)\)[\s\S]*?catch \(error\) \{[\s\S]*?local_block_migrate_failed[\s\S]*?return[\s\S]*?await LocalBlockSettings\.deleteLegacyPreference\(context\)/.test(migration),
+    'failed legacy migration keeps its only Preferences copy; deletion happens only after the RDB replacement succeeds')
+}
 ok(settings.includes('snapshotEquals(LocalBlockSettings.current(), next)') &&
   settings.includes('local_block_apply_unchanged') &&
   settings.includes('local_block_version'),
@@ -53,6 +60,11 @@ ok(settings.includes('snapshotEquals(LocalBlockSettings.current(), next)') &&
     repo.includes('UPDATE local_block_settings SET deleted_at = ?, updated_at = ?') &&
     repo.includes('ON CONFLICT(scope_key, rule_id) DO UPDATE'),
   'local block repository preserves order and tombstones scoped rows')
+  const replaceStart = repo.indexOf('static async replaceAll')
+  const replaceEnd = repo.indexOf('private static async loadRules', replaceStart)
+  const replaceAll = repo.substring(replaceStart, replaceEnd)
+  ok(/store\.beginTransaction\(\)[\s\S]*?SQL_TOMBSTONE_SETTINGS[\s\S]*?SQL_TOMBSTONE_RULES[\s\S]*?SQL_UPSERT_SETTINGS[\s\S]*?store\.commit\(\)[\s\S]*?catch \(error\) \{[\s\S]*?store\.rollBack\(\)[\s\S]*?throw error as Error/.test(replaceAll),
+    'local block full replacements are transactional, so a partial write cannot tombstone the prior snapshot')
   const backupTypes = src('shared/src/main/ets/backup/BackupTypes.ets')
   const backupAdapter = src('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
   ok(backupTypes.includes('localBlock: BackupLocalBlockSection') &&

@@ -238,7 +238,10 @@ export class SearchViewModel {
         const e = localErr as Error
         DiagnosticLogger.warn('search', 'tag_translation_suggest_failed', e.message)
       }
-      if (this.suggestEpoch === epoch && localRows.length > 0) {
+      if (this.suggestEpoch !== epoch) {
+        return
+      }
+      if (localRows.length > 0) {
         this.suggestions = localRows
         this.suggestionCount = localRows.length
         this.isSuggesting = false

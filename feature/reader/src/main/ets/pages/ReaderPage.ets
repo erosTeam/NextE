@@ -3233,6 +3233,7 @@ struct ReaderCacheWarmImage {
     (_page: number, _filePath: string, _bytes: number) => {};
 
   private warmingKey: string = '';
+  private warmingUrl: string = '';
   private warmedKey: string = '';
   private decodedKey: string = '';
   @Local warmDisplayUri: string = '';
@@ -3241,13 +3242,25 @@ struct ReaderCacheWarmImage {
     this.warm()
   }
 
+  aboutToDisappear(): void {
+    this.cancelQueuedWarm()
+  }
+
   @Monitor('sourceUrl')
   onSourceUrlChanged(): void {
+    this.cancelQueuedWarm()
     this.warm()
   }
 
   @Monitor('imageKey')
   onImageKeyChanged(): void {
+    this.cancelQueuedWarm()
+    this.warm()
+  }
+
+  @Monitor('fileCacheKey')
+  onFileCacheKeyChanged(): void {
+    this.cancelQueuedWarm()
     this.warm()
   }
 
@@ -3264,39 +3277,56 @@ struct ReaderCacheWarmImage {
   private async warmByImageKnifeOrFallback(
     context: common.UIAbilityContext,
     key: string,
+    url: string,
   ): Promise<void> {
     try {
       const result: CachedImageFileResult = await ImagePipelineService.loadReaderFile(
         context,
-        this.sourceUrl,
+        url,
         key,
         EH_IMAGE_PRIORITY_LOW,
       )
-      if (this.warmingKey !== key) {
+      if (this.warmingKey !== key || this.warmingUrl !== url) {
         return
       }
       DiagnosticLogger.info('image-cache', 'reader_warm_complete', `page ${this.page} ${result.bytes} bytes`)
       this.markReady(result, key)
     } catch (err) {
-      if (this.warmingKey === key) {
+      if (this.warmingKey === key && this.warmingUrl === url) {
         DiagnosticLogger.warn('image-cache', 'reader_warm_failed', `page ${this.page}: ${(err as Error).message}`)
       }
     } finally {
-      if (this.warmingKey === key) {
+      if (this.warmingKey === key && this.warmingUrl === url) {
         this.warmingKey = ''
+        this.warmingUrl = ''
       }
     }
   }
 
+  private cancelQueuedWarm(): void {
+    if (this.warmingKey.length === 0) {
+      return
+    }
+    const key: string = this.warmingKey
+    this.warmingKey = ''
+    this.warmingUrl = ''
+    const context: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ImagePipelineService.cancelQueuedReaderFile(context, key)
+  }
+
   private warm(): void {
     if (this.page <= 0 || this.fileCacheKey.length === 0) {
+      this.cancelQueuedWarm()
       this.warmDisplayUri = ''
       return
     }
     const key: string = this.cacheKey()
-    if (key === this.warmedKey || key === this.warmingKey) {
+    const url: string = this.sourceUrl
+    if (key === this.warmedKey || (key === this.warmingKey && url === this.warmingUrl)) {
       return
     }
+    this.cancelQueuedWarm()
     const context: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     const cached: CachedImageFileResult | null = ImagePipelineService.cachedReaderFile(context, key)
@@ -3304,13 +3334,14 @@ struct ReaderCacheWarmImage {
       this.markReady(cached, key)
       return
     }
-    if (this.sourceUrl.length === 0) {
+    if (url.length === 0) {
       this.warmDisplayUri = ''
       return
     }
     this.warmingKey = key
+    this.warmingUrl = url
     this.warmDisplayUri = ''
-    this.warmByImageKnifeOrFallback(context, key)
+    this.warmByImageKnifeOrFallback(context, key, url)
   }
 
   build() {

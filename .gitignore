@@ -3,6 +3,8 @@ entry/build/
 **/build/
 **/BuildProfile.ets
 oh_modules/
+# DevEco-generated ohosTest intermediate; source tests live in entry/src/ohosTest/.
+entry/.test/
 node_modules/
 __pycache__/
 *.pyc

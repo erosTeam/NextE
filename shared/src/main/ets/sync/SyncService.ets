@@ -59,6 +59,9 @@ export class SyncService {
     deviceId: string = '',
     selection: SyncDatasetSelection = new SyncDatasetSelection(),
   ): Promise<SyncEnvelopeV1> {
+    if (selection.readProgress) {
+      await GalleryReadProgressSettings.flushForSync(context)
+    }
     const local: SyncEnvelopeV1 =
       await SyncLocalDataAdapter.exportEnvelope(context, deviceId, selection)
     const selectedRemote: SyncEnvelopeV1 = SyncService.selectDatasets(remote, selection)
@@ -352,7 +355,7 @@ export class SyncService {
     selection: SyncDatasetSelection,
   ): Promise<void> {
     if (selection.readProgress) {
-      await GalleryReadProgressSettings.restore(context)
+      await GalleryReadProgressSettings.refreshAfterSync(context)
     }
     if (selection.viewedHistory) {
       await ViewedHistorySettings.restore(context)

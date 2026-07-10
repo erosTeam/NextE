@@ -38,6 +38,26 @@ ok('repository loads and tombstones read progress through RDB',
     /column_mode = excluded\.column_mode/.test(repo) &&
     /ON CONFLICT\(scope_key, gid\) DO UPDATE/.test(repo) &&
     /UPDATE '\s*\+ TABLE_GALLERY_READ_PROGRESS \+ ' SET deleted_at = \?/.test(repo))
+ok('repository rejects stale deferred progress writes by effective record time',
+  /WHERE excluded\.updated_at >= CASE WHEN COALESCE\(gallery_read_progress\.deleted_at, 0\) >/.test(repo) &&
+    /COALESCE\(gallery_read_progress\.updated_at, 0\)/.test(repo))
+{
+  const replaceStart = repo.indexOf('static async replaceAll')
+  const replaceEnd = repo.indexOf('\n  }\n}', replaceStart)
+  const replaceAll = repo.substring(replaceStart, replaceEnd)
+  ok('full read-progress replacements are transactional',
+    /store\.beginTransaction\(\)[\s\S]*?SQL_TOMBSTONE_SCOPE[\s\S]*?SQL_RESTORE_UPSERT[\s\S]*?store\.commit\(\)[\s\S]*?catch \(error\) \{[\s\S]*?store\.rollBack\(\)[\s\S]*?throw error as Error/.test(replaceAll))
+}
+
+const progressState = read('shared/src/main/ets/state/GalleryReadProgressState.ets')
+ok('state keeps per-gallery mutation times monotonic and persists column-only choices',
+  /private nextUpdatedAt\(gid: string, requestedTime: number\)/.test(progressState) &&
+    /if \(!this\.indexMap\.has\(gid\)\) \{\s*this\.indexMap\.set\(gid, 0\)/.test(progressState))
+
+const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
+ok('sync apply cannot overwrite a newer local read-progress mutation with an older merge snapshot',
+  /SQL_APPLY_READ_PROGRESS[\s\S]*?WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) >/.test(syncAdapter) &&
+    /COALESCE\(gallery_read_progress\.deleted_at, 0\)/.test(syncAdapter))
 
 const settings = read('shared/src/main/ets/settings/GalleryReadProgressSettings.ets')
 ok('settings facade reads/writes RDB and keeps legacy migration',
@@ -50,6 +70,11 @@ ok('settings no longer persists reading progress back to Preferences JSON',
 ok('settings persists per-gallery double-page pairing through read progress records',
   /static setColumnMode\(context: common\.UIAbilityContext, gid: string, columnMode: string\): void/.test(settings) &&
     /ReadProgressRepository\.saveAll\(context, entries\)/.test(settings))
+ok('sync refresh flushes current reader state and merges only mutations made during the refresh',
+  /static async flushForSync\(context: common\.UIAbilityContext\)/.test(settings) &&
+    /static async refreshAfterSync\(context: common\.UIAbilityContext\)/.test(settings) &&
+    /entriesChangedSince\(before, state\.snapshot\(\)\)/.test(settings) &&
+    /state\.mergeNewest\(changedWhileRefreshing\)/.test(settings))
 
 const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
 const backupService = read('shared/src/main/ets/backup/BackupService.ets')

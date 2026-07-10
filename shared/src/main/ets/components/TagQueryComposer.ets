@@ -167,10 +167,7 @@ export struct TagQueryComposer {
   private epoch: number = 0;
 
   aboutToDisappear(): void {
-    if (this.timer >= 0) {
-      clearTimeout(this.timer)
-      this.timer = -1
-    }
+    this.clearSuggest()
   }
 
   private ctx(): common.UIAbilityContext {
@@ -265,7 +262,10 @@ export struct TagQueryComposer {
       } catch (localErr) {
         DiagnosticLogger.warn('tagcompose', 'local_suggest_failed', (localErr as Error).message)
       }
-      if (this.epoch === myEpoch && local.length > 0) {
+      if (this.epoch !== myEpoch) {
+        return
+      }
+      if (local.length > 0) {
         this.suggestions = local.slice(0, MAX_SUGGESTIONS)
         this.suggestionCount = this.suggestions.length
         return

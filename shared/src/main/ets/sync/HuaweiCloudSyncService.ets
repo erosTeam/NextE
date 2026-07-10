@@ -1,6 +1,7 @@
 import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { GalleryReadProgressSettings } from '../settings/GalleryReadProgressSettings'
 import { SyncSettings } from '../settings/SyncSettings'
 import { SYNC_STATUS_FAILED, SYNC_STATUS_OK, connectSyncSettings } from '../state/SyncSettingsState'
 import { LocalDataStore } from '../storage/LocalDataStore'
@@ -113,6 +114,9 @@ export class HuaweiCloudSyncService {
           HuaweiCloudSyncService.lastRunDetail,
         )
         return false
+      }
+      if (selection.readProgress) {
+        await GalleryReadProgressSettings.flushForSync(context)
       }
       const marked: boolean = await HuaweiCloudSyncService.markDistributedTables(context, selection)
       if (!marked) {

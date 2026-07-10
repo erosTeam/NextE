@@ -116,8 +116,11 @@ ok('sync service preserves disabled remote datasets on write-back',
 ok('sync service refreshes live state after applying remote data',
   /refreshSelectedState/.test(service) &&
     /SearchHistorySettings\.restore/.test(service) &&
-    /GalleryReadProgressSettings\.restore/.test(service) &&
+    /GalleryReadProgressSettings\.refreshAfterSync/.test(service) &&
     /CustomProfilesSettings\.restore/.test(service))
+ok('sync flushes active reader progress before export and before live-state refresh',
+  /mergeRemoteEnvelope[\s\S]*?GalleryReadProgressSettings\.flushForSync\(context\)[\s\S]*?exportEnvelope/.test(service) &&
+    /refreshSelectedState[\s\S]*?GalleryReadProgressSettings\.refreshAfterSync\(context\)/.test(service))
 ok('sync service normalizes remote JSON records before RDB apply',
   /safeString\(r\.scopeKey\)/.test(service) &&
     /safeNumber\(r\.updatedAt\)/.test(service) &&

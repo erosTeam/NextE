@@ -5,6 +5,128 @@ import { EhGalleryImage } from '../model/EhGalleryImage'
 import { EhUrlRouter, ImagePageRef } from '../utils/EhUrlRouter'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
+const MAX_RESOLVED_IMAGE_PAGES: number = 512
+const MAX_GALLERY_SHOW_KEYS: number = 64
+
+/**
+ * Bounded process-local metadata for image-page resolution. It deliberately stores only URLs/keys,
+ * never image bytes: evicting a page merely makes a later resolve follow the existing showpage or
+ * /s/ path again. Map insertion order provides LRU eviction without affecting the change-source path.
+ */
+export class ImageResolveMemoryCache {
+  private readonly maxResolvedEntries: number
+  private readonly maxShowKeyEntries: number
+  private resolved: Map<string, ImagePageResult> = new Map()
+  private showKeys: Map<string, string> = new Map()
+
+  constructor(
+    maxResolvedEntries: number = MAX_RESOLVED_IMAGE_PAGES,
+    maxShowKeyEntries: number = MAX_GALLERY_SHOW_KEYS,
+  ) {
+    this.maxResolvedEntries = maxResolvedEntries > 0 ? maxResolvedEntries : 1
+    this.maxShowKeyEntries = maxShowKeyEntries > 0 ? maxShowKeyEntries : 1
+  }
+
+  getResolved(sUrl: string): ImagePageResult | undefined {
+    const result: ImagePageResult | undefined = this.resolved.get(sUrl)
+    if (result === undefined) {
+      return undefined
+    }
+    this.resolved.delete(sUrl)
+    this.resolved.set(sUrl, result)
+    return ImageResolveMemoryCache.copyResult(result)
+  }
+
+  putResolved(sUrl: string, result: ImagePageResult): void {
+    if (sUrl.length === 0) {
+      return
+    }
+    this.resolved.delete(sUrl)
+    this.resolved.set(sUrl, ImageResolveMemoryCache.copyResult(result))
+    this.trimResolved()
+  }
+
+  getShowKey(gid: string): string {
+    const key: string | undefined = this.showKeys.get(gid)
+    if (key === undefined) {
+      return ''
+    }
+    this.showKeys.delete(gid)
+    this.showKeys.set(gid, key)
+    return key
+  }
+
+  putShowKey(gid: string, showKey: string): void {
+    if (gid.length === 0 || showKey.length === 0) {
+      return
+    }
+    this.showKeys.delete(gid)
+    this.showKeys.set(gid, showKey)
+    this.trimShowKeys()
+  }
+
+  resolvedCount(): number {
+    return this.resolved.size
+  }
+
+  showKeyCount(): number {
+    return this.showKeys.size
+  }
+
+  private trimResolved(): void {
+    while (this.resolved.size > this.maxResolvedEntries) {
+      this.removeOldestResolved()
+    }
+  }
+
+  private trimShowKeys(): void {
+    while (this.showKeys.size > this.maxShowKeyEntries) {
+      this.removeOldestShowKey()
+    }
+  }
+
+  private removeOldestResolved(): void {
+    let found: boolean = false
+    let oldest: string = ''
+    this.resolved.forEach((_result: ImagePageResult, key: string): void => {
+      if (!found) {
+        found = true
+        oldest = key
+      }
+    })
+    if (found) {
+      this.resolved.delete(oldest)
+    }
+  }
+
+  private removeOldestShowKey(): void {
+    let found: boolean = false
+    let oldest: string = ''
+    this.showKeys.forEach((_showKey: string, gid: string): void => {
+      if (!found) {
+        found = true
+        oldest = gid
+      }
+    })
+    if (found) {
+      this.showKeys.delete(oldest)
+    }
+  }
+
+  private static copyResult(result: ImagePageResult): ImagePageResult {
+    const out: ImagePageResult = new ImagePageResult()
+    out.imageUrl = result.imageUrl
+    out.showKey = result.showKey
+    out.originImageUrl = result.originImageUrl
+    out.reloadKey = result.reloadKey
+    out.galleryGid = result.galleryGid
+    out.galleryToken = result.galleryToken
+    out.ser = result.ser
+    out.fileCount = result.fileCount
+    return out
+  }
+}
+
 /**
  * Resolves a gallery page's full-image URL (eros_fe view image resolve).
  *
@@ -18,12 +140,10 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
  */
 export class ImageResolveService {
   private static instance: ImageResolveService
-  // gid → gallery showKey, learned from the first /s/ resolve and reused for the showpage fast path.
-  private showKeys: Map<string, string> = new Map()
-  // sUrl → last resolved full-image metadata. Reader pages/components are recreated often; the resolved
-  // URL should not be tied only to one EhGalleryImage instance or every reopen repeats the /s/ HTML
-  // parse before the platform image cache can even see the same URL.
-  private resolved: Map<string, ImagePageResult> = new Map()
+  // gid → gallery showKey and sUrl → resolved metadata. Reader pages/components are recreated often;
+  // retain recent metadata across those components, but never let a long reader/download session grow it
+  // without bound. Eviction preserves the existing re-resolve behavior rather than changing source choice.
+  private cache: ImageResolveMemoryCache = new ImageResolveMemoryCache()
   // sUrl → in-flight resolve promise. Dedups concurrent resolves of the SAME page so the reader's
   // N-ahead precache and the on-demand page component don't fire two requests for one image; both
   // share the single request. Cleared when it settles so a later retry / 换源 isn't blocked.
@@ -57,7 +177,7 @@ export class ImageResolveService {
       throw new Error('image has no /s/ page url')
     }
     if (!changeSource) {
-      const cached: ImagePageResult | undefined = this.resolved.get(image.sUrl)
+      const cached: ImagePageResult | undefined = this.cache.getResolved(image.sUrl)
       if (cached !== undefined && cached.imageUrl.length > 0) {
         this.applyResult(image, cached)
         DiagnosticLogger.info('reader', 'resolve_memory_cache', image.sUrl)
@@ -97,7 +217,7 @@ export class ImageResolveService {
     if (image.sUrl.length === 0) {
       throw new Error('image has no /s/ page url')
     }
-    const cached: ImagePageResult | undefined = changeSource ? undefined : this.resolved.get(image.sUrl)
+    const cached: ImagePageResult | undefined = changeSource ? undefined : this.cache.getResolved(image.sUrl)
     if (cached !== undefined && cached.originImageUrl.length > 0) {
       this.applyResult(image, cached)
       DiagnosticLogger.info('reader', 'resolve_original_memory_cache', `page ${image.page} fullimg true`)
@@ -119,8 +239,8 @@ export class ImageResolveService {
     // Fast path: known gallery showKey → resolve via /api.php showpage (no HTML page). Skipped when
     // re-sourcing — 换源 needs the /s/ HTML to pick a different host via ?nl=.
     if (!changeSource && ref !== null && base.length > 0) {
-      const key: string | undefined = this.showKeys.get(ref.gid)
-      if (key !== undefined && key.length > 0) {
+      const key: string = this.cache.getShowKey(ref.gid)
+      if (key.length > 0) {
         try {
           const sp: ImagePageResult = await EhApiPhpService.showPage(
             base,
@@ -168,9 +288,9 @@ export class ImageResolveService {
     image.showKey = r.showKey
     image.originImageUrl = r.originImageUrl
     image.reloadKey = r.reloadKey
-    this.resolved.set(image.sUrl, ImageResolveService.copyResult(r))
+    this.cache.putResolved(image.sUrl, r)
     if (ref !== null && r.showKey.length > 0) {
-      this.showKeys.set(ref.gid, r.showKey)
+      this.cache.putShowKey(ref.gid, r.showKey)
     }
     DiagnosticLogger.info('reader', 'resolve_spage', `gid ${ref !== null ? ref.gid : '?'} p ${ref !== null ? ref.page : 0}`)
     return r.imageUrl
@@ -191,19 +311,6 @@ export class ImageResolveService {
     result.showKey = image.showKey
     result.originImageUrl = image.originImageUrl
     result.reloadKey = image.reloadKey
-    this.resolved.set(sUrl, result)
-  }
-
-  private static copyResult(result: ImagePageResult): ImagePageResult {
-    const out: ImagePageResult = new ImagePageResult()
-    out.imageUrl = result.imageUrl
-    out.showKey = result.showKey
-    out.originImageUrl = result.originImageUrl
-    out.reloadKey = result.reloadKey
-    out.galleryGid = result.galleryGid
-    out.galleryToken = result.galleryToken
-    out.ser = result.ser
-    out.fileCount = result.fileCount
-    return out
+    this.cache.putResolved(sUrl, result)
   }
 }

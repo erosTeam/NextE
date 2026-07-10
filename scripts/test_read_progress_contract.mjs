@@ -6,8 +6,8 @@
  *
  * The functions below are copy-equal to that ArkTS logic (no preferences/runtime — pure data).
  * They lock the eros_fe port (view_state.dart saveLastIndex + GalleryCacheController.setIndex):
- *   • setIndex is last-write-wins (eros_fe's local setIndex overwrites unconditionally; `t` is
- *     recorded as metadata for the future sync layer, not compared here).
+ *   • setIndex is last-write-wins for the page, while `t` advances monotonically per gallery so
+ *     deferred persistence can reject an old snapshot that finishes after a newer page turn.
  *   • serialize ⇄ parse round-trips; parse is defensive (bad JSON / shape / fields → dropped).
  *   • the detail READ button resumes at, and labels with, the saved page (resumeIndex>0).
  *   • a resumed start index that overshoots the loaded page count is clamped (ReaderViewModel.init).
@@ -36,10 +36,16 @@ class ProgressStore {
     const v = this.indexMap.get(gid)
     return v === undefined ? 0 : v
   }
+  nextUpdatedAt(gid, requestedTime) {
+    const previous = this.timeMap.get(gid)
+    const requested = Math.max(0, Math.floor(requestedTime))
+    if (previous === undefined || requested > previous) return requested
+    return previous + 1
+  }
   setIndex(gid, index, time) {
     if (!gid || index < 0) return
     this.indexMap.set(gid, index) // last-write-wins (matches eros_fe local setIndex)
-    this.timeMap.set(gid, time)
+    this.timeMap.set(gid, this.nextUpdatedAt(gid, time))
     this.revision += 1
   }
   getColumnMode(gid) {
@@ -50,8 +56,9 @@ class ProgressStore {
   }
   setColumnMode(gid, columnMode, time) {
     if (!gid || (columnMode !== 'oddLeft' && columnMode !== 'evenLeft')) return
+    if (!this.indexMap.has(gid)) this.indexMap.set(gid, 0)
     this.columnModeMap.set(gid, columnMode)
-    this.timeMap.set(gid, time)
+    this.timeMap.set(gid, this.nextUpdatedAt(gid, time))
     this.revision += 1
   }
   snapshot() {
@@ -77,6 +84,25 @@ class ProgressStore {
       }
     }
     this.revision += 1
+  }
+  mergeNewest(entries) {
+    let changed = false
+    for (const entry of entries) {
+      if (!entry.g || entry.i < 0) continue
+      const currentTime = this.timeMap.get(entry.g)
+      if (currentTime !== undefined && currentTime > entry.t) continue
+      const currentIndex = this.indexMap.get(entry.g)
+      const currentColumnMode = this.columnModeMap.get(entry.g)
+      const nextColumnMode = entry.c === 'oddLeft' || entry.c === 'evenLeft' ? entry.c : ''
+      if (currentTime === entry.t && currentIndex === entry.i &&
+        (currentColumnMode === undefined ? '' : currentColumnMode) === nextColumnMode) continue
+      this.indexMap.set(entry.g, entry.i)
+      this.timeMap.set(entry.g, entry.t)
+      if (nextColumnMode) this.columnModeMap.set(entry.g, nextColumnMode)
+      else this.columnModeMap.delete(entry.g)
+      changed = true
+    }
+    if (changed) this.revision += 1
   }
 }
 
@@ -113,6 +139,13 @@ function parse(raw) {
 // ── The detail READ button's resume-label rule (GalleryHeaderCard.readLabel) ──────────────
 const usesResumeLabel = (resumeIndex) => resumeIndex > 0
 const resumePageLabel = (resumeIndex) => resumeIndex + 1 // 1-based page shown to the user
+function entriesChangedSince(before, current) {
+  const previousTimes = new Map(before.map((entry) => [entry.g, entry.t]))
+  return current.filter((entry) => {
+    const previous = previousTimes.get(entry.g)
+    return previous === undefined || entry.t > previous
+  })
+}
 
 let passed = 0
 const ok = (name, cond) => {
@@ -147,14 +180,37 @@ const ok = (name, cond) => {
   ok('unknown column mode defaults', s.getColumnMode('x') === 'oddLeft')
 }
 
-// 2. last-write-wins locally (eros_fe setIndex overwrites unconditionally; t is metadata only)
+// 2. last-write-wins locally, with a monotonic mutation time for durable stale-write rejection.
 {
   const s = new ProgressStore()
   s.setIndex('g', 10, 5000)
   s.setIndex('g', 3, 4000) // later call wins regardless of timestamp ordering
   ok('last write wins', s.getIndex('g') === 3)
+  ok('older requested time is advanced for durability', s.snapshot()[0].t === 5001)
   s.setIndex('g', 7, 6000)
   ok('subsequent write wins', s.getIndex('g') === 7)
+}
+
+// 2b. Choosing a double-page pairing before turning a page still creates a durable page-zero record.
+{
+  const s = new ProgressStore()
+  s.setColumnMode('g', 'evenLeft', 100)
+  const entries = s.snapshot()
+  ok('column-only choice creates a progress record', entries.length === 1 && entries[0].i === 0)
+  ok('column-only choice is included in the snapshot', entries[0].c === 'evenLeft' && entries[0].t === 100)
+}
+
+// 2c. A provider refresh keeps only a page mutation that happened after its initial snapshot.
+{
+  const state = new ProgressStore()
+  state.setIndex('g', 2, 100)
+  const before = state.snapshot()
+  state.setIndex('g', 7, 100)
+  const changed = entriesChangedSince(before, state.snapshot())
+  state.replaceAll([{ g: 'g', i: 3, t: 100, c: 'oddLeft' }])
+  state.mergeNewest(changed)
+  ok('sync refresh preserves a concurrent local page turn', state.getIndex('g') === 7)
+  ok('sync refresh keeps the newer mutation time', state.snapshot()[0].t === 101)
 }
 
 // 3. getIndex defaults to 0 for unknown / empty gid

@@ -78,7 +78,9 @@ const SQL_SELECT_CUSTOM_PROFILE_SELECTION: string =
 
 const SQL_APPLY_READ_PROGRESS: string =
   'INSERT INTO gallery_read_progress (scope_key, gid, page_index, column_mode, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?) ' +
-  'ON CONFLICT(scope_key, gid) DO UPDATE SET page_index = excluded.page_index, column_mode = excluded.column_mode, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+  'ON CONFLICT(scope_key, gid) DO UPDATE SET page_index = excluded.page_index, column_mode = excluded.column_mode, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.updated_at, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.updated_at, 0) END >= ' +
+  'CASE WHEN COALESCE(gallery_read_progress.deleted_at, 0) > COALESCE(gallery_read_progress.updated_at, 0) THEN COALESCE(gallery_read_progress.deleted_at, 0) ELSE COALESCE(gallery_read_progress.updated_at, 0) END'
 const SQL_APPLY_VIEWED_HISTORY: string =
   'INSERT INTO viewed_history (scope_key, gid, token, title, title_jp, thumb_url, category, uploader, rating, file_count, viewed_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, gid) DO UPDATE SET token = excluded.token, title = excluded.title, title_jp = excluded.title_jp, thumb_url = excluded.thumb_url, category = excluded.category, uploader = excluded.uploader, rating = excluded.rating, file_count = excluded.file_count, viewed_at = excluded.viewed_at, deleted_at = excluded.deleted_at'

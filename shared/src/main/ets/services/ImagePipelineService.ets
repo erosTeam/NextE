@@ -28,7 +28,7 @@ export class ImagePipelineService {
     context: common.UIAbilityContext,
     url: string,
     cacheKey: string,
-    _priority: number,
+    priority: number,
     onProgress?: (progress: CachedImageProgress) => void,
   ): Promise<CachedImageFileResult | null> {
     try {
@@ -37,6 +37,7 @@ export class ImagePipelineService {
         url,
         cacheKey,
         ReaderImageCacheSettings.limitBytes(),
+        priority,
         onProgress !== undefined ? onProgress : (_progress: CachedImageProgress) => {},
       )
     } catch (error) {
@@ -53,7 +54,7 @@ export class ImagePipelineService {
     context: common.UIAbilityContext,
     url: string,
     cacheKey: string,
-    _priority: number,
+    priority: number,
     onProgress?: (progress: CachedImageProgress) => void,
   ): Promise<CachedImageFileResult> {
     return ReaderImageFileCacheService.load(
@@ -61,6 +62,7 @@ export class ImagePipelineService {
       url,
       cacheKey,
       ReaderImageCacheSettings.limitBytes(),
+      priority,
       onProgress !== undefined ? onProgress : (_progress: CachedImageProgress) => {},
     )
   }
@@ -78,6 +80,11 @@ export class ImagePipelineService {
 
   static removeReaderFile(context: common.UIAbilityContext, cacheKey: string): void {
     ReaderImageFileCacheService.remove(context, cacheKey)
+  }
+
+  /** Cancel a stale Reader prefetch only while it is still waiting for the low-priority slot. */
+  static cancelQueuedReaderFile(context: common.UIAbilityContext, cacheKey: string): boolean {
+    return ReaderImageFileCacheService.cancelQueued(context, cacheKey)
   }
 
   static async pruneReaderFileCache(context: common.UIAbilityContext): Promise<void> {

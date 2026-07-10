@@ -12,6 +12,11 @@ import { CacheStat } from './CacheStat'
 const COMMENT_TRANSLATION_TTL_MS: number = 7 * 24 * 60 * 60 * 1000
 const TRANSLATION_CONNECT_TIMEOUT_MS: number = 12000
 const TRANSLATION_READ_TIMEOUT_MS: number = 30000
+const MAX_CONCURRENT_COMMENT_TRANSLATIONS: number = 2
+const MAX_COMMENT_TRANSLATION_MEMORY_ENTRIES: number = 256
+const MAX_PERSISTED_COMMENT_TRANSLATION_ENTRIES: number = 512
+export const COMMENT_TRANSLATION_PRIORITY_INTERACTIVE: number = 0
+export const COMMENT_TRANSLATION_PRIORITY_AUTO: number = 1
 const DEFAULT_LLM_BASE_URL: string = 'https://api.openai.com'
 const DEFAULT_LLM_MODEL: string = 'gpt-4o-mini'
 const SQL_SELECT_COMMENT_TRANSLATION: string =
@@ -21,6 +26,10 @@ const SQL_UPSERT_COMMENT_TRANSLATION: string =
   'VALUES (?, ?, ?, ?, ?)'
 const SQL_DELETE_EXPIRED_COMMENT_TRANSLATIONS: string =
   'DELETE FROM comment_translation_cache WHERE expires_at <= ?'
+const SQL_PRUNE_COMMENT_TRANSLATIONS: string =
+  'DELETE FROM comment_translation_cache WHERE rowid NOT IN (' +
+  'SELECT rowid FROM comment_translation_cache WHERE expires_at > ? ORDER BY cached_at DESC LIMIT ?' +
+  ')'
 const SQL_DELETE_COMMENT_TRANSLATIONS: string = 'DELETE FROM comment_translation_cache'
 const SQL_COUNT_COMMENT_TRANSLATIONS: string =
   'SELECT COUNT(*) AS c FROM comment_translation_cache WHERE expires_at > ?'
@@ -66,14 +75,251 @@ class MemoryTranslationEntry {
   expiresAt: number = 0
 }
 
+/**
+ * A tiny LRU cache for the active process. The durable seven-day RDB cache remains the source of truth;
+ * this layer only prevents repeated reads from keeping every translation ever seen in a long session.
+ */
+export class CommentTranslationMemoryCache {
+  private readonly maxEntries: number
+  private entries: Map<string, MemoryTranslationEntry> = new Map()
+
+  constructor(maxEntries: number = MAX_COMMENT_TRANSLATION_MEMORY_ENTRIES) {
+    this.maxEntries = maxEntries > 0 ? maxEntries : 1
+  }
+
+  get(key: string, now: number = Date.now()): string {
+    const entry: MemoryTranslationEntry | undefined = this.entries.get(key)
+    if (entry === undefined) {
+      return ''
+    }
+    if (entry.expiresAt <= now) {
+      this.entries.delete(key)
+      return ''
+    }
+    // Map insertion order gives us an inexpensive LRU policy: a hit moves the entry to the newest end.
+    this.entries.delete(key)
+    this.entries.set(key, entry)
+    return entry.translated
+  }
+
+  put(key: string, translated: string, expiresAt: number, now: number = Date.now()): void {
+    this.removeExpired(now)
+    if (expiresAt <= now || translated.length === 0) {
+      return
+    }
+    this.entries.delete(key)
+    while (this.entries.size >= this.maxEntries) {
+      this.removeOldest()
+    }
+    const entry: MemoryTranslationEntry = new MemoryTranslationEntry()
+    entry.translated = translated
+    entry.expiresAt = expiresAt
+    this.entries.set(key, entry)
+  }
+
+  clear(): void {
+    this.entries.clear()
+  }
+
+  size(now: number = Date.now()): number {
+    this.removeExpired(now)
+    return this.entries.size
+  }
+
+  private removeExpired(now: number): void {
+    const expired: string[] = []
+    this.entries.forEach((entry: MemoryTranslationEntry, key: string): void => {
+      if (entry.expiresAt <= now) {
+        expired.push(key)
+      }
+    })
+    for (let i: number = 0; i < expired.length; i++) {
+      this.entries.delete(expired[i])
+    }
+  }
+
+  private removeOldest(): void {
+    let found: boolean = false
+    let oldest: string = ''
+    this.entries.forEach((_entry: MemoryTranslationEntry, key: string): void => {
+      if (!found) {
+        found = true
+        oldest = key
+      }
+    })
+    if (found) {
+      this.entries.delete(oldest)
+    }
+  }
+}
+
+/** Monotonic generation used to ensure an explicit clear wins over older in-flight translations. */
+export class CommentTranslationCacheEpoch {
+  private value: number = 0
+
+  snapshot(): number {
+    return this.value
+  }
+
+  advance(): number {
+    this.value++
+    return this.value
+  }
+
+  isCurrent(snapshot: number): boolean {
+    return snapshot === this.value
+  }
+}
+
+/** A small FIFO scheduler so visible auto-translated comments cannot fan out unbounded remote calls. */
+export class CommentTranslationQueueTask {
+  key: string = ''
+  priority: number = COMMENT_TRANSLATION_PRIORITY_AUTO
+  started: boolean = false
+  active: boolean = false
+  private startAction: () => void = () => {}
+
+  constructor(key: string, priority: number, startAction: () => void) {
+    this.key = key
+    this.priority = priority
+    this.startAction = startAction
+  }
+
+  start(): void {
+    this.startAction()
+  }
+}
+
+/**
+ * Bounds distinct remote translations while preserving FIFO order. Cache reads and same-key joins stay
+ * outside this scheduler; only the eventual provider call occupies a slot.
+ */
+export class CommentTranslationQueueScheduler {
+  private queue: CommentTranslationQueueTask[] = []
+  private running: number = 0
+
+  schedule(task: CommentTranslationQueueTask): void {
+    if (task.started) {
+      return
+    }
+    this.enqueue(task)
+    this.drain()
+  }
+
+  /** A user-visible request can move an already-queued auto translation ahead of background work. */
+  promote(task: CommentTranslationQueueTask, priority: number): void {
+    if (priority >= task.priority) {
+      return
+    }
+    task.priority = priority
+    if (task.started || !this.removeQueued(task)) {
+      return
+    }
+    this.enqueue(task)
+    this.drain()
+  }
+
+  complete(task: CommentTranslationQueueTask): void {
+    if (!task.active) {
+      return
+    }
+    task.active = false
+    if (this.running > 0) {
+      this.running--
+    }
+    this.drain()
+  }
+
+  private drain(): void {
+    while (this.running < MAX_CONCURRENT_COMMENT_TRANSLATIONS && this.queue.length > 0) {
+      const next: CommentTranslationQueueTask | undefined = this.queue.shift()
+      if (next === undefined || next.started) {
+        continue
+      }
+      next.started = true
+      next.active = true
+      this.running++
+      next.start()
+    }
+  }
+
+  private enqueue(task: CommentTranslationQueueTask): void {
+    for (let i: number = 0; i < this.queue.length; i++) {
+      if (task.priority < this.queue[i].priority) {
+        this.queue.splice(i, 0, task)
+        return
+      }
+    }
+    this.queue.push(task)
+  }
+
+  private removeQueued(task: CommentTranslationQueueTask): boolean {
+    for (let i: number = 0; i < this.queue.length; i++) {
+      if (this.queue[i] === task) {
+        this.queue.splice(i, 1)
+        return true
+      }
+    }
+    return false
+  }
+}
+
+class CommentTranslationNetworkTask {
+  queueTask: CommentTranslationQueueTask
+  private readonly work: () => Promise<string>
+  private readonly scheduler: CommentTranslationQueueScheduler
+  private completion: Promise<string> = Promise.resolve('')
+  private resolveCompletion: (result: string) => void = (_result: string): void => {}
+  private rejectCompletion: (error: Error) => void = (_error: Error): void => {}
+
+  constructor(
+    key: string,
+    priority: number,
+    work: () => Promise<string>,
+    scheduler: CommentTranslationQueueScheduler,
+  ) {
+    this.work = work
+    this.scheduler = scheduler
+    this.queueTask = new CommentTranslationQueueTask(key, priority, (): void => this.start())
+    this.completion = new Promise<string>((resolve: (result: string) => void, reject: (error: Error) => void): void => {
+      this.resolveCompletion = resolve
+      this.rejectCompletion = reject
+    })
+  }
+
+  wait(): Promise<string> {
+    return this.completion
+  }
+
+  private start(): void {
+    try {
+      this.work().then(
+        (result: string): void => {
+          this.resolveCompletion(result)
+          this.scheduler.complete(this.queueTask)
+        },
+        (error: Error): void => {
+          this.rejectCompletion(error)
+          this.scheduler.complete(this.queueTask)
+        },
+      )
+    } catch (error) {
+      this.rejectCompletion(error as Error)
+      this.scheduler.complete(this.queueTask)
+    }
+  }
+}
+
 export class CommentStructuredTranslation {
   text: string = ''
   spans: EhGalleryCommentTextSpan[] = []
 }
 
 export class CommentTranslationService {
-  private static memory: Map<string, MemoryTranslationEntry> = new Map()
-  private static inflight: Map<string, Promise<string>> = new Map()
+  private static memory: CommentTranslationMemoryCache = new CommentTranslationMemoryCache()
+  private static inflight: Map<string, CommentTranslationNetworkTask> = new Map()
+  private static readonly scheduler: CommentTranslationQueueScheduler = new CommentTranslationQueueScheduler()
+  private static readonly cacheEpoch: CommentTranslationCacheEpoch = new CommentTranslationCacheEpoch()
 
   static targetLanguage(): string {
     const locale: string = connectLanguageState().effectiveLocale
@@ -245,14 +491,12 @@ export class CommentTranslationService {
     text: string,
     targetLang: string,
   ): Promise<string> {
+    const cacheEpoch: number = CommentTranslationService.cacheEpoch.snapshot()
     const key: string = CommentTranslationService.cacheKey(text, targetLang)
     const now: number = Date.now()
-    const mem: MemoryTranslationEntry | undefined = CommentTranslationService.memory.get(key)
-    if (mem !== undefined) {
-      if (mem.expiresAt > now) {
-        return mem.translated
-      }
-      CommentTranslationService.memory.delete(key)
+    const memoryHit: string = CommentTranslationService.memory.get(key, now)
+    if (memoryHit.length > 0) {
+      return memoryHit
     }
 
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -263,7 +507,9 @@ export class CommentTranslationService {
     try {
       if (resultSet.goToFirstRow()) {
         const translated: string = resultSet.getString(resultSet.getColumnIndex('translated'))
-        CommentTranslationService.putMemory(key, translated, now + COMMENT_TRANSLATION_TTL_MS)
+        if (CommentTranslationService.cacheEpoch.isCurrent(cacheEpoch)) {
+          CommentTranslationService.putMemory(key, translated, now + COMMENT_TRANSLATION_TTL_MS)
+        }
         return translated
       }
     } finally {
@@ -276,6 +522,7 @@ export class CommentTranslationService {
     context: common.UIAbilityContext,
     text: string,
     force: boolean = false,
+    priority: number = COMMENT_TRANSLATION_PRIORITY_INTERACTIVE,
   ): Promise<string> {
     const source: string = text.trim()
     if (source.length === 0) {
@@ -294,25 +541,38 @@ export class CommentTranslationService {
         return cached
       }
     }
-    const inFlight: Promise<string> | undefined = CommentTranslationService.inflight.get(key)
+    const inFlight: CommentTranslationNetworkTask | undefined = CommentTranslationService.inflight.get(key)
     if (inFlight !== undefined) {
+      CommentTranslationService.scheduler.promote(inFlight.queueTask, priority)
       DiagnosticLogger.info(
         'translation',
         'comment_join_inflight',
         `target=${targetLang} len=${source.length} textHash=${DiagnosticLogger.ownerHash(source)}`,
       )
-      return inFlight
+      return inFlight.wait()
     }
-    const task: Promise<string> = CommentTranslationService.translateAndCache(
-      context,
-      source,
-      targetLang,
+    const cacheEpoch: number = CommentTranslationService.cacheEpoch.snapshot()
+    const queuedTask: CommentTranslationNetworkTask = new CommentTranslationNetworkTask(
+      key,
+      priority,
+      (): Promise<string> => CommentTranslationService.translateAndCache(
+        context,
+        source,
+        targetLang,
+        cacheEpoch,
+      ),
+      CommentTranslationService.scheduler,
     )
-    CommentTranslationService.inflight.set(key, task)
+    const task: Promise<string> = queuedTask.wait()
+    CommentTranslationService.inflight.set(key, queuedTask)
+    CommentTranslationService.scheduler.schedule(queuedTask.queueTask)
     try {
       return await task
     } finally {
-      CommentTranslationService.inflight.delete(key)
+      const active: CommentTranslationNetworkTask | undefined = CommentTranslationService.inflight.get(key)
+      if (active === queuedTask) {
+        CommentTranslationService.inflight.delete(key)
+      }
     }
   }
 
@@ -321,13 +581,14 @@ export class CommentTranslationService {
     sourceText: string,
     sourceSpans: EhGalleryCommentTextSpan[],
     force: boolean = false,
+    priority: number = COMMENT_TRANSLATION_PRIORITY_INTERACTIVE,
   ): Promise<CommentStructuredTranslation> {
     const result: CommentStructuredTranslation = new CommentStructuredTranslation()
     if (sourceText.trim().length === 0) {
       return result
     }
     if (sourceSpans.length === 0) {
-      result.text = await CommentTranslationService.translate(context, sourceText, force)
+      result.text = await CommentTranslationService.translate(context, sourceText, force, priority)
       return result
     }
     let cursor: number = 0
@@ -348,6 +609,7 @@ export class CommentTranslationService {
           context,
           sourceText.substring(cursor, sourceSpan.start),
           force,
+          priority,
         )
       }
       const translatedStart: number = result.text.length
@@ -355,6 +617,7 @@ export class CommentTranslationService {
         context,
         sourceText.substring(sourceSpan.start, sourceSpan.end),
         force,
+        priority,
       )
       result.text += translatedChunk
       const translatedEnd: number = result.text.length
@@ -377,6 +640,7 @@ export class CommentTranslationService {
         context,
         sourceText.substring(cursor),
         force,
+        priority,
       )
     }
     return result
@@ -386,6 +650,7 @@ export class CommentTranslationService {
     context: common.UIAbilityContext,
     raw: string,
     force: boolean,
+    priority: number,
   ): Promise<string> {
     if (raw.trim().length === 0) {
       return raw
@@ -399,7 +664,7 @@ export class CommentTranslationService {
     if (!CommentTranslationService.hasTranslatableText(body)) {
       return raw
     }
-    return `${lead}${await CommentTranslationService.translate(context, body, force)}${tail}`
+    return `${lead}${await CommentTranslationService.translate(context, body, force, priority)}${tail}`
   }
 
   private static hasTranslatableText(text: string): boolean {
@@ -436,6 +701,7 @@ export class CommentTranslationService {
   }
 
   static async clear(context: common.UIAbilityContext): Promise<void> {
+    CommentTranslationService.cacheEpoch.advance()
     CommentTranslationService.memory.clear()
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await store.executeSql(SQL_DELETE_COMMENT_TRANSLATIONS)
@@ -509,6 +775,7 @@ export class CommentTranslationService {
     context: common.UIAbilityContext,
     text: string,
     targetLang: string,
+    cacheEpoch: number,
   ): Promise<string> {
     const startedAt: number = Date.now()
     DiagnosticLogger.info(
@@ -518,7 +785,7 @@ export class CommentTranslationService {
     )
     const rawResult: string = await CommentTranslationService.callTranslation(text, targetLang)
     const result: string = CommentTranslationService.restoreMentionTokens(rawResult)
-    await CommentTranslationService.save(context, text, targetLang, result)
+    await CommentTranslationService.save(context, text, targetLang, result, cacheEpoch)
     DiagnosticLogger.info(
       'translation',
       'comment_translate_done',
@@ -532,22 +799,39 @@ export class CommentTranslationService {
     text: string,
     targetLang: string,
     translated: string,
+    cacheEpoch: number,
   ): Promise<void> {
     const now: number = Date.now()
     const expiresAt: number = now + COMMENT_TRANSLATION_TTL_MS
+    if (!CommentTranslationService.cacheEpoch.isCurrent(cacheEpoch)) {
+      return
+    }
     CommentTranslationService.putMemory(
       CommentTranslationService.cacheKey(text, targetLang),
       translated,
       expiresAt,
     )
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    if (!CommentTranslationService.cacheEpoch.isCurrent(cacheEpoch)) {
+      return
+    }
     await store.executeSql(SQL_DELETE_EXPIRED_COMMENT_TRANSLATIONS, [now])
+    if (!CommentTranslationService.cacheEpoch.isCurrent(cacheEpoch)) {
+      return
+    }
     await store.executeSql(SQL_UPSERT_COMMENT_TRANSLATION, [
       CommentTranslationService.textHash(text),
       targetLang,
       translated,
       now,
       expiresAt,
+    ])
+    if (!CommentTranslationService.cacheEpoch.isCurrent(cacheEpoch)) {
+      return
+    }
+    await store.executeSql(SQL_PRUNE_COMMENT_TRANSLATIONS, [
+      now,
+      MAX_PERSISTED_COMMENT_TRANSLATION_ENTRIES,
     ])
   }
 
@@ -734,10 +1018,7 @@ export class CommentTranslationService {
   }
 
   private static putMemory(key: string, translated: string, expiresAt: number): void {
-    const entry = new MemoryTranslationEntry()
-    entry.translated = translated
-    entry.expiresAt = expiresAt
-    CommentTranslationService.memory.set(key, entry)
+    CommentTranslationService.memory.put(key, translated, expiresAt)
   }
 
   static protectMentionText(mention: string): string {

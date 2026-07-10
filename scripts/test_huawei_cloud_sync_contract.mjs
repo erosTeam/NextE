@@ -90,6 +90,9 @@ ok('Huawei cloud service checks availability before permission or sync',
     /if \(!HuaweiCloudSyncService\.available\(\)\)/.test(service) &&
     /ensurePermission/.test(service) &&
     /cloudSyncNow/.test(service))
+ok('Huawei cloud sync flushes selected reader progress before the provider reads RDB',
+  /if \(selection\.readProgress\) \{\s*await GalleryReadProgressSettings\.flushForSync\(context\)/.test(service) &&
+    /GalleryReadProgressSettings/.test(service))
 ok('Huawei cloud service uses official RDB cloud sync entry points',
   /ohos\.permission\.DISTRIBUTED_DATASYNC/.test(service) &&
     /requestPermissionsFromUser/.test(service) &&

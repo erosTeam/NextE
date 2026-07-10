@@ -57,6 +57,8 @@ const SQL_CREATE_COMMENT_TRANSLATION_CACHE_TABLE: string =
   ')'
 const SQL_CREATE_COMMENT_TRANSLATION_CACHE_EXPIRES_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_comment_translation_cache_expires ON comment_translation_cache (expires_at)'
+const SQL_CREATE_COMMENT_TRANSLATION_CACHE_CACHED_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_comment_translation_cache_cached ON comment_translation_cache (cached_at DESC)'
 // Future cloud-syncable durable user data table. Columns intentionally omit NOT NULL, matching the
 // HarmonyOS cloud-sync constraint used by V2Next synced tables.
 const SQL_CREATE_GALLERY_READ_PROGRESS_TABLE: string =
@@ -308,6 +310,9 @@ const SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE: string =
   ')'
 const SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_HASH_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_image_block_hash_cache_hash ON image_block_hash_cache (hash)'
+const SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_RECENT_INDEX: string =
+  'CREATE INDEX IF NOT EXISTS idx_image_block_hash_cache_recent ' +
+    'ON image_block_hash_cache (scope_key, deleted_at, hashed_at DESC)'
 const SQL_CREATE_CUSTOM_PROFILES_TABLE: string =
   'CREATE TABLE IF NOT EXISTS custom_profiles (' +
     'scope_key TEXT, ' +
@@ -593,6 +598,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_EH_PAGE_CACHE_ACCESS_INDEX)
     await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_TABLE)
     await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_EXPIRES_INDEX)
+    await store.executeSql(SQL_CREATE_COMMENT_TRANSLATION_CACHE_CACHED_INDEX)
     await store.executeSql(SQL_CREATE_GALLERY_READ_PROGRESS_TABLE)
     await LocalDataStore.migrateGalleryReadProgressColumnMode(store)
     await store.executeSql(SQL_CREATE_GALLERY_READ_PROGRESS_UPDATED_INDEX)
@@ -616,6 +622,7 @@ export class LocalDataStore {
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_USER_RULES_HASH_INDEX)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_TABLE)
     await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_HASH_INDEX)
+    await store.executeSql(SQL_CREATE_IMAGE_BLOCK_HASH_CACHE_RECENT_INDEX)
     await LocalDataStore.migrateCustomProfilesUuidColumn(store)
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILES_TABLE)
     await store.executeSql(SQL_CREATE_CUSTOM_PROFILES_POSITION_INDEX)

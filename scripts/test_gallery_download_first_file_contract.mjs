@@ -89,8 +89,9 @@ ok(/let firstError: string = ''/.test(settings) &&
   /firstError=\$\{firstError\}/.test(settings),
   'failed gallery batches log the first seed error for device-side QA')
 ok(/Promise\.all\(jobs\)/.test(settings) &&
-  /downloadSeedToFile\([\s\S]*context,[\s\S]*gid,[\s\S]*token,[\s\S]*preferOriginal,[\s\S]*seed,[\s\S]*useOriginal,[\s\S]*retryCount,[\s\S]*\)[\s\S]*\.then\(async \(result: DownloadSeedResult\)[\s\S]*applyDownloadResults\(context, gid, token, preferOriginal, \[result\]\)[\s\S]*result\.applied = true/.test(settings),
-  'queue executor parallelizes downloads and applies each finished seed immediately')
+  /class GallerySeedScheduler/.test(settings) &&
+  /new GallerySeedNetworkTask\([\s\S]*DownloadQueueSettings\.downloadSeedToFile\([\s\S]*context,[\s\S]*gid,[\s\S]*token,[\s\S]*preferOriginal,[\s\S]*seed,[\s\S]*useOriginal,[\s\S]*retryCount,[\s\S]*\)[\s\S]*scheduled\.schedule\(connectDownloadSettings\(\)\.concurrency\)\.then\([\s\S]*applyDownloadResults\(context, gid, token, preferOriginal, \[result\]\)[\s\S]*result\.applied = true/.test(settings),
+  'queue executor applies each finished seed immediately through the global image-concurrency gate')
 ok(/private static firstSeedError\(seeds: DownloadImageSeed\[\]\): string/.test(settings) &&
   /if \(firstError\.length > 0\) \{[\s\S]*task\.prepareError = firstError/.test(settings) &&
   /hasError = hasError \|\| task\.prepareError\.length > 0/.test(settings),

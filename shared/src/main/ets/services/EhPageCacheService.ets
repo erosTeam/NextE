@@ -24,6 +24,7 @@ const LIST_TTL_MS: number = 30 * 60 * 1000
 const DETAIL_TTL_MS: number = 6 * 60 * 60 * 1000
 const MAX_LIST_ROWS_PER_CACHE: number = 50
 const MAX_CACHE_ROWS_PER_KIND: number = 128
+const MAX_PRELOADED_GALLERY_LISTS: number = 24
 
 const SQL_SELECT_CACHE: string =
   'SELECT payload FROM eh_page_cache WHERE kind = ? AND cache_key = ? AND expires_at > ? LIMIT 1'
@@ -38,8 +39,65 @@ const SQL_PRUNE_KIND_CACHE: string =
   'SELECT cache_key FROM eh_page_cache WHERE kind = ? ORDER BY accessed_at DESC LIMIT ?' +
   ')'
 
+/**
+ * A short-lived staging area between deferred startup warming and the first list VM that consumes it.
+ * The durable RDB cache remains authoritative, so evicting an unused preload only falls back to the same
+ * existing RDB read. Copy at both boundaries to keep a consuming VM from mutating another staged snapshot.
+ */
+export class PreloadedGalleryListMemoryCache {
+  private readonly maxEntries: number
+  private entries: Map<string, GalleryList> = new Map()
+
+  constructor(maxEntries: number = MAX_PRELOADED_GALLERY_LISTS) {
+    this.maxEntries = maxEntries > 0 ? maxEntries : 1
+  }
+
+  put(cacheKey: string, list: GalleryList): void {
+    if (cacheKey.length === 0) {
+      return
+    }
+    this.entries.delete(cacheKey)
+    this.entries.set(cacheKey, list.copy())
+    this.trim()
+  }
+
+  take(cacheKey: string): GalleryList | null {
+    const cached: GalleryList | undefined = this.entries.get(cacheKey)
+    if (cached === undefined) {
+      return null
+    }
+    this.entries.delete(cacheKey)
+    return cached.copy()
+  }
+
+  clear(): void {
+    this.entries.clear()
+  }
+
+  size(): number {
+    return this.entries.size
+  }
+
+  private trim(): void {
+    while (this.entries.size > this.maxEntries) {
+      let found: boolean = false
+      let oldest: string = ''
+      this.entries.forEach((_list: GalleryList, cacheKey: string): void => {
+        if (!found) {
+          found = true
+          oldest = cacheKey
+        }
+      })
+      if (!found) {
+        return
+      }
+      this.entries.delete(oldest)
+    }
+  }
+}
+
 export class EhPageCacheService {
-  private static preloadedGalleryLists: Map<string, GalleryList> = new Map<string, GalleryList>()
+  private static preloadedGalleryLists: PreloadedGalleryListMemoryCache = new PreloadedGalleryListMemoryCache()
 
   // Count + total payload bytes of the unexpired page cache (gallery list + detail), for the cache page.
   static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
@@ -131,19 +189,18 @@ export class EhPageCacheService {
   ): Promise<void> {
     const cached: GalleryList | null = await EhPageCacheService.loadGalleryList(context, cacheKey)
     if (cached !== null) {
-      EhPageCacheService.preloadedGalleryLists.set(cacheKey, cached)
+      EhPageCacheService.preloadedGalleryLists.put(cacheKey, cached)
       DiagnosticLogger.info('page-cache', 'preload_list_hit', `rows=${cached.gallerys.length}`)
     }
   }
 
   static takePreloadedGalleryList(cacheKey: string): GalleryList | null {
-    const cached: GalleryList | undefined = EhPageCacheService.preloadedGalleryLists.get(cacheKey)
-    if (cached === undefined) {
+    const cached: GalleryList | null = EhPageCacheService.preloadedGalleryLists.take(cacheKey)
+    if (cached === null) {
       return null
     }
-    EhPageCacheService.preloadedGalleryLists.delete(cacheKey)
     DiagnosticLogger.info('page-cache', 'preload_list_take', `rows=${cached.gallerys.length}`)
-    return cached.copy()
+    return cached
   }
 
   static async saveGalleryList(

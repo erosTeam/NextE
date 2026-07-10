@@ -131,6 +131,177 @@ class DownloadSeedResult {
   bytes: number = 0
   error: string = ''
   applied: boolean = false
+  cancelled: boolean = false
+}
+
+/** A queued image job belongs to one gallery, so pause/remove can drop work before it opens a socket. */
+export class GallerySeedQueueTask {
+  key: string = ''
+  galleryKey: string = ''
+  started: boolean = false
+  active: boolean = false
+  private startAction: () => void = () => {}
+  private cancelAction: () => void = () => {}
+
+  constructor(
+    key: string,
+    galleryKey: string,
+    startAction: () => void,
+    cancelAction: () => void = () => {},
+  ) {
+    this.key = key
+    this.galleryKey = galleryKey
+    this.startAction = startAction
+    this.cancelAction = cancelAction
+  }
+
+  start(): void {
+    this.startAction()
+  }
+
+  cancel(): void {
+    this.cancelAction()
+  }
+}
+
+/**
+ * One process-wide gate for gallery image jobs. The Download concurrency preference describes images,
+ * not images per gallery: this keeps a bulk resume from multiplying the configured network fan-out.
+ */
+export class GallerySeedScheduler {
+  private queue: GallerySeedQueueTask[] = []
+  private running: number = 0
+  private maxConcurrent: number = 1
+
+  schedule(task: GallerySeedQueueTask, maxConcurrent: number): void {
+    this.updateLimit(maxConcurrent)
+    if (task.started) {
+      return
+    }
+    this.queue.push(task)
+    this.drain()
+  }
+
+  complete(task: GallerySeedQueueTask, maxConcurrent: number): void {
+    this.updateLimit(maxConcurrent)
+    if (!task.active) {
+      return
+    }
+    task.active = false
+    if (this.running > 0) {
+      this.running--
+    }
+    this.drain()
+  }
+
+  /** Removes only work that has not acquired a global image slot; active streams keep existing safe teardown. */
+  cancelQueued(galleryKey: string): number {
+    let count: number = 0
+    for (let i: number = this.queue.length - 1; i >= 0; i--) {
+      const task: GallerySeedQueueTask = this.queue[i]
+      if (task.galleryKey !== galleryKey) {
+        continue
+      }
+      this.queue.splice(i, 1)
+      task.cancel()
+      count++
+    }
+    return count
+  }
+
+  private updateLimit(maxConcurrent: number): void {
+    this.maxConcurrent = maxConcurrent > 0 ? Math.floor(maxConcurrent) : 1
+  }
+
+  private drain(): void {
+    while (this.running < this.maxConcurrent && this.queue.length > 0) {
+      const next: GallerySeedQueueTask | undefined = this.queue.shift()
+      if (next === undefined || next.started) {
+        continue
+      }
+      next.started = true
+      next.active = true
+      this.running++
+      next.start()
+    }
+  }
+}
+
+class GallerySeedNetworkTask {
+  queueTask: GallerySeedQueueTask
+  private readonly work: () => Promise<DownloadSeedResult>
+  private readonly scheduler: GallerySeedScheduler
+  private readonly concurrencyProvider: () => number
+  private completion: Promise<DownloadSeedResult> = Promise.resolve(new DownloadSeedResult())
+  private resolveCompletion: (result: DownloadSeedResult) => void = (_result: DownloadSeedResult): void => {}
+  private rejectCompletion: (error: Error) => void = (_error: Error): void => {}
+  private settled: boolean = false
+
+  constructor(
+    key: string,
+    galleryKey: string,
+    work: () => Promise<DownloadSeedResult>,
+    scheduler: GallerySeedScheduler,
+    concurrencyProvider: () => number,
+  ) {
+    this.work = work
+    this.scheduler = scheduler
+    this.concurrencyProvider = concurrencyProvider
+    this.queueTask = new GallerySeedQueueTask(
+      key,
+      galleryKey,
+      (): void => this.start(),
+      (): void => this.cancel(),
+    )
+    this.completion = new Promise<DownloadSeedResult>(
+      (resolve: (result: DownloadSeedResult) => void, reject: (error: Error) => void): void => {
+        this.resolveCompletion = resolve
+        this.rejectCompletion = reject
+      },
+    )
+  }
+
+  schedule(maxConcurrent: number): Promise<DownloadSeedResult> {
+    this.scheduler.schedule(this.queueTask, maxConcurrent)
+    return this.completion
+  }
+
+  private start(): void {
+    try {
+      this.work().then(
+        (result: DownloadSeedResult): void => {
+          if (!this.settled) {
+            this.settled = true
+            this.resolveCompletion(result)
+          }
+          this.scheduler.complete(this.queueTask, this.concurrencyProvider())
+        },
+        (error: Error): void => {
+          if (!this.settled) {
+            this.settled = true
+            this.rejectCompletion(error)
+          }
+          this.scheduler.complete(this.queueTask, this.concurrencyProvider())
+        },
+      )
+    } catch (error) {
+      if (!this.settled) {
+        this.settled = true
+        this.rejectCompletion(error as Error)
+      }
+      this.scheduler.complete(this.queueTask, this.concurrencyProvider())
+    }
+  }
+
+  private cancel(): void {
+    if (this.settled) {
+      return
+    }
+    this.settled = true
+    const result: DownloadSeedResult = new DownloadSeedResult()
+    result.cancelled = true
+    this.resolveCompletion(result)
+  }
 }
 
 class DownloadGalleryActiveProgress {
@@ -144,6 +315,7 @@ class DownloadGalleryActiveProgress {
 export class DownloadQueueSettings {
   private static galleryPreparations: Map<string, Promise<void>> = new Map<string, Promise<void>>()
   private static galleryDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
+  private static readonly gallerySeedScheduler: GallerySeedScheduler = new GallerySeedScheduler()
   private static archiverDownloads: Map<string, Promise<void>> = new Map<string, Promise<void>>()
   private static cancelledGalleryDownloads: Set<string> = new Set<string>()
   private static cancelledArchiverDownloads: Set<string> = new Set<string>()
@@ -397,6 +569,7 @@ export class DownloadQueueSettings {
     const key: string = DownloadQueueSettings.taskKey(gid, token, preferOriginal)
     if (DownloadQueueSettings.galleryDownloads.has(key)) {
       DownloadQueueSettings.cancelledGalleryDownloads.add(key)
+      DownloadQueueSettings.gallerySeedScheduler.cancelQueued(key)
     }
     const state = connectDownloadQueue()
     let removed: DownloadGalleryTask | null = null
@@ -427,6 +600,7 @@ export class DownloadQueueSettings {
       return
     }
     DownloadQueueSettings.cancelledGalleryDownloads.add(key)
+    DownloadQueueSettings.gallerySeedScheduler.cancelQueued(key)
     await DownloadQueueSettings.updateGalleryTaskAfterPause(context, gid, token, preferOriginal)
   }
 
@@ -1224,8 +1398,10 @@ export class DownloadQueueSettings {
       const retryCount: number = connectDownloadSettings().retryCount
       const jobs: Promise<DownloadSeedResult>[] = []
       pending.forEach((seed: DownloadImageSeed) => {
-        jobs.push(
-          DownloadQueueSettings.downloadSeedToFile(
+        const scheduled: GallerySeedNetworkTask = new GallerySeedNetworkTask(
+          `${key}:${seed.page}`,
+          key,
+          (): Promise<DownloadSeedResult> => DownloadQueueSettings.downloadSeedToFile(
             context,
             gid,
             token,
@@ -1234,18 +1410,25 @@ export class DownloadQueueSettings {
             seed,
             useOriginal,
             retryCount,
-          )
-            .then(async (result: DownloadSeedResult) => {
-              if (!DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
-                await DownloadQueueSettings.applyDownloadResults(context, gid, token, preferOriginal, [result])
-                result.applied = true
-              }
-              return result
-            }),
+          ),
+          DownloadQueueSettings.gallerySeedScheduler,
+          (): number => connectDownloadSettings().concurrency,
         )
+        jobs.push(scheduled.schedule(connectDownloadSettings().concurrency).then(
+          async (result: DownloadSeedResult): Promise<DownloadSeedResult> => {
+            if (!result.cancelled && !DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
+              await DownloadQueueSettings.applyDownloadResults(context, gid, token, preferOriginal, [result])
+              result.applied = true
+            }
+            return result
+          },
+        ))
       })
       const results: DownloadSeedResult[] = await Promise.all(jobs)
-      if (DownloadQueueSettings.cancelledGalleryDownloads.has(key)) {
+      if (
+        DownloadQueueSettings.cancelledGalleryDownloads.has(key) ||
+        DownloadQueueSettings.hasCancelledDownloadResult(results)
+      ) {
         DownloadQueueSettings.deleteDownloadSeedResults(results)
         return
       }
@@ -1573,6 +1756,10 @@ export class DownloadQueueSettings {
 
   private static hasDownloadResultError(results: DownloadSeedResult[]): boolean {
     return results.some((result: DownloadSeedResult) => result.error.length > 0)
+  }
+
+  private static hasCancelledDownloadResult(results: DownloadSeedResult[]): boolean {
+    return results.some((result: DownloadSeedResult) => result.cancelled)
   }
 
   private static galleryBatchSummary(gid: string, batchIndex: number, results: DownloadSeedResult[]): string {

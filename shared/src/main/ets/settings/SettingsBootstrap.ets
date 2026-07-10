@@ -46,6 +46,8 @@ import { connectFavSelection } from '../state/FavSelectionState'
 import { connectCustomProfiles } from '../state/CustomProfilesState'
 import { CustomProfile, PROFILE_TYPE_FAVORITE } from '../model/CustomProfile'
 
+const MAX_PAGE_CACHE_PRELOAD_CONCURRENCY: number = 2
+
 /**
  * Restores every persisted setting from the preferences store into its AppStorageV2
  * mirror ONCE at startup, before the first page mounts (called from
@@ -102,7 +104,9 @@ export class SettingsBootstrap {
       await DownloadSettings.restore(context)
       await DownloadQueueSettings.restore(context)
       await SecuritySettings.restore(context)
-      await SettingsBootstrap.preloadPageCaches(context)
+      // Cache warming is optional: active Home/Favorites VMs fall back to the same RDB load when it
+      // has not completed. Keep durable settings on the startup path, but let windowStage begin mounting first.
+      SettingsBootstrap.schedulePageCachePreload(context)
       DiagnosticLogger.info('settings', 'bootstrap_loaded', 'cookie jar restored')
       // Fire-and-forget (NOT awaited): load the user's My Tags for per-tag list colors. It's a network
       // round-trip and login-gated, so it must never block the first paint; logged-out users skip it.
@@ -113,43 +117,112 @@ export class SettingsBootstrap {
     }
   }
 
+  private static schedulePageCachePreload(context: common.UIAbilityContext): void {
+    setTimeout((): void => {
+      SettingsBootstrap.preloadPageCaches(context)
+    }, 0)
+  }
+
   private static async preloadPageCaches(context: common.UIAbilityContext): Promise<void> {
     try {
       const isEx: boolean = connectSiteMode().isEx
       const home = connectHomeSource()
       const fav = connectFavSelection()
       const favOrder: string = fav.orderByPosted ? EhConstants.FAV_ORDER_POSTED : EhConstants.FAV_ORDER_FAV
-      const jobs: Promise<void>[] = []
+      const keys: string[] = []
       // Home tabs are custom profiles now; warm each non-hidden, non-favorite profile's uuid-scoped
       // cache (favorite-type profiles use the favorites cache key — handled with the favorites preload).
       const profiles: CustomProfile[] = connectCustomProfiles().profiles
+      const selectedProfile: CustomProfile | null = connectCustomProfiles().findByUuid(
+        connectCustomProfiles().selectedUuid,
+      )
+      if (selectedProfile !== null && !selectedProfile.hidden) {
+        if (selectedProfile.listType === PROFILE_TYPE_FAVORITE) {
+          if (selectedProfile.favcat !== 'l') {
+            SettingsBootstrap.appendPreloadKey(
+              keys,
+              EhPageCacheService.favoritesListKey(isEx, selectedProfile.favcat, favOrder),
+            )
+          }
+        } else {
+          SettingsBootstrap.appendPreloadKey(
+            keys,
+            EhPageCacheService.homeProfileKey(isEx, selectedProfile.uuid),
+          )
+        }
+      }
+      SettingsBootstrap.appendPreloadKey(
+        keys,
+        EhPageCacheService.homeListKey(isEx, 'toplist', home.toplistTl),
+      )
+      if (fav.selectedFavcat !== 'l') {
+        SettingsBootstrap.appendPreloadKey(
+          keys,
+          EhPageCacheService.favoritesListKey(isEx, fav.selectedFavcat, favOrder),
+        )
+      }
       for (let i = 0; i < profiles.length; i++) {
         const p: CustomProfile = profiles[i]
         if (!p.hidden && p.listType !== PROFILE_TYPE_FAVORITE) {
-          jobs.push(EhPageCacheService.preloadGalleryList(
-            context,
-            EhPageCacheService.homeProfileKey(isEx, p.uuid),
-          ))
+          SettingsBootstrap.appendPreloadKey(keys, EhPageCacheService.homeProfileKey(isEx, p.uuid))
         }
       }
       const toplistTls: number[] = [11, 12, 13, 15]
       for (let i = 0; i < toplistTls.length; i++) {
-        jobs.push(EhPageCacheService.preloadGalleryList(
-          context,
+        SettingsBootstrap.appendPreloadKey(
+          keys,
           EhPageCacheService.homeListKey(isEx, 'toplist', toplistTls[i]),
-        ))
+        )
       }
       const favcats: string[] = ['a', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
       for (let i = 0; i < favcats.length; i++) {
-        jobs.push(EhPageCacheService.preloadGalleryList(
-          context,
+        SettingsBootstrap.appendPreloadKey(
+          keys,
           EhPageCacheService.favoritesListKey(isEx, favcats[i], favOrder),
-        ))
+        )
       }
-      await Promise.all(jobs)
-      DiagnosticLogger.info('page-cache', 'preload_done', `jobs=${jobs.length} selected=${connectCustomProfiles().selectedUuid}/${home.toplistTl}/${fav.selectedFavcat}`)
+      const workers: number = await SettingsBootstrap.preloadGalleryListsBounded(context, keys)
+      DiagnosticLogger.info(
+        'page-cache',
+        'preload_done',
+        `jobs=${keys.length} workers=${workers} selected=${connectCustomProfiles().selectedUuid}/${home.toplistTl}/${fav.selectedFavcat}`,
+      )
     } catch (error) {
       DiagnosticLogger.warn('page-cache', 'preload_failed', (error as Error).message)
+    }
+  }
+
+  private static appendPreloadKey(keys: string[], key: string): void {
+    if (key.length > 0 && keys.indexOf(key) < 0) {
+      keys.push(key)
+    }
+  }
+
+  /** Deferred warming is optional, so constrain it instead of multiplying RDB reads for every custom tab. */
+  private static async preloadGalleryListsBounded(
+    context: common.UIAbilityContext,
+    keys: string[],
+  ): Promise<number> {
+    const workerCount: number = Math.min(MAX_PAGE_CACHE_PRELOAD_CONCURRENCY, keys.length)
+    if (workerCount <= 0) {
+      return 0
+    }
+    const workers: Promise<void>[] = []
+    for (let i: number = 0; i < workerCount; i++) {
+      workers.push(SettingsBootstrap.preloadGalleryListWorker(context, keys, i, workerCount))
+    }
+    await Promise.all(workers)
+    return workerCount
+  }
+
+  private static async preloadGalleryListWorker(
+    context: common.UIAbilityContext,
+    keys: string[],
+    workerIndex: number,
+    workerCount: number,
+  ): Promise<void> {
+    for (let i: number = workerIndex; i < keys.length; i = i + workerCount) {
+      await EhPageCacheService.preloadGalleryList(context, keys[i])
     }
   }
 }

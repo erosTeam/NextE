@@ -2,8 +2,8 @@
 /**
  * Contract test for EhGalleryDetailParser + EhGalleryImageParser.
  * Patterns mirror shared/src/main/ets/parser/EhGalleryDetailParser.ets and
- * EhGalleryImageParser.ets. The synthetic cases only document parser expectations; a checked-in
- * real detail fixture is required before this can count as parser acceptance.
+ * EhGalleryImageParser.ets. Synthetic cases document isolated edge cases; the tracked sanitized
+ * structural fixture detects real-DOM drift, while entry@ohosTest runs production ArkTS on X7.
  *
  * Run: node scripts/test_gallery_detail_parser_contract.mjs
  */
@@ -384,11 +384,22 @@ eq(parseFav(`<div id="fav"><div style="background-position:0px -173px" title="J"
 eq(parseFav(`<div id="fav"></div><a id="favoritelink" href="#"><img src="x"/> Add to Favorites</a>`).favcat, '', 'not favorited → empty favcat')
 eq(parseFav(`<div id="fav"></div>`).favTitle, '', 'not favorited → empty favTitle')
 
-// real fixture
-const fx = join(ROOT, 'scripts/fixtures/gallery_detail.html')
+// The tracked fixture preserves parser-relevant standard-detail DOM structure while replacing
+// account values, gallery identity, user content, image URLs, and image-page tokens. Developers
+// may still opt into an ignored local capture for additional smoke coverage.
+const trackedFx = join(ROOT, 'entry/src/ohosTest/resources/rawfile/gallery_detail_standard.html')
+const localFx = join(ROOT, 'scripts/fixtures/gallery_detail.html')
+const fx = existsSync(trackedFx) ? trackedFx : localFx
 if (existsSync(fx)) {
-  console.log('— real e-hentai.org detail fixture —')
+  console.log(existsSync(trackedFx)
+    ? '— sanitized standard-detail structural fixture —'
+    : '— local real e-hentai.org detail fixture —')
   const h = readFileSync(fx, 'utf8')
+  if (existsSync(trackedFx)) {
+    eq(g1(h, RE.en), 'Fixture English Title', 'tracked fixture redacts title deterministically')
+    eq(g1(h, RE.apikey), '00000000000000000000000000000000', 'tracked fixture redacts apikey deterministically')
+    ok(!/\b(?:ipb_member_id|ipb_pass_hash|igneous|showkey|nl)=/i.test(h), 'tracked fixture contains no session or image-page controls')
+  }
   ok(g1(h, RE.en).length > 0, 'real enTitle present')
   ok(/^[0-9a-f]+$/.test(g1(h, RE.apikey)), 'real apikey hex')
   ok(+g1(h, RE.length) > 0, 'real length > 0')
@@ -444,4 +455,4 @@ ok(/hasImage/.test(imageParserSrc), 'image parser dedupes overlapping preview la
 ok(/RE_LARGE_PREVIEW/.test(imageParserSrc), 'image parser has gdtl large-thumb branch')
 ok(/parseLargeThumbDims/.test(imageParserSrc), 'image parser derives gdtl dimensions from thumb URL')
 if (failures > 0) { console.error(`\n✗ gallery-detail parser contract: ${failures} failure(s)`); process.exit(1) }
-console.log('\n✓ gallery-detail synthetic parser contract passed')
+console.log('\n✓ gallery-detail parser contract passed (production execution is covered by entry@ohosTest)')

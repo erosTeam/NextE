@@ -28,9 +28,16 @@ export class GalleryReadProgressSettings {
   private static flushTimer: number = -1
 
   static async restore(context: common.UIAbilityContext): Promise<void> {
+    const state = connectGalleryReadProgress()
+    const revision: number = state.revision
     try {
       await GalleryReadProgressSettings.migrateLegacyPreferences(context)
-      connectGalleryReadProgress().replaceAll(await ReadProgressRepository.load(context))
+      const entries: ReadProgressEntry[] = await ReadProgressRepository.load(context)
+      // A reader mutation while hydration was awaiting RDB is newer than this load. Do not replace
+      // it with the stale snapshot; the pending persistence path will carry it to disk.
+      if (state.revision === revision) {
+        state.replaceAll(entries)
+      }
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readprogress_restore_failed', (error as Error).message)
     }
@@ -77,14 +84,63 @@ export class GalleryReadProgressSettings {
     GalleryReadProgressSettings.persist(context)
   }
 
-  private static async persist(context: common.UIAbilityContext): Promise<void> {
+  /** Persist active reader state before a sync without scheduling that same provider again. */
+  static async flushForSync(context: common.UIAbilityContext): Promise<void> {
+    if (GalleryReadProgressSettings.flushTimer >= 0) {
+      clearTimeout(GalleryReadProgressSettings.flushTimer)
+      GalleryReadProgressSettings.flushTimer = -1
+    }
+    await GalleryReadProgressSettings.persist(context, false)
+  }
+
+  /**
+   * Reload progress after a provider writes RDB rows, preserving only mutations that happened while
+   * the refresh was awaiting storage. This keeps remote updates for untouched galleries intact.
+   */
+  static async refreshAfterSync(context: common.UIAbilityContext): Promise<void> {
+    const state = connectGalleryReadProgress()
+    const before: ReadProgressEntry[] = state.snapshot()
+    try {
+      await GalleryReadProgressSettings.flushForSync(context)
+      const stored: ReadProgressEntry[] = await ReadProgressRepository.load(context)
+      const changedWhileRefreshing: ReadProgressEntry[] =
+        GalleryReadProgressSettings.entriesChangedSince(before, state.snapshot())
+      state.replaceAll(stored)
+      state.mergeNewest(changedWhileRefreshing)
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'readprogress_sync_refresh_failed', (error as Error).message)
+    }
+  }
+
+  private static async persist(
+    context: common.UIAbilityContext,
+    scheduleSync: boolean = true,
+  ): Promise<void> {
     try {
       const entries: ReadProgressEntry[] = connectGalleryReadProgress().snapshot()
       await ReadProgressRepository.saveAll(context, entries)
-      SyncScheduler.requestAfterLocalWrite(context, 'read_progress')
+      if (scheduleSync) {
+        SyncScheduler.requestAfterLocalWrite(context, 'read_progress')
+      }
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readprogress_save_failed', (error as Error).message)
     }
+  }
+
+  private static entriesChangedSince(
+    before: ReadProgressEntry[],
+    current: ReadProgressEntry[],
+  ): ReadProgressEntry[] {
+    const previousTimes: Map<string, number> = new Map<string, number>()
+    before.forEach((entry: ReadProgressEntry) => previousTimes.set(entry.g, entry.t))
+    const changed: ReadProgressEntry[] = []
+    current.forEach((entry: ReadProgressEntry) => {
+      const previous: number | undefined = previousTimes.get(entry.g)
+      if (previous === undefined || entry.t > previous) {
+        changed.push(entry)
+      }
+    })
+    return changed
   }
 
   static async exportForBackup(context: common.UIAbilityContext): Promise<ReadProgressEntry[]> {

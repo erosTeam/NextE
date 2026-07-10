@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Hard gate (ported from V2Next): State Management V1 is retired in NextE.
- * Scans entry/ + shared/ + feature/ .ets sources for LIVE V1 component/state decorators
+ * Scans repository module roots (excluding DevEco-generated intermediates) for LIVE V1 component/state decorators
  * and fails (exit 1) if any are found. Must report `0 file(s)` before merge/push for any
  * ArkTS/UI/state change.
  *
@@ -35,7 +35,10 @@ function walk(dir, out) {
     const p = join(dir, name)
     const s = statSync(p)
     if (s.isDirectory()) {
-      if (name === 'build' || name === 'oh_modules' || name === 'node_modules') continue
+      // DevEco writes its ohosTest compatibility page under `<module>/.test/`.
+      // It is a generated toolchain intermediate, not project source; do not mistake its
+      // legacy decorators for a V1 regression in the tracked ArkTS code.
+      if (name === 'build' || name === '.test' || name === 'oh_modules' || name === 'node_modules') continue
       walk(p, out)
     } else if (name.endsWith('.ets')) {
       out.push(p)

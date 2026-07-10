@@ -327,7 +327,7 @@ ok('failed image download retries re-resolve stale EH one-shot image URLs',
     /resolveOriginal\(image, shouldRefreshImageUrl\)/.test(settings) &&
     /resolve\(image, shouldRefreshImageUrl\)/.test(settings) &&
     /async resolveOriginal\(image: EhGalleryImage, changeSource: boolean = false\): Promise<string>/.test(imageResolve) &&
-    /const cached: ImagePageResult \| undefined = changeSource \? undefined : this\.resolved\.get\(image\.sUrl\)/.test(imageResolve) &&
+    /const cached: ImagePageResult \| undefined = changeSource \? undefined : this\.cache\.getResolved\(image\.sUrl\)/.test(imageResolve) &&
     /await this\.doResolve\(image, changeSource\)/.test(imageResolve))
 ok('restore validates completed archiver package before keeping read-ready state',
   /out\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*normalizeRestoredArchiverComplete\(out\)/.test(settings) &&

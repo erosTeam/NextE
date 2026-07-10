@@ -3,6 +3,10 @@ import { image } from '@kit.ImageKit'
 import { effectKit } from '@kit.ArkGraphics2D'
 import axios, { AxiosRequestConfig, AxiosResponse } from '@ohos/axios'
 
+const MAX_COVER_COLOR_MEMORY_ENTRIES: number = 512
+const MAX_COVER_COLOR_CONCURRENCY: number = 2
+const MAX_COVER_COLOR_PENDING: number = 32
+
 // Decode the thumbnail to a tiny bitmap purely for color sampling — far cheaper than decoding the full
 // cover, and plenty for a dominant-color read (effectKit scales to ~1px internally anyway).
 /**
@@ -58,16 +62,219 @@ async function extractCoverColor(url: string): Promise<number> {
 }
 
 /**
+ * A bounded LRU cache for the decorative cover-color layer. It intentionally keeps failed extraction as 0:
+ * that preserves the existing no-retry-storm behavior, while eviction only lets a later visible card try again.
+ */
+export class CoverColorMemoryCache {
+  private readonly maxEntries: number
+  private entries: Map<string, number> = new Map()
+
+  constructor(maxEntries: number = MAX_COVER_COLOR_MEMORY_ENTRIES) {
+    this.maxEntries = maxEntries > 0 ? maxEntries : 1
+  }
+
+  get(url: string): number | undefined {
+    const color: number | undefined = this.entries.get(url)
+    if (color === undefined) {
+      return undefined
+    }
+    this.entries.delete(url)
+    this.entries.set(url, color)
+    return color
+  }
+
+  put(url: string, color: number): void {
+    if (url.length === 0) {
+      return
+    }
+    this.entries.delete(url)
+    this.entries.set(url, color)
+    this.trim()
+  }
+
+  size(): number {
+    return this.entries.size
+  }
+
+  private trim(): void {
+    while (this.entries.size > this.maxEntries) {
+      let found: boolean = false
+      let oldest: string = ''
+      this.entries.forEach((_color: number, url: string): void => {
+        if (!found) {
+          found = true
+          oldest = url
+        }
+      })
+      if (!found) {
+        return
+      }
+      this.entries.delete(oldest)
+    }
+  }
+}
+
+/** A waiting extraction is decorative work and can be dropped if a rapid scroll makes it stale. */
+export class CoverColorQueueTask {
+  key: string = ''
+  started: boolean = false
+  active: boolean = false
+  private startAction: () => void = () => {}
+  private cancelAction: () => void = () => {}
+
+  constructor(key: string, startAction: () => void, cancelAction: () => void = () => {}) {
+    this.key = key
+    this.startAction = startAction
+    this.cancelAction = cancelAction
+  }
+
+  start(): void {
+    this.startAction()
+  }
+
+  cancel(): void {
+    this.cancelAction()
+  }
+}
+
+/**
+ * Protects the shared TaskPool from list-scroll bursts. New appearances run before stale queued decoration;
+ * active work is never interrupted. A dropped pending request resolves to 0, so the image still paints and
+ * simply falls back to its normal no-gradient state.
+ */
+export class CoverColorQueueScheduler {
+  private queue: CoverColorQueueTask[] = []
+  private running: number = 0
+  private readonly maxConcurrent: number
+  private readonly maxPending: number
+
+  constructor(
+    maxConcurrent: number = MAX_COVER_COLOR_CONCURRENCY,
+    maxPending: number = MAX_COVER_COLOR_PENDING,
+  ) {
+    this.maxConcurrent = maxConcurrent > 0 ? Math.floor(maxConcurrent) : 1
+    this.maxPending = maxPending > 0 ? Math.floor(maxPending) : 1
+  }
+
+  schedule(task: CoverColorQueueTask): void {
+    if (task.started) {
+      return
+    }
+    this.queue.unshift(task)
+    this.trimPending()
+    this.drain()
+  }
+
+  complete(task: CoverColorQueueTask): void {
+    if (!task.active) {
+      return
+    }
+    task.active = false
+    if (this.running > 0) {
+      this.running--
+    }
+    this.drain()
+  }
+
+  activeCount(): number {
+    return this.running
+  }
+
+  pendingCount(): number {
+    return this.queue.length
+  }
+
+  private trimPending(): void {
+    while (this.queue.length > this.maxPending) {
+      const stale: CoverColorQueueTask | undefined = this.queue.pop()
+      if (stale !== undefined && !stale.started) {
+        stale.cancel()
+      }
+    }
+  }
+
+  private drain(): void {
+    while (this.running < this.maxConcurrent && this.queue.length > 0) {
+      const next: CoverColorQueueTask | undefined = this.queue.shift()
+      if (next === undefined || next.started) {
+        continue
+      }
+      next.started = true
+      next.active = true
+      this.running++
+      next.start()
+    }
+  }
+}
+
+class CoverColorNetworkTask {
+  queueTask: CoverColorQueueTask
+  private readonly work: () => Promise<number>
+  private readonly scheduler: CoverColorQueueScheduler
+  private completion: Promise<number> = Promise.resolve(0)
+  private resolveCompletion: (color: number) => void = (_color: number): void => {}
+  private settled: boolean = false
+
+  constructor(key: string, work: () => Promise<number>, scheduler: CoverColorQueueScheduler) {
+    this.work = work
+    this.scheduler = scheduler
+    this.queueTask = new CoverColorQueueTask(
+      key,
+      (): void => this.start(),
+      (): void => this.cancel(),
+    )
+    this.completion = new Promise<number>((resolve: (color: number) => void): void => {
+      this.resolveCompletion = resolve
+    })
+  }
+
+  schedule(): Promise<number> {
+    this.scheduler.schedule(this.queueTask)
+    return this.completion
+  }
+
+  private start(): void {
+    try {
+      this.work().then(
+        (color: number): void => {
+          this.settle(color)
+          this.scheduler.complete(this.queueTask)
+        },
+        (): void => {
+          this.settle(0)
+          this.scheduler.complete(this.queueTask)
+        },
+      )
+    } catch (_error) {
+      this.settle(0)
+      this.scheduler.complete(this.queueTask)
+    }
+  }
+
+  private cancel(): void {
+    this.settle(0)
+  }
+
+  private settle(color: number): void {
+    if (this.settled) {
+      return
+    }
+    this.settled = true
+    this.resolveCompletion(color)
+  }
+}
+
+/**
  * In-memory cover dominant-color cache + in-flight dedup. EhThumbnail asks for a thumb URL's color and gets
- * a packed 0xAARRGGBB number once extraction resolves (0 while pending or on failure). The result is cached
- * for the process lifetime, so recycled list rows and re-entry never re-extract; concurrent requests for the
- * same URL share one TaskPool job. Best-effort: failures cache as 0 (no retry storms) — the gradient simply
- * does not show for that cover this session.
+ * a packed 0xAARRGGBB number once extraction resolves (0 while pending or on failure). Recent results are
+ * retained across recycled rows, while a small global queue prevents decorative decodes from competing with
+ * the actual thumbnail pipeline during a fast scroll.
  */
 export class CoverColorService {
   private static instance: CoverColorService | null = null
-  private cache: Map<string, number> = new Map()
+  private cache: CoverColorMemoryCache = new CoverColorMemoryCache()
   private inFlight: Map<string, Promise<number>> = new Map()
+  private readonly scheduler: CoverColorQueueScheduler = new CoverColorQueueScheduler()
 
   static getInstance(): CoverColorService {
     if (CoverColorService.instance === null) {
@@ -83,21 +290,31 @@ export class CoverColorService {
   }
 
   // Returns the cached color, joins an in-flight extraction, or starts one. Resolves to 0 on failure.
-  async resolve(url: string): Promise<number> {
+  resolve(url: string): Promise<number> {
     if (url.length === 0) {
-      return 0
+      return Promise.resolve(0)
     }
     const hit: number | undefined = this.cache.get(url)
     if (hit !== undefined) {
-      return hit
+      return Promise.resolve(hit)
     }
     const pending: Promise<number> | undefined = this.inFlight.get(url)
     if (pending !== undefined) {
       return pending
     }
-    const task: Promise<number> = this.extract(url)
-    this.inFlight.set(url, task)
-    return task
+    const task: CoverColorNetworkTask = new CoverColorNetworkTask(
+      url,
+      (): Promise<number> => this.extract(url),
+      this.scheduler,
+    )
+    const completion: Promise<number> = task.schedule()
+    this.inFlight.set(url, completion)
+    completion.then((): void => {
+      if (this.inFlight.get(url) === completion) {
+        this.inFlight.delete(url)
+      }
+    })
+    return completion
   }
 
   private async extract(url: string): Promise<number> {
@@ -107,8 +324,7 @@ export class CoverColorService {
     } catch (error) {
       color = 0
     }
-    this.cache.set(url, color)
-    this.inFlight.delete(url)
+    this.cache.put(url, color)
     return color
   }
 }

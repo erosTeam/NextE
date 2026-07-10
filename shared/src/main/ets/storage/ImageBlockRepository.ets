@@ -17,6 +17,8 @@ import { SyncScheduler } from '../sync/SyncScheduler'
 import { LocalDataStore } from './LocalDataStore'
 
 const SCOPE_GLOBAL: string = 'global'
+const MAX_FILE_HASH_CACHE_ROWS: number = 8192
+const FILE_HASH_CACHE_PRUNE_WRITE_INTERVAL: number = 64
 const SQL_SELECT_SUBSCRIPTIONS: string =
   'SELECT feed_id, title, url, algorithm, default_threshold, updated_at, synced_at, sha256, rule_count, enabled ' +
   'FROM image_block_subscriptions WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
@@ -143,6 +145,12 @@ const SQL_UPSERT_FILE_HASH: string =
   'VALUES (?, ?, ?, ?, ?, ?, 0) ON CONFLICT(scope_key, file_path) DO UPDATE SET ' +
   'bytes = excluded.bytes, hash = excluded.hash, algorithm = excluded.algorithm, ' +
   'hashed_at = excluded.hashed_at, deleted_at = 0'
+const SQL_PRUNE_FILE_HASH_CACHE: string =
+  'DELETE FROM image_block_hash_cache WHERE scope_key = ? AND file_path NOT IN (' +
+  'SELECT file_path FROM image_block_hash_cache ' +
+  'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
+  'ORDER BY hashed_at DESC, file_path ASC LIMIT ?' +
+  ')'
 const SQL_UPSERT_USER_RULE_OVERRIDE: string =
   'INSERT INTO image_block_user_rules ' +
   '(scope_key, rule_id, hash, threshold, label, scope, feed_id, source_type, source_url, source_page, preview_path, enabled, updated_at, deleted_at) ' +
@@ -170,6 +178,11 @@ const SQL_UPSERT_USER_RULE_FROM_BACKUP: string =
   'source_page = excluded.source_page, preview_path = \'\', enabled = excluded.enabled, ' +
   'updated_at = excluded.updated_at, deleted_at = 0'
 export class ImageBlockRepository {
+  // Start one below the interval so an existing long-lived cache is pruned on the first new hash write.
+  // Later pruning is batched: pHash generation is already expensive, but repeated DELETE scans must not join
+  // every thumbnail write on the hot path.
+  private static fileHashCacheWritesSincePrune: number = FILE_HASH_CACHE_PRUNE_WRITE_INTERVAL - 1
+
   static async loadSubscriptions(context: common.UIAbilityContext): Promise<ImageBlockFeed[]> {
     const out: ImageBlockFeed[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -741,6 +754,25 @@ export class ImageBlockRepository {
       IMAGE_BLOCK_ALGORITHM_DCT64_V1,
       Date.now(),
     ])
+    await ImageBlockRepository.pruneFileHashCacheIfNeeded(store)
+  }
+
+  /** The hash table is a performance cache, not user data: keep a finite recent working set on disk. */
+  private static async pruneFileHashCacheIfNeeded(store: relationalStore.RdbStore): Promise<void> {
+    ImageBlockRepository.fileHashCacheWritesSincePrune++
+    if (ImageBlockRepository.fileHashCacheWritesSincePrune < FILE_HASH_CACHE_PRUNE_WRITE_INTERVAL) {
+      return
+    }
+    ImageBlockRepository.fileHashCacheWritesSincePrune = 0
+    try {
+      await store.executeSql(SQL_PRUNE_FILE_HASH_CACHE, [
+        SCOPE_GLOBAL,
+        SCOPE_GLOBAL,
+        MAX_FILE_HASH_CACHE_ROWS,
+      ])
+    } catch (_error) {
+      // An opportunistic prune must never turn an otherwise valid pHash result into a block decision failure.
+    }
   }
 
   private static async upsertSubscriptionItem(

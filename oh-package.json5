@@ -6,5 +6,8 @@
   "main": "",
   "author": "erosTeam",
   "license": "MIT",
-  "dependencies": {}
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.18"
+  }
 }
