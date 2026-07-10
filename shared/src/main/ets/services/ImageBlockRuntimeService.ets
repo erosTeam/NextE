@@ -19,6 +19,7 @@ import { connectSiteMode } from '../state/SiteModeState'
 import { ImageBlockRepository } from '../storage/ImageBlockRepository'
 import { EhUrlRouter, GalleryRef, ImagePageRef } from '../utils/EhUrlRouter'
 import { CachedImageFileResult, CachedImageFileService } from './CachedImageFileService'
+import { ImageBlockPreviewCacheService } from './ImageBlockPreviewCacheService'
 import { ImageBlockService } from './ImageBlockService'
 import { ImagePipelineService } from './ImagePipelineService'
 import { ImagePageRouteService, ImagePageRouteTarget } from './ImagePageRouteService'
@@ -155,6 +156,7 @@ export class ImageBlockRuntimeService {
   private static thumbnailHashInFlight: Map<string, Promise<string>> = new Map<string, Promise<string>>()
   private static thumbnailHashMemoryCache: ImageBlockThumbnailHashMemoryCache =
     new ImageBlockThumbnailHashMemoryCache()
+  private static previewWriteInFlight: Map<string, Promise<string>> = new Map<string, Promise<string>>()
 
   static async decisionForFile(
     context: common.UIAbilityContext,
@@ -692,21 +694,72 @@ export class ImageBlockRuntimeService {
     if (normalizedHash.length === 0) {
       return ''
     }
-    const dir: string = `${context.cacheDir}/image-block-preview`
-    ImageBlockRuntimeService.ensureDir(dir)
-    const path: string = `${dir}/${normalizedHash}_${thumbWidth}_${thumbHeight}_${offsetX}_${spriteWidth}_${spriteHeight}.jpg`
+    const path: string = ImageBlockPreviewCacheService.filePath(
+      context,
+      `${normalizedHash}_${thumbWidth}_${thumbHeight}_${offsetX}_${spriteWidth}_${spriteHeight}.jpg`,
+    )
     if (ImageBlockRuntimeService.fileBytes(path) > 0) {
+      ImageBlockPreviewCacheService.touch(path)
       return path
     }
-    const ok: boolean = await taskpool.execute<[string, string, number, number, number], boolean>(
-      writeImageBlockThumbnailPreview,
+    const inFlight: Promise<string> | undefined = ImageBlockRuntimeService.previewWriteInFlight.get(path)
+    if (inFlight !== undefined) {
+      return await inFlight
+    }
+    const task: Promise<string> = ImageBlockRuntimeService.writeThumbnailPreview(
+      context,
       sourcePath,
       path,
       thumbWidth,
       thumbHeight,
       offsetX,
     )
-    return ok && ImageBlockRuntimeService.fileBytes(path) > 0 ? path : ''
+    ImageBlockRuntimeService.previewWriteInFlight.set(path, task)
+    try {
+      return await task
+    } finally {
+      ImageBlockRuntimeService.previewWriteInFlight.delete(path)
+    }
+  }
+
+  private static async writeThumbnailPreview(
+    context: common.UIAbilityContext,
+    sourcePath: string,
+    path: string,
+    thumbWidth: number,
+    thumbHeight: number,
+    offsetX: number,
+  ): Promise<string> {
+    const temporaryPath: string = `${path}.part`
+    ImageBlockRuntimeService.removeFile(temporaryPath)
+    try {
+      const ok: boolean = await taskpool.execute<[string, string, number, number, number], boolean>(
+        writeImageBlockThumbnailPreview,
+        sourcePath,
+        temporaryPath,
+        thumbWidth,
+        thumbHeight,
+        offsetX,
+      )
+      if (!ok || ImageBlockRuntimeService.fileBytes(temporaryPath) <= 0) {
+        return ''
+      }
+      try {
+        ImageBlockRuntimeService.removeFile(path)
+        fileIo.renameSync(temporaryPath, path)
+      } catch (_error) {
+        return ''
+      }
+      if (ImageBlockRuntimeService.fileBytes(path) <= 0) {
+        ImageBlockRuntimeService.removeFile(path)
+        return ''
+      }
+      ImageBlockPreviewCacheService.touch(path)
+      await ImageBlockPreviewCacheService.pruneToLimit(context, false, path)
+      return path
+    } finally {
+      ImageBlockRuntimeService.removeFile(temporaryPath)
+    }
   }
 
   private static async loadThumbnailFile(
@@ -943,13 +996,9 @@ export class ImageBlockRuntimeService {
     }
   }
 
-  private static ensureDir(dir: string): void {
+  private static removeFile(path: string): void {
     try {
-      fileIo.mkdirSync(dir, true)
-    } catch (error) {
-      if (!fileIo.accessSync(dir)) {
-        throw error as Error
-      }
-    }
+      fileIo.unlinkSync(path)
+    } catch (_error) {}
   }
 }

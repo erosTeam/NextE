@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { CacheStat } from './CacheStat'
 import { CachedImageFileResult, CachedImageFileService, CachedImageProgress } from './CachedImageFileService'
+import { ImageBlockPreviewCacheService } from './ImageBlockPreviewCacheService'
 import { ImageKnifeProRuntime } from './ImageKnifeProRuntime'
 import { EH_IMAGE_PRIORITY_LOW } from './ImagePipelineTypes'
 import { ReaderImageFileCacheService } from './ReaderImageFileCacheService'
@@ -97,6 +98,10 @@ export class ImagePipelineService {
     await CachedImageFileService.pruneToLimit(context)
   }
 
+  static async pruneImageBlockPreviewCache(context: common.UIAbilityContext): Promise<void> {
+    await ImageBlockPreviewCacheService.pruneToLimit(context, true)
+  }
+
   static async preloadImageBlockThumbnailFile(
     context: common.UIAbilityContext,
     url: string,
@@ -108,9 +113,12 @@ export class ImagePipelineService {
   static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
     const out: CacheStat = await CachedImageFileService.stat(context)
     const readerCache: CacheStat = await ReaderImageFileCacheService.stat(context)
+    const imageBlockPreviewCache: CacheStat = await ImageBlockPreviewCacheService.stat(context)
     const imageCache: CacheStat = ImageKnifeProRuntime.stat()
     out.count += readerCache.count
     out.bytes += readerCache.bytes
+    out.count += imageBlockPreviewCache.count
+    out.bytes += imageBlockPreviewCache.bytes
     out.count += imageCache.count
     out.bytes += imageCache.bytes
     return out
@@ -119,6 +127,7 @@ export class ImagePipelineService {
   static async clearCache(context: common.UIAbilityContext): Promise<void> {
     await CachedImageFileService.clear(context)
     await ReaderImageFileCacheService.clear(context)
+    await ImageBlockPreviewCacheService.clear(context)
     await ImageKnifeProRuntime.clearCache()
   }
 

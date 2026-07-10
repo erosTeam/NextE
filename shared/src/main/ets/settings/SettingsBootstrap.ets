@@ -80,6 +80,9 @@ export class SettingsBootstrap {
       ImagePipelineService.pruneImageBlockThumbnailFallbackCache(context).catch((error: Error) => {
         DiagnosticLogger.warn('image-cache', 'fallback_disk_startup_prune_failed', error.message)
       })
+      ImagePipelineService.pruneImageBlockPreviewCache(context).catch((error: Error) => {
+        DiagnosticLogger.warn('image-cache', 'image_block_preview_startup_prune_failed', error.message)
+      })
       await ThumbnailModeSettings.restore(context)
       await CoverBackgroundSettings.restore(context)
       await ActionAlignmentSettings.restore(context)

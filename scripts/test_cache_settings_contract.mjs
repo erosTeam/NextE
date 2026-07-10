@@ -24,9 +24,9 @@ ok('page cache exposes stat() + clearAll()',
 
 const imagePipeline = read('shared/src/main/ets/services/ImagePipelineService.ets')
 ok('image cache pipeline counts every cache layer',
-  /static async stat\(context: common\.UIAbilityContext\): Promise<CacheStat>[\s\S]*CachedImageFileService\.stat[\s\S]*ReaderImageFileCacheService\.stat[\s\S]*ImageKnifeProRuntime\.stat/.test(imagePipeline))
+  /static async stat\(context: common\.UIAbilityContext\): Promise<CacheStat>[\s\S]*CachedImageFileService\.stat[\s\S]*ReaderImageFileCacheService\.stat[\s\S]*ImageBlockPreviewCacheService\.stat[\s\S]*ImageKnifeProRuntime\.stat/.test(imagePipeline))
 ok('image cache pipeline clears disk, reader, and memory cache layers together',
-  /static async clearCache\(context: common\.UIAbilityContext\): Promise<void>[\s\S]*CachedImageFileService\.clear[\s\S]*ReaderImageFileCacheService\.clear[\s\S]*ImageKnifeProRuntime\.clearCache/.test(imagePipeline))
+  /static async clearCache\(context: common\.UIAbilityContext\): Promise<void>[\s\S]*CachedImageFileService\.clear[\s\S]*ReaderImageFileCacheService\.clear[\s\S]*ImageBlockPreviewCacheService\.clear[\s\S]*ImageKnifeProRuntime\.clearCache/.test(imagePipeline))
 
 const fallbackImageCache = read('shared/src/main/ets/services/CachedImageFileService.ets')
 ok('ImageBlock thumbnail fallback cache has an independent bounded LRU disk lifecycle',
@@ -41,6 +41,17 @@ const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 ok('startup prunes ImageBlock thumbnail fallback cache independently of Reader cache settings',
   /pruneImageBlockThumbnailFallbackCache\(context\)[\s\S]*fallback_disk_startup_prune_failed/.test(bootstrap) &&
     /static async pruneImageBlockThumbnailFallbackCache[\s\S]*CachedImageFileService\.pruneToLimit\(context\)/.test(imagePipeline))
+
+const imageBlockPreviewCache = read('shared/src/main/ets/services/ImageBlockPreviewCacheService.ets')
+ok('ImageBlock settings preview cache has an independent bounded disk lifecycle',
+  /MAX_CACHE_FILE_COUNT: number = 128/.test(imageBlockPreviewCache) &&
+    /MAX_CACHE_BYTES: number = 32 \* 1024 \* 1024/.test(imageBlockPreviewCache) &&
+    /static touch\(path: string\)[\s\S]*fileIo\.utimes/.test(imageBlockPreviewCache) &&
+    /static pruneToLimit\([\s\S]*pruneChain/.test(imageBlockPreviewCache) &&
+    /name\.endsWith\('\.part'\)[\s\S]*cleanupPartialFiles/.test(imageBlockPreviewCache))
+ok('startup prunes ImageBlock settings preview cache and removes stale partial files',
+  /pruneImageBlockPreviewCache\(context\)[\s\S]*image_block_preview_startup_prune_failed/.test(bootstrap) &&
+    /static async pruneImageBlockPreviewCache[\s\S]*ImageBlockPreviewCacheService\.pruneToLimit\(context, true\)/.test(imagePipeline))
 
 const commentSvc = read('shared/src/main/ets/services/CommentTranslationService.ets')
 ok('comment translation cache exposes stat() and clear()',
