@@ -2,6 +2,10 @@ import { EhUsertag } from '../model/EhMytags'
 import { SimpleTag } from '../model/SimpleTag'
 import { EhConstants } from '../constants/EhConstants'
 
+// A gallery list may contribute several aliases (full namespace, short namespace, and plain text) for
+// every inline-coloured tag. This is a best-effort detail-page fallback, not durable My Tags state.
+const MAX_INLINE_TAG_ALIAS_ENTRIES: number = 4096
+
 /**
  * Global in-memory store of the user's My Tags (loaded from getMyTags when logged in). It drives the
  * per-tag custom COLOR on gallery list cards (eros_fe TagController) and the tag HIDE flag.
@@ -19,6 +23,11 @@ export class UserTagStore {
   private static instance: UserTagStore | null = null
   private index: Map<string, EhUsertag> = new Map()
   private inlineIndex: Map<string, EhUsertag> = new Map()
+  private readonly inlineAliasLimit: number
+
+  constructor(inlineAliasLimit: number = MAX_INLINE_TAG_ALIAS_ENTRIES) {
+    this.inlineAliasLimit = inlineAliasLimit > 0 ? Math.floor(inlineAliasLimit) : 1
+  }
 
   static getInstance(): UserTagStore {
     if (UserTagStore.instance === null) {
@@ -60,7 +69,13 @@ export class UserTagStore {
       u.defaultColor = t.backgroundColor.length === 0
       changed = UserTagStore.indexTag(this.inlineIndex, u, true) || changed
     })
+    this.pruneInlineAliases()
     return changed
+  }
+
+  /** Alias count is exposed for bounded-cache diagnostics and deterministic tests. */
+  inlineCacheSize(): number {
+    return this.inlineIndex.size
   }
 
   /** Look up a list tag by namespace + text (eros_fe: try "ns:tag" first, then plain "tag"). */
@@ -132,6 +147,26 @@ export class UserTagStore {
       changed = true
     }
     return changed
+  }
+
+  /**
+   * Inline colours are only a derived fallback from previously visited list rows. Keep their alias map
+   * finite in insertion order; an evicted entry simply falls back to the tag's current list styling or
+   * neutral detail styling, while the user's My Tags index remains untouched.
+   */
+  private pruneInlineAliases(): void {
+    while (this.inlineIndex.size > this.inlineAliasLimit) {
+      let oldestKey: string = ''
+      this.inlineIndex.forEach((_value: EhUsertag, key: string) => {
+        if (oldestKey.length === 0) {
+          oldestKey = key
+        }
+      })
+      if (oldestKey.length === 0) {
+        return
+      }
+      this.inlineIndex.delete(oldestKey)
+    }
   }
 
   isHidden(namespace: string, tag: string): boolean {

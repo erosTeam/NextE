@@ -9,6 +9,7 @@ import gallerySeedSchedulerTest from './GallerySeedScheduler.test'
 import imageBlockThumbnailHashMemoryCacheTest from './ImageBlockThumbnailHashMemoryCache.test'
 import coverColorResourceBoundsTest from './CoverColorResourceBounds.test'
 import preloadedGalleryListMemoryCacheTest from './PreloadedGalleryListMemoryCache.test'
+import userTagStoreInlineCacheTest from './UserTagStoreInlineCache.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -22,4 +23,5 @@ export default function testsuite(): void {
   imageBlockThumbnailHashMemoryCacheTest()
   coverColorResourceBoundsTest()
   preloadedGalleryListMemoryCacheTest()
+  userTagStoreInlineCacheTest()
 }
