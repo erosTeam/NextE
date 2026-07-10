@@ -28,6 +28,20 @@ ok('image cache pipeline counts every cache layer',
 ok('image cache pipeline clears disk, reader, and memory cache layers together',
   /static async clearCache\(context: common\.UIAbilityContext\): Promise<void>[\s\S]*CachedImageFileService\.clear[\s\S]*ReaderImageFileCacheService\.clear[\s\S]*ImageKnifeProRuntime\.clearCache/.test(imagePipeline))
 
+const fallbackImageCache = read('shared/src/main/ets/services/CachedImageFileService.ets')
+ok('ImageBlock thumbnail fallback cache has an independent bounded LRU disk lifecycle',
+  /MAX_CACHE_FILE_COUNT: number = 256/.test(fallbackImageCache) &&
+    /MAX_CACHE_BYTES: number = 64 \* 1024 \* 1024/.test(fallbackImageCache) &&
+    /static cached\([\s\S]*CachedImageFileService\.touch\(filePath\)/.test(fallbackImageCache) &&
+    /private static async downloadAndStore[\s\S]*try \{[\s\S]*await CachedImageFileService\.pruneToLimit\(context\)[\s\S]*catch \(error\) \{[\s\S]*removeIfExists\(tmpPath\)/.test(fallbackImageCache) &&
+    /static pruneToLimit\(context: common\.UIAbilityContext\): Promise<void>[\s\S]*pruneChain/.test(fallbackImageCache) &&
+    /private static entries\([\s\S]*endsWith\('\.part'\)[\s\S]*removeIfExists\(path\)/.test(fallbackImageCache))
+
+const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
+ok('startup prunes ImageBlock thumbnail fallback cache independently of Reader cache settings',
+  /pruneImageBlockThumbnailFallbackCache\(context\)[\s\S]*fallback_disk_startup_prune_failed/.test(bootstrap) &&
+    /static async pruneImageBlockThumbnailFallbackCache[\s\S]*CachedImageFileService\.pruneToLimit\(context\)/.test(imagePipeline))
+
 const commentSvc = read('shared/src/main/ets/services/CommentTranslationService.ets')
 ok('comment translation cache exposes stat() and clear()',
   /static async stat\(context: common\.UIAbilityContext\): Promise<CacheStat>/.test(commentSvc) &&

@@ -20,12 +20,27 @@ const CACHE_DIR_NAME: string = 'reader-image-cache'
 const DEFAULT_IMAGE_EXTENSION: string = 'jpg'
 const READER_IMAGE_CONNECT_TIMEOUT_MS: number = 6000
 const READER_IMAGE_NO_PROGRESS_TIMEOUT_MS: number = 10000
+const MAX_CACHE_FILE_COUNT: number = 256
+const MAX_CACHE_BYTES: number = 64 * 1024 * 1024
+
+class CachedImageFileCacheEntry {
+  path: string = ''
+  bytes: number = 0
+  mtime: number = 0
+
+  constructor(path: string, bytes: number, mtime: number) {
+    this.path = path
+    this.bytes = bytes
+    this.mtime = mtime
+  }
+}
 
 export class CachedImageFileService {
   private static inFlight: Map<string, Promise<CachedImageFileResult>> = new Map<
     string,
     Promise<CachedImageFileResult>
   >()
+  private static pruneChain: Promise<void> = Promise.resolve()
 
   static cached(
     context: common.UIAbilityContext,
@@ -53,6 +68,7 @@ export class CachedImageFileService {
     if (cachedBytes <= 0) {
       return null
     }
+    CachedImageFileService.touch(filePath)
     return {
       filePath,
       displayUri: CachedImageFileService.displayUri(filePath),
@@ -127,78 +143,83 @@ export class CachedImageFileService {
     CachedImageFileService.removeIfExists(tmpPath)
     let lastLoggedPercent: number = -20
     let loggedUnknownTotal: boolean = false
-    const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
-      url,
-      tmpPath,
-      (loaded: number, total: number) => {
-        if (total <= 0) {
-          if (!loggedUnknownTotal) {
-            loggedUnknownTotal = true
+    try {
+      const bytes: number = await EhHttpClient.getInstance().downloadBinaryToFileInStream(
+        url,
+        tmpPath,
+        (loaded: number, total: number) => {
+          if (total <= 0) {
+            if (!loggedUnknownTotal) {
+              loggedUnknownTotal = true
+              DiagnosticLogger.info(
+                'image-cache',
+                'stream_progress',
+                `loaded=${loaded} total=${total} percent=? urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+              )
+            }
+            onProgress({ loaded, total })
+            return
+          }
+          const percent: number = Math.floor(Math.max(0, Math.min(100, loaded * 100 / total)))
+          if (percent > lastLoggedPercent && (percent >= 100 || percent - lastLoggedPercent >= 20)) {
+            lastLoggedPercent = percent
             DiagnosticLogger.info(
               'image-cache',
               'stream_progress',
-              `loaded=${loaded} total=${total} percent=? urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+              `loaded=${loaded} total=${total} percent=${percent} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
             )
           }
           onProgress({ loaded, total })
-          return
-        }
-        const percent: number = Math.floor(Math.max(0, Math.min(100, loaded * 100 / total)))
-        if (percent > lastLoggedPercent && (percent >= 100 || percent - lastLoggedPercent >= 20)) {
-          lastLoggedPercent = percent
-          DiagnosticLogger.info(
-            'image-cache',
-            'stream_progress',
-            `loaded=${loaded} total=${total} percent=${percent} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
-          )
-        }
-        onProgress({ loaded, total })
-      },
-      READER_IMAGE_CONNECT_TIMEOUT_MS,
-      READER_IMAGE_NO_PROGRESS_TIMEOUT_MS,
-    )
-    CachedImageFileService.removeIfExists(filePath)
-    fileIo.renameSync(tmpPath, filePath)
-    const finalBytes: number = bytes > 0 ? bytes : CachedImageFileService.fileSize(filePath)
-    onProgress({ loaded: finalBytes, total: finalBytes })
-    DiagnosticLogger.info(
-      'image-cache',
-      'stored',
-      `bytes=${finalBytes} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
-    )
-    return {
-      filePath,
-      displayUri: CachedImageFileService.displayUri(filePath),
-      bytes: finalBytes,
-      fromCache: false,
+        },
+        READER_IMAGE_CONNECT_TIMEOUT_MS,
+        READER_IMAGE_NO_PROGRESS_TIMEOUT_MS,
+      )
+      CachedImageFileService.removeIfExists(filePath)
+      fileIo.renameSync(tmpPath, filePath)
+      const finalBytes: number = bytes > 0 ? bytes : CachedImageFileService.fileSize(filePath)
+      if (finalBytes <= 0) {
+        CachedImageFileService.removeIfExists(filePath)
+        throw new Error('downloaded image file is empty')
+      }
+      CachedImageFileService.touch(filePath)
+      onProgress({ loaded: finalBytes, total: finalBytes })
+      DiagnosticLogger.info(
+        'image-cache',
+        'stored',
+        `bytes=${finalBytes} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
+      )
+      await CachedImageFileService.pruneToLimit(context)
+      return {
+        filePath,
+        displayUri: CachedImageFileService.displayUri(filePath),
+        bytes: finalBytes,
+        fromCache: false,
+      }
+    } catch (error) {
+      CachedImageFileService.removeIfExists(tmpPath)
+      throw error as Error
     }
   }
 
   static remove(context: common.UIAbilityContext, url: string, cacheKey: string): void {
-    CachedImageFileService.removeIfExists(CachedImageFileService.filePath(context, url, cacheKey))
+    const filePath: string = CachedImageFileService.filePath(context, url, cacheKey)
+    CachedImageFileService.removeIfExists(filePath)
+    CachedImageFileService.removeIfExists(`${filePath}.part`)
   }
 
-  // File count + total bytes of the reader image cache directory, for the cache page.
+  // File count + total bytes of the ImageBlock thumbnail fallback directory, for the cache page.
   static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
     const out: CacheStat = new CacheStat()
-    const dir: string = `${context.cacheDir}/${CACHE_DIR_NAME}`
-    try {
-      if (!fileIo.accessSync(dir)) {
-        return out
-      }
-      const names: string[] = fileIo.listFileSync(dir)
-      out.count = names.length
-      for (let i: number = 0; i < names.length; i++) {
-        out.bytes += CachedImageFileService.fileSize(`${dir}/${names[i]}`)
-      }
-    } catch (error) {
-      DiagnosticLogger.warn('image-cache', 'stat_failed', (error as Error).message)
+    const entries: CachedImageFileCacheEntry[] = CachedImageFileService.entries(context)
+    out.count = entries.length
+    for (let i: number = 0; i < entries.length; i++) {
+      out.bytes += entries[i].bytes
     }
     return out
   }
 
   static async clear(context: common.UIAbilityContext): Promise<void> {
-    const dir: string = `${context.cacheDir}/${CACHE_DIR_NAME}`
+    const dir: string = CachedImageFileService.cacheDir(context)
     try {
       if (!fileIo.accessSync(dir)) {
         return
@@ -212,11 +233,83 @@ export class CachedImageFileService {
     }
   }
 
+  static pruneToLimit(context: common.UIAbilityContext): Promise<void> {
+    const next: Promise<void> = CachedImageFileService.pruneChain.then(
+      (): Promise<void> => CachedImageFileService.pruneNow(context),
+      (): Promise<void> => CachedImageFileService.pruneNow(context),
+    )
+    CachedImageFileService.pruneChain = next
+    return next
+  }
+
+  private static async pruneNow(context: common.UIAbilityContext): Promise<void> {
+    const entries: CachedImageFileCacheEntry[] = CachedImageFileService.entries(context)
+    if (entries.length === 0) {
+      return
+    }
+    entries.sort((a: CachedImageFileCacheEntry, b: CachedImageFileCacheEntry): number => a.mtime - b.mtime)
+    let totalBytes: number = 0
+    for (let i: number = 0; i < entries.length; i++) {
+      totalBytes += entries[i].bytes
+    }
+    let remaining: number = entries.length
+    let removed: number = 0
+    for (let i: number = 0; i < entries.length; i++) {
+      if ((totalBytes <= MAX_CACHE_BYTES && remaining <= MAX_CACHE_FILE_COUNT) || remaining <= 1) {
+        break
+      }
+      CachedImageFileService.removeIfExists(entries[i].path)
+      totalBytes -= entries[i].bytes
+      remaining--
+      removed++
+    }
+    if (removed > 0) {
+      DiagnosticLogger.info(
+        'image-cache',
+        'fallback_disk_pruned',
+        `removed=${removed} remaining=${remaining} bytes=${totalBytes} limit=${MAX_CACHE_BYTES}`,
+      )
+    }
+  }
+
+  private static entries(context: common.UIAbilityContext): CachedImageFileCacheEntry[] {
+    const out: CachedImageFileCacheEntry[] = []
+    const dir: string = CachedImageFileService.cacheDir(context)
+    try {
+      if (!fileIo.accessSync(dir)) {
+        return out
+      }
+      const names: string[] = fileIo.listFileSync(dir)
+      for (let i: number = 0; i < names.length; i++) {
+        const path: string = `${dir}/${names[i]}`
+        if (names[i].endsWith('.part')) {
+          CachedImageFileService.removeIfExists(path)
+          continue
+        }
+        try {
+          const stat = fileIo.statSync(path)
+          if (stat.size > 0) {
+            out.push(new CachedImageFileCacheEntry(path, stat.size, stat.mtime))
+          } else {
+            CachedImageFileService.removeIfExists(path)
+          }
+        } catch (_error) {}
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('image-cache', 'fallback_disk_scan_failed', (error as Error).message)
+    }
+    return out
+  }
+
   static filePath(context: common.UIAbilityContext, url: string, cacheKey: string): string {
-    const dir: string = `${context.cacheDir}/${CACHE_DIR_NAME}`
+    const dir: string = CachedImageFileService.cacheDir(context)
     CachedImageFileService.ensureDir(dir)
     const key: string = url.length > 0 ? url : cacheKey
     return `${dir}/${CachedImageFileService.hashKey(key)}.${CachedImageFileService.extensionFromUrl(url)}`
+  }
+
+  private static cacheDir(context: common.UIAbilityContext): string {
+    return `${context.cacheDir}/${CACHE_DIR_NAME}`
   }
 
   static displayUri(path: string): string {
@@ -244,6 +337,12 @@ export class CachedImageFileService {
         throw error as Error
       }
     }
+  }
+
+  private static touch(path: string): void {
+    try {
+      fileIo.utimes(path, Date.now())
+    } catch (_error) {}
   }
 
   private static fileSize(path: string): number {

@@ -91,6 +91,12 @@ export class ImagePipelineService {
     await ReaderImageFileCacheService.pruneToLimit(context, ReaderImageCacheSettings.limitBytes())
   }
 
+  static async pruneImageBlockThumbnailFallbackCache(
+    context: common.UIAbilityContext,
+  ): Promise<void> {
+    await CachedImageFileService.pruneToLimit(context)
+  }
+
   static async preloadImageBlockThumbnailFile(
     context: common.UIAbilityContext,
     url: string,
