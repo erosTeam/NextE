@@ -76,7 +76,6 @@ export struct HomeSourceBar {
         tabs: this.tabs(),
         visualIndex: this.visual.value,
         selectedIndex: this.selectedIndex(),
-        scrollable: true,
         onSelect: (index: number) => {
           if (this.safeMode.restricted()) {
             return

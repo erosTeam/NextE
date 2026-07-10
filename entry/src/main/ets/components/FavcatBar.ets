@@ -66,7 +66,6 @@ export struct FavcatBar {
       tabs: this.tabs(),
       visualIndex: this.visual.value,
       selectedIndex: this.selectedIndex(),
-      scrollable: true,
       onSelect: (index: number) => {
         const items: TabItem[] = this.tabs()
         if (index >= 0 && index < items.length) {

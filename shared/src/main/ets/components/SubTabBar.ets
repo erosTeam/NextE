@@ -24,9 +24,9 @@ const INDICATOR_Y: number = SELECTOR_BAR_HEIGHT - 14
  * highlight (brand colour + Medium weight) follows round(visualIndex). Reused by HomeSourceBar /
  * ToplistPeriodBar / FavcatBar so the indicator math is not hand-rolled per bar.
  *
- * `scrollable` (favcat case): many tabs overflow the bar, so the tab strip + its indicator live inside a
- * horizontal Scroll (the indicator is a child of the scrolled content, so it scrolls WITH the tabs), and
- * the active tab is auto-centred when the selection settles.
+ * Every surface uses the same native horizontal List. When its content fits it remains visually static;
+ * when it overflows the List scrolls naturally and recentres the selected tab. Keeping one layout path makes
+ * the indicator geometry consistent for compact Toplist, dynamic Home sources, and Favorites favcats.
  */
 @ComponentV2
 export struct SubTabBar {
@@ -35,12 +35,13 @@ export struct SubTabBar {
   @Param visualIndex: number = 0;
   // Discrete selected index from the selection bus. Scrolling listens to this, not visualIndex.
   @Param selectedIndex: number = -1;
-  // When true the tab strip scrolls horizontally (favcat overflow) and the active tab auto-centres.
-  @Param scrollable: boolean = false;
   @Event onSelect: (index: number) => void = (_i: number) => {};
   // Per-tab measured widths (onAreaChange) so the indicator tracks real tab centres, not a uniform guess.
   @Local tabWidths: number[] = [];
   @Local tabLefts: number[] = [];
+  // The indicator is overlaid above the horizontal List, so it must compensate for the List's content
+  // offset instead of being left behind at a tab's original viewport coordinate.
+  @Local scrollOffsetX: number = 0;
   // Reading this signal in the color helper makes this bar (hosted in a CACHED ComponentContent) repaint on
   // a system dark/light flip — without it the unselected $r('sys.color.*') tokens stay stale.
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
@@ -78,9 +79,10 @@ export struct SubTabBar {
     return Math.max(0, Math.min(n - 1, Math.round(this.visualIndex)))
   }
 
-  // Left edge of tab i: bar padding + cumulative prior tab widths + inter-tab gaps.
+  // Left edge of tab i in the List content coordinate space: bar padding + cumulative prior tab widths +
+  // inter-tab gaps. The overlaid indicator converts this to viewport space with scrollOffsetX.
   private tabLeft(i: number): number {
-    if (this.scrollable && i < this.tabLefts.length && this.tabLefts[i] >= 0) {
+    if (i < this.tabLefts.length && this.tabLefts[i] >= 0) {
       return this.tabLefts[i]
     }
     let left: number = BAR_PAD
@@ -107,7 +109,8 @@ export struct SubTabBar {
     const to: number = Math.min(from + 1, n - 1)
     const frac: number = vi - from
     const center: number = this.tabCenter(from) + (this.tabCenter(to) - this.tabCenter(from)) * frac
-    return center - INDICATOR_W / 2
+    const left: number = center - INDICATOR_W / 2
+    return left - this.scrollOffsetX
   }
 
   private setTabWidth(i: number, w: number): void {
@@ -125,14 +128,17 @@ export struct SubTabBar {
       return
     }
     this.setTabWidth(i, width)
-    if (this.scrollable) {
-      const nextLefts: number[] = this.tabLefts.slice()
-      while (nextLefts.length <= i) {
-        nextLefts.push(-1)
-      }
-      nextLefts[i] = this.areaX(area.globalPosition?.x) - this.containerGlobalLeft
-      this.tabLefts = nextLefts
+    const scrollOffsetX: number = this.currentScrollOffsetX()
+    this.setScrollOffsetX(scrollOffsetX)
+    const nextLefts: number[] = this.tabLefts.slice()
+    while (nextLefts.length <= i) {
+      nextLefts.push(-1)
     }
+    // globalPosition is viewport-relative while the List scrolls. Persist an invariant content-space
+    // left edge so an item can leave the List's viewport without pulling its indicator back to where it
+    // was first measured.
+    nextLefts[i] = this.areaX(area.globalPosition?.x) - this.containerGlobalLeft + scrollOffsetX
+    this.tabLefts = nextLefts
     if (this.pendingCenterIndex === i) {
       this.centerTab(i, this.pendingCenterSmooth)
     }
@@ -147,6 +153,18 @@ export struct SubTabBar {
       return Number.isNaN(parsed) ? 0 : parsed
     }
     return 0
+  }
+
+  private currentScrollOffsetX(): number {
+    const offset: number = this.scroller.currentOffset().xOffset
+    return offset > 0 && !Number.isNaN(offset) ? offset : 0
+  }
+
+  private setScrollOffsetX(offset: number): void {
+    const next: number = offset > 0 && !Number.isNaN(offset) ? offset : 0
+    if (this.scrollOffsetX !== next) {
+      this.scrollOffsetX = next
+    }
   }
 
   private safeKeyPart(value: string): string {
@@ -217,17 +235,14 @@ export struct SubTabBar {
     return s.length === 1 ? `0${s}` : s
   }
 
-  // Keep the active tab visible (favcat strip can overflow). This follows the discrete selection bus,
-  // matching V2Next FeedPills; visualIndex is high-frequency indicator state only.
+  // Keep the active tab visible whenever natural content overflow makes that necessary. This follows the
+  // discrete selection bus, matching V2Next FeedPills; visualIndex is high-frequency indicator state only.
   @Monitor('selectedIndex')
   onSelectedIndexChange(): void {
     this.centerSelectedTab(true, false)
   }
 
   private centerSelectedTab(smooth: boolean, force: boolean): void {
-    if (!this.scrollable) {
-      return
-    }
     const i: number = this.centerIndex()
     if (!force && i === this.centeredTarget && this.pendingCenterIndex !== i) {
       return
@@ -237,7 +252,7 @@ export struct SubTabBar {
   }
 
   private centerTab(i: number, smooth: boolean): void {
-    if (!this.scrollable || i < 0 || i >= this.tabs.length) {
+    if (i < 0 || i >= this.tabs.length) {
       return
     }
     if (!this.containerReady) {
@@ -258,54 +273,7 @@ export struct SubTabBar {
     return Math.max(0, Math.min(n - 1, raw))
   }
 
-  @Builder
-  tabRow() {
-    Row({ space: TAB_GAP }) {
-      ForEach(
-        this.tabs,
-        (tab: TabItem, index: number) => {
-          Row({ space: 3 }) {
-            Text(tab.label)
-              .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontColor(
-                this.visualSelectedIndex() === index
-                  ? this.tabAccentColor(index)
-                  : this.themeTracked($r('sys.color.font_secondary')),
-              )
-              .fontWeight(this.visualSelectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
-              .maxLines(1)
-            if (tab.count >= 0) {
-              Text(`${tab.count}`)
-                .fontSize(ThemeConstants.FONT_SIZE_TINY)
-                .fontColor(
-                  this.visualSelectedIndex() === index
-                    ? this.tabAccentColor(index)
-                    : this.themeTracked($r('sys.color.font_tertiary')),
-                )
-            }
-          }
-          .padding({
-            left: ThemeConstants.SPACE_MD,
-            right: ThemeConstants.SPACE_MD,
-            top: ThemeConstants.SPACE_XS,
-          })
-          .onClick(() => {
-            this.onSelect(index)
-          })
-          .onAreaChange((_oldValue: Area, newValue: Area) => {
-            this.updateTabLayout(index, newValue)
-          })
-        },
-        (tab: TabItem, index: number) => this.tabRenderKey(tab, index),
-      )
-    }
-    .padding({ left: BAR_PAD, right: BAR_PAD })
-    // Top-align (V2Next FeedPills) so the label sits near the bar top with the indicator just under it,
-    // filling the bar height tightly rather than centring the label with empty space above and below.
-    .alignItems(VerticalAlign.Top)
-  }
-
-  // The single sliding indicator (interpolated), a child of the tab strip so it scrolls with the tabs.
+  // The single sliding indicator is overlaid above the List and tracks its horizontal content offset.
   @Builder
   indicatorBar() {
     Row()
@@ -318,77 +286,71 @@ export struct SubTabBar {
   }
 
   build() {
-    if (this.scrollable) {
-      Stack({ alignContent: Alignment.TopStart }) {
-        List({ space: TAB_GAP, scroller: this.scroller }) {
-          ForEach(
-            this.tabs,
-            (tab: TabItem, index: number) => {
-              ListItem() {
-                Row({ space: 3 }) {
-                  Text(tab.label)
-                    .fontSize(ThemeConstants.FONT_SIZE_BODY)
+    Stack({ alignContent: Alignment.TopStart }) {
+      List({ space: TAB_GAP, scroller: this.scroller }) {
+        ForEach(
+          this.tabs,
+          (tab: TabItem, index: number) => {
+            ListItem() {
+              Row({ space: 3 }) {
+                Text(tab.label)
+                  .fontSize(ThemeConstants.FONT_SIZE_BODY)
+                  .fontColor(
+                    this.visualSelectedIndex() === index
+                      ? this.tabAccentColor(index)
+                      : this.themeTracked($r('sys.color.font_secondary')),
+                  )
+                  .fontWeight(this.visualSelectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
+                  .maxLines(1)
+                if (tab.count >= 0) {
+                  Text(`${tab.count}`)
+                    .fontSize(ThemeConstants.FONT_SIZE_TINY)
                     .fontColor(
                       this.visualSelectedIndex() === index
                         ? this.tabAccentColor(index)
-                        : this.themeTracked($r('sys.color.font_secondary')),
+                        : this.themeTracked($r('sys.color.font_tertiary')),
                     )
-                    .fontWeight(this.visualSelectedIndex() === index ? FontWeight.Bold : FontWeight.Regular)
-                    .maxLines(1)
-                  if (tab.count >= 0) {
-                    Text(`${tab.count}`)
-                      .fontSize(ThemeConstants.FONT_SIZE_TINY)
-                      .fontColor(
-                        this.visualSelectedIndex() === index
-                          ? this.tabAccentColor(index)
-                          : this.themeTracked($r('sys.color.font_tertiary')),
-                      )
-                  }
                 }
-                .padding({
-                  left: ThemeConstants.SPACE_MD,
-                  right: ThemeConstants.SPACE_MD,
-                  top: ThemeConstants.SPACE_XS,
-                })
-                .onClick(() => {
-                  this.onSelect(index)
-                })
-                .onAreaChange((_oldValue: Area, newValue: Area) => {
-                  this.updateTabLayout(index, newValue)
-                })
               }
-            },
-            (tab: TabItem, index: number) => this.tabRenderKey(tab, index),
-          )
-        }
-        .listDirection(Axis.Horizontal)
-        .scrollBar(BarState.Off)
-        .padding({ left: BAR_PAD, right: BAR_PAD })
-        .width('100%')
-        .height(SELECTOR_BAR_HEIGHT)
-        this.indicatorBar()
+              .padding({
+                left: ThemeConstants.SPACE_MD,
+                right: ThemeConstants.SPACE_MD,
+                top: ThemeConstants.SPACE_XS,
+              })
+              .onClick(() => {
+                this.onSelect(index)
+              })
+              .onAreaChange((_oldValue: Area, newValue: Area) => {
+                this.updateTabLayout(index, newValue)
+              })
+            }
+          },
+          (tab: TabItem, index: number) => this.tabRenderKey(tab, index),
+        )
       }
+      .listDirection(Axis.Horizontal)
+      .onDidScroll((_scrollOffset: number, _scrollState: ScrollState) => {
+        this.setScrollOffsetX(this.currentScrollOffsetX())
+      })
+      .onScrollIndex((_start: number, _end: number) => {
+        this.setScrollOffsetX(this.currentScrollOffsetX())
+      })
+      .scrollBar(BarState.Off)
+      .padding({ left: BAR_PAD, right: BAR_PAD })
       .width('100%')
       .height(SELECTOR_BAR_HEIGHT)
-      .onAreaChange((_oldValue: Area, newValue: Area) => {
-        this.containerGlobalLeft = this.areaX(newValue.globalPosition?.x)
-        this.containerReady = true
-        if (this.pendingCenterIndex >= 0) {
-          this.centerTab(this.pendingCenterIndex, this.pendingCenterSmooth)
-        } else {
-          this.centerSelectedTab(false, true)
-        }
-      })
-    } else {
-      Stack({ alignContent: Alignment.TopStart }) {
-        this.tabRow()
-        this.indicatorBar()
-      }
-      .width('100%')
-      .height(SELECTOR_BAR_HEIGHT)
-      .onAreaChange((_oldValue: Area, newValue: Area) => {
-        this.containerGlobalLeft = this.areaX(newValue.globalPosition?.x)
-      })
+      this.indicatorBar()
     }
+    .width('100%')
+    .height(SELECTOR_BAR_HEIGHT)
+    .onAreaChange((_oldValue: Area, newValue: Area) => {
+      this.containerGlobalLeft = this.areaX(newValue.globalPosition?.x)
+      this.containerReady = true
+      if (this.pendingCenterIndex >= 0) {
+        this.centerTab(this.pendingCenterIndex, this.pendingCenterSmooth)
+      } else {
+        this.centerSelectedTab(false, true)
+      }
+    })
   }
 }
