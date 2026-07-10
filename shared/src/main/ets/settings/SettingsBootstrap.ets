@@ -101,7 +101,6 @@ export class SettingsBootstrap {
       await DiagnosticsSettings.restore(context)
       await DownloadSettings.restore(context)
       await DownloadQueueSettings.restore(context)
-      DownloadQueueSettings.resumePendingDownloads(context)
       await SecuritySettings.restore(context)
       await SettingsBootstrap.preloadPageCaches(context)
       DiagnosticLogger.info('settings', 'bootstrap_loaded', 'cookie jar restored')

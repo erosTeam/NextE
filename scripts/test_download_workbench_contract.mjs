@@ -23,6 +23,7 @@ const ok = (cond, msg) => {
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
 const archiveService = read('shared/src/main/ets/services/ArchiveImageService.ets')
+const imagePipeline = read('shared/src/main/ets/services/ImagePipelineService.ets')
 const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets')
 const bar = read('entry/src/main/ets/components/DownloadTypeBar.ets')
 const index = read('entry/src/main/ets/pages/Index.ets')
@@ -385,7 +386,8 @@ ok(/export class ArchiveImageService/.test(archiveService) &&
   /zlib\.decompressFile\(task\.filePath, outDir, options\)/.test(archiveService) &&
   /fileIo\.listFileSync\(dir\)/.test(archiveService) &&
   /image\.sUrl = `archive:\/\/\$\{task\.tag\}\/\$\{page\}`/.test(archiveService) &&
-  /image\.imageUrl = CachedImageFileService\.displayUri\(paths\[i\]\)/.test(archiveService),
+  /image\.imageUrl = ImagePipelineService\.displayUri\(paths\[i\]\)/.test(archiveService) &&
+  /static displayUri\(path: string\): string \{[\s\S]*return CachedImageFileService\.displayUri\(path\)/.test(imagePipeline),
   'ArchiveImageService uses platform zip extraction options and produces file:// Reader images')
 ok(/try \{[\s\S]*await zlib\.decompressFile\(task\.filePath, outDir, options\)[\s\S]*\} catch \(error\) \{[\s\S]*ArchiveImageService\.deletePath\(outDir\)[\s\S]*throw error as Error/.test(archiveService) &&
   /if \(paths\.length === 0\) \{[\s\S]*ArchiveImageService\.deletePath\(outDir\)[\s\S]*throw new Error\('archive has no readable images'\)/.test(archiveService) &&

@@ -678,6 +678,31 @@ export class DownloadQueueSettings {
     const galleryTasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.map(
       (task: DownloadGalleryTask) => task.copy(),
     )
+    const archiverTasks: DownloadArchiverTask[] = connectDownloadQueue().archiverTasks.map(
+      (task: DownloadArchiverTask) => task.copy(),
+    )
+    let hasPendingTask: boolean = false
+    for (let i: number = 0; i < galleryTasks.length; i++) {
+      if (DownloadQueueSettings.shouldAutoResumeGalleryTask(galleryTasks[i])) {
+        hasPendingTask = true
+        break
+      }
+    }
+    if (!hasPendingTask) {
+      for (let i: number = 0; i < archiverTasks.length; i++) {
+        if (DownloadQueueSettings.shouldAutoResumeArchiverTask(archiverTasks[i])) {
+          hasPendingTask = true
+          break
+        }
+      }
+    }
+    if (!hasPendingTask) {
+      return
+    }
+    if (!await DownloadQueueSettings.ensureDownloadStorageReady(context)) {
+      DiagnosticLogger.warn('download', 'pending_resume_storage_deferred', DOWNLOAD_DIRECTORY_UNAVAILABLE)
+      return
+    }
     for (let i: number = 0; i < galleryTasks.length; i++) {
       if (DownloadQueueSettings.shouldAutoResumeGalleryTask(galleryTasks[i])) {
         try {
@@ -692,9 +717,6 @@ export class DownloadQueueSettings {
         }
       }
     }
-    const archiverTasks: DownloadArchiverTask[] = connectDownloadQueue().archiverTasks.map(
-      (task: DownloadArchiverTask) => task.copy(),
-    )
     for (let i: number = 0; i < archiverTasks.length; i++) {
       if (DownloadQueueSettings.shouldAutoResumeArchiverTask(archiverTasks[i])) {
         try {

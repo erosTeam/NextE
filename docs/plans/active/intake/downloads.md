@@ -10,6 +10,44 @@ Purpose:
 
 ## Items
 
+### Interrupted Downloads Become Directory-Unavailable Errors After Cold Start
+
+Type: download queue recovery / lifecycle
+
+Priority suggestion: P1 / core download continuity
+
+Status: implemented candidate / needs interrupted-task device QA
+
+Source:
+
+- User report, 2026-07-10: exiting the app while a download is active and reopening it changes the
+  task to failed with `Download directory unavailable`.
+
+Root cause and implementation:
+
+- The public Download root is intentionally process-local. Cold-start queue restore ran from
+  `SettingsBootstrap.loadAll(...)`, before the main content and foreground Ability lifecycle were
+  both ready, so `DocumentViewPicker.save(DOWNLOAD)` could fail and the per-task executor then
+  persisted that transient storage failure as a terminal task error.
+- Automatic resume now starts from `EntryAbility` only after both `loadContent(...)` succeeds and
+  `onForeground()` has run, independent of which callback arrives first.
+- `runPendingResume(...)` now resolves Download storage once before starting any restored worker. If
+  storage is temporarily unavailable, it logs `pending_resume_storage_deferred` and leaves restored
+  queued/ready/partial states intact instead of rewriting every task to `ERROR`. Its in-flight guard
+  resets when the attempt settles, so a later foreground transition can retry deferred work without
+  creating duplicate workers while the previous attempt is still active.
+- Manual starts and retries retain the existing explicit directory-error behavior.
+
+Evidence:
+
+- Download workbench, gallery queue, RDB, settings, prepare, first-file, archiver protected-submit,
+  backup, V1 inventory contracts, and `git diff --check` pass.
+- Official signed Hvigor build succeeds.
+- Mate X7 emulator `127.0.0.1:5555`: updated signed HAP installs and cold-starts successfully. Existing
+  device logs confirm the old pre-content phase attempted download metadata writes before the runtime
+  Download root existed. The device had no safely reusable active task, so the exact interrupted-task
+  restart path remains pending manual/device acceptance.
+
 ### Download Gallery Task Rows Are Hard To Read
 
 Type: UX / information architecture cleanup

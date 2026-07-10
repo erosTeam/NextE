@@ -40,6 +40,7 @@ const galleryModel = read('shared/src/main/ets/model/EhGallery.ets')
 const state = read('shared/src/main/ets/state/DownloadQueueState.ets')
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 const imageCache = read('shared/src/main/ets/services/CachedImageFileService.ets')
+const imagePipeline = read('shared/src/main/ets/services/ImagePipelineService.ets')
 const repository = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const keys = read('shared/src/main/ets/constants/StorageKeys.ets')
@@ -170,7 +171,7 @@ ok(/private isDownloadChipEnabled\(\): boolean \{[\s\S]*return !this\.downloadCh
   !/this\.DetailActionChip\(\$r\('sys\.symbol\.arrow_down_to_line'\), this\.downloadTitle\(\), this\.isDownloadChipEnabled\(\)/.test(detail),
   'detail download chip reads synced local chip state and is disabled while a task is queued or downloading')
 ok(/private onDownloadChipTap\(\): void[\s\S]*if \(task !== undefined\) \{[\s\S]*this\.isDownloadTaskComplete\(task\)[\s\S]*this\.openDownloadedTaskFromDetail\(task\)[\s\S]*return[\s\S]*this\.enqueueGalleryDownloadWithPolicy\(\)/.test(detail) &&
-  /private openDownloadedTaskFromDetail\(task: DownloadGalleryTask\): void[\s\S]*CachedImageFileService\.displayUri\(seed\.filePath\)[\s\S]*const index: number = Math\.max\(0, Math\.min\(images\.length - 1, this\.resumeIndex\(\)\)\)[\s\S]*detail_open_local_reader[\s\S]*firstUriHash[\s\S]*new ReaderParams\(task\.gid, task\.token, index, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(detail),
+  /private openDownloadedTaskFromDetail\(task: DownloadGalleryTask\): void[\s\S]*ImagePipelineService\.displayUri\(seed\.filePath\)[\s\S]*const index: number = Math\.max\(0, Math\.min\(images\.length - 1, this\.resumeIndex\(\)\)\)[\s\S]*detail_open_local_reader[\s\S]*firstUriHash[\s\S]*new ReaderParams\(task\.gid, task\.token, index, images\.length, task\.displayTitle\(\), images, 1, images\.length\)/.test(detail),
   'detail page completed download chip opens the local file Reader at the saved reading position instead of re-enqueueing')
 ok(/this\.openReader\(this\.resumeIndex\(\)\)/.test(detail),
   'detail Read action remains the primary header action')
@@ -218,7 +219,8 @@ ok(!/const fileCount: number = task\.pageCount|const loadedPages: number = task\
   'downloaded gallery Reader entry does not reuse EH preview-page seed params')
 ok(/downloadedSeedImages\(task: DownloadGalleryTask\)/.test(queuePage) &&
   /image\.sUrl = seed\.imagePageUrl/.test(queuePage) &&
-  /image\.imageUrl = CachedImageFileService\.displayUri\(seed\.filePath\)/.test(queuePage),
+  /image\.imageUrl = ImagePipelineService\.displayUri\(seed\.filePath\)/.test(queuePage) &&
+  /static displayUri\(path: string\): string \{[\s\S]*return CachedImageFileService\.displayUri\(path\)/.test(imagePipeline),
   'downloaded tasks keep EH /s/ identity while feeding local file:// image URLs to Reader')
 ok(/localFilePath\(url: string\)/.test(imageCache) &&
   /url\.startsWith\('file:\/\/'\)/.test(imageCache) &&

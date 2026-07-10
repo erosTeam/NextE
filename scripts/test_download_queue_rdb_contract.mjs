@@ -181,8 +181,10 @@ ok('paused download status is a durable queue state',
 const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets')
 const imageResolve = read('shared/src/main/ets/services/ImageResolveService.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
+const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
 const moduleJson = read('entry/src/main/module.json5')
 const autoResumeBody = settings.match(/shouldAutoResumeGalleryTask\(task: DownloadGalleryTask\): boolean \{[\s\S]*?\n  \}/)?.[0] ?? ''
+const pendingResumeBody = settings.match(/private static async runPendingResume\([\s\S]*?\n  private static async runArchiverDownload/)?.[0] ?? ''
 const downloadWriteRootCandidatesBody =
   settings.match(/downloadWriteRootCandidates\(\): string\[\] \{([\s\S]*?)\n  \}/)?.[1] ?? ''
 ok('settings facade uses RDB and only reads old Preferences for migration',
@@ -294,11 +296,18 @@ ok('restore normalizes stale archiver download state to queued resume',
   /normalizeRestoredArchiverTasks\(await DownloadQueueRepository\.loadArchiver\(context\)\)/.test(settings) &&
     /out\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*DownloadGalleryTaskStatus\.QUEUED/.test(settings) &&
     /out\.error = ''/.test(settings))
-ok('bootstrap resumes restored queued gallery and archiver downloads without blocking first paint',
-  /DownloadQueueSettings\.resumePendingDownloads\(context\)/.test(bootstrap) &&
-    !/await DownloadQueueSettings\.resumePendingDownloads/.test(bootstrap) &&
+ok('startup resumes restored downloads only after main content is ready and defers transient storage failures',
+  !/DownloadQueueSettings\.resumePendingDownloads/.test(bootstrap) &&
+    /windowStage\.loadContent\(ENTRY_PAGE[\s\S]*if \(!err\.code\) \{[\s\S]*this\.mainContentReady = true[\s\S]*this\.resumePendingDownloadsIfReady\(\)/.test(entryAbility) &&
+    /onForeground\(\): void \{[\s\S]*this\.abilityForeground = true[\s\S]*this\.resumePendingDownloadsIfReady\(\)/.test(entryAbility) &&
+    /onBackground\(\): void \{[\s\S]*this\.abilityForeground = false/.test(entryAbility) &&
+    /private resumePendingDownloadsIfReady\(\): void \{[\s\S]*!this\.mainContentReady \|\| !this\.abilityForeground \|\| this\.startupDownloadResumeInFlight[\s\S]*this\.startupDownloadResumeInFlight = true[\s\S]*DownloadQueueSettings\.resumePendingDownloads\(this\.context\)[\s\S]*\.finally\(\(\) => \{[\s\S]*this\.startupDownloadResumeInFlight = false/.test(entryAbility) &&
+    !/startupDownloadResumeStarted/.test(entryAbility) &&
     /static async resumePendingDownloads/.test(settings) &&
     /pendingResume: Promise<void> \| null/.test(settings) &&
+    /hasPendingTask/.test(pendingResumeBody) &&
+    /ensureDownloadStorageReady\(context\)/.test(pendingResumeBody) &&
+    /pending_resume_storage_deferred/.test(pendingResumeBody) &&
     /shouldAutoResumeGalleryTask/.test(settings) &&
     /shouldAutoResumeArchiverTask/.test(settings) &&
     /downloadGalleryImages\([\s\S]*context,[\s\S]*galleryTasks\[i\]\.gid,[\s\S]*galleryTasks\[i\]\.token,[\s\S]*galleryTasks\[i\]\.preferOriginal/.test(settings) &&

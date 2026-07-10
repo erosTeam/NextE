@@ -56,7 +56,7 @@ Operating rule:
 - [Gallery Detail And Comments Intake](intake/gallery-detail-comments.md) — 6 item(s).
 - [Search Intake](intake/search.md) — 8 item(s).
 - [Reader Intake](intake/reader.md) — 15 item(s).
-- [Downloads Intake](intake/downloads.md) — 1 item(s).
+- [Downloads Intake](intake/downloads.md) — 2 item(s).
 - [Settings And History Intake](intake/settings.md) — 10 item(s).
 - [Persistence And Backup Intake](intake/persistence.md) — 1 item(s).
 - [Cache Architecture Intake](intake/cache.md) — 1 item(s).

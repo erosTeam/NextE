@@ -4,6 +4,7 @@ import { window } from '@kit.ArkUI'
 import {
   AppStrings,
   DiagnosticLogger,
+  DownloadQueueSettings,
   SettingsBootstrap,
   ThemeSettings,
   MotionHandStateService,
@@ -34,6 +35,9 @@ export default class EntryAbility extends UIAbility {
   private avoidAreaChangeCallback: ((data: window.AvoidAreaOptions) => void) | null = null
   private windowSizeChangeCallback: ((size: window.Size) => void) | null = null
   private keyboardHeightCallback: ((height: number) => void) | null = null
+  private mainContentReady: boolean = false
+  private abilityForeground: boolean = false
+  private startupDownloadResumeInFlight: boolean = false
 
   onCreate(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     HuaweiCloudSyncScheduler.bindExecutor((context: common.UIAbilityContext, reason: string) => {
@@ -116,6 +120,10 @@ export default class EntryAbility extends UIAbility {
         } catch (e) {
           LayoutSafeAreaBridge.publishInsets(FALLBACK_TOP_AVOID, FALLBACK_BOTTOM_AVOID)
         }
+        if (!err.code) {
+          this.mainContentReady = true
+          this.resumePendingDownloadsIfReady()
+        }
       })
     })
   }
@@ -129,6 +137,8 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
+    this.abilityForeground = true
+    this.resumePendingDownloadsIfReady()
     SyncScheduler.rememberContext(this.context)
     SyncScheduler.requestAfterForeground(this.context, 'foreground')
     ImagePipelineService.reloadOnForeground()
@@ -136,8 +146,21 @@ export default class EntryAbility extends UIAbility {
   }
 
   onBackground(): void {
+    this.abilityForeground = false
     ImagePipelineService.clearOnBackground()
     SecuritySettings.recordBackground(this.context)
+  }
+
+  private resumePendingDownloadsIfReady(): void {
+    if (!this.mainContentReady || !this.abilityForeground || this.startupDownloadResumeInFlight) {
+      return
+    }
+    this.startupDownloadResumeInFlight = true
+    DownloadQueueSettings.resumePendingDownloads(this.context).catch((error: Error) => {
+      DiagnosticLogger.warn('download', 'startup_resume_failed', error.message)
+    }).finally(() => {
+      this.startupDownloadResumeInFlight = false
+    })
   }
 
   private applyWindowPrivacy(enabled: boolean): void {
