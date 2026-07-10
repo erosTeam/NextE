@@ -10,6 +10,34 @@ Purpose:
 
 ## Items
 
+### Double-Page Toggle Shifts When The One-Page Step Action Appears
+
+Type: Reader chrome / layout stability bug
+
+Priority suggestion: P2 / narrow interaction polish
+
+Status: implemented candidate / needs device acceptance
+
+Source:
+
+- User report, 2026-07-10: enabling double-page mode inserts the one-page step action between the
+  double-page toggle and reading-mode action, causing the double-page toggle to jump horizontally.
+
+Implementation:
+
+- Preserve the right-edge control order as `double-page toggle -> reading mode` in both states.
+- Render the conditional one-page step action to the left of the double-page toggle, so enabling
+  double-page mode only consumes space from the flexible center gap and does not move the toggle the
+  user just pressed.
+- Scope is limited to control order; button capability, icon, enabled state, and page-turn behavior
+  are unchanged.
+
+Evidence:
+
+- Source order review, V1 decorator inventory, signed Hvigor build, and `git diff --check`.
+- Device acceptance must confirm the double-page toggle stays in the same position when switching
+  single-page -> double-page -> single-page with Reader chrome visible.
+
 ### Reader Starts From Wrong Image When Opening Later Thumbnail Pages
 
 Type: bug

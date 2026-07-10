@@ -2677,20 +2677,6 @@ export struct ReaderPage {
             this.toggleThumbStrip()
           })
           Blank()
-          Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.book_open_fill'))
-              .fontSize(READER_CHROME_ICON_SIZE)
-              .fontColor([this.doublePageIconColor()])
-          }
-          .width(READER_CHROME_ACTION_SIZE)
-          .height(READER_CHROME_ACTION_SIZE)
-          .backgroundColor(
-            Color.Transparent
-          )
-          .enabled(this.isHorizontalPagedMode())
-          .onClick(() => {
-            this.toggleDoublePage()
-          })
           if (this.showOnePageStepButton()) {
             Button({ type: ButtonType.Circle }) {
               SymbolGlyph($r('sys.symbol.forward_end_fill'))
@@ -2705,6 +2691,20 @@ export struct ReaderPage {
               this.turnOnePageInDoublePage()
             })
           }
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.book_open_fill'))
+              .fontSize(READER_CHROME_ICON_SIZE)
+              .fontColor([this.doublePageIconColor()])
+          }
+          .width(READER_CHROME_ACTION_SIZE)
+          .height(READER_CHROME_ACTION_SIZE)
+          .backgroundColor(
+            Color.Transparent
+          )
+          .enabled(this.isHorizontalPagedMode())
+          .onClick(() => {
+            this.toggleDoublePage()
+          })
           Button({ type: ButtonType.Circle }) {
             SymbolGlyph(this.modeIcon())
               .fontSize(READER_CHROME_ICON_SIZE)
