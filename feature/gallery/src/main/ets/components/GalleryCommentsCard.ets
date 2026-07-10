@@ -69,6 +69,7 @@ export struct GalleryCommentsCard {
   @Param useSingleComment: boolean = false;
   @Param singleComment: EhGalleryComment = new EhGalleryComment();
   @Param renderState: GalleryCommentRenderState = new GalleryCommentRenderState();
+  @Param referenceRenderStates: GalleryCommentRenderState[] = [];
   @Param parentManagedActions: boolean = false;
   @Param max: number = 0;
   @Param showHeader: boolean = true;
@@ -84,6 +85,10 @@ export struct GalleryCommentsCard {
     _comment: EhGalleryComment,
     _sourceText: string,
   ) => Promise.resolve('');
+  @Event onEnsureTranslation: (comment: EhGalleryComment, sourceText: string) => void = (
+    _comment: EhGalleryComment,
+    _sourceText: string,
+  ) => {};
   @Event onTranslationResolved: (comment: EhGalleryComment, translated: string) => void = (
     _comment: EhGalleryComment,
     _translated: string,
@@ -774,8 +779,12 @@ export struct GalleryCommentsCard {
       // @Monitor runs the animation.
       this.manualTranslateArmed = true
       if (this.renderState.translationText.length > 0) {
+        if (!this.renderState.translationShown) {
+          this.ensureReplyReferencesTranslated(c)
+        }
         this.publishToggleTranslation(c)
       } else {
+        this.ensureReplyReferencesTranslated(c)
         this.publishTranslate(c, this.translationSourceText(c))
       }
       return
@@ -817,6 +826,7 @@ export struct GalleryCommentsCard {
     const shown: EhGalleryComment[] = this.shown()
     for (let i = 0; i < shown.length; i++) {
       const c: EhGalleryComment = shown[i]
+      this.autoTranslateReplyReferences(c)
       if (this.autoTranslateStarted(c)) {
         continue
       }
@@ -830,6 +840,35 @@ export struct GalleryCommentsCard {
         continue
       }
       this.publishAutoTranslate(c, sourceText)
+    }
+  }
+
+  private ensureReplyReferencesTranslated(c: EhGalleryComment): void {
+    const references: EhGalleryComment[] = this.replyReferences(c)
+    for (let i = 0; i < references.length; i++) {
+      const reference: EhGalleryComment = references[i]
+      if (reference.commentId === c.commentId) {
+        continue
+      }
+      const sourceText: string = this.translationSourceText(reference)
+      if (sourceText.trim().length > 0) {
+        this.publishEnsureTranslation(reference, sourceText)
+      }
+    }
+  }
+
+  private autoTranslateReplyReferences(c: EhGalleryComment): void {
+    const references: EhGalleryComment[] = this.replyReferences(c)
+    for (let i = 0; i < references.length; i++) {
+      const reference: EhGalleryComment = references[i]
+      if (reference.commentId === c.commentId) {
+        continue
+      }
+      const sourceText: string = this.translationSourceText(reference)
+      if (sourceText.trim().length === 0 || !CommentTranslationService.needsTranslation(sourceText)) {
+        continue
+      }
+      this.publishAutoTranslate(reference, sourceText)
     }
   }
 
@@ -869,6 +908,10 @@ export struct GalleryCommentsCard {
     return this.onTranslate(c, sourceText)
   }
 
+  private publishEnsureTranslation(c: EhGalleryComment, sourceText: string): void {
+    this.onEnsureTranslation(c, sourceText)
+  }
+
   private publishTranslationResolved(c: EhGalleryComment, translated: string): void {
     this.onTranslationResolved(c, translated)
   }
@@ -887,10 +930,32 @@ export struct GalleryCommentsCard {
   }
 
   private quoteExcerptText(c: EhGalleryComment): string {
+    const state: GalleryCommentRenderState | undefined = this.referenceRenderState(c)
+    if (
+      this.translationEnabled() &&
+      state !== undefined &&
+      state.translationShown &&
+      state.translationText.length > 0
+    ) {
+      return state.translationText
+    }
     if (this.translationEnabled() && c.translationShown && c.translationText.length > 0) {
       return c.translationText
     }
     return c.contentText
+  }
+
+  private referenceRenderState(c: EhGalleryComment): GalleryCommentRenderState | undefined {
+    if (!this.parentManagedActions || c.commentId.length === 0) {
+      return undefined
+    }
+    for (let i = 0; i < this.referenceRenderStates.length; i++) {
+      const state: GalleryCommentRenderState = this.referenceRenderStates[i]
+      if (state.commentId === c.commentId) {
+        return state
+      }
+    }
+    return undefined
   }
 
   private commentGap(): number {

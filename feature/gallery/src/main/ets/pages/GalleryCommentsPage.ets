@@ -94,6 +94,7 @@ export struct GalleryCommentsPage {
   // (BasicDataSource contract); commentCount mirrors its size so build() re-evaluates the empty branch.
   private commentSource: BasicDataSource<EhGalleryComment> = new BasicDataSource();
   private renderStateMap: Map<string, GalleryCommentRenderState> = new Map();
+  private referenceRenderStates: GalleryCommentRenderState[] = [];
   @Local commentCount: number = 0;
   @Local initialRefreshStarted: boolean = false;
   @Local localBlock: LocalBlockState = connectLocalBlock();
@@ -109,16 +110,21 @@ export struct GalleryCommentsPage {
     // (uploaderOnly) or block-rule change never discards an off-filter comment's vote/translation state —
     // the render state is the single source of truth and the comment objects are not written back.
     const nextMap: Map<string, GalleryCommentRenderState> = new Map()
+    const nextStates: GalleryCommentRenderState[] = []
     for (let i = 0; i < this.comments.length; i++) {
       const c: EhGalleryComment = this.comments[i]
       const existing: GalleryCommentRenderState | undefined = this.renderStateMap.get(c.commentId)
       if (existing !== undefined && !resetStates) {
         nextMap.set(c.commentId, existing)
+        nextStates.push(existing)
       } else {
-        nextMap.set(c.commentId, new GalleryCommentRenderState(c))
+        const state: GalleryCommentRenderState = new GalleryCommentRenderState(c)
+        nextMap.set(c.commentId, state)
+        nextStates.push(state)
       }
     }
     this.renderStateMap = nextMap
+    this.referenceRenderStates = nextStates
     this.commentSource.setData(visible)
     this.commentCount = visible.length
   }
@@ -520,6 +526,21 @@ export struct GalleryCommentsPage {
       })
   }
 
+  private ensureCommentTranslation(comment: EhGalleryComment, sourceText: string): void {
+    if (comment.commentId.length === 0 || sourceText.trim().length === 0) {
+      return
+    }
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(comment.commentId)
+    if (state === undefined || state.translationLoading) {
+      return
+    }
+    if (state.translationText.length > 0) {
+      this.applyCommentTranslationState(comment.commentId, undefined, undefined, true, false, undefined)
+      return
+    }
+    this.translateComment(comment, sourceText, false)
+  }
+
   private autoTranslateComment(comment: EhGalleryComment, sourceText: string): void {
     const state: GalleryCommentRenderState | undefined = this.renderStateById(comment.commentId)
     if (
@@ -765,6 +786,7 @@ export struct GalleryCommentsPage {
                     useSingleComment: true,
                     singleComment: comment,
                     renderState: this.renderStateFor(comment),
+                    referenceRenderStates: this.referenceRenderStates,
                     parentManagedActions: true,
                     showHeader: false,
                     onAuthor: (author: string) => {
@@ -782,6 +804,9 @@ export struct GalleryCommentsPage {
                     onTranslate: (selectedComment: EhGalleryComment, sourceText: string) => {
                       this.translateComment(selectedComment, sourceText, false)
                       return Promise.resolve('')
+                    },
+                    onEnsureTranslation: (selectedComment: EhGalleryComment, sourceText: string) => {
+                      this.ensureCommentTranslation(selectedComment, sourceText)
                     },
                     onTranslationResolved: (
                       selectedComment: EhGalleryComment,

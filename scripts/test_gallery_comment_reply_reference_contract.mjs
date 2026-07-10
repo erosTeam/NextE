@@ -74,6 +74,17 @@ ok('comment card renders a compact quote before the comment body',
   /@Builder\s+ReplyQuote\(c: EhGalleryComment\)/.test(card) &&
   /private quoteExcerptText\(c: EhGalleryComment\): string[\s\S]*c\.translationShown[\s\S]*return c\.translationText[\s\S]*return c\.contentText/.test(card) &&
   /Text\(this\.quoteExcerpt\(this\.quoteExcerptText\(c\)\)\)/.test(card))
+ok('translating a comment also translates its resolved reply references',
+  /private ensureReplyReferencesTranslated\(c: EhGalleryComment\): void[\s\S]*this\.replyReferences\(c\)[\s\S]*this\.publishEnsureTranslation\(reference, sourceText\)/.test(card) &&
+  /this\.ensureReplyReferencesTranslated\(c\)[\s\S]*this\.publishTranslate\(c, this\.translationSourceText\(c\)\)/.test(card) &&
+  /onEnsureTranslation: \(selectedComment: EhGalleryComment, sourceText: string\)[\s\S]*this\.ensureCommentTranslation\(selectedComment, sourceText\)/.test(commentsPage))
+ok('reply quote reads the page-managed translation state of the referenced comment',
+  /@Param referenceRenderStates: GalleryCommentRenderState\[\] = \[\];/.test(card) &&
+  /private quoteExcerptText\(c: EhGalleryComment\): string[\s\S]*this\.referenceRenderState\(c\)[\s\S]*state\.translationShown[\s\S]*return state\.translationText/.test(card) &&
+  /referenceRenderStates: this\.referenceRenderStates/.test(commentsPage))
+ok('auto translation also requests translations for resolved reply references',
+  /private autoTranslateVisibleComments\(\): void[\s\S]*this\.autoTranslateReplyReferences\(c\)/.test(card) &&
+  /private autoTranslateReplyReferences\(c: EhGalleryComment\): void[\s\S]*this\.publishAutoTranslate\(reference, sourceText\)/.test(card))
 
 if (failures === 0) {
   console.log('✓ gallery comment reply reference contract passed')
