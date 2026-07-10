@@ -138,7 +138,9 @@ export class ReaderViewModel {
     // so the Swiper .index() and the progress write-back never go out of range.
     const total: number = this.totalPages()
     this.currentIndex = total > 0 ? Math.min(startIndex, total - 1) : 0
-    this.precacheFrom(this.currentIndex)
+    // The visible page component checks the stable disk cache before resolving /s/. Pre-resolving the
+    // current page here would race that check and issue avoidable HTML requests on a cold reopen.
+    this.precacheFrom(this.currentIndex + 1)
     this.warmPreviewAhead(this.currentIndex)
     this.publishSessionCache()
   }
@@ -800,7 +802,7 @@ export class ReaderViewModel {
     this.ensureLoaded(target, 'preview-ahead')
       .then(
         (): void => {
-          this.precacheFrom(index)
+          this.precacheFrom(index + 1)
         },
         (): void => {},
       )

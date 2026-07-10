@@ -516,6 +516,7 @@ export { SiteModeSettings } from './settings/SiteModeSettings'
 export { ListModeSettings } from './settings/ListModeSettings'
 export { GalleryTitleSettings } from './settings/GalleryTitleSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
+export { ReaderImageCacheSettings } from './settings/ReaderImageCacheSettings'
 export { ReadButtonStyleSettings, ReadButtonStyleOption } from './settings/ReadButtonStyleSettings'
 export {
   READ_BUTTON_STYLE_FILLED,

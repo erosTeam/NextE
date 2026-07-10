@@ -731,7 +731,7 @@ export struct ReaderPage {
     }
     const to: number = Math.min(this.vm.currentIndex + preloadPages, this.vm.totalPages() - 1)
     for (let i: number = this.vm.currentIndex + 1; i <= to; i++) {
-      if (this.currentDisplayUrl(this.vm.imageAt(i)).length > 0) {
+      if (this.vm.hasPreviewAt(i)) {
         indexes.push(i)
       }
     }
@@ -752,6 +752,10 @@ export struct ReaderPage {
             page: this.vm.imageAt(index).page,
             sourceUrl: this.currentDisplayUrl(this.vm.imageAt(index)),
             imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
+            fileCacheKey: this.readerFileCacheKey(
+              this.vm.imageAt(index),
+              this.originalModeForPage(this.vm.imageAt(index).page),
+            ),
             onImageLoaded: (page: number) => {
               this.markPageImageLoaded(page)
             },
@@ -836,6 +840,13 @@ export struct ReaderPage {
     return true
   }
 
+  private hasCachedOriginal(image: EhGalleryImage): boolean {
+    return ImagePipelineService.cachedReaderFile(
+      this.hostContext(),
+      this.readerFileCacheKey(image, true),
+    ) !== null
+  }
+
   private async enableOriginalImages(indexes: number[]): Promise<void> {
     for (let i: number = 0; i < indexes.length; i++) {
       const index: number = indexes[i]
@@ -844,6 +855,11 @@ export struct ReaderPage {
       }
       const image: EhGalleryImage = this.vm.imageAt(index)
       if (this.originalModeForPage(image.page)) {
+        continue
+      }
+      if (this.hasCachedOriginal(image)) {
+        this.setOriginalModeForPage(image.page, true)
+        DiagnosticLogger.info('reader', 'original_mode_cache_hit', `page ${image.page}`)
         continue
       }
       try {
@@ -875,6 +891,11 @@ export struct ReaderPage {
       }
       const image: EhGalleryImage = this.vm.imageAt(index)
       if (this.originalModeForPage(image.page)) {
+        continue
+      }
+      if (this.hasCachedOriginal(image)) {
+        this.setOriginalModeForPage(image.page, true)
+        DiagnosticLogger.info('reader', 'original_mode_cache_hit', `page ${image.page}`)
         continue
       }
       try {
@@ -1609,6 +1630,10 @@ export struct ReaderPage {
             ReaderImagePage({
               image: this.vm.imageAt(index),
               imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
+              fileCacheKey: this.readerFileCacheKey(
+                this.vm.imageAt(index),
+                this.originalModeForPage(this.vm.imageAt(index).page),
+              ),
               preferOriginal: this.originalModeForPage(this.vm.imageAt(index).page),
               initiallyLoaded: this.isPageImageLoaded(index),
               loadedSignal: this.loadedPageSignal,
@@ -1685,7 +1710,16 @@ export struct ReaderPage {
   }
 
   private readerImageKey(img: EhGalleryImage): string {
-    return `${img.page}-${img.sUrl}-${img.imageUrl}`
+    return `${img.page}-${img.sUrl}`
+  }
+
+  private readerFileCacheKey(img: EhGalleryImage, original: boolean): string {
+    return ImagePipelineService.readerFileCacheKey(
+      this.params.gid,
+      this.params.token,
+      img.page,
+      original,
+    )
   }
 
   private readerImageIdentityKey(img: EhGalleryImage): string {
@@ -1794,6 +1828,16 @@ export struct ReaderPage {
             ReaderSpreadSurface({
               first: this.vm.imageAt(start),
               second: this.hasSpreadImage(this.spreadSecondIndex(start)) ? this.vm.imageAt(this.spreadSecondIndex(start)) : new EhGalleryImage(),
+              firstFileCacheKey: this.readerFileCacheKey(
+                this.vm.imageAt(start),
+                this.originalModeForPage(this.vm.imageAt(start).page),
+              ),
+              secondFileCacheKey: this.hasSpreadImage(this.spreadSecondIndex(start))
+                ? this.readerFileCacheKey(
+                    this.vm.imageAt(this.spreadSecondIndex(start)),
+                    this.originalModeForPage(this.vm.imageAt(this.spreadSecondIndex(start)).page),
+                  )
+                : '',
               hasFirst: true,
               hasSecond: this.spreadSecondVisible(start) && this.hasSpreadImage(this.spreadSecondIndex(start)),
               firstPreferOriginal: this.originalModeForPage(this.vm.imageAt(start).page),
@@ -1918,6 +1962,10 @@ export struct ReaderPage {
               ReaderVerticalImage({
                 image: this.vm.imageAt(index),
                 imageKey: `${this.readerImageKey(this.vm.imageAt(index))}-${this.originalModeKeyForPage(this.vm.imageAt(index).page)}-${this.imageBlockRuleVersion}`,
+                fileCacheKey: this.readerFileCacheKey(
+                  this.vm.imageAt(index),
+                  this.originalModeForPage(this.vm.imageAt(index).page),
+                ),
                 preferOriginal: this.originalModeForPage(this.vm.imageAt(index).page),
                 initiallyLoaded: this.isPageImageLoaded(index),
                 loadedSignal: this.loadedPageSignal,
@@ -3090,6 +3138,7 @@ struct ReaderCacheWarmImage {
   @Param page: number = 0;
   @Param sourceUrl: string = '';
   @Param imageKey: string = '';
+  @Param fileCacheKey: string = '';
   @Param translateX: number = 0;
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageFileReady: (page: number, filePath: string, bytes: number) => void =
@@ -3115,7 +3164,7 @@ struct ReaderCacheWarmImage {
   }
 
   private cacheKey(): string {
-    return `${this.page}-${this.imageKey}-${this.sourceUrl}`
+    return this.fileCacheKey
   }
 
   private markReady(result: CachedImageFileResult, key: string): void {
@@ -3152,7 +3201,7 @@ struct ReaderCacheWarmImage {
   }
 
   private warm(): void {
-    if (this.page <= 0 || this.sourceUrl.length === 0) {
+    if (this.page <= 0 || this.fileCacheKey.length === 0) {
       this.warmDisplayUri = ''
       return
     }
@@ -3162,6 +3211,15 @@ struct ReaderCacheWarmImage {
     }
     const context: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
+    const cached: CachedImageFileResult | null = ImagePipelineService.cachedReaderFile(context, key)
+    if (cached !== null) {
+      this.markReady(cached, key)
+      return
+    }
+    if (this.sourceUrl.length === 0) {
+      this.warmDisplayUri = ''
+      return
+    }
     this.warmingKey = key
     this.warmDisplayUri = ''
     this.warmByImageKnifeOrFallback(context, key)
@@ -3171,6 +3229,7 @@ struct ReaderCacheWarmImage {
     if (this.warmDisplayUri.length > 0) {
       EhImageKnifeImage({
         src: this.warmDisplayUri,
+        memoryOnly: true,
         widthValue: '100%',
         heightValue: '100%',
         objectFit: ImageFit.Contain,
@@ -3197,6 +3256,8 @@ struct ReaderCacheWarmImage {
 struct ReaderSpreadSurface {
   @Param first: EhGalleryImage = new EhGalleryImage();
   @Param second: EhGalleryImage = new EhGalleryImage();
+  @Param firstFileCacheKey: string = '';
+  @Param secondFileCacheKey: string = '';
   @Param hasFirst: boolean = false;
   @Param hasSecond: boolean = false;
   @Param firstPreferOriginal: boolean = false;
@@ -3609,7 +3670,11 @@ struct ReaderSpreadSurface {
   }
 
   private spreadImageKey(image: EhGalleryImage, preferOriginal: boolean): string {
-    return `${image.page}-${image.sUrl}-${image.imageUrl}-${preferOriginal ? 'orig' : 'fit'}-${this.imageBlockRuleVersion}`
+    return `${image.page}-${image.sUrl}-${preferOriginal ? 'orig' : 'fit'}-${this.imageBlockRuleVersion}`
+  }
+
+  private fileCacheKeyForPage(page: number): string {
+    return this.hasFirst && this.first.page === page ? this.firstFileCacheKey : this.secondFileCacheKey
   }
 
   @Builder
@@ -3618,6 +3683,7 @@ struct ReaderSpreadSurface {
       ReaderSpreadImageLayer({
         image: image,
         imageKey: this.spreadImageKey(image, preferOriginal),
+        fileCacheKey: this.fileCacheKeyForPage(image.page),
         preferOriginal: preferOriginal,
         initiallyLoaded: initiallyLoaded,
         loadedSignal: this.loadedSignal,
@@ -3815,6 +3881,7 @@ struct ReaderSpreadSurface {
 struct ReaderSpreadImageLayer {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param imageKey: string = '';
+  @Param fileCacheKey: string = '';
   @Param preferOriginal: boolean = false;
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
@@ -3887,14 +3954,23 @@ struct ReaderSpreadImageLayer {
   }
 
   private async resolve(changeSource: boolean = false): Promise<void> {
-    if (!changeSource && this.preferOriginal) {
+    if (!changeSource && !this.image.imageUrl.startsWith('file://')) {
+      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+      const cached: CachedImageFileResult | null =
+        ImagePipelineService.cachedReaderFile(context, this.fileCacheKey)
+      if (cached !== null) {
+        await this.loadResolvedImage('', cached)
+        return
+      }
+    }
+    if (this.preferOriginal) {
       try {
         this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
         this.imageBlocked = false
         this.imageBlockPreviewUri = ''
-        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image)
+        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image, changeSource)
         DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
         await this.loadResolvedImage(original)
         this.failed = false
@@ -3929,30 +4005,34 @@ struct ReaderSpreadImageLayer {
     }
   }
 
-  private async loadResolvedImage(resolved: string): Promise<void> {
+  private async loadResolvedImage(
+    resolved: string,
+    cachedResult?: CachedImageFileResult,
+  ): Promise<void> {
     const seq: number = ++this.loadSeq
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    const cacheKey: string = this.cacheKey(resolved)
     this.sourceImageUrl = resolved
     this.imageUrl = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
-    const result: CachedImageFileResult = await ImagePipelineService.loadReaderFile(
-      context,
-      resolved,
-      cacheKey,
-      EH_IMAGE_PRIORITY_HIGH,
-      (progress: CachedImageProgress) => {
-        if (seq !== this.loadSeq) {
-          return
-        }
-        this.imageProgressLoaded = progress.loaded
-        this.imageProgressTotal = progress.total
-      },
-    )
+    const result: CachedImageFileResult = cachedResult !== undefined
+      ? cachedResult
+      : await ImagePipelineService.loadReaderFile(
+          context,
+          resolved,
+          this.fileCacheKey,
+          EH_IMAGE_PRIORITY_HIGH,
+          (progress: CachedImageProgress) => {
+            if (seq !== this.loadSeq) {
+              return
+            }
+            this.imageProgressLoaded = progress.loaded
+            this.imageProgressTotal = progress.total
+          },
+        )
     if (seq !== this.loadSeq) {
       return
     }
@@ -4005,20 +4085,10 @@ struct ReaderSpreadImageLayer {
     return true
   }
 
-  private cacheKey(resolved: string): string {
-    return `${this.image.page}-${this.imageKey}-${resolved}`
-  }
-
   private retrySource(): void {
     this.autoRetryCount = 0
-    if (this.sourceImageUrl.length > 0) {
-      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-      ImagePipelineService.removeReaderFile(
-        context,
-        this.sourceImageUrl,
-        this.cacheKey(this.sourceImageUrl),
-      )
-    }
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
     this.loadSeq++
     this.sourceImageUrl = ''
     this.imageUrl = ''
@@ -4034,6 +4104,8 @@ struct ReaderSpreadImageLayer {
 
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
+      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+      ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
       this.autoRetryCount++
       this.loadSeq++
       this.sourceImageUrl = ''
@@ -4083,6 +4155,7 @@ struct ReaderSpreadImageLayer {
       } else if (this.imageUrl.length > 0) {
         EhImageKnifeImage({
           src: this.imageUrl,
+          memoryOnly: true,
           widthValue: '100%',
           heightValue: '100%',
           objectFit: ImageFit.Contain,
@@ -4138,6 +4211,7 @@ struct ReaderSpreadImageLayer {
 struct ReaderImagePage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param imageKey: string = '';
+  @Param fileCacheKey: string = '';
   @Param preferOriginal: boolean = false;
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
@@ -4242,14 +4316,23 @@ struct ReaderImagePage {
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) — re-resolves via /s/?nl= for a
   // different host, bypassing the cached URL.
   private async resolve(changeSource: boolean = false): Promise<void> {
-    if (!changeSource && this.preferOriginal) {
+    if (!changeSource && !this.image.imageUrl.startsWith('file://')) {
+      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+      const cached: CachedImageFileResult | null =
+        ImagePipelineService.cachedReaderFile(context, this.fileCacheKey)
+      if (cached !== null) {
+        await this.loadResolvedImage('', cached)
+        return
+      }
+    }
+    if (this.preferOriginal) {
       try {
         this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
         this.imageBlocked = false
         this.imageBlockPreviewUri = ''
-        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image)
+        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image, changeSource)
         DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
         await this.loadResolvedImage(original)
         this.failed = false
@@ -4284,30 +4367,34 @@ struct ReaderImagePage {
     }
   }
 
-  private async loadResolvedImage(resolved: string): Promise<void> {
+  private async loadResolvedImage(
+    resolved: string,
+    cachedResult?: CachedImageFileResult,
+  ): Promise<void> {
     const seq: number = ++this.loadSeq
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    const cacheKey: string = this.cacheKey(resolved)
     this.sourceImageUrl = resolved
     this.imageUrl = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
-    const result: CachedImageFileResult = await ImagePipelineService.loadReaderFile(
-      context,
-      resolved,
-      cacheKey,
-      EH_IMAGE_PRIORITY_HIGH,
-      (progress: CachedImageProgress) => {
-        if (seq !== this.loadSeq) {
-          return
-        }
-        this.imageProgressLoaded = progress.loaded
-        this.imageProgressTotal = progress.total
-      },
-    )
+    const result: CachedImageFileResult = cachedResult !== undefined
+      ? cachedResult
+      : await ImagePipelineService.loadReaderFile(
+          context,
+          resolved,
+          this.fileCacheKey,
+          EH_IMAGE_PRIORITY_HIGH,
+          (progress: CachedImageProgress) => {
+            if (seq !== this.loadSeq) {
+              return
+            }
+            this.imageProgressLoaded = progress.loaded
+            this.imageProgressTotal = progress.total
+          },
+        )
     if (seq !== this.loadSeq) {
       return
     }
@@ -4360,10 +4447,6 @@ struct ReaderImagePage {
     return true
   }
 
-  private cacheKey(resolved: string): string {
-    return `${this.image.page}-${this.imageKey}-${resolved}`
-  }
-
   private resetSourceState(): void {
     this.autoRetryCount = 0
     this.loadSeq++
@@ -4383,14 +4466,8 @@ struct ReaderImagePage {
   // Retry on failure: re-source (换源) — clear the dead URL and re-resolve from a different host.
   private retrySource(): void {
     this.autoRetryCount = 0
-    if (this.sourceImageUrl.length > 0) {
-      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-      ImagePipelineService.removeReaderFile(
-        context,
-        this.sourceImageUrl,
-        this.cacheKey(this.sourceImageUrl),
-      )
-    }
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
     this.loadSeq++
     this.sourceImageUrl = ''
     this.imageUrl = ''
@@ -4406,6 +4483,8 @@ struct ReaderImagePage {
 
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
+      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+      ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
       this.autoRetryCount++
       this.loadSeq++
       this.sourceImageUrl = ''
@@ -4562,6 +4641,7 @@ struct ReaderImagePage {
       } else if (this.imageUrl.length > 0) {
         EhImageKnifeImage({
           src: this.imageUrl,
+          memoryOnly: true,
           widthValue: '100%',
           heightValue: '100%',
           objectFit: ImageFit.Contain,
@@ -4727,6 +4807,7 @@ const DEFAULT_VERTICAL_RATIO: number = 0.7
 struct ReaderVerticalImage {
   @Param image: EhGalleryImage = new EhGalleryImage();
   @Param imageKey: string = '';
+  @Param fileCacheKey: string = '';
   @Param preferOriginal: boolean = false;
   @Param initiallyLoaded: boolean = false;
   @Param loadedSignal: number = 0;
@@ -4823,14 +4904,23 @@ struct ReaderVerticalImage {
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
   private async resolve(changeSource: boolean = false): Promise<void> {
-    if (!changeSource && this.preferOriginal) {
+    if (!changeSource && !this.image.imageUrl.startsWith('file://')) {
+      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+      const cached: CachedImageFileResult | null =
+        ImagePipelineService.cachedReaderFile(context, this.fileCacheKey)
+      if (cached !== null) {
+        await this.loadResolvedImage('', cached)
+        return
+      }
+    }
+    if (this.preferOriginal) {
       try {
         this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
         this.imageBlocked = false
         this.imageBlockPreviewUri = ''
-        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image)
+        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image, changeSource)
         DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
         await this.loadResolvedImage(original)
         this.failed = false
@@ -4865,30 +4955,34 @@ struct ReaderVerticalImage {
     }
   }
 
-  private async loadResolvedImage(resolved: string): Promise<void> {
+  private async loadResolvedImage(
+    resolved: string,
+    cachedResult?: CachedImageFileResult,
+  ): Promise<void> {
     const seq: number = ++this.loadSeq
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-    const cacheKey: string = this.cacheKey(resolved)
     this.sourceImageUrl = resolved
     this.imageUrl = ''
     this.imageLoaded = false
     this.imageProgressLoaded = 0
     this.imageProgressTotal = 0
-    const result: CachedImageFileResult = await ImagePipelineService.loadReaderFile(
-      context,
-      resolved,
-      cacheKey,
-      EH_IMAGE_PRIORITY_HIGH,
-      (progress: CachedImageProgress) => {
-        if (seq !== this.loadSeq) {
-          return
-        }
-        this.imageProgressLoaded = progress.loaded
-        this.imageProgressTotal = progress.total
-      },
-    )
+    const result: CachedImageFileResult = cachedResult !== undefined
+      ? cachedResult
+      : await ImagePipelineService.loadReaderFile(
+          context,
+          resolved,
+          this.fileCacheKey,
+          EH_IMAGE_PRIORITY_HIGH,
+          (progress: CachedImageProgress) => {
+            if (seq !== this.loadSeq) {
+              return
+            }
+            this.imageProgressLoaded = progress.loaded
+            this.imageProgressTotal = progress.total
+          },
+        )
     if (seq !== this.loadSeq) {
       return
     }
@@ -4941,10 +5035,6 @@ struct ReaderVerticalImage {
     return true
   }
 
-  private cacheKey(resolved: string): string {
-    return `${this.image.page}-${this.imageKey}-${resolved}`
-  }
-
   private resetSourceState(): void {
     this.autoRetryCount = 0
     this.loadSeq++
@@ -4964,14 +5054,8 @@ struct ReaderVerticalImage {
 
   private retrySource(): void {
     this.autoRetryCount = 0
-    if (this.sourceImageUrl.length > 0) {
-      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
-      ImagePipelineService.removeReaderFile(
-        context,
-        this.sourceImageUrl,
-        this.cacheKey(this.sourceImageUrl),
-      )
-    }
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+    ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
     this.loadSeq++
     this.sourceImageUrl = ''
     this.imageUrl = ''
@@ -4987,6 +5071,8 @@ struct ReaderVerticalImage {
 
   private retrySourceAutomatically(): void {
     if (this.autoRetryCount < IMAGE_AUTO_RETRY_LIMIT) {
+      const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
+      ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
       this.autoRetryCount++
       this.loadSeq++
       this.sourceImageUrl = ''
@@ -5219,6 +5305,7 @@ struct ReaderVerticalImage {
       } else if (this.imageUrl.length > 0) {
         EhImageKnifeImage({
           src: this.imageUrl,
+          memoryOnly: true,
           widthValue: '100%',
           heightValue: '100%',
           objectFit: ImageFit.Contain,
@@ -5589,6 +5676,7 @@ struct ReaderImageBlockedOverlay {
     if (this.previewUri.length > 0) {
       EhImageKnifeImage({
         src: this.previewUri,
+        memoryOnly: true,
         widthValue: '100%',
         heightValue: '100%',
         objectFit: ImageFit.Contain,

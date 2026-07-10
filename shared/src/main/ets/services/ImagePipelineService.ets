@@ -4,6 +4,8 @@ import { CacheStat } from './CacheStat'
 import { CachedImageFileResult, CachedImageFileService, CachedImageProgress } from './CachedImageFileService'
 import { ImageKnifeProRuntime } from './ImageKnifeProRuntime'
 import { EH_IMAGE_PRIORITY_LOW } from './ImagePipelineTypes'
+import { ReaderImageFileCacheService } from './ReaderImageFileCacheService'
+import { ReaderImageCacheSettings } from '../settings/ReaderImageCacheSettings'
 
 export class ImagePipelineService {
   static initialize(context: common.UIAbilityContext): void {
@@ -26,44 +28,60 @@ export class ImagePipelineService {
     context: common.UIAbilityContext,
     url: string,
     cacheKey: string,
-    priority: number,
+    _priority: number,
     onProgress?: (progress: CachedImageProgress) => void,
   ): Promise<CachedImageFileResult | null> {
-    return ImageKnifeProRuntime.preloadReaderFile(context, url, cacheKey, priority, onProgress)
+    try {
+      return await ReaderImageFileCacheService.load(
+        context,
+        url,
+        cacheKey,
+        ReaderImageCacheSettings.limitBytes(),
+        onProgress !== undefined ? onProgress : (_progress: CachedImageProgress) => {},
+      )
+    } catch (error) {
+      DiagnosticLogger.warn(
+        'image-pipeline',
+        'reader_file_load_failed',
+        `cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)} error=${(error as Error).message}`,
+      )
+      return null
+    }
   }
 
   static async loadReaderFile(
     context: common.UIAbilityContext,
     url: string,
     cacheKey: string,
-    priority: number,
+    _priority: number,
     onProgress?: (progress: CachedImageProgress) => void,
   ): Promise<CachedImageFileResult> {
-    const imageKnifeResult: CachedImageFileResult | null =
-      await ImagePipelineService.preloadReaderFile(context, url, cacheKey, priority, onProgress)
-    if (imageKnifeResult !== null) {
-      return imageKnifeResult
-    }
-    DiagnosticLogger.info(
-      'image-pipeline',
-      'reader_fallback_legacy',
-      `urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
-    )
-    return CachedImageFileService.load(
+    return ReaderImageFileCacheService.load(
       context,
       url,
       cacheKey,
+      ReaderImageCacheSettings.limitBytes(),
       onProgress !== undefined ? onProgress : (_progress: CachedImageProgress) => {},
     )
   }
 
-  static removeReaderFile(
+  static readerFileCacheKey(gid: string, token: string, page: number, original: boolean): string {
+    return ReaderImageFileCacheService.cacheKey(gid, token, page, original)
+  }
+
+  static cachedReaderFile(
     context: common.UIAbilityContext,
-    url: string,
     cacheKey: string,
-  ): void {
-    ImageKnifeProRuntime.removeReaderFile(context, url, cacheKey)
-    CachedImageFileService.remove(context, url, cacheKey)
+  ): CachedImageFileResult | null {
+    return ReaderImageFileCacheService.cached(context, cacheKey)
+  }
+
+  static removeReaderFile(context: common.UIAbilityContext, cacheKey: string): void {
+    ReaderImageFileCacheService.remove(context, cacheKey)
+  }
+
+  static async pruneReaderFileCache(context: common.UIAbilityContext): Promise<void> {
+    await ReaderImageFileCacheService.pruneToLimit(context, ReaderImageCacheSettings.limitBytes())
   }
 
   static async preloadImageBlockThumbnailFile(
@@ -76,7 +94,10 @@ export class ImagePipelineService {
 
   static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
     const out: CacheStat = await CachedImageFileService.stat(context)
+    const readerCache: CacheStat = await ReaderImageFileCacheService.stat(context)
     const imageCache: CacheStat = ImageKnifeProRuntime.stat()
+    out.count += readerCache.count
+    out.bytes += readerCache.bytes
     out.count += imageCache.count
     out.bytes += imageCache.bytes
     return out
@@ -84,6 +105,7 @@ export class ImagePipelineService {
 
   static async clearCache(context: common.UIAbilityContext): Promise<void> {
     await CachedImageFileService.clear(context)
+    await ReaderImageFileCacheService.clear(context)
     await ImageKnifeProRuntime.clearCache()
   }
 

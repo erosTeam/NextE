@@ -33,6 +33,7 @@ export struct ImageKnifeProImageAdapter {
   @Param widthValue: Length = '100%';
   @Param heightValue: Length = '100%';
   @Param enableCache: boolean = true;
+  @Param memoryOnly: boolean = false;
   @Param fileCacheName: string = '';
   @Param signature: string = '';
   @Param priority: number = EH_IMAGE_PRIORITY_LOW;
@@ -55,6 +56,7 @@ export struct ImageKnifeProImageAdapter {
     'objectFit',
     'radius',
     'enableCache',
+    'memoryOnly',
     'fileCacheName',
     'signature',
     'priority',
@@ -71,7 +73,9 @@ export struct ImageKnifeProImageAdapter {
     const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
     option.loadSrc = this.src
     option.objectFit = this.objectFit
-    option.writeCacheStrategy = this.enableCache ? CacheStrategy.DEFAULT : CacheStrategy.NONE
+    option.writeCacheStrategy = this.memoryOnly
+      ? CacheStrategy.MEMORY
+      : (this.enableCache ? CacheStrategy.DEFAULT : CacheStrategy.NONE)
     option.headerOption = this.headers()
     option.priority = this.imageKnifePriority()
     if (this.fileCacheName.length > 0) {

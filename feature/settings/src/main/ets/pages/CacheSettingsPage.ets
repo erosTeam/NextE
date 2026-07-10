@@ -1,5 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common, bundleManager } from '@kit.AbilityKit'
+import { SymbolGlyphModifier } from '@kit.ArkUI'
 import {
   AppModalScaffold,
   AppStrings,
@@ -13,6 +14,7 @@ import {
   EhPageCacheService,
   GroupedListSection,
   ImagePipelineService,
+  ReaderImageCacheSettings,
   SecondaryListScaffold,
   TagTranslationService,
   ThemeConstants,
@@ -42,6 +44,8 @@ export struct CacheSettingsPage {
   @Local commentStat: CacheStat = new CacheStat();
   @Local tagStat: CacheStat = new CacheStat();
   @Local clearing: boolean = false;
+  @Local readerCacheLimitMb: number = 1024;
+  @Local readerCacheLimitMenuShown: boolean = false;
   // Backup state.
   @Local includeSecrets: boolean = false;
   @Local exportPwd: string = '';
@@ -61,6 +65,7 @@ export struct CacheSettingsPage {
   }
 
   aboutToAppear(): void {
+    this.readerCacheLimitMb = ReaderImageCacheSettings.limitMb()
     this.refreshAll()
     try {
       const info = bundleManager.getBundleInfoForSelfSync(
@@ -137,6 +142,44 @@ export struct CacheSettingsPage {
 
   private totalBytes(): number {
     return this.pageStat.bytes + this.imageStat.bytes + this.commentStat.bytes + this.tagStat.bytes
+  }
+
+  private readerCacheLimitLabel(): string {
+    if (this.readerCacheLimitMb >= 1024) {
+      return `${this.readerCacheLimitMb / 1024} GB`
+    }
+    return `${this.readerCacheLimitMb} MB`
+  }
+
+  private setReaderCacheLimit(limitMb: number): void {
+    this.readerCacheLimitMb = limitMb
+    ReaderImageCacheSettings.setLimitMb(this.ctx(), limitMb)
+      .then(() => ImagePipelineService.pruneReaderFileCache(this.ctx()))
+      .then(() => this.refreshAll())
+  }
+
+  @Builder
+  private ReaderCacheLimitMenuItem(limitMb: number, label: string) {
+    MenuItem({
+      content: label,
+      symbolEndIcon: this.readerCacheLimitMb === limitMb
+        ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+        : undefined,
+    })
+      .onClick(() => {
+        this.readerCacheLimitMenuShown = false
+        this.setReaderCacheLimit(limitMb)
+      })
+  }
+
+  @Builder
+  private ReaderCacheLimitMenu() {
+    Menu() {
+      this.ReaderCacheLimitMenuItem(256, '256 MB')
+      this.ReaderCacheLimitMenuItem(512, '512 MB')
+      this.ReaderCacheLimitMenuItem(1024, '1 GB')
+      this.ReaderCacheLimitMenuItem(2048, '2 GB')
+    }
   }
 
   private confirmThenClear(message: Resource, clear: () => void): void {
@@ -420,6 +463,25 @@ export struct CacheSettingsPage {
                   isEnabled: !this.busy,
                   action: () => {
                     this.startImport()
+                  },
+                })
+              }
+              GroupedListSection() {
+                Column() {
+                  ConciseListRow({
+                    title: $r('app.string.cache_reader_image_limit'),
+                    leadingIcon: $r('sys.symbol.externaldrive'),
+                    trailingText: this.readerCacheLimitLabel(),
+                    trailingDropdown: true,
+                    action: () => {
+                      this.readerCacheLimitMenuShown = true
+                    },
+                  })
+                }
+                .bindMenu(this.readerCacheLimitMenuShown, this.ReaderCacheLimitMenu, {
+                  placement: Placement.BottomRight,
+                  onDisappear: () => {
+                    this.readerCacheLimitMenuShown = false
                   },
                 })
               }

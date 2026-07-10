@@ -1949,6 +1949,10 @@
       "value": "Image cache"
     },
     {
+      "name": "cache_reader_image_limit",
+      "value": "Reader image cache limit"
+    },
+    {
       "name": "cache_comment_translation",
       "value": "Comment translations"
     },

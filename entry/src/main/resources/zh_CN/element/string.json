@@ -1949,6 +1949,10 @@
       "value": "图片缓存"
     },
     {
+      "name": "cache_reader_image_limit",
+      "value": "阅读图片缓存上限"
+    },
+    {
       "name": "cache_comment_translation",
       "value": "评论翻译缓存"
     },

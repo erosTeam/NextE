@@ -37,7 +37,9 @@ import { ThemeColorSettings } from './ThemeColorSettings'
 import { ImmersiveMaterialSettings } from './ImmersiveMaterialSettings'
 import { LanguageSettings } from './LanguageSettings'
 import { SafeModeSettings } from './SafeModeSettings'
+import { ReaderImageCacheSettings } from './ReaderImageCacheSettings'
 import { EhPageCacheService } from '../services/EhPageCacheService'
+import { ImagePipelineService } from '../services/ImagePipelineService'
 import { connectSiteMode } from '../state/SiteModeState'
 import { connectHomeSource } from '../state/HomeSourceState'
 import { connectFavSelection } from '../state/FavSelectionState'
@@ -69,6 +71,10 @@ export class SettingsBootstrap {
       await ListModeSettings.restore(context)
       await GalleryTitleSettings.restore(context)
       await ReadModeSettings.restore(context)
+      await ReaderImageCacheSettings.restore(context)
+      ImagePipelineService.pruneReaderFileCache(context).catch((error: Error) => {
+        DiagnosticLogger.warn('image-cache', 'reader_disk_startup_prune_failed', error.message)
+      })
       await ThumbnailModeSettings.restore(context)
       await CoverBackgroundSettings.restore(context)
       await ActionAlignmentSettings.restore(context)

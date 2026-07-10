@@ -400,6 +400,9 @@ export struct GalleryDetailPage {
         index,
         this.fileCountNum(),
         this.navTitle(),
+        this.vm.images,
+        this.vm.images.length > 0 ? 1 : 0,
+        this.vm.images.length,
       ),
     )
   }

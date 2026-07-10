@@ -1949,6 +1949,10 @@
       "value": "画像キャッシュ"
     },
     {
+      "name": "cache_reader_image_limit",
+      "value": "リーダー画像キャッシュ上限"
+    },
+    {
       "name": "cache_comment_translation",
       "value": "コメント翻訳"
     },

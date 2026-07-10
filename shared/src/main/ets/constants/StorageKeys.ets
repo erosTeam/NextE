@@ -42,6 +42,7 @@ export class StorageKeys {
   static readonly READING_VOLUME_KEY: string = 'reading.volumeKeyTurn'
   static readonly READING_AUTO_PAGE_SEC: string = 'reading.autoPageSeconds'
   static readonly READING_PRELOAD_PAGES: string = 'reading.preloadPages'
+  static readonly READER_IMAGE_CACHE_LIMIT_MB: string = 'cache.readerImageLimitMb'
   static readonly DOWNLOAD_CONCURRENCY: string = 'download.concurrency'
   static readonly DOWNLOAD_REQUEST_INTERVAL_SECONDS: string = 'download.requestIntervalSeconds'
   static readonly DOWNLOAD_RETRY_COUNT: string = 'download.retryCount'

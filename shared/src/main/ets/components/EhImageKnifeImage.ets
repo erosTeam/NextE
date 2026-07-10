@@ -14,6 +14,7 @@ export struct EhImageKnifeImage {
   @Param widthValue: Length = '100%';
   @Param heightValue: Length = '100%';
   @Param enableCache: boolean = true;
+  @Param memoryOnly: boolean = false;
   @Param fileCacheName: string = '';
   @Param signature: string = '';
   @Param priority: number = EH_IMAGE_PRIORITY_MEDIUM;
@@ -33,6 +34,7 @@ export struct EhImageKnifeImage {
       widthValue: this.widthValue,
       heightValue: this.heightValue,
       enableCache: this.enableCache,
+      memoryOnly: this.memoryOnly,
       fileCacheName: this.fileCacheName,
       signature: this.signature,
       priority: this.priority,
