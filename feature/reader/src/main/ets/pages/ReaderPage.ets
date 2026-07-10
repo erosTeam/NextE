@@ -50,6 +50,7 @@ const READER_THUMB_STRIP_HEIGHT: number = 84
 const READER_BOTTOM_TOOLBAR_HEIGHT: number = 112
 const READER_PROGRESS_NUMBER_MIN_W: number = 30
 const READER_PROGRESS_SLIDER_GAP: number = 4
+const READER_PROGRESS_ANIM_DURATION: number = 160
 const READER_ZOOM_ANIM_DURATION: number = 180
 const READER_LOADING_PROGRESS_ANIM_DURATION: number = 220
 const READER_LOADING_COMPLETION_HOLD_MS: number = 160
@@ -217,6 +218,7 @@ export struct ReaderPage {
   private volumeDownConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private volumeUpConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private readerClosing: boolean = false;
+  private sliderSyncToken: number = 0;
   private readerTapStartX: number = 0;
   private readerTapStartY: number = 0;
   private readerTapSuppressUntilMs: number = 0;
@@ -1297,7 +1299,20 @@ export struct ReaderPage {
   @Monitor('vm.currentIndex')
   onPageChanged(): void {
     if (this.sliderPreview < 0) {
-      this.sliderValue = this.vm.currentIndex + 1
+      const target: number = this.vm.currentIndex + 1
+      const token: number = ++this.sliderSyncToken
+      if (this.sliderValue !== target) {
+        // A Monitor runs after its observed state has already invalidated the Reader subtree. Start
+        // the Slider transaction in the next task so ArkUI can animate from the retained thumb value.
+        setTimeout(() => {
+          if (token !== this.sliderSyncToken || this.sliderPreview >= 0 || this.readerClosing) {
+            return
+          }
+          this.getUIContext().animateTo({ duration: READER_PROGRESS_ANIM_DURATION, curve: Curve.EaseOut }, () => {
+            this.sliderValue = target
+          })
+        }, 0)
+      }
     }
     this.readerPagerIndex = this.readerPagerIndexFor(this.vm.currentIndex)
     this.scrollThumbStripTo(this.vm.currentIndex, true)
@@ -2581,6 +2596,9 @@ export struct ReaderPage {
             .selectedColor(ThemeConstants.BRAND_PRIMARY)
             .onChange((value: number, mode: SliderChangeMode) => {
               const page: number = Math.round(value)
+              if (mode === SliderChangeMode.Begin) {
+                this.sliderSyncToken++
+              }
               if (mode === SliderChangeMode.Begin || mode === SliderChangeMode.Moving) {
                 this.sliderPreview = page
                 this.sliderValue = page

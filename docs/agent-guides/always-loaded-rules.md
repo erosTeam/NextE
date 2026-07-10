@@ -14,6 +14,7 @@
 - [2026-07-08 Account Asset Balance Accountability Failure](incidents/2026-07-08-account-asset-balance-accountability-failure.md)
 - [2026-07-08 Reader Progress Control Capability Failure](incidents/2026-07-08-reader-progress-control-capability-failure.md)
 - [2026-07-08 Reader Loading Contract Abuse](incidents/2026-07-08-reader-loading-contract-abuse.md)
+- [2026-07-10 Reader Slider Animation Investigation Failure](incidents/2026-07-10-reader-slider-animation-investigation-failure.md)
 
 ## 硬停: 未知即阻断
 
@@ -119,7 +120,15 @@ ohpm install
 
 修 bug 时,未经明确要求**不要**改颜色、字体、间距、布局、文案、导航或交互模型。完成前移除所有临时测试脚手架(假请求、mock、诊断 UI)。新颜色需同时覆盖深色 + 浅色。
 
-使用原生控件时,先用控件自身 API 表达状态、轨道、选中态、手柄、按钮动作等行为。不要在原生控件外再叠一层自绘背景 / 轨道 / 命中层去“对齐”系统控件;这会制造两套几何和两套状态,导致端点、触控、颜色或动画错位。只有确认原生 API 无法表达需求时,才允许做最小自绘替代,并必须保持单一状态源。
+使用原生控件时,先用控件自身 API 表达状态、轨道、选中态、手柄、按钮动作等行为。不要在原生控件外再叠一层自绘背景 / 轨道 / 命中层去“对齐”系统控件;这会制造两套几何和两套状态,导致端点、触控、颜色或动画错位。
+
+### 硬停: 自绘组件必须由用户明确授权
+
+任何页面、功能和交互场景都禁止主动创建自绘组件、仿原生控件或自绘替代层。只有用户针对当前需求明确说“可以自绘”或给出等价的明确授权后,才允许进入自绘方案;沉默、原生能力暂未查明、现有实现难改、首次修复无效、构建通过或代理认为自绘更灵活,都不构成授权。
+
+- 未获明确授权时,只能继续调查并使用系统 / HDS 控件、项目已有组件或对已有组件做窄参数扩展;这些路径仍无法实现时,报告 `BLOCKED` 和证据,不得自行转向自绘。
+- 在方案、实现或评审中发现未授权自绘时,立即停止并移除该候选,回到原生 / 已有组件链路;不得以“已写完”“只是一层轨道 / 命中层 / overlay”作为保留理由。
+- 用户只对某一个明确场景授权自绘时,授权不得扩展到其他页面、组件或后续需求。
 
 ### 设置项归属纪律
 
@@ -202,7 +211,7 @@ ohpm install
 
 规则:
 
-- 先用系统 / HDS / 已有 shared primitive 表达;不要先手搓。
+- 只用系统 / HDS / 已有 shared primitive 表达。没有用户对当前需求的明确授权,禁止手搓或自绘任何替代组件;无法满足时按上方硬停规则报告 `BLOCKED`。
 - 组件属性采用最小集。先写“能正确工作的最少属性 / 参数”,再按确切问题逐项增加。每新增一个布局、尺寸、padding、height、lineHeight、align、clip、overlay、state workaround 等属性,必须能说明它解决的具体问题;说不清就不加。
 - 不要为了“看起来更稳”预防式堆属性。平台控件、HDS 控件和 shared primitive 的默认测量 / 内边距 / 动画 / 命中区优先保留;只有设备或源码证据证明默认行为不满足需求,才做最小覆盖。
 - 修局部问题时先删掉自作的额外属性,验证平台默认是否已经正确。不要在错误属性之上继续补偿式叠加新属性。
