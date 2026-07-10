@@ -81,45 +81,121 @@ class AccountProfileSummary {
   }
 }
 
+const MAX_ACCOUNT_DASHBOARD_SNAPSHOTS: number = 8
+
+class AccountDashboardSnapshot {
+  home: EhHome | null = null
+  asset: EhAssetBalance | null = null
+  ehProfile: EhProfileSettings | null = null
+  exProfile: EhProfileSettings | null = null
+}
+
 class AccountDashboardCache {
-  private static homeSnapshots: Map<string, EhHome> = new Map<string, EhHome>()
-  private static assetSnapshots: Map<string, EhAssetBalance> = new Map<string, EhAssetBalance>()
-  private static profileSnapshots: Map<string, EhProfileSettings> = new Map<string, EhProfileSettings>()
+  private static snapshots: Map<string, AccountDashboardSnapshot> = new Map<string, AccountDashboardSnapshot>()
 
   static seedHome(key: string): EhHome | null {
-    const cached: EhHome | undefined = AccountDashboardCache.homeSnapshots.get(key)
-    if (cached === undefined) {
+    const snapshot: AccountDashboardSnapshot | null = AccountDashboardCache.snapshotForRead(key)
+    if (snapshot === null || snapshot.home === null) {
       return null
     }
-    return cached.copy()
+    return snapshot.home.copy()
   }
 
   static putHome(key: string, home: EhHome): void {
-    AccountDashboardCache.homeSnapshots.set(key, home.copy())
+    AccountDashboardCache.snapshotForWrite(key).home = home.copy()
   }
 
   static seedAsset(key: string): EhAssetBalance | null {
-    const cached: EhAssetBalance | undefined = AccountDashboardCache.assetSnapshots.get(key)
-    if (cached === undefined) {
+    const snapshot: AccountDashboardSnapshot | null = AccountDashboardCache.snapshotForRead(key)
+    if (snapshot === null || snapshot.asset === null) {
       return null
     }
-    return cached.copy()
+    return snapshot.asset.copy()
   }
 
   static putAsset(key: string, balance: EhAssetBalance): void {
-    AccountDashboardCache.assetSnapshots.set(key, balance.copy())
+    AccountDashboardCache.snapshotForWrite(key).asset = balance.copy()
   }
 
-  static seedProfile(key: string): EhProfileSettings | null {
-    const cached: EhProfileSettings | undefined = AccountDashboardCache.profileSnapshots.get(key)
-    if (cached === undefined) {
+  static seedProfile(key: string, isEx: boolean): EhProfileSettings | null {
+    const snapshot: AccountDashboardSnapshot | null = AccountDashboardCache.snapshotForRead(key)
+    if (snapshot === null) {
       return null
     }
-    return cached.copy()
+    const cached: EhProfileSettings | null = isEx ? snapshot.exProfile : snapshot.ehProfile
+    return cached === null ? null : cached.copy()
   }
 
-  static putProfile(key: string, settings: EhProfileSettings): void {
-    AccountDashboardCache.profileSnapshots.set(key, settings.copy())
+  static putProfile(key: string, isEx: boolean, settings: EhProfileSettings): void {
+    const snapshot: AccountDashboardSnapshot = AccountDashboardCache.snapshotForWrite(key)
+    if (isEx) {
+      snapshot.exProfile = settings.copy()
+      return
+    }
+    snapshot.ehProfile = settings.copy()
+  }
+
+  static dropAccount(key: string): void {
+    if (key.length > 0) {
+      AccountDashboardCache.snapshots.delete(key)
+    }
+  }
+
+  static retainAccounts(keys: string[]): void {
+    const staleKeys: string[] = []
+    AccountDashboardCache.snapshots.forEach((_snapshot: AccountDashboardSnapshot, key: string): void => {
+      if (keys.indexOf(key) < 0) {
+        staleKeys.push(key)
+      }
+    })
+    for (let i: number = 0; i < staleKeys.length; i++) {
+      AccountDashboardCache.snapshots.delete(staleKeys[i])
+    }
+  }
+
+  static clearAll(): void {
+    AccountDashboardCache.snapshots.clear()
+  }
+
+  private static snapshotForRead(key: string): AccountDashboardSnapshot | null {
+    if (key.length === 0) {
+      return null
+    }
+    const snapshot: AccountDashboardSnapshot | undefined = AccountDashboardCache.snapshots.get(key)
+    if (snapshot === undefined) {
+      return null
+    }
+    AccountDashboardCache.snapshots.delete(key)
+    AccountDashboardCache.snapshots.set(key, snapshot)
+    return snapshot
+  }
+
+  private static snapshotForWrite(key: string): AccountDashboardSnapshot {
+    const existing: AccountDashboardSnapshot | null = AccountDashboardCache.snapshotForRead(key)
+    if (existing !== null) {
+      return existing
+    }
+    const snapshot: AccountDashboardSnapshot = new AccountDashboardSnapshot()
+    AccountDashboardCache.snapshots.set(key, snapshot)
+    AccountDashboardCache.trim()
+    return snapshot
+  }
+
+  private static trim(): void {
+    while (AccountDashboardCache.snapshots.size > MAX_ACCOUNT_DASHBOARD_SNAPSHOTS) {
+      let found: boolean = false
+      let oldestKey: string = ''
+      AccountDashboardCache.snapshots.forEach((_snapshot: AccountDashboardSnapshot, key: string): void => {
+        if (!found) {
+          found = true
+          oldestKey = key
+        }
+      })
+      if (!found) {
+        return
+      }
+      AccountDashboardCache.snapshots.delete(oldestKey)
+    }
   }
 }
 
@@ -149,6 +225,7 @@ export struct AccountPage {
   private homeResettingKey: string = '';
 
   aboutToAppear(): void {
+    AccountDashboardCache.retainAccounts(this.accountList.accounts)
     this.restoreProfile()
     this.loadAccountProfiles()
     this.restoreDashboardCache()
@@ -204,9 +281,17 @@ export struct AccountPage {
     return `${this.activeAccountKey()}:${siteKey}`
   }
 
+  private hasSavedAccount(key: string): boolean {
+    return key.length > 0 && this.accountList.accounts.indexOf(key) >= 0
+  }
+
+  private canCacheDashboardSnapshot(key: string): boolean {
+    return this.auth.isLogin && this.hasSavedAccount(key)
+  }
+
   private restoreDashboardCache(): void {
     const accountKey: string = this.activeAccountKey()
-    if (!this.auth.isLogin || accountKey.length === 0) {
+    if (!this.canCacheDashboardSnapshot(accountKey)) {
       return
     }
     const cachedHome: EhHome | null = AccountDashboardCache.seedHome(accountKey)
@@ -219,7 +304,7 @@ export struct AccountPage {
       this.assetBalance = cachedAsset
       this.assetLoaded = true
     }
-    const cachedProfile: EhProfileSettings | null = AccountDashboardCache.seedProfile(this.profileCacheKey())
+    const cachedProfile: EhProfileSettings | null = AccountDashboardCache.seedProfile(accountKey, this.site.isEx)
     if (cachedProfile !== null) {
       this.profileSettings = cachedProfile
       this.profileLoaded = true
@@ -251,7 +336,15 @@ export struct AccountPage {
 
   @Monitor('accountList.accounts')
   private onAccountListChanged(): void {
+    AccountDashboardCache.retainAccounts(this.accountList.accounts)
     this.loadAccountProfiles()
+  }
+
+  @Monitor('auth.isLogin')
+  private onLoginChanged(): void {
+    if (!this.auth.isLogin) {
+      AccountDashboardCache.clearAll()
+    }
   }
 
   @Monitor('site.isEx')
@@ -260,7 +353,10 @@ export struct AccountPage {
     this.profileLoadingKey = ''
     this.profileSettings = new EhProfileSettings()
     this.profileLoaded = false
-    const cachedProfile: EhProfileSettings | null = AccountDashboardCache.seedProfile(this.profileCacheKey())
+    const cachedProfile: EhProfileSettings | null = AccountDashboardCache.seedProfile(
+      this.activeAccountKey(),
+      this.site.isEx,
+    )
     if (cachedProfile !== null) {
       this.profileSettings = cachedProfile
       this.profileLoaded = true
@@ -284,6 +380,9 @@ export struct AccountPage {
     EhApiService.getInstance()
       .getEhHome()
       .then((home: EhHome) => {
+        if (!this.canCacheDashboardSnapshot(key)) {
+          return
+        }
         AccountDashboardCache.putHome(key, home)
         if (key !== this.activeAccountKey()) {
           return
@@ -315,6 +414,9 @@ export struct AccountPage {
     EhApiService.getInstance()
       .getEhAssetBalance()
       .then((balance: EhAssetBalance) => {
+        if (!this.canCacheDashboardSnapshot(key)) {
+          return
+        }
         AccountDashboardCache.putAsset(key, balance)
         if (key !== this.activeAccountKey()) {
           return
@@ -373,6 +475,9 @@ export struct AccountPage {
     EhApiService.getInstance()
       .resetImageLimits(requestHome)
       .then((home: EhHome) => {
+        if (!this.canCacheDashboardSnapshot(accountKey)) {
+          return
+        }
         AccountDashboardCache.putHome(accountKey, home)
         if (accountKey !== this.activeAccountKey()) {
           return
@@ -396,8 +501,10 @@ export struct AccountPage {
   }
 
   private loadProfileSettings(): void {
-    const key: string = this.profileCacheKey()
-    if (this.activeAccountKey().length === 0) {
+    const accountKey: string = this.activeAccountKey()
+    const isEx: boolean = this.site.isEx
+    const key: string = `${accountKey}:${isEx ? 'ex' : 'eh'}`
+    if (accountKey.length === 0) {
       return
     }
     if (this.profileLoading && this.profileLoadingKey === key) {
@@ -406,9 +513,12 @@ export struct AccountPage {
     this.profileLoading = true
     this.profileLoadingKey = key
     EhApiService.getInstance()
-      .getUserConfig(this.site.isEx)
+      .getUserConfig(isEx)
       .then((settings: EhProfileSettings) => {
-        AccountDashboardCache.putProfile(key, settings)
+        if (!this.canCacheDashboardSnapshot(accountKey)) {
+          return
+        }
+        AccountDashboardCache.putProfile(accountKey, isEx, settings)
         if (key !== this.profileCacheKey()) {
           return
         }
@@ -443,7 +553,9 @@ export struct AccountPage {
   // Remove a saved account; if that logged the user out entirely (it was the last), leave the page.
   private async removeAndMaybeExit(memberId: string): Promise<void> {
     await CookieJarSettings.removeAccount(this.ctx(), memberId)
+    AccountDashboardCache.dropAccount(memberId)
     if (!this.auth.isLogin) {
+      AccountDashboardCache.clearAll()
       this.stack.pop()
     }
   }
