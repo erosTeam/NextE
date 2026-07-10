@@ -573,6 +573,7 @@ export { WebLoginStyleState, connectWebLoginStyle } from './state/WebLoginStyleS
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'
 export { BasicDataSource } from './utils/BasicDataSource'
+export { CommentReferenceSnapshotCache } from './utils/CommentReferenceSnapshotCache'
 export { ShareUtil } from './utils/ShareUtil'
 export { ImageSaveUtil } from './utils/ImageSaveUtil'
 export { ResponsiveGrid } from './utils/ResponsiveGrid'

@@ -1,5 +1,6 @@
 import {
   COMMENT_TRANSLATION_DISPLAY_BILINGUAL,
+  CommentReferenceSnapshotCache,
   CommentTranslationSettingsState,
   CommentTranslationService,
   EhConstants,
@@ -20,6 +21,7 @@ import { GalleryCommentRenderState } from '../model/GalleryCommentRenderState'
 const COMMENT_FOOTER_ACTION_SIZE: number = 30
 const COMMENT_FOOTER_ICON_SIZE: number = 16
 const COMMENT_LINK_RE: RegExp = /https?:\/\/[^\s<>"'，。！？；、）\]\}]+/g
+const COMMENT_REFERENCE_SNAPSHOT_CACHE: CommentReferenceSnapshotCache = new CommentReferenceSnapshotCache(4)
 
 class CommentTextSegment {
   key: string = ''
@@ -127,10 +129,8 @@ export struct GalleryCommentsCard {
   // Only a user-initiated translate/toggle animates; auto-translate / cached results sync instantly (as the
   // original did) so opening a comment-heavy page doesn't animate every visible card at once.
   private manualTranslateArmed: boolean = false;
-  // Per-instance memo of the full-list-dependent parse work (reply resolution sorts the whole comment
-  // array). Stable for an instance's comment(s); reset only if the reference list identity changes. Keeps a
-  // translation re-render from re-sorting every comment on every frame.
-  private sortedCache: EhGalleryComment[] | null = null;
+  // Per-card reply/display results stay local. The full source order itself is shared through the bounded
+  // identity cache above because all visible full-page cards receive the same referenceComments array.
   private replyRefsCache: Map<string, EhGalleryComment[]> = new Map();
   private displayTextCache: Map<string, string> = new Map();
 
@@ -144,7 +144,6 @@ export struct GalleryCommentsCard {
 
   @Monitor('referenceComments')
   onReferenceCommentsChanged(): void {
-    this.sortedCache = null
     this.replyRefsCache.clear()
     this.displayTextCache.clear()
   }
@@ -436,14 +435,16 @@ export struct GalleryCommentsCard {
   }
 
   private sortedComments(): EhGalleryComment[] {
-    if (this.sortedCache !== null) {
-      return this.sortedCache
+    const source: EhGalleryComment[] = this.referenceSourceComments()
+    const cached: EhGalleryComment[] | null = COMMENT_REFERENCE_SNAPSHOT_CACHE.get(source)
+    if (cached !== null) {
+      return cached
     }
     const out: EhGalleryComment[] = this.referenceSourceComments().slice()
     out.sort(
       (a: EhGalleryComment, b: EhGalleryComment) => this.commentIdNum(b) - this.commentIdNum(a),
     )
-    this.sortedCache = out
+    COMMENT_REFERENCE_SNAPSHOT_CACHE.put(source, out)
     return out
   }
 

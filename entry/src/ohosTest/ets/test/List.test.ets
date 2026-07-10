@@ -4,6 +4,7 @@ import readerImagePrioritySchedulerTest from './ReaderImagePriorityScheduler.tes
 import commentTranslationQueueSchedulerTest from './CommentTranslationQueueScheduler.test'
 import commentTranslationMemoryCacheTest from './CommentTranslationMemoryCache.test'
 import commentTranslationCacheEpochTest from './CommentTranslationCacheEpoch.test'
+import commentReferenceSnapshotCacheTest from './CommentReferenceSnapshotCache.test'
 import imageResolveMemoryCacheTest from './ImageResolveMemoryCache.test'
 import gallerySeedSchedulerTest from './GallerySeedScheduler.test'
 import imageBlockThumbnailHashMemoryCacheTest from './ImageBlockThumbnailHashMemoryCache.test'
@@ -18,6 +19,7 @@ export default function testsuite(): void {
   commentTranslationQueueSchedulerTest()
   commentTranslationMemoryCacheTest()
   commentTranslationCacheEpochTest()
+  commentReferenceSnapshotCacheTest()
   imageResolveMemoryCacheTest()
   gallerySeedSchedulerTest()
   imageBlockThumbnailHashMemoryCacheTest()
