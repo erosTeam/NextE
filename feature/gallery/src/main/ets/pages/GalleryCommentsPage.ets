@@ -469,6 +469,23 @@ export struct GalleryCommentsPage {
     this.applyCommentTranslationState(comment.commentId, translated, undefined, true, false, undefined)
   }
 
+  private handleCommentTranslationError(commentId: string, error: Error, priority: number): void {
+    if (priority === COMMENT_TRANSLATION_PRIORITY_AUTO && CommentTranslationService.isQueueCapacityError(error)) {
+      DiagnosticLogger.info(
+        'translation',
+        'comment_auto_queue_discarded',
+        `id=${commentId} ${error.message}`,
+      )
+      return
+    }
+    DiagnosticLogger.warn(
+      'translation',
+      'comment_request_failed',
+      `id=${commentId} ${error.message}`,
+    )
+    this.showCommentToast($r('app.string.comment_translation_failed'))
+  }
+
   private translateComment(
     comment: EhGalleryComment,
     sourceText: string,
@@ -508,12 +525,7 @@ export struct GalleryCommentsPage {
           }
         })
         .catch((error: Error) => {
-          DiagnosticLogger.warn(
-            'translation',
-            'comment_request_failed',
-            `id=${comment.commentId} ${error.message}`,
-          )
-          this.showCommentToast($r('app.string.comment_translation_failed'))
+          this.handleCommentTranslationError(comment.commentId, error, priority)
         })
         .finally(() => {
           this.applyCommentTranslationState(comment.commentId, undefined, undefined, undefined, false, undefined)
@@ -527,12 +539,7 @@ export struct GalleryCommentsPage {
         }
       })
       .catch((error: Error) => {
-        DiagnosticLogger.warn(
-          'translation',
-          'comment_request_failed',
-          `id=${comment.commentId} ${error.message}`,
-        )
-        this.showCommentToast($r('app.string.comment_translation_failed'))
+        this.handleCommentTranslationError(comment.commentId, error, priority)
       })
       .finally(() => {
         this.applyCommentTranslationState(comment.commentId, undefined, undefined, undefined, false, undefined)

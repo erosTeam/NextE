@@ -178,6 +178,7 @@ export { UserProfileService, UserProfileInfo } from './services/UserProfileServi
 export {
   COMMENT_TRANSLATION_PRIORITY_AUTO,
   COMMENT_TRANSLATION_PRIORITY_INTERACTIVE,
+  MAX_PENDING_COMMENT_TRANSLATIONS,
   CommentStructuredTranslation,
   CommentTranslationCacheEpoch,
   CommentTranslationMemoryCache,
