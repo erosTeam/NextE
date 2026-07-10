@@ -247,6 +247,7 @@ ohpm install
 - Conventional Commits,**英文** `type(scope): description`(`feat`/`fix`/`refactor`/`style`/`docs`/`chore`/`perf`)。bug 修复、parser/网络改动、写操作附 Why/What/Validation。
 - 提交信息绝不含 cookie、token、密码。
 - 未明确要求**不要提交**。
+- 连续自主清债时，每个独立条目一旦通过其已声明的验证门禁，必须在开始下一条前立即做本地阶段提交；不得把多个已完成、互不依赖的条目长期堆在同一工作区。推送仍需用户明确授权。
 - 注释用英文,解释 *why*(产品约束、平台怪癖、状态不变量),非 *what*。
 
 ## 不确定就查
