@@ -125,6 +125,14 @@ const eq = (name, got, want) => {
       /loadAccountProfiles\(\)[\s\S]*UserProfileService\.loadStoredProfile\(this\.ctx\(\), memberId\)/.test(accountPage) &&
       /accountTitle\(memberId: string\)[\s\S]*this\.accountProfile\(memberId\)/.test(accountPage) &&
       /AccountAvatar\(\{[\s\S]*avatarUrl: this\.accountAvatarUrl\(memberId\)/.test(accountPage))
+  ok('account image-limit reset captures the confirming account and home action before opening its dialog',
+    /confirmResetImageLimits\(\): void[\s\S]*const accountKey: string = this\.activeAccountKey\(\)[\s\S]*const requestHome: EhHome = this\.home\.copy\(\)[\s\S]*resetImageLimits\(accountKey, requestHome\)/.test(accountPage))
+  ok('account image-limit reset keeps a single write scoped to its captured account',
+    /private resetImageLimits\(accountKey: string, requestHome: EhHome\): void[\s\S]*accountKey !== this\.activeAccountKey\(\)[\s\S]*this\.homeResettingKey = accountKey[\s\S]*resetImageLimits\(requestHome\)/.test(accountPage))
+  ok('account image-limit reset stores a stale response only for its origin account and never updates the active UI or toast',
+    /AccountDashboardCache\.putHome\(accountKey, home\)[\s\S]*if \(accountKey !== this\.activeAccountKey\(\)\) \{[\s\S]*return[\s\S]*\}[\s\S]*this\.home = home[\s\S]*if \(accountKey === this\.activeAccountKey\(\)\) \{[\s\S]*this\.toast\(\$r\('app\.string\.account_image_reset_failed'\)\)/.test(accountPage))
+  ok('account image-limit reset clears only its own pending marker and blocks same-account quota refreshes',
+    /loadHomeLimits\(\): void[\s\S]*this\.homeResetting && this\.homeResettingKey === key[\s\S]*finally\(\(\) => \{[\s\S]*if \(this\.homeResettingKey === accountKey\) \{[\s\S]*this\.homeResetting = false[\s\S]*this\.homeResettingKey = ''/.test(accountPage))
   ok('password login path also attempts profile refresh before returning success',
     /CookieJarSettings\.passwordLogin/.test(passwordLogin) &&
       /passwordLogin\([\s\S]*UserProfileService\.refreshAndSaveActive\(context\)/.test(cookieSettings))

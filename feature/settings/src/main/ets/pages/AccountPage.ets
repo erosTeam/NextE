@@ -144,6 +144,9 @@ export struct AccountPage {
   private homeLoadingKey: string = '';
   private assetLoadingKey: string = '';
   private profileLoadingKey: string = '';
+  // A reset spends GP. Keep the single in-flight write tied to the account that confirmed it so
+  // an account switch cannot let its response overwrite the newly active account's dashboard.
+  private homeResettingKey: string = '';
 
   aboutToAppear(): void {
     this.restoreProfile()
@@ -270,6 +273,9 @@ export struct AccountPage {
     if (key.length === 0) {
       return
     }
+    if (this.homeResetting && this.homeResettingKey === key) {
+      return
+    }
     if (this.homeLoading && this.homeLoadingKey === key) {
       return
     }
@@ -331,12 +337,14 @@ export struct AccountPage {
     if (this.homeResetting || this.homeLoading) {
       return
     }
-    if (!this.home.hasResetAction()) {
+    const accountKey: string = this.activeAccountKey()
+    const requestHome: EhHome = this.home.copy()
+    if (accountKey.length === 0 || !requestHome.hasResetAction()) {
       this.toast($r('app.string.account_image_reset_unavailable'))
       return
     }
     this.getUIContext().showAlertDialog({
-      message: AppStrings.get('account_image_reset_confirm').replace('%d', `${this.home.resetCost}`),
+      message: AppStrings.get('account_image_reset_confirm').replace('%d', `${requestHome.resetCost}`),
       primaryButton: {
         value: $r('app.string.common_cancel'),
         action: () => {},
@@ -345,31 +353,45 @@ export struct AccountPage {
         value: $r('app.string.account_image_reset_title'),
         fontColor: ThemeConstants.BRAND_PRIMARY,
         action: () => {
-          this.resetImageLimits()
+          this.resetImageLimits(accountKey, requestHome)
         },
       },
     })
   }
 
-  private resetImageLimits(): void {
-    if (this.homeResetting || !this.home.hasResetAction()) {
+  private resetImageLimits(accountKey: string, requestHome: EhHome): void {
+    if (
+      this.homeResetting ||
+      accountKey.length === 0 ||
+      !requestHome.hasResetAction() ||
+      accountKey !== this.activeAccountKey()
+    ) {
       return
     }
     this.homeResetting = true
+    this.homeResettingKey = accountKey
     EhApiService.getInstance()
-      .resetImageLimits(this.home)
+      .resetImageLimits(requestHome)
       .then((home: EhHome) => {
-        AccountDashboardCache.putHome(this.activeAccountKey(), home)
+        AccountDashboardCache.putHome(accountKey, home)
+        if (accountKey !== this.activeAccountKey()) {
+          return
+        }
         this.home = home
         this.homeLoaded = true
         this.toast($r('app.string.account_image_reset_success'))
       })
       .catch((error: Error) => {
         DiagnosticLogger.warn('auth', 'account_image_limit_reset_failed', error.message)
-        this.toast($r('app.string.account_image_reset_failed'))
+        if (accountKey === this.activeAccountKey()) {
+          this.toast($r('app.string.account_image_reset_failed'))
+        }
       })
       .finally(() => {
-        this.homeResetting = false
+        if (this.homeResettingKey === accountKey) {
+          this.homeResetting = false
+          this.homeResettingKey = ''
+        }
       })
   }
 
