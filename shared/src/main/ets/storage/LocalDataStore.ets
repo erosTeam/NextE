@@ -549,9 +549,39 @@ const SQL_CREATE_DOWNLOAD_ARCHIVER_TASKS_QUEUED_INDEX: string =
   'CREATE INDEX IF NOT EXISTS idx_download_archiver_tasks_queued ON download_archiver_tasks (queued_at DESC)'
 
 export class LocalDataStore {
+  // RdbStore handles remain caller-owned, but schema DDL/migrations are process-wide work and must not
+  // be repeated by every settings restore or cache preload during startup.
+  private static schemaInitialized: boolean = false
+  private static schemaInitialization: Promise<void> | null = null
+
   static async open(context: common.UIAbilityContext): Promise<relationalStore.RdbStore> {
     const store: relationalStore.RdbStore =
       await relationalStore.getRdbStore(context, LOCAL_DATA_STORE_CONFIG)
+    await LocalDataStore.ensureSchema(store)
+    return store
+  }
+
+  private static async ensureSchema(store: relationalStore.RdbStore): Promise<void> {
+    if (LocalDataStore.schemaInitialized) {
+      return
+    }
+    const pending: Promise<void> | null = LocalDataStore.schemaInitialization
+    if (pending !== null) {
+      await pending
+      return
+    }
+    const task: Promise<void> = LocalDataStore.initializeSchema(store)
+    LocalDataStore.schemaInitialization = task
+    try {
+      await task
+      LocalDataStore.schemaInitialized = true
+    } finally {
+      // Keep failure retryable: a partially created/migrated store is rechecked on the next open.
+      LocalDataStore.schemaInitialization = null
+    }
+  }
+
+  private static async initializeSchema(store: relationalStore.RdbStore): Promise<void> {
     await store.executeSql(SQL_CREATE_SCHEMA_META_TABLE)
     await store.executeSql(SQL_CREATE_TAG_TRANSLATIONS_TABLE)
     await store.executeSql(SQL_CREATE_TAG_TRANSLATIONS_KEY_INDEX)
@@ -608,7 +638,6 @@ export class LocalDataStore {
     if (store.version !== LOCAL_DATA_SCHEMA_VERSION) {
       store.version = LOCAL_DATA_SCHEMA_VERSION
     }
-    return store
   }
 
   private static async migrateCustomProfilesUuidColumn(store: relationalStore.RdbStore): Promise<void> {

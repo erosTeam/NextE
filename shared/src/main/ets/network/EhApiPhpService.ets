@@ -184,7 +184,7 @@ export class EhApiPhpService {
     req.page = page
     req.imgkey = imgkey
     req.showkey = showKey
-    const resp: EhTextResponse = await EhHttpClient.getInstance().postJson(
+    const resp: EhTextResponse = await EhHttpClient.getInstance().postJsonReadOnly(
       `${base}/api.php`,
       JSON.stringify(req),
     )
@@ -515,7 +515,7 @@ export class EhApiPhpService {
       const group: string[][] = pairs.slice(i, i + GDATA_BATCH)
       const req: GDataRequest = new GDataRequest()
       req.gidlist = group
-      const resp: EhTextResponse = await EhHttpClient.getInstance().postJson(
+      const resp: EhTextResponse = await EhHttpClient.getInstance().postJsonReadOnly(
         `${base}/api.php`,
         JSON.stringify(req),
       )
@@ -538,7 +538,7 @@ export class EhApiPhpService {
     }
     const req: TagSuggestRequest = new TagSuggestRequest()
     req.text = q
-    const resp: EhTextResponse = await EhHttpClient.getInstance().postJson(
+    const resp: EhTextResponse = await EhHttpClient.getInstance().postJsonReadOnly(
       `${base}/api.php`,
       JSON.stringify(req),
     )

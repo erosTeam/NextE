@@ -84,7 +84,7 @@ ok(
 )
 ok(
   /postFormUrlEncoded\(url, pairs\.join\('&'\)\)/.test(api) &&
-    /EhErrorClassifier\.classifyResponse\(url, update\.isEx, resp, 'generic'\)/.test(api),
+    /EhErrorClassifier\.classifyResponse\(\s*url,\s*update\.isEx,\s*resp,\s*'generic',?\s*\)/.test(api),
   'tagset writes must use the same protected form post and classifier path as other EH writes',
 )
 ok(/MyTagsTagsetUpdate/.test(barrel), 'shared barrel must export MyTagsTagsetUpdate')

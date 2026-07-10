@@ -52,6 +52,7 @@ ok('route service preserves parsed origin image URL in seed', /seed\.originImage
 ok('route service preserves showKey and reloadKey in seed', /seed\.showKey = parsed\.showKey[\s\S]*seed\.reloadKey = parsed\.reloadKey/.test(serviceSrc))
 
 const indexSrc = read('entry/src/main/ets/pages/Index.ets')
+const routeCoordinatorSrc = read('entry/src/main/ets/model/IndexRouteCoordinator.ets')
 ok('Index normalizes deep-link host to current site mode', /const currentUri:[\s\S]*EhUrlRouter\.toCurrentHost\(uri, EhConstants\.baseUrl\(connectSiteMode\(\)\.isEx\)\)/.test(indexSrc))
 ok('Index still routes /g/ detail links', /EhUrlRouter\.parseGallery\(currentUri\)[\s\S]*GalleryDetail/.test(indexSrc))
 ok('Index can route comment QA gallery links directly to full comments', /EhUrlRouter\.wantsComments\(currentUri\)[\s\S]*pushPathByName\(\s*'GalleryComments'[\s\S]*new GalleryCommentsParams\(ref\.gid, ref\.token\)/.test(indexSrc))
@@ -60,7 +61,10 @@ ok('Index opens parent GalleryDetail before offering image-page jump', /ImagePag
 ok('Index confirms before opening Reader for resolved /s/', /private confirmOpenImagePage\(target: ImagePageRouteTarget\): void[\s\S]*image_page_jump_confirm[\s\S]*pushPathByName\(\s*'Reader'/.test(indexSrc))
 ok('Index passes exact image seed and parsed fileCount without marking preview pages loaded', /new ReaderParams\(\s*target\.gid,\s*target\.token,\s*target\.index,\s*target\.fileCount,\s*'',\s*\[target\.seedImage\],\s*0,\s*0,\s*\)/.test(indexSrc))
 ok('Index shows a visible route-failure page for failed /s/ deep links', /image_page_deep_link_failed[\s\S]*pushPathByName\(\s*'ImagePageRouteError'/.test(indexSrc))
-ok('Index registers the image-page route-failure destination', /name === 'ImagePageRouteError'[\s\S]*ImagePageRouteErrorPage\(\)/.test(indexSrc))
+ok('Index registers the image-page route-failure destination through the route coordinator',
+  /'ImagePageRouteError':\s*'imagePageRouteError'/.test(routeCoordinatorSrc) &&
+  /'imagePageRouteError':\s*wrapBuilder<\[\]>\(IndexImagePageRouteErrorRoute\)/.test(indexSrc) &&
+  /function IndexImagePageRouteErrorRoute\(\)\s*\{\s*ImagePageRouteErrorPage\(\)/.test(indexSrc))
 
 const routeErrorSrc = read('entry/src/main/ets/pages/ImagePageRouteErrorPage.ets')
 ok('image-page route-failure page retries the original /s/ URL', /ImagePageRouteService\.resolve\(this\.params\.url\)/.test(routeErrorSrc))

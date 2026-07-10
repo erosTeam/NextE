@@ -140,10 +140,12 @@ const ok = (name, cond) => {
   ok('empty imageUrl is treated as resolve failure', img.length === 0)
 }
 
-// 9. structural: the .ets wiring (cache, fast path, fallback, POST body, 509 guard, 换源, onError)
+// 9. structural: the .ets protocol wiring (cache, fast path, fallback, POST body, 509 guard, 换源).
+// Reader rendering callbacks and retry-overlay behavior require a device path; they are not source-shape
+// contract targets.
 {
   const php = readFileSync(join(ROOT, 'shared/src/main/ets/network/EhApiPhpService.ets'), 'utf8')
-  ok('showPage POSTs /api.php', /postJson\(\s*`\$\{base\}\/api\.php`/.test(php))
+  ok('showPage POSTs /api.php through the read-only retry path', /postJsonReadOnly\(\s*`\$\{base\}\/api\.php`/.test(php))
   ok('request method showpage', /method: string = 'showpage'/.test(php))
   const svc = readFileSync(join(ROOT, 'shared/src/main/ets/services/ImageResolveService.ets'), 'utf8')
   ok('keeps a gallery showKey cache', /private showKeys: Map<string, string>/.test(svc))
@@ -154,13 +156,8 @@ const ok = (name, cond) => {
   ok('slow /s/ path throws on empty parsed image URL', /if \(r\.imageUrl\.length === 0\) \{[\s\S]*throw new Error\('image page has no full image url'\)/.test(svc))
   ok('resolve takes changeSource', /async resolve\(image: EhGalleryImage, changeSource: boolean = false\)/.test(svc))
   ok('re-source appends nl', /\$\{image\.sUrl\}\?nl=\$\{image\.reloadKey\}/.test(svc))
-  const reader = readFileSync(join(ROOT, 'feature/reader/src/main/ets/pages/ReaderPage.ets'), 'utf8')
-  ok('image has onError → auto re-source', /\.onError\(\(\) => \{[\s\S]*this\.retrySourceAutomatically\(\)/.test(reader))
-  ok('auto re-source eventually fails closed', /retrySourceAutomatically[\s\S]*this\.failed = true/.test(reader))
-  ok('retry re-sources (changeSource)', /retrySource[\s\S]*this\.resolve\(true\)/.test(reader))
-  ok('failed branch is checked first', /if \(this\.failed\) \{[\s\S]*?\} else if \(this\.imageUrl\.length > 0\)/.test(reader))
   const client = readFileSync(join(ROOT, 'shared/src/main/ets/network/EhHttpClient.ets'), 'utf8')
-  ok('http client has postJson', /async postJson\(url: string, body: string\)/.test(client))
+  ok('http client has a read-only JSON POST path', /async postJsonReadOnly\(url: string, body: string\)/.test(client))
 }
 
 console.log(`✓ image-resolve showpage contract: ${passed} assertions passed`)

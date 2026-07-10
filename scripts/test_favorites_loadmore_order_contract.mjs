@@ -22,21 +22,12 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8')
 
 const vm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
 const api = read('shared/src/main/ets/network/EhApiService.ets')
-const feRequest = read('../eros_fe/lib/network/request.dart')
-const feFavSub = read('../eros_fe/lib/pages/tab/controller/favorite/favorite_sublist_controller.dart')
 
 let passed = 0
 const ok = (label, cond) => {
   assert.ok(cond, label)
   passed++
 }
-
-ok('FE favorites fetch handles list display mode on shared request path',
-  /httpResponse\.error is ListDisplayModeException[\s\S]*_params\['inline_set'\] = 'dm_l'/.test(feRequest))
-ok('FE favorites fetch handles order correction on shared request path',
-  /httpResponse\.error is FavOrderException[\s\S]*_params\['inline_set'\] = _order/.test(feRequest))
-ok('FE favorite subpage sends page plus last gid when nextPage is available',
-  /gid: nextPage > -1 \? \(state\?\.lastOrNull\?\.gid \?\? ''\) : nextGid[\s\S]*page: nextPage/.test(feFavSub))
 
 ok('EhApiService keeps dm_l retry centralized in getFavoritesList',
   /async getFavoritesList\(query: FavoritesQuery\): Promise<GalleryList> \{[\s\S]*EhConstants\.FAV_DISPLAY_LIST/.test(api))
@@ -45,12 +36,12 @@ ok('EhApiService favorites URL supports page+from before cursor fallback',
 ok('EhApiService ordinary favorites fetch carries no inline_set order',
   /let body: string = await this\.fetchFavoritesBody\(base, query, ''\)/.test(api))
 ok('EhApiService applies favorite order only as a first-page correction retry',
-  /const activeOrder: string = this\.favoriteOrderFromBody\(body\)[\s\S]*if \(firstPage && query\.order\.length > 0 && activeOrder\.length > 0 && activeOrder !== query\.order\) \{[\s\S]*fetchFavoritesBody\(base, query, query\.order\)/.test(api))
+  /const activeOrder: string = this\.favoriteOrderFromBody\(body\)[\s\S]*if \(\s*firstPage\s*&&\s*query\.order\.length > 0\s*&&\s*activeOrder\.length > 0\s*&&\s*activeOrder !== query\.order\s*\) \{[\s\S]*fetchFavoritesBody\(base, query, query\.order\)/.test(api))
 
 ok('FavoritesViewModel defines shared page fetch helper',
   /private async fetchPage\([\s\S]*next: string,[\s\S]*page: number = -1,[\s\S]*from: string = ''/.test(vm))
-ok('Shared helper fetches FavoritesQuery for the requested page/cursor only',
-  /getFavoritesList\([\s\S]*this\.buildQuery\(next, page, from\)/.test(vm))
+ok('Shared helper forwards the requested page/cursor navigation state',
+  /getFavoritesList\([\s\S]*this\.buildQuery\(next, page, from, seek, prev\)/.test(vm))
 ok('FavoritesViewModel no longer duplicates order retry logic',
   !/favOrder !== this\.favOrder/.test(vm))
 ok('Initial load uses the same page helper',

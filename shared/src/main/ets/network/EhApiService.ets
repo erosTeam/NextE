@@ -30,8 +30,6 @@ import { EhHome } from '../model/EhHome'
 import { EhAssetBalance } from '../model/EhAssetBalance'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
-const ARCHIVER_PREPARE_RETRY_MS: number = 1000
-
 /** Header + first preview page + comments parsed from a gallery detail fetch. */
 export class GalleryDetailResult {
   gallery: EhGallery
@@ -668,7 +666,8 @@ export class EhApiService {
 
   /**
    * Reset EH image limits through the action parsed from home.php. This spends GP, so callers must ask for
-   * explicit user confirmation before invoking it.
+   * explicit user confirmation before invoking it. Even when EH exposes that action as a GET URL, it must
+   * remain single-attempt because a lost response leaves the charge outcome ambiguous.
    */
   async resetImageLimits(home: EhHome): Promise<EhHome> {
     if (!home.hasResetAction()) {
@@ -679,7 +678,7 @@ export class EhApiService {
       if (home.resetActionMethod === 'POST') {
         resp = await EhHttpClient.getInstance().postFormUrlEncoded(home.resetActionUrl, home.resetActionBody)
       } else {
-        resp = await this.fetch(home.resetActionUrl, false, 'generic')
+        resp = await EhHttpClient.getInstance().getTextOnce(home.resetActionUrl)
       }
     } catch (err) {
       throw EhErrorClassifier.network(err as Error, home.resetActionUrl)
@@ -786,7 +785,10 @@ export class EhApiService {
     return EhGalleryArchiverParser.parse(resp.body)
   }
 
-  /** Submit a protected local archive request. Returns the generated archive URL; caller decides how to open it. */
+  /**
+   * Submit a protected local archive request exactly once. EH may return a preparation message instead
+   * of a redirect URL; that response is surfaced to the caller rather than submitting another archive.
+   */
   async submitGalleryArchiverLocal(
     gid: string,
     token: string,
@@ -800,13 +802,8 @@ export class EhApiService {
       this.formPair('dltype', dltype.trim()),
       this.formPair('dlcheck', dlcheck.trim()),
     ].join('&')
-    let resp: EhTextResponse = await this.postArchiverForm(url, body, isEx)
-    let result: EhGalleryArchiverSubmitResult = EhGalleryArchiverParser.parseLocalSubmit(resp.body)
-    if (result.localDownloadUrl.length === 0) {
-      await EhApiService.delay(ARCHIVER_PREPARE_RETRY_MS)
-      resp = await this.postArchiverForm(url, body, isEx)
-      result = EhGalleryArchiverParser.parseLocalSubmit(resp.body)
-    }
+    const resp: EhTextResponse = await this.postArchiverForm(url, body, isEx)
+    const result: EhGalleryArchiverSubmitResult = EhGalleryArchiverParser.parseLocalSubmit(resp.body)
     result.localDownloadUrl = this.absoluteArchiverUrl(result.localDownloadUrl, isEx)
     if (result.message.length === 0 && result.localDownloadUrl.length > 0) {
       result.message = result.localDownloadUrl
@@ -889,14 +886,6 @@ export class EhApiService {
       return `${EhConstants.baseUrl(isEx)}${url}`
     }
     return `${EhConstants.baseUrl(isEx)}/${url}`
-  }
-
-  private static delay(ms: number): Promise<void> {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        resolve()
-      }, ms)
-    })
   }
 
   /** Fetch a gallery detail page; returns header (incl. tags/apikey) + first preview page. */

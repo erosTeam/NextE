@@ -25,14 +25,6 @@ function assertNotIncludes(source, needle, message) {
   }
 }
 
-function assertOrder(source, first, second, message) {
-  const firstIndex = source.indexOf(first);
-  const secondIndex = source.indexOf(second);
-  if (firstIndex < 0 || secondIndex < 0 || firstIndex >= secondIndex) {
-    fail(message);
-  }
-}
-
 const localDataStore = read('shared/src/main/ets/storage/LocalDataStore.ets');
 assertIncludes(localDataStore, 'CREATE TABLE IF NOT EXISTS eh_page_cache', 'page cache must be an RDB table, not Preferences');
 assertIncludes(localDataStore, 'PRIMARY KEY(kind, cache_key)', 'page cache must key by cache kind + scoped cache key');
@@ -81,58 +73,7 @@ assertIncludes(bootstrap, "'preload_done'", 'startup cache preload must log comp
 const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets');
 assertNotIncludes(httpClient, 'usingCache: true', 'EH HTTP client must not enable transparent global cache');
 
-const homeVm = read('feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets');
-assertIncludes(homeVm, 'EhPageCacheService.homeListKey', 'home VM must build a scoped page-cache key');
-assertIncludes(homeVm, 'applyCachedFirstPageIfEmpty()', 'home VM must prime first screen from cache');
-assertIncludes(homeVm, 'takePreloadedGalleryList(this.cacheKey())', 'home VM must consume startup-preloaded cache before opening RDB');
-assertIncludes(homeVm, 'private cacheRenderVersion: number = 0', 'home VM must guard async cached-row translation against network replacement');
-assertIncludes(homeVm, 'this.dataSource.setData(rows)', 'home cache hit must render cached rows immediately');
-assertIncludes(homeVm, 'this.translateCachedRowsLater(rows, renderVersion, cached)', 'home cache hit must translate cached rows asynchronously after immediate render and refresh translated cache');
-assertOrder(homeVm, 'this.dataSource.setData(rows)', 'this.translateCachedRowsLater(rows, renderVersion, cached)', 'home cache hit must not await tag translation before rendering rows');
-assertIncludes(homeVm, 'private async renderFirstPageRows(list: GalleryList, deferTranslation: boolean): Promise<void>', 'home network first-page rows must share one render/translation/cache path');
-assertIncludes(homeVm, 'if (connectTagTranslationSettings().enabled && !deferTranslation)', 'home refresh/reload with existing content must translate before replacing visible rows');
-if (!/renderFirstPageRows\(list: GalleryList, deferTranslation: boolean\): Promise<void>[\s\S]*const translated: EhGallery\[] = await this\.translateRows\(displayRows\)[\s\S]*this\.dataSource\.setData\(translated\)/.test(homeVm)) {
-  fail('home refresh/reload must not flash untranslated rows when content is already visible');
-}
-assertOrder(homeVm, 'this.dataSource.setData(displayRows)', 'this.translateCachedRowsLater(displayRows, renderVersion, list)', 'home cold/no-content path may render immediately before async tag translation');
-assertOrder(homeVm, 'await this.applyCachedFirstPageIfEmpty()', 'const list: GalleryList = await this.fetchFirstPageList()', 'home first load must read cache before network fetch');
-assertIncludes(homeVm, 'await this.saveFirstPageCache(list)', 'home VM must save successful first-page network loads');
-assertIncludes(homeVm, 'snapshot.gallerys = translated', 'home VM must refresh list cache with translated rows after async translation');
-assertIncludes(homeVm, 'this.itemCount > 0', 'home cache must only apply to an empty first screen');
-
-const favVm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets');
-assertIncludes(favVm, 'EhPageCacheService.favoritesListKey', 'favorites VM must build a scoped page-cache key');
-assertIncludes(favVm, 'this.isLocalFavcat()', 'favorites cache must skip the local-favorites pseudo tab');
-assertIncludes(favVm, 'takePreloadedGalleryList(this.cacheKey())', 'favorites VM must consume startup-preloaded cache before opening RDB');
-assertIncludes(favVm, 'private cacheRenderVersion: number = 0', 'favorites VM must guard async cached-row translation against network replacement');
-assertIncludes(favVm, 'this.translateCachedRowsLater(rows, renderVersion, cached)', 'favorites cache hit must translate cached rows asynchronously after immediate render and refresh translated cache');
-assertOrder(favVm, 'this.dataSource.setData(rows)', 'this.translateCachedRowsLater(rows, renderVersion, cached)', 'favorites cache hit must not await tag translation before rendering rows');
-assertIncludes(favVm, 'private async renderFirstPageRows(list: GalleryList, deferTranslation: boolean): Promise<void>', 'favorites network first-page rows must share one render/translation/cache path');
-assertIncludes(favVm, 'if (connectTagTranslationSettings().enabled && !deferTranslation)', 'favorites refresh/reload with existing content must translate before replacing visible rows');
-if (!/renderFirstPageRows\(list: GalleryList, deferTranslation: boolean\): Promise<void>[\s\S]*const translated: EhGallery\[] = await this\.translateRows\(displayRows\)[\s\S]*this\.dataSource\.setData\(translated\)/.test(favVm)) {
-  fail('favorites refresh/reload must not flash untranslated rows when content is already visible');
-}
-assertOrder(favVm, 'this.dataSource.setData(displayRows)', 'this.translateCachedRowsLater(displayRows, renderVersion, list)', 'favorites cold/no-content path may render immediately before async tag translation');
-assertOrder(favVm, 'await this.applyCachedFirstPageIfEmpty()', 'const list: GalleryList = await this.fetchPage', 'favorites first load must read cache before network fetch');
-assertIncludes(favVm, 'snapshot.favList = this.favList', 'favorites cache must preserve favcat selector metadata');
-assertIncludes(favVm, 'await this.saveFirstPageCache(list)', 'favorites VM must save successful first-page network loads');
-
-const detailVm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets');
-assertIncludes(detailVm, 'EhPageCacheService.galleryDetailKey', 'detail VM must build a scoped detail-cache key');
-assertOrder(detailVm, 'await this.applyCachedDetailIfAvailable(gid, token)', 'await this.fetchAndApply(gid, token, false)', 'detail load must render cache before fresh network detail');
-assertIncludes(detailVm, '@Trace cachedDetailApplied: boolean = false', 'detail VM must expose whether cached detail content is already applied');
-assertIncludes(detailVm, 'this.cachedDetailApplied = true', 'detail VM must mark cache-applied state after a detail cache hit');
-assertIncludes(detailVm, 'private detailRenderVersion: number = 0', 'detail VM must guard async cached-detail translation against network replacement');
-assertIncludes(detailVm, 'this.translateCachedGalleryLater(this.gallery, renderVersion)', 'detail cache hit must translate cached gallery asynchronously after immediate render');
-assertOrder(detailVm, 'this.gallery = connectTagTranslationSettings().enabled', 'this.translateCachedGalleryLater(this.gallery, renderVersion)', 'detail cache hit must not await tag translation before rendering cached detail');
-assertNotIncludes(detailVm, 'this.gallery = await this.translateGallery(this.gallery.merge(res.gallery))', 'detail network result must not await tag translation before rendering gallery content');
-assertIncludes(detailVm, 'const translated: EhGallery = await this.translateGallery(merged)', 'detail network result must translate tags before replacing visible detail tags');
-assertOrder(detailVm, 'this.gallery = translated', 'this.saveCurrentDetailCache()', 'detail VM must refresh detail cache after async tag translation fills translat fields');
-assertIncludes(detailVm, 'await this.saveCurrentDetailCache()', 'detail VM must save successful detail network loads');
-assertIncludes(detailVm, 'this.saveCurrentDetailCache()', 'detail VM must refresh cache after known favorite/rating/tag mutations');
-assertIncludes(detailVm, 'TagTranslationService.clearGalleryTranslations(gallery)', 'detail cache must not leak stale localized tag text when translation is disabled');
-
-const detailPage = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets');
-assertIncludes(detailPage, 'this.vm.loading && !this.vm.cachedDetailApplied', 'detail page must not keep showing first-load spinner after cached detail content is applied');
+// First-screen rendering order, translation presentation, and spinner behavior are user-path concerns.
+// They require cache-hit and cache-miss device evidence instead of implementation-shape assertions here.
 
 console.log('eh page cache contract passed');

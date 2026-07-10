@@ -78,14 +78,22 @@ const ok = (name, cond) => {
 // VM-level guard: first open preserves list/gdata seed rating colour; refresh does not.
 {
   const vm = readFileSync(join(ROOT, 'feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets'), 'utf8')
+  const fetchAndApplyStart = vm.indexOf('  private async fetchAndApply(')
+  const fetchAndApplyEnd = vm.indexOf('\n  /**', fetchAndApplyStart)
+  const fetchAndApply = fetchAndApplyStart >= 0
+    ? vm.slice(fetchAndApplyStart, fetchAndApplyEnd > fetchAndApplyStart ? fetchAndApplyEnd : vm.length)
+    : ''
   ok('load passes non-refresh fetch flag', /await this\.fetchAndApply\(gid, token, false\)/.test(vm))
   ok('refresh passes refresh fetch flag', /await this\.fetchAndApply\(this\.gid, this\.token, true\)/.test(vm))
   ok('fetchAndApply accepts refresh flag', /private async fetchAndApply\(gid: string, token: string, refresh: boolean\)/.test(vm))
   ok('VM snapshots seed colorRating before detail merge', /const seedColorRating: string = this\.gallery\.colorRating/.test(vm))
-  ok('non-refresh applies seed rating after merge', /this\.gallery = await this\.translateGallery\(this\.gallery\.merge\(res\.gallery\)\)[\s\S]*if \(!refresh\) \{[\s\S]*this\.applyNonRefreshSeedRating/.test(vm))
-  ok('seed colorRating wins on first open', /if \(seedColorRating\.length > 0\) \{[\s\S]*this\.gallery\.colorRating = seedColorRating/.test(vm))
-  ok('seed ratingCount only fills a weak detail count', /seedRatingCount\.length > 0 && this\.gallery\.ratingCount\.length === 0/.test(vm))
-  ok('seed ratingFallBack only fills a weak detail display rating', /seedRatingFallBack > 0 && this\.gallery\.ratingFallBack <= 0/.test(vm))
+  ok('non-refresh applies seed rating to the active merge before translation',
+    /const merged: EhGallery = this\.gallery\.merge\(res\.gallery\)[\s\S]*if \(!refresh\) \{[\s\S]*const translated: EhGallery = await this\.translateGallery\(merged\)[\s\S]*this\.gallery = translated/.test(fetchAndApply))
+  ok('seed colorRating wins on first open', /if \(seedColorRating\.length > 0\) \{\s*merged\.colorRating = seedColorRating/.test(fetchAndApply))
+  ok('seed ratingCount only fills a weak detail count',
+    /seedRatingCount\.length > 0 && merged\.ratingCount\.length === 0\) \{\s*merged\.ratingCount = seedRatingCount/.test(fetchAndApply))
+  ok('seed ratingFallBack only fills a weak detail display rating',
+    /seedRatingFallBack > 0 && merged\.ratingFallBack <= 0\) \{\s*merged\.ratingFallBack = seedRatingFallBack/.test(fetchAndApply))
 }
 
 console.log(`✓ gallery merge rating-inheritance contract: ${passed} assertions passed`)

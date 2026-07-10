@@ -29,6 +29,11 @@ const model = read('shared/src/main/ets/model/EhGalleryArchiver.ets')
 const parser = read('shared/src/main/ets/parser/EhGalleryArchiverParser.ets')
 const route = read('shared/src/main/ets/model/RouteParams.ets')
 const api = read('shared/src/main/ets/network/EhApiService.ets')
+const localSubmitStart = api.indexOf('  async submitGalleryArchiverLocal(')
+const localSubmitEnd = api.indexOf('  /** Submit a protected H@H archive request.', localSubmitStart)
+const localSubmitMethod = localSubmitStart >= 0
+  ? api.substring(localSubmitStart, localSubmitEnd > localSubmitStart ? localSubmitEnd : api.length)
+  : ''
 const archiveBot = read('shared/src/main/ets/services/ArchiveBotService.ets')
 const downloadSettings = read('shared/src/main/ets/settings/DownloadSettings.ets')
 const downloadQueue = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
@@ -271,9 +276,9 @@ ok(/submitGalleryArchiverLocal\([\s\S]*Promise<EhGalleryArchiverSubmitResult>/.t
   /formPair\('dlcheck', dlcheck\.trim\(\)\)/.test(api) &&
   /EhGalleryArchiverParser\.parseLocalSubmit\([\s\S]*resp\.body/.test(api),
   'API submits local archive with dltype/dlcheck and parses local URL')
-ok(/ARCHIVER_PREPARE_RETRY_MS: number = 1000/.test(api) &&
-  /if \(result\.localDownloadUrl\.length === 0\) \{[\s\S]*EhApiService\.delay\(ARCHIVER_PREPARE_RETRY_MS\)[\s\S]*postArchiverForm\(url, body, isEx\)[\s\S]*parseLocalSubmit\(resp\.body\)/.test(api),
-  'local archive submit retries once after EH prepares the archive, matching EhViewer behavior')
+ok((localSubmitMethod.match(/this\.postArchiverForm\(/g) || []).length === 1 &&
+  !/EhApiService\.delay\(/.test(localSubmitMethod),
+  'one local archive confirmation sends exactly one protected request')
 ok(/submitGalleryArchiverHath\([\s\S]*Promise<EhGalleryArchiverSubmitResult>/.test(api) &&
   /formPair\('hathdl_xres', resolution\.trim\(\)\)/.test(api) &&
   /EhGalleryArchiverParser\.parseHathSubmit\(resp\.body\)/.test(api),

@@ -27,6 +27,7 @@ NextE 通过 **Cookie 鉴权 + HTML/JSON 抓取**对接 E-Hentai / ExHentai(无 
 - **HarmonyOS 无内置 CookieJar**:手写 cookie store,经 `CookieJarSettings`/Preferences 持久化;`pass_hash` 敏感,严禁入日志(`DiagnosticsRedactor`)。EH cookie **长效**(不像 nhentai 轮换),WebView 登录后同步一次即可,**无需刷新循环**。
 - `apiuid`/`apikey` 从详情 HTML 抓取,是每个 `/api.php` 写操作(评分/投票/标签)的必需参数;`gid`/`token` 来自列表/详情 URL;`showKey` 从首个 `/s/` 页抓一次,后续整本经 `method=showpage` 复用(快路径)。
 - 写操作(评论、标签、搜图)以 HTTP **302/303 重定向**表示成功:**关闭自动跟随重定向**,读 `Location`(`getTextResponseWithHeaders`)。
+- 远端写操作(评论、评分、投票、收藏、标签、归档、uconfig、消耗 GP 的图片配额重置)只能单次发送；即使服务端将动作暴露为 GET，也不得按读取请求重试。网络超时或 5xx 后结果可能未知，禁止由通用传输层自动重发；仅已确认只读的 `showpage`、`gdata`、`tagsuggest` JSON POST 可以重试。
 
 ## parser 清单(每页型 → model)
 

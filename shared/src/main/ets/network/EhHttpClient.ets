@@ -35,8 +35,10 @@ const STREAM_PROGRESS_INTERVAL_MS: number = 250
  * EH HTTP transport. Text/form requests go through @ohos/axios. Binary downloads use axios
  * adapters backed by @ohos.net.http streaming so app/public download paths and resumable Range
  * writes keep their existing file semantics. Sets the desktop Chrome UA + Accept headers EH
- * expects, injects the cookie jar (forced nw=1), auto-gzip, and applies exponential-backoff
- * retry on transport errors / 5xx.
+ * expects, injects the cookie jar (forced nw=1), and auto-gzip. Read-only requests use
+ * exponential-backoff retry on transport errors / 5xx. Remote writes are always single-attempt:
+ * a timeout after EH applied a comment, vote, tag, favorite, or archive request is ambiguous and
+ * must not be turned into a duplicate write by the transport layer.
  *
  * Anti-block (per the dropped-domain-fronting decision): standard requests + DoH/fallback-IP
  * resolution + user proxy/VPN are layered in later via a pluggable resolver; M1 connects
@@ -64,6 +66,21 @@ export class EhHttpClient {
     )
   }
 
+  /**
+   * Send a GET exactly once when the server exposes a remote write as an action URL. Callers must
+   * classify that endpoint before using this escape hatch; ordinary reads should keep getText().
+   */
+  async getTextOnce(url: string): Promise<EhTextResponse> {
+    return await EhHttpClient.requestTextOnceWithAxios(
+      url,
+      'GET',
+      '',
+      '',
+      '',
+      false,
+    )
+  }
+
   async getTextWithReferer(url: string, referer: string): Promise<EhTextResponse> {
     return await EhHttpClient.requestTextWithAxios(
       url,
@@ -76,28 +93,43 @@ export class EhHttpClient {
     )
   }
 
-  /** POST a JSON body (EH /api.php). Same headers/cookies/retry as getText, plus Content-Type. */
+  /**
+   * POST a JSON body exactly once. This is the safe default for EH /api.php because several methods
+   * mutate remote state. Call postJsonReadOnly only after the endpoint has been classified as safe
+   * to repeat.
+   */
   async postJson(url: string, body: string): Promise<EhTextResponse> {
+    return await EhHttpClient.requestTextOnceWithAxios(
+      url,
+      'POST',
+      body,
+      '',
+      'application/json',
+      false,
+    )
+  }
+
+  /** POST an explicitly read-only EH JSON method with retry for transient transport/5xx failures. */
+  async postJsonReadOnly(url: string, body: string): Promise<EhTextResponse> {
     return await EhHttpClient.requestTextWithAxios(
       url,
       'POST',
       body,
       '',
       'application/json',
-      'http_post_retry',
+      'http_json_read_retry',
       false,
     )
   }
 
-  /** POST a classic PHP form body. Used by protected EH write endpoints after explicit user confirmation. */
+  /** POST a classic PHP form body exactly once; these are protected EH write endpoints. */
   async postFormUrlEncoded(url: string, body: string): Promise<EhTextResponse> {
-    return await EhHttpClient.requestTextWithAxios(
+    return await EhHttpClient.requestTextOnceWithAxios(
       url,
       'POST',
       body,
       '',
       'application/x-www-form-urlencoded',
-      'http_form_retry',
       false,
     )
   }

@@ -50,6 +50,15 @@ jobs:
         run: |
           node scripts/test_v1_decorator_inventory_contract.mjs
 
+      - name: Check severe source boundaries
+        shell: bash
+        run: |
+          node scripts/test_error_classification_contract.mjs
+          node scripts/test_cookie_roundtrip_contract.mjs
+          node scripts/test_cookie_import_contract.mjs
+          node scripts/test_remote_write_retry_contract.mjs
+          node scripts/test_persistence_inventory_contract.mjs
+
       - name: Disable Huawei Cloud sync for public CI builds
         shell: bash
         run: |
@@ -135,6 +144,12 @@ jobs:
           print(f'x86_64 entries: {sum(1 for name in names if name.startswith("libs/x86_64/"))}')
           print(f'has sourceMaps.map: {"ets/sourceMaps.map" in names}')
           PY
+
+      - name: Check packaged credential safety
+        shell: bash
+        run: |
+          command -v unzip
+          node scripts/test_secret_safety_contract.mjs
 
       - name: Upload unsigned HAP
         uses: actions/upload-artifact@v4

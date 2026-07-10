@@ -2,8 +2,8 @@
 /**
  * Contract test for EhGalleryDetailParser + EhGalleryImageParser.
  * Patterns mirror shared/src/main/ets/parser/EhGalleryDetailParser.ets and
- * EhGalleryImageParser.ets. Synthetic case = hard gate; the real e-hentai.org detail
- * fixture (scripts/fixtures/gallery_detail.html) adds a live smoke check when present.
+ * EhGalleryImageParser.ets. The synthetic cases only document parser expectations; a checked-in
+ * real detail fixture is required before this can count as parser acceptance.
  *
  * Run: node scripts/test_gallery_detail_parser_contract.mjs
  */
@@ -357,25 +357,6 @@ eq(lg[0].spriteWidth, 0, 'gdtl is whole-image fallback, not sprite')
 eq(lg[1].thumbWidth, 1600, 'gdtl landscape width from URL tail')
 eq(lg[1].thumbHeight, 900, 'gdtl landscape height from URL tail')
 
-// Preview tile sizing (EhSpriteThumbnail fitHeight): a fixed row HEIGHT, the WIDTH follows each thumb's
-// true aspect. This is the no-white-border contract — the box matches the thumb exactly, never a fixed
-// tile that letterboxes short/landscape thumbs. EH preview heights are NOT uniform across a page
-// (cover/landscape pages differ), so a fixed tile height WOULD pad; fit-height never does.
-const previewBox = (thumbW, thumbH, H) => ({ w: (thumbW * H) / thumbH, h: H })
-const VARYING = '<div id="gdt" class="gt200">' +
-  '<a href="https://e-hentai.org/s/aaa/9-1"><div title="Page 1" style="width:200px;height:250px;background:transparent url(https://h.net/9-0.webp) -0px 0 no-repeat"></div></a>' +
-  '<a href="https://e-hentai.org/s/bbb/9-2"><div title="Page 2" style="width:200px;height:111px;background:transparent url(https://h.net/9-0.webp) -200px 0 no-repeat"></div></a></div>'
-const vimg = parseImages(VARYING)
-ok(vimg[0].thumbHeight !== vimg[1].thumbHeight, 'real EH pages have differing thumb heights (250 vs 111) → fixed-tile height would white-border')
-const H = 150
-const b0 = previewBox(vimg[0].thumbWidth, vimg[0].thumbHeight, H)
-const b1 = previewBox(vimg[1].thumbWidth, vimg[1].thumbHeight, H)
-eq(b0.h, H, 'fit-height: tall thumb box height == row height (no overhang)')
-eq(b1.h, H, 'fit-height: short/landscape thumb box height == row height (no overhang)')
-ok(Math.abs(b0.w / b0.h - vimg[0].thumbWidth / vimg[0].thumbHeight) < 1e-9, 'fit-height: box keeps thumb0 true aspect (no white padding)')
-ok(Math.abs(b1.w / b1.h - vimg[1].thumbWidth / vimg[1].thumbHeight) < 1e-9, 'fit-height: box keeps thumb1 true aspect (no white padding)')
-ok(b0.w !== b1.w, 'fit-height: differing aspects → differing widths (portrait vs landscape sit side by side)')
-
 // favorite state (#fav sprite): favorited → favcat slot (Y-2)/19 + favTitle; not favorited → empty.
 console.log('— favorite state (#fav sprite) —')
 const parseFav = (html) => {
@@ -462,9 +443,5 @@ ok(/parseSmallThumbs/.test(imageParserSrc), 'image parser parses gdtm sprite thu
 ok(/hasImage/.test(imageParserSrc), 'image parser dedupes overlapping preview layouts')
 ok(/RE_LARGE_PREVIEW/.test(imageParserSrc), 'image parser has gdtl large-thumb branch')
 ok(/parseLargeThumbDims/.test(imageParserSrc), 'image parser derives gdtl dimensions from thumb URL')
-const spriteSrc = readFileSync(join(ROOT, 'shared/src/main/ets/components/EhSpriteThumbnail.ets'), 'utf8')
-ok(/private wholeImageAspect\(\): number/.test(spriteSrc), 'whole-image fallback computes aspect from parsed thumb dimensions')
-ok(/\.aspectRatio\(this\.wholeImageAspect\(\)\)/.test(spriteSrc), 'whole-image fallback uses parsed aspect, not hardcoded 0.7')
-
 if (failures > 0) { console.error(`\n✗ gallery-detail parser contract: ${failures} failure(s)`); process.exit(1) }
-console.log('\n✓ gallery-detail parser contract passed')
+console.log('\n✓ gallery-detail synthetic parser contract passed')

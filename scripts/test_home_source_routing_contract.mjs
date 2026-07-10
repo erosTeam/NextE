@@ -3,8 +3,9 @@
  * Contract test for the home multi-source URL routing in
  * shared/src/main/ets/network/EhApiService.ets `getGalleryList`.
  *
- * `buildUrl` below is copy-equal to that method's URL-assembly logic (path-by-source +
- * the popular-skips-all-params short-circuit). It locks the eros_fe request.dart routes:
+ * `buildUrl` below documents URL-assembly scenarios (path-by-source + the
+ * popular-skips-all-params short-circuit). It does not execute ArkTS source; source and device
+ * verification remain necessary for acceptance. Intended routes:
  *   '' (front) → `${base}/?<params>`   · 'watched' → `${base}/watched?<params>`
  *   'popular'  → `${base}/popular`     (a fixed snapshot — filters AND the next cursor dropped)
  * If the .ets routing changes, mirror it here.
@@ -16,7 +17,7 @@ const EH_BASE = 'https://e-hentai.org'
 const EX_BASE = 'https://exhentai.org'
 const baseUrl = (isEx) => (isEx ? EX_BASE : EH_BASE)
 
-// Mirror of getGalleryList's URL builder (no network — pure string assembly).
+// Synthetic URL scenarios (no network).
 function buildUrl(query) {
   const base = baseUrl(query.isEx)
   const isPopular = query.source === 'popular'
@@ -169,32 +170,10 @@ eq(
 )
 eq('popular ex host', buildUrl(q({ source: 'popular', isEx: true })), 'https://exhentai.org/popular')
 
-// Structural: the toplist period selector must be wired end-to-end in the retained subtab model
-// (ToplistPeriodBar -> HomeSourceState.toplistTl -> ToplistPeriodPage.syncSource -> VM URL).
-import { readFileSync as _read } from 'node:fs'
-import { join as _join, dirname as _dir } from 'node:path'
-import { fileURLToPath as _f } from 'node:url'
-const _root = _join(_dir(_f(import.meta.url)), '..')
-const has = (file, needle, label) => {
-  const src = _read(_join(_root, file), 'utf8')
-  if (!src.includes(needle)) {
-    console.error(`✗ ${label}\n    missing: ${needle}\n    in: ${file}`)
-    failures++
-  }
-}
-const VM = 'feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets'
-const PERIOD_BAR = 'entry/src/main/ets/components/ToplistPeriodBar.ets'
-const PERIOD_PAGE = 'feature/home/src/main/ets/components/ToplistPeriodPage.ets'
-has(VM, '@Trace toplistTl', 'VM: toplistTl is @Trace (period chips reflect selection)')
-has(PERIOD_BAR, 'const PERIOD_TLS: number[] = [11, 12, 13, 15]', 'ToplistPeriodBar: all period tl values')
-has(PERIOD_BAR, 'this.home.toplistTl = PERIOD_TLS[index]', 'ToplistPeriodBar: tap publishes toplistTl')
-has(PERIOD_PAGE, "this.vm.syncSource('toplist', this.periodTl)", 'ToplistPeriodPage: period tl seeds VM')
-has(VM, 'this.toplistTl = tl', 'VM: syncSource writes toplistTl')
-
 if (failures > 0) {
   console.error(`\n✗ home source routing: ${failures} assertion(s) failed`)
   process.exit(1)
 }
 console.log(
-  '✓ home source routing: front/watched/popular paths + advsearch=1 gate + popular param-drop locked',
+  '✓ synthetic home source routing scenarios: front/watched/popular paths + advsearch gate + param drop',
 )

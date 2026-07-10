@@ -44,6 +44,7 @@ Allowed `Sync` values:
 | StorageKeys.IMMERSIVE_MATERIAL_LEVEL | setting | plaintext | excluded | Material preference |
 | StorageKeys.LANGUAGE | setting | plaintext | excluded | App language |
 | StorageKeys.SEARCH_HISTORY | legacy-local-data | excluded | excluded | RDB source is `search_history` |
+| StorageKeys.SEARCH_HISTORY_TRANSLATE | setting | plaintext | excluded | Search-history translation preference |
 | StorageKeys.SEARCH_FILTER | setting | plaintext | excluded | Advanced-search filter snapshot |
 | StorageKeys.FAVORITES_FAVCATS | legacy-local-data | excluded | excluded | Favcat selector snapshot, not primary local data |
 | StorageKeys.LOCAL_FAVORITES | legacy-local-data | excluded | excluded | RDB source is `local_favorites` |
@@ -51,13 +52,18 @@ Allowed `Sync` values:
 | StorageKeys.READING_DIRECTION | setting | plaintext | excluded | Reader direction |
 | StorageKeys.READING_PROGRESS | legacy-local-data | excluded | excluded | RDB source is `gallery_read_progress` |
 | StorageKeys.READING_DOUBLE_PAGE | setting | plaintext | excluded | Reader spread mode |
+| StorageKeys.READING_SPREAD_LAYOUT | setting | plaintext | excluded | Reader spread layout preference |
 | StorageKeys.READING_VOLUME_KEY | setting | plaintext | excluded | Reader volume-key control |
 | StorageKeys.READING_AUTO_PAGE_SEC | setting | plaintext | excluded | Reader auto page interval |
+| StorageKeys.READING_PRELOAD_PAGES | setting | plaintext | excluded | Reader preload preference |
+| StorageKeys.READER_IMAGE_CACHE_LIMIT_MB | setting | plaintext | excluded | Local reader image-cache limit |
 | StorageKeys.DOWNLOAD_CONCURRENCY | setting | plaintext | excluded | Download setting |
 | StorageKeys.DOWNLOAD_REQUEST_INTERVAL_SECONDS | setting | plaintext | excluded | Download setting |
 | StorageKeys.DOWNLOAD_RETRY_COUNT | setting | plaintext | excluded | Download setting |
 | StorageKeys.DOWNLOAD_AUTO_RETRY_FAILED | setting | plaintext | excluded | Download setting |
 | StorageKeys.DOWNLOAD_SPEED_LIMIT_KBPS | setting | plaintext | excluded | Download setting |
+| StorageKeys.DOWNLOAD_NOTIFY_ON_COMPLETE | setting | plaintext | excluded | Download completion notification preference |
+| StorageKeys.DOWNLOAD_HIDE_FROM_MEDIA_LIBRARY | setting | plaintext | excluded | Download media-library visibility preference |
 | StorageKeys.DOWNLOAD_ORIGINAL | setting | plaintext | excluded | Download setting |
 | StorageKeys.DOWNLOAD_ARCHIVE_BOT_TYPE | setting | plaintext | excluded | Archive bot setting |
 | StorageKeys.DOWNLOAD_ARCHIVE_BOT_ADDRESS | setting | plaintext | excluded | Archive bot setting |
