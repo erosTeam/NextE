@@ -37,6 +37,7 @@ import {
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { LoadingDialog, SymbolGlyphModifier } from '@kit.ArkUI'
+import { DownloadQueueTaskProjection } from '../model/DownloadQueueTaskProjection'
 
 /**
  * Downloads (下载) bottom tab — plain tab content hosted under Index's shared HDS title bar (no
@@ -54,6 +55,10 @@ export struct DownloadQueuePage {
   @Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal();
   @Local readProgress: GalleryReadProgressState = connectGalleryReadProgress();
   @Local downloadQueueTick: number = 0;
+  @Local galleryTaskGroups: DownloadGalleryTask[][] = [[], [], [], []];
+  @Local archiverTaskGroups: DownloadArchiverTask[][] = [[], [], [], []];
+  @Local galleryVisibleTaskCount: number = 0;
+  @Local archiverVisibleTaskCount: number = 0;
   @Local openingArchiverTag: string = '';
   @Local refreshingGalleryKey: string = '';
   @Local actionMenuKey: string = '';
@@ -92,7 +97,30 @@ export struct DownloadQueuePage {
 
   @Monitor('downloadQueueSignal.version')
   private onDownloadQueueChanged(): void {
+    this.rebuildTaskProjection()
     this.downloadQueueTick = this.downloadQueueTick + 1
+  }
+
+  @Monitor('downloadView.searchText', 'downloadView.sortMode')
+  private onDownloadViewFilterChanged(): void {
+    this.rebuildTaskProjection()
+  }
+
+  aboutToAppear(): void {
+    this.rebuildTaskProjection()
+  }
+
+  private rebuildTaskProjection(): void {
+    const projection: DownloadQueueTaskProjection = DownloadQueueTaskProjection.build(
+      this.downloadQueue.galleryTasks,
+      this.downloadQueue.archiverTasks,
+      this.downloadView.searchText,
+      this.downloadView.sortMode,
+    )
+    this.galleryTaskGroups = projection.galleryGroups
+    this.archiverTaskGroups = projection.archiverGroups
+    this.galleryVisibleTaskCount = projection.galleryVisibleCount
+    this.archiverVisibleTaskCount = projection.archiverVisibleCount
   }
 
   @Monitor('downloadView.cmdSeq')
@@ -129,16 +157,9 @@ export struct DownloadQueuePage {
   }
 
   private selectedVisibleTaskCount(): number {
-    if (this.downloadView.viewType === DownloadViewType.ARCHIVER) {
-      return this.archiverTasksForGroup(0).length +
-        this.archiverTasksForGroup(1).length +
-        this.archiverTasksForGroup(2).length +
-        this.archiverTasksForGroup(3).length
-    }
-    return this.galleryTasksForGroup(0).length +
-      this.galleryTasksForGroup(1).length +
-      this.galleryTasksForGroup(2).length +
-      this.galleryTasksForGroup(3).length
+    return this.downloadView.viewType === DownloadViewType.ARCHIVER
+      ? this.archiverVisibleTaskCount
+      : this.galleryVisibleTaskCount
   }
 
   private selectedEmptyMessage(): Resource {
@@ -399,169 +420,16 @@ export struct DownloadQueuePage {
     return `archiver:${task.tag}`
   }
 
-  private currentGalleryTask(task: DownloadGalleryTask): DownloadGalleryTask {
-    if (this.downloadQueue.revision < 0) {
-      return task
-    }
-    if (this.downloadQueueTick < 0) {
-      return task
-    }
-    const key: string = this.taskKey(task)
-    for (let i: number = 0; i < this.downloadQueue.galleryTasks.length; i++) {
-      const current: DownloadGalleryTask = this.downloadQueue.galleryTasks[i]
-      if (this.taskKey(current) === key) {
-        return current
-      }
-    }
-    return task
-  }
-
-  private currentArchiverTask(task: DownloadArchiverTask): DownloadArchiverTask {
-    if (this.downloadQueue.revision < 0) {
-      return task
-    }
-    if (this.downloadQueueTick < 0) {
-      return task
-    }
-    for (let i: number = 0; i < this.downloadQueue.archiverTasks.length; i++) {
-      const current: DownloadArchiverTask = this.downloadQueue.archiverTasks[i]
-      if (current.tag === task.tag) {
-        return current
-      }
-    }
-    return task
-  }
-
   private galleryTasksForGroup(group: number): DownloadGalleryTask[] {
-    const out: DownloadGalleryTask[] = []
-    const q: string = this.normalizedSearchText()
-    for (let i: number = 0; i < this.downloadQueue.galleryTasks.length; i++) {
-      const task: DownloadGalleryTask = this.downloadQueue.galleryTasks[i]
-      if (this.galleryGroup(task) === group && this.galleryMatchesSearch(task, q)) {
-        out.push(task)
-      }
-    }
-    out.sort((a: DownloadGalleryTask, b: DownloadGalleryTask): number => this.compareGalleryTasks(a, b))
-    return out
+    return group >= 0 && group < this.galleryTaskGroups.length ? this.galleryTaskGroups[group] : []
   }
 
   private archiverTasksForGroup(group: number): DownloadArchiverTask[] {
-    const out: DownloadArchiverTask[] = []
-    const q: string = this.normalizedSearchText()
-    for (let i: number = 0; i < this.downloadQueue.archiverTasks.length; i++) {
-      const task: DownloadArchiverTask = this.downloadQueue.archiverTasks[i]
-      if (this.archiverGroup(task) === group && this.archiverMatchesSearch(task, q)) {
-        out.push(task)
-      }
-    }
-    out.sort((a: DownloadArchiverTask, b: DownloadArchiverTask): number => this.compareArchiverTasks(a, b))
-    return out
+    return group >= 0 && group < this.archiverTaskGroups.length ? this.archiverTaskGroups[group] : []
   }
 
   private normalizedSearchText(): string {
     return this.downloadView.searchText.trim().toLowerCase()
-  }
-
-  private galleryMatchesSearch(task: DownloadGalleryTask, q: string): boolean {
-    if (q.length === 0) {
-      return true
-    }
-    return this.containsLower(task.displayTitle(), q) ||
-      this.containsLower(task.titleJp, q) ||
-      this.containsLower(task.gid, q) ||
-      this.containsLower(task.category, q)
-  }
-
-  private archiverMatchesSearch(task: DownloadArchiverTask, q: string): boolean {
-    if (q.length === 0) {
-      return true
-    }
-    return this.containsLower(task.displayTitle(), q) ||
-      this.containsLower(task.gid, q) ||
-      this.containsLower(task.resolution, q) ||
-      this.containsLower(task.dltype, q) ||
-      this.containsLower(task.fileName, q)
-  }
-
-  private containsLower(value: string, q: string): boolean {
-    return value.toLowerCase().includes(q)
-  }
-
-  private galleryGroup(task: DownloadGalleryTask): number {
-    const status: string = this.effectiveGalleryStatus(
-      task.status,
-      task.downloadedCount(),
-      Math.max(task.pageCount, task.downloadedCount(), task.seededCount()),
-    )
-    return this.statusGroup(status)
-  }
-
-  private archiverGroup(task: DownloadArchiverTask): number {
-    return this.statusGroup(task.status)
-  }
-
-  private statusGroup(status: string): number {
-    if (status === DownloadGalleryTaskStatus.COMPLETE) {
-      return 3
-    }
-    if (status === DownloadGalleryTaskStatus.ERROR) {
-      return 2
-    }
-    if (status === DownloadGalleryTaskStatus.PAUSED) {
-      return 1
-    }
-    return 0
-  }
-
-  private compareGalleryTasks(a: DownloadGalleryTask, b: DownloadGalleryTask): number {
-    if (this.downloadView.sortMode === DownloadSortMode.ADDED_ASC) {
-      return this.compareNumberThenKey(a.queuedAt, b.queuedAt, this.taskKey(a), this.taskKey(b), true)
-    }
-    if (this.downloadView.sortMode === DownloadSortMode.TITLE_ASC) {
-      return this.compareTextThenTime(a.displayTitle(), b.displayTitle(), a.queuedAt, b.queuedAt, true)
-    }
-    if (this.downloadView.sortMode === DownloadSortMode.TITLE_DESC) {
-      return this.compareTextThenTime(a.displayTitle(), b.displayTitle(), a.queuedAt, b.queuedAt, false)
-    }
-    return this.compareNumberThenKey(a.queuedAt, b.queuedAt, this.taskKey(a), this.taskKey(b), false)
-  }
-
-  private compareArchiverTasks(a: DownloadArchiverTask, b: DownloadArchiverTask): number {
-    if (this.downloadView.sortMode === DownloadSortMode.ADDED_ASC) {
-      return this.compareNumberThenKey(a.queuedAt, b.queuedAt, a.tag, b.tag, true)
-    }
-    if (this.downloadView.sortMode === DownloadSortMode.TITLE_ASC) {
-      return this.compareTextThenTime(a.displayTitle(), b.displayTitle(), a.queuedAt, b.queuedAt, true)
-    }
-    if (this.downloadView.sortMode === DownloadSortMode.TITLE_DESC) {
-      return this.compareTextThenTime(a.displayTitle(), b.displayTitle(), a.queuedAt, b.queuedAt, false)
-    }
-    return this.compareNumberThenKey(a.queuedAt, b.queuedAt, a.tag, b.tag, false)
-  }
-
-  private compareTextThenTime(aText: string, bText: string, aTime: number, bTime: number, asc: boolean): number {
-    const a: string = aText.toLowerCase()
-    const b: string = bText.toLowerCase()
-    if (a < b) {
-      return asc ? -1 : 1
-    }
-    if (a > b) {
-      return asc ? 1 : -1
-    }
-    return this.compareNumberThenKey(aTime, bTime, aText, bText, false)
-  }
-
-  private compareNumberThenKey(aValue: number, bValue: number, aKey: string, bKey: string, asc: boolean): number {
-    if (aValue !== bValue) {
-      return asc ? aValue - bValue : bValue - aValue
-    }
-    if (aKey < bKey) {
-      return -1
-    }
-    if (aKey > bKey) {
-      return 1
-    }
-    return 0
   }
 
   private closeActionMenu(): void {
@@ -1140,7 +1008,7 @@ export struct DownloadQueuePage {
       this.galleryTasksForGroup(group),
       (task: DownloadGalleryTask) => {
         ListItem() {
-          this.DownloadGalleryTaskCard(this.currentGalleryTask(task))
+          this.DownloadGalleryTaskCard(task)
         }
         .clip(false)
       },
@@ -1168,7 +1036,7 @@ export struct DownloadQueuePage {
       this.archiverTasksForGroup(group),
       (task: DownloadArchiverTask) => {
         ListItem() {
-          this.DownloadArchiverTaskCard(this.currentArchiverTask(task))
+          this.DownloadArchiverTaskCard(task)
         }
         .clip(false)
       },

@@ -35,6 +35,7 @@ ok(grounding[3].includes('separate background agent') && grounding[4].includes('
 
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const queuePage = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
+const projection = read('feature/download/src/main/ets/model/DownloadQueueTaskProjection.ets')
 const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
 const galleryModel = read('shared/src/main/ets/model/EhGallery.ets')
 const state = read('shared/src/main/ets/state/DownloadQueueState.ets')
@@ -178,17 +179,29 @@ ok(/this\.openReader\(this\.resumeIndex\(\)\)/.test(detail),
 
 ok(/@Local downloadQueue: DownloadQueueState = connectDownloadQueue\(\)/.test(queuePage) &&
   /@Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal\(\)/.test(queuePage) &&
-  /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(queuePage) &&
+  /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.rebuildTaskProjection\(\)[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(queuePage) &&
+  /@Monitor\('downloadView\.searchText', 'downloadView\.sortMode'\)[\s\S]*this\.rebuildTaskProjection\(\)/.test(queuePage) &&
+  /aboutToAppear\(\): void \{[\s\S]*this\.rebuildTaskProjection\(\)/.test(queuePage) &&
   /this\.downloadQueueTick < 0/.test(queuePage) &&
   !/@Monitor\('downloadQueue\.revision'\)/.test(queuePage),
-  'downloads page reads queue state and repaints from the dedicated queue signal')
+  'downloads page rebuilds its local projection from the dedicated queue signal')
 ok(/this\.downloadView\.viewType === DownloadViewType\.GALLERY && this\.selectedVisibleTaskCount\(\) > 0/.test(queuePage) &&
-  /private selectedVisibleTaskCount\(\): number \{[\s\S]*this\.galleryTasksForGroup\(0\)\.length/.test(queuePage),
+  /private selectedVisibleTaskCount\(\): number \{[\s\S]*this\.archiverVisibleTaskCount[\s\S]*this\.galleryVisibleTaskCount/.test(queuePage),
   'downloads page switches from empty state to real Gallery task rows by task count')
 ok(/GalleryTaskSection/.test(queuePage) &&
-  /private galleryTasksForGroup\(group: number\): DownloadGalleryTask\[\] \{[\s\S]*this\.downloadQueue\.galleryTasks\.length/.test(queuePage) &&
+  /@Local galleryTaskGroups: DownloadGalleryTask\[\]\[\] = \[\[\], \[\], \[\], \[\]\]/.test(queuePage) &&
+  /@Local archiverTaskGroups: DownloadArchiverTask\[\]\[\] = \[\[\], \[\], \[\], \[\]\]/.test(queuePage) &&
+  /private rebuildTaskProjection\(\): void \{[\s\S]*DownloadQueueTaskProjection\.build\([\s\S]*this\.downloadQueue\.galleryTasks[\s\S]*this\.downloadQueue\.archiverTasks[\s\S]*this\.downloadView\.searchText[\s\S]*this\.downloadView\.sortMode/.test(queuePage) &&
+  /private galleryTasksForGroup\(group: number\): DownloadGalleryTask\[\] \{[\s\S]*this\.galleryTaskGroups\[group\]/.test(queuePage) &&
+  /private archiverTasksForGroup\(group: number\): DownloadArchiverTask\[\] \{[\s\S]*this\.archiverTaskGroups\[group\]/.test(queuePage) &&
   /ForEach\(\s*this\.galleryTasksForGroup\(group\)/.test(queuePage) &&
-  /this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queuePage) &&
+  /this\.DownloadGalleryTaskCard\(task\)/.test(queuePage) &&
+  /this\.DownloadArchiverTaskCard\(task\)/.test(queuePage) &&
+  !/currentGalleryTask|currentArchiverTask/.test(queuePage) &&
+  /export class DownloadQueueTaskProjection/.test(projection) &&
+  /static build\([\s\S]*galleryTasks: DownloadGalleryTask\[\][\s\S]*archiverTasks: DownloadArchiverTask\[\][\s\S]*searchText: string[\s\S]*sortMode: string/.test(projection) &&
+  /private static galleryMatchesSearch[\s\S]*task\.displayTitle\(\)[\s\S]*task\.titleJp[\s\S]*task\.gid[\s\S]*task\.category/.test(projection) &&
+  /private static archiverMatchesSearch[\s\S]*task\.displayTitle\(\)[\s\S]*task\.gid[\s\S]*task\.resolution[\s\S]*task\.dltype[\s\S]*task\.fileName/.test(projection) &&
   !/@ComponentV2\s+struct DownloadGalleryTaskCardView/.test(queuePage) &&
   !/@ComponentV2\s+struct DownloadArchiverTaskCardView/.test(queuePage) &&
   !/visibleStatus|visibleExpectedFiles|visibleDownloadedFiles|visibleSeededFiles|visibleActiveRatio/.test(queuePage) &&
@@ -199,7 +212,7 @@ ok(/GalleryTaskSection/.test(queuePage) &&
   /private galleryResumeActionLabel\(task: DownloadGalleryTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(queuePage) &&
   /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void/.test(queuePage) &&
   /private static setGalleryTasks\(state: DownloadQueueState, tasks: DownloadGalleryTask\[\]\): void \{[\s\S]*findExistingGalleryTask[\s\S]*existing\.assignFrom\(task\)[\s\S]*next\.push\(existing\)[\s\S]*state\.replaceGalleryTasks\(next\)/.test(settings),
-  'downloads page renders real gallery task rows by stable gid/token through mounted row components and the queue signal path for live progress')
+  'downloads page projects and sorts each live queue task once, then renders direct observed task references')
 ok(/private TaskActionMenu\(\)/.test(queuePage) &&
   /removeActiveGalleryTask/.test(queuePage) &&
   /download_delete_task/.test(queuePage) &&

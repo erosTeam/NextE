@@ -41,6 +41,7 @@ const repo = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 const client = read('shared/src/main/ets/network/EhHttpClient.ets')
 const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const queue = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
+const projection = read('feature/download/src/main/ets/model/DownloadQueueTaskProjection.ets')
 const indexPage = read('entry/src/main/ets/pages/Index.ets')
 const streamProgressBody = settings.slice(
   settings.indexOf('private static updateGalleryStreamProgress'),
@@ -207,15 +208,20 @@ ok(/@Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueS
   /downloadQueueTick/.test(queue) &&
   !/@Monitor\('downloadQueue\.revision'\)/.test(queue) &&
   !/BasicDataSource<DownloadGalleryTask>|galleryDataSource/.test(queue) &&
-  /ForEach\(\s*this\.galleryTasksForGroup\(group\),[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queue) &&
+  /@Local galleryTaskGroups: DownloadGalleryTask\[\]\[\] = \[\[\], \[\], \[\], \[\]\]/.test(queue) &&
+  /private rebuildTaskProjection\(\): void \{[\s\S]*DownloadQueueTaskProjection\.build\([\s\S]*this\.downloadQueue\.galleryTasks[\s\S]*this\.downloadQueue\.archiverTasks/.test(queue) &&
+  /ForEach\(\s*this\.galleryTasksForGroup\(group\),[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadGalleryTaskCard\(task\)/.test(queue) &&
   !/@ComponentV2\s+struct DownloadGalleryTaskCardView/.test(queue) &&
-  /private currentGalleryTask\(task: DownloadGalleryTask\): DownloadGalleryTask \{[\s\S]*this\.downloadQueue\.galleryTasks/.test(queue) &&
+  !/currentGalleryTask|currentArchiverTask/.test(queue) &&
+  /export class DownloadQueueTaskProjection/.test(projection) &&
+  /projection\.galleryGroups\[group\]\.push\(task\)/.test(projection) &&
+  /private static galleryGroup\(task: DownloadGalleryTask\): number \{[\s\S]*task\.downloadedCount\(\)[\s\S]*DownloadGalleryTaskStatus\.PARTIAL/.test(projection) &&
   /task\.status/.test(queue) &&
   /task\.downloadedFiles/.test(queue) &&
   /task\.seededFiles/.test(queue) &&
   /task\.activeBytesWritten/.test(queue) &&
   /task\.activeBytesTotal/.test(queue) &&
-  /this\.DownloadGalleryTaskCard\(this\.currentGalleryTask\(task\)\)/.test(queue) &&
+  /this\.DownloadGalleryTaskCard\(task\)/.test(queue) &&
   !/visibleStatus|visibleDownloadedFiles|visibleSeededFiles|visibleActiveRatio|renderProgressLabel|renderProgressRatio|renderShowProgress/.test(queue) &&
   /const task: DownloadGalleryTask = state\.galleryTasks\[i\][\s\S]*findSeedIndex\(task\.imageSeeds, result\.originalSeed\)[\s\S]*changedSeeds\.push\(seed\)[\s\S]*isDownloadQueuePageActive\(\)[\s\S]*publishDownloadQueueChanged\(\)/.test(applyResultsBody) &&
   !/DownloadQueueSettings\.setGalleryTasks\(state, next\)/.test(applyResultsBody) &&
