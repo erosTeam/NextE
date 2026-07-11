@@ -108,6 +108,9 @@ export class BackupService {
   }
 
   static async decryptAndPreview(raw: string, password: string): Promise<BackupParseResult> {
+    if (BackupService.isTooLarge(raw)) {
+      return { ok: false, code: 'too_large', message: 'backup file is too large' }
+    }
     let container: BackupEncryptedEnvelope
     try {
       container = JSON.parse(raw) as BackupEncryptedEnvelope
@@ -123,7 +126,15 @@ export class BackupService {
       return { ok: false, code: 'foreign_backup', message: 'not a NextE backup' }
     }
     const meta: BackupCipherMeta | undefined = container.cipherMeta
-    if (meta === undefined || !container.ciphertext) {
+    if (
+      meta === undefined ||
+      meta === null ||
+      typeof meta !== 'object' ||
+      Array.isArray(meta) ||
+      typeof container.ciphertext !== 'string' ||
+      container.ciphertext.length === 0 ||
+      !BackupCrypto.isSupportedMeta(meta)
+    ) {
       return { ok: false, code: 'malformed', message: 'backup is malformed' }
     }
     let plaintext: string
@@ -139,7 +150,7 @@ export class BackupService {
     raw: string,
     fromEncrypted: boolean,
   ): Promise<BackupParseResult> {
-    if (new util.TextEncoder().encodeInto(raw).length > MAX_BACKUP_BYTES) {
+    if (BackupService.isTooLarge(raw)) {
       return { ok: false, code: 'too_large', message: 'backup file is too large' }
     }
     let parsed: Object
@@ -182,6 +193,10 @@ export class BackupService {
       return { ok: false, code: 'bad_checksum', message: 'backup failed integrity check' }
     }
     return { ok: true, envelope: envelope, code: '', message: '' }
+  }
+
+  private static isTooLarge(raw: string): boolean {
+    return new util.TextEncoder().encodeInto(raw).length > MAX_BACKUP_BYTES
   }
 
   private static isEncryptedContainer(value: Object): boolean {

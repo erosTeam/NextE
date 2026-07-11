@@ -27,6 +27,16 @@ export interface BackupSealResult {
  *    (wrong derived key) or any tampering surfaces as a decrypt failure.
  */
 export class BackupCrypto {
+  /** Schema v1 fixes its KDF settings so untrusted container metadata cannot choose decryption work. */
+  static isSupportedMeta(meta: BackupCipherMeta): boolean {
+    return meta.cipher === BACKUP_CIPHER_ALGORITHM &&
+      meta.kdf === BACKUP_KDF_ALGORITHM &&
+      meta.iterations === BACKUP_KDF_ITERATIONS &&
+      meta.keySize === BACKUP_KDF_KEY_SIZE &&
+      typeof meta.salt === 'string' && meta.salt.length > 0 &&
+      typeof meta.iv === 'string' && meta.iv.length > 0
+  }
+
   static seal(plaintext: string, password: string): BackupSealResult {
     const salt = BackupCrypto.randomBytes(BACKUP_CIPHER_SALT_BYTES)
     const iv = BackupCrypto.randomBytes(BACKUP_CIPHER_IV_BYTES)
@@ -55,6 +65,9 @@ export class BackupCrypto {
   }
 
   static open(ciphertextBase64: string, password: string, meta: BackupCipherMeta): string {
+    if (!BackupCrypto.isSupportedMeta(meta)) {
+      throw new Error('unsupported backup cipher metadata')
+    }
     const salt = BackupCrypto.fromBase64(meta.salt)
     const iv = BackupCrypto.fromBase64(meta.iv)
     const sealed = BackupCrypto.fromBase64(ciphertextBase64)
@@ -65,9 +78,7 @@ export class BackupCrypto {
     const body = sealed.slice(0, splitAt)
     const tag = sealed.slice(splitAt, sealed.length)
 
-    const keySize = meta.keySize > 0 ? meta.keySize : BACKUP_KDF_KEY_SIZE
-    const iterations = meta.iterations > 0 ? meta.iterations : BACKUP_KDF_ITERATIONS
-    const keyBytes = BackupCrypto.deriveKey(password, salt, iterations, keySize)
+    const keyBytes = BackupCrypto.deriveKey(password, salt)
     const symKey = BackupCrypto.importKey(keyBytes)
 
     const gcmParams = BackupCrypto.gcmParams(iv, tag)
@@ -85,15 +96,13 @@ export class BackupCrypto {
   private static deriveKey(
     password: string,
     salt: Uint8Array,
-    iterations: number = BACKUP_KDF_ITERATIONS,
-    keySize: number = BACKUP_KDF_KEY_SIZE,
   ): Uint8Array {
     const spec: cryptoFramework.PBKDF2Spec = {
       algName: 'PBKDF2',
       password: password,
       salt: salt,
-      iterations: iterations,
-      keySize: keySize,
+      iterations: BACKUP_KDF_ITERATIONS,
+      keySize: BACKUP_KDF_KEY_SIZE,
     }
     const kdf = cryptoFramework.createKdf('PBKDF2|SHA256')
     const secret = kdf.generateSecretSync(spec)

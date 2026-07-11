@@ -46,9 +46,6 @@ export class BackupFilePickerCoordinator {
       throw new Error('open cancelled')
     }
     const raw: string = BackupFilePickerCoordinator.readText(uris[0])
-    if (raw.length > MAX_BACKUP_BYTES) {
-      throw new Error('backup file is too large')
-    }
     return { raw: raw, parseResult: await BackupService.parseAndPreview(raw) }
   }
 
@@ -87,6 +84,9 @@ export class BackupFilePickerCoordinator {
     try {
       file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY)
       const size: number = fileIo.statSync(file.fd).size
+      if (size < 0 || size > MAX_BACKUP_BYTES) {
+        throw new Error('backup file is too large')
+      }
       const buffer = new ArrayBuffer(size)
       const bytesRead: number = fileIo.readSync(file.fd, buffer)
       const decoder = util.TextDecoder.create('utf-8')

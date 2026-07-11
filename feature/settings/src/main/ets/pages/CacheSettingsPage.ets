@@ -354,7 +354,9 @@ export struct CacheSettingsPage {
         this.confirmRestore(result)
       })
       .catch((error: Error) => {
-        if (error.message !== 'open cancelled') {
+        if (error.message === 'backup file is too large') {
+          this.toast($r('app.string.backup_import_too_large'))
+        } else if (error.message !== 'open cancelled') {
           this.toast($r('app.string.backup_import_invalid'))
         }
       })

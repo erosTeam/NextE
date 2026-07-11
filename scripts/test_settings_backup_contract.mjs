@@ -25,6 +25,11 @@ ok('crypto is AES-256-GCM with PBKDF2-SHA256 (seal/open)',
     /createKdf\('PBKDF2\|SHA256'\)/.test(crypto))
 ok('crypto splits the GCM auth tag off the ciphertext on open',
   /BACKUP_CIPHER_TAG_BYTES/.test(crypto) && /slice\(splitAt/.test(crypto))
+ok('crypto fixes schema-v1 KDF work instead of accepting container-selected cost or key size',
+  /static isSupportedMeta\(meta: BackupCipherMeta\)[\s\S]*meta\.iterations === BACKUP_KDF_ITERATIONS[\s\S]*meta\.keySize === BACKUP_KDF_KEY_SIZE/.test(crypto) &&
+    /if \(!BackupCrypto\.isSupportedMeta\(meta\)\)/.test(crypto) &&
+    /iterations: BACKUP_KDF_ITERATIONS[\s\S]*keySize: BACKUP_KDF_KEY_SIZE/.test(crypto) &&
+    !/meta\.keySize > 0/.test(crypto) && !/meta\.iterations > 0/.test(crypto))
 
 const types = read('shared/src/main/ets/backup/BackupTypes.ets')
 ok('envelope identity + KDF params defined',
@@ -116,6 +121,10 @@ ok('a plaintext file declaring a secrets section is rejected',
 ok('an encrypted file without a password surfaces password_required; wrong password -> bad_password',
   /encrypted: true,\s*code: 'password_required'/.test(svc) &&
     /code: 'bad_password'/.test(svc))
+ok('encrypted import validates byte size and fixed cipher metadata before decrypting',
+  /static async decryptAndPreview\(raw: string, password: string\)[\s\S]*BackupService\.isTooLarge\(raw\)[\s\S]*JSON\.parse\(raw\)/.test(svc) &&
+    /typeof container\.ciphertext !== 'string'[\s\S]*!BackupCrypto\.isSupportedMeta\(meta\)[\s\S]*BackupCrypto\.open\(container\.ciphertext, password, meta\)/.test(svc) &&
+    /private static isTooLarge\(raw: string\): boolean/.test(svc))
 ok('checksum is verified on parse',
   /BackupChecksum\.verifyEnvelope\(envelope\)/.test(svc) && /code: 'bad_checksum'/.test(svc))
 ok('restore snapshots durable stores and rolls back on section failure',
@@ -131,6 +140,7 @@ ok('shared exports BackupService + types',
   /export \{ BackupService \}/.test(read('shared/src/main/ets/Index.ets')))
 
 const page = read('feature/settings/src/main/ets/pages/CacheSettingsPage.ets')
+const picker = read('feature/settings/src/main/ets/model/BackupFilePickerCoordinator.ets')
 ok('page has export + import, secrets require a password, restore confirms first',
   /openExport\(/.test(page) &&
     /startImport\(/.test(page) &&
@@ -151,6 +161,14 @@ ok('import diagnostics surface parser codes instead of a single generic failure'
     /backup_import_unsupported/.test(page) &&
     /backup_import_bad_checksum/.test(page) &&
     /backup_import_malformed/.test(page))
+ok('picker rejects oversized files before allocating and preserves the size-specific import message',
+  /const size: number = fileIo\.statSync\(file\.fd\)\.size[\s\S]*size > MAX_BACKUP_BYTES[\s\S]*throw new Error\('backup file is too large'\)[\s\S]*new ArrayBuffer\(size\)/.test(picker) &&
+    /error\.message === 'backup file is too large'[\s\S]*backup_import_too_large/.test(page))
+const backupCipherGuardTest = read('entry/src/ohosTest/ets/test/BackupCipherMetadataGuard.test.ets')
+const testList = read('entry/src/ohosTest/ets/test/List.test.ets')
+ok('device test exercises rejection of untrusted encrypted KDF metadata before decrypt',
+  /BackupService\.decryptAndPreview\([\s\S]*encryptedContainer\(210001, 32\)[\s\S]*result\.code\)\.assertEqual\('malformed'\)/.test(backupCipherGuardTest) &&
+    /backupCipherMetadataGuardTest\(\)/.test(testList))
 ok('restore confirmation previews backup section counts before applying',
   /BackupService\.preview\(envelope\)/.test(page) &&
     /restorePreviewMessage\(preview: BackupPreview\)/.test(page) &&

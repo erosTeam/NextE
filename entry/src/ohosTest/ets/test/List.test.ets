@@ -39,6 +39,7 @@ import readerImageLoadPriorityTest from './ReaderImageLoadPriority.test'
 import gallerySeedDetailRefreshGateTest from './GallerySeedDetailRefreshGate.test'
 import readerImageSourceRequestGateTest from './ReaderImageSourceRequestGate.test'
 import imageResolveSourceGateTest from './ImageResolveSourceGate.test'
+import backupCipherMetadataGuardTest from './BackupCipherMetadataGuard.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -82,4 +83,5 @@ export default function testsuite(): void {
   gallerySeedDetailRefreshGateTest()
   readerImageSourceRequestGateTest()
   imageResolveSourceGateTest()
+  backupCipherMetadataGuardTest()
 }
