@@ -58,6 +58,9 @@ export class FavoritesViewModel {
   private lastPrev: string = ''
   private afterJump: boolean = false
   private cacheRenderVersion: number = 0
+  // Tag translation reads from RDB asynchronously. A completed translation can otherwise restore a
+  // row set that paging, a reset, or a later settings toggle already replaced while it was waiting.
+  private tagTranslationRun: number = 0
   // Generation token: every page-1 reset (load via order toggle / favcat switch / refresh) bumps it
   // so an in-flight loadMore that resumes afterwards discards its now-stale (wrong favcat/order)
   // page instead of mixing it into the new list. selectFavcat/toggleOrder run without isLoadingMore.
@@ -419,12 +422,26 @@ export class FavoritesViewModel {
   }
 
   async reapplyTagTranslation(): Promise<void> {
-    if (this.itemCount === 0) {
+    this.tagTranslationRun = this.tagTranslationRun + 1
+    const run: number = this.tagTranslationRun
+    const enabled: boolean = connectTagTranslationSettings().enabled
+    const sourceRows: EhGallery[] = this.dataSource.getAll()
+    const sourceCount: number = sourceRows.length
+    if (sourceCount === 0) {
       return
     }
-    const rows: EhGallery[] = connectTagTranslationSettings().enabled
-      ? await this.translateRows(this.dataSource.getAll())
-      : TagTranslationService.clearGalleriesTranslations(this.dataSource.getAll())
+    const snapshot: EhGallery[] = sourceRows.slice()
+    const rows: EhGallery[] = enabled
+      ? await this.translateRows(snapshot)
+      : TagTranslationService.clearGalleriesTranslations(snapshot)
+    if (
+      run !== this.tagTranslationRun ||
+      enabled !== connectTagTranslationSettings().enabled ||
+      this.dataSource.getAll() !== sourceRows ||
+      this.dataSource.totalCount() !== sourceCount
+    ) {
+      return
+    }
     this.dataSource.setData(rows)
     this.itemCount = this.dataSource.totalCount()
   }

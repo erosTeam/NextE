@@ -24,6 +24,7 @@ import cachedImageFileMaintenanceTest from './CachedImageFileMaintenance.test'
 import searchFilterPersistSchedulerTest from './SearchFilterPersistScheduler.test'
 import webDavConfigPersistSchedulerTest from './WebDavConfigPersistScheduler.test'
 import downloadQueueTaskProjectionTest from './DownloadQueueTaskProjection.test'
+import favoritesTagTranslationRaceTest from './FavoritesTagTranslationRace.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -52,4 +53,5 @@ export default function testsuite(): void {
   searchFilterPersistSchedulerTest()
   webDavConfigPersistSchedulerTest()
   downloadQueueTaskProjectionTest()
+  favoritesTagTranslationRaceTest()
 }
