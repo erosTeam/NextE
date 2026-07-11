@@ -10,16 +10,23 @@ const MAX_HISTORY: number = 100
 
 /** Persists recent search queries + is the single writer of SearchHistoryState. */
 export class SearchHistorySettings {
+  // Search submissions are intentionally fire-and-forget from the page. Keep their durable order so
+  // a rapid submit/delete/clear sequence cannot let an older RDB write finish last.
+  private static rdbWriteTail: Promise<void> = Promise.resolve()
+  private static mutationRevision: number = 0
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await SearchHistorySettings.migrateLegacyPreferences(context)
-      const state = connectSearchHistory()
-      state.items = await SearchHistoryRepository.load(context, MAX_HISTORY)
+      await SearchHistorySettings.refreshFromStorage(context)
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      state.translateEnabled = store.getSync(StorageKeys.SEARCH_HISTORY_TRANSLATE, true) as boolean
+      connectSearchHistory().translateEnabled = store.getSync(
+        StorageKeys.SEARCH_HISTORY_TRANSLATE,
+        true,
+      ) as boolean
     } catch (error) {
       DiagnosticLogger.warn('settings', 'searchhistory_restore_failed', (error as Error).message)
     }
@@ -39,12 +46,16 @@ export class SearchHistorySettings {
       }
     })
     state.items = next
-    await SearchHistorySettings.persist(context, next)
+    SearchHistorySettings.mutationRevision = SearchHistorySettings.mutationRevision + 1
+    await SearchHistorySettings.persistAdd(context, q)
   }
 
   static async clear(context: common.UIAbilityContext): Promise<void> {
     connectSearchHistory().items = []
-    await SearchHistoryRepository.replaceAll(context, [])
+    SearchHistorySettings.mutationRevision = SearchHistorySettings.mutationRevision + 1
+    await SearchHistorySettings.enqueueRdbWrite(
+      (): Promise<void> => SearchHistoryRepository.replaceAll(context, []),
+    )
     await SearchHistorySettings.deleteLegacyPreference(context)
     SyncScheduler.requestAfterLocalWrite(context, 'search_history_clear')
   }
@@ -76,12 +87,17 @@ export class SearchHistorySettings {
       }
     })
     connectSearchHistory().items = next
-    await SearchHistorySettings.persist(context, next)
+    SearchHistorySettings.mutationRevision = SearchHistorySettings.mutationRevision + 1
+    await SearchHistorySettings.persistRemoval(context, q)
   }
 
-  private static async persist(context: common.UIAbilityContext, items: string[]): Promise<void> {
+  private static async persistAdd(context: common.UIAbilityContext, query: string): Promise<void> {
     try {
-      await SearchHistoryRepository.replaceAll(context, items)
+      await SearchHistorySettings.enqueueRdbWrite(
+        async (): Promise<void> => {
+          await SearchHistoryRepository.upsertAndTrim(context, query, MAX_HISTORY)
+        },
+      )
       SyncScheduler.requestAfterLocalWrite(context, 'search_history')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'searchhistory_save_failed', (error as Error).message)
@@ -90,13 +106,20 @@ export class SearchHistorySettings {
 
   static async exportForBackup(context: common.UIAbilityContext): Promise<string[]> {
     await SearchHistorySettings.migrateLegacyPreferences(context)
+    await SearchHistorySettings.flushForSync(context)
     return SearchHistoryRepository.load(context, MAX_HISTORY)
   }
 
   static async restoreBackup(context: common.UIAbilityContext, items: string[]): Promise<void> {
-    await SearchHistoryRepository.replaceAll(context, SearchHistorySettings.normalize(items))
+    SearchHistorySettings.mutationRevision = SearchHistorySettings.mutationRevision + 1
+    await SearchHistorySettings.enqueueRdbWrite(
+      (): Promise<void> => SearchHistoryRepository.replaceAll(
+        context,
+        SearchHistorySettings.normalize(items),
+      ),
+    )
     await SearchHistorySettings.deleteLegacyPreference(context)
-    connectSearchHistory().items = await SearchHistoryRepository.load(context, MAX_HISTORY)
+    await SearchHistorySettings.refreshFromStorage(context)
     SyncScheduler.requestAfterLocalWrite(context, 'search_history_restore_backup')
   }
 
@@ -111,10 +134,53 @@ export class SearchHistorySettings {
     }
     const items: string[] = SearchHistorySettings.parse(raw)
     if (items.length > 0) {
-      await SearchHistoryRepository.replaceAll(context, items)
+      await SearchHistorySettings.enqueueRdbWrite(
+        (): Promise<void> => SearchHistoryRepository.replaceAll(context, items),
+      )
     }
     store.deleteSync(StorageKeys.SEARCH_HISTORY)
     store.flushSync()
+  }
+
+  /** Drain queued writes before backup and sync providers read search_history. */
+  static async flushForSync(_context: common.UIAbilityContext): Promise<void> {
+    await SearchHistorySettings.rdbWriteTail
+  }
+
+  private static async persistRemoval(context: common.UIAbilityContext, query: string): Promise<void> {
+    try {
+      await SearchHistorySettings.enqueueRdbWrite(
+        async (): Promise<void> => {
+          await SearchHistoryRepository.tombstone(context, query)
+        },
+      )
+      SyncScheduler.requestAfterLocalWrite(context, 'search_history')
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'searchhistory_remove_failed', (error as Error).message)
+    }
+  }
+
+  /** A rejected write must not poison the serialized tail. */
+  private static enqueueRdbWrite(work: () => Promise<void>): Promise<void> {
+    const next: Promise<void> = SearchHistorySettings.rdbWriteTail.then(
+      (): Promise<void> => work(),
+      (): Promise<void> => work(),
+    )
+    SearchHistorySettings.rdbWriteTail = next
+    return next
+  }
+
+  /** Avoid replacing a newer in-memory submit/delete with a stale RDB snapshot. */
+  private static async refreshFromStorage(context: common.UIAbilityContext): Promise<void> {
+    for (let attempt: number = 0; attempt < 2; attempt++) {
+      await SearchHistorySettings.rdbWriteTail
+      const revision: number = SearchHistorySettings.mutationRevision
+      const items: string[] = await SearchHistoryRepository.load(context, MAX_HISTORY)
+      if (revision === SearchHistorySettings.mutationRevision) {
+        connectSearchHistory().items = items
+        return
+      }
+    }
   }
 
   private static parse(raw: string): string[] {

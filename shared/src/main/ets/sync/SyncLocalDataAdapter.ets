@@ -93,7 +93,9 @@ const SQL_APPLY_LOCAL_FAVORITE: string =
   'CASE WHEN COALESCE(local_favorites.deleted_at, 0) > COALESCE(local_favorites.last_view_time, 0) THEN COALESCE(local_favorites.deleted_at, 0) ELSE COALESCE(local_favorites.last_view_time, 0) END'
 const SQL_APPLY_SEARCH_HISTORY: string =
   'INSERT INTO search_history (scope_key, query_text, position_index, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?) ' +
-  'ON CONFLICT(scope_key, query_text) DO UPDATE SET position_index = excluded.position_index, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+  'ON CONFLICT(scope_key, query_text) DO UPDATE SET position_index = excluded.position_index, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.updated_at, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.updated_at, 0) END >= ' +
+  'CASE WHEN COALESCE(search_history.deleted_at, 0) > COALESCE(search_history.updated_at, 0) THEN COALESCE(search_history.deleted_at, 0) ELSE COALESCE(search_history.updated_at, 0) END'
 const SQL_APPLY_LOCAL_BLOCK_SETTINGS: string =
   'INSERT INTO local_block_settings (scope_key, filter_comments_by_score, score_filtering_threshold, comment_display_mode, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key) DO UPDATE SET filter_comments_by_score = excluded.filter_comments_by_score, score_filtering_threshold = excluded.score_filtering_threshold, comment_display_mode = excluded.comment_display_mode, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
