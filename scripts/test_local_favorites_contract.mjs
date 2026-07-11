@@ -88,6 +88,10 @@ ok('local favorite repository serializes one-row mutations with logical timestam
     /SQL_SELECT_MAX_EFFECTIVE_TIME/.test(localRepo) &&
     /WHERE excluded\.last_view_time >= CASE WHEN COALESCE\(local_favorites\.deleted_at, 0\) >/.test(localRepo) &&
     /INSERT INTO local_favorites \(scope_key, gid, last_view_time, deleted_at\)/.test(localRepo))
+ok('legacy migration never lets a stale Preferences snapshot overwrite persisted favorite rows',
+  /static async hasPersistedState[\s\S]*SQL_HAS_PERSISTED_STATE[\s\S]*return resultSet\.goToNextRow\(\)/.test(localRepo) &&
+    /const revision: number = LocalFavSettings\.mutationRevision[\s\S]*if \(await LocalFavoriteRepository\.hasPersistedState\(context\)\) \{[\s\S]*return[\s\S]*\}[\s\S]*if \(revision !== LocalFavSettings\.mutationRevision\)[\s\S]*LocalFavoriteRepository\.replaceAll/.test(localSettings) &&
+    /localfav_migrate_failed[\s\S]*Keep the only legacy copy intact/.test(localSettings))
 ok('full local-favorite replacements remain transactional for backup and migration',
   /static async replaceAll[\s\S]*store\.beginTransaction\(\)[\s\S]*nextMutationTime\(store, Date\.now\(\)\)[\s\S]*SQL_TOMBSTONE_SCOPE[\s\S]*replacedAt \+ items\.length - i[\s\S]*SQL_RESTORE_UPSERT[\s\S]*store\.commit\(\)[\s\S]*catch \(error\) \{[\s\S]*store\.rollBack\(\)/.test(localRepo) &&
     /restoreBackup[\s\S]*LocalFavoriteRepository\.replaceAll/.test(localSettings) &&

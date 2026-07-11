@@ -50,8 +50,21 @@ const SQL_SELECT_MAX_EFFECTIVE_TIME: string =
   'SELECT MAX(CASE WHEN COALESCE(deleted_at, 0) > COALESCE(last_view_time, 0) ' +
   'THEN COALESCE(deleted_at, 0) ELSE COALESCE(last_view_time, 0) END) AS effective_at ' +
   'FROM local_favorites WHERE scope_key = ?'
+const SQL_HAS_PERSISTED_STATE: string =
+  'SELECT 1 AS has_state FROM local_favorites WHERE scope_key = ? LIMIT 1'
 
 export class LocalFavoriteRepository {
+  /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
+  static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
+    try {
+      return resultSet.goToNextRow()
+    } finally {
+      resultSet.close()
+    }
+  }
+
   static async load(context: common.UIAbilityContext): Promise<EhGallery[]> {
     const out: EhGallery[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)

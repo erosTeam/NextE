@@ -130,6 +130,7 @@ export class LocalFavSettings {
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const revision: number = LocalFavSettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
       StorageKeys.STORE_SETTINGS,
@@ -139,13 +140,32 @@ export class LocalFavSettings {
       return
     }
     const items: EhGallery[] = LocalFavSettings.parse(raw)
-    if (items.length > 0) {
+    try {
       await LocalFavSettings.enqueueRdbWrite(
-        (): Promise<void> => LocalFavoriteRepository.replaceAll(context, items),
+        async (): Promise<void> => {
+          if (revision !== LocalFavSettings.mutationRevision) {
+            return
+          }
+          if (await LocalFavoriteRepository.hasPersistedState(context)) {
+            return
+          }
+          if (revision !== LocalFavSettings.mutationRevision) {
+            return
+          }
+          if (items.length > 0) {
+            await LocalFavoriteRepository.replaceAll(context, items)
+          }
+        },
       )
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'localfav_migrate_failed', (error as Error).message)
+      // Keep the only legacy copy intact. A later startup can retry once the RDB write succeeds.
+      return
     }
-    store.deleteSync(StorageKeys.LOCAL_FAVORITES)
-    store.flushSync()
+    if (revision !== LocalFavSettings.mutationRevision) {
+      return
+    }
+    await LocalFavSettings.deleteLegacyPreference(context)
   }
 
   /** Drain current local-favorite writes before WebDAV/Huawei Cloud reads the durable table. */
