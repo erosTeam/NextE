@@ -77,6 +77,8 @@ assert.doesNotMatch(backupTypes, /previewPath/, 'backup image block entries do n
 assert.match(backupAdapter, /rule\.previewPath = ''/, 'backup restore clears image block preview paths')
 assert.match(syncAdapter, /r\.previewPath = ''/, 'provider sync exports image block rules without preview content')
 assert.match(syncAdapter, /r\.sourceType, r\.sourceUrl, r\.sourcePage, '', r\.enabled/, 'provider sync applies image block rules without preview content')
+assert.match(syncAdapter, /SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION[\s\S]*?WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) >/, 'subscription applies keep a newer local record')
+assert.match(syncAdapter, /SQL_APPLY_IMAGE_BLOCK_RULE[\s\S]*?WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) >/, 'user-rule applies keep a newer local record')
 assert.match(repo, /UPDATE image_block_user_rules SET preview_path = \? /, 'user-rule preview paths stay local cache metadata')
 assert.doesNotMatch(repo, /image_block_user_rules SET preview_path = \?, updated_at/, 'preview cache writes do not advance syncable user-rule timestamps')
 assert.doesNotMatch(repo, /image_block_rule_preview/, 'preview cache writes do not schedule a user-rule sync')
