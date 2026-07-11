@@ -116,7 +116,9 @@ export class ReaderViewModel {
     this.currentIndex = startIndex
     this.cacheKey = ReaderViewModel.sessionKey(gid, token, this.isEx)
     this.images = []
-    this.syncPageIndexSource()
+    // A retained ReaderViewModel can switch to another gallery with the same page count; that is still
+    // a structural reset, so force the LazyForEach source to rebuild once at the new gallery boundary.
+    this.syncPageIndexSource(true)
     this.previewImagesByIndex.clear()
     this.previewPage = -1
     this.exhausted = false
@@ -227,8 +229,8 @@ export class ReaderViewModel {
     ReaderViewModel.trimSessionCache()
   }
 
-  private notifyImagesChanged(): void {
-    this.syncImagesFromPreviewMap()
+  private notifyImagesChanged(index: number): void {
+    this.syncImagesFromPreviewMap([index])
   }
 
   private rebuildPreviewMapFromImages(): void {
@@ -241,7 +243,7 @@ export class ReaderViewModel {
     }
   }
 
-  private syncImagesFromPreviewMap(): void {
+  private syncImagesFromPreviewMap(changedIndexes: number[] = []): void {
     const out: EhGalleryImage[] = []
     const total: number = this.previewMapUpperBound()
     for (let i: number = 0; i < total; i++) {
@@ -251,16 +253,25 @@ export class ReaderViewModel {
       }
     }
     this.images = out
-    this.syncPageIndexSource()
+    const reloaded: boolean = this.syncPageIndexSource()
+    if (!reloaded) {
+      for (let i: number = 0; i < changedIndexes.length; i++) {
+        this.pageIndexSource.notifyDataChanged(changedIndexes[i])
+      }
+    }
   }
 
-  private syncPageIndexSource(): void {
+  private syncPageIndexSource(force: boolean = false): boolean {
     const total: number = this.totalPages()
+    if (!force && this.pageIndexSource.totalCount() === total) {
+      return false
+    }
     const indexes: number[] = []
     for (let i: number = 0; i < total; i++) {
       indexes.push(i)
     }
     this.pageIndexSource.setData(indexes)
+    return true
   }
 
   private previewMapUpperBound(): number {
@@ -314,13 +325,15 @@ export class ReaderViewModel {
     if (seedImages.length === 0 || seedLoadedPages <= 0) {
       return
     }
+    const changedIndexes: number[] = []
     seedImages.forEach((img: EhGalleryImage, order: number) => {
       const targetIndex: number = img.page > 0 ? img.page - 1 : order
       const copy: EhGalleryImage = img.copy()
       copy.page = targetIndex + 1
       this.previewImagesByIndex.set(targetIndex, copy)
+      changedIndexes.push(targetIndex)
     })
-    this.syncImagesFromPreviewMap()
+    this.syncImagesFromPreviewMap(changedIndexes)
     this.perPage = seedPerPage > 0 ? seedPerPage : seedImages.length
     this.loadedPreviewPages = []
     if (seedPreviewPages.length > 0) {
@@ -364,7 +377,7 @@ export class ReaderViewModel {
     img.sUrl = seedImagePageUrl
     img.imgkey = ref.imgkey
     this.previewImagesByIndex.set(index, img)
-    this.syncImagesFromPreviewMap()
+    this.syncImagesFromPreviewMap([index])
     return img
   }
 
@@ -402,7 +415,7 @@ export class ReaderViewModel {
       merged.reloadKey = seed.reloadKey
     }
     this.previewImagesByIndex.set(index, merged)
-    this.syncImagesFromPreviewMap()
+    this.syncImagesFromPreviewMap([index])
     this.publishSessionCache()
   }
 
@@ -663,14 +676,16 @@ export class ReaderViewModel {
       'merge_preview_page',
       `previewPage ${previewPage} count ${pageImages.length} start ${startIndex} first ${pageImages[0].page} firstThumb ${pageImages[0].thumbUrl.length}`,
     )
+    const changedIndexes: number[] = []
     for (let i: number = 0; i < pageImages.length; i++) {
       const img: EhGalleryImage = pageImages[i]
       const targetIndex: number = img.page > 0 ? img.page - 1 : startIndex + i
       const existing: EhGalleryImage | undefined = this.previewImagesByIndex.get(targetIndex)
       const base: EhGalleryImage = existing !== undefined ? existing : new EhGalleryImage(targetIndex + 1)
       this.previewImagesByIndex.set(targetIndex, this.mergePreviewImage(base, img))
+      changedIndexes.push(targetIndex)
     }
-    this.syncImagesFromPreviewMap()
+    this.syncImagesFromPreviewMap(changedIndexes)
     this.markPreviewPageLoaded(previewPage)
     this.advanceContiguousPreviewPage()
     this.previewFailedIndex = -1
@@ -798,7 +813,7 @@ export class ReaderViewModel {
           .resolve(img)
           .then(
             (): void => {
-              this.notifyImagesChanged()
+              this.notifyImagesChanged(i)
               this.publishSessionCache()
             },
             (): void => {},

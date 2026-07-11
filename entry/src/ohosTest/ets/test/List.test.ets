@@ -26,6 +26,7 @@ import webDavConfigPersistSchedulerTest from './WebDavConfigPersistScheduler.tes
 import downloadQueueTaskProjectionTest from './DownloadQueueTaskProjection.test'
 import favoritesTagTranslationRaceTest from './FavoritesTagTranslationRace.test'
 import readerSessionCacheStateTest from './ReaderSessionCacheState.test'
+import basicDataSourceChangeNotificationTest from './BasicDataSourceChangeNotification.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -56,4 +57,5 @@ export default function testsuite(): void {
   downloadQueueTaskProjectionTest()
   favoritesTagTranslationRaceTest()
   readerSessionCacheStateTest()
+  basicDataSourceChangeNotificationTest()
 }

@@ -51,6 +51,16 @@ export class BasicDataSource<T> implements IDataSource {
     }
   }
 
+  /** Refresh one existing LazyForEach item without reloading the full data source. */
+  notifyDataChanged(index: number): void {
+    if (index < 0 || index >= this.items.length) {
+      return
+    }
+    this.listeners.forEach((l: DataChangeListener) => {
+      l.onDataChange(index)
+    })
+  }
+
   clear(): void {
     this.items = []
     this.notifyReload()
