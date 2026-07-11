@@ -772,32 +772,49 @@ export struct GalleryTagsCard {
     const tagset: string = this.addTagset
     this.addSubmitting = true
     this.addError = ''
+    let refreshFailed: boolean = false
     try {
-      await EhApiService.getInstance().addUserTag({
-        isEx: request.isEx,
-        tagName: this.addTagTitle,
-        tagset,
-        color: this.normalizedAddColor(),
-        weight: this.addWeight,
-        watched: this.addWatched,
-        hidden: this.addHidden,
-      })
+      try {
+        await EhApiService.getInstance().addUserTag({
+          isEx: request.isEx,
+          tagName: this.addTagTitle,
+          tagset,
+          color: this.normalizedAddColor(),
+          weight: this.addWeight,
+          watched: this.addWatched,
+          hidden: this.addHidden,
+        })
+      } catch (err) {
+        if (!this.isCurrentMyTagsRequest(request)) {
+          return
+        }
+        const e = err as Error
+        this.addError = e.message
+        DiagnosticLogger.warn('gallery', 'tag_info_mytag_add_failed', e.message)
+        return
+      }
       if (!this.isCurrentMyTagsRequest(request)) {
         return
       }
-      const refreshed: EhMytags = await EhApiService.getInstance().getMyTags(request.isEx, tagset)
-      if (!this.isCurrentMyTagsRequest(request) || !UserTagContextService.publishMyTags(request, refreshed.tags)) {
+      try {
+        const refreshed: EhMytags = await EhApiService.getInstance().getMyTags(request.isEx, tagset)
+        if (!this.isCurrentMyTagsRequest(request) || !UserTagContextService.publishMyTags(request, refreshed.tags)) {
+          return
+        }
+      } catch (err) {
+        if (!this.isCurrentMyTagsRequest(request)) {
+          return
+        }
+        refreshFailed = true
+        DiagnosticLogger.warn('gallery', 'tag_info_mytag_add_refresh_failed', (err as Error).message)
+      }
+      if (!this.isCurrentMyTagsRequest(request)) {
         return
       }
       this.discardMyTagsManagement()
-      this.showToast($r('app.string.mytags_add_success'))
-    } catch (err) {
-      if (!this.isCurrentMyTagsRequest(request)) {
-        return
-      }
-      const e = err as Error
-      this.addError = e.message
-      DiagnosticLogger.warn('gallery', 'tag_info_mytag_add_failed', e.message)
+      this.showToast(refreshFailed
+        ? $r('app.string.mytags_add_success_refresh_failed')
+        : $r('app.string.mytags_add_success'))
     } finally {
       if (this.myTagsRequest !== request) {
         return

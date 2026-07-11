@@ -2317,6 +2317,10 @@
       "value": "我的标签已添加"
     },
     {
+      "name": "mytags_add_success_refresh_failed",
+      "value": "我的标签已添加，但刷新失败"
+    },
+    {
       "name": "mytags_tagset_create",
       "value": "新建标签组"
     },

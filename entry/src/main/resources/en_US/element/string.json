@@ -2317,6 +2317,10 @@
       "value": "My Tag added"
     },
     {
+      "name": "mytags_add_success_refresh_failed",
+      "value": "My Tag added, but refresh failed"
+    },
+    {
       "name": "mytags_tagset_create",
       "value": "New tagset"
     },

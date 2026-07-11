@@ -31,6 +31,9 @@ const api = read('shared/src/main/ets/network/EhApiService.ets')
 const barrel = read('shared/src/main/ets/Index.ets')
 const page = read('feature/user/src/main/ets/pages/MyTagsPage.ets')
 const detailTags = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
+const detailAddSubmit = detailTags.match(/private async submitAdd\(request: UserTagRequestContext\): Promise<void>\s*\{[\s\S]*?(?=\n  private normalizedAddColor)/)?.[0] ?? ''
+const detailRefreshFailureIndex = detailAddSubmit.indexOf('tag_info_mytag_add_refresh_failed')
+const detailRefreshFailureTail = detailRefreshFailureIndex >= 0 ? detailAddSubmit.slice(detailRefreshFailureIndex) : ''
 const detailManagementCloseCount = (detailTags.match(/closeAction:\s*\(\)\s*=>\s*\{\s*this\.discardMyTagsManagement\(\)\s*\}/g) || []).length
 
 const grounding = [
@@ -90,6 +93,12 @@ ok(/private isCurrentMyTagsRequest\(request: UserTagRequestContext\): boolean[\s
   detailManagementCloseCount === 3 &&
   !/UserTagStore\.getInstance\(\)\.setTags/.test(detailTags),
   'detail-page add owns one account/site sheet session through reload and shared-cache publish')
+ok(/let refreshFailed: boolean = false[\s\S]*await EhApiService\.getInstance\(\)\.addUserTag\([\s\S]*this\.addError = e\.message[\s\S]*tag_info_mytag_add_failed[\s\S]*await EhApiService\.getInstance\(\)\.getMyTags\(request\.isEx, tagset\)[\s\S]*refreshFailed = true[\s\S]*tag_info_mytag_add_refresh_failed/.test(detailAddSubmit),
+  'detail-page add separates POST failure from the subsequent cache-refresh failure')
+ok(detailRefreshFailureIndex >= 0 &&
+  !detailRefreshFailureTail.includes('this.addError =') &&
+  /this\.discardMyTagsManagement\(\)[\s\S]*refreshFailed\s*\? \$r\('app\.string\.mytags_add_success_refresh_failed'\)/.test(detailAddSubmit),
+  'a refresh failure after a successful detail-page add closes the form instead of enabling a duplicate POST')
 ok(/private captureManagementRequest\(\): UserTagRequestContext \| null[\s\S]*this\.myTagsManagementRequest = request/.test(page) &&
   /private isCurrentManagementRequest\(request: UserTagRequestContext\): boolean[\s\S]*this\.myTagsManagementRequest === request[\s\S]*this\.contextMatchesCurrent\(request\)/.test(page),
   'MyTagsPage add sessions are fenced to the account and site that opened the sheet')
@@ -108,6 +117,7 @@ for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
     'mytags_add_existing',
     'mytags_add_confirm',
     'mytags_add_success',
+    'mytags_add_success_refresh_failed',
   ]) {
     ok(strings.includes(`"name": "${key}"`), `${locale}: ${key} string exists`)
   }

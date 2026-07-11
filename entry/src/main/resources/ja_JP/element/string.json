@@ -2317,6 +2317,10 @@
       "value": "マイタグを追加しました"
     },
     {
+      "name": "mytags_add_success_refresh_failed",
+      "value": "マイタグを追加しましたが、更新に失敗しました"
+    },
+    {
       "name": "mytags_tagset_create",
       "value": "新規タグセット"
     },
