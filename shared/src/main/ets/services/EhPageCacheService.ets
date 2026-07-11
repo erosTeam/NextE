@@ -25,6 +25,8 @@ const DETAIL_TTL_MS: number = 6 * 60 * 60 * 1000
 const MAX_LIST_ROWS_PER_CACHE: number = 50
 const MAX_CACHE_ROWS_PER_KIND: number = 128
 const MAX_PRELOADED_GALLERY_LISTS: number = 24
+// The durable per-kind cap is maintained in batches, so a burst may temporarily hold up to one interval extra rows.
+const CACHE_MAINTENANCE_INTERVAL: number = 32
 
 const SQL_SELECT_CACHE: string =
   'SELECT payload FROM eh_page_cache WHERE kind = ? AND cache_key = ? AND expires_at > ? LIMIT 1'
@@ -98,6 +100,12 @@ export class PreloadedGalleryListMemoryCache {
 
 export class EhPageCacheService {
   private static preloadedGalleryLists: PreloadedGalleryListMemoryCache = new PreloadedGalleryListMemoryCache()
+  /** Per-kind maintenance is intentionally amortized; a fresh process always cleans on its first save. */
+  private static cacheMaintenanceWriteCounts: Map<string, number> = new Map<string, number>()
+  /** Prevent concurrent saves from duplicating a due prune while retaining an immediate retry on failure. */
+  private static cacheMaintenanceInFlightKinds: Set<string> = new Set<string>()
+  /** Writes arriving during a prune make the next save due again, so their cadence is not lost. */
+  private static cacheMaintenanceFollowUpKinds: Set<string> = new Set<string>()
 
   // Count + total payload bytes of the unexpired page cache (gallery list + detail), for the cache page.
   static async stat(context: common.UIAbilityContext): Promise<CacheStat> {
@@ -127,6 +135,8 @@ export class EhPageCacheService {
       const store: relationalStore.RdbStore = await LocalDataStore.open(context)
       await store.executeSql('DELETE FROM eh_page_cache')
       EhPageCacheService.preloadedGalleryLists.clear()
+      EhPageCacheService.cacheMaintenanceWriteCounts.clear()
+      EhPageCacheService.cacheMaintenanceFollowUpKinds.clear()
     } catch (error) {
       DiagnosticLogger.warn('page-cache', 'clear_failed', (error as Error).message)
     }
@@ -322,12 +332,49 @@ export class EhPageCacheService {
       const store: relationalStore.RdbStore = await LocalDataStore.open(context)
       const args: relationalStore.ValueType[] = [kind, cacheKey, payload, now, now + ttlMs, now]
       await store.executeSql(SQL_UPSERT_CACHE, args)
-      await store.executeSql(SQL_DELETE_EXPIRED_CACHE, [now])
-      await store.executeSql(SQL_PRUNE_KIND_CACHE, [kind, kind, MAX_CACHE_ROWS_PER_KIND])
-      DiagnosticLogger.info('page-cache', 'save_ok', `${kind} bytes=${payload.length}`)
+      const runMaintenance: boolean = EhPageCacheService.shouldRunMaintenance(kind)
+      let maintenanceStatus: string = 'skipped'
+      if (runMaintenance) {
+        try {
+          await store.executeSql(SQL_DELETE_EXPIRED_CACHE, [now])
+          await store.executeSql(SQL_PRUNE_KIND_CACHE, [kind, kind, MAX_CACHE_ROWS_PER_KIND])
+          EhPageCacheService.finishMaintenance(kind, true)
+          maintenanceStatus = 'done'
+        } catch (error) {
+          EhPageCacheService.finishMaintenance(kind, false)
+          maintenanceStatus = 'failed'
+          DiagnosticLogger.warn('page-cache', 'maintenance_failed', `${kind}: ${(error as Error).message}`)
+        }
+      }
+      DiagnosticLogger.info('page-cache', 'save_ok', `${kind} bytes=${payload.length} maintenance=${maintenanceStatus}`)
     } catch (error) {
       DiagnosticLogger.warn('page-cache', 'save_failed', (error as Error).message)
     }
+  }
+
+  /** First save and every later interval clean expiry + restore the per-kind retention cap. */
+  private static shouldRunMaintenance(kind: string): boolean {
+    if (EhPageCacheService.cacheMaintenanceInFlightKinds.has(kind)) {
+      EhPageCacheService.cacheMaintenanceFollowUpKinds.add(kind)
+      return false
+    }
+    const writes: number | undefined = EhPageCacheService.cacheMaintenanceWriteCounts.get(kind)
+    if (writes === undefined || writes >= CACHE_MAINTENANCE_INTERVAL - 1) {
+      EhPageCacheService.cacheMaintenanceInFlightKinds.add(kind)
+      return true
+    }
+    EhPageCacheService.cacheMaintenanceWriteCounts.set(kind, writes + 1)
+    return false
+  }
+
+  /** Keep failed or overlapped maintenance due so the next cache save does not skip a needed prune. */
+  private static finishMaintenance(kind: string, succeeded: boolean): void {
+    EhPageCacheService.cacheMaintenanceInFlightKinds.delete(kind)
+    const hasFollowUp: boolean = EhPageCacheService.cacheMaintenanceFollowUpKinds.delete(kind)
+    EhPageCacheService.cacheMaintenanceWriteCounts.set(
+      kind,
+      succeeded && !hasFollowUp ? 0 : CACHE_MAINTENANCE_INTERVAL - 1,
+    )
   }
 
   private static reviveGalleryList(raw: GalleryList): GalleryList {
