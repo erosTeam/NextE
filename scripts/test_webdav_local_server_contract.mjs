@@ -12,8 +12,10 @@ const PASS = 'päss'
 const AUTH = `Basic ${Buffer.from(`${USER}:${PASS}`, 'utf8').toString('base64')}`
 
 const files = new Map()
+const versions = new Map()
 const collections = new Set()
 const requests = []
+let nextVersion = 0
 
 const readBody = (req) => new Promise((resolve, reject) => {
   let body = ''
@@ -25,10 +27,16 @@ const readBody = (req) => new Promise((resolve, reject) => {
   req.on('error', reject)
 })
 
-const write = (res, status, body = '') => {
-  res.writeHead(status, body.length > 0 ? { 'Content-Type': 'application/json; charset=utf-8' } : undefined)
+const write = (res, status, body = '', headers = {}) => {
+  const out = { ...headers }
+  if (body.length > 0) {
+    out['Content-Type'] = 'application/json; charset=utf-8'
+  }
+  res.writeHead(status, Object.keys(out).length > 0 ? out : undefined)
   res.end(body)
 }
+
+const etagFor = (path) => `"${versions.get(path) ?? 0}"`
 
 const server = createServer(async (req, res) => {
   requests.push({ method: req.method, url: req.url })
@@ -50,12 +58,22 @@ const server = createServer(async (req, res) => {
       write(res, 404, 'missing')
       return
     }
-    write(res, 200, files.get(req.url))
+    write(res, 200, files.get(req.url), { ETag: etagFor(req.url) })
     return
   }
   if (req.method === 'PUT') {
+    const exists = files.has(req.url)
+    const ifMatch = typeof req.headers['if-match'] === 'string' ? req.headers['if-match'] : ''
+    const ifNoneMatch = typeof req.headers['if-none-match'] === 'string' ? req.headers['if-none-match'] : ''
+    if ((ifMatch.length > 0 && (!exists || ifMatch !== etagFor(req.url))) ||
+      (ifNoneMatch === '*' && exists)) {
+      write(res, 412, 'precondition failed')
+      return
+    }
     files.set(req.url, await readBody(req))
-    write(res, 201)
+    nextVersion += 1
+    versions.set(req.url, nextVersion)
+    write(res, 201, '', { ETag: etagFor(req.url) })
     return
   }
   write(res, 405, 'method not allowed')
@@ -85,6 +103,12 @@ try {
     const resp = await fetch(`${base}${path}`, { method: 'GET', headers })
     assert.equal(resp.status, expectedStatus, `GET ${path}`)
     return await resp.text()
+  }
+  const getEtag = async (path) => {
+    const resp = await fetch(`${base}${path}`, { method: 'GET', headers })
+    assert.equal(resp.status, 200, `GET ${path} ETag`)
+    await resp.text()
+    return resp.headers.get('etag') ?? ''
   }
 
   await mkcol(ROOT)
@@ -137,6 +161,53 @@ try {
   assert.equal(await getText(SEARCH_SHARD, 200), searchShard, 'search-history shard round-trips')
   assert.equal(await getText(VIEWED_SHARD, 200), viewedShard, 'viewed-history shard round-trips')
   assert.equal(await getText(MANIFEST, 200), manifest, 'manifest round-trips')
+
+  const manifestEtag = await getEtag(MANIFEST)
+  assert.notEqual(manifestEtag, '', 'manifest returns an ETag')
+  const updatedManifest = `${manifest}\n`
+  const conditionalUpdate = await fetch(`${base}${MANIFEST}`, {
+    method: 'PUT',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/json; charset=utf-8',
+      'If-Match': manifestEtag,
+    },
+    body: updatedManifest,
+  })
+  assert.equal(conditionalUpdate.status, 201, 'versioned manifest PUT succeeds')
+  const staleManifestUpdate = await fetch(`${base}${MANIFEST}`, {
+    method: 'PUT',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/json; charset=utf-8',
+      'If-Match': manifestEtag,
+    },
+    body: manifest,
+  })
+  assert.equal(staleManifestUpdate.status, 412, 'stale manifest PUT is rejected')
+  assert.equal(await getText(MANIFEST, 200), updatedManifest, 'stale manifest PUT preserves current manifest')
+
+  const INITIAL_MANIFEST = `${ROOT}conditional-create.json`
+  const conditionalCreate = await fetch(`${base}${INITIAL_MANIFEST}`, {
+    method: 'PUT',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/json; charset=utf-8',
+      'If-None-Match': '*',
+    },
+    body: manifest,
+  })
+  assert.equal(conditionalCreate.status, 201, 'missing manifest conditional create succeeds')
+  const duplicateCreate = await fetch(`${base}${INITIAL_MANIFEST}`, {
+    method: 'PUT',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/json; charset=utf-8',
+      'If-None-Match': '*',
+    },
+    body: manifest,
+  })
+  assert.equal(duplicateCreate.status, 412, 'duplicate manifest conditional create is rejected')
 
   const denied = await fetch(`${base}${MANIFEST}`, { method: 'GET' })
   assert.equal(denied.status, 401, 'server enforces Basic auth')

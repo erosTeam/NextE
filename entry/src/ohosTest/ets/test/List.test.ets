@@ -23,6 +23,7 @@ import imageBlockPreviewCacheMaintenanceTest from './ImageBlockPreviewCacheMaint
 import cachedImageFileMaintenanceTest from './CachedImageFileMaintenance.test'
 import searchFilterPersistSchedulerTest from './SearchFilterPersistScheduler.test'
 import webDavConfigPersistSchedulerTest from './WebDavConfigPersistScheduler.test'
+import webDavManifestWriteGuardTest from './WebDavManifestWriteGuard.test'
 import downloadQueueTaskProjectionTest from './DownloadQueueTaskProjection.test'
 import favoritesTagTranslationRaceTest from './FavoritesTagTranslationRace.test'
 import readerSessionCacheStateTest from './ReaderSessionCacheState.test'
@@ -64,6 +65,7 @@ export default function testsuite(): void {
   cachedImageFileMaintenanceTest()
   searchFilterPersistSchedulerTest()
   webDavConfigPersistSchedulerTest()
+  webDavManifestWriteGuardTest()
   downloadQueueTaskProjectionTest()
   favoritesTagTranslationRaceTest()
   readerSessionCacheStateTest()

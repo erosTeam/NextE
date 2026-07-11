@@ -30,10 +30,12 @@ import {
 } from './SyncTypes'
 import { SyncLocalDataAdapter } from './SyncLocalDataAdapter'
 import { SyncService } from './SyncService'
+import { WebDavManifestWriteGuard, WebDavRemoteText } from './WebDavManifestWriteGuard'
 
 const CONNECT_TIMEOUT_MS: number = 10000
 const READ_TIMEOUT_MS: number = 20000
 const SHARD_COUNT: number = 64
+const MAX_MANIFEST_SYNC_ATTEMPTS: number = 3
 
 const DATASET_READ_PROGRESS: string = 'read-progress'
 const DATASET_VIEWED_HISTORY: string = 'viewed-history'
@@ -378,42 +380,63 @@ export class WebDavSyncService {
   ): Promise<void> {
     const rootUrl: string = WebDavSyncService.syncRootUrl(config.directoryUrl)
     await WebDavSyncService.ensureCollections(rootUrl, config)
-
-    const manifest: SyncManifestV1 =
-      WebDavSyncService.parseManifest(await WebDavSyncService.readRemoteOptional(rootUrl + SYNC_WEBDAV_MANIFEST_FILE, config))
     const legacyRaw: string =
       await WebDavSyncService.readRemoteOptional(WebDavSyncService.legacyFileUrl(config.directoryUrl), config)
-    let manifestChanged: boolean = false
 
-    for (let i: number = 0; i < DATASET_IDS.length; i++) {
-      const datasetId: string = DATASET_IDS[i]
-      if (!WebDavSyncService.datasetEnabled(config.selection, datasetId)) {
-        continue
-      }
-      DiagnosticLogger.info('sync', 'webdav_dataset_start', `dataset=${datasetId}`)
-      const one: SyncDatasetSelection = WebDavSyncService.selectionForDataset(datasetId)
-      let remote: SyncEnvelopeV1 = await WebDavSyncService.readDatasetEnvelope(rootUrl, manifest, datasetId, config)
-      if (WebDavSyncService.datasetRecordCount(remote, datasetId) === 0 && legacyRaw.length > 0) {
-        remote = WebDavSyncService.selectDataset(SyncService.parseRaw(legacyRaw), datasetId)
-      }
-      const merged: SyncEnvelopeV1 = await SyncService.mergeRemoteEnvelope(context, remote, deviceId, one)
-      const shards: WebDavBuiltShard[] = await WebDavSyncService.buildShards(merged, datasetId)
-      const prev: SyncManifestDataset | null = WebDavSyncService.findManifestDataset(manifest, datasetId)
-      const changed: boolean = await WebDavSyncService.writeChangedShards(rootUrl, config, prev, shards)
-      WebDavSyncService.replaceManifestDataset(manifest, datasetId, shards)
-      if (changed || WebDavSyncService.manifestDatasetChanged(prev, shards)) {
-        manifestChanged = true
-        manifest.generatedAt = new Date().toISOString()
-      }
-      DiagnosticLogger.info('sync', 'webdav_dataset_done', `dataset=${datasetId},shards=${shards.length}`)
-    }
+    for (let attempt: number = 0; attempt < MAX_MANIFEST_SYNC_ATTEMPTS; attempt++) {
+      const manifestRemote: WebDavRemoteText =
+        await WebDavSyncService.readRemoteFile(rootUrl + SYNC_WEBDAV_MANIFEST_FILE, config)
+      const manifest: SyncManifestV1 = WebDavSyncService.parseManifest(manifestRemote.body)
+      let manifestChanged: boolean = false
 
-    if (manifestChanged) {
-      await WebDavSyncService.writeRemote(rootUrl + SYNC_WEBDAV_MANIFEST_FILE, config, JSON.stringify(manifest))
+      for (let i: number = 0; i < DATASET_IDS.length; i++) {
+        const datasetId: string = DATASET_IDS[i]
+        if (!WebDavSyncService.datasetEnabled(config.selection, datasetId)) {
+          continue
+        }
+        DiagnosticLogger.info('sync', 'webdav_dataset_start', `dataset=${datasetId}`)
+        const one: SyncDatasetSelection = WebDavSyncService.selectionForDataset(datasetId)
+        let remote: SyncEnvelopeV1 = await WebDavSyncService.readDatasetEnvelope(rootUrl, manifest, datasetId, config)
+        if (WebDavSyncService.datasetRecordCount(remote, datasetId) === 0 && legacyRaw.length > 0) {
+          remote = WebDavSyncService.selectDataset(SyncService.parseRaw(legacyRaw), datasetId)
+        }
+        const merged: SyncEnvelopeV1 = await SyncService.mergeRemoteEnvelope(context, remote, deviceId, one)
+        const shards: WebDavBuiltShard[] = await WebDavSyncService.buildShards(merged, datasetId)
+        const prev: SyncManifestDataset | null = WebDavSyncService.findManifestDataset(manifest, datasetId)
+        const changed: boolean = await WebDavSyncService.writeChangedShards(rootUrl, config, prev, shards)
+        WebDavSyncService.replaceManifestDataset(manifest, datasetId, shards)
+        if (changed || WebDavSyncService.manifestDatasetChanged(prev, shards)) {
+          manifestChanged = true
+          manifest.generatedAt = new Date().toISOString()
+        }
+        DiagnosticLogger.info('sync', 'webdav_dataset_done', `dataset=${datasetId},shards=${shards.length}`)
+      }
+
+      if (!manifestChanged) {
+        return
+      }
+      const committed: boolean = await WebDavSyncService.writeManifest(
+        rootUrl + SYNC_WEBDAV_MANIFEST_FILE,
+        config,
+        JSON.stringify(manifest),
+        manifestRemote,
+      )
+      if (committed) {
+        return
+      }
+      if (attempt + 1 < MAX_MANIFEST_SYNC_ATTEMPTS) {
+        DiagnosticLogger.warn('sync', 'webdav_manifest_conflict_retry', `attempt=${attempt + 1}`)
+      }
     }
+    throw new Error('WebDAV manifest changed concurrently; retry later')
   }
 
   static async readRemote(url: string, config: WebDavSyncConfig): Promise<string> {
+    return (await WebDavSyncService.readRemoteFile(url, config)).body
+  }
+
+  private static async readRemoteFile(url: string, config: WebDavSyncConfig): Promise<WebDavRemoteText> {
+    const out: WebDavRemoteText = new WebDavRemoteText()
     const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
       url,
       'GET',
@@ -424,12 +447,15 @@ export class WebDavSyncService {
     )
     const code: number = resp.statusCode
     if (code === 404) {
-      return ''
+      return out
     }
     if (code < 200 || code >= 300) {
       throw new Error(`WebDAV GET failed: HTTP ${code}`)
     }
-    return resp.body
+    out.body = resp.body
+    out.exists = true
+    out.etag = resp.etag
+    return out
   }
 
   static async writeRemote(url: string, config: WebDavSyncConfig, raw: string): Promise<void> {
@@ -448,6 +474,43 @@ export class WebDavSyncService {
       throw new Error(`WebDAV PUT failed: HTTP ${code}`)
     }
     DiagnosticLogger.info('sync', 'webdav_sync_uploaded', `url=${url} bytes=${raw.length}`)
+  }
+
+  private static async writeManifest(
+    url: string,
+    config: WebDavSyncConfig,
+    raw: string,
+    remote: WebDavRemoteText,
+  ): Promise<boolean> {
+    const header: Record<string, string> = WebDavSyncService.headers(config)
+    header['Content-Type'] = 'application/json; charset=utf-8'
+    const precondition = WebDavManifestWriteGuard.precondition(remote)
+    if (precondition.ifMatch.length > 0) {
+      header['If-Match'] = precondition.ifMatch
+    }
+    if (precondition.ifNoneMatch.length > 0) {
+      header['If-None-Match'] = precondition.ifNoneMatch
+    }
+    const resp: AxiosTextResponse = await AxiosHttpClient.requestText(
+      url,
+      'PUT',
+      header,
+      raw,
+      CONNECT_TIMEOUT_MS,
+      READ_TIMEOUT_MS,
+    )
+    const code: number = resp.statusCode
+    if (WebDavManifestWriteGuard.isConflictStatus(code)) {
+      return false
+    }
+    if (code < 200 || code >= 300) {
+      throw new Error(`WebDAV PUT failed: HTTP ${code}`)
+    }
+    if (remote.exists && remote.etag.length === 0) {
+      DiagnosticLogger.warn('sync', 'webdav_manifest_unversioned', 'server did not return ETag')
+    }
+    DiagnosticLogger.info('sync', 'webdav_sync_uploaded', `url=${url} bytes=${raw.length}`)
+    return true
   }
 
   private static async readRemoteOptional(url: string, config: WebDavSyncConfig): Promise<string> {

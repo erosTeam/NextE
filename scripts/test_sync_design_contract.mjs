@@ -144,6 +144,12 @@ ok('WebDAV provider writes only changed shards',
     /writeChangedShards/.test(webdav) &&
     /stableGeneratedAt/.test(webdav) &&
     !/shardEnvelope\.generatedAt\s*=\s*new Date\(\)\.toISOString\(\)/.test(webdav))
+ok('WebDAV provider conditionally replaces an ETag versioned manifest and retries conflicts',
+  /WebDavManifestWriteGuard/.test(webdav) &&
+    /If-Match/.test(webdav) &&
+    /If-None-Match/.test(webdav) &&
+    /MAX_MANIFEST_SYNC_ATTEMPTS/.test(webdav) &&
+    /webdav_manifest_conflict_retry/.test(webdav))
 ok('WebDAV provider builds shards off UI thread with a single bucket pass',
   /taskpool\.execute<\[string, string\], string>\(buildWebDavShardsTask/.test(webdav) &&
     /collectShardBuckets/.test(webdav) &&

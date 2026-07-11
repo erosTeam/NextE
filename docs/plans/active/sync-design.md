@@ -226,6 +226,13 @@ Shard metadata must be stable too: per-shard `generatedAt` is derived from the n
 inside that shard, not from wall-clock sync time, so unchanged user data does not upload again on every
 manual sync.
 
+When the WebDAV server returns an `ETag` for `manifest.json`, the provider replaces that manifest with
+`If-Match`; a first manifest uses `If-None-Match: *`. A `409`/`412` precondition conflict re-reads,
+merges, and retries the sync round up to three times, preventing one concurrent writer from silently
+replacing another writer's manifest entry. Servers that do not return an `ETag` keep the compatible
+unconditional replacement path and emit a diagnostic warning; they cannot provide this optimistic
+concurrency guarantee.
+
 The WebDAV provider must not write a single all-data `nexte-sync-v1.json` as the product format. That
 file is legacy/transition input only: if it exists and the manifest is empty, import it once and then
 write the sharded layout. Do not delete the legacy file during sync; leave cleanup to a later explicit

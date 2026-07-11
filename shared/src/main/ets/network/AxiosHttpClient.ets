@@ -4,6 +4,7 @@ export class AxiosTextResponse {
   statusCode: number = 0
   body: string = ''
   rawHeader: string = ''
+  etag: string = ''
 }
 
 export class AxiosBinaryResponse {
@@ -41,6 +42,7 @@ export class AxiosHttpClient {
     out.statusCode = resp.status
     out.body = typeof resp.data === 'string' ? resp.data : ''
     out.rawHeader = JSON.stringify(resp.headers)
+    out.etag = AxiosHttpClient.responseEtag(out.rawHeader)
     return out
   }
 
@@ -77,5 +79,17 @@ export class AxiosHttpClient {
 
   private static acceptStatus(status: number): boolean {
     return status >= 100 && status <= 599
+  }
+
+  private static responseEtag(rawHeader: string): string {
+    const match: RegExpExecArray | null = /"etag"\s*:\s*"((?:\\.|[^"\\])*)"/i.exec(rawHeader)
+    if (match === null || match[1].length === 0) {
+      return ''
+    }
+    try {
+      return JSON.parse('"' + match[1] + '"') as string
+    } catch (_error) {
+      return ''
+    }
   }
 }

@@ -251,6 +251,11 @@ export {
 } from './backup/BackupTypes'
 export { SyncService } from './sync/SyncService'
 export { SyncLocalDataAdapter } from './sync/SyncLocalDataAdapter'
+export {
+  WebDavManifestWriteGuard,
+  WebDavManifestWritePrecondition,
+  WebDavRemoteText,
+} from './sync/WebDavManifestWriteGuard'
 export { WebDavSyncConfig, WebDavSyncService } from './sync/WebDavSyncService'
 export { HUAWEI_CLOUD_SYNC_BUILD_ENABLED } from './sync/HuaweiCloudSyncBuildFlag'
 export { SAFE_MODE_BUILD_ENABLED } from './safe/SafeModeBuildFlag'
