@@ -178,6 +178,11 @@ export {
   EhProfileSettingsRequestFence,
 } from './services/EhProfileSettingsRequestFence'
 export {
+  UserTagRequestContext,
+  UserTagRequestFence,
+  UserTagContextService,
+} from './services/UserTagContextService'
+export {
   UserProfileRequestContext,
   UserProfileRequestFence,
 } from './services/UserProfileRequestFence'

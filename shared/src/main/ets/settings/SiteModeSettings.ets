@@ -5,6 +5,7 @@ import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { EhCookieStore } from '../network/EhCookieStore'
 import { EhConstants } from '../constants/EhConstants'
+import { UserTagLoader } from '../services/UserTagLoader'
 
 /**
  * Persists the site mode (表站 e-hentai / 里站 exhentai) and is the single writer of the
@@ -62,7 +63,11 @@ export class SiteModeSettings {
       EhCookieStore.getInstance().isLogin(),
       EhCookieStore.getInstance().get(EhConstants.COOKIE_IGNEOUS),
     )
+    const previousIsEx: boolean = connectSiteMode().isEx
     connectSiteMode().isEx = isEx
+    if (previousIsEx !== isEx) {
+      UserTagLoader.reconcileActiveContext()
+    }
     try {
       const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
       if (epoch !== SiteModeSettings.writeEpoch) {

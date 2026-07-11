@@ -44,6 +44,12 @@ export class UserTagStore {
     this.index = m
   }
 
+  /** Drop server-backed My Tags and list-derived fallbacks together when the account/site scope changes. */
+  clear(): void {
+    this.index.clear()
+    this.inlineIndex.clear()
+  }
+
   /**
    * E-Hentai list rows carry the user's tag colours inline even when the detail page does not.
    * eros_fe feeds those SimpleTag colours into TagController.addAllSimpleTag(), then detail

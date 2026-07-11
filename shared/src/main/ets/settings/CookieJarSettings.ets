@@ -13,6 +13,7 @@ import { UserProfileService } from '../services/UserProfileService'
 import { CookieJarEntry } from '../model/CookieJarEntry'
 import { FavcatListSettings } from './FavcatListSettings'
 import { SiteModeSettings } from './SiteModeSettings'
+import { UserTagLoader } from '../services/UserTagLoader'
 
 /**
  * Persistence for the sensitive EH auth cookie bundle. HarmonyOS has no cookie jar, so the
@@ -236,6 +237,7 @@ export class CookieJarSettings {
    */
   static replaceFromHeader(header: string): boolean {
     EhCookieStore.getInstance().clear()
+    UserTagLoader.invalidateActiveContext()
     return CookieJarSettings.applyFromHeader(header)
   }
 
@@ -489,7 +491,7 @@ export class CookieJarSettings {
       }
       store.putSync(StorageKeys.COOKIE_JAR, bundle)
       store.flushSync()
-      CookieJarSettings.syncAuthState()
+      CookieJarSettings.syncAuthState(false)
       return true
     } catch (error) {
       DiagnosticLogger.warn('auth', 'profile_selection_persist_failed', (error as Error).message)
@@ -531,7 +533,7 @@ export class CookieJarSettings {
       if (serialized.length > 0) {
         CookieJarSettings.applyFromHeader(serialized)
       }
-      CookieJarSettings.syncAuthState()
+      CookieJarSettings.syncAuthState(false)
       await SiteModeSettings.reconcileActiveJar(context)
       await AccountListSettings.load(context)
       await AccountListSettings.recordActive(context)
@@ -549,9 +551,10 @@ export class CookieJarSettings {
   /** Log out: clear the jar, the persisted bundle, and the AuthState mirror. */
   static async clear(context: common.UIAbilityContext): Promise<void> {
     EhCookieStore.getInstance().clear()
+    UserTagLoader.invalidateActiveContext()
     CookieJarSettings.expireWebIdentityCookies()
     // Refresh visible account UI immediately; persistence deletion may await Preferences I/O.
-    CookieJarSettings.syncAuthState()
+    CookieJarSettings.syncAuthState(false)
     await SiteModeSettings.reconcileActiveJar(context)
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
@@ -563,7 +566,7 @@ export class CookieJarSettings {
     } catch (error) {
       DiagnosticLogger.warn('auth', 'cookie_jar_clear_failed', (error as Error).message)
     }
-    CookieJarSettings.syncAuthState()
+    CookieJarSettings.syncAuthState(false)
     await AccountListSettings.load(context)
     DiagnosticLogger.info('auth', 'cookie_jar_cleared', 'login=false')
   }
@@ -575,6 +578,7 @@ export class CookieJarSettings {
       return
     }
     EhCookieStore.getInstance().clear()
+    UserTagLoader.invalidateActiveContext()
     CookieJarSettings.expireWebIdentityCookies()
     CookieJarSettings.applyFromHeader(bundle)
     await SiteModeSettings.reconcileActiveJar(context)
@@ -629,6 +633,7 @@ export class CookieJarSettings {
       DiagnosticLogger.info('auth', 'password_login', `status=${resp.statusCode} ok=${ok}`)
       if (ok) {
         EhCookieStore.getInstance().clear()
+        UserTagLoader.invalidateActiveContext()
         CookieJarSettings.applyFromSetCookie(setCookie)
         await CookieJarSettings.save(context)
         UserProfileService.refreshAndSaveActive(context)
@@ -642,7 +647,7 @@ export class CookieJarSettings {
   }
 
   /** Push the jar's login facts into the reactive AuthState (non-sensitive fields only). */
-  static syncAuthState(): void {
+  static syncAuthState(reconcileUserTags: boolean = true): void {
     const store: EhCookieStore = EhCookieStore.getInstance()
     const auth: AuthState = connectAuth()
     const previousMemberId: string = auth.memberId
@@ -655,6 +660,9 @@ export class CookieJarSettings {
     if (!auth.isLogin || previousMemberId !== nextMemberId) {
       auth.nickName = ''
       auth.avatarUrl = ''
+    }
+    if (reconcileUserTags) {
+      UserTagLoader.reconcileActiveContext()
     }
   }
 }

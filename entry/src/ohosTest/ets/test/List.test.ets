@@ -12,6 +12,7 @@ import imageBlockThumbnailHashQueueSchedulerTest from './ImageBlockThumbnailHash
 import coverColorResourceBoundsTest from './CoverColorResourceBounds.test'
 import preloadedGalleryListMemoryCacheTest from './PreloadedGalleryListMemoryCache.test'
 import userTagStoreInlineCacheTest from './UserTagStoreInlineCache.test'
+import userTagRequestFenceTest from './UserTagRequestFence.test'
 import cookieJarRefreshIdentityTest from './CookieJarRefreshIdentity.test'
 import siteModeRequestFenceTest from './SiteModeRequestFence.test'
 import ehProfileSettingsRequestFenceTest from './EhProfileSettingsRequestFence.test'
@@ -33,6 +34,7 @@ export default function testsuite(): void {
   coverColorResourceBoundsTest()
   preloadedGalleryListMemoryCacheTest()
   userTagStoreInlineCacheTest()
+  userTagRequestFenceTest()
   cookieJarRefreshIdentityTest()
   siteModeRequestFenceTest()
   ehProfileSettingsRequestFenceTest()

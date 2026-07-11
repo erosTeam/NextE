@@ -114,9 +114,9 @@ export class SettingsBootstrap {
       // has not completed. Keep durable settings on the startup path, but let windowStage begin mounting first.
       SettingsBootstrap.schedulePageCachePreload(context)
       DiagnosticLogger.info('settings', 'bootstrap_loaded', 'cookie jar restored')
-      // Fire-and-forget (NOT awaited): load the user's My Tags for per-tag list colors. It's a network
-      // round-trip and login-gated, so it must never block the first paint; logged-out users skip it.
-      UserTagLoader.loadIfLoggedIn()
+      // Fire-and-forget (NOT awaited): reconcile My Tags after both cookies and site mode are restored.
+      // It is login-gated and never blocks the first paint.
+      UserTagLoader.reconcileActiveContext()
     } catch (error) {
       const e = error as Error
       DiagnosticLogger.warn('settings', 'bootstrap_failed', e.message)

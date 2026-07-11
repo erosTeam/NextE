@@ -48,7 +48,7 @@ ok('EhApiService imports TaskPool parser helper',
 
 ok('EhApiService uses async TaskPool parse for popular, toplist, normal list, and favorites',
   (api.match(/EhGalleryListParseTask\.parse\(resp\.body\)/g) || []).length >= 3 &&
-  /const list: GalleryList = this\.registerInlineTagColors\(await EhGalleryListParseTask\.parse\(body\)\)/.test(api))
+  /const list: GalleryList = this\.registerInlineTagColors\(\s*await EhGalleryListParseTask\.parse\(body\),\s*userTagRequest,\s*\)/.test(api))
 
 ok('EhApiService no longer imports or directly calls EhGalleryListParser.parse',
   !/import \{ EhGalleryListParser \}/.test(api) &&

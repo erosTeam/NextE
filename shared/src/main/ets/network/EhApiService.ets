@@ -18,7 +18,7 @@ import { EhAssetBalanceParser } from '../parser/EhAssetBalanceParser'
 import { HtmlSelectorUtils } from '../parser/HtmlSelectorUtils'
 import { EhGalleryFavoriteParser, GalleryFavoriteInfo } from '../parser/EhGalleryFavoriteParser'
 import { UserTagStore } from '../state/UserTagStore'
-import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
+import { UserTagContextService, UserTagRequestContext } from '../services/UserTagContextService'
 import { GalleryList } from '../model/GalleryList'
 import { LocalBlockService } from '../services/LocalBlockService'
 import { EhGallery } from '../model/EhGallery'
@@ -433,9 +433,9 @@ export class EhApiService {
   /** Remove galleries carrying any user-hidden tag (eros_fe TagController.needHide / fetch_list.dart).
    * Applied to the main + popular + search lists, and optionally Toplist; never watched (you want watched-tag hits);
    * a no-op until My Tags load, so logged-out / cold-start lists are unfiltered. */
-  private filterHidden(list: GalleryList): GalleryList {
+  private filterHidden(list: GalleryList, request: UserTagRequestContext): GalleryList {
     const store: UserTagStore = UserTagStore.getInstance()
-    if (store.hasAny()) {
+    if (UserTagContextService.isCurrentAuthenticated(request) && store.hasAny()) {
       list.gallerys = list.gallerys.filter((g: EhGallery) => !store.anyHidden(g.simpleTags))
     }
     return list
@@ -445,20 +445,19 @@ export class EhApiService {
     return LocalBlockService.filterGalleryList(list)
   }
 
-  private registerInlineTagColors(list: GalleryList): GalleryList {
-    const store: UserTagStore = UserTagStore.getInstance()
+  private registerInlineTagColors(list: GalleryList, request: UserTagRequestContext): GalleryList {
     let changed: boolean = false
     list.gallerys.forEach((g: EhGallery) => {
-      changed = store.ingestInlineTags(g.simpleTags) || changed
+      changed = UserTagContextService.ingestInlineTags(request, g.simpleTags) || changed
     })
     if (changed) {
-      const sig: UserTagSignal = connectUserTagSignal()
-      sig.version = sig.version + 1
+      UserTagContextService.notifyInlineTagsChanged(request)
     }
     return list
   }
 
   async getGalleryList(query: GalleryListQuery): Promise<GalleryList> {
+    const userTagRequest: UserTagRequestContext = UserTagContextService.captureActiveRequest()
     const base: string = EhConstants.baseUrl(query.isEx)
     const isPopular: boolean = query.source === 'popular'
     let path: string = '/'
@@ -474,7 +473,8 @@ export class EhApiService {
       const resp = await this.fetch(url, query.isEx, 'list')
       return this.filterLocalBlocked(
         this.filterHidden(
-          this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body)),
+          this.registerInlineTagColors(await EhGalleryListParseTask.parse(resp.body), userTagRequest),
+          userTagRequest,
         ),
       )
     }
@@ -487,9 +487,10 @@ export class EhApiService {
       const resp = await this.fetch(url, false, 'list')
       const list: GalleryList = this.registerInlineTagColors(
         await EhGalleryListParseTask.parse(resp.body),
+        userTagRequest,
       )
       return this.filterLocalBlocked(
-        query.applyToplistHiddenUserTags ? this.filterHidden(list) : list,
+        query.applyToplistHiddenUserTags ? this.filterHidden(list, userTagRequest) : list,
       )
     }
     if (query.fCats > 0) {
@@ -551,11 +552,12 @@ export class EhApiService {
     const resp = await this.fetch(url, query.isEx, 'list')
     const list: GalleryList = this.registerInlineTagColors(
       await EhGalleryListParseTask.parse(resp.body),
+      userTagRequest,
     )
     // Hide-filter the front page + search results (eros_fe gates on the tag filter), but NOT /watched —
     // a watched-tag list is exactly where you want those tags to show.
     if (query.source !== 'watched' && !query.disableTagFilter) {
-      return this.filterLocalBlocked(this.filterHidden(list))
+      return this.filterLocalBlocked(this.filterHidden(list, userTagRequest))
     }
     return this.filterLocalBlocked(list)
   }
@@ -563,6 +565,7 @@ export class EhApiService {
   /** Fetch one favorites.php page: gallery rows (same gltc layout as the list) + the favcat
    * selector bar. Requires login (ipb_*); ExHentai favorites also need igneous. */
   async getFavoritesList(query: FavoritesQuery): Promise<GalleryList> {
+    const userTagRequest: UserTagRequestContext = UserTagContextService.captureActiveRequest()
     const base: string = EhConstants.baseUrl(query.isEx)
     // Match eros_fe: normal paging sends page/from or next only. inline_set is an exception retry
     // for display/order correction, not part of the ordinary page request.
@@ -587,7 +590,10 @@ export class EhApiService {
         body = await this.fetchFavoritesBody(base, query, EhConstants.FAV_DISPLAY_LIST)
       }
     }
-    const list: GalleryList = this.registerInlineTagColors(await EhGalleryListParseTask.parse(body))
+    const list: GalleryList = this.registerInlineTagColors(
+      await EhGalleryListParseTask.parse(body),
+      userTagRequest,
+    )
     list.favList = EhFavcatListParser.parse(body)
     // Active sort order from the inline_set dropdown (`<option value="f|p" selected>`).
     list.favOrder = this.favoriteOrderFromBody(body)

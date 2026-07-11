@@ -1,31 +1,68 @@
 import { EhMytags } from '../model/EhMytags'
-import { UserTagStore } from '../state/UserTagStore'
-import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
-import { connectSiteMode } from '../state/SiteModeState'
-import { EhCookieStore } from '../network/EhCookieStore'
 import { EhApiService } from '../network/EhApiService'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import {
+  UserTagContextService,
+  UserTagRequestContext,
+  UserTagRequestFence,
+} from './UserTagContextService'
 
 /**
- * Loads the user's My Tags into the global usertag store once, in the background. eros_fe defers this a
- * few seconds after startup; we fire it from bootstrap (after cookies are restored) WITHOUT blocking the
- * first paint — getMyTags is a network round-trip. Gated on login: logged-out users keep neutral tags.
+ * Reconciles the user's My Tags with the active account/site in the background. The mutable lookup cache
+ * is deliberately plain, so every request snapshots credentials + site and must pass the context fence
+ * before it can update colors or hide rules.
  */
 export class UserTagLoader {
-  static async loadIfLoggedIn(): Promise<void> {
-    if (!EhCookieStore.getInstance().isLogin()) {
+  private static activeRequest: UserTagRequestContext | null = null
+
+  /** Compatibility entry point for bootstrap; reconciliation is intentionally fire-and-forget. */
+  static loadIfLoggedIn(): void {
+    UserTagLoader.reconcileActiveContext()
+  }
+
+  /** Clear old cache data synchronously before a caller replaces the active cookie jar. */
+  static invalidateActiveContext(): void {
+    UserTagLoader.activeRequest = null
+    UserTagContextService.reset()
+  }
+
+  /** Start one load per authenticated account/site scope; unchanged scopes are a no-op. */
+  static reconcileActiveContext(): void {
+    const active: UserTagRequestContext = UserTagContextService.captureActiveRequest()
+    if (!UserTagRequestFence.matchesAuthenticated(active, active)) {
+      UserTagLoader.invalidateActiveContext()
       return
     }
+    const previous: UserTagRequestContext | null = UserTagLoader.activeRequest
+    if (
+      previous !== null &&
+      UserTagRequestFence.sameScope(previous, active) &&
+      UserTagContextService.isCurrentAuthenticated(previous)
+    ) {
+      return
+    }
+    UserTagLoader.invalidateActiveContext()
+    const request: UserTagRequestContext = UserTagContextService.captureActiveRequest()
+    UserTagLoader.activeRequest = request
+    UserTagLoader.load(request).catch((error: Error) => {
+      DiagnosticLogger.warn('usertag', 'load_failed', error.message)
+    })
+  }
+
+  private static async load(request: UserTagRequestContext): Promise<void> {
     try {
-      const mytags: EhMytags = await EhApiService.getInstance().getMyTags(connectSiteMode().isEx, '')
-      UserTagStore.getInstance().setTags(mytags.tags)
-      // Bump the reactive signal so any already-rendered list cards re-color (cold-start race fix).
-      const sig: UserTagSignal = connectUserTagSignal()
-      sig.version = sig.version + 1
+      const mytags: EhMytags = await EhApiService.getInstance().getMyTags(request.isEx, '')
+      if (
+        UserTagLoader.activeRequest !== request ||
+        !UserTagContextService.publishMyTags(request, mytags.tags)
+      ) {
+        return
+      }
       DiagnosticLogger.info('usertag', 'loaded', `${mytags.tags.length} tags`)
     } catch (error) {
-      const e = error as Error
-      DiagnosticLogger.warn('usertag', 'load_failed', e.message)
+      if (UserTagLoader.activeRequest === request && UserTagContextService.isCurrentAuthenticated(request)) {
+        throw error as Error
+      }
     }
   }
 }

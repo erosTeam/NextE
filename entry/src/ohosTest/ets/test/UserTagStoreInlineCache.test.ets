@@ -30,5 +30,27 @@ export default function userTagStoreInlineCacheTest(): void {
       expect(resolved === undefined ? '' : resolved.colorCode).assertEqual('#abcdef')
       done()
     })
+
+    it('clears server rules and inline fallbacks together at an account boundary', 0, (done: Function) => {
+      const store: UserTagStore = new UserTagStore(12)
+      const hidden: EhUsertag = new EhUsertag()
+      hidden.tag = 'female:fixture'
+      hidden.hidden = true
+      store.setTags([hidden])
+      store.ingestInlineTags([inlineTag('artist', 'fixture', '#112233', '#ddeeff')])
+
+      expect(store.hasAny()).assertEqual(true)
+      expect(store.isHidden('f', 'fixture')).assertEqual(true)
+      expect(store.lookup('artist', 'fixture') === undefined).assertEqual(false)
+      expect(store.inlineCacheSize() > 0).assertEqual(true)
+
+      store.clear()
+
+      expect(store.hasAny()).assertEqual(false)
+      expect(store.isHidden('female', 'fixture')).assertEqual(false)
+      expect(store.lookup('artist', 'fixture') === undefined).assertEqual(true)
+      expect(store.inlineCacheSize()).assertEqual(0)
+      done()
+    })
   })
 }

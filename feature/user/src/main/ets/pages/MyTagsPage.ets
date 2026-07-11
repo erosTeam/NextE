@@ -11,10 +11,12 @@ import {
   EhConstants,
   EhApiPhpService,
   EhApiService,
+  AuthState,
+  connectAuth,
   connectSiteMode,
-  UserTagStore,
-  UserTagSignal,
-  connectUserTagSignal,
+  SiteModeState,
+  UserTagContextService,
+  UserTagRequestContext,
   TagTranslationSettingsState,
   connectTagTranslationSettings,
   TagTranslationService,
@@ -86,9 +88,11 @@ export struct MyTagsPage {
   @Local tagsetAction: string = '';
   @Local tagsetName: string = '';
   @Local showingTagsetList: boolean = true;
-  @Local tagSig: UserTagSignal = connectUserTagSignal();
+  @Local auth: AuthState = connectAuth();
+  @Local site: SiteModeState = connectSiteMode();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local mytagsEpoch: number = 0;
+  private loadedContext: UserTagRequestContext | null = null;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private addSuggestTimer: number = -1;
@@ -144,30 +148,59 @@ export struct MyTagsPage {
     return [SheetSize.LARGE]
   }
 
+  private currentRequestContext(): UserTagRequestContext {
+    return UserTagContextService.captureActiveRequest()
+  }
+
+  private contextMatchesCurrent(request: UserTagRequestContext): boolean {
+    return UserTagContextService.isCurrentAuthenticated(request)
+  }
+
   private async load(tagset: string = ''): Promise<void> {
     const epoch: number = this.mytagsEpoch + 1
     this.mytagsEpoch = epoch
+    const request: UserTagRequestContext = this.currentRequestContext()
+    this.loadedContext = null
     this.loading = true
     this.error = ''
+    if (!this.contextMatchesCurrent(request)) {
+      this.loading = false
+      return
+    }
     try {
-      this.mytags = await EhApiService.getInstance().getMyTags(connectSiteMode().isEx, tagset)
+      const loaded: EhMytags = await EhApiService.getInstance().getMyTags(request.isEx, tagset)
+      if (epoch !== this.mytagsEpoch || !this.contextMatchesCurrent(request)) {
+        return
+      }
+      this.mytags = loaded
+      this.loadedContext = request
       this.showingTagsetList = tagset.length === 0 && this.mytags.tagSets.length > 1
       if (this.tagTranslation.enabled) {
-        await this.translateLoadedMyTags(epoch)
+        await this.translateLoadedMyTags(epoch, request)
       }
-      if (epoch === this.mytagsEpoch) {
-        this.publishUserTags()
+      if (epoch === this.mytagsEpoch && this.contextMatchesCurrent(request)) {
+        this.publishUserTags(request)
       }
-      if (epoch === this.mytagsEpoch && this.params.targetTag.length > 0) {
-        await this.openTargetTagAfterLoad(epoch)
+      if (epoch === this.mytagsEpoch && this.contextMatchesCurrent(request) && this.params.targetTag.length > 0) {
+        await this.openTargetTagAfterLoad(epoch, request)
       }
     } catch (err) {
-      const e = err as Error
-      this.error = e.message
-      DiagnosticLogger.warn('mytags', 'load_failed', e.message)
-    }
-    if (epoch === this.mytagsEpoch) {
-      this.loading = false
+      if (epoch === this.mytagsEpoch && this.contextMatchesCurrent(request)) {
+        const e = err as Error
+        this.error = e.message
+        DiagnosticLogger.warn('mytags', 'load_failed', e.message)
+      }
+    } finally {
+      if (epoch !== this.mytagsEpoch) {
+        return
+      }
+      if (this.contextMatchesCurrent(request)) {
+        this.loading = false
+        return
+      }
+      // A credential refresh can keep the same member id, so no AuthState monitor fires. Restart from
+      // the current context instead of leaving this page owned by a discarded response.
+      this.load(tagset).then(() => {})
     }
   }
 
@@ -175,9 +208,8 @@ export struct MyTagsPage {
     await this.load(this.mytags.currentTagset)
   }
 
-  private publishUserTags(): void {
-    UserTagStore.getInstance().setTags(this.mytags.tags)
-    this.tagSig.version = this.tagSig.version + 1
+  private publishUserTags(request: UserTagRequestContext): void {
+    UserTagContextService.publishMyTags(request, this.mytags.tags)
   }
 
   private selectTagset(id: string): void {
@@ -199,15 +231,43 @@ export struct MyTagsPage {
     if (this.tagTranslation.enabled) {
       const epoch: number = this.mytagsEpoch + 1
       this.mytagsEpoch = epoch
-      this.translateLoadedMyTags(epoch).then(() => {})
+      const request: UserTagRequestContext | null = this.loadedContext
+      if (request !== null && this.contextMatchesCurrent(request)) {
+        this.translateLoadedMyTags(epoch, request).then(() => {})
+      }
     }
+  }
+
+  @Monitor('auth.memberId')
+  private onAccountChanged(): void {
+    this.reloadForContextChange()
+  }
+
+  @Monitor('site.isEx')
+  private onSiteChanged(): void {
+    this.reloadForContextChange()
+  }
+
+  private reloadForContextChange(): void {
+    this.mytagsEpoch = this.mytagsEpoch + 1
+    this.loadedContext = null
+    this.cancelAddSuggestions()
+    this.myTagsSheetShown = false
+    this.editSubmitting = false
+    this.addSubmitting = false
+    this.tagsetSubmitting = false
+    this.mytags = new EhMytags()
+    this.showingTagsetList = true
+    this.params.tagsetId = ''
+    this.params.targetTag = ''
+    this.load('')
   }
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
   }
 
-  private async translateLoadedMyTags(epoch: number): Promise<void> {
+  private async translateLoadedMyTags(epoch: number, request: UserTagRequestContext): Promise<void> {
     const source: EhMytags = this.mytags
     const tags: EhUsertag[] = []
     for (let i = 0; i < source.tags.length; i++) {
@@ -218,7 +278,7 @@ export struct MyTagsPage {
       }
       tags.push(copy)
     }
-    if (epoch === this.mytagsEpoch) {
+    if (epoch === this.mytagsEpoch && this.contextMatchesCurrent(request)) {
       this.mytags = this.copyMytagsWithTags(source, tags)
     }
   }
@@ -401,13 +461,13 @@ export struct MyTagsPage {
     this.loadAddTagTranslation(fullTag, epoch).then(() => {})
   }
 
-  private async openTargetTagAfterLoad(epoch: number): Promise<void> {
+  private async openTargetTagAfterLoad(epoch: number, request: UserTagRequestContext): Promise<void> {
     const targetTag: string = this.params.targetTag.trim()
     if (targetTag.length === 0) {
       return
     }
-    const resolved: MyTagsTargetResolveResult = await MyTagsTargetService.resolve(connectSiteMode().isEx, targetTag)
-    if (epoch !== this.mytagsEpoch) {
+    const resolved: MyTagsTargetResolveResult = await MyTagsTargetService.resolve(request.isEx, targetTag)
+    if (epoch !== this.mytagsEpoch || !this.contextMatchesCurrent(request)) {
       return
     }
     this.mytags = resolved.mytags
@@ -416,9 +476,12 @@ export struct MyTagsPage {
       this.params.tagsetId = resolved.tagsetId
       this.params.targetTag = ''
       if (this.tagTranslation.enabled) {
-        await this.translateLoadedMyTags(epoch)
+        await this.translateLoadedMyTags(epoch, request)
       }
-      this.publishUserTags()
+      if (epoch !== this.mytagsEpoch || !this.contextMatchesCurrent(request)) {
+        return
+      }
+      this.publishUserTags(request)
       const translatedFound: EhUsertag | undefined = MyTagsTargetService.findLoadedTag(this.mytags, targetTag)
       this.openEditTag(translatedFound !== undefined ? translatedFound : resolved.tag)
       return

@@ -168,9 +168,8 @@ ok(/TextInput\(\{ text: this\.editWeight[\s\S]*\.type\(InputType\.Normal\)[\s\S]
   !/TextInput\(\{ text: this\.addWeight[\s\S]*\.type\(InputType\.Number\)/.test(page),
   'MyTags weight inputs preserve signed EH weights instead of using unsigned numeric input')
 ok(/await this\.reloadCurrentTagset\(\)/.test(page) &&
-  /UserTagStore\.getInstance\(\)\.setTags\(this\.mytags\.tags\)/.test(page) &&
-  /this\.tagSig\.version = this\.tagSig\.version \+ 1/.test(page),
-  'successful save refreshes MyTags and republishes global tag-color state')
+  /private publishUserTags\(request: UserTagRequestContext\): void\s*\{\s*UserTagContextService\.publishMyTags\(request, this\.mytags\.tags\)/.test(page),
+  'successful save refreshes MyTags and republishes shared colors through the active request fence')
 ok(!/actionNewUserTag|actionCreatTagSet|actionRenameTagSet|actionDeleteTagSet/.test(page),
   'this lane does not mix in new/tagset management')
 ok(/if \(this\.showingTagsetList\) \{[\s\S]*items\.push\(\{ 'content': createInner \}\)[\s\S]*\} else \{[\s\S]*items\.push\(\{ 'content': addInner \}\)[\s\S]*items\.push\(\{ 'content': renameInner \}\)[\s\S]*\}/.test(page),

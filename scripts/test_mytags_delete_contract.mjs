@@ -41,8 +41,7 @@ ok(/await EhApiService\.getInstance\(\)\.deleteUserTags\(\{[\s\S]*tagIds: \[this
   'selected existing tag id and current tagset are submitted together')
 ok(/await this\.reloadCurrentTagset\(\)\s*this\.closeMyTagsSheet\(\)/.test(deleteTag),
   'successful delete refreshes the current tagset before closing its sheet')
-ok(/UserTagStore\.getInstance\(\)\.setTags\(this\.mytags\.tags\)/.test(page) &&
-  /this\.tagSig\.version = this\.tagSig\.version \+ 1/.test(page),
-  'tagset reload republishes shared usertag state')
+ok(/private publishUserTags\(request: UserTagRequestContext\): void\s*\{\s*UserTagContextService\.publishMyTags\(request, this\.mytags\.tags\)/.test(page),
+  'tagset reload republishes shared usertag state through the active request fence')
 
 console.log('✓ MyTags delete contract: protected write and post-success state boundaries locked')

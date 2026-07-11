@@ -198,13 +198,15 @@ check('hasAny semantics remain MyTags-only for hide filtering', store.userIndex.
 
 const storeSource = readFileSync(new URL('../shared/src/main/ets/state/UserTagStore.ets', import.meta.url), 'utf8')
 const apiSource = readFileSync(new URL('../shared/src/main/ets/network/EhApiService.ets', import.meta.url), 'utf8')
+const contextSource = readFileSync(new URL('../shared/src/main/ets/services/UserTagContextService.ets', import.meta.url), 'utf8')
 check('source uses raw canonical tag text', /EhConstants\.canonicalTagText\((t|tag)\.tag\)/.test(storeSource), true)
 check('source indexes expanded namespace alias', /EhConstants\.expandNamespace\(ns\)/.test(storeSource), true)
 check('source indexes compact namespace alias', /EhConstants\.compactNamespace\(ns\)/.test(storeSource), true)
 check('source lookup never reads translated display fields', /\.translate|\.display/.test(storeSource), false)
 check('source keeps inline colour fallback index', /private inlineIndex: Map<string, EhUsertag>/.test(storeSource), true)
 check('source ingests inline SimpleTag colours', /ingestInlineTags\(tags: SimpleTag\[\]\)/.test(storeSource), true)
-check('network registers inline list tag colours after parse', /registerInlineTagColors\(await EhGalleryListParseTask\.parse\(resp\.body\)\)/.test(apiSource), true)
+check('network registers inline list tag colours after parse for its initiating context', /registerInlineTagColors\(\s*await EhGalleryListParseTask\.parse\(resp\.body\),\s*userTagRequest,\s*\)/.test(apiSource), true)
+check('inline fallback writes require the initiating scope to remain current', /static ingestInlineTags\(request: UserTagRequestContext, tags: SimpleTag\[\]\): boolean\s*\{\s*if \(!UserTagContextService\.isCurrentScope\(request\)\)/.test(contextSource), true)
 
 if (failures > 0) {
   console.error(`\n${failures} check(s) failed`)
