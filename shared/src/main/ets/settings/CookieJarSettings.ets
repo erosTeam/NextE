@@ -11,6 +11,7 @@ import { AccountListSettings } from './AccountListSettings'
 import { UserProfileService } from '../services/UserProfileService'
 import { CookieJarEntry } from '../model/CookieJarEntry'
 import { FavcatListSettings } from './FavcatListSettings'
+import { SiteModeSettings } from './SiteModeSettings'
 
 /**
  * Persistence for the sensitive EH auth cookie bundle. HarmonyOS has no cookie jar, so the
@@ -435,6 +436,7 @@ export class CookieJarSettings {
 
   /** Persist the current jar bundle to Preferences + refresh the AuthState mirror. */
   static async save(context: common.UIAbilityContext): Promise<void> {
+    await SiteModeSettings.reconcileActiveJar(context)
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
@@ -467,6 +469,7 @@ export class CookieJarSettings {
         CookieJarSettings.applyFromHeader(serialized)
       }
       CookieJarSettings.syncAuthState()
+      await SiteModeSettings.reconcileActiveJar(context)
       await AccountListSettings.load(context)
       await AccountListSettings.recordActive(context)
       await UserProfileService.restoreActive(context)
@@ -486,6 +489,7 @@ export class CookieJarSettings {
     CookieJarSettings.expireWebIdentityCookies()
     // Refresh visible account UI immediately; persistence deletion may await Preferences I/O.
     CookieJarSettings.syncAuthState()
+    await SiteModeSettings.reconcileActiveJar(context)
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
@@ -510,6 +514,7 @@ export class CookieJarSettings {
     EhCookieStore.getInstance().clear()
     CookieJarSettings.expireWebIdentityCookies()
     CookieJarSettings.applyFromHeader(bundle)
+    await SiteModeSettings.reconcileActiveJar(context)
     await FavcatListSettings.restore(context)
     await CookieJarSettings.save(context)
     await UserProfileService.restoreActive(context)

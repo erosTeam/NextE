@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@ohos/hypium'
-import { SiteModeRequestFence } from 'shared'
+import { SiteModeRequestFence, SiteModeSettings } from 'shared'
 
 export default function siteModeRequestFenceTest(): void {
   describe('Site mode request fence', () => {
@@ -19,6 +19,15 @@ export default function siteModeRequestFenceTest(): void {
       expect(SiteModeRequestFence.canApplyExUnlock(
         true, '', '', '', '',
       )).assertEqual(false)
+      done()
+    })
+
+    it('keeps ExHentai behind an authenticated real igneous', 0, (done: Function) => {
+      expect(SiteModeSettings.shouldUseEx(true, true, 'fixture-igneous')).assertEqual(true)
+      expect(SiteModeSettings.shouldUseEx(false, true, 'fixture-igneous')).assertEqual(false)
+      expect(SiteModeSettings.shouldUseEx(true, false, 'fixture-igneous')).assertEqual(false)
+      expect(SiteModeSettings.shouldUseEx(true, true, '')).assertEqual(false)
+      expect(SiteModeSettings.shouldUseEx(true, true, 'mystery')).assertEqual(false)
       done()
     })
   })
