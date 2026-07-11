@@ -187,6 +187,14 @@ ok('full replacement is transactional and reserved for clear, backup, and migrat
     /static async clear[\s\S]*SearchHistoryRepository\.replaceAll/.test(settings) &&
     /restoreBackup[\s\S]*SearchHistoryRepository\.replaceAll/.test(settings) &&
     /migrateLegacyPreferences[\s\S]*SearchHistoryRepository\.replaceAll/.test(settings))
+ok('legacy migration cannot overwrite durable search history or discard its only recoverable copy',
+  /static async hasPersistedState[\s\S]*SQL_HAS_PERSISTED_STATE[\s\S]*resultSet\.goToNextRow\(\)/.test(repository) &&
+    /const revision: number = SearchHistorySettings\.mutationRevision/.test(settings) &&
+    /await SearchHistoryRepository\.hasPersistedState\(context\)/.test(settings) &&
+    /revision !== SearchHistorySettings\.mutationRevision/.test(settings) &&
+    /if \(items\.length > 0\)[\s\S]*SearchHistoryRepository\.replaceAll/.test(settings) &&
+    /searchhistory_migrate_failed/.test(settings) &&
+    /Keep the only legacy copy intact/.test(settings))
 ok('ordinary search writes use a transaction, global logical time, min-position promotion, and tombstone trim',
   /static async upsertAndTrim[\s\S]*store\.beginTransaction\(\)[\s\S]*nextMutationTime[\s\S]*nextPositionIndex[\s\S]*SQL_TOMBSTONE_OVERFLOW[\s\S]*store\.commit\(\)/.test(repository) &&
     /SQL_SELECT_MAX_EFFECTIVE_TIME/.test(repository) && /SQL_SELECT_MIN_POSITION/.test(repository) &&

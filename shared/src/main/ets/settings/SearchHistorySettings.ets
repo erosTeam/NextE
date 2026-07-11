@@ -124,6 +124,7 @@ export class SearchHistorySettings {
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const revision: number = SearchHistorySettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
       StorageKeys.STORE_SETTINGS,
@@ -133,13 +134,30 @@ export class SearchHistorySettings {
       return
     }
     const items: string[] = SearchHistorySettings.parse(raw)
-    if (items.length > 0) {
-      await SearchHistorySettings.enqueueRdbWrite(
-        (): Promise<void> => SearchHistoryRepository.replaceAll(context, items),
-      )
+    try {
+      await SearchHistorySettings.enqueueRdbWrite(async (): Promise<void> => {
+        if (revision !== SearchHistorySettings.mutationRevision) {
+          return
+        }
+        if (await SearchHistoryRepository.hasPersistedState(context)) {
+          return
+        }
+        if (revision !== SearchHistorySettings.mutationRevision) {
+          return
+        }
+        if (items.length > 0) {
+          await SearchHistoryRepository.replaceAll(context, items)
+        }
+      })
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'searchhistory_migrate_failed', (error as Error).message)
+      // Keep the only legacy copy intact. A later startup can retry once the RDB write succeeds.
+      return
     }
-    store.deleteSync(StorageKeys.SEARCH_HISTORY)
-    store.flushSync()
+    if (revision !== SearchHistorySettings.mutationRevision) {
+      return
+    }
+    await SearchHistorySettings.deleteLegacyPreference(context)
   }
 
   /** Drain queued writes before backup and sync providers read search_history. */

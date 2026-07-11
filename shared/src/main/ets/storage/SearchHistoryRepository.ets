@@ -31,6 +31,8 @@ const SQL_SELECT_MAX_EFFECTIVE_TIME: string =
   'SELECT MAX(CASE WHEN COALESCE(deleted_at, 0) > COALESCE(updated_at, 0) ' +
   'THEN COALESCE(deleted_at, 0) ELSE COALESCE(updated_at, 0) END) AS effective_at ' +
   'FROM search_history WHERE scope_key = ?'
+const SQL_HAS_PERSISTED_STATE: string =
+  'SELECT 1 AS has_state FROM search_history WHERE scope_key = ? LIMIT 1'
 const SQL_SELECT_MIN_POSITION: string =
   'SELECT MIN(COALESCE(position_index, 0)) AS min_position FROM search_history ' +
   'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
@@ -41,6 +43,17 @@ const SQL_TOMBSTONE_OVERFLOW: string =
   'AND COALESCE(updated_at, 0) <= ?'
 
 export class SearchHistoryRepository {
+  /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
+  static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
+    try {
+      return resultSet.goToNextRow()
+    } finally {
+      resultSet.close()
+    }
+  }
+
   static async load(context: common.UIAbilityContext, limit: number = DEFAULT_LIMIT): Promise<string[]> {
     const out: string[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
