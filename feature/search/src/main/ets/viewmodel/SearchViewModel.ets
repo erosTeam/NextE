@@ -56,6 +56,9 @@ export class SearchViewModel {
   // A clear/new search can release the visible loading-more flag before its old request settles. The
   // owner token prevents that old completion from clearing a newer pagination request's flag.
   private loadMoreRun: number = 0
+  // Tag translation reads from RDB asynchronously. Each reapply captures a list snapshot so an older
+  // translation cannot replace rows that search, paging, filtering, or a later toggle already changed.
+  private tagTranslationRun: number = 0
   private pendingFilterReapply: boolean = false
   private pendingSearchQuery: string = ''
   private suggestTimer: number = -1
@@ -120,12 +123,26 @@ export class SearchViewModel {
   }
 
   async reapplyTagTranslation(): Promise<void> {
-    if (this.itemCount === 0) {
+    this.tagTranslationRun = this.tagTranslationRun + 1
+    const run: number = this.tagTranslationRun
+    const enabled: boolean = connectTagTranslationSettings().enabled
+    const sourceRows: EhGallery[] = this.dataSource.getAll()
+    const sourceCount: number = sourceRows.length
+    if (sourceCount === 0) {
       return
     }
-    const rows: EhGallery[] = connectTagTranslationSettings().enabled
-      ? await this.translateRows(this.dataSource.getAll())
-      : TagTranslationService.clearGalleriesTranslations(this.dataSource.getAll())
+    const snapshot: EhGallery[] = sourceRows.slice()
+    const rows: EhGallery[] = enabled
+      ? await this.translateRows(snapshot)
+      : TagTranslationService.clearGalleriesTranslations(snapshot)
+    if (
+      run !== this.tagTranslationRun ||
+      enabled !== connectTagTranslationSettings().enabled ||
+      this.dataSource.getAll() !== sourceRows ||
+      this.dataSource.totalCount() !== sourceCount
+    ) {
+      return
+    }
     this.dataSource.setData(rows)
     this.itemCount = this.dataSource.totalCount()
   }
