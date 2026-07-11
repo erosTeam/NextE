@@ -25,6 +25,11 @@ export class BackupSecretDenylist {
 
   /** True when the key is a secret — excluded from plaintext, included only in the encrypted section. */
   static isSecret(key: string): boolean {
+    // Account profile snapshots are keyed as `auth.profile.<memberId>`. Keep the whole dynamic key
+    // family in the encrypted-only section, as declared by the persistence inventory.
+    if (key.startsWith(StorageKeys.USER_PROFILE_PREFIX)) {
+      return true
+    }
     const lower: string = key.toLowerCase()
     for (let i: number = 0; i < BackupSecretDenylist.SENSITIVE_SUBSTRINGS.length; i++) {
       if (lower.includes(BackupSecretDenylist.SENSITIVE_SUBSTRINGS[i])) {

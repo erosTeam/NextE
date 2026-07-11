@@ -56,6 +56,9 @@ ok('denylist marks cookie/apikey + auth.accounts as secret',
     /'cookie'/.test(deny) &&
     /'apikey'/.test(deny) &&
     /StorageKeys\.AUTH_ACCOUNTS/.test(deny))
+ok('denylist keeps account-scoped user profile snapshots encrypted-only',
+  /StorageKeys\.USER_PROFILE_PREFIX/.test(deny) &&
+    /key\.startsWith\(StorageKeys\.USER_PROFILE_PREFIX\)/.test(deny))
 
 const adapter = read('shared/src/main/ets/backup/BackupPreferencesAdapter.ets')
 ok('adapter splits store by secret + re-checks denylist on restore + reapplies via bootstrap',
