@@ -95,10 +95,10 @@ Allowed `Sync` values:
 | StorageKeys.COMMENT_TRANSLATION_API_URL | setting | plaintext | excluded | Comment translation endpoint |
 | StorageKeys.COMMENT_TRANSLATION_API_KEY | secret | encrypted-only | excluded | Comment translation credential |
 | StorageKeys.COMMENT_TRANSLATION_MODEL | setting | plaintext | excluded | Comment translation model |
-| StorageKeys.SYNC_WEBDAV_URL | setting | plaintext | excluded | WebDAV endpoint |
-| StorageKeys.SYNC_WEBDAV_USERNAME | setting | plaintext | excluded | WebDAV username |
-| StorageKeys.SYNC_WEBDAV_ENABLED | setting | plaintext | excluded | WebDAV provider switch |
-| StorageKeys.SYNC_WEBDAV_PASSWORD | secret | encrypted-only | excluded | WebDAV credential |
+| StorageKeys.SYNC_WEBDAV_URL | credential-group | encrypted-only | excluded | WebDAV endpoint; restored atomically with the credential group |
+| StorageKeys.SYNC_WEBDAV_USERNAME | credential-group | encrypted-only | excluded | WebDAV username; restored atomically with the credential group |
+| StorageKeys.SYNC_WEBDAV_ENABLED | credential-group | encrypted-only | excluded | WebDAV provider switch; restored atomically with the credential group |
+| StorageKeys.SYNC_WEBDAV_PASSWORD | credential-group | encrypted-only | excluded | WebDAV password; restored atomically with the credential group |
 | StorageKeys.SYNC_DATASET_READ_PROGRESS | setting | plaintext | excluded | Sync dataset switch |
 | StorageKeys.SYNC_DATASET_VIEWED_HISTORY | setting | plaintext | excluded | Sync dataset switch |
 | StorageKeys.SYNC_DATASET_LOCAL_FAVORITES | setting | plaintext | excluded | Sync dataset switch |

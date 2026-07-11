@@ -62,6 +62,12 @@ ok('runtime StorageKeys remain excluded from backup and sync',
     /\| StorageKeys\.SYNC_HUAWEI_CLOUD_LAST_DETAIL \| runtime \| excluded \| excluded \|/.test(doc) &&
     /\| StorageKeys\.SAFE_MODE_UNLOCKED \| runtime \| excluded \| excluded \|/.test(doc))
 
+ok('WebDAV configuration is an atomic encrypted-only credential group',
+  /\| StorageKeys\.SYNC_WEBDAV_URL \| credential-group \| encrypted-only \| excluded \|/.test(doc) &&
+    /\| StorageKeys\.SYNC_WEBDAV_USERNAME \| credential-group \| encrypted-only \| excluded \|/.test(doc) &&
+    /\| StorageKeys\.SYNC_WEBDAV_ENABLED \| credential-group \| encrypted-only \| excluded \|/.test(doc) &&
+    /\| StorageKeys\.SYNC_WEBDAV_PASSWORD \| credential-group \| encrypted-only \| excluded \|/.test(doc))
+
 ok('image-block physical tables stay split by responsibility',
   /\| image_block_subscriptions \| metadata \| excluded \| WebDAV \|/.test(doc) &&
     /\| image_block_rules \| subscription-cache \| excluded \| excluded \|/.test(doc) &&

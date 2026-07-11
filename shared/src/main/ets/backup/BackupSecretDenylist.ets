@@ -20,11 +20,28 @@ export class BackupSecretDenylist {
     'credential',
   ]
 
+  // WebDAV's endpoint, username, enable flag, and password are one credential group. They must travel
+  // together only inside an encrypted backup; restoring just a changed endpoint alongside an existing
+  // local password can otherwise authenticate to the wrong server.
+  private static readonly WEBDAV_CREDENTIAL_KEYS: string[] = [
+    StorageKeys.SYNC_WEBDAV_URL,
+    StorageKeys.SYNC_WEBDAV_USERNAME,
+    StorageKeys.SYNC_WEBDAV_ENABLED,
+    StorageKeys.SYNC_WEBDAV_PASSWORD,
+  ]
+
   // Exact secret keys with no obvious substring marker (the saved-accounts credential bundle list).
   private static readonly EXACT_KEYS: string[] = [StorageKeys.AUTH_ACCOUNTS]
 
+  static isWebDavCredentialKey(key: string): boolean {
+    return BackupSecretDenylist.WEBDAV_CREDENTIAL_KEYS.indexOf(key) >= 0
+  }
+
   /** True when the key is a secret — excluded from plaintext, included only in the encrypted section. */
   static isSecret(key: string): boolean {
+    if (BackupSecretDenylist.isWebDavCredentialKey(key)) {
+      return true
+    }
     // Account profile snapshots are keyed as `auth.profile.<memberId>`. Keep the whole dynamic key
     // family in the encrypted-only section, as declared by the persistence inventory.
     if (key.startsWith(StorageKeys.USER_PROFILE_PREFIX)) {

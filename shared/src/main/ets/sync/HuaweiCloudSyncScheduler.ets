@@ -24,6 +24,7 @@ export class HuaweiCloudSyncScheduler {
   private static pendingReason: string = ''
   private static lastAttemptAt: number = 0
   private static failureCount: number = 0
+  private static automaticSyncSuppressionDepth: number = 0
 
   static bindExecutor(executor: HuaweiCloudSyncExecutor): void {
     HuaweiCloudSyncScheduler.executor = executor
@@ -31,6 +32,28 @@ export class HuaweiCloudSyncScheduler {
 
   static rememberContext(context: common.UIAbilityContext): void {
     HuaweiCloudSyncScheduler.context = context
+  }
+
+  static suspendAutomaticSync(): void {
+    HuaweiCloudSyncScheduler.automaticSyncSuppressionDepth =
+      HuaweiCloudSyncScheduler.automaticSyncSuppressionDepth + 1
+    if (HuaweiCloudSyncScheduler.timerId > 0) {
+      clearTimeout(HuaweiCloudSyncScheduler.timerId)
+      HuaweiCloudSyncScheduler.timerId = 0
+    }
+    HuaweiCloudSyncScheduler.scheduledAt = 0
+    HuaweiCloudSyncScheduler.pendingReason = ''
+  }
+
+  static resumeAutomaticSync(): void {
+    if (HuaweiCloudSyncScheduler.automaticSyncSuppressionDepth > 0) {
+      HuaweiCloudSyncScheduler.automaticSyncSuppressionDepth =
+        HuaweiCloudSyncScheduler.automaticSyncSuppressionDepth - 1
+    }
+  }
+
+  private static automaticSyncSuppressed(): boolean {
+    return HuaweiCloudSyncScheduler.automaticSyncSuppressionDepth > 0
   }
 
   static requestAfterLocalWrite(context: common.UIAbilityContext, reason: string): void {
@@ -47,6 +70,10 @@ export class HuaweiCloudSyncScheduler {
     requestedDelayMs: number,
   ): void {
     HuaweiCloudSyncScheduler.context = context
+    if (HuaweiCloudSyncScheduler.automaticSyncSuppressed()) {
+      DiagnosticLogger.info('sync', 'huawei_cloud_schedule_suppressed', `reason=${reason}`)
+      return
+    }
     if (!SyncSettings.current().huaweiCloudEnabled) {
       DiagnosticLogger.info('sync', 'huawei_cloud_schedule_skipped', `reason=${reason},enabled=false`)
       return
@@ -84,6 +111,9 @@ export class HuaweiCloudSyncScheduler {
   }
 
   private static scheduleTimer(delayMs: number, reason: string): void {
+    if (HuaweiCloudSyncScheduler.automaticSyncSuppressed()) {
+      return
+    }
     const now: number = Date.now()
     const dueAt: number = now + Math.max(0, delayMs)
     if (HuaweiCloudSyncScheduler.timerId > 0 && HuaweiCloudSyncScheduler.scheduledAt <= dueAt) {
@@ -112,6 +142,10 @@ export class HuaweiCloudSyncScheduler {
   private static fire(): void {
     HuaweiCloudSyncScheduler.timerId = 0
     HuaweiCloudSyncScheduler.scheduledAt = 0
+    if (HuaweiCloudSyncScheduler.automaticSyncSuppressed()) {
+      HuaweiCloudSyncScheduler.pendingReason = ''
+      return
+    }
     const context: common.UIAbilityContext | null = HuaweiCloudSyncScheduler.context
     const executor: HuaweiCloudSyncExecutor | null = HuaweiCloudSyncScheduler.executor
     const reason: string = HuaweiCloudSyncScheduler.pendingReason.length > 0 ?
@@ -144,6 +178,7 @@ export class HuaweiCloudSyncScheduler {
       .finally(() => {
         HuaweiCloudSyncScheduler.inFlight = false
         if (
+          !HuaweiCloudSyncScheduler.automaticSyncSuppressed() &&
           HuaweiCloudSyncScheduler.pendingReason.length > 0 &&
           SyncSettings.current().huaweiCloudEnabled
         ) {
@@ -162,6 +197,7 @@ export class HuaweiCloudSyncScheduler {
     } else {
       HuaweiCloudSyncScheduler.failureCount = Math.min(HuaweiCloudSyncScheduler.failureCount + 1, 4)
       if (
+        !HuaweiCloudSyncScheduler.automaticSyncSuppressed() &&
         HuaweiCloudSyncScheduler.context !== null &&
         HuaweiCloudSyncScheduler.executor !== null &&
         SyncSettings.current().huaweiCloudEnabled

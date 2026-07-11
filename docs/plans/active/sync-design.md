@@ -65,8 +65,9 @@ Providers do transport only:
 
 Conflict resolution belongs to the sync dataset adapter, not providers.
 
-WebDAV settings are Preferences-backed local settings. The enable switch, URL, and username are configuration;
-the password is a local-only credential and must not appear in backup export, sync envelopes, or logs.
+WebDAV settings are Preferences-backed local settings. URL, username, enable switch, and password form one
+credential group: they are excluded from plaintext backup, may travel only inside an encrypted backup, and
+must restore atomically. The group never appears in sync envelopes or logs.
 
 ## Huawei Cloud Provider
 

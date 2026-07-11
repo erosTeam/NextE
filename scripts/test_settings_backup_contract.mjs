@@ -61,6 +61,13 @@ ok('denylist marks cookie/apikey + auth.accounts as secret',
     /'cookie'/.test(deny) &&
     /'apikey'/.test(deny) &&
     /StorageKeys\.AUTH_ACCOUNTS/.test(deny))
+ok('WebDAV configuration is an encrypted-only atomic credential group',
+  /WEBDAV_CREDENTIAL_KEYS/.test(deny) &&
+    /StorageKeys\.SYNC_WEBDAV_URL/.test(deny) &&
+    /StorageKeys\.SYNC_WEBDAV_USERNAME/.test(deny) &&
+    /StorageKeys\.SYNC_WEBDAV_ENABLED/.test(deny) &&
+    /StorageKeys\.SYNC_WEBDAV_PASSWORD/.test(deny) &&
+    /static isWebDavCredentialKey\(key: string\): boolean/.test(deny))
 ok('denylist keeps account-scoped user profile snapshots encrypted-only',
   /StorageKeys\.USER_PROFILE_PREFIX/.test(deny) &&
     /key\.startsWith\(StorageKeys\.USER_PROFILE_PREFIX\)/.test(deny))
@@ -106,6 +113,13 @@ ok('Preferences rollback replaces the backup scope and deletes import-added keys
     /store\.deleteSync\(key\)/.test(adapter) &&
     /map\[key\] === undefined/.test(adapter) &&
     /BackupPreferencesAdapter\.acceptsKey\(key, allowSecret\)/.test(adapter))
+ok('backup restores WebDAV only as one complete encrypted credential group',
+  /BackupSecretDenylist\.isWebDavCredentialKey\(key\)[\s\S]*continue/.test(adapter) &&
+    /static async restoreWebDavCredentialGroup\(/.test(adapter) &&
+    /static resolveWebDavCredentialGroup\([\s\S]*webDavCredentialValue\(plaintext, secrets/.test(adapter) &&
+    /static resolveWebDavCredentialValues\([\s\S]*if \(!fromEncrypted\)[\s\S]*return null/.test(adapter) &&
+    /typeof url !== 'string'[\s\S]*typeof username !== 'string'[\s\S]*typeof enabled !== 'boolean'[\s\S]*typeof password !== 'string'/.test(adapter) &&
+    /store\.putSync\(StorageKeys\.SYNC_WEBDAV_URL, group\.url\)[\s\S]*store\.putSync\(StorageKeys\.SYNC_WEBDAV_PASSWORD, group\.password\)/.test(adapter))
 
 const svc = read('shared/src/main/ets/backup/BackupService.ets')
 ok('service seals into the encrypted container only when includeSecrets',
@@ -135,6 +149,28 @@ ok('restore snapshots durable stores and rolls back on section failure',
     /await BackupLocalDataAdapter\.restoreSection\(context, rollbackLocalData\)/.test(svc) &&
     /await BackupPreferencesAdapter\.replace\(context, rollbackSecrets, true\)/.test(svc) &&
     /failedSections: \[failedSection\]/.test(svc))
+ok('backup restore suppresses automatic remote sync and restores WebDAV atomically',
+  /import \{ SyncScheduler \} from '\.\.\/sync\/SyncScheduler'/.test(svc) &&
+    /SyncScheduler\.suspendAutomaticSync\(\)[\s\S]*BackupPreferencesAdapter\.restoreWebDavCredentialGroup\([\s\S]*SyncScheduler\.resumeAutomaticSync\(\)/.test(svc))
+
+const syncScheduler = read('shared/src/main/ets/sync/SyncScheduler.ets')
+const webDavScheduler = read('shared/src/main/ets/sync/WebDavSyncScheduler.ets')
+const huaweiCloudScheduler = read('shared/src/main/ets/sync/HuaweiCloudSyncScheduler.ets')
+const webDavCredentialGroupTest = read('entry/src/ohosTest/ets/test/BackupWebDavCredentialGroup.test.ets')
+const webDavCredentialGroupTestList = read('entry/src/ohosTest/ets/test/List.test.ets')
+ok('both automatic providers cancel queued work and reject restore-window scheduling',
+  /suspendAutomaticSync\(\)[\s\S]*HuaweiCloudSyncScheduler\.suspendAutomaticSync\(\)[\s\S]*WebDavSyncScheduler\.suspendAutomaticSync\(\)/.test(syncScheduler) &&
+    /automaticSyncSuppressionDepth/.test(webDavScheduler) &&
+    /clearTimeout\(WebDavSyncScheduler\.timerId\)/.test(webDavScheduler) &&
+    /automaticSyncSuppressed\(\)[\s\S]*webdav_schedule_suppressed/.test(webDavScheduler) &&
+    /automaticSyncSuppressionDepth/.test(huaweiCloudScheduler) &&
+    /clearTimeout\(HuaweiCloudSyncScheduler\.timerId\)/.test(huaweiCloudScheduler) &&
+    /automaticSyncSuppressed\(\)[\s\S]*huawei_cloud_schedule_suppressed/.test(huaweiCloudScheduler))
+ok('device test covers legacy/current encrypted groups and rejects plaintext/incomplete input',
+  /resolveWebDavCredentialValues\([\s\S]*'legacy-password',[\s\S]*true/.test(webDavCredentialGroupTest) &&
+    /resolveWebDavCredentialValues\([\s\S]*'current-password',[\s\S]*true/.test(webDavCredentialGroupTest) &&
+    /resolveWebDavCredentialValues\([\s\S]*'legacy-password',[\s\S]*false/.test(webDavCredentialGroupTest) &&
+    /backupWebDavCredentialGroupTest\(\)/.test(webDavCredentialGroupTestList))
 
 const imageBlockRepository = read('shared/src/main/ets/storage/ImageBlockRepository.ets')
 const localDataAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')

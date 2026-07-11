@@ -40,6 +40,7 @@ import gallerySeedDetailRefreshGateTest from './GallerySeedDetailRefreshGate.tes
 import readerImageSourceRequestGateTest from './ReaderImageSourceRequestGate.test'
 import imageResolveSourceGateTest from './ImageResolveSourceGate.test'
 import backupCipherMetadataGuardTest from './BackupCipherMetadataGuard.test'
+import backupWebDavCredentialGroupTest from './BackupWebDavCredentialGroup.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -84,4 +85,5 @@ export default function testsuite(): void {
   readerImageSourceRequestGateTest()
   imageResolveSourceGateTest()
   backupCipherMetadataGuardTest()
+  backupWebDavCredentialGroupTest()
 }

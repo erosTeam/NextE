@@ -21,9 +21,32 @@ export class WebDavSyncScheduler {
   private static pendingReason: string = ''
   private static lastAttemptAt: number = 0
   private static failureCount: number = 0
+  private static automaticSyncSuppressionDepth: number = 0
 
   static rememberContext(context: common.UIAbilityContext): void {
     WebDavSyncScheduler.context = context
+  }
+
+  static suspendAutomaticSync(): void {
+    WebDavSyncScheduler.automaticSyncSuppressionDepth =
+      WebDavSyncScheduler.automaticSyncSuppressionDepth + 1
+    if (WebDavSyncScheduler.timerId > 0) {
+      clearTimeout(WebDavSyncScheduler.timerId)
+      WebDavSyncScheduler.timerId = 0
+    }
+    WebDavSyncScheduler.scheduledAt = 0
+    WebDavSyncScheduler.pendingReason = ''
+  }
+
+  static resumeAutomaticSync(): void {
+    if (WebDavSyncScheduler.automaticSyncSuppressionDepth > 0) {
+      WebDavSyncScheduler.automaticSyncSuppressionDepth =
+        WebDavSyncScheduler.automaticSyncSuppressionDepth - 1
+    }
+  }
+
+  private static automaticSyncSuppressed(): boolean {
+    return WebDavSyncScheduler.automaticSyncSuppressionDepth > 0
   }
 
   static requestAfterLocalWrite(context: common.UIAbilityContext, reason: string): void {
@@ -40,6 +63,10 @@ export class WebDavSyncScheduler {
     requestedDelayMs: number,
   ): void {
     WebDavSyncScheduler.context = context
+    if (WebDavSyncScheduler.automaticSyncSuppressed()) {
+      DiagnosticLogger.info('sync', 'webdav_schedule_suppressed', `reason=${reason}`)
+      return
+    }
     const snapshot = SyncSettings.current()
     if (!SyncSettings.configured(snapshot)) {
       return
@@ -77,6 +104,9 @@ export class WebDavSyncScheduler {
   }
 
   private static scheduleTimer(delayMs: number, reason: string): void {
+    if (WebDavSyncScheduler.automaticSyncSuppressed()) {
+      return
+    }
     const now: number = Date.now()
     const dueAt: number = now + Math.max(0, delayMs)
     if (WebDavSyncScheduler.timerId > 0 && WebDavSyncScheduler.scheduledAt <= dueAt) {
@@ -101,6 +131,10 @@ export class WebDavSyncScheduler {
   private static fire(): void {
     WebDavSyncScheduler.timerId = 0
     WebDavSyncScheduler.scheduledAt = 0
+    if (WebDavSyncScheduler.automaticSyncSuppressed()) {
+      WebDavSyncScheduler.pendingReason = ''
+      return
+    }
     const context: common.UIAbilityContext | null = WebDavSyncScheduler.context
     const reason: string = WebDavSyncScheduler.pendingReason.length > 0 ?
       WebDavSyncScheduler.pendingReason :
@@ -136,6 +170,7 @@ export class WebDavSyncScheduler {
       .finally(() => {
         WebDavSyncScheduler.inFlight = false
         if (
+          !WebDavSyncScheduler.automaticSyncSuppressed() &&
           WebDavSyncScheduler.pendingReason.length > 0 &&
           SyncSettings.configured(SyncSettings.current())
         ) {

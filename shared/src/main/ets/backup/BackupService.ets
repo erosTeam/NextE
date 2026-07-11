@@ -4,6 +4,7 @@ import { BackupChecksum } from './BackupChecksum'
 import { BackupCrypto, BackupSealResult } from './BackupCrypto'
 import { BackupLocalDataAdapter } from './BackupLocalDataAdapter'
 import { BackupPreferencesAdapter } from './BackupPreferencesAdapter'
+import { SyncScheduler } from '../sync/SyncScheduler'
 import {
   BackupAppMetadata,
   BackupCipherMeta,
@@ -224,51 +225,65 @@ export class BackupService {
     envelope: BackupEnvelopeV1,
   ): Promise<BackupRestoreResult> {
     const fromEncrypted: boolean = envelope.sections.indexOf('secrets') >= 0
-    const rollbackPreferences: SettingsMap = await BackupPreferencesAdapter.exportPreferences(context)
-    const rollbackLocalData: BackupLocalDataSection = await BackupLocalDataAdapter.exportSection(context)
-    const rollbackSecrets: SettingsMap = await BackupPreferencesAdapter.exportSecrets(context)
-    let failedSection: BackupSectionName = 'preferences'
+    // Local-data restore methods request provider-neutral sync after durable writes. Suppress and
+    // cancel automatic provider work before even taking rollback snapshots, so a pre-existing timer
+    // cannot start while the backup transaction is preparing or replacing credential state.
+    SyncScheduler.suspendAutomaticSync()
     try {
-      if (envelope.data.preferences !== undefined) {
-        failedSection = 'preferences'
-        await BackupPreferencesAdapter.restore(context, envelope.data.preferences, false)
-      }
-      if (envelope.data.localData !== undefined) {
-        failedSection = 'localData'
-        await BackupLocalDataAdapter.restoreSection(context, envelope.data.localData)
-      } else {
-        // Old backups only carry reading.progress in Preferences; migrate that freshly restored key.
-        failedSection = 'localData'
-        await BackupLocalDataAdapter.restoreLegacyPreferences(context)
-      }
-      if (fromEncrypted && envelope.data.secrets !== undefined) {
-        failedSection = 'secrets'
-        await BackupPreferencesAdapter.restore(context, envelope.data.secrets, true)
-      }
-      // Re-hydrate live state from the freshly written store.
-      await BackupPreferencesAdapter.reapply(context)
-    } catch (error) {
-      let message: string = (error as Error).message
+      const rollbackPreferences: SettingsMap = await BackupPreferencesAdapter.exportPreferences(context)
+      const rollbackLocalData: BackupLocalDataSection = await BackupLocalDataAdapter.exportSection(context)
+      const rollbackSecrets: SettingsMap = await BackupPreferencesAdapter.exportSecrets(context)
+      let failedSection: BackupSectionName = 'preferences'
       try {
-        await BackupPreferencesAdapter.replace(context, rollbackPreferences, false)
-        await BackupLocalDataAdapter.restoreSection(context, rollbackLocalData)
-        await BackupPreferencesAdapter.replace(context, rollbackSecrets, true)
+        if (envelope.data.preferences !== undefined) {
+          failedSection = 'preferences'
+          await BackupPreferencesAdapter.restore(context, envelope.data.preferences, false)
+        }
+        if (envelope.data.localData !== undefined) {
+          failedSection = 'localData'
+          await BackupLocalDataAdapter.restoreSection(context, envelope.data.localData)
+        } else {
+          // Old backups only carry reading.progress in Preferences; migrate that freshly restored key.
+          failedSection = 'localData'
+          await BackupLocalDataAdapter.restoreLegacyPreferences(context)
+        }
+        if (fromEncrypted && envelope.data.secrets !== undefined) {
+          failedSection = 'secrets'
+          await BackupPreferencesAdapter.restore(context, envelope.data.secrets, true)
+        }
+        await BackupPreferencesAdapter.restoreWebDavCredentialGroup(
+          context,
+          envelope.data.preferences === undefined ? {} : envelope.data.preferences,
+          envelope.data.secrets === undefined ? {} : envelope.data.secrets,
+          fromEncrypted,
+        )
+        // Re-hydrate live state from the freshly written store.
         await BackupPreferencesAdapter.reapply(context)
-      } catch (rollbackError) {
-        message = `${message}; rollback failed: ${(rollbackError as Error).message}`
+      } catch (error) {
+        let message: string = (error as Error).message
+        try {
+          await BackupPreferencesAdapter.replace(context, rollbackPreferences, false)
+          await BackupLocalDataAdapter.restoreSection(context, rollbackLocalData)
+          await BackupPreferencesAdapter.replace(context, rollbackSecrets, true)
+          await BackupPreferencesAdapter.reapply(context)
+        } catch (rollbackError) {
+          message = `${message}; rollback failed: ${(rollbackError as Error).message}`
+        }
+        return {
+          ok: false,
+          restoredSections: [],
+          failedSections: [failedSection],
+          message: message,
+        }
       }
       return {
-        ok: false,
-        restoredSections: [],
-        failedSections: [failedSection],
-        message: message,
+        ok: true,
+        restoredSections: envelope.sections,
+        failedSections: [],
+        message: '',
       }
-    }
-    return {
-      ok: true,
-      restoredSections: envelope.sections,
-      failedSections: [],
-      message: '',
+    } finally {
+      SyncScheduler.resumeAutomaticSync()
     }
   }
 }

@@ -7,10 +7,19 @@ import { BackupSettingsValue } from './BackupTypes'
 
 type SettingsMap = Record<string, BackupSettingsValue>
 
+/** Complete WebDAV configuration restored only from an encrypted backup. */
+export class BackupWebDavCredentialGroup {
+  url: string = ''
+  username: string = ''
+  enabled: boolean = false
+  password: string = ''
+}
+
 /**
  * Reads/writes the unified `nexte_settings` Preferences store for backup. The store is split by the
  * secret denylist: non-secret keys form the plaintext 'preferences' section; credential keys (cookie
- * bundle, saved accounts, WebDAV password, API keys) form the encrypted-only 'secrets' section.
+ * bundle, saved accounts, complete WebDAV configuration, API keys) form the encrypted-only 'secrets'
+ * section.
  * Runtime-only status keys never travel in either section. Restore is additive (overwrites present keys,
  * keeps absent ones) and re-applies the store into live state via SettingsBootstrap.loadAll so changes
  * take effect without a restart.
@@ -132,9 +141,100 @@ export class BackupPreferencesAdapter {
       if (!BackupPreferencesAdapter.acceptsKey(key, allowSecret)) {
         continue
       }
+      // Restore this provider configuration only through restoreWebDavCredentialGroup(). Old encrypted
+      // envelopes split it across preferences + secrets, while plaintext files have no password at all.
+      if (BackupSecretDenylist.isWebDavCredentialKey(key)) {
+        continue
+      }
       store.putSync(key, map[key])
     }
     store.flushSync()
+  }
+
+  /**
+   * Restore WebDAV as one complete encrypted credential group. New encrypted backups place all four
+   * fields in `secrets`; legacy encrypted backups put URL/username/enabled in preferences and only the
+   * password in secrets. A plaintext backup, or an incomplete encrypted group, intentionally leaves the
+   * target's existing provider configuration untouched.
+   */
+  static async restoreWebDavCredentialGroup(
+    context: common.UIAbilityContext,
+    plaintext: SettingsMap,
+    secrets: SettingsMap,
+    fromEncrypted: boolean,
+  ): Promise<void> {
+    const group: BackupWebDavCredentialGroup | null =
+      BackupPreferencesAdapter.resolveWebDavCredentialGroup(plaintext, secrets, fromEncrypted)
+    if (group === null) {
+      return
+    }
+    const store: preferences.Preferences = await preferences.getPreferences(
+      context,
+      StorageKeys.STORE_SETTINGS,
+    )
+    store.putSync(StorageKeys.SYNC_WEBDAV_URL, group.url)
+    store.putSync(StorageKeys.SYNC_WEBDAV_USERNAME, group.username)
+    store.putSync(StorageKeys.SYNC_WEBDAV_ENABLED, group.enabled)
+    store.putSync(StorageKeys.SYNC_WEBDAV_PASSWORD, group.password)
+    store.flushSync()
+  }
+
+  /** Pure resolver retained for device tests: plaintext and incomplete encrypted groups must be inert. */
+  static resolveWebDavCredentialGroup(
+    plaintext: SettingsMap,
+    secrets: SettingsMap,
+    fromEncrypted: boolean,
+  ): BackupWebDavCredentialGroup | null {
+    const url: BackupSettingsValue | undefined =
+      BackupPreferencesAdapter.webDavCredentialValue(plaintext, secrets, StorageKeys.SYNC_WEBDAV_URL)
+    const username: BackupSettingsValue | undefined =
+      BackupPreferencesAdapter.webDavCredentialValue(plaintext, secrets, StorageKeys.SYNC_WEBDAV_USERNAME)
+    const enabled: BackupSettingsValue | undefined =
+      BackupPreferencesAdapter.webDavCredentialValue(plaintext, secrets, StorageKeys.SYNC_WEBDAV_ENABLED)
+    const password: BackupSettingsValue | undefined =
+      BackupPreferencesAdapter.webDavCredentialValue(plaintext, secrets, StorageKeys.SYNC_WEBDAV_PASSWORD)
+    return BackupPreferencesAdapter.resolveWebDavCredentialValues(
+      url,
+      username,
+      enabled,
+      password,
+      fromEncrypted,
+    )
+  }
+
+  /** Pure scalar boundary for device tests; map routing stays in resolveWebDavCredentialGroup(). */
+  static resolveWebDavCredentialValues(
+    url: BackupSettingsValue | undefined,
+    username: BackupSettingsValue | undefined,
+    enabled: BackupSettingsValue | undefined,
+    password: BackupSettingsValue | undefined,
+    fromEncrypted: boolean,
+  ): BackupWebDavCredentialGroup | null {
+    if (!fromEncrypted) {
+      return null
+    }
+    if (
+      typeof url !== 'string' ||
+      typeof username !== 'string' ||
+      typeof enabled !== 'boolean' ||
+      typeof password !== 'string'
+    ) {
+      return null
+    }
+    const group: BackupWebDavCredentialGroup = new BackupWebDavCredentialGroup()
+    group.url = url
+    group.username = username
+    group.enabled = enabled
+    group.password = password
+    return group
+  }
+
+  private static webDavCredentialValue(
+    plaintext: SettingsMap,
+    secrets: SettingsMap,
+    key: string,
+  ): BackupSettingsValue | undefined {
+    return secrets[key] !== undefined ? secrets[key] : plaintext[key]
   }
 
   static async replace(

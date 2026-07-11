@@ -165,7 +165,8 @@ export interface BackupData {
   preferences?: Record<string, BackupSettingsValue>
   // Durable user-local records stored in RDB, kept out of disposable cache tables.
   localData?: BackupLocalDataSection
-  // The denylisted secret keys (auth.cookieJar / auth.accounts / commentTranslation.apiKey).
+  // The denylisted secret keys (auth cookies/accounts, complete WebDAV configuration,
+  // comment-translation API key, and future credential families).
   secrets?: Record<string, BackupSettingsValue>
 }
 
