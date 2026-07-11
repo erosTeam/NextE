@@ -110,12 +110,23 @@ must(settings.includes('migrateStarterNames(profiles)') &&
     repo.includes('UPDATE custom_profiles SET deleted_at = ?') &&
     repo.includes('ON CONFLICT(scope_key, profile_uuid) DO UPDATE'),
     'custom profiles repository must map DB profile_uuid to model uuid, preserve order, and tombstone scoped rows')
+  must(repo.includes('SQL_SELECT_SELECTED_STATE') &&
+    repo.includes('previous.deletedAt === 0 && previous.selectedUuid === selectedUuid') &&
+    repo.includes('Math.max(Date.now(), latest + 1)') &&
+    repo.includes('WHERE excluded.updated_at >=') &&
+    repo.includes('custom_profile_selection.deleted_at'),
+    'custom profile selection must avoid unrelated timestamp churn and advance past observed LWW clocks')
   const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
   const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
   must(backupTypes.includes('customProfiles: BackupCustomProfilesSection') &&
     backupAdapter.includes('CustomProfilesSettings.exportForBackupSnapshot(context)') &&
     backupAdapter.includes('CustomProfilesSettings.restoreBackup(context, profiles, section.customProfiles.selectedUuid)'),
     'backup localData must include custom profiles')
+}
+{
+  const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
+  must(/SQL_APPLY_CUSTOM_PROFILE_SELECTION[\s\S]*?WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) > COALESCE\(excluded\.updated_at, 0\)[\s\S]*?custom_profile_selection\.deleted_at/.test(syncAdapter),
+    'custom profile selection sync apply must not overwrite a newer local selection')
 }
 ;['BUILTIN_DEFAULT_UUID', 'BUILTIN_POPULAR_UUID', 'BUILTIN_WATCHED_UUID'].forEach((u) =>
   must(settings.includes(u), `seedDefaults() missing builtin uuid: ${u}`),

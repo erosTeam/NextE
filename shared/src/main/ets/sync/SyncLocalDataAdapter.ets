@@ -121,7 +121,9 @@ const SQL_APPLY_CUSTOM_PROFILE: string =
   'ON CONFLICT(scope_key, profile_uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, list_type = excluded.list_type, search_text = excluded.search_text, selected_cats = excluded.selected_cats, advanced_enabled = excluded.advanced_enabled, min_rating = excluded.min_rating, pages_from = excluded.pages_from, pages_to = excluded.pages_to, require_torrent = excluded.require_torrent, show_expunged = excluded.show_expunged, disable_language_filter = excluded.disable_language_filter, disable_uploader_filter = excluded.disable_uploader_filter, disable_tag_filter = excluded.disable_tag_filter, favcat = excluded.favcat, toplist_tl = excluded.toplist_tl, display_mode = excluded.display_mode, hidden = excluded.hidden, builtin = excluded.builtin, last_edit_time = excluded.last_edit_time, deleted_at = excluded.deleted_at'
 const SQL_APPLY_CUSTOM_PROFILE_SELECTION: string =
   'INSERT INTO custom_profile_selection (scope_key, selected_uuid, updated_at, deleted_at) VALUES (?, ?, ?, ?) ' +
-  'ON CONFLICT(scope_key) DO UPDATE SET selected_uuid = excluded.selected_uuid, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+  'ON CONFLICT(scope_key) DO UPDATE SET selected_uuid = excluded.selected_uuid, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.updated_at, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.updated_at, 0) END >= ' +
+  'CASE WHEN COALESCE(custom_profile_selection.deleted_at, 0) > COALESCE(custom_profile_selection.updated_at, 0) THEN COALESCE(custom_profile_selection.deleted_at, 0) ELSE COALESCE(custom_profile_selection.updated_at, 0) END'
 
 export class SyncLocalDataAdapter {
   static async prepareHuaweiCloudTables(
