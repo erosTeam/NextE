@@ -290,6 +290,18 @@ const DONOR_HEADER = kv(
   ok('profile page delegates persistence to the account-context-aware API', profilePage.includes('CookieJarSettings.persistServerSelectedProfile(') && !profilePage.includes('CookieJarSettings.save('))
   ok('account bundle update checks for an existing record', accountList.includes('static hasStoredMember(') && accountList.includes('static replaceExistingBundleInStore(') && /if \(!found\) \{\s*return false/.test(accountList))
 
+  const recordStart = accountList.indexOf('static async recordActive(')
+  const recordEnd = accountList.indexOf('\n  /**\n   * Check whether a saved account', recordStart)
+  const recordActive = recordStart >= 0 && recordEnd > recordStart ? accountList.substring(recordStart, recordEnd) : ''
+  ok(
+    'stable active-account restores keep the sensitive account snapshot unflushed',
+    /const raw: string = store\.getSync\(StorageKeys\.AUTH_ACCOUNTS, ''\) as string/.test(recordActive) &&
+      /const serialized: string = AccountListSettings\.serialize\(updated\)/.test(recordActive) &&
+      /const changed: boolean = raw !== serialized/.test(recordActive) &&
+      /if \(changed\) \{[\s\S]*store\.putSync\(StorageKeys\.AUTH_ACCOUNTS, serialized\)[\s\S]*store\.flushSync\(\)/.test(recordActive) &&
+      /AccountListSettings\.syncState\(updated\)/.test(recordActive),
+  )
+
   const persistStart = cjs.indexOf('static async persistServerSelectedProfile(')
   const persistEnd = cjs.indexOf('\n  /** Persist the current jar bundle', persistStart)
   const persist = persistStart >= 0 && persistEnd > persistStart ? cjs.substring(persistStart, persistEnd) : ''

@@ -104,9 +104,8 @@ export class AccountListSettings {
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      const records: AccountRecord[] = AccountListSettings.parse(
-        store.getSync(StorageKeys.AUTH_ACCOUNTS, '') as string,
-      )
+      const raw: string = store.getSync(StorageKeys.AUTH_ACCOUNTS, '') as string
+      const records: AccountRecord[] = AccountListSettings.parse(raw)
       const updated: AccountRecord[] = []
       let found: boolean = false
       for (const r of records) {
@@ -120,10 +119,16 @@ export class AccountListSettings {
       if (!found) {
         updated.push(new AccountRecord(mid, bundle))
       }
-      store.putSync(StorageKeys.AUTH_ACCOUNTS, AccountListSettings.serialize(updated))
-      store.flushSync()
+      const serialized: string = AccountListSettings.serialize(updated)
+      // CookieJarSettings.restore reaches this after loading the same active jar on every cold start.
+      // Keep repairs and real cookie refreshes durable, but do not synchronously rewrite credentials unchanged.
+      const changed: boolean = raw !== serialized
+      if (changed) {
+        store.putSync(StorageKeys.AUTH_ACCOUNTS, serialized)
+        store.flushSync()
+      }
       AccountListSettings.syncState(updated)
-      DiagnosticLogger.info('auth', 'account_recorded', `count=${updated.length}`)
+      DiagnosticLogger.info('auth', 'account_recorded', `count=${updated.length} changed=${changed}`)
     } catch (error) {
       DiagnosticLogger.warn('auth', 'account_list_record_failed', (error as Error).message)
     }

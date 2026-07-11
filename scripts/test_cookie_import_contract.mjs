@@ -116,10 +116,10 @@ const eq = (name, got, want) => {
   ok('UserProfileService can load stored per-member profile snapshots',
     /static async loadStoredProfile\([\s\S]*memberId: string[\s\S]*profileKey\(memberId\)/.test(profileService))
   ok('UserProfileService can refresh, materialize, and save the active profile',
-    /static async refreshAndSaveActive\([\s\S]*refreshActive\(\)[\s\S]*materializeAvatar\(context\)[\s\S]*saveActive\(context\)/.test(profileService))
+    /static async refreshAndSaveActive\([\s\S]*refreshActive\([\s\S]*materializeAvatar\(context[\s\S]*saveActive\(context/.test(profileService))
   ok('UserProfileService drops stale profile refreshes after account switches',
     /user_profile_probe_stale/.test(profileService) &&
-      /EhCookieStore\.getInstance\(\)\.get\(EhConstants\.COOKIE_MEMBER_ID\) !== memberId/.test(profileService))
+      /UserProfileService\.matchesActiveRequest\(request\)/.test(profileService))
   ok('Account page loads saved profiles for all visible account rows',
     /@Local\s+accountProfiles:\s*AccountProfileSummary\[\]/.test(accountPage) &&
       /loadAccountProfiles\(\)[\s\S]*UserProfileService\.loadStoredProfile\(this\.ctx\(\), memberId\)/.test(accountPage) &&
@@ -224,7 +224,7 @@ const eq = (name, got, want) => {
   ok('CookieJarSettings.clear expires WebView identity cookies on logout', /static\s+async\s+clear[\s\S]*?CookieJarSettings\.expireWebIdentityCookies\(\)/.test(cookieSettings))
   ok('CookieJarSettings.switchTo expires stale WebView identity before loading another account', /static\s+async\s+switchTo[\s\S]*?EhCookieStore\.getInstance\(\)\.clear\(\)[\s\S]*?CookieJarSettings\.expireWebIdentityCookies\(\)[\s\S]*?CookieJarSettings\.applyFromHeader\(bundle\)/.test(cookieSettings))
   ok('WebView identity expiry keeps Cloudflare cookies by avoiding clearAllCookiesSync', /static expireWebIdentityCookies\(\): void[\s\S]*configCookieSync[\s\S]*Max-Age=0/.test(cookieSettings) && !/clearAllCookiesSync/.test(cookieSettings))
-  ok('CookieJarSettings.clear syncs AuthState immediately after clearing jar', /static\s+async\s+clear[\s\S]*?EhCookieStore\.getInstance\(\)\.clear\(\)[\s\S]*?CookieJarSettings\.expireWebIdentityCookies\(\)[\s\S]*?CookieJarSettings\.syncAuthState\(\)/.test(cookieSettings))
+  ok('CookieJarSettings.clear syncs AuthState immediately after clearing jar', /static\s+async\s+clear[\s\S]*?EhCookieStore\.getInstance\(\)\.clear\(\)[\s\S]*?CookieJarSettings\.expireWebIdentityCookies\(\)[\s\S]*?CookieJarSettings\.syncAuthState\(/.test(cookieSettings))
   ok('CookieJarSettings.clear deletes persisted cookie jar', /deleteSync\(StorageKeys\.COOKIE_JAR\)/.test(cookieSettings))
 }
 
