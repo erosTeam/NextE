@@ -227,6 +227,39 @@ export class GallerySeedScheduler {
   }
 }
 
+/**
+ * Runs a bounded number of full gallery recoveries. The bound includes seed refresh/prepare work;
+ * individual image requests remain separately bounded by GallerySeedScheduler.
+ */
+export class GalleryResumeBatch {
+  static async start(
+    tasks: DownloadGalleryTask[],
+    maxConcurrent: number,
+    start: (task: DownloadGalleryTask) => Promise<void>,
+    onError: (task: DownloadGalleryTask, error: Error) => void,
+  ): Promise<void> {
+    const workerCount: number = Math.min(
+      tasks.length,
+      Math.max(1, Math.floor(maxConcurrent)),
+    )
+    let nextIndex: number = 0
+    const workers: Promise<void>[] = []
+    for (let worker: number = 0; worker < workerCount; worker++) {
+      workers.push((async (): Promise<void> => {
+        while (nextIndex < tasks.length) {
+          const task: DownloadGalleryTask = tasks[nextIndex++]
+          try {
+            await start(task)
+          } catch (error) {
+            onError(task, error as Error)
+          }
+        }
+      })())
+    }
+    await Promise.all(workers)
+  }
+}
+
 class GallerySeedNetworkTask {
   queueTask: GallerySeedQueueTask
   private readonly work: () => Promise<DownloadSeedResult>
@@ -894,20 +927,25 @@ export class DownloadQueueSettings {
       DiagnosticLogger.warn('download', 'pending_resume_storage_deferred', DOWNLOAD_DIRECTORY_UNAVAILABLE)
       return
     }
+    const pendingGalleryTasks: DownloadGalleryTask[] = []
     for (let i: number = 0; i < galleryTasks.length; i++) {
       if (DownloadQueueSettings.shouldAutoResumeGalleryTask(galleryTasks[i])) {
-        try {
-          await DownloadQueueSettings.downloadGalleryImages(
-            context,
-            galleryTasks[i].gid,
-            galleryTasks[i].token,
-            galleryTasks[i].preferOriginal,
-          )
-        } catch (error) {
-          DiagnosticLogger.warn('download', 'gallery_resume_failed', (error as Error).message)
-        }
+        pendingGalleryTasks.push(galleryTasks[i])
       }
     }
+    await GalleryResumeBatch.start(
+      pendingGalleryTasks,
+      connectDownloadSettings().concurrency,
+      (task: DownloadGalleryTask): Promise<void> => DownloadQueueSettings.downloadGalleryImages(
+        context,
+        task.gid,
+        task.token,
+        task.preferOriginal,
+      ),
+      (_task: DownloadGalleryTask, error: Error): void => {
+        DiagnosticLogger.warn('download', 'gallery_resume_failed', error.message)
+      },
+    )
     for (let i: number = 0; i < archiverTasks.length; i++) {
       if (DownloadQueueSettings.shouldAutoResumeArchiverTask(archiverTasks[i])) {
         try {

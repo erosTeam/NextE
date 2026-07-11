@@ -30,6 +30,7 @@ import basicDataSourceChangeNotificationTest from './BasicDataSourceChangeNotifi
 import customProfilesPersistSchedulerTest from './CustomProfilesPersistScheduler.test'
 import allThumbnailsTailAppendTest from './AllThumbnailsTailAppend.test'
 import galleryListMutationTargetedUpdateTest from './GalleryListMutationTargetedUpdate.test'
+import galleryResumeBatchTest from './GalleryResumeBatch.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -64,4 +65,5 @@ export default function testsuite(): void {
   customProfilesPersistSchedulerTest()
   allThumbnailsTailAppendTest()
   galleryListMutationTargetedUpdateTest()
+  galleryResumeBatchTest()
 }

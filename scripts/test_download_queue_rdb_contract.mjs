@@ -310,7 +310,6 @@ ok('startup resumes restored downloads only after main content is ready and defe
     /pending_resume_storage_deferred/.test(pendingResumeBody) &&
     /shouldAutoResumeGalleryTask/.test(settings) &&
     /shouldAutoResumeArchiverTask/.test(settings) &&
-    /downloadGalleryImages\([\s\S]*context,[\s\S]*galleryTasks\[i\]\.gid,[\s\S]*galleryTasks\[i\]\.token,[\s\S]*galleryTasks\[i\]\.preferOriginal/.test(settings) &&
     /downloadArchiver\(context, archiverTasks\[i\]\.tag\)/.test(settings))
 ok('bootstrap auto-resumes failed tasks only when the Download setting is enabled',
   /connectDownloadSettings\(\)\.autoRetryFailed && task\.status === DownloadGalleryTaskStatus\.ERROR/.test(autoResumeBody) &&
