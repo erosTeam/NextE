@@ -6,6 +6,10 @@ import { CacheStat } from './CacheStat'
 const CACHE_DIR_NAME: string = 'image-block-preview'
 const MAX_CACHE_FILE_COUNT: number = 128
 const MAX_CACHE_BYTES: number = 32 * 1024 * 1024
+// A preview crop completes on the settings-card path. Amortize directory scans without allowing
+// the bounded cache to drift materially past its 128-file / 32 MiB target.
+const PREVIEW_CACHE_MAINTENANCE_WRITE_INTERVAL: number = 8
+const PREVIEW_CACHE_MAINTENANCE_BYTES_INTERVAL: number = 2 * 1024 * 1024
 
 class ImageBlockPreviewCacheEntry {
   path: string = ''
@@ -25,6 +29,8 @@ class ImageBlockPreviewCacheEntry {
  */
 export class ImageBlockPreviewCacheService {
   private static pruneChain: Promise<void> = Promise.resolve()
+  private static maintenanceWritesSincePrune: number = -1
+  private static maintenanceBytesSincePrune: number = 0
 
   static filePath(context: common.UIAbilityContext, fileName: string): string {
     const dir: string = ImageBlockPreviewCacheService.cacheDir(context)
@@ -60,6 +66,45 @@ export class ImageBlockPreviewCacheService {
       }
     } catch (error) {
       DiagnosticLogger.warn('image-cache', 'image_block_preview_clear_failed', (error as Error).message)
+    } finally {
+      ImageBlockPreviewCacheService.resetMaintenanceCadence()
+    }
+  }
+
+  /**
+   * Keep generated source-preview cards responsive by avoiding a full cache scan after every crop.
+   * Explicit startup maintenance retains eager `pruneToLimit()` semantics and partial-file cleanup.
+   */
+  static async pruneAfterStore(
+    context: common.UIAbilityContext,
+    protectedPath: string,
+    storedBytes: number,
+  ): Promise<void> {
+    const addedBytes: number = storedBytes > 0 ? storedBytes : 0
+    const maintenanceDue: boolean =
+      ImageBlockPreviewCacheService.maintenanceWritesSincePrune < 0 ||
+      ImageBlockPreviewCacheService.maintenanceWritesSincePrune >=
+        PREVIEW_CACHE_MAINTENANCE_WRITE_INTERVAL - 1 ||
+      ImageBlockPreviewCacheService.maintenanceBytesSincePrune + addedBytes >=
+        PREVIEW_CACHE_MAINTENANCE_BYTES_INTERVAL
+    if (!maintenanceDue) {
+      ImageBlockPreviewCacheService.maintenanceWritesSincePrune =
+        ImageBlockPreviewCacheService.maintenanceWritesSincePrune + 1
+      ImageBlockPreviewCacheService.maintenanceBytesSincePrune =
+        ImageBlockPreviewCacheService.maintenanceBytesSincePrune + addedBytes
+      return
+    }
+
+    // Move the cadence forward before awaiting the shared chain so concurrent crop writes preserve
+    // their own accounting and can schedule a later maintenance pass.
+    ImageBlockPreviewCacheService.maintenanceWritesSincePrune = 0
+    ImageBlockPreviewCacheService.maintenanceBytesSincePrune = 0
+    try {
+      await ImageBlockPreviewCacheService.pruneToLimit(context, false, protectedPath)
+    } catch (error) {
+      // The crop was already atomically committed. Retry cleanup on the next write instead of hiding it.
+      ImageBlockPreviewCacheService.resetMaintenanceCadence()
+      DiagnosticLogger.warn('image-cache', 'image_block_preview_maintenance_failed', (error as Error).message)
     }
   }
 
@@ -76,6 +121,11 @@ export class ImageBlockPreviewCacheService {
     )
     ImageBlockPreviewCacheService.pruneChain = next
     return next
+  }
+
+  private static resetMaintenanceCadence(): void {
+    ImageBlockPreviewCacheService.maintenanceWritesSincePrune = -1
+    ImageBlockPreviewCacheService.maintenanceBytesSincePrune = 0
   }
 
   private static async pruneNow(

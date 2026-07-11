@@ -962,12 +962,13 @@ export class ImageBlockRuntimeService {
       } catch (_error) {
         return ''
       }
-      if (ImageBlockRuntimeService.fileBytes(path) <= 0) {
+      const previewBytes: number = ImageBlockRuntimeService.fileBytes(path)
+      if (previewBytes <= 0) {
         ImageBlockRuntimeService.removeFile(path)
         return ''
       }
       ImageBlockPreviewCacheService.touch(path)
-      await ImageBlockPreviewCacheService.pruneToLimit(context, false, path)
+      await ImageBlockPreviewCacheService.pruneAfterStore(context, path, previewBytes)
       return path
     } finally {
       ImageBlockRuntimeService.removeFile(temporaryPath)
