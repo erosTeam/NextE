@@ -3,7 +3,6 @@ import {
   EhApiService,
   EhGalleryImage,
   ImageResolveService,
-  connectSiteMode,
   DiagnosticLogger,
   EhErrorText,
   EhUrlRouter,
@@ -76,6 +75,7 @@ export class ReaderViewModel {
 
   private gid: string = ''
   private token: string = ''
+  private isEx: boolean = false
   private previewPage: number = -1
   private exhausted: boolean = false
   private cacheKey: string = ''
@@ -100,6 +100,7 @@ export class ReaderViewModel {
   async init(
     gid: string,
     token: string,
+    isEx: boolean,
     fileCount: number,
     startIndex: number,
     seedImages: EhGalleryImage[] = [],
@@ -110,9 +111,10 @@ export class ReaderViewModel {
   ): Promise<void> {
     this.gid = gid
     this.token = token
+    this.isEx = isEx
     this.fileCount = fileCount
     this.currentIndex = startIndex
-    this.cacheKey = ReaderViewModel.sessionKey(gid, token, connectSiteMode().isEx)
+    this.cacheKey = ReaderViewModel.sessionKey(gid, token, this.isEx)
     this.images = []
     this.syncPageIndexSource()
     this.previewImagesByIndex.clear()
@@ -447,7 +449,7 @@ export class ReaderViewModel {
             EhApiService.getInstance().getPreviewImages(
               this.gid,
               this.token,
-              connectSiteMode().isEx,
+              this.isEx,
               p,
             ),
           )
@@ -517,7 +519,7 @@ export class ReaderViewModel {
       const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
         this.gid,
         this.token,
-        connectSiteMode().isEx,
+        this.isEx,
         next,
       )
       if (more.length === 0) {
@@ -605,7 +607,7 @@ export class ReaderViewModel {
       const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
         this.gid,
         this.token,
-        connectSiteMode().isEx,
+        this.isEx,
         targetPreviewPage,
       )
       if (more.length === 0) {

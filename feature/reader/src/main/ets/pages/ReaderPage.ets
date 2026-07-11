@@ -316,9 +316,11 @@ export struct ReaderPage {
         this.readMode.columnMode = connectGalleryReadProgress().getColumnMode(p.gid)
         this.sliderValue = p.index + 1
         const requestedIndex: number = p.index
+        const isEx: boolean = connectSiteMode().isEx
         this.vm.init(
           p.gid,
           p.token,
+          isEx,
           p.fileCount,
           p.index,
           p.seedImages,
