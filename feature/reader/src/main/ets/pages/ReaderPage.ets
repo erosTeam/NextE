@@ -41,6 +41,7 @@ import {
   connectImageBlockSettings,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
+import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
 
 const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
 const READER_CHROME_ACTION_SIZE: number = 44
@@ -4160,7 +4161,9 @@ struct ReaderSpreadImageLayer {
     this.onImageFileReady(this.image.page, result.filePath, result.bytes)
     this.imageProgressLoaded = result.bytes
     this.imageProgressTotal = result.bytes
-    await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+    if (!ReaderImageLoadPresentation.shouldSkipCompletionHold(result)) {
+      await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+    }
     if (seq !== this.loadSeq) {
       return
     }
@@ -4522,7 +4525,9 @@ struct ReaderImagePage {
     this.onImageFileReady(this.image.page, result.filePath, result.bytes)
     this.imageProgressLoaded = result.bytes
     this.imageProgressTotal = result.bytes
-    await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+    if (!ReaderImageLoadPresentation.shouldSkipCompletionHold(result)) {
+      await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+    }
     if (seq !== this.loadSeq) {
       return
     }
@@ -5110,7 +5115,9 @@ struct ReaderVerticalImage {
     this.onImageFileReady(this.image.page, result.filePath, result.bytes)
     this.imageProgressLoaded = result.bytes
     this.imageProgressTotal = result.bytes
-    await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+    if (!ReaderImageLoadPresentation.shouldSkipCompletionHold(result)) {
+      await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
+    }
     if (seq !== this.loadSeq) {
       return
     }

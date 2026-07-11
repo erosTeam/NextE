@@ -32,6 +32,7 @@ import allThumbnailsTailAppendTest from './AllThumbnailsTailAppend.test'
 import galleryListMutationTargetedUpdateTest from './GalleryListMutationTargetedUpdate.test'
 import galleryResumeBatchTest from './GalleryResumeBatch.test'
 import listTagTranslationMutationRaceTest from './ListTagTranslationMutationRace.test'
+import readerImageLoadPresentationTest from './ReaderImageLoadPresentation.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -68,4 +69,5 @@ export default function testsuite(): void {
   galleryListMutationTargetedUpdateTest()
   galleryResumeBatchTest()
   listTagTranslationMutationRaceTest()
+  readerImageLoadPresentationTest()
 }
