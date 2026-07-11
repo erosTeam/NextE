@@ -34,6 +34,8 @@ import galleryResumeBatchTest from './GalleryResumeBatch.test'
 import listTagTranslationMutationRaceTest from './ListTagTranslationMutationRace.test'
 import readerImageLoadPresentationTest from './ReaderImageLoadPresentation.test'
 import gallerySeedDetailRefreshGateTest from './GallerySeedDetailRefreshGate.test'
+import readerImageSourceRequestGateTest from './ReaderImageSourceRequestGate.test'
+import imageResolveSourceGateTest from './ImageResolveSourceGate.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -72,4 +74,6 @@ export default function testsuite(): void {
   listTagTranslationMutationRaceTest()
   readerImageLoadPresentationTest()
   gallerySeedDetailRefreshGateTest()
+  readerImageSourceRequestGateTest()
+  imageResolveSourceGateTest()
 }

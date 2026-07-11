@@ -155,6 +155,9 @@ class ReaderImageLoadTask {
   private hasProgress: boolean = false
   private completion: Promise<void> = Promise.resolve()
   private releaseCompletion: () => void = () => {}
+  private settledCompletion: Promise<void> = Promise.resolve()
+  private releaseSettled: () => void = () => {}
+  private settled: boolean = false
   private finished: boolean = false
   private result: CachedImageFileResult | null = null
   private failureMessage: string = ''
@@ -177,6 +180,9 @@ class ReaderImageLoadTask {
     })
     this.completion = new Promise<void>((resolve: () => void): void => {
       this.releaseCompletion = resolve
+    })
+    this.settledCompletion = new Promise<void>((resolve: () => void): void => {
+      this.releaseSettled = resolve
     })
   }
 
@@ -223,6 +229,18 @@ class ReaderImageLoadTask {
       throw new Error('reader image download finished without a result')
     }
     return this.result
+  }
+
+  async waitForSettled(): Promise<void> {
+    await this.settledCompletion
+  }
+
+  markSettled(): void {
+    if (this.settled) {
+      return
+    }
+    this.settled = true
+    this.releaseSettled()
   }
 
   private notifyListener(
@@ -290,6 +308,7 @@ export class ReaderImageFileCacheService {
     limitBytes: number,
     priority: number,
     onProgress: (progress: CachedImageProgress) => void,
+    forceReload: boolean = false,
   ): Promise<CachedImageFileResult> {
     if (url.length === 0) {
       throw new Error('image URL is empty')
@@ -309,7 +328,9 @@ export class ReaderImageFileCacheService {
       }
     }
 
-    const cached: CachedImageFileResult | null = ReaderImageFileCacheService.cached(context, cacheKey)
+    const cached: CachedImageFileResult | null = forceReload
+      ? null
+      : ReaderImageFileCacheService.cached(context, cacheKey)
     if (cached !== null) {
       onProgress({ loaded: cached.bytes, total: cached.bytes })
       return cached
@@ -319,11 +340,24 @@ export class ReaderImageFileCacheService {
     const running: ReaderImageLoadTask | undefined =
       ReaderImageFileCacheService.inFlight.get(filePath)
     if (running !== undefined) {
-      // A queued warmer is still safe to replace. This matters when a Reader retry re-resolves the
-      // same page identity to a fresh CDN URL: promoting the old queued URL would silently defeat
-      // the retry. Existing waiters are released with a controlled failure below.
-      if (!running.priorityTask.started && running.url !== url) {
+      // A queued warmer is safe to replace immediately. A running stream cannot be aborted safely,
+      // so a fresh source waits until it has released the cache-key slot, then downloads its own URL.
+      // Explicit source reloads also replace an equal URL: retry must not be swallowed by the old
+      // cache entry or in-flight request.
+      const replacesRunningSource: boolean = forceReload || running.url !== url
+      if (!running.priorityTask.started && replacesRunningSource) {
         ReaderImageFileCacheService.cancelQueuedTask(running, 'reader image source superseded')
+      } else if (replacesRunningSource) {
+        await running.waitForSettled()
+        return await ReaderImageFileCacheService.load(
+          context,
+          url,
+          cacheKey,
+          limitBytes,
+          priority,
+          onProgress,
+          true,
+        )
       } else {
         running.addProgressListener(onProgress)
         const wasQueued: boolean = !running.priorityTask.started
@@ -395,6 +429,7 @@ export class ReaderImageFileCacheService {
       ReaderImageFileCacheService.inFlight.delete(task.filePath)
     }
     ReaderImageFileCacheService.scheduler.complete(task.priorityTask)
+    task.markSettled()
   }
 
   static cancelQueued(context: common.UIAbilityContext, cacheKey: string): boolean {
@@ -418,6 +453,7 @@ export class ReaderImageFileCacheService {
       ReaderImageFileCacheService.inFlight.delete(task.filePath)
     }
     task.fail(new Error(reason))
+    task.markSettled()
     DiagnosticLogger.info(
       'image-cache',
       'reader_disk_queued_cancelled',

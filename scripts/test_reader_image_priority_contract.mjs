@@ -157,8 +157,6 @@ ok('stale queued warmers are cancelled on lifecycle/source changes and source re
   /cancelQueuedReaderFile/.test(pipeline) &&
     /cancelQueuedWarm\(\)/.test(readerPage) &&
     /aboutToDisappear\(\): void \{[\s\S]*?cancelQueuedWarm\(\)/.test(readerPage) &&
-    /!running\.priorityTask\.started && running\.url !== url/.test(readerCache) &&
-    /cancelQueuedTask\(running, 'reader image source superseded'\)/.test(readerCache) &&
     /static remove\([\s\S]*?cancelQueued\(context, cacheKey\)/.test(readerCache))
 
 console.log(`✓ reader image priority contract: ${passed} assertions passed`)

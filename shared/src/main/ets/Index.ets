@@ -138,7 +138,11 @@ export { EhImagePageParser, ImagePageResult } from './parser/EhImagePageParser'
 export { EhGalleryFavoriteParser, GalleryFavoriteInfo } from './parser/EhGalleryFavoriteParser'
 
 // services
-export { ImageResolveMemoryCache, ImageResolveService } from './services/ImageResolveService'
+export {
+  ImageResolveMemoryCache,
+  ImageResolveService,
+  ImageResolveSourceGate,
+} from './services/ImageResolveService'
 export { ImagePipelineService } from './services/ImagePipelineService'
 export { ImageBlockPreviewCacheService } from './services/ImageBlockPreviewCacheService'
 export { ReaderImagePriorityScheduler, ReaderImagePriorityTask } from './services/ReaderImageFileCacheService'

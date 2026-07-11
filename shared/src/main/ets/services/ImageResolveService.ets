@@ -128,6 +128,36 @@ export class ImageResolveMemoryCache {
 }
 
 /**
+ * Gives an explicit source reload ownership over one `/s/` page's memory-cache entry.
+ *
+ * A normal resolve and a user-triggered `?nl=` reload may both be in flight. The reload must win
+ * even when the older normal request settles last; otherwise the next Reader mount silently returns
+ * to the old CDN host from process memory.
+ */
+export class ImageResolveSourceGate {
+  private epochs: Map<string, number> = new Map<string, number>()
+
+  begin(sUrl: string, changeSource: boolean): number {
+    const current: number = this.current(sUrl)
+    if (!changeSource || sUrl.length === 0) {
+      return current
+    }
+    const next: number = current + 1
+    this.epochs.set(sUrl, next)
+    return next
+  }
+
+  isCurrent(sUrl: string, epoch: number): boolean {
+    return this.current(sUrl) === epoch
+  }
+
+  private current(sUrl: string): number {
+    const value: number | undefined = this.epochs.get(sUrl)
+    return value !== undefined ? value : 0
+  }
+}
+
+/**
  * Resolves a gallery page's full-image URL (eros_fe view image resolve).
  *
  * Two paths, matching eros_fe:
@@ -144,6 +174,7 @@ export class ImageResolveService {
   // retain recent metadata across those components, but never let a long reader/download session grow it
   // without bound. Eviction preserves the existing re-resolve behavior rather than changing source choice.
   private cache: ImageResolveMemoryCache = new ImageResolveMemoryCache()
+  private sourceGate: ImageResolveSourceGate = new ImageResolveSourceGate()
   // sUrl → in-flight resolve promise. Dedups concurrent resolves of the SAME page so the reader's
   // N-ahead precache and the on-demand page component don't fire two requests for one image; both
   // share the single request. Cleared when it settles so a later retry / 换源 isn't blocked.
@@ -170,6 +201,7 @@ export class ImageResolveService {
    * with `?nl={reloadKey}` to get a DIFFERENT image host.
    */
   async resolve(image: EhGalleryImage, changeSource: boolean = false): Promise<string> {
+    const sourceEpoch: number = this.sourceGate.begin(image.sUrl, changeSource)
     if (!changeSource && image.imageUrl.length > 0) {
       return image.imageUrl
     }
@@ -192,7 +224,7 @@ export class ImageResolveService {
         return existing
       }
     }
-    const p: Promise<string> = this.doResolve(image, changeSource)
+    const p: Promise<string> = this.doResolve(image, changeSource, sourceEpoch)
     if (!changeSource) {
       this.inFlight.set(image.sUrl, p)
       const key: string = image.sUrl
@@ -210,6 +242,7 @@ export class ImageResolveService {
   }
 
   async resolveOriginal(image: EhGalleryImage, changeSource: boolean = false): Promise<string> {
+    const sourceEpoch: number = this.sourceGate.begin(image.sUrl, changeSource)
     if (!changeSource && image.originImageUrl.length > 0) {
       DiagnosticLogger.info('reader', 'resolve_original_cache', `page ${image.page} fullimg true`)
       return image.originImageUrl
@@ -223,7 +256,7 @@ export class ImageResolveService {
       DiagnosticLogger.info('reader', 'resolve_original_memory_cache', `page ${image.page} fullimg true`)
       return image.originImageUrl
     }
-    await this.doResolve(image, changeSource)
+    await this.doResolve(image, changeSource, sourceEpoch)
     if (image.originImageUrl.length === 0) {
       throw new Error('original image unavailable')
     }
@@ -231,7 +264,11 @@ export class ImageResolveService {
     return image.originImageUrl
   }
 
-  private async doResolve(image: EhGalleryImage, changeSource: boolean): Promise<string> {
+  private async doResolve(
+    image: EhGalleryImage,
+    changeSource: boolean,
+    sourceEpoch: number,
+  ): Promise<string> {
     const ref: ImagePageRef | null = EhUrlRouter.parseImagePage(image.sUrl)
     const sIdx: number = image.sUrl.indexOf('/s/')
     const base: string = sIdx > 0 ? image.sUrl.substring(0, sIdx) : ''
@@ -256,7 +293,7 @@ export class ImageResolveService {
             image.imageUrl = sp.imageUrl
             image.originImageUrl = sp.originImageUrl
             image.reloadKey = sp.reloadKey
-            this.cacheResult(image.sUrl, image)
+            this.cacheResult(image.sUrl, image, sourceEpoch)
             DiagnosticLogger.info('reader', 'resolve_showpage', `gid ${ref.gid} p ${ref.page}`)
             return sp.imageUrl
           }
@@ -288,7 +325,9 @@ export class ImageResolveService {
     image.showKey = r.showKey
     image.originImageUrl = r.originImageUrl
     image.reloadKey = r.reloadKey
-    this.cache.putResolved(image.sUrl, r)
+    if (this.sourceGate.isCurrent(image.sUrl, sourceEpoch)) {
+      this.cache.putResolved(image.sUrl, r)
+    }
     if (ref !== null && r.showKey.length > 0) {
       this.cache.putShowKey(ref.gid, r.showKey)
     }
@@ -305,7 +344,10 @@ export class ImageResolveService {
     }
   }
 
-  private cacheResult(sUrl: string, image: EhGalleryImage): void {
+  private cacheResult(sUrl: string, image: EhGalleryImage, sourceEpoch: number): void {
+    if (!this.sourceGate.isCurrent(sUrl, sourceEpoch)) {
+      return
+    }
     const result: ImagePageResult = new ImagePageResult()
     result.imageUrl = image.imageUrl
     result.showKey = image.showKey

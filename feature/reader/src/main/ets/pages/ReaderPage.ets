@@ -42,6 +42,7 @@ import {
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
+import { ReaderImageSourceRequest, ReaderImageSourceRequestGate } from '../model/ReaderImageSourceRequestGate'
 
 const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
 const READER_CHROME_ACTION_SIZE: number = 44
@@ -4029,10 +4030,14 @@ struct ReaderSpreadImageLayer {
   @Local failed: boolean = false;
   @Local failureKind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   private autoRetryCount: number = 0;
-  private loadSeq: number = 0;
+  private sourceRequests: ReaderImageSourceRequestGate = new ReaderImageSourceRequestGate();
 
   aboutToAppear(): void {
     this.resolve()
+  }
+
+  aboutToDisappear(): void {
+    this.sourceRequests.invalidate()
   }
 
   @Monitor('imageKey')
@@ -4063,7 +4068,7 @@ struct ReaderSpreadImageLayer {
 
   private resetImageState(): void {
     this.autoRetryCount = 0
-    this.loadSeq++
+    this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
@@ -4076,28 +4081,47 @@ struct ReaderSpreadImageLayer {
   }
 
   private async resolve(changeSource: boolean = false): Promise<void> {
-    if (!changeSource && !this.image.imageUrl.startsWith('file://')) {
+    const source: ReaderImageSourceRequest = this.sourceRequests.begin(
+      this.image,
+      this.imageKey,
+      this.fileCacheKey,
+      this.preferOriginal,
+    )
+    if (!changeSource && !source.image.imageUrl.startsWith('file://')) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
       const cached: CachedImageFileResult | null =
-        ImagePipelineService.cachedReaderFile(context, this.fileCacheKey)
+        ImagePipelineService.cachedReaderFile(context, source.fileCacheKey)
       if (cached !== null) {
-        await this.loadResolvedImage('', cached)
+        await this.loadResolvedImage(source, '', cached)
         return
       }
     }
-    if (this.preferOriginal) {
+    if (source.preferOriginal) {
       try {
         this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
         this.imageBlocked = false
         this.imageBlockPreviewUri = ''
-        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image, changeSource)
-        DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
-        await this.loadResolvedImage(original)
+        const original: string = await ImageResolveService.getInstance().resolveOriginal(source.image, changeSource)
+        if (!this.isCurrentSource(source)) {
+          return
+        }
+        source.image.originImageUrl = original
+        if (!this.commitResolvedSource(source)) {
+          return
+        }
+        DiagnosticLogger.info('reader', 'display_original', `page ${source.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
+        await this.loadResolvedImage(source, original, undefined, changeSource)
+        if (!this.isCurrentSource(source)) {
+          return
+        }
         this.failed = false
         this.failureKind = ReaderImageFailureKind.Generic
       } catch (err) {
+        if (!this.isCurrentSource(source)) {
+          return
+        }
         const e: Error = err as Error
         this.failureKind = readerFailureKindFromError(e)
         DiagnosticLogger.warn('reader', 'spread_original_failed', e.message)
@@ -4105,8 +4129,8 @@ struct ReaderSpreadImageLayer {
       }
       return
     }
-    if (!changeSource && this.image.imageUrl.length > 0) {
-      await this.loadResolvedImage(this.image.imageUrl)
+    if (!changeSource && source.image.imageUrl.length > 0) {
+      await this.loadResolvedImage(source, source.image.imageUrl)
       return
     }
     try {
@@ -4115,11 +4139,24 @@ struct ReaderSpreadImageLayer {
       this.sourceImageUrl = ''
       this.imageBlocked = false
       this.imageBlockPreviewUri = ''
-      const resolved: string = await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      await this.loadResolvedImage(resolved)
+      const resolved: string = await ImageResolveService.getInstance().resolve(source.image, changeSource)
+      if (!this.isCurrentSource(source)) {
+        return
+      }
+      source.image.imageUrl = resolved
+      if (!this.commitResolvedSource(source)) {
+        return
+      }
+      await this.loadResolvedImage(source, resolved, undefined, changeSource)
+      if (!this.isCurrentSource(source)) {
+        return
+      }
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
+      if (!this.isCurrentSource(source)) {
+        return
+      }
       const e: Error = err as Error
       this.failureKind = readerFailureKindFromError(e)
       DiagnosticLogger.warn('reader', 'spread_resolve_failed', e.message)
@@ -4128,10 +4165,14 @@ struct ReaderSpreadImageLayer {
   }
 
   private async loadResolvedImage(
+    source: ReaderImageSourceRequest,
     resolved: string,
     cachedResult?: CachedImageFileResult,
+    forceReload: boolean = false,
   ): Promise<void> {
-    const seq: number = ++this.loadSeq
+    if (!this.isCurrentSource(source)) {
+      return
+    }
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -4145,29 +4186,30 @@ struct ReaderSpreadImageLayer {
       : await ImagePipelineService.loadReaderFile(
           context,
           resolved,
-          this.fileCacheKey,
+          source.fileCacheKey,
           EH_IMAGE_PRIORITY_HIGH,
           (progress: CachedImageProgress) => {
-            if (seq !== this.loadSeq) {
+            if (!this.isCurrentSource(source)) {
               return
             }
             this.imageProgressLoaded = progress.loaded
             this.imageProgressTotal = progress.total
           },
+          forceReload,
         )
-    if (seq !== this.loadSeq) {
+    if (!this.isCurrentSource(source)) {
       return
     }
-    this.onImageFileReady(this.image.page, result.filePath, result.bytes)
+    this.onImageFileReady(source.image.page, result.filePath, result.bytes)
     this.imageProgressLoaded = result.bytes
     this.imageProgressTotal = result.bytes
     if (!ReaderImageLoadPresentation.shouldSkipCompletionHold(result)) {
       await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
     }
-    if (seq !== this.loadSeq) {
+    if (!this.isCurrentSource(source)) {
       return
     }
-    if (await this.applyImageBlockDecision(context, result.filePath, result.bytes, result.displayUri, seq)) {
+    if (await this.applyImageBlockDecision(source, context, result.filePath, result.bytes, result.displayUri)) {
       return
     }
     this.imageUrl = result.displayUri
@@ -4178,25 +4220,25 @@ struct ReaderSpreadImageLayer {
   }
 
   private async applyImageBlockDecision(
+    source: ReaderImageSourceRequest,
     context: common.UIAbilityContext,
     filePath: string,
     bytes: number,
     displayUri: string,
-    seq: number,
   ): Promise<boolean> {
-    const decision: ImageBlockDecision = await readerImageBlockDecisionForFile(context, filePath, this.image.page)
-    if (seq !== this.loadSeq) {
+    const decision: ImageBlockDecision = await readerImageBlockDecisionForFile(context, filePath, source.image.page)
+    if (!this.isCurrentSource(source)) {
       return true
     }
     if (!decision.blocked) {
       this.imageBlocked = false
       this.imageBlockPreviewUri = ''
-      this.onImageBlockState(this.image.page, false)
+      this.onImageBlockState(source.image.page, false)
       return false
     }
     this.imageBlocked = true
     this.imageBlockPreviewUri = displayUri
-    this.onImageBlockState(this.image.page, true)
+    this.onImageBlockState(source.image.page, true)
     this.imageUrl = ''
     this.imageLoaded = true
     this.imageProgressLoaded = bytes
@@ -4204,16 +4246,35 @@ struct ReaderSpreadImageLayer {
     this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
-    this.onImageLoaded(this.image.page)
-    readerLogImageBlocked(this.image.page, decision)
+    this.onImageLoaded(source.image.page)
+    readerLogImageBlocked(source.image.page, decision)
     return true
+  }
+
+  private isCurrentSource(source: ReaderImageSourceRequest): boolean {
+    return this.sourceRequests.isCurrent(
+      source,
+      this.imageKey,
+      this.fileCacheKey,
+      this.preferOriginal,
+    )
+  }
+
+  private commitResolvedSource(source: ReaderImageSourceRequest): boolean {
+    return this.sourceRequests.commitResolvedImage(
+      source,
+      this.image,
+      this.imageKey,
+      this.fileCacheKey,
+      this.preferOriginal,
+    )
   }
 
   private retrySource(): void {
     this.autoRetryCount = 0
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
-    this.loadSeq++
+    this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
@@ -4231,7 +4292,7 @@ struct ReaderSpreadImageLayer {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
       ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
       this.autoRetryCount++
-      this.loadSeq++
+      this.sourceRequests.invalidate()
       this.sourceImageUrl = ''
       this.imageUrl = ''
       this.imageLoaded = false
@@ -4385,11 +4446,15 @@ struct ReaderImagePage {
   private compH: number = 0;
   private lastZoomed: boolean = false;
   private autoRetryCount: number = 0;
-  private loadSeq: number = 0;
+  private sourceRequests: ReaderImageSourceRequestGate = new ReaderImageSourceRequestGate();
   private zoomAnimatingTimerId: number = 0;
 
   aboutToAppear(): void {
     this.resolve()
+  }
+
+  aboutToDisappear(): void {
+    this.sourceRequests.invalidate()
   }
 
   @Monitor('imageKey')
@@ -4440,28 +4505,47 @@ struct ReaderImagePage {
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) — re-resolves via /s/?nl= for a
   // different host, bypassing the cached URL.
   private async resolve(changeSource: boolean = false): Promise<void> {
-    if (!changeSource && !this.image.imageUrl.startsWith('file://')) {
+    const source: ReaderImageSourceRequest = this.sourceRequests.begin(
+      this.image,
+      this.imageKey,
+      this.fileCacheKey,
+      this.preferOriginal,
+    )
+    if (!changeSource && !source.image.imageUrl.startsWith('file://')) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
       const cached: CachedImageFileResult | null =
-        ImagePipelineService.cachedReaderFile(context, this.fileCacheKey)
+        ImagePipelineService.cachedReaderFile(context, source.fileCacheKey)
       if (cached !== null) {
-        await this.loadResolvedImage('', cached)
+        await this.loadResolvedImage(source, '', cached)
         return
       }
     }
-    if (this.preferOriginal) {
+    if (source.preferOriginal) {
       try {
         this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
         this.imageBlocked = false
         this.imageBlockPreviewUri = ''
-        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image, changeSource)
-        DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
-        await this.loadResolvedImage(original)
+        const original: string = await ImageResolveService.getInstance().resolveOriginal(source.image, changeSource)
+        if (!this.isCurrentSource(source)) {
+          return
+        }
+        source.image.originImageUrl = original
+        if (!this.commitResolvedSource(source)) {
+          return
+        }
+        DiagnosticLogger.info('reader', 'display_original', `page ${source.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
+        await this.loadResolvedImage(source, original, undefined, changeSource)
+        if (!this.isCurrentSource(source)) {
+          return
+        }
         this.failed = false
         this.failureKind = ReaderImageFailureKind.Generic
       } catch (err) {
+        if (!this.isCurrentSource(source)) {
+          return
+        }
         const e: Error = err as Error
         this.failureKind = readerFailureKindFromError(e)
         DiagnosticLogger.warn('reader', 'original_failed', e.message)
@@ -4469,8 +4553,8 @@ struct ReaderImagePage {
       }
       return
     }
-    if (!changeSource && this.image.imageUrl.length > 0) {
-      await this.loadResolvedImage(this.image.imageUrl)
+    if (!changeSource && source.image.imageUrl.length > 0) {
+      await this.loadResolvedImage(source, source.image.imageUrl)
       return
     }
     try {
@@ -4479,11 +4563,24 @@ struct ReaderImagePage {
       this.sourceImageUrl = ''
       this.imageBlocked = false
       this.imageBlockPreviewUri = ''
-      const resolved: string = await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      await this.loadResolvedImage(resolved)
+      const resolved: string = await ImageResolveService.getInstance().resolve(source.image, changeSource)
+      if (!this.isCurrentSource(source)) {
+        return
+      }
+      source.image.imageUrl = resolved
+      if (!this.commitResolvedSource(source)) {
+        return
+      }
+      await this.loadResolvedImage(source, resolved, undefined, changeSource)
+      if (!this.isCurrentSource(source)) {
+        return
+      }
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
+      if (!this.isCurrentSource(source)) {
+        return
+      }
       const e: Error = err as Error
       this.failureKind = readerFailureKindFromError(e)
       DiagnosticLogger.warn('reader', 'resolve_failed', e.message)
@@ -4492,10 +4589,14 @@ struct ReaderImagePage {
   }
 
   private async loadResolvedImage(
+    source: ReaderImageSourceRequest,
     resolved: string,
     cachedResult?: CachedImageFileResult,
+    forceReload: boolean = false,
   ): Promise<void> {
-    const seq: number = ++this.loadSeq
+    if (!this.isCurrentSource(source)) {
+      return
+    }
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -4509,29 +4610,30 @@ struct ReaderImagePage {
       : await ImagePipelineService.loadReaderFile(
           context,
           resolved,
-          this.fileCacheKey,
+          source.fileCacheKey,
           EH_IMAGE_PRIORITY_HIGH,
           (progress: CachedImageProgress) => {
-            if (seq !== this.loadSeq) {
+            if (!this.isCurrentSource(source)) {
               return
             }
             this.imageProgressLoaded = progress.loaded
             this.imageProgressTotal = progress.total
           },
+          forceReload,
         )
-    if (seq !== this.loadSeq) {
+    if (!this.isCurrentSource(source)) {
       return
     }
-    this.onImageFileReady(this.image.page, result.filePath, result.bytes)
+    this.onImageFileReady(source.image.page, result.filePath, result.bytes)
     this.imageProgressLoaded = result.bytes
     this.imageProgressTotal = result.bytes
     if (!ReaderImageLoadPresentation.shouldSkipCompletionHold(result)) {
       await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
     }
-    if (seq !== this.loadSeq) {
+    if (!this.isCurrentSource(source)) {
       return
     }
-    if (await this.applyImageBlockDecision(context, result.filePath, result.bytes, result.displayUri, seq)) {
+    if (await this.applyImageBlockDecision(source, context, result.filePath, result.bytes, result.displayUri)) {
       return
     }
     this.imageUrl = result.displayUri
@@ -4542,25 +4644,25 @@ struct ReaderImagePage {
   }
 
   private async applyImageBlockDecision(
+    source: ReaderImageSourceRequest,
     context: common.UIAbilityContext,
     filePath: string,
     bytes: number,
     displayUri: string,
-    seq: number,
   ): Promise<boolean> {
-    const decision: ImageBlockDecision = await readerImageBlockDecisionForFile(context, filePath, this.image.page)
-    if (seq !== this.loadSeq) {
+    const decision: ImageBlockDecision = await readerImageBlockDecisionForFile(context, filePath, source.image.page)
+    if (!this.isCurrentSource(source)) {
       return true
     }
     if (!decision.blocked) {
       this.imageBlocked = false
       this.imageBlockPreviewUri = ''
-      this.onImageBlockState(this.image.page, false)
+      this.onImageBlockState(source.image.page, false)
       return false
     }
     this.imageBlocked = true
     this.imageBlockPreviewUri = displayUri
-    this.onImageBlockState(this.image.page, true)
+    this.onImageBlockState(source.image.page, true)
     this.imageUrl = ''
     this.imageLoaded = true
     this.imageProgressLoaded = bytes
@@ -4568,14 +4670,33 @@ struct ReaderImagePage {
     this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
-    this.onImageLoaded(this.image.page)
-    readerLogImageBlocked(this.image.page, decision)
+    this.onImageLoaded(source.image.page)
+    readerLogImageBlocked(source.image.page, decision)
     return true
+  }
+
+  private isCurrentSource(source: ReaderImageSourceRequest): boolean {
+    return this.sourceRequests.isCurrent(
+      source,
+      this.imageKey,
+      this.fileCacheKey,
+      this.preferOriginal,
+    )
+  }
+
+  private commitResolvedSource(source: ReaderImageSourceRequest): boolean {
+    return this.sourceRequests.commitResolvedImage(
+      source,
+      this.image,
+      this.imageKey,
+      this.fileCacheKey,
+      this.preferOriginal,
+    )
   }
 
   private resetSourceState(): void {
     this.autoRetryCount = 0
-    this.loadSeq++
+    this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
@@ -4594,7 +4715,7 @@ struct ReaderImagePage {
     this.autoRetryCount = 0
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
-    this.loadSeq++
+    this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
@@ -4612,7 +4733,7 @@ struct ReaderImagePage {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
       ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
       this.autoRetryCount++
-      this.loadSeq++
+      this.sourceRequests.invalidate()
       this.sourceImageUrl = ''
       this.imageUrl = ''
       this.imageLoaded = false
@@ -4978,7 +5099,7 @@ struct ReaderVerticalImage {
   private compH: number = 0;
   private lastZoomed: boolean = false;
   private autoRetryCount: number = 0;
-  private loadSeq: number = 0;
+  private sourceRequests: ReaderImageSourceRequestGate = new ReaderImageSourceRequestGate();
   private zoomAnimatingTimerId: number = 0;
   private tapStartX: number = 0;
   private tapStartY: number = 0;
@@ -4991,6 +5112,7 @@ struct ReaderVerticalImage {
   }
 
   aboutToDisappear(): void {
+    this.sourceRequests.invalidate()
     if (this.zoomAnimatingTimerId > 0) {
       clearTimeout(this.zoomAnimatingTimerId)
       this.zoomAnimatingTimerId = 0
@@ -5030,28 +5152,47 @@ struct ReaderVerticalImage {
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) via /s/?nl=, bypassing the cache.
   private async resolve(changeSource: boolean = false): Promise<void> {
-    if (!changeSource && !this.image.imageUrl.startsWith('file://')) {
+    const source: ReaderImageSourceRequest = this.sourceRequests.begin(
+      this.image,
+      this.imageKey,
+      this.fileCacheKey,
+      this.preferOriginal,
+    )
+    if (!changeSource && !source.image.imageUrl.startsWith('file://')) {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
       const cached: CachedImageFileResult | null =
-        ImagePipelineService.cachedReaderFile(context, this.fileCacheKey)
+        ImagePipelineService.cachedReaderFile(context, source.fileCacheKey)
       if (cached !== null) {
-        await this.loadResolvedImage('', cached)
+        await this.loadResolvedImage(source, '', cached)
         return
       }
     }
-    if (this.preferOriginal) {
+    if (source.preferOriginal) {
       try {
         this.imageUrl = ''
         this.imageLoaded = false
         this.sourceImageUrl = ''
         this.imageBlocked = false
         this.imageBlockPreviewUri = ''
-        const original: string = await ImageResolveService.getInstance().resolveOriginal(this.image, changeSource)
-        DiagnosticLogger.info('reader', 'display_original', `page ${this.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
-        await this.loadResolvedImage(original)
+        const original: string = await ImageResolveService.getInstance().resolveOriginal(source.image, changeSource)
+        if (!this.isCurrentSource(source)) {
+          return
+        }
+        source.image.originImageUrl = original
+        if (!this.commitResolvedSource(source)) {
+          return
+        }
+        DiagnosticLogger.info('reader', 'display_original', `page ${source.image.page} fullimg ${original.indexOf('/fullimg') >= 0}`)
+        await this.loadResolvedImage(source, original, undefined, changeSource)
+        if (!this.isCurrentSource(source)) {
+          return
+        }
         this.failed = false
         this.failureKind = ReaderImageFailureKind.Generic
       } catch (err) {
+        if (!this.isCurrentSource(source)) {
+          return
+        }
         const e: Error = err as Error
         this.failureKind = readerFailureKindFromError(e)
         DiagnosticLogger.warn('reader', 'vertical_original_failed', e.message)
@@ -5059,8 +5200,8 @@ struct ReaderVerticalImage {
       }
       return
     }
-    if (!changeSource && this.image.imageUrl.length > 0) {
-      await this.loadResolvedImage(this.image.imageUrl)
+    if (!changeSource && source.image.imageUrl.length > 0) {
+      await this.loadResolvedImage(source, source.image.imageUrl)
       return
     }
     try {
@@ -5069,11 +5210,24 @@ struct ReaderVerticalImage {
       this.sourceImageUrl = ''
       this.imageBlocked = false
       this.imageBlockPreviewUri = ''
-      const resolved: string = await ImageResolveService.getInstance().resolve(this.image, changeSource)
-      await this.loadResolvedImage(resolved)
+      const resolved: string = await ImageResolveService.getInstance().resolve(source.image, changeSource)
+      if (!this.isCurrentSource(source)) {
+        return
+      }
+      source.image.imageUrl = resolved
+      if (!this.commitResolvedSource(source)) {
+        return
+      }
+      await this.loadResolvedImage(source, resolved, undefined, changeSource)
+      if (!this.isCurrentSource(source)) {
+        return
+      }
       this.failed = false
       this.failureKind = ReaderImageFailureKind.Generic
     } catch (err) {
+      if (!this.isCurrentSource(source)) {
+        return
+      }
       const e: Error = err as Error
       this.failureKind = readerFailureKindFromError(e)
       DiagnosticLogger.warn('reader', 'resolve_failed', e.message)
@@ -5082,10 +5236,14 @@ struct ReaderVerticalImage {
   }
 
   private async loadResolvedImage(
+    source: ReaderImageSourceRequest,
     resolved: string,
     cachedResult?: CachedImageFileResult,
+    forceReload: boolean = false,
   ): Promise<void> {
-    const seq: number = ++this.loadSeq
+    if (!this.isCurrentSource(source)) {
+      return
+    }
     this.imageBlocked = false
     this.imageBlockPreviewUri = ''
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
@@ -5099,29 +5257,30 @@ struct ReaderVerticalImage {
       : await ImagePipelineService.loadReaderFile(
           context,
           resolved,
-          this.fileCacheKey,
+          source.fileCacheKey,
           EH_IMAGE_PRIORITY_HIGH,
           (progress: CachedImageProgress) => {
-            if (seq !== this.loadSeq) {
+            if (!this.isCurrentSource(source)) {
               return
             }
             this.imageProgressLoaded = progress.loaded
             this.imageProgressTotal = progress.total
           },
+          forceReload,
         )
-    if (seq !== this.loadSeq) {
+    if (!this.isCurrentSource(source)) {
       return
     }
-    this.onImageFileReady(this.image.page, result.filePath, result.bytes)
+    this.onImageFileReady(source.image.page, result.filePath, result.bytes)
     this.imageProgressLoaded = result.bytes
     this.imageProgressTotal = result.bytes
     if (!ReaderImageLoadPresentation.shouldSkipCompletionHold(result)) {
       await readerDelay(READER_LOADING_COMPLETION_HOLD_MS)
     }
-    if (seq !== this.loadSeq) {
+    if (!this.isCurrentSource(source)) {
       return
     }
-    if (await this.applyImageBlockDecision(context, result.filePath, result.bytes, result.displayUri, seq)) {
+    if (await this.applyImageBlockDecision(source, context, result.filePath, result.bytes, result.displayUri)) {
       return
     }
     this.imageUrl = result.displayUri
@@ -5132,25 +5291,25 @@ struct ReaderVerticalImage {
   }
 
   private async applyImageBlockDecision(
+    source: ReaderImageSourceRequest,
     context: common.UIAbilityContext,
     filePath: string,
     bytes: number,
     displayUri: string,
-    seq: number,
   ): Promise<boolean> {
-    const decision: ImageBlockDecision = await readerImageBlockDecisionForFile(context, filePath, this.image.page)
-    if (seq !== this.loadSeq) {
+    const decision: ImageBlockDecision = await readerImageBlockDecisionForFile(context, filePath, source.image.page)
+    if (!this.isCurrentSource(source)) {
       return true
     }
     if (!decision.blocked) {
       this.imageBlocked = false
       this.imageBlockPreviewUri = ''
-      this.onImageBlockState(this.image.page, false)
+      this.onImageBlockState(source.image.page, false)
       return false
     }
     this.imageBlocked = true
     this.imageBlockPreviewUri = displayUri
-    this.onImageBlockState(this.image.page, true)
+    this.onImageBlockState(source.image.page, true)
     this.imageUrl = ''
     this.imageLoaded = true
     this.imageProgressLoaded = bytes
@@ -5158,14 +5317,33 @@ struct ReaderVerticalImage {
     this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
-    this.onImageLoaded(this.image.page)
-    readerLogImageBlocked(this.image.page, decision)
+    this.onImageLoaded(source.image.page)
+    readerLogImageBlocked(source.image.page, decision)
     return true
+  }
+
+  private isCurrentSource(source: ReaderImageSourceRequest): boolean {
+    return this.sourceRequests.isCurrent(
+      source,
+      this.imageKey,
+      this.fileCacheKey,
+      this.preferOriginal,
+    )
+  }
+
+  private commitResolvedSource(source: ReaderImageSourceRequest): boolean {
+    return this.sourceRequests.commitResolvedImage(
+      source,
+      this.image,
+      this.imageKey,
+      this.fileCacheKey,
+      this.preferOriginal,
+    )
   }
 
   private resetSourceState(): void {
     this.autoRetryCount = 0
-    this.loadSeq++
+    this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
@@ -5184,7 +5362,7 @@ struct ReaderVerticalImage {
     this.autoRetryCount = 0
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
     ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
-    this.loadSeq++
+    this.sourceRequests.invalidate()
     this.sourceImageUrl = ''
     this.imageUrl = ''
     this.imageLoaded = false
@@ -5202,7 +5380,7 @@ struct ReaderVerticalImage {
       const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext
       ImagePipelineService.removeReaderFile(context, this.fileCacheKey)
       this.autoRetryCount++
-      this.loadSeq++
+      this.sourceRequests.invalidate()
       this.sourceImageUrl = ''
       this.imageUrl = ''
       this.imageLoaded = false

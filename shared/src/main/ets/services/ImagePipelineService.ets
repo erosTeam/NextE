@@ -57,6 +57,7 @@ export class ImagePipelineService {
     cacheKey: string,
     priority: number,
     onProgress?: (progress: CachedImageProgress) => void,
+    forceReload: boolean = false,
   ): Promise<CachedImageFileResult> {
     return ReaderImageFileCacheService.load(
       context,
@@ -65,6 +66,7 @@ export class ImagePipelineService {
       ReaderImageCacheSettings.limitBytes(),
       priority,
       onProgress !== undefined ? onProgress : (_progress: CachedImageProgress) => {},
+      forceReload,
     )
   }
 
