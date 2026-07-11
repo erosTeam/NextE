@@ -14,6 +14,7 @@ import { ImageBlockRule } from '../model/ImageBlockRule'
 import { CustomProfilesSettings } from '../settings/CustomProfilesSettings'
 import { ViewedGallery } from '../model/ViewedGallery'
 import { ViewedHistorySettings } from '../settings/ViewedHistorySettings'
+import { publishImageBlockRulesChanged } from '../state/ImageBlockRuntimeState'
 import { ImageBlockRepository } from '../storage/ImageBlockRepository'
 import {
   BackupCustomProfileEntry,
@@ -352,6 +353,8 @@ export class BackupLocalDataAdapter {
         imageBlockRules.push(rule)
       }
       await ImageBlockRepository.restoreUserRulesFromBackup(context, imageBlockRules)
+      // Both a restore and its rollback must invalidate in-process decisions immediately.
+      publishImageBlockRulesChanged('backup-restore')
     }
 
     if (section.customProfiles !== undefined) {

@@ -77,6 +77,10 @@ const SQL_SELECT_USER_RULES_FOR_BACKUP: string =
   'FROM image_block_user_rules ' +
   'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY updated_at ASC, rule_id ASC'
+const SQL_SELECT_MAX_USER_RULE_EFFECTIVE_TIME: string =
+  'SELECT MAX(CASE WHEN COALESCE(deleted_at, 0) > COALESCE(updated_at, 0) ' +
+  'THEN COALESCE(deleted_at, 0) ELSE COALESCE(updated_at, 0) END) AS effective_at ' +
+  'FROM image_block_user_rules WHERE scope_key = ?'
 const SQL_SELECT_FILE_HASH: string =
   'SELECT hash FROM image_block_hash_cache ' +
   'WHERE scope_key = ? AND file_path = ? AND bytes = ? AND algorithm = ? AND COALESCE(deleted_at, 0) = 0'
@@ -104,10 +108,10 @@ const SQL_UPSERT_RULE: string =
   'enabled = CASE WHEN image_block_rules.source_type = \'subscription\' THEN image_block_rules.enabled ELSE excluded.enabled END, ' +
   'updated_at = excluded.updated_at, deleted_at = 0'
 const SQL_UPDATE_RULE_PREVIEW: string =
-  'UPDATE image_block_rules SET preview_path = ?, updated_at = ? ' +
+  'UPDATE image_block_rules SET preview_path = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND COALESCE(deleted_at, 0) = 0 AND ? <> \'\''
 const SQL_UPDATE_USER_RULE_PREVIEW: string =
-  'UPDATE image_block_user_rules SET preview_path = ?, updated_at = ? ' +
+  'UPDATE image_block_user_rules SET preview_path = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND COALESCE(deleted_at, 0) = 0 AND ? <> \'\''
 const SQL_TOMBSTONE_SUBSCRIPTION: string =
   'UPDATE image_block_subscriptions SET deleted_at = ?, updated_at = ? ' +
@@ -121,6 +125,9 @@ const SQL_SET_SUBSCRIPTION_ENABLED: string =
 const SQL_TOMBSTONE_LOCAL_RULE: string =
   'UPDATE image_block_user_rules SET deleted_at = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
+const SQL_TOMBSTONE_USER_RULES_FOR_BACKUP: string =
+  'UPDATE image_block_user_rules SET deleted_at = ?, updated_at = ? ' +
+  'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_UPDATE_LOCAL_RULE_THRESHOLD: string =
   'UPDATE image_block_user_rules SET threshold = ?, updated_at = ? ' +
   'WHERE scope_key = ? AND rule_id = ? AND source_type = ? AND COALESCE(deleted_at, 0) = 0'
@@ -335,18 +342,23 @@ export class ImageBlockRepository {
     context: common.UIAbilityContext,
     rules: ImageBlockRule[],
   ): Promise<void> {
-    if (rules.length <= 0) {
-      return
-    }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
     try {
+      // A backup restore is an authoritative snapshot of user rules, including an empty section.
+      // Rebase past active rows and tombstones so omitted rules stay deleted after the next sync.
+      const restoredAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await store.executeSql(SQL_TOMBSTONE_USER_RULES_FOR_BACKUP, [restoredAt, restoredAt, SCOPE_GLOBAL])
+      let restoredCount: number = 0
       for (let i: number = 0; i < rules.length; i++) {
         const rule: ImageBlockRule = rules[i]
         const hash: string = PHashService.normalizeHex64(rule.hash)
         if (rule.id.length === 0 || hash.length === 0 || rule.sourceType.length === 0) {
           continue
         }
+        restoredCount++
+        const originalTime: number = rule.updatedAt > 0 ? Math.floor(rule.updatedAt) : 0
+        const snapshotTime: number = Math.max(originalTime, restoredAt + restoredCount)
         await store.executeSql(SQL_UPSERT_USER_RULE_FROM_BACKUP, [
           SCOPE_GLOBAL,
           rule.id,
@@ -359,7 +371,7 @@ export class ImageBlockRepository {
           rule.sourceUrl,
           rule.sourcePage > 0 ? Math.floor(rule.sourcePage) : 0,
           rule.enabled ? 1 : 0,
-          rule.updatedAt > 0 ? Math.floor(rule.updatedAt) : Date.now(),
+          snapshotTime,
         ])
       }
       store.commit()
@@ -506,40 +518,54 @@ export class ImageBlockRepository {
       throw new Error('Image block rule hash must be 16 hex characters')
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const now: number = Date.now()
     const ruleId: string = rule.id.length > 0 ? rule.id : 'local:' + normalizedHash
-    await store.executeSql(SQL_UPSERT_USER_RULE, [
-      SCOPE_GLOBAL,
-      ruleId,
-      normalizedHash,
-      PHashService.clampThreshold(rule.threshold),
-      rule.label.length > 0 ? rule.label : 'local',
-      rule.scope.length > 0 ? rule.scope : IMAGE_BLOCK_SCOPE_WHOLE,
-      '',
-      IMAGE_BLOCK_SOURCE_LOCAL,
-      rule.sourceUrl,
-      rule.sourcePage > 0 ? Math.floor(rule.sourcePage) : 0,
-      rule.previewPath,
-      rule.enabled ? 1 : 0,
-      now,
-    ])
-    ImageBlockRepository.requestSync(context, 'image_block_rule')
+    store.beginTransaction()
+    try {
+      const updatedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await store.executeSql(SQL_UPSERT_USER_RULE, [
+        SCOPE_GLOBAL,
+        ruleId,
+        normalizedHash,
+        PHashService.clampThreshold(rule.threshold),
+        rule.label.length > 0 ? rule.label : 'local',
+        rule.scope.length > 0 ? rule.scope : IMAGE_BLOCK_SCOPE_WHOLE,
+        '',
+        IMAGE_BLOCK_SOURCE_LOCAL,
+        rule.sourceUrl,
+        rule.sourcePage > 0 ? Math.floor(rule.sourcePage) : 0,
+        rule.previewPath,
+        rule.enabled ? 1 : 0,
+        updatedAt,
+      ])
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_rule')
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
   }
 
   static async removeLocalRule(context: common.UIAbilityContext, ruleId: string): Promise<void> {
     if (ruleId.length === 0) {
       return
     }
-    const now: number = Date.now()
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_TOMBSTONE_LOCAL_RULE, [
-      now,
-      now,
-      SCOPE_GLOBAL,
-      ruleId,
-      IMAGE_BLOCK_SOURCE_LOCAL,
-    ])
-    ImageBlockRepository.requestSync(context, 'image_block_rule')
+    store.beginTransaction()
+    try {
+      const deletedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await store.executeSql(SQL_TOMBSTONE_LOCAL_RULE, [
+        deletedAt,
+        deletedAt,
+        SCOPE_GLOBAL,
+        ruleId,
+        IMAGE_BLOCK_SOURCE_LOCAL,
+      ])
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_rule')
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
   }
 
   static async setLocalRuleThreshold(
@@ -551,14 +577,22 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_UPDATE_LOCAL_RULE_THRESHOLD, [
-      PHashService.clampThreshold(threshold),
-      Date.now(),
-      SCOPE_GLOBAL,
-      ruleId,
-      IMAGE_BLOCK_SOURCE_LOCAL,
-    ])
-    ImageBlockRepository.requestSync(context, 'image_block_rule')
+    store.beginTransaction()
+    try {
+      const updatedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await store.executeSql(SQL_UPDATE_LOCAL_RULE_THRESHOLD, [
+        PHashService.clampThreshold(threshold),
+        updatedAt,
+        SCOPE_GLOBAL,
+        ruleId,
+        IMAGE_BLOCK_SOURCE_LOCAL,
+      ])
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_rule')
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
   }
 
   static async setLocalRuleEnabled(
@@ -570,14 +604,22 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_UPDATE_LOCAL_RULE_ENABLED, [
-      enabled ? 1 : 0,
-      Date.now(),
-      SCOPE_GLOBAL,
-      ruleId,
-      IMAGE_BLOCK_SOURCE_LOCAL,
-    ])
-    ImageBlockRepository.requestSync(context, 'image_block_rule')
+    store.beginTransaction()
+    try {
+      const updatedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await store.executeSql(SQL_UPDATE_LOCAL_RULE_ENABLED, [
+        enabled ? 1 : 0,
+        updatedAt,
+        SCOPE_GLOBAL,
+        ruleId,
+        IMAGE_BLOCK_SOURCE_LOCAL,
+      ])
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_rule')
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
   }
 
   static async rememberRulePreview(
@@ -589,26 +631,35 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_UPDATE_RULE_PREVIEW, [previewPath, Date.now(), SCOPE_GLOBAL, ruleId, previewPath])
-    await store.executeSql(SQL_UPDATE_USER_RULE_PREVIEW, [previewPath, Date.now(), SCOPE_GLOBAL, ruleId, previewPath])
-    ImageBlockRepository.requestSync(context, 'image_block_rule_preview')
+    store.beginTransaction()
+    try {
+      // Preview paths are device-local cache metadata, never a syncable user-rule mutation.
+      await store.executeSql(SQL_UPDATE_RULE_PREVIEW, [previewPath, SCOPE_GLOBAL, ruleId, previewPath])
+      await store.executeSql(SQL_UPDATE_USER_RULE_PREVIEW, [previewPath, SCOPE_GLOBAL, ruleId, previewPath])
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
   }
 
   static async replaceWhitelist(context: common.UIAbilityContext, hashes: string[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const now: number = Date.now()
     store.beginTransaction()
     try {
+      const replacedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
       await store.executeSql(SQL_TOMBSTONE_ALLOW_RULES, [
-        now,
-        now,
+        replacedAt,
+        replacedAt,
         SCOPE_GLOBAL,
         IMAGE_BLOCK_SOURCE_ALLOW,
       ])
+      let restoredCount: number = 0
       for (let i: number = 0; i < hashes.length; i++) {
         const hash: string = PHashService.normalizeHex64(hashes[i])
         if (hash.length > 0) {
-          await ImageBlockRepository.upsertAllowRule(store, hash, '', now + i + 1)
+          restoredCount++
+          await ImageBlockRepository.upsertAllowRule(store, hash, '', replacedAt + restoredCount)
         }
       }
       store.commit()
@@ -630,8 +681,16 @@ export class ImageBlockRepository {
       throw new Error('Image block whitelist hash must be 16 hex characters')
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await ImageBlockRepository.upsertAllowRule(store, normalizedHash, previewPath, Date.now())
-    ImageBlockRepository.requestSync(context, 'image_block_allow')
+    store.beginTransaction()
+    try {
+      const updatedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await ImageBlockRepository.upsertAllowRule(store, normalizedHash, previewPath, updatedAt)
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_allow')
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
     return normalizedHash
   }
 
@@ -646,10 +705,25 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const now: number = Date.now()
-    await store.executeSql(SQL_UPDATE_RULE_ENABLED, [0, now, SCOPE_GLOBAL, ruleId, normalizedHash, sourceType])
-    await ImageBlockRepository.upsertSubscriptionOverride(store, ruleId, normalizedHash, sourceType, -1, 0, now)
-    ImageBlockRepository.requestSync(context, 'image_block_rule_override')
+    store.beginTransaction()
+    try {
+      const updatedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await store.executeSql(SQL_UPDATE_RULE_ENABLED, [0, updatedAt, SCOPE_GLOBAL, ruleId, normalizedHash, sourceType])
+      await ImageBlockRepository.upsertSubscriptionOverride(
+        store,
+        ruleId,
+        normalizedHash,
+        sourceType,
+        -1,
+        0,
+        updatedAt,
+      )
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_rule_override')
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
   }
 
   static async setRuleEnabledOverride(
@@ -664,25 +738,32 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const now: number = Date.now()
-    await store.executeSql(SQL_UPDATE_RULE_ENABLED, [
-      enabled ? 1 : 0,
-      now,
-      SCOPE_GLOBAL,
-      ruleId,
-      normalizedHash,
-      sourceType,
-    ])
-    await ImageBlockRepository.upsertSubscriptionOverride(
-      store,
-      ruleId,
-      normalizedHash,
-      sourceType,
-      -1,
-      enabled ? 1 : 0,
-      now,
-    )
-    ImageBlockRepository.requestSync(context, 'image_block_rule_override')
+    store.beginTransaction()
+    try {
+      const updatedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await store.executeSql(SQL_UPDATE_RULE_ENABLED, [
+        enabled ? 1 : 0,
+        updatedAt,
+        SCOPE_GLOBAL,
+        ruleId,
+        normalizedHash,
+        sourceType,
+      ])
+      await ImageBlockRepository.upsertSubscriptionOverride(
+        store,
+        ruleId,
+        normalizedHash,
+        sourceType,
+        -1,
+        enabled ? 1 : 0,
+        updatedAt,
+      )
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_rule_override')
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
   }
 
   static async setRuleThresholdOverride(
@@ -697,25 +778,32 @@ export class ImageBlockRepository {
       return
     }
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const now: number = Date.now()
-    await store.executeSql(SQL_UPDATE_RULE_THRESHOLD, [
-      PHashService.clampThreshold(threshold),
-      now,
-      SCOPE_GLOBAL,
-      ruleId,
-      normalizedHash,
-      sourceType,
-    ])
-    await ImageBlockRepository.upsertSubscriptionOverride(
-      store,
-      ruleId,
-      normalizedHash,
-      sourceType,
-      PHashService.clampThreshold(threshold),
-      -1,
-      now,
-    )
-    ImageBlockRepository.requestSync(context, 'image_block_rule_override')
+    store.beginTransaction()
+    try {
+      const updatedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await store.executeSql(SQL_UPDATE_RULE_THRESHOLD, [
+        PHashService.clampThreshold(threshold),
+        updatedAt,
+        SCOPE_GLOBAL,
+        ruleId,
+        normalizedHash,
+        sourceType,
+      ])
+      await ImageBlockRepository.upsertSubscriptionOverride(
+        store,
+        ruleId,
+        normalizedHash,
+        sourceType,
+        PHashService.clampThreshold(threshold),
+        -1,
+        updatedAt,
+      )
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_rule_override')
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
   }
 
   static async removeWhitelistHash(context: common.UIAbilityContext, hash: string): Promise<void> {
@@ -723,16 +811,23 @@ export class ImageBlockRepository {
     if (normalizedHash.length === 0) {
       return
     }
-    const now: number = Date.now()
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_TOMBSTONE_ONE_ALLOW_RULE, [
-      now,
-      now,
-      SCOPE_GLOBAL,
-      IMAGE_BLOCK_SOURCE_ALLOW,
-      normalizedHash,
-    ])
-    ImageBlockRepository.requestSync(context, 'image_block_allow')
+    store.beginTransaction()
+    try {
+      const deletedAt: number = await ImageBlockRepository.nextUserRuleMutationTime(store, Date.now())
+      await store.executeSql(SQL_TOMBSTONE_ONE_ALLOW_RULE, [
+        deletedAt,
+        deletedAt,
+        SCOPE_GLOBAL,
+        IMAGE_BLOCK_SOURCE_ALLOW,
+        normalizedHash,
+      ])
+      store.commit()
+      ImageBlockRepository.requestSync(context, 'image_block_allow')
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
   }
 
   static async upsertFileHash(
@@ -827,6 +922,26 @@ export class ImageBlockRepository {
 
   private static requestSync(context: common.UIAbilityContext, reason: string): void {
     SyncScheduler.requestAfterLocalWrite(context, reason)
+  }
+
+  /** Advance every user-rule mutation past active rows and tombstones so local edits remain LWW-safe. */
+  private static async nextUserRuleMutationTime(
+    store: relationalStore.RdbStore,
+    requestedTime: number,
+  ): Promise<number> {
+    let latest: number = 0
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_MAX_USER_RULE_EFFECTIVE_TIME, [
+      SCOPE_GLOBAL,
+    ])
+    try {
+      if (resultSet.goToNextRow()) {
+        latest = Math.max(0, Math.floor(ImageBlockRepository.numberColumn(resultSet, 'effective_at')))
+      }
+    } finally {
+      resultSet.close()
+    }
+    const requested: number = requestedTime > 0 ? Math.floor(requestedTime) : 0
+    return Math.max(Date.now(), requested, latest + 1)
   }
 
   private static async upsertAllowRule(

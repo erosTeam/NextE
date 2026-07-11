@@ -136,6 +136,36 @@ ok('restore snapshots durable stores and rolls back on section failure',
     /await BackupPreferencesAdapter\.replace\(context, rollbackSecrets, true\)/.test(svc) &&
     /failedSections: \[failedSection\]/.test(svc))
 
+const imageBlockRepository = read('shared/src/main/ets/storage/ImageBlockRepository.ets')
+const localDataAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
+const imageBlockMutationMethods = [
+  'upsertLocalRule',
+  'removeLocalRule',
+  'setLocalRuleThreshold',
+  'setLocalRuleEnabled',
+  'replaceWhitelist',
+  'upsertWhitelistHash',
+  'ignoreRule',
+  'setRuleEnabledOverride',
+  'setRuleThresholdOverride',
+  'removeWhitelistHash',
+]
+const imageBlockMutationBodiesUseLogicalTime = imageBlockMutationMethods.every((method) => {
+  const start = imageBlockRepository.indexOf(`static async ${method}`)
+  const next = imageBlockRepository.indexOf('\n  static async ', start + 1)
+  const body = start >= 0 ? imageBlockRepository.slice(start, next >= 0 ? next : imageBlockRepository.length) : ''
+  return body.includes('nextUserRuleMutationTime(store, Date.now())') && body.includes('store.beginTransaction()')
+})
+ok('image-block backup restore replaces the complete user-rule snapshot, including an empty backup',
+  /SQL_TOMBSTONE_USER_RULES_FOR_BACKUP/.test(imageBlockRepository) &&
+    /nextUserRuleMutationTime\(store, Date\.now\(\)\)/.test(imageBlockRepository) &&
+    /await store\.executeSql\(SQL_TOMBSTONE_USER_RULES_FOR_BACKUP, \[restoredAt, restoredAt, SCOPE_GLOBAL\]\)/.test(imageBlockRepository) &&
+    /const snapshotTime: number = Math\.max\(originalTime, restoredAt \+ restoredCount\)/.test(imageBlockRepository) &&
+    imageBlockMutationBodiesUseLogicalTime &&
+    /ImageBlockRepository\.requestSync\(context, 'image_block_rule_backup_restore'\)/.test(imageBlockRepository) &&
+    !/if \(rules\.length <= 0\) \{\s*return/.test(imageBlockRepository) &&
+    /publishImageBlockRulesChanged\('backup-restore'\)/.test(localDataAdapter))
+
 ok('shared exports BackupService + types',
   /export \{ BackupService \}/.test(read('shared/src/main/ets/Index.ets')))
 
