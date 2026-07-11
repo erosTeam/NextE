@@ -24,6 +24,7 @@ class ReaderSessionSnapshot {
   updatedAt: number = 0
   images: EhGalleryImage[] = []
   loadedPreviewPages: number[] = []
+  private imageIndexesByPage: Map<number, number> = new Map()
 
   copy(): ReaderSessionSnapshot {
     const out: ReaderSessionSnapshot = new ReaderSessionSnapshot()
@@ -34,17 +35,34 @@ class ReaderSessionSnapshot {
     out.perPage = this.perPage
     out.currentIndex = this.currentIndex
     out.updatedAt = this.updatedAt
-    out.images = ReaderSessionSnapshot.copyImages(this.images)
-    out.loadedPreviewPages = ReaderSessionSnapshot.copyPages(this.loadedPreviewPages)
+    for (let i: number = 0; i < this.images.length; i++) {
+      out.replaceImage(this.images[i])
+    }
+    out.setLoadedPreviewPages(this.loadedPreviewPages)
     return out
   }
 
-  private static copyImages(images: EhGalleryImage[]): EhGalleryImage[] {
-    const out: EhGalleryImage[] = []
-    for (let i: number = 0; i < images.length; i++) {
-      out.push(images[i].copy())
+  replaceImage(image: EhGalleryImage): void {
+    if (image.page <= 0) {
+      return
     }
-    return out
+    const copy: EhGalleryImage = image.copy()
+    const existingIndex: number | undefined = this.imageIndexesByPage.get(copy.page)
+    if (existingIndex === undefined) {
+      this.imageIndexesByPage.set(copy.page, this.images.length)
+      this.images.push(copy)
+      return
+    }
+    this.images[existingIndex] = copy
+  }
+
+  clearImages(): void {
+    this.images = []
+    this.imageIndexesByPage.clear()
+  }
+
+  setLoadedPreviewPages(pages: number[]): void {
+    this.loadedPreviewPages = ReaderSessionSnapshot.copyPages(pages)
   }
 
   private static copyPages(pages: number[]): number[] {
@@ -65,7 +83,6 @@ class ReaderSessionSnapshot {
 @ObservedV2
 export class ReaderViewModel {
   private static sessionCache: Map<string, ReaderSessionSnapshot> = new Map()
-  @Trace images: EhGalleryImage[] = []
   pageIndexSource: BasicDataSource<number> = new BasicDataSource<number>()
   @Trace currentIndex: number = 0
   @Trace loadingMore: boolean = false
@@ -115,7 +132,6 @@ export class ReaderViewModel {
     this.fileCount = fileCount
     this.currentIndex = startIndex
     this.cacheKey = ReaderViewModel.sessionKey(gid, token, this.isEx)
-    this.images = []
     // A retained ReaderViewModel can switch to another gallery with the same page count; that is still
     // a structural reset, so force the LazyForEach source to rebuild once at the new gallery boundary.
     this.syncPageIndexSource(true)
@@ -161,12 +177,14 @@ export class ReaderViewModel {
     if (cached === undefined || cached.images.length === 0) {
       return
     }
-    this.images = []
+    this.previewImagesByIndex.clear()
     for (let i: number = 0; i < cached.images.length; i++) {
-      this.images.push(cached.images[i].copy())
+      const image: EhGalleryImage = cached.images[i]
+      if (image.page > 0 && image.sUrl.length > 0) {
+        this.previewImagesByIndex.set(image.page - 1, image.copy())
+      }
     }
-    this.rebuildPreviewMapFromImages()
-    this.syncImagesFromPreviewMap()
+    this.notifyPreviewMapChanged()
     this.loadedPreviewPages = []
     for (let i: number = 0; i < cached.loadedPreviewPages.length; i++) {
       this.loadedPreviewPages.push(cached.loadedPreviewPages[i])
@@ -180,15 +198,35 @@ export class ReaderViewModel {
     DiagnosticLogger.info(
       'reader',
       'session_cache_hit',
-      `key ${this.cacheKey} images ${this.images.length} perPage ${this.perPage}`,
+      `key ${this.cacheKey} images ${this.previewImagesByIndex.size} perPage ${this.perPage}`,
     )
   }
 
-  private publishSessionCache(): void {
+  private publishSessionCache(
+    changedIndexes: number[] = [],
+    refreshLoadedPreviewPages: boolean = false,
+  ): void {
     if (this.cacheKey.length === 0 || this.previewImagesByIndex.size === 0) {
       return
     }
-    const snapshot: ReaderSessionSnapshot = new ReaderSessionSnapshot()
+    const existingSnapshot: ReaderSessionSnapshot | undefined = ReaderViewModel.sessionCache.get(this.cacheKey)
+    const rebuild: boolean = existingSnapshot === undefined || changedIndexes.length === 0
+    const snapshot: ReaderSessionSnapshot = existingSnapshot === undefined
+      ? new ReaderSessionSnapshot()
+      : existingSnapshot
+    if (rebuild) {
+      snapshot.clearImages()
+      this.previewImagesByIndex.forEach((img: EhGalleryImage) => {
+        snapshot.replaceImage(img)
+      })
+    } else {
+      for (let i: number = 0; i < changedIndexes.length; i++) {
+        const image: EhGalleryImage | undefined = this.previewImagesByIndex.get(changedIndexes[i])
+        if (image !== undefined) {
+          snapshot.replaceImage(image)
+        }
+      }
+    }
     snapshot.key = this.cacheKey
     snapshot.fileCount = this.fileCount
     snapshot.previewPage = this.previewPage
@@ -196,13 +234,8 @@ export class ReaderViewModel {
     snapshot.perPage = this.perPage
     snapshot.currentIndex = this.currentIndex
     snapshot.updatedAt = Date.now()
-    snapshot.images = []
-    this.previewImagesByIndex.forEach((img: EhGalleryImage) => {
-      snapshot.images.push(img.copy())
-    })
-    snapshot.loadedPreviewPages = []
-    for (let i: number = 0; i < this.loadedPreviewPages.length; i++) {
-      snapshot.loadedPreviewPages.push(this.loadedPreviewPages[i])
+    if (rebuild || refreshLoadedPreviewPages) {
+      snapshot.setLoadedPreviewPages(this.loadedPreviewPages)
     }
     ReaderViewModel.sessionCache.set(this.cacheKey, snapshot)
     ReaderViewModel.trimSessionCache()
@@ -230,29 +263,11 @@ export class ReaderViewModel {
   }
 
   private notifyImagesChanged(index: number): void {
-    this.syncImagesFromPreviewMap([index])
+    this.notifyPreviewMapChanged([index])
   }
 
-  private rebuildPreviewMapFromImages(): void {
-    this.previewImagesByIndex.clear()
-    for (let i: number = 0; i < this.images.length; i++) {
-      const img: EhGalleryImage = this.images[i]
-      if (img.page > 0 && img.sUrl.length > 0) {
-        this.previewImagesByIndex.set(img.page - 1, img.copy())
-      }
-    }
-  }
-
-  private syncImagesFromPreviewMap(changedIndexes: number[] = []): void {
-    const out: EhGalleryImage[] = []
-    const total: number = this.previewMapUpperBound()
-    for (let i: number = 0; i < total; i++) {
-      const img: EhGalleryImage | undefined = this.previewImagesByIndex.get(i)
-      if (img !== undefined) {
-        out.push(img.copy())
-      }
-    }
-    this.images = out
+  /** The page-index source is stable; readers refresh only rows whose source URL changed. */
+  private notifyPreviewMapChanged(changedIndexes: number[] = []): void {
     const reloaded: boolean = this.syncPageIndexSource()
     if (!reloaded) {
       for (let i: number = 0; i < changedIndexes.length; i++) {
@@ -333,7 +348,7 @@ export class ReaderViewModel {
       this.previewImagesByIndex.set(targetIndex, copy)
       changedIndexes.push(targetIndex)
     })
-    this.syncImagesFromPreviewMap(changedIndexes)
+    this.notifyPreviewMapChanged(changedIndexes)
     this.perPage = seedPerPage > 0 ? seedPerPage : seedImages.length
     this.loadedPreviewPages = []
     if (seedPreviewPages.length > 0) {
@@ -377,7 +392,7 @@ export class ReaderViewModel {
     img.sUrl = seedImagePageUrl
     img.imgkey = ref.imgkey
     this.previewImagesByIndex.set(index, img)
-    this.syncImagesFromPreviewMap([index])
+    this.notifyPreviewMapChanged([index])
     return img
   }
 
@@ -415,8 +430,8 @@ export class ReaderViewModel {
       merged.reloadKey = seed.reloadKey
     }
     this.previewImagesByIndex.set(index, merged)
-    this.syncImagesFromPreviewMap([index])
-    this.publishSessionCache()
+    this.notifyPreviewMapChanged([index])
+    this.publishSessionCache([index])
   }
 
   /**
@@ -429,7 +444,7 @@ export class ReaderViewModel {
     DiagnosticLogger.info(
       'reader',
       'ensure_loaded_begin',
-      `reason ${reason} index ${index} current ${this.currentIndex} hasPreview ${this.hasPreviewAt(index)} total ${this.totalPages()} images ${this.images.length} previewPage ${this.previewPage} perPage ${this.perPage}`,
+      `reason ${reason} index ${index} current ${this.currentIndex} hasPreview ${this.hasPreviewAt(index)} total ${this.totalPages()} images ${this.previewImagesByIndex.size} previewPage ${this.previewPage} perPage ${this.perPage}`,
     )
     if (this.loadingMore) {
       await this.waitForLoadingComplete()
@@ -603,7 +618,7 @@ export class ReaderViewModel {
     DiagnosticLogger.info(
       'reader',
       'thumb_warm_request',
-      `index ${index} images ${this.images.length} perPage ${this.perPage} loaded ${this.hasPreviewAt(index)}`,
+      `index ${index} images ${this.previewImagesByIndex.size} perPage ${this.perPage} loaded ${this.hasPreviewAt(index)}`,
     )
     this.ensureLoaded(index, reason)
       .then(
@@ -685,12 +700,12 @@ export class ReaderViewModel {
       this.previewImagesByIndex.set(targetIndex, this.mergePreviewImage(base, img))
       changedIndexes.push(targetIndex)
     }
-    this.syncImagesFromPreviewMap(changedIndexes)
+    this.notifyPreviewMapChanged(changedIndexes)
     this.markPreviewPageLoaded(previewPage)
     this.advanceContiguousPreviewPage()
     this.previewFailedIndex = -1
     this.previewError = ''
-    this.publishSessionCache()
+    this.publishSessionCache(changedIndexes, true)
   }
 
   private mergePreviewImage(existing: EhGalleryImage, incoming: EhGalleryImage): EhGalleryImage {
@@ -814,7 +829,7 @@ export class ReaderViewModel {
           .then(
             (): void => {
               this.notifyImagesChanged(i)
-              this.publishSessionCache()
+              this.publishSessionCache([i])
             },
             (): void => {},
           )
