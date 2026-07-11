@@ -8,6 +8,7 @@
 export class BasicDataSource<T> implements IDataSource {
   private items: T[] = []
   private listeners: DataChangeListener[] = []
+  private contentVersion: number = 0
 
   totalCount(): number {
     return this.items.length
@@ -21,9 +22,15 @@ export class BasicDataSource<T> implements IDataSource {
     return this.items
   }
 
+  /** Increments whenever a row set or one of its row references changes. */
+  contentRevision(): number {
+    return this.contentVersion
+  }
+
   /** Replace the whole list (refresh / first page). */
   setData(items: T[]): void {
     this.items = items
+    this.contentVersion = this.contentVersion + 1
     this.notifyReload()
   }
 
@@ -36,6 +43,7 @@ export class BasicDataSource<T> implements IDataSource {
     for (let i: number = 0; i < items.length; i++) {
       this.items.push(items[i])
     }
+    this.contentVersion = this.contentVersion + 1
     this.listeners.forEach((l: DataChangeListener) => {
       l.onDataAdd(start)
     })
@@ -43,12 +51,16 @@ export class BasicDataSource<T> implements IDataSource {
 
   /** Prepend a page as real LazyForEach inserts, so List can preserve visible content position. */
   prependData(items: T[]): void {
+    if (items.length === 0) {
+      return
+    }
     for (let i: number = items.length - 1; i >= 0; i--) {
       this.items.splice(0, 0, items[i])
       this.listeners.forEach((l: DataChangeListener) => {
         l.onDataAdd(0)
       })
     }
+    this.contentVersion = this.contentVersion + 1
   }
 
   /** Refresh one existing LazyForEach item without reloading the full data source. */
@@ -67,6 +79,7 @@ export class BasicDataSource<T> implements IDataSource {
       return false
     }
     this.items[index] = item
+    this.contentVersion = this.contentVersion + 1
     this.notifyDataChanged(index)
     return true
   }
@@ -77,6 +90,7 @@ export class BasicDataSource<T> implements IDataSource {
       return false
     }
     this.items.splice(index, 1)
+    this.contentVersion = this.contentVersion + 1
     this.listeners.forEach((l: DataChangeListener) => {
       l.onDataDelete(index)
     })
@@ -85,6 +99,7 @@ export class BasicDataSource<T> implements IDataSource {
 
   clear(): void {
     this.items = []
+    this.contentVersion = this.contentVersion + 1
     this.notifyReload()
   }
 

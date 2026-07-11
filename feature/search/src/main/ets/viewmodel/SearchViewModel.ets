@@ -128,6 +128,7 @@ export class SearchViewModel {
     const enabled: boolean = connectTagTranslationSettings().enabled
     const sourceRows: EhGallery[] = this.dataSource.getAll()
     const sourceCount: number = sourceRows.length
+    const sourceRevision: number = this.dataSource.contentRevision()
     if (sourceCount === 0) {
       return
     }
@@ -139,7 +140,8 @@ export class SearchViewModel {
       run !== this.tagTranslationRun ||
       enabled !== connectTagTranslationSettings().enabled ||
       this.dataSource.getAll() !== sourceRows ||
-      this.dataSource.totalCount() !== sourceCount
+      this.dataSource.totalCount() !== sourceCount ||
+      this.dataSource.contentRevision() !== sourceRevision
     ) {
       return
     }

@@ -47,6 +47,7 @@ export default function basicDataSourceChangeNotificationTest(): void {
       const listener: RecordingDataChangeListener = new RecordingDataChangeListener()
       dataSource.setData([10, 20, 30])
       dataSource.registerDataChangeListener(listener)
+      const beforeMutationRevision: number = dataSource.contentRevision()
 
       expect(dataSource.replaceDataAt(1, 25)).assertEqual(true)
       expect(dataSource.removeDataAt(0)).assertEqual(true)
@@ -60,6 +61,7 @@ export default function basicDataSourceChangeNotificationTest(): void {
       expect(listener.deletedIndexes.length).assertEqual(1)
       expect(listener.deletedIndexes[0]).assertEqual(0)
       expect(listener.reloadCount).assertEqual(0)
+      expect(dataSource.contentRevision() > beforeMutationRevision).assertEqual(true)
       done()
     })
   })

@@ -31,6 +31,7 @@ import customProfilesPersistSchedulerTest from './CustomProfilesPersistScheduler
 import allThumbnailsTailAppendTest from './AllThumbnailsTailAppend.test'
 import galleryListMutationTargetedUpdateTest from './GalleryListMutationTargetedUpdate.test'
 import galleryResumeBatchTest from './GalleryResumeBatch.test'
+import listTagTranslationMutationRaceTest from './ListTagTranslationMutationRace.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -66,4 +67,5 @@ export default function testsuite(): void {
   allThumbnailsTailAppendTest()
   galleryListMutationTargetedUpdateTest()
   galleryResumeBatchTest()
+  listTagTranslationMutationRaceTest()
 }
