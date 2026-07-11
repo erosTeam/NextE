@@ -16,6 +16,10 @@ const READER_IMAGE_CONNECT_TIMEOUT_MS: number = 6000
 const READER_IMAGE_NO_PROGRESS_TIMEOUT_MS: number = 10000
 const MAX_CACHE_FILE_COUNT: number = 4096
 const MAX_LOW_PRIORITY_DOWNLOADS: number = 1
+// A full Reader cache scan can stat/sort thousands of files. Keep post-store maintenance bounded while
+// retaining eager pruning for startup and an explicit cache-limit change.
+const READER_CACHE_MAINTENANCE_WRITE_INTERVAL: number = 16
+const READER_CACHE_MAINTENANCE_BYTES_INTERVAL: number = 16 * 1024 * 1024
 
 class ReaderImageCacheEntry {
   path: string = ''
@@ -245,6 +249,9 @@ export class ReaderImageFileCacheService {
   >()
   private static readonly scheduler: ReaderImagePriorityScheduler = new ReaderImagePriorityScheduler()
   private static pruneChain: Promise<void> = Promise.resolve()
+  // A fresh process prunes its first stored image; later writes amortize the full directory scan.
+  private static maintenanceWritesSincePrune: number = -1
+  private static maintenanceBytesSincePrune: number = 0
 
   static cacheKey(gid: string, token: string, page: number, original: boolean): string {
     return `reader:v1:${gid}:${token}:${page}:${original ? 'original' : 'resampled'}`
@@ -481,7 +488,7 @@ export class ReaderImageFileCacheService {
         'reader_disk_stored',
         `bytes=${finalBytes} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
       )
-      await ReaderImageFileCacheService.pruneToLimit(context, limitBytes)
+      await ReaderImageFileCacheService.pruneAfterStore(context, limitBytes, finalBytes)
       return {
         filePath,
         displayUri: CachedImageFileService.displayUri(filePath),
@@ -492,6 +499,50 @@ export class ReaderImageFileCacheService {
       ReaderImageFileCacheService.removeIfExists(tmpPath)
       throw error as Error
     }
+  }
+
+  /**
+   * Keep the hot Reader completion path from enumerating the whole cache directory for every image.
+   * Explicit callers retain eager `pruneToLimit()` semantics; this best-effort path only batches the
+   * automatic post-store cleanup. A large original image still reaches the byte boundary immediately.
+   */
+  private static async pruneAfterStore(
+    context: common.UIAbilityContext,
+    limitBytes: number,
+    storedBytes: number,
+  ): Promise<void> {
+    const addedBytes: number = storedBytes > 0 ? storedBytes : 0
+    const maintenanceDue: boolean =
+      ReaderImageFileCacheService.maintenanceWritesSincePrune < 0 ||
+      ReaderImageFileCacheService.maintenanceWritesSincePrune >=
+        READER_CACHE_MAINTENANCE_WRITE_INTERVAL - 1 ||
+      ReaderImageFileCacheService.maintenanceBytesSincePrune + addedBytes >=
+        READER_CACHE_MAINTENANCE_BYTES_INTERVAL
+    if (!maintenanceDue) {
+      ReaderImageFileCacheService.maintenanceWritesSincePrune =
+        ReaderImageFileCacheService.maintenanceWritesSincePrune + 1
+      ReaderImageFileCacheService.maintenanceBytesSincePrune =
+        ReaderImageFileCacheService.maintenanceBytesSincePrune + addedBytes
+      return
+    }
+
+    // Advance the cadence before awaiting the shared prune chain so concurrent downloads retain their
+    // own post-store accounting and can schedule a later maintenance pass if needed.
+    ReaderImageFileCacheService.maintenanceWritesSincePrune = 0
+    ReaderImageFileCacheService.maintenanceBytesSincePrune = 0
+    try {
+      await ReaderImageFileCacheService.pruneToLimit(context, limitBytes)
+    } catch (error) {
+      // The file was already atomically renamed and is usable. Retry cleanup on the next store instead
+      // of converting a successful Reader image load into an error state.
+      ReaderImageFileCacheService.resetMaintenanceCadence()
+      DiagnosticLogger.warn('image-cache', 'reader_disk_maintenance_failed', (error as Error).message)
+    }
+  }
+
+  private static resetMaintenanceCadence(): void {
+    ReaderImageFileCacheService.maintenanceWritesSincePrune = -1
+    ReaderImageFileCacheService.maintenanceBytesSincePrune = 0
   }
 
   static remove(context: common.UIAbilityContext, cacheKey: string): void {
@@ -529,6 +580,9 @@ export class ReaderImageFileCacheService {
       }
     } catch (error) {
       DiagnosticLogger.warn('image-cache', 'reader_disk_clear_failed', (error as Error).message)
+    } finally {
+      // A clear starts a fresh cache, even when the directory was already absent or only partly cleared.
+      ReaderImageFileCacheService.resetMaintenanceCadence()
     }
   }
 
