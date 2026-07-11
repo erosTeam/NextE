@@ -49,6 +49,15 @@ fields.forEach((f) => must(model.includes(`c.${f} = this.${f}`), `copy() does no
 // --- 3. methods + exported consts ---
 must(/fCats\(\): number/.test(model), 'CustomProfile.fCats() missing')
 must(/requiresLogin\(\): boolean/.test(model), 'CustomProfile.requiresLogin() missing')
+must(/contentRevision\(\): string/.test(model), 'CustomProfile.contentRevision() missing')
+must(
+  model.includes('PROFILE_TYPE_POPULAR') &&
+    model.includes('PROFILE_TYPE_TOPLIST') &&
+    model.includes('PROFILE_TYPE_FAVORITE') &&
+    model.includes('this.searchText') &&
+    model.includes('this.disableTagFilter'),
+  'contentRevision() must separate real request fields by profile type',
+)
 ;[
   'PROFILE_TYPE_GALLERY', 'PROFILE_TYPE_POPULAR', 'PROFILE_TYPE_WATCHED', 'PROFILE_TYPE_TOPLIST',
   'PROFILE_TYPE_FAVORITE', 'PROFILE_DISPLAY_GLOBAL', 'BUILTIN_DEFAULT_UUID', 'BUILTIN_POPULAR_UUID',
@@ -108,8 +117,35 @@ must(settings.includes('migrateStarterNames(profiles)') &&
   must(repo.includes('profile_uuid AS uuid') &&
     repo.includes('ORDER BY position_index ASC, profile_uuid ASC') &&
     repo.includes('UPDATE custom_profiles SET deleted_at = ?') &&
-    repo.includes('ON CONFLICT(scope_key, profile_uuid) DO UPDATE'),
-    'custom profiles repository must map DB profile_uuid to model uuid, preserve order, and tombstone scoped rows')
+    repo.includes('ON CONFLICT(scope_key, profile_uuid) DO UPDATE') &&
+    repo.includes('static async saveChanges') &&
+    repo.includes('SQL_TOMBSTONE_PROFILE') &&
+    repo.includes('nextProfileClock'),
+    'custom profiles repository must map DB profile_uuid to model uuid, preserve order, target ordinary writes, and tombstone scoped rows')
+  const localProfileUpsertStart = repo.indexOf('const SQL_UPSERT_PROFILE')
+  const localProfileUpsertEnd = repo.indexOf('const SQL_REPLACE_PROFILE')
+  const localProfileUpsert = localProfileUpsertStart >= 0 && localProfileUpsertEnd > localProfileUpsertStart
+    ? repo.slice(localProfileUpsertStart, localProfileUpsertEnd)
+    : ''
+  must(
+    localProfileUpsert.includes('last_edit_time = excluded.last_edit_time, deleted_at = 0 WHERE') &&
+      localProfileUpsert.includes('COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.last_edit_time, 0)') &&
+      localProfileUpsert.includes('COALESCE(custom_profiles.deleted_at, 0) > COALESCE(custom_profiles.last_edit_time, 0)'),
+    'custom profile local writes must not overwrite a newer profile row',
+  )
+  must(
+    repo.includes('SET deleted_at = CASE WHEN COALESCE(last_edit_time, 0) >= ?') &&
+      repo.includes('THEN COALESCE(last_edit_time, 0) + 1 ELSE ? END') &&
+      repo.includes('[tombstoneTime, tombstoneTime, SCOPE_GLOBAL]'),
+    'authoritative profile replacement must tombstone every missing row past its own LWW clock',
+  )
+  must(
+    repo.includes('selectionChanged: boolean = false') &&
+      repo.includes('if (selectionChanged) {\n        await CustomProfilesRepository.saveSelectedWithStore(store, selectedUuid)') &&
+      settings.includes('const selectionChanged: boolean = state.selectedUuid === uuid') &&
+      settings.includes("const selectionChanged: boolean = hidden && state.selectedUuid === uuid"),
+    'ordinary profile writes must persist selection only when the selected tab actually changes',
+  )
   must(repo.includes('SQL_SELECT_SELECTED_STATE') &&
     repo.includes('previous.deletedAt === 0 && previous.selectedUuid === selectedUuid') &&
     repo.includes('Math.max(Date.now(), latest + 1)') &&
@@ -125,9 +161,18 @@ must(settings.includes('migrateStarterNames(profiles)') &&
 }
 {
   const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
+  must(/SQL_APPLY_CUSTOM_PROFILE[\s\S]*?WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) > COALESCE\(excluded\.last_edit_time, 0\)[\s\S]*?custom_profiles\.deleted_at/.test(syncAdapter),
+    'custom profile sync apply must not overwrite a newer local profile')
   must(/SQL_APPLY_CUSTOM_PROFILE_SELECTION[\s\S]*?WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) > COALESCE\(excluded\.updated_at, 0\)[\s\S]*?custom_profile_selection\.deleted_at/.test(syncAdapter),
     'custom profile selection sync apply must not overwrite a newer local selection')
 }
+must(
+  settings.includes('persistChanged') &&
+    settings.includes('changedUuids') &&
+    settings.includes('nextEditTime') &&
+    settings.includes('CustomProfilesRepository.saveChanges'),
+  'ordinary profile mutations must advance only their affected LWW rows',
+)
 ;['BUILTIN_DEFAULT_UUID', 'BUILTIN_POPULAR_UUID', 'BUILTIN_WATCHED_UUID'].forEach((u) =>
   must(settings.includes(u), `seedDefaults() missing builtin uuid: ${u}`),
 )

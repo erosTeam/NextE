@@ -89,8 +89,8 @@ const DISPLAY_MODES: string[] = [
  * FavcatListSettings (preferences + best-effort try/catch). Built-ins (stable uuids) are hide-only.
  */
 export class CustomProfilesSettings {
-  // Home tab actions intentionally update the live state before awaiting storage. Serialize their
-  // snapshots so an older full-table replacement cannot finish after a newer reorder/hide/select.
+  // Home tab actions intentionally update live state before awaiting storage. Serialize their snapshots
+  // so targeted row writes and selection changes retain user order under rapid consecutive mutations.
   private static readonly rdbWriteScheduler: CustomProfilesPersistScheduler =
     new CustomProfilesPersistScheduler()
   private static mutationRevision: number = 0
@@ -139,11 +139,11 @@ export class CustomProfilesSettings {
   static async add(context: common.UIAbilityContext, profile: CustomProfile): Promise<void> {
     const state: CustomProfilesState = connectCustomProfiles()
     const next: CustomProfile[] = CustomProfilesSettings.cloneList(state.profiles)
-    profile.lastEditTime = CustomProfilesSettings.now()
+    profile.lastEditTime = CustomProfilesSettings.nextEditTime(profile.lastEditTime)
     next.push(profile)
     state.profiles = next
     CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
-    await CustomProfilesSettings.persistAll(context)
+    await CustomProfilesSettings.persistChanged(context, next, [profile.uuid])
   }
 
   /** Replace the profile with the same uuid (bumps lastEditTime). */
@@ -152,7 +152,7 @@ export class CustomProfilesSettings {
     const next: CustomProfile[] = []
     state.profiles.forEach((p: CustomProfile) => {
       if (p.uuid === profile.uuid) {
-        profile.lastEditTime = CustomProfilesSettings.now()
+        profile.lastEditTime = CustomProfilesSettings.nextEditTime(p.lastEditTime)
         next.push(profile)
       } else {
         next.push(p)
@@ -160,7 +160,7 @@ export class CustomProfilesSettings {
     })
     state.profiles = next
     CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
-    await CustomProfilesSettings.persistAll(context)
+    await CustomProfilesSettings.persistChanged(context, next, [profile.uuid])
   }
 
   /** Delete a custom (non-built-in) profile; falls back to the first profile if the selected one goes. */
@@ -170,18 +170,27 @@ export class CustomProfilesSettings {
     if (target === null || target.builtin) {
       return
     }
+    const removedIndex: number = CustomProfilesSettings.indexOfUuid(state.profiles, uuid)
     const next: CustomProfile[] = []
     state.profiles.forEach((p: CustomProfile) => {
       if (p.uuid !== uuid) {
         next.push(p)
       }
     })
-    state.profiles = next
-    if (state.selectedUuid === uuid) {
+    const selectionChanged: boolean = state.selectedUuid === uuid
+    if (selectionChanged) {
       state.selectedUuid = CustomProfilesSettings.firstVisibleUuid(next)
     }
+    const changedUuids: string[] = []
+    for (let i: number = removedIndex; i < next.length; i++) {
+      const shifted: CustomProfile = next[i].copy()
+      shifted.lastEditTime = CustomProfilesSettings.nextEditTime(shifted.lastEditTime)
+      next[i] = shifted
+      changedUuids.push(shifted.uuid)
+    }
+    state.profiles = next
     CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
-    await CustomProfilesSettings.persistAll(context)
+    await CustomProfilesSettings.persistChanged(context, next, changedUuids, uuid, selectionChanged)
   }
 
   /** Move a profile from one index to another, preserving the rest of the order. */
@@ -199,13 +208,22 @@ export class CustomProfilesSettings {
       }
     })
     next.splice(to, 0, moved)
+    const start: number = Math.min(from, to)
+    const end: number = Math.max(from, to)
+    const changedUuids: string[] = []
+    for (let i: number = start; i <= end; i++) {
+      const shifted: CustomProfile = next[i].copy()
+      shifted.lastEditTime = CustomProfilesSettings.nextEditTime(shifted.lastEditTime)
+      next[i] = shifted
+      changedUuids.push(shifted.uuid)
+    }
     state.profiles = next
     CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
-    await CustomProfilesSettings.persistAll(context)
+    await CustomProfilesSettings.persistChanged(context, next, changedUuids)
   }
 
-  /** Pin a per-tab display mode ('global' = follow the shared ListModeState). Does NOT bump lastEditTime
-   * so the retained page only re-renders with the new renderer — it must not refetch. */
+  /** Pin a per-tab display mode ('global' = follow the shared ListModeState). This advances the durable
+   * LWW clock; GallerySourcePage uses contentRevision(), so the retained page only re-renders. */
   static async setDisplayMode(
     context: common.UIAbilityContext,
     uuid: string,
@@ -213,18 +231,21 @@ export class CustomProfilesSettings {
   ): Promise<void> {
     const state: CustomProfilesState = connectCustomProfiles()
     const next: CustomProfile[] = []
+    const changedUuids: string[] = []
     state.profiles.forEach((p: CustomProfile) => {
       if (p.uuid === uuid && p.displayMode !== mode) {
         const c: CustomProfile = p.copy()
         c.displayMode = mode
+        c.lastEditTime = CustomProfilesSettings.nextEditTime(p.lastEditTime)
         next.push(c)
+        changedUuids.push(c.uuid)
       } else {
         next.push(p)
       }
     })
     state.profiles = next
     CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
-    await CustomProfilesSettings.persistAll(context)
+    await CustomProfilesSettings.persistChanged(context, next, changedUuids)
   }
 
   /** Show/hide a profile in the bar (built-ins are hidden rather than deleted). */
@@ -235,11 +256,14 @@ export class CustomProfilesSettings {
   ): Promise<void> {
     const state: CustomProfilesState = connectCustomProfiles()
     const next: CustomProfile[] = []
+    const changedUuids: string[] = []
     state.profiles.forEach((p: CustomProfile) => {
-      if (p.uuid === uuid) {
+      if (p.uuid === uuid && p.hidden !== hidden) {
         const c: CustomProfile = p.copy()
         c.hidden = hidden
+        c.lastEditTime = CustomProfilesSettings.nextEditTime(p.lastEditTime)
         next.push(c)
+        changedUuids.push(c.uuid)
       } else {
         next.push(p)
       }
@@ -247,11 +271,12 @@ export class CustomProfilesSettings {
     state.profiles = next
     // If we just hid the selected tab, move the selection to the first still-visible tab so the bar
     // and the active page stay in sync (no stale selection pointing at a hidden tab).
-    if (hidden && state.selectedUuid === uuid) {
+    const selectionChanged: boolean = hidden && state.selectedUuid === uuid
+    if (selectionChanged) {
       state.selectedUuid = CustomProfilesSettings.firstVisibleUuid(next)
     }
     CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
-    await CustomProfilesSettings.persistAll(context)
+    await CustomProfilesSettings.persistChanged(context, next, changedUuids, '', selectionChanged)
   }
 
   /** uuid of the first non-hidden profile, or '' if all hidden. */
@@ -328,6 +353,34 @@ export class CustomProfilesSettings {
     try {
       await CustomProfilesSettings.enqueueRdbWrite(
         (): Promise<void> => CustomProfilesRepository.replaceAll(context, profiles, selectedUuid),
+      )
+      SyncScheduler.requestAfterLocalWrite(context, 'custom_profiles')
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'custom_profiles_save_failed', (error as Error).message)
+    }
+  }
+
+  private static async persistChanged(
+    context: common.UIAbilityContext,
+    profiles: CustomProfile[],
+    changedUuids: string[],
+    deletedUuid: string = '',
+    selectionChanged: boolean = false,
+  ): Promise<void> {
+    const snapshot: CustomProfile[] = CustomProfilesSettings.snapshotProfiles(profiles)
+    const selectedUuid: string = connectCustomProfiles().selectedUuid
+    const changedSnapshot: string[] = []
+    changedUuids.forEach((uuid: string) => changedSnapshot.push(uuid))
+    try {
+      await CustomProfilesSettings.enqueueRdbWrite(
+        (): Promise<void> => CustomProfilesRepository.saveChanges(
+          context,
+          snapshot,
+          changedSnapshot,
+          selectedUuid,
+          deletedUuid,
+          selectionChanged,
+        ),
       )
       SyncScheduler.requestAfterLocalWrite(context, 'custom_profiles')
     } catch (error) {
@@ -780,5 +833,10 @@ export class CustomProfilesSettings {
 
   private static now(): number {
     return new Date().getTime()
+  }
+
+  private static nextEditTime(current: number): number {
+    const observed: number = Number.isFinite(current) ? Math.floor(current) : 0
+    return Math.max(CustomProfilesSettings.now(), observed + 1)
   }
 }

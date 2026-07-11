@@ -30,6 +30,7 @@ import favoritesTagTranslationRaceTest from './FavoritesTagTranslationRace.test'
 import readerSessionCacheStateTest from './ReaderSessionCacheState.test'
 import basicDataSourceChangeNotificationTest from './BasicDataSourceChangeNotification.test'
 import customProfilesPersistSchedulerTest from './CustomProfilesPersistScheduler.test'
+import customProfileSyncSemanticsTest from './CustomProfileSyncSemantics.test'
 import allThumbnailsTailAppendTest from './AllThumbnailsTailAppend.test'
 import galleryListMutationTargetedUpdateTest from './GalleryListMutationTargetedUpdate.test'
 import galleryResumeBatchTest from './GalleryResumeBatch.test'
@@ -77,6 +78,7 @@ export default function testsuite(): void {
   readerSessionCacheStateTest()
   basicDataSourceChangeNotificationTest()
   customProfilesPersistSchedulerTest()
+  customProfileSyncSemanticsTest()
   allThumbnailsTailAppendTest()
   galleryListMutationTargetedUpdateTest()
   galleryResumeBatchTest()

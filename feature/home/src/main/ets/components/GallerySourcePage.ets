@@ -57,8 +57,9 @@ export struct GallerySourcePage {
   @Local displayMode: string = 'global';
   // First-load guard: load once on first activation; later activations reuse the retained list.
   private loadedOnce: boolean = false;
-  // lastEditTime of the profile this VM is configured for; an edit bumps it → reconfigure + reload.
-  private configuredEditTime: number = -1;
+  // Request identity for the profile this VM is configured for. Durable profile LWW clocks deliberately
+  // do not participate, so display/visibility/order updates retain the loaded list.
+  private configuredContentRevision: string = '';
   private selectedJumpDate: Date = new Date();
 
   private isActive(): boolean {
@@ -82,7 +83,7 @@ export struct GallerySourcePage {
     const profile: CustomProfile | null = this.profileForSource()
     if (profile !== null) {
       this.vm.configureFromProfile(profile)
-      this.configuredEditTime = profile.lastEditTime
+      this.configuredContentRevision = profile.contentRevision()
       this.displayMode = profile.displayMode
     } else {
       this.vm.syncSource('', 0)
@@ -91,15 +92,16 @@ export struct GallerySourcePage {
     DiagnosticLogger.info(
       'home-list-anchor',
       'source_appear',
-      `sourceKey=${this.sourceKey} active=${this.active.activeKey} loadedOnce=${this.loadedOnce} editTime=${this.configuredEditTime} vm=${this.vm.debugState()}`,
+      `sourceKey=${this.sourceKey} active=${this.active.activeKey} loadedOnce=${this.loadedOnce} revision=${this.configuredContentRevision} vm=${this.vm.debugState()}`,
     )
     if (this.isActive()) {
       this.loadOnce()
     }
   }
 
-  // A live edit to THIS page's profile (type/category/search/favcat) bumps its lastEditTime; reconfigure
-  // the retained VM and reload so the active tab reflects the change without an app restart.
+  // A live edit to THIS page's request fields reconfigures the retained VM and reloads so the active tab
+  // reflects the change without an app restart. Profile LWW clocks also advance for display/visibility/order
+  // mutations, which must not trigger a refetch here.
   @Monitor('profilesState.profiles')
   onProfileEdited(): void {
     if (this.safeMode.restricted() || this.sourceKey === SAFE_MODE_PROFILE_UUID) {
@@ -113,16 +115,16 @@ export struct GallerySourcePage {
     if (profile.displayMode !== this.displayMode) {
       this.displayMode = profile.displayMode
     }
-    // Content-affecting edit (type/category/search/favcat) bumps lastEditTime → reconfigure + reload.
-    if (profile.lastEditTime === this.configuredEditTime) {
+    const contentRevision: string = profile.contentRevision()
+    if (contentRevision === this.configuredContentRevision) {
       return
     }
     DiagnosticLogger.info(
       'home-list-anchor',
       'source_profile_reload',
-      `sourceKey=${this.sourceKey} oldEditTime=${this.configuredEditTime} newEditTime=${profile.lastEditTime} loadedOnce=${this.loadedOnce} vm=${this.vm.debugState()}`,
+      `sourceKey=${this.sourceKey} oldRevision=${this.configuredContentRevision} newRevision=${contentRevision} loadedOnce=${this.loadedOnce} vm=${this.vm.debugState()}`,
     )
-    this.configuredEditTime = profile.lastEditTime
+    this.configuredContentRevision = contentRevision
     this.vm.configureFromProfile(profile)
     if (this.loadedOnce) {
       this.vm.reload(true)

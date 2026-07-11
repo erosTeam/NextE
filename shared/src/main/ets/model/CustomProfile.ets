@@ -3,6 +3,22 @@ import { util } from '@kit.ArkTS'
 /** All 10 EH category bits OR'd together (Misc..Western = 1+2+…+512). */
 const ALL_CATS: number = 1023
 
+/**
+ * Encode a request-relevant field without separator collisions. The output stays local to cache and
+ * retained-page identity; it deliberately does not become persisted profile state.
+ */
+function revisionPart(value: string): string {
+  return `${value.length}:${value}`
+}
+
+function revisionOf(parts: string[]): string {
+  let out: string = ''
+  for (let i: number = 0; i < parts.length; i++) {
+    out = out + revisionPart(parts[i])
+  }
+  return out
+}
+
 /** Allowed list types for a custom home sub-tab (eros_fe GalleryListType). */
 export const PROFILE_TYPE_GALLERY: string = 'gallery'
 export const PROFILE_TYPE_POPULAR: string = 'popular'
@@ -65,6 +81,37 @@ export class CustomProfile {
   /** watched / favorite list types require a logged-in account. */
   requiresLogin(): boolean {
     return this.listType === PROFILE_TYPE_WATCHED || this.listType === PROFILE_TYPE_FAVORITE
+  }
+
+  /**
+   * Stable identity for the actual gallery request. `lastEditTime` is a durable LWW mutation clock,
+   * so it must not make display-only, visibility, name, or ordering changes invalidate a retained list
+   * or its page-cache entry.
+   */
+  contentRevision(): string {
+    if (this.listType === PROFILE_TYPE_POPULAR) {
+      return revisionOf([this.listType])
+    }
+    if (this.listType === PROFILE_TYPE_TOPLIST) {
+      return revisionOf([this.listType, `${this.toplistTl}`])
+    }
+    if (this.listType === PROFILE_TYPE_FAVORITE) {
+      return revisionOf([this.listType, this.favcat, this.searchText])
+    }
+    return revisionOf([
+      this.listType,
+      this.searchText,
+      `${this.selectedCats}`,
+      this.advancedEnabled ? '1' : '0',
+      `${this.minRating}`,
+      `${this.pagesFrom}`,
+      `${this.pagesTo}`,
+      this.requireTorrent ? '1' : '0',
+      this.showExpunged ? '1' : '0',
+      this.disableLanguageFilter ? '1' : '0',
+      this.disableUploaderFilter ? '1' : '0',
+      this.disableTagFilter ? '1' : '0',
+    ])
   }
 
   /** Hand-written deep copy (ArkTS has no spread/Object.assign for class instances). */

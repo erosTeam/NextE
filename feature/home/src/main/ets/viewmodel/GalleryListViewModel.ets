@@ -31,7 +31,7 @@ class GalleryFirstPageRun {
   cacheKey: string
   source: string
   profileUuid: string
-  profileEditTime: number
+  profileContentRevision: string
   toplistTl: number
   applyToplistHiddenUserTags: boolean
   favcat: string
@@ -41,7 +41,7 @@ class GalleryFirstPageRun {
     cacheKey: string,
     source: string,
     profileUuid: string,
-    profileEditTime: number,
+    profileContentRevision: string,
     toplistTl: number,
     applyToplistHiddenUserTags: boolean,
     favcat: string,
@@ -50,7 +50,7 @@ class GalleryFirstPageRun {
     this.cacheKey = cacheKey
     this.source = source
     this.profileUuid = profileUuid
-    this.profileEditTime = profileEditTime
+    this.profileContentRevision = profileContentRevision
     this.toplistTl = toplistTl
     this.applyToplistHiddenUserTags = applyToplistHiddenUserTags
     this.favcat = favcat
@@ -120,8 +120,8 @@ export class GalleryListViewModel {
     this.context = context
   }
 
-  private profileEditTime(): number {
-    return this.profile !== null ? this.profile.lastEditTime : -1
+  private profileContentRevision(): string {
+    return this.profile !== null ? this.profile.contentRevision() : ''
   }
 
   private captureCurrentListRun(): GalleryFirstPageRun {
@@ -130,7 +130,7 @@ export class GalleryListViewModel {
       this.cacheKey(),
       this.source,
       this.profileUuid,
-      this.profileEditTime(),
+      this.profileContentRevision(),
       this.toplistTl,
       connectToplistFilter().applyHiddenUserTags,
       this.favcat,
@@ -153,7 +153,7 @@ export class GalleryListViewModel {
       this.epoch !== run.epoch ||
       this.source !== run.source ||
       this.profileUuid !== run.profileUuid ||
-      this.profileEditTime() !== run.profileEditTime ||
+      this.profileContentRevision() !== run.profileContentRevision ||
       this.toplistTl !== run.toplistTl ||
       this.favcat !== run.favcat
     ) {
@@ -247,7 +247,7 @@ export class GalleryListViewModel {
       return EhPageCacheService.homeProfileKey(
         connectSiteMode().isEx,
         this.profileUuid,
-        this.profileEditTime(),
+        this.profileContentRevision(),
       )
     }
     return EhPageCacheService.homeListKey(connectSiteMode().isEx, this.source, this.toplistTl)

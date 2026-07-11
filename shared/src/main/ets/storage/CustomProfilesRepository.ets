@@ -28,9 +28,37 @@ const SQL_UPSERT_PROFILE: string =
   'disable_language_filter = excluded.disable_language_filter, disable_uploader_filter = excluded.disable_uploader_filter, ' +
   'disable_tag_filter = excluded.disable_tag_filter, favcat = excluded.favcat, toplist_tl = excluded.toplist_tl, ' +
   'display_mode = excluded.display_mode, hidden = excluded.hidden, builtin = excluded.builtin, ' +
+  'last_edit_time = excluded.last_edit_time, deleted_at = 0 WHERE ' +
+  'CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.last_edit_time, 0) ' +
+  'THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.last_edit_time, 0) END >= ' +
+  'CASE WHEN COALESCE(custom_profiles.deleted_at, 0) > COALESCE(custom_profiles.last_edit_time, 0) ' +
+  'THEN COALESCE(custom_profiles.deleted_at, 0) ELSE COALESCE(custom_profiles.last_edit_time, 0) END'
+// Backup restore and one-time legacy repair are explicit authoritative replacements. Normal interactive
+// mutations use SQL_UPSERT_PROFILE above so an older queued snapshot cannot revive a newer remote row.
+const SQL_REPLACE_PROFILE: string =
+  'INSERT INTO custom_profiles ' +
+  '(scope_key, profile_uuid, position_index, name, list_type, search_text, selected_cats, advanced_enabled, ' +
+  'min_rating, pages_from, pages_to, require_torrent, show_expunged, disable_language_filter, ' +
+  'disable_uploader_filter, disable_tag_filter, favcat, toplist_tl, display_mode, hidden, builtin, ' +
+  'last_edit_time, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ' +
+  'ON CONFLICT(scope_key, profile_uuid) DO UPDATE SET position_index = excluded.position_index, name = excluded.name, ' +
+  'list_type = excluded.list_type, search_text = excluded.search_text, selected_cats = excluded.selected_cats, ' +
+  'advanced_enabled = excluded.advanced_enabled, min_rating = excluded.min_rating, pages_from = excluded.pages_from, ' +
+  'pages_to = excluded.pages_to, require_torrent = excluded.require_torrent, show_expunged = excluded.show_expunged, ' +
+  'disable_language_filter = excluded.disable_language_filter, disable_uploader_filter = excluded.disable_uploader_filter, ' +
+  'disable_tag_filter = excluded.disable_tag_filter, favcat = excluded.favcat, toplist_tl = excluded.toplist_tl, ' +
+  'display_mode = excluded.display_mode, hidden = excluded.hidden, builtin = excluded.builtin, ' +
   'last_edit_time = excluded.last_edit_time, deleted_at = 0'
 const SQL_TOMBSTONE_PROFILES: string =
-  'UPDATE custom_profiles SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
+  'UPDATE custom_profiles SET deleted_at = CASE WHEN COALESCE(last_edit_time, 0) >= ? ' +
+  'THEN COALESCE(last_edit_time, 0) + 1 ELSE ? END ' +
+  'WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
+const SQL_TOMBSTONE_PROFILE: string =
+  'UPDATE custom_profiles SET deleted_at = ? WHERE scope_key = ? AND profile_uuid = ? AND ? >= ' +
+  'CASE WHEN COALESCE(deleted_at, 0) > COALESCE(last_edit_time, 0) ' +
+  'THEN COALESCE(deleted_at, 0) ELSE COALESCE(last_edit_time, 0) END'
+const SQL_SELECT_PROFILE_CLOCK: string =
+  'SELECT last_edit_time, deleted_at FROM custom_profiles WHERE scope_key = ? AND profile_uuid = ?'
 const SQL_SELECT_SELECTED: string =
   'SELECT selected_uuid FROM custom_profile_selection WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0'
 const SQL_UPSERT_SELECTED: string =
@@ -51,6 +79,11 @@ class CustomProfileSelectionState {
   exists: boolean = false
   selectedUuid: string = ''
   updatedAt: number = 0
+  deletedAt: number = 0
+}
+
+class CustomProfileClock {
+  lastEditTime: number = 0
   deletedAt: number = 0
 }
 
@@ -112,11 +145,68 @@ export class CustomProfilesRepository {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
     try {
-      await store.executeSql(SQL_TOMBSTONE_PROFILES, [Date.now(), SCOPE_GLOBAL])
+      // A missing row in an authoritative snapshot becomes a tombstone. Its clock must advance past
+      // the row's own LWW edit time, including a future clock received from another device.
+      const tombstoneTime: number = Date.now()
+      await store.executeSql(SQL_TOMBSTONE_PROFILES, [tombstoneTime, tombstoneTime, SCOPE_GLOBAL])
       for (let i: number = 0; i < profiles.length; i++) {
-        await CustomProfilesRepository.upsertProfile(store, profiles[i], i)
+        const profile: CustomProfile = profiles[i]
+        if (profile.uuid.length === 0) {
+          continue
+        }
+        profile.lastEditTime = await CustomProfilesRepository.nextProfileClock(
+          store,
+          profile.uuid,
+          profile.lastEditTime,
+        )
+        await CustomProfilesRepository.upsertProfile(store, profile, i, true)
       }
       await CustomProfilesRepository.saveSelectedWithStore(store, selectedUuid)
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
+  }
+
+  /**
+   * Persist only the rows changed by an ordinary UI mutation. Rewriting the full profile table makes
+   * unrelated rows look newer to Huawei Cloud's TIME_FIRST sync and can roll back another device.
+   */
+  static async saveChanges(
+    context: common.UIAbilityContext,
+    profiles: CustomProfile[],
+    changedUuids: string[],
+    selectedUuid: string,
+    deletedUuid: string = '',
+    selectionChanged: boolean = false,
+  ): Promise<void> {
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    store.beginTransaction()
+    try {
+      for (let i: number = 0; i < changedUuids.length; i++) {
+        const uuid: string = changedUuids[i]
+        if (uuid.length === 0 || changedUuids.indexOf(uuid) !== i) {
+          continue
+        }
+        const index: number = CustomProfilesRepository.indexOfUuid(profiles, uuid)
+        if (index < 0) {
+          continue
+        }
+        const profile: CustomProfile = profiles[index]
+        profile.lastEditTime = await CustomProfilesRepository.nextProfileClock(
+          store,
+          profile.uuid,
+          profile.lastEditTime,
+        )
+        await CustomProfilesRepository.upsertProfile(store, profile, index, false)
+      }
+      if (deletedUuid.length > 0) {
+        await CustomProfilesRepository.tombstoneProfile(store, deletedUuid)
+      }
+      if (selectionChanged) {
+        await CustomProfilesRepository.saveSelectedWithStore(store, selectedUuid)
+      }
       store.commit()
     } catch (error) {
       store.rollBack()
@@ -140,11 +230,12 @@ export class CustomProfilesRepository {
     store: relationalStore.RdbStore,
     profile: CustomProfile,
     index: number,
+    authoritative: boolean,
   ): Promise<void> {
     if (profile.uuid.length === 0) {
       return
     }
-    await store.executeSql(SQL_UPSERT_PROFILE, [
+    await store.executeSql(authoritative ? SQL_REPLACE_PROFILE : SQL_UPSERT_PROFILE, [
       SCOPE_GLOBAL,
       profile.uuid,
       index,
@@ -170,15 +261,72 @@ export class CustomProfilesRepository {
     ])
   }
 
+  private static async tombstoneProfile(
+    store: relationalStore.RdbStore,
+    uuid: string,
+  ): Promise<void> {
+    const current: CustomProfileClock = await CustomProfilesRepository.readProfileClock(store, uuid)
+    const deletedAt: number = Math.max(
+      Date.now(),
+      Math.floor(current.lastEditTime) + 1,
+      Math.floor(current.deletedAt) + 1,
+    )
+    await store.executeSql(SQL_TOMBSTONE_PROFILE, [deletedAt, SCOPE_GLOBAL, uuid, deletedAt])
+  }
+
+  private static async nextProfileClock(
+    store: relationalStore.RdbStore,
+    uuid: string,
+    requested: number,
+  ): Promise<number> {
+    const current: CustomProfileClock = await CustomProfilesRepository.readProfileClock(store, uuid)
+    return Math.max(
+      Date.now(),
+      Math.floor(requested),
+      Math.floor(current.lastEditTime) + 1,
+      Math.floor(current.deletedAt) + 1,
+    )
+  }
+
+  private static async readProfileClock(
+    store: relationalStore.RdbStore,
+    uuid: string,
+  ): Promise<CustomProfileClock> {
+    const clock: CustomProfileClock = new CustomProfileClock()
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_PROFILE_CLOCK, [
+      SCOPE_GLOBAL,
+      uuid,
+    ])
+    try {
+      if (resultSet.goToNextRow()) {
+        clock.lastEditTime = Math.floor(
+          CustomProfilesRepository.numberColumn(resultSet, 'last_edit_time'),
+        )
+        clock.deletedAt = Math.floor(CustomProfilesRepository.numberColumn(resultSet, 'deleted_at'))
+      }
+    } finally {
+      resultSet.close()
+    }
+    return clock
+  }
+
+  private static indexOfUuid(profiles: CustomProfile[], uuid: string): number {
+    for (let i: number = 0; i < profiles.length; i++) {
+      if (profiles[i].uuid === uuid) {
+        return i
+      }
+    }
+    return -1
+  }
+
   private static async saveSelectedWithStore(
     store: relationalStore.RdbStore,
     selectedUuid: string,
   ): Promise<void> {
     const previous: CustomProfileSelectionState =
       await CustomProfilesRepository.readSelectedState(store)
-    // Profile edits persist the entire snapshot. Do not let an unrelated edit steal LWW ownership
-    // of a selection that the user did not change; a real selection change must also advance past
-    // any future timestamp observed from another device.
+    // This is called only by a direct selection action or an edit that actually changed the selected
+    // tab. An unrelated profile write must not steal LWW ownership from a newer remote selection.
     if (previous.exists && previous.deletedAt === 0 && previous.selectedUuid === selectedUuid) {
       return
     }

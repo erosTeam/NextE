@@ -149,7 +149,7 @@ export class SettingsBootstrap {
           EhPageCacheService.homeProfileKey(
             isEx,
             selectedProfile.uuid,
-            selectedProfile.lastEditTime,
+            selectedProfile.contentRevision(),
           ),
         )
       }
@@ -168,7 +168,7 @@ export class SettingsBootstrap {
         if (!p.hidden) {
           SettingsBootstrap.appendPreloadKey(
             keys,
-            EhPageCacheService.homeProfileKey(isEx, p.uuid, p.lastEditTime),
+            EhPageCacheService.homeProfileKey(isEx, p.uuid, p.contentRevision()),
           )
         }
       }

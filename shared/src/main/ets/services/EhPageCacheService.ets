@@ -152,10 +152,10 @@ export class EhPageCacheService {
 
   /** Per-custom-profile home list cache key. The content revision keeps an old profile query from
    * being replayed after a search/category/favcat edit while display-only changes retain the cache. */
-  static homeProfileKey(isEx: boolean, uuid: string, revision: number): string {
+  static homeProfileKey(isEx: boolean, uuid: string, revision: string): string {
     return EhPageCacheService.scopedKey(
       isEx,
-      `home:profile:${EhPageCacheService.encode(uuid)}:rev:${Math.floor(revision)}`,
+      `home:profile:${EhPageCacheService.encode(uuid)}:rev:${EhPageCacheService.encode(revision)}`,
     )
   }
 
