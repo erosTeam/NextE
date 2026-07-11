@@ -6,6 +6,7 @@ import {
   DiagnosticLogger,
   EhErrorText,
 } from 'shared'
+import { AllThumbnailsTailAppend } from '../model/AllThumbnailsTailAppend'
 
 /**
  * Drives the separate all-thumbnails page (eros_fe AllThumbnailsPageController). The detail page only
@@ -195,6 +196,10 @@ export class AllThumbnailsViewModel {
 
   private mergePreviewPage(previewPage: number, pageImages: EhGalleryImage[]): void {
     if (pageImages.length === 0) {
+      return
+    }
+    if (AllThumbnailsTailAppend.appendIfStrictTail(this.dataSource, pageImages)) {
+      this.markPreviewPageLoaded(previewPage)
       return
     }
     const merged: EhGalleryImage[] = []
