@@ -149,10 +149,13 @@ export struct FavcatPage {
       return
     }
     this.loadedOnce = true
-    await this.vm.load()
+    const committed: boolean = await this.vm.load()
     // Publish the parsed favcat sidebar AFTER the load resolves (deterministic) so the shared favList — and
-    // thus the bar's real names/counts — are populated; the bar's keyed-by-label/count ForEach then rebuilds.
-    this.publishFavList()
+    // thus the bar's real names/counts — are populated. A superseded account/site/order load must not
+    // publish its old metadata into the newly active account.
+    if (committed) {
+      this.publishFavList()
+    }
   }
 
   // Global order toggle from the shared bus → reload this favcat with the new order (if already loaded;
@@ -160,8 +163,10 @@ export struct FavcatPage {
   @Monitor('favSel.orderByPosted')
   async onOrderChange(): Promise<void> {
     if (this.loadedOnce) {
-      await this.vm.applyOrder(this.favSel.orderByPosted)
-      this.publishFavList()
+      const committed: boolean = await this.vm.applyOrder(this.favSel.orderByPosted)
+      if (committed) {
+        this.publishFavList()
+      }
     }
   }
 
@@ -180,8 +185,10 @@ export struct FavcatPage {
   @Monitor('siteMode.isEx')
   async onSiteChange(): Promise<void> {
     if (this.loadedOnce) {
-      await this.vm.load()
-      this.publishFavList()
+      const committed: boolean = await this.vm.load(true)
+      if (committed) {
+        this.publishFavList()
+      }
     }
   }
 

@@ -85,7 +85,7 @@ ok('Shared barrel exports local favorites state and settings',
 ok('FavoritesViewModel has an explicit local favcat branch',
   /private isLocalFavcat\(\): boolean \{[\s\S]*return this\.favcat === 'l'/.test(vm))
 ok('Local favorites load reads AppStorageV2 rows and never pages',
-  /this\.hasMore = false[\s\S]*if \(this\.isLocalFavcat\(\)\) \{[\s\S]*connectLocalFav\(\)\.items[\s\S]*this\.dataSource\.setData\([\s\S]*localRows[\s\S]*\)[\s\S]*return/.test(vm))
+  /this\.hasMore = false[\s\S]*if \(this\.isLocalFavcat\(\)\) \{[\s\S]*connectLocalFav\(\)\.items[\s\S]*const translated: EhGallery\[\] = await this\.translateRows\(localRows\)[\s\S]*this\.dataSource\.setData\(translated\)[\s\S]*return true/.test(vm))
 ok('Local favorites loadMore is a no-op',
   /if \(this\.isLocalFavcat\(\) \|\| this\.isLoading/.test(vm))
 ok('Local favorites order changes are no-ops',

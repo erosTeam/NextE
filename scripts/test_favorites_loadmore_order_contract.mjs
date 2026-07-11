@@ -22,6 +22,7 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8')
 
 const vm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
 const api = read('shared/src/main/ets/network/EhApiService.ets')
+const favcatPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
 
 let passed = 0
 const ok = (label, cond) => {
@@ -46,6 +47,35 @@ ok('FavoritesViewModel no longer duplicates order retry logic',
   !/favOrder !== this\.favOrder/.test(vm))
 ok('Initial load uses the same page helper',
   /const list: GalleryList = await this\.fetchPage\(''\)/.test(vm))
+ok('Favorites page-1 runs capture an epoch and the initiating cache scope',
+  /class FavoritesFirstPageRun \{[\s\S]*epoch: number[\s\S]*cacheKey: string/.test(vm) &&
+    /private beginFirstPageRun\(\): FavoritesFirstPageRun \{[\s\S]*this\.epoch = this\.epoch \+ 1[\s\S]*this\.cacheRenderVersion = this\.cacheRenderVersion \+ 1[\s\S]*this\.isLoadingMore = false[\s\S]*return new FavoritesFirstPageRun\(this\.epoch, this\.isLocalFavcat\(\) \? '' : this\.cacheKey\(\)\)/.test(vm) &&
+    /private isCurrentFirstPageRun\(run: FavoritesFirstPageRun\): boolean \{[\s\S]*this\.epoch === run\.epoch[\s\S]*run\.cacheKey\.length === 0 \|\| this\.cacheKey\(\) === run\.cacheKey/.test(vm))
+ok('Favorites page-1 cache reads and writes retain the initiating key',
+  /private async applyCachedFirstPageIfEmpty\(run: FavoritesFirstPageRun\): Promise<void> \{[\s\S]*takePreloadedGalleryList\(run\.cacheKey\)[\s\S]*await EhPageCacheService\.loadGalleryList\(this\.context, run\.cacheKey\)[\s\S]*!this\.isCurrentFirstPageRun\(run\)/.test(vm) &&
+    /private async saveFirstPageCache\(list: GalleryList, run: FavoritesFirstPageRun\): Promise<void> \{[\s\S]*saveGalleryList\(this\.context, run\.cacheKey, snapshot\)/.test(vm))
+{
+  const loadStart = vm.indexOf('async load(force: boolean = false): Promise<boolean>')
+  const loadEnd = vm.indexOf('/** Switch favcat slot', loadStart)
+  const firstLoad = vm.slice(loadStart, loadEnd)
+  ok('Favorites first page drops superseded cache/network/translation results before committing state',
+    /const run: FavoritesFirstPageRun = this\.beginFirstPageRun\(\)[\s\S]*await this\.applyCachedFirstPageIfEmpty\(run\)[\s\S]*if \(!this\.isCurrentFirstPageRun\(run\)\) \{[\s\S]*return false[\s\S]*const list: GalleryList = await this\.fetchPage\(''\)[\s\S]*if \(!this\.isCurrentFirstPageRun\(run\)\) \{[\s\S]*return false/.test(firstLoad) &&
+      /const rendered: boolean = await this\.renderFirstPageRows\(list, this\.itemCount === 0, run\)[\s\S]*if \(!rendered\)[\s\S]*return false[\s\S]*finally \{[\s\S]*if \(this\.isCurrentFirstPageRun\(run\)\) \{[\s\S]*this\.isLoading = false/.test(firstLoad))
+}
+{
+  const jumpPageStart = vm.indexOf('async jumpToPage(pageNumber: number): Promise<boolean>')
+  const jumpDateStart = vm.indexOf('async jumpToDateAfter(seek: string): Promise<boolean>')
+  const jumpFirstStart = vm.indexOf('async jumpFirstPage(): Promise<boolean>')
+  const jumpPage = vm.slice(jumpPageStart, jumpDateStart)
+  const jumpDate = vm.slice(jumpDateStart, jumpFirstStart)
+  ok('Favorites jump paths use the same page-1 ownership fence',
+    /const run: FavoritesFirstPageRun = this\.beginFirstPageRun\(\)[\s\S]*await this\.fetchPage\('', requestedPage, ''\)[\s\S]*!this\.isCurrentFirstPageRun\(run\)[\s\S]*renderFirstPageRows\(list, this\.itemCount === 0, run, false\)[\s\S]*finally \{[\s\S]*isCurrentFirstPageRun\(run\)/.test(jumpPage) &&
+      /const run: FavoritesFirstPageRun = this\.beginFirstPageRun\(\)[\s\S]*await this\.fetchPage\('', -1, '', dateText\)[\s\S]*!this\.isCurrentFirstPageRun\(run\)[\s\S]*renderFirstPageRows\(list, this\.itemCount === 0, run, false\)[\s\S]*finally \{[\s\S]*isCurrentFirstPageRun\(run\)/.test(jumpDate))
+}
+ok('Favcat page publishes parsed selector metadata only after its VM commits',
+  /private async loadOnce\(\): Promise<void> \{[\s\S]*const committed: boolean = await this\.vm\.load\(\)[\s\S]*if \(committed\) \{[\s\S]*this\.publishFavList\(\)/.test(favcatPage) &&
+    /async onOrderChange\(\): Promise<void> \{[\s\S]*const committed: boolean = await this\.vm\.applyOrder\(this\.favSel\.orderByPosted\)[\s\S]*if \(committed\) \{[\s\S]*this\.publishFavList\(\)/.test(favcatPage) &&
+    /async onSiteChange\(\): Promise<void> \{[\s\S]*const committed: boolean = await this\.vm\.load\(true\)[\s\S]*if \(committed\) \{[\s\S]*this\.publishFavList\(\)/.test(favcatPage))
 ok('FavoritesViewModel declares stale-cursor history',
   /private lastNext: string = ''/.test(vm))
 ok('Initial load resets stale request history with page state',
@@ -64,8 +94,22 @@ ok('loadMore clears stale footer error before retry fetch',
   /this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(vm))
 ok('loadMore dedupes before append for gid-keyed LazyForEach',
   /const fresh: EhGallery\[\] = await this\.translateRows\(this\.dedupeNew\(list\.gallerys\)\)/.test(vm))
-ok('loadMore records the successfully requested page/cursor only after epoch-valid apply',
-  /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.nextGid = list\.nextGid[\s\S]*this\.nextPage = list\.nextPage[\s\S]*this\.lastNext = requestKey[\s\S]*this\.hasMore = this\.didPagingAdvance\(page, cursor, list\)/.test(vm))
+{
+  const loadPreviousStart = vm.indexOf('private async loadPrevious(')
+  const loadMoreStart = vm.indexOf('async loadMore(): Promise<void>')
+  const loadPrevious = vm.slice(loadPreviousStart, loadMoreStart)
+  const loadMore = vm.slice(loadMoreStart)
+  const previousTranslation = loadPrevious.indexOf('await this.translateRows')
+  const moreTranslation = loadMore.indexOf('await this.translateRows')
+  ok('Favorites paging rechecks ownership after async translation and only its owner clears footer loading',
+    previousTranslation >= 0 &&
+      loadPrevious.indexOf('if (this.epoch !== myEpoch)', previousTranslation) > previousTranslation &&
+      moreTranslation >= 0 &&
+      loadMore.indexOf('if (this.epoch !== myEpoch)', moreTranslation) > moreTranslation &&
+      /if \(this\.epoch === myEpoch\) \{\s*this\.isLoadingMore = false/.test(loadMore))
+  ok('loadMore records page/cursor only after the post-translation ownership check',
+    /const fresh: EhGallery\[\] = await this\.translateRows\(this\.dedupeNew\(list\.gallerys\)\)[\s\S]*if \(this\.epoch !== myEpoch\) \{[\s\S]*\} else \{[\s\S]*this\.nextGid = list\.nextGid[\s\S]*this\.nextPage = list\.nextPage[\s\S]*this\.lastNext = requestKey[\s\S]*this\.hasMore = this\.didPagingAdvance\(page, cursor, list\)/.test(loadMore))
+}
 ok('didPagingAdvance mirrors FE next getter for page-paged results',
   /if \(requestedPage >= 0\) \{[\s\S]*return list\.nextPage > 0 \|\| list\.nextGid\.length > 0/.test(vm))
 ok('loadMore does not stop solely because a page brings no fresh rows',

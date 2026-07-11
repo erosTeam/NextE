@@ -69,6 +69,16 @@ ok('FavcatListSettings also hydrates the remote favorite sheet cache on cold sta
 ok('FavcatListSettings uses the shared preferences store and key',
   /preferences\.getPreferences\([\s\S]*StorageKeys\.STORE_SETTINGS/.test(settings) &&
     /StorageKeys\.FAVORITES_FAVCATS/.test(settings))
+{
+  const persistStart = settings.indexOf('static async persist')
+  const persistEnd = settings.indexOf('private static activeMemberId', persistStart)
+  const persist = settings.slice(persistStart, persistEnd)
+  ok('FavcatListSettings binds the publishing account before Preferences yields',
+    persist.indexOf('const memberId: string = FavcatListSettings.activeMemberId()') >= 0 &&
+      persist.indexOf('const memberId: string = FavcatListSettings.activeMemberId()') <
+        persist.indexOf('await preferences.getPreferences') &&
+      persist.includes('FavcatListSettings.storageKey(memberId)'))
+}
 ok('FavcatListSettings scopes snapshots by active member id without reusing the legacy global snapshot',
   /private static activeMemberId\(\): string/.test(settings) &&
     /private static storageKey\(memberId: string\): string/.test(settings) &&

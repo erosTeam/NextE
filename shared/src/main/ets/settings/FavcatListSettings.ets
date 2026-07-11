@@ -58,12 +58,14 @@ export class FavcatListSettings {
   }
 
   static async persist(context: common.UIAbilityContext, favcats: Favcat[]): Promise<void> {
+    // The parsed list belongs to the account that initiated this persistence. Capture its identity
+    // before Preferences yields so an A → B switch cannot write A's metadata under B's key.
+    const memberId: string = FavcatListSettings.activeMemberId()
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      const memberId: string = FavcatListSettings.activeMemberId()
       const key: string = FavcatListSettings.storageKey(memberId)
       const previousRaw: string = store.getSync(key, '[]') as string
       const previous: Favcat[] = FavcatListSettings.parse(previousRaw, memberId)
