@@ -25,6 +25,7 @@ const DETAIL_TTL_MS: number = 6 * 60 * 60 * 1000
 const MAX_LIST_ROWS_PER_CACHE: number = 50
 const MAX_CACHE_ROWS_PER_KIND: number = 128
 const MAX_PRELOADED_GALLERY_LISTS: number = 24
+const MAX_RECENT_GALLERY_DETAILS: number = 8
 // The durable per-kind cap is maintained in batches, so a burst may temporarily hold up to one interval extra rows.
 const CACHE_MAINTENANCE_INTERVAL: number = 32
 
@@ -98,8 +99,67 @@ export class PreloadedGalleryListMemoryCache {
   }
 }
 
+/**
+ * Recently rendered detail snapshots for same-process back-and-reopen navigation. Unlike startup list
+ * preloads this is non-consuming: a second detail page must still get the same fast snapshot. Both
+ * boundaries copy so page-local comment/tag/rating mutations cannot contaminate another detail route.
+ */
+export class RecentGalleryDetailMemoryCache {
+  private readonly maxEntries: number
+  private entries: Map<string, GalleryDetailResult> = new Map()
+
+  constructor(maxEntries: number = MAX_RECENT_GALLERY_DETAILS) {
+    this.maxEntries = maxEntries > 0 ? maxEntries : 1
+  }
+
+  put(cacheKey: string, detail: GalleryDetailResult): void {
+    if (cacheKey.length === 0) {
+      return
+    }
+    this.entries.delete(cacheKey)
+    this.entries.set(cacheKey, EhPageCacheService.copyGalleryDetail(detail))
+    this.trim()
+  }
+
+  get(cacheKey: string): GalleryDetailResult | null {
+    const cached: GalleryDetailResult | undefined = this.entries.get(cacheKey)
+    if (cached === undefined) {
+      return null
+    }
+    this.entries.delete(cacheKey)
+    this.entries.set(cacheKey, cached)
+    return EhPageCacheService.copyGalleryDetail(cached)
+  }
+
+  clear(): void {
+    this.entries.clear()
+  }
+
+  size(): number {
+    return this.entries.size
+  }
+
+  private trim(): void {
+    while (this.entries.size > this.maxEntries) {
+      let found: boolean = false
+      let oldest: string = ''
+      this.entries.forEach((_detail: GalleryDetailResult, cacheKey: string): void => {
+        if (!found) {
+          found = true
+          oldest = cacheKey
+        }
+      })
+      if (!found) {
+        return
+      }
+      this.entries.delete(oldest)
+    }
+  }
+}
+
 export class EhPageCacheService {
   private static preloadedGalleryLists: PreloadedGalleryListMemoryCache = new PreloadedGalleryListMemoryCache()
+  private static recentGalleryDetails: RecentGalleryDetailMemoryCache = new RecentGalleryDetailMemoryCache()
   /** Per-kind maintenance is intentionally amortized; a fresh process always cleans on its first save. */
   private static cacheMaintenanceWriteCounts: Map<string, number> = new Map<string, number>()
   /** Prevent concurrent saves from duplicating a due prune while retaining an immediate retry on failure. */
@@ -135,6 +195,7 @@ export class EhPageCacheService {
       const store: relationalStore.RdbStore = await LocalDataStore.open(context)
       await store.executeSql('DELETE FROM eh_page_cache')
       EhPageCacheService.preloadedGalleryLists.clear()
+      EhPageCacheService.recentGalleryDetails.clear()
       EhPageCacheService.cacheMaintenanceWriteCounts.clear()
       EhPageCacheService.cacheMaintenanceFollowUpKinds.clear()
     } catch (error) {
@@ -216,6 +277,17 @@ export class EhPageCacheService {
     return cached
   }
 
+  /** Return a copy of a same-process detail snapshot without consuming it. */
+  static getRecentGalleryDetail(cacheKey: string): GalleryDetailResult | null {
+    const cached: GalleryDetailResult | null = EhPageCacheService.recentGalleryDetails.get(cacheKey)
+    DiagnosticLogger.info(
+      'page-cache',
+      cached === null ? 'detail_memory_miss' : 'detail_memory_hit',
+      `entries=${EhPageCacheService.recentGalleryDetails.size()}`,
+    )
+    return cached
+  }
+
   static async saveGalleryList(
     context: common.UIAbilityContext,
     cacheKey: string,
@@ -248,7 +320,9 @@ export class EhPageCacheService {
     }
     try {
       const raw: GalleryDetailResult = JSON.parse(payload) as GalleryDetailResult
-      return EhPageCacheService.reviveGalleryDetail(raw)
+      const detail: GalleryDetailResult = EhPageCacheService.reviveGalleryDetail(raw)
+      EhPageCacheService.recentGalleryDetails.put(cacheKey, detail)
+      return detail
     } catch (error) {
       DiagnosticLogger.warn('page-cache', 'gallery_detail_decode_failed', (error as Error).message)
       return null
@@ -260,12 +334,8 @@ export class EhPageCacheService {
     cacheKey: string,
     detail: GalleryDetailResult,
   ): Promise<void> {
-    const snapshot: GalleryDetailResult = new GalleryDetailResult(
-      detail.gallery.copy(),
-      detail.images.map((image: EhGalleryImage) => image.copy()),
-      EhPageCacheService.copyComments(detail.comments),
-      detail.previewPageCount,
-    )
+    const snapshot: GalleryDetailResult = EhPageCacheService.copyGalleryDetail(detail)
+    EhPageCacheService.recentGalleryDetails.put(cacheKey, snapshot)
     await EhPageCacheService.savePayload(
       context,
       CACHE_KIND_GALLERY_DETAIL,
@@ -396,6 +466,15 @@ export class EhPageCacheService {
       EhPageCacheService.reviveImages(raw.images),
       EhPageCacheService.reviveComments(raw.comments),
       EhPageCacheService.safeNumber(raw.previewPageCount, 1),
+    )
+  }
+
+  static copyGalleryDetail(detail: GalleryDetailResult): GalleryDetailResult {
+    return new GalleryDetailResult(
+      detail.gallery.copy(),
+      detail.images.map((image: EhGalleryImage) => image.copy()),
+      EhPageCacheService.copyComments(detail.comments),
+      detail.previewPageCount,
     )
   }
 

@@ -89,11 +89,16 @@ export class GalleryDetailViewModel {
       return
     }
     const run: GalleryDetailRun = this.beginDetailRun(gid, token)
-    this.loading = true
     this.error = ''
     this.cachedDetailApplied = false
+    // Same-process navigation can apply a copied detail snapshot synchronously. This must happen before
+    // loading becomes true so a list → detail → back → same-detail open never flashes the empty spinner.
+    const memoryDetailApplied: boolean = this.applyRecentDetailIfAvailable(run)
+    this.loading = true
     try {
-      await this.applyCachedDetailIfAvailable(run)
+      if (!memoryDetailApplied) {
+        await this.applyCachedDetailIfAvailable(run)
+      }
       if (!this.isCurrentDetailRun(run)) {
         return
       }
@@ -191,8 +196,26 @@ export class GalleryDetailViewModel {
       this.context,
       run.cacheKey,
     )
-    if (!this.isCurrentDetailRun(run) || cached === null) {
+    if (cached === null) {
       return
+    }
+    this.applyCachedDetail(run, cached)
+  }
+
+  private applyRecentDetailIfAvailable(run: GalleryDetailRun): boolean {
+    if (this.context === null || !this.isCurrentDetailRun(run)) {
+      return false
+    }
+    const cached: GalleryDetailResult | null = EhPageCacheService.getRecentGalleryDetail(run.cacheKey)
+    if (cached === null) {
+      return false
+    }
+    return this.applyCachedDetail(run, cached)
+  }
+
+  private applyCachedDetail(run: GalleryDetailRun, cached: GalleryDetailResult): boolean {
+    if (!this.isCurrentDetailRun(run)) {
+      return false
     }
     const merged: EhGallery = this.gallery.merge(cached.gallery)
     this.detailRenderVersion = this.detailRenderVersion + 1
@@ -207,6 +230,7 @@ export class GalleryDetailViewModel {
     this.cachedDetailApplied = true
     this.activeDetailRun = run
     this.translateCachedGalleryLater(this.gallery, renderVersion, run)
+    return true
   }
 
   private async translateCachedGalleryLater(

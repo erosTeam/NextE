@@ -228,7 +228,11 @@ export {
 } from './services/ImageBlockRuntimeService'
 export { PHashService } from './services/PHashService'
 export { ImageBlockRepository } from './storage/ImageBlockRepository'
-export { EhPageCacheService, PreloadedGalleryListMemoryCache } from './services/EhPageCacheService'
+export {
+  EhPageCacheService,
+  PreloadedGalleryListMemoryCache,
+  RecentGalleryDetailMemoryCache,
+} from './services/EhPageCacheService'
 export { CacheStat } from './services/CacheStat'
 export { BackupService } from './backup/BackupService'
 export { BackupPreferencesAdapter, BackupWebDavCredentialGroup } from './backup/BackupPreferencesAdapter'

@@ -79,7 +79,9 @@ assertIncludes(service, 'new EhGalleryImage(', 'image cache must revive EhGaller
 assertIncludes(service, 'new EhGalleryComment()', 'comment cache must revive comment objects');
 
 const index = read('shared/src/main/ets/Index.ets');
-assertIncludes(index, 'EhPageCacheService, PreloadedGalleryListMemoryCache', 'shared barrel must export page-cache service and bounded preload cache');
+assertIncludes(index, 'EhPageCacheService,', 'shared barrel must export the page-cache service');
+assertIncludes(index, 'PreloadedGalleryListMemoryCache,', 'shared barrel must export the bounded list preload cache');
+assertIncludes(index, 'RecentGalleryDetailMemoryCache,', 'shared barrel must export the bounded recent detail cache');
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets');
 assertIncludes(bootstrap, 'const profiles: CustomProfile[] = connectCustomProfiles().profiles', 'startup preload must cover custom Gallery profile subtabs');
