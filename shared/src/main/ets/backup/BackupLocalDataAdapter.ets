@@ -185,7 +185,8 @@ export class BackupLocalDataAdapter {
   private static async exportCustomProfiles(
     context: common.UIAbilityContext,
   ): Promise<BackupCustomProfilesSection> {
-    const source: CustomProfile[] = await CustomProfilesSettings.exportForBackup(context)
+    const snapshot = await CustomProfilesSettings.exportForBackupSnapshot(context)
+    const source: CustomProfile[] = snapshot.profiles
     const out: BackupCustomProfileEntry[] = []
     for (let i: number = 0; i < source.length; i++) {
       const p: CustomProfile = source[i]
@@ -216,7 +217,7 @@ export class BackupLocalDataAdapter {
       })
     }
     return {
-      selectedUuid: await CustomProfilesSettings.exportSelectedForBackup(context),
+      selectedUuid: snapshot.selectedUuid,
       profiles: out,
     }
   }

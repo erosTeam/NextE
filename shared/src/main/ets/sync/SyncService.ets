@@ -45,6 +45,9 @@ export class SyncService {
     if (selection.localBlock) {
       await LocalBlockSettings.flushForSync(context)
     }
+    if (selection.customProfiles) {
+      await CustomProfilesSettings.flushForSync(context)
+    }
     const envelope: SyncEnvelopeV1 = await SyncLocalDataAdapter.exportEnvelope(context, deviceId, selection)
     return JSON.stringify(envelope)
   }
@@ -86,6 +89,9 @@ export class SyncService {
     if (selection.localBlock) {
       await LocalBlockSettings.flushForSync(context)
     }
+    if (selection.customProfiles) {
+      await CustomProfilesSettings.flushForSync(context)
+    }
     const local: SyncEnvelopeV1 =
       await SyncLocalDataAdapter.exportEnvelope(context, deviceId, selection)
     const selectedRemote: SyncEnvelopeV1 = SyncService.selectDatasets(remote, selection)
@@ -103,6 +109,7 @@ export class SyncService {
     await LocalFavSettings.flushForSync(context)
     await SearchHistorySettings.flushForSync(context)
     await LocalBlockSettings.flushForSync(context)
+    await CustomProfilesSettings.flushForSync(context)
     await SyncLocalDataAdapter.applyEnvelope(context, envelope)
   }
 

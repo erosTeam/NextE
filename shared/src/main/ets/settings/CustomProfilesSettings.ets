@@ -51,6 +51,27 @@ class CustomProfilesNormalizeResult {
   changed: boolean = false
 }
 
+/** A matched durable pair for backup: profile order and selectedUuid share one RDB queue slot. */
+export class CustomProfilesBackupSnapshot {
+  profiles: CustomProfile[] = []
+  selectedUuid: string = ''
+}
+
+/** Serializes every durable Custom Profiles operation while letting a failed write release later work. */
+export class CustomProfilesPersistScheduler {
+  private writeTail: Promise<void> = Promise.resolve()
+
+  enqueue(write: () => Promise<void>): Promise<void> {
+    const next: Promise<void> = this.writeTail.then(write, write)
+    this.writeTail = next
+    return next
+  }
+
+  flush(): Promise<void> {
+    return this.writeTail
+  }
+}
+
 const TOPLIST_PERIODS: number[] = [11, 12, 13, 15]
 const DISPLAY_MODES: string[] = [
   PROFILE_DISPLAY_GLOBAL,
@@ -64,33 +85,50 @@ const DISPLAY_MODES: string[] = [
 /**
  * Single writer of CustomProfilesState — restores the persisted home sub-tab profiles (seeding the three
  * built-ins + two starter examples on first run, migrating the legacy HOME_SOURCE selection), and
- * performs every CRUD/reorder mutation followed by a JSON persist. Mirrors SearchHistorySettings /
+ * performs every CRUD/reorder mutation followed by a durable RDB persist. Mirrors SearchHistorySettings /
  * FavcatListSettings (preferences + best-effort try/catch). Built-ins (stable uuids) are hide-only.
  */
 export class CustomProfilesSettings {
+  // Home tab actions intentionally update the live state before awaiting storage. Serialize their
+  // snapshots so an older full-table replacement cannot finish after a newer reorder/hide/select.
+  private static readonly rdbWriteScheduler: CustomProfilesPersistScheduler =
+    new CustomProfilesPersistScheduler()
+  private static mutationRevision: number = 0
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await CustomProfilesSettings.migrateLegacyPreferences(context)
-      const state: CustomProfilesState = connectCustomProfiles()
-      let profiles: CustomProfile[] = await CustomProfilesRepository.loadProfiles(context)
-      let selected: string = await CustomProfilesRepository.loadSelected(context)
-      if (profiles.length === 0) {
-        // First run: seed built-ins + starters and map the legacy HOME_SOURCE selection.
-        profiles = CustomProfilesSettings.seedDefaults()
-        selected = await CustomProfilesSettings.migrateSelected(context)
-        state.profiles = profiles
-        state.selectedUuid = selected
-        await CustomProfilesSettings.persistAll(context)
+      for (let attempt: number = 0; attempt < 2; attempt++) {
+        await CustomProfilesSettings.rdbWriteScheduler.flush()
+        const revision: number = CustomProfilesSettings.mutationRevision
+        const state: CustomProfilesState = connectCustomProfiles()
+        const profiles: CustomProfile[] = await CustomProfilesRepository.loadProfiles(context)
+        let selected: string = await CustomProfilesRepository.loadSelected(context)
+        if (revision !== CustomProfilesSettings.mutationRevision) {
+          continue
+        }
+        if (profiles.length === 0) {
+          // First run: seed built-ins + starters and map the legacy HOME_SOURCE selection.
+          const defaults: CustomProfile[] = CustomProfilesSettings.seedDefaults()
+          selected = await CustomProfilesSettings.migrateSelected(context)
+          if (revision !== CustomProfilesSettings.mutationRevision) {
+            continue
+          }
+          state.profiles = defaults
+          state.selectedUuid = selected
+          await CustomProfilesSettings.persistAll(context)
+          return
+        }
+        const migratedProfiles: CustomProfile[] = CustomProfilesSettings.migrateStarterNames(profiles)
+        const builtinProfiles: CustomProfile[] = CustomProfilesSettings.ensureBuiltins(migratedProfiles)
+        const normalized: CustomProfilesNormalizeResult =
+          CustomProfilesSettings.normalizeStarterProfiles(builtinProfiles, selected)
+        state.profiles = normalized.profiles
+        state.selectedUuid = normalized.selectedUuid
+        if (migratedProfiles !== profiles || builtinProfiles !== migratedProfiles || normalized.changed) {
+          await CustomProfilesSettings.persistAll(context)
+        }
         return
-      }
-      const migratedProfiles: CustomProfile[] = CustomProfilesSettings.migrateStarterNames(profiles)
-      const builtinProfiles: CustomProfile[] = CustomProfilesSettings.ensureBuiltins(migratedProfiles)
-      const normalized: CustomProfilesNormalizeResult =
-        CustomProfilesSettings.normalizeStarterProfiles(builtinProfiles, selected)
-      state.profiles = normalized.profiles
-      state.selectedUuid = normalized.selectedUuid
-      if (migratedProfiles !== profiles || builtinProfiles !== migratedProfiles || normalized.changed) {
-        await CustomProfilesSettings.persistAll(context)
       }
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_restore_failed', (error as Error).message)
@@ -104,6 +142,7 @@ export class CustomProfilesSettings {
     profile.lastEditTime = CustomProfilesSettings.now()
     next.push(profile)
     state.profiles = next
+    CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
     await CustomProfilesSettings.persistAll(context)
   }
 
@@ -120,6 +159,7 @@ export class CustomProfilesSettings {
       }
     })
     state.profiles = next
+    CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
     await CustomProfilesSettings.persistAll(context)
   }
 
@@ -138,8 +178,9 @@ export class CustomProfilesSettings {
     })
     state.profiles = next
     if (state.selectedUuid === uuid) {
-      state.selectedUuid = next.length > 0 ? next[0].uuid : ''
+      state.selectedUuid = CustomProfilesSettings.firstVisibleUuid(next)
     }
+    CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
     await CustomProfilesSettings.persistAll(context)
   }
 
@@ -159,6 +200,7 @@ export class CustomProfilesSettings {
     })
     next.splice(to, 0, moved)
     state.profiles = next
+    CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
     await CustomProfilesSettings.persistAll(context)
   }
 
@@ -181,6 +223,7 @@ export class CustomProfilesSettings {
       }
     })
     state.profiles = next
+    CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
     await CustomProfilesSettings.persistAll(context)
   }
 
@@ -207,6 +250,7 @@ export class CustomProfilesSettings {
     if (hidden && state.selectedUuid === uuid) {
       state.selectedUuid = CustomProfilesSettings.firstVisibleUuid(next)
     }
+    CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
     await CustomProfilesSettings.persistAll(context)
   }
 
@@ -223,8 +267,11 @@ export class CustomProfilesSettings {
   /** Set the active tab and persist the selection. */
   static async setSelected(context: common.UIAbilityContext, uuid: string): Promise<void> {
     connectCustomProfiles().selectedUuid = uuid
+    CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
     try {
-      await CustomProfilesRepository.saveSelected(context, uuid)
+      await CustomProfilesSettings.enqueueRdbWrite(
+        (): Promise<void> => CustomProfilesRepository.saveSelected(context, uuid),
+      )
       SyncScheduler.requestAfterLocalWrite(context, 'custom_profile_selection')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_select_failed', (error as Error).message)
@@ -232,13 +279,24 @@ export class CustomProfilesSettings {
   }
 
   static async exportForBackup(context: common.UIAbilityContext): Promise<CustomProfile[]> {
-    await CustomProfilesSettings.migrateLegacyPreferences(context)
-    return CustomProfilesRepository.loadProfiles(context)
+    return (await CustomProfilesSettings.exportForBackupSnapshot(context)).profiles
   }
 
   static async exportSelectedForBackup(context: common.UIAbilityContext): Promise<string> {
+    return (await CustomProfilesSettings.exportForBackupSnapshot(context)).selectedUuid
+  }
+
+  /** Read profiles and selection between queued writers so one backup cannot mix two tab states. */
+  static async exportForBackupSnapshot(
+    context: common.UIAbilityContext,
+  ): Promise<CustomProfilesBackupSnapshot> {
     await CustomProfilesSettings.migrateLegacyPreferences(context)
-    return CustomProfilesRepository.loadSelected(context)
+    const snapshot: CustomProfilesBackupSnapshot = new CustomProfilesBackupSnapshot()
+    await CustomProfilesSettings.enqueueRdbWrite(async (): Promise<void> => {
+      snapshot.profiles = await CustomProfilesRepository.loadProfiles(context)
+      snapshot.selectedUuid = await CustomProfilesRepository.loadSelected(context)
+    })
+    return snapshot
   }
 
   static async restoreBackup(
@@ -246,20 +304,31 @@ export class CustomProfilesSettings {
     profiles: CustomProfile[],
     selectedUuid: string,
   ): Promise<void> {
-    await CustomProfilesRepository.replaceAll(context, profiles, selectedUuid)
+    const snapshot: CustomProfile[] = CustomProfilesSettings.snapshotProfiles(profiles)
+    CustomProfilesSettings.mutationRevision = CustomProfilesSettings.mutationRevision + 1
+    await CustomProfilesSettings.enqueueRdbWrite(
+      (): Promise<void> => CustomProfilesRepository.replaceAll(context, snapshot, selectedUuid),
+    )
     await CustomProfilesSettings.deleteLegacyPreferences(context)
-    const state: CustomProfilesState = connectCustomProfiles()
-    state.profiles = await CustomProfilesRepository.loadProfiles(context)
-    state.selectedUuid = await CustomProfilesRepository.loadSelected(context)
+    await CustomProfilesSettings.refreshFromStorage(context)
     SyncScheduler.requestAfterLocalWrite(context, 'custom_profiles_restore_backup')
+  }
+
+  /** Drain queued writes before backup and sync providers read the custom-profile tables. */
+  static async flushForSync(_context: common.UIAbilityContext): Promise<void> {
+    await CustomProfilesSettings.rdbWriteScheduler.flush()
   }
 
   // ---- internals ----
 
   private static async persistAll(context: common.UIAbilityContext): Promise<void> {
+    const state: CustomProfilesState = connectCustomProfiles()
+    const profiles: CustomProfile[] = CustomProfilesSettings.snapshotProfiles(state.profiles)
+    const selectedUuid: string = state.selectedUuid
     try {
-      const state: CustomProfilesState = connectCustomProfiles()
-      await CustomProfilesRepository.replaceAll(context, state.profiles, state.selectedUuid)
+      await CustomProfilesSettings.enqueueRdbWrite(
+        (): Promise<void> => CustomProfilesRepository.replaceAll(context, profiles, selectedUuid),
+      )
       SyncScheduler.requestAfterLocalWrite(context, 'custom_profiles')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'custom_profiles_save_failed', (error as Error).message)
@@ -531,7 +600,10 @@ export class CustomProfilesSettings {
     if (CustomProfilesSettings.indexOfUuid(profiles, selected) < 0) {
       selected = profiles.length > 0 ? profiles[0].uuid : ''
     }
-    await CustomProfilesRepository.replaceAll(context, profiles, selected)
+    const snapshot: CustomProfile[] = CustomProfilesSettings.snapshotProfiles(profiles)
+    await CustomProfilesSettings.enqueueRdbWrite(
+      (): Promise<void> => CustomProfilesRepository.replaceAll(context, snapshot, selected),
+    )
     await CustomProfilesSettings.deleteLegacyPreferences(context)
   }
 
@@ -656,6 +728,35 @@ export class CustomProfilesSettings {
       out.push(p)
     })
     return out
+  }
+
+  private static snapshotProfiles(profiles: CustomProfile[]): CustomProfile[] {
+    const out: CustomProfile[] = []
+    profiles.forEach((profile: CustomProfile) => {
+      out.push(profile.copy())
+    })
+    return out
+  }
+
+  /** Keep later writes runnable after a failed RDB operation. */
+  private static enqueueRdbWrite(work: () => Promise<void>): Promise<void> {
+    return CustomProfilesSettings.rdbWriteScheduler.enqueue(work)
+  }
+
+  /** Avoid replacing a newer in-memory tab mutation with an older RDB snapshot after backup restore. */
+  private static async refreshFromStorage(context: common.UIAbilityContext): Promise<void> {
+    for (let attempt: number = 0; attempt < 2; attempt++) {
+      await CustomProfilesSettings.rdbWriteScheduler.flush()
+      const revision: number = CustomProfilesSettings.mutationRevision
+      const profiles: CustomProfile[] = await CustomProfilesRepository.loadProfiles(context)
+      const selectedUuid: string = await CustomProfilesRepository.loadSelected(context)
+      if (revision === CustomProfilesSettings.mutationRevision) {
+        const state: CustomProfilesState = connectCustomProfiles()
+        state.profiles = profiles
+        state.selectedUuid = selectedUuid
+        return
+      }
+    }
   }
 
   private static now(): number {

@@ -75,11 +75,18 @@ export class CustomProfilesRepository {
     selectedUuid: string,
   ): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    await store.executeSql(SQL_TOMBSTONE_PROFILES, [Date.now(), SCOPE_GLOBAL])
-    for (let i: number = 0; i < profiles.length; i++) {
-      await CustomProfilesRepository.upsertProfile(store, profiles[i], i)
+    store.beginTransaction()
+    try {
+      await store.executeSql(SQL_TOMBSTONE_PROFILES, [Date.now(), SCOPE_GLOBAL])
+      for (let i: number = 0; i < profiles.length; i++) {
+        await CustomProfilesRepository.upsertProfile(store, profiles[i], i)
+      }
+      await CustomProfilesRepository.saveSelectedWithStore(store, selectedUuid)
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
     }
-    await CustomProfilesRepository.saveSelectedWithStore(store, selectedUuid)
   }
 
   static async saveSelected(context: common.UIAbilityContext, selectedUuid: string): Promise<void> {

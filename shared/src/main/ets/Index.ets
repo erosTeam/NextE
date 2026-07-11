@@ -514,7 +514,11 @@ export {
   BUILTIN_WATCHED_UUID,
 } from './model/CustomProfile'
 export { CustomProfilesState, connectCustomProfiles } from './state/CustomProfilesState'
-export { CustomProfilesSettings } from './settings/CustomProfilesSettings'
+export {
+  CustomProfilesSettings,
+  CustomProfilesBackupSnapshot,
+  CustomProfilesPersistScheduler,
+} from './settings/CustomProfilesSettings'
 export { RetainedSubtabHost, ActiveKeyState } from './components/RetainedSubtabHost'
 export {
   FavSelectionState,

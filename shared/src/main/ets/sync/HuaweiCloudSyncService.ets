@@ -1,6 +1,7 @@
 import { abilityAccessCtrl, common, Permissions } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import { CustomProfilesSettings } from '../settings/CustomProfilesSettings'
 import { GalleryReadProgressSettings } from '../settings/GalleryReadProgressSettings'
 import { LocalBlockSettings } from '../settings/LocalBlockSettings'
 import { LocalFavSettings } from '../settings/LocalFavSettings'
@@ -133,6 +134,9 @@ export class HuaweiCloudSyncService {
       }
       if (selection.localBlock) {
         await LocalBlockSettings.flushForSync(context)
+      }
+      if (selection.customProfiles) {
+        await CustomProfilesSettings.flushForSync(context)
       }
       const marked: boolean = await HuaweiCloudSyncService.markDistributedTables(context, selection)
       if (!marked) {

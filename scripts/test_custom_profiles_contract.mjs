@@ -66,8 +66,8 @@ must(settings.includes('clampDisplayMode'), 'displayMode clamp missing')
 must(settings.includes('clampFavcat'), 'favcat clamp missing')
 must(settings.includes('StorageKeys.HOME_SOURCE'), 'migration must read legacy StorageKeys.HOME_SOURCE')
 must(settings.includes('CustomProfilesRepository.loadProfiles(context)'), 'restore must read custom profiles from RDB')
-must(settings.includes('CustomProfilesRepository.replaceAll(context, state.profiles, state.selectedUuid)'), 'persistAll must write custom profiles to RDB')
-must(settings.includes('CustomProfilesRepository.saveSelected(context, uuid)'), 'selected profile must persist through RDB')
+must(settings.includes('CustomProfilesRepository.replaceAll('), 'persistAll must write custom profiles to RDB')
+must(settings.includes('CustomProfilesRepository.saveSelected('), 'selected profile must persist through RDB')
 must(!settings.includes('store.putSync(StorageKeys.HOME_CUSTOM_PROFILES,'), 'custom profiles must not write the big JSON list to Preferences')
 must(settings.includes('migrateLegacyPreferences') &&
   settings.includes("store.getSync(StorageKeys.HOME_CUSTOM_PROFILES, '')") &&
@@ -102,7 +102,7 @@ must(settings.includes('migrateStarterNames(profiles)') &&
   const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
   const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
   must(backupTypes.includes('customProfiles: BackupCustomProfilesSection') &&
-    backupAdapter.includes('CustomProfilesSettings.exportForBackup(context)') &&
+    backupAdapter.includes('CustomProfilesSettings.exportForBackupSnapshot(context)') &&
     backupAdapter.includes('CustomProfilesSettings.restoreBackup(context, profiles, section.customProfiles.selectedUuid)'),
     'backup localData must include custom profiles')
 }

@@ -27,6 +27,7 @@ import downloadQueueTaskProjectionTest from './DownloadQueueTaskProjection.test'
 import favoritesTagTranslationRaceTest from './FavoritesTagTranslationRace.test'
 import readerSessionCacheStateTest from './ReaderSessionCacheState.test'
 import basicDataSourceChangeNotificationTest from './BasicDataSourceChangeNotification.test'
+import customProfilesPersistSchedulerTest from './CustomProfilesPersistScheduler.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -58,4 +59,5 @@ export default function testsuite(): void {
   favoritesTagTranslationRaceTest()
   readerSessionCacheStateTest()
   basicDataSourceChangeNotificationTest()
+  customProfilesPersistSchedulerTest()
 }
