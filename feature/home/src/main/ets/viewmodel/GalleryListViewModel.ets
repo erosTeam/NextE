@@ -25,6 +25,38 @@ import {
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
+/** Immutable ownership token for one Home first-page fetch and its account/site/profile context. */
+class GalleryFirstPageRun {
+  epoch: number
+  cacheKey: string
+  source: string
+  profileUuid: string
+  profileEditTime: number
+  toplistTl: number
+  applyToplistHiddenUserTags: boolean
+  favcat: string
+
+  constructor(
+    epoch: number,
+    cacheKey: string,
+    source: string,
+    profileUuid: string,
+    profileEditTime: number,
+    toplistTl: number,
+    applyToplistHiddenUserTags: boolean,
+    favcat: string,
+  ) {
+    this.epoch = epoch
+    this.cacheKey = cacheKey
+    this.source = source
+    this.profileUuid = profileUuid
+    this.profileEditTime = profileEditTime
+    this.toplistTl = toplistTl
+    this.applyToplistHiddenUserTags = applyToplistHiddenUserTags
+    this.favcat = favcat
+  }
+}
+
 /**
  * Drives one gallery-list source (V2Next FeedViewModel pattern). Rows live in a stable
  * LazyForEach `dataSource` (out of @Trace); `itemCount` mirrors its count as @Trace so the
@@ -86,6 +118,46 @@ export class GalleryListViewModel {
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context
+  }
+
+  private profileEditTime(): number {
+    return this.profile !== null ? this.profile.lastEditTime : -1
+  }
+
+  private beginFirstPageRun(): GalleryFirstPageRun {
+    this.epoch = this.epoch + 1
+    // A deferred cache translation must not repaint a newer account/site/profile run while its
+    // replacement request is still in flight.
+    this.cacheRenderVersion = this.cacheRenderVersion + 1
+    return new GalleryFirstPageRun(
+      this.epoch,
+      this.cacheKey(),
+      this.source,
+      this.profileUuid,
+      this.profileEditTime(),
+      this.toplistTl,
+      connectToplistFilter().applyHiddenUserTags,
+      this.favcat,
+    )
+  }
+
+  private isCurrentFirstPageRun(run: GalleryFirstPageRun): boolean {
+    if (
+      this.epoch !== run.epoch ||
+      this.source !== run.source ||
+      this.profileUuid !== run.profileUuid ||
+      this.profileEditTime() !== run.profileEditTime ||
+      this.toplistTl !== run.toplistTl ||
+      this.favcat !== run.favcat
+    ) {
+      return false
+    }
+    if (this.isToplist() && connectToplistFilter().applyHiddenUserTags !== run.applyToplistHiddenUserTags) {
+      return false
+    }
+    // The key scopes site + member. This direct check covers the window where CookieStore changes before
+    // AuthState publishes, so no old account/site response can write into the current list.
+    return this.cacheKey() === run.cacheKey
   }
 
   // EH 'popular' is a single fixed snapshot with no cursor — it never pages (eros_fe popular tab).
@@ -224,13 +296,16 @@ export class GalleryListViewModel {
     return TagTranslationService.translateGalleries(this.context, rows)
   }
 
-  private async applyCachedFirstPageIfEmpty(): Promise<void> {
-    if (this.context === null || this.itemCount > 0) {
+  private async applyCachedFirstPageIfEmpty(run: GalleryFirstPageRun): Promise<void> {
+    if (this.context === null || this.itemCount > 0 || !this.isCurrentFirstPageRun(run)) {
       return
     }
-    let cached: GalleryList | null = EhPageCacheService.takePreloadedGalleryList(this.cacheKey())
+    let cached: GalleryList | null = EhPageCacheService.takePreloadedGalleryList(run.cacheKey)
     if (cached === null) {
-      cached = await EhPageCacheService.loadGalleryList(this.context, this.cacheKey())
+      cached = await EhPageCacheService.loadGalleryList(this.context, run.cacheKey)
+    }
+    if (!this.isCurrentFirstPageRun(run)) {
+      return
     }
     if (cached === null || cached.gallerys.length === 0) {
       return
@@ -253,19 +328,24 @@ export class GalleryListViewModel {
     this.afterDateJump = false
     this.hasMore = this.firstPageHasMore(cached)
     this.loaded = true
-    this.translateCachedRowsLater(rows, renderVersion, cached)
+    this.translateCachedRowsLater(rows, renderVersion, run, cached)
   }
 
   private async translateCachedRowsLater(
     rows: EhGallery[],
     renderVersion: number,
+    run: GalleryFirstPageRun,
     cacheSnapshot: GalleryList | null = null,
   ): Promise<void> {
     if (this.context === null || !connectTagTranslationSettings().enabled) {
       return
     }
     const translated: EhGallery[] = await this.translateRows(rows)
-    if (this.cacheRenderVersion !== renderVersion || this.itemCount === 0) {
+    if (
+      this.cacheRenderVersion !== renderVersion ||
+      this.itemCount === 0 ||
+      !this.isCurrentFirstPageRun(run)
+    ) {
       return
     }
     this.dataSource.setData(translated)
@@ -273,15 +353,19 @@ export class GalleryListViewModel {
     if (cacheSnapshot !== null) {
       const snapshot: GalleryList = cacheSnapshot.copy()
       snapshot.gallerys = translated
-      await this.saveFirstPageCache(snapshot)
+      await this.saveFirstPageCache(snapshot, run)
     }
   }
 
   private async renderFirstPageRows(
     list: GalleryList,
     deferTranslation: boolean,
+    run: GalleryFirstPageRun,
     saveCache: boolean = true,
-  ): Promise<void> {
+  ): Promise<boolean> {
+    if (!this.isCurrentFirstPageRun(run)) {
+      return false
+    }
     const displayRows: EhGallery[] = list.gallerys.map((g: EhGallery) => g.copy())
     this.cacheRenderVersion = this.cacheRenderVersion + 1
     const renderVersion: number = this.cacheRenderVersion
@@ -292,41 +376,58 @@ export class GalleryListViewModel {
     )
     if (connectTagTranslationSettings().enabled && !deferTranslation) {
       const translated: EhGallery[] = await this.translateRows(displayRows)
-      if (this.cacheRenderVersion !== renderVersion) {
-        return
+      if (this.cacheRenderVersion !== renderVersion || !this.isCurrentFirstPageRun(run)) {
+        return false
       }
       this.dataSource.setData(translated)
       this.itemCount = this.dataSource.totalCount()
       if (saveCache) {
         const snapshot: GalleryList = list.copy()
         snapshot.gallerys = translated
-        await this.saveFirstPageCache(snapshot)
+        await this.saveFirstPageCache(snapshot, run)
       }
-      return
+      return this.isCurrentFirstPageRun(run)
+    }
+    if (!this.isCurrentFirstPageRun(run)) {
+      return false
     }
     this.dataSource.setData(displayRows)
     this.itemCount = this.dataSource.totalCount()
     if (connectTagTranslationSettings().enabled) {
-      this.translateCachedRowsLater(displayRows, renderVersion, saveCache ? list : null)
+      this.translateCachedRowsLater(displayRows, renderVersion, run, saveCache ? list : null)
     } else if (saveCache) {
-      await this.saveFirstPageCache(list)
+      await this.saveFirstPageCache(list, run)
     }
+    return this.isCurrentFirstPageRun(run)
   }
 
-  private async saveFirstPageCache(list: GalleryList): Promise<void> {
-    if (this.context === null) {
+  private async saveFirstPageCache(list: GalleryList, run: GalleryFirstPageRun): Promise<void> {
+    if (this.context === null || !this.isCurrentFirstPageRun(run)) {
       return
     }
-    await EhPageCacheService.saveGalleryList(this.context, this.cacheKey(), list)
+    await EhPageCacheService.saveGalleryList(this.context, run.cacheKey, list)
   }
 
   async reapplyTagTranslation(): Promise<void> {
     if (this.itemCount === 0) {
       return
     }
+    // A settings toggle may translate the current rows asynchronously. Give that repaint its own
+    // generation so a newer first-page run (or a second toggle) cannot be overwritten on completion.
+    const renderVersion: number = this.cacheRenderVersion + 1
+    this.cacheRenderVersion = renderVersion
+    const renderEpoch: number = this.epoch
+    const renderCacheKey: string = this.cacheKey()
     const rows: EhGallery[] = connectTagTranslationSettings().enabled
       ? await this.translateRows(this.dataSource.getAll())
       : TagTranslationService.clearGalleriesTranslations(this.dataSource.getAll())
+    if (
+      this.cacheRenderVersion !== renderVersion ||
+      this.epoch !== renderEpoch ||
+      this.cacheKey() !== renderCacheKey
+    ) {
+      return
+    }
     this.dataSource.setData(rows)
     this.itemCount = this.dataSource.totalCount()
   }
@@ -380,7 +481,7 @@ export class GalleryListViewModel {
       return
     }
     this.source = source
-    await this.reload()
+    await this.reload(true)
   }
 
   /** Switch the toplist period (tl 11 all-time / 12 year / 13 month / 15 yesterday) and hard-reload
@@ -390,7 +491,7 @@ export class GalleryListViewModel {
       return
     }
     this.toplistTl = tl
-    await this.reload()
+    await this.reload(true)
   }
 
   toplistPageCount(): number {
@@ -410,9 +511,9 @@ export class GalleryListViewModel {
       return false
     }
     DiagnosticLogger.info('home-list-anchor', 'gallery_first_page_enter', this.debugState())
-    await this.reload()
+    const committed: boolean = await this.reload()
     DiagnosticLogger.info('home-list-anchor', 'gallery_first_page_done', this.debugState())
-    return true
+    return committed
   }
 
   async jumpToToplistPage(pageNumber: number): Promise<boolean> {
@@ -427,7 +528,7 @@ export class GalleryListViewModel {
       return false
     }
     DiagnosticLogger.info('home-list-anchor', 'toplist_jump_enter', `${this.debugState()} requestedPage=${requestedPage}`)
-    this.epoch = this.epoch + 1
+    const run: GalleryFirstPageRun = this.beginFirstPageRun()
     this.isLoading = true
     this.errorMessage = ''
     this.nextGid = ''
@@ -443,8 +544,14 @@ export class GalleryListViewModel {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(
         this.buildQuery('', requestedPage),
       )
+      if (!this.isCurrentFirstPageRun(run)) {
+        return false
+      }
       this.resolveFavoriteSlots(list.gallerys)
-      await this.renderFirstPageRows(list, this.itemCount === 0, false)
+      const rendered: boolean = await this.renderFirstPageRows(list, this.itemCount === 0, run, false)
+      if (!rendered || !this.isCurrentFirstPageRun(run)) {
+        return false
+      }
       this.nextGid = list.nextGid
       this.prevGid = list.prevGid
       this.maxPage = list.maxPage
@@ -455,17 +562,20 @@ export class GalleryListViewModel {
       this.afterDateJump = false
       this.hasMore = this.firstPageHasMore(list)
       DiagnosticLogger.info('home-list-anchor', 'toplist_jump_done', `${this.debugState()} requestedPage=${requestedPage}`)
-      this.isLoading = false
-      this.loaded = true
       return true
     } catch (err) {
       const e = err as Error
-      this.errorMessage = EhErrorText.forUser(err)
-      DiagnosticLogger.warn('home', 'toplist_jump_failed', `${this.debugState()} requestedPage=${requestedPage} error=${e.message}`)
+      if (this.isCurrentFirstPageRun(run)) {
+        this.errorMessage = EhErrorText.forUser(err)
+        DiagnosticLogger.warn('home', 'toplist_jump_failed', `${this.debugState()} requestedPage=${requestedPage} error=${e.message}`)
+      }
+      return false
+    } finally {
+      if (this.isCurrentFirstPageRun(run)) {
+        this.isLoading = false
+        this.loaded = true
+      }
     }
-    this.isLoading = false
-    this.loaded = true
-    return false
   }
 
   canJumpToDateAfter(): boolean {
@@ -478,7 +588,7 @@ export class GalleryListViewModel {
       return false
     }
     DiagnosticLogger.info('home-list-anchor', 'date_jump_after_enter', `${this.debugState()} seek=${dateText}`)
-    this.epoch = this.epoch + 1
+    const run: GalleryFirstPageRun = this.beginFirstPageRun()
     this.isLoading = true
     this.errorMessage = ''
     this.nextGid = ''
@@ -498,8 +608,14 @@ export class GalleryListViewModel {
       const list: GalleryList = this.isFavorite()
         ? await EhApiService.getInstance().getFavoritesList(this.buildFavQuery('', -1, '', dateText))
         : await EhApiService.getInstance().getGalleryList(this.buildQuery('', -1, dateText))
+      if (!this.isCurrentFirstPageRun(run)) {
+        return false
+      }
       this.resolveFavoriteSlots(list.gallerys)
-      await this.renderFirstPageRows(list, this.itemCount === 0, false)
+      const rendered: boolean = await this.renderFirstPageRows(list, this.itemCount === 0, run, false)
+      if (!rendered || !this.isCurrentFirstPageRun(run)) {
+        return false
+      }
       this.nextGid = list.nextGid
       this.prevGid = list.prevGid
       this.maxPage = list.maxPage
@@ -510,33 +626,46 @@ export class GalleryListViewModel {
       this.afterDateJump = true
       this.hasMore = this.firstPageHasMore(list)
       DiagnosticLogger.info('home-list-anchor', 'date_jump_after_done', `${this.debugState()} seek=${dateText}`)
-      this.isLoading = false
-      this.loaded = true
       return true
     } catch (err) {
       const e = err as Error
-      this.errorMessage = EhErrorText.forUser(err)
-      DiagnosticLogger.warn('home', 'date_jump_after_failed', `${this.debugState()} seek=${dateText} error=${e.message}`)
+      if (this.isCurrentFirstPageRun(run)) {
+        this.errorMessage = EhErrorText.forUser(err)
+        DiagnosticLogger.warn('home', 'date_jump_after_failed', `${this.debugState()} seek=${dateText} error=${e.message}`)
+      }
+      return false
+    } finally {
+      if (this.isCurrentFirstPageRun(run)) {
+        this.isLoading = false
+        this.loaded = true
+      }
     }
-    this.isLoading = false
-    this.loaded = true
-    return false
   }
 
   /** First load (skips if already populated). */
-  async loadData(): Promise<void> {
+  async loadData(): Promise<boolean> {
     DiagnosticLogger.info('home-list-anchor', 'load_data_enter', this.debugState())
     if (this.isLoading || this.itemCount > 0) {
       DiagnosticLogger.info('home-list-anchor', 'load_data_skip', this.debugState())
-      return
+      return false
     }
-    await this.applyCachedFirstPageIfEmpty()
+    const run: GalleryFirstPageRun = this.beginFirstPageRun()
+    await this.applyCachedFirstPageIfEmpty(run)
+    if (!this.isCurrentFirstPageRun(run)) {
+      return false
+    }
     this.isLoading = true
     this.errorMessage = ''
     try {
       const list: GalleryList = await this.fetchFirstPageList()
+      if (!this.isCurrentFirstPageRun(run)) {
+        return false
+      }
       this.resolveFavoriteSlots(list.gallerys)
-      await this.renderFirstPageRows(list, this.itemCount === 0)
+      const rendered: boolean = await this.renderFirstPageRows(list, this.itemCount === 0, run)
+      if (!rendered || !this.isCurrentFirstPageRun(run)) {
+        return false
+      }
       this.nextGid = list.nextGid
       this.prevGid = list.prevGid
       this.maxPage = list.maxPage
@@ -549,13 +678,20 @@ export class GalleryListViewModel {
       this.afterDateJump = false
       this.hasMore = this.firstPageHasMore(list)
       DiagnosticLogger.info('home-list-anchor', 'load_data_done', this.debugState())
+      return true
     } catch (err) {
       const e = err as Error
-      this.errorMessage = EhErrorText.forUser(err)
-      DiagnosticLogger.warn('home', 'list_load_failed', e.message)
+      if (this.isCurrentFirstPageRun(run)) {
+        this.errorMessage = EhErrorText.forUser(err)
+        DiagnosticLogger.warn('home', 'list_load_failed', e.message)
+      }
+      return false
+    } finally {
+      if (this.isCurrentFirstPageRun(run)) {
+        this.isLoading = false
+        this.loaded = true
+      }
     }
-    this.isLoading = false
-    this.loaded = true
   }
 
   // Whether a fresh first-page load has more: toplist follows parsed ptt nextPage; cursor sources page
@@ -575,16 +711,16 @@ export class GalleryListViewModel {
    * The pinned selector may update immediately, but the old rows stay visible until the new page lands;
    * this avoids the white-screen remount regression while still invalidating stale loadMore results.
    */
-  async reload(): Promise<void> {
+  async reload(force: boolean = false): Promise<boolean> {
     DiagnosticLogger.info('home-list-anchor', 'reload_enter', this.debugState())
-    if (this.isLoading) {
+    if (this.isLoading && !force) {
       DiagnosticLogger.info('home-list-anchor', 'reload_skip_loading', this.debugState())
-      return
+      return false
     }
     // Invalidate any in-flight loadMore (it runs without the isLoading flag, so it can overlap a
     // site/source switch) and drop the old cursor immediately, but keep old rows rendered until the
     // replacement page succeeds. On failure, loadMore remains disabled instead of mixing sources.
-    this.epoch = this.epoch + 1
+    const run: GalleryFirstPageRun = this.beginFirstPageRun()
     this.isLoading = true
     this.errorMessage = ''
     this.nextGid = ''
@@ -601,8 +737,14 @@ export class GalleryListViewModel {
     this.hasMore = false
     try {
       const list: GalleryList = await this.fetchFirstPageList()
+      if (!this.isCurrentFirstPageRun(run)) {
+        return false
+      }
       this.resolveFavoriteSlots(list.gallerys)
-      await this.renderFirstPageRows(list, this.itemCount === 0)
+      const rendered: boolean = await this.renderFirstPageRows(list, this.itemCount === 0, run)
+      if (!rendered || !this.isCurrentFirstPageRun(run)) {
+        return false
+      }
       this.nextGid = list.nextGid
       this.prevGid = list.prevGid
       this.maxPage = list.maxPage
@@ -613,13 +755,20 @@ export class GalleryListViewModel {
       this.currentToplistPage = 0
       this.hasMore = this.firstPageHasMore(list)
       DiagnosticLogger.info('home-list-anchor', 'reload_done', this.debugState())
+      return true
     } catch (err) {
       const e = err as Error
-      this.errorMessage = EhErrorText.forUser(err)
-      DiagnosticLogger.warn('home', 'list_reload_failed', e.message)
+      if (this.isCurrentFirstPageRun(run)) {
+        this.errorMessage = EhErrorText.forUser(err)
+        DiagnosticLogger.warn('home', 'list_reload_failed', e.message)
+      }
+      return false
+    } finally {
+      if (this.isCurrentFirstPageRun(run)) {
+        this.isLoading = false
+        this.loaded = true
+      }
     }
-    this.isLoading = false
-    this.loaded = true
   }
 
   /** Pull-to-refresh: replace from the first page. Guarded + flagged isLoading so a concurrent
@@ -641,11 +790,17 @@ export class GalleryListViewModel {
     // Refresh replaces from page 1, so the cursor history resets and any in-flight loadMore is void.
     this.lastNext = ''
     this.lastPrev = ''
-    this.epoch = this.epoch + 1
+    const run: GalleryFirstPageRun = this.beginFirstPageRun()
     try {
       const list: GalleryList = await this.fetchFirstPageList()
+      if (!this.isCurrentFirstPageRun(run)) {
+        return 0
+      }
       this.resolveFavoriteSlots(list.gallerys)
-      await this.renderFirstPageRows(list, this.itemCount === 0)
+      const rendered: boolean = await this.renderFirstPageRows(list, this.itemCount === 0, run)
+      if (!rendered || !this.isCurrentFirstPageRun(run)) {
+        return 0
+      }
       this.nextGid = list.nextGid
       this.prevGid = list.prevGid
       this.maxPage = list.maxPage
@@ -660,10 +815,15 @@ export class GalleryListViewModel {
       DiagnosticLogger.info('home-list-anchor', 'refresh_done', this.debugState())
     } catch (err) {
       const e = err as Error
-      this.errorMessage = EhErrorText.forUser(err)
-      DiagnosticLogger.warn('home', 'list_refresh_failed', e.message)
+      if (this.isCurrentFirstPageRun(run)) {
+        this.errorMessage = EhErrorText.forUser(err)
+        DiagnosticLogger.warn('home', 'list_refresh_failed', e.message)
+      }
+    } finally {
+      if (this.isCurrentFirstPageRun(run)) {
+        this.isLoading = false
+      }
     }
-    this.isLoading = false
     return 0
   }
 

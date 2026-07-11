@@ -1,6 +1,8 @@
 import {
   connectSiteMode,
   SiteModeState,
+  AuthState,
+  connectAuth,
   connectTagTranslationSettings,
   TagTranslationSettingsState,
   SELECTOR_BAR_HEIGHT,
@@ -45,6 +47,7 @@ export struct GallerySourcePage {
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
   @Local siteMode: SiteModeState = connectSiteMode();
+  @Local auth: AuthState = connectAuth();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local profilesState: CustomProfilesState = connectCustomProfiles();
@@ -122,7 +125,7 @@ export struct GallerySourcePage {
     this.configuredEditTime = profile.lastEditTime
     this.vm.configureFromProfile(profile)
     if (this.loadedOnce) {
-      this.vm.reload()
+      this.vm.reload(true)
     }
   }
 
@@ -220,13 +223,23 @@ export struct GallerySourcePage {
     this.scroller.scrollToIndex(0)
   }
 
+  // A retained page must refetch when the account changes: the cache key and the server response both
+  // contain account-scoped personal state. The forced run supersedes an in-flight first-page request.
+  @Monitor('auth.memberId')
+  onAccountChange(): void {
+    if (this.loadedOnce) {
+      DiagnosticLogger.info('home-list-anchor', 'source_account_reload', `sourceKey=${this.sourceKey} vm=${this.vm.debugState()}`)
+      this.vm.reload(true)
+    }
+  }
+
   // A 表/里 site switch invalidates this source's rows; reload only if it has already loaded (an
   // unvisited source reloads naturally on its first activation with the new site).
   @Monitor('siteMode.isEx')
   onSiteChange(): void {
     if (this.loadedOnce) {
       DiagnosticLogger.info('home-list-anchor', 'source_site_reload', `sourceKey=${this.sourceKey} vm=${this.vm.debugState()}`)
-      this.vm.reload()
+      this.vm.reload(true)
     }
   }
 

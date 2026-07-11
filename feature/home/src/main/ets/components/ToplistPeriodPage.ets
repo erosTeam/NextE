@@ -9,6 +9,10 @@ import {
   LocalBlockState,
   connectLocalBlock,
   connectHomeSource,
+  AuthState,
+  connectAuth,
+  SiteModeState,
+  connectSiteMode,
   ThemeConstants,
   AppStrings,
 } from 'shared'
@@ -24,8 +28,9 @@ import { CustomContentDialog } from '@kit.ArkUI'
  * away and back preserves that period's list AND scroll — no shared-list reload. HomeSourceState.toplistTl
  * stays a pure selection bus (it holds no data).
  *
- * Lazy first-load: a period loads its first page only when it FIRST becomes the active tab. No site
- * @Monitor — toplist.php is e-hentai only and does not react to the 表/里 toggle.
+ * Lazy first-load: a period loads its first page only when it FIRST becomes the active tab. Although
+ * toplist.php itself is e-hentai only, its response carries the active Cookie and user-tag filtering, so
+ * retained periods refetch when the account or 表/里 context changes.
  */
 @ComponentV2
 export struct ToplistPeriodPage {
@@ -37,6 +42,8 @@ export struct ToplistPeriodPage {
   @Param scroller: Scroller = new Scroller();
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
   @Local vm: GalleryListViewModel = new GalleryListViewModel();
+  @Local auth: AuthState = connectAuth();
+  @Local siteMode: SiteModeState = connectSiteMode();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local toplistFilter: ToplistFilterState = connectToplistFilter();
   @Local localBlock: LocalBlockState = connectLocalBlock();
@@ -114,6 +121,20 @@ export struct ToplistPeriodPage {
     this.vm.loadData()
   }
 
+  @Monitor('auth.memberId')
+  onAccountChange(): void {
+    if (this.loadedOnce) {
+      this.vm.reload(true)
+    }
+  }
+
+  @Monitor('siteMode.isEx')
+  onSiteChange(): void {
+    if (this.loadedOnce) {
+      this.vm.reload(true)
+    }
+  }
+
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     if (this.loadedOnce) {
@@ -124,7 +145,7 @@ export struct ToplistPeriodPage {
   @Monitor('toplistFilter.applyHiddenUserTags')
   onToplistFilterChange(): void {
     if (this.loadedOnce) {
-      this.vm.reload()
+      this.vm.reload(true)
     }
   }
 
@@ -196,11 +217,13 @@ export struct ToplistPeriodPage {
     }
     this.jumpSubmitting = true
     this.vm.reload()
-      .then(() => {
+      .then((committed: boolean) => {
         this.jumpSubmitting = false
-        setTimeout(() => {
-          this.scroller.scrollToIndex(0)
-        }, 50)
+        if (committed) {
+          setTimeout(() => {
+            this.scroller.scrollToIndex(0)
+          }, 50)
+        }
       })
       .catch((_error: Error) => {
         this.jumpSubmitting = false

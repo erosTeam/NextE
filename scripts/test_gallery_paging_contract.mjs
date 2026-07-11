@@ -15,6 +15,9 @@
  *   • 'popular' is a no-paging fixed snapshot: hasMore stays false and loadMore is a no-op.
  *   • epoch/generation guard: a reload/refresh/source-switch during an in-flight loadMore discards
  *     the stale (cross-source/host) page instead of contaminating the new list + corrupting cursor.
+ *   • first-page ownership run: cache restore, HTTP result, deferred translation, cursor/error/loading
+ *     writes all belong to the account/site/profile/source snapshot that started the request. A retained
+ *     page may force a replacement run while an old one is still in flight.
  * If the .ets logic changes, mirror it here.
  *
  * Run: node scripts/test_gallery_paging_contract.mjs   (exit 1 on any failure)
@@ -101,6 +104,33 @@ class VM {
       }
     }
     this.isLoadingMore = false
+  }
+}
+
+// Minimal mirror of the first-page ownership token. The production VM additionally captures source,
+// profile UUID/revision, toplist period, and favcat; these three cases exercise the two crucial guards:
+// context-key changes (including CookieStore before AuthState publishes) and epoch ABA protection.
+class FirstPageRunVM {
+  constructor() {
+    this.epoch = 0
+    this.cacheKey = 'eh:member:a:home'
+    this.profileEditTime = 1
+    this.applyToplistHiddenUserTags = false
+  }
+  beginFirstPageRun() {
+    this.epoch += 1
+    return {
+      epoch: this.epoch,
+      cacheKey: this.cacheKey,
+      profileEditTime: this.profileEditTime,
+      applyToplistHiddenUserTags: this.applyToplistHiddenUserTags,
+    }
+  }
+  isCurrentFirstPageRun(run) {
+    return this.epoch === run.epoch &&
+      this.cacheKey === run.cacheKey &&
+      this.profileEditTime === run.profileEditTime &&
+      this.applyToplistHiddenUserTags === run.applyToplistHiddenUserTags
   }
 }
 
@@ -212,7 +242,27 @@ const ok = (name, cond) => {
   ok('new source pages forward', vm.rows.map((r) => r.gid).join(',') === '200,199,198,197')
 }
 
-// 9. structural: the guards exist in the .ets
+// 9. first-page ownership: a context switch discards an old response even before the retained-page
+// monitor can publish, and an A→B→A switch cannot revive run A due to its epoch token.
+{
+  const vm = new FirstPageRunVM()
+  const runA = vm.beginFirstPageRun()
+  vm.cacheKey = 'eh:member:b:home'
+  ok('first-page run rejects an account/site cache-key change', vm.isCurrentFirstPageRun(runA) === false)
+  const runB = vm.beginFirstPageRun()
+  vm.cacheKey = 'eh:member:a:home'
+  ok('first-page epoch rejects an ABA account/site switch', vm.isCurrentFirstPageRun(runA) === false)
+  ok('replacement first-page run rejects a subsequent context switch', vm.isCurrentFirstPageRun(runB) === false)
+  vm.cacheKey = 'eh:member:b:home'
+  ok('replacement first-page run accepts its captured context', vm.isCurrentFirstPageRun(runB) === true)
+  vm.profileEditTime = 2
+  ok('first-page run rejects a live profile-query revision', vm.isCurrentFirstPageRun(runB) === false)
+  const runC = vm.beginFirstPageRun()
+  vm.applyToplistHiddenUserTags = true
+  ok('first-page run rejects a live toplist hidden-tag filter change', vm.isCurrentFirstPageRun(runC) === false)
+}
+
+// 10. structural: the guards exist in the .ets
 {
   const src = readFileSync(
     join(ROOT, 'feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets'),
@@ -236,6 +286,37 @@ const ok = (name, cond) => {
   ok('captures epoch before fetch', /const myEpoch: number = this\.epoch/.test(src))
   ok('guards mutations on epoch', /if \(this\.epoch === myEpoch\)/.test(src))
   ok('reload bumps epoch', /this\.epoch = this\.epoch \+ 1/.test(src))
+  ok('declares immutable first-page ownership context',
+    /class GalleryFirstPageRun \{[\s\S]*cacheKey: string[\s\S]*profileEditTime: number/.test(src))
+  ok('first-page current check validates epoch, request fields, and live scoped cache key',
+    /private isCurrentFirstPageRun\(run: GalleryFirstPageRun\): boolean \{[\s\S]*this\.epoch !== run\.epoch[\s\S]*this\.profileEditTime\(\) !== run\.profileEditTime[\s\S]*applyHiddenUserTags !== run\.applyToplistHiddenUserTags[\s\S]*this\.cacheKey\(\) === run\.cacheKey/.test(src))
+  ok('cache restore and delayed cache translation retain the initiating run',
+    /applyCachedFirstPageIfEmpty\(run: GalleryFirstPageRun\)[\s\S]*loadGalleryList\(this\.context, run\.cacheKey\)[\s\S]*!this\.isCurrentFirstPageRun\(run\)/.test(src) &&
+    /translateCachedRowsLater\([\s\S]*run: GalleryFirstPageRun[\s\S]*!this\.isCurrentFirstPageRun\(run\)/.test(src))
+  ok('first-page renderer returns an ownership result after cache/translation awaits',
+    /private async renderFirstPageRows\([\s\S]*run: GalleryFirstPageRun[\s\S]*\): Promise<boolean>[\s\S]*!this\.isCurrentFirstPageRun\(run\)[\s\S]*return this\.isCurrentFirstPageRun\(run\)/.test(src))
+  ok('tag-translation repaint is fenced against a newer first-page run',
+    /async reapplyTagTranslation\(\): Promise<void> \{[\s\S]*const renderVersion: number = this\.cacheRenderVersion \+ 1[\s\S]*const renderEpoch: number = this\.epoch[\s\S]*const renderCacheKey: string = this\.cacheKey\(\)[\s\S]*this\.cacheRenderVersion !== renderVersion[\s\S]*this\.epoch !== renderEpoch[\s\S]*this\.cacheKey\(\) !== renderCacheKey/.test(src))
+  const firstPageBlocks = [
+    ['toplist jump', '  async jumpToToplistPage(', '  canJumpToDateAfter'],
+    ['date jump', '  async jumpToDateAfter(', '  /** First load'],
+    ['first load', '  async loadData()', '  // Whether a fresh first-page'],
+    ['reload', '  async reload(force: boolean = false)', '  /** Pull-to-refresh'],
+    ['refresh', '  async refresh(', '  /** Append the next page'],
+  ]
+  for (const [name, start, end] of firstPageBlocks) {
+    const startIndex = src.indexOf(start)
+    const endIndex = src.indexOf(end, startIndex)
+    assert.ok(startIndex >= 0 && endIndex > startIndex, `${name} first-page block located`)
+    const block = src.slice(startIndex, endIndex)
+    ok(`${name}: starts an ownership run`, /const run: GalleryFirstPageRun = this\.beginFirstPageRun\(\)/.test(block))
+    ok(`${name}: drops an old result after await`, /if \(!this\.isCurrentFirstPageRun\(run\)\)/.test(block))
+    ok(`${name}: commits rows through the ownership-aware renderer`, /renderFirstPageRows\(list, this\.itemCount === 0, run/.test(block))
+    ok(`${name}: only its current run releases the loading state`,
+      /finally \{[\s\S]*if \(this\.isCurrentFirstPageRun\(run\)\) \{[\s\S]*this\.isLoading = false/.test(block))
+  }
+  ok('forced reload supersedes an in-flight first-page request',
+    /async reload\(force: boolean = false\): Promise<boolean> \{[\s\S]*if \(this\.isLoading && !force\)/.test(src))
   ok('toplist loadMore clears stale error before retry fetch',
     /private async loadMoreToplist\(\): Promise<void> \{[\s\S]*this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(src))
   ok('toplist first-page query omits p=0 like eros_fe',
@@ -258,6 +339,7 @@ const ok = (name, cond) => {
   const homeSourceStateSrc = readFileSync(join(ROOT, 'shared/src/main/ets/state/HomeSourceState.ets'), 'utf8')
   const indexSrc = readFileSync(join(ROOT, 'entry/src/main/ets/pages/Index.ets'), 'utf8')
   const sourcePageSrc = readFileSync(join(ROOT, 'feature/home/src/main/ets/components/GallerySourcePage.ets'), 'utf8')
+  const toplistPageSrc = readFileSync(join(ROOT, 'feature/home/src/main/ets/components/ToplistPeriodPage.ets'), 'utf8')
   ok('gallery back-to-top has a dedicated first-page command instead of reusing pull refresh',
     /publishJumpGalleryFirstPage\(\)/.test(homeSourceStateSrc) &&
     /private galleryBackToTopMenuItem\(\): Record<string, Object> \{[\s\S]*HomeSourceBridge\.publishJumpGalleryFirstPage\(\)/.test(indexSrc))
@@ -267,9 +349,16 @@ const ok = (name, cond) => {
     /shouldJumpGalleryFirstPage\(\): boolean \{[\s\S]*return this\.afterDateJump/.test(src) &&
     /async jumpGalleryFirstPage\(\): Promise<boolean> \{[\s\S]*await this\.reload\(\)/.test(src) &&
     /this\.vm\.shouldJumpGalleryFirstPage\(\)[\s\S]*this\.vm\.jumpGalleryFirstPage\(\)/.test(sourcePageSrc))
+  ok('retained gallery source forces a fresh first page for account/site/profile context changes',
+    /@Monitor\('auth\.memberId'\)[\s\S]*this\.vm\.reload\(true\)/.test(sourcePageSrc) &&
+    /@Monitor\('siteMode\.isEx'\)[\s\S]*this\.vm\.reload\(true\)/.test(sourcePageSrc) &&
+    /source_profile_reload[\s\S]*this\.vm\.reload\(true\)/.test(sourcePageSrc))
+  ok('retained toplist period forces a fresh first page for account/site context changes',
+    /@Monitor\('auth\.memberId'\)[\s\S]*this\.vm\.reload\(true\)/.test(toplistPageSrc) &&
+    /@Monitor\('siteMode\.isEx'\)[\s\S]*this\.vm\.reload\(true\)/.test(toplistPageSrc))
 }
 
-// 10. cross-cutting: every paged ViewModel carries the same race guards as Home, while the
+// 11. cross-cutting: every paged ViewModel carries the same race guards as Home, while the
 // Favorites VM may use FE's page+from pagination instead of only nextGid.
 // (a) epoch (loadMore-vs-reset) guard — a reset path runs without the isLoadingMore guard, so an
 //     in-flight loadMore could contaminate the new list on favcat/query/source switch.
