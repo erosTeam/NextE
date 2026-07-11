@@ -37,8 +37,31 @@ const SQL_UPSERT_SELECTED: string =
   'INSERT INTO custom_profile_selection (scope_key, selected_uuid, updated_at, deleted_at) ' +
   'VALUES (?, ?, ?, 0) ON CONFLICT(scope_key) DO UPDATE SET selected_uuid = excluded.selected_uuid, ' +
   'updated_at = excluded.updated_at, deleted_at = 0'
+const SQL_HAS_PERSISTED_PROFILES: string =
+  'SELECT 1 AS has_state FROM custom_profiles WHERE scope_key = ? LIMIT 1'
+const SQL_HAS_PERSISTED_SELECTION: string =
+  'SELECT 1 AS has_state FROM custom_profile_selection WHERE scope_key = ? LIMIT 1'
 
 export class CustomProfilesRepository {
+  /** Any profile or selection row, including a tombstone, makes RDB canonical over stale legacy JSON. */
+  static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const profiles: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_PROFILES, [SCOPE_GLOBAL])
+    try {
+      if (profiles.goToNextRow()) {
+        return true
+      }
+    } finally {
+      profiles.close()
+    }
+    const selection: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_SELECTION, [SCOPE_GLOBAL])
+    try {
+      return selection.goToNextRow()
+    } finally {
+      selection.close()
+    }
+  }
+
   static async loadProfiles(context: common.UIAbilityContext): Promise<CustomProfile[]> {
     const out: CustomProfile[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)

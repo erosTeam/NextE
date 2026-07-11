@@ -587,6 +587,7 @@ export class CustomProfilesSettings {
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const revision: number = CustomProfilesSettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
       StorageKeys.STORE_SETTINGS,
@@ -601,9 +602,27 @@ export class CustomProfilesSettings {
       selected = profiles.length > 0 ? profiles[0].uuid : ''
     }
     const snapshot: CustomProfile[] = CustomProfilesSettings.snapshotProfiles(profiles)
-    await CustomProfilesSettings.enqueueRdbWrite(
-      (): Promise<void> => CustomProfilesRepository.replaceAll(context, snapshot, selected),
-    )
+    try {
+      await CustomProfilesSettings.enqueueRdbWrite(async (): Promise<void> => {
+        if (revision !== CustomProfilesSettings.mutationRevision) {
+          return
+        }
+        if (await CustomProfilesRepository.hasPersistedState(context)) {
+          return
+        }
+        if (revision !== CustomProfilesSettings.mutationRevision) {
+          return
+        }
+        await CustomProfilesRepository.replaceAll(context, snapshot, selected)
+      })
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'custom_profiles_migrate_failed', (error as Error).message)
+      // Keep the only legacy copy intact. A later startup can retry once the RDB write succeeds.
+      return
+    }
+    if (revision !== CustomProfilesSettings.mutationRevision) {
+      return
+    }
     await CustomProfilesSettings.deleteLegacyPreferences(context)
   }
 

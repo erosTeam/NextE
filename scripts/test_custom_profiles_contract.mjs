@@ -73,6 +73,17 @@ must(settings.includes('migrateLegacyPreferences') &&
   settings.includes("store.getSync(StorageKeys.HOME_CUSTOM_PROFILES, '')") &&
   settings.includes('store.deleteSync(StorageKeys.HOME_CUSTOM_PROFILES)'),
   'legacy custom profile Preferences rows must migrate once')
+const customProfilesRepository = read('shared/src/main/ets/storage/CustomProfilesRepository.ets')
+must(
+  customProfilesRepository.includes('static async hasPersistedState') &&
+    customProfilesRepository.includes('SQL_HAS_PERSISTED_PROFILES') &&
+    customProfilesRepository.includes('SQL_HAS_PERSISTED_SELECTION') &&
+    settings.includes('const revision: number = CustomProfilesSettings.mutationRevision') &&
+    settings.includes('await CustomProfilesRepository.hasPersistedState(context)') &&
+    settings.includes('custom_profiles_migrate_failed') &&
+    settings.includes('Keep the only legacy copy intact'),
+  'legacy custom-profile migration must preserve newer RDB state and retain the only legacy copy on failure',
+)
 must(
   /"name": "tab_seed_chinese",\s*"value": "中文"/.test(zhStrings),
   'zh_CN starter Chinese custom profile label must be 中文',
