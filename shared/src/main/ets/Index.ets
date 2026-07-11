@@ -600,6 +600,7 @@ export {
   GallerySeedQueueTask,
   GallerySeedScheduler,
 } from './settings/DownloadQueueSettings'
+export { DownloadQueueRestoreReconciler } from './settings/DownloadQueueRestoreReconciler'
 export { SecurityAuthResult, SecuritySettings } from './settings/SecuritySettings'
 export { SubtabSelectionSettings } from './settings/SubtabSelectionSettings'
 export { AppColorFavoritesSettings } from './settings/AppColorFavoritesSettings'

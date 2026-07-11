@@ -185,6 +185,7 @@ const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
 const moduleJson = read('entry/src/main/module.json5')
 const autoResumeBody = settings.match(/shouldAutoResumeGalleryTask\(task: DownloadGalleryTask\): boolean \{[\s\S]*?\n  \}/)?.[0] ?? ''
 const pendingResumeBody = settings.match(/private static async runPendingResume\([\s\S]*?\n  private static async runArchiverDownload/)?.[0] ?? ''
+const restoreBody = settings.match(/static async restore\([\s\S]*?\n  static async importTasksFromDownloadDirectory/)?.[0] ?? ''
 const downloadWriteRootCandidatesBody =
   settings.match(/downloadWriteRootCandidates\(\): string\[\] \{([\s\S]*?)\n  \}/)?.[1] ?? ''
 ok('settings facade uses RDB and only reads old Preferences for migration',
@@ -268,12 +269,22 @@ ok('download directories keep per-task metadata sidecars for queue recovery',
     /archiverMetadataPath\(context: common\.UIAbilityContext, task: DownloadArchiverTask\)[\s\S]*ensureArchiverDownloadDir\(context\)[\s\S]*ARCHIVER_METADATA_SUFFIX/.test(settings) &&
     /writeTextFile\(path: string, text: string, event: string\)[\s\S]*fs\.OpenMode\.CREATE[\s\S]*fs\.OpenMode\.TRUNC[\s\S]*fs\.writeSync/.test(settings))
 ok('restore falls back to download metadata sidecars without overriding RDB rows',
-    /mergeRestoredGalleryTasks\([\s\S]*normalizeRestoredGalleryTasks\(await DownloadQueueRepository\.load\(context\)\)[\s\S]*loadGalleryMetadataTasks\(context\)/.test(settings) &&
-    /mergeRestoredArchiverTasks\([\s\S]*normalizeRestoredArchiverTasks\(await DownloadQueueRepository\.loadArchiver\(context\)\)[\s\S]*loadArchiverMetadataTasks\(context\)/.test(settings) &&
+    /const rdbGalleryTasks: DownloadGalleryTask\[\] =[\s\S]*normalizeRestoredGalleryTasks\(await DownloadQueueRepository\.load\(context\)\)/.test(restoreBody) &&
+    /const metadataGalleryTasks: DownloadGalleryTask\[\] =[\s\S]*loadGalleryMetadataTasks\(context\)/.test(restoreBody) &&
+    /mergeRestoredGalleryTasks\([\s\S]*rdbGalleryTasks,[\s\S]*metadataGalleryTasks/.test(restoreBody) &&
+    /const rdbArchiverTasks: DownloadArchiverTask\[\] =[\s\S]*normalizeRestoredArchiverTasks\(await DownloadQueueRepository\.loadArchiver\(context\)\)/.test(restoreBody) &&
+    /const metadataArchiverTasks: DownloadArchiverTask\[\] =[\s\S]*loadArchiverMetadataTasks\(context\)/.test(restoreBody) &&
+    /mergeRestoredArchiverTasks\([\s\S]*rdbArchiverTasks,[\s\S]*metadataArchiverTasks/.test(restoreBody) &&
     /loadGalleryMetadataTasks\(context: common\.UIAbilityContext\)[\s\S]*galleryRootDirs\(context\)[\s\S]*legacyGalleryRootDir\(context\)[\s\S]*fs\.listFileSync\(root\)/.test(settings) &&
     /loadArchiverMetadataTasks\(context: common\.UIAbilityContext\)[\s\S]*archiverRootDirs\(context\)[\s\S]*legacyArchiverRootDir\(context\)[\s\S]*fs\.listFileSync\(root\)/.test(settings) &&
     /mergeRestoredGalleryTasks\([\s\S]*const out: DownloadGalleryTask\[\] = primary\.map[\s\S]*sameGalleryTask\(it, task\.gid, task\.token, task\.preferOriginal\)[\s\S]*out\.push\(task\.copy\(\)\)/.test(settings) &&
     /mergeRestoredArchiverTasks\([\s\S]*const out: DownloadArchiverTask\[\] = primary\.map[\s\S]*it\.tag === task\.tag[\s\S]*out\.push\(task\.copy\(\)\)/.test(settings))
+ok('cold restore skips full queue rewrites unless normalization or metadata recovery changed durable data',
+  /DownloadQueueRestoreReconciler\.galleryNeedsRdbReconcile\(rdbGalleryTasks, galleryTasks\)/.test(restoreBody) &&
+    /DownloadQueueRestoreReconciler\.archiverNeedsRdbReconcile\(rdbArchiverTasks, archiverTasks\)/.test(restoreBody) &&
+    /if \(galleryRdbNeedsReconcile\) \{[\s\S]*persist\(context, galleryTasks\)/.test(restoreBody) &&
+    /if \(archiverRdbNeedsReconcile\) \{[\s\S]*persistArchiver\(context, archiverTasks\)/.test(restoreBody) &&
+    /download_queue_restore_reconciled/.test(restoreBody))
 ok('archiver tasks inherit missing title token and cover from matching gallery queue tasks',
   /hydrateArchiverTasksFromGalleryTasks\([\s\S]*mergeRestoredArchiverTasks\([\s\S]*galleryTasks/.test(settings) &&
     /fillArchiverTaskFromGalleryTask\([\s\S]*task\.token\.length === 0[\s\S]*task\.token = galleryTask\.token/.test(settings) &&
@@ -327,7 +338,7 @@ ok('failed image download retries re-resolve stale EH one-shot image URLs',
     /resolve\(image, shouldRefreshImageUrl\)/.test(settings) &&
     /async resolveOriginal\(image: EhGalleryImage, changeSource: boolean = false\): Promise<string>/.test(imageResolve) &&
     /const cached: ImagePageResult \| undefined = changeSource \? undefined : this\.cache\.getResolved\(image\.sUrl\)/.test(imageResolve) &&
-    /await this\.doResolve\(image, changeSource\)/.test(imageResolve))
+    /await this\.doResolve\(image, changeSource, sourceEpoch\)/.test(imageResolve))
 ok('restore validates completed archiver package before keeping read-ready state',
   /out\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*normalizeRestoredArchiverComplete\(out\)/.test(settings) &&
     /downloadedFileSize\(task\.filePath\)/.test(settings) &&

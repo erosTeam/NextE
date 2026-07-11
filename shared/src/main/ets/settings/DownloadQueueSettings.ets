@@ -34,6 +34,7 @@ import { ArchiveBotResolveResult, ArchiveBotService } from '../services/ArchiveB
 import { DownloadNotificationService } from '../services/DownloadNotificationService'
 import { DownloadQueueRepository } from '../storage/DownloadQueueRepository'
 import { DownloadSettings } from './DownloadSettings'
+import { DownloadQueueRestoreReconciler } from './DownloadQueueRestoreReconciler'
 
 const MAX_GALLERY_TASKS: number = 200
 const MAX_ARCHIVER_TASKS: number = 100
@@ -514,22 +515,45 @@ export class DownloadQueueSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await DownloadQueueSettings.migrateLegacyPreferences(context)
+      const rdbGalleryTasks: DownloadGalleryTask[] =
+        DownloadQueueSettings.normalizeRestoredGalleryTasks(await DownloadQueueRepository.load(context))
+      const metadataGalleryTasks: DownloadGalleryTask[] =
+        DownloadQueueSettings.normalizeRestoredGalleryTasks(DownloadQueueSettings.loadGalleryMetadataTasks(context))
       const galleryTasks: DownloadGalleryTask[] = DownloadQueueSettings.mergeRestoredGalleryTasks(
-        DownloadQueueSettings.normalizeRestoredGalleryTasks(await DownloadQueueRepository.load(context)),
-        DownloadQueueSettings.normalizeRestoredGalleryTasks(DownloadQueueSettings.loadGalleryMetadataTasks(context)),
+        rdbGalleryTasks,
+        metadataGalleryTasks,
       )
+      const rdbArchiverTasks: DownloadArchiverTask[] =
+        DownloadQueueSettings.normalizeRestoredArchiverTasks(await DownloadQueueRepository.loadArchiver(context))
+      const metadataArchiverTasks: DownloadArchiverTask[] =
+        DownloadQueueSettings.normalizeRestoredArchiverTasks(DownloadQueueSettings.loadArchiverMetadataTasks(context))
       const archiverTasks: DownloadArchiverTask[] = DownloadQueueSettings.hydrateArchiverTasksFromGalleryTasks(
         DownloadQueueSettings.mergeRestoredArchiverTasks(
-          DownloadQueueSettings.normalizeRestoredArchiverTasks(await DownloadQueueRepository.loadArchiver(context)),
-          DownloadQueueSettings.normalizeRestoredArchiverTasks(DownloadQueueSettings.loadArchiverMetadataTasks(context)),
+          rdbArchiverTasks,
+          metadataArchiverTasks,
         ),
         galleryTasks,
       )
+      const galleryRdbNeedsReconcile: boolean =
+        DownloadQueueRestoreReconciler.galleryNeedsRdbReconcile(rdbGalleryTasks, galleryTasks)
+      const archiverRdbNeedsReconcile: boolean =
+        DownloadQueueRestoreReconciler.archiverNeedsRdbReconcile(rdbArchiverTasks, archiverTasks)
       const state = connectDownloadQueue()
       DownloadQueueSettings.setGalleryTasks(state, galleryTasks)
       DownloadQueueSettings.setArchiverTasks(state, archiverTasks)
-      await DownloadQueueSettings.persist(context, galleryTasks)
-      await DownloadQueueSettings.persistArchiver(context, archiverTasks)
+      if (galleryRdbNeedsReconcile) {
+        await DownloadQueueSettings.persist(context, galleryTasks)
+      }
+      if (archiverRdbNeedsReconcile) {
+        await DownloadQueueSettings.persistArchiver(context, archiverTasks)
+      }
+      if (galleryRdbNeedsReconcile || archiverRdbNeedsReconcile) {
+        DiagnosticLogger.info(
+          'download',
+          'download_queue_restore_reconciled',
+          `gallery=${galleryTasks.length} archiver=${archiverTasks.length}`,
+        )
+      }
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_restore_failed', (error as Error).message)
     }
