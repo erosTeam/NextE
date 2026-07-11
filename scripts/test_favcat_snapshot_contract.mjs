@@ -106,6 +106,22 @@ ok('FavcatListSettings never persists restored placeholder favcats over real met
     /if \(!FavSelectionState\.isPlaceholderFavcat\(restored\)\) \{[\s\S]*out\.push\(restored\)/.test(settings))
 ok('FavcatListSettings avoids persisting an empty snapshot over a good one',
   /if \(snap\.length === 0\) \{[\s\S]*return[\s\S]*\}/.test(settings))
+{
+  const persistStart = settings.indexOf('static async persist')
+  const persistEnd = settings.indexOf('private static activeMemberId', persistStart)
+  const persist = settings.slice(persistStart, persistEnd)
+  const mergeIndex = persist.indexOf('FavcatListSettings.mergeWithPreviousCounts')
+  const serializeIndex = persist.indexOf('const serialized: string = JSON.stringify(payload)')
+  const skipIndex = persist.indexOf('if (previousRaw === serialized)')
+  const writeIndex = persist.indexOf('store.putSync(key, serialized)')
+  ok('FavcatListSettings skips synchronous preference writes only after normalizing an unchanged snapshot',
+    mergeIndex >= 0 &&
+      serializeIndex > mergeIndex &&
+      skipIndex > serializeIndex &&
+      writeIndex > skipIndex &&
+      /if \(previousRaw === serialized\) \{[\s\S]*return[\s\S]*\}/.test(persist) &&
+      /store\.putSync\(key, serialized\)[\s\S]*store\.flushSync\(\)/.test(persist))
+}
 ok('FavcatListSettings preserves existing counts when a gallery popup refresh only supplies names',
   /mergeWithPreviousCounts\(previous: Favcat\[\], incoming: Favcat\[\]\): Favcat\[\]/.test(settings) &&
     /next\.totNum === 0[\s\S]*old\.totNum > 0[\s\S]*next\.favTitle === old\.favTitle[\s\S]*next\.totNum = old\.totNum/.test(settings))

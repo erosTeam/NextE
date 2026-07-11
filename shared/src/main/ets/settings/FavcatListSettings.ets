@@ -77,7 +77,13 @@ export class FavcatListSettings {
       }
       const payload: Object =
         memberId.length > 0 ? new FavcatSnapshotEnvelope(memberId, snap) : snap
-      store.putSync(key, JSON.stringify(payload))
+      const serialized: string = JSON.stringify(payload)
+      // favorites.php and the detail favorite sheet can repeatedly return the same 10 slots. Avoid
+      // a synchronous Preferences rewrite/flush unless the normalized, account-scoped snapshot changed.
+      if (previousRaw === serialized) {
+        return
+      }
+      store.putSync(key, serialized)
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'favcat_save_failed', (error as Error).message)
