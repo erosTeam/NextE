@@ -52,9 +52,10 @@ ok('Local favorites preference key is centralized',
   /LOCAL_FAVORITES: string = 'favorites\.local'/.test(storageKeys))
 ok('LocalFavSettings restores into LocalFavState',
   /LocalFavoriteRepository\.load\(context\)/.test(localSettings) &&
-    /connectLocalFav\(\)\.items = await LocalFavoriteRepository\.load\(context\)/.test(localSettings))
-ok('LocalFavSettings persists gallery snapshots through RDB',
-  /LocalFavoriteRepository\.replaceAll\(context, LocalFavSettings\.snapshotGalleries\(items\)\)/.test(localSettings) &&
+    /await LocalFavSettings\.refreshFromStorage\(context\)/.test(localSettings) &&
+    /connectLocalFav\(\)\.items = items/.test(localSettings))
+ok('LocalFavSettings retains full RDB replacement only for explicit gallery snapshots',
+  /static async persist[\s\S]*enqueueRdbWrite[\s\S]*LocalFavoriteRepository\.replaceAll\([\s\S]*LocalFavSettings\.snapshotGalleries\(items\)/.test(localSettings) &&
     !/store\.putSync\(StorageKeys\.LOCAL_FAVORITES/.test(localSettings))
 ok('legacy local favorite Preferences rows are migrated once',
   /migrateLegacyPreferences/.test(localSettings) &&
@@ -70,6 +71,35 @@ ok('local favorite repository loads newest-first and tombstones scoped rows',
   /ORDER BY last_view_time DESC, gid DESC/.test(localRepo) &&
     /UPDATE local_favorites SET deleted_at = \?/.test(localRepo) &&
     /ON CONFLICT\(scope_key, gid\) DO UPDATE/.test(localRepo))
+const addStart = localSettings.indexOf('static async add')
+const addEnd = localSettings.indexOf('\n  static async removeByGid', addStart)
+const addMethod = localSettings.slice(addStart, addEnd)
+const removeStart = localSettings.indexOf('static async removeByGid')
+const removeEnd = localSettings.indexOf('\n  static contains', removeStart)
+const removeMethod = localSettings.slice(removeStart, removeEnd)
+ok('ordinary local-favorite add/remove touch only their own durable gid',
+  /persistAdd\(context, prepared\)/.test(addMethod) &&
+    !/persist\(context, next\)/.test(addMethod) &&
+    /persistRemoval\(context, gid\)/.test(removeMethod) &&
+    !/persist\(context, next\)/.test(removeMethod))
+ok('local favorite repository serializes one-row mutations with logical timestamps and tombstones',
+  /static async upsert\(context: common\.UIAbilityContext, item: EhGallery\): Promise<number>/.test(localRepo) &&
+    /static async tombstone[\s\S]*SQL_TOMBSTONE_GID/.test(localRepo) &&
+    /SQL_SELECT_MAX_EFFECTIVE_TIME/.test(localRepo) &&
+    /WHERE excluded\.last_view_time >= CASE WHEN COALESCE\(local_favorites\.deleted_at, 0\) >/.test(localRepo) &&
+    /INSERT INTO local_favorites \(scope_key, gid, last_view_time, deleted_at\)/.test(localRepo))
+ok('full local-favorite replacements remain transactional for backup and migration',
+  /static async replaceAll[\s\S]*store\.beginTransaction\(\)[\s\S]*nextMutationTime\(store, Date\.now\(\)\)[\s\S]*SQL_TOMBSTONE_SCOPE[\s\S]*replacedAt \+ items\.length - i[\s\S]*SQL_RESTORE_UPSERT[\s\S]*store\.commit\(\)[\s\S]*catch \(error\) \{[\s\S]*store\.rollBack\(\)/.test(localRepo) &&
+    /restoreBackup[\s\S]*LocalFavoriteRepository\.replaceAll/.test(localSettings) &&
+    /migrateLegacyPreferences[\s\S]*LocalFavoriteRepository\.replaceAll/.test(localSettings))
+const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
+const syncService = read('shared/src/main/ets/sync/SyncService.ets')
+const huaweiCloud = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
+ok('sync cannot overwrite a newer local favorite toggle with an older envelope',
+  /SQL_APPLY_LOCAL_FAVORITE[\s\S]*WHERE CASE WHEN COALESCE\(excluded\.deleted_at, 0\) >/.test(syncAdapter) &&
+    /COALESCE\(local_favorites\.last_view_time, 0\)/.test(syncAdapter) &&
+    /mergeRemoteEnvelope[\s\S]*selection\.localFavorites[\s\S]*LocalFavSettings\.flushForSync\(context\)[\s\S]*exportEnvelope/.test(syncService) &&
+    /cloudSyncNow[\s\S]*selection\.localFavorites[\s\S]*LocalFavSettings\.flushForSync\(context\)[\s\S]*markDistributedTables/.test(huaweiCloud))
 const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
 const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
 ok('backup localData includes local favorites',

@@ -32,10 +32,15 @@ class LocalFavGallerySnapshot {
 
 /** Persists the local-only Favorites slot (`favcat=l`). */
 export class LocalFavSettings {
+  // Keep add/remove, backup restore, and provider drains in their call order. A rapid toggle must
+  // never let its earlier RDB write finish after its later tombstone.
+  private static rdbWriteTail: Promise<void> = Promise.resolve()
+  private static mutationRevision: number = 0
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await LocalFavSettings.migrateLegacyPreferences(context)
-      connectLocalFav().items = await LocalFavoriteRepository.load(context)
+      await LocalFavSettings.refreshFromStorage(context)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'localfav_restore_failed', (error as Error).message)
     }
@@ -43,7 +48,12 @@ export class LocalFavSettings {
 
   static async persist(context: common.UIAbilityContext, items: EhGallery[]): Promise<void> {
     try {
-      await LocalFavoriteRepository.replaceAll(context, LocalFavSettings.snapshotGalleries(items))
+      await LocalFavSettings.enqueueRdbWrite(
+        (): Promise<void> => LocalFavoriteRepository.replaceAll(
+          context,
+          LocalFavSettings.snapshotGalleries(items),
+        ),
+      )
       SyncScheduler.requestAfterLocalWrite(context, 'local_favorites')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'localfav_save_failed', (error as Error).message)
@@ -55,7 +65,9 @@ export class LocalFavSettings {
       return false
     }
     const state = connectLocalFav()
-    const next: EhGallery[] = [LocalFavSettings.prepare(gallery)]
+    const prepared: EhGallery = LocalFavSettings.prepare(gallery)
+    prepared.lastViewTime = LocalFavSettings.nextMutationTime(state.items, prepared.lastViewTime)
+    const next: EhGallery[] = [prepared]
     state.items.forEach((item: EhGallery) => {
       if (item.gid !== gallery.gid) {
         next.push(item.copy())
@@ -63,7 +75,8 @@ export class LocalFavSettings {
     })
     const inserted: boolean = next.length !== state.items.length || state.items.length === 0 || state.items[0].gid !== gallery.gid
     state.items = next
-    await LocalFavSettings.persist(context, next)
+    LocalFavSettings.mutationRevision = LocalFavSettings.mutationRevision + 1
+    await LocalFavSettings.persistAdd(context, prepared)
     return inserted
   }
 
@@ -85,7 +98,8 @@ export class LocalFavSettings {
       return false
     }
     state.items = next
-    await LocalFavSettings.persist(context, next)
+    LocalFavSettings.mutationRevision = LocalFavSettings.mutationRevision + 1
+    await LocalFavSettings.persistRemoval(context, gid)
     return true
   }
 
@@ -98,13 +112,20 @@ export class LocalFavSettings {
 
   static async exportForBackup(context: common.UIAbilityContext): Promise<EhGallery[]> {
     await LocalFavSettings.migrateLegacyPreferences(context)
+    await LocalFavSettings.flushForSync(context)
     return LocalFavoriteRepository.load(context)
   }
 
   static async restoreBackup(context: common.UIAbilityContext, items: EhGallery[]): Promise<void> {
-    await LocalFavoriteRepository.replaceAll(context, LocalFavSettings.snapshotGalleries(items))
+    LocalFavSettings.mutationRevision = LocalFavSettings.mutationRevision + 1
+    await LocalFavSettings.enqueueRdbWrite(
+      (): Promise<void> => LocalFavoriteRepository.replaceAll(
+        context,
+        LocalFavSettings.snapshotGalleries(items),
+      ),
+    )
     await LocalFavSettings.deleteLegacyPreference(context)
-    connectLocalFav().items = await LocalFavoriteRepository.load(context)
+    await LocalFavSettings.refreshFromStorage(context)
     SyncScheduler.requestAfterLocalWrite(context, 'local_favorites_restore_backup')
   }
 
@@ -119,10 +140,71 @@ export class LocalFavSettings {
     }
     const items: EhGallery[] = LocalFavSettings.parse(raw)
     if (items.length > 0) {
-      await LocalFavoriteRepository.replaceAll(context, items)
+      await LocalFavSettings.enqueueRdbWrite(
+        (): Promise<void> => LocalFavoriteRepository.replaceAll(context, items),
+      )
     }
     store.deleteSync(StorageKeys.LOCAL_FAVORITES)
     store.flushSync()
+  }
+
+  /** Drain current local-favorite writes before WebDAV/Huawei Cloud reads the durable table. */
+  static async flushForSync(_context: common.UIAbilityContext): Promise<void> {
+    await LocalFavSettings.rdbWriteTail
+  }
+
+  private static async persistAdd(context: common.UIAbilityContext, item: EhGallery): Promise<void> {
+    try {
+      await LocalFavSettings.enqueueRdbWrite(async (): Promise<void> => {
+        item.lastViewTime = await LocalFavoriteRepository.upsert(context, item)
+      })
+      SyncScheduler.requestAfterLocalWrite(context, 'local_favorites')
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'localfav_add_failed', (error as Error).message)
+    }
+  }
+
+  private static async persistRemoval(context: common.UIAbilityContext, gid: string): Promise<void> {
+    try {
+      await LocalFavSettings.enqueueRdbWrite(async (): Promise<void> => {
+        await LocalFavoriteRepository.tombstone(context, gid)
+      })
+      SyncScheduler.requestAfterLocalWrite(context, 'local_favorites')
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'localfav_remove_failed', (error as Error).message)
+    }
+  }
+
+  /** Keep later writes runnable after a failed database operation. */
+  private static enqueueRdbWrite(work: () => Promise<void>): Promise<void> {
+    const next: Promise<void> = LocalFavSettings.rdbWriteTail.then(
+      (): Promise<void> => work(),
+      (): Promise<void> => work(),
+    )
+    LocalFavSettings.rdbWriteTail = next
+    return next
+  }
+
+  /** The live list mirrors the durable newest-first order while the repository handles old tombstones. */
+  private static nextMutationTime(items: EhGallery[], requestedTime: number): number {
+    let latest: number = 0
+    items.forEach((item: EhGallery) => {
+      latest = Math.max(latest, Math.floor(item.lastViewTime))
+    })
+    return Math.max(Date.now(), Math.max(0, Math.floor(requestedTime)), latest + 1)
+  }
+
+  /** Do not replace an add/remove that arrived while an RDB snapshot was loading. */
+  private static async refreshFromStorage(context: common.UIAbilityContext): Promise<void> {
+    for (let attempt: number = 0; attempt < 2; attempt++) {
+      await LocalFavSettings.rdbWriteTail
+      const revision: number = LocalFavSettings.mutationRevision
+      const items: EhGallery[] = await LocalFavoriteRepository.load(context)
+      if (revision === LocalFavSettings.mutationRevision) {
+        connectLocalFav().items = items
+        return
+      }
+    }
   }
 
   private static prepare(gallery: EhGallery): EhGallery {
