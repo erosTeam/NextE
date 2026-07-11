@@ -35,10 +35,15 @@ class VM {
     this.source = source
     this.rows = [] // dataSource.getAll()
     this.nextGid = ''
+    this.prevGid = ''
     this.lastNext = ''
+    this.lastPrev = ''
     this.hasMore = true
     this.epoch = 0
+    this.cacheKey = 'eh:member:a:home'
     this.errorMessage = ''
+    this.isLoading = false
+    this.isLoadingMore = false
     this.fetches = 0 // count of network calls actually issued
   }
   isPopular() {
@@ -55,25 +60,51 @@ class VM {
     }
     return out
   }
+  capturePagingRun() {
+    return { epoch: this.epoch, cacheKey: this.cacheKey, source: this.source }
+  }
+  isCurrentPagingRun(run) {
+    return this.epoch === run.epoch &&
+      this.cacheKey === run.cacheKey &&
+      this.source === run.source
+  }
   load(page) {
     // first-page load (loadData): replace, reset cursor history
     this.rows = page.gallerys.slice()
     this.nextGid = page.nextGid
+    this.prevGid = page.prevGid
     this.lastNext = ''
+    this.lastPrev = ''
     this.hasMore = !this.isPopular() && page.nextGid.length > 0
   }
   reload(page1, source) {
-    // reload()/setSource()/refresh(): bump epoch (void any in-flight loadMore), replace with page1
+    // Completed replacement first page: it bumps epoch, owns the footer state, and replaces rows.
     this.epoch += 1
     if (source !== undefined) this.source = source
     this.rows = page1.gallerys.slice()
     this.nextGid = page1.nextGid
+    this.prevGid = page1.prevGid
     this.lastNext = ''
+    this.lastPrev = ''
+    this.isLoadingMore = false
+    this.isLoading = false
     this.hasMore = !this.isPopular() && page1.nextGid.length > 0
   }
-  // `midFlight` simulates the await suspension point: it runs after the fetch but before the result
-  // is applied (where a concurrent reload/refresh can land).
-  loadMore(server, midFlight) {
+  beginReplacement(page1, source) {
+    // Model an in-flight first-page replacement: old paging must not release this loading flag.
+    this.epoch += 1
+    if (source !== undefined) this.source = source
+    this.rows = page1.gallerys.slice()
+    this.nextGid = page1.nextGid
+    this.prevGid = page1.prevGid
+    this.lastNext = ''
+    this.lastPrev = ''
+    this.isLoadingMore = false
+    this.isLoading = true
+    this.hasMore = !this.isPopular() && page1.nextGid.length > 0
+  }
+  // `midFlight` simulates the network await; `midTranslation` is the later translateRows await.
+  loadMore(server, midFlight, midTranslation) {
     if (this.isLoading || this.isLoadingMore || !this.hasMore || this.isPopular()) return
     const requestedNext = this.nextGid
     if (requestedNext.length === 0) {
@@ -86,24 +117,49 @@ class VM {
     }
     this.isLoadingMore = true
     this.errorMessage = ''
-    const myEpoch = this.epoch
+    const run = this.capturePagingRun()
     this.fetches += 1
     try {
       const page = server(requestedNext)
       if (midFlight) midFlight()
-      if (this.epoch === myEpoch) {
+      if (this.isCurrentPagingRun(run)) {
         const fresh = this.dedupeNew(page.gallerys)
-        if (fresh.length > 0) this.rows = this.rows.concat(fresh)
-        this.nextGid = page.nextGid
-        this.lastNext = requestedNext
-        this.hasMore = page.nextGid.length > 0 && fresh.length > 0
+        if (midTranslation) midTranslation()
+        if (this.isCurrentPagingRun(run)) {
+          if (fresh.length > 0) this.rows = this.rows.concat(fresh)
+          this.nextGid = page.nextGid
+          this.lastNext = requestedNext
+          this.hasMore = page.nextGid.length > 0 && fresh.length > 0
+        }
       }
     } catch (_err) {
-      if (this.epoch === myEpoch) {
+      if (this.isCurrentPagingRun(run)) {
         this.errorMessage = 'load-more failed'
       }
     }
-    this.isLoadingMore = false
+    if (this.isCurrentPagingRun(run)) this.isLoadingMore = false
+  }
+  loadPrevious(server, midTranslation, afterPrepend) {
+    const requestedPrev = this.prevGid
+    this.isLoading = true
+    const run = this.capturePagingRun()
+    try {
+      const page = server(requestedPrev)
+      if (this.isCurrentPagingRun(run)) {
+        const fresh = this.dedupeNew(page.gallerys)
+        if (midTranslation) midTranslation()
+        if (this.isCurrentPagingRun(run)) {
+          if (fresh.length > 0) {
+            this.rows = fresh.concat(this.rows)
+            if (afterPrepend) afterPrepend(fresh.length)
+          }
+          this.prevGid = page.prevGid
+          this.lastPrev = requestedPrev
+        }
+      }
+    } finally {
+      if (this.isCurrentPagingRun(run)) this.isLoading = false
+    }
   }
 }
 
@@ -135,7 +191,7 @@ class FirstPageRunVM {
 }
 
 const g = (gid) => ({ gid })
-const page = (gids, nextGid) => ({ gallerys: gids.map(g), nextGid })
+const page = (gids, nextGid, prevGid = '') => ({ gallerys: gids.map(g), nextGid, prevGid })
 
 let passed = 0
 const ok = (name, cond) => {
@@ -242,7 +298,57 @@ const ok = (name, cond) => {
   ok('new source pages forward', vm.rows.map((r) => r.gid).join(',') === '200,199,198,197')
 }
 
-// 9. first-page ownership: a context switch discards an old response even before the retained-page
+// 9. translateRows adds a second await after the original network/epoch fence. A replacement landing in
+// that gap must block every old append/prepend/cursor/callback write, while retaining its own loading flag.
+{
+  const vm = new VM('')
+  vm.load(page(['10', '9'], '9'))
+  vm.loadMore(
+    () => page(['8', '7'], '7'),
+    undefined,
+    () => vm.beginReplacement(page(['200', '199'], '199'), 'watched'),
+  )
+  ok('translation-late append cannot contaminate replacement rows', vm.rows.map((r) => r.gid).join(',') === '200,199')
+  ok('translation-late append cannot replace the new cursor', vm.nextGid === '199' && vm.lastNext === '')
+  ok('replacement first page owns the footer loading state', vm.isLoadingMore === false)
+}
+{
+  const vm = new VM('')
+  vm.load(page(['10', '9'], '9', '11'))
+  let prepended = 0
+  vm.loadPrevious(
+    (cursor) => {
+      ok('previous-page request captures its original cursor', cursor === '11')
+      return page(['11'], '9', '12')
+    },
+    () => vm.beginReplacement(page(['200', '199'], '199', '201'), 'watched'),
+    (count) => {
+      prepended += count
+    },
+  )
+  ok('translation-late prepend cannot contaminate replacement rows', vm.rows.map((r) => r.gid).join(',') === '200,199')
+  ok('translation-late prepend cannot replace the new previous cursor', vm.prevGid === '201' && vm.lastPrev === '')
+  ok('translation-late prepend cannot trigger stale scroll compensation', prepended === 0)
+  ok('old prepend cannot release an in-flight replacement loading state', vm.isLoading === true)
+}
+{
+  const vm = new VM('')
+  vm.load(page(['10', '9'], '9'))
+  vm.loadMore(
+    () => page(['8'], '8'),
+    undefined,
+    () => {
+      vm.cacheKey = 'eh:member:b:home'
+    },
+  )
+  ok('paging run rejects a CookieStore context change before AuthState publishes', vm.rows.map((r) => r.gid).join(',') === '10,9')
+  ok('context-change drop keeps old paging cursor uncommitted', vm.nextGid === '9' && vm.lastNext === '')
+  ok('context-only mismatch keeps the old footer locked until a replacement owns it', vm.isLoadingMore === true)
+  vm.beginReplacement(page(['200', '199'], '199'), 'watched')
+  ok('replacement first page takes ownership and releases the stale footer flag', vm.isLoadingMore === false)
+}
+
+// 10. first-page ownership: a context switch discards an old response even before the retained-page
 // monitor can publish, and an A→B→A switch cannot revive run A due to its epoch token.
 {
   const vm = new FirstPageRunVM()
@@ -262,7 +368,7 @@ const ok = (name, cond) => {
   ok('first-page run rejects a live toplist hidden-tag filter change', vm.isCurrentFirstPageRun(runC) === false)
 }
 
-// 10. structural: the guards exist in the .ets
+// 11. structural: the guards exist in the .ets
 {
   const src = readFileSync(
     join(ROOT, 'feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets'),
@@ -280,11 +386,12 @@ const ok = (name, cond) => {
     /if \(requestedNext === this\.lastNext && this\.errorMessage\.length === 0\) \{[\s\S]*this\.hasMore = false/.test(loadMoreSrc))
   ok('loadMore does not commit lastNext before fetch', !/this\.lastNext =/.test(beforeFetch))
   ok('fetches the captured requested cursor', /this\.buildQuery\(requestedNext\)/.test(src))
-  ok('commits lastNext only inside successful epoch apply', /if \(this\.epoch === myEpoch\) \{[\s\S]*this\.lastNext = requestedNext/.test(loadMoreSrc))
+  ok('commits lastNext only inside successful ownership apply',
+    /translateCurrentPagingRows\(list, run\)[\s\S]*if \(fresh === null\)[\s\S]*this\.lastNext = requestedNext/.test(loadMoreSrc))
   ok('dedupes before append', /this\.dedupeNew\(list\.gallerys\)/.test(src))
   ok('exhausted on no-fresh', /list\.nextGid\.length > 0 && fresh\.length > 0/.test(src))
   ok('captures epoch before fetch', /const myEpoch: number = this\.epoch/.test(src))
-  ok('guards mutations on epoch', /if \(this\.epoch === myEpoch\)/.test(src))
+  ok('guards paging mutations on full list context', /this\.isCurrentPagingRun\(run\)/.test(src))
   ok('reload bumps epoch', /this\.epoch = this\.epoch \+ 1/.test(src))
   ok('declares immutable first-page ownership context',
     /class GalleryFirstPageRun \{[\s\S]*cacheKey: string[\s\S]*profileEditTime: number/.test(src))
@@ -297,6 +404,36 @@ const ok = (name, cond) => {
     /private async renderFirstPageRows\([\s\S]*run: GalleryFirstPageRun[\s\S]*\): Promise<boolean>[\s\S]*!this\.isCurrentFirstPageRun\(run\)[\s\S]*return this\.isCurrentFirstPageRun\(run\)/.test(src))
   ok('tag-translation repaint is fenced against a newer first-page run',
     /async reapplyTagTranslation\(\): Promise<void> \{[\s\S]*const renderVersion: number = this\.cacheRenderVersion \+ 1[\s\S]*const renderEpoch: number = this\.epoch[\s\S]*const renderCacheKey: string = this\.cacheKey\(\)[\s\S]*this\.cacheRenderVersion !== renderVersion[\s\S]*this\.epoch !== renderEpoch[\s\S]*this\.cacheKey\(\) !== renderCacheKey/.test(src))
+  ok('paging captures the same live account/site/profile request context as first-page work',
+    /private captureCurrentListRun\(\): GalleryFirstPageRun \{[\s\S]*this\.cacheKey\(\)[\s\S]*this\.profileEditTime\(\)[\s\S]*connectToplistFilter\(\)\.applyHiddenUserTags/.test(src) &&
+    /private isCurrentPagingRun\(run: GalleryFirstPageRun\): boolean \{[\s\S]*this\.isCurrentFirstPageRun\(run\)/.test(src))
+  ok('shared paging translation helper checks context before and after its await',
+    /private async translateCurrentPagingRows\([\s\S]*!this\.isCurrentPagingRun\(run\)[\s\S]*await this\.translateRows\(this\.dedupeNew\(list\.gallerys\)\)[\s\S]*return this\.isCurrentPagingRun\(run\) \? fresh : null/.test(src))
+  ok('a replacement first page releases the stale footer state before its old paging request returns',
+    /private beginFirstPageRun\(\): GalleryFirstPageRun \{[\s\S]*this\.isLoadingMore = false/.test(src))
+  const pagingBlocks = [
+    ['gallery next page', '  async loadMore()', '  /** Toplist page paging', 'isLoadingMore'],
+    ['toplist next page', '  private async loadMoreToplist()', '  /** After a page jump', 'isLoadingMore'],
+    ['toplist previous page', '  private async loadPreviousToplist(', '  private canLoadPreviousDateJump', 'isLoading'],
+    ['date-jump previous page', '  private async loadPreviousGallery(', '  /** Favorite-type profiles', 'isLoading'],
+    ['favorite previous page', '  private async loadPreviousFavorites(', '  /** Favorites page paging', 'isLoading'],
+    ['favorite next page', '  private async loadMoreFavorites()', '  canLoadMore()', 'isLoadingMore'],
+  ]
+  for (const [name, start, end, loadingFlag] of pagingBlocks) {
+    const startIndex = src.indexOf(start)
+    const endIndex = src.indexOf(end, startIndex)
+    assert.ok(startIndex >= 0 && endIndex > startIndex, `${name} paging block located`)
+    const block = src.slice(startIndex, endIndex)
+    const translationIndex = block.indexOf('await this.translateCurrentPagingRows')
+    assert.ok(translationIndex >= 0, `${name} translation await located`)
+    const finallyIndex = block.indexOf('finally')
+    const finallyBlock = finallyIndex >= 0 ? block.slice(finallyIndex) : ''
+    ok(`${name}: captures a non-mutating request context`, /const run: GalleryFirstPageRun = this\.captureCurrentListRun\(\)/.test(block))
+    ok(`${name}: routes translation through the ownership-aware helper`, /await this\.translateCurrentPagingRows\(list, run\)/.test(block))
+    ok(`${name}: drops a stale translated page before cursor or row publication`, /if \(fresh === null\)/.test(block))
+    ok(`${name}: only its full request context releases the loading flag`,
+      new RegExp(`if \\(this\\.isCurrentPagingRun\\(run\\)\\) \\{[\\s\\S]*this\\.${loadingFlag} = false`).test(finallyBlock))
+  }
   const firstPageBlocks = [
     ['toplist jump', '  async jumpToToplistPage(', '  canJumpToDateAfter'],
     ['date jump', '  async jumpToDateAfter(', '  /** First load'],
@@ -358,7 +495,7 @@ const ok = (name, cond) => {
     /@Monitor\('siteMode\.isEx'\)[\s\S]*this\.vm\.reload\(true\)/.test(toplistPageSrc))
 }
 
-// 11. cross-cutting: every paged ViewModel carries the same race guards as Home, while the
+// 12. cross-cutting: every paged ViewModel carries the same race guards as Home, while the
 // Favorites VM may use FE's page+from pagination instead of only nextGid.
 // (a) epoch (loadMore-vs-reset) guard — a reset path runs without the isLoadingMore guard, so an
 //     in-flight loadMore could contaminate the new list on favcat/query/source switch.
@@ -380,7 +517,10 @@ const ok = (name, cond) => {
       /this\.isLoadingMore = true[\s\S]*this\.errorMessage = ''[\s\S]*const myEpoch: number = this\.epoch/.test(loadMore))
     ok(`${name}: declares epoch token`, /private epoch: number = 0/.test(src))
     ok(`${name}: captures myEpoch in loadMore`, /const myEpoch: number = this\.epoch/.test(src))
-    ok(`${name}: discards stale page on epoch mismatch`, /if \(this\.epoch === myEpoch\)/.test(src))
+    ok(`${name}: discards stale page on its ownership boundary`,
+      name === 'GalleryListViewModel.ets'
+        ? /isCurrentPagingRun\(run\)/.test(src)
+        : /if \(this\.epoch === myEpoch\)/.test(src))
     ok(`${name}: bumps epoch on reset`, /this\.epoch = this\.epoch \+ 1/.test(src))
     ok(`${name}: declares dedupeNew helper`, /private dedupeNew\(rows: EhGallery\[\]\): EhGallery\[\]/.test(src))
     ok(`${name}: dedupes new rows by gid before append`, /this\.dedupeNew\(list\.gallerys\)/.test(src))

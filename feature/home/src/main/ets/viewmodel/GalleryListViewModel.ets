@@ -25,7 +25,7 @@ import {
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
-/** Immutable ownership token for one Home first-page fetch and its account/site/profile context. */
+/** Immutable ownership token for one Home list request and its account/site/profile context. */
 class GalleryFirstPageRun {
   epoch: number
   cacheKey: string
@@ -124,11 +124,7 @@ export class GalleryListViewModel {
     return this.profile !== null ? this.profile.lastEditTime : -1
   }
 
-  private beginFirstPageRun(): GalleryFirstPageRun {
-    this.epoch = this.epoch + 1
-    // A deferred cache translation must not repaint a newer account/site/profile run while its
-    // replacement request is still in flight.
-    this.cacheRenderVersion = this.cacheRenderVersion + 1
+  private captureCurrentListRun(): GalleryFirstPageRun {
     return new GalleryFirstPageRun(
       this.epoch,
       this.cacheKey(),
@@ -139,6 +135,17 @@ export class GalleryListViewModel {
       connectToplistFilter().applyHiddenUserTags,
       this.favcat,
     )
+  }
+
+  private beginFirstPageRun(): GalleryFirstPageRun {
+    this.epoch = this.epoch + 1
+    // A replacement first page owns the footer state immediately. Old paging cleanup is request-context
+    // gated, so it cannot release a newer page's spinner or unlock an old cursor after translation resumes.
+    this.isLoadingMore = false
+    // A deferred cache translation must not repaint a newer account/site/profile run while its
+    // replacement request is still in flight.
+    this.cacheRenderVersion = this.cacheRenderVersion + 1
+    return this.captureCurrentListRun()
   }
 
   private isCurrentFirstPageRun(run: GalleryFirstPageRun): boolean {
@@ -158,6 +165,23 @@ export class GalleryListViewModel {
     // The key scopes site + member. This direct check covers the window where CookieStore changes before
     // AuthState publishes, so no old account/site response can write into the current list.
     return this.cacheKey() === run.cacheKey
+  }
+
+  private isCurrentPagingRun(run: GalleryFirstPageRun): boolean {
+    return this.isCurrentFirstPageRun(run)
+  }
+
+  /** Resolve personal slots and translate a paging page only while its original request context owns it. */
+  private async translateCurrentPagingRows(
+    list: GalleryList,
+    run: GalleryFirstPageRun,
+  ): Promise<EhGallery[] | null> {
+    if (!this.isCurrentPagingRun(run)) {
+      return null
+    }
+    this.resolveFavoriteSlots(list.gallerys)
+    const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
+    return this.isCurrentPagingRun(run) ? fresh : null
   }
 
   // EH 'popular' is a single fixed snapshot with no cursor — it never pages (eros_fe popular tab).
@@ -858,45 +882,45 @@ export class GalleryListViewModel {
     this.isLoadingMore = true
     this.errorMessage = ''
     const myEpoch: number = this.epoch
+    const run: GalleryFirstPageRun = this.captureCurrentListRun()
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(
         this.buildQuery(requestedNext),
       )
-      // A reload/refresh/source-switch happened while this fetch was in flight → its rows belong to
-      // the OLD source/host. Drop them (the new list already replaced everything); only clear the
-      // in-flight flag below.
-      if (this.epoch === myEpoch) {
-        this.resolveFavoriteSlots(list.gallerys)
-        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
-        if (fresh.length > 0) {
-          this.dataSource.appendData(fresh)
-          this.itemCount = this.dataSource.totalCount()
-        }
-        this.nextGid = list.nextGid
-        this.lastNext = requestedNext
-        // Exhausted when the cursor is empty OR the page brought no genuinely new rows (server race /
-        // repeated boundary page) — guards against an infinite same-page loadMore loop.
-        this.hasMore = list.nextGid.length > 0 && fresh.length > 0
-        DiagnosticLogger.info(
-          'home-list-anchor',
-          'load_more_done',
-          `${this.debugState()} requested=${requestedNext} incoming=${list.gallerys.length} fresh=${fresh.length}`,
-        )
-      } else {
+      const fresh: EhGallery[] | null = await this.translateCurrentPagingRows(list, run)
+      if (fresh === null) {
         DiagnosticLogger.info(
           'home-list-anchor',
           'load_more_drop_stale',
           `${this.debugState()} requested=${requestedNext} myEpoch=${myEpoch}`,
         )
+        return
       }
+      if (fresh.length > 0) {
+        this.dataSource.appendData(fresh)
+        this.itemCount = this.dataSource.totalCount()
+      }
+      this.nextGid = list.nextGid
+      this.lastNext = requestedNext
+      // Exhausted when the cursor is empty OR the page brought no genuinely new rows (server race /
+      // repeated boundary page) — guards against an infinite same-page loadMore loop.
+      this.hasMore = list.nextGid.length > 0 && fresh.length > 0
+      DiagnosticLogger.info(
+        'home-list-anchor',
+        'load_more_done',
+        `${this.debugState()} requested=${requestedNext} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+      )
     } catch (err) {
       const e = err as Error
-      if (this.epoch === myEpoch) {
+      if (this.epoch === myEpoch && this.isCurrentPagingRun(run)) {
         this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('home', 'list_loadmore_failed', e.message)
+    } finally {
+      if (this.isCurrentPagingRun(run)) {
+        this.isLoadingMore = false
+      }
     }
-    this.isLoadingMore = false
   }
 
   /** Toplist page paging: request the next ptt-parsed 0-based page (?p=), dedup-append, then store the newly parsed next page. */
@@ -911,40 +935,43 @@ export class GalleryListViewModel {
     this.isLoadingMore = true
     this.errorMessage = ''
     const myEpoch: number = this.epoch
+    const run: GalleryFirstPageRun = this.captureCurrentListRun()
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(
         this.buildQuery('', requestedPage),
       )
-      if (this.epoch === myEpoch) {
-        this.resolveFavoriteSlots(list.gallerys)
-        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
-        if (fresh.length > 0) {
-          this.dataSource.appendData(fresh)
-          this.itemCount = this.dataSource.totalCount()
-        }
-        this.maxPage = list.maxPage
-        this.toplistNextPage = list.nextPage
-        this.hasMore = list.nextPage >= 0 && list.nextPage <= this.maxPage
-        DiagnosticLogger.info(
-          'home-list-anchor',
-          'toplist_more_done',
-          `${this.debugState()} requestedPage=${requestedPage} incoming=${list.gallerys.length} fresh=${fresh.length}`,
-        )
-      } else {
+      const fresh: EhGallery[] | null = await this.translateCurrentPagingRows(list, run)
+      if (fresh === null) {
         DiagnosticLogger.info(
           'home-list-anchor',
           'toplist_more_drop_stale',
           `${this.debugState()} requestedPage=${requestedPage} myEpoch=${myEpoch}`,
         )
+        return
       }
+      if (fresh.length > 0) {
+        this.dataSource.appendData(fresh)
+        this.itemCount = this.dataSource.totalCount()
+      }
+      this.maxPage = list.maxPage
+      this.toplistNextPage = list.nextPage
+      this.hasMore = list.nextPage >= 0 && list.nextPage <= this.maxPage
+      DiagnosticLogger.info(
+        'home-list-anchor',
+        'toplist_more_done',
+        `${this.debugState()} requestedPage=${requestedPage} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+      )
     } catch (err) {
       const e = err as Error
-      if (this.epoch === myEpoch) {
+      if (this.epoch === myEpoch && this.isCurrentPagingRun(run)) {
         this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('home', 'toplist_loadmore_failed', e.message)
+    } finally {
+      if (this.isCurrentPagingRun(run)) {
+        this.isLoadingMore = false
+      }
     }
-    this.isLoadingMore = false
   }
 
   /** After a page jump, FE treats pull-to-refresh as "load previous page" instead of reloading page 1. */
@@ -958,45 +985,47 @@ export class GalleryListViewModel {
     this.isLoading = true
     this.errorMessage = ''
     const myEpoch: number = this.epoch
+    const run: GalleryFirstPageRun = this.captureCurrentListRun()
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(
         this.buildQuery('', requestedPage),
       )
-      if (this.epoch === myEpoch) {
-        this.resolveFavoriteSlots(list.gallerys)
-        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
-        if (fresh.length > 0) {
-          this.dataSource.prependData(fresh)
-          this.itemCount = this.dataSource.totalCount()
-          this.currentToplistPage = requestedPage
-          if (afterPrepend) {
-            afterPrepend(fresh.length)
-          }
-        }
-        this.maxPage = list.maxPage
-        this.toplistPrevPage = list.prevPage
-        DiagnosticLogger.info(
-          'home-list-anchor',
-          'toplist_prev_done',
-          `${this.debugState()} requestedPage=${requestedPage} incoming=${list.gallerys.length} fresh=${fresh.length}`,
-        )
-        this.isLoading = false
-        return fresh.length
-      } else {
+      const fresh: EhGallery[] | null = await this.translateCurrentPagingRows(list, run)
+      if (fresh === null) {
         DiagnosticLogger.info(
           'home-list-anchor',
           'toplist_prev_drop_stale',
           `${this.debugState()} requestedPage=${requestedPage} myEpoch=${myEpoch}`,
         )
+        return 0
       }
+      if (fresh.length > 0) {
+        this.dataSource.prependData(fresh)
+        this.itemCount = this.dataSource.totalCount()
+        this.currentToplistPage = requestedPage
+        if (afterPrepend) {
+          afterPrepend(fresh.length)
+        }
+      }
+      this.maxPage = list.maxPage
+      this.toplistPrevPage = list.prevPage
+      DiagnosticLogger.info(
+        'home-list-anchor',
+        'toplist_prev_done',
+        `${this.debugState()} requestedPage=${requestedPage} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+      )
+      return fresh.length
     } catch (err) {
       const e = err as Error
-      if (this.epoch === myEpoch) {
+      if (this.epoch === myEpoch && this.isCurrentPagingRun(run)) {
         this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('home', 'toplist_loadprev_failed', e.message)
+    } finally {
+      if (this.isCurrentPagingRun(run)) {
+        this.isLoading = false
+      }
     }
-    this.isLoading = false
     return 0
   }
 
@@ -1032,44 +1061,46 @@ export class GalleryListViewModel {
     this.isLoading = true
     this.errorMessage = ''
     const myEpoch: number = this.epoch
+    const run: GalleryFirstPageRun = this.captureCurrentListRun()
     try {
       const list: GalleryList = await EhApiService.getInstance().getGalleryList(
         this.buildQuery('', -1, '', requestedPrev),
       )
-      if (this.epoch === myEpoch) {
-        this.resolveFavoriteSlots(list.gallerys)
-        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
-        if (fresh.length > 0) {
-          this.dataSource.prependData(fresh)
-          this.itemCount = this.dataSource.totalCount()
-          if (afterPrepend) {
-            afterPrepend(fresh.length)
-          }
-        }
-        this.prevGid = list.prevGid
-        this.lastPrev = requestedPrev
-        DiagnosticLogger.info(
-          'home-list-anchor',
-          'date_jump_prev_done',
-          `${this.debugState()} requested=${requestedPrev} incoming=${list.gallerys.length} fresh=${fresh.length}`,
-        )
-        this.isLoading = false
-        return fresh.length
-      } else {
+      const fresh: EhGallery[] | null = await this.translateCurrentPagingRows(list, run)
+      if (fresh === null) {
         DiagnosticLogger.info(
           'home-list-anchor',
           'date_jump_prev_drop_stale',
           `${this.debugState()} requested=${requestedPrev} myEpoch=${myEpoch}`,
         )
+        return 0
       }
+      if (fresh.length > 0) {
+        this.dataSource.prependData(fresh)
+        this.itemCount = this.dataSource.totalCount()
+        if (afterPrepend) {
+          afterPrepend(fresh.length)
+        }
+      }
+      this.prevGid = list.prevGid
+      this.lastPrev = requestedPrev
+      DiagnosticLogger.info(
+        'home-list-anchor',
+        'date_jump_prev_done',
+        `${this.debugState()} requested=${requestedPrev} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+      )
+      return fresh.length
     } catch (err) {
       const e = err as Error
-      if (this.epoch === myEpoch) {
+      if (this.epoch === myEpoch && this.isCurrentPagingRun(run)) {
         this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('home', 'date_jump_loadprev_failed', e.message)
+    } finally {
+      if (this.isCurrentPagingRun(run)) {
+        this.isLoading = false
+      }
     }
-    this.isLoading = false
     return 0
   }
 
@@ -1092,6 +1123,7 @@ export class GalleryListViewModel {
     this.isLoading = true
     this.errorMessage = ''
     const myEpoch: number = this.epoch
+    const run: GalleryFirstPageRun = this.captureCurrentListRun()
     try {
       const list: GalleryList = await EhApiService.getInstance().getFavoritesList(
         this.buildFavQuery(
@@ -1102,41 +1134,42 @@ export class GalleryListViewModel {
           requestedPage >= 0 ? '' : requestedPrev,
         ),
       )
-      if (this.epoch === myEpoch) {
-        this.resolveFavoriteSlots(list.gallerys)
-        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
-        if (fresh.length > 0) {
-          this.dataSource.prependData(fresh)
-          this.itemCount = this.dataSource.totalCount()
-          if (afterPrepend) {
-            afterPrepend(fresh.length)
-          }
-        }
-        this.prevGid = list.prevGid
-        this.favPrevPage = list.prevPage
-        this.lastPrev = requestKey
-        DiagnosticLogger.info(
-          'home-list-anchor',
-          'fav_prev_done',
-          `${this.debugState()} requestKey=${requestKey} incoming=${list.gallerys.length} fresh=${fresh.length}`,
-        )
-        this.isLoading = false
-        return fresh.length
-      } else {
+      const fresh: EhGallery[] | null = await this.translateCurrentPagingRows(list, run)
+      if (fresh === null) {
         DiagnosticLogger.info(
           'home-list-anchor',
           'fav_prev_drop_stale',
           `${this.debugState()} requestKey=${requestKey} myEpoch=${myEpoch}`,
         )
+        return 0
       }
+      if (fresh.length > 0) {
+        this.dataSource.prependData(fresh)
+        this.itemCount = this.dataSource.totalCount()
+        if (afterPrepend) {
+          afterPrepend(fresh.length)
+        }
+      }
+      this.prevGid = list.prevGid
+      this.favPrevPage = list.prevPage
+      this.lastPrev = requestKey
+      DiagnosticLogger.info(
+        'home-list-anchor',
+        'fav_prev_done',
+        `${this.debugState()} requestKey=${requestKey} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+      )
+      return fresh.length
     } catch (err) {
       const e = err as Error
-      if (this.epoch === myEpoch) {
+      if (this.epoch === myEpoch && this.isCurrentPagingRun(run)) {
         this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('home', 'fav_loadprev_failed', e.message)
+    } finally {
+      if (this.isCurrentPagingRun(run)) {
+        this.isLoading = false
+      }
     }
-    this.isLoading = false
     return 0
   }
 
@@ -1161,44 +1194,47 @@ export class GalleryListViewModel {
     this.isLoadingMore = true
     this.errorMessage = ''
     const myEpoch: number = this.epoch
+    const run: GalleryFirstPageRun = this.captureCurrentListRun()
     try {
       const list: GalleryList = await EhApiService.getInstance().getFavoritesList(
         this.buildFavQuery(page >= 0 ? '' : cursor, page, from),
       )
-      if (this.epoch === myEpoch) {
-        this.resolveFavoriteSlots(list.gallerys)
-        const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
-        if (fresh.length > 0) {
-          this.dataSource.appendData(fresh)
-          this.itemCount = this.dataSource.totalCount()
-        }
-        this.nextGid = list.nextGid
-        this.favNextPage = list.nextPage
-        this.lastNext = requestKey
-        this.hasMore =
-          page >= 0
-            ? list.nextPage > 0 || list.nextGid.length > 0
-            : list.nextGid.length > 0 && list.nextGid !== cursor
-        DiagnosticLogger.info(
-          'home-list-anchor',
-          'fav_more_done',
-          `${this.debugState()} requestKey=${requestKey} incoming=${list.gallerys.length} fresh=${fresh.length}`,
-        )
-      } else {
+      const fresh: EhGallery[] | null = await this.translateCurrentPagingRows(list, run)
+      if (fresh === null) {
         DiagnosticLogger.info(
           'home-list-anchor',
           'fav_more_drop_stale',
           `${this.debugState()} requestKey=${requestKey} myEpoch=${myEpoch}`,
         )
+        return
       }
+      if (fresh.length > 0) {
+        this.dataSource.appendData(fresh)
+        this.itemCount = this.dataSource.totalCount()
+      }
+      this.nextGid = list.nextGid
+      this.favNextPage = list.nextPage
+      this.lastNext = requestKey
+      this.hasMore =
+        page >= 0
+          ? list.nextPage > 0 || list.nextGid.length > 0
+          : list.nextGid.length > 0 && list.nextGid !== cursor
+      DiagnosticLogger.info(
+        'home-list-anchor',
+        'fav_more_done',
+        `${this.debugState()} requestKey=${requestKey} incoming=${list.gallerys.length} fresh=${fresh.length}`,
+      )
     } catch (err) {
       const e = err as Error
-      if (this.epoch === myEpoch) {
+      if (this.epoch === myEpoch && this.isCurrentPagingRun(run)) {
         this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('home', 'fav_loadmore_failed', e.message)
+    } finally {
+      if (this.isCurrentPagingRun(run)) {
+        this.isLoadingMore = false
+      }
     }
-    this.isLoadingMore = false
   }
 
   canLoadMore(): boolean {
