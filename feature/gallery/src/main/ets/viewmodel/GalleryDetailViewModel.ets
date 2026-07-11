@@ -19,6 +19,35 @@ import {
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 
+/** Immutable ownership token for one gallery-detail request and its account/site cache scope. */
+class GalleryDetailRun {
+  epoch: number
+  gid: string
+  token: string
+  isEx: boolean
+  memberId: string
+  passHash: string
+  cacheKey: string
+
+  constructor(
+    epoch: number,
+    gid: string,
+    token: string,
+    isEx: boolean,
+    memberId: string,
+    passHash: string,
+    cacheKey: string,
+  ) {
+    this.epoch = epoch
+    this.gid = gid
+    this.token = token
+    this.isEx = isEx
+    this.memberId = memberId
+    this.passHash = passHash
+    this.cacheKey = cacheKey
+  }
+}
+
 /**
  * Drives the gallery detail page. Seeded with the list-row gallery (cover + title) so the
  * header paints instantly, then fetches the detail page and merges the richer header +
@@ -41,6 +70,10 @@ export class GalleryDetailViewModel {
   private token: string = ''
   private context: common.UIAbilityContext | null = null
   private detailRenderVersion: number = 0
+  private detailEpoch: number = 0
+  // Only an applied detail run may write a mutation/translation snapshot back to the cache. A newer
+  // account/site replacement invalidates this immediately while old content remains on screen.
+  private activeDetailRun: GalleryDetailRun | null = null
 
   setContext(context: common.UIAbilityContext): void {
     this.context = context
@@ -55,16 +88,23 @@ export class GalleryDetailViewModel {
     if (this.loading || this.loaded) {
       return
     }
+    const run: GalleryDetailRun = this.beginDetailRun(gid, token)
     this.loading = true
     this.error = ''
     this.cachedDetailApplied = false
-    this.gid = gid
-    this.token = token
     try {
-      await this.applyCachedDetailIfAvailable(gid, token)
-      await this.fetchAndApply(gid, token, false)
-      this.loaded = true
+      await this.applyCachedDetailIfAvailable(run)
+      if (!this.isCurrentDetailRun(run)) {
+        return
+      }
+      await this.fetchAndApply(run, false)
+      if (this.isCurrentDetailRun(run)) {
+        this.loaded = true
+      }
     } catch (err) {
+      if (!this.isCurrentDetailRun(run)) {
+        return
+      }
       this.error = EhErrorText.forUser(err)
       const cookieStore: EhCookieStore = EhCookieStore.getInstance()
       DiagnosticLogger.warn(
@@ -72,23 +112,86 @@ export class GalleryDetailViewModel {
         'detail_load_failed',
         `${(err as Error).message} login=${cookieStore.isLogin()} cookies=${cookieStore.nameSummary()}`,
       )
+    } finally {
+      if (this.isCurrentDetailRun(run)) {
+        this.loading = false
+      }
     }
-    this.loading = false
   }
 
-  private detailCacheKey(gid: string = this.gid, token: string = this.token): string {
-    return EhPageCacheService.galleryDetailKey(connectSiteMode().isEx, gid, token)
+  /** Force a replacement after account/site changes without letting an old request own the loading flag. */
+  async reloadForContext(): Promise<void> {
+    if (this.gid.length === 0 || this.token.length === 0) {
+      return
+    }
+    const run: GalleryDetailRun = this.beginDetailRun(this.gid, this.token)
+    this.loading = true
+    this.error = ''
+    this.cachedDetailApplied = false
+    try {
+      await this.fetchAndApply(run, true)
+      if (this.isCurrentDetailRun(run)) {
+        this.loaded = true
+      }
+    } catch (err) {
+      if (!this.isCurrentDetailRun(run)) {
+        return
+      }
+      this.error = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('gallery', 'detail_context_reload_failed', (err as Error).message)
+    } finally {
+      if (this.isCurrentDetailRun(run)) {
+        this.loading = false
+      }
+    }
   }
 
-  private async applyCachedDetailIfAvailable(gid: string, token: string): Promise<void> {
-    if (this.context === null) {
+  private beginDetailRun(gid: string, token: string): GalleryDetailRun {
+    this.detailEpoch = this.detailEpoch + 1
+    // A cache/detail translation that resumes after a replacement must not repaint its former context.
+    this.detailRenderVersion = this.detailRenderVersion + 1
+    this.gid = gid
+    this.token = token
+    const isEx: boolean = connectSiteMode().isEx
+    const cookieStore: EhCookieStore = EhCookieStore.getInstance()
+    const memberId: string = cookieStore.get(EhConstants.COOKIE_MEMBER_ID)
+    const passHash: string = cookieStore.get(EhConstants.COOKIE_PASS_HASH)
+    return new GalleryDetailRun(
+      this.detailEpoch,
+      gid,
+      token,
+      isEx,
+      memberId,
+      passHash,
+      EhPageCacheService.galleryDetailKey(isEx, gid, token),
+    )
+  }
+
+  private isCurrentDetailRun(run: GalleryDetailRun): boolean {
+    if (
+      this.detailEpoch !== run.epoch ||
+      this.gid !== run.gid ||
+      this.token !== run.token ||
+      connectSiteMode().isEx !== run.isEx
+    ) {
+      return false
+    }
+    const cookieStore: EhCookieStore = EhCookieStore.getInstance()
+    return (
+      cookieStore.get(EhConstants.COOKIE_MEMBER_ID) === run.memberId &&
+      cookieStore.get(EhConstants.COOKIE_PASS_HASH) === run.passHash
+    )
+  }
+
+  private async applyCachedDetailIfAvailable(run: GalleryDetailRun): Promise<void> {
+    if (this.context === null || !this.isCurrentDetailRun(run)) {
       return
     }
     const cached: GalleryDetailResult | null = await EhPageCacheService.loadGalleryDetail(
       this.context,
-      this.detailCacheKey(gid, token),
+      run.cacheKey,
     )
-    if (cached === null) {
+    if (!this.isCurrentDetailRun(run) || cached === null) {
       return
     }
     const merged: EhGallery = this.gallery.merge(cached.gallery)
@@ -102,26 +205,37 @@ export class GalleryDetailViewModel {
     this.comments = cached.comments.filter((c: EhGalleryComment) => c.contentText.length > 0)
     this.previewPageCount = cached.previewPageCount
     this.cachedDetailApplied = true
-    this.translateCachedGalleryLater(this.gallery, renderVersion)
+    this.activeDetailRun = run
+    this.translateCachedGalleryLater(this.gallery, renderVersion, run)
   }
 
   private async translateCachedGalleryLater(
     gallery: EhGallery,
     renderVersion: number,
+    run: GalleryDetailRun,
   ): Promise<void> {
     if (this.context === null || !connectTagTranslationSettings().enabled) {
       return
     }
     const translated: EhGallery = await this.translateGallery(gallery)
-    if (this.detailRenderVersion !== renderVersion) {
+    if (this.detailRenderVersion !== renderVersion || !this.isCurrentDetailRun(run)) {
       return
     }
     this.gallery = translated
-    this.saveCurrentDetailCache()
+    this.activeDetailRun = run
+    await this.saveDetailCache(run)
   }
 
   private async saveCurrentDetailCache(): Promise<void> {
-    if (this.context === null || this.gid.length === 0 || this.token.length === 0) {
+    const run: GalleryDetailRun | null = this.activeDetailRun
+    if (run === null) {
+      return
+    }
+    await this.saveDetailCache(run)
+  }
+
+  private async saveDetailCache(run: GalleryDetailRun): Promise<void> {
+    if (this.context === null || !this.isCurrentDetailRun(run)) {
       return
     }
     const detail: GalleryDetailResult = new GalleryDetailResult(
@@ -130,7 +244,7 @@ export class GalleryDetailViewModel {
       this.comments,
       this.previewPageCount,
     )
-    await EhPageCacheService.saveGalleryDetail(this.context, this.detailCacheKey(), detail)
+    await EhPageCacheService.saveGalleryDetail(this.context, run.cacheKey, detail)
   }
 
   /**
@@ -141,41 +255,58 @@ export class GalleryDetailViewModel {
     if (this.loading || this.gid.length === 0) {
       return
     }
+    const run: GalleryDetailRun = this.beginDetailRun(this.gid, this.token)
     this.loading = true
     this.error = ''
     try {
-      await this.fetchAndApply(this.gid, this.token, true)
-      this.loaded = true
-      DiagnosticLogger.info(
-        'gallery',
-        'detail_refresh_ok',
-        `gid=${this.gid} images=${this.images.length} comments=${this.comments.length}`,
-      )
+      await this.fetchAndApply(run, true)
+      if (this.isCurrentDetailRun(run)) {
+        this.loaded = true
+        DiagnosticLogger.info(
+          'gallery',
+          'detail_refresh_ok',
+          `gid=${this.gid} images=${this.images.length} comments=${this.comments.length}`,
+        )
+      }
     } catch (err) {
+      if (!this.isCurrentDetailRun(run)) {
+        return
+      }
       this.error = EhErrorText.forUser(err)
       DiagnosticLogger.warn('gallery', 'detail_refresh_failed', (err as Error).message)
       throw new Error(this.error)
     } finally {
-      this.loading = false
+      if (this.isCurrentDetailRun(run)) {
+        this.loading = false
+      }
     }
   }
 
-  private async fetchAndApply(gid: string, token: string, refresh: boolean): Promise<void> {
+  private async fetchAndApply(run: GalleryDetailRun, refresh: boolean): Promise<void> {
+    if (!this.isCurrentDetailRun(run)) {
+      return
+    }
     // eros_fe enrich-then-detail order: a sparse seed (URL paste / deep link) carries only gid+token,
     // no fileCount, so fetch the lighter /api.php gdata metadata first to paint a real header (title,
     // cover, fileCount, rating, tags) before the heavier detail page parse lands. A list-row open
     // already seeded fileCount, so this is skipped there — exactly eros_fe's filecount-absent gate.
     if (this.gallery.fileCount.length === 0) {
-      await this.enrichFromApi(gid, token)
+      await this.enrichFromApi(run)
+      if (!this.isCurrentDetailRun(run)) {
+        return
+      }
     }
     const seedRatingFallBack: number = this.gallery.ratingFallBack
     const seedRatingCount: string = this.gallery.ratingCount
     const seedColorRating: string = this.gallery.colorRating
     const res: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(
-      gid,
-      token,
-      connectSiteMode().isEx,
+      run.gid,
+      run.token,
+      run.isEx,
     )
+    if (!this.isCurrentDetailRun(run)) {
+      return
+    }
     // A valid gallery detail always has preview images. No images AND no comments means the response was
     // not a real detail page (interstitial / IP-throttle / truncated body) — don't overwrite the current
     // header/images/comments with it and, crucially, don't write that garbage to the page cache.
@@ -183,7 +314,7 @@ export class GalleryDetailViewModel {
       DiagnosticLogger.warn(
         'gallery',
         'detail_fetch_empty_skip',
-        `gid=${gid} no images/comments; treating as a bad response, keeping existing data + cache`,
+        `gid=${run.gid} no images/comments; treating as a bad response, keeping existing data + cache`,
       )
       return
     }
@@ -202,14 +333,15 @@ export class GalleryDetailViewModel {
     this.detailRenderVersion = this.detailRenderVersion + 1
     const renderVersion: number = this.detailRenderVersion
     const translated: EhGallery = await this.translateGallery(merged)
-    if (this.detailRenderVersion !== renderVersion) {
+    if (this.detailRenderVersion !== renderVersion || !this.isCurrentDetailRun(run)) {
       return
     }
     this.gallery = translated
     this.images = res.images
     this.comments = res.comments
     this.previewPageCount = res.previewPageCount
-    await this.saveCurrentDetailCache()
+    this.activeDetailRun = run
+    await this.saveDetailCache(run)
   }
 
   /**
@@ -242,21 +374,46 @@ export class GalleryDetailViewModel {
   }
 
   async reapplyTagTranslation(): Promise<void> {
-    this.gallery = connectTagTranslationSettings().enabled
-      ? await this.translateGallery(this.gallery)
-      : TagTranslationService.clearGalleryTranslations(this.gallery)
+    const run: GalleryDetailRun | null = this.activeDetailRun
+    if (run === null || !this.isCurrentDetailRun(run)) {
+      return
+    }
+    this.detailRenderVersion = this.detailRenderVersion + 1
+    const renderVersion: number = this.detailRenderVersion
+    const source: EhGallery = this.gallery
+    const translated: EhGallery = connectTagTranslationSettings().enabled
+      ? await this.translateGallery(source)
+      : TagTranslationService.clearGalleryTranslations(source)
+    if (
+      this.detailRenderVersion !== renderVersion ||
+      !this.isCurrentDetailRun(run) ||
+      this.gallery !== source
+    ) {
+      return
+    }
+    this.gallery = translated
+    this.activeDetailRun = run
+    await this.saveDetailCache(run)
   }
 
   /** Best-effort gdata metadata enrich for a sparse seed (eros_fe getMoreGalleryInfoOne). Non-fatal:
    * the detail fetch below provides canonical data, so a gdata failure must not block the page. */
-  private async enrichFromApi(gid: string, token: string): Promise<void> {
+  private async enrichFromApi(run: GalleryDetailRun): Promise<void> {
     try {
-      const base: string = EhConstants.baseUrl(connectSiteMode().isEx)
-      const seed: EhGallery = new EhGallery(gid, token)
+      const base: string = EhConstants.baseUrl(run.isEx)
+      const seed: EhGallery = new EhGallery(run.gid, run.token)
       const list: EhGallery[] = await EhApiPhpService.galleryData(base, [seed])
-      if (list.length > 0) {
-        this.gallery = await this.translateGallery(this.gallery.merge(list[0]))
+      if (!this.isCurrentDetailRun(run) || list.length === 0) {
+        return
       }
+      const merged: EhGallery = this.gallery.merge(list[0])
+      this.detailRenderVersion = this.detailRenderVersion + 1
+      const renderVersion: number = this.detailRenderVersion
+      const translated: EhGallery = await this.translateGallery(merged)
+      if (this.detailRenderVersion !== renderVersion || !this.isCurrentDetailRun(run)) {
+        return
+      }
+      this.gallery = translated
     } catch (err) {
       DiagnosticLogger.warn('gallery', 'gdata_enrich_failed', (err as Error).message)
     }

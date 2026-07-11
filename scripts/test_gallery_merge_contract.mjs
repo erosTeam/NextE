@@ -83,9 +83,9 @@ const ok = (name, cond) => {
   const fetchAndApply = fetchAndApplyStart >= 0
     ? vm.slice(fetchAndApplyStart, fetchAndApplyEnd > fetchAndApplyStart ? fetchAndApplyEnd : vm.length)
     : ''
-  ok('load passes non-refresh fetch flag', /await this\.fetchAndApply\(gid, token, false\)/.test(vm))
-  ok('refresh passes refresh fetch flag', /await this\.fetchAndApply\(this\.gid, this\.token, true\)/.test(vm))
-  ok('fetchAndApply accepts refresh flag', /private async fetchAndApply\(gid: string, token: string, refresh: boolean\)/.test(vm))
+  ok('load passes the owned non-refresh run', /await this\.fetchAndApply\(run, false\)/.test(vm))
+  ok('refresh passes the owned refresh run', /await this\.fetchAndApply\(run, true\)/.test(vm))
+  ok('fetchAndApply accepts an owned detail run', /private async fetchAndApply\(run: GalleryDetailRun, refresh: boolean\)/.test(vm))
   ok('VM snapshots seed colorRating before detail merge', /const seedColorRating: string = this\.gallery\.colorRating/.test(vm))
   ok('non-refresh applies seed rating to the active merge before translation',
     /const merged: EhGallery = this\.gallery\.merge\(res\.gallery\)[\s\S]*if \(!refresh\) \{[\s\S]*const translated: EhGallery = await this\.translateGallery\(merged\)[\s\S]*this\.gallery = translated/.test(fetchAndApply))

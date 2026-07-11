@@ -26,6 +26,9 @@ import {
   connectNavStack,
   connectSearchAction,
   connectSiteMode,
+  SiteModeState,
+  AuthState,
+  connectAuth,
   connectGalleryReadProgress,
   GalleryReadProgressState,
   GalleryTitleState,
@@ -122,6 +125,8 @@ const FOLLOW_OPERATION_VERTICAL_DOMINANCE_RATIO: number = 1.2
 export struct GalleryDetailPage {
   @Local vm: GalleryDetailViewModel = new GalleryDetailViewModel();
   @Local params: GalleryDetailParams = new GalleryDetailParams();
+  @Local auth: AuthState = connectAuth();
+  @Local siteMode: SiteModeState = connectSiteMode();
   // The nav-bar title appears only after the header card scrolls away (eros_fe scroll-driven title).
   @Local showNavTitle: boolean = false;
   @Local detailRefreshInFlight: boolean = false;
@@ -338,6 +343,18 @@ export struct GalleryDetailPage {
   @Monitor('tagTranslation.enabled')
   onTagTranslationChange(): void {
     this.vm.reapplyTagTranslation()
+  }
+
+  // Detail HTML contains account-scoped favorite/rating/API data. Keep the current body visible while
+  // the replacement arrives, but never let an in-flight old account/site response repaint or cache it.
+  @Monitor('auth.memberId')
+  onDetailAccountChange(): void {
+    this.vm.reloadForContext()
+  }
+
+  @Monitor('siteMode.isEx')
+  onDetailSiteChange(): void {
+    this.vm.reloadForContext()
   }
 
   // Record this gallery in viewed-history 5s after open (eros_fe's debounce). By then the detail fetch
