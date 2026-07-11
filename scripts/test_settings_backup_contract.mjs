@@ -72,6 +72,10 @@ ok('plaintext Preferences export skips cache snapshots and migrated legacy blobs
     /StorageKeys\.DOWNLOAD_GALLERY_QUEUE/.test(adapter) &&
     /StorageKeys\.HOME_CUSTOM_PROFILES/.test(adapter) &&
     /!secret && BackupPreferencesAdapter\.isPlaintextExcluded\(key\)/.test(adapter))
+ok('plaintext Preferences export and restore exclude account-scoped favcat cache snapshots',
+  /key\.startsWith\(`\$\{StorageKeys\.FAVORITES_FAVCATS\}\.`\)/.test(adapter) &&
+    /!secret && BackupPreferencesAdapter\.isPlaintextExcluded\(key\)/.test(adapter) &&
+    /!allowSecret && BackupPreferencesAdapter\.isPlaintextExcluded\(key\)/.test(adapter))
 ok('plaintext Preferences restore also skips migrated local-data blobs',
   /!allowSecret && BackupPreferencesAdapter\.isPlaintextExcluded\(key\)/.test(adapter))
 ok('Preferences backup excludes volatile runtime state from plaintext and encrypted sections',

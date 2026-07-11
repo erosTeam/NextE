@@ -88,7 +88,13 @@ export class BackupPreferencesAdapter {
   }
 
   private static isPlaintextExcluded(key: string): boolean {
-    return BackupPreferencesAdapter.PLAINTEXT_EXCLUDED_KEYS.indexOf(key) >= 0
+    if (BackupPreferencesAdapter.PLAINTEXT_EXCLUDED_KEYS.indexOf(key) >= 0) {
+      return true
+    }
+    // FavcatListSettings stores account-scoped cache snapshots as `favorites.favcats.<memberId>`.
+    // They are the same non-portable cache as the legacy base key and must not leak into plaintext
+    // backup or be re-imported across accounts.
+    return key.startsWith(`${StorageKeys.FAVORITES_FAVCATS}.`)
   }
 
   private static acceptsKey(key: string, allowSecret: boolean): boolean {
