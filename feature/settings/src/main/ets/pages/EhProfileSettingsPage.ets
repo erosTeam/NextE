@@ -12,12 +12,16 @@ import {
   AppModalScaffold,
   appSheetOptions,
   AppStrings,
+  AuthState,
   ConciseListRow,
+  EhCookieStore,
   InlineEditRow,
   EhApiService,
   EhConstants,
   EhProfile,
   EhProfileSettings,
+  EhProfileSettingsRequestContext,
+  EhProfileSettingsRequestFence,
   EhRadioOption,
   EhUconfigCategory,
   EhUconfigToggleItem,
@@ -27,6 +31,7 @@ import {
   SettingsCheckedMenuItem,
   SiteModeState,
   ThemeConstants,
+  connectAuth,
   connectNavStack,
   connectSiteMode,
   immersiveTitleBarOpts,
@@ -61,6 +66,7 @@ class UcOption {
  */
 @ComponentV2
 export struct EhProfileSettingsPage {
+  @Local auth: AuthState = connectAuth();
   @Local site: SiteModeState = connectSiteMode();
   @Local settings: EhProfileSettings = new EhProfileSettings();
   @Local langRows: EhLanguageRow[] = [];
@@ -71,6 +77,10 @@ export struct EhProfileSettingsPage {
   @Local nameSheetShown: boolean = false;
   @Local nameInput: string = '';
   private nameAction: string = 'create';
+  private nameProfileSet: string = '';
+  private nameSheetContext: EhProfileSettingsRequestContext | null = null;
+  private loadedContext: EhProfileSettingsRequestContext | null = null;
+  private loadRun: number = 0;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
 
@@ -82,6 +92,36 @@ export struct EhProfileSettingsPage {
     this.getUIContext().getPromptAction().showToast({ message: message })
   }
 
+  private currentRequestContext(): EhProfileSettingsRequestContext {
+    const cookieStore: EhCookieStore = EhCookieStore.getInstance()
+    return new EhProfileSettingsRequestContext(
+      cookieStore.get(EhConstants.COOKIE_MEMBER_ID),
+      cookieStore.get(EhConstants.COOKIE_PASS_HASH),
+      this.site.isEx,
+    )
+  }
+
+  private contextMatchesCurrent(request: EhProfileSettingsRequestContext): boolean {
+    return EhProfileSettingsRequestFence.matches(request, this.currentRequestContext())
+  }
+
+  private currentLoadedContext(): EhProfileSettingsRequestContext | null {
+    const context: EhProfileSettingsRequestContext | null = this.loadedContext
+    if (context === null || !this.contextMatchesCurrent(context)) {
+      return null
+    }
+    return context
+  }
+
+  private canStartWrite(): boolean {
+    return (
+      !this.loading &&
+      !this.saving &&
+      !this.profileBusy &&
+      this.currentLoadedContext() !== null
+    )
+  }
+
   aboutToAppear(): void {
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE)
     this.load()
@@ -91,24 +131,60 @@ export struct EhProfileSettingsPage {
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
+  @Monitor('auth.memberId')
+  private onActiveAccountChanged(): void {
+    this.load()
+  }
+
+  @Monitor('site.isEx')
+  private onSiteModeChanged(): void {
+    this.load()
+  }
+
   private load(): void {
+    this.loadRun = this.loadRun + 1
+    const run: number = this.loadRun
+    const request: EhProfileSettingsRequestContext = this.currentRequestContext()
+    this.loadedContext = null
+    this.nameSheetShown = false
+    this.nameSheetContext = null
     this.loading = true
     this.failed = false
+    if (!this.contextMatchesCurrent(request)) {
+      this.failed = true
+      this.loading = false
+      return
+    }
     EhApiService.getInstance()
-      .getUserConfig(this.site.isEx)
+      .getUserConfig(request.isEx)
       .then((s: EhProfileSettings) => {
-        this.applyLoaded(s)
+        if (run !== this.loadRun) {
+          return
+        }
+        if (!this.contextMatchesCurrent(request)) {
+          this.load()
+          return
+        }
+        this.applyLoaded(s, request)
         this.loading = false
       })
       .catch(() => {
+        if (run !== this.loadRun) {
+          return
+        }
+        if (!this.contextMatchesCurrent(request)) {
+          this.load()
+          return
+        }
         this.failed = true
         this.loading = false
       })
   }
 
-  private applyLoaded(s: EhProfileSettings): void {
+  private applyLoaded(s: EhProfileSettings, context: EhProfileSettingsRequestContext): void {
     this.settings = s
     this.langRows = EhProfileSettingsPage.groupLanguages(s.excludedLanguages)
+    this.loadedContext = context
   }
 
   // ── Profile actions (POST uconfig.php; the response is the resulting profile's config). ──
@@ -125,18 +201,48 @@ export struct EhProfileSettingsPage {
     return ''
   }
 
-  private runProfileAction(action: string, profileSet: string, name: string): void {
-    if (this.profileBusy) {
+  private runProfileAction(
+    action: string,
+    profileSet: string,
+    name: string,
+    expectedContext: EhProfileSettingsRequestContext | null,
+  ): void {
+    if (this.loading || this.saving || this.profileBusy) {
       return
     }
+    const loadedContext: EhProfileSettingsRequestContext | null = this.loadedContext
+    if (
+      expectedContext === null ||
+      loadedContext === null ||
+      !EhProfileSettingsRequestFence.matches(expectedContext, loadedContext) ||
+      !this.contextMatchesCurrent(expectedContext)
+    ) {
+      this.load()
+      return
+    }
+    const run: number = this.loadRun
     this.profileBusy = true
     EhApiService.getInstance()
-      .postProfileAction(this.site.isEx, action, profileSet, name)
+      .postProfileAction(expectedContext.isEx, action, profileSet, name)
       .then((s: EhProfileSettings) => {
-        this.applyLoaded(s)
+        if (run !== this.loadRun) {
+          return
+        }
+        if (!this.contextMatchesCurrent(expectedContext)) {
+          this.load()
+          return
+        }
+        this.applyLoaded(s, expectedContext)
         this.toast($r('app.string.ehp_profile_done'))
       })
       .catch(() => {
+        if (run !== this.loadRun) {
+          return
+        }
+        if (!this.contextMatchesCurrent(expectedContext)) {
+          this.load()
+          return
+        }
         this.toast($r('app.string.ehp_profile_failed'))
       })
       .finally(() => {
@@ -145,13 +251,29 @@ export struct EhProfileSettingsPage {
   }
 
   private selectProfile(value: number): void {
+    const context: EhProfileSettingsRequestContext | null = this.currentLoadedContext()
+    if (context === null) {
+      this.load()
+      return
+    }
     if (value !== this.settings.selectedProfile) {
-      this.runProfileAction('', `${value}`, '')
+      this.runProfileAction('', `${value}`, '', context)
     }
   }
 
   private openNameSheet(action: string): void {
+    if (!this.canStartWrite()) {
+      this.load()
+      return
+    }
+    const context: EhProfileSettingsRequestContext | null = this.currentLoadedContext()
+    if (context === null) {
+      this.load()
+      return
+    }
     this.nameAction = action
+    this.nameProfileSet = action === 'rename' ? `${this.settings.selectedProfile}` : ''
+    this.nameSheetContext = context
     this.nameInput = action === 'rename' ? this.currentProfileName() : ''
     this.nameSheetShown = true
   }
@@ -161,15 +283,29 @@ export struct EhProfileSettingsPage {
     if (name.length === 0) {
       return
     }
+    const action: string = this.nameAction
+    const profileSet: string = this.nameProfileSet
+    const context: EhProfileSettingsRequestContext | null = this.nameSheetContext
     this.nameSheetShown = false
-    if (this.nameAction === 'rename') {
-      this.runProfileAction('rename', `${this.settings.selectedProfile}`, name)
+    this.nameSheetContext = null
+    if (action === 'rename') {
+      this.runProfileAction('rename', profileSet, name, context)
     } else {
-      this.runProfileAction('create', '', name)
+      this.runProfileAction('create', '', name, context)
     }
   }
 
   private confirmDeleteProfile(): void {
+    if (!this.canStartWrite()) {
+      this.load()
+      return
+    }
+    const context: EhProfileSettingsRequestContext | null = this.currentLoadedContext()
+    if (context === null) {
+      this.load()
+      return
+    }
+    const profileSet: string = `${this.settings.selectedProfile}`
     this.getUIContext().showAlertDialog({
       title: $r('app.string.ehp_profile_delete'),
       message: $r('app.string.ehp_profile_delete_confirm'),
@@ -178,23 +314,44 @@ export struct EhProfileSettingsPage {
         value: $r('app.string.ehp_profile_delete'),
         fontColor: Color.Red,
         action: () => {
-          this.runProfileAction('delete', `${this.settings.selectedProfile}`, '')
+          this.runProfileAction('delete', profileSet, '', context)
         },
       },
     })
   }
 
   private save(): void {
-    if (this.loading || this.saving) {
+    if (this.loading || this.saving || this.profileBusy) {
       return
     }
+    const context: EhProfileSettingsRequestContext | null = this.currentLoadedContext()
+    if (context === null) {
+      this.load()
+      return
+    }
+    const run: number = this.loadRun
+    const settings: EhProfileSettings = this.settings.copy()
     this.saving = true
     EhApiService.getInstance()
-      .saveUserConfig(this.site.isEx, this.settings)
+      .saveUserConfig(context.isEx, settings)
       .then(() => {
+        if (run !== this.loadRun) {
+          return
+        }
+        if (!this.contextMatchesCurrent(context)) {
+          this.load()
+          return
+        }
         this.toast($r('app.string.ehp_saved'))
       })
       .catch(() => {
+        if (run !== this.loadRun) {
+          return
+        }
+        if (!this.contextMatchesCurrent(context)) {
+          this.load()
+          return
+        }
         this.toast($r('app.string.ehp_save_failed'))
       })
       .finally(() => {
@@ -203,7 +360,12 @@ export struct EhProfileSettingsPage {
   }
 
   private openWeb(): void {
-    const url: string = `${EhConstants.baseUrl(this.site.isEx)}/uconfig.php`
+    const context: EhProfileSettingsRequestContext | null = this.currentLoadedContext()
+    if (context === null) {
+      this.load()
+      return
+    }
+    const url: string = `${EhConstants.baseUrl(context.isEx)}/uconfig.php`
     this.stack.pushPathByName('GalleryWeb', new GalleryWebParams(url, AppStrings.get('ehp_title')))
   }
 
@@ -212,7 +374,7 @@ export struct EhProfileSettingsPage {
     const saveContent: Record<string, Object> = {
       'label': AppStrings.get('common_save'),
       'icon': $r('sys.symbol.checkmark'),
-      'isEnabled': !this.loading && !this.saving,
+      'isEnabled': this.canStartWrite(),
       'type': IconStyleMode.NORMAL,
       'action': () => {
         this.save()
@@ -221,7 +383,7 @@ export struct EhProfileSettingsPage {
     const webContent: Record<string, Object> = {
       'label': AppStrings.get('ehp_open_web'),
       'icon': $r('sys.symbol.link'),
-      'isEnabled': true,
+      'isEnabled': this.currentLoadedContext() !== null,
       'type': IconStyleMode.NORMAL,
       'action': () => {
         this.openWeb()
@@ -432,7 +594,7 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_profile_create'),
           leadingIcon: $r('sys.symbol.plus'),
           showChevron: false,
-          isEnabled: !this.profileBusy,
+          isEnabled: this.canStartWrite(),
           action: () => {
             this.openNameSheet('create')
           },
@@ -442,7 +604,7 @@ export struct EhProfileSettingsPage {
           title: $r('app.string.ehp_profile_rename'),
           leadingIcon: $r('sys.symbol.square_and_pencil'),
           showChevron: false,
-          isEnabled: !this.profileBusy,
+          isEnabled: this.canStartWrite(),
           action: () => {
             this.openNameSheet('rename')
           },
@@ -454,9 +616,10 @@ export struct EhProfileSettingsPage {
             title: $r('app.string.ehp_profile_default'),
             leadingIcon: $r('sys.symbol.checkmark'),
             showChevron: false,
-            isEnabled: !this.profileBusy,
+            isEnabled: this.canStartWrite(),
             action: () => {
-              this.runProfileAction('default', `${this.settings.selectedProfile}`, '')
+              const context: EhProfileSettingsRequestContext | null = this.currentLoadedContext()
+              this.runProfileAction('default', `${this.settings.selectedProfile}`, '', context)
             },
           })
         }
@@ -471,7 +634,7 @@ export struct EhProfileSettingsPage {
             leadingIcon: $r('sys.symbol.trash'),
             destructive: true,
             showChevron: false,
-            isEnabled: !this.profileBusy,
+            isEnabled: this.canStartWrite(),
             action: () => {
               this.confirmDeleteProfile()
             },

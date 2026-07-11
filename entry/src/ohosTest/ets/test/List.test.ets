@@ -14,6 +14,7 @@ import preloadedGalleryListMemoryCacheTest from './PreloadedGalleryListMemoryCac
 import userTagStoreInlineCacheTest from './UserTagStoreInlineCache.test'
 import cookieJarRefreshIdentityTest from './CookieJarRefreshIdentity.test'
 import siteModeRequestFenceTest from './SiteModeRequestFence.test'
+import ehProfileSettingsRequestFenceTest from './EhProfileSettingsRequestFence.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -32,4 +33,5 @@ export default function testsuite(): void {
   userTagStoreInlineCacheTest()
   cookieJarRefreshIdentityTest()
   siteModeRequestFenceTest()
+  ehProfileSettingsRequestFenceTest()
 }

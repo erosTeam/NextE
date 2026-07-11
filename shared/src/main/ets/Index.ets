@@ -173,6 +173,10 @@ export {
   DownloadExportService,
 } from './services/DownloadExportService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
+export {
+  EhProfileSettingsRequestContext,
+  EhProfileSettingsRequestFence,
+} from './services/EhProfileSettingsRequestFence'
 export { SiteModeRequestFence } from './services/SiteModeRequestFence'
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
 export { UserProfileService, UserProfileInfo } from './services/UserProfileService'
