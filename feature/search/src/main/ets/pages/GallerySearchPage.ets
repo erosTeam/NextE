@@ -113,6 +113,7 @@ export struct GallerySearchPage {
   }
 
   aboutToDisappear(): void {
+    SearchFilterSettings.flush(this.ctx())
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 

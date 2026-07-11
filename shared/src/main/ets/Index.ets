@@ -567,7 +567,11 @@ export {
   ActionAlignmentOption,
 } from './settings/ActionAlignmentSettings'
 export { SearchHistorySettings } from './settings/SearchHistorySettings'
-export { SearchFilterSettings, SearchFilterSnapshot } from './settings/SearchFilterSettings'
+export {
+  SearchFilterPersistScheduler,
+  SearchFilterSettings,
+  SearchFilterSnapshot,
+} from './settings/SearchFilterSettings'
 export { FavcatListSettings } from './settings/FavcatListSettings'
 export { LocalFavSettings } from './settings/LocalFavSettings'
 export { GalleryReadProgressSettings } from './settings/GalleryReadProgressSettings'

@@ -6,10 +6,12 @@ import {
   connectSearchFilter,
   CategorySelector,
   AdvancedSearchControls,
+  SearchFilterSettings,
   SEARCH_SCOPE_FAVORITE,
   SEARCH_SCOPE_GALLERY,
   SEARCH_SCOPE_WATCHED,
 } from 'shared'
+import { common } from '@kit.AbilityKit'
 import { LengthMetrics, SegmentButtonV2Items, TabSegmentButtonV2 } from '@kit.ArkUI'
 
 const SEGMENT_HEIGHT: number = 44
@@ -36,6 +38,15 @@ export struct SearchFilterSheet {
 
   private bumpApplySeq(): void {
     this.filter.applySeq = this.filter.applySeq + 1
+  }
+
+  private ctx(): common.UIAbilityContext {
+    return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private close(): void {
+    SearchFilterSettings.flush(this.ctx())
+    this.onClose()
   }
 
   private setScope(scope: string): void {
@@ -87,7 +98,7 @@ export struct SearchFilterSheet {
       confirmIcon: $r('sys.symbol.arrow_counterclockwise'),
       confirmText: $r('app.string.filter_reset'),
       closeAction: () => {
-        this.onClose()
+        this.close()
       },
       confirmAction: () => {
         this.resetFilter()

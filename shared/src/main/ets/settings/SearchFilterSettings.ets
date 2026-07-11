@@ -9,6 +9,8 @@ import {
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 
+const SEARCH_FILTER_PERSIST_DELAY_MS: number = 250
+
 /** Serialized advanced-search filter (the persistable subset of SearchFilterState; not applySeq). */
 export class SearchFilterSnapshot {
   scope: string = SEARCH_SCOPE_GALLERY // gallery / watched / favorite search target
@@ -29,6 +31,47 @@ export class SearchFilterSnapshot {
 }
 
 /**
+ * Coalesces text-field edits before they reach Preferences. A write already in progress is never
+ * interrupted, but only the newest pending snapshot is appended after it so an older async write
+ * cannot become the final persisted filter state.
+ */
+export class SearchFilterPersistScheduler {
+  private readonly delayMs: number
+  private timer: number = -1
+  private pendingWrite: (() => Promise<void>) | null = null
+  private writeTail: Promise<void> = Promise.resolve()
+
+  constructor(delayMs: number = SEARCH_FILTER_PERSIST_DELAY_MS) {
+    this.delayMs = delayMs >= 0 ? delayMs : 0
+  }
+
+  schedule(write: () => Promise<void>): void {
+    this.pendingWrite = write
+    if (this.timer >= 0) {
+      clearTimeout(this.timer)
+    }
+    this.timer = setTimeout(() => {
+      this.timer = -1
+      this.flush()
+    }, this.delayMs)
+  }
+
+  flush(): Promise<void> {
+    if (this.timer >= 0) {
+      clearTimeout(this.timer)
+      this.timer = -1
+    }
+    const write: (() => Promise<void>) | null = this.pendingWrite
+    if (write === null) {
+      return this.writeTail
+    }
+    this.pendingWrite = null
+    this.writeTail = this.writeTail.then(write, write)
+    return this.writeTail
+  }
+}
+
+/**
  * Persists the advanced-search filters + is the single writer (besides the sheet) of SearchFilterState.
  *
  * eros_fe keeps the advanced-search profile in its persistent store; NextE's SearchFilterState was
@@ -43,6 +86,8 @@ export class SearchFilterSnapshot {
  *    separate booleans like eros_fe. The value IS the gate, so persisting the value persists intent.
  */
 export class SearchFilterSettings {
+  private static readonly persistScheduler: SearchFilterPersistScheduler = new SearchFilterPersistScheduler()
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
@@ -75,27 +120,48 @@ export class SearchFilterSettings {
     }
   }
 
-  /** Persist the current filter state (called when the sheet live-edits or resets filters). */
-  static async persist(context: common.UIAbilityContext): Promise<void> {
+  /** Queue the newest filter snapshot; live text edits share one durable write instead of flushing each key. */
+  static persist(context: common.UIAbilityContext): void {
+    const serialized: string = SearchFilterSettings.serializedCurrent()
+    SearchFilterSettings.persistScheduler.schedule(
+      (): Promise<void> => SearchFilterSettings.writeSerialized(context, serialized),
+    )
+  }
+
+  /** Force the latest known snapshot durable before leaving the filter/search surface. */
+  static async flush(context: common.UIAbilityContext): Promise<void> {
+    SearchFilterSettings.persist(context)
+    await SearchFilterSettings.persistScheduler.flush()
+  }
+
+  private static serializedCurrent(): string {
+    const f = connectSearchFilter()
+    const snap: SearchFilterSnapshot = new SearchFilterSnapshot()
+    snap.scope = SearchFilterSettings.sanitizeScope(f.searchScope)
+    snap.cats = f.selectedCats
+    snap.adv = f.advancedEnabled
+    snap.rating = f.minRating
+    snap.pf = f.pagesFrom
+    snap.pt = f.pagesTo
+    snap.torrent = f.requireTorrent
+    snap.expunged = f.showExpunged
+    snap.sfl = f.disableLanguageFilter
+    snap.sfu = f.disableUploaderFilter
+    snap.sft = f.disableTagFilter
+    return JSON.stringify(snap)
+  }
+
+  private static async writeSerialized(context: common.UIAbilityContext, serialized: string): Promise<void> {
     try {
-      const f = connectSearchFilter()
-      const snap: SearchFilterSnapshot = new SearchFilterSnapshot()
-      snap.scope = SearchFilterSettings.sanitizeScope(f.searchScope)
-      snap.cats = f.selectedCats
-      snap.adv = f.advancedEnabled
-      snap.rating = f.minRating
-      snap.pf = f.pagesFrom
-      snap.pt = f.pagesTo
-      snap.torrent = f.requireTorrent
-      snap.expunged = f.showExpunged
-      snap.sfl = f.disableLanguageFilter
-      snap.sfu = f.disableUploaderFilter
-      snap.sft = f.disableTagFilter
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      store.putSync(StorageKeys.SEARCH_FILTER, JSON.stringify(snap))
+      const existing: string = store.getSync(StorageKeys.SEARCH_FILTER, '') as string
+      if (existing === serialized) {
+        return
+      }
+      store.putSync(StorageKeys.SEARCH_FILTER, serialized)
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'searchfilter_save_failed', (error as Error).message)
@@ -117,7 +183,7 @@ export class SearchFilterSettings {
     f.disableUploaderFilter = false
     f.disableTagFilter = false
     f.applySeq = f.applySeq + 1
-    await SearchFilterSettings.persist(context)
+    await SearchFilterSettings.flush(context)
   }
 
   /** Defensive parse: bad JSON / shape → null; bad fields → safe defaults (0 / false). */
