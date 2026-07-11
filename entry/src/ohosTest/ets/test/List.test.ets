@@ -18,6 +18,7 @@ import siteModeRequestFenceTest from './SiteModeRequestFence.test'
 import ehProfileSettingsRequestFenceTest from './EhProfileSettingsRequestFence.test'
 import userProfileRequestFenceTest from './UserProfileRequestFence.test'
 import ehProfileSelectionCookieTest from './EhProfileSelectionCookie.test'
+import diagnosticsLogFileSinkTest from './DiagnosticsLogFileSink.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -40,4 +41,5 @@ export default function testsuite(): void {
   ehProfileSettingsRequestFenceTest()
   userProfileRequestFenceTest()
   ehProfileSelectionCookieTest()
+  diagnosticsLogFileSinkTest()
 }

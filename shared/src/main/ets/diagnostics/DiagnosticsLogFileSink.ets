@@ -24,10 +24,12 @@ export class DiagnosticsLogFileSink {
   private static directory: string = ''
   private static currentFileName: string = ''
   private static currentFilePath: string = ''
+  private static currentFile: fileIo.File | null = null
   private static disabled: boolean = false
   private static initialized: boolean = false
 
   static initialize(context: common.UIAbilityContext): void {
+    DiagnosticsLogFileSink.closeCurrentFile()
     try {
       const filesDir = DiagnosticsLogFileSink.nonEmptyDir(context.filesDir)
       if (filesDir.length <= 0) {
@@ -38,7 +40,12 @@ export class DiagnosticsLogFileSink {
       DiagnosticsLogFileSink.ensureDirectory(DiagnosticsLogFileSink.directory)
       DiagnosticsLogFileSink.currentFileName = DiagnosticsLogFileSink.createUniqueFileName(DiagnosticsLogFileSink.directory, new Date())
       DiagnosticsLogFileSink.currentFilePath = DiagnosticsLogFileSink.directory + '/' + DiagnosticsLogFileSink.currentFileName
-      DiagnosticsLogFileSink.writeTextFile(DiagnosticsLogFileSink.currentFilePath, '', true)
+      // Diagnostics is emitted on many hot paths. Keep one append-only handle for this app session
+      // instead of paying open/close overhead for every redacted entry.
+      DiagnosticsLogFileSink.currentFile = fileIo.openSync(
+        DiagnosticsLogFileSink.currentFilePath,
+        fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.APPEND,
+      )
       DiagnosticsLogFileSink.initialized = true
       DiagnosticsLogFileSink.disabled = false
       DiagnosticsLogFileSink.pruneRetainedLogs()
@@ -49,17 +56,14 @@ export class DiagnosticsLogFileSink {
 
   static append(entry: DiagnosticLogEntry): void {
     try {
-      if (DiagnosticsLogFileSink.disabled || !DiagnosticsLogFileSink.initialized || DiagnosticsLogFileSink.currentFilePath.length <= 0) {
+      const file = DiagnosticsLogFileSink.currentFile
+      if (DiagnosticsLogFileSink.disabled || !DiagnosticsLogFileSink.initialized || !file) {
         return
       }
       const safeEntry = DiagnosticsRedactor.sanitizeEvent(entry)
-      DiagnosticsLogFileSink.writeTextFile(
-        DiagnosticsLogFileSink.currentFilePath,
-        DiagnosticsLogFormatter.formatEntry(safeEntry) + '\n',
-        false,
-      )
+      fileIo.writeSync(file.fd, DiagnosticsLogFormatter.formatEntry(safeEntry) + '\n')
     } catch (_error) {
-      DiagnosticsLogFileSink.disabled = true
+      DiagnosticsLogFileSink.disableMemoryOnly()
     }
   }
 
@@ -111,6 +115,7 @@ export class DiagnosticsLogFileSink {
   }
 
   static close(): void {
+    DiagnosticsLogFileSink.closeCurrentFile()
     try {
       DiagnosticsLogFileSink.pruneRetainedLogs()
     } catch (_error) {
@@ -282,17 +287,10 @@ export class DiagnosticsLogFileSink {
     }
   }
 
-  private static writeTextFile(path: string, text: string, truncate: boolean): void {
-    let file: fileIo.File | null = null
-    try {
-      const mode = truncate ?
-        fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.TRUNC :
-        fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE | fileIo.OpenMode.APPEND
-      file = fileIo.openSync(path, mode)
-      fileIo.writeSync(file.fd, text)
-    } finally {
-      DiagnosticsLogFileSink.closeFileBestEffort(file)
-    }
+  private static closeCurrentFile(): void {
+    const file = DiagnosticsLogFileSink.currentFile
+    DiagnosticsLogFileSink.currentFile = null
+    DiagnosticsLogFileSink.closeFileBestEffort(file)
   }
 
   private static closeFileBestEffort(file: fileIo.File | null): void {
@@ -321,6 +319,7 @@ export class DiagnosticsLogFileSink {
   }
 
   private static disableMemoryOnly(): void {
+    DiagnosticsLogFileSink.closeCurrentFile()
     DiagnosticsLogFileSink.disabled = true
     DiagnosticsLogFileSink.initialized = false
     DiagnosticsLogFileSink.currentFileName = ''
