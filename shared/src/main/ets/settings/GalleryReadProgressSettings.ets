@@ -222,6 +222,7 @@ export class GalleryReadProgressSettings {
 
   static async exportForBackup(context: common.UIAbilityContext): Promise<ReadProgressEntry[]> {
     await GalleryReadProgressSettings.migrateLegacyPreferences(context)
+    await GalleryReadProgressSettings.flushForSync(context)
     return ReadProgressRepository.load(context)
   }
 

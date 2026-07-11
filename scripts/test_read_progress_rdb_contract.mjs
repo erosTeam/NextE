@@ -195,6 +195,8 @@ ok('sync refresh flushes current reader state and merges only mutations made dur
     /static async refreshAfterSync\(context: common\.UIAbilityContext\)/.test(settings) &&
     /entriesChangedSince\(before, state\.snapshot\(\)\)/.test(settings) &&
     /state\.mergeNewest\(changedWhileRefreshing\)/.test(settings))
+ok('backup export drains pending reader progress before taking its RDB snapshot',
+  /static async exportForBackup\(context: common\.UIAbilityContext\): Promise<ReadProgressEntry\[]> \{[\s\S]*?migrateLegacyPreferences\(context\)[\s\S]*?flushForSync\(context\)[\s\S]*?ReadProgressRepository\.load\(context\)/.test(settings))
 
 const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
 const backupService = read('shared/src/main/ets/backup/BackupService.ets')
