@@ -61,6 +61,14 @@ class ProgressStore {
     this.timeMap.set(gid, this.nextUpdatedAt(gid, time))
     this.revision += 1
   }
+  getEntry(gid) {
+    if (this.revision < 0 || !gid) return null
+    const i = this.indexMap.get(gid)
+    if (i === undefined) return null
+    const t = this.timeMap.get(gid)
+    const c = this.columnModeMap.get(gid)
+    return { g: gid, i, t: t === undefined ? 0 : t, c: c === undefined ? '' : c }
+  }
   snapshot() {
     const out = []
     for (const [g, i] of this.indexMap) {
@@ -147,6 +155,65 @@ function entriesChangedSince(before, current) {
   })
 }
 
+function rebaseAfterRestore(stored, changed, restoredAt, now) {
+  let nextTime = Math.max(now, restoredAt)
+  for (const entry of stored) nextTime = Math.max(nextTime, entry.t)
+  for (const entry of changed) nextTime = Math.max(nextTime, entry.t)
+  nextTime += 1
+  return changed.map((entry) => {
+    const rebased = { ...entry, t: nextTime }
+    nextTime += 1
+    return rebased
+  })
+}
+
+function mergeDirtyEntries(dirty, entries) {
+  for (const entry of entries) {
+    const current = dirty.get(entry.g)
+    if (current === undefined || current.t <= entry.t) dirty.set(entry.g, { ...entry })
+  }
+}
+
+// Mirror of GalleryReadProgressSettings' dirty-entry persistence ownership. A batch removes a
+// dirty gid only if no newer local mutation replaced its timestamp while RDB was awaiting.
+class DirtyProgressWrites {
+  constructor(state) {
+    this.state = state
+    this.dirty = new Map()
+    this.writes = []
+  }
+  mark(gid) {
+    const entry = this.state.getEntry(gid)
+    if (entry !== null) this.dirty.set(gid, { ...entry })
+  }
+  snapshot() {
+    return [...this.dirty.values()].map((entry) => ({ ...entry }))
+  }
+  complete(entries) {
+    this.writes.push(entries.map((entry) => ({ ...entry })))
+    for (const entry of entries) {
+      const current = this.dirty.get(entry.g)
+      if (current !== undefined && current.t === entry.t) this.dirty.delete(entry.g)
+    }
+  }
+}
+
+// Mirror of GalleryReadProgressSettings.enqueueRdbWrite. A rejected write must not poison the
+// tail, and a backup replacement queued after an already-started save must execute afterward.
+class SerialRdbWriteTail {
+  constructor() {
+    this.tail = Promise.resolve()
+  }
+  enqueue(work) {
+    const next = this.tail.then(
+      () => work(),
+      () => work(),
+    )
+    this.tail = next
+    return next
+  }
+}
+
 let passed = 0
 const ok = (name, cond) => {
   assert.ok(cond, name)
@@ -213,6 +280,105 @@ const ok = (name, cond) => {
   ok('sync refresh keeps the newer mutation time', state.snapshot()[0].t === 101)
 }
 
+// 2d. Normal reader writes persist only the modified gid, not every retained history entry.
+{
+  const state = new ProgressStore()
+  state.setIndex('old-a', 1, 10)
+  state.setIndex('old-b', 2, 11)
+  state.setIndex('active', 3, 12)
+  const writes = new DirtyProgressWrites(state)
+  writes.mark('active')
+  const batch = writes.snapshot()
+  ok('dirty persistence snapshots only the active changed gid', batch.length === 1 && batch[0].g === 'active')
+  writes.complete(batch)
+  ok('completed dirty batch removes only its own gid', writes.snapshot().length === 0)
+}
+
+// 2e. Repeated turns for one gid are coalesced to last-write-wins before RDB starts.
+{
+  const state = new ProgressStore()
+  const writes = new DirtyProgressWrites(state)
+  state.setIndex('g', 1, 100)
+  writes.mark('g')
+  state.setIndex('g', 2, 100)
+  writes.mark('g')
+  const batch = writes.snapshot()
+  ok('same-gid dirty work is coalesced to one entry', batch.length === 1)
+  ok('same-gid dirty work keeps the newest page and timestamp', batch[0].i === 2 && batch[0].t === 101)
+}
+
+// 2f. A page turn during an RDB await remains dirty after the older batch completes.
+{
+  const state = new ProgressStore()
+  const writes = new DirtyProgressWrites(state)
+  state.setIndex('g', 1, 100)
+  writes.mark('g')
+  const first = writes.snapshot()
+  state.setIndex('g', 2, 100)
+  writes.mark('g')
+  writes.complete(first)
+  const second = writes.snapshot()
+  ok('older completed batch cannot clear a newer dirty page turn', second.length === 1 && second[0].i === 2 && second[0].t === 101)
+  writes.complete(second)
+  ok('newer completed batch clears the matching dirty entry', writes.snapshot().length === 0)
+}
+
+// 2g. A backup replacement cannot overtake an already-running dirty RDB write, and a failed
+// write cannot permanently poison the queue used by later page turns or restores.
+{
+  const tail = new SerialRdbWriteTail()
+  const order = []
+  let releaseOldWrite = null
+  const oldWrite = tail.enqueue(() => new Promise((resolve) => {
+    order.push('old-start')
+    releaseOldWrite = () => {
+      order.push('old-end')
+      resolve()
+    }
+  }))
+  await Promise.resolve()
+  const restore = tail.enqueue(() => {
+    order.push('restore')
+    return Promise.resolve()
+  })
+  ok('backup restore waits for an already-running dirty write', order.join(',') === 'old-start')
+  releaseOldWrite()
+  await Promise.all([oldWrite, restore])
+  ok('backup replacement runs after the old dirty write completes', order.join(',') === 'old-start,old-end,restore')
+
+  const failed = tail.enqueue(() => Promise.reject(new Error('expected read-progress write failure')))
+  await assert.rejects(failed)
+  await tail.enqueue(() => {
+    order.push('recovered')
+    return Promise.resolve()
+  })
+  ok('a failed queued write does not block the next RDB operation', order[order.length - 1] === 'recovered')
+}
+
+// 2h. A page turn during a successful backup restore is rebased past both its tombstone and any
+// future-dated backup record; a failed restore restores only the older pending dirty records.
+{
+  const rebased = rebaseAfterRestore(
+    [{ g: 'backup', i: 3, t: 900, c: '' }],
+    [{ g: 'active', i: 7, t: 100, c: 'evenLeft' }],
+    1000,
+    800,
+  )
+  ok('restore-time page turn is rebased above the replacement tombstone', rebased[0].t > 1000)
+  ok('rebased page turn also exceeds future-dated backup rows', rebased[0].t > 900)
+  ok('rebased page turn keeps its index and pairing', rebased[0].i === 7 && rebased[0].c === 'evenLeft')
+
+  const pendingAfterFailedRestore = new Map([
+    ['newer', { g: 'newer', i: 9, t: 201, c: '' }],
+  ])
+  mergeDirtyEntries(pendingAfterFailedRestore, [
+    { g: 'older', i: 2, t: 100, c: '' },
+    { g: 'newer', i: 1, t: 200, c: '' },
+  ])
+  ok('failed restore restores a canceled old dirty entry', pendingAfterFailedRestore.get('older').t === 100)
+  ok('failed restore never replaces a newer in-flight page turn', pendingAfterFailedRestore.get('newer').t === 201)
+}
+
 // 3. getIndex defaults to 0 for unknown / empty gid
 {
   const s = new ProgressStore()
@@ -273,6 +439,34 @@ const ok = (name, cond) => {
     'utf8',
   )
   ok('progress restored at startup', /GalleryReadProgressSettings\.restore\(/.test(bootSrc))
+  const stateSrc = readFileSync(
+    join(ROOT, 'shared/src/main/ets/state/GalleryReadProgressState.ets'),
+    'utf8',
+  )
+  const settingsSrc = readFileSync(
+    join(ROOT, 'shared/src/main/ets/settings/GalleryReadProgressSettings.ets'),
+    'utf8',
+  )
+  const repoSrc = readFileSync(
+    join(ROOT, 'shared/src/main/ets/storage/ReadProgressRepository.ets'),
+    'utf8',
+  )
+  ok('normal progress persistence tracks only durable-shaped dirty entries',
+    /getEntry\(gid: string\): ReadProgressEntry \| null/.test(stateSrc) &&
+    /private static dirtyEntries: Map<string, ReadProgressEntry>/.test(settingsSrc) &&
+    /GalleryReadProgressSettings\.markDirty\(state, gid\)/.test(settingsSrc) &&
+    /private static dirtySnapshot\(\): ReadProgressEntry\[\]/.test(settingsSrc))
+  ok('dirty progress batch is written through the dedicated repository method and clears only matching timestamps',
+    /static async saveEntries\(context: common\.UIAbilityContext, entries: ReadProgressEntry\[\]\)/.test(repoSrc) &&
+    /await ReadProgressRepository\.saveEntries\(context, entries\)/.test(settingsSrc) &&
+    /current !== undefined && current\.t === entry\.t/.test(settingsSrc))
+  ok('backup restore is queued behind stale progress writes and repairs both restore races',
+    /private static rdbWriteTail: Promise<void> = Promise\.resolve\(\)/.test(settingsSrc) &&
+    /private static enqueueRdbWrite\(work: \(\) => Promise<void>\): Promise<void>/.test(settingsSrc) &&
+    /static async restoreBackup[\s\S]*pendingBeforeRestore[\s\S]*GalleryReadProgressSettings\.clearPending\(\)[\s\S]*enqueueRdbWrite[\s\S]*ReadProgressRepository\.replaceAll/.test(settingsSrc) &&
+    /rebaseAfterRestore\(stored, changedWhileRestoring, restoredAt\)[\s\S]*markDirty\(state, entry\.g\)[\s\S]*persist\(context, false\)/.test(settingsSrc) &&
+    /catch \(error\) \{[\s\S]*mergeDirtyEntries\(pendingBeforeRestore\)[\s\S]*schedulePersist\(context\)/.test(settingsSrc) &&
+    /private static async persist[\s\S]*enqueueRdbWrite[\s\S]*saveEntries[\s\S]*clearPersisted/.test(settingsSrc))
   const vmSrc = readFileSync(
     join(ROOT, 'feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets'),
     'utf8',

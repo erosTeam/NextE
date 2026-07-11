@@ -45,8 +45,10 @@ ok('repository rejects stale deferred progress writes by effective record time',
   const replaceStart = repo.indexOf('static async replaceAll')
   const replaceEnd = repo.indexOf('\n  }\n}', replaceStart)
   const replaceAll = repo.substring(replaceStart, replaceEnd)
-  ok('full read-progress replacements are transactional',
-    /store\.beginTransaction\(\)[\s\S]*?SQL_TOMBSTONE_SCOPE[\s\S]*?SQL_RESTORE_UPSERT[\s\S]*?store\.commit\(\)[\s\S]*?catch \(error\) \{[\s\S]*?store\.rollBack\(\)[\s\S]*?throw error as Error/.test(replaceAll))
+ok('full read-progress replacements are transactional',
+    /static async replaceAll\(context: common\.UIAbilityContext, entries: ReadProgressEntry\[\]\): Promise<number>/.test(replaceAll) &&
+    /const replacedAt: number = Date\.now\(\)/.test(replaceAll) &&
+    /store\.beginTransaction\(\)[\s\S]*?SQL_TOMBSTONE_SCOPE[\s\S]*?SQL_RESTORE_UPSERT[\s\S]*?store\.commit\(\)[\s\S]*?return replacedAt[\s\S]*?catch \(error\) \{[\s\S]*?store\.rollBack\(\)[\s\S]*?throw error as Error/.test(replaceAll))
 }
 
 const progressState = read('shared/src/main/ets/state/GalleryReadProgressState.ets')
@@ -62,14 +64,27 @@ ok('sync apply cannot overwrite a newer local read-progress mutation with an old
 const settings = read('shared/src/main/ets/settings/GalleryReadProgressSettings.ets')
 ok('settings facade reads/writes RDB and keeps legacy migration',
   /ReadProgressRepository\.load\(context\)/.test(settings) &&
-    /ReadProgressRepository\.saveAll\(context, entries\)/.test(settings) &&
+    /ReadProgressRepository\.saveEntries\(context, entries\)/.test(settings) &&
+    /static async migrateLegacyPreferences[\s\S]*ReadProgressRepository\.saveAll\(context, entries\)/.test(settings) &&
     /migrateLegacyPreferences/.test(settings) &&
     /store\.deleteSync\(StorageKeys\.READING_PROGRESS\)/.test(settings))
 ok('settings no longer persists reading progress back to Preferences JSON',
   !/store\.putSync\(StorageKeys\.READING_PROGRESS/.test(settings))
 ok('settings persists per-gallery double-page pairing through read progress records',
   /static setColumnMode\(context: common\.UIAbilityContext, gid: string, columnMode: string\): void/.test(settings) &&
-    /ReadProgressRepository\.saveAll\(context, entries\)/.test(settings))
+    /GalleryReadProgressSettings\.markDirty\(state, gid\)/.test(settings) &&
+    /ReadProgressRepository\.saveEntries\(context, entries\)/.test(settings))
+ok('ordinary reader writes persist only dirty records while full save stays migration-only',
+  /private static dirtyEntries: Map<string, ReadProgressEntry>/.test(settings) &&
+    /private static dirtySnapshot\(\): ReadProgressEntry\[\]/.test(settings) &&
+    /private static rdbWriteTail: Promise<void> = Promise\.resolve\(\)/.test(settings) &&
+    /private static enqueueRdbWrite\(work: \(\) => Promise<void>\): Promise<void>/.test(settings) &&
+    /private static async persist[\s\S]*dirtySnapshot\(\)[\s\S]*enqueueRdbWrite[\s\S]*saveEntries\(context, entries\)[\s\S]*clearPersisted/.test(settings) &&
+    /static async restoreBackup[\s\S]*pendingBeforeRestore[\s\S]*clearPending\(\)[\s\S]*enqueueRdbWrite[\s\S]*replaceAll/.test(settings) &&
+    /rebaseAfterRestore\(stored, changedWhileRestoring, restoredAt\)[\s\S]*persist\(context, false\)/.test(settings) &&
+    /catch \(error\) \{[\s\S]*mergeDirtyEntries\(pendingBeforeRestore\)[\s\S]*schedulePersist\(context\)/.test(settings) &&
+    /static async migrateLegacyPreferences[\s\S]*enqueueRdbWrite[\s\S]*saveAll\(context, entries\)/.test(settings) &&
+    /static async saveAll[\s\S]*saveEntries\(context, entries\)/.test(repo))
 ok('sync refresh flushes current reader state and merges only mutations made during the refresh',
   /static async flushForSync\(context: common\.UIAbilityContext\)/.test(settings) &&
     /static async refreshAfterSync\(context: common\.UIAbilityContext\)/.test(settings) &&

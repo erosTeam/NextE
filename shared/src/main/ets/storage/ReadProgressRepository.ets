@@ -50,6 +50,11 @@ export class ReadProgressRepository {
   }
 
   static async saveAll(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<void> {
+    await ReadProgressRepository.saveEntries(context, entries)
+  }
+
+  /** Upsert a bounded dirty batch; normal reader progress writes must not rewrite all history. */
+  static async saveEntries(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     for (let i: number = 0; i < entries.length; i++) {
       const entry: ReadProgressEntry = entries[i]
@@ -65,11 +70,13 @@ export class ReadProgressRepository {
     }
   }
 
-  static async replaceAll(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<void> {
+  /** Replace active history and return the tombstone time used by this transaction. */
+  static async replaceAll(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<number> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const replacedAt: number = Date.now()
     store.beginTransaction()
     try {
-      await store.executeSql(SQL_TOMBSTONE_SCOPE, [Date.now(), SCOPE_GLOBAL])
+      await store.executeSql(SQL_TOMBSTONE_SCOPE, [replacedAt, SCOPE_GLOBAL])
       for (let i: number = 0; i < entries.length; i++) {
         const entry: ReadProgressEntry = entries[i]
         if (entry.g.length > 0 && entry.i >= 0) {
@@ -83,6 +90,7 @@ export class ReadProgressRepository {
         }
       }
       store.commit()
+      return replacedAt
     } catch (error) {
       store.rollBack()
       throw error as Error

@@ -95,6 +95,27 @@ export class GalleryReadProgressState {
     this.revision = this.revision + 1
   }
 
+  /** Current durable-shaped entry for one gallery, or null when it has never been tracked. */
+  getEntry(gid: string): ReadProgressEntry | null {
+    // Establish the same build-time dependency as getIndex/getColumnMode for callers that snapshot
+    // a freshly-mutated record before deferring it to RDB.
+    if (this.revision < 0 || gid.length === 0) {
+      return null
+    }
+    const index: number | undefined = this.indexMap.get(gid)
+    if (index === undefined) {
+      return null
+    }
+    const time: number | undefined = this.timeMap.get(gid)
+    const columnMode: string | undefined = this.columnModeMap.get(gid)
+    return new ReadProgressEntry(
+      gid,
+      index,
+      time === undefined ? 0 : time,
+      columnMode === undefined ? '' : columnMode,
+    )
+  }
+
   /** Snapshot for persistence. */
   snapshot(): ReadProgressEntry[] {
     const out: ReadProgressEntry[] = []

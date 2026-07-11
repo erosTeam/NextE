@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { preferences } from '@kit.ArkData'
 import {
   connectGalleryReadProgress,
+  GalleryReadProgressState,
   ReadProgressEntry,
 } from '../state/GalleryReadProgressState'
 import { StorageKeys } from '../constants/StorageKeys'
@@ -22,10 +23,16 @@ const FLUSH_DEBOUNCE_MS: number = 3000
  *     then (re)schedule a single debounced disk flush ~3s later.
  *   • flush(): persist immediately + cancel the pending timer — called when the reader closes so the
  *     last page is never lost to an unfired debounce.
- * The map is stored as a JSON array of {g,i,t} records (ArkTS has no clean object index signature).
+ * RDB is the durable source; the settings layer keeps only the latest unflushed record for each gid.
  */
 export class GalleryReadProgressSettings {
   private static flushTimer: number = -1
+  // One latest durable snapshot per gid. This remains tiny during ordinary reading (one active
+  // gallery) and prevents a page turn from serially rewriting every historical progress row.
+  private static dirtyEntries: Map<string, ReadProgressEntry> = new Map<string, ReadProgressEntry>()
+  // Keep every RDB mutation ordered. In particular, a backup restore must not be overtaken by a
+  // saveEntries() batch that had already started when the restore UI was opened.
+  private static rdbWriteTail: Promise<void> = Promise.resolve()
 
   static async restore(context: common.UIAbilityContext): Promise<void> {
     const state = connectGalleryReadProgress()
@@ -48,14 +55,10 @@ export class GalleryReadProgressSettings {
     if (gid.length === 0 || index < 0) {
       return
     }
-    connectGalleryReadProgress().setIndex(gid, index, Date.now())
-    if (GalleryReadProgressSettings.flushTimer >= 0) {
-      clearTimeout(GalleryReadProgressSettings.flushTimer)
-    }
-    GalleryReadProgressSettings.flushTimer = setTimeout(() => {
-      GalleryReadProgressSettings.flushTimer = -1
-      GalleryReadProgressSettings.persist(context)
-    }, FLUSH_DEBOUNCE_MS)
+    const state = connectGalleryReadProgress()
+    state.setIndex(gid, index, Date.now())
+    GalleryReadProgressSettings.markDirty(state, gid)
+    GalleryReadProgressSettings.schedulePersist(context)
   }
 
   static setColumnMode(context: common.UIAbilityContext, gid: string, columnMode: string): void {
@@ -65,14 +68,10 @@ export class GalleryReadProgressSettings {
     ) {
       return
     }
-    connectGalleryReadProgress().setColumnMode(gid, columnMode, Date.now())
-    if (GalleryReadProgressSettings.flushTimer >= 0) {
-      clearTimeout(GalleryReadProgressSettings.flushTimer)
-    }
-    GalleryReadProgressSettings.flushTimer = setTimeout(() => {
-      GalleryReadProgressSettings.flushTimer = -1
-      GalleryReadProgressSettings.persist(context)
-    }, FLUSH_DEBOUNCE_MS)
+    const state = connectGalleryReadProgress()
+    state.setColumnMode(gid, columnMode, Date.now())
+    GalleryReadProgressSettings.markDirty(state, gid)
+    GalleryReadProgressSettings.schedulePersist(context)
   }
 
   /** Force-persist now (reader exit) so a pending debounced write isn't lost. */
@@ -116,15 +115,73 @@ export class GalleryReadProgressSettings {
     context: common.UIAbilityContext,
     scheduleSync: boolean = true,
   ): Promise<void> {
+    const entries: ReadProgressEntry[] = GalleryReadProgressSettings.dirtySnapshot()
+    if (entries.length === 0) {
+      return
+    }
     try {
-      const entries: ReadProgressEntry[] = connectGalleryReadProgress().snapshot()
-      await ReadProgressRepository.saveAll(context, entries)
+      await GalleryReadProgressSettings.enqueueRdbWrite(async (): Promise<void> => {
+        await ReadProgressRepository.saveEntries(context, entries)
+        // Do this in the queued work, after a successful SQL write. A newer page turn may have
+        // replaced this gid in dirtyEntries while the batch was awaiting RDB.
+        GalleryReadProgressSettings.clearPersisted(entries)
+      })
       if (scheduleSync) {
         SyncScheduler.requestAfterLocalWrite(context, 'read_progress')
       }
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readprogress_save_failed', (error as Error).message)
     }
+  }
+
+  private static markDirty(state: GalleryReadProgressState, gid: string): void {
+    const entry: ReadProgressEntry | null = state.getEntry(gid)
+    if (entry !== null) {
+      GalleryReadProgressSettings.dirtyEntries.set(gid, entry)
+    }
+  }
+
+  private static schedulePersist(context: common.UIAbilityContext): void {
+    if (GalleryReadProgressSettings.flushTimer >= 0) {
+      clearTimeout(GalleryReadProgressSettings.flushTimer)
+    }
+    GalleryReadProgressSettings.flushTimer = setTimeout(() => {
+      GalleryReadProgressSettings.flushTimer = -1
+      GalleryReadProgressSettings.persist(context)
+    }, FLUSH_DEBOUNCE_MS)
+  }
+
+  private static dirtySnapshot(): ReadProgressEntry[] {
+    const out: ReadProgressEntry[] = []
+    GalleryReadProgressSettings.dirtyEntries.forEach((entry: ReadProgressEntry) => {
+      out.push(new ReadProgressEntry(entry.g, entry.i, entry.t, entry.c))
+    })
+    return out
+  }
+
+  /** Do not discard a newer page turn that landed while this RDB batch was awaiting completion. */
+  private static clearPersisted(entries: ReadProgressEntry[]): void {
+    entries.forEach((entry: ReadProgressEntry) => {
+      const current: ReadProgressEntry | undefined =
+        GalleryReadProgressSettings.dirtyEntries.get(entry.g)
+      if (current !== undefined && current.t === entry.t) {
+        GalleryReadProgressSettings.dirtyEntries.delete(entry.g)
+      }
+    })
+  }
+
+  /**
+   * Serialize RDB writes while allowing a rejected write to be followed by recovery work. Calling
+   * this synchronously reserves the operation's position, so restoreBackup() cannot race an
+   * already-snapshotted dirty batch.
+   */
+  private static enqueueRdbWrite(work: () => Promise<void>): Promise<void> {
+    const next: Promise<void> = GalleryReadProgressSettings.rdbWriteTail.then(
+      (): Promise<void> => work(),
+      (): Promise<void> => work(),
+    )
+    GalleryReadProgressSettings.rdbWriteTail = next
+    return next
   }
 
   private static entriesChangedSince(
@@ -149,10 +206,91 @@ export class GalleryReadProgressSettings {
   }
 
   static async restoreBackup(context: common.UIAbilityContext, entries: ReadProgressEntry[]): Promise<void> {
-    await ReadProgressRepository.replaceAll(context, entries)
+    const state = connectGalleryReadProgress()
+    const before: ReadProgressEntry[] = state.snapshot()
+    const pendingBeforeRestore: ReadProgressEntry[] = GalleryReadProgressSettings.dirtySnapshot()
+    GalleryReadProgressSettings.clearPending()
+    let restoredAt: number = 0
+    try {
+      await GalleryReadProgressSettings.enqueueRdbWrite(async (): Promise<void> => {
+        restoredAt = await ReadProgressRepository.replaceAll(context, entries)
+      })
+    } catch (error) {
+      // replaceAll is transactional, but a failed restore must not strand the entries that were
+      // waiting for its debounce. Prefer any page turn that happened after the restore started.
+      GalleryReadProgressSettings.mergeDirtyEntries(pendingBeforeRestore)
+      if (GalleryReadProgressSettings.dirtyEntries.size > 0) {
+        GalleryReadProgressSettings.schedulePersist(context)
+      }
+      throw error as Error
+    }
     await GalleryReadProgressSettings.deleteLegacyPreference(context)
-    connectGalleryReadProgress().replaceAll(await ReadProgressRepository.load(context))
+    const stored: ReadProgressEntry[] = await ReadProgressRepository.load(context)
+    const changedWhileRestoring: ReadProgressEntry[] =
+      GalleryReadProgressSettings.entriesChangedSince(before, state.snapshot())
+    const rebasedChanges: ReadProgressEntry[] =
+      GalleryReadProgressSettings.rebaseAfterRestore(stored, changedWhileRestoring, restoredAt)
+    // A successful restore intentionally discards progress that existed before it started, but
+    // retains actual reader input that arrived while the restore was awaiting RDB. Those changes
+    // must receive a newer timestamp than this restore's tombstone and backup rows.
+    GalleryReadProgressSettings.dirtyEntries.clear()
+    state.replaceAll(stored)
+    state.mergeNewest(rebasedChanges)
+    rebasedChanges.forEach((entry: ReadProgressEntry) => {
+      GalleryReadProgressSettings.markDirty(state, entry.g)
+    })
+    await GalleryReadProgressSettings.persist(context, false)
+    if (GalleryReadProgressSettings.dirtyEntries.size > 0) {
+      GalleryReadProgressSettings.schedulePersist(context)
+    }
     SyncScheduler.requestAfterLocalWrite(context, 'read_progress_restore_backup')
+  }
+
+  private static clearPending(): void {
+    if (GalleryReadProgressSettings.flushTimer >= 0) {
+      clearTimeout(GalleryReadProgressSettings.flushTimer)
+      GalleryReadProgressSettings.flushTimer = -1
+    }
+    GalleryReadProgressSettings.dirtyEntries.clear()
+  }
+
+  /** Restore previously pending records after a failed backup transaction without replacing newer turns. */
+  private static mergeDirtyEntries(entries: ReadProgressEntry[]): void {
+    entries.forEach((entry: ReadProgressEntry) => {
+      const current: ReadProgressEntry | undefined = GalleryReadProgressSettings.dirtyEntries.get(entry.g)
+      if (current === undefined || current.t <= entry.t) {
+        GalleryReadProgressSettings.dirtyEntries.set(
+          entry.g,
+          new ReadProgressEntry(entry.g, entry.i, entry.t, entry.c),
+        )
+      }
+    })
+  }
+
+  /**
+   * A local page turn during backup restore happened later in wall-clock order, but its original
+   * timestamp can still be older than a restored backup row or the replacement tombstone. Rebase
+   * it above both so SQL newest-wins and the live state agree after the next dirty flush.
+   */
+  private static rebaseAfterRestore(
+    stored: ReadProgressEntry[],
+    changed: ReadProgressEntry[],
+    restoredAt: number,
+  ): ReadProgressEntry[] {
+    let nextTime: number = Math.max(Date.now(), restoredAt)
+    stored.forEach((entry: ReadProgressEntry) => {
+      nextTime = Math.max(nextTime, entry.t)
+    })
+    changed.forEach((entry: ReadProgressEntry) => {
+      nextTime = Math.max(nextTime, entry.t)
+    })
+    nextTime = nextTime + 1
+    const rebased: ReadProgressEntry[] = []
+    changed.forEach((entry: ReadProgressEntry) => {
+      rebased.push(new ReadProgressEntry(entry.g, entry.i, nextTime, entry.c))
+      nextTime = nextTime + 1
+    })
+    return rebased
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
@@ -166,7 +304,9 @@ export class GalleryReadProgressSettings {
     }
     const entries: ReadProgressEntry[] = GalleryReadProgressSettings.parse(raw)
     if (entries.length > 0) {
-      await ReadProgressRepository.saveAll(context, entries)
+      await GalleryReadProgressSettings.enqueueRdbWrite(
+        (): Promise<void> => ReadProgressRepository.saveAll(context, entries),
+      )
     }
     store.deleteSync(StorageKeys.READING_PROGRESS)
     store.flushSync()
