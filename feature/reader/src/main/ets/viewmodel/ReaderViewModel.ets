@@ -206,6 +206,27 @@ export class ReaderViewModel {
     ReaderViewModel.trimSessionCache()
   }
 
+  /**
+   * Turning pages changes only resumable scalar state. Keep the existing image snapshot intact instead
+   * of deep-copying every loaded image on each horizontal turn or vertical scroll callback.
+   */
+  private updateSessionCacheState(): void {
+    if (this.cacheKey.length === 0) {
+      return
+    }
+    const snapshot: ReaderSessionSnapshot | undefined = ReaderViewModel.sessionCache.get(this.cacheKey)
+    if (snapshot === undefined) {
+      return
+    }
+    snapshot.fileCount = this.fileCount
+    snapshot.previewPage = this.previewPage
+    snapshot.exhausted = this.exhausted
+    snapshot.perPage = this.perPage
+    snapshot.currentIndex = this.currentIndex
+    snapshot.updatedAt = Date.now()
+    ReaderViewModel.trimSessionCache()
+  }
+
   private notifyImagesChanged(): void {
     this.syncImagesFromPreviewMap()
   }
@@ -534,7 +555,7 @@ export class ReaderViewModel {
         if (this.isKnownLastPreviewPage(next, more.length)) {
           this.exhausted = true
         }
-        this.publishSessionCache()
+        this.updateSessionCacheState()
       }
     } catch (err) {
       this.error = EhErrorText.forUser(err)
@@ -712,7 +733,7 @@ export class ReaderViewModel {
     )
     this.currentIndex = index
     this.prepareTargetPage(index)
-    this.publishSessionCache()
+    this.updateSessionCacheState()
   }
 
   /** Vertical (continuous) mode: top item drives the counter; load more as the bottom nears the end. */
@@ -726,7 +747,7 @@ export class ReaderViewModel {
     } else {
       this.precacheAhead()
     }
-    this.publishSessionCache()
+    this.updateSessionCacheState()
   }
 
   private prepareTargetPage(index: number): void {
@@ -849,7 +870,7 @@ export class ReaderViewModel {
     const target: number = total > 0 ? Math.min(index, total - 1) : 0
     this.currentIndex = target >= 0 ? target : 0
     this.precacheFrom(target)
-    this.publishSessionCache()
+    this.updateSessionCacheState()
     return target >= 0 ? target : 0
   }
 }

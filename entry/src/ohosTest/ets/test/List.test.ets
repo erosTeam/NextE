@@ -25,6 +25,7 @@ import searchFilterPersistSchedulerTest from './SearchFilterPersistScheduler.tes
 import webDavConfigPersistSchedulerTest from './WebDavConfigPersistScheduler.test'
 import downloadQueueTaskProjectionTest from './DownloadQueueTaskProjection.test'
 import favoritesTagTranslationRaceTest from './FavoritesTagTranslationRace.test'
+import readerSessionCacheStateTest from './ReaderSessionCacheState.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -54,4 +55,5 @@ export default function testsuite(): void {
   webDavConfigPersistSchedulerTest()
   downloadQueueTaskProjectionTest()
   favoritesTagTranslationRaceTest()
+  readerSessionCacheStateTest()
 }
