@@ -36,6 +36,8 @@ export class EhConstants {
   static readonly COOKIE_IGNEOUS: string = 'igneous'
   static readonly COOKIE_SK: string = 'sk'
   static readonly COOKIE_STAR: string = 'star'
+  // Makes the active uconfig.php profile sticky for subsequent requests; profile actions also send profile_set.
+  static readonly COOKIE_PROFILE_SELECTION: string = 'sp'
   static readonly COOKIE_NW: string = 'nw' // always forced to '1' to skip the content-warning interstitial
 
   // Favorites ordering query values

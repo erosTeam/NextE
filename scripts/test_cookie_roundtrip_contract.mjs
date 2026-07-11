@@ -32,6 +32,7 @@ const src = (rel) => readFileSync(join(ROOT, rel), 'utf8')
 const NW = 'nw'
 const MEMBER = 'ipb_member_id'
 const HASH = 'ipb_pass_hash'
+const PROFILE = 'sp'
 
 // --- Mirror of CookieJarSettings.applyFromHeader + EhCookieStore.{serializeForPersist,header,isLogin} ---
 // The jar is a Map<string,string> (insertion-ordered, last-writer-wins per name), like the .ets singleton.
@@ -75,6 +76,21 @@ const sendHeader = (jar) => {
   const parts = ['nw=1']
   for (const [name, value] of jar) {
     if (name !== NW && value.length > 0) parts.push(`${name}=${value}`)
+  }
+  return parts.join('; ')
+}
+
+// A protected profile write may replace one Cookie entry for that request only. The persisted jar stays
+// unchanged until the server confirms the result.
+const sendHeaderWithOverride = (jar, name, value) => {
+  const parts = ['nw=1']
+  for (const [storedName, storedValue] of jar) {
+    if (storedName !== NW && storedName !== name && storedValue.length > 0) {
+      parts.push(`${storedName}=${storedValue}`)
+    }
+  }
+  if (name.length > 0 && name !== NW && value.length > 0) {
+    parts.push(`${name}=${value}`)
   }
   return parts.join('; ')
 }
@@ -218,7 +234,18 @@ const DONOR_HEADER = kv(
   eq('both identity cookies → logged in (no extra cookies needed)', isLogin(both), true)
 }
 
-// 7. Structural: the .ets enforces preserve-all, with the AUTH_NAMES whitelist GONE.
+// 7. A profile write replaces `sp` for its request without leaking the unconfirmed value into the jar.
+{
+  const jar = new Map()
+  applyFromHeader(jar, kv([MEMBER, V_ID], [HASH, V_HASH], [PROFILE, 'old-profile'], ['fixture_marker', 'kept']))
+  const overridden = sendHeaderWithOverride(jar, PROFILE, 'new-profile')
+  eq('profile request override has the requested selection', valueOf(overridden, PROFILE), 'new-profile')
+  eq('profile request override has exactly one selection', namesOf(overridden).filter((n) => n === PROFILE).length, 1)
+  eq('profile request override retains unrelated cookies', valueOf(overridden, 'fixture_marker'), 'kept')
+  eq('profile request override leaves the persisted jar unchanged before success', valueOf(serializeForPersist(jar), PROFILE), 'old-profile')
+}
+
+// 8. Structural: the .ets enforces preserve-all, with the AUTH_NAMES whitelist GONE.
 {
   const cjs = src('shared/src/main/ets/settings/CookieJarSettings.ets')
   ok('CookieJarSettings: no AUTH_NAMES whitelist remains', !/AUTH_NAMES/.test(cjs))
@@ -244,6 +271,34 @@ const DONOR_HEADER = kv(
     /header\(\)\s*:\s*string\s*\{[\s\S]*?\['nw=1'\][\s\S]*?this\.cookies\.forEach/.test(ecs),
   )
   ok('isLogin = member id AND pass hash', /COOKIE_MEMBER_ID[\s\S]*?COOKIE_PASS_HASH/.test(ecs))
+
+  const constants = src('shared/src/main/ets/constants/EhConstants.ets')
+  const http = src('shared/src/main/ets/network/EhHttpClient.ets')
+  const api = src('shared/src/main/ets/network/EhApiService.ets')
+  const profileModel = src('shared/src/main/ets/model/EhProfileSettings.ets')
+  const profilePage = src('feature/settings/src/main/ets/pages/EhProfileSettingsPage.ets')
+  const accountList = src('shared/src/main/ets/settings/AccountListSettings.ets')
+
+  ok('profile selection cookie has one shared constant', /COOKIE_PROFILE_SELECTION: string = 'sp'/.test(constants))
+  ok('request override replaces the stored cookie instead of appending one', ecs.includes('headerWithCookieOverride(name: string, value: string)') && ecs.includes('storedName !== name'))
+  ok('request override appends one nonempty replacement after filtering the old value', ecs.includes('parts.push(`${name}=${value}`)'))
+  ok('form writes accept a one-request Cookie override', http.includes("postFormUrlEncoded(url: string, body: string, cookieHeader: string = '')"))
+  ok('transport prefers the supplied Cookie override without changing its retry policy', http.includes("'Cookie': cookieHeader.length > 0 ? cookieHeader : EhCookieStore.getInstance().header()"))
+  ok('only profile select/delete build the request-scoped selection cookie', api.includes("action === '' || action === 'delete'") && api.includes('headerWithCookieOverride('))
+  ok('profile action sends the scoped header through the one-shot form write', api.includes("postFormUrlEncoded(url, pairs.join('&'), profileCookie)"))
+  ok('server response must explicitly mark the selected profile before persisting', profileModel.includes('profile.selected && profile.value === this.selectedProfile'))
+  ok('profile page delegates persistence to the account-context-aware API', profilePage.includes('CookieJarSettings.persistServerSelectedProfile(') && !profilePage.includes('CookieJarSettings.save('))
+  ok('account bundle update checks for an existing record', accountList.includes('static hasStoredMember(') && accountList.includes('static replaceExistingBundleInStore(') && /if \(!found\) \{\s*return false/.test(accountList))
+
+  const persistStart = cjs.indexOf('static async persistServerSelectedProfile(')
+  const persistEnd = cjs.indexOf('\n  /** Persist the current jar bundle', persistStart)
+  const persist = persistStart >= 0 && persistEnd > persistStart ? cjs.substring(persistStart, persistEnd) : ''
+  const preferencesAwait = persist.indexOf('await preferences.getPreferences(')
+  const secondContextCheck = persist.indexOf('!CookieJarSettings.matchesActiveProfileContext(', preferencesAwait + 1)
+  const syncStart = persist.indexOf('const cookieStore: EhCookieStore', preferencesAwait)
+  const syncEnd = persist.indexOf('store.flushSync()', syncStart)
+  ok('profile persistence rechecks member, pass, and site after Preferences resolves', preferencesAwait >= 0 && secondContextCheck > preferencesAwait)
+  ok('profile cookie and both persistence surfaces update without another await', syncStart >= 0 && syncEnd > syncStart && !persist.substring(syncStart, syncEnd).includes('await '))
 }
 
 console.log(`✓ cookie round-trip contract: ${passed} assertions passed`)

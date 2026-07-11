@@ -78,6 +78,7 @@ export class EhHttpClient {
       '',
       '',
       false,
+      '',
     )
   }
 
@@ -106,6 +107,7 @@ export class EhHttpClient {
       '',
       'application/json',
       false,
+      '',
     )
   }
 
@@ -122,8 +124,11 @@ export class EhHttpClient {
     )
   }
 
-  /** POST a classic PHP form body exactly once; these are protected EH write endpoints. */
-  async postFormUrlEncoded(url: string, body: string): Promise<EhTextResponse> {
+  /**
+   * POST a classic PHP form body exactly once; these are protected EH write endpoints. A caller may
+   * provide a one-request Cookie header without mutating the shared jar before the server accepts it.
+   */
+  async postFormUrlEncoded(url: string, body: string, cookieHeader: string = ''): Promise<EhTextResponse> {
     return await EhHttpClient.requestTextOnceWithAxios(
       url,
       'POST',
@@ -131,6 +136,7 @@ export class EhHttpClient {
       '',
       'application/x-www-form-urlencoded',
       false,
+      cookieHeader,
     )
   }
 
@@ -147,6 +153,7 @@ export class EhHttpClient {
       referer,
       'application/x-www-form-urlencoded',
       true,
+      '',
     )
   }
 
@@ -170,6 +177,7 @@ export class EhHttpClient {
           referer,
           contentType,
           captureResponseCookies,
+          '',
         )
         if (resp.statusCode >= 500 && attempt < MAX_RETRIES - 1) {
           lastError = new Error(`HTTP ${resp.statusCode}`)
@@ -194,8 +202,9 @@ export class EhHttpClient {
     referer: string,
     contentType: string,
     captureResponseCookies: boolean,
+    cookieHeader: string,
   ): Promise<EhTextResponse> {
-    const header: Record<string, string> = EhHttpClient.textHeader(referer, contentType)
+    const header: Record<string, string> = EhHttpClient.textHeader(referer, contentType, cookieHeader)
     const config: AxiosRequestConfig<string> = {
       url: url,
       method: method,
@@ -219,13 +228,13 @@ export class EhHttpClient {
     return { statusCode: resp.status, body: respBody, rawHeader: rawHeader }
   }
 
-  private static textHeader(referer: string, contentType: string): Record<string, string> {
+  private static textHeader(referer: string, contentType: string, cookieHeader: string): Record<string, string> {
     const header: Record<string, string> = {
       'User-Agent': EhConstants.USER_AGENT,
       'Accept': EhConstants.ACCEPT,
       'Accept-Language': EhConstants.ACCEPT_LANGUAGE,
       'Accept-Encoding': 'gzip',
-      'Cookie': EhCookieStore.getInstance().header(),
+      'Cookie': cookieHeader.length > 0 ? cookieHeader : EhCookieStore.getInstance().header(),
     }
     if (referer.length > 0) {
       header['Referer'] = referer

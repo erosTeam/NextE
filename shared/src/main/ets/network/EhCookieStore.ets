@@ -50,6 +50,27 @@ export class EhCookieStore {
     return parts.join('; ')
   }
 
+  /**
+   * Cookie header for one request with a single cookie replaced. This does not mutate the stored jar:
+   * callers use it for a protected write that must carry a server-confirmed value only after success.
+   */
+  headerWithCookieOverride(name: string, value: string): string {
+    const parts: string[] = ['nw=1']
+    this.cookies.forEach((storedValue: string, storedName: string) => {
+      if (
+        storedName !== EhConstants.COOKIE_NW &&
+        storedName !== name &&
+        storedValue.length > 0
+      ) {
+        parts.push(`${storedName}=${storedValue}`)
+      }
+    })
+    if (name.length > 0 && name !== EhConstants.COOKIE_NW && value.length > 0) {
+      parts.push(`${name}=${value}`)
+    }
+    return parts.join('; ')
+  }
+
   /** Diagnostic only: cookie names without values. Never include this in user-facing exports as secrets. */
   nameSummary(): string {
     const names: string[] = []

@@ -118,6 +118,20 @@ export class EhProfileSettings {
   // All input/select/textarea field names present (so absent toggles/text/selects are hidden).
   fieldNames: string[] = []
 
+  /**
+   * Use only a profile explicitly selected in the server response when updating EH's `sp` cookie.
+   * `selectedProfile` defaults to 0 for a parse miss, so it alone is not safe to persist.
+   */
+  selectedProfileCookieValue(): string {
+    for (let i: number = 0; i < this.profiles.length; i++) {
+      const profile: EhProfile = this.profiles[i]
+      if (profile.selected && profile.value === this.selectedProfile) {
+        return `${profile.value}`
+      }
+    }
+    return ''
+  }
+
   copy(): EhProfileSettings {
     const out: EhProfileSettings = new EhProfileSettings()
     out.profiles = this.profiles.map(

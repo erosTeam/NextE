@@ -7,6 +7,7 @@ import { EhConstants } from '../constants/EhConstants'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { connectAuth, AuthState } from '../state/AuthState'
+import { connectSiteMode } from '../state/SiteModeState'
 import { AccountListSettings } from './AccountListSettings'
 import { UserProfileService } from '../services/UserProfileService'
 import { CookieJarEntry } from '../model/CookieJarEntry'
@@ -432,6 +433,68 @@ export class CookieJarSettings {
   /** Serialize the COMPLETE jar (every captured cookie, not just the known bundle) for storage. */
   private static serialize(): string {
     return EhCookieStore.getInstance().serializeForPersist()
+  }
+
+  /** A profile response may persist only while the account and site that issued it are still active. */
+  private static matchesActiveProfileContext(
+    expectedMemberId: string,
+    expectedPassHash: string,
+    expectedIsEx: boolean,
+  ): boolean {
+    const cookieStore: EhCookieStore = EhCookieStore.getInstance()
+    return (
+      expectedMemberId.length > 0 &&
+      expectedPassHash.length > 0 &&
+      cookieStore.get(EhConstants.COOKIE_MEMBER_ID) === expectedMemberId &&
+      cookieStore.get(EhConstants.COOKIE_PASS_HASH) === expectedPassHash &&
+      connectSiteMode().isEx === expectedIsEx
+    )
+  }
+
+  /**
+   * Persist a profile selection accepted by uconfig.php. The Preferences await is guarded on both sides,
+   * then the active jar and its existing saved-account bundle are updated from one synchronous snapshot.
+   */
+  static async persistServerSelectedProfile(
+    context: common.UIAbilityContext,
+    expectedMemberId: string,
+    expectedPassHash: string,
+    expectedIsEx: boolean,
+    selectedProfile: string,
+  ): Promise<boolean> {
+    if (
+      selectedProfile.length === 0 ||
+      !CookieJarSettings.matchesActiveProfileContext(expectedMemberId, expectedPassHash, expectedIsEx)
+    ) {
+      return false
+    }
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      if (
+        !CookieJarSettings.matchesActiveProfileContext(expectedMemberId, expectedPassHash, expectedIsEx) ||
+        !AccountListSettings.hasStoredMember(store, expectedMemberId)
+      ) {
+        return false
+      }
+      const cookieStore: EhCookieStore = EhCookieStore.getInstance()
+      const previousProfile: string = cookieStore.get(EhConstants.COOKIE_PROFILE_SELECTION)
+      cookieStore.set(EhConstants.COOKIE_PROFILE_SELECTION, selectedProfile)
+      const bundle: string = cookieStore.serializeForPersist()
+      if (!AccountListSettings.replaceExistingBundleInStore(store, expectedMemberId, bundle)) {
+        cookieStore.set(EhConstants.COOKIE_PROFILE_SELECTION, previousProfile)
+        return false
+      }
+      store.putSync(StorageKeys.COOKIE_JAR, bundle)
+      store.flushSync()
+      CookieJarSettings.syncAuthState()
+      return true
+    } catch (error) {
+      DiagnosticLogger.warn('auth', 'profile_selection_persist_failed', (error as Error).message)
+      return false
+    }
   }
 
   /** Persist the current jar bundle to Preferences + refresh the AuthState mirror. */

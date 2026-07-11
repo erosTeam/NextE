@@ -13,6 +13,7 @@ import {
   appSheetOptions,
   AppStrings,
   AuthState,
+  CookieJarSettings,
   ConciseListRow,
   EhCookieStore,
   InlineEditRow,
@@ -61,8 +62,8 @@ class UcOption {
 /**
  * Native editor for the EH user config (uconfig.php). Loads via EhApiService.getUserConfig, edits the
  * reactive EhProfileSettings model in place, and writes back with the Save action (POST, non-idempotent).
- * The top-right also opens EH's own /uconfig.php in the in-app WebView. Profile switching (sp) and the
- * xn/xl exclusion lists are deferred to a follow-up.
+ * The top-right also opens EH's own /uconfig.php in the in-app WebView. Profile actions persist the
+ * server-confirmed `sp` selection; xn/xl lists are edited directly in the native form.
  */
 @ComponentV2
 export struct EhProfileSettingsPage {
@@ -224,7 +225,21 @@ export struct EhProfileSettingsPage {
     this.profileBusy = true
     EhApiService.getInstance()
       .postProfileAction(expectedContext.isEx, action, profileSet, name)
-      .then((s: EhProfileSettings) => {
+      .then(async (s: EhProfileSettings) => {
+        if (run !== this.loadRun) {
+          return
+        }
+        if (!this.contextMatchesCurrent(expectedContext)) {
+          this.load()
+          return
+        }
+        const persisted: boolean = await this.persistSelectedProfile(s, expectedContext, run)
+        if (!persisted) {
+          if (run === this.loadRun && this.contextMatchesCurrent(expectedContext)) {
+            this.load()
+          }
+          return
+        }
         if (run !== this.loadRun) {
           return
         }
@@ -248,6 +263,24 @@ export struct EhProfileSettingsPage {
       .finally(() => {
         this.profileBusy = false
       })
+  }
+
+  private async persistSelectedProfile(
+    settings: EhProfileSettings,
+    context: EhProfileSettingsRequestContext,
+    run: number,
+  ): Promise<boolean> {
+    const selected: string = settings.selectedProfileCookieValue()
+    if (selected.length === 0 || run !== this.loadRun || !this.contextMatchesCurrent(context)) {
+      return false
+    }
+    return await CookieJarSettings.persistServerSelectedProfile(
+      this.ctx(),
+      context.memberId,
+      context.passHash,
+      context.isEx,
+      selected,
+    )
   }
 
   private selectProfile(value: number): void {

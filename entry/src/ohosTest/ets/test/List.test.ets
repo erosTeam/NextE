@@ -16,6 +16,7 @@ import cookieJarRefreshIdentityTest from './CookieJarRefreshIdentity.test'
 import siteModeRequestFenceTest from './SiteModeRequestFence.test'
 import ehProfileSettingsRequestFenceTest from './EhProfileSettingsRequestFence.test'
 import userProfileRequestFenceTest from './UserProfileRequestFence.test'
+import ehProfileSelectionCookieTest from './EhProfileSelectionCookie.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -36,4 +37,5 @@ export default function testsuite(): void {
   siteModeRequestFenceTest()
   ehProfileSettingsRequestFenceTest()
   userProfileRequestFenceTest()
+  ehProfileSelectionCookieTest()
 }

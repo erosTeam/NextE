@@ -129,6 +129,68 @@ export class AccountListSettings {
     }
   }
 
+  /**
+   * Check whether a saved account still exists in the Preferences transaction held by the caller.
+   * Profile persistence uses this before changing the active jar, so a delayed response cannot restore
+   * an account that was removed while the request was in flight.
+   */
+  static hasStoredMember(store: preferences.Preferences, memberId: string): boolean {
+    if (memberId.length === 0) {
+      return false
+    }
+    try {
+      const records: AccountRecord[] = AccountListSettings.parse(
+        store.getSync(StorageKeys.AUTH_ACCOUNTS, '') as string,
+      )
+      for (let i: number = 0; i < records.length; i++) {
+        if (records[i].memberId === memberId) {
+          return true
+        }
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('auth', 'account_list_member_lookup_failed', (error as Error).message)
+    }
+    return false
+  }
+
+  /**
+   * Replace an existing account bundle in the caller's Preferences transaction. This intentionally never
+   * appends: a delayed profile response must not recreate an account the user just removed.
+   */
+  static replaceExistingBundleInStore(
+    store: preferences.Preferences,
+    memberId: string,
+    bundle: string,
+  ): boolean {
+    if (memberId.length === 0 || bundle.length === 0) {
+      return false
+    }
+    try {
+      const records: AccountRecord[] = AccountListSettings.parse(
+        store.getSync(StorageKeys.AUTH_ACCOUNTS, '') as string,
+      )
+      const updated: AccountRecord[] = []
+      let found: boolean = false
+      for (let i: number = 0; i < records.length; i++) {
+        const record: AccountRecord = records[i]
+        if (record.memberId === memberId) {
+          updated.push(new AccountRecord(memberId, bundle))
+          found = true
+        } else {
+          updated.push(record)
+        }
+      }
+      if (!found) {
+        return false
+      }
+      store.putSync(StorageKeys.AUTH_ACCOUNTS, AccountListSettings.serialize(updated))
+      return true
+    } catch (error) {
+      DiagnosticLogger.warn('auth', 'account_bundle_replace_failed', (error as Error).message)
+      return false
+    }
+  }
+
   /** The cookie bundle for a saved account (used to switch into it). '' if absent. */
   static async bundleOf(context: common.UIAbilityContext, memberId: string): Promise<string> {
     try {

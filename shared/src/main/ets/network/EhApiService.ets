@@ -1,4 +1,5 @@
 import { EhHttpClient, EhTextResponse } from './EhHttpClient'
+import { EhCookieStore } from './EhCookieStore'
 import { EhError, EhErrorKind } from './EhError'
 import { EhErrorClassifier } from './EhErrorClassifier'
 import { EhConstants } from '../constants/EhConstants'
@@ -742,9 +743,16 @@ export class EhApiService {
     if (profileSet.length > 0) {
       pairs.push(this.formPair('profile_set', profileSet))
     }
+    const profileCookie: string =
+      (action === '' || action === 'delete') && profileSet.length > 0
+        ? EhCookieStore.getInstance().headerWithCookieOverride(
+            EhConstants.COOKIE_PROFILE_SELECTION,
+            profileSet,
+          )
+        : ''
     let resp: EhTextResponse
     try {
-      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, pairs.join('&'))
+      resp = await EhHttpClient.getInstance().postFormUrlEncoded(url, pairs.join('&'), profileCookie)
     } catch (err) {
       throw EhErrorClassifier.network(err as Error, url)
     }
