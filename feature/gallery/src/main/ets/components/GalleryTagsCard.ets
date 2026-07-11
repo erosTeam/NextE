@@ -478,11 +478,15 @@ export struct GalleryTagsCard {
     this.editSourceTag = null
     this.editResolvedTags = []
     this.myTagsRequest = request
-    MyTagsTargetService.resolve(request.isEx, tagKey).then((result: MyTagsTargetResolveResult) => {
+    MyTagsTargetService.resolve(request, tagKey).then((result: MyTagsTargetResolveResult | null) => {
       if (epoch !== this.tagsetResolveEpoch) {
         return
       }
       if (!this.isCurrentMyTagsRequest(request)) {
+        this.discardMyTagsManagementIfCurrent(request)
+        return
+      }
+      if (result === null) {
         this.discardMyTagsManagementIfCurrent(request)
         return
       }

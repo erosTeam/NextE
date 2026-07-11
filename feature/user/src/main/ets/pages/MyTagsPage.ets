@@ -490,8 +490,11 @@ export struct MyTagsPage {
     if (targetTag.length === 0) {
       return
     }
-    const resolved: MyTagsTargetResolveResult = await MyTagsTargetService.resolve(request.isEx, targetTag)
+    const resolved: MyTagsTargetResolveResult | null = await MyTagsTargetService.resolve(request, targetTag)
     if (epoch !== this.mytagsEpoch || !this.contextMatchesCurrent(request)) {
+      return
+    }
+    if (resolved === null) {
       return
     }
     this.mytags = resolved.mytags

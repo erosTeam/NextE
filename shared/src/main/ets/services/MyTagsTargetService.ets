@@ -1,6 +1,7 @@
 import { EhConstants } from '../constants/EhConstants'
 import { EhMytags, EhMytagSet, EhUsertag } from '../model/EhMytags'
 import { EhApiService } from '../network/EhApiService'
+import { UserTagContextService, UserTagRequestContext } from './UserTagContextService'
 
 export class MyTagsTargetResolveResult {
   targetTag: string = ''
@@ -33,14 +34,20 @@ export class MyTagsTargetService {
     })
   }
 
-  static async resolve(isEx: boolean, fullTag: string): Promise<MyTagsTargetResolveResult> {
+  static async resolve(request: UserTagRequestContext, fullTag: string): Promise<MyTagsTargetResolveResult | null> {
     const result: MyTagsTargetResolveResult = new MyTagsTargetResolveResult()
     result.targetTag = MyTagsTargetService.normalizeFullTag(fullTag)
     if (result.targetTag.length === 0) {
       return result
     }
+    if (!UserTagContextService.isCurrentAuthenticated(request)) {
+      return null
+    }
 
-    const root: EhMytags = await EhApiService.getInstance().getMyTags(isEx, '')
+    const root: EhMytags = await EhApiService.getInstance().getMyTags(request.isEx, '')
+    if (!UserTagContextService.isCurrentAuthenticated(request)) {
+      return null
+    }
     result.mytags = root
     result.tagsets = root.tagSets
     result.tagsetId = MyTagsTargetService.defaultTagset(root)
@@ -53,11 +60,17 @@ export class MyTagsTargetService {
     }
 
     for (let i = 0; i < root.tagSets.length; i++) {
+      if (!UserTagContextService.isCurrentAuthenticated(request)) {
+        return null
+      }
       const tagset: EhMytagSet = root.tagSets[i]
       if (tagset.tagsetId.length === 0 || tagset.tagsetId === root.currentTagset) {
         continue
       }
-      const scoped: EhMytags = await EhApiService.getInstance().getMyTags(isEx, tagset.tagsetId)
+      const scoped: EhMytags = await EhApiService.getInstance().getMyTags(request.isEx, tagset.tagsetId)
+      if (!UserTagContextService.isCurrentAuthenticated(request)) {
+        return null
+      }
       const scopedTag: EhUsertag | undefined = MyTagsTargetService.findLoadedTag(scoped, result.targetTag)
       if (scopedTag !== undefined) {
         result.found = true
@@ -67,7 +80,7 @@ export class MyTagsTargetService {
         return result
       }
     }
-    return result
+    return UserTagContextService.isCurrentAuthenticated(request) ? result : null
   }
 
   private static defaultTagset(mytags: EhMytags, fallback: string = ''): string {
