@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
 
 const LOCAL_DATA_DB_NAME: string = 'NextE.db'
-export const LOCAL_DATA_SCHEMA_VERSION: number = 21
+export const LOCAL_DATA_SCHEMA_VERSION: number = 22
 
 const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
   name: LOCAL_DATA_DB_NAME,
@@ -13,7 +13,7 @@ const LOCAL_DATA_STORE_CONFIG: relationalStore.StoreConfig = {
 const SQL_CREATE_SCHEMA_META_TABLE: string =
   'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)'
 const SQL_UPSERT_SCHEMA_VERSION: string =
-  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'21\')'
+  'INSERT OR REPLACE INTO schema_meta (key, value) VALUES (\'schema_version\', \'22\')'
 const SQL_CREATE_TAG_TRANSLATIONS_TABLE: string =
   'CREATE TABLE IF NOT EXISTS tag_translations (' +
     'namespace TEXT NOT NULL, ' +
@@ -587,6 +587,12 @@ export class LocalDataStore {
   }
 
   private static async initializeSchema(store: relationalStore.RdbStore): Promise<void> {
+    // v21 did not track two later cache indexes. Bumping to v22 makes every earlier install run this
+    // complete migration once; only a current, intact store may skip the cold-start DDL sweep.
+    if (store.version === LOCAL_DATA_SCHEMA_VERSION &&
+      store.rebuilt === relationalStore.RebuildType.NONE) {
+      return
+    }
     await store.executeSql(SQL_CREATE_SCHEMA_META_TABLE)
     await store.executeSql(SQL_CREATE_TAG_TRANSLATIONS_TABLE)
     await store.executeSql(SQL_CREATE_TAG_TRANSLATIONS_KEY_INDEX)

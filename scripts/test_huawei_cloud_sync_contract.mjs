@@ -287,7 +287,7 @@ const localStoreVersionMatch = localStore.match(/LOCAL_DATA_SCHEMA_VERSION: numb
 ok('local RDB schema version keeps image-block column-order migration',
   !!localStoreVersionMatch &&
     Number(localStoreVersionMatch[1]) >= 20 &&
-    localStore.includes(`schema_version\\', \\'21\\'`))
+    localStore.includes(`schema_version\\', \\'${localStoreVersionMatch[1]}\\'`))
 for (const table of expectedLocalTables) {
   ok(`local store creates ${table}`, localStore.includes(`CREATE TABLE IF NOT EXISTS ${table} (`))
 }

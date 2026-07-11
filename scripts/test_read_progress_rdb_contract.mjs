@@ -19,6 +19,8 @@ ok('LocalDataStore has a schema version',
   /LOCAL_DATA_SCHEMA_VERSION: number = \d+/.test(store) &&
     /schema_meta/.test(store) &&
     /store\.version = LOCAL_DATA_SCHEMA_VERSION/.test(store))
+ok('LocalDataStore skips cold-start schema work only after a current intact migration',
+  /store\.version === LOCAL_DATA_SCHEMA_VERSION[\s\S]*?store\.rebuilt === relationalStore\.RebuildType\.NONE/.test(store))
 ok('RDB table stores gallery read progress with sync-ready metadata',
   /gallery_read_progress/.test(store) &&
     /scope_key TEXT/.test(store) &&
