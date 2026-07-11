@@ -3,6 +3,7 @@ import { relationalStore } from '@kit.ArkData'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { GalleryReadProgressSettings } from '../settings/GalleryReadProgressSettings'
 import { SyncSettings } from '../settings/SyncSettings'
+import { ViewedHistorySettings } from '../settings/ViewedHistorySettings'
 import { SYNC_STATUS_FAILED, SYNC_STATUS_OK, connectSyncSettings } from '../state/SyncSettingsState'
 import { LocalDataStore } from '../storage/LocalDataStore'
 import { cloudSyncTablesForSelection } from './CloudSyncFeatures'
@@ -117,6 +118,9 @@ export class HuaweiCloudSyncService {
       }
       if (selection.readProgress) {
         await GalleryReadProgressSettings.flushForSync(context)
+      }
+      if (selection.viewedHistory) {
+        await ViewedHistorySettings.flushForSync(context)
       }
       const marked: boolean = await HuaweiCloudSyncService.markDistributedTables(context, selection)
       if (!marked) {

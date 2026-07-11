@@ -17,10 +17,16 @@ const MAX_HISTORY: number = 200
  * which delays addHistory 5s after the gallery loads so a quick bounce doesn't get recorded.
  */
 export class ViewedHistorySettings {
+  // Reserve every durable mutation synchronously so a delayed detail-page timer, a backup restore,
+  // and a sync drain cannot reorder their RDB transactions.
+  private static rdbWriteTail: Promise<void> = Promise.resolve()
+  // A storage refresh only replaces the live list when no local history mutation raced its load.
+  private static mutationRevision: number = 0
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await ViewedHistorySettings.migrateLegacyPreferences(context)
-      connectViewedHistory().items = await ViewedHistoryRepository.load(context, MAX_HISTORY)
+      await ViewedHistorySettings.refreshFromStorage(context)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'history_restore_failed', (error as Error).message)
     }
@@ -32,44 +38,61 @@ export class ViewedHistorySettings {
       return
     }
     const state = connectViewedHistory()
-    const next: ViewedGallery[] = [entry]
+    const nextEntry: ViewedGallery = entry.copy()
+    nextEntry.time = ViewedHistorySettings.nextViewedAt(state.items, nextEntry.time)
+    const next: ViewedGallery[] = [nextEntry]
     state.items.forEach((it: ViewedGallery) => {
-      if (it.gid !== entry.gid && next.length < MAX_HISTORY) {
+      if (it.gid !== nextEntry.gid && next.length < MAX_HISTORY) {
         next.push(it)
       }
     })
     state.items = next
-    await ViewedHistorySettings.persist(context, next)
+    ViewedHistorySettings.mutationRevision = ViewedHistorySettings.mutationRevision + 1
+    await ViewedHistorySettings.persist(context, nextEntry)
   }
 
   static async clear(context: common.UIAbilityContext): Promise<void> {
     connectViewedHistory().items = []
-    await ViewedHistoryRepository.replaceAll(context, [])
+    ViewedHistorySettings.mutationRevision = ViewedHistorySettings.mutationRevision + 1
+    await ViewedHistorySettings.enqueueRdbWrite(
+      (): Promise<void> => ViewedHistoryRepository.replaceAll(context, []),
+    )
     await ViewedHistorySettings.deleteLegacyPreference(context)
     SyncScheduler.requestAfterLocalWrite(context, 'viewed_history_clear')
   }
 
   private static async persist(
     context: common.UIAbilityContext,
-    items: ViewedGallery[],
+    entry: ViewedGallery,
   ): Promise<void> {
     try {
-      await ViewedHistoryRepository.replaceAll(context, items)
+      await ViewedHistorySettings.enqueueRdbWrite(async (): Promise<void> => {
+        entry.time = await ViewedHistoryRepository.upsertAndTrim(context, entry, MAX_HISTORY)
+      })
       SyncScheduler.requestAfterLocalWrite(context, 'viewed_history')
     } catch (error) {
       DiagnosticLogger.warn('settings', 'history_save_failed', (error as Error).message)
     }
   }
 
+  /** Drain queued detail writes before a provider reads the history table. */
+  static async flushForSync(_context: common.UIAbilityContext): Promise<void> {
+    await ViewedHistorySettings.rdbWriteTail
+  }
+
   static async exportForBackup(context: common.UIAbilityContext): Promise<ViewedGallery[]> {
     await ViewedHistorySettings.migrateLegacyPreferences(context)
+    await ViewedHistorySettings.flushForSync(context)
     return ViewedHistoryRepository.load(context, MAX_HISTORY)
   }
 
   static async restoreBackup(context: common.UIAbilityContext, items: ViewedGallery[]): Promise<void> {
-    await ViewedHistoryRepository.replaceAll(context, items)
+    ViewedHistorySettings.mutationRevision = ViewedHistorySettings.mutationRevision + 1
+    await ViewedHistorySettings.enqueueRdbWrite(
+      (): Promise<void> => ViewedHistoryRepository.replaceAll(context, items),
+    )
     await ViewedHistorySettings.deleteLegacyPreference(context)
-    connectViewedHistory().items = await ViewedHistoryRepository.load(context, MAX_HISTORY)
+    await ViewedHistorySettings.refreshFromStorage(context)
     SyncScheduler.requestAfterLocalWrite(context, 'viewed_history_restore_backup')
   }
 
@@ -84,10 +107,47 @@ export class ViewedHistorySettings {
     }
     const items: ViewedGallery[] = ViewedHistorySettings.parse(raw)
     if (items.length > 0) {
-      await ViewedHistoryRepository.replaceAll(context, items)
+      await ViewedHistorySettings.enqueueRdbWrite(
+        (): Promise<void> => ViewedHistoryRepository.replaceAll(context, items),
+      )
     }
     store.deleteSync(StorageKeys.VIEWED_HISTORY)
     store.flushSync()
+  }
+
+  /** A rejected write does not poison the tail: the next mutation still gets a turn. */
+  private static enqueueRdbWrite(work: () => Promise<void>): Promise<void> {
+    const next: Promise<void> = ViewedHistorySettings.rdbWriteTail.then(
+      (): Promise<void> => work(),
+      (): Promise<void> => work(),
+    )
+    ViewedHistorySettings.rdbWriteTail = next
+    return next
+  }
+
+  /** Keep the in-memory order deterministic while the repository advances past persisted tombstones. */
+  private static nextViewedAt(items: ViewedGallery[], requestedTime: number): number {
+    let newest: number = 0
+    items.forEach((item: ViewedGallery) => {
+      newest = Math.max(newest, Math.floor(item.time))
+    })
+    return Math.max(Date.now(), Math.max(0, Math.floor(requestedTime)), newest + 1)
+  }
+
+  /**
+   * Rehydrate only when the snapshot stayed current during its await. Retrying once lets an add that
+   * landed during the first load reach RDB without replacing that newer live list with stale rows.
+   */
+  private static async refreshFromStorage(context: common.UIAbilityContext): Promise<void> {
+    for (let attempt: number = 0; attempt < 2; attempt++) {
+      await ViewedHistorySettings.rdbWriteTail
+      const revision: number = ViewedHistorySettings.mutationRevision
+      const items: ViewedGallery[] = await ViewedHistoryRepository.load(context, MAX_HISTORY)
+      if (revision === ViewedHistorySettings.mutationRevision) {
+        connectViewedHistory().items = items
+        return
+      }
+    }
   }
 
   private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {

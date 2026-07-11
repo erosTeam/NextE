@@ -33,6 +33,9 @@ export class SyncService {
     deviceId: string = '',
     selection: SyncDatasetSelection = new SyncDatasetSelection(),
   ): Promise<string> {
+    if (selection.viewedHistory) {
+      await ViewedHistorySettings.flushForSync(context)
+    }
     const envelope: SyncEnvelopeV1 = await SyncLocalDataAdapter.exportEnvelope(context, deviceId, selection)
     return JSON.stringify(envelope)
   }
@@ -62,6 +65,9 @@ export class SyncService {
     if (selection.readProgress) {
       await GalleryReadProgressSettings.flushForSync(context)
     }
+    if (selection.viewedHistory) {
+      await ViewedHistorySettings.flushForSync(context)
+    }
     const local: SyncEnvelopeV1 =
       await SyncLocalDataAdapter.exportEnvelope(context, deviceId, selection)
     const selectedRemote: SyncEnvelopeV1 = SyncService.selectDatasets(remote, selection)
@@ -75,6 +81,7 @@ export class SyncService {
 
   static async importRaw(context: common.UIAbilityContext, raw: string): Promise<void> {
     const envelope: SyncEnvelopeV1 = SyncService.parseRaw(raw)
+    await ViewedHistorySettings.flushForSync(context)
     await SyncLocalDataAdapter.applyEnvelope(context, envelope)
   }
 
