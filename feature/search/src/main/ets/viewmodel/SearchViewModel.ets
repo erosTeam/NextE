@@ -53,6 +53,9 @@ export class SearchViewModel {
   // that resumes afterwards discards its now-stale (old-query) page instead of mixing it in.
   // search() runs without the isLoadingMore guard, so it can overlap a loadMore.
   private epoch: number = 0
+  // A clear/new search can release the visible loading-more flag before its old request settles. The
+  // owner token prevents that old completion from clearing a newer pagination request's flag.
+  private loadMoreRun: number = 0
   private pendingFilterReapply: boolean = false
   private pendingSearchQuery: string = ''
   private suggestTimer: number = -1
@@ -441,6 +444,8 @@ export class SearchViewModel {
       return
     }
     this.isLoadingMore = true
+    this.loadMoreRun = this.loadMoreRun + 1
+    const myLoadMoreRun: number = this.loadMoreRun
     this.errorMessage = ''
     const myEpoch: number = this.epoch
     try {
@@ -449,16 +454,20 @@ export class SearchViewModel {
       // are for the OLD query. Drop them rather than mixing them into the new results.
       if (this.epoch === myEpoch) {
         const fresh: EhGallery[] = await this.translateRows(this.dedupeNew(list.gallerys))
-        this.resolveFavoriteSlots(fresh, list.favList)
-        if (fresh.length > 0) {
-          this.dataSource.appendData(fresh)
-          this.itemCount = this.dataSource.totalCount()
+        // Translation can await disk/network work. A newer search, refresh, filter re-apply, or clear
+        // may win while it is running, so never append this old cursor page after that boundary.
+        if (this.epoch === myEpoch) {
+          this.resolveFavoriteSlots(fresh, list.favList)
+          if (fresh.length > 0) {
+            this.dataSource.appendData(fresh)
+            this.itemCount = this.dataSource.totalCount()
+          }
+          this.nextGid = list.nextGid
+          this.lastNext = requestedNext
+          // Exhausted when the cursor is empty OR the page brought no genuinely-new rows (repeated
+          // boundary page) — without this an all-duplicate page keeps hasMore true and loops loadMore.
+          this.hasMore = list.nextGid.length > 0 && fresh.length > 0
         }
-        this.nextGid = list.nextGid
-        this.lastNext = requestedNext
-        // Exhausted when the cursor is empty OR the page brought no genuinely-new rows (repeated
-        // boundary page) — without this an all-duplicate page keeps hasMore true and loops loadMore.
-        this.hasMore = list.nextGid.length > 0 && fresh.length > 0
       }
     } catch (err) {
       const e = err as Error
@@ -466,8 +475,11 @@ export class SearchViewModel {
         this.errorMessage = EhErrorText.forUser(err)
       }
       DiagnosticLogger.warn('search', 'search_loadmore_failed', e.message)
+    } finally {
+      if (this.loadMoreRun === myLoadMoreRun) {
+        this.isLoadingMore = false
+      }
     }
-    this.isLoadingMore = false
   }
 
   canLoadMore(): boolean {
