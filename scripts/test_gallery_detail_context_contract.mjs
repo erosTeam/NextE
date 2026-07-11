@@ -116,6 +116,10 @@ const detailPage = readFileSync(
   join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryDetailPage.ets'),
   'utf8',
 )
+const thumbnailsVm = readFileSync(
+  join(ROOT, 'feature/gallery/src/main/ets/viewmodel/AllThumbnailsViewModel.ets'),
+  'utf8',
+)
 
 ok('detail run captures epoch, gallery identity, site, account credentials, and a frozen cache key',
   /class GalleryDetailRun \{[\s\S]*epoch: number[\s\S]*gid: string[\s\S]*token: string[\s\S]*isEx: boolean[\s\S]*memberId: string[\s\S]*passHash: string[\s\S]*cacheKey: string/.test(detailVm) &&
@@ -139,5 +143,24 @@ ok('detail page triggers a replacement on account and site changes',
   /@Local auth: AuthState = connectAuth\(\);[\s\S]*@Local siteMode: SiteModeState = connectSiteMode\(\);/.test(detailPage) &&
   /@Monitor\('auth\.memberId'\)[\s\S]*this\.vm\.reloadForContext\(\)/.test(detailPage) &&
   /@Monitor\('siteMode\.isEx'\)[\s\S]*this\.vm\.reloadForContext\(\)/.test(detailPage))
+ok('detail publishes one completed preview revision after cache and network preview replacement',
+  /@Trace previewRevision: number = 0/.test(detailVm) &&
+  /this\.images = cached\.images[\s\S]*this\.previewPageCount = cached\.previewPageCount[\s\S]*this\.previewRevision = this\.previewRevision \+ 1/.test(detailVm) &&
+  /this\.images = res\.images[\s\S]*this\.previewPageCount = res\.previewPageCount[\s\S]*this\.previewRevision = this\.previewRevision \+ 1/.test(detailVm))
+ok('wide preview sync waits for that revision and forces a fresh seed after context replacement',
+  /@Monitor\('vm\.previewRevision'\)[\s\S]*syncFullPreviewFromDetail\(\)/.test(detailPage) &&
+  /fullPreviewMustReset = true[\s\S]*fullPreviewVm\.invalidate\(\)[\s\S]*this\.vm\.reloadForContext\(\)/.test(detailPage) &&
+  /fullPreviewVm\.syncDetailFirstPage\([\s\S]*!this\.fullPreviewMustReset/.test(detailPage))
+ok('context-reload error retries a replacement run instead of a loaded-gated initial load',
+  /private retryDetailLoad\(\): void \{[\s\S]*if \(this\.fullPreviewMustReset\)[\s\S]*this\.reloadFullPreviewForContext\(\)[\s\S]*this\.vm\.load\(this\.params\.gid, this\.params\.token\)/.test(detailPage) &&
+  (detailPage.match(/retryAction: \(\) => \{\s*this\.retryDetailLoad\(\)/g) || []).length >= 2)
+ok('detail waits for its measured width before choosing compact or split content',
+  /private hasResolvedDetailLayout\(\): boolean \{\s*return this\.detailRootWidth > 0/.test(detailPage) &&
+  /if \(!this\.hasResolvedDetailLayout\(\)\) \{\s*this\.DetailLayoutBootstrap\(\)\s*\} else if \(this\.usesSplitDetailLayout\(\)\)/.test(detailPage))
+ok('wide preview preserves only compatible sparse sessions and fences stale thumbnail responses',
+  /syncDetailFirstPage\(p: AllThumbnailsParams, preserveSparse: boolean\)[\s\S]*this\.hasSameFirstPageShape\(p\.firstPage\)/.test(thumbnailsVm) &&
+  /private sessionEpoch: number = 0/.test(thumbnailsVm) &&
+  (thumbnailsVm.match(/const epoch: number = this\.sessionEpoch/g) || []).length >= 3 &&
+  (thumbnailsVm.match(/!this\.isCurrentSession\(epoch\)/g) || []).length >= 5)
 
 console.log(`✓ gallery detail context contract: ${passed} assertions passed`)

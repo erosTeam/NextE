@@ -38,6 +38,7 @@ import {
   ImageBlockRuntimeService,
   ImageBlockSettingsState,
   connectImageBlockSettings,
+  connectRootNavigationPresentation,
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
@@ -228,6 +229,24 @@ export struct ReaderPage {
   private readerTapStartX: number = 0;
   private readerTapStartY: number = 0;
   private readerTapSuppressUntilMs: number = 0;
+  private rootPresentationLease: number = 0;
+
+  private acquireRootPresentation(): void {
+    const presentation = connectRootNavigationPresentation()
+    if (this.rootPresentationLease > 0 && presentation.isActive(this.rootPresentationLease)) {
+      return
+    }
+    this.rootPresentationLease = presentation.acquire()
+  }
+
+  private releaseRootPresentation(): void {
+    if (this.rootPresentationLease <= 0) {
+      return
+    }
+    const lease: number = this.rootPresentationLease
+    this.rootPresentationLease = 0
+    connectRootNavigationPresentation().release(lease)
+  }
 
   build() {
     HdsNavDestination() {
@@ -302,6 +321,9 @@ export struct ReaderPage {
     }
     .hideTitleBar(true)
     .backgroundColor(Color.Black)
+    .onWillAppear(() => {
+      this.acquireRootPresentation()
+    })
     .onBackPressed(() => {
       this.closeReader()
       return true
@@ -311,6 +333,11 @@ export struct ReaderPage {
     })
     .onWillHide(() => {
       this.setReaderStatusBarVisible(true, false)
+    })
+    .onDisAppear(() => {
+      // Release only after the destination really leaves the tree. A page pushed above Reader keeps
+      // this lease active, and a cancelled back transition never exposes the split root underneath.
+      this.releaseRootPresentation()
     })
     .onReady((context: NavDestinationContext) => {
       const p = context.pathInfo.param as ReaderParams

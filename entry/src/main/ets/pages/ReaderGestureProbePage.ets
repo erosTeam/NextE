@@ -4,6 +4,7 @@ import {
   LayoutSafeAreaState,
   ThemeConstants,
   connectLayoutSafeArea,
+  connectRootNavigationPresentation,
   immersiveTitleBar,
 } from 'shared'
 
@@ -40,6 +41,24 @@ export struct ReaderGestureProbePage {
   private panStartOffX: number = 0;
   private panStartOffY: number = 0;
   private animationTimer: number = -1;
+  private rootPresentationLease: number = 0;
+
+  private acquireRootPresentation(): void {
+    const presentation = connectRootNavigationPresentation()
+    if (this.rootPresentationLease > 0 && presentation.isActive(this.rootPresentationLease)) {
+      return
+    }
+    this.rootPresentationLease = presentation.acquire()
+  }
+
+  private releaseRootPresentation(): void {
+    if (this.rootPresentationLease <= 0) {
+      return
+    }
+    const lease: number = this.rootPresentationLease
+    this.rootPresentationLease = 0
+    connectRootNavigationPresentation().release(lease)
+  }
 
   build() {
     HdsNavDestination() {
@@ -158,6 +177,12 @@ export struct ReaderGestureProbePage {
     }
     .titleBar(immersiveTitleBar('Reader gesture probe'))
     .backgroundColor(ThemeConstants.BG_PRIMARY)
+    .onWillAppear(() => {
+      this.acquireRootPresentation()
+    })
+    .onDisAppear(() => {
+      this.releaseRootPresentation()
+    })
   }
 
   private onDoubleTap(tapX: number, tapY: number): void {

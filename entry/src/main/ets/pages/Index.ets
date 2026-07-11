@@ -63,6 +63,8 @@ import {
   SecuritySettingsState,
   connectSecuritySettings,
   ListMode,
+  RootNavigationPresentationState,
+  connectRootNavigationPresentation,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -331,6 +333,25 @@ function IndexReaderGestureProbeRoute() {
   ReaderGestureProbePage()
 }
 
+@Builder
+function IndexSplitPlaceholderCCBuilder(_state: Object) {
+  Column({ space: ThemeConstants.SPACE_MD }) {
+    SymbolGlyph($r('sys.symbol.rectangle_split_1x2'))
+      .fontSize(ThemeConstants.FONT_SIZE_H1)
+      .fontColor([$r('sys.color.font_tertiary')])
+    Text($r('app.string.tablet_select_detail'))
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor($r('sys.color.font_tertiary'))
+      .textAlign(TextAlign.Center)
+  }
+  .id('tablet-detail-placeholder')
+  .width('100%')
+  .height('100%')
+  .justifyContent(FlexAlign.Center)
+  .alignItems(HorizontalAlign.Center)
+  .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+}
+
 /**
  * NextE navigation shell — native HDS (`HdsNavigation` + `HdsTabs` from `@kit.UIDesignKit`,
  * V2Next's pattern). Bottom tabs mirror eros_fe's CupertinoTabBar IA (tabhome_controller.dart:69-92):
@@ -410,6 +431,7 @@ struct Index {
   private periodBarContent: ComponentContent<Object> | null = null;
   private favcatBarContent: ComponentContent<Object> | null = null;
   private downloadTypeBarContent: ComponentContent<Object> | null = null;
+  private splitPlaceholderContent: ComponentContent<Object> | null = null;
   @Local pendingEhUrl: PendingEhUrlState = connectPendingEhUrl();
   @Local searchAction: SearchActionState = connectSearchAction();
   // Read so the 收藏 menu gates remote-only actions on login while the local favcat bar stays visible.
@@ -422,6 +444,7 @@ struct Index {
   @Local downloadView: DownloadViewState = connectDownloadView();
   @Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal();
   @Local currentTab: number = 0;
+  @Local rootPresentation: RootNavigationPresentationState = connectRootNavigationPresentation();
   private lastHandledSignal: string = '';
   private lastHandledQuery: string = '';
   private readonly IMAGE_BLOCK_QA_GID: string = '3049882';
@@ -430,6 +453,9 @@ struct Index {
   private readonly IMAGE_BLOCK_QA_TITLE: string = '[pulpawoelbo] D.VA advertisement (Overwatch)';
 
   aboutToAppear(): void {
+    // AppStorageV2 outlives this component instance. A fresh root must not inherit a lease from a
+    // destination tree that was already destroyed; remounted full-window destinations reacquire below.
+    this.rootPresentation.reset()
     this.handlePendingEhUrl()
     this.syncDownloadQueuePageActive()
   }
@@ -1151,6 +1177,17 @@ struct Index {
     return immersiveTitleBarOpts(content)
   }
 
+  private splitPlaceholder(): ComponentContent<Object> {
+    if (this.splitPlaceholderContent === null) {
+      this.splitPlaceholderContent = new ComponentContent<Object>(
+        this.getUIContext(),
+        wrapBuilder<[Object]>(IndexSplitPlaceholderCCBuilder),
+        new Object(),
+      )
+    }
+    return this.splitPlaceholderContent
+  }
+
   @Builder
   routerMap(name: string) {
     if (!SafeModeGate.routeAllowed(name)) {
@@ -1263,6 +1300,10 @@ struct Index {
           this.applyHomeTabAutoHide()
         })
         .onChange((index: number) => {
+          const changed: boolean = index !== this.currentTab
+          if (changed && this.stack.getAllPathName().length > 0) {
+            this.stack.clear(false)
+          }
           this.currentTab = index
           this.syncDownloadQueuePageActive()
           // Rebind the title bar to the newly-active tab's scroller so it auto-hides off that list.
@@ -1272,10 +1313,15 @@ struct Index {
           }
         })
       }
+      .id('tablet-master-pane')
       .navDestination(this.routerMap)
-      // Pin Stack mode (V2Next Index.ets:668): default Auto flips to two-column Split past ~600vp, so on
-      // the unfolded foldable the name-pushed routes would render split instead of full-width pushes.
-      .mode(NavigationMode.Stack)
+      // The root shell owns the adaptive split. Its geometry depends only on available width; changing
+      // a peer root tab clears the old tab's secondary stack and leaves this primary pane in place.
+      .mode(NavigationMode.Auto)
+      .hideNavBar(this.rootPresentation.fullWindow)
+      .splitPlaceholder(this.splitPlaceholder())
+      .navBarWidth(ThemeConstants.TABLET_PRIMARY_PANE_WIDTH)
+      .minContentWidth(ThemeConstants.TABLET_DETAIL_MIN_WIDTH)
       .titleBar(this.titleBarOpts())
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)

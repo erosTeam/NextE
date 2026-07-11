@@ -390,6 +390,10 @@ export {
 // state holders (AppStorageV2)
 export { NavStackHolder, connectNavStack } from './state/NavStackHolder'
 export {
+  RootNavigationPresentationState,
+  connectRootNavigationPresentation,
+} from './state/RootNavigationPresentationState'
+export {
   PendingEhUrlState,
   connectPendingEhUrl,
   publishPendingEhUrl,

@@ -63,6 +63,7 @@ export struct MainTabIcon {
             : $r('sys.color.font_secondary'),
         )
     }
+    .id(`main-tab-${this.idx}`)
     .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
     .width('100%')

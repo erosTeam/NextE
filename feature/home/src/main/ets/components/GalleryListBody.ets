@@ -110,18 +110,34 @@ export struct GalleryListBody {
   }
 
   private openDetail(g: EhGallery): void {
-    this.stack.pushPathByName(
-      'GalleryDetail',
-      new GalleryDetailParams(
-        g.gid,
-        g.token,
-        g.thumbUrl,
-        g.title(),
-        g.fileCount,
-        g.imgWidth,
-        g.imgHeight,
-      ),
+    const params: GalleryDetailParams = new GalleryDetailParams(
+      g.gid,
+      g.token,
+      g.thumbUrl,
+      g.title(),
+      g.fileCount,
+      g.imgWidth,
+      g.imgHeight,
     )
+    const pathNames: string[] = this.stack.getAllPathName()
+    const topIndex: number = pathNames.length - 1
+    // Re-selecting the already-visible gallery must be a no-op. Replacing it remounts both the metadata
+    // and full-preview surfaces, so repeated taps otherwise look like a network reload and jump the UI.
+    if (topIndex >= 0 && pathNames[topIndex] === 'GalleryDetail') {
+      const current: GalleryDetailParams | undefined = this.stack.getParamByIndex(topIndex) as
+        GalleryDetailParams | undefined
+      if (current !== undefined && current.gid === g.gid && current.token === g.token) {
+        return
+      }
+    }
+    // A different master-list selection owns the complete secondary branch. setPathStack applies the
+    // replacement atomically; keep the framework animation enabled so compact Navigation retains its
+    // established transition behavior.
+    if (pathNames.length > 0) {
+      this.stack.setPathStack([new NavPathInfo('GalleryDetail', params)], true)
+      return
+    }
+    this.stack.pushPathByName('GalleryDetail', params)
   }
 
   private restoreAfterPrepend(prependedCount: number): void {

@@ -214,6 +214,13 @@ export class AllThumbnailsParams {
   title: string = ''
   firstPage: EhGalleryImage[] = []
   initialImagePage: number = 0
+  // Optional complete browsing-session snapshot. The compact detail still supplies firstPage for the
+  // ordinary cold path; a wide detail can additionally carry sparse loaded pages so opening the
+  // standalone destination after a width change preserves already-fetched thumbnails and its paging anchor.
+  seedImages: EhGalleryImage[] = []
+  seedPreviewPages: number[] = []
+  seedPerPage: number = 0
+  seedCurrentPreviewPage: number = 0
 
   constructor(
     gid: string = '',
@@ -224,6 +231,10 @@ export class AllThumbnailsParams {
     title: string = '',
     firstPage: EhGalleryImage[] = [],
     initialImagePage: number = 0,
+    seedImages: EhGalleryImage[] = [],
+    seedPreviewPages: number[] = [],
+    seedPerPage: number = 0,
+    seedCurrentPreviewPage: number = 0,
   ) {
     this.gid = gid
     this.token = token
@@ -233,6 +244,10 @@ export class AllThumbnailsParams {
     this.title = title
     this.firstPage = firstPage
     this.initialImagePage = initialImagePage
+    this.seedImages = seedImages
+    this.seedPreviewPages = seedPreviewPages
+    this.seedPerPage = seedPerPage
+    this.seedCurrentPreviewPage = seedCurrentPreviewPage
   }
 }
 

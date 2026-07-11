@@ -4307,6 +4307,10 @@
     {
       "name": "web_login_wait_captcha",
       "value": "安全確認を待機中"
+    },
+    {
+      "name": "tablet_select_detail",
+      "value": "項目を選択して詳細を表示"
     }
   ]
 }
