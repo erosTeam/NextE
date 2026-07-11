@@ -13,6 +13,7 @@ import {
   SecondaryListScaffold,
   SiteModeSettings,
   SiteModeState,
+  SiteModeRequestFence,
   ThemeConstants,
   ToplistFilterSettings,
   ToplistFilterState,
@@ -37,6 +38,9 @@ export struct EhSettingsPage {
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local switchingSite: boolean = false;
   @Local siteMenuShown: boolean = false;
+  // Keep the latest explicit site choice separate from the in-flight access check. A delayed
+  // uconfig response may unlock Ex only while the same account still wants ExHentai.
+  private desiredSiteIsEx: boolean = false;
   private scroller: Scroller = new Scroller();
   private stack: NavPathStack = connectNavStack().stack;
 
@@ -52,6 +56,7 @@ export struct EhSettingsPage {
   // ExHentai requires login + a real igneous, fetched on demand the first time (eros_fe getExIgneous).
   private selectSite(toEx: boolean): void {
     this.siteMenuShown = false
+    this.desiredSiteIsEx = toEx
     const ctx: common.UIAbilityContext = this.ctx()
     if (!toEx) {
       SiteModeSettings.setEx(ctx, false)
@@ -72,11 +77,20 @@ export struct EhSettingsPage {
       return
     }
     const requestMember: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID)
+    const requestPassHash: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_PASS_HASH)
     this.switchingSite = true
     this.toast($r('app.string.site_ex_checking'))
     CookieJarSettings.refreshIgneous(ctx)
       .then((ok: boolean) => {
-        if (EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID) !== requestMember) {
+        const activeMember: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID)
+        const activePassHash: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_PASS_HASH)
+        if (!SiteModeRequestFence.canApplyExUnlock(
+          this.desiredSiteIsEx,
+          requestMember,
+          requestPassHash,
+          activeMember,
+          activePassHash,
+        )) {
           return
         }
         if (ok) {

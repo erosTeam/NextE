@@ -13,6 +13,7 @@ import coverColorResourceBoundsTest from './CoverColorResourceBounds.test'
 import preloadedGalleryListMemoryCacheTest from './PreloadedGalleryListMemoryCache.test'
 import userTagStoreInlineCacheTest from './UserTagStoreInlineCache.test'
 import cookieJarRefreshIdentityTest from './CookieJarRefreshIdentity.test'
+import siteModeRequestFenceTest from './SiteModeRequestFence.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -30,4 +31,5 @@ export default function testsuite(): void {
   preloadedGalleryListMemoryCacheTest()
   userTagStoreInlineCacheTest()
   cookieJarRefreshIdentityTest()
+  siteModeRequestFenceTest()
 }

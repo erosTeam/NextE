@@ -173,6 +173,7 @@ export {
   DownloadExportService,
 } from './services/DownloadExportService'
 export { ImagePageRouteService, ImagePageRouteTarget } from './services/ImagePageRouteService'
+export { SiteModeRequestFence } from './services/SiteModeRequestFence'
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
 export { UserProfileService, UserProfileInfo } from './services/UserProfileService'
 export {
