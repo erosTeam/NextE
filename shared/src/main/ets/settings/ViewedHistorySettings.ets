@@ -97,6 +97,7 @@ export class ViewedHistorySettings {
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const revision: number = ViewedHistorySettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
       StorageKeys.STORE_SETTINGS,
@@ -106,10 +107,28 @@ export class ViewedHistorySettings {
       return
     }
     const items: ViewedGallery[] = ViewedHistorySettings.parse(raw)
-    if (items.length > 0) {
-      await ViewedHistorySettings.enqueueRdbWrite(
-        (): Promise<void> => ViewedHistoryRepository.replaceAll(context, items),
-      )
+    try {
+      await ViewedHistorySettings.enqueueRdbWrite(async (): Promise<void> => {
+        if (revision !== ViewedHistorySettings.mutationRevision) {
+          return
+        }
+        if (await ViewedHistoryRepository.hasPersistedState(context)) {
+          return
+        }
+        if (revision !== ViewedHistorySettings.mutationRevision) {
+          return
+        }
+        if (items.length > 0) {
+          await ViewedHistoryRepository.replaceAll(context, items)
+        }
+      })
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'history_migrate_failed', (error as Error).message)
+      // Keep the only legacy copy intact. A later startup can retry after a transient RDB failure.
+      return
+    }
+    if (revision !== ViewedHistorySettings.mutationRevision) {
+      return
     }
     store.deleteSync(StorageKeys.VIEWED_HISTORY)
     store.flushSync()

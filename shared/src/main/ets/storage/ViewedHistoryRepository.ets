@@ -32,12 +32,25 @@ const SQL_SELECT_MAX_EFFECTIVE_TIME: string =
   'SELECT MAX(CASE WHEN COALESCE(deleted_at, 0) > COALESCE(viewed_at, 0) ' +
   'THEN COALESCE(deleted_at, 0) ELSE COALESCE(viewed_at, 0) END) AS effective_at ' +
   'FROM viewed_history WHERE scope_key = ?'
+const SQL_HAS_PERSISTED_STATE: string =
+  'SELECT 1 AS has_state FROM viewed_history WHERE scope_key = ? LIMIT 1'
 const SQL_TOMBSTONE_OVERFLOW: string =
   'UPDATE viewed_history SET deleted_at = ? WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'AND gid NOT IN (SELECT gid FROM viewed_history WHERE scope_key = ? AND COALESCE(deleted_at, 0) = 0 ' +
   'ORDER BY viewed_at DESC, gid DESC LIMIT ?) AND COALESCE(viewed_at, 0) <= ?'
 
 export class ViewedHistoryRepository {
+  /** Any row, including a tombstone, makes RDB canonical over a stale legacy Preferences snapshot. */
+  static async hasPersistedState(context: common.UIAbilityContext): Promise<boolean> {
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_HAS_PERSISTED_STATE, [SCOPE_GLOBAL])
+    try {
+      return resultSet.goToNextRow()
+    } finally {
+      resultSet.close()
+    }
+  }
+
   static async load(context: common.UIAbilityContext, limit: number = DEFAULT_LIMIT): Promise<ViewedGallery[]> {
     const out: ViewedGallery[] = []
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
@@ -71,17 +84,24 @@ export class ViewedHistoryRepository {
 
   static async replaceAll(context: common.UIAbilityContext, items: ViewedGallery[]): Promise<void> {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const replacedAt: number = Date.now()
     store.beginTransaction()
     try {
+      // A backup/migration snapshot is authoritative. Advance beyond every active row and tombstone
+      // first so omitted records cannot be revived and restored records cannot lose to a previously
+      // observed future deletion during the next cross-device merge.
+      const replacedAt: number = await ViewedHistoryRepository.nextViewedAt(store, Date.now())
       await store.executeSql(SQL_TOMBSTONE_SCOPE, [replacedAt, SCOPE_GLOBAL])
       for (let i: number = 0; i < items.length && i < DEFAULT_LIMIT; i++) {
         const item: ViewedGallery = items[i]
         if (item.gid.length > 0) {
+          // Keep a genuinely future backup timestamp, but otherwise rebase every restored row above
+          // this transaction's tombstone. The input order remains deterministic for the snapshot.
+          const originalTime: number = item.time > 0 ? Math.floor(item.time) : 0
+          const snapshotTime: number = Math.max(originalTime, replacedAt + items.length - i)
           await ViewedHistoryRepository.writeItem(
             store,
             item,
-            item.time > 0 ? Math.floor(item.time) : replacedAt,
+            snapshotTime,
             SQL_RESTORE_UPSERT,
           )
         }

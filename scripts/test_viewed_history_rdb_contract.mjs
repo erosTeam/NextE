@@ -56,13 +56,20 @@ class HistoryRows {
     }
   }
 
-  replaceAll(rows, replacedAt) {
+  replaceAll(rows, now) {
+    const replacedAt = this.nextViewedAt(now, now)
     for (const row of this.rows.values()) {
       if (row.deletedAt === 0) row.deletedAt = replacedAt
     }
-    for (const row of rows) {
-      this.rows.set(row.gid, { ...row, deletedAt: 0 })
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]
+      this.rows.set(row.gid, {
+        ...row,
+        viewedAt: Math.max(row.viewedAt, replacedAt + rows.length - index),
+        deletedAt: 0,
+      })
     }
+    return replacedAt
   }
 
   active() {
@@ -114,11 +121,19 @@ ok('overflow convergence preserves discarded rows as tombstones',
   [...remoteOverflow.rows.values()].some((row) => row.deletedAt > row.viewedAt))
 
 const replacement = new HistoryRows()
+replacement.applyRemote({ gid: 'old-delete', viewedAt: 20, deletedAt: 9000, payload: 'remote' })
 replacement.localVisit('before', 1, 1)
-replacement.replaceAll([{ gid: 'backup', viewedAt: 3, deletedAt: 0, payload: 'backup' }], 50)
+const beforeReplacement = replacement.rows.get('before')
+const replacementAt = replacement.replaceAll(
+  [{ gid: 'backup', viewedAt: 3, deletedAt: 0, payload: 'backup' }],
+  50,
+)
 ok('backup replacement remains exact rather than merging the previous active list',
   replacement.active().length === 1 && replacement.active()[0].gid === 'backup' &&
-    replacement.rows.get('before').deletedAt === 50)
+    replacement.rows.get('before').deletedAt === replacementAt)
+ok('backup replacement advances past future tombstones and rebases restored rows above its tombstone',
+  replacementAt > 9000 && replacement.rows.get('backup').viewedAt > replacementAt &&
+    replacement.rows.get('before').deletedAt > beforeReplacement.viewedAt)
 
 const settings = read('shared/src/main/ets/settings/ViewedHistorySettings.ets')
 const repository = read('shared/src/main/ets/storage/ViewedHistoryRepository.ets')
@@ -141,9 +156,13 @@ ok('history refresh does not replace a local mutation that raced its storage rea
   /private static mutationRevision: number = 0/.test(settings) &&
     /refreshFromStorage[\s\S]*revision === ViewedHistorySettings\.mutationRevision/.test(settings))
 ok('full replacements stay transactional and are reserved for backup, clear, and migration',
-  /static async replaceAll[\s\S]*store\.beginTransaction\(\)[\s\S]*SQL_TOMBSTONE_SCOPE[\s\S]*SQL_RESTORE_UPSERT[\s\S]*store\.commit\(\)[\s\S]*catch \(error\) \{[\s\S]*store\.rollBack\(\)/.test(repository) &&
+  /static async replaceAll[\s\S]*store\.beginTransaction\(\)[\s\S]*nextViewedAt\(store, Date\.now\(\)\)[\s\S]*SQL_TOMBSTONE_SCOPE[\s\S]*snapshotTime[\s\S]*SQL_RESTORE_UPSERT[\s\S]*store\.commit\(\)[\s\S]*catch \(error\) \{[\s\S]*store\.rollBack\(\)/.test(repository) &&
     /restoreBackup[\s\S]*ViewedHistoryRepository\.replaceAll/.test(settings) &&
     /migrateLegacyPreferences[\s\S]*ViewedHistoryRepository\.replaceAll/.test(settings))
+ok('legacy history only migrates into an empty canonical RDB and preserves its only copy on write failure',
+  /SQL_HAS_PERSISTED_STATE/.test(repository) &&
+    /static async hasPersistedState/.test(repository) &&
+    /migrateLegacyPreferences[\s\S]*const revision: number = ViewedHistorySettings\.mutationRevision[\s\S]*ViewedHistoryRepository\.hasPersistedState\(context\)[\s\S]*history_migrate_failed[\s\S]*Keep the only legacy copy intact/.test(settings))
 ok('ordinary history writes use a transaction, global logical time, and tombstone-only overflow trim',
   /static async upsertAndTrim[\s\S]*store\.beginTransaction\(\)[\s\S]*nextViewedAt[\s\S]*SQL_TOMBSTONE_OVERFLOW[\s\S]*store\.commit\(\)/.test(repository) &&
     /SQL_SELECT_MAX_EFFECTIVE_TIME/.test(repository) &&
