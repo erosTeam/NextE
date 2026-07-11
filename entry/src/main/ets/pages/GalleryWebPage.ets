@@ -9,6 +9,7 @@ import {
   DiagnosticLogger,
   CookieJarSettings,
   UserProfileService,
+  UserProfileRequestContext,
   ThemeConstants,
   SecondaryListScaffold,
   connectNavStack,
@@ -213,10 +214,11 @@ export struct GalleryWebPage {
       return
     }
     try {
+      const request: UserProfileRequestContext = UserProfileService.activeRequestContext()
       const payload: string = await this.controller.runJavaScript(UserProfileService.profileDomCaptureScript())
-      if (UserProfileService.applyProfileDomPayload(payload)) {
-        UserProfileService.materializeAvatar(this.ctx())
-        await UserProfileService.saveActive(this.ctx())
+      if (UserProfileService.applyProfileDomPayload(payload, request)) {
+        UserProfileService.materializeAvatar(this.ctx(), request)
+        await UserProfileService.saveActive(this.ctx(), request)
         if (this.params.closeOnProfileCaptured && !this.profileCaptured) {
           this.profileCaptured = true
           this.stack.pop()

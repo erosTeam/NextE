@@ -24,6 +24,7 @@ import {
   connectAccountList,
   UserProfileService,
   UserProfileInfo,
+  UserProfileRequestContext,
   GalleryWebParams,
 } from 'shared'
 
@@ -244,8 +245,10 @@ export struct AccountPage {
     if (!this.auth.isLogin) {
       return
     }
-    await UserProfileService.restoreActive(this.ctx())
-    UserProfileService.materializeAvatar(this.ctx())
+    const request: UserProfileRequestContext = UserProfileService.activeRequestContext()
+    if (await UserProfileService.restoreActive(this.ctx(), request)) {
+      UserProfileService.materializeAvatar(this.ctx(), request)
+    }
     this.loadAccountProfiles()
   }
 

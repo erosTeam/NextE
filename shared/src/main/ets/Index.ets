@@ -177,6 +177,10 @@ export {
   EhProfileSettingsRequestContext,
   EhProfileSettingsRequestFence,
 } from './services/EhProfileSettingsRequestFence'
+export {
+  UserProfileRequestContext,
+  UserProfileRequestFence,
+} from './services/UserProfileRequestFence'
 export { SiteModeRequestFence } from './services/SiteModeRequestFence'
 export { TagTranslationService, TagTranslationStatus, TagTranslationInfo } from './services/TagTranslationService'
 export { UserProfileService, UserProfileInfo } from './services/UserProfileService'

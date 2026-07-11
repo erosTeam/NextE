@@ -15,6 +15,7 @@ import userTagStoreInlineCacheTest from './UserTagStoreInlineCache.test'
 import cookieJarRefreshIdentityTest from './CookieJarRefreshIdentity.test'
 import siteModeRequestFenceTest from './SiteModeRequestFence.test'
 import ehProfileSettingsRequestFenceTest from './EhProfileSettingsRequestFence.test'
+import userProfileRequestFenceTest from './UserProfileRequestFence.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -34,4 +35,5 @@ export default function testsuite(): void {
   cookieJarRefreshIdentityTest()
   siteModeRequestFenceTest()
   ehProfileSettingsRequestFenceTest()
+  userProfileRequestFenceTest()
 }

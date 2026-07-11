@@ -9,6 +9,7 @@ import { HtmlSelectorUtils } from '../parser/HtmlSelectorUtils'
 import { connectAuth } from '../state/AuthState'
 import { EhCookieStore } from '../network/EhCookieStore'
 import { EhHttpClient, EhTextResponse } from '../network/EhHttpClient'
+import { UserProfileRequestContext, UserProfileRequestFence } from './UserProfileRequestFence'
 
 export class UserProfileInfo {
   nickName: string = ''
@@ -24,24 +25,41 @@ export class UserProfileService {
   private static lastBlockedByCloudflare: boolean = false
   private static readonly AVATAR_CACHE_DIR: string = 'user-profile-avatar'
 
-  static activeProfileUrl(): string {
-    const memberId: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID)
-    if (memberId.length === 0) {
+  static activeRequestContext(): UserProfileRequestContext {
+    const cookieStore: EhCookieStore = EhCookieStore.getInstance()
+    return new UserProfileRequestContext(
+      cookieStore.get(EhConstants.COOKIE_MEMBER_ID),
+      cookieStore.get(EhConstants.COOKIE_PASS_HASH),
+    )
+  }
+
+  static profileUrlFor(request: UserProfileRequestContext): string {
+    if (request.memberId.length === 0) {
       return EhConstants.FORUMS_BASE_URL
     }
-    return `${EhConstants.FORUMS_BASE_URL}/index.php?showuser=${encodeURIComponent(memberId)}`
+    return `${EhConstants.FORUMS_BASE_URL}/index.php?showuser=${encodeURIComponent(request.memberId)}`
+  }
+
+  static activeProfileUrl(): string {
+    return UserProfileService.profileUrlFor(UserProfileService.activeRequestContext())
   }
 
   static wasLastBlockedByCloudflare(): boolean {
     return UserProfileService.lastBlockedByCloudflare
   }
 
-  static applyProfileHtml(html: string): boolean {
+  static applyProfileHtml(html: string, request: UserProfileRequestContext): boolean {
+    if (!UserProfileService.matchesActiveRequest(request)) {
+      return UserProfileService.logDomEmpty('stale')
+    }
     const info: UserProfileInfo = UserProfileService.parse(html)
-    return UserProfileService.applyProfileInfo(info.nickName, info.avatarUrl)
+    return UserProfileService.applyProfileInfo(info.nickName, info.avatarUrl, request)
   }
 
-  static applyProfileDomPayload(raw: string): boolean {
+  static applyProfileDomPayload(raw: string, request: UserProfileRequestContext): boolean {
+    if (!UserProfileService.matchesActiveRequest(request)) {
+      return UserProfileService.logDomEmpty('stale')
+    }
     let body: string = raw.trim()
     if (body.length === 0) {
       return UserProfileService.logDomEmpty('empty')
@@ -57,18 +75,29 @@ export class UserProfileService {
       const rec = JSON.parse(body) as Record<string, Object>
       const nickName: string = typeof rec.nickName === 'string' ? (rec.nickName as string).trim() : ''
       const avatarUrl: string = typeof rec.avatarUrl === 'string' ? (rec.avatarUrl as string).trim() : ''
-      return UserProfileService.applyProfileInfo(nickName, avatarUrl)
+      const profileUrl: string = typeof rec.profileUrl === 'string' ? (rec.profileUrl as string) : ''
+      if (!UserProfileRequestFence.matchesProfileUrl(request, profileUrl)) {
+        return UserProfileService.logDomEmpty('profile_url')
+      }
+      return UserProfileService.applyProfileInfo(nickName, avatarUrl, request)
     } catch (_error) {
       return UserProfileService.logDomEmpty(`json hash=${DiagnosticLogger.ownerHash(raw)}`)
     }
   }
 
-  static applyProfileInfo(nickName: string, avatarUrl: string): boolean {
+  static applyProfileInfo(
+    nickName: string,
+    avatarUrl: string,
+    request: UserProfileRequestContext,
+  ): boolean {
     const name: string = nickName.trim()
     if (name.length === 0) {
       return UserProfileService.logDomEmpty('name')
     }
     const auth = connectAuth()
+    if (!UserProfileService.matchesActiveRequest(request) || auth.memberId !== request.memberId) {
+      return UserProfileService.logDomEmpty('stale')
+    }
     auth.nickName = name
     auth.avatarUrl = UserProfileService.normalizeAvatarUrl(avatarUrl)
     DiagnosticLogger.info(
@@ -100,14 +129,18 @@ export class UserProfileService {
           }
           return JSON.stringify({
             nickName: name && name.textContent ? name.textContent.trim() : '',
-            avatarUrl
+            avatarUrl,
+            profileUrl: String((location && location.href) || '')
           });
         })()
       `
   }
 
-  static materializeAvatar(context: common.UIAbilityContext): string {
+  static materializeAvatar(context: common.UIAbilityContext, request: UserProfileRequestContext): string {
     const auth = connectAuth()
+    if (!UserProfileService.matchesActiveRequest(request) || auth.memberId !== request.memberId) {
+      return auth.avatarUrl
+    }
     const dataUri: string = auth.avatarUrl.trim()
     if (!dataUri.startsWith('data:image/')) {
       return dataUri
@@ -128,13 +161,13 @@ export class UserProfileService {
       const bytes: Uint8Array = new util.Base64Helper().decodeSync(base64)
       const dir: string = `${context.cacheDir}/${UserProfileService.AVATAR_CACHE_DIR}`
       UserProfileService.ensureDirectory(dir)
-      const filePath: string = `${dir}/${UserProfileService.avatarFileName(auth.memberId, header)}`
+      const filePath: string = `${dir}/${UserProfileService.avatarFileName(request.memberId, header)}`
       UserProfileService.writeBytes(filePath, bytes)
       auth.avatarUrl = UserProfileService.displayUri(filePath)
       DiagnosticLogger.info(
         'auth',
         'user_profile_avatar_cached',
-        `bytes=${bytes.byteLength} memberHash=${DiagnosticLogger.ownerHash(auth.memberId)}`,
+        `bytes=${bytes.byteLength} memberHash=${DiagnosticLogger.ownerHash(request.memberId)}`,
       )
       return auth.avatarUrl
     } catch (error) {
@@ -143,26 +176,36 @@ export class UserProfileService {
     }
   }
 
-  static async restoreActive(context: common.UIAbilityContext): Promise<void> {
-    const memberId: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID)
-    if (memberId.length === 0) {
-      return
+  static async restoreActive(
+    context: common.UIAbilityContext,
+    request: UserProfileRequestContext,
+  ): Promise<boolean> {
+    if (!UserProfileService.matchesActiveRequest(request)) {
+      return false
     }
     try {
       const store: preferences.Preferences = await preferences.getPreferences(
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      const raw: string = store.getSync(UserProfileService.profileKey(memberId), '') as string
+      if (!UserProfileService.matchesActiveRequest(request)) {
+        return false
+      }
+      const raw: string = store.getSync(UserProfileService.profileKey(request.memberId), '') as string
       if (raw.length === 0) {
-        return
+        return false
       }
       const rec = JSON.parse(raw) as Record<string, Object>
       const auth = connectAuth()
+      if (!UserProfileService.matchesActiveRequest(request) || auth.memberId !== request.memberId) {
+        return false
+      }
       auth.nickName = typeof rec.nickName === 'string' ? (rec.nickName as string) : ''
       auth.avatarUrl = typeof rec.avatarUrl === 'string' ? (rec.avatarUrl as string) : ''
+      return true
     } catch (error) {
       DiagnosticLogger.warn('auth', 'user_profile_restore_failed', (error as Error).message)
+      return false
     }
   }
 
@@ -192,10 +235,17 @@ export class UserProfileService {
     return info
   }
 
-  static async saveActive(context: common.UIAbilityContext): Promise<void> {
+  static async saveActive(
+    context: common.UIAbilityContext,
+    request: UserProfileRequestContext,
+  ): Promise<boolean> {
     const auth = connectAuth()
-    if (auth.memberId.length === 0 || auth.nickName.length === 0) {
-      return
+    if (
+      !UserProfileService.matchesActiveRequest(request) ||
+      auth.memberId !== request.memberId ||
+      auth.nickName.length === 0
+    ) {
+      return false
     }
     try {
       const snapshot = new UserProfileSnapshot()
@@ -205,22 +255,27 @@ export class UserProfileService {
         context,
         StorageKeys.STORE_SETTINGS,
       )
-      store.putSync(UserProfileService.profileKey(auth.memberId), JSON.stringify(snapshot))
+      if (!UserProfileService.matchesActiveRequest(request) || auth.memberId !== request.memberId) {
+        return false
+      }
+      store.putSync(UserProfileService.profileKey(request.memberId), JSON.stringify(snapshot))
       store.flushSync()
+      return true
     } catch (error) {
       DiagnosticLogger.warn('auth', 'user_profile_save_failed', (error as Error).message)
+      return false
     }
   }
 
   static async refreshAndSaveActive(context: common.UIAbilityContext): Promise<boolean> {
+    const request: UserProfileRequestContext = UserProfileService.activeRequestContext()
     try {
-      const ok: boolean = await UserProfileService.refreshActive()
+      const ok: boolean = await UserProfileService.refreshActive(request)
       if (!ok) {
         return false
       }
-      UserProfileService.materializeAvatar(context)
-      await UserProfileService.saveActive(context)
-      return true
+      UserProfileService.materializeAvatar(context, request)
+      return await UserProfileService.saveActive(context, request)
     } catch (error) {
       DiagnosticLogger.warn('auth', 'user_profile_refresh_save_failed', (error as Error).message)
       return false
@@ -229,6 +284,10 @@ export class UserProfileService {
 
   private static profileKey(memberId: string): string {
     return `${StorageKeys.USER_PROFILE_PREFIX}${memberId}`
+  }
+
+  private static matchesActiveRequest(request: UserProfileRequestContext): boolean {
+    return UserProfileRequestFence.matches(request, UserProfileService.activeRequestContext())
   }
 
   private static logDomEmpty(reason: string): boolean {
@@ -300,14 +359,13 @@ export class UserProfileService {
     }
   }
 
-  static async refreshActive(): Promise<boolean> {
+  static async refreshActive(request: UserProfileRequestContext): Promise<boolean> {
     UserProfileService.lastBlockedByCloudflare = false
-    const memberId: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID)
-    if (memberId.length === 0) {
+    if (!UserProfileService.matchesActiveRequest(request)) {
       return false
     }
     const resp: EhTextResponse = await EhHttpClient.getInstance().getTextWithReferer(
-      UserProfileService.activeProfileUrl(),
+      UserProfileService.profileUrlFor(request),
       `${EhConstants.FORUMS_BASE_URL}/index.php`,
     )
     const info: UserProfileInfo = UserProfileService.parse(resp.body)
@@ -327,15 +385,15 @@ export class UserProfileService {
     if (!hitProfile) {
       return false
     }
-    if (EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID) !== memberId) {
+    if (!UserProfileService.matchesActiveRequest(request)) {
       DiagnosticLogger.info(
         'auth',
         'user_profile_probe_stale',
-        `memberHash=${DiagnosticLogger.ownerHash(memberId)}`,
+        `memberHash=${DiagnosticLogger.ownerHash(request.memberId)}`,
       )
       return false
     }
-    return UserProfileService.applyProfileHtml(resp.body)
+    return UserProfileService.applyProfileHtml(resp.body, request)
   }
 
   static parse(html: string): UserProfileInfo {

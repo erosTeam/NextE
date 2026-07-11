@@ -14,6 +14,8 @@ import {
   AppStrings,
   DiagnosticLogger,
   UserProfileService,
+  UserProfileRequestContext,
+  UserProfileRequestFence,
   closeLoginFlowToAccount,
   connectWebLoginStyle,
   immersiveTitleBarOpts,
@@ -36,6 +38,7 @@ export struct EhLoginWebPage {
   @Local runtimeBeautifyEnabled: boolean = true;
   private captured: boolean = false;
   private profileCaptureStarted: boolean = false;
+  private profileRequest: UserProfileRequestContext | null = null;
   private finished: boolean = false;
   private restyleInFlight: boolean = false;
 
@@ -367,14 +370,20 @@ export struct EhLoginWebPage {
     this.captured = true
     // Replace (clear + apply) so a newly-added account doesn't inherit the previous account's igneous/sk.
     CookieJarSettings.replaceFromHeader(header)
+    const request: UserProfileRequestContext = UserProfileService.activeRequestContext()
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     await CookieJarSettings.save(ctx)
+    if (!UserProfileRequestFence.matches(request, UserProfileService.activeRequestContext())) {
+      this.finishLogin()
+      return
+    }
+    this.profileRequest = request
     this.refreshIgneousAfterLogin(ctx)
     this.profileCaptureStarted = true
     this.loading = true
     try {
-      this.controller.loadUrl(UserProfileService.activeProfileUrl())
+      this.controller.loadUrl(UserProfileService.profileUrlFor(request))
     } catch (e) {
       DiagnosticLogger.warn('auth', 'web_login_profile_load_failed', (e as Error).message)
       this.finishLogin()
@@ -402,12 +411,13 @@ export struct EhLoginWebPage {
 
   private async finishLoginWithProfile(): Promise<void> {
     try {
+      const request: UserProfileRequestContext | null = this.profileRequest
       const payload: string = await this.controller.runJavaScript(UserProfileService.profileDomCaptureScript())
-      if (UserProfileService.applyProfileDomPayload(payload)) {
+      if (request !== null && UserProfileService.applyProfileDomPayload(payload, request)) {
         const ctx: common.UIAbilityContext =
           this.getUIContext().getHostContext() as common.UIAbilityContext
-        UserProfileService.materializeAvatar(ctx)
-        await UserProfileService.saveActive(ctx)
+        UserProfileService.materializeAvatar(ctx, request)
+        await UserProfileService.saveActive(ctx, request)
       }
     } catch (e) {
       DiagnosticLogger.warn('auth', 'web_login_profile_capture_failed', (e as Error).message)

@@ -472,7 +472,7 @@ export class CookieJarSettings {
       await SiteModeSettings.reconcileActiveJar(context)
       await AccountListSettings.load(context)
       await AccountListSettings.recordActive(context)
-      await UserProfileService.restoreActive(context)
+      await UserProfileService.restoreActive(context, UserProfileService.activeRequestContext())
       DiagnosticLogger.info(
         'auth',
         'cookie_jar_restored',
@@ -517,7 +517,7 @@ export class CookieJarSettings {
     await SiteModeSettings.reconcileActiveJar(context)
     await FavcatListSettings.restore(context)
     await CookieJarSettings.save(context)
-    await UserProfileService.restoreActive(context)
+    await UserProfileService.restoreActive(context, UserProfileService.activeRequestContext())
   }
 
   /** Remove a saved account; if it was the active one, switch to another saved account or fully log out. */
