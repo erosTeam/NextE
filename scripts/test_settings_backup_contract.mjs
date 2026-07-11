@@ -129,6 +129,11 @@ ok('service exports and restores localData section',
     /sections: BackupSectionName\[\] = \['preferences', 'localData'\]/.test(svc) &&
     /BackupLocalDataAdapter\.restoreSection\(context, envelope\.data\.localData\)/.test(svc) &&
     /imageBlockRules: localData\.imageBlock\.rules\.length/.test(svc))
+ok('backup parser and restore boundary reject partial localData replacements',
+  /BackupService\.hasCompleteLocalDataTopology\(envelope\)/.test(svc) &&
+    /BackupLocalDataAdapter\.hasCompleteRestoreShape\(localData\)/.test(svc) &&
+    /static hasCompleteRestoreShape\(/.test(read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')) &&
+    /throw new Error\('backup local data is malformed'\)/.test(read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')))
 ok('a plaintext file declaring a secrets section is rejected',
   /!fromEncrypted && envelope\.sections\.indexOf\('secrets'\) >= 0/.test(svc) &&
     /code: 'malformed'/.test(svc))
@@ -231,10 +236,16 @@ ok('picker rejects oversized files before allocating and preserves the size-spec
   /const size: number = fileIo\.statSync\(file\.fd\)\.size[\s\S]*size > MAX_BACKUP_BYTES[\s\S]*throw new Error\('backup file is too large'\)[\s\S]*new ArrayBuffer\(size\)/.test(picker) &&
     /error\.message === 'backup file is too large'[\s\S]*backup_import_too_large/.test(page))
 const backupCipherGuardTest = read('entry/src/ohosTest/ets/test/BackupCipherMetadataGuard.test.ets')
+const backupLocalDataStructureGuardTest = read('entry/src/ohosTest/ets/test/BackupLocalDataStructureGuard.test.ets')
 const testList = read('entry/src/ohosTest/ets/test/List.test.ets')
 ok('device test exercises rejection of untrusted encrypted KDF metadata before decrypt',
   /BackupService\.decryptAndPreview\([\s\S]*encryptedContainer\(210001, 32\)[\s\S]*result\.code\)\.assertEqual\('malformed'\)/.test(backupCipherGuardTest) &&
-    /backupCipherMetadataGuardTest\(\)/.test(testList))
+  /backupCipherMetadataGuardTest\(\)/.test(testList))
+ok('device test covers localData structure compatibility and malformed replacement rejection',
+  /validLocalData\(false\)/.test(backupLocalDataStructureGuardTest) &&
+    /parseMalformed\(envelopeWithLocalData\(missingReadProgress, true\)\)/.test(backupLocalDataStructureGuardTest) &&
+    /malformedImageBlock/.test(backupLocalDataStructureGuardTest) &&
+    /backupLocalDataStructureGuardTest\(\)/.test(testList))
 ok('restore confirmation previews backup section counts before applying',
   /BackupService\.preview\(envelope\)/.test(page) &&
     /restorePreviewMessage\(preview: BackupPreview\)/.test(page) &&

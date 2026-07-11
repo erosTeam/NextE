@@ -181,7 +181,10 @@ export class BackupService {
     ) {
       return { ok: false, code: 'unsupported_version', message: 'unsupported backup version' }
     }
-    if (!Array.isArray(envelope.sections) || envelope.data === undefined) {
+    if (
+      !Array.isArray(envelope.sections) ||
+      !BackupService.hasCompleteLocalDataTopology(envelope)
+    ) {
       return { ok: false, code: 'malformed', message: 'backup sections are malformed' }
     }
     // The 'secrets' section is valid ONLY inside a decrypted container; reject it in plaintext so
@@ -209,6 +212,24 @@ export class BackupService {
     )
   }
 
+  /**
+   * `localData` replaces durable RDB datasets rather than merging them. Keep old preference-only
+   * backups valid, but reject a declared partial snapshot before preview or restore can turn absent
+   * arrays into destructive empty replacements.
+   */
+  private static hasCompleteLocalDataTopology(envelope: BackupEnvelopeV1): boolean {
+    const data: BackupData | undefined = envelope.data
+    if (data === undefined || data === null || typeof data !== 'object' || Array.isArray(data)) {
+      return false
+    }
+    const declaresLocalData: boolean = envelope.sections.indexOf('localData') >= 0
+    const localData: BackupLocalDataSection | undefined = data.localData
+    if (declaresLocalData !== (localData !== undefined)) {
+      return false
+    }
+    return localData === undefined || BackupLocalDataAdapter.hasCompleteRestoreShape(localData)
+  }
+
   static preview(envelope: BackupEnvelopeV1): BackupPreview {
     return {
       createdAt: envelope.createdAt,
@@ -224,6 +245,17 @@ export class BackupService {
     context: common.UIAbilityContext,
     envelope: BackupEnvelopeV1,
   ): Promise<BackupRestoreResult> {
+    if (
+      !Array.isArray(envelope.sections) ||
+      !BackupService.hasCompleteLocalDataTopology(envelope)
+    ) {
+      return {
+        ok: false,
+        restoredSections: [],
+        failedSections: ['localData'],
+        message: 'backup local data is malformed',
+      }
+    }
     const fromEncrypted: boolean = envelope.sections.indexOf('secrets') >= 0
     // Local-data restore methods request provider-neutral sync after durable writes. Suppress and
     // cancel automatic provider work before even taking rollback snapshots, so a pre-existing timer

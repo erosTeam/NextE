@@ -223,10 +223,231 @@ export class BackupLocalDataAdapter {
     }
   }
 
+  /**
+   * A local-data backup is an authoritative replacement for several durable tables. Validate its
+   * complete runtime shape before any restore can turn a missing or damaged field into an empty
+   * replacement. `imageBlock` remains optional because it was added after the original schema-v1
+   * local-data envelope; its absence preserves the target's image-block rules for that old format.
+   */
+  static hasCompleteRestoreShape(section: BackupLocalDataSection | undefined): boolean {
+    if (!BackupLocalDataAdapter.isRecord(section)) {
+      return false
+    }
+    const candidate: BackupLocalDataSection = section as BackupLocalDataSection
+    if (
+      !Array.isArray(candidate.readProgress) ||
+      !Array.isArray(candidate.viewedHistory) ||
+      !Array.isArray(candidate.localFavorites) ||
+      !Array.isArray(candidate.searchHistory) ||
+      !BackupLocalDataAdapter.hasLocalBlockShape(candidate.localBlock) ||
+      !BackupLocalDataAdapter.hasCustomProfilesShape(candidate.customProfiles)
+    ) {
+      return false
+    }
+    if (
+      candidate.imageBlock !== undefined &&
+      !BackupLocalDataAdapter.hasImageBlockShape(candidate.imageBlock)
+    ) {
+      return false
+    }
+    return (
+      BackupLocalDataAdapter.hasReadProgressEntries(candidate.readProgress) &&
+      BackupLocalDataAdapter.hasViewedHistoryEntries(candidate.viewedHistory) &&
+      BackupLocalDataAdapter.hasLocalFavoriteEntries(candidate.localFavorites) &&
+      BackupLocalDataAdapter.hasSearchHistoryEntries(candidate.searchHistory)
+    )
+  }
+
+  private static hasReadProgressEntries(entries: BackupReadProgressEntry[]): boolean {
+    for (let i: number = 0; i < entries.length; i++) {
+      const entry: BackupReadProgressEntry = entries[i]
+      if (
+        !BackupLocalDataAdapter.isRecord(entry) ||
+        typeof entry.g !== 'string' ||
+        entry.g.length === 0 ||
+        typeof entry.i !== 'number' ||
+        entry.i < 0 ||
+        typeof entry.t !== 'number' ||
+        (entry.c !== undefined && typeof entry.c !== 'string')
+      ) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private static hasViewedHistoryEntries(entries: BackupViewedHistoryEntry[]): boolean {
+    for (let i: number = 0; i < entries.length; i++) {
+      const entry: BackupViewedHistoryEntry = entries[i]
+      if (
+        !BackupLocalDataAdapter.isRecord(entry) ||
+        typeof entry.gid !== 'string' ||
+        entry.gid.length === 0 ||
+        typeof entry.token !== 'string' ||
+        typeof entry.title !== 'string' ||
+        typeof entry.titleJp !== 'string' ||
+        typeof entry.thumbUrl !== 'string' ||
+        typeof entry.category !== 'string' ||
+        typeof entry.uploader !== 'string' ||
+        typeof entry.rating !== 'number' ||
+        typeof entry.fileCount !== 'string' ||
+        typeof entry.time !== 'number'
+      ) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private static hasLocalFavoriteEntries(entries: BackupLocalFavoriteEntry[]): boolean {
+    for (let i: number = 0; i < entries.length; i++) {
+      const entry: BackupLocalFavoriteEntry = entries[i]
+      if (
+        !BackupLocalDataAdapter.isRecord(entry) ||
+        typeof entry.gid !== 'string' ||
+        entry.gid.length === 0 ||
+        typeof entry.token !== 'string' ||
+        typeof entry.url !== 'string' ||
+        typeof entry.thumbUrl !== 'string' ||
+        typeof entry.thumbUrlL !== 'string' ||
+        typeof entry.imgWidth !== 'number' ||
+        typeof entry.imgHeight !== 'number' ||
+        typeof entry.englishTitle !== 'string' ||
+        typeof entry.japaneseTitle !== 'string' ||
+        typeof entry.category !== 'string' ||
+        typeof entry.uploader !== 'string' ||
+        typeof entry.postTime !== 'string' ||
+        typeof entry.fileCount !== 'string' ||
+        typeof entry.rating !== 'number' ||
+        typeof entry.ratingFallBack !== 'number' ||
+        typeof entry.colorRating !== 'string' ||
+        typeof entry.favNote !== 'string' ||
+        typeof entry.favTitle !== 'string' ||
+        typeof entry.expunged !== 'boolean' ||
+        typeof entry.lastViewTime !== 'number'
+      ) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private static hasSearchHistoryEntries(entries: string[]): boolean {
+    for (let i: number = 0; i < entries.length; i++) {
+      if (typeof entries[i] !== 'string' || entries[i].trim().length === 0) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private static hasLocalBlockShape(section: BackupLocalBlockSection): boolean {
+    if (
+      !BackupLocalDataAdapter.isRecord(section) ||
+      typeof section.filterCommentsByScore !== 'boolean' ||
+      typeof section.scoreFilteringThreshold !== 'number' ||
+      typeof section.commentDisplayMode !== 'string' ||
+      !Array.isArray(section.rules)
+    ) {
+      return false
+    }
+    for (let i: number = 0; i < section.rules.length; i++) {
+      const rule: BackupLocalBlockRuleEntry = section.rules[i]
+      if (
+        !BackupLocalDataAdapter.isRecord(rule) ||
+        typeof rule.id !== 'string' ||
+        typeof rule.blockType !== 'string' ||
+        typeof rule.ruleText !== 'string' ||
+        rule.ruleText.length === 0 ||
+        typeof rule.enabled !== 'boolean' ||
+        typeof rule.enableRegex !== 'boolean'
+      ) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private static hasImageBlockShape(section: BackupImageBlockSection): boolean {
+    if (!BackupLocalDataAdapter.isRecord(section) || !Array.isArray(section.rules)) {
+      return false
+    }
+    for (let i: number = 0; i < section.rules.length; i++) {
+      const rule: BackupImageBlockRuleEntry = section.rules[i]
+      if (
+        !BackupLocalDataAdapter.isRecord(rule) ||
+        typeof rule.id !== 'string' ||
+        rule.id.length === 0 ||
+        typeof rule.hash !== 'string' ||
+        rule.hash.length === 0 ||
+        typeof rule.threshold !== 'number' ||
+        typeof rule.label !== 'string' ||
+        typeof rule.scope !== 'string' ||
+        typeof rule.feedId !== 'string' ||
+        typeof rule.sourceType !== 'string' ||
+        rule.sourceType.length === 0 ||
+        typeof rule.sourceUrl !== 'string' ||
+        typeof rule.sourcePage !== 'number' ||
+        typeof rule.enabled !== 'boolean' ||
+        typeof rule.updatedAt !== 'number'
+      ) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private static hasCustomProfilesShape(section: BackupCustomProfilesSection): boolean {
+    if (
+      !BackupLocalDataAdapter.isRecord(section) ||
+      typeof section.selectedUuid !== 'string' ||
+      !Array.isArray(section.profiles)
+    ) {
+      return false
+    }
+    for (let i: number = 0; i < section.profiles.length; i++) {
+      const profile: BackupCustomProfileEntry = section.profiles[i]
+      if (
+        !BackupLocalDataAdapter.isRecord(profile) ||
+        typeof profile.uuid !== 'string' ||
+        profile.uuid.length === 0 ||
+        typeof profile.name !== 'string' ||
+        typeof profile.listType !== 'string' ||
+        typeof profile.searchText !== 'string' ||
+        typeof profile.selectedCats !== 'number' ||
+        typeof profile.advancedEnabled !== 'boolean' ||
+        typeof profile.minRating !== 'number' ||
+        typeof profile.pagesFrom !== 'number' ||
+        typeof profile.pagesTo !== 'number' ||
+        typeof profile.requireTorrent !== 'boolean' ||
+        typeof profile.showExpunged !== 'boolean' ||
+        typeof profile.disableLanguageFilter !== 'boolean' ||
+        typeof profile.disableUploaderFilter !== 'boolean' ||
+        typeof profile.disableTagFilter !== 'boolean' ||
+        typeof profile.favcat !== 'string' ||
+        typeof profile.toplistTl !== 'number' ||
+        typeof profile.displayMode !== 'string' ||
+        typeof profile.hidden !== 'boolean' ||
+        typeof profile.builtin !== 'boolean' ||
+        typeof profile.lastEditTime !== 'number'
+      ) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private static isRecord(value: Object | undefined): boolean {
+    return value !== undefined && value !== null && typeof value === 'object' && !Array.isArray(value)
+  }
+
   static async restoreSection(
     context: common.UIAbilityContext,
     section: BackupLocalDataSection,
   ): Promise<void> {
+    if (!BackupLocalDataAdapter.hasCompleteRestoreShape(section)) {
+      throw new Error('backup local data is malformed')
+    }
     const entries: ReadProgressEntry[] = []
     let source: BackupReadProgressEntry[] = []
     if (section.readProgress !== undefined) {
