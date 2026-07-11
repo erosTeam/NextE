@@ -21,6 +21,11 @@ import {
 import { SyncScheduler } from '../sync/SyncScheduler'
 
 export class LocalBlockSettings {
+  // Settings-page callbacks are fire-and-forget. Serialize their durable order so a rapid
+  // add/toggle/delete sequence cannot let an older durable mutation win later.
+  private static rdbWriteTail: Promise<void> = Promise.resolve()
+  private static mutationRevision: number = 0
+
   private static bumpVersion(state: LocalBlockState): void {
     state.version = state.version + 1
     DiagnosticLogger.info('settings', 'local_block_version', `version=${state.version} rules=${state.rules.length}`)
@@ -117,24 +122,16 @@ export class LocalBlockSettings {
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       await LocalBlockSettings.migrateLegacyPreferences(context)
-      LocalBlockSettings.apply(await LocalBlockRepository.load(context))
+      await LocalBlockSettings.refreshFromStorage(context)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'local_block_restore_failed', (error as Error).message)
       LocalBlockSettings.apply(new LocalBlockSettingsSnapshot())
     }
   }
 
-  static async save(context: common.UIAbilityContext): Promise<void> {
-    try {
-      await LocalBlockRepository.replaceAll(context, LocalBlockSettings.current())
-      SyncScheduler.requestAfterLocalWrite(context, 'local_block')
-    } catch (error) {
-      DiagnosticLogger.warn('settings', 'local_block_save_failed', (error as Error).message)
-    }
-  }
-
   static async exportForBackup(context: common.UIAbilityContext): Promise<LocalBlockSettingsSnapshot> {
     await LocalBlockSettings.migrateLegacyPreferences(context)
+    await LocalBlockSettings.flushForSync(context)
     return LocalBlockRepository.load(context)
   }
 
@@ -142,26 +139,49 @@ export class LocalBlockSettings {
     context: common.UIAbilityContext,
     snapshot: LocalBlockSettingsSnapshot,
   ): Promise<void> {
-    await LocalBlockRepository.replaceAll(context, snapshot)
+    LocalBlockSettings.mutationRevision = LocalBlockSettings.mutationRevision + 1
+    await LocalBlockSettings.enqueueRdbWrite(
+      (): Promise<void> => LocalBlockRepository.replaceAll(context, snapshot),
+    )
     await LocalBlockSettings.deleteLegacyPreference(context)
-    LocalBlockSettings.apply(await LocalBlockRepository.load(context))
+    await LocalBlockSettings.refreshFromStorage(context)
     SyncScheduler.requestAfterLocalWrite(context, 'local_block_restore_backup')
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const revision: number = LocalBlockSettings.mutationRevision
     const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
     const raw: string = store.getSync(StorageKeys.LOCAL_BLOCK_RULES, '') as string
     if (raw.length === 0) {
       return
     }
     try {
-      await LocalBlockRepository.replaceAll(context, LocalBlockSettings.parseSnapshot(raw))
+      await LocalBlockSettings.enqueueRdbWrite(async (): Promise<void> => {
+        if (revision !== LocalBlockSettings.mutationRevision) {
+          return
+        }
+        if (await LocalBlockRepository.hasPersistedState(context)) {
+          return
+        }
+        if (revision !== LocalBlockSettings.mutationRevision) {
+          return
+        }
+        await LocalBlockRepository.replaceAll(context, LocalBlockSettings.parseSnapshot(raw))
+      })
     } catch (error) {
       DiagnosticLogger.warn('settings', 'local_block_migrate_failed', (error as Error).message)
       // Keep the only legacy copy intact. A later startup can retry once the RDB write succeeds.
       return
     }
+    if (revision !== LocalBlockSettings.mutationRevision) {
+      return
+    }
     await LocalBlockSettings.deleteLegacyPreference(context)
+  }
+
+  /** Drain queued local block writes before backup and sync providers read either durable table. */
+  static async flushForSync(_context: common.UIAbilityContext): Promise<void> {
+    await LocalBlockSettings.rdbWriteTail
   }
 
   static async setScoreFilter(
@@ -173,14 +193,16 @@ export class LocalBlockSettings {
     state.filterCommentsByScore = enabled
     state.scoreFilteringThreshold = Math.floor(threshold)
     LocalBlockSettings.bumpVersion(state)
-    await LocalBlockSettings.save(context)
+    LocalBlockSettings.mutationRevision = LocalBlockSettings.mutationRevision + 1
+    await LocalBlockSettings.persistSettings(context)
   }
 
   static async setCommentDisplayMode(context: common.UIAbilityContext, mode: string): Promise<void> {
     const state: LocalBlockState = connectLocalBlock()
     state.commentDisplayMode = LocalBlockSettings.normalizeCommentDisplayMode(mode)
     LocalBlockSettings.bumpVersion(state)
-    await LocalBlockSettings.save(context)
+    LocalBlockSettings.mutationRevision = LocalBlockSettings.mutationRevision + 1
+    await LocalBlockSettings.persistSettings(context)
   }
 
   static async upsertRule(context: common.UIAbilityContext, rule: LocalBlockRule): Promise<void> {
@@ -207,29 +229,106 @@ export class LocalBlockSettings {
     }
     state.rules = rules
     LocalBlockSettings.bumpVersion(state)
-    await LocalBlockSettings.save(context)
+    LocalBlockSettings.mutationRevision = LocalBlockSettings.mutationRevision + 1
+    await LocalBlockSettings.persistRule(context, next)
   }
 
   static async removeRule(context: common.UIAbilityContext, ruleId: string): Promise<void> {
     const state: LocalBlockState = connectLocalBlock()
+    const existing: boolean = state.rules.some((rule: LocalBlockRule) => rule.id === ruleId)
+    if (!existing) {
+      return
+    }
     state.rules = state.rules
       .filter((rule: LocalBlockRule) => rule.id !== ruleId)
       .map((rule: LocalBlockRule) => LocalBlockSettings.cloneRule(rule))
     LocalBlockSettings.bumpVersion(state)
-    await LocalBlockSettings.save(context)
+    LocalBlockSettings.mutationRevision = LocalBlockSettings.mutationRevision + 1
+    await LocalBlockSettings.persistRuleRemoval(context, ruleId)
   }
 
   static async setRuleEnabled(context: common.UIAbilityContext, ruleId: string, enabled: boolean): Promise<void> {
     const state: LocalBlockState = connectLocalBlock()
+    let changedIndex: number = -1
+    for (let index: number = 0; index < state.rules.length; index++) {
+      if (state.rules[index].id === ruleId) {
+        changedIndex = index
+        break
+      }
+    }
+    if (changedIndex < 0) {
+      return
+    }
+    const changed: LocalBlockRule = LocalBlockSettings.cloneRule(state.rules[changedIndex])
+    changed.enabled = enabled
     state.rules = state.rules.map((rule: LocalBlockRule) => {
       const next: LocalBlockRule = LocalBlockSettings.cloneRule(rule)
       if (next.id === ruleId) {
-        next.enabled = enabled
+        return changed
       }
       return next
     })
     LocalBlockSettings.bumpVersion(state)
-    await LocalBlockSettings.save(context)
+    LocalBlockSettings.mutationRevision = LocalBlockSettings.mutationRevision + 1
+    await LocalBlockSettings.persistRule(context, changed)
+  }
+
+  private static async persistSettings(context: common.UIAbilityContext): Promise<void> {
+    try {
+      const snapshot: LocalBlockSettingsSnapshot = LocalBlockSettings.current()
+      await LocalBlockSettings.enqueueRdbWrite(async (): Promise<void> => {
+        await LocalBlockRepository.upsertSettings(context, snapshot)
+      })
+      SyncScheduler.requestAfterLocalWrite(context, 'local_block')
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'local_block_settings_save_failed', (error as Error).message)
+    }
+  }
+
+  private static async persistRule(context: common.UIAbilityContext, rule: LocalBlockRule): Promise<void> {
+    try {
+      const snapshot: LocalBlockRuleSnapshot = LocalBlockSettings.snapshotRule(rule)
+      await LocalBlockSettings.enqueueRdbWrite(async (): Promise<void> => {
+        await LocalBlockRepository.upsertRule(context, snapshot)
+      })
+      SyncScheduler.requestAfterLocalWrite(context, 'local_block')
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'local_block_rule_save_failed', (error as Error).message)
+    }
+  }
+
+  private static async persistRuleRemoval(context: common.UIAbilityContext, ruleId: string): Promise<void> {
+    try {
+      await LocalBlockSettings.enqueueRdbWrite(async (): Promise<void> => {
+        await LocalBlockRepository.tombstoneRule(context, ruleId)
+      })
+      SyncScheduler.requestAfterLocalWrite(context, 'local_block')
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'local_block_rule_remove_failed', (error as Error).message)
+    }
+  }
+
+  /** A failed write must not poison the queue behind it. */
+  private static enqueueRdbWrite(work: () => Promise<void>): Promise<void> {
+    const next: Promise<void> = LocalBlockSettings.rdbWriteTail.then(
+      (): Promise<void> => work(),
+      (): Promise<void> => work(),
+    )
+    LocalBlockSettings.rdbWriteTail = next
+    return next
+  }
+
+  /** Do not replace a newer page mutation with an RDB snapshot that started before it. */
+  private static async refreshFromStorage(context: common.UIAbilityContext): Promise<void> {
+    for (let attempt: number = 0; attempt < 2; attempt++) {
+      await LocalBlockSettings.rdbWriteTail
+      const revision: number = LocalBlockSettings.mutationRevision
+      const snapshot: LocalBlockSettingsSnapshot = await LocalBlockRepository.load(context)
+      if (revision === LocalBlockSettings.mutationRevision) {
+        LocalBlockSettings.apply(snapshot)
+        return
+      }
+    }
   }
 
   private static parseRules(items: Object[]): LocalBlockRuleSnapshot[] {
@@ -272,19 +371,23 @@ export class LocalBlockSettings {
   private static snapshotRules(items: LocalBlockRule[]): LocalBlockRuleSnapshot[] {
     const out: LocalBlockRuleSnapshot[] = []
     items.forEach((rule: LocalBlockRule) => {
-      const clean: LocalBlockRule = LocalBlockSettings.cloneRule(rule)
-      if (clean.ruleText.length === 0) {
-        return
+      const snapshot: LocalBlockRuleSnapshot = LocalBlockSettings.snapshotRule(rule)
+      if (snapshot.ruleText.length > 0) {
+        out.push(snapshot)
       }
-      const snapshot: LocalBlockRuleSnapshot = new LocalBlockRuleSnapshot()
-      snapshot.id = clean.id
-      snapshot.blockType = clean.blockType
-      snapshot.ruleText = clean.ruleText
-      snapshot.enabled = clean.enabled
-      snapshot.enableRegex = clean.enableRegex
-      out.push(snapshot)
     })
     return out
+  }
+
+  private static snapshotRule(rule: LocalBlockRule): LocalBlockRuleSnapshot {
+    const clean: LocalBlockRule = LocalBlockSettings.cloneRule(rule)
+    const snapshot: LocalBlockRuleSnapshot = new LocalBlockRuleSnapshot()
+    snapshot.id = clean.id
+    snapshot.blockType = clean.blockType
+    snapshot.ruleText = clean.ruleText
+    snapshot.enabled = clean.enabled
+    snapshot.enableRegex = clean.enableRegex
+    return snapshot
   }
 
   private static parseSnapshot(raw: string): LocalBlockSettingsSnapshot {

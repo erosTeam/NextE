@@ -98,10 +98,14 @@ const SQL_APPLY_SEARCH_HISTORY: string =
   'CASE WHEN COALESCE(search_history.deleted_at, 0) > COALESCE(search_history.updated_at, 0) THEN COALESCE(search_history.deleted_at, 0) ELSE COALESCE(search_history.updated_at, 0) END'
 const SQL_APPLY_LOCAL_BLOCK_SETTINGS: string =
   'INSERT INTO local_block_settings (scope_key, filter_comments_by_score, score_filtering_threshold, comment_display_mode, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?) ' +
-  'ON CONFLICT(scope_key) DO UPDATE SET filter_comments_by_score = excluded.filter_comments_by_score, score_filtering_threshold = excluded.score_filtering_threshold, comment_display_mode = excluded.comment_display_mode, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+  'ON CONFLICT(scope_key) DO UPDATE SET filter_comments_by_score = excluded.filter_comments_by_score, score_filtering_threshold = excluded.score_filtering_threshold, comment_display_mode = excluded.comment_display_mode, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.updated_at, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.updated_at, 0) END >= ' +
+  'CASE WHEN COALESCE(local_block_settings.deleted_at, 0) > COALESCE(local_block_settings.updated_at, 0) THEN COALESCE(local_block_settings.deleted_at, 0) ELSE COALESCE(local_block_settings.updated_at, 0) END'
 const SQL_APPLY_LOCAL_BLOCK_RULE: string =
   'INSERT INTO local_block_rules (scope_key, rule_id, position_index, block_type, rule_text, enabled, enable_regex, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
-  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET position_index = excluded.position_index, block_type = excluded.block_type, rule_text = excluded.rule_text, enabled = excluded.enabled, enable_regex = excluded.enable_regex, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at'
+  'ON CONFLICT(scope_key, rule_id) DO UPDATE SET position_index = excluded.position_index, block_type = excluded.block_type, rule_text = excluded.rule_text, enabled = excluded.enabled, enable_regex = excluded.enable_regex, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at ' +
+  'WHERE CASE WHEN COALESCE(excluded.deleted_at, 0) > COALESCE(excluded.updated_at, 0) THEN COALESCE(excluded.deleted_at, 0) ELSE COALESCE(excluded.updated_at, 0) END >= ' +
+  'CASE WHEN COALESCE(local_block_rules.deleted_at, 0) > COALESCE(local_block_rules.updated_at, 0) THEN COALESCE(local_block_rules.deleted_at, 0) ELSE COALESCE(local_block_rules.updated_at, 0) END'
 const SQL_APPLY_IMAGE_BLOCK_SUBSCRIPTION: string =
   'INSERT INTO image_block_subscriptions (scope_key, feed_id, title, url, algorithm, default_threshold, updated_at, synced_at, sha256, rule_count, enabled, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ' +
   'ON CONFLICT(scope_key, feed_id) DO UPDATE SET title = excluded.title, url = excluded.url, algorithm = excluded.algorithm, default_threshold = excluded.default_threshold, updated_at = excluded.updated_at, synced_at = excluded.synced_at, sha256 = excluded.sha256, rule_count = excluded.rule_count, enabled = excluded.enabled, deleted_at = excluded.deleted_at'
