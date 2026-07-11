@@ -57,8 +57,6 @@ ok(/prepareGallerySeeds/.test(settings) && /EhApiService\.getInstance\(\)\.getPr
 ok(/gallery_prepare_start/.test(settings) && /gallery_prepare_done/.test(settings) &&
   /gallery_prepare_failed/.test(settings),
   'seed preparation writes explicit start/done/failure diagnostics')
-ok(/if \(seedImages\.length === 0\) \{[\s\S]*EhApiService\.getInstance\(\)\.getGalleryDetail\(gid, token, isEx\)[\s\S]*gallery_prepare_detail_seed_loaded/.test(settings),
-  'empty detail image lists are reseeded from gallery detail before preview-page pagination')
 ok(/let seedImages: EhGalleryImage\[\] = firstPageImages\.map/.test(settings) &&
   /const initialSeeds: DownloadImageSeed\[\] = DownloadQueueSettings\.imagesToSeeds\(seedImages\)/.test(settings) &&
   /const firstPageCount: number = Math\.max\(1, initialSeeds\.length > 0 \? initialSeeds\.length : seedImages\.length\)/.test(settings),

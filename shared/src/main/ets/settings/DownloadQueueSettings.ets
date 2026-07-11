@@ -281,6 +281,30 @@ export class GalleryResumeAllGate {
   }
 }
 
+/** Joins only the remote detail stage for one gallery seed refresh. */
+export class GallerySeedDetailRefreshGate {
+  private running: Map<string, Promise<GalleryDetailResult>> = new Map<string, Promise<GalleryDetailResult>>()
+
+  async joinOrStart(
+    key: string,
+    start: () => Promise<GalleryDetailResult>,
+  ): Promise<GalleryDetailResult> {
+    const existing: Promise<GalleryDetailResult> | undefined = this.running.get(key)
+    if (existing !== undefined) {
+      return await existing
+    }
+    const running: Promise<GalleryDetailResult> = start()
+    this.running.set(key, running)
+    try {
+      return await running
+    } finally {
+      if (this.running.get(key) === running) {
+        this.running.delete(key)
+      }
+    }
+  }
+}
+
 class GallerySeedNetworkTask {
   queueTask: GallerySeedQueueTask
   private readonly work: () => Promise<DownloadSeedResult>
@@ -394,6 +418,7 @@ export class DownloadQueueSettings {
   private static downloadRootRequest: Promise<boolean> | null = null
   private static pendingResume: Promise<void> | null = null
   private static galleryResumeAllGate: GalleryResumeAllGate = new GalleryResumeAllGate()
+  private static gallerySeedDetailRefreshes: GallerySeedDetailRefreshGate = new GallerySeedDetailRefreshGate()
 
   private static setGalleryTasks(state: DownloadQueueState, tasks: DownloadGalleryTask[]): void {
     const next: DownloadGalleryTask[] = []
@@ -1173,8 +1198,16 @@ export class DownloadQueueSettings {
       `gid=${gid} tokenHash=${DiagnosticLogger.ownerHash(token)} quality=${DownloadQueueSettings.galleryQuality(preferOriginal)} seeds=${beforeSeeds} downloaded=${beforeDownloaded}`,
     )
     try {
-      const detail: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(gid, token, isEx)
-      await DownloadQueueSettings.updateGalleryTaskMetadata(context, gid, token, preferOriginal, detail.gallery)
+      const detail: GalleryDetailResult | null = await DownloadQueueSettings.fetchGalleryDetailForSeedRefresh(
+        context,
+        gid,
+        token,
+        isEx,
+        preferOriginal,
+      )
+      if (detail === null) {
+        return
+      }
       await DownloadQueueSettings.prepareGallerySeeds(
         context,
         gid,
@@ -1205,6 +1238,41 @@ export class DownloadQueueSettings {
         `gid=${gid} error=${(error as Error).message}`,
       )
     }
+  }
+
+  private static async fetchGalleryDetailForSeedRefresh(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    isEx: boolean,
+    preferOriginal: boolean,
+  ): Promise<GalleryDetailResult | null> {
+    const key: string = `${DownloadQueueSettings.taskKey(gid, token, preferOriginal)}:${isEx ? 'ex' : 'eh'}`
+    return await DownloadQueueSettings.gallerySeedDetailRefreshes.joinOrStart(
+      key,
+      async (): Promise<GalleryDetailResult> => {
+        try {
+          const detail: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(gid, token, isEx)
+          await DownloadQueueSettings.updateGalleryTaskMetadata(context, gid, token, preferOriginal, detail.gallery)
+          return detail
+        } catch (error) {
+          await DownloadQueueSettings.updateDownloadTaskStatus(
+            context,
+            gid,
+            token,
+            preferOriginal,
+            DownloadGalleryTaskStatus.ERROR,
+            DownloadQueueSettings.userError(error as Object),
+          )
+          DiagnosticLogger.warn(
+            'download',
+            'gallery_seed_refresh_failed',
+            `gid=${gid} error=${(error as Error).message}`,
+          )
+          throw error as Error
+        }
+      },
+    ).catch((_error: Error): GalleryDetailResult | null => null)
   }
 
   /**
@@ -1261,8 +1329,16 @@ export class DownloadQueueSettings {
     let resolvedPreviewPageCount: number = previewPageCount
     if (seedImages.length === 0) {
       try {
-        const detail: GalleryDetailResult = await EhApiService.getInstance().getGalleryDetail(gid, token, isEx)
-        await DownloadQueueSettings.updateGalleryTaskMetadata(context, gid, token, preferOriginal, detail.gallery)
+        const detail: GalleryDetailResult | null = await DownloadQueueSettings.fetchGalleryDetailForSeedRefresh(
+          context,
+          gid,
+          token,
+          isEx,
+          preferOriginal,
+        )
+        if (detail === null) {
+          return
+        }
         seedImages = detail.images.map((image: EhGalleryImage) => image.copy())
         resolvedPreviewPageCount = detail.previewPageCount
         DiagnosticLogger.info(
