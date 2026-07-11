@@ -26,6 +26,8 @@ import { ImagePageRouteService, ImagePageRouteTarget } from './ImagePageRouteSer
 import { PHashService } from './PHashService'
 
 const MAX_THUMBNAIL_HASH_MEMORY_ENTRIES: number = 1024
+const MAX_THUMBNAIL_HASH_CONCURRENCY: number = 1
+export const MAX_PENDING_IMAGE_BLOCK_THUMBNAIL_HASHES: number = 32
 
 export class ImageBlockThumbnailDecision {
   decision: ImageBlockDecision = new ImageBlockDecision()
@@ -85,6 +87,214 @@ export class ImageBlockThumbnailHashMemoryCache {
       }
       this.entries.delete(oldest)
     }
+  }
+}
+
+/**
+ * One waiting thumbnail hash is best-effort automatic work. A scroll burst should favor the newest
+ * visible thumb and let stale, not-yet-started work resolve empty; active downloads and pHash jobs are
+ * never interrupted because their file/cache lifecycle is already in progress.
+ */
+export class ImageBlockThumbnailHashQueueTask {
+  key: string = ''
+  started: boolean = false
+  active: boolean = false
+  discarded: boolean = false
+  private startAction: () => void = () => {}
+  private discardAction: () => void = () => {}
+
+  constructor(key: string, startAction: () => void, discardAction: () => void = () => {}) {
+    this.key = key
+    this.startAction = startAction
+    this.discardAction = discardAction
+  }
+
+  start(): void {
+    this.startAction()
+  }
+
+  discard(): void {
+    if (this.started || this.discarded) {
+      return
+    }
+    this.discarded = true
+    this.discardAction()
+  }
+}
+
+/**
+ * Keeps automatic thumbnail pHash work from turning a fast scroll into an unbounded global FIFO.
+ * Waiting work is newest-first, capped, and can be promoted by another currently-visible request for
+ * the same key. Only one decode/hash pipeline runs at a time, matching the previous cold-chain limit.
+ */
+export class ImageBlockThumbnailHashQueueScheduler {
+  private queue: ImageBlockThumbnailHashQueueTask[] = []
+  private running: number = 0
+  private readonly maxConcurrent: number
+  private readonly maxPending: number
+
+  constructor(
+    maxConcurrent: number = MAX_THUMBNAIL_HASH_CONCURRENCY,
+    maxPending: number = MAX_PENDING_IMAGE_BLOCK_THUMBNAIL_HASHES,
+  ) {
+    this.maxConcurrent = maxConcurrent > 0 ? Math.floor(maxConcurrent) : 1
+    this.maxPending = maxPending > 0 ? Math.floor(maxPending) : 1
+  }
+
+  schedule(task: ImageBlockThumbnailHashQueueTask): void {
+    if (task.started || task.discarded) {
+      return
+    }
+    this.queue.unshift(task)
+    this.trimPending()
+    this.drain()
+  }
+
+  promote(task: ImageBlockThumbnailHashQueueTask): void {
+    if (task.started || task.discarded || !this.removeQueued(task)) {
+      return
+    }
+    this.queue.unshift(task)
+    this.drain()
+  }
+
+  complete(task: ImageBlockThumbnailHashQueueTask): void {
+    if (!task.active) {
+      return
+    }
+    task.active = false
+    if (this.running > 0) {
+      this.running--
+    }
+    this.drain()
+  }
+
+  activeCount(): number {
+    return this.running
+  }
+
+  pendingCount(): number {
+    return this.queue.length
+  }
+
+  private trimPending(): void {
+    while (this.queue.length > this.maxPending) {
+      const stale: ImageBlockThumbnailHashQueueTask | undefined = this.queue.pop()
+      if (stale !== undefined) {
+        stale.discard()
+      }
+    }
+  }
+
+  private drain(): void {
+    while (this.running < this.maxConcurrent && this.queue.length > 0) {
+      const next: ImageBlockThumbnailHashQueueTask | undefined = this.queue.shift()
+      if (next === undefined || next.started || next.discarded) {
+        continue
+      }
+      next.started = true
+      next.active = true
+      this.running++
+      next.start()
+    }
+  }
+
+  private removeQueued(task: ImageBlockThumbnailHashQueueTask): boolean {
+    for (let i: number = 0; i < this.queue.length; i++) {
+      if (this.queue[i] === task) {
+        this.queue.splice(i, 1)
+        return true
+      }
+    }
+    return false
+  }
+}
+
+class ImageBlockThumbnailHashNetworkTask {
+  queueTask: ImageBlockThumbnailHashQueueTask
+  private readonly work: () => Promise<string>
+  private readonly scheduler: ImageBlockThumbnailHashQueueScheduler
+  private completion: Promise<string> = Promise.resolve('')
+  private resolveCompletion: (hash: string) => void = (_hash: string): void => {}
+  private rejectCompletion: (error: Error) => void = (_error: Error): void => {}
+  private discardCleanup: () => void = () => {}
+  private settled: boolean = false
+
+  constructor(
+    key: string,
+    work: () => Promise<string>,
+    scheduler: ImageBlockThumbnailHashQueueScheduler,
+  ) {
+    this.work = work
+    this.scheduler = scheduler
+    this.queueTask = new ImageBlockThumbnailHashQueueTask(
+      key,
+      (): void => this.start(),
+      (): void => this.discard(),
+    )
+    this.completion = new Promise<string>((resolve: (hash: string) => void, reject: (error: Error) => void): void => {
+      this.resolveCompletion = resolve
+      this.rejectCompletion = reject
+    })
+  }
+
+  schedule(): void {
+    this.scheduler.schedule(this.queueTask)
+  }
+
+  promote(): void {
+    this.scheduler.promote(this.queueTask)
+  }
+
+  wait(): Promise<string> {
+    return this.completion
+  }
+
+  setDiscardCleanup(cleanup: () => void): void {
+    this.discardCleanup = cleanup
+  }
+
+  isDiscarded(): boolean {
+    return this.queueTask.discarded
+  }
+
+  private start(): void {
+    try {
+      this.work().then(
+        (hash: string): void => {
+          this.resolve(hash)
+          this.scheduler.complete(this.queueTask)
+        },
+        (error: Error): void => {
+          this.reject(error)
+          this.scheduler.complete(this.queueTask)
+        },
+      )
+    } catch (error) {
+      this.reject(error as Error)
+      this.scheduler.complete(this.queueTask)
+    }
+  }
+
+  private discard(): void {
+    this.discardCleanup()
+    this.resolve('')
+  }
+
+  private resolve(hash: string): void {
+    if (this.settled) {
+      return
+    }
+    this.settled = true
+    this.resolveCompletion(hash)
+  }
+
+  private reject(error: Error): void {
+    if (this.settled) {
+      return
+    }
+    this.settled = true
+    this.rejectCompletion(error)
   }
 }
 
@@ -152,10 +362,12 @@ async function writeImageBlockThumbnailPreview(
 export class ImageBlockRuntimeService {
   private static cachedRulesSignal: string = '#unset'
   private static cachedRules: ImageBlockRule[] = []
-  private static thumbnailColdChain: Promise<void> = Promise.resolve()
-  private static thumbnailHashInFlight: Map<string, Promise<string>> = new Map<string, Promise<string>>()
+  private static thumbnailHashInFlight: Map<string, ImageBlockThumbnailHashNetworkTask> =
+    new Map<string, ImageBlockThumbnailHashNetworkTask>()
   private static thumbnailHashMemoryCache: ImageBlockThumbnailHashMemoryCache =
     new ImageBlockThumbnailHashMemoryCache()
+  private static readonly thumbnailHashScheduler: ImageBlockThumbnailHashQueueScheduler =
+    new ImageBlockThumbnailHashQueueScheduler()
   private static previewWriteInFlight: Map<string, Promise<string>> = new Map<string, Promise<string>>()
 
   static async decisionForFile(
@@ -822,31 +1034,49 @@ export class ImageBlockRuntimeService {
       spriteWidth,
       spriteHeight,
     )
-    const inFlight: Promise<string> | undefined = ImageBlockRuntimeService.thumbnailHashInFlight.get(key)
-    if (inFlight !== undefined) {
+    const inFlight: ImageBlockThumbnailHashNetworkTask | undefined =
+      ImageBlockRuntimeService.thumbnailHashInFlight.get(key)
+    if (inFlight !== undefined && !inFlight.isDiscarded()) {
       ImageBlockRuntimeService.logThumbHash('thumb_hash_queue_join', key)
-      return inFlight
+      inFlight.promote()
+      return inFlight.wait()
+    }
+    if (inFlight !== undefined) {
+      ImageBlockRuntimeService.thumbnailHashInFlight.delete(key)
     }
     ImageBlockRuntimeService.logThumbHash('thumb_hash_queue_enqueue', key)
-    const task: Promise<string> = ImageBlockRuntimeService.loadAndHashThumbnailAfterPrevious(
-      context,
-      thumbUrl,
-      thumbWidth,
-      thumbHeight,
-      offsetX,
-      spriteWidth,
-      spriteHeight,
-      sourceKey,
+    const task: ImageBlockThumbnailHashNetworkTask = new ImageBlockThumbnailHashNetworkTask(
+      key,
+      (): Promise<string> => ImageBlockRuntimeService.loadAndHashThumbnail(
+        context,
+        thumbUrl,
+        thumbWidth,
+        thumbHeight,
+        offsetX,
+        spriteWidth,
+        spriteHeight,
+        sourceKey,
+      ),
+      ImageBlockRuntimeService.thumbnailHashScheduler,
     )
+    const completion: Promise<string> = task.wait()
+    task.setDiscardCleanup((): void => {
+      if (ImageBlockRuntimeService.thumbnailHashInFlight.get(key) === task) {
+        ImageBlockRuntimeService.thumbnailHashInFlight.delete(key)
+      }
+    })
     ImageBlockRuntimeService.thumbnailHashInFlight.set(key, task)
+    task.schedule()
     try {
-      return await task
+      return await completion
     } finally {
-      ImageBlockRuntimeService.thumbnailHashInFlight.delete(key)
+      if (ImageBlockRuntimeService.thumbnailHashInFlight.get(key) === task) {
+        ImageBlockRuntimeService.thumbnailHashInFlight.delete(key)
+      }
     }
   }
 
-  private static async loadAndHashThumbnailAfterPrevious(
+  private static async loadAndHashThumbnail(
     context: common.UIAbilityContext,
     thumbUrl: string,
     thumbWidth: number,
@@ -856,38 +1086,28 @@ export class ImageBlockRuntimeService {
     spriteHeight: number,
     sourceKey: string = '',
   ): Promise<string> {
-    const previous: Promise<void> = ImageBlockRuntimeService.thumbnailColdChain
-    let release: () => void = () => {}
-    ImageBlockRuntimeService.thumbnailColdChain = new Promise<void>((resolve: () => void) => {
-      release = resolve
-    })
-    await previous
-    try {
-      ImageBlockRuntimeService.logThumbHash('thumb_hash_queue_start', sourceKey.length > 0 ? sourceKey : thumbUrl)
-      const cached: CachedImageFileResult = await ImageBlockRuntimeService.loadThumbnailFile(
-        context,
-        thumbUrl,
-        thumbWidth,
-        thumbHeight,
-        offsetX,
-        spriteWidth,
-        spriteHeight,
-      )
-      return await ImageBlockRuntimeService.hashForThumbnail(
-        context,
-        cached.filePath,
-        cached.bytes,
-        thumbWidth,
-        thumbHeight,
-        offsetX,
-        spriteWidth,
-        spriteHeight,
-        sourceKey,
-        true,
-      )
-    } finally {
-      release()
-    }
+    ImageBlockRuntimeService.logThumbHash('thumb_hash_queue_start', sourceKey.length > 0 ? sourceKey : thumbUrl)
+    const cached: CachedImageFileResult = await ImageBlockRuntimeService.loadThumbnailFile(
+      context,
+      thumbUrl,
+      thumbWidth,
+      thumbHeight,
+      offsetX,
+      spriteWidth,
+      spriteHeight,
+    )
+    return await ImageBlockRuntimeService.hashForThumbnail(
+      context,
+      cached.filePath,
+      cached.bytes,
+      thumbWidth,
+      thumbHeight,
+      offsetX,
+      spriteWidth,
+      spriteHeight,
+      sourceKey,
+      true,
+    )
   }
 
   private static async hashForThumbnail(

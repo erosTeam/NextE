@@ -202,6 +202,9 @@ export {
 export {
   ImageBlockRuntimeService,
   ImageBlockThumbnailHashMemoryCache,
+  ImageBlockThumbnailHashQueueScheduler,
+  ImageBlockThumbnailHashQueueTask,
+  MAX_PENDING_IMAGE_BLOCK_THUMBNAIL_HASHES,
 } from './services/ImageBlockRuntimeService'
 export { PHashService } from './services/PHashService'
 export { ImageBlockRepository } from './storage/ImageBlockRepository'

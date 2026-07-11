@@ -101,6 +101,12 @@ export struct EhSpriteThumbnail {
 
   aboutToAppear(): void {
     this.checkImageBlock()
+    // A bounded automatic hash queue can discard stale waiting work during a rapid scroll. Cached sprite
+    // images may not emit onComplete again when this recycled tile becomes visible, so re-queue one
+    // best-effort compute pass here instead of leaving the tile permanently cache-only.
+    if (this.loaded && !this.failed) {
+      this.scheduleImageBlockCompute()
+    }
   }
 
   aboutToDisappear(): void {

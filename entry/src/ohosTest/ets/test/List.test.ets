@@ -8,6 +8,7 @@ import commentReferenceSnapshotCacheTest from './CommentReferenceSnapshotCache.t
 import imageResolveMemoryCacheTest from './ImageResolveMemoryCache.test'
 import gallerySeedSchedulerTest from './GallerySeedScheduler.test'
 import imageBlockThumbnailHashMemoryCacheTest from './ImageBlockThumbnailHashMemoryCache.test'
+import imageBlockThumbnailHashQueueSchedulerTest from './ImageBlockThumbnailHashQueueScheduler.test'
 import coverColorResourceBoundsTest from './CoverColorResourceBounds.test'
 import preloadedGalleryListMemoryCacheTest from './PreloadedGalleryListMemoryCache.test'
 import userTagStoreInlineCacheTest from './UserTagStoreInlineCache.test'
@@ -24,6 +25,7 @@ export default function testsuite(): void {
   imageResolveMemoryCacheTest()
   gallerySeedSchedulerTest()
   imageBlockThumbnailHashMemoryCacheTest()
+  imageBlockThumbnailHashQueueSchedulerTest()
   coverColorResourceBoundsTest()
   preloadedGalleryListMemoryCacheTest()
   userTagStoreInlineCacheTest()
