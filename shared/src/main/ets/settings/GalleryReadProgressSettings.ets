@@ -115,16 +115,18 @@ export class GalleryReadProgressSettings {
     context: common.UIAbilityContext,
     scheduleSync: boolean = true,
   ): Promise<void> {
+    const state = connectGalleryReadProgress()
     const entries: ReadProgressEntry[] = GalleryReadProgressSettings.dirtySnapshot()
     if (entries.length === 0) {
       return
     }
     try {
       await GalleryReadProgressSettings.enqueueRdbWrite(async (): Promise<void> => {
-        await ReadProgressRepository.saveEntries(context, entries)
+        const persisted: ReadProgressEntry[] = await ReadProgressRepository.saveEntries(context, entries)
         // Do this in the queued work, after a successful SQL write. A newer page turn may have
-        // replaced this gid in dirtyEntries while the batch was awaiting RDB.
-        GalleryReadProgressSettings.clearPersisted(entries)
+        // replaced this gid in dirtyEntries while the batch was awaiting RDB; leave that newer
+        // entry alone so its already-scheduled flush receives its own logical timestamp.
+        GalleryReadProgressSettings.reconcilePersisted(state, entries, persisted)
       })
       if (scheduleSync) {
         SyncScheduler.requestAfterLocalWrite(context, 'read_progress')
@@ -159,13 +161,31 @@ export class GalleryReadProgressSettings {
     return out
   }
 
-  /** Do not discard a newer page turn that landed while this RDB batch was awaiting completion. */
-  private static clearPersisted(entries: ReadProgressEntry[]): void {
-    entries.forEach((entry: ReadProgressEntry) => {
+  /**
+   * Keep the in-memory clock aligned with the timestamp RDB actually accepted. A dirty record is
+   * removed only when it is the same mutation that was written; a newer page turn remains dirty
+   * and its existing debounce will write it after this batch.
+   */
+  private static reconcilePersisted(
+    state: GalleryReadProgressState,
+    requested: ReadProgressEntry[],
+    persisted: ReadProgressEntry[],
+  ): void {
+    const requestedTimes: Map<string, number> = new Map<string, number>()
+    requested.forEach((entry: ReadProgressEntry) => requestedTimes.set(entry.g, entry.t))
+    persisted.forEach((entry: ReadProgressEntry) => {
+      const requestedTime: number | undefined = requestedTimes.get(entry.g)
+      if (requestedTime === undefined) {
+        return
+      }
       const current: ReadProgressEntry | undefined =
         GalleryReadProgressSettings.dirtyEntries.get(entry.g)
-      if (current !== undefined && current.t === entry.t) {
-        GalleryReadProgressSettings.dirtyEntries.delete(entry.g)
+      if (current !== undefined && current.t === requestedTime) {
+        const adopted: ReadProgressEntry | null = state.adoptPersistedTimestamp(entry.g, entry.t)
+        if (adopted !== null) {
+          // The page/pairing stays unchanged; only its durable logical clock was rebased.
+          GalleryReadProgressSettings.dirtyEntries.delete(entry.g)
+        }
       }
     })
   }
@@ -294,6 +314,8 @@ export class GalleryReadProgressSettings {
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
+    const state = connectGalleryReadProgress()
+    const revision: number = state.revision
     const store: preferences.Preferences = await preferences.getPreferences(
       context,
       StorageKeys.STORE_SETTINGS,
@@ -303,13 +325,30 @@ export class GalleryReadProgressSettings {
       return
     }
     const entries: ReadProgressEntry[] = GalleryReadProgressSettings.parse(raw)
-    if (entries.length > 0) {
-      await GalleryReadProgressSettings.enqueueRdbWrite(
-        (): Promise<void> => ReadProgressRepository.saveAll(context, entries),
-      )
+    try {
+      await GalleryReadProgressSettings.enqueueRdbWrite(async (): Promise<void> => {
+        if (state.revision !== revision) {
+          return
+        }
+        if (await ReadProgressRepository.hasPersistedState(context)) {
+          return
+        }
+        if (state.revision !== revision) {
+          return
+        }
+        if (entries.length > 0) {
+          await ReadProgressRepository.saveAll(context, entries)
+        }
+      })
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'readprogress_migrate_failed', (error as Error).message)
+      // Preserve the only legacy copy so a later startup can retry after a transient RDB failure.
+      return
     }
-    store.deleteSync(StorageKeys.READING_PROGRESS)
-    store.flushSync()
+    if (state.revision !== revision) {
+      return
+    }
+    await GalleryReadProgressSettings.deleteLegacyPreference(context)
   }
 
   private static async deleteLegacyPreference(context: common.UIAbilityContext): Promise<void> {

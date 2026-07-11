@@ -61,6 +61,19 @@ class ProgressStore {
     this.timeMap.set(gid, this.nextUpdatedAt(gid, time))
     this.revision += 1
   }
+  adoptPersistedTimestamp(gid, timestamp) {
+    const index = this.indexMap.get(gid)
+    if (index === undefined) return null
+    const previous = this.timeMap.get(gid) ?? 0
+    const requested = Math.max(0, Math.floor(timestamp))
+    const next = Math.max(previous, requested)
+    if (next !== previous) {
+      this.timeMap.set(gid, next)
+      this.revision += 1
+    }
+    const columnMode = this.columnModeMap.get(gid)
+    return { g: gid, i: index, t: next, c: columnMode === undefined ? '' : columnMode }
+  }
   getEntry(gid) {
     if (this.revision < 0 || !gid) return null
     const i = this.indexMap.get(gid)
@@ -198,6 +211,18 @@ class DirtyProgressWrites {
   }
 }
 
+function reconcilePersisted(state, dirty, requested, persisted) {
+  const requestedTimes = new Map(requested.map((entry) => [entry.g, entry.t]))
+  for (const entry of persisted) {
+    const requestedTime = requestedTimes.get(entry.g)
+    if (requestedTime === undefined) continue
+    const current = dirty.get(entry.g)
+    if (current === undefined || current.t !== requestedTime) continue
+    const adopted = state.adoptPersistedTimestamp(entry.g, entry.t)
+    if (adopted !== null) dirty.delete(entry.g)
+  }
+}
+
 // Mirror of GalleryReadProgressSettings.enqueueRdbWrite. A rejected write must not poison the
 // tail, and a backup replacement queued after an already-started save must execute afterward.
 class SerialRdbWriteTail {
@@ -321,6 +346,32 @@ const ok = (name, cond) => {
   ok('older completed batch cannot clear a newer dirty page turn', second.length === 1 && second[0].i === 2 && second[0].t === 101)
   writes.complete(second)
   ok('newer completed batch clears the matching dirty entry', writes.snapshot().length === 0)
+}
+
+// 2f-1. RDB can rebase a local write above a future cross-device tombstone. The in-memory entry
+// adopts that committed clock only when it is still the same page turn; a newer turn remains dirty.
+{
+  const state = new ProgressStore()
+  const dirty = new Map()
+  state.setIndex('g', 1, 100)
+  const first = [state.getEntry('g')]
+  dirty.set('g', first[0])
+  reconcilePersisted(state, dirty, first, [{ g: 'g', i: 1, t: 9001, c: '' }])
+  ok('committed logical time is adopted by the live reader state', state.getEntry('g').t === 9001)
+  ok('matching committed page turn is no longer dirty', dirty.size === 0)
+
+  state.setIndex('g', 2, 100)
+  const oldRequest = [{ g: 'g', i: 1, t: 9001, c: '' }]
+  const newer = state.getEntry('g')
+  dirty.set('g', newer)
+  reconcilePersisted(state, dirty, oldRequest, [{ g: 'g', i: 1, t: 9002, c: '' }])
+  ok('a newer page turn is not cleared by an older rebased write', dirty.get('g').i === 2)
+  ok('a newer page turn keeps its own pending logical time', state.getEntry('g').t === 9002)
+
+  const retry = [state.getEntry('g')]
+  reconcilePersisted(state, dirty, retry, [{ g: 'g', i: 2, t: 9003, c: '' }])
+  ok('the later flush adopts its committed time and clears the newer page turn',
+    state.getEntry('g').t === 9003 && dirty.size === 0)
 }
 
 // 2g. A backup replacement cannot overtake an already-running dirty RDB write, and a failed
@@ -456,17 +507,18 @@ const ok = (name, cond) => {
     /private static dirtyEntries: Map<string, ReadProgressEntry>/.test(settingsSrc) &&
     /GalleryReadProgressSettings\.markDirty\(state, gid\)/.test(settingsSrc) &&
     /private static dirtySnapshot\(\): ReadProgressEntry\[\]/.test(settingsSrc))
-  ok('dirty progress batch is written through the dedicated repository method and clears only matching timestamps',
-    /static async saveEntries\(context: common\.UIAbilityContext, entries: ReadProgressEntry\[\]\)/.test(repoSrc) &&
+  ok('dirty progress batch is written through the dedicated repository method and adopts matching committed timestamps',
+    /static async saveEntries\([\s\S]*?\): Promise<ReadProgressEntry\[]>/.test(repoSrc) &&
     /await ReadProgressRepository\.saveEntries\(context, entries\)/.test(settingsSrc) &&
-    /current !== undefined && current\.t === entry\.t/.test(settingsSrc))
+    /reconcilePersisted\(state, entries, persisted\)/.test(settingsSrc) &&
+    /state\.adoptPersistedTimestamp\(entry\.g, entry\.t\)/.test(settingsSrc))
   ok('backup restore is queued behind stale progress writes and repairs both restore races',
     /private static rdbWriteTail: Promise<void> = Promise\.resolve\(\)/.test(settingsSrc) &&
     /private static enqueueRdbWrite\(work: \(\) => Promise<void>\): Promise<void>/.test(settingsSrc) &&
     /static async restoreBackup[\s\S]*pendingBeforeRestore[\s\S]*GalleryReadProgressSettings\.clearPending\(\)[\s\S]*enqueueRdbWrite[\s\S]*ReadProgressRepository\.replaceAll/.test(settingsSrc) &&
     /rebaseAfterRestore\(stored, changedWhileRestoring, restoredAt\)[\s\S]*markDirty\(state, entry\.g\)[\s\S]*persist\(context, false\)/.test(settingsSrc) &&
     /catch \(error\) \{[\s\S]*mergeDirtyEntries\(pendingBeforeRestore\)[\s\S]*schedulePersist\(context\)/.test(settingsSrc) &&
-    /private static async persist[\s\S]*enqueueRdbWrite[\s\S]*saveEntries[\s\S]*clearPersisted/.test(settingsSrc))
+    /private static async persist[\s\S]*enqueueRdbWrite[\s\S]*saveEntries[\s\S]*reconcilePersisted/.test(settingsSrc))
   const vmSrc = readFileSync(
     join(ROOT, 'feature/reader/src/main/ets/viewmodel/ReaderViewModel.ets'),
     'utf8',

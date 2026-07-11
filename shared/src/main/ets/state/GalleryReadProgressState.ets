@@ -179,6 +179,27 @@ export class GalleryReadProgressState {
     }
   }
 
+  /**
+   * Keep the current page/pairing while adopting a repository-issued logical timestamp. This is
+   * needed when a local write is rebased above a future cross-device tombstone after the UI has
+   * already recorded the user's page turn with wall-clock time.
+   */
+  adoptPersistedTimestamp(gid: string, timestamp: number): ReadProgressEntry | null {
+    const index: number | undefined = this.indexMap.get(gid)
+    if (index === undefined) {
+      return null
+    }
+    const previous: number = this.timeMap.get(gid) ?? 0
+    const requested: number = Math.max(0, Math.floor(timestamp))
+    const next: number = Math.max(previous, requested)
+    if (next !== previous) {
+      this.timeMap.set(gid, next)
+      this.revision = this.revision + 1
+    }
+    const columnMode: string | undefined = this.columnModeMap.get(gid)
+    return new ReadProgressEntry(gid, index, next, columnMode === undefined ? '' : columnMode)
+  }
+
   private nextUpdatedAt(gid: string, requestedTime: number): number {
     const previous: number | undefined = this.timeMap.get(gid)
     const requested: number = Math.max(0, Math.floor(requestedTime))
