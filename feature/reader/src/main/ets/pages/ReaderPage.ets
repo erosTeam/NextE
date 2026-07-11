@@ -11,7 +11,6 @@ import {
   BasicDataSource,
   EhGalleryImage,
   EhImageKnifeImage,
-  EH_IMAGE_PRIORITY_HIGH,
   EH_IMAGE_PRIORITY_LOW,
   EhSpriteThumbnail,
   ReaderParams,
@@ -42,6 +41,7 @@ import {
 } from 'shared'
 import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
+import { ReaderImageLoadPriority } from '../model/ReaderImageLoadPriority'
 import { ReaderImageSourceRequest, ReaderImageSourceRequestGate } from '../model/ReaderImageSourceRequestGate'
 
 const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
@@ -194,6 +194,10 @@ export struct ReaderPage {
   @Local readerTopMoreMenuShown: boolean = false;
   @Local sourceReloadPage: number = 0;
   @Local sourceReloadRequestId: number = 0;
+  // List.onScrollIndex reports the first and last screen-visible rows; its cached rows must not
+  // compete with the image the reader is actually showing.
+  @Local verticalVisibleStart: number = 0;
+  @Local verticalVisibleEnd: number = 0;
   @Local imageMetricPages: number[] = [];
   @Local imageMetricWidths: number[] = [];
   @Local imageMetricHeights: number[] = [];
@@ -338,6 +342,8 @@ export struct ReaderPage {
             this.vm.currentIndex = targetIndex
             this.sliderValue = targetIndex + 1
             this.readerPagerIndex = this.readerPagerIndexFor(targetIndex)
+            this.verticalVisibleStart = targetIndex
+            this.verticalVisibleEnd = targetIndex
             this.readerReady = true
             if (this.isContinuousVerticalMode()) {
               setTimeout(() => {
@@ -1343,6 +1349,10 @@ export struct ReaderPage {
   @Monitor('readMode.mode')
   onReadModeChanged(): void {
     this.clearZoomGate()
+    if (this.isContinuousVerticalMode()) {
+      this.verticalVisibleStart = this.vm.currentIndex
+      this.verticalVisibleEnd = this.vm.currentIndex
+    }
     if (this.readerContentReady()) {
       this.syncReaderPagerToIndex(this.vm.currentIndex, false)
     }
@@ -2057,6 +2067,7 @@ export struct ReaderPage {
                 sourceReloadPage: this.sourceReloadPage,
                 sourceReloadRequestId: this.sourceReloadRequestId,
                 imageBlockWhitelistSaving: this.imageBlockWhitelistSaving,
+                visible: this.isVerticalPageVisible(index),
                 onZoomChange: (zoomed: boolean) => {
                   this.imageZoomed = zoomed
                   this.verticalZoomedPage = zoomed ? this.vm.imageAt(index).page : -1
@@ -2095,8 +2106,14 @@ export struct ReaderPage {
     .enableScrollInteraction(!this.imageZoomed)
     .scrollBar(BarState.Off)
     .onScrollIndex((start: number, end: number) => {
+      this.verticalVisibleStart = start
+      this.verticalVisibleEnd = end
       this.vm.onVerticalScroll(start, end)
     })
+  }
+
+  private isVerticalPageVisible(index: number): boolean {
+    return index >= this.verticalVisibleStart && index <= this.verticalVisibleEnd
   }
 
   private modeLabel(): Resource {
@@ -3800,6 +3817,12 @@ struct ReaderSpreadSurface {
     return this.hasFirst && this.first.page === page ? this.firstFileCacheKey : this.secondFileCacheKey
   }
 
+  private isActiveSpread(): boolean {
+    const activePage: number = this.activeIndex + 1
+    return (this.hasFirst && this.first.page === activePage) ||
+      (this.hasSecond && this.second.page === activePage)
+  }
+
   @Builder
   SpreadImageLayer(image: EhGalleryImage, hasImage: boolean, preferOriginal: boolean, initiallyLoaded: boolean) {
     if (hasImage) {
@@ -3813,6 +3836,7 @@ struct ReaderSpreadSurface {
         imageBlockWhitelistSaving: this.imageBlockWhitelistSaving,
         sourceReloadPage: this.sourceReloadPage,
         sourceReloadRequestId: this.sourceReloadRequestId,
+        active: this.isActiveSpread(),
         onImageLoaded: (page: number) => {
           this.onImageLoaded(page)
         },
@@ -4011,6 +4035,7 @@ struct ReaderSpreadImageLayer {
   @Param sourceReloadPage: number = 0;
   @Param sourceReloadRequestId: number = 0;
   @Param imageBlockWhitelistSaving: boolean = false;
+  @Param active: boolean = false;
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageFileReady: (page: number, filePath: string, bytes: number) => void =
     (_page: number, _filePath: string, _bytes: number) => {};
@@ -4063,6 +4088,13 @@ struct ReaderSpreadImageLayer {
   onSourceReloadRequested(): void {
     if (this.sourceReloadRequestId > 0 && this.sourceReloadPage === this.image.page) {
       this.retrySource()
+    }
+  }
+
+  @Monitor('active')
+  onActiveChanged(): void {
+    if (this.active && this.imageUrl.length === 0 && !this.imageBlocked) {
+      this.resolve()
     }
   }
 
@@ -4187,7 +4219,7 @@ struct ReaderSpreadImageLayer {
           context,
           resolved,
           source.fileCacheKey,
-          EH_IMAGE_PRIORITY_HIGH,
+          this.loadPriority(),
           (progress: CachedImageProgress) => {
             if (!this.isCurrentSource(source)) {
               return
@@ -4217,6 +4249,10 @@ struct ReaderSpreadImageLayer {
     this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+  }
+
+  private loadPriority(): number {
+    return ReaderImageLoadPriority.forVisible(this.active)
   }
 
   private async applyImageBlockDecision(
@@ -4344,7 +4380,7 @@ struct ReaderSpreadImageLayer {
           widthValue: '100%',
           heightValue: '100%',
           objectFit: ImageFit.Contain,
-          priority: EH_IMAGE_PRIORITY_HIGH,
+          priority: this.loadPriority(),
           onImageInfo: (width: number, height: number) => {
             this.onImageDecoded(width, height)
           },
@@ -4496,10 +4532,18 @@ struct ReaderImagePage {
 
   @Monitor('activeIndex')
   onActiveIndexChanged(): void {
-    if (this.image.page !== this.activeIndex + 1) {
+    if (!this.isActive()) {
       this.resetZoom()
       this.notifyZoom()
+      return
     }
+    if (this.imageUrl.length === 0 && !this.imageBlocked) {
+      this.resolve()
+    }
+  }
+
+  private isActive(): boolean {
+    return this.image.page === this.activeIndex + 1
   }
 
   // `changeSource` re-sources a broken/509 image (eros_fe 换源) — re-resolves via /s/?nl= for a
@@ -4611,7 +4655,7 @@ struct ReaderImagePage {
           context,
           resolved,
           source.fileCacheKey,
-          EH_IMAGE_PRIORITY_HIGH,
+          this.loadPriority(),
           (progress: CachedImageProgress) => {
             if (!this.isCurrentSource(source)) {
               return
@@ -4641,6 +4685,10 @@ struct ReaderImagePage {
     this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+  }
+
+  private loadPriority(): number {
+    return ReaderImageLoadPriority.forVisible(this.isActive())
   }
 
   private async applyImageBlockDecision(
@@ -4892,7 +4940,7 @@ struct ReaderImagePage {
           widthValue: '100%',
           heightValue: '100%',
           objectFit: ImageFit.Contain,
-          priority: EH_IMAGE_PRIORITY_HIGH,
+          priority: this.loadPriority(),
           onImageInfo: (width: number, height: number) => {
             this.onImageDecoded(width, height)
           },
@@ -5061,6 +5109,7 @@ struct ReaderVerticalImage {
   @Param sourceReloadPage: number = 0;
   @Param sourceReloadRequestId: number = 0;
   @Param imageBlockWhitelistSaving: boolean = false;
+  @Param visible: boolean = false;
   @Param onChromeTap: () => void = () => {};
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
@@ -5147,6 +5196,13 @@ struct ReaderVerticalImage {
   onSourceReloadRequested(): void {
     if (this.sourceReloadRequestId > 0 && this.sourceReloadPage === this.image.page) {
       this.retrySource()
+    }
+  }
+
+  @Monitor('visible')
+  onVisibleChanged(): void {
+    if (this.visible && this.imageUrl.length === 0 && !this.imageBlocked) {
+      this.resolve()
     }
   }
 
@@ -5258,7 +5314,7 @@ struct ReaderVerticalImage {
           context,
           resolved,
           source.fileCacheKey,
-          EH_IMAGE_PRIORITY_HIGH,
+          this.loadPriority(),
           (progress: CachedImageProgress) => {
             if (!this.isCurrentSource(source)) {
               return
@@ -5288,6 +5344,10 @@ struct ReaderVerticalImage {
     this.autoRetryCount = 0
     this.failed = false
     this.failureKind = ReaderImageFailureKind.Generic
+  }
+
+  private loadPriority(): number {
+    return ReaderImageLoadPriority.forVisible(this.visible)
   }
 
   private async applyImageBlockDecision(
@@ -5615,7 +5675,7 @@ struct ReaderVerticalImage {
           widthValue: '100%',
           heightValue: '100%',
           objectFit: ImageFit.Contain,
-          priority: EH_IMAGE_PRIORITY_HIGH,
+          priority: this.loadPriority(),
           onImageInfo: (width: number, height: number) => {
             this.onImageDecoded(width, height)
           },

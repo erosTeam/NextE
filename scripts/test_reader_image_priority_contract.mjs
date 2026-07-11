@@ -150,9 +150,6 @@ ok('same-key join relays streaming progress and promotes an unstarted warmer',
 ok('pipeline forwards priority into the durable reader file cache',
   !/_priority/.test(pipeline) &&
     /ReaderImageCacheSettings\.limitBytes\(\),\s*priority,/.test(pipeline))
-ok('Reader still marks warmers LOW and visible file loads HIGH',
-  /loadReaderFile\([\s\S]*?EH_IMAGE_PRIORITY_LOW/.test(readerPage) &&
-    /loadReaderFile\([\s\S]*?EH_IMAGE_PRIORITY_HIGH/.test(readerPage))
 ok('stale queued warmers are cancelled on lifecycle/source changes and source replacement',
   /cancelQueuedReaderFile/.test(pipeline) &&
     /cancelQueuedWarm\(\)/.test(readerPage) &&
