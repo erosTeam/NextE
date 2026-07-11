@@ -74,11 +74,11 @@ ok(/addSuppressNextSuggest/.test(page) &&
   /selectAddSuggestion\(s: EhTagSuggestion\)[\s\S]*this\.addSuppressNextSuggest = true/.test(page) &&
   /setAddTagQuery\(value: string\)[\s\S]*if \(this\.addSuppressNextSuggest\)[\s\S]*this\.addSuggestions = \[\]/.test(page),
   'selecting a suggestion clears stale suggestions instead of refilling them from a late request')
-ok(/confirmSubmitAdd\(\): void[\s\S]*showAlertDialog[\s\S]*mytags_add_confirm[\s\S]*common_cancel[\s\S]*this\.submitAdd\(\)/.test(page),
+ok(/confirmSubmitAdd\(\): void[\s\S]*const request: UserTagRequestContext \| null = this\.myTagsManagementRequest[\s\S]*showAlertDialog[\s\S]*mytags_add_confirm[\s\S]*common_cancel[\s\S]*this\.submitAdd\(request\)/.test(page),
   'adding a new My Tag is gated by a native confirmation dialog')
-ok(/submitAdd\(\): Promise<void>[\s\S]*EhApiService\.getInstance\(\)\.addUserTag\(\{[\s\S]*tagName: this\.addTagLabel\(\)[\s\S]*tagset: this\.mytags\.currentTagset[\s\S]*color: this\.normalizedAddColor\(\)[\s\S]*weight: this\.addWeight[\s\S]*watched: this\.addWatched[\s\S]*hidden: this\.addHidden/.test(page),
+ok(/submitAdd\(request: UserTagRequestContext\): Promise<void>[\s\S]*isEx: request\.isEx[\s\S]*tagName: this\.addTagLabel\(\)[\s\S]*tagset,[\s\S]*color: this\.normalizedAddColor\(\)[\s\S]*weight: this\.addWeight[\s\S]*watched: this\.addWatched[\s\S]*hidden: this\.addHidden/.test(page),
   'MyTagsPage submits the current add draft through addUserTag')
-ok(/submitAdd\(\): Promise<void>[\s\S]*await this\.reloadCurrentTagset\(\)[\s\S]*this\.closeMyTagsSheet\(\)/.test(page),
+ok(/submitAdd\(request: UserTagRequestContext\): Promise<void>[\s\S]*await this\.reloadCurrentTagset\(tagset\)[\s\S]*this\.isCurrentManagementRequest\(request\)[\s\S]*this\.closeMyTagsSheet\(\)/.test(page),
   'successful add reloads current tagset and closes the sheet')
 ok(/addWatched = value[\s\S]*if \(value\) \{[\s\S]*this\.addHidden = false/.test(page) &&
   /addHidden = value[\s\S]*if \(value\) \{[\s\S]*this\.addWatched = false/.test(page),
@@ -90,6 +90,9 @@ ok(/private isCurrentMyTagsRequest\(request: UserTagRequestContext\): boolean[\s
   detailManagementCloseCount === 3 &&
   !/UserTagStore\.getInstance\(\)\.setTags/.test(detailTags),
   'detail-page add owns one account/site sheet session through reload and shared-cache publish')
+ok(/private captureManagementRequest\(\): UserTagRequestContext \| null[\s\S]*this\.myTagsManagementRequest = request/.test(page) &&
+  /private isCurrentManagementRequest\(request: UserTagRequestContext\): boolean[\s\S]*this\.myTagsManagementRequest === request[\s\S]*this\.contextMatchesCurrent\(request\)/.test(page),
+  'MyTagsPage add sessions are fenced to the account and site that opened the sheet')
 ok(!/actionCreatTagSet|actionRenameTagSet|actionDeleteTagSet/.test(page),
   'this lane does not mix in tagset management')
 

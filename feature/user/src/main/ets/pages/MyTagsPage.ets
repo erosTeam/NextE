@@ -93,11 +93,16 @@ export struct MyTagsPage {
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local mytagsEpoch: number = 0;
   private loadedContext: UserTagRequestContext | null = null;
+  private myTagsManagementRequest: UserTagRequestContext | null = null;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private addSuggestTimer: number = -1;
 
   private openMyTagsSheet(kind: string): void {
+    const request: UserTagRequestContext | null = this.captureManagementRequest()
+    if (request === null) {
+      return
+    }
     this.myTagsSheetKind = kind
     this.myTagsSheetShown = true
   }
@@ -107,10 +112,15 @@ export struct MyTagsPage {
       this.cancelAddSuggestions()
     }
     this.myTagsSheetShown = false
+    this.myTagsSheetKind = ''
+    this.editSubmitting = false
+    this.addSubmitting = false
+    this.tagsetSubmitting = false
+    this.myTagsManagementRequest = null
   }
 
   aboutToDisappear(): void {
-    this.cancelAddSuggestions()
+    this.closeMyTagsSheet()
   }
 
   private clearAddSuggestTimer(): void {
@@ -154,6 +164,24 @@ export struct MyTagsPage {
 
   private contextMatchesCurrent(request: UserTagRequestContext): boolean {
     return UserTagContextService.isCurrentAuthenticated(request)
+  }
+
+  private captureManagementRequest(): UserTagRequestContext | null {
+    const request: UserTagRequestContext = this.currentRequestContext()
+    const loaded: UserTagRequestContext | null = this.loadedContext
+    if (
+      loaded === null ||
+      !this.contextMatchesCurrent(request) ||
+      !this.contextMatchesCurrent(loaded)
+    ) {
+      return null
+    }
+    this.myTagsManagementRequest = request
+    return request
+  }
+
+  private isCurrentManagementRequest(request: UserTagRequestContext): boolean {
+    return this.myTagsManagementRequest === request && this.contextMatchesCurrent(request)
   }
 
   private async load(tagset: string = ''): Promise<void> {
@@ -204,8 +232,8 @@ export struct MyTagsPage {
     }
   }
 
-  private async reloadCurrentTagset(): Promise<void> {
-    await this.load(this.mytags.currentTagset)
+  private async reloadCurrentTagset(tagset: string = this.mytags.currentTagset): Promise<void> {
+    await this.load(tagset)
   }
 
   private publishUserTags(request: UserTagRequestContext): void {
@@ -251,11 +279,7 @@ export struct MyTagsPage {
   private reloadForContextChange(): void {
     this.mytagsEpoch = this.mytagsEpoch + 1
     this.loadedContext = null
-    this.cancelAddSuggestions()
-    this.myTagsSheetShown = false
-    this.editSubmitting = false
-    this.addSubmitting = false
-    this.tagsetSubmitting = false
+    this.closeMyTagsSheet()
     this.mytags = new EhMytags()
     this.showingTagsetList = true
     this.params.tagsetId = ''
@@ -516,7 +540,10 @@ export struct MyTagsPage {
   }
 
   private canSubmitEdit(): boolean {
-    return this.editTagId.length > 0 &&
+    const request: UserTagRequestContext | null = this.myTagsManagementRequest
+    return request !== null &&
+      this.isCurrentManagementRequest(request) &&
+      this.editTagId.length > 0 &&
       this.mytags.apikey.length > 0 &&
       this.mytags.apiuid.length > 0 &&
       !this.editSubmitting
@@ -537,7 +564,20 @@ export struct MyTagsPage {
 
   private canSubmitAdd(): boolean {
     const tagName: string = this.addTagLabel()
-    return tagName.length > 0 && !this.hasExistingTag(tagName) && !this.addSubmitting
+    const request: UserTagRequestContext | null = this.myTagsManagementRequest
+    return request !== null &&
+      this.isCurrentManagementRequest(request) &&
+      tagName.length > 0 &&
+      !this.hasExistingTag(tagName) &&
+      !this.addSubmitting
+  }
+
+  private canDeleteTag(): boolean {
+    const request: UserTagRequestContext | null = this.myTagsManagementRequest
+    return request !== null &&
+      this.isCurrentManagementRequest(request) &&
+      this.editTagId.length > 0 &&
+      !this.editSubmitting
   }
 
   private currentTagset(): EhMytagSet {
@@ -590,6 +630,10 @@ export struct MyTagsPage {
   }
 
   private canSubmitTagset(): boolean {
+    const request: UserTagRequestContext | null = this.myTagsManagementRequest
+    if (request === null || !this.isCurrentManagementRequest(request)) {
+      return false
+    }
     if (this.tagsetSubmitting) {
       return false
     }
@@ -618,6 +662,13 @@ export struct MyTagsPage {
   }
 
   private confirmSubmitEdit(): void {
+    if (!this.canSubmitEdit()) {
+      return
+    }
+    const request: UserTagRequestContext | null = this.myTagsManagementRequest
+    if (request === null) {
+      return
+    }
     this.getUIContext().showAlertDialog({
       message: $r('app.string.mytags_save_confirm'),
       primaryButton: {
@@ -627,14 +678,18 @@ export struct MyTagsPage {
       secondaryButton: {
         value: $r('app.string.mytags_save'),
         action: () => {
-          this.submitEdit()
+          this.submitEdit(request)
         },
       },
     })
   }
 
   private confirmDeleteTag(): void {
-    if (this.editTagId.length === 0 || this.editSubmitting) {
+    if (!this.canDeleteTag()) {
+      return
+    }
+    const request: UserTagRequestContext | null = this.myTagsManagementRequest
+    if (request === null) {
       return
     }
     this.getUIContext().showAlertDialog({
@@ -646,13 +701,20 @@ export struct MyTagsPage {
       secondaryButton: {
         value: $r('app.string.mytags_delete'),
         action: () => {
-          this.deleteTag()
+          this.deleteTag(request)
         },
       },
     })
   }
 
   private confirmSubmitAdd(): void {
+    if (!this.canSubmitAdd()) {
+      return
+    }
+    const request: UserTagRequestContext | null = this.myTagsManagementRequest
+    if (request === null) {
+      return
+    }
     this.getUIContext().showAlertDialog({
       message: $r('app.string.mytags_add_confirm'),
       primaryButton: {
@@ -662,13 +724,20 @@ export struct MyTagsPage {
       secondaryButton: {
         value: $r('app.string.mytags_add'),
         action: () => {
-          this.submitAdd()
+          this.submitAdd(request)
         },
       },
     })
   }
 
   private confirmSubmitTagset(): void {
+    if (!this.canSubmitTagset()) {
+      return
+    }
+    const request: UserTagRequestContext | null = this.myTagsManagementRequest
+    if (request === null) {
+      return
+    }
     const message: ResourceStr =
       this.tagsetAction === 'rename'
         ? $r('app.string.mytags_tagset_rename_confirm')
@@ -682,7 +751,7 @@ export struct MyTagsPage {
       secondaryButton: {
         value: this.tagsetConfirmText(),
         action: () => {
-          this.submitTagset()
+          this.submitTagset(request)
         },
       },
     })
@@ -690,6 +759,10 @@ export struct MyTagsPage {
 
   private confirmDeleteTagset(): void {
     if (!this.canManageCurrentTagset() || !this.mytags.canDelete) {
+      return
+    }
+    const request: UserTagRequestContext | null = this.captureManagementRequest()
+    if (request === null) {
       return
     }
     this.getUIContext().showAlertDialog({
@@ -701,21 +774,22 @@ export struct MyTagsPage {
       secondaryButton: {
         value: $r('app.string.mytags_tagset_delete'),
         action: () => {
-          this.deleteCurrentTagset()
+          this.deleteCurrentTagset(request)
         },
       },
     })
   }
 
-  private async submitEdit(): Promise<void> {
-    if (!this.canSubmitEdit()) {
+  private async submitEdit(request: UserTagRequestContext): Promise<void> {
+    if (!this.isCurrentManagementRequest(request) || !this.canSubmitEdit()) {
       return
     }
+    const tagset: string = this.mytags.currentTagset
     this.editSubmitting = true
     this.editError = ''
     try {
       await EhApiPhpService.setUserTag(
-        EhConstants.baseUrl(connectSiteMode().isEx),
+        EhConstants.baseUrl(request.isEx),
         this.mytags.apikey,
         this.mytags.apiuid,
         this.editTagId,
@@ -724,126 +798,217 @@ export struct MyTagsPage {
         this.normalizedEditColor(),
         this.editWeight,
       )
-      await this.reloadCurrentTagset()
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
+      await this.reloadCurrentTagset(tagset)
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message: $r('app.string.mytags_save_success'),
       })
     } catch (err) {
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       const e = err as Error
       this.editError = e.message
       DiagnosticLogger.warn('mytags', 'save_failed', e.message)
+    } finally {
+      if (this.myTagsManagementRequest !== request) {
+        return
+      }
+      if (!this.isCurrentManagementRequest(request)) {
+        this.closeMyTagsSheet()
+        return
+      }
+      this.editSubmitting = false
     }
-    this.editSubmitting = false
   }
 
-  private async submitAdd(): Promise<void> {
-    if (!this.canSubmitAdd()) {
+  private async submitAdd(request: UserTagRequestContext): Promise<void> {
+    if (!this.isCurrentManagementRequest(request) || !this.canSubmitAdd()) {
       return
     }
+    const tagset: string = this.mytags.currentTagset
     this.addSubmitting = true
     this.addError = ''
     try {
       await EhApiService.getInstance().addUserTag({
-        isEx: connectSiteMode().isEx,
+        isEx: request.isEx,
         tagName: this.addTagLabel(),
-        tagset: this.mytags.currentTagset,
+        tagset,
         color: this.normalizedAddColor(),
         weight: this.addWeight,
         watched: this.addWatched,
         hidden: this.addHidden,
       })
-      await this.reloadCurrentTagset()
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
+      await this.reloadCurrentTagset(tagset)
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message: $r('app.string.mytags_add_success'),
       })
     } catch (err) {
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       const e = err as Error
       this.addError = e.message
       DiagnosticLogger.warn('mytags', 'add_failed', e.message)
+    } finally {
+      if (this.myTagsManagementRequest !== request) {
+        return
+      }
+      if (!this.isCurrentManagementRequest(request)) {
+        this.closeMyTagsSheet()
+        return
+      }
+      this.addSubmitting = false
     }
-    this.addSubmitting = false
   }
 
-  private async deleteTag(): Promise<void> {
-    if (this.editTagId.length === 0 || this.editSubmitting) {
+  private async deleteTag(request: UserTagRequestContext): Promise<void> {
+    if (!this.isCurrentManagementRequest(request) || !this.canDeleteTag()) {
       return
     }
+    const tagset: string = this.mytags.currentTagset
     this.editSubmitting = true
     this.editError = ''
     try {
       await EhApiService.getInstance().deleteUserTags({
-        isEx: connectSiteMode().isEx,
+        isEx: request.isEx,
         tagIds: [this.editTagId],
-        tagset: this.mytags.currentTagset,
+        tagset,
       })
-      await this.reloadCurrentTagset()
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
+      await this.reloadCurrentTagset(tagset)
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message: $r('app.string.mytags_delete_success'),
       })
     } catch (err) {
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       const e = err as Error
       this.editError = e.message
       DiagnosticLogger.warn('mytags', 'delete_failed', e.message)
+    } finally {
+      if (this.myTagsManagementRequest !== request) {
+        return
+      }
+      if (!this.isCurrentManagementRequest(request)) {
+        this.closeMyTagsSheet()
+        return
+      }
+      this.editSubmitting = false
     }
-    this.editSubmitting = false
   }
 
-  private async submitTagset(): Promise<void> {
-    if (!this.canSubmitTagset()) {
+  private async submitTagset(request: UserTagRequestContext): Promise<void> {
+    if (!this.isCurrentManagementRequest(request) || !this.canSubmitTagset()) {
       return
     }
+    const action: string = this.tagsetAction
+    const tagset: string = this.mytags.currentTagset
+    const name: string = this.tagsetName
     this.tagsetSubmitting = true
     this.tagsetError = ''
     try {
       await EhApiService.getInstance().updateMyTagsTagset({
-        isEx: connectSiteMode().isEx,
-        action: this.tagsetAction,
-        tagset: this.mytags.currentTagset,
-        name: this.tagsetName,
+        isEx: request.isEx,
+        action,
+        tagset,
+        name,
       })
-      await this.reloadCurrentTagset()
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
+      await this.reloadCurrentTagset(tagset)
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message:
-          this.tagsetAction === 'rename'
+          action === 'rename'
             ? $r('app.string.mytags_tagset_rename_success')
             : $r('app.string.mytags_tagset_create_success'),
       })
     } catch (err) {
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       const e = err as Error
       this.tagsetError = e.message
       DiagnosticLogger.warn('mytags', 'tagset_save_failed', e.message)
+    } finally {
+      if (this.myTagsManagementRequest !== request) {
+        return
+      }
+      if (!this.isCurrentManagementRequest(request)) {
+        this.closeMyTagsSheet()
+        return
+      }
+      this.tagsetSubmitting = false
     }
-    this.tagsetSubmitting = false
   }
 
-  private async deleteCurrentTagset(): Promise<void> {
-    if (!this.canManageCurrentTagset() || !this.mytags.canDelete) {
+  private async deleteCurrentTagset(request: UserTagRequestContext): Promise<void> {
+    if (!this.isCurrentManagementRequest(request) || !this.canManageCurrentTagset() || !this.mytags.canDelete) {
       return
     }
+    const tagset: string = this.mytags.currentTagset
     this.tagsetSubmitting = true
     this.tagsetError = ''
     try {
       await EhApiService.getInstance().updateMyTagsTagset({
-        isEx: connectSiteMode().isEx,
+        isEx: request.isEx,
         action: 'delete',
-        tagset: this.mytags.currentTagset,
+        tagset,
         name: '',
       })
-      await this.load()
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
+      await this.load('')
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       this.closeMyTagsSheet()
       this.getUIContext().getPromptAction().showToast({
         message: $r('app.string.mytags_tagset_delete_success'),
       })
     } catch (err) {
+      if (!this.isCurrentManagementRequest(request)) {
+        return
+      }
       const e = err as Error
       this.tagsetError = e.message
       DiagnosticLogger.warn('mytags', 'tagset_delete_failed', e.message)
+    } finally {
+      if (this.myTagsManagementRequest !== request) {
+        return
+      }
+      if (!this.isCurrentManagementRequest(request)) {
+        this.closeMyTagsSheet()
+        return
+      }
+      this.tagsetSubmitting = false
     }
-    this.tagsetSubmitting = false
   }
 
   private setAddTagQuery(value: string): void {
@@ -1236,7 +1401,7 @@ export struct MyTagsPage {
       secondaryText: $r('app.string.mytags_delete'),
       secondaryIcon: $r('sys.symbol.trash'),
       showSecondaryAction: true,
-      secondaryEnabled: this.editTagId.length > 0,
+      secondaryEnabled: this.canDeleteTag(),
       confirmEnabled: this.canSubmitEdit(),
       confirmLoading: this.editSubmitting,
       closeAction: () => {

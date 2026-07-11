@@ -19,8 +19,8 @@ const ok = (condition, message) => {
 
 const api = read('shared/src/main/ets/network/EhApiService.ets')
 const page = read('feature/user/src/main/ets/pages/MyTagsPage.ets')
-const deleteTagStart = page.indexOf('  private async deleteTag(): Promise<void> {')
-const deleteTagEnd = page.indexOf('  private async submitTagset()', deleteTagStart)
+const deleteTagStart = page.indexOf('  private async deleteTag(request: UserTagRequestContext): Promise<void> {')
+const deleteTagEnd = page.indexOf('  private async submitTagset(request: UserTagRequestContext)', deleteTagStart)
 const deleteTag = deleteTagStart >= 0
   ? page.slice(deleteTagStart, deleteTagEnd > deleteTagStart ? deleteTagEnd : page.length)
   : ''
@@ -35,11 +35,11 @@ ok(/usertag_action[\s\S]*mass/.test(api) &&
   'deleteUserTags posts EH-compatible /mytags mass-delete fields')
 ok(!/deleteUserTags[\s\S]*api\.php/.test(api),
   'deleteUserTags does not misuse the /api.php setusertag endpoint')
-ok(/private confirmDeleteTag\(\): void \{[\s\S]*showAlertDialog[\s\S]*action: \(\) => \{\s*this\.deleteTag\(\)/.test(page),
+ok(/private confirmDeleteTag\(\): void \{[\s\S]*this\.canDeleteTag\(\)[\s\S]*const request: UserTagRequestContext \| null = this\.myTagsManagementRequest[\s\S]*showAlertDialog[\s\S]*action: \(\) => \{\s*this\.deleteTag\(request\)/.test(page),
   'deleting an existing My Tag requires native confirmation')
-ok(/await EhApiService\.getInstance\(\)\.deleteUserTags\(\{[\s\S]*tagIds: \[this\.editTagId\][\s\S]*tagset: this\.mytags\.currentTagset/.test(deleteTag),
+ok(/await EhApiService\.getInstance\(\)\.deleteUserTags\(\{[\s\S]*isEx: request\.isEx[\s\S]*tagIds: \[this\.editTagId\][\s\S]*tagset,/.test(deleteTag),
   'selected existing tag id and current tagset are submitted together')
-ok(/await this\.reloadCurrentTagset\(\)\s*this\.closeMyTagsSheet\(\)/.test(deleteTag),
+ok(/await this\.reloadCurrentTagset\(tagset\)[\s\S]*this\.isCurrentManagementRequest\(request\)[\s\S]*this\.closeMyTagsSheet\(\)/.test(deleteTag),
   'successful delete refreshes the current tagset before closing its sheet')
 ok(/private publishUserTags\(request: UserTagRequestContext\): void\s*\{\s*UserTagContextService\.publishMyTags\(request, this\.mytags\.tags\)/.test(page),
   'tagset reload republishes shared usertag state through the active request fence')

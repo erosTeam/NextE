@@ -109,18 +109,18 @@ ok(
   'tagset naming must use a focused AppModalScaffold and must not hide delete inside the name sheet',
 )
 ok(
-  /confirmSubmitTagset\(\): void[\s\S]*showAlertDialog[\s\S]*common_cancel[\s\S]*this\.submitTagset\(\)/.test(page) &&
-    /confirmDeleteTagset\(\): void[\s\S]*showAlertDialog[\s\S]*mytags_tagset_delete_confirm[\s\S]*this\.deleteCurrentTagset\(\)/.test(page),
+  /confirmSubmitTagset\(\): void[\s\S]*const request: UserTagRequestContext \| null = this\.myTagsManagementRequest[\s\S]*showAlertDialog[\s\S]*common_cancel[\s\S]*this\.submitTagset\(request\)/.test(page) &&
+    /confirmDeleteTagset\(\): void[\s\S]*this\.captureManagementRequest\(\)[\s\S]*showAlertDialog[\s\S]*mytags_tagset_delete_confirm[\s\S]*this\.deleteCurrentTagset\(request\)/.test(page),
   'tagset writes must be confirmation-gated before real EH mutation',
 )
 ok(
-  /submitTagset\(\): Promise<void>[\s\S]*updateMyTagsTagset\(\{[\s\S]*action: this\.tagsetAction[\s\S]*tagset: this\.mytags\.currentTagset[\s\S]*name: this\.tagsetName/.test(page) &&
-    /deleteCurrentTagset\(\): Promise<void>[\s\S]*updateMyTagsTagset\(\{[\s\S]*action: 'delete'[\s\S]*tagset: this\.mytags\.currentTagset/.test(page),
+  /submitTagset\(request: UserTagRequestContext\): Promise<void>[\s\S]*isEx: request\.isEx[\s\S]*action,[\s\S]*tagset,[\s\S]*name,/.test(page) &&
+    /deleteCurrentTagset\(request: UserTagRequestContext\): Promise<void>[\s\S]*isEx: request\.isEx[\s\S]*action: 'delete'[\s\S]*tagset,/.test(page),
   'MyTagsPage must submit create/rename/delete with current tagset state',
 )
 ok(
-  /await this\.reloadCurrentTagset\(\)/.test(page) &&
-    /await this\.load\(\)/.test(page),
+  /await this\.reloadCurrentTagset\(tagset\)[\s\S]*this\.isCurrentManagementRequest\(request\)/.test(page) &&
+    /await this\.load\(''\)[\s\S]*this\.isCurrentManagementRequest\(request\)/.test(page),
   'successful tagset writes must refresh the visible MyTags state',
 )
 

@@ -159,9 +159,9 @@ ok(!/DraftColorPicker|ColorAxisSlider|MYTAGS_COLOR_CHOICES|MYTAGS_COLOR_TARGET/.
 ok(/editWatched = value[\s\S]*if \(value\) \{[\s\S]*this\.editHidden = false/.test(page) &&
   /editHidden = value[\s\S]*if \(value\) \{[\s\S]*this\.editWatched = false/.test(page),
   'watch and hide draft switches stay mutually exclusive')
-ok(/confirmSubmitEdit\(\): void[\s\S]*showAlertDialog[\s\S]*mytags_save_confirm[\s\S]*common_cancel[\s\S]*this\.submitEdit\(\)/.test(page),
+ok(/confirmSubmitEdit\(\): void[\s\S]*const request: UserTagRequestContext \| null = this\.myTagsManagementRequest[\s\S]*showAlertDialog[\s\S]*mytags_save_confirm[\s\S]*common_cancel[\s\S]*this\.submitEdit\(request\)/.test(page),
   'saving an edit is gated by a native confirmation dialog')
-ok(/EhApiPhpService\.setUserTag\([\s\S]*this\.mytags\.apikey[\s\S]*this\.mytags\.apiuid[\s\S]*this\.editTagId[\s\S]*this\.editWatched[\s\S]*this\.editHidden[\s\S]*this\.normalizedEditColor\(\)[\s\S]*this\.editWeight/.test(page),
+ok(/submitEdit\(request: UserTagRequestContext\): Promise<void>[\s\S]*EhConstants\.baseUrl\(request\.isEx\)[\s\S]*this\.mytags\.apikey[\s\S]*this\.mytags\.apiuid[\s\S]*this\.editTagId[\s\S]*this\.editWatched[\s\S]*this\.editHidden[\s\S]*this\.normalizedEditColor\(\)[\s\S]*this\.editWeight[\s\S]*this\.isCurrentManagementRequest\(request\)[\s\S]*await this\.reloadCurrentTagset\(tagset\)/.test(page),
   'MyTagsPage submits the current draft through setUserTag')
 ok(/openEditUserTag\(t: EhUsertag, mytags: EhMytags\): void[\s\S]*this\.editResolvedTags = mytags\.tags[\s\S]*this\.editApiuid = mytags\.apiuid[\s\S]*this\.editApikey = mytags\.apikey/.test(detailTags) &&
   /confirmSubmitEdit\(\): void[\s\S]*const request: UserTagRequestContext \| null = this\.myTagsRequest[\s\S]*this\.submitEdit\(request\)/.test(detailTags) &&
@@ -174,7 +174,7 @@ ok(/TextInput\(\{ text: this\.editWeight[\s\S]*\.type\(InputType\.Normal\)[\s\S]
   !/TextInput\(\{ text: this\.editWeight[\s\S]*\.type\(InputType\.Number\)/.test(page) &&
   !/TextInput\(\{ text: this\.addWeight[\s\S]*\.type\(InputType\.Number\)/.test(page),
   'MyTags weight inputs preserve signed EH weights instead of using unsigned numeric input')
-ok(/await this\.reloadCurrentTagset\(\)/.test(page) &&
+ok(/await this\.reloadCurrentTagset\(tagset\)/.test(page) &&
   /private publishUserTags\(request: UserTagRequestContext\): void\s*\{\s*UserTagContextService\.publishMyTags\(request, this\.mytags\.tags\)/.test(page),
   'successful save refreshes MyTags and republishes shared colors through the active request fence')
 ok(!/actionNewUserTag|actionCreatTagSet|actionRenameTagSet|actionDeleteTagSet/.test(page),
