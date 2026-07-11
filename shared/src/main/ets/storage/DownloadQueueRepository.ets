@@ -15,9 +15,9 @@ const SQL_SELECT_TASKS: string =
   'prepared_at, first_page_count, preview_page_count, prepare_error, prefer_original, status FROM download_gallery_tasks ' +
   'WHERE scope_key = ? ORDER BY queued_at DESC, gid DESC'
 const SQL_SELECT_SEEDS: string =
-  'SELECT page, imgkey, image_page_url, thumb_url, image_url, origin_image_url, show_key, reload_key, ' +
+  'SELECT gid, token, prefer_original, page, imgkey, image_page_url, thumb_url, image_url, origin_image_url, show_key, reload_key, ' +
   'file_path, bytes_written, downloaded_at, download_error FROM download_gallery_seeds ' +
-  'WHERE scope_key = ? AND gid = ? AND token = ? AND prefer_original = ? ORDER BY position_index ASC, page ASC'
+  'WHERE scope_key = ? ORDER BY gid ASC, token ASC, prefer_original ASC, position_index ASC, page ASC'
 const SQL_UPSERT_TASK: string =
   'INSERT OR REPLACE INTO download_gallery_tasks ' +
   '(scope_key, gid, token, title, title_jp, thumb_url, img_width, img_height, page_count, category, uploader, upgrade_from_gid, queued_at, ' +
@@ -50,19 +50,58 @@ const SQL_DELETE_ARCHIVER_TASK: string =
 export class DownloadQueueRepository {
   static async load(context: common.UIAbilityContext): Promise<DownloadGalleryTask[]> {
     const out: DownloadGalleryTask[] = []
+    const tasksByKey: Map<string, DownloadGalleryTask> = new Map<string, DownloadGalleryTask>()
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_TASKS, [SCOPE_GLOBAL])
+    const taskResultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_TASKS, [SCOPE_GLOBAL])
     try {
-      while (resultSet.goToNextRow()) {
-        const task: DownloadGalleryTask = DownloadQueueRepository.readTask(resultSet)
+      while (taskResultSet.goToNextRow()) {
+        const task: DownloadGalleryTask = DownloadQueueRepository.readTask(taskResultSet)
         if (task.gid.length > 0) {
-          task.imageSeeds = await DownloadQueueRepository.loadSeeds(store, task.gid, task.token, task.preferOriginal)
-          task.syncProgressCounts()
+          tasksByKey.set(
+            DownloadQueueRepository.galleryTaskKey(task.gid, task.token, task.preferOriginal),
+            task,
+          )
           out.push(task)
         }
       }
     } finally {
-      resultSet.close()
+      taskResultSet.close()
+    }
+    // The normal queue has at most a few hundred task headers. Hydrate their seeds in one query
+    // after closing the header cursor instead of serially awaiting one query per task on startup.
+    if (out.length === 0) {
+      return out
+    }
+    const seedResultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SEEDS, [SCOPE_GLOBAL])
+    try {
+      while (seedResultSet.goToNextRow()) {
+        const gid: string = DownloadQueueRepository.stringColumn(seedResultSet, 'gid')
+        const token: string = DownloadQueueRepository.stringColumn(seedResultSet, 'token')
+        const storedPreferOriginal: number =
+          Math.floor(DownloadQueueRepository.numberColumn(seedResultSet, 'prefer_original'))
+        if (storedPreferOriginal !== 0 && storedPreferOriginal !== 1) {
+          // The old parameterized query only exposed canonical 0/1 qualities; retain that behavior
+          // for malformed rows while scanning this scope-wide result set.
+          continue
+        }
+        const preferOriginal: boolean = storedPreferOriginal === 1
+        const task: DownloadGalleryTask | undefined = tasksByKey.get(
+          DownloadQueueRepository.galleryTaskKey(gid, token, preferOriginal),
+        )
+        if (task === undefined) {
+          // Preserve the old result: seeds without a current task header are not exposed to state.
+          continue
+        }
+        const seed: DownloadImageSeed = DownloadQueueRepository.readSeed(seedResultSet)
+        if (seed.imagePageUrl.length > 0) {
+          task.imageSeeds.push(seed)
+        }
+      }
+    } finally {
+      seedResultSet.close()
+    }
+    for (let i: number = 0; i < out.length; i++) {
+      out[i].syncProgressCounts()
     }
     return out
   }
@@ -320,6 +359,11 @@ export class DownloadQueueRepository {
     return a.gid === b.gid && a.token === b.token && a.preferOriginal === b.preferOriginal
   }
 
+  /** Collision-free in-memory key for the same composite identity used by the seed table. */
+  private static galleryTaskKey(gid: string, token: string, preferOriginal: boolean): string {
+    return `${gid.length}:${gid}${token.length}:${token}:${preferOriginal ? '1' : '0'}`
+  }
+
   private static async upsertTaskHeader(
     store: relationalStore.RdbStore,
     task: DownloadGalleryTask,
@@ -377,32 +421,6 @@ export class DownloadQueueRepository {
       seed.downloadedAt,
       seed.downloadError,
     ])
-  }
-
-  private static async loadSeeds(
-    store: relationalStore.RdbStore,
-    gid: string,
-    token: string,
-    preferOriginal: boolean,
-  ): Promise<DownloadImageSeed[]> {
-    const out: DownloadImageSeed[] = []
-    const resultSet: relationalStore.ResultSet = await store.querySql(SQL_SELECT_SEEDS, [
-      SCOPE_GLOBAL,
-      gid,
-      token,
-      preferOriginal ? 1 : 0,
-    ])
-    try {
-      while (resultSet.goToNextRow()) {
-        const seed: DownloadImageSeed = DownloadQueueRepository.readSeed(resultSet)
-        if (seed.imagePageUrl.length > 0) {
-          out.push(seed)
-        }
-      }
-    } finally {
-      resultSet.close()
-    }
-    return out
   }
 
   private static seedPositionIndex(task: DownloadGalleryTask, seed: DownloadImageSeed): number {

@@ -91,6 +91,7 @@ ok('LocalDataStore migrates existing archiver tasks to include parse source',
 const repo = read('shared/src/main/ets/storage/DownloadQueueRepository.ets')
 const model = read('shared/src/main/ets/model/DownloadGalleryTask.ets')
 const settings = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
+const loadBody = repo.match(/static async load\(context: common\.UIAbilityContext\): Promise<DownloadGalleryTask\[\]> \{[\s\S]*?\n  static async replaceAll/)?.[0] ?? ''
 const deltaBody = repo.match(/static async updateGalleryTaskDelta[\s\S]*?\n  static async loadArchiver/)?.[0] ?? ''
 const applyResultsBody = settings.match(/private static async applyDownloadResults[\s\S]*?\n  private static firstSeedError/)?.[0] ?? ''
 const statusBody = settings.match(/private static async updateDownloadTaskStatus[\s\S]*?\n  private static clearPendingSeedErrors/)?.[0] ?? ''
@@ -126,10 +127,48 @@ ok('repository restores downloaded seed metadata',
 ok('repository persists task original preference',
   /prefer_original/.test(repo) &&
     /task\.preferOriginal/.test(repo) &&
-    /WHERE scope_key = \? AND gid = \? AND token = \? AND prefer_original = \?/.test(repo) &&
     /SQL_DELETE_SEEDS_FOR_TASK[\s\S]*prefer_original = \?/.test(repo) &&
-    /loadSeeds\(store, task\.gid, task\.token, task\.preferOriginal\)/.test(repo) &&
+    /galleryTaskKey\(task\.gid, task\.token, task\.preferOriginal\)/.test(loadBody) &&
+    /galleryTaskKey\(gid, token, preferOriginal\)/.test(loadBody) &&
     /upsertSeed\(store, task\.gid, task\.token, task\.preferOriginal, seed, i\)/.test(repo))
+ok('queue startup hydrates all matching seeds in one ordered query instead of one query per task',
+  /SELECT gid, token, prefer_original, page, imgkey, image_page_url/.test(repo) &&
+    /WHERE scope_key = \? ORDER BY gid ASC, token ASC, prefer_original ASC, position_index ASC, page ASC/.test(repo) &&
+    /taskResultSet\.close\(\)[\s\S]*?if \(out\.length === 0\)[\s\S]*?store\.querySql\(SQL_SELECT_SEEDS, \[SCOPE_GLOBAL\]\)/.test(loadBody) &&
+    /storedPreferOriginal !== 0 && storedPreferOriginal !== 1/.test(loadBody) &&
+    /const task: DownloadGalleryTask \| undefined = tasksByKey\.get\([\s\S]*?galleryTaskKey\(gid, token, preferOriginal\)/.test(loadBody) &&
+    /task\.imageSeeds\.push\(seed\)/.test(loadBody) &&
+    /out\[i\]\.syncProgressCounts\(\)/.test(loadBody) &&
+    !/loadSeeds\(/.test(repo))
+
+function galleryTaskKey(gid, token, preferOriginal) {
+  return `${gid.length}:${gid}${token.length}:${token}:${preferOriginal ? '1' : '0'}`
+}
+
+function hydrateBatchSeeds(tasks, rows) {
+  const byKey = new Map(tasks.map((task) => [galleryTaskKey(task.gid, task.token, task.preferOriginal), task]))
+  for (const row of rows) {
+    const task = byKey.get(galleryTaskKey(row.gid, row.token, row.preferOriginal))
+    if (task !== undefined && row.imagePageUrl.length > 0) task.imageSeeds.push(row.imagePageUrl)
+  }
+}
+
+{
+  const normal = { gid: '7', token: 'same', preferOriginal: false, imageSeeds: [] }
+  const original = { gid: '7', token: 'same', preferOriginal: true, imageSeeds: [] }
+  const other = { gid: '8', token: 'next', preferOriginal: false, imageSeeds: [] }
+  hydrateBatchSeeds([normal, original, other], [
+    { gid: '7', token: 'same', preferOriginal: false, imagePageUrl: 'normal-first' },
+    { gid: '7', token: 'same', preferOriginal: false, imagePageUrl: 'normal-second' },
+    { gid: '7', token: 'same', preferOriginal: true, imagePageUrl: 'original-only' },
+    { gid: 'missing', token: 'orphan', preferOriginal: false, imagePageUrl: 'ignored-orphan' },
+    { gid: '8', token: 'next', preferOriginal: false, imagePageUrl: '' },
+  ])
+  ok('batched seed hydration preserves exact quality identity, seed order, empty tasks, and orphan filtering',
+    normal.imageSeeds.join(',') === 'normal-first,normal-second' &&
+      original.imageSeeds.join(',') === 'original-only' &&
+      other.imageSeeds.length === 0)
+}
 ok('repository persists gallery upgrade source gid',
   /upgrade_from_gid/.test(repo) &&
     /task\.upgradeFromGid/.test(repo))
