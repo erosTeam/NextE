@@ -30,6 +30,8 @@ function ok(condition, message) {
 const api = read('shared/src/main/ets/network/EhApiService.ets')
 const barrel = read('shared/src/main/ets/Index.ets')
 const page = read('feature/user/src/main/ets/pages/MyTagsPage.ets')
+const detailTags = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
+const detailManagementCloseCount = (detailTags.match(/closeAction:\s*\(\)\s*=>\s*\{\s*this\.discardMyTagsManagement\(\)\s*\}/g) || []).length
 
 const grounding = [
   'eros_fe: lib/network/request.dart actionNewUserTag posts /mytags usertag_action=add with tagname_new/tagcolor_new/tagweight_new/tagwatch_new/taghide_new',
@@ -81,6 +83,13 @@ ok(/submitAdd\(\): Promise<void>[\s\S]*await this\.reloadCurrentTagset\(\)[\s\S]
 ok(/addWatched = value[\s\S]*if \(value\) \{[\s\S]*this\.addHidden = false/.test(page) &&
   /addHidden = value[\s\S]*if \(value\) \{[\s\S]*this\.addWatched = false/.test(page),
   'new-tag watch and hide draft switches stay mutually exclusive')
+ok(/private isCurrentMyTagsRequest\(request: UserTagRequestContext\): boolean[\s\S]*this\.myTagsRequest === request[\s\S]*UserTagContextService\.isCurrentAuthenticated\(request\)/.test(detailTags) &&
+  /openMyTagsForSelectedTag\(\): void[\s\S]*const request: UserTagRequestContext = this\.currentMyTagsRequest\(\)[\s\S]*UserTagContextService\.isCurrentAuthenticated\(request\)[\s\S]*this\.myTagsRequest = request[\s\S]*MyTagsTargetService\.resolve\(request\.isEx, tagKey\)/.test(detailTags) &&
+  /confirmSubmitAdd\(\): void[\s\S]*const request: UserTagRequestContext \| null = this\.myTagsRequest[\s\S]*this\.submitAdd\(request\)/.test(detailTags) &&
+  /submitAdd\(request: UserTagRequestContext\): Promise<void>[\s\S]*isEx: request\.isEx[\s\S]*await EhApiService\.getInstance\(\)\.getMyTags\(request\.isEx, tagset\)[\s\S]*!this\.isCurrentMyTagsRequest\(request\) \|\| !UserTagContextService\.publishMyTags\(request, refreshed\.tags\)/.test(detailTags) &&
+  detailManagementCloseCount === 3 &&
+  !/UserTagStore\.getInstance\(\)\.setTags/.test(detailTags),
+  'detail-page add owns one account/site sheet session through reload and shared-cache publish')
 ok(!/actionCreatTagSet|actionRenameTagSet|actionDeleteTagSet/.test(page),
   'this lane does not mix in tagset management')
 

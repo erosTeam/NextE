@@ -29,6 +29,7 @@ function ok(condition, message) {
 const api = read('shared/src/main/ets/network/EhApiPhpService.ets')
 const barrel = read('shared/src/main/ets/Index.ets')
 const page = read('feature/user/src/main/ets/pages/MyTagsPage.ets')
+const detailTags = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
 const colorPicker = read('shared/src/main/ets/components/AppColorPicker.ets')
 const colorFavoritesState = read('shared/src/main/ets/state/AppColorFavoritesState.ets')
 const colorFavoritesSettings = read('shared/src/main/ets/settings/AppColorFavoritesSettings.ets')
@@ -162,6 +163,12 @@ ok(/confirmSubmitEdit\(\): void[\s\S]*showAlertDialog[\s\S]*mytags_save_confirm[
   'saving an edit is gated by a native confirmation dialog')
 ok(/EhApiPhpService\.setUserTag\([\s\S]*this\.mytags\.apikey[\s\S]*this\.mytags\.apiuid[\s\S]*this\.editTagId[\s\S]*this\.editWatched[\s\S]*this\.editHidden[\s\S]*this\.normalizedEditColor\(\)[\s\S]*this\.editWeight/.test(page),
   'MyTagsPage submits the current draft through setUserTag')
+ok(/openEditUserTag\(t: EhUsertag, mytags: EhMytags\): void[\s\S]*this\.editResolvedTags = mytags\.tags[\s\S]*this\.editApiuid = mytags\.apiuid[\s\S]*this\.editApikey = mytags\.apikey/.test(detailTags) &&
+  /confirmSubmitEdit\(\): void[\s\S]*const request: UserTagRequestContext \| null = this\.myTagsRequest[\s\S]*this\.submitEdit\(request\)/.test(detailTags) &&
+  /submitEdit\(request: UserTagRequestContext\): Promise<void>[\s\S]*EhConstants\.baseUrl\(request\.isEx\)[\s\S]*if \(!this\.isCurrentMyTagsRequest\(request\)\) \{\s*return[\s\S]*this\.applyEditedUserTag\(color\)[\s\S]*UserTagContextService\.publishMyTags\(request, this\.editResolvedTags\)/.test(detailTags) &&
+  /canSubmitEdit\(\): boolean[\s\S]*this\.isCurrentMyTagsRequest\(request\)[\s\S]*this\.editResolvedTags\.length > 0/.test(detailTags) &&
+  /discardMyTagsManagement\(\): void[\s\S]*this\.editApiuid = ''[\s\S]*this\.editApikey = ''/.test(detailTags),
+  'detail-page existing-tag edits retain only resolved credentials and publish through the sheet-session fence')
 ok(/TextInput\(\{ text: this\.editWeight[\s\S]*\.type\(InputType\.Normal\)[\s\S]*this\.editWeight = value/.test(page) &&
   /TextInput\(\{ text: this\.addWeight[\s\S]*\.type\(InputType\.Normal\)[\s\S]*this\.addWeight = value/.test(page) &&
   !/TextInput\(\{ text: this\.editWeight[\s\S]*\.type\(InputType\.Number\)/.test(page) &&

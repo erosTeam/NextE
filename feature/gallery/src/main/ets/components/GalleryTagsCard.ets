@@ -29,7 +29,12 @@ import {
   EhErrorText,
   AppStrings,
   DiagnosticLogger,
+  AuthState,
+  connectAuth,
   connectSiteMode,
+  SiteModeState,
+  UserTagContextService,
+  UserTagRequestContext,
   connectSearchAction,
   appSheetOptions,
 } from 'shared'
@@ -120,6 +125,8 @@ export struct GalleryTagsCard {
     (_namespace: string, _tagText: string, _vote: number) => {};
   // Reactive bump from the usertag loader; read in the chip key so chips re-color on a late My Tags load.
   private tagSig: UserTagSignal = connectUserTagSignal();
+  @Local auth: AuthState = connectAuth();
+  @Local site: SiteModeState = connectSiteMode();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local tagInfoShown: boolean = false;
   @Local selectedNamespace: string = '';
@@ -164,6 +171,8 @@ export struct GalleryTagsCard {
   @Local addColor: string = '';
   @Local addWeight: string = '10';
   private editSourceTag: EhUsertag | null = null;
+  private editResolvedTags: EhUsertag[] = [];
+  private myTagsRequest: UserTagRequestContext | null = null;
 
   // Member chip background: the user's editable MyTags color, else EH preview fill, else neutral grey.
   // Never namespace.
@@ -233,6 +242,48 @@ export struct GalleryTagsCard {
 
   private ctx(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private currentMyTagsRequest(): UserTagRequestContext {
+    return UserTagContextService.captureActiveRequest()
+  }
+
+  private isCurrentMyTagsRequest(request: UserTagRequestContext): boolean {
+    return this.myTagsRequest === request && UserTagContextService.isCurrentAuthenticated(request)
+  }
+
+  private discardMyTagsManagementIfCurrent(request: UserTagRequestContext): void {
+    if (this.myTagsRequest === request) {
+      this.discardMyTagsManagement()
+    }
+  }
+
+  private discardMyTagsManagement(): void {
+    this.tagsetResolveEpoch = this.tagsetResolveEpoch + 1
+    this.tagsetLoading = false
+    this.tagsetError = ''
+    this.tagsetOptions = []
+    this.editSheetShown = false
+    this.editSubmitting = false
+    this.addSubmitting = false
+    this.editError = ''
+    this.addError = ''
+    this.manageSheetKind = ''
+    this.editSourceTag = null
+    this.editResolvedTags = []
+    this.editApiuid = ''
+    this.editApikey = ''
+    this.myTagsRequest = null
+  }
+
+  @Monitor('auth.memberId')
+  private onAccountChanged(): void {
+    this.discardMyTagsManagement()
+  }
+
+  @Monitor('site.isEx')
+  private onSiteChanged(): void {
+    this.discardMyTagsManagement()
   }
 
   private selectedTagKey(): string {
@@ -414,14 +465,25 @@ export struct GalleryTagsCard {
     if (tagKey.length === 0) {
       return
     }
+    const request: UserTagRequestContext = this.currentMyTagsRequest()
+    if (!UserTagContextService.isCurrentAuthenticated(request)) {
+      return
+    }
     const epoch: number = this.tagsetResolveEpoch + 1
     this.tagsetResolveEpoch = epoch
     this.tagsetLoading = true
     this.tagsetError = ''
     this.tagsetOptions = []
     this.editSheetShown = false
-    MyTagsTargetService.resolve(connectSiteMode().isEx, tagKey).then((result: MyTagsTargetResolveResult) => {
+    this.editSourceTag = null
+    this.editResolvedTags = []
+    this.myTagsRequest = request
+    MyTagsTargetService.resolve(request.isEx, tagKey).then((result: MyTagsTargetResolveResult) => {
       if (epoch !== this.tagsetResolveEpoch) {
+        return
+      }
+      if (!this.isCurrentMyTagsRequest(request)) {
+        this.discardMyTagsManagementIfCurrent(request)
         return
       }
       this.tagsetLoading = false
@@ -438,6 +500,10 @@ export struct GalleryTagsCard {
       this.editSheetShown = true
     }).catch((err: Error) => {
       if (epoch !== this.tagsetResolveEpoch) {
+        return
+      }
+      if (!this.isCurrentMyTagsRequest(request)) {
+        this.discardMyTagsManagementIfCurrent(request)
         return
       }
       this.tagsetLoading = false
@@ -477,13 +543,14 @@ export struct GalleryTagsCard {
 
   private openEditUserTag(t: EhUsertag, mytags: EhMytags): void {
     this.editSourceTag = t
+    this.editResolvedTags = mytags.tags
     this.editSubmitting = false
     this.editError = ''
     this.editTagId = t.tagId
     this.editTagTitle = t.tag
     this.editTagRaw = t.tag
-    this.editApiuid = mytags.apiuid.length > 0 ? mytags.apiuid : this.gallery.apiuid
-    this.editApikey = mytags.apikey.length > 0 ? mytags.apikey : this.gallery.apikey
+    this.editApiuid = mytags.apiuid
+    this.editApikey = mytags.apikey
     this.editTagDisplay = this.editTitleForUserTag(t)
     this.editWatched = t.watched
     this.editHidden = t.hidden
@@ -585,17 +652,33 @@ export struct GalleryTagsCard {
   }
 
   private canSubmitEdit(): boolean {
-    return this.editTagId.length > 0 &&
+    const request: UserTagRequestContext | null = this.myTagsRequest
+    return request !== null &&
+      this.isCurrentMyTagsRequest(request) &&
+      this.editTagId.length > 0 &&
       this.editApikey.length > 0 &&
       this.editApiuid.length > 0 &&
+      this.editResolvedTags.length > 0 &&
       !this.editSubmitting
   }
 
   private canSubmitAdd(): boolean {
-    return this.addTagTitle.length > 0 && this.addTagset.length > 0 && !this.addSubmitting
+    const request: UserTagRequestContext | null = this.myTagsRequest
+    return request !== null &&
+      this.isCurrentMyTagsRequest(request) &&
+      this.addTagTitle.length > 0 &&
+      this.addTagset.length > 0 &&
+      !this.addSubmitting
   }
 
   private confirmSubmitEdit(): void {
+    if (!this.canSubmitEdit()) {
+      return
+    }
+    const request: UserTagRequestContext | null = this.myTagsRequest
+    if (request === null) {
+      return
+    }
     this.getUIContext().showAlertDialog({
       message: $r('app.string.mytags_save_confirm'),
       primaryButton: {
@@ -605,14 +688,14 @@ export struct GalleryTagsCard {
       secondaryButton: {
         value: $r('app.string.mytags_save'),
         action: () => {
-          this.submitEdit()
+          this.submitEdit(request)
         },
       },
     })
   }
 
-  private async submitEdit(): Promise<void> {
-    if (!this.canSubmitEdit()) {
+  private async submitEdit(request: UserTagRequestContext): Promise<void> {
+    if (!this.isCurrentMyTagsRequest(request) || !this.canSubmitEdit()) {
       return
     }
     this.editSubmitting = true
@@ -620,7 +703,7 @@ export struct GalleryTagsCard {
     const color: string = this.normalizedEditColor()
     try {
       await EhApiPhpService.setUserTag(
-        EhConstants.baseUrl(connectSiteMode().isEx),
+        EhConstants.baseUrl(request.isEx),
         this.editApikey,
         this.editApiuid,
         this.editTagId,
@@ -629,18 +712,44 @@ export struct GalleryTagsCard {
         color,
         this.editWeight,
       )
-      this.applyEditedUserTag(color)
-      this.editSheetShown = false
+      if (!this.isCurrentMyTagsRequest(request)) {
+        return
+      }
+      if (!this.applyEditedUserTag(color)) {
+        return
+      }
+      if (!this.isCurrentMyTagsRequest(request) || !UserTagContextService.publishMyTags(request, this.editResolvedTags)) {
+        return
+      }
+      this.discardMyTagsManagement()
       this.showToast($r('app.string.mytags_save_success'))
     } catch (err) {
+      if (!this.isCurrentMyTagsRequest(request)) {
+        return
+      }
       const e = err as Error
       this.editError = e.message
       DiagnosticLogger.warn('gallery', 'tag_info_mytag_save_failed', e.message)
+    } finally {
+      if (this.myTagsRequest !== request) {
+        return
+      }
+      if (!this.isCurrentMyTagsRequest(request)) {
+        this.discardMyTagsManagement()
+        return
+      }
+      this.editSubmitting = false
     }
-    this.editSubmitting = false
   }
 
   private confirmSubmitAdd(): void {
+    if (!this.canSubmitAdd()) {
+      return
+    }
+    const request: UserTagRequestContext | null = this.myTagsRequest
+    if (request === null) {
+      return
+    }
     this.getUIContext().showAlertDialog({
       message: $r('app.string.mytags_add_confirm'),
       primaryButton: {
@@ -650,39 +759,55 @@ export struct GalleryTagsCard {
       secondaryButton: {
         value: $r('app.string.mytags_add'),
         action: () => {
-          this.submitAdd()
+          this.submitAdd(request)
         },
       },
     })
   }
 
-  private async submitAdd(): Promise<void> {
-    if (!this.canSubmitAdd()) {
+  private async submitAdd(request: UserTagRequestContext): Promise<void> {
+    if (!this.isCurrentMyTagsRequest(request) || !this.canSubmitAdd()) {
       return
     }
+    const tagset: string = this.addTagset
     this.addSubmitting = true
     this.addError = ''
     try {
       await EhApiService.getInstance().addUserTag({
-        isEx: connectSiteMode().isEx,
+        isEx: request.isEx,
         tagName: this.addTagTitle,
-        tagset: this.addTagset,
+        tagset,
         color: this.normalizedAddColor(),
         weight: this.addWeight,
         watched: this.addWatched,
         hidden: this.addHidden,
       })
-      const refreshed: EhMytags = await EhApiService.getInstance().getMyTags(connectSiteMode().isEx, this.addTagset)
-      UserTagStore.getInstance().setTags(refreshed.tags)
-      this.tagSig.version = this.tagSig.version + 1
-      this.editSheetShown = false
+      if (!this.isCurrentMyTagsRequest(request)) {
+        return
+      }
+      const refreshed: EhMytags = await EhApiService.getInstance().getMyTags(request.isEx, tagset)
+      if (!this.isCurrentMyTagsRequest(request) || !UserTagContextService.publishMyTags(request, refreshed.tags)) {
+        return
+      }
+      this.discardMyTagsManagement()
       this.showToast($r('app.string.mytags_add_success'))
     } catch (err) {
+      if (!this.isCurrentMyTagsRequest(request)) {
+        return
+      }
       const e = err as Error
       this.addError = e.message
       DiagnosticLogger.warn('gallery', 'tag_info_mytag_add_failed', e.message)
+    } finally {
+      if (this.myTagsRequest !== request) {
+        return
+      }
+      if (!this.isCurrentMyTagsRequest(request)) {
+        this.discardMyTagsManagement()
+        return
+      }
+      this.addSubmitting = false
     }
-    this.addSubmitting = false
   }
 
   private normalizedAddColor(): string {
@@ -704,10 +829,10 @@ export struct GalleryTagsCard {
     this.openAddUserTag(tagKey, tagsetId)
   }
 
-  private applyEditedUserTag(color: string): void {
+  private applyEditedUserTag(color: string): boolean {
     const t: EhUsertag | null = this.editSourceTag
     if (t === null) {
-      return
+      return false
     }
     t.watched = this.editWatched
     t.hidden = this.editHidden
@@ -720,7 +845,7 @@ export struct GalleryTagsCard {
     if (!Number.isNaN(weight)) {
       t.weight = weight
     }
-    this.tagSig.version = this.tagSig.version + 1
+    return true
   }
 
   private markdownBodyLines(markdown: string): string[] {
@@ -1043,7 +1168,7 @@ export struct GalleryTagsCard {
       showConfirmAction: false,
       contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
       closeAction: () => {
-        this.editSheetShown = false
+        this.discardMyTagsManagement()
       },
     }) {
       if (this.tagsetLoading) {
@@ -1100,7 +1225,7 @@ export struct GalleryTagsCard {
       confirmEnabled: this.canSubmitEdit(),
       confirmLoading: this.editSubmitting,
       closeAction: () => {
-        this.editSheetShown = false
+        this.discardMyTagsManagement()
       },
       confirmAction: () => {
         this.confirmSubmitEdit()
@@ -1174,7 +1299,7 @@ export struct GalleryTagsCard {
       confirmEnabled: this.canSubmitAdd(),
       confirmLoading: this.addSubmitting,
       closeAction: () => {
-        this.editSheetShown = false
+        this.discardMyTagsManagement()
       },
       confirmAction: () => {
         this.confirmSubmitAdd()
