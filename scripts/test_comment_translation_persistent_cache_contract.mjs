@@ -36,9 +36,19 @@ ok('comment translation RDB cache has a bounded latest-first retention query',
   /MAX_PERSISTED_COMMENT_TRANSLATION_ENTRIES: number = 512/.test(service) &&
     /DELETE FROM comment_translation_cache WHERE rowid NOT IN/.test(service) &&
     /ORDER BY cached_at DESC LIMIT \?/.test(service))
-ok('every persisted translation clears expiry then trims the durable cache',
-  /SQL_DELETE_EXPIRED_COMMENT_TRANSLATIONS[\s\S]*?SQL_UPSERT_COMMENT_TRANSLATION[\s\S]*?SQL_PRUNE_COMMENT_TRANSLATIONS/.test(service) &&
+ok('each persisted translation upserts its target row before bounded maintenance',
+  /await store\.executeSql\(SQL_UPSERT_COMMENT_TRANSLATION, \[[\s\S]*?if \(!CommentTranslationService\.cacheEpoch\.isCurrent\(cacheEpoch\)\) \{[\s\S]*?shouldRunPersistedCacheMaintenance\(\)/.test(service) &&
     /MAX_PERSISTED_COMMENT_TRANSLATION_ENTRIES/.test(service))
+ok('durable translation maintenance is batched, recoverable, and safe under concurrent saves',
+  /COMMENT_TRANSLATION_MAINTENANCE_INTERVAL: number = 32/.test(service) &&
+    /persistedCacheWritesSinceMaintenance: number = -1/.test(service) &&
+    /persistedCacheMaintenanceInFlight: boolean = false/.test(service) &&
+    /persistedCacheMaintenanceFollowUp: boolean = false/.test(service) &&
+    /private static shouldRunPersistedCacheMaintenance\(\): boolean/.test(service) &&
+    /persistedCacheWritesSinceMaintenance < 0[\s\S]*?persistedCacheWritesSinceMaintenance >= COMMENT_TRANSLATION_MAINTENANCE_INTERVAL - 1/.test(service) &&
+    /persistedCacheMaintenanceInFlight\) \{[\s\S]*?persistedCacheMaintenanceFollowUp = true/.test(service) &&
+    /await store\.executeSql\(SQL_DELETE_EXPIRED_COMMENT_TRANSLATIONS, \[now\]\)[\s\S]*?await store\.executeSql\(SQL_PRUNE_COMMENT_TRANSLATIONS, \[[\s\S]*?comment_cache_maintenance_failed[\s\S]*?finishPersistedCacheMaintenance\(maintenanceSucceeded\)/.test(service) &&
+    /succeeded && !hasFollowUp[\s\S]*?COMMENT_TRANSLATION_MAINTENANCE_INTERVAL - 1/.test(service))
 ok('RDB schema indexes cached_at for bounded pruning',
   /idx_comment_translation_cache_cached/.test(store) && /cached_at DESC/.test(store))
 

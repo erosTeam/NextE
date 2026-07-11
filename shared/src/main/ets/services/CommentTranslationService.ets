@@ -16,6 +16,8 @@ const MAX_CONCURRENT_COMMENT_TRANSLATIONS: number = 2
 export const MAX_PENDING_COMMENT_TRANSLATIONS: number = 32
 const MAX_COMMENT_TRANSLATION_MEMORY_ENTRIES: number = 256
 const MAX_PERSISTED_COMMENT_TRANSLATION_ENTRIES: number = 512
+// The durable cap is maintained in batches, so ordinary bursts may temporarily hold one interval extra rows.
+const COMMENT_TRANSLATION_MAINTENANCE_INTERVAL: number = 32
 export const COMMENT_TRANSLATION_PRIORITY_INTERACTIVE: number = 0
 export const COMMENT_TRANSLATION_PRIORITY_AUTO: number = 1
 const COMMENT_TRANSLATION_QUEUE_EVICTED_ERROR: string = 'comment_translation_queue_evicted'
@@ -406,6 +408,9 @@ export class CommentTranslationService {
   private static inflight: Map<string, CommentTranslationNetworkTask> = new Map()
   private static readonly scheduler: CommentTranslationQueueScheduler = new CommentTranslationQueueScheduler()
   private static readonly cacheEpoch: CommentTranslationCacheEpoch = new CommentTranslationCacheEpoch()
+  private static persistedCacheWritesSinceMaintenance: number = -1
+  private static persistedCacheMaintenanceInFlight: boolean = false
+  private static persistedCacheMaintenanceFollowUp: boolean = false
 
   static targetLanguage(): string {
     const locale: string = connectLanguageState().effectiveLocale
@@ -803,6 +808,7 @@ export class CommentTranslationService {
   static async clear(context: common.UIAbilityContext): Promise<void> {
     CommentTranslationService.cacheEpoch.advance()
     CommentTranslationService.memory.clear()
+    CommentTranslationService.resetPersistedCacheMaintenance()
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     await store.executeSql(SQL_DELETE_COMMENT_TRANSLATIONS)
   }
@@ -915,10 +921,6 @@ export class CommentTranslationService {
     if (!CommentTranslationService.cacheEpoch.isCurrent(cacheEpoch)) {
       return
     }
-    await store.executeSql(SQL_DELETE_EXPIRED_COMMENT_TRANSLATIONS, [now])
-    if (!CommentTranslationService.cacheEpoch.isCurrent(cacheEpoch)) {
-      return
-    }
     await store.executeSql(SQL_UPSERT_COMMENT_TRANSLATION, [
       CommentTranslationService.textHash(text),
       targetLang,
@@ -929,10 +931,57 @@ export class CommentTranslationService {
     if (!CommentTranslationService.cacheEpoch.isCurrent(cacheEpoch)) {
       return
     }
-    await store.executeSql(SQL_PRUNE_COMMENT_TRANSLATIONS, [
-      now,
-      MAX_PERSISTED_COMMENT_TRANSLATION_ENTRIES,
-    ])
+    if (!CommentTranslationService.shouldRunPersistedCacheMaintenance()) {
+      return
+    }
+    let maintenanceSucceeded: boolean = false
+    try {
+      // After the target row is safely upserted, maintenance only deletes stale/excess rows. It is
+      // intentionally best-effort so a prune failure does not turn a successful translation into UI failure.
+      await store.executeSql(SQL_DELETE_EXPIRED_COMMENT_TRANSLATIONS, [now])
+      await store.executeSql(SQL_PRUNE_COMMENT_TRANSLATIONS, [
+        now,
+        MAX_PERSISTED_COMMENT_TRANSLATION_ENTRIES,
+      ])
+      maintenanceSucceeded = true
+    } catch (error) {
+      DiagnosticLogger.warn('translation', 'comment_cache_maintenance_failed', (error as Error).message)
+    } finally {
+      CommentTranslationService.finishPersistedCacheMaintenance(maintenanceSucceeded)
+    }
+  }
+
+  /** First durable save and every later interval clean expiry + restore the eventual retention cap. */
+  private static shouldRunPersistedCacheMaintenance(): boolean {
+    if (CommentTranslationService.persistedCacheMaintenanceInFlight) {
+      CommentTranslationService.persistedCacheMaintenanceFollowUp = true
+      return false
+    }
+    if (
+      CommentTranslationService.persistedCacheWritesSinceMaintenance < 0 ||
+      CommentTranslationService.persistedCacheWritesSinceMaintenance >= COMMENT_TRANSLATION_MAINTENANCE_INTERVAL - 1
+    ) {
+      CommentTranslationService.persistedCacheMaintenanceInFlight = true
+      return true
+    }
+    CommentTranslationService.persistedCacheWritesSinceMaintenance =
+      CommentTranslationService.persistedCacheWritesSinceMaintenance + 1
+    return false
+  }
+
+  /** A failed or overlapped prune stays due, so the next successful save retries immediately. */
+  private static finishPersistedCacheMaintenance(succeeded: boolean): void {
+    CommentTranslationService.persistedCacheMaintenanceInFlight = false
+    const hasFollowUp: boolean = CommentTranslationService.persistedCacheMaintenanceFollowUp
+    CommentTranslationService.persistedCacheMaintenanceFollowUp = false
+    CommentTranslationService.persistedCacheWritesSinceMaintenance = succeeded && !hasFollowUp
+      ? 0
+      : COMMENT_TRANSLATION_MAINTENANCE_INTERVAL - 1
+  }
+
+  private static resetPersistedCacheMaintenance(): void {
+    CommentTranslationService.persistedCacheWritesSinceMaintenance = -1
+    CommentTranslationService.persistedCacheMaintenanceFollowUp = false
   }
 
   private static async callTranslation(text: string, targetLang: string): Promise<string> {

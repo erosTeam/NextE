@@ -38,7 +38,7 @@ const service = readFileSync(join(ROOT, 'shared/src/main/ets/services/CommentTra
 const index = readFileSync(join(ROOT, 'shared/src/main/ets/Index.ets'), 'utf8')
 
 ok('explicit clear advances the translation cache generation before deleting storage',
-  /static async clear\([\s\S]*?cacheEpoch\.advance\(\)[\s\S]*?memory\.clear\(\)[\s\S]*?SQL_DELETE_COMMENT_TRANSLATIONS/.test(service))
+  /static async clear\([\s\S]*?cacheEpoch\.advance\(\)[\s\S]*?memory\.clear\(\)[\s\S]*?resetPersistedCacheMaintenance\(\)[\s\S]*?SQL_DELETE_COMMENT_TRANSLATIONS/.test(service))
 ok('an older translation checks its generation before memory and RDB writes',
   /translateAndCache\([\s\S]*?cacheEpoch: number/.test(service) &&
     /save\([\s\S]*?cacheEpoch: number/.test(service) &&
@@ -47,5 +47,8 @@ ok('a queued request captures its generation before it can run, so a later clear
   /const cacheEpoch: number = CommentTranslationService\.cacheEpoch\.snapshot\(\)[\s\S]*?new CommentTranslationNetworkTask\([\s\S]*?targetLang,\s*cacheEpoch/.test(service))
 ok('the production cache epoch is exported for deterministic device testing',
   /CommentTranslationCacheEpoch/.test(index))
+ok('clear resets future maintenance cadence without releasing an active maintenance owner',
+  /private static resetPersistedCacheMaintenance\(\): void \{[\s\S]*?persistedCacheWritesSinceMaintenance = -1[\s\S]*?persistedCacheMaintenanceFollowUp = false/.test(service) &&
+    !/resetPersistedCacheMaintenance\(\): void \{[\s\S]*?persistedCacheMaintenanceInFlight = false/.test(service))
 
 console.log(`✓ comment translation cache-clear contract: ${passed} assertions passed`)
