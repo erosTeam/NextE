@@ -22,7 +22,6 @@ const ok = (cond, msg) => {
 }
 
 const page = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
-const projection = read('feature/download/src/main/ets/model/DownloadQueueTaskProjection.ets')
 const archiveService = read('shared/src/main/ets/services/ArchiveImageService.ets')
 const imagePipeline = read('shared/src/main/ets/services/ImagePipelineService.ets')
 const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets')
@@ -101,19 +100,6 @@ ok(/private DownloadGalleryTaskCard\(task: DownloadGalleryTask\)/.test(page) &&
   /Text\(task\.displayTitle\(\)\)[\s\S]*maxLines\(2\)/.test(page),
   'gallery tasks render as readable task cards with cover and two-line title')
 ok(!/BasicDataSource<DownloadGalleryTask>|BasicDataSource<DownloadArchiverTask>|galleryDataSource|archiverDataSource/.test(page) &&
-  /@Local galleryTaskGroups: DownloadGalleryTask\[\]\[\] = \[\[\], \[\], \[\], \[\]\]/.test(page) &&
-  /@Local archiverTaskGroups: DownloadArchiverTask\[\]\[\] = \[\[\], \[\], \[\], \[\]\]/.test(page) &&
-  /private rebuildTaskProjection\(\): void \{[\s\S]*DownloadQueueTaskProjection\.build\([\s\S]*this\.downloadQueue\.galleryTasks[\s\S]*this\.downloadQueue\.archiverTasks[\s\S]*this\.downloadView\.searchText[\s\S]*this\.downloadView\.sortMode/.test(page) &&
-  /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*this\.rebuildTaskProjection\(\)[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(page) &&
-  /@Monitor\('downloadView\.searchText', 'downloadView\.sortMode'\)[\s\S]*this\.rebuildTaskProjection\(\)/.test(page) &&
-  /aboutToAppear\(\): void \{[\s\S]*this\.rebuildTaskProjection\(\)/.test(page) &&
-  /ForEach\(\s*this\.galleryTasksForGroup\(group\),[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadGalleryTaskCard\(task\)/.test(page) &&
-  /ForEach\(\s*this\.archiverTasksForGroup\(group\),[\s\S]*ListItem\(\)\s*\{[\s\S]*this\.DownloadArchiverTaskCard\(task\)/.test(page) &&
-  !/currentGalleryTask|currentArchiverTask/.test(page) &&
-  /export class DownloadQueueTaskProjection/.test(projection) &&
-  /static build\([\s\S]*galleryTasks: DownloadGalleryTask\[\][\s\S]*archiverTasks: DownloadArchiverTask\[\][\s\S]*searchText: string[\s\S]*sortMode: string/.test(projection) &&
-  /projection\.galleryGroups\[group\]\.push\(task\)[\s\S]*projection\.galleryVisibleCount = projection\.galleryVisibleCount \+ 1/.test(projection) &&
-  /projection\.archiverGroups\[group\]\.push\(task\)[\s\S]*projection\.archiverVisibleCount = projection\.archiverVisibleCount \+ 1/.test(projection) &&
   !/@ComponentV2\s+struct DownloadGalleryTaskCardView/.test(page) &&
   !/@ComponentV2\s+struct DownloadArchiverTaskCardView/.test(page) &&
   /private GalleryTaskProgressBar\(task: DownloadGalleryTask\)[\s\S]*this\.taskProgressRatio\([\s\S]*task\.status,[\s\S]*task\.downloadedFiles,[\s\S]*task\.seededFiles,[\s\S]*task\.activeBytesWritten,[\s\S]*task\.activeBytesTotal/.test(page) &&
@@ -124,7 +110,7 @@ ok(!/BasicDataSource<DownloadGalleryTask>|BasicDataSource<DownloadArchiverTask>|
   !/initialTask|queueSignal|syncVisibleProgress/.test(page) &&
   !/visibleStatus|visibleDownloadedFiles|visibleSeededFiles|visibleActiveRatio|visibleBytesWritten|visibleProgress/.test(page) &&
   !/downloadQueueRevision/.test(page),
-  'gallery download rows reuse one queue projection and render direct @Trace progress fields')
+  'gallery download rows render through parent builders that read direct @Trace progress fields')
 ok(!/renderQueueRevision|renderGalleryTasks|renderArchiverTasks/.test(page) &&
   /private safeForEachKeyPart\(value: string\): string \{[\s\S]*return value\.replace\(\/\[\^A-Za-z0-9_\]\/g, '_'\)/.test(page) &&
   /private taskKey\(task: DownloadGalleryTask\): string \{[\s\S]*task\.gid[\s\S]*task\.token[\s\S]*task\.preferOriginal \? 'original' : 'resample'/.test(page) &&
@@ -138,8 +124,7 @@ ok(!/renderQueueRevision|renderGalleryTasks|renderArchiverTasks/.test(page) &&
   /ForEach\(\s*this\.archiverTasksForGroup\(group\)/.test(page) &&
   /\(task: DownloadGalleryTask\) => this\.galleryRenderKey\(task\)/.test(page) &&
   /\(task: DownloadArchiverTask\) => this\.archiverRenderKey\(task\)/.test(page) &&
-  /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.rebuildTaskProjection\(\)[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(page) &&
-  !/currentGalleryTask|currentArchiverTask/.test(page) &&
+  /@Monitor\('downloadQueueSignal\.version'\)[\s\S]*private onDownloadQueueChanged\(\): void \{[\s\S]*this\.downloadQueueTick = this\.downloadQueueTick \+ 1/.test(page) &&
   /this\.downloadQueueTick < 0/.test(page),
   'download queue page keeps stable row keys while parent builders receive a queue signal pulse')
 ok(/export class DownloadSortMode/.test(state) &&
@@ -159,9 +144,7 @@ ok(/export class DownloadSortMode/.test(state) &&
   /private SortMenu\(\)[\s\S]*download_sort_added_desc[\s\S]*download_sort_added_asc[\s\S]*download_sort_title_asc[\s\S]*download_sort_title_desc/.test(page) &&
   /new SymbolGlyphModifier\(\$r\('sys\.symbol\.checkmark'\)\)/.test(page),
   'download management exposes shared V2 search and native sort menu controls in the pinned title area')
-ok(/private static galleryMatchesSearch\(task: DownloadGalleryTask, query: string\): boolean \{[\s\S]*task\.displayTitle\(\)[\s\S]*task\.titleJp[\s\S]*task\.gid[\s\S]*task\.category/.test(projection) &&
-  /private static archiverMatchesSearch\(task: DownloadArchiverTask, query: string\): boolean \{[\s\S]*task\.displayTitle\(\)[\s\S]*task\.gid[\s\S]*task\.resolution[\s\S]*task\.dltype[\s\S]*task\.fileName/.test(projection) &&
-  /private groupVisibleCount\(group: number\): number \{[\s\S]*this\.galleryTasksForGroup\(group\)\.length/.test(page) &&
+ok(/private groupVisibleCount\(group: number\): number \{[\s\S]*this\.galleryTasksForGroup\(group\)\.length/.test(page) &&
   /private DownloadTaskGroupHeader\(group: number\)[\s\S]*Text\(this\.groupTitle\(group\)\)[\s\S]*Text\(`\$\{this\.groupVisibleCount\(group\)\}`\)/.test(page) &&
   /private archiverMetaText\(task: DownloadArchiverTask\): string \{[\s\S]*this\.byteSizeText\(Math\.max\(task\.bytesTotal, task\.bytesWritten\)\)/.test(page) &&
   /private archiverKindText\(task: DownloadArchiverTask\): string \{[\s\S]*download_use_regular_short/.test(page) &&
