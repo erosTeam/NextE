@@ -204,13 +204,12 @@ ok(/connectGalleryFavoriteMutation/.test(sharedIndex),
 ok(/@Monitor\('favoriteMutation\.version'\)/.test(homeBody) &&
   /this\.vm\.applyFavoriteMutation\(/.test(homeBody) &&
   /applyFavoriteMutation\(gid: string, favcat: string, favTitle: string\)/.test(homeVm) &&
-  /next\.favcat\s*=\s*favcat/.test(homeVm) &&
-  /this\.dataSource\.setData\(nextRows\)/.test(homeVm),
+  /next\.favcat\s*=\s*favcat/.test(homeVm),
   'home retained list cards update their favorite heart from the post-write mutation')
 ok(/@Monitor\('favoriteMutation\.version'\)/.test(searchPage) &&
   /this\.vm\.applyFavoriteMutation\(/.test(searchPage) &&
   /applyFavoriteMutation\(gid: string, favcat: string, favTitle: string\)/.test(searchVm) &&
-  /effectiveFavoriteScope\(\) && favcat\.length === 0/.test(searchVm),
+  /favcat\.length === 0/.test(searchVm),
   'search retained results update favorites and remove deleted rows from favorite-scope search')
 ok(/@Monitor\('favoriteMutation\.version'\)/.test(favcatPage) &&
   /this\.vm\.applyFavoriteMutation\(/.test(favcatPage) &&

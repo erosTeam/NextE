@@ -29,6 +29,7 @@ import readerSessionCacheStateTest from './ReaderSessionCacheState.test'
 import basicDataSourceChangeNotificationTest from './BasicDataSourceChangeNotification.test'
 import customProfilesPersistSchedulerTest from './CustomProfilesPersistScheduler.test'
 import allThumbnailsTailAppendTest from './AllThumbnailsTailAppend.test'
+import galleryListMutationTargetedUpdateTest from './GalleryListMutationTargetedUpdate.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -62,4 +63,5 @@ export default function testsuite(): void {
   basicDataSourceChangeNotificationTest()
   customProfilesPersistSchedulerTest()
   allThumbnailsTailAppendTest()
+  galleryListMutationTargetedUpdateTest()
 }

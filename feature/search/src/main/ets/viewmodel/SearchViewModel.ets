@@ -508,27 +508,31 @@ export class SearchViewModel {
       return
     }
     const current: EhGallery[] = this.dataSource.getAll()
+    const favoriteScope: boolean = this.effectiveFavoriteScope()
     let changed: boolean = false
-    const nextRows: EhGallery[] = []
-    current.forEach((g: EhGallery) => {
-      if (g.gid === gid) {
-        if (this.effectiveFavoriteScope() && favcat.length === 0) {
+    if (favoriteScope && favcat.length === 0) {
+      for (let index: number = current.length - 1; index >= 0; index--) {
+        if (current[index].gid === gid && this.dataSource.removeDataAt(index)) {
           changed = true
-          return
+        }
+      }
+    } else {
+      for (let index: number = 0; index < current.length; index++) {
+        const g: EhGallery = current[index]
+        if (g.gid !== gid) {
+          continue
         }
         const next: EhGallery = g.copy()
         next.favcat = favcat
         next.favTitle = favTitle
-        nextRows.push(next)
-        changed = true
-      } else {
-        nextRows.push(g)
+        if (this.dataSource.replaceDataAt(index, next)) {
+          changed = true
+        }
       }
-    })
+    }
     if (changed) {
-      this.dataSource.setData(nextRows)
       this.itemCount = this.dataSource.totalCount()
-      if (this.effectiveFavoriteScope()) {
+      if (favoriteScope) {
         this.hasMore = this.hasMore && this.itemCount > 0
       }
     }
@@ -545,9 +549,8 @@ export class SearchViewModel {
       return
     }
     const current: EhGallery[] = this.dataSource.getAll()
-    let changed: boolean = false
-    const nextRows: EhGallery[] = []
-    current.forEach((g: EhGallery) => {
+    for (let index: number = 0; index < current.length; index++) {
+      const g: EhGallery = current[index]
       if (g.gid === gid) {
         const next: EhGallery = g.copy()
         next.ratingFallBack = userRating
@@ -555,15 +558,8 @@ export class SearchViewModel {
         next.ratingCount = ratingCount
         next.colorRating = colorRating
         next.isRated = true
-        nextRows.push(next)
-        changed = true
-      } else {
-        nextRows.push(g)
+        this.dataSource.replaceDataAt(index, next)
       }
-    })
-    if (changed) {
-      this.dataSource.setData(nextRows)
-      this.itemCount = this.dataSource.totalCount()
     }
   }
 }

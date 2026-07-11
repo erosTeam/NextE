@@ -1250,22 +1250,14 @@ export class GalleryListViewModel {
       return
     }
     const current: EhGallery[] = this.dataSource.getAll()
-    let changed: boolean = false
-    const nextRows: EhGallery[] = []
-    current.forEach((g: EhGallery) => {
+    for (let index: number = 0; index < current.length; index++) {
+      const g: EhGallery = current[index]
       if (g.gid === gid) {
         const next: EhGallery = g.copy()
         next.favcat = favcat
         next.favTitle = favTitle
-        nextRows.push(next)
-        changed = true
-      } else {
-        nextRows.push(g)
+        this.dataSource.replaceDataAt(index, next)
       }
-    })
-    if (changed) {
-      this.dataSource.setData(nextRows)
-      this.itemCount = this.dataSource.totalCount()
     }
   }
 
@@ -1280,9 +1272,8 @@ export class GalleryListViewModel {
       return
     }
     const current: EhGallery[] = this.dataSource.getAll()
-    let changed: boolean = false
-    const nextRows: EhGallery[] = []
-    current.forEach((g: EhGallery) => {
+    for (let index: number = 0; index < current.length; index++) {
+      const g: EhGallery = current[index]
       if (g.gid === gid) {
         const next: EhGallery = g.copy()
         next.ratingFallBack = userRating
@@ -1290,15 +1281,8 @@ export class GalleryListViewModel {
         next.ratingCount = ratingCount
         next.colorRating = colorRating
         next.isRated = true
-        nextRows.push(next)
-        changed = true
-      } else {
-        nextRows.push(g)
+        this.dataSource.replaceDataAt(index, next)
       }
-    })
-    if (changed) {
-      this.dataSource.setData(nextRows)
-      this.itemCount = this.dataSource.totalCount()
     }
   }
 }

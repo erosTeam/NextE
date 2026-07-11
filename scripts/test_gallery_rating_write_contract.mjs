@@ -76,7 +76,7 @@ for (const [name, src] of [
   ['favorites', favVm],
 ]) {
   ok(`${name} VM applies rating mutation to retained rows`,
-    /applyRatingMutation\([\s\S]*userRating: number[\s\S]*averageRating: number[\s\S]*ratingCount: string[\s\S]*colorRating: string[\s\S]*next\.ratingFallBack = userRating[\s\S]*next\.rating = averageRating[\s\S]*next\.ratingCount = ratingCount[\s\S]*next\.colorRating = colorRating[\s\S]*next\.isRated = true[\s\S]*this\.dataSource\.setData\(nextRows\)/.test(src))
+    /applyRatingMutation\([\s\S]*userRating: number[\s\S]*averageRating: number[\s\S]*ratingCount: string[\s\S]*colorRating: string[\s\S]*next\.ratingFallBack = userRating[\s\S]*next\.rating = averageRating[\s\S]*next\.ratingCount = ratingCount[\s\S]*next\.colorRating = colorRating[\s\S]*next\.isRated = true/.test(src))
 }
 for (const [name, src] of [
   ['home body', homeBody],

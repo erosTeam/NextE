@@ -61,6 +61,28 @@ export class BasicDataSource<T> implements IDataSource {
     })
   }
 
+  /** Replace one existing row and refresh only that LazyForEach item. */
+  replaceDataAt(index: number, item: T): boolean {
+    if (index < 0 || index >= this.items.length) {
+      return false
+    }
+    this.items[index] = item
+    this.notifyDataChanged(index)
+    return true
+  }
+
+  /** Remove one row and let LazyForEach preserve the rest of the list in place. */
+  removeDataAt(index: number): boolean {
+    if (index < 0 || index >= this.items.length) {
+      return false
+    }
+    this.items.splice(index, 1)
+    this.listeners.forEach((l: DataChangeListener) => {
+      l.onDataDelete(index)
+    })
+    return true
+  }
+
   clear(): void {
     this.items = []
     this.notifyReload()
