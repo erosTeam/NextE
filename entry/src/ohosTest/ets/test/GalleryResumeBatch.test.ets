@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@ohos/hypium'
-import { DownloadGalleryTask, GalleryResumeBatch } from 'shared'
+import { DownloadGalleryTask, GalleryResumeAllGate, GalleryResumeBatch } from 'shared'
 
 function task(gid: string): DownloadGalleryTask {
   const value: DownloadGalleryTask = new DownloadGalleryTask()
@@ -83,6 +83,51 @@ export default function galleryResumeBatchTest(): void {
       releaseFirst()
       await completion
       expect(starts.join(',')).assertEqual('first,second')
+      done()
+    })
+
+    it('joins repeated resume-all requests until the active batch settles', 0, async (done: Function) => {
+      const gate: GalleryResumeAllGate = new GalleryResumeAllGate()
+      let starts: number = 0
+      let release: () => void = (): void => {}
+      const first: Promise<void> = gate.joinOrStart((): Promise<void> => {
+        starts++
+        return new Promise<void>((resolve: () => void): void => {
+          release = resolve
+        })
+      })
+      const second: Promise<void> = gate.joinOrStart((): Promise<void> => {
+        starts++
+        return Promise.resolve()
+      })
+
+      expect(starts).assertEqual(1)
+      release()
+      await first
+      await second
+      await gate.joinOrStart((): Promise<void> => {
+        starts++
+        return Promise.resolve()
+      })
+      expect(starts).assertEqual(2)
+      done()
+    })
+
+    it('releases a failed resume-all batch for a later retry', 0, async (done: Function) => {
+      const gate: GalleryResumeAllGate = new GalleryResumeAllGate()
+      let starts: number = 0
+      try {
+        await gate.joinOrStart((): Promise<void> => {
+          starts++
+          return Promise.reject(new Error('expected'))
+        })
+      } catch (_error) {
+      }
+      await gate.joinOrStart((): Promise<void> => {
+        starts++
+        return Promise.resolve()
+      })
+      expect(starts).assertEqual(2)
       done()
     })
   })

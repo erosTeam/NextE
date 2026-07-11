@@ -410,14 +410,9 @@ ok('terminal gallery work clears transient stream state so pause or removal cann
 ok('terminal archiver work clears its transient progress clocks',
   /private static clearArchiverRuntimeState\(tag: string\): void \{[\s\S]*archiverProgressPulses\.delete\(tag\)[\s\S]*archiverProgressLogPulses\.delete\(tag\)/.test(settings) &&
     /static async downloadArchiver[\s\S]*try \{[\s\S]*await task[\s\S]*\} finally \{[\s\S]*clearArchiverRuntimeState\(tag\)[\s\S]*archiverDownloads\.delete\(tag\)/.test(settings))
-ok('batch gallery actions reuse per-task resume and pause executors',
-  /static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
-    /canResumeGalleryTask\(tasks\[i\]\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)/.test(settings) &&
-    /static async pauseAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
+ok('batch gallery pause action reuses the per-task executor',
+  /static async pauseAllGalleryDownloads\(context: common\.UIAbilityContext\)/.test(settings) &&
     /tasks\[i\]\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*pauseGalleryDownload\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)/.test(settings))
-ok('batch gallery resume starts every eligible task without serially waiting on long downloads',
-  /static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\)[\s\S]*!DownloadQueueSettings\.galleryDownloads\.has\(key\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)[\s\S]*\.catch/.test(settings) &&
-    /static async downloadGalleryImages[\s\S]*startGalleryImageDownload\(context, gid, token, preferOriginal\)[\s\S]*galleryDownloads\.set\(key, task\)/.test(settings))
 ok('remove deletes archiver package, partial package, metadata sidecar, and extracted reader cache',
   /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiverRemoval\(context, tag\)[\s\S]*deleteArchiverContent\(context, task\)/.test(settings) &&
     /deleteArchiverContent\([\s\S]*archiverMetadataPath\(context, task\)[\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*archiverPartialPath\(task\.filePath\)[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&

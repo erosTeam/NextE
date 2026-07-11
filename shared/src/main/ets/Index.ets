@@ -586,6 +586,7 @@ export {
   DownloadDirectoryImportResult,
   DownloadQueueSettings,
   GalleryResumeBatch,
+  GalleryResumeAllGate,
   GallerySeedQueueTask,
   GallerySeedScheduler,
 } from './settings/DownloadQueueSettings'

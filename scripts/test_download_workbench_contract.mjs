@@ -307,10 +307,9 @@ ok(/archiverDownloads: Map<string, Promise<void>>/.test(queueSettings) &&
   /static async downloadArchiver[\s\S]*archiverDownloads\.get\(tag\)[\s\S]*await running[\s\S]*const task: Promise<void> = DownloadQueueSettings\.startArchiverDownload\(context, tag\)[\s\S]*archiverDownloads\.set\(tag, task\)[\s\S]*archiverDownloads\.delete\(tag\)/.test(queueSettings) &&
   /private static async startArchiverDownload[\s\S]*ensureDownloadStorageReady\(context\)[\s\S]*runArchiverDownload\(context, tag\)/.test(queueSettings),
   'archiver executor joins an in-flight archive download instead of starting duplicate workers')
-ok(/static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\): Promise<void>[\s\S]*!DownloadQueueSettings\.galleryDownloads\.has\(key\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)[\s\S]*\.catch/.test(queueSettings) &&
-  /static async downloadGalleryImages[\s\S]*const task: Promise<void> = DownloadQueueSettings\.startGalleryImageDownload\(context, gid, token, preferOriginal\)[\s\S]*galleryDownloads\.set\(key, task\)[\s\S]*private static async startGalleryImageDownload/.test(queueSettings) &&
+ok(/static async downloadGalleryImages[\s\S]*const task: Promise<void> = DownloadQueueSettings\.startGalleryImageDownload\(context, gid, token, preferOriginal\)[\s\S]*galleryDownloads\.set\(key, task\)[\s\S]*private static async startGalleryImageDownload/.test(queueSettings) &&
   /static async resumeAllArchiverDownloads\(context: common\.UIAbilityContext\): Promise<void>[\s\S]*!DownloadQueueSettings\.archiverDownloads\.has\(tasks\[i\]\.tag\)[\s\S]*downloadArchiver\(context, tasks\[i\]\.tag\)[\s\S]*\.catch/.test(queueSettings),
-  'resume-all starts each resumable task once without serially waiting for long downloads')
+  'gallery and archiver executors retain their per-task duplicate-work guards')
 ok(/archiver_download_start/.test(queueSettings) &&
   /archiver_download_done/.test(queueSettings) &&
   /archiver_download_failed/.test(queueSettings),

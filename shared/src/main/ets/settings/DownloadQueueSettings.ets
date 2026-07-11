@@ -260,6 +260,27 @@ export class GalleryResumeBatch {
   }
 }
 
+/** Keeps repeated manual resume-all taps attached to one bounded gallery batch. */
+export class GalleryResumeAllGate {
+  private running: Promise<void> | null = null
+
+  async joinOrStart(start: () => Promise<void>): Promise<void> {
+    if (this.running !== null) {
+      await this.running
+      return
+    }
+    const running: Promise<void> = start()
+    this.running = running
+    try {
+      await running
+    } finally {
+      if (this.running === running) {
+        this.running = null
+      }
+    }
+  }
+}
+
 class GallerySeedNetworkTask {
   queueTask: GallerySeedQueueTask
   private readonly work: () => Promise<DownloadSeedResult>
@@ -372,6 +393,7 @@ export class DownloadQueueSettings {
   private static downloadPublicRoot: string = ''
   private static downloadRootRequest: Promise<boolean> | null = null
   private static pendingResume: Promise<void> | null = null
+  private static galleryResumeAllGate: GalleryResumeAllGate = new GalleryResumeAllGate()
 
   private static setGalleryTasks(state: DownloadQueueState, tasks: DownloadGalleryTask[]): void {
     const next: DownloadGalleryTask[] = []
@@ -650,18 +672,31 @@ export class DownloadQueueSettings {
   }
 
   static async resumeAllGalleryDownloads(context: common.UIAbilityContext): Promise<void> {
-    const tasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.map(
-      (task: DownloadGalleryTask) => task.copy(),
-    )
-    for (let i: number = 0; i < tasks.length; i++) {
-      const key: string = DownloadQueueSettings.taskKey(tasks[i].gid, tasks[i].token, tasks[i].preferOriginal)
-      if (DownloadQueueSettings.canResumeGalleryTask(tasks[i]) && !DownloadQueueSettings.galleryDownloads.has(key)) {
-        DownloadQueueSettings.downloadGalleryImages(context, tasks[i].gid, tasks[i].token, tasks[i].preferOriginal)
-          .catch((error: Error) => {
-            DiagnosticLogger.warn('download', 'gallery_resume_all_task_failed', error.message)
-          })
+    await DownloadQueueSettings.galleryResumeAllGate.joinOrStart(async (): Promise<void> => {
+      const tasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.map(
+        (task: DownloadGalleryTask) => task.copy(),
+      )
+      const pending: DownloadGalleryTask[] = []
+      for (let i: number = 0; i < tasks.length; i++) {
+        const key: string = DownloadQueueSettings.taskKey(tasks[i].gid, tasks[i].token, tasks[i].preferOriginal)
+        if (DownloadQueueSettings.canResumeGalleryTask(tasks[i]) && !DownloadQueueSettings.galleryDownloads.has(key)) {
+          pending.push(tasks[i])
+        }
       }
-    }
+      await GalleryResumeBatch.start(
+        pending,
+        connectDownloadSettings().concurrency,
+        (task: DownloadGalleryTask): Promise<void> => DownloadQueueSettings.downloadGalleryImages(
+          context,
+          task.gid,
+          task.token,
+          task.preferOriginal,
+        ),
+        (task: DownloadGalleryTask, error: Error): void => {
+          DiagnosticLogger.warn('download', 'gallery_resume_all_task_failed', `gid=${task.gid} ${error.message}`)
+        },
+      )
+    })
   }
 
   static async pauseAllGalleryDownloads(context: common.UIAbilityContext): Promise<void> {
