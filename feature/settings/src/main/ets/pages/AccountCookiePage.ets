@@ -7,6 +7,7 @@ import {
   ConciseListRow,
   CookieJarEntry,
   CookieJarSettings,
+  EhConstants,
   EhCookieStore,
   GroupedListSection,
   SecondaryListScaffold,
@@ -60,10 +61,14 @@ export struct AccountCookiePage {
     if (this.refreshingIgneous) {
       return
     }
+    const requestMember: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID)
     this.refreshingIgneous = true
     this.toast($r('app.string.site_ex_checking'))
     CookieJarSettings.refreshIgneous(this.ctx())
       .then((ok: boolean) => {
+        if (EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID) !== requestMember) {
+          return
+        }
         this.reload()
         this.toast(ok ? $r('app.string.site_ex_unlocked') : $r('app.string.site_ex_no_access'))
       })

@@ -6,6 +6,8 @@ import {
   AuthState,
   ConciseListRow,
   CookieJarSettings,
+  EhConstants,
+  EhCookieStore,
   GroupedListSection,
   LocalBlockState,
   SecondaryListScaffold,
@@ -69,10 +71,14 @@ export struct EhSettingsPage {
     if (this.switchingSite) {
       return
     }
+    const requestMember: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID)
     this.switchingSite = true
     this.toast($r('app.string.site_ex_checking'))
     CookieJarSettings.refreshIgneous(ctx)
       .then((ok: boolean) => {
+        if (EhCookieStore.getInstance().get(EhConstants.COOKIE_MEMBER_ID) !== requestMember) {
+          return
+        }
         if (ok) {
           SiteModeSettings.setEx(ctx, true)
           this.toast($r('app.string.site_ex_unlocked'))

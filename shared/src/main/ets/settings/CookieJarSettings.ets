@@ -292,11 +292,35 @@ export class CookieJarSettings {
     // Value stops at ; , whitespace, or " — the last so this also works when fed a JSON-stringified
     // response header (HttpResponse.cookies is lossy, so the auth cookies are read from there).
     for (const name of names) {
-      const match: RegExpExecArray | null = new RegExp(`${name}=([^;,\\s"]+)`).exec(setCookie)
-      if (match !== null && match[1].length > 0 && match[1] !== 'mystery') {
-        store.set(name, match[1])
+      const value: string = CookieJarSettings.setCookieValue(setCookie, name)
+      if (value.length > 0) {
+        store.set(name, value)
       }
     }
+  }
+
+  /**
+   * A delayed uconfig response must never be merged after an account switch. The response normally only
+   * carries igneous, but a server-side session refresh can include identity cookies too, so verify both the
+   * account that issued the request and any identity carried by the response before changing the active jar.
+   */
+  static shouldApplyIgneousResponse(
+    requestMember: string,
+    requestPassHash: string,
+    activeMember: string,
+    activePassHash: string,
+    setCookie: string,
+  ): boolean {
+    if (
+      requestMember.length === 0 ||
+      requestPassHash.length === 0 ||
+      activeMember !== requestMember ||
+      activePassHash !== requestPassHash
+    ) {
+      return false
+    }
+    const responseMember: string = CookieJarSettings.setCookieValue(setCookie, EhConstants.COOKIE_MEMBER_ID)
+    return responseMember.length === 0 || responseMember === requestMember
   }
 
   /**
@@ -306,6 +330,13 @@ export class CookieJarSettings {
    * real igneous is now present (i.e. the account can use ExHentai).
    */
   static async refreshIgneous(context: common.UIAbilityContext): Promise<boolean> {
+    const cookieStore: EhCookieStore = EhCookieStore.getInstance()
+    const requestMember: string = cookieStore.get(EhConstants.COOKIE_MEMBER_ID)
+    const requestPassHash: string = cookieStore.get(EhConstants.COOKIE_PASS_HASH)
+    if (requestMember.length === 0 || requestPassHash.length === 0) {
+      DiagnosticLogger.warn('auth', 'refresh_igneous_skipped', 'reason=no_active_member')
+      return false
+    }
     try {
       const resp: EhTextResponse = await EhHttpClient.getInstance().getText(
         `${EhConstants.EX_BASE_URL}/uconfig.php`,
@@ -317,8 +348,24 @@ export class CookieJarSettings {
       if (setCookie.length === 0 && resp.cookies !== undefined) {
         setCookie = resp.cookies
       }
+      const activeMember: string = cookieStore.get(EhConstants.COOKIE_MEMBER_ID)
+      const activePassHash: string = cookieStore.get(EhConstants.COOKIE_PASS_HASH)
+      if (!CookieJarSettings.shouldApplyIgneousResponse(
+        requestMember,
+        requestPassHash,
+        activeMember,
+        activePassHash,
+        setCookie,
+      )) {
+        DiagnosticLogger.warn(
+          'auth',
+          'refresh_igneous_stale_response',
+          `activeMatchesRequest=${activeMember === requestMember}`,
+        )
+        return false
+      }
       CookieJarSettings.applyFromSetCookie(setCookie)
-      const igneous: string = EhCookieStore.getInstance().get(EhConstants.COOKIE_IGNEOUS)
+      const igneous: string = cookieStore.get(EhConstants.COOKIE_IGNEOUS)
       const unlocked: boolean = igneous.length > 0 && igneous !== 'mystery'
       DiagnosticLogger.info(
         'auth',
@@ -334,6 +381,14 @@ export class CookieJarSettings {
       DiagnosticLogger.warn('auth', 'refresh_igneous_failed', (error as Error).message)
       return false
     }
+  }
+
+  private static setCookieValue(setCookie: string, name: string): string {
+    const match: RegExpExecArray | null = new RegExp(`${name}=([^;,\\s"]+)`).exec(setCookie)
+    if (match === null || match[1].length === 0 || match[1] === 'mystery') {
+      return ''
+    }
+    return match[1]
   }
 
   static async mergeFromWebCookieManager(context: common.UIAbilityContext): Promise<boolean> {

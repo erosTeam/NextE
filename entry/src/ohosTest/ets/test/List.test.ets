@@ -11,6 +11,7 @@ import imageBlockThumbnailHashMemoryCacheTest from './ImageBlockThumbnailHashMem
 import coverColorResourceBoundsTest from './CoverColorResourceBounds.test'
 import preloadedGalleryListMemoryCacheTest from './PreloadedGalleryListMemoryCache.test'
 import userTagStoreInlineCacheTest from './UserTagStoreInlineCache.test'
+import cookieJarRefreshIdentityTest from './CookieJarRefreshIdentity.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -26,4 +27,5 @@ export default function testsuite(): void {
   coverColorResourceBoundsTest()
   preloadedGalleryListMemoryCacheTest()
   userTagStoreInlineCacheTest()
+  cookieJarRefreshIdentityTest()
 }
