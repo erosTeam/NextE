@@ -166,6 +166,7 @@ export {
 } from './services/ArchiveBotService'
 export {
   CachedImageFileResult,
+  CachedImageFileService,
   CachedImageProgress,
 } from './services/CachedImageFileService'
 export {

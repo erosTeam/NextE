@@ -22,6 +22,10 @@ const READER_IMAGE_CONNECT_TIMEOUT_MS: number = 6000
 const READER_IMAGE_NO_PROGRESS_TIMEOUT_MS: number = 10000
 const MAX_CACHE_FILE_COUNT: number = 256
 const MAX_CACHE_BYTES: number = 64 * 1024 * 1024
+// ImageKnife normally owns thumbnail disk caching. This fallback only runs after ImageKnife misses,
+// so keep its recovery path responsive instead of rescanning this bounded directory on every store.
+const FALLBACK_CACHE_MAINTENANCE_WRITE_INTERVAL: number = 8
+const FALLBACK_CACHE_MAINTENANCE_BYTES_INTERVAL: number = 4 * 1024 * 1024
 
 class CachedImageFileCacheEntry {
   path: string = ''
@@ -41,6 +45,8 @@ export class CachedImageFileService {
     Promise<CachedImageFileResult>
   >()
   private static pruneChain: Promise<void> = Promise.resolve()
+  private static maintenanceWritesSincePrune: number = -1
+  private static maintenanceBytesSincePrune: number = 0
 
   static cached(
     context: common.UIAbilityContext,
@@ -188,7 +194,7 @@ export class CachedImageFileService {
         'stored',
         `bytes=${finalBytes} urlHash=${DiagnosticLogger.ownerHash(url)} cacheKeyHash=${DiagnosticLogger.ownerHash(cacheKey)}`,
       )
-      await CachedImageFileService.pruneToLimit(context)
+      await CachedImageFileService.pruneAfterStore(context, filePath, finalBytes)
       return {
         filePath,
         displayUri: CachedImageFileService.displayUri(filePath),
@@ -230,19 +236,63 @@ export class CachedImageFileService {
       }
     } catch (error) {
       DiagnosticLogger.warn('image-cache', 'clear_failed', (error as Error).message)
+    } finally {
+      CachedImageFileService.resetMaintenanceCadence()
     }
   }
 
-  static pruneToLimit(context: common.UIAbilityContext): Promise<void> {
+  /**
+   * Avoid a directory scan after every recovery thumbnail. Explicit maintenance keeps eager
+   * `pruneToLimit()` behavior, while the current just-written file is protected from eviction.
+   */
+  static async pruneAfterStore(
+    context: common.UIAbilityContext,
+    protectedPath: string,
+    storedBytes: number,
+  ): Promise<void> {
+    const addedBytes: number = storedBytes > 0 ? storedBytes : 0
+    const maintenanceDue: boolean =
+      CachedImageFileService.maintenanceWritesSincePrune < 0 ||
+      CachedImageFileService.maintenanceWritesSincePrune >=
+        FALLBACK_CACHE_MAINTENANCE_WRITE_INTERVAL - 1 ||
+      CachedImageFileService.maintenanceBytesSincePrune + addedBytes >=
+        FALLBACK_CACHE_MAINTENANCE_BYTES_INTERVAL
+    if (!maintenanceDue) {
+      CachedImageFileService.maintenanceWritesSincePrune =
+        CachedImageFileService.maintenanceWritesSincePrune + 1
+      CachedImageFileService.maintenanceBytesSincePrune =
+        CachedImageFileService.maintenanceBytesSincePrune + addedBytes
+      return
+    }
+
+    // Advance before awaiting the shared chain so concurrent recovery downloads retain their own
+    // accounting and can schedule a later maintenance pass.
+    CachedImageFileService.maintenanceWritesSincePrune = 0
+    CachedImageFileService.maintenanceBytesSincePrune = 0
+    try {
+      await CachedImageFileService.pruneToLimit(context, protectedPath)
+    } catch (error) {
+      // A completed fallback image is usable even if best-effort cache maintenance cannot run.
+      CachedImageFileService.resetMaintenanceCadence()
+      DiagnosticLogger.warn('image-cache', 'fallback_disk_maintenance_failed', (error as Error).message)
+    }
+  }
+
+  static pruneToLimit(context: common.UIAbilityContext, protectedPath: string = ''): Promise<void> {
     const next: Promise<void> = CachedImageFileService.pruneChain.then(
-      (): Promise<void> => CachedImageFileService.pruneNow(context),
-      (): Promise<void> => CachedImageFileService.pruneNow(context),
+      (): Promise<void> => CachedImageFileService.pruneNow(context, protectedPath),
+      (): Promise<void> => CachedImageFileService.pruneNow(context, protectedPath),
     )
     CachedImageFileService.pruneChain = next
     return next
   }
 
-  private static async pruneNow(context: common.UIAbilityContext): Promise<void> {
+  private static resetMaintenanceCadence(): void {
+    CachedImageFileService.maintenanceWritesSincePrune = -1
+    CachedImageFileService.maintenanceBytesSincePrune = 0
+  }
+
+  private static async pruneNow(context: common.UIAbilityContext, protectedPath: string): Promise<void> {
     const entries: CachedImageFileCacheEntry[] = CachedImageFileService.entries(context)
     if (entries.length === 0) {
       return
@@ -257,6 +307,9 @@ export class CachedImageFileService {
     for (let i: number = 0; i < entries.length; i++) {
       if ((totalBytes <= MAX_CACHE_BYTES && remaining <= MAX_CACHE_FILE_COUNT) || remaining <= 1) {
         break
+      }
+      if (entries[i].path === protectedPath) {
+        continue
       }
       CachedImageFileService.removeIfExists(entries[i].path)
       totalBytes -= entries[i].bytes

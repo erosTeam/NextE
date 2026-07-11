@@ -33,8 +33,8 @@ ok('ImageBlock thumbnail fallback cache has an independent bounded LRU disk life
   /MAX_CACHE_FILE_COUNT: number = 256/.test(fallbackImageCache) &&
     /MAX_CACHE_BYTES: number = 64 \* 1024 \* 1024/.test(fallbackImageCache) &&
     /static cached\([\s\S]*CachedImageFileService\.touch\(filePath\)/.test(fallbackImageCache) &&
-    /private static async downloadAndStore[\s\S]*try \{[\s\S]*await CachedImageFileService\.pruneToLimit\(context\)[\s\S]*catch \(error\) \{[\s\S]*removeIfExists\(tmpPath\)/.test(fallbackImageCache) &&
-    /static pruneToLimit\(context: common\.UIAbilityContext\): Promise<void>[\s\S]*pruneChain/.test(fallbackImageCache) &&
+    /private static async downloadAndStore[\s\S]*try \{[\s\S]*await CachedImageFileService\.(?:pruneAfterStore|pruneToLimit)\(context[\s\S]*catch \(error\) \{[\s\S]*removeIfExists\(tmpPath\)/.test(fallbackImageCache) &&
+    /static pruneToLimit\(context: common\.UIAbilityContext[\s\S]*pruneChain/.test(fallbackImageCache) &&
     /private static entries\([\s\S]*endsWith\('\.part'\)[\s\S]*removeIfExists\(path\)/.test(fallbackImageCache))
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')

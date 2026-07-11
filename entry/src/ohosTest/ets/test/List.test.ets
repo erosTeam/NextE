@@ -20,6 +20,7 @@ import userProfileRequestFenceTest from './UserProfileRequestFence.test'
 import ehProfileSelectionCookieTest from './EhProfileSelectionCookie.test'
 import diagnosticsLogFileSinkTest from './DiagnosticsLogFileSink.test'
 import imageBlockPreviewCacheMaintenanceTest from './ImageBlockPreviewCacheMaintenance.test'
+import cachedImageFileMaintenanceTest from './CachedImageFileMaintenance.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -44,4 +45,5 @@ export default function testsuite(): void {
   ehProfileSelectionCookieTest()
   diagnosticsLogFileSinkTest()
   imageBlockPreviewCacheMaintenanceTest()
+  cachedImageFileMaintenanceTest()
 }
