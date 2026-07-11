@@ -36,6 +36,7 @@ export struct WebDavSyncSettingsPage {
   }
 
   aboutToDisappear(): void {
+    SyncSettings.flushWebDavConfig(this.ctx(), this.snapshot())
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
@@ -51,8 +52,8 @@ export struct WebDavSyncSettingsPage {
     return snapshot
   }
 
-  private save(): void {
-    SyncSettings.save(this.ctx(), this.snapshot())
+  private saveWebDavConfig(): void {
+    SyncSettings.saveWebDavConfig(this.ctx(), this.snapshot())
   }
 
   private toast(message: ResourceStr): void {
@@ -62,7 +63,7 @@ export struct WebDavSyncSettingsPage {
   private toggleWebDav(enabled: boolean): void {
     const snapshot = this.snapshot()
     snapshot.webdavEnabled = enabled
-    SyncSettings.save(this.ctx(), snapshot)
+    SyncSettings.flushWebDavConfig(this.ctx(), snapshot)
   }
 
   private canSync(): boolean {
@@ -112,7 +113,7 @@ export struct WebDavSyncSettingsPage {
       return
     }
     this.syncing = true
-    this.save()
+    SyncSettings.flushWebDavConfig(this.ctx(), this.snapshot())
     const config = new WebDavSyncConfig()
     config.directoryUrl = this.webdavUrlDraft.trim()
     config.username = this.webdavUsernameDraft.trim()
@@ -164,7 +165,7 @@ export struct WebDavSyncSettingsPage {
           .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
           .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
           .onChange(() => {
-            this.save()
+            this.saveWebDavConfig()
           })
       } else if (field === 'username') {
         TextInput({ text: $$this.webdavUsernameDraft, placeholder: placeholder })
@@ -175,7 +176,7 @@ export struct WebDavSyncSettingsPage {
           .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
           .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
           .onChange(() => {
-            this.save()
+            this.saveWebDavConfig()
           })
       } else {
         TextInput({ text: $$this.webdavPasswordDraft, placeholder: placeholder })
@@ -186,7 +187,7 @@ export struct WebDavSyncSettingsPage {
           .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
           .borderRadius(ThemeConstants.LIST_ROW_RADIUS)
           .onChange(() => {
-            this.save()
+            this.saveWebDavConfig()
           })
       }
     }

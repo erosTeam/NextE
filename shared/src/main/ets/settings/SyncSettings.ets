@@ -10,6 +10,55 @@ import {
 } from '../state/SyncSettingsState'
 import { SyncDatasetSelection } from '../sync/SyncTypes'
 
+const WEBDAV_CONFIG_PERSIST_DELAY_MS: number = 250
+
+/**
+ * Serializes a latest-value settings write. An active write is allowed to finish, then the newest
+ * pending snapshot follows it so an older asynchronous Preferences continuation cannot win.
+ */
+export class WebDavConfigPersistScheduler {
+  private readonly delayMs: number
+  private timer: number = -1
+  private pendingWrite: (() => Promise<void>) | null = null
+  private writeTail: Promise<void> = Promise.resolve()
+
+  constructor(delayMs: number = WEBDAV_CONFIG_PERSIST_DELAY_MS) {
+    this.delayMs = delayMs >= 0 ? delayMs : 0
+  }
+
+  schedule(write: () => Promise<void>): void {
+    this.pendingWrite = write
+    if (this.timer >= 0) {
+      clearTimeout(this.timer)
+    }
+    this.timer = setTimeout(() => {
+      this.timer = -1
+      this.flush()
+    }, this.delayMs)
+  }
+
+  flush(): Promise<void> {
+    if (this.timer >= 0) {
+      clearTimeout(this.timer)
+      this.timer = -1
+    }
+    const write: (() => Promise<void>) | null = this.pendingWrite
+    if (write === null) {
+      return this.writeTail
+    }
+    this.pendingWrite = null
+    this.writeTail = this.writeTail.then(write, write)
+    return this.writeTail
+  }
+}
+
+class WebDavConfigSnapshot {
+  webdavUrl: string = ''
+  webdavUsername: string = ''
+  webdavPassword: string = ''
+  webdavEnabled: boolean = false
+}
+
 export class SyncSettingsSnapshot {
   webdavUrl: string = ''
   webdavUsername: string = ''
@@ -33,6 +82,9 @@ export class SyncSettingsSnapshot {
 
 /** Sync provider settings. WebDAV password is intentionally local-only and never exported. */
 export class SyncSettings {
+  private static readonly webDavConfigPersistScheduler: WebDavConfigPersistScheduler =
+    new WebDavConfigPersistScheduler()
+
   static apply(snapshot: SyncSettingsSnapshot): void {
     const state = connectSyncSettings()
     state.webdavUrl = snapshot.webdavUrl
@@ -176,6 +228,27 @@ export class SyncSettings {
     }
   }
 
+  /**
+   * Applies WebDAV edits immediately, but coalesces their local durable write. This intentionally
+   * excludes dataset and run-status keys so typing configuration cannot replay a stale full snapshot.
+   */
+  static saveWebDavConfig(context: common.UIAbilityContext, snapshot: SyncSettingsSnapshot): void {
+    const config: WebDavConfigSnapshot = SyncSettings.webDavConfig(snapshot)
+    SyncSettings.applyWebDavConfig(config)
+    SyncSettings.webDavConfigPersistScheduler.schedule(
+      (): Promise<void> => SyncSettings.writeWebDavConfig(context, config),
+    )
+  }
+
+  /** Force the newest WebDAV configuration through the same serialized write path. */
+  static async flushWebDavConfig(
+    context: common.UIAbilityContext,
+    snapshot: SyncSettingsSnapshot,
+  ): Promise<void> {
+    SyncSettings.saveWebDavConfig(context, snapshot)
+    await SyncSettings.webDavConfigPersistScheduler.flush()
+  }
+
   static async markRun(
     context: common.UIAbilityContext,
     status: string,
@@ -229,6 +302,54 @@ export class SyncSettings {
       return trimmed.substring(0, 240)
     }
     return trimmed
+  }
+
+  private static webDavConfig(snapshot: SyncSettingsSnapshot): WebDavConfigSnapshot {
+    const config = new WebDavConfigSnapshot()
+    config.webdavUrl = snapshot.webdavUrl.trim()
+    config.webdavUsername = snapshot.webdavUsername.trim()
+    config.webdavPassword = snapshot.webdavPassword
+    config.webdavEnabled = snapshot.webdavEnabled
+    return config
+  }
+
+  private static applyWebDavConfig(config: WebDavConfigSnapshot): void {
+    const state = connectSyncSettings()
+    state.webdavUrl = config.webdavUrl
+    state.webdavUsername = config.webdavUsername
+    state.webdavPassword = config.webdavPassword
+    state.webdavEnabled = config.webdavEnabled
+  }
+
+  private static async writeWebDavConfig(
+    context: common.UIAbilityContext,
+    config: WebDavConfigSnapshot,
+  ): Promise<void> {
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
+      let changed: boolean = false
+      if ((store.getSync(StorageKeys.SYNC_WEBDAV_URL, '') as string) !== config.webdavUrl) {
+        store.putSync(StorageKeys.SYNC_WEBDAV_URL, config.webdavUrl)
+        changed = true
+      }
+      if ((store.getSync(StorageKeys.SYNC_WEBDAV_USERNAME, '') as string) !== config.webdavUsername) {
+        store.putSync(StorageKeys.SYNC_WEBDAV_USERNAME, config.webdavUsername)
+        changed = true
+      }
+      if ((store.getSync(StorageKeys.SYNC_WEBDAV_PASSWORD, '') as string) !== config.webdavPassword) {
+        store.putSync(StorageKeys.SYNC_WEBDAV_PASSWORD, config.webdavPassword)
+        changed = true
+      }
+      if ((store.getSync(StorageKeys.SYNC_WEBDAV_ENABLED, false) as boolean) !== config.webdavEnabled) {
+        store.putSync(StorageKeys.SYNC_WEBDAV_ENABLED, config.webdavEnabled)
+        changed = true
+      }
+      if (changed) {
+        await store.flush()
+      }
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'sync_webdav_config_save_failed', (error as Error).message)
+    }
   }
 
   private static async saveRunStatus(

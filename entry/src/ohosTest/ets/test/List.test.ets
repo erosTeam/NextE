@@ -22,6 +22,7 @@ import diagnosticsLogFileSinkTest from './DiagnosticsLogFileSink.test'
 import imageBlockPreviewCacheMaintenanceTest from './ImageBlockPreviewCacheMaintenance.test'
 import cachedImageFileMaintenanceTest from './CachedImageFileMaintenance.test'
 import searchFilterPersistSchedulerTest from './SearchFilterPersistScheduler.test'
+import webDavConfigPersistSchedulerTest from './WebDavConfigPersistScheduler.test'
 
 export default function testsuite(): void {
   galleryDetailParserTest()
@@ -48,4 +49,5 @@ export default function testsuite(): void {
   imageBlockPreviewCacheMaintenanceTest()
   cachedImageFileMaintenanceTest()
   searchFilterPersistSchedulerTest()
+  webDavConfigPersistSchedulerTest()
 }

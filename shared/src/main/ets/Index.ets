@@ -316,6 +316,7 @@ export {
 export {
   SyncSettings,
   SyncSettingsSnapshot,
+  WebDavConfigPersistScheduler,
 } from './settings/SyncSettings'
 export {
   LOCAL_BLOCK_COMMENT_DISPLAY_COLLAPSE,
