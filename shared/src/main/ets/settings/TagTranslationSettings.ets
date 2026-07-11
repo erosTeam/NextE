@@ -17,6 +17,8 @@ import {
 const AUTO_UPDATE_DELAY_MS: number = 10000
 
 export class TagTranslationSettings {
+  private static statusRefreshEpoch: number = 0
+
   static async restore(context: common.UIAbilityContext): Promise<void> {
     try {
       const store: preferences.Preferences = await preferences.getPreferences(context, StorageKeys.STORE_SETTINGS)
@@ -29,7 +31,6 @@ export class TagTranslationSettings {
       state.introImageLevel = TagTranslationSettings.normalizeIntroImageLevel(
         store.getSync(StorageKeys.TAG_TRANSLATION_INTRO_IMAGE_LEVEL, TAG_INTRO_IMAGE_NON_H) as string,
       )
-      await TagTranslationSettings.refreshStatus(context)
       TagTranslationSettings.scheduleStartupUpdate(context)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'tagtranslation_restore_failed', (error as Error).message)
@@ -71,10 +72,24 @@ export class TagTranslationSettings {
   }
 
   static async refreshStatus(context: common.UIAbilityContext): Promise<void> {
+    const epoch: number = TagTranslationSettings.statusRefreshEpoch + 1
+    TagTranslationSettings.statusRefreshEpoch = epoch
     const status: TagTranslationStatus = await TagTranslationService.status(context)
+    if (epoch !== TagTranslationSettings.statusRefreshEpoch) {
+      return
+    }
     const state: TagTranslationSettingsState = connectTagTranslationSettings()
     state.version = status.version
     state.rowCount = status.rowCount
+  }
+
+  /** Status is settings-only display metadata; defer its table scan until first content can mount. */
+  static scheduleStatusRefresh(context: common.UIAbilityContext): void {
+    setTimeout((): void => {
+      TagTranslationSettings.refreshStatus(context).catch((error: Error) => {
+        DiagnosticLogger.warn('settings', 'tagtranslation_status_refresh_failed', error.message)
+      })
+    }, 0)
   }
 
   static async updateNow(context: common.UIAbilityContext, force: boolean = true): Promise<number> {

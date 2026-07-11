@@ -113,6 +113,7 @@ export class SettingsBootstrap {
       // Cache warming is optional: active Home/Favorites VMs fall back to the same RDB load when it
       // has not completed. Keep durable settings on the startup path, but let windowStage begin mounting first.
       SettingsBootstrap.schedulePageCachePreload(context)
+      TagTranslationSettings.scheduleStatusRefresh(context)
       DiagnosticLogger.info('settings', 'bootstrap_loaded', 'cookie jar restored')
       // Fire-and-forget (NOT awaited): reconcile My Tags after both cookies and site mode are restored.
       // It is login-gated and never blocks the first paint.
