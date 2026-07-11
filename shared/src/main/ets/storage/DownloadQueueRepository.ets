@@ -32,6 +32,8 @@ const SQL_DELETE_TASKS: string = 'DELETE FROM download_gallery_tasks WHERE scope
 const SQL_DELETE_SEEDS: string = 'DELETE FROM download_gallery_seeds WHERE scope_key = ?'
 const SQL_DELETE_SEEDS_FOR_TASK: string =
   'DELETE FROM download_gallery_seeds WHERE scope_key = ? AND gid = ? AND token = ? AND prefer_original = ?'
+const SQL_DELETE_TASK: string =
+  'DELETE FROM download_gallery_tasks WHERE scope_key = ? AND gid = ? AND token = ? AND prefer_original = ?'
 const SQL_SELECT_ARCHIVER_TASKS: string =
   'SELECT tag, gid, token, title, thumb_url, img_width, img_height, dltype, resolution, parse_source, url, file_name, file_path, queued_at, downloaded_at, ' +
   'bytes_written, bytes_total, progress, error, status FROM download_archiver_tasks ' +
@@ -42,6 +44,8 @@ const SQL_UPSERT_ARCHIVER_TASK: string =
   'bytes_written, bytes_total, progress, error, status) ' +
   'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 const SQL_DELETE_ARCHIVER_TASKS: string = 'DELETE FROM download_archiver_tasks WHERE scope_key = ?'
+const SQL_DELETE_ARCHIVER_TASK: string =
+  'DELETE FROM download_archiver_tasks WHERE scope_key = ? AND tag = ?'
 
 export class DownloadQueueRepository {
   static async load(context: common.UIAbilityContext): Promise<DownloadGalleryTask[]> {
@@ -86,13 +90,54 @@ export class DownloadQueueRepository {
     const store: relationalStore.RdbStore = await LocalDataStore.open(context)
     store.beginTransaction()
     try {
-      await store.executeSql(SQL_DELETE_SEEDS_FOR_TASK, [
-        SCOPE_GLOBAL,
-        task.gid,
-        task.token,
-        task.preferOriginal ? 1 : 0,
-      ])
-      await DownloadQueueRepository.upsertTask(store, task)
+      await DownloadQueueRepository.replaceGalleryTaskWithStore(store, task)
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
+  }
+
+  /** Ordinary enqueue refreshes one task and removes only the queue entries displaced by its cap. */
+  static async replaceGalleryTaskAndRemove(
+    context: common.UIAbilityContext,
+    task: DownloadGalleryTask,
+    removed: DownloadGalleryTask[],
+  ): Promise<void> {
+    if (task.gid.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    store.beginTransaction()
+    try {
+      await DownloadQueueRepository.replaceGalleryTaskWithStore(store, task)
+      for (let i: number = 0; i < removed.length; i++) {
+        const displaced: DownloadGalleryTask = removed[i]
+        if (!DownloadQueueRepository.sameGalleryTask(displaced, task)) {
+          await DownloadQueueRepository.removeGalleryTaskWithStore(store, displaced)
+        }
+      }
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
+  }
+
+  /** Ordinary explicit removal deletes one task and its own seeds without touching other queue rows. */
+  static async removeGalleryTask(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    preferOriginal: boolean,
+  ): Promise<void> {
+    if (gid.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    store.beginTransaction()
+    try {
+      await DownloadQueueRepository.removeGalleryTaskByKeyWithStore(store, gid, token, preferOriginal)
       store.commit()
     } catch (error) {
       store.rollBack()
@@ -172,6 +217,41 @@ export class DownloadQueueRepository {
     await DownloadQueueRepository.upsertArchiverTask(store, task)
   }
 
+  /** Ordinary enqueue refreshes one archiver task and removes only entries displaced by its cap. */
+  static async replaceArchiverTaskAndRemove(
+    context: common.UIAbilityContext,
+    task: DownloadArchiverTask,
+    removed: DownloadArchiverTask[],
+  ): Promise<void> {
+    if (task.tag.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    store.beginTransaction()
+    try {
+      await DownloadQueueRepository.upsertArchiverTask(store, task)
+      for (let i: number = 0; i < removed.length; i++) {
+        const displaced: DownloadArchiverTask = removed[i]
+        if (displaced.tag !== task.tag && displaced.tag.length > 0) {
+          await store.executeSql(SQL_DELETE_ARCHIVER_TASK, [SCOPE_GLOBAL, displaced.tag])
+        }
+      }
+      store.commit()
+    } catch (error) {
+      store.rollBack()
+      throw error as Error
+    }
+  }
+
+  /** Ordinary explicit removal deletes one archiver task without rewriting its queue peers. */
+  static async removeArchiverTask(context: common.UIAbilityContext, tag: string): Promise<void> {
+    if (tag.length === 0) {
+      return
+    }
+    const store: relationalStore.RdbStore = await LocalDataStore.open(context)
+    await store.executeSql(SQL_DELETE_ARCHIVER_TASK, [SCOPE_GLOBAL, tag])
+  }
+
   private static async upsertTask(
     store: relationalStore.RdbStore,
     task: DownloadGalleryTask,
@@ -186,6 +266,58 @@ export class DownloadQueueRepository {
         await DownloadQueueRepository.upsertSeed(store, task.gid, task.token, task.preferOriginal, seed, i)
       }
     }
+  }
+
+  private static async replaceGalleryTaskWithStore(
+    store: relationalStore.RdbStore,
+    task: DownloadGalleryTask,
+  ): Promise<void> {
+    await store.executeSql(SQL_DELETE_SEEDS_FOR_TASK, [
+      SCOPE_GLOBAL,
+      task.gid,
+      task.token,
+      task.preferOriginal ? 1 : 0,
+    ])
+    await DownloadQueueRepository.upsertTask(store, task)
+  }
+
+  private static async removeGalleryTaskWithStore(
+    store: relationalStore.RdbStore,
+    task: DownloadGalleryTask,
+  ): Promise<void> {
+    if (task.gid.length === 0) {
+      return
+    }
+    await DownloadQueueRepository.removeGalleryTaskByKeyWithStore(
+      store,
+      task.gid,
+      task.token,
+      task.preferOriginal,
+    )
+  }
+
+  private static async removeGalleryTaskByKeyWithStore(
+    store: relationalStore.RdbStore,
+    gid: string,
+    token: string,
+    preferOriginal: boolean,
+  ): Promise<void> {
+    await store.executeSql(SQL_DELETE_SEEDS_FOR_TASK, [
+      SCOPE_GLOBAL,
+      gid,
+      token,
+      preferOriginal ? 1 : 0,
+    ])
+    await store.executeSql(SQL_DELETE_TASK, [
+      SCOPE_GLOBAL,
+      gid,
+      token,
+      preferOriginal ? 1 : 0,
+    ])
+  }
+
+  private static sameGalleryTask(a: DownloadGalleryTask, b: DownloadGalleryTask): boolean {
+    return a.gid === b.gid && a.token === b.token && a.preferOriginal === b.preferOriginal
   }
 
   private static async upsertTaskHeader(

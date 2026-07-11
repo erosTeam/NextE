@@ -327,8 +327,14 @@ export class DownloadQueueSettings {
     new Map<string, DownloadGalleryActiveProgress>()
   private static galleryMetadataFlushTimers: Map<string, number> = new Map<string, number>()
   private static pendingGalleryMetadataTasks: Map<string, DownloadGalleryTask> = new Map<string, DownloadGalleryTask>()
+  /** Serialize all queue tables because a recovery rebuild clears and recreates its whole table. */
+  private static rdbWriteTail: Promise<void> = Promise.resolve()
+  /** A failed delta write leaves RDB potentially stale; the next write repairs it from the live queue snapshot. */
+  private static galleryQueueNeedsFullRdbReconcile: boolean = false
   private static archiverProgressPulses: Map<string, number> = new Map<string, number>()
   private static archiverProgressLogPulses: Map<string, number> = new Map<string, number>()
+  /** Keep the archiver queue independently recoverable when a targeted write fails. */
+  private static archiverQueueNeedsFullRdbReconcile: boolean = false
   private static loggedDownloadDirs: Set<string> = new Set<string>()
   private static downloadPublicRoot: string = ''
   private static downloadRootRequest: Promise<boolean> | null = null
@@ -500,6 +506,7 @@ export class DownloadQueueSettings {
     }
     const state = connectDownloadQueue()
     const next: DownloadGalleryTask[] = []
+    const evicted: DownloadGalleryTask[] = []
     let existed: boolean = false
     task.queuedAt = Date.now()
     task.status = DownloadGalleryTaskStatus.QUEUED
@@ -548,10 +555,12 @@ export class DownloadQueueSettings {
       }
       if (next.length < MAX_GALLERY_TASKS) {
         next.push(it.copy())
+      } else {
+        evicted.push(it.copy())
       }
     })
     DownloadQueueSettings.setGalleryTasks(state, next)
-    await DownloadQueueSettings.persist(context, next)
+    await DownloadQueueSettings.persistGalleryTask(context, refreshed, evicted)
     DiagnosticLogger.info(
       'download',
       existed ? 'gallery_enqueue_duplicate' : 'gallery_enqueue_added',
@@ -583,10 +592,11 @@ export class DownloadQueueSettings {
       next.push(it.copy())
     })
     DownloadQueueSettings.setGalleryTasks(state, next)
-    await DownloadQueueSettings.persist(context, next)
+    await DownloadQueueSettings.persistGalleryRemoval(context, gid, token, preferOriginal)
     if (removed !== null) {
-      DownloadQueueSettings.cancelScheduledGalleryMetadata(removed)
-      DownloadQueueSettings.deleteGalleryContent(context, removed)
+      const task: DownloadGalleryTask = removed
+      DownloadQueueSettings.cancelScheduledGalleryMetadata(task)
+      DownloadQueueSettings.deleteGalleryContent(context, task)
     }
   }
 
@@ -644,6 +654,7 @@ export class DownloadQueueSettings {
     }
     const state = connectDownloadQueue()
     const next: DownloadArchiverTask[] = []
+    const evicted: DownloadArchiverTask[] = []
     let shouldDownload: boolean = true
     const refreshed: DownloadArchiverTask = task.copy()
     DownloadQueueSettings.fillArchiverTaskFromGalleryTask(
@@ -698,10 +709,12 @@ export class DownloadQueueSettings {
       }
       if (next.length < MAX_ARCHIVER_TASKS) {
         next.push(it.copy())
+      } else {
+        evicted.push(it.copy())
       }
     })
     DownloadQueueSettings.setArchiverTasks(state, next)
-    await DownloadQueueSettings.persistArchiver(context, next)
+    await DownloadQueueSettings.persistArchiverTask(context, refreshed, evicted)
     return shouldDownload
   }
 
@@ -723,9 +736,10 @@ export class DownloadQueueSettings {
       next.push(it.copy())
     })
     DownloadQueueSettings.setArchiverTasks(state, next)
-    await DownloadQueueSettings.persistArchiver(context, next)
+    await DownloadQueueSettings.persistArchiverRemoval(context, tag)
     if (removed !== null) {
-      DownloadQueueSettings.deleteArchiverContent(context, removed)
+      const task: DownloadArchiverTask = removed
+      DownloadQueueSettings.deleteArchiverContent(context, task)
     }
   }
 
@@ -1899,20 +1913,78 @@ export class DownloadQueueSettings {
     tasks: DownloadGalleryTask[],
   ): Promise<void> {
     try {
-      await DownloadQueueRepository.replaceAll(context, tasks)
+      await DownloadQueueSettings.replaceAllGalleryRdb(context, tasks)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_save_failed', (error as Error).message)
     }
     DownloadQueueSettings.writeGalleryMetadataTasks(context, tasks)
   }
 
+  /** A rejected write must not poison later task persistence. */
+  private static enqueueRdbWrite(work: () => Promise<void>): Promise<void> {
+    const next: Promise<void> = DownloadQueueSettings.rdbWriteTail.then(
+      (): Promise<void> => work(),
+      (): Promise<void> => work(),
+    )
+    DownloadQueueSettings.rdbWriteTail = next
+    return next
+  }
+
+  private static async replaceAllGalleryRdb(
+    context: common.UIAbilityContext,
+    tasks: DownloadGalleryTask[],
+  ): Promise<void> {
+    await DownloadQueueSettings.enqueueRdbWrite(async (): Promise<void> => {
+      try {
+        await DownloadQueueRepository.replaceAll(context, tasks)
+        DownloadQueueSettings.galleryQueueNeedsFullRdbReconcile = false
+      } catch (error) {
+        DownloadQueueSettings.galleryQueueNeedsFullRdbReconcile = true
+        throw error as Error
+      }
+    })
+  }
+
+  /**
+    * Targeted writes normally touch one queue row. If a previous write failed, rebuild from the
+   * current in-memory queue on the next successful write so a failed deletion cannot persist.
+   */
+  private static async writeGalleryRdb(
+    context: common.UIAbilityContext,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    await DownloadQueueSettings.enqueueRdbWrite(async (): Promise<void> => {
+      try {
+        if (DownloadQueueSettings.galleryQueueNeedsFullRdbReconcile) {
+          const tasks: DownloadGalleryTask[] = connectDownloadQueue().galleryTasks.map(
+            (item: DownloadGalleryTask) => item.copy(),
+          )
+          await DownloadQueueRepository.replaceAll(context, tasks)
+          DownloadQueueSettings.galleryQueueNeedsFullRdbReconcile = false
+          return
+        }
+        await work()
+      } catch (error) {
+        DownloadQueueSettings.galleryQueueNeedsFullRdbReconcile = true
+        throw error as Error
+      }
+    })
+  }
+
   private static async persistGalleryTask(
     context: common.UIAbilityContext,
     task: DownloadGalleryTask,
+    removed: DownloadGalleryTask[] = [],
   ): Promise<void> {
     const startedAt: number = Date.now()
     try {
-      await DownloadQueueRepository.replaceGalleryTask(context, task)
+      await DownloadQueueSettings.writeGalleryRdb(context, async (): Promise<void> => {
+        if (removed.length > 0) {
+          await DownloadQueueRepository.replaceGalleryTaskAndRemove(context, task, removed)
+        } else {
+          await DownloadQueueRepository.replaceGalleryTask(context, task)
+        }
+      })
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_task_save_failed', (error as Error).message)
     }
@@ -1927,6 +1999,21 @@ export class DownloadQueueSettings {
     }
   }
 
+  private static async persistGalleryRemoval(
+    context: common.UIAbilityContext,
+    gid: string,
+    token: string,
+    preferOriginal: boolean,
+  ): Promise<void> {
+    try {
+      await DownloadQueueSettings.writeGalleryRdb(context, async (): Promise<void> => {
+        await DownloadQueueRepository.removeGalleryTask(context, gid, token, preferOriginal)
+      })
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_queue_task_remove_failed', (error as Error).message)
+    }
+  }
+
   private static async persistGalleryTaskHeader(
     context: common.UIAbilityContext,
     task: DownloadGalleryTask,
@@ -1934,7 +2021,9 @@ export class DownloadQueueSettings {
   ): Promise<void> {
     const startedAt: number = Date.now()
     try {
-      await DownloadQueueRepository.updateGalleryTaskDelta(context, task, [])
+      await DownloadQueueSettings.writeGalleryRdb(context, async (): Promise<void> => {
+        await DownloadQueueRepository.updateGalleryTaskDelta(context, task, [])
+      })
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_task_header_save_failed', (error as Error).message)
     }
@@ -1958,7 +2047,9 @@ export class DownloadQueueSettings {
   ): Promise<void> {
     const startedAt: number = Date.now()
     try {
-      await DownloadQueueRepository.updateGalleryTaskDelta(context, task, changedSeeds)
+      await DownloadQueueSettings.writeGalleryRdb(context, async (): Promise<void> => {
+        await DownloadQueueRepository.updateGalleryTaskDelta(context, task, changedSeeds)
+      })
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_queue_task_delta_save_failed', (error as Error).message)
     }
@@ -1978,23 +2069,81 @@ export class DownloadQueueSettings {
     tasks: DownloadArchiverTask[],
   ): Promise<void> {
     try {
-      await DownloadQueueRepository.replaceAllArchiver(context, tasks)
+      await DownloadQueueSettings.replaceAllArchiverRdb(context, tasks)
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_archiver_queue_save_failed', (error as Error).message)
     }
     DownloadQueueSettings.writeArchiverMetadataTasks(context, tasks)
   }
 
+  private static async replaceAllArchiverRdb(
+    context: common.UIAbilityContext,
+    tasks: DownloadArchiverTask[],
+  ): Promise<void> {
+    await DownloadQueueSettings.enqueueRdbWrite(async (): Promise<void> => {
+      try {
+        await DownloadQueueRepository.replaceAllArchiver(context, tasks)
+        DownloadQueueSettings.archiverQueueNeedsFullRdbReconcile = false
+      } catch (error) {
+        DownloadQueueSettings.archiverQueueNeedsFullRdbReconcile = true
+        throw error as Error
+      }
+    })
+  }
+
+  /** Mirrors gallery recovery without making ordinary archiver writes rebuild the whole queue. */
+  private static async writeArchiverRdb(
+    context: common.UIAbilityContext,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    await DownloadQueueSettings.enqueueRdbWrite(async (): Promise<void> => {
+      try {
+        if (DownloadQueueSettings.archiverQueueNeedsFullRdbReconcile) {
+          const tasks: DownloadArchiverTask[] = connectDownloadQueue().archiverTasks.map(
+            (item: DownloadArchiverTask) => item.copy(),
+          )
+          await DownloadQueueRepository.replaceAllArchiver(context, tasks)
+          DownloadQueueSettings.archiverQueueNeedsFullRdbReconcile = false
+          return
+        }
+        await work()
+      } catch (error) {
+        DownloadQueueSettings.archiverQueueNeedsFullRdbReconcile = true
+        throw error as Error
+      }
+    })
+  }
+
   private static async persistArchiverTask(
     context: common.UIAbilityContext,
     task: DownloadArchiverTask,
+    removed: DownloadArchiverTask[] = [],
   ): Promise<void> {
     try {
-      await DownloadQueueRepository.replaceArchiverTask(context, task)
+      await DownloadQueueSettings.writeArchiverRdb(context, async (): Promise<void> => {
+        if (removed.length > 0) {
+          await DownloadQueueRepository.replaceArchiverTaskAndRemove(context, task, removed)
+        } else {
+          await DownloadQueueRepository.replaceArchiverTask(context, task)
+        }
+      })
     } catch (error) {
       DiagnosticLogger.warn('settings', 'download_archiver_task_save_failed', (error as Error).message)
     }
     DownloadQueueSettings.writeArchiverMetadataTask(context, task)
+  }
+
+  private static async persistArchiverRemoval(
+    context: common.UIAbilityContext,
+    tag: string,
+  ): Promise<void> {
+    try {
+      await DownloadQueueSettings.writeArchiverRdb(context, async (): Promise<void> => {
+        await DownloadQueueRepository.removeArchiverTask(context, tag)
+      })
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'download_archiver_task_remove_failed', (error as Error).message)
+    }
   }
 
   static async migrateLegacyPreferences(context: common.UIAbilityContext): Promise<void> {
@@ -2008,7 +2157,7 @@ export class DownloadQueueSettings {
     }
     const tasks: DownloadGalleryTask[] = DownloadQueueSettings.parse(raw)
     if (tasks.length > 0) {
-      await DownloadQueueRepository.replaceAll(context, tasks)
+      await DownloadQueueSettings.replaceAllGalleryRdb(context, tasks)
     }
     store.deleteSync(StorageKeys.DOWNLOAD_GALLERY_QUEUE)
     store.flushSync()

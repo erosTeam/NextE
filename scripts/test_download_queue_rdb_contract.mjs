@@ -340,6 +340,46 @@ ok('duplicate archiver submit only suppresses download for a valid completed pac
     /it\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*refreshed\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
     /return shouldDownload/.test(settings) &&
     /const shouldDownload: boolean = await DownloadQueueSettings\.enqueueArchiver/.test(read('feature/gallery/src/main/ets/pages/GalleryArchiverPage.ets')))
+const enqueueGalleryBody = settings.match(/static async enqueueGallery[\s\S]*?\n  static async removeGallery/)?.[0] ?? ''
+const removeGalleryBody = settings.match(/static async removeGallery[\s\S]*?\n  static async pauseGalleryDownload/)?.[0] ?? ''
+const enqueueArchiverBody = settings.match(/static async enqueueArchiver[\s\S]*?\n  static async removeArchiver/)?.[0] ?? ''
+const removeArchiverBody = settings.match(/static async removeArchiver[\s\S]*?\n  static async switchArchiverToBot/)?.[0] ?? ''
+const galleryEnqueueRepositoryBody = repo.match(/static async replaceGalleryTaskAndRemove[\s\S]*?\n  \}/)?.[0] ?? ''
+const archiverEnqueueRepositoryBody = repo.match(/static async replaceArchiverTaskAndRemove[\s\S]*?\n  \}/)?.[0] ?? ''
+const galleryRdbWriteBody = settings.match(/private static async writeGalleryRdb[\s\S]*?\n  \}/)?.[0] ?? ''
+const archiverRdbWriteBody = settings.match(/private static async writeArchiverRdb[\s\S]*?\n  \}/)?.[0] ?? ''
+ok('ordinary enqueue and removal touch only their changed queue rows plus cap evictions',
+  /const evicted: DownloadGalleryTask\[\] = \[\]/.test(enqueueGalleryBody) &&
+    /persistGalleryTask\(context, refreshed, evicted\)/.test(enqueueGalleryBody) &&
+    !/persist\(context, next\)/.test(enqueueGalleryBody) &&
+    /persistGalleryRemoval\(context, gid, token, preferOriginal\)/.test(removeGalleryBody) &&
+    !/persist\(context, next\)/.test(removeGalleryBody) &&
+    /const evicted: DownloadArchiverTask\[\] = \[\]/.test(enqueueArchiverBody) &&
+    /persistArchiverTask\(context, refreshed, evicted\)/.test(enqueueArchiverBody) &&
+    !/persistArchiver\(context, next\)/.test(enqueueArchiverBody) &&
+    /persistArchiverRemoval\(context, tag\)/.test(removeArchiverBody) &&
+    !/persistArchiver\(context, next\)/.test(removeArchiverBody))
+ok('targeted enqueue and cap eviction commit together without clearing unrelated queue rows',
+  /store\.beginTransaction\(\)[\s\S]*replaceGalleryTaskWithStore[\s\S]*removeGalleryTaskWithStore[\s\S]*store\.commit\(\)[\s\S]*store\.rollBack\(\)/.test(galleryEnqueueRepositoryBody) &&
+    !/SQL_DELETE_SEEDS\b|SQL_DELETE_TASKS\b/.test(galleryEnqueueRepositoryBody) &&
+    /store\.beginTransaction\(\)[\s\S]*upsertArchiverTask[\s\S]*SQL_DELETE_ARCHIVER_TASK[\s\S]*store\.commit\(\)[\s\S]*store\.rollBack\(\)/.test(archiverEnqueueRepositoryBody) &&
+    !/SQL_DELETE_ARCHIVER_TASKS\b/.test(archiverEnqueueRepositoryBody) &&
+    /static async removeGalleryTask[\s\S]*removeGalleryTaskByKeyWithStore/.test(repo) &&
+    /static async removeArchiverTask[\s\S]*SQL_DELETE_ARCHIVER_TASK/.test(repo))
+ok('a failed targeted queue write reconciles the live state through one serialized RDB tail',
+  /rdbWriteTail: Promise<void> = Promise\.resolve\(\)/.test(settings) &&
+    /private static enqueueRdbWrite\(work: \(\) => Promise<void>\): Promise<void> \{[\s\S]*rdbWriteTail\.then\([\s\S]*\(\): Promise<void> => work\(\),[\s\S]*\(\): Promise<void> => work\(\),[\s\S]*rdbWriteTail = next/.test(settings) &&
+    /galleryQueueNeedsFullRdbReconcile: boolean = false/.test(settings) &&
+    /archiverQueueNeedsFullRdbReconcile: boolean = false/.test(settings) &&
+    /galleryQueueNeedsFullRdbReconcile[\s\S]*connectDownloadQueue\(\)\.galleryTasks[\s\S]*DownloadQueueRepository\.replaceAll\(context, tasks\)[\s\S]*galleryQueueNeedsFullRdbReconcile = false[\s\S]*await work\(\)[\s\S]*catch \(error\) \{[\s\S]*galleryQueueNeedsFullRdbReconcile = true/.test(galleryRdbWriteBody) &&
+    /archiverQueueNeedsFullRdbReconcile[\s\S]*connectDownloadQueue\(\)\.archiverTasks[\s\S]*DownloadQueueRepository\.replaceAllArchiver\(context, tasks\)[\s\S]*archiverQueueNeedsFullRdbReconcile = false[\s\S]*await work\(\)[\s\S]*catch \(error\) \{[\s\S]*archiverQueueNeedsFullRdbReconcile = true/.test(archiverRdbWriteBody) &&
+    /persistGalleryTask[\s\S]*writeGalleryRdb/.test(settings) &&
+    /persistGalleryRemoval[\s\S]*writeGalleryRdb/.test(settings) &&
+    /persistGalleryTaskHeader[\s\S]*writeGalleryRdb/.test(settings) &&
+    /persistGalleryTaskDelta[\s\S]*writeGalleryRdb/.test(settings) &&
+    /persistArchiverTask[\s\S]*writeArchiverRdb/.test(settings) &&
+    /persistArchiverRemoval[\s\S]*writeArchiverRdb/.test(settings) &&
+    /migrateLegacyPreferences[\s\S]*replaceAllGalleryRdb\(context, tasks\)/.test(settings))
 ok('ordinary gallery task identity includes original/resampled quality for matching and storage',
   /sameGalleryTask\([\s\S]*task\.gid === gid && task\.token === token && task\.preferOriginal === preferOriginal/.test(settings) &&
     /taskKey\(gid: string, token: string, preferOriginal: boolean\)[\s\S]*galleryQuality\(preferOriginal\)/.test(settings) &&
@@ -351,7 +391,7 @@ ok('incremental gallery downloads inherit files only from the same ordinary qual
     /findGalleryTaskIn\([\s\S]*task\.upgradeFromGid,[\s\S]*'',[\s\S]*task\.preferOriginal/.test(settings) &&
     /inheritDownloadedSeedsFromParent\([\s\S]*task\.preferOriginal,[\s\S]*parent/.test(settings))
 ok('remove deletes only the selected gallery download quality content',
-  /removeGallery\([\s\S]*preferOriginal: boolean = false[\s\S]*taskKey\(gid, token, preferOriginal\)[\s\S]*sameGalleryTask\(it, gid, token, preferOriginal\)[\s\S]*cancelScheduledGalleryMetadata\(removed\)[\s\S]*deleteGalleryContent\(context, removed\)/.test(settings) &&
+  /removeGallery\([\s\S]*preferOriginal: boolean = false[\s\S]*taskKey\(gid, token, preferOriginal\)[\s\S]*sameGalleryTask\(it, gid, token, preferOriginal\)[\s\S]*persistGalleryRemoval\(context, gid, token, preferOriginal\)[\s\S]*cancelScheduledGalleryMetadata\(task\)[\s\S]*deleteGalleryContent\(context, task\)/.test(settings) &&
     /deleteGalleryContent\([\s\S]*galleryRootDirs\(context\)[\s\S]*legacyGalleryRootDir\(context\)[\s\S]*galleryDirNameCandidates\([\s\S]*task\.gid,[\s\S]*task\.preferOriginal,[\s\S]*DownloadQueueSettings\.galleryTaskPathTitle\(task\)[\s\S]*deleteSandboxPath/.test(settings))
 ok('remove cancels in-flight gallery workers and discards late batch files',
   /cancelledGalleryDownloads: Set<string>/.test(settings) &&
@@ -380,7 +420,7 @@ ok('batch gallery resume starts every eligible task without serially waiting on 
   /static async resumeAllGalleryDownloads\(context: common\.UIAbilityContext\)[\s\S]*!DownloadQueueSettings\.galleryDownloads\.has\(key\)[\s\S]*downloadGalleryImages\(context, tasks\[i\]\.gid, tasks\[i\]\.token, tasks\[i\]\.preferOriginal\)[\s\S]*\.catch/.test(settings) &&
     /static async downloadGalleryImages[\s\S]*startGalleryImageDownload\(context, gid, token, preferOriginal\)[\s\S]*galleryDownloads\.set\(key, task\)/.test(settings))
 ok('remove deletes archiver package, partial package, metadata sidecar, and extracted reader cache',
-  /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiver\(context, next\)[\s\S]*deleteArchiverContent\(context, removed\)/.test(settings) &&
+  /removeArchiver\([\s\S]*let removed: DownloadArchiverTask \| null = null[\s\S]*removed = it\.copy\(\)[\s\S]*persistArchiverRemoval\(context, tag\)[\s\S]*deleteArchiverContent\(context, task\)/.test(settings) &&
     /deleteArchiverContent\([\s\S]*archiverMetadataPath\(context, task\)[\s\S]*deleteSandboxPath\(task\.filePath[\s\S]*archiverPartialPath\(task\.filePath\)[\s\S]*deleteArchiverExtracts\(context, task\)/.test(settings) &&
     /ARCHIVER_READ_CACHE_DIR: string = 'download-archiver-read'/.test(settings) &&
     /names\[i\]\.startsWith\(prefix\)[\s\S]*deleteSandboxPath/.test(settings))
