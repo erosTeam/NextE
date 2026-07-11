@@ -244,7 +244,11 @@ export class GalleryListViewModel {
 
   private cacheKey(): string {
     if (this.profileUuid.length > 0) {
-      return EhPageCacheService.homeProfileKey(connectSiteMode().isEx, this.profileUuid)
+      return EhPageCacheService.homeProfileKey(
+        connectSiteMode().isEx,
+        this.profileUuid,
+        this.profileEditTime(),
+      )
     }
     return EhPageCacheService.homeListKey(connectSiteMode().isEx, this.source, this.toplistTl)
   }

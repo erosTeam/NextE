@@ -48,6 +48,8 @@ assertIncludes(service, "'save_failed'", 'cache writes must log failure diagnost
 assertIncludes(service, 'MAX_LIST_ROWS_PER_CACHE', 'gallery-list snapshots must cap row count');
 assertIncludes(service, 'MAX_PRELOADED_GALLERY_LISTS', 'startup preload staging must have a finite memory cap');
 assertIncludes(service, 'PreloadedGalleryListMemoryCache', 'startup preload staging must use a bounded cache type');
+assertIncludes(service, 'static homeProfileKey(isEx: boolean, uuid: string, revision: number)', 'custom profile cache keys must accept the profile content revision');
+assertIncludes(service, 'home:profile:${EhPageCacheService.encode(uuid)}:rev:${Math.floor(revision)}', 'custom profile cache keys must isolate edited profile queries by revision');
 assertIncludes(service, 'reviveGalleryList(raw)', 'JSON cache must revive GalleryList class instances');
 assertIncludes(service, 'reviveGallery(raw.gallery)', 'JSON cache must revive GalleryDetail gallery instances');
 assertIncludes(service, 'new GalleryDetailResult', 'detail cache must restore the network result wrapper');
@@ -64,8 +66,9 @@ assertIncludes(index, 'EhPageCacheService, PreloadedGalleryListMemoryCache', 'sh
 
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets');
 assertIncludes(bootstrap, 'const profiles: CustomProfile[] = connectCustomProfiles().profiles', 'startup preload must cover custom Gallery profile subtabs');
-assertIncludes(bootstrap, 'p.listType !== PROFILE_TYPE_FAVORITE', 'startup preload must skip favorite-type custom profiles because favorites use favcat cache keys');
-assertIncludes(bootstrap, 'EhPageCacheService.homeProfileKey(isEx, p.uuid)', 'startup preload must use uuid-scoped custom profile cache keys');
+assertIncludes(bootstrap, 'EhPageCacheService.homeProfileKey(\n            isEx,\n            selectedProfile.uuid,\n            selectedProfile.lastEditTime,', 'selected custom profile preload must use its revisioned profile cache key');
+assertIncludes(bootstrap, 'EhPageCacheService.homeProfileKey(isEx, p.uuid, p.lastEditTime)', 'every visible custom profile preload must use its revisioned profile cache key');
+assertNotIncludes(bootstrap, 'PROFILE_TYPE_FAVORITE', 'favorite-type custom profiles must not be excluded from their own profile cache preload');
 assertIncludes(bootstrap, 'const toplistTls: number[] = [11, 12, 13, 15]', 'startup preload must cover every Toplist period subtab');
 assertIncludes(bootstrap, "const favcats: string[] = ['a', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9']", 'startup preload must cover every remote Favorites subtab');
 assertIncludes(bootstrap, 'const MAX_PAGE_CACHE_PRELOAD_CONCURRENCY: number = 2', 'startup cache preload must cap concurrent RDB work');
@@ -78,6 +81,9 @@ assertIncludes(bootstrap, "'preload_done'", 'startup cache preload must log comp
 
 const httpClient = read('shared/src/main/ets/network/EhHttpClient.ets');
 assertNotIncludes(httpClient, 'usingCache: true', 'EH HTTP client must not enable transparent global cache');
+
+const galleryListVm = read('feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets');
+assertIncludes(galleryListVm, 'EhPageCacheService.homeProfileKey(\n        connectSiteMode().isEx,\n        this.profileUuid,\n        this.profileEditTime(),', 'active profile cache reads and writes must use the same content revision key');
 
 // First-screen rendering order, translation presentation, and spinner behavior are user-path concerns.
 // They require cache-hit and cache-miss device evidence instead of implementation-shape assertions here.

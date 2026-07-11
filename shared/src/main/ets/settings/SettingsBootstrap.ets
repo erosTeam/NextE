@@ -44,7 +44,7 @@ import { connectSiteMode } from '../state/SiteModeState'
 import { connectHomeSource } from '../state/HomeSourceState'
 import { connectFavSelection } from '../state/FavSelectionState'
 import { connectCustomProfiles } from '../state/CustomProfilesState'
-import { CustomProfile, PROFILE_TYPE_FAVORITE } from '../model/CustomProfile'
+import { CustomProfile } from '../model/CustomProfile'
 
 const MAX_PAGE_CACHE_PRELOAD_CONCURRENCY: number = 2
 
@@ -136,26 +136,21 @@ export class SettingsBootstrap {
       const fav = connectFavSelection()
       const favOrder: string = fav.orderByPosted ? EhConstants.FAV_ORDER_POSTED : EhConstants.FAV_ORDER_FAV
       const keys: string[] = []
-      // Home tabs are custom profiles now; warm each non-hidden, non-favorite profile's uuid-scoped
-      // cache (favorite-type profiles use the favorites cache key — handled with the favorites preload).
+      // Home tabs are custom profiles now. Every profile, including favorite-type profiles, owns a
+      // revisioned cache because its query can differ from the standalone Favorites page.
       const profiles: CustomProfile[] = connectCustomProfiles().profiles
       const selectedProfile: CustomProfile | null = connectCustomProfiles().findByUuid(
         connectCustomProfiles().selectedUuid,
       )
       if (selectedProfile !== null && !selectedProfile.hidden) {
-        if (selectedProfile.listType === PROFILE_TYPE_FAVORITE) {
-          if (selectedProfile.favcat !== 'l') {
-            SettingsBootstrap.appendPreloadKey(
-              keys,
-              EhPageCacheService.favoritesListKey(isEx, selectedProfile.favcat, favOrder),
-            )
-          }
-        } else {
-          SettingsBootstrap.appendPreloadKey(
-            keys,
-            EhPageCacheService.homeProfileKey(isEx, selectedProfile.uuid),
-          )
-        }
+        SettingsBootstrap.appendPreloadKey(
+          keys,
+          EhPageCacheService.homeProfileKey(
+            isEx,
+            selectedProfile.uuid,
+            selectedProfile.lastEditTime,
+          ),
+        )
       }
       SettingsBootstrap.appendPreloadKey(
         keys,
@@ -169,8 +164,11 @@ export class SettingsBootstrap {
       }
       for (let i = 0; i < profiles.length; i++) {
         const p: CustomProfile = profiles[i]
-        if (!p.hidden && p.listType !== PROFILE_TYPE_FAVORITE) {
-          SettingsBootstrap.appendPreloadKey(keys, EhPageCacheService.homeProfileKey(isEx, p.uuid))
+        if (!p.hidden) {
+          SettingsBootstrap.appendPreloadKey(
+            keys,
+            EhPageCacheService.homeProfileKey(isEx, p.uuid, p.lastEditTime),
+          )
         }
       }
       const toplistTls: number[] = [11, 12, 13, 15]
