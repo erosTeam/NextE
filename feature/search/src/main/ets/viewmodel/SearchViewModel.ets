@@ -330,20 +330,29 @@ export class SearchViewModel {
       }
       DiagnosticLogger.warn('search', 'search_failed', e.message)
     }
-    if (this.epoch === myEpoch) {
-      this.isLoading = false
-      if (this.pendingSearchQuery.length > 0 && this.pendingSearchQuery !== this.query) {
-        const nextQuery: string = this.pendingSearchQuery
-        this.pendingSearchQuery = ''
-        this.pendingFilterReapply = false
-        await this.search(nextQuery)
-        return
-      }
+    await this.finishCurrentRequest(myEpoch)
+  }
+
+  /**
+   * Finish only the still-current first-page request. Search and pull-refresh share this drain because
+   * either can receive a newer submitted query or filter change while it is awaiting the network.
+   */
+  private async finishCurrentRequest(myEpoch: number): Promise<void> {
+    if (this.epoch !== myEpoch) {
+      return
+    }
+    this.isLoading = false
+    if (this.pendingSearchQuery.length > 0 && this.pendingSearchQuery !== this.query) {
+      const nextQuery: string = this.pendingSearchQuery
       this.pendingSearchQuery = ''
-      if (this.pendingFilterReapply) {
-        this.pendingFilterReapply = false
-        await this.reapplyFilters()
-      }
+      this.pendingFilterReapply = false
+      await this.search(nextQuery)
+      return
+    }
+    this.pendingSearchQuery = ''
+    if (this.pendingFilterReapply) {
+      this.pendingFilterReapply = false
+      await this.reapplyFilters()
     }
   }
 
@@ -378,21 +387,26 @@ export class SearchViewModel {
     this.isLoading = true
     this.errorMessage = ''
     this.epoch = this.epoch + 1
+    const myEpoch: number = this.epoch
     this.lastNext = ''
     try {
       const list: GalleryList = await this.fetchPage('')
       this.resolveFavoriteSlots(list.gallerys, list.favList)
       const rows: EhGallery[] = await this.translateRows(list.gallerys)
-      this.dataSource.setData(rows)
-      this.itemCount = this.dataSource.totalCount()
-      this.nextGid = list.nextGid
-      this.hasMore = list.nextGid.length > 0
+      if (this.epoch === myEpoch) {
+        this.dataSource.setData(rows)
+        this.itemCount = this.dataSource.totalCount()
+        this.nextGid = list.nextGid
+        this.hasMore = list.nextGid.length > 0
+      }
     } catch (err) {
       const e = err as Error
-      this.errorMessage = EhErrorText.forUser(err)
+      if (this.epoch === myEpoch) {
+        this.errorMessage = EhErrorText.forUser(err)
+      }
       DiagnosticLogger.warn('search', 'search_refresh_failed', e.message)
     }
-    this.isLoading = false
+    await this.finishCurrentRequest(myEpoch)
   }
 
   /**
