@@ -6,3 +6,7 @@ export {
   ReaderImageSourceRequest,
   ReaderImageSourceRequestGate,
 } from './model/ReaderImageSourceRequestGate'
+export {
+  ReaderSessionRequest,
+  ReaderSessionRequestGate,
+} from './model/ReaderSessionRequestGate'

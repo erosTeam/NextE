@@ -38,6 +38,7 @@ import readerImageLoadPresentationTest from './ReaderImageLoadPresentation.test'
 import readerImageLoadPriorityTest from './ReaderImageLoadPriority.test'
 import gallerySeedDetailRefreshGateTest from './GallerySeedDetailRefreshGate.test'
 import readerImageSourceRequestGateTest from './ReaderImageSourceRequestGate.test'
+import readerSessionRequestGateTest from './ReaderSessionRequestGate.test'
 import imageResolveSourceGateTest from './ImageResolveSourceGate.test'
 import backupCipherMetadataGuardTest from './BackupCipherMetadataGuard.test'
 import backupLocalDataStructureGuardTest from './BackupLocalDataStructureGuard.test'
@@ -84,6 +85,7 @@ export default function testsuite(): void {
   readerImageLoadPriorityTest()
   gallerySeedDetailRefreshGateTest()
   readerImageSourceRequestGateTest()
+  readerSessionRequestGateTest()
   imageResolveSourceGateTest()
   backupCipherMetadataGuardTest()
   backupLocalDataStructureGuardTest()

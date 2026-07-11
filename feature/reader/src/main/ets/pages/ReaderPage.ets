@@ -43,6 +43,7 @@ import { ReaderViewModel } from '../viewmodel/ReaderViewModel'
 import { ReaderImageLoadPresentation } from '../model/ReaderImageLoadPresentation'
 import { ReaderImageLoadPriority } from '../model/ReaderImageLoadPriority'
 import { ReaderImageSourceRequest, ReaderImageSourceRequestGate } from '../model/ReaderImageSourceRequestGate'
+import { ReaderSessionRequest } from '../model/ReaderSessionRequestGate'
 
 const READER_KEY_SURFACE_ID: string = 'reader_key_surface'
 const READER_CHROME_ACTION_SIZE: number = 44
@@ -224,6 +225,7 @@ export struct ReaderPage {
   private volumeDownConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private volumeUpConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private readerClosing: boolean = false;
+  private readerRouteEpoch: number = 0;
   private sliderSyncToken: number = 0;
   private readerTapStartX: number = 0;
   private readerTapStartY: number = 0;
@@ -313,10 +315,15 @@ export struct ReaderPage {
       this.setReaderStatusBarVisible(true, false)
     })
     .onReady((context: NavDestinationContext) => {
+      const routeEpoch: number = this.readerRouteEpoch + 1
+      this.readerRouteEpoch = routeEpoch
+      this.sliderSyncToken++
       const p = context.pathInfo.param as ReaderParams
       if (p !== undefined && p.gid.length > 0) {
         this.readerClosing = false
         this.readerReady = false
+        this.stopAutoRead()
+        this.resetReaderGalleryState()
         this.params = p
         this.showChrome = p.initialChromeVisible
         this.readMode.columnMode = connectGalleryReadProgress().getColumnMode(p.gid)
@@ -335,7 +342,10 @@ export struct ReaderPage {
           p.seedPreviewPages,
           p.seedImagePageUrl,
         )
-          .then(() => {
+          .then((request: ReaderSessionRequest | null) => {
+            if (!this.isReaderRouteCurrent(routeEpoch, request, p.gid, p.token, isEx)) {
+              return
+            }
             const total: number = this.vm.totalPages()
             const loadedTarget: number = total > 0 ? Math.min(requestedIndex, total - 1) : 0
             const targetIndex: number = loadedTarget
@@ -347,10 +357,13 @@ export struct ReaderPage {
             this.readerReady = true
             if (this.isContinuousVerticalMode()) {
               setTimeout(() => {
+                if (!this.isReaderRouteCurrent(routeEpoch, request, p.gid, p.token, isEx)) {
+                  return
+                }
                 this.listScroller.scrollToIndex(targetIndex)
               }, 50)
             } else {
-              this.syncReaderPagerToIndex(targetIndex, false)
+              this.syncReaderPagerToIndex(targetIndex, false, routeEpoch)
             }
           })
       }
@@ -514,6 +527,8 @@ export struct ReaderPage {
     if (this.readerClosing) {
       return
     }
+    this.readerRouteEpoch++
+    this.sliderSyncToken++
     this.readerClosing = true
     this.applyReaderStatusBarVisible(true, true)
       .then(() => {
@@ -523,6 +538,63 @@ export struct ReaderPage {
 
   private hostContext(): common.UIAbilityContext {
     return this.getUIContext().getHostContext() as common.UIAbilityContext
+  }
+
+  private isReaderRouteCurrent(
+    routeEpoch: number,
+    request: ReaderSessionRequest | null,
+    gid: string,
+    token: string,
+    isEx: boolean,
+  ): boolean {
+    return routeEpoch === this.readerRouteEpoch &&
+      !this.readerClosing &&
+      this.params.gid === gid &&
+      this.params.token === token &&
+      connectSiteMode().isEx === isEx &&
+      this.vm.isSessionCurrent(request)
+  }
+
+  private isReaderRouteIdentityCurrent(
+    routeEpoch: number,
+    gid: string,
+    token: string,
+    isEx: boolean,
+  ): boolean {
+    return routeEpoch === this.readerRouteEpoch &&
+      !this.readerClosing &&
+      this.params.gid === gid &&
+      this.params.token === token &&
+      connectSiteMode().isEx === isEx
+  }
+
+  /** Clears page-number keyed state before a retained ReaderPage starts another gallery. */
+  private resetReaderGalleryState(): void {
+    this.loadedPages = []
+    this.loadedPageSignal++
+    this.originalImagePages = ''
+    this.originalAvailablePages = ''
+    this.originalImageResolving = false
+    this.imageMetricPages = []
+    this.imageMetricWidths = []
+    this.imageMetricHeights = []
+    this.imageFilePages = []
+    this.imageFileBytes = []
+    this.imageFileFormats = []
+    this.imageBlockFilePages = []
+    this.imageBlockFilePaths = []
+    this.imageBlockStatePages = []
+    this.imageBlockStateValues = []
+    this.currentImageBlockFilePath = ''
+    this.currentImageBlocked = false
+    this.sourceReloadPage = 0
+    this.sourceReloadRequestId++
+    this.imageZoomed = false
+    this.verticalZoomedPage = -1
+    this.verticalVisibleStart = 0
+    this.verticalVisibleEnd = 0
+    this.sliderPreview = -1
+    this.readerPagerIndex = 0
   }
 
   private currentImage(): EhGalleryImage | null {
@@ -1680,21 +1752,35 @@ export struct ReaderPage {
   // reactive `.index()` moves there. Continuous vertical scrolls the List to the index.
   private jumpToPage(index: number): void {
     this.clearZoomGate()
+    const routeEpoch: number = this.readerRouteEpoch
+    const gid: string = this.params.gid
+    const token: string = this.params.token
+    const isEx: boolean = connectSiteMode().isEx
     this.vm.jumpTo(index).then((target: number) => {
+      if (!this.isReaderRouteIdentityCurrent(routeEpoch, gid, token, isEx)) {
+        return
+      }
       if (this.isContinuousVerticalMode()) {
         this.vm.currentIndex = target
         this.listScroller.scrollToIndex(target)
       } else {
         this.readerPagerIndex = this.readerPagerIndexFor(target)
         this.vm.currentIndex = target
-        this.syncReaderPagerToIndex(target, false)
+        this.syncReaderPagerToIndex(target, false, routeEpoch)
       }
     })
   }
 
-  private syncReaderPagerToIndex(index: number, animated: boolean): void {
+  private syncReaderPagerToIndex(
+    index: number,
+    animated: boolean,
+    routeEpoch: number = this.readerRouteEpoch,
+  ): void {
     if (this.isContinuousVerticalMode()) {
       setTimeout(() => {
+        if (routeEpoch !== this.readerRouteEpoch || this.readerClosing) {
+          return
+        }
         this.listScroller.scrollToIndex(index)
       }, 0)
       return
@@ -1702,6 +1788,9 @@ export struct ReaderPage {
     const targetPagerIndex: number = this.readerPagerIndexFor(index)
     this.readerPagerIndex = targetPagerIndex
     setTimeout(() => {
+      if (routeEpoch !== this.readerRouteEpoch || this.readerClosing) {
+        return
+      }
       try {
         if (this.doublePageEnabled()) {
           this.doublePageSwiperController.changeIndex(targetPagerIndex, animated)
