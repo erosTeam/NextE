@@ -6,7 +6,7 @@
  *   feature/settings/src/main/ets/pages/SettingsPage.ets (the reachable entry row)
  *
  * This is the SAFE manual fallback to the WebView login. The invariants it locks down:
- *   • the screen is reachable from Settings (pushPathByName('EhCookieImport')) and routed in Index;
+ *   • Settings opens the AccountLogin chooser, which routes to EhCookieImport through Index;
  *   • it REUSES CookieJarSettings.parseCookieEntries/replaceFromHeader/save (no page-owned parser);
  *   • required identity is ipb_member_id + ipb_pass_hash; a paste missing either is rejected and
  *     must NOT mutate/persist the jar (validate-before-apply);
@@ -65,7 +65,7 @@ const eq = (name, got, want) => {
   const settings = src(SETTINGS)
   const accountLogin = src(ACCOUNT_LOGIN)
   const accountPage = src(ACCOUNT_PAGE)
-  ok('Settings pushes the account login chooser route', /pushPathByName\('AccountLogin'/.test(settings))
+  ok('Settings opens the account login chooser route', /openRootDetail\('AccountLogin'\)/.test(settings))
   ok('Account login pushes the EhCookieImport route', /pushPathByName\('EhCookieImport'/.test(accountLogin))
   ok('Account login keeps the WebView login route intact', /pushPathByName\('EhLogin'/.test(accountLogin))
   ok('cookie import row is in the logged-out login chooser', /settings_login_cookie/.test(accountLogin))
