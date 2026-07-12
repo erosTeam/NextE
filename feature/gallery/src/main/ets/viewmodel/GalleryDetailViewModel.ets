@@ -66,6 +66,9 @@ export class GalleryDetailViewModel {
   // The detail shows ONLY the first preview page (a peek); previewPageCount drives the "view all"
   // entry → the separate all-thumbnails page owns the rest of the paging (eros_fe firstPageImage).
   @Trace previewPageCount: number = 1
+  // Increments only after a real detail/cache result replaces the preview seed. Consumers use this
+  // instead of watching individual fields so they never synchronize an intermediate image/page-count pair.
+  @Trace previewRevision: number = 0
   private gid: string = ''
   private token: string = ''
   private context: common.UIAbilityContext | null = null
@@ -227,6 +230,7 @@ export class GalleryDetailViewModel {
     // Drop any empty-body comments a previous bad fetch may have cached, so stale blank rows don't show.
     this.comments = cached.comments.filter((c: EhGalleryComment) => c.contentText.length > 0)
     this.previewPageCount = cached.previewPageCount
+    this.previewRevision = this.previewRevision + 1
     this.cachedDetailApplied = true
     this.activeDetailRun = run
     this.translateCachedGalleryLater(this.gallery, renderVersion, run)
@@ -364,6 +368,7 @@ export class GalleryDetailViewModel {
     this.images = res.images
     this.comments = res.comments
     this.previewPageCount = res.previewPageCount
+    this.previewRevision = this.previewRevision + 1
     this.activeDetailRun = run
     await this.saveDetailCache(run)
   }

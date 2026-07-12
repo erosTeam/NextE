@@ -4307,6 +4307,10 @@
     {
       "name": "web_login_wait_captcha",
       "value": "等待安全验证"
+    },
+    {
+      "name": "tablet_select_detail",
+      "value": "选择一项以查看详情"
     }
   ]
 }

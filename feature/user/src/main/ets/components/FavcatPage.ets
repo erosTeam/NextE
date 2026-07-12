@@ -520,18 +520,27 @@ export struct FavcatPage {
   }
 
   private openDetail(g: EhGallery): void {
-    this.stack.pushPathByName(
-      'GalleryDetail',
-      new GalleryDetailParams(
-        g.gid,
-        g.token,
-        g.thumbUrl,
-        g.title(),
-        g.fileCount,
-        g.imgWidth,
-        g.imgHeight,
-      ),
+    const params: GalleryDetailParams = new GalleryDetailParams(
+      g.gid,
+      g.token,
+      g.thumbUrl,
+      g.title(),
+      g.fileCount,
+      g.imgWidth,
+      g.imgHeight,
     )
+    const pathNames: string[] = this.stack.getAllPathName()
+    const topIndex: number = pathNames.length - 1
+    if (topIndex >= 0 && pathNames[topIndex] === 'GalleryDetail') {
+      const current: GalleryDetailParams | undefined = this.stack.getParamByIndex(topIndex) as
+        GalleryDetailParams | undefined
+      if (current !== undefined && current.gid === g.gid && current.token === g.token) {
+        return
+      }
+      this.stack.replacePathByName('GalleryDetail', params, true)
+      return
+    }
+    this.stack.pushPathByName('GalleryDetail', params)
   }
 
   private loadMoreIfTailAppeared(index: number): void {

@@ -122,6 +122,16 @@ export class ThemeConstants {
   static readonly ARCHIVER_BALANCE_BADGE_SIZE: number = 18
   // Compact width for two-item segmented controls hosted in title bars, matching the V2Next HDS pattern.
   static readonly COMPACT_SEGMENT_BUTTON_WIDTH: number = 216
+  // HDS defaults its split navigation bar to 240vp, which is too narrow for NextE's gallery cards,
+  // source selector and five-tab bar on the 1077vp tablet baseline. The primary pane starts at 320vp,
+  // while HDS's range plus the 320vp content minimum lets the user drag either pane up to the other
+  // pane's usable edge on every wide display.
+  static readonly TABLET_PRIMARY_PANE_WIDTH: number = 320
+  static readonly TABLET_PRIMARY_PANE_MIN_WIDTH: number = 320
+  static readonly TABLET_DETAIL_MIN_WIDTH: number = 320
+  // GalleryDetail only composes metadata and the full preview browser side by side when both equal
+  // panes can retain a 360vp content surface. Below that it keeps the established compact detail.
+  static readonly GALLERY_DETAIL_SPLIT_MIN_WIDTH: number = 720
   // Gallery list card rhythm. eros_fe uses kFixedHeight=204 and, on non-phone layouts, cover width =
   // 0.7 * kFixedHeight = 142.8; narrow phone-like panes still derive cover width from contentWidth / 3.
   static readonly LIST_CARD_FIXED_HEIGHT: number = 204

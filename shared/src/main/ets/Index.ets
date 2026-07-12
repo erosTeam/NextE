@@ -503,6 +503,10 @@ export { SafeModeState, connectSafeMode } from './state/SafeModeState'
 export { AccountListState, connectAccountList } from './state/AccountListState'
 export { closeLoginFlowToAccount, isTopRoute } from './navigation/LoginFlowNavigation'
 export {
+  NavDestinationTransitionRegistry,
+  NavDestinationTransitionCallbacks,
+} from './navigation/NavDestinationTransitionRegistry'
+export {
   HomeSourceState,
   HomeSourceBridge,
   connectHomeSource,

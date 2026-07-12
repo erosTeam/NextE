@@ -4307,6 +4307,10 @@
     {
       "name": "web_login_wait_captcha",
       "value": "Waiting for security check"
+    },
+    {
+      "name": "tablet_select_detail",
+      "value": "Select an item to view details"
     }
   ]
 }

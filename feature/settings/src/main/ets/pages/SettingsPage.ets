@@ -41,6 +41,19 @@ export struct SettingsPage {
     return ' '
   }
 
+  private openRootDetail(name: string): void {
+    const pathNames: string[] = this.stack.getAllPathName()
+    const topIndex: number = pathNames.length - 1
+    if (topIndex >= 0 && pathNames[topIndex] === name) {
+      return
+    }
+    if (topIndex >= 0) {
+      this.stack.replacePathByName(name, null, true)
+      return
+    }
+    this.stack.pushPathByName(name, null)
+  }
+
   @Builder
   private AccountAvatar() {
     Stack() {
@@ -105,7 +118,7 @@ export struct SettingsPage {
             this.AccountAvatar()
           },
           action: () => {
-            this.stack.pushPathByName('Account', null)
+            this.openRootDetail('Account')
           },
         })
       } else {
@@ -113,7 +126,7 @@ export struct SettingsPage {
           title: $r('app.string.settings_login'),
           leadingIcon: $r('sys.symbol.person'),
           action: () => {
-            this.stack.pushPathByName('AccountLogin', null)
+            this.openRootDetail('AccountLogin')
           },
         })
       }
@@ -128,7 +141,7 @@ export struct SettingsPage {
           title: $r('app.string.settings_eh'),
           leadingIcon: $r('sys.symbol.worldclock'),
           action: () => {
-            this.stack.pushPathByName('EhSettings', null)
+            this.openRootDetail('EhSettings')
           },
         })
         this.rowDivider()
@@ -137,7 +150,7 @@ export struct SettingsPage {
         title: $r('app.string.settings_layout'),
         leadingIcon: $r('sys.symbol.paintpalette'),
         action: () => {
-          this.stack.pushPathByName('LayoutSettings', null)
+          this.openRootDetail('LayoutSettings')
         },
       })
       this.rowDivider()
@@ -145,7 +158,7 @@ export struct SettingsPage {
         title: $r('app.string.settings_reader'),
         leadingIcon: $r('sys.symbol.doc_plaintext'),
         action: () => {
-          this.stack.pushPathByName('ReaderSettings', null)
+          this.openRootDetail('ReaderSettings')
         },
       })
       this.rowDivider()
@@ -153,7 +166,7 @@ export struct SettingsPage {
         title: $r('app.string.settings_download'),
         leadingIcon: $r('sys.symbol.arrow_down_to_line'),
         action: () => {
-          this.stack.pushPathByName('DownloadSettings', null)
+          this.openRootDetail('DownloadSettings')
         },
       })
       this.rowDivider()
@@ -161,7 +174,7 @@ export struct SettingsPage {
         title: $r('app.string.settings_search'),
         leadingIcon: $r('sys.symbol.magnifyingglass'),
         action: () => {
-          this.stack.pushPathByName('SearchSettings', null)
+          this.openRootDetail('SearchSettings')
         },
       })
       this.rowDivider()
@@ -170,7 +183,7 @@ export struct SettingsPage {
           title: $r('app.string.tab_history'),
           leadingIcon: $r('sys.symbol.clock'),
           action: () => {
-            this.stack.pushPathByName('History', null)
+            this.openRootDetail('History')
           },
         })
         this.rowDivider()
@@ -179,7 +192,7 @@ export struct SettingsPage {
         title: $r('app.string.settings_cache'),
         leadingIcon: $r('sys.symbol.externaldrive'),
         action: () => {
-          this.stack.pushPathByName('CacheSettings', null)
+          this.openRootDetail('CacheSettings')
         },
       })
       this.rowDivider()
@@ -187,7 +200,7 @@ export struct SettingsPage {
         title: $r('app.string.settings_advanced'),
         leadingIcon: $r('sys.symbol.gearshape'),
         action: () => {
-          this.stack.pushPathByName('AdvancedSettings', null)
+          this.openRootDetail('AdvancedSettings')
         },
       })
       this.rowDivider()
@@ -195,7 +208,7 @@ export struct SettingsPage {
         title: $r('app.string.settings_about'),
         leadingIcon: $r('sys.symbol.info_circle'),
         action: () => {
-          this.stack.pushPathByName('About', null)
+          this.openRootDetail('About')
         },
       })
     }

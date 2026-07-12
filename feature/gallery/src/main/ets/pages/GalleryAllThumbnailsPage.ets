@@ -16,6 +16,91 @@ import {
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
 
 /**
+ * Reusable full-thumbnail browsing surface. Its host owns the ViewModel, Scroller, refresh controller,
+ * route shell, title actions, and sheets; this component only renders the existing paged grid and
+ * forwards thumbnail activation. Keeping those owners outside lets another page mount the same surface
+ * without duplicating navigation chrome or losing paging state when the surface is recomposed.
+ */
+@ComponentV2
+export struct GalleryAllThumbnailsContent {
+  @Require @Param vm: AllThumbnailsViewModel;
+  @Param scroller: Scroller = new Scroller();
+  @Param controller: PullRefreshController = new PullRefreshController();
+  @Event onOpen: (image: EhGalleryImage) => void = (_image: EhGalleryImage) => {};
+
+  private loadNextIfTailAppeared(index: number): void {
+    if (index < this.vm.itemCount - 1) {
+      return
+    }
+    if (!this.vm.loading && this.vm.error.length === 0 && this.vm.hasMore()) {
+      this.vm.loadNext()
+    }
+  }
+
+  private async loadPreviousPreviewPage(): Promise<void> {
+    const firstImagePage: number = await this.vm.loadPreviousPreviewPage()
+    if (firstImagePage <= 0) {
+      return
+    }
+    const targetIndex: number = this.vm.visibleIndexForImagePage(firstImagePage)
+    if (targetIndex < 0) {
+      return
+    }
+    setTimeout(() => {
+      this.scroller.scrollToIndex(targetIndex)
+    }, 50)
+  }
+
+  build() {
+    PullRefreshGridScaffold({
+      scroller: this.scroller,
+      // Responsive: ArkUI derives columns from the pane width + min comfortable thumb width. Tiles
+      // consume their actual cell width locally; this surface does not hand-calculate columns or cells.
+      minColumnWidth: ThemeConstants.PREVIEW_THUMB_MIN_W,
+      pinchModeKey: ListMode.THUMBNAIL_GRID,
+      itemCount: this.vm.itemCount,
+      bottomPadding: ThemeConstants.SPACE_XL,
+      controller: this.controller,
+      onRefresh: async () => {
+        await this.loadPreviousPreviewPage()
+      },
+      onBottomRefresh: async () => {
+        await this.vm.loadNext()
+      },
+      canStartBottomRefresh: () => this.vm.hasMore(),
+      onReachEnd: () => {
+        this.vm.loadNext()
+      },
+      showFooter: true,
+      footerIsLoading: this.vm.loading,
+      footerHasMore: this.vm.hasMore(),
+      footerIsError: this.vm.error.length > 0 && this.vm.hasMore(),
+      onFooterRetry: () => {
+        this.vm.loadNext()
+      },
+    }) {
+      LazyForEach(
+        this.vm.dataSource,
+        (img: EhGalleryImage, index: number) => {
+          GridItem() {
+            PreviewThumbTile({
+              image: img,
+              onTap: () => {
+                this.onOpen(img)
+              },
+            })
+          }
+          .onAppear(() => {
+            this.loadNextIfTailAppeared(index)
+          })
+        },
+        (img: EhGalleryImage) => `${img.page}`,
+      )
+    }
+  }
+}
+
+/**
  * The separate all-thumbnails page (eros_fe galleryAllThumbnails). The detail page shows only the
  * first preview page as a peek and links here; this page owns the full paged thumbnail grid so a
  * thousand-page gallery never inflates the detail. Native PullRefreshGridScaffold; tapping a thumb
@@ -50,15 +135,6 @@ export struct GalleryAllThumbnailsPage {
         img.sUrl,
       ),
     )
-  }
-
-  private loadNextIfTailAppeared(index: number): void {
-    if (index < this.vm.itemCount - 1) {
-      return
-    }
-    if (!this.vm.loading && this.vm.error.length === 0 && this.vm.hasMore()) {
-      this.vm.loadNext()
-    }
   }
 
   private previewTitleBar(): Record<string, Object> {
@@ -96,20 +172,6 @@ export struct GalleryAllThumbnailsPage {
   private async backToFirstPage(): Promise<void> {
     await this.vm.loadImagePage(1)
     const targetIndex: number = this.vm.visibleIndexForImagePage(1)
-    if (targetIndex < 0) {
-      return
-    }
-    setTimeout(() => {
-      this.scroller.scrollToIndex(targetIndex)
-    }, 50)
-  }
-
-  private async loadPreviousPreviewPage(): Promise<void> {
-    const firstImagePage: number = await this.vm.loadPreviousPreviewPage()
-    if (firstImagePage <= 0) {
-      return
-    }
-    const targetIndex: number = this.vm.visibleIndexForImagePage(firstImagePage)
     if (targetIndex < 0) {
       return
     }
@@ -222,51 +284,14 @@ export struct GalleryAllThumbnailsPage {
   build() {
     HdsNavDestination() {
       Stack() {
-        PullRefreshGridScaffold({
+        GalleryAllThumbnailsContent({
+          vm: this.vm,
           scroller: this.scroller,
-          // Responsive: ArkUI derives columns from the pane width + min comfortable thumb width. Tiles
-          // consume their actual cell width locally; this page does not hand-calculate columns or cells.
-          minColumnWidth: ThemeConstants.PREVIEW_THUMB_MIN_W,
-          pinchModeKey: ListMode.THUMBNAIL_GRID,
-          itemCount: this.vm.itemCount,
-          bottomPadding: ThemeConstants.SPACE_XL,
           controller: this.refreshController,
-          onRefresh: async () => {
-            await this.loadPreviousPreviewPage()
+          onOpen: (img: EhGalleryImage) => {
+            this.openReader(img)
           },
-          onBottomRefresh: async () => {
-            await this.vm.loadNext()
-          },
-          canStartBottomRefresh: () => this.vm.hasMore(),
-          onReachEnd: () => {
-            this.vm.loadNext()
-          },
-          showFooter: true,
-          footerIsLoading: this.vm.loading,
-          footerHasMore: this.vm.hasMore(),
-          footerIsError: this.vm.error.length > 0 && this.vm.hasMore(),
-          onFooterRetry: () => {
-            this.vm.loadNext()
-          },
-        }) {
-          LazyForEach(
-            this.vm.dataSource,
-            (img: EhGalleryImage, index: number) => {
-              GridItem() {
-                PreviewThumbTile({
-                  image: img,
-                  onTap: () => {
-                    this.openReader(img)
-                  },
-                })
-              }
-              .onAppear(() => {
-                this.loadNextIfTailAppeared(index)
-              })
-            },
-            (img: EhGalleryImage) => `${img.page}`,
-          )
-        }
+        })
       }
       .width('100%')
       .height('100%')

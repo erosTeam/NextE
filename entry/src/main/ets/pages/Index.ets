@@ -63,6 +63,7 @@ import {
   SecuritySettingsState,
   connectSecuritySettings,
   ListMode,
+  NavDestinationTransitionRegistry,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -331,6 +332,24 @@ function IndexReaderGestureProbeRoute() {
   ReaderGestureProbePage()
 }
 
+@Builder
+function IndexSplitPlaceholderCCBuilder(_state: Object) {
+  Column({ space: ThemeConstants.SPACE_MD }) {
+    SymbolGlyph($r('sys.symbol.rectangle_split_1x2'))
+      .fontSize(ThemeConstants.FONT_SIZE_H1)
+      .fontColor([$r('sys.color.font_tertiary')])
+    Text($r('app.string.tablet_select_detail'))
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor($r('sys.color.font_tertiary'))
+      .textAlign(TextAlign.Center)
+  }
+  .width('100%')
+  .height('100%')
+  .justifyContent(FlexAlign.Center)
+  .alignItems(HorizontalAlign.Center)
+  .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+}
+
 /**
  * NextE navigation shell — native HDS (`HdsNavigation` + `HdsTabs` from `@kit.UIDesignKit`,
  * V2Next's pattern). Bottom tabs mirror eros_fe's CupertinoTabBar IA (tabhome_controller.dart:69-92):
@@ -410,6 +429,7 @@ struct Index {
   private periodBarContent: ComponentContent<Object> | null = null;
   private favcatBarContent: ComponentContent<Object> | null = null;
   private downloadTypeBarContent: ComponentContent<Object> | null = null;
+  private splitPlaceholderContent: ComponentContent<Object> | null = null;
   @Local pendingEhUrl: PendingEhUrlState = connectPendingEhUrl();
   @Local searchAction: SearchActionState = connectSearchAction();
   // Read so the 收藏 menu gates remote-only actions on login while the local favcat bar stays visible.
@@ -1151,6 +1171,56 @@ struct Index {
     return immersiveTitleBarOpts(content)
   }
 
+  private splitPlaceholder(): ComponentContent<Object> {
+    if (this.splitPlaceholderContent === null) {
+      this.splitPlaceholderContent = new ComponentContent<Object>(
+        this.getUIContext(),
+        wrapBuilder<[Object]>(IndexSplitPlaceholderCCBuilder),
+        new Object(),
+      )
+    }
+    return this.splitPlaceholderContent
+  }
+
+  private galleryDetailEnterTransition(
+    _from: NavContentInfo,
+    to: NavContentInfo,
+    operation: NavigationOperation,
+  ): NavigationAnimatedTransition | undefined {
+    if (
+      to.name !== 'GalleryDetail' ||
+      to.navDestinationId === undefined ||
+      (operation !== NavigationOperation.PUSH && operation !== NavigationOperation.REPLACE)
+    ) {
+      return undefined
+    }
+    const destinationId: string = to.navDestinationId
+    return {
+      timeout: ThemeConstants.ANIM_DURATION + ThemeConstants.ANIM_DONE_DELAY_MS,
+      transition: (proxy: NavigationTransitionProxy): void => {
+        if (!NavDestinationTransitionRegistry.prepare(destinationId)) {
+          proxy.finishTransition()
+          return
+        }
+        this.getUIContext().animateTo(
+          {
+            duration: ThemeConstants.ANIM_DURATION,
+            curve: Curve.EaseOut,
+            onFinish: () => {
+              proxy.finishTransition()
+            },
+          },
+          () => {
+            NavDestinationTransitionRegistry.play(destinationId)
+          },
+        )
+      },
+      onTransitionEnd: (_isSuccess: boolean): void => {
+        NavDestinationTransitionRegistry.reset(destinationId)
+      },
+    }
+  }
+
   @Builder
   routerMap(name: string) {
     if (!SafeModeGate.routeAllowed(name)) {
@@ -1263,6 +1333,10 @@ struct Index {
           this.applyHomeTabAutoHide()
         })
         .onChange((index: number) => {
+          const changed: boolean = index !== this.currentTab
+          if (changed && this.stack.getAllPathName().length > 0) {
+            this.stack.clear(false)
+          }
           this.currentTab = index
           this.syncDownloadQueuePageActive()
           // Rebind the title bar to the newly-active tab's scroller so it auto-hides off that list.
@@ -1273,9 +1347,25 @@ struct Index {
         })
       }
       .navDestination(this.routerMap)
-      // Pin Stack mode (V2Next Index.ets:668): default Auto flips to two-column Split past ~600vp, so on
-      // the unfolded foldable the name-pushed routes would render split instead of full-width pushes.
-      .mode(NavigationMode.Stack)
+      // Split's first secondary destination is intentionally non-animated by ArkUI. GalleryDetail
+      // returns a valid system transition protocol so its own destination state can animate instead.
+      .customNavContentTransition((from: NavContentInfo, to: NavContentInfo, operation: NavigationOperation) => {
+        return this.galleryDetailEnterTransition(from, to, operation)
+      })
+      // The root shell owns the adaptive split. Its geometry depends only on available width; changing
+      // a peer root tab clears the old tab's secondary stack and leaves this primary pane in place.
+      .mode(NavigationMode.Auto)
+      .splitPlaceholder(this.splitPlaceholder())
+      .navBarWidth(ThemeConstants.TABLET_PRIMARY_PANE_WIDTH)
+      // HDS resolves the percentage range against the current navigation width, then clamps its upper
+      // edge by minContentWidth. This preserves a 320vp detail surface while allowing the user to reach
+      // a balanced two-pane layout instead of pinning the list at one fixed width.
+      .navBarWidthRange({
+        minWidth: ThemeConstants.TABLET_PRIMARY_PANE_MIN_WIDTH,
+        maxWidth: '100%',
+      })
+      .minContentWidth(ThemeConstants.TABLET_DETAIL_MIN_WIDTH)
+      .enableDragBar(true)
       .titleBar(this.titleBarOpts())
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)

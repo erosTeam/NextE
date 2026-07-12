@@ -110,18 +110,31 @@ export struct GalleryListBody {
   }
 
   private openDetail(g: EhGallery): void {
-    this.stack.pushPathByName(
-      'GalleryDetail',
-      new GalleryDetailParams(
-        g.gid,
-        g.token,
-        g.thumbUrl,
-        g.title(),
-        g.fileCount,
-        g.imgWidth,
-        g.imgHeight,
-      ),
+    const params: GalleryDetailParams = new GalleryDetailParams(
+      g.gid,
+      g.token,
+      g.thumbUrl,
+      g.title(),
+      g.fileCount,
+      g.imgWidth,
+      g.imgHeight,
     )
+    const pathNames: string[] = this.stack.getAllPathName()
+    const topIndex: number = pathNames.length - 1
+    // Re-selecting the already-visible gallery must be a no-op. Replacing it remounts both the metadata
+    // and full-preview surfaces, so repeated taps otherwise look like a network reload and jump the UI.
+    if (topIndex >= 0 && pathNames[topIndex] === 'GalleryDetail') {
+      const current: GalleryDetailParams | undefined = this.stack.getParamByIndex(topIndex) as
+        GalleryDetailParams | undefined
+      if (current !== undefined && current.gid === g.gid && current.token === g.token) {
+        return
+      }
+      // A visible primary list means this is the split peer selection. Keep one secondary detail so
+      // Back removes it and reveals HDS's split placeholder rather than walking prior galleries.
+      this.stack.replacePathByName('GalleryDetail', params, true)
+      return
+    }
+    this.stack.pushPathByName('GalleryDetail', params)
   }
 
   private restoreAfterPrepend(prependedCount: number): void {

@@ -31,25 +31,126 @@ export class AllThumbnailsViewModel {
   private seeded: boolean = false
   private firstPageCount: number = 0
   private currentPreviewPage: number = 0
+  // A detail refresh/context switch may replace the first-page seed while a thumbnail-page request is
+  // still in flight. Each replacement advances this token so an old response cannot merge itself into
+  // the new browsing session.
+  private sessionEpoch: number = 0
 
   seed(p: AllThumbnailsParams): void {
     if (this.seeded) {
       return
     }
+    this.replaceSeed(p)
+  }
+
+  /**
+   * Reconcile a fresh detail-page first preview page with this browsing surface. Normal refreshes keep
+   * already loaded sparse pages only when their source and paging shape are unchanged; an account/site
+   * replacement must pass false and starts a fresh session.
+   */
+  syncDetailFirstPage(p: AllThumbnailsParams, preserveSparse: boolean): void {
+    const nextTotalPages: number = p.previewPageCount > 0 ? p.previewPageCount : 1
+    const nextFirstPageCount: number = p.firstPage.length
+    const canPreserve: boolean =
+      preserveSparse &&
+      this.seeded &&
+      this.gid === p.gid &&
+      this.token === p.token &&
+      this.isEx === p.isEx &&
+      this.totalPages === nextTotalPages &&
+      this.firstPageCount === nextFirstPageCount &&
+      this.hasSameFirstPageShape(p.firstPage)
+    if (!canPreserve) {
+      this.replaceSeed(p)
+      return
+    }
+    // Cancel an older page request before replacing the canonical first-page images. Extra sparse pages
+    // remain valid for this unchanged source, but no old response may append after this refresh.
+    this.sessionEpoch = this.sessionEpoch + 1
+    this.loading = false
+    this.error = ''
+    for (let i: number = 0; i < p.firstPage.length; i++) {
+      this.dataSource.replaceDataAt(i, p.firstPage[i].copy())
+    }
+    this.currentPreviewPage = Math.max(0, Math.min(this.totalPages - 1, this.currentPreviewPage))
+  }
+
+  /** Drop every URL/page marker from the old account or site before its replacement detail arrives. */
+  invalidate(): void {
+    this.sessionEpoch = this.sessionEpoch + 1
+    this.dataSource.setData([])
+    this.itemCount = 0
+    this.loading = false
+    this.error = ''
+    this.loadedPages = 0
+    this.loadedPreviewPageMarkers = []
+    this.totalPages = 1
+    this.gid = ''
+    this.token = ''
+    this.isEx = false
+    this.seeded = false
+    this.firstPageCount = 0
+    this.currentPreviewPage = 0
+  }
+
+  private replaceSeed(p: AllThumbnailsParams): void {
+    this.sessionEpoch = this.sessionEpoch + 1
     this.seeded = true
     this.gid = p.gid
     this.token = p.token
     this.isEx = p.isEx
+    this.loading = false
+    this.error = ''
     this.totalPages = p.previewPageCount > 0 ? p.previewPageCount : 1
-    this.dataSource.setData(p.firstPage)
+    // The detail page owns its canonical first-page preview array. Keep this paging surface on an
+    // independent copy so BasicDataSource.appendData() can never grow the detail's inline peek when
+    // later preview pages are appended.
+    const inputImages: EhGalleryImage[] = p.seedImages.length > 0 ? p.seedImages : p.firstPage
+    const seedImages: EhGalleryImage[] = []
+    inputImages.forEach((image: EhGalleryImage) => {
+      seedImages.push(image.copy())
+    })
+    this.dataSource.setData(seedImages)
     this.itemCount = this.dataSource.totalCount()
-    this.loadedPages = p.firstPage.length > 0 ? 1 : 0
+    this.loadedPages = 0
     this.loadedPreviewPageMarkers = []
-    if (p.firstPage.length > 0) {
+    p.seedPreviewPages.forEach((previewPage: number) => {
+      if (previewPage >= 0 && previewPage < this.totalPages) {
+        this.markPreviewPageLoaded(previewPage)
+      }
+    })
+    if (seedImages.length > 0 && this.loadedPreviewPageMarkers.length === 0) {
       this.markPreviewPageLoaded(0)
     }
-    this.firstPageCount = p.firstPage.length
-    this.currentPreviewPage = 0
+    this.advanceContiguousLoadedPages()
+    this.firstPageCount = p.seedPerPage > 0
+      ? p.seedPerPage
+      : (p.firstPage.length > 0 ? p.firstPage.length : seedImages.length)
+    this.currentPreviewPage = Math.max(0, Math.min(this.totalPages - 1, p.seedCurrentPreviewPage))
+  }
+
+  private isCurrentSession(epoch: number): boolean {
+    return this.sessionEpoch === epoch
+  }
+
+  private hasSameFirstPageShape(fresh: EhGalleryImage[]): boolean {
+    if (fresh.length === 0) {
+      return false
+    }
+    const current: EhGalleryImage[] = this.dataSource.getAll()
+    if (current.length < fresh.length) {
+      return false
+    }
+    for (let i: number = 0; i < fresh.length; i++) {
+      if (current[i].page !== fresh[i].page) {
+        return false
+      }
+    }
+    return true
+  }
+
+  hasSeeded(): boolean {
+    return this.seeded
   }
 
   hasMore(): boolean {
@@ -61,12 +162,12 @@ export class AllThumbnailsViewModel {
     if (this.loading || !this.hasMore() || this.gid.length === 0) {
       return
     }
+    const epoch: number = this.sessionEpoch
     this.loading = true
     this.error = ''
     try {
       const nextPage: number = this.nextForwardPreviewPage()
       if (nextPage < 0) {
-        this.loading = false
         return
       }
       const more: EhGalleryImage[] = await EhApiService.getInstance().getPreviewImages(
@@ -75,15 +176,24 @@ export class AllThumbnailsViewModel {
         this.isEx,
         nextPage,
       )
+      if (!this.isCurrentSession(epoch)) {
+        return
+      }
       this.mergePreviewPage(nextPage, more)
       this.itemCount = this.dataSource.totalCount()
       this.advanceContiguousLoadedPages()
       this.currentPreviewPage = nextPage
     } catch (err) {
+      if (!this.isCurrentSession(epoch)) {
+        return
+      }
       this.error = EhErrorText.forUser(err)
       DiagnosticLogger.warn('gallery', 'thumbs_loadnext_failed', (err as Error).message)
+    } finally {
+      if (this.isCurrentSession(epoch)) {
+        this.loading = false
+      }
     }
-    this.loading = false
   }
 
   loadedImages(): EhGalleryImage[] {
@@ -111,6 +221,10 @@ export class AllThumbnailsViewModel {
     return this.firstPageCount
   }
 
+  currentPreviewPageNumber(): number {
+    return this.currentPreviewPage
+  }
+
   visibleIndexForImagePage(pageOneBased: number): number {
     const items: EhGalleryImage[] = this.dataSource.getAll()
     for (let i: number = 0; i < items.length; i++) {
@@ -125,12 +239,16 @@ export class AllThumbnailsViewModel {
     if (pageOneBased <= 0 || this.firstPageCount <= 0) {
       return false
     }
+    const epoch: number = this.sessionEpoch
     const targetPreviewPage: number = Math.floor((pageOneBased - 1) / this.firstPageCount)
     const pages: number[] = this.previewNeighborhood(targetPreviewPage)
     this.loading = true
     this.error = ''
     try {
       for (let i: number = 0; i < pages.length; i++) {
+        if (!this.isCurrentSession(epoch)) {
+          return false
+        }
         const previewPage: number = pages[i]
         if (this.isPreviewPageLoaded(previewPage)) {
           continue
@@ -141,17 +259,30 @@ export class AllThumbnailsViewModel {
           this.isEx,
           previewPage,
         )
+        if (!this.isCurrentSession(epoch)) {
+          return false
+        }
         this.mergePreviewPage(previewPage, pageImages)
+      }
+      if (!this.isCurrentSession(epoch)) {
+        return false
       }
       this.itemCount = this.dataSource.totalCount()
       this.advanceContiguousLoadedPages()
       this.currentPreviewPage = targetPreviewPage
+      return this.visibleIndexForImagePage(pageOneBased) >= 0
     } catch (err) {
+      if (!this.isCurrentSession(epoch)) {
+        return false
+      }
       this.error = EhErrorText.forUser(err)
       DiagnosticLogger.warn('gallery', 'thumbs_loadpage_failed', (err as Error).message)
+      return false
+    } finally {
+      if (this.isCurrentSession(epoch)) {
+        this.loading = false
+      }
     }
-    this.loading = false
-    return this.visibleIndexForImagePage(pageOneBased) >= 0
   }
 
   private previewNeighborhood(targetPreviewPage: number): number[] {
@@ -168,6 +299,7 @@ export class AllThumbnailsViewModel {
     if (this.loading || this.currentPreviewPage <= 0 || this.firstPageCount <= 0 || this.gid.length === 0) {
       return -1
     }
+    const epoch: number = this.sessionEpoch
     const targetPreviewPage: number = this.currentPreviewPage - 1
     if (!this.isPreviewPageLoaded(targetPreviewPage)) {
       this.loading = true
@@ -179,16 +311,27 @@ export class AllThumbnailsViewModel {
           this.isEx,
           targetPreviewPage,
         )
+        if (!this.isCurrentSession(epoch)) {
+          return -1
+        }
         this.mergePreviewPage(targetPreviewPage, pageImages)
         this.itemCount = this.dataSource.totalCount()
         this.advanceContiguousLoadedPages()
       } catch (err) {
+        if (!this.isCurrentSession(epoch)) {
+          return -1
+        }
         this.error = EhErrorText.forUser(err)
         DiagnosticLogger.warn('gallery', 'thumbs_loadprevious_failed', (err as Error).message)
-        this.loading = false
         return -1
+      } finally {
+        if (this.isCurrentSession(epoch)) {
+          this.loading = false
+        }
       }
-      this.loading = false
+    }
+    if (!this.isCurrentSession(epoch)) {
+      return -1
     }
     this.currentPreviewPage = targetPreviewPage
     return targetPreviewPage * this.firstPageCount + 1

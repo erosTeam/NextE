@@ -88,16 +88,23 @@ import {
   DiagnosticLogger,
   SafeModeState,
   connectSafeMode,
+  NavDestinationTransitionRegistry,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
+import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
 import { GalleryHeaderCard } from '../components/GalleryHeaderCard'
 import { GalleryInfoBar } from '../components/GalleryInfoBar'
-import { GalleryTagsCard } from '../components/GalleryTagsCard'
+import {
+  GalleryTagInfoRequest,
+  GalleryTagInfoSheet,
+  GalleryTagsCard,
+} from '../components/GalleryTagsCard'
 import { GalleryPreviewGrid } from '../components/GalleryPreviewGrid'
 import { GalleryCommentsCard } from '../components/GalleryCommentsCard'
 import { GalleryAddTagsSheet } from '../components/GalleryAddTagsSheet'
 import { GalleryTorrentsContent } from './GalleryTorrentsPage'
 import { GalleryArchiverContent } from './GalleryArchiverPage'
+import { GalleryAllThumbnailsContent } from './GalleryAllThumbnailsPage'
 
 const DETAIL_SHEET_REMOTE_FAVORITE: string = 'remoteFavorite'
 const DETAIL_SHEET_RATING: string = 'rating'
@@ -124,6 +131,7 @@ const FOLLOW_OPERATION_VERTICAL_DOMINANCE_RATIO: number = 1.2
 @ComponentV2
 export struct GalleryDetailPage {
   @Local vm: GalleryDetailViewModel = new GalleryDetailViewModel();
+  @Local fullPreviewVm: AllThumbnailsViewModel = new AllThumbnailsViewModel();
   @Local params: GalleryDetailParams = new GalleryDetailParams();
   @Local auth: AuthState = connectAuth();
   @Local siteMode: SiteModeState = connectSiteMode();
@@ -163,6 +171,7 @@ export struct GalleryDetailPage {
   // page opened while the edge is already 'left' starts left — @Monitor only fires on later changes.
   @Local visualActionEdge: string = connectActionHandEdge().edge;
   @Local detailRootWidth: number = 0;
+  @Local detailMetadataWidth: number = 0;
   @Local readFabWidth: number = 0;
   @Local readFabLayoutReady: boolean = false;
   @Local readFabShouldAnimate: boolean = false;
@@ -174,6 +183,11 @@ export struct GalleryDetailPage {
   private followTouchState: ActionFollowTouchState = ActionFollowTouchTracker.initialState();
   @Local detailSheetShown: boolean = false;
   @Local detailSheetKind: string = '';
+  @Local tagInfoSheetShown: boolean = false;
+  @Local tagInfoRequest: GalleryTagInfoRequest = new GalleryTagInfoRequest();
+  @Local fullPreviewJumpSheetShown: boolean = false;
+  @Local fullPreviewJumpPageText: string = '';
+  @Local fullPreviewJumpError: string = '';
   @Local remoteFavoriteSelectedCat: string = '';
   @Local remoteFavoriteNote: string = '';
   @Local remoteFavoriteSlots: Favcat[] = [];
@@ -184,9 +198,17 @@ export struct GalleryDetailPage {
   @Local ratingSubmitting: boolean = false;
   @Local ratingError: string = '';
   @Local downloadUpgradeBusyGid: string = '';
+  @Local navigationEnterOffsetX: number = 0;
+  @Local navigationEnterOpacity: number = 1;
   private stack: NavPathStack = connectNavStack().stack;
+  private navigationDestinationId: string = '';
   private readFabMaterialController: HdsTabsController = new HdsTabsController();
   private actionStripScroller: Scroller = new Scroller();
+  private fullPreviewScroller: Scroller = new Scroller();
+  private fullPreviewRefreshController: PullRefreshController = new PullRefreshController();
+  // Account/site changes replace preview URLs and permissions. Until a real replacement detail result
+  // arrives, keep the full-preview VM empty and make the next seed a complete fresh session.
+  private fullPreviewMustReset: boolean = false;
 
   // Smooth-slide the Read FAB when the resolved edge changes. FlexAlign can't tween, so the button carries
   // .animation() on its translate and we only flip the target edge here (mirrors V2Next's edge @Monitor).
@@ -234,8 +256,12 @@ export struct GalleryDetailPage {
     if (this.visualActionEdge === 'left') {
       return 0
     }
-    const inner: number = this.detailRootWidth - this.readFabRailSideInset() * 2
+    const inner: number = this.readFabAvailableWidth() - this.readFabRailSideInset() * 2
     return Math.max(0, inner - this.readFabWidth)
+  }
+
+  private readFabAvailableWidth(): number {
+    return this.usesSplitDetailLayout() ? this.detailRootWidth : this.detailMetadataWidth
   }
 
   private readFabUsesHdsMaterial(): boolean {
@@ -254,6 +280,14 @@ export struct GalleryDetailPage {
     return this.readFabUsesHdsMaterial()
       ? ThemeConstants.BUTTON_HEIGHT + ThemeConstants.SPACE_LG * 2
       : ThemeConstants.BUTTON_HEIGHT
+  }
+
+  private usesSplitDetailLayout(): boolean {
+    return this.detailRootWidth >= ThemeConstants.GALLERY_DETAIL_SPLIT_MIN_WIDTH
+  }
+
+  private hasResolvedDetailLayout(): boolean {
+    return this.detailRootWidth > 0
   }
 
   private readFabMaterialBarWidth(): number {
@@ -287,7 +321,7 @@ export struct GalleryDetailPage {
   }
 
   private updateReadFabLayoutReady(): void {
-    if (this.detailRootWidth > 0 && this.readFabWidth > 0) {
+    if (this.readFabAvailableWidth() > 0 && this.readFabWidth > 0) {
       this.readFabLayoutReady = true
     }
   }
@@ -321,7 +355,7 @@ export struct GalleryDetailPage {
     )
     this.followTouchState = update.state
     if (update.shouldReport) {
-      MotionHandStateService.reportFollowOperationX(update.reportX, this.detailRootWidth)
+      MotionHandStateService.reportFollowOperationX(update.reportX, this.readFabAvailableWidth())
     }
   }
   private scroller: Scroller = new Scroller();
@@ -349,12 +383,44 @@ export struct GalleryDetailPage {
   // the replacement arrives, but never let an in-flight old account/site response repaint or cache it.
   @Monitor('auth.memberId')
   onDetailAccountChange(): void {
-    this.vm.reloadForContext()
+    this.reloadFullPreviewForContext()
   }
 
   @Monitor('siteMode.isEx')
   onDetailSiteChange(): void {
+    this.reloadFullPreviewForContext()
+  }
+
+  @Monitor('vm.previewRevision')
+  onDetailPreviewSeedChanged(): void {
+    this.syncFullPreviewFromDetail()
+  }
+
+  private reloadFullPreviewForContext(): void {
+    this.fullPreviewMustReset = true
+    this.fullPreviewVm.invalidate()
     this.vm.reloadForContext()
+  }
+
+  private retryDetailLoad(): void {
+    // A context replacement keeps the previous detail VM marked loaded. Retrying it through load()
+    // would therefore be a silent no-op; restart the replacement run and its fresh preview session.
+    if (this.fullPreviewMustReset) {
+      this.reloadFullPreviewForContext()
+      return
+    }
+    this.vm.load(this.params.gid, this.params.token)
+  }
+
+  private syncFullPreviewFromDetail(): void {
+    if (this.params.gid.length === 0 || this.vm.images.length === 0) {
+      return
+    }
+    this.fullPreviewVm.syncDetailFirstPage(
+      this.allThumbnailsParams(0, false),
+      !this.fullPreviewMustReset,
+    )
+    this.fullPreviewMustReset = false
   }
 
   // Record this gallery in viewed-history 5s after open (eros_fe's debounce). By then the detail fetch
@@ -420,6 +486,29 @@ export struct GalleryDetailPage {
         this.vm.images,
         this.vm.images.length > 0 ? 1 : 0,
         this.vm.images.length,
+      ),
+    )
+  }
+
+  private openFullPreviewReader(img: EhGalleryImage): void {
+    if (this.fullPreviewMustReset) {
+      return
+    }
+    this.ensureFullPreviewSeeded()
+    const pageZeroBased: number = img.page > 0 ? img.page - 1 : 0
+    this.stack.pushPathByName(
+      'Reader',
+      new ReaderParams(
+        this.params.gid,
+        this.params.token,
+        pageZeroBased,
+        this.fileCountNum(),
+        this.navTitle(),
+        this.fullPreviewVm.loadedImages(),
+        this.fullPreviewVm.loadedPreviewPages(),
+        this.fullPreviewVm.seedPerPage(),
+        this.fullPreviewVm.loadedPreviewPageNumbers(),
+        img.sUrl,
       ),
     )
   }
@@ -755,6 +844,21 @@ export struct GalleryDetailPage {
     this.detailSheetShown = false
   }
 
+  private openTagInfoSheet(namespace: string, tagText: string, tagDisplay: string, tagVote: number): void {
+    this.tagInfoRequest.namespace = namespace
+    this.tagInfoRequest.tagText = tagText
+    this.tagInfoRequest.tagDisplay = tagDisplay
+    this.tagInfoRequest.tagVote = tagVote
+    // This is a semantic request sequence, not a component key: a popup-width sheet may leave the
+    // background interactive, so another long press must replace the active tag-info content.
+    this.tagInfoRequest.requestSeq = this.tagInfoRequest.requestSeq + 1
+    this.tagInfoSheetShown = true
+  }
+
+  private closeTagInfoSheet(): void {
+    this.tagInfoSheetShown = false
+  }
+
   private detailSheetDetents(): [
     string | number | Resource,
     (string | number | Resource)?,
@@ -1030,20 +1134,101 @@ export struct GalleryDetailPage {
     }
   }
 
+  private allThumbnailsParams(initialImagePage: number, includeSession: boolean): AllThumbnailsParams {
+    let seedImages: EhGalleryImage[] = []
+    let seedPreviewPages: number[] = []
+    let seedPerPage: number = 0
+    let seedCurrentPreviewPage: number = 0
+    if (includeSession && this.fullPreviewVm.hasSeeded()) {
+      seedImages = this.fullPreviewVm.loadedImages()
+      seedPreviewPages = this.fullPreviewVm.loadedPreviewPageNumbers()
+      seedPerPage = this.fullPreviewVm.seedPerPage()
+      seedCurrentPreviewPage = this.fullPreviewVm.currentPreviewPageNumber()
+    }
+    return new AllThumbnailsParams(
+      this.params.gid,
+      this.params.token,
+      connectSiteMode().isEx,
+      this.fileCountNum(),
+      this.vm.previewPageCount,
+      this.navTitle(),
+      this.vm.images,
+      initialImagePage,
+      seedImages,
+      seedPreviewPages,
+      seedPerPage,
+      seedCurrentPreviewPage,
+    )
+  }
+
+  private ensureFullPreviewSeeded(): void {
+    if (this.fullPreviewMustReset || this.params.gid.length === 0 || this.vm.images.length === 0) {
+      return
+    }
+    this.fullPreviewVm.syncDetailFirstPage(this.allThumbnailsParams(0, false), true)
+  }
+
   private openThumbnails(initialImagePage: number = 0): void {
+    if (this.fullPreviewMustReset) {
+      return
+    }
+    this.ensureFullPreviewSeeded()
     this.stack.pushPathByName(
       'AllThumbnails',
-      new AllThumbnailsParams(
-        this.params.gid,
-        this.params.token,
-        connectSiteMode().isEx,
-        this.fileCountNum(),
-        this.vm.previewPageCount,
-        this.navTitle(),
-        this.vm.images,
-        initialImagePage,
-      ),
+      this.allThumbnailsParams(initialImagePage, true),
     )
+  }
+
+  private scrollFullPreviewToImagePage(pageOneBased: number): void {
+    const targetIndex: number = this.fullPreviewVm.visibleIndexForImagePage(pageOneBased)
+    if (targetIndex < 0) {
+      return
+    }
+    setTimeout(() => {
+      this.fullPreviewScroller.scrollToIndex(targetIndex)
+    }, 50)
+  }
+
+  private async backFullPreviewToFirstPage(): Promise<void> {
+    const loaded: boolean = await this.fullPreviewVm.loadImagePage(1)
+    if (loaded) {
+      this.scrollFullPreviewToImagePage(1)
+    }
+  }
+
+  private fullPreviewMaxImagePage(): number {
+    const fileCount: number = this.fileCountNum()
+    return fileCount > 0 ? fileCount : this.fullPreviewVm.itemCount
+  }
+
+  private fullPreviewDefaultJumpPage(): number {
+    const maxPage: number = this.fullPreviewMaxImagePage()
+    if (maxPage <= 0) {
+      return 1
+    }
+    return Math.min(maxPage, this.fullPreviewVm.itemCount + 1)
+  }
+
+  private openFullPreviewJumpSheet(): void {
+    this.fullPreviewJumpPageText = `${this.fullPreviewDefaultJumpPage()}`
+    this.fullPreviewJumpError = ''
+    this.fullPreviewJumpSheetShown = true
+  }
+
+  private async confirmFullPreviewJump(): Promise<void> {
+    const page: number = Number.parseInt(this.fullPreviewJumpPageText, 10)
+    const maxPage: number = this.fullPreviewMaxImagePage()
+    if (Number.isNaN(page) || page <= 0 || (maxPage > 0 && page > maxPage)) {
+      this.fullPreviewJumpError = AppStrings.get('gallery_preview_jump_invalid')
+      return
+    }
+    const loaded: boolean = await this.fullPreviewVm.loadImagePage(page)
+    if (!loaded) {
+      this.fullPreviewJumpError = AppStrings.get('common_load_failed')
+      return
+    }
+    this.fullPreviewJumpSheetShown = false
+    this.scrollFullPreviewToImagePage(page)
   }
 
   private detailBottomPreviewInitialPage(): number {
@@ -1064,6 +1249,31 @@ export struct GalleryDetailPage {
     }
     const content: Record<string, Object> = { 'title': title, 'menu': this.detailMenu() }
     return immersiveTitleBarOpts(content)
+  }
+
+  private registerNavigationEnterTransition(id: string): void {
+    this.navigationDestinationId = id
+    NavDestinationTransitionRegistry.register(id, {
+      prepare: () => {
+        this.navigationEnterOffsetX = ThemeConstants.SPACE_XL
+        this.navigationEnterOpacity = 0
+      },
+      play: () => {
+        this.navigationEnterOffsetX = 0
+        this.navigationEnterOpacity = 1
+      },
+      reset: () => {
+        this.navigationEnterOffsetX = 0
+        this.navigationEnterOpacity = 1
+      },
+    })
+  }
+
+  private unregisterNavigationEnterTransition(): void {
+    if (this.navigationDestinationId.length > 0) {
+      NavDestinationTransitionRegistry.unregister(this.navigationDestinationId)
+      this.navigationDestinationId = ''
+    }
   }
 
   // Native HDS title-bar actions. Read remains the primary FAB; secondary tools stay in the title-bar
@@ -1091,6 +1301,22 @@ export struct GalleryDetailPage {
       'isEnabled': true,
       'action': () => {
         this.openComments()
+      },
+    }
+    const previewFirstInner: Record<string, Object> = {
+      'label': $r('app.string.gallery_preview_first_page'),
+      'icon': $r('sys.symbol.arrow_up_circle'),
+      'isEnabled': !this.fullPreviewVm.loading,
+      'action': () => {
+        this.backFullPreviewToFirstPage()
+      },
+    }
+    const previewJumpInner: Record<string, Object> = {
+      'label': $r('app.string.gallery_preview_jump'),
+      'icon': $r('sys.symbol.arrow_right'),
+      'isEnabled': !this.fullPreviewVm.loading,
+      'action': () => {
+        this.openFullPreviewJumpSheet()
       },
     }
     const parentInner: Record<string, Object> = {
@@ -1168,6 +1394,10 @@ export struct GalleryDetailPage {
       { 'content': openBrowserInner },
       { 'content': openWebInner },
     ]
+    if (this.usesSplitDetailLayout() && this.fullPreviewVm.itemCount > 0) {
+      items.splice(3, 0, { 'content': previewFirstInner })
+      items.splice(4, 0, { 'content': previewJumpInner })
+    }
     if (this.vm.gallery.parentGid.length > 0 && this.vm.gallery.parentGid !== this.params.gid) {
       items.splice(3, 0, { 'content': parentInner })
     }
@@ -1828,6 +2058,66 @@ export struct GalleryDetailPage {
   }
 
   @Builder
+  private TagInfoSheet() {
+    GalleryTagInfoSheet({
+      gallery: this.vm.gallery,
+      request: this.tagInfoRequest,
+      closeAction: () => {
+        this.closeTagInfoSheet()
+      },
+      onTagVoteChanged: (namespace: string, tagText: string, vote: number) => {
+        this.vm.applyTagVote(namespace, tagText, vote)
+      },
+    })
+  }
+
+  @Builder
+  private FullPreviewJumpSheet() {
+    Column({ space: ThemeConstants.SPACE_MD }) {
+      Text($r('app.string.gallery_preview_jump_help'))
+        .fontSize(ThemeConstants.FONT_SIZE_BODY)
+        .fontColor($r('sys.color.font_secondary'))
+      TextInput({
+        text: this.fullPreviewJumpPageText,
+        placeholder: $r('app.string.gallery_preview_jump_placeholder'),
+      })
+        .type(InputType.Number)
+        .height(44)
+        .backgroundColor($r('app.color.card_background'))
+        .onChange((value: string) => {
+          this.fullPreviewJumpPageText = value
+          this.fullPreviewJumpError = ''
+        })
+      if (this.fullPreviewJumpError.length > 0) {
+        Text(this.fullPreviewJumpError)
+          .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+          .fontColor(Color.Red)
+      }
+      Row({ space: ThemeConstants.SPACE_MD }) {
+        Button($r('app.string.common_cancel'))
+          .type(ButtonType.Capsule)
+          .backgroundColor($r('sys.color.ohos_id_color_button_normal'))
+          .fontColor($r('sys.color.font_primary'))
+          .layoutWeight(1)
+          .onClick(() => {
+            this.fullPreviewJumpSheetShown = false
+          })
+        Button($r('app.string.gallery_preview_jump'))
+          .type(ButtonType.Capsule)
+          .fontColor(ThemeConstants.TEXT_ON_BRAND)
+          .backgroundColor(ThemeConstants.BRAND_PRIMARY)
+          .layoutWeight(1)
+          .onClick(() => {
+            this.confirmFullPreviewJump()
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding(ThemeConstants.SPACE_LG)
+  }
+
+  @Builder
   private ReadFabFilledButton() {
     Button({ type: ButtonType.Capsule }) {
       Row({ space: ThemeConstants.SPACE_SM }) {
@@ -1893,81 +2183,108 @@ export struct GalleryDetailPage {
     }
   }
 
-  build() {
-    HdsNavDestination() {
-      Stack() {
-        PullRefreshListScaffold({
-          scroller: this.scroller,
-          listSpace: ThemeConstants.SPACE_MD,
-          bottomPadding: ThemeConstants.SPACE_XXL + ThemeConstants.BUTTON_HEIGHT,
-          controller: this.refreshController,
-          onRefresh: async () => {
-            await this.vm.refresh()
-          },
-          onBottomRefresh: async () => {
+  @Builder
+  private ReadFabRail() {
+    Row() {
+      Row() {
+        this.ReadFabButton()
+      }
+      .height(this.readFabOuterHeight())
+      .translate({ x: this.readFabVisualX() })
+      .opacity(this.readFabLayoutReady ? 1 : 0)
+      .animation({ duration: this.readFabAnimationDuration(), curve: Curve.EaseOut })
+      .onAreaChange((_oldArea: Area, area: Area) => {
+        this.readFabWidth = area.width as number
+        this.updateReadFabLayoutReady()
+      })
+    }
+    // Full-width bottom rail; the button is Start-anchored and slid horizontally by translate so the
+    // Read FAB aligns to the holding-hand side (smart-grip / follow / fixed). HDS material style uses
+    // its internal activity padding for edge clearance, so the rail padding is style-dependent.
+    .width('100%')
+    .padding({ left: this.readFabRailSideInset(), right: this.readFabRailSideInset() })
+    .justifyContent(FlexAlign.Start)
+    .hitTestBehavior(HitTestMode.Transparent)
+    .position({ left: 0, bottom: this.readFabRailBottomInset() })
+  }
+
+  @Builder
+  private DetailMetadataPane(showCompactPreview: boolean) {
+    Stack() {
+      PullRefreshListScaffold({
+        scroller: this.scroller,
+        listSpace: ThemeConstants.SPACE_MD,
+        bottomPadding: ThemeConstants.SPACE_XXL + ThemeConstants.BUTTON_HEIGHT,
+        controller: this.refreshController,
+        onRefresh: async () => {
+          await this.vm.refresh()
+        },
+        onBottomRefresh: async () => {
+          if (showCompactPreview) {
             this.openThumbnails(this.detailBottomPreviewInitialPage())
-          },
-          canStartBottomRefresh: () => this.vm.images.length > 0,
-          onDidScroll: (offset: number) => {
-            const past: boolean = offset > 160
-            if (past !== this.showNavTitle) {
-              this.showNavTitle = past
-            }
-          },
-        }) {
+          }
+        },
+        canStartBottomRefresh: () => showCompactPreview && this.vm.images.length > 0,
+        onDidScroll: (offset: number) => {
+          const past: boolean = offset > 160
+          if (past !== this.showNavTitle) {
+            this.showNavTitle = past
+          }
+        },
+      }) {
+        ListItem() {
+          GalleryHeaderCard({
+            gallery: this.vm.gallery,
+            onTitleTap: () => {
+              this.openFullTitleSheet()
+            },
+            onUploader: (name: string) => {
+              this.searchUploader(name)
+            },
+          })
+        }
+        ListItem() {
+          GalleryInfoBar({
+            gallery: this.vm.gallery,
+            onOpenInfo: () => {
+              this.openGalleryInfo()
+            },
+          })
+        }
+        ListItem() {
+          this.relationsRow()
+        }
+
+        if (this.vm.gallery.tagGroups.length > 0) {
           ListItem() {
-            GalleryHeaderCard({
+            GalleryTagsCard({
               gallery: this.vm.gallery,
-              onTitleTap: () => {
-                this.openFullTitleSheet()
+              onTagInfoRequested: (namespace: string, tagText: string, tagDisplay: string, tagVote: number) => {
+                this.openTagInfoSheet(namespace, tagText, tagDisplay, tagVote)
               },
-              onUploader: (name: string) => {
+            })
+          }
+        }
+
+        // Comments remain in the metadata pane, before the compact first-page preview.
+        if (this.visiblePreviewComments().length > 0) {
+          ListItem() {
+            GalleryCommentsCard({
+              comments: this.visiblePreviewComments(),
+              referenceComments: this.vm.comments,
+              max: 2,
+              onMore: () => {
+                this.openComments()
+              },
+              onAuthor: (name: string) => {
                 this.searchUploader(name)
               },
             })
           }
-          ListItem() {
-            GalleryInfoBar({
-              gallery: this.vm.gallery,
-              onOpenInfo: () => {
-                this.openGalleryInfo()
-              },
-            })
-          }
-          ListItem() {
-            this.relationsRow()
-          }
+        }
 
-          if (this.vm.gallery.tagGroups.length > 0) {
-            ListItem() {
-              GalleryTagsCard({
-                gallery: this.vm.gallery,
-                onTagVoteChanged: (namespace: string, tagText: string, vote: number) => {
-                  this.vm.applyTagVote(namespace, tagText, vote)
-                },
-              })
-            }
-          }
-
-          // Comments PEEK — before previews so it is reachable without scrolling the thumbnails.
-          if (this.visiblePreviewComments().length > 0) {
-            ListItem() {
-              GalleryCommentsCard({
-                comments: this.visiblePreviewComments(),
-                referenceComments: this.vm.comments,
-                max: 2,
-                onMore: () => {
-                  this.openComments()
-                },
-                onAuthor: (name: string) => {
-                  this.searchUploader(name)
-                },
-              })
-            }
-          }
-
-          // Previews PEEK (first page only) — last; eros_fe ThumbTile modes (grid default / horizontal /
-          // hidden-inline) per the thumbnail settings. The all-thumbnails entry is reachable in every mode.
+        if (showCompactPreview) {
+          // The established compact path remains the first-page peek plus standalone all-thumbnails route.
           if (this.vm.images.length > 0) {
             ListItem() {
               GalleryPreviewGrid({
@@ -2002,50 +2319,162 @@ export struct GalleryDetailPage {
                 message: this.vm.error,
                 expand: false,
                 retryAction: () => {
-                  this.vm.load(this.params.gid, this.params.token)
+                  this.retryDetailLoad()
                 },
               })
             }
           }
         }
-        Row() {
-          Row() {
-            this.ReadFabButton()
-          }
-          .height(this.readFabOuterHeight())
-          .translate({ x: this.readFabVisualX() })
-          .opacity(this.readFabLayoutReady ? 1 : 0)
-          .animation({ duration: this.readFabAnimationDuration(), curve: Curve.EaseOut })
-          .onAreaChange((_oldArea: Area, area: Area) => {
-            this.readFabWidth = area.width as number
-            this.updateReadFabLayoutReady()
+      }
+      if (showCompactPreview) {
+        this.ReadFabRail()
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .id('gallery-detail-pane')
+  }
+
+  @Builder
+  private FullPreviewPane() {
+    Stack() {
+      if (this.fullPreviewVm.itemCount > 0) {
+        GalleryAllThumbnailsContent({
+          vm: this.fullPreviewVm,
+          scroller: this.fullPreviewScroller,
+          controller: this.fullPreviewRefreshController,
+          onOpen: (img: EhGalleryImage) => {
+            this.openFullPreviewReader(img)
+          },
+        })
+      } else if (this.vm.loading && !this.vm.cachedDetailApplied) {
+        Column() {
+          LoadingProgress()
+            .width(ThemeConstants.LOADING_SIZE)
+            .height(ThemeConstants.LOADING_SIZE)
+            .color(ThemeConstants.BRAND_PRIMARY)
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else if (this.vm.error.length > 0) {
+        Column() {
+          PageErrorState({
+            message: this.vm.error,
+            retryAction: () => {
+              this.retryDetailLoad()
+            },
           })
         }
-        // Full-width bottom rail; the button is Start-anchored and slid horizontally by translate so the
-        // Read FAB aligns to the holding-hand side (smart-grip / follow / fixed). HDS material style uses
-        // its internal activity padding for edge clearance, so the rail padding is style-dependent.
         .width('100%')
-        .padding({ left: this.readFabRailSideInset(), right: this.readFabRailSideInset() })
-        .justifyContent(FlexAlign.Start)
-        .hitTestBehavior(HitTestMode.Transparent)
-        .position({ left: 0, bottom: this.readFabRailBottomInset() })
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
       }
-      .onAreaChange((_oldArea: Area, area: Area) => {
-        this.detailRootWidth = area.width as number
-        this.updateReadFabLayoutReady()
-      })
-      .onTouch((event: TouchEvent) => {
-        this.handleFollowTouch(event)
-      })
-      .bindSheet($$this.detailSheetShown, this.DetailSheet(), appSheetOptions({
-        detents: this.detailSheetDetents(),
+    }
+    .width('100%')
+    .height('100%')
+    .bindSheet($$this.fullPreviewJumpSheetShown, this.FullPreviewJumpSheet(), appSheetOptions({
+      detents: [SheetSize.MEDIUM],
+      title: { title: $r('app.string.gallery_preview_jump') },
+      showClose: true,
+    }))
+  }
+
+  @Builder
+  private DetailLayoutBootstrap() {
+    // onAreaChange arrives after the first build. Do not briefly mount the compact metadata tree while
+    // the destination width is still unknown, otherwise a wide tablet visibly jumps from one full pane
+    // to metadata + previews on the next frame.
+    Column() {
+      LoadingProgress()
+        .width(ThemeConstants.LOADING_SIZE)
+        .height(ThemeConstants.LOADING_SIZE)
+        .color(ThemeConstants.BRAND_PRIMARY)
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+  }
+
+  build() {
+    HdsNavDestination() {
+      Stack() {
+        Stack() {
+          if (!this.hasResolvedDetailLayout()) {
+          this.DetailLayoutBootstrap()
+          } else if (this.usesSplitDetailLayout()) {
+          Row() {
+            Column() {
+              this.DetailMetadataPane(false)
+            }
+            .layoutWeight(1)
+            .height('100%')
+            .onAreaChange((_oldArea: Area, area: Area) => {
+              this.detailMetadataWidth = area.width as number
+              this.updateReadFabLayoutReady()
+            })
+
+            Column() {
+              this.FullPreviewPane()
+            }
+            .layoutWeight(1)
+            .height('100%')
+            .id('gallery-full-preview-pane')
+          }
+          .width('100%')
+          .height('100%')
+          .alignItems(VerticalAlign.Top)
+          .onTouch((event: TouchEvent) => {
+            this.handleFollowTouch(event)
+          })
+          // The wide detail is one workspace. Its primary Read action may follow either hand all the
+          // way to the outer edge instead of being trapped at the metadata/preview seam.
+          this.ReadFabRail()
+          } else {
+          Column() {
+            this.DetailMetadataPane(true)
+          }
+          .width('100%')
+          .height('100%')
+          .onAreaChange((_oldArea: Area, area: Area) => {
+            this.detailMetadataWidth = area.width as number
+            this.updateReadFabLayoutReady()
+          })
+          .onTouch((event: TouchEvent) => {
+            this.handleFollowTouch(event)
+          })
+          }
+        }
+        .width('100%')
+        .height('100%')
+        .onAreaChange((_oldArea: Area, area: Area) => {
+          this.detailRootWidth = area.width as number
+        })
+        .bindSheet($$this.detailSheetShown, this.DetailSheet(), appSheetOptions({
+          detents: this.detailSheetDetents(),
+          showClose: false,
+          keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
+        }))
+      }
+      .width('100%')
+      .height('100%')
+      .bindSheet($$this.tagInfoSheetShown, this.TagInfoSheet(), appSheetOptions({
+        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+        scrollSizeMode: ScrollSizeMode.CONTINUOUS,
         showClose: false,
-        keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
       }))
     }
     .titleBar(this.detailTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .translate({ x: this.navigationEnterOffsetX })
+    .opacity(this.navigationEnterOpacity)
+    .onDisAppear(() => {
+      this.unregisterNavigationEnterTransition()
+    })
     .onReady((context: NavDestinationContext) => {
+      if (context.navDestinationId !== undefined) {
+        this.registerNavigationEnterTransition(context.navDestinationId)
+      }
       const p = context.pathInfo.param as GalleryDetailParams
       if (p !== undefined && p.gid.length > 0) {
         this.params = p
