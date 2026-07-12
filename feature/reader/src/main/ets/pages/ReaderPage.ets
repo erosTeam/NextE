@@ -5982,12 +5982,10 @@ struct ReaderLoadingBar {
 
   private moveIndeterminateSlider(): void {
     const next: number = this.indeterminatePosition > 0 ? 0 : 1
-    this.getUIContext().animateTo({
-      duration: READER_LOADING_INDETERMINATE_ANIM_DURATION,
-      curve: Curve.EaseInOut,
-    }, () => {
-      this.indeterminatePosition = next
-    })
+    // The fill node already declares the same transition below. Starting another imperative
+    // transaction as the Reader destination mounts can leave the previous animation node alive
+    // through a rapid close/reopen on API 24.
+    this.indeterminatePosition = next
   }
 
   private barWidth(): number {
