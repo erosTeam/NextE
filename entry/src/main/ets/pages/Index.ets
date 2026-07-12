@@ -67,6 +67,11 @@ import {
   ListMode,
   ReaderOverlayNavigationState,
   connectReaderOverlayNavigation,
+  TabletLayoutSettings,
+  TabletLayoutState,
+  connectTabletLayout,
+  LayoutSafeAreaState,
+  connectLayoutSafeArea,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -373,6 +378,8 @@ function IndexSplitPlaceholderCCBuilder(_state: Object) {
 @ComponentV2
 struct Index {
   @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local tabletLayout: TabletLayoutState = connectTabletLayout();
+  @Local layoutSafeArea: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private tabsController: HdsTabsController = new HdsTabsController();
   private emptyDestinationBuilder: WrappedBuilder<[]> = wrapBuilder<[]>(IndexEmptyDestinationRoute);
@@ -1193,6 +1200,16 @@ struct Index {
     return this.splitPlaceholderContent
   }
 
+  private rootNavigationMode(): NavigationMode {
+    return TabletLayoutSettings.allowsSplit(
+      this.tabletLayout.mode,
+      this.layoutSafeArea.mainWindowWidthPx,
+      this.layoutSafeArea.mainWindowHeightPx,
+    )
+      ? NavigationMode.Auto
+      : NavigationMode.Stack
+  }
+
   @Builder
   routerMap(name: string) {
     if (!SafeModeGate.routeAllowed(name)) {
@@ -1339,7 +1356,7 @@ struct Index {
       .navDestination(this.routerMap)
       // The root shell owns the adaptive split. Its geometry depends only on available width; changing
       // a peer root tab clears the old tab's secondary stack and leaves this primary pane in place.
-      .mode(NavigationMode.Auto)
+      .mode(this.rootNavigationMode())
       .onNavigationModeChange((mode: NavigationMode) => {
         this.navStackHolder.setSplitMode(mode === NavigationMode.Split)
       })

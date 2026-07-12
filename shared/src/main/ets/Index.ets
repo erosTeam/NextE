@@ -451,6 +451,13 @@ export {
   ScreenOrientationState,
   connectScreenOrientation,
 } from './state/ScreenOrientationState'
+export {
+  TABLET_LAYOUT_AUTO,
+  TABLET_LAYOUT_LANDSCAPE_ONLY,
+  TABLET_LAYOUT_OFF,
+  TabletLayoutState,
+  connectTabletLayout,
+} from './state/TabletLayoutState'
 export { ActionHandEdgeState, connectActionHandEdge } from './state/ActionHandEdgeState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
 export { LocalFavState, connectLocalFav } from './state/LocalFavState'
@@ -595,6 +602,7 @@ export { ReadModeSettings } from './settings/ReadModeSettings'
 export { ReaderImageCacheSettings } from './settings/ReaderImageCacheSettings'
 export { ReadButtonStyleSettings, ReadButtonStyleOption } from './settings/ReadButtonStyleSettings'
 export { ScreenOrientationSettings, ScreenOrientationOption } from './settings/ScreenOrientationSettings'
+export { TabletLayoutSettings, TabletLayoutOption } from './settings/TabletLayoutSettings'
 export {
   READ_BUTTON_STYLE_FILLED,
   READ_BUTTON_STYLE_HDS,

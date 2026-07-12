@@ -745,6 +745,14 @@
       "value": "画面の向き"
     },
     {
+      "name": "settings_tablet_layout",
+      "value": "タブレットレイアウト"
+    },
+    {
+      "name": "tablet_layout_landscape_only",
+      "value": "横向きのみ"
+    },
+    {
       "name": "screen_orientation_unspecified",
       "value": "システムのデフォルト"
     },

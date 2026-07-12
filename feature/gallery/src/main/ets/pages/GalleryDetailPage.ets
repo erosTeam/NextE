@@ -94,6 +94,11 @@ import {
   connectGalleryDetailBackToTop,
   GALLERY_DETAIL_BACK_TO_TOP_METADATA,
   GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,
+  TabletLayoutSettings,
+  TabletLayoutState,
+  connectTabletLayout,
+  LayoutSafeAreaState,
+  connectLayoutSafeArea,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
@@ -133,6 +138,8 @@ const FOLLOW_OPERATION_VERTICAL_DOMINANCE_RATIO: number = 1.2
 export struct GalleryDetailPage {
   @Local vm: GalleryDetailViewModel = new GalleryDetailViewModel();
   @Local fullPreviewVm: AllThumbnailsViewModel = new AllThumbnailsViewModel();
+  @Local tabletLayout: TabletLayoutState = connectTabletLayout();
+  @Local layoutSafeArea: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local params: GalleryDetailParams = new GalleryDetailParams();
   @Local auth: AuthState = connectAuth();
   @Local siteMode: SiteModeState = connectSiteMode();
@@ -283,7 +290,11 @@ export struct GalleryDetailPage {
   }
 
   private usesSplitDetailLayout(): boolean {
-    return this.detailRootWidth >= ThemeConstants.GALLERY_DETAIL_SPLIT_MIN_WIDTH
+    return TabletLayoutSettings.allowsSplit(
+      this.tabletLayout.mode,
+      this.layoutSafeArea.mainWindowWidthPx,
+      this.layoutSafeArea.mainWindowHeightPx,
+    ) && this.detailRootWidth >= ThemeConstants.GALLERY_DETAIL_SPLIT_MIN_WIDTH
   }
 
   private usesWideSplitWorkspace(): boolean {

@@ -745,6 +745,14 @@
       "value": "Screen orientation"
     },
     {
+      "name": "settings_tablet_layout",
+      "value": "Tablet layout"
+    },
+    {
+      "name": "tablet_layout_landscape_only",
+      "value": "Landscape only"
+    },
+    {
       "name": "screen_orientation_unspecified",
       "value": "System default"
     },

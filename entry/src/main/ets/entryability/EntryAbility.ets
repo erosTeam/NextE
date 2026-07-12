@@ -33,6 +33,7 @@ const FALLBACK_BOTTOM_AVOID: number = 0
  */
 export default class EntryAbility extends UIAbility {
   private mainWindow: window.Window | null = null
+  private safeAreaUiContext: UIContext | null = null
   private avoidAreaChangeCallback: ((data: window.AvoidAreaOptions) => void) | null = null
   private windowSizeChangeCallback: ((size: window.Size) => void) | null = null
   private keyboardHeightCallback: ((height: number) => void) | null = null
@@ -90,6 +91,7 @@ export default class EntryAbility extends UIAbility {
         navigationBarColor: TRANSPARENT_COLOR,
       })
       this.mainWindow = win
+      this.watchMainWindowMetrics(win)
       ScreenOrientationSettings.bindWindowOrientationApplier((mode: string): void => {
         this.applyWindowOrientation(mode)
       })
@@ -116,7 +118,9 @@ export default class EntryAbility extends UIAbility {
         try {
           const w: window.Window = win ?? windowStage.getMainWindowSync()
           this.mainWindow = w
+          this.watchMainWindowMetrics(w)
           const uiCtx: UIContext = w.getUIContext()
+          this.safeAreaUiContext = uiCtx
           this.refreshSafeAreaInsets(w, uiCtx)
           this.watchSafeAreaInsets(w, uiCtx)
           this.watchKeyboardHeight(w, uiCtx)
@@ -133,6 +137,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onDestroy(): void {
+    this.safeAreaUiContext = null
     if (this.mainWindow) {
       this.unwatch(this.mainWindow)
     }
@@ -234,18 +239,42 @@ export default class EntryAbility extends UIAbility {
     this.avoidAreaChangeCallback = (_data: window.AvoidAreaOptions) => {
       this.refreshSafeAreaInsets(win, uiCtx)
     }
-    this.windowSizeChangeCallback = (_size: window.Size) => {
-      this.refreshSafeAreaInsets(win, uiCtx)
-      // Window width changed (fold/unfold, rotation, split-screen): drop the cached gallery content width
-      // so a remounting list recomputes its column count from the new width, not the stale pre-fold one.
-      LayoutSafeAreaBridge.publishGalleryContentWidth(0)
-    }
     try {
       win.on('avoidAreaChange', this.avoidAreaChangeCallback)
-      win.on('windowSizeChange', this.windowSizeChangeCallback)
     } catch (error) {
       const e = error as Error
       DiagnosticLogger.warn('app', 'watch_safe_area_failed', e.message)
+    }
+  }
+
+  private publishMainWindowMetrics(win: window.Window): void {
+    try {
+      const rect = win.getWindowProperties().windowRect
+      LayoutSafeAreaBridge.publishMainWindowSizePx(rect.width, rect.height)
+    } catch (error) {
+      DiagnosticLogger.warn('app', 'window_metrics_snapshot_failed', (error as Error).message)
+    }
+  }
+
+  private watchMainWindowMetrics(win: window.Window): void {
+    this.publishMainWindowMetrics(win)
+    if (this.windowSizeChangeCallback !== null) {
+      return
+    }
+    this.windowSizeChangeCallback = (size: window.Size) => {
+      LayoutSafeAreaBridge.publishMainWindowSizePx(size.width, size.height)
+      // Drop the width cache after fold/unfold, rotation, or split-window resizing so a remount never
+      // reuses a stale pre-change gallery width.
+      LayoutSafeAreaBridge.publishGalleryContentWidth(0)
+      if (this.safeAreaUiContext !== null) {
+        this.refreshSafeAreaInsets(win, this.safeAreaUiContext)
+      }
+    }
+    try {
+      win.on('windowSizeChange', this.windowSizeChangeCallback)
+    } catch (error) {
+      this.windowSizeChangeCallback = null
+      DiagnosticLogger.warn('app', 'watch_window_metrics_failed', (error as Error).message)
     }
   }
 

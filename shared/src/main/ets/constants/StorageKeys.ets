@@ -26,6 +26,7 @@ export class StorageKeys {
   static readonly ACTION_ALIGNMENT_MODE: string = 'layout.actionAlignmentMode' // floating Read button: smartGrip/followOperation/fixedLeft/fixedRight
   static readonly READ_BUTTON_STYLE: string = 'layout.readButtonStyle' // filled/hds floating Read button style
   static readonly SCREEN_ORIENTATION: string = 'layout.screenOrientation' // unspecified/autoRotationUnspecified
+  static readonly TABLET_LAYOUT_MODE: string = 'layout.tabletLayoutMode' // auto/off/landscapeOnly
   static readonly THEME_MODE: string = 'theme.mode' // system/light/dark
   static readonly THEME_COLOR: string = 'theme.color' // accent: system/blue/orange/red/purple/pink/green
   static readonly IMMERSIVE_MATERIAL_LEVEL: string = 'theme.immersiveMaterialLevel' // adaptive/exquisite/gentle/smooth

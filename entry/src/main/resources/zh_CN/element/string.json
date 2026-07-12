@@ -745,6 +745,14 @@
       "value": "屏幕方向"
     },
     {
+      "name": "settings_tablet_layout",
+      "value": "平板布局"
+    },
+    {
+      "name": "tablet_layout_landscape_only",
+      "value": "仅横屏"
+    },
+    {
       "name": "screen_orientation_unspecified",
       "value": "系统默认"
     },

@@ -39,6 +39,10 @@ import {
   ScreenOrientationOption,
   ScreenOrientationState,
   connectScreenOrientation,
+  TabletLayoutSettings,
+  TabletLayoutOption,
+  TabletLayoutState,
+  connectTabletLayout,
   MotionHandStateService,
   immersiveTitleBar,
   ThemeSettings,
@@ -79,10 +83,12 @@ export struct LayoutSettingsPage {
   @Local actionAlign: ActionAlignmentState = connectActionAlignment();
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
   @Local screenOrientation: ScreenOrientationState = connectScreenOrientation();
+  @Local tabletLayout: TabletLayoutState = connectTabletLayout();
   @Local viewMenuShown: boolean = false;
   @Local actionAlignMenuShown: boolean = false;
   @Local readButtonStyleMenuShown: boolean = false;
   @Local screenOrientationMenuShown: boolean = false;
+  @Local tabletLayoutMenuShown: boolean = false;
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   @Local themeColor: ThemeColorState = connectThemeColor();
   @Local language: LanguageState = connectLanguageState();
@@ -445,6 +451,15 @@ export struct LayoutSettingsPage {
     this.screenOrientationMenuShown = false
   }
 
+  private tabletLayoutLabel(): ResourceStr {
+    return TabletLayoutSettings.label(this.tabletLayout.mode)
+  }
+
+  private setTabletLayout(mode: string): void {
+    TabletLayoutSettings.setMode(this.ctx(), mode)
+    this.tabletLayoutMenuShown = false
+  }
+
   private setHorizontalThumbnails(value: boolean): void {
     ThumbnailModeSettings.setHorizontalThumbnails(this.ctx(), value)
   }
@@ -581,6 +596,27 @@ export struct LayoutSettingsPage {
   }
 
   @Builder
+  TabletLayoutMenu() {
+    Menu() {
+      ForEach(
+        TabletLayoutSettings.options(),
+        (option: TabletLayoutOption) => {
+          MenuItem({
+            content: option.label,
+            symbolEndIcon:
+              TabletLayoutSettings.normalizeMode(this.tabletLayout.mode) === option.mode
+                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+                : undefined,
+          }).onClick(() => {
+            this.setTabletLayout(option.mode)
+          })
+        },
+        (option: TabletLayoutOption) => option.mode,
+      )
+    }
+  }
+
+  @Builder
   private rowDivider() {
     Divider()
       .strokeWidth(0.5)
@@ -700,6 +736,27 @@ export struct LayoutSettingsPage {
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.screenOrientationMenuShown = false
+              },
+            })
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            Column() {
+              ConciseListRow({
+                title: $r('app.string.settings_tablet_layout'),
+                leadingIcon: $r('sys.symbol.rectangle_split_2x1'),
+                trailingText: this.tabletLayoutLabel(),
+                trailingDropdown: true,
+                action: () => {
+                  this.tabletLayoutMenuShown = true
+                },
+              })
+            }
+            .bindMenu(this.tabletLayoutMenuShown, this.TabletLayoutMenu, {
+              placement: Placement.BottomRight,
+              onDisappear: () => {
+                this.tabletLayoutMenuShown = false
               },
             })
           }

@@ -11,6 +11,7 @@ import { CoverBackgroundSettings } from './CoverBackgroundSettings'
 import { ActionAlignmentSettings } from './ActionAlignmentSettings'
 import { ReadButtonStyleSettings } from './ReadButtonStyleSettings'
 import { ScreenOrientationSettings } from './ScreenOrientationSettings'
+import { TabletLayoutSettings } from './TabletLayoutSettings'
 import { SearchHistorySettings } from './SearchHistorySettings'
 import { SearchFilterSettings } from './SearchFilterSettings'
 import { FavcatListSettings } from './FavcatListSettings'
@@ -69,6 +70,7 @@ export class SettingsBootstrap {
       await ImmersiveMaterialSettings.restore(context)
       await LanguageSettings.restore(context)
       await ScreenOrientationSettings.restore(context)
+      await TabletLayoutSettings.restore(context)
       await SafeModeSettings.restore(context)
       await CookieJarSettings.restore(context)
       await SiteModeSettings.restore(context)

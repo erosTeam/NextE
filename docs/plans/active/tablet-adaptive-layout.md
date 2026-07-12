@@ -11,6 +11,16 @@ broader compact/orientation matrix still pending.
 4. Usable loop: Home/Favorites/Toplist and Settings use the stable split shell; Download keeps the same primary-pane geometry and shows a passive placeholder. Compact behavior and the standalone AllThumbnails route remain available. Download task detail redesign is out of scope.
 5. HarmonyOS expression: use API 23 `HdsNavigation` Auto mode plus `splitPlaceholder` for the root shell, existing HDS title/menu/sheet primitives, and a responsive content layout inside GalleryDetail. Do not introduce custom-drawn controls or a second nested navigation stack.
 
+## Tablet layout policy extension (2026-07-13)
+
+Status: implemented / pending device acceptance.
+
+- Product source: retain the same stable large-screen shell from `eros_fe/lib/pages/tab/view/home_page_large.dart:44-104`; this setting changes when that shell may present, not its navigation semantics.
+- Primary information: users can keep the current automatic large-screen layout, disable all tablet-only two-column presentations, or permit them only while the actual app window is horizontal.
+- Primary action: choose `自动` / `关闭` / `仅横屏` from the standalone Layout setting next to screen orientation; screen orientation itself remains a separate system-window preference.
+- Usable scope: the policy governs both root HDS master/detail presentation and GalleryDetail's metadata/full-preview presentation; it does not alter route stacks, Reader's full-window overlay, selection state, or back behavior.
+- HarmonyOS expression: use API 23 `NavigationMode.Auto` / `NavigationMode.Stack` and current main-window geometry. `EntryAbility` seeds and updates the shared V2 window metrics before content mount, so landscape-only avoids a first-frame Stack-to-Auto correction under normal window creation.
+
 ## Technical validation facts
 
 - Worktree: `/Users/honjow/git/NextE-wt/tablet-adaptive-layout`.

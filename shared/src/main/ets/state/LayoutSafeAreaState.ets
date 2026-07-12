@@ -3,10 +3,10 @@ import { AppStorageV2 } from '@kit.ArkUI'
 /**
  * App-wide window safe-area / keyboard layout metrics, owned by `AppStorageV2`.
  *
- * `EntryAbility` is the single writer: it observes the window avoid areas and the
- * soft-keyboard height and publishes them through `LayoutSafeAreaBridge`. `@ComponentV2`
- * consumers read these `@Trace` fields via `connectLayoutSafeArea()`, so any change
- * re-renders the subscribed components.
+ * `EntryAbility` is the single writer: it observes the main-window size, window avoid areas, and the
+ * soft-keyboard height and publishes them through `LayoutSafeAreaBridge`. `@ComponentV2` consumers
+ * read these `@Trace` fields via `connectLayoutSafeArea()`, so any change re-renders the subscribed
+ * components.
  *
  * History: these metrics used to be dual-written into the legacy V1 `AppStorage`
  * (`topAvoidHeight` / `bottomAvoidHeight` / `keyboardHeight`) for `@StorageProp` readers.
@@ -15,6 +15,9 @@ import { AppStorageV2 } from '@kit.ArkUI'
  */
 @ObservedV2
 export class LayoutSafeAreaState {
+  // Main-window snapshot/event dimensions in px. These are used only for aspect comparisons; 0 = unknown.
+  @Trace mainWindowWidthPx: number = 0
+  @Trace mainWindowHeightPx: number = 0
   @Trace topAvoidHeight: number = 0
   @Trace bottomAvoidHeight: number = 0
   @Trace keyboardHeight: number = 0
@@ -48,6 +51,18 @@ export function connectLayoutSafeArea(): LayoutSafeAreaState {
  * bridge; the V1 `AppStorage` half was retired, so it now publishes to V2 only.)
  */
 export class LayoutSafeAreaBridge {
+  static publishMainWindowSizePx(widthPx: number, heightPx: number): void {
+    const state = connectLayoutSafeArea()
+    const normalizedWidth: number = Math.max(0, widthPx)
+    const normalizedHeight: number = Math.max(0, heightPx)
+    if (state.mainWindowWidthPx !== normalizedWidth) {
+      state.mainWindowWidthPx = normalizedWidth
+    }
+    if (state.mainWindowHeightPx !== normalizedHeight) {
+      state.mainWindowHeightPx = normalizedHeight
+    }
+  }
+
   static publishInsets(topAvoidHeight: number, bottomAvoidHeight: number): void {
     const state = connectLayoutSafeArea()
     if (state.topAvoidHeight !== topAvoidHeight) {
