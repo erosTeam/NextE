@@ -24,6 +24,7 @@ import {
   GalleryDetailResult,
   EhErrorText,
   connectNavStack,
+  connectReaderOverlayNavigation,
   connectSearchAction,
   connectSiteMode,
   SiteModeState,
@@ -475,8 +476,7 @@ export struct GalleryDetailPage {
   }
 
   private openReader(index: number): void {
-    this.stack.pushPathByName(
-      'Reader',
+    connectReaderOverlayNavigation().open(
       new ReaderParams(
         this.params.gid,
         this.params.token,
@@ -496,8 +496,7 @@ export struct GalleryDetailPage {
     }
     this.ensureFullPreviewSeeded()
     const pageZeroBased: number = img.page > 0 ? img.page - 1 : 0
-    this.stack.pushPathByName(
-      'Reader',
+    connectReaderOverlayNavigation().open(
       new ReaderParams(
         this.params.gid,
         this.params.token,
@@ -731,8 +730,7 @@ export struct GalleryDetailPage {
       'detail_open_local_reader',
       `gid=${task.gid} images=${images.length} index=${index} firstUriHash=${DiagnosticLogger.ownerHash(images[0].imageUrl)}`,
     )
-    this.stack.pushPathByName(
-      'Reader',
+    connectReaderOverlayNavigation().open(
       new ReaderParams(task.gid, task.token, index, images.length, task.displayTitle(), images, 1, images.length),
     )
   }

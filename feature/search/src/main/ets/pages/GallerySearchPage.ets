@@ -29,6 +29,7 @@ import {
   PullRefreshWaterFlowScaffold,
   PullRefreshController,
   connectNavStack,
+  connectReaderOverlayNavigation,
   SearchFilterState,
   connectSearchFilter,
   SEARCH_SCOPE_FAVORITE,
@@ -336,8 +337,7 @@ export struct GallerySearchPage {
     ImagePageRouteService.resolve(url)
       .then((target: ImagePageRouteTarget) => {
         this.imagePageResolving = false
-        this.stack.pushPathByName(
-          'Reader',
+        connectReaderOverlayNavigation().open(
           new ReaderParams(target.gid, target.token, target.index, target.fileCount, '', [target.seedImage], 0, 0),
         )
       })

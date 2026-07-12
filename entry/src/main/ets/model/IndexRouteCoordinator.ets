@@ -5,7 +5,6 @@ export type IndexDestinationFamily =
   'galleryArchiver' |
   'galleryWeb' |
   'search' |
-  'reader' |
   'ehLogin' |
   'ehCookieImport' |
   'ehPasswordLogin' |
@@ -50,7 +49,6 @@ export class IndexRouteCoordinator {
     'GalleryArchiver': 'galleryArchiver',
     'GalleryWeb': 'galleryWeb',
     'Search': 'search',
-    'Reader': 'reader',
     'EhLogin': 'ehLogin',
     'EhCookieImport': 'ehCookieImport',
     'EhPasswordLogin': 'ehPasswordLogin',

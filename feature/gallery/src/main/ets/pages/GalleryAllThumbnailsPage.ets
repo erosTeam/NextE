@@ -6,6 +6,7 @@ import {
   ReaderParams,
   AllThumbnailsParams,
   connectNavStack,
+  connectReaderOverlayNavigation,
   PullRefreshGridScaffold,
   PullRefreshController,
   AppStrings,
@@ -120,8 +121,7 @@ export struct GalleryAllThumbnailsPage {
 
   private openReader(img: EhGalleryImage): void {
     const pageZeroBased: number = img.page > 0 ? img.page - 1 : 0
-    this.stack.pushPathByName(
-      'Reader',
+    connectReaderOverlayNavigation().open(
       new ReaderParams(
         this.params.gid,
         this.params.token,

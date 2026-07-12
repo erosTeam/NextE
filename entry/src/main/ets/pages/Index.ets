@@ -7,6 +7,7 @@ import {
   hdsMaterial,
   BottomBuilderShowType,
   HideMode,
+  HdsNavDestination,
 } from '@kit.UIDesignKit'
 import { ComponentContent } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
@@ -63,6 +64,8 @@ import {
   SecuritySettingsState,
   connectSecuritySettings,
   ListMode,
+  ReaderOverlayNavigationState,
+  connectReaderOverlayNavigation,
   NavDestinationTransitionRegistry,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
@@ -153,8 +156,16 @@ function IndexSearchRoute() {
 }
 
 @Builder
-function IndexReaderRoute() {
-  ReaderPage()
+function IndexReaderOverlayBackdropRoute() {
+  HdsNavDestination() {
+    Column() {}
+      .id('reader-overlay-backdrop')
+      .width('100%')
+      .height('100%')
+      .backgroundColor(Color.Transparent)
+  }
+  .hideTitleBar(true)
+  .backgroundColor(Color.Transparent)
 }
 
 @Builder
@@ -371,7 +382,6 @@ struct Index {
     'galleryArchiver': wrapBuilder<[]>(IndexGalleryArchiverRoute),
     'galleryWeb': wrapBuilder<[]>(IndexGalleryWebRoute),
     'search': wrapBuilder<[]>(IndexSearchRoute),
-    'reader': wrapBuilder<[]>(IndexReaderRoute),
     'ehLogin': wrapBuilder<[]>(IndexEhLoginRoute),
     'ehCookieImport': wrapBuilder<[]>(IndexEhCookieImportRoute),
     'ehPasswordLogin': wrapBuilder<[]>(IndexEhPasswordLoginRoute),
@@ -442,6 +452,7 @@ struct Index {
   @Local downloadView: DownloadViewState = connectDownloadView();
   @Local downloadQueueSignal: DownloadQueueSignalState = connectDownloadQueueSignal();
   @Local currentTab: number = 0;
+  @Local readerOverlay: ReaderOverlayNavigationState = connectReaderOverlayNavigation();
   private lastHandledSignal: string = '';
   private lastHandledQuery: string = '';
   private readonly IMAGE_BLOCK_QA_GID: string = '3049882';
@@ -450,6 +461,7 @@ struct Index {
   private readonly IMAGE_BLOCK_QA_TITLE: string = '[pulpawoelbo] D.VA advertisement (Overwatch)';
 
   aboutToAppear(): void {
+    this.readerOverlay.reset()
     this.handlePendingEhUrl()
     this.syncDownloadQueuePageActive()
   }
@@ -565,7 +577,7 @@ struct Index {
     }
     if (uri === InternalQaRoutes.READER_GESTURE_PROBE_URI) {
       DiagnosticLogger.info('nav', 'internal_qa_open', 'reader-gesture')
-      this.stack.pushPathByName('ReaderGestureProbe', null)
+      this.readerOverlay.openGestureProbe()
       return
     }
     if (uri === InternalQaRoutes.IMAGE_BLOCK_READER_OPEN_URI) {
@@ -607,8 +619,7 @@ struct Index {
   }
 
   private openImageBlockReaderOpenQa(): void {
-    this.stack.pushPathByName(
-      'Reader',
+    this.readerOverlay.open(
       new ReaderParams(
         this.IMAGE_BLOCK_QA_GID,
         this.IMAGE_BLOCK_QA_TOKEN,
@@ -629,8 +640,7 @@ struct Index {
       secondaryButton: {
         value: $r('app.string.detail_read'),
         action: () => {
-          this.stack.pushPathByName(
-            'Reader',
+          this.readerOverlay.open(
             new ReaderParams(
               target.gid,
               target.token,
@@ -1231,6 +1241,23 @@ struct Index {
   }
 
   @Builder
+  readerOverlayRouterMap(name: string) {
+    if (!SafeModeGate.routeAllowed(name)) {
+      Column() {}
+    } else if (name === 'ReaderOverlayBackdrop') {
+      IndexReaderOverlayBackdropRoute()
+    } else if (name === 'Reader') {
+      ReaderPage()
+    } else if (name === 'ReaderSettings') {
+      ReaderSettingsPage()
+    } else if (name === 'ReaderGestureProbe') {
+      ReaderGestureProbePage()
+    } else {
+      Column() {}
+    }
+  }
+
+  @Builder
   private destinationContent(family: IndexDestinationFamily | null) {
     if (family === null) {
       Column() {}
@@ -1381,6 +1408,20 @@ struct Index {
       .bindToScrollable([this.titleScroller])
       .width('100%')
       .height('100%')
+      if (this.readerOverlay.visible) {
+        HdsNavigation(this.readerOverlay.stack) {
+          Column() {}
+        }
+        .navDestination(this.readerOverlayRouterMap)
+        .hideNavBar(true)
+        .width('100%')
+        .height('100%')
+        .backgroundColor(Color.Transparent)
+        .onAppear(() => {
+          this.readerOverlay.presentPendingReader()
+        })
+        .id('reader-overlay-navigation')
+      }
       if (this.securitySettings.locked) {
         SecurityLockOverlay({
           authenticating: this.securitySettings.authenticating,

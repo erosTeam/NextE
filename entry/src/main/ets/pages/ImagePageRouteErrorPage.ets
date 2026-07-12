@@ -7,7 +7,7 @@ import {
   ImagePageRouteTarget,
   ReaderParams,
   DiagnosticLogger,
-  connectNavStack,
+  connectReaderOverlayNavigation,
   immersiveTitleBar,
 } from 'shared'
 
@@ -19,7 +19,6 @@ import {
 export struct ImagePageRouteErrorPage {
   @Local params: ImagePageRouteErrorParams = new ImagePageRouteErrorParams();
   @Local loading: boolean = false;
-  private stack: NavPathStack = connectNavStack().stack;
 
   private retry(): void {
     if (this.params.url.length === 0 || this.loading) {
@@ -29,8 +28,7 @@ export struct ImagePageRouteErrorPage {
     ImagePageRouteService.resolve(this.params.url)
       .then((target: ImagePageRouteTarget) => {
         this.loading = false
-        this.stack.pushPathByName(
-          'Reader',
+        connectReaderOverlayNavigation().open(
           new ReaderParams(target.gid, target.token, target.index, target.fileCount, '', [target.seedImage], 0, 0),
         )
       })

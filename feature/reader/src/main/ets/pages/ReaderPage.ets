@@ -28,7 +28,7 @@ import {
   ReadModeSettings,
   GalleryReadProgressSettings,
   connectGalleryReadProgress,
-  connectNavStack,
+  connectReaderOverlayNavigation,
   connectSiteMode,
   ShareUtil,
   ImageSaveUtil,
@@ -314,6 +314,9 @@ export struct ReaderPage {
     .onWillHide(() => {
       this.setReaderStatusBarVisible(true, false)
     })
+    .onDisAppear(() => {
+      connectReaderOverlayNavigation().finishClose()
+    })
     .onReady((context: NavDestinationContext) => {
       const routeEpoch: number = this.readerRouteEpoch + 1
       this.readerRouteEpoch = routeEpoch
@@ -532,7 +535,7 @@ export struct ReaderPage {
     this.readerClosing = true
     this.applyReaderStatusBarVisible(true, true)
       .then(() => {
-        connectNavStack().stack.pop()
+        connectReaderOverlayNavigation().close()
       })
   }
 
@@ -2323,7 +2326,7 @@ export struct ReaderPage {
 
   // Reader settings entry (eros_fe top-bar ellipsis → readSetting, view_widget.dart:996-1015).
   private openReaderSettings(): void {
-    connectNavStack().stack.pushPathByName('ReaderSettings', null)
+    connectReaderOverlayNavigation().openSettings()
   }
 
   private spreadPageLabel(key: string, index: number): string {

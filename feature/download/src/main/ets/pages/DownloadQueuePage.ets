@@ -34,6 +34,7 @@ import {
   connectDownloadQueueSignal,
   connectDownloadView,
   connectNavStack,
+  connectReaderOverlayNavigation,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { LoadingDialog, SymbolGlyphModifier } from '@kit.ArkUI'
@@ -916,8 +917,7 @@ export struct DownloadQueuePage {
       'gallery_open_local_reader',
       `gid=${task.gid} images=${images.length} index=${index} firstUriHash=${DiagnosticLogger.ownerHash(images[0].imageUrl)}`,
     )
-    this.stack.pushPathByName(
-      'Reader',
+    connectReaderOverlayNavigation().open(
       new ReaderParams(task.gid, task.token, index, images.length, task.displayTitle(), images, 1, images.length),
     )
   }
@@ -955,8 +955,7 @@ export struct DownloadQueuePage {
         'archiver_open_local_reader',
         `gid=${task.gid} tagHash=${DiagnosticLogger.ownerHash(task.tag)} images=${images.length} index=${index} firstUriHash=${images.length > 0 ? DiagnosticLogger.ownerHash(images[0].imageUrl) : ''}`,
       )
-      this.stack.pushPathByName(
-        'Reader',
+      connectReaderOverlayNavigation().open(
         new ReaderParams(task.gid, '', index, images.length, task.displayTitle(), images, 1, images.length),
       )
     } catch (error) {

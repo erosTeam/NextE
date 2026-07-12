@@ -4,6 +4,7 @@ import {
   LayoutSafeAreaState,
   ThemeConstants,
   connectLayoutSafeArea,
+  connectReaderOverlayNavigation,
   immersiveTitleBar,
 } from 'shared'
 
@@ -158,6 +159,10 @@ export struct ReaderGestureProbePage {
     }
     .titleBar(immersiveTitleBar('Reader gesture probe'))
     .backgroundColor(ThemeConstants.BG_PRIMARY)
+    .onBackPressed(() => {
+      connectReaderOverlayNavigation().close()
+      return true
+    })
   }
 
   private onDoubleTap(tapX: number, tapY: number): void {

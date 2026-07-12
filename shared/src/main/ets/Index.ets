@@ -394,6 +394,10 @@ export {
 // state holders (AppStorageV2)
 export { NavStackHolder, connectNavStack } from './state/NavStackHolder'
 export {
+  ReaderOverlayNavigationState,
+  connectReaderOverlayNavigation,
+} from './state/ReaderOverlayNavigationState'
+export {
   PendingEhUrlState,
   connectPendingEhUrl,
   publishPendingEhUrl,
