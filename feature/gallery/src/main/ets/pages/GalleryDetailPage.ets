@@ -24,6 +24,7 @@ import {
   GalleryDetailResult,
   EhErrorText,
   connectNavStack,
+  NavStackHolder,
   connectReaderOverlayNavigation,
   connectSearchAction,
   connectSiteMode,
@@ -195,6 +196,8 @@ export struct GalleryDetailPage {
   @Local downloadUpgradeBusyGid: string = '';
   @Local navigationEnterOffsetX: number = 0;
   @Local navigationEnterOpacity: number = 1;
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDetail: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private navigationDestinationId: string = '';
   private readFabMaterialController: HdsTabsController = new HdsTabsController();
@@ -2398,6 +2401,11 @@ export struct GalleryDetailPage {
     .justifyContent(FlexAlign.Center)
   }
 
+  private refreshFirstSecondaryDetail(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDetail = pathNames.length === 1 && pathNames[0] === 'GalleryDetail'
+  }
+
   build() {
     HdsNavDestination() {
       Stack() {
@@ -2462,6 +2470,7 @@ export struct GalleryDetailPage {
       .height('100%')
     }
     .titleBar(this.detailTitleBar())
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDetail)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
     .translate({ x: this.navigationEnterOffsetX })
     .opacity(this.navigationEnterOpacity)
@@ -2469,6 +2478,7 @@ export struct GalleryDetailPage {
       this.unregisterNavigationEnterTransition()
     })
     .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDetail(context.pathStack)
       if (context.navDestinationId !== undefined) {
         this.registerNavigationEnterTransition(context.navDestinationId)
       }
@@ -2489,6 +2499,9 @@ export struct GalleryDetailPage {
         this.vm.load(p.gid, p.token)
         this.scheduleHistoryAdd()
       }
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDetail(this.stack)
     })
   }
 

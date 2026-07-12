@@ -34,6 +34,7 @@ import {
   connectDownloadQueueSignal,
   connectDownloadView,
   connectNavStack,
+  selectGalleryDetailFromPeerList,
   connectReaderOverlayNavigation,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
@@ -869,8 +870,8 @@ export struct DownloadQueuePage {
       'gallery_open_source_from_download',
       `gid=${task.gid} tokenHash=${DiagnosticLogger.ownerHash(task.token)} status=${task.status}`,
     )
-    this.stack.pushPathByName(
-      'GalleryDetail',
+    selectGalleryDetailFromPeerList(
+      this.stack,
       new GalleryDetailParams(
         task.gid,
         task.token,
@@ -892,8 +893,8 @@ export struct DownloadQueuePage {
       'archiver_open_source_from_download',
       `gid=${task.gid} tokenHash=${DiagnosticLogger.ownerHash(task.token)} tagHash=${DiagnosticLogger.ownerHash(task.tag)} status=${task.status}`,
     )
-    this.stack.pushPathByName(
-      'GalleryDetail',
+    selectGalleryDetailFromPeerList(
+      this.stack,
       new GalleryDetailParams(
         task.gid,
         task.token,

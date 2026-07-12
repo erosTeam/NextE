@@ -13,6 +13,7 @@ import { ComponentContent } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
 import {
   connectNavStack,
+  NavStackHolder,
   connectPendingEhUrl,
   ThemeConstants,
   DiagnosticLogger,
@@ -372,6 +373,7 @@ function IndexSplitPlaceholderCCBuilder(_state: Object) {
 @Entry
 @ComponentV2
 struct Index {
+  @Local navStackHolder: NavStackHolder = connectNavStack();
   private stack: NavPathStack = connectNavStack().stack;
   private tabsController: HdsTabsController = new HdsTabsController();
   private emptyDestinationBuilder: WrappedBuilder<[]> = wrapBuilder<[]>(IndexEmptyDestinationRoute);
@@ -1382,6 +1384,9 @@ struct Index {
       // The root shell owns the adaptive split. Its geometry depends only on available width; changing
       // a peer root tab clears the old tab's secondary stack and leaves this primary pane in place.
       .mode(NavigationMode.Auto)
+      .onNavigationModeChange((mode: NavigationMode) => {
+        this.navStackHolder.setSplitMode(mode === NavigationMode.Split)
+      })
       .splitPlaceholder(this.splitPlaceholder())
       .navBarWidth(ThemeConstants.TABLET_PRIMARY_PANE_WIDTH)
       // HDS resolves the percentage range against the current navigation width, then clamps its upper

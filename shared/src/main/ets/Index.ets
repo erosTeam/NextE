@@ -507,6 +507,11 @@ export { SafeModeState, connectSafeMode } from './state/SafeModeState'
 export { AccountListState, connectAccountList } from './state/AccountListState'
 export { closeLoginFlowToAccount, isTopRoute } from './navigation/LoginFlowNavigation'
 export {
+  isSameGalleryDetail,
+  selectGalleryDetailFromPeerList,
+  installGalleryDetailDuplicateInterception,
+} from './navigation/GalleryDetailNavigation'
+export {
   NavDestinationTransitionRegistry,
   NavDestinationTransitionCallbacks,
 } from './navigation/NavDestinationTransitionRegistry'

@@ -16,6 +16,7 @@ import {
   PullRefreshWaterFlowScaffold,
   PullRefreshController,
   connectNavStack,
+  selectGalleryDetailFromPeerList,
   connectSiteMode,
   SiteModeState,
   connectListMode,
@@ -529,18 +530,7 @@ export struct FavcatPage {
       g.imgWidth,
       g.imgHeight,
     )
-    const pathNames: string[] = this.stack.getAllPathName()
-    const topIndex: number = pathNames.length - 1
-    if (topIndex >= 0 && pathNames[topIndex] === 'GalleryDetail') {
-      const current: GalleryDetailParams | undefined = this.stack.getParamByIndex(topIndex) as
-        GalleryDetailParams | undefined
-      if (current !== undefined && current.gid === g.gid && current.token === g.token) {
-        return
-      }
-      this.stack.replacePathByName('GalleryDetail', params, true)
-      return
-    }
-    this.stack.pushPathByName('GalleryDetail', params)
+    selectGalleryDetailFromPeerList(this.stack, params)
   }
 
   private loadMoreIfTailAppeared(index: number): void {
