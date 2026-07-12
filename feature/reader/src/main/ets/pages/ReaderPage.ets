@@ -69,6 +69,7 @@ const READER_VERTICAL_TAP_MAX_DISTANCE: number = 8
 const READER_VERTICAL_SINGLE_TAP_DELAY_MS: number = 240
 const READER_TOUCH_TAP_SUPPRESS_MS: number = 350
 const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
+const READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS: number = 500
 const READER_DEFAULT_PRELOAD_PAGES: number = 2
 const READER_MAX_PRELOAD_PAGES: number = 5
 const READER_STATUS_BAR_DARK_CONTENT: string = '#FF000000'
@@ -225,6 +226,7 @@ export struct ReaderPage {
   private volumeDownConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private volumeUpConsumer: ((event: InputConsumerKeyEvent) => void) | null = null;
   private readerClosing: boolean = false;
+  private readerStatusBarHideTimerId: number = -1;
   private readerRouteEpoch: number = 0;
   private sliderSyncToken: number = 0;
   private readerTapStartX: number = 0;
@@ -309,12 +311,14 @@ export struct ReaderPage {
       return true
     })
     .onShown(() => {
-      this.syncReaderStatusBarWithChrome()
+      this.scheduleEntryStatusBarVisibility()
     })
     .onWillHide(() => {
+      this.clearPendingEntryStatusBarHide()
       this.setReaderStatusBarVisible(true, false)
     })
     .onDisAppear(() => {
+      this.clearPendingEntryStatusBarHide()
       connectReaderOverlayNavigation().finishClose()
     })
     .onReady((context: NavDestinationContext) => {
@@ -323,6 +327,7 @@ export struct ReaderPage {
       this.sliderSyncToken++
       const p = context.pathInfo.param as ReaderParams
       if (p !== undefined && p.gid.length > 0) {
+        this.clearPendingEntryStatusBarHide()
         this.readerClosing = false
         this.readerReady = false
         this.stopAutoRead()
@@ -526,6 +531,30 @@ export struct ReaderPage {
     this.setReaderStatusBarVisible(this.showChrome, true)
   }
 
+  private scheduleEntryStatusBarVisibility(): void {
+    this.clearPendingEntryStatusBarHide()
+    if (this.showChrome) {
+      this.syncReaderStatusBarWithChrome()
+      return
+    }
+    const routeEpoch: number = this.readerRouteEpoch
+    this.readerStatusBarHideTimerId = setTimeout((): void => {
+      this.readerStatusBarHideTimerId = -1
+      if (this.readerClosing || routeEpoch !== this.readerRouteEpoch || this.showChrome) {
+        return
+      }
+      this.setReaderStatusBarVisible(false, true)
+    }, READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS)
+  }
+
+  private clearPendingEntryStatusBarHide(): void {
+    if (this.readerStatusBarHideTimerId < 0) {
+      return
+    }
+    clearTimeout(this.readerStatusBarHideTimerId)
+    this.readerStatusBarHideTimerId = -1
+  }
+
   private closeReader(): void {
     if (this.readerClosing) {
       return
@@ -533,10 +562,8 @@ export struct ReaderPage {
     this.readerRouteEpoch++
     this.sliderSyncToken++
     this.readerClosing = true
-    this.applyReaderStatusBarVisible(true, true)
-      .then(() => {
-        connectReaderOverlayNavigation().close()
-      })
+    this.clearPendingEntryStatusBarHide()
+    connectReaderOverlayNavigation().close()
   }
 
   private hostContext(): common.UIAbilityContext {
