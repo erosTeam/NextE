@@ -274,7 +274,8 @@ export struct LayoutSettingsPage {
         .fontSize(ThemeConstants.FONT_SIZE_TITLE)
         .fontColor([$r('sys.color.font_tertiary')])
         .padding({ left: 4, right: 12 })
-    }.alignItems(VerticalAlign.Center)
+    }
+    .alignItems(VerticalAlign.Center)
   }
 
   // V2Next ThemeColorMenu: a standard Menu of SettingsCheckedMenuItem (paintpalette_fill color dot +
@@ -645,17 +646,19 @@ export struct LayoutSettingsPage {
                   leadingIcon: $r('sys.symbol.moon'),
                   trailingText: this.themeModeLabel(),
                   trailingDropdown: true,
+                  dropdownMenuEnabled: true,
+                  dropdownMenuShown: this.themeMenuShown,
+                  dropdownMenuBuilder: () => {
+                    this.ThemeMenu()
+                  },
+                  dropdownMenuOnDisappear: () => {
+                    this.themeMenuShown = false
+                  },
                   action: () => {
                     this.themeMenuShown = true
                   },
                 })
               }
-              .bindMenu(this.themeMenuShown, this.ThemeMenu, {
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.themeMenuShown = false
-                },
-              })
               this.rowDivider()
               Column() {
                 ConciseListRow({
@@ -665,17 +668,19 @@ export struct LayoutSettingsPage {
                   suffixBuilderParam: () => {
                     this.ThemeColorSuffix()
                   },
+                  dropdownMenuEnabled: true,
+                  dropdownMenuShown: this.themeColorMenuShown,
+                  dropdownMenuBuilder: () => {
+                    this.ThemeColorMenu()
+                  },
+                  dropdownMenuOnDisappear: () => {
+                    this.themeColorMenuShown = false
+                  },
                   action: () => {
                     this.themeColorMenuShown = true
                   },
                 })
               }
-              .bindMenu(this.themeColorMenuShown, this.ThemeColorMenu, {
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.themeColorMenuShown = false
-                },
-              })
               .bindSheet($$this.colorPickerShown, this.ColorPickerSheet(), appSheetOptions({
                 detents: [SheetSize.LARGE],
                 showClose: false,
@@ -687,17 +692,19 @@ export struct LayoutSettingsPage {
                   leadingIcon: $r('sys.symbol.picture'),
                   trailingText: this.immersiveMaterialLabel(),
                   trailingDropdown: true,
+                  dropdownMenuEnabled: true,
+                  dropdownMenuShown: this.immersiveMaterialMenuShown,
+                  dropdownMenuBuilder: () => {
+                    this.ImmersiveMaterialMenu()
+                  },
+                  dropdownMenuOnDisappear: () => {
+                    this.immersiveMaterialMenuShown = false
+                  },
                   action: () => {
                     this.immersiveMaterialMenuShown = true
                   },
                 })
               }
-              .bindMenu(this.immersiveMaterialMenuShown, this.ImmersiveMaterialMenu, {
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.immersiveMaterialMenuShown = false
-                },
-              })
               this.rowDivider()
               Column() {
                 ConciseListRow({
@@ -705,17 +712,19 @@ export struct LayoutSettingsPage {
                   leadingIcon: $r('sys.symbol.translate'),
                   trailingText: this.languageModeLabel(),
                   trailingDropdown: true,
+                  dropdownMenuEnabled: true,
+                  dropdownMenuShown: this.languageMenuShown,
+                  dropdownMenuBuilder: () => {
+                    this.LanguageMenu()
+                  },
+                  dropdownMenuOnDisappear: () => {
+                    this.languageMenuShown = false
+                  },
                   action: () => {
                     this.languageMenuShown = true
                   },
                 })
               }
-              .bindMenu(this.languageMenuShown, this.LanguageMenu, {
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.languageMenuShown = false
-                },
-              })
             }
           }
         }
@@ -727,36 +736,38 @@ export struct LayoutSettingsPage {
                 leadingIcon: $r('sys.symbol.rectangle_portrait_rotate'),
                 trailingText: this.screenOrientationLabel(),
                 trailingDropdown: true,
+                dropdownMenuEnabled: true,
+                dropdownMenuShown: this.screenOrientationMenuShown,
+                dropdownMenuBuilder: () => {
+                  this.ScreenOrientationMenu()
+                },
+                dropdownMenuOnDisappear: () => {
+                  this.screenOrientationMenuShown = false
+                },
                 action: () => {
                   this.screenOrientationMenuShown = true
                 },
               })
             }
-            .bindMenu(this.screenOrientationMenuShown, this.ScreenOrientationMenu, {
-              placement: Placement.BottomRight,
-              onDisappear: () => {
-                this.screenOrientationMenuShown = false
-              },
-            })
           }
         }
         ListItem() {
           GroupedListSection() {
-            Column() {
-              ConciseListRow({
-                title: $r('app.string.settings_tablet_layout'),
-                leadingIcon: $r('sys.symbol.rectangle_split_2x1'),
-                trailingText: this.tabletLayoutLabel(),
-                trailingDropdown: true,
-                action: () => {
-                  this.tabletLayoutMenuShown = true
-                },
-              })
-            }
-            .bindMenu(this.tabletLayoutMenuShown, this.TabletLayoutMenu, {
-              placement: Placement.BottomRight,
-              onDisappear: () => {
+            ConciseListRow({
+              title: $r('app.string.settings_tablet_layout'),
+              leadingIcon: $r('sys.symbol.rectangle_split_2x1'),
+              trailingText: this.tabletLayoutLabel(),
+              trailingDropdown: true,
+              dropdownMenuEnabled: true,
+              dropdownMenuShown: this.tabletLayoutMenuShown,
+              dropdownMenuBuilder: () => {
+                this.TabletLayoutMenu()
+              },
+              dropdownMenuOnDisappear: () => {
                 this.tabletLayoutMenuShown = false
+              },
+              action: () => {
+                this.tabletLayoutMenuShown = true
               },
             })
           }
@@ -770,17 +781,19 @@ export struct LayoutSettingsPage {
                   leadingIcon: $r('sys.symbol.square_grid_2x2'),
                   trailingText: this.viewModeLabel(),
                   trailingDropdown: true,
+                  dropdownMenuEnabled: true,
+                  dropdownMenuShown: this.viewMenuShown,
+                  dropdownMenuBuilder: () => {
+                    this.ViewModeMenu()
+                  },
+                  dropdownMenuOnDisappear: () => {
+                    this.viewMenuShown = false
+                  },
                   action: () => {
                     this.viewMenuShown = true
                   },
                 })
               }
-              .bindMenu(this.viewMenuShown, this.ViewModeMenu, {
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.viewMenuShown = false
-                },
-              })
               if (this.isGridLikeMode()) {
                 this.rowDivider()
                 ConciseListRow({
@@ -843,17 +856,19 @@ export struct LayoutSettingsPage {
                   leadingIcon: $r('sys.symbol.doc_plaintext'),
                   trailingText: this.actionAlignmentLabel(),
                   trailingDropdown: true,
+                  dropdownMenuEnabled: true,
+                  dropdownMenuShown: this.actionAlignMenuShown,
+                  dropdownMenuBuilder: () => {
+                    this.ActionAlignmentMenu()
+                  },
+                  dropdownMenuOnDisappear: () => {
+                    this.actionAlignMenuShown = false
+                  },
                   action: () => {
                     this.actionAlignMenuShown = true
                   },
                 })
               }
-              .bindMenu(this.actionAlignMenuShown, this.ActionAlignmentMenu, {
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.actionAlignMenuShown = false
-                },
-              })
               this.rowDivider()
               Column() {
                 ConciseListRow({
@@ -862,17 +877,19 @@ export struct LayoutSettingsPage {
                   leadingIcon: $r('sys.symbol.paintbrush'),
                   trailingText: this.readButtonStyleLabel(),
                   trailingDropdown: true,
+                  dropdownMenuEnabled: true,
+                  dropdownMenuShown: this.readButtonStyleMenuShown,
+                  dropdownMenuBuilder: () => {
+                    this.ReadButtonStyleMenu()
+                  },
+                  dropdownMenuOnDisappear: () => {
+                    this.readButtonStyleMenuShown = false
+                  },
                   action: () => {
                     this.readButtonStyleMenuShown = true
                   },
                 })
               }
-              .bindMenu(this.readButtonStyleMenuShown, this.ReadButtonStyleMenu, {
-                placement: Placement.BottomRight,
-                onDisappear: () => {
-                  this.readButtonStyleMenuShown = false
-                },
-              })
             }
           }
         }

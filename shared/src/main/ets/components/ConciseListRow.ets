@@ -31,6 +31,8 @@ export struct ConciseListRow {
   @Param destructive: boolean = false;
   @Param showChevron: boolean = true;
   @Param trailingDropdown: boolean = false;
+  @Param dropdownMenuEnabled: boolean = false;
+  @Param dropdownMenuShown: boolean = false;
   @Param hasSwitch: boolean = false;
   @Param hasCounter: boolean = false;
   @Param counterValue: string = '';
@@ -46,6 +48,8 @@ export struct ConciseListRow {
   @Event action?: () => void;
   @BuilderParam suffixBuilderParam?: () => void;
   @BuilderParam prefixBuilderParam?: () => void;
+  @BuilderParam dropdownMenuBuilder: () => void = this.EmptyDropdownMenu;
+  @Event dropdownMenuOnDisappear?: () => void;
   @Event switchAction?: (value: boolean) => void;
   @Event counterDecreaseAction?: () => void;
   @Event counterIncreaseAction?: () => void;
@@ -95,12 +99,29 @@ export struct ConciseListRow {
 
   @Builder
   private WrappedSuffixBuilder() {
-    Row() {
-      if (this.suffixBuilderParam) {
-        this.suffixBuilderParam()
+    if (this.dropdownMenuEnabled) {
+      Row() {
+        if (this.suffixBuilderParam) {
+          this.suffixBuilderParam()
+        }
       }
+      .padding({ left: ThemeConstants.SPACE_SM, right: this.suffixPaddingRight })
+      .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, {
+        placement: Placement.BottomRight,
+        onDisappear: () => {
+          if (this.dropdownMenuOnDisappear) {
+            this.dropdownMenuOnDisappear()
+          }
+        },
+      })
+    } else {
+      Row() {
+        if (this.suffixBuilderParam) {
+          this.suffixBuilderParam()
+        }
+      }
+      .padding({ left: ThemeConstants.SPACE_SM, right: this.suffixPaddingRight })
     }
-    .padding({ left: ThemeConstants.SPACE_SM, right: this.suffixPaddingRight })
   }
 
   @Builder
@@ -217,18 +238,42 @@ export struct ConciseListRow {
   }
 
   @Builder
+  private EmptyDropdownMenu() {}
+
+  @Builder
+  private DropdownSuffixContent() {
+    Text(this.trailingText)
+      .fontSize(ThemeConstants.FONT_SIZE_BODY)
+      .fontColor(this.secondaryColor ?? $r('sys.color.font_secondary'))
+      .maxLines(1)
+      .textOverflow({ overflow: TextOverflow.Ellipsis })
+    SymbolGlyph($r('sys.symbol.arrowtriangle_down_fill'))
+      .fontSize(ThemeConstants.FONT_SIZE_TITLE)
+      .fontColor([$r('sys.color.font_tertiary')])
+      .padding({ left: 4, right: 12 })
+  }
+
+  @Builder
   private DropdownSuffix() {
-    Row({ space: ThemeConstants.SPACE_XS }) {
-      Text(this.trailingText)
-        .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(this.secondaryColor ?? $r('sys.color.font_secondary'))
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-      SymbolGlyph($r('sys.symbol.arrowtriangle_down_fill'))
-        .fontSize(ThemeConstants.FONT_SIZE_TITLE)
-        .fontColor([$r('sys.color.font_tertiary')])
-        .padding({ left: 4, right: 12 })
-    }.alignItems(VerticalAlign.Center)
+    if (this.dropdownMenuEnabled) {
+      Row({ space: ThemeConstants.SPACE_XS }) {
+        this.DropdownSuffixContent()
+      }
+      .alignItems(VerticalAlign.Center)
+      .bindMenu(this.dropdownMenuShown, this.dropdownMenuBuilder, {
+        placement: Placement.BottomRight,
+        onDisappear: () => {
+          if (this.dropdownMenuOnDisappear) {
+            this.dropdownMenuOnDisappear()
+          }
+        },
+      })
+    } else {
+      Row({ space: ThemeConstants.SPACE_XS }) {
+        this.DropdownSuffixContent()
+      }
+      .alignItems(VerticalAlign.Center)
+    }
   }
 
   @Builder
