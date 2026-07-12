@@ -422,14 +422,11 @@ export struct CacheSettingsPage {
 
   build() {
     HdsNavDestination() {
-      // Stack at page root (NOT inside the List) hosts the sheets — bindSheet bound deep inside a List
-      // ListItem never opens because the list virtualizes/clips its overlays.
-      Stack() {
-        SecondaryListScaffold({
-          scroller: this.scroller,
-          bottomPadding: ThemeConstants.SPACE_XL,
-          alwaysEnableEdgeSpring: true,
-        }) {
+      SecondaryListScaffold({
+        scroller: this.scroller,
+        bottomPadding: ThemeConstants.SPACE_XL,
+        alwaysEnableEdgeSpring: true,
+      }) {
           ListItem() {
             Column({ space: ThemeConstants.SPACE_MD }) {
               if (!this.safeMode.restricted()) {
@@ -455,7 +452,11 @@ export struct CacheSettingsPage {
                   action: () => {
                     this.openExport()
                   },
-                })
+                }).bindSheet(
+                  $$this.exportSheetShown,
+                  this.ExportSheet(),
+                  appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
+                )
                 this.rowDivider()
                 ConciseListRow({
                   title: $r('app.string.backup_import'),
@@ -466,7 +467,11 @@ export struct CacheSettingsPage {
                   action: () => {
                     this.startImport()
                   },
-                })
+                }).bindSheet(
+                  $$this.importPwdSheetShown,
+                  this.ImportPasswordSheet(),
+                  appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
+                )
               }
               GroupedListSection() {
                 Column() {
@@ -533,11 +538,6 @@ export struct CacheSettingsPage {
             }.width('100%')
           }
         }
-        this.ExportSheetHost()
-        this.ImportSheetHost()
-      }
-      .width('100%')
-      .height('100%')
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_cache')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
@@ -575,30 +575,6 @@ export struct CacheSettingsPage {
           this.runClear(this.clearFor(key))
         })
       })
-  }
-
-  @Builder
-  ExportSheetHost() {
-    Blank()
-      .width(1)
-      .height(1)
-      .bindSheet(
-        $$this.exportSheetShown,
-        this.ExportSheet(),
-        appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
-      )
-  }
-
-  @Builder
-  ImportSheetHost() {
-    Blank()
-      .width(1)
-      .height(1)
-      .bindSheet(
-        $$this.importPwdSheetShown,
-        this.ImportPasswordSheet(),
-        appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
-      )
   }
 
   @Builder

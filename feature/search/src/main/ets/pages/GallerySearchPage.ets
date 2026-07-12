@@ -1078,6 +1078,8 @@ export struct GallerySearchPage {
       .width('100%')
       .height('100%')
       .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+      // The HDS title-bar menu is created from `searchMenu()` data and exposes only its action
+      // callback here, not an app-owned trigger node. Keep this page host for that no-anchor flow.
       .bindSheet($$this.showFilter, this.FilterSheet(), appSheetOptions({
         detents: [SheetSize.LARGE],
         showClose: false,

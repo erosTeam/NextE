@@ -50,20 +50,6 @@ const TAG_INFO_MANAGE_EDIT: string = 'edit'
 const TAG_INFO_MANAGE_TAGSET: string = 'tagset'
 const TAG_INFO_MANAGE_ADD: string = 'add'
 
-/**
- * Page-owned presentation request for the tag-information sheet. The card publishes a semantic
- * long-press request; GalleryDetailPage owns the outer bindSheet host and this object keeps the
- * sheet content in sync if another tag is requested while a popup remains open.
- */
-@ObservedV2
-export class GalleryTagInfoRequest {
-  @Trace namespace: string = ''
-  @Trace tagText: string = ''
-  @Trace tagDisplay: string = ''
-  @Trace tagVote: number = 0
-  @Trace requestSeq: number = 0
-}
-
 class TagInfoLinkItem {
   label: string = ''
   url: string = ''
@@ -126,6 +112,58 @@ struct TagInfoIntroImage {
 }
 
 /**
+ * The system Sheet host must be the actual tag the user long-pressed. Keeping the visibility state
+ * local to that chip lets ArkUI retain its native popup placement and transition while the parent
+ * still owns the selected-tag data and sheet content.
+ */
+@ComponentV2
+struct GalleryTagInfoTrigger {
+  @Require @Param label: string;
+  @Require @Param labelColor: ResourceColor;
+  @Require @Param labelBackground: ResourceColor;
+  @Event onSearch: () => void = () => {};
+  @Event onOpenInfo: () => void = () => {};
+  @BuilderParam sheetContent: (dismiss: () => void) => void;
+  @Local sheetShown: boolean = false;
+
+  private openSheet(): void {
+    this.onOpenInfo()
+    this.sheetShown = true
+  }
+
+  private closeSheet(): void {
+    this.sheetShown = false
+  }
+
+  build() {
+    Text(this.label)
+      .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+      .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
+      .fontColor(this.labelColor)
+      .backgroundColor(this.labelBackground)
+      .borderRadius(ThemeConstants.CHIP_RADIUS)
+      .padding({ left: 8, right: 8, top: ThemeConstants.CHIP_PADDING_V, bottom: ThemeConstants.CHIP_PADDING_V })
+      .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
+      .onClick(() => {
+        this.onSearch()
+      })
+      .gesture(
+        LongPressGesture({ repeat: false, duration: 500 })
+          .onAction(() => {
+            this.openSheet()
+          }),
+      )
+      .bindSheet($$this.sheetShown, this.sheetContent(() => {
+        this.closeSheet()
+      }), appSheetOptions({
+        detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+        scrollSizeMode: ScrollSizeMode.CONTINUOUS,
+        showClose: false,
+      }))
+  }
+}
+
+/**
  * Detail-page tag groups (namespace label + wrapped chips), one row per namespace. Shares
  * the GroupedListSection card chrome with the header/preview cards.
  *
@@ -135,13 +173,6 @@ struct TagInfoIntroImage {
 @ComponentV2
 export struct GalleryTagsCard {
   @Require @Param gallery: EhGallery;
-  // The ordinary card only publishes a request. The page-owned outer sheet mounts a second,
-  // sheet-content-only instance through GalleryTagInfoSheet below.
-  @Param tagInfoSheetContent: boolean = false;
-  @Param tagInfoRequest: GalleryTagInfoRequest = new GalleryTagInfoRequest();
-  @Event onTagInfoRequested: (namespace: string, tagText: string, tagDisplay: string, tagVote: number) => void =
-    (_namespace: string, _tagText: string, _tagDisplay: string, _tagVote: number) => {};
-  @Event closeAction: () => void = () => {};
   @Event onTagVoteChanged: (namespace: string, tagText: string, vote: number) => void =
     (_namespace: string, _tagText: string, _vote: number) => {};
   // Reactive bump from the usertag loader; read in the chip key so chips re-color on a late My Tags load.
@@ -193,7 +224,6 @@ export struct GalleryTagsCard {
   private editSourceTag: EhUsertag | null = null;
   private editResolvedTags: EhUsertag[] = [];
   private myTagsRequest: UserTagRequestContext | null = null;
-  private appliedTagInfoRequestSeq: number = -1;
 
   // Member chip background: the user's editable MyTags color, else EH preview fill, else neutral grey.
   // Never namespace.
@@ -307,11 +337,6 @@ export struct GalleryTagsCard {
     this.discardMyTagsManagement()
   }
 
-  @Monitor('tagInfoRequest.requestSeq')
-  private onTagInfoRequestChanged(): void {
-    this.applyTagInfoRequest()
-  }
-
   private selectedTagKey(): string {
     if (this.selectedNamespace.length === 0 || this.selectedTagText.length === 0) {
       return ''
@@ -345,21 +370,10 @@ export struct GalleryTagsCard {
 
   private openTagInfo(ns: string, t: SimpleTag): void {
     this.triggerLongPressHaptic()
-    this.onTagInfoRequested(ns, t.text, this.tagLabel(t), t.vote)
-  }
-
-  private applyTagInfoRequest(): void {
-    if (!this.tagInfoSheetContent || this.appliedTagInfoRequestSeq === this.tagInfoRequest.requestSeq) {
-      return
-    }
-    if (this.tagInfoRequest.namespace.length === 0 || this.tagInfoRequest.tagText.length === 0) {
-      return
-    }
-    this.appliedTagInfoRequestSeq = this.tagInfoRequest.requestSeq
-    this.selectedNamespace = this.tagInfoRequest.namespace
-    this.selectedTagText = this.tagInfoRequest.tagText
-    this.selectedTagDisplay = this.tagInfoRequest.tagDisplay
-    this.selectedTagVote = this.tagInfoRequest.tagVote
+    this.selectedNamespace = ns
+    this.selectedTagText = t.text
+    this.selectedTagDisplay = this.tagLabel(t)
+    this.selectedTagVote = t.vote
     this.infoName = ''
     this.infoIntro = ''
     this.infoLinks = ''
@@ -1433,7 +1447,7 @@ export struct GalleryTagsCard {
   }
 
   @Builder
-  private TagInfoSheet() {
+  private TagInfoSheet(closeAction: () => void) {
     Column() {
       AppModalScaffold({
         title: $r('app.string.tag_info_title'),
@@ -1442,7 +1456,7 @@ export struct GalleryTagsCard {
         contentHorizontalPadding: ThemeConstants.SPACE_LG,
         contentBackgroundColor: $r('sys.color.ohos_id_color_sub_background'),
         closeAction: () => {
-          this.closeAction()
+          closeAction()
         },
       }) {
         this.TagInfoHeader()
@@ -1451,17 +1465,10 @@ export struct GalleryTagsCard {
     }
   }
 
-  aboutToAppear(): void {
-    this.applyTagInfoRequest()
-  }
-
   build() {
-    if (this.tagInfoSheetContent) {
-      this.TagInfoSheet()
-    } else {
-      Column() {
-        GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
-          Column({ space: ThemeConstants.SPACE_SM }) {
+    Column() {
+      GroupedListSection({ inset: ThemeConstants.SPACE_MD }) {
+        Column({ space: ThemeConstants.SPACE_SM }) {
           // Section header (eros_fe MiniTitle "Tags") — the tags card was the only lower section missing
           // its title, breaking parity with eros_fe and with NextE's own Comments/Previews card chrome.
           Text($r('app.string.gallery_tags'))
@@ -1492,23 +1499,20 @@ export struct GalleryTagsCard {
                     tg.tags,
                     (t: SimpleTag) => {
                       // Neutral grey unless the USER colored this exact tag (eros_fe getColorCode).
-                      Text(this.tagLabel(t))
-                        .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-                        .lineHeight(ThemeConstants.CHIP_LINE_HEIGHT)
-                        .fontColor(this.chipText(t, tg.namespace))
-                        .backgroundColor(this.chipBg(t, tg.namespace))
-                        .borderRadius(ThemeConstants.CHIP_RADIUS)
-                        .padding({ left: 8, right: 8, top: ThemeConstants.CHIP_PADDING_V, bottom: ThemeConstants.CHIP_PADDING_V })
-                        .margin({ right: ThemeConstants.SPACE_XS, bottom: ThemeConstants.SPACE_XS })
-                        .onClick(() => {
+                      GalleryTagInfoTrigger({
+                        label: this.tagLabel(t),
+                        labelColor: this.chipText(t, tg.namespace),
+                        labelBackground: this.chipBg(t, tg.namespace),
+                        onSearch: () => {
                           this.searchTag(tg.namespace, t)
-                        })
-                        .gesture(
-                          LongPressGesture({ repeat: false, duration: 500 })
-                            .onAction(() => {
-                              this.openTagInfo(tg.namespace, t)
-                            }),
-                        )
+                        },
+                        onOpenInfo: () => {
+                          this.openTagInfo(tg.namespace, t)
+                        },
+                        sheetContent: (dismiss: () => void) => {
+                          this.TagInfoSheet(dismiss)
+                        },
+                      })
                     },
                     // version in the key subscribes the card + re-colors chips on a late My Tags load.
                     (t: SimpleTag) =>
@@ -1521,40 +1525,11 @@ export struct GalleryTagsCard {
             },
             (tg: TagGroup) => this.tagGroupRenderKey(tg),
           )
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
         }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
       }
-      .width('100%')
     }
-  }
-}
-
-/**
- * Tag-information sheet content. Its outer bindSheet belongs to GalleryDetailPage so popup placement
- * is relative to the full detail destination instead of the left-side tags card. The bookmark button's
- * nested ManageUserTagSheet binding remains inside the reused sheet-content instance.
- */
-@ComponentV2
-export struct GalleryTagInfoSheet {
-  @Require @Param gallery: EhGallery;
-  @Require @Param request: GalleryTagInfoRequest;
-  @Event closeAction: () => void = () => {};
-  @Event onTagVoteChanged: (namespace: string, tagText: string, vote: number) => void =
-    (_namespace: string, _tagText: string, _vote: number) => {};
-
-  build() {
-    GalleryTagsCard({
-      gallery: this.gallery,
-      tagInfoSheetContent: true,
-      tagInfoRequest: this.request,
-      closeAction: () => {
-        this.closeAction()
-      },
-      onTagVoteChanged: (namespace: string, tagText: string, vote: number) => {
-        this.onTagVoteChanged(namespace, tagText, vote)
-      },
-    })
+    .width('100%')
   }
 }

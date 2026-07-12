@@ -5,6 +5,7 @@ import {
   GroupedListSection,
   GalleryTitleState,
   connectGalleryTitle,
+  appSheetOptions,
 } from 'shared'
 
 const COVER_W: number = 124
@@ -20,6 +21,9 @@ export struct GalleryHeaderCard {
   @Require @Param gallery: EhGallery;
   @Event onUploader: (name: string) => void = (_name: string) => {};
   @Event onTitleTap: () => void = () => {};
+  @Param titleSheetShown: boolean = false;
+  @BuilderParam titleSheetContent: () => void;
+  @Event onTitleSheetDisappear: () => void = () => {};
   @Local titlePref: GalleryTitleState = connectGalleryTitle();
 
   private primaryTitle(): string {
@@ -97,6 +101,14 @@ export struct GalleryHeaderCard {
             .onClick(() => {
               this.onTitleTap()
             })
+            .bindSheet(this.titleSheetShown, this.titleSheetContent(), appSheetOptions({
+              detents: [SheetSize.LARGE],
+              showClose: false,
+              keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
+              onDisappear: () => {
+                this.onTitleSheetDisappear()
+              },
+            }))
             if (this.gallery.uploader.length > 0) {
               // Tappable → search this uploader's galleries (eros_fe GalleryUploader). eros_fe styles the
               // uploader as muted secondaryLabel GREY (w500), NOT a colored link — it's metadata that

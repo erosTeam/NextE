@@ -26,6 +26,7 @@ import {
 export struct LocalBlockSettingsPage {
   @Local block: LocalBlockState = connectLocalBlock();
   @Local ruleSheetShown: boolean = false;
+  @Local newRuleSheetShown: boolean = false;
   @Local typeMenuShown: boolean = false;
   @Local commentDisplayMenuShown: boolean = false;
   @Local editingRuleId: string = '';
@@ -88,15 +89,17 @@ export struct LocalBlockSettingsPage {
   }
 
   private openNewRule(): void {
+    this.ruleSheetShown = false
     this.editingRuleId = ''
     this.draftType = LocalBlockSettings.normalizeType(this.draftType)
     this.draftText = ''
     this.draftEnabled = true
     this.draftRegex = false
-    this.ruleSheetShown = true
+    this.newRuleSheetShown = true
   }
 
   private openEditRule(rule: LocalBlockRule): void {
+    this.newRuleSheetShown = false
     this.editingRuleId = rule.id
     this.draftType = LocalBlockSettings.normalizeType(rule.blockType)
     this.draftText = rule.ruleText
@@ -107,6 +110,37 @@ export struct LocalBlockSettingsPage {
 
   private closeRuleSheet(): void {
     this.ruleSheetShown = false
+    this.newRuleSheetShown = false
+  }
+
+  private isEditRuleSheetHost(rule: LocalBlockRule): boolean {
+    return this.ruleSheetShown && this.editingRuleId === rule.id
+  }
+
+  private editRuleSheetOptions(rule: LocalBlockRule): SheetOptions {
+    return appSheetOptions({
+      detents: [SheetSize.LARGE],
+      showClose: false,
+      keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_SCROLL,
+      onDisappear: () => {
+        if (this.isEditRuleSheetHost(rule)) {
+          this.closeRuleSheet()
+        }
+      },
+    })
+  }
+
+  private newRuleSheetOptions(): SheetOptions {
+    return appSheetOptions({
+      detents: [SheetSize.LARGE],
+      showClose: false,
+      keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_SCROLL,
+      onDisappear: () => {
+        if (this.newRuleSheetShown) {
+          this.closeRuleSheet()
+        }
+      },
+    })
   }
 
   private draftRegexValid(): boolean {
@@ -247,7 +281,11 @@ export struct LocalBlockSettingsPage {
                 action: () => {
                   this.openEditRule(rule)
                 },
-              })
+              }).bindSheet(
+                this.isEditRuleSheetHost(rule),
+                this.RuleSheet(),
+                this.editRuleSheetOptions(rule),
+              )
               if (index < this.ruleCount(type) - 1) {
                 this.rowDivider()
               }
@@ -336,11 +374,7 @@ export struct LocalBlockSettingsPage {
     }
     .titleBar(this.titleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .bindSheet($$this.ruleSheetShown, this.RuleSheet(), appSheetOptions({
-      detents: [SheetSize.LARGE],
-      showClose: false,
-      keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_SCROLL,
-    }))
+    .bindSheet(this.newRuleSheetShown, this.RuleSheet(), this.newRuleSheetOptions())
   }
 
   @Builder

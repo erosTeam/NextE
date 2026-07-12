@@ -57,7 +57,9 @@ export struct MyTagsPage {
   @Local loading: boolean = true;
   @Local error: string = '';
   @Local myTagsSheetShown: boolean = false;
+  @Local myTagsAnchoredSheetShown: boolean = false;
   @Local myTagsSheetKind: string = '';
+  @Local myTagsSheetAnchorKey: string = '';
   @Local editSubmitting: boolean = false;
   @Local editError: string = '';
   @Local editTagId: string = '';
@@ -98,13 +100,20 @@ export struct MyTagsPage {
   private scroller: Scroller = new Scroller();
   private addSuggestTimer: number = -1;
 
-  private openMyTagsSheet(kind: string): void {
+  private openMyTagsSheet(kind: string, anchorKey: string = ''): void {
     const request: UserTagRequestContext | null = this.captureManagementRequest()
     if (request === null) {
       return
     }
+    this.myTagsSheetShown = false
+    this.myTagsAnchoredSheetShown = false
     this.myTagsSheetKind = kind
-    this.myTagsSheetShown = true
+    this.myTagsSheetAnchorKey = anchorKey
+    if (anchorKey.length > 0) {
+      this.myTagsAnchoredSheetShown = true
+    } else {
+      this.myTagsSheetShown = true
+    }
   }
 
   private closeMyTagsSheet(): void {
@@ -112,7 +121,9 @@ export struct MyTagsPage {
       this.cancelAddSuggestions()
     }
     this.myTagsSheetShown = false
+    this.myTagsAnchoredSheetShown = false
     this.myTagsSheetKind = ''
+    this.myTagsSheetAnchorKey = ''
     this.editSubmitting = false
     this.addSubmitting = false
     this.tagsetSubmitting = false
@@ -444,7 +455,7 @@ export struct MyTagsPage {
     return `${t.weight}`
   }
 
-  private openEditTag(t: EhUsertag): void {
+  private openEditTag(t: EhUsertag, anchorKey: string = ''): void {
     this.editTagId = t.tagId
     this.editTagTitle = t.tag
     this.editTagDisplay = this.tagTitle(t)
@@ -455,7 +466,7 @@ export struct MyTagsPage {
     this.editColor = t.defaultColor ? '' : (t.colorCode.length > 0 ? t.colorCode : t.color)
     this.editWeight = t.tagWeight.length > 0 ? t.tagWeight : `${t.weight}`
     this.editError = ''
-    this.openMyTagsSheet(MYTAGS_SHEET_EDIT)
+    this.openMyTagsSheet(MYTAGS_SHEET_EDIT, anchorKey)
   }
 
   private openAddTag(): void {
@@ -1210,6 +1221,8 @@ export struct MyTagsPage {
     }
     .titleBar(this.myTagsTitleBar())
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    // HDS title-bar menu actions and route-driven target tags expose no concrete trigger component.
+    // Keep this page host only for those fallback opens; a tapped tag row binds its own sheet below.
     .bindSheet($$this.myTagsSheetShown, this.MyTagsSheet(), appSheetOptions({
       detents: this.myTagsSheetDetents(),
       showClose: false,
@@ -1282,6 +1295,30 @@ export struct MyTagsPage {
 
   @Builder
   private TagRow(t: EhUsertag) {
+    // Every concrete row remains mounted as a Sheet host. Rendering the host only after its show
+    // state becomes true would violate ArkUI's host-mounted requirement and lose the native entry.
+    Column() {
+      this.TagRowContent(t)
+    }
+    .width('100%')
+    .bindSheet(
+      this.myTagsAnchoredSheetShown && this.myTagsSheetAnchorKey === this.userTagRowKey(t),
+      this.MyTagsSheet(),
+      appSheetOptions({
+        detents: this.myTagsSheetDetents(),
+        showClose: false,
+        keyboardAvoidMode: SheetKeyboardAvoidMode.TRANSLATE_AND_RESIZE,
+        onDisappear: () => {
+          if (this.myTagsSheetAnchorKey === this.userTagRowKey(t)) {
+            this.closeMyTagsSheet()
+          }
+        },
+      }),
+    )
+  }
+
+  @Builder
+  private TagRowContent(t: EhUsertag) {
     ConciseListRow({
       title: this.tagTitle(t),
       subtitle: this.tagSubtitle(t),
@@ -1295,7 +1332,7 @@ export struct MyTagsPage {
       },
       suffixPaddingRight: ThemeConstants.SPACE_SM,
       action: () => {
-        this.openEditTag(t)
+        this.openEditTag(t, this.userTagRowKey(t))
       },
     })
   }

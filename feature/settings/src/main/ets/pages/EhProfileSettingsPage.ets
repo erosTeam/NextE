@@ -75,7 +75,8 @@ export struct EhProfileSettingsPage {
   @Local saving: boolean = false;
   @Local failed: boolean = false;
   @Local profileBusy: boolean = false;
-  @Local nameSheetShown: boolean = false;
+  @Local createNameSheetShown: boolean = false;
+  @Local renameNameSheetShown: boolean = false;
   @Local nameInput: string = '';
   private nameAction: string = 'create';
   private nameProfileSet: string = '';
@@ -147,7 +148,8 @@ export struct EhProfileSettingsPage {
     const run: number = this.loadRun
     const request: EhProfileSettingsRequestContext = this.currentRequestContext()
     this.loadedContext = null
-    this.nameSheetShown = false
+    this.createNameSheetShown = false
+    this.renameNameSheetShown = false
     this.nameSheetContext = null
     this.loading = true
     this.failed = false
@@ -308,7 +310,8 @@ export struct EhProfileSettingsPage {
     this.nameProfileSet = action === 'rename' ? `${this.settings.selectedProfile}` : ''
     this.nameSheetContext = context
     this.nameInput = action === 'rename' ? this.currentProfileName() : ''
-    this.nameSheetShown = true
+    this.createNameSheetShown = action === 'create'
+    this.renameNameSheetShown = action === 'rename'
   }
 
   private confirmNameSheet(): void {
@@ -319,7 +322,8 @@ export struct EhProfileSettingsPage {
     const action: string = this.nameAction
     const profileSet: string = this.nameProfileSet
     const context: EhProfileSettingsRequestContext | null = this.nameSheetContext
-    this.nameSheetShown = false
+    this.createNameSheetShown = false
+    this.renameNameSheetShown = false
     this.nameSheetContext = null
     if (action === 'rename') {
       this.runProfileAction('rename', profileSet, name, context)
@@ -512,7 +516,6 @@ export struct EhProfileSettingsPage {
             }
           }
         }
-        this.NameSheetHost()
       }
       .width('100%')
       .height('100%')
@@ -631,7 +634,11 @@ export struct EhProfileSettingsPage {
           action: () => {
             this.openNameSheet('create')
           },
-        })
+        }).bindSheet(
+          $$this.createNameSheetShown,
+          this.NameSheet(),
+          appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
+        )
         this.rowDivider()
         ConciseListRow({
           title: $r('app.string.ehp_profile_rename'),
@@ -641,7 +648,11 @@ export struct EhProfileSettingsPage {
           action: () => {
             this.openNameSheet('rename')
           },
-        })
+        }).bindSheet(
+          $$this.renameNameSheetShown,
+          this.NameSheet(),
+          appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
+        )
         // 设为默认 only when the current profile is not already the default.
         if (this.settings.selectedProfile !== this.settings.defaultProfile) {
           this.rowDivider()
@@ -678,18 +689,6 @@ export struct EhProfileSettingsPage {
   }
 
   @Builder
-  NameSheetHost() {
-    Blank()
-      .width(1)
-      .height(1)
-      .bindSheet(
-        $$this.nameSheetShown,
-        this.NameSheet(),
-        appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
-      )
-  }
-
-  @Builder
   NameSheet() {
     AppModalScaffold({
       title:
@@ -699,7 +698,8 @@ export struct EhProfileSettingsPage {
       confirmIcon: $r('sys.symbol.checkmark'),
       confirmText: $r('app.string.common_save'),
       closeAction: () => {
-        this.nameSheetShown = false
+        this.createNameSheetShown = false
+        this.renameNameSheetShown = false
       },
       confirmAction: () => {
         this.confirmNameSheet()

@@ -53,6 +53,8 @@ export struct ImageBlockSettingsPage {
   @Local loadingFeedRules: boolean = false;
   @Local imageBlockSettings: ImageBlockSettingsState = connectImageBlockSettings();
   private scroller: Scroller = new Scroller();
+  private ruleSheetAnchor: string = '';
+  private feedRulesSheetAnchor: string = '';
 
   aboutToAppear(): void {
     this.reloadFeeds()
@@ -325,20 +327,24 @@ export struct ImageBlockSettingsPage {
   }
 
   private openLocalRuleSheet(rule: ImageBlockRule): void {
+    this.ruleSheetAnchor = `local:${rule.id}`
     this.selectedRule = rule.copy()
     this.ruleSheetShown = true
   }
 
   private openSubscriptionRuleSheet(rule: ImageBlockRule): void {
+    this.ruleSheetAnchor = `subscription:${rule.id}`
     this.selectedRule = rule.copy()
     this.ruleSheetShown = true
   }
 
   private closeRuleSheet(): void {
     this.ruleSheetShown = false
+    this.ruleSheetAnchor = ''
   }
 
   private openFeedRules(feed: ImageBlockFeed): void {
+    this.feedRulesSheetAnchor = feed.id
     this.selectedFeedId = feed.id
     this.selectedFeedTitle = this.feedTitle(feed)
     this.feedRules = []
@@ -348,6 +354,39 @@ export struct ImageBlockSettingsPage {
 
   private closeFeedRulesSheet(): void {
     this.feedRulesSheetShown = false
+    this.feedRulesSheetAnchor = ''
+  }
+
+  private isRuleSheetHost(kind: string, rule: ImageBlockRule): boolean {
+    return this.ruleSheetShown && this.ruleSheetAnchor === `${kind}:${rule.id}`
+  }
+
+  private isFeedRulesSheetHost(feed: ImageBlockFeed): boolean {
+    return this.feedRulesSheetShown && this.feedRulesSheetAnchor === feed.id
+  }
+
+  private ruleSheetOptions(kind: string, rule: ImageBlockRule): SheetOptions {
+    return appSheetOptions({
+      detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+      showClose: false,
+      onDisappear: () => {
+        if (this.isRuleSheetHost(kind, rule)) {
+          this.closeRuleSheet()
+        }
+      },
+    })
+  }
+
+  private feedRulesSheetOptions(feed: ImageBlockFeed): SheetOptions {
+    return appSheetOptions({
+      detents: [SheetSize.LARGE],
+      showClose: false,
+      onDisappear: () => {
+        if (this.isFeedRulesSheetHost(feed)) {
+          this.closeFeedRulesSheet()
+        }
+      },
+    })
   }
 
   private reloadFeedRules(): void {
@@ -760,6 +799,11 @@ export struct ImageBlockSettingsPage {
     .onClick(() => {
       this.openLocalRuleSheet(rule)
     })
+    .bindSheet(
+      this.isRuleSheetHost('local', rule),
+      this.RuleSheet(),
+      this.ruleSheetOptions('local', rule),
+    )
   }
 
   @Builder
@@ -819,6 +863,11 @@ export struct ImageBlockSettingsPage {
     .onClick(() => {
       this.openSubscriptionRuleSheet(rule)
     })
+    .bindSheet(
+      this.isRuleSheetHost('subscription', rule),
+      this.RuleSheet(),
+      this.ruleSheetOptions('subscription', rule),
+    )
   }
 
   @Builder
@@ -895,7 +944,11 @@ export struct ImageBlockSettingsPage {
                     action: () => {
                       this.openFeedRules(feed)
                     },
-                  })
+                  }).bindSheet(
+                    this.isFeedRulesSheetHost(feed),
+                    this.FeedRulesSheet(),
+                    this.feedRulesSheetOptions(feed),
+                  )
                   if (index < this.feeds.length - 1) {
                     this.rowDivider()
                   }
@@ -955,35 +1008,9 @@ export struct ImageBlockSettingsPage {
           }
         }
       }
-      this.FeedRulesSheetHost()
-      this.RuleSheetHost()
     }
     .titleBar(immersiveTitleBar(AppStrings.get('image_block_title')))
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-  }
-
-  @Builder
-  private FeedRulesSheetHost() {
-    Blank()
-      .width(1)
-      .height(1)
-      .bindSheet(
-        $$this.feedRulesSheetShown,
-        this.FeedRulesSheet(),
-        appSheetOptions({ detents: [SheetSize.LARGE], showClose: false }),
-      )
-  }
-
-  @Builder
-  private RuleSheetHost() {
-    Blank()
-      .width(1)
-      .height(1)
-      .bindSheet(
-        $$this.ruleSheetShown,
-        this.RuleSheet(),
-        appSheetOptions({ detents: [SheetSize.MEDIUM, SheetSize.LARGE], showClose: false }),
-      )
   }
 
   @Builder
