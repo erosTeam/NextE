@@ -90,7 +90,6 @@ import {
   DiagnosticLogger,
   SafeModeState,
   connectSafeMode,
-  NavDestinationTransitionRegistry,
   GalleryDetailBackToTopState,
   connectGalleryDetailBackToTop,
   GALLERY_DETAIL_BACK_TO_TOP_METADATA,
@@ -198,8 +197,6 @@ export struct GalleryDetailPage {
   @Local ratingSubmitting: boolean = false;
   @Local ratingError: string = '';
   @Local downloadUpgradeBusyGid: string = '';
-  @Local navigationEnterOffsetX: number = 0;
-  @Local navigationEnterOpacity: number = 1;
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
   @Local isFirstSecondaryDetail: boolean = false;
@@ -1286,31 +1283,6 @@ export struct GalleryDetailPage {
     }
     const content: Record<string, Object> = { 'title': title, 'menu': this.detailMenu() }
     return immersiveTitleBarOpts(content)
-  }
-
-  private registerNavigationEnterTransition(id: string): void {
-    this.navigationDestinationId = id
-    NavDestinationTransitionRegistry.register(id, {
-      prepare: () => {
-        this.navigationEnterOffsetX = ThemeConstants.SPACE_XL
-        this.navigationEnterOpacity = 0
-      },
-      play: () => {
-        this.navigationEnterOffsetX = 0
-        this.navigationEnterOpacity = 1
-      },
-      reset: () => {
-        this.navigationEnterOffsetX = 0
-        this.navigationEnterOpacity = 1
-      },
-    })
-  }
-
-  private unregisterNavigationEnterTransition(): void {
-    if (this.navigationDestinationId.length > 0) {
-      NavDestinationTransitionRegistry.unregister(this.navigationDestinationId)
-      this.navigationDestinationId = ''
-    }
   }
 
   // Native HDS title-bar actions. Read remains the primary FAB; secondary tools stay in the title-bar
@@ -2522,16 +2494,13 @@ export struct GalleryDetailPage {
     .titleBar(this.detailTitleBar())
     .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDetail)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
-    .translate({ x: this.navigationEnterOffsetX })
-    .opacity(this.navigationEnterOpacity)
     .onDisAppear(() => {
       this.releaseGalleryDetailBackToTopWorkspace()
-      this.unregisterNavigationEnterTransition()
     })
     .onReady((context: NavDestinationContext) => {
       this.refreshFirstSecondaryDetail(context.pathStack)
       if (context.navDestinationId !== undefined) {
-        this.registerNavigationEnterTransition(context.navDestinationId)
+        this.navigationDestinationId = context.navDestinationId
       }
       this.syncGalleryDetailBackToTopWorkspace()
       const p = context.pathInfo.param as GalleryDetailParams

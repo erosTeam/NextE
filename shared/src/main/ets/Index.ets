@@ -519,10 +519,6 @@ export {
   installGalleryDetailDuplicateInterception,
 } from './navigation/GalleryDetailNavigation'
 export {
-  NavDestinationTransitionRegistry,
-  NavDestinationTransitionCallbacks,
-} from './navigation/NavDestinationTransitionRegistry'
-export {
   HomeSourceState,
   HomeSourceBridge,
   connectHomeSource,

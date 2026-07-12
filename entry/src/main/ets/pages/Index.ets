@@ -67,7 +67,6 @@ import {
   ListMode,
   ReaderOverlayNavigationState,
   connectReaderOverlayNavigation,
-  NavDestinationTransitionRegistry,
 } from 'shared'
 import { MainTabIcon } from '../components/MainTabIcon'
 import { HomeSourceBarCCBuilder } from '../components/HomeSourceBar'
@@ -1194,45 +1193,6 @@ struct Index {
     return this.splitPlaceholderContent
   }
 
-  private galleryDetailEnterTransition(
-    _from: NavContentInfo,
-    to: NavContentInfo,
-    operation: NavigationOperation,
-  ): NavigationAnimatedTransition | undefined {
-    if (
-      to.name !== 'GalleryDetail' ||
-      to.navDestinationId === undefined ||
-      (operation !== NavigationOperation.PUSH && operation !== NavigationOperation.REPLACE)
-    ) {
-      return undefined
-    }
-    const destinationId: string = to.navDestinationId
-    return {
-      timeout: ThemeConstants.ANIM_DURATION + ThemeConstants.ANIM_DONE_DELAY_MS,
-      transition: (proxy: NavigationTransitionProxy): void => {
-        if (!NavDestinationTransitionRegistry.prepare(destinationId)) {
-          proxy.finishTransition()
-          return
-        }
-        this.getUIContext().animateTo(
-          {
-            duration: ThemeConstants.ANIM_DURATION,
-            curve: Curve.EaseOut,
-            onFinish: () => {
-              proxy.finishTransition()
-            },
-          },
-          () => {
-            NavDestinationTransitionRegistry.play(destinationId)
-          },
-        )
-      },
-      onTransitionEnd: (_isSuccess: boolean): void => {
-        NavDestinationTransitionRegistry.reset(destinationId)
-      },
-    }
-  }
-
   @Builder
   routerMap(name: string) {
     if (!SafeModeGate.routeAllowed(name)) {
@@ -1377,11 +1337,6 @@ struct Index {
         })
       }
       .navDestination(this.routerMap)
-      // Split's first secondary destination is intentionally non-animated by ArkUI. GalleryDetail
-      // returns a valid system transition protocol so its own destination state can animate instead.
-      .customNavContentTransition((from: NavContentInfo, to: NavContentInfo, operation: NavigationOperation) => {
-        return this.galleryDetailEnterTransition(from, to, operation)
-      })
       // The root shell owns the adaptive split. Its geometry depends only on available width; changing
       // a peer root tab clears the old tab's secondary stack and leaves this primary pane in place.
       .mode(NavigationMode.Auto)
