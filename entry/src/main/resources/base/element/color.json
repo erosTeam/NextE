@@ -17,6 +17,10 @@
       "value": "#F5F5F5"
     },
     {
+      "name": "navigation_item_selected",
+      "value": "#E6E8EB"
+    },
+    {
       "name": "color_text_primary",
       "value": "#1A1A1A"
     },

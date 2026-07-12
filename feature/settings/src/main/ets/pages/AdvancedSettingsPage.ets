@@ -19,6 +19,7 @@ import {
   ThemeConstants,
   connectDiagnostics,
   connectNavStack,
+  NavStackHolder,
   immersiveTitleBar,
 } from 'shared'
 
@@ -28,6 +29,8 @@ export struct AdvancedSettingsPage {
   @Local private logCount: number = 0;
   @Local private logFiles: DiagnosticsLogFileInfo[] = [];
   @Local private levelMenuShown: boolean = false;
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDestination: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private shareController?: systemShare.ShareController;
@@ -338,6 +341,11 @@ export struct AdvancedSettingsPage {
     }
   }
 
+  private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'AdvancedSettings'
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -360,6 +368,13 @@ export struct AdvancedSettingsPage {
       }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_advanced')))
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDestination(context.pathStack)
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDestination(this.stack)
+    })
   }
 }

@@ -1365,6 +1365,7 @@ struct Index {
           const changed: boolean = index !== this.currentTab
           if (changed && this.stack.getAllPathName().length > 0) {
             this.stack.clear(false)
+            this.navStackHolder.clearSecondaryEntry()
           }
           this.currentTab = index
           this.syncDownloadQueuePageActive()

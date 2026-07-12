@@ -26,6 +26,7 @@ const WATERFALL_TAG_STRIP_HEIGHT: number = 48
 @ComponentV2
 export struct GalleryWaterfallCard {
   @Require @Param gallery: EhGallery;
+  @Param selected: boolean = false;
   private tagSig: UserTagSignal = connectUserTagSignal();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   private tagScroller: Scroller = new Scroller();
@@ -246,7 +247,11 @@ export struct GalleryWaterfallCard {
     .width('100%')
     .alignItems(HorizontalAlign.Start)
     .borderRadius(ThemeConstants.RADIUS_CARD)
-    .backgroundColor($r('app.color.card_background'))
+    .backgroundColor(
+      this.selected
+        ? $r('app.color.navigation_item_selected')
+        : $r('app.color.card_background'),
+    )
     .clip(true)
   }
 }

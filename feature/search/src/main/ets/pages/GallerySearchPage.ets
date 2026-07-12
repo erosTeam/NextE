@@ -1034,7 +1034,10 @@ export struct GallerySearchPage {
                     if (this.listMode.mode === ListMode.SIMPLE_LIST) {
                       GallerySimpleCard({ gallery: g })
                     } else {
-                      GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })
+                      GalleryCard({
+                        gallery: g,
+                        listContentWidth: this.listContentWidth,
+                      })
                     }
                   }
                   .onAppear(() => {

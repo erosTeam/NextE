@@ -3,6 +3,7 @@ import {
   connectAuth,
   AuthState,
   connectNavStack,
+  NavStackHolder,
   SecondaryListScaffold,
   GroupedListSection,
   ConciseListRow,
@@ -21,6 +22,7 @@ import {
 export struct SettingsPage {
   @Local auth: AuthState = connectAuth();
   @Local safeMode: SafeModeState = connectSafeMode();
+  @Local navStackHolder: NavStackHolder = connectNavStack();
   private stack: NavPathStack = connectNavStack().stack;
   // Index-owned scroller for this tab (title-bar scroll-up auto-hide via bindToScrollable).
   @Param scroller: Scroller = new Scroller();
@@ -52,6 +54,10 @@ export struct SettingsPage {
       return
     }
     this.stack.pushPathByName(name, null)
+  }
+
+  private isSettingsRootSelected(name: string): boolean {
+    return this.navStackHolder.isSettingsRootSelected(name)
   }
 
   @Builder
@@ -114,6 +120,7 @@ export struct SettingsPage {
         ConciseListRow({
           title: this.accountTitle(),
           subtitle: this.accountSubtitle(),
+          selected: this.isSettingsRootSelected('Account'),
           prefixBuilderParam: () => {
             this.AccountAvatar()
           },
@@ -124,6 +131,7 @@ export struct SettingsPage {
       } else {
         ConciseListRow({
           title: $r('app.string.settings_login'),
+          selected: this.isSettingsRootSelected('AccountLogin'),
           leadingIcon: $r('sys.symbol.person'),
           action: () => {
             this.openRootDetail('AccountLogin')
@@ -139,6 +147,7 @@ export struct SettingsPage {
       if (!this.safeMode.restricted()) {
         ConciseListRow({
           title: $r('app.string.settings_eh'),
+          selected: this.isSettingsRootSelected('EhSettings'),
           leadingIcon: $r('sys.symbol.worldclock'),
           action: () => {
             this.openRootDetail('EhSettings')
@@ -148,6 +157,7 @@ export struct SettingsPage {
       }
       ConciseListRow({
         title: $r('app.string.settings_layout'),
+        selected: this.isSettingsRootSelected('LayoutSettings'),
         leadingIcon: $r('sys.symbol.paintpalette'),
         action: () => {
           this.openRootDetail('LayoutSettings')
@@ -156,6 +166,7 @@ export struct SettingsPage {
       this.rowDivider()
       ConciseListRow({
         title: $r('app.string.settings_reader'),
+        selected: this.isSettingsRootSelected('ReaderSettings'),
         leadingIcon: $r('sys.symbol.doc_plaintext'),
         action: () => {
           this.openRootDetail('ReaderSettings')
@@ -164,6 +175,7 @@ export struct SettingsPage {
       this.rowDivider()
       ConciseListRow({
         title: $r('app.string.settings_download'),
+        selected: this.isSettingsRootSelected('DownloadSettings'),
         leadingIcon: $r('sys.symbol.arrow_down_to_line'),
         action: () => {
           this.openRootDetail('DownloadSettings')
@@ -172,6 +184,7 @@ export struct SettingsPage {
       this.rowDivider()
       ConciseListRow({
         title: $r('app.string.settings_search'),
+        selected: this.isSettingsRootSelected('SearchSettings'),
         leadingIcon: $r('sys.symbol.magnifyingglass'),
         action: () => {
           this.openRootDetail('SearchSettings')
@@ -181,6 +194,7 @@ export struct SettingsPage {
       if (!this.safeMode.restricted()) {
         ConciseListRow({
           title: $r('app.string.tab_history'),
+          selected: this.isSettingsRootSelected('History'),
           leadingIcon: $r('sys.symbol.clock'),
           action: () => {
             this.openRootDetail('History')
@@ -190,6 +204,7 @@ export struct SettingsPage {
       }
       ConciseListRow({
         title: $r('app.string.settings_cache'),
+        selected: this.isSettingsRootSelected('CacheSettings'),
         leadingIcon: $r('sys.symbol.externaldrive'),
         action: () => {
           this.openRootDetail('CacheSettings')
@@ -198,6 +213,7 @@ export struct SettingsPage {
       this.rowDivider()
       ConciseListRow({
         title: $r('app.string.settings_advanced'),
+        selected: this.isSettingsRootSelected('AdvancedSettings'),
         leadingIcon: $r('sys.symbol.gearshape'),
         action: () => {
           this.openRootDetail('AdvancedSettings')
@@ -206,6 +222,7 @@ export struct SettingsPage {
       this.rowDivider()
       ConciseListRow({
         title: $r('app.string.settings_about'),
+        selected: this.isSettingsRootSelected('About'),
         leadingIcon: $r('sys.symbol.info_circle'),
         action: () => {
           this.openRootDetail('About')

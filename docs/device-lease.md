@@ -1,212 +1,82 @@
 # 实机占用声明与 Agent 协作约束
 
-NextE 目前常驻开发验证真机只有一台：`192.168.50.197:12345`。多项目、多 agent 并行开发时，如果多个自动化任务同时执行 `hdc install`、`aa start`、`uitest click/swipe/keyEvent`，真机状态会被交替控制，导致验证结果不可信。
+## 硬边界：没有默认设备
 
-本机制是 **agent 之间的协作锁（advisory lease）**，用于约束 Hermes/Codex/Claude 等自动化任务。它 **不会拦截人工调试**：人仍然可以直接使用 `hdc`、DevEco、屏幕触控等工具；只有交给 agent 的任务必须遵守 lease。
+NextE 不设任何默认真机 target。Agent 只能使用用户当前指令或当前任务计划中明确写出的
+target；不得从脚本默认值、历史验证记录、其他任务、交接文档或旧 artifact 推断设备地址。
 
-## 原则
+target 缺失、冲突或不确定时，必须停止并向用户询问。不得连接、安装、启动、卸载、清数据、
+点击、滑动、按键或截图。
 
-1. **人工优先**：人工调试不需要申请 lease，也不会被脚本阻止。
-2. **Agent 控制真机前必须申请 lease**：涉及安装、启动、点击、滑动、按键、清数据等会改变设备状态的操作，agent 必须持有有效 lease。
-3. **只读观察尽量不加锁**：`hdc list targets`、读取 git 状态、读取本地文件、普通日志查看通常不需要 lease；但若日志/截图/布局依赖当前前台 UI 状态，建议申请 lease。
-4. **TTL 防死锁**：lease 有过期时间，agent 卡死后不会永久占用。默认 lease 是 TTL-only，不会把申请命令的短生命周期 PID 当作持有者存活信号。
-5. **抢占需用户批准**：除非用户明确要求，否则 agent 不得使用 `--force` 抢占别的 lease。
+本机制是 agent 间的协作锁，不是设备授权。获取 lease 不构成用户对任意设备操作的许可。
 
-## 工具位置
+## 工具
 
 ```bash
 scripts/device-lease
 scripts/device_lease.py
 ```
 
-默认设备：`192.168.50.197:12345`
-
-锁文件目录默认在：
+所有命令都必须显式提供目标：
 
 ```bash
-~/.hermes/device-leases/
+TARGET=<用户或当前任务计划明确指定的target>
+scripts/device-lease --device "$TARGET" status
 ```
 
-可用环境变量覆盖：
+`scripts/device-lease` 故意没有默认 target；漏传 `--device` 必须直接失败。
 
-```bash
-export NEXTE_DEVICE_LEASE_DIR=/tmp/nexte-device-leases
-```
+## 实机操作前的顺序
 
-## 基本用法
+1. 从当前用户指令或当前任务计划取得 target。
+2. 将 target 原样回显给用户，确认本次操作目标。
+3. 申请该 target 的 lease。
+4. 检查 `hdc -t "$TARGET" shell echo ok` 返回 `ok`。
+5. 只在用户已授权的范围内执行设备命令。
+6. 完成或失败后释放 lease。
 
-### HDC TCP 连接稳定探针
-
-共享设备使用 TCP target `192.168.50.197:12345`。实机 QA 开始前，必须先确认设备 shell 真正可用，而不是只看 `tconn` 或 `list targets`：
-
-```bash
-HDC=/home/gamer/devtool/ohos/command-line-tools/sdk/default/openharmony/toolchains/hdc
-$HDC tconn 192.168.50.197:12345
-sleep 2
-$HDC -t 192.168.50.197:12345 shell echo ok
-```
-
-只有第三条命令明确输出 `ok`，才可以继续 `hdc install`、`aa start`、截图、点击或 dump。`tconn` 返回 `Connect OK`、`list targets -v` 显示 `Connected` 都不能单独作为设备可控证据；实测中 target 显示 Connected 后，立即执行 `shell echo` 可能无输出，等待约 2 秒后才稳定。
-
-如果探针没有输出 `ok`，记录为设备连接 `BLOCKED`，不要循环重试或继续安装。除非用户明确要求修复设备连接模式，agent 不得执行 `hdc tmode port ...`；`tmode` 会改变设备端 hdc daemon 模式，不属于普通 QA 连接检查。
-
-### 查看当前占用
-
-```bash
-scripts/device-lease status
-```
-
-无人占用时返回非 0，输出 `no active lease` 或过期 lease 信息。
-
-### 申请占用
-
-```bash
-LEASE_ID=$(scripts/device-lease acquire \
-  --owner "codex:nexte-device-verify" \
-  --project "NextE" \
-  --ttl 30m \
-  --reason "NextE 真机验证")
-```
-
-默认申请的是 **TTL-only lease**：`status` 中的 `acquire_pid` 只是当次 `acquire` 命令进程，不代表后续真正占用设备的 agent 是否仍存活。因此不能仅因为 `acquire_pid` 已退出就判定 lease 可抢占。
-
-如果有明确的长生命周期验证/agent 进程，建议绑定其 PID：
-
-```bash
-LEASE_ID=$(scripts/device-lease acquire \
-  --owner "codex:nexte-device-verify" \
-  --ttl 30m \
-  --holder-pid "$$" \
-  --reason "长时间真机验证")
-```
-
-带 `--holder-pid` 的 lease 是 **process-bound lease**。当 holder PID 位于本机且进程已不存在时，`status` 会显示 `stale: holder pid not running`，后续普通 `acquire` 可在 TTL 到期前替换该 stale lease；TTL-only lease 不会因为 `acquire_pid` 消失而被自动视为 stale。
-
-### Controller wrapper 起 dev.sh 时的陷阱
-
-当 controller 通过 background wrapper 脚本调用 `dev.sh` 之类的长流程时：
-
-1. **不要 `--holder-pid $$`**。wrapper 进程往往很短命，PID 退出后 lease 立即 stale，`scripts/device-lease run --lease $ID -- ...` 会返回 `denied: holder pid not running`，`dev.sh` 实际根本没启起来。改用 TTL-only `acquire`（不传 `--holder-pid`）。
-2. **PATH 必须显式包含**：
-   - `/home/gamer/devtool/ohos/command-line-tools/bin`（提供 `ohpm`）
-   - `/home/gamer/OpenHarmony/20/toolchains`（提供 `hdc`）
-
-   缺 `ohpm` 时 `dev.sh` 第 5 行会以 `未找到 ohpm` 直接 `exit 1`。
-3. **wrapper 结尾 release 用 `--force`**，防止 TTL 未过被卡。
-
-### 带 lease 执行强控制命令
-
-```bash
-scripts/device-lease run --lease "$LEASE_ID" -- \
-  /home/gamer/devtool/ohos/command-line-tools/sdk/default/openharmony/toolchains/hdc \
-  -t 192.168.50.197:12345 shell uitest uiInput click 650 1200
-```
-
-### 续约
-
-```bash
-scripts/device-lease renew --lease "$LEASE_ID" --ttl 15m
-```
-
-### 释放
-
-```bash
-scripts/device-lease release --lease "$LEASE_ID"
-```
-
-建议 agent 使用 `trap` 确保退出时释放：
-
-```bash
-LEASE_ID=$(scripts/device-lease acquire --owner "codex:task" --ttl 30m --reason "真机验证")
-trap 'scripts/device-lease release --lease "$LEASE_ID" || true' EXIT
-```
-
-## Agent Prompt 必带规则
-
-给 Codex/Claude/Hermes 子任务时，涉及真机验证必须加入：
-
-```text
-真机设备 192.168.50.197:12345 是 agent 间共享的独占资源。你在执行任何会改变设备状态的命令前，必须先通过 scripts/device-lease acquire 获取 lease，并用 scripts/device-lease run --lease "$LEASE_ID" -- <command> 执行 hdc install、aa start、uitest click/swipe/keyEvent、清数据、卸载等强控制命令。完成或失败退出时必须 release。不要使用 --force，除非用户明确批准。人工调试不受该机制限制。
-```
-
-## 哪些命令必须持有 lease
-
-必须：
-
-- `hdc tconn` / `hdc tconn ... -remove`
-- `hdc install` / 卸载 / 清应用数据
-- `aa start` / 停止应用 / 切前台应用
-- `uitest uiInput click`
-- `uitest uiInput swipe`
-- `uitest uiInput keyEvent`
-- `uinput` 手势输入
-- 会改变设备、应用、账号、页面状态的脚本
-
-建议：
-
-- `uitest dumpLayout`，如果依赖当前页面不被别人切走
-- 截图/录屏，如果依赖当前页面不被别人切走
-- hilog 验证，如果需要和某段 UI 操作严格对应
-
-通常不需要：
-
-- `hdc list targets`
-- `hdc -t 192.168.50.197:12345 shell echo ok` 这类只读连接探针
-- `git status` / `git diff`
-- 本地构建，不安装到设备时
-- 查看已保存的本地日志文件
-
-## 人工调试如何处理
-
-本机制不阻止人工直接使用设备。如果你要人工调试，建议向 agent 发一句：
-
-```text
-我接管实机调试，暂停所有 agent 真机操作。
-```
-
-agent 应当停止申请新 lease；如已有 lease，应释放或等待用户确认。
-
-如果需要用户批准抢占：
-
-```bash
-scripts/device-lease acquire --force --owner "manual-approved:task" --reason "用户批准抢占"
-```
-
-## 197 黑屏/锁屏处理记录
-
-`192.168.50.197:12345` 没有锁屏密码。2026-06-30 验证：黑屏或锁屏遮罩状态下，底部可见的是系统手势条，不是应用内按钮；`uitest uiInput swipe` 在该状态下可能无法解锁。不要在这种情况下继续盲点或把手势条当成可操作 UI。
-
-已验证的解锁流程：
+示例：
 
 ```bash
 HDC=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc
-TARGET=192.168.50.197:12345
+TARGET=<用户或当前任务计划明确指定的target>
 
-$HDC -t $TARGET shell power-shell wakeup
-$HDC -t $TARGET shell uinput -T -g 630 2580 630 220 600 1800
-$HDC -t $TARGET shell hidumper -s ScreenlockService -a -all
+LEASE_ID=$(scripts/device-lease --device "$TARGET" acquire \
+  --owner "codex:nexte-device-verify" \
+  --project "NextE" \
+  --ttl 30m \
+  --reason "用户已授权的真机验证")
+
+scripts/device-lease --device "$TARGET" run --lease "$LEASE_ID" -- \
+  "$HDC" -t "$TARGET" shell echo ok
+
+scripts/device-lease --device "$TARGET" release --lease "$LEASE_ID"
 ```
 
-确认 `deviceLocked=false` 且 `screenLocked=false` 后再继续安装、启动、截图或 UI 操作。长时间验证可以临时执行 `power-shell timeout -o 120000`，结束后执行 `power-shell timeout -r` 恢复。
+## 哪些命令需要 lease 与明确授权
 
-## 故障处理
+- `hdc tconn` / `hdc install` / 卸载 / 清应用数据
+- `aa start` / 停止应用 / 切前台应用
+- `uitest` 点击、滑动、按键
+- `uinput`、截图、录屏、依赖前台状态的布局或日志采集
 
-如果 agent 崩溃但 lease 仍显示 active：
+只读本地文件与 git 状态不需要 lease。普通 `hdc list targets` 不是设备授权；它不能替代
+明确 target 和用户许可。
 
-1. 先看 `liveness`：
-   - `TTL-only / not process-bound`：只能依据 `expires_at` 或用户批准处理，不能用 `acquire_pid` 是否存在判断。
-   - `process-bound holder_pid=...`：如果同机 holder 进程已退出，`status` 会标记 stale，普通 `acquire` 可直接替换。
-2. 对 TTL-only lease，先检查 `expires_at`，过期后自动可被新 lease 覆盖。
-3. 如确定无人使用且用户批准，可执行：
+## 释放与抢占
 
 ```bash
-scripts/device-lease release --lease <old-lease-id> --force
+scripts/device-lease --device "$TARGET" renew --lease "$LEASE_ID" --ttl 15m
+scripts/device-lease --device "$TARGET" release --lease "$LEASE_ID"
 ```
 
-或直接用 `--force` 申请新 lease。
+`--force` 仅能在用户明确批准后使用。
 
-## 设计边界
+## Agent 提示必带规则
 
-- 这是 advisory lock，不是系统级 hdc 拦截器。
-- 目标是防止 agent 之间互相抢设备，而不是限制人工操作。
-- 真正的强制隔离可后续再做，例如封装统一 `hdc-agent` 命令并禁止 agent 直接调用裸 `hdc`。当前先保持低摩擦。
+```text
+任何会改变设备状态的命令前，必须使用用户当前指令或当前任务计划中明确写出的 target。
+禁止使用默认设备、历史地址、其他任务或 lease 记录推断 target。先回显 target，再以
+scripts/device-lease --device "$TARGET" 获取对应 lease；target 缺失或不确定时停止并询问。
+lease 只协调占用，不构成设备操作授权。
+```

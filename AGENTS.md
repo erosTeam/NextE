@@ -12,6 +12,15 @@ Do not add a V1 adapter, allowlist, temporary bridge, or key-churn refresh worka
 
 For any ArkTS/UI/state change, `node scripts/test_v1_decorator_inventory_contract.mjs` is a required gate and must report `0 file(s)` before merge/push.
 
+## Hard Stop: Explicit Device Target Only
+
+For any device-affecting command (`hdc tconn`, `hdc install`, `aa`, `uitest`, device shell input,
+uninstall, clear-data, or launch), the exact target must be explicitly named in the user's current
+instruction or the current task's active plan and must be echoed back before execution. Never infer a
+target from a script default, historical evidence, another task, a handoff, or a lease record. If the
+target is absent or ambiguous, stop and ask; do not execute any device command. `scripts/device-lease`
+must always be invoked with its required `--device <target>` argument.
+
 ## Always Read First
 
 - [Always-loaded rules](docs/agent-guides/always-loaded-rules.md) — data-flow boundary, gates, UI/product preservation, EH destructive writes, login/cookie security, commits.

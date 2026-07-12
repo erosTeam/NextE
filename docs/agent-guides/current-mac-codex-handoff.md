@@ -114,22 +114,11 @@ Every hdc command above must run outside the Codex sandbox.
 
 Use physical-device QA for hardware/performance/permission/account-state cases that emulators cannot faithfully cover.
 
-### Physical device 197 lockscreen note
+### Physical-device target boundary
 
-Verified on 2026-06-30 for `192.168.50.197:12345`: the device has no lockscreen password. When the screen is black or stuck behind the lockscreen layer, do not treat the bottom gesture bar as an app control and do not rely on `uitest uiInput swipe`; that path failed to dismiss the lockscreen layer in this session.
-
-Use this sequence instead:
-
-```bash
-HDC="/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hdc"
-TARGET="192.168.50.197:12345"
-
-"$HDC" -t "$TARGET" shell power-shell wakeup
-"$HDC" -t "$TARGET" shell uinput -T -g 630 2580 630 220 600 1800
-"$HDC" -t "$TARGET" shell hidumper -s ScreenlockService -a -all
-```
-
-The verification output should include `deviceLocked=false` and `screenLocked=false`. For longer QA runs, `power-shell timeout -o 120000` may be used to keep the screen awake; restore it with `power-shell timeout -r` when the run is done.
+There is no default physical-device target. For any agent-controlled device action, use only the target
+explicitly named by the user or the current task plan. Never infer a target from a historical handoff,
+lease script, artifact, or another task's evidence.
 
 ## Build profile / secret boundary
 

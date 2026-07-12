@@ -32,6 +32,7 @@ const CARD_TAG_LIMIT: number = 8
 @ComponentV2
 export struct GalleryCard {
   @Require @Param gallery: EhGallery;
+  @Param selected: boolean = false;
   // Current list content width (vp), measured by PullRefreshListScaffold after horizontal padding. This is
   // pane-local so fold/unfold and split-pane changes recompute in the same app process.
   @Param listContentWidth: number = 0;
@@ -326,6 +327,10 @@ export struct GalleryCard {
     .width('100%')
     .borderRadius(ThemeConstants.RADIUS_MD)
     .clip(true)
-    .backgroundColor($r('app.color.card_background'))
+    .backgroundColor(
+      this.selected
+        ? $r('app.color.navigation_item_selected')
+        : $r('app.color.card_background'),
+    )
   }
 }

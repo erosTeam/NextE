@@ -16,6 +16,7 @@ const COVER_WALL_MAX_COVER_RATIO: number = 1.35
 @ComponentV2
 export struct GalleryCoverWallCard {
   @Require @Param gallery: EhGallery;
+  @Param selected: boolean = false;
 
   private coverRatio(): number {
     if (this.gallery.imgWidth <= 0 || this.gallery.imgHeight <= 0) {
@@ -54,6 +55,7 @@ export struct GalleryCoverWallCard {
         sourceHeight: this.gallery.imgHeight,
         letterboxBackground: true,
       })
+      .brightness(this.selected ? 0.86 : 1)
       GalleryCategoryCornerBadge({
         category: this.gallery.category,
         translated: this.gallery.translated,

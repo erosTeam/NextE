@@ -15,6 +15,8 @@ broader compact/orientation matrix still pending.
 
 - Worktree: `/Users/honjow/git/NextE-wt/tablet-adaptive-layout`.
 - Device target: `192.168.50.103:12345`, model `MLR-AL00`, API 23 tablet.
+- Device-control boundary: this is the only authorized real-device target for this tablet lane. Do not
+  substitute a default, historical, or other-task target; if it is unavailable, stop and ask the user.
 - Landscape display: `2560 x 1600 px`, density `2.375`, approximately `1077 x 673 vp`.
 - Baseline signed build succeeds and the current app renders one full-width root surface on the tablet.
 - `HdsNavigation.splitPlaceholder(ComponentContent)` is available on API 23 and is passive UI only.

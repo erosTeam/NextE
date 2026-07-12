@@ -12,6 +12,8 @@ import {
   GroupedListSection,
   ConciseListRow,
   AppStrings,
+  connectNavStack,
+  NavStackHolder,
   immersiveTitleBar,
 } from 'shared'
 
@@ -29,6 +31,9 @@ export struct ReaderSettingsPage {
   @Local spreadLayoutMenuShown: boolean = false;
   @Local autoPageMenuShown: boolean = false;
   @Local preloadPageMenuShown: boolean = false;
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDestination: boolean = false;
+  private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
   private setMode(mode: string): void {
@@ -320,6 +325,11 @@ export struct ReaderSettingsPage {
     }
   }
 
+  private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'ReaderSettings'
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -439,6 +449,13 @@ export struct ReaderSettingsPage {
       }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_reader')))
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDestination(context.pathStack)
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDestination(this.stack)
+    })
   }
 }

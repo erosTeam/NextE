@@ -16,6 +16,7 @@ import {
   HomeTabAutoHideState,
   TagTranslationSettingsState,
   connectNavStack,
+  NavStackHolder,
   connectGalleryTitle,
   connectHomeTabAutoHide,
   connectTagTranslationSettings,
@@ -87,6 +88,8 @@ export struct LayoutSettingsPage {
   @Local safeMode: SafeModeState = connectSafeMode();
   @Local colorPickerShown: boolean = false;
   @Local draftCustomColor: string = '#3377FF';
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDestination: boolean = false;
   private prevColor: string = '';
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
@@ -549,6 +552,11 @@ export struct LayoutSettingsPage {
       .margin({ left: ThemeConstants.SPACE_MD })
   }
 
+  private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'LayoutSettings'
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -807,6 +815,13 @@ export struct LayoutSettingsPage {
       }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_layout')))
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDestination(context.pathStack)
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDestination(this.stack)
+    })
   }
 }

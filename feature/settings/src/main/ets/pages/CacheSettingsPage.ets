@@ -20,6 +20,7 @@ import {
   ThemeConstants,
   appSheetOptions,
   connectNavStack,
+  NavStackHolder,
   connectSafeMode,
   immersiveTitleBar,
   SafeModeState,
@@ -42,6 +43,9 @@ export struct CacheSettingsPage {
   @Local pageStat: CacheStat = new CacheStat();
   @Local imageStat: CacheStat = new CacheStat();
   @Local commentStat: CacheStat = new CacheStat();
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDestination: boolean = false;
+  private stack: NavPathStack = connectNavStack().stack;
   @Local tagStat: CacheStat = new CacheStat();
   @Local clearing: boolean = false;
   @Local readerCacheLimitMb: number = 1024;
@@ -420,6 +424,11 @@ export struct CacheSettingsPage {
     })
   }
 
+  private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'CacheSettings'
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -540,7 +549,14 @@ export struct CacheSettingsPage {
         }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_cache')))
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDestination(context.pathStack)
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDestination(this.stack)
+    })
   }
 
   @Builder

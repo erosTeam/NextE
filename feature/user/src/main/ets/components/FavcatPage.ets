@@ -16,6 +16,7 @@ import {
   PullRefreshWaterFlowScaffold,
   PullRefreshController,
   connectNavStack,
+  NavStackHolder,
   selectGalleryDetailFromPeerList,
   connectSiteMode,
   SiteModeState,
@@ -80,6 +81,7 @@ export struct FavcatPage {
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local localBlock: LocalBlockState = connectLocalBlock();
+  @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local listContentWidth: number = 0;
   @Local jumpPageText: string = '';
   @Local jumpError: string = '';
@@ -546,6 +548,10 @@ export struct FavcatPage {
     selectGalleryDetailFromPeerList(this.stack, params)
   }
 
+  private isGallerySelected(gallery: EhGallery): boolean {
+    return this.navStackHolder.isPrimaryPaneGallerySelected(gallery.gid, gallery.token)
+  }
+
   private loadMoreIfTailAppeared(index: number): void {
     if (index < this.vm.itemCount - 1) {
       return
@@ -625,7 +631,7 @@ export struct FavcatPage {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               GridItem() {
-                GalleryGridCard({ gallery: g })
+                GalleryGridCard({ gallery: g, selected: this.isGallerySelected(g) })
               }
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
@@ -687,7 +693,7 @@ export struct FavcatPage {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryWaterfallCard({ gallery: g })
+                GalleryWaterfallCard({ gallery: g, selected: this.isGallerySelected(g) })
               }
               .width('100%')
               .onAppear(() => {
@@ -750,7 +756,7 @@ export struct FavcatPage {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryCoverWallCard({ gallery: g })
+                GalleryCoverWallCard({ gallery: g, selected: this.isGallerySelected(g) })
               }
               .width('100%')
               .onAppear(() => {
@@ -800,9 +806,13 @@ export struct FavcatPage {
             (g: EhGallery, index: number) => {
               ListItem() {
                 if (this.listMode.mode === ListMode.SIMPLE_LIST) {
-                  GallerySimpleCard({ gallery: g })
+                  GallerySimpleCard({ gallery: g, selected: this.isGallerySelected(g) })
                 } else {
-                  GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })
+                  GalleryCard({
+                    gallery: g,
+                    selected: this.isGallerySelected(g),
+                    listContentWidth: this.listContentWidth,
+                  })
                 }
               }
               .onAppear(() => {

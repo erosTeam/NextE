@@ -21,7 +21,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DEVICE = "192.168.50.197:12345"
 LEASE_ROOT = Path(os.environ.get("NEXTE_DEVICE_LEASE_DIR", Path.home() / ".hermes" / "device-leases"))
 
 
@@ -300,7 +299,11 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Advisory real-device lease helper for NextE agent tasks")
-    parser.add_argument("--device", default=DEFAULT_DEVICE, help=f"device target, default: {DEFAULT_DEVICE}")
+    parser.add_argument(
+        "--device",
+        required=True,
+        help="explicit user-authorized device target; this helper intentionally has no default",
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("status")

@@ -16,6 +16,7 @@ const SIMPLE_THUMB_H: number = 102
 @ComponentV2
 export struct GallerySimpleCard {
   @Require @Param gallery: EhGallery;
+  @Param selected: boolean = false;
 
   build() {
     Row({ space: ThemeConstants.SPACE_SM }) {
@@ -109,5 +110,10 @@ export struct GallerySimpleCard {
       bottom: ThemeConstants.SPACE_SM,
     })
     .border({ width: { bottom: 0.5 }, color: ThemeConstants.DIVIDER })
+    .backgroundColor(
+      this.selected
+        ? $r('app.color.navigation_item_selected')
+        : Color.Transparent,
+    )
   }
 }

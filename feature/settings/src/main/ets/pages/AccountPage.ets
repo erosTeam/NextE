@@ -18,6 +18,7 @@ import {
   ThemeConstants,
   connectAuth,
   connectNavStack,
+  NavStackHolder,
   connectSiteMode,
   immersiveTitleBarOpts,
   AccountListState,
@@ -216,6 +217,8 @@ export struct AccountPage {
   @Local homeLoaded: boolean = false;
   @Local assetLoaded: boolean = false;
   @Local profileLoaded: boolean = false;
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDestination: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
   private homeLoadingKey: string = '';
@@ -765,6 +768,11 @@ export struct AccountPage {
     .justifyContent(FlexAlign.Center)
   }
 
+  private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'Account'
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -901,6 +909,13 @@ export struct AccountPage {
       }
     }
     .titleBar(this.addAccountTitleBar())
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDestination(context.pathStack)
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDestination(this.stack)
+    })
   }
 }

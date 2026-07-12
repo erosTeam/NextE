@@ -16,6 +16,7 @@ import {
   SafeModeState,
   connectSafeMode,
   connectNavStack,
+  NavStackHolder,
 } from 'shared'
 
 const APP_RELEASE_API_URL: string = 'https://api.github.com/repos/erosTeam/NextE/releases/latest'
@@ -36,6 +37,8 @@ export struct AboutPage {
   @Local appVersion: string = ''
   @Local safeMode: SafeModeState = connectSafeMode();
   @Local safeModeTapCount: number = 0;
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDestination: boolean = false;
   @Local platformTapCount: number = 0;
   @Local updateChecking: boolean = false;
   @Local updateChecked: boolean = false;
@@ -345,6 +348,11 @@ export struct AboutPage {
     }
   }
 
+  private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'About'
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -372,6 +380,13 @@ export struct AboutPage {
       }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_about')))
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDestination(context.pathStack)
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDestination(this.stack)
+    })
   }
 }

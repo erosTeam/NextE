@@ -17,6 +17,7 @@ import {
   PageErrorState,
   CardEmptyState,
   connectNavStack,
+  NavStackHolder,
   selectGalleryDetailFromPeerList,
   connectListMode,
   ListModeState,
@@ -63,6 +64,7 @@ export struct GalleryListBody {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local favSel: FavSelectionState = connectFavSelection();
+  @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local listContentWidth: number = 0;
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
@@ -124,6 +126,10 @@ export struct GalleryListBody {
       g.imgHeight,
     )
     selectGalleryDetailFromPeerList(this.stack, params)
+  }
+
+  private isGallerySelected(gallery: EhGallery): boolean {
+    return this.navStackHolder.isPrimaryPaneGallerySelected(gallery.gid, gallery.token)
   }
 
   private restoreAfterPrepend(prependedCount: number): void {
@@ -299,7 +305,7 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               GridItem() {
-                GalleryGridCard({ gallery: g })
+                GalleryGridCard({ gallery: g, selected: this.isGallerySelected(g) })
               }
               .onAppear(() => {
                 this.onGalleryAppear(index)
@@ -363,7 +369,7 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryWaterfallCard({ gallery: g })
+                GalleryWaterfallCard({ gallery: g, selected: this.isGallerySelected(g) })
               }
               .width('100%')
               .onAppear(() => {
@@ -428,7 +434,7 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryCoverWallCard({ gallery: g })
+                GalleryCoverWallCard({ gallery: g, selected: this.isGallerySelected(g) })
               }
               .width('100%')
               .onAppear(() => {
@@ -480,9 +486,13 @@ export struct GalleryListBody {
             (g: EhGallery, index: number) => {
               ListItem() {
                 if (this.effectiveMode() === ListMode.SIMPLE_LIST) {
-                  GallerySimpleCard({ gallery: g })
+                  GallerySimpleCard({ gallery: g, selected: this.isGallerySelected(g) })
                 } else {
-                  GalleryCard({ gallery: g, listContentWidth: this.listContentWidth })
+                  GalleryCard({
+                    gallery: g,
+                    selected: this.isGallerySelected(g),
+                    listContentWidth: this.listContentWidth,
+                  })
                 }
               }
               .onAppear(() => {

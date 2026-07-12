@@ -17,6 +17,8 @@ import {
   SecondaryListScaffold,
   ThemeConstants,
   connectDownloadSettings,
+  connectNavStack,
+  NavStackHolder,
   immersiveTitleBar,
 } from 'shared'
 
@@ -36,6 +38,9 @@ export struct DownloadSettingsPage {
   @Local archiveBotBalanceStatus: string = '';
   @Local archiveBotBalanceAutoRefreshing: boolean = false;
   @Local downloadRestoreBusy: boolean = false;
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDestination: boolean = false;
+  private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
@@ -278,6 +283,11 @@ export struct DownloadSettingsPage {
       .color(ThemeConstants.BRAND_PRIMARY)
   }
 
+  private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'DownloadSettings'
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -499,6 +509,13 @@ export struct DownloadSettingsPage {
       }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_download')))
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDestination(context.pathStack)
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDestination(this.stack)
+    })
   }
 }

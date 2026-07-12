@@ -58,8 +58,16 @@ export function selectGalleryDetailFromPeerList(stack: NavPathStack, params: Gal
  * non-peer entry. API 22's interception callback runs before a destination is created, so popping the
  * just-pushed duplicate leaves the already-visible detail mounted.
  */
-export function installGalleryDetailDuplicateInterception(stack: NavPathStack): void {
+export function installGalleryDetailDuplicateInterception(
+  stack: NavPathStack,
+  onSecondaryStackSettled?: (pathStack: NavPathStack | null) => void,
+): void {
   stack.setInterception({
+    // Navigation owns the real stack and visual transition. Refresh the secondary-branch entry only
+    // after its destination settles, never from a list click or the pre-create duplicate guard below.
+    didShow: (_from, to, _operation, _animated) => {
+      onSecondaryStackSettled?.(typeof to === 'string' ? null : to.pathStack)
+    },
     interception: (
       from: NavPathInfo | 'navBar',
       to: NavPathInfo | 'navBar',

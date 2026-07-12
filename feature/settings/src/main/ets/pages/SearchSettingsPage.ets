@@ -10,6 +10,8 @@ import {
   SearchHistorySettings,
   SearchHistoryState,
   ThemeConstants,
+  connectNavStack,
+  NavStackHolder,
   connectSearchFilter,
   connectSearchHistory,
   immersiveTitleBar,
@@ -23,6 +25,9 @@ import {
 export struct SearchSettingsPage {
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local filter: SearchFilterState = connectSearchFilter();
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDestination: boolean = false;
+  private stack: NavPathStack = connectNavStack().stack;
   private scroller: Scroller = new Scroller();
 
   private ctx(): common.UIAbilityContext {
@@ -89,6 +94,11 @@ export struct SearchSettingsPage {
       .margin({ left: ThemeConstants.SPACE_MD })
   }
 
+  private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'SearchSettings'
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -141,6 +151,13 @@ export struct SearchSettingsPage {
       }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_search')))
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDestination(context.pathStack)
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDestination(this.stack)
+    })
   }
 }

@@ -20,6 +20,7 @@ import {
   connectAuth,
   connectLocalBlock,
   connectNavStack,
+  NavStackHolder,
   connectSiteMode,
   connectToplistFilter,
   immersiveTitleBar,
@@ -35,6 +36,8 @@ export struct EhSettingsPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local auth: AuthState = connectAuth();
   @Local toplistFilter: ToplistFilterState = connectToplistFilter();
+  @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local isFirstSecondaryDestination: boolean = false;
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local switchingSite: boolean = false;
   @Local siteMenuShown: boolean = false;
@@ -137,6 +140,11 @@ export struct EhSettingsPage {
     ToplistFilterSettings.save(this.ctx(), value)
   }
 
+  private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
+    const pathNames: string[] = pathStack.getAllPathName()
+    this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'EhSettings'
+  }
+
   build() {
     HdsNavDestination() {
       SecondaryListScaffold({
@@ -209,7 +217,14 @@ export struct EhSettingsPage {
       }
     }
     .titleBar(immersiveTitleBar(AppStrings.get('settings_eh')))
+    .hideBackButton(this.navStackHolder.isSplitMode && this.isFirstSecondaryDestination)
     .backgroundColor($r('sys.color.ohos_id_color_sub_background'))
+    .onReady((context: NavDestinationContext) => {
+      this.refreshFirstSecondaryDestination(context.pathStack)
+    })
+    .onWillShow(() => {
+      this.refreshFirstSecondaryDestination(this.stack)
+    })
   }
 
   @Builder

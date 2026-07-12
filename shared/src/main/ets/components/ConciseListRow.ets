@@ -37,6 +37,8 @@ export struct ConciseListRow {
   @Param counterDecreaseEnabled: boolean = true;
   @Param counterIncreaseEnabled: boolean = true;
   @Param checked: boolean = false;
+  // A selected row is a navigational location marker, distinct from a switch's checked state.
+  @Param selected: boolean = false;
   @Param isEnabled: boolean = true;
   @Param primaryColor: ResourceColor | undefined = undefined;
   @Param secondaryColor: ResourceColor | undefined = undefined;
@@ -284,10 +286,15 @@ export struct ConciseListRow {
       cardSuffixMargin: 0,
       prefixItem: this.prefixItem(),
       suffixItem: this.suffixItem(),
-      cardBackgroundColor: Color.Transparent,
+      cardBackgroundColor: this.selected
+        ? $r('app.color.navigation_item_selected')
+        : Color.Transparent,
       cardBorderRadius: ThemeConstants.LIST_ROW_RADIUS,
       hoverBorderRadius: ThemeConstants.LIST_ROW_RADIUS,
       enable: this.hasSwitch ? true : this.isEnabled,
+      accessibilityOptions: {
+        accessibilitySelected: this.selected,
+      },
       onClick: () => {
         if (this.isEnabled && this.action) {
           this.action()

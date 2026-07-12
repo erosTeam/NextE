@@ -20,6 +20,7 @@ const COVER_META_PAD_Y: number = 3
 @ComponentV2
 export struct GalleryGridCard {
   @Require @Param gallery: EhGallery;
+  @Param selected: boolean = false;
 
   private metaText(): string {
     if (this.gallery.postTime.length > 0) {
@@ -116,7 +117,11 @@ export struct GalleryGridCard {
     .width('100%')
     .alignItems(HorizontalAlign.Start)
     .borderRadius(ThemeConstants.GALLERY_GRID_CARD_RADIUS)
-    .backgroundColor($r('app.color.card_background'))
+    .backgroundColor(
+      this.selected
+        ? $r('app.color.navigation_item_selected')
+        : $r('app.color.card_background'),
+    )
     .clip(true)
   }
 }
