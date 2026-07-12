@@ -70,6 +70,7 @@ const READER_VERTICAL_SINGLE_TAP_DELAY_MS: number = 240
 const READER_TOUCH_TAP_SUPPRESS_MS: number = 350
 const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
 const READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS: number = 500
+const READER_EXIT_STATUS_BAR_LEAD_MS: number = 20
 const READER_DEFAULT_PRELOAD_PAGES: number = 2
 const READER_MAX_PRELOAD_PAGES: number = 5
 const READER_STATUS_BAR_DARK_CONTENT: string = '#FF000000'
@@ -313,9 +314,21 @@ export struct ReaderPage {
     .onShown(() => {
       this.scheduleEntryStatusBarVisibility()
     })
+    .onWillDisappear(() => {
+      this.clearPendingEntryStatusBarHide()
+      // Normal Reader close owns its status-bar request in closeReader() before popping. Keep
+      // this only for an external unmount that bypasses the Reader close path.
+      if (!this.readerClosing) {
+        this.setReaderStatusBarVisible(true, false)
+      }
+    })
     .onWillHide(() => {
       this.clearPendingEntryStatusBarHide()
-      this.setReaderStatusBarVisible(true, false)
+      // ReaderSettings hides Reader without unmounting it. A real Reader close is handled by
+      // onWillDisappear, which the framework invokes before the exit transition begins.
+      if (!this.readerClosing) {
+        this.setReaderStatusBarVisible(true, false)
+      }
     })
     .onDisAppear(() => {
       this.clearPendingEntryStatusBarHide()
@@ -563,7 +576,13 @@ export struct ReaderPage {
     this.sliderSyncToken++
     this.readerClosing = true
     this.clearPendingEntryStatusBarHide()
-    connectReaderOverlayNavigation().close()
+    this.applyReaderStatusBarVisible(true, false)
+      .then(() => {
+        return readerDelay(READER_EXIT_STATUS_BAR_LEAD_MS)
+      })
+      .then(() => {
+        connectReaderOverlayNavigation().close()
+      })
   }
 
   private hostContext(): common.UIAbilityContext {
