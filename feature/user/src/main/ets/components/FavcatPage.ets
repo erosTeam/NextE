@@ -45,6 +45,8 @@ import {
   connectLayoutSafeArea,
   AuthState,
   connectAuth,
+  GalleryDetailBackToTopState,
+  connectGalleryDetailBackToTop,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { CustomContentDialog } from '@kit.ArkUI'
@@ -81,6 +83,7 @@ export struct FavcatPage {
   @Local listContentWidth: number = 0;
   @Local jumpPageText: string = '';
   @Local jumpError: string = '';
+  @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
@@ -117,6 +120,16 @@ export struct FavcatPage {
 
   private isActive(): boolean {
     return this.active.activeKey === this.favcatKey
+  }
+
+  private primaryBackToTopEnabled(): boolean {
+    return this.isActive() && this.galleryDetailBackToTop.primaryEnabled()
+  }
+
+  private reportPrimaryUserScroll(): void {
+    if (this.isActive()) {
+      this.galleryDetailBackToTop.selectPrimary()
+    }
   }
 
   aboutToAppear(): void {
@@ -565,6 +578,7 @@ export struct FavcatPage {
       } else if (this.listMode.mode === ListMode.GRID) {
         PullRefreshGridScaffold({
           scroller: this.scroller,
+          backToTop: this.primaryBackToTopEnabled(),
           minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
           pinchModeKey: ListMode.GRID,
           gap: ThemeConstants.GALLERY_GRID_GAP,
@@ -596,6 +610,9 @@ export struct FavcatPage {
               this.onDidScroll(offset, state)
             }
           },
+          onUserScroll: () => {
+            this.reportPrimaryUserScroll()
+          },
           showFooter: true,
           footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
           footerHasMore: this.vm.hasMore,
@@ -623,6 +640,7 @@ export struct FavcatPage {
       } else if (this.listMode.mode === ListMode.WATERFALL) {
         PullRefreshWaterFlowScaffold({
           scroller: this.scroller,
+          backToTop: this.primaryBackToTopEnabled(),
           minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W,
           pinchModeKey: ListMode.WATERFALL,
           itemCount: this.vm.itemCount,
@@ -654,6 +672,9 @@ export struct FavcatPage {
               this.onDidScroll(offset, state)
             }
           },
+          onUserScroll: () => {
+            this.reportPrimaryUserScroll()
+          },
           showFooter: true,
           footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
           footerHasMore: this.vm.hasMore,
@@ -682,6 +703,7 @@ export struct FavcatPage {
       } else if (this.listMode.mode === ListMode.COVER_WALL) {
         PullRefreshWaterFlowScaffold({
           scroller: this.scroller,
+          backToTop: this.primaryBackToTopEnabled(),
           minColumnWidth: ThemeConstants.GALLERY_COVER_WALL_MIN_W,
           pinchModeKey: ListMode.COVER_WALL,
           itemCount: this.vm.itemCount,
@@ -713,6 +735,9 @@ export struct FavcatPage {
               this.onDidScroll(offset, state)
             }
           },
+          onUserScroll: () => {
+            this.reportPrimaryUserScroll()
+          },
           showFooter: true,
           footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
           footerHasMore: this.vm.hasMore,
@@ -741,6 +766,7 @@ export struct FavcatPage {
       } else {
         PullRefreshListScaffold({
           scroller: this.scroller,
+          backToTop: this.primaryBackToTopEnabled(),
           listSpace: this.listMode.mode === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
           topPadding: SELECTOR_BAR_HEIGHT,
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
@@ -764,6 +790,9 @@ export struct FavcatPage {
             if (this.onDidScroll) {
               this.onDidScroll(offset, state)
             }
+          },
+          onUserScroll: () => {
+            this.reportPrimaryUserScroll()
           },
         }) {
           LazyForEach(

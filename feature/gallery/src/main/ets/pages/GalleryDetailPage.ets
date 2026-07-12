@@ -91,6 +91,10 @@ import {
   SafeModeState,
   connectSafeMode,
   NavDestinationTransitionRegistry,
+  GalleryDetailBackToTopState,
+  connectGalleryDetailBackToTop,
+  GALLERY_DETAIL_BACK_TO_TOP_METADATA,
+  GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,
 } from 'shared'
 import { GalleryDetailViewModel } from '../viewmodel/GalleryDetailViewModel'
 import { AllThumbnailsViewModel } from '../viewmodel/AllThumbnailsViewModel'
@@ -197,6 +201,7 @@ export struct GalleryDetailPage {
   @Local navigationEnterOffsetX: number = 0;
   @Local navigationEnterOpacity: number = 1;
   @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
   @Local isFirstSecondaryDetail: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
   private navigationDestinationId: string = '';
@@ -284,8 +289,32 @@ export struct GalleryDetailPage {
     return this.detailRootWidth >= ThemeConstants.GALLERY_DETAIL_SPLIT_MIN_WIDTH
   }
 
+  private usesWideSplitWorkspace(): boolean {
+    return this.navStackHolder.isSplitMode && this.usesSplitDetailLayout()
+  }
+
+  private syncGalleryDetailBackToTopWorkspace(): void {
+    if (this.navigationDestinationId.length === 0) {
+      return
+    }
+    if (this.usesWideSplitWorkspace()) {
+      this.galleryDetailBackToTop.begin(this.navigationDestinationId)
+      return
+    }
+    this.galleryDetailBackToTop.end(this.navigationDestinationId)
+  }
+
+  private releaseGalleryDetailBackToTopWorkspace(): void {
+    this.galleryDetailBackToTop.end(this.navigationDestinationId)
+  }
+
   private hasResolvedDetailLayout(): boolean {
     return this.detailRootWidth > 0
+  }
+
+  @Monitor('navStackHolder.isSplitMode')
+  private onNavigationModeChanged(): void {
+    this.syncGalleryDetailBackToTopWorkspace()
   }
 
   private readFabMaterialBarWidth(): number {
@@ -2207,11 +2236,21 @@ export struct GalleryDetailPage {
     Stack() {
       PullRefreshListScaffold({
         scroller: this.scroller,
+        backToTop: this.galleryDetailBackToTop.detailEnabled(
+          this.navigationDestinationId,
+          GALLERY_DETAIL_BACK_TO_TOP_METADATA,
+        ),
         listSpace: ThemeConstants.SPACE_MD,
         bottomPadding: ThemeConstants.SPACE_XXL + ThemeConstants.BUTTON_HEIGHT,
         controller: this.refreshController,
         onRefresh: async () => {
           await this.vm.refresh()
+        },
+        onUserScroll: () => {
+          this.galleryDetailBackToTop.selectDetailOwner(
+            this.navigationDestinationId,
+            GALLERY_DETAIL_BACK_TO_TOP_METADATA,
+          )
         },
         onBottomRefresh: async () => {
           if (showCompactPreview) {
@@ -2346,6 +2385,16 @@ export struct GalleryDetailPage {
           vm: this.fullPreviewVm,
           scroller: this.fullPreviewScroller,
           controller: this.fullPreviewRefreshController,
+          backToTop: this.galleryDetailBackToTop.detailEnabled(
+            this.navigationDestinationId,
+            GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,
+          ),
+          onUserScroll: () => {
+            this.galleryDetailBackToTop.selectDetailOwner(
+              this.navigationDestinationId,
+              GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,
+            )
+          },
           onOpen: (img: EhGalleryImage) => {
             this.openFullPreviewReader(img)
           },
@@ -2459,6 +2508,7 @@ export struct GalleryDetailPage {
         .height('100%')
         .onAreaChange((_oldArea: Area, area: Area) => {
           this.detailRootWidth = area.width as number
+          this.syncGalleryDetailBackToTopWorkspace()
         })
         .bindSheet(
           this.usesPageDetailSheetHost(),
@@ -2475,6 +2525,7 @@ export struct GalleryDetailPage {
     .translate({ x: this.navigationEnterOffsetX })
     .opacity(this.navigationEnterOpacity)
     .onDisAppear(() => {
+      this.releaseGalleryDetailBackToTopWorkspace()
       this.unregisterNavigationEnterTransition()
     })
     .onReady((context: NavDestinationContext) => {
@@ -2482,6 +2533,7 @@ export struct GalleryDetailPage {
       if (context.navDestinationId !== undefined) {
         this.registerNavigationEnterTransition(context.navDestinationId)
       }
+      this.syncGalleryDetailBackToTopWorkspace()
       const p = context.pathInfo.param as GalleryDetailParams
       if (p !== undefined && p.gid.length > 0) {
         this.params = p
@@ -2502,6 +2554,10 @@ export struct GalleryDetailPage {
     })
     .onWillShow(() => {
       this.refreshFirstSecondaryDetail(this.stack)
+      this.syncGalleryDetailBackToTopWorkspace()
+    })
+    .onWillHide(() => {
+      this.releaseGalleryDetailBackToTopWorkspace()
     })
   }
 

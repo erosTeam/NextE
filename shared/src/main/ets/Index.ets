@@ -394,6 +394,13 @@ export {
 // state holders (AppStorageV2)
 export { NavStackHolder, connectNavStack } from './state/NavStackHolder'
 export {
+  GalleryDetailBackToTopState,
+  connectGalleryDetailBackToTop,
+  GALLERY_DETAIL_BACK_TO_TOP_PRIMARY,
+  GALLERY_DETAIL_BACK_TO_TOP_METADATA,
+  GALLERY_DETAIL_BACK_TO_TOP_THUMBNAILS,
+} from './state/GalleryDetailBackToTopState'
+export {
   ReaderOverlayNavigationState,
   connectReaderOverlayNavigation,
 } from './state/ReaderOverlayNavigationState'

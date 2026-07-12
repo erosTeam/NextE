@@ -27,7 +27,11 @@ export struct GalleryAllThumbnailsContent {
   @Require @Param vm: AllThumbnailsViewModel;
   @Param scroller: Scroller = new Scroller();
   @Param controller: PullRefreshController = new PullRefreshController();
+  // The inline detail workspace grants the native status-bar action to one pane at a time.
+  // Standalone all-thumbnails pages keep the default true value.
+  @Param backToTop: boolean = true;
   @Event onOpen: (image: EhGalleryImage) => void = (_image: EhGalleryImage) => {};
+  @Event onUserScroll?: () => void;
 
   private loadNextIfTailAppeared(index: number): void {
     if (index < this.vm.itemCount - 1) {
@@ -55,6 +59,7 @@ export struct GalleryAllThumbnailsContent {
   build() {
     PullRefreshGridScaffold({
       scroller: this.scroller,
+      backToTop: this.backToTop,
       // Responsive: ArkUI derives columns from the pane width + min comfortable thumb width. Tiles
       // consume their actual cell width locally; this surface does not hand-calculate columns or cells.
       minColumnWidth: ThemeConstants.PREVIEW_THUMB_MIN_W,
@@ -78,6 +83,11 @@ export struct GalleryAllThumbnailsContent {
       footerIsError: this.vm.error.length > 0 && this.vm.hasMore(),
       onFooterRetry: () => {
         this.vm.loadNext()
+      },
+      onUserScroll: () => {
+        if (this.onUserScroll) {
+          this.onUserScroll()
+        }
       },
     }) {
       LazyForEach(

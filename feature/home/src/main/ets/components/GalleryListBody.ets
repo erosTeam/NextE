@@ -55,7 +55,10 @@ export struct GalleryListBody {
   // Per-tab display-mode override ('global' = follow the shared ListModeState). Changing it just
   // re-renders this tab with a different renderer; it does NOT refetch (handled by GallerySourcePage).
   @Param overrideMode: string = 'global';
+  // The retained-page host gives only the visible primary list the current status-bar back-to-top slot.
+  @Param backToTop: boolean = true;
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
+  @Event onUserScroll?: () => void;
   @Local listMode: ListModeState = connectListMode();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
@@ -216,6 +219,12 @@ export struct GalleryListBody {
     }
   }
 
+  private reportUserScroll(): void {
+    if (this.onUserScroll) {
+      this.onUserScroll()
+    }
+  }
+
   build() {
     Column() {
       if (
@@ -241,6 +250,7 @@ export struct GalleryListBody {
       } else if (this.effectiveMode() === ListMode.GRID) {
         PullRefreshGridScaffold({
           scroller: this.scroller,
+          backToTop: this.backToTop,
           minColumnWidth: ThemeConstants.GALLERY_GRID_MIN_W,
           pinchModeKey: ListMode.GRID,
           gap: ThemeConstants.GALLERY_GRID_GAP,
@@ -274,6 +284,9 @@ export struct GalleryListBody {
               this.onDidScroll(offset, state)
             }
           },
+          onUserScroll: () => {
+            this.reportUserScroll()
+          },
           showFooter: true,
           footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
           footerHasMore: this.vm.hasMore,
@@ -301,6 +314,7 @@ export struct GalleryListBody {
       } else if (this.effectiveMode() === ListMode.WATERFALL) {
         PullRefreshWaterFlowScaffold({
           scroller: this.scroller,
+          backToTop: this.backToTop,
           minColumnWidth: ThemeConstants.GALLERY_WATERFALL_MIN_W,
           pinchModeKey: ListMode.WATERFALL,
           itemCount: this.vm.itemCount,
@@ -334,6 +348,9 @@ export struct GalleryListBody {
               this.onDidScroll(offset, state)
             }
           },
+          onUserScroll: () => {
+            this.reportUserScroll()
+          },
           showFooter: true,
           footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
           footerHasMore: this.vm.hasMore,
@@ -362,6 +379,7 @@ export struct GalleryListBody {
       } else if (this.effectiveMode() === ListMode.COVER_WALL) {
         PullRefreshWaterFlowScaffold({
           scroller: this.scroller,
+          backToTop: this.backToTop,
           minColumnWidth: ThemeConstants.GALLERY_COVER_WALL_MIN_W,
           pinchModeKey: ListMode.COVER_WALL,
           itemCount: this.vm.itemCount,
@@ -395,6 +413,9 @@ export struct GalleryListBody {
               this.onDidScroll(offset, state)
             }
           },
+          onUserScroll: () => {
+            this.reportUserScroll()
+          },
           showFooter: true,
           footerIsLoading: this.vm.isLoadingMore || this.vm.isLoading,
           footerHasMore: this.vm.hasMore,
@@ -423,6 +444,7 @@ export struct GalleryListBody {
       } else {
         PullRefreshListScaffold({
           scroller: this.scroller,
+          backToTop: this.backToTop,
           topPadding: this.topPadding,
           listSpace: this.effectiveMode() === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
@@ -448,6 +470,9 @@ export struct GalleryListBody {
             if (this.onDidScroll) {
               this.onDidScroll(offset, state)
             }
+          },
+          onUserScroll: () => {
+            this.reportUserScroll()
           },
         }) {
           LazyForEach(

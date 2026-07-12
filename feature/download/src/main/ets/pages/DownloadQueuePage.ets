@@ -36,6 +36,8 @@ import {
   connectNavStack,
   selectGalleryDetailFromPeerList,
   connectReaderOverlayNavigation,
+  GalleryDetailBackToTopState,
+  connectGalleryDetailBackToTop,
 } from 'shared'
 import { common } from '@kit.AbilityKit'
 import { LoadingDialog, SymbolGlyphModifier } from '@kit.ArkUI'
@@ -66,6 +68,7 @@ export struct DownloadQueuePage {
   @Local actionMenuKey: string = '';
   @Local exportingKey: string = '';
   @Local sortMenuShown: boolean = false;
+  @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
   private stack: NavPathStack = connectNavStack().stack;
   private exportLoadingDialogController: CustomDialogController = new CustomDialogController({
     builder: LoadingDialog({ content: $r('app.string.download_export_started') }),
@@ -1670,11 +1673,15 @@ export struct DownloadQueuePage {
       Column() {
         SecondaryListScaffold({
           scroller: this.scroller,
+          backToTop: this.galleryDetailBackToTop.primaryEnabled(),
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           onDidScroll: (offset: number, state: ScrollState) => {
             if (this.onDidScroll) {
               this.onDidScroll(offset, state)
             }
+          },
+          onUserScroll: () => {
+            this.galleryDetailBackToTop.selectPrimary()
           },
         }) {
           ListItem() {

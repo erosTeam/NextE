@@ -6,6 +6,7 @@ import { connectListMode, ListModeState } from '../state/ListModeState'
 import { ListModeSettings } from '../settings/ListModeSettings'
 import { galleryWaterfallColumnCount, clampColumnWidth } from '../utils/GalleryColumns'
 import { LoadingFooter } from './LoadingFooter'
+import { isUserScrollSource } from '../utils/ScrollUserInput'
 
 /**
  * Grid sibling of PullRefreshListScaffold: a responsive Grid inside the same generic PullRefresh.
@@ -44,6 +45,8 @@ export struct PullRefreshGridScaffold {
   @Param footerIsLoading: boolean = false;
   @Param footerHasMore: boolean = true;
   @Param footerIsError: boolean = false;
+  // Defaults to ArkUI's API 18+ vertical behavior. Wide gallery detail passes an explicit owner gate.
+  @Param backToTop: boolean = true;
   @Param controller: PullRefreshController = new PullRefreshController();
   @Local scrollEnabled: boolean = true;
   @Event onRefresh?: () => Promise<void>;
@@ -54,6 +57,7 @@ export struct PullRefreshGridScaffold {
   @Event onFooterRetry?: () => void;
   @Event onScrollIndex?: (start: number, end: number) => void;
   @Event onDidScroll?: (offset: number, state: ScrollState) => void;
+  @Event onUserScroll?: () => void;
 
   build() {
     PullRefresh({
@@ -91,6 +95,7 @@ export struct PullRefreshGridScaffold {
       .columnsGap(this.gap)
       .rowsGap(this.gap)
       .enableScrollInteraction(this.scrollEnabled)
+      .backToTop(this.backToTop)
       .scrollBar(BarState.Off)
       .width('100%')
       .height('100%')
@@ -132,6 +137,11 @@ export struct PullRefreshGridScaffold {
       .onDidScroll((_scrollOffset: number, scrollState: ScrollState) => {
         if (this.onDidScroll) {
           this.onDidScroll(this.scroller.currentOffset().yOffset, scrollState)
+        }
+      })
+      .onWillScroll((_scrollOffset: number, _scrollState: ScrollState, source: ScrollSource) => {
+        if (this.onUserScroll && isUserScrollSource(source)) {
+          this.onUserScroll()
         }
       })
       .onScrollIndex((start: number, end: number) => {

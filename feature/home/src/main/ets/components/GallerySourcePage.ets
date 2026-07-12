@@ -19,6 +19,8 @@ import {
   DiagnosticLogger,
   HomeSourceState,
   connectHomeSource,
+  GalleryDetailBackToTopState,
+  connectGalleryDetailBackToTop,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -53,6 +55,7 @@ export struct GallerySourcePage {
   @Local profilesState: CustomProfilesState = connectCustomProfiles();
   @Local safeMode: SafeModeState = connectSafeMode();
   @Local homeSource: HomeSourceState = connectHomeSource();
+  @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
   // Per-tab display-mode override passed to the list body ('global' = follow the shared ListModeState).
   @Local displayMode: string = 'global';
   // First-load guard: load once on first activation; later activations reuse the retained list.
@@ -64,6 +67,16 @@ export struct GallerySourcePage {
 
   private isActive(): boolean {
     return this.active.activeKey === this.sourceKey
+  }
+
+  private primaryBackToTopEnabled(): boolean {
+    return this.isActive() && this.galleryDetailBackToTop.primaryEnabled()
+  }
+
+  private reportPrimaryUserScroll(): void {
+    if (this.isActive()) {
+      this.galleryDetailBackToTop.selectPrimary()
+    }
   }
 
   private ctx(): common.UIAbilityContext {
@@ -266,10 +279,14 @@ export struct GallerySourcePage {
       topPadding: SELECTOR_BAR_HEIGHT,
       scroller: this.scroller,
       overrideMode: this.displayMode,
+      backToTop: this.primaryBackToTopEnabled(),
       onDidScroll: (offset: number, state: ScrollState) => {
         if (this.onDidScroll) {
           this.onDidScroll(offset, state)
         }
+      },
+      onUserScroll: () => {
+        this.reportPrimaryUserScroll()
       },
     })
   }

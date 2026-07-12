@@ -1,5 +1,6 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeAreaState'
+import { isUserScrollSource } from '../utils/ScrollUserInput'
 
 /**
  * Secondary-page list scaffold (ported verbatim from V2Next). A full-height List whose first
@@ -21,8 +22,11 @@ export struct SecondaryListScaffold {
   @Param bottomPadding: number = ThemeConstants.SPACE_XL
   // Local opt-in for short, non-refresh pages such as Settings. PullRefresh scaffolds keep this off.
   @Param alwaysEnableEdgeSpring: boolean = false
+  // Defaults to ArkUI's API 18+ vertical behavior. Wide gallery detail passes an explicit owner gate.
+  @Param backToTop: boolean = true
   @Event onReachEnd?: () => void
   @Event onDidScroll?: (offset: number, state: ScrollState) => void
+  @Event onUserScroll?: () => void
 
   build() {
     List({ space: this.listSpace, scroller: this.scroller }) {
@@ -47,6 +51,7 @@ export struct SecondaryListScaffold {
       })
     }
     .scrollBar(BarState.Off)
+    .backToTop(this.backToTop)
     .width('100%')
     .height('100%')
     .padding({ left: this.horizontalPadding, right: this.horizontalPadding })
@@ -57,6 +62,11 @@ export struct SecondaryListScaffold {
     .onDidScroll((_scrollOffset: number, scrollState: ScrollState) => {
       if (this.onDidScroll) {
         this.onDidScroll(this.scroller.currentOffset().yOffset, scrollState)
+      }
+    })
+    .onWillScroll((_scrollOffset: number, _scrollState: ScrollState, source: ScrollSource) => {
+      if (this.onUserScroll && isUserScrollSource(source)) {
+        this.onUserScroll()
       }
     })
     .onScrollIndex((_start: number, _end: number, _center: number) => {

@@ -15,6 +15,8 @@ import {
   connectSiteMode,
   ThemeConstants,
   AppStrings,
+  GalleryDetailBackToTopState,
+  connectGalleryDetailBackToTop,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 import { GalleryListBody } from './GalleryListBody'
@@ -48,6 +50,7 @@ export struct ToplistPeriodPage {
   @Local toplistFilter: ToplistFilterState = connectToplistFilter();
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local homeSource: HomeSourceState = connectHomeSource();
+  @Local galleryDetailBackToTop: GalleryDetailBackToTopState = connectGalleryDetailBackToTop();
   @Local jumpPageText: string = '';
   @Local jumpError: string = '';
   private jumpSubmitting: boolean = false;
@@ -82,6 +85,16 @@ export struct ToplistPeriodPage {
 
   private isActive(): boolean {
     return this.active.activeKey === `${this.periodTl}`
+  }
+
+  private primaryBackToTopEnabled(): boolean {
+    return this.isActive() && this.galleryDetailBackToTop.primaryEnabled()
+  }
+
+  private reportPrimaryUserScroll(): void {
+    if (this.isActive()) {
+      this.galleryDetailBackToTop.selectPrimary()
+    }
   }
 
   private ctx(): common.UIAbilityContext {
@@ -263,10 +276,14 @@ export struct ToplistPeriodPage {
       vm: this.vm,
       topPadding: SELECTOR_BAR_HEIGHT,
       scroller: this.scroller,
+      backToTop: this.primaryBackToTopEnabled(),
       onDidScroll: (offset: number, state: ScrollState) => {
         if (this.onDidScroll) {
           this.onDidScroll(offset, state)
         }
+      },
+      onUserScroll: () => {
+        this.reportPrimaryUserScroll()
       },
     })
   }

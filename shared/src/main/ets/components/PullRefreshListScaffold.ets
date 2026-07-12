@@ -1,6 +1,7 @@
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { PullRefresh, PullRefreshController } from './PullRefresh'
 import { connectLayoutSafeArea, LayoutSafeAreaState } from '../state/LayoutSafeAreaState'
+import { isUserScrollSource } from '../utils/ScrollUserInput'
 
 @ComponentV2
 export struct PullRefreshListScaffold {
@@ -17,6 +18,8 @@ export struct PullRefreshListScaffold {
   @Param bottomPadding: number = ThemeConstants.SPACE_XL
   @Param indicatorTop: number = -1
   @Param scrollEnabled: boolean = true
+  // Defaults to ArkUI's API 18+ vertical behavior. Wide gallery detail passes an explicit owner gate.
+  @Param backToTop: boolean = true
   @Param controller: PullRefreshController = new PullRefreshController()
   @Local measuredWidth: number = 0
   @Event onRefresh?: () => Promise<void>
@@ -25,6 +28,7 @@ export struct PullRefreshListScaffold {
   @Event onReachEnd?: () => void
   @Event onScrollIndex?: (start: number, end: number, center: number) => void
   @Event onDidScroll?: (offset: number, state: ScrollState) => void
+  @Event onUserScroll?: () => void
   @Event onScrollEnableChange?: (enabled: boolean) => void
   @Event onContentWidth?: (contentWidth: number) => void
 
@@ -79,6 +83,12 @@ export struct PullRefreshListScaffold {
       }
       .enableScrollInteraction(this.scrollEnabled)
       .maintainVisibleContentPosition(true)
+      .backToTop(this.backToTop)
+      .onWillScroll((_scrollOffset: number, _scrollState: ScrollState, source: ScrollSource) => {
+        if (this.onUserScroll && isUserScrollSource(source)) {
+          this.onUserScroll()
+        }
+      })
       .onDidScroll((_scrollOffset: number, scrollState: ScrollState) => {
         if (this.onDidScroll) {
           this.onDidScroll(this.scroller.currentOffset().yOffset, scrollState)
