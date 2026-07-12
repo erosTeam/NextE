@@ -741,6 +741,18 @@
       "value": "切换画廊详情页悬浮阅读按钮外观"
     },
     {
+      "name": "settings_screen_orientation",
+      "value": "屏幕方向"
+    },
+    {
+      "name": "screen_orientation_unspecified",
+      "value": "系统默认"
+    },
+    {
+      "name": "screen_orientation_auto_rotation_unspecified",
+      "value": "自动旋转"
+    },
+    {
       "name": "read_button_style_filled",
       "value": "实心主色"
     },

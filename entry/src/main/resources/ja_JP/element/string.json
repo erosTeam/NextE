@@ -741,6 +741,18 @@
       "value": "ギャラリー詳細のフローティング読むボタンの外観を切り替えます"
     },
     {
+      "name": "settings_screen_orientation",
+      "value": "画面の向き"
+    },
+    {
+      "name": "screen_orientation_unspecified",
+      "value": "システムのデフォルト"
+    },
+    {
+      "name": "screen_orientation_auto_rotation_unspecified",
+      "value": "自動回転"
+    },
+    {
       "name": "read_button_style_filled",
       "value": "アクセント塗りつぶし"
     },

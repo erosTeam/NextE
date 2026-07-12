@@ -35,6 +35,10 @@ import {
   ReadButtonStyleOption,
   ReadButtonStyleState,
   connectReadButtonStyle,
+  ScreenOrientationSettings,
+  ScreenOrientationOption,
+  ScreenOrientationState,
+  connectScreenOrientation,
   MotionHandStateService,
   immersiveTitleBar,
   ThemeSettings,
@@ -74,9 +78,11 @@ export struct LayoutSettingsPage {
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local actionAlign: ActionAlignmentState = connectActionAlignment();
   @Local readButtonStyle: ReadButtonStyleState = connectReadButtonStyle();
+  @Local screenOrientation: ScreenOrientationState = connectScreenOrientation();
   @Local viewMenuShown: boolean = false;
   @Local actionAlignMenuShown: boolean = false;
   @Local readButtonStyleMenuShown: boolean = false;
+  @Local screenOrientationMenuShown: boolean = false;
   @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   @Local themeColor: ThemeColorState = connectThemeColor();
   @Local language: LanguageState = connectLanguageState();
@@ -430,6 +436,15 @@ export struct LayoutSettingsPage {
     this.readButtonStyleMenuShown = false
   }
 
+  private screenOrientationLabel(): ResourceStr {
+    return ScreenOrientationSettings.label(this.screenOrientation.mode)
+  }
+
+  private setScreenOrientation(mode: string): void {
+    ScreenOrientationSettings.setMode(this.ctx(), mode)
+    this.screenOrientationMenuShown = false
+  }
+
   private setHorizontalThumbnails(value: boolean): void {
     ThumbnailModeSettings.setHorizontalThumbnails(this.ctx(), value)
   }
@@ -545,6 +560,27 @@ export struct LayoutSettingsPage {
   }
 
   @Builder
+  ScreenOrientationMenu() {
+    Menu() {
+      ForEach(
+        ScreenOrientationSettings.options(),
+        (option: ScreenOrientationOption) => {
+          MenuItem({
+            content: option.label,
+            symbolEndIcon:
+              ScreenOrientationSettings.normalizeMode(this.screenOrientation.mode) === option.mode
+                ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+                : undefined,
+          }).onClick(() => {
+            this.setScreenOrientation(option.mode)
+          })
+        },
+        (option: ScreenOrientationOption) => option.mode,
+      )
+    }
+  }
+
+  @Builder
   private rowDivider() {
     Divider()
       .strokeWidth(0.5)
@@ -645,6 +681,27 @@ export struct LayoutSettingsPage {
                 },
               })
             }
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            Column() {
+              ConciseListRow({
+                title: $r('app.string.settings_screen_orientation'),
+                leadingIcon: $r('sys.symbol.rectangle_portrait_rotate'),
+                trailingText: this.screenOrientationLabel(),
+                trailingDropdown: true,
+                action: () => {
+                  this.screenOrientationMenuShown = true
+                },
+              })
+            }
+            .bindMenu(this.screenOrientationMenuShown, this.ScreenOrientationMenu, {
+              placement: Placement.BottomRight,
+              onDisappear: () => {
+                this.screenOrientationMenuShown = false
+              },
+            })
           }
         }
         ListItem() {

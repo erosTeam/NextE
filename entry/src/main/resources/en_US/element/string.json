@@ -741,6 +741,18 @@
       "value": "Change the floating Read button appearance on gallery detail pages"
     },
     {
+      "name": "settings_screen_orientation",
+      "value": "Screen orientation"
+    },
+    {
+      "name": "screen_orientation_unspecified",
+      "value": "System default"
+    },
+    {
+      "name": "screen_orientation_auto_rotation_unspecified",
+      "value": "Auto-rotate"
+    },
+    {
       "name": "read_button_style_filled",
       "value": "Filled accent"
     },

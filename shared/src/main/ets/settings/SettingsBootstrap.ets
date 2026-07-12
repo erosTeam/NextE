@@ -10,6 +10,7 @@ import { ThumbnailModeSettings } from './ThumbnailModeSettings'
 import { CoverBackgroundSettings } from './CoverBackgroundSettings'
 import { ActionAlignmentSettings } from './ActionAlignmentSettings'
 import { ReadButtonStyleSettings } from './ReadButtonStyleSettings'
+import { ScreenOrientationSettings } from './ScreenOrientationSettings'
 import { SearchHistorySettings } from './SearchHistorySettings'
 import { SearchFilterSettings } from './SearchFilterSettings'
 import { FavcatListSettings } from './FavcatListSettings'
@@ -67,6 +68,7 @@ export class SettingsBootstrap {
       await ThemeColorSettings.restore(context)
       await ImmersiveMaterialSettings.restore(context)
       await LanguageSettings.restore(context)
+      await ScreenOrientationSettings.restore(context)
       await SafeModeSettings.restore(context)
       await CookieJarSettings.restore(context)
       await SiteModeSettings.restore(context)

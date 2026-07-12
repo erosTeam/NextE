@@ -15,6 +15,7 @@ import {
   HuaweiCloudSyncService,
   HuaweiCloudSyncScheduler,
   ImagePipelineService,
+  ScreenOrientationSettings,
   SecuritySettings,
   SyncScheduler,
 } from 'shared'
@@ -89,6 +90,9 @@ export default class EntryAbility extends UIAbility {
         navigationBarColor: TRANSPARENT_COLOR,
       })
       this.mainWindow = win
+      ScreenOrientationSettings.bindWindowOrientationApplier((mode: string): void => {
+        this.applyWindowOrientation(mode)
+      })
       SecuritySettings.bindWindowPrivacyApplier((enabled: boolean): void => {
         this.applyWindowPrivacy(enabled)
       })
@@ -173,6 +177,23 @@ export default class EntryAbility extends UIAbility {
       })
       .catch((error: Error) => {
         DiagnosticLogger.warn('security', 'window_privacy_failed', error.message)
+      })
+  }
+
+  private applyWindowOrientation(mode: string): void {
+    if (this.mainWindow === null) {
+      return
+    }
+    const orientation: window.Orientation =
+      mode === ScreenOrientationSettings.MODE_AUTO_ROTATION_UNSPECIFIED
+        ? window.Orientation.AUTO_ROTATION_UNSPECIFIED
+        : window.Orientation.UNSPECIFIED
+    this.mainWindow.setPreferredOrientation(orientation)
+      .then(() => {
+        DiagnosticLogger.info('window', 'orientation_requested', mode)
+      })
+      .catch((error: Error) => {
+        DiagnosticLogger.warn('window', 'orientation_request_failed', error.message)
       })
   }
 

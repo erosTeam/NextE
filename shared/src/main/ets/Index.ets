@@ -445,6 +445,12 @@ export {
 export { ThumbnailModeState, connectThumbnailMode } from './state/ThumbnailModeState'
 export { CoverBackgroundState, connectCoverBackground } from './state/CoverBackgroundState'
 export { ActionAlignmentState, connectActionAlignment } from './state/ActionAlignmentState'
+export {
+  SCREEN_ORIENTATION_AUTO_ROTATION_UNSPECIFIED,
+  SCREEN_ORIENTATION_UNSPECIFIED,
+  ScreenOrientationState,
+  connectScreenOrientation,
+} from './state/ScreenOrientationState'
 export { ActionHandEdgeState, connectActionHandEdge } from './state/ActionHandEdgeState'
 export { SearchHistoryState, connectSearchHistory } from './state/SearchHistoryState'
 export { LocalFavState, connectLocalFav } from './state/LocalFavState'
@@ -588,6 +594,7 @@ export { GalleryTitleSettings } from './settings/GalleryTitleSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
 export { ReaderImageCacheSettings } from './settings/ReaderImageCacheSettings'
 export { ReadButtonStyleSettings, ReadButtonStyleOption } from './settings/ReadButtonStyleSettings'
+export { ScreenOrientationSettings, ScreenOrientationOption } from './settings/ScreenOrientationSettings'
 export {
   READ_BUTTON_STYLE_FILLED,
   READ_BUTTON_STYLE_HDS,
