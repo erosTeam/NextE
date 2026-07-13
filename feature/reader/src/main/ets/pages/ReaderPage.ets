@@ -4531,11 +4531,6 @@ struct ReaderSpreadImageLayer {
             this.retrySourceAutomatically()
           },
         })
-        if (!this.imageLoaded) {
-          ReaderLoadingStage({
-            label: $r('app.string.reader_loading_decoding'),
-          })
-        }
       } else if (this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
@@ -4545,14 +4540,23 @@ struct ReaderSpreadImageLayer {
             this.onAllowImageBlock(page)
           },
         })
-      } else if (this.sourceImageUrl.length > 0) {
+      }
+      // Keep one loading subtree alive across resolving and connection setup. Replacing it when
+      // only the label changes restarts the in-flight indeterminate animation at the leading edge.
+      if (!this.failed && !this.imageBlocked && !this.imageLoaded) {
         ReaderLoadingStage({
-          label: $r('app.string.reader_loading_image'),
-          loaded: this.imageProgressLoaded,
-          total: this.imageProgressTotal,
+          label: this.imageUrl.length > 0
+            ? $r('app.string.reader_loading_decoding')
+            : this.sourceImageUrl.length > 0
+              ? $r('app.string.reader_loading_image')
+              : $r('app.string.reader_loading_resolving'),
+          loaded: this.sourceImageUrl.length > 0 && this.imageUrl.length === 0
+            ? this.imageProgressLoaded
+            : 0,
+          total: this.sourceImageUrl.length > 0 && this.imageUrl.length === 0
+            ? this.imageProgressTotal
+            : 0,
         })
-      } else {
-        ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
       }
     }
     .width('100%')
@@ -5095,11 +5099,6 @@ struct ReaderImagePage {
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
           .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
-        if (!this.imageLoaded) {
-          ReaderLoadingStage({
-            label: $r('app.string.reader_loading_decoding'),
-          })
-        }
       } else if (this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
@@ -5109,14 +5108,21 @@ struct ReaderImagePage {
             this.onAllowImageBlock(page)
           },
         })
-      } else if (this.sourceImageUrl.length > 0) {
+      }
+      if (!this.failed && !this.imageBlocked && !this.imageLoaded) {
         ReaderLoadingStage({
-          label: $r('app.string.reader_loading_image'),
-          loaded: this.imageProgressLoaded,
-          total: this.imageProgressTotal,
+          label: this.imageUrl.length > 0
+            ? $r('app.string.reader_loading_decoding')
+            : this.sourceImageUrl.length > 0
+              ? $r('app.string.reader_loading_image')
+              : $r('app.string.reader_loading_resolving'),
+          loaded: this.sourceImageUrl.length > 0 && this.imageUrl.length === 0
+            ? this.imageProgressLoaded
+            : 0,
+          total: this.sourceImageUrl.length > 0 && this.imageUrl.length === 0
+            ? this.imageProgressTotal
+            : 0,
         })
-      } else {
-        ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
       }
     }
     .width('100%')
@@ -5832,12 +5838,6 @@ struct ReaderVerticalImage {
           .scale({ x: this.zoomScale, y: this.zoomScale })
           .translate({ x: this.offsetX, y: this.offsetY })
           .animation({ duration: this.zoomAnimating ? READER_ZOOM_ANIM_DURATION : 0, curve: Curve.FastOutSlowIn })
-        if (!this.imageLoaded) {
-          ReaderLoadingStage({
-            label: $r('app.string.reader_loading_decoding'),
-            compact: true,
-          })
-        }
       } else if (this.imageBlocked) {
         ReaderImageBlockedOverlay({
           page: this.image.page,
@@ -5848,17 +5848,21 @@ struct ReaderVerticalImage {
             this.onAllowImageBlock(page)
           },
         })
-      } else if (this.sourceImageUrl.length > 0) {
+      }
+      if (!this.failed && !this.imageBlocked && !this.imageLoaded) {
         ReaderLoadingStage({
-          label: $r('app.string.reader_loading_image'),
+          label: this.imageUrl.length > 0
+            ? $r('app.string.reader_loading_decoding')
+            : this.sourceImageUrl.length > 0
+              ? $r('app.string.reader_loading_image')
+              : $r('app.string.reader_loading_resolving'),
           compact: true,
-          loaded: this.imageProgressLoaded,
-          total: this.imageProgressTotal,
-        })
-      } else {
-        ReaderLoadingStage({
-          label: $r('app.string.reader_loading_resolving'),
-          compact: true,
+          loaded: this.sourceImageUrl.length > 0 && this.imageUrl.length === 0
+            ? this.imageProgressLoaded
+            : 0,
+          total: this.sourceImageUrl.length > 0 && this.imageUrl.length === 0
+            ? this.imageProgressTotal
+            : 0,
         })
       }
     }
