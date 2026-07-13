@@ -26,6 +26,18 @@ export class LayoutSafeAreaState {
   // (onAreaChange) and invalidated to 0 by EntryAbility on window-size change (fold/unfold, rotation,
   // split-screen) so a stale pre-fold width never sticks. 0 = unknown.
   @Trace galleryContentWidth: number = 0
+  // A GalleryDetail destination is recreated after pop/push, but its available width does not become
+  // unknown merely because the page instance is new. Keep the last resolved destination width for each
+  // root Navigation mode so repeat opens can select the correct compact/split detail layout immediately.
+  // EntryAbility invalidates both values only when the real window size changes.
+  @Trace galleryDetailStackContentWidth: number = 0
+  @Trace galleryDetailSplitContentWidth: number = 0
+
+  rememberedGalleryDetailContentWidth(rootNavigationSplit: boolean): number {
+    return rootNavigationSplit
+      ? this.galleryDetailSplitContentWidth
+      : this.galleryDetailStackContentWidth
+  }
 }
 
 // Single app-wide AppStorageV2 key for the shared safe-area state object.
@@ -85,6 +97,30 @@ export class LayoutSafeAreaBridge {
     const state = connectLayoutSafeArea()
     if (state.galleryContentWidth !== width) {
       state.galleryContentWidth = width
+    }
+  }
+
+  static publishGalleryDetailContentWidth(width: number, rootNavigationSplit: boolean): void {
+    const state = connectLayoutSafeArea()
+    const normalizedWidth: number = Math.max(0, width)
+    if (rootNavigationSplit) {
+      if (state.galleryDetailSplitContentWidth !== normalizedWidth) {
+        state.galleryDetailSplitContentWidth = normalizedWidth
+      }
+      return
+    }
+    if (state.galleryDetailStackContentWidth !== normalizedWidth) {
+      state.galleryDetailStackContentWidth = normalizedWidth
+    }
+  }
+
+  static invalidateGalleryDetailContentWidths(): void {
+    const state = connectLayoutSafeArea()
+    if (state.galleryDetailStackContentWidth !== 0) {
+      state.galleryDetailStackContentWidth = 0
+    }
+    if (state.galleryDetailSplitContentWidth !== 0) {
+      state.galleryDetailSplitContentWidth = 0
     }
   }
 }

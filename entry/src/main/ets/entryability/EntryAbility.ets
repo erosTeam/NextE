@@ -266,6 +266,7 @@ export default class EntryAbility extends UIAbility {
       // Drop the width cache after fold/unfold, rotation, or split-window resizing so a remount never
       // reuses a stale pre-change gallery width.
       LayoutSafeAreaBridge.publishGalleryContentWidth(0)
+      LayoutSafeAreaBridge.invalidateGalleryDetailContentWidths()
       if (this.safeAreaUiContext !== null) {
         this.refreshSafeAreaInsets(win, this.safeAreaUiContext)
       }

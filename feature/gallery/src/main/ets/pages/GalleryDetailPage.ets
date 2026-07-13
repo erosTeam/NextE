@@ -97,6 +97,7 @@ import {
   TabletLayoutSettings,
   TabletLayoutState,
   connectTabletLayout,
+  LayoutSafeAreaBridge,
   LayoutSafeAreaState,
   connectLayoutSafeArea,
 } from 'shared'
@@ -178,7 +179,9 @@ export struct GalleryDetailPage {
   // Seed from the CURRENT resolved edge (the service resolves it at startup, before this page mounts), so a
   // page opened while the edge is already 'left' starts left — @Monitor only fires on later changes.
   @Local visualActionEdge: string = connectActionHandEdge().edge;
-  @Local detailRootWidth: number = 0;
+  @Local detailRootWidth: number = connectLayoutSafeArea().rememberedGalleryDetailContentWidth(
+    connectNavStack().isSplitMode,
+  );
   @Local detailMetadataWidth: number = 0;
   @Local readFabWidth: number = 0;
   @Local readFabLayoutReady: boolean = false;
@@ -314,10 +317,6 @@ export struct GalleryDetailPage {
 
   private releaseGalleryDetailBackToTopWorkspace(): void {
     this.galleryDetailBackToTop.end(this.navigationDestinationId)
-  }
-
-  private hasResolvedDetailLayout(): boolean {
-    return this.detailRootWidth > 0
   }
 
   @Monitor('navStackHolder.isSplitMode')
@@ -2417,22 +2416,6 @@ export struct GalleryDetailPage {
     }))
   }
 
-  @Builder
-  private DetailLayoutBootstrap() {
-    // onAreaChange arrives after the first build. Do not briefly mount the compact metadata tree while
-    // the destination width is still unknown, otherwise a wide tablet visibly jumps from one full pane
-    // to metadata + previews on the next frame.
-    Column() {
-      LoadingProgress()
-        .width(ThemeConstants.LOADING_SIZE)
-        .height(ThemeConstants.LOADING_SIZE)
-        .color(ThemeConstants.BRAND_PRIMARY)
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-  }
-
   private refreshFirstSecondaryDetail(pathStack: NavPathStack): void {
     const pathNames: string[] = pathStack.getAllPathName()
     this.isFirstSecondaryDetail = pathNames.length === 1 && pathNames[0] === 'GalleryDetail'
@@ -2442,9 +2425,7 @@ export struct GalleryDetailPage {
     HdsNavDestination() {
       Stack() {
         Stack() {
-          if (!this.hasResolvedDetailLayout()) {
-          this.DetailLayoutBootstrap()
-          } else if (this.usesSplitDetailLayout()) {
+          if (this.usesSplitDetailLayout()) {
           Row() {
             Column() {
               this.DetailMetadataPane(false)
@@ -2490,7 +2471,11 @@ export struct GalleryDetailPage {
         .width('100%')
         .height('100%')
         .onAreaChange((_oldArea: Area, area: Area) => {
-          this.detailRootWidth = area.width as number
+          const width: number = area.width as number
+          if (this.detailRootWidth !== width) {
+            this.detailRootWidth = width
+          }
+          LayoutSafeAreaBridge.publishGalleryDetailContentWidth(width, this.navStackHolder.isSplitMode)
           this.syncGalleryDetailBackToTopWorkspace()
         })
         .bindSheet(
