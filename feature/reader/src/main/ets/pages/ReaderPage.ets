@@ -5988,6 +5988,7 @@ struct ReaderLoadingBar {
   @Local indeterminatePosition: number = 0;
   @Local trackWidth: number = 0;
 
+  private indeterminateStartTimer: number = -1
   private indeterminateTimer: number = -1
 
   aboutToAppear(): void {
@@ -6013,16 +6014,30 @@ struct ReaderLoadingBar {
   }
 
   private startIndeterminateAnimation(): void {
-    if (this.indeterminateTimer >= 0) {
+    if (this.trackWidth <= 0 || this.indeterminateStartTimer >= 0 || this.indeterminateTimer >= 0) {
       return
     }
-    this.moveIndeterminateSlider()
-    this.indeterminateTimer = setInterval(() => {
+    // Keep the first rendered frame at the leading edge. Small images can cross several loading
+    // stages before one 900 ms cycle finishes, so moving to the trailing edge during mount makes
+    // every short-lived stage look frozen on the right.
+    this.indeterminatePosition = 0
+    this.indeterminateStartTimer = setTimeout(() => {
+      this.indeterminateStartTimer = -1
+      if (this.determinate) {
+        return
+      }
       this.moveIndeterminateSlider()
-    }, READER_LOADING_INDETERMINATE_ANIM_DURATION)
+      this.indeterminateTimer = setInterval(() => {
+        this.moveIndeterminateSlider()
+      }, READER_LOADING_INDETERMINATE_ANIM_DURATION)
+    }, 0)
   }
 
   private stopIndeterminateAnimation(): void {
+    if (this.indeterminateStartTimer >= 0) {
+      clearTimeout(this.indeterminateStartTimer)
+      this.indeterminateStartTimer = -1
+    }
     if (this.indeterminateTimer >= 0) {
       clearInterval(this.indeterminateTimer)
       this.indeterminateTimer = -1
@@ -6074,18 +6089,22 @@ struct ReaderLoadingBar {
 
   build() {
     Stack({ alignContent: Alignment.Start }) {
-      Row()
-        .width(this.fillWidth())
-        .height(READER_LOADING_BAR_HEIGHT)
-        .backgroundColor(READER_LOADING_BAR_FG)
-        .borderRadius(READER_LOADING_BAR_RADIUS)
-        .translate({ x: this.sliderX() })
-        .animation({
-          duration: this.determinate
-            ? READER_LOADING_PROGRESS_ANIM_DURATION
-            : READER_LOADING_INDETERMINATE_ANIM_DURATION,
-          curve: this.determinate ? Curve.EaseOut : Curve.EaseInOut,
-        })
+      if (this.determinate) {
+        Row()
+          .width(this.fillWidth())
+          .height(READER_LOADING_BAR_HEIGHT)
+          .backgroundColor(READER_LOADING_BAR_FG)
+          .borderRadius(READER_LOADING_BAR_RADIUS)
+          .animation({ duration: READER_LOADING_PROGRESS_ANIM_DURATION, curve: Curve.EaseOut })
+      } else {
+        Row()
+          .width(this.sliderWidth())
+          .height(READER_LOADING_BAR_HEIGHT)
+          .backgroundColor(READER_LOADING_BAR_FG)
+          .borderRadius(READER_LOADING_BAR_RADIUS)
+          .translate({ x: this.sliderX() })
+          .animation({ duration: READER_LOADING_INDETERMINATE_ANIM_DURATION, curve: Curve.EaseInOut })
+      }
     }
     .width(READER_LOADING_BAR_WIDTH_PERCENT)
     .constraintSize({ maxWidth: READER_LOADING_BAR_MAX_WIDTH })
@@ -6095,6 +6114,7 @@ struct ReaderLoadingBar {
     .clip(true)
     .onAreaChange((_oldArea: Area, area: Area) => {
       this.trackWidth = area.width as number
+      this.syncIndeterminateAnimation()
     })
   }
 }
