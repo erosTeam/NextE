@@ -2545,6 +2545,46 @@
       "value": "Hide NextE content in screenshots, recordings, and recent tasks"
     },
     {
+      "name": "perm_read_pasteboard_reason",
+      "value": "Detect supported EH links copied from other apps"
+    },
+    {
+      "name": "clipboard_link_detection",
+      "value": "Detect clipboard links"
+    },
+    {
+      "name": "clipboard_link_detection_hint",
+      "value": "Show an action when the clipboard contains a supported EH link"
+    },
+    {
+      "name": "clipboard_link_permission_denied",
+      "value": "Clipboard access was not granted"
+    },
+    {
+      "name": "clipboard_link_snackbar_title",
+      "value": "Clipboard link detected"
+    },
+    {
+      "name": "clipboard_link_snackbar_gallery",
+      "value": "Gallery #%s"
+    },
+    {
+      "name": "clipboard_link_snackbar_image",
+      "value": "Image page %d"
+    },
+    {
+      "name": "clipboard_link_open",
+      "value": "Open"
+    },
+    {
+      "name": "clipboard_link_open_accessibility",
+      "value": "Open the detected link"
+    },
+    {
+      "name": "clipboard_link_close_accessibility",
+      "value": "Dismiss clipboard link"
+    },
+    {
       "name": "settings_sync_hint",
       "value": "Sync favorites, history, read progress, and block rules"
     },

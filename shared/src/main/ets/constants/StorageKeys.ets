@@ -70,6 +70,8 @@ export class StorageKeys {
   static readonly HOME_CUSTOM_PROFILES: string = 'subtab.customProfiles' // legacy Preferences key; RDB source of truth
   static readonly HOME_CUSTOM_PROFILES_SELECTED: string = 'subtab.customProfilesSelected' // legacy Preferences key; RDB source of truth
   static readonly TOPLIST_APPLY_HIDDEN_USER_TAGS: string = 'toplist.applyHiddenUserTags'
+  static readonly CLIPBOARD_LINK_ENABLED: string = 'clipboardLink.enabled'
+  static readonly CLIPBOARD_LINK_CHANGE_COUNT: string = 'clipboardLink.changeCount'
   static readonly APP_COLOR_FAVORITES: string = 'app.colorFavorites'
   static readonly HOME_TAB_AUTO_HIDE: string = 'home.tabAutoHide'
   static readonly TAG_TRANSLATION_ENABLED: string = 'tagTranslation.enabled'

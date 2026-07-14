@@ -9,6 +9,8 @@ import {
   ThemeSettings,
   MotionHandStateService,
   publishPendingEhUrl,
+  ClipboardLinkService,
+  publishClipboardLinkCandidate,
   EhUrlRouter,
   LayoutSafeAreaBridge,
   InternalQaRoutes,
@@ -17,6 +19,8 @@ import {
   ImagePipelineService,
   ScreenOrientationSettings,
   SecuritySettings,
+  connectSecuritySettings,
+  connectSafeMode,
   SyncScheduler,
 } from 'shared'
 
@@ -40,6 +44,7 @@ export default class EntryAbility extends UIAbility {
   private mainContentReady: boolean = false
   private abilityForeground: boolean = false
   private startupDownloadResumeInFlight: boolean = false
+  private clipboardProbeInFlight: boolean = false
 
   onCreate(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     HuaweiCloudSyncScheduler.bindExecutor((context: common.UIAbilityContext, reason: string) => {
@@ -124,13 +129,15 @@ export default class EntryAbility extends UIAbility {
           this.refreshSafeAreaInsets(w, uiCtx)
           this.watchSafeAreaInsets(w, uiCtx)
           this.watchKeyboardHeight(w, uiCtx)
-          SecuritySettings.lockIfNeeded(this.context, 'startup')
         } catch (e) {
           LayoutSafeAreaBridge.publishInsets(FALLBACK_TOP_AVOID, FALLBACK_BOTTOM_AVOID)
         }
         if (!err.code) {
           this.mainContentReady = true
           this.resumePendingDownloadsIfReady()
+          SecuritySettings.lockIfNeeded(this.context, 'startup').finally(() => {
+            this.probeClipboardLinkIfReady()
+          })
         }
       })
     })
@@ -151,7 +158,9 @@ export default class EntryAbility extends UIAbility {
     SyncScheduler.rememberContext(this.context)
     SyncScheduler.requestAfterForeground(this.context, 'foreground')
     ImagePipelineService.reloadOnForeground()
-    SecuritySettings.lockIfNeeded(this.context, 'foreground')
+    SecuritySettings.lockIfNeeded(this.context, 'foreground').finally(() => {
+      this.probeClipboardLinkIfReady()
+    })
   }
 
   onBackground(): void {
@@ -170,6 +179,25 @@ export default class EntryAbility extends UIAbility {
     }).finally(() => {
       this.startupDownloadResumeInFlight = false
     })
+  }
+
+  private probeClipboardLinkIfReady(): void {
+    if (!this.mainContentReady || !this.abilityForeground || this.clipboardProbeInFlight) {
+      return
+    }
+    if (connectSecuritySettings().locked || connectSafeMode().restricted()) {
+      return
+    }
+    this.clipboardProbeInFlight = true
+    ClipboardLinkService.probe(this.context)
+      .then((url: string) => {
+        if (url.length > 0 && this.abilityForeground) {
+          publishClipboardLinkCandidate(url)
+        }
+      })
+      .finally(() => {
+        this.clipboardProbeInFlight = false
+      })
   }
 
   private applyWindowPrivacy(enabled: boolean): void {

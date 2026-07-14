@@ -8,6 +8,12 @@ import {
   BottomBuilderShowType,
   HideMode,
   HdsNavDestination,
+  HdsSnackBar,
+  SnackBarIconOptions,
+  SnackBarMessageOptions,
+  SnackBarOperationOptions,
+  SnackBarOperationType,
+  SnackBarStyleOptions,
 } from '@kit.UIDesignKit'
 import { ComponentContent } from '@kit.ArkUI'
 import { common } from '@kit.AbilityKit'
@@ -15,12 +21,15 @@ import {
   connectNavStack,
   NavStackHolder,
   connectPendingEhUrl,
+  ClipboardLinkCandidateState,
+  connectClipboardLinkCandidate,
   ThemeConstants,
   DiagnosticLogger,
   PendingEhUrlState,
   EhConstants,
   EhUrlRouter,
   GalleryRef,
+  ImagePageRef,
   GalleryDetailParams,
   GalleryCommentsParams,
   GalleryWebParams,
@@ -449,6 +458,7 @@ struct Index {
   private downloadTypeBarContent: ComponentContent<Object> | null = null;
   private splitPlaceholderContent: ComponentContent<Object> | null = null;
   @Local pendingEhUrl: PendingEhUrlState = connectPendingEhUrl();
+  @Local clipboardCandidate: ClipboardLinkCandidateState = connectClipboardLinkCandidate();
   @Local searchAction: SearchActionState = connectSearchAction();
   // Read so the 收藏 menu gates remote-only actions on login while the local favcat bar stays visible.
   // Mirrors HomeSourceBar gating 订阅 on isLogin.
@@ -462,6 +472,8 @@ struct Index {
   @Local currentTab: number = 0;
   @Local readerOverlay: ReaderOverlayNavigationState = connectReaderOverlayNavigation();
   private lastHandledSignal: string = '';
+  private lastHandledClipboardCandidateSignal: string = '';
+  private clipboardSnackBar: HdsSnackBar = new HdsSnackBar(this.getUIContext());
   private lastHandledQuery: string = '';
   private readonly IMAGE_BLOCK_QA_GID: string = '3049882';
   private readonly IMAGE_BLOCK_QA_TOKEN: string = 'd7e740a39e';
@@ -471,6 +483,7 @@ struct Index {
   aboutToAppear(): void {
     this.readerOverlay.reset()
     this.handlePendingEhUrl()
+    this.handleClipboardLinkCandidate()
     this.syncDownloadQueuePageActive()
   }
 
@@ -490,6 +503,16 @@ struct Index {
   @Monitor('pendingEhUrl.signal')
   onPendingEhUrl(): void {
     this.handlePendingEhUrl()
+  }
+
+  @Monitor('clipboardCandidate.signal')
+  onClipboardLinkCandidate(): void {
+    this.handleClipboardLinkCandidate()
+  }
+
+  @Monitor('securitySettings.locked', 'readerOverlay.visible')
+  onClipboardPromptGateChanged(): void {
+    this.handleClipboardLinkCandidate()
   }
 
   /**
@@ -531,6 +554,58 @@ struct Index {
         this.tabsController.changeIndex(target)
       }, 0)
     }
+    this.handleClipboardLinkCandidate()
+  }
+
+  private handleClipboardLinkCandidate(): void {
+    const signal: string = this.clipboardCandidate.signal
+    if (
+      signal.length === 0 ||
+      signal === this.lastHandledClipboardCandidateSignal ||
+      this.safeMode.restricted() ||
+      this.securitySettings.locked ||
+      this.readerOverlay.visible
+    ) {
+      return
+    }
+    const sep: number = signal.indexOf(':')
+    const uri: string = sep >= 0 ? signal.substring(sep + 1) : signal
+    if (!EhUrlRouter.canHandle(uri)) {
+      this.lastHandledClipboardCandidateSignal = signal
+      return
+    }
+    this.lastHandledClipboardCandidateSignal = signal
+    const galleryRef: GalleryRef | null = EhUrlRouter.parseGallery(uri)
+    const imageRef: ImagePageRef | null = EhUrlRouter.parseImagePage(uri)
+    const imagePageNumber: number = imageRef === null ? 1 : imageRef.page + 1
+    const content: ResourceStr = galleryRef !== null
+      ? $r('app.string.clipboard_link_snackbar_gallery', galleryRef.gid)
+      : $r('app.string.clipboard_link_snackbar_image', imagePageNumber.toString())
+    const icon: SnackBarIconOptions = {
+      icon: $r('sys.symbol.link'),
+    }
+    const message: SnackBarMessageOptions = {
+      title: $r('app.string.clipboard_link_snackbar_title'),
+      content: content,
+    }
+    const operation: SnackBarOperationOptions = {
+      operationType: SnackBarOperationType.TEXT_WITH_CLOSE,
+      content: $r('app.string.clipboard_link_open'),
+      contentAccessibilityText: $r('app.string.clipboard_link_open_accessibility'),
+      closeButtonAccessibilityText: $r('app.string.clipboard_link_close_accessibility'),
+      onContentClick: () => {
+        this.clipboardSnackBar.dismiss()
+        this.openEhUrl(uri)
+      },
+      onCloseButtonClick: () => {
+        this.clipboardSnackBar.dismiss()
+      },
+    }
+    const style: SnackBarStyleOptions = {
+      duration: 0,
+    }
+    this.clipboardSnackBar.dismiss()
+    this.clipboardSnackBar.show(icon, message, operation, style)
   }
 
   // Push the search page, unless a search page is already on top (then its own @Monitor re-searches).
@@ -573,6 +648,10 @@ struct Index {
     this.lastHandledSignal = signal
     const sep: number = signal.indexOf(':')
     const uri: string = sep >= 0 ? signal.substring(sep + 1) : signal
+    this.openEhUrl(uri)
+  }
+
+  private openEhUrl(uri: string): void {
     if (this.safeMode.restricted()) {
       DiagnosticLogger.info('nav', 'safe_mode_deep_link_blocked', uri)
       return

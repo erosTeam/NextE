@@ -411,6 +411,15 @@ export {
   connectPendingEhUrl,
   publishPendingEhUrl,
 } from './state/PendingEhUrlState'
+export {
+  ClipboardLinkSettingsState,
+  connectClipboardLinkSettings,
+} from './state/ClipboardLinkSettingsState'
+export {
+  ClipboardLinkCandidateState,
+  connectClipboardLinkCandidate,
+  publishClipboardLinkCandidate,
+} from './state/ClipboardLinkCandidateState'
 export { SiteModeState, connectSiteMode } from './state/SiteModeState'
 export { UserTagStore } from './state/UserTagStore'
 export { UserTagSignal, connectUserTagSignal } from './state/UserTagSignal'
@@ -598,6 +607,7 @@ export {
 export { CookieJarSettings } from './settings/CookieJarSettings'
 export { AccountListSettings } from './settings/AccountListSettings'
 export { SiteModeSettings } from './settings/SiteModeSettings'
+export { ClipboardLinkSettings } from './settings/ClipboardLinkSettings'
 export { ListModeSettings } from './settings/ListModeSettings'
 export { GalleryTitleSettings } from './settings/GalleryTitleSettings'
 export { ReadModeSettings } from './settings/ReadModeSettings'
@@ -652,6 +662,7 @@ export { WebLoginStyleState, connectWebLoginStyle } from './state/WebLoginStyleS
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'
+export { ClipboardLinkService } from './services/ClipboardLinkService'
 export { BasicDataSource } from './utils/BasicDataSource'
 export { CommentReferenceSnapshotCache } from './utils/CommentReferenceSnapshotCache'
 export { ShareUtil } from './utils/ShareUtil'

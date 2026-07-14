@@ -20,11 +20,39 @@ export interface ImagePageRef {
 export class EhUrlRouter {
   private static readonly GALLERY_RE: RegExp = new RegExp('https?://(?:e-|ex)hentai\\.org/g/(\\d+)/([0-9a-z]+)')
   private static readonly IMAGE_RE: RegExp = new RegExp('https?://(?:e-|ex)hentai\\.org/s/([0-9a-z]+)/(\\d+)-(\\d+)')
+  // Browsers can copy the address-bar display text without its scheme. Clipboard extraction accepts
+  // that exact EH-host form and normalizes it, while the route parser itself remains URL-strict.
+  private static readonly GALLERY_CLIPBOARD_RE: RegExp = new RegExp(
+    '(^|[^0-9A-Za-z.-])((?:https?://)?(?:e-|ex)hentai\\.org/g/(\\d+)/([0-9a-z]+))',
+  )
+  private static readonly IMAGE_CLIPBOARD_RE: RegExp = new RegExp(
+    '(^|[^0-9A-Za-z.-])((?:https?://)?(?:e-|ex)hentai\\.org/s/([0-9a-z]+)/(\\d+)-(\\d+))',
+  )
   private static readonly HOST_RE: RegExp = new RegExp('^https?://(?:e-|ex)hentai\\.org')
 
   /** True if the URL is an EH gallery or image-page link this router can route. */
   static canHandle(url: string): boolean {
     return EhUrlRouter.GALLERY_RE.test(url) || EhUrlRouter.IMAGE_RE.test(url)
+  }
+
+  /** Extracts the first exact EH route URL from share text without forwarding surrounding prose. */
+  static extractFirstHandleableUrl(text: string): string | null {
+    const galleryMatch: RegExpMatchArray | null = text.match(EhUrlRouter.GALLERY_CLIPBOARD_RE)
+    const imageMatch: RegExpMatchArray | null = text.match(EhUrlRouter.IMAGE_CLIPBOARD_RE)
+    if (galleryMatch === null) {
+      return imageMatch === null ? null : EhUrlRouter.normalizeClipboardUrl(imageMatch[2])
+    }
+    if (imageMatch === null) {
+      return EhUrlRouter.normalizeClipboardUrl(galleryMatch[2])
+    }
+    const galleryIndex: number = text.indexOf(galleryMatch[2])
+    const imageIndex: number = text.indexOf(imageMatch[2])
+    const firstUrl: string = galleryIndex <= imageIndex ? galleryMatch[2] : imageMatch[2]
+    return EhUrlRouter.normalizeClipboardUrl(firstUrl)
+  }
+
+  private static normalizeClipboardUrl(url: string): string {
+    return url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`
   }
 
   static parseGallery(url: string): GalleryRef | null {

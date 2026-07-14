@@ -49,6 +49,10 @@ export class BackupPreferencesAdapter {
     StorageKeys.SYNC_HUAWEI_CLOUD_LAST_DETAIL,
     StorageKeys.SYNC_HUAWEI_CLOUD_LAST_CLOUD_DISABLED,
     StorageKeys.SAFE_MODE_UNLOCKED,
+    // Clipboard consent and its deduplication cursor are device-local. Restoring either on another
+    // device could bypass that device's explicit opt-in flow or suppress a fresh clipboard value.
+    StorageKeys.CLIPBOARD_LINK_ENABLED,
+    StorageKeys.CLIPBOARD_LINK_CHANGE_COUNT,
   ]
 
   // Non-secret keys → plaintext section.

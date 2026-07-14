@@ -2545,6 +2545,46 @@
       "value": "スクリーンショット、録画、最近のタスクで NextE の内容を非表示にします"
     },
     {
+      "name": "perm_read_pasteboard_reason",
+      "value": "他のアプリからコピーした対応 EH リンクを検出します"
+    },
+    {
+      "name": "clipboard_link_detection",
+      "value": "クリップボードのリンクを検出"
+    },
+    {
+      "name": "clipboard_link_detection_hint",
+      "value": "対応する EH リンクがあるときに開く操作を表示します"
+    },
+    {
+      "name": "clipboard_link_permission_denied",
+      "value": "クリップボードの読み取り権限がありません"
+    },
+    {
+      "name": "clipboard_link_snackbar_title",
+      "value": "クリップボードのリンクを検出しました"
+    },
+    {
+      "name": "clipboard_link_snackbar_gallery",
+      "value": "ギャラリー #%s"
+    },
+    {
+      "name": "clipboard_link_snackbar_image",
+      "value": "画像ページ %d"
+    },
+    {
+      "name": "clipboard_link_open",
+      "value": "開く"
+    },
+    {
+      "name": "clipboard_link_open_accessibility",
+      "value": "検出したリンクを開く"
+    },
+    {
+      "name": "clipboard_link_close_accessibility",
+      "value": "クリップボードリンクの通知を閉じる"
+    },
+    {
       "name": "settings_sync_hint",
       "value": "お気に入り、履歴、読書位置、ブロックルールを同期"
     },

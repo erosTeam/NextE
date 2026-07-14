@@ -83,6 +83,8 @@ Allowed `Sync` values:
 | StorageKeys.HOME_CUSTOM_PROFILES | legacy-local-data | excluded | excluded | RDB source is `custom_profiles` |
 | StorageKeys.HOME_CUSTOM_PROFILES_SELECTED | legacy-local-data | excluded | excluded | RDB source is `custom_profile_selection` |
 | StorageKeys.TOPLIST_APPLY_HIDDEN_USER_TAGS | setting | plaintext | excluded | Toplist filtering |
+| StorageKeys.CLIPBOARD_LINK_ENABLED | device-consent | excluded | excluded | Clipboard access opt-in is granted per device |
+| StorageKeys.CLIPBOARD_LINK_CHANGE_COUNT | runtime | excluded | excluded | Device-local clipboard deduplication cursor |
 | StorageKeys.APP_COLOR_FAVORITES | setting | plaintext | excluded | Theme color favorites |
 | StorageKeys.HOME_TAB_AUTO_HIDE | setting | plaintext | excluded | Home tab behavior |
 | StorageKeys.TAG_TRANSLATION_ENABLED | setting | plaintext | excluded | Tag translation setting |

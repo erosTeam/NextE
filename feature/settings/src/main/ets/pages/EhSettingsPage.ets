@@ -6,6 +6,8 @@ import {
   AuthState,
   ConciseListRow,
   CookieJarSettings,
+  ClipboardLinkSettings,
+  ClipboardLinkSettingsState,
   EhConstants,
   EhCookieStore,
   GroupedListSection,
@@ -18,6 +20,7 @@ import {
   ToplistFilterSettings,
   ToplistFilterState,
   connectAuth,
+  connectClipboardLinkSettings,
   connectLocalBlock,
   connectNavStack,
   NavStackHolder,
@@ -36,11 +39,13 @@ export struct EhSettingsPage {
   @Local siteMode: SiteModeState = connectSiteMode();
   @Local auth: AuthState = connectAuth();
   @Local toplistFilter: ToplistFilterState = connectToplistFilter();
+  @Local clipboardLink: ClipboardLinkSettingsState = connectClipboardLinkSettings();
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local switchingSite: boolean = false;
   @Local siteMenuShown: boolean = false;
+  @Local clipboardSaving: boolean = false;
   // Keep the latest explicit site choice separate from the in-flight access check. A delayed
   // uconfig response may unlock Ex only while the same account still wants ExHentai.
   private desiredSiteIsEx: boolean = false;
@@ -140,6 +145,22 @@ export struct EhSettingsPage {
     ToplistFilterSettings.save(this.ctx(), value)
   }
 
+  private setClipboardLinkEnabled(value: boolean): void {
+    if (this.clipboardSaving) {
+      return
+    }
+    this.clipboardSaving = true
+    ClipboardLinkSettings.setEnabled(this.ctx(), value)
+      .then((applied: boolean) => {
+        if (value && !applied) {
+          this.toast($r('app.string.clipboard_link_permission_denied'))
+        }
+      })
+      .finally(() => {
+        this.clipboardSaving = false
+      })
+  }
+
   private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
     const pathNames: string[] = pathStack.getAllPathName()
     this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'EhSettings'
@@ -169,6 +190,20 @@ export struct EhSettingsPage {
               placement: Placement.BottomRight,
               onDisappear: () => {
                 this.siteMenuShown = false
+              },
+            })
+          }
+        }
+        ListItem() {
+          GroupedListSection() {
+            ConciseListRow({
+              title: $r('app.string.clipboard_link_detection'),
+              subtitle: $r('app.string.clipboard_link_detection_hint'),
+              leadingIcon: $r('sys.symbol.text_clipboard'),
+              hasSwitch: true,
+              checked: this.clipboardLink.enabled,
+              switchAction: (value: boolean) => {
+                this.setClipboardLinkEnabled(value)
               },
             })
           }

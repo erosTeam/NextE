@@ -2545,6 +2545,46 @@
       "value": "在截图、录屏和最近任务中隐藏 NextE 内容"
     },
     {
+      "name": "perm_read_pasteboard_reason",
+      "value": "检测从其他应用复制的受支持 EH 链接"
+    },
+    {
+      "name": "clipboard_link_detection",
+      "value": "检测剪贴板链接"
+    },
+    {
+      "name": "clipboard_link_detection_hint",
+      "value": "剪贴板中有受支持的 EH 链接时提示打开"
+    },
+    {
+      "name": "clipboard_link_permission_denied",
+      "value": "未获得剪贴板读取权限"
+    },
+    {
+      "name": "clipboard_link_snackbar_title",
+      "value": "检测到剪贴板链接"
+    },
+    {
+      "name": "clipboard_link_snackbar_gallery",
+      "value": "画廊 #%s"
+    },
+    {
+      "name": "clipboard_link_snackbar_image",
+      "value": "图片页 %d"
+    },
+    {
+      "name": "clipboard_link_open",
+      "value": "打开"
+    },
+    {
+      "name": "clipboard_link_open_accessibility",
+      "value": "打开检测到的链接"
+    },
+    {
+      "name": "clipboard_link_close_accessibility",
+      "value": "关闭剪贴板链接提示"
+    },
+    {
       "name": "settings_sync_hint",
       "value": "同步收藏、历史、阅读记录和屏蔽规则"
     },
