@@ -72,7 +72,7 @@ ok('image-page route-failure page can still open Reader after retry', /connectRe
 ok('image-page route-failure page uses localized failure copy', /image_page_open_failed/.test(routeErrorSrc))
 
 const searchSrc = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
-ok('Search bare /s/ branches before ordinary search', /EhUrlRouter\.parseImagePage\(trimmed\)[\s\S]*openImagePageUrl\(trimmed\)[\s\S]*return/.test(searchSrc))
+ok('Search recognized /s/ branches before ordinary search', /EhUrlRouter\.parseImagePage\(directUrl\)[\s\S]*openImagePageUrl\(directUrl\)[\s\S]*return/.test(searchSrc))
 ok('Search image-page branch opens Reader in its dedicated navigation host', /ImagePageRouteService\.resolve\(url\)[\s\S]*connectReaderOverlayNavigation\(\)\.open\(/.test(searchSrc))
 ok('Search passes exact image seed and parsed fileCount without marking preview pages loaded', /new ReaderParams\(target\.gid, target\.token, target\.index, target\.fileCount, '', \[target\.seedImage\], 0, 0\)/.test(searchSrc))
 ok('Search image-page failure shows a visible retry state', /image_page_jump_failed[\s\S]*this\.imagePageErrorUrl = url/.test(searchSrc))

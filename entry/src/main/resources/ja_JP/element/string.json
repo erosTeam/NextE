@@ -609,6 +609,14 @@
       "value": "キーワードを入力して検索"
     },
     {
+      "name": "search_open_gallery_link",
+      "value": "ギャラリーリンクを開く"
+    },
+    {
+      "name": "search_open_image_link",
+      "value": "画像ページリンクを開く"
+    },
+    {
       "name": "favorites_login_hint",
       "value": "ログインしてお気に入りを表示"
     },

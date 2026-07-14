@@ -609,6 +609,14 @@
       "value": "Type a keyword to search E-Hentai"
     },
     {
+      "name": "search_open_gallery_link",
+      "value": "Open gallery link"
+    },
+    {
+      "name": "search_open_image_link",
+      "value": "Open image-page link"
+    },
+    {
       "name": "favorites_login_hint",
       "value": "Log in to view favorites"
     },

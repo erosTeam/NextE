@@ -100,6 +100,10 @@ export struct GallerySearchPage {
   @Local listContentWidth: number = 0;
   @Local imagePageErrorUrl: string = '';
   @Local imagePageResolving: boolean = false;
+  // A recognized whole-field EH URL is rendered as the first-class action in the same content slot
+  // as tag suggestions. This is the permission-free counterpart to clipboard auto-detection: the
+  // user pastes explicitly, sees what will happen, then chooses the navigation action.
+  @Local directOpenUrl: string = '';
   // Favorite scope (eros_fe SearchType.favorite): set from the route param when the favorites title-bar
   // magnifier pushes here. The filter entry stays visible; favorite-specific limitations belong inside
   // the sheet, not in a hidden page action.
@@ -237,10 +241,18 @@ export struct GallerySearchPage {
   onKeywordChange(): void {
     const keyword: string = this.fieldState.keyword.trim()
     if (keyword.length === 0) {
+      this.directOpenUrl = ''
       this.clearQueryToHistory()
       this.vm.clearSuggestions()
       return
     }
+    const directUrl: string = this.recognizedDirectUrl(keyword)
+    if (directUrl.length > 0) {
+      this.directOpenUrl = directUrl
+      this.vm.clearSuggestions()
+      return
+    }
+    this.directOpenUrl = ''
     if (this.vm.isCurrentQuery(keyword)) {
       this.vm.clearSuggestions()
       return
@@ -248,10 +260,25 @@ export struct GallerySearchPage {
     this.vm.scheduleTagSuggest(this.fieldState.keyword, this.ctx())
   }
 
-  // A whole-string EH URL (no embedded substring) — eros_fe gates its URL-jump on searchText.isURL,
-  // so a query that merely CONTAINS a gallery link still searches.
-  private looksLikeBareUrl(s: string): boolean {
-    return s.length > 0 && !s.includes(' ') && (s.startsWith('http://') || s.startsWith('https://'))
+  /**
+   * Recognize only a complete field value, matching eros_fe's `searchText.isURL` boundary. The
+   * shared extractor also normalizes a browser-copied schemeless EH address, but surrounding prose
+   * stays an ordinary query and never turns into an unexpected navigation action.
+   */
+  private recognizedDirectUrl(value: string): string {
+    const trimmed: string = value.trim()
+    if (trimmed.length === 0 || trimmed.includes(' ')) {
+      return ''
+    }
+    const extracted: string | null = EhUrlRouter.extractFirstHandleableUrl(trimmed)
+    if (extracted === null) {
+      return ''
+    }
+    const normalizedInput: string = trimmed.startsWith('http://') || trimmed.startsWith('https://') ?
+      trimmed : `https://${trimmed}`
+    const canonicalInput: string = normalizedInput.endsWith('/') ?
+      normalizedInput.substring(0, normalizedInput.length - 1) : normalizedInput
+    return canonicalInput === extracted ? extracted : ''
   }
 
   private formatSuggestionQuery(s: EhTagSuggestion): string {
@@ -319,14 +346,15 @@ export struct GallerySearchPage {
   private runQuery(query: string): void {
     const trimmed: string = query.trim()
     this.imagePageErrorUrl = ''
-    if (this.looksLikeBareUrl(trimmed)) {
-      const ref: GalleryRef | null = EhUrlRouter.parseGallery(trimmed)
+    const directUrl: string = this.recognizedDirectUrl(trimmed)
+    if (directUrl.length > 0) {
+      const ref: GalleryRef | null = EhUrlRouter.parseGallery(directUrl)
       if (ref !== null) {
         this.stack.pushPathByName('GalleryDetail', new GalleryDetailParams(ref.gid, ref.token))
         return
       }
-      if (EhUrlRouter.parseImagePage(trimmed) !== null) {
-        this.openImagePageUrl(trimmed)
+      if (EhUrlRouter.parseImagePage(directUrl) !== null) {
+        this.openImagePageUrl(directUrl)
         return
       }
     }
@@ -338,6 +366,17 @@ export struct GallerySearchPage {
       this.recordHistory(trimmed)
     }
     this.vm.search(trimmed)
+  }
+
+  private openRecognizedUrl(): void {
+    if (this.directOpenUrl.length > 0) {
+      this.runQuery(this.directOpenUrl)
+    }
+  }
+
+  private directLinkTitle(): Resource {
+    return EhUrlRouter.parseGallery(this.directOpenUrl) !== null ?
+      $r('app.string.search_open_gallery_link') : $r('app.string.search_open_image_link')
   }
 
   private openImagePageUrl(url: string): void {
@@ -601,6 +640,69 @@ export struct GallerySearchPage {
   }
 
   @Builder
+  DirectLinkSuggestionView() {
+    List({ space: ThemeConstants.SPACE_XS, scroller: this.suggestionScroller }) {
+      ListItem() {
+        Column() {
+          Blank().height(this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT + SEARCH_FIELD_BOTTOM_HEIGHT)
+        }
+        .width('100%')
+      }
+      .clip(false)
+
+      ListItem() {
+        Row({ space: ThemeConstants.SPACE_MD }) {
+          SymbolGlyph($r('sys.symbol.link'))
+            .fontSize(24)
+            .fontColor([ThemeConstants.BRAND_PRIMARY])
+          Column({ space: ThemeConstants.SPACE_XS }) {
+            Text(this.directLinkTitle())
+              .fontSize(ThemeConstants.FONT_SIZE_BODY)
+              .fontWeight(FontWeight.Medium)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(1)
+            Text(this.directOpenUrl)
+              .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+          SymbolGlyph($r('sys.symbol.arrow_right'))
+            .fontSize(18)
+            .fontColor([$r('sys.color.font_tertiary')])
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+        .padding({
+          left: ThemeConstants.SPACE_LG,
+          right: ThemeConstants.SPACE_LG,
+          top: ThemeConstants.SPACE_SM,
+          bottom: ThemeConstants.SPACE_SM,
+        })
+        .onClick(() => {
+          this.openRecognizedUrl()
+        })
+        .accessibilityText(this.directLinkTitle())
+      }
+
+      ListItem() {
+        Column() {
+          Blank().height(this.layout.bottomAvoidHeight + ThemeConstants.SPACE_LG)
+        }
+        .width('100%')
+      }
+      .clip(false)
+    }
+    .width('100%')
+    .height('100%')
+    .clip(false)
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+  }
+
+  @Builder
   SearchSuggestionView() {
     List({ space: ThemeConstants.SPACE_XS, scroller: this.suggestionScroller }) {
       ListItem() {
@@ -809,6 +911,8 @@ export struct GallerySearchPage {
             })
           } else if (this.vm.isLoading && this.vm.itemCount === 0) {
             PageLoadingState()
+          } else if (this.directOpenUrl.length > 0) {
+            this.DirectLinkSuggestionView()
           } else if (this.vm.suggestionCount > 0) {
             this.SearchSuggestionView()
           } else if (!this.vm.hasSearched) {

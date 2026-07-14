@@ -609,6 +609,14 @@
       "value": "输入关键词搜索 E-Hentai 画廊"
     },
     {
+      "name": "search_open_gallery_link",
+      "value": "直接打开画廊链接"
+    },
+    {
+      "name": "search_open_image_link",
+      "value": "直接打开图片页链接"
+    },
+    {
       "name": "favorites_login_hint",
       "value": "登录后查看收藏"
     },
