@@ -170,7 +170,7 @@ class FirstPageRunVM {
   constructor() {
     this.epoch = 0
     this.cacheKey = 'eh:member:a:home'
-    this.profileEditTime = 1
+    this.profileContentRevision = 'revision-a'
     this.applyToplistHiddenUserTags = false
   }
   beginFirstPageRun() {
@@ -178,14 +178,14 @@ class FirstPageRunVM {
     return {
       epoch: this.epoch,
       cacheKey: this.cacheKey,
-      profileEditTime: this.profileEditTime,
+      profileContentRevision: this.profileContentRevision,
       applyToplistHiddenUserTags: this.applyToplistHiddenUserTags,
     }
   }
   isCurrentFirstPageRun(run) {
     return this.epoch === run.epoch &&
       this.cacheKey === run.cacheKey &&
-      this.profileEditTime === run.profileEditTime &&
+      this.profileContentRevision === run.profileContentRevision &&
       this.applyToplistHiddenUserTags === run.applyToplistHiddenUserTags
   }
 }
@@ -361,7 +361,7 @@ const ok = (name, cond) => {
   ok('replacement first-page run rejects a subsequent context switch', vm.isCurrentFirstPageRun(runB) === false)
   vm.cacheKey = 'eh:member:b:home'
   ok('replacement first-page run accepts its captured context', vm.isCurrentFirstPageRun(runB) === true)
-  vm.profileEditTime = 2
+  vm.profileContentRevision = 'revision-b'
   ok('first-page run rejects a live profile-query revision', vm.isCurrentFirstPageRun(runB) === false)
   const runC = vm.beginFirstPageRun()
   vm.applyToplistHiddenUserTags = true
@@ -394,9 +394,9 @@ const ok = (name, cond) => {
   ok('guards paging mutations on full list context', /this\.isCurrentPagingRun\(run\)/.test(src))
   ok('reload bumps epoch', /this\.epoch = this\.epoch \+ 1/.test(src))
   ok('declares immutable first-page ownership context',
-    /class GalleryFirstPageRun \{[\s\S]*cacheKey: string[\s\S]*profileEditTime: number/.test(src))
+    /class GalleryFirstPageRun \{[\s\S]*cacheKey: string[\s\S]*profileContentRevision: string/.test(src))
   ok('first-page current check validates epoch, request fields, and live scoped cache key',
-    /private isCurrentFirstPageRun\(run: GalleryFirstPageRun\): boolean \{[\s\S]*this\.epoch !== run\.epoch[\s\S]*this\.profileEditTime\(\) !== run\.profileEditTime[\s\S]*applyHiddenUserTags !== run\.applyToplistHiddenUserTags[\s\S]*this\.cacheKey\(\) === run\.cacheKey/.test(src))
+    /private isCurrentFirstPageRun\(run: GalleryFirstPageRun\): boolean \{[\s\S]*this\.epoch !== run\.epoch[\s\S]*this\.profileContentRevision\(\) !== run\.profileContentRevision[\s\S]*applyHiddenUserTags !== run\.applyToplistHiddenUserTags[\s\S]*this\.cacheKey\(\) === run\.cacheKey/.test(src))
   ok('cache restore and delayed cache translation retain the initiating run',
     /applyCachedFirstPageIfEmpty\(run: GalleryFirstPageRun\)[\s\S]*loadGalleryList\(this\.context, run\.cacheKey\)[\s\S]*!this\.isCurrentFirstPageRun\(run\)/.test(src) &&
     /translateCachedRowsLater\([\s\S]*run: GalleryFirstPageRun[\s\S]*!this\.isCurrentFirstPageRun\(run\)/.test(src))
@@ -405,7 +405,7 @@ const ok = (name, cond) => {
   ok('tag-translation repaint is fenced against a newer first-page run',
     /async reapplyTagTranslation\(\): Promise<void> \{[\s\S]*const renderVersion: number = this\.cacheRenderVersion \+ 1[\s\S]*const renderEpoch: number = this\.epoch[\s\S]*const renderCacheKey: string = this\.cacheKey\(\)[\s\S]*this\.cacheRenderVersion !== renderVersion[\s\S]*this\.epoch !== renderEpoch[\s\S]*this\.cacheKey\(\) !== renderCacheKey/.test(src))
   ok('paging captures the same live account/site/profile request context as first-page work',
-    /private captureCurrentListRun\(\): GalleryFirstPageRun \{[\s\S]*this\.cacheKey\(\)[\s\S]*this\.profileEditTime\(\)[\s\S]*connectToplistFilter\(\)\.applyHiddenUserTags/.test(src) &&
+    /private captureCurrentListRun\(\): GalleryFirstPageRun \{[\s\S]*this\.cacheKey\(\)[\s\S]*this\.profileContentRevision\(\)[\s\S]*connectToplistFilter\(\)\.applyHiddenUserTags/.test(src) &&
     /private isCurrentPagingRun\(run: GalleryFirstPageRun\): boolean \{[\s\S]*this\.isCurrentFirstPageRun\(run\)/.test(src))
   ok('shared paging translation helper checks context before and after its await',
     /private async translateCurrentPagingRows\([\s\S]*!this\.isCurrentPagingRun\(run\)[\s\S]*await this\.translateRows\(this\.dedupeNew\(list\.gallerys\)\)[\s\S]*return this\.isCurrentPagingRun\(run\) \? fresh : null/.test(src))
