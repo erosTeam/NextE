@@ -36,8 +36,8 @@ export struct GalleryCard {
   // Current list content width (vp), measured by PullRefreshListScaffold after horizontal padding. This is
   // pane-local so fold/unfold and split-pane changes recompute in the same app process.
   @Param listContentWidth: number = 0;
-  // Reactive bump from the usertag loader; read in the chip key so cards re-color on a late My Tags load.
-  private tagSig: UserTagSignal = connectUserTagSignal();
+  // Reactive bump from the usertag loader; read while calculating chip colors after a late My Tags load.
+  @Local tagSig: UserTagSignal = connectUserTagSignal();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   // eros_fe `fixedHeightOfListItems` (default true). FIXED → every row is one portrait-cover height with
   // title/tags clipped and the meta foot-anchored (uniform list rhythm); ADAPTIVE → the row grows with its
@@ -86,10 +86,18 @@ export struct GalleryCard {
     return imageRatio - slotRatio <= 0.28 && slotRatio - imageRatio <= 0.2
   }
 
+  /**
+   * The store is intentionally a plain Map. Its snapshot version is therefore an explicit render
+   * dependency for the chip colors, while the ForEach key stays tied to the tag item's identity.
+   */
+  private userTagAtSnapshot(t: SimpleTag, _revision: number): EhUsertag | undefined {
+    return UserTagStore.getInstance().lookup(t.namespace, t.text)
+  }
+
   // Chip background: the user's editable MyTags color, else EH preview fill, else inline-style fallback.
   // Never namespace-derived.
   chipBg(t: SimpleTag): ResourceColor {
-    const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    const u: EhUsertag | undefined = this.userTagAtSnapshot(t, this.tagSig.version)
     if (u !== undefined && u.colorCode.length > 0) {
       return u.colorCode
     }
@@ -104,7 +112,7 @@ export struct GalleryCard {
 
   // Chip text: the user's own (EH-chosen readable) text color for this tag, else inline-style, else grey.
   chipText(t: SimpleTag): ResourceColor {
-    const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    const u: EhUsertag | undefined = this.userTagAtSnapshot(t, this.tagSig.version)
     if (u !== undefined && u.textColor.length > 0) {
       return u.textColor
     }
@@ -157,10 +165,8 @@ export struct GalleryCard {
                 this.searchTag(t)
               })
           },
-          // Key carries tagSig.version: the keyGen runs during build, so reading it subscribes the
-          // card; when My Tags load and bump it, the keys change → chips rebuild → re-color.
           (t: SimpleTag, index: number) =>
-            `tag_${this.tagSig.version}_${index}_${this.safeForEachKeyPart(t.namespace)}_${this.safeForEachKeyPart(t.text)}`,
+            `tag_${index}_${this.safeForEachKeyPart(t.namespace)}_${this.safeForEachKeyPart(t.text)}`,
         )
       }.width('100%')
     }

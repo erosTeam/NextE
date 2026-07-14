@@ -5,9 +5,9 @@ import { AppStorageV2 } from '@kit.ArkUI'
  * their tag colors (eros_fe re-derives tag colors at render via Obx). It is JUST a counter — safe in the
  * V2 observation graph (unlike the lookup Map, which lives in the plain `UserTagStore` singleton).
  *
- * Cards read `version` during build (subscribing) and key their tag chips on it; bumping it after the
- * usertag store is populated forces a re-color without a re-fetch, fixing the cold-start race where the
- * first list parsed before My Tags arrived.
+ * Cards read `version` while calculating chip colors, so a My Tags update re-evaluates the existing
+ * tag nodes without a re-fetch or a key-based rebuild. This fixes the cold-start race where the first
+ * list parsed before My Tags arrived.
  */
 @ObservedV2
 export class UserTagSignal {

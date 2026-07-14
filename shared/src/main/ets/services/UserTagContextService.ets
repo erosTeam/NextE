@@ -101,12 +101,4 @@ export class UserTagContextService {
     return UserTagStore.getInstance().ingestInlineTags(tags)
   }
 
-  /** Bump visual consumers after a batched inline ingestion, while still verifying the same scope. */
-  static notifyInlineTagsChanged(request: UserTagRequestContext): void {
-    if (!UserTagContextService.isCurrentScope(request)) {
-      return
-    }
-    const signal: UserTagSignal = connectUserTagSignal()
-    signal.version = signal.version + 1
-  }
 }

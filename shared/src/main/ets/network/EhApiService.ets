@@ -446,13 +446,11 @@ export class EhApiService {
   }
 
   private registerInlineTagColors(list: GalleryList, request: UserTagRequestContext): GalleryList {
-    let changed: boolean = false
     list.gallerys.forEach((g: EhGallery) => {
-      changed = UserTagContextService.ingestInlineTags(request, g.simpleTags) || changed
+      // A list row already carries its own tag colors. This fallback index is for later lookups
+      // (for example detail data), not a reason to invalidate every currently materialized card.
+      UserTagContextService.ingestInlineTags(request, g.simpleTags)
     })
-    if (changed) {
-      UserTagContextService.notifyInlineTagsChanged(request)
-    }
     return list
   }
 

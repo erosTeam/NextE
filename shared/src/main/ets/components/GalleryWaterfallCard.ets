@@ -46,7 +46,7 @@ export function galleryWaterfallReuseId(gallery: EhGallery): string {
 export struct GalleryWaterfallCard {
   @Require @Param gallery: EhGallery;
   @Param selected: boolean = false;
-  private tagSig: UserTagSignal = connectUserTagSignal();
+  @Local tagSig: UserTagSignal = connectUserTagSignal();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   private tagScroller: Scroller = new Scroller();
 
@@ -97,13 +97,16 @@ export struct GalleryWaterfallCard {
     return this.tagTranslation.enabled ? t.display() : t.text
   }
 
-  private safeForEachKeyPart(value: string): string {
-    const out: string = value.replace(/[^A-Za-z0-9_]/g, '_')
-    return out.length > 0 ? out : '_'
+  /**
+   * The store is intentionally a plain Map. Its snapshot version is therefore an explicit render
+   * dependency for the chip colors, while the ForEach key stays tied to the tag item's identity.
+   */
+  private userTagAtSnapshot(t: SimpleTag, _revision: number): EhUsertag | undefined {
+    return UserTagStore.getInstance().lookup(t.namespace, t.text)
   }
 
   private chipBg(t: SimpleTag): ResourceColor {
-    const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    const u: EhUsertag | undefined = this.userTagAtSnapshot(t, this.tagSig.version)
     if (u !== undefined && u.colorCode.length > 0) {
       return u.colorCode
     }
@@ -117,7 +120,7 @@ export struct GalleryWaterfallCard {
   }
 
   private chipText(t: SimpleTag): ResourceColor {
-    const u: EhUsertag | undefined = UserTagStore.getInstance().lookup(t.namespace, t.text)
+    const u: EhUsertag | undefined = this.userTagAtSnapshot(t, this.tagSig.version)
     if (u !== undefined && u.textColor.length > 0) {
       return u.textColor
     }
@@ -162,7 +165,7 @@ export struct GalleryWaterfallCard {
         (index: number) => {
           this.TagChip(this.gallery.simpleTags[index])
         },
-        (index: number) => `tag_${this.tagSig.version}_row_${remainder}_${this.safeForEachKeyPart(`${index}`)}`,
+        (index: number) => `tag_row_${remainder}_${index}`,
       )
     }
     .alignItems(VerticalAlign.Center)
