@@ -112,11 +112,6 @@ const detailVm = readFileSync(
   join(ROOT, 'feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets'),
   'utf8',
 )
-const detailPage = readFileSync(
-  join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryDetailPage.ets'),
-  'utf8',
-)
-
 ok('detail run captures epoch, gallery identity, site, account credentials, and a frozen cache key',
   /class GalleryDetailRun \{[\s\S]*epoch: number[\s\S]*gid: string[\s\S]*token: string[\s\S]*isEx: boolean[\s\S]*memberId: string[\s\S]*passHash: string[\s\S]*cacheKey: string/.test(detailVm) &&
   /private beginDetailRun\(gid: string, token: string\): GalleryDetailRun \{[\s\S]*const isEx: boolean = connectSiteMode\(\)\.isEx[\s\S]*COOKIE_MEMBER_ID[\s\S]*COOKIE_PASS_HASH[\s\S]*EhPageCacheService\.galleryDetailKey\(isEx, gid, token\)/.test(detailVm))
@@ -135,9 +130,4 @@ ok('delayed cache translation, network translation, and reapply translation all 
 ok('replacement starts even while an old request is loading and only a current full context clears loading',
   /async reloadForContext\(\): Promise<void> \{[\s\S]*const run: GalleryDetailRun = this\.beginDetailRun\(this\.gid, this\.token\)[\s\S]*this\.loading = true/.test(detailVm) &&
   /if \(this\.isCurrentDetailRun\(run\)\) \{[\s\S]*this\.loading = false/.test(detailVm))
-ok('detail page triggers a replacement on account and site changes',
-  /@Local auth: AuthState = connectAuth\(\);[\s\S]*@Local siteMode: SiteModeState = connectSiteMode\(\);/.test(detailPage) &&
-  /@Monitor\('auth\.memberId'\)[\s\S]*this\.vm\.reloadForContext\(\)/.test(detailPage) &&
-  /@Monitor\('siteMode\.isEx'\)[\s\S]*this\.vm\.reloadForContext\(\)/.test(detailPage))
-
 console.log(`✓ gallery detail context contract: ${passed} assertions passed`)

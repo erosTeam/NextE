@@ -35,20 +35,8 @@ const localSubmitMethod = localSubmitStart >= 0
   ? api.substring(localSubmitStart, localSubmitEnd > localSubmitStart ? localSubmitEnd : api.length)
   : ''
 const archiveBot = read('shared/src/main/ets/services/ArchiveBotService.ets')
-const downloadSettings = read('shared/src/main/ets/settings/DownloadSettings.ets')
 const downloadQueue = read('shared/src/main/ets/settings/DownloadQueueSettings.ets')
 const sharedIndex = read('shared/src/main/ets/Index.ets')
-const page = read('feature/gallery/src/main/ets/pages/GalleryArchiverPage.ets')
-const downloadPage = read('feature/download/src/main/ets/pages/DownloadQueuePage.ets')
-const galleryIndex = read('feature/gallery/src/main/ets/Index.ets')
-const entry = read('entry/src/main/ets/pages/Index.ets')
-const detail = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
-const theme = read('shared/src/main/ets/theme/ThemeConstants.ets')
-const relationsStart = detail.indexOf('relationsRow() {')
-const relationsEnd = detail.indexOf('@Builder', relationsStart + 1)
-const detailRelations = relationsStart >= 0
-  ? detail.substring(relationsStart, relationsEnd > relationsStart ? relationsEnd : detail.length)
-  : ''
 
 function cleanText(raw) {
   return raw
@@ -286,66 +274,6 @@ ok(/submitGalleryArchiverHath\([\s\S]*Promise<EhGalleryArchiverSubmitResult>/.te
 ok(/postFormUrlEncoded\(url, body\)/.test(api) && /EhErrorClassifier\.classifyResponse\(url, isEx, resp, 'generic'\)/.test(api),
   'archiver POST uses protected form transport and EH error classification')
 
-ok(/export \{ GalleryArchiverPage \}/.test(galleryIndex), 'gallery barrel exports GalleryArchiverPage')
-ok(/GalleryArchiverPage/.test(entry) && /'galleryArchiver': wrapBuilder<\[]>\(IndexGalleryArchiverRoute\)/.test(entry),
-  'entry registers GalleryArchiver route')
-ok(/private openArchiver\(\): void/.test(detail), 'detail page can open archiver sheet')
-ok(/const DETAIL_SHEET_ARCHIVER: string = 'archiver'/.test(detail) &&
-  /@Local\s+archiverSheetParams:\s+GalleryArchiverParams/.test(detail) &&
-  /new GalleryArchiverParams\([\s\S]*this\.vm\.gallery\.archiverLink/.test(detail),
-  'detail prepares gid/token/archiver-link/site/title for the archiver sheet')
-ok(/this\.openDetailSheet\(DETAIL_SHEET_ARCHIVER\)/.test(detail) &&
-  !/private openArchiver\(\): void[\s\S]*pushPathByName\(\s*'GalleryArchiver'/.test(detail),
-  'detail opens archiver through the half-modal sheet, not the main route stack')
-ok(!/archiverLink\.length > 0[\s\S]*app\.string\.download_archiver/.test(detailRelations) &&
-  /app\.string\.download_archiver[\s\S]*this\.openArchiver\(\)/.test(detailRelations),
-  'detail keeps the FE-style archiver entry visible and lets the archiver sheet load or report errors')
-
-ok(/export struct GalleryArchiverContent/.test(page) &&
-  /AppModalScaffold\(\{[\s\S]*gallery_archiver[\s\S]*showConfirmAction: false/.test(page),
-  'archiver content can render as an AppModalScaffold half-modal')
-ok(/GalleryArchiverContent\(\{[\s\S]*params: this\.params/.test(page),
-  'GalleryArchiverPage remains a compatibility wrapper around shared content')
-ok(/getGalleryArchiver/.test(page), 'archiver content loads through EhApiService')
-ok(!/archiver_missing_or_token/.test(page),
-  'archiver content no longer blocks modern gid/token-only archiver requests as missing archiver params')
-ok(/BalanceBadge\('G'/.test(page) && /BalanceBadge\('C'/.test(page), 'page renders GP/Credits balance badges')
-ok(/QuoteList\(\$r\('app\.string\.gallery_archiver_download'\), this\.quote\.downloadItems, false\)/.test(page),
-  'page renders local Download options as local submit rows')
-ok(/QuoteList\(\$r\('app\.string\.gallery_archiver_hath'\), this\.quote\.hathItems, true\)/.test(page),
-  'page renders H@H options as H@H submit rows')
-ok(/DownloadSettings\.archiveBotReady\(this\.downloadSettings\)/.test(page) &&
-  /BotQuoteList\(\)/.test(page),
-  'page only renders archive bot options when bot settings are ready')
-ok(/gallery_archiver_bot_original/.test(page) && !/gallery_archiver_bot_free/.test(page) &&
-  /task\.dltype = 'org'/.test(page) &&
-  /task\.tag = `\$\{task\.gid\}:org`/.test(page) &&
-  !/bot:org/.test(page) &&
-  /task\.parseSource = DownloadArchiverParseSource\.BOT/.test(page) &&
-  /task\.url = ''/.test(page),
-  'archive bot option reuses the original archive task with bot parse source, no misleading free label, and no official URL')
-ok(/QuoteRow\(item: EhGalleryArchiverItem, isHath: boolean\)/.test(page) &&
-  /this\.confirmArchiveSubmit\(item, isHath\)/.test(page),
-  'quote rows are tappable action rows')
-ok(/Grid\(\)[\s\S]*GridItem\(\)[\s\S]*this\.QuoteRow\(item, isHath\)[\s\S]*\.columnsTemplate\('1fr 1fr'\)/.test(page),
-  'archiver options render as a two-column grid in the half-modal')
-ok(!/chevron_right/.test(page), 'archiver option grid does not show tiny trailing arrows')
-ok(/showAlertDialog\(\{[\s\S]*gallery_archiver_hath_confirm[\s\S]*gallery_archiver_download_confirm[\s\S]*common_cancel[\s\S]*common_ok[\s\S]*this\.submitArchive\(item, isHath\)/.test(page),
-  'submits are gated by native confirmation')
-ok(/submitGalleryArchiverLocal/.test(page) && /submitGalleryArchiverHath/.test(page),
-  'page calls both protected archiver submit methods')
-ok(/localDlcheck\(item\)[\s\S]*item\.dlcheck\.length > 0[\s\S]*Download Original Archive[\s\S]*Download Resample Archive/.test(page),
-  'local archive submit preserves parsed dlcheck labels with JHenTai-compatible fallback labels')
-ok(/DownloadQueueSettings\.enqueueArchiver/.test(page) &&
-  /localDownloadUrl/.test(page) &&
-  /DownloadQueueSettings\.downloadArchiver\(this\.ctx\(\), task\.tag\)\.catch\(\(error: Error\) => \{[\s\S]*archiver_background_start_failed/.test(page),
-  'local and bot archive results enqueue the task then start the package download in the background with failure diagnostics')
-ok(/ARCHIVER_BALANCE_BADGE_SIZE/.test(theme) && /ThemeConstants\.ARCHIVER_BALANCE_BADGE_SIZE/.test(page),
-  'balance badge size is tokenized')
-ok(!/startAbility\(want\)|archiverTaskMap/.test(page),
-  'archiver page does not external-open the archive URL or use a fake FE task map')
-ok(!/ShareUtil|shareUrl/.test(page), 'archiver page does not repurpose share as a fake download action')
-
 ok(/rec\.data !== undefined \? rec\.data : \(rec as ArchiveBotDataJson\)/.test(archiveBot),
   'archive bot response parser accepts wrapped data and direct business objects')
 ok(/if \(code >= 400\) \{[\s\S]*parseResponse\(text\)[\s\S]*ArchiveBotService\.message\(errResp\)/.test(archiveBot) &&
@@ -371,40 +299,6 @@ ok(/private static canResumeArchiverTask\(task: DownloadArchiverTask\): boolean 
 ok(/for \(let i: number = 0; i < archiverTasks\.length; i\+\+\) \{[\s\S]*shouldAutoResumeArchiverTask\(archiverTasks\[i\]\)[\s\S]*downloadArchiver\(context, archiverTasks\[i\]\.tag\)/.test(downloadQueue) &&
   /shouldAutoResumeArchiverTask\(task: DownloadArchiverTask\): boolean \{[\s\S]*DownloadGalleryTaskStatus\.QUEUED[\s\S]*DownloadGalleryTaskStatus\.PREPARING[\s\S]*connectDownloadSettings\(\)\.autoRetryFailed && task\.status === DownloadGalleryTaskStatus\.ERROR/.test(downloadQueue),
   'startup pending-resume restarts queued or interrupted preparing archive tasks and setting-enabled failed archive tasks')
-ok(/DownloadSettings\.archiveBotReady\(\)/.test(downloadPage) &&
-  /task\.parseSource === DownloadArchiverParseSource\.BOT/.test(downloadPage) &&
-  /download_archiver_use_bot/.test(downloadPage),
-  'download list exposes JHenTai-style switch-to-bot action only for ready, non-bot archive tasks')
-ok(/private canResumeArchiverTask\(task: DownloadArchiverTask\): boolean \{[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*DownloadGalleryTaskStatus\.PREPARING[\s\S]*DownloadGalleryTaskStatus\.PAUSED[\s\S]*DownloadGalleryTaskStatus\.QUEUED/.test(downloadPage),
-  'download list can resume archive bot tasks left in resolving/preparing state')
-ok(!/@ComponentV2\s+struct DownloadArchiverTaskCardView/.test(downloadPage) &&
-  /private ResumeArchiverTaskButton\(task: DownloadArchiverTask\)[\s\S]*this\.archiverResumeActionIcon\(task\), this\.archiverResumeActionLabel\(task\)/.test(downloadPage) &&
-  /private archiverResumeActionIcon\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*sys\.symbol\.arrow_clockwise[\s\S]*sys\.symbol\.arrow_right/.test(downloadPage) &&
-  /private archiverResumeActionLabel\(task: DownloadArchiverTask\): Resource[\s\S]*DownloadGalleryTaskStatus\.ERROR[\s\S]*common_retry[\s\S]*download_resume/.test(downloadPage),
-  'archiver task card uses the parent preparing-resumable rule with distinct retry/continue semantics')
-
-const strings = ['base', 'zh_CN', 'en_US', 'ja_JP'].map((locale) =>
-  read(`entry/src/main/resources/${locale}/element/string.json`))
-for (const key of [
-  'gallery_archiver',
-  'gallery_archiver_empty',
-  'gallery_archiver_download',
-  'gallery_archiver_hath',
-  'gallery_archiver_download_confirm',
-  'gallery_archiver_hath_confirm',
-  'gallery_archiver_submit_notice',
-  'gallery_archiver_submitted',
-  'gallery_archiver_download_started',
-  'gallery_archiver_bot',
-  'gallery_archiver_bot_original',
-  'gallery_archiver_bot_free',
-  'gallery_archiver_bot_not_ready',
-  'download_archiver_already_queued',
-  'download_archiver_use_bot',
-]) {
-  ok(strings.every((s) => s.includes(`"name": "${key}"`)), `i18n key present in all locales: ${key}`)
-}
-
 if (failures > 0) {
   console.error(`gallery archiver protected submit contract failed: ${failures} issue(s)`)
   process.exit(1)

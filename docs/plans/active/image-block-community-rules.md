@@ -45,7 +45,7 @@ Published state:
 - Validation command: `node tools/rules.mjs validate`
 - App-draft review command: `node tools/rules.mjs import-jsonl --feed zh-scanlator-ads --file <draft.jsonl>`
 - Importer smoke command: `node tools/test_import_jsonl.mjs`
-- App-side sample drift check: `node scripts/test_image_block_sample_contract.mjs`
+- App-side sample review uses the rules-repo fixture; the former source-shape drift contract is retired.
 - Raw GitHub check on 2026-06-29: `dist/manifest.json` exposes feed `zh-scanlator-ads` with count `1` and SHA-256
   `5bc6849243594b7886105fd30c58a88acf6658987b714ce8d5099beef618f2b1`; the feed contains reviewed pHash
   `ce9e181d354a3cd5`, threshold `8`, label `scanlator-ad`, scope `whole`.
@@ -296,7 +296,7 @@ Manual-rule validation path:
 
 Static validation:
 
-- `scripts/test_image_block_sample_contract.mjs` checks the fixture, this plan, the app default rules manifest URL, and
+- Rules-repo fixture review checks this plan, the app default rules manifest URL, and
   the local sibling `nexte-image-block-rules` repository when present.
 - The same script verifies the rules repository generated feed strips reviewer-only `sourceUrl` / `sourcePage` / `note`,
   while source JSONL keeps the stable gallery review URL and page evidence.
@@ -452,7 +452,7 @@ Emulator validation on `127.0.0.1:5555` with a signed HAP:
   --artifact-dir .hvigor/outputs/image-block-settings-edge-sourcepage-197` installed the signed build, opened the
   seeded Image blocks settings route, verified the contribution draft row, clicked `复制社区规则草稿`, and returned
   `settings_contribution_draft_clicked`. This run pairs with the static app-shaped JSONL dry-run in
-  `scripts/test_image_block_sample_contract.mjs`, which now feeds `sourceUrl` plus `sourcePage` to the rules repo
+  the rules-repo fixture path, which now feeds `sourceUrl` plus `sourcePage` to the rules repo
   importer and requires `new=1 duplicateExisting=0 duplicateIncoming=0 invalid=0`. Local artifacts:
   `.hvigor/outputs/image-block-settings-edge-sourcepage-197/summary.json`,
   `.hvigor/outputs/image-block-settings-edge-sourcepage-197/draft_wait_0.json`, and
@@ -616,7 +616,7 @@ These are not a scheduling queue. Use the user's latest request and `product-bug
      Promote only stable, reviewable gallery URLs plus reviewed page pHashes into the rules repository.
 2. Seeded Reader QA path exists; rerun it only when image-block behavior changes.
    - Static precursor added: `docs/fixtures/image-block-public-samples.json` plus
-     `scripts/test_image_block_sample_contract.mjs` keep the seed gallery, seed pHash, manifest URL, and rules-repo dist
+     rules-repo fixture review keeps the seed gallery, seed pHash, manifest URL, and rules-repo dist
      output aligned before the device path is re-run.
    - Device precursor added: `scripts/qa_image_block_seeded_reader.mjs` uses the hidden seed routes and signed HAP,
      passes on the local emulator, and exits before install if 197 is still on the lockscreen.

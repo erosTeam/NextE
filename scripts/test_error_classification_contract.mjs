@@ -283,17 +283,6 @@ for (const [name, isEx, page] of [
   )
   ok('EhErrorText maps NotFound → error_gallery_unavailable', /NotFound:\s*\n?\s*return 'error_gallery_unavailable'/.test(etx))
 
-  // Implementation-leak tokens forbidden in the PRIMARY visible error copy (case-insensitive for ASCII).
-  const FORBIDDEN = ['exhentai', 'e-hentai', '里站', '表站', 'donor', '捐赠', 'cookie', 'login', '登录', 'permission', '权限', 'igneous']
-  for (const loc of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
-    const json = JSON.parse(src(`entry/src/main/resources/${loc}/element/string.json`))
-    const entry = json.string.find((e) => e.name === 'error_gallery_maybe_hidden')
-    ok(`${loc}: error_gallery_maybe_hidden present and non-empty`, entry && entry.value.trim().length > 0)
-    const low = (entry ? entry.value : '').toLowerCase()
-    for (const tok of FORBIDDEN) {
-      ok(`${loc}: MaybeHidden copy omits implementation hint "${tok}"`, !low.includes(tok.toLowerCase()))
-    }
-  }
 }
 
 console.log(`✓ error classification contract: ${passed} assertions passed`)

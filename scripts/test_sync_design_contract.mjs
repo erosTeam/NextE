@@ -361,47 +361,6 @@ for (const file of [
       !/HuaweiCloudSyncScheduler/.test(src))
 }
 
-const settingsIndex = read('feature/settings/src/main/ets/Index.ets')
-const entryIndex = read('entry/src/main/ets/pages/Index.ets')
-const settingsPage = read('feature/settings/src/main/ets/pages/SettingsPage.ets')
-const cacheSettingsPage = read('feature/settings/src/main/ets/pages/CacheSettingsPage.ets')
-ok('sync settings page is reachable from storage settings navigation',
-  /SyncSettingsPage/.test(settingsIndex) &&
-    /'syncSettings': wrapBuilder<\[]>\(IndexSyncSettingsRoute\)/.test(entryIndex) &&
-    /pushPathByName\('SyncSettings'/.test(cacheSettingsPage) &&
-    !/pushPathByName\('SyncSettings'/.test(settingsPage))
-
-const syncPage = read('feature/settings/src/main/ets/pages/SyncSettingsPage.ets')
-const webdavPage = read('feature/settings/src/main/ets/pages/WebDavSyncSettingsPage.ets')
-ok('sync overview keeps provider entries and routes WebDAV to a child page',
-  /pushPathByName\('WebDavSyncSettings'/.test(syncPage) &&
-    /sync_webdav/.test(syncPage) &&
-    /sync_huawei_cloud/.test(syncPage) &&
-    /WebDavSyncSettingsPage/.test(settingsIndex) &&
-    /'webDavSyncSettings': wrapBuilder<\[]>\(IndexWebDavSyncSettingsRoute\)/.test(entryIndex))
-ok('WebDAV sync child page has visible running state and provider switch',
-  /LoadingProgress/.test(webdavPage) &&
-    /sync_status_running/.test(webdavPage) &&
-    /this\.syncing = true/.test(webdavPage) &&
-    /this\.syncing = false/.test(webdavPage) &&
-    /this\.settings\.lastDetail/.test(webdavPage) &&
-    /SyncSettings\.markRun\(this\.ctx\(\), SYNC_STATUS_FAILED, error\.message\)/.test(webdavPage) &&
-    /sync_webdav_hint/.test(webdavPage) &&
-    /hasSwitch: true/.test(webdavPage))
-ok('Huawei Cloud provider UI is hidden when provider availability is disabled',
-  /HuaweiCloudSyncService\.available\(\)/.test(syncPage) &&
-    /sync_huawei_cloud/.test(syncPage) &&
-    /sync_huawei_cloud_now/.test(syncPage) &&
-    /HUAWEI_CLOUD_DEEP_LINK/.test(syncPage) &&
-    /sync_huawei_cloud_open_space/.test(syncPage) &&
-    /HuaweiCloudSyncService\.ensurePermission/.test(syncPage) &&
-    /HuaweiCloudSyncService\.cloudSyncNow/.test(syncPage))
-ok('sync overview exposes provider-neutral dataset switches',
-  /DatasetRow/.test(syncPage) &&
-    /sync_dataset_read_progress/.test(syncPage) &&
-    /sync_dataset_custom_profiles/.test(syncPage) &&
-    /hasSwitch: true/.test(syncPage))
-
 const backup = read('shared/src/main/ets/backup/BackupService.ets')
 ok('WebDAV password is not exported by backup service',
   !/SYNC_WEBDAV_PASSWORD|sync\.webdav\.password/.test(backup))
@@ -415,55 +374,6 @@ ok('local WebDAV server smoke covers sharded WebDAV layout',
     /datasets\/viewed-history\/2f\.json/.test(webdavLocalTest) &&
     /legacy single-file path is not written/.test(webdavLocalTest) &&
     /server enforces Basic auth/.test(webdavLocalTest))
-
-const syncStringKeys = [
-  'settings_sync',
-  'settings_sync_hint',
-  'sync_webdav',
-  'sync_webdav_hint',
-  'sync_provider_disabled',
-  'sync_webdav_url',
-  'sync_webdav_url_hint',
-  'sync_webdav_username',
-  'sync_webdav_username_hint',
-  'sync_webdav_password',
-  'sync_webdav_password_hint',
-  'sync_webdav_url_required',
-  'sync_webdav_now',
-  'sync_huawei_cloud',
-  'sync_huawei_cloud_hint',
-  'sync_huawei_cloud_now',
-  'sync_huawei_cloud_enabled',
-  'sync_huawei_cloud_permission_denied',
-  'sync_huawei_cloud_disabled_status',
-  'sync_huawei_cloud_open_space',
-  'sync_huawei_cloud_open_space_hint',
-  'sync_huawei_cloud_open_failed',
-  'sync_now',
-  'sync_now_done',
-  'sync_now_failed',
-  'sync_status_running',
-  'sync_status_never',
-  'sync_status_success',
-  'sync_status_failed',
-  'sync_dataset_read_progress',
-  'sync_dataset_read_progress_hint',
-  'sync_dataset_viewed_history',
-  'sync_dataset_viewed_history_hint',
-  'sync_dataset_local_favorites',
-  'sync_dataset_local_favorites_hint',
-  'sync_dataset_search_history',
-  'sync_dataset_search_history_hint',
-  'sync_dataset_local_block',
-  'sync_dataset_local_block_hint',
-  'sync_dataset_custom_profiles',
-  'sync_dataset_custom_profiles_hint',
-]
-for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
-  const strings = JSON.parse(read(`entry/src/main/resources/${locale}/element/string.json`)).string
-  const names = new Set(strings.map((item) => item.name))
-  ok(`sync i18n keys exist in ${locale}`, syncStringKeys.every((key) => names.has(key)))
-}
 
 if (failures > 0) {
   console.error(`✗ sync design contract: ${failures} failure(s)`)

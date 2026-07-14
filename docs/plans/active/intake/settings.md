@@ -221,7 +221,6 @@ Handled update, 2026-06-20:
   - `node scripts/test_settings_reader_entry_contract.mjs`
   - `node scripts/test_settings_dropdown_anchor_contract.mjs`
   - `node scripts/test_reader_settings_readability_contract.mjs`
-  - `node scripts/test_download_settings_contract.mjs`
   - `node scripts/test_settings_search_entry_contract.mjs`
   - `node scripts/test_settings_eh_entry_contract.mjs`
   - `node scripts/test_settings_security_entry_contract.mjs`
@@ -519,9 +518,8 @@ Handled update, 2026-06-20:
 - Download settings root exposure: implemented / pending controller acceptance. Settings root no
   longer shows the settings-side `下载` row because the current download queue/workbench does not
   consume the parked concurrency/original-image policy preferences. The bottom-tab Download workbench
-  remains available. Contract updated: `scripts/test_download_settings_contract.mjs` now locks that
-  Settings root must not contain `settings_download` or `pushPathByName('DownloadSettings', null)`
-  until the executor consumes those preferences.
+  remains available. The Settings entry is reviewed and device-validated with the workbench behavior;
+  it is not locked by a page-source contract.
 - HarmonyOS emulator evidence: target `127.0.0.1:5555`, signed HAP installed. Settings root main rows
   were `账号 / 我的标签 / 退出登录 / EH / 布局 / 阅读 / 搜索 / 历史 / 高级 / 关于`; `main contains 下载:
   false`, while bottom-tab `下载` remained visible. Evidence files:
@@ -1001,7 +999,6 @@ Evidence:
 - Deterministic contracts/gates:
   `scripts/test_settings_security_entry_contract.mjs`,
   `scripts/test_settings_eh_entry_contract.mjs`,
-  `scripts/test_download_settings_contract.mjs`,
   `scripts/test_settings_layout_entry_contract.mjs`,
   `scripts/test_settings_search_entry_contract.mjs`,
   `scripts/test_settings_reader_entry_contract.mjs`,

@@ -1042,8 +1042,7 @@ Handled:
   current-image save uses the HarmonyOS system save flow; Reader thumbnail strip/slider remain linked to
   the current page; same-process Reader session cache and `/s/` resolve cache prevent repeated preview
   page and image-page parsing on reopen.
-- Contracts: `scripts/test_reader_save_current_image_contract.mjs`,
-  `scripts/test_reader_tapzone_contract.mjs`, `scripts/test_reader_thumbnail_filmstrip_contract.mjs`,
+- Historical checks: `scripts/test_reader_tapzone_contract.mjs`, `scripts/test_reader_thumbnail_filmstrip_contract.mjs`,
   `scripts/test_reader_slider_spread_contract.mjs`, `scripts/test_reader_precache_contract.mjs`,
   `scripts/test_image_resolve_showpage_contract.mjs`, and V1 inventory `0 file(s)`.
 - Device evidence: signed HAP on local emulator `127.0.0.1:5555`; second same-gallery Reader open logged
@@ -1336,7 +1335,7 @@ Evidence:
 - Regression contracts run in the fixing lane: `scripts/test_reader_tapzone_contract.mjs`,
   `scripts/test_reader_zoom_quality_contract.mjs`, `scripts/test_reader_slider_spread_contract.mjs`,
   `scripts/test_reader_initial_spread_start_contract.mjs`,
-  `scripts/test_reader_loading_progress_contract.mjs`, `scripts/test_reader_save_current_image_contract.mjs`.
+  `scripts/test_reader_loading_progress_contract.mjs`.
 - Gates: `scripts/test_v1_decorator_inventory_contract.mjs`, `git diff --check`, `ohpm install`,
   official signed Hvigor build.
 - Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
@@ -1685,9 +1684,8 @@ Evidence:
   `/Users/honjow/git/NextE/.hvigor/outputs/reader-save-fe-comparison/`, especially
   `fe-current.png/xml`, `fe-after-second-read-tap.png/xml`, and `fe-reader-chrome.png/xml`.
 - Source grounding above confirms FE Reader Save behavior and save-to-album implementation path.
-- Deterministic contract: `scripts/test_reader_save_current_image_contract.mjs`.
-- Gates: `scripts/test_reader_save_current_image_contract.mjs`,
-  `scripts/test_reader_current_image_share_contract.mjs`,
+- Reader save UI validation: signed build plus the captured device path.
+- Gates: `scripts/test_reader_current_image_share_contract.mjs`,
   `scripts/test_v1_decorator_inventory_contract.mjs`, `scripts/check_i18n_duplicates.py`,
   `git diff --check`, and official signed Hvigor build through `scripts/build_hvigor_signed.sh`.
 - Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:

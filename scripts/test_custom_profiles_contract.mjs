@@ -18,7 +18,6 @@ const must = (cond, msg) => {
 const model = read('shared/src/main/ets/model/CustomProfile.ets')
 const settings = read('shared/src/main/ets/settings/CustomProfilesSettings.ets')
 const keys = read('shared/src/main/ets/constants/StorageKeys.ets')
-const zhStrings = read('entry/src/main/resources/zh_CN/element/string.json')
 
 // --- 1. extract the declared fields from the CustomProfile class body ---
 const classMatch = model.match(/export class CustomProfile \{([\s\S]*?)\n\}/)
@@ -92,10 +91,6 @@ must(
     settings.includes('custom_profiles_migrate_failed') &&
     settings.includes('Keep the only legacy copy intact'),
   'legacy custom-profile migration must preserve newer RDB state and retain the only legacy copy on failure',
-)
-must(
-  /"name": "tab_seed_chinese",\s*"value": "中文"/.test(zhStrings),
-  'zh_CN starter Chinese custom profile label must be 中文',
 )
 must(settings.includes('migrateStarterNames(profiles)') &&
   settings.includes('ensureBuiltins(migratedProfiles)') &&

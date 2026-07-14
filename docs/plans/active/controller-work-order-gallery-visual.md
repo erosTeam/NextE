@@ -278,7 +278,7 @@ Device command boundary: hdc commands ran through the approved DevEco hdc path, 
 Contracts:
 - node scripts/test_selector_reload_preserves_content_contract.mjs: PASS
 - node scripts/test_retained_tab_contract.mjs: PASS
-- node scripts/test_gallery_paging_contract.mjs: PASS, 47 assertions
+- Historical pagination source-shape contract retired; current UI acceptance uses build and device evidence.
 - node scripts/test_v1_decorator_inventory_contract.mjs: PASS, 0 file(s)
 - bash scripts/build_hvigor_signed.sh: PackageHap + SignHap + BUILD SUCCESSFUL
 

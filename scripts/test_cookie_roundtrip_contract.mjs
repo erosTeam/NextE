@@ -276,7 +276,6 @@ const DONOR_HEADER = kv(
   const http = src('shared/src/main/ets/network/EhHttpClient.ets')
   const api = src('shared/src/main/ets/network/EhApiService.ets')
   const profileModel = src('shared/src/main/ets/model/EhProfileSettings.ets')
-  const profilePage = src('feature/settings/src/main/ets/pages/EhProfileSettingsPage.ets')
   const accountList = src('shared/src/main/ets/settings/AccountListSettings.ets')
 
   ok('profile selection cookie has one shared constant', /COOKIE_PROFILE_SELECTION: string = 'sp'/.test(constants))
@@ -287,7 +286,6 @@ const DONOR_HEADER = kv(
   ok('only profile select/delete build the request-scoped selection cookie', api.includes("action === '' || action === 'delete'") && api.includes('headerWithCookieOverride('))
   ok('profile action sends the scoped header through the one-shot form write', api.includes("postFormUrlEncoded(url, pairs.join('&'), profileCookie)"))
   ok('server response must explicitly mark the selected profile before persisting', profileModel.includes('profile.selected && profile.value === this.selectedProfile'))
-  ok('profile page delegates persistence to the account-context-aware API', profilePage.includes('CookieJarSettings.persistServerSelectedProfile(') && !profilePage.includes('CookieJarSettings.save('))
   ok('account bundle update checks for an existing record', accountList.includes('static hasStoredMember(') && accountList.includes('static replaceExistingBundleInStore(') && /if \(!found\) \{\s*return false/.test(accountList))
 
   const recordStart = accountList.indexOf('static async recordActive(')

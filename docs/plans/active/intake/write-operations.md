@@ -119,9 +119,7 @@ Validation:
   `.hvigor/outputs/remote-favorite-sheet-regression/fixed-after-open-immediate/`,
   `.hvigor/outputs/remote-favorite-sheet-regression/fixed-after-open-1s/`,
   `.hvigor/outputs/remote-favorite-sheet-regression/fixed-after-cancel/`.
-- Contracts/build:
-  `node scripts/test_gallery_remote_favorite_sheet_contract.mjs`,
-  `node scripts/test_gallery_rating_write_contract.mjs`,
+- Build and validation:
   `node scripts/test_gallery_detail_full_title_contract.mjs`,
   `node scripts/test_v1_decorator_inventory_contract.mjs`,
   `scripts/build_hvigor_signed.sh`.

@@ -26,7 +26,6 @@ const requiredFiles = [
   'shared/src/main/ets/settings/DiagnosticsSettings.ets',
   'shared/src/main/ets/settings/DiagnosticsFileExport.ets',
   'shared/src/main/ets/state/DiagnosticsState.ets',
-  'feature/settings/src/main/ets/pages/AdvancedSettingsPage.ets',
 ]
 for (const file of requiredFiles) {
   ok(existsSync(join(ROOT, file)), `${file} exists`)
@@ -62,15 +61,6 @@ ok(/DiagnosticLogger\.initializePersistentSink\(this\.context\)/.test(entryAbili
 ok(/DiagnosticLogger\.closePersistentSink\(\)/.test(entryAbility),
   'EntryAbility closes/prunes diagnostics sink at shutdown')
 
-const page = read('feature/settings/src/main/ets/pages/AdvancedSettingsPage.ets')
-ok(/systemShare\.SharedData/.test(page) && /UniformDataType\.FILE/.test(page),
-  'settings diagnostics page shares log files through ShareKit FILE')
-ok(/pasteboard\.createData/.test(page), 'settings diagnostics page has copy fallback')
-ok(/DiagnosticsFileExport\.create/.test(page), 'settings diagnostics page can export current log snapshot')
-ok(/DiagnosticsLogFileSink\.listRetainedLogFiles/.test(page), 'settings diagnostics page lists retained log files')
-ok(/hasSwitch:\s*true/.test(page) && /DiagnosticsSettings\.save/.test(page),
-  'settings diagnostics page exposes persisted diagnostics switch')
-
 const sharedIndex = read('shared/src/main/ets/Index.ets')
 ok(/DiagnosticsLogFileSink/.test(sharedIndex) && /DiagnosticsFileExport/.test(sharedIndex) && /connectDiagnostics/.test(sharedIndex),
   'shared barrel exports diagnostics system')
@@ -93,26 +83,9 @@ ok(/urlHash=/.test(imageCache) && /cacheKeyHash=/.test(imageCache),
 ok(!/DiagnosticLogger\.[^\n]+displayUri/.test(imageCache) && !/-> \$\{[^}]*displayUri/.test(imageCache),
   'image cache diagnostics do not export local displayUri paths')
 
-const aboutPage = read('feature/settings/src/main/ets/pages/AboutPage.ets')
-ok(!/console\.(log|info|warn|error)/.test(aboutPage), 'About page does not bypass diagnostics with console logging')
-ok(/about_bundle_info_failed/.test(aboutPage), 'About page records bundle info failures through diagnostics')
-
-for (const locale of ['base', 'en_US', 'zh_CN', 'ja_JP']) {
-  const strings = read(`entry/src/main/resources/${locale}/element/string.json`)
-  for (const key of [
-    'diagnostics_enabled',
-    'diagnostics_min_level',
-    'diagnostics_export_current',
-    'diagnostics_log_file_share_hint',
-    'no_diagnostics_logs',
-  ]) {
-    ok(strings.includes(`"name": "${key}"`), `${locale}: ${key} string exists`)
-  }
-}
-
 if (failures > 0) {
   console.error(`\n✗ diagnostics logger contract: ${failures} failure(s)`)
   process.exit(1)
 }
 
-console.log('✓ diagnostics logger contract: redacted local diagnostics, retained files, settings export, and startup sink locked')
+console.log('✓ diagnostics logger contract: redacted local diagnostics and bounded retained files locked')

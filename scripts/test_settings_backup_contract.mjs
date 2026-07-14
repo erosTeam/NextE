@@ -210,31 +210,9 @@ ok('image-block backup restore replaces the complete user-rule snapshot, includi
 ok('shared exports BackupService + types',
   /export \{ BackupService \}/.test(read('shared/src/main/ets/Index.ets')))
 
-const page = read('feature/settings/src/main/ets/pages/CacheSettingsPage.ets')
 const picker = read('feature/settings/src/main/ets/model/BackupFilePickerCoordinator.ets')
-ok('page has export + import, secrets require a password, restore confirms first',
-  /openExport\(/.test(page) &&
-    /startImport\(/.test(page) &&
-    /this\.exportPwd !== this\.exportPwd2/.test(page) &&
-    /backup_password_required/.test(page) &&
-    /showAlertDialog/.test(page))
-ok('encrypted import prompts for a password before restoring',
-  /result\.encrypted === true/.test(page) && /importPwdSheetShown = true/.test(page))
-ok('encrypted import password input is state-bound and cannot submit empty',
-  /confirmEnabled: !this\.busy && this\.importPwd\.length > 0/.test(page) &&
-    /PasswordField\(text: string, placeholder: ResourceStr/.test(page) &&
-    /TextInput\(\{ text: text, placeholder: placeholder \}\)/.test(page))
-ok('import diagnostics surface parser codes instead of a single generic failure',
-  /importFailureText\(result: BackupParseResult\)/.test(page) &&
-    /backup_import_too_large/.test(page) &&
-    /backup_import_not_json/.test(page) &&
-    /backup_import_foreign/.test(page) &&
-    /backup_import_unsupported/.test(page) &&
-    /backup_import_bad_checksum/.test(page) &&
-    /backup_import_malformed/.test(page))
-ok('picker rejects oversized files before allocating and preserves the size-specific import message',
-  /const size: number = fileIo\.statSync\(file\.fd\)\.size[\s\S]*size > MAX_BACKUP_BYTES[\s\S]*throw new Error\('backup file is too large'\)[\s\S]*new ArrayBuffer\(size\)/.test(picker) &&
-    /error\.message === 'backup file is too large'[\s\S]*backup_import_too_large/.test(page))
+ok('picker rejects oversized files before allocating',
+  /const size: number = fileIo\.statSync\(file\.fd\)\.size[\s\S]*size > MAX_BACKUP_BYTES[\s\S]*throw new Error\('backup file is too large'\)[\s\S]*new ArrayBuffer\(size\)/.test(picker))
 const backupCipherGuardTest = read('entry/src/ohosTest/ets/test/BackupCipherMetadataGuard.test.ets')
 const backupLocalDataStructureGuardTest = read('entry/src/ohosTest/ets/test/BackupLocalDataStructureGuard.test.ets')
 const testList = read('entry/src/ohosTest/ets/test/List.test.ets')
@@ -246,32 +224,6 @@ ok('device test covers localData structure compatibility and malformed replaceme
     /parseMalformed\(envelopeWithLocalData\(missingReadProgress, true\)\)/.test(backupLocalDataStructureGuardTest) &&
     /malformedImageBlock/.test(backupLocalDataStructureGuardTest) &&
     /backupLocalDataStructureGuardTest\(\)/.test(testList))
-ok('restore confirmation previews backup section counts before applying',
-  /BackupService\.preview\(envelope\)/.test(page) &&
-    /restorePreviewMessage\(preview: BackupPreview\)/.test(page) &&
-    /localDataCount\(preview: BackupPreview\)/.test(page) &&
-    /backup_restore_preview_preferences/.test(page) &&
-    /backup_restore_preview_local_data/.test(page))
-ok('sheets use $$ two-way binding on their own hosts',
-  /\$\$this\.exportSheetShown/.test(page) && /\$\$this\.importPwdSheetShown/.test(page))
-
-ok('backup UI is inlined on cache/storage settings page',
-  /backup_export/.test(page) && /backup_import/.test(page) && /BackupFilePickerCoordinator/.test(page))
-
-for (const locale of ['base', 'zh_CN', 'en_US', 'ja_JP']) {
-  const s = read(`entry/src/main/resources/${locale}/element/string.json`)
-  for (const key of ['settings_backup', 'backup_export', 'backup_import', 'backup_include_secrets',
-    'backup_password', 'backup_password_mismatch', 'backup_bad_password', 'backup_restore_confirm_title',
-    'backup_import_not_json', 'backup_import_too_large', 'backup_import_foreign',
-    'backup_import_unsupported', 'backup_import_bad_checksum', 'backup_import_malformed',
-    'backup_restore_preview_version', 'backup_restore_preview_type',
-    'backup_restore_preview_plain', 'backup_restore_preview_encrypted',
-    'backup_restore_preview_preferences', 'backup_restore_preview_local_data',
-    'backup_restore_preview_secrets']) {
-    ok(`${locale} has ${key}`, new RegExp(`"name": "${key}"`).test(s))
-  }
-}
-
 if (failures === 0) {
   console.log('✓ settings backup contract passed')
   process.exit(0)

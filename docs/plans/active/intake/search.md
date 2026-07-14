@@ -599,8 +599,8 @@ Evidence:
   global pending query.
 - Related contracts updated: `scripts/test_search_input_contract.mjs`,
   `scripts/test_search_scope_contract.mjs`, `scripts/test_search_filter_draft_contract.mjs`,
-  `scripts/test_search_filter_settings_contract.mjs`, `scripts/test_search_filter_ux_contract.mjs`,
-  and `scripts/test_home_source_routing_contract.mjs`.
+  and `scripts/test_search_filter_ux_contract.mjs`. The former filter-settings and source-routing
+  shape contracts are retired.
 - Gates passed: all above contracts, `scripts/test_v1_decorator_inventory_contract.mjs`,
   `scripts/check_i18n_duplicates.py`, and `git diff --check`.
 - Official signed build passed with `scripts/build_hvigor_signed.sh`; no `dev.sh` was used.
@@ -837,7 +837,6 @@ Evidence:
   `fe_search_settings_window.xml`.
 - Deterministic contracts/gates:
   `scripts/test_settings_search_entry_contract.mjs`,
-  `scripts/test_search_filter_settings_contract.mjs`,
   `scripts/test_search_history_contract.mjs`,
   `scripts/test_v1_decorator_inventory_contract.mjs`,
   `scripts/check_i18n_duplicates.py`, and `git diff --check`.

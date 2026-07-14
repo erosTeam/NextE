@@ -77,7 +77,7 @@ Status: implemented / pending device acceptance.
 
 - `git diff --check`, `node scripts/test_v1_decorator_inventory_contract.mjs`,
   `node scripts/test_gallery_detail_context_contract.mjs`, `node scripts/test_gallery_data_parser_contract.mjs`,
-  and `node scripts/test_gallery_paging_contract.mjs` pass.
+  pass; the former pagination source-shape contract is retired.
 - Signed HAP build passes (`scripts/build_hvigor_signed.sh`).
 - On IP 103 landscape, first gallery selection loads the split detail; immediately re-tapping the same
   left list card leaves its metadata and full-preview grid intact (no loading/remount frame observed).

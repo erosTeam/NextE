@@ -84,7 +84,6 @@ ok('GitHub Actions unsigned build disables Huawei cloud sync for public artifact
 const service = read('shared/src/main/ets/sync/HuaweiCloudSyncService.ets')
 const scheduler = read('shared/src/main/ets/sync/HuaweiCloudSyncScheduler.ets')
 const entryAbility = read('entry/src/main/ets/entryability/EntryAbility.ets')
-const syncPage = read('feature/settings/src/main/ets/pages/SyncSettingsPage.ets')
 ok('Huawei cloud service checks availability before permission or sync',
   /available\(\): boolean/.test(service) &&
     /if \(!HuaweiCloudSyncService\.available\(\)\)/.test(service) &&
@@ -134,11 +133,8 @@ ok('manual Huawei cloud sync exposes table-level failure detail',
   /lastRunDetailMessage\(\): string/.test(service) &&
     /progressDetailMessage/.test(service) &&
     /huawei_cloud_sync_done[\s\S]*detail=/.test(service) &&
-    /manual_huawei_cloud_sync_done[\s\S]*detail=/.test(syncPage) &&
     /huaweiCloudLastDetail/.test(read('shared/src/main/ets/state/SyncSettingsState.ets')) &&
-    /SYNC_HUAWEI_CLOUD_LAST_DETAIL/.test(read('shared/src/main/ets/settings/SyncSettings.ets')) &&
-    /huaweiCloudFailureDetail/.test(syncPage) &&
-    /huaweiCloudFailureMessage/.test(syncPage))
+    /SYNC_HUAWEI_CLOUD_LAST_DETAIL/.test(read('shared/src/main/ets/settings/SyncSettings.ets')))
 ok('Huawei cloud image-block schema failures are reported without a fallback run',
   /IMAGE_BLOCK_USER_RULES_TABLE: string = 'image_block_user_rules'/.test(service) &&
     !/IMAGE_BLOCK_SCHEMA_PENDING_DETAIL/.test(service) &&
@@ -373,11 +369,6 @@ ok('image block cloud sync has no app-managed touch completion path',
     !/completeImageBlockTouchIfNeeded/.test(service) &&
     !/huawei_cloud_image_block_degraded/.test(service) &&
     !/treatImageBlockPartialAsSuccess/.test(service))
-
-ok('Huawei cloud settings UI is gated by provider availability',
-  /if \(HuaweiCloudSyncService\.available\(\)\)/.test(syncPage) &&
-    /sync_huawei_cloud/.test(syncPage) &&
-    /sync_huawei_cloud_now/.test(syncPage))
 
 if (failures > 0) {
   console.error(`✗ Huawei cloud sync contract: ${failures} failure(s)`)

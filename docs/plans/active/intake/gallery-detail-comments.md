@@ -529,15 +529,12 @@ Implemented behavior:
 - `GalleryCommentsCard.VoteAction` keeps the native thumb symbols from the vote lane.
 - `GalleryCommentsCard.EditAction` now uses `$r('sys.symbol.square_and_pencil')`.
 - `GalleryCommentsCard.ReplyAction` now uses `$r('sys.symbol.ellipsis_message')`.
-- `scripts/test_gallery_comment_compose_contract.mjs` no longer locks the stale `doc_plaintext` reply
-  icon and verifies the footer action builders do not use `ThemeConstants.BUTTON_HEIGHT`.
+- Footer icon and sizing changes are verified in the rendered comments path, not by source-shape assertions.
 - Footer actions use compact local hit/visual sizing so the secondary action cluster no longer reserves
   primary-button-sized boxes.
 
 Verification:
 
-- `node scripts/test_gallery_comment_compose_contract.mjs`
-- `node scripts/test_gallery_comment_vote_contract.mjs`
 - `node scripts/test_v1_decorator_inventory_contract.mjs`
 - `scripts/build_hvigor_signed.sh`
 - Local simulator `127.0.0.1:5555` screenshot:
@@ -628,7 +625,7 @@ Implementation note:
 - Implemented in `feature/gallery/src/main/ets/pages/GalleryCommentsPage.ets` as a bottom floating
   `CommentComposer()` for plain new comments and row replies. Own-comment edit intentionally remains on
   the existing sheet path to keep this lane narrow.
-- Contract: `scripts/test_gallery_comment_compose_contract.mjs`.
+- UI validation uses the signed build and captured device path.
 - Device evidence on local HarmonyOS emulator `127.0.0.1:5555`: comments page composer
   `.hvigor/outputs/comment-floating-composer/comments-final.jpeg`; reply mode with quoted preview
   `.hvigor/outputs/comment-floating-composer/comments-reply.jpeg`.
@@ -695,8 +692,6 @@ Implementation:
 
 Verification:
 
-- `node scripts/test_gallery_comment_reply_reference_contract.mjs`
-- `node scripts/test_gallery_comment_compose_contract.mjs`
 - `node scripts/test_gallery_comment_full_entry_contract.mjs`
 - `node scripts/test_v1_decorator_inventory_contract.mjs`
 - `scripts/build_hvigor_signed.sh`
@@ -774,9 +769,8 @@ Research:
 
 - `GalleryCommentsPage.applyVoteResult` already intends to replace the matching local comment with the
   returned `commentVote` and `commentScore`.
-- `scripts/test_gallery_comment_vote_contract.mjs` currently checks that intent at the source level, but it
-  does not prove the visible comment row re-renders the score badge and selected vote icon after a successful
-  vote.
+- Source inspection alone does not prove the visible comment row re-renders the score badge and selected
+  vote icon after a successful vote; that needs device-path evidence.
 - This means the next fix should treat the user report as a visible-state regression even if the network
   request and toast are successful.
 - Current NextE code only models two prompt/success states: `vote > 0` and `vote < 0`. That is insufficient
@@ -825,8 +819,6 @@ Acceptance shape:
 
 Verification:
 
-- `node scripts/test_gallery_comment_vote_contract.mjs`
-- `node scripts/test_gallery_comment_compose_contract.mjs`
 - `python3 scripts/check_i18n_duplicates.py`
 - `node scripts/test_v1_decorator_inventory_contract.mjs` -> `0 file(s)`
 - `scripts/build_hvigor_signed.sh` -> `BUILD SUCCESSFUL`

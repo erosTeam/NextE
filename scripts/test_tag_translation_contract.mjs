@@ -14,25 +14,12 @@ const suggestion = read('shared/src/main/ets/model/EhTagSuggestion.ets')
 const settingsState = read('shared/src/main/ets/state/TagTranslationSettingsState.ets')
 const settings = read('shared/src/main/ets/settings/TagTranslationSettings.ets')
 const settingsBootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
-const settingsPage = read('feature/settings/src/main/ets/pages/TagTranslationSettingsPage.ets')
-const layoutPage = read('feature/settings/src/main/ets/pages/LayoutSettingsPage.ets')
-const entryPage = read('entry/src/main/ets/pages/Index.ets')
 const vm = read('feature/search/src/main/ets/viewmodel/SearchViewModel.ets')
-const page = read('feature/search/src/main/ets/pages/GallerySearchPage.ets')
 const homeVm = read('feature/home/src/main/ets/viewmodel/GalleryListViewModel.ets')
 const detailVm = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets')
 const favVm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
 const constants = read('shared/src/main/ets/constants/EhConstants.ets')
-const galleryModel = read('shared/src/main/ets/model/EhGallery.ets')
 const simpleTagModel = read('shared/src/main/ets/model/SimpleTag.ets')
-const homeBody = read('feature/home/src/main/ets/components/GalleryListBody.ets')
-const homePage = read('feature/home/src/main/ets/components/GallerySourcePage.ets')
-const toplistPage = read('feature/home/src/main/ets/components/ToplistPeriodPage.ets')
-const favPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
-const detailPage = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
-const galleryCard = read('shared/src/main/ets/components/GalleryCard.ets')
-const waterfallCard = read('shared/src/main/ets/components/GalleryWaterfallCard.ets')
-const detailTagsCard = read('feature/gallery/src/main/ets/components/GalleryTagsCard.ets')
 
 assert.match(store, /relationalStore\.getRdbStore\(context, LOCAL_DATA_STORE_CONFIG\)/)
 assert.match(store, /CREATE TABLE IF NOT EXISTS tag_translations/)
@@ -117,24 +104,10 @@ assert.match(settingsBootstrap, /SecuritySettings\.restore\(context\)[\s\S]*sche
 assert.match(settings, /updateNow\(context: common\.UIAbilityContext, force: boolean = true\)/)
 assert.match(settings, /TagTranslationService\.updateFromLatestRelease\(context, state\.useCdn, force\)/)
 assert.match(settings, /TAG_TRANSLATION_UPDATE_EVERY_START[\s\S]*setTimeout\([\s\S]*TagTranslationSettings\.updateNow\(context, false\)/)
-assert.match(settingsPage, /export struct TagTranslationSettingsPage/)
-assert.match(settingsPage, /TagTranslationSettings\.setEnabled/)
-assert.match(settingsPage, /TagTranslationSettings\.updateNow\(this\.ctx\(\)\)/)
-assert.match(settingsPage, /tag_translation_update_mode/)
-assert.match(layoutPage, /this\.stack\.pushPathByName\('TagTranslationSettings', null\)/)
-assert.match(entryPage, /TagTranslationSettingsPage/)
-
 assert.match(vm, /const LOCAL_TAG_SUGGEST_LIMIT: number = 200/)
 assert.doesNotMatch(vm, /token\.indexOf\(':'\) >= 0/)
 assert.match(vm, /connectTagTranslationSettings\(\)\.enabled[\s\S]*TagTranslationService\.searchSuggestions\(context, token, LOCAL_TAG_SUGGEST_LIMIT\)[\s\S]*localRows\.length > 0[\s\S]*return[\s\S]*EhApiPhpService\.tagSuggest/)
 assert.match(vm, /tag_translation_suggest_failed/)
-assert.match(page, /suggestionNamespaceLabel\(namespace: string\): string \{[\s\S]*AppStrings\.get\('tag_ns_female'\)[\s\S]*return ns/)
-assert.match(page, /suggestionTitle\(s: EhTagSuggestion\)[\s\S]*this\.suggestionNamespaceLabel\(s\.namespace\)[\s\S]*this\.formatSuggestionQuery\(s\)/)
-assert.match(page, /suggestionSubtitle\(s: EhTagSuggestion\)[\s\S]*return query/)
-assert.match(page, /EhConstants\.exactTagSearchQuery\(s\.namespace, s\.text\)/)
-assert.match(page, /TagTranslationService\.touchSuggestion\(this\.ctx\(\), s\)/)
-assert.match(page, /this\.vm\.suggestionCount > 0[\s\S]*this\.SearchSuggestionView\(\)/)
-
 assert.match(homeVm, /setContext\(context: common\.UIAbilityContext\)/)
 assert.match(homeVm, /connectTagTranslationSettings\(\)\.enabled[\s\S]*TagTranslationService\.translateGalleries\(this\.context, rows\)/)
 assert.match(homeVm, /renderFirstPageRows\([\s\S]*list: GalleryList,[\s\S]*deferTranslation: boolean,[\s\S]*run: GalleryFirstPageRun[\s\S]*\): Promise<boolean>[\s\S]*connectTagTranslationSettings\(\)\.enabled && !deferTranslation[\s\S]*await this\.translateRows\(displayRows\)/)
@@ -154,33 +127,6 @@ assert.match(detailVm, /setContext\(context: common\.UIAbilityContext\)/)
 assert.match(detailVm, /TagTranslationService\.translateGalleryTags\(this\.context, gallery\)/)
 assert.match(detailVm, /this\.gallery = connectTagTranslationSettings\(\)\.enabled[\s\S]*this\.translateCachedGalleryLater\(this\.gallery, renderVersion, run\)/)
 assert.match(detailVm, /reapplyTagTranslation\(\): Promise<void>[\s\S]*source: EhGallery = this\.gallery[\s\S]*clearGalleryTranslations\(source\)/)
-assert.match(galleryModel, /renderKey\(\): string[\s\S]*tag\.translat/)
-assert.doesNotMatch(homeBody, /\(g: EhGallery\) => g\.gid/)
-assert.doesNotMatch(favPage, /\(g: EhGallery\) => g\.gid/)
-assert.doesNotMatch(page, /\(g: EhGallery\) => g\.gid/)
-assert.match(homeBody, /\(g: EhGallery\) => g\.renderKey\(\)/)
-assert.match(favPage, /\(g: EhGallery\) => g\.renderKey\(\)/)
-assert.match(page, /\(g: EhGallery\) => g\.renderKey\(\)/)
-assert.match(detailTagsCard, /tagGroupRenderKey\(tg: TagGroup\): string[\s\S]*tag\.translat/)
-assert.match(detailTagsCard, /this\.tagSig\.version[\s\S]*tg\.namespace[\s\S]*t\.text[\s\S]*t\.translat[\s\S]*t\.vote/)
-assert.match(detailTagsCard, /\(tg: TagGroup\) => this\.tagGroupRenderKey\(tg\)/)
-for (const src of [homePage, toplistPage, page, favPage, detailPage]) {
-  assert.match(src, /@Monitor\('tagTranslation\.enabled'\)[\s\S]*reapplyTagTranslation\(\)/)
-}
-for (const [name, source] of [
-  ['GalleryCard', galleryCard],
-  ['GalleryWaterfallCard', waterfallCard],
-  ['GalleryTagsCard', detailTagsCard],
-]) {
-  assert(
-    source.includes('connectTagTranslationSettings') &&
-      source.includes('@Local tagTranslation') &&
-      source.includes('tagLabel') &&
-      source.includes('this.tagTranslation.enabled ?'),
-    `${name} must render raw tag text immediately when tag translation is disabled`,
-  )
-}
-
 // Mirror the EhTagTranslation raw shape so this contract fails if the expected release JSON shape drifts.
 const sample = {
   data: [

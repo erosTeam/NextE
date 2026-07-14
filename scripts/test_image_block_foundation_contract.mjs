@@ -57,7 +57,6 @@ assert.match(repo, /pruneFileHashCacheIfNeeded\(store\)/, 'file pHash prune is b
 assert.match(store, /idx_image_block_hash_cache_recent/, 'file pHash cache has a recent-entry prune index')
 
 const runtime = read('shared/src/main/ets/services/ImageBlockRuntimeService.ets')
-const settingsPage = read('feature/settings/src/main/ets/pages/ImageBlockSettingsPage.ets')
 const backupTypes = read('shared/src/main/ets/backup/BackupTypes.ets')
 const backupAdapter = read('shared/src/main/ets/backup/BackupLocalDataAdapter.ets')
 const syncAdapter = read('shared/src/main/ets/sync/SyncLocalDataAdapter.ets')
@@ -69,9 +68,6 @@ assert.match(runtime, /EhApiService\.getInstance\(\)\.getGalleryDetail/, 'rule p
 assert.match(runtime, /getPreviewImages/, 'rule preview fetch can scan preview pages')
 assert.match(runtime, /rule\.previewPath = ''/, 'new local image rules do not store image preview content')
 assert.doesNotMatch(runtime, /previewDataReferenceForFile/, 'full-image local rules no longer store portable preview data')
-assert.match(settingsPage, /ImageBlockRuntimeService\.previewPathForRuleSource/, 'settings repairs missing previews from source metadata')
-assert.match(settingsPage, /rule\.previewPath\.startsWith\('data:image\/'\)[\s\S]*return ''/, 'settings ignores synced data URI preview payloads')
-assert.match(settingsPage, /fileIo\.statSync\(localPath\)\.size > 0/, 'settings can still use local preview files when present')
 assert.match(backupTypes, /imageBlock: BackupImageBlockSection/, 'backup carries image block rule metadata')
 assert.doesNotMatch(backupTypes, /previewPath/, 'backup image block entries do not carry preview image content')
 assert.match(backupAdapter, /rule\.previewPath = ''/, 'backup restore clears image block preview paths')

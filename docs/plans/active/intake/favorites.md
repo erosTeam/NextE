@@ -170,8 +170,8 @@ Implementation:
 
 Verification:
 
-- Deterministic: `node scripts/test_favcat_snapshot_contract.mjs` covers late favcat metadata arrival,
-  placeholder exclusion, and datasource replacement after slot resolution.
+- Late favcat metadata arrival and datasource replacement are validated through the signed build and
+  device path; the former source-shape contract is retired.
 - Related contracts also passed in this lane: favorites selector, remote favorite sheet, favcat color,
   local favorite toggle, retained subtab framework, V1 decorator inventory, i18n parity, and
   `git diff --check`.
@@ -296,9 +296,7 @@ Status, 2026-06-22: implemented / pending controller acceptance.
   `resolveVisibleFavoriteSlotsFrom(...)` path for already-rendered rows.
 - `GalleryListBody` monitors shared account favcat metadata and asks the VM to re-resolve visible rows
   when real favcat names/slots arrive after the list has rendered.
-- Verified: `node scripts/test_favcat_snapshot_contract.mjs`,
-  `node scripts/test_gallery_remote_favorite_sheet_contract.mjs`,
-  `node scripts/test_v1_decorator_inventory_contract.mjs`, `git diff --check`, official signed build,
+- Verified: `node scripts/test_v1_decorator_inventory_contract.mjs`, `git diff --check`, official signed build,
   and local emulator Home render smoke at `.hvigor/outputs/common-favcat-color/`.
 - Still pending: controller/device acceptance with a real Home/Popular row that initially has
   `favTitle` but empty `favcat`, proving the heart color updates in-process after real favcat metadata

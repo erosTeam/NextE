@@ -1,27 +1,22 @@
 #!/usr/bin/env node
 /**
- * Contract for the manual Cookie login/import path:
- *   entry/src/main/ets/pages/EhCookieImportPage.ets   (the paste-and-import screen)
- *   entry/src/main/ets/pages/Index.ets                (the 'EhCookieImport' route)
- *   feature/settings/src/main/ets/pages/SettingsPage.ets (the reachable entry row)
+ * Security and data-integrity contract for manual Cookie import.
  *
- * This is the SAFE manual fallback to the WebView login. The invariants it locks down:
- *   • Settings opens the AccountLogin chooser, which routes to EhCookieImport through Index;
- *   • it REUSES CookieJarSettings.parseCookieEntries/replaceFromHeader/save (no page-owned parser);
+ * The invariants it locks down:
  *   • required identity is ipb_member_id + ipb_pass_hash; a paste missing either is rejected and
  *     must NOT mutate/persist the jar (validate-before-apply);
  *   • the COMPLETE pasted header is applied (unknown donor/permission cookies preserved, not
  *     whitelist-dropped) — applyFromHeader already guarantees this (see cookie-roundtrip contract);
- *   • REDACTION: the page never logs the raw Cookie header or any cookie value, and never persists
- *     the pasted text anywhere except through CookieJarSettings; diagnostics carry counts/booleans;
- *   • the user-facing strings exist in all four locales.
+ *   • REDACTION: the import boundary never logs the raw Cookie header or persists the pasted text
+ *     outside CookieJarSettings;
+ *   • logout clears memory and WebView identity before deleting the persisted bundle.
  *
  * All cookie material below is built from short synthetic tokens via kv() so no real session
  * material — and no `name=value`-shaped literal — ever appears in source (keeps secret-safety green).
  * Run: node scripts/test_cookie_import_contract.mjs   (exit 1 on any failure)
  */
 import assert from 'node:assert'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -29,17 +24,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const src = (rel) => readFileSync(join(ROOT, rel), 'utf8')
 
 const PAGE = 'entry/src/main/ets/pages/EhCookieImportPage.ets'
-const INDEX = 'entry/src/main/ets/pages/Index.ets'
-const SETTINGS = 'feature/settings/src/main/ets/pages/SettingsPage.ets'
-const ACCOUNT_LOGIN = 'feature/settings/src/main/ets/pages/AccountLoginPage.ets'
-const ACCOUNT_PAGE = 'feature/settings/src/main/ets/pages/AccountPage.ets'
-const ACCOUNT_COOKIE_PAGE = 'feature/settings/src/main/ets/pages/AccountCookiePage.ets'
 const COOKIE_SETTINGS = 'shared/src/main/ets/settings/CookieJarSettings.ets'
-const AUTH_STATE = 'shared/src/main/ets/state/AuthState.ets'
-const USER_PROFILE = 'shared/src/main/ets/services/UserProfileService.ets'
-const PASSWORD_LOGIN = 'entry/src/main/ets/pages/EhPasswordLoginPage.ets'
-const ZH_STRINGS = 'entry/src/main/resources/zh_CN/element/string.json'
-const LOGIN_FLOW = 'shared/src/main/ets/navigation/LoginFlowNavigation.ets'
 
 let passed = 0
 const ok = (name, cond) => {
@@ -51,94 +36,7 @@ const eq = (name, got, want) => {
   passed++
 }
 
-// --- 1. Route + reachability: screen exists, routed in Index, reachable from Settings ---
-{
-  ok('EhCookieImportPage.ets exists', existsSync(join(ROOT, PAGE)))
-  const page = src(PAGE)
-  ok('page is a V2 component (no V1 decorators)', /@ComponentV2/.test(page))
-  ok('page declares struct EhCookieImportPage', /struct EhCookieImportPage/.test(page))
-
-  const index = src(INDEX)
-  ok('Index imports EhCookieImportPage', /import \{ EhCookieImportPage \}/.test(index))
-  ok("Index routes the 'EhCookieImport' family", /'ehCookieImport': wrapBuilder<\[\]>\(IndexEhCookieImportRoute\)/.test(index))
-
-  const settings = src(SETTINGS)
-  const accountLogin = src(ACCOUNT_LOGIN)
-  const accountPage = src(ACCOUNT_PAGE)
-  ok('Settings opens the account login chooser route', /openRootDetail\('AccountLogin'\)/.test(settings))
-  ok('Account login pushes the EhCookieImport route', /pushPathByName\('EhCookieImport'/.test(accountLogin))
-  ok('Account login keeps the WebView login route intact', /pushPathByName\('EhLogin'/.test(accountLogin))
-  ok('cookie import row is in the logged-out login chooser', /settings_login_cookie/.test(accountLogin))
-  ok('Cookie import success closes the whole login flow to Account', /closeLoginFlowToAccount\(this\.stack\)/.test(page) && /pushPathByName\('Account', null\)/.test(src(LOGIN_FLOW)))
-  ok('logout confirmation keeps cancel as primary button', /primaryButton:\s*\{[\s\S]*?common_cancel[\s\S]*?\}[\s\S]*?secondaryButton:/.test(accountPage))
-  ok('logout confirmation puts destructive account removal on secondary button', /secondaryButton:\s*\{[\s\S]*?settings_logout[\s\S]*?fontColor:\s*Color\.Red[\s\S]*?removeAndMaybeExit/.test(accountPage))
-}
-
-// --- 2. Reuse: the page delegates to CookieJarSettings, does not hand-roll a second parser ---
-{
-  const page = src(PAGE)
-  ok('page parses pasted text through CookieJarSettings.parseCookieEntries', /CookieJarSettings\.parseCookieEntries\(this\.cookieText\)/.test(page))
-  ok('page renders parsed cookies before confirmation', /CookiePreviewSection\(\)[\s\S]*?ForEach\(\s*this\.parsedCookies/.test(page))
-  ok('page reuses CookieJarSettings.replaceFromHeader', /CookieJarSettings\.replaceFromHeader\(/.test(page))
-  ok('page reuses CookieJarSettings.save', /CookieJarSettings\.save\(/.test(page))
-  ok('page best-effort refreshes active profile after cookie import',
-    /UserProfileService\.refreshAndSaveActive\(ctx\)/.test(page))
-  ok('page confirms only after required cookies exist', /canConfirmCookieImport\(\)[\s\S]*COOKIE_MEMBER_ID[\s\S]*COOKIE_PASS_HASH/.test(page))
-  // No bespoke cookie-jar mutation: the page must not poke EhCookieStore.set directly.
-  ok('page does NOT call EhCookieStore.set directly', !/EhCookieStore\s*[.(].*\.set\(/.test(page) && !/\.set\(\s*name/.test(page))
-}
-
-// --- 2b. Account switch UI mirrors non-sensitive active jar/profile state ---
-{
-  const authState = src(AUTH_STATE)
-  const cookieSettings = src(COOKIE_SETTINGS)
-  const accountPage = src(ACCOUNT_PAGE)
-  const accountCookiePage = src(ACCOUNT_COOKIE_PAGE)
-  const profileService = src(USER_PROFILE)
-  const passwordLogin = src(PASSWORD_LOGIN)
-  const zhStrings = src(ZH_STRINGS)
-
-  ok('AuthState carries only a non-sensitive cookie count mirror',
-    /@Trace\s+cookieCount:\s*number\s*=\s*0/.test(authState))
-  ok('CookieJarSettings syncs cookieCount from current jar entries',
-    /auth\.cookieCount\s*=\s*store\.entries\(\)\.length/.test(cookieSettings))
-  ok('Account page renders cookie summary from reactive AuthState cookieCount',
-    /account_cookie_count_format[\s\S]*this\.auth\.cookieCount/.test(accountPage))
-  ok('Account page does not render no-limit home.php responses as unavailable quota',
-    /imageQuotaText\(\): ResourceStr[\s\S]*this\.home\.hasImageLimits\(\)[\s\S]*return `\$\{this\.home\.currentLimit\} \/ \$\{this\.home\.totLimit\}`[\s\S]*this\.homeLoaded \? ''/.test(accountPage) &&
-      /imageQuotaSubtitle\(\): ResourceStr[\s\S]*this\.home\.hasUnlockCost\(\)[\s\S]*account_image_unlock_cost_format/.test(accountPage))
-  ok('Chinese high-resolution quota copy preserves IP limit and 24-hour unlock context',
-    zhStrings.includes('当前使用 IP 图片额度，暂无限制') &&
-      zhStrings.includes('解锁 24 小时账号高分辨率额度'))
-  ok('Account Cookie page reloads when active member or cookie count changes',
-    /@Local\s+auth:\s*AuthState\s*=\s*connectAuth\(\)/.test(accountCookiePage) &&
-      /@Monitor\('auth\.memberId', 'auth\.cookieCount'\)[\s\S]*this\.reload\(\)/.test(accountCookiePage))
-  ok('UserProfileService can load stored per-member profile snapshots',
-    /static async loadStoredProfile\([\s\S]*memberId: string[\s\S]*profileKey\(memberId\)/.test(profileService))
-  ok('UserProfileService can refresh, materialize, and save the active profile',
-    /static async refreshAndSaveActive\([\s\S]*refreshActive\([\s\S]*materializeAvatar\(context[\s\S]*saveActive\(context/.test(profileService))
-  ok('UserProfileService drops stale profile refreshes after account switches',
-    /user_profile_probe_stale/.test(profileService) &&
-      /UserProfileService\.matchesActiveRequest\(request\)/.test(profileService))
-  ok('Account page loads saved profiles for all visible account rows',
-    /@Local\s+accountProfiles:\s*AccountProfileSummary\[\]/.test(accountPage) &&
-      /loadAccountProfiles\(\)[\s\S]*UserProfileService\.loadStoredProfile\(this\.ctx\(\), memberId\)/.test(accountPage) &&
-      /accountTitle\(memberId: string\)[\s\S]*this\.accountProfile\(memberId\)/.test(accountPage) &&
-      /AccountAvatar\(\{[\s\S]*avatarUrl: this\.accountAvatarUrl\(memberId\)/.test(accountPage))
-  ok('account image-limit reset captures the confirming account and home action before opening its dialog',
-    /confirmResetImageLimits\(\): void[\s\S]*const accountKey: string = this\.activeAccountKey\(\)[\s\S]*const requestHome: EhHome = this\.home\.copy\(\)[\s\S]*resetImageLimits\(accountKey, requestHome\)/.test(accountPage))
-  ok('account image-limit reset keeps a single write scoped to its captured account',
-    /private resetImageLimits\(accountKey: string, requestHome: EhHome\): void[\s\S]*accountKey !== this\.activeAccountKey\(\)[\s\S]*this\.homeResettingKey = accountKey[\s\S]*resetImageLimits\(requestHome\)/.test(accountPage))
-  ok('account image-limit reset stores a stale response only for its origin account and never updates the active UI or toast',
-    /AccountDashboardCache\.putHome\(accountKey, home\)[\s\S]*if \(accountKey !== this\.activeAccountKey\(\)\) \{[\s\S]*return[\s\S]*\}[\s\S]*this\.home = home[\s\S]*if \(accountKey === this\.activeAccountKey\(\)\) \{[\s\S]*this\.toast\(\$r\('app\.string\.account_image_reset_failed'\)\)/.test(accountPage))
-  ok('account image-limit reset clears only its own pending marker and blocks same-account quota refreshes',
-    /loadHomeLimits\(\): void[\s\S]*this\.homeResetting && this\.homeResettingKey === key[\s\S]*finally\(\(\) => \{[\s\S]*if \(this\.homeResettingKey === accountKey\) \{[\s\S]*this\.homeResetting = false[\s\S]*this\.homeResettingKey = ''/.test(accountPage))
-  ok('password login path also attempts profile refresh before returning success',
-    /CookieJarSettings\.passwordLogin/.test(passwordLogin) &&
-      /passwordLogin\([\s\S]*UserProfileService\.refreshAndSaveActive\(context\)/.test(cookieSettings))
-}
-
-// --- 3. Redaction: never log the raw header / cookie values; never persist the pasted text ---
+// --- 1. Redaction: never log the raw header / cookie values; never persist the pasted text ---
 {
   const page = src(PAGE)
   // Every DiagnosticLogger.{info,warn,error} call's message arg must not interpolate the raw paste.
@@ -160,7 +58,7 @@ const eq = (name, got, want) => {
   ok('diagnostic logs parsed count, not values', /cookie_import_applied'[\s\S]*cookies=\$\{this\.parsedCookies\.length\}/.test(page))
 }
 
-// --- 4. Behavior mirror: validate-before-apply. Missing identity rejects WITHOUT mutating the jar. ---
+// --- 2. Behavior mirror: validate-before-apply. Missing identity rejects WITHOUT mutating the jar. ---
 {
   const NW = 'nw'
   const MEMBER = 'ipb_member_id'
@@ -217,7 +115,7 @@ const eq = (name, got, want) => {
   eq('nw is never stored', jarC.has(NW), false)
 }
 
-// --- 5. Logout safety: clear jar first, refresh UI immediately, then delete persisted bundle. ---
+// --- 3. Logout safety: clear jar first, refresh state immediately, then delete persisted bundle. ---
 {
   const cookieSettings = src(COOKIE_SETTINGS)
   ok('CookieJarSettings.clear clears the in-memory jar before persistence I/O', /static\s+async\s+clear[\s\S]*?EhCookieStore\.getInstance\(\)\.clear\(\)/.test(cookieSettings))
@@ -228,39 +126,4 @@ const eq = (name, got, want) => {
   ok('CookieJarSettings.clear deletes persisted cookie jar', /deleteSync\(StorageKeys\.COOKIE_JAR\)/.test(cookieSettings))
 }
 
-// --- 6. i18n: the import strings exist in all four locales ---
-{
-  const KEYS = [
-    'settings_login_cookie',
-    'cookie_import_title',
-    'cookie_import_hint',
-    'cookie_import_placeholder',
-    'cookie_import_submit',
-    'cookie_import_confirm',
-    'cookie_import_invalid',
-    'cookie_import_preview_title',
-    'cookie_import_preview_empty',
-    'cookie_import_preview_missing',
-    'cookie_import_preview_count',
-    'account_cookie_title',
-    'account_cookie_summary',
-    'account_cookie_count_format',
-    'account_cookie_ex_available',
-    'account_cookie_ex_locked',
-    'account_cookie_empty',
-    'account_cookie_copy',
-    'account_cookie_export',
-    'account_cookie_copied',
-    'account_cookie_copy_failed',
-    'account_cookie_exported',
-    'account_cookie_export_failed',
-  ]
-  const LOCALES = ['base', 'en_US', 'zh_CN', 'ja_JP']
-  for (const loc of LOCALES) {
-    const json = JSON.parse(src(`entry/src/main/resources/${loc}/element/string.json`))
-    const names = new Set(json.string.map((e) => e.name))
-    for (const k of KEYS) ok(`${loc} defines string "${k}"`, names.has(k))
-  }
-}
-
-console.log(`✓ cookie import contract: ${passed} assertions passed`)
+console.log(`✓ cookie import safety contract: ${passed} assertions passed`)

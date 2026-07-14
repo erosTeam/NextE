@@ -470,21 +470,8 @@ const ok = (name, cond) => {
   ok('1-based page label', resumePageLabel(4) === 5)
 }
 
-// 7. structural: the wiring exists in the .ets (reader writes + flushes; detail resumes)
+// 7. durable progress is restored at startup
 {
-  const readerSrc = readFileSync(
-    join(ROOT, 'feature/reader/src/main/ets/pages/ReaderPage.ets'),
-    'utf8',
-  )
-  ok('reader writes progress on page change', /GalleryReadProgressSettings\.setIndex\(/.test(readerSrc))
-  ok('reader writes per-gallery column mode from one-page action',
-    /GalleryReadProgressSettings\.setColumnMode\(this\.hostContext\(\), this\.params\.gid, columnMode\)/.test(readerSrc))
-  ok('reader flushes on close', /aboutToDisappear[\s\S]*GalleryReadProgressSettings\.flush\(/.test(readerSrc))
-  const detailSrc = readFileSync(
-    join(ROOT, 'feature/gallery/src/main/ets/pages/GalleryDetailPage.ets'),
-    'utf8',
-  )
-  ok('detail resumes at saved index', /openReader\(this\.resumeIndex\(\)\)/.test(detailSrc))
   const bootSrc = readFileSync(
     join(ROOT, 'shared/src/main/ets/settings/SettingsBootstrap.ets'),
     'utf8',

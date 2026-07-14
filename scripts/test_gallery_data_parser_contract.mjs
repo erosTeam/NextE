@@ -185,7 +185,6 @@ const read = (f) => readFileSync(join(ROOT, f), 'utf8')
 const PHP = read('shared/src/main/ets/network/EhApiPhpService.ets')
 const VM = read('feature/gallery/src/main/ets/viewmodel/GalleryDetailViewModel.ets')
 const PARAMS = read('shared/src/main/ets/model/RouteParams.ets')
-const DETAIL = read('feature/gallery/src/main/ets/pages/GalleryDetailPage.ets')
 const PARSER = read('shared/src/main/ets/parser/EhGalleryDataParser.ets')
 ok(PHP.includes('static async galleryData('), 'EhApiPhpService.galleryData exists')
 ok(PHP.includes('GDATA_BATCH: number = 25'), 'gdata batch cap = 25 (eros_fe splitList 25)')
@@ -196,10 +195,5 @@ ok(VM.includes('this.gallery.fileCount.length === 0'), 'VM gates enrich on absen
 ok(VM.includes('await this.enrichFromApi('), 'VM enrich-then-detail call')
 ok(VM.includes('EhApiPhpService.galleryData('), 'VM uses galleryData')
 ok(PARAMS.includes('fileCount: string'), 'GalleryDetailParams carries fileCount')
-ok(DETAIL.includes('seed.fileCount = p.fileCount'), 'detail seed carries fileCount')
-// Gallery rows must pass g.fileCount; sparse URL/deep-link opens must NOT.
-const listRowOpens = (read('feature/home/src/main/ets/components/GalleryListBody.ets').match(/new GalleryDetailParams\(\s*g\.gid,\s*g\.token,\s*g\.thumbUrl,\s*g\.title\(\),\s*g\.fileCount/g) || []).length
-ok(listRowOpens === 1, 'GalleryListBody list-row open passes g.fileCount')
-
 if (failures > 0) { console.error(`\n✗ gdata parser contract: ${failures} failure(s)`); process.exit(1) }
 console.log('\n✓ gdata parser contract passed')

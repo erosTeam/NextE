@@ -30,3 +30,11 @@ The agent ignored the project's existing contract-use limits while working on Re
 - For Reader loading feedback, validate by code review, i18n parity, V1 inventory, build, logs, and device/manual path evidence; do not add regex assertions for exact label expressions.
 - If a contract must change only because a legitimate new i18n key would make an old assertion false, make the smallest deletion or relaxation needed; do not add replacement implementation-shape assertions.
 - Report contract scope honestly: a contract can only protect a narrow invariant, not prove that the visible product behavior is acceptable.
+
+## 2026-07-15 Recurrence
+
+- A search-link UI change initially added page-source assertions and then repaired an existing regex to match a renamed local variable.
+- The assertions did not validate the user path; they only coupled the gate to `GallerySearchPage.ets` implementation shape.
+- A repository audit found 83 contract scripts, including many assertions over page/component layout, button placement, text keys, sheets, menus, and method names.
+- The corrective action is to delete pure UI contracts and remove UI/source-shape assertions from mixed contracts. Security, credential, remote-write, parser/protocol, persistence, signing, device-automation, and V1 boundaries remain eligible.
+- UI acceptance must use review, build, and device evidence. A legitimate UI refactor must never require repairing a regex gate to match the new implementation shape.

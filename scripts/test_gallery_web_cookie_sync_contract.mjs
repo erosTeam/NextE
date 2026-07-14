@@ -24,7 +24,6 @@ const ok = (name, cond) => {
 const webPage = read('entry/src/main/ets/pages/GalleryWebPage.ets')
 const settings = read('shared/src/main/ets/settings/CookieJarSettings.ets')
 
-ok('GalleryWebPage is a V2 component', /@ComponentV2[\s\S]*struct GalleryWebPage/.test(webPage))
 ok(
   'GalleryWebPage recognizes EH, EX, and forums as cookie-syncable hosts',
   /private shouldSyncWebCookies\(url: string\): boolean \{[\s\S]*EhConstants\.EH_BASE_URL[\s\S]*EhConstants\.EX_BASE_URL[\s\S]*this\.isForumsUrl\(url\)/.test(webPage),

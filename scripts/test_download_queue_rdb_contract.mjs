@@ -387,8 +387,7 @@ ok('duplicate archiver submit only suppresses download for a valid completed pac
   /let shouldDownload: boolean = true/.test(settings) &&
     /it\.status === DownloadGalleryTaskStatus\.COMPLETE[\s\S]*downloadedFileSize\(it\.filePath\) > 0[\s\S]*shouldDownload = false/.test(settings) &&
     /it\.status === DownloadGalleryTaskStatus\.DOWNLOADING[\s\S]*refreshed\.status = DownloadGalleryTaskStatus\.DOWNLOADING/.test(settings) &&
-    /return shouldDownload/.test(settings) &&
-    /const shouldDownload: boolean = await DownloadQueueSettings\.enqueueArchiver/.test(read('feature/gallery/src/main/ets/pages/GalleryArchiverPage.ets')))
+    /return shouldDownload/.test(settings))
 const enqueueGalleryBody = settings.match(/static async enqueueGallery[\s\S]*?\n  static async removeGallery/)?.[0] ?? ''
 const removeGalleryBody = settings.match(/static async removeGallery[\s\S]*?\n  static async pauseGalleryDownload/)?.[0] ?? ''
 const enqueueArchiverBody = settings.match(/static async enqueueArchiver[\s\S]*?\n  static async removeArchiver/)?.[0] ?? ''

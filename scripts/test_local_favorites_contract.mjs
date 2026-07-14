@@ -26,17 +26,6 @@ const storageKeys = read('shared/src/main/ets/constants/StorageKeys.ets')
 const bootstrap = read('shared/src/main/ets/settings/SettingsBootstrap.ets')
 const sharedIndex = read('shared/src/main/ets/Index.ets')
 const vm = read('feature/user/src/main/ets/viewmodel/FavoritesViewModel.ets')
-const page = read('feature/user/src/main/ets/pages/FavoritesPage.ets')
-const favcatPage = read('feature/user/src/main/ets/components/FavcatPage.ets')
-const bar = read('entry/src/main/ets/components/FavcatBar.ets')
-const index = read('entry/src/main/ets/pages/Index.ets')
-
-const locales = [
-  'entry/src/main/resources/base/element/string.json',
-  'entry/src/main/resources/en_US/element/string.json',
-  'entry/src/main/resources/zh_CN/element/string.json',
-  'entry/src/main/resources/ja_JP/element/string.json',
-]
 
 let passed = 0
 const ok = (name, cond) => {
@@ -124,30 +113,5 @@ ok('Local favorites loadMore is a no-op',
   /if \(this\.isLocalFavcat\(\) \|\| this\.isLoading/.test(vm))
 ok('Local favorites order changes are no-ops',
   /async applyOrder[\s\S]*if \(this\.isLocalFavcat\(\)\) \{[\s\S]*return/.test(vm))
-
-ok('FavoritesPage logged out key set is local only',
-  /if \(!this\.auth\.isLogin\) \{[\s\S]*return \['l'\]/.test(page))
-ok('FavoritesPage logged in key set includes local after remote slots',
-  /const keys: string\[\] = \['a'\][\s\S]*this\.favSel\.favList\.forEach[\s\S]*keys\.push\('l'\)/.test(page))
-ok('FavoritesPage passes an effective selected key to retained host',
-  /selectedKey: this\.effectiveSelectedFavcat\(\)/.test(page))
-ok('FavoritesPage no longer gates the whole tab with login error state',
-  !/PageErrorState\(\{[\s\S]*favorites_login_hint/.test(page))
-ok('FavcatPage reloads the retained local page when local favorites change',
-  /@Local localFav: LocalFavState = connectLocalFav\(\)/.test(favcatPage) &&
-  /@Monitor\('localFav\.items'\)[\s\S]*if \(this\.loadedOnce && this\.favcatKey === 'l'\) \{[\s\S]*await this\.vm\.load\(\)/.test(favcatPage))
-
-ok('FavcatBar logged out tab list is local only',
-  /if \(!this\.auth\.isLogin\) \{[\s\S]*new TabItem\('l', \$r\('app\.string\.favorites_local'\), this\.localFav\.count\(\), EhConstants\.favCatColor\('l'\)\)/.test(bar))
-ok('FavcatBar logged in tabs append local slot',
-  /items\.push\(new TabItem\('l', \$r\('app\.string\.favorites_local'\), this\.localFav\.count\(\), EhConstants\.favCatColor\('l'\)\)\)/.test(bar))
-ok('Index always pins the Favorites favcat bottomBuilder',
-  /content\['bottomBuilder'\] = this\.bottomBuilder\(this\.favcatBarContent\)[\s\S]*if \(this\.auth\.isLogin\) \{[\s\S]*content\['menu'\] = this\.favoritesMenu\(\)/.test(index))
-ok('Index does not expose remote favorites actions while logged out',
-  /if \(this\.auth\.isLogin\) \{[\s\S]*content\['menu'\] = this\.favoritesMenu\(\)[\s\S]*\} else \{[\s\S]*content\['menu'\] = this\.emptyMenu\(\)/.test(index))
-
-for (const file of locales) {
-  ok(`${file} defines favorites_local`, /"name": "favorites_local"/.test(read(file)))
-}
 
 console.log(`✓ local favorites contract: ${passed} assertions passed`)

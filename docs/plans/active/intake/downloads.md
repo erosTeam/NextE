@@ -80,8 +80,7 @@ Implementation:
 
 Evidence:
 
-- Deterministic contracts: `scripts/test_download_workbench_contract.mjs`,
-  `scripts/test_download_settings_contract.mjs`, `scripts/test_ui_quality_grounding_contract.mjs`.
+- UI validation: signed build plus device-path evidence; no source-shape UI contract.
 - Gates: `scripts/check_i18n_duplicates.py`, `scripts/test_v1_decorator_inventory_contract.mjs`,
   `git diff --check`, official signed Hvigor build.
 - Mate X7 emulator target `127.0.0.1:5555`, hdc outside sandbox, official signed HAP installed:
