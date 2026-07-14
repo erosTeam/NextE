@@ -212,6 +212,7 @@ export class TagTranslationService {
       context,
       galleries,
     )
+    const applyStartedAt: number = Date.now()
     const out: EhGallery[] = []
     for (let i = 0; i < galleries.length; i++) {
       const g: EhGallery = galleries[i].copy()
@@ -245,7 +246,9 @@ export class TagTranslationService {
     DiagnosticLogger.info(
       'tag-translation',
       'translate_galleries_done',
-      `galleries=${galleries.length} keys=${cache.size} translated=${translatedCount} ms=${Date.now() - startedAt}`,
+      `galleries=${galleries.length} keys=${cache.size} translated=${translatedCount} ` +
+        `lookupMs=${applyStartedAt - startedAt} applyMs=${Date.now() - applyStartedAt} ` +
+        `ms=${Date.now() - startedAt}`,
     )
     return out
   }

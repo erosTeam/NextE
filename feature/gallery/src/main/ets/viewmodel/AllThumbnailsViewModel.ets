@@ -17,7 +17,9 @@ import { AllThumbnailsTailAppend } from '../model/AllThumbnailsTailAppend'
  */
 @ObservedV2
 export class AllThumbnailsViewModel {
-  dataSource: BasicDataSource<EhGalleryImage> = new BasicDataSource<EhGalleryImage>()
+  dataSource: BasicDataSource<EhGalleryImage> = new BasicDataSource<EhGalleryImage>(
+    (image: EhGalleryImage): string => `${image.page}`,
+  )
   @Trace itemCount: number = 0
   @Trace loading: boolean = false
   @Trace error: string = ''

@@ -95,6 +95,11 @@ export class EhGallery {
   pageOfList: number = 0
   lastViewTime: number = 0
 
+  // LazyForEach may ask for the same key repeatedly while reconciling cached items. List-facing
+  // mutations replace the EhGallery object, so each immutable row instance can memoize its key.
+  // copy()/merge()/parser revival intentionally create a new instance and therefore a fresh cache.
+  private renderKeyCache: string = ''
+
   constructor(gid: string = '', token: string = '') {
     this.gid = gid
     this.token = token
@@ -137,20 +142,38 @@ export class EhGallery {
 
   /** LazyForEach identity must change when async tag translation fills display text. */
   renderKey(): string {
-    let key: string = `${this.gid}:${this.translated}`
+    if (this.renderKeyCache.length > 0) {
+      return this.renderKeyCache
+    }
+    let hash: number = 2166136261
+    hash = EhGallery.appendKeyHash(hash, this.gid)
+    hash = EhGallery.appendKeyHash(hash, ':')
+    hash = EhGallery.appendKeyHash(hash, this.translated)
     for (let i = 0; i < this.simpleTags.length; i++) {
       const tag: SimpleTag = this.simpleTags[i]
-      key = `${key}:${tag.namespace}:${tag.text}:${tag.siteLabel}:${tag.translat}`
+      hash = EhGallery.appendKeyHash(hash, ':')
+      hash = EhGallery.appendKeyHash(hash, tag.namespace)
+      hash = EhGallery.appendKeyHash(hash, ':')
+      hash = EhGallery.appendKeyHash(hash, tag.text)
+      hash = EhGallery.appendKeyHash(hash, ':')
+      hash = EhGallery.appendKeyHash(hash, tag.siteLabel)
+      hash = EhGallery.appendKeyHash(hash, ':')
+      hash = EhGallery.appendKeyHash(hash, tag.translat)
     }
     for (let i = 0; i < this.tagGroups.length; i++) {
       const group: TagGroup = this.tagGroups[i]
-      key = `${key}:${group.namespace}`
+      hash = EhGallery.appendKeyHash(hash, ':')
+      hash = EhGallery.appendKeyHash(hash, group.namespace)
       for (let j = 0; j < group.tags.length; j++) {
         const tag: SimpleTag = group.tags[j]
-        key = `${key}:${tag.text}:${tag.translat}`
+        hash = EhGallery.appendKeyHash(hash, ':')
+        hash = EhGallery.appendKeyHash(hash, tag.text)
+        hash = EhGallery.appendKeyHash(hash, ':')
+        hash = EhGallery.appendKeyHash(hash, tag.translat)
       }
     }
-    return `gallery_${EhGallery.safeKeyPart(this.gid)}_${EhGallery.keyHash(key)}`
+    this.renderKeyCache = `gallery_${EhGallery.safeKeyPart(this.gid)}_${(hash >>> 0).toString(36)}`
+    return this.renderKeyCache
   }
 
   private static safeKeyPart(value: string): string {
@@ -158,13 +181,12 @@ export class EhGallery {
     return safe.length > 0 ? safe : 'empty'
   }
 
-  private static keyHash(value: string): string {
-    let hash: number = 2166136261
+  private static appendKeyHash(hash: number, value: string): number {
     for (let i = 0; i < value.length; i++) {
       hash = hash ^ value.charCodeAt(i)
       hash = Math.imul(hash, 16777619)
     }
-    return (hash >>> 0).toString(36)
+    return hash
   }
 
   /**

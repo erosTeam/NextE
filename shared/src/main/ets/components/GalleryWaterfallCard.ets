@@ -3,11 +3,8 @@ import { EhGallery } from '../model/EhGallery'
 import { EhUsertag } from '../model/EhMytags'
 import { SimpleTag } from '../model/SimpleTag'
 import { connectSearchAction } from '../state/SearchActionState'
-import {
-  connectTagTranslationSettings,
-  TagTranslationSettingsState,
-} from '../state/TagTranslationSettingsState'
-import { connectUserTagSignal, UserTagSignal } from '../state/UserTagSignal'
+import { TagTranslationSettingsState } from '../state/TagTranslationSettingsState'
+import { UserTagSignal } from '../state/UserTagSignal'
 import { UserTagStore } from '../state/UserTagStore'
 import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhThumbnail } from './EhThumbnail'
@@ -46,8 +43,9 @@ export function galleryWaterfallReuseId(gallery: EhGallery): string {
 export struct GalleryWaterfallCard {
   @Require @Param gallery: EhGallery;
   @Param selected: boolean = false;
-  @Local tagSig: UserTagSignal = connectUserTagSignal();
-  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  // Page-owned shared signals avoid reconnecting AppStorageV2 for every prebuilt/reused card.
+  @Require @Param tagSig: UserTagSignal;
+  @Require @Param tagTranslation: TagTranslationSettingsState;
   private tagScroller: Scroller = new Scroller();
 
   private coverRatio(): number {
@@ -105,8 +103,7 @@ export struct GalleryWaterfallCard {
     return UserTagStore.getInstance().lookup(t.namespace, t.text)
   }
 
-  private chipBg(t: SimpleTag): ResourceColor {
-    const u: EhUsertag | undefined = this.userTagAtSnapshot(t, this.tagSig.version)
+  private chipBg(t: SimpleTag, u: EhUsertag | undefined): ResourceColor {
     if (u !== undefined && u.colorCode.length > 0) {
       return u.colorCode
     }
@@ -119,8 +116,7 @@ export struct GalleryWaterfallCard {
     return $r('sys.color.ohos_id_color_button_normal')
   }
 
-  private chipText(t: SimpleTag): ResourceColor {
-    const u: EhUsertag | undefined = this.userTagAtSnapshot(t, this.tagSig.version)
+  private chipText(t: SimpleTag, u: EhUsertag | undefined): ResourceColor {
     if (u !== undefined && u.textColor.length > 0) {
       return u.textColor
     }
@@ -142,11 +138,11 @@ export struct GalleryWaterfallCard {
   }
 
   @Builder
-  private TagChip(t: SimpleTag) {
+  private TagChip(t: SimpleTag, u: EhUsertag | undefined) {
     Text(this.tagLabel(t))
       .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-      .fontColor(this.chipText(t))
-      .backgroundColor(this.chipBg(t))
+      .fontColor(this.chipText(t, u))
+      .backgroundColor(this.chipBg(t, u))
       .borderRadius(ThemeConstants.LIST_TAG_RADIUS)
       .padding({ left: 6, right: 6, top: 3, bottom: 3 })
       .maxLines(1)
@@ -163,7 +159,10 @@ export struct GalleryWaterfallCard {
       ForEach(
         this.tagRowIndexes(remainder),
         (index: number) => {
-          this.TagChip(this.gallery.simpleTags[index])
+          this.TagChip(
+            this.gallery.simpleTags[index],
+            this.userTagAtSnapshot(this.gallery.simpleTags[index], this.tagSig.version),
+          )
         },
         (index: number) => `tag_row_${remainder}_${index}`,
       )

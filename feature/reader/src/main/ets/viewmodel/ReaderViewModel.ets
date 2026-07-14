@@ -85,7 +85,9 @@ class ReaderSessionSnapshot {
 export class ReaderViewModel {
   private static sessionCache: Map<string, ReaderSessionSnapshot> = new Map()
   private sessionRequests: ReaderSessionRequestGate = new ReaderSessionRequestGate()
-  pageIndexSource: BasicDataSource<number> = new BasicDataSource<number>()
+  pageIndexSource: BasicDataSource<number> = new BasicDataSource<number>(
+    (index: number): string => this.pageRenderKey(index),
+  )
   @Trace currentIndex: number = 0
   @Trace loadingMore: boolean = false
   @Trace jumping: boolean = false
@@ -296,6 +298,21 @@ export class ReaderViewModel {
 
   private notifyImagesChanged(index: number): void {
     this.notifyPreviewMapChanged([index])
+  }
+
+  /** Must stay identical to ReaderPage's LazyForEach keyGenerator for targeted CHANGE operations. */
+  pageRenderKey(index: number): string {
+    const image: EhGalleryImage = this.imageAt(index)
+    return `reader_${index}_page_${image.page}_${this.safeForEachKeyHash(image.sUrl)}`
+  }
+
+  private safeForEachKeyHash(value: string): string {
+    let hash: number = 2166136261
+    for (let i: number = 0; i < value.length; i++) {
+      hash = hash ^ value.charCodeAt(i)
+      hash = Math.imul(hash, 16777619)
+    }
+    return (hash >>> 0).toString(36)
   }
 
   /** The page-index source is stable; readers refresh only rows whose source URL changed. */

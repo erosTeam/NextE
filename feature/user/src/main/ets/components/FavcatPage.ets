@@ -42,6 +42,8 @@ import {
   connectGalleryRatingMutation,
   connectTagTranslationSettings,
   TagTranslationSettingsState,
+  connectUserTagSignal,
+  UserTagSignal,
   RootRefreshRegistry,
   LocalBlockState,
   connectLocalBlock,
@@ -85,6 +87,7 @@ export struct FavcatPage {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  @Local tagSig: UserTagSignal = connectUserTagSignal();
   @Local localBlock: LocalBlockState = connectLocalBlock();
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local listContentWidth: number = 0;
@@ -712,7 +715,12 @@ export struct FavcatPage {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryWaterfallCard({ gallery: g, selected: this.isGallerySelected(g) })
+                GalleryWaterfallCard({
+                  gallery: g,
+                  selected: this.isGallerySelected(g),
+                  tagSig: this.tagSig,
+                  tagTranslation: this.tagTranslation,
+                })
                   .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
               }
               .width('100%')

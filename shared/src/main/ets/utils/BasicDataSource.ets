@@ -9,6 +9,19 @@ export class BasicDataSource<T> implements IDataSource {
   private items: T[] = []
   private listeners: DataChangeListener[] = []
   private contentVersion: number = 0
+  private keyResolver: ((item: T) => string) | null = null
+
+  constructor(keyResolver: ((item: T) => string) | null = null) {
+    this.keyResolver = keyResolver
+  }
+
+  /** Override when a data source can provide the same stable key used by its LazyForEach. */
+  protected keyForData(item: T): string {
+    if (this.keyResolver === null) {
+      return ''
+    }
+    return this.keyResolver(item)
+  }
 
   totalCount(): number {
     return this.items.length
@@ -31,7 +44,7 @@ export class BasicDataSource<T> implements IDataSource {
   setData(items: T[]): void {
     this.items = items
     this.contentVersion = this.contentVersion + 1
-    this.notifyReload()
+    this.notifyDatasetChange([{ type: DataOperationType.RELOAD }])
   }
 
   /** Append a page; keep the backing array stable so long lists do not copy all old rows per page. */
@@ -44,9 +57,7 @@ export class BasicDataSource<T> implements IDataSource {
       this.items.push(items[i])
     }
     this.contentVersion = this.contentVersion + 1
-    this.listeners.forEach((l: DataChangeListener) => {
-      l.onDataAdd(start)
-    })
+    this.notifyAdded(start, items)
   }
 
   /** Prepend a page as real LazyForEach inserts, so List can preserve visible content position. */
@@ -56,11 +67,9 @@ export class BasicDataSource<T> implements IDataSource {
     }
     for (let i: number = items.length - 1; i >= 0; i--) {
       this.items.splice(0, 0, items[i])
-      this.listeners.forEach((l: DataChangeListener) => {
-        l.onDataAdd(0)
-      })
     }
     this.contentVersion = this.contentVersion + 1
+    this.notifyAdded(0, items)
   }
 
   /** Refresh one existing LazyForEach item without reloading the full data source. */
@@ -68,9 +77,15 @@ export class BasicDataSource<T> implements IDataSource {
     if (index < 0 || index >= this.items.length) {
       return
     }
-    this.listeners.forEach((l: DataChangeListener) => {
-      l.onDataChange(index)
-    })
+    const operation: DataChangeOperation = {
+      type: DataOperationType.CHANGE,
+      index: index,
+    }
+    const key: string = this.keyForData(this.items[index])
+    if (key.length > 0) {
+      operation.key = key
+    }
+    this.notifyDatasetChange([operation])
   }
 
   /** Replace one existing row and refresh only that LazyForEach item. */
@@ -91,16 +106,18 @@ export class BasicDataSource<T> implements IDataSource {
     }
     this.items.splice(index, 1)
     this.contentVersion = this.contentVersion + 1
-    this.listeners.forEach((l: DataChangeListener) => {
-      l.onDataDelete(index)
-    })
+    this.notifyDatasetChange([{
+      type: DataOperationType.DELETE,
+      index: index,
+      count: 1,
+    }])
     return true
   }
 
   clear(): void {
     this.items = []
     this.contentVersion = this.contentVersion + 1
-    this.notifyReload()
+    this.notifyDatasetChange([{ type: DataOperationType.RELOAD }])
   }
 
   registerDataChangeListener(listener: DataChangeListener): void {
@@ -116,9 +133,34 @@ export class BasicDataSource<T> implements IDataSource {
     }
   }
 
-  private notifyReload(): void {
+  private notifyAdded(index: number, items: T[]): void {
+    const operation: DataAddOperation = {
+      type: DataOperationType.ADD,
+      index: index,
+      count: items.length,
+    }
+    const keys: string[] = this.keysForData(items)
+    if (keys.length === items.length) {
+      operation.key = keys
+    }
+    this.notifyDatasetChange([operation])
+  }
+
+  private keysForData(items: T[]): string[] {
+    const keys: string[] = []
+    for (let i: number = 0; i < items.length; i++) {
+      const key: string = this.keyForData(items[i])
+      if (key.length === 0) {
+        return []
+      }
+      keys.push(key)
+    }
+    return keys
+  }
+
+  private notifyDatasetChange(operations: DataOperation[]): void {
     this.listeners.forEach((l: DataChangeListener) => {
-      l.onDataReloaded()
+      l.onDatasetChange(operations)
     })
   }
 }

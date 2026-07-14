@@ -1901,7 +1901,7 @@ export struct ReaderPage {
             this.ReaderPendingPage(index)
           }
         },
-        (index: number) => `reader_${index}_${this.readerImageIdentityKey(this.vm.imageAt(index))}`,
+        (index: number) => this.vm.pageRenderKey(index),
       )
     }
     .index(this.readerPagerIndex)
@@ -2235,7 +2235,7 @@ export struct ReaderPage {
           }
           .zIndex((this.vm.hasPreviewAt(index) && this.verticalZoomedPage === this.vm.imageAt(index).page) ? 1 : 0)
         },
-        (index: number) => `reader_${index}_${this.readerImageIdentityKey(this.vm.imageAt(index))}`,
+        (index: number) => this.vm.pageRenderKey(index),
       )
     }
     .width('100%')

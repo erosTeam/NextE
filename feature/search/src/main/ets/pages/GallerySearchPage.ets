@@ -46,6 +46,8 @@ import {
   SearchHistoryState,
   connectTagTranslationSettings,
   TagTranslationSettingsState,
+  connectUserTagSignal,
+  UserTagSignal,
   SearchHistorySettings,
   SearchFilterSettings,
   connectLayoutSafeArea,
@@ -87,6 +89,7 @@ export struct GallerySearchPage {
   @Local listMode: ListModeState = connectListMode();
   @Local history: SearchHistoryState = connectSearchHistory();
   @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
+  @Local tagSig: UserTagSignal = connectUserTagSignal();
   @Local layout: LayoutSafeAreaState = connectLayoutSafeArea();
   @Local favSel: FavSelectionState = connectFavSelection();
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
@@ -933,7 +936,11 @@ export struct GallerySearchPage {
                 this.vm.dataSource,
                 (g: EhGallery, index: number) => {
                   FlowItem() {
-                    GalleryWaterfallCard({ gallery: g })
+                    GalleryWaterfallCard({
+                      gallery: g,
+                      tagSig: this.tagSig,
+                      tagTranslation: this.tagTranslation,
+                    })
                       .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
                   }
                   .width('100%')

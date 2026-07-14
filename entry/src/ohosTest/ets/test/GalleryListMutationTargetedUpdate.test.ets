@@ -17,14 +17,21 @@ class RecordingDataChangeListener implements DataChangeListener {
   onDataMoved(_from: number, _to: number): void {}
   onDataMove(_from: number, _to: number): void {}
   onDataDeleted(_index: number): void {}
-  onDataDelete(index: number): void {
-    this.deletedIndexes.push(index)
-  }
+  onDataDelete(_index: number): void {}
   onDataChanged(_index: number): void {}
-  onDataChange(index: number): void {
-    this.changedIndexes.push(index)
+  onDataChange(_index: number): void {}
+  onDatasetChange(dataOperations: DataOperation[]): void {
+    for (let i: number = 0; i < dataOperations.length; i++) {
+      const operation: DataOperation = dataOperations[i]
+      if (operation.type === DataOperationType.RELOAD) {
+        this.reloadCount = this.reloadCount + 1
+      } else if (operation.type === DataOperationType.CHANGE) {
+        this.changedIndexes.push((operation as DataChangeOperation).index)
+      } else if (operation.type === DataOperationType.DELETE) {
+        this.deletedIndexes.push((operation as DataDeleteOperation).index)
+      }
+    }
   }
-  onDatasetChange(_dataOperations: DataOperation[]): void {}
 }
 
 function gallery(gid: string): EhGallery {

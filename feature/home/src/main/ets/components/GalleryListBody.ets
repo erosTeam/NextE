@@ -36,6 +36,10 @@ import {
   connectLayoutSafeArea,
   DiagnosticLogger,
   requestGalleryCoverRetry,
+  connectTagTranslationSettings,
+  TagTranslationSettingsState,
+  connectUserTagSignal,
+  UserTagSignal,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
@@ -65,6 +69,8 @@ export struct GalleryListBody {
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local favSel: FavSelectionState = connectFavSelection();
   @Local navStackHolder: NavStackHolder = connectNavStack();
+  @Local tagSig: UserTagSignal = connectUserTagSignal();
+  @Local tagTranslation: TagTranslationSettingsState = connectTagTranslationSettings();
   @Local listContentWidth: number = 0;
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
@@ -361,7 +367,12 @@ export struct GalleryListBody {
             this.vm.dataSource,
             (g: EhGallery, index: number) => {
               FlowItem() {
-                GalleryWaterfallCard({ gallery: g, selected: this.isGallerySelected(g) })
+                GalleryWaterfallCard({
+                  gallery: g,
+                  selected: this.isGallerySelected(g),
+                  tagSig: this.tagSig,
+                  tagTranslation: this.tagTranslation,
+                })
                   .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
               }
               .width('100%')

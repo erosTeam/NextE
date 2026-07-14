@@ -4,22 +4,32 @@ import { BasicDataSource, EhGalleryImage } from 'shared'
 
 class RecordingDataChangeListener implements DataChangeListener {
   addStarts: number[] = []
+  addCounts: number[] = []
   reloadCount: number = 0
 
   onDataReloaded(): void {
     this.reloadCount = this.reloadCount + 1
   }
   onDataAdded(_index: number): void {}
-  onDataAdd(index: number): void {
-    this.addStarts.push(index)
-  }
+  onDataAdd(_index: number): void {}
   onDataMoved(_from: number, _to: number): void {}
   onDataMove(_from: number, _to: number): void {}
   onDataDeleted(_index: number): void {}
   onDataDelete(_index: number): void {}
   onDataChanged(_index: number): void {}
   onDataChange(_index: number): void {}
-  onDatasetChange(_dataOperations: DataOperation[]): void {}
+  onDatasetChange(dataOperations: DataOperation[]): void {
+    for (let i: number = 0; i < dataOperations.length; i++) {
+      const operation: DataOperation = dataOperations[i]
+      if (operation.type === DataOperationType.RELOAD) {
+        this.reloadCount = this.reloadCount + 1
+      } else if (operation.type === DataOperationType.ADD) {
+        const add: DataAddOperation = operation as DataAddOperation
+        this.addStarts.push(add.index)
+        this.addCounts.push(add.count !== undefined ? add.count : 1)
+      }
+    }
+  }
 }
 
 function image(page: number, marker: string = ''): EhGalleryImage {
@@ -45,6 +55,7 @@ export default function allThumbnailsTailAppendTest(): void {
       expect(dataSource.getData(2).imgkey).assertEqual('before-copy')
       expect(listener.addStarts.length).assertEqual(1)
       expect(listener.addStarts[0]).assertEqual(2)
+      expect(listener.addCounts[0]).assertEqual(2)
       expect(listener.reloadCount).assertEqual(0)
       done()
     })
