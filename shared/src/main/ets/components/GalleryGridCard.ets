@@ -10,6 +10,31 @@ import {
 
 const COVER_META_PAD_X: number = 7
 const COVER_META_PAD_Y: number = 3
+// Keep this classification aligned with EhThumbnail.coverObjectFit(): Grid always supplies a positive
+// coverRatio, so only an extreme source aspect ratio adds the letterbox-background subtree.
+const GRID_REUSE_MIN_CONTAIN_SOURCE_RATIO: number = 0.8
+const GRID_REUSE_MAX_CONTAIN_SOURCE_RATIO: number = 2.2
+
+// Reuse only cards whose conditional subtree shape matches. `EhThumbnail` adds a background layer for
+// extreme source ratios, CoverMeta conditionally adds a heart, and the category badge conditionally adds
+// the translated-language text. Other gallery fields only update properties on an existing subtree.
+export function galleryGridReuseId(gallery: EhGallery): string {
+  let coverShape: string = 'cover'
+  if (gallery.imgWidth > 0 && gallery.imgHeight > 0) {
+    const sourceRatio: number = gallery.imgHeight / gallery.imgWidth
+    if (
+      sourceRatio <= GRID_REUSE_MIN_CONTAIN_SOURCE_RATIO ||
+      sourceRatio >= GRID_REUSE_MAX_CONTAIN_SOURCE_RATIO
+    ) {
+      coverShape = 'contain'
+    }
+  }
+  const favoriteShape: string = gallery.favcat.length > 0 || gallery.favTitle.length > 0
+    ? 'favorite'
+    : 'plain'
+  const languageShape: string = gallery.translated.length > 0 ? 'translated' : 'no_translation'
+  return `grid_${coverShape}_${favoriteShape}_${languageShape}`
+}
 
 /**
  * Compact cover-first card for ListMode.GRID.
@@ -17,6 +42,7 @@ const COVER_META_PAD_Y: number = 3
  * Grid is a fast browsing wall: fixed card rhythm, full-width cover, small category/language signal,
  * page/favorite overlay, then title + simple date/meta. Rich tags/ratings belong to Waterfall.
  */
+@ReusableV2
 @ComponentV2
 export struct GalleryGridCard {
   @Require @Param gallery: EhGallery;

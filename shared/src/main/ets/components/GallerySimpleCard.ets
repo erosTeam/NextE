@@ -7,12 +7,24 @@ import { RatingStars } from './RatingStars'
 const SIMPLE_THUMB_W: number = 72
 const SIMPLE_THUMB_H: number = 102
 
+// Reuse only rows with matching optional text/icon nodes. The thumbnail and rating subtree are otherwise
+// fixed for every simple row, and all gallery values arrive through @Param on reuse.
+export function gallerySimpleReuseId(gallery: EhGallery): string {
+  const uploaderShape: string = gallery.uploader.length > 0 ? 'uploader' : 'no_uploader'
+  const favoriteShape: string = gallery.favcat.length > 0 || gallery.favTitle.length > 0
+    ? 'favorite'
+    : 'plain'
+  const languageShape: string = gallery.translated.length > 0 ? 'translated' : 'no_translation'
+  return `simple_${uploaderShape}_${favoriteShape}_${languageShape}`
+}
+
 /**
  * Compact gallery row for ListMode.SIMPLE_LIST (eros_fe `GalleryItemSimpleWidget`): denser than
  * GalleryCard — smaller cover, no rounded card chrome, a hairline bottom divider instead of card
  * separation, and a tighter info column (title · uploader · rating/heart/lang/pages · category/time).
  * Read-only render of an EhGallery; the row onClick (navigation) is owned by the list.
  */
+@ReusableV2
 @ComponentV2
 export struct GallerySimpleCard {
   @Require @Param gallery: EhGallery;

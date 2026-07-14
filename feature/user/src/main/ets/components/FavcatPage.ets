@@ -3,11 +3,14 @@ import {
   EhGallery,
   GalleryCard,
   GalleryGridCard,
+  galleryGridReuseId,
   GalleryWaterfallCard,
   galleryWaterfallReuseId,
   requestGalleryCoverRetry,
   GalleryCoverWallCard,
+  galleryCoverWallReuseId,
   GallerySimpleCard,
+  gallerySimpleReuseId,
   GalleryDetailParams,
   PageErrorState,
   PageLoadingState,
@@ -643,6 +646,7 @@ export struct FavcatPage {
             (g: EhGallery, index: number) => {
               GridItem() {
                 GalleryGridCard({ gallery: g, selected: this.isGallerySelected(g) })
+                  .reuse({ reuseId: () => galleryGridReuseId(g) })
               }
               .onAppear(() => {
                 this.loadMoreIfTailAppeared(index)
@@ -777,6 +781,7 @@ export struct FavcatPage {
             (g: EhGallery, index: number) => {
               FlowItem() {
                 GalleryCoverWallCard({ gallery: g, selected: this.isGallerySelected(g) })
+                  .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
               }
               .width('100%')
               .onAppear(() => {
@@ -833,6 +838,7 @@ export struct FavcatPage {
               ListItem() {
                 if (this.listMode.mode === ListMode.SIMPLE_LIST) {
                   GallerySimpleCard({ gallery: g, selected: this.isGallerySelected(g) })
+                    .reuse({ reuseId: () => gallerySimpleReuseId(g) })
                 } else {
                   GalleryCard({
                     gallery: g,

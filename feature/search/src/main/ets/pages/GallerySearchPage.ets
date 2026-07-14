@@ -3,11 +3,14 @@ import {
   EhGallery,
   GalleryCard,
   GalleryGridCard,
+  galleryGridReuseId,
   GalleryWaterfallCard,
   galleryWaterfallReuseId,
   requestGalleryCoverRetry,
   GalleryCoverWallCard,
+  galleryCoverWallReuseId,
   GallerySimpleCard,
+  gallerySimpleReuseId,
   GalleryDetailParams,
   ReaderParams,
   EhUrlRouter,
@@ -862,6 +865,7 @@ export struct GallerySearchPage {
                 (g: EhGallery, index: number) => {
                   GridItem() {
                     GalleryGridCard({ gallery: g })
+                      .reuse({ reuseId: () => galleryGridReuseId(g) })
                   }
                   .onAppear(() => {
                     this.loadMoreIfTailAppeared(index)
@@ -1000,6 +1004,7 @@ export struct GallerySearchPage {
                 (g: EhGallery, index: number) => {
                   FlowItem() {
                     GalleryCoverWallCard({ gallery: g })
+                      .reuse({ reuseId: () => galleryCoverWallReuseId(g) })
                   }
                   .width('100%')
                   .onAppear(() => {
@@ -1059,6 +1064,7 @@ export struct GallerySearchPage {
                   ListItem() {
                     if (this.listMode.mode === ListMode.SIMPLE_LIST) {
                       GallerySimpleCard({ gallery: g })
+                        .reuse({ reuseId: () => gallerySimpleReuseId(g) })
                     } else {
                       GalleryCard({
                         gallery: g,

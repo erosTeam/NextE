@@ -10,9 +10,21 @@ import {
 const COVER_WALL_MIN_COVER_RATIO: number = 0.5
 const COVER_WALL_MAX_COVER_RATIO: number = 1.35
 
+// Reuse only cards with the same conditional image and badge subtrees. CoverWall always passes a
+// positive coverRatio; the only image-structure split is the extreme-tall Contain path.
+export function galleryCoverWallReuseId(gallery: EhGallery): string {
+  const sourceRatio: number = gallery.imgWidth > 0 && gallery.imgHeight > 0
+    ? gallery.imgWidth / gallery.imgHeight
+    : ThemeConstants.GALLERY_GRID_COVER_RATIO
+  const coverShape: string = sourceRatio < COVER_WALL_MIN_COVER_RATIO ? 'contain' : 'cover'
+  const languageShape: string = gallery.translated.length > 0 ? 'translated' : 'no_translation'
+  return `coverwall_${coverShape}_${languageShape}`
+}
+
 /**
  * Minimal cover wall card: WaterFlow rhythm with only the cover and category/language badge.
  */
+@ReusableV2
 @ComponentV2
 export struct GalleryCoverWallCard {
   @Require @Param gallery: EhGallery;
