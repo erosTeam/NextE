@@ -117,6 +117,7 @@ export struct GallerySearchPage {
 
   aboutToDisappear(): void {
     SearchFilterSettings.flush(this.ctx())
+    this.vm.dataSource.cancelQueuedCoverPrefetches()
     this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.OFFSET)
   }
 
@@ -783,6 +784,10 @@ export struct GallerySearchPage {
     }
   }
 
+  private onVisibleGalleryRange(start: number, end: number): void {
+    this.vm.dataSource.visibleAreaChanged(start, end)
+  }
+
   build() {
     HdsNavDestination() {
       Stack() {
@@ -831,6 +836,9 @@ export struct GallerySearchPage {
                 await this.vm.loadMore()
               },
               canStartBottomRefresh: () => this.vm.canLoadMore(),
+              onScrollIndex: (start: number, end: number) => {
+                this.onVisibleGalleryRange(start, end)
+              },
               onReachEnd: () => {
                 if (this.vm.canLoadMore()) {
                   this.vm.loadMore()
@@ -896,6 +904,9 @@ export struct GallerySearchPage {
                 await this.vm.loadMore()
               },
               canStartBottomRefresh: () => this.vm.canLoadMore(),
+              onScrollIndex: (start: number, end: number) => {
+                this.onVisibleGalleryRange(start, end)
+              },
               onReachEnd: () => {
                 if (this.vm.canLoadMore()) {
                   this.vm.loadMore()
@@ -963,6 +974,9 @@ export struct GallerySearchPage {
                 await this.vm.loadMore()
               },
               canStartBottomRefresh: () => this.vm.canLoadMore(),
+              onScrollIndex: (start: number, end: number) => {
+                this.onVisibleGalleryRange(start, end)
+              },
               onReachEnd: () => {
                 if (this.vm.canLoadMore()) {
                   this.vm.loadMore()
@@ -1016,6 +1030,8 @@ export struct GallerySearchPage {
               topPadding: SEARCH_FIELD_BOTTOM_HEIGHT,
               listSpace: this.listMode.mode === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
               bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+              itemCount: this.vm.itemCount,
+              normalizeContentIndexes: true,
               controller: this.refreshController,
               onRefresh: async () => {
                 requestGalleryCoverRetry()
@@ -1025,6 +1041,9 @@ export struct GallerySearchPage {
                 await this.vm.loadMore()
               },
               canStartBottomRefresh: () => this.vm.canLoadMore(),
+              onScrollIndex: (start: number, end: number, _center: number) => {
+                this.onVisibleGalleryRange(start, end)
+              },
               onReachEnd: () => {
                 if (this.vm.canLoadMore()) {
                   this.vm.loadMore()

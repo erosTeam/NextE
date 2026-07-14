@@ -6,6 +6,8 @@ import {
   HeaderOptions,
   ImageKnife,
   ImageKnifeOptionV2,
+  ImageKnifeRequest,
+  ImageInfo,
   Priority,
 } from '@ohos/imageknifepro'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
@@ -31,6 +33,16 @@ const IMAGEKNIFE_READER_FILE_CACHE_COUNT: number = 384
 const IMAGEKNIFE_READER_FILE_CACHE_BYTES: number = 256 * 1024 * 1024
 const IMAGEKNIFE_READER_CONNECT_TIMEOUT_MS: number = 6000
 const IMAGEKNIFE_READER_READ_TIMEOUT_MS: number = 60000
+
+/**
+ * Lifecycle callbacks for a low-priority preload request. These deliberately describe request
+ * dispatch only; visible image components keep their existing loading/error lifecycle.
+ */
+export class ImageKnifePreloadCallbacks {
+  onStart?: () => void
+  onSettled?: () => void
+}
+
 export class ImageKnifeProRuntime {
   private static initialized: boolean = false
 
@@ -134,27 +146,75 @@ export class ImageKnifeProRuntime {
     }
   }
 
-  static preload(url: string, priority: number = EH_IMAGE_PRIORITY_LOW): void {
+  static preload(
+    url: string,
+    priority: number = EH_IMAGE_PRIORITY_LOW,
+    fileCacheOnly: boolean = false,
+    callbacks?: ImageKnifePreloadCallbacks,
+  ): ImageKnifeRequest | null {
     if (url.length === 0 || !ImageKnifeProRuntime.initialized) {
-      return
+      return null
     }
     try {
       const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
       option.loadSrc = url
       option.headerOption = ImageKnifeProRuntime.defaultHeaders()
-      option.writeCacheStrategy = CacheStrategy.DEFAULT
+      option.writeCacheStrategy = fileCacheOnly ? CacheStrategy.FILE : CacheStrategy.DEFAULT
       option.priority = ImageKnifeProRuntime.priorityFromNumber(priority)
       option.httpOption = {
         connectTimeout: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
         readTimeout: EH_THUMBNAIL_READ_TIMEOUT_MS,
       }
-      ImageKnife.getInstance().preload(option)
+      let settled: boolean = false
+      const settle = (): void => {
+        if (settled) {
+          return
+        }
+        settled = true
+        if (callbacks !== undefined && callbacks.onSettled !== undefined) {
+          callbacks.onSettled()
+        }
+      }
+      if (callbacks !== undefined) {
+        option.onLoadListener = {
+          onLoadStart: (_imageInfo: ImageInfo) => {
+            if (callbacks.onStart !== undefined) {
+              callbacks.onStart()
+            }
+          },
+          onLoadSuccess: (_imageInfo: ImageInfo) => {
+            settle()
+          },
+          onLoadFailed: (_error: string, _imageInfo: ImageInfo) => {
+            settle()
+          },
+          onLoadCancel: (_reason: string, _imageInfo: ImageInfo) => {
+            settle()
+          },
+        }
+      }
+      return ImageKnife.getInstance().preload(option)
     } catch (error) {
       DiagnosticLogger.warn(
         'imageknife',
         'preload_failed',
         `urlHash=${DiagnosticLogger.ownerHash(url)} error=${(error as Error).message}`,
       )
+      return null
+    }
+  }
+
+  /**
+   * Vendor requests are safe to cancel only before the preload starts. Callers own that boundary.
+   */
+  static cancelPreload(request: ImageKnifeRequest): void {
+    if (!ImageKnifeProRuntime.initialized) {
+      return
+    }
+    try {
+      ImageKnife.getInstance().cancel(request)
+    } catch (error) {
+      DiagnosticLogger.warn('imageknife', 'preload_cancel_failed', (error as Error).message)
     }
   }
 

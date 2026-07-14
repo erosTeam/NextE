@@ -1,6 +1,5 @@
 import {
   ThemeConstants,
-  EhConstants,
   EhGallery,
   GalleryCard,
   GalleryGridCard,
@@ -33,13 +32,9 @@ import {
   LayoutSafeAreaState,
   connectLayoutSafeArea,
   DiagnosticLogger,
-  ImagePipelineService,
   requestGalleryCoverRetry,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
-
-const COVER_PRELOAD_AHEAD_COUNT: number = 4
-const COVER_PRELOAD_REMEMBER_LIMIT: number = 96
 
 /**
  * The shared gallery-list body (loading / error / empty / grid / list / simple branches + paging),
@@ -71,7 +66,6 @@ export struct GalleryListBody {
   private layout: LayoutSafeAreaState = connectLayoutSafeArea();
   private stack: NavPathStack = connectNavStack().stack;
   private refreshController: PullRefreshController = new PullRefreshController();
-  private preloadedCoverUrls: string[] = [];
 
   // Re-tapping the active bottom tab refreshes this list: the nav shell looks the action up by this list's
   // Scroller (it tracks each tab's active sub-tab Scroller) and fires it. Used by Gallery + Toplist tabs.
@@ -83,6 +77,7 @@ export struct GalleryListBody {
 
   aboutToDisappear(): void {
     RootRefreshRegistry.unregister(this.scroller)
+    this.vm.dataSource.cancelQueuedCoverPrefetches()
   }
 
   @Monitor('favoriteMutation.version')
@@ -204,27 +199,10 @@ export struct GalleryListBody {
 
   private onGalleryAppear(index: number): void {
     this.loadMoreIfTailAppeared(index)
-    this.preloadCoversAhead(index)
   }
 
-  private preloadCoversAhead(index: number): void {
-    const end: number = Math.min(this.vm.itemCount, index + COVER_PRELOAD_AHEAD_COUNT + 1)
-    for (let i: number = index + 1; i < end; i++) {
-      const gallery: EhGallery = this.vm.dataSource.getData(i)
-      const url: string = EhConstants.cdnThumb(gallery.thumbUrl)
-      if (url.length === 0 || this.preloadedCoverUrls.indexOf(url) >= 0) {
-        continue
-      }
-      this.rememberPreloadedCover(url)
-      ImagePipelineService.preloadCover(url)
-    }
-  }
-
-  private rememberPreloadedCover(url: string): void {
-    this.preloadedCoverUrls.push(url)
-    if (this.preloadedCoverUrls.length > COVER_PRELOAD_REMEMBER_LIMIT) {
-      this.preloadedCoverUrls.splice(0, this.preloadedCoverUrls.length - COVER_PRELOAD_REMEMBER_LIMIT)
-    }
+  private onVisibleGalleryRange(start: number, end: number): void {
+    this.vm.dataSource.visibleAreaChanged(start, end)
   }
 
   private reportUserScroll(): void {
@@ -278,6 +256,9 @@ export struct GalleryListBody {
             await this.vm.loadMore()
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onScrollIndex: (start: number, end: number) => {
+            this.onVisibleGalleryRange(start, end)
+          },
           onReachEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()
@@ -343,6 +324,9 @@ export struct GalleryListBody {
             await this.vm.loadMore()
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onScrollIndex: (start: number, end: number) => {
+            this.onVisibleGalleryRange(start, end)
+          },
           onReachEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()
@@ -410,6 +394,9 @@ export struct GalleryListBody {
             await this.vm.loadMore()
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onScrollIndex: (start: number, end: number) => {
+            this.onVisibleGalleryRange(start, end)
+          },
           onReachEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()
@@ -460,6 +447,8 @@ export struct GalleryListBody {
           topPadding: this.topPadding,
           listSpace: this.effectiveMode() === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+          itemCount: this.vm.itemCount,
+          normalizeContentIndexes: true,
           controller: this.refreshController,
           onRefresh: async () => {
             requestGalleryCoverRetry()
@@ -471,6 +460,9 @@ export struct GalleryListBody {
             await this.vm.loadMore()
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onScrollIndex: (start: number, end: number, _center: number) => {
+            this.onVisibleGalleryRange(start, end)
+          },
           onReachEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()

@@ -152,6 +152,7 @@ export struct FavcatPage {
 
   aboutToDisappear(): void {
     RootRefreshRegistry.unregister(this.scroller)
+    this.vm.dataSource.cancelQueuedCoverPrefetches()
   }
 
   // Host's @Trace activeKey reaches cached pages, so first activation (tap or swipe) fires reliably.
@@ -563,6 +564,10 @@ export struct FavcatPage {
     }
   }
 
+  private onVisibleGalleryRange(start: number, end: number): void {
+    this.vm.dataSource.visibleAreaChanged(start, end)
+  }
+
   build() {
     Column() {
       if (
@@ -604,6 +609,9 @@ export struct FavcatPage {
             await this.vm.loadMore()
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onScrollIndex: (start: number, end: number) => {
+            this.onVisibleGalleryRange(start, end)
+          },
           onReachEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()
@@ -667,6 +675,9 @@ export struct FavcatPage {
             await this.vm.loadMore()
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onScrollIndex: (start: number, end: number) => {
+            this.onVisibleGalleryRange(start, end)
+          },
           onReachEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()
@@ -732,6 +743,9 @@ export struct FavcatPage {
             await this.vm.loadMore()
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onScrollIndex: (start: number, end: number) => {
+            this.onVisibleGalleryRange(start, end)
+          },
           onReachEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()
@@ -782,6 +796,8 @@ export struct FavcatPage {
           listSpace: this.listMode.mode === ListMode.SIMPLE_LIST ? 0 : ThemeConstants.SPACE_SM,
           topPadding: SELECTOR_BAR_HEIGHT,
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
+          itemCount: this.vm.itemCount,
+          normalizeContentIndexes: true,
           controller: this.refreshController,
           onRefresh: async () => {
             requestGalleryCoverRetry()
@@ -791,6 +807,9 @@ export struct FavcatPage {
             await this.vm.loadMore()
           },
           canStartBottomRefresh: () => this.vm.canLoadMore(),
+          onScrollIndex: (start: number, end: number, _center: number) => {
+            this.onVisibleGalleryRange(start, end)
+          },
           onReachEnd: () => {
             if (this.vm.canLoadMore()) {
               this.vm.loadMore()

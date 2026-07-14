@@ -12,7 +12,7 @@ import {
   FavcatSlotResolver,
   FavcatSlotResolveResult,
   EhConstants,
-  BasicDataSource,
+  GalleryCoverPrefetchDataSource,
   connectSiteMode,
   connectSearchFilter,
   SearchFilterState,
@@ -34,7 +34,7 @@ const LOCAL_TAG_SUGGEST_LIMIT: number = 200
  */
 @ObservedV2
 export class SearchViewModel {
-  dataSource: BasicDataSource<EhGallery> = new BasicDataSource<EhGallery>()
+  dataSource: GalleryCoverPrefetchDataSource = new GalleryCoverPrefetchDataSource()
   @Trace itemCount: number = 0
   @Trace isLoading: boolean = false
   @Trace isLoadingMore: boolean = false

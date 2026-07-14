@@ -9,7 +9,7 @@ import {
   FavcatSlotResolveResult,
   TagTranslationService,
   connectTagTranslationSettings,
-  BasicDataSource,
+  GalleryCoverPrefetchDataSource,
   connectFavSelection,
   connectSiteMode,
   DiagnosticLogger,
@@ -67,7 +67,7 @@ export class GalleryListViewModel {
   private static nextDebugId: number = 1
   private debugId: number = GalleryListViewModel.nextDebugId++
   // Stable ref; LazyForEach subscribes to its listeners directly, so NOT @Trace.
-  dataSource: BasicDataSource<EhGallery> = new BasicDataSource<EhGallery>()
+  dataSource: GalleryCoverPrefetchDataSource = new GalleryCoverPrefetchDataSource()
   @Trace itemCount: number = 0
   @Trace isLoading: boolean = false
   @Trace isLoadingMore: boolean = false

@@ -3,8 +3,9 @@ import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { CacheStat } from './CacheStat'
 import { CachedImageFileResult, CachedImageFileService, CachedImageProgress } from './CachedImageFileService'
 import { ImageBlockPreviewCacheService } from './ImageBlockPreviewCacheService'
-import { ImageKnifeProRuntime } from './ImageKnifeProRuntime'
+import { ImageKnifePreloadCallbacks, ImageKnifeProRuntime } from './ImageKnifeProRuntime'
 import { EH_IMAGE_PRIORITY_LOW } from './ImagePipelineTypes'
+import { ImageKnifeRequest } from '@ohos/imageknifepro'
 import { ReaderImageFileCacheService } from './ReaderImageFileCacheService'
 import { ReaderImageCacheSettings } from '../settings/ReaderImageCacheSettings'
 
@@ -21,8 +22,17 @@ export class ImagePipelineService {
     ImageKnifeProRuntime.reloadOnForeground()
   }
 
-  static preloadCover(url: string, priority: number = EH_IMAGE_PRIORITY_LOW): void {
-    ImageKnifeProRuntime.preload(url, priority)
+  static preloadCover(
+    url: string,
+    priority: number = EH_IMAGE_PRIORITY_LOW,
+    fileCacheOnly: boolean = false,
+    callbacks?: ImageKnifePreloadCallbacks,
+  ): ImageKnifeRequest | null {
+    return ImageKnifeProRuntime.preload(url, priority, fileCacheOnly, callbacks)
+  }
+
+  static cancelCoverPreload(request: ImageKnifeRequest): void {
+    ImageKnifeProRuntime.cancelPreload(request)
   }
 
   static async preloadReaderFile(

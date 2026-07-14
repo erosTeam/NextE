@@ -3,7 +3,7 @@ import {
   EhGallery,
   GalleryList,
   FavoritesQuery,
-  BasicDataSource,
+  GalleryCoverPrefetchDataSource,
   Favcat,
   FavSelectionState,
   FavcatSlotResolver,
@@ -39,7 +39,7 @@ class FavoritesFirstPageRun {
  */
 @ObservedV2
 export class FavoritesViewModel {
-  dataSource: BasicDataSource<EhGallery> = new BasicDataSource<EhGallery>()
+  dataSource: GalleryCoverPrefetchDataSource = new GalleryCoverPrefetchDataSource()
   @Trace itemCount: number = 0
   @Trace isLoading: boolean = false
   @Trace isLoadingMore: boolean = false

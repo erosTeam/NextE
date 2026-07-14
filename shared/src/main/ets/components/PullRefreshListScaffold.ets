@@ -16,6 +16,10 @@ export struct PullRefreshListScaffold {
   @Param horizontalPadding: number = ThemeConstants.SPACE_MD
   @Param topPadding: number = 0
   @Param bottomPadding: number = ThemeConstants.SPACE_XL
+  // Number of real list rows, excluding the top/bottom reserve ListItems owned by this scaffold.
+  @Param itemCount: number = 0
+  // Gallery callers opt in because they need indexes consistent with Grid/WaterFlow scaffolds.
+  @Param normalizeContentIndexes: boolean = false
   @Param indicatorTop: number = -1
   @Param scrollEnabled: boolean = true
   // Defaults to ArkUI's API 18+ vertical behavior. Wide gallery detail passes an explicit owner gate.
@@ -95,8 +99,11 @@ export struct PullRefreshListScaffold {
         }
       })
       .onScrollIndex((start: number, end: number, center: number) => {
+        const adjustedStart: number = this.normalizeContentIndexes ? this.galleryIndex(start) : start
+        const adjustedEnd: number = this.normalizeContentIndexes ? this.galleryIndex(end) : end
+        const adjustedCenter: number = this.normalizeContentIndexes ? this.galleryIndex(center) : center
         if (this.onScrollIndex) {
-          this.onScrollIndex(start, end, center)
+          this.onScrollIndex(adjustedStart, adjustedEnd, adjustedCenter)
         }
         if (this.onDidScroll) {
           this.onDidScroll(this.scroller.currentOffset().yOffset, ScrollState.Scroll)
@@ -129,6 +136,19 @@ export struct PullRefreshListScaffold {
       return this.indicatorTop
     }
     return this.layout.topAvoidHeight + ThemeConstants.TITLE_BAR_HEIGHT / 2 + this.topPadding
+  }
+
+  // Native List indexes include this scaffold's top reserve at 0 and the bottom reserve after the
+  // final gallery. Consumers receive only the real gallery range, matching Grid/WaterFlow scaffolds.
+  private galleryIndex(rawIndex: number): number {
+    const index: number = rawIndex - 1
+    if (index < 0) {
+      return 0
+    }
+    if (this.itemCount > 0 && index >= this.itemCount) {
+      return this.itemCount - 1
+    }
+    return index
   }
 
   private maybeLoadOnTailAppear(): void {
