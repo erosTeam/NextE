@@ -11,7 +11,7 @@ export class SiteModeState {
   @Trace isEx: boolean = false
 }
 
-const SITE_MODE_KEY: string = 'v2:siteMode'
+const SITE_MODE_KEY: string = 'v2_siteMode'
 
 export function connectSiteMode(): SiteModeState {
   return AppStorageV2.connect(SiteModeState, SITE_MODE_KEY, () => new SiteModeState())!

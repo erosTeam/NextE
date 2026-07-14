@@ -11,7 +11,7 @@ export class ViewedHistoryState {
   @Trace items: ViewedGallery[] = []
 }
 
-const VIEWED_HISTORY_KEY: string = 'v2:viewedHistory'
+const VIEWED_HISTORY_KEY: string = 'v2_viewedHistory'
 
 export function connectViewedHistory(): ViewedHistoryState {
   return AppStorageV2.connect(ViewedHistoryState, VIEWED_HISTORY_KEY, () => new ViewedHistoryState())!

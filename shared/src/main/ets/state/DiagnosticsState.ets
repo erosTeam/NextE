@@ -6,7 +6,7 @@ export class DiagnosticsState {
   @Trace minLevel: string = 'info'
 }
 
-const DIAGNOSTICS_STATE_KEY: string = 'v2:diagnostics'
+const DIAGNOSTICS_STATE_KEY: string = 'v2_diagnostics'
 
 export function connectDiagnostics(): DiagnosticsState {
   return AppStorageV2.connect(

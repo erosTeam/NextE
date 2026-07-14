@@ -73,7 +73,7 @@ export class GalleryDetailBackToTopState {
   }
 }
 
-const GALLERY_DETAIL_BACK_TO_TOP_KEY: string = 'v2:galleryDetailBackToTop'
+const GALLERY_DETAIL_BACK_TO_TOP_KEY: string = 'v2_galleryDetailBackToTop'
 
 /** Returns the app-wide, non-persistent wide-detail back-to-top coordinator. */
 export function connectGalleryDetailBackToTop(): GalleryDetailBackToTopState {

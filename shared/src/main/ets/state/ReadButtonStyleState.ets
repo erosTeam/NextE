@@ -9,7 +9,7 @@ export class ReadButtonStyleState {
   @Trace style: string = READ_BUTTON_STYLE_FILLED
 }
 
-const READ_BUTTON_STYLE_KEY: string = 'v2:readButtonStyle'
+const READ_BUTTON_STYLE_KEY: string = 'v2_readButtonStyle'
 
 export function connectReadButtonStyle(): ReadButtonStyleState {
   return AppStorageV2.connect(

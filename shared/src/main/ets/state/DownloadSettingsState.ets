@@ -33,7 +33,7 @@ export class DownloadSettingsState {
   @Trace archiveBotBalanceUpdatedAt: number = 0
 }
 
-const DOWNLOAD_SETTINGS_KEY: string = 'v2:downloadSettings'
+const DOWNLOAD_SETTINGS_KEY: string = 'v2_downloadSettings'
 
 export function connectDownloadSettings(): DownloadSettingsState {
   return AppStorageV2.connect(

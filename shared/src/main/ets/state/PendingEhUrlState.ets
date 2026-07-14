@@ -13,7 +13,7 @@ export class PendingEhUrlState {
   @Trace signal: string = ''
 }
 
-const PENDING_EH_URL_KEY: string = 'v2:pendingEhUrl'
+const PENDING_EH_URL_KEY: string = 'v2_pendingEhUrl'
 
 export function connectPendingEhUrl(): PendingEhUrlState {
   return AppStorageV2.connect(PendingEhUrlState, PENDING_EH_URL_KEY, () => new PendingEhUrlState())!

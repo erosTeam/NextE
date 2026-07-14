@@ -17,7 +17,9 @@ export class TagTranslationSettingsState {
   @Trace rowCount: number = 0
 }
 
-const TAG_TRANSLATION_SETTINGS_KEY: string = 'v2:tagTranslationSettings'
+// AppStorageV2 keys accept only letters, digits, and underscores. This state is connected by every
+// rich gallery card, so an invalid key would also emit repeated state-management warnings while scrolling.
+const TAG_TRANSLATION_SETTINGS_KEY: string = 'v2_tagTranslationSettings'
 
 export function connectTagTranslationSettings(): TagTranslationSettingsState {
   return AppStorageV2.connect(

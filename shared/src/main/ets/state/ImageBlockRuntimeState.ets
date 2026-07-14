@@ -5,7 +5,7 @@ export class ImageBlockRuntimeState {
   @Trace signal: string = ''
 }
 
-const IMAGE_BLOCK_RUNTIME_KEY: string = 'v2:imageBlockRuntime'
+const IMAGE_BLOCK_RUNTIME_KEY: string = 'v2_imageBlockRuntime'
 
 export function connectImageBlockRuntime(): ImageBlockRuntimeState {
   return AppStorageV2.connect(ImageBlockRuntimeState, IMAGE_BLOCK_RUNTIME_KEY, () => new ImageBlockRuntimeState())!

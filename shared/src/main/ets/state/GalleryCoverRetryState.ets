@@ -10,7 +10,8 @@ export class GalleryCoverRetryState {
   @Trace epoch: number = 0
 }
 
-const GALLERY_COVER_RETRY_KEY: string = 'v2:galleryCoverRetry'
+// EhThumbnail connects this state for every visible cover; AppStorageV2 keys cannot contain colons.
+const GALLERY_COVER_RETRY_KEY: string = 'v2_galleryCoverRetry'
 
 export function connectGalleryCoverRetry(): GalleryCoverRetryState {
   return AppStorageV2.connect(

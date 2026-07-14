@@ -63,7 +63,7 @@ export class ListModeState {
   }
 }
 
-const LIST_MODE_KEY: string = 'v2:listMode'
+const LIST_MODE_KEY: string = 'v2_listMode'
 
 export function connectListMode(): ListModeState {
   return AppStorageV2.connect(ListModeState, LIST_MODE_KEY, () => new ListModeState())!

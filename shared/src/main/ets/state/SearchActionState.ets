@@ -1,7 +1,7 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 
 /**
- * V2 bus for the table-site search (ported from V2Next), stored under `'v2:searchAction'`. The
+ * V2 bus for the table-site search (ported from V2Next), stored under `'v2_searchAction'`. The
  * title-bar search field (hosted in the HDS title bar — a separate ComponentContent tree) and the
  * `@ComponentV2` GallerySearchPage both connect to this one singleton, which is how they stay in
  * sync across the two trees.
@@ -35,7 +35,7 @@ export class SearchActionState {
   }
 }
 
-const SEARCH_ACTION_V2_KEY: string = 'v2:searchAction'
+const SEARCH_ACTION_V2_KEY: string = 'v2_searchAction'
 
 /** Returns the app-wide SearchActionState singleton from AppStorageV2. */
 export function connectSearchAction(): SearchActionState {

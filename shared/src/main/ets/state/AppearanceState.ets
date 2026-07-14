@@ -12,7 +12,7 @@ export class ThemeDisplayState {
   @Trace effectiveDark: boolean = false
 }
 
-const THEME_DISPLAY_KEY: string = 'v2:themeDisplay'
+const THEME_DISPLAY_KEY: string = 'v2_themeDisplay'
 
 export function connectThemeDisplay(): ThemeDisplayState {
   return AppStorageV2.connect(ThemeDisplayState, THEME_DISPLAY_KEY, () => new ThemeDisplayState())!
@@ -29,7 +29,7 @@ export class LanguageState {
   @Trace effectiveLocale: string = ''
 }
 
-const LANGUAGE_KEY: string = 'v2:language'
+const LANGUAGE_KEY: string = 'v2_language'
 
 export function connectLanguageState(): LanguageState {
   return AppStorageV2.connect(LanguageState, LANGUAGE_KEY, () => new LanguageState())!
@@ -46,7 +46,7 @@ export class ThemeColorState {
   @Trace color: string = 'system'
 }
 
-const THEME_COLOR_KEY: string = 'v2:themeColor'
+const THEME_COLOR_KEY: string = 'v2_themeColor'
 
 export function connectThemeColor(): ThemeColorState {
   return AppStorageV2.connect(ThemeColorState, THEME_COLOR_KEY, () => new ThemeColorState())!

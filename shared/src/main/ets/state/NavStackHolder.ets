@@ -115,7 +115,7 @@ export class NavStackHolder {
   }
 }
 
-const NAV_STACK_KEY: string = 'v2:navStack'
+const NAV_STACK_KEY: string = 'v2_navStack'
 
 export function connectNavStack(): NavStackHolder {
   return AppStorageV2.connect(NavStackHolder, NAV_STACK_KEY, () => new NavStackHolder())!

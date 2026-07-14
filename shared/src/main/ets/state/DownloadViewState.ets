@@ -28,7 +28,7 @@ export class DownloadViewState {
   @Trace cmdSeq: number = 0
 }
 
-const DOWNLOAD_VIEW_KEY: string = 'v2:downloadView'
+const DOWNLOAD_VIEW_KEY: string = 'v2_downloadView'
 
 export function connectDownloadView(): DownloadViewState {
   return AppStorageV2.connect(DownloadViewState, DOWNLOAD_VIEW_KEY, () => new DownloadViewState())!

@@ -12,7 +12,7 @@ export class AccountListState {
   @Trace activeMemberId: string = ''
 }
 
-const ACCOUNT_LIST_KEY: string = 'v2:accountList'
+const ACCOUNT_LIST_KEY: string = 'v2_accountList'
 
 export function connectAccountList(): AccountListState {
   return AppStorageV2.connect(AccountListState, ACCOUNT_LIST_KEY, () => new AccountListState())!

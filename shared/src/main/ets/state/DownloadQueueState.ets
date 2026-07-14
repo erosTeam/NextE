@@ -32,8 +32,8 @@ export class DownloadQueueSignalState {
   @Trace version: number = 0
 }
 
-const DOWNLOAD_QUEUE_KEY: string = 'v2:downloadQueue'
-const DOWNLOAD_QUEUE_SIGNAL_KEY: string = 'v2:downloadQueueSignal'
+const DOWNLOAD_QUEUE_KEY: string = 'v2_downloadQueue'
+const DOWNLOAD_QUEUE_SIGNAL_KEY: string = 'v2_downloadQueueSignal'
 let sharedDownloadQueueState: DownloadQueueState | null = null
 let downloadQueuePageActive: boolean = false
 

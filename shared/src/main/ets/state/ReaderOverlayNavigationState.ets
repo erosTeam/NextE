@@ -80,7 +80,7 @@ export class ReaderOverlayNavigationState {
   }
 }
 
-const READER_OVERLAY_NAVIGATION_KEY: string = 'v2:readerOverlayNavigation'
+const READER_OVERLAY_NAVIGATION_KEY: string = 'v2_readerOverlayNavigation'
 
 export function connectReaderOverlayNavigation(): ReaderOverlayNavigationState {
   return AppStorageV2.connect(

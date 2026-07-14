@@ -25,7 +25,7 @@ export class LocalBlockState {
   @Trace version: number = 0
 }
 
-const LOCAL_BLOCK_STATE_KEY: string = 'v2:localBlock'
+const LOCAL_BLOCK_STATE_KEY: string = 'v2_localBlock'
 
 export function connectLocalBlock(): LocalBlockState {
   return AppStorageV2.connect(

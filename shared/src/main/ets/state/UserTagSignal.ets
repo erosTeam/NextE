@@ -14,7 +14,8 @@ export class UserTagSignal {
   @Trace version: number = 0
 }
 
-const USERTAG_SIGNAL_KEY: string = 'v2:userTagSignal'
+// AppStorageV2 validates this key for every rich gallery card that observes My Tags updates.
+const USERTAG_SIGNAL_KEY: string = 'v2_userTagSignal'
 
 export function connectUserTagSignal(): UserTagSignal {
   return AppStorageV2.connect(UserTagSignal, USERTAG_SIGNAL_KEY, () => new UserTagSignal())!

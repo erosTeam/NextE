@@ -1,7 +1,7 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 import { Favcat } from '../model/Favcat'
 
-const REMOTE_FAVORITE_SLOT_CACHE_KEY: string = 'v2:remoteFavoriteSlotCache'
+const REMOTE_FAVORITE_SLOT_CACHE_KEY: string = 'v2_remoteFavoriteSlotCache'
 
 /**
  * Account-level cache for the EH favorite folder list used by gallery add/remove sheets.

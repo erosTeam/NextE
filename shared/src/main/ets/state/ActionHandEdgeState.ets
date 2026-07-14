@@ -12,7 +12,7 @@ export class ActionHandEdgeState {
   @Trace edge: string = 'right'
 }
 
-const ACTION_HAND_EDGE_V2_KEY: string = 'v2:actionHandEdge'
+const ACTION_HAND_EDGE_V2_KEY: string = 'v2_actionHandEdge'
 
 export function connectActionHandEdge(): ActionHandEdgeState {
   return AppStorageV2.connect(

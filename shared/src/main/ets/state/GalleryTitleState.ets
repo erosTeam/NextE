@@ -10,7 +10,7 @@ export class GalleryTitleState {
   @Trace japaneseTitleInGalleryPage: boolean = false
 }
 
-const GALLERY_TITLE_KEY: string = 'v2:galleryTitle'
+const GALLERY_TITLE_KEY: string = 'v2_galleryTitle'
 
 export function connectGalleryTitle(): GalleryTitleState {
   return AppStorageV2.connect(GalleryTitleState, GALLERY_TITLE_KEY, () => new GalleryTitleState())!

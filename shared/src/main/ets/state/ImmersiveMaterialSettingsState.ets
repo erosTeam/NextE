@@ -6,7 +6,7 @@ export class ImmersiveMaterialSettingsState {
   @Trace level: string = 'adaptive'
 }
 
-const IMMERSIVE_MATERIAL_SETTINGS_V2_KEY: string = 'v2:immersiveMaterialSettings'
+const IMMERSIVE_MATERIAL_SETTINGS_V2_KEY: string = 'v2_immersiveMaterialSettings'
 
 export function connectImmersiveMaterialSettings(): ImmersiveMaterialSettingsState {
   return AppStorageV2.connect(

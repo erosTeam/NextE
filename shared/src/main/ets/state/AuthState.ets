@@ -17,7 +17,7 @@ export class AuthState {
   @Trace cookieCount: number = 0
 }
 
-const AUTH_KEY: string = 'v2:auth'
+const AUTH_KEY: string = 'v2_auth'
 
 export function connectAuth(): AuthState {
   return AppStorageV2.connect(AuthState, AUTH_KEY, () => new AuthState())!

@@ -1,6 +1,6 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 
-const GALLERY_COMMENT_ACTION_KEY: string = 'v2:galleryCommentAction'
+const GALLERY_COMMENT_ACTION_KEY: string = 'v2_galleryCommentAction'
 
 export const GALLERY_COMMENT_ACTION_AUTHOR: string = 'author'
 export const GALLERY_COMMENT_ACTION_VOTE: string = 'vote'

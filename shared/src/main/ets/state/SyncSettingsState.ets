@@ -28,7 +28,7 @@ export class SyncSettingsState {
   @Trace huaweiCloudLastCloudDisabled: boolean = false
 }
 
-const SYNC_SETTINGS_KEY: string = 'v2:syncSettings'
+const SYNC_SETTINGS_KEY: string = 'v2_syncSettings'
 
 export function connectSyncSettings(): SyncSettingsState {
   return AppStorageV2.connect(

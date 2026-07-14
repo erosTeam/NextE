@@ -16,7 +16,7 @@ export class ThumbnailModeState {
   @Trace horizontalThumbnails: boolean = false
 }
 
-const THUMBNAIL_MODE_KEY: string = 'v2:thumbnailMode'
+const THUMBNAIL_MODE_KEY: string = 'v2_thumbnailMode'
 
 export function connectThumbnailMode(): ThumbnailModeState {
   return AppStorageV2.connect(

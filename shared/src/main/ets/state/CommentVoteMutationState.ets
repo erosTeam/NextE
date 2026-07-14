@@ -1,6 +1,6 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 
-const COMMENT_VOTE_MUTATION_KEY: string = 'v2:commentVoteMutation'
+const COMMENT_VOTE_MUTATION_KEY: string = 'v2_commentVoteMutation'
 
 @ObservedV2
 export class CommentVoteMutationState {

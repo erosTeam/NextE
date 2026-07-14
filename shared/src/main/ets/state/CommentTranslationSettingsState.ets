@@ -15,7 +15,7 @@ export class CommentTranslationSettingsState {
   @Trace model: string = ''
 }
 
-const COMMENT_TRANSLATION_SETTINGS_KEY: string = 'v2:commentTranslationSettings'
+const COMMENT_TRANSLATION_SETTINGS_KEY: string = 'v2_commentTranslationSettings'
 
 export function connectCommentTranslationSettings(): CommentTranslationSettingsState {
   return AppStorageV2.connect(

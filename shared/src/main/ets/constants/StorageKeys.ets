@@ -2,7 +2,7 @@
  * Centralized preference / AppStorageV2 key strings.
  *
  * Convention (from V2Next): persisted preference keys are plain dotted names; the
- * matching AppStorageV2 mirror key is 'v2:<holderName>' and lives next to its holder.
+ * matching AppStorageV2 mirror key uses the v2_ prefix and lives next to its holder.
  * Keeping every key here prevents silent typos and key collisions across settings.
  */
 export class StorageKeys {

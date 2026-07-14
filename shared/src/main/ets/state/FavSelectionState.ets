@@ -66,10 +66,10 @@ export class FavSelectionState {
  * mirrors connectHomeSourceVisualIndex / connectToplistVisualIndex). The retained Favorites Swiper
  * publishes it continuously during a swipe so the bar indicator tracks the finger/page animation. */
 export function connectFavcatVisualIndex(): TabVisualIndexState {
-  return AppStorageV2.connect(TabVisualIndexState, 'v2:favcatVisualIndex', () => new TabVisualIndexState())!
+  return AppStorageV2.connect(TabVisualIndexState, 'v2_favcatVisualIndex', () => new TabVisualIndexState())!
 }
 
-const FAV_SELECTION_V2_KEY: string = 'v2:favSelection'
+const FAV_SELECTION_V2_KEY: string = 'v2_favSelection'
 
 /** App-wide FavSelectionState singleton; seeds the default favcat slots so the bar shows pre-parse. */
 export function connectFavSelection(): FavSelectionState {

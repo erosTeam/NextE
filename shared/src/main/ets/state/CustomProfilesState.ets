@@ -25,7 +25,7 @@ export class CustomProfilesState {
   }
 }
 
-const CUSTOM_PROFILES_KEY: string = 'v2:customProfiles'
+const CUSTOM_PROFILES_KEY: string = 'v2_customProfiles'
 
 /** App-wide CustomProfilesState singleton from AppStorageV2. */
 export function connectCustomProfiles(): CustomProfilesState {

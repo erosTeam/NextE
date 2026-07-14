@@ -1,6 +1,6 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 
-export const APP_COLOR_FAVORITES_V2_KEY: string = 'v2:appColorFavorites'
+export const APP_COLOR_FAVORITES_V2_KEY: string = 'v2_appColorFavorites'
 export const DEFAULT_APP_COLOR_FAVORITES: string[] = [
   '#F44336',
   '#E91E63',

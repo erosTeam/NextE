@@ -71,7 +71,7 @@ NextE 是原生 HarmonyOS NEXT(ArkTS/ArkUI)的 **E-Hentai / ExHentai 客户端**
 export class SiteModeState {
   @Trace isEx: boolean = false   // @Trace 字段即订阅点
 }
-const KEY: string = 'v2:siteMode'
+const KEY: string = 'v2_siteMode'
 export function connectSiteMode(): SiteModeState {
   return AppStorageV2.connect(SiteModeState, KEY, () => new SiteModeState())!
 }

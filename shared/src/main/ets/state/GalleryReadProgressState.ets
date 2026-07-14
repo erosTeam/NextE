@@ -210,7 +210,7 @@ export class GalleryReadProgressState {
   }
 }
 
-const READ_PROGRESS_KEY: string = 'v2:galleryReadProgress'
+const READ_PROGRESS_KEY: string = 'v2_galleryReadProgress'
 
 export function connectGalleryReadProgress(): GalleryReadProgressState {
   return AppStorageV2.connect(

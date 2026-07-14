@@ -15,7 +15,8 @@ export class CoverBackgroundState {
   @Trace blurringOfCoverBackground: boolean = false
 }
 
-const COVER_BACKGROUND_KEY: string = 'v2:coverBackground'
+// EhThumbnail connects this state for every visible cover; keep the AppStorageV2 key valid and quiet.
+const COVER_BACKGROUND_KEY: string = 'v2_coverBackground'
 
 export function connectCoverBackground(): CoverBackgroundState {
   return AppStorageV2.connect(

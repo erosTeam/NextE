@@ -1,6 +1,6 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 
-const GALLERY_FAVORITE_MUTATION_KEY: string = 'v2:galleryFavoriteMutation'
+const GALLERY_FAVORITE_MUTATION_KEY: string = 'v2_galleryFavoriteMutation'
 
 /**
  * App-wide signal for one gallery's EH favorite state after a protected write completes.

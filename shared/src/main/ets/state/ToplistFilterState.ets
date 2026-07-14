@@ -6,7 +6,7 @@ export class ToplistFilterState {
   @Trace applyHiddenUserTags: boolean = true
 }
 
-const TOPLIST_FILTER_KEY: string = 'v2:toplistFilter'
+const TOPLIST_FILTER_KEY: string = 'v2_toplistFilter'
 
 export function connectToplistFilter(): ToplistFilterState {
   return AppStorageV2.connect(ToplistFilterState, TOPLIST_FILTER_KEY, () => new ToplistFilterState())!

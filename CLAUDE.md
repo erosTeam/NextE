@@ -104,7 +104,7 @@ Use V2 only: `@ComponentV2`, `@ObservedV2`, `@Trace`, `@Local`, `@Param`, `@Moni
 export class SiteModeState {
   @Trace isEx: boolean = false
 }
-const KEY: string = 'v2:siteMode'
+const KEY: string = 'v2_siteMode'
 export function connectSiteMode(): SiteModeState {
   return AppStorageV2.connect(SiteModeState, KEY, () => new SiteModeState())!
 }

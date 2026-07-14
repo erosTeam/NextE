@@ -41,7 +41,7 @@ export class LayoutSafeAreaState {
 }
 
 // Single app-wide AppStorageV2 key for the shared safe-area state object.
-const LAYOUT_SAFE_AREA_V2_KEY: string = 'v2:layoutSafeArea'
+const LAYOUT_SAFE_AREA_V2_KEY: string = 'v2_layoutSafeArea'
 
 /**
  * Returns the app-wide `LayoutSafeAreaState` singleton from `AppStorageV2`, creating

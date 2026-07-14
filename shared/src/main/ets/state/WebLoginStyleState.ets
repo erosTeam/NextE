@@ -6,7 +6,7 @@ export class WebLoginStyleState {
   @Trace beautifyEnabled: boolean = true
 }
 
-const WEB_LOGIN_STYLE_KEY: string = 'v2:webLoginStyle'
+const WEB_LOGIN_STYLE_KEY: string = 'v2_webLoginStyle'
 
 export function connectWebLoginStyle(): WebLoginStyleState {
   return AppStorageV2.connect(WebLoginStyleState, WEB_LOGIN_STYLE_KEY, () => new WebLoginStyleState())!

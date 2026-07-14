@@ -10,7 +10,7 @@ export class SafeModeState {
   }
 }
 
-const SAFE_MODE_STATE_KEY: string = 'v2:safeMode'
+const SAFE_MODE_STATE_KEY: string = 'v2_safeMode'
 
 export function connectSafeMode(): SafeModeState {
   return AppStorageV2.connect(

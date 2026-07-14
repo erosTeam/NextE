@@ -9,7 +9,7 @@ export class ScreenOrientationState {
   @Trace mode: string = SCREEN_ORIENTATION_UNSPECIFIED
 }
 
-const SCREEN_ORIENTATION_KEY: string = 'v2:screenOrientation'
+const SCREEN_ORIENTATION_KEY: string = 'v2_screenOrientation'
 
 export function connectScreenOrientation(): ScreenOrientationState {
   return AppStorageV2.connect(

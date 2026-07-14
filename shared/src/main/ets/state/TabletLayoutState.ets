@@ -10,7 +10,7 @@ export class TabletLayoutState {
   @Trace mode: string = TABLET_LAYOUT_AUTO
 }
 
-const TABLET_LAYOUT_KEY: string = 'v2:tabletLayout'
+const TABLET_LAYOUT_KEY: string = 'v2_tabletLayout'
 
 export function connectTabletLayout(): TabletLayoutState {
   return AppStorageV2.connect(

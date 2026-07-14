@@ -66,7 +66,7 @@ export class HomeSourceBridge {
   }
 }
 
-const HOME_SOURCE_V2_KEY: string = 'v2:homeSource'
+const HOME_SOURCE_V2_KEY: string = 'v2_homeSource'
 
 /** Returns the app-wide HomeSourceState singleton from AppStorageV2 (defaults to the front page). */
 export function connectHomeSource(): HomeSourceState {
@@ -87,11 +87,11 @@ export class TabVisualIndexState {
 }
 
 export function connectHomeSourceVisualIndex(): TabVisualIndexState {
-  return AppStorageV2.connect(TabVisualIndexState, 'v2:homeSourceVisualIndex', () => new TabVisualIndexState())!
+  return AppStorageV2.connect(TabVisualIndexState, 'v2_homeSourceVisualIndex', () => new TabVisualIndexState())!
 }
 
 export function connectToplistVisualIndex(): TabVisualIndexState {
-  return AppStorageV2.connect(TabVisualIndexState, 'v2:toplistVisualIndex', () => new TabVisualIndexState())!
+  return AppStorageV2.connect(TabVisualIndexState, 'v2_toplistVisualIndex', () => new TabVisualIndexState())!
 }
 
 /**

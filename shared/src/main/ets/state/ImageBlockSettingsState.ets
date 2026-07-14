@@ -5,7 +5,7 @@ export class ImageBlockSettingsState {
   @Trace enabled: boolean = false
 }
 
-const IMAGE_BLOCK_SETTINGS_KEY: string = 'v2:imageBlockSettings'
+const IMAGE_BLOCK_SETTINGS_KEY: string = 'v2_imageBlockSettings'
 
 export function connectImageBlockSettings(): ImageBlockSettingsState {
   return AppStorageV2.connect(

@@ -35,7 +35,7 @@ export class ReadModeState {
   @Trace volumeKeyTurn: boolean = false
 }
 
-const READ_MODE_KEY: string = 'v2:readMode'
+const READ_MODE_KEY: string = 'v2_readMode'
 
 export function connectReadMode(): ReadModeState {
   return AppStorageV2.connect(ReadModeState, READ_MODE_KEY, () => new ReadModeState())!

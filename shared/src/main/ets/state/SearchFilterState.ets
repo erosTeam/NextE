@@ -60,7 +60,7 @@ export class SearchFilterState {
   }
 }
 
-const SEARCH_FILTER_KEY: string = 'v2:searchFilter'
+const SEARCH_FILTER_KEY: string = 'v2_searchFilter'
 
 export function connectSearchFilter(): SearchFilterState {
   return AppStorageV2.connect(SearchFilterState, SEARCH_FILTER_KEY, () => new SearchFilterState())!

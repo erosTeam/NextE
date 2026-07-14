@@ -26,7 +26,7 @@ export class SecuritySettingsState {
   @Trace authError: string = ''
 }
 
-const SECURITY_SETTINGS_KEY: string = 'v2:securitySettings'
+const SECURITY_SETTINGS_KEY: string = 'v2_securitySettings'
 
 export function connectSecuritySettings(): SecuritySettingsState {
   return AppStorageV2.connect(

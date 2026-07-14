@@ -1,6 +1,6 @@
 import { AppStorageV2 } from '@kit.ArkUI'
 
-const GALLERY_RATING_MUTATION_KEY: string = 'v2:galleryRatingMutation'
+const GALLERY_RATING_MUTATION_KEY: string = 'v2_galleryRatingMutation'
 
 /**
  * App-wide signal for one gallery's EH rating state after a protected write completes.

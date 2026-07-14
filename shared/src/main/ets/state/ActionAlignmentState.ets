@@ -16,7 +16,7 @@ export class ActionAlignmentState {
   @Trace holdingHandSupported: boolean = false
 }
 
-const ACTION_ALIGNMENT_V2_KEY: string = 'v2:actionAlignment'
+const ACTION_ALIGNMENT_V2_KEY: string = 'v2_actionAlignment'
 
 export function connectActionAlignment(): ActionAlignmentState {
   return AppStorageV2.connect(

@@ -11,7 +11,7 @@ export class SearchHistoryState {
   @Trace translateEnabled: boolean = true
 }
 
-const SEARCH_HISTORY_KEY: string = 'v2:searchHistory'
+const SEARCH_HISTORY_KEY: string = 'v2_searchHistory'
 
 export function connectSearchHistory(): SearchHistoryState {
   return AppStorageV2.connect(
