@@ -18,11 +18,30 @@ const WATERFALL_MAX_COVER_RATIO: number = 1.35
 const WATERFALL_TAG_LIMIT: number = 8
 const WATERFALL_TAG_STRIP_HEIGHT: number = 48
 
+// Reuse only cards whose conditional subtree shape matches. The identifiers deliberately use
+// letters and underscores only, so they are also valid ArkUI state-management keys.
+export function galleryWaterfallReuseId(gallery: EhGallery): string {
+  const sourceRatio: number = gallery.imgWidth > 0 && gallery.imgHeight > 0
+    ? gallery.imgWidth / gallery.imgHeight
+    : ThemeConstants.GALLERY_GRID_COVER_RATIO
+  const coverShape: string = sourceRatio < WATERFALL_MIN_COVER_RATIO ? 'contain' : 'cover'
+  const favoriteShape: string = gallery.favcat.length > 0 || gallery.favTitle.length > 0
+    ? 'favorite'
+    : 'plain'
+  const ratingShape: string = gallery.ratingFallBack > 0 || gallery.rating > 0
+    ? 'rated'
+    : 'unrated'
+  const tagShape: string = gallery.simpleTags.length > 0 ? 'tags' : 'no_tags'
+  const languageShape: string = gallery.translated.length > 0 ? 'translated' : 'no_translation'
+  return `waterfall_${coverShape}_${favoriteShape}_${ratingShape}_${tagShape}_${languageShape}`
+}
+
 /**
  * Masonry card for ListMode.WATERFALL. Unlike GalleryGridCard, this deliberately allows variable
  * height: the cover follows the EH source aspect ratio and the compact info block can grow within
  * bounded text/tag lines. Grid remains the uniform-cell browsing mode.
  */
+@ReusableV2
 @ComponentV2
 export struct GalleryWaterfallCard {
   @Require @Param gallery: EhGallery;

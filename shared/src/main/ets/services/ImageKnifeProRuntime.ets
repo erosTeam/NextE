@@ -13,7 +13,11 @@ import { EhConstants } from '../constants/EhConstants'
 import { EhCookieStore } from '../network/EhCookieStore'
 import { CacheStat } from './CacheStat'
 import { CachedImageFileResult, CachedImageFileService, CachedImageProgress } from './CachedImageFileService'
-import { EH_IMAGE_PRIORITY_LOW } from './ImagePipelineTypes'
+import {
+  EH_IMAGE_PRIORITY_LOW,
+  EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+  EH_THUMBNAIL_READ_TIMEOUT_MS,
+} from './ImagePipelineTypes'
 
 const IMAGEKNIFE_FILE_CACHE_COUNT: number = 192
 const IMAGEKNIFE_FILE_CACHE_BYTES: number = 96 * 1024 * 1024
@@ -27,7 +31,6 @@ const IMAGEKNIFE_READER_FILE_CACHE_COUNT: number = 384
 const IMAGEKNIFE_READER_FILE_CACHE_BYTES: number = 256 * 1024 * 1024
 const IMAGEKNIFE_READER_CONNECT_TIMEOUT_MS: number = 6000
 const IMAGEKNIFE_READER_READ_TIMEOUT_MS: number = 60000
-
 export class ImageKnifeProRuntime {
   private static initialized: boolean = false
 
@@ -141,6 +144,10 @@ export class ImageKnifeProRuntime {
       option.headerOption = ImageKnifeProRuntime.defaultHeaders()
       option.writeCacheStrategy = CacheStrategy.DEFAULT
       option.priority = ImageKnifeProRuntime.priorityFromNumber(priority)
+      option.httpOption = {
+        connectTimeout: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+        readTimeout: EH_THUMBNAIL_READ_TIMEOUT_MS,
+      }
       ImageKnife.getInstance().preload(option)
     } catch (error) {
       DiagnosticLogger.warn(

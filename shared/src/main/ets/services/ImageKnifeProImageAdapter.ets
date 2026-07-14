@@ -1,14 +1,18 @@
 import { image } from '@kit.ImageKit'
+import common from '@ohos.app.ability.common'
+import { NodeContent } from '@ohos.arkui.node'
+import nativeNode from 'libimageknifepro.so'
 import {
   CacheStrategy,
   DownSamplingStrategy,
   EventImage,
   HeaderOptions,
+  ImageKnife,
   ImageInfo,
-  ImageKnifeComponentV2,
   ImageKnifeOptionV2,
   Priority,
 } from '@ohos/imageknifepro'
+import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
 import { ImageKnifeProRuntime } from './ImageKnifeProRuntime'
 import {
   EH_IMAGE_DOWNSAMPLING_AT_LEAST,
@@ -40,15 +44,65 @@ export struct ImageKnifeProImageAdapter {
   @Param downSampling: number = 1;
   @Param desiredWidth: number = 0;
   @Param desiredHeight: number = 0;
+  @Param maxRetries: number = 0;
+  @Param retryDelayMs: number = 0;
+  @Param settleTimeoutMs: number = 0;
+  @Param connectTimeoutMs: number = 0;
+  @Param readTimeoutMs: number = 0;
+  @Param reloadToken: number = 0;
   @Event onComplete: () => void = () => {};
   @Event onImageInfo: (width: number, height: number) => void = (_width: number, _height: number) => {};
   @Event onError: () => void = () => {};
   @Event onProgress: (progress: number) => void = (_progress: number) => {};
   @Local option: ImageKnifeOptionV2 = new ImageKnifeOptionV2();
   @Local completionNotified: boolean = false;
+  private requestEpoch: number = 0;
+  private requestId: string = '';
+  private retriesUsed: number = 0;
+  private settleTimerId: number = 0;
+  private retryTimerId: number = 0;
+  // The vendor V2 component clears its native root when an ancestor is recycled, but its
+  // monitor-based rebind is suppressed by V2 resetStateVarsOnReuse. Keeping the native root
+  // here makes option construction and native update one lifecycle transaction.
+  private nativeComponentId: string = '';
+  private nativeRootAttached: boolean = false;
+  private nativeRootSlot: NodeContent = new NodeContent();
 
   aboutToAppear(): void {
+    this.nativeComponentId = this.getUniqueId().toString()
     this.applyOption()
+    nativeNode.createNativeRoot(
+      this.nativeRootSlot,
+      this.nativeComponentId,
+      this.option,
+      undefined,
+      this.defaultContext(),
+      {
+        syncLoad: false,
+        draggable: false,
+      },
+    )
+    this.nativeRootAttached = true
+  }
+
+  aboutToReuse(): void {
+    this.applyOption()
+  }
+
+  aboutToDisappear(): void {
+    this.invalidateRequest()
+    if (this.nativeRootAttached) {
+      nativeNode.destroyNativeRoot(this.nativeComponentId)
+      this.nativeRootAttached = false
+    }
+  }
+
+  aboutToRecycle(): void {
+    // Native clear cancels its request, but it cannot invalidate this adapter's JS timers or
+    // listener closures. Do that first so an old settle/retry callback cannot reload a cover
+    // while this component is parked in WaterFlow's reuse pool.
+    this.invalidateRequest()
+    nativeNode.clearNativeRoot(this.nativeComponentId)
   }
 
   @Monitor(
@@ -63,12 +117,23 @@ export struct ImageKnifeProImageAdapter {
     'downSampling',
     'desiredWidth',
     'desiredHeight',
+    'maxRetries',
+    'retryDelayMs',
+    'settleTimeoutMs',
+    'connectTimeoutMs',
+    'readTimeoutMs',
+    'reloadToken',
   )
   onOptionInputChanged(): void {
     this.applyOption()
   }
 
   private applyOption(): void {
+    this.clearTimers()
+    this.requestEpoch += 1
+    const epoch: number = this.requestEpoch
+    this.requestId = ''
+    this.retriesUsed = 0
     this.completionNotified = false
     const option: ImageKnifeOptionV2 = new ImageKnifeOptionV2()
     option.loadSrc = this.src
@@ -78,6 +143,12 @@ export struct ImageKnifeProImageAdapter {
       : (this.enableCache ? CacheStrategy.DEFAULT : CacheStrategy.NONE)
     option.headerOption = this.headers()
     option.priority = this.imageKnifePriority()
+    if (this.connectTimeoutMs > 0 && this.readTimeoutMs > 0) {
+      option.httpOption = {
+        connectTimeout: this.connectTimeoutMs,
+        readTimeout: this.readTimeoutMs,
+      }
+    }
     if (this.fileCacheName.length > 0) {
       option.fileCacheName = this.fileCacheName
     }
@@ -93,34 +164,152 @@ export struct ImageKnifeProImageAdapter {
       option.desiredSize = desiredSize
     }
     option.progressListener = (progress: number) => {
-      this.onProgress(progress)
+      if (this.isCurrent(epoch)) {
+        this.onProgress(progress)
+      }
     }
     option.onLoadListener = {
+      onLoadStart: (imageInfo: ImageInfo) => {
+        if (!this.isCurrent(epoch)) {
+          return
+        }
+        this.requestId = imageInfo.requestId
+        this.armSettleTimeout(epoch)
+      },
       onLoadSuccess: (imageInfo: ImageInfo) => {
+        if (!this.isCurrent(epoch)) {
+          return
+        }
         if (imageInfo.imageWidth > 0 && imageInfo.imageHeight > 0) {
           this.onImageInfo(imageInfo.imageWidth, imageInfo.imageHeight)
         }
-        this.markComplete()
+        this.markComplete(epoch)
       },
-      onLoadFailed: (_err: string, _imageInfo: ImageInfo) => {
-        this.onError()
+      onLoadFailed: (_err: string, imageInfo: ImageInfo) => {
+        this.retryOrFail('load_failed', imageInfo.requestId, epoch)
       },
     }
     option.onComplete = (_event: EventImage | undefined) => {
-      this.markComplete()
+      this.markComplete(epoch)
     }
     if (this.radius > 0) {
       option.border = { radius: this.radius }
     }
     this.option = option
+    this.updateNativeRoot()
   }
 
-  private markComplete(): void {
-    if (this.completionNotified) {
+  private invalidateRequest(): void {
+    this.clearTimers()
+    this.requestEpoch += 1
+    this.requestId = ''
+    this.retriesUsed = 0
+    this.completionNotified = true
+  }
+
+  private markComplete(epoch: number): void {
+    if (!this.isCurrent(epoch) || this.completionNotified) {
       return
     }
     this.completionNotified = true
+    this.clearTimers()
     this.onComplete()
+  }
+
+  private retryOrFail(reason: string, callbackRequestId: string, epoch: number): void {
+    if (!this.isCurrent(epoch) || this.completionNotified || this.retryTimerId > 0) {
+      return
+    }
+    this.clearSettleTimer()
+    if (callbackRequestId.length > 0) {
+      this.requestId = callbackRequestId
+    }
+    const allowedRetries: number = Math.max(0, this.maxRetries)
+    if (this.retriesUsed >= allowedRetries || this.requestId.length === 0) {
+      this.markFailed(reason, epoch)
+      return
+    }
+    this.retriesUsed += 1
+    DiagnosticLogger.warn(
+      'image',
+      'thumbnail_retry',
+      `reason=${reason} attempt=${this.retriesUsed}/${allowedRetries} urlHash=${DiagnosticLogger.ownerHash(this.src)}`,
+    )
+    const requestId: string = this.requestId
+    const delayMs: number = Math.max(0, this.retryDelayMs)
+    this.retryTimerId = setTimeout((): void => {
+      this.retryTimerId = 0
+      if (!this.isCurrent(epoch) || this.completionNotified) {
+        return
+      }
+      try {
+        ImageKnife.getInstance().reload(requestId)
+        this.armSettleTimeout(epoch)
+      } catch (_error) {
+        this.markFailed('reload_failed', epoch)
+      }
+    }, delayMs)
+  }
+
+  private markFailed(reason: string, epoch: number): void {
+    if (!this.isCurrent(epoch) || this.completionNotified) {
+      return
+    }
+    this.completionNotified = true
+    this.clearTimers()
+    DiagnosticLogger.warn(
+      'image',
+      'thumbnail_failed',
+      `reason=${reason} retries=${this.retriesUsed} urlHash=${DiagnosticLogger.ownerHash(this.src)}`,
+    )
+    this.onError()
+  }
+
+  private armSettleTimeout(epoch: number): void {
+    this.clearSettleTimer()
+    if (this.settleTimeoutMs <= 0 || !this.isCurrent(epoch) || this.completionNotified) {
+      return
+    }
+    this.settleTimerId = setTimeout((): void => {
+      this.settleTimerId = 0
+      this.retryOrFail('timeout', this.requestId, epoch)
+    }, this.settleTimeoutMs)
+  }
+
+  private clearSettleTimer(): void {
+    if (this.settleTimerId > 0) {
+      clearTimeout(this.settleTimerId)
+      this.settleTimerId = 0
+    }
+  }
+
+  private clearTimers(): void {
+    this.clearSettleTimer()
+    if (this.retryTimerId > 0) {
+      clearTimeout(this.retryTimerId)
+      this.retryTimerId = 0
+    }
+  }
+
+  private isCurrent(epoch: number): boolean {
+    return epoch === this.requestEpoch
+  }
+
+  private updateNativeRoot(): void {
+    if (!this.nativeRootAttached || this.nativeComponentId.length === 0) {
+      return
+    }
+    nativeNode.updateNativeRoot(
+      this.nativeComponentId,
+      this.option,
+      false,
+      this.defaultContext(),
+    )
+  }
+
+  private defaultContext(): common.UIAbilityContext | undefined {
+    const context = getContext(this)
+    return context === undefined ? undefined : context as common.UIAbilityContext
   }
 
   private headers(): HeaderOptions[] {
@@ -172,10 +361,9 @@ export struct ImageKnifeProImageAdapter {
   }
 
   build() {
-    ImageKnifeComponentV2({
-      imageKnifeOption: this.option,
-      imageDraggable: false,
-    })
+    Stack({ alignContent: Alignment.Center }) {
+      ContentSlot(this.nativeRootSlot)
+    }
       .width(this.widthValue)
       .height(this.heightValue)
   }

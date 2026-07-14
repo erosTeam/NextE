@@ -13,6 +13,11 @@ import { galleryWaterfallColumnCount, clampColumnWidth } from '../utils/GalleryC
 import { LoadingFooter } from './LoadingFooter'
 import { isUserScrollSource } from '../utils/ScrollUserInput'
 
+// Keep the cache at ArkUI's documented automatic upper bound. Smaller fixed values would reduce the
+// cache on wide screens that already render more cards, while this gives smaller screens a measurable
+// prefetch candidate without changing WaterFlow's visible layout.
+const GALLERY_WATER_FLOW_CACHE_COUNT: number = 16
+
 /**
  * WaterFlow sibling of PullRefreshGridScaffold for gallery cards: same refresh, paging, safe-area,
  * and responsive column model, but native masonry placement for variable-height cover-first cards.
@@ -86,13 +91,18 @@ export struct PullRefreshWaterFlowScaffold {
         this.scrollEnabled = enabled
       },
     }) {
-      WaterFlow({ scroller: this.scroller, sections: this.waterFlowSections() }) {
+      WaterFlow({
+        scroller: this.scroller,
+        sections: this.waterFlowSections(),
+        layoutMode: WaterFlowLayoutMode.SLIDING_WINDOW,
+      }) {
         this.TopSpacer()
         this.content()
         this.BottomSpacer()
       }
       .columnsGap(this.gap)
       .rowsGap(this.gap)
+      .cachedCount(GALLERY_WATER_FLOW_CACHE_COUNT)
       .enableScrollInteraction(this.scrollEnabled)
       .backToTop(this.backToTop)
       .scrollBar(BarState.Off)

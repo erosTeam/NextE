@@ -21,6 +21,12 @@ export struct EhImageKnifeImage {
   @Param downSampling: number = EH_IMAGE_DOWNSAMPLING_DEFAULT;
   @Param desiredWidth: number = 0;
   @Param desiredHeight: number = 0;
+  @Param maxRetries: number = 0;
+  @Param retryDelayMs: number = 0;
+  @Param settleTimeoutMs: number = 0;
+  @Param connectTimeoutMs: number = 0;
+  @Param readTimeoutMs: number = 0;
+  @Param reloadToken: number = 0;
   @Event onComplete: () => void = () => {};
   @Event onImageInfo: (width: number, height: number) => void = (_width: number, _height: number) => {};
   @Event onError: () => void = () => {};
@@ -41,6 +47,12 @@ export struct EhImageKnifeImage {
       downSampling: this.downSampling,
       desiredWidth: this.desiredWidth,
       desiredHeight: this.desiredHeight,
+      maxRetries: this.maxRetries,
+      retryDelayMs: this.retryDelayMs,
+      settleTimeoutMs: this.settleTimeoutMs,
+      connectTimeoutMs: this.connectTimeoutMs,
+      readTimeoutMs: this.readTimeoutMs,
+      reloadToken: this.reloadToken,
       onComplete: this.onComplete,
       onImageInfo: this.onImageInfo,
       onError: this.onError,

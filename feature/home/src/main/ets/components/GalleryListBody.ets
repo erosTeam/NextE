@@ -5,6 +5,7 @@ import {
   GalleryCard,
   GalleryGridCard,
   GalleryWaterfallCard,
+  galleryWaterfallReuseId,
   GalleryCoverWallCard,
   GallerySimpleCard,
   GalleryDetailParams,
@@ -33,6 +34,7 @@ import {
   connectLayoutSafeArea,
   DiagnosticLogger,
   ImagePipelineService,
+  requestGalleryCoverRetry,
 } from 'shared'
 import { GalleryListViewModel } from '../viewmodel/GalleryListViewModel'
 
@@ -267,6 +269,7 @@ export struct GalleryListBody {
           nearEndThreshold: 4,
           controller: this.refreshController,
           onRefresh: async () => {
+            requestGalleryCoverRetry()
             await this.vm.refresh((prependedCount: number) => {
               this.restoreAfterPrepend(prependedCount)
             })
@@ -331,6 +334,7 @@ export struct GalleryListBody {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
+            requestGalleryCoverRetry()
             await this.vm.refresh((prependedCount: number) => {
               this.restoreAfterPrepend(prependedCount)
             })
@@ -370,6 +374,7 @@ export struct GalleryListBody {
             (g: EhGallery, index: number) => {
               FlowItem() {
                 GalleryWaterfallCard({ gallery: g, selected: this.isGallerySelected(g) })
+                  .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
               }
               .width('100%')
               .onAppear(() => {
@@ -396,6 +401,7 @@ export struct GalleryListBody {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
+            requestGalleryCoverRetry()
             await this.vm.refresh((prependedCount: number) => {
               this.restoreAfterPrepend(prependedCount)
             })
@@ -456,6 +462,7 @@ export struct GalleryListBody {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
+            requestGalleryCoverRetry()
             await this.vm.refresh((prependedCount: number) => {
               this.restoreAfterPrepend(prependedCount)
             })

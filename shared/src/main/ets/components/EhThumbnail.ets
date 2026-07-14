@@ -2,6 +2,11 @@ import { ThemeConstants } from '../theme/ThemeConstants'
 import { EhConstants } from '../constants/EhConstants'
 import { CoverColorService } from '../services/CoverColorService'
 import { connectCoverBackground, CoverBackgroundState } from '../state/CoverBackgroundState'
+import { connectGalleryCoverRetry, GalleryCoverRetryState } from '../state/GalleryCoverRetryState'
+import {
+  EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+  EH_THUMBNAIL_READ_TIMEOUT_MS,
+} from '../services/ImagePipelineTypes'
 import { EhImageKnifeImage, EH_IMAGE_PRIORITY_LOW } from './EhImageKnifeImage'
 
 export const THUMBNAIL_VISUAL_AUTO: number = 0
@@ -12,6 +17,9 @@ const COVER_LOADER_SIZE: number = 22
 const COVER_ERROR_ICON_SIZE: number = 24
 const GRID_COVER_MIN_CONTAIN_SOURCE_RATIO: number = 0.8
 const GRID_COVER_MAX_CONTAIN_SOURCE_RATIO: number = 2.2
+const THUMBNAIL_MAX_RETRIES: number = 1
+const THUMBNAIL_RETRY_DELAY_MS: number = 200
+const THUMBNAIL_SETTLE_TIMEOUT_MS: number = 8000
 
 /**
  * Gallery thumbnail. M1 loads the ehgt.org/s.exhentai.org thumb URL directly (public CDN, no auth).
@@ -54,11 +62,13 @@ export struct EhThumbnail {
   // Cover painted yet? Drives the placeholder spinner. Resets when the row is recycled to a new url.
   @Local loaded: boolean = false;
   @Local failed: boolean = false;
+  @Local reloadToken: number = 0;
   // The cover's extracted dominant color (packed 0xAARRGGBB), 0 until resolved. Backs the gradient fill.
   @Local coverBgColor: number = 0;
   // Cover-background preference (gradient vs blur). Read in build()/maybeResolveCoverColor so a live toggle
   // re-flows the fill.
   @Local coverBgState: CoverBackgroundState = connectCoverBackground();
+  @Local coverRetryState: GalleryCoverRetryState = connectGalleryCoverRetry();
 
   aboutToAppear(): void {
     this.applyVisualState()
@@ -87,6 +97,16 @@ export struct EhThumbnail {
   @Monitor('visualState')
   onVisualStateChange() {
     this.applyVisualState()
+  }
+
+  @Monitor('coverRetryState.epoch')
+  onCoverRetryRequested(): void {
+    if (this.visualState !== THUMBNAIL_VISUAL_AUTO || (this.loaded && !this.failed)) {
+      return
+    }
+    this.loaded = false
+    this.failed = false
+    this.reloadToken += 1
   }
 
   private applyVisualState(): void {
@@ -234,6 +254,9 @@ export struct EhThumbnail {
         objectFit: ImageFit.Cover,
         radius: this.radius,
         priority: EH_IMAGE_PRIORITY_LOW,
+        connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+        readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+        reloadToken: this.reloadToken,
       })
         .blur(ThemeConstants.COVER_BG_BLUR_RADIUS)
         .renderGroup(true)
@@ -274,6 +297,12 @@ export struct EhThumbnail {
           heightValue: '100%',
           objectFit: this.coverObjectFit(),
           radius: this.radius,
+          maxRetries: THUMBNAIL_MAX_RETRIES,
+          retryDelayMs: THUMBNAIL_RETRY_DELAY_MS,
+          settleTimeoutMs: THUMBNAIL_SETTLE_TIMEOUT_MS,
+          connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+          readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+          reloadToken: this.reloadToken,
           onComplete: () => {
             this.loaded = true
             this.failed = false
@@ -304,6 +333,12 @@ export struct EhThumbnail {
           heightValue: this.fittedHeight(),
           objectFit: ImageFit.Fill,
           radius: this.radius,
+          maxRetries: THUMBNAIL_MAX_RETRIES,
+          retryDelayMs: THUMBNAIL_RETRY_DELAY_MS,
+          settleTimeoutMs: THUMBNAIL_SETTLE_TIMEOUT_MS,
+          connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+          readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+          reloadToken: this.reloadToken,
           onComplete: () => {
             this.loaded = true
             this.failed = false
@@ -324,6 +359,12 @@ export struct EhThumbnail {
         heightValue: '100%',
         objectFit: this.containFit ? ImageFit.Contain : ImageFit.Cover,
         radius: this.radius,
+        maxRetries: THUMBNAIL_MAX_RETRIES,
+        retryDelayMs: THUMBNAIL_RETRY_DELAY_MS,
+        settleTimeoutMs: THUMBNAIL_SETTLE_TIMEOUT_MS,
+        connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+        readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+        reloadToken: this.reloadToken,
         onComplete: () => {
           this.loaded = true
           this.failed = false
@@ -343,6 +384,12 @@ export struct EhThumbnail {
           heightValue: this.fillHeight ? '100%' : this.thumbHeight,
           objectFit: this.containFit ? ImageFit.Contain : ImageFit.Cover,
           radius: this.radius,
+          maxRetries: THUMBNAIL_MAX_RETRIES,
+          retryDelayMs: THUMBNAIL_RETRY_DELAY_MS,
+          settleTimeoutMs: THUMBNAIL_SETTLE_TIMEOUT_MS,
+          connectTimeoutMs: EH_THUMBNAIL_CONNECT_TIMEOUT_MS,
+          readTimeoutMs: EH_THUMBNAIL_READ_TIMEOUT_MS,
+          reloadToken: this.reloadToken,
           onComplete: () => {
             this.loaded = true
             this.failed = false

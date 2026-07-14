@@ -4,6 +4,8 @@ import {
   GalleryCard,
   GalleryGridCard,
   GalleryWaterfallCard,
+  galleryWaterfallReuseId,
+  requestGalleryCoverRetry,
   GalleryCoverWallCard,
   GallerySimpleCard,
   GalleryDetailParams,
@@ -595,6 +597,7 @@ export struct FavcatPage {
           nearEndThreshold: 4,
           controller: this.refreshController,
           onRefresh: async () => {
+            requestGalleryCoverRetry()
             await this.refreshCurrentList()
           },
           onBottomRefresh: async () => {
@@ -657,6 +660,7 @@ export struct FavcatPage {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
+            requestGalleryCoverRetry()
             await this.refreshCurrentList()
           },
           onBottomRefresh: async () => {
@@ -694,6 +698,7 @@ export struct FavcatPage {
             (g: EhGallery, index: number) => {
               FlowItem() {
                 GalleryWaterfallCard({ gallery: g, selected: this.isGallerySelected(g) })
+                  .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
               }
               .width('100%')
               .onAppear(() => {
@@ -720,6 +725,7 @@ export struct FavcatPage {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
+            requestGalleryCoverRetry()
             await this.refreshCurrentList()
           },
           onBottomRefresh: async () => {
@@ -778,6 +784,7 @@ export struct FavcatPage {
           bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
           controller: this.refreshController,
           onRefresh: async () => {
+            requestGalleryCoverRetry()
             await this.refreshCurrentList()
           },
           onBottomRefresh: async () => {

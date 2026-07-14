@@ -4,6 +4,8 @@ import {
   GalleryCard,
   GalleryGridCard,
   GalleryWaterfallCard,
+  galleryWaterfallReuseId,
+  requestGalleryCoverRetry,
   GalleryCoverWallCard,
   GallerySimpleCard,
   GalleryDetailParams,
@@ -822,6 +824,7 @@ export struct GallerySearchPage {
               nearEndThreshold: 4,
               controller: this.refreshController,
               onRefresh: async () => {
+                requestGalleryCoverRetry()
                 await this.vm.refresh()
               },
               onBottomRefresh: async () => {
@@ -886,6 +889,7 @@ export struct GallerySearchPage {
               bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
               controller: this.refreshController,
               onRefresh: async () => {
+                requestGalleryCoverRetry()
                 await this.vm.refresh()
               },
               onBottomRefresh: async () => {
@@ -915,6 +919,7 @@ export struct GallerySearchPage {
                 (g: EhGallery, index: number) => {
                   FlowItem() {
                     GalleryWaterfallCard({ gallery: g })
+                      .reuse({ reuseId: () => galleryWaterfallReuseId(g) })
                   }
                   .width('100%')
                   .onAppear(() => {
@@ -951,6 +956,7 @@ export struct GallerySearchPage {
               bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
               controller: this.refreshController,
               onRefresh: async () => {
+                requestGalleryCoverRetry()
                 await this.vm.refresh()
               },
               onBottomRefresh: async () => {
@@ -1012,6 +1018,7 @@ export struct GallerySearchPage {
               bottomPadding: ThemeConstants.FLOAT_BAR_HEIGHT + ThemeConstants.SPACE_LG,
               controller: this.refreshController,
               onRefresh: async () => {
+                requestGalleryCoverRetry()
                 await this.vm.refresh()
               },
               onBottomRefresh: async () => {
