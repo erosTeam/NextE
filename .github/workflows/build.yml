@@ -58,6 +58,7 @@ jobs:
           node scripts/test_cookie_import_contract.mjs
           node scripts/test_remote_write_retry_contract.mjs
           node scripts/test_persistence_inventory_contract.mjs
+          node scripts/test_public_clipboard_build_contract.mjs
 
       - name: Disable Huawei Cloud sync for public CI builds
         shell: bash
@@ -90,6 +91,11 @@ jobs:
               raise SystemExit('Huawei Cloud structured-data app flag was not disabled')
           app.write_text(app_text, encoding='utf-8')
           PY
+
+      - name: Disable clipboard auto-detection for public self-sign builds
+        shell: bash
+        run: |
+          python3 scripts/prepare_public_clipboard_build.py
 
       - name: Get app version
         shell: bash

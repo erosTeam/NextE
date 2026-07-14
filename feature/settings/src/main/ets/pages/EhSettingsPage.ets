@@ -7,6 +7,7 @@ import {
   ConciseListRow,
   CookieJarSettings,
   ClipboardLinkSettings,
+  ClipboardLinkBuildFlag,
   ClipboardLinkSettingsState,
   EhConstants,
   EhCookieStore,
@@ -194,18 +195,20 @@ export struct EhSettingsPage {
             })
           }
         }
-        ListItem() {
-          GroupedListSection() {
-            ConciseListRow({
-              title: $r('app.string.clipboard_link_detection'),
-              subtitle: $r('app.string.clipboard_link_detection_hint'),
-              leadingIcon: $r('sys.symbol.text_clipboard'),
-              hasSwitch: true,
-              checked: this.clipboardLink.enabled,
-              switchAction: (value: boolean) => {
-                this.setClipboardLinkEnabled(value)
-              },
-            })
+        if (ClipboardLinkBuildFlag.CLIPBOARD_LINK_BUILD_ENABLED) {
+          ListItem() {
+            GroupedListSection() {
+              ConciseListRow({
+                title: $r('app.string.clipboard_link_detection'),
+                subtitle: $r('app.string.clipboard_link_detection_hint'),
+                leadingIcon: $r('sys.symbol.text_clipboard'),
+                hasSwitch: true,
+                checked: this.clipboardLink.enabled,
+                switchAction: (value: boolean) => {
+                  this.setClipboardLinkEnabled(value)
+                },
+              })
+            }
           }
         }
         ListItem() {

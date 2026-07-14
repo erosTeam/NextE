@@ -662,6 +662,7 @@ export { WebLoginStyleState, connectWebLoginStyle } from './state/WebLoginStyleS
 
 // utils
 export { EhUrlRouter, GalleryRef, ImagePageRef } from './utils/EhUrlRouter'
+export { ClipboardLinkBuildFlag } from './services/ClipboardLinkBuildFlag'
 export { ClipboardLinkService } from './services/ClipboardLinkService'
 export { BasicDataSource } from './utils/BasicDataSource'
 export { CommentReferenceSnapshotCache } from './utils/CommentReferenceSnapshotCache'
