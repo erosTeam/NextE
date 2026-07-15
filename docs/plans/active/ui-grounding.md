@@ -811,3 +811,12 @@ Primary information: comments keep their original readable text and inline meani
 Primary action: tapping a linked comment label opens the href through the existing EH URL router or in-app web page; translated comments preserve structure only when the source text still maps exactly to the parsed comment body, otherwise they fall back to plain translated text.
 Reuse or deviation: reuse `EhCommentParser`, `EhGalleryComment`, `GalleryCommentsCard` `CommentTextSegment`, `EhUrlRouter`, `GalleryWeb`, page cache cloning, and FE's recursive inline-node semantics; deviate from FE by storing serializable text-span ranges instead of a parsed DOM element because NextE cache/state must survive ArkTS model copying.
 Verification: comment parser contract, reply reference contract, comment translation contract, grounding ledger review, V1 decorator inventory, diff check, and signed HarmonyOS build.
+
+## Active: continuous app sheet content resizing
+
+Status: implemented candidate / needs QA
+Reference implementation: NextE `shared/src/main/ets/components/AppSheetOptions.ets` is the common `bindSheet` option helper; eros_fe action sheets such as `../eros_fe/lib/pages/gallery/view/thumb_box.dart` provide product content/action semantics but do not define HarmonyOS detent layout timing.
+Primary information: existing sheet content and hierarchy remain unchanged; the content viewport should track the visible sheet height while the user drags between detents.
+Primary action: dragging an existing multi-detent app sheet continuously resizes and reflows its content instead of waiting for the sheet to settle; all sheet actions and dismissal behavior remain unchanged.
+Reuse or deviation: reuse every current `appSheetOptions(...)` call and set the native ArkUI `scrollSizeMode: ScrollSizeMode.CONTINUOUS` once in the shared helper; no custom gesture, animation, layout wrapper, or per-page workaround is introduced.
+Verification: official offline ArkUI reference confirms `FOLLOW_DETENT` updates after dragging and `CONTINUOUS` updates during dragging; V1 decorator inventory, diff check, signed HarmonyOS build, and device interaction QA when an exact target is supplied.

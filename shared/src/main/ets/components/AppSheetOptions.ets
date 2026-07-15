@@ -4,6 +4,7 @@ export function appSheetOptions(options: SheetOptions): SheetOptions {
   if (options.enableOutsideInteractive === undefined) {
     options.enableOutsideInteractive = false
   }
+  options.scrollSizeMode = ScrollSizeMode.CONTINUOUS
   options.enableFloatingDragBar = true
   return options
 }
