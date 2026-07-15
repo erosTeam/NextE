@@ -58,6 +58,13 @@ Allowed `Sync` values:
 | StorageKeys.READING_VOLUME_KEY | setting | plaintext | excluded | Reader volume-key control |
 | StorageKeys.READING_AUTO_PAGE_SEC | setting | plaintext | excluded | Reader auto page interval |
 | StorageKeys.READING_PRELOAD_PAGES | setting | plaintext | excluded | Reader preload preference |
+| StorageKeys.READING_TAP_ZONE_LAYOUT | setting | plaintext | excluded | Reader tap-zone layout |
+| StorageKeys.READING_TAP_ZONE_INVERT | setting | plaintext | excluded | Reader tap-zone inversion |
+| StorageKeys.READING_BACKGROUND_MODE | setting | plaintext | excluded | Reader background color mode |
+| StorageKeys.READING_SHOW_PAGE_NUMBER | setting | plaintext | excluded | Reader page-number visibility |
+| StorageKeys.READING_FULLSCREEN | setting | plaintext | excluded | Reader fullscreen preference |
+| StorageKeys.READING_KEEP_SCREEN_ON | setting | plaintext | excluded | Reader keep-screen-on preference |
+| StorageKeys.READING_PAGE_TURN_ANIMATION | setting | plaintext | excluded | Reader page-turn animation preference |
 | StorageKeys.READER_IMAGE_CACHE_LIMIT_MB | setting | plaintext | excluded | Local reader image-cache limit |
 | StorageKeys.DOWNLOAD_CONCURRENCY | setting | plaintext | excluded | Download setting |
 | StorageKeys.DOWNLOAD_REQUEST_INTERVAL_SECONDS | setting | plaintext | excluded | Download setting |
