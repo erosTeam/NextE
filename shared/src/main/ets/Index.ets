@@ -485,6 +485,10 @@ export {
   connectCommentVoteMutation,
 } from './state/CommentVoteMutationState'
 export {
+  GalleryDetailRefreshMutationState,
+  connectGalleryDetailRefreshMutation,
+} from './state/GalleryDetailRefreshMutationState'
+export {
   GALLERY_COMMENT_ACTION_AUTHOR,
   GALLERY_COMMENT_ACTION_AUTO_TRANSLATE,
   GALLERY_COMMENT_ACTION_EDIT,

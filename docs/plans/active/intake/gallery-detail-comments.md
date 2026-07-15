@@ -801,7 +801,7 @@ Type: write-action regression / UI state refresh
 
 Priority suggestion: P1
 
-Status: implemented / pending real EH account acceptance
+Status: reopened / implemented candidate / needs real EH account acceptance
 
 Source:
 
@@ -812,6 +812,43 @@ Source:
   Re-tapping the already-selected upvote/downvote should be treated as a vote-cancel/withdraw path with
   matching prompt and toast copy, not as another ordinary up/down vote.
 - Implementation: `f7944f4 fix(comments): support vote cancellation`.
+- User feedback, 2026-07-15: after an upvote, the visible score still does not change immediately and
+  opening score details does not show the current user's vote record.
+
+2026-07-15 grounding:
+
+1. eros_fe updates `commentVote` and `commentScore` from `Api.commitVote()` in
+   `lib/features/gallery_detail/data/legacy_gallery_detail_repository.dart`, while score details remain
+   server-parsed from `lib/common/parser/gallery_detail_parser.dart`.
+2. The primary information is the voted row's score, selected vote state, and authoritative score-detail
+   breakdown; all three must describe the same successful vote.
+3. The primary action remains the existing thumbs-up/down write. Opening the score badge is the secondary
+   read action and must not submit or synthesize another vote.
+4. This repair covers immediate row repaint plus post-success score-detail refresh. It does not redesign
+   comment controls or change EH vote semantics.
+5. HarmonyOS expression stays on the existing `GalleryCommentRenderState`, `BasicDataSource` row-change
+   notification, and existing alert dialog; no custom control or overlay is introduced.
+
+2026-07-15 implementation candidate:
+
+- `scoreDetails` now travels with the per-row render state and the detail-page vote mutation, rather than
+  being read only from the route's initial `EhGalleryComment` snapshot.
+- Each optimistic/result vote write explicitly notifies the matching virtualized row after rebuilding
+  score-based filters, so the score badge and selected thumb repaint in place.
+- After `votecomment` succeeds, NextE performs a read-only detail fetch and applies the server-rendered
+  score details for that comment. A detail-refresh failure does not roll back the successful vote or replace
+  the API-returned score/vote state.
+- The comments-page pull-to-refresh still performs one gallery-detail request, but now publishes that same
+  complete response to the retained detail page. The detail ViewModel applies the fresh gallery header,
+  translated tags, first preview page, preview-page count, comments, and cache without issuing a second GET.
+
+2026-07-15 validation:
+
+- `git diff --check` passed.
+- `node scripts/test_v1_decorator_inventory_contract.mjs` reported `0 file(s)`.
+- `node scripts/test_comment_parser_contract.mjs` passed.
+- `scripts/build_hvigor_signed.sh` completed with `BUILD SUCCESSFUL`.
+- Real-submit acceptance remains open because comment voting is a non-idempotent EH account write.
 
 Research:
 

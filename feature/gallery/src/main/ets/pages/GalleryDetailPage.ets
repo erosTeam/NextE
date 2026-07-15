@@ -59,6 +59,8 @@ import {
   connectGalleryRatingMutation,
   CommentVoteMutationState,
   connectCommentVoteMutation,
+  GalleryDetailRefreshMutationState,
+  connectGalleryDetailRefreshMutation,
   RemoteFavoriteSlotCacheState,
   connectRemoteFavoriteSlotCache,
   ViewedGallery,
@@ -168,6 +170,7 @@ export struct GalleryDetailPage {
   @Local favoriteMutation: GalleryFavoriteMutationState = connectGalleryFavoriteMutation();
   @Local ratingMutation: GalleryRatingMutationState = connectGalleryRatingMutation();
   @Local commentVoteMutation: CommentVoteMutationState = connectCommentVoteMutation();
+  @Local detailRefreshMutation: GalleryDetailRefreshMutationState = connectGalleryDetailRefreshMutation();
   @Local safeMode: SafeModeState = connectSafeMode();
   @Local torrentSheetParams: GalleryTorrentsParams = new GalleryTorrentsParams();
   @Local archiverSheetParams: GalleryArchiverParams = new GalleryArchiverParams();
@@ -246,7 +249,20 @@ export struct GalleryDetailPage {
       this.commentVoteMutation.commentId,
       this.commentVoteMutation.score,
       this.commentVoteMutation.vote,
+      this.commentVoteMutation.scoreDetails,
     )
+  }
+
+  @Monitor('detailRefreshMutation.version')
+  private onExternalDetailRefresh(): void {
+    if (
+      this.detailRefreshMutation.gid !== this.params.gid ||
+      this.detailRefreshMutation.token !== this.params.token ||
+      this.detailRefreshMutation.isEx !== this.siteMode.isEx
+    ) {
+      return
+    }
+    this.vm.applyExternalRefreshResult(this.detailRefreshMutation.snapshot())
   }
 
   @Monitor('downloadQueueSignalState.version')

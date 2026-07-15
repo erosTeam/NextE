@@ -310,6 +310,37 @@ export class GalleryDetailViewModel {
     }
   }
 
+  /** Apply the full response already fetched by a retained child page without issuing a second request. */
+  async applyExternalRefreshResult(result: GalleryDetailResult): Promise<void> {
+    if (this.gid.length === 0 || this.token.length === 0) {
+      return
+    }
+    const run: GalleryDetailRun = this.beginDetailRun(this.gid, this.token)
+    this.loading = true
+    this.error = ''
+    try {
+      const applied: boolean = await this.applyDetailResult(run, result, true, 0, '', '')
+      if (applied && this.isCurrentDetailRun(run)) {
+        this.loaded = true
+        DiagnosticLogger.info(
+          'gallery',
+          'detail_external_refresh_applied',
+          `gid=${this.gid} images=${this.images.length} comments=${this.comments.length}`,
+        )
+      }
+    } catch (err) {
+      if (!this.isCurrentDetailRun(run)) {
+        return
+      }
+      this.error = EhErrorText.forUser(err)
+      DiagnosticLogger.warn('gallery', 'detail_external_refresh_failed', (err as Error).message)
+    } finally {
+      if (this.isCurrentDetailRun(run)) {
+        this.loading = false
+      }
+    }
+  }
+
   private async fetchAndApply(run: GalleryDetailRun, refresh: boolean): Promise<void> {
     if (!this.isCurrentDetailRun(run)) {
       return
@@ -332,8 +363,26 @@ export class GalleryDetailViewModel {
       run.token,
       run.isEx,
     )
+    await this.applyDetailResult(
+      run,
+      res,
+      refresh,
+      seedRatingFallBack,
+      seedRatingCount,
+      seedColorRating,
+    )
+  }
+
+  private async applyDetailResult(
+    run: GalleryDetailRun,
+    res: GalleryDetailResult,
+    refresh: boolean,
+    seedRatingFallBack: number,
+    seedRatingCount: string,
+    seedColorRating: string,
+  ): Promise<boolean> {
     if (!this.isCurrentDetailRun(run)) {
-      return
+      return false
     }
     // A valid gallery detail always has preview images. No images AND no comments means the response was
     // not a real detail page (interstitial / IP-throttle / truncated body) — don't overwrite the current
@@ -344,7 +393,7 @@ export class GalleryDetailViewModel {
         'detail_fetch_empty_skip',
         `gid=${run.gid} no images/comments; treating as a bad response, keeping existing data + cache`,
       )
-      return
+      return false
     }
     const merged: EhGallery = this.gallery.merge(res.gallery)
     if (!refresh) {
@@ -362,7 +411,7 @@ export class GalleryDetailViewModel {
     const renderVersion: number = this.detailRenderVersion
     const translated: EhGallery = await this.translateGallery(merged)
     if (this.detailRenderVersion !== renderVersion || !this.isCurrentDetailRun(run)) {
-      return
+      return false
     }
     this.gallery = translated
     this.images = res.images
@@ -371,6 +420,7 @@ export class GalleryDetailViewModel {
     this.previewRevision = this.previewRevision + 1
     this.activeDetailRun = run
     await this.saveDetailCache(run)
+    return true
   }
 
   /**
@@ -498,7 +548,7 @@ export class GalleryDetailViewModel {
     return next
   }
 
-  applyCommentVote(commentId: string, score: string, vote: number): void {
+  applyCommentVote(commentId: string, score: string, vote: number, scoreDetails: string[]): void {
     for (let i = 0; i < this.comments.length; i++) {
       const c: EhGalleryComment = this.comments[i]
       if (c.commentId === commentId) {
@@ -506,6 +556,7 @@ export class GalleryDetailViewModel {
         const next: EhGalleryComment = this.cloneComment(c)
         next.score = score
         next.vote = vote
+        next.scoreDetails = scoreDetails.slice()
         comments[i] = next
         this.comments = comments
         this.saveCurrentDetailCache()

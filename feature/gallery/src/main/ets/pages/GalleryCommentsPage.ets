@@ -28,6 +28,7 @@ import {
   connectSearchAction,
   connectSiteMode,
   connectCommentVoteMutation,
+  connectGalleryDetailRefreshMutation,
   DiagnosticLogger,
   EhErrorText,
   connectCommentTranslationSettings,
@@ -360,11 +361,15 @@ export struct GalleryCommentsPage {
     }
     this.errorMessage = ''
     try {
+      const isEx: boolean = connectSiteMode().isEx
       const result = await EhApiService.getInstance().getGalleryDetail(
         this.params.gid,
         this.params.token,
-        connectSiteMode().isEx,
+        isEx,
       )
+      if (connectSiteMode().isEx !== isEx) {
+        return
+      }
       // Bad/interstitial response (no previews and no comments): keep the existing comments instead of
       // wiping them to a blank list.
       if (result.images.length === 0 && result.comments.length === 0 && this.comments.length > 0) {
@@ -383,6 +388,12 @@ export struct GalleryCommentsPage {
         this.uploaderOnly = false
       }
       this.rebuildCommentList(true)
+      connectGalleryDetailRefreshMutation().publish(
+        this.params.gid,
+        this.params.token,
+        isEx,
+        result,
+      )
       DiagnosticLogger.info(
         'gallery',
         'comments_refresh_ok',
@@ -601,20 +612,53 @@ export struct GalleryCommentsPage {
 
   private applyVoteResult(result: CommentVoteResult): void {
     this.applyVoteState(result.commentId, result.commentScore.toString(), result.commentVote)
+    const details: string[] = this.scoreDetailsFor(result.commentId)
     connectCommentVoteMutation().publish(
       this.params.gid,
       result.commentId,
       result.commentScore.toString(),
       result.commentVote,
+      details,
     )
   }
 
-  private applyVoteState(commentId: string, score: string, vote: number): void {
+  private scoreDetailsFor(commentId: string): string[] {
+    const state: GalleryCommentRenderState | undefined = this.renderStateById(commentId)
+    if (state !== undefined) {
+      return state.scoreDetails.slice()
+    }
+    for (let i = 0; i < this.comments.length; i++) {
+      if (this.comments[i].commentId === commentId) {
+        return this.comments[i].scoreDetails.slice()
+      }
+    }
+    return []
+  }
+
+  private notifyCommentRowChanged(commentId: string): void {
+    const visible: EhGalleryComment[] = this.commentSource.getAll()
+    for (let i = 0; i < visible.length; i++) {
+      if (visible[i].commentId === commentId) {
+        this.commentSource.notifyDataChanged(i)
+        return
+      }
+    }
+  }
+
+  private applyVoteState(
+    commentId: string,
+    score: string,
+    vote: number,
+    scoreDetails?: string[],
+  ): void {
     for (let i = 0; i < this.comments.length; i++) {
       const c: EhGalleryComment = this.comments[i]
       if (c.commentId === commentId) {
         c.score = score
         c.vote = vote
+        if (scoreDetails !== undefined) {
+          c.scoreDetails = scoreDetails.slice()
+        }
         break
       }
     }
@@ -622,8 +666,45 @@ export struct GalleryCommentsPage {
     if (state !== undefined) {
       state.score = score
       state.vote = vote
+      if (scoreDetails !== undefined) {
+        state.scoreDetails = scoreDetails.slice()
+      }
     }
     this.rebuildCommentList()
+    this.notifyCommentRowChanged(commentId)
+  }
+
+  private async refreshCommentVoteDetails(commentId: string): Promise<void> {
+    const result = await EhApiService.getInstance().getGalleryDetail(
+      this.params.gid,
+      this.params.token,
+      connectSiteMode().isEx,
+    )
+    for (let i = 0; i < result.comments.length; i++) {
+      const comment: EhGalleryComment = result.comments[i]
+      if (comment.commentId !== commentId) {
+        continue
+      }
+      this.applyVoteState(commentId, comment.score, comment.vote, comment.scoreDetails)
+      connectCommentVoteMutation().publish(
+        this.params.gid,
+        commentId,
+        comment.score,
+        comment.vote,
+        comment.scoreDetails,
+      )
+      DiagnosticLogger.info(
+        'gallery',
+        'comment_vote_details_refreshed',
+        `id=${commentId} details=${comment.scoreDetails.length}`,
+      )
+      return
+    }
+    DiagnosticLogger.warn(
+      'gallery',
+      'comment_vote_details_missing',
+      `id=${commentId} comments=${result.comments.length}`,
+    )
   }
 
   private applyLocalVote(commentId: string, vote: number): CommentVoteSnapshot | undefined {
@@ -704,6 +785,15 @@ export struct GalleryCommentsPage {
         `id=${result.commentId} score=${result.commentScore} vote=${result.commentVote}`,
       )
       this.applyVoteResult(result)
+      try {
+        await this.refreshCommentVoteDetails(result.commentId)
+      } catch (detailsError) {
+        DiagnosticLogger.warn(
+          'gallery',
+          'comment_vote_details_refresh_failed',
+          (detailsError as Error).message,
+        )
+      }
       this.showCommentToast(this.voteSuccessText(tappedVote, result.commentVote))
     } catch (err) {
       if (previous !== undefined) {

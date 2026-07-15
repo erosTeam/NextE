@@ -5,6 +5,7 @@ export class GalleryCommentRenderState {
   @Trace commentId: string = ''
   @Trace score: string = ''
   @Trace vote: number = 0
+  @Trace scoreDetails: string[] = []
   @Trace translationText: string = ''
   @Trace translationSpans: EhGalleryCommentTextSpan[] = []
   @Trace translationShown: boolean = false
@@ -24,6 +25,7 @@ export class GalleryCommentRenderState {
     this.commentId = c.commentId
     this.score = c.score
     this.vote = c.vote
+    this.scoreDetails = c.scoreDetails.slice()
     this.translationText = c.translationText
     this.translationSpans = c.translationSpans.slice()
     this.translationShown = c.translationShown

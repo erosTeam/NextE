@@ -267,12 +267,13 @@ export struct GalleryCommentsCard {
   }
 
   private showScoreDetails(c: EhGalleryComment): void {
-    if (this.max > 0 || c.scoreDetails.length === 0) {
+    const details: string[] = this.effectiveScoreDetails(c)
+    if (this.max > 0 || details.length === 0) {
       return
     }
     this.getUIContext().showAlertDialog({
       title: $r('app.string.comment_score_details'),
-      message: c.scoreDetails.join('\n'),
+      message: details.join('\n'),
       primaryButton: {
         value: $r('app.string.common_ok'),
         action: () => {},
@@ -766,6 +767,13 @@ export struct GalleryCommentsCard {
       return this.renderState.vote
     }
     return this.useSingleComment ? this.singleComment.vote : c.vote
+  }
+
+  private effectiveScoreDetails(c: EhGalleryComment): string[] {
+    if (this.parentManagedActions) {
+      return this.renderState.scoreDetails
+    }
+    return this.useSingleComment ? this.singleComment.scoreDetails : c.scoreDetails
   }
 
   // Manual translate / toggle. In the page (parentManaged) path every state field lives on the render
