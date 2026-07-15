@@ -9,6 +9,26 @@
       "value": "#191919"
     },
     {
+      "name": "reader_tap_zone_previous",
+      "value": "#CCFF7733"
+    },
+    {
+      "name": "reader_tap_zone_next",
+      "value": "#CC3FAE58"
+    },
+    {
+      "name": "reader_tap_zone_menu",
+      "value": "#CC756872"
+    },
+    {
+      "name": "reader_tap_zone_left",
+      "value": "#CC7D1128"
+    },
+    {
+      "name": "reader_tap_zone_right",
+      "value": "#CC5F8F99"
+    },
+    {
       "name": "cover_placeholder",
       "value": "#2E2E30"
     },

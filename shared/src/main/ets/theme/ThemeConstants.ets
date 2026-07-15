@@ -37,6 +37,11 @@ export class ThemeConstants {
   // future over-image controls). No system token fits an over-image scrim — V2Next hardcodes
   // it per page; this is the shared, reusable version of that literal.
   static readonly OVERLAY_SCRIM: ResourceColor = '#99000000'
+  static readonly READER_TAP_ZONE_PREVIOUS: ResourceColor = $r('app.color.reader_tap_zone_previous')
+  static readonly READER_TAP_ZONE_NEXT: ResourceColor = $r('app.color.reader_tap_zone_next')
+  static readonly READER_TAP_ZONE_MENU: ResourceColor = $r('app.color.reader_tap_zone_menu')
+  static readonly READER_TAP_ZONE_LEFT: ResourceColor = $r('app.color.reader_tap_zone_left')
+  static readonly READER_TAP_ZONE_RIGHT: ResourceColor = $r('app.color.reader_tap_zone_right')
   // Lock screen overlay: blur the app itself instead of replacing it with an opaque page.
   static readonly LOCK_OVERLAY_TINT: ResourceColor = '#4D808080'
   static readonly LOCK_OVERLAY_BLUR_RADIUS: number = 60

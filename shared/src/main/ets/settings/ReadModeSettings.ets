@@ -3,6 +3,11 @@ import { preferences } from '@kit.ArkData'
 import { connectReadMode, ReadColumnMode, ReadMode, ReadSpreadLayout } from '../state/ReadModeState'
 import { StorageKeys } from '../constants/StorageKeys'
 import { DiagnosticLogger } from '../diagnostics/DiagnosticLogger'
+import {
+  ReaderTapZoneInvert,
+  ReaderTapZoneLayout,
+  ReaderTapZoneResolver,
+} from '../utils/ReaderTapZoneResolver'
 
 /** Persists reader direction + double-page mode and is the single writer of ReadModeState. */
 export class ReadModeSettings {
@@ -77,6 +82,12 @@ export class ReadModeSettings {
       const spreadLayoutMode: string = ReadModeSettings.normalizeSpreadLayout(
         store.getSync(StorageKeys.READING_SPREAD_LAYOUT, ReadSpreadLayout.JOINED) as string
       )
+      const tapZoneLayout: string = ReaderTapZoneResolver.normalizeLayout(
+        store.getSync(StorageKeys.READING_TAP_ZONE_LAYOUT, ReaderTapZoneLayout.RIGHT_LEFT) as string
+      )
+      const tapZoneInvert: string = ReaderTapZoneResolver.normalizeInvert(
+        store.getSync(StorageKeys.READING_TAP_ZONE_INVERT, ReaderTapZoneInvert.NONE) as string
+      )
       connectReadMode().mode = mode
       connectReadMode().doublePageEnabled = ReadModeSettings.restoreDoublePageEnabled(rawDoublePage)
       connectReadMode().columnMode = ReadColumnMode.ODD_LEFT
@@ -84,6 +95,8 @@ export class ReadModeSettings {
       connectReadMode().autoPageSeconds = ReadModeSettings.normalizeAutoPageSeconds(autoPageSeconds)
       connectReadMode().preloadPages = ReadModeSettings.normalizePreloadPages(preloadPages)
       connectReadMode().volumeKeyTurn = volumeKeyTurn
+      connectReadMode().tapZoneLayout = tapZoneLayout
+      connectReadMode().tapZoneInvert = tapZoneInvert
     } catch (error) {
       DiagnosticLogger.warn('settings', 'readmode_restore_failed', (error as Error).message)
     }
@@ -187,6 +200,36 @@ export class ReadModeSettings {
       store.flushSync()
     } catch (error) {
       DiagnosticLogger.warn('settings', 'read_preload_pages_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setTapZoneLayout(context: common.UIAbilityContext, layout: string): Promise<void> {
+    const normalized: string = ReaderTapZoneResolver.normalizeLayout(layout)
+    connectReadMode().tapZoneLayout = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_TAP_ZONE_LAYOUT, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_tap_zone_layout_save_failed', (error as Error).message)
+    }
+  }
+
+  static async setTapZoneInvert(context: common.UIAbilityContext, invert: string): Promise<void> {
+    const normalized: string = ReaderTapZoneResolver.normalizeInvert(invert)
+    connectReadMode().tapZoneInvert = normalized
+    try {
+      const store: preferences.Preferences = await preferences.getPreferences(
+        context,
+        StorageKeys.STORE_SETTINGS,
+      )
+      store.putSync(StorageKeys.READING_TAP_ZONE_INVERT, normalized)
+      store.flushSync()
+    } catch (error) {
+      DiagnosticLogger.warn('settings', 'read_tap_zone_invert_save_failed', (error as Error).message)
     }
   }
 }

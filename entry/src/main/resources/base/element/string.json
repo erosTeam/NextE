@@ -3009,6 +3009,82 @@
       "value": "Reading"
     },
     {
+      "name": "settings_reader_group_layout",
+      "value": "Page turning & layout"
+    },
+    {
+      "name": "settings_reader_group_tap_zones",
+      "value": "Tap zones"
+    },
+    {
+      "name": "settings_reader_group_controls",
+      "value": "Reading controls"
+    },
+    {
+      "name": "settings_reader_group_loading",
+      "value": "Loading"
+    },
+    {
+      "name": "settings_reader_tap_zones",
+      "value": "Tap zones"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert",
+      "value": "Invert tap zones"
+    },
+    {
+      "name": "settings_reader_tap_zone_right_left",
+      "value": "Right and left"
+    },
+    {
+      "name": "settings_reader_tap_zone_l_shaped",
+      "value": "L-shaped"
+    },
+    {
+      "name": "settings_reader_tap_zone_kindle",
+      "value": "Kindle"
+    },
+    {
+      "name": "settings_reader_tap_zone_edge",
+      "value": "Edge"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_none",
+      "value": "None"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_horizontal",
+      "value": "Horizontal"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_vertical",
+      "value": "Vertical"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_both",
+      "value": "Both"
+    },
+    {
+      "name": "reader_tap_zone_action_previous",
+      "value": "Previous page"
+    },
+    {
+      "name": "reader_tap_zone_action_next",
+      "value": "Next page"
+    },
+    {
+      "name": "reader_tap_zone_action_menu",
+      "value": "Menu"
+    },
+    {
+      "name": "reader_tap_zone_action_left",
+      "value": "Move left"
+    },
+    {
+      "name": "reader_tap_zone_action_right",
+      "value": "Move right"
+    },
+    {
       "name": "history_empty",
       "value": "No viewed galleries yet."
     },

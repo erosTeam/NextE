@@ -1,4 +1,5 @@
 import { AppStorageV2 } from '@kit.ArkUI'
+import { ReaderTapZoneInvert, ReaderTapZoneLayout } from '../utils/ReaderTapZoneResolver'
 
 /** Reader page-turn direction / layout (eros_fe ViewMode). */
 export enum ReadMode {
@@ -33,6 +34,8 @@ export class ReadModeState {
   @Trace autoPageSeconds: number = 3
   @Trace preloadPages: number = 2
   @Trace volumeKeyTurn: boolean = false
+  @Trace tapZoneLayout: string = ReaderTapZoneLayout.RIGHT_LEFT
+  @Trace tapZoneInvert: string = ReaderTapZoneInvert.NONE
 }
 
 const READ_MODE_KEY: string = 'v2_readMode'

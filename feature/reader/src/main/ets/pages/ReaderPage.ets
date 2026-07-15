@@ -26,6 +26,9 @@ import {
   ReadMode,
   ReadColumnMode,
   ReadSpreadLayout,
+  ReaderTapZoneAction,
+  ReaderTapZoneRegion,
+  ReaderTapZoneResolver,
   ReadModeSettings,
   GalleryReadProgressSettings,
   connectGalleryReadProgress,
@@ -74,6 +77,7 @@ const READER_LOADING_BAR_FG: ResourceColor = Color.White
 const READER_VERTICAL_TAP_MAX_DISTANCE: number = 8
 const READER_VERTICAL_SINGLE_TAP_DELAY_MS: number = 240
 const READER_TOUCH_TAP_SUPPRESS_MS: number = 350
+const READER_TAP_ZONE_SCROLL_RATIO: number = 0.75
 const READER_STATUS_BAR_LIGHT_CONTENT: string = '#FFFFFFFF'
 const READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS: number = 500
 const READER_EXIT_STATUS_BAR_LEAD_MS: number = 20
@@ -184,8 +188,8 @@ export struct ReaderPage {
   @Local readMode: ReadModeState = connectReadMode();
   @Local autoReadActive: boolean = false;
   @Local showThumbStrip: boolean = false;
-  // Reader viewport size (captured on layout) — divides the canvas into eros_fe's 3×3 tap regions
-  // (left/right thirds + center-column top/bottom fifths).
+  @Local tapZonePreviewVisible: boolean = false;
+  // Reader viewport size used by normalized tap-zone hit testing and continuous-mode page steps.
   @Local viewWidth: number = 0;
   @Local viewHeight: number = 0;
   @Local loadedPageSignal: number = 0;
@@ -292,6 +296,10 @@ export struct ReaderPage {
           if (this.originalImageResolving) {
             ReaderLoadingStage({ label: $r('app.string.reader_loading_resolving') })
           }
+        }
+
+        if (this.readerContentReady() && this.tapZonePreviewVisible) {
+          this.ReaderTapZonePreview()
         }
 
         // Hidden chrome must leave the reader canvas entirely; opacity-only controls can still steal
@@ -1559,6 +1567,13 @@ export struct ReaderPage {
     }
   }
 
+  @Monitor('readMode.tapZoneLayout', 'readMode.tapZoneInvert')
+  onTapZoneSettingsChanged(): void {
+    if (this.readerContentReady()) {
+      this.tapZonePreviewVisible = true
+    }
+  }
+
   // Force-persist on close so the last page survives an unfired debounce (eros_fe saveToStore).
   aboutToDisappear(): void {
     if (this.params.gid.length > 0) {
@@ -1684,40 +1699,44 @@ export struct ReaderPage {
     this.turnTo(target)
   }
 
-  // Tap-zone navigation — eros_fe's 3×3 region grid (lrRatio 1/3, tbRatio 1/5, view_page.dart):
-  //   • left third → tapLeft, right third → tapRight (direction-aware: see tapLeft/tapRight);
-  //   • center column: top fifth → prev page, bottom fifth → next page, middle → chrome toggle.
-  // Works in all three modes (the center fifths are page-index relative, never RTL-inverted). The tap
-  // regions stay anchored to the reader viewport while the image is zoomed or panned. `x`/`y` are the
-  // tap position within the full-canvas overlay, not the transformed image surface.
   private onReaderTap(x: number, y: number): void {
+    if (this.tapZonePreviewVisible) {
+      this.tapZonePreviewVisible = false
+      return
+    }
     if (this.consumeReaderTapSuppressed()) {
       return
     }
-    if (this.viewWidth <= 0) {
-      this.toggleChrome()
-      return
-    }
-    if (this.isPagedVerticalMode() && this.viewHeight > 0) {
-      const tb: number = this.viewHeight / 3
-      if (y < tb) {
-        this.toPrev()
-      } else if (y > this.viewHeight - tb) {
-        this.toNext()
+    const action: string = ReaderTapZoneResolver.resolve(
+      this.readMode.tapZoneLayout,
+      this.readMode.tapZoneInvert,
+      x,
+      y,
+      this.viewWidth,
+      this.viewHeight,
+    )
+    this.performTapZoneAction(action)
+  }
+
+  private performTapZoneAction(action: string): void {
+    if (this.isContinuousVerticalMode()) {
+      if (action === ReaderTapZoneAction.PREVIOUS || action === ReaderTapZoneAction.LEFT) {
+        this.listScroller.scrollBy(0, -this.viewHeight * READER_TAP_ZONE_SCROLL_RATIO)
+      } else if (action === ReaderTapZoneAction.NEXT || action === ReaderTapZoneAction.RIGHT) {
+        this.listScroller.scrollBy(0, this.viewHeight * READER_TAP_ZONE_SCROLL_RATIO)
       } else {
         this.toggleChrome()
       }
       return
     }
-    const lr: number = this.viewWidth / 3
-    if (x < lr) {
-      this.tapLeft()
-    } else if (x > this.viewWidth - lr) {
-      this.tapRight()
-    } else if (this.viewHeight > 0 && y < this.viewHeight / 5) {
+    if (action === ReaderTapZoneAction.PREVIOUS) {
       this.toPrev()
-    } else if (this.viewHeight > 0 && y > (this.viewHeight * 4) / 5) {
+    } else if (action === ReaderTapZoneAction.NEXT) {
       this.toNext()
+    } else if (action === ReaderTapZoneAction.LEFT) {
+      this.tapLeft()
+    } else if (action === ReaderTapZoneAction.RIGHT) {
+      this.tapRight()
     } else {
       this.toggleChrome()
     }
@@ -2230,6 +2249,85 @@ export struct ReaderPage {
     .height('100%')
   }
 
+  private tapZonePreviewRegions(): ReaderTapZoneRegion[] {
+    return ReaderTapZoneResolver.regions(this.readMode.tapZoneLayout, this.readMode.tapZoneInvert)
+  }
+
+  private tapZonePercent(value: number): string {
+    return `${value * 100}%`
+  }
+
+  private tapZoneActionColor(action: string): ResourceColor {
+    if (action === ReaderTapZoneAction.PREVIOUS) {
+      return ThemeConstants.READER_TAP_ZONE_PREVIOUS
+    }
+    if (action === ReaderTapZoneAction.NEXT) {
+      return ThemeConstants.READER_TAP_ZONE_NEXT
+    }
+    if (action === ReaderTapZoneAction.LEFT) {
+      return ThemeConstants.READER_TAP_ZONE_LEFT
+    }
+    if (action === ReaderTapZoneAction.RIGHT) {
+      return ThemeConstants.READER_TAP_ZONE_RIGHT
+    }
+    return ThemeConstants.READER_TAP_ZONE_MENU
+  }
+
+  private tapZoneActionLabel(action: string): Resource {
+    if (action === ReaderTapZoneAction.PREVIOUS) {
+      return $r('app.string.reader_tap_zone_action_previous')
+    }
+    if (action === ReaderTapZoneAction.NEXT) {
+      return $r('app.string.reader_tap_zone_action_next')
+    }
+    if (action === ReaderTapZoneAction.LEFT) {
+      return $r('app.string.reader_tap_zone_action_left')
+    }
+    if (action === ReaderTapZoneAction.RIGHT) {
+      return $r('app.string.reader_tap_zone_action_right')
+    }
+    return $r('app.string.reader_tap_zone_action_menu')
+  }
+
+  @Builder
+  ReaderTapZonePreview() {
+    Stack() {
+      ForEach(
+        this.tapZonePreviewRegions(),
+        (region: ReaderTapZoneRegion) => {
+          Stack({ alignContent: Alignment.Center }) {
+            Text(this.tapZoneActionLabel(region.action))
+              .fontSize(ThemeConstants.FONT_SIZE_HEADING)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(Color.White)
+              .padding({
+                left: ThemeConstants.SPACE_MD,
+                right: ThemeConstants.SPACE_MD,
+                top: ThemeConstants.SPACE_XS,
+                bottom: ThemeConstants.SPACE_XS,
+              })
+              .backgroundColor(ThemeConstants.OVERLAY_SCRIM)
+              .borderRadius(ThemeConstants.RADIUS_ROUND)
+          }
+          .width(this.tapZonePercent(region.right - region.left))
+          .height(this.tapZonePercent(region.bottom - region.top))
+          .position({
+            x: this.tapZonePercent(region.left),
+            y: this.tapZonePercent(region.top),
+          })
+          .backgroundColor(this.tapZoneActionColor(region.action))
+        },
+        (region: ReaderTapZoneRegion) => region.key,
+      )
+    }
+    .width('100%')
+    .height('100%')
+    .hitTestBehavior(HitTestMode.Block)
+    .onClick(() => {
+      this.tapZonePreviewVisible = false
+    })
+  }
+
   @Builder
   ReaderTapOverlay() {
     Blank()
@@ -2288,8 +2386,8 @@ export struct ReaderPage {
                   this.imageZoomed = zoomed
                   this.verticalZoomedPage = zoomed ? this.vm.imageAt(index).page : -1
                 },
-                onChromeTap: () => {
-                  this.toggleChrome()
+                onReaderTap: (x: number, y: number) => {
+                  this.onReaderTap(x, y)
                 },
                 onImageLoaded: (page: number) => {
                   this.markPageImageLoaded(page)
@@ -5434,7 +5532,7 @@ struct ReaderVerticalImage {
   @Param sourceReloadRequestId: number = 0;
   @Param imageBlockWhitelistSaving: boolean = false;
   @Param visible: boolean = false;
-  @Param onChromeTap: () => void = () => {};
+  @Param onReaderTap: (x: number, y: number) => void = (_x: number, _y: number) => {};
   @Param onZoomChange: (zoomed: boolean) => void = (_zoomed: boolean) => {};
   @Param onImageLoaded: (page: number) => void = (_page: number) => {};
   @Param onImageFileReady: (page: number, filePath: string, bytes: number) => void =
@@ -5875,11 +5973,11 @@ struct ReaderVerticalImage {
     }
   }
 
-  private scheduleSingleTap(): void {
+  private scheduleSingleTap(x: number, y: number): void {
     this.clearPendingSingleTap()
     this.singleTapTimerId = setTimeout((): void => {
       this.singleTapTimerId = 0
-      this.onChromeTap()
+      this.onReaderTap(x, y)
     }, READER_VERTICAL_SINGLE_TAP_DELAY_MS)
   }
 
@@ -5912,7 +6010,7 @@ struct ReaderVerticalImage {
     }
     if (event.type === TouchType.Up) {
       if (!this.tapCancelled && !this.skipNextTapUp && !this.movedBeyondTap(touch.x, touch.y)) {
-        this.scheduleSingleTap()
+        this.scheduleSingleTap(touch.windowX, touch.windowY)
       }
       this.skipNextTapUp = false
       this.tapCancelled = false

@@ -3009,6 +3009,82 @@
       "value": "阅读"
     },
     {
+      "name": "settings_reader_group_layout",
+      "value": "翻页与布局"
+    },
+    {
+      "name": "settings_reader_group_tap_zones",
+      "value": "点按区域"
+    },
+    {
+      "name": "settings_reader_group_controls",
+      "value": "阅读控制"
+    },
+    {
+      "name": "settings_reader_group_loading",
+      "value": "加载"
+    },
+    {
+      "name": "settings_reader_tap_zones",
+      "value": "点按区域"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert",
+      "value": "反转点按区域"
+    },
+    {
+      "name": "settings_reader_tap_zone_right_left",
+      "value": "左右"
+    },
+    {
+      "name": "settings_reader_tap_zone_l_shaped",
+      "value": "L 形"
+    },
+    {
+      "name": "settings_reader_tap_zone_kindle",
+      "value": "Kindle"
+    },
+    {
+      "name": "settings_reader_tap_zone_edge",
+      "value": "两侧"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_none",
+      "value": "无"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_horizontal",
+      "value": "左右"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_vertical",
+      "value": "上下"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_both",
+      "value": "全部"
+    },
+    {
+      "name": "reader_tap_zone_action_previous",
+      "value": "上一页"
+    },
+    {
+      "name": "reader_tap_zone_action_next",
+      "value": "下一页"
+    },
+    {
+      "name": "reader_tap_zone_action_menu",
+      "value": "菜单"
+    },
+    {
+      "name": "reader_tap_zone_action_left",
+      "value": "往左"
+    },
+    {
+      "name": "reader_tap_zone_action_right",
+      "value": "往右"
+    },
+    {
       "name": "history_empty",
       "value": "还没有浏览历史"
     },

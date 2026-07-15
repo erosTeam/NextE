@@ -3009,6 +3009,82 @@
       "value": "閲覧"
     },
     {
+      "name": "settings_reader_group_layout",
+      "value": "ページ送りとレイアウト"
+    },
+    {
+      "name": "settings_reader_group_tap_zones",
+      "value": "タップ領域"
+    },
+    {
+      "name": "settings_reader_group_controls",
+      "value": "閲覧操作"
+    },
+    {
+      "name": "settings_reader_group_loading",
+      "value": "読み込み"
+    },
+    {
+      "name": "settings_reader_tap_zones",
+      "value": "タップ領域"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert",
+      "value": "タップ領域を反転"
+    },
+    {
+      "name": "settings_reader_tap_zone_right_left",
+      "value": "左右"
+    },
+    {
+      "name": "settings_reader_tap_zone_l_shaped",
+      "value": "L 字型"
+    },
+    {
+      "name": "settings_reader_tap_zone_kindle",
+      "value": "Kindle"
+    },
+    {
+      "name": "settings_reader_tap_zone_edge",
+      "value": "両端"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_none",
+      "value": "なし"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_horizontal",
+      "value": "左右"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_vertical",
+      "value": "上下"
+    },
+    {
+      "name": "settings_reader_tap_zone_invert_both",
+      "value": "すべて"
+    },
+    {
+      "name": "reader_tap_zone_action_previous",
+      "value": "前のページ"
+    },
+    {
+      "name": "reader_tap_zone_action_next",
+      "value": "次のページ"
+    },
+    {
+      "name": "reader_tap_zone_action_menu",
+      "value": "メニュー"
+    },
+    {
+      "name": "reader_tap_zone_action_left",
+      "value": "左へ"
+    },
+    {
+      "name": "reader_tap_zone_action_right",
+      "value": "右へ"
+    },
+    {
       "name": "history_empty",
       "value": "閲覧履歴はまだありません"
     },
