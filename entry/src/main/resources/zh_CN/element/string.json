@@ -3013,6 +3013,46 @@
       "value": "翻页与布局"
     },
     {
+      "name": "settings_reader_group_display",
+      "value": "显示与屏幕"
+    },
+    {
+      "name": "settings_reader_background",
+      "value": "背景颜色"
+    },
+    {
+      "name": "settings_reader_background_black",
+      "value": "黑色"
+    },
+    {
+      "name": "settings_reader_background_gray",
+      "value": "灰色"
+    },
+    {
+      "name": "settings_reader_background_white",
+      "value": "白色"
+    },
+    {
+      "name": "settings_reader_background_auto",
+      "value": "自动"
+    },
+    {
+      "name": "settings_reader_show_page_number",
+      "value": "显示页码"
+    },
+    {
+      "name": "settings_reader_fullscreen",
+      "value": "全屏"
+    },
+    {
+      "name": "settings_reader_keep_screen_on",
+      "value": "保持屏幕常亮"
+    },
+    {
+      "name": "settings_reader_page_turn_animation",
+      "value": "翻页动画"
+    },
+    {
       "name": "settings_reader_group_tap_zones",
       "value": "点按区域"
     },

@@ -6,6 +6,7 @@ import {
   connectReadMode,
   ReadModeState,
   ReadMode,
+  ReaderBackgroundMode,
   ReadSpreadLayout,
   ReaderTapZoneInvert,
   ReaderTapZoneLayout,
@@ -39,6 +40,7 @@ export struct ReaderSettingsPage {
   @Local preloadPageMenuShown: boolean = false;
   @Local tapZoneMenuShown: boolean = false;
   @Local tapZoneInvertMenuShown: boolean = false;
+  @Local backgroundMenuShown: boolean = false;
   @Local navStackHolder: NavStackHolder = connectNavStack();
   @Local isFirstSecondaryDestination: boolean = false;
   private stack: NavPathStack = connectNavStack().stack;
@@ -90,6 +92,36 @@ export struct ReaderSettingsPage {
     const ctx: common.UIAbilityContext =
       this.getUIContext().getHostContext() as common.UIAbilityContext
     ReadModeSettings.setTapZoneInvert(ctx, invert)
+  }
+
+  private setBackgroundMode(mode: string): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setBackgroundMode(ctx, mode)
+  }
+
+  private setShowPageNumber(enabled: boolean): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setShowPageNumber(ctx, enabled)
+  }
+
+  private setFullscreen(enabled: boolean): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setFullscreen(ctx, enabled)
+  }
+
+  private setKeepScreenOn(enabled: boolean): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setKeepScreenOn(ctx, enabled)
+  }
+
+  private setPageTurnAnimation(enabled: boolean): void {
+    const ctx: common.UIAbilityContext =
+      this.getUIContext().getHostContext() as common.UIAbilityContext
+    ReadModeSettings.setPageTurnAnimation(ctx, enabled)
   }
 
   private modeLabel(): Resource {
@@ -161,6 +193,19 @@ export struct ReaderSettingsPage {
       return $r('app.string.settings_reader_tap_zone_invert_both')
     }
     return $r('app.string.settings_reader_tap_zone_invert_none')
+  }
+
+  private backgroundModeLabel(): Resource {
+    if (this.readMode.backgroundMode === ReaderBackgroundMode.GRAY) {
+      return $r('app.string.settings_reader_background_gray')
+    }
+    if (this.readMode.backgroundMode === ReaderBackgroundMode.WHITE) {
+      return $r('app.string.settings_reader_background_white')
+    }
+    if (this.readMode.backgroundMode === ReaderBackgroundMode.AUTO) {
+      return $r('app.string.settings_reader_background_auto')
+    }
+    return $r('app.string.settings_reader_background_black')
   }
 
   @Builder
@@ -463,6 +508,52 @@ export struct ReaderSettingsPage {
     }
   }
 
+  @Builder
+  BackgroundMenu() {
+    Menu() {
+      MenuItem({
+        content: $r('app.string.settings_reader_background_black'),
+        symbolEndIcon:
+          this.readMode.backgroundMode === ReaderBackgroundMode.BLACK
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setBackgroundMode(ReaderBackgroundMode.BLACK)
+        this.backgroundMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.settings_reader_background_gray'),
+        symbolEndIcon:
+          this.readMode.backgroundMode === ReaderBackgroundMode.GRAY
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setBackgroundMode(ReaderBackgroundMode.GRAY)
+        this.backgroundMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.settings_reader_background_white'),
+        symbolEndIcon:
+          this.readMode.backgroundMode === ReaderBackgroundMode.WHITE
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setBackgroundMode(ReaderBackgroundMode.WHITE)
+        this.backgroundMenuShown = false
+      })
+      MenuItem({
+        content: $r('app.string.settings_reader_background_auto'),
+        symbolEndIcon:
+          this.readMode.backgroundMode === ReaderBackgroundMode.AUTO
+            ? new SymbolGlyphModifier($r('sys.symbol.checkmark'))
+            : undefined,
+      }).onClick(() => {
+        this.setBackgroundMode(ReaderBackgroundMode.AUTO)
+        this.backgroundMenuShown = false
+      })
+    }
+  }
+
   private refreshFirstSecondaryDestination(pathStack: NavPathStack): void {
     const pathNames: string[] = pathStack.getAllPathName()
     this.isFirstSecondaryDestination = pathNames.length === 1 && pathNames[0] === 'ReaderSettings'
@@ -528,6 +619,19 @@ export struct ReaderSettingsPage {
               this.spreadLayoutMenuShown = false
             },
           })
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.settings_reader_page_turn_animation'),
+            hasSwitch: true,
+            checked: this.readMode.pageTurnAnimation,
+            showChevron: false,
+            action: () => {
+              this.setPageTurnAnimation(!this.readMode.pageTurnAnimation)
+            },
+            switchAction: (value: boolean) => {
+              this.setPageTurnAnimation(value)
+            },
+          })
         }
       }
     }
@@ -567,6 +671,69 @@ export struct ReaderSettingsPage {
             placement: Placement.BottomRight,
             onDisappear: () => {
               this.tapZoneInvertMenuShown = false
+            },
+          })
+        }
+      }
+    }
+
+    ListItem() {
+      Column({ space: ThemeConstants.SPACE_XS }) {
+        SectionHeader({ title: $r('app.string.settings_reader_group_display') })
+        GroupedListSection() {
+          Column() {
+            ConciseListRow({
+              title: $r('app.string.settings_reader_background'),
+              trailingText: this.backgroundModeLabel(),
+              trailingDropdown: true,
+              action: () => {
+                this.backgroundMenuShown = true
+              },
+            })
+          }
+          .bindMenu(this.backgroundMenuShown, this.BackgroundMenu, {
+            placement: Placement.BottomRight,
+            onDisappear: () => {
+              this.backgroundMenuShown = false
+            },
+          })
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.settings_reader_show_page_number'),
+            hasSwitch: true,
+            checked: this.readMode.showPageNumber,
+            showChevron: false,
+            action: () => {
+              this.setShowPageNumber(!this.readMode.showPageNumber)
+            },
+            switchAction: (value: boolean) => {
+              this.setShowPageNumber(value)
+            },
+          })
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.settings_reader_fullscreen'),
+            hasSwitch: true,
+            checked: this.readMode.fullscreen,
+            showChevron: false,
+            action: () => {
+              this.setFullscreen(!this.readMode.fullscreen)
+            },
+            switchAction: (value: boolean) => {
+              this.setFullscreen(value)
+            },
+          })
+          this.rowDivider()
+          ConciseListRow({
+            title: $r('app.string.settings_reader_keep_screen_on'),
+            hasSwitch: true,
+            checked: this.readMode.keepScreenOn,
+            showChevron: false,
+            action: () => {
+              this.setKeepScreenOn(!this.readMode.keepScreenOn)
+            },
+            switchAction: (value: boolean) => {
+              this.setKeepScreenOn(value)
             },
           })
         }

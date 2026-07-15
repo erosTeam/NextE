@@ -42,6 +42,19 @@ export class ThemeConstants {
   static readonly READER_TAP_ZONE_MENU: ResourceColor = $r('app.color.reader_tap_zone_menu')
   static readonly READER_TAP_ZONE_LEFT: ResourceColor = $r('app.color.reader_tap_zone_left')
   static readonly READER_TAP_ZONE_RIGHT: ResourceColor = $r('app.color.reader_tap_zone_right')
+  static readonly READER_BACKGROUND_BLACK: ResourceColor = '#FF000000'
+  static readonly READER_BACKGROUND_GRAY: ResourceColor = '#FF303030'
+  static readonly READER_BACKGROUND_WHITE: ResourceColor = '#FFFFFFFF'
+  static readonly READER_FOREGROUND_LIGHT: ResourceColor = '#FFFFFFFF'
+  static readonly READER_FOREGROUND_DARK: ResourceColor = '#FF000000'
+  static readonly READER_FOREGROUND_LIGHT_SECONDARY: ResourceColor = '#CCFFFFFF'
+  static readonly READER_FOREGROUND_DARK_SECONDARY: ResourceColor = '#B3000000'
+  static readonly READER_CONTROL_LIGHT_TINT: ResourceColor = '#26FFFFFF'
+  static readonly READER_CONTROL_DARK_TINT: ResourceColor = '#26000000'
+  static readonly READER_PAGE_NUMBER_TEXT: ResourceColor = '#99FFFFFF'
+  static readonly READER_PAGE_NUMBER_OUTLINE: ResourceColor = '#80000000'
+  static readonly READER_PAGE_NUMBER_STROKE_WIDTH: number = 2.5
+  static readonly READER_PAGE_NUMBER_BOTTOM_GAP: number = 8
   // Lock screen overlay: blur the app itself instead of replacing it with an opaque page.
   static readonly LOCK_OVERLAY_TINT: ResourceColor = '#4D808080'
   static readonly LOCK_OVERLAY_BLUR_RADIUS: number = 60

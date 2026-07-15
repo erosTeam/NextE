@@ -431,7 +431,14 @@ export { UserTagStore } from './state/UserTagStore'
 export { UserTagSignal, connectUserTagSignal } from './state/UserTagSignal'
 export { ListMode, ListModeState, connectListMode } from './state/ListModeState'
 export { GalleryTitleState, connectGalleryTitle } from './state/GalleryTitleState'
-export { ReadMode, ReadColumnMode, ReadSpreadLayout, ReadModeState, connectReadMode } from './state/ReadModeState'
+export {
+  ReadMode,
+  ReadColumnMode,
+  ReadSpreadLayout,
+  ReaderBackgroundMode,
+  ReadModeState,
+  connectReadMode,
+} from './state/ReadModeState'
 export {
   ReaderTapZoneAction,
   ReaderTapZoneInvert,

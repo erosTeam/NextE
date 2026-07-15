@@ -1,6 +1,6 @@
 import { HdsNavDestination } from '@kit.UIDesignKit'
 import { common } from '@kit.AbilityKit'
-import { SymbolGlyphModifier, window } from '@kit.ArkUI'
+import { LengthMetrics, SymbolGlyphModifier, window } from '@kit.ArkUI'
 import { KeyCode } from '@kit.InputKit'
 import { fileIo } from '@kit.CoreFileKit'
 import inputConsumer from '@ohos.multimodalInput.inputConsumer'
@@ -19,11 +19,13 @@ import {
   ImagePipelineService,
   DiagnosticLogger,
   connectThemeDisplay,
+  ThemeDisplayState,
   connectLayoutSafeArea,
   LayoutSafeAreaState,
   connectReadMode,
   ReadModeState,
   ReadMode,
+  ReaderBackgroundMode,
   ReadColumnMode,
   ReadSpreadLayout,
   ReaderTapZoneAction,
@@ -84,6 +86,44 @@ const READER_EXIT_STATUS_BAR_LEAD_MS: number = 20
 const READER_DEFAULT_PRELOAD_PAGES: number = 2
 const READER_MAX_PRELOAD_PAGES: number = 5
 const READER_STATUS_BAR_DARK_CONTENT: string = '#FF000000'
+const READER_PAGE_TURN_ANIM_DURATION: number = 200
+
+function readerBackgroundIsDark(mode: string, effectiveDark: boolean): boolean {
+  if (mode === ReaderBackgroundMode.WHITE) {
+    return false
+  }
+  if (mode === ReaderBackgroundMode.AUTO) {
+    return effectiveDark
+  }
+  return true
+}
+
+function readerBackgroundColor(mode: string, effectiveDark: boolean): ResourceColor {
+  if (mode === ReaderBackgroundMode.GRAY) {
+    return ThemeConstants.READER_BACKGROUND_GRAY
+  }
+  if (mode === ReaderBackgroundMode.WHITE) {
+    return ThemeConstants.READER_BACKGROUND_WHITE
+  }
+  if (mode === ReaderBackgroundMode.AUTO) {
+    return effectiveDark
+      ? ThemeConstants.READER_BACKGROUND_BLACK
+      : ThemeConstants.READER_BACKGROUND_WHITE
+  }
+  return ThemeConstants.READER_BACKGROUND_BLACK
+}
+
+function readerForegroundColor(mode: string, effectiveDark: boolean): ResourceColor {
+  return readerBackgroundIsDark(mode, effectiveDark)
+    ? ThemeConstants.READER_FOREGROUND_LIGHT
+    : ThemeConstants.READER_FOREGROUND_DARK
+}
+
+function readerSecondaryForegroundColor(mode: string, effectiveDark: boolean): ResourceColor {
+  return readerBackgroundIsDark(mode, effectiveDark)
+    ? ThemeConstants.READER_FOREGROUND_LIGHT_SECONDARY
+    : ThemeConstants.READER_FOREGROUND_DARK_SECONDARY
+}
 
 function readerDelay(ms: number): Promise<void> {
   return new Promise<void>((resolve: () => void) => {
@@ -186,6 +226,7 @@ export struct ReaderPage {
   // the rendered page can stay on the reused first page surface.
   @Local readerReady: boolean = false;
   @Local readMode: ReadModeState = connectReadMode();
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
   @Local autoReadActive: boolean = false;
   @Local showThumbStrip: boolean = false;
   @Local tapZonePreviewVisible: boolean = false;
@@ -245,6 +286,7 @@ export struct ReaderPage {
   private readerTapStartX: number = 0;
   private readerTapStartY: number = 0;
   private readerTapSuppressUntilMs: number = 0;
+  private readerRouteVisible: boolean = false;
 
   build() {
     HdsNavDestination() {
@@ -263,7 +305,7 @@ export struct ReaderPage {
           Column({ space: ThemeConstants.SPACE_MD }) {
             Text(this.vm.error)
               .fontSize(ThemeConstants.FONT_SIZE_BODY)
-              .fontColor(Color.White)
+              .fontColor(this.readerForegroundColor())
               .textAlign(TextAlign.Center)
             Button($r('app.string.common_retry'))
               .type(ButtonType.Capsule)
@@ -302,6 +344,10 @@ export struct ReaderPage {
           this.ReaderTapZonePreview()
         }
 
+        if (this.readerContentReady() && this.readMode.showPageNumber && !this.showChrome) {
+          this.ReaderPersistentPageNumber()
+        }
+
         // Hidden chrome must leave the reader canvas entirely; opacity-only controls can still steal
         // drags from the pager on some devices.
         if (this.readerContentReady() && this.showChrome) {
@@ -314,7 +360,7 @@ export struct ReaderPage {
       .id(READER_KEY_SURFACE_ID)
       .focusable(true)
       .defaultFocus(true)
-      .backgroundColor(Color.Black)
+      .backgroundColor(this.readerBackgroundColor())
       .onAreaChange((_o: Area, n: Area) => {
         this.viewWidth = n.width as number
         this.viewHeight = n.height as number
@@ -324,31 +370,38 @@ export struct ReaderPage {
       })
     }
     .hideTitleBar(true)
-    .backgroundColor(Color.Black)
+    .backgroundColor(this.readerBackgroundColor())
     .onBackPressed(() => {
       this.closeReader()
       return true
     })
     .onShown(() => {
+      this.readerRouteVisible = true
       this.scheduleEntryStatusBarVisibility()
+      this.setReaderKeepScreenOn(this.readMode.keepScreenOn)
     })
     .onWillDisappear(() => {
+      this.readerRouteVisible = false
       this.clearPendingEntryStatusBarHide()
+      this.setReaderKeepScreenOn(false)
       // Normal Reader close owns its status-bar request in closeReader() before popping. Keep
       // this only for an external unmount that bypasses the Reader close path.
       if (!this.readerClosing) {
-        this.setReaderStatusBarVisible(true, false)
+        this.restoreAppStatusBar()
       }
     })
     .onWillHide(() => {
+      this.readerRouteVisible = false
       this.clearPendingEntryStatusBarHide()
+      this.setReaderKeepScreenOn(false)
       // ReaderSettings hides Reader without unmounting it. A real Reader close is handled by
       // onWillDisappear, which the framework invokes before the exit transition begins.
       if (!this.readerClosing) {
-        this.setReaderStatusBarVisible(true, false)
+        this.restoreAppStatusBar()
       }
     })
     .onDisAppear(() => {
+      this.readerRouteVisible = false
       this.clearPendingEntryStatusBarHide()
       connectReaderOverlayNavigation().finishClose()
     })
@@ -383,10 +436,7 @@ export struct ReaderPage {
             this.startReaderSession(p, routeEpoch, isEx)
           })
       }
-      // Keep the screen awake while reading (eros_fe couples fullscreen + wakelock); window-scoped,
-      // restored on aboutToDisappear. The app is already edge-to-edge fullscreen (EntryAbility), so the
-      // reader doesn't re-enter fullscreen — the black canvas + faded chrome is the immersive surface.
-      this.setReaderKeepScreenOn(true)
+      this.setReaderKeepScreenOn(this.readMode.keepScreenOn)
       this.requestReaderKeyFocus()
       this.registerVolumeKeyConsumer()
     })
@@ -550,13 +600,23 @@ export struct ReaderPage {
       .catch((_e: Error) => {})
   }
 
-  private appStatusBarContentColor(): string {
-    return connectThemeDisplay().effectiveDark ? READER_STATUS_BAR_LIGHT_CONTENT : READER_STATUS_BAR_DARK_CONTENT
+  private readerBackgroundColor(): ResourceColor {
+    return readerBackgroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
   }
 
-  private applyReaderStatusBarVisible(visible: boolean, readerChrome: boolean = true): Promise<void> {
-    const contentColor: string = readerChrome ? READER_STATUS_BAR_LIGHT_CONTENT : this.appStatusBarContentColor()
-    const lightIcon: boolean = readerChrome || connectThemeDisplay().effectiveDark
+  private readerForegroundColor(): ResourceColor {
+    return readerForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+  }
+
+  private readerBackgroundIsDark(): boolean {
+    return readerBackgroundIsDark(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+  }
+
+  private appStatusBarContentColor(): string {
+    return this.themeDisplay.effectiveDark ? READER_STATUS_BAR_LIGHT_CONTENT : READER_STATUS_BAR_DARK_CONTENT
+  }
+
+  private applyStatusBarVisible(visible: boolean, contentColor: string, lightIcon: boolean): Promise<void> {
     return window
       .getLastWindow(this.hostContext())
       .then((win: window.Window) => {
@@ -575,27 +635,45 @@ export struct ReaderPage {
       .catch((_e: Error) => {})
   }
 
-  private setReaderStatusBarVisible(visible: boolean, readerChrome: boolean = true): void {
-    this.applyReaderStatusBarVisible(visible, readerChrome)
+  private readerStatusBarContentColor(chromeVisible: boolean): string {
+    if (chromeVisible || this.readerBackgroundIsDark()) {
+      return READER_STATUS_BAR_LIGHT_CONTENT
+    }
+    return READER_STATUS_BAR_DARK_CONTENT
+  }
+
+  private setReaderStatusBarForChrome(chromeVisible: boolean): void {
+    const visible: boolean = !this.readMode.fullscreen || chromeVisible
+    const lightIcon: boolean = chromeVisible || this.readerBackgroundIsDark()
+    this.applyStatusBarVisible(visible, this.readerStatusBarContentColor(chromeVisible), lightIcon)
+  }
+
+  private restoreAppStatusBar(): void {
+    this.applyStatusBarVisible(
+      true,
+      this.appStatusBarContentColor(),
+      this.themeDisplay.effectiveDark,
+    )
   }
 
   private syncReaderStatusBarWithChrome(): void {
-    this.setReaderStatusBarVisible(this.showChrome, true)
+    this.setReaderStatusBarForChrome(this.showChrome)
   }
 
   private scheduleEntryStatusBarVisibility(): void {
     this.clearPendingEntryStatusBarHide()
-    if (this.showChrome) {
+    if (!this.readMode.fullscreen || this.showChrome) {
       this.syncReaderStatusBarWithChrome()
       return
     }
     const routeEpoch: number = this.readerRouteEpoch
     this.readerStatusBarHideTimerId = setTimeout((): void => {
       this.readerStatusBarHideTimerId = -1
-      if (this.readerClosing || routeEpoch !== this.readerRouteEpoch || this.showChrome) {
+      if (this.readerClosing || routeEpoch !== this.readerRouteEpoch || this.showChrome ||
+        !this.readMode.fullscreen) {
         return
       }
-      this.setReaderStatusBarVisible(false, true)
+      this.setReaderStatusBarForChrome(false)
     }, READER_ENTRY_STATUS_BAR_HIDE_DELAY_MS)
   }
 
@@ -615,7 +693,11 @@ export struct ReaderPage {
     this.sliderSyncToken++
     this.readerClosing = true
     this.clearPendingEntryStatusBarHide()
-    this.applyReaderStatusBarVisible(true, false)
+    this.applyStatusBarVisible(
+      true,
+      this.appStatusBarContentColor(),
+      this.themeDisplay.effectiveDark,
+    )
       .then(() => {
         return readerDelay(READER_EXIT_STATUS_BAR_LEAD_MS)
       })
@@ -1550,6 +1632,21 @@ export struct ReaderPage {
     }
   }
 
+  @Monitor('readMode.keepScreenOn')
+  onKeepScreenOnChanged(): void {
+    if (this.readerRouteVisible) {
+      this.setReaderKeepScreenOn(this.readMode.keepScreenOn)
+    }
+  }
+
+  @Monitor('readMode.fullscreen', 'readMode.backgroundMode', 'themeDisplay.effectiveDark')
+  onReaderPresentationSettingsChanged(): void {
+    if (this.readerRouteVisible) {
+      this.clearPendingEntryStatusBarHide()
+      this.syncReaderStatusBarWithChrome()
+    }
+  }
+
   @Monitor('readMode.mode')
   onReadModeChanged(): void {
     this.clearZoomGate()
@@ -1869,6 +1966,15 @@ export struct ReaderPage {
     this.turnTo(this.vm.currentIndex + 1)
   }
 
+  private shouldAnimateAdjacentTurn(target: number): boolean {
+    if (!this.readMode.pageTurnAnimation || this.isContinuousVerticalMode()) {
+      return false
+    }
+    const currentPagerIndex: number = this.readerPagerIndexFor(this.vm.currentIndex)
+    const targetPagerIndex: number = this.readerPagerIndexFor(target)
+    return Math.abs(targetPagerIndex - currentPagerIndex) === 1
+  }
+
   // Go to a (page-index) target. Continuous vertical scrolls the List; paged modes move Swiper.
   // A loaded in-range step reuses the swipe path (no jump spinner); a missing preview slot, even when
   // padded into images[], loads via jumpToPage so placeholders are not rendered as image pages.
@@ -1877,41 +1983,70 @@ export struct ReaderPage {
       return
     }
     this.clearZoomGate()
+    const animated: boolean = this.shouldAnimateAdjacentTurn(target)
     if (target >= this.vm.totalPages() || !this.vm.hasPreviewAt(target)) {
-      this.jumpToPage(target)
+      this.jumpToPage(target, animated)
       return
     }
     if (this.isContinuousVerticalMode()) {
       this.vm.currentIndex = target
       this.listScroller.scrollToIndex(target)
     } else {
-      this.readerPagerIndex = this.readerPagerIndexFor(target)
-      this.vm.onPageChange(target)
-      this.syncReaderPagerToIndex(target, false)
+      if (animated) {
+        this.animateReaderPagerToIndex(target)
+      } else {
+        this.vm.onPageChange(target)
+        this.syncReaderPagerToIndex(target, false)
+      }
     }
   }
 
   // Jump after loading every page up to the target. Paged modes set currentIndex so the Swiper's
   // reactive `.index()` moves there. Continuous vertical scrolls the List to the index.
-  private jumpToPage(index: number): void {
+  private jumpToPage(index: number, animated: boolean = false): void {
     this.clearZoomGate()
     const routeEpoch: number = this.readerRouteEpoch
     const gid: string = this.params.gid
     const token: string = this.params.token
     const isEx: boolean = connectSiteMode().isEx
-    this.vm.jumpTo(index).then((target: number) => {
+    this.vm.jumpTo(index, !animated).then((target: number) => {
       if (!this.isReaderRouteIdentityCurrent(routeEpoch, gid, token, isEx)) {
         return
       }
       if (this.isContinuousVerticalMode()) {
         this.vm.currentIndex = target
         this.listScroller.scrollToIndex(target)
+      } else if (animated) {
+        this.animateReaderPagerToIndex(target, routeEpoch)
       } else {
-        this.readerPagerIndex = this.readerPagerIndexFor(target)
         this.vm.currentIndex = target
         this.syncReaderPagerToIndex(target, false, routeEpoch)
       }
     })
+  }
+
+  private animateReaderPagerToIndex(
+    index: number,
+    routeEpoch: number = this.readerRouteEpoch,
+  ): void {
+    const targetPagerIndex: number = this.readerPagerIndexFor(index)
+    setTimeout(() => {
+      if (routeEpoch !== this.readerRouteEpoch || this.readerClosing) {
+        return
+      }
+      try {
+        if (this.doublePageEnabled()) {
+          this.doublePageSwiperController.changeIndex(targetPagerIndex, true)
+        } else {
+          this.horizontalSwiperController.changeIndex(targetPagerIndex, true)
+        }
+      } catch (err) {
+        const message: string = err instanceof Error ? err.message : `${err}`
+        DiagnosticLogger.warn('reader', 'pager_animate_failed', message)
+        this.vm.currentIndex = index
+        this.syncReaderPagerToIndex(index, false, routeEpoch)
+      }
+    }, 0)
   }
 
   private syncReaderPagerToIndex(
@@ -2005,6 +2140,8 @@ export struct ReaderPage {
     .loop(false)
     .cachedCount(this.readerPreloadPages())
     .indicator(false)
+    .duration(READER_PAGE_TURN_ANIM_DURATION)
+    .curve(Curve.Ease)
     .disableSwipe(this.imageZoomed)
     .width('100%')
     .height('100%')
@@ -2219,6 +2356,8 @@ export struct ReaderPage {
     .loop(false)
     .cachedCount(this.readerPreloadPages())
     .indicator(false)
+    .duration(READER_PAGE_TURN_ANIM_DURATION)
+    .curve(Curve.Ease)
     .disableSwipe(this.imageZoomed)
     .width('100%')
     .height('100%')
@@ -2536,11 +2675,19 @@ export struct ReaderPage {
     return `${shown} / ${this.vm.totalPages()}`
   }
 
+  @Builder
+  ReaderPersistentPageNumber() {
+    ReaderPageNumberText({
+      value: this.pageCountText(),
+      bottomMargin: this.layout.bottomAvoidHeight + ThemeConstants.READER_PAGE_NUMBER_BOTTOM_GAP,
+    })
+  }
+
   // Center-tap chrome toggle with a fade (eros_fe 300ms fastOutSlowIn; V2Next animateTo idiom). Hooks
   // the SAME onReaderTap center path — no new gesture.
   private toggleChrome(): void {
     const nextVisible: boolean = !this.showChrome
-    this.setReaderStatusBarVisible(nextVisible, true)
+    this.setReaderStatusBarForChrome(nextVisible)
     this.getUIContext().animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => {
       this.showChrome = nextVisible
     })
@@ -3159,6 +3306,51 @@ export struct ReaderPage {
         this.vm.warmPreviewForIndex(target, 'thumb-strip')
       },
     })
+  }
+}
+
+@ComponentV2
+struct ReaderPageNumberText {
+  @Require @Param value: string
+  @Require @Param bottomMargin: number
+  private controller: TextController = new TextController()
+
+  @Monitor('value')
+  onValueChanged(): void {
+    this.updateStyledText()
+  }
+
+  private styledText(): MutableStyledString {
+    const styled: MutableStyledString = new MutableStyledString(this.value, [])
+    styled.setStyle({
+      start: 0,
+      length: this.value.length,
+      styledKey: StyledStringKey.FONT,
+      styledValue: new TextStyle({
+        fontColor: ThemeConstants.READER_PAGE_NUMBER_TEXT,
+        fontSize: LengthMetrics.vp(ThemeConstants.FONT_SIZE_BODY),
+        fontWeight: FontWeight.Medium,
+        strokeWidth: LengthMetrics.vp(-ThemeConstants.READER_PAGE_NUMBER_STROKE_WIDTH),
+        strokeColor: ThemeConstants.READER_PAGE_NUMBER_OUTLINE,
+      }),
+    })
+    return styled
+  }
+
+  private updateStyledText(): void {
+    this.controller.setStyledString(this.styledText())
+  }
+
+  build() {
+    Text(undefined, { controller: this.controller })
+      .textAlign(TextAlign.Center)
+      .maxLines(1)
+      .width('100%')
+      .margin({ bottom: this.bottomMargin })
+      .hitTestBehavior(HitTestMode.None)
+      .onAppear(() => {
+        this.updateStyledText()
+      })
   }
 }
 
@@ -6271,6 +6463,8 @@ struct ReaderLoadingBar {
   @Param compact: boolean = false;
   @Param determinate: boolean = false;
   @Param ratio: number = 0;
+  @Param barFillColor: ResourceColor = READER_LOADING_BAR_FG;
+  @Param barTrackColor: ResourceColor = READER_LOADING_BAR_BG;
   @Local indeterminatePosition: number = 0;
   @Local trackWidth: number = 0;
 
@@ -6379,14 +6573,14 @@ struct ReaderLoadingBar {
         Row()
           .width(this.fillWidth())
           .height(READER_LOADING_BAR_HEIGHT)
-          .backgroundColor(READER_LOADING_BAR_FG)
+          .backgroundColor(this.barFillColor)
           .borderRadius(READER_LOADING_BAR_RADIUS)
           .animation({ duration: READER_LOADING_PROGRESS_ANIM_DURATION, curve: Curve.EaseOut })
       } else {
         Row()
           .width(this.sliderWidth())
           .height(READER_LOADING_BAR_HEIGHT)
-          .backgroundColor(READER_LOADING_BAR_FG)
+          .backgroundColor(this.barFillColor)
           .borderRadius(READER_LOADING_BAR_RADIUS)
           .translate({ x: this.sliderX() })
           .animation({ duration: READER_LOADING_INDETERMINATE_ANIM_DURATION, curve: Curve.EaseInOut })
@@ -6395,7 +6589,7 @@ struct ReaderLoadingBar {
     .width(READER_LOADING_BAR_WIDTH_PERCENT)
     .constraintSize({ maxWidth: READER_LOADING_BAR_MAX_WIDTH })
     .height(READER_LOADING_BAR_HEIGHT)
-    .backgroundColor(READER_LOADING_BAR_BG)
+    .backgroundColor(this.barTrackColor)
     .borderRadius(READER_LOADING_BAR_RADIUS)
     .clip(true)
     .onAreaChange((_oldArea: Area, area: Area) => {
@@ -6411,6 +6605,16 @@ struct ReaderLoadingStage {
   @Param compact: boolean = false;
   @Param loaded: number = 0;
   @Param total: number = 0;
+  @Local readMode: ReadModeState = connectReadMode();
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
+
+  private contentColor(): ResourceColor {
+    return readerForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+  }
+
+  private secondaryColor(): ResourceColor {
+    return readerSecondaryForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+  }
 
   private hasProgress(): boolean {
     return this.total > 0
@@ -6440,14 +6644,16 @@ struct ReaderLoadingStage {
         compact: this.compact,
         determinate: this.hasProgress(),
         ratio: this.progressRatio(),
+        barFillColor: this.contentColor(),
+        barTrackColor: this.secondaryColor(),
       })
       Text(this.label)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(Color.White)
+        .fontColor(this.contentColor())
         .textAlign(TextAlign.Center)
       Text(this.hasProgress() ? this.progressPercent() : '0%')
         .fontSize(ThemeConstants.FONT_SIZE_META)
-        .fontColor('#CCFFFFFF')
+        .fontColor(this.secondaryColor())
         .textAlign(TextAlign.Center)
         .opacity(this.hasProgress() ? 1 : 0)
     }
@@ -6561,6 +6767,22 @@ struct ReaderFailureOverlay {
   @Param kind: ReaderImageFailureKind = ReaderImageFailureKind.Generic;
   @Param compact: boolean = false;
   @Param onRetry: () => void = () => {};
+  @Local readMode: ReadModeState = connectReadMode();
+  @Local themeDisplay: ThemeDisplayState = connectThemeDisplay();
+
+  private contentColor(): ResourceColor {
+    return readerForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+  }
+
+  private secondaryColor(): ResourceColor {
+    return readerSecondaryForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+  }
+
+  private controlTint(): ResourceColor {
+    return readerBackgroundIsDark(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+      ? ThemeConstants.READER_CONTROL_LIGHT_TINT
+      : ThemeConstants.READER_CONTROL_DARK_TINT
+  }
 
   private iconSize(): number {
     return this.compact ? 28 : 36
@@ -6594,30 +6816,30 @@ struct ReaderFailureOverlay {
     Column({ space: ThemeConstants.SPACE_MD }) {
       SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
         .fontSize(this.iconSize())
-        .fontColor([Color.White])
+        .fontColor([this.contentColor()])
       Text(this.failureTitle())
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(Color.White)
+        .fontColor(this.contentColor())
         .fontWeight(FontWeight.Medium)
         .textAlign(TextAlign.Center)
         .maxLines(2)
       Text(this.failureHint())
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor('#AAFFFFFF')
+        .fontColor(this.secondaryColor())
         .textAlign(TextAlign.Center)
         .maxLines(2)
       if (this.page > 0) {
         Text(`P${this.page}`)
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor('#88FFFFFF')
+          .fontColor(this.secondaryColor())
           .textAlign(TextAlign.Center)
           .maxLines(1)
       }
       Button($r('app.string.reader_retry_source'))
         .type(ButtonType.Capsule)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
-        .fontColor(Color.White)
-        .backgroundColor('#26FFFFFF')
+        .fontColor(this.contentColor())
+        .backgroundColor(this.controlTint())
         .onClick(() => {
           this.onRetry()
         })

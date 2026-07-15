@@ -3013,6 +3013,46 @@
       "value": "ページ送りとレイアウト"
     },
     {
+      "name": "settings_reader_group_display",
+      "value": "表示と画面"
+    },
+    {
+      "name": "settings_reader_background",
+      "value": "背景色"
+    },
+    {
+      "name": "settings_reader_background_black",
+      "value": "黒"
+    },
+    {
+      "name": "settings_reader_background_gray",
+      "value": "グレー"
+    },
+    {
+      "name": "settings_reader_background_white",
+      "value": "白"
+    },
+    {
+      "name": "settings_reader_background_auto",
+      "value": "自動"
+    },
+    {
+      "name": "settings_reader_show_page_number",
+      "value": "ページ番号を表示"
+    },
+    {
+      "name": "settings_reader_fullscreen",
+      "value": "全画面"
+    },
+    {
+      "name": "settings_reader_keep_screen_on",
+      "value": "画面を常にオン"
+    },
+    {
+      "name": "settings_reader_page_turn_animation",
+      "value": "ページ送りアニメーション"
+    },
+    {
       "name": "settings_reader_group_tap_zones",
       "value": "タップ領域"
     },

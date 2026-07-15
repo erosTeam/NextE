@@ -3013,6 +3013,46 @@
       "value": "Page turning & layout"
     },
     {
+      "name": "settings_reader_group_display",
+      "value": "Display & screen"
+    },
+    {
+      "name": "settings_reader_background",
+      "value": "Background color"
+    },
+    {
+      "name": "settings_reader_background_black",
+      "value": "Black"
+    },
+    {
+      "name": "settings_reader_background_gray",
+      "value": "Gray"
+    },
+    {
+      "name": "settings_reader_background_white",
+      "value": "White"
+    },
+    {
+      "name": "settings_reader_background_auto",
+      "value": "Automatic"
+    },
+    {
+      "name": "settings_reader_show_page_number",
+      "value": "Show page number"
+    },
+    {
+      "name": "settings_reader_fullscreen",
+      "value": "Fullscreen"
+    },
+    {
+      "name": "settings_reader_keep_screen_on",
+      "value": "Keep screen on"
+    },
+    {
+      "name": "settings_reader_page_turn_animation",
+      "value": "Page-turn animation"
+    },
+    {
       "name": "settings_reader_group_tap_zones",
       "value": "Tap zones"
     },

@@ -10,6 +10,58 @@ Purpose:
 
 ## Items
 
+### Reader Display And Page-Turn Preferences
+
+Type: Reader settings expansion
+
+Priority suggestion: P1 / reading comfort
+
+Status: implemented / device smoke complete
+
+Grounding:
+
+1. `eros_fe/lib/pages/setting/read_setting_page.dart`,
+   `features/reader_input_preferences/presentation/reader_interaction_preference_tiles.dart`, and
+   `pages/image_view/controller/view_controller.dart` provide the existing fullscreen and page-turn
+   animation semantics; background color and persistent page number are NextE additions requested by
+   the user.
+2. The primary information remains the gallery image; background and page number are supporting
+   presentation, and the page number must never intercept Reader gestures.
+3. Settings rows are the primary controls. The live Reader sheet provides immediate preview; no new
+   Reader chrome action or navigation entry is added.
+4. This lane adds black/gray/white/automatic background, page number, fullscreen, keep-screen-on, and
+   adjacent programmatic page-turn animation. It does not redesign Reader gestures, image geometry,
+   thumbnail geometry, or long-distance seek behavior.
+5. HarmonyOS expression uses existing grouped `ConciseListRow` settings, native `Menu`/`Switch`,
+   window system-bar and keep-screen-on APIs, API 20+ `TextStyle` filled-text stroke through
+   `MutableStyledString`, and native `SwiperController` animation.
+
+Requested defaults:
+
+- Background: black.
+- Show page number: enabled.
+- Fullscreen: enabled.
+- Keep screen on: enabled.
+- Page-turn animation: enabled.
+
+Acceptance path:
+
+- Open Reader settings from the live sheet, change each display/screen setting, and see the active
+  Reader update without losing the page.
+- With chrome hidden, the page number remains readable on black, gray, white, and automatic canvas
+  colors and does not intercept tap zones.
+- Adjacent tap-zone page turns animate when enabled and change immediately when disabled; swipe
+  remains native, while thumbnail/slider long-distance jumps remain non-animated.
+- Leaving or covering Reader restores system-bar visibility and releases keep-screen-on.
+
+Evidence:
+
+- `git diff --check`, V1 decorator inventory (`0 file(s)`), four-locale i18n parity, and the official
+  signed Hvigor build all pass.
+- The signed HAP was installed on `192.168.50.103:12345` and `192.168.50.237:12345`. Both devices
+  opened the same real 138-page gallery in Reader with fullscreen black background and the persisted
+  page number visible; the user accepted the final lower-opacity native-stroke page-number treatment.
+
 ### Reader Settings Live-Preview Sheet
 
 Type: Reader settings presentation improvement

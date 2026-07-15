@@ -1123,7 +1123,7 @@ export class ReaderViewModel {
    * a far jump pipelines its GETs behind the `jumping` spinner instead of crawling one at a time.
    * Returns the clamped, now-loaded target index for the SwiperController to move to.
    */
-  async jumpTo(index: number): Promise<number> {
+  async jumpTo(index: number, commitIndex: boolean = true): Promise<number> {
     const request: ReaderSessionRequest = this.currentSessionRequest()
     if (!this.isSessionCurrent(request) || index < 0 || this.jumping) {
       return this.currentIndex
@@ -1136,7 +1136,9 @@ export class ReaderViewModel {
     this.jumping = false
     const total: number = this.totalPages()
     const target: number = total > 0 ? Math.min(index, total - 1) : 0
-    this.currentIndex = target >= 0 ? target : 0
+    if (commitIndex) {
+      this.currentIndex = target >= 0 ? target : 0
+    }
     this.precacheFrom(target, request)
     this.updateSessionCacheState()
     return target >= 0 ? target : 0
