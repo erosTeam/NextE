@@ -75,6 +75,7 @@ const READER_LOADING_BAR_MAX_WIDTH: number = 180
 const READER_LOADING_SLIDER_WIDTH_RATIO: number = 0.3
 const READER_LOADING_BAR_RADIUS: number = 2
 const READER_LOADING_BAR_BG: ResourceColor = '#33FFFFFF'
+const READER_LOADING_BAR_LIGHT_BG: ResourceColor = '#33000000'
 const READER_LOADING_BAR_FG: ResourceColor = Color.White
 const READER_VERTICAL_TAP_MAX_DISTANCE: number = 8
 const READER_VERTICAL_SINGLE_TAP_DELAY_MS: number = 240
@@ -86,7 +87,10 @@ const READER_EXIT_STATUS_BAR_LEAD_MS: number = 20
 const READER_DEFAULT_PRELOAD_PAGES: number = 2
 const READER_MAX_PRELOAD_PAGES: number = 5
 const READER_STATUS_BAR_DARK_CONTENT: string = '#FF000000'
-const READER_PAGE_TURN_ANIM_DURATION: number = 200
+const READER_FAILURE_HINT_DARK: ResourceColor = '#AAFFFFFF'
+const READER_FAILURE_HINT_LIGHT: ResourceColor = '#AA000000'
+const READER_FAILURE_PAGE_DARK: ResourceColor = '#88FFFFFF'
+const READER_FAILURE_PAGE_LIGHT: ResourceColor = '#88000000'
 
 function readerBackgroundIsDark(mode: string, effectiveDark: boolean): boolean {
   if (mode === ReaderBackgroundMode.WHITE) {
@@ -2140,8 +2144,6 @@ export struct ReaderPage {
     .loop(false)
     .cachedCount(this.readerPreloadPages())
     .indicator(false)
-    .duration(READER_PAGE_TURN_ANIM_DURATION)
-    .curve(Curve.Ease)
     .disableSwipe(this.imageZoomed)
     .width('100%')
     .height('100%')
@@ -2356,8 +2358,6 @@ export struct ReaderPage {
     .loop(false)
     .cachedCount(this.readerPreloadPages())
     .indicator(false)
-    .duration(READER_PAGE_TURN_ANIM_DURATION)
-    .curve(Curve.Ease)
     .disableSwipe(this.imageZoomed)
     .width('100%')
     .height('100%')
@@ -6616,6 +6616,12 @@ struct ReaderLoadingStage {
     return readerSecondaryForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
   }
 
+  private trackColor(): ResourceColor {
+    return readerBackgroundIsDark(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+      ? READER_LOADING_BAR_BG
+      : READER_LOADING_BAR_LIGHT_BG
+  }
+
   private hasProgress(): boolean {
     return this.total > 0
   }
@@ -6645,7 +6651,7 @@ struct ReaderLoadingStage {
         determinate: this.hasProgress(),
         ratio: this.progressRatio(),
         barFillColor: this.contentColor(),
-        barTrackColor: this.secondaryColor(),
+        barTrackColor: this.trackColor(),
       })
       Text(this.label)
         .fontSize(ThemeConstants.FONT_SIZE_BODY)
@@ -6774,8 +6780,16 @@ struct ReaderFailureOverlay {
     return readerForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
   }
 
-  private secondaryColor(): ResourceColor {
-    return readerSecondaryForegroundColor(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+  private hintColor(): ResourceColor {
+    return readerBackgroundIsDark(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+      ? READER_FAILURE_HINT_DARK
+      : READER_FAILURE_HINT_LIGHT
+  }
+
+  private pageColor(): ResourceColor {
+    return readerBackgroundIsDark(this.readMode.backgroundMode, this.themeDisplay.effectiveDark)
+      ? READER_FAILURE_PAGE_DARK
+      : READER_FAILURE_PAGE_LIGHT
   }
 
   private controlTint(): ResourceColor {
@@ -6825,13 +6839,13 @@ struct ReaderFailureOverlay {
         .maxLines(2)
       Text(this.failureHint())
         .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-        .fontColor(this.secondaryColor())
+        .fontColor(this.hintColor())
         .textAlign(TextAlign.Center)
         .maxLines(2)
       if (this.page > 0) {
         Text(`P${this.page}`)
           .fontSize(ThemeConstants.FONT_SIZE_CAPTION)
-          .fontColor(this.secondaryColor())
+          .fontColor(this.pageColor())
           .textAlign(TextAlign.Center)
           .maxLines(1)
       }
