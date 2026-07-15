@@ -10,6 +10,54 @@ Purpose:
 
 ## Items
 
+### Gallery Detail Comment Preview Text Does Not Open Full Comments
+
+Type: interaction regression
+
+Priority suggestion: P1
+
+Status: implemented candidate / needs QA
+
+Source:
+
+- User report, 2026-07-15: the two exposed comments on the gallery detail page can open the full comments page from the surrounding card surface, but tapping directly on their body text does nothing. The issue has recurred multiple times.
+
+Grounding:
+
+1. eros_fe wraps `TopCommentEx` with the full-comments `GestureDetector` in `lib/pages/gallery/view/sliver/gallery_page.dart`; the preview rows themselves come from `lib/pages/gallery/view/gallery_widget.dart` and `lib/pages/gallery/view/comment_item.dart`.
+2. The primary information is the two visible preview comment bodies; users should be able to treat each body as an entry into the full discussion.
+3. The primary action is opening `GalleryComments` from ordinary preview text. URL spans remain secondary link actions, and author taps retain uploader search.
+4. This lane repairs only nested text hit routing for the existing preview cards. It does not redesign comments, change layout, or alter full-page comment actions.
+5. HarmonyOS expression stays within the existing `GalleryCommentsCard` and its `onMore` event. No overlay, custom hit layer, or new component is introduced.
+
+Static root cause:
+
+- `GalleryCommentsCard.CommentRow()` already invokes `onMore` for a detail-page preview card.
+- Commit `0be130e2` attached `onClick` to every rich-text `Span`. URL spans opened their target, while non-link spans returned without action and consumed the text hit before the card callback.
+
+Implementation:
+
+- Route every comment text-segment tap through one handler. URL segments keep their existing EH/Web action; ordinary segments call `onMore` only when the card is in preview mode.
+- The same handler is used for clamped original text, translated text, and bilingual text, so both visible comments follow the same navigation rule.
+
+User path:
+
+- Open a gallery detail page with at least two visible comments, tap ordinary body text in the first and second preview cards, and confirm both open `GalleryComments`.
+
+Counter-states:
+
+- Tap a URL inside a preview comment: the URL action wins and the full comments page is not opened.
+- Tap the author in a preview comment: uploader search retains its existing action.
+- Tap ordinary body text on the full comments page: it does not push another `GalleryComments` route.
+
+Verification:
+
+- `git diff --check` passed.
+- `node scripts/test_v1_decorator_inventory_contract.mjs` reported `0 file(s)`.
+- `scripts/test_comment_parser_contract.mjs`, `scripts/test_gallery_detail_context_contract.mjs`, and `scripts/test_gallery_detail_parser_contract.mjs` passed.
+- `scripts/build_hvigor_signed.sh` completed with `BUILD SUCCESSFUL`.
+- Device/user-path QA remains required because nested ArkUI hit dispatch cannot be proven by source inspection or build success alone.
+
 ### Gallery Detail Page Lacks Pull-To-Refresh
 
 Type: bug / UX gap

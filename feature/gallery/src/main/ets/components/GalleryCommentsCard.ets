@@ -1315,6 +1315,16 @@ export struct GalleryCommentsCard {
     this.stack.pushPathByName('GalleryWeb', new GalleryWebParams(currentUrl, currentUrl))
   }
 
+  private handleCommentTextTap(seg: CommentTextSegment): void {
+    if (seg.url.length > 0) {
+      this.openCommentUrl(seg.url)
+      return
+    }
+    if (this.canOpenFullComments()) {
+      this.onMore()
+    }
+  }
+
   build() {
     Column({ space: this.commentGap() }) {
       if (this.showHeader) {
@@ -1682,9 +1692,7 @@ export struct GalleryCommentsCard {
                 color: this.segmentDecorationColor(seg, color),
               })
               .onClick(() => {
-                if (seg.url.length > 0) {
-                  this.openCommentUrl(seg.url)
-                }
+                this.handleCommentTextTap(seg)
               })
           },
           (seg: CommentTextSegment) => this.commentTextSegmentKey(seg),
@@ -1709,9 +1717,7 @@ export struct GalleryCommentsCard {
                 color: this.segmentDecorationColor(seg, color),
               })
               .onClick(() => {
-                if (seg.url.length > 0) {
-                  this.openCommentUrl(seg.url)
-                }
+                this.handleCommentTextTap(seg)
               })
           },
           (seg: CommentTextSegment) => this.commentTextSegmentKey(seg),
