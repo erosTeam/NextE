@@ -1,6 +1,6 @@
 {
   "name": "entry",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "NextE entry module - navigation shell & cross-feature pages",
   "dependencies": {
     "shared":   "file:../shared",

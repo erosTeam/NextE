@@ -1,6 +1,6 @@
 {
   "name": "gallery",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "NextE gallery module - gallery detail",
   "main": "src/main/ets/Index.ets",
   "dependencies": {
